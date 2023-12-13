@@ -4,7 +4,7 @@ use crate::transition_frontier::sync::TransitionFrontierSyncBestTipUpdateAction;
 use crate::Store;
 
 use super::vrf_evaluator::{
-    BlockProducerVrfEvaluatorAction, BlockProducerVrfEvaluatorEpochDataUpdateAction, BlockProducerVrfEvaluatorUpdateProducerAndDelegatesAction, BlockProducerVrfEvaluatorNewEpochAction,
+    BlockProducerVrfEvaluatorAction, BlockProducerVrfEvaluatorEpochDataUpdateAction, BlockProducerVrfEvaluatorUpdateProducerAndDelegatesAction,
 };
 use super::{
     BlockProducerAction, BlockProducerActionWithMeta, BlockProducerBestTipUpdateAction,
@@ -41,9 +41,6 @@ pub fn block_producer_effects<S: crate::Service>(
                 action.effects(&meta, store);
             },
             BlockProducerVrfEvaluatorAction::UpdateProducerAndDelegatesSuccess(action) => {
-                action.effects(&meta, store);
-            },
-            BlockProducerVrfEvaluatorAction::NewEpoch(action) => {
                 action.effects(&meta, store);
             },
         },
@@ -95,7 +92,7 @@ impl BlockProducerBestTipUpdateAction {
 
         // on new run when no current_epoch is set
         if current_epoch.is_none() {
-            store.dispatch(BlockProducerVrfEvaluatorNewEpochAction {
+            store.dispatch(BlockProducerVrfEvaluatorEpochDataUpdateAction {
                 new_epoch_number: protocol_state.consensus_state.epoch_count.as_u32(),
                 epoch_data: protocol_state.consensus_state.staking_epoch_data.clone(),
                 next_epoch_data: protocol_state.consensus_state.next_epoch_data.clone(),
@@ -105,7 +102,7 @@ impl BlockProducerBestTipUpdateAction {
         // on epoch change
         if let Some(current_epoch) = current_epoch {
             if current_epoch != protocol_state.consensus_state.epoch_count.as_u32() {
-                store.dispatch(BlockProducerVrfEvaluatorNewEpochAction {
+                store.dispatch(BlockProducerVrfEvaluatorEpochDataUpdateAction {
                     new_epoch_number: protocol_state.consensus_state.epoch_count.as_u32(),
                     epoch_data: protocol_state.consensus_state.staking_epoch_data.clone(),
                     next_epoch_data: protocol_state.consensus_state.next_epoch_data.clone(),
