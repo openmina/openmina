@@ -1,7 +1,6 @@
 use std::collections::BTreeMap;
 
-use ledger::{AccountIndex, scan_state::scan_state::transaction_snark::LedgerHash};
-use mina_signer::CompressedPubKey;
+use ledger::AccountIndex;
 use serde::{Deserialize, Serialize};
 use vrf::VrfWonSlot;
 

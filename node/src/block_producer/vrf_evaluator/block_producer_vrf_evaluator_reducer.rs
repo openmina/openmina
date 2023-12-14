@@ -17,7 +17,7 @@ impl BlockProducerVrfEvaluatorState {
                 self.next_epoch_data.total_currency = action.next_epoch_data.ledger.total_currency.as_u64();
                 self.current_epoch = Some(action.new_epoch_number);
             }
-            BlockProducerVrfEvaluatorAction::EvaluateVrf(action) => {
+            BlockProducerVrfEvaluatorAction::EvaluateVrf(_) => {
                 // self.status = BlockProducerVrfEvaluatorStatus::Pending(action.vrf_input.global_slot);
                 self.status = BlockProducerVrfEvaluatorStatus::SlotsRequested { time: meta.time() };
             }
