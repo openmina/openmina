@@ -132,7 +132,8 @@ impl<F: FieldWitness> OptSponge<F> {
     }
 }
 
-fn add_in<F: FieldWitness>(a: &mut [F; 3], i: Boolean, x: F, w: &mut Witness<F>) {
+fn add_in<F: FieldWitness>(a: &mut [F; 3], i: CircuitVar<Boolean>, x: F, w: &mut Witness<F>) {
+    let i = i.as_boolean();
     let i_equals_0 = i.neg();
     let i_equals_1 = i;
 
@@ -145,6 +146,16 @@ fn add_in<F: FieldWitness>(a: &mut [F; 3], i: Boolean, x: F, w: &mut Witness<F>)
             }
         });
         a[j] = a_j;
+    }
+}
+
+fn mul_by_boolean<F>(x: F, y: CircuitVar<Boolean>, w: &mut Witness<F>) -> F
+where
+    F: FieldWitness,
+{
+    match y {
+        CircuitVar::Var(y) => field::mul(x, y.to_field::<F>(), w),
+        CircuitVar::Constant(y) => x * y.to_field::<F>(),
     }
 }
 
@@ -183,22 +194,9 @@ fn consume<F: FieldWitness>(params: ConsumeParams<F>, w: &mut Witness<F>) -> [F;
                 *state = v;
             }
 
-            // for (i, state) in state.iter_mut().enumerate() {
-            //     let v = match permute {
-            //         Boolean::True => permuted[i],
-            //         Boolean::False => *state,
-            //     };
-            //     if !(npermute > 2) {
-            //         w.exists_no_check(v);
-            //     }
-            //     *state = v;
-            // }
-
             npermute += 1;
-            // state.(i) <- Field.if_ permute ~then_:permuted.(i) ~else_:state.(i)
         };
 
-    // TODO: That's a mess, we need to implement cvars here
     let mut by_pairs = input.chunks_exact(2);
     while let Some(pairs) = by_pairs.next() {
         let (b, x) = pairs[0];
@@ -208,35 +206,16 @@ fn consume<F: FieldWitness>(params: ConsumeParams<F>, w: &mut Witness<F>) -> [F;
         let p2 = p.lxor(&b, w);
         pos = p2.lxor(&b2, w);
 
-        let y = match b2 {
-            CircuitVar::Var(b2) => field::mul(y, b2.to_field::<F>(), w),
-            CircuitVar::Constant(b2) => y * b2.to_field::<F>(),
-        };
+        let y = mul_by_boolean(y, b2, w);
 
         let add_in_y_after_perm = CircuitVar::all(&[b, b2, p], w);
-        let add_in_y_before_perm = add_in_y_after_perm.map(Boolean::neg);
+        let add_in_y_before_perm = add_in_y_after_perm.neg();
 
-        // let add_in_y_after_perm =
-        //     Boolean::all(&[b.as_boolean(), b2.as_boolean(), p.as_boolean()], w);
-        // let add_in_y_before_perm = add_in_y_after_perm.neg();
+        let product = mul_by_boolean(x, b, w);
+        add_in(&mut state, p, product, w);
 
-        let product = match b {
-            CircuitVar::Var(b) => field::mul(x, b.to_field::<F>(), w),
-            CircuitVar::Constant(b) => x * b.to_field::<F>(),
-        };
-        add_in(&mut state, p.as_boolean(), product, w);
-
-        let product = match add_in_y_before_perm {
-            CircuitVar::Var(b) => field::mul(y, b.to_field(), w),
-            CircuitVar::Constant(b) => y * b.to_field::<F>(),
-        };
-        add_in(
-            &mut state,
-            p2.as_boolean(),
-            product,
-            // field::mul(y, add_in_y_before_perm.as_boolean().to_field(), w),
-            w,
-        );
+        let product = mul_by_boolean(y, add_in_y_before_perm, w);
+        add_in(&mut state, p2, product, w);
 
         let permute = {
             // We decompose this way because of OCaml evaluation order
@@ -247,18 +226,8 @@ fn consume<F: FieldWitness>(params: ConsumeParams<F>, w: &mut Witness<F>) -> [F;
 
         cond_permute(permute, &mut state, w);
 
-        let product = match add_in_y_after_perm {
-            CircuitVar::Var(b) => field::mul(y, b.to_field(), w),
-            CircuitVar::Constant(b) => y * b.to_field::<F>(),
-        };
-
-        add_in(
-            &mut state,
-            p2.as_boolean(),
-            product,
-            // field::mul(y, add_in_y_after_perm.as_boolean().to_field(), w),
-            w,
-        );
+        let product = mul_by_boolean(y, add_in_y_after_perm, w);
+        add_in(&mut state, p2, product, w);
     }
 
     let fst = |(f, _): &(CircuitVar<Boolean>, F)| *f;
@@ -279,35 +248,14 @@ fn consume<F: FieldWitness>(params: ConsumeParams<F>, w: &mut Witness<F>) -> [F;
             let p = pos;
             pos = p.lxor(&b, w);
 
-            let product = match b {
-                CircuitVar::Var(b) => field::mul(x, b.to_field::<F>(), w),
-                CircuitVar::Constant(b) => x * b.to_field::<F>(),
-            };
-
-            add_in(&mut state, p.as_boolean(), product, w);
+            let product = mul_by_boolean(x, b, w);
+            add_in(&mut state, p, product, w);
 
             if needs_final_permute_if_empty {
                 CircuitVar::any(&[p, b, empty_input], w)
             } else {
                 CircuitVar::any(&[p, b], w)
             }
-
-            // let should_permute =
-            //   match remaining with
-            //   | 0 ->
-            //       if needs_final_permute_if_empty then Boolean.(empty_imput ||| !pos)
-            //       else !pos
-            //   | 1 ->
-            //       let b, x = input.(n - 1) in
-            //       let p = !pos in
-            //       pos := Boolean.( lxor ) p b ;
-            //       add_in state p Field.(x * (b :> t)) ;
-            //       if needs_final_permute_if_empty then Boolean.any [ p; b; empty_imput ]
-            //       else Boolean.any [ p; b ]
-            //   | _ ->
-            //       assert false
-            // in
-            // cond_permute should_permute
         }
         _ => unreachable!(),
     };
