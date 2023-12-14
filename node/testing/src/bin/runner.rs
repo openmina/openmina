@@ -8,8 +8,9 @@ use std::{
 };
 
 fn main() {
-    let debugger = Command::new("bpf-recorder")
-        .envs([("RUST_LOG", "none"), ("SERVER_PORT", "8000")])
+    let mut debugger = Command::new("bpf-recorder")
+        .envs([("RUST_LOG", "info"), ("SERVER_PORT", "8000")])
+        .stderr(Stdio::piped())
         .spawn()
         .expect("cannot run debugger");
     thread::sleep(Duration::from_secs(2));
@@ -20,18 +21,30 @@ fn main() {
         .stdout(Stdio::piped())
         .spawn()
         .expect("cannot spawn the test");
-    let mut stdout = test.stdout.take().expect("must be stdout");
-    let mut test_log = File::create("test.log").expect("failed to create test log file");
-    thread::spawn(move || {
-        io::copy(&mut stdout, &mut test_log).expect("failed to store test log");
-    });
+    {
+        let mut stdout = test.stdout.take().expect("must be stdout");
+        let mut log = File::create("test.log").expect("failed to create test log file");
+        thread::spawn(move || {
+            io::copy(&mut stdout, &mut log).expect("failed to store test log");
+        });
+    }
+    {
+        let mut stderr = debugger.stderr.take().expect("must be stderr");
+        let mut log = File::create("debugger.log").expect("failed to create debugger log file");
+        thread::spawn(move || {
+            io::copy(&mut stderr, &mut log).expect("failed to store debugger log");
+        });
+    }
     let test_status = test.wait().expect("cannot run the test");
     kill(debugger);
     fs::remove_dir_all("target/db").unwrap_or_default();
     if !test_status.success() {
         println!("test failed, log:");
-        let mut test_log = File::open("test.log").expect("failed to open test log file");
-        io::copy(&mut test_log, &mut io::stdout()).expect("failed to print test log");
+        let mut log = File::open("test.log").expect("failed to open test log file");
+        io::copy(&mut log, &mut io::stdout()).expect("failed to print test log");
+        println!("debugger log:");
+        let mut log = File::open("debugger.log").expect("failed to open test debugger file");
+        io::copy(&mut log, &mut io::stdout()).expect("failed to print debugger log");
         process::exit(test_status.code().unwrap_or(-1));
     }
 }
