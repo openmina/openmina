@@ -1,9 +1,7 @@
-use std::str::FromStr;
-
 use mina_signer::Keypair;
-use node::{event_source::Event, block_producer::BlockProducerEvent, account};
+use node::{event_source::Event, block_producer::BlockProducerEvent};
 use openmina_core::channels::mpsc::{UnboundedSender, UnboundedReceiver};
-use vrf::{VrfEvaluationInput, VrfEvaluatorInput, bigint::BigInt, keypair_from_bs58_string, VrfEvaluationOutput};
+use vrf::{VrfEvaluationInput, VrfEvaluatorInput, VrfEvaluationOutput};
 
 use crate::NodeService;
 use node::block_producer::BlockProducerVrfEvaluatorEvent;

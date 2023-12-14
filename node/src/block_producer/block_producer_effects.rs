@@ -4,7 +4,7 @@ use crate::transition_frontier::sync::TransitionFrontierSyncBestTipUpdateAction;
 use crate::Store;
 
 use super::vrf_evaluator::{
-    BlockProducerVrfEvaluatorAction, BlockProducerVrfEvaluatorEpochDataUpdateAction, BlockProducerVrfEvaluatorUpdateProducerAndDelegatesAction,
+    BlockProducerVrfEvaluatorAction, BlockProducerVrfEvaluatorEpochDataUpdateAction,
 };
 use super::{
     BlockProducerAction, BlockProducerActionWithMeta, BlockProducerBestTipUpdateAction,

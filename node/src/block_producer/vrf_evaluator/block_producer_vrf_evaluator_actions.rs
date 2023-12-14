@@ -2,10 +2,9 @@ use std::collections::BTreeMap;
 
 use ledger::AccountIndex;
 use mina_p2p_messages::v2::{ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1, LedgerHash, ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1};
-use mina_signer::Keypair;
 use serde::{Deserialize, Serialize};
 use vrf::{VrfEvaluatorInput, VrfEvaluationOutput};
-use crate::block_producer::{BlockProducerAction, vrf_evaluator::{BlockProducerVrfEvaluatorState, BlockProducerVrfEvaluatorStatus}};
+use crate::block_producer::{BlockProducerAction, vrf_evaluator::BlockProducerVrfEvaluatorStatus};
 
 pub type BlockProducerVrfEvaluatorActionWithMeta =
     redux::ActionWithMeta<BlockProducerVrfEvaluatorAction>;
@@ -97,7 +96,7 @@ pub struct BlockProducerVrfEvaluatorEpochDataUpdateAction {
 }
 
 impl redux::EnablingCondition<crate::State> for BlockProducerVrfEvaluatorEpochDataUpdateAction {
-    fn is_enabled(&self, state: &crate::State) -> bool {
+    fn is_enabled(&self, _: &crate::State) -> bool {
         true
     }
 }

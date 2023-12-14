@@ -1,8 +1,7 @@
 use std::collections::BTreeMap;
 
 use mina_p2p_messages::v2::LedgerHash;
-use ledger::{Account, AccountIndex, scan_state::currency::Balance};
-use mina_signer::Keypair;
+use ledger::AccountIndex;
 use vrf::VrfEvaluatorInput;
 
 pub trait BlockProducerVrfEvaluatorService: redux::Service {
