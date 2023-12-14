@@ -97,6 +97,22 @@ steps:
     environment:
       BPF_ALIAS: "/coda/0.0.1/3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e-255.255.255.1"
 
+  - name: multi-initial-joining
+    image: vladsimplestakingcom/mina-debugger:2.0.0rampup4-focal
+    pull: always
+    privileged: true
+    volumes:
+      - name: debugfs
+        path: /sys/kernel/debug
+      - name: procfs
+        path: /proc
+    failure: ignore
+    commands:
+      - cp target/release/openmina-node-testing-libp2p /usr/bin/openmina-node-testing-libp2p
+      - ./target/release/runner openmina-node-testing-libp2p scenarios-generate --use-debugger --name multi-node-basic-connectivity-initial-joining
+    environment:
+      BPF_ALIAS: "/coda/0.0.1/3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e-255.255.255.5"
+
   # - name: multi-webrtc-initial-joining
   #   image: vladsimplestakingcom/mina-debugger:2.0.0rampup4-focal
   #   pull: always
@@ -144,22 +160,6 @@ steps:
       - ./target/release/runner openmina-node-testing-libp2p scenarios-generate --use-debugger --name solo-node-basic-connectivity-initial-joining
     environment:
       BPF_ALIAS: "/coda/0.0.1/3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e-255.255.255.4"
-
-  - name: multi-initial-joining
-    image: vladsimplestakingcom/mina-debugger:2.0.0rampup4-focal
-    pull: always
-    privileged: true
-    volumes:
-      - name: debugfs
-        path: /sys/kernel/debug
-      - name: procfs
-        path: /proc
-    failure: ignore
-    commands:
-      - cp target/release/openmina-node-testing-libp2p /usr/bin/openmina-node-testing-libp2p
-      - ./target/release/runner openmina-node-testing-libp2p scenarios-generate --use-debugger --name multi-node-basic-connectivity-initial-joining
-    environment:
-      BPF_ALIAS: "/coda/0.0.1/3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e-255.255.255.5"
 
   # - name: solo-accept-incoming
   #   image: vladsimplestakingcom/mina-debugger:2.0.0rampup4-focal

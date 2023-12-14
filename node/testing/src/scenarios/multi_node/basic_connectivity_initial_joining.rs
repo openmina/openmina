@@ -154,6 +154,8 @@ impl MultiNodeBasicConnectivityInitialJoining {
 
                 // TODO: calculate per peer
                 if let Some(debugger) = runner.cluster().debugger() {
+                    tokio::time::sleep(Duration::from_secs(10)).await;
+
                     let connections = debugger
                         .connections_raw(0)
                         .map(|(id, c)| (id, (c.info.addr, c.info.fd, c.info.pid, c.incoming)))
@@ -169,10 +171,10 @@ impl MultiNodeBasicConnectivityInitialJoining {
                     }
 
                     // TODO: fix debugger returns timeout
-                    // let connections = debugger
-                    //     .connections()
-                    //     .map(|id| (id, connections.get(&id).unwrap()))
-                    //     .collect::<HashMap<_, _>>();
+                    let connections = debugger
+                        .connections()
+                        .filter_map(|id| Some((id, connections.get(&id)?.clone())))
+                        .collect::<HashMap<_, _>>();
                     let incoming = connections.iter().filter(|(_, (_, _, _, i))| *i).count();
                     let outgoing = connections.len() - incoming;
                     eprintln!(
