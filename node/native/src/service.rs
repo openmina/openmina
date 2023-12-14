@@ -130,7 +130,11 @@ impl P2pServiceWebrtc for NodeService {
 }
 
 impl P2pServiceWebrtcWithLibp2p for NodeService {
-    fn libp2p(&mut self) -> &mut Libp2pService {
+    fn libp2p(&self) -> &Libp2pService {
+        &self.libp2p
+    }
+
+    fn libp2p_mut(&mut self) -> &mut Libp2pService {
         &mut self.libp2p
     }
 
@@ -141,7 +145,7 @@ impl P2pServiceWebrtcWithLibp2p for NodeService {
         // Generate some random peer_id
         let peer_id = PeerId::random();
 
-        self.libp2p()
+        self.libp2p_mut()
             .cmd_sender()
             .send(Cmd::FindNode(peer_id.into()))
             .unwrap_or_default();
@@ -163,7 +167,7 @@ impl P2pServiceWebrtcWithLibp2p for NodeService {
             })
             .collect();
 
-        self.libp2p()
+        self.libp2p_mut()
             .cmd_sender()
             .send(Cmd::RunDiscovery(peers))
             .unwrap_or_default()

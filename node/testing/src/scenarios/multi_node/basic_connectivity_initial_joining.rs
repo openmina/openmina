@@ -134,8 +134,10 @@ impl MultiNodeBasicConnectivityInitialJoining {
             if conditions_met {
                 let mut total_connections_known = 0;
                 let mut total_connections_ready = 0;
+                let mut pauses = vec![];
                 for &node_id in &nodes {
                     let node = runner.node(node_id).expect("node must exist");
+                    pauses.push(node.service().pause_libp2p());
                     let p2p = &node.state().p2p;
                     let ready_peers = p2p.ready_peers_iter().count();
                     let known_peers = p2p.kademlia.known_peers.len();
@@ -197,6 +199,7 @@ impl MultiNodeBasicConnectivityInitialJoining {
                     eprintln!("no debugger, run test with --use-debugger for additional check");
                 }
 
+                drop(pauses);
                 eprintln!("success");
 
                 return;

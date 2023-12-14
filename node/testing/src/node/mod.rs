@@ -20,7 +20,7 @@ impl Node {
         Self { store }
     }
 
-    fn service(&self) -> &NodeTestingService {
+    pub fn service(&self) -> &NodeTestingService {
         &self.store.service
     }
 
