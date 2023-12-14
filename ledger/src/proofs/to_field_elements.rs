@@ -89,31 +89,34 @@ impl<T: ToFieldElements<Fp>> ToFieldElements<Fp> for Statement<T> {
                 local_state,
             } = registers;
 
-            fields.push(*first_pass_ledger);
-            fields.push(*second_pass_ledger);
-            fields.push(pending_coinbase_stack.data.0);
-            fields.push(pending_coinbase_stack.state.init);
-            fields.push(pending_coinbase_stack.state.curr);
-            fields.push(local_state.stack_frame);
-            fields.push(local_state.call_stack);
-            fields.push(local_state.transaction_commitment);
-            fields.push(local_state.full_transaction_commitment);
-            fields.push(local_state.excess.magnitude.as_u64().into());
-            fields.push(sign_to_field(local_state.excess.sgn));
-            fields.push(local_state.supply_increase.magnitude.as_u64().into());
-            fields.push(sign_to_field(local_state.supply_increase.sgn));
-            fields.push(local_state.ledger);
-            fields.push((local_state.success as u64).into());
-            fields.push(local_state.account_update_index.as_u32().into());
-            fields.push((local_state.will_succeed as u64).into());
+            first_pass_ledger.to_field_elements(fields);
+            second_pass_ledger.to_field_elements(fields);
+            pending_coinbase_stack.to_field_elements(fields);
+            local_state.stack_frame.to_field_elements(fields);
+            local_state.call_stack.to_field_elements(fields);
+            local_state.transaction_commitment.to_field_elements(fields);
+            local_state
+                .full_transaction_commitment
+                .to_field_elements(fields);
+            local_state.excess.magnitude.to_field_elements(fields);
+            sign_to_field(local_state.excess.sgn).to_field_elements(fields);
+            local_state
+                .supply_increase
+                .magnitude
+                .to_field_elements(fields);
+            sign_to_field(local_state.supply_increase.sgn).to_field_elements(fields);
+            local_state.ledger.to_field_elements(fields);
+            local_state.success.to_field_elements(fields);
+            local_state.account_update_index.to_field_elements(fields);
+            local_state.will_succeed.to_field_elements(fields);
         };
 
         add_register(source);
         add_register(target);
-        fields.push(*connecting_ledger_left);
-        fields.push(*connecting_ledger_right);
-        fields.push(supply_increase.magnitude.as_u64().into());
-        fields.push(sign_to_field(supply_increase.sgn));
+        connecting_ledger_left.to_field_elements(fields);
+        connecting_ledger_right.to_field_elements(fields);
+        supply_increase.magnitude.to_field_elements(fields);
+        sign_to_field(supply_increase.sgn).to_field_elements(fields);
 
         let FeeExcess {
             fee_token_l,
@@ -122,13 +125,13 @@ impl<T: ToFieldElements<Fp>> ToFieldElements<Fp> for Statement<T> {
             fee_excess_r,
         } = fee_excess;
 
-        fields.push(fee_token_l.0);
-        fields.push(fee_excess_l.magnitude.as_u64().into());
-        fields.push(sign_to_field(fee_excess_l.sgn));
+        fee_token_l.to_field_elements(fields);
+        fee_excess_l.magnitude.to_field_elements(fields);
+        sign_to_field(fee_excess_l.sgn).to_field_elements(fields);
 
-        fields.push(fee_token_r.0);
-        fields.push(fee_excess_r.magnitude.as_u64().into());
-        fields.push(sign_to_field(fee_excess_r.sgn));
+        fee_token_r.to_field_elements(fields);
+        fee_excess_r.magnitude.to_field_elements(fields);
+        sign_to_field(fee_excess_r.sgn).to_field_elements(fields);
 
         sok_digest.to_field_elements(fields)
     }

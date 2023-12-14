@@ -45,7 +45,7 @@ use crate::{
     scan_state::{
         currency::{self, Sgn},
         fee_excess::FeeExcess,
-        pending_coinbase,
+        pending_coinbase::{self, CoinbaseStack},
         scan_state::transaction_snark::{Registers, SokDigest, SokMessage, Statement},
         transaction_logic::{
             local_state::LocalState,
@@ -694,7 +694,7 @@ impl<F: FieldWitness> ToFieldElements<F> for StagedLedgerHash<F> {
                 .flat_map(|byte| BITS.iter().map(|bit| F::from((*byte & bit != 0) as u64))),
         );
 
-        fields.push(*pending_coinbase_hash);
+        pending_coinbase_hash.to_field_elements(fields);
     }
 }
 
@@ -733,6 +733,18 @@ impl<F: FieldWitness> ToFieldElements<F> for &'_ [bool] {
 }
 
 impl<F: FieldWitness> ToFieldElements<F> for bool {
+    fn to_field_elements(&self, fields: &mut Vec<F>) {
+        F::from(*self).to_field_elements(fields)
+    }
+}
+
+impl<F: FieldWitness> ToFieldElements<F> for u64 {
+    fn to_field_elements(&self, fields: &mut Vec<F>) {
+        F::from(*self).to_field_elements(fields)
+    }
+}
+
+impl<F: FieldWitness> ToFieldElements<F> for u32 {
     fn to_field_elements(&self, fields: &mut Vec<F>) {
         F::from(*self).to_field_elements(fields)
     }
@@ -840,12 +852,12 @@ impl<F: FieldWitness> ToFieldElements<F> for EpochData<F> {
             epoch_length,
         } = self;
 
-        fields.push(*hash);
-        fields.push(total_currency.as_u64().into());
-        fields.push(*seed);
-        fields.push(*start_checkpoint);
-        fields.push(*lock_checkpoint);
-        fields.push(epoch_length.as_u32().into());
+        hash.to_field_elements(fields);
+        total_currency.to_field_elements(fields);
+        seed.to_field_elements(fields);
+        start_checkpoint.to_field_elements(fields);
+        lock_checkpoint.to_field_elements(fields);
+        epoch_length.to_field_elements(fields);
     }
 }
 
@@ -853,8 +865,8 @@ impl<F: FieldWitness> ToFieldElements<F> for NonZeroCurvePoint {
     fn to_field_elements(&self, fields: &mut Vec<F>) {
         let NonZeroCurvePointUncompressedStableV1 { x, is_odd } = self.inner();
 
-        fields.push(x.to_field());
-        fields.push((*is_odd).into());
+        x.to_field::<F>().to_field_elements(fields);
+        is_odd.to_field_elements(fields);
     }
 }
 
@@ -885,9 +897,9 @@ impl<F: FieldWitness> ToFieldElements<F> for ConsensusProofOfStakeDataConsensusS
         let staking_epoch_data: EpochData<F> = staking_epoch_data.into();
         let next_epoch_data: EpochData<F> = next_epoch_data.into();
 
-        fields.push(blockchain_length.as_u32().into());
-        fields.push(epoch_count.as_u32().into());
-        fields.push(min_window_density.as_u32().into());
+        blockchain_length.as_u32().to_field_elements(fields);
+        epoch_count.as_u32().to_field_elements(fields);
+        min_window_density.as_u32().to_field_elements(fields);
         fields.extend(sub_window_densities.iter().map(|w| F::from(w.as_u32())));
 
         {
@@ -896,21 +908,21 @@ impl<F: FieldWitness> ToFieldElements<F> for ConsensusProofOfStakeDataConsensusS
             // Ignore the last 3 bits
             let last_byte = vrf[31];
             for bit in [1, 2, 4, 8, 16] {
-                fields.push(F::from(last_byte & bit != 0))
+                F::from(last_byte & bit != 0).to_field_elements(fields);
             }
         }
 
-        fields.push(total_currency.as_u64().into());
-        fields.push(slot_number.as_u32().into());
-        fields.push(slots_per_epoch.as_u32().into());
-        fields.push(global_slot_since_genesis.as_u32().into());
+        total_currency.as_u64().to_field_elements(fields);
+        slot_number.as_u32().to_field_elements(fields);
+        slots_per_epoch.as_u32().to_field_elements(fields);
+        global_slot_since_genesis.as_u32().to_field_elements(fields);
         staking_epoch_data.to_field_elements(fields);
         next_epoch_data.to_field_elements(fields);
-        fields.push((*has_ancestor_in_same_checkpoint_window).into());
+        has_ancestor_in_same_checkpoint_window.to_field_elements(fields);
         block_stake_winner.to_field_elements(fields);
         block_creator.to_field_elements(fields);
         coinbase_receiver.to_field_elements(fields);
-        fields.push((*supercharge_coinbase).into());
+        supercharge_coinbase.to_field_elements(fields);
     }
 }
 
@@ -924,11 +936,11 @@ impl<F: FieldWitness> ToFieldElements<F> for MinaBaseProtocolConstantsCheckedVal
             genesis_state_timestamp,
         } = self;
 
-        fields.push(k.as_u32().into());
-        fields.push(slots_per_epoch.as_u32().into());
-        fields.push(slots_per_sub_window.as_u32().into());
-        fields.push(delta.as_u32().into());
-        fields.push(genesis_state_timestamp.as_u64().into());
+        k.as_u32().to_field_elements(fields);
+        slots_per_epoch.as_u32().to_field_elements(fields);
+        slots_per_sub_window.as_u32().to_field_elements(fields);
+        delta.as_u32().to_field_elements(fields);
+        genesis_state_timestamp.as_u64().to_field_elements(fields);
     }
 }
 
@@ -945,9 +957,12 @@ impl<F: FieldWitness> ToFieldElements<F> for MinaStateBlockchainStateValueStable
         let staged_ledger_hash: StagedLedgerHash<F> = staged_ledger_hash.into();
 
         staged_ledger_hash.to_field_elements(fields);
-        fields.push(genesis_ledger_hash.inner().to_field());
+        genesis_ledger_hash
+            .inner()
+            .to_field::<F>()
+            .to_field_elements(fields);
         ledger_proof_statement.to_field_elements(fields);
-        fields.push(timestamp.as_u64().into());
+        timestamp.as_u64().to_field_elements(fields);
         body_reference.to_field_elements(fields);
     }
 }
@@ -961,43 +976,46 @@ impl<F: FieldWitness> ToFieldElements<F> for MinaStateProtocolStateBodyValueStab
             constants,
         } = self;
 
-        fields.push(genesis_state_hash.inner().to_field());
+        genesis_state_hash
+            .inner()
+            .to_field::<F>()
+            .to_field_elements(fields);
         blockchain_state.to_field_elements(fields);
         consensus_state.to_field_elements(fields);
         constants.to_field_elements(fields);
     }
 }
 
-impl<F: FieldWitness> ToFieldElements<F> for TokenId {
-    fn to_field_elements(&self, fields: &mut Vec<F>) {
+impl ToFieldElements<Fp> for TokenId {
+    fn to_field_elements(&self, fields: &mut Vec<Fp>) {
         let Self(token_id) = self;
-        fields.push(token_id.into_gen());
+        token_id.to_field_elements(fields);
     }
 }
 
-impl<F: FieldWitness> ToFieldElements<F> for CompressedPubKey {
-    fn to_field_elements(&self, fields: &mut Vec<F>) {
+impl ToFieldElements<Fp> for CompressedPubKey {
+    fn to_field_elements(&self, fields: &mut Vec<Fp>) {
         let Self { x, is_odd } = self;
-        fields.push(x.into_gen());
-        fields.push(F::from(*is_odd));
+        x.to_field_elements(fields);
+        is_odd.to_field_elements(fields);
     }
 }
 
-impl<F: FieldWitness> ToFieldElements<F> for mina_signer::Signature {
-    fn to_field_elements(&self, fields: &mut Vec<F>) {
+impl ToFieldElements<Fp> for mina_signer::Signature {
+    fn to_field_elements(&self, fields: &mut Vec<Fp>) {
         let Self { rx, s } = self;
 
-        fields.push(rx.into_gen());
+        rx.to_field_elements(fields);
         let s_bits = field_to_bits::<_, 255>(*s);
         s_bits.to_field_elements(fields);
     }
 }
 
-impl<F: FieldWitness> ToFieldElements<F> for mina_signer::PubKey {
-    fn to_field_elements(&self, fields: &mut Vec<F>) {
+impl ToFieldElements<Fp> for mina_signer::PubKey {
+    fn to_field_elements(&self, fields: &mut Vec<Fp>) {
         let GroupAffine::<Fp> { x, y, .. } = self.point();
-        fields.push(x.into_gen());
-        fields.push(y.into_gen());
+        x.to_field_elements(fields);
+        y.to_field_elements(fields);
     }
 }
 
@@ -1030,17 +1048,17 @@ impl ToFieldElements<Fp> for transaction_union_payload::TransactionUnion {
             signature,
         } = self;
 
-        fields.push(fee.as_u64().into());
+        fee.to_field_elements(fields);
         fee_token.to_field_elements(fields);
         fee_payer_pk.to_field_elements(fields);
-        fields.push(nonce.as_u32().into());
-        fields.push(valid_until.as_u32().into());
+        nonce.to_field_elements(fields);
+        valid_until.to_field_elements(fields);
         memo.as_slice().to_field_elements(fields);
         tag.to_untagged_bits().to_field_elements(fields);
         source_pk.to_field_elements(fields);
         receiver_pk.to_field_elements(fields);
         token_id.to_field_elements(fields);
-        fields.push(amount.as_u64().into());
+        amount.to_field_elements(fields);
         signer.to_field_elements(fields);
         signature.to_field_elements(fields);
     }
@@ -1048,7 +1066,7 @@ impl ToFieldElements<Fp> for transaction_union_payload::TransactionUnion {
 
 impl<F: FieldWitness> ToFieldElements<F> for MinaNumbersGlobalSlotSinceGenesisMStableV1 {
     fn to_field_elements(&self, fields: &mut Vec<F>) {
-        fields.push(self.as_u32().into())
+        self.as_u32().to_field_elements(fields);
     }
 }
 
@@ -1059,32 +1077,35 @@ impl<F: FieldWitness> ToFieldElements<F> for v2::MinaBasePendingCoinbaseStackVer
             state: v2::MinaBasePendingCoinbaseStateStackStableV1 { init, curr },
         } = self;
 
-        fields.push(data.to_field());
-        fields.push(init.to_field());
-        fields.push(curr.to_field());
+        data.to_field::<F>().to_field_elements(fields);
+        init.to_field::<F>().to_field_elements(fields);
+        curr.to_field::<F>().to_field_elements(fields);
     }
 }
 
-impl<F: FieldWitness> ToFieldElements<F> for pending_coinbase::StateStack {
-    fn to_field_elements(&self, fields: &mut Vec<F>) {
+impl ToFieldElements<Fp> for pending_coinbase::StateStack {
+    fn to_field_elements(&self, fields: &mut Vec<Fp>) {
         let Self { init, curr } = self;
-        fields.push(init.into_gen());
-        fields.push(curr.into_gen());
+        init.to_field_elements(fields);
+        curr.to_field_elements(fields);
     }
 }
 
-impl<F: FieldWitness> ToFieldElements<F> for pending_coinbase::Stack {
-    fn to_field_elements(&self, fields: &mut Vec<F>) {
-        let Self { data, state } = self;
+impl ToFieldElements<Fp> for pending_coinbase::Stack {
+    fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+        let Self {
+            data: CoinbaseStack(data),
+            state,
+        } = self;
 
-        fields.push(data.0.into_gen());
+        data.to_field_elements(fields);
         state.to_field_elements(fields);
     }
 }
 
-impl<F: FieldWitness> ToFieldElements<F> for TokenSymbol {
-    fn to_field_elements(&self, fields: &mut Vec<F>) {
-        let field: F = self.to_field();
+impl ToFieldElements<Fp> for TokenSymbol {
+    fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+        let field: Fp = self.to_field();
         field.to_field_elements(fields);
     }
 }
@@ -1101,12 +1122,12 @@ impl<F: FieldWitness> ToFieldElements<F> for crate::Timing {
             vesting_increment,
         } = self.to_record();
 
-        fields.push(F::from(is_timed));
-        fields.push(F::from(initial_minimum_balance.as_u64()));
-        fields.push(F::from(cliff_time.as_u32()));
-        fields.push(F::from(cliff_amount.as_u64()));
-        fields.push(F::from(vesting_period.as_u32()));
-        fields.push(F::from(vesting_increment.as_u64()));
+        F::from(is_timed).to_field_elements(fields);
+        F::from(initial_minimum_balance.as_u64()).to_field_elements(fields);
+        F::from(cliff_time.as_u32()).to_field_elements(fields);
+        F::from(cliff_amount.as_u64()).to_field_elements(fields);
+        F::from(vesting_period.as_u32()).to_field_elements(fields);
+        F::from(vesting_increment.as_u64()).to_field_elements(fields);
     }
 }
 
@@ -1126,8 +1147,8 @@ impl<F: FieldWitness> ToFieldElements<F> for crate::AuthRequired {
     }
 }
 
-impl<F: FieldWitness> ToFieldElements<F> for Box<Account> {
-    fn to_field_elements(&self, fields: &mut Vec<F>) {
+impl ToFieldElements<Fp> for Box<Account> {
+    fn to_field_elements(&self, fields: &mut Vec<Fp>) {
         let Account {
             public_key,
             token_id: TokenId(token_id),
@@ -1154,12 +1175,9 @@ impl<F: FieldWitness> ToFieldElements<F> for Box<Account> {
         voting_for.to_field_elements(fields);
         timing.to_field_elements(fields);
         permissions.to_field_elements(fields);
-
-        let zkapp: F = {
-            let zkapp = MyCow::borrow_or_default(zkapp);
-            zkapp.hash().into_gen()
-        };
-        zkapp.to_field_elements(fields);
+        MyCow::borrow_or_default(zkapp)
+            .hash()
+            .to_field_elements(fields);
     }
 }
 
@@ -2001,14 +2019,17 @@ impl FromFpFq for Fp {
     fn from_fp(fp: Fp) -> Self {
         fp
     }
-    fn from_fq(fq: Fq) -> Self {
-        let bigint: BigInteger256 = fq.into();
-        bigint.into()
+    fn from_fq(_fq: Fq) -> Self {
+        // `Fq` cannot be converted into `Fp`.
+        // Caller must first split `Fq` into 2 parts (high & low bits)
+        // See `impl<F: FieldWitness> ToFieldElements<F> for Fq`
+        panic!("Attempt to convert a `Fq` into `Fp`")
     }
 }
 
 impl FromFpFq for Fq {
     fn from_fp(fp: Fp) -> Self {
+        // `Fp` is smaller than `Fq`, so the conversion is fine
         let bigint: BigInteger256 = fp.into();
         bigint.into()
     }
@@ -2172,8 +2193,8 @@ where
 impl<F: FieldWitness> ToFieldElements<F> for InnerCurve<F> {
     fn to_field_elements(&self, fields: &mut Vec<F>) {
         let GroupAffine::<F> { x, y, .. } = self.to_affine();
-        fields.push(x);
-        fields.push(y);
+        x.to_field_elements(fields);
+        y.to_field_elements(fields);
     }
 }
 
@@ -2190,7 +2211,7 @@ impl<F: FieldWitness> Check<F> for GroupAffine<F> {
         let GroupAffine::<F> { x, y: _, .. } = self;
         let x2 = field::square(*x, w);
         let _x3 = field::mul(x2, *x, w);
-        // TODO: Rest of the function doesn't modify witness
+        // Rest of the function doesn't modify witness
     }
 }
 
@@ -2604,8 +2625,8 @@ pub mod legacy_input {
         default
     };
 
-    impl<F: FieldWitness> CheckedLegacyInput<F> for TransactionUnionPayload {
-        fn to_checked_legacy_input(&self, inputs: &mut LegacyInput<F>, w: &mut Witness<F>) {
+    impl CheckedLegacyInput<Fp> for TransactionUnionPayload {
+        fn to_checked_legacy_input(&self, inputs: &mut LegacyInput<Fp>, w: &mut Witness<Fp>) {
             let Self {
                 common:
                     Common {
@@ -2634,7 +2655,7 @@ pub mod legacy_input {
             let fee = w.exists(fee.to_bits());
             inputs.append_bits(&fee);
             inputs.append_bits(fee_token);
-            inputs.append_field(fee_payer_pk.x.into_gen());
+            inputs.append_field(fee_payer_pk.x);
             inputs.append_bit(fee_payer_pk.is_odd);
             inputs.append_bits(&nonce);
             inputs.append_bits(&valid_until);
@@ -2643,9 +2664,9 @@ pub mod legacy_input {
             // Body
             let amount = w.exists(amount.to_bits());
             inputs.append_bits(&tag.to_bits());
-            inputs.append_field(source_pk.x.into_gen());
+            inputs.append_field(source_pk.x);
             inputs.append_bit(source_pk.is_odd);
-            inputs.append_field(receiver_pk.x.into_gen());
+            inputs.append_field(receiver_pk.x);
             inputs.append_bit(receiver_pk.is_odd);
             inputs.append_bits(fee_token);
             inputs.append_bits(&amount);
@@ -3255,13 +3276,13 @@ impl Boolean {
 
 impl<F: FieldWitness> ToFieldElements<F> for Boolean {
     fn to_field_elements(&self, fields: &mut Vec<F>) {
-        fields.push(self.to_field::<F>());
+        self.to_field::<F>().to_field_elements(fields);
     }
 }
 
 impl<F: FieldWitness> ToFieldElements<F> for CircuitVar<Boolean> {
     fn to_field_elements(&self, fields: &mut Vec<F>) {
-        fields.push(self.as_boolean().to_field::<F>());
+        self.as_boolean().to_field_elements(fields);
     }
 }
 
