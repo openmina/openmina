@@ -24,7 +24,7 @@ impl Node {
         &self.store.service
     }
 
-    fn service_mut(&mut self) -> &mut NodeTestingService {
+    pub fn service_mut(&mut self) -> &mut NodeTestingService {
         &mut self.store.service
     }
 
@@ -101,5 +101,9 @@ impl Node {
             return self.dispatch_event(event);
         }
         false
+    }
+
+    pub fn stop_libp2p(&mut self) {
+        self.store.service.stop_libp2p();
     }
 }

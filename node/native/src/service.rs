@@ -43,7 +43,7 @@ pub struct NodeService {
     pub cmd_sender: mpsc::UnboundedSender<Cmd>,
     pub ledger: LedgerCtx,
     pub peers: BTreeMap<PeerId, PeerState>,
-    pub libp2p: Libp2pService,
+    pub libp2p: Option<Libp2pService>,
     pub rpc: RpcService,
     pub snark_worker_sender: Option<ext_snark_worker::ExternalSnarkWorkerFacade>,
     pub stats: Stats,
@@ -131,11 +131,11 @@ impl P2pServiceWebrtc for NodeService {
 
 impl P2pServiceWebrtcWithLibp2p for NodeService {
     fn libp2p(&self) -> &Libp2pService {
-        &self.libp2p
+        self.libp2p.as_ref().expect("libp2p stopped")
     }
 
     fn libp2p_mut(&mut self) -> &mut Libp2pService {
-        &mut self.libp2p
+        self.libp2p.as_mut().expect("libp2p stopped")
     }
 
     fn find_random_peer(&mut self) {

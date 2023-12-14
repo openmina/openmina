@@ -108,6 +108,10 @@ impl NodeTestingService {
     pub fn pause_libp2p(&self) -> Libp2pPauseToken {
         self.real.libp2p().pause()
     }
+
+    pub fn stop_libp2p(&mut self) {
+        self.real.libp2p = None;
+    }
 }
 
 impl redux::Service for NodeTestingService {}
@@ -175,11 +179,11 @@ impl P2pServiceWebrtc for NodeTestingService {
 
 impl P2pServiceWebrtcWithLibp2p for NodeTestingService {
     fn libp2p(&self) -> &Libp2pService {
-        &self.real.libp2p
+        self.real.libp2p()
     }
 
     fn libp2p_mut(&mut self) -> &mut Libp2pService {
-        &mut self.real.libp2p
+        self.real.libp2p_mut()
     }
 
     fn find_random_peer(&mut self) {

@@ -228,7 +228,7 @@ impl Cluster {
             cmd_sender,
             ledger,
             peers,
-            libp2p,
+            libp2p: Some(libp2p),
             rpc: rpc_service,
             snark_worker_sender: None,
             stats: node::stats::Stats::new(),
@@ -304,6 +304,10 @@ impl Cluster {
 
     pub fn node(&self, node_id: ClusterNodeId) -> Option<&Node> {
         self.nodes.get(node_id.index())
+    }
+
+    pub fn node_mut(&mut self, node_id: ClusterNodeId) -> Option<&mut Node> {
+        self.nodes.get_mut(node_id.index())
     }
 
     pub fn pending_events(

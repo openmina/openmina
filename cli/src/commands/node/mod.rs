@@ -236,7 +236,7 @@ impl Node {
                         cmd_sender,
                         ledger,
                         peers,
-                        libp2p,
+                        libp2p: Some(libp2p),
                         rpc: rpc_service,
                         snark_worker_sender: None,
                         stats: Stats::new(),

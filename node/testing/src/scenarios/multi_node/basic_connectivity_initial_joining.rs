@@ -134,10 +134,13 @@ impl MultiNodeBasicConnectivityInitialJoining {
             if conditions_met {
                 let mut total_connections_known = 0;
                 let mut total_connections_ready = 0;
-                let mut pauses = vec![];
                 for &node_id in &nodes {
-                    let node = runner.node(node_id).expect("node must exist");
-                    pauses.push(node.service().pause_libp2p());
+                    let node = runner
+                        .cluster_mut()
+                        .node_mut(node_id)
+                        .expect("node must exist");
+                    node.stop_libp2p();
+
                     let p2p = &node.state().p2p;
                     let ready_peers = p2p.ready_peers_iter().count();
                     let known_peers = p2p.kademlia.known_peers.len();
@@ -158,10 +161,7 @@ impl MultiNodeBasicConnectivityInitialJoining {
                 if let Some(debugger) = runner.cluster().debugger() {
                     tokio::time::sleep(Duration::from_secs(10)).await;
 
-                    let connections = debugger
-                        .connections_raw(0)
-                        .map(|(id, c)| (id, (c.info.addr, c.info.fd, c.info.pid, c.incoming)))
-                        .collect::<HashMap<_, _>>();
+                    let connections = debugger.connections_raw(0).collect::<HashMap<_, _>>();
 
                     // dbg
                     for (id, cn) in &connections {
@@ -177,15 +177,16 @@ impl MultiNodeBasicConnectivityInitialJoining {
                         .connections()
                         .filter_map(|id| Some((id, connections.get(&id)?.clone())))
                         .collect::<HashMap<_, _>>();
-                    let incoming = connections.iter().filter(|(_, (_, _, _, i))| *i).count();
+                    let incoming = connections.iter().filter(|(_, c)| c.incoming).count();
                     let outgoing = connections.len() - incoming;
                     eprintln!(
                         "debugger seen {incoming} incoming connections and {outgoing} outgoing connections",
                     );
 
-                    for (id, (addr, fd, pid, incoming)) in connections {
+                    for (id, c) in connections {
                         eprintln!(
-                            "id: {id}, pid: {pid}, fd: {fd}, addr: {addr}, incoming: {incoming}"
+                            "id: {id}, pid: {}, fd: {}, addr: {}, incoming: {}",
+                            c.info.pid, c.info.fd, c.info.addr, c.incoming
                         );
                     }
 
@@ -199,7 +200,6 @@ impl MultiNodeBasicConnectivityInitialJoining {
                     eprintln!("no debugger, run test with --use-debugger for additional check");
                 }
 
-                drop(pauses);
                 eprintln!("success");
 
                 return;
