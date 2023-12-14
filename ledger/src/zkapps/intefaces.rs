@@ -48,8 +48,8 @@ where
     {
         let BranchParam { on_true, on_false } = param;
         let value = match b.as_boolean() {
-            Boolean::True => on_true.get(self),
-            Boolean::False => on_false.get(self),
+            Boolean::True => on_true.eval(self),
+            Boolean::False => on_false.eval(self),
         };
         self.exists_no_check(value)
     }
@@ -223,8 +223,8 @@ pub struct SignedAmountBranchParam<T> {
 }
 
 pub struct BranchParam<T, W, F: FnOnce(&mut W) -> T, F2: FnOnce(&mut W) -> T> {
-    pub on_true: BranchResult<T, W, F>,
-    pub on_false: BranchResult<T, W, F2>,
+    pub on_true: BranchEvaluation<T, W, F>,
+    pub on_false: BranchEvaluation<T, W, F2>,
 }
 
 pub trait StackFrameInterface
@@ -499,20 +499,25 @@ pub trait ActionsInterface {
     fn push_events(event: Fp, actions: &zkapp_command::Actions, w: &mut Self::W) -> Fp;
 }
 
-// TODO: This could be made into a Trait
-pub enum BranchResult<T, W, F: FnOnce(&mut W) -> T> {
+pub enum BranchEvaluation<T, W, F: FnOnce(&mut W) -> T> {
     Evaluated(T, PhantomData<W>),
     Pending(F),
 }
 
-impl<T, W, F> BranchResult<T, W, F>
+impl<T, W, F> BranchEvaluation<T, W, F>
 where
     F: FnOnce(&mut W) -> T,
 {
-    pub fn get(self, w: &mut W) -> T {
+    pub fn eval(self, w: &mut W) -> T {
         match self {
-            BranchResult::Evaluated(v, _) => v,
-            BranchResult::Pending(fun) => fun(w),
+            Self::Evaluated(v, _) => {
+                // The value was already run/evaluated
+                v
+            }
+            Self::Pending(fun) => {
+                // Run the branch's closure, to get the branch's value
+                fun(w)
+            }
         }
     }
 }
@@ -528,7 +533,7 @@ where
 pub trait BranchInterface {
     type W: WitnessGenerator<Fp>;
 
-    fn make<T, F>(w: &mut Self::W, run: F) -> BranchResult<T, Self::W, F>
+    fn make<T, F>(w: &mut Self::W, run: F) -> BranchEvaluation<T, Self::W, F>
     where
         F: FnOnce(&mut Self::W) -> T;
 }

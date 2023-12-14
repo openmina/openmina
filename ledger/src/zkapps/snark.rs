@@ -42,10 +42,10 @@ use crate::{
 
 use super::intefaces::{
     AccountIdInterface, AccountInterface, AccountUpdateInterface, ActionsInterface,
-    AmountInterface, BalanceInterface, BoolInterface, BranchInterface, BranchParam, BranchResult,
-    CallForestInterface, CallStackInterface, ControllerInterface, GlobalSlotSinceGenesisInterface,
-    GlobalSlotSpanInterface, GlobalStateInterface, IndexInterface, LedgerInterface,
-    LocalStateInterface, Opt, ReceiptChainHashInterface, SetOrKeepInterface,
+    AmountInterface, BalanceInterface, BoolInterface, BranchEvaluation, BranchInterface,
+    BranchParam, CallForestInterface, CallStackInterface, ControllerInterface,
+    GlobalSlotSinceGenesisInterface, GlobalSlotSpanInterface, GlobalStateInterface, IndexInterface,
+    LedgerInterface, LocalStateInterface, Opt, ReceiptChainHashInterface, SetOrKeepInterface,
     SignedAmountBranchParam, SignedAmountInterface, StackFrameInterface, StackFrameMakeParams,
     StackInterface, TokenIdInterface, TransactionCommitmentInterface, VerificationKeyHashInterface,
     WitnessGenerator, ZkappApplication, ZkappHandler,
@@ -474,8 +474,8 @@ impl StackFrameInterface for StackFrameChecked {
         w: &mut Self::W,
     ) -> Self {
         let BranchParam { on_true, on_false } = param;
-        let on_true = on_true.get(w);
-        let on_false = on_false.get(w);
+        let on_true = on_true.eval(w);
+        let on_false = on_false.eval(w);
 
         let data = match b.as_boolean() {
             Boolean::True => on_true.data.clone(),
@@ -1437,10 +1437,11 @@ pub struct SnarkBranch;
 impl BranchInterface for SnarkBranch {
     type W = Witness<Fp>;
 
-    fn make<T, F>(w: &mut Self::W, run: F) -> BranchResult<T, Self::W, F>
+    fn make<T, F>(w: &mut Self::W, run: F) -> BranchEvaluation<T, Self::W, F>
     where
         F: FnOnce(&mut Self::W) -> T,
     {
-        BranchResult::Evaluated(run(w), PhantomData)
+        // We run the closure as soon as `SnarkBranch::make` is called
+        BranchEvaluation::Evaluated(run(w), PhantomData)
     }
 }

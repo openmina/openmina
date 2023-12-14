@@ -15,8 +15,8 @@ use crate::{
 };
 
 use super::intefaces::{
-    AccountUpdateInterface, AmountInterface, BoolInterface, BranchInterface, BranchParam,
-    BranchResult, CallForestInterface, CallStackInterface, IndexInterface, Opt,
+    AccountUpdateInterface, AmountInterface, BoolInterface, BranchEvaluation, BranchInterface,
+    BranchParam, CallForestInterface, CallStackInterface, IndexInterface, Opt,
     SignedAmountBranchParam, SignedAmountInterface, StackFrameInterface, StackFrameMakeParams,
     StackInterface, WitnessGenerator,
 };
@@ -127,8 +127,8 @@ impl StackFrameInterface for StackFrame {
         let BranchParam { on_true, on_false } = param;
 
         match b {
-            Boolean::True => on_true.get(w),
-            Boolean::False => on_false.get(w),
+            Boolean::True => on_true.eval(w),
+            Boolean::False => on_false.eval(w),
         }
     }
 }
@@ -284,10 +284,12 @@ struct NonSnarkBranch;
 impl BranchInterface for NonSnarkBranch {
     type W = ();
 
-    fn make<T, F>(_w: &mut Self::W, run: F) -> BranchResult<T, Self::W, F>
+    fn make<T, F>(_w: &mut Self::W, run: F) -> BranchEvaluation<T, Self::W, F>
     where
         F: FnOnce(&mut Self::W) -> T,
     {
-        BranchResult::Pending(run)
+        // We don't run the closure now.
+        // The closure will be run when `BranchEvaluation::eval` is called.
+        BranchEvaluation::Pending(run)
     }
 }
