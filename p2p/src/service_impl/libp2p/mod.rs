@@ -2,13 +2,12 @@ mod behavior;
 pub use behavior::Event as BehaviourEvent;
 pub use behavior::*;
 
-use libp2p::futures::stream::FuturesUnordered;
 use mina_p2p_messages::rpc::GetSomeInitialPeersV1ForV2;
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::io;
 use std::net::{IpAddr, SocketAddr};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::Duration;
 
 use mina_p2p_messages::binprot::{self, BinProtRead, BinProtWrite};
@@ -19,7 +18,7 @@ use openmina_core::snark::Snark;
 
 use libp2p::core::muxing::StreamMuxerBox;
 use libp2p::core::transport;
-use libp2p::futures::{future, select, FutureExt, StreamExt};
+use libp2p::futures::{select, FutureExt, StreamExt};
 use libp2p::gossipsub::{
     Behaviour as Gossipsub, ConfigBuilder as GossipsubConfigBuilder, Event as GossipsubEvent,
     IdentTopic, MessageAcceptance, MessageAuthenticity,
@@ -262,39 +261,30 @@ impl Libp2pService {
         };
 
         let fut = async move {
-            let pool = Arc::new(Mutex::new(FuturesUnordered::default()));
-            let tranport = {
-                let noise_config = noise::Config::new(&identity_keys).unwrap();
-                let mut yamux_config = libp2p::yamux::Config::default();
+            let mut swarm = libp2p::SwarmBuilder::with_existing_identity(identity_keys)
+                .with_tokio()
+                .with_other_transport(|key| {
+                    let noise_config = noise::Config::new(key).unwrap();
+                    let mut yamux_config = libp2p::yamux::Config::default();
 
-                yamux_config.set_protocol_name("/coda/yamux/1.0.0");
+                    yamux_config.set_protocol_name("/coda/yamux/1.0.0");
 
-                let base_transport = libp2p::tcp::tokio::Transport::new(
-                    libp2p::tcp::Config::default()
-                        .nodelay(true)
-                        .port_reuse(true),
-                );
+                    let base_transport = libp2p::tcp::tokio::Transport::new(
+                        libp2p::tcp::Config::default()
+                            .nodelay(true)
+                            .port_reuse(true),
+                    );
 
-                base_transport
-                    .and_then(move |socket, _| PnetConfig::new(psk).handshake(socket))
-                    .upgrade(libp2p::core::upgrade::Version::V1)
-                    .authenticate(noise_config)
-                    .multiplex(yamux_config)
-                    .timeout(Duration::from_secs(60))
-            };
-            let transport = libp2p::dns::tokio::Transport::system(tranport)?
-                .map(|(peer_id, conn), _| (peer_id, StreamMuxerBox::new(conn)))
-                .boxed();
-
-            let mut swarm = libp2p::Swarm::new(
-                transport,
-                behaviour,
-                identity_keys.public().to_peer_id(),
-                libp2p::swarm::Config::with_executor({
-                    let pool = pool.clone();
-                    move |task| pool.lock().expect("poisoned").push(task)
-                }),
-            );
+                    base_transport
+                        .and_then(move |socket, _| PnetConfig::new(psk).handshake(socket))
+                        .upgrade(libp2p::core::upgrade::Version::V1)
+                        .authenticate(noise_config)
+                        .multiplex(yamux_config)
+                        .timeout(Duration::from_secs(60))
+                })?
+                .with_dns()?
+                .with_behaviour(|_| behaviour)?
+                .build();
 
             swarm.behaviour_mut().kademlia.set_mode(Some(Mode::Server));
 
@@ -330,16 +320,8 @@ impl Libp2pService {
                     std::hint::spin_loop();
                 }
 
-                let mut drive = future::poll_fn(|cx| {
-                    let x = swarm.poll_next_unpin(cx);
-                    let mut pool = pool.lock().expect("msg");
-                    while let std::task::Poll::Ready(Some(())) = pool.poll_next_unpin(cx) {}
-                    x
-                })
-                .fuse();
-
                 select! {
-                    event = drive => match event {
+                    event = swarm.next() => match event {
                         Some(event) => Self::handle_event(&mut swarm, event).await,
                         None => break,
                     },
