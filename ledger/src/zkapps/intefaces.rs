@@ -130,7 +130,7 @@ where
     fn negate(&self) -> Self;
     fn add_flagged(&self, other: &Self, w: &mut Self::W) -> (Self, Self::Bool);
     fn of_unsigned(unsigned: Self::Amount) -> Self;
-    fn exists_on_if<'a>(
+    fn on_if<'a>(
         b: Self::Bool,
         param: SignedAmountBranchParam<&'a Self>,
         w: &mut Self::W,
@@ -435,6 +435,7 @@ where
     fn get_mut(&mut self) -> &mut crate::Account;
     fn set_delegate(&mut self, new: CompressedPubKey);
     fn zkapp(&self) -> MyCow<ZkAppAccount>;
+    fn zkapp_mut(&mut self) -> &mut ZkAppAccount;
     fn verification_key_hash(&self) -> Fp;
     fn set_token_id(&mut self, token_id: TokenId);
     fn is_timed(&self) -> Self::Bool;
@@ -529,7 +530,8 @@ where
 ///   and would result in a slower application
 ///
 /// Note that in `zkapp_logic::apply`, we don't always use that interface, we
-/// use it mostly when 1 of the branch is expensive
+/// use it mostly when 1 of the branch is expensive, or when `on_if` is a
+/// specialized implementation (such as `StackFrameInterface::on_if`)
 pub trait BranchInterface {
     type W: WitnessGenerator<Fp>;
 

@@ -301,7 +301,7 @@ impl SignedAmountInterface for CheckedSigned<Fp, CheckedAmount<Fp>> {
     fn of_unsigned(unsigned: Self::Amount) -> Self {
         Self::of_unsigned(unsigned)
     }
-    fn exists_on_if<'a>(
+    fn on_if<'a>(
         b: Self::Bool,
         param: SignedAmountBranchParam<&'a Self>,
         w: &mut Self::W,
@@ -995,6 +995,10 @@ impl AccountInterface for SnarkAccount {
             None => MyCow::Own(ZkAppAccount::default()),
         }
     }
+    fn zkapp_mut(&mut self) -> &mut ZkAppAccount {
+        // `unwrap`: `make_zkapp` is supposed to be called before `zkapp_mut`
+        self.data.zkapp.as_mut().unwrap()
+    }
     fn verification_key_hash(&self) -> Fp {
         // TODO: We shouldn't compute the hash here
         let zkapp = self.zkapp();
@@ -1137,7 +1141,6 @@ impl LedgerInterface for LedgerWithHash {
         (account, incl): &(Self::Account, Self::InclusionProof),
         w: &mut Self::W,
     ) {
-        let Self { ledger, hash: root } = self;
         implied_root(account, incl, w);
     }
     fn check_account(

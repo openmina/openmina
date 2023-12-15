@@ -90,7 +90,7 @@ impl SignedAmountInterface for Signed<Amount> {
     fn of_unsigned(unsigned: Self::Amount) -> Self {
         todo!()
     }
-    fn exists_on_if<'a>(
+    fn on_if<'a>(
         b: Self::Bool,
         param: SignedAmountBranchParam<&'a Self>,
         w: &mut Self::W,

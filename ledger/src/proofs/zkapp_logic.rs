@@ -55,7 +55,7 @@ fn assert_<Z: ZkappApplication>(_b: Z::Bool) -> Result<(), String> {
     Ok(())
 }
 
-fn stack_frame_default<Z: ZkappApplication>(w: &mut Z::WitnessGenerator) -> Z::StackFrame {
+fn stack_frame_default<Z: ZkappApplication>() -> Z::StackFrame {
     Z::StackFrame::make_default(StackFrameMakeParams {
         caller: TokenId::default(),
         caller_caller: TokenId::default(),
@@ -70,23 +70,23 @@ fn pop_call_stack<Z: ZkappApplication>(
     let res = s.pop(w);
     let (next_frame, next_call_stack) = res.unzip();
 
-    let right = w.exists_no_check(match next_call_stack.is_some {
+    let call_stack = w.exists_no_check(match next_call_stack.is_some {
         Boolean::True => next_call_stack.data,
         Boolean::False => Z::CallStack::empty(),
     });
 
-    let on_none = stack_frame_default::<Z>(w);
+    let on_false = Z::Branch::make(w, |_| stack_frame_default::<Z>());
 
-    let left = Z::StackFrame::on_if(
+    let stack_frame = Z::StackFrame::on_if(
         Z::Bool::of_boolean(next_frame.is_some),
         BranchParam {
             on_true: Z::Branch::make(w, |_| next_frame.data),
-            on_false: Z::Branch::make(w, |_| on_none),
+            on_false,
         },
         w,
     );
 
-    (left, right)
+    (stack_frame, call_stack)
 }
 
 // We don't use `AuthRequired::to_field_elements`, because in OCaml `Controller.if_`
@@ -159,12 +159,13 @@ fn get_next_account_update<Z: ZkappApplication>(
     let (current_forest, call_stack) = {
         let (next_forest, next_call_stack) = pop_call_stack::<Z>(&call_stack, w);
         let current_is_empty = current_forest.calls().is_empty(w);
-        let right = w.exists_no_check(match current_is_empty.as_boolean() {
+
+        // We decompose this way because of OCaml evaluation order
+        let call_stack = w.exists_no_check(match current_is_empty.as_boolean() {
             Boolean::True => next_call_stack,
             Boolean::False => call_stack,
         });
-
-        let left = Z::StackFrame::on_if(
+        let stack_frame = Z::StackFrame::on_if(
             current_is_empty,
             BranchParam {
                 on_true: Z::Branch::make(w, |_| next_forest),
@@ -172,7 +173,7 @@ fn get_next_account_update<Z: ZkappApplication>(
             },
             w,
         );
-        (left, right)
+        (stack_frame, call_stack)
     };
 
     let ((account_update, account_update_forest), remainder_of_current_forest) =
@@ -374,11 +375,11 @@ where
             match &is_start {
                 IsStart::Compute(start_data) => {
                     // We decompose this way because of OCaml evaluation order
-                    let right = w.exists_no_check(match is_start2.as_boolean() {
+                    let call_stack = w.exists_no_check(match is_start2.as_boolean() {
                         Boolean::True => Z::CallStack::empty(),
                         Boolean::False => local_state.call_stack.clone(),
                     });
-                    let left = {
+                    let stack_frame = {
                         let on_true = Z::Branch::make(w, |_| {
                             Z::StackFrame::make(StackFrameMakeParams {
                                 caller: TokenId::default(),
@@ -389,17 +390,17 @@ where
                         let on_false = Z::Branch::make(w, |_| local_state.stack_frame.clone());
                         Z::StackFrame::on_if(is_start2, BranchParam { on_true, on_false }, w)
                     };
-                    (left, right)
+                    (stack_frame, call_stack)
                 }
                 IsStart::Yes(start_data) => {
                     // We decompose this way because of OCaml evaluation order
-                    let right = Z::CallStack::empty();
-                    let left = Z::StackFrame::make(StackFrameMakeParams {
+                    let call_stack = Z::CallStack::empty();
+                    let stack_frame = Z::StackFrame::make(StackFrameMakeParams {
                         caller: TokenId::default(),
                         caller_caller: TokenId::default(),
                         calls: &start_data.account_updates,
                     });
-                    (left, right)
+                    (stack_frame, call_stack)
                 }
                 IsStart::No => (
                     local_state.stack_frame.clone(),
@@ -419,6 +420,7 @@ where
         let _local_state = {
             let default_token_or_token_owner_was_caller = {
                 let account_update_token_id = &account_update.body().token_id;
+                // We decompose this way because of OCaml evaluation order
                 let snd = Z::TokenId::equal(account_update_token_id, &caller_id, w);
                 let fst = Z::TokenId::equal(account_update_token_id, &TokenId::default(), w);
                 Z::Bool::or(fst, snd, w)
@@ -563,12 +565,12 @@ where
         proof_verifies,
         account_update.is_proved(),
         w,
-    ));
+    ))?;
     assert_::<Z>(Z::Bool::equal(
         signature_verifies,
         account_update.is_signed(),
         w,
-    ));
+    ))?;
 
     Z::LocalState::add_check(
         local_state,
@@ -647,7 +649,7 @@ where
             &timing.to_record().vesting_period,
             &SlotSpan::zero(),
             w,
-        ));
+        ))?;
         a.get_mut().timing = timing;
         ((), ())
     };
@@ -675,7 +677,7 @@ where
             Z::SignedAmount::add_flagged(&balance_change, &neg_creation_fee, w);
         let pay_creation_fee = Z::Bool::and(account_is_new, implicit_account_creation_fee, w);
         let creation_overflow = Z::Bool::and(pay_creation_fee, creation_overflow, w);
-        let balance_change = Z::SignedAmount::exists_on_if(
+        let balance_change = Z::SignedAmount::on_if(
             pay_creation_fee,
             SignedAmountBranchParam {
                 on_true: &balance_change_for_creation,
@@ -718,7 +720,7 @@ where
                 Z::Bool::and(pay_creation_fee_from_excess, excess_update_failed, w).neg(),
                 w,
             );
-            local_state.excess = Z::SignedAmount::exists_on_if(
+            local_state.excess = Z::SignedAmount::on_if(
                 pay_creation_fee_from_excess,
                 SignedAmountBranchParam {
                     on_true: &excess_minus_creation_fee,
@@ -742,7 +744,7 @@ where
                 Z::Bool::and(account_is_new, supply_increase_update_failed, w).neg(),
                 w,
             );
-            local_state.supply_increase = Z::SignedAmount::exists_on_if(
+            local_state.supply_increase = Z::SignedAmount::on_if(
                 account_is_new,
                 SignedAmountBranchParam {
                     on_true: &supply_increase_minus_creation_fee,
@@ -876,8 +878,7 @@ where
             .unwrap();
         app_state.reverse();
 
-        // `unwrap`: We called `make_zkapp` before
-        a.get_mut().zkapp.as_mut().unwrap().app_state = app_state;
+        a.zkapp_mut().app_state = app_state;
         ((), ())
     };
 
@@ -900,8 +901,7 @@ where
             Z::Bool::or(Z::SetOrKeep::is_keep(verification_key), has_permission, w),
             w,
         );
-        // `unwrap`: We called `make_zkapp` before
-        let zkapp = a.get().zkapp.as_ref().unwrap();
+        let zkapp = a.zkapp();
         w.exists_no_check(match verification_key {
             SetOrKeep::Set(key) => key.hash,
             SetOrKeep::Keep => {
@@ -914,8 +914,7 @@ where
             SetOrKeep::Set(vk) => Some(vk.data.clone()),
             SetOrKeep::Keep => zkapp.verification_key.clone(),
         };
-        // `unwrap`: We called `make_zkapp` before
-        a.get_mut().zkapp.as_mut().unwrap().verification_key = verification_key;
+        a.zkapp_mut().verification_key = verification_key;
         ((), ())
     };
 
@@ -923,7 +922,7 @@ where
     let (_a, _local_state) = {
         let actions = &account_update.body().actions;
         let last_action_slot = a.last_action_slot();
-        let action_state = &a.get().zkapp.as_ref().unwrap().action_state;
+        let action_state = &a.zkapp().action_state;
         let (action_state, last_action_slot) =
             update_action_state::<Z>(action_state, actions, txn_global_slot, last_action_slot, w);
         let is_empty = Z::Actions::is_empty(actions, w);
@@ -943,8 +942,7 @@ where
             Z::Bool::or(is_empty, has_permission, w),
             w,
         );
-        // `unwrap`: We called `make_zkapp` before
-        a.get_mut().zkapp.as_mut().unwrap().action_state = action_state;
+        a.zkapp_mut().action_state = action_state;
         Z::Account::set_last_action_slot(&mut a, last_action_slot);
         ((), ())
     };
@@ -973,8 +971,7 @@ where
             SetOrKeep::Set(zkapp_uri) => Some(zkapp_uri),
             SetOrKeep::Keep => Some(&zkapp.zkapp_uri),
         });
-        // `unwrap`: We called `make_zkapp` before
-        a.get_mut().zkapp.as_mut().unwrap().zkapp_uri = zkapp_uri.cloned().unwrap();
+        a.zkapp_mut().zkapp_uri = zkapp_uri.cloned().unwrap();
         ((), ())
     };
 
@@ -1038,11 +1035,7 @@ where
             SetOrKeep::Set(delegate) => delegate.clone(),
             SetOrKeep::Keep => base_delegate,
         });
-        a.get_mut().delegate = if delegate == CompressedPubKey::empty() {
-            None
-        } else {
-            Some(delegate)
-        };
+        a.set_delegate(delegate);
         ((), ())
     };
 
@@ -1106,7 +1099,8 @@ where
         let new_hash = {
             let old_hash = a.get().receipt_chain_hash.clone();
             let cond = Z::Bool::or(signature_verifies, proof_verifies, w);
-            let on_true = {
+            let on_false = Z::Branch::make(w, |_| old_hash.clone());
+            let on_true = Z::Branch::make(w, |w| {
                 let elt = local_state.full_transaction_commitment;
                 Z::ReceiptChainHash::cons_zkapp_command_commitment(
                     local_state.account_update_index.clone(),
@@ -1114,11 +1108,8 @@ where
                     old_hash.clone(),
                     w,
                 )
-            };
-            w.exists_no_check(match cond.as_boolean() {
-                Boolean::True => on_true,
-                Boolean::False => old_hash,
-            })
+            });
+            w.on_if(cond, BranchParam { on_true, on_false })
         };
         a.get_mut().receipt_chain_hash = new_hash;
     };
@@ -1163,13 +1154,13 @@ where
             Z::SignedAmount::is_non_neg(&local_delta),
             w,
         );
-        assert_::<Z>(Z::Bool::or(is_start2.neg(), first, w));
+        assert_::<Z>(Z::Bool::or(is_start2.neg(), first, w))?;
         let (new_local_fee_excess, overflow) =
             Z::SignedAmount::add_flagged(&local_state.excess, &local_delta, w);
         // We decompose this way because of OCaml evaluation order
-        let second = Z::Bool::and(account_update_token_is_default, overflow, w);
+        let overflowed = Z::Bool::and(account_update_token_is_default, overflow, w);
 
-        let excess = Z::SignedAmount::exists_on_if(
+        let excess = Z::SignedAmount::on_if(
             account_update_token_is_default,
             SignedAmountBranchParam {
                 on_true: &new_local_fee_excess,
@@ -1178,7 +1169,7 @@ where
             w,
         )
         .clone();
-        (excess, second)
+        (excess, overflowed)
     };
     local_state.excess = new_local_fee_excess;
     Z::LocalState::add_check(
@@ -1224,7 +1215,7 @@ where
         let amt = global_state.fee_excess();
         let (res, overflow) = Z::SignedAmount::add_flagged(&amt, &local_state.excess, w);
         let global_excess_update_failed = Z::Bool::and(update_global_state_fee_excess, overflow, w);
-        let new_amt = Z::SignedAmount::exists_on_if(
+        let new_amt = Z::SignedAmount::on_if(
             update_global_state_fee_excess,
             SignedAmountBranchParam {
                 on_true: &res,
@@ -1237,7 +1228,7 @@ where
     };
 
     let signed_zero = Z::SignedAmount::of_unsigned(Z::Amount::zero());
-    local_state.excess = Z::SignedAmount::exists_on_if(
+    local_state.excess = Z::SignedAmount::on_if(
         is_start_or_last,
         SignedAmountBranchParam {
             on_true: &signed_zero,
@@ -1295,7 +1286,7 @@ where
     let _global_state = {
         let is_successful_last_party = Z::Bool::and(is_last_account_update, local_state.success, w);
         let global_state_supply_increase = global_state.supply_increase();
-        let supply_increase = Z::SignedAmount::exists_on_if(
+        let supply_increase = Z::SignedAmount::on_if(
             is_successful_last_party,
             SignedAmountBranchParam {
                 on_true: &new_global_supply_increase,
@@ -1326,7 +1317,7 @@ where
         }
         .exists_no_check(w);
         let signed_zero = Z::SignedAmount::of_unsigned(Z::Amount::zero());
-        let supply_increase = Z::SignedAmount::exists_on_if(
+        let supply_increase = Z::SignedAmount::on_if(
             is_last_account_update,
             SignedAmountBranchParam {
                 on_true: &signed_zero,
