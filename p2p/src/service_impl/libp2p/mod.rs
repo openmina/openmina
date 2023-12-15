@@ -659,6 +659,19 @@ impl Libp2pService {
                     connection_id = connection_id,
                 );
             }
+            SwarmEvent::Dialing { peer_id, .. } => {
+                let peer_id = match peer_id {
+                    Some(v) => v,
+                    None => return,
+                };
+                if peer_id.as_ref().code() == 0x12 {
+                    // cannot report about the failure,
+                    // because our PeerId cannot represent this peer_id
+                    return;
+                }
+                let event = P2pEvent::Connection(P2pConnectionEvent::TryOutgoing(peer_id.into()));
+                let _ = swarm.behaviour_mut().event_source_sender.send(event.into());
+            }
             SwarmEvent::ConnectionEstablished { peer_id, .. } => {
                 openmina_core::log::info!(
                     openmina_core::log::system_time();
