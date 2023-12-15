@@ -1,4 +1,7 @@
-use std::{collections::HashMap, time::Duration};
+use std::{
+    collections::{BTreeMap, HashMap},
+    time::Duration,
+};
 
 use libp2p::Multiaddr;
 use node::{
@@ -8,7 +11,7 @@ use node::{
             P2pConnectionOutgoingInitLibp2pOpts, P2pConnectionOutgoingInitOpts,
         },
         webrtc::SignalingMethod,
-        P2pEvent,
+        P2pConnectionEvent, P2pEvent,
     },
 };
 
@@ -74,14 +77,44 @@ impl MultiNodeBasicConnectivityInitialJoining {
                 nodes.push(node);
             }
 
-            let steps = runner
-                .pending_events()
-                .map(|(node_id, _, events)| {
-                    events.map(move |(_, event)| {
+            let mut connection_events = BTreeMap::<_, BTreeMap<_, Vec<String>>>::default();
+
+            let mut steps = vec![];
+            for node_id in &nodes {
+                let node_id = *node_id;
+                let this_id = runner
+                    .node(node_id)
+                    .unwrap()
+                    .state()
+                    .p2p
+                    .config
+                    .identity_pub_key
+                    .peer_id();
+
+                let node_steps = runner
+                    .node_pending_events(node_id)
+                    .unwrap()
+                    .1
+                    .map(|(_, event)| {
                         match event {
                             Event::P2p(P2pEvent::Discovery(event)) => {
                                 eprintln!("event: {event}");
                             }
+                            Event::P2p(P2pEvent::Connection(P2pConnectionEvent::Finalized(
+                                peer_id,
+                                result,
+                            ))) => connection_events
+                                .entry(this_id)
+                                .or_default()
+                                .entry(*peer_id)
+                                .or_default()
+                                .push(
+                                    result
+                                        .as_ref()
+                                        .err()
+                                        .cloned()
+                                        .unwrap_or_else(|| "ok".to_owned()),
+                                ),
                             _ => {}
                         }
                         ScenarioStep::Event {
@@ -89,9 +122,10 @@ impl MultiNodeBasicConnectivityInitialJoining {
                             event: event.to_string(),
                         }
                     })
-                })
-                .flatten()
-                .collect::<Vec<_>>();
+                    .collect::<Vec<_>>();
+                steps.extend(node_steps);
+            }
+
             for step in steps {
                 runner.exec_step(step).await.unwrap();
             }
@@ -132,6 +166,14 @@ impl MultiNodeBasicConnectivityInitialJoining {
             }
 
             if conditions_met {
+                for (this_id, events) in &connection_events {
+                    for (peer_id, results) in events {
+                        for result in results {
+                            eprintln!("{this_id} <-> {peer_id}: {result}");
+                        }
+                    }
+                }
+
                 let mut total_connections_known = 0;
                 let mut total_connections_ready = 0;
                 for &node_id in &nodes {
@@ -168,27 +210,20 @@ impl MultiNodeBasicConnectivityInitialJoining {
                         eprintln!("{id}: {}", serde_json::to_string(cn).unwrap());
                     }
                     // dbg
-                    for (id, msg) in debugger.messages(0, "stream_kind=/noise") {
-                        eprintln!("{id}: {}", serde_json::to_string(&msg).unwrap());
-                    }
+                    // for (id, msg) in debugger.messages(0, "stream_kind=/noise") {
+                    //     eprintln!("{id}: {}", serde_json::to_string(&msg).unwrap());
+                    // }
 
                     // TODO: fix debugger returns timeout
-                    let connections = debugger
-                        .connections()
-                        .filter_map(|id| Some((id, connections.get(&id)?.clone())))
-                        .collect::<HashMap<_, _>>();
+                    // let connections = debugger
+                    //     .connections()
+                    //     .filter_map(|id| Some((id, connections.get(&id)?.clone())))
+                    //     .collect::<HashMap<_, _>>();
                     let incoming = connections.iter().filter(|(_, c)| c.incoming).count();
                     let outgoing = connections.len() - incoming;
                     eprintln!(
                         "debugger seen {incoming} incoming connections and {outgoing} outgoing connections",
                     );
-
-                    for (id, c) in connections {
-                        eprintln!(
-                            "id: {id}, pid: {}, fd: {}, addr: {}, incoming: {}",
-                            c.info.pid, c.info.fd, c.info.addr, c.incoming
-                        );
-                    }
 
                     eprintln!("total_connections_known: {total_connections_known}");
                     assert_eq!(
