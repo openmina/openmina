@@ -26,11 +26,11 @@ spec:
       labels:
         app: debugger
     spec:
-      runtimeClassName: kata-qemu
+      runtimeClassName: kata-clh
       containers:
         - name: bpf-debugger
           imagePullPolicy: Always
-          image: openmina/mina-network-debugger:31f2ca11
+          image: openmina/mina-network-debugger:21d5bc52
           securityContext:
             privileged: true
           command: ["sh", "-ce", "bpf-recorder"]
@@ -48,6 +48,11 @@ spec:
               name: sys-kernel-debug
             - mountPath: /proc
               name: proc
+          resources:
+            requests:
+              memory: 16G
+            limits:
+              memory: 32G
         - name: openmina
           image: debian:buster
           command: ["sh", "-c"]
@@ -58,7 +63,7 @@ spec:
               PATH=$PATH:~/.cargo/bin && rustup update nightly-2023-10-01
               git clone https://github.com/openmina/openmina
               cd openmina
-              git fetch && git checkout develop
+              git fetch && git checkout feat/tests-with-debugger
               PATH=$PATH:~/.cargo/bin && cargo +nightly-2023-10-01 build --release --bin openmina 
               cp target/release/openmina /usr/local/bin/openmina
               openmina node -p 10000 --libp2p-port 8302
@@ -71,7 +76,7 @@ spec:
               protocol: TCP
           env:
             - name: BPF_ALIAS
-              value: "3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e-0.0.0.0"
+              value: "/coda/0.0.1/3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e-0.0.0.0"
           resources:
             requests:
               memory: 16G
