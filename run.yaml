@@ -30,7 +30,7 @@ spec:
       containers:
         - name: bpf-debugger
           imagePullPolicy: Always
-          image: openmina/mina-network-debugger:21d5bc52
+          image: openmina/mina-network-debugger:bc481a39
           securityContext:
             privileged: true
           command: ["sh", "-ce", "bpf-recorder"]
