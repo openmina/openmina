@@ -42,9 +42,9 @@ fn main() {
         println!("test failed, log:");
         let mut log = File::open("test.log").expect("failed to open test log file");
         io::copy(&mut log, &mut io::stdout()).expect("failed to print test log");
-        println!("debugger log:");
-        let mut log = File::open("debugger.log").expect("failed to open test debugger file");
-        io::copy(&mut log, &mut io::stdout()).expect("failed to print debugger log");
+        // println!("debugger log:");
+        // let mut log = File::open("debugger.log").expect("failed to open test debugger file");
+        // io::copy(&mut log, &mut io::stdout()).expect("failed to print debugger log");
         process::exit(test_status.code().unwrap_or(-1));
     }
 }
