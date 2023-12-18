@@ -17,9 +17,7 @@ pub struct P2pServiceCtx {
 }
 
 pub trait P2pServiceWebrtcWithLibp2p: P2pServiceWebrtc {
-    fn libp2p(&self) -> &Libp2pService;
-
-    fn libp2p_mut(&mut self) -> &mut Libp2pService;
+    fn libp2p(&mut self) -> &mut Libp2pService;
 
     fn init<S: TaskSpawner>(
         libp2p_port: Option<u16>,
@@ -60,7 +58,7 @@ impl<T: P2pServiceWebrtcWithLibp2p> P2pConnectionService for T {
             }
             P2pConnectionOutgoingInitOpts::LibP2P(opts) => {
                 let cmd = super::libp2p::Cmd::Dial(opts.peer_id.into(), vec![opts.to_maddr()]);
-                let _ = self.libp2p_mut().cmd_sender().send(cmd);
+                let _ = self.libp2p().cmd_sender().send(cmd);
             }
         }
     }
@@ -94,7 +92,7 @@ impl<T: P2pServiceWebrtcWithLibp2p> P2pDisconnectionService for T {
         if is_libp2p_peer {
             use super::libp2p::Cmd;
             let _ = self
-                .libp2p_mut()
+                .libp2p()
                 .cmd_sender()
                 .send(Cmd::Disconnect(peer_id.into()));
         }
@@ -124,7 +122,7 @@ impl<T: P2pServiceWebrtcWithLibp2p> P2pChannelsService for T {
         } else {
             use super::libp2p::Cmd;
             let _ = self
-                .libp2p_mut()
+                .libp2p()
                 .cmd_sender()
                 .send(Cmd::SendMessage(peer_id.into(), msg));
         }
@@ -133,7 +131,7 @@ impl<T: P2pServiceWebrtcWithLibp2p> P2pChannelsService for T {
     fn libp2p_broadcast_snark(&mut self, snark: Snark, nonce: u32) {
         use super::libp2p::Cmd;
         let _ = self
-            .libp2p_mut()
+            .libp2p()
             .cmd_sender()
             .send(Cmd::SnarkBroadcast(snark, nonce));
     }

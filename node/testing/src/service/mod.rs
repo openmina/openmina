@@ -169,11 +169,7 @@ impl P2pServiceWebrtc for NodeTestingService {
 }
 
 impl P2pServiceWebrtcWithLibp2p for NodeTestingService {
-    fn libp2p(&self) -> &Libp2pService {
-        &self.real.libp2p
-    }
-
-    fn libp2p_mut(&mut self) -> &mut Libp2pService {
+    fn libp2p(&mut self) -> &mut Libp2pService {
         &mut self.real.libp2p
     }
 
