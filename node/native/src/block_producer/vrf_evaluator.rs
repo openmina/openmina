@@ -1,12 +1,16 @@
 use mina_signer::Keypair;
-use node::{event_source::Event, block_producer::BlockProducerEvent};
-use openmina_core::channels::mpsc::{UnboundedSender, UnboundedReceiver};
-use vrf::{VrfEvaluationInput, VrfEvaluatorInput, VrfEvaluationOutput};
+use node::{block_producer::BlockProducerEvent, event_source::Event};
+use openmina_core::channels::mpsc::{UnboundedReceiver, UnboundedSender};
+use vrf::{VrfEvaluationInput, VrfEvaluationOutput, VrfEvaluatorInput};
 
 use crate::NodeService;
 use node::block_producer::BlockProducerVrfEvaluatorEvent;
 
-pub fn vrf_evaluator(event_sender: UnboundedSender<Event>, mut vrf_evaluation_receiver: UnboundedReceiver<VrfEvaluatorInput>, keypair: Keypair) {
+pub fn vrf_evaluator(
+    event_sender: UnboundedSender<Event>,
+    mut vrf_evaluation_receiver: UnboundedReceiver<VrfEvaluatorInput>,
+    keypair: Keypair,
+) {
     while let Some(vrf_evaluator_input) = vrf_evaluation_receiver.blocking_recv() {
         // TODO(adonagy): check correctness of epoch bound calculations
         // const SLOT_PER_EPOCH: u32 = 7140;
@@ -36,7 +40,10 @@ pub fn vrf_evaluator(event_sender: UnboundedSender<Event>, mut vrf_evaluation_re
             }
         }
         // send the result back to the state machine
-        let _ = event_sender.send(BlockProducerEvent::VrfEvaluator(BlockProducerVrfEvaluatorEvent::Evaluated(vrf_result)).into());
+        let _ = event_sender.send(
+            BlockProducerEvent::VrfEvaluator(BlockProducerVrfEvaluatorEvent::Evaluated(vrf_result))
+                .into(),
+        );
     }
 }
 

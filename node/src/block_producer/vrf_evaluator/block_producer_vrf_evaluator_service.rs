@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
-use mina_p2p_messages::v2::LedgerHash;
 use ledger::AccountIndex;
+use mina_p2p_messages::v2::LedgerHash;
 use vrf::VrfEvaluatorInput;
 
 pub trait BlockProducerVrfEvaluatorService: redux::Service {
@@ -9,5 +9,9 @@ pub trait BlockProducerVrfEvaluatorService: redux::Service {
 }
 
 pub trait BlockProducerVrfEvaluatorLedgerService: redux::Service {
-    fn get_producer_and_delegates(&mut self, ledger_hash: LedgerHash, producer: String) -> BTreeMap<AccountIndex, (String, u64)>;
+    fn get_producer_and_delegates(
+        &mut self,
+        ledger_hash: LedgerHash,
+        producer: String,
+    ) -> BTreeMap<AccountIndex, (String, u64)>;
 }

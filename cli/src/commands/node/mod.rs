@@ -5,7 +5,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use mina_p2p_messages::v2::{
-    CurrencyFeeStableV1, UnsignedExtendedUInt64Int64ForVersionTagsStableV1, NonZeroCurvePoint, NonZeroCurvePointUncompressedStableV1,
+    CurrencyFeeStableV1, NonZeroCurvePoint, NonZeroCurvePointUncompressedStableV1,
+    UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
 };
 use rand::prelude::*;
 
@@ -28,8 +29,8 @@ use node::service::{Recorder, Service};
 use node::snark::{get_srs, get_verifier_index, VerifierKind};
 use node::stats::Stats;
 use node::{
-    BuildEnv, Config, GlobalConfig, LedgerConfig, SnarkConfig, SnarkerConfig, SnarkerStrategy,
-    State, TransitionFrontierConfig, BlockProducerConfig,
+    BlockProducerConfig, BuildEnv, Config, GlobalConfig, LedgerConfig, SnarkConfig, SnarkerConfig,
+    SnarkerStrategy, State, TransitionFrontierConfig,
 };
 use vrf::keypair_from_bs58_string;
 
@@ -137,17 +138,20 @@ impl Node {
         });
         let pub_key = secret_key.public_key();
 
-        let block_producer: Option<BlockProducerConfig> = self.producer_key.clone().map(|producer_key| {
-            let compressed_pub_key = keypair_from_bs58_string(&producer_key).public.into_compressed();
-            BlockProducerConfig {
-                pub_key: NonZeroCurvePoint::from(NonZeroCurvePointUncompressedStableV1 {
-                    x: compressed_pub_key.x.into(),
-                    is_odd: compressed_pub_key.is_odd,
-                }),
-                custom_coinbase_receiver: None,
-                proposed_protocol_version: None,
-            }
-        });
+        let block_producer: Option<BlockProducerConfig> =
+            self.producer_key.clone().map(|producer_key| {
+                let compressed_pub_key = keypair_from_bs58_string(&producer_key)
+                    .public
+                    .into_compressed();
+                BlockProducerConfig {
+                    pub_key: NonZeroCurvePoint::from(NonZeroCurvePointUncompressedStableV1 {
+                        x: compressed_pub_key.x.into(),
+                        is_odd: compressed_pub_key.is_odd,
+                    }),
+                    custom_coinbase_receiver: None,
+                    proposed_protocol_version: None,
+                }
+            });
 
         let work_dir = shellexpand::full(&self.work_dir).unwrap().into_owned();
         let rng_seed = rng.next_u64();

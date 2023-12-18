@@ -31,8 +31,7 @@ impl Hashable for VrfMessage {
     type D = ();
 
     fn to_roinput(&self) -> ROInput {
-        let mut roi = ROInput::new()
-            .append_field(self.epoch_seed);
+        let mut roi = ROInput::new().append_field(self.epoch_seed);
 
         for i in (0..LEDGER_DEPTH).rev() {
             roi = if self.delegator_index >> i & 1u64 == 1 {
