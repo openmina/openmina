@@ -103,10 +103,6 @@ impl NodeTestingService {
     pub fn take_pending_event(&mut self, id: PendingEventId) -> Option<Event> {
         self.pending_events.remove(id)
     }
-
-    pub fn stop_libp2p(&mut self) {
-        self.real.libp2p = None;
-    }
 }
 
 impl redux::Service for NodeTestingService {}
@@ -174,11 +170,11 @@ impl P2pServiceWebrtc for NodeTestingService {
 
 impl P2pServiceWebrtcWithLibp2p for NodeTestingService {
     fn libp2p(&self) -> &Libp2pService {
-        self.real.libp2p()
+        &self.real.libp2p
     }
 
     fn libp2p_mut(&mut self) -> &mut Libp2pService {
-        self.real.libp2p_mut()
+        &mut self.real.libp2p
     }
 
     fn find_random_peer(&mut self) {

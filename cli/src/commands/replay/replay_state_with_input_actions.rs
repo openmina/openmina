@@ -59,7 +59,7 @@ impl ReplayStateWithInputActions {
             cmd_sender: mpsc::unbounded_channel().0,
             ledger: Default::default(),
             peers: Default::default(),
-            libp2p: Some(Libp2pService::mocked().0),
+            libp2p: Libp2pService::mocked().0,
             rpc: RpcService::new(),
             snark_worker_sender: None,
             stats: Default::default(),

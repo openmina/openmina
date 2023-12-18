@@ -177,11 +177,7 @@ impl MultiNodeBasicConnectivityInitialJoining {
                 let mut total_connections_known = 0;
                 let mut total_connections_ready = 0;
                 for &node_id in &nodes {
-                    let node = runner
-                        .cluster_mut()
-                        .node_mut(node_id)
-                        .expect("node must exist");
-                    node.stop_libp2p();
+                    let node = runner.cluster_mut().node(node_id).expect("node must exist");
 
                     let p2p = &node.state().p2p;
                     let ready_peers = p2p.ready_peers_iter().count();
@@ -203,32 +199,37 @@ impl MultiNodeBasicConnectivityInitialJoining {
                 if let Some(debugger) = runner.cluster().debugger() {
                     tokio::time::sleep(Duration::from_secs(10)).await;
 
-                    let connections = debugger.connections_raw(0).collect::<HashMap<_, _>>();
+                    let connections = debugger
+                        .connections_raw(0)
+                        .map(|(id, c)| (id, (c.info.addr, c.info.fd, c.info.pid, c.incoming)))
+                        .collect::<HashMap<_, _>>();
 
                     // dbg
                     for (id, cn) in &connections {
                         eprintln!("{id}: {}", serde_json::to_string(cn).unwrap());
                     }
                     // dbg
-                    // for (id, msg) in debugger.messages(0, "stream_kind=/noise") {
-                    //     eprintln!("{id}: {}", serde_json::to_string(&msg).unwrap());
-                    // }
-
+                    for (id, msg) in debugger.messages(0, "") {
+                        eprintln!("{id}: {}", serde_json::to_string(&msg).unwrap());
+                    }
                     // TODO: fix debugger returns timeout
-                    // let connections = debugger
-                    //     .connections()
-                    //     .filter_map(|id| Some((id, connections.get(&id)?.clone())))
-                    //     .collect::<HashMap<_, _>>();
-                    let incoming = connections.iter().filter(|(_, c)| c.incoming).count();
+                    let connections = debugger
+                        .connections()
+                        .filter_map(|id| Some((id, connections.get(&id)?.clone())))
+                        .collect::<HashMap<_, _>>();
+                    let incoming = connections.iter().filter(|(_, (_, _, _, i))| *i).count();
                     let outgoing = connections.len() - incoming;
                     eprintln!(
                         "debugger seen {incoming} incoming connections and {outgoing} outgoing connections",
                     );
-
-                    eprintln!("total_connections_known: {total_connections_known}");
+                    let state_machine_peers = if cfg!(feature = "p2p-webrtc") {
+                        total_connections_ready
+                    } else {
+                        total_connections_ready.max(total_connections_known)
+                    };
                     assert_eq!(
                         incoming + outgoing,
-                        total_connections_ready,
+                        state_machine_peers,
                         "debugger must see the same number of connections as the state machine"
                     );
                 } else {
