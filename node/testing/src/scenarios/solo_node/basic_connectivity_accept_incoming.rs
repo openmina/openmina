@@ -24,8 +24,8 @@ impl SoloNodeBasicConnectivityAcceptIncoming {
     pub async fn run(self, mut runner: ClusterRunner<'_>) {
         const MAX_PEERS_PER_NODE: usize = 100;
         const KNOWN_PEERS: usize = 7; // current berkeley network
-        const STEPS: usize = 4_000;
-        const STEP_DELAY: Duration = Duration::from_millis(400);
+        const STEPS: usize = 6_000;
+        const STEP_DELAY: Duration = Duration::from_millis(200);
 
         let seeds = [
             "/dns4/seed-1.berkeley.o1test.net/tcp/10000/p2p/12D3KooWAdgYL6hv18M3iDBdaK1dRygPivSfAfBNDzie6YqydVbs",
@@ -109,13 +109,19 @@ impl SoloNodeBasicConnectivityAcceptIncoming {
             println!("connected peers: {ready_peers}");
 
             // TODO: the threshold is too small, node cannot connect to many peer before the timeout
-            if ready_peers >= KNOWN_PEERS && known_peers >= KNOWN_PEERS {
+            if ready_peers >= KNOWN_PEERS && known_peers >= KNOWN_PEERS || step >= 1000 {
                 eprintln!("step: {step}");
                 eprintln!("known peers: {known_peers}");
                 eprintln!("connected peers: {ready_peers}");
 
                 let ocaml_node = ocaml_node.get_or_insert_with(|| {
-                    let n = ocaml::Node::spawn_with_temp_dir(8302, 3085, 8301, [this_maddr.to_string()]).expect("ocaml node");
+                    let n = ocaml::Node::spawn_with_temp_dir(
+                        8302,
+                        3085,
+                        8301,
+                        [this_maddr.to_string()],
+                    )
+                    .expect("ocaml node");
                     eprintln!("launching OCaml node: {}", n.peer_id());
                     n
                 });
