@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use mina_p2p_messages::v2::{MinaStateProtocolStateValueStableV2, StateHash};
+use mina_p2p_messages::v2::{LedgerHash, MinaStateProtocolStateValueStableV2, StateHash};
 use openmina_core::block::ArcBlockWithHash;
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
@@ -47,11 +47,20 @@ pub enum TransitionFrontierSyncState {
     BlocksPending {
         time: Timestamp,
         chain: Vec<TransitionFrontierSyncBlockState>,
+        /// Snarked ledger updates/transitions that happened while we
+        /// were synchronizing blocks. If those updates do happen, we
+        /// need to create those snarked ledgers from the closest snarked
+        /// ledger that we have in the service already synchronized.
+        ///
+        /// Contains a map where the `key` is the new snarked ledger and
+        /// the `value` is more info required to construct that ledger.
+        root_snarked_ledger_updates: TransitionFrontierRootSnarkedLedgerUpdates,
         needed_protocol_states: BTreeMap<StateHash, MinaStateProtocolStateValueStableV2>,
     },
     BlocksSuccess {
         time: Timestamp,
         chain: Vec<ArcBlockWithHash>,
+        root_snarked_ledger_updates: TransitionFrontierRootSnarkedLedgerUpdates,
         needed_protocol_states: BTreeMap<StateHash, MinaStateProtocolStateValueStableV2>,
     },
     Synced {
@@ -66,6 +75,21 @@ pub struct TransitionFrontierSyncLedgerPending {
     pub root_block: ArcBlockWithHash,
     pub blocks_inbetween: Vec<StateHash>,
     pub ledger: TransitionFrontierSyncLedgerState,
+}
+
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+pub struct TransitionFrontierRootSnarkedLedgerUpdates(
+    BTreeMap<LedgerHash, TransitionFrontierRootSnarkedLedgerUpdate>,
+);
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct TransitionFrontierRootSnarkedLedgerUpdate {
+    pub parent: LedgerHash,
+    /// Staged ledger hash of the applied block, that had the same snarked
+    /// ledger as the target. From that staged ledger we can fetch
+    /// transactions that we need to apply on top of `parent` in order
+    /// to construct target snarked ledger.
+    pub staged_ledger_hash: LedgerHash,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -406,5 +430,65 @@ impl PeerRpcState {
             Self::Success { block, .. } => Some(block),
             _ => None,
         }
+    }
+}
+
+impl TransitionFrontierRootSnarkedLedgerUpdates {
+    pub fn get(
+        &self,
+        ledger_hash: &LedgerHash,
+    ) -> Option<&TransitionFrontierRootSnarkedLedgerUpdate> {
+        self.0.get(ledger_hash)
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    /// Caller must make sure `new_root` is part of `old_chain`.
+    pub fn extend_with_needed<'a>(
+        &mut self,
+        new_root: &ArcBlockWithHash,
+        old_chain: impl 'a + IntoIterator<Item = &'a ArcBlockWithHash>,
+    ) {
+        let mut old_chain = old_chain.into_iter().peekable();
+        let Some(old_root) = old_chain.peek() else {
+            return;
+        };
+
+        let Some(diff_len) = new_root.height().checked_sub(old_root.height()) else {
+            return;
+        };
+
+        if new_root.snarked_ledger_hash() == old_root.snarked_ledger_hash() {
+            return;
+        }
+
+        self.0.extend(
+            old_chain
+                .take(diff_len as usize)
+                .collect::<Vec<_>>()
+                .into_iter()
+                .rev()
+                .scan(new_root, |last_block, b| {
+                    if last_block.snarked_ledger_hash() == b.snarked_ledger_hash() {
+                        *last_block = b;
+                        return Some(None);
+                    }
+                    let last_block = std::mem::replace(last_block, b);
+                    let update = TransitionFrontierRootSnarkedLedgerUpdate {
+                        parent: b.snarked_ledger_hash().clone(),
+                        staged_ledger_hash: last_block.staged_ledger_hash().clone(),
+                    };
+                    let snarked_ledger_hash = last_block.snarked_ledger_hash().clone();
+
+                    Some(Some((snarked_ledger_hash, update)))
+                })
+                .filter_map(|v| v),
+        );
     }
 }

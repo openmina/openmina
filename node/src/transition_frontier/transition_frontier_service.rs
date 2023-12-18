@@ -12,6 +12,8 @@ use openmina_core::block::ArcBlockWithHash;
 
 use crate::p2p::channels::rpc::StagedLedgerAuxAndPendingCoinbases;
 
+use super::sync::TransitionFrontierRootSnarkedLedgerUpdates;
+
 #[derive(Default)]
 pub struct CommitResult {
     pub available_jobs: Vec<OneOrTwo<AvailableJobMessage>>,
@@ -24,15 +26,11 @@ pub trait TransitionFrontierService: redux::Service {
         block: ArcBlockWithHash,
         pred_block: ArcBlockWithHash,
     ) -> Result<(), String>;
-    fn push_snarked_ledger(
-        &mut self,
-        protocol_states: &BTreeMap<StateHash, MinaStateProtocolStateValueStableV2>,
-        old_root: &ArcBlockWithHash,
-        new_root: &ArcBlockWithHash,
-    ) -> Result<(), String>;
     fn commit(
         &mut self,
         ledgers_to_keep: BTreeSet<LedgerHash>,
+        root_snarked_ledger_updates: TransitionFrontierRootSnarkedLedgerUpdates,
+        needed_protocol_states: BTreeMap<StateHash, MinaStateProtocolStateValueStableV2>,
         new_root: &ArcBlockWithHash,
         new_best_tip: &ArcBlockWithHash,
     ) -> CommitResult;

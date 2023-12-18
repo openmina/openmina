@@ -10,9 +10,9 @@ use super::{
         snarked::TransitionFrontierSyncLedgerSnarkedState, SyncLedgerTarget, SyncLedgerTargetKind,
         TransitionFrontierSyncLedgerState,
     },
-    PeerRpcState, TransitionFrontierSyncAction, TransitionFrontierSyncActionWithMetaRef,
-    TransitionFrontierSyncBlockState, TransitionFrontierSyncLedgerPending,
-    TransitionFrontierSyncState,
+    PeerRpcState, TransitionFrontierSyncAction,
+    TransitionFrontierSyncActionWithMetaRef, TransitionFrontierSyncBlockState,
+    TransitionFrontierSyncLedgerPending, TransitionFrontierSyncState,
 };
 
 impl TransitionFrontierSyncState {
@@ -101,6 +101,7 @@ impl TransitionFrontierSyncState {
                 }
                 Self::BlocksPending {
                     chain,
+                    root_snarked_ledger_updates,
                     needed_protocol_states,
                     ..
                 } => {
@@ -116,10 +117,17 @@ impl TransitionFrontierSyncState {
                     let old_chain_has_new_root_applied = old_chain
                         .iter()
                         .find(|b| b.block_hash() == &new_root.hash)
-                        .map_or(false, |b| b.is_apply_pending() || b.is_apply_success());
+                        .map_or(false, |b| b.is_apply_success());
 
                     if applied_blocks.contains_key(&new_root.hash) || old_chain_has_new_root_applied
                     {
+                        if old_chain_has_new_root_applied {
+                            root_snarked_ledger_updates.extend_with_needed(
+                                new_root,
+                                old_chain.iter().filter_map(|s| s.block()),
+                            );
+                        }
+
                         let mut old_block_states: BTreeMap<_, _> = old_chain
                             .into_iter()
                             .map(|b| (b.block_hash().clone(), b))
@@ -153,11 +161,12 @@ impl TransitionFrontierSyncState {
                             })
                         };
 
-                        push_block(&a.root_block.hash, Some(&a.root_block));
+                        push_block(new_root.hash(), Some(new_root));
                         for hash in &a.blocks_inbetween {
                             push_block(hash, None);
                         }
-                        push_block(&new_best_tip.hash, Some(new_best_tip));
+                        push_block(new_best_tip.hash(), Some(new_best_tip));
+
                         needed_protocol_states.extend(old_block_states.into_iter().filter_map(
                             |(hash, s)| {
                                 Some((hash, s.take_block()?.block.header.protocol_state.clone()))
@@ -212,6 +221,7 @@ impl TransitionFrontierSyncState {
                         *self = Self::BlocksPending {
                             time: meta.time(),
                             chain,
+                            root_snarked_ledger_updates: Default::default(),
                             needed_protocol_states: Default::default(),
                         };
                     } else {
@@ -411,6 +421,7 @@ impl TransitionFrontierSyncState {
                 *self = Self::BlocksPending {
                     time: meta.time(),
                     chain,
+                    root_snarked_ledger_updates: Default::default(),
                     needed_protocol_states: std::mem::take(needed_protocol_states),
                 };
             }
@@ -515,6 +526,7 @@ impl TransitionFrontierSyncState {
             TransitionFrontierSyncAction::BlocksSuccess(_) => {
                 let Self::BlocksPending {
                     chain,
+                    root_snarked_ledger_updates,
                     needed_protocol_states,
                     ..
                 } = self
@@ -532,6 +544,7 @@ impl TransitionFrontierSyncState {
                 *self = Self::BlocksSuccess {
                     time: meta.time(),
                     chain,
+                    root_snarked_ledger_updates: std::mem::take(root_snarked_ledger_updates),
                     needed_protocol_states: std::mem::take(needed_protocol_states),
                 };
             }
