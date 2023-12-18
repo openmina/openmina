@@ -25,7 +25,6 @@ pub enum P2pConnectionEvent {
     AnswerSdpReady(PeerId, Result<String, String>),
     AnswerReceived(PeerId, P2pConnectionResponse),
     Finalized(PeerId, Result<(), String>),
-    TryOutgoing(PeerId),
     Closed(PeerId),
 }
 
@@ -90,7 +89,6 @@ impl fmt::Display for P2pConnectionEvent {
                 }
             },
             Self::Finalized(peer_id, res) => write!(f, "Finalized, {peer_id}, {}", res_kind(res)),
-            Self::TryOutgoing(peer_id) => write!(f, "TryOutgoing, {peer_id}"),
             Self::Closed(peer_id) => write!(f, "Closed, {peer_id}"),
         }
     }

@@ -115,14 +115,6 @@ impl MultiNodeBasicConnectivityInitialJoining {
                                         .cloned()
                                         .unwrap_or_else(|| "ok".to_owned()),
                                 ),
-                            Event::P2p(P2pEvent::Connection(P2pConnectionEvent::TryOutgoing(
-                                peer_id,
-                            ))) => connection_events
-                                .entry(this_id)
-                                .or_default()
-                                .entry(*peer_id)
-                                .or_default()
-                                .push("try".to_owned()),
                             _ => {}
                         }
                         ScenarioStep::Event {
