@@ -1,6 +1,5 @@
 use redux::{ActionMeta, Timestamp};
 use serde::{Deserialize, Serialize};
-use vrf::keypair_from_bs58_string;
 
 pub use crate::block_producer::BlockProducerState;
 use crate::config::GlobalConfig;

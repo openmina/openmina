@@ -6,7 +6,7 @@ use std::{
 
 use ledger::{
     scan_state::{
-        currency::{Amount, Fee, Slot, Balance},
+        currency::{Amount, Fee, Slot},
         scan_state::{
             AvailableJobMessage, ConstraintConstants, JobValueBase, JobValueMerge,
             JobValueWithIndex, Pass,
@@ -37,17 +37,19 @@ use mina_p2p_messages::v2::{
 };
 use openmina_core::snark::{Snark, SnarkJobId};
 
-use mina_signer::{CompressedPubKey, Keypair, PubKey};
+use mina_signer::{CompressedPubKey, PubKey};
 use openmina_core::block::ArcBlockWithHash;
 
-use crate::{transition_frontier::sync::ledger::staged::StagedLedgerAuxAndPendingCoinbasesValid, block_producer::vrf_evaluator::BlockProducerVrfEvaluatorLedgerService};
+use crate::block_producer::vrf_evaluator::BlockProducerVrfEvaluatorLedgerService;
+use crate::block_producer::{
+    BlockProducerService, BlockProducerWonSlot, StagedLedgerDiffCreateOutput,
+};
 use crate::transition_frontier::sync::ledger::staged::TransitionFrontierSyncLedgerStagedService;
 use crate::transition_frontier::sync::{
     ledger::staged::StagedLedgerAuxAndPendingCoinbasesValid,
     TransitionFrontierRootSnarkedLedgerUpdates,
 };
 use crate::transition_frontier::TransitionFrontierService;
-use crate::block_producer::{BlockProducerService, BlockProducerWonSlot, StagedLedgerDiffCreateOutput};
 use crate::{
     p2p::channels::rpc::StagedLedgerAuxAndPendingCoinbases, transition_frontier::CommitResult,
 };
@@ -910,32 +912,42 @@ impl<T: LedgerService> RpcLedgerService for T {
 }
 
 impl<T: LedgerService> BlockProducerVrfEvaluatorLedgerService for T {
-    fn get_producer_and_delegates(&mut self, ledger_hash: LedgerHash, producer: String) -> BTreeMap<ledger::AccountIndex, (String, u64)> {
-        // TODO(adonagy): use StagedLedger? + unwraps
-        // let (mask, _) = self.ctx().mask(&ledger_hash).unwrap();
-        // TODO(adonagy): using an arbitrary ledger here for now, use the ledger hash when the epoch ledgers are available
-        let mask = self.ctx().snarked_ledgers.values().next().unwrap().clone();
+    fn get_producer_and_delegates(
+        &mut self,
+        ledger_hash: LedgerHash,
+        producer: String,
+    ) -> BTreeMap<ledger::AccountIndex, (String, u64)> {
+        // TODO(adonagy): unwraps
+        let (mask, _) = self.ctx().mask(&ledger_hash).unwrap();
         let account_list = mask.to_list();
         let producer_pub_key = PubKey::from_address(&producer).unwrap().into_compressed();
 
-        account_list.iter().filter_map(|account| {
-            // if it is the producer
-            if account.public_key == producer_pub_key {
-                let index = mask.index_of_account(account.id()).unwrap();
-                Some((index, (account.public_key.into_address(), account.balance.as_u64())))
-            // if it has the producer set as delegate
-            } else if let Some(delegate) = &account.delegate {
-                if delegate == &producer_pub_key {
+        account_list
+            .iter()
+            .filter_map(|account| {
+                // if it is the producer
+                if account.public_key == producer_pub_key {
                     let index = mask.index_of_account(account.id()).unwrap();
-                    Some((index, (account.public_key.into_address(), account.balance.as_u64())))
+                    Some((
+                        index,
+                        (account.public_key.into_address(), account.balance.as_u64()),
+                    ))
+                // if it has the producer set as delegate
+                } else if let Some(delegate) = &account.delegate {
+                    if delegate == &producer_pub_key {
+                        let index = mask.index_of_account(account.id()).unwrap();
+                        Some((
+                            index,
+                            (account.public_key.into_address(), account.balance.as_u64()),
+                        ))
+                    } else {
+                        None
+                    }
                 } else {
                     None
                 }
-            } else {
-                None
-            }
-        }).collect()
-
+            })
+            .collect()
     }
 }
 
