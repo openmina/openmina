@@ -4,7 +4,6 @@ use mina_p2p_messages::v2::{
 };
 use openmina_core::block::ArcBlockWithHash;
 use serde::{Deserialize, Serialize};
-use vrf::keypair_from_bs58_string;
 
 use super::{
     vrf_evaluator::BlockProducerVrfEvaluatorState, BlockProducerConfig, BlockProducerWonSlot,

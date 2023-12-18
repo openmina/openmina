@@ -30,19 +30,19 @@ pub fn block_producer_effects<S: crate::Service>(
             }
             BlockProducerVrfEvaluatorAction::EvaluateVrf(action) => {
                 action.effects(&meta, store);
-            },
+            }
             // BlockProducerVrfEvaluatorAction::EvaluationPending(action) => {
             //     action.effects(&meta, store);
             // },
             BlockProducerVrfEvaluatorAction::EvaluationSuccess(action) => {
                 action.effects(&meta, store);
-            },
+            }
             BlockProducerVrfEvaluatorAction::UpdateProducerAndDelegates(action) => {
                 action.effects(&meta, store);
-            },
+            }
             BlockProducerVrfEvaluatorAction::UpdateProducerAndDelegatesSuccess(action) => {
                 action.effects(&meta, store);
-            },
+            }
         },
         BlockProducerAction::BestTipUpdate(action) => {
             action.effects(&meta, store);
@@ -86,9 +86,10 @@ impl BlockProducerBestTipUpdateAction {
     pub fn effects<S: redux::Service>(self, _: &ActionMeta, store: &mut Store<S>) {
         let protocol_state = &self.best_tip.block.header.protocol_state.body;
 
-        let current_epoch = store.state().block_producer.with(None, |this| {
-            this.vrf_evaluator.current_epoch
-        });
+        let current_epoch = store
+            .state()
+            .block_producer
+            .with(None, |this| this.vrf_evaluator.current_epoch);
 
         // on new run when no current_epoch is set
         if current_epoch.is_none() {

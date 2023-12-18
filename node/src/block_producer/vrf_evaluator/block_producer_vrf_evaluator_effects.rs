@@ -1,12 +1,15 @@
 use redux::ActionMeta;
 use vrf::VrfEvaluatorInput;
 
-use crate::Store;
 use crate::Service;
+use crate::Store;
 
 use super::BlockProducerVrfEvaluatorUpdateProducerAndDelegatesAction;
 use super::BlockProducerVrfEvaluatorUpdateProducerAndDelegatesSuccessAction;
-use super::{BlockProducerVrfEvaluatorEpochDataUpdateAction, BlockProducerVrfEvaluatorEvaluateVrfAction, BlockProducerVrfEvaluatorEvaluationSuccessAction};
+use super::{
+    BlockProducerVrfEvaluatorEpochDataUpdateAction, BlockProducerVrfEvaluatorEvaluateVrfAction,
+    BlockProducerVrfEvaluatorEvaluationSuccessAction,
+};
 
 impl BlockProducerVrfEvaluatorEpochDataUpdateAction {
     pub fn effects<S: Service>(self, _: &ActionMeta, store: &mut Store<S>) {
@@ -57,7 +60,10 @@ impl BlockProducerVrfEvaluatorEvaluationSuccessAction {
                 if next_slot <= current_epoch_end {
                     let vrf_input: VrfEvaluatorInput = VrfEvaluatorInput::new(
                         vrf_evaluator_state.current_epoch_data.seed.clone(),
-                        vrf_evaluator_state.current_epoch_data.delegator_table.clone(),
+                        vrf_evaluator_state
+                            .current_epoch_data
+                            .delegator_table
+                            .clone(),
                         next_slot,
                         vrf_evaluator_state.current_epoch_data.total_currency,
                     );
@@ -79,10 +85,25 @@ impl BlockProducerVrfEvaluatorEvaluationSuccessAction {
 
 impl BlockProducerVrfEvaluatorUpdateProducerAndDelegatesAction {
     pub fn effects<S: Service>(self, _: &ActionMeta, store: &mut Store<S>) {
-        let current_epoch_producer_and_delegators: std::collections::BTreeMap<ledger::AccountIndex, (String, u64)> = store.service.get_producer_and_delegates(self.current_epoch_ledger_hash, self.producer.clone());
-        let next_epoch_producer_and_delegators: std::collections::BTreeMap<ledger::AccountIndex, (String, u64)> = store.service.get_producer_and_delegates(self.next_epoch_ledger_hash, self.producer.clone());
+        let current_epoch_producer_and_delegators: std::collections::BTreeMap<
+            ledger::AccountIndex,
+            (String, u64),
+        > = store
+            .service
+            .get_producer_and_delegates(self.current_epoch_ledger_hash, self.producer.clone());
+        let next_epoch_producer_and_delegators: std::collections::BTreeMap<
+            ledger::AccountIndex,
+            (String, u64),
+        > = store
+            .service
+            .get_producer_and_delegates(self.next_epoch_ledger_hash, self.producer.clone());
 
-        store.dispatch(BlockProducerVrfEvaluatorUpdateProducerAndDelegatesSuccessAction { current_epoch_producer_and_delegators, next_epoch_producer_and_delegators });
+        store.dispatch(
+            BlockProducerVrfEvaluatorUpdateProducerAndDelegatesSuccessAction {
+                current_epoch_producer_and_delegators,
+                next_epoch_producer_and_delegators,
+            },
+        );
     }
 }
 
@@ -93,7 +114,10 @@ impl BlockProducerVrfEvaluatorUpdateProducerAndDelegatesSuccessAction {
         if let Some(vrf_evaluator_state) = vrf_evaluator_state {
             let vrf_input: VrfEvaluatorInput = VrfEvaluatorInput::new(
                 vrf_evaluator_state.current_epoch_data.seed.clone(),
-                vrf_evaluator_state.current_epoch_data.delegator_table.clone(),
+                vrf_evaluator_state
+                    .current_epoch_data
+                    .delegator_table
+                    .clone(),
                 vrf_evaluator_state.current_best_tip_slot + 1,
                 vrf_evaluator_state.current_epoch_data.total_currency,
             );
