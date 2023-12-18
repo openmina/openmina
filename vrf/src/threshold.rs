@@ -1,4 +1,4 @@
-use ark_ff::{BigInteger256, One, Zero, BigInteger};
+use ark_ff::{BigInteger, BigInteger256, One, Zero};
 use itertools::unfold;
 use num::{BigInt, BigRational, FromPrimitive, Signed};
 

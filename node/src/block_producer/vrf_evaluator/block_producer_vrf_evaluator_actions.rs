@@ -1,10 +1,13 @@
 use std::collections::BTreeMap;
 
+use crate::block_producer::{vrf_evaluator::BlockProducerVrfEvaluatorStatus, BlockProducerAction};
 use ledger::AccountIndex;
-use mina_p2p_messages::v2::{ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1, LedgerHash, ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1};
+use mina_p2p_messages::v2::{
+    ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1,
+    ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1, LedgerHash,
+};
 use serde::{Deserialize, Serialize};
-use vrf::{VrfEvaluatorInput, VrfEvaluationOutput};
-use crate::block_producer::{BlockProducerAction, vrf_evaluator::BlockProducerVrfEvaluatorStatus};
+use vrf::{VrfEvaluationOutput, VrfEvaluatorInput};
 
 pub type BlockProducerVrfEvaluatorActionWithMeta =
     redux::ActionWithMeta<BlockProducerVrfEvaluatorAction>;
@@ -17,7 +20,9 @@ pub enum BlockProducerVrfEvaluatorAction {
     EvaluateVrf(BlockProducerVrfEvaluatorEvaluateVrfAction),
     EvaluationSuccess(BlockProducerVrfEvaluatorEvaluationSuccessAction),
     UpdateProducerAndDelegates(BlockProducerVrfEvaluatorUpdateProducerAndDelegatesAction),
-    UpdateProducerAndDelegatesSuccess(BlockProducerVrfEvaluatorUpdateProducerAndDelegatesSuccessAction),
+    UpdateProducerAndDelegatesSuccess(
+        BlockProducerVrfEvaluatorUpdateProducerAndDelegatesSuccessAction,
+    ),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -27,7 +32,9 @@ pub struct BlockProducerVrfEvaluatorUpdateProducerAndDelegatesAction {
     pub producer: String,
 }
 
-impl redux::EnablingCondition<crate::State> for BlockProducerVrfEvaluatorUpdateProducerAndDelegatesAction {
+impl redux::EnablingCondition<crate::State>
+    for BlockProducerVrfEvaluatorUpdateProducerAndDelegatesAction
+{
     fn is_enabled(&self, state: &crate::State) -> bool {
         state.block_producer.with(false, |this| {
             matches!(
@@ -44,7 +51,9 @@ pub struct BlockProducerVrfEvaluatorUpdateProducerAndDelegatesSuccessAction {
     pub next_epoch_producer_and_delegators: BTreeMap<AccountIndex, (String, u64)>,
 }
 
-impl redux::EnablingCondition<crate::State> for BlockProducerVrfEvaluatorUpdateProducerAndDelegatesSuccessAction {
+impl redux::EnablingCondition<crate::State>
+    for BlockProducerVrfEvaluatorUpdateProducerAndDelegatesSuccessAction
+{
     fn is_enabled(&self, state: &crate::State) -> bool {
         state.block_producer.with(false, |this| {
             matches!(
@@ -66,7 +75,7 @@ impl redux::EnablingCondition<crate::State> for BlockProducerVrfEvaluatorEvaluat
             matches!(
                 this.vrf_evaluator.status,
                 BlockProducerVrfEvaluatorStatus::SlotsReceived { .. }
-                | BlockProducerVrfEvaluatorStatus::DataSuccess { .. }
+                    | BlockProducerVrfEvaluatorStatus::DataSuccess { .. }
             )
         })
     }

@@ -14,7 +14,7 @@ use crate::snark::work_verify::SnarkWorkVerifyAction;
 use crate::snark::SnarkAction;
 use crate::transition_frontier::sync::TransitionFrontierSyncAction;
 use crate::transition_frontier::TransitionFrontierAction;
-use crate::{Action, ActionWithMetaRef, Service, Store, BlockProducerAction};
+use crate::{Action, ActionWithMetaRef, BlockProducerAction, Service, Store};
 
 pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_>) {
     let (action, meta) = action.split();
@@ -634,8 +634,8 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                         kind = kind.to_string(),
                         summary = format!("seed: {}, ledger: {}", a.epoch_data.seed.to_string(), a.epoch_data.ledger.hash.to_string()),
                     );
-                },
-                BlockProducerVrfEvaluatorAction::UpdateProducerAndDelegates(_) => {},
+                }
+                BlockProducerVrfEvaluatorAction::UpdateProducerAndDelegates(_) => {}
                 BlockProducerVrfEvaluatorAction::UpdateProducerAndDelegatesSuccess(a) => {
                     openmina_core::log::info!(
                         meta.time();
@@ -645,23 +645,21 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                             a.next_epoch_producer_and_delegators.values().map(| a | a.0.clone()).collect::<Vec<_>>()
                         ),
                     );
-                },
-                BlockProducerVrfEvaluatorAction::EvaluationSuccess(a) => {
-                    match a.vrf_output {
-                        vrf::VrfEvaluationOutput::SlotWon(_) => {
-                            openmina_core::log::info!(
-                                meta.time();
-                                kind = kind.to_string(),
-                                summary = format!("Slot evaluation result - won slot: {:?}", a.vrf_output),
-                            )
-                        },
-                        vrf::VrfEvaluationOutput::SlotLost(_) => {
-                            openmina_core::log::debug!(
-                                meta.time();
-                                kind = kind.to_string(),
-                                summary = format!("Slot evaluation result - lost slot: {:?}", a.vrf_output),
-                            )
-                        },
+                }
+                BlockProducerVrfEvaluatorAction::EvaluationSuccess(a) => match a.vrf_output {
+                    vrf::VrfEvaluationOutput::SlotWon(_) => {
+                        openmina_core::log::info!(
+                            meta.time();
+                            kind = kind.to_string(),
+                            summary = format!("Slot evaluation result - won slot: {:?}", a.vrf_output),
+                        )
+                    }
+                    vrf::VrfEvaluationOutput::SlotLost(_) => {
+                        openmina_core::log::debug!(
+                            meta.time();
+                            kind = kind.to_string(),
+                            summary = format!("Slot evaluation result - lost slot: {:?}", a.vrf_output),
+                        )
                     }
                 },
                 BlockProducerVrfEvaluatorAction::EvaluateVrf(a) => {
@@ -670,12 +668,12 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                         kind = kind.to_string(),
                         summary = format!("Vrf Evaluation requested: {:?}", a.vrf_input),
                     )
-                },
+                }
                 _ => {}
             },
-            BlockProducerAction::BestTipUpdate(_) => {},
+            BlockProducerAction::BestTipUpdate(_) => {}
             _ => {}
-        }
+        },
         _ => {}
     }
 }

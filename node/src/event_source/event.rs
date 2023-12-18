@@ -61,7 +61,7 @@ impl std::fmt::Display for Event {
                     ExternalSnarkWorkerEvent::WorkCancelled => write!(f, "WorkCancelled"),
                     ExternalSnarkWorkerEvent::Error(_) => write!(f, "Error"),
                 }
-            },
+            }
             Self::BlockProducerEvent(event) => event.fmt(f),
         }
     }
