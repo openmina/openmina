@@ -215,7 +215,13 @@ pub fn transition_frontier_effects<S: crate::Service>(
             TransitionFrontierSyncAction::BlocksSuccess(_) => {
                 let transition_frontier = &store.state.get().transition_frontier;
                 let sync = &transition_frontier.sync;
-                let TransitionFrontierSyncState::BlocksSuccess { chain, .. } = sync else {
+                let TransitionFrontierSyncState::BlocksSuccess {
+                    chain,
+                    root_snarked_ledger_updates,
+                    needed_protocol_states,
+                    ..
+                } = sync
+                else {
                     return;
                 };
                 let Some(root_block) = chain.first() else {
@@ -236,6 +242,27 @@ pub fn transition_frontier_effects<S: crate::Service>(
                     })
                     .cloned()
                     .collect();
+                let mut root_snarked_ledger_updates = root_snarked_ledger_updates.clone();
+                if transition_frontier
+                    .best_chain
+                    .iter()
+                    .any(|b| b.hash() == root_block.hash())
+                {
+                    root_snarked_ledger_updates
+                        .extend_with_needed(root_block, &transition_frontier.best_chain);
+                }
+
+                let needed_protocol_states = if root_snarked_ledger_updates.is_empty() {
+                    // We don't need protocol states unless we need to
+                    // recreate some snarked ledgers during `commit`.
+                    Default::default()
+                } else {
+                    needed_protocol_states
+                        .iter()
+                        .chain(&transition_frontier.needed_protocol_states)
+                        .map(|(k, v)| (k.clone(), v.clone()))
+                        .collect()
+                };
 
                 let own_peer_id = store.state().p2p.my_id();
                 let orphaned_snarks = transition_frontier
@@ -260,35 +287,13 @@ pub fn transition_frontier_effects<S: crate::Service>(
                     })
                     .collect();
 
-                match (transition_frontier.best_chain.first(), sync.root_block()) {
-                    (Some(current_root), Some(new_root)) => {
-                        let current_root = current_root.clone();
-                        let new_root = new_root.clone();
-                        if current_root.snarked_ledger_hash() != new_root.snarked_ledger_hash() {
-                            let protocol_states = store
-                                .state()
-                                .transition_frontier
-                                .needed_protocol_states
-                                .clone();
-                            if let Err(error) = store.service.push_snarked_ledger(
-                                &protocol_states,
-                                &current_root,
-                                &new_root,
-                            ) {
-                                // TODO(tizoc): don't panic here
-                                panic!(
-                                    "Failed to push a new snarked ledger {}  -> {}: {}",
-                                    current_root.snarked_ledger_hash().to_string(),
-                                    new_root.snarked_ledger_hash().to_string(),
-                                    error
-                                );
-                            }
-                        }
-                    }
-                    _ => {}
-                };
-
-                let res = store.service.commit(ledgers_to_keep, root_block, best_tip);
+                let res = store.service.commit(
+                    ledgers_to_keep,
+                    root_snarked_ledger_updates,
+                    needed_protocol_states,
+                    root_block,
+                    best_tip,
+                );
                 let needed_protocol_states = res.needed_protocol_states;
                 let jobs = res.available_jobs;
                 store.dispatch(TransitionFrontierSyncedAction {
