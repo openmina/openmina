@@ -7,7 +7,6 @@ use mina_p2p_messages::v2::{CurrencyFeeStableV1, NonZeroCurvePoint};
 use node::core::channels::mpsc;
 use node::core::requests::{PendingRequests, RequestId};
 use node::core::snark::{Snark, SnarkJobId};
-use node::p2p::service_impl::libp2p::Libp2pPauseToken;
 use node::recorder::Recorder;
 use node::snark::block_verify::{
     SnarkBlockVerifyId, SnarkBlockVerifyService, VerifiableBlockWithHash,
@@ -103,10 +102,6 @@ impl NodeTestingService {
 
     pub fn take_pending_event(&mut self, id: PendingEventId) -> Option<Event> {
         self.pending_events.remove(id)
-    }
-
-    pub fn pause_libp2p(&self) -> Libp2pPauseToken {
-        self.real.libp2p().pause()
     }
 
     pub fn stop_libp2p(&mut self) {

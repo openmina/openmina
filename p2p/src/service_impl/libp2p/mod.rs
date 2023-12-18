@@ -67,7 +67,6 @@ pub enum Cmd {
 
 pub struct Libp2pService {
     cmd_sender: mpsc::UnboundedSender<Cmd>,
-    pause: Arc<()>,
 }
 
 async fn determine_own_ip() -> BTreeSet<IpAddr> {
@@ -155,25 +154,12 @@ async fn determine_own_ip_stun(stun_addr: SocketAddr) -> io::Result<IpAddr> {
     }).await.map_err(|_| io::Error::from(io::ErrorKind::TimedOut)).and_then(|x| x)
 }
 
-pub struct Libp2pPauseToken(Arc<()>);
-
 impl Libp2pService {
     const GOSSIPSUB_TOPIC: &'static str = "coda/consensus-messages/0.0.1";
 
     pub fn mocked() -> (Self, mpsc::UnboundedReceiver<Cmd>) {
         let (cmd_sender, rx) = mpsc::unbounded_channel();
-        (
-            Self {
-                cmd_sender,
-                pause: Arc::new(()),
-            },
-            rx,
-        )
-    }
-
-    // pause libp2p until the token is dropped
-    pub fn pause(&self) -> Libp2pPauseToken {
-        Libp2pPauseToken(self.pause.clone())
+        (Self { cmd_sender }, rx)
     }
 
     pub fn run<E, S>(
@@ -249,8 +235,6 @@ impl Libp2pService {
         };
 
         let (cmd_sender, mut cmd_receiver) = mpsc::unbounded_channel();
-        let pause = Arc::new(());
-        let pause_clone = pause.clone();
         let psk = {
             let mut hasher = Blake2b256::default();
             hasher.update(behaviour.rendezvous_string.as_ref());
@@ -314,12 +298,6 @@ impl Libp2pService {
             }
 
             loop {
-                // spinning while pause is cloned
-                // when the clone will be dropped, this loop will break
-                while Arc::strong_count(&pause_clone) > 2 {
-                    std::hint::spin_loop();
-                }
-
                 select! {
                     event = swarm.next() => match event {
                         Some(event) => Self::handle_event(&mut swarm, event).await,
@@ -338,7 +316,7 @@ impl Libp2pService {
 
         spawner.spawn_main("libp2p", fut);
 
-        Self { cmd_sender, pause }
+        Self { cmd_sender }
     }
 
     fn gossipsub_send<E>(swarm: &mut Swarm<Behaviour<E>>, msg: &GossipNetMessage)
