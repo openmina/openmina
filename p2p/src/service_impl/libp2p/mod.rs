@@ -2,6 +2,7 @@ mod behavior;
 pub use behavior::Event as BehaviourEvent;
 pub use behavior::*;
 
+use libp2p::multiaddr::Protocol;
 use mina_p2p_messages::rpc::GetSomeInitialPeersV1ForV2;
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -676,7 +677,16 @@ impl Libp2pService {
                                     addresses
                                         .iter()
                                         .filter_map(|a| {
-                                            P2pConnectionOutgoingInitLibp2pOpts::try_from(a).ok()
+                                            // `a` misses the p2p part
+                                            let mut addr = a.clone();
+                                            addr.push(Protocol::P2p(peer.clone()));
+                                            match P2pConnectionOutgoingInitLibp2pOpts::try_from(&addr) {
+                                                Ok(addr) => Some(addr),
+                                                Err(err) => {
+                                                    openmina_core::warn!(openmina_core::log::system_time(); "Error converting Kad route address {a}: {err}");
+                                                    None
+                                                }
+                                            }
                                         })
                                         .map(P2pConnectionOutgoingInitOpts::LibP2P)
                                         .collect(),
