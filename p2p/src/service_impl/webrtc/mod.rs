@@ -5,6 +5,7 @@ mod web;
 
 use std::future::Future;
 use std::pin::Pin;
+use std::sync::Arc;
 use std::{collections::BTreeMap, time::Duration};
 
 use serde::Serialize;
@@ -66,7 +67,7 @@ pub struct P2pServiceCtx {
 pub struct PeerAddArgs {
     peer_id: PeerId,
     kind: PeerConnectionKind,
-    event_sender: mpsc::UnboundedSender<P2pEvent>,
+    event_sender: Arc<dyn Fn(P2pEvent) -> Option<()> + Send + Sync + 'static>,
     cmd_receiver: mpsc::UnboundedReceiver<PeerCmd>,
 }
 
@@ -235,8 +236,7 @@ async fn peer_start(args: PeerAddArgs) {
     let (pc, main_channel) = match fut.await {
         Ok(v) => v,
         Err(err) => {
-            let _ = event_sender
-                .send(P2pConnectionEvent::OfferSdpReady(peer_id, Err(err.to_string())).into());
+            event_sender(P2pConnectionEvent::OfferSdpReady(peer_id, Err(err.to_string())).into());
             return;
         }
     };
@@ -244,15 +244,13 @@ async fn peer_start(args: PeerAddArgs) {
     let answer = if is_outgoing {
         let answer_fut = async {
             let sdp = pc.local_sdp().await.unwrap();
-            event_sender
-                .send(P2pConnectionEvent::OfferSdpReady(peer_id, Ok(sdp)).into())
-                .or(Err(Error::ChannelClosed))?;
+            event_sender(P2pConnectionEvent::OfferSdpReady(peer_id, Ok(sdp)).into())
+                .ok_or(Error::ChannelClosed)?;
             match cmd_receiver.recv().await.ok_or(Error::ChannelClosed)? {
                 PeerCmd::PeerHttpOfferSend(url, offer) => {
                     let answer = webrtc_signal_send(&url, offer).await?;
-                    event_sender
-                        .send(P2pConnectionEvent::AnswerReceived(peer_id, answer).into())
-                        .or(Err(Error::ChannelClosed))?;
+                    event_sender(P2pConnectionEvent::AnswerReceived(peer_id, answer).into())
+                        .ok_or(Error::ChannelClosed)?;
 
                     if let PeerCmd::AnswerSet(v) =
                         cmd_receiver.recv().await.ok_or(Error::ChannelClosed)?
@@ -278,7 +276,7 @@ async fn peer_start(args: PeerAddArgs) {
     if is_outgoing {
         if let Err(err) = pc.remote_desc_set(answer).await {
             let err = Error::from(err).to_string();
-            let _ = event_sender.send(P2pConnectionEvent::Finalized(peer_id, Err(err)).into());
+            let _ = event_sender(P2pConnectionEvent::Finalized(peer_id, Err(err)).into());
         }
     } else {
         let fut = async {
@@ -289,9 +287,7 @@ async fn peer_start(args: PeerAddArgs) {
         let res = fut.await.map_err(|err: Error| err.to_string());
         let is_err = res.is_err();
         let is_err = is_err
-            || event_sender
-                .send(P2pConnectionEvent::AnswerSdpReady(peer_id, res).into())
-                .is_err();
+            || event_sender(P2pConnectionEvent::AnswerSdpReady(peer_id, res).into()).is_none();
         if is_err {
             return;
         }
@@ -314,7 +310,7 @@ async fn peer_start(args: PeerAddArgs) {
                     if let Some(connected_tx) = connected_tx.take() {
                         let _ = connected_tx.send(Err("disconnected"));
                     } else {
-                        let _ = event_sender.send(P2pConnectionEvent::Closed(peer_id).into());
+                        let _ = event_sender(P2pConnectionEvent::Closed(peer_id).into());
                     }
                 }
                 _ => {}
@@ -329,12 +325,12 @@ async fn peer_start(args: PeerAddArgs) {
     {
         Ok(_) => {}
         Err(err) => {
-            let _ = event_sender.send(P2pConnectionEvent::Finalized(peer_id, Err(err)).into());
+            let _ = event_sender(P2pConnectionEvent::Finalized(peer_id, Err(err)).into());
         }
     }
     let _ = main_channel.close().await;
 
-    let _ = event_sender.send(P2pConnectionEvent::Finalized(peer_id, Ok(())).into());
+    let _ = event_sender(P2pConnectionEvent::Finalized(peer_id, Ok(())).into());
 
     peer_loop(peer_id, event_sender, cmd_receiver, pc).await
 }
@@ -409,7 +405,7 @@ impl Channels {
 // TODO(binier): remove unwraps
 async fn peer_loop(
     peer_id: PeerId,
-    event_sender: mpsc::UnboundedSender<P2pEvent>,
+    event_sender: Arc<dyn Fn(P2pEvent) -> Option<()> + Send + Sync + 'static>,
     mut cmd_receiver: mpsc::UnboundedReceiver<PeerCmd>,
     pc: RTCConnection,
 ) {
@@ -498,8 +494,8 @@ async fn peer_loop(
                     None => Some("ChannelNotOpen".to_owned()),
                 };
                 if let Some(err) = err {
-                    let _ = event_sender
-                        .send(P2pChannelEvent::Sent(peer_id, id, msg_id, Err(err)).into());
+                    let _ =
+                        event_sender(P2pChannelEvent::Sent(peer_id, id, msg_id, Err(err)).into());
                 }
             }
             PeerCmdAll::Internal(PeerCmdInternal::ChannelOpened(chan_id, result)) => {
@@ -537,7 +533,7 @@ async fn peer_loop(
                                 }
                             };
 
-                            let _ = event_sender_clone.send(
+                            let _ = event_sender_clone(
                                 P2pChannelEvent::Sent(peer_id, chan_id, msg_id, result).into(),
                             );
                         }
@@ -596,30 +592,31 @@ async fn peer_loop(
                                 Ok(Some(msg)) => Ok(msg),
                                 Err(err) => Err(err),
                             };
-                            let _ =
-                                event_sender.send(P2pChannelEvent::Received(peer_id, res).into());
+                            let _ = event_sender(P2pChannelEvent::Received(peer_id, res).into());
                         }
                         std::future::ready(())
                     });
                 }
 
-                let _ = event_sender.send(P2pChannelEvent::Opened(peer_id, chan_id, res).into());
+                let _ = event_sender(P2pChannelEvent::Opened(peer_id, chan_id, res).into());
             }
             PeerCmdAll::Internal(PeerCmdInternal::ChannelClosed(id)) => {
                 channels.remove(id);
-                let _ = event_sender.send(P2pChannelEvent::Closed(peer_id, id).into());
+                let _ = event_sender(P2pChannelEvent::Closed(peer_id, id).into());
             }
         }
     }
 }
 
 pub trait P2pServiceWebrtc: redux::Service {
+    type Event: From<P2pEvent> + Send + Sync + 'static;
+
     fn random_pick(
         &mut self,
         list: &[P2pConnectionOutgoingInitOpts],
     ) -> P2pConnectionOutgoingInitOpts;
 
-    fn event_sender(&mut self) -> &mut mpsc::UnboundedSender<P2pEvent>;
+    fn event_sender(&mut self) -> &mut mpsc::UnboundedSender<Self::Event>;
 
     fn cmd_sender(&mut self) -> &mut mpsc::UnboundedSender<Cmd>;
 
@@ -657,6 +654,8 @@ pub trait P2pServiceWebrtc: redux::Service {
             },
         );
         let event_sender = self.event_sender().clone();
+        let event_sender =
+            Arc::new(move |p2p_event: P2pEvent| event_sender.send(p2p_event.into()).ok());
         let _ = self.cmd_sender().send(Cmd::PeerAdd(PeerAddArgs {
             peer_id,
             kind: PeerConnectionKind::Outgoing,
@@ -675,6 +674,8 @@ pub trait P2pServiceWebrtc: redux::Service {
             },
         );
         let event_sender = self.event_sender().clone();
+        let event_sender =
+            Arc::new(move |p2p_event: P2pEvent| event_sender.send(p2p_event.into()).ok());
         let _ = self.cmd_sender().send(Cmd::PeerAdd(PeerAddArgs {
             peer_id,
             kind: PeerConnectionKind::Incoming(offer),

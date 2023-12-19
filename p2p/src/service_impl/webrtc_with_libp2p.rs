@@ -19,16 +19,16 @@ pub struct P2pServiceCtx {
 pub trait P2pServiceWebrtcWithLibp2p: P2pServiceWebrtc {
     fn libp2p(&mut self) -> &mut Libp2pService;
 
-    fn init<S: TaskSpawner>(
+    fn init<E: From<P2pEvent> + Send + 'static, S: TaskSpawner>(
         libp2p_port: Option<u16>,
         secret_key: SecretKey,
         chain_id: String,
-        event_source_sender: mpsc::UnboundedSender<P2pEvent>,
+        event_source_sender: mpsc::UnboundedSender<E>,
         spawner: S,
     ) -> P2pServiceCtx {
         P2pServiceCtx {
             webrtc: <Self as P2pServiceWebrtc>::init(secret_key.clone(), spawner.clone()),
-            libp2p: Libp2pService::run(
+            libp2p: Libp2pService::run::<E, S>(
                 libp2p_port,
                 secret_key,
                 chain_id,
@@ -108,11 +108,9 @@ impl<T: P2pServiceWebrtcWithLibp2p> P2pChannelsService for T {
                 false => Err("channel not supported".to_owned()),
                 true => Ok(()),
             };
-            let _ = self
-                .event_sender()
-                .send(P2pEvent::Channel(P2pChannelEvent::Opened(
-                    peer_id, id, result,
-                )));
+            self.event_sender()
+                .send(P2pEvent::Channel(P2pChannelEvent::Opened(peer_id, id, result)).into())
+                .unwrap_or_default();
         }
     }
 
