@@ -27,7 +27,7 @@ impl Node {
         self.child.kill().expect("kill");
     }
 
-    const PRIVKEY_PATH: &str = ".libp2p/key";
+    const PRIVKEY_PATH: &'static str = ".libp2p/key";
 
     fn privkey_path(dir: &Path) -> PathBuf {
         dir.join(Self::PRIVKEY_PATH)

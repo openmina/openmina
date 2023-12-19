@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{collections::HashMap, time::Duration};
 
 use libp2p::Multiaddr;
 
@@ -113,6 +113,45 @@ impl SoloNodeBasicConnectivityInitialJoining {
                 eprintln!("known peers: {known_peers}");
                 eprintln!("connected peers: {ready_peers}");
                 eprintln!("success");
+
+                if let Some(debugger) = runner.cluster().debugger() {
+                    tokio::time::sleep(Duration::from_secs(10)).await;
+                    let connections = debugger
+                        .connections_raw(0)
+                        .map(|(id, c)| (id, (c.info.addr, c.info.fd, c.info.pid, c.incoming)))
+                        .collect::<HashMap<_, _>>();
+
+                    // dbg
+                    for (id, cn) in &connections {
+                        eprintln!("{id}: {}", serde_json::to_string(cn).unwrap());
+                    }
+                    // dbg
+                    for (id, msg) in debugger.messages(0, "") {
+                        eprintln!("{id}: {}", serde_json::to_string(&msg).unwrap());
+                    }
+                    // TODO: fix debugger returns timeout
+                    let connections = debugger
+                        .connections()
+                        .filter_map(|id| Some((id, connections.get(&id)?.clone())))
+                        .collect::<HashMap<_, _>>();
+                    let incoming = connections.iter().filter(|(_, (_, _, _, i))| *i).count();
+                    let outgoing = connections.len() - incoming;
+                    eprintln!(
+                        "debugger seen {incoming} incoming connections and {outgoing} outgoing connections",
+                    );
+                    let state_machine_peers = if cfg!(feature = "p2p-webrtc") {
+                        ready_peers
+                    } else {
+                        ready_peers.max(known_peers)
+                    };
+                    assert_eq!(
+                        incoming + outgoing,
+                        state_machine_peers,
+                        "debugger must see the same number of connections as the state machine"
+                    );
+                } else {
+                    eprintln!("no debugger, run test with --use-debugger for additional check");
+                }
 
                 return;
             }

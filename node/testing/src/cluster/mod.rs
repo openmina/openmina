@@ -35,6 +35,7 @@ use rand::{rngs::StdRng, SeedableRng};
 use serde::Serialize;
 
 use crate::{
+    network_debugger::Debugger,
     node::{Node, NodeTestingConfig, RustNodeTestingConfig},
     scenario::{ListenerNode, Scenario, ScenarioId, ScenarioStep},
     service::{NodeTestingService, PendingEventId},
@@ -57,6 +58,8 @@ pub struct Cluster {
     verifier_srs: Arc<VerifierSRS>,
     block_verifier_index: Arc<VerifierIndex>,
     work_verifier_index: Arc<VerifierIndex>,
+
+    debugger: Option<Debugger>,
 }
 
 #[derive(Serialize)]
@@ -71,6 +74,11 @@ impl Cluster {
         let available_ports = config
             .port_range()
             .filter(|port| std::net::TcpListener::bind(("0.0.0.0", *port)).is_ok());
+        let debugger = if config.is_use_debugger() {
+            Some(Debugger::drone_ci())
+        } else {
+            None
+        };
         Self {
             config,
             scenario: ClusterScenarioRun {
@@ -86,7 +94,13 @@ impl Cluster {
             verifier_srs: VERIFIER_SRS.clone(),
             block_verifier_index: BLOCK_VERIFIER_INDEX.clone(),
             work_verifier_index: WORK_VERIFIER_INDEX.clone(),
+
+            debugger,
         }
+    }
+
+    pub fn available_port(&mut self) -> Option<u16> {
+        self.available_ports.next()
     }
 
     pub fn add_node(&mut self, testing_config: NodeTestingConfig) -> ClusterNodeId {
@@ -481,6 +495,10 @@ impl Cluster {
                 true
             }
         })
+    }
+
+    pub fn debugger(&self) -> Option<&Debugger> {
+        self.debugger.as_ref()
     }
 }
 

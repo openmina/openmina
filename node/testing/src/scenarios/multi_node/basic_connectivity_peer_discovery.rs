@@ -8,7 +8,7 @@ use tokio::task::JoinSet;
 use crate::scenarios::cluster_runner::ClusterRunner;
 use crate::{node::RustNodeTestingConfig, scenario::ScenarioStep};
 
-use crate::ocaml::{Node, self};
+use crate::ocaml::{self, Node};
 
 /// Global test with OCaml nodes.
 /// Run an OCaml node as a seed node. Run three normal OCaml nodes connecting only to the seed node.
@@ -33,7 +33,14 @@ impl MultiNodeBasicConnectivityPeerDiscovery {
 
         let temp_dir = temp_dir::TempDir::new().unwrap();
 
-        let mut seed_a = Node::spawn::<_, &str>(8302, 3085, 8301, &temp_dir.path().join("seed"), []).expect("seed ocaml node");
+        let mut seed_a = Node::spawn::<_, &str>(
+            runner.cluster_mut().available_port().unwrap(),
+            runner.cluster_mut().available_port().unwrap(),
+            runner.cluster_mut().available_port().unwrap(),
+            &temp_dir.path().join("seed"),
+            [],
+        )
+        .expect("seed ocaml node");
         eprintln!("launching OCaml seed node: {}", seed_a.local_addr());
 
         tokio::time::sleep(Duration::from_secs(60)).await;
@@ -41,17 +48,17 @@ impl MultiNodeBasicConnectivityPeerDiscovery {
         let nodes = (1..TOTAL_OCAML_NODES)
             .map(|i| {
                 let n = Node::spawn(
-                    8302 + i * 10,
-                    3085 + i * 10,
-                    8301 + i * 10,
+                    runner.cluster_mut().available_port().unwrap(),
+                    runner.cluster_mut().available_port().unwrap(),
+                    runner.cluster_mut().available_port().unwrap(),
                     &temp_dir.path().join(i.to_string()),
                     [seed_a.local_addr().to_string()],
-                ).expect("ocaml node");
+                )
+                .expect("ocaml node");
                 eprintln!("launching OCaml node {}", n.local_addr());
                 n
             })
             .collect::<Vec<_>>();
-
 
         // wait for ocaml nodes to be ready
         let mut join_set = JoinSet::new();
@@ -131,7 +138,14 @@ impl MultiNodeBasicConnectivityPeerDiscovery {
                 // the node must find all already running OCaml nodes
                 // assert_eq!(this.state().p2p.peers.len(), TOTAL_OCAML_NODES as usize);
                 additional_ocaml_node.get_or_insert_with(|| {
-                    let n = Node::spawn(9000, 4000, 9001, &temp_dir.path().join("add"), [seed_a.local_addr().to_string()]).expect("additional ocaml node");
+                    let n = Node::spawn(
+                        9000,
+                        4000,
+                        9001,
+                        &temp_dir.path().join("add"),
+                        [seed_a.local_addr().to_string()],
+                    )
+                    .expect("additional ocaml node");
                     eprintln!("the Openmina node finished peer discovery",);
                     eprintln!(
                         "connected peers: {:?}",

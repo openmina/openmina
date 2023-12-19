@@ -1,5 +1,0 @@
-#!/usr/bin/env bash 
-
-echo "fail" >&2
-echo "verbose fail"
-false

@@ -1,4 +1,0 @@
-#!/usr/bin/env bash 
-
-echo "ok" >&2
-echo "verbose"
