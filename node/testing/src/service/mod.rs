@@ -38,7 +38,7 @@ use node::{
             webrtc::{Cmd, P2pServiceWebrtc, PeerState},
             webrtc_with_libp2p::P2pServiceWebrtcWithLibp2p,
         },
-        webrtc, P2pEvent, PeerId,
+        webrtc, PeerId,
     },
 };
 use node::{ActionWithMeta, State};
@@ -221,6 +221,8 @@ impl node::event_source::EventSourceService for NodeTestingService {
 }
 
 impl P2pServiceWebrtc for NodeTestingService {
+    type Event = Event;
+
     fn random_pick(
         &mut self,
         list: &[P2pConnectionOutgoingInitOpts],
@@ -228,8 +230,8 @@ impl P2pServiceWebrtc for NodeTestingService {
         self.real.random_pick(list)
     }
 
-    fn event_sender(&mut self) -> &mut mpsc::UnboundedSender<P2pEvent> {
-        &mut self.real.p2p_event_sender
+    fn event_sender(&mut self) -> &mut mpsc::UnboundedSender<Event> {
+        &mut self.real.event_sender
     }
 
     fn cmd_sender(&mut self) -> &mut mpsc::UnboundedSender<Cmd> {
