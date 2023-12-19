@@ -23,7 +23,6 @@ use node::{
             webrtc::P2pServiceCtx,
             webrtc_with_libp2p::{self, P2pServiceWebrtcWithLibp2p},
         },
-        P2pEvent,
     },
     service::Recorder,
     snark::{get_srs, get_verifier_index, VerifierKind},
@@ -173,8 +172,6 @@ impl Cluster {
 
         let (event_sender, event_receiver) = mpsc::unbounded_channel();
 
-        let (p2p_event_sender, mut rx) = mpsc::unbounded_channel::<P2pEvent>();
-
         let webrtc_with_libp2p::P2pServiceCtx {
             libp2p,
             webrtc: P2pServiceCtx { cmd_sender, peers },
@@ -182,18 +179,9 @@ impl Cluster {
             Some(libp2p_port),
             secret_key,
             testing_config.chain_id,
-            p2p_event_sender.clone(),
+            event_sender.clone(),
             P2pTaskSpawner::new(shutdown_tx.clone()),
         );
-
-        let ev_sender = event_sender.clone();
-        tokio::spawn(async move {
-            while let Some(v) = rx.recv().await {
-                if let Err(_) = ev_sender.send(v.into()) {
-                    break;
-                }
-            }
-        });
 
         let mut rpc_service = RpcService::new();
 
@@ -223,7 +211,6 @@ impl Cluster {
         let real_service = NodeService {
             rng: StdRng::seed_from_u64(0),
             event_sender,
-            p2p_event_sender,
             event_receiver: event_receiver.into(),
             cmd_sender,
             ledger,
