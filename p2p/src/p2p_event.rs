@@ -14,7 +14,7 @@ use crate::{
 pub enum P2pEvent {
     Connection(P2pConnectionEvent),
     Channel(P2pChannelEvent),
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
     Libp2pIdentify(PeerId, libp2p::Multiaddr),
     Discovery(P2pDiscoveryEvent),
 }
@@ -58,7 +58,7 @@ impl fmt::Display for P2pEvent {
         match self {
             Self::Connection(v) => v.fmt(f),
             Self::Channel(v) => v.fmt(f),
-            #[cfg(not(target_arch = "wasm32"))]
+            #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
             Self::Libp2pIdentify(peer_id, addr) => {
                 write!(f, "{peer_id} {addr}")
             }
