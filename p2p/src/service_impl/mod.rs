@@ -39,12 +39,14 @@ pub mod webrtc {
 
     #[allow(unused_variables)]
     pub trait P2pServiceWebrtc: redux::Service {
+        type Event: From<P2pEvent> + Send + Sync + 'static;
+
         fn random_pick(
             &mut self,
             list: &[P2pConnectionOutgoingInitOpts],
         ) -> P2pConnectionOutgoingInitOpts;
 
-        fn event_sender(&mut self) -> &mut mpsc::UnboundedSender<P2pEvent>;
+        fn event_sender(&mut self) -> &mut mpsc::UnboundedSender<Self::Event>;
 
         fn cmd_sender(&mut self) -> &mut mpsc::UnboundedSender<Cmd>;
 
