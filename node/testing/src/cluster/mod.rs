@@ -17,7 +17,7 @@ use node::snark::{VerifierIndex, VerifierSRS};
 use node::core::channels::mpsc;
 use node::core::requests::RpcId;
 use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
-use node::p2p::{P2pConnectionEvent, P2pDiscoveryEvent, PeerId};
+use node::p2p::{P2pConnectionEvent, P2pDiscoveryEvent, P2pEvent, PeerId};
 use node::{
     account::{AccountPublicKey, AccountSecretKey},
     event_source::Event,
