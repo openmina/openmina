@@ -23,7 +23,7 @@ use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 use node::p2p::identity::SecretKey;
 use node::p2p::service_impl::webrtc::P2pServiceCtx;
 use node::p2p::service_impl::webrtc_with_libp2p::{self, P2pServiceWebrtcWithLibp2p};
-use node::p2p::{P2pConfig, P2pEvent};
+use node::p2p::P2pConfig;
 use node::service::{Recorder, Service};
 use node::snark::{get_srs, get_verifier_index, VerifierKind};
 use node::stats::Stats;
@@ -188,8 +188,6 @@ impl Node {
         };
         let (event_sender, event_receiver) = mpsc::unbounded_channel();
 
-        let (p2p_event_sender, mut rx) = mpsc::unbounded_channel::<P2pEvent>();
-
         let webrtc_with_libp2p::P2pServiceCtx {
             libp2p,
             webrtc: P2pServiceCtx { cmd_sender, peers },
@@ -197,18 +195,9 @@ impl Node {
             Some(self.libp2p_port),
             secret_key,
             CHAIN_ID.to_owned(),
-            p2p_event_sender.clone(),
+            event_sender.clone(),
             P2pTaskSpawner {},
         );
-
-        let ev_sender = event_sender.clone();
-        tokio::spawn(async move {
-            while let Some(v) = rx.recv().await {
-                if let Err(_) = ev_sender.send(v.into()) {
-                    break;
-                }
-            }
-        });
 
         let mut rpc_service = RpcService::new();
 
@@ -250,7 +239,6 @@ impl Node {
                     let service = NodeService {
                         rng: StdRng::seed_from_u64(rng_seed),
                         event_sender,
-                        p2p_event_sender,
                         event_receiver: event_receiver.into(),
                         cmd_sender,
                         ledger,
