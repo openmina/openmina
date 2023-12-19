@@ -54,7 +54,6 @@ impl ReplayStateWithInputActions {
         let service = NodeService {
             rng: StdRng::seed_from_u64(initial_state.rng_seed),
             event_sender: mpsc::unbounded_channel().0,
-            p2p_event_sender: mpsc::unbounded_channel().0,
             event_receiver: mpsc::unbounded_channel().1.into(),
             cmd_sender: mpsc::unbounded_channel().0,
             ledger: Default::default(),

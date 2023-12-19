@@ -18,7 +18,7 @@ use node::p2p::service_impl::libp2p::Libp2pService;
 use node::p2p::service_impl::webrtc::{Cmd, P2pServiceWebrtc, PeerState};
 use node::p2p::service_impl::webrtc_with_libp2p::P2pServiceWebrtcWithLibp2p;
 use node::p2p::service_impl::TaskSpawner;
-use node::p2p::{P2pEvent, PeerId};
+use node::p2p::PeerId;
 use node::rpc::{RpcP2pConnectionOutgoingResponse, RpcRequest};
 use node::service::{EventSourceService, Recorder};
 use node::snark::block_verify::{
@@ -38,8 +38,6 @@ pub struct NodeService {
     /// Events sent on this channel are retrieved and processed in the
     /// `event_source` state machine defined in the `openmina-node` crate.
     pub event_sender: mpsc::UnboundedSender<Event>,
-    // TODO(binier): change so that we only have `event_sender`.
-    pub p2p_event_sender: mpsc::UnboundedSender<P2pEvent>,
     pub event_receiver: EventReceiver,
     pub cmd_sender: mpsc::UnboundedSender<Cmd>,
     pub ledger: LedgerCtx,
@@ -111,6 +109,8 @@ impl EventSourceService for NodeService {
 }
 
 impl P2pServiceWebrtc for NodeService {
+    type Event = Event;
+
     fn random_pick(
         &mut self,
         list: &[P2pConnectionOutgoingInitOpts],
@@ -118,8 +118,8 @@ impl P2pServiceWebrtc for NodeService {
         list.choose(&mut self.rng).unwrap().clone()
     }
 
-    fn event_sender(&mut self) -> &mut mpsc::UnboundedSender<P2pEvent> {
-        &mut self.p2p_event_sender
+    fn event_sender(&mut self) -> &mut mpsc::UnboundedSender<Self::Event> {
+        &mut self.event_sender
     }
 
     fn cmd_sender(&mut self) -> &mut mpsc::UnboundedSender<Cmd> {
