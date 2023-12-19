@@ -54,7 +54,7 @@ steps:
       - cp /usr/local/bin/mina cli/bin/
 
   - name: build
-    image: rust:1.71-buster
+    image: rust:1.71-bullseye
     commands:
       - apt-get update && apt-get install -y libssl-dev libjemalloc-dev jq
       - rustup update nightly-2023-06-01 && rustup default nightly-2023-06-01
@@ -72,8 +72,6 @@ steps:
     volumes:
       - name: debugfs
         path: /sys/kernel/debug
-      - name: procfs
-        path: /proc
     failure: ignore
     commands:
       - cp target/release/openmina-node-testing-webrtc /usr/bin/openmina-node-testing-webrtc
@@ -88,8 +86,6 @@ steps:
     volumes:
       - name: debugfs
         path: /sys/kernel/debug
-      - name: procfs
-        path: /proc
     failure: ignore
     commands:
       - cp target/release/openmina-node-testing-webrtc /usr/bin/openmina-node-testing-webrtc
@@ -104,8 +100,6 @@ steps:
     volumes:
       - name: debugfs
         path: /sys/kernel/debug
-      - name: procfs
-        path: /proc
     failure: ignore
     commands:
       - cp target/release/openmina-node-testing-libp2p /usr/bin/openmina-node-testing-libp2p
@@ -120,8 +114,6 @@ steps:
     volumes:
       - name: debugfs
         path: /sys/kernel/debug
-      - name: procfs
-        path: /proc
     failure: ignore
     commands:
       - cp target/release/openmina-node-testing-webrtc /usr/bin/openmina-node-testing-webrtc
@@ -136,8 +128,6 @@ steps:
     volumes:
       - name: debugfs
         path: /sys/kernel/debug
-      - name: procfs
-        path: /proc
     failure: ignore
     commands:
       - cp target/release/openmina-node-testing-libp2p /usr/bin/openmina-node-testing-libp2p
@@ -152,8 +142,6 @@ steps:
     volumes:
       - name: debugfs
         path: /sys/kernel/debug
-      - name: procfs
-        path: /proc
     failure: ignore
     commands:
       - cp target/release/openmina-node-testing-libp2p /usr/bin/openmina-node-testing-libp2p
@@ -168,8 +156,6 @@ steps:
     volumes:
       - name: debugfs
         path: /sys/kernel/debug
-      - name: procfs
-        path: /proc
     failure: ignore
     commands:
       - cp target/release/openmina-node-testing-libp2p /usr/bin/openmina-node-testing-libp2p
@@ -184,8 +170,6 @@ steps:
     volumes:
       - name: debugfs
         path: /sys/kernel/debug
-      - name: procfs
-        path: /proc
     failure: ignore
     commands:
       - cp target/release/openmina-node-testing-libp2p /usr/bin/openmina-node-testing-libp2p
