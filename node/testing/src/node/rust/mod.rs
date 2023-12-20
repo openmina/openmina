@@ -8,6 +8,7 @@ use node::event_source::EventSourceNewEventAction;
 use node::p2p::connection::outgoing::{
     P2pConnectionOutgoingInitLibp2pOpts, P2pConnectionOutgoingInitOpts,
 };
+#[cfg(feature = "p2p-libp2p")]
 use node::p2p::service_impl::webrtc_with_libp2p::P2pServiceWebrtcWithLibp2p;
 use node::p2p::webrtc::SignalingMethod;
 use node::p2p::PeerId;
@@ -171,6 +172,7 @@ impl Node {
     }
 
     /// Reproduce connection initiated by kad.
+    #[cfg(feature = "p2p-libp2p")]
     pub fn p2p_kad_outgoing_init(&mut self, addr: P2pConnectionOutgoingInitOpts) {
         use node::p2p::service_impl::libp2p::Cmd;
 
