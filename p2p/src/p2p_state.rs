@@ -52,7 +52,7 @@ pub struct P2pListenerId(String);
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum P2pListenerState {
     Open {
-        addrs: BTreeSet<libp2p::Multiaddr>,
+        addrs: BTreeSet<multiaddr::Multiaddr>,
         errors: Vec<String>,
     },
     Closed,
