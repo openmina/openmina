@@ -1,9 +1,12 @@
 mod config;
 pub use config::ClusterConfig;
 
+#[cfg(feature = "p2p-libp2p")]
 mod p2p_task_spawner;
-use openmina_node_invariants::{InvariantResult, Invariants};
+#[cfg(feature = "p2p-libp2p")]
 pub use p2p_task_spawner::P2pTaskSpawner;
+
+use openmina_node_invariants::{InvariantResult, Invariants};
 
 mod node_id;
 pub use node_id::{ClusterNodeId, ClusterOcamlNodeId};
@@ -14,17 +17,15 @@ use std::{collections::VecDeque, sync::Arc};
 use ledger::proofs::{VerifierIndex, VerifierSRS};
 use node::core::channels::mpsc;
 use node::core::requests::RpcId;
+#[cfg(feature = "p2p-libp2p")]
+use node::p2p::service_impl::{
+    webrtc::P2pServiceCtx,
+    webrtc_with_libp2p::{self, P2pServiceWebrtcWithLibp2p},
+};
 use node::{
     event_source::Event,
     ledger::LedgerCtx,
-    p2p::{
-        channels::ChannelId,
-        identity::SecretKey as P2pSecretKey,
-        service_impl::{
-            webrtc::P2pServiceCtx,
-            webrtc_with_libp2p::{self, P2pServiceWebrtcWithLibp2p},
-        },
-    },
+    p2p::{channels::ChannelId, identity::SecretKey as P2pSecretKey},
     service::Recorder,
     snark::{get_srs, get_verifier_index, VerifierKind},
     BuildEnv, Config, GlobalConfig, LedgerConfig, P2pConfig, SnarkConfig, State,
@@ -175,6 +176,7 @@ impl Cluster {
 
         let (event_sender, event_receiver) = mpsc::unbounded_channel();
 
+        #[cfg(feature = "p2p-libp2p")]
         let webrtc_with_libp2p::P2pServiceCtx {
             libp2p,
             webrtc: P2pServiceCtx { cmd_sender, peers },
@@ -183,8 +185,10 @@ impl Cluster {
             secret_key,
             testing_config.chain_id,
             event_sender.clone(),
-            P2pTaskSpawner::new(shutdown_tx.clone()),
+            p2p_task_spawner::P2pTaskSpawner::new(shutdown_tx.clone()),
         );
+        #[cfg(not(feature = "p2p-libp2p"))]
+        let (cmd_sender, peers) = { (mpsc::unbounded_channel().0, Default::default()) };
 
         let mut rpc_service = RpcService::new();
 
@@ -218,6 +222,7 @@ impl Cluster {
             cmd_sender,
             ledger,
             peers,
+            #[cfg(feature = "p2p-libp2p")]
             libp2p,
             rpc: rpc_service,
             snark_worker_sender: None,

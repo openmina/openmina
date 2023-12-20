@@ -16,7 +16,7 @@ pub enum P2pListenAction {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pListenNewAction {
     pub listener_id: P2pListenerId,
-    pub addr: libp2p::Multiaddr,
+    pub addr: multiaddr::Multiaddr,
 }
 
 impl EnablingCondition<P2pState> for P2pListenNewAction {
@@ -34,7 +34,7 @@ impl From<P2pListenNewAction> for P2pAction {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pListenExpiredAction {
     pub listener_id: P2pListenerId,
-    pub addr: libp2p::Multiaddr,
+    pub addr: multiaddr::Multiaddr,
 }
 
 impl EnablingCondition<P2pState> for P2pListenExpiredAction {

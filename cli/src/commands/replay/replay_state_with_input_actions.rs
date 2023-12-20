@@ -1,7 +1,6 @@
 use std::cell::RefCell;
 
 use node::core::channels::mpsc;
-use node::p2p::service_impl::libp2p::Libp2pService;
 use node::recorder::{Recorder, StateWithInputActionsReader};
 use node::snark::VerifierKind;
 use node::{ActionWithMeta, BuildEnv, Store};
@@ -58,7 +57,8 @@ impl ReplayStateWithInputActions {
             cmd_sender: mpsc::unbounded_channel().0,
             ledger: Default::default(),
             peers: Default::default(),
-            libp2p: Libp2pService::mocked().0,
+            #[cfg(feature = "p2p-libp2p")]
+            libp2p: node::p2p::service_impl::libp2p::Libp2pService::mocked().0,
             rpc: RpcService::new(),
             snark_worker_sender: None,
             stats: Default::default(),
