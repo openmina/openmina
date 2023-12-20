@@ -1,5 +1,8 @@
 use std::fmt;
 
+#[cfg(all(not(target_arch = "wasm32"), not(feature = "p2p-libp2p")))]
+use std::net::{IpAddr, SocketAddr};
+
 use derive_more::From;
 use openmina_core::snark::Snark;
 use serde::{Deserialize, Serialize};
@@ -18,6 +21,35 @@ pub enum P2pEvent {
     #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
     Libp2pIdentify(PeerId, libp2p::Multiaddr),
     Discovery(P2pDiscoveryEvent),
+    #[cfg(all(not(target_arch = "wasm32"), not(feature = "p2p-libp2p")))]
+    MioEvent(MioEvent),
+}
+
+/// The mio service reports events.
+#[cfg(all(not(target_arch = "wasm32"), not(feature = "p2p-libp2p")))]
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum MioEvent {
+    /// A new network interface was detected on the machine.
+    InterfaceDetected(IpAddr),
+    /// The interface is not available anymore.
+    InterfaceExpired(IpAddr),
+
+    /// The remote peer is trying to connect to us.
+    IncomingConnectionIsReady(SocketAddr),
+    /// We accepted the connection from the remote peer.
+    IncomingConnectionDidAccept(Option<SocketAddr>, Result<(), String>),
+    /// The remote peer is trying to send us some data.
+    IncomingDataIsReady(SocketAddr),
+    /// We received the data from the remote peer.
+    IncomingDataDidReceive(SocketAddr, Result<Box<[u8]>, String>),
+
+    /// We connected to the remote peer by the address.
+    OutgoingConnectionDidConnect(SocketAddr, Result<(), String>),
+    /// We sent some data to the remote peer.
+    OutgoingDataDidSend(SocketAddr, Result<(), String>),
+
+    // The remote peer is disconnected gracefully or with an error.
+    ConnectionDidClose(SocketAddr, Result<(), String>),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -33,11 +65,11 @@ pub enum P2pConnectionEvent {
 pub enum P2pListenEvent {
     NewListenAddr {
         listener_id: P2pListenerId,
-        addr: libp2p::Multiaddr,
+        addr: multiaddr::Multiaddr,
     },
     ExpiredListenAddr {
         listener_id: P2pListenerId,
-        addr: libp2p::Multiaddr,
+        addr: multiaddr::Multiaddr,
     },
     ListenerError {
         listener_id: P2pListenerId,
@@ -85,12 +117,14 @@ impl fmt::Display for P2pEvent {
                 write!(f, "Libp2pIdentify, {peer_id}")
             }
             Self::Discovery(v) => v.fmt(f),
+            #[cfg(all(not(target_arch = "wasm32"), not(feature = "p2p-libp2p")))]
+            Self::MioEvent(v) => v.fmt(f),
         }
     }
 }
 
-fn maddr_ip(addr: &libp2p::Multiaddr) -> String {
-    use libp2p::multiaddr::Protocol;
+fn maddr_ip(addr: &multiaddr::Multiaddr) -> String {
+    use multiaddr::Protocol;
     addr.iter()
         .find_map(|p| match p {
             Protocol::Ip4(_)
@@ -274,6 +308,40 @@ impl fmt::Display for P2pDiscoveryEvent {
                     .collect::<Vec<_>>()
                     .join(",")
             ),
+        }
+    }
+}
+
+#[cfg(all(not(target_arch = "wasm32"), not(feature = "p2p-libp2p")))]
+impl fmt::Display for MioEvent {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::InterfaceDetected(ip) => write!(f, "InterfaceDetected, {ip}"),
+            Self::InterfaceExpired(ip) => write!(f, "InterfaceExpired, {ip}"),
+            Self::IncomingConnectionIsReady(addr) => {
+                write!(f, "IncomingConnectionIsReady, {addr}")
+            }
+            Self::IncomingConnectionDidAccept(Some(addr), res) => {
+                write!(f, "IncomingConnectionDidAccept, {addr}, {}", res_kind(res))
+            }
+            Self::IncomingConnectionDidAccept(None, res) => {
+                write!(f, "IncomingConnectionDidAccept, unknown, {}", res_kind(res))
+            }
+            Self::IncomingDataIsReady(addr) => {
+                write!(f, "IncomingDataIsReady, {addr}")
+            }
+            Self::IncomingDataDidReceive(addr, res) => {
+                write!(f, "IncomingDataDidReceive, {addr}. {}", res_kind(res))
+            }
+            Self::OutgoingConnectionDidConnect(addr, res) => {
+                write!(f, "OutgoingConnectionDidConnect, {addr}, {}", res_kind(res))
+            }
+            Self::OutgoingDataDidSend(addr, res) => {
+                write!(f, "OutgoingDataDidSend, {addr}, {}", res_kind(res))
+            }
+            Self::ConnectionDidClose(addr, res) => {
+                write!(f, "ConnectionDidClose, {addr}, {}", res_kind(res))
+            }
         }
     }
 }

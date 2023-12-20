@@ -669,7 +669,6 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                         summary = format!("Vrf Evaluation requested: {:?}", a.vrf_input),
                     )
                 }
-                _ => {}
             },
             BlockProducerAction::BestTipUpdate(_) => {}
             _ => {}
