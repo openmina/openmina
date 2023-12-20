@@ -63,3 +63,30 @@ cd openmina/
 git submodule update --init
 
 cargo run --release -p cli node
+
+
+# The Open Mina documentation overview
+
+- [Why we are developing Open Mina](https://github.com/JanSlobodnik/pre-publishing/blob/main/why-openmina.md)
+- What is Open Mina?
+  - [Openmina Node](https://github.com/openmina/openmina/blob/main/README.md)
+  - [The Mina Web Node](https://github.com/openmina/webnode/blob/main/README.md)
+- Core components
+  - [P2P communication](https://github.com/openmina/openmina/blob/documentation/docs/p2p_service.md)
+    - [GossipSub](https://github.com/openmina/mina-wiki/blob/3ea9041e52fb2e606918f6c60bd3a32b8652f016/p2p/mina-gossip.md)
+  - [Block production](https://github.com/JanSlobodnik/pre-publishing/blob/main/block-production.md)
+  - [Scan state](https://github.com/JanSlobodnik/pre-publishing/blob/main/scan-state.md)
+  - [SNARKs](https://github.com/JanSlobodnik/pre-publishing/blob/main/SNARKs.md)
+  - Developer tools
+    - [Debugger](https://github.com/openmina/mina-network-debugger/blob/main/README.md)
+  - [Front End](https://github.com/openmina/mina-frontend/blob/main/README.md)
+    - [Dashboard](https://github.com/openmina/mina-frontend/blob/main/docs/MetricsTracing.md#Dashboard)
+- [Testing](https://github.com/openmina/openmina/blob/develop/testing.md)
+- How to run
+  - [Openmina node](https://github.com/openmina/openmina/blob/main/README.md)
+  - [Debugger](https://github.com/openmina/mina-network-debugger?tab=readme-ov-file#Preparing-for-build)
+  - [Web Node](https://github.com/openmina/webnode/blob/main/README.md#try-out-the-mina-web-node)
+- External links
+  - [Substack](https://openmina.substack.com/)
+  - [Medium](https://medium.com/openmina)
+  - [Social media](https://twitter.com/viable_systems)
