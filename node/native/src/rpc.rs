@@ -1,4 +1,4 @@
-use node::rpc::{RpcHealthCheckResponse, RpcReadinessCheckResponse, RpcPeersGetResponse};
+use node::rpc::{RpcHealthCheckResponse, RpcPeersGetResponse, RpcReadinessCheckResponse};
 use serde::{Deserialize, Serialize};
 
 use node::core::channels::{mpsc, oneshot};
