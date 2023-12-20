@@ -110,11 +110,13 @@ pub fn as_connection_finalized_event(event: &Event) -> Option<(&PeerId, &Result<
 }
 
 pub fn identify_event(peer_id: PeerId) -> impl Fn(ClusterNodeId, &Event, &State) -> bool {
-    move |_, event, _| {
-        matches!(
-            event,
-            Event::P2p(P2pEvent::Libp2pIdentify(peer, _)) if peer == &peer_id
-        )
+    move |_, event, _| match event {
+        #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
+        Event::P2p(P2pEvent::Libp2pIdentify(peer, _)) if peer == &peer_id => true,
+        _ => {
+            let _ = peer_id;
+            false
+        }
     }
 }
 

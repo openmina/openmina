@@ -1,7 +1,9 @@
 mod config;
 pub use config::ClusterConfig;
 
+#[cfg(feature = "p2p-libp2p")]
 mod p2p_task_spawner;
+#[cfg(feature = "p2p-libp2p")]
 pub use p2p_task_spawner::P2pTaskSpawner;
 
 mod node_id;
@@ -17,19 +19,17 @@ use node::snark::{VerifierIndex, VerifierSRS};
 use node::core::channels::mpsc;
 use node::core::requests::RpcId;
 use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
+#[cfg(feature = "p2p-libp2p")]
+use node::p2p::service_impl::{
+    webrtc::P2pServiceCtx,
+    webrtc_with_libp2p::{self, P2pServiceWebrtcWithLibp2p},
+};
 use node::p2p::{P2pConnectionEvent, P2pDiscoveryEvent, P2pEvent, PeerId};
 use node::{
     account::{AccountPublicKey, AccountSecretKey},
     event_source::Event,
     ledger::LedgerCtx,
-    p2p::{
-        channels::ChannelId,
-        identity::SecretKey as P2pSecretKey,
-        service_impl::{
-            webrtc::P2pServiceCtx,
-            webrtc_with_libp2p::{self, P2pServiceWebrtcWithLibp2p},
-        },
-    },
+    p2p::{channels::ChannelId, identity::SecretKey as P2pSecretKey},
     service::Recorder,
     snark::{get_srs, get_verifier_index, VerifierKind},
     BuildEnv, Config, GlobalConfig, LedgerConfig, P2pConfig, SnarkConfig, State,
@@ -208,6 +208,7 @@ impl Cluster {
 
         let (event_sender, event_receiver) = mpsc::unbounded_channel();
 
+        #[cfg(feature = "p2p-libp2p")]
         let webrtc_with_libp2p::P2pServiceCtx {
             libp2p,
             webrtc: P2pServiceCtx { cmd_sender, peers },
@@ -216,8 +217,10 @@ impl Cluster {
             secret_key,
             testing_config.chain_id,
             event_sender.clone(),
-            P2pTaskSpawner::new(shutdown_tx.clone()),
+            p2p_task_spawner::P2pTaskSpawner::new(shutdown_tx.clone()),
         );
+        #[cfg(not(feature = "p2p-libp2p"))]
+        let (cmd_sender, peers) = { (mpsc::unbounded_channel().0, Default::default()) };
 
         let mut rpc_service = RpcService::new();
 
@@ -251,6 +254,7 @@ impl Cluster {
             cmd_sender,
             ledger,
             peers,
+            #[cfg(feature = "p2p-libp2p")]
             libp2p,
             block_producer: None,
             snark_worker_sender: None,
@@ -637,25 +641,30 @@ impl Cluster {
                             let is_peer_connected =
                                 node.state().p2p.get_ready_peer(&peer_id).is_some();
                             // deduce if kad initiated this conn.
-                            if !node.state().p2p.is_peer_connected_or_connecting(&peer_id) {
-                                let my_addr = node.dial_addr();
-                                let peer = self
-                                    .nodes
-                                    .iter_mut()
-                                    .find(|node| node.peer_id() == peer_id)
-                                    .ok_or_else(|| {
-                                        anyhow::anyhow!("node with peer_id: '{peer_id}' not found")
-                                    })?;
+                            #[cfg(feature = "p2p-libp2p")]
+                            {
+                                if !node.state().p2p.is_peer_connected_or_connecting(&peer_id) {
+                                    let my_addr = node.dial_addr();
+                                    let peer = self
+                                        .nodes
+                                        .iter_mut()
+                                        .find(|node| node.peer_id() == peer_id)
+                                        .ok_or_else(|| {
+                                            anyhow::anyhow!(
+                                                "node with peer_id: '{peer_id}' not found"
+                                            )
+                                        })?;
 
-                                if !peer.state().p2p.is_peer_connecting(my_addr.peer_id()) {
-                                    // kad initiated this connection so replay that.
-                                    eprintln!(
-                                        "p2p_kad_outgoing_init({:?}) -> {:?} - {}",
-                                        peer.node_id(),
-                                        node_id,
-                                        my_addr
-                                    );
-                                    peer.p2p_kad_outgoing_init(my_addr);
+                                    if !peer.state().p2p.is_peer_connecting(my_addr.peer_id()) {
+                                        // kad initiated this connection so replay that.
+                                        eprintln!(
+                                            "p2p_kad_outgoing_init({:?}) -> {:?} - {}",
+                                            peer.node_id(),
+                                            node_id,
+                                            my_addr
+                                        );
+                                        peer.p2p_kad_outgoing_init(my_addr);
+                                    }
                                 }
                             }
                             if is_peer_connected {
@@ -670,6 +679,7 @@ impl Cluster {
                             event
                         }
                     }
+                    #[cfg(feature = "p2p-libp2p")]
                     NonDeterministicEvent::P2pLibp2pIdentify(peer_id) => {
                         let addr = match node_addr_by_peer_id(self, peer_id)? {
                             P2pConnectionOutgoingInitOpts::LibP2P(v) => (&v).into(),

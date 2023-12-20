@@ -13,6 +13,7 @@ pub enum NonDeterministicEvent {
     /// without state machine knowing about it.
     P2pConnectionFinalized(PeerId, Result<(), String>),
     P2pConnectionClosed(PeerId),
+    #[cfg(feature = "p2p-libp2p")]
     P2pLibp2pIdentify(PeerId),
 
     P2pDiscoveryReady,
@@ -36,6 +37,9 @@ impl NonDeterministicEvent {
                 },
                 P2pEvent::Channel(_) => return None,
                 P2pEvent::Listen(_) => Self::P2pListen.into(),
+                #[cfg(not(feature = "p2p-libp2p"))]
+                P2pEvent::MioEvent(_) => return None,
+                #[cfg(feature = "p2p-libp2p")]
                 P2pEvent::Libp2pIdentify(peer_id, _) => Self::P2pLibp2pIdentify(*peer_id).into(),
                 P2pEvent::Discovery(e) => match e {
                     P2pDiscoveryEvent::Ready => Self::P2pDiscoveryReady.into(),
