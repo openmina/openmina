@@ -88,7 +88,7 @@ pub enum ActionStatsResponse {
 pub enum PeerConnectionStatus {
     Disconnected,
     Connecting,
-    Connected
+    Connected,
 }
 
 #[derive(Serialize, Debug, Clone)]
