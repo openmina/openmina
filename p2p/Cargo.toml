@@ -40,6 +40,7 @@ libp2p = { workspace = true, features = ["macros", "serde", "tcp", "dns", "tokio
 libp2p-rpc-behaviour = { path = "libp2p-rpc-behaviour", optional = true }
 libp2p-identity = { version = "=0.2.7" }
 multiaddr = { version = "0.18.1" }
+mio = { version = "0.8.10", features = ["os-poll"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = "0.2"
@@ -51,6 +52,6 @@ web-sys = { version = "0.3", features = ["RtcPeerConnection", "RtcConfiguration"
 tokio = { version = "1.26", features = ["macros"] }
 
 [features]
-default = ["p2p-libp2p"]
+# default = ["p2p-libp2p"]
 p2p-webrtc = ["webrtc"]
 p2p-libp2p = ["libp2p", "libp2p-rpc-behaviour"]
