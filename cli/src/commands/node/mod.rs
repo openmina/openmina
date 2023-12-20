@@ -123,10 +123,6 @@ impl Node {
             panic!("FatalError: {:?}", e);
         }
 
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .build()
-            .unwrap();
-        let _rt_guard = rt.enter();
         let mut rng = ThreadRng::default();
 
         let secret_key = self.p2p_secret_key.unwrap_or_else(|| {
@@ -211,108 +207,91 @@ impl Node {
             .unwrap();
         std::thread::Builder::new()
             .name("openmina_http_server".to_owned())
-            .spawn(move || {
-                let local_set = tokio::task::LocalSet::new();
-                local_set.block_on(&runtime, http_server::run(http_port, rpc_sender))
-            })
+            .spawn(move || runtime.block_on(http_server::run(http_port, rpc_sender)))
             .unwrap();
 
-        // spawn state machine thread.
+        let record = self.record;
+
+        let ledger = if let Some(path) = &self.additional_ledgers_path {
+            LedgerCtx::new_with_additional_snarked_ledgers(path)
+        } else {
+            LedgerCtx::default()
+        };
+
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .thread_stack_size(64 * 1024 * 1024)
             .build()
             .unwrap();
-        let (redux_exited_tx, redux_exited) = tokio::sync::oneshot::channel();
-        let record = self.record;
-        std::thread::Builder::new()
-            .name("openmina_redux".to_owned())
-            .spawn(move || {
-                let ledger = if let Some(path) = &self.additional_ledgers_path {
-                    LedgerCtx::new_with_additional_snarked_ledgers(path)
-                } else {
-                    LedgerCtx::default()
-                };
 
-                let local_set = tokio::task::LocalSet::new();
-                local_set.block_on(&runtime, async move {
-                    let service = NodeService {
-                        rng: StdRng::seed_from_u64(rng_seed),
-                        event_sender,
-                        event_receiver: event_receiver.into(),
-                        cmd_sender,
-                        ledger,
-                        peers,
-                        libp2p,
-                        block_producer: None,
-                        snark_worker_sender: None,
-                        rpc: rpc_service,
-                        stats: Stats::new(),
-                        recorder: match record.trim() {
-                            "none" => Recorder::None,
-                            "state-with-input-actions" => Recorder::only_input_actions(work_dir),
-                            _ => panic!("unknown --record strategy"),
-                        },
-                        replayer: None,
-                        invariants_state: Default::default(),
-                    };
-                    // if let Some(producer_key) = self.producer_key {
-                    //     service.block_producer_start(keypair_from_bs58_string(&producer_key));
-                    // }
+        runtime.block_on(async move {
+            let service = NodeService {
+                rng: StdRng::seed_from_u64(rng_seed),
+                event_sender,
+                event_receiver: event_receiver.into(),
+                cmd_sender,
+                ledger,
+                peers,
+                libp2p,
+                block_producer: None,
+                rpc: rpc_service,
+                snark_worker_sender: None,
+                stats: Stats::new(),
+                recorder: match record.trim() {
+                    "none" => Recorder::None,
+                    "state-with-input-actions" => Recorder::only_input_actions(work_dir),
+                    _ => panic!("unknown --record strategy"),
+                },
+                replayer: None,
+                invariants_state: Default::default(),
+            };
+            let state = State::new(config);
+            let mut node = ::node::Node::new(state, service, None);
 
-                    let state = State::new(config);
-                    let mut node = ::node::Node::new(state, service, None);
+            // record initial state.
+            {
+                let store = node.store_mut();
+                store
+                    .service
+                    .recorder()
+                    .initial_state(rng_seed, store.state.get());
+            }
 
-                    // record initial state.
-                    {
-                        let store = node.store_mut();
-                        store.service.recorder().initial_state(rng_seed, store.state.get());
+            node.store_mut().dispatch(EventSourceProcessEventsAction {});
+            loop {
+                node.store_mut().dispatch(EventSourceWaitForEventsAction {});
+
+                let service = &mut node.store_mut().service;
+                let wait_for_events = service.event_receiver.wait_for_events();
+                let rpc_req_fut = async {
+                    // TODO(binier): optimize maybe to not check it all the time.
+                    match service.rpc.req_receiver().recv().await {
+                        Some(v) => v,
+                        None => std::future::pending().await,
                     }
+                };
+                let timeout = tokio::time::sleep(Duration::from_millis(100));
 
-                    node
-                        .store_mut()
-                        .dispatch(EventSourceProcessEventsAction {});
-                    loop {
-                        node
-                            .store_mut()
-                            .dispatch(EventSourceWaitForEventsAction {});
-
-                        let service = &mut node.store_mut().service;
-                        let wait_for_events = service.event_receiver.wait_for_events();
-                        let rpc_req_fut = async {
-                            // TODO(binier): optimize maybe to not check it all the time.
-                            match service.rpc.req_receiver().recv().await {
-                                Some(v) => v,
-                                None => std::future::pending().await,
-                            }
-                        };
-                        let timeout = tokio::time::sleep(Duration::from_millis(100));
-
-                        select! {
-                            _ = wait_for_events => {
-                                while node.store_mut().service.event_receiver.has_next() {
-                                    node.store_mut().dispatch(EventSourceProcessEventsAction {});
-                                }
-                            }
-                            req = rpc_req_fut => {
-                                node.store_mut().service.process_rpc_request(req);
-                                // TODO(binier): remove loop once ledger communication is async.
-                                while let Ok(req) = node.store_mut().service.rpc.req_receiver().try_recv() {
-                                    node.store_mut().service.process_rpc_request(req);
-                                }
-                            }
-                            _ = timeout => {
-                                node.store_mut().dispatch(EventSourceWaitTimeoutAction {});
-                            }
+                select! {
+                    _ = wait_for_events => {
+                        while node.store_mut().service.event_receiver.has_next() {
+                            node.store_mut().dispatch(EventSourceProcessEventsAction {});
                         }
                     }
-                });
-                let _ = redux_exited_tx.send(());
-            })
-            .unwrap();
+                    req = rpc_req_fut => {
+                        node.store_mut().service.process_rpc_request(req);
+                        // TODO(binier): remove loop once ledger communication is async.
+                        while let Ok(req) = node.store_mut().service.rpc.req_receiver().try_recv() {
+                            node.store_mut().service.process_rpc_request(req);
+                        }
+                    }
+                    _ = timeout => {
+                        node.store_mut().dispatch(EventSourceWaitTimeoutAction {});
+                    }
+                }
+            }
+        });
 
-        rt.block_on(redux_exited)
-            .expect("state machine task crashed!");
         Ok(())
     }
 }
