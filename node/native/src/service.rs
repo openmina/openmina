@@ -13,10 +13,12 @@ use node::core::snark::{Snark, SnarkJobId};
 use node::event_source::Event;
 use node::ledger::LedgerCtx;
 use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
-use node::p2p::service_impl::libp2p::Libp2pService;
 use node::p2p::service_impl::webrtc::{Cmd, P2pServiceWebrtc, PeerState};
-use node::p2p::service_impl::webrtc_with_libp2p::P2pServiceWebrtcWithLibp2p;
 use node::p2p::service_impl::TaskSpawner;
+#[cfg(feature = "p2p-libp2p")]
+use node::p2p::service_impl::{
+    libp2p::Libp2pService, webrtc_with_libp2p::P2pServiceWebrtcWithLibp2p,
+};
 use node::p2p::PeerId;
 use node::rpc::{RpcP2pConnectionOutgoingResponse, RpcRequest};
 use node::service::{EventSourceService, Recorder};
@@ -41,6 +43,7 @@ pub struct NodeService {
     pub cmd_sender: mpsc::UnboundedSender<Cmd>,
     pub ledger: LedgerCtx,
     pub peers: BTreeMap<PeerId, PeerState>,
+    #[cfg(feature = "p2p-libp2p")]
     pub libp2p: Libp2pService,
     pub rpc: RpcService,
     pub snark_worker_sender: Option<ext_snark_worker::ExternalSnarkWorkerFacade>,
@@ -129,6 +132,79 @@ impl P2pServiceWebrtc for NodeService {
     }
 }
 
+#[cfg(not(feature = "p2p-libp2p"))]
+mod mocks {
+    use node::{
+        p2p::{
+            channels::{ChannelId, ChannelMsg, MsgId},
+            connection::outgoing::P2pConnectionOutgoingInitOpts,
+            webrtc, PeerId,
+        },
+        service::{P2pChannelsService, P2pConnectionService, P2pDisconnectionService},
+    };
+    use openmina_core::snark::Snark;
+
+    use super::NodeService;
+
+    impl P2pConnectionService for NodeService {
+        fn random_pick(
+            &mut self,
+            _list: &[P2pConnectionOutgoingInitOpts],
+        ) -> P2pConnectionOutgoingInitOpts {
+            panic!("not implemented without libp2p");
+        }
+
+        /// Initiates an outgoing connection and creates an offer sdp,
+        /// which will be received in the state machine as an event.
+        fn outgoing_init(&mut self, _opts: P2pConnectionOutgoingInitOpts) {
+            panic!("not implemented without libp2p");
+        }
+
+        /// Initiates an incoming connection and creates an answer sdp,
+        /// which will be received in the state machine as an event.
+        fn incoming_init(&mut self, _peer_id: PeerId, _offer: webrtc::Offer) {
+            panic!("not implemented without libp2p");
+        }
+
+        fn set_answer(&mut self, _peer_id: PeerId, _answer: webrtc::Answer) {
+            panic!("not implemented without libp2p");
+        }
+
+        fn http_signaling_request(&mut self, _url: String, _offer: webrtc::Offer) {
+            panic!("not implemented without libp2p");
+        }
+
+        fn start_discovery(&mut self, _peers: Vec<P2pConnectionOutgoingInitOpts>) {
+            panic!("not implemented without libp2p");
+        }
+
+        fn find_random_peer(&mut self) {
+            panic!("not implemented without libp2p");
+        }
+    }
+
+    impl P2pDisconnectionService for NodeService {
+        fn disconnect(&mut self, _peer_id: PeerId) {
+            panic!("not implemented without libp2p");
+        }
+    }
+
+    impl P2pChannelsService for NodeService {
+        fn channel_open(&mut self, _peer_id: PeerId, _id: ChannelId) {
+            panic!("not implemented without libp2p");
+        }
+
+        fn channel_send(&mut self, _peer_id: PeerId, _msg_id: MsgId, _msg: ChannelMsg) {
+            panic!("not implemented without libp2p");
+        }
+
+        fn libp2p_broadcast_snark(&mut self, _snark: Snark, _nonce: u32) {
+            panic!("not implemented without libp2p");
+        }
+    }
+}
+
+#[cfg(feature = "p2p-libp2p")]
 impl P2pServiceWebrtcWithLibp2p for NodeService {
     fn libp2p(&mut self) -> &mut Libp2pService {
         &mut self.libp2p

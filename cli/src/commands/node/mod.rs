@@ -21,8 +21,11 @@ use node::ledger::LedgerCtx;
 use node::p2p::channels::ChannelId;
 use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 use node::p2p::identity::SecretKey;
-use node::p2p::service_impl::webrtc::P2pServiceCtx;
-use node::p2p::service_impl::webrtc_with_libp2p::{self, P2pServiceWebrtcWithLibp2p};
+#[cfg(feature = "p2p-libp2p")]
+use node::p2p::service_impl::{
+    webrtc::P2pServiceCtx,
+    webrtc_with_libp2p::{self, P2pServiceWebrtcWithLibp2p},
+};
 use node::p2p::P2pConfig;
 use node::service::{Recorder, Service};
 use node::snark::{get_srs, get_verifier_index, VerifierKind};
@@ -33,9 +36,10 @@ use node::{
 };
 
 use openmina_node_native::rpc::RpcService;
-use openmina_node_native::{http_server, tracing, NodeService, P2pTaskSpawner, RpcSender};
+use openmina_node_native::{http_server, tracing, NodeService, RpcSender};
 
-const CHAIN_ID: &'static str = "3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e";
+#[cfg(feature = "p2p-libp2p")]
+use openmina_node_native::P2pTaskSpawner;
 
 /// Openmina node
 #[derive(Debug, clap::Args)]
@@ -165,16 +169,19 @@ impl Node {
         };
         let (event_sender, event_receiver) = mpsc::unbounded_channel();
 
+        #[cfg(feature = "p2p-libp2p")]
         let webrtc_with_libp2p::P2pServiceCtx {
             libp2p,
             webrtc: P2pServiceCtx { cmd_sender, peers },
         } = <NodeService as P2pServiceWebrtcWithLibp2p>::init(
             Some(self.libp2p_port),
             secret_key,
-            CHAIN_ID.to_owned(),
+            "3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e".to_owned(),
             event_sender.clone(),
             P2pTaskSpawner {},
         );
+        #[cfg(not(feature = "p2p-libp2p"))]
+        let (cmd_sender, peers) = { (mpsc::unbounded_channel().0, Default::default()) };
 
         let mut rpc_service = RpcService::new();
 
@@ -213,6 +220,7 @@ impl Node {
                 cmd_sender,
                 ledger,
                 peers,
+                #[cfg(feature = "p2p-libp2p")]
                 libp2p,
                 rpc: rpc_service,
                 snark_worker_sender: None,

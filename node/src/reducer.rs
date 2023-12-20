@@ -1,4 +1,7 @@
-use p2p::{connection::outgoing::P2pConnectionOutgoingInitOpts, P2pDiscoveryEvent, P2pEvent};
+use p2p::{P2pDiscoveryEvent, P2pEvent};
+
+#[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
+use p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 
 use crate::{event_source::Event, Action, ActionWithMeta, EventSourceAction, State};
 
@@ -7,7 +10,7 @@ pub fn reducer(state: &mut State, action: &ActionWithMeta) {
     match action.action() {
         Action::CheckTimeouts(_) => {}
         Action::EventSource(EventSourceAction::NewEvent(content)) => match &content.event {
-            #[cfg(not(target_arch = "wasm32"))]
+            #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
             Event::P2p(P2pEvent::Libp2pIdentify(peer_id, maddr)) => {
                 if let Some(peer) = state.p2p.peers.get_mut(peer_id) {
                     match maddr.try_into() {

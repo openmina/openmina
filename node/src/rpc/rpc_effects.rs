@@ -97,17 +97,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                     RpcPeerInfo {
                         peer_id: peer_id.clone(),
                         connection_status,
-                        address: state
-                            .dial_opts
-                            .as_ref()
-                            .and_then(|opts| opts.try_into_mina_rpc())
-                            .map(|p| {
-                                format!(
-                                    "{}:{}",
-                                    String::try_from(p.host).unwrap_or("0.0.0.0".to_string()),
-                                    p.libp2p_port.to_string()
-                                )
-                            }),
+                        address: state.dial_opts.as_ref().map(|opts| opts.to_string()),
                         best_tip: best_tip.map(|bt| bt.hash.clone()),
                         best_tip_height: best_tip.map(|bt| bt.height()),
                         best_tip_global_slot: best_tip.map(|bt| bt.global_slot()),

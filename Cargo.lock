@@ -3355,6 +3355,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8f3d0b296e374a4e6f3c7b0a1f5a51d748a0d34c85e7dc48fc3fa9a87657fe09"
 dependencies = [
  "libc",
+ "log",
  "wasi 0.11.0+wasi-snapshot-preview1",
  "windows-sys 0.48.0",
 ]
@@ -4050,6 +4051,7 @@ dependencies = [
  "libp2p-rpc-behaviour",
  "mina-p2p-messages",
  "mina-tree",
+ "mio",
  "multiaddr",
  "multihash 0.18.1",
  "openmina-core",

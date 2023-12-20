@@ -59,11 +59,12 @@ steps:
       - apt-get update && apt-get install -y libssl-dev libjemalloc-dev jq
       - rustup update nightly-2023-06-01 && rustup default nightly-2023-06-01
       - rustup component add rustfmt
-      - cargo test --release -p cli
-      - cargo build --release -p cli --bin openmina
+      - cargo build
+      - cargo test --features p2p-libp2p --release -p cli
+      - cargo build --release --features p2p-libp2p --bin openmina
+      - cargo build --release --features scenario-generators,p2p-libp2p -p openmina-node-testing && mv target/release/openmina-node-testing target/release/openmina-node-testing-libp2p
+      - cargo build --release --features scenario-generators,p2p-libp2p,p2p-webrtc -p openmina-node-testing && mv target/release/openmina-node-testing target/release/openmina-node-testing-webrtc
       - cargo build --release --bin runner
-      - cargo build --release --features scenario-generators -p openmina-node-testing && mv target/release/openmina-node-testing target/release/openmina-node-testing-libp2p
-      - cargo build --release --features scenario-generators,p2p-webrtc -p openmina-node-testing && mv target/release/openmina-node-testing target/release/openmina-node-testing-webrtc
 
   - name: solo-webrtc-sync-root-snarked-ledger
     image: vladsimplestakingcom/mina-debugger:2.0.0rampup4-focal

@@ -33,11 +33,11 @@ use crate::p2p::discovery::{
 use crate::p2p::P2pChannelEvent;
 use crate::rpc::{
     RpcActionStatsGetAction, RpcGlobalStateGetAction, RpcHealthCheckAction,
-    RpcP2pConnectionIncomingInitAction, RpcP2pConnectionOutgoingInitAction,
+    RpcP2pConnectionIncomingInitAction, RpcP2pConnectionOutgoingInitAction, RpcPeersGetAction,
     RpcReadinessCheckAction, RpcRequest, RpcScanStateSummaryGetAction,
     RpcSnarkPoolAvailableJobsGetAction, RpcSnarkPoolJobGetAction, RpcSnarkerConfigGetAction,
     RpcSnarkerJobCommitAction, RpcSnarkerJobSpecAction, RpcSnarkersWorkersGetAction,
-    RpcSyncStatsGetAction, RpcPeersGetAction,
+    RpcSyncStatsGetAction,
 };
 use crate::snark::block_verify::{SnarkBlockVerifyErrorAction, SnarkBlockVerifySuccessAction};
 use crate::snark::work_verify::{SnarkWorkVerifyErrorAction, SnarkWorkVerifySuccessAction};
@@ -73,6 +73,8 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
         // "Translate" event into the corresponding action and dispatch it.
         EventSourceAction::NewEvent(content) => match content.event {
             Event::P2p(e) => match e {
+                #[cfg(all(not(target_arch = "wasm32"), not(feature = "p2p-libp2p")))]
+                P2pEvent::MioEvent(e) => todo!("handle {e}"),
                 P2pEvent::Connection(e) => match e {
                     P2pConnectionEvent::OfferSdpReady(peer_id, res) => match res {
                         Err(error) => {
@@ -201,7 +203,7 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                         store.dispatch(P2pDisconnectionInitAction { peer_id, reason });
                     }
                 },
-                #[cfg(not(target_arch = "wasm32"))]
+                #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
                 P2pEvent::Libp2pIdentify(..) => {}
                 P2pEvent::Discovery(p2p::P2pDiscoveryEvent::Ready) => {}
                 P2pEvent::Discovery(p2p::P2pDiscoveryEvent::DidFindPeers(peers)) => {
