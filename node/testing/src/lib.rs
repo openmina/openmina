@@ -1,4 +1,7 @@
 mod exit_with_error;
+
+use std::sync::Arc;
+
 pub use exit_with_error::exit_with_error;
 
 pub mod cluster;
@@ -13,6 +16,7 @@ pub mod ocaml;
 
 mod server;
 pub use server::server;
+use tokio::sync::{Mutex, MutexGuard};
 
 pub fn setup() -> tokio::runtime::Runtime {
     // openmina_node_native::tracing::initialize(openmina_node_native::tracing::Level::DEBUG);
@@ -40,4 +44,23 @@ pub fn setup_without_rt() {
         };
     };
     *INIT;
+}
+
+lazy_static::lazy_static! {
+    static ref GATE: Arc<Mutex<()>> = Arc::new(Mutex::new(()));
+}
+
+pub struct TestGate(MutexGuard<'static, ()>);
+
+impl TestGate {
+    async fn there_can_be_only_one() -> Self {
+        Self(GATE.lock().await)
+    }
+    pub fn release(self) {
+
+    }
+}
+
+pub async fn wait_for_other_tests() -> TestGate {
+    TestGate::there_can_be_only_one().await
 }
