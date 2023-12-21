@@ -47,3 +47,8 @@ ark-ff = { git = "https://github.com/openmina/algebra", branch = "openmina" }
 ark-ec = { git = "https://github.com/openmina/algebra", branch = "openmina" }
 ark-poly = { git = "https://github.com/openmina/algebra", branch = "openmina" }
 ark-serialize = { git = "https://github.com/openmina/algebra", branch = "openmina" }
+
+[profile.test.package."*"]
+opt-level = 3
+debug-assertions = true
+overflow-checks = false
