@@ -818,7 +818,8 @@ describe('NETWORK MESSAGES FOOTER', () => {
         }
         expect(btn.text().substring(0, (btn.text().length - ' close'.length))).to.include(from);
         expect(btn.text().substring(0, (btn.text().length - ' close'.length))).to.include(to);
-        cy.url().should('include', '?from=' + Math.floor(dateOneMinuteAgo.getTime() / 1000) + '&to=' + Math.floor(date.getTime() / 1000));
+        cy.url().should('include', '?from=' + Math.floor(dateOneMinuteAgo.getTime() / 10000));
+        cy.url().should('include',  '&to=' + Math.floor(date.getTime() / 10000));
       })
       .wait(500)
       .window()

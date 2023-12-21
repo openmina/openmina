@@ -4,7 +4,7 @@ import { stateSliceAsPromise } from '../../../support/commands';
 import { NodesLiveState } from '@nodes/live/nodes-live.state';
 import { lastItem } from '@openmina/shared';
 
-const condition = (state: NodesLiveState) => state && state.nodes.length > 0;
+const condition = (state: NodesLiveState) => state && state.nodes?.length > 0;
 const getNodesLive = (store: Store<MinaState>) => stateSliceAsPromise<NodesLiveState>(store, condition, 'nodes', 'live');
 
 describe('NODES LIVE BLOCKS TABLE', () => {
