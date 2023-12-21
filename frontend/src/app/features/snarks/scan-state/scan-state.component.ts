@@ -30,6 +30,7 @@ export class ScanStateComponent extends StoreDispatcher implements OnInit, OnDes
   private activeJobId: string;
   private stream: boolean;
   private timer: Subscription;
+  private nodeChanged: boolean = false;
 
   constructor(public el: ElementRef) { super(); }
 
@@ -48,7 +49,8 @@ export class ScanStateComponent extends StoreDispatcher implements OnInit, OnDes
 
   private getBlock(): void {
     this.select(selectActiveNode, () => {
-      this.dispatch(ScanStateGetBlock, { heightOrHash: this.heightOrHash });
+      this.dispatch(ScanStateGetBlock, this.nodeChanged ? {} : { heightOrHash: this.heightOrHash });
+      this.nodeChanged = true;
     });
   }
 

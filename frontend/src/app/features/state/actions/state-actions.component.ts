@@ -33,13 +33,16 @@ export class StateActionsComponent extends StoreDispatcher implements OnInit, On
 
   private checkEarliestSlot(): void {
     let subscription: Subscription;
+    let force: boolean = false;
 
     this.select(selectActiveNode, () => {
       subscription?.unsubscribe();
+      force = true;
       subscription = timer(0, 20000)
         .pipe(untilDestroyed(this))
         .subscribe(() => {
-          this.dispatch(StateActionsGetEarliestSlot);
+          this.dispatch(StateActionsGetEarliestSlot, { force });
+          force = false;
         });
     });
   }

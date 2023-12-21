@@ -44,20 +44,19 @@ export class SubmenuTabsComponent extends StoreDispatcher implements OnInit {
         untilDestroyed(this),
         debounceTime(100),
       )
-      .subscribe((response: [MinaNode, MergedRoute]) => {
-        const route = response[1];
+      .subscribe(([activeNode, route]: [MinaNode, MergedRoute]) => {
         this.baseRoute = removeParamsFromURL(route.url.split('/')[1]);
         this.activeSubMenu = removeParamsFromURL(route.url.split('/')[2]);
         this.activeNodeName = route.queryParams['node'];
 
-        this.setSubMenusOfActiveNodeForNewPage(response[0]);
+        this.setSubMenusOfActiveNodeForNewPage(activeNode);
         this.detect();
         this.horizontalMenuComponent.checkView();
       });
   }
 
   private setSubMenusOfActiveNodeForNewPage(node: MinaNode): void {
-    const feature = getAvailableFeatures(node || {} as any).find((f: FeatureType) => f === this.baseRoute);
+    const feature = getAvailableFeatures(node || {} as MinaNode).find((f: FeatureType) => f === this.baseRoute);
     if (node && node.features) {
       this.subMenus = this.getSubMenusMap(node.features[feature]) || [];
     } else {
@@ -66,12 +65,10 @@ export class SubmenuTabsComponent extends StoreDispatcher implements OnInit {
   }
 
   private getSubMenusMap(features: string[]): SubMenu[] {
-    return features.map((feature: string) => {
-      switch (feature) {
-        default:
-          return { name: feature.split('-').join(' '), route: feature }
-      }
-    });
+    return features.map((feature: string) => ({
+      name: feature.split('-').join(' '),
+      route: feature,
+    }));
   }
 
   private listenToMenuChange(): void {

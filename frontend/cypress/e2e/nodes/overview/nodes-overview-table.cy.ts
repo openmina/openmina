@@ -4,7 +4,7 @@ import { MinaState } from '@app/app.setup';
 import { checkSorting, Sort, stateSliceAsPromise } from '../../../support/commands';
 import { AppState } from '@app/app.state';
 
-const condition = (state: NodesOverviewState) => state && state.nodes.length > 1;
+const condition = (state: NodesOverviewState) => state && state.nodes.length > 0;
 const getNodesOverview = (store: Store<MinaState>) => stateSliceAsPromise<NodesOverviewState>(store, condition, 'nodes', 'overview');
 const nodesCondition = (state: AppState) => state && state.nodes.length > 0;
 const getNodes = (store: Store<MinaState>) => stateSliceAsPromise<AppState>(store, nodesCondition, 'app');
@@ -19,10 +19,12 @@ describe('NODES OVERVIEW TABLE', () => {
       .window()
       .its('store')
       .then(getNodesOverview)
-      .then((state: NodesOverviewState | void) => {
-        if (state && state.nodes.length > 1) {
+      .then((state: NodesOverviewState) => {
+        if (condition(state)) {
           cy.get('mina-toolbar span')
-            .then((span: any) => expect(span).contain('Nodes'));
+            .then((span: any) => expect(span).contain('Nodes'))
+            .get('mina-toolbar .submenus a.active')
+            .then((a: any) => expect(a.text().trim()).equals('overview'));
         }
       });
   });
@@ -31,12 +33,12 @@ describe('NODES OVERVIEW TABLE', () => {
     cy.window()
       .its('store')
       .then(getNodesOverview)
-      .then((state: NodesOverviewState | void) => {
-        if (state && state.nodes.length > 1) {
-          expect(state.nodes.length).above(1);
+      .then((state: NodesOverviewState) => {
+        if (condition(state)) {
+          expect(state.nodes.length).above(0);
           cy.get('mina-nodes-overview .mina-table')
             .get('.row')
-            .should('have.length.above', 1);
+            .should('have.length.above', 0);
         }
       });
   });
@@ -45,8 +47,8 @@ describe('NODES OVERVIEW TABLE', () => {
     cy.window()
       .its('store')
       .then(getNodesOverview)
-      .then((state: NodesOverviewState | void) => {
-        if (state && state.nodes.length > 1) {
+      .then((state: NodesOverviewState) => {
+        if (condition(state)) {
           checkSorting(state.nodes, 'kind', Sort.DSC);
         }
       });
@@ -56,12 +58,12 @@ describe('NODES OVERVIEW TABLE', () => {
     cy.window()
       .its('store')
       .then(getNodesOverview)
-      .then((state: NodesOverviewState | void) => {
-        if (state && state.nodes.length > 1) {
+      .then((state: NodesOverviewState) => {
+        if (condition(state)) {
           cy.window()
             .its('store')
             .then(getNodes)
-            .then((state: AppState | void) => {
+            .then((state: AppState) => {
               if (state && state.nodes.length > 0) {
                 const eachNodeHaveOneValue = state.nodes.every(n => state.nodes.filter(n1 => n1.url === n.url).length === 1);
                 if (eachNodeHaveOneValue) {
@@ -83,8 +85,8 @@ describe('NODES OVERVIEW TABLE', () => {
       .window()
       .its('store')
       .then(getNodesOverview)
-      .then((state: NodesOverviewState | void) => {
-        if (state && state.nodes.length > 1) {
+      .then((state: NodesOverviewState) => {
+        if (condition(state)) {
           checkSorting(state.nodes, 'name', Sort.ASC);
         }
       });
@@ -96,8 +98,8 @@ describe('NODES OVERVIEW TABLE', () => {
       .window()
       .its('store')
       .then(getNodesOverview)
-      .then((state: NodesOverviewState | void) => {
-        if (state && state.nodes.length > 1) {
+      .then((state: NodesOverviewState) => {
+        if (condition(state)) {
           checkSorting(state.nodes, 'kind', Sort.ASC);
         }
       });
@@ -109,8 +111,8 @@ describe('NODES OVERVIEW TABLE', () => {
       .window()
       .its('store')
       .then(getNodesOverview)
-      .then((state: NodesOverviewState | void) => {
-        if (state && state.nodes.length > 1) {
+      .then((state: NodesOverviewState) => {
+        if (condition(state)) {
           checkSorting(state.nodes, 'bestTip', Sort.DSC);
         }
       });
@@ -124,8 +126,8 @@ describe('NODES OVERVIEW TABLE', () => {
       .window()
       .its('store')
       .then(getNodesOverview)
-      .then((state: NodesOverviewState | void) => {
-        if (state && state.nodes.length > 1) {
+      .then((state: NodesOverviewState) => {
+        if (condition(state)) {
           checkSorting(state.nodes, 'height', Sort.ASC);
         }
       });
@@ -139,8 +141,8 @@ describe('NODES OVERVIEW TABLE', () => {
       .window()
       .its('store')
       .then(getNodesOverview)
-      .then((state: NodesOverviewState | void) => {
-        if (state && state.nodes.length > 1) {
+      .then((state: NodesOverviewState) => {
+        if (condition(state)) {
           checkSorting(state.nodes, 'bestTipReceivedTimestamp', Sort.ASC);
         }
       });
@@ -154,7 +156,7 @@ describe('NODES OVERVIEW TABLE', () => {
       .window()
       .its('store')
       .then(getNodesOverview)
-      .then((state: NodesOverviewState | void) => {
+      .then((state: NodesOverviewState) => {
         if (state && state.activeNode) {
           expect(state.activeNode.name).to.eq(state.nodes[0].name);
           expect(state.activeNode.bestTip).to.eq(state.nodes[0].bestTip);

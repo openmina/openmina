@@ -3,7 +3,7 @@ import { MinaState } from '@app/app.setup';
 import { checkSorting, Sort, stateSliceAsPromise } from '../../support/commands';
 import { DashboardState } from '@dashboard/dashboard.state';
 
-const condition = (state: DashboardState | void): boolean => state && state.peers.length > 1;
+const condition = (state: DashboardState): boolean => state && state.peers?.length > 1;
 const getDashboard = (store: Store<MinaState>): DashboardState => stateSliceAsPromise<DashboardState>(store, condition, 'dashboard');
 const tableHead = (child: number) => `mina-dashboard-peers-table .head > span:nth-child(${child})`;
 

@@ -15,6 +15,10 @@ import * as fromDashboard from '@dashboard/dashboard.reducer';
 import { DashboardAction } from '@dashboard/dashboard.actions';
 import { DashboardState } from '@dashboard/dashboard.state';
 
+import * as fromNetwork from '@network/network.reducer';
+import { NetworkAction } from '@network/network.reducer';
+import { NetworkState } from '@network/network.state';
+
 import * as fromNodes from '@nodes/nodes.reducer';
 import { NodesAction } from '@nodes/nodes.reducer';
 import { NodesState } from '@nodes/nodes.state';
@@ -34,9 +38,10 @@ import { TestingToolState } from '@testing-tool/testing-tool.state';
 
 export interface MinaState {
   app: AppState;
+  dashboard: DashboardState;
   error: ErrorPreviewState;
   loading: LoadingState;
-  dashboard: DashboardState;
+  network: NetworkState;
   nodes: NodesState;
   state: StateState;
   snarks: SnarksState;
@@ -46,9 +51,10 @@ export interface MinaState {
 type MinaAction =
   & AppAction
   & ErrorPreviewAction
-  & StateAction
   & DashboardAction
+  & NetworkAction
   & NodesAction
+  & StateAction
   & SnarksAction
   & TestingToolAction
   ;
@@ -58,6 +64,7 @@ export const reducers: ActionReducerMap<MinaState, MinaAction> = {
   error: fromErrorPreview.reducer,
   loading: fromLoading.reducer,
   dashboard: fromDashboard.reducer,
+  network: fromNetwork.reducer,
   nodes: fromNodes.reducer,
   state: fromState.reducer,
   snarks: fromSnarks.reducer,

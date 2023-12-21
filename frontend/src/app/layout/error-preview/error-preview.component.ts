@@ -40,11 +40,13 @@ export class ErrorPreviewComponent extends ManualDetection implements OnInit {
       .subscribe((errors: MinaError[]) => {
         if (errors.length !== this.errors.length) {
           this.newError = errors[0];
-          this.newMessages.push(void 0);
-          setTimeout(() => {
-            this.newMessages.pop();
-            this.detect();
-          }, 3000);
+          if (!errors[1] || (errors[1].seen && errors[0].message !== errors[1].message)) {
+            this.newMessages.push(void 0);
+            setTimeout(() => {
+              this.newMessages.pop();
+              this.detect();
+            }, 3000);
+          }
         }
 
         this.errors = errors;

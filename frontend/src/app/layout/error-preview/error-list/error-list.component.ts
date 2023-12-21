@@ -15,6 +15,7 @@ export class ErrorListComponent extends ManualDetection {
   readonly errorIconMap = {
     [MinaErrorType.RUST]: 'terminal',
     [MinaErrorType.GENERIC]: 'error',
+    [MinaErrorType.DEBUGGER]: 'code',
   };
 
   @Input() errors: MinaError[];

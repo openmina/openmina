@@ -2,23 +2,20 @@ import { NodesOverviewState } from '@nodes/overview/nodes-overview.state';
 import { Store } from '@ngrx/store';
 import { MinaState } from '@app/app.setup';
 import { stateSliceAsPromise } from '../../../support/commands';
-import { AppState } from '@app/app.state';
 
-const condition = (state: NodesOverviewState | void) => state && state.nodes.length > 1;
+const condition = (state: NodesOverviewState) => state && state.nodes.length > 0;
 const getNodesOverview = (store: Store<MinaState>) => stateSliceAsPromise<NodesOverviewState>(store, condition, 'nodes', 'overview');
-const nodesCondition = (state: AppState) => state && state.nodes.length > 0;
-const getNodes = (store: Store<MinaState>) => stateSliceAsPromise<AppState>(store, nodesCondition, 'app');
 
 describe('NODES OVERVIEW SIDE PANEL', () => {
   beforeEach(() => {
     cy.visit(Cypress.config().baseUrl + '/nodes/overview');
   });
 
-  it('open side panel', () => {
+  it('side panel block summary are correct', () => {
     cy.window()
       .its('store')
       .then(getNodesOverview)
-      .then((state: NodesOverviewState | void) => {
+      .then((state: NodesOverviewState) => {
         if (condition(state)) {
           cy.get('mina-nodes-overview-table .row:not(.head)')
             .first()
@@ -27,7 +24,7 @@ describe('NODES OVERVIEW SIDE PANEL', () => {
             .window()
             .its('store')
             .then(getNodesOverview)
-            .then((state: NodesOverviewState | void) => {
+            .then((state: NodesOverviewState) => {
               if (state && state.activeNode) {
                 cy.get('mina-nodes-overview-side-panel .h-minus-lg .fx-row-vert-cent:nth-child(2)')
                   .then((el) => expect(el.text().trim()).equals(`Missing  ${state.activeNode.missingBlocks}`));
@@ -41,10 +38,75 @@ describe('NODES OVERVIEW SIDE PANEL', () => {
                   .then((el) => expect(el.text().trim()).equals(`Applied  ${state.activeNode.appliedBlocks}`));
               }
             })
-            .get('mina-nodes-overview-side-panel')
+            .wait(1000)
+            .get('mina-nodes-overview-side-panel .mina-icon')
             .should('be.visible');
         }
       });
+  });
+
+  it('side panel transition frontier is correct', () => {
+    cy.window()
+      .its('store')
+      .then(getNodesOverview)
+      .then((state: NodesOverviewState) => {
+        if (condition(state)) {
+          cy.get('mina-nodes-overview-table .row:not(.head)')
+            .first()
+            .click()
+            .wait(1000)
+            .window()
+            .its('store')
+            .then(getNodesOverview)
+            .then((state: NodesOverviewState) => {
+              if (state && state.activeNode) {
+                cy.get('mina-nodes-overview-side-panel .squares > div')
+                  .should('have.length', 291)
+                cy.get('mina-nodes-overview-side-panel .squares > div.Applied')
+                  .should('have.length', state.activeNode.appliedBlocks)
+                cy.get('mina-nodes-overview-side-panel .squares > div.Applying')
+                  .should('have.length', state.activeNode.applyingBlocks)
+                cy.get('mina-nodes-overview-side-panel .squares > div.Fetched')
+                  .should('have.length', state.activeNode.fetchedBlocks)
+                cy.get('mina-nodes-overview-side-panel .squares > div.Fetching')
+                  .should('have.length', state.activeNode.fetchingBlocks)
+                cy.get('mina-nodes-overview-side-panel .squares > div.Missing')
+                  .should('have.length', state.activeNode.missingBlocks)
+              }
+            })
+            .wait(1000)
+            .get('mina-nodes-overview-side-panel .mina-icon')
+            .should('be.visible');
+        }
+      });
+  });
+
+  it('close side panel', () => {
+    cy.get('mina-nodes-overview-table .row:not(.head)')
+      .first()
+      .click()
+      .wait(1000)
+      .window()
+      .its('store')
+      .then(getNodesOverview)
+      .then((state: NodesOverviewState) => {
+        if (state && state.activeNode) {
+          expect(state.activeNode.name).to.eq(state.nodes[0].name);
+          expect(state.activeNode.bestTip).to.eq(state.nodes[0].bestTip);
+        }
+      })
+      .get('mina-nodes-overview-side-panel .mina-icon')
+      .should('be.visible')
+      .get('mina-nodes-overview-side-panel > div .mina-icon.pointer')
+      .click()
+      .wait(1000)
+      .window()
+      .its('store')
+      .then(getNodesOverview)
+      .then((state: NodesOverviewState) => expect(state.activeNode).to.be.undefined)
+      .wait(1000)
+      .get('mina-nodes-overview-side-panel .mina-icon')
+      .should('not.be.visible');
   });
 
 });

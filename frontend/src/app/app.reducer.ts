@@ -2,7 +2,6 @@ import {
   APP_ADD_NODE,
   APP_CHANGE_ACTIVE_NODE,
   APP_CHANGE_MENU_COLLAPSING,
-  APP_CHANGE_SUB_MENUS,
   APP_INIT,
   APP_INIT_SUCCESS,
   APP_TOGGLE_MENU_OPENING,
@@ -18,7 +17,6 @@ const initialState: AppState = {
     isMobile: false,
     open: true,
   },
-  subMenus: [],
   nodes: [],
   activeNode: undefined,
 };
@@ -55,13 +53,6 @@ export function reducer(state: AppState = initialState, action: any): AppState {
           ...state.menu,
           collapsed: action.payload,
         },
-      };
-    }
-
-    case APP_CHANGE_SUB_MENUS: {
-      return {
-        ...state,
-        subMenus: action.payload.filter(Boolean),
       };
     }
 

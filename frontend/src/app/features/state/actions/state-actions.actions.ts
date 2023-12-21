@@ -28,6 +28,8 @@ export interface StateActionsAction extends FeatureAction<StateActionsActionType
 
 export class StateActionsGetEarliestSlot implements StateActionsAction {
   readonly type = STATE_ACTIONS_GET_EARLIEST_SLOT;
+
+  constructor(public payload: { force: boolean }) { }
 }
 
 export class StateActionsGetEarliestSlotSuccess implements StateActionsAction {

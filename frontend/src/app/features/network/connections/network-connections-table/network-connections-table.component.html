@@ -1,0 +1,18 @@
+<ng-container #minaTable></ng-container>
+
+<ng-template #rowTemplate let-row="row">
+  <span>{{ row.connectionId }}</span>
+  <span>{{ row.date }}</span>
+  <span class="secondary">
+    <span (click)="goToNetworkMessages(row.addr)"
+          [tooltip]="'See messages for this address'"
+          [showDelay]="1000"
+          class="underline">{{ row.addr }}</span>
+  </span>
+  <span>{{ row.pid }}</span>
+  <span>{{ row.fd }}</span>
+  <span>{{ row.incoming }}</span>
+  <span class="truncate">{{ row.alias }}</span>
+  <span class="secondary">{{ row.stats_in.total_bytes !== undefined ? (row.stats_in.total_bytes === 0 ? 100 : row.stats_in.decrypted_bytes * 100 / row.stats_in.total_bytes) : 0 | number: '1.0-1' }}%</span>
+  <span class="secondary">{{ row.stats_out.total_bytes !== undefined ? (row.stats_out.total_bytes ? 100 : row.stats_out.decrypted_bytes * 100 / row.stats_out.total_bytes) : 0 | number: '1.0-1' }}%</span>
+</ng-template>
