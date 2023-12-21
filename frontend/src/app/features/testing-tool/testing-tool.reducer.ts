@@ -15,6 +15,6 @@ export type TestingToolAction =
   & TestingToolScenariosAction
   ;
 
-export const reducer: ActionReducer<TestingToolState, TestingToolActions> = combineReducers<TestingToolState, TestingToolActions>({
+export const testingToolReducer: ActionReducer<TestingToolState, TestingToolActions> = combineReducers<TestingToolState, TestingToolActions>({
   scenarios: fromScenarios.reducer,
 });

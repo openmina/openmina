@@ -5,7 +5,7 @@ const initialState: ErrorPreviewState = {
   errors: [],
 };
 
-export function reducer(state: ErrorPreviewState = initialState, action: ErrorPreviewActions): ErrorPreviewState {
+export function errorReducer(state: ErrorPreviewState = initialState, action: ErrorPreviewActions): ErrorPreviewState {
   switch (action.type) {
 
     case ADD_ERROR: {

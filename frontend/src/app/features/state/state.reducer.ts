@@ -12,6 +12,6 @@ export type StateAction =
   & StateActionsAction
   ;
 
-export const reducer: ActionReducer<StateState, StateActions> = combineReducers<StateState, StateActions>({
+export const stateReducer: ActionReducer<StateState, StateActions> = combineReducers<StateState, StateActions>({
   actions: fromActions.reducer,
 });

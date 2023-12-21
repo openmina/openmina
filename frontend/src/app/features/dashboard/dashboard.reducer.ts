@@ -23,7 +23,7 @@ const initialState: DashboardState = {
   receivedSnarks: 0,
 };
 
-export function reducer(state: DashboardState = initialState, action: DashboardActions): DashboardState {
+export function dashboardReducer(state: DashboardState = initialState, action: DashboardActions): DashboardState {
   switch (action.type) {
 
     case DASHBOARD_GET_PEERS_SUCCESS: {

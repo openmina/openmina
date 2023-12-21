@@ -394,6 +394,69 @@ steps:
     depends_on:
       - prepare
 
+  - name: network-connections-side-panel
+    image: cypress/included:13.3.2
+    commands:
+      - cd frontend && cypress run --config-file "cypress.config.js" --spec "cypress/e2e/network/connections/network-connections-side-panel.cy.ts"
+    depends_on:
+      - prepare
+
+  - name: network-connections-table
+    image: cypress/included:13.3.2
+    commands:
+      - cd frontend && cypress run --config-file "cypress.config.js" --spec "cypress/e2e/network/connections/network-connections-table.cy.ts"
+    depends_on:
+      - prepare
+
+  - name: network-blocks-side-panel
+    image: cypress/included:13.3.2
+    commands:
+      - cd frontend && cypress run --config-file "cypress.config.js" --spec "cypress/e2e/network/blocks/network-blocks-side-panel.cy.ts"
+    depends_on:
+      - prepare
+
+  - name: network-blocks-table
+    image: cypress/included:13.3.2
+    commands:
+      - cd frontend && cypress run --config-file "cypress.config.js" --spec "cypress/e2e/network/blocks/network-blocks-table.cy.ts"
+    depends_on:
+      - prepare
+
+  - name: network-blocks-toolbar
+    image: cypress/included:13.3.2
+    commands:
+      - cd frontend && cypress run --config-file "cypress.config.js" --spec "cypress/e2e/network/blocks/network-blocks-toolbar.cy.ts"
+    depends_on:
+      - prepare
+
+  - name: memory-resources-treemap
+    image: cypress/included:13.3.2
+    commands:
+      - cd frontend && cypress run --config-file "cypress.config.js" --spec "cypress/e2e/resources/memory/memory-resources-treemap.cy.ts"
+    depends_on:
+      - prepare
+
+  - name: memory-resources-table
+    image: cypress/included:13.3.2
+    commands:
+      - cd frontend && cypress run --config-file "cypress.config.js" --spec "cypress/e2e/resources/memory/memory-resources-table.cy.ts"
+    depends_on:
+      - prepare
+
+  - name: memory-resources-toolbar
+    image: cypress/included:13.3.2
+    commands:
+      - cd frontend && cypress run --config-file "cypress.config.js" --spec "cypress/e2e/resources/memory/memory-resources-toolbar.cy.ts"
+    depends_on:
+      - prepare
+
+  - name: memory-resources-breadcrumbs
+    image: cypress/included:13.3.2
+    commands:
+      - cd frontend && cypress run --config-file "cypress.config.js" --spec "cypress/e2e/resources/memory/memory-resources-breadcrumbs.cy.ts"
+    depends_on:
+      - prepare
+
   - name: push
     image: docker:latest
     commands:
@@ -416,6 +479,15 @@ steps:
       - network-messages-filters
       - network-messages-footer
       - network-messages-table
+      - network-connections-side-panel
+      - network-connections-table
+      - network-blocks-side-panel
+      - network-blocks-table
+      - network-blocks-toolbar
+      - memory-resources-treemap
+      - memory-resources-table
+      - memory-resources-toolbar
+      - memory-resources-breadcrumbs
 
 image_pull_secrets:
   - docker_pull_secret

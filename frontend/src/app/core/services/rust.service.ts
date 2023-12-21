@@ -27,4 +27,8 @@ export class RustService {
   get<T>(path: string): Observable<T> {
     return this.http.get<T>(this.URL + path);
   }
+
+  getMemProfiler<T>(path: string): Observable<T> {
+    return this.http.get<T>(this.node.memoryProfiler + path);
+  }
 }

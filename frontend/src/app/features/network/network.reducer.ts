@@ -12,7 +12,7 @@ import { NetworkBlocksAction, NetworkBlocksActions } from '@network/blocks/netwo
 export type NetworkActions = NetworkMessagesActions & NetworkConnectionsActions & NetworkBlocksActions;
 export type NetworkAction = NetworkMessagesAction & NetworkConnectionsAction & NetworkBlocksAction;
 
-export const reducer: ActionReducer<NetworkState, NetworkActions> = combineReducers<NetworkState, NetworkActions>({
+export const networkReducer: ActionReducer<NetworkState, NetworkActions> = combineReducers<NetworkState, NetworkActions>({
   messages: fromMessages.reducer,
   connections: fromConnections.reducer,
   blocks: fromBlocks.reducer,
