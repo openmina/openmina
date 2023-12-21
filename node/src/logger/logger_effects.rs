@@ -468,6 +468,8 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                 },
             },
             P2pAction::Peer(_) => {}
+            // TODO:
+            P2pAction::Network(_) => {}
         },
         Action::ExternalSnarkWorker(a) => {
             use crate::external_snark_worker::ExternalSnarkWorkerAction;

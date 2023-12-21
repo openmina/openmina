@@ -6,6 +6,7 @@ use crate::external_snark_worker::ExternalSnarkWorkerService;
 pub use crate::p2p::channels::P2pChannelsService;
 pub use crate::p2p::connection::P2pConnectionService;
 pub use crate::p2p::disconnection::P2pDisconnectionService;
+use crate::p2p::P2pMioService;
 pub use crate::recorder::Recorder;
 pub use crate::rpc::RpcService;
 pub use crate::snark::block_verify::SnarkBlockVerifyService;
@@ -26,6 +27,7 @@ pub trait Service:
     + P2pConnectionService
     + P2pDisconnectionService
     + P2pChannelsService
+    + P2pMioService
     + TransitionFrontierSyncLedgerSnarkedService
     + TransitionFrontierSyncLedgerStagedService
     + TransitionFrontierService

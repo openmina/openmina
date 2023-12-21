@@ -13,6 +13,9 @@ pub mod webrtc;
 
 pub mod service_impl;
 
+pub mod network;
+pub use self::network::*;
+
 mod p2p_actions;
 pub use p2p_actions::*;
 
