@@ -1,6 +1,6 @@
 use openmina_node_testing::scenarios::p2p::basic_connection_handling::{
-    AllNodesConnectionsAreSymmetric, MaxNumberOfPeers, SeedConnectionsAreSymmetric,
-    SimultaneousConnections,
+    AllNodesConnectionsAreSymmetric, ConnectionStability, MaxNumberOfPeers,
+    SeedConnectionsAreSymmetric, SimultaneousConnections,
 };
 
 mod common;
@@ -22,3 +22,8 @@ scenario_test!(
 );
 
 scenario_test!(max_number_of_peers, MaxNumberOfPeers, MaxNumberOfPeers);
+scenario_test!(
+    connection_stability,
+    ConnectionStability,
+    ConnectionStability
+);
