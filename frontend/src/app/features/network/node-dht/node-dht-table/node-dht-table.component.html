@@ -1,0 +1,14 @@
+<ng-container #minaTable></ng-container>
+
+<ng-template #rowTemplate let-row="row">
+  <span [class.green]="row.peerStatus === 'Connected'" class="fx-row-vert-cent">
+    <span class="circle mr-10" [ngClass]="row.peerStatus"></span>
+    {{ row.peerStatus }}
+  </span>
+  <span>{{ row.id }}</span>
+  <span class="secondary">{{ row.address }}</span>
+  <span>{{ row.lastUpdate }}</span>
+  <span>{{ row.xorDistance }}</span>
+  <span class="secondary">{{ row.bucketRange }}</span>
+  <span>{{ row.bucketCapacity }}</span>
+</ng-template>
