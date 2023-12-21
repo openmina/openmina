@@ -103,7 +103,6 @@ _The source code for this test can be found in this repo:_
 Whether the Openmina (Rust) node can accept an incoming connection from the native Mina (OCaml) node. This test will prove our Rust node is listening to incoming connections and can accept them.
 
 
-**Steps**
 
 **Tests**
 - [p2p_basic_incoming(accept_connection)](../node/testing/src/scenarios/p2p/basic_incoming_connections.rs#L16)
@@ -118,7 +117,6 @@ Whether the OCaml node can discover and connect to a Rust node that is advertisi
 In this test, we do not inform the OCaml node to connect to it explicitly, it should find it automatically and connect using peer discovery (performed through Kademlia). This test will ensure the Rust node uses Kademlia in a way that is compatible with the OCaml node.
 
 
-**Steps**
 
 **Test**
 
@@ -270,7 +268,6 @@ For that purpose, we utilize a Multi node test, which involves a network of our 
 
 This test checks whether the Rust node connects to all peers from its initial peer list
 
-**Steps**
 
 
 **Test**
@@ -282,7 +279,6 @@ This test checks whether the Rust node connects to all peers from its initial pe
 
 This test checks whether Rust nodes connect to a Rust node that is advertised. In this test, we do not inform the OCaml node to connect to it explicitly, it should find it automatically and connect using peer discovery (performed through Kademlia).
 
-**Steps**
 
 
 **Test**
