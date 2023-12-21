@@ -113,6 +113,9 @@ use crate::p2p::listen::{
     P2pListenAction, P2pListenClosedAction, P2pListenErrorAction, P2pListenExpiredAction,
     P2pListenNewAction,
 };
+use crate::p2p::network::connection::P2pNetworkConnectionAction;
+use crate::p2p::network::pnet::P2pNetworkPnetAction;
+use crate::p2p::network::P2pNetworkAction;
 use crate::p2p::peer::{P2pPeerAction, P2pPeerBestTipUpdateAction, P2pPeerReadyAction};
 use crate::p2p::P2pAction;
 use crate::rpc::{
@@ -344,6 +347,7 @@ pub enum ActionKind {
     P2pListenError,
     P2pListenExpired,
     P2pListenNew,
+    P2pNetworkPnet,
     P2pPeerBestTipUpdate,
     P2pPeerReady,
     RpcActionStatsGet,
@@ -458,7 +462,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 234;
+    pub const COUNT: u16 = 235;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -511,6 +515,7 @@ impl ActionKindGet for P2pAction {
             Self::Discovery(a) => a.kind(),
             Self::Channels(a) => a.kind(),
             Self::Peer(a) => a.kind(),
+            Self::Network(a) => a.kind(),
         }
     }
 }
@@ -738,6 +743,15 @@ impl ActionKindGet for P2pPeerAction {
         match self {
             Self::Ready(a) => a.kind(),
             Self::BestTipUpdate(a) => a.kind(),
+        }
+    }
+}
+
+impl ActionKindGet for P2pNetworkAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::Connection(a) => a.kind(),
+            Self::Pnet(a) => a.kind(),
         }
     }
 }
@@ -1489,6 +1503,20 @@ impl ActionKindGet for P2pPeerReadyAction {
 impl ActionKindGet for P2pPeerBestTipUpdateAction {
     fn kind(&self) -> ActionKind {
         ActionKind::P2pPeerBestTipUpdate
+    }
+}
+
+impl ActionKindGet for P2pNetworkConnectionAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            unimplemented!()
+        }
+    }
+}
+
+impl ActionKindGet for P2pNetworkPnetAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pNetworkPnet
     }
 }
 

@@ -18,6 +18,8 @@ use libp2p::futures::{stream::FuturesUnordered, StreamExt};
 use node::core::channels::mpsc;
 use node::core::requests::RpcId;
 use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
+#[cfg(not(feature = "p2p-libp2p"))]
+use node::p2p::service_impl::mio::MioService;
 #[cfg(feature = "p2p-libp2p")]
 use node::p2p::service_impl::{
     webrtc::P2pServiceCtx,
@@ -221,6 +223,16 @@ impl Cluster {
         #[cfg(not(feature = "p2p-libp2p"))]
         let (cmd_sender, peers) = { (mpsc::unbounded_channel().0, Default::default()) };
 
+        #[cfg(not(feature = "p2p-libp2p"))]
+        let mio = MioService::run({
+            let event_sender = event_sender.clone();
+            move |mio_event| {
+                event_sender
+                    .send(P2pEvent::MioEvent(mio_event).into())
+                    .unwrap_or_default()
+            }
+        });
+
         let mut rpc_service = RpcService::new();
 
         let rpc_sender = RpcSender::new(rpc_service.req_sender().clone());
@@ -255,6 +267,8 @@ impl Cluster {
             peers,
             #[cfg(feature = "p2p-libp2p")]
             libp2p,
+            #[cfg(not(feature = "p2p-libp2p"))]
+            mio,
             block_producer: None,
             snark_worker_sender: None,
             rpc: rpc_service,

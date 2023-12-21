@@ -7,6 +7,7 @@ use openmina_core::requests::RpcId;
 use crate::channels::rpc::P2pRpcId;
 use crate::channels::{ChannelId, P2pChannelsState};
 use crate::connection::outgoing::P2pConnectionOutgoingInitOpts;
+use crate::network::P2pNetworkState;
 use crate::PeerId;
 
 use super::connection::P2pConnectionState;
@@ -15,6 +16,7 @@ use super::P2pConfig;
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pState {
     pub config: P2pConfig,
+    pub network: P2pNetworkState,
     pub peers: BTreeMap<PeerId, P2pPeerState>,
     pub kademlia: P2pKademliaState,
     pub listeners: P2pListenersState,
@@ -93,6 +95,7 @@ impl P2pState {
 
         Self {
             config,
+            network: Default::default(),
             listeners: Default::default(),
             peers: Default::default(),
             kademlia,
