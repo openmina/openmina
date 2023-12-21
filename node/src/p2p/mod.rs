@@ -5,6 +5,7 @@ pub mod connection;
 pub mod disconnection;
 pub mod discovery;
 pub mod listen;
+pub mod network;
 pub mod peer;
 
 mod p2p_effects;
