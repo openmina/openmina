@@ -16,8 +16,12 @@ macro_rules! scenario_test {
             use openmina_node_testing::{
                 cluster::{Cluster, ClusterConfig},
                 scenarios::ClusterRunner,
+                setup_without_rt, wait_for_other_tests,
             };
             use std::io::Write;
+
+            setup_without_rt();
+            let w = wait_for_other_tests().await;
 
             if let Some(summary) = std::env::var_os("GITHUB_STEP_SUMMARY") {
                 let _ = std::fs::File::options()
@@ -40,9 +44,9 @@ macro_rules! scenario_test {
                     if let Some((file, line)) = panic_info.location().map(|l| (l.file(), l.line()))
                     {
                         if let Some(message) = panic_info.payload().downcast_ref::<&str>() {
-                            eprintln!("\n::error file={file},line={line}::{message}");
+                            println!("\n::error file={file},line={line}::{message}");
                         } else {
-                            eprintln!("\n::error file={file},line={line}::panic without a message");
+                            println!("\n::error file={file},line={line}::panic without a message");
                         }
                     }
                     prev_panic_hook(panic_info);
@@ -61,6 +65,7 @@ macro_rules! scenario_test {
                     .open(&summary)
                     .and_then(|mut f| writeln!(f, "**PASSED** :white_check_mark:"));
             }
+            w.release();
         }
     };
 }
