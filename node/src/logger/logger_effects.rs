@@ -567,7 +567,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     kind = kind.to_string(),
                     summary = "Transition frontier root ledger sync success".to_string(),
                 ),
-                _other => openmina_core::log::info!(
+                _other => openmina_core::log::debug!(
                     meta.time();
                     kind = kind.to_string(),
                 ),
