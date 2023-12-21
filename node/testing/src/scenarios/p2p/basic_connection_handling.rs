@@ -125,11 +125,14 @@ impl AllNodesConnectionsAreSymmetric {
             .collect();
 
         // Run the cluster while there are events
+        let timeout = std::time::Instant::now() + Duration::from_secs(2 * 60);
         while driver
             .run_until(Duration::from_secs(30), |_, _, _| true)
             .await
             .unwrap()
-        {}
+        {
+            assert!(std::time::Instant::now() < timeout, "cluster should stop generating events");
+        }
 
         // Check that for each peer, if it is in the node's peer list, then the node is in the peer's peer list
         for (peer1, peer_id1) in &peers {
@@ -264,7 +267,7 @@ impl MaxNumberOfPeers {
         .unwrap();
         assert!(satisfied, "all peers should be listening");
 
-        eprintln!("connecting nodes....");
+        println!("connecting nodes....");
 
         for peer in &peers {
             driver
