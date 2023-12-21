@@ -9,10 +9,11 @@
 #COPY --from=BUILD_IMAGE /app/nginx.conf /etc/nginx/nginx.conf
 
 FROM node:18 AS BUILD_IMAGE
+ARG BUILD_CONFIGURATION=production
 WORKDIR /app
 COPY frontend/ .
 RUN npm install
-RUN node_modules/.bin/ng build --configuration production
+RUN node_modules/.bin/ng build --configuration ${BUILD_CONFIGURATION}
 RUN npm prune --production
 FROM nginx:alpine
 RUN pwd

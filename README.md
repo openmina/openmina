@@ -36,7 +36,17 @@ In the future, we plan to implement:
 * The ability to record/replay all blocks
 
 
-## How to launch:
+## How to launch (with docker compose):
+
+Run:
+
+```
+docker compose up
+```
+
+Then visit http://localhost:8070 in your browser.
+
+## How to launch (without docker compose):
 
 This installation guide has been tested on Debian and Ubuntu and should work on most distributions of Linux.
 
