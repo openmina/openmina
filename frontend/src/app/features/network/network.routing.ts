@@ -24,6 +24,11 @@ const routes: Routes = [
         title: NETWORK_TITLE,
       },
       {
+        path: 'topology',
+        loadChildren: () => import('./splits/dashboard-splits.module').then(m => m.DashboardSplitsModule),
+        title: NETWORK_TITLE,
+      },
+      {
         path: '**',
         redirectTo: 'messages',
         pathMatch: 'full',

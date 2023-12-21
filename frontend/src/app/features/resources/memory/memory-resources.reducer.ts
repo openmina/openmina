@@ -2,7 +2,9 @@ import { MemoryResourcesState } from '@resources/memory/memory-resources.state';
 import {
   MEMORY_RESOURCES_CLOSE,
   MEMORY_RESOURCES_GET_SUCCESS,
-  MEMORY_RESOURCES_SET_ACTIVE_RESOURCE, MEMORY_RESOURCES_SET_GRANULARITY, MEMORY_RESOURCES_SET_TREEMAP_VIEW,
+  MEMORY_RESOURCES_SET_ACTIVE_RESOURCE,
+  MEMORY_RESOURCES_SET_GRANULARITY,
+  MEMORY_RESOURCES_SET_TREEMAP_VIEW,
   MemoryResourcesActions,
 } from '@resources/memory/memory-resources.actions';
 import { TreemapView } from '@shared/types/resources/memory/treemap-view.type';
@@ -33,10 +35,13 @@ export function memoryResourcesReducer(state: MemoryResourcesState = initialStat
       let breadcrumbs = state.breadcrumbs;
       if (action.payload.name.executableName === 'root') {
         breadcrumbs = [state.resource];
-      } else if (breadcrumbs.map(b => b.name.executableName).some(b => b === action.payload.name.executableName)) {
-        breadcrumbs = breadcrumbs.slice(0, breadcrumbs.findIndex(b => b.name.executableName === action.payload.name.executableName) + 1);
       } else {
-        breadcrumbs = [...breadcrumbs, action.payload];
+        const indexOfSameResource = breadcrumbs.findIndex(b => b.id === action.payload.id);
+        if (indexOfSameResource !== -1) {
+          breadcrumbs = breadcrumbs.slice(0, indexOfSameResource + 1);
+        } else {
+          breadcrumbs = [...breadcrumbs, action.payload];
+        }
       }
       return {
         ...state,

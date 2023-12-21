@@ -8,6 +8,7 @@
 .tree-map {
   height: calc(50vh - 2px);
   border: 0.5px solid $base-tertiary;
+  overflow: hidden;
 
   @media (max-width: 768px) {
     height: calc(30vh - 2px);

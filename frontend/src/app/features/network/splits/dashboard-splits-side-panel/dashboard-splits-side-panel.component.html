@@ -1,0 +1,27 @@
+<div class="fx-row-vert-cent flex-between pl-12 pr-12 h-xl">
+  <span class="secondary f-600">Nodes</span>
+  <span class="mina-icon pointer tertiary primary-hover f-18"
+        (click)="closeSidePanel()">close
+  </span>
+</div>
+<div class="overflow-y-auto h-minus-xl">
+  <div class="flex-column h-100 w-100">
+    <div *ngFor="let set of sets; let i = index"
+         [ngClass]="{ 'mb-5': expandedItems.includes(i) }"
+         class="border-rad-4 border-top">
+      <div (click)="toggleExpandedItems(i)"
+           class="flex-row align-center flex-between h-lg bg-container-hover tertiary primary-hover border-rad-4 pl-12 pr-8 pointer">
+        <div>
+          <span class="mr-5 f-600 primary">Branch {{ i + 1 }}</span>
+          <span>{{ set.peers.length }} Nodes</span>
+        </div>
+        <span [class.rotate-90]="expandedItems.includes(i)"
+              class="mina-icon icon-200">chevron_right
+        </span>
+      </div>
+      <mina-dashboard-splits-side-panel-table class="flex-column"
+                                              *ngIf="expandedItems.includes(i)"
+                                              [peers]="set.peers"></mina-dashboard-splits-side-panel-table>
+    </div>
+  </div>
+</div>

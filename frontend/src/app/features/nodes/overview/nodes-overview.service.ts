@@ -27,10 +27,12 @@ export class NodesOverviewService {
   }
 
   getNodeTips(nodeParam: { url: string, name: string }, qp: string = ''): Observable<NodesOverviewNode[]> {
-    // return of(JSON.parse(JSON.stringify(mock2()))).pipe(delay(250))
     return this.http.get<any[]>(nodeParam.url + '/stats/sync' + qp)
       .pipe(
         map((response: any[]) => {
+          if (response.length === 0) {
+            throw new Error('Empty response');
+          }
           return response.map((node: any) => {
             const blocks = node.blocks.map((block: any) => {
               return {

@@ -1,0 +1,14 @@
+<div #chart class="w-100 h-100 flex-column p-relative">
+  <div class="buttons-on-top p-absolute pl-12 pr-12 flex-row w-100">
+    <button class="icon-button btn-primary mr-5" (click)="zoomIn()">
+      <span class="mina-icon icon-200 f-20">zoom_in</span>
+    </button>
+    <button class="icon-button btn-primary mr-5" (click)="zoomOut()">
+      <span class="mina-icon icon-200 f-20">zoom_out</span>
+    </button>
+    <button class="icon-button btn-primary" (click)="zoomReset()">
+      <span class="mina-icon icon-200 f-20">zoom_in_map</span>
+    </button>
+  </div>
+  <div style="display: none" class="p-fixed primary p-5 border-rad-4 border bg-surface-top popup-box-shadow-weak" #tooltip></div>
+</div>

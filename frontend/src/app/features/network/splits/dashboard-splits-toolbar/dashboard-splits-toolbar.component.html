@@ -1,0 +1,49 @@
+<mina-horizontal-menu [template]="template" [clz]="'pr-12 pl-12'"></mina-horizontal-menu>
+
+<ng-template #template>
+  <div class="fx-row-vert-cent flex-between w-100">
+    <div class="fx-row-vert-cent shrink-0">
+      <div class="f-600 mr-10">{{ setsLength === undefined ? 'Loading ' : setsLength }} Branch{{ setsLength | plural: 'es' }}</div>
+      <button class="h-sm btn-primary mr-5"
+              [tooltip]="networkSplitTime"
+              [disabled]="fetching"
+              (click)="splitNodes()">
+        <span class="fx-row-vert-cent">
+          Split
+          <span class="mina-icon icon-200 f-18 ml-5">call_split</span>
+        </span>
+      </button>
+      <button class="h-sm btn-primary mr-5"
+              [tooltip]="networkMergeTime"
+              [disabled]="fetching"
+              (click)="mergeNodes()">
+        <span class="fx-row-vert-cent">
+          Merge
+          <span class="mina-icon icon-200 f-18 ml-5">merge_type</span>
+        </span>
+      </button>
+      <button class="h-sm btn-primary"
+              [disabled]="fetching"
+              (click)="refresh()">
+        <span class="fx-row-vert-cent">
+          Refetch
+          <span class="mina-icon icon-200 f-18 ml-5">sync</span>
+        </span>
+      </button>
+    </div>
+    <div class="fx-row-vert-cent shrink-0" *ngIf="stats">
+      <span class="mina-icon icon-200 f-20 mr-5 success-primary">crop_square</span>
+      <span class="success-primary">{{ stats.producers }}</span>
+      <span class="success-secondary mr-10">&nbsp;Producer{{ stats.producers | plural }}</span>
+      <span class="mina-icon icon-200 f-18 mr-5 success-primary rotate-45">crop_square</span>
+      <span class="success-primary">{{ stats.seeders }}</span>
+      <span class="success-secondary mr-10">&nbsp;Seeder{{ stats.seeders | plural }}</span>
+      <span class="mina-icon icon-200 f-22 mr-5 success-primary">change_history</span>
+      <span class="success-primary">{{ stats.snarkers }}</span>
+      <span class="success-secondary mr-10">&nbsp;Snarker{{ stats.snarkers | plural }}</span>
+      <span class="mina-icon icon-200 f-20 mr-5 success-primary">circle</span>
+      <span class="success-primary">{{ stats.nodes + stats.transactionGenerators }}</span>
+      <span class="success-secondary">&nbsp;Other</span>
+    </div>
+  </div>
+</ng-template>

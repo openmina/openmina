@@ -34,6 +34,7 @@ export const environment: Readonly<MinaEnv> = {
         state: ['actions'],
         snarks: ['scan-state'],
         resources: ['memory'],
+        network: ['topology'],
       },
     },
     {

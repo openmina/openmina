@@ -22,6 +22,7 @@ export class NodesOverviewSidePanelComponent extends StoreDispatcher implements 
   private interval: any;
   private secondsPassed: number = 0;
   private timeReference: number = 0;
+  private timerRemoved: boolean;
 
   constructor(private router: Router,
               private zone: NgZone) { super(); }
@@ -34,9 +35,19 @@ export class NodesOverviewSidePanelComponent extends StoreDispatcher implements 
   private listenToActiveNodesOverviewNode(): void {
     this.select(selectNodesOverviewActiveNode, (node: NodesOverviewNode) => {
       this.node = node;
-      this.timeReference = node.bestTipReceivedTimestamp;
-      this.secondsPassed = (Date.now() - this.timeReference) / 1000;
-      this.updateTimeInView();
+      if (node.bestTipReceivedTimestamp) {
+        if (this.timerRemoved) {
+          this.createTimer();
+          this.timerRemoved = false;
+        }
+        this.timeReference = node.bestTipReceivedTimestamp;
+        this.secondsPassed = (Date.now() - this.timeReference) / 1000;
+        this.updateTimeInView();
+      } else {
+        this.clearTimer();
+        this.timerRemoved = true;
+        this.bestTipRef.nativeElement.innerText = '-';
+      }
       this.detect();
     }, filter(node => !!node));
   }
@@ -48,9 +59,13 @@ export class NodesOverviewSidePanelComponent extends StoreDispatcher implements 
 
   private createTimer(): void {
     this.zone.run(() => {
-      clearInterval(this.interval);
+      this.clearTimer();
       this.interval = setInterval(() => this.updateTimeInView(), 1000);
     });
+  }
+
+  private clearTimer(): void {
+    clearInterval(this.interval);
   }
 
   private updateTimeInView(): void {
