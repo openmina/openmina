@@ -1,4 +1,7 @@
-use std::{collections::BTreeSet, time::Duration};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    time::Duration,
+};
 
 use node::p2p::{identity::SecretKey, P2pPeerState, P2pPeerStatus, PeerId};
 
@@ -354,6 +357,70 @@ impl ConnectToInitialPeers {
     }
 }
 
+/// Node should repeat connecting to unavailable initial peer.
+#[derive(documented::Documented, Default, Clone, Copy)]
+pub struct ConnectToUnavailableInitialPeers;
+
+impl ConnectToUnavailableInitialPeers {
+    pub async fn run<'cluster>(self, runner: ClusterRunner<'cluster>) {
+        const MAX: u16 = 2;
+        const RETRIES: u8 = 3;
+
+        let mut driver = Driver::new(runner);
+
+        let (initial_peers, peer_ids): (Vec<_>, Vec<_>) = (0..MAX)
+            .into_iter()
+            .map(|i| {
+                let port: u16 = 11200 + i;
+                let peer_id = SecretKey::rand().public_key().peer_id();
+                let addr = format!(
+                    "/ip4/127.0.0.1/tcp/{port}/p2p/{peer_id}",
+                    peer_id = peer_id.clone().to_libp2p_string()
+                )
+                .parse()
+                .unwrap();
+                (addr, peer_id)
+            })
+            .unzip();
+
+        let (node_ut, _) = driver
+            .add_rust_node(RustNodeTestingConfig::berkeley_default().initial_peers(initial_peers));
+
+        let mut peer_retries =
+            BTreeMap::from_iter(peer_ids.into_iter().map(|peer_id| (peer_id, 0_u8)));
+
+        // matches event "the node established connection with peer"
+        let pred = |node_id, event: &_, _state: &_| {
+            if node_id != node_ut {
+                false
+            } else if let Some((peer_id, res)) = as_connection_finalized_event(event) {
+                assert!(res.is_err(), "connection to {peer_id} should succeed");
+                let retries = peer_retries.get_mut(&peer_id).unwrap();
+                *retries += 1;
+                if *retries >= RETRIES {
+                    peer_retries.remove(&peer_id);
+                }
+                peer_retries.is_empty()
+            } else {
+                false
+            }
+        };
+
+        let satisfied = driver
+            .run_until(Duration::from_secs(1 * 60), pred)
+            .await
+            .unwrap();
+
+        println!("{:#?}", driver.inner().node(node_ut).unwrap().state().p2p);
+
+        assert!(
+            satisfied,
+            "did not reach retry limit for peers: {:?}",
+            peer_retries
+        );
+    }
+}
+
 /// Node should be able to connect to all initial peers after they become ready.
 #[derive(documented::Documented, Default, Clone, Copy)]
 pub struct ConnectToInitialPeersBecomeReady;
@@ -384,7 +451,10 @@ impl ConnectToInitialPeersBecomeReady {
         let (node_ut, _) = driver
             .add_rust_node(RustNodeTestingConfig::berkeley_default().initial_peers(initial_peers));
 
-        driver.wait_for(Duration::from_secs(10), |_, _, _| false).await.unwrap();
+        driver
+            .wait_for(Duration::from_secs(10), |_, _, _| false)
+            .await
+            .unwrap();
 
         let (_peers, mut peer_ids): (Vec<ClusterNodeId>, BTreeSet<PeerId>) = port_bytes
             .into_iter()
