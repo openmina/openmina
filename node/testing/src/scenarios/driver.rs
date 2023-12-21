@@ -139,11 +139,11 @@ impl<'cluster> Driver<'cluster> {
             for (node_id, state, events) in self.runner.pending_events() {
                 for (_, event) in events {
                     if f(node_id, event, state) {
-                        eprintln!("!!! {node_id}: {event:?}");
+                        println!("!!! {node_id}: {event:?}");
                         found = Some((node_id, event.clone()));
                         break;
                     } else {
-                        eprintln!(">>> {node_id}: {event:?}");
+                        println!(">>> {node_id}: {event:?}");
                         let event = event.to_string();
                         steps.push(ScenarioStep::Event { node_id, event });
                     }
@@ -177,10 +177,10 @@ impl<'cluster> Driver<'cluster> {
                         event: event.to_string(),
                     });
                     if found {
-                        eprintln!("!!! {node_id}: {event:?}");
+                        println!("!!! {node_id}: {event:?}");
                         break 'pending_events;
                     } else {
-                        eprintln!(">>> {node_id}: {event:?}");
+                        println!(">>> {node_id}: {event:?}");
                     }
                 }
             }
@@ -207,7 +207,7 @@ impl<'cluster> Driver<'cluster> {
         self.sleep(duration).await;
         self.runner
             .exec_step(ScenarioStep::AdvanceTime {
-                by_nanos: 10 * 1_000_000,
+                by_nanos: duration.as_nanos().try_into()?,
             })
             .await?;
         let nodes = self
