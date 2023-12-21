@@ -35,13 +35,15 @@ pub enum MioEvent {
     InterfaceExpired(IpAddr),
 
     /// The remote peer is trying to connect to us.
-    IncomingConnectionIsReady(SocketAddr),
+    IncomingConnectionIsReady {
+        listener: SocketAddr,
+    },
     /// We accepted the connection from the remote peer.
     IncomingConnectionDidAccept(Option<SocketAddr>, Result<(), String>),
     /// The remote peer is trying to send us some data.
     IncomingDataIsReady(SocketAddr),
     /// We received the data from the remote peer.
-    IncomingDataDidReceive(SocketAddr, Result<Box<[u8]>, String>),
+    IncomingDataDidReceive(SocketAddr, Result<(Box<[u8]>, usize), String>),
 
     /// We connected to the remote peer by the address.
     OutgoingConnectionDidConnect(SocketAddr, Result<(), String>),
@@ -308,8 +310,8 @@ impl fmt::Display for MioEvent {
         match self {
             Self::InterfaceDetected(ip) => write!(f, "InterfaceDetected, {ip}"),
             Self::InterfaceExpired(ip) => write!(f, "InterfaceExpired, {ip}"),
-            Self::IncomingConnectionIsReady(addr) => {
-                write!(f, "IncomingConnectionIsReady, {addr}")
+            Self::IncomingConnectionIsReady { listener } => {
+                write!(f, "IncomingConnectionIsReady, {listener}")
             }
             Self::IncomingConnectionDidAccept(Some(addr), res) => {
                 write!(f, "IncomingConnectionDidAccept, {addr}, {}", res_kind(res))
