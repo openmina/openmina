@@ -23,7 +23,7 @@ use node::p2p::service_impl::TaskSpawner;
 use node::p2p::service_impl::{
     libp2p::Libp2pService, webrtc_with_libp2p::P2pServiceWebrtcWithLibp2p,
 };
-use node::p2p::{P2pMioService, PeerId};
+use node::p2p::{P2pCryptoService, P2pMioService, PeerId};
 use node::rpc::{RpcP2pConnectionOutgoingResponse, RpcRequest};
 use node::service::{EventSourceService, Recorder};
 use node::snark::block_verify::{
@@ -109,6 +109,12 @@ impl node::Service for NodeService {
 
     fn recorder(&mut self) -> &mut Recorder {
         &mut self.recorder
+    }
+}
+
+impl P2pCryptoService for NodeService {
+    fn generate_random_nonce(&mut self) -> [u8; 24] {
+        self.rng.gen()
     }
 }
 

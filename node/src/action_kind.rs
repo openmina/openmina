@@ -30,8 +30,14 @@ use crate::p2p::connection::P2pConnectionAction;
 use crate::p2p::disconnection::P2pDisconnectionAction;
 use crate::p2p::discovery::P2pDiscoveryAction;
 use crate::p2p::listen::P2pListenAction;
-use crate::p2p::network::connection::P2pNetworkConnectionAction;
-use crate::p2p::network::pnet::P2pNetworkPnetAction;
+use crate::p2p::network::connection::{
+    P2pNetworkConnectionAction, P2pNetworkConnectionInterfaceDetectedAction,
+    P2pNetworkConnectionInterfaceExpiredAction,
+};
+use crate::p2p::network::pnet::{
+    P2pNetworkPnetAction, P2pNetworkPnetIncomingDataAction, P2pNetworkPnetOutgoingDataAction,
+    P2pNetworkPnetSetupNonceAction,
+};
 use crate::p2p::network::P2pNetworkAction;
 use crate::p2p::peer::P2pPeerAction;
 use crate::p2p::P2pAction;
@@ -178,7 +184,11 @@ pub enum ActionKind {
     P2pListenError,
     P2pListenExpired,
     P2pListenNew,
-    P2pNetworkPnet,
+    P2pNetworkConnectionInterfaceDetected,
+    P2pNetworkConnectionInterfaceExpired,
+    P2pNetworkPnetIncomingData,
+    P2pNetworkPnetOutgoingData,
+    P2pNetworkPnetSetupNonce,
     P2pPeerBestTipUpdate,
     P2pPeerReady,
     RpcActionStatsGet,
@@ -293,7 +303,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 235;
+    pub const COUNT: u16 = 239;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -833,13 +843,20 @@ impl ActionKindGet for P2pChannelsRpcAction {
 
 impl ActionKindGet for P2pNetworkConnectionAction {
     fn kind(&self) -> ActionKind {
-        match self {}
+        match self {
+            Self::InterfaceDetected(a) => a.kind(),
+            Self::InterfaceExpired(a) => a.kind(),
+        }
     }
 }
 
 impl ActionKindGet for P2pNetworkPnetAction {
     fn kind(&self) -> ActionKind {
-        ActionKind::P2pNetworkPnet
+        match self {
+            Self::IncomingData(a) => a.kind(),
+            Self::OutgoingData(a) => a.kind(),
+            Self::SetupNonce(a) => a.kind(),
+        }
     }
 }
 
@@ -851,6 +868,36 @@ impl ActionKindGet for TransitionFrontierSyncLedgerAction {
             Self::Init => ActionKind::TransitionFrontierSyncLedgerInit,
             Self::Success => ActionKind::TransitionFrontierSyncLedgerSuccess,
         }
+    }
+}
+
+impl ActionKindGet for P2pNetworkConnectionInterfaceDetectedAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pNetworkConnectionInterfaceDetected
+    }
+}
+
+impl ActionKindGet for P2pNetworkConnectionInterfaceExpiredAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pNetworkConnectionInterfaceExpired
+    }
+}
+
+impl ActionKindGet for P2pNetworkPnetIncomingDataAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pNetworkPnetIncomingData
+    }
+}
+
+impl ActionKindGet for P2pNetworkPnetOutgoingDataAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pNetworkPnetOutgoingData
+    }
+}
+
+impl ActionKindGet for P2pNetworkPnetSetupNonceAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pNetworkPnetSetupNonce
     }
 }
 
