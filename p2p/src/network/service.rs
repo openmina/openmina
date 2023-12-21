@@ -23,3 +23,7 @@ pub enum MioCmd {
 pub trait P2pMioService: redux::Service {
     fn send_mio_cmd(&self, cmd: MioCmd);
 }
+
+pub trait P2pCryptoService: redux::Service {
+    fn generate_random_nonce(&mut self) -> [u8; 24];
+}

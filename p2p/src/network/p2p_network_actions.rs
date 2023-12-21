@@ -4,7 +4,7 @@ use super::{connection::P2pNetworkConnectionAction, pnet::P2pNetworkPnetAction};
 
 use crate::P2pState;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(derive_more::From, Serialize, Deserialize, Debug, Clone)]
 pub enum P2pNetworkAction {
     Connection(P2pNetworkConnectionAction),
     Pnet(P2pNetworkPnetAction),
