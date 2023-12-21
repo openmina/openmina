@@ -2,9 +2,10 @@ mod token;
 use self::token::{Token, TokenRegistry};
 
 use std::{
-    collections::BTreeMap,
-    io,
-    net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
+    collections::{BTreeMap, VecDeque},
+    io::{self, Read, Write},
+    net::{IpAddr, Ipv4Addr, Ipv6Addr, Shutdown, SocketAddr},
+    process,
     sync::mpsc,
     thread,
 };
@@ -21,12 +22,14 @@ enum Cmd {
     /// that previously reported by an `InterfaceAppear` event with the ip.
     ListenOn(SocketAddr),
     /// Accept an incoming connection that previously reported
-    /// by an `IncomingConnectionIsReady` event with the address.
+    /// by an `IncomingConnectionIsReady` event with the listener address.
     Accept(SocketAddr),
     /// Refuse to connect the incoming connection previously reported.
     Refuse(SocketAddr),
     /// Create a new outgoing connection to the socket.
     Connect(SocketAddr),
+    /// Receive some data from the connection in the buffer.
+    Recv(SocketAddr, Box<[u8]>),
     /// Send the data in the connection.
     Send(SocketAddr, Box<[u8]>),
     /// Disconnect the remote peer.
@@ -43,10 +46,6 @@ enum MioError {
     Poll(io::Error),
     #[error("mio failed to start listening on {0}, error: {1}")]
     Listen(SocketAddr, io::Error),
-    #[error("mio failed to accept connection from {0:?} on {1}, error: {2}")]
-    Accept(Option<SocketAddr>, SocketAddr, io::Error),
-    #[error("mio failed register stream {0}, error: {1}")]
-    RegisterStream(SocketAddr, io::Error),
 }
 
 impl MioError {
@@ -73,7 +72,7 @@ impl MioService {
             Ok(v) => v,
             Err(err) => {
                 MioError::New(err).report();
-                std::process::exit(1);
+                process::exit(1);
             }
         };
 
@@ -82,7 +81,7 @@ impl MioService {
             Ok(v) => v,
             Err(err) => {
                 MioError::Waker(err).report();
-                std::process::exit(1);
+                process::exit(1);
             }
         };
 
@@ -94,7 +93,7 @@ impl MioService {
             cmd_receiver: rx,
             tokens,
             listeners: BTreeMap::default(),
-            streams: BTreeMap::default(),
+            connections: BTreeMap::default(),
         };
 
         thread::spawn(move || {
@@ -141,6 +140,13 @@ impl MioService {
         self.waker.wake().unwrap_or_default();
     }
 
+    pub fn recv(&self, addr: SocketAddr, data: Box<[u8]>) {
+        self.cmd_sender
+            .send(Cmd::Recv(addr, data))
+            .unwrap_or_default();
+        self.waker.wake().unwrap_or_default();
+    }
+
     pub fn send(&self, addr: SocketAddr, data: Box<[u8]>) {
         self.cmd_sender
             .send(Cmd::Send(addr, data))
@@ -162,7 +168,13 @@ struct MioServiceInner<E> {
     cmd_receiver: mpsc::Receiver<Cmd>,
     tokens: TokenRegistry,
     listeners: BTreeMap<SocketAddr, TcpListener>,
-    streams: BTreeMap<SocketAddr, TcpStream>,
+    connections: BTreeMap<SocketAddr, Connection>,
+}
+
+struct Connection {
+    stream: TcpStream,
+    transmits: VecDeque<(Box<[u8]>, usize)>,
+    connected: bool,
 }
 
 impl<E> MioServiceInner<E>
@@ -174,7 +186,7 @@ where
             MioError::Poll(err).report();
         }
 
-        for event in events.iter() {
+        'events: for event in events.iter() {
             match self.tokens.get(&event.token()) {
                 None => {}
                 Some(Token::Waker) => {
@@ -184,7 +196,7 @@ where
                 }
                 Some(Token::Listener(addr)) => {
                     if event.is_readable() {
-                        self.send(MioEvent::IncomingConnectionIsReady(addr));
+                        self.send(MioEvent::IncomingConnectionIsReady { listener: addr });
                     }
                     if let Some(listener) = self.listeners.get_mut(&addr) {
                         if let Err(err) = self.poll.registry().reregister(
@@ -197,23 +209,64 @@ where
                         }
                     }
                 }
-                Some(Token::Connection(addr)) => {
+                Some(Token::Connection(mut addr)) => {
+                    let mut connection = self.connections.remove(&addr).expect("must be here");
                     if event.is_readable() {
                         self.send(MioEvent::IncomingDataIsReady(addr));
                     }
                     if event.is_writable() {
-                        //
-                    }
-                    if let Some(stream) = self.streams.get_mut(&addr) {
-                        if let Err(err) = self.poll.registry().reregister(
-                            stream,
-                            event.token(),
-                            mio::Interest::READABLE | mio::Interest::WRITABLE,
-                        ) {
-                            self.streams.remove(&addr);
-                            self.send(MioEvent::ConnectionDidClose(addr, Err(err.to_string())));
-                            MioError::RegisterStream(addr, err).report();
+                        if !connection.connected {
+                            match connection.stream.peer_addr() {
+                                Ok(new_addr) => {
+                                    connection.connected = true;
+                                    addr = new_addr;
+                                    self.send(MioEvent::OutgoingConnectionDidConnect(addr, Ok(())));
+                                }
+                                Err(err) if err.kind() == io::ErrorKind::NotConnected => {}
+                                #[cfg(unix)]
+                                Err(err) if err.raw_os_error() == Some(libc::EINPROGRESS) => {}
+                                Err(err) => {
+                                    self.send(MioEvent::OutgoingConnectionDidConnect(
+                                        addr,
+                                        Err(err.to_string()),
+                                    ));
+                                    continue;
+                                }
+                            }
+                        } else {
+                            while let Some((buf, mut offset)) = connection.transmits.pop_front() {
+                                match connection.stream.write(&buf[offset..]) {
+                                    Err(err) if err.kind() == io::ErrorKind::WouldBlock => {
+                                        connection.transmits.push_front((buf, offset));
+                                        break;
+                                    }
+                                    Err(err) => {
+                                        self.send(MioEvent::OutgoingDataDidSend(
+                                            addr,
+                                            Err(err.to_string()),
+                                        ));
+                                        continue 'events;
+                                    }
+                                    Ok(len) => {
+                                        offset += len;
+                                        if offset == buf.len() {
+                                            self.send(MioEvent::OutgoingDataDidSend(addr, Ok(())));
+                                        } else {
+                                            connection.transmits.push_front((buf, offset));
+                                        }
+                                    }
+                                }
+                            }
                         }
+                    }
+                    if let Err(err) = self.poll.registry().reregister(
+                        &mut connection.stream,
+                        event.token(),
+                        mio::Interest::READABLE | mio::Interest::WRITABLE,
+                    ) {
+                        self.send(MioEvent::ConnectionDidClose(addr, Err(err.to_string())));
+                    } else {
+                        self.connections.insert(addr, connection);
                     }
                 }
             }
@@ -237,26 +290,30 @@ where
                 }
                 Err(err) => MioError::Listen(addr, err).report(),
             },
-            Cmd::Accept(addr) => {
-                if let Some(listener) = self.listeners.get_mut(&addr) {
+            Cmd::Accept(listener_addr) => {
+                if let Some(listener) = self.listeners.get_mut(&listener_addr) {
                     match listener.accept() {
-                        Ok((mut stream, new_addr)) => {
+                        Ok((mut stream, addr)) => {
                             if let Err(err) = self.poll.registry().register(
                                 &mut stream,
                                 self.tokens.register(Token::Connection(addr)),
                                 mio::Interest::READABLE | mio::Interest::WRITABLE,
                             ) {
                                 self.send(MioEvent::IncomingConnectionDidAccept(
-                                    Some(new_addr),
+                                    Some(addr),
                                     Err(err.to_string()),
                                 ));
-                                MioError::Accept(Some(new_addr), addr, err).report()
                             } else {
                                 self.send(MioEvent::IncomingConnectionDidAccept(
-                                    Some(new_addr),
+                                    Some(addr),
                                     Ok(()),
                                 ));
-                                self.streams.insert(addr, stream);
+                                let connection = Connection {
+                                    stream,
+                                    transmits: VecDeque::default(),
+                                    connected: true,
+                                };
+                                self.connections.insert(addr, connection);
                             }
                         }
                         Err(err) => {
@@ -264,13 +321,90 @@ where
                                 None,
                                 Err(err.to_string()),
                             ));
-                            self.listeners.remove(&addr);
-                            MioError::Accept(None, addr, err).report()
+                            self.listeners.remove(&listener_addr);
                         }
                     }
+                } else {
+                    self.send(MioEvent::IncomingConnectionDidAccept(
+                        None,
+                        Err("no such listener".to_owned()),
+                    ));
                 }
             }
-            _ => todo!(),
+            Cmd::Refuse(addr) => {
+                if let Some(listener) = self.listeners.get_mut(&addr) {
+                    if let Ok((stream, _)) = listener.accept() {
+                        stream.shutdown(Shutdown::Both).unwrap_or_default();
+                    }
+                } else {
+                    self.send(MioEvent::IncomingConnectionDidAccept(
+                        None,
+                        Err("no such listener".to_owned()),
+                    ));
+                }
+            }
+            Cmd::Connect(addr) => {
+                match TcpStream::connect(addr) {
+                    Ok(mut stream) => {
+                        if let Err(err) = self.poll.registry().register(
+                            &mut stream,
+                            self.tokens.register(Token::Connection(addr)),
+                            mio::Interest::WRITABLE,
+                        ) {
+                            self.send(MioEvent::OutgoingConnectionDidConnect(
+                                addr,
+                                Err(err.to_string()),
+                            ));
+                        } else {
+                            self.connections.insert(
+                                addr,
+                                Connection {
+                                    stream,
+                                    transmits: VecDeque::default(),
+                                    connected: false,
+                                },
+                            );
+                        }
+                    }
+                    Err(err) => self.send(MioEvent::OutgoingConnectionDidConnect(
+                        addr,
+                        Err(err.to_string()),
+                    )),
+                };
+            }
+            Cmd::Recv(addr, mut buf) => {
+                if let Some(connection) = self.connections.get_mut(&addr) {
+                    let res = connection
+                        .stream
+                        .read(&mut buf)
+                        .map_err(|err| err.to_string())
+                        .map(|len| (buf, len));
+                    self.send(MioEvent::IncomingDataDidReceive(addr, res));
+                } else {
+                    self.send(MioEvent::IncomingDataDidReceive(
+                        addr,
+                        Err("not connected".to_string()),
+                    ));
+                }
+            }
+            Cmd::Send(addr, buf) => {
+                if let Some(connection) = self.connections.get_mut(&addr) {
+                    connection.transmits.push_back((buf, 0));
+                } else {
+                    self.send(MioEvent::OutgoingDataDidSend(
+                        addr,
+                        Err("not connected".to_string()),
+                    ));
+                }
+            }
+            Cmd::Disconnect(addr) => {
+                if let Some(connection) = self.connections.remove(&addr) {
+                    connection
+                        .stream
+                        .shutdown(Shutdown::Both)
+                        .unwrap_or_default();
+                }
+            }
         }
     }
 
