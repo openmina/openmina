@@ -3,8 +3,8 @@ use std::time::Duration;
 use node::{
     event_source::Event,
     p2p::{
-        connection::outgoing::P2pConnectionOutgoingInitOpts, P2pEvent, P2pPeerState, P2pPeerStatus,
-        P2pState, PeerId,
+        connection::outgoing::P2pConnectionOutgoingInitOpts, P2pConnectionEvent, P2pEvent,
+        P2pPeerState, P2pPeerStatus, P2pState, PeerId,
     },
 };
 
@@ -131,7 +131,10 @@ impl AllNodesConnectionsAreSymmetric {
             .await
             .unwrap()
         {
-            assert!(std::time::Instant::now() < timeout, "cluster should stop generating events");
+            assert!(
+                std::time::Instant::now() < timeout,
+                "cluster should stop generating events"
+            );
         }
 
         // Check that for each peer, if it is in the node's peer list, then the node is in the peer's peer list
@@ -324,7 +327,51 @@ impl MaxNumberOfPeers {
             .filter_map(|peer| peer.state().p2p.peers.get(&nut_peer_id))
             .filter(|state| matches!(state.status, P2pPeerStatus::Ready(..)))
             .count();
-        assert!(peers_connected <= MAX.into(), "peers connections to the node exceed the max number of connections: {peers_connected}");
+        assert!(
+            peers_connected <= MAX.into(),
+            "peers connections to the node exceed the max number of connections: {peers_connected}"
+        );
+    }
+}
 
+/// Two nodes should stay connected for a long period of time.
+#[derive(documented::Documented, Default, Clone, Copy)]
+pub struct ConnectionStability;
+
+impl ConnectionStability {
+    pub async fn run<'cluster>(self, runner: ClusterRunner<'cluster>) {
+        const CONNECTED_TIME_SEC: u64 = 1 * 60;
+        let mut driver = Driver::new(runner);
+
+        let (node1, _) = driver.add_rust_node(RustNodeTestingConfig::berkeley_default().max_peers(1));
+        let (node2, _) = driver.add_rust_node(RustNodeTestingConfig::berkeley_default().max_peers(1));
+
+        assert!(
+            wait_for_nodes_listening_on_localhost(&mut driver, Duration::from_secs(30), [node2])
+                .await
+                .unwrap(),
+            "nodes should be listening"
+        );
+
+        driver
+            .exec_step(crate::scenario::ScenarioStep::ConnectNodes {
+                dialer: node1,
+                listener: crate::scenario::ListenerNode::Rust(node2),
+            })
+            .await
+            .expect("connect event should be dispatched");
+
+        // Run the cluster while there are events
+        let disconnected = driver
+            .run_until(Duration::from_secs(CONNECTED_TIME_SEC), |_, event, _| {
+                matches!(
+                    event,
+                    Event::P2p(P2pEvent::Connection(P2pConnectionEvent::Closed(_)))
+                )
+            })
+            .await
+            .unwrap();
+
+        assert!(!disconnected, "there shouldn't be a disconnection");
     }
 }
