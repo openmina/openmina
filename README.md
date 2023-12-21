@@ -14,9 +14,10 @@ Currently, with the Open Mina node, you can:
 
 
 
-* Verify blocks and transactions
-* Produce SNARKs
-* Broadcast messages: block information, transaction pool, SNARK pool
+* Connect to the network and sync up to the best tip block
+* Validate and apply new blocks and transactions to update consensus and ledger state.
+* Produce SNARKs to complete SNARK work.
+* Broadcast messages: blocks, SNARK pool
 
 
 We are working on the following:
