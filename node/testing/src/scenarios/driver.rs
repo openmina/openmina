@@ -14,7 +14,7 @@ use crate::{cluster::ClusterNodeId, node::RustNodeTestingConfig, scenario::Scena
 
 use super::ClusterRunner;
 
-fn match_addr_with_port_and_peer_id(
+pub fn match_addr_with_port_and_peer_id(
     port: u16,
     peer_id: PeerId,
 ) -> impl Fn(&P2pConnectionOutgoingInitOpts) -> bool {
@@ -26,7 +26,7 @@ fn match_addr_with_port_and_peer_id(
     }
 }
 
-fn get_peers_iter(
+pub fn get_peers_iter(
     data: &serde_json::Value,
 ) -> Option<impl Iterator<Item = Option<(&str, i64, &str)>>> {
     let iter = data
@@ -45,7 +45,7 @@ fn get_peers_iter(
     Some(iter)
 }
 
-const PEERS_QUERY: &str = r#"query {
+pub const PEERS_QUERY: &str = r#"query {
   getPeers {
     host
     libp2pPort
@@ -92,7 +92,7 @@ pub fn as_connection_finalized_event(event: &Event) -> Option<(&PeerId, &Result<
     }
 }
 
-fn identify_event(peer_id: PeerId) -> impl Fn(ClusterNodeId, &Event, &State) -> bool {
+pub fn identify_event(peer_id: PeerId) -> impl Fn(ClusterNodeId, &Event, &State) -> bool {
     move |_, event, _| {
         matches!(
             event,
@@ -276,6 +276,10 @@ impl<'cluster> Driver<'cluster> {
 
     pub fn inner(&self) -> &ClusterRunner {
         &self.runner
+    }
+
+    pub fn inner_mut(&mut self) -> &mut ClusterRunner<'cluster> {
+        &mut self.runner
     }
 
     #[allow(dead_code)]
