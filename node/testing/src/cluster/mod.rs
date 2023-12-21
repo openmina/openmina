@@ -22,6 +22,8 @@ use node::p2p::service_impl::{
     webrtc::P2pServiceCtx,
     webrtc_with_libp2p::{self, P2pServiceWebrtcWithLibp2p},
 };
+#[cfg(not(feature = "p2p-libp2p"))]
+use node::p2p::{service_impl::mio::MioService, P2pEvent};
 use node::{
     event_source::Event,
     ledger::LedgerCtx,
@@ -190,6 +192,16 @@ impl Cluster {
         #[cfg(not(feature = "p2p-libp2p"))]
         let (cmd_sender, peers) = { (mpsc::unbounded_channel().0, Default::default()) };
 
+        #[cfg(not(feature = "p2p-libp2p"))]
+        let mio = MioService::run({
+            let event_sender = event_sender.clone();
+            move |mio_event| {
+                event_sender
+                    .send(P2pEvent::MioEvent(mio_event).into())
+                    .unwrap_or_default()
+            }
+        });
+
         let mut rpc_service = RpcService::new();
 
         let rpc_sender = RpcSender::new(rpc_service.req_sender().clone());
@@ -224,6 +236,8 @@ impl Cluster {
             peers,
             #[cfg(feature = "p2p-libp2p")]
             libp2p,
+            #[cfg(not(feature = "p2p-libp2p"))]
+            mio,
             rpc: rpc_service,
             snark_worker_sender: None,
             stats: node::stats::Stats::new(),

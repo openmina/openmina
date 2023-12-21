@@ -14,27 +14,7 @@ use mio::net::{TcpListener, TcpStream};
 
 use thiserror::Error;
 
-use crate::{MioEvent, P2pEvent};
-
-/// The state machine sends commands to the service.
-enum Cmd {
-    /// Bind a new listener to a new socket on the interface
-    /// that previously reported by an `InterfaceAppear` event with the ip.
-    ListenOn(SocketAddr),
-    /// Accept an incoming connection that previously reported
-    /// by an `IncomingConnectionIsReady` event with the listener address.
-    Accept(SocketAddr),
-    /// Refuse to connect the incoming connection previously reported.
-    Refuse(SocketAddr),
-    /// Create a new outgoing connection to the socket.
-    Connect(SocketAddr),
-    /// Receive some data from the connection in the buffer.
-    Recv(SocketAddr, Box<[u8]>),
-    /// Send the data in the connection.
-    Send(SocketAddr, Box<[u8]>),
-    /// Disconnect the remote peer.
-    Disconnect(SocketAddr),
-}
+use crate::{MioCmd, MioEvent, P2pMioService};
 
 #[derive(Debug, Error)]
 enum MioError {
@@ -59,14 +39,32 @@ impl MioError {
 }
 
 pub struct MioService {
-    cmd_sender: mpsc::Sender<Cmd>,
-    waker: mio::Waker,
+    cmd_sender: mpsc::Sender<MioCmd>,
+    waker: Option<mio::Waker>,
+}
+
+impl redux::TimeService for MioService {}
+
+impl redux::Service for MioService {}
+
+impl P2pMioService for MioService {
+    fn send_mio_cmd(&self, cmd: MioCmd) {
+        self.cmd_sender.send(cmd).unwrap_or_default();
+        self.waker.as_ref().map(|w| w.wake().unwrap_or_default());
+    }
 }
 
 impl MioService {
-    pub fn run<E>(event_sender: mpsc::Sender<E>) -> Self
+    pub fn mocked() -> Self {
+        MioService {
+            cmd_sender: mpsc::channel().0,
+            waker: None,
+        }
+    }
+
+    pub fn run<F>(event_sender: F) -> Self
     where
-        E: 'static + Send + From<P2pEvent>,
+        F: 'static + Send + Sync + Fn(MioEvent),
     {
         let poll = match mio::Poll::new() {
             Ok(v) => v,
@@ -114,58 +112,15 @@ impl MioService {
 
         MioService {
             cmd_sender: tx,
-            waker,
+            waker: Some(waker),
         }
-    }
-
-    pub fn listen_on(&self, addr: SocketAddr) {
-        self.cmd_sender
-            .send(Cmd::ListenOn(addr))
-            .unwrap_or_default();
-        self.waker.wake().unwrap_or_default();
-    }
-
-    pub fn accept(&self, addr: SocketAddr) {
-        self.cmd_sender.send(Cmd::Accept(addr)).unwrap_or_default();
-        self.waker.wake().unwrap_or_default();
-    }
-
-    pub fn refuse(&self, addr: SocketAddr) {
-        self.cmd_sender.send(Cmd::Refuse(addr)).unwrap_or_default();
-        self.waker.wake().unwrap_or_default();
-    }
-
-    pub fn connect(&self, addr: SocketAddr) {
-        self.cmd_sender.send(Cmd::Connect(addr)).unwrap_or_default();
-        self.waker.wake().unwrap_or_default();
-    }
-
-    pub fn recv(&self, addr: SocketAddr, data: Box<[u8]>) {
-        self.cmd_sender
-            .send(Cmd::Recv(addr, data))
-            .unwrap_or_default();
-        self.waker.wake().unwrap_or_default();
-    }
-
-    pub fn send(&self, addr: SocketAddr, data: Box<[u8]>) {
-        self.cmd_sender
-            .send(Cmd::Send(addr, data))
-            .unwrap_or_default();
-        self.waker.wake().unwrap_or_default();
-    }
-
-    pub fn disconnect(&self, addr: SocketAddr) {
-        self.cmd_sender
-            .send(Cmd::Disconnect(addr))
-            .unwrap_or_default();
-        self.waker.wake().unwrap_or_default();
     }
 }
 
-struct MioServiceInner<E> {
+struct MioServiceInner<F> {
     poll: mio::Poll,
-    event_sender: mpsc::Sender<E>,
-    cmd_receiver: mpsc::Receiver<Cmd>,
+    event_sender: F,
+    cmd_receiver: mpsc::Receiver<MioCmd>,
     tokens: TokenRegistry,
     listeners: BTreeMap<SocketAddr, TcpListener>,
     connections: BTreeMap<SocketAddr, Connection>,
@@ -177,9 +132,9 @@ struct Connection {
     connected: bool,
 }
 
-impl<E> MioServiceInner<E>
+impl<F> MioServiceInner<F>
 where
-    E: From<P2pEvent>,
+    F: 'static + Send + Sync + Fn(MioEvent),
 {
     fn run(&mut self, events: &mut mio::Events) {
         if let Err(err) = self.poll.poll(events, None) {
@@ -274,9 +229,11 @@ where
         events.clear();
     }
 
-    fn handle(&mut self, cmd: Cmd) {
+    fn handle(&mut self, cmd: MioCmd) {
+        use self::MioCmd::*;
+
         match cmd {
-            Cmd::ListenOn(addr) => match TcpListener::bind(addr) {
+            ListenOn(addr) => match TcpListener::bind(addr) {
                 Ok(mut listener) => {
                     if let Err(err) = self.poll.registry().register(
                         &mut listener,
@@ -290,7 +247,7 @@ where
                 }
                 Err(err) => MioError::Listen(addr, err).report(),
             },
-            Cmd::Accept(listener_addr) => {
+            Accept(listener_addr) => {
                 if let Some(listener) = self.listeners.get_mut(&listener_addr) {
                     match listener.accept() {
                         Ok((mut stream, addr)) => {
@@ -331,7 +288,7 @@ where
                     ));
                 }
             }
-            Cmd::Refuse(addr) => {
+            Refuse(addr) => {
                 if let Some(listener) = self.listeners.get_mut(&addr) {
                     if let Ok((stream, _)) = listener.accept() {
                         stream.shutdown(Shutdown::Both).unwrap_or_default();
@@ -343,7 +300,7 @@ where
                     ));
                 }
             }
-            Cmd::Connect(addr) => {
+            Connect(addr) => {
                 match TcpStream::connect(addr) {
                     Ok(mut stream) => {
                         if let Err(err) = self.poll.registry().register(
@@ -372,7 +329,7 @@ where
                     )),
                 };
             }
-            Cmd::Recv(addr, mut buf) => {
+            Recv(addr, mut buf) => {
                 if let Some(connection) = self.connections.get_mut(&addr) {
                     let res = connection
                         .stream
@@ -387,7 +344,7 @@ where
                     ));
                 }
             }
-            Cmd::Send(addr, buf) => {
+            Send(addr, buf) => {
                 if let Some(connection) = self.connections.get_mut(&addr) {
                     connection.transmits.push_back((buf, 0));
                 } else {
@@ -397,7 +354,7 @@ where
                     ));
                 }
             }
-            Cmd::Disconnect(addr) => {
+            Disconnect(addr) => {
                 if let Some(connection) = self.connections.remove(&addr) {
                     connection
                         .stream
@@ -409,8 +366,6 @@ where
     }
 
     pub fn send(&self, event: MioEvent) {
-        self.event_sender
-            .send(P2pEvent::MioEvent(event).into())
-            .unwrap_or_default();
+        (self.event_sender)(event);
     }
 }
