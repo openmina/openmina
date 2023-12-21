@@ -2921,7 +2921,7 @@ dependencies = [
  "log",
  "pin-project",
  "rand 0.8.5",
- "salsa20",
+ "salsa20 0.10.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "sha3",
 ]
 
@@ -4036,6 +4036,7 @@ dependencies = [
  "anyhow",
  "binprot",
  "binprot_derive",
+ "blake2",
  "bs58 0.4.0",
  "bytes",
  "cfg-if",
@@ -4059,6 +4060,7 @@ dependencies = [
  "rand 0.8.5",
  "redux",
  "reqwest",
+ "salsa20 0.10.2 (git+https://github.com/openmina/stream-ciphers.git?branch=salsa20-v0.10.2-impl-clone)",
  "serde",
  "serde_json",
  "sha2 0.10.8",
@@ -4074,6 +4076,7 @@ dependencies = [
  "wasm-timer",
  "web-sys",
  "webrtc",
+ "zeroize",
 ]
 
 [[package]]
@@ -5042,6 +5045,14 @@ name = "salsa20"
 version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "97a22f5af31f73a954c10289c93e8a50cc23d971e80ee446f1f6f7137a088213"
+dependencies = [
+ "cipher 0.4.4",
+]
+
+[[package]]
+name = "salsa20"
+version = "0.10.2"
+source = "git+https://github.com/openmina/stream-ciphers.git?branch=salsa20-v0.10.2-impl-clone#fcb8d537c7f0a98cd827feb70416fc813a2df4a3"
 dependencies = [
  "cipher 0.4.4",
 ]
@@ -6858,9 +6869,9 @@ dependencies = [
 
 [[package]]
 name = "zeroize"
-version = "1.6.0"
+version = "1.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2a0956f1ba7c7909bfb66c2e9e4124ab6f6482560f6628b5aaeba39207c9aad9"
+checksum = "525b4ec142c6b68a2d10f01f7bbf6755599ca3f81ea53b8431b7dd348f5fdb2d"
 dependencies = [
  "zeroize_derive",
 ]
