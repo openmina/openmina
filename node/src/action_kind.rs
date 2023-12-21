@@ -12,6 +12,7 @@
 // related code for every single change.
 
 use num_enum::TryFromPrimitive;
+use p2p::P2pNetworkConnectionAction;
 use serde::{Deserialize, Serialize};
 
 use crate::consensus::{
@@ -93,6 +94,8 @@ use crate::p2p::discovery::{
     P2pDiscoveryKademliaBootstrapAction, P2pDiscoveryKademliaFailureAction,
     P2pDiscoveryKademliaInitAction, P2pDiscoveryKademliaSuccessAction, P2pDiscoverySuccessAction,
 };
+use crate::p2p::network::pnet::P2pNetworkPnetAction;
+use crate::p2p::network::P2pNetworkAction;
 use crate::p2p::peer::{P2pPeerAction, P2pPeerBestTipUpdateAction, P2pPeerReadyAction};
 use crate::p2p::P2pAction;
 use crate::rpc::{
@@ -301,6 +304,9 @@ pub enum ActionKind {
     P2pDiscoveryKademliaInit,
     P2pDiscoveryKademliaSuccess,
     P2pDiscoverySuccess,
+    P2pNetworkConnectionInterfaceDetected,
+    P2pNetworkConnectionInterfaceExpired,
+    P2pNetworkConnectionPnet,
     P2pPeerBestTipUpdate,
     P2pPeerReady,
     RpcActionStatsGet,
@@ -466,6 +472,7 @@ impl ActionKindGet for P2pAction {
             Self::Discovery(a) => a.kind(),
             Self::Channels(a) => a.kind(),
             Self::Peer(a) => a.kind(),
+            Self::Network(a) => a.kind(),
         }
     }
 }
@@ -660,6 +667,15 @@ impl ActionKindGet for P2pPeerAction {
         match self {
             Self::Ready(a) => a.kind(),
             Self::BestTipUpdate(a) => a.kind(),
+        }
+    }
+}
+
+impl ActionKindGet for P2pNetworkAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::Connection(a) => a.kind(),
+            Self::Pnet(a) => a.kind(),
         }
     }
 }
@@ -1291,6 +1307,25 @@ impl ActionKindGet for P2pPeerReadyAction {
 impl ActionKindGet for P2pPeerBestTipUpdateAction {
     fn kind(&self) -> ActionKind {
         ActionKind::P2pPeerBestTipUpdate
+    }
+}
+
+impl ActionKindGet for P2pNetworkConnectionAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            P2pNetworkConnectionAction::InterfaceDetected(_) => {
+                ActionKind::P2pNetworkConnectionInterfaceDetected
+            }
+            P2pNetworkConnectionAction::InterfaceExpired(_) => {
+                ActionKind::P2pNetworkConnectionInterfaceExpired
+            }
+        }
+    }
+}
+
+impl ActionKindGet for P2pNetworkPnetAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pNetworkConnectionPnet
     }
 }
 

@@ -11,6 +11,7 @@ use node::core::snark::{Snark, SnarkJobId};
 use node::p2p::service_impl::{
     libp2p::Libp2pService, webrtc_with_libp2p::P2pServiceWebrtcWithLibp2p,
 };
+use node::p2p::P2pMioService;
 use node::recorder::Recorder;
 use node::snark::block_verify::{
     SnarkBlockVerifyId, SnarkBlockVerifyService, VerifiableBlockWithHash,
@@ -115,6 +116,12 @@ impl node::Service for NodeTestingService {
 
     fn recorder(&mut self) -> &mut Recorder {
         self.real.recorder()
+    }
+}
+
+impl P2pMioService for NodeTestingService {
+    fn send_mio_cmd(&self, cmd: node::p2p::MioCmd) {
+        self.real.send_mio_cmd(cmd);
     }
 }
 

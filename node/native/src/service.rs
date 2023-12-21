@@ -4,6 +4,8 @@ use std::sync::Arc;
 
 use ledger::scan_state::scan_state::transaction_snark::{SokDigest, Statement};
 use mina_p2p_messages::v2::{LedgerProofProdStableV2, TransactionSnarkWorkTStableV2Proofs};
+#[cfg(not(feature = "p2p-libp2p"))]
+use node::p2p::service_impl::mio::MioService;
 use rand::prelude::*;
 use redux::ActionMeta;
 use serde::Serialize;
@@ -19,7 +21,7 @@ use node::p2p::service_impl::TaskSpawner;
 use node::p2p::service_impl::{
     libp2p::Libp2pService, webrtc_with_libp2p::P2pServiceWebrtcWithLibp2p,
 };
-use node::p2p::PeerId;
+use node::p2p::{P2pMioService, PeerId};
 use node::rpc::{RpcP2pConnectionOutgoingResponse, RpcRequest};
 use node::service::{EventSourceService, Recorder};
 use node::snark::block_verify::{
@@ -45,6 +47,8 @@ pub struct NodeService {
     pub peers: BTreeMap<PeerId, PeerState>,
     #[cfg(feature = "p2p-libp2p")]
     pub libp2p: Libp2pService,
+    #[cfg(not(feature = "p2p-libp2p"))]
+    pub mio: MioService,
     pub rpc: RpcService,
     pub snark_worker_sender: Option<ext_snark_worker::ExternalSnarkWorkerFacade>,
     pub stats: Stats,
@@ -100,6 +104,20 @@ impl node::Service for NodeService {
 
     fn recorder(&mut self) -> &mut Recorder {
         &mut self.recorder
+    }
+}
+
+#[cfg(feature = "p2p-libp2p")]
+impl P2pMioService for NodeService {
+    fn send_mio_cmd(&self, _cmd: node::p2p::MioCmd) {
+        panic!("not implemented with libp2p");
+    }
+}
+
+#[cfg(not(feature = "p2p-libp2p"))]
+impl P2pMioService for NodeService {
+    fn send_mio_cmd(&self, cmd: node::p2p::MioCmd) {
+        self.mio.send_mio_cmd(cmd);
     }
 }
 
