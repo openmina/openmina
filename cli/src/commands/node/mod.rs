@@ -36,6 +36,8 @@ use node::{
 use openmina_node_native::rpc::RpcService;
 use openmina_node_native::{http_server, tracing, NodeService, RpcSender};
 
+#[cfg(not(feature = "p2p-libp2p"))]
+use node::p2p::{service_impl::mio::MioService, P2pEvent};
 #[cfg(feature = "p2p-libp2p")]
 use openmina_node_native::P2pTaskSpawner;
 
@@ -200,6 +202,16 @@ impl Node {
         #[cfg(not(feature = "p2p-libp2p"))]
         let (cmd_sender, peers) = { (mpsc::unbounded_channel().0, Default::default()) };
 
+        #[cfg(not(feature = "p2p-libp2p"))]
+        let mio = MioService::run({
+            let event_sender = event_sender.clone();
+            move |mio_event| {
+                event_sender
+                    .send(P2pEvent::MioEvent(mio_event).into())
+                    .unwrap_or_default()
+            }
+        });
+
         let mut rpc_service = RpcService::new();
 
         let http_port = self.port;
@@ -240,6 +252,8 @@ impl Node {
                 peers,
                 #[cfg(feature = "p2p-libp2p")]
                 libp2p,
+                #[cfg(not(feature = "p2p-libp2p"))]
+                mio,
                 block_producer: None,
                 rpc: rpc_service,
                 snark_worker_sender: None,
