@@ -16,7 +16,6 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pNetworkState {
     pub connection: P2pNetworkConnectionState,
-    pub pnet: P2pNetworkPnetState,
 }
 
 impl P2pNetworkState {
@@ -38,8 +37,12 @@ impl P2pNetworkState {
         };
 
         P2pNetworkState {
-            connection: P2pNetworkConnectionState::default(),
-            pnet: P2pNetworkPnetState::new(pnet_key),
+            connection: P2pNetworkConnectionState {
+                interfaces: Default::default(),
+                listeners: Default::default(),
+                pnet_key,
+                connections: Default::default(),
+            },
         }
     }
 }
@@ -50,10 +53,26 @@ impl P2pNetworkAction {
         Store: crate::P2pStore<S>,
         Store::Service: P2pMioService + P2pCryptoService,
         P2pNetworkPnetAction: redux::EnablingCondition<S>,
+        P2pNetworkPnetIncomingDataAction: redux::EnablingCondition<S>,
     {
         match self {
             Self::Connection(v) => v.effects(meta, store),
             Self::Pnet(v) => v.effects(meta, store),
+        }
+    }
+}
+
+impl P2pNetworkState {
+    pub fn reducer(&mut self, action: redux::ActionWithMeta<&P2pNetworkAction>) {
+        let (action, meta) = action.split();
+        match action {
+            P2pNetworkAction::Connection(a) => self.connection.reducer(meta.with_action(&a)),
+            P2pNetworkAction::Pnet(a) => {
+                self.connection
+                    .connections
+                    .get_mut(&a.addr())
+                    .map(|cn| cn.pnet.reducer(meta.with_action(&a)));
+            }
         }
     }
 }
