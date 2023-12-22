@@ -90,6 +90,9 @@ impl_into_global_action!(discovery::P2pDiscoveryKademliaSuccessAction);
 impl_into_global_action!(discovery::P2pDiscoveryKademliaFailureAction);
 impl_into_global_action!(discovery::P2pDiscoveryKademliaAddRouteAction);
 
+impl_into_global_action!(network::P2pNetworkConnectionInterfaceDetectedAction);
+impl_into_global_action!(network::P2pNetworkConnectionInterfaceExpiredAction);
+
 impl_into_global_action!(channels::P2pChannelsMessageReceivedAction);
 
 impl_into_global_action!(channels::best_tip::P2pChannelsBestTipInitAction);
