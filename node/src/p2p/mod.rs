@@ -58,6 +58,9 @@ impl_into_global_action!(disconnection::P2pDisconnectionAction);
 
 impl_into_global_action!(discovery::P2pDiscoveryAction);
 
+impl_into_global_action!(network::P2pNetworkConnectionInterfaceDetectedAction);
+impl_into_global_action!(network::P2pNetworkConnectionInterfaceExpiredAction);
+
 impl_into_global_action!(channels::P2pChannelsMessageReceivedAction);
 
 impl_into_global_action!(channels::best_tip::P2pChannelsBestTipAction);
