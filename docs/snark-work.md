@@ -24,7 +24,7 @@ Via the GossipSub (P2P), a node receives a new block that contains transactions 
 ![image](https://github.com/JanSlobodnik/pre-publishing/assets/60480123/02f74256-6ac4-420e-8762-bfb39c72d073)
 
 
-The Transition Frontier, which contains the staged ledger and the scan state, is updated. The staged ledger includes the new blocks. The scan state is updated with the new jobs.
+The work pool, which is a part of the modified SNARK pool and which contains the staged ledger and the scan state, is updated. The staged ledger includes the new blocks. The scan state is updated with the new jobs.
 
 
 
