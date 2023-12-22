@@ -6,7 +6,7 @@ SNARK proofs are the backbone of the Mina blockchain and are used for verifying 
 
 **This is an overview of SNARK workflows. Click on the picture for a higher resolution:**
 
-[![image7](https://github.com/JanSlobodnik/pre-publishing/assets/60480123/e98bec61-fe17-46cf-85d1-1c049dbc367d)](https://raw.githubusercontent.com/JanSlobodnik/pre-publishing/main/OpenMina%20%2B%20ZK%20Diagrams1.png)
+[![image](https://github.com/openmina/openmina/assets/60480123/f32f8d6c-c20a-4984-9cab-0dbdc5eec5b1)](https://raw.githubusercontent.com/openmina/openmina/docs/cleanup/docs/OpenMina%20%2B%20ZK%20Diagrams.png)
 
 
 
