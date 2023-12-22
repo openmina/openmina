@@ -59,8 +59,7 @@ For a commitment to be added here, it has to:
 2. Have no other prior commitment to that job. Alternatively, if there are other commitments, then only the one with the cheapest fee will be added.
 
 
-
-![image](https://github.com/JanSlobodnik/pre-publishing/assets/60480123/18f93479-6616-4bb8-8edb-11d62b122e4f)
+<img width="199" alt="image" src="https://github.com/openmina/openmina/assets/60480123/4a422932-30a4-4add-b3f5-4b70f159fd5e">
 
 
 The work pool, which is a part of the modified SNARK pool, is updated with a commitment (including its fee) for a specific pending SNARK job.
@@ -71,7 +70,8 @@ The work pool, which is a part of the modified SNARK pool, is updated with a com
 
 The commitments, once added to the commitment pool, are then broadcasted by the node other peers in the network through direct WebRTC P2P communication.
 
-<img width="161" alt="image" src="https://github.com/openmina/openmina/assets/60480123/ab46c46c-5edb-4734-9387-97830bcf8e5f">
+<img width="330" alt="image" src="https://github.com/openmina/openmina/assets/60480123/c3620050-4082-4f2f-860c-94f292c01a2c">
+
 
 
 ### Receiving a SNARK from an OCaml node
@@ -84,21 +84,19 @@ The Rust node receives a SNARK proof from an OCaml node (an OCaml SNARK worker).
 
 The SNARK is verified.
 
-<img width="135" alt="image" src="https://github.com/openmina/openmina/assets/60480123/21cecd28-fcb8-4315-b75c-a6b8580b715d">
+
+<img width="393" alt="image" src="https://github.com/openmina/openmina/assets/60480123/7e069f8d-3abe-40ca-a58d-0cd6c9e7ba2a">
 
 
 
 If it is the lowest fee SNARK for a specific pending SNARK job, then it is added to the SNARK pool, from where block producers can take SNARKs and add them into blocks.
 
 
-<img width="203" alt="image" src="https://github.com/openmina/openmina/assets/60480123/2294e2fc-05bc-42cd-93d4-afde20ec4342">
-
 
 If it is the lowest fee SNARK for that job, then it is added to the SNARK pool
 
 
-
-![image](https://github.com/JanSlobodnik/pre-publishing/assets/60480123/b098ed2d-aa97-438a-8eda-f3399b849bb9)
+<img width="274" alt="image" src="https://github.com/openmina/openmina/assets/60480123/8e54f113-a75a-4f25-a520-3850a312ef65">
 
 
 
@@ -156,7 +154,7 @@ A SNARK worker starts working on the committed job. The SNARK proof that is gene
 The SNARK proof is then sent to the SNARK pool.
 
 
-![image](https://github.com/JanSlobodnik/pre-publishing/assets/60480123/a28f5ce5-64ab-4d6e-8409-66970bdc2cb5)
+<img width="336" alt="image" src="https://github.com/openmina/openmina/assets/60480123/7c937f0b-9e4c-491e-a785-86ecf68754ff">
 
 
 From here, it is broadcast to Rust nodes directly via WebRTC P2P, and to OCaml nodes indirectly via the `mina/snark-work/1.0.0` (SNARK pool diff) topic of the PubSub P2P network.
