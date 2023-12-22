@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use super::{connection::*, pnet::*};
+use super::{connection::*, pnet::*, select::*};
 
 use crate::P2pState;
 
@@ -8,6 +8,7 @@ use crate::P2pState;
 pub enum P2pNetworkAction {
     Connection(P2pNetworkConnectionAction),
     Pnet(P2pNetworkPnetAction),
+    Select(P2pNetworkSelectAction),
 }
 
 impl redux::EnablingCondition<P2pState> for P2pNetworkAction {
@@ -15,6 +16,7 @@ impl redux::EnablingCondition<P2pState> for P2pNetworkAction {
         match self {
             Self::Connection(v) => v.is_enabled(state),
             Self::Pnet(v) => v.is_enabled(state),
+            Self::Select(v) => v.is_enabled(state),
         }
     }
 }
