@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use super::{connection::P2pNetworkConnectionAction, pnet::P2pNetworkPnetAction};
+use super::{connection::*, pnet::*};
 
 use crate::P2pState;
 
