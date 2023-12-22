@@ -28,7 +28,6 @@ We are working on the following:
 
 In the future, we plan to implement:
 
-
 * Direct transfer of MINA funds
 * Block production
 * SNARK proof generation for transactions
@@ -144,6 +143,32 @@ Open your browser and navigate to [http://localhost:4200](http://localhost:4200)
 - [cli/](cli) - OpenMina cli.
 - [frontend/](frontend) - OpenMina frontend.
 
----
 
 [Details regarding architecture](ARCHITECTURE.md)
+
+
+## The Open Mina Documentation
+
+- [Why we are developing Open Mina](docs/why-openmina.md)
+- What is Open Mina?
+  - [Openmina Node](#the-open-mina-node)
+  - [The Mina Web Node](https://github.com/openmina/webnode/blob/main/README.md)
+- Core components
+  - [P2P communication](https://github.com/openmina/openmina/blob/documentation/docs/p2p_service.md)
+    - [GossipSub](https://github.com/openmina/mina-wiki/blob/3ea9041e52fb2e606918f6c60bd3a32b8652f016/p2p/mina-gossip.md)
+  - [Scan state](docs/scan-state.md)
+  - [SNARKs](docs/snark-work.md)
+- Developer tools
+  - [Debugger](https://github.com/openmina/mina-network-debugger/blob/main/README.md)
+  - [Front End](https://github.com/openmina/mina-frontend/blob/main/README.md)
+    - [Dashboard](https://github.com/openmina/mina-frontend/blob/main/docs/MetricsTracing.md#Dashboard)
+- [Testing](docs/testing/testing.md)
+- How to run
+  - [Launch Openmina node](#how-to-launch-without-docker-compose)
+  - [Launch Node with UI](#how-to-launch-with-docker-compose)
+  - [Debugger](https://github.com/openmina/mina-network-debugger?tab=readme-ov-file#Preparing-for-build)
+  - [Web Node](https://github.com/openmina/webnode/blob/main/README.md#try-out-the-mina-web-node)
+- External links
+  - [Substack](https://openmina.substack.com/)
+  - [Medium](https://medium.com/openmina)
+  - [Twitter](https://twitter.com/viable_systems)
