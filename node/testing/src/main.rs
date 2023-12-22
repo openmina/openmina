@@ -47,7 +47,12 @@ impl Command {
             Self::ScenariosGenerate(cmd) => {
                 #[cfg(feature = "scenario-generators")]
                 {
-                    let config = ClusterConfig::new(cmd.use_debugger);
+                    let config = ClusterConfig::new();
+                    let config = if cmd.use_debugger {
+                        config.use_debugger()
+                    } else {
+                        config
+                    };
 
                     if let Some(name) = cmd.name {
                         if let Some(scenario) = Scenarios::iter()

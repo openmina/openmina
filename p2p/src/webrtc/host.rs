@@ -103,6 +103,12 @@ impl std::fmt::Display for Host {
     }
 }
 
+impl From<[u8; 4]> for Host {
+    fn from(value: [u8; 4]) -> Self {
+        Self::Ipv4(value.into())
+    }
+}
+
 impl From<url::Host> for Host {
     fn from(value: url::Host) -> Self {
         match value {

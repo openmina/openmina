@@ -61,7 +61,7 @@ COPY patch patch
 
 RUN git apply patch
 
-RUN rm /bin/sh && ln -s /bin/bash /bin/sh 
+RUN rm /bin/sh && ln -s /bin/bash /bin/sh
 
 RUN source ~/.cargo/env && eval $(opam config env) && make build_all_sigs
 

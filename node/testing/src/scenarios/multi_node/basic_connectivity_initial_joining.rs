@@ -177,7 +177,7 @@ impl MultiNodeBasicConnectivityInitialJoining {
                 let mut total_connections_known = 0;
                 let mut total_connections_ready = 0;
                 for &node_id in &nodes {
-                    let node = runner.cluster_mut().node(node_id).expect("node must exist");
+                    let node = runner.node(node_id).expect("node must exist");
 
                     let p2p = &node.state().p2p;
                     let ready_peers = p2p.ready_peers_iter().count();
@@ -196,7 +196,7 @@ impl MultiNodeBasicConnectivityInitialJoining {
                 }
 
                 // TODO: calculate per peer
-                if let Some(debugger) = runner.cluster().debugger() {
+                if let Some(debugger) = runner.debugger() {
                     tokio::time::sleep(Duration::from_secs(10)).await;
 
                     let connections = debugger
