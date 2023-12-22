@@ -144,22 +144,21 @@ Open your browser and navigate to [http://localhost:4200](http://localhost:4200)
 - [cli/](cli) - OpenMina cli.
 - [frontend/](frontend) - OpenMina frontend.
 
----
 
 [Details regarding architecture](ARCHITECTURE.md)
 
 
 ## The Open Mina Documentation
 
-- [Why we are developing Open Mina](https://github.com/openmina/openmina/blob/develop/why-openmina.md)
+- [Why we are developing Open Mina](https://github.com/openmina/openmina/blob/docs/cleanup/docs/why-openmina.md)
 - What is Open Mina?
   - [Openmina Node](https://github.com/openmina/openmina/blob/main/README.md)
   - [The Mina Web Node](https://github.com/openmina/webnode/blob/main/README.md)
 - Core components
   - [P2P communication](https://github.com/openmina/openmina/blob/documentation/docs/p2p_service.md)
     - [GossipSub](https://github.com/openmina/mina-wiki/blob/3ea9041e52fb2e606918f6c60bd3a32b8652f016/p2p/mina-gossip.md)
-  - [Scan state](https://github.com/openmina/openmina/blob/develop/scan-state.md)
-  - [SNARKs](https://github.com/openmina/openmina/blob/develop/snark-work.md)
+  - [Scan state](https://github.com/openmina/openmina/blob/docs/cleanup/docs/scan-state.md)
+  - [SNARKs](https://github.com/openmina/openmina/blob/docs/cleanup/docs/snark-work.md)
 - Developer tools
   - [Debugger](https://github.com/openmina/mina-network-debugger/blob/main/README.md)
   - [Front End](https://github.com/openmina/mina-frontend/blob/main/README.md)
