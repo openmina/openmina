@@ -77,13 +77,13 @@ cargo run --release -p cli node
 
 ### Prerequisites
 
-Before you begin, ensure you have the following tools installed:
+The following tools are required to launch the UI:
 
-- [Node.js](https://nodejs.org/)
-- [npm](https://www.npmjs.com/)
-- [Angular CLI](https://cli.angular.io/)
+- Node.js
+- npm
+- Angular CLI
 
-Here are the steps to install the prerequisites listed above:
+Here are the steps to install these tools:
 
 #### 1. Node.js
 
@@ -114,18 +114,18 @@ Download and install [Node.js](https://nodejs.org/) for your OS, which includes 
 - Verify your Angular CLI installation:
 
   ```bash
-  ng --version
+  ng version
   ```
   This command should print the version number of your Angular CLI installation.
 
 ### Steps (for any OS)
 
-Open up the command line and enter the following:
+Open the command line, navigate to the openmina directory and then run
 
 ``` sh
-   cd frontend
-   npm install
-   npm start
+cd frontend
+npm install
+npm start
 ```
 
 Open your browser and navigate to [http://localhost:4200](http://localhost:4200).

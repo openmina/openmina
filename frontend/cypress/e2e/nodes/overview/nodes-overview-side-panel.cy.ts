@@ -3,7 +3,7 @@ import { Store } from '@ngrx/store';
 import { MinaState } from '@app/app.setup';
 import { stateSliceAsPromise } from '../../../support/commands';
 
-const condition = (state: NodesOverviewState) => state && state.nodes.length > 0;
+const condition = (state: NodesOverviewState) => state && state.nodes?.length > 0 && state.nodes.some(n => n.kind === 'Synced');
 const getNodesOverview = (store: Store<MinaState>) => stateSliceAsPromise<NodesOverviewState>(store, condition, 'nodes', 'overview');
 
 describe('NODES OVERVIEW SIDE PANEL', () => {

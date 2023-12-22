@@ -4,9 +4,9 @@ import { MinaState } from '@app/app.setup';
 import { checkSorting, Sort, stateSliceAsPromise } from '../../../support/commands';
 import { AppState } from '@app/app.state';
 
-const condition = (state: NodesOverviewState) => state && state.nodes.length > 0;
+const condition = (state: NodesOverviewState) => state && state.nodes?.length > 0 && state.nodes.some(n => n.kind === 'Synced');
 const getNodesOverview = (store: Store<MinaState>) => stateSliceAsPromise<NodesOverviewState>(store, condition, 'nodes', 'overview');
-const nodesCondition = (state: AppState) => state && state.nodes.length > 0;
+const nodesCondition = (state: AppState) => state && state.nodes?.length > 0;
 const getNodes = (store: Store<MinaState>) => stateSliceAsPromise<AppState>(store, nodesCondition, 'app');
 
 describe('NODES OVERVIEW TABLE', () => {
