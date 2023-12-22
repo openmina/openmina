@@ -24,6 +24,7 @@ pub struct P2pNetworkPnetOutgoingDataAction {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pNetworkPnetSetupNonceAction {
+    pub addr: SocketAddr,
     pub nonce: [u8; 24],
 }
 
