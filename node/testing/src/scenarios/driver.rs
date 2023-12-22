@@ -4,8 +4,9 @@ use libp2p::Multiaddr;
 use node::{
     event_source::Event,
     p2p::{
-        connection::outgoing::P2pConnectionOutgoingInitOpts, P2pConnectionEvent, P2pEvent,
-        P2pListenEvent, P2pListenerId, PeerId,
+        connection::outgoing::P2pConnectionOutgoingInitOpts,
+        webrtc::{Host, HttpSignalingInfo, SignalingMethod},
+        P2pConnectionEvent, P2pEvent, P2pListenEvent, P2pListenerId, PeerId,
     },
     State,
 };
@@ -19,6 +20,22 @@ pub fn match_addr_with_port_and_peer_id(
     peer_id: PeerId,
 ) -> impl Fn(&P2pConnectionOutgoingInitOpts) -> bool {
     move |conn_opt| match conn_opt {
+        P2pConnectionOutgoingInitOpts::WebRTC {
+            peer_id: pid,
+            signaling:
+                SignalingMethod::Http(HttpSignalingInfo {
+                    host: Host::Ipv4(_ip4),
+                    port: p,
+                }),
+        }
+        | P2pConnectionOutgoingInitOpts::WebRTC {
+            peer_id: pid,
+            signaling:
+                SignalingMethod::Https(HttpSignalingInfo {
+                    host: Host::Ipv4(_ip4),
+                    port: p,
+                }),
+        } => &peer_id == pid && port == *p,
         P2pConnectionOutgoingInitOpts::LibP2P(libp2p_opts) => {
             &libp2p_opts.peer_id == &peer_id && libp2p_opts.port == port
         }
@@ -352,7 +369,11 @@ where
 /// Runs cluster until there is a `quiet_dur` period of no events, returning
 /// `Ok(true)` in this case. If there is no such period for `timeout` period of
 /// time, then returns `Ok(false)`
-pub async fn run_until_no_events<'cluster>(driver: &mut Driver<'cluster>, quiet_dur: Duration, timeout: Duration) -> anyhow::Result<bool> {
+pub async fn run_until_no_events<'cluster>(
+    driver: &mut Driver<'cluster>,
+    quiet_dur: Duration,
+    timeout: Duration,
+) -> anyhow::Result<bool> {
     let timeout = Instant::now() + timeout;
     while driver.run_until(quiet_dur, |_, _, _| true).await? {
         if Instant::now() >= timeout {

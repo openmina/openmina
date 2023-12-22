@@ -11,6 +11,10 @@ pub enum NodeTestingConfig {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub enum TestPeerId {
+    /// NOTE This option results a deterministic private key derived from the
+    /// node index in the cluster. Be aware that when interacting with OCaml
+    /// nodes or other nodes outside the cluster might be interfer by previous
+    /// runs (e.g. peer_id might be blacklisted).
     #[default]
     Derived,
     Random,
