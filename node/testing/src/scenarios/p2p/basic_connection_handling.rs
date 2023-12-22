@@ -273,7 +273,7 @@ impl MaxNumberOfPeers {
         let satisfied = wait_for_nodes_listening_on_localhost(
             &mut driver,
             Duration::from_secs(3 * 60),
-            peers.clone(),
+            [node_ut],
         )
         .await
         .unwrap();
@@ -294,7 +294,7 @@ impl MaxNumberOfPeers {
         let mut connected = 0_i32;
 
         while let Some(exceeded) = driver
-            .wait_for(Duration::from_secs(5 * 60), |node_id, event, _| {
+            .wait_for(Duration::from_secs(2 * 60), |node_id, event, _| {
                 if node_id != node_ut {
                     return false;
                 }
