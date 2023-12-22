@@ -35,7 +35,21 @@ pub fn setup() -> tokio::runtime::Runtime {
 pub fn setup_without_rt() {
     lazy_static::lazy_static! {
         static ref INIT: () = {
-            openmina_node_native::tracing::initialize(openmina_node_native::tracing::Level::WARN);
+            let level = std::env::var("OPENMINA_TRACING_LEVEL").ok().and_then(|level| {
+                match level.parse() {
+                    Ok(v) => Some(v),
+                    Err(e) => {
+                        eprintln!("cannot parse {level} as tracing level: {e}");
+                        None
+                    }
+                }
+            }).unwrap_or(openmina_node_native::tracing::Level::DEBUG);
+            openmina_node_native::tracing::initialize(level);
+
+            if let Err(err) = tracing_log::LogTracer::init() {
+                eprintln!("cannot initialize log tracing bridge: {err}");
+            }
+
             rayon::ThreadPoolBuilder::new()
                 .num_threads(num_cpus::get().max(2) - 1)
                 .thread_name(|i| format!("openmina_rayon_{i}"))
@@ -56,9 +70,7 @@ impl TestGate {
     async fn there_can_be_only_one() -> Self {
         Self(GATE.lock().await)
     }
-    pub fn release(self) {
-
-    }
+    pub fn release(self) {}
 }
 
 pub async fn wait_for_other_tests() -> TestGate {
