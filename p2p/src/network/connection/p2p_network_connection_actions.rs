@@ -20,6 +20,18 @@ pub struct P2pNetworkConnectionInterfaceExpiredAction {
     pub ip: IpAddr,
 }
 
+impl From<P2pNetworkConnectionInterfaceDetectedAction> for crate::P2pAction {
+    fn from(a: P2pNetworkConnectionInterfaceDetectedAction) -> Self {
+        Self::Network(P2pNetworkConnectionAction::from(a).into())
+    }
+}
+
+impl From<P2pNetworkConnectionInterfaceExpiredAction> for crate::P2pAction {
+    fn from(a: P2pNetworkConnectionInterfaceExpiredAction) -> Self {
+        Self::Network(P2pNetworkConnectionAction::from(a).into())
+    }
+}
+
 impl redux::EnablingCondition<P2pState> for P2pNetworkConnectionAction {
     fn is_enabled(&self, state: &P2pState) -> bool {
         match self {

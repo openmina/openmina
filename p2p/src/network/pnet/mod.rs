@@ -102,8 +102,9 @@ impl P2pNetworkPnetAction {
             P2pNetworkPnetAction::OutgoingData(a) => match &state.outgoing {
                 Half::Buffering { buffer, .. } if *buffer == [0; 24] => {
                     let nonce = service.generate_random_nonce();
+                    let addr = a.addr;
                     store.dispatch(P2pNetworkPnetAction::SetupNonce(
-                        P2pNetworkPnetSetupNonceAction { nonce },
+                        P2pNetworkPnetSetupNonceAction { addr, nonce },
                     ));
                 }
                 Half::Done { to_send, .. } if !to_send.is_empty() => {
@@ -114,7 +115,12 @@ impl P2pNetworkPnetAction {
                 }
                 _ => {}
             },
-            P2pNetworkPnetAction::SetupNonce(_) => {}
+            P2pNetworkPnetAction::SetupNonce(a) => {
+                service.send_mio_cmd(crate::MioCmd::Send(
+                    a.addr,
+                    a.nonce.to_vec().into_boxed_slice(),
+                ));
+            }
         }
     }
 }
