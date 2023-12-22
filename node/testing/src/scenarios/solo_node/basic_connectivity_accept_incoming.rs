@@ -3,11 +3,12 @@ use std::time::Duration;
 use libp2p::Multiaddr;
 use node::{
     event_source::Event,
-    p2p::{connection::outgoing::P2pConnectionOutgoingInitOpts, P2pEvent},
+    p2p::{connection::outgoing::P2pConnectionOutgoingInitOpts, P2pEvent, PeerId},
 };
 
 use crate::{
-    node::RustNodeTestingConfig, ocaml, scenario::ScenarioStep,
+    node::{DaemonJson, OcamlNodeTestingConfig, RustNodeTestingConfig},
+    scenario::ScenarioStep,
     scenarios::cluster_runner::ClusterRunner,
 };
 
@@ -49,17 +50,11 @@ impl SoloNodeBasicConnectivityAcceptIncoming {
             .with_random_peer_id();
 
         let node_id = runner.add_rust_node(config);
+        let node_addr = runner.node(node_id).unwrap().dial_addr();
 
-        let full_config = &runner.node(node_id).expect("must exist").state().p2p.config;
-        let this = format!(
-            "/ip4/127.0.0.1/tcp/{}/p2p/{}",
-            full_config.libp2p_port.unwrap(),
-            libp2p::PeerId::from(full_config.identity_pub_key.peer_id())
-        );
-        let this_maddr = this.parse::<Multiaddr>().unwrap();
-        eprintln!("launch Openmina node, id: {node_id}, addr: {this}");
+        eprintln!("launch Openmina node, id: {node_id}, addr: {node_addr}");
 
-        let mut ocaml_node = None::<ocaml::Node>;
+        let mut ocaml_node = None::<PeerId>;
 
         for step in 0..STEPS {
             tokio::time::sleep(STEP_DELAY).await;
@@ -114,32 +109,32 @@ impl SoloNodeBasicConnectivityAcceptIncoming {
                 eprintln!("known peers: {known_peers}");
                 eprintln!("connected peers: {ready_peers}");
 
-                let ocaml_node = ocaml_node.get_or_insert_with(|| {
-                    let n = ocaml::Node::spawn_with_temp_dir(
-                        8302,
-                        3085,
-                        8301,
-                        [this_maddr.to_string()],
-                    )
-                    .expect("ocaml node");
-                    eprintln!("launching OCaml node: {}", n.peer_id());
-                    n
-                });
+                let ocaml_peer_id = if let Some(peer_id) = ocaml_node.as_ref() {
+                    *peer_id
+                } else {
+                    let node_id = runner.add_ocaml_node(OcamlNodeTestingConfig {
+                        initial_peers: vec![node_addr.clone()],
+                        daemon_json: DaemonJson::Custom("/var/lib/coda/berkeley.json".to_owned()),
+                        daemon_json_update_timestamp: false,
+                    });
+                    let node = runner.ocaml_node(node_id).unwrap();
+                    eprintln!("launching OCaml node {}", node.dial_addr());
+
+                    ocaml_node = Some(node.peer_id());
+                    node.peer_id()
+                };
+                let node = runner.node(node_id).expect("must exist");
                 if let Some((peer_id, s)) = node
                     .state()
                     .p2p
                     .ready_peers_iter()
-                    .find(|(peer_id, _)| *peer_id == &ocaml_node.peer_id)
+                    .find(|(peer_id, _)| *peer_id == &ocaml_peer_id)
                 {
                     eprintln!("accept incoming connection from OCaml node: {peer_id}");
                     assert!(s.is_incoming);
                     return;
                 }
             }
-        }
-
-        if let Some(mut ocaml_node) = ocaml_node.take() {
-            ocaml_node.kill();
         }
 
         panic!("timeout");

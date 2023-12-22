@@ -5,7 +5,7 @@ mod p2p_task_spawner;
 pub use p2p_task_spawner::P2pTaskSpawner;
 
 mod node_id;
-pub use node_id::ClusterNodeId;
+pub use node_id::{ClusterNodeId, ClusterOcamlNodeId};
 
 use std::time::Duration;
 use std::{collections::VecDeque, sync::Arc};
@@ -37,7 +37,10 @@ use serde::Serialize;
 use crate::node::TestPeerId;
 use crate::{
     network_debugger::Debugger,
-    node::{Node, NodeTestingConfig, RustNodeTestingConfig},
+    node::{
+        Node, NodeTestingConfig, OcamlNode, OcamlNodeConfig, OcamlNodeTestingConfig,
+        RustNodeTestingConfig,
+    },
     scenario::{ListenerNode, Scenario, ScenarioId, ScenarioStep},
     service::{NodeTestingService, PendingEventId},
 };
@@ -53,6 +56,7 @@ pub struct Cluster {
     scenario: ClusterScenarioRun,
     available_ports: Box<dyn Iterator<Item = u16> + Send>,
     nodes: Vec<Node>,
+    ocaml_nodes: Vec<OcamlNode>,
 
     rpc_counter: usize,
 
@@ -88,7 +92,8 @@ impl Cluster {
                 cur_step: 0,
             },
             available_ports: Box::new(available_ports),
-            nodes: vec![],
+            nodes: Vec::new(),
+            ocaml_nodes: Vec::new(),
 
             rpc_counter: 0,
 
@@ -102,12 +107,6 @@ impl Cluster {
 
     pub fn available_port(&mut self) -> Option<u16> {
         self.available_ports.next()
-    }
-
-    pub fn add_node(&mut self, testing_config: NodeTestingConfig) -> ClusterNodeId {
-        match testing_config {
-            NodeTestingConfig::Rust(testing_config) => self.add_rust_node(testing_config),
-        }
     }
 
     pub fn add_rust_node(&mut self, testing_config: RustNodeTestingConfig) -> ClusterNodeId {
@@ -262,6 +261,35 @@ impl Cluster {
         ClusterNodeId::new_unchecked(node_i)
     }
 
+    pub fn add_ocaml_node(&mut self, testing_config: OcamlNodeTestingConfig) -> ClusterOcamlNodeId {
+        let node_i = self.ocaml_nodes.len();
+
+        let mut next_port = || {
+            self.available_ports.next().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "couldn't find available port in port range: {:?}",
+                    self.config.port_range()
+                )
+            })
+        };
+
+        let temp_dir = temp_dir::TempDir::new().expect("failed to create tempdir");
+        let node = OcamlNode::start(OcamlNodeConfig {
+            executable: self.config.ocaml_node_executable().clone(),
+            dir: temp_dir,
+            libp2p_port: next_port().unwrap(),
+            graphql_port: next_port().unwrap(),
+            client_port: next_port().unwrap(),
+            initial_peers: testing_config.initial_peers,
+            daemon_json: testing_config.daemon_json,
+            daemon_json_update_timestamp: testing_config.daemon_json_update_timestamp,
+        });
+
+        self.ocaml_nodes
+            .push(node.expect("failed to start ocaml node"));
+        ClusterOcamlNodeId::new_unchecked(node_i)
+    }
+
     pub async fn start(&mut self, scenario: Scenario) -> Result<(), anyhow::Error> {
         let mut parent_id = scenario.info.parent_id.clone();
         self.scenario.chain.push_back(scenario);
@@ -275,7 +303,14 @@ impl Cluster {
         let scenario = self.scenario.cur_scenario();
 
         for config in scenario.info.nodes.clone() {
-            self.add_node(config.clone());
+            match config {
+                NodeTestingConfig::Rust(config) => {
+                    self.add_rust_node(config.clone());
+                }
+                NodeTestingConfig::Ocaml(config) => {
+                    self.add_ocaml_node(config.clone());
+                }
+            }
         }
 
         Ok(())
@@ -307,6 +342,10 @@ impl Cluster {
 
     pub fn node(&self, node_id: ClusterNodeId) -> Option<&Node> {
         self.nodes.get(node_id.index())
+    }
+
+    pub fn ocaml_node(&self, node_id: ClusterOcamlNodeId) -> Option<&OcamlNode> {
+        self.ocaml_nodes.get(node_id.index())
     }
 
     pub fn pending_events(
@@ -462,6 +501,14 @@ impl Cluster {
 
                         listener.dial_addr()
                     }
+                    ListenerNode::Ocaml(listener) => {
+                        let listener = self
+                            .ocaml_nodes
+                            .get_mut(listener.index())
+                            .ok_or(anyhow::anyhow!("ocaml node {listener:?} not found"))?;
+
+                        listener.dial_addr()
+                    }
                     ListenerNode::Custom(addr) => addr.clone(),
                 };
 
@@ -496,6 +543,13 @@ impl Cluster {
                     .ok_or(anyhow::anyhow!("node {node_id:?} not found"))?;
                 node.advance_time(by_nanos);
                 true
+            }
+            ScenarioStep::Ocaml { node_id, step: cmd } => {
+                let node = self
+                    .ocaml_nodes
+                    .get_mut(node_id.index())
+                    .ok_or(anyhow::anyhow!("ocaml node {node_id:?} not found"))?;
+                node.exec(cmd).await?
             }
         })
     }

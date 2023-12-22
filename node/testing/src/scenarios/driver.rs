@@ -229,7 +229,6 @@ impl<'cluster> Driver<'cluster> {
             .await?;
         let nodes = self
             .runner
-            .cluster()
             .nodes_iter()
             .map(|(node_id, _)| node_id)
             .collect::<Vec<_>>();
@@ -257,7 +256,6 @@ impl<'cluster> Driver<'cluster> {
         {
             Some(
                 self.runner
-                    .cluster()
                     .node(node_id)
                     .ok_or(anyhow::format_err!("no node {}", node_id.index()))?
                     .state(),

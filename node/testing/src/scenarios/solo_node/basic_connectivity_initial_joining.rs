@@ -114,7 +114,7 @@ impl SoloNodeBasicConnectivityInitialJoining {
                 eprintln!("connected peers: {ready_peers}");
                 eprintln!("success");
 
-                if let Some(debugger) = runner.cluster().debugger() {
+                if let Some(debugger) = runner.debugger() {
                     tokio::time::sleep(Duration::from_secs(10)).await;
                     let connections = debugger
                         .connections_raw(0)

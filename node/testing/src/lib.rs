@@ -12,7 +12,6 @@ pub mod scenarios;
 pub mod service;
 
 pub mod network_debugger;
-pub mod ocaml;
 
 mod server;
 pub use server::server;
