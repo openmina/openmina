@@ -1,0 +1,51 @@
+<mat-expansion-panel class="table-filter"
+                     [disabled]="true"
+                     [@panelHeight]="filtersOpen ? 'expanded' : 'collapsed'"
+                     [expanded]="filtersOpen"
+                     (afterCollapse)="onResize()"
+                     (afterExpand)="onResize()">
+  <mat-expansion-panel-header>
+    <div class="filter-row flex-row border-bottom">
+        <button class="toggle-filters border-rad-4 bg-container p-0 fx-row-full-cent mr-8"
+                [class.active]="filtersOpen"
+                (click)="toggleFilerPanel()">
+          <span class="mina-icon f-18">filter_list</span>
+        </button>
+      <div class="fx-row-vert-cent flex-wrap">
+        <button *ngFor="let filter of activeFilters"
+                (click)="toggleFilter(filter)"
+                class="active-filter border-rad-6 f-600 bg-selected-container selected-primary fx-row-vert-cent">
+          <span>{{ filter.display }}</span>
+          <span class="mina-icon f-16">close</span>
+        </button>
+      </div>
+    </div>
+  </mat-expansion-panel-header>
+
+  <ng-template matExpansionPanelContent>
+    <div class="filters-container flex-column border-bottom">
+      <div class="fx-row-vert-cent flex-between pr-10 h-lg">
+        <div class="f-600 secondary fx-row-vert-cent">Filters</div>
+        <span class="mina-icon pointer tertiary primary-hover f-18" (click)="toggleFilerPanel()">close</span>
+      </div>
+      <div class="flex-column flex-grow overflow-y-auto">
+        <div class="flex-row flex-wrap" *ngFor="let row of availableFilters; let r=index">
+          <div class="f-600 fx-row-vert-cent"
+               [class.flex-wrap]="r === 1 || r === 4 || r === 5"
+               *ngFor="let category of row">
+            <div class="category mr-10 pointer primary-hover"
+                 [tooltip]="category.tooltip"
+                 [showDelay]="700"
+                 (click)="filterByCategory(category)">{{ category.name }}</div>
+            <div class="filter pointer bg-container pl-8 pr-8 border-rad-6 mr-5 text-nowrap"
+                 *ngFor="let filter of category.filters"
+                 (click)="toggleFilter(filter)"
+                 [tooltip]="filter.tooltip"
+                 [showDelay]="700"
+                 [class.active]="activeFilters.includes(filter)">{{ filter.display }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </ng-template>
+</mat-expansion-panel>

@@ -1,0 +1,25 @@
+@import 'openmina';
+
+.tab-group {
+	@include flexRowVertCenter();
+
+	.tab {
+		min-width: 90px;
+		max-width: 140px;
+		width: 33%;
+		text-align: center;
+		border-radius: 6px;
+		color: $base-secondary;
+		transition: 0.2s;
+		background-color: transparent;
+
+		&.selected {
+			background-color: $selected-container;
+			color: $selected-primary;
+		}
+
+		&:hover:not(.selected) {
+			background-color: $base-container;
+		}
+	}
+}

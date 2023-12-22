@@ -69,7 +69,8 @@ use crate::p2p::connection::incoming::{
     P2pConnectionIncomingAnswerSendSuccessAction, P2pConnectionIncomingErrorAction,
     P2pConnectionIncomingFinalizeErrorAction, P2pConnectionIncomingFinalizePendingAction,
     P2pConnectionIncomingFinalizeSuccessAction, P2pConnectionIncomingInitAction,
-    P2pConnectionIncomingSuccessAction, P2pConnectionIncomingTimeoutAction,
+    P2pConnectionIncomingLibp2pReceivedAction, P2pConnectionIncomingSuccessAction,
+    P2pConnectionIncomingTimeoutAction,
 };
 use crate::p2p::connection::outgoing::{
     P2pConnectionOutgoingAction, P2pConnectionOutgoingAnswerRecvErrorAction,
@@ -88,8 +89,13 @@ use crate::p2p::disconnection::{
     P2pDisconnectionAction, P2pDisconnectionFinishAction, P2pDisconnectionInitAction,
 };
 use crate::p2p::discovery::{
-    P2pDiscoveryAction, P2pDiscoveryInitAction, P2pDiscoverySuccessAction,
-    P2pDiscoveryTimeoutAction,
+    P2pDiscoveryAction, P2pDiscoveryInitAction, P2pDiscoveryKademliaAddRouteAction,
+    P2pDiscoveryKademliaBootstrapAction, P2pDiscoveryKademliaFailureAction,
+    P2pDiscoveryKademliaInitAction, P2pDiscoveryKademliaSuccessAction, P2pDiscoverySuccessAction,
+};
+use crate::p2p::listen::{
+    P2pListenAction, P2pListenClosedAction, P2pListenErrorAction, P2pListenExpiredAction,
+    P2pListenNewAction,
 };
 use crate::p2p::peer::{P2pPeerAction, P2pPeerBestTipUpdateAction, P2pPeerReadyAction};
 use crate::p2p::P2pAction;
@@ -99,10 +105,10 @@ use crate::rpc::{
     RpcP2pConnectionIncomingPendingAction, RpcP2pConnectionIncomingRespondAction,
     RpcP2pConnectionIncomingSuccessAction, RpcP2pConnectionOutgoingErrorAction,
     RpcP2pConnectionOutgoingInitAction, RpcP2pConnectionOutgoingPendingAction,
-    RpcP2pConnectionOutgoingSuccessAction, RpcReadinessCheckAction, RpcScanStateSummaryGetAction,
-    RpcSnarkPoolAvailableJobsGetAction, RpcSnarkPoolJobGetAction, RpcSnarkerConfigGetAction,
-    RpcSnarkerJobCommitAction, RpcSnarkerJobSpecAction, RpcSnarkersWorkersGetAction,
-    RpcSyncStatsGetAction,
+    RpcP2pConnectionOutgoingSuccessAction, RpcPeersGetAction, RpcReadinessCheckAction,
+    RpcScanStateSummaryGetAction, RpcSnarkPoolAvailableJobsGetAction, RpcSnarkPoolJobGetAction,
+    RpcSnarkerConfigGetAction, RpcSnarkerJobCommitAction, RpcSnarkerJobSpecAction,
+    RpcSnarkersWorkersGetAction, RpcSyncStatsGetAction,
 };
 use crate::snark::block_verify::{
     SnarkBlockVerifyAction, SnarkBlockVerifyErrorAction, SnarkBlockVerifyFinishAction,
@@ -174,7 +180,11 @@ use crate::transition_frontier::sync::{
     TransitionFrontierSyncBlocksPeerQuerySuccessAction,
     TransitionFrontierSyncBlocksPeersQueryAction, TransitionFrontierSyncBlocksPendingAction,
     TransitionFrontierSyncBlocksSuccessAction, TransitionFrontierSyncInitAction,
+    TransitionFrontierSyncLedgerNextEpochPendingAction,
+    TransitionFrontierSyncLedgerNextEpochSuccessAction,
     TransitionFrontierSyncLedgerRootPendingAction, TransitionFrontierSyncLedgerRootSuccessAction,
+    TransitionFrontierSyncLedgerStakingPendingAction,
+    TransitionFrontierSyncLedgerStakingSuccessAction,
 };
 use crate::transition_frontier::{TransitionFrontierAction, TransitionFrontierSyncedAction};
 use crate::watched_accounts::{
@@ -266,6 +276,7 @@ pub enum ActionKind {
     P2pConnectionIncomingFinalizePending,
     P2pConnectionIncomingFinalizeSuccess,
     P2pConnectionIncomingInit,
+    P2pConnectionIncomingLibp2pReceived,
     P2pConnectionIncomingSuccess,
     P2pConnectionIncomingTimeout,
     P2pConnectionOutgoingAnswerRecvError,
@@ -288,8 +299,16 @@ pub enum ActionKind {
     P2pDisconnectionFinish,
     P2pDisconnectionInit,
     P2pDiscoveryInit,
+    P2pDiscoveryKademliaAddRoute,
+    P2pDiscoveryKademliaBootstrap,
+    P2pDiscoveryKademliaFailure,
+    P2pDiscoveryKademliaInit,
+    P2pDiscoveryKademliaSuccess,
     P2pDiscoverySuccess,
-    P2pDiscoveryTimeout,
+    P2pListenClosed,
+    P2pListenError,
+    P2pListenExpired,
+    P2pListenNew,
     P2pPeerBestTipUpdate,
     P2pPeerReady,
     RpcActionStatsGet,
@@ -305,6 +324,7 @@ pub enum ActionKind {
     RpcP2pConnectionOutgoingInit,
     RpcP2pConnectionOutgoingPending,
     RpcP2pConnectionOutgoingSuccess,
+    RpcPeersGet,
     RpcReadinessCheck,
     RpcScanStateSummaryGet,
     RpcSnarkPoolAvailableJobsGet,
@@ -358,6 +378,8 @@ pub enum ActionKind {
     TransitionFrontierSyncBlocksSuccess,
     TransitionFrontierSyncInit,
     TransitionFrontierSyncLedgerInit,
+    TransitionFrontierSyncLedgerNextEpochPending,
+    TransitionFrontierSyncLedgerNextEpochSuccess,
     TransitionFrontierSyncLedgerRootPending,
     TransitionFrontierSyncLedgerRootSuccess,
     TransitionFrontierSyncLedgerSnarkedChildAccountsReceived,
@@ -384,6 +406,8 @@ pub enum ActionKind {
     TransitionFrontierSyncLedgerStagedReconstructPending,
     TransitionFrontierSyncLedgerStagedReconstructSuccess,
     TransitionFrontierSyncLedgerStagedSuccess,
+    TransitionFrontierSyncLedgerStakingPending,
+    TransitionFrontierSyncLedgerStakingSuccess,
     TransitionFrontierSyncLedgerSuccess,
     TransitionFrontierSynced,
     WatchedAccountsAdd,
@@ -399,7 +423,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 201;
+    pub const COUNT: u16 = 215;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -445,6 +469,7 @@ impl ActionKindGet for EventSourceAction {
 impl ActionKindGet for P2pAction {
     fn kind(&self) -> ActionKind {
         match self {
+            Self::Listen(a) => a.kind(),
             Self::Connection(a) => a.kind(),
             Self::Disconnection(a) => a.kind(),
             Self::Discovery(a) => a.kind(),
@@ -510,6 +535,7 @@ impl ActionKindGet for RpcAction {
             Self::GlobalStateGet(a) => a.kind(),
             Self::ActionStatsGet(a) => a.kind(),
             Self::SyncStatsGet(a) => a.kind(),
+            Self::PeersGet(a) => a.kind(),
             Self::P2pConnectionOutgoingInit(a) => a.kind(),
             Self::P2pConnectionOutgoingPending(a) => a.kind(),
             Self::P2pConnectionOutgoingError(a) => a.kind(),
@@ -594,6 +620,17 @@ impl ActionKindGet for EventSourceWaitTimeoutAction {
     }
 }
 
+impl ActionKindGet for P2pListenAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::New(a) => a.kind(),
+            Self::Expired(a) => a.kind(),
+            Self::Error(a) => a.kind(),
+            Self::Closed(a) => a.kind(),
+        }
+    }
+}
+
 impl ActionKindGet for P2pConnectionAction {
     fn kind(&self) -> ActionKind {
         match self {
@@ -617,7 +654,11 @@ impl ActionKindGet for P2pDiscoveryAction {
         match self {
             Self::Init(a) => a.kind(),
             Self::Success(a) => a.kind(),
-            Self::Timeout(a) => a.kind(),
+            Self::KademliaBootstrap(a) => a.kind(),
+            Self::KademliaInit(a) => a.kind(),
+            Self::KademliaAddRoute(a) => a.kind(),
+            Self::KademliaSuccess(a) => a.kind(),
+            Self::KademliaFailure(a) => a.kind(),
         }
     }
 }
@@ -720,6 +761,10 @@ impl ActionKindGet for TransitionFrontierSyncAction {
         match self {
             Self::Init(a) => a.kind(),
             Self::BestTipUpdate(a) => a.kind(),
+            Self::LedgerStakingPending(a) => a.kind(),
+            Self::LedgerStakingSuccess(a) => a.kind(),
+            Self::LedgerNextEpochPending(a) => a.kind(),
+            Self::LedgerNextEpochSuccess(a) => a.kind(),
             Self::LedgerRootPending(a) => a.kind(),
             Self::LedgerRootSuccess(a) => a.kind(),
             Self::BlocksPending(a) => a.kind(),
@@ -831,6 +876,12 @@ impl ActionKindGet for RpcActionStatsGetAction {
 impl ActionKindGet for RpcSyncStatsGetAction {
     fn kind(&self) -> ActionKind {
         ActionKind::RpcSyncStatsGet
+    }
+}
+
+impl ActionKindGet for RpcPeersGetAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::RpcPeersGet
     }
 }
 
@@ -1086,6 +1137,30 @@ impl ActionKindGet for WatchedAccountsBlockLedgerQuerySuccessAction {
     }
 }
 
+impl ActionKindGet for P2pListenNewAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pListenNew
+    }
+}
+
+impl ActionKindGet for P2pListenExpiredAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pListenExpired
+    }
+}
+
+impl ActionKindGet for P2pListenErrorAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pListenError
+    }
+}
+
+impl ActionKindGet for P2pListenClosedAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pListenClosed
+    }
+}
+
 impl ActionKindGet for P2pConnectionOutgoingAction {
     fn kind(&self) -> ActionKind {
         match self {
@@ -1125,6 +1200,7 @@ impl ActionKindGet for P2pConnectionIncomingAction {
             Self::Timeout(a) => a.kind(),
             Self::Error(a) => a.kind(),
             Self::Success(a) => a.kind(),
+            Self::Libp2pReceived(a) => a.kind(),
         }
     }
 }
@@ -1153,9 +1229,33 @@ impl ActionKindGet for P2pDiscoverySuccessAction {
     }
 }
 
-impl ActionKindGet for P2pDiscoveryTimeoutAction {
+impl ActionKindGet for P2pDiscoveryKademliaBootstrapAction {
     fn kind(&self) -> ActionKind {
-        ActionKind::P2pDiscoveryTimeout
+        ActionKind::P2pDiscoveryKademliaBootstrap
+    }
+}
+
+impl ActionKindGet for P2pDiscoveryKademliaInitAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pDiscoveryKademliaInit
+    }
+}
+
+impl ActionKindGet for P2pDiscoveryKademliaAddRouteAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pDiscoveryKademliaAddRoute
+    }
+}
+
+impl ActionKindGet for P2pDiscoveryKademliaSuccessAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pDiscoveryKademliaSuccess
+    }
+}
+
+impl ActionKindGet for P2pDiscoveryKademliaFailureAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pDiscoveryKademliaFailure
     }
 }
 
@@ -1307,6 +1407,30 @@ impl ActionKindGet for TransitionFrontierSyncInitAction {
 impl ActionKindGet for TransitionFrontierSyncBestTipUpdateAction {
     fn kind(&self) -> ActionKind {
         ActionKind::TransitionFrontierSyncBestTipUpdate
+    }
+}
+
+impl ActionKindGet for TransitionFrontierSyncLedgerStakingPendingAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::TransitionFrontierSyncLedgerStakingPending
+    }
+}
+
+impl ActionKindGet for TransitionFrontierSyncLedgerStakingSuccessAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::TransitionFrontierSyncLedgerStakingSuccess
+    }
+}
+
+impl ActionKindGet for TransitionFrontierSyncLedgerNextEpochPendingAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::TransitionFrontierSyncLedgerNextEpochPending
+    }
+}
+
+impl ActionKindGet for TransitionFrontierSyncLedgerNextEpochSuccessAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::TransitionFrontierSyncLedgerNextEpochSuccess
     }
 }
 
@@ -1636,6 +1760,12 @@ impl ActionKindGet for P2pConnectionIncomingErrorAction {
 impl ActionKindGet for P2pConnectionIncomingSuccessAction {
     fn kind(&self) -> ActionKind {
         ActionKind::P2pConnectionIncomingSuccess
+    }
+}
+
+impl ActionKindGet for P2pConnectionIncomingLibp2pReceivedAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pConnectionIncomingLibp2pReceived
     }
 }
 

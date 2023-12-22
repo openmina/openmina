@@ -1,3 +1,8 @@
+use p2p::listen::{
+    P2pListenClosedAction, P2pListenErrorAction, P2pListenExpiredAction, P2pListenNewAction,
+};
+use p2p::P2pListenEvent;
+
 use crate::action::CheckTimeoutsAction;
 use crate::external_snark_worker::{
     ExternalSnarkWorkerErrorAction, ExternalSnarkWorkerEvent, ExternalSnarkWorkerKilledAction,
@@ -14,7 +19,7 @@ use crate::p2p::channels::{ChannelId, P2pChannelsMessageReceivedAction};
 use crate::p2p::connection::incoming::{
     P2pConnectionIncomingAnswerSdpCreateErrorAction,
     P2pConnectionIncomingAnswerSdpCreateSuccessAction, P2pConnectionIncomingFinalizeErrorAction,
-    P2pConnectionIncomingFinalizeSuccessAction,
+    P2pConnectionIncomingFinalizeSuccessAction, P2pConnectionIncomingLibp2pReceivedAction,
 };
 use crate::p2p::connection::outgoing::{
     P2pConnectionOutgoingAnswerRecvErrorAction, P2pConnectionOutgoingAnswerRecvSuccessAction,
@@ -26,6 +31,10 @@ use crate::p2p::connection::{P2pConnectionErrorResponse, P2pConnectionResponse};
 use crate::p2p::disconnection::{
     P2pDisconnectionFinishAction, P2pDisconnectionInitAction, P2pDisconnectionReason,
 };
+use crate::p2p::discovery::{
+    P2pDiscoveryKademliaAddRouteAction, P2pDiscoveryKademliaFailureAction,
+    P2pDiscoveryKademliaSuccessAction,
+};
 use crate::p2p::P2pChannelEvent;
 use crate::rpc::{
     RpcActionStatsGetAction, RpcGlobalStateGetAction, RpcHealthCheckAction,
@@ -33,7 +42,7 @@ use crate::rpc::{
     RpcReadinessCheckAction, RpcRequest, RpcScanStateSummaryGetAction,
     RpcSnarkPoolAvailableJobsGetAction, RpcSnarkPoolJobGetAction, RpcSnarkerConfigGetAction,
     RpcSnarkerJobCommitAction, RpcSnarkerJobSpecAction, RpcSnarkersWorkersGetAction,
-    RpcSyncStatsGetAction,
+    RpcSyncStatsGetAction, RpcPeersGetAction,
 };
 use crate::snark::block_verify::{SnarkBlockVerifyErrorAction, SnarkBlockVerifySuccessAction};
 use crate::snark::work_verify::{SnarkWorkVerifyErrorAction, SnarkWorkVerifySuccessAction};
@@ -49,7 +58,13 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
     let (action, meta) = action.split();
     match action {
         EventSourceAction::ProcessEvents(_) => {
-            // process max 1024 events at a time.
+            // This action gets continously called until there are no more
+            // events available.
+            //
+            // Retrieve and process max 1024 events at a time and dispatch
+            // `CheckTimeoutsAction` in between `EventSourceProcessEventsAction`
+            // calls so that we make sure, that action gets called even
+            // if we are continously flooded with events.
             for _ in 0..1024 {
                 match store.service.next_event() {
                     Some(event) => {
@@ -60,8 +75,23 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
             }
             store.dispatch(CheckTimeoutsAction {});
         }
+        // "Translate" event into the corresponding action and dispatch it.
         EventSourceAction::NewEvent(content) => match content.event {
             Event::P2p(e) => match e {
+                P2pEvent::Listen(e) => match e {
+                    P2pListenEvent::NewListenAddr { listener_id, addr } => {
+                        store.dispatch(P2pListenNewAction { listener_id, addr });
+                    }
+                    P2pListenEvent::ExpiredListenAddr { listener_id, addr } => {
+                        store.dispatch(P2pListenExpiredAction { listener_id, addr });
+                    }
+                    P2pListenEvent::ListenerError { listener_id, error } => {
+                        store.dispatch(P2pListenErrorAction { listener_id, error });
+                    }
+                    P2pListenEvent::ListenerClosed { listener_id, error } => {
+                        store.dispatch(P2pListenClosedAction { listener_id, error });
+                    }
+                },
                 P2pEvent::Connection(e) => match e {
                     P2pConnectionEvent::OfferSdpReady(peer_id, res) => match res {
                         Err(error) => {
@@ -123,8 +153,14 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                             });
                         }
                         Ok(_) => {
-                            store.dispatch(P2pConnectionOutgoingFinalizeSuccessAction { peer_id });
-                            store.dispatch(P2pConnectionIncomingFinalizeSuccessAction { peer_id });
+                            let _ = store
+                                .dispatch(P2pConnectionOutgoingFinalizeSuccessAction { peer_id })
+                                || store.dispatch(P2pConnectionIncomingFinalizeSuccessAction {
+                                    peer_id,
+                                })
+                                || store.dispatch(P2pConnectionIncomingLibp2pReceivedAction {
+                                    peer_id,
+                                });
                         }
                     },
                     P2pConnectionEvent::Closed(peer_id) => {
@@ -184,6 +220,18 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                         store.dispatch(P2pDisconnectionInitAction { peer_id, reason });
                     }
                 },
+                #[cfg(not(target_arch = "wasm32"))]
+                P2pEvent::Libp2pIdentify(..) => {}
+                P2pEvent::Discovery(p2p::P2pDiscoveryEvent::Ready) => {}
+                P2pEvent::Discovery(p2p::P2pDiscoveryEvent::DidFindPeers(peers)) => {
+                    store.dispatch(P2pDiscoveryKademliaSuccessAction { peers });
+                }
+                P2pEvent::Discovery(p2p::P2pDiscoveryEvent::DidFindPeersError(description)) => {
+                    store.dispatch(P2pDiscoveryKademliaFailureAction { description });
+                }
+                P2pEvent::Discovery(p2p::P2pDiscoveryEvent::AddRoute(peer_id, addresses)) => {
+                    store.dispatch(P2pDiscoveryKademliaAddRouteAction { peer_id, addresses });
+                }
             },
             Event::Snark(event) => match event {
                 SnarkEvent::BlockVerify(req_id, result) => match result {
@@ -212,6 +260,9 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                 }
                 RpcRequest::SyncStatsGet(query) => {
                     store.dispatch(RpcSyncStatsGetAction { rpc_id, query });
+                }
+                RpcRequest::PeersGet => {
+                    store.dispatch(RpcPeersGetAction { rpc_id });
                 }
                 RpcRequest::P2pConnectionOutgoing(opts) => {
                     store.dispatch(RpcP2pConnectionOutgoingInitAction { rpc_id, opts });

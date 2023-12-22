@@ -1,11 +1,12 @@
 mod behavior;
 pub use behavior::Event as BehaviourEvent;
 pub use behavior::*;
+
 use mina_p2p_messages::rpc::GetSomeInitialPeersV1ForV2;
 
-mod discovery;
-
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
+use std::io;
+use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -17,20 +18,20 @@ use openmina_core::snark::Snark;
 
 use libp2p::core::muxing::StreamMuxerBox;
 use libp2p::core::transport;
-use libp2p::core::transport::upgrade;
 use libp2p::futures::{select, FutureExt, StreamExt};
 use libp2p::gossipsub::{
     Behaviour as Gossipsub, ConfigBuilder as GossipsubConfigBuilder, Event as GossipsubEvent,
     IdentTopic, MessageAcceptance, MessageAuthenticity,
 };
 use libp2p::identity::Keypair;
-use libp2p::noise;
+use libp2p::kad::record::store::MemoryStore;
+use libp2p::kad::Mode;
 use libp2p::pnet::{PnetConfig, PreSharedKey};
 use libp2p::swarm::dial_opts::DialOpts;
-use libp2p::swarm::{SwarmBuilder, SwarmEvent};
-use libp2p::yamux::YamuxConfig;
-use libp2p::{PeerId, Swarm, Transport};
-
+use libp2p::swarm::SwarmEvent;
+use libp2p::{identify, kad};
+use libp2p::{noise, StreamProtocol};
+use libp2p::{Multiaddr, PeerId, Swarm, Transport};
 pub use mina_p2p_messages::gossip::GossipNetMessageV2 as GossipNetMessage;
 
 use libp2p_rpc_behaviour::{BehaviourBuilder, Event as RpcBehaviourEvent, StreamId};
@@ -41,8 +42,11 @@ use crate::channels::rpc::{
     StagedLedgerAuxAndPendingCoinbases,
 };
 use crate::channels::{ChannelId, ChannelMsg};
+use crate::connection::outgoing::{
+    P2pConnectionOutgoingInitLibp2pOpts, P2pConnectionOutgoingInitOpts,
+};
 use crate::identity::SecretKey;
-use crate::{P2pChannelEvent, P2pConnectionEvent, P2pEvent};
+use crate::{P2pChannelEvent, P2pConnectionEvent, P2pDiscoveryEvent, P2pEvent, P2pListenEvent};
 
 use super::TaskSpawner;
 
@@ -53,65 +57,105 @@ pub type BoxedP2PTransport = transport::Boxed<P2PTransport>;
 
 #[derive(Debug)]
 pub enum Cmd {
-    Dial(DialOpts),
+    Dial(PeerId, Vec<Multiaddr>),
     Disconnect(PeerId),
     SendMessage(PeerId, ChannelMsg),
     SnarkBroadcast(Snark, u32),
+    RunDiscovery(Vec<(PeerId, Multiaddr)>),
+    FindNode(PeerId),
 }
 
 pub struct Libp2pService {
     cmd_sender: mpsc::UnboundedSender<Cmd>,
 }
 
+async fn determine_own_ip() -> BTreeSet<IpAddr> {
+    use std::net::{Ipv4Addr, Ipv6Addr};
+
+    let local_addresses = [
+        IpAddr::V4(Ipv4Addr::UNSPECIFIED),
+        IpAddr::V6(Ipv6Addr::UNSPECIFIED),
+    ];
+    let services = [
+        "https://ifconfig.co/ip",
+        "https://bot.whatismyipaddress.com",
+        "https://api.ipify.org",
+    ];
+
+    let clients = local_addresses.into_iter().filter_map(|addr| {
+        reqwest::ClientBuilder::new()
+            .local_address(addr)
+            .timeout(Duration::from_secs(20))
+            .build()
+            .ok()
+    });
+
+    let (tx, mut rx) = mpsc::unbounded_channel();
+    for client in clients {
+        for service in services {
+            let tx = tx.clone();
+            let client = client.clone();
+            tokio::spawn(async move {
+                let addr = {
+                    client
+                        .get(service)
+                        .send()
+                        .await
+                        .ok()?
+                        .text()
+                        .await
+                        .ok()?
+                        .trim_end_matches('\n')
+                        .parse::<IpAddr>()
+                        .ok()?
+                };
+                tx.send(addr).unwrap_or_default();
+
+                Some(())
+            });
+        }
+    }
+    drop(tx);
+
+    let mut addresses = BTreeSet::new();
+    while let Some(addr) = rx.recv().await {
+        addresses.insert(addr);
+    }
+
+    addresses
+}
+
+#[allow(dead_code)]
+async fn determine_own_ip_stun(stun_addr: SocketAddr) -> io::Result<IpAddr> {
+    use faster_stun::{attribute, Decoder, Kind, Method, Payload};
+    use tokio::net::UdpSocket;
+
+    let socket = UdpSocket::bind(SocketAddr::from(([0; 4], 0))).await?;
+    tokio::time::timeout(Duration::from_secs(10), async move {
+        loop {
+            let mut request =
+                *b"\x00\x01\x00\x00\x21\x12\xa4\x42\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00";
+            request[8..].clone_from_slice(&rand::random::<[u8; 12]>());
+            socket.send_to(&request, stun_addr).await?;
+            let mut buf = [0; 0x10000];
+            let (_, remote_addr) = socket.recv_from(&mut buf).await?;
+            let mut decoder = Decoder::new();
+            if let Ok(Payload::Message(msg)) = decoder.decode(&buf) {
+                if msg.method == Method::Binding(Kind::Response)
+                    && remote_addr == stun_addr
+                    && msg.token == &request[8..]
+                {
+                    if let Some(addr) = msg.get::<attribute::XorMappedAddress>() {
+                        return Ok(addr.ip());
+                    }
+                }
+            }
+        }
+    }).await.map_err(|_| io::Error::from(io::ErrorKind::TimedOut)).and_then(|x| x)
+}
+
 impl Libp2pService {
     const GOSSIPSUB_TOPIC: &'static str = "coda/consensus-messages/0.0.1";
-
-    async fn build_transport(
-        chain_id: String,
-        identity_keys: Keypair,
-    ) -> Result<(BoxedP2PTransport, PeerId), std::io::Error> {
-        let peer_id = identity_keys.public().to_peer_id();
-
-        let yamux_config = {
-            let mut c = YamuxConfig::default();
-            c.set_protocol_name(b"/coda/yamux/1.0.0");
-            c
-        };
-
-        use libp2p::{
-            dns::TokioDnsConfig as DnsConfig,
-            tcp::{tokio::Transport as TokioTcpTransport, Config as TcpConfig},
-        };
-
-        let tcp = TcpConfig::new().nodelay(true);
-        let transport = DnsConfig::system(TokioTcpTransport::new(tcp))?;
-
-        let pre_shared_key = {
-            let mut hasher = Blake2b256::default();
-            let rendezvous_string = format!("/coda/0.0.1/{}", chain_id);
-            hasher.update(rendezvous_string.as_ref());
-            let hash = hasher.finalize();
-            let mut psk_fixed: [u8; 32] = Default::default();
-            psk_fixed.copy_from_slice(hash.as_ref());
-            PreSharedKey::new(psk_fixed)
-        };
-        let pnet_config = PnetConfig::new(pre_shared_key);
-
-        let noise_keys = noise::Keypair::<noise::X25519Spec>::new()
-            .into_authentic(&identity_keys)
-            .expect("Signing libp2p-noise static DH keypair failed.");
-
-        Ok((
-            transport
-                .and_then(move |socket, _| pnet_config.handshake(socket))
-                .upgrade(upgrade::Version::V1)
-                .authenticate(libp2p::noise::NoiseConfig::xx(noise_keys).into_authenticated())
-                .multiplex(yamux_config)
-                .timeout(Duration::from_secs(60))
-                .boxed(),
-            peer_id,
-        ))
-    }
 
     pub fn mocked() -> (Self, mpsc::UnboundedReceiver<Cmd>) {
         let (cmd_sender, rx) = mpsc::unbounded_channel();
@@ -119,6 +163,7 @@ impl Libp2pService {
     }
 
     pub fn run<E, S>(
+        libp2p_port: Option<u16>,
         secret_key: SecretKey,
         chain_id: String,
         event_source_sender: mpsc::UnboundedSender<E>,
@@ -150,6 +195,19 @@ impl Libp2pService {
             .map(|v| IdentTopic::new(v))
             .for_each(|topic| assert!(gossipsub.subscribe(&topic).unwrap()));
 
+        let identify = identify::Behaviour::new(identify::Config::new(
+            "ipfs/0.1.0".to_string(),
+            identity_keys.public(),
+        ));
+
+        let peer_id = identity_keys.public().to_peer_id();
+        let kad_config = {
+            let mut c = kad::Config::default();
+            c.set_protocol_names(vec![StreamProtocol::new("/coda/kad/1.0.0")]);
+            c
+        };
+        let kademlia = kad::Behaviour::with_config(peer_id, MemoryStore::new(peer_id), kad_config);
+
         let behaviour = Behaviour {
             gossipsub,
             rpc: {
@@ -168,19 +226,76 @@ impl Libp2pService {
                     .register_method::<GetTransitionChainProofV1ForV2>()
                     .build()
             },
+            identify,
+            kademlia,
+            rendezvous_string: format!("/coda/0.0.1/{}", chain_id),
             event_source_sender,
             ongoing: BTreeMap::default(),
             ongoing_incoming: BTreeMap::default(),
         };
 
         let (cmd_sender, mut cmd_receiver) = mpsc::unbounded_channel();
+        let psk = {
+            let mut hasher = Blake2b256::default();
+            hasher.update(behaviour.rendezvous_string.as_ref());
+            let hash = hasher.finalize();
+            let mut psk_fixed: [u8; 32] = Default::default();
+            psk_fixed.copy_from_slice(hash.as_ref());
+            PreSharedKey::new(psk_fixed)
+        };
 
         let fut = async move {
-            let (transport, id) = Self::build_transport(chain_id, identity_keys)
-                .await
-                .unwrap();
+            let mut swarm = libp2p::SwarmBuilder::with_existing_identity(identity_keys)
+                .with_tokio()
+                .with_other_transport(|key| {
+                    let noise_config = noise::Config::new(key).unwrap();
+                    let mut yamux_config = libp2p::yamux::Config::default();
 
-            let mut swarm = SwarmBuilder::with_tokio_executor(transport, behaviour, id).build();
+                    yamux_config.set_protocol_name("/coda/yamux/1.0.0");
+
+                    let base_transport = libp2p::tcp::tokio::Transport::new(
+                        libp2p::tcp::Config::default()
+                            .nodelay(true)
+                            .port_reuse(true),
+                    );
+
+                    base_transport
+                        .and_then(move |socket, _| PnetConfig::new(psk).handshake(socket))
+                        .upgrade(libp2p::core::upgrade::Version::V1)
+                        .authenticate(noise_config)
+                        .multiplex(yamux_config)
+                        .timeout(Duration::from_secs(60))
+                })?
+                .with_dns()?
+                .with_behaviour(|_| behaviour)?
+                .build();
+
+            swarm.behaviour_mut().kademlia.set_mode(Some(Mode::Server));
+
+            if let Some(port) = libp2p_port {
+                for ip in determine_own_ip().await {
+                    let mut addr = Multiaddr::from(ip);
+                    addr.push(libp2p::multiaddr::Protocol::Tcp(port));
+                    swarm.add_external_address(addr);
+                }
+
+                if let Err(err) = swarm.listen_on(format!("/ip6/::/tcp/{port}").parse().unwrap()) {
+                    openmina_core::log::error!(
+                        openmina_core::log::system_time();
+                        kind = "Libp2pListenError",
+                        summary = format!("libp2p failed to start listener on ipv6 at port: {port}. error: {err:?}"),
+                    );
+                }
+                if let Err(err) =
+                    swarm.listen_on(format!("/ip4/0.0.0.0/tcp/{port}").parse().unwrap())
+                {
+                    openmina_core::log::error!(
+                        openmina_core::log::system_time();
+                        kind = "Libp2pListenError",
+                        summary = format!("libp2p failed to start listener on ipv4 at port: {port}. error: {err:?}"),
+                    );
+                }
+            }
 
             loop {
                 select! {
@@ -194,6 +309,9 @@ impl Libp2pService {
                     }
                 }
             }
+
+            // FIXME: keeping the compiler happy but we need proper handling
+            Result::<(), Box<dyn std::error::Error>>::Ok(())
         };
 
         spawner.spawn_main("libp2p", fut);
@@ -224,8 +342,9 @@ impl Libp2pService {
 
     async fn handle_cmd<E: From<P2pEvent>>(swarm: &mut Swarm<Behaviour<E>>, cmd: Cmd) {
         match cmd {
-            Cmd::Dial(maddr) => {
-                if let Err(e) = swarm.dial(maddr) {
+            Cmd::Dial(peer_id, addrs) => {
+                let opts = DialOpts::peer_id(peer_id.into()).addresses(addrs).build();
+                if let Err(e) = swarm.dial(opts) {
                     openmina_core::log::error!(
                         openmina_core::log::system_time();
                         event = format!("Cmd::Dial(...)"),
@@ -273,6 +392,22 @@ impl Libp2pService {
                 let message = NetworkPoolSnarkPoolDiffVersionedStableV2::AddSolvedWork(message);
                 let nonce = nonce.into();
                 Self::gossipsub_send(swarm, &GossipNetMessage::SnarkPoolDiff { message, nonce });
+            }
+            Cmd::RunDiscovery(peers) => {
+                for (peer_id, addr) in peers {
+                    swarm.behaviour_mut().kademlia.add_address(&peer_id, addr);
+                }
+
+                match swarm.behaviour_mut().kademlia.bootstrap() {
+                    Ok(_id) => {}
+                    Err(err) => {
+                        let _ = err;
+                        // TODO: log error
+                    }
+                }
+            }
+            Cmd::FindNode(peer_id) => {
+                let _id = swarm.behaviour_mut().kademlia.get_closest_peers(peer_id);
             }
         }
     }
@@ -415,7 +550,10 @@ impl Libp2pService {
                         Some(P2pRpcResponse::Snark(_)) => {}
                         Some(P2pRpcResponse::InitialPeers(peers)) => {
                             type T = GetSomeInitialPeersV1ForV2;
-                            let r = Ok(peers);
+                            let r = Ok(peers
+                                .iter()
+                                .filter_map(P2pConnectionOutgoingInitOpts::try_into_mina_rpc)
+                                .collect());
                             b.rpc.respond::<T>(peer_id, stream_id, id, r)?;
                         }
                     }
@@ -431,21 +569,101 @@ impl Libp2pService {
         event: SwarmEvent<BehaviourEvent, Err>,
     ) {
         match event {
-            SwarmEvent::ConnectionEstablished {
-                peer_id, endpoint, ..
+            SwarmEvent::NewListenAddr {
+                listener_id,
+                address,
+                ..
             } => {
+                let maddr = format!("{address}/p2p/{}", swarm.local_peer_id());
+                let listener_id = format!("{listener_id:?}");
+                openmina_core::log::info!(
+                    openmina_core::log::system_time();
+                    kind = "Libp2pListenStart",
+                    summary = format!("libp2p.{listener_id} listening on: {maddr}"),
+                    listener_id = listener_id,
+                    maddr = maddr,
+                );
+                let event = P2pEvent::Listen(P2pListenEvent::NewListenAddr {
+                    listener_id: listener_id.into(),
+                    addr: address,
+                });
+                let _ = swarm.behaviour_mut().event_source_sender.send(event.into());
+            }
+            SwarmEvent::ExpiredListenAddr {
+                listener_id,
+                address,
+                ..
+            } => {
+                let maddr = format!("{address}/p2p/{}", swarm.local_peer_id());
+                let listener_id = format!("{listener_id:?}");
+                openmina_core::log::info!(
+                    openmina_core::log::system_time();
+                    kind = "Libp2pListenStart",
+                    summary = format!("libp2p.{listener_id} stopped listening on: {maddr}"),
+                    listener_id = listener_id,
+                    maddr = maddr,
+                );
+                let event = P2pEvent::Listen(P2pListenEvent::ExpiredListenAddr {
+                    listener_id: listener_id.into(),
+                    addr: address,
+                });
+                let _ = swarm.behaviour_mut().event_source_sender.send(event.into());
+            }
+            SwarmEvent::ListenerError { listener_id, error } => {
+                let listener_id = format!("{listener_id:?}");
+                openmina_core::log::error!(
+                    openmina_core::log::system_time();
+                    kind = "Libp2pListenError",
+                    summary = format!("libp2p.{listener_id:?} listener error: {error:?}"),
+                    listener_id = listener_id,
+                );
+                let event = P2pEvent::Listen(P2pListenEvent::ListenerError {
+                    listener_id: listener_id.into(),
+                    error: error.to_string(),
+                });
+                let _ = swarm.behaviour_mut().event_source_sender.send(event.into());
+            }
+            SwarmEvent::ListenerClosed {
+                listener_id,
+                reason,
+                ..
+            } => {
+                let listener_id = format!("{listener_id:?}");
+                openmina_core::log::warn!(
+                    openmina_core::log::system_time();
+                    kind = "Libp2pListenError",
+                    summary = format!("libp2p.{listener_id} closed. Reason: {reason:?}"),
+                    listener_id = listener_id,
+                );
+                let event = P2pEvent::Listen(P2pListenEvent::ListenerClosed {
+                    listener_id: listener_id.into(),
+                    error: reason.err().map(|err| err.to_string()),
+                });
+                let _ = swarm.behaviour_mut().event_source_sender.send(event.into());
+            }
+            SwarmEvent::IncomingConnection {
+                connection_id,
+                local_addr,
+                send_back_addr,
+            } => {
+                let connection_id = format!("{connection_id:?}");
+                openmina_core::log::info!(
+                    openmina_core::log::system_time();
+                    kind = "Libp2pIncomingConnection",
+                    summary = format!("libp2p incoming {connection_id} {local_addr} {send_back_addr}"),
+                    connection_id = connection_id,
+                );
+            }
+            SwarmEvent::ConnectionEstablished { peer_id, .. } => {
                 openmina_core::log::info!(
                     openmina_core::log::system_time();
                     kind = "PeerConnected",
                     summary = format!("peer_id: {}", peer_id),
                     peer_id = peer_id.to_string()
                 );
-                let event = if endpoint.is_dialer() {
-                    P2pEvent::Connection(P2pConnectionEvent::Finalized(peer_id.into(), Ok(())))
-                } else {
-                    // TODO(binier): connected incoming
-                    return;
-                };
+                swarm.behaviour_mut().identify.push(Some(peer_id));
+                let event =
+                    P2pEvent::Connection(P2pConnectionEvent::Finalized(peer_id.into(), Ok(())));
                 let _ = swarm.behaviour_mut().event_source_sender.send(event.into());
             }
             SwarmEvent::ConnectionClosed { peer_id, cause, .. } => {
@@ -461,11 +679,20 @@ impl Libp2pService {
                     cause = format!("{:?}", cause)
                 );
             }
-            SwarmEvent::OutgoingConnectionError { peer_id, error } => {
+            SwarmEvent::OutgoingConnectionError {
+                connection_id: _,
+                peer_id,
+                error,
+            } => {
                 let peer_id = match peer_id {
                     Some(v) => v,
                     None => return,
                 };
+                if peer_id.as_ref().code() == 0x12 {
+                    // cannot report about the failure,
+                    // because our PeerId cannot represent this peer_id
+                    return;
+                }
                 let event = P2pEvent::Connection(P2pConnectionEvent::Finalized(
                     peer_id.into(),
                     Err(error.to_string()),
@@ -473,6 +700,78 @@ impl Libp2pService {
                 let _ = swarm.behaviour_mut().event_source_sender.send(event.into());
             }
             SwarmEvent::Behaviour(event) => match event {
+                BehaviourEvent::Kademlia(event) => {
+                    match event {
+                        kad::Event::RoutingUpdated {
+                            peer, addresses, ..
+                        } => {
+                            if peer.as_ref().code() != 0x12 {
+                                let event = P2pEvent::Discovery(P2pDiscoveryEvent::AddRoute(
+                                    peer.into(),
+                                    addresses
+                                        .iter()
+                                        .filter_map(|a| {
+                                            P2pConnectionOutgoingInitLibp2pOpts::try_from(a).ok()
+                                        })
+                                        .map(P2pConnectionOutgoingInitOpts::LibP2P)
+                                        .collect(),
+                                ));
+                                let _ =
+                                    swarm.behaviour_mut().event_source_sender.send(event.into());
+                            }
+                        }
+                        kad::Event::OutboundQueryProgressed { step, result, .. } => {
+                            let b = swarm.behaviour_mut();
+                            match result {
+                                kad::QueryResult::Bootstrap(Ok(_v)) => {
+                                    use sha2::digest::{FixedOutput, Update};
+
+                                    if step.last {
+                                        let key = b.rendezvous_string.clone();
+                                        let r =
+                                            sha2::Sha256::default().chain(&key).finalize_fixed();
+                                        // TODO(vlad9486): use multihash, remove hardcode
+                                        let mut key = vec![18, 32];
+                                        key.extend_from_slice(&r);
+                                        let key = kad::record::Key::new(&key);
+
+                                        if let Err(_err) = b.kademlia.start_providing(key) {
+                                            // memory storage should not return error
+                                        }
+                                        // initial bootstrap is done
+                                        b.event_source_sender
+                                            .send(
+                                                P2pEvent::Discovery(P2pDiscoveryEvent::Ready)
+                                                    .into(),
+                                            )
+                                            .unwrap_or_default();
+                                    }
+                                }
+                                kad::QueryResult::GetClosestPeers(Ok(v)) => {
+                                    let peers = v.peers.into_iter().filter_map(|peer_id| {
+                                        if peer_id.as_ref().code() == 0x12 {
+                                            return None;
+                                        }
+                                        Some(peer_id.into())
+                                    });
+                                    let response = P2pDiscoveryEvent::DidFindPeers(peers.collect());
+                                    b.event_source_sender
+                                        .send(P2pEvent::Discovery(response).into())
+                                        .unwrap_or_default()
+                                }
+                                kad::QueryResult::GetClosestPeers(Err(err)) => {
+                                    let response =
+                                        P2pDiscoveryEvent::DidFindPeersError(err.to_string());
+                                    b.event_source_sender
+                                        .send(P2pEvent::Discovery(response).into())
+                                        .unwrap_or_default()
+                                }
+                                _ => {}
+                            }
+                        }
+                        _ => {}
+                    }
+                }
                 BehaviourEvent::Gossipsub(GossipsubEvent::Message {
                     propagation_source,
                     message_id,
@@ -532,6 +831,21 @@ impl Libp2pService {
                 }
                 BehaviourEvent::Rpc((peer_id, event)) => {
                     Self::handle_event_rpc(swarm, peer_id, event);
+                }
+                BehaviourEvent::Identify(identify::Event::Received { peer_id, info }) => {
+                    if let Some(maddr) = info.listen_addrs.first() {
+                        swarm
+                            .behaviour_mut()
+                            .kademlia
+                            .add_address(&peer_id, maddr.clone());
+
+                        let mut maddr = maddr.clone();
+                        maddr.push(libp2p::multiaddr::Protocol::P2p(peer_id.into()));
+                        let _ = swarm
+                            .behaviour_mut()
+                            .event_source_sender
+                            .send(P2pEvent::Libp2pIdentify(peer_id.into(), maddr).into());
+                    }
                 }
                 _ => {
                     openmina_core::log::trace!(
@@ -697,6 +1011,15 @@ impl Libp2pService {
                                     Ok(None),
                                 )
                                 .unwrap(),
+                            (
+                                GetSomeInitialPeersV1ForV2::NAME,
+                                GetSomeInitialPeersV1ForV2::VERSION,
+                            ) => match parse_q::<GetSomeInitialPeersV1ForV2>(bytes) {
+                                Ok(()) => {
+                                    send(P2pRpcRequest::InitialPeers);
+                                }
+                                Err(err) => send_error(err),
+                            },
                             _ => (),
                         };
                     }
@@ -788,17 +1111,20 @@ impl Libp2pService {
                             (
                                 GetSomeInitialPeersV1ForV2::NAME,
                                 GetSomeInitialPeersV1ForV2::VERSION,
-                            ) => match parse_r::<GetSomeInitialPeersV1ForV2>(bytes) {
-                                Ok(response) => {
-                                    let response = response.ok().unwrap_or_default();
-                                    if response.is_empty() {
-                                        send(None)
-                                    } else {
-                                        send(Some(P2pRpcResponse::InitialPeers(response)));
+                            ) => {
+                                match parse_r::<GetSomeInitialPeersV1ForV2>(bytes) {
+                                    Ok(response) => {
+                                        let response = response.ok().unwrap_or_default();
+                                        if response.is_empty() {
+                                            send(None)
+                                        } else {
+                                            let peers = response.into_iter().filter_map(P2pConnectionOutgoingInitOpts::try_from_mina_rpc).collect();
+                                            send(Some(P2pRpcResponse::InitialPeers(peers)));
+                                        }
                                     }
+                                    Err(err) => send_error(err),
                                 }
-                                Err(err) => send_error(err),
-                            },
+                            }
                             _ => send(None),
                         }
                     }

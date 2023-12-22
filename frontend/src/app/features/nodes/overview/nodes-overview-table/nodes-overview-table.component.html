@@ -1,0 +1,27 @@
+<ng-container #minaTable></ng-container>
+
+<ng-template #thGroupsTemplate>
+  <div class="th-group h-lg lh-lg tertiary f-600 d-none-sm">
+    <span class="pl-12">Snarker Details</span>
+    <span class="pl-12">Chain</span>
+    <span class="pl-12">Frontier</span>
+  </div>
+</ng-template>
+
+<ng-template #rowTemplate let-row="row">
+  <span>
+    <span class="status f-600"
+          [ngClass]="row.kind">{{ row.kind }}</span>
+  </span>
+  <span class="secondary">{{ row.name | truncateMid: 18: 0 }}</span>
+  <span class="secondary">{{ row.height || '-' }}</span>
+  <span>
+    <mina-copy [display]="row.bestTip | truncateMid" [value]="row.bestTip"></mina-copy>
+  </span>
+  <span class="secondary">{{ row.bestTipReceived }}</span>
+  <span>{{ row.appliedBlocks }} / {{ row.blocks.length }}</span>
+  <span>{{ row.applyingBlocks }} / {{ row.blocks.length }}</span>
+  <span>{{ row.fetchingBlocks }} / {{ row.blocks.length }}</span>
+  <span>{{ row.fetchedBlocks }} / {{ row.blocks.length }}</span>
+  <span>{{ row.missingBlocks }} / {{ row.blocks.length }}</span>
+</ng-template>

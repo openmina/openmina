@@ -7,14 +7,7 @@ use std::{
 
 use binprot::BinProtRead;
 use mina_p2p_messages::{
-    rpc::{
-        AnswerSyncLedgerQueryV1, AnswerSyncLedgerQueryV2, GetAncestryV1, GetAncestryV2,
-        GetBestTipV1, GetBestTipV2, GetEpochLedgerV1,
-        GetStagedLedgerAuxAndPendingCoinbasesAtHashV1,
-        GetStagedLedgerAuxAndPendingCoinbasesAtHashV2, GetTransitionChainProofV1,
-        GetTransitionChainProofV1ForV2, GetTransitionChainV1, GetTransitionChainV2,
-        GetTransitionKnowledgeV1, VersionedRpcMenuV1,
-    },
+    rpc,
     rpc_kernel::{Message, MessageHeader, RpcMethod, Tag},
     utils::get_sized_slice,
     versioned::Ver,
@@ -56,45 +49,45 @@ macro_rules! rpc_read_test {
     };
 }
 
-rpc_read_test!(menu, "v1/rpc/menu", VersionedRpcMenuV1);
+rpc_read_test!(menu, "v1/rpc/menu", rpc::VersionedRpcMenuV1);
 
 rpc_read_test!(
     get_epoch_ledger_v1,
     "rpc/get-epoch-ledger",
-    GetEpochLedgerV1
+    rpc::GetEpochLedgerV1
 );
 
-rpc_read_test!(get_best_tip_v1, "v1/rpc/get-best-tip", GetBestTipV1);
+rpc_read_test!(get_best_tip_v1, "v1/rpc/get-best-tip", rpc::GetBestTipV1);
 // rpc_read_test!(get_best_tip_v2, "v2/rpc/get-best-tip", GetBestTipV2);
 
 rpc_read_test!(
     get_staged_ledger_aux_v1,
     "v1/rpc/get-staged-ledger-aux",
-    GetStagedLedgerAuxAndPendingCoinbasesAtHashV1
+    rpc::GetStagedLedgerAuxAndPendingCoinbasesAtHashV1
 );
 
 // rpc_read_test!(
 //     get_staged_ledger_aux_v2,
 //     "v2/rpc/get-staged-ledger-aux",
-//     GetStagedLedgerAuxAndPendingCoinbasesAtHashV2
+//     rpc::GetStagedLedgerAuxAndPendingCoinbasesAtHashV2
 // );
 
 rpc_read_test!(
     answer_sync_ledger_v1,
     "v1/rpc/answer-sync-ledger",
-    AnswerSyncLedgerQueryV1
+    rpc::AnswerSyncLedgerQueryV1
 );
 
 rpc_read_test!(
     answer_sync_ledger_v2,
     "v2/rpc/answer-sync-ledger",
-    AnswerSyncLedgerQueryV2
+    rpc::AnswerSyncLedgerQueryV2
 );
 
 rpc_read_test!(
     get_transition_chain_v1,
     "v1/rpc/get-transition-chain",
-    GetTransitionChainV1
+    rpc::GetTransitionChainV1
 );
 
 // rpc_read_test!(
@@ -106,25 +99,25 @@ rpc_read_test!(
 rpc_read_test!(
     get_transition_chain_proof_v1,
     "v1/rpc/get-transition-chain-proof",
-    GetTransitionChainProofV1
+    rpc::GetTransitionChainProofV1
 );
 
 rpc_read_test!(
     get_transition_chain_proof_v2,
     "v2/rpc/get-transition-chain-proof",
-    GetTransitionChainProofV1ForV2
+    rpc::GetTransitionChainProofV1ForV2
 );
 
 rpc_read_test!(
     ignore("No test data"),
     get_transition_knowledge,
     "v1/rpc/get-transition-knowledge",
-    GetTransitionKnowledgeV1
+    rpc::GetTransitionKnowledgeV1
 );
 
-rpc_read_test!(get_ancestry_v1, "v1/rpc/get-ancestry", GetAncestryV1);
+rpc_read_test!(get_ancestry_v1, "v1/rpc/get-ancestry", rpc::GetAncestryV1);
 
-// rpc_read_test!(get_ancestry_v2, "v2/rpc/get-ancestry", GetAncestryV2);
+// rpc_read_test!(get_ancestry_v2, "v2/rpc/get-ancestry", rpc::GetAncestryV2);
 
 ///////
 ///////

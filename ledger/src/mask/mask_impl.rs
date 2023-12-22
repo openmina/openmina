@@ -534,7 +534,7 @@ impl MaskImpl {
         }
     }
 
-    fn get_cached_hash(&self, addr: &Address) -> Option<Fp> {
+    pub fn get_cached_hash(&self, addr: &Address) -> Option<Fp> {
         let matrix = match self {
             Root { database, .. } => return database.get_cached_hash(addr),
             Attached { hashes, .. } => hashes,
@@ -1457,11 +1457,11 @@ impl BaseLedger for MaskImpl {
         self.merkle_path(addr)
     }
 
-    fn get_inner_hash_at_addr(&mut self, addr: Address) -> Result<Fp, ()> {
+    fn get_inner_hash_at_addr(&mut self, addr: Address) -> Result<Fp, String> {
         let self_depth = self.depth() as usize;
 
         if addr.length() > self_depth {
-            return Err(());
+            return Err("Inner hash not found at address".into());
         }
 
         Ok(self.emulate_tree_to_get_hash_at(addr))

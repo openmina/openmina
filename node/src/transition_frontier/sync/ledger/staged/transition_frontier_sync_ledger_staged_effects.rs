@@ -29,13 +29,12 @@ impl TransitionFrontierSyncLedgerStagedPartsFetchPendingAction {
 impl TransitionFrontierSyncLedgerStagedPartsPeerFetchInitAction {
     pub fn effects<S: redux::Service>(self, _: &ActionMeta, store: &mut Store<S>) {
         let state = store.state();
-        let Some(root_ledger) = state.transition_frontier.sync.root_ledger() else {
+        let Some(staged_ledger) =
+            None.or_else(|| state.transition_frontier.sync.ledger()?.staged())
+        else {
             return;
         };
-        let Some(staged_ledger) = root_ledger.staged() else {
-            return;
-        };
-        let root_block_hash = root_ledger.block().hash.clone();
+        let block_hash = staged_ledger.target().staged.block_hash.clone();
 
         let ready_peers = staged_ledger
             .filter_available_peers(state.p2p.ready_rpc_peers_iter())
@@ -47,7 +46,7 @@ impl TransitionFrontierSyncLedgerStagedPartsPeerFetchInitAction {
                 peer_id,
                 id: rpc_id,
                 request: P2pRpcRequest::StagedLedgerAuxAndPendingCoinbasesAtBlock(
-                    root_block_hash.clone(),
+                    block_hash.clone(),
                 ),
             }) {
                 store.dispatch(
@@ -112,11 +111,12 @@ impl TransitionFrontierSyncLedgerStagedReconstructInitAction {
     where
         S: TransitionFrontierSyncLedgerStagedService,
     {
-        let ledger_state = store.state().transition_frontier.sync.root_ledger();
-        let Some((block, parts)) = ledger_state.and_then(|s| s.staged()?.block_with_parts()) else {
+        let ledger_state = store.state().transition_frontier.sync.ledger();
+        let Some((target, parts)) = ledger_state.and_then(|s| s.staged()?.target_with_parts())
+        else {
             return;
         };
-        let snarked_ledger_hash = block.snarked_ledger_hash().clone();
+        let snarked_ledger_hash = target.snarked_ledger_hash.clone();
         let parts = parts.cloned();
 
         store.dispatch(TransitionFrontierSyncLedgerStagedReconstructPendingAction {});

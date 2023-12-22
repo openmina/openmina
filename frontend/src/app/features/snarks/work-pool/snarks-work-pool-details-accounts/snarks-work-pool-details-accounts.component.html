@@ -1,0 +1,14 @@
+<div *ngFor="let account of accounts; let i=index"
+     class="ml-5"
+     [class.open]="opened.includes(i)">
+  <div class="acc-row fx-row-vert-cent flex-between pl-12"
+       (click)="toggleOpening(i)">
+    Account - job {{ account.job }}, {{ account.first ? 'first' : 'second' }} ledger
+    <span class="mina-icon icon-300 ml-10 mr-5">chevron_right</span>
+  </div>
+  <div class="flex-column pr-5 pt-5"
+       *ngIf="opened.includes(i)">
+    <mina-json-console [json]="account.data"
+                       [fileName]="'account-'+(i+1)"></mina-json-console>
+  </div>
+</div>

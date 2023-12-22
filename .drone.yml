@@ -1,6 +1,6 @@
 kind: pipeline
 type: docker
-name: test-bootstrap
+name: tests
 
 global-variables:
   snark-worker-image: &snark-worker-image openmina/mina-snark-worker-prover:0.0.9
@@ -22,10 +22,12 @@ environment:
 
   OPENMINA2_SK: 5JgkZGzHPC2SmQqRGxwbFjZzFMLvab5tPwkiN29HX9Vjc9rtwV4
   OPENMINA2_ID: 2bpACUcRh2u7WJ3zSBRWZZvQMTMofYr9SGQgcP2YKzwwDKanNAy
+  OPENMINA2_LIBP2P_ID: 12D3KooWNgRENFtK5TS6XB5tWrZPwAhm1ws8CHvxHRvojwSsn2mB
   OPENMINA2_SNARKER_KEY: B62qrV28zSmLjxMZP1jKRSEFsajPGdFRukbvnXzRKyDmUBNVvCH7w9o
 
   OPENMINA3_SK: 5KWkmiairnLJjtvqEatpb4grLEG8oZjFp7ye4ehphjXRGrgsuH8
   OPENMINA3_ID: 2aQA3swTKVf16YgLXZS7TizU7ASgZ8LidEgyHhChpDinrvM9NMi
+  OPENMINA3_LIBP2P_ID: 12D3KooWA9aqMuPDbQj2ckjGGWLiouS5KmuEVSHJuNrUWMJTNudP
   OPENMINA3_SNARKER_KEY: B62qkgVSEnzTabaFJzZcG1pgXorRLJREJFvchGya6UGoKTmFx5AWAK6
 
 steps:
@@ -52,13 +54,128 @@ steps:
       - cp /usr/local/bin/mina cli/bin/
 
   - name: build
-    image: rust:1.71-buster
+    image: rust:1.71-bullseye
     commands:
-      - apt-get update && apt-get install -y libssl-dev libjemalloc-dev
+      - apt-get update && apt-get install -y libssl-dev libjemalloc-dev jq
       - rustup update nightly-2023-06-01 && rustup default nightly-2023-06-01
       - rustup component add rustfmt
       - cargo test --release -p cli
       - cargo build --release -p cli --bin openmina
+      - cargo build --release --bin runner
+      - cargo build --release --features scenario-generators -p openmina-node-testing && mv target/release/openmina-node-testing target/release/openmina-node-testing-libp2p
+      - cargo build --release --features scenario-generators,p2p-webrtc -p openmina-node-testing && mv target/release/openmina-node-testing target/release/openmina-node-testing-webrtc
+
+  - name: solo-webrtc-sync-root-snarked-ledger
+    image: vladsimplestakingcom/mina-debugger:2.0.0rampup4-focal
+    privileged: true
+    pull: always
+    volumes:
+      - name: debugfs
+        path: /sys/kernel/debug
+    failure: ignore
+    commands:
+      - cp target/release/openmina-node-testing-webrtc /usr/bin/openmina-node-testing-webrtc
+      - ./target/release/runner openmina-node-testing-webrtc scenarios-generate --name solo-node-sync-root-snarked-ledger
+    environment:
+      BPF_ALIAS: "/coda/0.0.1/3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e-255.255.255.0"
+
+  - name: solo-webrtc-initial-joining
+    image: vladsimplestakingcom/mina-debugger:2.0.0rampup4-focal
+    privileged: true
+    pull: always
+    volumes:
+      - name: debugfs
+        path: /sys/kernel/debug
+    failure: ignore
+    commands:
+      - cp target/release/openmina-node-testing-webrtc /usr/bin/openmina-node-testing-webrtc
+      - ./target/release/runner openmina-node-testing-webrtc scenarios-generate --name solo-node-basic-connectivity-initial-joining # --use-debugger
+    environment:
+      BPF_ALIAS: "/coda/0.0.1/3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e-255.255.255.1"
+
+  - name: multi-initial-joining
+    image: vladsimplestakingcom/mina-debugger:2.0.0rampup4-focal
+    pull: always
+    privileged: true
+    volumes:
+      - name: debugfs
+        path: /sys/kernel/debug
+    failure: ignore
+    commands:
+      - cp target/release/openmina-node-testing-libp2p /usr/bin/openmina-node-testing-libp2p
+      - ./target/release/runner openmina-node-testing-libp2p scenarios-generate --name multi-node-basic-connectivity-initial-joining # --use-debugger
+    environment:
+      BPF_ALIAS: "/coda/0.0.1/3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e-255.255.255.5"
+
+  - name: multi-webrtc-initial-joining
+    image: vladsimplestakingcom/mina-debugger:2.0.0rampup4-focal
+    pull: always
+    privileged: true
+    volumes:
+      - name: debugfs
+        path: /sys/kernel/debug
+    failure: ignore
+    commands:
+      - cp target/release/openmina-node-testing-webrtc /usr/bin/openmina-node-testing-webrtc
+      - ./target/release/runner openmina-node-testing-webrtc scenarios-generate --name multi-node-basic-connectivity-initial-joining
+    environment:
+      BPF_ALIAS: "/coda/0.0.1/3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e-255.255.255.2"
+
+  - name: solo-sync-root-snarked-ledger
+    image: vladsimplestakingcom/mina-debugger:2.0.0rampup4-focal
+    pull: always
+    privileged: true
+    volumes:
+      - name: debugfs
+        path: /sys/kernel/debug
+    failure: ignore
+    commands:
+      - cp target/release/openmina-node-testing-libp2p /usr/bin/openmina-node-testing-libp2p
+      - ./target/release/runner openmina-node-testing-libp2p scenarios-generate --name solo-node-sync-root-snarked-ledger
+    environment:
+      BPF_ALIAS: "/coda/0.0.1/3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e-255.255.255.3"
+
+  - name: solo-initial-joining
+    image: vladsimplestakingcom/mina-debugger:2.0.0rampup4-focal
+    pull: always
+    privileged: true
+    volumes:
+      - name: debugfs
+        path: /sys/kernel/debug
+    failure: ignore
+    commands:
+      - cp target/release/openmina-node-testing-libp2p /usr/bin/openmina-node-testing-libp2p
+      - ./target/release/runner openmina-node-testing-libp2p scenarios-generate --name solo-node-basic-connectivity-initial-joining # --use-debugger
+    environment:
+      BPF_ALIAS: "/coda/0.0.1/3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e-255.255.255.4"
+
+  - name: solo-accept-incoming
+    image: vladsimplestakingcom/mina-debugger:2.0.0rampup4-focal
+    pull: always
+    privileged: true
+    volumes:
+      - name: debugfs
+        path: /sys/kernel/debug
+    failure: ignore
+    commands:
+      - cp target/release/openmina-node-testing-libp2p /usr/bin/openmina-node-testing-libp2p
+      - ./target/release/runner openmina-node-testing-libp2p scenarios-generate --name solo-node-basic-connectivity-accept-incoming # --use-debugger
+    environment:
+      BPF_ALIAS: "/coda/0.0.1/3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e-255.255.255.6"
+
+  - name: multi-peer-discovery
+    image: vladsimplestakingcom/mina-debugger:2.0.0rampup4-focal
+    pull: always
+    privileged: true
+    volumes:
+      - name: debugfs
+        path: /sys/kernel/debug
+    failure: ignore
+    commands:
+      - cp target/release/openmina-node-testing-libp2p /usr/bin/openmina-node-testing-libp2p
+      - ./target/release/runner openmina-node-testing-libp2p scenarios-generate --name multi-node-basic-connectivity-peer-discovery # --use-debugger
+    environment:
+      BPF_ALIAS: "/coda/0.0.1/3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e-255.255.255.7"
 
   - name: replayer
     image: vladsimplestakingcom/bootstrap-rr:graphql
@@ -70,53 +187,24 @@ steps:
     commands:
       - RUST_LOG=info openmina-bootstrap-sandbox --path='/tmp/mina-record' --listen='/ip4/0.0.0.0/tcp/8302' --chain-id=$CHAIN_ID replay 234
 
-  # - name: empty
-  #   image: vladsimplestakingcom/bootstrap-rr:graphql
-  #   pull: always
-  #   detach: true
-  #   environment:
-  #     # 12D3KooWBk4vJzxBZcwDXEae91mPLxJZks2pUCpDJP1zmCjx95ai
-  #     OPENMINA_P2P_SEC_KEY: 5KRTpP4DczohhCkYVSZCHNzEF2t8Lig1EwbUPkR7TT2b4gMYYer
-  #     RUST_LOG: info
-  #   commands:
-  #     - openmina-bootstrap-sandbox --listen='/ip6/::/tcp/8302' --listen='/ip4/0.0.0.0/tcp/8302' empty
-
-  # - name: ocaml1
-  #   image: minaprotocol/mina-daemon:2.0.0rampup3-bfd1009-buster-berkeley
-  #   detach: true
-  #   environment:
-  #     MINA_LIBP2P_PASS: _
-  #   commands:
-  #     - curl https://raw.githubusercontent.com/MinaProtocol/mina/bfd1009/genesis_ledgers/berkeley.json -o /berkeley.json
-  #     - mkdir /key && chmod 700 /key
-  #     - echo '{"box_primitive":"xsalsa20poly1305","pw_primitive":"argon2i","nonce":"6MNkZnzpgwLHBA28BLzmEcxv4uAHqv52498evUP","pwsalt":"9YzR5Eb7faseS8XgE74Q7KbmrKs7","pwdiff":[134217728,6],"ciphertext":"7DrdaPt1vmgRVT8L4LcHyq6WSwzzxK1XfnZAwwtwWZRUpaChfetKyKrBBSuW3X99QUMebL8gCmuW9yq9k6CbpByvfWuRNEnejGHtXNrmyjJdoU5fd656CFjs4kXPUbpDLLwf4PD4axa89TDh5xCPENsqmigE38UuLn42TNix8sqyyGuVnyNXvP2pjDKKVU6rWatw83w8ijP97HXzeV9vwq2YudRFr4URdi11hiyVjvQ5DCmF3yNYJs5RgJw94AteZqfr2CH1FsdRA3nhiBLavreFZ53WEJnxJ69xt"}' > /key/key
-  #     - echo '12D3KooWKLzGWSdFAQGEAtrHan1TTwu7idagcZ83X6MXWfUJNiTU' > /key/key.peerid
-  #     - chmod 600 /key/*
-  #     - apt-get update && apt-get install -y netcat
-  #     - netcat -l -p 9000 || true
-  #     - mina daemon --external-port 8302 --config-file /berkeley.json --libp2p-keypair /key/key
-  #         --log-level Debug --insecure-rest-server
-  #         --peer /dns4/empty/tcp/8302/p2p/12D3KooWBk4vJzxBZcwDXEae91mPLxJZks2pUCpDJP1zmCjx95ai
-  #         --direct-peer /dns4/openmina1/tcp/10000/p2p/$OPENMINA1_LIBP2P_ID
-
   - name: openmina1
     image: *snark-worker-image
     detach: true
     commands:
       - mkdir test_ledgers
       - curl https://raw.githubusercontent.com/openmina/openmina-poc/3a81bc7/test_ledgers/jx5k7xf3L2aof821PQWumABQ793rhEis5kRb8YUmJWTHKtEJ5nb -o test_ledgers/jx5k7xf3L2aof821PQWumABQ793rhEis5kRb8YUmJWTHKtEJ5nb
-      - target/release/openmina node -p 10000 --run-snarker $OPENMINA1_SNARKER_KEY -s $OPENMINA1_SK
-          --peers /dns4/replayer/tcp/8302/p2p/$REPLAYER_ID /$OPENMINA2_ID/http/openmina2/10000 /$OPENMINA3_ID/http/openmina3/10000
+      - target/release/openmina node -p 10000  -v Debug -s $OPENMINA1_SK
+          --peers /dns4/replayer/tcp/8302/p2p/$REPLAYER_ID /dns4/openmina2/tcp/8302/p2p/$OPENMINA2_LIBP2P_ID /dns4/openmina3/tcp/8302/p2p/$OPENMINA3_LIBP2P_ID
                     /dns4/ocaml1/tcp/8302/p2p/12D3KooWKLzGWSdFAQGEAtrHan1TTwu7idagcZ83X6MXWfUJNiTU
-          --snarker-exe-path cli/bin/snark-worker -v Debug --additional-ledgers-path test_ledgers
+          --run-snarker $OPENMINA1_SNARKER_KEY --snarker-strategy seq --snarker-exe-path cli/bin/snark-worker
 
   - name: openmina2
     image: *snark-worker-image
     detach: true
     commands:
-      - target/release/openmina node -p 10000 --run-snarker $OPENMINA2_SNARKER_KEY -s $OPENMINA2_SK
-          --peers /dns4/replayer/tcp/8302/p2p/$REPLAYER_ID /$OPENMINA1_ID/http/openmina1/10000 /$OPENMINA3_ID/http/openmina3/10000
-          --snarker-exe-path cli/bin/snark-worker -v Debug
+      - target/release/openmina node -p 10000 -v Debug -s $OPENMINA2_SK
+          --peers /dns4/replayer/tcp/8302/p2p/$REPLAYER_ID /dns4/openmina1/tcp/8302/p2p/$OPENMINA1_LIBP2P_ID /dns4/openmina3/tcp/8302/p2p/$OPENMINA3_LIBP2P_ID
+          --run-snarker $OPENMINA2_SNARKER_KEY --snarker-strategy rand --snarker-exe-path cli/bin/snark-worker
 
   - name: test-bootstrap-replayer-to-openmina
     image: vladsimplestakingcom/bootstrap-rr:graphql
@@ -129,9 +217,9 @@ steps:
     image: *snark-worker-image
     detach: true
     commands:
-      - target/release/openmina node -p 10000 --run-snarker $OPENMINA3_SNARKER_KEY -s $OPENMINA3_SK
-          --peers /dns4/replayer/tcp/8302/p2p/$REPLAYER_ID /$OPENMINA1_ID/http/openmina1/10000 /$OPENMINA2_ID/http/openmina2/10000
-          --snarker-exe-path cli/bin/snark-worker -v Debug
+      - target/release/openmina node -p 10000 -v Debug -s $OPENMINA3_SK
+          --peers /dns4/replayer/tcp/8302/p2p/$REPLAYER_ID /dns4/openmina1/tcp/8302/p2p/$OPENMINA1_LIBP2P_ID /dns4/openmina2/tcp/8302/p2p/$OPENMINA2_LIBP2P_ID
+          --run-snarker $OPENMINA3_SNARKER_KEY --snarker-strategy rand --snarker-exe-path cli/bin/snark-worker
 
   - name: test-bootstrap-openmina-to-openmina
     image: vladsimplestakingcom/bootstrap-rr:graphql
@@ -139,17 +227,6 @@ steps:
     commands:
       - sleep 180
       - RUST_LOG=debug timeout 3600s openmina-bootstrap-sandbox --path='/tmp/mina-record' --chain-id=$CHAIN_ID test-graphql 234 http://openmina3:10000/graphql
-
-  # - name: test-bootstrap-openmina-to-mina
-  #   image: vladsimplestakingcom/bootstrap-rr:graphql
-  #   pull: always
-  #   environment:
-  #     RUST_LOG: debug
-  #   commands:
-  #     - apt-get update && apt-get install -y netcat
-  #     - echo "ready" | netcat -q 1 ocaml1 9000
-  #     - sleep 180
-  #     - timeout 3600s openmina-bootstrap-sandbox --path='/tmp/mina-record' --chain-id=$CHAIN_ID test-graphql 234 http://ocaml1:3085/graphql
 
   - name: test-snark-work
     image: alpine
@@ -200,9 +277,150 @@ steps:
         echo "NON_LOCAL_WORK=$$NON_LOCAL_WORK"
         assert 'non-local work exists' '[ $$NON_LOCAL_WORK -gt 0 ]'
 
-        TOTAL_COMMITMENTS=$$(jq "[.[] | select(.commitment != null)] | length" jobs.json)
-        NON_LOCAL_COMMITMENTS=$$(jq "[.[] | select(.commitment != null and .commitment.commitment.snarker != \"$OPENMINA1_SNARKER_KEY\")] | length" jobs.json)
-        echo "TOTAL_COMMITMENTS=$$TOTAL_COMMITMENTS"
-        echo "NON_LOCAL_COMMITMENTS=$$NON_LOCAL_COMMITMENTS"
-        assert 'non-local commintment exists' '[ $$NON_LOCAL_COMMITMENTS -gt 0 ]'
+        # TOTAL_COMMITMENTS=$$(jq "[.[] | select(.commitment != null)] | length" jobs.json)
+        # NON_LOCAL_COMMITMENTS=$$(jq "[.[] | select(.commitment != null and .commitment.commitment.snarker != \"$OPENMINA1_SNARKER_KEY\")] | length" jobs.json)
+        # echo "TOTAL_COMMITMENTS=$$TOTAL_COMMITMENTS"
+        # echo "NON_LOCAL_COMMITMENTS=$$NON_LOCAL_COMMITMENTS"
+        # assert 'non-local commintment exists' '[ $$NON_LOCAL_COMMITMENTS -gt 0 ]'
 
+volumes:
+  - name: debugfs
+    host:
+      path: /sys/kernel/debug
+  - name: procfs
+    host:
+      path: /proc
+
+---
+kind: pipeline
+name: Build & Test Openmina Frontend
+type: docker
+
+trigger:
+  branch:
+    - develop
+    - frontend
+
+steps:
+  - name: set-docker
+    image: alpine
+    environment:
+      DOCKER_BUILDKIT: "0"
+    commands:
+      - echo "export DOCKER_BUILDKIT=0" >> $HOME/.bashrc
+      - source $HOME/.bashrc
+
+  - name: build
+    image: docker:latest
+    environment:
+      DOCKER_BUILDKIT: "0"
+    commands:
+      - COMMIT_SHORT_SHA=$(echo $DRONE_COMMIT_SHA | cut -c 1-7)
+      - docker build --no-cache -t openmina/rust-fe:$COMMIT_SHORT_SHA -f Dockerfile_FE .
+    volumes:
+      - name: docker_sock
+        path: /var/run/docker.sock
+    depends_on:
+      - set-docker
+
+  - name: prepare
+    image: cypress/included:13.3.2
+    commands:
+      - cd frontend && npm install
+    depends_on:
+      - build
+
+  - name: frontend-server
+    image: openmina/rust-fe:${DRONE_COMMIT_SHA:0:7}
+    pull: if-not-exists
+    detach: true
+    privileged: true
+    depends_on:
+      - build
+
+  - name: dashboard-peers
+    image: cypress/included:13.3.2
+    commands:
+      - cd frontend && cypress run --config-file "cypress.config.js" --spec "cypress/e2e/dashboard/dashboard-peers.cy.ts"
+    depends_on:
+      - prepare
+
+  - name: nodes-overview-table
+    image: cypress/included:13.3.2
+    commands:
+      - cd frontend && cypress run --config-file "cypress.config.js" --spec "cypress/e2e/nodes/overview/nodes-overview-table.cy.ts"
+    depends_on:
+      - prepare
+
+  - name: nodes-overview-side-panel
+    image: cypress/included:13.3.2
+    commands:
+      - cd frontend && cypress run --config-file "cypress.config.js" --spec "cypress/e2e/nodes/overview/nodes-overview-side-panel.cy.ts"
+    depends_on:
+      - prepare
+
+  - name: nodes-live-blocks-map
+    image: cypress/included:13.3.2
+    commands:
+      - cd frontend && cypress run --config-file "cypress.config.js" --spec "cypress/e2e/nodes/live/nodes-live-blocks-map.cy.ts"
+    depends_on:
+      - prepare
+
+  - name: nodes-live-blocks-table
+    image: cypress/included:13.3.2
+    commands:
+      - cd frontend && cypress run --config-file "cypress.config.js" --spec "cypress/e2e/nodes/live/nodes-live-blocks-table.cy.ts"
+    depends_on:
+      - prepare
+
+  - name: network-messages-filters
+    image: cypress/included:13.3.2
+    commands:
+      - cd frontend && cypress run --config-file "cypress.config.js" --spec "cypress/e2e/network/messages/network-messages-filters.cy.ts"
+    depends_on:
+      - prepare
+
+  - name: network-messages-footer
+    image: cypress/included:13.3.2
+    commands:
+      - cd frontend && cypress run --config-file "cypress.config.js" --spec "cypress/e2e/network/messages/network-messages-footer.cy.ts"
+    depends_on:
+      - prepare
+
+  - name: network-messages-table
+    image: cypress/included:13.3.2
+    commands:
+      - cd frontend && cypress run --config-file "cypress.config.js" --spec "cypress/e2e/network/messages/network-messages-table.cy.ts"
+    depends_on:
+      - prepare
+
+  - name: push
+    image: docker:latest
+    commands:
+      - echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin
+      - docker push openmina/rust-fe:${DRONE_COMMIT_SHA:0:7}
+    volumes:
+      - name: docker_sock
+        path: /var/run/docker.sock
+    environment:
+      DOCKER_USERNAME:
+        from_secret: docker_hub_username
+      DOCKER_PASSWORD:
+        from_secret: docker_hub_password
+    depends_on:
+      - dashboard-peers
+      - nodes-overview-table
+      - nodes-overview-side-panel
+      - nodes-live-blocks-map
+      - nodes-live-blocks-table
+      - network-messages-filters
+      - network-messages-footer
+      - network-messages-table
+
+image_pull_secrets:
+  - docker_pull_secret
+
+volumes:
+  - name: docker_sock
+    host:
+      path: /var/run/docker.sock

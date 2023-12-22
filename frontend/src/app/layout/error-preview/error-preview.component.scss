@@ -1,0 +1,31 @@
+@import 'openmina';
+
+.notification {
+	color: $base-secondary;
+	background-color: transparent;
+	padding-left: 4px;
+	padding-right: 4px;
+
+	.message {
+		transition: width 400ms cubic-bezier(0.22, 1, 0.36, 1);
+		width: 0;
+
+		&.expanded {
+			width: 200px;
+			padding-left: 2px;
+		}
+
+		@media (max-width: 1000px) {
+			display: none;
+		}
+	}
+
+	&:hover:not(.unread-errors) {
+		background-color: $base-container;
+	}
+
+	&.unread-errors {
+		background-color: $warn-container;
+		color: $warn-primary;
+	}
+}

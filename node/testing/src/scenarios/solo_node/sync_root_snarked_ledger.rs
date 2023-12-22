@@ -34,11 +34,12 @@ pub struct SoloNodeSyncRootSnarkedLedger;
 impl SoloNodeSyncRootSnarkedLedger {
     pub async fn run(self, mut runner: ClusterRunner<'_>) {
         let node_id = runner.add_rust_node(RustNodeTestingConfig::berkeley_default());
+        eprintln!("launch Openmina node with default configuration, id: {node_id}");
 
         const REPLAYER_1: &'static str =
             "/ip4/65.109.110.75/tcp/18302/p2p/12D3KooWD8jSyPFXNdAcMBHyHjRBcK1AW9t3xvnpfCFSRKMweVKi";
         const REPLAYER_2: &'static str =
-            "/ip4/65.109.110.75/tcp/18303/p2p/12D3KooWMxLc3Me4LC2yFUokjhGN8JzbjtwSYVcisWkVtCoUALAK";
+            "/ip4/65.109.110.75/tcp/18303/p2p/12D3KooWBxbfeaxGHxdxP3U5jRKpNK5wQmbjKywGJEqTCNpVPxqk";
 
         // Initiate connection to 2 replayers.
         runner
@@ -48,6 +49,7 @@ impl SoloNodeSyncRootSnarkedLedger {
             })
             .await
             .unwrap();
+        eprintln!("node: {node_id} dialing to replayer: {REPLAYER_1}");
         runner
             .exec_step(ScenarioStep::ConnectNodes {
                 dialer: node_id,
@@ -55,10 +57,11 @@ impl SoloNodeSyncRootSnarkedLedger {
             })
             .await
             .unwrap();
+        eprintln!("node: {node_id} dialing to replayer: {REPLAYER_2}");
 
         loop {
             if !runner
-                .wait_for_pending_events_with_timeout(Duration::from_secs(5))
+                .wait_for_pending_events_with_timeout(Duration::from_secs(10))
                 .await
             {
                 panic!("waiting for connection event timed out");
@@ -106,6 +109,7 @@ impl SoloNodeSyncRootSnarkedLedger {
 
         // Exec ledger query responses until we are deep enough for there
         // to be more than 1 hash in the same height.
+        eprintln!("exec ledger query responses until we are deep enough for there to be more than 1 hash in the same height");
         loop {
             if !runner
                 .wait_for_pending_events_with_timeout(Duration::from_secs(5))
@@ -118,7 +122,7 @@ impl SoloNodeSyncRootSnarkedLedger {
             let snarked_state = state
                 .transition_frontier
                 .sync
-                .root_ledger()
+                .ledger()
                 .unwrap()
                 .snarked()
                 .unwrap();
@@ -134,10 +138,13 @@ impl SoloNodeSyncRootSnarkedLedger {
             }
         }
 
+        eprintln!("receive all hashes before first...");
         self.receive_all_hashes_before_first(&mut runner, node_id)
             .await;
+        eprintln!("receive all hashes before last...");
         self.receive_all_hashes_before_last(&mut runner, node_id)
             .await;
+        eprintln!("success");
     }
 
     async fn receive_all_hashes_before_first(
@@ -172,7 +179,7 @@ impl SoloNodeSyncRootSnarkedLedger {
             let snarked_state = state
                 .transition_frontier
                 .sync
-                .root_ledger()
+                .ledger()
                 .unwrap()
                 .snarked()
                 .unwrap();
@@ -228,7 +235,7 @@ impl SoloNodeSyncRootSnarkedLedger {
             let snarked_state = state
                 .transition_frontier
                 .sync
-                .root_ledger()
+                .ledger()
                 .unwrap()
                 .snarked()
                 .unwrap();

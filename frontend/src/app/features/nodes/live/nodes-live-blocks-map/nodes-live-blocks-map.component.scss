@@ -1,0 +1,137 @@
+@import 'openmina';
+
+.list-wrapper {
+
+	aside {
+		width: 100px;
+		position: absolute;
+		left: -100px;
+		height: calc(100% - 40px);
+
+		&::before {
+			content: '';
+			position: absolute;
+			top: 0;
+			right: 18px;
+			width: 1px;
+			height: 100%;
+			background-color: $base-tertiary;
+			z-index: 1;
+		}
+
+		.fx-row-vert-cent {
+			height: 34px;
+			position: relative;
+
+			&::before {
+				content: '';
+				position: absolute;
+				bottom: 0;
+				left: 81px;
+				width: 1px;
+				height: 35px;
+				z-index: 1;
+			}
+
+			&:first-child {
+				&::before {
+					background-color: $special-selected-alt-2-primary;
+				}
+
+				.arrow {
+					border: solid $special-selected-alt-2-primary;
+					border-width: 0 1px 1px 0;
+				}
+			}
+
+			&:last-child {
+				&::before {
+					background-color: $special-selected-alt-1-primary;
+				}
+
+				.arrow {
+					border: solid $special-selected-alt-1-primary;
+					border-width: 0 1px 1px 0;
+				}
+			}
+
+			.arrow {
+				display: inline-block;
+				padding: 3px;
+				position: absolute;
+				left: 78px;
+				top: 27px;
+				transform: rotate(45deg);
+			}
+		}
+
+		.root span {
+			color: $special-selected-alt-2-primary;
+			background-color: $special-selected-alt-2-container;
+		}
+
+		.best-tip span {
+			color: $special-selected-alt-1-primary;
+			background-color: $special-selected-alt-1-container;
+		}
+
+		.root span, .best-tip span {
+			margin-right: 5px;
+			border-radius: 6px;
+			padding: 5px;
+		}
+	}
+
+	.block-list {
+		position: relative;
+		width: 100%;
+		padding-left: 100px;
+
+		> div.p-relative {
+			padding-bottom: 40px;
+		}
+	}
+
+	.block {
+		width: 34px;
+		height: 34px;
+		line-height: 34px;
+		text-align: center;
+		font-size: 10px;
+		margin-right: 1px;
+		margin-bottom: 1px;
+
+		&.Missing {
+			background-color: $warn-container;
+			color: $warn-primary;
+		}
+
+		&.Fetching {
+			background-color: $base-container;
+			color: $base-tertiary;
+		}
+
+		&.Fetched {
+			background-color: $base-container;
+			color: $base-secondary;
+		}
+
+		&.Applying {
+			background-color: $selected-container;
+			color: $selected-primary;
+		}
+
+		&.Applied {
+			background-color: $success-container;
+			color: $success-primary;
+		}
+
+		&.root-block {
+			border-bottom: 4px solid $special-selected-alt-2-primary;
+		}
+
+		&.best-tip-block {
+			border-bottom: 4px solid $special-selected-alt-1-primary;
+		}
+	}
+}

@@ -18,12 +18,9 @@ pub use p2p_channels_effects::*;
 mod p2p_channels_service;
 pub use p2p_channels_service::*;
 
+use binprot::{BinProtRead, BinProtWrite};
+use binprot_derive::{BinProtRead, BinProtWrite};
 use derive_more::From;
-use mina_p2p_messages::binprot::{
-    self,
-    macros::{BinProtRead, BinProtWrite},
-    BinProtRead, BinProtWrite,
-};
 use serde::{Deserialize, Serialize};
 use strum_macros::EnumIter;
 

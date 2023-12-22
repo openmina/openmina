@@ -60,6 +60,20 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
     let (action, meta) = action.split();
 
     match action {
+        P2pAction::Listen(action) => match action {
+            p2p::listen::P2pListenAction::New(action) => {
+                action.effects(&meta, store);
+            }
+            p2p::listen::P2pListenAction::Expired(action) => {
+                action.effects(&meta, store);
+            }
+            p2p::listen::P2pListenAction::Error(action) => {
+                action.effects(&meta, store);
+            }
+            p2p::listen::P2pListenAction::Closed(action) => {
+                action.effects(&meta, store);
+            }
+        },
         P2pAction::Connection(action) => match action {
             P2pConnectionAction::Outgoing(action) => match action {
                 P2pConnectionOutgoingAction::RandomInit(action) => {
@@ -173,12 +187,15 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                     }
                     action.effects(&meta, store);
                 }
+                P2pConnectionIncomingAction::Libp2pReceived(action) => {
+                    action.effects(&meta, store);
+                }
             },
         },
         P2pAction::Disconnection(action) => match action {
             P2pDisconnectionAction::Init(action) => action.effects(&meta, store),
             P2pDisconnectionAction::Finish(action) => {
-                if let Some(s) = store.state().transition_frontier.sync.root_ledger() {
+                if let Some(s) = store.state().transition_frontier.sync.ledger() {
                     let rpc_ids = s
                         .snarked()
                         .map(|s| s.peer_query_pending_rpc_ids(&action.peer_id).collect())
@@ -264,8 +281,36 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                     request: P2pRpcRequest::InitialPeers,
                 });
             }
-            P2pDiscoveryAction::Timeout(_) => {}
             P2pDiscoveryAction::Success(_) => {}
+            P2pDiscoveryAction::KademliaBootstrap(_) => {
+                // seed node doesn't have initial peers
+                // it will rely on incoming peers
+                let initial_peers = if !store.state().p2p.config.initial_peers.is_empty() {
+                    store.state().p2p.config.initial_peers.clone()
+                } else if !store.state().p2p.kademlia.routes.is_empty() {
+                    store
+                        .state()
+                        .p2p
+                        .kademlia
+                        .routes
+                        .values()
+                        .flatten()
+                        .cloned()
+                        .collect()
+                } else {
+                    vec![]
+                };
+
+                if !initial_peers.is_empty() {
+                    store.service().start_discovery(initial_peers);
+                }
+            }
+            P2pDiscoveryAction::KademliaInit(_) => {
+                store.service().find_random_peer();
+            }
+            P2pDiscoveryAction::KademliaAddRoute(_) => {}
+            P2pDiscoveryAction::KademliaSuccess(_) => {}
+            P2pDiscoveryAction::KademliaFailure(_) => {}
         },
         P2pAction::Channels(action) => match action {
             P2pChannelsAction::MessageReceived(action) => {
@@ -621,11 +666,7 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                                 .p2p
                                 .peers
                                 .iter()
-                                .filter_map(|(peer_id, state)| {
-                                    // TODO(vlad9486):
-                                    let _ = (peer_id, state);
-                                    None
-                                })
+                                .filter_map(|(_, v)| v.dial_opts.clone())
                                 .collect();
                             let response = Some(P2pRpcResponse::InitialPeers(peers));
 

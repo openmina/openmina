@@ -1,24 +1,60 @@
+//! Basic connectivity tests.
+//! Initial Joining:
+//! * Ensure new nodes can discover peers and establish initial connections.
+//! * Test how nodes handle scenarios when they are overwhelmed with too many connections or data requests.
+//! TODO(vlad9486):
+//! Reconnection: Validate that nodes can reconnect after both intentional and unintentional disconnections.
+//! Handling Latency: Nodes should remain connected and synchronize even under high latency conditions.
+//! Intermittent Connections: Nodes should be resilient to sporadic network dropouts and still maintain synchronization.
+//! Dynamic IP Handling: Nodes with frequently changing IP addresses should maintain stable connections.
+
+pub mod multi_node;
 pub mod solo_node;
 
+pub mod p2p;
+
 mod cluster_runner;
-use cluster_runner::ClusterRunner;
+pub use cluster_runner::ClusterRunner;
+mod driver;
+pub use driver::*;
 
 use strum_macros::{EnumIter, EnumString, IntoStaticStr};
 
-use crate::cluster::Cluster;
+use crate::cluster::{Cluster, ClusterConfig};
 use crate::scenario::{Scenario, ScenarioId, ScenarioStep};
 
-use self::solo_node::sync_root_snarked_ledger::SoloNodeSyncRootSnarkedLedger;
+use self::multi_node::basic_connectivity_initial_joining::MultiNodeBasicConnectivityInitialJoining;
+use self::multi_node::basic_connectivity_peer_discovery::MultiNodeBasicConnectivityPeerDiscovery;
+use self::solo_node::{
+    basic_connectivity_accept_incoming::SoloNodeBasicConnectivityAcceptIncoming,
+    basic_connectivity_initial_joining::SoloNodeBasicConnectivityInitialJoining,
+    sync_root_snarked_ledger::SoloNodeSyncRootSnarkedLedger,
+};
 
 #[derive(EnumIter, EnumString, IntoStaticStr, Clone, Copy)]
 #[strum(serialize_all = "kebab-case")]
 pub enum Scenarios {
     SoloNodeSyncRootSnarkedLedger(SoloNodeSyncRootSnarkedLedger),
+    SoloNodeBasicConnectivityInitialJoining(SoloNodeBasicConnectivityInitialJoining),
+    SoloNodeBasicConnectivityAcceptIncoming(SoloNodeBasicConnectivityAcceptIncoming),
+    MultiNodeBasicConnectivityInitialJoining(MultiNodeBasicConnectivityInitialJoining),
+    MultiNodeBasicConnectivityPeerDiscovery(MultiNodeBasicConnectivityPeerDiscovery),
 }
 
 impl Scenarios {
-    pub fn iter() -> ScenariosIter {
-        <Self as strum::IntoEnumIterator>::iter()
+    // Turn off global test
+    pub fn iter() -> impl IntoIterator<Item = Scenarios> {
+        <Self as strum::IntoEnumIterator>::iter().filter(|s| !s.skip())
+    }
+
+    fn skip(&self) -> bool {
+        match self {
+            Self::SoloNodeSyncRootSnarkedLedger(_) => false,
+            Self::SoloNodeBasicConnectivityInitialJoining(_) => false,
+            Self::SoloNodeBasicConnectivityAcceptIncoming(_) => cfg!(feature = "p2p-webrtc"),
+            Self::MultiNodeBasicConnectivityInitialJoining(_) => false,
+            Self::MultiNodeBasicConnectivityPeerDiscovery(_) => cfg!(feature = "p2p-webrtc"),
+        }
     }
 
     pub fn id(self) -> ScenarioId {
@@ -32,6 +68,10 @@ impl Scenarios {
     pub fn parent(self) -> Option<Self> {
         match self {
             Self::SoloNodeSyncRootSnarkedLedger(_) => None,
+            Self::SoloNodeBasicConnectivityInitialJoining(_) => None,
+            Self::SoloNodeBasicConnectivityAcceptIncoming(_) => None,
+            Self::MultiNodeBasicConnectivityInitialJoining(_) => None,
+            Self::MultiNodeBasicConnectivityPeerDiscovery(_) => None,
         }
     }
 
@@ -43,6 +83,18 @@ impl Scenarios {
         use documented::Documented;
         match self {
             Self::SoloNodeSyncRootSnarkedLedger(_) => SoloNodeSyncRootSnarkedLedger::DOCS,
+            Self::SoloNodeBasicConnectivityInitialJoining(_) => {
+                SoloNodeBasicConnectivityInitialJoining::DOCS
+            }
+            Self::SoloNodeBasicConnectivityAcceptIncoming(_) => {
+                SoloNodeBasicConnectivityAcceptIncoming::DOCS
+            }
+            Self::MultiNodeBasicConnectivityInitialJoining(_) => {
+                MultiNodeBasicConnectivityInitialJoining::DOCS
+            }
+            Self::MultiNodeBasicConnectivityPeerDiscovery(_) => {
+                MultiNodeBasicConnectivityPeerDiscovery::DOCS
+            }
         }
     }
 
@@ -55,11 +107,19 @@ impl Scenarios {
             {
                 "kind": "Rust",
                 "chain_id": "3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e",
-                "initial_time": 1695702049579000000
+                "initial_time": 1695702049579000000,
+                "max_peers": 100,
+                "ask_initial_peers_interval": { "secs": 10, "nanos": 0 },
+                "initial_peers": [],
+                "randomize_peer_id": false
             }
                                                                            "#,
             )
             .unwrap()],
+            Self::SoloNodeBasicConnectivityInitialJoining(_) => vec![],
+            Self::SoloNodeBasicConnectivityAcceptIncoming(_) => vec![],
+            Self::MultiNodeBasicConnectivityInitialJoining(_) => vec![],
+            Self::MultiNodeBasicConnectivityPeerDiscovery(_) => vec![],
         };
 
         scenario
@@ -72,6 +132,10 @@ impl Scenarios {
         let runner = ClusterRunner::new(cluster, add_step);
         match self {
             Self::SoloNodeSyncRootSnarkedLedger(v) => v.run(runner).await,
+            Self::SoloNodeBasicConnectivityInitialJoining(v) => v.run(runner).await,
+            Self::SoloNodeBasicConnectivityAcceptIncoming(v) => v.run(runner).await,
+            Self::MultiNodeBasicConnectivityInitialJoining(v) => v.run(runner).await,
+            Self::MultiNodeBasicConnectivityPeerDiscovery(v) => v.run(runner).await,
         }
     }
 
@@ -89,7 +153,7 @@ impl Scenarios {
         self.run(cluster, |_| {}).await
     }
 
-    async fn build_cluster_and_run_parents(self) -> Cluster {
+    async fn build_cluster_and_run_parents(self, config: ClusterConfig) -> Cluster {
         let mut parents = std::iter::repeat(())
             .scan(self.parent(), |parent, _| {
                 let cur_parent = parent.take();
@@ -98,7 +162,7 @@ impl Scenarios {
             })
             .collect::<Vec<_>>();
 
-        let mut cluster = Cluster::new(Default::default());
+        let mut cluster = Cluster::new(config);
         while let Some(scenario) = parents.pop() {
             scenario.run_only(&mut cluster).await;
         }
@@ -106,13 +170,13 @@ impl Scenarios {
         cluster
     }
 
-    pub async fn run_and_save_from_scratch(self) {
-        let mut cluster = self.build_cluster_and_run_parents().await;
+    pub async fn run_and_save_from_scratch(self, config: ClusterConfig) {
+        let mut cluster = self.build_cluster_and_run_parents(config).await;
         self.run_and_save(&mut cluster).await;
     }
 
-    pub async fn run_only_from_scratch(self) {
-        let mut cluster = self.build_cluster_and_run_parents().await;
+    pub async fn run_only_from_scratch(self, config: ClusterConfig) {
+        let mut cluster = self.build_cluster_and_run_parents(config).await;
         self.run_only(&mut cluster).await;
     }
 }

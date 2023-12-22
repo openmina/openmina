@@ -38,9 +38,8 @@ impl P2pState {
             return Err(RejectionReason::PeerIdAndPublicKeyMismatch);
         }
 
-        let my_peer_id = self.config.identity_pub_key.peer_id();
+        let my_peer_id = self.my_id();
 
-        // TODO(binier): maybe cache own peer_id somewhere.
         if offer.target_peer_id != my_peer_id {
             return Err(RejectionReason::TargetPeerIdNotMe);
         }
@@ -50,7 +49,24 @@ impl P2pState {
         }
 
         if self.is_peer_connected_or_connecting(&peer_id) {
+            // Both nodes trying to connect to each other at the same time.
+            // Choose connection arbitrarily based on peer id.
+            if peer_id > my_peer_id {
+                return Ok(());
+            }
             return Err(RejectionReason::AlreadyConnected);
+        }
+
+        if self.already_has_max_peers() {
+            return Err(RejectionReason::PeerCapacityFull);
+        }
+
+        Ok(())
+    }
+
+    pub fn libp2p_incoming_accept(&self, peer_id: PeerId) -> Result<(), RejectionReason> {
+        if peer_id == self.my_id() {
+            return Err(RejectionReason::ConnectingToSelf);
         }
 
         if self.already_has_max_peers() {

@@ -5,7 +5,7 @@ use std::{
     task::{self, Context, Poll},
 };
 
-use libp2p::core::{muxing::SubstreamBox, Negotiated};
+use libp2p::{core::upgrade::ReadyUpgrade, swarm::handler::InboundUpgradeSend, StreamProtocol};
 
 use super::{
     behaviour::{Event, StreamId},
@@ -19,7 +19,7 @@ pub struct Stream {
 
 enum OpeningState {
     Requested,
-    Negotiated { io: Negotiated<SubstreamBox> },
+    Negotiated { io: <ReadyUpgrade<StreamProtocol> as InboundUpgradeSend>::Output },
 }
 
 pub enum StreamEvent {
@@ -43,7 +43,7 @@ impl Stream {
         }
     }
 
-    pub fn negotiated(&mut self, io: Negotiated<SubstreamBox>) {
+    pub fn negotiated(&mut self, io: <ReadyUpgrade<StreamProtocol> as InboundUpgradeSend>::Output) {
         self.opening_state = Some(OpeningState::Negotiated { io });
     }
 

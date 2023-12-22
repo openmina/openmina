@@ -29,6 +29,10 @@ impl<'a> ClusterRunner<'a> {
         &self.cluster
     }
 
+    pub fn cluster_mut(&mut self) -> &mut Cluster {
+        &mut self.cluster
+    }
+
     pub fn node(&self, node_id: ClusterNodeId) -> Option<&Node> {
         self.cluster.node(node_id)
     }

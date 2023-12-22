@@ -16,12 +16,12 @@ impl TransitionFrontierSyncLedgerState {
             TransitionFrontierSyncLedgerAction::Init(_) => {}
             TransitionFrontierSyncLedgerAction::Snarked(action) => {
                 if let TransitionFrontierSyncLedgerSnarkedAction::Pending(_) = action {
-                    let Self::Init { block, .. } = self else {
+                    let Self::Init { target, .. } = self else {
                         return;
                     };
                     let s = TransitionFrontierSyncLedgerSnarkedState::pending(
                         meta.time(),
-                        block.clone(),
+                        target.clone(),
                     );
                     *self = Self::Snarked(s);
                 } else {
@@ -32,7 +32,7 @@ impl TransitionFrontierSyncLedgerState {
             TransitionFrontierSyncLedgerAction::Staged(action) => {
                 if let TransitionFrontierSyncLedgerStagedAction::PartsFetchPending(_) = action {
                     let Self::Snarked(TransitionFrontierSyncLedgerSnarkedState::Success {
-                        block,
+                        target,
                         ..
                     }) = self
                     else {
@@ -40,13 +40,13 @@ impl TransitionFrontierSyncLedgerState {
                     };
                     let s = TransitionFrontierSyncLedgerStagedState::pending(
                         meta.time(),
-                        block.clone(),
+                        target.clone().with_staged().unwrap(),
                     );
                     *self = Self::Staged(s);
                 } else {
                     match self {
                         Self::Snarked(TransitionFrontierSyncLedgerSnarkedState::Success {
-                            block,
+                            target,
                             ..
                         }) if matches!(
                             action,
@@ -55,7 +55,7 @@ impl TransitionFrontierSyncLedgerState {
                         {
                             let s = TransitionFrontierSyncLedgerStagedState::ReconstructEmpty {
                                 time: meta.time(),
-                                block: block.clone(),
+                                target: target.clone().with_staged().unwrap(),
                             };
                             *self = Self::Staged(s);
                         }
@@ -65,20 +65,31 @@ impl TransitionFrontierSyncLedgerState {
                 }
             }
             TransitionFrontierSyncLedgerAction::Success(_) => {
-                let Self::Staged(TransitionFrontierSyncLedgerStagedState::Success {
-                    block,
-                    needed_protocol_states,
-                    ..
-                }) = self
-                else {
-                    return;
-                };
-
-                *self = Self::Success {
-                    time: meta.time(),
-                    block: block.clone(),
-                    needed_protocol_states: std::mem::take(needed_protocol_states),
-                };
+                match self {
+                    Self::Staged(TransitionFrontierSyncLedgerStagedState::Success {
+                        target,
+                        needed_protocol_states,
+                        ..
+                    }) => {
+                        *self = Self::Success {
+                            time: meta.time(),
+                            target: target.clone().into(),
+                            needed_protocol_states: std::mem::take(needed_protocol_states),
+                        };
+                    }
+                    Self::Snarked(TransitionFrontierSyncLedgerSnarkedState::Success {
+                        target,
+                        ..
+                    }) => {
+                        *self = Self::Success {
+                            time: meta.time(),
+                            target: target.clone(),
+                            // No additional protocol states needed for snarked ledger.
+                            needed_protocol_states: Default::default(),
+                        };
+                    }
+                    _ => {}
+                }
             }
         }
     }

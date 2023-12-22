@@ -1,3 +1,5 @@
+#![allow(unused_imports, unused_variables)]
+
 use mina_p2p_messages::{
     bigint::BigInt,
     v2::{MinaBaseAccountIdDigestStableV1, MinaLedgerSyncLedgerQueryStableV1},

@@ -1,0 +1,6 @@
+<div class="f-600">{{ scenario?.info.description }}</div>
+
+<button class="btn-primary ml-10 mr-10" (click)="runSteps()"
+        [disabled]="scenarioIsRunning">
+  {{ scenarioIsRunning ? 'Running...' : 'Run Steps' }}
+</button>

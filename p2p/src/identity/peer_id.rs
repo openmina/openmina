@@ -1,5 +1,6 @@
 use std::{fmt, str::FromStr};
 
+use binprot::{BinProtRead, BinProtWrite, Nat0};
 use serde::{Deserialize, Serialize};
 
 use super::PublicKey;
@@ -39,6 +40,11 @@ impl PeerId {
 
     pub fn to_public_key(self) -> Result<PublicKey, ed25519_dalek::SignatureError> {
         PublicKey::from_bytes(self.to_bytes())
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn to_libp2p_string(self) -> String {
+        libp2p::PeerId::from(self).to_string()
     }
 }
 
@@ -86,8 +92,8 @@ impl From<libp2p::PeerId> for PeerId {
         if value.as_ref().code() == 0x12 {
             todo!("store such kind of key in our `PeerId`");
         } else {
-            let key = libp2p::identity::PublicKey::from_protobuf_encoding(slice).unwrap();
-            let bytes = key.into_ed25519().unwrap().encode();
+            let key = libp2p::identity::PublicKey::try_decode_protobuf(slice).unwrap();
+            let bytes = key.try_into_ed25519().unwrap().to_bytes();
             PeerId::from_bytes(bytes)
         }
     }
@@ -96,10 +102,19 @@ impl From<libp2p::PeerId> for PeerId {
 #[cfg(not(target_arch = "wasm32"))]
 impl From<PeerId> for libp2p::PeerId {
     fn from(value: PeerId) -> Self {
-        let key = libp2p::identity::ed25519::PublicKey::decode(&value.to_bytes()).unwrap();
+        let key = libp2p::identity::ed25519::PublicKey::try_from_bytes(&value.to_bytes()).unwrap();
         #[allow(deprecated)]
-        let key = libp2p::identity::PublicKey::Ed25519(key);
-        key.into()
+        let key = libp2p::identity::PublicKey::try_from(key).unwrap();
+        key.to_peer_id()
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl PartialEq<libp2p::PeerId> for PeerId {
+    fn eq(&self, other: &libp2p::PeerId) -> bool {
+        let key = libp2p::identity::PublicKey::try_decode_protobuf(other.as_ref().digest()).unwrap();
+        let bytes = key.try_into_ed25519().unwrap().to_bytes();
+        self == &PeerId::from_bytes(bytes)
     }
 }
 
@@ -127,6 +142,31 @@ impl<'de> serde::Deserialize<'de> for PeerId {
         } else {
             Ok(Self(Deserialize::deserialize(deserializer)?))
         }
+    }
+}
+
+impl BinProtWrite for PeerId {
+    fn binprot_write<W: std::io::Write>(&self, w: &mut W) -> std::io::Result<()> {
+        for v in self.0 {
+            Nat0(v).binprot_write(w)?;
+        }
+        Ok(())
+    }
+}
+
+impl BinProtRead for PeerId {
+    fn binprot_read<R: std::io::Read + ?Sized>(r: &mut R) -> Result<Self, binprot::Error>
+    where
+        Self: Sized,
+    {
+        let mut iter = std::iter::repeat(()).map(|_| Nat0::binprot_read(r));
+
+        Ok(Self([
+            iter.next().unwrap()?.0,
+            iter.next().unwrap()?.0,
+            iter.next().unwrap()?.0,
+            iter.next().unwrap()?.0,
+        ]))
     }
 }
 

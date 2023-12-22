@@ -9,67 +9,71 @@ use warp::{
     Filter, Rejection, Reply,
 };
 
-use node::{
-    p2p::{
-        connection::{
-            incoming::{IncomingSignalingMethod, P2pConnectionIncomingInitOpts},
-            P2pConnectionResponse,
-        },
-        webrtc, PeerId,
-    },
-    rpc::{
-        ActionStatsQuery, RpcRequest, RpcScanStateSummaryGetQuery, RpcScanStateSummaryGetResponse,
-        RpcSnarkPoolJobGetResponse, RpcSnarkerWorkersResponse, SyncStatsQuery,
-    },
+use node::rpc::{
+    ActionStatsQuery, RpcPeerInfo, RpcRequest, RpcScanStateSummaryGetQuery,
+    RpcScanStateSummaryGetResponse, RpcSnarkPoolJobGetResponse, RpcSnarkerWorkersResponse,
+    SyncStatsQuery,
 };
 use openmina_core::snark::SnarkJobId;
 
 use super::rpc::{
-    RpcActionStatsGetResponse, RpcP2pConnectionIncomingResponse, RpcSnarkPoolGetResponse,
-    RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse, RpcStateGetResponse,
-    RpcSyncStatsGetResponse,
+    RpcActionStatsGetResponse, RpcSnarkPoolGetResponse, RpcSnarkerJobCommitResponse,
+    RpcSnarkerJobSpecResponse, RpcStateGetResponse, RpcSyncStatsGetResponse,
 };
 
 pub async fn run(port: u16, rpc_sender: super::RpcSender) {
-    let rpc_sender_clone = rpc_sender.clone();
-    let signaling = warp::path!("mina" / "webrtc" / "signal")
-        .and(warp::post())
-        .and(warp::filters::body::json())
-        .then(move |offer: webrtc::Offer| {
-            let rpc_sender_clone = rpc_sender_clone.clone();
-            async move {
-                let mut rx = rpc_sender_clone
-                    .multishot_request(
-                        2,
-                        RpcRequest::P2pConnectionIncoming(P2pConnectionIncomingInitOpts {
-                            peer_id: PeerId::from_public_key(offer.identity_pub_key.clone()),
-                            signaling: IncomingSignalingMethod::Http,
-                            offer,
-                        }),
-                    )
-                    .await;
+    #[cfg(feature = "p2p-webrtc")]
+    let signaling = {
+        use node::p2p::{
+            connection::{
+                incoming::{IncomingSignalingMethod, P2pConnectionIncomingInitOpts},
+                P2pConnectionResponse,
+            },
+            webrtc, PeerId,
+        };
 
-                match rx.recv().await {
-                    Some(RpcP2pConnectionIncomingResponse::Answer(answer)) => {
-                        let status = match &answer {
-                            P2pConnectionResponse::Accepted(_) => StatusCode::OK,
-                            P2pConnectionResponse::Rejected(reason) => match reason.is_bad() {
-                                false => StatusCode::OK,
-                                true => StatusCode::BAD_REQUEST,
-                            },
-                            P2pConnectionResponse::InternalError => {
-                                StatusCode::INTERNAL_SERVER_ERROR
-                            }
-                        };
-                        with_json_reply(&answer, status)
-                    }
-                    _ => {
-                        let resp = P2pConnectionResponse::internal_error_str();
-                        with_json_reply(&resp, StatusCode::INTERNAL_SERVER_ERROR)
+        use super::rpc::RpcP2pConnectionIncomingResponse;
+
+        let rpc_sender_clone = rpc_sender.clone();
+        warp::path!("mina" / "webrtc" / "signal")
+            .and(warp::post())
+            .and(warp::filters::body::json())
+            .then(move |offer: webrtc::Offer| {
+                let rpc_sender_clone = rpc_sender_clone.clone();
+                async move {
+                    let mut rx = rpc_sender_clone
+                        .multishot_request(
+                            2,
+                            RpcRequest::P2pConnectionIncoming(P2pConnectionIncomingInitOpts {
+                                peer_id: PeerId::from_public_key(offer.identity_pub_key.clone()),
+                                signaling: IncomingSignalingMethod::Http,
+                                offer,
+                            }),
+                        )
+                        .await;
+
+                    match rx.recv().await {
+                        Some(RpcP2pConnectionIncomingResponse::Answer(answer)) => {
+                            let status = match &answer {
+                                P2pConnectionResponse::Accepted(_) => StatusCode::OK,
+                                P2pConnectionResponse::Rejected(reason) => match reason.is_bad() {
+                                    false => StatusCode::OK,
+                                    true => StatusCode::BAD_REQUEST,
+                                },
+                                P2pConnectionResponse::InternalError => {
+                                    StatusCode::INTERNAL_SERVER_ERROR
+                                }
+                            };
+                            with_json_reply(&answer, status)
+                        }
+                        _ => {
+                            let resp = P2pConnectionResponse::internal_error_str();
+                            with_json_reply(&resp, StatusCode::INTERNAL_SERVER_ERROR)
+                        }
                     }
                 }
-            }
-        });
+            })
+    };
 
     // TODO(binier): make endpoint only accessible locally.
     let rpc_sender_clone = rpc_sender.clone();
@@ -82,6 +86,19 @@ pub async fn run(port: u16, rpc_sender: super::RpcSender) {
             with_json_reply(&result, StatusCode::OK)
         }
     });
+
+    let rpc_sender_clone = rpc_sender.clone();
+    let peers_get = warp::path!("state" / "peers")
+        .and(warp::get())
+        .then(move || {
+            let rpc_sender_clone = rpc_sender_clone.clone();
+            async move {
+                let result: Option<Vec<RpcPeerInfo>> =
+                    rpc_sender_clone.oneshot_request(RpcRequest::PeersGet).await;
+
+                with_json_reply(&result, StatusCode::OK)
+            }
+        });
 
     // TODO(binier): make endpoint only accessible locally.
     let stats = {
@@ -344,8 +361,12 @@ pub async fn run(port: u16, rpc_sender: super::RpcSender) {
         });
 
     let cors = warp::cors().allow_any_origin();
-    let routes = signaling
-        .or(state_get)
+    #[cfg(not(feature = "p2p-webrtc"))]
+    let routes = state_get;
+    #[cfg(feature = "p2p-webrtc")]
+    let routes = signaling.or(state_get);
+    let routes = routes
+        .or(peers_get)
         .or(stats)
         .or(scan_state_summary_get)
         .or(snark_pool_jobs_get)

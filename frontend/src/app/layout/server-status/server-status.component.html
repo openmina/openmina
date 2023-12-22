@@ -1,0 +1,18 @@
+<div class="node-status mr-8 border-rad-4 p-relative overflow-hidden">
+  <div class="bg-surface h-sm border-rad-4 p-relative z-1">
+    <div class="background-wrap border-rad-4 fx-row-vert-cent h-100">
+      <div *ngIf="!switchForbidden"
+           class="block-level h-100 fx-row-vert-cent pl-5 pr-8">
+        <span class="strong-text text-capitalize fx-row-vert-cent mr-5">
+          <span class="mina-icon icon-200 f-20">dns</span>
+        </span>
+      </div>
+      <div class="node-switcher h-100 fx-row-vert-cent pl-8 pr-8"
+           [class.border-rad-4]="switchForbidden"
+           #overlayOpener (click)="openNodePicker($event)">
+        <span class="strong-text truncate">{{ !switchForbidden ? activeNode?.name : 'All Nodes' }}</span>
+        <span class="mina-icon icon-200" *ngIf="!switchForbidden">arrow_drop_down</span>
+      </div>
+    </div>
+  </div>
+</div>

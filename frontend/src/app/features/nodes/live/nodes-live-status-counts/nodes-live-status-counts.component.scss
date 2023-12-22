@@ -1,0 +1,27 @@
+@import 'openmina';
+
+.circle {
+	width: 10px;
+	height: 10px;
+	border-radius: 12px;
+
+	&.red {
+		background-color: $warn-primary;
+	}
+
+	&.gray {
+		background-color: $base-tertiary;
+	}
+
+	&.white {
+		background-color: $base-primary;
+	}
+
+	&.blue {
+		background-color: $selected-primary;
+	}
+
+	&.green {
+		background-color: $success-primary;
+	}
+}

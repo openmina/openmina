@@ -1,0 +1,18 @@
+<div class="flex-row flex-between p-12 h-xl">
+  <span class="secondary f-600">Connection details</span>
+  <span (click)="closeSidePanel()"
+        class="mina-icon pointer tertiary primary-hover f-18">close
+  </span>
+</div>
+<ng-container *ngIf="connection">
+  <div class="h-lg flex-row pl-12 pb-10">
+    <button class="btn-primary mr-8" (click)="expandEntireJSON()">Expand All</button>
+    <button class="btn-primary mr-8" (click)="collapseEntireJSON()">Collapse All</button>
+    <button class="btn-primary mr-8" [copyToClipboard]="jsonString">Copy</button>
+    <button class="btn-primary" (click)="downloadJson()">Save</button>
+  </div>
+</ng-container>
+<div class="flex-column flex-grow overflow-y-scroll">
+  <mina-json-viewer [expanded]="false" [json]="connection || {}"
+                    [expandTracking]="expandingTracking"></mina-json-viewer>
+</div>

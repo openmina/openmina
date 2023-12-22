@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  openmina_node:
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    command: [ "node" ]
+    ports:
+      - "3000:3000"
+    environment:
+      - MINA_SNARK_WORKER_TAG=0.0.9
+    networks:
+      - app-network
+
+  frontend:
+    build:
+      context: ./
+      dockerfile: Dockerfile_FE
+      args:
+        BUILD_CONFIGURATION: local
+    ports:
+      - "8070:80"
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge

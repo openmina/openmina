@@ -23,6 +23,7 @@ pub enum P2pConnectionIncomingAction {
     Timeout(P2pConnectionIncomingTimeoutAction),
     Error(P2pConnectionIncomingErrorAction),
     Success(P2pConnectionIncomingSuccessAction),
+    Libp2pReceived(P2pConnectionIncomingLibp2pReceivedAction),
 }
 
 impl P2pConnectionIncomingAction {
@@ -40,6 +41,7 @@ impl P2pConnectionIncomingAction {
             Self::Timeout(v) => Some(&v.peer_id),
             Self::Error(v) => Some(&v.peer_id),
             Self::Success(v) => Some(&v.peer_id),
+            Self::Libp2pReceived(v) => Some(&v.peer_id),
         }
     }
 }
@@ -274,6 +276,19 @@ impl redux::EnablingCondition<P2pState> for P2pConnectionIncomingSuccessAction {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct P2pConnectionIncomingLibp2pReceivedAction {
+    pub peer_id: PeerId,
+}
+
+impl redux::EnablingCondition<P2pState> for P2pConnectionIncomingLibp2pReceivedAction {
+    fn is_enabled(&self, state: &P2pState) -> bool {
+        state.peers.get(&self.peer_id).map_or(true, |peer| {
+            matches!(&peer.status, P2pPeerStatus::Disconnected { .. })
+        })
+    }
+}
+
 // --- From<LeafAction> for Action impls.
 use crate::{
     connection::{P2pConnectionAction, P2pConnectionState},
@@ -350,6 +365,12 @@ impl From<P2pConnectionIncomingErrorAction> for crate::P2pAction {
 
 impl From<P2pConnectionIncomingSuccessAction> for crate::P2pAction {
     fn from(a: P2pConnectionIncomingSuccessAction) -> Self {
+        Self::Connection(P2pConnectionAction::Incoming(a.into()))
+    }
+}
+
+impl From<P2pConnectionIncomingLibp2pReceivedAction> for crate::P2pAction {
+    fn from(a: P2pConnectionIncomingLibp2pReceivedAction) -> Self {
         Self::Connection(P2pConnectionAction::Incoming(a.into()))
     }
 }

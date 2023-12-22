@@ -5,7 +5,9 @@ use openmina_core::block::ArcBlockWithHash;
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
 
-use crate::transition_frontier::sync::TransitionFrontierSyncBlockState;
+use crate::transition_frontier::sync::{
+    ledger::SyncLedgerTargetKind, TransitionFrontierSyncBlockState,
+};
 
 const MAX_SNAPSHOTS_LEN: usize = 256;
 
@@ -31,6 +33,8 @@ pub enum SyncKind {
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct SyncLedgers {
+    pub staking_epoch: Option<SyncLedger>,
+    pub next_epoch: Option<SyncLedger>,
     pub root: Option<SyncLedger>,
 }
 
@@ -83,7 +87,7 @@ pub enum SyncBlockStatus {
 pub enum SyncingLedger {
     Init {
         snarked_ledger_hash: LedgerHash,
-        staged_ledger_hash: LedgerHash,
+        staged_ledger_hash: Option<LedgerHash>,
     },
     FetchHashes {
         start: Timestamp,
@@ -138,11 +142,11 @@ impl SyncStats {
         self
     }
 
-    pub fn ledger(&mut self, update: SyncingLedger) -> &mut Self {
+    pub fn ledger(&mut self, kind: SyncLedgerTargetKind, update: SyncingLedger) -> &mut Self {
         let Some(mut snapshot) = self.snapshots.pop_back() else {
             return self;
         };
-        let ledger = snapshot.ledgers.root.get_or_insert_with(Default::default);
+        let ledger = snapshot.ledgers.get_or_insert(kind);
 
         match update {
             SyncingLedger::Init {
@@ -150,11 +154,9 @@ impl SyncStats {
                 staged_ledger_hash,
             } => {
                 ledger.snarked.hash = Some(snarked_ledger_hash);
-                ledger.staged.hash = Some(staged_ledger_hash);
+                ledger.staged.hash = staged_ledger_hash;
 
-                if let Some(prev_sync) =
-                    &self.snapshots.back().and_then(|s| s.ledgers.root.as_ref())
-                {
+                if let Some(prev_sync) = &self.snapshots.back().and_then(|s| s.ledgers.get(kind)) {
                     if prev_sync.snarked.hash == ledger.snarked.hash {
                         ledger.snarked = prev_sync.snarked.clone();
                     }
@@ -254,6 +256,26 @@ impl SyncStats {
     pub fn collect_stats(&self, limit: Option<usize>) -> Vec<SyncStatsSnapshot> {
         let limit = limit.unwrap_or(usize::MAX);
         self.snapshots.iter().rev().take(limit).cloned().collect()
+    }
+}
+
+impl SyncLedgers {
+    pub fn get(&self, kind: SyncLedgerTargetKind) -> Option<&SyncLedger> {
+        match kind {
+            SyncLedgerTargetKind::StakingEpoch => self.staking_epoch.as_ref(),
+            SyncLedgerTargetKind::NextEpoch => self.next_epoch.as_ref(),
+            SyncLedgerTargetKind::Root => self.root.as_ref(),
+        }
+    }
+
+    fn get_or_insert(&mut self, kind: SyncLedgerTargetKind) -> &mut SyncLedger {
+        match kind {
+            SyncLedgerTargetKind::StakingEpoch => {
+                self.staking_epoch.get_or_insert_with(Default::default)
+            }
+            SyncLedgerTargetKind::NextEpoch => self.next_epoch.get_or_insert_with(Default::default),
+            SyncLedgerTargetKind::Root => self.root.get_or_insert_with(Default::default),
+        }
     }
 }
 

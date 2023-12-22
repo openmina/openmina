@@ -71,6 +71,7 @@ impl P2pConnectionState {
             Self::Outgoing(P2pConnectionOutgoingState::Success { .. }) => true,
             Self::Outgoing(_) => false,
             Self::Incoming(P2pConnectionIncomingState::Success { .. }) => true,
+            Self::Incoming(P2pConnectionIncomingState::Libp2pReceived { .. }) => true,
             Self::Incoming(_) => false,
         }
     }

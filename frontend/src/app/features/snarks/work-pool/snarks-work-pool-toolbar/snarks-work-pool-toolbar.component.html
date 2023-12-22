@@ -1,0 +1,18 @@
+<mina-horizontal-menu [clz]="'pl-12'" [template]="items"></mina-horizontal-menu>
+<ng-template #items>
+  <div class="fx-row-vert-cent flex-between w-100">
+    <div class="fx-row-vert-cent">
+      <div class="tertiary f-600 mr-10">Filters</div>
+      <div class="filter pointer bg-container h-sm lh-sm pl-8 pr-8 border-rad-6 mr-5 text-capitalize f-600 text-nowrap"
+           *ngFor="let filter of allFilters"
+           (click)="toggleFilter(filter)"
+           [class.active]="activeFilters.includes(filter)">{{ filter }}</div>
+    </div>
+    <div class="fx-row-vert-cent tertiary shrink-0">
+      Total Jobs <span class="primary mr-16 ml-5">{{ total }}</span>
+      Available <span class="primary mr-16 ml-5">{{ available }}</span>
+      Committed <span class="special-alt-3-primary mr-16 ml-5">{{ committed }}</span>
+      Snarked <span class="special-alt-1-primary mr-16 ml-5">{{ snarked }}</span>
+    </div>
+  </div>
+</ng-template>

@@ -34,11 +34,19 @@ use openmina_node_native::{http_server, rpc::RpcService, NodeService, RpcSender}
 use rand::{rngs::StdRng, SeedableRng};
 use serde::Serialize;
 
+use crate::node::TestPeerId;
 use crate::{
+    network_debugger::Debugger,
     node::{Node, NodeTestingConfig, RustNodeTestingConfig},
     scenario::{ListenerNode, Scenario, ScenarioId, ScenarioStep},
     service::{NodeTestingService, PendingEventId},
 };
+
+lazy_static::lazy_static! {
+    static ref VERIFIER_SRS: Arc<VerifierSRS> = get_srs().into();
+    static ref BLOCK_VERIFIER_INDEX: Arc<VerifierIndex> = get_verifier_index(VerifierKind::Blockchain).into();
+    static ref WORK_VERIFIER_INDEX: Arc<VerifierIndex> = get_verifier_index(VerifierKind::Transaction).into();
+}
 
 pub struct Cluster {
     pub config: ClusterConfig,
@@ -51,6 +59,8 @@ pub struct Cluster {
     verifier_srs: Arc<VerifierSRS>,
     block_verifier_index: Arc<VerifierIndex>,
     work_verifier_index: Arc<VerifierIndex>,
+
+    debugger: Option<Debugger>,
 }
 
 #[derive(Serialize)]
@@ -65,6 +75,11 @@ impl Cluster {
         let available_ports = config
             .port_range()
             .filter(|port| std::net::TcpListener::bind(("0.0.0.0", *port)).is_ok());
+        let debugger = if config.is_use_debugger() {
+            Some(Debugger::drone_ci())
+        } else {
+            None
+        };
         Self {
             config,
             scenario: ClusterScenarioRun {
@@ -77,10 +92,16 @@ impl Cluster {
 
             rpc_counter: 0,
 
-            verifier_srs: get_srs().into(),
-            block_verifier_index: get_verifier_index(VerifierKind::Blockchain).into(),
-            work_verifier_index: get_verifier_index(VerifierKind::Transaction).into(),
+            verifier_srs: VERIFIER_SRS.clone(),
+            block_verifier_index: BLOCK_VERIFIER_INDEX.clone(),
+            work_verifier_index: WORK_VERIFIER_INDEX.clone(),
+
+            debugger,
         }
+    }
+
+    pub fn available_port(&mut self) -> Option<u16> {
+        self.available_ports.next()
     }
 
     pub fn add_node(&mut self, testing_config: NodeTestingConfig) -> ClusterNodeId {
@@ -92,15 +113,41 @@ impl Cluster {
     pub fn add_rust_node(&mut self, testing_config: RustNodeTestingConfig) -> ClusterNodeId {
         let node_i = self.nodes.len();
         let (shutdown_tx, shutdown_rx) = mpsc::channel(1);
-        let secret_key = {
-            let mut bytes = [0; 32];
-            let bytes_len = bytes.len();
-            let i_bytes = node_i.to_be_bytes();
-            let i = bytes_len - i_bytes.len();
-            bytes[i..bytes_len].copy_from_slice(&i_bytes);
-            P2pSecretKey::from_bytes(bytes)
-        };
+        let secret_key = P2pSecretKey::from_bytes(match testing_config.peer_id {
+            TestPeerId::Derived => {
+                let mut bytes = [0; 32];
+                let bytes_len = bytes.len();
+                let i_bytes = node_i.to_be_bytes();
+                let i = bytes_len - i_bytes.len();
+                bytes[i..bytes_len].copy_from_slice(&i_bytes);
+                bytes
+            }
+            TestPeerId::Random => rand::random(),
+            TestPeerId::Bytes(bytes) => bytes,
+        });
         let pub_key = secret_key.public_key();
+
+        let http_port = self
+            .available_ports
+            .next()
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "couldn't find available port in port range: {:?}",
+                    self.config.port_range()
+                )
+            })
+            .unwrap();
+        let libp2p_port = testing_config.libp2p_port.unwrap_or_else(|| {
+            self.available_ports
+                .next()
+                .ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "couldn't find available port in port range: {:?}",
+                        self.config.port_range()
+                    )
+                })
+                .unwrap()
+        });
 
         let config = Config {
             ledger: LedgerConfig {},
@@ -116,9 +163,12 @@ impl Cluster {
                 snarker: None,
             },
             p2p: P2pConfig {
+                libp2p_port: Some(libp2p_port),
+                listen_port: http_port,
                 identity_pub_key: pub_key,
-                initial_peers: vec![],
-                max_peers: 100,
+                initial_peers: testing_config.initial_peers,
+                max_peers: testing_config.max_peers,
+                ask_initial_peers_interval: testing_config.ask_initial_peers_interval,
                 enabled_channels: ChannelId::iter_all().collect(),
             },
             transition_frontier: TransitionFrontierConfig::default(),
@@ -132,6 +182,7 @@ impl Cluster {
             libp2p,
             webrtc: P2pServiceCtx { cmd_sender, peers },
         } = <NodeService as P2pServiceWebrtcWithLibp2p>::init(
+            Some(libp2p_port),
             secret_key,
             testing_config.chain_id,
             p2p_event_sender.clone(),
@@ -149,16 +200,6 @@ impl Cluster {
 
         let mut rpc_service = RpcService::new();
 
-        let http_port = self
-            .available_ports
-            .next()
-            .ok_or_else(|| {
-                anyhow::anyhow!(
-                    "couldn't find available port in port range: {:?}",
-                    self.config.port_range()
-                )
-            })
-            .unwrap();
         let rpc_sender = RpcSender::new(rpc_service.req_sender().clone());
 
         // spawn http-server
@@ -197,11 +238,15 @@ impl Cluster {
             recorder: Recorder::None,
             replayer: None,
         };
-        let service = NodeTestingService::new(real_service, http_port, shutdown_rx);
+        let mut service = NodeTestingService::new(real_service, shutdown_rx);
+        if self.config.all_rust_to_rust_use_webrtc() {
+            service.set_rust_to_rust_use_webrtc();
+        }
+
         let state = node::State::new(config);
         fn effects<S: node::Service>(store: &mut node::Store<S>, action: node::ActionWithMeta) {
-            let peer_id = store.state().p2p.config.identity_pub_key.peer_id();
-            eprintln!("{peer_id}: {:?}", action.action().kind());
+            let peer_id = store.state().p2p.my_id();
+            openmina_core::log::trace!(action.time(); "{peer_id}: {:?}", action.action().kind());
             node::effects(store, action)
         }
         let store = node::Store::new(
@@ -251,6 +296,13 @@ impl Cluster {
 
     pub fn target_scenario(&self) -> Option<&ScenarioId> {
         self.scenario.target_scenario().map(|v| &v.info.id)
+    }
+
+    pub fn nodes_iter(&self) -> impl Iterator<Item = (ClusterNodeId, &Node)> {
+        self.nodes
+            .iter()
+            .enumerate()
+            .map(|(i, node)| (ClusterNodeId::new_unchecked(i), node))
     }
 
     pub fn node(&self, node_id: ClusterNodeId) -> Option<&Node> {
@@ -446,6 +498,10 @@ impl Cluster {
                 true
             }
         })
+    }
+
+    pub fn debugger(&self) -> Option<&Debugger> {
+        self.debugger.as_ref()
     }
 }
 

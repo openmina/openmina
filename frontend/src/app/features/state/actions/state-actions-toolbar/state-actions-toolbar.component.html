@@ -1,0 +1,62 @@
+<mina-horizontal-menu [clz]="'pl-12'" [template]="template1"></mina-horizontal-menu>
+<ng-template #template1>
+  <span class="tertiary mr-10 f-600 shrink-0">ID</span>
+  <div class="pagination-group fx-row-vert-cent bg-selected-container ml-10 border-rad-4">
+    <button class="h-sm w-sm fx-row-full-cent"
+            [class.disabled]="!earliestSlot || activeSlot === 0"
+            [tooltip]="'Prev slot'"
+            [showDelay]="500"
+            (click)="getSlot(activeSlot - 1)">
+      <span class="mina-icon f-18">navigate_before</span>
+    </button>
+    <span class="selected-primary pl-5 pr-5 f-600 flex-row flex-center">{{ activeSlot }}<span class="selected-secondary">&nbsp;/ {{ earliestSlot !== undefined ? earliestSlot : '-' }}</span></span>
+    <button class="h-sm w-sm fx-row-full-cent"
+            [class.disabled]="!earliestSlot || earliestSlot === activeSlot"
+            [tooltip]="'Next slot'"
+            [showDelay]="500"
+            (click)="getSlot(activeSlot + 1)">
+      <span class="mina-icon f-18">navigate_next</span>
+    </button>
+  </div>
+  <button class="btn-secondary h-sm w-sm mr-10 ml-5 fx-row-full-cent"
+          [class.disabled]="!earliestSlot || earliestSlot === activeSlot"
+          [tooltip]="'Last slot'"
+          [showDelay]="500"
+          (click)="getSlot(earliestSlot)">
+    <span class="mina-icon f-18">last_page</span>
+  </button>
+  <span class="tertiary mr-10 f-600 ml-16">Sort</span>
+  <button class="sort btn-secondary fx-row-full-cent"
+          [class.active]="currentSort.sortBy === 'totalTime'"
+          [class.rev]="currentSort.sortDirection === 'descending'"
+          (click)="sort('totalTime')">
+    Total
+    <span class="mina-icon f-18">arrow_upward</span>
+  </button>
+  <button class="sort btn-secondary ml-5 fx-row-full-cent"
+          [class.active]="currentSort.sortBy === 'meanTime'"
+          [class.rev]="currentSort.sortDirection === 'descending'"
+          (click)="sort('meanTime')">
+    Mean
+    <span class="mina-icon f-18">arrow_upward</span>
+  </button>
+  <button class="sort btn-secondary ml-5 fx-row-full-cent"
+          [class.active]="currentSort.sortBy === 'count'"
+          [class.rev]="currentSort.sortDirection === 'descending'"
+          (click)="sort('count')">
+    Calls
+    <span class="mina-icon f-18">arrow_upward</span>
+  </button>
+  <span class="tertiary mr-10 f-600 ml-16">Search</span>
+  <div>
+    <form [formGroup]="formGroup"
+          [class.active]="formGroup.get('search').value"
+          class="h-sm p-relative border-rad-4 mr-10">
+      <span class="mina-icon icon-200 p-absolute f-20">search</span>
+      <input type="text" formControlName="search" placeholder="Action"
+             class="border-remove f-600 h-100 w-100 truncate">
+      <span class="mina-icon icon-200 p-absolute pointer"
+            (click)="formGroup.get('search').setValue('')">close</span>
+    </form>
+  </div>
+</ng-template>

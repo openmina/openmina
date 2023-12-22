@@ -1,6 +1,8 @@
 use clap::Parser;
 
-use openmina_node_testing::exit_with_error;
+use openmina_node_testing::cluster::ClusterConfig;
+use openmina_node_testing::scenarios::Scenarios;
+use openmina_node_testing::{exit_with_error, server, setup};
 
 pub type CommandError = Box<dyn std::error::Error>;
 
@@ -25,36 +27,43 @@ pub struct CommandServer {
 }
 
 #[derive(Debug, clap::Args)]
-pub struct CommandScenariosGenerate {}
+pub struct CommandScenariosGenerate {
+    #[arg(long, short)]
+    pub name: Option<String>,
+    #[arg(long, short)]
+    pub use_debugger: bool,
+}
 
 impl Command {
     pub fn run(self) -> Result<(), crate::CommandError> {
-        // openmina_node_native::tracing::initialize(openmina_node_native::tracing::Level::DEBUG);
-        rayon::ThreadPoolBuilder::new()
-            .num_threads(num_cpus::get().max(2) - 1)
-            .thread_name(|i| format!("openmina_rayon_{i}"))
-            .build_global()
-            .unwrap();
-
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .unwrap();
+        let rt = setup();
         let _rt_guard = rt.enter();
 
         match self {
             Self::Server(args) => {
-                openmina_node_testing::server(args.port);
+                server(args.port);
                 Ok(())
             }
-            Self::ScenariosGenerate(_) => {
+            Self::ScenariosGenerate(cmd) => {
                 #[cfg(feature = "scenario-generators")]
                 {
-                    for scenario in openmina_node_testing::scenarios::Scenarios::iter() {
-                        rt.block_on(async {
-                            scenario.run_and_save_from_scratch().await;
-                        });
+                    let config = ClusterConfig::new(cmd.use_debugger);
+
+                    if let Some(name) = cmd.name {
+                        if let Some(scenario) = Scenarios::iter()
+                            .into_iter()
+                            .find(|s| <&'static str>::from(s) == name)
+                        {
+                            rt.block_on(scenario.run_and_save_from_scratch(config));
+                        } else {
+                            panic!("no such scenario: \"{name}\"");
+                        }
+                    } else {
+                        for scenario in Scenarios::iter() {
+                            rt.block_on(scenario.run_and_save_from_scratch(config.clone()));
+                        }
                     }
+
                     Ok(())
                 }
                 #[cfg(not(feature = "scenario-generators"))]

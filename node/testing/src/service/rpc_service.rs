@@ -23,6 +23,14 @@ impl RpcService for super::NodeTestingService {
         self.real.respond_action_stats_get(rpc_id, response)
     }
 
+    fn respond_peers_get(
+        &mut self,
+        rpc_id: RpcId,
+        response: node::rpc::RpcPeersGetResponse,
+    ) -> Result<(), RespondError> {
+        self.real.respond_peers_get(rpc_id, response)
+    }
+
     fn respond_p2p_connection_outgoing(
         &mut self,
         rpc_id: RpcId,

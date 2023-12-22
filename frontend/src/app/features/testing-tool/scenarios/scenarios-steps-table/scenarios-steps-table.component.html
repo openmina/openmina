@@ -1,0 +1,9 @@
+<ng-container #minaTable></ng-container>
+
+<ng-template #rowTemplate let-row="row">
+  <span>{{ row.index + 1 }}</span>
+  <span class="fx-row-vert-cent"><span class="mina-icon">check</span></span>
+  <span class="secondary">{{ row.kind }}</span>
+  <span>{{ row.dialer ?? '-' }}</span>
+  <span class="truncate">{{ (row.listener || row.event) | json }}</span>
+</ng-template>

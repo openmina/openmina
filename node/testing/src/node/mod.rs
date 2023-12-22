@@ -1,8 +1,11 @@
 mod config;
-pub use config::{NodeTestingConfig, RustNodeTestingConfig};
+pub use config::{NodeTestingConfig, RustNodeTestingConfig, TestPeerId};
 
 use node::event_source::{Event, EventSourceNewEventAction};
-use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
+use node::p2p::PeerId;
+use node::p2p::connection::outgoing::{
+    P2pConnectionOutgoingInitLibp2pOpts, P2pConnectionOutgoingInitOpts,
+};
 use node::p2p::webrtc::SignalingMethod;
 use node::{Action, CheckTimeoutsAction, State, Store};
 use redux::EnablingCondition;
@@ -18,19 +21,36 @@ impl Node {
         Self { store }
     }
 
-    fn service(&mut self) -> &mut NodeTestingService {
+    pub fn service(&self) -> &NodeTestingService {
+        &self.store.service
+    }
+
+    fn service_mut(&mut self) -> &mut NodeTestingService {
         &mut self.store.service
     }
 
     pub fn dial_addr(&self) -> P2pConnectionOutgoingInitOpts {
-        let peer_id = self.store.state().p2p.config.identity_pub_key.peer_id();
-        let port = self.store.service.http_port();
-        let signaling = SignalingMethod::Http(([127, 0, 0, 1], port).into());
-        P2pConnectionOutgoingInitOpts::WebRTC { peer_id, signaling }
+        let peer_id = self.store.state().p2p.my_id();
+        if self.service().rust_to_rust_use_webrtc() {
+            let port = self.store.state().p2p.config.listen_port;
+            let signaling = SignalingMethod::Http(([127, 0, 0, 1], port).into());
+            P2pConnectionOutgoingInitOpts::WebRTC { peer_id, signaling }
+        } else {
+            let opts = P2pConnectionOutgoingInitLibp2pOpts {
+                peer_id,
+                host: node::p2p::webrtc::Host::Ipv4([127, 0, 0, 1].into()),
+                port: self.store.state().p2p.config.libp2p_port.unwrap(),
+            };
+            P2pConnectionOutgoingInitOpts::LibP2P(opts)
+        }
     }
 
     pub fn state(&self) -> &State {
         self.store.state()
+    }
+
+    pub fn peer_id(&self) -> PeerId {
+        self.state().p2p.config.identity_pub_key.peer_id()
     }
 
     pub fn pending_events(&mut self) -> impl Iterator<Item = (PendingEventId, &Event)> {
@@ -64,14 +84,14 @@ impl Node {
 
     pub async fn wait_for_event_and_dispatch(&mut self, event_pattern: &str) -> bool {
         let event_id = self
-            .service()
+            .service_mut()
             .pending_events()
             .find(|(_, event)| event.to_string().starts_with(event_pattern))
             .map(|(id, _)| id);
         let event_id = match event_id {
             Some(id) => Some(id),
             None => loop {
-                let (id, event) = match self.service().next_pending_event().await {
+                let (id, event) = match self.service_mut().next_pending_event().await {
                     Some(v) => v,
                     None => break None,
                 };
@@ -82,7 +102,7 @@ impl Node {
         };
 
         if let Some(id) = event_id {
-            let event = self.service().take_pending_event(id).unwrap();
+            let event = self.service_mut().take_pending_event(id).unwrap();
             return self.dispatch_event(event);
         }
         false

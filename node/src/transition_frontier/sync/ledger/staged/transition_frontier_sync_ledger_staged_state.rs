@@ -2,13 +2,13 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use mina_p2p_messages::v2::{MinaStateProtocolStateValueStableV2, StateHash};
-use openmina_core::block::ArcBlockWithHash;
 use p2p::channels::rpc::StagedLedgerAuxAndPendingCoinbases;
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
 
 use crate::p2p::channels::rpc::P2pRpcId;
 use crate::p2p::PeerId;
+use crate::transition_frontier::sync::ledger::SyncLedgerTargetWithStaged;
 
 use super::{
     PeerStagedLedgerPartsFetchError, StagedLedgerAuxAndPendingCoinbasesValid,
@@ -21,39 +21,39 @@ pub enum TransitionFrontierSyncLedgerStagedState {
     /// snarked ledger.
     PartsFetchPending {
         time: Timestamp,
-        block: ArcBlockWithHash,
+        target: SyncLedgerTargetWithStaged,
         attempts: BTreeMap<PeerId, PeerStagedLedgerPartsFetchState>,
     },
     /// Fetched pieces required to reconstruct staged ledger from
     /// snarked ledger.
     PartsFetchSuccess {
         time: Timestamp,
-        block: ArcBlockWithHash,
+        target: SyncLedgerTargetWithStaged,
         parts: Arc<StagedLedgerAuxAndPendingCoinbasesValid>,
     },
     ReconstructEmpty {
         time: Timestamp,
-        block: ArcBlockWithHash,
+        target: SyncLedgerTargetWithStaged,
     },
     ReconstructPending {
         time: Timestamp,
-        block: ArcBlockWithHash,
+        target: SyncLedgerTargetWithStaged,
         parts: Option<Arc<StagedLedgerAuxAndPendingCoinbasesValid>>,
     },
     ReconstructError {
         time: Timestamp,
-        block: ArcBlockWithHash,
+        target: SyncLedgerTargetWithStaged,
         parts: Option<Arc<StagedLedgerAuxAndPendingCoinbasesValid>>,
         error: String,
     },
     ReconstructSuccess {
         time: Timestamp,
-        block: ArcBlockWithHash,
+        target: SyncLedgerTargetWithStaged,
         parts: Option<Arc<StagedLedgerAuxAndPendingCoinbasesValid>>,
     },
     Success {
         time: Timestamp,
-        block: ArcBlockWithHash,
+        target: SyncLedgerTargetWithStaged,
         needed_protocol_states: BTreeMap<StateHash, MinaStateProtocolStateValueStableV2>,
     },
 }
@@ -83,35 +83,35 @@ pub enum PeerStagedLedgerPartsFetchState {
 }
 
 impl TransitionFrontierSyncLedgerStagedState {
-    pub fn pending(time: Timestamp, block: ArcBlockWithHash) -> Self {
+    pub fn pending(time: Timestamp, target: SyncLedgerTargetWithStaged) -> Self {
         Self::PartsFetchPending {
             time,
-            block,
+            target,
             attempts: Default::default(),
         }
     }
 
-    pub fn block(&self) -> &ArcBlockWithHash {
+    pub fn target(&self) -> &SyncLedgerTargetWithStaged {
         match self {
-            Self::PartsFetchPending { block, .. } => block,
-            Self::PartsFetchSuccess { block, .. } => block,
-            Self::ReconstructEmpty { block, .. } => block,
-            Self::ReconstructPending { block, .. } => block,
-            Self::ReconstructError { block, .. } => block,
-            Self::ReconstructSuccess { block, .. } => block,
-            Self::Success { block, .. } => block,
+            Self::PartsFetchPending { target, .. } => target,
+            Self::PartsFetchSuccess { target, .. } => target,
+            Self::ReconstructEmpty { target, .. } => target,
+            Self::ReconstructPending { target, .. } => target,
+            Self::ReconstructError { target, .. } => target,
+            Self::ReconstructSuccess { target, .. } => target,
+            Self::Success { target, .. } => target,
         }
     }
 
-    pub fn block_with_parts(
+    pub fn target_with_parts(
         &self,
     ) -> Option<(
-        &ArcBlockWithHash,
+        &SyncLedgerTargetWithStaged,
         Option<&Arc<StagedLedgerAuxAndPendingCoinbases>>,
     )> {
         Some(match self {
-            Self::PartsFetchSuccess { block, parts, .. } => (block, Some(parts)),
-            Self::ReconstructEmpty { block, .. } => (block, None),
+            Self::PartsFetchSuccess { target, parts, .. } => (target, Some(parts)),
+            Self::ReconstructEmpty { target, .. } => (target, None),
             _ => return None,
         })
     }

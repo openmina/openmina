@@ -1,0 +1,20 @@
+<div class="flex-column h-100" #parent>
+  <mina-network-messages-filters (onSizeChange)="checkVirtualScrollViewport()"></mina-network-messages-filters>
+  <mina-horizontal-resizable-container [leftTemplate]="left"
+                                       [rightTemplate]="right"
+                                       [show]="isActiveRow"
+                                       [minWidth]="420"
+                                       [maxWidthElement]="parent"
+                                       localStorageKey="network-messages-side-panel-width">
+  </mina-horizontal-resizable-container>
+
+  <ng-template #left>
+    <mina-network-messages-table></mina-network-messages-table>
+  </ng-template>
+
+  <ng-template #right>
+    <mina-network-messages-side-panel></mina-network-messages-side-panel>
+  </ng-template>
+
+  <mina-network-messages-table-footer (onScrollTopClick)="scrollToTop()"></mina-network-messages-table-footer>
+</div>

@@ -1,0 +1,17 @@
+<ng-container #minaTable></ng-container>
+
+<ng-template #rowTemplate let-row="row">
+  <span class="tertiary">{{ row.datetime }}</span>
+  <span>
+    <span class="height f-600">{{ row.height }}</span>
+  </span>
+  <span class="fx-row-vert-cent"
+        [ngClass]="row.message">
+    <span class="best-tip f-600" *ngIf="row.isBestTip">
+      <span>Best Tip</span>
+    </span>
+    {{ row.message }}
+  </span>
+  <span [ngClass]="row.status">{{ row.status }}</span>
+  <span [innerHTML]="row.elapsed | secDuration: secConfig"></span>
+</ng-template>

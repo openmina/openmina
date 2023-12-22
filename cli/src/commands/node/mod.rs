@@ -28,8 +28,8 @@ use node::service::{Recorder, Service};
 use node::snark::{get_srs, get_verifier_index, VerifierKind};
 use node::stats::Stats;
 use node::{
-    BuildEnv, Config, GlobalConfig, LedgerConfig, SnarkConfig, SnarkerConfig, State,
-    TransitionFrontierConfig,
+    BuildEnv, Config, GlobalConfig, LedgerConfig, SnarkConfig, SnarkerConfig, SnarkerStrategy,
+    State, TransitionFrontierConfig,
 };
 
 use openmina_node_native::rpc::RpcService;
@@ -47,9 +47,13 @@ pub struct Node {
     #[arg(long, short = 's', env = "OPENMINA_P2P_SEC_KEY")]
     pub p2p_secret_key: Option<SecretKey>,
 
-    /// Port to listen to
+    /// Http port to listen on
     #[arg(long, short, env, default_value = "3000")]
     pub port: u16,
+
+    /// LibP2P port to listen on
+    #[arg(long, env, default_value = "8302")]
+    pub libp2p_port: u16,
 
     /// Verbosity level
     #[arg(long, short, env, default_value = "info")]
@@ -67,6 +71,9 @@ pub struct Node {
     /// Snark fee, in Mina
     #[arg(long, env, default_value_t = 1_000_000)]
     pub snarker_fee: u64,
+
+    #[arg(long, env, default_value = "seq")]
+    pub snarker_strategy: SnarkerStrategy,
 
     /// Mina snark worker path
     #[arg(long, env, default_value = "cli/bin/snark-worker")]
@@ -144,14 +151,18 @@ impl Node {
                     fee: CurrencyFeeStableV1(UnsignedExtendedUInt64Int64ForVersionTagsStableV1(
                         self.snarker_fee.into(),
                     )),
+                    strategy: self.snarker_strategy,
                     auto_commit: true,
                     path: self.snarker_exe_path,
                 }),
             },
             p2p: P2pConfig {
+                libp2p_port: Some(self.libp2p_port),
+                listen_port: self.port,
                 identity_pub_key: pub_key,
                 initial_peers: self.peers,
                 max_peers: 100,
+                ask_initial_peers_interval: Duration::from_secs(3600),
                 enabled_channels: ChannelId::iter_all().collect(),
             },
             transition_frontier: TransitionFrontierConfig::default(),
@@ -164,6 +175,7 @@ impl Node {
             libp2p,
             webrtc: P2pServiceCtx { cmd_sender, peers },
         } = <NodeService as P2pServiceWebrtcWithLibp2p>::init(
+            Some(self.libp2p_port),
             secret_key,
             CHAIN_ID.to_owned(),
             p2p_event_sender.clone(),

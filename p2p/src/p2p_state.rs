@@ -16,21 +16,76 @@ use super::P2pConfig;
 pub struct P2pState {
     pub config: P2pConfig,
     pub peers: BTreeMap<PeerId, P2pPeerState>,
-    pub known_peers: BTreeMap<PeerId, P2pConnectionOutgoingInitOpts>,
+    pub kademlia: P2pKademliaState,
+    pub listeners: P2pListenersState,
 }
+
+#[derive(Default, Serialize, Deserialize, Debug, Clone)]
+pub struct P2pKademliaState {
+    pub is_ready: bool,
+    pub is_bootstrapping: bool,
+    pub outgoing_requests: usize,
+    pub routes: BTreeMap<PeerId, Vec<P2pConnectionOutgoingInitOpts>>,
+    pub known_peers: BTreeMap<PeerId, P2pConnectionOutgoingInitOpts>,
+    pub saturated: Option<redux::Timestamp>,
+    pub peer_timestamp: BTreeMap<PeerId, redux::Timestamp>,
+}
+
+#[derive(Default, Serialize, Deserialize, Debug, Clone)]
+pub struct P2pListenersState(pub BTreeMap<P2pListenerId, P2pListenerState>);
+
+#[derive(Default, Serialize, Deserialize, derive_more::From, PartialEq, Eq, PartialOrd, Ord, Debug, Clone, derive_more::Display)]
+pub struct P2pListenerId(String);
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum P2pListenerState {
+    Open {
+        addrs: BTreeSet<libp2p::Multiaddr>,
+        errors: Vec<String>,
+    },
+    Closed,
+    ClosedWithError(String),
+}
+
+impl Default for P2pListenerState {
+    fn default() -> Self {
+        P2pListenerState::Open { addrs: BTreeSet::default(), errors: Vec::new() }
+    }
+}
+
+// pub enum P2pKademliaState {
+//     /// Kademlia is not running
+//     None,
+//     /// Kademlia is bootstrapping by
+//     FindingNearestPeers,
+//     ///
+//     FindRandomPeers,
+//     ///
+//     Ready,
+// }
 
 impl P2pState {
     pub fn new(config: P2pConfig) -> Self {
-        let known_peers = config
-            .initial_peers
-            .iter()
-            .map(|p| (p.peer_id().clone(), p.clone()))
-            .collect();
+        let mut kademlia = P2pKademliaState::default();
+        if cfg!(feature = "p2p-webrtc") {
+            kademlia.known_peers.extend(
+                config
+                    .initial_peers
+                    .iter()
+                    .map(|opts| (*opts.peer_id(), opts.clone())),
+            );
+        }
+
         Self {
             config,
+            listeners: Default::default(),
             peers: Default::default(),
-            known_peers,
+            kademlia,
         }
+    }
+
+    pub fn my_id(&self) -> PeerId {
+        self.config.identity_pub_key.peer_id()
     }
 
     pub fn peer_connection_rpc_id(&self, peer_id: &PeerId) -> Option<RpcId> {
@@ -56,9 +111,14 @@ impl P2pState {
     }
 
     pub fn initial_unused_peers(&self) -> Vec<P2pConnectionOutgoingInitOpts> {
-        self.known_peers
+        self.kademlia
+            .known_peers
             .values()
-            .filter(|v| !self.peers.contains_key(v.peer_id()))
+            .filter(|v| {
+                self.ready_peers_iter()
+                    .find(|(id, _)| (*id).eq(v.peer_id()))
+                    .is_none()
+            })
             .cloned()
             .collect()
     }
@@ -124,25 +184,42 @@ impl P2pState {
     }
 
     pub fn already_has_min_peers(&self) -> bool {
-        self.connected_or_connecting_peers_count() >= (self.config.max_peers / 2).max(3)
+        self.connected_or_connecting_peers_count() >= self.min_peers()
     }
 
     pub fn already_has_max_peers(&self) -> bool {
         self.connected_or_connecting_peers_count() >= self.config.max_peers
     }
+
+    pub fn already_knows_max_peers(&self) -> bool {
+        self.kademlia.known_peers.len() >= self.config.max_peers * 2
+    }
+
+    pub fn enough_time_elapsed(&self, time: redux::Timestamp) -> bool {
+        let Some(last_used) = self.kademlia.saturated else {
+            return true;
+        };
+        time.checked_sub(last_used)
+            .map(|t| t > self.config.ask_initial_peers_interval)
+            .unwrap_or(false)
+    }
+
+    /// Minimal number of peers that the node should connect
+    pub fn min_peers(&self) -> usize {
+        (self.config.max_peers / 2).max(3)
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pPeerState {
+    pub is_libp2p: bool,
     pub dial_opts: Option<P2pConnectionOutgoingInitOpts>,
     pub status: P2pPeerStatus,
 }
 
 impl P2pPeerState {
     pub fn is_libp2p(&self) -> bool {
-        self.dial_opts
-            .as_ref()
-            .map_or(false, |opts| opts.is_libp2p())
+        self.is_libp2p
     }
 
     pub fn connection_rpc_id(&self) -> Option<RpcId> {
@@ -203,14 +280,20 @@ impl P2pPeerStatus {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pPeerStatusReady {
+    pub is_incoming: bool,
     pub connected_since: redux::Timestamp,
     pub channels: P2pChannelsState,
     pub best_tip: Option<ArcBlockWithHash>,
 }
 
 impl P2pPeerStatusReady {
-    pub fn new(time: redux::Timestamp, enabled_channels: &BTreeSet<ChannelId>) -> Self {
+    pub fn new(
+        is_incoming: bool,
+        time: redux::Timestamp,
+        enabled_channels: &BTreeSet<ChannelId>,
+    ) -> Self {
         Self {
+            is_incoming,
             connected_since: time,
             channels: P2pChannelsState::new(enabled_channels),
             best_tip: None,

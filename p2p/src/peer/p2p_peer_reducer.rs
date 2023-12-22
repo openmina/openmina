@@ -11,6 +11,7 @@ pub fn p2p_peer_reducer(state: &mut P2pState, action: P2pPeerActionWithMetaRef<'
                 return;
             };
             peer.status = P2pPeerStatus::Ready(P2pPeerStatusReady::new(
+                action.incoming,
                 meta.time(),
                 &state.config.enabled_channels,
             ));

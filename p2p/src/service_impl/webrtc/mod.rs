@@ -3,9 +3,9 @@ mod native;
 #[cfg(target_arch = "wasm32")]
 mod web;
 
-use std::collections::BTreeMap;
 use std::future::Future;
 use std::pin::Pin;
+use std::{collections::BTreeMap, time::Duration};
 
 use serde::Serialize;
 
@@ -182,6 +182,19 @@ impl Drop for RTCChannel {
     }
 }
 
+async fn wait_for_ice_gathering_complete(pc: &RTCConnection) {
+    let timeout = Duration::from_secs(3);
+
+    #[cfg(not(target_arch = "wasm32"))]
+    let timeout = tokio::time::sleep(timeout);
+    #[cfg(target_arch = "wasm32")]
+    let timeout = wasm_timer::Delay::new(timeout);
+    tokio::select! {
+        _ = timeout => {}
+        _ = pc.wait_for_ice_gathering_complete() => {}
+    }
+}
+
 // TODO(binier): cancel future if peer cmd sender is dropped.
 async fn peer_start(args: PeerAddArgs) {
     let PeerAddArgs {
@@ -211,7 +224,7 @@ async fn peer_start(args: PeerAddArgs) {
 
         if is_outgoing {
             pc.local_desc_set(offer).await?;
-            pc.wait_for_ice_gathering_complete().await;
+            wait_for_ice_gathering_complete(&pc).await;
         } else {
             pc.remote_desc_set(offer).await?;
         }
@@ -270,7 +283,7 @@ async fn peer_start(args: PeerAddArgs) {
     } else {
         let fut = async {
             pc.local_desc_set(answer).await?;
-            pc.wait_for_ice_gathering_complete().await;
+            wait_for_ice_gathering_complete(&pc).await;
             Ok(pc.local_sdp().await.unwrap())
         };
         let res = fut.await.map_err(|err: Error| err.to_string());

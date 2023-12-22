@@ -9,7 +9,7 @@ use redux::ActionMeta;
 use serde::Serialize;
 
 use node::core::channels::{mpsc, oneshot};
-use node::core::snark::Snark;
+use node::core::snark::{Snark, SnarkJobId};
 use node::event_source::Event;
 use node::ledger::LedgerCtx;
 use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
@@ -25,6 +25,7 @@ use node::snark::block_verify::{
 };
 use node::snark::work_verify::{SnarkWorkVerifyError, SnarkWorkVerifyId, SnarkWorkVerifyService};
 use node::snark::{SnarkEvent, VerifierIndex, VerifierSRS};
+use node::snark_pool::{JobState, SnarkPoolService};
 use node::stats::Stats;
 use node::ActionKind;
 
@@ -33,6 +34,8 @@ use crate::rpc::RpcService;
 
 pub struct NodeService {
     pub rng: StdRng,
+    /// Events sent on this channel are retrieved and processed in the
+    /// `event_source` state machine defined in the `openmina-node` crate.
     pub event_sender: mpsc::UnboundedSender<Event>,
     // TODO(binier): change so that we only have `event_sender`.
     pub p2p_event_sender: mpsc::UnboundedSender<P2pEvent>,
@@ -130,6 +133,41 @@ impl P2pServiceWebrtcWithLibp2p for NodeService {
     fn libp2p(&mut self) -> &mut Libp2pService {
         &mut self.libp2p
     }
+
+    fn find_random_peer(&mut self) {
+        use libp2p::identity::PeerId;
+        use node::p2p::service_impl::libp2p::Cmd;
+
+        // Generate some random peer_id
+        let peer_id = PeerId::random();
+
+        self.libp2p()
+            .cmd_sender()
+            .send(Cmd::FindNode(peer_id.into()))
+            .unwrap_or_default();
+    }
+
+    fn start_discovery(&mut self, peers: Vec<P2pConnectionOutgoingInitOpts>) {
+        use node::p2p::service_impl::libp2p::Cmd;
+
+        let peers = peers
+            .into_iter()
+            .filter_map(|opts| {
+                Some((
+                    opts.peer_id().clone().into(),
+                    match opts {
+                        P2pConnectionOutgoingInitOpts::LibP2P(opts) => opts.to_maddr(),
+                        _ => return None,
+                    },
+                ))
+            })
+            .collect();
+
+        self.libp2p()
+            .cmd_sender()
+            .send(Cmd::RunDiscovery(peers))
+            .unwrap_or_default()
+    }
 }
 
 impl SnarkBlockVerifyService for NodeService {
@@ -206,6 +244,19 @@ impl SnarkWorkVerifyService for NodeService {
 
             let _ = tx.send(SnarkEvent::WorkVerify(req_id, result).into());
         });
+    }
+}
+
+impl SnarkPoolService for NodeService {
+    fn random_choose<'a>(
+        &mut self,
+        iter: impl Iterator<Item = &'a JobState>,
+        n: usize,
+    ) -> Vec<SnarkJobId> {
+        iter.choose_multiple(&mut self.rng, n)
+            .into_iter()
+            .map(|job| job.id.clone())
+            .collect()
     }
 }
 

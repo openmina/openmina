@@ -67,6 +67,14 @@ impl<T: AsRef<Block>> BlockWithHash<T> {
         snarked_ledger_hash(self.header())
     }
 
+    pub fn staking_epoch_ledger_hash(&self) -> &LedgerHash {
+        staking_epoch_ledger_hash(self.header())
+    }
+
+    pub fn next_epoch_ledger_hash(&self) -> &LedgerHash {
+        next_epoch_ledger_hash(self.header())
+    }
+
     pub fn staged_ledger_hash(&self) -> &LedgerHash {
         staged_ledger_hash(self.header())
     }
@@ -169,6 +177,14 @@ impl<T: AsRef<BlockHeader>> BlockHeaderWithHash<T> {
         snarked_ledger_hash(self.header())
     }
 
+    pub fn staking_epoch_ledger_hash(&self) -> &LedgerHash {
+        staking_epoch_ledger_hash(self.header())
+    }
+
+    pub fn next_epoch_ledger_hash(&self) -> &LedgerHash {
+        next_epoch_ledger_hash(self.header())
+    }
+
     pub fn staged_ledger_hash(&self) -> &LedgerHash {
         staged_ledger_hash(self.header())
     }
@@ -206,6 +222,8 @@ fn timestamp(header: &BlockHeader) -> Timestamp {
         .0
         .as_u64();
     let slot = global_slot(header) as u64;
+    // FIXME: this calculation must use values from the protocol constants,
+    // now it assumes 3 minutes blocks.
     let time_ms = genesis_timestamp + slot * 3 * 60 * 1000;
     Timestamp::new(time_ms * 1_000_000)
 }
@@ -218,6 +236,26 @@ fn snarked_ledger_hash(header: &BlockHeader) -> &LedgerHash {
         .ledger_proof_statement
         .target
         .first_pass_ledger
+}
+
+fn staking_epoch_ledger_hash(header: &BlockHeader) -> &LedgerHash {
+    &header
+        .protocol_state
+        .body
+        .consensus_state
+        .staking_epoch_data
+        .ledger
+        .hash
+}
+
+fn next_epoch_ledger_hash(header: &BlockHeader) -> &LedgerHash {
+    &header
+        .protocol_state
+        .body
+        .consensus_state
+        .next_epoch_data
+        .ledger
+        .hash
 }
 
 fn staged_ledger_hash(header: &BlockHeader) -> &LedgerHash {

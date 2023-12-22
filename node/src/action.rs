@@ -39,6 +39,9 @@ impl Action {
     }
 }
 
+/// Checks for timeouts and dispatches other time dependant actions.
+///
+/// Gets called repeatedly, so it's effects should be as light as possible.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CheckTimeoutsAction {}
 

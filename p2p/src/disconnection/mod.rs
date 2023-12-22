@@ -12,7 +12,7 @@ pub use p2p_disconnection_service::*;
 
 use serde::{Deserialize, Serialize};
 
-use crate::channels::ChannelId;
+use crate::{channels::ChannelId, connection::RejectionReason};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum P2pDisconnectionReason {
@@ -20,6 +20,7 @@ pub enum P2pDisconnectionReason {
     P2pChannelSendFailed(String),
     P2pChannelReceiveFailed(String),
     P2pChannelClosed(ChannelId),
+    Libp2pIncomingRejected(RejectionReason),
 
     TransitionFrontierRpcTimeout,
 

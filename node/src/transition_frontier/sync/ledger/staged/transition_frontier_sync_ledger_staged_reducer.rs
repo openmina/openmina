@@ -44,7 +44,7 @@ impl TransitionFrontierSyncLedgerStagedState {
             }
             TransitionFrontierSyncLedgerStagedAction::PartsPeerFetchSuccess(action) => {
                 let Self::PartsFetchPending {
-                    block, attempts, ..
+                    target, attempts, ..
                 } = self
                 else {
                     return;
@@ -53,7 +53,7 @@ impl TransitionFrontierSyncLedgerStagedState {
                     return;
                 };
 
-                let expected_hash = block.staged_ledger_hashes();
+                let expected_hash = &target.staged.hashes;
                 let validated = StagedLedgerAuxAndPendingCoinbasesValidated::validate(
                     &action.parts,
                     expected_hash,
@@ -94,7 +94,7 @@ impl TransitionFrontierSyncLedgerStagedState {
             }
             TransitionFrontierSyncLedgerStagedAction::PartsFetchSuccess(action) => {
                 let Self::PartsFetchPending {
-                    block, attempts, ..
+                    target, attempts, ..
                 } = self
                 else {
                     return;
@@ -107,7 +107,7 @@ impl TransitionFrontierSyncLedgerStagedState {
                 };
                 *self = Self::PartsFetchSuccess {
                     time: meta.time(),
-                    block: block.clone(),
+                    target: target.clone(),
                     parts: parts.clone(),
                 };
             }
@@ -116,44 +116,44 @@ impl TransitionFrontierSyncLedgerStagedState {
             }
             TransitionFrontierSyncLedgerStagedAction::ReconstructInit(_) => {}
             TransitionFrontierSyncLedgerStagedAction::ReconstructPending(_) => {
-                let Some((block, parts)) = self.block_with_parts() else {
+                let Some((target, parts)) = self.target_with_parts() else {
                     return;
                 };
                 *self = Self::ReconstructPending {
                     time: meta.time(),
-                    block: block.clone(),
+                    target: target.clone(),
                     parts: parts.cloned(),
                 }
             }
             TransitionFrontierSyncLedgerStagedAction::ReconstructError(action) => {
-                let Self::ReconstructPending { block, parts, .. } = self else {
+                let Self::ReconstructPending { target, parts, .. } = self else {
                     return;
                 };
                 *self = Self::ReconstructError {
                     time: meta.time(),
-                    block: block.clone(),
+                    target: target.clone(),
                     parts: parts.clone(),
                     error: action.error.clone(),
                 };
             }
             TransitionFrontierSyncLedgerStagedAction::ReconstructSuccess(_) => {
-                let Self::ReconstructPending { block, parts, .. } = self else {
+                let Self::ReconstructPending { target, parts, .. } = self else {
                     return;
                 };
                 *self = Self::ReconstructSuccess {
                     time: meta.time(),
-                    block: block.clone(),
+                    target: target.clone(),
                     parts: parts.clone(),
                 };
             }
             TransitionFrontierSyncLedgerStagedAction::Success(_) => {
-                let Self::ReconstructSuccess { block, parts, .. } = self else {
+                let Self::ReconstructSuccess { target, parts, .. } = self else {
                     return;
                 };
 
                 *self = Self::Success {
                     time: meta.time(),
-                    block: block.clone(),
+                    target: target.clone(),
                     needed_protocol_states: parts
                         .as_ref()
                         .map(|parts| &parts.needed_blocks[..])

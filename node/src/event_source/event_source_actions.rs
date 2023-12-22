@@ -10,6 +10,12 @@ pub enum EventSourceAction {
     WaitTimeout(EventSourceWaitTimeoutAction),
 }
 
+/// Notify state machine that the new events might be received/available,
+/// so trigger processing of those events.
+///
+/// This action will be continously triggered, until there are no more
+/// events in the queue, in which case `EventSourceWaitForEventsAction`
+/// will be dispatched.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct EventSourceProcessEventsAction {}
 
@@ -19,6 +25,7 @@ impl redux::EnablingCondition<crate::State> for EventSourceProcessEventsAction {
     }
 }
 
+/// Process newly retrieved event.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct EventSourceNewEventAction {
     pub event: super::Event,
@@ -30,7 +37,7 @@ impl redux::EnablingCondition<crate::State> for EventSourceNewEventAction {
     }
 }
 
-/// Next action won't be dispatched, until new events are available out_dir
+/// Next action won't be dispatched, until new events are available or
 /// wait times out.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct EventSourceWaitForEventsAction {}

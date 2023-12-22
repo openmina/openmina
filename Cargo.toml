@@ -29,6 +29,7 @@ o1-utils = { git = "https://github.com/openmina/proof-systems", branch = "ledger
 kimchi = { git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4" }
 mina-poseidon = {git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4"}
 poly-commitment = {git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4"}
+libp2p = { git = "https://github.com/openmina/rust-libp2p", rev = "cd5425a759d959d7fde58a42f71ab059449760c5", default-features = false }
 
 [profile.fuzz]
 inherits = "release"
@@ -46,3 +47,8 @@ ark-ff = { git = "https://github.com/openmina/algebra", branch = "openmina" }
 ark-ec = { git = "https://github.com/openmina/algebra", branch = "openmina" }
 ark-poly = { git = "https://github.com/openmina/algebra", branch = "openmina" }
 ark-serialize = { git = "https://github.com/openmina/algebra", branch = "openmina" }
+
+[profile.test.package."*"]
+opt-level = 3
+debug-assertions = true
+overflow-checks = false

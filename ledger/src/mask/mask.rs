@@ -236,6 +236,10 @@ impl Mask {
         self.with(|this| this.depth())
     }
 
+    pub fn get_cached_hash(&mut self, addr: &Address) -> Option<Fp> {
+        self.with(|this| this.get_cached_hash(addr))
+    }
+
     pub fn set_cached_hash_unchecked(&mut self, addr: &Address, hash: Fp) {
         self.with(|this| this.set_cached_hash_unchecked(addr, hash))
     }
@@ -436,7 +440,7 @@ impl BaseLedger for Mask {
         self.with(|this| this.merkle_path_at_addr(addr))
     }
 
-    fn get_inner_hash_at_addr(&mut self, addr: Address) -> Result<Fp, ()> {
+    fn get_inner_hash_at_addr(&mut self, addr: Address) -> Result<Fp, String> {
         self.with(|this| this.get_inner_hash_at_addr(addr))
     }
 

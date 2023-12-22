@@ -2,6 +2,7 @@ use redux::ActionMeta;
 
 use crate::connection::{P2pConnectionErrorResponse, P2pConnectionState};
 use crate::peer::P2pPeerReadyAction;
+use crate::webrtc::Host;
 use crate::P2pPeerStatus;
 use crate::{connection::P2pConnectionService, webrtc};
 
@@ -93,6 +94,9 @@ impl P2pConnectionOutgoingOfferSdpCreateSuccessAction {
             sdp: self.sdp,
             identity_pub_key: store.state().config.identity_pub_key.clone(),
             target_peer_id: self.peer_id,
+            // TODO(vlad9486): put real address
+            host: Host::Ipv4([127, 0, 0, 1].into()),
+            listen_port: store.state().config.listen_port,
         };
         store.dispatch(P2pConnectionOutgoingOfferReadyAction {
             peer_id: self.peer_id,
@@ -236,6 +240,9 @@ impl P2pConnectionOutgoingSuccessAction {
         P2pPeerReadyAction: redux::EnablingCondition<S>,
     {
         let peer_id = self.peer_id;
-        store.dispatch(P2pPeerReadyAction { peer_id });
+        store.dispatch(P2pPeerReadyAction {
+            peer_id,
+            incoming: false,
+        });
     }
 }

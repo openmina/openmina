@@ -4,6 +4,7 @@ pub mod channels;
 pub mod connection;
 pub mod disconnection;
 pub mod discovery;
+pub mod listen;
 pub mod peer;
 
 mod p2p_effects;
@@ -46,6 +47,11 @@ macro_rules! impl_into_global_action {
     };
 }
 
+impl_into_global_action!(listen::P2pListenNewAction);
+impl_into_global_action!(listen::P2pListenExpiredAction);
+impl_into_global_action!(listen::P2pListenErrorAction);
+impl_into_global_action!(listen::P2pListenClosedAction);
+
 impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingRandomInitAction);
 impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingInitAction);
 impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingReconnectAction);
@@ -76,12 +82,18 @@ impl_into_global_action!(connection::incoming::P2pConnectionIncomingFinalizeSucc
 impl_into_global_action!(connection::incoming::P2pConnectionIncomingTimeoutAction);
 impl_into_global_action!(connection::incoming::P2pConnectionIncomingErrorAction);
 impl_into_global_action!(connection::incoming::P2pConnectionIncomingSuccessAction);
+impl_into_global_action!(connection::incoming::P2pConnectionIncomingLibp2pReceivedAction);
 
 impl_into_global_action!(disconnection::P2pDisconnectionInitAction);
 impl_into_global_action!(disconnection::P2pDisconnectionFinishAction);
 
 impl_into_global_action!(discovery::P2pDiscoveryInitAction);
 impl_into_global_action!(discovery::P2pDiscoverySuccessAction);
+impl_into_global_action!(discovery::P2pDiscoveryKademliaBootstrapAction);
+impl_into_global_action!(discovery::P2pDiscoveryKademliaInitAction);
+impl_into_global_action!(discovery::P2pDiscoveryKademliaSuccessAction);
+impl_into_global_action!(discovery::P2pDiscoveryKademliaFailureAction);
+impl_into_global_action!(discovery::P2pDiscoveryKademliaAddRouteAction);
 
 impl_into_global_action!(channels::P2pChannelsMessageReceivedAction);
 

@@ -1,17 +1,23 @@
+use std::fmt;
+
 use derive_more::From;
 use openmina_core::snark::Snark;
 use serde::{Deserialize, Serialize};
 
 use crate::{
     channels::{ChannelId, ChannelMsg, MsgId},
-    connection::P2pConnectionResponse,
-    PeerId,
+    connection::{outgoing::P2pConnectionOutgoingInitOpts, P2pConnectionResponse},
+    PeerId, P2pListenerId,
 };
 
 #[derive(Serialize, Deserialize, From, Debug, Clone)]
 pub enum P2pEvent {
     Connection(P2pConnectionEvent),
+    Listen(P2pListenEvent),
     Channel(P2pChannelEvent),
+    #[cfg(not(target_arch = "wasm32"))]
+    Libp2pIdentify(PeerId, libp2p::Multiaddr),
+    Discovery(P2pDiscoveryEvent),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -23,6 +29,15 @@ pub enum P2pConnectionEvent {
     Closed(PeerId),
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum P2pListenEvent {
+    NewListenAddr     { listener_id: P2pListenerId, addr: libp2p::Multiaddr, },
+    ExpiredListenAddr { listener_id: P2pListenerId, addr: libp2p::Multiaddr, },
+    ListenerError     { listener_id: P2pListenerId, error: String, },
+    ListenerClosed    { listener_id: P2pListenerId, error: Option<String>, },
+}
+
+
 #[derive(Serialize, Deserialize, From, Debug, Clone)]
 pub enum P2pChannelEvent {
     Opened(PeerId, ChannelId, Result<(), String>),
@@ -32,6 +47,14 @@ pub enum P2pChannelEvent {
     Closed(PeerId, ChannelId),
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum P2pDiscoveryEvent {
+    Ready,
+    DidFindPeers(Vec<PeerId>),
+    DidFindPeersError(String),
+    AddRoute(PeerId, Vec<P2pConnectionOutgoingInitOpts>),
+}
+
 fn res_kind<T, E>(res: &Result<T, E>) -> &'static str {
     match res {
         Err(_) => "Err",
@@ -39,18 +62,37 @@ fn res_kind<T, E>(res: &Result<T, E>) -> &'static str {
     }
 }
 
-impl std::fmt::Display for P2pEvent {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Display for P2pEvent {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "P2p, ")?;
         match self {
             Self::Connection(v) => v.fmt(f),
+            Self::Listen(v) => v.fmt(f),
             Self::Channel(v) => v.fmt(f),
+            #[cfg(not(target_arch = "wasm32"))]
+            Self::Libp2pIdentify(peer_id, addr) => {
+                write!(f, "{peer_id} {addr}")
+            }
+            Self::Discovery(v) => v.fmt(f),
         }
     }
 }
 
-impl std::fmt::Display for P2pConnectionEvent {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Display for P2pListenEvent {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Listen, ")?;
+        match self {
+            P2pListenEvent::NewListenAddr { listener_id, addr } => write!(f, "NewListenAddr, {listener_id}, {addr}"),
+            P2pListenEvent::ExpiredListenAddr { listener_id, addr } => write!(f, "ExpiredListenAddr, {listener_id}, {addr}"),
+            P2pListenEvent::ListenerError { listener_id, error } => write!(f, "ListenerError, {listener_id}, {error}"),
+            P2pListenEvent::ListenerClosed { listener_id, error: Some(error) } => write!(f, "ListenerClosed, {listener_id}, {error}"),
+            P2pListenEvent::ListenerClosed { listener_id, error: None } => write!(f, "ListenerClosed, {listener_id}"),
+        }
+    }
+}
+
+impl fmt::Display for P2pConnectionEvent {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Connection, ")?;
         match self {
             Self::OfferSdpReady(peer_id, res) => {
@@ -76,8 +118,8 @@ impl std::fmt::Display for P2pConnectionEvent {
     }
 }
 
-impl std::fmt::Display for P2pChannelEvent {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Display for P2pChannelEvent {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use crate::channels::best_tip::BestTipPropagationChannelMsg;
         use crate::channels::rpc::RpcChannelMsg;
         use crate::channels::snark::SnarkPropagationChannelMsg;
@@ -171,6 +213,34 @@ impl std::fmt::Display for P2pChannelEvent {
                     },
                 }
             }
+        }
+    }
+}
+
+impl fmt::Display for P2pDiscoveryEvent {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Ready => write!(f, "DiscoveryReady"),
+            Self::DidFindPeers(peers) => write!(
+                f,
+                "DidFindPeers: {}",
+                peers
+                    .iter()
+                    .map(|x| x.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",")
+            ),
+            Self::DidFindPeersError(description) => {
+                write!(f, "DidFindPeersError: {description}",)
+            }
+            Self::AddRoute(peer_id, opts) => write!(
+                f,
+                "AddRoute, peer_id: {peer_id}, {}",
+                opts.iter()
+                    .map(|x| x.peer_id().to_string())
+                    .collect::<Vec<_>>()
+                    .join(",")
+            ),
         }
     }
 }

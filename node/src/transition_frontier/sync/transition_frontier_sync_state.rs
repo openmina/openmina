@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use mina_p2p_messages::v2::{MinaStateProtocolStateValueStableV2, StateHash};
+use mina_p2p_messages::v2::{LedgerHash, MinaStateProtocolStateValueStableV2, StateHash};
 use openmina_core::block::ArcBlockWithHash;
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use crate::p2p::channels::rpc::P2pRpcId;
 use crate::p2p::PeerId;
 
-use super::ledger::TransitionFrontierSyncLedgerState;
+use super::ledger::{SyncLedgerTarget, SyncLedgerTargetKind, TransitionFrontierSyncLedgerState};
 use super::PeerBlockFetchError;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -20,12 +20,23 @@ pub enum TransitionFrontierSyncState {
         root_block: ArcBlockWithHash,
         blocks_inbetween: Vec<StateHash>,
     },
-    RootLedgerPending {
+    StakingLedgerPending(TransitionFrontierSyncLedgerPending),
+    StakingLedgerSuccess {
         time: Timestamp,
         best_tip: ArcBlockWithHash,
+        root_block: ArcBlockWithHash,
         blocks_inbetween: Vec<StateHash>,
-        root_ledger: TransitionFrontierSyncLedgerState,
+        needed_protocol_states: BTreeMap<StateHash, MinaStateProtocolStateValueStableV2>,
     },
+    NextEpochLedgerPending(TransitionFrontierSyncLedgerPending),
+    NextEpochLedgerSuccess {
+        time: Timestamp,
+        best_tip: ArcBlockWithHash,
+        root_block: ArcBlockWithHash,
+        blocks_inbetween: Vec<StateHash>,
+        needed_protocol_states: BTreeMap<StateHash, MinaStateProtocolStateValueStableV2>,
+    },
+    RootLedgerPending(TransitionFrontierSyncLedgerPending),
     RootLedgerSuccess {
         time: Timestamp,
         best_tip: ArcBlockWithHash,
@@ -36,16 +47,49 @@ pub enum TransitionFrontierSyncState {
     BlocksPending {
         time: Timestamp,
         chain: Vec<TransitionFrontierSyncBlockState>,
+        /// Snarked ledger updates/transitions that happened while we
+        /// were synchronizing blocks. If those updates do happen, we
+        /// need to create those snarked ledgers from the closest snarked
+        /// ledger that we have in the service already synchronized.
+        ///
+        /// Contains a map where the `key` is the new snarked ledger and
+        /// the `value` is more info required to construct that ledger.
+        root_snarked_ledger_updates: TransitionFrontierRootSnarkedLedgerUpdates,
         needed_protocol_states: BTreeMap<StateHash, MinaStateProtocolStateValueStableV2>,
     },
     BlocksSuccess {
         time: Timestamp,
         chain: Vec<ArcBlockWithHash>,
+        root_snarked_ledger_updates: TransitionFrontierRootSnarkedLedgerUpdates,
         needed_protocol_states: BTreeMap<StateHash, MinaStateProtocolStateValueStableV2>,
     },
     Synced {
         time: Timestamp,
     },
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct TransitionFrontierSyncLedgerPending {
+    pub time: Timestamp,
+    pub best_tip: ArcBlockWithHash,
+    pub root_block: ArcBlockWithHash,
+    pub blocks_inbetween: Vec<StateHash>,
+    pub ledger: TransitionFrontierSyncLedgerState,
+}
+
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+pub struct TransitionFrontierRootSnarkedLedgerUpdates(
+    BTreeMap<LedgerHash, TransitionFrontierRootSnarkedLedgerUpdate>,
+);
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct TransitionFrontierRootSnarkedLedgerUpdate {
+    pub parent: LedgerHash,
+    /// Staged ledger hash of the applied block, that had the same snarked
+    /// ledger as the target. From that staged ledger we can fetch
+    /// transactions that we need to apply on top of `parent` in order
+    /// to construct target snarked ledger.
+    pub staged_ledger_hash: LedgerHash,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -90,10 +134,12 @@ pub enum PeerRpcState {
 }
 
 impl TransitionFrontierSyncState {
+    /// If the synchronization process has started but is not yet complete
     pub fn is_pending(&self) -> bool {
         !matches!(self, Self::Idle | Self::Synced { .. })
     }
 
+    /// If the synchronization process is complete
     pub fn is_synced(&self) -> bool {
         matches!(self, Self::Synced { .. })
     }
@@ -102,7 +148,11 @@ impl TransitionFrontierSyncState {
         match self {
             Self::Idle => None,
             Self::Init { root_block, .. } => Some(root_block),
-            Self::RootLedgerPending { root_ledger, .. } => Some(root_ledger.block()),
+            Self::StakingLedgerPending(s) => Some(&s.root_block),
+            Self::StakingLedgerSuccess { root_block, .. } => Some(root_block),
+            Self::NextEpochLedgerPending(s) => Some(&s.root_block),
+            Self::NextEpochLedgerSuccess { root_block, .. } => Some(root_block),
+            Self::RootLedgerPending(s) => Some(&s.root_block),
             Self::RootLedgerSuccess { root_block, .. } => Some(root_block),
             Self::BlocksPending { chain, .. } => chain.first().and_then(|b| b.block()),
             Self::BlocksSuccess { chain, .. } => chain.first(),
@@ -114,7 +164,11 @@ impl TransitionFrontierSyncState {
         match self {
             Self::Idle => None,
             Self::Init { best_tip, .. } => Some(best_tip),
-            Self::RootLedgerPending { best_tip, .. } => Some(best_tip),
+            Self::StakingLedgerPending(s) => Some(&s.best_tip),
+            Self::StakingLedgerSuccess { best_tip, .. } => Some(best_tip),
+            Self::NextEpochLedgerPending(s) => Some(&s.best_tip),
+            Self::NextEpochLedgerSuccess { best_tip, .. } => Some(best_tip),
+            Self::RootLedgerPending(s) => Some(&s.best_tip),
             Self::RootLedgerSuccess { best_tip, .. } => Some(best_tip),
             Self::BlocksPending { chain, .. } => chain.last().and_then(|b| b.block()),
             Self::BlocksSuccess { chain, .. } => chain.last(),
@@ -122,10 +176,43 @@ impl TransitionFrontierSyncState {
         }
     }
 
-    pub fn root_ledger(&self) -> Option<&TransitionFrontierSyncLedgerState> {
+    pub fn ledger(&self) -> Option<&TransitionFrontierSyncLedgerState> {
         match self {
-            Self::RootLedgerPending { root_ledger, .. } => Some(root_ledger),
+            Self::StakingLedgerPending(s) => Some(&s.ledger),
+            Self::NextEpochLedgerPending(s) => Some(&s.ledger),
+            Self::RootLedgerPending(s) => Some(&s.ledger),
             _ => None,
+        }
+    }
+
+    pub fn ledger_mut(&mut self) -> Option<&mut TransitionFrontierSyncLedgerState> {
+        match self {
+            Self::StakingLedgerPending(s) => Some(&mut s.ledger),
+            Self::NextEpochLedgerPending(s) => Some(&mut s.ledger),
+            Self::RootLedgerPending(s) => Some(&mut s.ledger),
+            _ => None,
+        }
+    }
+
+    pub fn ledger_target(&self) -> Option<SyncLedgerTarget> {
+        self.ledger().map(|s| s.target())
+    }
+
+    pub fn ledger_target_kind(&self) -> Option<SyncLedgerTargetKind> {
+        self.ledger().map(|s| s.target_kind())
+    }
+
+    /// True if the synchronization of the target ledger is complete.
+    ///
+    /// Epoch ledgers only require the snarked ledger to be synchronized,
+    /// but the ledger at the root of the transition frontier also requires
+    /// the staging ledger to be synchronized.
+    pub fn is_ledger_sync_complete(&self) -> bool {
+        match self {
+            Self::StakingLedgerPending(s) => s.ledger.is_snarked_ledger_synced(),
+            Self::NextEpochLedgerPending(s) => s.ledger.is_snarked_ledger_synced(),
+            Self::RootLedgerPending(s) => s.ledger.staged().map_or(false, |s| s.is_success()),
+            _ => false,
         }
     }
 
@@ -343,5 +430,65 @@ impl PeerRpcState {
             Self::Success { block, .. } => Some(block),
             _ => None,
         }
+    }
+}
+
+impl TransitionFrontierRootSnarkedLedgerUpdates {
+    pub fn get(
+        &self,
+        ledger_hash: &LedgerHash,
+    ) -> Option<&TransitionFrontierRootSnarkedLedgerUpdate> {
+        self.0.get(ledger_hash)
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    /// Caller must make sure `new_root` is part of `old_chain`.
+    pub fn extend_with_needed<'a>(
+        &mut self,
+        new_root: &ArcBlockWithHash,
+        old_chain: impl 'a + IntoIterator<Item = &'a ArcBlockWithHash>,
+    ) {
+        let mut old_chain = old_chain.into_iter().peekable();
+        let Some(old_root) = old_chain.peek() else {
+            return;
+        };
+
+        let Some(diff_len) = new_root.height().checked_sub(old_root.height()) else {
+            return;
+        };
+
+        if new_root.snarked_ledger_hash() == old_root.snarked_ledger_hash() {
+            return;
+        }
+
+        self.0.extend(
+            old_chain
+                .take(diff_len as usize)
+                .collect::<Vec<_>>()
+                .into_iter()
+                .rev()
+                .scan(new_root, |last_block, b| {
+                    if last_block.snarked_ledger_hash() == b.snarked_ledger_hash() {
+                        *last_block = b;
+                        return Some(None);
+                    }
+                    let last_block = std::mem::replace(last_block, b);
+                    let update = TransitionFrontierRootSnarkedLedgerUpdate {
+                        parent: b.snarked_ledger_hash().clone(),
+                        staged_ledger_hash: last_block.staged_ledger_hash().clone(),
+                    };
+                    let snarked_ledger_hash = last_block.snarked_ledger_hash().clone();
+
+                    Some(Some((snarked_ledger_hash, update)))
+                })
+                .filter_map(|v| v),
+        );
     }
 }

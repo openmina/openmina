@@ -1,0 +1,36 @@
+<button *ngIf="!sidePanelOpen"
+        (click)="toggleSidePanel()"
+        class="p-absolute h-sm w-sm fx-row-full-cent btn-selected p-0 mt-10 mr-16">
+  <span class="mina-icon f-20">view_sidebar</span>
+</button>
+<div class="overflow-y-auto flex-column h-100 w-100 pl-12">
+  <div *ngFor="let group of groups; let i=index; trackBy: trackGroup"
+       class="mb-8"
+       [class.d-none]="!group.display">
+    <ng-container *ngTemplateOutlet="groupHeader; context: { group: group }"></ng-container>
+    <div class="overflow-x-auto w-100 flex-row">
+      <div *ngFor="let action of group.actions; trackBy: trackAction"
+           class="h-100 mr-8 flex-row"
+           [class.d-none]="!action.display">
+        <mina-flame-time-graph [checkpoint]="action"
+                               [condensedView]="false"
+                               [menuCollapsed]="false"
+                               [xSteps]="X_STEPS"
+                               [ranges]="RANGES"></mina-flame-time-graph>
+      </div>
+    </div>
+  </div>
+</div>
+
+<ng-template #groupHeader let-group="group">
+  <div class="secondary flex-row lh-lg flex-column-sm">
+    <span class="f-600 mr-16">{{ group.groupName }}</span>
+    <div>
+      <span class="tertiary mr-5">total</span>{{ group.totalTime | secDuration }}
+      <span class="tertiary ml-8 mr-8">|</span>
+      <span class="tertiary mr-5">mean</span>{{ group.meanTime | secDuration }}
+      <span class="tertiary ml-8 mr-8">|</span>
+      <span class="tertiary mr-5">call{{ group.count | plural }}</span>{{ group.count | thousand }}
+    </div>
+  </div>
+</ng-template>

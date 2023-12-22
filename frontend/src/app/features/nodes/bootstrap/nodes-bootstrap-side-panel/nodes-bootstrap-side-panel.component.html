@@ -1,0 +1,41 @@
+<div class="side-panel-stepper h-100 p-relative overflow-hidden flex-column">
+  <div class="step p-absolute w-100 h-100 flex-column"
+       [class.active]="activeScreen === 0"
+       [class.before]="activeScreen !== 0">
+    <ng-container *ngTemplateOutlet="step1"></ng-container>
+  </div>
+  <div class="step p-absolute w-100 h-100 flex-column"
+       [class.after]="activeScreen < 1"
+       [class.active]="activeScreen === 1">
+    <ng-container *ngTemplateOutlet="step2"></ng-container>
+  </div>
+</div>
+
+
+<ng-template #step1>
+  <div class="fx-row-vert-cent flex-between h-xl lh-xl pl-12 pr-12">
+    <div class="f-600 secondary">{{ nodesCount }} attempts overview</div>
+    <ng-container *ngTemplateOutlet="toggle"></ng-container>
+  </div>
+  <mina-nodes-bootstrap-overview></mina-nodes-bootstrap-overview>
+</ng-template>
+
+<ng-template #step2>
+  <div class="fx-row-vert-cent flex-between h-xl lh-xl pl-12 pr-12">
+    <div class="fx-row-vert-cent">
+      <span class="mina-icon icon-200 mr-10 tertiary primary-hover pointer"
+            (click)="removeActiveNode()">arrow_back
+      </span>
+      <div class="f-600 secondary">Blocks of attempt {{ activeNodeIndex + 1 || 0 }}</div>
+    </div>
+    <ng-container *ngTemplateOutlet="toggle"></ng-container>
+  </div>
+  <mina-nodes-bootstrap-blocks class="h-minus-xl flex-column"></mina-nodes-bootstrap-blocks>
+</ng-template>
+
+<ng-template #toggle>
+  <button class="h-sm w-sm fx-row-full-cent btn-selected p-0"
+          (click)="toggleSidePanel()">
+    <span class="mina-icon f-20">view_sidebar</span>
+  </button>
+</ng-template>

@@ -21,8 +21,9 @@ impl TransitionFrontierSyncLedgerInitAction {
 
 impl TransitionFrontierSyncLedgerSnarkedSuccessAction {
     pub fn effects<S: redux::Service>(self, _: &ActionMeta, store: &mut Store<S>) {
-        if !store.dispatch(TransitionFrontierSyncLedgerStagedReconstructEmptyAction {}) {
-            store.dispatch(TransitionFrontierSyncLedgerStagedPartsFetchPendingAction {});
+        if store.dispatch(TransitionFrontierSyncLedgerSuccessAction {}) {
+        } else if store.dispatch(TransitionFrontierSyncLedgerStagedReconstructEmptyAction {}) {
+        } else if store.dispatch(TransitionFrontierSyncLedgerStagedPartsFetchPendingAction {}) {
         }
     }
 }

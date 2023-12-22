@@ -1,0 +1,33 @@
+@import 'openmina';
+
+.acc-row {
+	height: 36px;
+	line-height: 36px;
+	color: $base-tertiary;
+
+	&:not(.head) {
+		cursor: pointer;
+
+		&:hover {
+			background-color: $base-container;
+		}
+	}
+}
+
+:host > div {
+	margin-right: 2px;
+
+	&.open {
+		margin-bottom: 5px;
+		background-color: $base-container !important;
+		border-radius: 6px;
+
+		.acc-row {
+			color: $base-primary !important;
+
+			.mina-icon {
+				rotate: 90deg;
+			}
+		}
+	}
+}

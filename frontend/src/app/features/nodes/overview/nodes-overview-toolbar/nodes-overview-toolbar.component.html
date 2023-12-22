@@ -1,0 +1,22 @@
+<mina-horizontal-menu [clz]="'pl-12'" [template]="template1"></mina-horizontal-menu>
+<ng-template #template1>
+  <span class="tertiary mr-10 f-600 shrink-0">Slot</span>
+  <div class="pagination-group fx-row-vert-cent bg-selected-container ml-10 border-rad-4">
+    <button class="h-sm w-sm fx-row-full-cent"
+            [tooltip]="'Prev slot'"
+            [showDelay]="500">
+      <span class="mina-icon f-18">navigate_before</span>
+    </button>
+    <span class="selected-primary pl-5 pr-5 f-600 flex-row flex-center">{{ 1000 }}</span>
+    <button class="h-sm w-sm fx-row-full-cent"
+            [tooltip]="'Next slot'"
+            [showDelay]="500">
+      <span class="mina-icon f-18">navigate_next</span>
+    </button>
+  </div>
+  <button class="btn-secondary h-sm w-sm mr-10 ml-5 fx-row-full-cent"
+          [tooltip]="'Last slot'"
+          [showDelay]="500">
+    <span class="mina-icon f-18">last_page</span>
+  </button>
+</ng-template>

@@ -35,13 +35,9 @@ pub struct TransitionFrontierSyncLedgerSnarkedPendingAction {}
 
 impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerSnarkedPendingAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
-        state
-            .transition_frontier
-            .sync
-            .root_ledger()
-            .map_or(false, |s| {
-                matches!(s, TransitionFrontierSyncLedgerState::Init { .. })
-            })
+        state.transition_frontier.sync.ledger().map_or(false, |s| {
+            matches!(s, TransitionFrontierSyncLedgerState::Init { .. })
+        })
     }
 }
 
@@ -60,7 +56,7 @@ impl redux::EnablingCondition<crate::State>
             && state
                 .transition_frontier
                 .sync
-                .root_ledger()
+                .ledger()
                 .and_then(|s| s.snarked())
                 .map_or(false, |s| {
                     s.sync_next().is_some() || s.sync_retry_iter().next().is_some()
@@ -78,12 +74,14 @@ impl redux::EnablingCondition<crate::State>
     for TransitionFrontierSyncLedgerSnarkedPeerQueryInitAction
 {
     fn is_enabled(&self, state: &crate::State) -> bool {
-        let check_next_addr = state
-            .transition_frontier
-            .sync
-            .root_ledger()
-            .and_then(|s| s.snarked())
-            .map_or(false, |s| match s {
+        None.or_else(|| {
+            let target_best_tip = state.transition_frontier.sync.best_tip()?;
+            let ledger = state.transition_frontier.sync.ledger()?.snarked()?;
+            let target = ledger.target();
+
+            // This is true if there is a next address that needs to be queried
+            // from a peer and it matches the one requested by this action.
+            let check_next_addr = match ledger {
                 TransitionFrontierSyncLedgerSnarkedState::Pending {
                     pending, next_addr, ..
                 } => next_addr.as_ref().map_or(false, |next_addr| {
@@ -91,18 +89,27 @@ impl redux::EnablingCondition<crate::State>
                         && (next_addr.to_index().0 != 0 || pending.is_empty())
                 }),
                 _ => false,
-            });
+            };
 
-        let check_peer_available = state
-            .p2p
-            .get_ready_peer(&self.peer_id)
-            .and_then(|p| {
-                let sync_best_tip = state.transition_frontier.sync.best_tip()?;
-                let peer_best_tip = p.best_tip.as_ref()?;
-                Some(p).filter(|_| sync_best_tip.hash == peer_best_tip.hash)
-            })
-            .map_or(false, |p| p.channels.rpc.can_send_request());
-        check_next_addr && check_peer_available
+            let peer = state.p2p.get_ready_peer(&self.peer_id)?;
+            let check_peer_available = {
+                let peer_best_tip = peer.best_tip.as_ref()?;
+                if !peer.channels.rpc.can_send_request() {
+                    false
+                } else if target.staged.is_some() {
+                    // if peer has same best tip, then he has same root
+                    // so we can sync root snarked+staged ledger from that peer.
+                    target_best_tip.hash() == peer_best_tip.hash()
+                } else {
+                    &target.snarked_ledger_hash == peer_best_tip.snarked_ledger_hash()
+                        || &target.snarked_ledger_hash == peer_best_tip.staking_epoch_ledger_hash()
+                        || &target.snarked_ledger_hash == peer_best_tip.next_epoch_ledger_hash()
+                }
+            };
+
+            Some(check_next_addr && check_peer_available)
+        })
+        .unwrap_or(false)
     }
 }
 
@@ -116,23 +123,39 @@ impl redux::EnablingCondition<crate::State>
     for TransitionFrontierSyncLedgerSnarkedPeerQueryRetryAction
 {
     fn is_enabled(&self, state: &crate::State) -> bool {
-        let check_next_addr = state
-            .transition_frontier
-            .sync
-            .root_ledger()
-            .and_then(|s| s.snarked()?.sync_retry_iter().next())
-            .map_or(false, |addr| addr == self.address);
+        None.or_else(|| {
+            let target_best_tip = state.transition_frontier.sync.best_tip()?;
+            let ledger = state.transition_frontier.sync.ledger()?.snarked()?;
+            let target = ledger.target();
 
-        let check_peer_available = state
-            .p2p
-            .get_ready_peer(&self.peer_id)
-            .and_then(|p| {
-                let sync_best_tip = state.transition_frontier.sync.best_tip()?;
-                let peer_best_tip = p.best_tip.as_ref()?;
-                Some(p).filter(|_| sync_best_tip.hash == peer_best_tip.hash)
-            })
-            .map_or(false, |p| p.channels.rpc.can_send_request());
-        check_next_addr && check_peer_available
+            // This is true if there is next retry address and it
+            // matches the one requested in this action.
+            let check_next_addr = state
+                .transition_frontier
+                .sync
+                .ledger()
+                .and_then(|s| s.snarked()?.sync_retry_iter().next())
+                .map_or(false, |addr| addr == self.address);
+
+            let peer = state.p2p.get_ready_peer(&self.peer_id)?;
+            let check_peer_available = {
+                let peer_best_tip = peer.best_tip.as_ref()?;
+                if !peer.channels.rpc.can_send_request() {
+                    false
+                } else if target.staged.is_some() {
+                    // if peer has same best tip, then he has same root
+                    // so we can sync root snarked+staged ledger from that peer.
+                    target_best_tip.hash() == peer_best_tip.hash()
+                } else {
+                    &target.snarked_ledger_hash == peer_best_tip.snarked_ledger_hash()
+                        || &target.snarked_ledger_hash == peer_best_tip.staking_epoch_ledger_hash()
+                        || &target.snarked_ledger_hash == peer_best_tip.next_epoch_ledger_hash()
+                }
+            };
+
+            Some(check_next_addr && check_peer_available)
+        })
+        .unwrap_or(false)
     }
 }
 
@@ -150,7 +173,7 @@ impl redux::EnablingCondition<crate::State>
         state
             .transition_frontier
             .sync
-            .root_ledger()
+            .ledger()
             .and_then(|s| s.snarked()?.fetch_pending())
             .map_or(false, |pending| {
                 pending
@@ -175,7 +198,7 @@ impl redux::EnablingCondition<crate::State>
         state
             .transition_frontier
             .sync
-            .root_ledger()
+            .ledger()
             .and_then(|s| s.snarked())
             .map_or(false, |s| {
                 s.peer_query_get(&self.peer_id, self.rpc_id)
@@ -199,7 +222,7 @@ impl redux::EnablingCondition<crate::State>
         state
             .transition_frontier
             .sync
-            .root_ledger()
+            .ledger()
             .and_then(|s| s.snarked())
             .map_or(false, |s| {
                 // TODO(binier): check if expected response
@@ -226,7 +249,7 @@ impl redux::EnablingCondition<crate::State>
             && state
                 .transition_frontier
                 .sync
-                .root_ledger()
+                .ledger()
                 .and_then(|s| s.snarked()?.fetch_pending()?.get(&self.address))
                 .and_then(|s| s.attempts.get(&self.sender))
                 .map_or(false, |s| s.is_success())
@@ -247,7 +270,7 @@ impl redux::EnablingCondition<crate::State>
         state
             .transition_frontier
             .sync
-            .root_ledger()
+            .ledger()
             .and_then(|s| s.snarked()?.fetch_pending()?.get(&self.address))
             .and_then(|s| s.attempts.get(&self.sender))
             // TODO(binier): check if expected response
@@ -264,7 +287,7 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerSnar
         state
             .transition_frontier
             .sync
-            .root_ledger()
+            .ledger()
             .and_then(|s| s.snarked())
             .map_or(false, |s| match s {
                 TransitionFrontierSyncLedgerSnarkedState::Pending {

@@ -26,8 +26,8 @@ fn query_peer_init<S: redux::Service>(
 ) {
     let Some((ledger_hash, rpc_id)) = None.or_else(|| {
         let state = store.state();
-        let root_ledger = state.transition_frontier.sync.root_ledger()?;
-        let ledger_hash = root_ledger.snarked_ledger_hash();
+        let ledger = state.transition_frontier.sync.ledger()?;
+        let ledger_hash = ledger.snarked()?.ledger_hash();
 
         let p = store.state().p2p.get_ready_peer(&peer_id)?;
         let rpc_id = p.channels.rpc.next_local_rpc_id();
@@ -78,7 +78,7 @@ impl TransitionFrontierSyncLedgerSnarkedPeersQueryAction {
             .state()
             .transition_frontier
             .sync
-            .root_ledger()
+            .ledger()
             .and_then(|s| s.snarked())
             .map_or(vec![], |s| s.sync_retry_iter().collect());
         retry_addresses.reverse();
@@ -98,7 +98,7 @@ impl TransitionFrontierSyncLedgerSnarkedPeersQueryAction {
                 .state()
                 .transition_frontier
                 .sync
-                .root_ledger()
+                .ledger()
                 .and_then(|s| s.snarked())
                 .and_then(|s| s.sync_next());
             match address {
@@ -135,8 +135,8 @@ impl TransitionFrontierSyncLedgerSnarkedPeerQueryErrorAction {
 
 impl TransitionFrontierSyncLedgerSnarkedPeerQuerySuccessAction {
     pub fn effects<S: redux::Service>(self, _: &ActionMeta, store: &mut Store<S>) {
-        let root_ledger = store.state().transition_frontier.sync.root_ledger();
-        let Some(address) = root_ledger
+        let ledger = store.state().transition_frontier.sync.ledger();
+        let Some(address) = ledger
             .and_then(|s| s.snarked()?.peer_query_get(&self.peer_id, self.rpc_id))
             .map(|(addr, _)| addr.clone())
         else {
@@ -171,10 +171,12 @@ impl TransitionFrontierSyncLedgerSnarkedChildHashesReceivedAction {
     where
         S: TransitionFrontierSyncLedgerSnarkedService,
     {
-        let Some(block) = store.state().transition_frontier.sync.root_ledger() else {
+        let Some(snarked_ledger_hash) = None.or_else(|| {
+            let ledger = store.state().transition_frontier.sync.ledger()?;
+            Some(ledger.snarked()?.ledger_hash().clone())
+        }) else {
             return;
         };
-        let snarked_ledger_hash = block.snarked_ledger_hash().clone();
         store
             .service
             .hashes_set(snarked_ledger_hash, &self.address, self.hashes)
@@ -191,10 +193,12 @@ impl TransitionFrontierSyncLedgerSnarkedChildAccountsReceivedAction {
     where
         S: TransitionFrontierSyncLedgerSnarkedService,
     {
-        let Some(block) = store.state().transition_frontier.sync.root_ledger() else {
+        let Some(snarked_ledger_hash) = None.or_else(|| {
+            let ledger = store.state().transition_frontier.sync.ledger()?;
+            Some(ledger.snarked()?.ledger_hash().clone())
+        }) else {
             return;
         };
-        let snarked_ledger_hash = block.snarked_ledger_hash().clone();
         store
             .service
             .accounts_set(snarked_ledger_hash, &self.address, self.accounts)

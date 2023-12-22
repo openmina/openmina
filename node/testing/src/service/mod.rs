@@ -6,13 +6,14 @@ use std::{collections::BTreeMap, ffi::OsStr, sync::Arc};
 use mina_p2p_messages::v2::{CurrencyFeeStableV1, NonZeroCurvePoint};
 use node::core::channels::mpsc;
 use node::core::requests::{PendingRequests, RequestId};
-use node::core::snark::Snark;
+use node::core::snark::{Snark, SnarkJobId};
 use node::recorder::Recorder;
 use node::snark::block_verify::{
     SnarkBlockVerifyId, SnarkBlockVerifyService, VerifiableBlockWithHash,
 };
 use node::snark::work_verify::{SnarkWorkVerifyId, SnarkWorkVerifyService};
 use node::snark::{VerifierIndex, VerifierSRS};
+use node::snark_pool::{JobState, SnarkPoolService};
 use node::stats::Stats;
 use node::{
     event_source::Event,
@@ -29,7 +30,6 @@ use node::{
     },
 };
 use openmina_node_native::NodeService;
-use rand::seq::SliceRandom;
 use redux::Instant;
 
 #[derive(Hash, Ord, PartialOrd, Eq, PartialEq)]
@@ -43,7 +43,8 @@ pub type PendingEventId = RequestId<PendingEventIdType>;
 
 pub struct NodeTestingService {
     real: NodeService,
-    http_port: u16,
+    // Use webrtc p2p between Rust nodes.
+    rust_to_rust_use_webrtc: bool,
     monotonic_time: Instant,
     /// Events sent by the real service not yet received by state machine.
     pending_events: PendingRequests<PendingEventIdType, Event>,
@@ -52,18 +53,23 @@ pub struct NodeTestingService {
 }
 
 impl NodeTestingService {
-    pub fn new(real: NodeService, http_port: u16, _shutdown: mpsc::Receiver<()>) -> Self {
+    pub fn new(real: NodeService, _shutdown: mpsc::Receiver<()>) -> Self {
         Self {
             real,
-            http_port,
+            rust_to_rust_use_webrtc: false,
             monotonic_time: Instant::now(),
             pending_events: PendingRequests::new(),
             _shutdown,
         }
     }
 
-    pub fn http_port(&self) -> u16 {
-        self.http_port
+    pub fn rust_to_rust_use_webrtc(&self) -> bool {
+        self.rust_to_rust_use_webrtc
+    }
+
+    pub fn set_rust_to_rust_use_webrtc(&mut self) {
+        assert!(cfg!(feature = "p2p-webrtc"));
+        self.rust_to_rust_use_webrtc = true;
     }
 
     pub fn advance_time(&mut self, by_nanos: u64) {
@@ -138,7 +144,7 @@ impl P2pServiceWebrtc for NodeTestingService {
         &mut self,
         list: &[P2pConnectionOutgoingInitOpts],
     ) -> P2pConnectionOutgoingInitOpts {
-        list.choose(&mut self.real.rng).unwrap().clone()
+        self.real.random_pick(list)
     }
 
     fn event_sender(&mut self) -> &mut mpsc::UnboundedSender<P2pEvent> {
@@ -165,6 +171,14 @@ impl P2pServiceWebrtc for NodeTestingService {
 impl P2pServiceWebrtcWithLibp2p for NodeTestingService {
     fn libp2p(&mut self) -> &mut Libp2pService {
         &mut self.real.libp2p
+    }
+
+    fn find_random_peer(&mut self) {
+        self.real.find_random_peer()
+    }
+
+    fn start_discovery(&mut self, peers: Vec<P2pConnectionOutgoingInitOpts>) {
+        self.real.start_discovery(peers)
     }
 }
 
@@ -201,6 +215,16 @@ impl SnarkWorkVerifyService for NodeTestingService {
             verifier_srs,
             work,
         )
+    }
+}
+
+impl SnarkPoolService for NodeTestingService {
+    fn random_choose<'a>(
+        &mut self,
+        iter: impl Iterator<Item = &'a JobState>,
+        n: usize,
+    ) -> Vec<SnarkJobId> {
+        self.real.random_choose(iter, n)
     }
 }
 

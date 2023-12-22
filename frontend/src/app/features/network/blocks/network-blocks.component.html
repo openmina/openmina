@@ -1,0 +1,18 @@
+<div class="flex-column h-100">
+  <mina-network-blocks-toolbar></mina-network-blocks-toolbar>
+  <mina-horizontal-resizable-container [leftTemplate]="left"
+                                       [rightTemplate]="right"
+                                       [show]="isSidePanelOpen"
+                                       [minWidth]="360"
+                                       [maxWidthElement]="el.nativeElement"
+                                       localStorageKey="network-blocks-side-panel-width">
+  </mina-horizontal-resizable-container>
+</div>
+
+<ng-template #left>
+  <mina-network-blocks-table></mina-network-blocks-table>
+</ng-template>
+
+<ng-template #right>
+  <mina-network-blocks-side-panel></mina-network-blocks-side-panel>
+</ng-template>

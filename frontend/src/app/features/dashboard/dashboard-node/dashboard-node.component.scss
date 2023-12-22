@@ -1,0 +1,14 @@
+@import 'openmina';
+
+.bg-surface {
+  height: 128px;
+
+  .bar {
+    height: 32px;
+    border-left: 2px solid $base-container;
+
+    &.done {
+      border-left: 2px solid $aware-primary;
+    }
+  }
+}

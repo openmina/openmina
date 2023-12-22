@@ -20,12 +20,16 @@ use super::{
     TransitionFrontierSyncBlocksPeerQuerySuccessAction,
     TransitionFrontierSyncBlocksPeersQueryAction, TransitionFrontierSyncBlocksPendingAction,
     TransitionFrontierSyncBlocksSuccessAction, TransitionFrontierSyncInitAction,
+    TransitionFrontierSyncLedgerNextEpochPendingAction,
+    TransitionFrontierSyncLedgerNextEpochSuccessAction,
     TransitionFrontierSyncLedgerRootPendingAction, TransitionFrontierSyncLedgerRootSuccessAction,
+    TransitionFrontierSyncLedgerStakingPendingAction,
+    TransitionFrontierSyncLedgerStakingSuccessAction,
 };
 
 impl TransitionFrontierSyncInitAction {
     pub fn effects<S: redux::Service>(&self, _: &ActionMeta, store: &mut Store<S>) {
-        store.dispatch(TransitionFrontierSyncLedgerRootPendingAction {});
+        store.dispatch(TransitionFrontierSyncLedgerStakingPendingAction {});
     }
 }
 
@@ -46,11 +50,38 @@ impl TransitionFrontierSyncBestTipUpdateAction {
     }
 }
 
+impl TransitionFrontierSyncLedgerStakingPendingAction {
+    pub fn effects<S: redux::Service>(&self, _: &ActionMeta, store: &mut Store<S>) {
+        store.dispatch(TransitionFrontierSyncLedgerInitAction {});
+    }
+}
+
+impl TransitionFrontierSyncLedgerStakingSuccessAction {
+    pub fn effects<S: redux::Service>(&self, _: &ActionMeta, store: &mut Store<S>) {
+        if store.dispatch(TransitionFrontierSyncLedgerNextEpochPendingAction {}) {
+        } else if store.dispatch(TransitionFrontierSyncLedgerRootPendingAction {}) {
+        }
+    }
+}
+
+impl TransitionFrontierSyncLedgerNextEpochPendingAction {
+    pub fn effects<S: redux::Service>(&self, _: &ActionMeta, store: &mut Store<S>) {
+        store.dispatch(TransitionFrontierSyncLedgerInitAction {});
+    }
+}
+
+impl TransitionFrontierSyncLedgerNextEpochSuccessAction {
+    pub fn effects<S: redux::Service>(&self, _: &ActionMeta, store: &mut Store<S>) {
+        store.dispatch(TransitionFrontierSyncLedgerRootPendingAction {});
+    }
+}
+
 impl TransitionFrontierSyncLedgerRootPendingAction {
     pub fn effects<S: redux::Service>(&self, _: &ActionMeta, store: &mut Store<S>) {
         store.dispatch(TransitionFrontierSyncLedgerInitAction {});
     }
 }
+
 impl TransitionFrontierSyncLedgerRootSuccessAction {
     pub fn effects<S: redux::Service>(&self, _: &ActionMeta, store: &mut Store<S>) {
         store.dispatch(TransitionFrontierSyncBlocksPendingAction {});
@@ -59,7 +90,9 @@ impl TransitionFrontierSyncLedgerRootSuccessAction {
 
 impl TransitionFrontierSyncBlocksPendingAction {
     pub fn effects<S: redux::Service>(&self, _: &ActionMeta, store: &mut Store<S>) {
-        store.dispatch(TransitionFrontierSyncBlocksPeersQueryAction {});
+        if !store.dispatch(TransitionFrontierSyncBlocksSuccessAction {}) {
+            store.dispatch(TransitionFrontierSyncBlocksPeersQueryAction {});
+        }
     }
 }
 
@@ -175,6 +208,7 @@ impl TransitionFrontierSyncBlocksPeerQuerySuccessAction {
 
 impl TransitionFrontierSyncBlocksFetchSuccessAction {
     pub fn effects<S: redux::Service>(&self, _: &ActionMeta, store: &mut Store<S>) {
+        let _ = store;
         // TODO(binier): uncomment once ledger communication is async.
         // store.dispatch(TransitionFrontierSyncBlocksNextApplyInitAction {});
     }

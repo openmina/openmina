@@ -70,6 +70,9 @@ pub enum P2pConnectionIncomingState {
         answer: webrtc::Answer,
         rpc_id: Option<RpcId>,
     },
+    Libp2pReceived {
+        time: redux::Timestamp,
+    },
 }
 
 impl P2pConnectionIncomingState {
@@ -84,6 +87,7 @@ impl P2pConnectionIncomingState {
             Self::FinalizeSuccess { time, .. } => *time,
             Self::Error { time, .. } => *time,
             Self::Success { time, .. } => *time,
+            Self::Libp2pReceived { time } => *time,
         }
     }
 
@@ -98,6 +102,7 @@ impl P2pConnectionIncomingState {
             Self::FinalizeSuccess { rpc_id, .. } => *rpc_id,
             Self::Error { rpc_id, .. } => *rpc_id,
             Self::Success { rpc_id, .. } => *rpc_id,
+            Self::Libp2pReceived { .. } => None,
         }
     }
 

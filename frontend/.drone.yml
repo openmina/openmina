@@ -1,0 +1,244 @@
+kind: pipeline
+name: Build and Test Openmina Frontend
+type: docker
+
+steps:
+  - name: set-docker-buildkit
+    image: alpine
+    environment:
+      DOCKER_BUILDKIT: "0"
+    commands:
+      - echo "export DOCKER_BUILDKIT=0" >> $HOME/.bashrc
+      - source $HOME/.bashrc
+
+  - name: build
+    image: docker:latest
+    environment:
+      DOCKER_BUILDKIT: "0"
+    commands:
+      - COMMIT_SHORT_SHA=$(echo $DRONE_COMMIT_SHA | cut -c 1-7)
+      - docker build --no-cache -t directcuteo/rust-fe:$COMMIT_SHORT_SHA -f Dockerfile .
+    volumes:
+      - name: docker_sock
+        path: /var/run/docker.sock
+    depends_on:
+      - set-docker-buildkit
+
+  - name: push
+    image: docker:latest
+    commands:
+      - echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin
+      - docker push directcuteo/rust-fe:${DRONE_COMMIT_SHA:0:7}
+    volumes:
+      - name: docker_sock
+        path: /var/run/docker.sock
+    environment:
+      DOCKER_USERNAME:
+        from_secret: docker_username
+      DOCKER_PASSWORD:
+        from_secret: docker_password
+    depends_on:
+      - build
+
+#  - name: frontend-server
+#    image: directcuteo/ocaml-based-fe:${DRONE_COMMIT_SHA:0:7}
+#    pull: if-not-exists
+#    detach: true
+#    privileged: true
+#    depends_on:
+#      - push
+#
+#  - name: prepare-tests
+#    image: cypress/included:12.6.0
+#    commands:
+#      - npm install
+#    depends_on:
+#      - push
+#
+#  - name: verify
+#    image: appropriate/curl
+#    commands:
+#      - curl -I http://frontend-server:80
+#    depends_on:
+#      - prepare-tests
+
+#  - name: overview-nodes-data
+#    image: cypress/included:12.6.0
+#    commands:
+#      - cypress run --config-file "cypress.config.js" --spec "cypress/e2e/overview/nodes/overview-nodes-data.cy.ts"
+#    depends_on:
+#      - prepare-tests
+#
+#  - name: overview-nodes-table
+#    image: cypress/included:12.6.0
+#    commands:
+#      - cypress run --config-file "cypress.config.js" --spec "cypress/e2e/overview/nodes/overview-nodes-table.cy.ts"
+#    depends_on:
+#      - prepare-tests
+#
+#  - name: overview-nodes-toolbar
+#    image: cypress/included:12.6.0
+#    commands:
+#      - cypress run --config-file "cypress.config.js" --spec "cypress/e2e/overview/nodes/overview-nodes-toolbar.cy.ts"
+#    depends_on:
+#      - prepare-tests
+#
+#  - name: network-messages-table
+#    image: cypress/included:12.6.0
+#    commands:
+#      - cypress run --config-file "cypress.config.js" --spec "cypress/e2e/network/messages/network-messages-table.cy.ts"
+#    depends_on:
+#      - prepare-tests
+#
+#  - name: network-blocks-table
+#    image: cypress/included:12.6.0
+#    commands:
+#      - cypress run --config-file "cypress.config.js" --spec "cypress/e2e/network/blocks/network-blocks-table.cy.ts"
+#    depends_on:
+#      - prepare-tests
+#
+#  - name: network-blocks-toolbar
+#    image: cypress/included:12.6.0
+#    commands:
+#      - cypress run --config-file "cypress.config.js" --spec "cypress/e2e/network/blocks/network-blocks-toolbar.cy.ts"
+#    depends_on:
+#      - prepare-tests
+#
+#  - name: network-blocks-side-panel
+#    image: cypress/included:12.6.0
+#    commands:
+#      - cypress run --config-file "cypress.config.js" --spec "cypress/e2e/network/blocks/network-blocks-side-panel.cy.ts"
+#    depends_on:
+#      - prepare-tests
+#
+#  - name: network-blocks-ipc-table
+#    image: cypress/included:12.6.0
+#    commands:
+#      - cypress run --config-file "cypress.config.js" --spec "cypress/e2e/network/blocks-ipc/network-blocks-ipc-table.cy.ts"
+#    depends_on:
+#      - prepare-tests
+#
+#  - name: network-blocks-ipc-toolbar
+#    image: cypress/included:12.6.0
+#    commands:
+#      - cypress run --config-file "cypress.config.js" --spec "cypress/e2e/network/blocks-ipc/network-blocks-ipc-toolbar.cy.ts"
+#    depends_on:
+#      - prepare-tests
+#
+#  - name: network-blocks-ipc-side-panel
+#    image: cypress/included:12.6.0
+#    commands:
+#      - cypress run --config-file "cypress.config.js" --spec "cypress/e2e/network/blocks-ipc/network-blocks-ipc-side-panel.cy.ts"
+#    depends_on:
+#      - prepare-tests
+#
+#  - name: explorer-blocks-table
+#    image: cypress/included:12.6.0
+#    commands:
+#      - cypress run --config-file "cypress.config.js" --spec "cypress/e2e/explorer/blocks/explorer-blocks-table.cy.ts"
+#    depends_on:
+#      - prepare-tests
+#
+#  - name: explorer-snark-pool-table
+#    image: cypress/included:12.6.0
+#    commands:
+#      - cypress run --config-file "cypress.config.js" --spec "cypress/e2e/explorer/snark-pool/explorer-snark-pool-table.cy.ts"
+#    depends_on:
+#      - prepare-tests
+#
+#  - name: explorer-snark-pool-toolbar
+#    image: cypress/included:12.6.0
+#    commands:
+#      - cypress run --config-file "cypress.config.js" --spec "cypress/e2e/explorer/snark-pool/explorer-snark-pool-toolbar.cy.ts"
+#    depends_on:
+#      - prepare-tests
+#
+#  - name: explorer-scan-state
+#    image: cypress/included:12.6.0
+#    commands:
+#      - cypress run --config-file "cypress.config.js" --spec "cypress/e2e/explorer/scan-state/explorer-scan-state.cy.ts"
+#    depends_on:
+#      - prepare-tests
+#
+#  - name: explorer-snark-traces-table
+#    image: cypress/included:12.6.0
+#    commands:
+#      - cypress run --config-file "cypress.config.js" --spec "cypress/e2e/explorer/snark-traces/explorer-snark-traces-table.cy.ts"
+#    depends_on:
+#      - prepare-tests
+#
+#  - name: explorer-snark-traces-toolbar
+#    image: cypress/included:12.6.0
+#    commands:
+#      - cypress run --config-file "cypress.config.js" --spec "cypress/e2e/explorer/snark-traces/explorer-snark-traces-toolbar.cy.ts"
+#    depends_on:
+#      - prepare-tests
+#
+#  - name: web-node-wallet
+#    image: cypress/included:12.6.0
+#    commands:
+#      - cypress run --config-file "cypress.config.js" --spec "cypress/e2e/web-node/wallet/web-node-wallet.cy.ts"
+#    depends_on:
+#      - prepare-tests
+#
+#  - name: web-node-logs
+#    image: cypress/included:12.6.0
+#    commands:
+#      - cypress run --config-file "cypress.config.js" --spec "cypress/e2e/web-node/logs/web-node-logs.cy.ts"
+#    depends_on:
+#      - prepare-tests
+#
+#  - name: web-node-peers
+#    image: cypress/included:12.6.0
+#    commands:
+#      - cypress run --config-file "cypress.config.js" --spec "cypress/e2e/web-node/peers/web-node-peers.cy.ts"
+#    depends_on:
+#      - prepare-tests
+#
+#  - name: copy-videos
+#    image: alpine
+#    commands:
+#      - cp -R /drone/src/cypress/videos/ /tmp/cache
+#    volumes:
+#      - name: test-vol
+#        path: /tmp/cache
+#        mode: "rw"
+#        temp: false
+#    when:
+#      status:
+#        - failure
+#        - success
+#    depends_on:
+#      - overview-nodes-table
+#      - network-messages-table
+#      - network-blocks-table
+#      - network-blocks-toolbar
+#      - network-blocks-side-panel
+#      - network-blocks-ipc-table
+#      - network-blocks-ipc-toolbar
+#      - network-blocks-ipc-side-panel
+#      - explorer-blocks-table
+#      - explorer-snark-pool-table
+#      - explorer-snark-pool-toolbar
+#      - explorer-scan-state
+#      - explorer-snark-traces-table
+#      - explorer-snark-traces-toolbar
+#      - web-node-wallet
+#      - web-node-logs
+#      - web-node-peers
+
+image_pull_secrets:
+  - docker_pull_secret
+
+volumes:
+  - name: docker_sock
+    host:
+      path: /var/run/docker.sock
+  - name: test-vol
+    host:
+      path: /home/openmina/mina-frontend-videos
+
+trigger:
+  branch:
+    - frontend
+  event: push

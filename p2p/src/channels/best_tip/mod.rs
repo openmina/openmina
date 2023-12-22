@@ -10,10 +10,7 @@ pub use p2p_channels_best_tip_reducer::*;
 mod p2p_channels_best_tip_effects;
 pub use p2p_channels_best_tip_effects::*;
 
-use mina_p2p_messages::binprot::{
-    self,
-    macros::{BinProtRead, BinProtWrite},
-};
+use binprot_derive::{BinProtRead, BinProtWrite};
 use openmina_core::block::ArcBlock;
 use serde::{Deserialize, Serialize};
 

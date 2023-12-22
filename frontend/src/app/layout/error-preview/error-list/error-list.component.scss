@@ -1,0 +1,26 @@
+@import 'openmina';
+
+:host {
+	width: 312px;
+	max-height: 30vh;
+	background-color: $base-surface-top;
+	margin-right: 10px;
+	margin-left: 10px;
+
+	@media (max-width: 768px) {
+		width: calc(100% - 20px);
+		max-height: 80vh;
+	}
+}
+
+.err {
+	min-height: 105px;
+
+	&:not(:last-child) {
+		border-bottom: 1px solid $base-divider;
+	}
+
+	.message {
+		word-wrap: break-word;
+	}
+}

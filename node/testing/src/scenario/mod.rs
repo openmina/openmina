@@ -97,6 +97,7 @@ impl Scenario {
     pub async fn save(&self) -> Result<(), anyhow::Error> {
         let tmp_file = self.tmp_file_path();
         let encoded = serde_json::to_vec_pretty(self)?;
+        tokio::fs::create_dir_all(Self::PATH).await?;
         tokio::fs::write(&tmp_file, encoded).await?;
         Ok(tokio::fs::rename(tmp_file, self.file_path()).await?)
     }

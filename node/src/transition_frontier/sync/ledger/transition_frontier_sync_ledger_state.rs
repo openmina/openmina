@@ -1,18 +1,18 @@
 use std::collections::BTreeMap;
 
-use mina_p2p_messages::v2::{LedgerHash, MinaStateProtocolStateValueStableV2, StateHash};
-use openmina_core::block::ArcBlockWithHash;
+use mina_p2p_messages::v2::{MinaStateProtocolStateValueStableV2, StateHash};
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
 
 use super::snarked::TransitionFrontierSyncLedgerSnarkedState;
 use super::staged::TransitionFrontierSyncLedgerStagedState;
+use super::{SyncLedgerTarget, SyncLedgerTargetKind};
 
 #[derive(derive_more::From, Serialize, Deserialize, Debug, Clone)]
 pub enum TransitionFrontierSyncLedgerState {
     Init {
         time: Timestamp,
-        block: ArcBlockWithHash,
+        target: SyncLedgerTarget,
     },
     #[from]
     Snarked(TransitionFrontierSyncLedgerSnarkedState),
@@ -20,7 +20,7 @@ pub enum TransitionFrontierSyncLedgerState {
     Staged(TransitionFrontierSyncLedgerStagedState),
     Success {
         time: Timestamp,
-        block: ArcBlockWithHash,
+        target: SyncLedgerTarget,
         needed_protocol_states: BTreeMap<StateHash, MinaStateProtocolStateValueStableV2>,
     },
 }
@@ -48,47 +48,47 @@ impl TransitionFrontierSyncLedgerState {
         }
     }
 
-    pub fn block(&self) -> &ArcBlockWithHash {
+    // TODO(binier): maybe avoid extra cloning.
+    pub fn target(&self) -> SyncLedgerTarget {
         match self {
-            Self::Init { block, .. } => block,
-            Self::Snarked(s) => s.block(),
-            Self::Staged(s) => s.block(),
-            Self::Success { block, .. } => block,
+            Self::Init { target, .. } | Self::Success { target, .. } => target.clone(),
+            Self::Snarked(s) => s.target().clone(),
+            Self::Staged(s) => s.target().clone().into(),
         }
     }
 
-    pub fn snarked_ledger_hash(&self) -> &LedgerHash {
-        self.block().snarked_ledger_hash()
-    }
-
-    pub fn staged_ledger_hash(&self) -> &LedgerHash {
-        self.block().staged_ledger_hash()
-    }
-
-    pub fn update_block(&mut self, time: Timestamp, new_block: ArcBlockWithHash) {
+    pub fn target_kind(&self) -> SyncLedgerTargetKind {
         match self {
-            Self::Snarked(TransitionFrontierSyncLedgerSnarkedState::Pending { block, .. }) => {
-                if block.snarked_ledger_hash() == new_block.snarked_ledger_hash() {
-                    *block = new_block;
+            Self::Init { target, .. } | Self::Success { target, .. } => target.kind,
+            Self::Snarked(s) => s.target().kind,
+            Self::Staged(s) => s.target().kind,
+        }
+    }
+
+    pub fn update_target(&mut self, time: Timestamp, new_target: SyncLedgerTarget) {
+        match self {
+            Self::Snarked(TransitionFrontierSyncLedgerSnarkedState::Pending { target, .. }) => {
+                if target.snarked_ledger_hash == new_target.snarked_ledger_hash {
+                    *target = new_target;
                 } else {
                     *self = Self::Init {
                         time,
-                        block: new_block.clone(),
+                        target: new_target,
                     };
                 }
             }
             Self::Staged(staged) => {
-                let block = staged.block();
-                if block.snarked_ledger_hash() == new_block.snarked_ledger_hash() {
+                let target = staged.target();
+                if target.snarked_ledger_hash == new_target.snarked_ledger_hash {
                     *self = TransitionFrontierSyncLedgerSnarkedState::Success {
                         time,
-                        block: new_block.clone(),
+                        target: target.clone().into(),
                     }
                     .into();
                 } else {
                     *self = Self::Init {
                         time,
-                        block: new_block.clone(),
+                        target: new_target,
                     };
                 }
             }

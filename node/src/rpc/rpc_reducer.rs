@@ -9,6 +9,7 @@ impl RpcState {
             RpcAction::GlobalStateGet(_) => {}
             RpcAction::ActionStatsGet(_) => {}
             RpcAction::SyncStatsGet(_) => {}
+            RpcAction::PeersGet(_) => {}
             RpcAction::P2pConnectionOutgoingInit(content) => {
                 let rpc_state = RpcRequestState {
                     req: RpcRequest::P2pConnectionOutgoing(content.opts.clone()),
