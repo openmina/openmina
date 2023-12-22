@@ -120,11 +120,9 @@ Rust node sends SNARK via P2P.
 
 SNARK is verified.
 
-<img width="274" alt="image" src="https://github.com/openmina/openmina/assets/60480123/6fd500cd-90d8-4eed-b133-fb05f2a1798c">
+<img width="488" alt="image" src="https://github.com/openmina/openmina/assets/60480123/91c85d8d-4a63-4ace-a21f-fad08e57da34">
 
 If it is the lowest fee, it will be added to the SNARK pool.
-
-<img width="266" alt="image" src="https://github.com/openmina/openmina/assets/60480123/c2947d12-020f-40f9-8831-0cbcdb08260c">
 
 
 ### Committing and producing a SNARK
