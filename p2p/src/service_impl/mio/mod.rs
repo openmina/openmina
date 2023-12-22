@@ -153,7 +153,9 @@ where
                     }
                 }
                 Some(Token::Listener(addr)) => {
-                    let mut listener = self.listeners.remove(&addr).expect("must be here");
+                    let Some(mut listener) = self.listeners.remove(&addr) else {
+                        continue 'events;
+                    };
 
                     if event.is_readable() {
                         if !listener.incomind_ready {
@@ -172,7 +174,9 @@ where
                     }
                 }
                 Some(Token::Connection(mut addr)) => {
-                    let mut connection = self.connections.remove(&addr).expect("must be here");
+                    let Some(mut connection) = self.connections.remove(&addr) else {
+                        continue 'events;
+                    };
                     if event.is_readable() {
                         if !connection.incomind_ready {
                             self.send(MioEvent::IncomingDataIsReady(addr));
@@ -210,6 +214,7 @@ where
                                             addr,
                                             Err(err.to_string()),
                                         ));
+                                        // drop the connection
                                         continue 'events;
                                     }
                                     Ok(len) => {
@@ -243,7 +248,7 @@ where
         use self::MioCmd::*;
 
         match cmd {
-            ListenOn(addr) => match TcpListener::bind(dbg!(addr)) {
+            ListenOn(addr) => match TcpListener::bind(addr) {
                 Ok(mut listener) => {
                     if let Err(err) = self.poll.registry().register(
                         &mut listener,
@@ -357,6 +362,10 @@ where
                         .map_err(|err| err.to_string())
                         .map(|len| (buf, len));
                     connection.incomind_ready = false;
+                    if res.is_err() {
+                        // drop the connection
+                        self.connections.remove(&addr);
+                    }
                     self.send(MioEvent::IncomingDataDidReceive(addr, res));
                 } else {
                     self.send(MioEvent::IncomingDataDidReceive(
