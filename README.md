@@ -28,7 +28,6 @@ We are working on the following:
 
 In the future, we plan to implement:
 
-
 * Direct transfer of MINA funds
 * Block production
 * SNARK proof generation for transactions
