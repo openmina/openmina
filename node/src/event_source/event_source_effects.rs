@@ -36,7 +36,9 @@ use crate::p2p::discovery::{
     P2pDiscoveryKademliaSuccessAction,
 };
 use crate::p2p::network::{
-    P2pNetworkConnectionInterfaceDetectedAction, P2pNetworkConnectionInterfaceExpiredAction,
+    P2pNetworkConnectionIncomingDataDidReceiveAction,
+    P2pNetworkConnectionIncomingDataIsReadyAction, P2pNetworkConnectionInterfaceDetectedAction,
+    P2pNetworkConnectionInterfaceExpiredAction, P2pNetworkConnectionOutgoingDidConnectAction,
 };
 use crate::p2p::{MioEvent, P2pChannelEvent};
 use crate::rpc::{
@@ -82,12 +84,39 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
         EventSourceAction::NewEvent(content) => match content.event {
             Event::P2p(e) => match e {
                 #[cfg(all(not(target_arch = "wasm32"), not(feature = "p2p-libp2p")))]
-                P2pEvent::MioEvent(e) => match dbg!(e) {
+                P2pEvent::MioEvent(e) => match e {
                     MioEvent::InterfaceDetected(ip) => {
+                        dbg!("InterfaceDetected");
                         store.dispatch(P2pNetworkConnectionInterfaceDetectedAction { ip });
                     }
                     MioEvent::InterfaceExpired(ip) => {
+                        dbg!("InterfaceExpired");
                         store.dispatch(P2pNetworkConnectionInterfaceExpiredAction { ip });
+                    }
+                    MioEvent::OutgoingConnectionDidConnect(addr, result) => {
+                        dbg!("OutgoingConnectionDidConnect");
+                        store.dispatch(P2pNetworkConnectionOutgoingDidConnectAction {
+                            addr,
+                            result,
+                        });
+                    }
+                    MioEvent::IncomingDataIsReady(addr) => {
+                        dbg!("IncomingDataIsReady");
+                        store.dispatch(P2pNetworkConnectionIncomingDataIsReadyAction { addr });
+                    }
+                    MioEvent::IncomingDataDidReceive(addr, result) => {
+                        dbg!("IncomingDataDidReceive");
+                        match &result {
+                            Ok((_, len)) => drop(dbg!(len)),
+                            Err(err) => drop(dbg!(err)),
+                        }
+                        store.dispatch(P2pNetworkConnectionIncomingDataDidReceiveAction {
+                            addr,
+                            result,
+                        });
+                    }
+                    MioEvent::OutgoingDataDidSend(_, _) => {
+                        dbg!("OutgoingDataDidSend");
                     }
                     _ => {}
                 },

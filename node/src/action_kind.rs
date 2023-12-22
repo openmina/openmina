@@ -99,8 +99,9 @@ use crate::p2p::listen::{
     P2pListenNewAction,
 };
 use crate::p2p::network::connection::{
-    P2pNetworkConnectionAction, P2pNetworkConnectionInterfaceDetectedAction,
-    P2pNetworkConnectionInterfaceExpiredAction,
+    P2pNetworkConnectionAction, P2pNetworkConnectionIncomingDataDidReceiveAction,
+    P2pNetworkConnectionIncomingDataIsReadyAction, P2pNetworkConnectionInterfaceDetectedAction,
+    P2pNetworkConnectionInterfaceExpiredAction, P2pNetworkConnectionOutgoingDidConnectAction,
 };
 use crate::p2p::network::pnet::{
     P2pNetworkPnetAction, P2pNetworkPnetIncomingDataAction, P2pNetworkPnetOutgoingDataAction,
@@ -320,8 +321,11 @@ pub enum ActionKind {
     P2pListenError,
     P2pListenExpired,
     P2pListenNew,
+    P2pNetworkConnectionIncomingDataDidReceive,
+    P2pNetworkConnectionIncomingDataIsReady,
     P2pNetworkConnectionInterfaceDetected,
     P2pNetworkConnectionInterfaceExpired,
+    P2pNetworkConnectionOutgoingDidConnect,
     P2pNetworkPnetIncomingData,
     P2pNetworkPnetOutgoingData,
     P2pNetworkPnetSetupNonce,
@@ -439,7 +443,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 221;
+    pub const COUNT: u16 = 224;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -1376,6 +1380,9 @@ impl ActionKindGet for P2pNetworkConnectionAction {
         match self {
             Self::InterfaceDetected(a) => a.kind(),
             Self::InterfaceExpired(a) => a.kind(),
+            Self::OutgoingDidConnect(a) => a.kind(),
+            Self::IncomingDataIsReady(a) => a.kind(),
+            Self::IncomingDataDidReceive(a) => a.kind(),
         }
     }
 }
@@ -2028,6 +2035,24 @@ impl ActionKindGet for P2pNetworkConnectionInterfaceDetectedAction {
 impl ActionKindGet for P2pNetworkConnectionInterfaceExpiredAction {
     fn kind(&self) -> ActionKind {
         ActionKind::P2pNetworkConnectionInterfaceExpired
+    }
+}
+
+impl ActionKindGet for P2pNetworkConnectionOutgoingDidConnectAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pNetworkConnectionOutgoingDidConnect
+    }
+}
+
+impl ActionKindGet for P2pNetworkConnectionIncomingDataIsReadyAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pNetworkConnectionIncomingDataIsReady
+    }
+}
+
+impl ActionKindGet for P2pNetworkConnectionIncomingDataDidReceiveAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pNetworkConnectionIncomingDataDidReceive
     }
 }
 
