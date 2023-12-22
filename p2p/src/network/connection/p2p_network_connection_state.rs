@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     connection::outgoing::P2pConnectionOutgoingInitOpts, webrtc::Host, MioCmd, P2pMioService,
-    P2pNetworkPnetIncomingDataAction,
+    P2pNetworkPnetIncomingDataAction, P2pNetworkSelectInitAction,
 };
 
 use super::{
@@ -57,6 +57,7 @@ impl P2pNetworkConnectionAction {
         Store: crate::P2pStore<S>,
         Store::Service: P2pMioService,
         P2pNetworkPnetIncomingDataAction: redux::EnablingCondition<S>,
+        P2pNetworkSelectInitAction: redux::EnablingCondition<S>,
     {
         match self {
             Self::InterfaceDetected(a) => {
@@ -77,7 +78,14 @@ impl P2pNetworkConnectionAction {
                 }
             }
             Self::InterfaceExpired(_) => {}
-            Self::OutgoingDidConnect(_) => {}
+            Self::OutgoingDidConnect(a) => {
+                store.dispatch(P2pNetworkSelectInitAction {
+                    addr: a.addr,
+                    peer_id: None,
+                    stream_id: None,
+                    incoming: false,
+                });
+            }
             Self::IncomingDataIsReady(a) => {
                 store
                     .service()
