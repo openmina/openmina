@@ -7,7 +7,11 @@
 If two nodes are connecting to each other at the same time, they should be
 connected, so each one has exactly one connection.
 
-- - [`p2p_basic_connections(simultaneous_connections)`](../node/testing/src/scenarios/p2p/basic_connection_handling.rs#L25)
+- [`p2p_basic_connections(simultaneous_connections)`](../node/testing/src/scenarios/p2p/basic_connection_handling.rs#L25)
+
+### Two Rust nodes shouldn't be disconnected for a while after they are connected
+
+- [`p2p_basic_connections(connection_stbility)`](../node/testing/src/scenarios/p2p/basic_connection_handling.rs#L342)
 
 
 ### All connections should be tracked by the state machine
@@ -22,7 +26,7 @@ should be present in the state machine.
 ### Number of active peers should not exceed configured maximum number
 
 **Tests:**
-- [`p2p_basic_connections(max_number_of_peers)`](../node/testing/src/scenarios/p2p/basic_connection_handling.rs#L242)
+- [`p2p_basic_connections(max_number_of_peers)`](../node/testing/src/scenarios/p2p/basic_connection_handling.rs#L248)
 
 
 ## Incoming Connections
@@ -77,6 +81,10 @@ TODO: what if the number of initial peers exceeds the max number of peers?
 
 - [`p2p_basic_outgoing(connect_to_all_initial_peers)`](../node/testing/src/scenarios/p2p/basic_outgoing_connections.rs#L293)
 - [multi_node_initial_joining](../node/testing/src/scenarios/multi_node/basic_connectivity_initial_joining.rs) (partially?)
+
+### Node should retry connecting to unavailable initial peers
+
+- [`p2p_basic_outgoing(connect_to_unavailableinitial_peers)`](../node/testing/src/scenarios/p2p/basic_outgoing_connections.rs#L433)
 
 ### Node should be able to connect to initial peers eventually, even if initially they are not available.
 
