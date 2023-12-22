@@ -10,7 +10,10 @@ use node::{
 
 use crate::{
     node::RustNodeTestingConfig,
-    scenarios::{add_rust_nodes, wait_for_nodes_listening_on_localhost, ClusterRunner, Driver},
+    scenarios::{
+        add_rust_nodes, run_until_no_events, wait_for_nodes_listening_on_localhost, ClusterRunner,
+        Driver,
+    },
 };
 
 fn has_active_peer(p2p_state: &P2pState, peer_id: &PeerId) -> bool {
@@ -55,11 +58,17 @@ impl SimultaneousConnections {
             .expect("connect event should be dispatched");
 
         // Run the cluster while there are events
-        while driver
-            .run_until(Duration::from_secs(30), |_, _, _| true)
-            .await
-            .unwrap()
-        {}
+        let quiet = run_until_no_events(
+            &mut driver,
+            Duration::from_secs(30),
+            Duration::from_secs(60),
+        )
+        .await
+        .unwrap();
+        assert!(
+            quiet,
+            "no quiet period with no events since nodes are connected"
+        );
 
         let p2p_state1 = &driver.inner().node(node1).unwrap().state().p2p;
         let p2p_state2 = &driver.inner().node(node2).unwrap().state().p2p;
@@ -125,17 +134,17 @@ impl AllNodesConnectionsAreSymmetric {
             .collect();
 
         // Run the cluster while there are events
-        let timeout = std::time::Instant::now() + Duration::from_secs(2 * 60);
-        while driver
-            .run_until(Duration::from_secs(30), |_, _, _| true)
-            .await
-            .unwrap()
-        {
-            assert!(
-                std::time::Instant::now() < timeout,
-                "cluster should stop generating events"
-            );
-        }
+        let quiet = run_until_no_events(
+            &mut driver,
+            Duration::from_secs(30),
+            Duration::from_secs(2 * 60),
+        )
+        .await
+        .unwrap();
+        assert!(
+            quiet,
+            "no quiet period with no events since nodes are connected"
+        );
 
         // Check that for each peer, if it is in the node's peer list, then the node is in the peer's peer list
         for (peer1, peer_id1) in &peers {
@@ -343,8 +352,10 @@ impl ConnectionStability {
         const CONNECTED_TIME_SEC: u64 = 1 * 60;
         let mut driver = Driver::new(runner);
 
-        let (node1, _) = driver.add_rust_node(RustNodeTestingConfig::berkeley_default().max_peers(1));
-        let (node2, _) = driver.add_rust_node(RustNodeTestingConfig::berkeley_default().max_peers(1));
+        let (node1, _) =
+            driver.add_rust_node(RustNodeTestingConfig::berkeley_default().max_peers(1));
+        let (node2, _) =
+            driver.add_rust_node(RustNodeTestingConfig::berkeley_default().max_peers(1));
 
         assert!(
             wait_for_nodes_listening_on_localhost(&mut driver, Duration::from_secs(30), [node2])

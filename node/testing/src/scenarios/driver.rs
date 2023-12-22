@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use libp2p::Multiaddr;
 use node::{
@@ -347,4 +347,17 @@ where
         .into_iter()
         .map(|_| driver.add_rust_node_with(config.clone(), &mut f))
         .unzip()
+}
+
+/// Runs cluster until there is a `quiet_dur` period of no events, returning
+/// `Ok(true)` in this case. If there is no such period for `timeout` period of
+/// time, then returns `Ok(false)`
+pub async fn run_until_no_events<'cluster>(driver: &mut Driver<'cluster>, quiet_dur: Duration, timeout: Duration) -> anyhow::Result<bool> {
+    let timeout = Instant::now() + timeout;
+    while driver.run_until(quiet_dur, |_, _, _| true).await? {
+        if Instant::now() >= timeout {
+            return Ok(false);
+        }
+    }
+    Ok(true)
 }
