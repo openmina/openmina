@@ -9,7 +9,9 @@ use std::{
 use redux::ActionMeta;
 use serde::{Deserialize, Serialize};
 
-use crate::{MioCmd, P2pMioService};
+use crate::{
+    connection::outgoing::P2pConnectionOutgoingInitOpts, webrtc::Host, MioCmd, P2pMioService,
+};
 
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
 
@@ -39,6 +41,17 @@ impl P2pNetworkConnectionAction {
                 store
                     .service()
                     .send_mio_cmd(MioCmd::ListenOn(SocketAddr::new(a.ip, port)));
+                let addr = match &store.state().config.initial_peers[0] {
+                    P2pConnectionOutgoingInitOpts::LibP2P(v) => match &v.host {
+                        Host::Ipv4(ip) => SocketAddr::new((*ip).into(), v.port),
+                        _ => panic!(),
+                    },
+                    _ => panic!(),
+                };
+
+                if addr.is_ipv4() == a.ip.is_ipv4() {
+                    store.service().send_mio_cmd(MioCmd::Connect(dbg!(addr)));
+                }
             }
             Self::InterfaceExpired(_) => {}
         }
