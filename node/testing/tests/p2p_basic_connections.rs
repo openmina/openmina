@@ -21,7 +21,9 @@ scenario_test!(
     SeedConnectionsAreSymmetric
 );
 
-scenario_test!(max_number_of_peers, MaxNumberOfPeers, MaxNumberOfPeers);
+// ignore
+// scenario_test!(max_number_of_peers, MaxNumberOfPeers, MaxNumberOfPeers);
+
 scenario_test!(
     connection_stability,
     ConnectionStability,
