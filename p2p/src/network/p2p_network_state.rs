@@ -44,10 +44,13 @@ impl P2pNetworkAction {
         Store::Service: P2pMioService + P2pCryptoService,
         P2pNetworkPnetIncomingDataAction: redux::EnablingCondition<S>,
         P2pNetworkPnetSetupNonceAction: redux::EnablingCondition<S>,
+        P2pNetworkSelectIncomingDataAction: redux::EnablingCondition<S>,
+        P2pNetworkSelectInitAction: redux::EnablingCondition<S>,
     {
         match self {
             Self::Connection(v) => v.effects(meta, store),
             Self::Pnet(v) => v.effects(meta, store),
+            Self::Select(v) => v.effects(meta, store),
         }
     }
 }
@@ -62,6 +65,12 @@ impl P2pNetworkState {
                     .connections
                     .get_mut(&a.addr())
                     .map(|cn| cn.pnet.reducer(meta.with_action(&a)));
+            }
+            P2pNetworkAction::Select(a) => {
+                self.connection
+                    .connections
+                    .get_mut(&a.addr())
+                    .map(|cn| cn.select.reducer(meta.with_action(&a)));
             }
         }
     }
