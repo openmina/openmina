@@ -88,10 +88,13 @@ impl P2pNetworkPnetAction {
         P2pNetworkPnetAction: redux::EnablingCondition<S>,
     {
         let (state, service) = store.state_and_service();
-        let state = &state.network.pnet;
+        let connections = &state.network.connection.connections;
         match self {
-            P2pNetworkPnetAction::IncomingData(_) => {
-                match &state.incoming {
+            P2pNetworkPnetAction::IncomingData(a) => {
+                let Some(state) = connections.get(&a.addr) else {
+                    return;
+                };
+                match &state.pnet.incoming {
                     Half::Done { to_send, .. } if !to_send.is_empty() => {
                         // TODO: send to multistream-select
                         let _ = service;
@@ -99,22 +102,27 @@ impl P2pNetworkPnetAction {
                     _ => {}
                 }
             }
-            P2pNetworkPnetAction::OutgoingData(a) => match &state.outgoing {
-                Half::Buffering { buffer, .. } if *buffer == [0; 24] => {
-                    let nonce = service.generate_random_nonce();
-                    let addr = a.addr;
-                    store.dispatch(P2pNetworkPnetAction::SetupNonce(
-                        P2pNetworkPnetSetupNonceAction { addr, nonce },
-                    ));
+            P2pNetworkPnetAction::OutgoingData(a) => {
+                let Some(state) = connections.get(&a.addr) else {
+                    return;
+                };
+                match &state.pnet.outgoing {
+                    Half::Buffering { buffer, .. } if *buffer == [0; 24] => {
+                        let nonce = service.generate_random_nonce();
+                        let addr = a.addr;
+                        store.dispatch(P2pNetworkPnetAction::SetupNonce(
+                            P2pNetworkPnetSetupNonceAction { addr, nonce },
+                        ));
+                    }
+                    Half::Done { to_send, .. } if !to_send.is_empty() => {
+                        service.send_mio_cmd(crate::MioCmd::Send(
+                            a.addr,
+                            to_send.clone().into_boxed_slice(),
+                        ));
+                    }
+                    _ => {}
                 }
-                Half::Done { to_send, .. } if !to_send.is_empty() => {
-                    service.send_mio_cmd(crate::MioCmd::Send(
-                        a.addr,
-                        to_send.clone().into_boxed_slice(),
-                    ));
-                }
-                _ => {}
-            },
+            }
             P2pNetworkPnetAction::SetupNonce(a) => {
                 service.send_mio_cmd(crate::MioCmd::Send(
                     a.addr,
@@ -129,7 +137,7 @@ impl P2pNetworkPnetState {
     pub fn reducer(&mut self, action: redux::ActionWithMeta<&P2pNetworkPnetAction>) {
         match action.action() {
             P2pNetworkPnetAction::IncomingData(a) => {
-                self.incoming.reduce(&self.shared_secret, &a.data)
+                self.incoming.reduce(&self.shared_secret, &a.data[..a.len])
             }
             P2pNetworkPnetAction::OutgoingData(a) => {
                 self.outgoing.reduce(&self.shared_secret, &a.data)

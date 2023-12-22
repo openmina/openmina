@@ -92,6 +92,9 @@ impl_into_global_action!(discovery::P2pDiscoveryKademliaAddRouteAction);
 
 impl_into_global_action!(network::P2pNetworkConnectionInterfaceDetectedAction);
 impl_into_global_action!(network::P2pNetworkConnectionInterfaceExpiredAction);
+impl_into_global_action!(network::P2pNetworkConnectionOutgoingDidConnectAction);
+impl_into_global_action!(network::P2pNetworkConnectionIncomingDataIsReadyAction);
+impl_into_global_action!(network::P2pNetworkConnectionIncomingDataDidReceiveAction);
 
 impl_into_global_action!(channels::P2pChannelsMessageReceivedAction);
 
