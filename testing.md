@@ -42,24 +42,23 @@
 - [7. How to run tests](#7-how-to-run-tests)
 
 
-
 ### Introduction
 
-Complex systems that handle important information such as blockchain networks must be thoroughly and continuously tested to ensure the highest degree of security, stability, and performance. 
+Complex systems that handle important information such as blockchain networks must be thoroughly and continuously tested to ensure the highest degree of security, stability, and performance.
 
-To achieve that, we need to develop a comprehensive testing framework capable of deploying a variety of tests. 
+To achieve that, we need to develop a comprehensive testing framework capable of deploying a variety of tests.
 
 Such a framework plays a pivotal role in assessing a blockchain's resistance to various malicious attacks. By simulating these attack scenarios and vulnerabilities, the framework helps identify weaknesses in the blockchain's security measures, enabling developers to fortify the system's defenses. This proactive approach is essential to maintain trust and integrity within the blockchain ecosystem, as it minimizes the risk of breaches and instills confidence in users and stakeholders.
 
-Secondly, a robust testing framework is equally crucial for evaluating the blockchain's scalability, speed, and stability. As blockchain networks grow in size and adoption, they must accommodate an increasing number of transactions and users while maintaining a high level of performance and stability. Scalability tests ensure that the system can handle greater workloads without degradation in speed or reliability, helping to avoid bottlenecks and congestion that can hinder transactions and overall network performance. 
+Secondly, a robust testing framework is equally crucial for evaluating the blockchain's scalability, speed, and stability. As blockchain networks grow in size and adoption, they must accommodate an increasing number of transactions and users while maintaining a high level of performance and stability. Scalability tests ensure that the system can handle greater workloads without degradation in speed or reliability, helping to avoid bottlenecks and congestion that can hinder transactions and overall network performance.
 
-Additionally, stability testing assesses the blockchain's ability to operate consistently under various conditions, even amid a protocol upgrade. We want to identify potential issues or crashes that could disrupt operations before they have a chance of occurring on the mainnet. 
+Additionally, stability testing assesses the blockchain's ability to operate consistently under various conditions, even amid a protocol upgrade. We want to identify potential issues or crashes that could disrupt operations before they have a chance of occurring on the mainnet.
 
 
 
 ### What we are testing
 
-Here is a limited overview of test categories. Tests are currently focused on the network and P2P layer,  the next steps will be consensus, ledger, and other parts.  
+Here is a limited overview of test categories. Tests are currently focused on the network and P2P layer,  the next steps will be consensus, ledger, and other parts.
 
 We need to work with the assumption that more than one-third of the nodes can be Byzantine for the system to function correctly.
 
@@ -90,9 +89,9 @@ This test is performed by launching an Openmina node and connecting it to seed n
 
 _The source code for this test can be found in this repo:_
 
-[https://github.com/openmina/openmina/blob/develop/node/testing/src/scenarios/solo_node/basic_connectivity_initial_joining.rs](https://github.com/openmina/openmina/blob/develop/node/testing/src/scenarios/solo_node/basic_connectivity_initial_joining.rs) 
+[https://github.com/openmina/openmina/blob/develop/node/testing/src/scenarios/solo_node/basic_connectivity_initial_joining.rs](https://github.com/openmina/openmina/blob/develop/node/testing/src/scenarios/solo_node/basic_connectivity_initial_joining.rs)
 
- 
+
 
 **We are testing the following scenarios:**
 
@@ -112,7 +111,7 @@ Whether the Openmina (Rust) node can accept an incoming connection from the nati
 
 #### OCaml connection to advertised Rust node
 
-Whether the OCaml node can discover and connect to a Rust node that is advertising itself. This is done by advertising the Rust node so that the OCaml node can discover it and connect to the node. 
+Whether the OCaml node can discover and connect to a Rust node that is advertising itself. This is done by advertising the Rust node so that the OCaml node can discover it and connect to the node.
 
 In this test, we do not inform the OCaml node to connect to it explicitly, it should find it automatically and connect using peer discovery (performed through Kademlia). This test will ensure the Rust node uses Kademlia in a way that is compatible with the OCaml node.
 
@@ -123,7 +122,7 @@ In this test, we do not inform the OCaml node to connect to it explicitly, it sh
 
 - [solo_node_accept_incoming](../node/testing/src/scenarios/solo_node/basic_connectivity_accept_incoming.rs)
 
-  
+
 #### Rust and OCaml node discovery via OCaml seed node
 
 The main goal of this test is to ensure that the Rust node can discover peers in the network, and is discoverable by other peers as well.
@@ -260,7 +259,7 @@ We run these tests until:
 
 ### Multi node
 
-We also want to test a scenario in which the network consists only of Openmina nodes. If the Openmina node is using a functionality that is implemented only in the OCaml node, and it does not perform it correctly, then we will not be able to see it with solo node test. 
+We also want to test a scenario in which the network consists only of Openmina nodes. If the Openmina node is using a functionality that is implemented only in the OCaml node, and it does not perform it correctly, then we will not be able to see it with solo node test.
 
 For that purpose, we utilize a Multi node test, which involves a network of our nodes, without any third party, so that the testing is completely local and under our control.
 
@@ -287,7 +286,7 @@ This test checks whether Rust nodes connect to a Rust node that is advertised. I
 
 _The source code for this test can be found in this repo:_
 
-[https://github.com/openmina/openmina/blob/develop/node/testing/src/scenarios/multi_node/basic_connectivity_initial_joining.rs#L9](https://github.com/openmina/openmina/blob/develop/node/testing/src/scenarios/multi_node/basic_connectivity_initial_joining.rs#L9) 
+[https://github.com/openmina/openmina/blob/develop/node/testing/src/scenarios/multi_node/basic_connectivity_initial_joining.rs#L9](https://github.com/openmina/openmina/blob/develop/node/testing/src/scenarios/multi_node/basic_connectivity_initial_joining.rs#L9)
 
 
 
@@ -332,7 +331,7 @@ _This test assesses the node's ability to resist censorship attempts by a subset
 ## 3. Node Bootstrapping and Data Availability
 
 
-### Node Bootstrapping 
+### Node Bootstrapping
 
 New nodes joining the network should eventually discover and connect to honest peers and synchronize the latest blockchain state.
 
