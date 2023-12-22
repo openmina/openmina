@@ -85,6 +85,9 @@ use crate::p2p::network::pnet::{
     P2pNetworkPnetAction, P2pNetworkPnetIncomingDataAction, P2pNetworkPnetOutgoingDataAction,
     P2pNetworkPnetSetupNonceAction,
 };
+use crate::p2p::network::select::{
+    P2pNetworkSelectAction, P2pNetworkSelectIncomingDataAction, P2pNetworkSelectInitAction,
+};
 use crate::p2p::network::P2pNetworkAction;
 use crate::p2p::peer::{P2pPeerAction, P2pPeerBestTipUpdateAction, P2pPeerReadyAction};
 use crate::p2p::P2pAction;
@@ -307,6 +310,8 @@ pub enum ActionKind {
     P2pNetworkPnetIncomingData,
     P2pNetworkPnetOutgoingData,
     P2pNetworkPnetSetupNonce,
+    P2pNetworkSelectIncomingData,
+    P2pNetworkSelectInit,
     P2pPeerBestTipUpdate,
     P2pPeerReady,
     RpcActionStatsGet,
@@ -421,7 +426,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 242;
+    pub const COUNT: u16 = 244;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -711,6 +716,7 @@ impl ActionKindGet for P2pNetworkAction {
         match self {
             Self::Connection(a) => a.kind(),
             Self::Pnet(a) => a.kind(),
+            Self::Select(a) => a.kind(),
         }
     }
 }
@@ -1305,6 +1311,15 @@ impl ActionKindGet for P2pNetworkPnetAction {
     }
 }
 
+impl ActionKindGet for P2pNetworkSelectAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::Init(a) => a.kind(),
+            Self::IncomingData(a) => a.kind(),
+        }
+    }
+}
+
 impl ActionKindGet for TransitionFrontierSyncInitAction {
     fn kind(&self) -> ActionKind {
         ActionKind::TransitionFrontierSyncInit
@@ -1691,6 +1706,18 @@ impl ActionKindGet for P2pNetworkPnetOutgoingDataAction {
 impl ActionKindGet for P2pNetworkPnetSetupNonceAction {
     fn kind(&self) -> ActionKind {
         ActionKind::P2pNetworkPnetSetupNonce
+    }
+}
+
+impl ActionKindGet for P2pNetworkSelectInitAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pNetworkSelectInit
+    }
+}
+
+impl ActionKindGet for P2pNetworkSelectIncomingDataAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pNetworkSelectIncomingData
     }
 }
 

@@ -5,7 +5,7 @@ use zeroize::Zeroize;
 
 use crate::{P2pCryptoService, P2pMioService};
 
-use super::*;
+use super::{super::P2pNetworkSelectIncomingDataAction, *};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pNetworkPnetState {
@@ -84,6 +84,7 @@ impl P2pNetworkPnetAction {
         Store: crate::P2pStore<S>,
         Store::Service: P2pMioService + P2pCryptoService,
         P2pNetworkPnetSetupNonceAction: redux::EnablingCondition<S>,
+        P2pNetworkSelectIncomingDataAction: redux::EnablingCondition<S>,
     {
         let (state, service) = store.state_and_service();
         let connections = &state.network.connection.connections;
@@ -94,9 +95,13 @@ impl P2pNetworkPnetAction {
                 };
                 match &state.pnet.incoming {
                     Half::Done { to_send, .. } if !to_send.is_empty() => {
-                        // TODO: send to multistream-select
-                        let _ = service;
-                        dbg!(std::str::from_utf8(&to_send[1..])).unwrap_or_default();
+                        let data = to_send.clone().into_boxed_slice();
+                        store.dispatch(P2pNetworkSelectIncomingDataAction {
+                            addr: a.addr,
+                            peer_id: None,
+                            stream_id: None,
+                            data,
+                        });
                     }
                     _ => {}
                 }
