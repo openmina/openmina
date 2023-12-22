@@ -131,19 +131,21 @@ If it is the lowest fee, it will be added to the SNARK pool.
 
 Once committed to a pending SNARK job, a SNARK worker will then produce a SNARK. 
 
-If a commitment is for a SNARK job that is marked as not yet completed in the scan state and there are no prior commitments to that job (Alternatively, if there are other commitments, then it is the commitment with the cheapest fee for the SNARK work), it is added to the SNARK pool.
 
-<img width="421" alt="image" src="https://github.com/openmina/openmina/assets/60480123/889cb453-405f-4256-bc34-55964f0d5efd">
+<img width="249" alt="image" src="https://github.com/openmina/openmina/assets/60480123/181fce0b-4c4b-485a-90b4-26323b4e9e9e">
+
+
+If a commitment is for a SNARK job that is marked as not yet completed in the scan state and there are no prior commitments to that job (Alternatively, if there are other commitments, then it is the commitment with the cheapest fee for the SNARK work), it is added to the SNARK pool.
 
 
 From the SNARK pool, it can be committed to one of the following:
+
+<img width="421" alt="image" src="https://github.com/openmina/openmina/assets/60480123/889cb453-405f-4256-bc34-55964f0d5efd">
 
 
 
 1. An available job that hasn’t been completed or included in a block
 2. A job that has been already performed, but the new commitment has a lower fee
-
-<img width="249" alt="image" src="https://github.com/openmina/openmina/assets/60480123/181fce0b-4c4b-485a-90b4-26323b4e9e9e">
 
  
 If the commitment is for the lowest fee available, then the SNARK worker begins working on the SNARK proof, which is performed in OCaml. After it is done, the generated SNARK is sent back to the SNARK worker (Rust).
