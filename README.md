@@ -149,7 +149,7 @@ Open your browser and navigate to [http://localhost:4200](http://localhost:4200)
 [Details regarding architecture](ARCHITECTURE.md)
 
 
-# The Open Mina Documentation
+## The Open Mina Documentation
 
 - [Why we are developing Open Mina](https://github.com/openmina/openmina/blob/develop/why-openmina.md)
 - What is Open Mina?
