@@ -4,25 +4,25 @@ use redux::EnablingCondition;
 use crate::State;
 
 impl EnablingCondition<State> for P2pListenNewAction {
-    fn is_enabled(&self, #[allow(unused_variables)] state: &State) -> bool {
+    fn is_enabled(&self, state: &State) -> bool {
         self.is_enabled(&state.p2p)
     }
 }
 
 impl EnablingCondition<State> for P2pListenExpiredAction {
-    fn is_enabled(&self, #[allow(unused_variables)] state: &State) -> bool {
+    fn is_enabled(&self, state: &State) -> bool {
         self.is_enabled(&state.p2p)
     }
 }
 
 impl EnablingCondition<State> for P2pListenErrorAction {
-    fn is_enabled(&self, #[allow(unused_variables)] state: &State) -> bool {
+    fn is_enabled(&self, state: &State) -> bool {
         self.is_enabled(&state.p2p)
     }
 }
 
 impl EnablingCondition<State> for P2pListenClosedAction {
-    fn is_enabled(&self, #[allow(unused_variables)] state: &State) -> bool {
+    fn is_enabled(&self, state: &State) -> bool {
         self.is_enabled(&state.p2p)
     }
 }
