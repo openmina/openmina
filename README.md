@@ -1,7 +1,7 @@
 
 # The Open Mina Node
 
-[![Openmina Daily](https://github.com/openmina/openmina/actions/workflows/daily.yaml/badge.svg)](https://github.com/openmina/openmina/actions/workflows/daily.yaml)
+[![Openmina Daily](https://github.com/openmina/openmina/actions/workflows/daily.yaml/badge.svg)](https://github.com/openmina/openmina/actions/workflows/daily.yaml) [![Changelog][changelog-badge]][changelog] [![release-badge]][release-link] [![Apache licensed]][Apache link]
 
 The Open Mina Node is a Mina node written completely in Rust and capable of verifying blocks of transactions, producing blocks and generating SNARKs.
 
@@ -172,3 +172,13 @@ Open your browser and navigate to [http://localhost:4200](http://localhost:4200)
   - [Substack](https://openmina.substack.com/)
   - [Medium](https://medium.com/openmina)
   - [Twitter](https://twitter.com/viable_systems)
+
+
+[changelog]: ./CHANGELOG.md
+[changelog-badge]: https://img.shields.io/badge/changelog-Changelog-%23E05735
+
+[release-badge]: https://img.shields.io/github/v/release/openmina/openmina
+[release-link]: https://github.com/openmina/openmina/releases/latest
+
+[Apache licensed]: https://img.shields.io/badge/license-Apache_2.0-blue.svg
+[Apache link]: https://github.com/openmina/openmina/blob/master/LICENSE
