@@ -152,7 +152,7 @@ Open your browser and navigate to [http://localhost:4200](http://localhost:4200)
 
 - [Why we are developing Open Mina](docs/why-openmina.md)
 - What is Open Mina?
-  - [Openmina Node](https://github.com/openmina/openmina/blob/main/README.md)
+  - [Openmina Node](#the-open-mina-node)
   - [The Mina Web Node](https://github.com/openmina/webnode/blob/main/README.md)
 - Core components
   - [P2P communication](https://github.com/openmina/openmina/blob/documentation/docs/p2p_service.md)
@@ -163,10 +163,10 @@ Open your browser and navigate to [http://localhost:4200](http://localhost:4200)
   - [Debugger](https://github.com/openmina/mina-network-debugger/blob/main/README.md)
   - [Front End](https://github.com/openmina/mina-frontend/blob/main/README.md)
     - [Dashboard](https://github.com/openmina/mina-frontend/blob/main/docs/MetricsTracing.md#Dashboard)
-- [Testing](https://github.com/openmina/openmina/blob/develop/testing.md)
+- [Testing](docs/testing/testing.md)
 - How to run
-  - [Launch Openmina node](https://github.com/openmina/openmina/blob/main/README.md)
-  - [Launch Node with UI](https://github.com/openmina/openmina/blob/develop/README.md#how-to-launch-the-ui)
+  - [Launch Openmina node](#how-to-launch-without-docker-compose)
+  - [Launch Node with UI](#how-to-launch-with-docker-compose)
   - [Debugger](https://github.com/openmina/mina-network-debugger?tab=readme-ov-file#Preparing-for-build)
   - [Web Node](https://github.com/openmina/webnode/blob/main/README.md#try-out-the-mina-web-node)
 - External links
