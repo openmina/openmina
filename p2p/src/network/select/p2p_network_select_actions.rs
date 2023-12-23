@@ -10,6 +10,7 @@ use super::{super::P2pNetworkAction, SelectKind};
 pub enum P2pNetworkSelectAction {
     Init(P2pNetworkSelectInitAction),
     IncomingData(P2pNetworkSelectIncomingDataAction),
+    IncomingToken(P2pNetworkSelectIncomingTokenAction),
 }
 
 impl P2pNetworkSelectAction {
@@ -17,6 +18,7 @@ impl P2pNetworkSelectAction {
         match self {
             Self::Init(v) => v.addr,
             Self::IncomingData(v) => v.addr,
+            Self::IncomingToken(v) => v.addr,
         }
     }
 
@@ -24,6 +26,7 @@ impl P2pNetworkSelectAction {
         match self {
             Self::Init(v) => v.peer_id,
             Self::IncomingData(v) => v.peer_id,
+            Self::IncomingToken(v) => v.peer_id,
         }
     }
 
@@ -31,6 +34,7 @@ impl P2pNetworkSelectAction {
         match self {
             Self::Init(v) => v.stream_id,
             Self::IncomingData(v) => v.stream_id,
+            Self::IncomingToken(v) => v.stream_id,
         }
     }
 
@@ -68,6 +72,14 @@ pub struct P2pNetworkSelectIncomingDataAction {
     pub data: Box<[u8]>,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct P2pNetworkSelectIncomingTokenAction {
+    pub addr: SocketAddr,
+    pub peer_id: Option<PeerId>,
+    pub stream_id: Option<u16>,
+    pub token: Box<[u8]>,
+}
+
 impl From<P2pNetworkSelectInitAction> for crate::P2pAction {
     fn from(a: P2pNetworkSelectInitAction) -> Self {
         Self::Network(P2pNetworkAction::Select(a.into()))
@@ -80,11 +92,18 @@ impl From<P2pNetworkSelectIncomingDataAction> for crate::P2pAction {
     }
 }
 
+impl From<P2pNetworkSelectIncomingTokenAction> for crate::P2pAction {
+    fn from(a: P2pNetworkSelectIncomingTokenAction) -> Self {
+        Self::Network(P2pNetworkAction::Select(a.into()))
+    }
+}
+
 impl redux::EnablingCondition<P2pState> for P2pNetworkSelectAction {
     fn is_enabled(&self, state: &P2pState) -> bool {
         match self {
             Self::Init(v) => v.is_enabled(state),
             Self::IncomingData(v) => v.is_enabled(state),
+            Self::IncomingToken(v) => v.is_enabled(state),
         }
     }
 }
@@ -96,6 +115,12 @@ impl redux::EnablingCondition<P2pState> for P2pNetworkSelectInitAction {
 }
 
 impl redux::EnablingCondition<P2pState> for P2pNetworkSelectIncomingDataAction {
+    fn is_enabled(&self, _state: &P2pState) -> bool {
+        true
+    }
+}
+
+impl redux::EnablingCondition<P2pState> for P2pNetworkSelectIncomingTokenAction {
     fn is_enabled(&self, _state: &P2pState) -> bool {
         true
     }
