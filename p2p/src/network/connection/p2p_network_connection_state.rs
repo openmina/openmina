@@ -90,6 +90,7 @@ impl P2pNetworkConnectionAction {
                 store.dispatch(P2pNetworkPnetSetupNonceAction {
                     addr: a.addr,
                     nonce,
+                    incoming: false,
                 });
             }
             Self::IncomingDataIsReady(a) => {
