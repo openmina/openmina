@@ -97,6 +97,10 @@ use crate::p2p::network::connection::{
     P2pNetworkConnectionAction, P2pNetworkConnectionIncomingDataDidReceiveAction,
     P2pNetworkConnectionIncomingDataIsReadyAction, P2pNetworkConnectionInterfaceDetectedAction,
     P2pNetworkConnectionInterfaceExpiredAction, P2pNetworkConnectionOutgoingDidConnectAction,
+    P2pNetworkConnectionSelectDoneAction, P2pNetworkConnectionSelectErrorAction,
+};
+use crate::p2p::network::noise::{
+    P2pNetworkNoiseAction, P2pNetworkNoiseIncomingDataAction, P2pNetworkNoiseInitAction,
 };
 use crate::p2p::network::pnet::{
     P2pNetworkPnetAction, P2pNetworkPnetIncomingDataAction, P2pNetworkPnetOutgoingDataAction,
@@ -320,6 +324,10 @@ pub enum ActionKind {
     P2pNetworkConnectionInterfaceDetected,
     P2pNetworkConnectionInterfaceExpired,
     P2pNetworkConnectionOutgoingDidConnect,
+    P2pNetworkConnectionSelectDone,
+    P2pNetworkConnectionSelectError,
+    P2pNetworkNoiseIncomingData,
+    P2pNetworkNoiseInit,
     P2pNetworkPnetIncomingData,
     P2pNetworkPnetOutgoingData,
     P2pNetworkPnetSetupNonce,
@@ -440,7 +448,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 222;
+    pub const COUNT: u16 = 226;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -696,6 +704,7 @@ impl ActionKindGet for P2pNetworkAction {
             Self::Connection(a) => a.kind(),
             Self::Pnet(a) => a.kind(),
             Self::Select(a) => a.kind(),
+            Self::Noise(a) => a.kind(),
         }
     }
 }
@@ -1338,6 +1347,8 @@ impl ActionKindGet for P2pNetworkConnectionAction {
             Self::OutgoingDidConnect(a) => a.kind(),
             Self::IncomingDataIsReady(a) => a.kind(),
             Self::IncomingDataDidReceive(a) => a.kind(),
+            Self::SelectDone(a) => a.kind(),
+            Self::SelectError(a) => a.kind(),
         }
     }
 }
@@ -1358,6 +1369,15 @@ impl ActionKindGet for P2pNetworkSelectAction {
             Self::Init(a) => a.kind(),
             Self::IncomingData(a) => a.kind(),
             Self::IncomingToken(a) => a.kind(),
+        }
+    }
+}
+
+impl ActionKindGet for P2pNetworkNoiseAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::Init(a) => a.kind(),
+            Self::IncomingData(a) => a.kind(),
         }
     }
 }
@@ -2021,6 +2041,18 @@ impl ActionKindGet for P2pNetworkConnectionIncomingDataDidReceiveAction {
     }
 }
 
+impl ActionKindGet for P2pNetworkConnectionSelectDoneAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pNetworkConnectionSelectDone
+    }
+}
+
+impl ActionKindGet for P2pNetworkConnectionSelectErrorAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pNetworkConnectionSelectError
+    }
+}
+
 impl ActionKindGet for P2pNetworkPnetIncomingDataAction {
     fn kind(&self) -> ActionKind {
         ActionKind::P2pNetworkPnetIncomingData
@@ -2054,6 +2086,18 @@ impl ActionKindGet for P2pNetworkSelectIncomingDataAction {
 impl ActionKindGet for P2pNetworkSelectIncomingTokenAction {
     fn kind(&self) -> ActionKind {
         ActionKind::P2pNetworkSelectIncomingToken
+    }
+}
+
+impl ActionKindGet for P2pNetworkNoiseInitAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pNetworkNoiseInit
+    }
+}
+
+impl ActionKindGet for P2pNetworkNoiseIncomingDataAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pNetworkNoiseIncomingData
     }
 }
 
