@@ -2,7 +2,8 @@ use std::net::{IpAddr, SocketAddr};
 
 use serde::{Deserialize, Serialize};
 
-use crate::P2pState;
+use super::super::select::token;
+use crate::{P2pState, PeerId};
 
 #[derive(derive_more::From, Serialize, Deserialize, Debug, Clone)]
 pub enum P2pNetworkConnectionAction {
@@ -11,6 +12,8 @@ pub enum P2pNetworkConnectionAction {
     OutgoingDidConnect(P2pNetworkConnectionOutgoingDidConnectAction),
     IncomingDataIsReady(P2pNetworkConnectionIncomingDataIsReadyAction),
     IncomingDataDidReceive(P2pNetworkConnectionIncomingDataDidReceiveAction),
+    SelectDone(P2pNetworkConnectionSelectDoneAction),
+    SelectError(P2pNetworkConnectionSelectErrorAction),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -38,6 +41,22 @@ pub struct P2pNetworkConnectionIncomingDataIsReadyAction {
 pub struct P2pNetworkConnectionIncomingDataDidReceiveAction {
     pub addr: SocketAddr,
     pub result: Result<(Box<[u8]>, usize), String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct P2pNetworkConnectionSelectDoneAction {
+    pub addr: SocketAddr,
+    pub peer_id: Option<PeerId>,
+    pub stream_id: Option<u16>,
+    pub protocol: token::Protocol,
+    pub incoming: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct P2pNetworkConnectionSelectErrorAction {
+    pub addr: SocketAddr,
+    pub peer_id: Option<PeerId>,
+    pub stream_id: Option<u16>,
 }
 
 impl From<P2pNetworkConnectionInterfaceDetectedAction> for crate::P2pAction {
@@ -70,6 +89,18 @@ impl From<P2pNetworkConnectionIncomingDataDidReceiveAction> for crate::P2pAction
     }
 }
 
+impl From<P2pNetworkConnectionSelectDoneAction> for crate::P2pAction {
+    fn from(a: P2pNetworkConnectionSelectDoneAction) -> Self {
+        Self::Network(P2pNetworkConnectionAction::from(a).into())
+    }
+}
+
+impl From<P2pNetworkConnectionSelectErrorAction> for crate::P2pAction {
+    fn from(a: P2pNetworkConnectionSelectErrorAction) -> Self {
+        Self::Network(P2pNetworkConnectionAction::from(a).into())
+    }
+}
+
 impl redux::EnablingCondition<P2pState> for P2pNetworkConnectionAction {
     fn is_enabled(&self, state: &P2pState) -> bool {
         match self {
@@ -78,6 +109,8 @@ impl redux::EnablingCondition<P2pState> for P2pNetworkConnectionAction {
             Self::OutgoingDidConnect(a) => a.is_enabled(state),
             Self::IncomingDataIsReady(a) => a.is_enabled(state),
             Self::IncomingDataDidReceive(a) => a.is_enabled(state),
+            Self::SelectDone(a) => a.is_enabled(state),
+            Self::SelectError(a) => a.is_enabled(state),
         }
     }
 }
@@ -107,6 +140,18 @@ impl redux::EnablingCondition<P2pState> for P2pNetworkConnectionIncomingDataIsRe
 }
 
 impl redux::EnablingCondition<P2pState> for P2pNetworkConnectionIncomingDataDidReceiveAction {
+    fn is_enabled(&self, _state: &P2pState) -> bool {
+        true
+    }
+}
+
+impl redux::EnablingCondition<P2pState> for P2pNetworkConnectionSelectDoneAction {
+    fn is_enabled(&self, _state: &P2pState) -> bool {
+        true
+    }
+}
+
+impl redux::EnablingCondition<P2pState> for P2pNetworkConnectionSelectErrorAction {
     fn is_enabled(&self, _state: &P2pState) -> bool {
         true
     }

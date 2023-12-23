@@ -15,3 +15,6 @@ pub use self::pnet::*;
 
 pub mod select;
 pub use self::select::*;
+
+pub mod noise;
+pub use self::noise::*;
