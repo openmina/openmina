@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{P2pMioService, P2pNetworkPnetOutgoingDataAction};
 
-use super::*;
+use super::{super::*, *};
 
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
 pub struct P2pNetworkSelectState {
@@ -13,6 +13,7 @@ pub struct P2pNetworkSelectState {
     pub tokens: VecDeque<token::Token>,
 
     pub negotiated: Option<token::Protocol>,
+    pub reported: bool,
 
     pub inner: P2pNetworkSelectStateInner,
     pub to_send: Option<token::Token>,
@@ -68,6 +69,9 @@ impl P2pNetworkSelectAction {
         Store::Service: P2pMioService,
         P2pNetworkPnetOutgoingDataAction: redux::EnablingCondition<S>,
         P2pNetworkSelectIncomingTokenAction: redux::EnablingCondition<S>,
+        P2pNetworkConnectionSelectErrorAction: redux::EnablingCondition<S>,
+        P2pNetworkConnectionSelectDoneAction: redux::EnablingCondition<S>,
+        P2pNetworkNoiseIncomingDataAction: redux::EnablingCondition<S>,
     {
         let kind = self.select_kind();
         let Some(state) = store
@@ -88,8 +92,19 @@ impl P2pNetworkSelectAction {
             },
         };
         if let P2pNetworkSelectStateInner::Error = &state.inner {
+            store.dispatch(P2pNetworkConnectionSelectErrorAction {
+                addr: self.addr(),
+                peer_id: self.peer_id(),
+                stream_id: self.stream_id(),
+            });
             return;
         }
+        let report = if state.reported {
+            None
+        } else {
+            state.negotiated
+        };
+        let incoming = matches!(&state.inner, P2pNetworkSelectStateInner::Responder { .. });
         match self {
             Self::Init(a) => {
                 let mut data = token::Token::Handshake.name().to_vec();
@@ -103,14 +118,30 @@ impl P2pNetworkSelectAction {
                 });
             }
             Self::IncomingData(a) => {
-                let tokens = state.tokens.clone();
-                for token in tokens {
-                    store.dispatch(P2pNetworkSelectIncomingTokenAction {
-                        addr: a.addr,
-                        peer_id: a.peer_id,
-                        stream_id: a.stream_id,
-                        token,
-                    });
+                if let Some(negotiated) = &state.negotiated {
+                    match negotiated {
+                        token::Protocol::Auth(token::AuthKind::Noise) => {
+                            store.dispatch(P2pNetworkNoiseIncomingDataAction {
+                                addr: a.addr,
+                                data: a.data.clone(),
+                            });
+                        }
+                        token::Protocol::Mux(token::MuxKind::Yamux1_0_0) => {
+                            // TODO:
+                            unimplemented!()
+                        }
+                        token::Protocol::Stream(_) => unimplemented!(),
+                    }
+                } else {
+                    let tokens = state.tokens.clone();
+                    for token in tokens {
+                        store.dispatch(P2pNetworkSelectIncomingTokenAction {
+                            addr: a.addr,
+                            peer_id: a.peer_id,
+                            stream_id: a.stream_id,
+                            token,
+                        });
+                    }
                 }
             }
             Self::IncomingToken(a) => {
@@ -122,6 +153,15 @@ impl P2pNetworkSelectAction {
                 }
             }
         }
+        if let Some(protocol) = report {
+            store.dispatch(P2pNetworkConnectionSelectDoneAction {
+                addr: self.addr(),
+                peer_id: self.peer_id(),
+                stream_id: self.stream_id(),
+                protocol,
+                incoming,
+            });
+        }
     }
 }
 
@@ -129,6 +169,10 @@ impl P2pNetworkSelectState {
     pub fn reducer(&mut self, action: redux::ActionWithMeta<&P2pNetworkSelectAction>) {
         if let P2pNetworkSelectStateInner::Error = &self.inner {
             return;
+        }
+
+        if self.negotiated.is_some() {
+            self.reported = true;
         }
 
         let (action, _meta) = action.split();
@@ -151,19 +195,7 @@ impl P2pNetworkSelectState {
                 };
             }
             P2pNetworkSelectAction::IncomingData(a) => {
-                if let Some(negotiated) = &self.negotiated {
-                    match negotiated {
-                        token::Protocol::Auth(token::AuthKind::Noise) => {
-                            //
-                            dbg!(a.data.len());
-                        }
-                        token::Protocol::Mux(token::MuxKind::Yamux1_0_0) => {
-                            // TODO:
-                            unimplemented!()
-                        }
-                        token::Protocol::Stream(_) => unimplemented!(),
-                    }
-                } else {
+                if self.negotiated.is_none() {
                     self.recv.put(&a.data);
                     loop {
                         match self.recv.parse_token() {
