@@ -92,7 +92,7 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                         store.dispatch(P2pNetworkConnectionInterfaceExpiredAction { ip });
                     }
                     MioEvent::OutgoingConnectionDidConnect(addr, result) => {
-                        dbg!("OutgoingConnectionDidConnect", &result);
+                        // dbg!("OutgoingConnectionDidConnect", &result);
                         store.dispatch(P2pNetworkConnectionOutgoingDidConnectAction {
                             addr,
                             result,
@@ -102,14 +102,14 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                         store.dispatch(P2pNetworkConnectionIncomingDataIsReadyAction { addr });
                     }
                     MioEvent::IncomingDataDidReceive(addr, result) => {
-                        let _ = dbg!("IncomingDataDidReceive", result.as_ref().map(|_| ()));
+                        // let _ = dbg!("IncomingDataDidReceive", result.as_ref().map(|_| ()));
                         store.dispatch(P2pNetworkConnectionIncomingDataDidReceiveAction {
                             addr,
                             result,
                         });
                     }
-                    MioEvent::OutgoingDataDidSend(_, result) => {
-                        dbg!("OutgoingDataDidSend", &result);
+                    MioEvent::OutgoingDataDidSend(_, _result) => {
+                        // dbg!("OutgoingDataDidSend", &_result);
                     }
                     _ => {}
                 },
