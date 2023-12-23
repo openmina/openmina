@@ -7,14 +7,11 @@ use redux::ActionMeta;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    connection::outgoing::P2pConnectionOutgoingInitOpts, webrtc::Host, MioCmd, P2pMioService,
-    P2pNetworkPnetIncomingDataAction, P2pNetworkSelectInitAction,
+    connection::outgoing::P2pConnectionOutgoingInitOpts, webrtc::Host, MioCmd, P2pCryptoService,
+    P2pMioService,
 };
 
-use super::{
-    super::{P2pNetworkPnetState, P2pNetworkSelectState},
-    *,
-};
+use super::{super::*, *};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 
@@ -28,7 +25,9 @@ pub struct P2pNetworkConnectionState {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pNetworkConnectionHandshakeState {
     pub pnet: P2pNetworkPnetState,
-    pub select: P2pNetworkSelectState,
+    pub select_auth: P2pNetworkSelectState,
+    pub select_mux: P2pNetworkSelectState,
+    pub streams: BTreeMap<u16, P2pNetworkSelectState>,
 }
 
 impl P2pNetworkConnectionState {
@@ -41,12 +40,18 @@ impl P2pNetworkConnectionState {
                     a.addr,
                     P2pNetworkConnectionHandshakeState {
                         pnet: P2pNetworkPnetState::new(self.pnet_key),
-                        select: P2pNetworkSelectState {},
+                        select_auth: P2pNetworkSelectState::default(),
+                        select_mux: P2pNetworkSelectState::default(),
+                        streams: BTreeMap::default(),
                     },
                 );
             }
             P2pNetworkConnectionAction::IncomingDataIsReady(_) => {}
-            P2pNetworkConnectionAction::IncomingDataDidReceive(_) => {}
+            P2pNetworkConnectionAction::IncomingDataDidReceive(a) => {
+                if a.result.is_err() {
+                    self.connections.remove(&a.addr);
+                }
+            }
         }
     }
 }
@@ -55,9 +60,9 @@ impl P2pNetworkConnectionAction {
     pub fn effects<Store, S>(&self, _: &ActionMeta, store: &mut Store)
     where
         Store: crate::P2pStore<S>,
-        Store::Service: P2pMioService,
+        Store::Service: P2pMioService + P2pCryptoService,
         P2pNetworkPnetIncomingDataAction: redux::EnablingCondition<S>,
-        P2pNetworkSelectInitAction: redux::EnablingCondition<S>,
+        P2pNetworkPnetSetupNonceAction: redux::EnablingCondition<S>,
     {
         match self {
             Self::InterfaceDetected(a) => {
@@ -65,6 +70,8 @@ impl P2pNetworkConnectionAction {
                 store
                     .service()
                     .send_mio_cmd(MioCmd::ListenOn(SocketAddr::new(a.ip, port)));
+
+                // TODO: connect all initial peers
                 let addr = match &store.state().config.initial_peers[0] {
                     P2pConnectionOutgoingInitOpts::LibP2P(v) => match &v.host {
                         Host::Ipv4(ip) => SocketAddr::new((*ip).into(), v.port),
@@ -79,11 +86,10 @@ impl P2pNetworkConnectionAction {
             }
             Self::InterfaceExpired(_) => {}
             Self::OutgoingDidConnect(a) => {
-                store.dispatch(P2pNetworkSelectInitAction {
+                let nonce = store.service().generate_random_nonce();
+                store.dispatch(P2pNetworkPnetSetupNonceAction {
                     addr: a.addr,
-                    peer_id: None,
-                    stream_id: None,
-                    incoming: false,
+                    nonce,
                 });
             }
             Self::IncomingDataIsReady(a) => {

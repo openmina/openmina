@@ -3,9 +3,9 @@ use salsa20::cipher::StreamCipher;
 use serde::{Deserialize, Serialize};
 use zeroize::Zeroize;
 
-use crate::{P2pCryptoService, P2pMioService};
+use crate::P2pMioService;
 
-use super::{super::P2pNetworkSelectIncomingDataAction, *};
+use super::{super::*, *};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pNetworkPnetState {
@@ -82,54 +82,48 @@ impl P2pNetworkPnetAction {
     pub fn effects<Store, S>(&self, _meta: &ActionMeta, store: &mut Store)
     where
         Store: crate::P2pStore<S>,
-        Store::Service: P2pMioService + P2pCryptoService,
-        P2pNetworkPnetSetupNonceAction: redux::EnablingCondition<S>,
+        Store::Service: P2pMioService,
         P2pNetworkSelectIncomingDataAction: redux::EnablingCondition<S>,
+        P2pNetworkSelectInitAction: redux::EnablingCondition<S>,
     {
         let (state, service) = store.state_and_service();
         let connections = &state.network.connection.connections;
+        let Some(state) = connections.get(&self.addr()) else {
+            return;
+        };
         match self {
-            P2pNetworkPnetAction::IncomingData(a) => {
-                let Some(state) = connections.get(&a.addr) else {
-                    return;
-                };
-                match &state.pnet.incoming {
-                    Half::Done { to_send, .. } if !to_send.is_empty() => {
-                        let data = to_send.clone().into_boxed_slice();
-                        store.dispatch(P2pNetworkSelectIncomingDataAction {
-                            addr: a.addr,
-                            peer_id: None,
-                            stream_id: None,
-                            data,
-                        });
-                    }
-                    _ => {}
+            P2pNetworkPnetAction::IncomingData(a) => match &state.pnet.incoming {
+                Half::Done { to_send, .. } if !to_send.is_empty() => {
+                    let data = to_send.clone().into_boxed_slice();
+                    store.dispatch(P2pNetworkSelectIncomingDataAction {
+                        addr: a.addr,
+                        peer_id: None,
+                        stream_id: None,
+                        data,
+                    });
                 }
-            }
-            P2pNetworkPnetAction::OutgoingData(a) => {
-                let Some(state) = connections.get(&a.addr) else {
-                    return;
-                };
-                match &state.pnet.outgoing {
-                    Half::Buffering { buffer, .. } if *buffer == [0; 24] => {
-                        let nonce = service.generate_random_nonce();
-                        let addr = a.addr;
-                        store.dispatch(P2pNetworkPnetSetupNonceAction { addr, nonce });
-                    }
-                    Half::Done { to_send, .. } if !to_send.is_empty() => {
-                        service.send_mio_cmd(crate::MioCmd::Send(
-                            a.addr,
-                            to_send.clone().into_boxed_slice(),
-                        ));
-                    }
-                    _ => {}
+                _ => {}
+            },
+            P2pNetworkPnetAction::OutgoingData(a) => match &state.pnet.outgoing {
+                Half::Done { to_send, .. } if !to_send.is_empty() => {
+                    service.send_mio_cmd(crate::MioCmd::Send(
+                        a.addr,
+                        to_send.clone().into_boxed_slice(),
+                    ));
                 }
-            }
+                _ => {}
+            },
             P2pNetworkPnetAction::SetupNonce(a) => {
                 service.send_mio_cmd(crate::MioCmd::Send(
                     a.addr,
                     a.nonce.to_vec().into_boxed_slice(),
                 ));
+                store.dispatch(P2pNetworkSelectInitAction {
+                    addr: a.addr,
+                    peer_id: None,
+                    stream_id: None,
+                    incoming: false,
+                });
             }
         }
     }
@@ -139,16 +133,13 @@ impl P2pNetworkPnetState {
     pub fn reducer(&mut self, action: redux::ActionWithMeta<&P2pNetworkPnetAction>) {
         match action.action() {
             P2pNetworkPnetAction::IncomingData(a) => {
-                self.incoming.reduce(&self.shared_secret, &a.data[..a.len])
+                self.incoming.reduce(&self.shared_secret, &a.data[..a.len]);
             }
             P2pNetworkPnetAction::OutgoingData(a) => {
                 self.outgoing.reduce(&self.shared_secret, &a.data)
             }
             P2pNetworkPnetAction::SetupNonce(a) => {
-                self.outgoing = Half::Buffering {
-                    buffer: a.nonce,
-                    offset: 24,
-                };
+                self.outgoing.reduce(&self.shared_secret, &a.nonce)
             }
         }
     }

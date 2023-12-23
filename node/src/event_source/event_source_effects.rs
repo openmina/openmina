@@ -81,37 +81,30 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                 #[cfg(all(not(target_arch = "wasm32"), not(feature = "p2p-libp2p")))]
                 P2pEvent::MioEvent(e) => match e {
                     MioEvent::InterfaceDetected(ip) => {
-                        dbg!("InterfaceDetected");
                         store.dispatch(P2pNetworkConnectionInterfaceDetectedAction { ip });
                     }
                     MioEvent::InterfaceExpired(ip) => {
-                        dbg!("InterfaceExpired");
                         store.dispatch(P2pNetworkConnectionInterfaceExpiredAction { ip });
                     }
                     MioEvent::OutgoingConnectionDidConnect(addr, result) => {
-                        dbg!("OutgoingConnectionDidConnect");
+                        dbg!("OutgoingConnectionDidConnect", &result);
                         store.dispatch(P2pNetworkConnectionOutgoingDidConnectAction {
                             addr,
                             result,
                         });
                     }
                     MioEvent::IncomingDataIsReady(addr) => {
-                        dbg!("IncomingDataIsReady");
                         store.dispatch(P2pNetworkConnectionIncomingDataIsReadyAction { addr });
                     }
                     MioEvent::IncomingDataDidReceive(addr, result) => {
-                        dbg!("IncomingDataDidReceive");
-                        match &result {
-                            Ok((_, len)) => drop(dbg!(len)),
-                            Err(err) => drop(dbg!(err)),
-                        }
+                        let _ = dbg!("IncomingDataDidReceive", result.as_ref().map(|_| ()));
                         store.dispatch(P2pNetworkConnectionIncomingDataDidReceiveAction {
                             addr,
                             result,
                         });
                     }
-                    MioEvent::OutgoingDataDidSend(_, _) => {
-                        dbg!("OutgoingDataDidSend");
+                    MioEvent::OutgoingDataDidSend(_, result) => {
+                        dbg!("OutgoingDataDidSend", &result);
                     }
                     _ => {}
                 },
