@@ -46,6 +46,7 @@ impl P2pNetworkAction {
         P2pNetworkPnetSetupNonceAction: redux::EnablingCondition<S>,
         P2pNetworkSelectIncomingDataAction: redux::EnablingCondition<S>,
         P2pNetworkSelectInitAction: redux::EnablingCondition<S>,
+        P2pNetworkPnetOutgoingDataAction: redux::EnablingCondition<S>,
     {
         match self {
             Self::Connection(v) => v.effects(meta, store),
@@ -67,10 +68,17 @@ impl P2pNetworkState {
                     .map(|cn| cn.pnet.reducer(meta.with_action(&a)));
             }
             P2pNetworkAction::Select(a) => {
-                self.connection
-                    .connections
-                    .get_mut(&a.addr())
-                    .map(|cn| cn.select.reducer(meta.with_action(&a)));
+                self.connection.connections.get_mut(&a.addr()).map(|cn| {
+                    if a.peer_id().is_none() {
+                        cn.select_auth.reducer(meta.with_action(&a));
+                    } else if let Some(stream_id) = a.stream_id() {
+                        cn.streams
+                            .get_mut(&stream_id)
+                            .map(|stream| stream.reducer(meta.with_action(&a)));
+                    } else {
+                        cn.select_mux.reducer(meta.with_action(&a));
+                    }
+                });
             }
         }
     }
