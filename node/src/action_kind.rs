@@ -123,7 +123,8 @@ use crate::p2p::network::pnet::{
     P2pNetworkPnetSetupNonceAction,
 };
 use crate::p2p::network::select::{
-    P2pNetworkSelectAction, P2pNetworkSelectIncomingDataAction, P2pNetworkSelectInitAction,
+    P2pNetworkSelectAction, P2pNetworkSelectIncomingDataAction,
+    P2pNetworkSelectIncomingTokenAction, P2pNetworkSelectInitAction,
 };
 use crate::p2p::network::P2pNetworkAction;
 use crate::p2p::peer::{P2pPeerAction, P2pPeerBestTipUpdateAction, P2pPeerReadyAction};
@@ -366,6 +367,7 @@ pub enum ActionKind {
     P2pNetworkPnetOutgoingData,
     P2pNetworkPnetSetupNonce,
     P2pNetworkSelectIncomingData,
+    P2pNetworkSelectIncomingToken,
     P2pNetworkSelectInit,
     P2pPeerBestTipUpdate,
     P2pPeerReady,
@@ -1553,6 +1555,7 @@ impl ActionKindGet for P2pNetworkSelectAction {
         match self {
             Self::Init(a) => a.kind(),
             Self::IncomingData(a) => a.kind(),
+            Self::IncomingToken(a) => a.kind(),
         }
     }
 }
@@ -2273,6 +2276,12 @@ impl ActionKindGet for P2pNetworkSelectInitAction {
 impl ActionKindGet for P2pNetworkSelectIncomingDataAction {
     fn kind(&self) -> ActionKind {
         ActionKind::P2pNetworkSelectIncomingData
+    }
+}
+
+impl ActionKindGet for P2pNetworkSelectIncomingTokenAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pNetworkSelectIncomingToken
     }
 }
 
