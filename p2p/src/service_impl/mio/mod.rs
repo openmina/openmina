@@ -163,15 +163,7 @@ where
                             listener.incomind_ready = true;
                         }
                     }
-                    if let Err(err) = self.poll.registry().reregister(
-                        &mut listener.inner,
-                        event.token(),
-                        mio::Interest::READABLE,
-                    ) {
-                        MioError::Listen(addr, err).report();
-                    } else {
-                        self.listeners.insert(addr, listener);
-                    }
+                    self.listeners.insert(addr, listener);
                 }
                 Some(Token::Connection(mut addr)) => {
                     let Some(mut connection) = self.connections.remove(&addr) else {
@@ -269,7 +261,7 @@ where
                 Err(err) => MioError::Listen(addr, err).report(),
             },
             Accept(listener_addr) => {
-                if let Some(listener) = self.listeners.get_mut(&listener_addr) {
+                if let Some(mut listener) = self.listeners.remove(&listener_addr) {
                     match listener.inner.accept() {
                         Ok((mut stream, addr)) => {
                             listener.incomind_ready = false;
@@ -295,13 +287,22 @@ where
                                 };
                                 self.connections.insert(addr, connection);
                             }
+                            let token = self.tokens.register(Token::Listener(listener_addr));
+                            if let Err(err) = self.poll.registry().reregister(
+                                &mut listener.inner,
+                                token,
+                                mio::Interest::READABLE,
+                            ) {
+                                MioError::Listen(addr, err).report();
+                            } else {
+                                self.listeners.insert(listener_addr, listener);
+                            }
                         }
                         Err(err) => {
                             self.send(MioEvent::IncomingConnectionDidAccept(
                                 None,
                                 Err(err.to_string()),
                             ));
-                            self.listeners.remove(&listener_addr);
                         }
                     }
                 } else {
@@ -355,18 +356,29 @@ where
                 };
             }
             Recv(addr, mut buf) => {
-                if let Some(connection) = self.connections.get_mut(&addr) {
-                    let res = connection
-                        .stream
-                        .read(&mut buf)
-                        .map_err(|err| err.to_string())
-                        .map(|len| (buf, len));
+                if let Some(mut connection) = self.connections.remove(&addr) {
+                    let res = connection.stream.read(&mut buf);
                     connection.incomind_ready = false;
-                    if res.is_err() {
-                        // drop the connection
-                        self.connections.remove(&addr);
+                    let token = self.tokens.register(Token::Connection(addr));
+                    if let Err(err) = self.poll.registry().reregister(
+                        &mut connection.stream,
+                        token,
+                        mio::Interest::READABLE | mio::Interest::WRITABLE,
+                    ) {
+                        self.send(MioEvent::IncomingDataDidReceive(addr, Err(err.to_string())));
+                    } else {
+                        let res = match res {
+                            Ok(len) => Ok((buf, len)),
+                            Err(err) if err.kind() == io::ErrorKind::WouldBlock => Ok((buf, 0)),
+                            #[cfg(unix)]
+                            Err(err) if err.raw_os_error() == Some(libc::EAGAIN) => Ok((buf, 0)),
+                            Err(err) => Err(err.to_string()),
+                        };
+                        if res.is_ok() {
+                            self.connections.insert(addr, connection);
+                        }
+                        self.send(MioEvent::IncomingDataDidReceive(addr, res));
                     }
-                    self.send(MioEvent::IncomingDataDidReceive(addr, res));
                 } else {
                     self.send(MioEvent::IncomingDataDidReceive(
                         addr,

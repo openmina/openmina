@@ -668,6 +668,9 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                 store.dispatch(TransitionFrontierSyncBlocksPeersQueryAction {});
             }
         },
-        P2pAction::Network(action) => action.effects(&meta, store),
+        P2pAction::Network(action) => {
+            dbg!(crate::ActionKindGet::kind(&action));
+            action.effects(&meta, store)
+        }
     }
 }
