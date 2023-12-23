@@ -40,6 +40,7 @@ pub struct P2pNetworkPnetOutgoingDataAction {
 pub struct P2pNetworkPnetSetupNonceAction {
     pub addr: SocketAddr,
     pub nonce: [u8; 24],
+    pub incoming: bool,
 }
 
 impl From<P2pNetworkPnetAction> for crate::P2pAction {
