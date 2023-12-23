@@ -40,8 +40,10 @@ impl P2pNetworkConnectionState {
                     a.addr,
                     P2pNetworkConnectionHandshakeState {
                         pnet: P2pNetworkPnetState::new(self.pnet_key),
-                        select_auth: P2pNetworkSelectState::default(),
-                        select_mux: P2pNetworkSelectState::default(),
+                        select_auth: P2pNetworkSelectState::initiator_auth(token::AuthKind::Noise),
+                        select_mux: P2pNetworkSelectState::initiator_mux(
+                            token::MuxKind::Yamux1_0_0,
+                        ),
                         streams: BTreeMap::default(),
                     },
                 );
