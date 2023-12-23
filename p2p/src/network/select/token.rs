@@ -38,7 +38,7 @@ impl Token {
     ];
 }
 
-#[derive(Clone, Copy, Serialize, Deserialize, Debug)]
+#[derive(Clone, Copy, Serialize, Deserialize, Debug, PartialEq, Eq)]
 pub enum Protocol {
     Auth(AuthKind),
     Mux(MuxKind),
@@ -55,7 +55,7 @@ impl Protocol {
     }
 }
 
-#[derive(Clone, Copy, Serialize, Deserialize, Debug)]
+#[derive(Clone, Copy, Serialize, Deserialize, Debug, PartialEq, Eq)]
 pub enum AuthKind {
     Noise,
 }
@@ -66,7 +66,7 @@ impl AuthKind {
     }
 }
 
-#[derive(Clone, Copy, Serialize, Deserialize, Debug)]
+#[derive(Clone, Copy, Serialize, Deserialize, Debug, PartialEq, Eq)]
 pub enum MuxKind {
     Yamux1_0_0,
 }
@@ -77,7 +77,7 @@ impl MuxKind {
     }
 }
 
-#[derive(Clone, Copy, Serialize, Deserialize, Debug)]
+#[derive(Clone, Copy, Serialize, Deserialize, Debug, PartialEq, Eq)]
 pub enum StreamKind {
     Discovery(DiscoveryAlgorithm),
     Broadcast(BroadcastAlgorithm),
@@ -94,7 +94,7 @@ impl StreamKind {
     }
 }
 
-#[derive(Clone, Copy, Serialize, Deserialize, Debug)]
+#[derive(Clone, Copy, Serialize, Deserialize, Debug, PartialEq, Eq)]
 pub enum DiscoveryAlgorithm {
     Kademlia1_0_0,
 }
@@ -107,7 +107,7 @@ impl DiscoveryAlgorithm {
     }
 }
 
-#[derive(Clone, Copy, Serialize, Deserialize, Debug)]
+#[derive(Clone, Copy, Serialize, Deserialize, Debug, PartialEq, Eq)]
 pub enum BroadcastAlgorithm {
     Meshsub1_1_0,
 }
@@ -120,7 +120,7 @@ impl BroadcastAlgorithm {
     }
 }
 
-#[derive(Clone, Copy, Serialize, Deserialize, Debug)]
+#[derive(Clone, Copy, Serialize, Deserialize, Debug, PartialEq, Eq)]
 pub enum RpcAlgorithm {
     Rpc0_0_1,
 }

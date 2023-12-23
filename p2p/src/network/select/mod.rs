@@ -7,4 +7,4 @@ pub use self::p2p_network_select_state::P2pNetworkSelectState;
 mod kind;
 pub use self::kind::SelectKind;
 
-mod token;
+pub mod token;
