@@ -26,9 +26,19 @@ pub struct P2pNetworkConnectionState {
 pub struct P2pNetworkConnectionHandshakeState {
     pub pnet: P2pNetworkPnetState,
     pub select_auth: P2pNetworkSelectState,
+    pub auth: Option<P2pNetworkAuthState>,
     pub select_mux: P2pNetworkSelectState,
+    pub mux: Option<()>,
     pub streams: BTreeMap<u16, P2pNetworkSelectState>,
 }
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum P2pNetworkAuthState {
+    Noise(P2pNetworkNoiseState),
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum P2pNetworkConnectionMuxState {}
 
 impl P2pNetworkConnectionState {
     pub fn reducer(&mut self, action: redux::ActionWithMeta<&P2pNetworkConnectionAction>) {
@@ -41,9 +51,11 @@ impl P2pNetworkConnectionState {
                     P2pNetworkConnectionHandshakeState {
                         pnet: P2pNetworkPnetState::new(self.pnet_key),
                         select_auth: P2pNetworkSelectState::initiator_auth(token::AuthKind::Noise),
+                        auth: None,
                         select_mux: P2pNetworkSelectState::initiator_mux(
                             token::MuxKind::Yamux1_0_0,
                         ),
+                        mux: None,
                         streams: BTreeMap::default(),
                     },
                 );
@@ -51,6 +63,38 @@ impl P2pNetworkConnectionState {
             P2pNetworkConnectionAction::IncomingDataIsReady(_) => {}
             P2pNetworkConnectionAction::IncomingDataDidReceive(a) => {
                 if a.result.is_err() {
+                    self.connections.remove(&a.addr);
+                }
+            }
+            P2pNetworkConnectionAction::SelectDone(a) => {
+                let Some(connection) = self.connections.get_mut(&a.addr) else {
+                    return;
+                };
+                match &a.protocol {
+                    token::Protocol::Auth(token::AuthKind::Noise) => {
+                        connection.auth =
+                            Some(P2pNetworkAuthState::Noise(P2pNetworkNoiseState::default()));
+                    }
+                    token::Protocol::Mux(token::MuxKind::Yamux1_0_0) => {
+                        connection.mux = Some(());
+                    }
+                    token::Protocol::Stream(stream_kind) => {
+                        let Some(stream_id) = a.stream_id else {
+                            return;
+                        };
+                        connection.streams.insert(
+                            stream_id,
+                            P2pNetworkSelectState::initiator_stream(*stream_kind),
+                        );
+                    }
+                }
+            }
+            P2pNetworkConnectionAction::SelectError(a) => {
+                if let Some(stream_id) = &a.stream_id {
+                    if let Some(connection) = self.connections.get_mut(&a.addr) {
+                        connection.streams.remove(stream_id);
+                    }
+                } else {
                     self.connections.remove(&a.addr);
                 }
             }
@@ -65,6 +109,7 @@ impl P2pNetworkConnectionAction {
         Store::Service: P2pMioService + P2pCryptoService,
         P2pNetworkPnetIncomingDataAction: redux::EnablingCondition<S>,
         P2pNetworkPnetSetupNonceAction: redux::EnablingCondition<S>,
+        P2pNetworkNoiseInitAction: redux::EnablingCondition<S>,
     {
         match self {
             Self::InterfaceDetected(a) => {
@@ -109,6 +154,17 @@ impl P2pNetworkConnectionAction {
                     });
                 }
             }
+            Self::SelectDone(a) => match &a.protocol {
+                token::Protocol::Auth(token::AuthKind::Noise) => {
+                    // initialize Noise
+                    store.dispatch(P2pNetworkNoiseInitAction {
+                        addr: a.addr,
+                        incoming: a.incoming,
+                    });
+                }
+                _ => {}
+            },
+            Self::SelectError(_) => {}
         }
     }
 }
