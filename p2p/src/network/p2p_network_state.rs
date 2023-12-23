@@ -48,11 +48,16 @@ impl P2pNetworkAction {
         P2pNetworkSelectInitAction: redux::EnablingCondition<S>,
         P2pNetworkPnetOutgoingDataAction: redux::EnablingCondition<S>,
         P2pNetworkSelectIncomingTokenAction: redux::EnablingCondition<S>,
+        P2pNetworkConnectionSelectErrorAction: redux::EnablingCondition<S>,
+        P2pNetworkConnectionSelectDoneAction: redux::EnablingCondition<S>,
+        P2pNetworkNoiseInitAction: redux::EnablingCondition<S>,
+        P2pNetworkNoiseIncomingDataAction: redux::EnablingCondition<S>,
     {
         match self {
             Self::Connection(v) => v.effects(meta, store),
             Self::Pnet(v) => v.effects(meta, store),
             Self::Select(v) => v.effects(meta, store),
+            Self::Noise(v) => v.effects(meta, store),
         }
     }
 }
@@ -80,6 +85,17 @@ impl P2pNetworkState {
                         cn.select_mux.reducer(meta.with_action(&a));
                     }
                 });
+            }
+            P2pNetworkAction::Noise(a) => {
+                self.connection
+                    .connections
+                    .get_mut(&a.addr())
+                    .map(|cn| match &mut cn.auth {
+                        Some(P2pNetworkAuthState::Noise(state)) => {
+                            state.reducer(meta.with_action(&a))
+                        }
+                        _ => {}
+                    });
             }
         }
     }
