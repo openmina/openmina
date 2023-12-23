@@ -30,8 +30,8 @@ impl State {
         }
     }
 
-    /// return protocol name followd by the rest of unparsed data
-    /// idempotent, use `State::consume` for reset
+    /// return protocol name followed by the rest of unparsed data
+    /// use `State::consume` after return some parsed token
     pub fn parse_protocol<'a, 'b>(
         &'a mut self,
         mut data: &'b [u8],
@@ -53,14 +53,13 @@ impl State {
                 }
             }
 
-            let buffer = &mut self.buffer[self.offset..];
             if !data.is_empty() {
+                let buffer = &mut self.buffer[self.offset..];
                 let read = buffer.len().min(data.len());
+                self.offset += read;
                 buffer[..read].clone_from_slice(&data[..read]);
                 data = &data[read..];
-            }
-
-            if data.is_empty() {
+            } else {
                 return (None, data);
             }
         }

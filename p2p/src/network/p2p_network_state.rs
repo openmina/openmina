@@ -47,6 +47,7 @@ impl P2pNetworkAction {
         P2pNetworkSelectIncomingDataAction: redux::EnablingCondition<S>,
         P2pNetworkSelectInitAction: redux::EnablingCondition<S>,
         P2pNetworkPnetOutgoingDataAction: redux::EnablingCondition<S>,
+        P2pNetworkSelectIncomingTokenAction: redux::EnablingCondition<S>,
     {
         match self {
             Self::Connection(v) => v.effects(meta, store),
