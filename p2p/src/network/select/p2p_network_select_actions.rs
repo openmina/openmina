@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{P2pState, PeerId};
 
-use super::super::P2pNetworkAction;
+use super::{super::P2pNetworkAction, SelectKind};
 
 #[derive(derive_more::From, Serialize, Deserialize, Debug, Clone)]
 pub enum P2pNetworkSelectAction {
@@ -17,6 +17,33 @@ impl P2pNetworkSelectAction {
         match self {
             Self::Init(v) => v.addr,
             Self::IncomingData(v) => v.addr,
+        }
+    }
+
+    pub fn peer_id(&self) -> Option<PeerId> {
+        match self {
+            Self::Init(v) => v.peer_id,
+            Self::IncomingData(v) => v.peer_id,
+        }
+    }
+
+    pub fn stream_id(&self) -> Option<u16> {
+        match self {
+            Self::Init(v) => v.stream_id,
+            Self::IncomingData(v) => v.stream_id,
+        }
+    }
+
+    pub fn select_kind(&self) -> SelectKind {
+        if self.stream_id().is_some() {
+            SelectKind::Stream
+        } else if self.peer_id().is_some() {
+            // when we don't have `stream_id`, but have `peer_id`
+            // it means that multiplexing is needed
+            SelectKind::Multiplexing
+        } else {
+            // when we don't have `peer_id` it means that authentication is needed
+            SelectKind::Authentication
         }
     }
 }
