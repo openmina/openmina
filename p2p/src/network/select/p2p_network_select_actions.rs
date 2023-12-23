@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{P2pState, PeerId};
 
-use super::{super::P2pNetworkAction, SelectKind};
+use super::{super::P2pNetworkAction, SelectKind, *};
 
 #[derive(derive_more::From, Serialize, Deserialize, Debug, Clone)]
 pub enum P2pNetworkSelectAction {
@@ -77,7 +77,7 @@ pub struct P2pNetworkSelectIncomingTokenAction {
     pub addr: SocketAddr,
     pub peer_id: Option<PeerId>,
     pub stream_id: Option<u16>,
-    pub token: Box<[u8]>,
+    pub token: token::Token,
 }
 
 impl From<P2pNetworkSelectInitAction> for crate::P2pAction {

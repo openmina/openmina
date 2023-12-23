@@ -122,7 +122,7 @@ impl P2pNetworkPnetAction {
                     addr: a.addr,
                     peer_id: None,
                     stream_id: None,
-                    incoming: false,
+                    incoming: a.incoming,
                 });
             }
         }
