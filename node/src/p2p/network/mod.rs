@@ -78,6 +78,12 @@ impl redux::EnablingCondition<crate::State> for P2pNetworkSelectIncomingTokenAct
     }
 }
 
+impl redux::EnablingCondition<crate::State> for P2pNetworkSelectOutgoingTokensAction {
+    fn is_enabled(&self, state: &crate::State) -> bool {
+        self.is_enabled(&state.p2p)
+    }
+}
+
 impl redux::EnablingCondition<crate::State> for P2pNetworkNoiseInitAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
         self.is_enabled(&state.p2p)
