@@ -53,7 +53,7 @@ macro_rules! scenario_test {
                 }));
             }
 
-            let config = ClusterConfig::default();
+            let config = ClusterConfig::new(None).unwrap();
             let mut cluster = Cluster::new(config);
             let runner = ClusterRunner::new(&mut cluster, |_| {});
             let scenario = $scenario_instance;

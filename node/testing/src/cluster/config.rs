@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::node::OcamlNodeExecutable;
 
-#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ClusterConfig {
     port_range: Option<(u16, u16)>,
     all_rust_to_rust_use_webrtc: bool,
@@ -11,8 +11,16 @@ pub struct ClusterConfig {
 }
 
 impl ClusterConfig {
-    pub fn new() -> Self {
-        Default::default()
+    pub fn new(ocaml_node_executable: Option<OcamlNodeExecutable>) -> anyhow::Result<Self> {
+        Ok(Self {
+            port_range: None,
+            all_rust_to_rust_use_webrtc: false,
+            use_debugger: false,
+            ocaml_node_executable: match ocaml_node_executable {
+                Some(v) => v,
+                None => OcamlNodeExecutable::find_working()?,
+            },
+        })
     }
 
     pub fn use_debugger(mut self) -> Self {

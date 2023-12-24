@@ -4,7 +4,7 @@ use openmina_node_testing::cluster::ClusterConfig;
 use openmina_node_testing::scenarios::Scenarios;
 use openmina_node_testing::{exit_with_error, server, setup};
 
-pub type CommandError = Box<dyn std::error::Error>;
+pub type CommandError = anyhow::Error;
 
 #[derive(Debug, clap::Parser)]
 #[command(name = "openmina-testing", about = "Openmina Testing Cli")]
@@ -47,7 +47,9 @@ impl Command {
             Self::ScenariosGenerate(cmd) => {
                 #[cfg(feature = "scenario-generators")]
                 {
-                    let config = ClusterConfig::new();
+                    let config = ClusterConfig::new(None).map_err(|err| {
+                        anyhow::anyhow!("failed to create cluster configuration: {err}")
+                    })?;
                     let config = if cmd.use_debugger {
                         config.use_debugger()
                     } else {
@@ -61,7 +63,7 @@ impl Command {
                         {
                             rt.block_on(scenario.run_and_save_from_scratch(config));
                         } else {
-                            panic!("no such scenario: \"{name}\"");
+                            anyhow::bail!("no such scenario: \"{name}\"");
                         }
                     } else {
                         for scenario in Scenarios::iter() {

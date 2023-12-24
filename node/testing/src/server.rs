@@ -270,7 +270,11 @@ async fn cluster_create(
     Path(scenario_id): Path<ScenarioId>,
     args: Option<Json<ClusterConfig>>,
 ) -> Result<Json<ClusterCreateResponse>, (StatusCode, String)> {
-    let Json(config) = args.unwrap_or_default();
+    let config = match args {
+        Some(Json(v)) => v,
+        None => ClusterConfig::new(None)
+            .map_err(|err| (StatusCode::INTERNAL_SERVER_ERROR, err.to_string()))?,
+    };
     state
         .cluster_create(scenario_id, config)
         .await
