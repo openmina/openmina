@@ -129,6 +129,7 @@ use crate::p2p::network::pnet::{
 use crate::p2p::network::select::{
     P2pNetworkSelectAction, P2pNetworkSelectIncomingDataAction,
     P2pNetworkSelectIncomingTokenAction, P2pNetworkSelectInitAction,
+    P2pNetworkSelectOutgoingTokensAction,
 };
 use crate::p2p::network::P2pNetworkAction;
 use crate::p2p::peer::{P2pPeerAction, P2pPeerBestTipUpdateAction, P2pPeerReadyAction};
@@ -377,6 +378,7 @@ pub enum ActionKind {
     P2pNetworkSelectIncomingData,
     P2pNetworkSelectIncomingToken,
     P2pNetworkSelectInit,
+    P2pNetworkSelectOutgoingTokens,
     P2pPeerBestTipUpdate,
     P2pPeerReady,
     RpcActionStatsGet,
@@ -491,7 +493,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 244;
+    pub const COUNT: u16 = 250;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -1567,6 +1569,7 @@ impl ActionKindGet for P2pNetworkSelectAction {
             Self::Init(a) => a.kind(),
             Self::IncomingData(a) => a.kind(),
             Self::IncomingToken(a) => a.kind(),
+            Self::OutgoingTokens(a) => a.kind(),
         }
     }
 }
@@ -2314,6 +2317,12 @@ impl ActionKindGet for P2pNetworkSelectIncomingDataAction {
 impl ActionKindGet for P2pNetworkSelectIncomingTokenAction {
     fn kind(&self) -> ActionKind {
         ActionKind::P2pNetworkSelectIncomingToken
+    }
+}
+
+impl ActionKindGet for P2pNetworkSelectOutgoingTokensAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pNetworkSelectOutgoingTokens
     }
 }
 
