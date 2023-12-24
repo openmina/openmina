@@ -15,12 +15,12 @@ impl P2pNetworkNoiseAction {
         Store::Service: P2pMioService + P2pCryptoService,
     {
         match self {
-            Self::Init(a) => {
+            Self::Init(_a) => {
                 let _ = store;
-                dbg!(a.addr, a.incoming);
+                // dbg!(a.addr, a.incoming);
             }
-            Self::IncomingData(a) => {
-                dbg!(a.addr, a.data.len());
+            Self::IncomingData(_a) => {
+                // dbg!(a.addr, a.data.len());
             }
         }
     }
