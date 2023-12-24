@@ -30,6 +30,7 @@ zeroize = { version = "1.7" }
 salsa20 = { git = "https://github.com/openmina/stream-ciphers.git", branch = "salsa20-v0.10.2-impl-clone" }
 blake2 = { version = "0.10.6" }
 unsigned-varint = { version = "0.8.0" }
+hex = { version = "0.4.3" }
 
 redux = { git = "https://github.com/openmina/redux-rs.git", branch="feat/global-time", features = ["serde"] }
 mina-p2p-messages = { workspace = true }

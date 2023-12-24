@@ -2,7 +2,10 @@ use std::net::{IpAddr, SocketAddr};
 
 use serde::{Deserialize, Serialize};
 
-use super::super::select::{token, SelectKind};
+use super::super::{
+    select::{token, SelectKind},
+    Data,
+};
 use crate::P2pState;
 
 #[derive(derive_more::From, Serialize, Deserialize, Debug, Clone)]
@@ -40,7 +43,7 @@ pub struct P2pNetworkConnectionIncomingDataIsReadyAction {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pNetworkConnectionIncomingDataDidReceiveAction {
     pub addr: SocketAddr,
-    pub result: Result<(Box<[u8]>, usize), String>,
+    pub result: Result<Data, String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

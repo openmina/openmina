@@ -113,7 +113,7 @@ impl P2pNetworkSelectAction {
                 }
                 store.dispatch(P2pNetworkPnetOutgoingDataAction {
                     addr: a.addr,
-                    data: data.into_boxed_slice(),
+                    data: data.into(),
                 });
             }
             Self::IncomingData(a) => {
@@ -160,7 +160,7 @@ impl P2pNetworkSelectAction {
                     SelectKind::Authentication => {
                         store.dispatch(P2pNetworkPnetOutgoingDataAction {
                             addr: a.addr,
-                            data: data.into_boxed_slice(),
+                            data: data.into(),
                         });
                     }
                     _ => {}
@@ -223,7 +223,7 @@ impl P2pNetworkSelectState {
                 }
             }
             P2pNetworkSelectAction::IncomingToken(_) => {
-                let Some(token) = dbg!(self.tokens.pop_front()) else {
+                let Some(token) = self.tokens.pop_front() else {
                     return;
                 };
                 self.to_send = None;
