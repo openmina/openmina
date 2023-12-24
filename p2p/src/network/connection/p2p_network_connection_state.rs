@@ -136,7 +136,7 @@ impl P2pNetworkConnectionAction {
                 let nonce = store.service().generate_random_nonce();
                 store.dispatch(P2pNetworkPnetSetupNonceAction {
                     addr: a.addr,
-                    nonce,
+                    nonce: nonce.to_vec().into(),
                     incoming: false,
                 });
             }
@@ -146,11 +146,10 @@ impl P2pNetworkConnectionAction {
                     .send_mio_cmd(MioCmd::Recv(a.addr, vec![0; 0x1000].into_boxed_slice()));
             }
             Self::IncomingDataDidReceive(a) => {
-                if let Ok((data, len)) = &a.result {
+                if let Ok(data) = &a.result {
                     store.dispatch(P2pNetworkPnetIncomingDataAction {
                         addr: a.addr,
                         data: data.clone(),
-                        len: *len,
                     });
                 }
             }

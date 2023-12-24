@@ -94,7 +94,7 @@ impl P2pNetworkPnetAction {
         match self {
             P2pNetworkPnetAction::IncomingData(a) => match &state.pnet.incoming {
                 Half::Done { to_send, .. } if !to_send.is_empty() => {
-                    let data = to_send.clone().into_boxed_slice();
+                    let data = to_send.clone().into();
                     store.dispatch(P2pNetworkSelectIncomingDataAction {
                         addr: a.addr,
                         kind: SelectKind::Authentication,
@@ -131,7 +131,7 @@ impl P2pNetworkPnetState {
     pub fn reducer(&mut self, action: redux::ActionWithMeta<&P2pNetworkPnetAction>) {
         match action.action() {
             P2pNetworkPnetAction::IncomingData(a) => {
-                self.incoming.reduce(&self.shared_secret, &a.data[..a.len]);
+                self.incoming.reduce(&self.shared_secret, &a.data);
             }
             P2pNetworkPnetAction::OutgoingData(a) => {
                 self.outgoing.reduce(&self.shared_secret, &a.data)
