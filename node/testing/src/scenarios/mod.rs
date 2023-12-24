@@ -101,26 +101,7 @@ impl Scenarios {
     pub fn blank_scenario(self) -> Scenario {
         let mut scenario = Scenario::new(self.id(), self.parent_id());
         scenario.set_description(self.description().to_owned());
-        scenario.info.nodes = match self {
-            Self::SoloNodeSyncRootSnarkedLedger(_) => vec![serde_json::from_str(
-                r#"
-            {
-                "kind": "Rust",
-                "chain_id": "3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e",
-                "initial_time": 1695702049579000000,
-                "max_peers": 100,
-                "ask_initial_peers_interval": { "secs": 10, "nanos": 0 },
-                "initial_peers": [],
-                "randomize_peer_id": false
-            }
-                                                                           "#,
-            )
-            .unwrap()],
-            Self::SoloNodeBasicConnectivityInitialJoining(_) => vec![],
-            Self::SoloNodeBasicConnectivityAcceptIncoming(_) => vec![],
-            Self::MultiNodeBasicConnectivityInitialJoining(_) => vec![],
-            Self::MultiNodeBasicConnectivityPeerDiscovery(_) => vec![],
-        };
+        scenario.info.nodes = Vec::new();
 
         scenario
     }
