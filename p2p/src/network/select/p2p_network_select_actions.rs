@@ -2,7 +2,7 @@ use std::net::SocketAddr;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{P2pState, PeerId};
+use crate::{Data, P2pState, PeerId};
 
 use super::{super::P2pNetworkAction, *};
 
@@ -75,7 +75,7 @@ pub struct P2pNetworkSelectInitAction {
 pub struct P2pNetworkSelectIncomingDataAction {
     pub addr: SocketAddr,
     pub kind: SelectKind,
-    pub data: Box<[u8]>,
+    pub data: Data,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
