@@ -7,7 +7,7 @@ use node::p2p::{
 
 use std::{
     path::{Path, PathBuf},
-    process::{Child, Command},
+    process::Child,
     time::Duration,
 };
 
@@ -44,7 +44,9 @@ impl OcamlNode {
 
         let peer_id = match Self::read_peer_id(dir) {
             Ok(v) => v,
-            Err(_) => Self::generate_libp2p_keypair(dir)?,
+            Err(_) => Self::generate_libp2p_keypair(&config, dir).map_err(|err| {
+                anyhow::anyhow!("failed to generate libp2p keys for ocaml node. err: {err}")
+            })?,
         };
         let peer_id = peer_id.parse()?;
 
@@ -65,9 +67,7 @@ impl OcamlNode {
             }
         }
 
-        let mut cmd = config.cmd();
-
-        cmd.env("MINA_LIBP2P_PASS", "");
+        let mut cmd = config.cmd([("MINA_LIBP2P_PASS", "")]);
 
         cmd.arg("daemon");
         cmd.arg("--config-dir").arg(&config_dir);
@@ -160,12 +160,11 @@ impl OcamlNode {
         )
     }
 
-    fn generate_libp2p_keypair(dir: &Path) -> anyhow::Result<String> {
-        let mut child = Command::new("mina")
+    fn generate_libp2p_keypair(config: &OcamlNodeConfig, dir: &Path) -> anyhow::Result<String> {
+        let mut child = config
+            .cmd([("MINA_LIBP2P_PASS", ""), ("UMASK", "0700")])
             .args(["libp2p", "generate-keypair", "--privkey-path"])
             .arg(Self::privkey_path(dir))
-            .env("MINA_LIBP2P_PASS", "")
-            .env("UMASK", "0700")
             .spawn()?;
         if child.wait()?.success() {
             let peer_id = Self::read_peer_id(dir)?;
@@ -259,7 +258,7 @@ fn run_ocaml() {
     use crate::node::DaemonJson;
 
     let mut node = OcamlNode::start(OcamlNodeConfig {
-        executable: Default::default(),
+        executable: OcamlNodeExecutable::find_working().unwrap(),
         dir: temp_dir::TempDir::new().unwrap(),
         libp2p_port: 8302,
         graphql_port: 3086,
