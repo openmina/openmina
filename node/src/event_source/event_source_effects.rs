@@ -105,7 +105,7 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                         // let _ = dbg!("IncomingDataDidReceive", result.as_ref().map(|_| ()));
                         store.dispatch(P2pNetworkConnectionIncomingDataDidReceiveAction {
                             addr,
-                            result,
+                            result: result.map(From::from),
                         });
                     }
                     MioEvent::OutgoingDataDidSend(_, _result) => {

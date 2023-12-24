@@ -358,6 +358,8 @@ where
             Recv(addr, mut buf) => {
                 if let Some(mut connection) = self.connections.remove(&addr) {
                     let res = connection.stream.read(&mut buf);
+                    let read = res.as_ref().cloned().unwrap_or_default();
+                    let buf = buf[..read].to_vec().into_boxed_slice();
                     connection.incomind_ready = false;
                     let token = self.tokens.register(Token::Connection(addr));
                     if let Err(err) = self.poll.registry().reregister(
@@ -368,10 +370,10 @@ where
                         self.send(MioEvent::IncomingDataDidReceive(addr, Err(err.to_string())));
                     } else {
                         let res = match res {
-                            Ok(len) => Ok((buf, len)),
-                            Err(err) if err.kind() == io::ErrorKind::WouldBlock => Ok((buf, 0)),
+                            Ok(_) => Ok(buf),
+                            Err(err) if err.kind() == io::ErrorKind::WouldBlock => Ok(buf),
                             #[cfg(unix)]
-                            Err(err) if err.raw_os_error() == Some(libc::EAGAIN) => Ok((buf, 0)),
+                            Err(err) if err.raw_os_error() == Some(libc::EAGAIN) => Ok(buf),
                             Err(err) => Err(err.to_string()),
                         };
                         if res.is_ok() {
