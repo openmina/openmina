@@ -2,8 +2,8 @@ use std::net::{IpAddr, SocketAddr};
 
 use serde::{Deserialize, Serialize};
 
-use super::super::select::token;
-use crate::{P2pState, PeerId};
+use super::super::select::{token, SelectKind};
+use crate::P2pState;
 
 #[derive(derive_more::From, Serialize, Deserialize, Debug, Clone)]
 pub enum P2pNetworkConnectionAction {
@@ -46,8 +46,7 @@ pub struct P2pNetworkConnectionIncomingDataDidReceiveAction {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pNetworkConnectionSelectDoneAction {
     pub addr: SocketAddr,
-    pub peer_id: Option<PeerId>,
-    pub stream_id: Option<u16>,
+    pub kind: SelectKind,
     pub protocol: token::Protocol,
     pub incoming: bool,
 }
@@ -55,8 +54,7 @@ pub struct P2pNetworkConnectionSelectDoneAction {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pNetworkConnectionSelectErrorAction {
     pub addr: SocketAddr,
-    pub peer_id: Option<PeerId>,
-    pub stream_id: Option<u16>,
+    pub kind: SelectKind,
 }
 
 impl From<P2pNetworkConnectionInterfaceDetectedAction> for crate::P2pAction {

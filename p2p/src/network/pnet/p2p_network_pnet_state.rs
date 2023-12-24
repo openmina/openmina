@@ -97,8 +97,7 @@ impl P2pNetworkPnetAction {
                     let data = to_send.clone().into_boxed_slice();
                     store.dispatch(P2pNetworkSelectIncomingDataAction {
                         addr: a.addr,
-                        peer_id: None,
-                        stream_id: None,
+                        kind: SelectKind::Authentication,
                         data,
                     });
                 }
@@ -120,8 +119,7 @@ impl P2pNetworkPnetAction {
                 ));
                 store.dispatch(P2pNetworkSelectInitAction {
                     addr: a.addr,
-                    peer_id: None,
-                    stream_id: None,
+                    kind: SelectKind::Authentication,
                     incoming: a.incoming,
                 });
             }
