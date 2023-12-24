@@ -669,7 +669,7 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
             }
         },
         P2pAction::Network(action) => {
-            dbg!(crate::ActionKindGet::kind(&action));
+            println!("{}", serde_json::to_string_pretty(&action).unwrap());
             action.effects(&meta, store)
         }
     }

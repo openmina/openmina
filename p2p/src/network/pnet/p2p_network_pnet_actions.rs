@@ -2,7 +2,7 @@ use std::net::SocketAddr;
 
 use serde::{Deserialize, Serialize};
 
-use crate::P2pState;
+use crate::{Data, P2pState};
 
 use super::super::P2pNetworkAction;
 
@@ -26,20 +26,19 @@ impl P2pNetworkPnetAction {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pNetworkPnetIncomingDataAction {
     pub addr: SocketAddr,
-    pub data: Box<[u8]>,
-    pub len: usize,
+    pub data: Data,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pNetworkPnetOutgoingDataAction {
     pub addr: SocketAddr,
-    pub data: Box<[u8]>,
+    pub data: Data,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pNetworkPnetSetupNonceAction {
     pub addr: SocketAddr,
-    pub nonce: [u8; 24],
+    pub nonce: Data,
     pub incoming: bool,
 }
 
