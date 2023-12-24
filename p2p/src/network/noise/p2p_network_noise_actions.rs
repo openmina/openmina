@@ -2,7 +2,7 @@ use std::net::SocketAddr;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{P2pNetworkAction, P2pState};
+use crate::{Data, P2pNetworkAction, P2pState};
 
 #[derive(derive_more::From, Serialize, Deserialize, Debug, Clone)]
 pub enum P2pNetworkNoiseAction {
@@ -28,7 +28,7 @@ pub struct P2pNetworkNoiseInitAction {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pNetworkNoiseIncomingDataAction {
     pub addr: SocketAddr,
-    pub data: Box<[u8]>,
+    pub data: Data,
 }
 
 impl From<P2pNetworkNoiseInitAction> for crate::P2pAction {

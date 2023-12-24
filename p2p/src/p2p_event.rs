@@ -42,7 +42,7 @@ pub enum MioEvent {
     /// The remote peer is trying to send us some data.
     IncomingDataIsReady(SocketAddr),
     /// We received the data from the remote peer.
-    IncomingDataDidReceive(SocketAddr, Result<(Box<[u8]>, usize), String>),
+    IncomingDataDidReceive(SocketAddr, Result<Box<[u8]>, String>),
 
     /// We connected to the remote peer by the address.
     OutgoingConnectionDidConnect(SocketAddr, Result<(), String>),
