@@ -22,7 +22,7 @@ pub struct P2pNetworkSelectState {
 impl P2pNetworkSelectState {
     pub fn initiator_auth(kind: token::AuthKind) -> Self {
         P2pNetworkSelectState {
-            inner: P2pNetworkSelectStateInner::Initiator {
+            inner: P2pNetworkSelectStateInner::Uncertain {
                 proposing: token::Protocol::Auth(kind),
             },
             ..Default::default()
@@ -72,8 +72,8 @@ impl P2pNetworkSelectAction {
         P2pNetworkConnectionSelectErrorAction: redux::EnablingCondition<S>,
         P2pNetworkConnectionSelectDoneAction: redux::EnablingCondition<S>,
         P2pNetworkNoiseIncomingDataAction: redux::EnablingCondition<S>,
+        P2pNetworkSelectOutgoingTokensAction: redux::EnablingCondition<S>,
     {
-        let kind = self.select_kind();
         let Some(state) = store
             .state()
             .network
@@ -83,10 +83,10 @@ impl P2pNetworkSelectAction {
         else {
             return;
         };
-        let state = match kind {
+        let state = match self.id() {
             SelectKind::Authentication => &state.select_auth,
-            SelectKind::Multiplexing => &state.select_mux,
-            SelectKind::Stream => match self.stream_id().and_then(|s| state.streams.get(&s)) {
+            SelectKind::Multiplexing(_) => &state.select_mux,
+            SelectKind::Stream(_, stream_id) => match state.streams.get(&stream_id) {
                 Some(v) => v,
                 None => return,
             },
@@ -94,8 +94,7 @@ impl P2pNetworkSelectAction {
         if let P2pNetworkSelectStateInner::Error = &state.inner {
             store.dispatch(P2pNetworkConnectionSelectErrorAction {
                 addr: self.addr(),
-                peer_id: self.peer_id(),
-                stream_id: self.stream_id(),
+                kind: self.id(),
             });
             return;
         }
@@ -137,8 +136,7 @@ impl P2pNetworkSelectAction {
                     for token in tokens {
                         store.dispatch(P2pNetworkSelectIncomingTokenAction {
                             addr: a.addr,
-                            peer_id: a.peer_id,
-                            stream_id: a.stream_id,
+                            kind: a.kind,
                             token,
                         });
                     }
@@ -146,18 +144,33 @@ impl P2pNetworkSelectAction {
             }
             Self::IncomingToken(a) => {
                 if let Some(token) = &state.to_send {
-                    store.dispatch(P2pNetworkPnetOutgoingDataAction {
+                    store.dispatch(P2pNetworkSelectOutgoingTokensAction {
                         addr: a.addr,
-                        data: token.name().to_vec().into_boxed_slice(),
+                        kind: a.kind,
+                        tokens: vec![*token],
                     });
+                }
+            }
+            Self::OutgoingTokens(a) => {
+                let mut data = vec![];
+                for token in &a.tokens {
+                    data.extend_from_slice(token.name())
+                }
+                match &a.kind {
+                    SelectKind::Authentication => {
+                        store.dispatch(P2pNetworkPnetOutgoingDataAction {
+                            addr: a.addr,
+                            data: data.into_boxed_slice(),
+                        });
+                    }
+                    _ => {}
                 }
             }
         }
         if let Some(protocol) = report {
             store.dispatch(P2pNetworkConnectionSelectDoneAction {
                 addr: self.addr(),
-                peer_id: self.peer_id(),
-                stream_id: self.stream_id(),
+                kind: self.id(),
                 protocol,
                 incoming,
             });
@@ -179,10 +192,10 @@ impl P2pNetworkSelectState {
         match action {
             P2pNetworkSelectAction::Init(a) => {
                 // TODO: implement select for stream
-                let proposing = match action.select_kind() {
+                let proposing = match action.id() {
                     SelectKind::Authentication => token::Protocol::Auth(token::AuthKind::Noise),
-                    SelectKind::Multiplexing => token::Protocol::Mux(token::MuxKind::Yamux1_0_0),
-                    SelectKind::Stream => {
+                    SelectKind::Multiplexing(_) => token::Protocol::Mux(token::MuxKind::Yamux1_0_0),
+                    SelectKind::Stream(_, _) => {
                         unimplemented!()
                     }
                 };
@@ -263,6 +276,7 @@ impl P2pNetworkSelectState {
                     },
                 }
             }
+            P2pNetworkSelectAction::OutgoingTokens(_) => {}
         }
     }
 }
