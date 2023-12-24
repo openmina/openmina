@@ -79,7 +79,7 @@ impl P2pNetworkConnectionState {
                         connection.mux = Some(());
                     }
                     token::Protocol::Stream(stream_kind) => {
-                        let Some(stream_id) = a.stream_id else {
+                        let Some(stream_id) = a.kind.stream_id() else {
                             return;
                         };
                         connection.streams.insert(
@@ -90,7 +90,7 @@ impl P2pNetworkConnectionState {
                 }
             }
             P2pNetworkConnectionAction::SelectError(a) => {
-                if let Some(stream_id) = &a.stream_id {
+                if let Some(stream_id) = &a.kind.stream_id() {
                     if let Some(connection) = self.connections.get_mut(&a.addr) {
                         connection.streams.remove(stream_id);
                     }
