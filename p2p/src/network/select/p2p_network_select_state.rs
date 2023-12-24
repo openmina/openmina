@@ -106,14 +106,21 @@ impl P2pNetworkSelectAction {
         let incoming = matches!(&state.inner, P2pNetworkSelectStateInner::Responder { .. });
         match self {
             Self::Init(a) => {
-                let mut data = token::Token::Handshake.name().to_vec();
-                if let P2pNetworkSelectStateInner::Uncertain { proposing } = &state.inner {
-                    data.extend_from_slice(token::Token::SimultaneousConnect.name());
-                    data.extend_from_slice(token::Token::Protocol(*proposing).name());
-                }
-                store.dispatch(P2pNetworkPnetOutgoingDataAction {
+                let mut tokens = vec![token::Token::Handshake];
+                match &state.inner {
+                    P2pNetworkSelectStateInner::Uncertain { proposing } => {
+                        tokens.push(token::Token::SimultaneousConnect);
+                        tokens.push(token::Token::Protocol(*proposing));
+                    }
+                    P2pNetworkSelectStateInner::Initiator { proposing } => {
+                        tokens.push(token::Token::Protocol(*proposing));
+                    }
+                    _ => {}
+                };
+                store.dispatch(P2pNetworkSelectOutgoingTokensAction {
                     addr: a.addr,
-                    data: data.into(),
+                    kind: a.kind,
+                    tokens,
                 });
             }
             Self::IncomingData(a) => {
