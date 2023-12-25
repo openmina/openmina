@@ -147,7 +147,7 @@ version = "0.7.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5a824f2aa7e75a0c98c5a504fceb80649e9c35265d44525b5f94de4771a395cd"
 dependencies = [
- "getrandom 0.2.10",
+ "getrandom 0.2.11",
  "once_cell",
  "version_check",
 ]
@@ -850,15 +850,39 @@ dependencies = [
 ]
 
 [[package]]
+name = "chacha20"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c3613f74bd2eac03dad61bd53dbe620703d4371614fe0bc3b9f04dd36fe4e818"
+dependencies = [
+ "cfg-if",
+ "cipher 0.4.4",
+ "cpufeatures",
+]
+
+[[package]]
 name = "chacha20poly1305"
 version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a18446b09be63d457bbec447509e85f662f32952b035ce892290396bc0b0cff5"
 dependencies = [
  "aead 0.4.3",
- "chacha20",
+ "chacha20 0.8.2",
  "cipher 0.3.0",
- "poly1305",
+ "poly1305 0.7.2",
+ "zeroize",
+]
+
+[[package]]
+name = "chacha20poly1305"
+version = "0.10.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "10cd79432192d1c0f4e1a0fef9527696cc039165d729fb41b3f4f4f354c2dc35"
+dependencies = [
+ "aead 0.5.2",
+ "chacha20 0.9.1",
+ "cipher 0.4.4",
+ "poly1305 0.8.0",
  "zeroize",
 ]
 
@@ -902,6 +926,7 @@ checksum = "773f3b9af64447d2ce9850330c473515014aa235e6a783b02db81ff39e4a3dad"
 dependencies = [
  "crypto-common",
  "inout",
+ "zeroize",
 ]
 
 [[package]]
@@ -2009,9 +2034,9 @@ dependencies = [
 
 [[package]]
 name = "getrandom"
-version = "0.2.10"
+version = "0.2.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "be4136b2a15dd319360be1c07d9933517ccf0be8f16bf62a3bee4f0d618df427"
+checksum = "fe9006bed769170c11f845cf00c7c1e9092aeb3f268e007c3e760ac68008070f"
 dependencies = [
  "cfg-if",
  "js-sys",
@@ -2659,7 +2684,7 @@ dependencies = [
  "either",
  "futures",
  "futures-timer",
- "getrandom 0.2.10",
+ "getrandom 0.2.11",
  "instant",
  "libp2p-allow-block-list",
  "libp2p-connection-limits",
@@ -2762,7 +2787,7 @@ dependencies = [
  "fnv",
  "futures",
  "futures-ticker",
- "getrandom 0.2.10",
+ "getrandom 0.2.11",
  "hex_fmt",
  "instant",
  "libp2p-core",
@@ -2895,7 +2920,7 @@ dependencies = [
  "bytes",
  "curve25519-dalek 4.1.1",
  "futures",
- "getrandom 0.2.10",
+ "getrandom 0.2.11",
  "libp2p-core",
  "libp2p-identity",
  "log",
@@ -3300,7 +3325,7 @@ dependencies = [
  "chrono",
  "crc32fast",
  "derive_more",
- "getrandom 0.2.10",
+ "getrandom 0.2.11",
  "hex",
  "itertools",
  "kimchi",
@@ -3923,6 +3948,7 @@ name = "openmina-node-native"
 version = "0.0.1"
 dependencies = [
  "bytes",
+ "getrandom 0.2.11",
  "juniper",
  "juniper_warp",
  "libp2p",
@@ -4056,6 +4082,8 @@ dependencies = [
  "bs58 0.4.0",
  "bytes",
  "cfg-if",
+ "chacha20poly1305 0.10.1",
+ "curve25519-dalek 4.1.1",
  "derive_more",
  "ecies-ed25519",
  "ed25519-dalek",
@@ -4089,6 +4117,7 @@ dependencies = [
  "tokio",
  "unsigned-varint 0.8.0",
  "url",
+ "vru-noise",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "wasm-timer",
@@ -4327,6 +4356,17 @@ dependencies = [
  "cpufeatures",
  "opaque-debug",
  "universal-hash 0.4.1",
+]
+
+[[package]]
+name = "poly1305"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8159bd90725d2df49889a078b54f4f79e87f1f8a8444194cdca81d38f5393abf"
+dependencies = [
+ "cpufeatures",
+ "opaque-debug",
+ "universal-hash 0.5.1",
 ]
 
 [[package]]
@@ -4611,7 +4651,7 @@ version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ec0be4795e2f6a28069bec0b5ff3e2ac9bafc99e6a9a7dc3547996c5c816922c"
 dependencies = [
- "getrandom 0.2.10",
+ "getrandom 0.2.11",
 ]
 
 [[package]]
@@ -4719,7 +4759,7 @@ version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b033d837a7cf162d7993aded9304e30a83213c648b6e389db233191f891e5c2b"
 dependencies = [
- "getrandom 0.2.10",
+ "getrandom 0.2.11",
  "redox_syscall 0.2.16",
  "thiserror",
 ]
@@ -4868,7 +4908,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fb0205304757e5d899b9c2e448b867ffd03ae7f988002e47cd24954391394d0b"
 dependencies = [
  "cc",
- "getrandom 0.2.10",
+ "getrandom 0.2.11",
  "libc",
  "spin 0.9.8",
  "untrusted 0.9.0",
@@ -5429,7 +5469,7 @@ source = "git+https://github.com/mcginty/snow#e4c591cd767f94433bb1e11a46f53ba3d0
 dependencies = [
  "aes-gcm 0.9.4",
  "blake2",
- "chacha20poly1305",
+ "chacha20poly1305 0.9.1",
  "curve25519-dalek 4.1.1",
  "rand_core 0.6.4",
  "ring 0.16.20",
@@ -6188,7 +6228,7 @@ version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "88ad59a7560b41a70d191093a945f0b87bc1deeda46fb237479708a1d6b6cdfc"
 dependencies = [
- "getrandom 0.2.10",
+ "getrandom 0.2.11",
 ]
 
 [[package]]
@@ -6226,6 +6266,19 @@ name = "void"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6a02e4885ed3bc0f2de90ea6dd45ebcbb66dacffe03547fadbb0eeae2770887d"
+
+[[package]]
+name = "vru-noise"
+version = "1.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5e36cfd5faf497942b8c744ddc1d65cdda7a982d71124676660e732c5e3b9705"
+dependencies = [
+ "aead 0.5.2",
+ "digest 0.10.7",
+ "generic-array",
+ "hkdf 0.12.3",
+ "zeroize",
+]
 
 [[package]]
 name = "waitgroup"
