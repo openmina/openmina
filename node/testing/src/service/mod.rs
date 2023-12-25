@@ -203,6 +203,14 @@ impl P2pCryptoService for NodeTestingService {
     fn generate_random_nonce(&mut self) -> [u8; 24] {
         self.real.generate_random_nonce()
     }
+
+    fn ephemeral_sk(&mut self) -> [u8; 32] {
+        self.real.ephemeral_sk()
+    }
+
+    fn static_sk(&mut self) -> [u8; 32] {
+        self.real.static_sk()
+    }
 }
 
 impl P2pMioService for NodeTestingService {
