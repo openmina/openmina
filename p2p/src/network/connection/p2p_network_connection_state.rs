@@ -163,13 +163,21 @@ impl P2pNetworkConnectionAction {
             }
             Self::SelectDone(a) => match &a.protocol {
                 token::Protocol::Auth(token::AuthKind::Noise) => {
+                    use curve25519_dalek::{constants::ED25519_BASEPOINT_TABLE as G, Scalar};
+
                     let ephemeral_sk = store.service().ephemeral_sk().into();
-                    let static_sk = store.service().static_sk().into();
+                    let static_sk = store.service().static_sk();
+                    let static_sk = Scalar::from_bytes_mod_order(static_sk);
+                    let signature = store
+                        .service()
+                        .sign_key((G * &static_sk).to_montgomery().as_bytes())
+                        .into();
                     store.dispatch(P2pNetworkNoiseInitAction {
                         addr: a.addr,
                         incoming: a.incoming,
                         ephemeral_sk,
-                        static_sk,
+                        static_sk: static_sk.to_bytes().into(),
+                        signature,
                     });
                 }
                 _ => {}

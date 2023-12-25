@@ -29,4 +29,6 @@ pub trait P2pCryptoService: redux::Service {
 
     fn ephemeral_sk(&mut self) -> [u8; 32];
     fn static_sk(&mut self) -> [u8; 32];
+
+    fn sign_key(&mut self, key: &[u8; 32]) -> Vec<u8>;
 }
