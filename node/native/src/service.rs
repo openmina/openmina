@@ -111,6 +111,22 @@ impl P2pCryptoService for NodeService {
     fn generate_random_nonce(&mut self) -> [u8; 24] {
         self.rng.gen()
     }
+
+    fn ephemeral_sk(&mut self) -> [u8; 32] {
+        // TODO: make deterministic
+        // TODO: make network debugger to use seed to derive the same key
+        let mut r = [0; 32];
+        getrandom::getrandom(&mut r).unwrap();
+        r
+    }
+
+    fn static_sk(&mut self) -> [u8; 32] {
+        // TODO: make deterministic
+        // TODO: make network debugger to use seed to derive the same key
+        let mut r = [0; 32];
+        getrandom::getrandom(&mut r).unwrap();
+        r
+    }
 }
 
 #[cfg(feature = "p2p-libp2p")]
