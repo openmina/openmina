@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
+use libp2p_identity::Keypair;
 use mina_p2p_messages::v2::{
     CurrencyFeeStableV1, UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
 };
@@ -197,13 +198,15 @@ impl Node {
             webrtc: P2pServiceCtx { cmd_sender, peers },
         } = <NodeService as P2pServiceWebrtcWithLibp2p>::init(
             Some(self.libp2p_port),
-            secret_key,
+            secret_key.clone(),
             "3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e".to_owned(),
             event_sender.clone(),
             P2pTaskSpawner {},
         );
         #[cfg(not(feature = "p2p-libp2p"))]
         let (cmd_sender, peers) = { (mpsc::unbounded_channel().0, Default::default()) };
+        let keypair = Keypair::ed25519_from_bytes(secret_key.to_bytes())
+            .expect("secret key bytes must be valid");
 
         #[cfg(not(feature = "p2p-libp2p"))]
         let mio = MioService::run({
@@ -257,6 +260,7 @@ impl Node {
                 #[cfg(not(feature = "p2p-libp2p"))]
                 mio,
                 block_producer: None,
+                keypair,
                 rpc: rpc_service,
                 snark_worker_sender: None,
                 stats: Stats::new(),

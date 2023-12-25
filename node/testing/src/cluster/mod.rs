@@ -15,6 +15,7 @@ use std::{collections::VecDeque, sync::Arc};
 
 use ledger::proofs::{VerifierIndex, VerifierSRS};
 use libp2p::futures::{stream::FuturesUnordered, StreamExt};
+use libp2p::identity::Keypair;
 use node::core::channels::mpsc;
 use node::core::requests::RpcId;
 use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
@@ -215,7 +216,7 @@ impl Cluster {
             webrtc: P2pServiceCtx { cmd_sender, peers },
         } = <NodeService as P2pServiceWebrtcWithLibp2p>::init(
             Some(libp2p_port),
-            secret_key,
+            secret_key.clone(),
             testing_config.chain_id,
             event_sender.clone(),
             p2p_task_spawner::P2pTaskSpawner::new(shutdown_tx.clone()),
@@ -232,6 +233,8 @@ impl Cluster {
                     .unwrap_or_default()
             }
         });
+        let keypair = Keypair::ed25519_from_bytes(secret_key.to_bytes())
+            .expect("secret key bytes must be valid");
 
         let mut rpc_service = RpcService::new();
 
@@ -270,6 +273,7 @@ impl Cluster {
             #[cfg(not(feature = "p2p-libp2p"))]
             mio,
             block_producer: None,
+            keypair,
             snark_worker_sender: None,
             rpc: rpc_service,
             stats: node::stats::Stats::new(),
