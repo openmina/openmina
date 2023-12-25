@@ -2,12 +2,14 @@ use std::net::SocketAddr;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Data, P2pNetworkAction, P2pState};
+use crate::{Data, DataSized, P2pNetworkAction, P2pState};
 
 #[derive(derive_more::From, Serialize, Deserialize, Debug, Clone)]
 pub enum P2pNetworkNoiseAction {
     Init(P2pNetworkNoiseInitAction),
     IncomingData(P2pNetworkNoiseIncomingDataAction),
+    IncomingChunk(P2pNetworkNoiseIncomingChunkAction),
+    OutgoingChunk(P2pNetworkNoiseOutgoingChunkAction),
 }
 
 impl P2pNetworkNoiseAction {
@@ -15,6 +17,8 @@ impl P2pNetworkNoiseAction {
         match self {
             Self::Init(a) => a.addr,
             Self::IncomingData(a) => a.addr,
+            Self::IncomingChunk(a) => a.addr,
+            Self::OutgoingChunk(a) => a.addr,
         }
     }
 }
@@ -23,10 +27,24 @@ impl P2pNetworkNoiseAction {
 pub struct P2pNetworkNoiseInitAction {
     pub addr: SocketAddr,
     pub incoming: bool,
+    pub ephemeral_sk: DataSized<32>,
+    pub static_sk: DataSized<32>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pNetworkNoiseIncomingDataAction {
+    pub addr: SocketAddr,
+    pub data: Data,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct P2pNetworkNoiseIncomingChunkAction {
+    pub addr: SocketAddr,
+    pub data: Data,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct P2pNetworkNoiseOutgoingChunkAction {
     pub addr: SocketAddr,
     pub data: Data,
 }
@@ -43,11 +61,25 @@ impl From<P2pNetworkNoiseIncomingDataAction> for crate::P2pAction {
     }
 }
 
+impl From<P2pNetworkNoiseIncomingChunkAction> for crate::P2pAction {
+    fn from(a: P2pNetworkNoiseIncomingChunkAction) -> Self {
+        Self::Network(P2pNetworkAction::Noise(a.into()))
+    }
+}
+
+impl From<P2pNetworkNoiseOutgoingChunkAction> for crate::P2pAction {
+    fn from(a: P2pNetworkNoiseOutgoingChunkAction) -> Self {
+        Self::Network(P2pNetworkAction::Noise(a.into()))
+    }
+}
+
 impl redux::EnablingCondition<P2pState> for P2pNetworkNoiseAction {
     fn is_enabled(&self, state: &P2pState) -> bool {
         match self {
             Self::Init(v) => v.is_enabled(state),
             Self::IncomingData(v) => v.is_enabled(state),
+            Self::IncomingChunk(v) => v.is_enabled(state),
+            Self::OutgoingChunk(v) => v.is_enabled(state),
         }
     }
 }
@@ -59,6 +91,18 @@ impl redux::EnablingCondition<P2pState> for P2pNetworkNoiseInitAction {
 }
 
 impl redux::EnablingCondition<P2pState> for P2pNetworkNoiseIncomingDataAction {
+    fn is_enabled(&self, _state: &P2pState) -> bool {
+        true
+    }
+}
+
+impl redux::EnablingCondition<P2pState> for P2pNetworkNoiseIncomingChunkAction {
+    fn is_enabled(&self, _state: &P2pState) -> bool {
+        true
+    }
+}
+
+impl redux::EnablingCondition<P2pState> for P2pNetworkNoiseOutgoingChunkAction {
     fn is_enabled(&self, _state: &P2pState) -> bool {
         true
     }

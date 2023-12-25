@@ -28,8 +28,8 @@ pub struct P2pNetworkConnectionHandshakeState {
     pub select_auth: P2pNetworkSelectState,
     pub auth: Option<P2pNetworkAuthState>,
     pub select_mux: P2pNetworkSelectState,
-    pub mux: Option<()>,
-    pub streams: BTreeMap<u16, P2pNetworkSelectState>,
+    pub mux: Option<P2pNetworkConnectionMuxState>,
+    pub streams: BTreeMap<u16, P2pNetworkStreamState>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -39,6 +39,11 @@ pub enum P2pNetworkAuthState {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum P2pNetworkConnectionMuxState {}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct P2pNetworkStreamState {
+    pub select: P2pNetworkSelectState,
+}
 
 impl P2pNetworkConnectionState {
     pub fn reducer(&mut self, action: redux::ActionWithMeta<&P2pNetworkConnectionAction>) {
@@ -76,7 +81,7 @@ impl P2pNetworkConnectionState {
                             Some(P2pNetworkAuthState::Noise(P2pNetworkNoiseState::default()));
                     }
                     token::Protocol::Mux(token::MuxKind::Yamux1_0_0) => {
-                        connection.mux = Some(());
+                        // connection.mux = Some(!);
                     }
                     token::Protocol::Stream(stream_kind) => {
                         let Some(stream_id) = a.kind.stream_id() else {
@@ -84,7 +89,9 @@ impl P2pNetworkConnectionState {
                         };
                         connection.streams.insert(
                             stream_id,
-                            P2pNetworkSelectState::initiator_stream(*stream_kind),
+                            P2pNetworkStreamState {
+                                select: P2pNetworkSelectState::initiator_stream(*stream_kind),
+                            },
                         );
                     }
                 }
@@ -126,6 +133,7 @@ impl P2pNetworkConnectionAction {
                     },
                     _ => panic!(),
                 };
+                // let addr = SocketAddr::from(([172, 17, 0, 1], 8302));
 
                 if addr.is_ipv4() == a.ip.is_ipv4() {
                     store.service().send_mio_cmd(MioCmd::Connect(addr));
@@ -155,10 +163,13 @@ impl P2pNetworkConnectionAction {
             }
             Self::SelectDone(a) => match &a.protocol {
                 token::Protocol::Auth(token::AuthKind::Noise) => {
-                    // initialize Noise
+                    let ephemeral_sk = store.service().ephemeral_sk().into();
+                    let static_sk = store.service().static_sk().into();
                     store.dispatch(P2pNetworkNoiseInitAction {
                         addr: a.addr,
                         incoming: a.incoming,
+                        ephemeral_sk,
+                        static_sk,
                     });
                 }
                 _ => {}
