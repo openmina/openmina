@@ -978,7 +978,7 @@ dependencies = [
  "console",
  "dialoguer",
  "hex",
- "libp2p",
+ "libp2p-identity",
  "mina-p2p-messages",
  "mina-tree",
  "nix 0.26.4",

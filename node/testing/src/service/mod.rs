@@ -213,6 +213,10 @@ impl P2pCryptoService for NodeTestingService {
     fn static_sk(&mut self) -> [u8; 32] {
         self.real.static_sk()
     }
+
+    fn sign_key(&mut self, key: &[u8; 32]) -> Vec<u8> {
+        self.real.sign_key(key)
+    }
 }
 
 impl P2pMioService for NodeTestingService {
