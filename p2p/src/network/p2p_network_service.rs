@@ -26,4 +26,7 @@ pub trait P2pMioService: redux::Service {
 
 pub trait P2pCryptoService: redux::Service {
     fn generate_random_nonce(&mut self) -> [u8; 24];
+
+    fn ephemeral_sk(&mut self) -> [u8; 32];
+    fn static_sk(&mut self) -> [u8; 32];
 }

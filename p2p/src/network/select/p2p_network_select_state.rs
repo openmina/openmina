@@ -87,7 +87,7 @@ impl P2pNetworkSelectAction {
             SelectKind::Authentication => &state.select_auth,
             SelectKind::Multiplexing(_) => &state.select_mux,
             SelectKind::Stream(_, stream_id) => match state.streams.get(&stream_id) {
-                Some(v) => v,
+                Some(v) => &v.select,
                 None => return,
             },
         };
@@ -248,7 +248,6 @@ impl P2pNetworkSelectState {
                         }
                         token::Token::Protocol(response) => {
                             if response == *proposing {
-                                self.to_send = Some(token::Token::Protocol(response));
                                 self.negotiated = Some(response);
                             } else {
                                 self.inner = P2pNetworkSelectStateInner::Error;
