@@ -29,6 +29,7 @@ pub struct P2pNetworkNoiseInitAction {
     pub incoming: bool,
     pub ephemeral_sk: DataSized<32>,
     pub static_sk: DataSized<32>,
+    pub signature: Data,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

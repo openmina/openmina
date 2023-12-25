@@ -5,6 +5,7 @@ use std::sync::{Arc, Mutex};
 use openmina_core::invariants::InvariantsState;
 
 use ledger::scan_state::scan_state::transaction_snark::{SokDigest, Statement};
+use libp2p::identity::Keypair;
 use mina_p2p_messages::v2::{LedgerProofProdStableV2, TransactionSnarkWorkTStableV2Proofs};
 #[cfg(not(feature = "p2p-libp2p"))]
 use node::p2p::service_impl::mio::MioService;
@@ -53,6 +54,7 @@ pub struct NodeService {
     #[cfg(not(feature = "p2p-libp2p"))]
     pub mio: MioService,
     pub block_producer: Option<BlockProducerService>,
+    pub keypair: Keypair,
     pub snark_worker_sender: Option<ext_snark_worker::ExternalSnarkWorkerFacade>,
     pub rpc: RpcService,
     pub stats: Stats,
@@ -131,6 +133,19 @@ impl P2pCryptoService for NodeService {
         let mut r = [0; 32];
         getrandom::getrandom(&mut r).unwrap();
         r
+    }
+
+    fn sign_key(&mut self, key: &[u8; 32]) -> Vec<u8> {
+        // TODO: make deterministic
+        let msg = &[b"noise-libp2p-static-key:", key.as_ref()].concat();
+        let sig = self.keypair.sign(msg).expect("unable to create signature");
+
+        let mut payload = vec![];
+        payload.extend_from_slice(b"\x0a\x24");
+        payload.extend_from_slice(&self.keypair.public().encode_protobuf());
+        payload.extend_from_slice(b"\x12\x40");
+        payload.extend_from_slice(&sig);
+        payload
     }
 }
 

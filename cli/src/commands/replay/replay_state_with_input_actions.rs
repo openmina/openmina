@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 
+use libp2p_identity::Keypair;
 use node::core::channels::mpsc;
 use node::recorder::{Recorder, StateWithInputActionsReader};
 use node::snark::VerifierKind;
@@ -62,6 +63,7 @@ impl ReplayStateWithInputActions {
             #[cfg(not(feature = "p2p-libp2p"))]
             mio: node::p2p::service_impl::mio::MioService::mocked(),
             block_producer: None,
+            keypair: Keypair::generate_ed25519(),
             rpc: RpcService::new(),
             snark_worker_sender: None,
             stats: Default::default(),
