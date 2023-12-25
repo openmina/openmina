@@ -37,7 +37,8 @@ use crate::p2p::network::connection::{
     P2pNetworkConnectionSelectDoneAction, P2pNetworkConnectionSelectErrorAction,
 };
 use crate::p2p::network::noise::{
-    P2pNetworkNoiseAction, P2pNetworkNoiseIncomingDataAction, P2pNetworkNoiseInitAction,
+    P2pNetworkNoiseAction, P2pNetworkNoiseIncomingChunkAction, P2pNetworkNoiseIncomingDataAction,
+    P2pNetworkNoiseInitAction, P2pNetworkNoiseOutgoingChunkAction,
 };
 use crate::p2p::network::pnet::{
     P2pNetworkPnetAction, P2pNetworkPnetIncomingDataAction, P2pNetworkPnetOutgoingDataAction,
@@ -201,8 +202,10 @@ pub enum ActionKind {
     P2pNetworkConnectionOutgoingDidConnect,
     P2pNetworkConnectionSelectDone,
     P2pNetworkConnectionSelectError,
+    P2pNetworkNoiseIncomingChunk,
     P2pNetworkNoiseIncomingData,
     P2pNetworkNoiseInit,
+    P2pNetworkNoiseOutgoingChunk,
     P2pNetworkPnetIncomingData,
     P2pNetworkPnetOutgoingData,
     P2pNetworkPnetSetupNonce,
@@ -324,7 +327,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 250;
+    pub const COUNT: u16 = 252;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -904,6 +907,8 @@ impl ActionKindGet for P2pNetworkNoiseAction {
         match self {
             Self::Init(a) => a.kind(),
             Self::IncomingData(a) => a.kind(),
+            Self::IncomingChunk(a) => a.kind(),
+            Self::OutgoingChunk(a) => a.kind(),
         }
     }
 }
@@ -1012,6 +1017,18 @@ impl ActionKindGet for P2pNetworkNoiseInitAction {
 impl ActionKindGet for P2pNetworkNoiseIncomingDataAction {
     fn kind(&self) -> ActionKind {
         ActionKind::P2pNetworkNoiseIncomingData
+    }
+}
+
+impl ActionKindGet for P2pNetworkNoiseIncomingChunkAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pNetworkNoiseIncomingChunk
+    }
+}
+
+impl ActionKindGet for P2pNetworkNoiseOutgoingChunkAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pNetworkNoiseOutgoingChunk
     }
 }
 

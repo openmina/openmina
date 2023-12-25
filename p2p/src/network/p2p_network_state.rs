@@ -53,6 +53,8 @@ impl P2pNetworkAction {
         P2pNetworkNoiseInitAction: redux::EnablingCondition<S>,
         P2pNetworkNoiseIncomingDataAction: redux::EnablingCondition<S>,
         P2pNetworkSelectOutgoingTokensAction: redux::EnablingCondition<S>,
+        P2pNetworkNoiseIncomingChunkAction: redux::EnablingCondition<S>,
+        P2pNetworkNoiseOutgoingChunkAction: redux::EnablingCondition<S>,
     {
         match self {
             Self::Connection(v) => v.effects(meta, store),
@@ -84,7 +86,7 @@ impl P2pNetworkState {
                         SelectKind::Stream(_, stream_id) => {
                             cn.streams
                                 .get_mut(&stream_id)
-                                .map(|stream| stream.reducer(meta.with_action(&a)));
+                                .map(|stream| stream.select.reducer(meta.with_action(&a)));
                         }
                     });
             }
