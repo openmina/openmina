@@ -126,4 +126,10 @@ mod data {
             &self.0
         }
     }
+
+    impl ops::DerefMut for Data {
+        fn deref_mut(&mut self) -> &mut Self::Target {
+            &mut self.0
+        }
+    }
 }

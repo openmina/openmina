@@ -37,7 +37,10 @@ use openmina_node_native::{http_server, rpc::RpcService, NodeService, RpcSender}
 use rand::{rngs::StdRng, SeedableRng};
 use serde::Serialize;
 
+use libp2p::identity::Keypair;
+
 use crate::node::TestPeerId;
+
 use crate::{
     network_debugger::Debugger,
     node::{
@@ -201,6 +204,8 @@ impl Cluster {
                     .unwrap_or_default()
             }
         });
+        let keypair = Keypair::ed25519_from_bytes(secret_key.to_bytes())
+            .expect("secret key bytes must be valid");
 
         let mut rpc_service = RpcService::new();
 
@@ -238,6 +243,7 @@ impl Cluster {
             libp2p,
             #[cfg(not(feature = "p2p-libp2p"))]
             mio,
+            keypair,
             rpc: rpc_service,
             snark_worker_sender: None,
             stats: node::stats::Stats::new(),
