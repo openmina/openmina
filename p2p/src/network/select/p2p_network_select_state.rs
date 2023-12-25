@@ -133,7 +133,6 @@ impl P2pNetworkSelectAction {
                             });
                         }
                         token::Protocol::Mux(token::MuxKind::Yamux1_0_0) => {
-                            // TODO:
                             unimplemented!()
                         }
                         token::Protocol::Stream(_) => unimplemented!(),
@@ -198,7 +197,6 @@ impl P2pNetworkSelectState {
         let (action, _meta) = action.split();
         match action {
             P2pNetworkSelectAction::Init(a) => {
-                // TODO: implement select for stream
                 let proposing = match action.id() {
                     SelectKind::Authentication => token::Protocol::Auth(token::AuthKind::Noise),
                     SelectKind::Multiplexing(_) => token::Protocol::Mux(token::MuxKind::Yamux1_0_0),
