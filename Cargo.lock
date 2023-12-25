@@ -978,7 +978,7 @@ dependencies = [
  "console",
  "dialoguer",
  "hex",
- "libp2p",
+ "libp2p-identity",
  "mina-p2p-messages",
  "mina-tree",
  "nix 0.26.4",
@@ -6241,14 +6241,16 @@ checksum = "6a02e4885ed3bc0f2de90ea6dd45ebcbb66dacffe03547fadbb0eeae2770887d"
 
 [[package]]
 name = "vru-noise"
-version = "1.6.0"
+version = "1.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5e36cfd5faf497942b8c744ddc1d65cdda7a982d71124676660e732c5e3b9705"
+checksum = "dee017e831c2a39196138880de2d9200f5b7126d953125f98d5b28ca995b6c90"
 dependencies = [
  "aead 0.5.2",
  "digest 0.10.7",
  "generic-array",
+ "hex",
  "hkdf 0.12.3",
+ "serde",
  "zeroize",
 ]
 
