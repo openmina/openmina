@@ -66,6 +66,15 @@ impl OcamlNode {
                         )
                     })?;
                 }
+                DaemonJson::InMem(json) => {
+                    std::fs::write(&daemon_json_path, json.to_string()).map_err(|err| {
+                        anyhow::anyhow!(
+                            "failed to write InMem daemon.json to {}; error: {}",
+                            daemon_json_path.display(),
+                            err
+                        )
+                    })?;
+                }
             }
         }
 
