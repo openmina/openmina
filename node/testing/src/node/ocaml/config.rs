@@ -70,9 +70,11 @@ impl OcamlNodeConfig {
         let dir_path = self.dir.path().display();
 
         let uid = std::env::var("$UID").unwrap_or_else(|_| "1000".to_owned());
+        let container_name = OcamlNodeExecutable::docker_container_name(&self.dir);
 
         // set docker opts
         cmd.arg("run")
+            .args(["--name".to_owned(), container_name])
             .args(["--network", "host"])
             .args(["--user".to_owned(), format!("{uid}:{uid}")])
             .args(["-v".to_owned(), format!("{dir_path}:{dir_path}")])
@@ -97,6 +99,31 @@ impl OcamlNodeConfig {
 impl OcamlNodeExecutable {
     pub const DEFAULT_DOCKER_IMAGE: &'static str = "vladsimplestakingcom/mina-light:2.0.0rampup4";
     pub const DEFAULT_MINA_EXECUTABLE: &'static str = "mina";
+
+    fn docker_container_name<'a>(tmp_dir: &temp_dir::TempDir) -> String {
+        let path = tmp_dir.path().file_name().unwrap().to_str().unwrap();
+        format!("openmina_testing_ocaml_{}", &path[1..])
+    }
+
+    /// Additional logic for killing the node.
+    pub fn kill(&self, tmp_dir: &temp_dir::TempDir) {
+        match self {
+            OcamlNodeExecutable::Installed(_) => {}
+            OcamlNodeExecutable::Docker(_) | OcamlNodeExecutable::DockerDefault => {
+                // stop container.
+                let mut cmd = Command::new("docker");
+                let name = Self::docker_container_name(tmp_dir);
+                cmd.args(["stop".to_owned(), name]);
+                let _ = cmd.status();
+
+                // remove container.
+                let mut cmd = Command::new("docker");
+                let name = Self::docker_container_name(tmp_dir);
+                cmd.args(["rm".to_owned(), name]);
+                let _ = cmd.status();
+            }
+        }
+    }
 
     pub fn find_working() -> anyhow::Result<Self> {
         let program_name = Self::DEFAULT_MINA_EXECUTABLE;
