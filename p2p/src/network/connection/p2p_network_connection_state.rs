@@ -47,8 +47,33 @@ pub enum P2pNetworkConnectionMuxState {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pNetworkStreamState {
+    pub readable: bool,
+    pub writable: bool,
+    pub window: i32,
     pub select: P2pNetworkSelectState,
     pub handler: Option<P2pNetworkStreamHandlerState>,
+}
+
+impl P2pNetworkStreamState {
+    pub fn new(stream_kind: token::StreamKind) -> Self {
+        P2pNetworkStreamState {
+            readable: true,
+            writable: true,
+            window: 1 << 18,
+            select: P2pNetworkSelectState::initiator_stream(stream_kind),
+            handler: None,
+        }
+    }
+
+    pub fn new_incoming() -> Self {
+        P2pNetworkStreamState {
+            readable: true,
+            writable: true,
+            window: 1 << 18,
+            select: P2pNetworkSelectState::default(),
+            handler: None,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -105,13 +130,19 @@ impl P2pNetworkConnectionState {
                         let Some(stream_id) = a.kind.stream_id() else {
                             return;
                         };
-                        connection.streams.insert(
-                            stream_id,
-                            P2pNetworkStreamState {
-                                select: P2pNetworkSelectState::initiator_stream(*stream_kind),
-                                handler: None,
-                            },
-                        );
+                        if let Some(stream) = connection.streams.get_mut(&stream_id) {
+                            match stream_kind {
+                                token::StreamKind::Rpc(_) => {
+                                    stream.handler = Some(P2pNetworkStreamHandlerState::Rpc)
+                                }
+                                token::StreamKind::Broadcast(_) => {
+                                    stream.handler = Some(P2pNetworkStreamHandlerState::Broadcast)
+                                }
+                                token::StreamKind::Discovery(_) => {
+                                    stream.handler = Some(P2pNetworkStreamHandlerState::Discovery)
+                                }
+                            }
+                        }
                     }
                 }
             }

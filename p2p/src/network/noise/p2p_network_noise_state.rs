@@ -104,58 +104,69 @@ impl P2pNetworkNoiseAction {
             } else {
                 None
             };
-        let handshake_done = if let Self::IncomingChunk(_) = self {
-            if let Some(P2pNetworkNoiseStateInner::Done {
-                remote_peer_id,
-                incoming,
-                ..
-            }) = &state.inner
-            {
-                if state.handshake_done_reported {
-                    None
-                } else {
-                    Some((remote_peer_id.clone(), *incoming))
-                }
-            } else {
+        let handshake_done = if let Some(P2pNetworkNoiseStateInner::Done {
+            remote_peer_id,
+            incoming,
+            ..
+        }) = &state.inner
+        {
+            if state.handshake_done_reported {
                 None
+            } else {
+                Some((remote_peer_id.clone(), *incoming))
             }
         } else {
             None
         };
 
-        if let Self::OutgoingChunk(a) = self {
-            store.dispatch(P2pNetworkPnetOutgoingDataAction {
-                addr: a.addr,
-                data: a.data.clone(),
-            });
-        }
-        if let Some(data) = incoming {
-            store.dispatch(P2pNetworkNoiseIncomingChunkAction {
-                addr: self.addr(),
-                data,
-            });
-        }
-        if let Some(data) = outgoing {
-            store.dispatch(P2pNetworkNoiseOutgoingChunkAction {
-                addr: self.addr(),
-                data,
-            });
-        }
-        if let Some(data) = decrypted {
-            if let Some(peer_id) = remote_peer_id {
-                store.dispatch(P2pNetworkNoiseDecryptedDataAction {
-                    addr: self.addr(),
-                    peer_id,
-                    data,
+        match self {
+            Self::Init(_) | Self::OutgoingData(_) => {
+                if let Some(data) = outgoing {
+                    store.dispatch(P2pNetworkNoiseOutgoingChunkAction {
+                        addr: self.addr(),
+                        data,
+                    });
+                }
+            }
+            Self::IncomingData(_) => {
+                if let Some(data) = incoming {
+                    store.dispatch(P2pNetworkNoiseIncomingChunkAction {
+                        addr: self.addr(),
+                        data,
+                    });
+                }
+            }
+            Self::IncomingChunk(_) => {
+                if let Some(data) = outgoing {
+                    store.dispatch(P2pNetworkNoiseOutgoingChunkAction {
+                        addr: self.addr(),
+                        data,
+                    });
+                }
+                if let Some(data) = decrypted {
+                    if let Some(peer_id) = remote_peer_id {
+                        store.dispatch(P2pNetworkNoiseDecryptedDataAction {
+                            addr: self.addr(),
+                            peer_id,
+                            data,
+                        });
+                    }
+                }
+                if let Some((peer_id, incoming)) = handshake_done {
+                    store.dispatch(P2pNetworkNoiseHandshakeDoneAction {
+                        addr: self.addr(),
+                        peer_id,
+                        incoming,
+                    });
+                }
+            }
+            Self::OutgoingChunk(a) => {
+                store.dispatch(P2pNetworkPnetOutgoingDataAction {
+                    addr: a.addr,
+                    data: a.data.clone(),
                 });
             }
-        }
-        if let Some((peer_id, incoming)) = handshake_done {
-            store.dispatch(P2pNetworkNoiseHandshakeDoneAction {
-                addr: self.addr(),
-                peer_id,
-                incoming,
-            });
+            _ => {}
         }
     }
 }
@@ -260,7 +271,6 @@ impl P2pNetworkNoiseState {
                                     *state = P2pNetworkNoiseStateInner::Error(
                                         NoiseError::FirstMacMismatch,
                                     );
-                                    panic!();
                                 } else {
                                     self.decrypted_chunks.push_back(data.to_vec().into());
                                 }
