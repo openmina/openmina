@@ -1,280 +1,97 @@
-// use crate::scenarios::ClusterRunner;
+use std::time::Duration;
 
-// use crate::{
-//     cluster::ClusterNodeId,
-//     node::RustNodeTestingConfig,
-//     scenario::{ListenerNode, ScenarioStep},
-//     scenarios::cluster_runner::ClusterRunner,
-// };
+use crate::{
+    node::{DaemonJson, OcamlNodeTestingConfig, OcamlStep, RustNodeTestingConfig},
+    scenario::{ListenerNode, ScenarioStep},
+    scenarios::cluster_runner::{ClusterRunner, RunDecision},
+};
 
-// /// Set up single Rust node and sync to custom genesis block/ledger.
-// ///
-// /// 1. Start up ocaml node with custom genesis.
-// /// 2. Wait for ocaml node ready.
-// /// 3. Start rust node, connect to ocaml node and sync up from it.
-// #[derive(documented::Documented, Default, Clone, Copy)]
-// pub struct SoloNodeSyncToGenesis;
+/// Set up single Rust node and sync to custom genesis block/ledger.
+///
+/// Since we don't have a way to generate genesis block/ledger from
+/// daemon.json directly, we start up ocaml node with that daemon.json,
+/// connect to it and sync up from it for now.
+///
+/// 1. Start up ocaml node with custom genesis.
+/// 2. Wait for ocaml node ready.
+/// 3. Start rust node, connect to ocaml node and sync up from it.
+#[derive(documented::Documented, Default, Clone, Copy)]
+pub struct SoloNodeSyncToGenesis;
 
-// impl SoloNodeSyncToGenesis {
-//     pub async fn run(self, mut runner: ClusterRunner<'_>) {
-//         let node_id = runner.add_rust_node(RustNodeTestingConfig::berkeley_default());
-//         eprintln!("launch Openmina node with default configuration, id: {node_id}");
+impl SoloNodeSyncToGenesis {
+    pub async fn run(self, mut runner: ClusterRunner<'_>) {
+        // TODO(binier): make dynamic.
+        // should match time in daemon_json
+        let initial_time = redux::Timestamp::new(1703494800000_000_000);
 
-//         const REPLAYER_1: &'static str =
-//             "/ip4/65.109.110.75/tcp/18302/p2p/12D3KooWD8jSyPFXNdAcMBHyHjRBcK1AW9t3xvnpfCFSRKMweVKi";
-//         const REPLAYER_2: &'static str =
-//             "/ip4/65.109.110.75/tcp/18303/p2p/12D3KooWBxbfeaxGHxdxP3U5jRKpNK5wQmbjKywGJEqTCNpVPxqk";
+        let ocaml_node_config = OcamlNodeTestingConfig {
+            initial_peers: Vec::new(),
+            daemon_json: DaemonJson::InMem(serde_json::json!({
+                "genesis": {
+                    "genesis_state_timestamp": "2023-12-25T09:00:00Z"
+                },
+                "ledger": {
+                    "name": "custom",
+                    "accounts": [
+                    ]
+                }
+            })),
+            daemon_json_update_timestamp: false,
+        };
 
-//         // Initiate connection to 2 replayers.
-//         runner
-//             .exec_step(ScenarioStep::ConnectNodes {
-//                 dialer: node_id,
-//                 listener: ListenerNode::Custom(REPLAYER_1.parse().unwrap()),
-//             })
-//             .await
-//             .unwrap();
-//         eprintln!("node: {node_id} dialing to replayer: {REPLAYER_1}");
-//         runner
-//             .exec_step(ScenarioStep::ConnectNodes {
-//                 dialer: node_id,
-//                 listener: ListenerNode::Custom(REPLAYER_2.parse().unwrap()),
-//             })
-//             .await
-//             .unwrap();
-//         eprintln!("node: {node_id} dialing to replayer: {REPLAYER_2}");
+        let ocaml_node = runner.add_ocaml_node(ocaml_node_config);
 
-//         loop {
-//             if !runner
-//                 .wait_for_pending_events_with_timeout(Duration::from_secs(10))
-//                 .await
-//             {
-//                 panic!("waiting for connection event timed out");
-//             }
-//             let (state, events) = runner.node_pending_events(node_id).unwrap();
+        eprintln!("waiting for ocaml node readiness");
+        runner
+            .exec_step(ScenarioStep::Ocaml {
+                node_id: ocaml_node,
+                step: OcamlStep::WaitReady {
+                    timeout: Duration::from_secs(5 * 60),
+                },
+            })
+            .await
+            .unwrap();
 
-//             let connected_peer_count = state
-//                 .p2p
-//                 .ready_peers_iter()
-//                 .filter(|(_, p)| p.channels.rpc.is_ready())
-//                 .count();
+        let chain_id = runner.ocaml_node(ocaml_node).unwrap().chain_id().unwrap();
+        let rust_node = runner.add_rust_node(RustNodeTestingConfig {
+            chain_id,
+            initial_time,
+            max_peers: 100,
+            ask_initial_peers_interval: Duration::from_secs(60 * 60),
+            initial_peers: Vec::new(),
+            libp2p_port: None,
+            peer_id: Default::default(),
+        });
 
-//             // Break loop if both replayers got connected and we started
-//             // sending ledger queries.
-//             if connected_peer_count >= 2 {
-//                 let has_sent_ledger_query = state
-//                     .p2p
-//                     .ready_peers_iter()
-//                     .filter_map(|(_, p)| p.channels.rpc.pending_local_rpc_kind())
-//                     .any(|rpc_kind| matches!(rpc_kind, P2pRpcKind::LedgerQuery));
+        runner
+            .exec_step(ScenarioStep::ConnectNodes {
+                dialer: rust_node,
+                listener: ListenerNode::Ocaml(ocaml_node),
+            })
+            .await
+            .unwrap();
 
-//                 if has_sent_ledger_query {
-//                     break;
-//                 }
-//             }
+        eprintln!("waiting for rust node to sync up from ocaml node");
+        runner
+            .run(
+                Duration::from_secs(60),
+                |_, _, _| RunDecision::ContinueExec,
+                move |node_id, state, _, _| {
+                    node_id == rust_node
+                        && state.transition_frontier.sync.is_synced()
+                        && state.transition_frontier.best_tip().is_some()
+                },
+            )
+            .await
+            .expect("error while waiting to sync genesis block from ocaml");
+        eprintln!("rust node synced up from ocaml node");
 
-//             let events = events
-//                 .filter_map(|(_, event)| {
-//                     // Don't dispatch ledger query responses yet. We want
-//                     // to later manually control their order.
-//                     Some(())
-//                         .filter(|_| self.event_ledger_query_addr(state, event).is_none())
-//                         .map(|_| event.to_string())
-//                 })
-//                 .collect::<Vec<_>>();
-
-//             for event in events {
-//                 runner
-//                     .exec_step(ScenarioStep::Event { node_id, event })
-//                     .await
-//                     .unwrap();
-//             }
-//         }
-//         eprintln!("2 replayers are now connected");
-
-//         // Exec ledger query responses until we are deep enough for there
-//         // to be more than 1 hash in the same height.
-//         eprintln!("exec ledger query responses until we are deep enough for there to be more than 1 hash in the same height");
-//         loop {
-//             if !runner
-//                 .wait_for_pending_events_with_timeout(Duration::from_secs(5))
-//                 .await
-//             {
-//                 panic!("waiting for events event timed out");
-//             }
-//             let (state, events) = runner.node_pending_events(node_id).unwrap();
-
-//             let snarked_state = state
-//                 .transition_frontier
-//                 .sync
-//                 .ledger()
-//                 .unwrap()
-//                 .snarked()
-//                 .unwrap();
-//             if snarked_state.fetch_pending().unwrap().len() >= 2 {
-//                 break;
-//             }
-
-//             for event in events.map(|(_, e)| e.to_string()).collect::<Vec<_>>() {
-//                 runner
-//                     .exec_step(ScenarioStep::Event { node_id, event })
-//                     .await
-//                     .unwrap();
-//             }
-//         }
-
-//         eprintln!("receive all hashes before first...");
-//         self.receive_all_hashes_before_first(&mut runner, node_id)
-//             .await;
-//         eprintln!("receive all hashes before last...");
-//         self.receive_all_hashes_before_last(&mut runner, node_id)
-//             .await;
-//         eprintln!("success");
-//     }
-
-//     async fn receive_all_hashes_before_first(
-//         self,
-//         runner: &mut ClusterRunner<'_>,
-//         node_id: ClusterNodeId,
-//     ) {
-//         self.receive_all_hashes_except_first(runner, node_id).await;
-//         let (_state, events) = runner.node_pending_events(node_id).unwrap();
-//         for event in events.map(|(_, e)| e.to_string()).collect::<Vec<_>>() {
-//             runner
-//                 .exec_step(ScenarioStep::Event { node_id, event })
-//                 .await
-//                 .unwrap();
-//         }
-//     }
-
-//     async fn receive_all_hashes_except_first(
-//         self,
-//         runner: &mut ClusterRunner<'_>,
-//         node_id: ClusterNodeId,
-//     ) {
-//         loop {
-//             if !runner
-//                 .wait_for_pending_events_with_timeout(Duration::from_secs(5))
-//                 .await
-//             {
-//                 panic!("waiting for events event timed out");
-//             }
-//             let (state, events) = runner.node_pending_events(node_id).unwrap();
-
-//             let snarked_state = state
-//                 .transition_frontier
-//                 .sync
-//                 .ledger()
-//                 .unwrap()
-//                 .snarked()
-//                 .unwrap();
-//             if snarked_state.fetch_pending().unwrap().len() == 1 {
-//                 break;
-//             }
-
-//             let events = events.filter(|(_, e)| !self.is_event_first_ledger_query(state, e));
-
-//             for event in events.map(|(_, e)| e.to_string()).collect::<Vec<_>>() {
-//                 runner
-//                     .exec_step(ScenarioStep::Event { node_id, event })
-//                     .await
-//                     .unwrap();
-//             }
-//         }
-
-//         runner
-//             .exec_step(ScenarioStep::CheckTimeouts { node_id })
-//             .await
-//             .unwrap();
-//     }
-
-//     async fn receive_all_hashes_before_last(
-//         self,
-//         runner: &mut ClusterRunner<'_>,
-//         node_id: ClusterNodeId,
-//     ) {
-//         self.receive_all_hashes_except_last(runner, node_id).await;
-//         let (_state, events) = runner.node_pending_events(node_id).unwrap();
-//         for event in events.map(|(_, e)| e.to_string()).collect::<Vec<_>>() {
-//             runner
-//                 .exec_step(ScenarioStep::Event { node_id, event })
-//                 .await
-//                 .unwrap();
-//         }
-//     }
-
-//     async fn receive_all_hashes_except_last(
-//         self,
-//         runner: &mut ClusterRunner<'_>,
-//         node_id: ClusterNodeId,
-//     ) {
-//         loop {
-//             if !runner
-//                 .wait_for_pending_events_with_timeout(Duration::from_secs(5))
-//                 .await
-//             {
-//                 panic!("waiting for events event timed out");
-//             }
-//             let (state, events) = runner.node_pending_events(node_id).unwrap();
-
-//             let snarked_state = state
-//                 .transition_frontier
-//                 .sync
-//                 .ledger()
-//                 .unwrap()
-//                 .snarked()
-//                 .unwrap();
-//             if snarked_state.fetch_pending().unwrap().len() == 1 {
-//                 break;
-//             }
-
-//             let mut events = events
-//                 .filter_map(|(_, e)| Some((e, self.event_ledger_query_addr(state, e)?)))
-//                 .collect::<Vec<_>>();
-
-//             events.sort_by(|(_, addr1), (_, addr2)| addr1.cmp(addr2));
-
-//             let events = events.into_iter().rev().skip(1);
-
-//             for event in events.map(|(e, _)| e.to_string()).collect::<Vec<_>>() {
-//                 runner
-//                     .exec_step(ScenarioStep::Event { node_id, event })
-//                     .await
-//                     .unwrap();
-//             }
-//         }
-
-//         runner
-//             .exec_step(ScenarioStep::CheckTimeouts { node_id })
-//             .await
-//             .unwrap();
-//     }
-
-//     fn event_ledger_query_addr(self, state: &State, event: &Event) -> Option<LedgerAddress> {
-//         let Event::P2p(P2pEvent::Channel(P2pChannelEvent::Received(
-//             peer_id,
-//             Ok(ChannelMsg::Rpc(RpcChannelMsg::Response(_, _))),
-//         ))) = event
-//         else {
-//             return None;
-//         };
-//         let rpc = state
-//             .p2p
-//             .get_ready_peer(peer_id)
-//             .unwrap()
-//             .channels
-//             .rpc
-//             .pending_local_rpc()
-//             .unwrap();
-//         let P2pRpcRequest::LedgerQuery(_, MinaLedgerSyncLedgerQueryStableV1::WhatChildHashes(addr)) =
-//             rpc
-//         else {
-//             return None;
-//         };
-//         Some(addr.into())
-//     }
-
-//     fn is_event_first_ledger_query(self, state: &State, event: &Event) -> bool {
-//         self.event_ledger_query_addr(state, event)
-//             .map_or(false, |addr| addr == LedgerAddress::first(addr.length()))
-//     }
-// }
+        runner
+            .exec_step(ScenarioStep::Ocaml {
+                node_id: ocaml_node,
+                step: OcamlStep::KillAndRemove,
+            })
+            .await
+            .unwrap();
+    }
+}
