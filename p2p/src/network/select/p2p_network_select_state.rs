@@ -73,6 +73,7 @@ impl P2pNetworkSelectAction {
         P2pNetworkConnectionSelectDoneAction: redux::EnablingCondition<S>,
         P2pNetworkNoiseIncomingDataAction: redux::EnablingCondition<S>,
         P2pNetworkSelectOutgoingTokensAction: redux::EnablingCondition<S>,
+        P2pNetworkNoiseOutgoingDataAction: redux::EnablingCondition<S>,
     {
         let Some(state) = store
             .state()
@@ -169,7 +170,15 @@ impl P2pNetworkSelectAction {
                             data: data.into(),
                         });
                     }
-                    _ => {}
+                    SelectKind::Multiplexing(_) => {
+                        store.dispatch(P2pNetworkNoiseOutgoingDataAction {
+                            addr: a.addr,
+                            data: data.into(),
+                        });
+                    }
+                    SelectKind::Stream(_, _) => {
+                        unimplemented!()
+                    }
                 }
             }
         }
@@ -196,22 +205,7 @@ impl P2pNetworkSelectState {
 
         let (action, _meta) = action.split();
         match action {
-            P2pNetworkSelectAction::Init(a) => {
-                let proposing = match action.id() {
-                    SelectKind::Authentication => token::Protocol::Auth(token::AuthKind::Noise),
-                    SelectKind::Multiplexing(_) => token::Protocol::Mux(token::MuxKind::Yamux1_0_0),
-                    SelectKind::Stream(_, _) => {
-                        unimplemented!()
-                    }
-                };
-                self.inner = if a.incoming {
-                    P2pNetworkSelectStateInner::Responder {
-                        proposing: Some(proposing),
-                    }
-                } else {
-                    P2pNetworkSelectStateInner::Uncertain { proposing }
-                };
-            }
+            P2pNetworkSelectAction::Init(_) => {}
             P2pNetworkSelectAction::IncomingData(a) => {
                 if self.negotiated.is_none() {
                     self.recv.put(&a.data);
