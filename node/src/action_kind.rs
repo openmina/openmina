@@ -119,6 +119,9 @@ use crate::p2p::network::select::{
     P2pNetworkSelectIncomingTokenAction, P2pNetworkSelectInitAction,
     P2pNetworkSelectOutgoingTokensAction,
 };
+use crate::p2p::network::yamux::{
+    P2pNetworkYamuxAction, P2pNetworkYamuxIncomingDataAction, P2pNetworkYamuxOutgoingDataAction,
+};
 use crate::p2p::network::P2pNetworkAction;
 use crate::p2p::peer::{P2pPeerAction, P2pPeerBestTipUpdateAction, P2pPeerReadyAction};
 use crate::p2p::P2pAction;
@@ -354,6 +357,8 @@ pub enum ActionKind {
     P2pNetworkSelectIncomingToken,
     P2pNetworkSelectInit,
     P2pNetworkSelectOutgoingTokens,
+    P2pNetworkYamuxIncomingData,
+    P2pNetworkYamuxOutgoingData,
     P2pPeerBestTipUpdate,
     P2pPeerReady,
     RpcActionStatsGet,
@@ -468,7 +473,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 236;
+    pub const COUNT: u16 = 238;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -738,6 +743,7 @@ impl ActionKindGet for P2pNetworkAction {
             Self::Pnet(a) => a.kind(),
             Self::Select(a) => a.kind(),
             Self::Noise(a) => a.kind(),
+            Self::Yamux(a) => a.kind(),
         }
     }
 }
@@ -1447,6 +1453,15 @@ impl ActionKindGet for P2pNetworkNoiseAction {
             Self::OutgoingData(a) => a.kind(),
             Self::DecryptedData(a) => a.kind(),
             Self::HandshakeDone(a) => a.kind(),
+        }
+    }
+}
+
+impl ActionKindGet for P2pNetworkYamuxAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::IncomingData(a) => a.kind(),
+            Self::OutgoingData(a) => a.kind(),
         }
     }
 }
@@ -2203,6 +2218,18 @@ impl ActionKindGet for P2pNetworkNoiseDecryptedDataAction {
 impl ActionKindGet for P2pNetworkNoiseHandshakeDoneAction {
     fn kind(&self) -> ActionKind {
         ActionKind::P2pNetworkNoiseHandshakeDone
+    }
+}
+
+impl ActionKindGet for P2pNetworkYamuxIncomingDataAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pNetworkYamuxIncomingData
+    }
+}
+
+impl ActionKindGet for P2pNetworkYamuxOutgoingDataAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pNetworkYamuxOutgoingData
     }
 }
 

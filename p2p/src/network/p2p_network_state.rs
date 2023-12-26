@@ -58,12 +58,15 @@ impl P2pNetworkAction {
         P2pNetworkNoiseOutgoingDataAction: redux::EnablingCondition<S>,
         P2pNetworkNoiseDecryptedDataAction: redux::EnablingCondition<S>,
         P2pNetworkNoiseHandshakeDoneAction: redux::EnablingCondition<S>,
+        P2pNetworkYamuxIncomingDataAction: redux::EnablingCondition<S>,
+        P2pNetworkYamuxOutgoingDataAction: redux::EnablingCondition<S>,
     {
         match self {
             Self::Connection(v) => v.effects(meta, store),
             Self::Pnet(v) => v.effects(meta, store),
             Self::Select(v) => v.effects(meta, store),
             Self::Noise(v) => v.effects(meta, store),
+            Self::Yamux(v) => v.effects(meta, store),
         }
     }
 }
@@ -99,6 +102,17 @@ impl P2pNetworkState {
                     .get_mut(&a.addr())
                     .map(|cn| match &mut cn.auth {
                         Some(P2pNetworkAuthState::Noise(state)) => {
+                            state.reducer(meta.with_action(&a))
+                        }
+                        _ => {}
+                    });
+            }
+            P2pNetworkAction::Yamux(a) => {
+                self.connection
+                    .connections
+                    .get_mut(&a.addr())
+                    .map(|cn| match &mut cn.mux {
+                        Some(P2pNetworkConnectionMuxState::Yamux(state)) => {
                             state.reducer(meta.with_action(&a))
                         }
                         _ => {}
