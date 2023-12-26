@@ -15,6 +15,7 @@ pub struct OcamlNodeTestingConfig {
 pub enum DaemonJson {
     // TODO(binier): have presets.
     Custom(String),
+    InMem(serde_json::Value),
 }
 
 #[derive(Debug, Clone)]
