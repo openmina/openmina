@@ -135,7 +135,8 @@ use crate::p2p::network::select::{
     P2pNetworkSelectOutgoingTokensAction,
 };
 use crate::p2p::network::yamux::{
-    P2pNetworkYamuxAction, P2pNetworkYamuxIncomingDataAction, P2pNetworkYamuxOutgoingDataAction,
+    P2pNetworkYamuxAction, P2pNetworkYamuxIncomingDataAction, P2pNetworkYamuxIncomingFrameAction,
+    P2pNetworkYamuxOutgoingDataAction,
 };
 use crate::p2p::network::P2pNetworkAction;
 use crate::p2p::peer::{P2pPeerAction, P2pPeerBestTipUpdateAction, P2pPeerReadyAction};
@@ -391,6 +392,7 @@ pub enum ActionKind {
     P2pNetworkSelectInit,
     P2pNetworkSelectOutgoingTokens,
     P2pNetworkYamuxIncomingData,
+    P2pNetworkYamuxIncomingFrame,
     P2pNetworkYamuxOutgoingData,
     P2pPeerBestTipUpdate,
     P2pPeerReady,
@@ -506,7 +508,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 257;
+    pub const COUNT: u16 = 258;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -1607,6 +1609,7 @@ impl ActionKindGet for P2pNetworkYamuxAction {
         match self {
             Self::IncomingData(a) => a.kind(),
             Self::OutgoingData(a) => a.kind(),
+            Self::IncomingFrame(a) => a.kind(),
         }
     }
 }
@@ -2405,6 +2408,12 @@ impl ActionKindGet for P2pNetworkYamuxIncomingDataAction {
 impl ActionKindGet for P2pNetworkYamuxOutgoingDataAction {
     fn kind(&self) -> ActionKind {
         ActionKind::P2pNetworkYamuxOutgoingData
+    }
+}
+
+impl ActionKindGet for P2pNetworkYamuxIncomingFrameAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pNetworkYamuxIncomingFrame
     }
 }
 
