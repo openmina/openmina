@@ -1,5 +1,6 @@
 mod config;
 pub use config::*;
+use mina_p2p_messages::v2::StateHash;
 use node::p2p::{
     connection::outgoing::{P2pConnectionOutgoingInitLibp2pOpts, P2pConnectionOutgoingInitOpts},
     PeerId,
@@ -134,7 +135,9 @@ impl OcamlNode {
     pub async fn exec(&mut self, step: OcamlStep) -> anyhow::Result<bool> {
         Ok(match step {
             OcamlStep::WaitReady { timeout } => {
+                let t = redux::Instant::now();
                 self.wait_for_p2p(timeout).await?;
+                self.wait_for_synced(timeout - t.elapsed()).await?;
                 true
             }
             OcamlStep::Kill => {
@@ -192,6 +195,27 @@ impl OcamlNode {
         Ok(())
     }
 
+    /// Queries graphql to get chain_id.
+    pub fn chain_id(&self) -> anyhow::Result<String> {
+        let res = self.grapql_query("query { daemonStatus { chainId } }")?;
+        res["data"]["daemonStatus"]["chainId"]
+            .as_str()
+            .map(|s| s.to_owned())
+            .ok_or_else(|| anyhow::anyhow!("empty chain_id response"))
+    }
+
+    /// Queries graphql to check if ocaml node is synced,
+    /// returning it's best tip hash if yes.
+    pub fn synced_best_tip(&self) -> anyhow::Result<Option<StateHash>> {
+        let mut res = self.grapql_query("query { daemonStatus { syncStatus, stateHash } }")?;
+        let data = &mut res["data"]["daemonStatus"];
+        if data["syncStatus"].as_str() == Some("SYNCED") {
+            Ok(Some(serde_json::from_value(data["stateHash"].take())?))
+        } else {
+            Ok(None)
+        }
+    }
+
     fn graphql_addr(&self) -> String {
         format!("http://127.0.0.1:{}/graphql", self.graphql_port)
     }
@@ -229,9 +253,25 @@ impl OcamlNode {
             }
         });
         tokio::select! {
-            _ = timeout_fut => anyhow::bail!("waiting for ocaml node's p2p port to be ready timed out! timeout: {}ms", timeout.as_millis()),
+            _ = timeout_fut => anyhow::bail!("waiting for ocaml node's p2p port to be ready timed out! timeout: {timeout:?}"),
             _ = probe => Ok(()),
         }
+    }
+
+    async fn wait_for_synced(&self, timeout: Duration) -> anyhow::Result<()> {
+        let mut interval = tokio::time::interval(Duration::from_secs(1));
+        tokio::time::timeout(timeout, async {
+            loop {
+                interval.tick().await;
+                if self.synced_best_tip().map_or(false, |tip| tip.is_some()) {
+                    return;
+                }
+            }
+        })
+        .await
+        .map_err(|_| {
+            anyhow::anyhow!("waiting for ocaml node to be synced timed out! timeout: {timeout:?}")
+        })
     }
 }
 
