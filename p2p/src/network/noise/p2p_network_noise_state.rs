@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use zeroize::Zeroize;
 
-use chacha20poly1305::ChaCha20Poly1305;
+use chacha20poly1305::{AeadInPlace, ChaCha20Poly1305, KeyInit};
 use sha2::Sha256;
 use vru_noise::{
     generic_array::{typenum, GenericArray},
@@ -13,7 +13,7 @@ use vru_noise::{
     ChainingKey, OutputRaw, SymmetricState,
 };
 
-use crate::{identity::PublicKey, P2pCryptoService, P2pMioService};
+use crate::{identity::PublicKey, P2pCryptoService, P2pMioService, PeerId};
 
 use super::{super::*, *};
 
@@ -24,8 +24,10 @@ pub struct P2pNetworkNoiseState {
     pub buffer: Vec<u8>,
     pub incoming_chunks: VecDeque<Vec<u8>>,
     pub outgoing_chunks: VecDeque<Vec<u8>>,
+    pub decrypted_chunks: VecDeque<Data>,
 
     pub inner: Option<P2pNetworkNoiseStateInner>,
+    pub handshake_done_reported: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -33,8 +35,12 @@ pub enum P2pNetworkNoiseStateInner {
     Initiator(P2pNetworkNoiseStateInitiator),
     Responder(P2pNetworkNoiseStateResponder),
     Done {
+        incoming: bool,
         output: OutputRaw<C>,
+        recv_nonce: u64,
+        send_nonce: u64,
         remote_pk: PublicKey,
+        remote_peer_id: PeerId,
     },
     Error(NoiseError),
 }
@@ -61,7 +67,27 @@ impl P2pNetworkNoiseAction {
         P2pNetworkPnetOutgoingDataAction: redux::EnablingCondition<S>,
         P2pNetworkNoiseIncomingChunkAction: redux::EnablingCondition<S>,
         P2pNetworkNoiseOutgoingChunkAction: redux::EnablingCondition<S>,
+        P2pNetworkSelectIncomingDataAction: redux::EnablingCondition<S>,
+        P2pNetworkSelectInitAction: redux::EnablingCondition<S>,
+        P2pNetworkNoiseHandshakeDoneAction: redux::EnablingCondition<S>,
+        P2pNetworkNoiseDecryptedDataAction: redux::EnablingCondition<S>,
     {
+        if let Self::HandshakeDone(a) = self {
+            store.dispatch(P2pNetworkSelectInitAction {
+                addr: a.addr,
+                kind: SelectKind::Multiplexing(a.peer_id),
+                incoming: a.incoming,
+            });
+            return;
+        } else if let Self::DecryptedData(a) = self {
+            store.dispatch(P2pNetworkSelectIncomingDataAction {
+                addr: self.addr(),
+                kind: SelectKind::Multiplexing(a.peer_id),
+                data: a.data.clone(),
+            });
+            return;
+        }
+
         let state = store.state();
         let Some(state) = state.network.connection.connections.get(&self.addr()) else {
             return;
@@ -72,6 +98,31 @@ impl P2pNetworkNoiseAction {
 
         let incoming = state.incoming_chunks.front().cloned().map(Into::into);
         let outgoing = state.outgoing_chunks.front().cloned().map(Into::into);
+        let decrypted = state.decrypted_chunks.front().cloned();
+        let remote_peer_id =
+            if let Some(P2pNetworkNoiseStateInner::Done { remote_peer_id, .. }) = &state.inner {
+                Some(remote_peer_id.clone())
+            } else {
+                None
+            };
+        let handshake_done = if let Self::IncomingChunk(_) = self {
+            if let Some(P2pNetworkNoiseStateInner::Done {
+                remote_peer_id,
+                incoming,
+                ..
+            }) = &state.inner
+            {
+                if state.handshake_done_reported {
+                    None
+                } else {
+                    Some((remote_peer_id.clone(), *incoming))
+                }
+            } else {
+                None
+            }
+        } else {
+            None
+        };
 
         if let Self::OutgoingChunk(a) = self {
             store.dispatch(P2pNetworkPnetOutgoingDataAction {
@@ -89,6 +140,22 @@ impl P2pNetworkNoiseAction {
             store.dispatch(P2pNetworkNoiseOutgoingChunkAction {
                 addr: self.addr(),
                 data,
+            });
+        }
+        if let Some(data) = decrypted {
+            if let Some(peer_id) = remote_peer_id {
+                store.dispatch(P2pNetworkNoiseDecryptedDataAction {
+                    addr: self.addr(),
+                    peer_id,
+                    data,
+                });
+            }
+        }
+        if let Some((peer_id, incoming)) = handshake_done {
+            store.dispatch(P2pNetworkNoiseHandshakeDoneAction {
+                addr: self.addr(),
+                peer_id,
+                incoming,
             });
         }
     }
@@ -140,11 +207,13 @@ impl P2pNetworkNoiseState {
                         if buf.len() >= full_len {
                             self.incoming_chunks.push_back(buf[..full_len].to_vec());
                             offset += full_len;
+
                             continue;
                         }
                     }
                     break;
                 }
+                self.buffer = self.buffer[offset..].to_vec();
             }
             P2pNetworkNoiseAction::IncomingChunk(_) => {
                 let Some(state) = &mut self.inner else {
@@ -154,7 +223,15 @@ impl P2pNetworkNoiseState {
                     match state {
                         P2pNetworkNoiseStateInner::Initiator(i) => match i.process(chunk) {
                             Ok((chunk, output, remote_pk)) => {
-                                *state = P2pNetworkNoiseStateInner::Done { output, remote_pk };
+                                let remote_peer_id = remote_pk.peer_id();
+                                *state = P2pNetworkNoiseStateInner::Done {
+                                    incoming: false,
+                                    output,
+                                    recv_nonce: 0,
+                                    send_nonce: 0,
+                                    remote_pk,
+                                    remote_peer_id,
+                                };
                                 self.outgoing_chunks.push_back(chunk);
                             }
                             Err(err) => *state = P2pNetworkNoiseStateInner::Error(err),
@@ -164,9 +241,31 @@ impl P2pNetworkNoiseState {
                                 self.outgoing_chunks.push_back(outgoing);
                             }
                         }
-                        P2pNetworkNoiseStateInner::Done { output, remote_pk } => {
-                            let _ = (output, remote_pk);
-                            unimplemented!();
+                        P2pNetworkNoiseStateInner::Done {
+                            output, recv_nonce, ..
+                        } => {
+                            let aead = ChaCha20Poly1305::new(&output.receiver);
+                            let mut chunk = chunk;
+                            let mut nonce = GenericArray::default();
+                            nonce[4..].clone_from_slice(&recv_nonce.to_le_bytes());
+                            *recv_nonce += 1;
+                            if chunk.len() < 18 {
+                                *state = P2pNetworkNoiseStateInner::Error(NoiseError::ChunkTooShort)
+                            } else {
+                                let data = &mut chunk[2..];
+                                let (data, tag) = data.split_at_mut(data.len() - 16);
+                                let tag = GenericArray::from_slice(&*tag);
+                                if let Err(_) =
+                                    aead.decrypt_in_place_detached(&nonce, &[], data, tag)
+                                {
+                                    *state = P2pNetworkNoiseStateInner::Error(
+                                        NoiseError::FirstMacMismatch,
+                                    );
+                                    panic!();
+                                } else {
+                                    self.decrypted_chunks.push_back(data.to_vec().into());
+                                }
+                            }
                         }
                         P2pNetworkNoiseStateInner::Error(_) => {}
                     }
@@ -174,6 +273,46 @@ impl P2pNetworkNoiseState {
             }
             P2pNetworkNoiseAction::OutgoingChunk(_) => {
                 self.outgoing_chunks.pop_front();
+            }
+            P2pNetworkNoiseAction::OutgoingData(a) => {
+                let Some(state) = &mut self.inner else {
+                    return;
+                };
+                match state {
+                    P2pNetworkNoiseStateInner::Done {
+                        output, send_nonce, ..
+                    } => {
+                        let aead = ChaCha20Poly1305::new(&output.sender);
+                        let chunk_max_size = u16::MAX as usize - 18;
+                        for data in a.data.chunks(chunk_max_size) {
+                            let mut chunk = Vec::with_capacity(18 + data.len());
+                            chunk.extend_from_slice(&((data.len() + 16) as u16).to_be_bytes());
+                            chunk.extend_from_slice(data);
+
+                            let mut nonce = GenericArray::default();
+                            nonce[..8].clone_from_slice(&send_nonce.to_le_bytes());
+                            *send_nonce += 1;
+
+                            let tag = aead
+                                .encrypt_in_place_detached(
+                                    &nonce,
+                                    &[],
+                                    &mut chunk[2..(2 + data.len())],
+                                )
+                                .expect("cannot fail");
+                            chunk.extend_from_slice(&tag);
+                            self.outgoing_chunks.push_back(chunk);
+                        }
+                    }
+                    // TODO: report error
+                    _ => {}
+                }
+            }
+            P2pNetworkNoiseAction::DecryptedData(_) => {
+                self.decrypted_chunks.pop_front();
+            }
+            P2pNetworkNoiseAction::HandshakeDone(_) => {
+                self.handshake_done_reported = true;
             }
         }
     }
