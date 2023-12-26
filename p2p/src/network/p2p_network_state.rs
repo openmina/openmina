@@ -55,6 +55,9 @@ impl P2pNetworkAction {
         P2pNetworkSelectOutgoingTokensAction: redux::EnablingCondition<S>,
         P2pNetworkNoiseIncomingChunkAction: redux::EnablingCondition<S>,
         P2pNetworkNoiseOutgoingChunkAction: redux::EnablingCondition<S>,
+        P2pNetworkNoiseOutgoingDataAction: redux::EnablingCondition<S>,
+        P2pNetworkNoiseDecryptedDataAction: redux::EnablingCondition<S>,
+        P2pNetworkNoiseHandshakeDoneAction: redux::EnablingCondition<S>,
     {
         match self {
             Self::Connection(v) => v.effects(meta, store),
