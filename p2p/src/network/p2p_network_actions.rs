@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use super::{connection::*, noise::*, pnet::*, select::*};
+use super::{connection::*, noise::*, pnet::*, select::*, yamux::*};
 
 use crate::P2pState;
 
@@ -10,6 +10,7 @@ pub enum P2pNetworkAction {
     Pnet(P2pNetworkPnetAction),
     Select(P2pNetworkSelectAction),
     Noise(P2pNetworkNoiseAction),
+    Yamux(P2pNetworkYamuxAction),
 }
 
 impl redux::EnablingCondition<P2pState> for P2pNetworkAction {
@@ -19,6 +20,7 @@ impl redux::EnablingCondition<P2pState> for P2pNetworkAction {
             Self::Pnet(v) => v.is_enabled(state),
             Self::Select(v) => v.is_enabled(state),
             Self::Noise(v) => v.is_enabled(state),
+            Self::Yamux(v) => v.is_enabled(state),
         }
     }
 }
