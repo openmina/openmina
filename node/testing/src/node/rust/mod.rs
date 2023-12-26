@@ -10,7 +10,7 @@ use node::p2p::PeerId;
 use node::{Action, CheckTimeoutsAction, State, Store};
 use redux::EnablingCondition;
 
-use crate::service::{NodeTestingService, PendingEventId};
+use crate::service::{DynEffects, NodeTestingService, PendingEventId};
 
 pub struct Node {
     store: Store<NodeTestingService>,
@@ -27,6 +27,14 @@ impl Node {
 
     fn service_mut(&mut self) -> &mut NodeTestingService {
         &mut self.store.service
+    }
+
+    pub fn set_dyn_effects(&mut self, effects: DynEffects) {
+        self.service_mut().set_dyn_effects(effects)
+    }
+
+    pub fn remove_dyn_effects(&mut self) -> Option<DynEffects> {
+        self.service_mut().remove_dyn_effects()
     }
 
     pub fn dial_addr(&self) -> P2pConnectionOutgoingInitOpts {
