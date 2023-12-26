@@ -30,6 +30,9 @@ pub struct P2pNetworkConnectionHandshakeState {
     pub select_mux: P2pNetworkSelectState,
     pub mux: Option<P2pNetworkConnectionMuxState>,
     pub streams: BTreeMap<u16, P2pNetworkStreamState>,
+    pub rpc_behaviour_state: (),
+    pub broadcast_behaviour_state: (),
+    pub discovery_behaviour_state: (),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -38,11 +41,21 @@ pub enum P2pNetworkAuthState {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum P2pNetworkConnectionMuxState {}
+pub enum P2pNetworkConnectionMuxState {
+    Yamux(P2pNetworkYamuxState),
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pNetworkStreamState {
     pub select: P2pNetworkSelectState,
+    pub handler: Option<P2pNetworkStreamHandlerState>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum P2pNetworkStreamHandlerState {
+    Rpc,
+    Broadcast,
+    Discovery,
 }
 
 impl P2pNetworkConnectionState {
@@ -62,6 +75,9 @@ impl P2pNetworkConnectionState {
                         ),
                         mux: None,
                         streams: BTreeMap::default(),
+                        rpc_behaviour_state: Default::default(),
+                        broadcast_behaviour_state: Default::default(),
+                        discovery_behaviour_state: Default::default(),
                     },
                 );
             }
@@ -81,7 +97,9 @@ impl P2pNetworkConnectionState {
                             Some(P2pNetworkAuthState::Noise(P2pNetworkNoiseState::default()));
                     }
                     token::Protocol::Mux(token::MuxKind::Yamux1_0_0) => {
-                        // connection.mux = Some(!);
+                        connection.mux = Some(P2pNetworkConnectionMuxState::Yamux(
+                            P2pNetworkYamuxState::default(),
+                        ));
                     }
                     token::Protocol::Stream(stream_kind) => {
                         let Some(stream_id) = a.kind.stream_id() else {
@@ -91,6 +109,7 @@ impl P2pNetworkConnectionState {
                             stream_id,
                             P2pNetworkStreamState {
                                 select: P2pNetworkSelectState::initiator_stream(*stream_kind),
+                                handler: None,
                             },
                         );
                     }
