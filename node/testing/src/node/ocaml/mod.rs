@@ -29,10 +29,13 @@ pub enum OcamlStep {
     /// Wait till ocaml node is ready.
     ///
     /// Right now it simply waits till p2p port is ready. Is this enough?
-    WaitReady {
-        timeout: Duration,
-    },
+    WaitReady { timeout: Duration },
+    /// Kill ocaml node, cleaning up docker container if docker is used,
+    /// without removing the work dir.
     Kill,
+    /// Kill ocaml node, cleaning up docker container if docker is used.
+    /// Along with it removing the work dir.
+    KillAndRemove,
 }
 
 impl OcamlNode {
@@ -149,7 +152,7 @@ impl OcamlNode {
                 self.wait_for_synced(timeout - t.elapsed()).await?;
                 true
             }
-            OcamlStep::Kill => {
+            OcamlStep::Kill | OcamlStep::KillAndRemove => {
                 self.kill()?;
                 true
             }
