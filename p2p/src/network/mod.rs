@@ -19,6 +19,9 @@ pub use self::select::*;
 pub mod noise;
 pub use self::noise::*;
 
+pub mod yamux;
+pub use self::yamux::*;
+
 pub use self::data::{Data, DataSized};
 mod data {
     use std::{fmt, ops};

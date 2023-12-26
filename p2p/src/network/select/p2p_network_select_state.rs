@@ -3,7 +3,7 @@ use std::collections::VecDeque;
 use redux::ActionMeta;
 use serde::{Deserialize, Serialize};
 
-use crate::{P2pMioService, P2pNetworkPnetOutgoingDataAction};
+use crate::P2pNetworkPnetOutgoingDataAction;
 
 use super::{super::*, *};
 
@@ -66,7 +66,6 @@ impl P2pNetworkSelectAction {
     pub fn effects<Store, S>(&self, _meta: &ActionMeta, store: &mut Store)
     where
         Store: crate::P2pStore<S>,
-        Store::Service: P2pMioService,
         P2pNetworkPnetOutgoingDataAction: redux::EnablingCondition<S>,
         P2pNetworkSelectIncomingTokenAction: redux::EnablingCondition<S>,
         P2pNetworkConnectionSelectErrorAction: redux::EnablingCondition<S>,
@@ -74,7 +73,11 @@ impl P2pNetworkSelectAction {
         P2pNetworkNoiseIncomingDataAction: redux::EnablingCondition<S>,
         P2pNetworkSelectOutgoingTokensAction: redux::EnablingCondition<S>,
         P2pNetworkNoiseOutgoingDataAction: redux::EnablingCondition<S>,
+        P2pNetworkYamuxIncomingDataAction: redux::EnablingCondition<S>,
+        P2pNetworkYamuxOutgoingDataAction: redux::EnablingCondition<S>,
     {
+        use self::token::*;
+
         let Some(state) = store
             .state()
             .network
@@ -107,14 +110,14 @@ impl P2pNetworkSelectAction {
         let incoming = matches!(&state.inner, P2pNetworkSelectStateInner::Responder { .. });
         match self {
             Self::Init(a) => {
-                let mut tokens = vec![token::Token::Handshake];
+                let mut tokens = vec![Token::Handshake];
                 match &state.inner {
                     P2pNetworkSelectStateInner::Uncertain { proposing } => {
-                        tokens.push(token::Token::SimultaneousConnect);
-                        tokens.push(token::Token::Protocol(*proposing));
+                        tokens.push(Token::SimultaneousConnect);
+                        tokens.push(Token::Protocol(*proposing));
                     }
                     P2pNetworkSelectStateInner::Initiator { proposing } => {
-                        tokens.push(token::Token::Protocol(*proposing));
+                        tokens.push(Token::Protocol(*proposing));
                     }
                     _ => {}
                 };
@@ -127,16 +130,32 @@ impl P2pNetworkSelectAction {
             Self::IncomingData(a) => {
                 if let Some(negotiated) = &state.negotiated {
                     match negotiated {
-                        token::Protocol::Auth(token::AuthKind::Noise) => {
+                        Protocol::Auth(AuthKind::Noise) => {
                             store.dispatch(P2pNetworkNoiseIncomingDataAction {
                                 addr: a.addr,
                                 data: a.data.clone(),
                             });
                         }
-                        token::Protocol::Mux(token::MuxKind::Yamux1_0_0) => {
-                            unimplemented!()
+                        Protocol::Mux(MuxKind::Yamux1_0_0) => {
+                            store.dispatch(P2pNetworkYamuxIncomingDataAction {
+                                addr: a.addr,
+                                data: a.data.clone(),
+                            });
                         }
-                        token::Protocol::Stream(_) => unimplemented!(),
+                        Protocol::Stream(kind) => match kind {
+                            StreamKind::Discovery(DiscoveryAlgorithm::Kademlia1_0_0) => {
+                                // send to kademlia handler
+                                unimplemented!()
+                            }
+                            StreamKind::Broadcast(BroadcastAlgorithm::Meshsub1_1_0) => {
+                                // send to meshsub handler
+                                unimplemented!()
+                            }
+                            StreamKind::Rpc(RpcAlgorithm::Rpc0_0_1) => {
+                                // send to rpc handler
+                                unimplemented!()
+                            }
+                        },
                     }
                 } else {
                     let tokens = state.tokens.clone();
@@ -176,8 +195,12 @@ impl P2pNetworkSelectAction {
                             data: data.into(),
                         });
                     }
-                    SelectKind::Stream(_, _) => {
-                        unimplemented!()
+                    SelectKind::Stream(_, stream_id) => {
+                        store.dispatch(P2pNetworkYamuxOutgoingDataAction {
+                            addr: a.addr,
+                            stream_id: *stream_id,
+                            data: data.into(),
+                        });
                     }
                 }
             }
