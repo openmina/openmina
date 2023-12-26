@@ -25,6 +25,7 @@ use crate::scenario::{Scenario, ScenarioId, ScenarioStep};
 
 use self::multi_node::basic_connectivity_initial_joining::MultiNodeBasicConnectivityInitialJoining;
 use self::multi_node::basic_connectivity_peer_discovery::MultiNodeBasicConnectivityPeerDiscovery;
+use self::solo_node::sync_to_genesis::SoloNodeSyncToGenesis;
 use self::solo_node::{
     basic_connectivity_accept_incoming::SoloNodeBasicConnectivityAcceptIncoming,
     basic_connectivity_initial_joining::SoloNodeBasicConnectivityInitialJoining,
@@ -34,6 +35,7 @@ use self::solo_node::{
 #[derive(EnumIter, EnumString, IntoStaticStr, Clone, Copy)]
 #[strum(serialize_all = "kebab-case")]
 pub enum Scenarios {
+    SoloNodeSyncToGenesis(SoloNodeSyncToGenesis),
     SoloNodeSyncRootSnarkedLedger(SoloNodeSyncRootSnarkedLedger),
     SoloNodeBasicConnectivityInitialJoining(SoloNodeBasicConnectivityInitialJoining),
     SoloNodeBasicConnectivityAcceptIncoming(SoloNodeBasicConnectivityAcceptIncoming),
@@ -49,6 +51,7 @@ impl Scenarios {
 
     fn skip(&self) -> bool {
         match self {
+            Self::SoloNodeSyncToGenesis(_) => false,
             Self::SoloNodeSyncRootSnarkedLedger(_) => false,
             Self::SoloNodeBasicConnectivityInitialJoining(_) => false,
             Self::SoloNodeBasicConnectivityAcceptIncoming(_) => cfg!(feature = "p2p-webrtc"),
@@ -67,6 +70,7 @@ impl Scenarios {
 
     pub fn parent(self) -> Option<Self> {
         match self {
+            Self::SoloNodeSyncToGenesis(_) => None,
             Self::SoloNodeSyncRootSnarkedLedger(_) => None,
             Self::SoloNodeBasicConnectivityInitialJoining(_) => None,
             Self::SoloNodeBasicConnectivityAcceptIncoming(_) => None,
@@ -82,6 +86,7 @@ impl Scenarios {
     pub fn description(self) -> &'static str {
         use documented::Documented;
         match self {
+            Self::SoloNodeSyncToGenesis(_) => SoloNodeSyncToGenesis::DOCS,
             Self::SoloNodeSyncRootSnarkedLedger(_) => SoloNodeSyncRootSnarkedLedger::DOCS,
             Self::SoloNodeBasicConnectivityInitialJoining(_) => {
                 SoloNodeBasicConnectivityInitialJoining::DOCS
@@ -112,6 +117,7 @@ impl Scenarios {
     {
         let runner = ClusterRunner::new(cluster, add_step);
         match self {
+            Self::SoloNodeSyncToGenesis(v) => v.run(runner).await,
             Self::SoloNodeSyncRootSnarkedLedger(v) => v.run(runner).await,
             Self::SoloNodeBasicConnectivityInitialJoining(v) => v.run(runner).await,
             Self::SoloNodeBasicConnectivityAcceptIncoming(v) => v.run(runner).await,
