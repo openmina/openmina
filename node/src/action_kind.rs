@@ -83,8 +83,10 @@ use crate::p2p::network::connection::{
     P2pNetworkConnectionSelectDoneAction, P2pNetworkConnectionSelectErrorAction,
 };
 use crate::p2p::network::noise::{
-    P2pNetworkNoiseAction, P2pNetworkNoiseIncomingChunkAction, P2pNetworkNoiseIncomingDataAction,
+    P2pNetworkNoiseAction, P2pNetworkNoiseDecryptedDataAction, P2pNetworkNoiseHandshakeDoneAction,
+    P2pNetworkNoiseIncomingChunkAction, P2pNetworkNoiseIncomingDataAction,
     P2pNetworkNoiseInitAction, P2pNetworkNoiseOutgoingChunkAction,
+    P2pNetworkNoiseOutgoingDataAction,
 };
 use crate::p2p::network::pnet::{
     P2pNetworkPnetAction, P2pNetworkPnetIncomingDataAction, P2pNetworkPnetOutgoingDataAction,
@@ -316,10 +318,13 @@ pub enum ActionKind {
     P2pNetworkConnectionOutgoingDidConnect,
     P2pNetworkConnectionSelectDone,
     P2pNetworkConnectionSelectError,
+    P2pNetworkNoiseDecryptedData,
+    P2pNetworkNoiseHandshakeDone,
     P2pNetworkNoiseIncomingChunk,
     P2pNetworkNoiseIncomingData,
     P2pNetworkNoiseInit,
     P2pNetworkNoiseOutgoingChunk,
+    P2pNetworkNoiseOutgoingData,
     P2pNetworkPnetIncomingData,
     P2pNetworkPnetOutgoingData,
     P2pNetworkPnetSetupNonce,
@@ -441,7 +446,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 252;
+    pub const COUNT: u16 = 255;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -1347,6 +1352,9 @@ impl ActionKindGet for P2pNetworkNoiseAction {
             Self::IncomingData(a) => a.kind(),
             Self::IncomingChunk(a) => a.kind(),
             Self::OutgoingChunk(a) => a.kind(),
+            Self::OutgoingData(a) => a.kind(),
+            Self::DecryptedData(a) => a.kind(),
+            Self::HandshakeDone(a) => a.kind(),
         }
     }
 }
@@ -1797,6 +1805,24 @@ impl ActionKindGet for P2pNetworkNoiseIncomingChunkAction {
 impl ActionKindGet for P2pNetworkNoiseOutgoingChunkAction {
     fn kind(&self) -> ActionKind {
         ActionKind::P2pNetworkNoiseOutgoingChunk
+    }
+}
+
+impl ActionKindGet for P2pNetworkNoiseOutgoingDataAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pNetworkNoiseOutgoingData
+    }
+}
+
+impl ActionKindGet for P2pNetworkNoiseDecryptedDataAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pNetworkNoiseDecryptedData
+    }
+}
+
+impl ActionKindGet for P2pNetworkNoiseHandshakeDoneAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pNetworkNoiseHandshakeDone
     }
 }
 
