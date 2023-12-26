@@ -19,7 +19,9 @@ pub struct Stream {
 
 enum OpeningState {
     Requested,
-    Negotiated { io: <ReadyUpgrade<StreamProtocol> as InboundUpgradeSend>::Output },
+    Negotiated {
+        io: <ReadyUpgrade<StreamProtocol> as InboundUpgradeSend>::Output,
+    },
 }
 
 pub enum StreamEvent {

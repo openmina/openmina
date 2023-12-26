@@ -34,7 +34,19 @@ pub struct P2pKademliaState {
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
 pub struct P2pListenersState(pub BTreeMap<P2pListenerId, P2pListenerState>);
 
-#[derive(Default, Serialize, Deserialize, derive_more::From, PartialEq, Eq, PartialOrd, Ord, Debug, Clone, derive_more::Display)]
+#[derive(
+    Default,
+    Serialize,
+    Deserialize,
+    derive_more::From,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Debug,
+    Clone,
+    derive_more::Display,
+)]
 pub struct P2pListenerId(String);
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -49,7 +61,10 @@ pub enum P2pListenerState {
 
 impl Default for P2pListenerState {
     fn default() -> Self {
-        P2pListenerState::Open { addrs: BTreeSet::default(), errors: Vec::new() }
+        P2pListenerState::Open {
+            addrs: BTreeSet::default(),
+            errors: Vec::new(),
+        }
     }
 }
 
