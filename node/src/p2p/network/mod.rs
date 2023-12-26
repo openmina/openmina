@@ -125,3 +125,15 @@ impl redux::EnablingCondition<crate::State> for P2pNetworkNoiseHandshakeDoneActi
         self.is_enabled(&state.p2p)
     }
 }
+
+impl redux::EnablingCondition<crate::State> for P2pNetworkYamuxIncomingDataAction {
+    fn is_enabled(&self, state: &crate::State) -> bool {
+        self.is_enabled(&state.p2p)
+    }
+}
+
+impl redux::EnablingCondition<crate::State> for P2pNetworkYamuxOutgoingDataAction {
+    fn is_enabled(&self, state: &crate::State) -> bool {
+        self.is_enabled(&state.p2p)
+    }
+}
