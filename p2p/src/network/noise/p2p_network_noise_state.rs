@@ -13,7 +13,7 @@ use vru_noise::{
     ChainingKey, OutputRaw, SymmetricState,
 };
 
-use crate::{identity::PublicKey, P2pCryptoService, P2pMioService, PeerId};
+use crate::{identity::PublicKey, PeerId};
 
 use super::{super::*, *};
 
@@ -63,7 +63,6 @@ impl P2pNetworkNoiseAction {
     pub fn effects<Store, S>(&self, _meta: &ActionMeta, store: &mut Store)
     where
         Store: crate::P2pStore<S>,
-        Store::Service: P2pMioService + P2pCryptoService,
         P2pNetworkPnetOutgoingDataAction: redux::EnablingCondition<S>,
         P2pNetworkNoiseIncomingChunkAction: redux::EnablingCondition<S>,
         P2pNetworkNoiseOutgoingChunkAction: redux::EnablingCondition<S>,
