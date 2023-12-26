@@ -34,7 +34,7 @@ use openmina_node_native::{http_server, rpc::RpcService, NodeService, RpcSender}
 use rand::{rngs::StdRng, SeedableRng};
 use serde::Serialize;
 
-use crate::node::TestPeerId;
+use crate::node::{OcamlStep, TestPeerId};
 use crate::{
     network_debugger::Debugger,
     node::{
@@ -56,7 +56,7 @@ pub struct Cluster {
     scenario: ClusterScenarioRun,
     available_ports: Box<dyn Iterator<Item = u16> + Send>,
     nodes: Vec<Node>,
-    ocaml_nodes: Vec<OcamlNode>,
+    ocaml_nodes: Vec<Option<OcamlNode>>,
 
     rpc_counter: usize,
 
@@ -286,10 +286,10 @@ impl Cluster {
             initial_peers: testing_config.initial_peers,
             daemon_json: testing_config.daemon_json,
             daemon_json_update_timestamp: testing_config.daemon_json_update_timestamp,
-        });
+        })
+        .expect("failed to start ocaml node");
 
-        self.ocaml_nodes
-            .push(node.expect("failed to start ocaml node"));
+        self.ocaml_nodes.push(Some(node));
         ClusterOcamlNodeId::new_unchecked(node_i)
     }
 
@@ -352,7 +352,9 @@ impl Cluster {
     }
 
     pub fn ocaml_node(&self, node_id: ClusterOcamlNodeId) -> Option<&OcamlNode> {
-        self.ocaml_nodes.get(node_id.index())
+        self.ocaml_nodes
+            .get(node_id.index())
+            .map(|opt| opt.as_ref().expect("tried to access removed ocaml node"))
     }
 
     pub fn pending_events(
@@ -378,7 +380,7 @@ impl Cluster {
         let node = self
             .nodes
             .get_mut(node_id.index())
-            .ok_or(anyhow::anyhow!("node {node_id:?} not found"))?;
+            .ok_or_else(|| anyhow::anyhow!("node {node_id:?} not found"))?;
         Ok(node.pending_events_with_state())
     }
 
@@ -483,13 +485,13 @@ impl Cluster {
             ScenarioStep::ManualEvent { node_id, event } => self
                 .nodes
                 .get_mut(node_id.index())
-                .ok_or(anyhow::anyhow!("node {node_id:?} not found"))?
+                .ok_or_else(|| anyhow::anyhow!("node {node_id:?} not found"))?
                 .dispatch_event(*event),
             ScenarioStep::Event { node_id, event } => {
                 let node = self
                     .nodes
                     .get_mut(node_id.index())
-                    .ok_or(anyhow::anyhow!("node {node_id:?} not found"))?;
+                    .ok_or_else(|| anyhow::anyhow!("node {node_id:?} not found"))?;
                 let timeout = tokio::time::sleep(Duration::from_secs(5));
                 tokio::select! {
                     res = node.wait_for_event_and_dispatch(&event) => res,
@@ -503,16 +505,20 @@ impl Cluster {
                     ListenerNode::Rust(listener) => {
                         let listener = self
                             .nodes
-                            .get_mut(listener.index())
-                            .ok_or(anyhow::anyhow!("node {listener:?} not found"))?;
+                            .get(listener.index())
+                            .ok_or_else(|| anyhow::anyhow!("node {listener:?} not found"))?;
 
                         listener.dial_addr()
                     }
                     ListenerNode::Ocaml(listener) => {
                         let listener = self
                             .ocaml_nodes
-                            .get_mut(listener.index())
-                            .ok_or(anyhow::anyhow!("ocaml node {listener:?} not found"))?;
+                            .get(listener.index())
+                            .ok_or_else(|| anyhow::anyhow!("ocaml node {listener:?} not found"))?
+                            .as_ref()
+                            .ok_or_else(|| {
+                                anyhow::anyhow!("tried to access removed ocaml node {listener:?}")
+                            })?;
 
                         listener.dial_addr()
                     }
@@ -524,7 +530,7 @@ impl Cluster {
                 let dialer = self
                     .nodes
                     .get_mut(dialer.index())
-                    .ok_or(anyhow::anyhow!("node {dialer:?} not found"))?;
+                    .ok_or_else(|| anyhow::anyhow!("node {dialer:?} not found"))?;
 
                 let req = node::rpc::RpcRequest::P2pConnectionOutgoing(listener_addr);
                 dialer.dispatch_event(Event::Rpc(rpc_id, req))
@@ -533,7 +539,7 @@ impl Cluster {
                 let node = self
                     .nodes
                     .get_mut(node_id.index())
-                    .ok_or(anyhow::anyhow!("node {node_id:?} not found"))?;
+                    .ok_or_else(|| anyhow::anyhow!("node {node_id:?} not found"))?;
                 node.check_timeouts();
                 true
             }
@@ -547,16 +553,25 @@ impl Cluster {
                 let node = self
                     .nodes
                     .get_mut(node_id.index())
-                    .ok_or(anyhow::anyhow!("node {node_id:?} not found"))?;
+                    .ok_or_else(|| anyhow::anyhow!("node {node_id:?} not found"))?;
                 node.advance_time(by_nanos);
                 true
             }
-            ScenarioStep::Ocaml { node_id, step: cmd } => {
-                let node = self
-                    .ocaml_nodes
-                    .get_mut(node_id.index())
-                    .ok_or(anyhow::anyhow!("ocaml node {node_id:?} not found"))?;
-                node.exec(cmd).await?
+            ScenarioStep::Ocaml { node_id, step } => {
+                let node = self.ocaml_nodes.get_mut(node_id.index());
+                let node =
+                    node.ok_or_else(|| anyhow::anyhow!("ocaml node {node_id:?} not found"))?;
+                if matches!(step, OcamlStep::KillAndRemove) {
+                    let mut node = node.take().ok_or_else(|| {
+                        anyhow::anyhow!("tried to access removed ocaml node {node_id:?}")
+                    })?;
+                    node.exec(step).await?
+                } else {
+                    let node = node.as_mut().ok_or_else(|| {
+                        anyhow::anyhow!("tried to access removed ocaml node {node_id:?}")
+                    })?;
+                    node.exec(step).await?
+                }
             }
         })
     }
