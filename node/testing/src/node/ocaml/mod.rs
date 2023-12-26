@@ -15,6 +15,7 @@ use serde::{Deserialize, Serialize};
 
 pub struct OcamlNode {
     child: Child,
+    executable: OcamlNodeExecutable,
     pub libp2p_port: u16,
     pub graphql_port: u16,
     peer_id: libp2p::PeerId,
@@ -110,6 +111,7 @@ impl OcamlNode {
 
         Ok(Self {
             child,
+            executable: config.executable,
             libp2p_port: config.libp2p_port,
             graphql_port: config.graphql_port,
             peer_id,
@@ -167,6 +169,7 @@ impl OcamlNode {
             .arg(Self::privkey_path(dir))
             .spawn()?;
         if child.wait()?.success() {
+            config.executable.kill(&config.dir);
             let peer_id = Self::read_peer_id(dir)?;
             Ok(peer_id)
         } else {
@@ -239,6 +242,7 @@ impl Drop for OcamlNode {
                 eprintln!("error getting status from OCaml node: {err}");
             }
             Ok(None) => {
+                self.executable.kill(&self.temp_dir);
                 if let Err(err) = self.child.kill() {
                     eprintln!("error killing OCaml node: {err}");
                 } else if let Err(err) = self.child.wait() {
