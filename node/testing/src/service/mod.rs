@@ -30,9 +30,12 @@ use node::{
         webrtc, P2pEvent, PeerId,
     },
 };
+use node::{ActionWithMeta, State};
 use openmina_node_native::NodeService;
 use redux::Instant;
 use vrf::VrfEvaluatorInput;
+
+pub type DynEffects = Box<dyn FnMut(&State, &NodeTestingService, &ActionWithMeta) + Send>;
 
 #[derive(Hash, Ord, PartialOrd, Eq, PartialEq)]
 pub struct PendingEventIdType;
@@ -50,6 +53,7 @@ pub struct NodeTestingService {
     monotonic_time: Instant,
     /// Events sent by the real service not yet received by state machine.
     pending_events: PendingRequests<PendingEventIdType, Event>,
+    dyn_effects: Option<DynEffects>,
     /// Once dropped, it will cause all threads associated to shutdown.
     _shutdown: mpsc::Receiver<()>,
 }
@@ -61,6 +65,7 @@ impl NodeTestingService {
             rust_to_rust_use_webrtc: false,
             monotonic_time: Instant::now(),
             pending_events: PendingRequests::new(),
+            dyn_effects: None,
             _shutdown,
         }
     }
@@ -76,6 +81,21 @@ impl NodeTestingService {
 
     pub fn advance_time(&mut self, by_nanos: u64) {
         self.monotonic_time += Duration::from_nanos(by_nanos);
+    }
+
+    pub fn dyn_effects(&mut self, state: &State, action: &ActionWithMeta) {
+        if let Some(mut dyn_effects) = self.dyn_effects.take() {
+            (dyn_effects)(state, self, action);
+            self.dyn_effects = Some(dyn_effects);
+        }
+    }
+
+    pub fn set_dyn_effects(&mut self, effects: DynEffects) {
+        self.dyn_effects = Some(effects);
+    }
+
+    pub fn remove_dyn_effects(&mut self) -> Option<DynEffects> {
+        self.dyn_effects.take()
     }
 
     pub fn pending_events(&mut self) -> impl Iterator<Item = (PendingEventId, &Event)> {
