@@ -60,6 +60,7 @@ impl P2pNetworkAction {
         P2pNetworkNoiseHandshakeDoneAction: redux::EnablingCondition<S>,
         P2pNetworkYamuxIncomingDataAction: redux::EnablingCondition<S>,
         P2pNetworkYamuxOutgoingDataAction: redux::EnablingCondition<S>,
+        P2pNetworkYamuxIncomingFrameAction: redux::EnablingCondition<S>,
     {
         match self {
             Self::Connection(v) => v.effects(meta, store),
