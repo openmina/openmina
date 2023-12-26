@@ -248,6 +248,7 @@ impl Cluster {
 
         let state = node::State::new(config);
         fn effects(store: &mut node::Store<NodeTestingService>, action: node::ActionWithMeta) {
+            store.service.dyn_effects(store.state.get(), &action);
             let peer_id = store.state().p2p.my_id();
             openmina_core::log::trace!(action.time(); "{peer_id}: {:?}", action.action().kind());
 
@@ -361,6 +362,10 @@ impl Cluster {
 
     pub fn node(&self, node_id: ClusterNodeId) -> Option<&Node> {
         self.nodes.get(node_id.index())
+    }
+
+    pub fn node_mut(&mut self, node_id: ClusterNodeId) -> Option<&mut Node> {
+        self.nodes.get_mut(node_id.index())
     }
 
     pub fn ocaml_node(&self, node_id: ClusterOcamlNodeId) -> Option<&OcamlNode> {
