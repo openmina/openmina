@@ -14,12 +14,13 @@ use crate::p2p::connection::outgoing::P2pConnectionOutgoingAction;
 use crate::p2p::connection::{P2pConnectionErrorResponse, P2pConnectionResponse};
 use crate::p2p::disconnection::{P2pDisconnectionAction, P2pDisconnectionReason};
 use crate::p2p::discovery::P2pDiscoveryAction;
+#[cfg(all(not(target_arch = "wasm32"), not(feature = "p2p-libp2p")))]
 use crate::p2p::network::{
     P2pNetworkConnectionIncomingDataDidReceiveAction,
     P2pNetworkConnectionIncomingDataIsReadyAction, P2pNetworkConnectionInterfaceDetectedAction,
     P2pNetworkConnectionInterfaceExpiredAction, P2pNetworkConnectionOutgoingDidConnectAction,
 };
-#[cfg(not(feature = "p2p-libp2p"))]
+#[cfg(all(not(target_arch = "wasm32"), not(feature = "p2p-libp2p")))]
 use crate::p2p::MioEvent;
 use crate::p2p::P2pChannelEvent;
 use crate::rpc::{RpcAction, RpcRequest};

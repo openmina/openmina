@@ -190,6 +190,9 @@ impl Node {
         };
         let (event_sender, event_receiver) = mpsc::unbounded_channel();
 
+        let keypair = Keypair::ed25519_from_bytes(secret_key.to_bytes())
+            .expect("secret key bytes must be valid");
+
         #[cfg(feature = "p2p-libp2p")]
         let webrtc_with_libp2p::P2pServiceCtx {
             libp2p,
@@ -203,8 +206,6 @@ impl Node {
         );
         #[cfg(not(feature = "p2p-libp2p"))]
         let (cmd_sender, peers) = { (mpsc::unbounded_channel().0, Default::default()) };
-        let keypair = Keypair::ed25519_from_bytes(secret_key.to_bytes())
-            .expect("secret key bytes must be valid");
 
         #[cfg(not(feature = "p2p-libp2p"))]
         let mio = MioService::run({
