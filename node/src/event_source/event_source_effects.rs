@@ -36,12 +36,13 @@ use crate::p2p::discovery::{
     P2pDiscoveryKademliaAddRouteAction, P2pDiscoveryKademliaFailureAction,
     P2pDiscoveryKademliaSuccessAction,
 };
+#[cfg(all(not(target_arch = "wasm32"), not(feature = "p2p-libp2p")))]
 use crate::p2p::network::{
     P2pNetworkConnectionIncomingDataDidReceiveAction,
     P2pNetworkConnectionIncomingDataIsReadyAction, P2pNetworkConnectionInterfaceDetectedAction,
     P2pNetworkConnectionInterfaceExpiredAction, P2pNetworkConnectionOutgoingDidConnectAction,
 };
-#[cfg(not(feature = "p2p-libp2p"))]
+#[cfg(all(not(target_arch = "wasm32"), not(feature = "p2p-libp2p")))]
 use crate::p2p::MioEvent;
 use crate::p2p::P2pChannelEvent;
 use crate::rpc::{

@@ -211,6 +211,9 @@ impl Cluster {
 
         let (event_sender, event_receiver) = mpsc::unbounded_channel();
 
+        let keypair = Keypair::ed25519_from_bytes(secret_key.to_bytes())
+            .expect("secret key bytes must be valid");
+
         #[cfg(feature = "p2p-libp2p")]
         let webrtc_with_libp2p::P2pServiceCtx {
             libp2p,
@@ -234,8 +237,6 @@ impl Cluster {
                     .unwrap_or_default()
             }
         });
-        let keypair = Keypair::ed25519_from_bytes(secret_key.to_bytes())
-            .expect("secret key bytes must be valid");
 
         let mut rpc_service = RpcService::new();
 
