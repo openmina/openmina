@@ -3,7 +3,8 @@ mod rpc_service;
 use std::time::Duration;
 use std::{collections::BTreeMap, ffi::OsStr, sync::Arc};
 
-use mina_p2p_messages::v2::{CurrencyFeeStableV1, NonZeroCurvePoint};
+use ledger::Mask;
+use mina_p2p_messages::v2::{CurrencyFeeStableV1, LedgerHash, NonZeroCurvePoint};
 use node::core::channels::mpsc;
 use node::core::requests::{PendingRequests, RequestId};
 use node::core::snark::{Snark, SnarkJobId};
@@ -124,6 +125,10 @@ impl NodeTestingService {
 
     pub fn take_pending_event(&mut self, id: PendingEventId) -> Option<Event> {
         self.pending_events.remove(id)
+    }
+
+    pub fn ledger(&self, ledger_hash: &LedgerHash) -> Option<Mask> {
+        self.real.ledger.mask(ledger_hash).map(|(mask, _)| mask)
     }
 }
 

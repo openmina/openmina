@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use std::{fmt, str::FromStr};
 
 use mina_signer::{keypair::KeypairError, Keypair};
@@ -30,6 +31,12 @@ impl AccountSecretKey {
     }
 }
 
+impl From<AccountSecretKey> for Keypair {
+    fn from(value: AccountSecretKey) -> Self {
+        value.0
+    }
+}
+
 impl FromStr for AccountSecretKey {
     type Err = anyhow::Error;
 
@@ -58,6 +65,25 @@ impl fmt::Display for AccountSecretKey {
             .with_check_version(Self::BASE58_CHECK_VERSION)
             .into_string();
         f.write_str(&s)
+    }
+}
+
+impl Serialize for AccountSecretKey {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&self.to_string())
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for AccountSecretKey {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let b58: String = Deserialize::deserialize(deserializer)?;
+        Ok(b58.parse().map_err(|err| serde::de::Error::custom(err))?)
     }
 }
 

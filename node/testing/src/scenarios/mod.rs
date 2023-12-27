@@ -25,6 +25,7 @@ use crate::scenario::{Scenario, ScenarioId, ScenarioStep};
 
 use self::multi_node::basic_connectivity_initial_joining::MultiNodeBasicConnectivityInitialJoining;
 use self::multi_node::basic_connectivity_peer_discovery::MultiNodeBasicConnectivityPeerDiscovery;
+use self::multi_node::sync_4_block_producers::MultiNodeSync4BlockProducers;
 use self::solo_node::sync_to_genesis::SoloNodeSyncToGenesis;
 use self::solo_node::{
     basic_connectivity_accept_incoming::SoloNodeBasicConnectivityAcceptIncoming,
@@ -32,13 +33,14 @@ use self::solo_node::{
     sync_root_snarked_ledger::SoloNodeSyncRootSnarkedLedger,
 };
 
-#[derive(EnumIter, EnumString, IntoStaticStr, Clone, Copy)]
+#[derive(EnumIter, EnumString, IntoStaticStr, derive_more::From, Clone, Copy)]
 #[strum(serialize_all = "kebab-case")]
 pub enum Scenarios {
     SoloNodeSyncToGenesis(SoloNodeSyncToGenesis),
     SoloNodeSyncRootSnarkedLedger(SoloNodeSyncRootSnarkedLedger),
     SoloNodeBasicConnectivityInitialJoining(SoloNodeBasicConnectivityInitialJoining),
     SoloNodeBasicConnectivityAcceptIncoming(SoloNodeBasicConnectivityAcceptIncoming),
+    MultiNodeSync4BlockProducers(MultiNodeSync4BlockProducers),
     MultiNodeBasicConnectivityInitialJoining(MultiNodeBasicConnectivityInitialJoining),
     MultiNodeBasicConnectivityPeerDiscovery(MultiNodeBasicConnectivityPeerDiscovery),
 }
@@ -51,10 +53,11 @@ impl Scenarios {
 
     fn skip(&self) -> bool {
         match self {
-            Self::SoloNodeSyncToGenesis(_) => false,
+            Self::SoloNodeSyncToGenesis(_) => true,
             Self::SoloNodeSyncRootSnarkedLedger(_) => false,
             Self::SoloNodeBasicConnectivityInitialJoining(_) => false,
             Self::SoloNodeBasicConnectivityAcceptIncoming(_) => cfg!(feature = "p2p-webrtc"),
+            Self::MultiNodeSync4BlockProducers(_) => false,
             Self::MultiNodeBasicConnectivityInitialJoining(_) => false,
             Self::MultiNodeBasicConnectivityPeerDiscovery(_) => cfg!(feature = "p2p-webrtc"),
         }
@@ -74,6 +77,7 @@ impl Scenarios {
             Self::SoloNodeSyncRootSnarkedLedger(_) => None,
             Self::SoloNodeBasicConnectivityInitialJoining(_) => None,
             Self::SoloNodeBasicConnectivityAcceptIncoming(_) => None,
+            Self::MultiNodeSync4BlockProducers(_) => Some(SoloNodeSyncToGenesis.into()),
             Self::MultiNodeBasicConnectivityInitialJoining(_) => None,
             Self::MultiNodeBasicConnectivityPeerDiscovery(_) => None,
         }
@@ -94,6 +98,7 @@ impl Scenarios {
             Self::SoloNodeBasicConnectivityAcceptIncoming(_) => {
                 SoloNodeBasicConnectivityAcceptIncoming::DOCS
             }
+            Self::MultiNodeSync4BlockProducers(_) => MultiNodeSync4BlockProducers::DOCS,
             Self::MultiNodeBasicConnectivityInitialJoining(_) => {
                 MultiNodeBasicConnectivityInitialJoining::DOCS
             }
@@ -121,12 +126,14 @@ impl Scenarios {
             Self::SoloNodeSyncRootSnarkedLedger(v) => v.run(runner).await,
             Self::SoloNodeBasicConnectivityInitialJoining(v) => v.run(runner).await,
             Self::SoloNodeBasicConnectivityAcceptIncoming(v) => v.run(runner).await,
+            Self::MultiNodeSync4BlockProducers(v) => v.run(runner).await,
             Self::MultiNodeBasicConnectivityInitialJoining(v) => v.run(runner).await,
             Self::MultiNodeBasicConnectivityPeerDiscovery(v) => v.run(runner).await,
         }
     }
 
     pub async fn run_and_save(self, cluster: &mut Cluster) {
+        eprintln!("run_and_save: {}", self.to_str());
         let mut scenario = self.blank_scenario();
         self.run(cluster, |step| scenario.add_step(step.clone()).unwrap())
             .await;
@@ -137,6 +144,7 @@ impl Scenarios {
     }
 
     pub async fn run_only(self, cluster: &mut Cluster) {
+        eprintln!("run_only: {}", self.to_str());
         self.run(cluster, |_| {}).await
     }
 

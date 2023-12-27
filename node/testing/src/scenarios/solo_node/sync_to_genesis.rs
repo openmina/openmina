@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use crate::{
-    node::{DaemonJson, OcamlNodeTestingConfig, OcamlStep, RustNodeTestingConfig},
+    node::{OcamlNodeTestingConfig, OcamlStep, RustNodeTestingConfig},
     scenario::{ListenerNode, ScenarioStep},
     scenarios::cluster_runner::{ClusterRunner, RunDecision},
 };
@@ -26,16 +26,7 @@ impl SoloNodeSyncToGenesis {
 
         let ocaml_node_config = OcamlNodeTestingConfig {
             initial_peers: Vec::new(),
-            daemon_json: DaemonJson::InMem(serde_json::json!({
-                "genesis": {
-                    "genesis_state_timestamp": "2023-12-25T09:00:00Z"
-                },
-                "ledger": {
-                    "name": "custom",
-                    "accounts": [
-                    ]
-                }
-            })),
+            daemon_json: runner.daemon_json_gen("2023-12-25T09:00:00Z", 2, 2, 16),
             daemon_json_update_timestamp: false,
         };
 
@@ -61,6 +52,7 @@ impl SoloNodeSyncToGenesis {
             initial_peers: Vec::new(),
             libp2p_port: None,
             peer_id: Default::default(),
+            block_producer: None,
         });
 
         runner
