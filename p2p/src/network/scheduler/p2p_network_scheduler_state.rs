@@ -15,24 +15,24 @@ use super::{super::*, *};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 
-pub struct P2pNetworkConnectionState {
+pub struct P2pNetworkSchedulerState {
     pub interfaces: BTreeSet<IpAddr>,
     pub listeners: BTreeSet<SocketAddr>,
     pub pnet_key: [u8; 32],
-    pub connections: BTreeMap<SocketAddr, P2pNetworkConnectionHandshakeState>,
+    pub connections: BTreeMap<SocketAddr, P2pNetworkConnectionState>,
+    pub rpc_behaviour_state: (),
+    pub broadcast_behaviour_state: (),
+    pub discovery_behaviour_state: (),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct P2pNetworkConnectionHandshakeState {
+pub struct P2pNetworkConnectionState {
     pub pnet: P2pNetworkPnetState,
     pub select_auth: P2pNetworkSelectState,
     pub auth: Option<P2pNetworkAuthState>,
     pub select_mux: P2pNetworkSelectState,
     pub mux: Option<P2pNetworkConnectionMuxState>,
     pub streams: BTreeMap<u16, P2pNetworkStreamState>,
-    pub rpc_behaviour_state: (),
-    pub broadcast_behaviour_state: (),
-    pub discovery_behaviour_state: (),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -83,15 +83,15 @@ pub enum P2pNetworkStreamHandlerState {
     Discovery,
 }
 
-impl P2pNetworkConnectionState {
-    pub fn reducer(&mut self, action: redux::ActionWithMeta<&P2pNetworkConnectionAction>) {
+impl P2pNetworkSchedulerState {
+    pub fn reducer(&mut self, action: redux::ActionWithMeta<&P2pNetworkSchedulerAction>) {
         match action.action() {
-            P2pNetworkConnectionAction::InterfaceDetected(a) => drop(self.interfaces.insert(a.ip)),
-            P2pNetworkConnectionAction::InterfaceExpired(a) => drop(self.interfaces.remove(&a.ip)),
-            P2pNetworkConnectionAction::OutgoingDidConnect(a) => {
+            P2pNetworkSchedulerAction::InterfaceDetected(a) => drop(self.interfaces.insert(a.ip)),
+            P2pNetworkSchedulerAction::InterfaceExpired(a) => drop(self.interfaces.remove(&a.ip)),
+            P2pNetworkSchedulerAction::OutgoingDidConnect(a) => {
                 self.connections.insert(
                     a.addr,
-                    P2pNetworkConnectionHandshakeState {
+                    P2pNetworkConnectionState {
                         pnet: P2pNetworkPnetState::new(self.pnet_key),
                         select_auth: P2pNetworkSelectState::initiator_auth(token::AuthKind::Noise),
                         auth: None,
@@ -100,19 +100,16 @@ impl P2pNetworkConnectionState {
                         ),
                         mux: None,
                         streams: BTreeMap::default(),
-                        rpc_behaviour_state: Default::default(),
-                        broadcast_behaviour_state: Default::default(),
-                        discovery_behaviour_state: Default::default(),
                     },
                 );
             }
-            P2pNetworkConnectionAction::IncomingDataIsReady(_) => {}
-            P2pNetworkConnectionAction::IncomingDataDidReceive(a) => {
+            P2pNetworkSchedulerAction::IncomingDataIsReady(_) => {}
+            P2pNetworkSchedulerAction::IncomingDataDidReceive(a) => {
                 if a.result.is_err() {
                     self.connections.remove(&a.addr);
                 }
             }
-            P2pNetworkConnectionAction::SelectDone(a) => {
+            P2pNetworkSchedulerAction::SelectDone(a) => {
                 let Some(connection) = self.connections.get_mut(&a.addr) else {
                     return;
                 };
@@ -146,7 +143,7 @@ impl P2pNetworkConnectionState {
                     }
                 }
             }
-            P2pNetworkConnectionAction::SelectError(a) => {
+            P2pNetworkSchedulerAction::SelectError(a) => {
                 if let Some(stream_id) = &a.kind.stream_id() {
                     if let Some(connection) = self.connections.get_mut(&a.addr) {
                         connection.streams.remove(stream_id);
@@ -159,7 +156,7 @@ impl P2pNetworkConnectionState {
     }
 }
 
-impl P2pNetworkConnectionAction {
+impl P2pNetworkSchedulerAction {
     pub fn effects<Store, S>(&self, _: &ActionMeta, store: &mut Store)
     where
         Store: crate::P2pStore<S>,
