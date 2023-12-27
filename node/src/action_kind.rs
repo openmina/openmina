@@ -76,12 +76,6 @@ use crate::p2p::listen::{
     P2pListenAction, P2pListenClosedAction, P2pListenErrorAction, P2pListenExpiredAction,
     P2pListenNewAction,
 };
-use crate::p2p::network::connection::{
-    P2pNetworkConnectionAction, P2pNetworkConnectionIncomingDataDidReceiveAction,
-    P2pNetworkConnectionIncomingDataIsReadyAction, P2pNetworkConnectionInterfaceDetectedAction,
-    P2pNetworkConnectionInterfaceExpiredAction, P2pNetworkConnectionOutgoingDidConnectAction,
-    P2pNetworkConnectionSelectDoneAction, P2pNetworkConnectionSelectErrorAction,
-};
 use crate::p2p::network::noise::{
     P2pNetworkNoiseAction, P2pNetworkNoiseDecryptedDataAction, P2pNetworkNoiseHandshakeDoneAction,
     P2pNetworkNoiseIncomingChunkAction, P2pNetworkNoiseIncomingDataAction,
@@ -92,6 +86,12 @@ use crate::p2p::network::pnet::{
     P2pNetworkPnetAction, P2pNetworkPnetIncomingDataAction, P2pNetworkPnetOutgoingDataAction,
     P2pNetworkPnetSetupNonceAction,
 };
+use crate::p2p::network::scheduler::{
+    P2pNetworkSchedulerAction, P2pNetworkSchedulerIncomingDataDidReceiveAction,
+    P2pNetworkSchedulerIncomingDataIsReadyAction, P2pNetworkSchedulerInterfaceDetectedAction,
+    P2pNetworkSchedulerInterfaceExpiredAction, P2pNetworkSchedulerOutgoingDidConnectAction,
+    P2pNetworkSchedulerSelectDoneAction, P2pNetworkSchedulerSelectErrorAction,
+};
 use crate::p2p::network::select::{
     P2pNetworkSelectAction, P2pNetworkSelectIncomingDataAction,
     P2pNetworkSelectIncomingTokenAction, P2pNetworkSelectInitAction,
@@ -99,7 +99,8 @@ use crate::p2p::network::select::{
 };
 use crate::p2p::network::yamux::{
     P2pNetworkYamuxAction, P2pNetworkYamuxIncomingDataAction, P2pNetworkYamuxIncomingFrameAction,
-    P2pNetworkYamuxOutgoingDataAction,
+    P2pNetworkYamuxOpenStreamAction, P2pNetworkYamuxOutgoingDataAction,
+    P2pNetworkYamuxSendStreamAction,
 };
 use crate::p2p::network::P2pNetworkAction;
 use crate::p2p::peer::{P2pPeerAction, P2pPeerBestTipUpdateAction, P2pPeerReadyAction};
@@ -315,13 +316,6 @@ pub enum ActionKind {
     P2pListenError,
     P2pListenExpired,
     P2pListenNew,
-    P2pNetworkConnectionIncomingDataDidReceive,
-    P2pNetworkConnectionIncomingDataIsReady,
-    P2pNetworkConnectionInterfaceDetected,
-    P2pNetworkConnectionInterfaceExpired,
-    P2pNetworkConnectionOutgoingDidConnect,
-    P2pNetworkConnectionSelectDone,
-    P2pNetworkConnectionSelectError,
     P2pNetworkNoiseDecryptedData,
     P2pNetworkNoiseHandshakeDone,
     P2pNetworkNoiseIncomingChunk,
@@ -332,13 +326,22 @@ pub enum ActionKind {
     P2pNetworkPnetIncomingData,
     P2pNetworkPnetOutgoingData,
     P2pNetworkPnetSetupNonce,
+    P2pNetworkSchedulerIncomingDataDidReceive,
+    P2pNetworkSchedulerIncomingDataIsReady,
+    P2pNetworkSchedulerInterfaceDetected,
+    P2pNetworkSchedulerInterfaceExpired,
+    P2pNetworkSchedulerOutgoingDidConnect,
+    P2pNetworkSchedulerSelectDone,
+    P2pNetworkSchedulerSelectError,
     P2pNetworkSelectIncomingData,
     P2pNetworkSelectIncomingToken,
     P2pNetworkSelectInit,
     P2pNetworkSelectOutgoingTokens,
     P2pNetworkYamuxIncomingData,
     P2pNetworkYamuxIncomingFrame,
+    P2pNetworkYamuxOpenStream,
     P2pNetworkYamuxOutgoingData,
+    P2pNetworkYamuxSendStream,
     P2pPeerBestTipUpdate,
     P2pPeerReady,
     RpcActionStatsGet,
@@ -453,7 +456,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 258;
+    pub const COUNT: u16 = 260;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -741,7 +744,7 @@ impl ActionKindGet for P2pPeerAction {
 impl ActionKindGet for P2pNetworkAction {
     fn kind(&self) -> ActionKind {
         match self {
-            Self::Connection(a) => a.kind(),
+            Self::Scheduler(a) => a.kind(),
             Self::Pnet(a) => a.kind(),
             Self::Select(a) => a.kind(),
             Self::Noise(a) => a.kind(),
@@ -1318,7 +1321,7 @@ impl ActionKindGet for P2pPeerBestTipUpdateAction {
     }
 }
 
-impl ActionKindGet for P2pNetworkConnectionAction {
+impl ActionKindGet for P2pNetworkSchedulerAction {
     fn kind(&self) -> ActionKind {
         match self {
             Self::InterfaceDetected(a) => a.kind(),
@@ -1373,6 +1376,8 @@ impl ActionKindGet for P2pNetworkYamuxAction {
             Self::IncomingData(a) => a.kind(),
             Self::OutgoingData(a) => a.kind(),
             Self::IncomingFrame(a) => a.kind(),
+            Self::OpenStream(a) => a.kind(),
+            Self::SendStream(a) => a.kind(),
         }
     }
 }
@@ -1718,45 +1723,45 @@ impl ActionKindGet for P2pConnectionIncomingLibp2pReceivedAction {
     }
 }
 
-impl ActionKindGet for P2pNetworkConnectionInterfaceDetectedAction {
+impl ActionKindGet for P2pNetworkSchedulerInterfaceDetectedAction {
     fn kind(&self) -> ActionKind {
-        ActionKind::P2pNetworkConnectionInterfaceDetected
+        ActionKind::P2pNetworkSchedulerInterfaceDetected
     }
 }
 
-impl ActionKindGet for P2pNetworkConnectionInterfaceExpiredAction {
+impl ActionKindGet for P2pNetworkSchedulerInterfaceExpiredAction {
     fn kind(&self) -> ActionKind {
-        ActionKind::P2pNetworkConnectionInterfaceExpired
+        ActionKind::P2pNetworkSchedulerInterfaceExpired
     }
 }
 
-impl ActionKindGet for P2pNetworkConnectionOutgoingDidConnectAction {
+impl ActionKindGet for P2pNetworkSchedulerOutgoingDidConnectAction {
     fn kind(&self) -> ActionKind {
-        ActionKind::P2pNetworkConnectionOutgoingDidConnect
+        ActionKind::P2pNetworkSchedulerOutgoingDidConnect
     }
 }
 
-impl ActionKindGet for P2pNetworkConnectionIncomingDataIsReadyAction {
+impl ActionKindGet for P2pNetworkSchedulerIncomingDataIsReadyAction {
     fn kind(&self) -> ActionKind {
-        ActionKind::P2pNetworkConnectionIncomingDataIsReady
+        ActionKind::P2pNetworkSchedulerIncomingDataIsReady
     }
 }
 
-impl ActionKindGet for P2pNetworkConnectionIncomingDataDidReceiveAction {
+impl ActionKindGet for P2pNetworkSchedulerIncomingDataDidReceiveAction {
     fn kind(&self) -> ActionKind {
-        ActionKind::P2pNetworkConnectionIncomingDataDidReceive
+        ActionKind::P2pNetworkSchedulerIncomingDataDidReceive
     }
 }
 
-impl ActionKindGet for P2pNetworkConnectionSelectDoneAction {
+impl ActionKindGet for P2pNetworkSchedulerSelectDoneAction {
     fn kind(&self) -> ActionKind {
-        ActionKind::P2pNetworkConnectionSelectDone
+        ActionKind::P2pNetworkSchedulerSelectDone
     }
 }
 
-impl ActionKindGet for P2pNetworkConnectionSelectErrorAction {
+impl ActionKindGet for P2pNetworkSchedulerSelectErrorAction {
     fn kind(&self) -> ActionKind {
-        ActionKind::P2pNetworkConnectionSelectError
+        ActionKind::P2pNetworkSchedulerSelectError
     }
 }
 
@@ -1859,6 +1864,18 @@ impl ActionKindGet for P2pNetworkYamuxOutgoingDataAction {
 impl ActionKindGet for P2pNetworkYamuxIncomingFrameAction {
     fn kind(&self) -> ActionKind {
         ActionKind::P2pNetworkYamuxIncomingFrame
+    }
+}
+
+impl ActionKindGet for P2pNetworkYamuxOpenStreamAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pNetworkYamuxOpenStream
+    }
+}
+
+impl ActionKindGet for P2pNetworkYamuxSendStreamAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pNetworkYamuxSendStream
     }
 }
 

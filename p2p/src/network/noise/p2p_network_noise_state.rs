@@ -88,7 +88,7 @@ impl P2pNetworkNoiseAction {
         }
 
         let state = store.state();
-        let Some(state) = state.network.connection.connections.get(&self.addr()) else {
+        let Some(state) = state.network.scheduler.connections.get(&self.addr()) else {
             return;
         };
         let Some(P2pNetworkAuthState::Noise(state)) = &state.auth else {
