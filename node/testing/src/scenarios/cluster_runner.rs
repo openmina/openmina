@@ -3,12 +3,17 @@ use std::{
     time::Duration,
 };
 
-use node::{event_source::Event, ActionWithMeta, State};
+use ledger::scan_state::currency::Balance;
+use node::{
+    account::{AccountPublicKey, AccountSecretKey},
+    event_source::Event,
+    ActionKind, ActionWithMeta, State,
+};
 
 use crate::{
     cluster::{Cluster, ClusterNodeId, ClusterOcamlNodeId},
     network_debugger::Debugger,
-    node::{Node, OcamlNode, OcamlNodeTestingConfig, RustNodeTestingConfig},
+    node::{DaemonJson, Node, OcamlNode, OcamlNodeTestingConfig, RustNodeTestingConfig},
     scenario::ScenarioStep,
     service::{DynEffects, NodeTestingService, PendingEventId},
 };
@@ -59,6 +64,65 @@ impl<'a> ClusterRunner<'a> {
         self.cluster.nodes_iter()
     }
 
+    pub fn daemon_json_gen(
+        &mut self,
+        genesis_timestamp: &str,
+        whales_n: usize,
+        fish_n: usize,
+        accounts_n: usize,
+    ) -> DaemonJson {
+        let gen_bp = |balance: u64| {
+            let sec_key = AccountSecretKey::rand();
+            let pub_key = sec_key.public_key();
+            let account = serde_json::json!({
+                "pk": pub_key.to_string(),
+                "balance": format!("{balance}.000000000"),
+                "delegate": pub_key.to_string(),
+            });
+            (sec_key, account)
+        };
+        let gen_account = |balance: u64, delegate: String| {
+            let (sec_key, mut account) = gen_bp(balance);
+            account["delegate"] = delegate.into();
+            (sec_key, account)
+        };
+
+        let whales = (0..whales_n).map(|_| gen_bp(83333)).collect::<Vec<_>>();
+        let fish = (0..fish_n).map(|_| gen_bp(13333)).collect::<Vec<_>>();
+        let accounts = (0..accounts_n).map(|i| {
+            let balance = 100_000_000 / (i as u64 + 1);
+            let i = i % (whales_n + fish_n);
+            let delegate = if i < whales_n {
+                whales[i].1["pk"].as_str().unwrap().to_owned()
+            } else {
+                fish[i % fish_n].1["pk"].as_str().unwrap().to_owned()
+            };
+            gen_account(balance, delegate)
+        });
+        let all_accounts = std::iter::empty()
+            .chain(whales.iter().cloned())
+            .chain(fish.iter().cloned())
+            .chain(accounts)
+            .map(|(sec_key, account)| {
+                self.cluster.add_account_sec_key(sec_key);
+                account
+            })
+            .collect::<Vec<_>>();
+        DaemonJson::InMem(serde_json::json!({
+            "genesis": {
+                "genesis_state_timestamp": genesis_timestamp,
+            },
+            "ledger": {
+                "name": "custom",
+                "accounts": all_accounts,
+            },
+        }))
+    }
+
+    pub fn get_account_sec_key(&self, pub_key: &AccountPublicKey) -> Option<&AccountSecretKey> {
+        self.cluster.get_account_sec_key(pub_key)
+    }
+
     pub fn add_rust_node(&mut self, testing_config: RustNodeTestingConfig) -> ClusterNodeId {
         self.cluster.add_rust_node(testing_config)
     }
@@ -70,6 +134,20 @@ impl<'a> ClusterRunner<'a> {
     pub async fn exec_step(&mut self, step: ScenarioStep) -> anyhow::Result<bool> {
         (self.add_step)(&step);
         self.cluster.exec_step(step).await
+    }
+
+    async fn exec_step_with_dyn_effects(
+        &mut self,
+        dyn_effects: DynEffects,
+        node_id: ClusterNodeId,
+        step: ScenarioStep,
+    ) -> DynEffects {
+        self.node_mut(node_id).unwrap().set_dyn_effects(dyn_effects);
+        self.exec_step(step).await.unwrap();
+        self.node_mut(node_id)
+            .unwrap()
+            .remove_dyn_effects()
+            .unwrap()
     }
 
     // TODO(binier): better names for `handle_event`, `
@@ -108,12 +186,12 @@ impl<'a> ClusterRunner<'a> {
             move |state: &State, service: &NodeTestingService, action: &ActionWithMeta| {
                 let mut data = dyn_effects_data_clone.inner();
                 if let Some(node_id) = data.node_id {
-                    data.exit = exit_if_action(node_id, state, service, action);
+                    data.exit |= exit_if_action(node_id, state, service, action);
                 }
             },
         ) as DynEffects;
         tokio::time::timeout(timeout, async move {
-            loop {
+            while !dyn_effects_data.inner().exit {
                 let event_to_take_action_on = self
                     .pending_events()
                     .flat_map(|(node_id, state, events)| {
@@ -129,17 +207,15 @@ impl<'a> ClusterRunner<'a> {
                     dyn_effects_data.inner().node_id = Some(node_id);
                     if decision.exec() {
                         let event = event.to_string();
-                        self.node_mut(node_id).unwrap().set_dyn_effects(dyn_effects);
-                        self.exec_step(ScenarioStep::Event { node_id, event })
-                            .await
-                            .unwrap();
                         dyn_effects = self
-                            .node_mut(node_id)
-                            .unwrap()
-                            .remove_dyn_effects()
-                            .unwrap();
+                            .exec_step_with_dyn_effects(
+                                dyn_effects,
+                                node_id,
+                                ScenarioStep::Event { node_id, event },
+                            )
+                            .await;
 
-                        if dyn_effects_data.inner().exit || decision.stop() {
+                        if decision.stop() {
                             return;
                         }
                         continue;
@@ -153,10 +229,17 @@ impl<'a> ClusterRunner<'a> {
                 let all_nodes = self.nodes_iter().map(|(id, _)| id).collect::<Vec<_>>();
 
                 for node_id in all_nodes {
-                    self.cluster
-                        .exec_step(ScenarioStep::CheckTimeouts { node_id })
-                        .await
-                        .unwrap();
+                    dyn_effects_data.inner().node_id = Some(node_id);
+                    dyn_effects = self
+                        .exec_step_with_dyn_effects(
+                            dyn_effects,
+                            node_id,
+                            ScenarioStep::CheckTimeouts { node_id },
+                        )
+                        .await;
+                    if dyn_effects_data.inner().exit {
+                        return;
+                    }
                 }
 
                 self.wait_for_pending_events().await;
@@ -169,6 +252,38 @@ impl<'a> ClusterRunner<'a> {
                 timeout.as_millis()
             )
         })
+    }
+
+    pub async fn run_until_nodes_synced(
+        &mut self,
+        mut timeout: Duration,
+        nodes: &[ClusterNodeId],
+    ) -> anyhow::Result<()> {
+        while !timeout.is_zero()
+            && !nodes.iter().all(|node| {
+                self.node(*node)
+                    .unwrap()
+                    .state()
+                    .transition_frontier
+                    .sync
+                    .is_synced()
+            })
+        {
+            let t = redux::Instant::now();
+            self.run(
+                timeout,
+                |_, _, _| RunDecision::ContinueExec,
+                |_, _, _, action| {
+                    matches!(action.action().kind(), ActionKind::TransitionFrontierSynced)
+                },
+            )
+            .await?;
+            timeout = timeout.checked_sub(t.elapsed()).unwrap_or_default();
+        }
+        if timeout.is_zero() {
+            anyhow::bail!("timeout has elapsed while waiting for nodes to be synced");
+        }
+        Ok(())
     }
 
     pub fn pending_events(
@@ -202,6 +317,43 @@ impl<'a> ClusterRunner<'a> {
 
     pub fn debugger(&self) -> Option<&Debugger> {
         self.cluster.debugger()
+    }
+
+    /// Block producer accounts, ordered by balance, smallest first.
+    ///
+    /// Warning: caller must ensure we are using custom daemon json if
+    /// this method is called, so that we have secret keys for
+    /// all block producers.
+    pub fn block_producer_sec_keys(
+        &self,
+        node_id: ClusterNodeId,
+    ) -> Vec<(AccountSecretKey, Balance)> {
+        use ledger::BaseLedger;
+
+        let Some(staking_ledger) = None.or_else(|| {
+            let node = self.node(node_id)?;
+            let best_tip = node.state().transition_frontier.best_tip()?;
+            let staking_ledger_hash = best_tip.staking_epoch_ledger_hash();
+            node.service().ledger(staking_ledger_hash)
+        }) else {
+            return Default::default();
+        };
+
+        let mut block_producers = Vec::new();
+        staking_ledger.iter(|account| {
+            let pub_key = AccountPublicKey::from(account.public_key.clone());
+            // filter block producers.
+            if account.token_id.is_default() && account.delegate.as_ref().map_or(true, |delegate| &account.public_key == delegate)
+                // extra account added by ocaml node. Looks like the
+                // block producer of the genesis block.
+                && pub_key.to_string() != "B62qiy32p8kAKnny8ZFwoMhYpBppM1DWVCqAPBYNcXnsAHhnfAAuXgg"
+            {
+                let sec_key = self.get_account_sec_key(&pub_key).expect("sec key for block producer not found");
+                block_producers.push((sec_key.clone(), account.balance));
+            }
+        });
+        block_producers.sort_by(|(_, b1), (_, b2)| b1.cmp(b2));
+        block_producers
     }
 }
 

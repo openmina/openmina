@@ -9,6 +9,14 @@ pub struct BlockProducerConfig {
 }
 
 impl BlockProducerConfig {
+    pub fn new(pub_key: NonZeroCurvePoint) -> Self {
+        Self {
+            pub_key,
+            custom_coinbase_receiver: None,
+            proposed_protocol_version: None,
+        }
+    }
+
     pub fn coinbase_receiver(&self) -> &NonZeroCurvePoint {
         self.custom_coinbase_receiver
             .as_ref()
