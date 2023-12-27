@@ -5,7 +5,7 @@ use super::*;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pNetworkState {
-    pub connection: P2pNetworkConnectionState,
+    pub scheduler: P2pNetworkSchedulerState,
 }
 
 impl P2pNetworkState {
@@ -27,11 +27,14 @@ impl P2pNetworkState {
         };
 
         P2pNetworkState {
-            connection: P2pNetworkConnectionState {
+            scheduler: P2pNetworkSchedulerState {
                 interfaces: Default::default(),
                 listeners: Default::default(),
                 pnet_key,
                 connections: Default::default(),
+                rpc_behaviour_state: Default::default(),
+                broadcast_behaviour_state: Default::default(),
+                discovery_behaviour_state: Default::default(),
             },
         }
     }
@@ -48,8 +51,8 @@ impl P2pNetworkAction {
         P2pNetworkSelectInitAction: redux::EnablingCondition<S>,
         P2pNetworkPnetOutgoingDataAction: redux::EnablingCondition<S>,
         P2pNetworkSelectIncomingTokenAction: redux::EnablingCondition<S>,
-        P2pNetworkConnectionSelectErrorAction: redux::EnablingCondition<S>,
-        P2pNetworkConnectionSelectDoneAction: redux::EnablingCondition<S>,
+        P2pNetworkSchedulerSelectErrorAction: redux::EnablingCondition<S>,
+        P2pNetworkSchedulerSelectDoneAction: redux::EnablingCondition<S>,
         P2pNetworkNoiseInitAction: redux::EnablingCondition<S>,
         P2pNetworkNoiseIncomingDataAction: redux::EnablingCondition<S>,
         P2pNetworkSelectOutgoingTokensAction: redux::EnablingCondition<S>,
@@ -63,7 +66,7 @@ impl P2pNetworkAction {
         P2pNetworkYamuxIncomingFrameAction: redux::EnablingCondition<S>,
     {
         match self {
-            Self::Connection(v) => v.effects(meta, store),
+            Self::Scheduler(v) => v.effects(meta, store),
             Self::Pnet(v) => v.effects(meta, store),
             Self::Select(v) => v.effects(meta, store),
             Self::Noise(v) => v.effects(meta, store),
@@ -76,15 +79,15 @@ impl P2pNetworkState {
     pub fn reducer(&mut self, action: redux::ActionWithMeta<&P2pNetworkAction>) {
         let (action, meta) = action.split();
         match action {
-            P2pNetworkAction::Connection(a) => self.connection.reducer(meta.with_action(&a)),
+            P2pNetworkAction::Scheduler(a) => self.scheduler.reducer(meta.with_action(&a)),
             P2pNetworkAction::Pnet(a) => {
-                self.connection
+                self.scheduler
                     .connections
                     .get_mut(&a.addr())
                     .map(|cn| cn.pnet.reducer(meta.with_action(&a)));
             }
             P2pNetworkAction::Select(a) => {
-                self.connection
+                self.scheduler
                     .connections
                     .get_mut(&a.addr())
                     .map(|cn| match a.id() {
@@ -98,7 +101,7 @@ impl P2pNetworkState {
                     });
             }
             P2pNetworkAction::Noise(a) => {
-                self.connection
+                self.scheduler
                     .connections
                     .get_mut(&a.addr())
                     .map(|cn| match &mut cn.auth {
@@ -109,12 +112,12 @@ impl P2pNetworkState {
                     });
             }
             P2pNetworkAction::Yamux(a) => {
-                self.connection
+                self.scheduler
                     .connections
                     .get_mut(&a.addr())
                     .map(|cn| match &mut cn.mux {
                         Some(P2pNetworkConnectionMuxState::Yamux(state)) => {
-                            state.reducer(meta.with_action(&a))
+                            state.reducer(&mut cn.streams, meta.with_action(&a))
                         }
                         _ => {}
                     });

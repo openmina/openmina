@@ -1,42 +1,42 @@
 pub use ::p2p::network::*;
 
-impl redux::EnablingCondition<crate::State> for P2pNetworkConnectionInterfaceDetectedAction {
+impl redux::EnablingCondition<crate::State> for P2pNetworkSchedulerInterfaceDetectedAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
         self.is_enabled(&state.p2p)
     }
 }
 
-impl redux::EnablingCondition<crate::State> for P2pNetworkConnectionInterfaceExpiredAction {
+impl redux::EnablingCondition<crate::State> for P2pNetworkSchedulerInterfaceExpiredAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
         self.is_enabled(&state.p2p)
     }
 }
 
-impl redux::EnablingCondition<crate::State> for P2pNetworkConnectionOutgoingDidConnectAction {
+impl redux::EnablingCondition<crate::State> for P2pNetworkSchedulerOutgoingDidConnectAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
         self.is_enabled(&state.p2p)
     }
 }
 
-impl redux::EnablingCondition<crate::State> for P2pNetworkConnectionIncomingDataIsReadyAction {
+impl redux::EnablingCondition<crate::State> for P2pNetworkSchedulerIncomingDataIsReadyAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
         self.is_enabled(&state.p2p)
     }
 }
 
-impl redux::EnablingCondition<crate::State> for P2pNetworkConnectionIncomingDataDidReceiveAction {
+impl redux::EnablingCondition<crate::State> for P2pNetworkSchedulerIncomingDataDidReceiveAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
         self.is_enabled(&state.p2p)
     }
 }
 
-impl redux::EnablingCondition<crate::State> for P2pNetworkConnectionSelectDoneAction {
+impl redux::EnablingCondition<crate::State> for P2pNetworkSchedulerSelectDoneAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
         self.is_enabled(&state.p2p)
     }
 }
 
-impl redux::EnablingCondition<crate::State> for P2pNetworkConnectionSelectErrorAction {
+impl redux::EnablingCondition<crate::State> for P2pNetworkSchedulerSelectErrorAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
         self.is_enabled(&state.p2p)
     }
