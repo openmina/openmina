@@ -145,7 +145,7 @@ impl LedgerCtx {
 
     // TODO(tizoc): explain when `is_synced` is `true` and when it is `false`. Also use something else than a boolean.
     /// Returns a tuple of `(mask, is_synced)` for a [Mask] with the specified `hash` if it exists or `None` otherwise.
-    fn mask(&self, hash: &LedgerHash) -> Option<(Mask, bool)> {
+    pub fn mask(&self, hash: &LedgerHash) -> Option<(Mask, bool)> {
         self.snarked_ledgers
             .get(hash)
             .cloned()

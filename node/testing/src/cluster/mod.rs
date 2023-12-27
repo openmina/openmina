@@ -2,11 +2,13 @@ mod config;
 pub use config::ClusterConfig;
 
 mod p2p_task_spawner;
+use node::account::{AccountPublicKey, AccountSecretKey};
 pub use p2p_task_spawner::P2pTaskSpawner;
 
 mod node_id;
 pub use node_id::{ClusterNodeId, ClusterOcamlNodeId};
 
+use std::collections::BTreeMap;
 use std::time::Duration;
 use std::{collections::VecDeque, sync::Arc};
 
@@ -55,6 +57,7 @@ pub struct Cluster {
     pub config: ClusterConfig,
     scenario: ClusterScenarioRun,
     available_ports: Box<dyn Iterator<Item = u16> + Send>,
+    account_sec_keys: BTreeMap<AccountPublicKey, AccountSecretKey>,
     nodes: Vec<Node>,
     ocaml_nodes: Vec<Option<OcamlNode>>,
 
@@ -92,6 +95,7 @@ impl Cluster {
                 cur_step: 0,
             },
             available_ports: Box::new(available_ports),
+            account_sec_keys: Default::default(),
             nodes: Vec::new(),
             ocaml_nodes: Vec::new(),
 
@@ -109,7 +113,16 @@ impl Cluster {
         self.available_ports.next()
     }
 
+    pub fn add_account_sec_key(&mut self, sec_key: AccountSecretKey) {
+        self.account_sec_keys.insert(sec_key.public_key(), sec_key);
+    }
+
+    pub fn get_account_sec_key(&self, pub_key: &AccountPublicKey) -> Option<&AccountSecretKey> {
+        self.account_sec_keys.get(pub_key)
+    }
+
     pub fn add_rust_node(&mut self, testing_config: RustNodeTestingConfig) -> ClusterNodeId {
+        let node_config = testing_config.clone();
         let node_i = self.nodes.len();
         let (shutdown_tx, shutdown_rx) = mpsc::channel(1);
         let secret_key = P2pSecretKey::from_bytes(match testing_config.peer_id {
@@ -148,6 +161,11 @@ impl Cluster {
                 .unwrap()
         });
 
+        let (block_producer_sec_key, block_producer_config) = testing_config
+            .block_producer
+            .map(|v| (v.sec_key, v.config))
+            .unzip();
+
         let config = Config {
             ledger: LedgerConfig {},
             snark: SnarkConfig {
@@ -171,7 +189,7 @@ impl Cluster {
                 enabled_channels: ChannelId::iter_all().collect(),
             },
             transition_frontier: TransitionFrontierConfig::default(),
-            block_producer: None,
+            block_producer: block_producer_config,
         };
 
         let (event_sender, event_receiver) = mpsc::unbounded_channel();
@@ -223,7 +241,7 @@ impl Cluster {
             .unwrap();
 
         let ledger = LedgerCtx::default();
-        let real_service = NodeService {
+        let mut real_service = NodeService {
             rng: StdRng::seed_from_u64(0),
             event_sender,
             p2p_event_sender,
@@ -239,6 +257,9 @@ impl Cluster {
             recorder: Recorder::None,
             replayer: None,
         };
+        if let Some(producer_key) = block_producer_sec_key {
+            real_service.block_producer_start(producer_key.into());
+        }
         let mut service = NodeTestingService::new(real_service, shutdown_rx);
         if self.config.all_rust_to_rust_use_webrtc() {
             service.set_rust_to_rust_use_webrtc();
@@ -258,7 +279,7 @@ impl Cluster {
             testing_config.initial_time.into(),
             state,
         );
-        let node = Node::new(store);
+        let node = Node::new(node_config, store);
 
         self.nodes.push(node);
         ClusterNodeId::new_unchecked(node_i)

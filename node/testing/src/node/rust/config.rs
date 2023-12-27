@@ -1,6 +1,9 @@
 use std::time::Duration;
 
-use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
+use node::{
+    account::AccountSecretKey, p2p::connection::outgoing::P2pConnectionOutgoingInitOpts,
+    BlockProducerConfig,
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
@@ -24,6 +27,13 @@ pub struct RustNodeTestingConfig {
     pub initial_peers: Vec<P2pConnectionOutgoingInitOpts>,
     pub libp2p_port: Option<u16>,
     pub peer_id: TestPeerId,
+    pub block_producer: Option<RustNodeBlockProducerTestingConfig>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct RustNodeBlockProducerTestingConfig {
+    pub sec_key: AccountSecretKey,
+    pub config: BlockProducerConfig,
 }
 
 impl RustNodeTestingConfig {
@@ -33,9 +43,10 @@ impl RustNodeTestingConfig {
             initial_time: redux::Timestamp::ZERO,
             max_peers: 100,
             ask_initial_peers_interval: Duration::from_secs(10),
-            initial_peers: vec![],
+            initial_peers: Vec::new(),
             libp2p_port: None,
             peer_id: TestPeerId::default(),
+            block_producer: None,
         }
     }
 

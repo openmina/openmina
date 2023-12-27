@@ -1,5 +1,5 @@
 mod config;
-pub use config::{RustNodeTestingConfig, TestPeerId};
+pub use config::{RustNodeBlockProducerTestingConfig, RustNodeTestingConfig, TestPeerId};
 
 use node::event_source::{Event, EventSourceNewEventAction};
 use node::p2p::connection::outgoing::{
@@ -13,12 +13,17 @@ use redux::EnablingCondition;
 use crate::service::{DynEffects, NodeTestingService, PendingEventId};
 
 pub struct Node {
+    config: RustNodeTestingConfig,
     store: Store<NodeTestingService>,
 }
 
 impl Node {
-    pub fn new(store: Store<NodeTestingService>) -> Self {
-        Self { store }
+    pub fn new(config: RustNodeTestingConfig, store: Store<NodeTestingService>) -> Self {
+        Self { config, store }
+    }
+
+    pub fn config(&self) -> &RustNodeTestingConfig {
+        &self.config
     }
 
     pub fn service(&self) -> &NodeTestingService {

@@ -12,7 +12,9 @@ use serde::{Deserialize, Serialize};
 
 use mina_signer::{CompressedPubKey, PubKey};
 
-#[derive(BinProtWrite, BinProtRead, Serialize, Deserialize, Debug, Clone)]
+#[derive(
+    BinProtWrite, BinProtRead, Serialize, Deserialize, Debug, Ord, PartialOrd, Eq, PartialEq, Clone,
+)]
 pub struct AccountPublicKey(NonZeroCurvePoint);
 
 impl From<PubKey> for AccountPublicKey {
