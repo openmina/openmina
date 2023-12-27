@@ -58,11 +58,11 @@ impl_into_global_action!(disconnection::P2pDisconnectionAction);
 
 impl_into_global_action!(discovery::P2pDiscoveryAction);
 
-impl_into_global_action!(network::P2pNetworkConnectionInterfaceDetectedAction);
-impl_into_global_action!(network::P2pNetworkConnectionInterfaceExpiredAction);
-impl_into_global_action!(network::P2pNetworkConnectionOutgoingDidConnectAction);
-impl_into_global_action!(network::P2pNetworkConnectionIncomingDataIsReadyAction);
-impl_into_global_action!(network::P2pNetworkConnectionIncomingDataDidReceiveAction);
+impl_into_global_action!(network::P2pNetworkSchedulerInterfaceDetectedAction);
+impl_into_global_action!(network::P2pNetworkSchedulerInterfaceExpiredAction);
+impl_into_global_action!(network::P2pNetworkSchedulerOutgoingDidConnectAction);
+impl_into_global_action!(network::P2pNetworkSchedulerIncomingDataIsReadyAction);
+impl_into_global_action!(network::P2pNetworkSchedulerIncomingDataDidReceiveAction);
 
 impl_into_global_action!(channels::P2pChannelsMessageReceivedAction);
 

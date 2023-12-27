@@ -68,8 +68,8 @@ impl P2pNetworkSelectAction {
         Store: crate::P2pStore<S>,
         P2pNetworkPnetOutgoingDataAction: redux::EnablingCondition<S>,
         P2pNetworkSelectIncomingTokenAction: redux::EnablingCondition<S>,
-        P2pNetworkConnectionSelectErrorAction: redux::EnablingCondition<S>,
-        P2pNetworkConnectionSelectDoneAction: redux::EnablingCondition<S>,
+        P2pNetworkSchedulerSelectErrorAction: redux::EnablingCondition<S>,
+        P2pNetworkSchedulerSelectDoneAction: redux::EnablingCondition<S>,
         P2pNetworkNoiseIncomingDataAction: redux::EnablingCondition<S>,
         P2pNetworkSelectOutgoingTokensAction: redux::EnablingCondition<S>,
         P2pNetworkNoiseOutgoingDataAction: redux::EnablingCondition<S>,
@@ -81,7 +81,7 @@ impl P2pNetworkSelectAction {
         let Some(state) = store
             .state()
             .network
-            .connection
+            .scheduler
             .connections
             .get(&self.addr())
         else {
@@ -96,7 +96,7 @@ impl P2pNetworkSelectAction {
             },
         };
         if let P2pNetworkSelectStateInner::Error = &state.inner {
-            store.dispatch(P2pNetworkConnectionSelectErrorAction {
+            store.dispatch(P2pNetworkSchedulerSelectErrorAction {
                 addr: self.addr(),
                 kind: self.id(),
             });
@@ -206,7 +206,7 @@ impl P2pNetworkSelectAction {
             }
         }
         if let Some(protocol) = report {
-            store.dispatch(P2pNetworkConnectionSelectDoneAction {
+            store.dispatch(P2pNetworkSchedulerSelectDoneAction {
                 addr: self.addr(),
                 kind: self.id(),
                 protocol,

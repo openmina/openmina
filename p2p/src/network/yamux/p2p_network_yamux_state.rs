@@ -1,4 +1,4 @@
-use std::collections::VecDeque;
+use std::collections::{BTreeMap, VecDeque};
 
 use redux::ActionMeta;
 use serde::{Deserialize, Serialize};
@@ -61,7 +61,7 @@ impl P2pNetworkYamuxAction {
         P2pNetworkYamuxIncomingFrameAction: redux::EnablingCondition<S>,
     {
         let state = store.state();
-        let Some(state) = state.network.connection.connections.get(&self.addr()) else {
+        let Some(state) = state.network.scheduler.connections.get(&self.addr()) else {
             return;
         };
         let Some(P2pNetworkConnectionMuxState::Yamux(state)) = &state.mux else {
@@ -70,11 +70,16 @@ impl P2pNetworkYamuxAction {
 
         let incoming = state.incoming.front().cloned().map(Into::into);
 
-        if let Some(frame) = incoming {
-            store.dispatch(P2pNetworkYamuxIncomingFrameAction {
-                addr: self.addr(),
-                frame,
-            });
+        match self {
+            Self::IncomingData(_) => {
+                if let Some(frame) = incoming {
+                    store.dispatch(P2pNetworkYamuxIncomingFrameAction {
+                        addr: self.addr(),
+                        frame,
+                    });
+                }
+            }
+            _ => {}
         }
     }
 }
@@ -88,7 +93,11 @@ impl P2pNetworkYamuxState {
         self.terminated = Some(Ok(res));
     }
 
-    pub fn reducer(&mut self, action: redux::ActionWithMeta<&P2pNetworkYamuxAction>) {
+    pub fn reducer(
+        &mut self,
+        streams: &mut BTreeMap<u16, P2pNetworkStreamState>,
+        action: redux::ActionWithMeta<&P2pNetworkYamuxAction>,
+    ) {
         if self.terminated.is_some() {
             return;
         }
@@ -206,6 +215,10 @@ impl P2pNetworkYamuxState {
                     }
                 }
             }
+            P2pNetworkYamuxAction::OpenStream(a) => {
+                streams.insert(a.stream_id, P2pNetworkStreamState::new_incoming());
+            }
+            _ => {}
         }
     }
 }
