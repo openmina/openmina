@@ -87,12 +87,13 @@ impl P2pNetworkPnetAction {
         P2pNetworkSelectInitAction: redux::EnablingCondition<S>,
     {
         let (state, service) = store.state_and_service();
-        let connections = &state.network.connection.connections;
+        let connections = &state.network.scheduler.connections;
         let Some(state) = connections.get(&self.addr()) else {
             return;
         };
+        let state = &state.pnet;
         match self {
-            P2pNetworkPnetAction::IncomingData(a) => match &state.pnet.incoming {
+            P2pNetworkPnetAction::IncomingData(a) => match &state.incoming {
                 Half::Done { to_send, .. } if !to_send.is_empty() => {
                     let data = to_send.clone().into();
                     store.dispatch(P2pNetworkSelectIncomingDataAction {
@@ -103,7 +104,7 @@ impl P2pNetworkPnetAction {
                 }
                 _ => {}
             },
-            P2pNetworkPnetAction::OutgoingData(a) => match &state.pnet.outgoing {
+            P2pNetworkPnetAction::OutgoingData(a) => match &state.outgoing {
                 Half::Done { to_send, .. } if !to_send.is_empty() => {
                     service.send_mio_cmd(crate::MioCmd::Send(
                         a.addr,
