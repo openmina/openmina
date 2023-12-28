@@ -113,7 +113,7 @@ pub struct BlockProducerWonSlotProduceInitAction {}
 impl redux::EnablingCondition<crate::State> for BlockProducerWonSlotProduceInitAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
         state.block_producer.with(false, |this| {
-            !this.current.won_slot_should_wait(state.time())
+            this.current.won_slot().is_some() && !this.current.won_slot_should_wait(state.time())
         })
     }
 }
