@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{Data, P2pState, PeerId};
 
-use super::{super::P2pNetworkAction, *};
+use super::{super::*, *};
 
 #[derive(derive_more::From, Serialize, Deserialize, Debug, Clone)]
 pub enum P2pNetworkSelectAction {
@@ -19,7 +19,7 @@ pub enum SelectKind {
     #[default]
     Authentication,
     Multiplexing(PeerId),
-    Stream(PeerId, u16),
+    Stream(PeerId, StreamId),
 }
 
 impl SelectKind {
@@ -31,7 +31,7 @@ impl SelectKind {
         }
     }
 
-    pub fn stream_id(&self) -> Option<u16> {
+    pub fn stream_id(&self) -> Option<StreamId> {
         match self {
             Self::Authentication => None,
             Self::Multiplexing(_) => None,
