@@ -53,12 +53,12 @@ pub enum P2pNetworkSelectStateInner {
     Error,
     Initiator { proposing: token::Protocol },
     Uncertain { proposing: token::Protocol },
-    Responder { proposing: Option<token::Protocol> },
+    Responder,
 }
 
 impl Default for P2pNetworkSelectStateInner {
     fn default() -> Self {
-        Self::Responder { proposing: None }
+        Self::Responder
     }
 }
 
@@ -282,17 +282,29 @@ impl P2pNetworkSelectState {
                             self.inner = P2pNetworkSelectStateInner::Error;
                         }
                     },
-                    P2pNetworkSelectStateInner::Responder { proposing } => match token {
+                    P2pNetworkSelectStateInner::Responder => match token {
                         token::Token::Handshake => {}
                         token::Token::Na => {}
                         token::Token::SimultaneousConnect => {
                             self.to_send = Some(token::Token::Na);
                         }
-                        token::Token::Protocol(response) => {
-                            // TODO: check if we have the protocol
-                            let _ = proposing;
-                            self.to_send = Some(token::Token::Protocol(response));
-                            self.negotiated = Some(response);
+                        token::Token::Protocol(protocol) => {
+                            let reply = match protocol {
+                                token::Protocol::Auth(_) => token::Token::Na,
+                                token::Protocol::Mux(_) => token::Token::Na,
+                                token::Protocol::Stream(token::StreamKind::Rpc(_)) => {
+                                    // TODO: uncomment when available
+                                    // token::Token::Protocol(protocol)
+                                    token::Token::Na
+                                }
+                                token::Protocol::Stream(token::StreamKind::Broadcast(_)) => {
+                                    token::Token::Na
+                                }
+                                token::Protocol::Stream(token::StreamKind::Discovery(_)) => {
+                                    token::Token::Na
+                                }
+                            };
+                            self.to_send = Some(reply);
                         }
                     },
                 }
