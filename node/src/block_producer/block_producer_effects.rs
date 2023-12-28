@@ -35,7 +35,12 @@ pub fn block_producer_effects<S: crate::Service>(
             //     action.effects(&meta, store);
             // },
             BlockProducerVrfEvaluatorAction::EvaluationSuccess(action) => {
+                let has_won_slot =
+                    matches!(action.vrf_output, vrf::VrfEvaluationOutput::SlotWon(_));
                 action.effects(&meta, store);
+                if has_won_slot {
+                    store.dispatch(BlockProducerWonSlotSearchAction {});
+                }
             }
             BlockProducerVrfEvaluatorAction::UpdateProducerAndDelegates(action) => {
                 action.effects(&meta, store);
@@ -113,7 +118,6 @@ impl BlockProducerBestTipUpdateAction {
     }
 }
 
-// TODO(adonagy): dispatch this action when slot vrf is evaluated.
 impl BlockProducerWonSlotSearchAction {
     pub fn effects<S: redux::Service>(self, _: &ActionMeta, store: &mut Store<S>) {
         // TODO(adonagy): find next slot in `won_slots`, for which global
