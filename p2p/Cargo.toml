@@ -28,6 +28,7 @@ faster-stun = { version = "1.0.1" }
 reqwest = { version = "0.11.22" }
 unsigned-varint = { version = "0.8.0" }
 hex = { version = "0.4.3" }
+bitflags = { version = "2.4.1", features = ["serde"] }
 # crypto
 zeroize = { version = "1.7" }
 vru-noise = { version = "1.7", features = ["serde"] }

@@ -32,7 +32,7 @@ pub struct P2pNetworkConnectionState {
     pub auth: Option<P2pNetworkAuthState>,
     pub select_mux: P2pNetworkSelectState,
     pub mux: Option<P2pNetworkConnectionMuxState>,
-    pub streams: BTreeMap<u16, P2pNetworkStreamState>,
+    pub streams: BTreeMap<StreamId, P2pNetworkStreamState>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -47,6 +47,7 @@ pub enum P2pNetworkConnectionMuxState {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pNetworkStreamState {
+    pub acked: bool,
     pub readable: bool,
     pub writable: bool,
     pub window: i32,
@@ -57,6 +58,7 @@ pub struct P2pNetworkStreamState {
 impl P2pNetworkStreamState {
     pub fn new(stream_kind: token::StreamKind) -> Self {
         P2pNetworkStreamState {
+            acked: true,
             readable: true,
             writable: true,
             window: 1 << 18,
@@ -67,6 +69,7 @@ impl P2pNetworkStreamState {
 
     pub fn new_incoming() -> Self {
         P2pNetworkStreamState {
+            acked: false,
             readable: true,
             writable: true,
             window: 1 << 18,
@@ -227,7 +230,19 @@ impl P2pNetworkSchedulerAction {
                         signature,
                     });
                 }
-                _ => {}
+                token::Protocol::Mux(token::MuxKind::Yamux1_0_0) => {
+                    // yamux doesn't need initialization
+                }
+                token::Protocol::Stream(token::StreamKind::Discovery(_)) => {
+                    // init the stream
+                    unimplemented!()
+                }
+                token::Protocol::Stream(token::StreamKind::Broadcast(_)) => {
+                    unimplemented!()
+                }
+                token::Protocol::Stream(token::StreamKind::Rpc(_)) => {
+                    unimplemented!()
+                }
             },
             Self::SelectError(_) => {}
         }
