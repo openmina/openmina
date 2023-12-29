@@ -40,6 +40,7 @@ use openmina_core::snark::{Snark, SnarkJobId};
 use mina_signer::{CompressedPubKey, PubKey};
 use openmina_core::block::ArcBlockWithHash;
 
+use crate::account::AccountPublicKey;
 use crate::block_producer::vrf_evaluator::BlockProducerVrfEvaluatorLedgerService;
 use crate::block_producer::{
     BlockProducerService, BlockProducerWonSlot, StagedLedgerDiffCreateOutput,
@@ -295,6 +296,43 @@ impl LedgerCtx {
             .insert(new_root_snarked_ledger_hash.clone(), mt);
 
         Ok(())
+    }
+
+    pub fn producers_with_delegates<F: FnMut(&CompressedPubKey) -> bool>(
+        &self,
+        ledger_hash: &LedgerHash,
+        mut filter: F,
+    ) -> Option<BTreeMap<AccountPublicKey, Vec<(ledger::AccountIndex, AccountPublicKey, u64)>>>
+    {
+        let (mask, _) = self.mask(ledger_hash)?;
+        let mut accounts = Vec::new();
+
+        mask.iter(|account| {
+            if filter(&account.public_key)
+                || account.delegate.as_ref().map_or(false, |key| filter(key))
+            {
+                accounts.push((
+                    account.id(),
+                    account.delegate.clone(),
+                    account.balance.as_u64(),
+                ))
+            }
+        });
+
+        let producers = accounts.into_iter().fold(
+            BTreeMap::<_, Vec<_>>::new(),
+            |mut producers, (id, delegate, balance)| {
+                let index = mask.index_of_account(id.clone()).unwrap();
+                let pub_key = AccountPublicKey::from(id.public_key);
+                let producer = delegate.map(Into::into).unwrap_or(pub_key.clone());
+                producers
+                    .entry(producer)
+                    .or_default()
+                    .push((index, pub_key, balance));
+                producers
+            },
+        );
+        Some(producers)
     }
 }
 
@@ -912,41 +950,27 @@ impl<T: LedgerService> RpcLedgerService for T {
 }
 
 impl<T: LedgerService> BlockProducerVrfEvaluatorLedgerService for T {
+    // TODO(adonagy): avoid using strings for account pub keys.
+    // Use `AccountPublicKey` instead.
     fn get_producer_and_delegates(
         &mut self,
         ledger_hash: LedgerHash,
         producer: String,
     ) -> BTreeMap<ledger::AccountIndex, (String, u64)> {
-        // TODO(adonagy): unwraps
-        let (mask, _) = self.ctx().mask(&ledger_hash).unwrap();
-        let account_list = mask.to_list();
         let producer_pub_key = PubKey::from_address(&producer).unwrap().into_compressed();
 
-        account_list
-            .iter()
-            .filter_map(|account| {
-                // if it is the producer
-                if account.public_key == producer_pub_key {
-                    let index = mask.index_of_account(account.id()).unwrap();
-                    Some((
-                        index,
-                        (account.public_key.into_address(), account.balance.as_u64()),
-                    ))
-                // if it has the producer set as delegate
-                } else if let Some(delegate) = &account.delegate {
-                    if delegate == &producer_pub_key {
-                        let index = mask.index_of_account(account.id()).unwrap();
-                        Some((
-                            index,
-                            (account.public_key.into_address(), account.balance.as_u64()),
-                        ))
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                }
-            })
+        // TODO(adonagy): unwrap
+        let delegate_table = self
+            .ctx()
+            .producers_with_delegates(&ledger_hash, |pub_key| pub_key == &producer_pub_key)
+            .unwrap()
+            .into_values()
+            .next()
+            .unwrap();
+
+        delegate_table
+            .into_iter()
+            .map(|(index, pub_key, balance)| (index, (pub_key.to_string(), balance)))
             .collect()
     }
 }
