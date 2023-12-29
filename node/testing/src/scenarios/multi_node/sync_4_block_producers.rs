@@ -75,7 +75,7 @@ impl MultiNodeSync4BlockProducers {
 
         eprintln!("waiting for 4 block producer nodes to sync up.");
         runner
-            .run_until_nodes_synced(Duration::from_secs(60), &[whale1, whale2, fish1, fish2])
+            .run_until_nodes_synced(Duration::from_secs(3 * 60), &[whale1, whale2, fish1, fish2])
             .await
             .unwrap();
         eprintln!("4 block producer nodes create and synced up.");

@@ -3,10 +3,10 @@ use std::{
     time::Duration,
 };
 
-use ledger::scan_state::currency::Balance;
 use node::{
     account::{AccountPublicKey, AccountSecretKey},
     event_source::Event,
+    ledger::LedgerService,
     ActionKind, ActionWithMeta, State,
 };
 
@@ -319,40 +319,42 @@ impl<'a> ClusterRunner<'a> {
         self.cluster.debugger()
     }
 
-    /// Block producer accounts, ordered by balance, smallest first.
+    /// Block producer accounts, ordered by total stake, smallest first.
     ///
     /// Warning: caller must ensure we are using custom daemon json if
     /// this method is called, so that we have secret keys for
     /// all block producers.
-    pub fn block_producer_sec_keys(
-        &self,
-        node_id: ClusterNodeId,
-    ) -> Vec<(AccountSecretKey, Balance)> {
-        use ledger::BaseLedger;
-
-        let Some(staking_ledger) = None.or_else(|| {
+    pub fn block_producer_sec_keys(&self, node_id: ClusterNodeId) -> Vec<(AccountSecretKey, u64)> {
+        let Some(block_producers) = None.or_else(|| {
             let node = self.node(node_id)?;
             let best_tip = node.state().transition_frontier.best_tip()?;
             let staking_ledger_hash = best_tip.staking_epoch_ledger_hash();
-            node.service().ledger(staking_ledger_hash)
+            // get all block producers except an extra account added
+            // by ocaml node. Looks like the block producer of the
+            // genesis block.
+            const GENESIS_PRODUCER: &'static str =
+                "B62qiy32p8kAKnny8ZFwoMhYpBppM1DWVCqAPBYNcXnsAHhnfAAuXgg";
+            LedgerService::ctx(node.service())
+                .producers_with_delegates(staking_ledger_hash, |pub_key| {
+                    pub_key.into_address() != GENESIS_PRODUCER
+                })
         }) else {
             return Default::default();
         };
 
-        let mut block_producers = Vec::new();
-        staking_ledger.iter(|account| {
-            let pub_key = AccountPublicKey::from(account.public_key.clone());
-            // filter block producers.
-            if account.token_id.is_default() && account.delegate.as_ref().map_or(true, |delegate| &account.public_key == delegate)
-                // extra account added by ocaml node. Looks like the
-                // block producer of the genesis block.
-                && pub_key.to_string() != "B62qiy32p8kAKnny8ZFwoMhYpBppM1DWVCqAPBYNcXnsAHhnfAAuXgg"
-            {
-                let sec_key = self.get_account_sec_key(&pub_key).expect("sec key for block producer not found");
-                block_producers.push((sec_key.clone(), account.balance));
-            }
-        });
-        block_producers.sort_by(|(_, b1), (_, b2)| b1.cmp(b2));
+        let mut block_producers = block_producers
+            .into_iter()
+            .map(|(pub_key, delegates)| {
+                let sec_key = self
+                    .get_account_sec_key(&pub_key)
+                    .expect("sec key for block producer not found");
+                let stake: u64 = delegates.into_iter().map(|(_, _, balance)| balance).sum();
+                (sec_key.clone(), stake)
+            })
+            .collect::<Vec<_>>();
+
+        // order by stake
+        block_producers.sort_by(|(_, s1), (_, s2)| s1.cmp(s2));
         block_producers
     }
 }
