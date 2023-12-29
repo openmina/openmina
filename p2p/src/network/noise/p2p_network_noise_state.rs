@@ -143,20 +143,24 @@ impl P2pNetworkNoiseAction {
                         data,
                     });
                 }
-                if let Some(data) = decrypted {
-                    if let Some(peer_id) = remote_peer_id {
-                        store.dispatch(P2pNetworkNoiseDecryptedDataAction {
-                            addr: self.addr(),
-                            peer_id,
-                            data,
-                        });
-                    }
+                if let (Some(data), Some(peer_id)) = (decrypted, remote_peer_id) {
+                    store.dispatch(P2pNetworkNoiseDecryptedDataAction {
+                        addr: self.addr(),
+                        peer_id,
+                        data,
+                    });
                 }
                 if let Some((peer_id, incoming)) = handshake_done {
                     store.dispatch(P2pNetworkNoiseHandshakeDoneAction {
                         addr: self.addr(),
                         peer_id,
                         incoming,
+                    });
+                }
+                if let Some(data) = incoming {
+                    store.dispatch(P2pNetworkNoiseIncomingChunkAction {
+                        addr: self.addr(),
+                        data,
                     });
                 }
             }

@@ -27,6 +27,7 @@ pub struct P2pNetworkSchedulerState {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pNetworkConnectionState {
+    pub incoming: bool,
     pub pnet: P2pNetworkPnetState,
     pub select_auth: P2pNetworkSelectState,
     pub auth: Option<P2pNetworkAuthState>,
@@ -47,10 +48,6 @@ pub enum P2pNetworkConnectionMuxState {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pNetworkStreamState {
-    pub acked: bool,
-    pub readable: bool,
-    pub writable: bool,
-    pub window: i32,
     pub select: P2pNetworkSelectState,
     pub handler: Option<P2pNetworkStreamHandlerState>,
 }
@@ -58,10 +55,6 @@ pub struct P2pNetworkStreamState {
 impl P2pNetworkStreamState {
     pub fn new(stream_kind: token::StreamKind) -> Self {
         P2pNetworkStreamState {
-            acked: true,
-            readable: true,
-            writable: true,
-            window: 1 << 18,
             select: P2pNetworkSelectState::initiator_stream(stream_kind),
             handler: None,
         }
@@ -69,10 +62,6 @@ impl P2pNetworkStreamState {
 
     pub fn new_incoming() -> Self {
         P2pNetworkStreamState {
-            acked: false,
-            readable: true,
-            writable: true,
-            window: 1 << 18,
             select: P2pNetworkSelectState::default(),
             handler: None,
         }
@@ -95,6 +84,7 @@ impl P2pNetworkSchedulerState {
                 self.connections.insert(
                     a.addr,
                     P2pNetworkConnectionState {
+                        incoming: false,
                         pnet: P2pNetworkPnetState::new(self.pnet_key),
                         select_auth: P2pNetworkSelectState::initiator_auth(token::AuthKind::Noise),
                         auth: None,
@@ -117,16 +107,16 @@ impl P2pNetworkSchedulerState {
                     return;
                 };
                 match &a.protocol {
-                    token::Protocol::Auth(token::AuthKind::Noise) => {
+                    Some(token::Protocol::Auth(token::AuthKind::Noise)) => {
                         connection.auth =
                             Some(P2pNetworkAuthState::Noise(P2pNetworkNoiseState::default()));
                     }
-                    token::Protocol::Mux(token::MuxKind::Yamux1_0_0) => {
+                    Some(token::Protocol::Mux(token::MuxKind::Yamux1_0_0)) => {
                         connection.mux = Some(P2pNetworkConnectionMuxState::Yamux(
                             P2pNetworkYamuxState::default(),
                         ));
                     }
-                    token::Protocol::Stream(stream_kind) => {
+                    Some(token::Protocol::Stream(stream_kind)) => {
                         let Some(stream_id) = a.kind.stream_id() else {
                             return;
                         };
@@ -144,6 +134,7 @@ impl P2pNetworkSchedulerState {
                             }
                         }
                     }
+                    None => {}
                 }
             }
             P2pNetworkSchedulerAction::SelectError(a) => {
@@ -153,6 +144,13 @@ impl P2pNetworkSchedulerState {
                     }
                 } else {
                     self.connections.remove(&a.addr);
+                }
+            }
+            P2pNetworkSchedulerAction::YamuxDidInit(a) => {
+                if let Some(cn) = self.connections.get_mut(&a.addr) {
+                    if let Some(P2pNetworkConnectionMuxState::Yamux(yamux)) = &mut cn.mux {
+                        yamux.init = true;
+                    }
                 }
             }
         }
@@ -167,6 +165,8 @@ impl P2pNetworkSchedulerAction {
         P2pNetworkPnetIncomingDataAction: redux::EnablingCondition<S>,
         P2pNetworkPnetSetupNonceAction: redux::EnablingCondition<S>,
         P2pNetworkNoiseInitAction: redux::EnablingCondition<S>,
+        P2pNetworkYamuxOpenStreamAction: redux::EnablingCondition<S>,
+        P2pNetworkYamuxPingStreamAction: redux::EnablingCondition<S>,
     {
         match self {
             Self::InterfaceDetected(a) => {
@@ -212,7 +212,7 @@ impl P2pNetworkSchedulerAction {
                 }
             }
             Self::SelectDone(a) => match &a.protocol {
-                token::Protocol::Auth(token::AuthKind::Noise) => {
+                Some(token::Protocol::Auth(token::AuthKind::Noise)) => {
                     use curve25519_dalek::{constants::ED25519_BASEPOINT_TABLE as G, Scalar};
 
                     let ephemeral_sk = store.service().ephemeral_sk().into();
@@ -230,21 +230,43 @@ impl P2pNetworkSchedulerAction {
                         signature,
                     });
                 }
-                token::Protocol::Mux(token::MuxKind::Yamux1_0_0) => {
-                    // yamux doesn't need initialization
-                }
-                token::Protocol::Stream(token::StreamKind::Discovery(_)) => {
+                Some(token::Protocol::Mux(token::MuxKind::Yamux1_0_0)) => {}
+                Some(token::Protocol::Stream(token::StreamKind::Discovery(_))) => {
                     // init the stream
                     unimplemented!()
                 }
-                token::Protocol::Stream(token::StreamKind::Broadcast(_)) => {
+                Some(token::Protocol::Stream(token::StreamKind::Broadcast(_))) => {
                     unimplemented!()
                 }
-                token::Protocol::Stream(token::StreamKind::Rpc(_)) => {
+                Some(token::Protocol::Stream(token::StreamKind::Rpc(_))) => {
                     unimplemented!()
+                }
+                None => {
+                    match &a.kind {
+                        SelectKind::Authentication => {
+                            // TODO: close the connection
+                        }
+                        SelectKind::Multiplexing(_) => {
+                            // TODO: close the connection
+                        }
+                        SelectKind::Stream(_, _) => {}
+                    }
                 }
             },
-            Self::SelectError(_) => {}
+            Self::SelectError(_) => {
+                // TODO: close stream or connection
+            }
+            Self::YamuxDidInit(a) => {
+                if let Some(cn) = store.state().network.scheduler.connections.get(&a.addr) {
+                    if !cn.incoming {
+                        store.dispatch(P2pNetworkYamuxOpenStreamAction {
+                            addr: a.addr,
+                            stream_id: 1,
+                            stream_kind: token::StreamKind::Rpc(token::RpcAlgorithm::Rpc0_0_1),
+                        });
+                    }
+                }
+            }
         }
     }
 }
