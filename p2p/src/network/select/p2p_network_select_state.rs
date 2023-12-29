@@ -12,7 +12,7 @@ pub struct P2pNetworkSelectState {
     pub recv: token::State,
     pub tokens: VecDeque<token::Token>,
 
-    pub negotiated: Option<token::Protocol>,
+    pub negotiated: Option<Option<token::Protocol>>,
     pub reported: bool,
 
     pub inner: P2pNetworkSelectStateInner,
@@ -128,7 +128,7 @@ impl P2pNetworkSelectAction {
                 });
             }
             Self::IncomingData(a) => {
-                if let Some(negotiated) = &state.negotiated {
+                if let Some(Some(negotiated)) = &state.negotiated {
                     match negotiated {
                         Protocol::Auth(AuthKind::Noise) => {
                             store.dispatch(P2pNetworkNoiseIncomingDataAction {
@@ -196,11 +196,14 @@ impl P2pNetworkSelectAction {
                         });
                     }
                     SelectKind::Stream(_, stream_id) => {
-                        store.dispatch(P2pNetworkYamuxOutgoingDataAction {
-                            addr: a.addr,
-                            stream_id: *stream_id,
-                            data: data.into(),
-                        });
+                        for token in &a.tokens {
+                            store.dispatch(P2pNetworkYamuxOutgoingDataAction {
+                                addr: a.addr,
+                                stream_id: *stream_id,
+                                data: token.name().to_vec().into(),
+                                fin: matches!(token, &token::Token::Na),
+                            });
+                        }
                     }
                 }
             }
@@ -256,6 +259,7 @@ impl P2pNetworkSelectState {
                         token::Token::Na => {
                             // TODO: check if we can propose alternative
                             self.inner = P2pNetworkSelectStateInner::Error;
+                            self.negotiated = Some(None);
                         }
                         token::Token::SimultaneousConnect => {
                             // unexpected token
@@ -263,10 +267,15 @@ impl P2pNetworkSelectState {
                         }
                         token::Token::Protocol(response) => {
                             if response == *proposing {
-                                self.negotiated = Some(response);
+                                self.negotiated = Some(Some(response));
                             } else {
                                 self.inner = P2pNetworkSelectStateInner::Error;
                             }
+                        }
+                        token::Token::UnknownProtocol => {
+                            // unexpected token
+                            self.inner = P2pNetworkSelectStateInner::Error;
+                            self.negotiated = Some(None);
                         }
                     },
                     P2pNetworkSelectStateInner::Uncertain { proposing } => match token {
@@ -279,6 +288,9 @@ impl P2pNetworkSelectState {
                             // TODO: decide who is initiator
                         }
                         token::Token::Protocol(_) => {
+                            self.inner = P2pNetworkSelectStateInner::Error;
+                        }
+                        token::Token::UnknownProtocol => {
                             self.inner = P2pNetworkSelectStateInner::Error;
                         }
                     },
@@ -305,6 +317,11 @@ impl P2pNetworkSelectState {
                                 }
                             };
                             self.to_send = Some(reply);
+                            self.negotiated = Some(None);
+                        }
+                        token::Token::UnknownProtocol => {
+                            self.to_send = Some(token::Token::Na);
+                            self.negotiated = Some(None);
                         }
                     },
                 }

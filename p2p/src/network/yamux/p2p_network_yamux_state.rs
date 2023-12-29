@@ -9,8 +9,28 @@ use super::{super::*, *};
 pub struct P2pNetworkYamuxState {
     pub buffer: Vec<u8>,
     pub incoming: VecDeque<YamuxFrame>,
-
+    pub streams: BTreeMap<StreamId, YamuxStreamState>,
     pub terminated: Option<Result<Result<(), YamuxSessionError>, YamuxFrameParseError>>,
+    pub init: bool,
+}
+
+#[derive(Default, Serialize, Deserialize, Debug, Clone)]
+pub struct YamuxStreamState {
+    pub incoming: bool,
+    pub syn_sent: bool,
+    pub established: bool,
+    pub readable: bool,
+    pub writable: bool,
+    pub window: i32,
+}
+
+impl YamuxStreamState {
+    pub fn incoming() -> Self {
+        YamuxStreamState {
+            incoming: true,
+            ..Default::default()
+        }
+    }
 }
 
 impl Default for P2pNetworkYamuxState {
@@ -18,7 +38,9 @@ impl Default for P2pNetworkYamuxState {
         P2pNetworkYamuxState {
             buffer: Vec::default(),
             incoming: VecDeque::default(),
+            streams: BTreeMap::default(),
             terminated: None,
+            init: false,
         }
     }
 }
@@ -50,6 +72,8 @@ impl YamuxPing {
         YamuxFrame {
             flags: if response {
                 YamuxFlags::ACK
+            } else if stream_id == 0 {
+                YamuxFlags::SYN
             } else {
                 YamuxFlags::empty()
             },
@@ -144,6 +168,9 @@ impl P2pNetworkYamuxAction {
         P2pNetworkNoiseOutgoingDataAction: redux::EnablingCondition<S>,
         P2pNetworkSelectInitAction: redux::EnablingCondition<S>,
         P2pNetworkSelectIncomingDataAction: redux::EnablingCondition<S>,
+        P2pNetworkYamuxOutgoingFrameAction: redux::EnablingCondition<S>,
+        P2pNetworkYamuxPingStreamAction: redux::EnablingCondition<S>,
+        P2pNetworkSchedulerYamuxDidInitAction: redux::EnablingCondition<S>,
     {
         let state = store.state();
         let Some(state) = state.network.scheduler.connections.get(&self.addr()) else {
@@ -156,28 +183,35 @@ impl P2pNetworkYamuxAction {
             },
             _ => return,
         };
-        let streams = &state.streams;
         let Some(P2pNetworkConnectionMuxState::Yamux(state)) = &state.mux else {
             return;
         };
 
         let incoming = state.incoming.front().cloned().map(Into::into);
+        let init = state.init;
 
         match self {
-            Self::IncomingData(_) => {
+            Self::IncomingData(a) => {
                 if let Some(frame) = incoming {
                     store.dispatch(P2pNetworkYamuxIncomingFrameAction {
-                        addr: self.addr(),
+                        addr: a.addr,
                         frame,
                     });
                 }
             }
             Self::IncomingFrame(a) => {
                 let frame = &a.frame;
+                if frame.flags.contains(YamuxFlags::SYN) && frame.stream_id != 0 {
+                    store.dispatch(P2pNetworkSelectInitAction {
+                        addr: a.addr,
+                        kind: SelectKind::Stream(peer_id, frame.stream_id),
+                        incoming: true,
+                    });
+                }
                 match &frame.inner {
                     YamuxFrameInner::Data(data) => {
                         store.dispatch(P2pNetworkSelectIncomingDataAction {
-                            addr: self.addr(),
+                            addr: a.addr,
                             kind: SelectKind::Stream(peer_id, frame.stream_id),
                             data: data.clone(),
                         });
@@ -191,66 +225,65 @@ impl P2pNetworkYamuxAction {
                                 opaque: *opaque,
                                 response: true,
                             };
-                            store.dispatch(P2pNetworkNoiseOutgoingDataAction {
-                                addr: self.addr(),
-                                data: ping.clone().into_frame().into_bytes().into(),
+                            store.dispatch(P2pNetworkYamuxOutgoingFrameAction {
+                                addr: a.addr,
+                                frame: ping.clone().into_frame(),
                             });
+                        }
+                        if !init {
+                            store.dispatch(P2pNetworkSchedulerYamuxDidInitAction { addr: a.addr });
                         }
                     }
                     _ => {}
                 }
-                if frame.flags.contains(YamuxFlags::SYN) && frame.stream_id != 0 {
-                    store.dispatch(P2pNetworkSelectInitAction {
-                        addr: self.addr(),
-                        kind: SelectKind::Stream(peer_id, frame.stream_id),
-                        incoming: true,
+
+                if let Some(frame) = incoming {
+                    store.dispatch(P2pNetworkYamuxIncomingFrameAction {
+                        addr: a.addr,
+                        frame,
                     });
                 }
             }
+            Self::OutgoingFrame(a) => {
+                store.dispatch(P2pNetworkNoiseOutgoingDataAction {
+                    addr: a.addr,
+                    data: a.frame.clone().into_bytes().into(),
+                });
+            }
             Self::OutgoingData(a) => {
-                let Some(stream) = streams.get(&a.stream_id) else {
+                let Some(stream) = state.streams.get(&a.stream_id) else {
                     return;
                 };
+                let mut flags = YamuxFlags::empty();
+                if !stream.incoming && !stream.established && !stream.syn_sent {
+                    flags.insert(YamuxFlags::SYN);
+                } else if stream.incoming && !stream.established {
+                    flags.insert(YamuxFlags::ACK);
+                }
+                if a.fin {
+                    flags.insert(YamuxFlags::FIN);
+                }
                 let frame = YamuxFrame {
-                    flags: if stream.acked {
-                        YamuxFlags::empty()
-                    } else {
-                        YamuxFlags::ACK
-                    },
+                    flags,
                     stream_id: a.stream_id,
                     inner: YamuxFrameInner::Data(a.data.clone()),
                 };
-                store.dispatch(P2pNetworkNoiseOutgoingDataAction {
+                store.dispatch(P2pNetworkYamuxOutgoingFrameAction {
                     addr: a.addr,
-                    data: frame.into_bytes().into(),
+                    frame,
                 });
             }
             Self::PingStream(a) => {
-                store.dispatch(P2pNetworkNoiseOutgoingDataAction {
+                store.dispatch(P2pNetworkYamuxOutgoingFrameAction {
                     addr: a.addr,
-                    data: a.ping.clone().into_frame().into_bytes().into(),
+                    frame: a.ping.clone().into_frame(),
                 });
             }
             Self::OpenStream(a) => {
-                let frame = YamuxFrame {
-                    flags: YamuxFlags::SYN,
-                    stream_id: a.stream_id,
-                    inner: YamuxFrameInner::WindowUpdate { difference: 0 },
-                };
-                store.dispatch(P2pNetworkNoiseOutgoingDataAction {
+                store.dispatch(P2pNetworkSelectInitAction {
                     addr: a.addr,
-                    data: frame.into_bytes().into(),
-                });
-            }
-            Self::SendStream(a) => {
-                let frame = YamuxFrame {
-                    flags: YamuxFlags::empty(),
-                    stream_id: a.stream_id,
-                    inner: YamuxFrameInner::Data(a.data.clone()),
-                };
-                store.dispatch(P2pNetworkNoiseOutgoingDataAction {
-                    addr: a.addr,
-                    data: frame.into_bytes().into(),
+                    kind: SelectKind::Stream(peer_id, a.stream_id),
+                    incoming: false,
                 });
             }
         }
@@ -373,18 +406,22 @@ impl P2pNetworkYamuxState {
             P2pNetworkYamuxAction::OutgoingData(_) => {}
             P2pNetworkYamuxAction::IncomingFrame(_) => {
                 if let Some(frame) = self.incoming.pop_front() {
+                    if frame.flags.contains(YamuxFlags::SYN) {
+                        self.streams
+                            .insert(frame.stream_id, YamuxStreamState::incoming());
+                        streams.insert(frame.stream_id, P2pNetworkStreamState::new_incoming());
+                    }
+                    if frame.flags.contains(YamuxFlags::ACK) {
+                        self.streams.entry(frame.stream_id).or_default().established = true;
+                    }
+
                     match frame.inner {
-                        YamuxFrameInner::Data(_) => {
-                            if frame.flags.contains(YamuxFlags::SYN) {
-                                streams
-                                    .insert(frame.stream_id, P2pNetworkStreamState::new_incoming());
-                            }
-                        }
+                        YamuxFrameInner::Data(_) => {}
                         YamuxFrameInner::WindowUpdate { difference } => {
-                            // TODO: action
-                            let stream = streams
+                            let stream = self
+                                .streams
                                 .entry(frame.stream_id)
-                                .or_insert_with(|| P2pNetworkStreamState::new_incoming());
+                                .or_insert_with(|| YamuxStreamState::incoming());
                             stream.window += difference;
                         }
                         YamuxFrameInner::Ping { .. } => {}
@@ -392,11 +429,28 @@ impl P2pNetworkYamuxState {
                     }
                 }
             }
+            P2pNetworkYamuxAction::OutgoingFrame(a) => {
+                let frame = &a.frame;
+                if frame.flags.contains(YamuxFlags::FIN) {
+                    streams.remove(&frame.stream_id);
+                    if let Some(stream) = self.streams.get_mut(&frame.stream_id) {
+                        stream.writable = false;
+                    }
+                } else if let Some(stream) = self.streams.get_mut(&frame.stream_id) {
+                    if frame.flags.contains(YamuxFlags::ACK) {
+                        stream.established |= true;
+                    }
+                    if frame.flags.contains(YamuxFlags::SYN) {
+                        stream.syn_sent = true;
+                    }
+                }
+            }
             P2pNetworkYamuxAction::PingStream(_) => {}
             P2pNetworkYamuxAction::OpenStream(a) => {
+                self.streams
+                    .insert(a.stream_id, YamuxStreamState::default());
                 streams.insert(a.stream_id, P2pNetworkStreamState::new(a.stream_kind));
             }
-            P2pNetworkYamuxAction::SendStream(_) => {}
         }
     }
 }

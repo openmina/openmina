@@ -61,9 +61,13 @@ impl P2pNetworkAction {
         P2pNetworkNoiseOutgoingDataAction: redux::EnablingCondition<S>,
         P2pNetworkNoiseDecryptedDataAction: redux::EnablingCondition<S>,
         P2pNetworkNoiseHandshakeDoneAction: redux::EnablingCondition<S>,
+        P2pNetworkSchedulerYamuxDidInitAction: redux::EnablingCondition<S>,
         P2pNetworkYamuxIncomingDataAction: redux::EnablingCondition<S>,
         P2pNetworkYamuxOutgoingDataAction: redux::EnablingCondition<S>,
         P2pNetworkYamuxIncomingFrameAction: redux::EnablingCondition<S>,
+        P2pNetworkYamuxPingStreamAction: redux::EnablingCondition<S>,
+        P2pNetworkYamuxOpenStreamAction: redux::EnablingCondition<S>,
+        P2pNetworkYamuxOutgoingFrameAction: redux::EnablingCondition<S>,
     {
         match self {
             Self::Scheduler(v) => v.effects(meta, store),

@@ -42,6 +42,12 @@ impl redux::EnablingCondition<crate::State> for P2pNetworkSchedulerSelectErrorAc
     }
 }
 
+impl redux::EnablingCondition<crate::State> for P2pNetworkSchedulerYamuxDidInitAction {
+    fn is_enabled(&self, state: &crate::State) -> bool {
+        self.is_enabled(&state.p2p)
+    }
+}
+
 impl redux::EnablingCondition<crate::State> for P2pNetworkPnetIncomingDataAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
         self.is_enabled(&state.p2p)
@@ -144,7 +150,19 @@ impl redux::EnablingCondition<crate::State> for P2pNetworkYamuxIncomingFrameActi
     }
 }
 
+impl redux::EnablingCondition<crate::State> for P2pNetworkYamuxOutgoingFrameAction {
+    fn is_enabled(&self, state: &crate::State) -> bool {
+        self.is_enabled(&state.p2p)
+    }
+}
+
 impl redux::EnablingCondition<crate::State> for P2pNetworkYamuxPingStreamAction {
+    fn is_enabled(&self, state: &crate::State) -> bool {
+        self.is_enabled(&state.p2p)
+    }
+}
+
+impl redux::EnablingCondition<crate::State> for P2pNetworkYamuxOpenStreamAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
         self.is_enabled(&state.p2p)
     }

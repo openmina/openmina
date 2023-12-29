@@ -17,6 +17,7 @@ pub enum P2pNetworkSchedulerAction {
     IncomingDataDidReceive(P2pNetworkSchedulerIncomingDataDidReceiveAction),
     SelectDone(P2pNetworkSchedulerSelectDoneAction),
     SelectError(P2pNetworkSchedulerSelectErrorAction),
+    YamuxDidInit(P2pNetworkSchedulerYamuxDidInitAction),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -50,7 +51,7 @@ pub struct P2pNetworkSchedulerIncomingDataDidReceiveAction {
 pub struct P2pNetworkSchedulerSelectDoneAction {
     pub addr: SocketAddr,
     pub kind: SelectKind,
-    pub protocol: token::Protocol,
+    pub protocol: Option<token::Protocol>,
     pub incoming: bool,
 }
 
@@ -58,6 +59,11 @@ pub struct P2pNetworkSchedulerSelectDoneAction {
 pub struct P2pNetworkSchedulerSelectErrorAction {
     pub addr: SocketAddr,
     pub kind: SelectKind,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct P2pNetworkSchedulerYamuxDidInitAction {
+    pub addr: SocketAddr,
 }
 
 impl From<P2pNetworkSchedulerInterfaceDetectedAction> for crate::P2pAction {
@@ -102,6 +108,12 @@ impl From<P2pNetworkSchedulerSelectErrorAction> for crate::P2pAction {
     }
 }
 
+impl From<P2pNetworkSchedulerYamuxDidInitAction> for crate::P2pAction {
+    fn from(a: P2pNetworkSchedulerYamuxDidInitAction) -> Self {
+        Self::Network(P2pNetworkSchedulerAction::from(a).into())
+    }
+}
+
 impl redux::EnablingCondition<P2pState> for P2pNetworkSchedulerAction {
     fn is_enabled(&self, state: &P2pState) -> bool {
         match self {
@@ -112,6 +124,7 @@ impl redux::EnablingCondition<P2pState> for P2pNetworkSchedulerAction {
             Self::IncomingDataDidReceive(a) => a.is_enabled(state),
             Self::SelectDone(a) => a.is_enabled(state),
             Self::SelectError(a) => a.is_enabled(state),
+            Self::YamuxDidInit(a) => a.is_enabled(state),
         }
     }
 }
@@ -153,6 +166,12 @@ impl redux::EnablingCondition<P2pState> for P2pNetworkSchedulerSelectDoneAction 
 }
 
 impl redux::EnablingCondition<P2pState> for P2pNetworkSchedulerSelectErrorAction {
+    fn is_enabled(&self, _state: &P2pState) -> bool {
+        true
+    }
+}
+
+impl redux::EnablingCondition<P2pState> for P2pNetworkSchedulerYamuxDidInitAction {
     fn is_enabled(&self, _state: &P2pState) -> bool {
         true
     }
