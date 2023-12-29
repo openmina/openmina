@@ -9,6 +9,7 @@ pub enum Token {
     Na,
     SimultaneousConnect,
     Protocol(Protocol),
+    UnknownProtocol,
 }
 
 impl Token {
@@ -18,6 +19,7 @@ impl Token {
             Self::Na => b"\x03na\n",
             Self::SimultaneousConnect => b"\x1d/libp2p/simultaneous-connect\n",
             Self::Protocol(v) => v.name(),
+            Self::UnknownProtocol => b"",
         }
     }
 
@@ -162,15 +164,10 @@ impl State {
             return Ok(None);
         }
 
-        if let Some(token) = Token::ALL
+        let token = Token::ALL
             .iter()
-            .find(|t| t.name() == &self.buffer[..(len_length + len)])
-        {
-            self.buffer.drain(..(len_length + len));
-
-            Ok(Some(*token))
-        } else {
-            Err(())
-        }
+            .find(|t| t.name() == &self.buffer[..(len_length + len)]);
+        self.buffer.drain(..(len_length + len));
+        Ok(Some(token.copied().unwrap_or(Token::UnknownProtocol)))
     }
 }
