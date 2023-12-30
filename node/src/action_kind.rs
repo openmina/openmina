@@ -123,6 +123,10 @@ use crate::p2p::network::pnet::{
     P2pNetworkPnetAction, P2pNetworkPnetIncomingDataAction, P2pNetworkPnetOutgoingDataAction,
     P2pNetworkPnetSetupNonceAction,
 };
+use crate::p2p::network::rpc::{
+    P2pNetworkRpcAction, P2pNetworkRpcIncomingDataAction, P2pNetworkRpcInitAction,
+    P2pNetworkRpcOutgoingDataAction,
+};
 use crate::p2p::network::scheduler::{
     P2pNetworkSchedulerAction, P2pNetworkSchedulerIncomingConnectionIsReadyAction,
     P2pNetworkSchedulerIncomingDataDidReceiveAction, P2pNetworkSchedulerIncomingDataIsReadyAction,
@@ -383,6 +387,9 @@ pub enum ActionKind {
     P2pNetworkPnetIncomingData,
     P2pNetworkPnetOutgoingData,
     P2pNetworkPnetSetupNonce,
+    P2pNetworkRpcIncomingData,
+    P2pNetworkRpcInit,
+    P2pNetworkRpcOutgoingData,
     P2pNetworkSchedulerIncomingConnectionIsReady,
     P2pNetworkSchedulerIncomingDataDidReceive,
     P2pNetworkSchedulerIncomingDataIsReady,
@@ -517,7 +524,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 264;
+    pub const COUNT: u16 = 267;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -810,6 +817,7 @@ impl ActionKindGet for P2pNetworkAction {
             Self::Select(a) => a.kind(),
             Self::Noise(a) => a.kind(),
             Self::Yamux(a) => a.kind(),
+            Self::Rpc(a) => a.kind(),
         }
     }
 }
@@ -1625,6 +1633,16 @@ impl ActionKindGet for P2pNetworkYamuxAction {
             Self::OutgoingFrame(a) => a.kind(),
             Self::PingStream(a) => a.kind(),
             Self::OpenStream(a) => a.kind(),
+        }
+    }
+}
+
+impl ActionKindGet for P2pNetworkRpcAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::Init(a) => a.kind(),
+            Self::IncomingData(a) => a.kind(),
+            Self::OutgoingData(a) => a.kind(),
         }
     }
 }
@@ -2465,6 +2483,24 @@ impl ActionKindGet for P2pNetworkYamuxPingStreamAction {
 impl ActionKindGet for P2pNetworkYamuxOpenStreamAction {
     fn kind(&self) -> ActionKind {
         ActionKind::P2pNetworkYamuxOpenStream
+    }
+}
+
+impl ActionKindGet for P2pNetworkRpcInitAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pNetworkRpcInit
+    }
+}
+
+impl ActionKindGet for P2pNetworkRpcIncomingDataAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pNetworkRpcIncomingData
+    }
+}
+
+impl ActionKindGet for P2pNetworkRpcOutgoingDataAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pNetworkRpcOutgoingData
     }
 }
 
