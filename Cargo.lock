@@ -6273,9 +6273,9 @@ checksum = "6a02e4885ed3bc0f2de90ea6dd45ebcbb66dacffe03547fadbb0eeae2770887d"
 
 [[package]]
 name = "vru-noise"
-version = "1.7.0"
+version = "1.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dee017e831c2a39196138880de2d9200f5b7126d953125f98d5b28ca995b6c90"
+checksum = "55e288869b8a26f1507df8d53c9a1ca53a588543d102a89018616764df76a3ed"
 dependencies = [
  "aead 0.5.2",
  "digest 0.10.7",

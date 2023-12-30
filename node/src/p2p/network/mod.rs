@@ -12,6 +12,18 @@ impl redux::EnablingCondition<crate::State> for P2pNetworkSchedulerInterfaceExpi
     }
 }
 
+impl redux::EnablingCondition<crate::State> for P2pNetworkSchedulerIncomingConnectionIsReadyAction {
+    fn is_enabled(&self, state: &crate::State) -> bool {
+        self.is_enabled(&state.p2p)
+    }
+}
+
+impl redux::EnablingCondition<crate::State> for P2pNetworkSchedulerIncomingDidAcceptAction {
+    fn is_enabled(&self, state: &crate::State) -> bool {
+        self.is_enabled(&state.p2p)
+    }
+}
+
 impl redux::EnablingCondition<crate::State> for P2pNetworkSchedulerOutgoingDidConnectAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
         self.is_enabled(&state.p2p)
