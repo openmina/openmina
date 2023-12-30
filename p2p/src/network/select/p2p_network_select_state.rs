@@ -302,8 +302,12 @@ impl P2pNetworkSelectState {
                         }
                         token::Token::Protocol(protocol) => {
                             let reply = match protocol {
-                                token::Protocol::Auth(_) => token::Token::Na,
-                                token::Protocol::Mux(_) => token::Token::Na,
+                                token::Protocol::Auth(_) => token::Token::Protocol(
+                                    token::Protocol::Auth(token::AuthKind::Noise),
+                                ),
+                                token::Protocol::Mux(_) => token::Token::Protocol(
+                                    token::Protocol::Mux(token::MuxKind::Yamux1_0_0),
+                                ),
                                 token::Protocol::Stream(token::StreamKind::Rpc(_)) => {
                                     // TODO: uncomment when available
                                     // token::Token::Protocol(protocol)
@@ -316,8 +320,13 @@ impl P2pNetworkSelectState {
                                     token::Token::Na
                                 }
                             };
+                            let negotiated = if let token::Token::Protocol(p) = &reply {
+                                Some(*p)
+                            } else {
+                                None
+                            };
+                            self.negotiated = Some(negotiated);
                             self.to_send = Some(reply);
-                            self.negotiated = Some(None);
                         }
                         token::Token::UnknownProtocol => {
                             self.to_send = Some(token::Token::Na);

@@ -358,6 +358,7 @@ where
             Recv(addr, mut buf) => {
                 if let Some(mut connection) = self.connections.remove(&addr) {
                     let res = connection.stream.read(&mut buf);
+                    let close = matches!(&res, Ok(0));
                     let read = res.as_ref().cloned().unwrap_or_default();
                     let buf = buf[..read].to_vec().into_boxed_slice();
                     connection.incomind_ready = false;
@@ -376,10 +377,14 @@ where
                             Err(err) if err.raw_os_error() == Some(libc::EAGAIN) => Ok(buf),
                             Err(err) => Err(err.to_string()),
                         };
-                        if res.is_ok() {
+                        if res.is_ok() && !close {
                             self.connections.insert(addr, connection);
                         }
-                        self.send(MioEvent::IncomingDataDidReceive(addr, res));
+                        if close {
+                            self.send(MioEvent::ConnectionDidClose(addr, Ok(())))
+                        } else if read != 0 {
+                            self.send(MioEvent::IncomingDataDidReceive(addr, res));
+                        }
                     }
                 } else {
                     self.send(MioEvent::IncomingDataDidReceive(
