@@ -1028,17 +1028,13 @@ pub mod pseudo {
 }
 
 fn ones_vector(first_zero: Fq, n: u64, w: &mut Witness<Fq>) -> Vec<Boolean> {
-    let mut value = Boolean::True;
+    let mut value = Boolean::True.constant();
 
     let mut vector = (0..n)
         .map(|i| {
-            let eq = field::equal(first_zero, Fq::from(i), w);
-            value = if i == 0 {
-                value.const_and(&eq.neg())
-            } else {
-                value.and(&eq.neg(), w)
-            };
-            value
+            let eq = field::equal(first_zero, Fq::from(i), w).var();
+            value = value.and(&eq.neg(), w);
+            value.as_boolean()
         })
         .collect::<Vec<_>>();
     vector.reverse();
@@ -1254,7 +1250,7 @@ pub mod wrap_verifier {
 
         let to_curve = |v: &PolyComm<Vesta>| {
             let v = v.unshifted[0];
-            InnerCurve::<Fq>::of_affine(make_group(v.x, v.y))
+            InnerCurve::<Fq>::of_affine(v)
         };
 
         let plonk_index = PlonkVerificationKeyEvals {
@@ -2495,22 +2491,8 @@ impl CircuitVar<Boolean> {
         }
     }
 
-    fn as_bool(&self) -> bool {
-        match self {
-            CircuitVar::Var(b) => b.as_bool(),
-            CircuitVar::Constant(b) => b.as_bool(),
-        }
-    }
-
     fn as_cvar<F: FieldWitness>(&self) -> CircuitVar<F> {
-        match self {
-            CircuitVar::Var(b) => CircuitVar::Var(b.to_field::<F>()),
-            CircuitVar::Constant(b) => CircuitVar::Constant(b.to_field::<F>()),
-        }
-    }
-
-    pub fn as_field<F: FieldWitness>(&self) -> F {
-        todo!()
+        self.map(|b| b.to_field::<F>())
     }
 
     pub fn and<F: FieldWitness>(&self, other: &Self, w: &mut Witness<F>) -> Self {

@@ -3096,8 +3096,8 @@ impl ToBoolean for bool {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Boolean {
-    True,
-    False,
+    True = 1,
+    False = 0,
 }
 
 impl Boolean {
