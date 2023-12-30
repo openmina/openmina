@@ -75,6 +75,7 @@ impl P2pNetworkSelectAction {
         P2pNetworkNoiseOutgoingDataAction: redux::EnablingCondition<S>,
         P2pNetworkYamuxIncomingDataAction: redux::EnablingCondition<S>,
         P2pNetworkYamuxOutgoingDataAction: redux::EnablingCondition<S>,
+        P2pNetworkRpcIncomingDataAction: redux::EnablingCondition<S>,
     {
         use self::token::*;
 
@@ -151,10 +152,17 @@ impl P2pNetworkSelectAction {
                                 // send to meshsub handler
                                 unimplemented!()
                             }
-                            StreamKind::Rpc(RpcAlgorithm::Rpc0_0_1) => {
-                                // send to rpc handler
-                                unimplemented!()
-                            }
+                            StreamKind::Rpc(RpcAlgorithm::Rpc0_0_1) => match a.kind {
+                                SelectKind::Stream(peer_id, stream_id) => {
+                                    store.dispatch(P2pNetworkRpcIncomingDataAction {
+                                        addr: a.addr,
+                                        peer_id,
+                                        stream_id,
+                                        data: a.data.clone(),
+                                    });
+                                }
+                                _ => {}
+                            },
                         },
                     }
                 } else {
@@ -309,9 +317,7 @@ impl P2pNetworkSelectState {
                                     token::Protocol::Mux(token::MuxKind::Yamux1_0_0),
                                 ),
                                 token::Protocol::Stream(token::StreamKind::Rpc(_)) => {
-                                    // TODO: uncomment when available
-                                    // token::Token::Protocol(protocol)
-                                    token::Token::Na
+                                    token::Token::Protocol(protocol)
                                 }
                                 token::Protocol::Stream(token::StreamKind::Broadcast(_)) => {
                                     token::Token::Na

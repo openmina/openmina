@@ -179,3 +179,21 @@ impl redux::EnablingCondition<crate::State> for P2pNetworkYamuxOpenStreamAction 
         self.is_enabled(&state.p2p)
     }
 }
+
+impl redux::EnablingCondition<crate::State> for P2pNetworkRpcInitAction {
+    fn is_enabled(&self, state: &crate::State) -> bool {
+        self.is_enabled(&state.p2p)
+    }
+}
+
+impl redux::EnablingCondition<crate::State> for P2pNetworkRpcIncomingDataAction {
+    fn is_enabled(&self, state: &crate::State) -> bool {
+        self.is_enabled(&state.p2p)
+    }
+}
+
+impl redux::EnablingCondition<crate::State> for P2pNetworkRpcOutgoingDataAction {
+    fn is_enabled(&self, state: &crate::State) -> bool {
+        self.is_enabled(&state.p2p)
+    }
+}
