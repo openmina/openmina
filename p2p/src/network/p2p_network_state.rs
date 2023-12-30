@@ -32,9 +32,8 @@ impl P2pNetworkState {
                 listeners: Default::default(),
                 pnet_key,
                 connections: Default::default(),
-                rpc_behaviour_state: Default::default(),
-                broadcast_behaviour_state: Default::default(),
-                discovery_behaviour_state: Default::default(),
+                broadcast_state: Default::default(),
+                discovery_state: Default::default(),
             },
         }
     }
@@ -68,6 +67,8 @@ impl P2pNetworkAction {
         P2pNetworkYamuxPingStreamAction: redux::EnablingCondition<S>,
         P2pNetworkYamuxOpenStreamAction: redux::EnablingCondition<S>,
         P2pNetworkYamuxOutgoingFrameAction: redux::EnablingCondition<S>,
+        P2pNetworkRpcInitAction: redux::EnablingCondition<S>,
+        P2pNetworkRpcIncomingDataAction: redux::EnablingCondition<S>,
     {
         match self {
             Self::Scheduler(v) => v.effects(meta, store),
@@ -75,6 +76,7 @@ impl P2pNetworkAction {
             Self::Select(v) => v.effects(meta, store),
             Self::Noise(v) => v.effects(meta, store),
             Self::Yamux(v) => v.effects(meta, store),
+            Self::Rpc(v) => v.effects(meta, store),
         }
     }
 }
@@ -122,6 +124,19 @@ impl P2pNetworkState {
                     .map(|cn| match &mut cn.mux {
                         Some(P2pNetworkConnectionMuxState::Yamux(state)) => {
                             state.reducer(&mut cn.streams, meta.with_action(&a))
+                        }
+                        _ => {}
+                    });
+            }
+            P2pNetworkAction::Rpc(a) => {
+                self.scheduler
+                    .connections
+                    .get_mut(&a.addr())
+                    .and_then(|cn| cn.streams.get_mut(&a.stream_id()))
+                    .and_then(|stream| stream.handler.as_mut())
+                    .map(|handler| match handler {
+                        P2pNetworkStreamHandlerState::Rpc(state) => {
+                            state.reducer(meta.with_action(&a))
                         }
                         _ => {}
                     });
