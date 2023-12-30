@@ -22,6 +22,9 @@ pub use self::noise::*;
 pub mod yamux;
 pub use self::yamux::*;
 
+pub mod rpc;
+pub use self::rpc::*;
+
 pub use self::data::{Data, DataSized};
 mod data {
     use std::{fmt, ops};
