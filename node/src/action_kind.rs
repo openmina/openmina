@@ -124,8 +124,9 @@ use crate::p2p::network::pnet::{
     P2pNetworkPnetSetupNonceAction,
 };
 use crate::p2p::network::scheduler::{
-    P2pNetworkSchedulerAction, P2pNetworkSchedulerIncomingDataDidReceiveAction,
-    P2pNetworkSchedulerIncomingDataIsReadyAction, P2pNetworkSchedulerInterfaceDetectedAction,
+    P2pNetworkSchedulerAction, P2pNetworkSchedulerIncomingConnectionIsReadyAction,
+    P2pNetworkSchedulerIncomingDataDidReceiveAction, P2pNetworkSchedulerIncomingDataIsReadyAction,
+    P2pNetworkSchedulerIncomingDidAcceptAction, P2pNetworkSchedulerInterfaceDetectedAction,
     P2pNetworkSchedulerInterfaceExpiredAction, P2pNetworkSchedulerOutgoingDidConnectAction,
     P2pNetworkSchedulerSelectDoneAction, P2pNetworkSchedulerSelectErrorAction,
     P2pNetworkSchedulerYamuxDidInitAction,
@@ -382,8 +383,10 @@ pub enum ActionKind {
     P2pNetworkPnetIncomingData,
     P2pNetworkPnetOutgoingData,
     P2pNetworkPnetSetupNonce,
+    P2pNetworkSchedulerIncomingConnectionIsReady,
     P2pNetworkSchedulerIncomingDataDidReceive,
     P2pNetworkSchedulerIncomingDataIsReady,
+    P2pNetworkSchedulerIncomingDidAccept,
     P2pNetworkSchedulerInterfaceDetected,
     P2pNetworkSchedulerInterfaceExpired,
     P2pNetworkSchedulerOutgoingDidConnect,
@@ -514,7 +517,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 262;
+    pub const COUNT: u16 = 264;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -1566,6 +1569,8 @@ impl ActionKindGet for P2pNetworkSchedulerAction {
         match self {
             Self::InterfaceDetected(a) => a.kind(),
             Self::InterfaceExpired(a) => a.kind(),
+            Self::IncomingConnectionIsReady(a) => a.kind(),
+            Self::IncomingDidAccept(a) => a.kind(),
             Self::OutgoingDidConnect(a) => a.kind(),
             Self::IncomingDataIsReady(a) => a.kind(),
             Self::IncomingDataDidReceive(a) => a.kind(),
@@ -2292,6 +2297,18 @@ impl ActionKindGet for P2pNetworkSchedulerInterfaceDetectedAction {
 impl ActionKindGet for P2pNetworkSchedulerInterfaceExpiredAction {
     fn kind(&self) -> ActionKind {
         ActionKind::P2pNetworkSchedulerInterfaceExpired
+    }
+}
+
+impl ActionKindGet for P2pNetworkSchedulerIncomingConnectionIsReadyAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pNetworkSchedulerIncomingConnectionIsReady
+    }
+}
+
+impl ActionKindGet for P2pNetworkSchedulerIncomingDidAcceptAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pNetworkSchedulerIncomingDidAccept
     }
 }
 
