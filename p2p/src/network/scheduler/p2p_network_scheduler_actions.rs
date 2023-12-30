@@ -12,6 +12,8 @@ use crate::P2pState;
 pub enum P2pNetworkSchedulerAction {
     InterfaceDetected(P2pNetworkSchedulerInterfaceDetectedAction),
     InterfaceExpired(P2pNetworkSchedulerInterfaceExpiredAction),
+    IncomingConnectionIsReady(P2pNetworkSchedulerIncomingConnectionIsReadyAction),
+    IncomingDidAccept(P2pNetworkSchedulerIncomingDidAcceptAction),
     OutgoingDidConnect(P2pNetworkSchedulerOutgoingDidConnectAction),
     IncomingDataIsReady(P2pNetworkSchedulerIncomingDataIsReadyAction),
     IncomingDataDidReceive(P2pNetworkSchedulerIncomingDataDidReceiveAction),
@@ -28,6 +30,17 @@ pub struct P2pNetworkSchedulerInterfaceDetectedAction {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pNetworkSchedulerInterfaceExpiredAction {
     pub ip: IpAddr,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct P2pNetworkSchedulerIncomingConnectionIsReadyAction {
+    pub listener: SocketAddr,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct P2pNetworkSchedulerIncomingDidAcceptAction {
+    pub addr: Option<SocketAddr>,
+    pub result: Result<(), String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -78,6 +91,18 @@ impl From<P2pNetworkSchedulerInterfaceExpiredAction> for crate::P2pAction {
     }
 }
 
+impl From<P2pNetworkSchedulerIncomingConnectionIsReadyAction> for crate::P2pAction {
+    fn from(a: P2pNetworkSchedulerIncomingConnectionIsReadyAction) -> Self {
+        Self::Network(P2pNetworkSchedulerAction::from(a).into())
+    }
+}
+
+impl From<P2pNetworkSchedulerIncomingDidAcceptAction> for crate::P2pAction {
+    fn from(a: P2pNetworkSchedulerIncomingDidAcceptAction) -> Self {
+        Self::Network(P2pNetworkSchedulerAction::from(a).into())
+    }
+}
+
 impl From<P2pNetworkSchedulerOutgoingDidConnectAction> for crate::P2pAction {
     fn from(a: P2pNetworkSchedulerOutgoingDidConnectAction) -> Self {
         Self::Network(P2pNetworkSchedulerAction::from(a).into())
@@ -119,6 +144,8 @@ impl redux::EnablingCondition<P2pState> for P2pNetworkSchedulerAction {
         match self {
             Self::InterfaceDetected(a) => a.is_enabled(state),
             Self::InterfaceExpired(a) => a.is_enabled(state),
+            Self::IncomingConnectionIsReady(a) => a.is_enabled(state),
+            Self::IncomingDidAccept(a) => a.is_enabled(state),
             Self::OutgoingDidConnect(a) => a.is_enabled(state),
             Self::IncomingDataIsReady(a) => a.is_enabled(state),
             Self::IncomingDataDidReceive(a) => a.is_enabled(state),
@@ -136,6 +163,18 @@ impl redux::EnablingCondition<P2pState> for P2pNetworkSchedulerInterfaceDetected
 }
 
 impl redux::EnablingCondition<P2pState> for P2pNetworkSchedulerInterfaceExpiredAction {
+    fn is_enabled(&self, _state: &P2pState) -> bool {
+        true
+    }
+}
+
+impl redux::EnablingCondition<P2pState> for P2pNetworkSchedulerIncomingConnectionIsReadyAction {
+    fn is_enabled(&self, _state: &P2pState) -> bool {
+        true
+    }
+}
+
+impl redux::EnablingCondition<P2pState> for P2pNetworkSchedulerIncomingDidAcceptAction {
     fn is_enabled(&self, _state: &P2pState) -> bool {
         true
     }

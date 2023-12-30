@@ -56,7 +56,19 @@ pub struct P2pNetworkNoiseStateInitiator {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum P2pNetworkNoiseStateResponder {
-    Init,
+    Init {
+        r_esk: Sk,
+        r_spk: Pk,
+        r_ssk: Sk,
+        payload: Data,
+        state: Option<SymmetricState<C, ChainingKey<C>>>,
+    },
+    Middle {
+        r_esk: Sk,
+        state: Option<SymmetricState<C, ChainingKey<C>>>,
+        shared_secrets: [[u8; 32]; 2],
+        hash: [u8; 32],
+    },
 }
 
 impl P2pNetworkNoiseAction {
@@ -186,8 +198,17 @@ impl P2pNetworkNoiseState {
                 let payload = a.signature.clone();
 
                 self.inner = if a.incoming {
+                    let state =
+                        Some(SymmetricState::new("Noise_XX_25519_ChaChaPoly_SHA256").mix_hash(&[]));
+
                     Some(P2pNetworkNoiseStateInner::Responder(
-                        P2pNetworkNoiseStateResponder::Init,
+                        P2pNetworkNoiseStateResponder::Init {
+                            r_esk: esk,
+                            r_spk: spk,
+                            r_ssk: ssk,
+                            payload,
+                            state,
+                        },
                     ))
                 } else {
                     let mut chunk = vec![0, 32];
@@ -250,11 +271,23 @@ impl P2pNetworkNoiseState {
                             }
                             Err(err) => *state = P2pNetworkNoiseStateInner::Error(err),
                         },
-                        P2pNetworkNoiseStateInner::Responder(state) => {
-                            if let Some(outgoing) = state.process(chunk) {
-                                self.outgoing_chunks.push_back(outgoing);
+                        P2pNetworkNoiseStateInner::Responder(o) => match o.process(chunk) {
+                            Ok(ResponderOutput::Chunk(chunk)) => {
+                                self.outgoing_chunks.push_back(chunk)
                             }
-                        }
+                            Ok(ResponderOutput::Done(output, remote_pk)) => {
+                                let remote_peer_id = remote_pk.peer_id();
+                                *state = P2pNetworkNoiseStateInner::Done {
+                                    incoming: true,
+                                    output,
+                                    recv_nonce: 0,
+                                    send_nonce: 0,
+                                    remote_pk,
+                                    remote_peer_id,
+                                };
+                            }
+                            Err(err) => *state = P2pNetworkNoiseStateInner::Error(dbg!(err)),
+                        },
                         P2pNetworkNoiseStateInner::Done {
                             output, recv_nonce, ..
                         } => {
@@ -400,6 +433,9 @@ impl P2pNetworkNoiseStateInitiator {
         chunk.extend_from_slice(&tag);
         chunk.extend_from_slice(&*payload);
         chunk.extend_from_slice(&payload_tag);
+        let l = (chunk.len() - 2) as u16;
+        chunk[..2].clone_from_slice(&l.to_be_bytes());
+
         let remote_payload = msg[80..(len - 16)].to_vec().into_boxed_slice();
 
         let pk = libp2p_identity::PublicKey::try_decode_protobuf(&remote_payload[2..38])
@@ -410,17 +446,134 @@ impl P2pNetworkNoiseStateInitiator {
         } else {
             let pk = pk.try_into_ed25519().map_err(|_| BadPublicKey)?;
             let remote_pk = PublicKey::from_bytes(pk.to_bytes()).map_err(|_| BadPublicKey)?;
-            let len = (chunk.len() - 2) as u16;
-            chunk[..2].clone_from_slice(&len.to_be_bytes());
             Ok((chunk, output, remote_pk))
         }
     }
 }
 
+enum ResponderOutput {
+    Chunk(Vec<u8>),
+    Done(OutputRaw<C>, PublicKey),
+}
+
 impl P2pNetworkNoiseStateResponder {
-    fn process(&mut self, chunk: Vec<u8>) -> Option<Vec<u8>> {
-        let _ = chunk;
-        unimplemented!()
+    fn process(&mut self, mut chunk: Vec<u8>) -> Result<ResponderOutput, NoiseError> {
+        use self::NoiseError::*;
+
+        match self {
+            Self::Init {
+                r_esk,
+                r_spk,
+                r_ssk,
+                payload,
+                state,
+            } => {
+                let msg = &mut chunk[2..];
+                let len = msg.len();
+                if len < 32 {
+                    return Err(ChunkTooShort);
+                }
+                let i_epk = Pk::from_bytes(msg[..32].try_into().expect("cannot fail"));
+
+                let r_epk = Pk::from_sk(&*r_esk);
+
+                let mut r_spk_bytes = r_spk.0.to_bytes();
+
+                let shared_secret_0 = &*r_esk * &i_epk;
+                let shared_secret_1 = &*r_ssk * &i_epk;
+
+                let state = state
+                    .take()
+                    .expect("should not fail")
+                    .mix_hash(i_epk.0.as_bytes())
+                    .mix_hash(&[])
+                    .mix_hash(r_epk.0.as_bytes());
+                let state_stored = state.clone();
+                let (state, tag) = state
+                    .mix_shared_secret(shared_secret_0)
+                    .encrypt(&mut r_spk_bytes);
+                let (state, payload_tag) = state
+                    .mix_shared_secret(shared_secret_1)
+                    .encrypt(&mut *payload);
+
+                let hash = state.hash();
+
+                // r_esk.0.zeroize();
+                r_ssk.0.zeroize();
+
+                let mut chunk = vec![0; 2];
+                chunk.extend_from_slice(r_epk.0.as_bytes());
+                chunk.extend_from_slice(&r_spk_bytes);
+                chunk.extend_from_slice(&tag);
+                chunk.extend_from_slice(&*payload);
+                chunk.extend_from_slice(&payload_tag);
+                let l = (chunk.len() - 2) as u16;
+                chunk[..2].clone_from_slice(&l.to_be_bytes());
+
+                *self = Self::Middle {
+                    r_esk: r_esk.clone(),
+                    state: Some(state_stored),
+                    hash: hash.into(),
+                    shared_secrets: [shared_secret_0, shared_secret_1],
+                };
+
+                Ok(ResponderOutput::Chunk(chunk))
+            }
+            Self::Middle {
+                r_esk,
+                state,
+                hash,
+                shared_secrets,
+            } => {
+                let msg = &mut chunk[2..];
+                let len = msg.len();
+                if len < 64 {
+                    return Err(ChunkTooShort);
+                }
+
+                let mut i_spk_bytes = <[u8; 32]>::try_from(&msg[..32]).expect("cannot fail");
+                let tag = *GenericArray::from_slice(&msg[32..48]);
+                let i_spk;
+                let mut remote_payload = msg[48..(len - 16)].to_vec().into_boxed_slice();
+                let payload_tag = *GenericArray::from_slice(&msg[(len - 16)..]);
+
+                let state = state
+                    .take()
+                    .expect("should not fail")
+                    .mix_shared_secret(shared_secrets[0])
+                    .mix_shared_secret(shared_secrets[1])
+                    .unsafe_set_hash((*hash).into());
+                shared_secrets[0].zeroize();
+                shared_secrets[1].zeroize();
+
+                let state = state
+                    .increase()
+                    .decrypt(&mut i_spk_bytes, &tag)
+                    .map_err(|_| FirstMacMismatch)?
+                    .mix_shared_secret({
+                        i_spk = Pk::from_bytes(i_spk_bytes);
+                        &*r_esk * &i_spk
+                    });
+                r_esk.0.zeroize();
+
+                let output = state
+                    .decrypt(&mut remote_payload, &payload_tag)
+                    .map_err(|_| SecondMacMismatch)?
+                    .finish_raw::<1, true>();
+
+                let pk = libp2p_identity::PublicKey::try_decode_protobuf(&remote_payload[2..38])
+                    .map_err(|_| BadPublicKey)?;
+                let msg = &[b"noise-libp2p-static-key:", i_spk.0.as_bytes().as_ref()].concat();
+                if !pk.verify(msg, &remote_payload[40..]) {
+                    Err(InvalidSignature)
+                } else {
+                    let pk = pk.try_into_ed25519().map_err(|_| BadPublicKey)?;
+                    let remote_pk =
+                        PublicKey::from_bytes(pk.to_bytes()).map_err(|_| BadPublicKey)?;
+                    Ok(ResponderOutput::Done(output, remote_pk))
+                }
+            }
+        }
     }
 }
 
