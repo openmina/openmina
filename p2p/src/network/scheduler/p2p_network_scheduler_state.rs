@@ -80,6 +80,25 @@ impl P2pNetworkSchedulerState {
         match action.action() {
             P2pNetworkSchedulerAction::InterfaceDetected(a) => drop(self.interfaces.insert(a.ip)),
             P2pNetworkSchedulerAction::InterfaceExpired(a) => drop(self.interfaces.remove(&a.ip)),
+            P2pNetworkSchedulerAction::IncomingConnectionIsReady(_) => {}
+            P2pNetworkSchedulerAction::IncomingDidAccept(a) => {
+                let Some(addr) = a.addr else {
+                    return;
+                };
+
+                self.connections.insert(
+                    addr,
+                    P2pNetworkConnectionState {
+                        incoming: true,
+                        pnet: P2pNetworkPnetState::new(self.pnet_key),
+                        select_auth: P2pNetworkSelectState::default(),
+                        auth: None,
+                        select_mux: P2pNetworkSelectState::default(),
+                        mux: None,
+                        streams: BTreeMap::default(),
+                    },
+                );
+            }
             P2pNetworkSchedulerAction::OutgoingDidConnect(a) => {
                 self.connections.insert(
                     a.addr,
@@ -183,13 +202,27 @@ impl P2pNetworkSchedulerAction {
                     },
                     _ => panic!(),
                 };
-                // let addr = SocketAddr::from(([172, 17, 0, 1], 8302));
 
                 if addr.is_ipv4() == a.ip.is_ipv4() {
                     store.service().send_mio_cmd(MioCmd::Connect(addr));
                 }
             }
             Self::InterfaceExpired(_) => {}
+            Self::IncomingConnectionIsReady(a) => {
+                store.service().send_mio_cmd(MioCmd::Accept(a.listener));
+            }
+            Self::IncomingDidAccept(a) => {
+                let Some(addr) = a.addr else {
+                    return;
+                };
+
+                let nonce = store.service().generate_random_nonce();
+                store.dispatch(P2pNetworkPnetSetupNonceAction {
+                    addr,
+                    nonce: nonce.to_vec().into(),
+                    incoming: true,
+                });
+            }
             Self::OutgoingDidConnect(a) => {
                 let nonce = store.service().generate_random_nonce();
                 store.dispatch(P2pNetworkPnetSetupNonceAction {
@@ -230,7 +263,19 @@ impl P2pNetworkSchedulerAction {
                         signature,
                     });
                 }
-                Some(token::Protocol::Mux(token::MuxKind::Yamux1_0_0)) => {}
+                Some(token::Protocol::Mux(token::MuxKind::Yamux1_0_0)) => {
+                    if let Some(cn) = store.state().network.scheduler.connections.get(&a.addr) {
+                        if !cn.incoming {
+                            store.dispatch(P2pNetworkYamuxOpenStreamAction {
+                                addr: a.addr,
+                                stream_id: 1,
+                                stream_kind: token::StreamKind::Broadcast(
+                                    token::BroadcastAlgorithm::Meshsub1_1_0,
+                                ),
+                            });
+                        }
+                    }
+                }
                 Some(token::Protocol::Stream(token::StreamKind::Discovery(_))) => {
                     // init the stream
                     unimplemented!()
@@ -256,17 +301,7 @@ impl P2pNetworkSchedulerAction {
             Self::SelectError(_) => {
                 // TODO: close stream or connection
             }
-            Self::YamuxDidInit(a) => {
-                if let Some(cn) = store.state().network.scheduler.connections.get(&a.addr) {
-                    if !cn.incoming {
-                        store.dispatch(P2pNetworkYamuxOpenStreamAction {
-                            addr: a.addr,
-                            stream_id: 1,
-                            stream_kind: token::StreamKind::Rpc(token::RpcAlgorithm::Rpc0_0_1),
-                        });
-                    }
-                }
-            }
+            Self::YamuxDidInit(_) => {}
         }
     }
 }
