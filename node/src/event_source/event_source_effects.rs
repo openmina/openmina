@@ -16,9 +16,10 @@ use crate::p2p::disconnection::{P2pDisconnectionAction, P2pDisconnectionReason};
 use crate::p2p::discovery::P2pDiscoveryAction;
 #[cfg(all(not(target_arch = "wasm32"), not(feature = "p2p-libp2p")))]
 use crate::p2p::network::{
+    P2pNetworkSchedulerIncomingConnectionIsReadyAction,
     P2pNetworkSchedulerIncomingDataDidReceiveAction, P2pNetworkSchedulerIncomingDataIsReadyAction,
-    P2pNetworkSchedulerInterfaceDetectedAction, P2pNetworkSchedulerInterfaceExpiredAction,
-    P2pNetworkSchedulerOutgoingDidConnectAction,
+    P2pNetworkSchedulerIncomingDidAcceptAction, P2pNetworkSchedulerInterfaceDetectedAction,
+    P2pNetworkSchedulerInterfaceExpiredAction, P2pNetworkSchedulerOutgoingDidConnectAction,
 };
 #[cfg(all(not(target_arch = "wasm32"), not(feature = "p2p-libp2p")))]
 use crate::p2p::MioEvent;
@@ -62,6 +63,14 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                     }
                     MioEvent::InterfaceExpired(ip) => {
                         store.dispatch(P2pNetworkSchedulerInterfaceExpiredAction { ip });
+                    }
+                    MioEvent::IncomingConnectionIsReady { listener } => {
+                        store.dispatch(P2pNetworkSchedulerIncomingConnectionIsReadyAction {
+                            listener,
+                        });
+                    }
+                    MioEvent::IncomingConnectionDidAccept(addr, result) => {
+                        store.dispatch(P2pNetworkSchedulerIncomingDidAcceptAction { addr, result });
                     }
                     MioEvent::OutgoingConnectionDidConnect(addr, result) => {
                         store
