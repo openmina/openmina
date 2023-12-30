@@ -336,7 +336,7 @@ impl P2pNetworkNoiseState {
                             chunk.extend_from_slice(data);
 
                             let mut nonce = GenericArray::default();
-                            nonce[..8].clone_from_slice(&send_nonce.to_le_bytes());
+                            nonce[4..].clone_from_slice(&send_nonce.to_le_bytes());
                             *send_nonce += 1;
 
                             let tag = aead
