@@ -62,6 +62,25 @@ impl P2pChannelsRpcRequestSendAction {
                         data: v.into(),
                     });
                 }
+                P2pRpcRequest::LedgerQuery(hash, q) => {
+                    type Payload = QueryPayload<<rpc::AnswerSyncLedgerQueryV2 as RpcMethod>::Query>;
+
+                    let mut v = vec![];
+                    <Payload as BinProtWrite>::binprot_write(
+                        &NeedsLength((hash.0.clone(), q)),
+                        &mut v,
+                    )
+                    .unwrap_or_default();
+                    store.dispatch(P2pNetworkRpcOutgoingQueryAction {
+                        peer_id: self.peer_id,
+                        query: QueryHeader {
+                            tag: rpc::AnswerSyncLedgerQueryV2::NAME.into(),
+                            version: rpc::AnswerSyncLedgerQueryV2::VERSION,
+                            id: self.id as _,
+                        },
+                        data: v.into(),
+                    });
+                }
                 _ => {}
             }
         }

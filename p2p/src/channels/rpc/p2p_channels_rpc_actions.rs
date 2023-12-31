@@ -85,6 +85,20 @@ pub struct P2pChannelsRpcRequestSendAction {
 
 impl redux::EnablingCondition<P2pState> for P2pChannelsRpcRequestSendAction {
     fn is_enabled(&self, state: &P2pState) -> bool {
+        if !cfg!(feature = "p2p-libp2p") {
+            return if !self.request.kind().supported_by_libp2p() {
+                false
+            } else if let Some(streams) = state
+                .network
+                .scheduler
+                .rpc_outgoing_streams
+                .get(&self.peer_id)
+            {
+                !streams.is_empty()
+            } else {
+                false
+            };
+        }
         state
             .peers
             .get(&self.peer_id)
