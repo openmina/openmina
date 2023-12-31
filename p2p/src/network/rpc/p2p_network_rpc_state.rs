@@ -1,4 +1,8 @@
-use std::{collections::VecDeque, net::SocketAddr};
+use std::{
+    collections::{BTreeMap, VecDeque},
+    net::SocketAddr,
+    str,
+};
 
 use binprot::{BinProtRead, BinProtWrite};
 use redux::ActionMeta;
@@ -7,11 +11,16 @@ use serde::{Deserialize, Serialize};
 use mina_p2p_messages::{
     rpc,
     rpc_kernel::{
-        MessageHeader, NeedsLength, QueryHeader, QueryPayload, ResponseHeader, RpcMethod,
+        Error as RpcError, MessageHeader, NeedsLength, QueryHeader, QueryPayload, ResponseHeader,
+        ResponsePayload, RpcMethod,
     },
+    string::CharString,
 };
 
-use crate::Data;
+use crate::{
+    channels::rpc::{BestTipWithProof, P2pChannelsRpcAction, P2pRpcResponse},
+    Data,
+};
 
 use super::{super::*, *};
 
@@ -19,10 +28,27 @@ use super::{super::*, *};
 pub struct P2pNetworkRpcState {
     pub addr: SocketAddr,
     pub stream_id: StreamId,
+    pub last_id: i64,
+    pub pending: BTreeMap<i64, (CharString, i32)>,
     pub is_incoming: bool,
     pub buffer: Vec<u8>,
     pub incoming: VecDeque<RpcMessage>,
     pub error: Option<String>,
+}
+
+impl P2pNetworkRpcState {
+    pub fn new(addr: SocketAddr, stream_id: StreamId) -> Self {
+        P2pNetworkRpcState {
+            addr,
+            stream_id,
+            last_id: 0,
+            pending: BTreeMap::default(),
+            is_incoming: false,
+            buffer: vec![],
+            incoming: Default::default(),
+            error: None,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -124,6 +150,12 @@ impl P2pNetworkRpcState {
             P2pNetworkRpcAction::IncomingMessage(_) => {
                 self.incoming.pop_front();
             }
+            P2pNetworkRpcAction::OutgoingQuery(a) => {
+                self.last_id = a.query.id;
+                // TODO: remove when query is done
+                self.pending
+                    .insert(a.query.id, (a.query.tag.clone(), a.query.version));
+            }
             _ => {}
         }
     }
@@ -137,6 +169,7 @@ impl P2pNetworkRpcAction {
         P2pNetworkRpcIncomingMessageAction: redux::EnablingCondition<S>,
         P2pNetworkRpcOutgoingQueryAction: redux::EnablingCondition<S>,
         P2pNetworkYamuxOutgoingDataAction: redux::EnablingCondition<S>,
+        P2pChannelsRpcAction: redux::EnablingCondition<S>,
     {
         let Some(state) = store.state().network.find_rpc_state(self) else {
             return;
@@ -171,17 +204,31 @@ impl P2pNetworkRpcAction {
                         if !state.is_incoming {
                             let mut v = vec![];
 
-                            type Payload =
-                                QueryPayload<<rpc::VersionedRpcMenuV1 as RpcMethod>::Query>;
+                            // type Payload =
+                            //     QueryPayload<<rpc::VersionedRpcMenuV1 as RpcMethod>::Query>;
+                            // <Payload as BinProtWrite>::binprot_write(&NeedsLength(()), &mut v)
+                            //     .unwrap_or_default();
+
+                            // store.dispatch(P2pNetworkRpcOutgoingQueryAction {
+                            //     peer_id: a.peer_id,
+                            //     query: QueryHeader {
+                            //         tag: rpc::VersionedRpcMenuV1::NAME.into(),
+                            //         version: rpc::VersionedRpcMenuV1::VERSION,
+                            //         id: state.last_id,
+                            //     },
+                            //     data: v.into(),
+                            // });
+
+                            type Payload = QueryPayload<<rpc::GetBestTipV2 as RpcMethod>::Query>;
                             <Payload as BinProtWrite>::binprot_write(&NeedsLength(()), &mut v)
                                 .unwrap_or_default();
 
                             store.dispatch(P2pNetworkRpcOutgoingQueryAction {
                                 peer_id: a.peer_id,
                                 query: QueryHeader {
-                                    tag: rpc::VersionedRpcMenuV1::NAME.into(),
-                                    version: rpc::VersionedRpcMenuV1::VERSION,
-                                    id: 0,
+                                    tag: rpc::GetBestTipV2::NAME.into(),
+                                    version: rpc::GetBestTipV2::VERSION,
+                                    id: state.last_id,
                                 },
                                 data: v.into(),
                             });
@@ -199,7 +246,67 @@ impl P2pNetworkRpcAction {
                     RpcMessage::Query { .. } => {
                         // TODO: dispatch further action
                     }
-                    RpcMessage::Response { .. } => {
+                    RpcMessage::Response { header, bytes } => {
+                        fn parse_r<M: RpcMethod>(
+                            bytes: &[u8],
+                        ) -> Result<Result<M::Response, RpcError>, String> {
+                            let mut bytes = bytes;
+                            <ResponsePayload<M::Response> as BinProtRead>::binprot_read(&mut bytes)
+                                .map(|x| x.0.map(|NeedsLength(x)| x))
+                                .map_err(|err| format!("response {} {}", M::NAME, err))
+                        }
+
+                        if let Some((tag, version)) = state.pending.get(&header.id) {
+                            if let Ok(tag) = std::str::from_utf8(tag.as_ref()) {
+                                match (tag, *version) {
+                                    (rpc::GetBestTipV2::NAME, rpc::GetBestTipV2::VERSION) => {
+                                        let Ok(response) = parse_r::<rpc::GetBestTipV2>(&bytes)
+                                        else {
+                                            // TODO: close the stream
+                                            return;
+                                        };
+                                        let response = response
+                                            .ok()
+                                            .flatten()
+                                            .map(|resp| BestTipWithProof {
+                                                best_tip: resp.data.into(),
+                                                proof: (resp.proof.0, resp.proof.1.into()),
+                                            })
+                                            .map(P2pRpcResponse::BestTipWithProof);
+
+                                        store.dispatch(P2pChannelsRpcAction::ResponseReceived {
+                                            peer_id: a.peer_id,
+                                            id: header.id as _,
+                                            response,
+                                        });
+                                    }
+                                    (
+                                        rpc::AnswerSyncLedgerQueryV2::NAME,
+                                        rpc::AnswerSyncLedgerQueryV2::VERSION,
+                                    ) => {
+                                        let Ok(response) =
+                                            parse_r::<rpc::AnswerSyncLedgerQueryV2>(&bytes)
+                                        else {
+                                            // TODO: close the stream
+                                            return;
+                                        };
+
+                                        let response = response
+                                            .ok()
+                                            .map(|x| x.0.ok())
+                                            .flatten()
+                                            .map(P2pRpcResponse::LedgerQuery);
+
+                                        store.dispatch(P2pChannelsRpcAction::ResponseReceived {
+                                            peer_id: a.peer_id,
+                                            id: header.id as _,
+                                            response,
+                                        });
+                                    }
+                                    _ => {}
+                                }
+                            }
+                        }
                         // TODO: dispatch further action
                     }
                 }
