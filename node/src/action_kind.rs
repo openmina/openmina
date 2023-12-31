@@ -526,7 +526,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 267;
+    pub const COUNT: u16 = 269;
 }
 
 impl std::fmt::Display for ActionKind {

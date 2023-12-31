@@ -15,24 +15,30 @@ pub enum P2pNetworkRpcAction {
     OutgoingData(P2pNetworkRpcOutgoingDataAction),
 }
 
+pub enum RpcStreamId {
+    Exact(StreamId),
+    AnyIncoming,
+    AnyOutgoing,
+}
+
 impl P2pNetworkRpcAction {
-    pub fn addr(&self) -> Option<SocketAddr> {
+    pub fn stream_id(&self) -> RpcStreamId {
         match self {
-            Self::Init(a) => Some(a.addr),
-            Self::IncomingData(a) => Some(a.addr),
-            Self::IncomingMessage(a) => Some(a.addr),
-            Self::OutgoingQuery(a) => None,
-            Self::OutgoingData(a) => Some(a.addr),
+            Self::Init(a) => RpcStreamId::Exact(a.stream_id),
+            Self::IncomingData(a) => RpcStreamId::Exact(a.stream_id),
+            Self::IncomingMessage(a) => RpcStreamId::Exact(a.stream_id),
+            Self::OutgoingQuery(_) => RpcStreamId::AnyOutgoing,
+            Self::OutgoingData(a) => RpcStreamId::Exact(a.stream_id),
         }
     }
 
-    pub fn stream_id(&self) -> Option<StreamId> {
+    pub fn peer_id(&self) -> PeerId {
         match self {
-            Self::Init(a) => Some(a.stream_id),
-            Self::IncomingData(a) => Some(a.stream_id),
-            Self::IncomingMessage(a) => Some(a.stream_id),
-            Self::OutgoingQuery(a) => None,
-            Self::OutgoingData(a) => Some(a.stream_id),
+            Self::Init(a) => a.peer_id,
+            Self::IncomingData(a) => a.peer_id,
+            Self::IncomingMessage(a) => a.peer_id,
+            Self::OutgoingQuery(a) => a.peer_id,
+            Self::OutgoingData(a) => a.peer_id,
         }
     }
 }

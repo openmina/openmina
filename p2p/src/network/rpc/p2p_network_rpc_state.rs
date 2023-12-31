@@ -1,4 +1,4 @@
-use std::collections::VecDeque;
+use std::{collections::VecDeque, net::SocketAddr};
 
 use binprot::{BinProtRead, BinProtWrite};
 use redux::ActionMeta;
@@ -6,15 +6,19 @@ use serde::{Deserialize, Serialize};
 
 use mina_p2p_messages::{
     rpc,
-    rpc_kernel::{MessageHeader, QueryHeader, ResponseHeader, RpcMethod},
+    rpc_kernel::{
+        MessageHeader, NeedsLength, QueryHeader, QueryPayload, ResponseHeader, RpcMethod,
+    },
 };
 
 use crate::Data;
 
 use super::{super::*, *};
 
-#[derive(Default, Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pNetworkRpcState {
+    pub addr: SocketAddr,
+    pub stream_id: StreamId,
     pub is_incoming: bool,
     pub buffer: Vec<u8>,
     pub incoming: VecDeque<RpcMessage>,
@@ -39,6 +43,7 @@ impl RpcMessage {
                 MessageHeader::Response(ResponseHeader { id: HANDSHAKE_ID })
                     .binprot_write(&mut v)
                     .unwrap_or_default();
+                v.extend_from_slice(b"\x01");
             }
             Self::Heartbeat => {
                 MessageHeader::Heartbeat
@@ -116,6 +121,9 @@ impl P2pNetworkRpcState {
 
                 self.buffer = self.buffer[offset..].to_vec();
             }
+            P2pNetworkRpcAction::IncomingMessage(_) => {
+                self.incoming.pop_front();
+            }
             _ => {}
         }
     }
@@ -127,14 +135,10 @@ impl P2pNetworkRpcAction {
         Store: crate::P2pStore<S>,
         P2pNetworkRpcOutgoingDataAction: redux::EnablingCondition<S>,
         P2pNetworkRpcIncomingMessageAction: redux::EnablingCondition<S>,
+        P2pNetworkRpcOutgoingQueryAction: redux::EnablingCondition<S>,
+        P2pNetworkYamuxOutgoingDataAction: redux::EnablingCondition<S>,
     {
-        let Some(connection) = store.state().network.scheduler.connections.get(&self.addr()) else {
-            return;
-        };
-        let Some(stream) = connection.streams.get(&self.stream_id()) else {
-            return;
-        };
-        let Some(P2pNetworkStreamHandlerState::Rpc(state)) = &stream.handler else {
+        let Some(state) = store.state().network.find_rpc_state(self) else {
             return;
         };
 
@@ -165,26 +169,38 @@ impl P2pNetworkRpcAction {
                 match &a.message {
                     RpcMessage::Handshake => {
                         if !state.is_incoming {
-                            // store.dispatch(P2pNetworkRpcOutgoingQueryAction {
-                            //     addr: a.addr,
-                            //     peer_id: a.peer_id,
-                            //     stream_id: a.stream_id,
-                            //     query: QueryHeader {
-                            //         tag: (),
-                            //         version: (),
-                            //         id: (),
-                            //     },
-                            //     data: vec![].into(),
-                            //     fin: false,
-                            // });
+                            let mut v = vec![];
+
+                            type Payload =
+                                QueryPayload<<rpc::VersionedRpcMenuV1 as RpcMethod>::Query>;
+                            <Payload as BinProtWrite>::binprot_write(&NeedsLength(()), &mut v)
+                                .unwrap_or_default();
+
+                            store.dispatch(P2pNetworkRpcOutgoingQueryAction {
+                                peer_id: a.peer_id,
+                                query: QueryHeader {
+                                    tag: rpc::VersionedRpcMenuV1::NAME.into(),
+                                    version: rpc::VersionedRpcMenuV1::VERSION,
+                                    id: 0,
+                                },
+                                data: v.into(),
+                            });
                         }
                     }
-                    RpcMessage::Heartbeat => {}
-                    RpcMessage::Query { header, bytes } => {
-                        //
+                    RpcMessage::Heartbeat => {
+                        store.dispatch(P2pNetworkRpcOutgoingDataAction {
+                            addr: a.addr,
+                            peer_id: a.peer_id,
+                            stream_id: a.stream_id,
+                            data: RpcMessage::Heartbeat.into_bytes().into(),
+                            fin: false,
+                        });
                     }
-                    RpcMessage::Response { header, bytes } => {
-                        //
+                    RpcMessage::Query { .. } => {
+                        // TODO: dispatch further action
+                    }
+                    RpcMessage::Response { .. } => {
+                        // TODO: dispatch further action
                     }
                 }
 
@@ -197,8 +213,28 @@ impl P2pNetworkRpcAction {
                     });
                 }
             }
-            Self::OutgoingQuery(_) => {}
-            Self::OutgoingData(_) => {}
+            Self::OutgoingQuery(a) => {
+                store.dispatch(P2pNetworkRpcOutgoingDataAction {
+                    addr: state.addr,
+                    peer_id: a.peer_id,
+                    stream_id: state.stream_id,
+                    data: RpcMessage::Query {
+                        header: a.query.clone(),
+                        bytes: a.data.clone(),
+                    }
+                    .into_bytes()
+                    .into(),
+                    fin: false,
+                });
+            }
+            Self::OutgoingData(a) => {
+                store.dispatch(P2pNetworkYamuxOutgoingDataAction {
+                    addr: a.addr,
+                    stream_id: a.stream_id,
+                    data: a.data.clone(),
+                    fin: false,
+                });
+            }
         }
     }
 }
