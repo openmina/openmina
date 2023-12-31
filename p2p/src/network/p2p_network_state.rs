@@ -34,6 +34,8 @@ impl P2pNetworkState {
                 connections: Default::default(),
                 broadcast_state: Default::default(),
                 discovery_state: Default::default(),
+                rpc_incoming_streams: Default::default(),
+                rpc_outgoing_streams: Default::default(),
             },
         }
     }
@@ -71,6 +73,7 @@ impl P2pNetworkAction {
         P2pNetworkRpcIncomingDataAction: redux::EnablingCondition<S>,
         P2pNetworkRpcOutgoingDataAction: redux::EnablingCondition<S>,
         P2pNetworkRpcIncomingMessageAction: redux::EnablingCondition<S>,
+        P2pNetworkRpcOutgoingQueryAction: redux::EnablingCondition<S>,
     {
         match self {
             Self::Scheduler(v) => v.effects(meta, store),
@@ -131,19 +134,82 @@ impl P2pNetworkState {
                     });
             }
             P2pNetworkAction::Rpc(a) => {
-                let addr = a.addr().unwrap();
-                let stream_id = a.stream_id().unwrap();
-                self.scheduler
-                    .connections
-                    .get_mut(&addr)
-                    .and_then(|cn| cn.streams.get_mut(&stream_id))
-                    .and_then(|stream| stream.handler.as_mut())
-                    .map(|handler| match handler {
-                        P2pNetworkStreamHandlerState::Rpc(state) => {
-                            state.reducer(meta.with_action(&a))
-                        }
-                        _ => {}
-                    });
+                if let Some(state) = self.find_rpc_state_mut(a) {
+                    state.reducer(meta.with_action(&a))
+                }
+            }
+        }
+    }
+
+    pub fn find_rpc_state(&self, a: &P2pNetworkRpcAction) -> Option<&P2pNetworkRpcState> {
+        match a.stream_id() {
+            RpcStreamId::Exact(stream_id) => self
+                .scheduler
+                .rpc_incoming_streams
+                .get(&a.peer_id())
+                .and_then(|cn| cn.get(&stream_id))
+                .or_else(|| {
+                    self.scheduler
+                        .rpc_outgoing_streams
+                        .get(&a.peer_id())
+                        .and_then(|cn| cn.get(&stream_id))
+                }),
+            RpcStreamId::AnyIncoming => {
+                if let Some(streams) = self.scheduler.rpc_incoming_streams.get(&a.peer_id()) {
+                    if let Some((k, _)) = streams.first_key_value() {
+                        return Some(streams.get(k).expect("checked above"));
+                    }
+                }
+
+                None
+            }
+            RpcStreamId::AnyOutgoing => {
+                if let Some(streams) = self.scheduler.rpc_outgoing_streams.get(&a.peer_id()) {
+                    if let Some((k, _)) = streams.first_key_value() {
+                        return Some(streams.get(k).expect("checked above"));
+                    }
+                }
+
+                None
+            }
+        }
+    }
+
+    pub fn find_rpc_state_mut(
+        &mut self,
+        a: &P2pNetworkRpcAction,
+    ) -> Option<&mut P2pNetworkRpcState> {
+        match a.stream_id() {
+            RpcStreamId::Exact(stream_id) => self
+                .scheduler
+                .rpc_incoming_streams
+                .get_mut(&a.peer_id())
+                .and_then(|cn| cn.get_mut(&stream_id))
+                .or_else(|| {
+                    self.scheduler
+                        .rpc_outgoing_streams
+                        .get_mut(&a.peer_id())
+                        .and_then(|cn| cn.get_mut(&stream_id))
+                }),
+            RpcStreamId::AnyIncoming => {
+                if let Some(streams) = self.scheduler.rpc_incoming_streams.get_mut(&a.peer_id()) {
+                    if let Some((k, _)) = streams.first_key_value() {
+                        let k = *k;
+                        return Some(streams.get_mut(&k).expect("checked above"));
+                    }
+                }
+
+                None
+            }
+            RpcStreamId::AnyOutgoing => {
+                if let Some(streams) = self.scheduler.rpc_outgoing_streams.get_mut(&a.peer_id()) {
+                    if let Some((k, _)) = streams.first_key_value() {
+                        let k = *k;
+                        return Some(streams.get_mut(&k).expect("checked above"));
+                    }
+                }
+
+                None
             }
         }
     }
