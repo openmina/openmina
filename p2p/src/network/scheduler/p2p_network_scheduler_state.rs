@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     connection::outgoing::P2pConnectionOutgoingInitOpts, webrtc::Host, MioCmd, P2pCryptoService,
-    P2pMioService,
+    P2pMioService, PeerId,
 };
 
 use super::{super::*, *};
@@ -22,6 +22,8 @@ pub struct P2pNetworkSchedulerState {
     pub connections: BTreeMap<SocketAddr, P2pNetworkConnectionState>,
     pub broadcast_state: (),
     pub discovery_state: (),
+    pub rpc_incoming_streams: BTreeMap<PeerId, BTreeMap<StreamId, P2pNetworkRpcState>>,
+    pub rpc_outgoing_streams: BTreeMap<PeerId, BTreeMap<StreamId, P2pNetworkRpcState>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -69,7 +71,6 @@ impl P2pNetworkStreamState {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum P2pNetworkStreamHandlerState {
-    Rpc(P2pNetworkRpcState),
     Broadcast,
     Discovery,
 }
@@ -138,19 +139,45 @@ impl P2pNetworkSchedulerState {
                         let Some(stream_id) = a.kind.stream_id() else {
                             return;
                         };
-                        if let Some(stream) = connection.streams.get_mut(&stream_id) {
-                            match stream_kind {
-                                token::StreamKind::Rpc(_) => {
-                                    stream.handler =
-                                        Some(P2pNetworkStreamHandlerState::Rpc(Default::default()))
-                                }
-                                token::StreamKind::Broadcast(_) => {
-                                    stream.handler = Some(P2pNetworkStreamHandlerState::Broadcast)
-                                }
-                                token::StreamKind::Discovery(_) => {
-                                    stream.handler = Some(P2pNetworkStreamHandlerState::Discovery)
+                        let Some(peer_id) = a.kind.peer_id() else {
+                            return;
+                        };
+                        match stream_kind {
+                            token::StreamKind::Rpc(_) => {
+                                if a.incoming {
+                                    self.rpc_incoming_streams
+                                        .entry(peer_id)
+                                        .or_default()
+                                        .insert(
+                                            stream_id,
+                                            P2pNetworkRpcState {
+                                                addr: a.addr,
+                                                stream_id,
+                                                is_incoming: a.incoming,
+                                                buffer: vec![],
+                                                incoming: Default::default(),
+                                                error: None,
+                                            },
+                                        );
+                                } else {
+                                    self.rpc_outgoing_streams
+                                        .entry(peer_id)
+                                        .or_default()
+                                        .insert(
+                                            stream_id,
+                                            P2pNetworkRpcState {
+                                                addr: a.addr,
+                                                stream_id,
+                                                is_incoming: a.incoming,
+                                                buffer: vec![],
+                                                incoming: Default::default(),
+                                                error: None,
+                                            },
+                                        );
                                 }
                             }
+                            token::StreamKind::Broadcast(_) => unimplemented!(),
+                            token::StreamKind::Discovery(_) => unimplemented!(),
                         }
                     }
                     None => {}
