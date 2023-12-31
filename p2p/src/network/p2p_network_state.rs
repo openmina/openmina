@@ -69,6 +69,8 @@ impl P2pNetworkAction {
         P2pNetworkYamuxOutgoingFrameAction: redux::EnablingCondition<S>,
         P2pNetworkRpcInitAction: redux::EnablingCondition<S>,
         P2pNetworkRpcIncomingDataAction: redux::EnablingCondition<S>,
+        P2pNetworkRpcOutgoingDataAction: redux::EnablingCondition<S>,
+        P2pNetworkRpcIncomingMessageAction: redux::EnablingCondition<S>,
     {
         match self {
             Self::Scheduler(v) => v.effects(meta, store),
@@ -129,10 +131,12 @@ impl P2pNetworkState {
                     });
             }
             P2pNetworkAction::Rpc(a) => {
+                let addr = a.addr().unwrap();
+                let stream_id = a.stream_id().unwrap();
                 self.scheduler
                     .connections
-                    .get_mut(&a.addr())
-                    .and_then(|cn| cn.streams.get_mut(&a.stream_id()))
+                    .get_mut(&addr)
+                    .and_then(|cn| cn.streams.get_mut(&stream_id))
                     .and_then(|stream| stream.handler.as_mut())
                     .map(|handler| match handler {
                         P2pNetworkStreamHandlerState::Rpc(state) => {
