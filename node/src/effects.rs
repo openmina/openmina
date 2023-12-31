@@ -13,9 +13,11 @@ use crate::transition_frontier::transition_frontier_effects;
 use crate::watched_accounts::watched_accounts_effects;
 use crate::{Action, ActionWithMeta, ExternalSnarkWorkerAction, Service, Store};
 
+use crate::p2p::channels::rpc::{P2pChannelsRpcAction, P2pRpcRequest};
+
 #[cfg(feature = "p2p-libp2p")]
 use {
-    crate::p2p::channels::rpc::{P2pChannelsRpcAction, P2pRpcKind, P2pRpcRequest},
+    crate::p2p::channels::rpc::P2pRpcKind,
     crate::p2p::connection::incoming::P2pConnectionIncomingTimeoutAction,
     crate::p2p::connection::outgoing::{
         P2pConnectionOutgoingRandomInitAction, P2pConnectionOutgoingReconnectAction,
@@ -57,6 +59,38 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
 
             store.dispatch(SnarkPoolAction::CheckTimeouts);
             store.dispatch(SnarkPoolAction::P2pSendAll);
+
+            #[cfg(not(feature = "p2p-libp2p"))]
+            {
+                let state = store.state();
+                let consensus_best_tip_hash = state.consensus.best_tip.as_ref();
+                let best_tip_hash = state.transition_frontier.best_tip().map(|v| &v.hash);
+                let syncing_best_tip_hash =
+                    state.transition_frontier.sync.best_tip().map(|v| &v.hash);
+
+                if consensus_best_tip_hash.is_some()
+                    && consensus_best_tip_hash != best_tip_hash
+                    && consensus_best_tip_hash != syncing_best_tip_hash
+                    && state.consensus.best_tip_chain_proof.is_none()
+                {
+                    if let Some((peer_id, streams)) = state
+                        .p2p
+                        .network
+                        .scheduler
+                        .rpc_outgoing_streams
+                        .iter()
+                        .last()
+                    {
+                        if let Some((_, state)) = streams.iter().last() {
+                            store.dispatch(P2pChannelsRpcAction::RequestSend {
+                                peer_id: *peer_id,
+                                id: state.last_id as _,
+                                request: P2pRpcRequest::BestTipWithProof,
+                            });
+                        }
+                    }
+                }
+            }
 
             store.dispatch(SnarkPoolCandidateAction::WorkFetchAll);
             store.dispatch(SnarkPoolCandidateAction::WorkVerifyNext);

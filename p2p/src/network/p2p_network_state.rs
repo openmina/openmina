@@ -1,6 +1,8 @@
 use redux::ActionMeta;
 use serde::{Deserialize, Serialize};
 
+use crate::channels::rpc::P2pChannelsRpcAction;
+
 use super::*;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -74,6 +76,7 @@ impl P2pNetworkAction {
         P2pNetworkRpcOutgoingDataAction: redux::EnablingCondition<S>,
         P2pNetworkRpcIncomingMessageAction: redux::EnablingCondition<S>,
         P2pNetworkRpcOutgoingQueryAction: redux::EnablingCondition<S>,
+        P2pChannelsRpcAction: redux::EnablingCondition<S>,
     {
         match self {
             Self::Scheduler(v) => v.effects(meta, store),
