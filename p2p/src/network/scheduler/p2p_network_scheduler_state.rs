@@ -150,14 +150,7 @@ impl P2pNetworkSchedulerState {
                                         .or_default()
                                         .insert(
                                             stream_id,
-                                            P2pNetworkRpcState {
-                                                addr: a.addr,
-                                                stream_id,
-                                                is_incoming: a.incoming,
-                                                buffer: vec![],
-                                                incoming: Default::default(),
-                                                error: None,
-                                            },
+                                            P2pNetworkRpcState::new(a.addr, stream_id),
                                         );
                                 } else {
                                     self.rpc_outgoing_streams
@@ -165,14 +158,7 @@ impl P2pNetworkSchedulerState {
                                         .or_default()
                                         .insert(
                                             stream_id,
-                                            P2pNetworkRpcState {
-                                                addr: a.addr,
-                                                stream_id,
-                                                is_incoming: a.incoming,
-                                                buffer: vec![],
-                                                incoming: Default::default(),
-                                                error: None,
-                                            },
+                                            P2pNetworkRpcState::new(a.addr, stream_id),
                                         );
                                 }
                             }
