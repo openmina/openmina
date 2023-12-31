@@ -109,8 +109,8 @@ use crate::p2p::network::pnet::{
     P2pNetworkPnetSetupNonceAction,
 };
 use crate::p2p::network::rpc::{
-    P2pNetworkRpcAction, P2pNetworkRpcIncomingDataAction, P2pNetworkRpcInitAction,
-    P2pNetworkRpcOutgoingDataAction,
+    P2pNetworkRpcAction, P2pNetworkRpcIncomingDataAction, P2pNetworkRpcIncomingMessageAction,
+    P2pNetworkRpcInitAction, P2pNetworkRpcOutgoingDataAction, P2pNetworkRpcOutgoingQueryAction,
 };
 use crate::p2p::network::scheduler::{
     P2pNetworkSchedulerAction, P2pNetworkSchedulerIncomingConnectionIsReadyAction,
@@ -355,8 +355,10 @@ pub enum ActionKind {
     P2pNetworkPnetOutgoingData,
     P2pNetworkPnetSetupNonce,
     P2pNetworkRpcIncomingData,
+    P2pNetworkRpcIncomingMessage,
     P2pNetworkRpcInit,
     P2pNetworkRpcOutgoingData,
+    P2pNetworkRpcOutgoingQuery,
     P2pNetworkSchedulerIncomingConnectionIsReady,
     P2pNetworkSchedulerIncomingDataDidReceive,
     P2pNetworkSchedulerIncomingDataIsReady,
@@ -1497,6 +1499,8 @@ impl ActionKindGet for P2pNetworkRpcAction {
         match self {
             Self::Init(a) => a.kind(),
             Self::IncomingData(a) => a.kind(),
+            Self::IncomingMessage(a) => a.kind(),
+            Self::OutgoingQuery(a) => a.kind(),
             Self::OutgoingData(a) => a.kind(),
         }
     }
@@ -2320,6 +2324,18 @@ impl ActionKindGet for P2pNetworkRpcInitAction {
 impl ActionKindGet for P2pNetworkRpcIncomingDataAction {
     fn kind(&self) -> ActionKind {
         ActionKind::P2pNetworkRpcIncomingData
+    }
+}
+
+impl ActionKindGet for P2pNetworkRpcIncomingMessageAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pNetworkRpcIncomingMessage
+    }
+}
+
+impl ActionKindGet for P2pNetworkRpcOutgoingQueryAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pNetworkRpcOutgoingQuery
     }
 }
 

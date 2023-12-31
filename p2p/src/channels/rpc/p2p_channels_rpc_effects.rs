@@ -3,7 +3,7 @@ use redux::ActionMeta;
 
 use crate::{
     channels::{ChannelId, MsgId, P2pChannelsService},
-    peer::P2pPeerBestTipUpdateAction,
+    peer::P2pPeerBestTipUpdateAction, P2pNetworkRpcOutgoingQueryAction,
 };
 
 use super::{
@@ -31,10 +31,19 @@ impl P2pChannelsRpcRequestSendAction {
         Store: crate::P2pStore<S>,
         Store::Service: P2pChannelsService,
     {
-        let msg = RpcChannelMsg::Request(self.id, self.request);
-        store
-            .service()
-            .channel_send(self.peer_id, MsgId::first(), msg.into());
+        if cfg!(feature = "p2p-libp2p") {
+            let msg = RpcChannelMsg::Request(self.id, self.request);
+            store
+                .service()
+                .channel_send(self.peer_id, MsgId::first(), msg.into());
+        } else {
+            store.dispatch(P2pNetworkRpcOutgoingQueryAction {
+                addr,
+                peer_id: self.peer_id,
+                stream_id: 1,
+                query: 
+            })
+        }
     }
 }
 
