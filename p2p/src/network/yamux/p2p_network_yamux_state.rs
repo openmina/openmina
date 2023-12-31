@@ -187,7 +187,7 @@ impl P2pNetworkYamuxAction {
             return;
         };
 
-        let incoming = state.incoming.front().cloned().map(Into::into);
+        let incoming = state.incoming.front().cloned();
         let init = state.init;
 
         match self {
