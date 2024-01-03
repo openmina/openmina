@@ -1,6 +1,7 @@
 use std::ffi::{OsStr, OsString};
 use std::process::{Command, Stdio};
 
+use node::account::AccountSecretKey;
 use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 use serde::{Deserialize, Serialize};
 
@@ -153,5 +154,76 @@ impl OcamlNodeExecutable {
         }
 
         Ok(Self::DockerDefault)
+    }
+}
+
+impl DaemonJson {
+    pub fn gen_with_counts(
+        add_account_sec_key: impl FnMut(AccountSecretKey),
+        genesis_timestamp: &str,
+        whales_n: usize,
+        fish_n: usize,
+    ) -> Self {
+        let delegator_balance = |balance: u64| move |i| balance / i as u64;
+        let whales = (0..whales_n).map(|i| {
+            let balance = 8333_u64;
+            let delegators = (1..=(i + 1)).map(delegator_balance(100_000_000));
+            (balance, delegators)
+        });
+        let fish = (0..fish_n).map(|i| {
+            let balance = 6333_u64;
+            let delegators = (1..=(i + 1)).map(delegator_balance(10_000_000));
+            (balance, delegators)
+        });
+        let delegate_table = whales.chain(fish);
+        Self::gen_with_delegate_table(add_account_sec_key, genesis_timestamp, delegate_table)
+    }
+
+    pub fn gen_with_delegate_table(
+        mut add_account_sec_key: impl FnMut(AccountSecretKey),
+        genesis_timestamp: &str,
+        delegate_table: impl IntoIterator<Item = (u64, impl IntoIterator<Item = u64>)>,
+    ) -> Self {
+        let gen_bp = |balance: u64| {
+            let sec_key = AccountSecretKey::rand();
+            let pub_key = sec_key.public_key();
+            let account = serde_json::json!({
+                "pk": pub_key.to_string(),
+                "balance": format!("{balance}.000000000"),
+                "delegate": pub_key.to_string(),
+            });
+            (sec_key, account)
+        };
+        let gen_account = |balance: u64, delegate: &str| {
+            let (sec_key, mut account) = gen_bp(balance);
+            account["delegate"] = delegate.into();
+            (sec_key, account)
+        };
+
+        let all_accounts = delegate_table
+            .into_iter()
+            .flat_map(|(bp_balance, delegate_balances)| {
+                let bp = gen_bp(bp_balance);
+                let bp_pub_key = bp.0.public_key().to_string();
+                let delegates = delegate_balances
+                    .into_iter()
+                    .map(move |balance| gen_account(balance, &bp_pub_key));
+                std::iter::once(bp).chain(delegates)
+            })
+            .map(|(sec_key, account)| {
+                add_account_sec_key(sec_key);
+                account
+            })
+            .collect::<Vec<_>>();
+
+        DaemonJson::InMem(serde_json::json!({
+            "genesis": {
+                "genesis_state_timestamp": genesis_timestamp,
+            },
+            "ledger": {
+                "name": "custom",
+                "accounts": all_accounts,
+            },
+        }))
     }
 }

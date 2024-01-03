@@ -64,59 +64,18 @@ impl<'a> ClusterRunner<'a> {
         self.cluster.nodes_iter()
     }
 
-    pub fn daemon_json_gen(
+    pub fn daemon_json_gen_with_counts(
         &mut self,
         genesis_timestamp: &str,
         whales_n: usize,
         fish_n: usize,
-        accounts_n: usize,
     ) -> DaemonJson {
-        let gen_bp = |balance: u64| {
-            let sec_key = AccountSecretKey::rand();
-            let pub_key = sec_key.public_key();
-            let account = serde_json::json!({
-                "pk": pub_key.to_string(),
-                "balance": format!("{balance}.000000000"),
-                "delegate": pub_key.to_string(),
-            });
-            (sec_key, account)
-        };
-        let gen_account = |balance: u64, delegate: String| {
-            let (sec_key, mut account) = gen_bp(balance);
-            account["delegate"] = delegate.into();
-            (sec_key, account)
-        };
-
-        let whales = (0..whales_n).map(|_| gen_bp(83333)).collect::<Vec<_>>();
-        let fish = (0..fish_n).map(|_| gen_bp(13333)).collect::<Vec<_>>();
-        let accounts = (0..accounts_n).map(|i| {
-            let balance = 100_000_000 / (i as u64 + 1);
-            let i = i % (whales_n + fish_n);
-            let delegate = if i < whales_n {
-                whales[i].1["pk"].as_str().unwrap().to_owned()
-            } else {
-                fish[i % fish_n].1["pk"].as_str().unwrap().to_owned()
-            };
-            gen_account(balance, delegate)
-        });
-        let all_accounts = std::iter::empty()
-            .chain(whales.iter().cloned())
-            .chain(fish.iter().cloned())
-            .chain(accounts)
-            .map(|(sec_key, account)| {
-                self.cluster.add_account_sec_key(sec_key);
-                account
-            })
-            .collect::<Vec<_>>();
-        DaemonJson::InMem(serde_json::json!({
-            "genesis": {
-                "genesis_state_timestamp": genesis_timestamp,
-            },
-            "ledger": {
-                "name": "custom",
-                "accounts": all_accounts,
-            },
-        }))
+        DaemonJson::gen_with_counts(
+            |sec_key| self.cluster.add_account_sec_key(sec_key),
+            genesis_timestamp,
+            whales_n,
+            fish_n,
+        )
     }
 
     pub fn get_account_sec_key(&self, pub_key: &AccountPublicKey) -> Option<&AccountSecretKey> {
