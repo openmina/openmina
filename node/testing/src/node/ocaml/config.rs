@@ -19,6 +19,12 @@ pub enum DaemonJson {
     InMem(serde_json::Value),
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum DaemonJsonGenConfig {
+    Counts { whales: usize, fish: usize },
+    DelegateTable(Vec<(u64, Vec<u64>)>),
+}
+
 #[derive(Debug, Clone)]
 pub struct OcamlNodeConfig {
     /// Command for mina executable.
@@ -158,6 +164,23 @@ impl OcamlNodeExecutable {
 }
 
 impl DaemonJson {
+    pub fn gen(
+        add_account_sec_key: impl FnMut(AccountSecretKey),
+        genesis_timestamp: &str,
+        config: DaemonJsonGenConfig,
+    ) -> Self {
+        match config {
+            DaemonJsonGenConfig::Counts { whales, fish } => {
+                Self::gen_with_counts(add_account_sec_key, genesis_timestamp, whales, fish)
+            }
+            DaemonJsonGenConfig::DelegateTable(delegate_table) => Self::gen_with_delegate_table(
+                add_account_sec_key,
+                genesis_timestamp,
+                delegate_table,
+            ),
+        }
+    }
+
     pub fn gen_with_counts(
         add_account_sec_key: impl FnMut(AccountSecretKey),
         genesis_timestamp: &str,
@@ -167,12 +190,12 @@ impl DaemonJson {
         let delegator_balance = |balance: u64| move |i| balance / i as u64;
         let whales = (0..whales_n).map(|i| {
             let balance = 8333_u64;
-            let delegators = (1..=(i + 1)).map(delegator_balance(100_000_000));
+            let delegators = (1..=(i + 1) * 2).map(delegator_balance(50_000_000));
             (balance, delegators)
         });
         let fish = (0..fish_n).map(|i| {
             let balance = 6333_u64;
-            let delegators = (1..=(i + 1)).map(delegator_balance(10_000_000));
+            let delegators = (1..=(i + 1) * 2).map(delegator_balance(5_000_000));
             (balance, delegators)
         });
         let delegate_table = whales.chain(fish);
@@ -225,5 +248,14 @@ impl DaemonJson {
                 "accounts": all_accounts,
             },
         }))
+    }
+}
+
+impl DaemonJsonGenConfig {
+    pub fn block_producer_count(&self) -> usize {
+        match self {
+            Self::Counts { whales, fish } => whales + fish,
+            Self::DelegateTable(bps) => bps.len(),
+        }
     }
 }
