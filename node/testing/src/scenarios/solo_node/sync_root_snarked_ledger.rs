@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{cmp::Ordering, time::Duration};
 
 use mina_p2p_messages::v2::MinaLedgerSyncLedgerQueryStableV1;
 use node::{
@@ -6,19 +6,19 @@ use node::{
     ledger::LedgerAddress,
     p2p::{
         channels::{
-            rpc::{P2pRpcKind, P2pRpcRequest, RpcChannelMsg},
+            rpc::{P2pRpcRequest, RpcChannelMsg},
             ChannelMsg,
         },
         P2pChannelEvent, P2pEvent,
     },
-    State,
+    ActionKind, State,
 };
 
 use crate::{
     cluster::ClusterNodeId,
     node::RustNodeTestingConfig,
     scenario::{ListenerNode, ScenarioStep},
-    scenarios::cluster_runner::ClusterRunner,
+    scenarios::{cluster_runner::ClusterRunner, RunDecision},
 };
 
 /// Set up single Rust node and sync up root snarked ledger.
@@ -49,7 +49,7 @@ impl SoloNodeSyncRootSnarkedLedger {
             })
             .await
             .unwrap();
-        eprintln!("node: {node_id} dialing to replayer: {REPLAYER_1}");
+        eprintln!("node({node_id}) dialing to replayer: {REPLAYER_1}");
         runner
             .exec_step(ScenarioStep::ConnectNodes {
                 dialer: node_id,
@@ -57,86 +57,51 @@ impl SoloNodeSyncRootSnarkedLedger {
             })
             .await
             .unwrap();
-        eprintln!("node: {node_id} dialing to replayer: {REPLAYER_2}");
+        eprintln!("node({node_id}) dialing to replayer: {REPLAYER_2}");
 
-        loop {
-            if !runner
-                .wait_for_pending_events_with_timeout(Duration::from_secs(10))
-                .await
-            {
-                panic!("waiting for connection event timed out");
-            }
-            let (state, events) = runner.node_pending_events(node_id).unwrap();
+        // Wait for both peers to be connected, hiding p2p ledger query
+        // responses for now, as we want to control their order.
+        runner
+            .run(
+                Duration::from_secs(10),
+                |_, state, event| {
+                    if self.event_ledger_query_addr(state, event).is_some() {
+                        // skip/hide ledger query events.
+                        return RunDecision::Skip;
+                    }
+                    RunDecision::ContinueExec
+                },
+                |_, state, _, _| {
+                    let connected_peer_count = state
+                        .p2p
+                        .ready_peers_iter()
+                        .filter(|(_, p)| p.channels.rpc.is_ready())
+                        .count();
 
-            let connected_peer_count = state
-                .p2p
-                .ready_peers_iter()
-                .filter(|(_, p)| p.channels.rpc.is_ready())
-                .count();
+                    // exit if both peers ready.
+                    connected_peer_count >= 2
+                },
+            )
+            .await
+            .expect("waiting for 2 replayer peers to be connected timed out");
 
-            // Break loop if both replayers got connected and we started
-            // sending ledger queries.
-            if connected_peer_count >= 2 {
-                let has_sent_ledger_query = state
-                    .p2p
-                    .ready_peers_iter()
-                    .filter_map(|(_, p)| p.channels.rpc.pending_local_rpc_kind())
-                    .any(|rpc_kind| matches!(rpc_kind, P2pRpcKind::LedgerQuery));
-
-                if has_sent_ledger_query {
-                    break;
-                }
-            }
-
-            let events = events
-                .filter_map(|(_, event)| {
-                    // Don't dispatch ledger query responses yet. We want
-                    // to later manually control their order.
-                    Some(())
-                        .filter(|_| self.event_ledger_query_addr(state, event).is_none())
-                        .map(|_| event.to_string())
-                })
-                .collect::<Vec<_>>();
-
-            for event in events {
-                runner
-                    .exec_step(ScenarioStep::Event { node_id, event })
-                    .await
-                    .unwrap();
-            }
-        }
         eprintln!("2 replayers are now connected");
 
         // Exec ledger query responses until we are deep enough for there
         // to be more than 1 hash in the same height.
         eprintln!("exec ledger query responses until we are deep enough for there to be more than 1 hash in the same height");
-        loop {
-            if !runner
-                .wait_for_pending_events_with_timeout(Duration::from_secs(5))
-                .await
-            {
-                panic!("waiting for events event timed out");
-            }
-            let (state, events) = runner.node_pending_events(node_id).unwrap();
-
-            let snarked_state = state
-                .transition_frontier
-                .sync
-                .ledger()
-                .unwrap()
-                .snarked()
-                .unwrap();
-            if snarked_state.fetch_pending().unwrap().len() >= 2 {
-                break;
-            }
-
-            for event in events.map(|(_, e)| e.to_string()).collect::<Vec<_>>() {
-                runner
-                    .exec_step(ScenarioStep::Event { node_id, event })
-                    .await
-                    .unwrap();
-            }
-        }
+        runner
+            .run(
+                Duration::from_secs(10),
+                |_, _, _| RunDecision::ContinueExec,
+                // |_, _, _| RunDecision::ContinueExec,
+                move |_, state, _, action| {
+                    matches!(action.action().kind(), ActionKind::CheckTimeouts)
+                        && self.fetch_pending_count(state) >= 2
+                },
+            )
+            .await
+            .expect("time out");
 
         eprintln!("receive all hashes before first...");
         self.receive_all_hashes_before_first(&mut runner, node_id)
@@ -147,60 +112,62 @@ impl SoloNodeSyncRootSnarkedLedger {
         eprintln!("success");
     }
 
+    fn fetch_pending_count(self, state: &State) -> usize {
+        None.or_else(|| {
+            let snarked_state = state.transition_frontier.sync.ledger()?.snarked()?;
+            Some(snarked_state.fetch_pending().unwrap().len())
+        })
+        .unwrap_or(0)
+    }
+
+    async fn receive_single_hash(self, runner: &mut ClusterRunner<'_>, node_id: ClusterNodeId) {
+        runner
+            .run(
+                Duration::from_secs(5),
+                |cur_node_id, state, event| {
+                    if cur_node_id == node_id
+                        && self.event_ledger_query_addr(state, event).is_some()
+                    {
+                        return RunDecision::StopExec;
+                    }
+                    RunDecision::Skip
+                },
+                |_, _, _, _| false,
+            )
+            .await
+            .expect("timeout");
+    }
+
     async fn receive_all_hashes_before_first(
         self,
         runner: &mut ClusterRunner<'_>,
         node_id: ClusterNodeId,
     ) {
         self.receive_all_hashes_except_first(runner, node_id).await;
-        let (_state, events) = runner.node_pending_events(node_id).unwrap();
-        for event in events.map(|(_, e)| e.to_string()).collect::<Vec<_>>() {
-            runner
-                .exec_step(ScenarioStep::Event { node_id, event })
-                .await
-                .unwrap();
-        }
+        self.receive_single_hash(runner, node_id).await;
     }
 
     async fn receive_all_hashes_except_first(
         self,
         runner: &mut ClusterRunner<'_>,
-        node_id: ClusterNodeId,
+        _node_id: ClusterNodeId,
     ) {
-        loop {
-            if !runner
-                .wait_for_pending_events_with_timeout(Duration::from_secs(5))
-                .await
-            {
-                panic!("waiting for events event timed out");
-            }
-            let (state, events) = runner.node_pending_events(node_id).unwrap();
-
-            let snarked_state = state
-                .transition_frontier
-                .sync
-                .ledger()
-                .unwrap()
-                .snarked()
-                .unwrap();
-            if snarked_state.fetch_pending().unwrap().len() == 1 {
-                break;
-            }
-
-            let events = events.filter(|(_, e)| !self.is_event_first_ledger_query(state, e));
-
-            for event in events.map(|(_, e)| e.to_string()).collect::<Vec<_>>() {
-                runner
-                    .exec_step(ScenarioStep::Event { node_id, event })
-                    .await
-                    .unwrap();
-            }
-        }
-
         runner
-            .exec_step(ScenarioStep::CheckTimeouts { node_id })
+            .run(
+                Duration::from_secs(10),
+                |_, state, event| {
+                    if self.is_event_first_ledger_query(state, event) {
+                        return RunDecision::Skip;
+                    }
+                    RunDecision::ContinueExec
+                },
+                move |_, state, _, action| {
+                    matches!(action.action().kind(), ActionKind::CheckTimeouts)
+                        && self.fetch_pending_count(state) == 1
+                },
+            )
             .await
-            .unwrap();
+            .expect("timeout");
     }
 
     async fn receive_all_hashes_before_last(
@@ -209,13 +176,7 @@ impl SoloNodeSyncRootSnarkedLedger {
         node_id: ClusterNodeId,
     ) {
         self.receive_all_hashes_except_last(runner, node_id).await;
-        let (_state, events) = runner.node_pending_events(node_id).unwrap();
-        for event in events.map(|(_, e)| e.to_string()).collect::<Vec<_>>() {
-            runner
-                .exec_step(ScenarioStep::Event { node_id, event })
-                .await
-                .unwrap();
-        }
+        self.receive_single_hash(runner, node_id).await;
     }
 
     async fn receive_all_hashes_except_last(
@@ -223,46 +184,38 @@ impl SoloNodeSyncRootSnarkedLedger {
         runner: &mut ClusterRunner<'_>,
         node_id: ClusterNodeId,
     ) {
-        loop {
-            if !runner
-                .wait_for_pending_events_with_timeout(Duration::from_secs(5))
+        let mut biggest_addr = None;
+        while self.fetch_pending_count(runner.node(node_id).unwrap().state()) > 1 {
+            runner
+                .run(
+                    Duration::from_secs(10),
+                    |_, state, event| {
+                        let Some(addr) = self.event_ledger_query_addr(state, event) else {
+                            return RunDecision::Skip;
+                        };
+                        match biggest_addr.as_mut() {
+                            None => {
+                                biggest_addr = Some(addr);
+                                RunDecision::Skip
+                            }
+                            Some(biggest_addr) => match addr.cmp(biggest_addr) {
+                                Ordering::Less => RunDecision::ContinueExec,
+                                Ordering::Equal => RunDecision::Skip,
+                                Ordering::Greater => {
+                                    *biggest_addr = addr;
+                                    RunDecision::Stop
+                                }
+                            },
+                        }
+                    },
+                    move |_, state, _, action| {
+                        matches!(action.action().kind(), ActionKind::CheckTimeouts)
+                            && self.fetch_pending_count(state) == 1
+                    },
+                )
                 .await
-            {
-                panic!("waiting for events event timed out");
-            }
-            let (state, events) = runner.node_pending_events(node_id).unwrap();
-
-            let snarked_state = state
-                .transition_frontier
-                .sync
-                .ledger()
-                .unwrap()
-                .snarked()
-                .unwrap();
-            if snarked_state.fetch_pending().unwrap().len() == 1 {
-                break;
-            }
-
-            let mut events = events
-                .filter_map(|(_, e)| Some((e, self.event_ledger_query_addr(state, e)?)))
-                .collect::<Vec<_>>();
-
-            events.sort_by(|(_, addr1), (_, addr2)| addr1.cmp(addr2));
-
-            let events = events.into_iter().rev().skip(1);
-
-            for event in events.map(|(e, _)| e.to_string()).collect::<Vec<_>>() {
-                runner
-                    .exec_step(ScenarioStep::Event { node_id, event })
-                    .await
-                    .unwrap();
-            }
+                .expect("timeout");
         }
-
-        runner
-            .exec_step(ScenarioStep::CheckTimeouts { node_id })
-            .await
-            .unwrap();
     }
 
     fn event_ledger_query_addr(self, state: &State, event: &Event) -> Option<LedgerAddress> {
