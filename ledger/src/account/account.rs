@@ -24,6 +24,7 @@ use crate::{
         currency::{Balance, Magnitude, Nonce, Slot},
         transaction_logic::account_min_balance_at_slot,
     },
+    zkapps::snark::FlaggedOption,
     MerklePath, MyCow, ToInputs,
 };
 
@@ -601,11 +602,16 @@ impl ToFieldElements<Fp> for ZkAppAccount {
         } = self;
 
         app_state.to_field_elements(fields);
-        match verification_key {
-            Some(vk) => vk.hash(),
-            None => VerificationKey::dummy().hash(),
-        }
-        .to_field_elements(fields);
+        (
+            FlaggedOption::from(
+                verification_key
+                    .as_ref()
+                    .map(VerificationKey::hash)
+                    .as_ref(),
+            ),
+            || VerificationKey::dummy().hash(),
+        )
+            .to_field_elements(fields);
         Fp::from(*zkapp_version).to_field_elements(fields);
         action_state.to_field_elements(fields);
         last_action_slot.to_field_elements(fields);

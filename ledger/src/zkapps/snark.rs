@@ -909,11 +909,7 @@ impl ToFieldElements<Fp> for AccountUnhashed {
         voting_for.to_field_elements(fields);
         timing.to_field_elements(fields);
         permissions.to_field_elements(fields);
-        (
-            FlaggedOption::from(zkapp.as_ref()),
-            crate::ZkAppAccount::default,
-        )
-            .to_field_elements(fields);
+        MyCow::borrow_or_else(zkapp, crate::ZkAppAccount::default).to_field_elements(fields);
     }
 }
 
