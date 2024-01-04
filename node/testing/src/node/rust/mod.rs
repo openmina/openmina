@@ -95,6 +95,10 @@ impl Node {
         self.store.service.advance_time(by_nanos)
     }
 
+    pub async fn wait_for_next_pending_event(&mut self) -> Option<(PendingEventId, &Event)> {
+        self.service_mut().next_pending_event().await
+    }
+
     pub async fn wait_for_event_and_dispatch(&mut self, event_pattern: &str) -> bool {
         let event_id = self
             .service_mut()
