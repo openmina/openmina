@@ -2,6 +2,7 @@ mod config;
 pub use config::ClusterConfig;
 
 mod p2p_task_spawner;
+use libp2p::futures::{stream::FuturesUnordered, StreamExt};
 use node::account::{AccountPublicKey, AccountSecretKey};
 pub use p2p_task_spawner::P2pTaskSpawner;
 
@@ -406,13 +407,16 @@ impl Cluster {
     }
 
     pub async fn wait_for_pending_events(&mut self) {
-        loop {
-            tokio::time::sleep(Duration::from_millis(10)).await;
-            if self
-                .nodes
-                .iter_mut()
-                .any(|node| node.pending_events().next().is_some())
-            {
+        let mut nodes = &mut self.nodes[..];
+        let mut futures = FuturesUnordered::new();
+
+        while let Some((node, nodes_rest)) = nodes.split_first_mut() {
+            nodes = nodes_rest;
+            futures.push(async { node.wait_for_next_pending_event().await.is_some() });
+        }
+
+        while let Some(has_event) = futures.next().await {
+            if has_event {
                 break;
             }
         }
