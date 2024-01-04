@@ -13,7 +13,10 @@ use node::{
 use crate::{
     cluster::{Cluster, ClusterNodeId, ClusterOcamlNodeId},
     network_debugger::Debugger,
-    node::{DaemonJson, Node, OcamlNode, OcamlNodeTestingConfig, RustNodeTestingConfig},
+    node::{
+        DaemonJson, DaemonJsonGenConfig, Node, OcamlNode, OcamlNodeTestingConfig,
+        RustNodeTestingConfig,
+    },
     scenario::ScenarioStep,
     service::{DynEffects, NodeTestingService, PendingEventId},
 };
@@ -62,6 +65,18 @@ impl<'a> ClusterRunner<'a> {
 
     pub fn nodes_iter(&self) -> impl Iterator<Item = (ClusterNodeId, &Node)> {
         self.cluster.nodes_iter()
+    }
+
+    pub fn daemon_json_gen(
+        &mut self,
+        genesis_timestamp: &str,
+        config: DaemonJsonGenConfig,
+    ) -> DaemonJson {
+        DaemonJson::gen(
+            |sec_key| self.cluster.add_account_sec_key(sec_key),
+            genesis_timestamp,
+            config,
+        )
     }
 
     pub fn daemon_json_gen_with_counts(
