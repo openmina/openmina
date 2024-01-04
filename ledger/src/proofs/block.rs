@@ -266,7 +266,10 @@ mod floating_point {
     use num_bigint::BigUint;
 
     use crate::{
-        proofs::witness::{field_of_bits, field_to_bits2, FieldWitness},
+        proofs::{
+            to_field_elements::field_of_bits,
+            witness::{field_to_bits2, FieldWitness},
+        },
         scan_state::currency::{Amount, Balance, Sgn},
     };
 

@@ -100,25 +100,23 @@ pub fn combined_inner_product(params: CombinedInnerProductParams) -> Fp {
         Second,
     }
 
-    let combine = |which_eval: WhichEval, ft: Fp, pt: Fp| {
+    let combine = |which_eval: WhichEval, ft: Fp, pt: Fp| -> Fp {
         let f = |[x, y]: &[Fp; 2]| match which_eval {
             WhichEval::First => *x,
             WhichEval::Second => *y,
         };
-        let a: Vec<_> = a.iter().map(f).collect();
+        let a = a.iter().map(f);
         let public_input = &proof.prev_evals.evals.public_input;
         let public_input: [Fp; 2] = [public_input.0.to_field(), public_input.1.to_field()];
 
-        let mut v: Vec<_> = challenge_polys
+        challenge_polys
             .iter()
             .map(|f| f(pt))
             .chain([f(&public_input), ft])
             .chain(a)
-            .collect();
-
-        v.reverse();
-        let (init, rest) = v.split_at(1);
-        rest.iter().fold(init[0], |acc, fx| *fx + (xi * acc))
+            .rev()
+            .reduce(|acc, fx| fx + (xi * acc))
+            .unwrap()
     };
 
     combine(WhichEval::First, ft_eval0, minimal.zeta)
