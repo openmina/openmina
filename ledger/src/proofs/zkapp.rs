@@ -1142,7 +1142,17 @@ fn zkapp_main(
         };
 
         let new_acc = match account_update_spec.is_start {
-            IsStart::No => todo!(),
+            IsStart::No => {
+                let is_start = zkapp_logic::IsStart::No;
+
+                let data = ZkappSingleData {
+                    spec: account_update_spec.clone(),
+                    zkapp_input: Rc::clone(&zkapp_input),
+                    must_verify: Rc::clone(&must_verify),
+                };
+
+                zkapp_logic::apply::<ZkappSnark>(is_start, (&mut global, &mut local), data, w)
+            }
             IsStart::ComputeInCircuit => {
                 let v = match start_zkapp_command {
                     [] => StartOrSkip::Skip,
@@ -1229,7 +1239,7 @@ where
     let (zkapp_input, must_verify) = match spec {
         OptSigned => zkapp_main(statement.clone(), witness, &s, &mut w),
         OptSignedOptSigned => zkapp_main(statement.clone(), witness, &s, &mut w),
-        Proved => todo!(),
+        Proved => zkapp_main(statement.clone(), witness, &s, &mut w),
     };
 
     let dlog_plonk_index = w.exists(super::merge::dlog_plonk_index(tx_wrap_prover));
@@ -1543,10 +1553,16 @@ fn of_zkapp_command_segment(
         SegmentBasic::OptSignedOptSigned => (step_opt_signed_opt_signed_prover, None, None),
         SegmentBasic::OptSigned => (
             step_opt_signed_prover,
-            Some("zkapp_opt_signed_fps.txt"),
-            Some("zkapp_opt_signed_fqs.txt"),
+            Some("zkapp_proof_fps.txt"),
+            Some("zkapp_proof_fqs.txt"),
+            // Some("zkapp_opt_signed_fps.txt"),
+            // Some("zkapp_opt_signed_fqs.txt"),
         ),
-        SegmentBasic::Proved => todo!(),
+        SegmentBasic::Proved => (
+            step_proof_prover,
+            Some("zkapp_proof2_fps.txt"),
+            Some("zkapp_proof2_fqs.txt"),
+        ),
     };
 
     let of_zkapp_command_segment_exn = match spec {
@@ -1556,7 +1572,9 @@ fn of_zkapp_command_segment(
         SegmentBasic::OptSigned => {
             of_zkapp_command_segment_exn::<StepZkappOptSignedProof, WrapZkappOptSignedProof>
         }
-        SegmentBasic::Proved => todo!(),
+        SegmentBasic::Proved => {
+            of_zkapp_command_segment_exn::<StepZkappProofProof, WrapZkappOptSignedProof>
+        }
     };
 
     of_zkapp_command_segment_exn(

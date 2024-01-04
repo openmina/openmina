@@ -2165,14 +2165,13 @@ pub mod zkapp_command {
                     .iter()
                     .zip(&zkapp_account.app_state)
                     .enumerate()
+                    .rev()
                     .map(|(i, (s, account_s))| {
                         let b = (s, Fp::zero).checked_zcheck(account_s, w);
                         (AccountAppStatePreconditionUnsatisfied(i as i64), b)
                     })
                     .collect::<Vec<_>>();
                 // We need to call rev here, in order to match OCaml order
-                // We don't use `rev` in the iterator above, because it would
-                // execute the `checked_zcheck` in incorrect order
                 bools.into_iter().rev()
             })
             .chain([

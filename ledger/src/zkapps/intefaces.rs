@@ -51,7 +51,7 @@ where
             Boolean::True => on_true.eval(self),
             Boolean::False => on_false.eval(self),
         };
-        self.exists_no_check(value)
+        self.exists_no_check_on_bool(b, value)
     }
 }
 
@@ -477,6 +477,7 @@ pub trait LedgerInterface {
         w: &mut Self::W,
     ) -> Self::Bool;
     fn exists_no_check(self, w: &mut Self::W) -> Self;
+    fn exists_no_check_on_bool(self, b: Self::Bool, w: &mut Self::W) -> Self;
 }
 
 pub trait VerificationKeyHashInterface {

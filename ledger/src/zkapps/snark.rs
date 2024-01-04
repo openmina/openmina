@@ -609,7 +609,7 @@ impl GlobalStateInterface for GlobalStateForProof {
             Boolean::True => ledger.clone(),
             Boolean::False => self.first_pass_ledger.clone(),
         };
-        w.exists_no_check(ledger.hash);
+        w.exists_no_check_on_bool(should_update, ledger.hash);
         self.first_pass_ledger = ledger;
     }
     fn second_pass_ledger(&self) -> Self::Ledger {
@@ -964,7 +964,6 @@ impl AccountInterface for SnarkAccount {
                     .unwrap();
                 let vk = w.exists(vk);
                 vk.checked_hash_with_param(VerificationKey::HASH_PARAM, w);
-                todo!()
             }
             Signature | NoneGiven => {}
         }
@@ -1159,6 +1158,10 @@ impl LedgerInterface for LedgerWithHash {
     }
     fn exists_no_check(self, w: &mut Self::W) -> Self {
         w.exists_no_check(self.hash);
+        self
+    }
+    fn exists_no_check_on_bool(self, b: Self::Bool, w: &mut Self::W) -> Self {
+        w.exists_no_check_on_bool(b, self.hash);
         self
     }
 }

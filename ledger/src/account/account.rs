@@ -306,6 +306,21 @@ impl ToInputs for ProofVerified {
     }
 }
 
+// One_hot
+impl ToFieldElements<Fp> for ProofVerified {
+    fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+        use Boolean::{False, True};
+
+        let bits = match self {
+            ProofVerified::N0 => [True, False, False],
+            ProofVerified::N1 => [False, True, False],
+            ProofVerified::N2 => [False, False, True],
+        };
+
+        bits.to_field_elements(fields);
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct VerificationKey {
     pub max_proofs_verified: ProofVerified,
@@ -347,11 +362,8 @@ impl ToFieldElements<Fp> for VerificationKey {
             wrap_vk: _,
         } = self;
 
-        let max_proofs_verified = max_proofs_verified.to_int() as u64;
-        Fp::from(max_proofs_verified).to_field_elements(fields);
-
-        let actual_wrap_domain_size = actual_wrap_domain_size.to_int() as u64;
-        Fp::from(actual_wrap_domain_size).to_field_elements(fields);
+        max_proofs_verified.to_field_elements(fields);
+        actual_wrap_domain_size.to_field_elements(fields);
 
         sigma.to_field_elements(fields);
         coefficients.to_field_elements(fields);

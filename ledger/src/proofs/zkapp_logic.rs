@@ -357,17 +357,23 @@ where
     };
 
     let will_succeed = match &is_start {
-        IsStart::Compute(start_data) => w.exists_no_check(match is_start2.as_boolean() {
-            Boolean::True => start_data.will_succeed,
-            Boolean::False => local_state.will_succeed,
-        }),
+        IsStart::Compute(start_data) => w.exists_no_check_on_bool(
+            is_start2,
+            match is_start2.as_boolean() {
+                Boolean::True => start_data.will_succeed,
+                Boolean::False => local_state.will_succeed,
+            },
+        ),
         IsStart::Yes(start_data) => start_data.will_succeed,
         IsStart::No => local_state.will_succeed,
     };
-    local_state.ledger = w.exists_no_check(match is_start2.as_boolean() {
-        Boolean::True => global_state.first_pass_ledger(),
-        Boolean::False => local_state.ledger.clone(),
-    });
+    local_state.ledger = w.exists_no_check_on_bool(
+        is_start2,
+        match is_start2.as_boolean() {
+            Boolean::True => global_state.first_pass_ledger(),
+            Boolean::False => local_state.ledger.clone(),
+        },
+    );
     local_state.will_succeed = will_succeed;
 
     let ((account_update, remaining, call_stack), account_update_forest, (mut a, inclusion_proof)) = {
@@ -909,7 +915,10 @@ where
             }
         });
         // Made here https://github.com/MinaProtocol/mina/blob/5c92fbdbf083a74a8b9530d3d727cc7b03dcce8a/src/lib/mina_base/zkapp_basic.ml#L82
-        w.exists_no_check(verification_key.is_set());
+        w.exists_no_check(match verification_key {
+            SetOrKeep::Set(_) => true, // TODO: It might be false here when `verification_key` is none ?
+            SetOrKeep::Keep => zkapp.verification_key.is_some(),
+        });
         let verification_key = match verification_key {
             SetOrKeep::Set(vk) => Some(vk.data.clone()),
             SetOrKeep::Keep => zkapp.verification_key.clone(),
@@ -1270,7 +1279,7 @@ where
             Boolean::True => global_state.second_pass_ledger(),
             Boolean::False => local_state.ledger.clone(),
         }
-        .exists_no_check(w);
+        .exists_no_check_on_bool(is_fee_payer, w);
         ((), ())
     };
 
