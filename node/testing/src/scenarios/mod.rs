@@ -9,12 +9,13 @@
 //! Dynamic IP Handling: Nodes with frequently changing IP addresses should maintain stable connections.
 
 pub mod multi_node;
+pub mod simulation;
 pub mod solo_node;
 
 pub mod p2p;
 
 mod cluster_runner;
-pub use cluster_runner::ClusterRunner;
+pub use cluster_runner::*;
 mod driver;
 pub use driver::*;
 
@@ -26,6 +27,7 @@ use crate::scenario::{Scenario, ScenarioId, ScenarioStep};
 use self::multi_node::basic_connectivity_initial_joining::MultiNodeBasicConnectivityInitialJoining;
 use self::multi_node::basic_connectivity_peer_discovery::MultiNodeBasicConnectivityPeerDiscovery;
 use self::multi_node::sync_4_block_producers::MultiNodeSync4BlockProducers;
+use self::simulation::small::SimulationSmall;
 use self::solo_node::sync_to_genesis::SoloNodeSyncToGenesis;
 use self::solo_node::{
     basic_connectivity_accept_incoming::SoloNodeBasicConnectivityAcceptIncoming,
@@ -43,6 +45,7 @@ pub enum Scenarios {
     MultiNodeSync4BlockProducers(MultiNodeSync4BlockProducers),
     MultiNodeBasicConnectivityInitialJoining(MultiNodeBasicConnectivityInitialJoining),
     MultiNodeBasicConnectivityPeerDiscovery(MultiNodeBasicConnectivityPeerDiscovery),
+    SimulationSmall(SimulationSmall),
 }
 
 impl Scenarios {
@@ -60,6 +63,7 @@ impl Scenarios {
             Self::MultiNodeSync4BlockProducers(_) => false,
             Self::MultiNodeBasicConnectivityInitialJoining(_) => false,
             Self::MultiNodeBasicConnectivityPeerDiscovery(_) => cfg!(feature = "p2p-webrtc"),
+            Self::SimulationSmall(_) => false,
         }
     }
 
@@ -80,6 +84,7 @@ impl Scenarios {
             Self::MultiNodeSync4BlockProducers(_) => Some(SoloNodeSyncToGenesis.into()),
             Self::MultiNodeBasicConnectivityInitialJoining(_) => None,
             Self::MultiNodeBasicConnectivityPeerDiscovery(_) => None,
+            Self::SimulationSmall(_) => None,
         }
     }
 
@@ -105,6 +110,7 @@ impl Scenarios {
             Self::MultiNodeBasicConnectivityPeerDiscovery(_) => {
                 MultiNodeBasicConnectivityPeerDiscovery::DOCS
             }
+            Self::SimulationSmall(_) => SimulationSmall::DOCS,
         }
     }
 
@@ -129,6 +135,7 @@ impl Scenarios {
             Self::MultiNodeSync4BlockProducers(v) => v.run(runner).await,
             Self::MultiNodeBasicConnectivityInitialJoining(v) => v.run(runner).await,
             Self::MultiNodeBasicConnectivityPeerDiscovery(v) => v.run(runner).await,
+            Self::SimulationSmall(v) => v.run(runner).await,
         }
     }
 

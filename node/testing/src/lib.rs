@@ -10,6 +10,7 @@ pub mod scenario;
 #[cfg(feature = "scenario-generators")]
 pub mod scenarios;
 pub mod service;
+pub mod simulator;
 
 pub mod network_debugger;
 
