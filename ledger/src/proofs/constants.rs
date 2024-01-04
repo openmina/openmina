@@ -24,6 +24,7 @@ pub struct WrapBlockProof {}
 pub struct StepMergeProof {}
 pub struct WrapMergeProof {}
 
+pub struct StepZkappProofProof {}
 pub struct StepZkappOptSignedProof {}
 pub struct StepZkappOptSignedOptSignedProof {}
 pub struct WrapZkappProof {}
@@ -41,6 +42,13 @@ impl ProofConstants for StepZkappOptSignedProof {
     const AUX_LEN: usize = 71779;
     const PREVIOUS_CHALLENGES: usize = 0;
     const ROWS: usize = 11298;
+}
+
+impl ProofConstants for StepZkappProofProof {
+    const PRIMARY_LEN: usize = 67;
+    const AUX_LEN: usize = 210282;
+    const PREVIOUS_CHALLENGES: usize = 1;
+    const ROWS: usize = 19980;
 }
 
 // Same values than `WrapTransactionProof`

@@ -63,7 +63,7 @@ use crate::{
 use self::group::SegmentBasic;
 
 use super::{
-    constants::{ForWrapData, ProofConstants, StepZkappOptSignedProof},
+    constants::{ForWrapData, ProofConstants, StepZkappOptSignedProof, StepZkappProofProof},
     numbers::{
         currency::{CheckedAmount, CheckedSigned},
         nat::{CheckedIndex, CheckedNat, CheckedSlot},
@@ -79,6 +79,7 @@ pub struct ZkappParams<'a> {
     pub message: &'a SokMessage,
     pub step_opt_signed_opt_signed_prover: &'a Prover<Fp>,
     pub step_opt_signed_prover: &'a Prover<Fp>,
+    pub step_proof_prover: &'a Prover<Fp>,
     pub merge_step_prover: &'a Prover<Fp>,
     pub tx_wrap_prover: &'a Prover<Fq>,
     // pub tx_wrap_prover: &'a Prover<Fq>,
@@ -1535,6 +1536,7 @@ fn of_zkapp_command_segment(
     spec: &SegmentBasic,
     step_opt_signed_opt_signed_prover: &Prover<Fp>,
     step_opt_signed_prover: &Prover<Fp>,
+    step_proof_prover: &Prover<Fp>,
     tx_wrap_prover: &Prover<Fq>,
 ) -> LedgerProof {
     let (step_prover, step_path, wrap_path) = match spec {
@@ -1575,6 +1577,7 @@ pub fn generate_zkapp_proof(params: ZkappParams, w: &mut Witness<Fp>) -> LedgerP
         message,
         step_opt_signed_opt_signed_prover,
         step_opt_signed_prover,
+        step_proof_prover,
         expected_step_proof,
         ocaml_wrap_witness,
         tx_wrap_prover,
@@ -1618,6 +1621,7 @@ pub fn generate_zkapp_proof(params: ZkappParams, w: &mut Witness<Fp>) -> LedgerP
             spec,
             step_opt_signed_opt_signed_prover,
             step_opt_signed_prover,
+            step_proof_prover,
             tx_wrap_prover,
         )
     };
