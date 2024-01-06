@@ -20,7 +20,7 @@ use crate::{
             currency::CheckedSigned,
             nat::{CheckedNat, CheckedSlot},
         },
-        unfinalized::{evals_from_p2p, AllEvals, EvalsWithPublicInput},
+        unfinalized::{evals_from_p2p, AllEvals, EvalsWithPublicInput, Unfinalized},
         util::{sha256_sum, u64_to_field},
         verifier_index::wrap_domains,
         witness::{
@@ -1521,21 +1521,25 @@ fn protocol_create_var(
     }
 }
 
-pub struct StepParams<'a> {
+/// `N_PREVIOUS`: Number of previous proofs.
+///  - For block and merge proofs, the number is 2
+///  - For zkapp with proof authorization, it's 1
+///  - For other proofs, it's 0
+pub struct StepParams<'a, const N_PREVIOUS: usize> {
     pub app_state: Rc<dyn ToFieldElementsDebug>,
-    pub rule: InductiveRule<'a>,
-    pub for_step_datas: [&'a ForStep; 2],
+    pub rule: InductiveRule<'a, N_PREVIOUS>,
+    pub for_step_datas: [&'a ForStep; N_PREVIOUS],
     pub indexes: [(
         &'a VerifierIndex<GroupAffine<Fp>>,
         &'a CircuitPlonkVerificationKeyEvals<Fp>,
-    ); 2],
+    ); N_PREVIOUS],
     pub prev_challenge_polynomial_commitments: Vec<RecursionChallenge<GroupAffine<Fq>>>,
     pub step_prover: &'a Prover<Fp>,
     pub wrap_prover: &'a Prover<Fq>,
 }
 
-pub fn step<C: ProofConstants>(
-    params: StepParams,
+pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
+    params: StepParams<N_PREVIOUS>,
     w: &mut Witness<Fp>,
 ) -> (
     StepStatement,
@@ -1554,7 +1558,7 @@ pub fn step<C: ProofConstants>(
 
     let dlog_plonk_index = w.exists(super::merge::dlog_plonk_index(wrap_prover));
 
-    let expanded_proofs: [ExpandedProof; 2] = rule
+    let expanded_proofs: [ExpandedProof; N_PREVIOUS] = rule
         .previous_proof_statements
         .iter()
         .zip(indexes)
@@ -1579,28 +1583,28 @@ pub fn step<C: ProofConstants>(
         .try_into()
         .unwrap();
 
-    let fst = &expanded_proofs[0];
-    let snd = &expanded_proofs[1];
+    let prevs: [&PerProofWitness; N_PREVIOUS] =
+        w.exists(std::array::from_fn(|i| &expanded_proofs[i].witness));
+    let unfinalized_proofs_unextended: [&Unfinalized; N_PREVIOUS] =
+        w.exists(std::array::from_fn(|i| &expanded_proofs[i].unfinalized));
 
-    let prevs = w.exists([&fst.witness, &snd.witness]);
-    let unfinalized_proofs_unextended = w.exists([&fst.unfinalized, &snd.unfinalized]);
+    let messages_for_next_wrap_proof: [Fp; N_PREVIOUS] = {
+        let f = u64_to_field::<Fp, 4>;
+        w.exists(std::array::from_fn(|i| {
+            f(&expanded_proofs[i]
+                .prev_statement_with_hashes
+                .proof_state
+                .messages_for_next_wrap_proof)
+        }))
+    };
 
-    let f = u64_to_field::<Fp, 4>;
-    let messages_for_next_wrap_proof = w.exists([
-        f(&fst
-            .prev_statement_with_hashes
-            .proof_state
-            .messages_for_next_wrap_proof),
-        f(&snd
-            .prev_statement_with_hashes
-            .proof_state
-            .messages_for_next_wrap_proof),
-    ]);
-
-    let actual_wrap_domains = {
+    let actual_wrap_domains: [usize; N_PREVIOUS] = {
         let all_possible_domains = wrap_verifier::all_possible_domains();
 
-        [fst.actual_wrap_domain, snd.actual_wrap_domain].map(|domain_size| {
+        let actuals_wrap_domain: [u32; N_PREVIOUS] =
+            std::array::from_fn(|i| expanded_proofs[i].actual_wrap_domain);
+
+        actuals_wrap_domain.map(|domain_size| {
             let domain_size = domain_size as u64;
             all_possible_domains
                 .iter()
@@ -1609,7 +1613,7 @@ pub fn step<C: ProofConstants>(
         })
     };
 
-    let prevs: [PerProofWitness; 2] = rule
+    let prevs: [PerProofWitness; N_PREVIOUS] = rule
         .previous_proof_statements
         .iter()
         .zip(prevs)
@@ -1659,18 +1663,18 @@ pub fn step<C: ProofConstants>(
         )
         .collect::<Vec<[Fp; 16]>>();
 
-    let inputs = MessagesForNextStepProof {
-        app_state: Rc::clone(&app_state),
-        dlog_plonk_index: &dlog_plonk_index,
-        challenge_polynomial_commitments: prevs
-            .iter()
-            .map(|v| InnerCurve::of_affine(v.wrap_proof.proof.sg.clone()))
-            .collect(),
-        old_bulletproof_challenges: bulletproof_challenges,
-    }
-    .to_fields();
-
-    let messages_for_next_step_proof = crate::proofs::witness::checked_hash2(&inputs, w);
+    let messages_for_next_step_proof = {
+        let msg = MessagesForNextStepProof {
+            app_state: Rc::clone(&app_state),
+            dlog_plonk_index: &dlog_plonk_index,
+            challenge_polynomial_commitments: prevs
+                .iter()
+                .map(|v| InnerCurve::of_affine(v.wrap_proof.proof.sg.clone()))
+                .collect(),
+            old_bulletproof_challenges: bulletproof_challenges,
+        };
+        crate::proofs::witness::checked_hash2(&msg.to_fields(), w)
+    };
 
     // Or padding
     assert_eq!(unfinalized_proofs_unextended.len(), 2);
@@ -1687,10 +1691,8 @@ pub fn step<C: ProofConstants>(
 
     let proof = create_proof::<C, Fp>(step_prover, prev_challenge_polynomial_commitments, w);
 
-    let proofs = {
-        let [p1, p2] = rule.previous_proof_statements;
-        [p1.proof, p2.proof]
-    };
+    let proofs: [&v2::PicklesProofProofsVerified2ReprStableV2; N_PREVIOUS] =
+        std::array::from_fn(|i| rule.previous_proof_statements[i].proof);
 
     let prev_evals = proofs
         .iter()
@@ -1978,6 +1980,8 @@ pub struct BlockParams<'a> {
     pub ocaml_wrap_witness: Option<Vec<Fq>>,
 }
 
+const BLOCK_N_PREVIOUS_PROOFS: usize = 2;
+
 pub fn generate_block_proof(params: BlockParams, w: &mut Witness<Fp>) -> WrapProof {
     w.ocaml_aux = read_witnesses();
 
@@ -2045,7 +2049,7 @@ pub fn generate_block_proof(params: BlockParams, w: &mut Witness<Fp>) -> WrapPro
 
     let app_state: Rc<dyn ToFieldElementsDebug> = Rc::new(new_state_hash);
 
-    let (step_statement, prev_evals, proof) = step::<StepBlockProof>(
+    let (step_statement, prev_evals, proof) = step::<StepBlockProof, BLOCK_N_PREVIOUS_PROOFS>(
         StepParams {
             app_state: Rc::clone(&app_state),
             rule,

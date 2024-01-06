@@ -160,8 +160,8 @@ pub struct PreviousProofStatement<'a> {
     pub proof_must_verify: CircuitVar<Boolean>,
 }
 
-pub struct InductiveRule<'a> {
-    pub previous_proof_statements: [PreviousProofStatement<'a>; 2],
+pub struct InductiveRule<'a, const N_PREVIOUS: usize> {
+    pub previous_proof_statements: [PreviousProofStatement<'a>; N_PREVIOUS],
     pub public_output: (),
     pub auxiliary_output: (),
 }
@@ -2355,6 +2355,8 @@ pub struct MergeParams<'a> {
     pub ocaml_wrap_witness: Option<Vec<Fq>>,
 }
 
+const MERGE_N_PREVIOUS_PROOFS: usize = 2;
+
 pub fn generate_merge_proof(params: MergeParams, w: &mut Witness<Fp>) -> WrapProof {
     let MergeParams {
         statement,
@@ -2410,7 +2412,7 @@ pub fn generate_merge_proof(params: MergeParams, w: &mut Witness<Fp>) -> WrapPro
         (verifier_index, &dlog_plonk_index_cvar),
     ];
 
-    let (step_statement, prev_evals, proof) = step::<StepMergeProof>(
+    let (step_statement, prev_evals, proof) = step::<StepMergeProof, MERGE_N_PREVIOUS_PROOFS>(
         StepParams {
             app_state: Rc::new(statement_with_sok.clone()),
             rule,
