@@ -48,7 +48,7 @@ use crate::{
 
 use super::{
     constants::ProofConstants,
-    merge::{ExpandedProof, InductiveRule, PreviousProofStatement},
+    merge::{ExpandedProof, InductiveRule, OptFlag, PreviousProofStatement},
     numbers::{
         currency::CheckedAmount,
         nat::{CheckedBlockTime, CheckedBlockTimeSpan, CheckedLength},
@@ -1534,6 +1534,8 @@ pub struct StepParams<'a, const N_PREVIOUS: usize> {
         &'a CircuitPlonkVerificationKeyEvals<Fp>,
     ); N_PREVIOUS],
     pub prev_challenge_polynomial_commitments: Vec<RecursionChallenge<GroupAffine<Fq>>>,
+    /// TODO: Remove this. See documentation in `PerProofWitness` struct.
+    pub hack_feature_flags: OptFlag,
     pub step_prover: &'a Prover<Fp>,
     pub wrap_prover: &'a Prover<Fq>,
 }
@@ -1552,6 +1554,7 @@ pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
         for_step_datas,
         indexes,
         prev_challenge_polynomial_commitments,
+        hack_feature_flags,
         step_prover,
         wrap_prover,
     } = params;
@@ -1577,6 +1580,7 @@ pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
                 40,
                 (),
                 *proof_must_verify,
+                hack_feature_flags,
             )
         })
         .collect::<Vec<_>>()
@@ -2056,6 +2060,7 @@ pub fn generate_block_proof(params: BlockParams, w: &mut Witness<Fp>) -> WrapPro
             for_step_datas,
             indexes,
             prev_challenge_polynomial_commitments,
+            hack_feature_flags: OptFlag::No,
             wrap_prover: block_wrap_prover,
             step_prover: block_step_prover,
         },

@@ -382,6 +382,7 @@ pub fn expand_proof(
     public_input_length: usize,
     _tag: (),
     must_verify: CircuitVar<Boolean>,
+    hack_feature_flags: OptFlag,
 ) -> ExpandedProof {
     use super::public_input::scalar_challenge::ScalarChallenge;
 
@@ -642,6 +643,7 @@ pub fn expand_proof(
             proof.proof.sg = challenge_polynomial_commitment;
             proof.clone()
         },
+        hack_feature_flags,
     };
 
     let tock_combined_evals = {
@@ -751,6 +753,10 @@ pub struct PerProofWitness {
     pub prev_proof_evals: AllEvals<Fp>,
     pub prev_challenges: Vec<[Fp; 16]>,
     pub prev_challenge_polynomial_commitments: Vec<GroupAffine<Fp>>,
+    /// Hack until I understand how feature flags are used.
+    /// So far they are always `OptFlag::No`, except for zkapps using proof authorization, in that
+    /// case they are `OptFlag::Maybe`.
+    pub hack_feature_flags: OptFlag,
 }
 
 impl PerProofWitness {
@@ -762,6 +768,7 @@ impl PerProofWitness {
             prev_proof_evals,
             prev_challenges,
             prev_challenge_polynomial_commitments,
+            hack_feature_flags,
         } = self;
         assert!(old.is_none());
 
@@ -772,6 +779,7 @@ impl PerProofWitness {
             prev_proof_evals,
             prev_challenges,
             prev_challenge_polynomial_commitments,
+            hack_feature_flags,
         }
     }
 }
@@ -785,6 +793,7 @@ impl ToFieldElements<Fp> for PerProofWitness {
             prev_proof_evals,
             prev_challenges,
             prev_challenge_polynomial_commitments,
+            hack_feature_flags,
         } = self;
 
         assert!(app_state.is_none());
@@ -871,6 +880,25 @@ impl ToFieldElements<Fp> for PerProofWitness {
         zeta_to_srs_length.to_field_elements(fields);
         zeta_to_domain_size.to_field_elements(fields);
         perm.to_field_elements(fields);
+        match hack_feature_flags {
+            OptFlag::Maybe => {
+                // This block is used only when proving zkapps using proof authorization.
+                // https://github.com/MinaProtocol/mina/blob/126d4d2e3495d03adc8f9597113d58a7e8fbcfd0/src/lib/pickles/composition_types/composition_types.ml#L150-L155
+                // https://github.com/MinaProtocol/mina/blob/126d4d2e3495d03adc8f9597113d58a7e8fbcfd0/src/lib/pickles/per_proof_witness.ml#L149
+                // https://github.com/MinaProtocol/mina/blob/a51f09d09e6ae83362ea74eaca072c8e40d08b52/src/lib/pickles_types/plonk_types.ml#L104-L119
+                // https://github.com/MinaProtocol/mina/blob/a51f09d09e6ae83362ea74eaca072c8e40d08b52/src/lib/pickles_types/plonk_types.ml#L253-L303
+
+                // the first 8 elements are the `Plonk_types.Features.typ`
+                // The last 2 elements are the `Plonk_types.Opt.typ`
+                // So far I've only seen proofs without feature flags.
+                // TODO: Are feature flags ever used in the server node ? Or they are only used in browser/client ?
+                let zeros: [u64; 10] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+                zeros.to_field_elements(fields);
+            }
+            OptFlag::Yes => unimplemented!(), // Is that used ?
+            OptFlag::No => {}
+        }
+
         combined_inner_product.to_field_elements(fields);
         b.to_field_elements(fields);
         u64_to_field::<Fp, 2>(xi).to_field_elements(fields);
@@ -907,8 +935,17 @@ impl ToFieldElements<Fp> for PerProofWitness {
 
         public_input.to_field_elements(fields);
         evals.to_field_elements(fields);
+        match hack_feature_flags {
+            OptFlag::Maybe => {
+                // See above.
+                // https://github.com/MinaProtocol/mina/blob/a51f09d09e6ae83362ea74eaca072c8e40d08b52/src/lib/pickles_types/plonk_types.ml#L1028-L1046
+                let zeros: [u64; 57] = [0; 57];
+                zeros.to_field_elements(fields);
+            }
+            OptFlag::Yes => unimplemented!(), // Is that used ?
+            OptFlag::No => {}
+        }
         ft_eval1.to_field_elements(fields);
-
         prev_challenges.to_field_elements(fields);
         push_affines(prev_challenge_polynomial_commitments, fields);
     }
@@ -923,6 +960,7 @@ impl Check<Fp> for PerProofWitness {
             prev_proof_evals: _,
             prev_challenges: _,
             prev_challenge_polynomial_commitments,
+            hack_feature_flags: _,
         } = self;
 
         assert!(app_state.is_none());
@@ -2185,6 +2223,7 @@ pub fn verify_one(
         prev_proof_evals,
         prev_challenges,
         prev_challenge_polynomial_commitments,
+        hack_feature_flags,
     } = proof;
 
     let deferred_values = &proof_state.deferred_values;
@@ -2421,6 +2460,7 @@ pub fn generate_merge_proof(params: MergeParams, w: &mut Witness<Fp>) -> WrapPro
             wrap_prover,
             prev_challenge_polynomial_commitments,
             step_prover,
+            hack_feature_flags: OptFlag::No,
         },
         w,
     );
@@ -2450,7 +2490,7 @@ pub fn generate_merge_proof(params: MergeParams, w: &mut Witness<Fp>) -> WrapPro
     )
 }
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 pub enum OptFlag {
     Yes,
     No,
