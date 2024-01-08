@@ -18,7 +18,8 @@ use crate::consensus::{
     ConsensusAction, ConsensusBestTipUpdateAction, ConsensusBlockChainProofUpdateAction,
     ConsensusBlockReceivedAction, ConsensusBlockSnarkVerifyPendingAction,
     ConsensusBlockSnarkVerifySuccessAction, ConsensusDetectForkRangeAction,
-    ConsensusLongRangeForkResolveAction, ConsensusShortRangeForkResolveAction,
+    ConsensusLongRangeForkResolveAction, ConsensusPruneAction,
+    ConsensusShortRangeForkResolveAction,
 };
 use crate::event_source::{
     EventSourceAction, EventSourceNewEventAction, EventSourceProcessEventsAction,
@@ -214,6 +215,7 @@ pub enum ActionKind {
     ConsensusBlockSnarkVerifySuccess,
     ConsensusDetectForkRange,
     ConsensusLongRangeForkResolve,
+    ConsensusPrune,
     ConsensusShortRangeForkResolve,
     EventSourceNewEvent,
     EventSourceProcessEvents,
@@ -423,7 +425,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 215;
+    pub const COUNT: u16 = 216;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -499,6 +501,7 @@ impl ActionKindGet for ConsensusAction {
             Self::ShortRangeForkResolve(a) => a.kind(),
             Self::LongRangeForkResolve(a) => a.kind(),
             Self::BestTipUpdate(a) => a.kind(),
+            Self::Prune(a) => a.kind(),
         }
     }
 }
@@ -753,6 +756,12 @@ impl ActionKindGet for ConsensusLongRangeForkResolveAction {
 impl ActionKindGet for ConsensusBestTipUpdateAction {
     fn kind(&self) -> ActionKind {
         ActionKind::ConsensusBestTipUpdate
+    }
+}
+
+impl ActionKindGet for ConsensusPruneAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::ConsensusPrune
     }
 }
 

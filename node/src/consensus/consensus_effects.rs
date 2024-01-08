@@ -66,6 +66,7 @@ pub fn consensus_effects<S: crate::Service>(store: &mut Store<S>, action: Consen
 
             transition_frontier_new_best_tip(store);
         }
+        ConsensusAction::Prune(_) => {}
     }
 }
 

@@ -20,6 +20,7 @@ pub enum ConsensusAction {
     ShortRangeForkResolve(ConsensusShortRangeForkResolveAction),
     LongRangeForkResolve(ConsensusLongRangeForkResolveAction),
     BestTipUpdate(ConsensusBestTipUpdateAction),
+    Prune(ConsensusPruneAction),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -31,19 +32,7 @@ pub struct ConsensusBlockReceivedAction {
 
 impl redux::EnablingCondition<crate::State> for ConsensusBlockReceivedAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
-        state.consensus.best_tip().map_or(true, |tip| {
-            let height = self
-                .block
-                .header
-                .protocol_state
-                .body
-                .consensus_state
-                .blockchain_length
-                .0
-                 .0;
-            let tip_height = tip.height();
-            height > tip_height || (height == tip_height && &self.hash != tip.hash)
-        }) && !state.consensus.blocks.contains_key(&self.hash)
+        !state.consensus.blocks.contains_key(&self.hash)
     }
 }
 
@@ -178,6 +167,15 @@ impl redux::EnablingCondition<crate::State> for ConsensusBestTipUpdateAction {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ConsensusPruneAction {}
+
+impl redux::EnablingCondition<crate::State> for ConsensusPruneAction {
+    fn is_enabled(&self, state: &crate::State) -> bool {
+        state.consensus.best_tip().is_some()
+    }
+}
+
 macro_rules! impl_into_global_action {
     ($a:ty) => {
         impl From<$a> for crate::Action {
@@ -196,3 +194,4 @@ impl_into_global_action!(ConsensusDetectForkRangeAction);
 impl_into_global_action!(ConsensusShortRangeForkResolveAction);
 impl_into_global_action!(ConsensusLongRangeForkResolveAction);
 impl_into_global_action!(ConsensusBestTipUpdateAction);
+impl_into_global_action!(ConsensusPruneAction);

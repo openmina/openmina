@@ -144,6 +144,29 @@ impl ConsensusState {
                     self.best_tip_chain_proof = tip.chain_proof.take();
                 }
             }
+            ConsensusAction::Prune(_) => {
+                let Some(best_tip_hash) = self.best_tip.clone() else {
+                    return;
+                };
+                let blocks = &mut self.blocks;
+
+                // keep at most latest 32 candidate blocks.
+                let blocks_to_keep = (0..32)
+                    .scan(best_tip_hash, |block_hash, _| {
+                        let Some(block_state) = blocks.remove(block_hash) else {
+                            return None;
+                        };
+                        let block_hash = match block_state.status.compared_with() {
+                            None => block_hash.clone(),
+                            Some(compared_with) => {
+                                std::mem::replace(block_hash, compared_with.clone())
+                            }
+                        };
+                        Some((block_hash, block_state))
+                    })
+                    .collect();
+                *blocks = blocks_to_keep;
+            }
         }
     }
 }
