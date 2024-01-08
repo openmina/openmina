@@ -698,9 +698,6 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                 store.dispatch(TransitionFrontierSyncBlocksPeersQueryAction {});
             }
         },
-        P2pAction::Network(action) => {
-            println!("{}", serde_json::to_string_pretty(&action).unwrap());
-            action.effects(&meta, store)
-        }
+        P2pAction::Network(action) => action.effects(&meta, store),
     }
 }
