@@ -109,7 +109,17 @@ mod data {
 
     impl fmt::Debug for Data {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            f.debug_tuple("Data").field(&self.to_string()).finish()
+            let s = if self.len() > 32 {
+                let l = self.len();
+                format!(
+                    "{}...omitted...{}",
+                    hex::encode(&self.0[..12]),
+                    hex::encode(&self.0[(l - 12)..])
+                )
+            } else {
+                self.to_string()
+            };
+            f.debug_tuple("Data").field(&s).finish()
         }
     }
 
