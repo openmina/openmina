@@ -63,7 +63,7 @@ lazy_static::lazy_static! {
     static ref GATE: Arc<Mutex<()>> = Arc::new(Mutex::new(()));
 }
 
-pub struct TestGate(MutexGuard<'static, ()>);
+pub struct TestGate(#[allow(dead_code)] MutexGuard<'static, ()>);
 
 impl TestGate {
     async fn there_can_be_only_one() -> Self {
