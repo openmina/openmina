@@ -11,9 +11,9 @@ pub enum P2pNetworkNoiseAction {
     IncomingData(P2pNetworkNoiseIncomingDataAction),
     IncomingChunk(P2pNetworkNoiseIncomingChunkAction),
     OutgoingChunk(P2pNetworkNoiseOutgoingChunkAction),
-    // internals sends the data to the noise
+    // internals sends the data to the remote peer thru noise
     OutgoingData(P2pNetworkNoiseOutgoingDataAction),
-    // the noise sends the data to internals
+    // the remote peer sends the data to internals thru noise
     DecryptedData(P2pNetworkNoiseDecryptedDataAction),
     HandshakeDone(P2pNetworkNoiseHandshakeDoneAction),
 }
