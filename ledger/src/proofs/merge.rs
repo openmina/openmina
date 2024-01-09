@@ -1127,7 +1127,7 @@ mod step_verifier {
             field, poseidon::Sponge, scalar_challenge, ReducedMessagesForNextStepProof, ToBoolean,
         },
         wrap::{
-            make_scalars_env_checked,
+            make_scalars_env_checked, one_hot_vector, ones_vector,
             pcs_batch::PcsBatch,
             pseudo::{self, PseudoDomain},
             wrap_verifier::{actual_evaluation, lowest_128_bits, split_commitments::Point, Advice},
@@ -1135,6 +1135,7 @@ mod step_verifier {
         },
     };
     use itertools::Itertools;
+    use kimchi::circuits::wires::PERMUTS;
     use poly_commitment::{srs::SRS, PolyComm};
 
     fn squeeze_challenge(s: &mut Sponge<Fp>, w: &mut Witness<Fp>) -> Fp {
@@ -1176,6 +1177,41 @@ mod step_verifier {
         pseudo::to_domain::<Fp>(&which_log2, &unique_domains)
     }
 
+    fn tick_shifts(log2_size: u64) -> Box<[Fp; PERMUTS]> {
+        // caml_pasta_fp_plonk_verifier_index_shifts
+        use kimchi::circuits::polynomials::permutation::Shifts;
+
+        let num_coeff = 1 << log2_size;
+        let domain = Radix2EvaluationDomain::<Fp>::new(num_coeff).unwrap();
+        let shifts = Shifts::new(&domain);
+        Box::from(*shifts.shifts())
+    }
+
+    fn domain_generator(log2_size: u64) -> Fp {
+        // caml_pasta_fp_domain_generator
+        let num_coeff = 1 << log2_size;
+        let domain = Radix2EvaluationDomain::<Fp>::new(num_coeff).unwrap();
+        domain.group_gen
+    }
+
+    fn side_loaded_domain(log2_size: u64, w: &mut Witness<Fp>) {
+        let log2_size = Fp::from(log2_size);
+
+        let domain = |max: u64| {
+            let max_n = max;
+            let mask = ones_vector(log2_size, max_n, w);
+            let log2_sizes = (
+                one_hot_vector::of_index(log2_size, max_n, w),
+                (0..max_n).collect::<Vec<_>>(),
+            );
+            let shifts = pseudo::shifts(&log2_sizes, tick_shifts);
+            let generator = pseudo::generator(&log2_sizes, domain_generator);
+            // let vanishing_polynomial = vanishing_polynomial(mask);
+
+            (1, 2)
+        };
+    }
+
     pub fn proof_verified_to_prefix(p: &v2::PicklesBaseProofsVerifiedStableV1) -> [Boolean; 2] {
         use v2::PicklesBaseProofsVerifiedStableV1::*;
 
@@ -1194,6 +1230,7 @@ mod step_verifier {
         prev_challenges: &[[Fp; Fp::NROUNDS]],
         deferred_values: &DeferredValues<Fp>,
         evals: &AllEvals<Fp>,
+        hack_feature_flags: OptFlag,
         w: &mut Witness<Fp>,
     ) -> (Boolean, Vec<Fp>) {
         let DeferredValues {
@@ -1229,7 +1266,13 @@ mod step_verifier {
             } = plonk;
 
             dbg!(zeta, alpha);
+
             // We decompose this way because of OCaml evaluation order
+            if let OptFlag::Maybe = hack_feature_flags {
+                // TODO: Hack
+                // https://github.com/MinaProtocol/mina/blob/a51f09d09e6ae83362ea74eaca072c8e40d08b52/src/lib/pickles/composition_types/composition_types.ml#L131
+                scalar(&[0, 0], w);
+            };
             let zeta = scalar(zeta, w);
             let alpha = scalar(alpha, w);
 
@@ -2214,6 +2257,7 @@ pub fn verify_one(
     messages_for_next_wrap_proof: Fp,
     unfinalized: &Unfinalized,
     should_verify: CircuitVar<Boolean>,
+    hack_feature_flags: OptFlag,
     w: &mut Witness<Fp>,
 ) -> (Vec<Fp>, Boolean) {
     let PerProofWitness {
@@ -2245,6 +2289,7 @@ pub fn verify_one(
             prev_challenges,
             deferred_values,
             prev_proof_evals,
+            *hack_feature_flags,
             w,
         )
     };

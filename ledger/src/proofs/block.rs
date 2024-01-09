@@ -24,8 +24,8 @@ use crate::{
         util::{sha256_sum, u64_to_field},
         verifier_index::wrap_domains,
         witness::{
-            create_proof, Boolean, InnerCurve, MessagesForNextStepProof,
-            ReducedMessagesForNextStepProof, ToFieldElementsDebug,
+            create_proof, get_messages_for_next_wrap_proof_padding, Boolean, InnerCurve,
+            MessagesForNextStepProof, ReducedMessagesForNextStepProof, ToFieldElementsDebug,
         },
         wrap::{wrap, wrap_verifier, CircuitVar, Domain, WrapParams},
     },
@@ -1592,15 +1592,20 @@ pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
     let unfinalized_proofs_unextended: [&Unfinalized; N_PREVIOUS] =
         w.exists(std::array::from_fn(|i| &expanded_proofs[i].unfinalized));
 
-    let messages_for_next_wrap_proof: [Fp; N_PREVIOUS] = {
+    let messages_for_next_wrap_proof: [Fp; 2] = w.exists({
+        let n_padding = 2 - expanded_proofs.len();
         let f = u64_to_field::<Fp, 4>;
-        w.exists(std::array::from_fn(|i| {
-            f(&expanded_proofs[i]
-                .prev_statement_with_hashes
-                .proof_state
-                .messages_for_next_wrap_proof)
-        }))
-    };
+        std::array::from_fn(|i| {
+            if i < n_padding {
+                get_messages_for_next_wrap_proof_padding()
+            } else {
+                f(&expanded_proofs[i - n_padding]
+                    .prev_statement_with_hashes
+                    .proof_state
+                    .messages_for_next_wrap_proof)
+            }
+        })
+    });
 
     let actual_wrap_domains: [usize; N_PREVIOUS] = {
         let all_possible_domains = wrap_verifier::all_possible_domains();
@@ -1647,7 +1652,7 @@ pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
                 } = stmt;
 
                 match data.wrap_domain {
-                    ForStepKind::SideLoaded => todo!(),
+                    ForStepKind::SideLoaded => {} // Nothing
                     ForStepKind::Known(wrap_domain) => {
                         let actual_wrap_domain = wrap_domains(actual_wrap_domain);
                         assert_eq!(actual_wrap_domain.h, wrap_domain);
@@ -1660,6 +1665,7 @@ pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
                     msg_for_next_wrap_proof,
                     unfinalized,
                     *should_verify,
+                    hack_feature_flags,
                     w,
                 );
                 chals.try_into().unwrap()

@@ -246,6 +246,65 @@ pub fn make_step_transaction_data(wrap_key: &CircuitPlonkVerificationKeyEvals<Fp
     self_data
 }
 
+/// Zkapps using proof authorization
+pub fn make_step_zkapp_data(wrap_key: &CircuitPlonkVerificationKeyEvals<Fp>) -> ForStep {
+    let basic = Basic {
+        proof_verifieds: vec![0, 2, 0, 0, 1],
+        wrap_domain: Domains {
+            h: Domain::Pow2RootsOfUnity(15),
+        },
+        step_domains: vec![
+            Domains {
+                h: Domain::Pow2RootsOfUnity(15),
+            },
+            Domains {
+                h: Domain::Pow2RootsOfUnity(15),
+            },
+            Domains {
+                h: Domain::Pow2RootsOfUnity(15),
+            },
+            Domains {
+                h: Domain::Pow2RootsOfUnity(14),
+            },
+            Domains {
+                h: Domain::Pow2RootsOfUnity(15),
+            },
+        ],
+        feature_flags: FeatureFlags {
+            range_check0: OptFlag::Maybe,
+            range_check1: OptFlag::Maybe,
+            foreign_field_add: OptFlag::Maybe,
+            foreign_field_mul: OptFlag::Maybe,
+            xor: OptFlag::Maybe,
+            rot: OptFlag::Maybe,
+            lookup: OptFlag::Maybe,
+            runtime_tables: OptFlag::Maybe,
+        },
+    };
+
+    let self_branches = 5; // 8 ?
+    let max_proofs_verified = 2;
+    let self_data = ForStep {
+        branches: self_branches,
+        max_proofs_verified,
+        proof_verifieds: ForStepKind::Known(
+            basic
+                .proof_verifieds
+                .iter()
+                .copied()
+                .map(Fp::from)
+                .collect(),
+        ),
+        public_input: (),
+        wrap_key: wrap_key.clone(), // TODO: Use ref
+        wrap_domain: ForStepKind::SideLoaded,
+        step_domains: ForStepKind::SideLoaded,
+        feature_flags: basic.feature_flags,
+    };
+
+    self_data
+}
+
 pub struct WrapData {
     pub which_index: u64,
     pub pi_branches: u64,

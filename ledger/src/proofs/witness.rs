@@ -4229,15 +4229,19 @@ pub mod transaction_snark {
 }
 
 pub fn get_messages_for_next_wrap_proof_padded() -> Vec<Fp> {
-    let msg = MessagesForNextWrapProof {
-        challenge_polynomial_commitment: InnerCurve::from(dummy_ipa_step_sg()),
-        old_bulletproof_challenges: vec![], // Filled with padding
-    };
-
-    let hash = msg.hash();
-    let hash = Fp::from(BigInteger256(hash));
-
+    let hash = get_messages_for_next_wrap_proof_padding();
     vec![hash, hash]
+}
+
+pub fn get_messages_for_next_wrap_proof_padding() -> Fp {
+    cache_one!(Fp, {
+        let msg = MessagesForNextWrapProof {
+            challenge_polynomial_commitment: InnerCurve::from(dummy_ipa_step_sg()),
+            old_bulletproof_challenges: vec![], // Filled with padding, in `hash()` below
+        };
+        let hash: [u64; 4] = msg.hash();
+        Fp::from(BigInteger256(hash))
+    })
 }
 
 pub fn checked_hash2<F: FieldWitness>(inputs: &[F], w: &mut Witness<F>) -> F {

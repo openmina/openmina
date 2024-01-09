@@ -7,6 +7,7 @@ use std::{
 };
 
 use ark_ff::{BigInteger256, Zero};
+use ark_poly::{EvaluationDomain, Radix2EvaluationDomain};
 use kimchi::proof::PointEvaluations;
 use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
@@ -15,15 +16,21 @@ use mina_p2p_messages::v2;
 use crate::{
     hash_with_kimchi,
     proofs::{
+        block::{step, StepParams},
         constants::{
-            StepMergeProof, StepZkappOptSignedOptSignedProof, WrapTransactionProof,
-            WrapZkappOptSignedProof, WrapZkappProof,
+            make_step_transaction_data, make_step_zkapp_data, StepMergeProof,
+            StepZkappOptSignedOptSignedProof, WrapTransactionProof, WrapZkappOptSignedProof,
+            WrapZkappProof,
         },
-        merge::{generate_merge_proof, MergeParams},
+        merge::{
+            dlog_plonk_index, generate_merge_proof, InductiveRule, MergeParams, OptFlag,
+            PreviousProofStatement,
+        },
         public_input::{messages::MessagesForNextWrapProof, prepared_statement::DeferredValues},
         unfinalized::{AllEvals, EvalsWithPublicInput},
         util::sha256_sum,
         verification::prev_evals_to_p2p,
+        verifier_index::make_zkapp_verifier_index,
         witness::{
             transaction_snark::CONSTRAINT_CONSTANTS, ReducedMessagesForNextStepProof, ToBoolean,
         },
@@ -57,7 +64,7 @@ use crate::{
         intefaces::ZkappApplication,
         snark::{zkapp_check::InSnarkCheck, AccountUnhashed, ZkappSnark},
     },
-    ControlTag, MyCow, ToInputs, TokenId, ZkAppAccount,
+    AccountId, ControlTag, MyCow, ToInputs, TokenId, ZkAppAccount,
 };
 
 use self::group::SegmentBasic;
@@ -1212,6 +1219,44 @@ impl From<&LedgerProof> for v2::LedgerProofProdStableV2 {
             proof: v2::TransactionSnarkProofStableV2(proof.into()),
         })
     }
+}
+
+fn first_account_update<'a>(witness: &'a ZkappCommandSegmentWitness) -> Option<&'a AccountUpdate> {
+    match witness.local_state_init.stack_frame.calls.0.as_slice() {
+        [] => witness
+            .start_zkapp_command
+            .iter()
+            .find_map(|s| s.account_updates.account_updates.first())
+            .map(|v| &v.elt.account_update),
+        [first, ..] => Some(&first.elt.account_update),
+    }
+}
+
+fn account_update_proof(p: &AccountUpdate) -> Option<&v2::PicklesProofProofsVerifiedMaxStableV2> {
+    match &p.authorization {
+        Control::Proof(proof) => Some(&*proof),
+        Control::Signature(_) | Control::NoneGiven => None,
+    }
+}
+
+fn snapp_proof_data<'a>(
+    witness: &'a ZkappCommandSegmentWitness,
+) -> Option<(
+    &'a v2::PicklesProofProofsVerifiedMaxStableV2,
+    crate::VerificationKey,
+)> {
+    let p = first_account_update(witness)?;
+    let pi = account_update_proof(p)?;
+    let vk = {
+        let account_id = AccountId::create(p.body.public_key.clone(), p.body.token_id.clone());
+        let addr = witness.local_state_init.ledger.find_index_exn(account_id);
+        let account = witness.local_state_init.ledger.get_exn(&addr);
+        account
+            .zkapp
+            .and_then(|z| z.verification_key)
+            .expect("No verification key found in the account")
+    };
+    Some((pi, vk))
 }
 
 fn of_zkapp_command_segment_exn<StepConstants, WrapConstants>(

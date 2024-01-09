@@ -946,6 +946,7 @@ impl Check<Fq> for WrapStatement {
 
 pub mod pseudo {
     use ark_poly::Radix2EvaluationDomain;
+    use kimchi::circuits::wires::PERMUTS;
 
     use super::*;
 
@@ -980,9 +981,13 @@ pub mod pseudo {
         }
     }
 
-    fn mask(bits: &[Boolean], xs: &[u64]) -> Fq {
-        let xs = xs.iter().copied().map(Fq::from);
-        let bits = bits.iter().copied().map(Boolean::to_field::<Fq>);
+    fn mask<F, V>(bits: &[Boolean], xs: &[V]) -> F
+    where
+        F: FieldWitness + From<V>,
+        V: Copy,
+    {
+        let xs = xs.iter().copied().map(F::from);
+        let bits = bits.iter().copied().map(Boolean::to_field::<F>);
 
         bits.zip(xs).map(|(b, x)| b * x).sum()
     }
@@ -1023,14 +1028,47 @@ pub mod pseudo {
             all_possible_domain: Box::from(all_possible_domains),
         }
     }
+
+    pub fn generator(
+        (which, log2s): &(Vec<Boolean>, Vec<u64>),
+        domain_generator: impl Fn(u64) -> Fp,
+    ) -> Fp {
+        let xs = log2s
+            .iter()
+            .map(|d| domain_generator(*d))
+            .collect::<Vec<_>>();
+        mask(&which, &xs)
+    }
+
+    pub fn shifts(
+        (which, log2s): &(Vec<Boolean>, Vec<u64>),
+        shifts: impl Fn(u64) -> Box<[Fp; PERMUTS]>,
+    ) -> Box<[Fp; PERMUTS]> {
+        let all_shifts = log2s.iter().map(|d| shifts(*d)).collect::<Vec<_>>();
+
+        let [shifts, other_shiftss @ ..] = all_shifts.as_slice() else {
+            panic!("Pseudo.Domain.shifts: no domains were given");
+        };
+
+        let all_the_same = other_shiftss.iter().all(|o| o == shifts);
+        let disabled_not_the_same = true;
+
+        if all_the_same {
+            shifts.clone()
+        } else if disabled_not_the_same {
+            panic!("Pseudo.Domain.shifts: found variable shifts")
+        } else {
+            unimplemented!() // Is this branch ever taken ?
+        }
+    }
 }
 
-fn ones_vector(first_zero: Fq, n: u64, w: &mut Witness<Fq>) -> Vec<Boolean> {
+pub fn ones_vector<F: FieldWitness>(first_zero: F, n: u64, w: &mut Witness<F>) -> Vec<Boolean> {
     let mut value = Boolean::True.constant();
 
     let mut vector = (0..n)
         .map(|i| {
-            let eq = field::equal(first_zero, Fq::from(i), w).var();
+            let eq = field::equal(first_zero, F::from(i), w).var();
             value = value.and(&eq.neg(), w);
             value.as_boolean()
         })
@@ -2249,13 +2287,13 @@ fn wrap_domain_indices() -> [Fq; 2] {
     [Fq::one(), Fq::one()]
 }
 
-mod one_hot_vector {
+pub mod one_hot_vector {
     use super::*;
 
-    pub fn of_index(i: Fq, length: u64, w: &mut Witness<Fq>) -> Vec<Boolean> {
+    pub fn of_index<F: FieldWitness>(i: F, length: u64, w: &mut Witness<F>) -> Vec<Boolean> {
         let mut v = (0..length)
             .rev()
-            .map(|j| field::equal(Fq::from(j), i, w))
+            .map(|j| field::equal(F::from(j), i, w))
             .collect::<Vec<_>>();
         Boolean::assert_any(&v, w);
         v.reverse();
