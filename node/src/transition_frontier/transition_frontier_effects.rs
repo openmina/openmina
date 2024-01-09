@@ -9,7 +9,7 @@ use crate::Store;
 
 use super::sync::ledger::snarked::TransitionFrontierSyncLedgerSnarkedAction;
 use super::sync::ledger::staged::TransitionFrontierSyncLedgerStagedAction;
-use super::sync::ledger::TransitionFrontierSyncLedgerAction;
+use super::sync::ledger::{SyncLedgerTargetKind, TransitionFrontierSyncLedgerAction};
 use super::sync::{
     TransitionFrontierSyncAction, TransitionFrontierSyncLedgerNextEpochSuccessAction,
     TransitionFrontierSyncLedgerRootSuccessAction,
@@ -501,17 +501,31 @@ fn handle_transition_frontier_sync_ledger_action<S: crate::Service>(
             }
         },
         TransitionFrontierSyncLedgerAction::Success(_) => {
-            match &store.state().transition_frontier.sync {
-                TransitionFrontierSyncState::StakingLedgerPending { .. } => {
+            let Some(ledger_target_kind) = store
+                .state
+                .get()
+                .transition_frontier
+                .sync
+                .ledger_target_kind()
+            else {
+                return;
+            };
+
+            if let Some(stats) = store.service.stats() {
+                let time = meta.time();
+                stats.syncing_ledger(ledger_target_kind, SyncingLedger::Synced { time });
+            }
+
+            match ledger_target_kind {
+                SyncLedgerTargetKind::StakingEpoch => {
                     store.dispatch(TransitionFrontierSyncLedgerStakingSuccessAction {});
                 }
-                TransitionFrontierSyncState::NextEpochLedgerPending { .. } => {
+                SyncLedgerTargetKind::NextEpoch => {
                     store.dispatch(TransitionFrontierSyncLedgerNextEpochSuccessAction {});
                 }
-                TransitionFrontierSyncState::RootLedgerPending { .. } => {
+                SyncLedgerTargetKind::Root => {
                     store.dispatch(TransitionFrontierSyncLedgerRootSuccessAction {});
                 }
-                _ => {}
             }
         }
     }

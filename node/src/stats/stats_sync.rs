@@ -42,6 +42,7 @@ pub struct SyncLedgers {
 pub struct SyncLedger {
     pub snarked: SyncSnarkedLedger,
     pub staged: SyncStagedLedger,
+    pub synced: Option<Timestamp>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
@@ -104,6 +105,9 @@ pub enum SyncingLedger {
     ApplyParts {
         start: Timestamp,
         end: Option<Timestamp>,
+    },
+    Synced {
+        time: Timestamp,
     },
 }
 
@@ -189,6 +193,9 @@ impl SyncStats {
                     let cur_end = ledger.staged.reconstruct_end.get_or_insert(end);
                     *cur_end = end.max(*cur_end);
                 }
+            }
+            SyncingLedger::Synced { time } => {
+                ledger.synced.insert(time);
             }
         }
 
