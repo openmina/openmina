@@ -47,7 +47,8 @@ impl P2pChannelsRpcRequestSendAction {
 
             match self.request {
                 P2pRpcRequest::BestTipWithProof => {
-                    type Payload = QueryPayload<<rpc::GetBestTipV2 as RpcMethod>::Query>;
+                    type Method = rpc::GetBestTipV2;
+                    type Payload = QueryPayload<<Method as RpcMethod>::Query>;
 
                     let mut v = vec![];
                     <Payload as BinProtWrite>::binprot_write(&NeedsLength(()), &mut v)
@@ -55,15 +56,16 @@ impl P2pChannelsRpcRequestSendAction {
                     store.dispatch(P2pNetworkRpcOutgoingQueryAction {
                         peer_id: self.peer_id,
                         query: QueryHeader {
-                            tag: rpc::GetBestTipV2::NAME.into(),
-                            version: rpc::GetBestTipV2::VERSION,
+                            tag: Method::NAME.into(),
+                            version: Method::VERSION,
                             id: self.id as _,
                         },
                         data: v.into(),
                     });
                 }
                 P2pRpcRequest::LedgerQuery(hash, q) => {
-                    type Payload = QueryPayload<<rpc::AnswerSyncLedgerQueryV2 as RpcMethod>::Query>;
+                    type Method = rpc::AnswerSyncLedgerQueryV2;
+                    type Payload = QueryPayload<<Method as RpcMethod>::Query>;
 
                     let mut v = vec![];
                     <Payload as BinProtWrite>::binprot_write(
@@ -74,14 +76,71 @@ impl P2pChannelsRpcRequestSendAction {
                     store.dispatch(P2pNetworkRpcOutgoingQueryAction {
                         peer_id: self.peer_id,
                         query: QueryHeader {
-                            tag: rpc::AnswerSyncLedgerQueryV2::NAME.into(),
-                            version: rpc::AnswerSyncLedgerQueryV2::VERSION,
+                            tag: Method::NAME.into(),
+                            version: Method::VERSION,
                             id: self.id as _,
                         },
                         data: v.into(),
                     });
                 }
-                _ => unimplemented!(),
+                P2pRpcRequest::StagedLedgerAuxAndPendingCoinbasesAtBlock(hash) => {
+                    type Method = rpc::GetStagedLedgerAuxAndPendingCoinbasesAtHashV2;
+                    type Payload = QueryPayload<<Method as RpcMethod>::Query>;
+
+                    let mut v = vec![];
+                    <Payload as BinProtWrite>::binprot_write(&NeedsLength(hash.0.clone()), &mut v)
+                        .unwrap_or_default();
+                    store.dispatch(P2pNetworkRpcOutgoingQueryAction {
+                        peer_id: self.peer_id,
+                        query: QueryHeader {
+                            tag: Method::NAME.into(),
+                            version: Method::VERSION,
+                            id: self.id as _,
+                        },
+                        data: v.into(),
+                    });
+                }
+                P2pRpcRequest::Block(hash) => {
+                    type Method = rpc::GetTransitionChainV2;
+                    type Payload = QueryPayload<<Method as RpcMethod>::Query>;
+
+                    let mut v = vec![];
+                    <Payload as BinProtWrite>::binprot_write(
+                        &NeedsLength(vec![hash.0.clone()]),
+                        &mut v,
+                    )
+                    .unwrap_or_default();
+                    store.dispatch(P2pNetworkRpcOutgoingQueryAction {
+                        peer_id: self.peer_id,
+                        query: QueryHeader {
+                            tag: Method::NAME.into(),
+                            version: Method::VERSION,
+                            id: self.id as _,
+                        },
+                        data: v.into(),
+                    });
+                }
+                P2pRpcRequest::Snark(hash) => {
+                    let _ = hash;
+                    // libp2p cannot fulfill this request
+                }
+                P2pRpcRequest::InitialPeers => {
+                    type Method = rpc::GetSomeInitialPeersV1ForV2;
+                    type Payload = QueryPayload<<Method as RpcMethod>::Query>;
+
+                    let mut v = vec![];
+                    <Payload as BinProtWrite>::binprot_write(&NeedsLength(()), &mut v)
+                        .unwrap_or_default();
+                    store.dispatch(P2pNetworkRpcOutgoingQueryAction {
+                        peer_id: self.peer_id,
+                        query: QueryHeader {
+                            tag: Method::NAME.into(),
+                            version: Method::VERSION,
+                            id: self.id as _,
+                        },
+                        data: v.into(),
+                    });
+                }
             }
         }
     }
