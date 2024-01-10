@@ -11,9 +11,7 @@ pub use p2p_channels_actions::*;
 
 mod p2p_channels_reducer;
 
-
 mod p2p_channels_effects;
-
 
 mod p2p_channels_service;
 pub use p2p_channels_service::*;

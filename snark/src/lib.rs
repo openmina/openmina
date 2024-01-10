@@ -26,7 +26,6 @@ pub use snark_state::*;
 
 mod snark_reducer;
 
-
 pub type VerifierIndex = kimchi::verifier_index::VerifierIndex<Pallas>;
 pub type VerifierSRS = poly_commitment::srs::SRS<Vesta>;
 
