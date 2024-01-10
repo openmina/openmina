@@ -7,8 +7,11 @@ use redux::ActionMeta;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    connection::outgoing::P2pConnectionOutgoingInitOpts, webrtc::Host, MioCmd, P2pCryptoService,
-    P2pMioService, PeerId,
+    channels::{ChannelId, P2pChannelsState},
+    connection::outgoing::P2pConnectionOutgoingInitOpts,
+    webrtc::Host,
+    MioCmd, P2pCryptoService, P2pMioService, P2pPeerState, P2pPeerStatus, P2pPeerStatusReady,
+    PeerId,
 };
 
 use super::{super::*, *};
@@ -76,7 +79,11 @@ pub enum P2pNetworkStreamHandlerState {
 }
 
 impl P2pNetworkSchedulerState {
-    pub fn reducer(&mut self, action: redux::ActionWithMeta<&P2pNetworkSchedulerAction>) {
+    pub fn reducer(
+        &mut self,
+        peers: &mut BTreeMap<PeerId, P2pPeerState>,
+        action: redux::ActionWithMeta<&P2pNetworkSchedulerAction>,
+    ) {
         match action.action() {
             P2pNetworkSchedulerAction::InterfaceDetected(a) => drop(self.interfaces.insert(a.ip)),
             P2pNetworkSchedulerAction::InterfaceExpired(a) => drop(self.interfaces.remove(&a.ip)),
@@ -125,6 +132,23 @@ impl P2pNetworkSchedulerState {
                 let Some(connection) = self.connections.get_mut(&a.addr) else {
                     return;
                 };
+                match &a.kind {
+                    SelectKind::Multiplexing(peer_id) => {
+                        let enabled_channels = Some(ChannelId::Rpc).into_iter().collect();
+                        let state = P2pPeerState {
+                            is_libp2p: true,
+                            dial_opts: None,
+                            status: P2pPeerStatus::Ready(P2pPeerStatusReady {
+                                is_incoming: a.incoming,
+                                connected_since: action.time(),
+                                channels: P2pChannelsState::new(&enabled_channels),
+                                best_tip: None,
+                            }),
+                        };
+                        peers.insert(*peer_id, state);
+                    }
+                    _ => {}
+                }
                 match &a.protocol {
                     Some(token::Protocol::Auth(token::AuthKind::Noise)) => {
                         connection.auth =
@@ -216,6 +240,8 @@ impl P2pNetworkSchedulerAction {
                     },
                     _ => panic!(),
                 };
+                let _ = addr;
+                let addr = SocketAddr::from(([127, 0, 0, 1], 8303));
 
                 if addr.is_ipv4() == a.ip.is_ipv4() {
                     store.service().send_mio_cmd(MioCmd::Connect(addr));
