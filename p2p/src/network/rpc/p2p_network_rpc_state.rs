@@ -11,14 +11,16 @@ use serde::{Deserialize, Serialize};
 use mina_p2p_messages::{
     rpc,
     rpc_kernel::{
-        Error as RpcError, MessageHeader, NeedsLength, QueryHeader, QueryPayload, ResponseHeader,
+        Error as RpcError, MessageHeader, NeedsLength, QueryHeader, ResponseHeader,
         ResponsePayload, RpcMethod,
     },
     string::CharString,
 };
 
 use crate::{
-    channels::rpc::{BestTipWithProof, P2pChannelsRpcAction, P2pRpcResponse},
+    channels::rpc::{
+        BestTipWithProof, P2pChannelsRpcAction, P2pChannelsRpcState, P2pRpcRequest, P2pRpcResponse,
+    },
     Data,
 };
 
@@ -97,23 +99,28 @@ impl RpcMessage {
 }
 
 impl P2pNetworkRpcState {
-    pub fn reducer(&mut self, action: redux::ActionWithMeta<&P2pNetworkRpcAction>) {
+    pub fn reducer(
+        &mut self,
+        rpc_state: &mut P2pChannelsRpcState,
+        action: redux::ActionWithMeta<&P2pNetworkRpcAction>,
+    ) {
         if self.error.is_some() {
             return;
         }
         match action.action() {
             P2pNetworkRpcAction::Init(a) => {
                 self.is_incoming = a.incoming;
+                *rpc_state = P2pChannelsRpcState::Pending {
+                    time: action.time(),
+                };
             }
             P2pNetworkRpcAction::IncomingData(a) => {
                 self.buffer.extend_from_slice(&a.data);
                 let mut offset = 0;
                 loop {
                     let buf = &self.buffer[offset..];
-                    if buf.len() >= 8 {
-                        let len = u64::from_le_bytes(
-                            buf[..8].try_into().expect("cannot fail, checked above"),
-                        ) as usize;
+                    if let Some(len_bytes) = buf.get(..8).and_then(|s| s.try_into().ok()) {
+                        let len = u64::from_le_bytes(len_bytes) as usize;
                         if buf.len() >= 8 + len {
                             offset += 8 + len;
                             let mut slice = &buf[8..(8 + len)];
@@ -145,7 +152,9 @@ impl P2pNetworkRpcState {
                     break;
                 }
 
-                self.buffer = self.buffer[offset..].to_vec();
+                if offset != 0 {
+                    self.buffer = self.buffer[offset..].to_vec();
+                }
             }
             P2pNetworkRpcAction::IncomingMessage(_) => {
                 self.incoming.pop_front();
@@ -195,6 +204,8 @@ impl P2pNetworkRpcAction {
                         stream_id: a.stream_id,
                         message,
                     });
+
+                    store.dispatch(P2pChannelsRpcAction::Ready { peer_id: a.peer_id });
                 }
             }
             Self::IncomingMessage(a) => {
@@ -202,7 +213,7 @@ impl P2pNetworkRpcAction {
                 match &a.message {
                     RpcMessage::Handshake => {
                         if !state.is_incoming {
-                            let mut v = vec![];
+                            // let mut v = vec![];
 
                             // type Payload =
                             //     QueryPayload<<rpc::VersionedRpcMenuV1 as RpcMethod>::Query>;
@@ -219,18 +230,24 @@ impl P2pNetworkRpcAction {
                             //     data: v.into(),
                             // });
 
-                            type Payload = QueryPayload<<rpc::GetBestTipV2 as RpcMethod>::Query>;
-                            <Payload as BinProtWrite>::binprot_write(&NeedsLength(()), &mut v)
-                                .unwrap_or_default();
+                            // type Payload = QueryPayload<<rpc::GetBestTipV2 as RpcMethod>::Query>;
+                            // <Payload as BinProtWrite>::binprot_write(&NeedsLength(()), &mut v)
+                            //     .unwrap_or_default();
 
-                            store.dispatch(P2pNetworkRpcOutgoingQueryAction {
+                            // store.dispatch(P2pNetworkRpcOutgoingQueryAction {
+                            //     peer_id: a.peer_id,
+                            //     query: QueryHeader {
+                            //         tag: rpc::GetBestTipV2::NAME.into(),
+                            //         version: rpc::GetBestTipV2::VERSION,
+                            //         id: state.last_id,
+                            //     },
+                            //     data: v.into(),
+                            // });
+
+                            store.dispatch(P2pChannelsRpcAction::RequestSend {
                                 peer_id: a.peer_id,
-                                query: QueryHeader {
-                                    tag: rpc::GetBestTipV2::NAME.into(),
-                                    version: rpc::GetBestTipV2::VERSION,
-                                    id: state.last_id,
-                                },
-                                data: v.into(),
+                                id: state.last_id as _,
+                                request: P2pRpcRequest::BestTipWithProof,
                             });
                         }
                     }
@@ -263,7 +280,7 @@ impl P2pNetworkRpcAction {
                                         let Ok(response) = parse_r::<rpc::GetBestTipV2>(&bytes)
                                         else {
                                             // TODO: close the stream
-                                            return;
+                                            panic!();
                                         };
                                         let response = response
                                             .ok()
