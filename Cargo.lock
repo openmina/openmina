@@ -2693,6 +2693,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "302d7ab3130588088d277783b1e2d2e10c9e9e4a16dd9050e6ec93fb3e7048f4"
 
 [[package]]
+name = "libm"
+version = "0.2.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4ec2a862134d2a7d32d7983ddcdd1c4923530833c9f2ea1a44fc5fa473989058"
+
+[[package]]
 name = "libp2p"
 version = "0.53.0"
 source = "git+https://github.com/openmina/rust-libp2p?rev=cd5425a759d959d7fde58a42f71ab059449760c5#cd5425a759d959d7fde58a42f71ab059449760c5"
@@ -3358,6 +3364,7 @@ dependencies = [
  "ocaml-interop",
  "once_cell",
  "openmina-core",
+ "packed_simd",
  "poly-commitment",
  "rand 0.8.5",
  "rand_pcg",
@@ -3779,6 +3786,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39e3200413f237f41ab11ad6d161bc7239c84dcb631773ccd7de3dfe4b5c267c"
 dependencies = [
  "autocfg",
+ "libm",
 ]
 
 [[package]]
@@ -4158,6 +4166,16 @@ dependencies = [
  "elliptic-curve",
  "primeorder",
  "sha2 0.10.8",
+]
+
+[[package]]
+name = "packed_simd"
+version = "0.3.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1f9f08af0c877571712e2e3e686ad79efad9657dbf0f7c3c8ba943ff6c38932d"
+dependencies = [
+ "cfg-if",
+ "num-traits",
 ]
 
 [[package]]

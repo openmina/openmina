@@ -697,7 +697,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                 },
                 P2pNetworkAction::Yamux(action) => match action {
                     P2pNetworkYamuxAction::IncomingFrame(action) => {
-                        openmina_core::log::info!(
+                        openmina_core::log::debug!(
                             meta.time();
                             kind = kind.to_string(),
                             addr = action.addr.to_string(),
@@ -705,7 +705,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                         )
                     }
                     P2pNetworkYamuxAction::OutgoingFrame(action) => {
-                        openmina_core::log::info!(
+                        openmina_core::log::debug!(
                             meta.time();
                             kind = kind.to_string(),
                             addr = action.addr.to_string(),
@@ -723,6 +723,22 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                             peer_id = action.peer_id.to_string(),
                             stream_id = action.stream_id,
                             incoming = action.incoming,
+                        )
+                    }
+                    P2pNetworkRpcAction::IncomingMessage(action) => {
+                        let msg = match &action.message {
+                            p2p::RpcMessage::Handshake => "handshake".to_owned(),
+                            p2p::RpcMessage::Heartbeat => "heartbeat".to_owned(),
+                            p2p::RpcMessage::Query { header, .. } => format!("{header:?}"),
+                            p2p::RpcMessage::Response { header, .. } => format!("{header:?}"),
+                        };
+                        openmina_core::log::info!(
+                            meta.time();
+                            kind = kind.to_string(),
+                            addr = action.addr.to_string(),
+                            peer_id = action.peer_id.to_string(),
+                            stream_id = action.stream_id,
+                            msg = msg,
                         )
                     }
                     _ => {}
