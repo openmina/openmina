@@ -1112,7 +1112,7 @@ impl From<&v2::PicklesProofProofsVerified2ReprStableV2StatementProofState> for S
     }
 }
 
-mod step_verifier {
+pub mod step_verifier {
     use std::ops::Neg;
 
     use super::*;
@@ -1149,6 +1149,50 @@ mod step_verifier {
     fn absorb_curve(c: &Pallas, sponge: &mut Sponge<Fp>, w: &mut Witness<Fp>) {
         let GroupAffine::<Fp> { x, y, .. } = c;
         sponge.absorb2(&[*x, *y], w);
+    }
+
+    pub trait PlonkDomain<F: FieldWitness> {
+        fn vanishing_polynomial(&self, x: F, w: &mut Witness<F>) -> F;
+        fn generator(&self) -> F;
+        fn shifts(&self) -> &[F; PERMUTS];
+        fn log2_size(&self) -> u64;
+    }
+
+    impl<F: FieldWitness> PlonkDomain<F> for PseudoDomain<F> {
+        fn vanishing_polynomial(&self, x: F, w: &mut Witness<F>) -> F {
+            self.vanishing_polynomial(x, w)
+        }
+        fn generator(&self) -> F {
+            self.domain.group_gen
+        }
+        fn shifts(&self) -> &[F; PERMUTS] {
+            &self.shifts
+        }
+        fn log2_size(&self) -> u64 {
+            todo!()
+        }
+    }
+
+    impl<F: FieldWitness> PlonkDomain<F> for SideloadedDomain<F> {
+        fn vanishing_polynomial(&self, x: F, w: &mut Witness<F>) -> F {
+            (self.vanishing_polynomial)(x, w)
+        }
+        fn generator(&self) -> F {
+            self.generator
+        }
+        fn shifts(&self) -> &[F; PERMUTS] {
+            &self.shifts
+        }
+        fn log2_size(&self) -> u64 {
+            self.log2_size
+        }
+    }
+
+    struct SideloadedDomain<F: FieldWitness> {
+        generator: F,
+        shifts: Box<[F; PERMUTS]>,
+        vanishing_polynomial: Box<dyn Fn(F, &mut Witness<F>) -> F>,
+        log2_size: u64,
     }
 
     fn domain_for_compiled(
@@ -1194,22 +1238,44 @@ mod step_verifier {
         domain.group_gen
     }
 
-    fn side_loaded_domain(log2_size: u64, w: &mut Witness<Fp>) {
-        let log2_size = Fp::from(log2_size);
+    fn side_loaded_domain(log2_size: u64, w: &mut Witness<Fp>) -> SideloadedDomain<Fp> {
+        let log2_size_field = Fp::from(log2_size);
 
-        let domain = |max: u64| {
+        let vanishing_polynomial = |mask: Vec<Boolean>| {
+            Box::new(move |x: Fp, w: &mut Witness<Fp>| {
+                let result = mask.iter().fold(x, |acc, should_square| {
+                    let squared = field::square(acc, w);
+                    w.exists_no_check(match should_square {
+                        Boolean::True => squared,
+                        Boolean::False => acc,
+                    })
+                });
+                result - Fp::one()
+            })
+        };
+
+        let mut domain = |max: u64| {
             let max_n = max;
-            let mask = ones_vector(log2_size, max_n, w);
+            let mask = ones_vector(log2_size_field, max_n, w);
+
+            let s_max_n = max_n + 1;
             let log2_sizes = (
-                one_hot_vector::of_index(log2_size, max_n, w),
+                one_hot_vector::of_index(log2_size_field, s_max_n, w),
                 (0..max_n).collect::<Vec<_>>(),
             );
             let shifts = pseudo::shifts(&log2_sizes, tick_shifts);
             let generator = pseudo::generator(&log2_sizes, domain_generator);
-            // let vanishing_polynomial = vanishing_polynomial(mask);
+            let vanishing_polynomial = vanishing_polynomial(mask);
 
-            (1, 2)
+            SideloadedDomain {
+                generator,
+                shifts,
+                vanishing_polynomial,
+                log2_size,
+            }
         };
+
+        domain(Domains::max().h.log2_size())
     }
 
     pub fn proof_verified_to_prefix(p: &v2::PicklesBaseProofsVerifiedStableV1) -> [Boolean; 2] {
@@ -1287,12 +1353,15 @@ mod step_verifier {
             }
         };
 
-        let domain = match step_domains {
-            ForStepKind::Known(ds) => domain_for_compiled(ds, branch_data, w),
-            ForStepKind::SideLoaded => todo!(),
+        let domain: Box<dyn PlonkDomain<Fp>> = match step_domains {
+            ForStepKind::Known(ds) => Box::new(domain_for_compiled(ds, branch_data, w)),
+            ForStepKind::SideLoaded => Box::new(side_loaded_domain(
+                branch_data.domain_log2.as_u8() as u64,
+                w,
+            )),
         };
 
-        let zetaw = field::mul(plonk.zeta, domain.domain.group_gen, w);
+        let zetaw = field::mul(domain.generator(), plonk.zeta, w);
 
         let sg_olds = prev_challenges
             .iter()
@@ -1389,7 +1458,7 @@ mod step_verifier {
         };
 
         let srs_length_log2 = COMMON_MAX_DEGREE_STEP_LOG2 as u64;
-        let env = make_scalars_env_checked(&plonk_mininal, &domain, srs_length_log2, w);
+        let env = make_scalars_env_checked(&plonk_mininal, domain, srs_length_log2, w);
 
         let combined_inner_product_correct = {
             let p_eval0 = evals.public_input.0;

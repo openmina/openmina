@@ -39,6 +39,7 @@ use self::pseudo::PseudoDomain;
 
 use super::{
     constants::{ForWrapData, ProofConstants, WrapData},
+    merge::step_verifier::PlonkDomain,
     public_input::{
         messages::{dummy_ipa_step_sg, MessagesForNextWrapProof},
         plonk_checks::{PlonkMinimal, ScalarsEnv, ShiftedValue},
@@ -948,13 +949,17 @@ pub mod pseudo {
     use ark_poly::Radix2EvaluationDomain;
     use kimchi::circuits::wires::PERMUTS;
 
+    use crate::proofs::public_input::plonk_checks::make_shifts;
+
     use super::*;
 
+    #[derive(Clone)]
     pub struct PseudoDomain<F: FieldWitness> {
         pub domain: Radix2EvaluationDomain<F>,
         pub max_log2: u64,
         pub which_branch: Box<[Boolean]>,
         pub all_possible_domain: Box<[Domain]>,
+        pub shifts: Box<[F; PERMUTS]>,
     }
 
     impl<F: FieldWitness> PseudoDomain<F> {
@@ -1020,12 +1025,15 @@ pub mod pseudo {
             let all = all_possible_domains.iter().map(Domain::log2_size);
             Iterator::max(all).unwrap() // `rust-analyzer` is confused if we use `all.max()`
         };
+        let shifts = make_shifts(&domain);
+        let shifts = Box::new(*shifts.shifts());
 
         PseudoDomain {
             domain,
             max_log2,
             which_branch: Box::from(which_branch),
             all_possible_domain: Box::from(all_possible_domains),
+            shifts,
         }
     }
 
@@ -1101,9 +1109,18 @@ pub struct Domains {
     pub h: Domain,
 }
 
+impl Domains {
+    /// `max_domains`
+    pub fn max() -> Self {
+        Self {
+            h: Domain::Pow2RootsOfUnity(BACKEND_TICK_ROUNDS_N as u64),
+        }
+    }
+}
+
 pub fn make_scalars_env_checked<F: FieldWitness>(
     minimal: &PlonkMinimal<F, 4>,
-    domain: &PseudoDomain<F>,
+    domain: Box<dyn PlonkDomain<F>>,
     srs_length_log2: u64,
     w: &mut Witness<F>,
 ) -> ScalarsEnv<F> {
@@ -1127,7 +1144,7 @@ pub fn make_scalars_env_checked<F: FieldWitness>(
     };
 
     let (_w4, w3, w2, w1) = {
-        let gen = domain.domain.group_gen;
+        let gen = domain.generator();
         let w1 = field::div(F::one(), gen, w);
         let w2 = field::square(w1, w);
         let w3 = field::mul(w2, w1, w);
@@ -1153,7 +1170,7 @@ pub fn make_scalars_env_checked<F: FieldWitness>(
         zk_polynomial,
         zeta_to_n_minus_1,
         srs_length_log2,
-        domain: domain.domain.clone(),
+        domain,
         omega_to_minus_3: w3,
     }
 }
@@ -1497,7 +1514,8 @@ pub mod wrap_verifier {
         };
 
         let srs_length_log2 = COMMON_MAX_DEGREE_WRAP_LOG2 as u64;
-        let env = make_scalars_env_checked(&plonk_mininal, domain, srs_length_log2, w);
+        let env =
+            make_scalars_env_checked(&plonk_mininal, Box::new(domain.clone()), srs_length_log2, w);
 
         let combined_inner_product_correct = {
             let p_eval0 = evals.public_input.0;

@@ -21,13 +21,15 @@ use crate::{
 };
 
 use super::{
+    merge::step_verifier::PlonkDomain,
+    public_input::plonk_checks::make_shifts,
     to_field_elements::ToFieldElements,
     util::{extract_bulletproof, extract_polynomial_commitment, u64_to_field},
     witness::{FieldWitness, InnerCurve, PlonkVerificationKeyEvals},
     VerifierSRS,
 };
 use kimchi::{
-    circuits::polynomials::permutation::eval_zk_polynomial,
+    circuits::{polynomials::permutation::eval_zk_polynomial, wires::PERMUTS},
     error::VerifyError,
     mina_curves::pasta::Pallas,
     proof::{PointEvaluations, ProofEvaluations},
@@ -271,6 +273,26 @@ pub fn prev_evals_to_p2p(
     }
 }
 
+struct LimitedDomain<F: FieldWitness> {
+    domain: Radix2EvaluationDomain<F>,
+    shifts: kimchi::circuits::polynomials::permutation::Shifts<F>,
+}
+
+impl<F: FieldWitness> PlonkDomain<F> for LimitedDomain<F> {
+    fn vanishing_polynomial(&self, x: F, w: &mut super::witness::Witness<F>) -> F {
+        todo!()
+    }
+    fn generator(&self) -> F {
+        todo!()
+    }
+    fn shifts(&self) -> &[F; PERMUTS] {
+        self.shifts.shifts()
+    }
+    fn log2_size(&self) -> u64 {
+        todo!()
+    }
+}
+
 // TODO: `domain_log2` and `srs_length_log2` might be the same here ? Remove one or the other
 pub fn make_scalars_env<F: FieldWitness, const NLIMB: usize>(
     minimal: &PlonkMinimal<F, NLIMB>,
@@ -293,6 +315,9 @@ pub fn make_scalars_env<F: FieldWitness, const NLIMB: usize>(
 
         ((), w3, w2, w1)
     };
+
+    let shifts = make_shifts(&domain);
+    let domain = Box::new(LimitedDomain { domain, shifts });
 
     ScalarsEnv {
         zk_polynomial,

@@ -5,6 +5,7 @@ use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
 
 use crate::proofs::{
+    merge::step_verifier::PlonkDomain,
     public_input::plonk_checks::scalars::MinimalForScalar,
     to_field_elements::ToFieldElements,
     witness::{field, Boolean, FieldWitness, Witness},
@@ -30,7 +31,7 @@ pub struct ScalarsEnv<F: FieldWitness> {
     pub zk_polynomial: F,
     pub zeta_to_n_minus_1: F,
     pub srs_length_log2: u64,
-    pub domain: Radix2EvaluationDomain<F>,
+    pub domain: Box<dyn PlonkDomain<F>>,
     pub omega_to_minus_3: F,
 }
 
@@ -374,8 +375,7 @@ pub fn ft_eval0<F: FieldWitness, const NLIMB: usize>(
         })
     };
 
-    let shifts = make_shifts(&env.domain);
-    let shifts = shifts.shifts();
+    let shifts = env.domain.shifts();
     let ft_eval0 = ft_eval0 - p_eval0;
 
     let ft_eval0 = ft_eval0
@@ -778,8 +778,7 @@ pub fn ft_eval0_checked<F: FieldWitness, const NLIMB: usize>(
         })
     };
 
-    let shifts = make_shifts(&env.domain);
-    let shifts = shifts.shifts();
+    let shifts = env.domain.shifts();
     let ft_eval0 = ft_eval0 - p_eval0;
 
     let ft_eval0 = ft_eval0
