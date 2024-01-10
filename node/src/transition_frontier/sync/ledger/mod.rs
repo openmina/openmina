@@ -8,10 +8,8 @@ mod transition_frontier_sync_ledger_actions;
 pub use transition_frontier_sync_ledger_actions::*;
 
 mod transition_frontier_sync_ledger_reducer;
-pub use transition_frontier_sync_ledger_reducer::*;
 
 mod transition_frontier_sync_ledger_effects;
-pub use transition_frontier_sync_ledger_effects::*;
 
 use mina_p2p_messages::v2::{LedgerHash, MinaBaseStagedLedgerHashStableV1, StateHash};
 use openmina_core::block::ArcBlockWithHash;

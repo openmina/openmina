@@ -5,10 +5,8 @@ mod transition_frontier_sync_ledger_snarked_actions;
 pub use transition_frontier_sync_ledger_snarked_actions::*;
 
 mod transition_frontier_sync_ledger_snarked_reducer;
-pub use transition_frontier_sync_ledger_snarked_reducer::*;
 
 mod transition_frontier_sync_ledger_snarked_effects;
-pub use transition_frontier_sync_ledger_snarked_effects::*;
 
 mod transition_frontier_sync_ledger_snarked_service;
 pub use transition_frontier_sync_ledger_snarked_service::*;
