@@ -5,10 +5,8 @@ mod p2p_channels_snark_actions;
 pub use p2p_channels_snark_actions::*;
 
 mod p2p_channels_snark_reducer;
-pub use p2p_channels_snark_reducer::*;
 
 mod p2p_channels_snark_effects;
-pub use p2p_channels_snark_effects::*;
 
 use binprot_derive::{BinProtRead, BinProtWrite};
 use openmina_core::snark::SnarkInfo;

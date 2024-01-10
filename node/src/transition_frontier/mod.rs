@@ -10,7 +10,6 @@ mod transition_frontier_actions;
 pub use transition_frontier_actions::*;
 
 mod transition_frontier_reducer;
-pub use transition_frontier_reducer::*;
 
 mod transition_frontier_effects;
 pub use transition_frontier_effects::*;

@@ -2832,7 +2832,10 @@ mod tests_with_wasm {
 mod tests {
     use std::{path::Path, str::FromStr};
 
-    use mina_p2p_messages::binprot::{macros::{BinProtRead, BinProtWrite}, self};
+    use mina_p2p_messages::binprot::{
+        self,
+        macros::{BinProtRead, BinProtWrite},
+    };
 
     use ark_ff::One;
     use mina_hasher::Fp;
@@ -2920,7 +2923,9 @@ mod tests {
     fn test_protocol_state_body() {
         use mina_p2p_messages::v2::*;
 
-        let Ok(data) = std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("request_signed.bin")) else {
+        let Ok(data) =
+            std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("request_signed.bin"))
+        else {
             return;
         };
 
@@ -2930,10 +2935,21 @@ mod tests {
 
         println!("OK");
 
-        let ExternalSnarkWorkerRequest::PerformJob(job) = v else { panic!() };
-        let SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponse(Some((a, _prover))) = job else { panic!() };
-        let SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0Instances::One(single) = a.instances else { panic!() };
-        let SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0Single::Transition(state, witness) = single else { panic!() };
+        let ExternalSnarkWorkerRequest::PerformJob(job) = v else {
+            panic!()
+        };
+        let SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponse(Some((a, _prover))) = job else {
+            panic!()
+        };
+        let SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0Instances::One(single) = a.instances
+        else {
+            panic!()
+        };
+        let SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0Single::Transition(state, witness) =
+            single
+        else {
+            panic!()
+        };
 
         let mut witnesses: Witness<Fp> = Witness::with_capacity(100_000);
 

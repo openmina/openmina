@@ -25,7 +25,6 @@ mod snark_state;
 pub use snark_state::*;
 
 mod snark_reducer;
-pub use snark_reducer::*;
 
 use redux::SubStore;
 pub trait SnarkStore<GlobalState>:
