@@ -1,94 +1,94 @@
-/// Tests only
+// Tests only
 
-#[cfg(test)]
-mod tests {
-    use std::{
-        ops::{Add, Mul},
-        str::FromStr,
-    };
+// #[cfg(test)]
+// mod tests {
+//     use std::{
+//         ops::{Add, Mul},
+//         str::FromStr,
+//     };
 
-    use ark_ff::BigInteger256;
-    use mina_hasher::Fp;
-    use packed_simd::{u64x4, u64x8};
+//     use ark_ff::BigInteger256;
+//     use mina_hasher::Fp;
+//     use packed_simd::{u64x4, u64x8};
 
-    // #[test]
-    fn test_basic() {
-        let zero: u64x8 = u64x8::new(0, 0, 0, 0, 0, 0, 0, 0);
-        elog!("zero={:?}", zero);
-        elog!(
-            "one ={:?}",
-            u64x8::new(u64::MAX, 0, 0, 0, 0, 0, 0, 0) + u64x8::new(2, 0, 0, 0, 0, 0, 0, 0)
-        );
-        elog!("ten ={:?}", zero.add(1).mul(10));
+//     // #[test]
+//     fn test_basic() {
+//         let zero: u64x8 = u64x8::new(0, 0, 0, 0, 0, 0, 0, 0);
+//         elog!("zero={:?}", zero);
+//         elog!(
+//             "one ={:?}",
+//             u64x8::new(u64::MAX, 0, 0, 0, 0, 0, 0, 0) + u64x8::new(2, 0, 0, 0, 0, 0, 0, 0)
+//         );
+//         elog!("ten ={:?}", zero.add(1).mul(10));
 
-        let fp = Fp::from_str(
-            "12035446894107573964500871153637039653510326950134440362813193268448863222019",
-        )
-        .unwrap();
-        let bigint: BigInteger256 = fp.into();
-        let bigref = bigint.as_ref();
+//         let fp = Fp::from_str(
+//             "12035446894107573964500871153637039653510326950134440362813193268448863222019",
+//         )
+//         .unwrap();
+//         let bigint: BigInteger256 = fp.into();
+//         let bigref = bigint.as_ref();
 
-        // let one = Fp::one();
-        // elog!("one={:?}", one);
-        // elog!("one={:?}", one.into_repr());
+//         // let one = Fp::one();
+//         // elog!("one={:?}", one);
+//         // elog!("one={:?}", one.into_repr());
 
-        assert_eq!(bigref.len(), 4);
+//         assert_eq!(bigref.len(), 4);
 
-        let simd: u64x4 = u64x4::from_slice_unaligned(bigref);
+//         let simd: u64x4 = u64x4::from_slice_unaligned(bigref);
 
-        let abc = [bigref[0], bigref[1], bigref[2], bigref[3], 0, 0, 0, 0];
-        // let abc = [0, 0, 0, 0, bigref[0], bigref[1], bigref[2], bigref[3]];
-        let simd2: u64x8 = u64x8::from_slice_unaligned(&abc[..]);
-        // let fsimd: f64x4 = f64x4::from_slice_unaligned(&bigref.iter().map(|f| *f as f64).collect::<Vec<_>>());
+//         let abc = [bigref[0], bigref[1], bigref[2], bigref[3], 0, 0, 0, 0];
+//         // let abc = [0, 0, 0, 0, bigref[0], bigref[1], bigref[2], bigref[3]];
+//         let simd2: u64x8 = u64x8::from_slice_unaligned(&abc[..]);
+//         // let fsimd: f64x4 = f64x4::from_slice_unaligned(&bigref.iter().map(|f| *f as f64).collect::<Vec<_>>());
 
-        elog!("simd  ={:?}", simd);
-        elog!("simd2  ={:?}", simd2);
-        // elog!("fsimd  ={:?}", simd);
-        elog!("fp    ={:?}", fp);
-        elog!("bigint={:?}", bigint);
-        elog!("ref   ={:?}\n", bigref);
+//         elog!("simd  ={:?}", simd);
+//         elog!("simd2  ={:?}", simd2);
+//         // elog!("fsimd  ={:?}", simd);
+//         elog!("fp    ={:?}", fp);
+//         elog!("bigint={:?}", bigint);
+//         elog!("ref   ={:?}\n", bigref);
 
-        let n = 2;
-        let simd = simd * n;
-        let simd2 = simd2 * n;
-        // let fsimd = fsimd * (n as f64);
-        let fp: Fp = fp.mul(Fp::from(n));
+//         let n = 2;
+//         let simd = simd * n;
+//         let simd2 = simd2 * n;
+//         // let fsimd = fsimd * (n as f64);
+//         let fp: Fp = fp.mul(Fp::from(n));
 
-        let simd2 = simd2
-            % u64x8::new(
-                // 0xcc96987680000000,
-                // 0x11234c7e04a67c8d,
-                // 0x0,
-                // 0x2000000000000000,
-                0x992d30ed00000001,
-                0x224698fc094cf91b,
-                0x0,
-                0x4000000000000000,
-                0,
-                0,
-                0,
-                0,
-            );
+//         let simd2 = simd2
+//             % u64x8::new(
+//                 // 0xcc96987680000000,
+//                 // 0x11234c7e04a67c8d,
+//                 // 0x0,
+//                 // 0x2000000000000000,
+//                 0x992d30ed00000001,
+//                 0x224698fc094cf91b,
+//                 0x0,
+//                 0x4000000000000000,
+//                 0,
+//                 0,
+//                 0,
+//                 0,
+//             );
 
-        // let simd2 = simd % 3;
+//         // let simd2 = simd % 3;
 
-        elog!("simd  ={:?}", simd);
-        elog!("simd2 ={:?}", simd2);
-        // // elog!("fsimd  ={:?}", fsimd);
-        elog!("fp    ={:?}", fp);
-        elog!("bigint={:?}", fp.0);
-        let bigint: BigInteger256 = fp.into();
-        elog!("bigint2={:?}", bigint);
-        // let bigint3 = BigInteger256::new([simd.extract(0), simd.extract(1), simd.extract(2), simd.extract(3)]);
-        // let fp2: Fp = bigint3.into();
-        // elog!("bigint3={:?}", bigint3);
-        // elog!("fp2={:?}", fp2);
-        // // Fp::read(&[simd.extract(0), simd.extract(1), simd.extract(2), simd.extract(3)][..]);
+//         elog!("simd  ={:?}", simd);
+//         elog!("simd2 ={:?}", simd2);
+//         // // elog!("fsimd  ={:?}", fsimd);
+//         elog!("fp    ={:?}", fp);
+//         elog!("bigint={:?}", fp.0);
+//         let bigint: BigInteger256 = fp.into();
+//         elog!("bigint2={:?}", bigint);
+//         // let bigint3 = BigInteger256::new([simd.extract(0), simd.extract(1), simd.extract(2), simd.extract(3)]);
+//         // let fp2: Fp = bigint3.into();
+//         // elog!("bigint3={:?}", bigint3);
+//         // elog!("fp2={:?}", fp2);
+//         // // Fp::read(&[simd.extract(0), simd.extract(1), simd.extract(2), simd.extract(3)][..]);
 
-        // let acc = Account::create();
-        // let hash = acc.hash();
-    }
-}
+//         // let acc = Account::create();
+//         // let hash = acc.hash();
+//     }
+// }
 
 // impl FftParameters for FpParameters {
 //     type BigInt = BigInteger;
