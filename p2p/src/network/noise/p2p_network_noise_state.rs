@@ -286,7 +286,10 @@ impl P2pNetworkNoiseState {
                                     remote_peer_id,
                                 };
                             }
-                            Err(err) => *state = P2pNetworkNoiseStateInner::Error(dbg!(err)),
+                            Err(err) => {
+                                *state = P2pNetworkNoiseStateInner::Error(err);
+                                todo!("proper error handling");
+                            },
                         },
                         P2pNetworkNoiseStateInner::Done {
                             output, recv_nonce, ..
