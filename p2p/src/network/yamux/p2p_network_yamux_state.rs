@@ -14,14 +14,50 @@ pub struct P2pNetworkYamuxState {
     pub init: bool,
 }
 
-#[derive(Default, Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct YamuxStreamState {
     pub incoming: bool,
     pub syn_sent: bool,
     pub established: bool,
     pub readable: bool,
     pub writable: bool,
-    pub window: i32,
+    pub window_theirs: u32,
+    pub window_ours: u32,
+}
+
+impl YamuxStreamState {
+    fn update_window(&mut self, ours: bool, difference: i32) {
+        let window = if ours {
+            &mut self.window_ours
+        } else {
+            &mut self.window_theirs
+        };
+        if difference < 0 {
+            let decreasing = (-difference) as u32;
+            if *window < decreasing {
+                *window = 0;
+            } else {
+                *window -= decreasing;
+            }
+        } else {
+            let increasing = difference as u32;
+            *window += increasing;
+        }
+    }
+}
+
+impl Default for YamuxStreamState {
+    fn default() -> Self {
+        YamuxStreamState {
+            incoming: false,
+            syn_sent: false,
+            established: false,
+            readable: false,
+            writable: false,
+            window_theirs: 256 * 1024,
+            window_ours: 256 * 1024,
+        }
+    }
 }
 
 impl YamuxStreamState {
@@ -201,6 +237,10 @@ impl P2pNetworkYamuxAction {
             }
             Self::IncomingFrame(a) => {
                 let frame = &a.frame;
+                let Some(stream) = state.streams.get(&frame.stream_id).cloned() else {
+                    return;
+                };
+
                 if frame.flags.contains(YamuxFlags::SYN) && frame.stream_id != 0 {
                     store.dispatch(P2pNetworkSelectInitAction {
                         addr: a.addr,
@@ -210,6 +250,19 @@ impl P2pNetworkYamuxAction {
                 }
                 match &frame.inner {
                     YamuxFrameInner::Data(data) => {
+                        if stream.window_ours < 64 * 1024 {
+                            store.dispatch(P2pNetworkYamuxOutgoingFrameAction {
+                                addr: a.addr,
+                                frame: YamuxFrame {
+                                    stream_id: frame.stream_id,
+                                    flags: YamuxFlags::empty(),
+                                    inner: YamuxFrameInner::WindowUpdate {
+                                        difference: 256 * 1024,
+                                    },
+                                },
+                            });
+                        }
+
                         store.dispatch(P2pNetworkSelectIncomingDataAction {
                             addr: a.addr,
                             kind: SelectKind::Stream(peer_id, frame.stream_id),
@@ -416,13 +469,18 @@ impl P2pNetworkYamuxState {
                     }
 
                     match frame.inner {
-                        YamuxFrameInner::Data(_) => {}
+                        YamuxFrameInner::Data(data) => {
+                            if let Some(stream) = self.streams.get_mut(&frame.stream_id) {
+                                // must not underflow
+                                // TODO: check it and disconnect peer that violates flow rules
+                                stream.window_ours -= data.len() as u32;
+                            }
+                        }
                         YamuxFrameInner::WindowUpdate { difference } => {
-                            let stream = self
-                                .streams
+                            self.streams
                                 .entry(frame.stream_id)
-                                .or_insert_with(|| YamuxStreamState::incoming());
-                            stream.window += difference;
+                                .or_insert_with(|| YamuxStreamState::incoming())
+                                .update_window(false, difference);
                         }
                         YamuxFrameInner::Ping { .. } => {}
                         YamuxFrameInner::GoAway(res) => self.set_res(res),
@@ -431,12 +489,27 @@ impl P2pNetworkYamuxState {
             }
             P2pNetworkYamuxAction::OutgoingFrame(a) => {
                 let frame = &a.frame;
+
+                let Some(stream) = self.streams.get_mut(&frame.stream_id) else {
+                    return;
+                };
+                match &frame.inner {
+                    YamuxFrameInner::Data(data) => {
+                        // must not underflow
+                        // the action must not dispatch if it doesn't fit in the window
+                        // TODO: add pending queue, where frames will wait for window increase
+                        stream.window_theirs -= data.len() as u32;
+                    }
+                    YamuxFrameInner::WindowUpdate { difference } => {
+                        stream.update_window(true, *difference);
+                    }
+                    _ => {}
+                }
+
                 if frame.flags.contains(YamuxFlags::FIN) {
                     streams.remove(&frame.stream_id);
-                    if let Some(stream) = self.streams.get_mut(&frame.stream_id) {
-                        stream.writable = false;
-                    }
-                } else if let Some(stream) = self.streams.get_mut(&frame.stream_id) {
+                    stream.writable = false;
+                } else {
                     if frame.flags.contains(YamuxFlags::ACK) {
                         stream.established |= true;
                     }

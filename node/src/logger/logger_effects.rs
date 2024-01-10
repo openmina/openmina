@@ -724,7 +724,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                             p2p::RpcMessage::Query { header, .. } => format!("{header:?}"),
                             p2p::RpcMessage::Response { header, .. } => format!("{header:?}"),
                         };
-                        openmina_core::log::info!(
+                        openmina_core::log::debug!(
                             meta.time();
                             kind = kind.to_string(),
                             addr = action.addr.to_string(),

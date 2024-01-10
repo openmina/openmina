@@ -2,6 +2,7 @@ use std::{
     collections::{BTreeMap, VecDeque},
     net::SocketAddr,
     str,
+    sync::Arc,
 };
 
 use binprot::{BinProtRead, BinProtWrite};
@@ -15,13 +16,16 @@ use mina_p2p_messages::{
         ResponsePayload, RpcMethod,
     },
     string::CharString,
+    v2,
 };
 
 use crate::{
     channels::rpc::{
         BestTipWithProof, P2pChannelsRpcReadyAction, P2pChannelsRpcRequestSendAction,
         P2pChannelsRpcResponseReceivedAction, P2pChannelsRpcState, P2pRpcRequest, P2pRpcResponse,
+        StagedLedgerAuxAndPendingCoinbases,
     },
+    connection::outgoing::P2pConnectionOutgoingInitOpts,
     Data,
 };
 
@@ -233,20 +237,6 @@ impl P2pNetworkRpcAction {
                             //     data: v.into(),
                             // });
 
-                            // type Payload = QueryPayload<<rpc::GetBestTipV2 as RpcMethod>::Query>;
-                            // <Payload as BinProtWrite>::binprot_write(&NeedsLength(()), &mut v)
-                            //     .unwrap_or_default();
-
-                            // store.dispatch(P2pNetworkRpcOutgoingQueryAction {
-                            //     peer_id: a.peer_id,
-                            //     query: QueryHeader {
-                            //         tag: rpc::GetBestTipV2::NAME.into(),
-                            //         version: rpc::GetBestTipV2::VERSION,
-                            //         id: state.last_id,
-                            //     },
-                            //     data: v.into(),
-                            // });
-
                             store.dispatch(P2pChannelsRpcRequestSendAction {
                                 peer_id: a.peer_id,
                                 id: state.last_id as _,
@@ -308,7 +298,7 @@ impl P2pNetworkRpcAction {
                                             parse_r::<rpc::AnswerSyncLedgerQueryV2>(&bytes)
                                         else {
                                             // TODO: close the stream
-                                            return;
+                                            panic!();
                                         };
 
                                         let response = response
@@ -322,6 +312,94 @@ impl P2pNetworkRpcAction {
                                             id: header.id as _,
                                             response,
                                         });
+                                    }
+                                    (
+                                        rpc::GetStagedLedgerAuxAndPendingCoinbasesAtHashV2::NAME,
+                                        rpc::GetStagedLedgerAuxAndPendingCoinbasesAtHashV2::VERSION,
+                                    ) => {
+                                        type Method =
+                                            rpc::GetStagedLedgerAuxAndPendingCoinbasesAtHashV2;
+                                        let Ok(response) = parse_r::<Method>(&bytes) else {
+                                            // TODO: close the stream
+                                            panic!();
+                                        };
+
+                                        let response = response
+                                        .ok()
+                                        .flatten()
+                                        .map(|(scan_state, hash, pending_coinbase, needed_blocks)| {
+                                            let staged_ledger_hash =
+                                                v2::MinaBaseLedgerHash0StableV1(hash).into();
+                                            Arc::new(StagedLedgerAuxAndPendingCoinbases {
+                                                scan_state,
+                                                staged_ledger_hash,
+                                                pending_coinbase,
+                                                needed_blocks,
+                                            })
+                                        })
+                                        .map(P2pRpcResponse::StagedLedgerAuxAndPendingCoinbasesAtBlock);
+
+                                        store.dispatch(P2pChannelsRpcResponseReceivedAction {
+                                            peer_id: a.peer_id,
+                                            id: header.id as _,
+                                            response,
+                                        });
+                                    }
+                                    (
+                                        rpc::GetTransitionChainV2::NAME,
+                                        rpc::GetTransitionChainV2::VERSION,
+                                    ) => {
+                                        type Method = rpc::GetTransitionChainV2;
+                                        let Ok(response) = parse_r::<Method>(&bytes) else {
+                                            // TODO: close the stream
+                                            panic!();
+                                        };
+                                        let response = response.ok().flatten().unwrap_or_default();
+
+                                        if response.is_empty() {
+                                            store.dispatch(P2pChannelsRpcResponseReceivedAction {
+                                                peer_id: a.peer_id,
+                                                id: header.id as _,
+                                                response: None,
+                                            });
+                                        } else {
+                                            for block in response {
+                                                let response =
+                                                    Some(P2pRpcResponse::Block(Arc::new(block)));
+                                                store.dispatch(
+                                                    P2pChannelsRpcResponseReceivedAction {
+                                                        peer_id: a.peer_id,
+                                                        id: header.id as _,
+                                                        response,
+                                                    },
+                                                );
+                                            }
+                                        }
+                                    }
+                                    (
+                                        rpc::GetSomeInitialPeersV1ForV2::NAME,
+                                        rpc::GetSomeInitialPeersV1ForV2::VERSION,
+                                    ) => {
+                                        type Method = rpc::GetSomeInitialPeersV1ForV2;
+                                        let Ok(response) = parse_r::<Method>(&bytes) else {
+                                            // TODO: close the stream
+                                            panic!();
+                                        };
+                                        let Ok(response) = response else { return };
+                                        if response.is_empty() {
+                                            store.dispatch(P2pChannelsRpcResponseReceivedAction {
+                                                peer_id: a.peer_id,
+                                                id: header.id as _,
+                                                response: None,
+                                            });
+                                        } else {
+                                            let peers = response.into_iter().filter_map(P2pConnectionOutgoingInitOpts::try_from_mina_rpc).collect();
+                                            store.dispatch(P2pChannelsRpcResponseReceivedAction {
+                                                peer_id: a.peer_id,
+                                                id: header.id as _,
+                                                response: Some(P2pRpcResponse::InitialPeers(peers)),
+                                            });
+                                        }
                                     }
                                     _ => {}
                                 }
