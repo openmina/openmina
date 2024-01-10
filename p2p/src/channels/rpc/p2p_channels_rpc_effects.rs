@@ -81,7 +81,7 @@ impl P2pChannelsRpcRequestSendAction {
                         data: v.into(),
                     });
                 }
-                _ => {}
+                _ => unimplemented!(),
             }
         }
     }
