@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 
+use crate::account::AccountPublicKey;
 use crate::block_producer::{vrf_evaluator::BlockProducerVrfEvaluatorStatus, BlockProducerAction};
 use ledger::AccountIndex;
 use mina_p2p_messages::v2::{
@@ -8,7 +9,6 @@ use mina_p2p_messages::v2::{
 };
 use serde::{Deserialize, Serialize};
 use vrf::VrfEvaluationOutput;
-use crate::account::AccountPublicKey;
 
 use super::VrfEvaluatorInput;
 

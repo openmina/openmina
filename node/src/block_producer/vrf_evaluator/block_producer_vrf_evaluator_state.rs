@@ -4,8 +4,8 @@ use ledger::AccountIndex;
 use serde::{Deserialize, Serialize};
 use vrf::VrfWonSlot;
 
-use crate::BlockProducerConfig;
 use crate::account::AccountPublicKey;
+use crate::BlockProducerConfig;
 
 // TODO(adonagy): consodilate types, make more clear
 // pub type AccountAddressAndBalance = (String, u64);

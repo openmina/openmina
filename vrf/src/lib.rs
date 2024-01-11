@@ -5,12 +5,12 @@ use ark_ff::{BigInteger, BigInteger256, One, PrimeField, SquareRootField, Zero};
 use ledger::AccountIndex;
 // use keypair::Keypair;
 use message::VrfMessage;
+use mina_p2p_messages::bigint::BigInt as MinaBigInt;
 use num::{BigInt, BigRational, ToPrimitive};
 use output::VrfOutputHashInput;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use thiserror::Error;
-use mina_p2p_messages::bigint::BigInt as MinaBigInt;
 
 use mina_curves::pasta::curves::pallas::Pallas as CurvePoint;
 use mina_hasher::{create_kimchi, Hasher};
@@ -318,13 +318,19 @@ mod test {
             account_pub_key: "Placeholder".to_string(),
         };
 
-        let vrf_hash_bytes: Box<[u8; 32]> = Box::new([241, 165, 64, 215, 216, 29, 243, 42, 40, 116, 181, 119, 58, 116, 33, 22, 122, 56, 85, 92, 240, 3, 250, 110, 105, 62, 18, 17, 96, 235, 110, 37]);
+        let vrf_hash_bytes: Box<[u8; 32]> = Box::new([
+            241, 165, 64, 215, 216, 29, 243, 42, 40, 116, 181, 119, 58, 116, 33, 22, 122, 56, 85,
+            92, 240, 3, 250, 110, 105, 62, 18, 17, 96, 235, 110, 37,
+        ]);
 
         let expected = VrfEvaluationOutput::SlotWon(VrfWonSlot {
             producer: "B62qrztYfPinaKqpXaYGY6QJ3SSW2NNKs7SajBLF1iFNXW9BoALN2Aq".to_string(),
             winner_account: "Placeholder".to_string(),
             vrf_output: "48HHFYbaz4d7XkJpWWJw5jN1vEBfPvU31nsX4Ljn74jDo3WyTojL".to_string(),
-            vrf_output_bytes: vec![241, 165, 64, 215, 216, 29, 243, 42, 40, 116, 181, 119, 58, 116, 33, 22, 122, 56, 85, 92, 240, 3, 250, 110, 105, 62, 18, 17, 96, 235, 110, 5],
+            vrf_output_bytes: vec![
+                241, 165, 64, 215, 216, 29, 243, 42, 40, 116, 181, 119, 58, 116, 33, 22, 122, 56,
+                85, 92, 240, 3, 250, 110, 105, 62, 18, 17, 96, 235, 110, 5,
+            ],
             vrf_fractional: 0.16978997004532187,
             global_slot: vrf_input.global_slot,
             account_index: AccountIndex(2),

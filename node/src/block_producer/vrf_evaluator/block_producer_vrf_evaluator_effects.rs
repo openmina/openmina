@@ -1,9 +1,9 @@
 use redux::ActionMeta;
 
-use crate::Service;
-use crate::Store;
 use crate::account::AccountPublicKey;
 use crate::block_producer::vrf_evaluator::VrfEvaluatorInput;
+use crate::Service;
+use crate::Store;
 
 use super::BlockProducerVrfEvaluatorUpdateProducerAndDelegatesAction;
 use super::BlockProducerVrfEvaluatorUpdateProducerAndDelegatesSuccessAction;

@@ -1,7 +1,7 @@
 mod block_producer_vrf_evaluator_state;
+use crate::account::AccountPublicKey;
 use ledger::AccountIndex;
 use std::collections::BTreeMap;
-use crate::account::AccountPublicKey;
 
 pub use block_producer_vrf_evaluator_state::*;
 
@@ -19,7 +19,7 @@ pub use block_producer_vrf_evaluator_effects::*;
 
 mod block_producer_vrf_evaluator_service;
 pub use block_producer_vrf_evaluator_service::*;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Default, Deserialize, Clone, Serialize)]
 pub struct VrfEvaluatorInput {

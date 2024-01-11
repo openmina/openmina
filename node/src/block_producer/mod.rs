@@ -26,8 +26,9 @@ use mina_p2p_messages::{
     bigint::BigInt,
     v2::{
         BlockTimeTimeStableV1, ConsensusGlobalSlotStableV1, ConsensusVrfOutputTruncatedStableV1,
-        LedgerHash, MinaNumbersGlobalSlotSinceGenesisMStableV1, NonZeroCurvePoint,
-        UnsignedExtendedUInt64Int64ForVersionTagsStableV1, MinaNumbersGlobalSlotSinceHardForkMStableV1,
+        LedgerHash, MinaNumbersGlobalSlotSinceGenesisMStableV1,
+        MinaNumbersGlobalSlotSinceHardForkMStableV1, NonZeroCurvePoint,
+        UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
     },
 };
 use mina_signer::CompressedPubKey;
@@ -55,13 +56,18 @@ impl BlockProducerWonSlot {
     pub fn from_vrf_won_slot(won_slot: VrfWonSlot, genesis_timestamp: redux::Timestamp) -> Self {
         let slot_time = Self::calculate_slot_time(genesis_timestamp, won_slot.global_slot);
 
-        let winner_pub_key = AccountPublicKey::from(CompressedPubKey::from_address(&won_slot.winner_account).unwrap());
+        let winner_pub_key = AccountPublicKey::from(
+            CompressedPubKey::from_address(&won_slot.winner_account).unwrap(),
+        );
         let delegator = (winner_pub_key.into(), won_slot.account_index.clone());
         let global_slot = ConsensusGlobalSlotStableV1 {
-            slot_number: MinaNumbersGlobalSlotSinceHardForkMStableV1::SinceHardFork(won_slot.global_slot.into()),
+            slot_number: MinaNumbersGlobalSlotSinceHardForkMStableV1::SinceHardFork(
+                won_slot.global_slot.into(),
+            ),
             slots_per_epoch: 7140.into(), // TODO
         };
-        let global_slot_since_genesis = MinaNumbersGlobalSlotSinceGenesisMStableV1::SinceGenesis(won_slot.global_slot.into());
+        let global_slot_since_genesis =
+            MinaNumbersGlobalSlotSinceGenesisMStableV1::SinceGenesis(won_slot.global_slot.into());
 
         let vrf_output = ConsensusVrfOutputTruncatedStableV1(won_slot.vrf_output_bytes.into());
         let vrf_hash = won_slot.vrf_hash;
