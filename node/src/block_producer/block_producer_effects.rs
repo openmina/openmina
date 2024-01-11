@@ -14,7 +14,7 @@ use super::{
     BlockProducerStagedLedgerDiffCreatePendingAction,
     BlockProducerStagedLedgerDiffCreateSuccessAction, BlockProducerWonSlotAction,
     BlockProducerWonSlotDiscardAction, BlockProducerWonSlotProduceInitAction,
-    BlockProducerWonSlotSearchAction, BlockProducerWonSlotWaitAction,
+    BlockProducerWonSlotSearchAction, BlockProducerWonSlotWaitAction, BlockProducerWonSlot,
 };
 
 pub fn block_producer_effects<S: crate::Service>(
@@ -124,7 +124,10 @@ impl BlockProducerWonSlotSearchAction {
 
         if let Some(vrf_evaluator_state) = vrf_evaluator_state {
             if let Some((_, won_slot)) = vrf_evaluator_state.won_slots.range(vrf_evaluator_state.current_best_tip_slot + 1..).next() {
-                store.dispatch(BlockProducerWonSlotAction { won_slot: won_slot.clone().into() });
+                let genesis_timestamp = vrf_evaluator_state.genesis_timestamp;
+                store.dispatch(BlockProducerWonSlotAction {
+                    won_slot: BlockProducerWonSlot::from_vrf_won_slot(won_slot.clone(), genesis_timestamp)
+                });
             }
         }
     }

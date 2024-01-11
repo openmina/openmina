@@ -64,6 +64,10 @@ impl<T: AsRef<Block>> BlockWithHash<T> {
         timestamp(self.header())
     }
 
+    pub fn genesis_timestamp(&self) -> Timestamp {
+        genesis_timestamp(self.header())
+    }
+
     pub fn constants(&self) -> &MinaBaseProtocolConstantsCheckedValueStableV1 {
         constants(self.header())
     }
@@ -182,6 +186,10 @@ impl<T: AsRef<BlockHeader>> BlockHeaderWithHash<T> {
         timestamp(self.header())
     }
 
+    pub fn genesis_timestamp(&self) -> Timestamp {
+        genesis_timestamp(self.header())
+    }
+
     pub fn constants(&self) -> &MinaBaseProtocolConstantsCheckedValueStableV1 {
         constants(self.header())
     }
@@ -237,6 +245,11 @@ fn timestamp(header: &BlockHeader) -> Timestamp {
     // now it assumes 3 minutes blocks.
     let time_ms = genesis_timestamp + slot * 3 * 60 * 1000;
     Timestamp::new(time_ms * 1_000_000)
+}
+
+fn genesis_timestamp(header: &BlockHeader) -> Timestamp {
+    let genesis_timestamp = constants(header).genesis_state_timestamp.0.as_u64();
+    Timestamp::new(genesis_timestamp * 1_000_000)
 }
 
 fn constants(header: &BlockHeader) -> &MinaBaseProtocolConstantsCheckedValueStableV1 {

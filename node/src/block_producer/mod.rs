@@ -52,6 +52,35 @@ pub struct BlockProducerWonSlot {
 }
 
 impl BlockProducerWonSlot {
+    pub fn from_vrf_won_slot(won_slot: VrfWonSlot, genesis_timestamp: redux::Timestamp) -> Self {
+        let slot_time = Self::calculate_slot_time(genesis_timestamp, won_slot.global_slot);
+
+        let winner_pub_key = AccountPublicKey::from(CompressedPubKey::from_address(&won_slot.winner_account).unwrap());
+        let delegator = (winner_pub_key.into(), won_slot.account_index.clone());
+        let global_slot = ConsensusGlobalSlotStableV1 {
+            slot_number: MinaNumbersGlobalSlotSinceHardForkMStableV1::SinceHardFork(won_slot.global_slot.into()),
+            slots_per_epoch: 7140.into(), // TODO
+        };
+        let global_slot_since_genesis = MinaNumbersGlobalSlotSinceGenesisMStableV1::SinceGenesis(won_slot.global_slot.into());
+
+        let vrf_output = ConsensusVrfOutputTruncatedStableV1(won_slot.vrf_output_bytes.into());
+        let vrf_hash = won_slot.vrf_hash;
+        Self {
+            slot_time,
+            delegator,
+            global_slot,
+            global_slot_since_genesis,
+            vrf_output,
+            vrf_hash,
+        }
+    }
+
+    fn calculate_slot_time(genesis_timestamp: redux::Timestamp, slot: u32) -> redux::Timestamp {
+        // FIXME: this calculation must use values from the protocol constants,
+        // now it assumes 3 minutes blocks.
+        genesis_timestamp + (slot as u64) * 3 * 60 * 1_000_000_000_u64
+    }
+
     pub fn timestamp(&self) -> BlockTimeTimeStableV1 {
         let ms = u64::from(self.slot_time) / 1_000_000;
         BlockTimeTimeStableV1(UnsignedExtendedUInt64Int64ForVersionTagsStableV1(ms.into()))
@@ -98,31 +127,5 @@ impl PartialOrd<ArcBlockWithHash> for BlockProducerWonSlot {
                     )
                 }),
         )
-    }
-}
-
-impl From<VrfWonSlot> for BlockProducerWonSlot {
-    fn from(value: VrfWonSlot) -> Self {
-        // TODO
-        let slot_time = redux::Timestamp::global_now();
-
-        let winner_pub_key = AccountPublicKey::from(CompressedPubKey::from_address(&value.winner_account).unwrap());
-        let delegator = (winner_pub_key.into(), value.account_index.clone());
-        let global_slot = ConsensusGlobalSlotStableV1 {
-            slot_number: MinaNumbersGlobalSlotSinceHardForkMStableV1::SinceHardFork(value.global_slot.into()),
-            slots_per_epoch: 7140.into(), // TODO
-        };
-        let global_slot_since_genesis = MinaNumbersGlobalSlotSinceGenesisMStableV1::SinceGenesis(value.global_slot.into());
-
-        let vrf_output = ConsensusVrfOutputTruncatedStableV1(value.vrf_output_bytes.into());
-        let vrf_hash = value.vrf_hash;
-        Self {
-            slot_time,
-            delegator,
-            global_slot,
-            global_slot_since_genesis,
-            vrf_output,
-            vrf_hash,
-        }
     }
 }

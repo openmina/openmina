@@ -57,6 +57,14 @@ impl BlockProducerEnabled {
                     .curr_global_slot
                     .slot_number
                     .as_u32();
+
+                // set the genesis timestamp on the first best tip update
+                // TODO: move/remove once we can generate the genesis block 
+                if self.vrf_evaluator.genesis_timestamp == redux::Timestamp::ZERO {
+                    self.vrf_evaluator.genesis_timestamp = action
+                        .best_tip
+                        .genesis_timestamp();
+                }
             }
             BlockProducerAction::WonSlotSearch(_) => {}
             BlockProducerAction::WonSlot(action) => {

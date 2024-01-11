@@ -22,6 +22,7 @@ pub struct BlockProducerVrfEvaluatorState {
     pub current_best_tip_slot: u32,
     pub latest_evaluated_slot: u32,
     pub last_possible_evaluation_slot: u32,
+    pub genesis_timestamp: redux::Timestamp,
 }
 
 impl BlockProducerVrfEvaluatorState {
@@ -37,6 +38,7 @@ impl BlockProducerVrfEvaluatorState {
             current_best_tip_slot: Default::default(),
             latest_evaluated_slot: Default::default(),
             last_possible_evaluation_slot: Default::default(),
+            genesis_timestamp: redux::Timestamp::ZERO,
         }
     }
 }
