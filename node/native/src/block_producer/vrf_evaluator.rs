@@ -1,7 +1,7 @@
 use mina_signer::Keypair;
-use node::{block_producer::BlockProducerEvent, event_source::Event};
+use node::{block_producer::{BlockProducerEvent, vrf_evaluator::VrfEvaluatorInput}, event_source::Event};
 use openmina_core::channels::mpsc::{UnboundedReceiver, UnboundedSender};
-use vrf::{VrfEvaluationInput, VrfEvaluationOutput, VrfEvaluatorInput};
+use vrf::{VrfEvaluationInput, VrfEvaluationOutput};
 
 use crate::NodeService;
 use node::block_producer::BlockProducerVrfEvaluatorEvent;
@@ -26,9 +26,9 @@ pub fn vrf_evaluator(
             let vrf_input = VrfEvaluationInput::new(
                 keypair.clone(),
                 vrf_evaluator_input.epoch_seed.clone(),
-                account.0.clone(),
+                account.0.to_string(),
                 vrf_evaluator_input.global_slot,
-                index.as_u64(),
+                index.clone(),
                 account.1.into(),
                 vrf_evaluator_input.total_currency.into(),
             );

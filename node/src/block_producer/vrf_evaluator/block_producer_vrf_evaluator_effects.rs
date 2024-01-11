@@ -1,8 +1,9 @@
 use redux::ActionMeta;
-use vrf::VrfEvaluatorInput;
 
 use crate::Service;
 use crate::Store;
+use crate::account::AccountPublicKey;
+use crate::block_producer::vrf_evaluator::VrfEvaluatorInput;
 
 use super::BlockProducerVrfEvaluatorUpdateProducerAndDelegatesAction;
 use super::BlockProducerVrfEvaluatorUpdateProducerAndDelegatesSuccessAction;
@@ -87,13 +88,13 @@ impl BlockProducerVrfEvaluatorUpdateProducerAndDelegatesAction {
     pub fn effects<S: Service>(self, _: &ActionMeta, store: &mut Store<S>) {
         let current_epoch_producer_and_delegators: std::collections::BTreeMap<
             ledger::AccountIndex,
-            (String, u64),
+            (AccountPublicKey, u64),
         > = store
             .service
             .get_producer_and_delegates(self.current_epoch_ledger_hash, self.producer.clone());
         let next_epoch_producer_and_delegators: std::collections::BTreeMap<
             ledger::AccountIndex,
-            (String, u64),
+            (AccountPublicKey, u64),
         > = store
             .service
             .get_producer_and_delegates(self.next_epoch_ledger_hash, self.producer.clone());

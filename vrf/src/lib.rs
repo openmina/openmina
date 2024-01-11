@@ -10,6 +10,7 @@ use output::VrfOutputHashInput;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use thiserror::Error;
+use mina_p2p_messages::bigint::BigInt as MinaBigInt;
 
 use mina_curves::pasta::curves::pallas::Pallas as CurvePoint;
 use mina_hasher::{create_kimchi, Hasher};
@@ -60,38 +61,16 @@ pub enum VrfError {
     IvalidWitness,
 }
 
-#[derive(Debug, Default, Deserialize, Clone, Serialize)]
-pub struct VrfEvaluatorInput {
-    // TODO(adonagy): here we should have the ledger data, epoch seed and curent global slot
-    pub epoch_seed: String,
-    pub delegatee_table: BTreeMap<AccountIndex, (String, u64)>,
-    pub global_slot: u32,
-    pub total_currency: u64,
-}
-
-impl VrfEvaluatorInput {
-    pub fn new(
-        epoch_seed: String,
-        delegatee_table: BTreeMap<AccountIndex, (String, u64)>,
-        global_slot: u32,
-        total_currency: u64,
-    ) -> Self {
-        Self {
-            epoch_seed,
-            delegatee_table,
-            global_slot,
-            total_currency,
-        }
-    }
-}
-
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct VrfWonSlot {
     pub producer: String,
     pub winner_account: String,
     pub vrf_output: String,
+    pub vrf_output_bytes: Vec<u8>,
     pub vrf_fractional: f64,
     pub global_slot: u32,
+    pub account_index: AccountIndex,
+    pub vrf_hash: MinaBigInt,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -107,7 +86,7 @@ pub struct VrfEvaluationInput {
     epoch_seed: String,
     account_pub_key: String,
     // TODO(adonagy): part of the delegatee table, pass the table when finished
-    delegator_index: u64,
+    delegator_index: AccountIndex,
     delegated_stake: BigInt,
     total_currency: BigInt,
 }
@@ -118,7 +97,7 @@ impl VrfEvaluationInput {
         epoch_seed: String,
         account_pub_key: String,
         global_slot: u32,
-        delegator_index: u64,
+        delegator_index: AccountIndex,
         delegated_stake: BigInt,
         total_currency: BigInt,
     ) -> Self {
@@ -156,7 +135,7 @@ pub fn evaluate_vrf(vrf_input: VrfEvaluationInput) -> VrfResult<VrfEvaluationOut
     } = vrf_input;
 
     let epoch_seed = seed_to_basefield(&epoch_seed);
-    let vrf_message = VrfMessage::new(global_slot, epoch_seed, delegator_index);
+    let vrf_message = VrfMessage::new(global_slot, epoch_seed, delegator_index.as_u64());
 
     let mut hasher = create_kimchi::<VrfMessage>(());
     let vrf_message_hash = hasher.update(&vrf_message).digest();
@@ -196,11 +175,14 @@ pub fn evaluate_vrf(vrf_input: VrfEvaluationInput) -> VrfResult<VrfEvaluationOut
         Ok(VrfEvaluationOutput::SlotWon(VrfWonSlot {
             producer: producer_key.get_address(),
             vrf_output: vrf_output_string,
+            vrf_output_bytes: vrf_output_hash_scalar.to_bytes(),
             winner_account: account_pub_key,
             vrf_fractional: get_fractional(vrf_output_hash_scalar_repr)
                 .to_f64()
                 .unwrap(),
             global_slot,
+            account_index: delegator_index,
+            vrf_hash: MinaBigInt::from(vrf_output_hash),
         }))
     } else {
         Ok(VrfEvaluationOutput::SlotLost(global_slot))
@@ -292,6 +274,8 @@ pub fn keypair_from_bs58_string(str: &str) -> Keypair {
 mod test {
     use std::str::FromStr;
 
+    use ledger::AccountIndex;
+    use mina_p2p_messages::bigint::BigInt as MinaBigInt;
     use num::BigInt;
 
     use crate::{keypair_from_bs58_string, VrfEvaluationInput, VrfEvaluationOutput, VrfWonSlot};
@@ -306,7 +290,7 @@ mod test {
             ),
             epoch_seed: "2va9BGv9JrLTtrzZttiEMDYw1Zj6a6EHzXjmP9evHDTG3oEquURA".to_string(),
             global_slot: 518,
-            delegator_index: 2,
+            delegator_index: AccountIndex(2),
             delegated_stake: BigInt::from_str("1000000000000000")
                 .expect("Cannot convert to BigInt"),
             total_currency: BigInt::from_str("6000000000001000").expect("Cannot convert to BigInt"),
@@ -327,19 +311,24 @@ mod test {
             ),
             epoch_seed: "2va9BGv9JrLTtrzZttiEMDYw1Zj6a6EHzXjmP9evHDTG3oEquURA".to_string(),
             global_slot: 6,
-            delegator_index: 2,
+            delegator_index: AccountIndex(2),
             delegated_stake: BigInt::from_str("1000000000000000")
                 .expect("Cannot convert to BigInt"),
             total_currency: BigInt::from_str("6000000000001000").expect("Cannot convert to BigInt"),
             account_pub_key: "Placeholder".to_string(),
         };
 
+        let vrf_hash_bytes: Box<[u8; 32]> = Box::new([241, 165, 64, 215, 216, 29, 243, 42, 40, 116, 181, 119, 58, 116, 33, 22, 122, 56, 85, 92, 240, 3, 250, 110, 105, 62, 18, 17, 96, 235, 110, 37]);
+
         let expected = VrfEvaluationOutput::SlotWon(VrfWonSlot {
             producer: "B62qrztYfPinaKqpXaYGY6QJ3SSW2NNKs7SajBLF1iFNXW9BoALN2Aq".to_string(),
             winner_account: "Placeholder".to_string(),
             vrf_output: "48HHFYbaz4d7XkJpWWJw5jN1vEBfPvU31nsX4Ljn74jDo3WyTojL".to_string(),
+            vrf_output_bytes: vec![241, 165, 64, 215, 216, 29, 243, 42, 40, 116, 181, 119, 58, 116, 33, 22, 122, 56, 85, 92, 240, 3, 250, 110, 105, 62, 18, 17, 96, 235, 110, 5],
             vrf_fractional: 0.16978997004532187,
             global_slot: vrf_input.global_slot,
+            account_index: AccountIndex(2),
+            vrf_hash: MinaBigInt::from(vrf_hash_bytes),
         });
         let evaluation_result = evaluate_vrf(vrf_input).expect("Failed to evaluate vrf");
         assert_eq!(expected, evaluation_result)
@@ -355,7 +344,7 @@ mod test {
                 ),
                 epoch_seed: "2va9BGv9JrLTtrzZttiEMDYw1Zj6a6EHzXjmP9evHDTG3oEquURA".to_string(),
                 global_slot: 6,
-                delegator_index: i,
+                delegator_index: AccountIndex(i),
                 delegated_stake: BigInt::from_str("1000000000000000")
                     .expect("Cannot convert to BigInt"),
                 total_currency: BigInt::from_str("6000000000001000")
@@ -380,7 +369,7 @@ mod test {
                 ),
                 epoch_seed: "2va9BGv9JrLTtrzZttiEMDYw1Zj6a6EHzXjmP9evHDTG3oEquURA".to_string(),
                 global_slot: i,
-                delegator_index: 2,
+                delegator_index: AccountIndex(2),
                 delegated_stake: BigInt::from_str("1000000000000000")
                     .expect("Cannot convert to BigInt"),
                 total_currency: BigInt::from_str("6000000000001000")

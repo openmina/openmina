@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use vrf::VrfWonSlot;
 
 use crate::BlockProducerConfig;
+use crate::account::AccountPublicKey;
 
 // TODO(adonagy): consodilate types, make more clear
 // pub type AccountAddressAndBalance = (String, u64);
@@ -44,7 +45,7 @@ impl BlockProducerVrfEvaluatorState {
 pub struct EpochData {
     pub seed: String,
     pub ledger: String,
-    pub delegator_table: BTreeMap<AccountIndex, (String, u64)>,
+    pub delegator_table: BTreeMap<AccountIndex, (AccountPublicKey, u64)>,
     pub total_currency: u64,
 }
 

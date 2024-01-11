@@ -27,11 +27,15 @@ use mina_p2p_messages::{
     v2::{
         BlockTimeTimeStableV1, ConsensusGlobalSlotStableV1, ConsensusVrfOutputTruncatedStableV1,
         LedgerHash, MinaNumbersGlobalSlotSinceGenesisMStableV1, NonZeroCurvePoint,
-        UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
+        UnsignedExtendedUInt64Int64ForVersionTagsStableV1, MinaNumbersGlobalSlotSinceHardForkMStableV1,
     },
 };
+use mina_signer::CompressedPubKey;
 use openmina_core::block::ArcBlockWithHash;
 use serde::{Deserialize, Serialize};
+use vrf::VrfWonSlot;
+
+use crate::account::AccountPublicKey;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct BlockProducerWonSlot {
@@ -43,8 +47,8 @@ pub struct BlockProducerWonSlot {
     // TODO(adonagy): maybe instead of passing it here, it can be
     // calculated on spot from `vrf_output`? Maybe with `vrf_output.blake2b()`?
     pub vrf_hash: BigInt,
-    /// Staking ledger which was used during vrf evaluation.
-    pub staking_ledger_hash: LedgerHash,
+    // Staking ledger which was used during vrf evaluation.
+    // pub staking_ledger_hash: LedgerHash,
 }
 
 impl BlockProducerWonSlot {
@@ -94,5 +98,31 @@ impl PartialOrd<ArcBlockWithHash> for BlockProducerWonSlot {
                     )
                 }),
         )
+    }
+}
+
+impl From<VrfWonSlot> for BlockProducerWonSlot {
+    fn from(value: VrfWonSlot) -> Self {
+        // TODO
+        let slot_time = redux::Timestamp::global_now();
+
+        let winner_pub_key = AccountPublicKey::from(CompressedPubKey::from_address(&value.winner_account).unwrap());
+        let delegator = (winner_pub_key.into(), value.account_index.clone());
+        let global_slot = ConsensusGlobalSlotStableV1 {
+            slot_number: MinaNumbersGlobalSlotSinceHardForkMStableV1::SinceHardFork(value.global_slot.into()),
+            slots_per_epoch: 7140.into(), // TODO
+        };
+        let global_slot_since_genesis = MinaNumbersGlobalSlotSinceGenesisMStableV1::SinceGenesis(value.global_slot.into());
+
+        let vrf_output = ConsensusVrfOutputTruncatedStableV1(value.vrf_output_bytes.into());
+        let vrf_hash = value.vrf_hash;
+        Self {
+            slot_time,
+            delegator,
+            global_slot,
+            global_slot_since_genesis,
+            vrf_output,
+            vrf_hash,
+        }
     }
 }
