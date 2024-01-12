@@ -11,10 +11,19 @@ use strum_macros::{EnumDiscriminants, EnumIter, EnumString, IntoStaticStr};
 use node::{ActionKind, ActionWithMeta, Store};
 
 pub trait Invariant {
+    /// Internal state of the invariant.
+    ///
+    /// If some state needs to be preserved across checks,
+    /// this is the place.
     type InternalState: 'static + Send + Default;
 
+    /// Invariant triggers define a list actions, which should cause
+    /// `Invariant::check` to be called.
+    ///
+    /// If empty, an invariant will never be checked!
     fn triggers(&self) -> &[ActionKind];
 
+    /// Checks the state for invariant violation.
     fn check<S: redux::Service>(
         self,
         internal_state: &mut Self::InternalState,
