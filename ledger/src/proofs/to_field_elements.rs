@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use ark_ff::Field;
 use kimchi::proof::ProofEvaluations;
 use mina_curves::pasta::Fq;
@@ -254,6 +256,13 @@ impl<F: FieldWitness> ToFieldElements<F> for Fp {
     fn to_field_elements(&self, fields: &mut Vec<F>) {
         use crate::proofs::witness::IntoGeneric;
         fields.push(self.into_gen());
+    }
+}
+
+impl<F: FieldWitness, T: ToFieldElements<F> + Clone> ToFieldElements<F> for Cow<'_, T> {
+    fn to_field_elements(&self, fields: &mut Vec<F>) {
+        let this: &T = self.as_ref();
+        this.to_field_elements(fields)
     }
 }
 

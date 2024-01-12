@@ -832,6 +832,13 @@ impl<F: FieldWitness, T: Check<F>> Check<F> for &T {
     }
 }
 
+impl<F: FieldWitness, T: Check<F> + Clone> Check<F> for std::borrow::Cow<'_, T> {
+    fn check(&self, w: &mut Witness<F>) {
+        let this: &T = self.as_ref();
+        this.check(w)
+    }
+}
+
 impl<F: FieldWitness> Check<F> for PlonkVerificationKeyEvals<F> {
     fn check(&self, w: &mut Witness<F>) {
         let Self {

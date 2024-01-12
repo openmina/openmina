@@ -129,7 +129,7 @@ impl PreparedStatement {
             // https://github.com/MinaProtocol/mina/blob/32a91613c388a71f875581ad72276e762242f802/src/lib/pickles_base/proofs_verified.ml#L58
             let proofs_verified = match proofs_verified {
                 PicklesBaseProofsVerifiedStableV1::N0 => 0b00,
-                PicklesBaseProofsVerifiedStableV1::N1 => 0b01, // Bits are reversed
+                PicklesBaseProofsVerifiedStableV1::N1 => 0b10,
                 PicklesBaseProofsVerifiedStableV1::N2 => 0b11,
             };
             // https://github.com/MinaProtocol/mina/blob/c824be7d80db1d290e0d48cbc920182d07de0330/src/lib/pickles/composition_types/branch_data.ml#L63
@@ -238,7 +238,7 @@ impl PreparedStatement {
             // https://github.com/MinaProtocol/mina/blob/32a91613c388a71f875581ad72276e762242f802/src/lib/pickles_base/proofs_verified.ml#L58
             let proofs_verified = match proofs_verified {
                 PicklesBaseProofsVerifiedStableV1::N0 => 0b00,
-                PicklesBaseProofsVerifiedStableV1::N1 => 0b01, // Bits are reversed
+                PicklesBaseProofsVerifiedStableV1::N1 => 0b10,
                 PicklesBaseProofsVerifiedStableV1::N2 => 0b11,
             };
             // https://github.com/MinaProtocol/mina/blob/c824be7d80db1d290e0d48cbc920182d07de0330/src/lib/pickles/composition_types/branch_data.ml#L63

@@ -70,7 +70,10 @@ use crate::{
 use self::group::SegmentBasic;
 
 use super::{
-    constants::{ForWrapData, ProofConstants, StepZkappOptSignedProof, StepZkappProofProof},
+    constants::{
+        ForWrapData, ProofConstants, StepZkappOptSignedProof, StepZkappProofProof,
+        WrapZkappProofProof,
+    },
     numbers::{
         currency::{CheckedAmount, CheckedSigned},
         nat::{CheckedIndex, CheckedNat, CheckedSlot},
@@ -1298,7 +1301,7 @@ where
 
         let prev_challenge_polynomial_commitments = extract_recursion_challenges(&[&proof]);
 
-        let (a, b, proof) = step::<StepConstants, 1>(
+        let (step_statement, prev_evals, proof) = step::<StepConstants, 1>(
             StepParams {
                 app_state: Rc::new(statement.clone()),
                 rule: InductiveRule {
@@ -1323,7 +1326,30 @@ where
         let proof_json = serde_json::to_vec(&proof).unwrap();
         dbg!(sha256_sum(&proof_json));
 
-        panic!()
+        let mut w: Witness<Fq> = Witness::new::<WrapConstants>();
+
+        w.ocaml_aux = read_witnesses("zkapp_proof2_fqs.txt");
+
+        let dlog_plonk_index = super::merge::dlog_plonk_index(tx_wrap_prover);
+
+        let proof = crate::proofs::wrap::wrap::<WrapConstants>(
+            WrapParams {
+                app_state: Rc::new(statement.clone()),
+                proof: &proof,
+                step_statement,
+                prev_evals: &prev_evals,
+                dlog_plonk_index: &dlog_plonk_index,
+                // dlog_plonk_index: &vk.wrap_index,
+                step_prover_index: &step_prover.index,
+                wrap_prover: tx_wrap_prover,
+            },
+            &mut w,
+        );
+
+        let proof_json = serde_json::to_vec(&proof.proof).unwrap();
+        dbg!(sha256_sum(&proof_json));
+
+        return LedgerProof { statement, proof };
     };
 
     let dlog_plonk_index = w.exists(super::merge::dlog_plonk_index(tx_wrap_prover));
@@ -1657,7 +1683,7 @@ fn of_zkapp_command_segment(
             of_zkapp_command_segment_exn::<StepZkappOptSignedProof, WrapZkappOptSignedProof>
         }
         SegmentBasic::Proved => {
-            of_zkapp_command_segment_exn::<StepZkappProofProof, WrapZkappOptSignedProof>
+            of_zkapp_command_segment_exn::<StepZkappProofProof, WrapZkappProofProof>
         }
     };
 
@@ -1785,12 +1811,16 @@ fn merge_zkapp_proofs(
     );
 
     let proof_json = serde_json::to_vec(&wrap_proof.proof).unwrap();
-    let sum = sha256_sum(&proof_json);
+    let sum = dbg!(sha256_sum(&proof_json));
 
     assert_eq!(
         sum,
-        "6e9bb6ed613cf0aa737188e0e8ddde7438211ca54c02e89aff32816c181caca9"
+        "e2ca355ce4ed5aaf379e992c0c8c5b1c4ac1687546ceac5a5c6c9c4994002249"
     );
+    // assert_eq!(
+    //     sum,
+    //     "6e9bb6ed613cf0aa737188e0e8ddde7438211ca54c02e89aff32816c181caca9"
+    // );
     eprintln!("OK");
 
     LedgerProof {

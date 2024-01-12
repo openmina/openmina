@@ -1,4 +1,4 @@
-use std::{ops::Neg, rc::Rc};
+use std::{borrow::Cow, ops::Neg, rc::Rc};
 
 use ark_ff::{BigInteger256, One, Zero};
 use ark_poly::{univariate::DensePolynomial, EvaluationDomain, UVPolynomial};
@@ -794,21 +794,23 @@ pub fn wrap<C: ProofConstants + ForWrapData>(params: WrapParams, w: &mut Witness
     }
     .to_public_input(40);
 
-    let main_params = WrapMainParams {
-        step_statement,
-        next_statement: &next_statement,
-        messages_for_next_wrap_proof_padded,
-        which_index,
-        pi_branches,
-        step_widths,
-        step_domains,
-        messages_for_next_step_proof_hash,
-        prev_evals,
-        proof,
-        step_prover_index,
-    };
-
-    wrap_main(&main_params, w);
+    wrap_main(
+        WrapMainParams {
+            step_statement,
+            next_statement: &next_statement,
+            messages_for_next_wrap_proof_padded,
+            which_index,
+            pi_branches,
+            step_widths,
+            step_domains,
+            wrap_domain_indices: C::wrap_domain_indices(),
+            messages_for_next_step_proof_hash,
+            prev_evals,
+            proof,
+            step_prover_index,
+        },
+        w,
+    );
 
     let message = next_accumulator;
     let prev = message
@@ -2172,7 +2174,7 @@ pub mod wrap_verifier {
 
     pub struct IncrementallyVerifyProofParams<'a> {
         pub actual_proofs_verified_mask: Vec<Boolean>,
-        pub step_domains: &'a [Domains],
+        pub step_domains: Box<[Domains]>,
         pub verification_key: &'a PlonkVerificationKeyEvals<Fq>,
         pub srs: Arc<SRS<Vesta>>,
         pub xi: &'a [u64; 2],
@@ -2242,7 +2244,7 @@ pub mod wrap_verifier {
         }
 
         let x_hat = {
-            let domain = (which_branch.as_slice(), step_domains);
+            let domain = (which_branch.as_slice(), &*step_domains);
 
             let public_input = public_input.iter().flat_map(|v| {
                 // TODO: Do not use `vec!` here
@@ -2924,13 +2926,14 @@ pub struct WrapMainParams<'a> {
     pub pi_branches: u64,
     pub step_widths: Box<[u64]>,
     pub step_domains: Box<[Domains]>,
+    pub wrap_domain_indices: [Fq; 2],
     pub messages_for_next_step_proof_hash: [u64; 4],
     pub prev_evals: &'a [AllEvals<Fq>],
     pub proof: &'a ProverProof<Vesta>,
     pub step_prover_index: &'a kimchi::prover_index::ProverIndex<Vesta>,
 }
 
-fn wrap_main(params: &WrapMainParams, w: &mut Witness<Fq>) {
+fn wrap_main(params: WrapMainParams, w: &mut Witness<Fq>) {
     let WrapMainParams {
         step_statement,
         next_statement,
@@ -2939,24 +2942,24 @@ fn wrap_main(params: &WrapMainParams, w: &mut Witness<Fq>) {
         pi_branches,
         step_widths,
         step_domains,
+        wrap_domain_indices,
         messages_for_next_step_proof_hash,
         prev_evals,
         proof,
         step_prover_index,
     } = params;
 
-    let which_branch = w.exists(Fq::from(*which_index));
+    let which_branch = w.exists(Fq::from(which_index));
 
     let branches = pi_branches;
 
-    let which_branch = one_hot_vector::of_index(which_branch, *branches, w);
+    let which_branch = one_hot_vector::of_index(which_branch, branches, w);
 
     let first_zero = pseudo::choose(&which_branch, &step_widths[..]);
 
     let actual_proofs_verified_mask = {
-        let mut vector = ones_vector(first_zero, MAX_PROOFS_VERIFIED_N, w);
-        vector.reverse();
-        vector
+        // TODO: Use reverse ?
+        ones_vector(first_zero, MAX_PROOFS_VERIFIED_N, w)
     };
 
     let _domain_log2 = pseudo::choose(
@@ -2967,7 +2970,7 @@ fn wrap_main(params: &WrapMainParams, w: &mut Witness<Fq>) {
             .collect::<Vec<_>>(),
     );
 
-    exists_prev_statement(step_statement, *messages_for_next_step_proof_hash, w);
+    exists_prev_statement(&step_statement, messages_for_next_step_proof_hash, w);
 
     let step_plonk_index = wrap_verifier::choose_key(step_prover_index, w);
 
@@ -2988,21 +2991,33 @@ fn wrap_main(params: &WrapMainParams, w: &mut Witness<Fq>) {
     });
 
     let new_bulletproof_challenges = {
-        let evals = w.exists(*prev_evals);
+        let mut prev_evals = Cow::Borrowed(prev_evals);
+        let evals = {
+            while prev_evals.len() < 2 {
+                prev_evals.to_mut().insert(0, AllEvals::dummy());
+            }
+            w.exists(&*prev_evals)
+        };
 
         let chals = {
-            let wrap_domains = {
+            let wrap_domains: Vec<_> = {
                 let all_possible_domains = wrap_verifier::all_possible_domains();
-                let wrap_domain_indices = w.exists(wrap_domain_indices());
+                let wrap_domain_indices = w.exists(wrap_domain_indices);
 
-                wrap_domain_indices.map(|index| {
-                    let which_branch = one_hot_vector::of_index(
-                        index,
-                        wrap_verifier::NUM_POSSIBLE_DOMAINS as u64,
-                        w,
-                    );
-                    pseudo::to_domain(&which_branch, &all_possible_domains)
-                })
+                let mut wrap_domains = wrap_domain_indices
+                    .iter()
+                    .rev()
+                    .map(|index| {
+                        let which_branch = one_hot_vector::of_index(
+                            *index,
+                            wrap_verifier::NUM_POSSIBLE_DOMAINS as u64,
+                            w,
+                        );
+                        pseudo::to_domain(&which_branch, &all_possible_domains)
+                    })
+                    .collect::<Vec<_>>();
+                wrap_domains.reverse();
+                wrap_domains
             };
 
             let unfinalized_proofs = &step_statement.proof_state.unfinalized_proofs;
@@ -3010,7 +3025,7 @@ fn wrap_main(params: &WrapMainParams, w: &mut Witness<Fq>) {
             unfinalized_proofs
                 .iter()
                 .zip(&old_bp_chals)
-                .zip(evals)
+                .zip(&*evals)
                 .zip(&wrap_domains)
                 .map(
                     |(((unfinalized, old_bulletproof_challenges), evals), wrap_domain)| {
@@ -3068,7 +3083,7 @@ fn wrap_main(params: &WrapMainParams, w: &mut Witness<Fq>) {
     let openings_proof = w.exists(&proof.proof);
     let messages = w.exists(&proof.commitments);
 
-    let public_input = pack_statement(&prev_statement, messages_for_next_step_proof_hash, w);
+    let public_input = pack_statement(&prev_statement, &messages_for_next_step_proof_hash, w);
 
     let DeferredValues {
         plonk,
@@ -3080,25 +3095,27 @@ fn wrap_main(params: &WrapMainParams, w: &mut Witness<Fq>) {
     } = &next_statement.proof_state.deferred_values;
 
     let sponge = OptSponge::create();
-    let params = wrap_verifier::IncrementallyVerifyProofParams {
-        actual_proofs_verified_mask,
-        step_domains,
-        verification_key: &step_plonk_index,
-        srs: step_prover_index.srs.clone(),
-        xi,
-        sponge,
-        public_input,
-        sg_old: prev_step_accs,
-        advice: wrap_verifier::Advice {
-            b: b.clone(),
-            combined_inner_product: combined_inner_product.clone(),
+    wrap_verifier::incrementally_verify_proof(
+        wrap_verifier::IncrementallyVerifyProofParams {
+            actual_proofs_verified_mask,
+            step_domains,
+            verification_key: &step_plonk_index,
+            srs: step_prover_index.srs.clone(),
+            xi,
+            sponge,
+            public_input,
+            sg_old: prev_step_accs,
+            advice: wrap_verifier::Advice {
+                b: b.clone(),
+                combined_inner_product: combined_inner_product.clone(),
+            },
+            messages,
+            which_branch,
+            openings_proof,
+            plonk,
         },
-        messages,
-        which_branch,
-        openings_proof,
-        plonk,
-    };
-    wrap_verifier::incrementally_verify_proof(params, w);
+        w,
+    );
 
     MessagesForNextWrapProof {
         challenge_polynomial_commitment: { InnerCurve::of_affine(openings_proof.sg) },

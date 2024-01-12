@@ -1,3 +1,5 @@
+use ark_ff::{One, Zero};
+use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
 
 use super::{
@@ -27,7 +29,10 @@ pub struct WrapMergeProof {}
 pub struct StepZkappProofProof {}
 pub struct StepZkappOptSignedProof {}
 pub struct StepZkappOptSignedOptSignedProof {}
+/// Using signature authorization
 pub struct WrapZkappProof {}
+/// Using proof authorization
+pub struct WrapZkappProofProof {}
 pub struct WrapZkappOptSignedProof {}
 
 impl ProofConstants for StepZkappOptSignedOptSignedProof {
@@ -53,6 +58,14 @@ impl ProofConstants for StepZkappProofProof {
 
 // Same values than `WrapTransactionProof`
 impl ProofConstants for WrapZkappProof {
+    const PRIMARY_LEN: usize = WrapTransactionProof::PRIMARY_LEN;
+    const AUX_LEN: usize = WrapTransactionProof::AUX_LEN;
+    const PREVIOUS_CHALLENGES: usize = WrapTransactionProof::PREVIOUS_CHALLENGES;
+    const ROWS: usize = WrapTransactionProof::ROWS;
+}
+
+// Same values than `WrapTransactionProof`
+impl ProofConstants for WrapZkappProofProof {
     const PRIMARY_LEN: usize = WrapTransactionProof::PRIMARY_LEN;
     const AUX_LEN: usize = WrapTransactionProof::AUX_LEN;
     const PREVIOUS_CHALLENGES: usize = WrapTransactionProof::PREVIOUS_CHALLENGES;
@@ -112,6 +125,9 @@ impl ProofConstants for StepBlockProof {
 
 pub trait ForWrapData {
     fn wrap_data() -> WrapData;
+    fn wrap_domain_indices() -> [Fq; 2] {
+        [Fq::one(), Fq::one()]
+    }
 }
 
 impl ForWrapData for WrapTransactionProof {
@@ -123,6 +139,15 @@ impl ForWrapData for WrapTransactionProof {
 impl ForWrapData for WrapZkappProof {
     fn wrap_data() -> WrapData {
         make_wrap_zkapp_data()
+    }
+}
+
+impl ForWrapData for WrapZkappProofProof {
+    fn wrap_data() -> WrapData {
+        make_wrap_zkapp_proof_data()
+    }
+    fn wrap_domain_indices() -> [Fq; 2] {
+        [Fq::one(), Fq::zero()]
     }
 }
 
@@ -309,6 +334,7 @@ pub fn make_step_zkapp_data(wrap_key: &CircuitPlonkVerificationKeyEvals<Fp>) -> 
     self_data
 }
 
+#[derive(Debug)]
 pub struct WrapData {
     pub which_index: u64,
     pub pi_branches: u64,
@@ -377,9 +403,36 @@ fn make_wrap_transaction_data() -> WrapData {
     }
 }
 
+/// Using signature authorizarion
 fn make_wrap_zkapp_data() -> WrapData {
     WrapData {
         which_index: 2,
+        pi_branches: 5,
+        step_widths: Box::new([0, 2, 0, 0, 1]),
+        step_domains: Box::new([
+            Domains {
+                h: Domain::Pow2RootsOfUnity(15),
+            },
+            Domains {
+                h: Domain::Pow2RootsOfUnity(15),
+            },
+            Domains {
+                h: Domain::Pow2RootsOfUnity(15),
+            },
+            Domains {
+                h: Domain::Pow2RootsOfUnity(14),
+            },
+            Domains {
+                h: Domain::Pow2RootsOfUnity(15),
+            },
+        ]),
+    }
+}
+
+/// Using proof authorizarion
+fn make_wrap_zkapp_proof_data() -> WrapData {
+    WrapData {
+        which_index: 4,
         pi_branches: 5,
         step_widths: Box::new([0, 2, 0, 0, 1]),
         step_domains: Box::new([
