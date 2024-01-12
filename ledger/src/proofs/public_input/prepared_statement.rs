@@ -5,7 +5,12 @@ use mina_p2p_messages::v2::{
     CompositionTypesBranchDataStableV1, PicklesBaseProofsVerifiedStableV1,
 };
 
-use crate::proofs::{merge::Packed, util::u64_to_field, witness::FieldWitness, wrap::CircuitVar};
+use crate::proofs::{
+    merge::{OptFlag, Packed},
+    util::u64_to_field,
+    witness::FieldWitness,
+    wrap::CircuitVar,
+};
 
 #[derive(Clone, Debug)]
 pub struct Plonk<F: FieldWitness> {
@@ -142,7 +147,11 @@ impl PreparedStatement {
         fields
     }
 
-    pub fn to_public_input_cvar(&self, npublic_input: usize) -> Vec<Packed> {
+    pub fn to_public_input_cvar(
+        &self,
+        hack_feature_flags: OptFlag,
+        npublic_input: usize,
+    ) -> Vec<Packed> {
         let PreparedStatement {
             proof_state:
                 ProofState {
@@ -242,9 +251,15 @@ impl PreparedStatement {
 
         // TODO: Find out how this padding works, it's probably related to features/lookup
         let zero = Fq::zero();
-        while fields.len() < npublic_input {
-            fields.push(Packed::PackedBits(CircuitVar::Constant(zero), 1));
+        let circuit_var = match hack_feature_flags {
+            OptFlag::Yes => todo!(),
+            OptFlag::No => CircuitVar::Constant,
+            OptFlag::Maybe => CircuitVar::Var,
+        };
+        while fields.len() < npublic_input - 1 {
+            fields.push(Packed::PackedBits(circuit_var(zero), 1));
         }
+        fields.push(Packed::PackedBits(circuit_var(zero), 128));
 
         fields
     }

@@ -4802,7 +4802,7 @@ pub mod local_state {
         }
     }
 
-    struct LazyValue<T, D> {
+    pub struct LazyValue<T, D> {
         value: Rc<RefCell<LazyValueInner<T, D>>>,
     }
 

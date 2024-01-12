@@ -23,8 +23,8 @@ use crate::{
             WrapZkappProof,
         },
         merge::{
-            dlog_plonk_index, generate_merge_proof, InductiveRule, MergeParams, OptFlag,
-            PreviousProofStatement,
+            dlog_plonk_index, extract_recursion_challenges, generate_merge_proof, InductiveRule,
+            MergeParams, OptFlag, PreviousProofStatement,
         },
         public_input::{messages::MessagesForNextWrapProof, prepared_statement::DeferredValues},
         unfinalized::{AllEvals, EvalsWithPublicInput},
@@ -1281,10 +1281,49 @@ where
         w.ocaml_aux = read_witnesses(path);
     };
 
-    let (zkapp_input, must_verify) = match spec {
-        OptSigned => zkapp_main(statement.clone(), witness, &s, &mut w),
-        OptSignedOptSigned => zkapp_main(statement.clone(), witness, &s, &mut w),
-        Proved => zkapp_main(statement.clone(), witness, &s, &mut w),
+    let (zkapp_input, must_verify) = zkapp_main(statement.clone(), witness, &s, &mut w);
+
+    if let Proved = spec {
+        let (proof, vk) = snapp_proof_data(witness).unwrap();
+
+        let proof = proof.into();
+
+        let dlog_plonk_index_cvar = vk.wrap_index.to_cvar(CircuitVar::Var);
+        let verifier_index = make_zkapp_verifier_index(&vk);
+
+        let zkapp_data = make_step_zkapp_data(&dlog_plonk_index_cvar);
+        let for_step_datas = [&zkapp_data];
+
+        let indexes = [(&verifier_index, &dlog_plonk_index_cvar)];
+
+        let prev_challenge_polynomial_commitments = extract_recursion_challenges(&[&proof]);
+
+        let (a, b, proof) = step::<StepConstants, 1>(
+            StepParams {
+                app_state: Rc::new(statement.clone()),
+                rule: InductiveRule {
+                    previous_proof_statements: [PreviousProofStatement {
+                        public_input: Rc::new(zkapp_input.unwrap()),
+                        proof: &proof,
+                        proof_must_verify: must_verify.var(),
+                    }],
+                    public_output: (),
+                    auxiliary_output: (),
+                },
+                for_step_datas,
+                indexes,
+                prev_challenge_polynomial_commitments,
+                hack_feature_flags: OptFlag::Maybe,
+                step_prover,
+                wrap_prover: tx_wrap_prover,
+            },
+            &mut w,
+        );
+
+        let proof_json = serde_json::to_vec(&proof).unwrap();
+        dbg!(sha256_sum(&proof_json));
+
+        panic!()
     };
 
     let dlog_plonk_index = w.exists(super::merge::dlog_plonk_index(tx_wrap_prover));

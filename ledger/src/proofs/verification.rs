@@ -1,4 +1,4 @@
-use std::array;
+use std::{array, rc::Rc};
 
 use ark_poly::{EvaluationDomain, Radix2EvaluationDomain};
 
@@ -279,7 +279,7 @@ struct LimitedDomain<F: FieldWitness> {
 }
 
 impl<F: FieldWitness> PlonkDomain<F> for LimitedDomain<F> {
-    fn vanishing_polynomial(&self, x: F, w: &mut super::witness::Witness<F>) -> F {
+    fn vanishing_polynomial(&self, _x: F, _w: &mut super::witness::Witness<F>) -> F {
         todo!()
     }
     fn generator(&self) -> F {
@@ -317,7 +317,7 @@ pub fn make_scalars_env<F: FieldWitness, const NLIMB: usize>(
     };
 
     let shifts = make_shifts(&domain);
-    let domain = Box::new(LimitedDomain { domain, shifts });
+    let domain = Rc::new(LimitedDomain { domain, shifts });
 
     ScalarsEnv {
         zk_polynomial,
@@ -325,6 +325,9 @@ pub fn make_scalars_env<F: FieldWitness, const NLIMB: usize>(
         srs_length_log2,
         domain,
         omega_to_minus_3: w3,
+        feature_flags: None,
+        unnormalized_lagrange_basis: None,
+        vanishes_on_last_4_rows: F::one(),
     }
 }
 

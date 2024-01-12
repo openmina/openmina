@@ -11,8 +11,9 @@ use mina_p2p_messages::{
 use crate::proofs::witness::field;
 
 use super::{
+    merge::{Opt, OptFlag},
     public_input::scalar_challenge::ScalarChallenge,
-    witness::{FieldWitness, InnerCurve, Witness},
+    witness::{Boolean, FieldWitness, InnerCurve, Witness},
 };
 
 pub fn extract_polynomial_commitment<F: FieldWitness>(
@@ -185,7 +186,8 @@ pub fn proof_evaluation_to_list<F: FieldWitness>(e: &ProofEvaluations<[F; 2]>) -
 /// https://github.com/MinaProtocol/mina/blob/4af0c229548bc96d76678f11b6842999de5d3b0b/src/lib/pickles_types/plonk_types.ml#L611
 pub fn proof_evaluation_to_list_opt<F: FieldWitness>(
     e: &ProofEvaluations<[F; 2]>,
-) -> Vec<Option<[F; 2]>> {
+    hack_feature_flags: OptFlag,
+) -> Vec<Opt<[F; 2]>> {
     let ProofEvaluations::<[F; 2]> {
         w,
         z,
@@ -215,18 +217,33 @@ pub fn proof_evaluation_to_list_opt<F: FieldWitness>(
     } = e;
 
     let mut list = vec![
-        Some(*z),
-        Some(*generic_selector),
-        Some(*poseidon_selector),
-        Some(*complete_add_selector),
-        Some(*mul_selector),
-        Some(*emul_selector),
-        Some(*endomul_scalar_selector),
+        Opt::Some(*z),
+        Opt::Some(*generic_selector),
+        Opt::Some(*poseidon_selector),
+        Opt::Some(*complete_add_selector),
+        Opt::Some(*mul_selector),
+        Opt::Some(*emul_selector),
+        Opt::Some(*endomul_scalar_selector),
     ];
 
-    list.extend(w.iter().copied().map(Some));
-    list.extend(coefficients.iter().copied().map(Some));
-    list.extend(s.iter().copied().map(Some));
+    list.extend(w.iter().copied().map(Opt::Some));
+    list.extend(coefficients.iter().copied().map(Opt::Some));
+    list.extend(s.iter().copied().map(Opt::Some));
+
+    let zero = F::zero();
+    let to_opt = |v: &Option<[F; 2]>| {
+        if let OptFlag::Maybe = hack_feature_flags {
+            match v {
+                Some(v) => Opt::Maybe(Boolean::True, *v),
+                None => Opt::Maybe(Boolean::False, [zero, zero]),
+            }
+        } else {
+            match v {
+                Some(v) => Opt::Some(*v),
+                None => Opt::No,
+            }
+        }
+    };
 
     let optional_gates = [
         range_check0_selector,
@@ -237,19 +254,23 @@ pub fn proof_evaluation_to_list_opt<F: FieldWitness>(
         rot_selector,
     ];
 
-    list.extend(optional_gates);
-    list.extend(lookup_sorted);
+    list.extend(optional_gates.into_iter().map(to_opt));
+    list.extend(lookup_sorted.into_iter().map(to_opt));
 
-    list.extend([
-        lookup_aggregation,
-        lookup_table,
-        runtime_lookup_table,
-        runtime_lookup_table_selector,
-        xor_lookup_selector,
-        lookup_gate_lookup_selector,
-        range_check_lookup_selector,
-        foreign_field_mul_lookup_selector,
-    ]);
+    list.extend(
+        [
+            lookup_aggregation,
+            lookup_table,
+            runtime_lookup_table,
+            runtime_lookup_table_selector,
+            xor_lookup_selector,
+            lookup_gate_lookup_selector,
+            range_check_lookup_selector,
+            foreign_field_mul_lookup_selector,
+        ]
+        .into_iter()
+        .map(to_opt),
+    );
 
     list
 }
@@ -421,7 +442,8 @@ pub fn to_absorption_sequence2<F: FieldWitness>(
 /// https://github.com/MinaProtocol/mina/blob/4af0c229548bc96d76678f11b6842999de5d3b0b/src/lib/pickles_types/plonk_types.ml#L674
 pub fn to_absorption_sequence_opt<F: FieldWitness>(
     evals: &ProofEvaluations<[F; 2]>,
-) -> Vec<Option<[F; 2]>> {
+    hack_feature_flags: OptFlag,
+) -> Vec<Opt<[F; 2]>> {
     let ProofEvaluations {
         w,
         coefficients,
@@ -451,40 +473,63 @@ pub fn to_absorption_sequence_opt<F: FieldWitness>(
     } = evals;
 
     let mut list = vec![
-        Some(z.clone()),
-        Some(generic_selector.clone()),
-        Some(poseidon_selector.clone()),
-        Some(complete_add_selector.clone()),
-        Some(mul_selector.clone()),
-        Some(emul_selector.clone()),
-        Some(endomul_scalar_selector.clone()),
+        Opt::Some(z.clone()),
+        Opt::Some(generic_selector.clone()),
+        Opt::Some(poseidon_selector.clone()),
+        Opt::Some(complete_add_selector.clone()),
+        Opt::Some(mul_selector.clone()),
+        Opt::Some(emul_selector.clone()),
+        Opt::Some(endomul_scalar_selector.clone()),
     ];
 
-    list.extend(w.iter().copied().map(Some));
-    list.extend(coefficients.iter().copied().map(Some));
-    list.extend(s.iter().copied().map(Some));
+    list.extend(w.iter().copied().map(Opt::Some));
+    list.extend(coefficients.iter().copied().map(Opt::Some));
+    list.extend(s.iter().copied().map(Opt::Some));
 
-    list.extend([
-        range_check0_selector.clone(),
-        range_check1_selector.clone(),
-        foreign_field_add_selector.clone(),
-        foreign_field_mul_selector.clone(),
-        xor_selector.clone(),
-        rot_selector.clone(),
-        lookup_aggregation.clone(),
-        lookup_table.clone(),
-    ]);
+    let zero = F::zero();
+    let to_opt = |v: &Option<[F; 2]>| {
+        if let OptFlag::Maybe = hack_feature_flags {
+            match v {
+                Some(v) => Opt::Maybe(Boolean::True, *v),
+                None => Opt::Maybe(Boolean::False, [zero, zero]),
+            }
+        } else {
+            match v {
+                Some(v) => Opt::Some(*v),
+                None => Opt::No,
+            }
+        }
+    };
 
-    list.extend(lookup_sorted.iter().cloned());
+    list.extend(
+        [
+            range_check0_selector.clone(),
+            range_check1_selector.clone(),
+            foreign_field_add_selector.clone(),
+            foreign_field_mul_selector.clone(),
+            xor_selector.clone(),
+            rot_selector.clone(),
+            lookup_aggregation.clone(),
+            lookup_table.clone(),
+        ]
+        .iter()
+        .map(to_opt),
+    );
 
-    list.extend([
-        runtime_lookup_table,
-        runtime_lookup_table_selector,
-        xor_lookup_selector,
-        lookup_gate_lookup_selector,
-        range_check_lookup_selector,
-        foreign_field_mul_lookup_selector,
-    ]);
+    list.extend(lookup_sorted.iter().map(to_opt));
+
+    list.extend(
+        [
+            runtime_lookup_table,
+            runtime_lookup_table_selector,
+            xor_lookup_selector,
+            lookup_gate_lookup_selector,
+            range_check_lookup_selector,
+            foreign_field_mul_lookup_selector,
+        ]
+        .into_iter()
+        .map(to_opt),
+    );
 
     list
 }

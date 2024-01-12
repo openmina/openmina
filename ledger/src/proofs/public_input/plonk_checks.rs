@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use ark_ff::{Field, One};
 use ark_poly::Radix2EvaluationDomain;
 use kimchi::{curve::KimchiCurve, proof::ProofEvaluations};
@@ -9,7 +11,7 @@ use crate::proofs::{
     public_input::plonk_checks::scalars::MinimalForScalar,
     to_field_elements::ToFieldElements,
     witness::{field, Boolean, FieldWitness, Witness},
-    wrap::wrap_verifier::PlonkWithField,
+    wrap::{wrap_verifier::PlonkWithField, AllFeatureFlags},
 };
 
 #[derive(Clone, Debug)]
@@ -31,8 +33,11 @@ pub struct ScalarsEnv<F: FieldWitness> {
     pub zk_polynomial: F,
     pub zeta_to_n_minus_1: F,
     pub srs_length_log2: u64,
-    pub domain: Box<dyn PlonkDomain<F>>,
+    pub domain: Rc<dyn PlonkDomain<F>>,
     pub omega_to_minus_3: F,
+    pub feature_flags: Option<AllFeatureFlags<F>>,
+    pub unnormalized_lagrange_basis: Option<Box<dyn Fn(i32, &mut Witness<F>) -> F>>,
+    pub vanishes_on_last_4_rows: F,
 }
 
 // Result of `plonk_derive`
@@ -49,6 +54,7 @@ pub struct InCircuit<F: FieldWitness> {
     // pub endomul: F::Shifting,
     // pub endomul_scalar: F::Shifting,
     pub perm: F::Shifting,
+    pub lookup: Option<F>,
 }
 
 pub trait ShiftingValue<F: Field> {
@@ -257,6 +263,7 @@ pub fn derive_plonk<F: FieldWitness, const NLIMB: usize>(
         zeta_to_domain_size: shift(zeta_to_domain_size),
         zeta_to_srs_length: shift(zeta_to_srs_length),
         perm: shift(perm),
+        lookup: None,
     }
 }
 
@@ -321,6 +328,7 @@ pub fn derive_plonk_checked<F: FieldWitness>(
         // endomul: shift(endomul),
         // endomul_scalar: shift(endomul_scalar),
         perm: shift(perm),
+        lookup: None,
     }
 }
 
@@ -397,11 +405,47 @@ pub fn ft_eval0<F: FieldWitness, const NLIMB: usize>(
         alpha: minimal.alpha,
         beta: minimal.beta,
         gamma: minimal.gamma,
+        lookup: None,
     };
     let mut w = Witness::empty();
-    let constant_term = scalars::compute(None, &minimal, evals, &mut w);
+    let constant_term = scalars::compute(None, &minimal, evals, env, &mut w);
 
     ft_eval0 - constant_term
+}
+
+fn get_feature_flag<F: FieldWitness>(
+    feature_flags: &AllFeatureFlags<F>,
+    feature: &kimchi::circuits::expr::FeatureFlag,
+    w: &mut Witness<F>,
+) -> Option<Boolean> {
+    use kimchi::circuits::expr::FeatureFlag::*;
+    use kimchi::circuits::lookup::lookups::LookupPattern;
+
+    match feature {
+        RangeCheck0 => Some(feature_flags.features.range_check0),
+        RangeCheck1 => Some(feature_flags.features.range_check1),
+        ForeignFieldAdd => Some(feature_flags.features.foreign_field_add),
+        ForeignFieldMul => Some(feature_flags.features.foreign_field_mul),
+        Xor => Some(feature_flags.features.xor),
+        Rot => Some(feature_flags.features.rot),
+        LookupTables => Some(*feature_flags.lookup_tables.get(w)),
+        RuntimeLookupTables => Some(feature_flags.features.runtime_tables),
+        TableWidth(3) => Some(*feature_flags.table_width_3.get(w)),
+        TableWidth(2) => Some(*feature_flags.table_width_at_least_2.get(w)),
+        TableWidth(i) if *i <= 1 => Some(*feature_flags.table_width_at_least_1.get(w)),
+        TableWidth(_) => None,
+        LookupsPerRow(4) => Some(*feature_flags.lookups_per_row_4.get(w)),
+        LookupsPerRow(i) if *i <= 3 => Some(*feature_flags.lookups_per_row_3.get(w)),
+        LookupsPerRow(_) => None,
+        LookupPattern(LookupPattern::Lookup) => Some(feature_flags.features.lookup),
+        LookupPattern(LookupPattern::Xor) => Some(*feature_flags.lookup_pattern_xor.get(w)),
+        LookupPattern(LookupPattern::RangeCheck) => {
+            Some(*feature_flags.lookup_pattern_range_check.get(w))
+        }
+        LookupPattern(LookupPattern::ForeignFieldMul) => {
+            Some(feature_flags.features.foreign_field_mul)
+        }
+    }
 }
 
 mod scalars {
@@ -510,13 +554,25 @@ mod scalars {
         }
     }
 
+    fn pow_const<F: FieldWitness>(x: F, n: u64) -> F {
+        if n == 0 {
+            F::one()
+        } else if n == 1 {
+            x
+        } else {
+            (0..n - 1).fold(x, |acc, _| x * acc)
+        }
+    }
+
     pub struct EvalContext<'a, F: FieldWitness> {
         pub evals: &'a ProofEvaluations<PointEvaluations<F>>,
         pub constants: &'a Constants<F>,
         pub cache: BTreeMap<CacheId, F>,
+        pub env: &'a ScalarsEnv<F>,
         pub w: &'a mut Witness<F>,
     }
 
+    // TODO: Use cvar instead
     fn is_const<F: FieldWitness>(e: &Expr<ConstantExpr<F>>) -> bool {
         use ConstantExpr::*;
         match e {
@@ -525,6 +581,7 @@ mod scalars {
                 _ => false,
             },
             Expr::BinOp(_, x, y) => is_const(x) && is_const(y),
+            Expr::Pow(x, _) => is_const(x),
             _ => false,
         }
     }
@@ -536,10 +593,22 @@ mod scalars {
                 let v = eval(x, ctx);
                 v.double()
             }
-            Constant(x) => x.value(ctx.constants),
+            Constant(x) => {
+                let v = x.value(ctx.constants);
+                if let ConstantExpr::Mul(_, _) = x {
+                    ctx.w.exists_no_check(v);
+                };
+                v
+            }
             Pow(x, p) => {
+                let p = *p;
                 let v = eval(x, ctx);
-                pow(v, *p, ctx.w)
+
+                if is_const(&x) {
+                    pow_const(v, p)
+                } else {
+                    pow(v, p, ctx.w)
+                }
             }
             BinOp(Op2::Mul, x, y) => {
                 let is_x_const = is_const(&x);
@@ -571,20 +640,35 @@ mod scalars {
                 let x = eval(x, ctx);
                 x - y
             }
-            VanishesOnLast4Rows => todo!(),
-            UnnormalizedLagrangeBasis(_i) => todo!(),
-            Cell(v) => var_evaluate(v, ctx.evals).unwrap(),
+            VanishesOnLast4Rows => ctx.env.vanishes_on_last_4_rows,
+            UnnormalizedLagrangeBasis(i) => {
+                let unnormalized_lagrange_basis =
+                    ctx.env.unnormalized_lagrange_basis.as_ref().unwrap();
+                unnormalized_lagrange_basis(*i, ctx.w)
+            }
+            Cell(v) => {
+                var_evaluate(v, ctx.evals).unwrap_or_else(|_| F::zero()) // TODO: Is that correct ?
+            }
             Cache(id, _e) => {
                 ctx.cache.get(id).copied().unwrap() // Cached values were already computed
             }
-            IfFeature(_feature, e1, e2) => {
-                if false {
-                    // if feature.is_enabled() {
-                    eval(e1, ctx)
-                } else {
-                    eval(e2, ctx)
+            IfFeature(feature, e1, e2) => match ctx.env.feature_flags.as_ref() {
+                None => eval(e2, ctx),
+                Some(feature_flags) => {
+                    let is_feature_enabled = match get_feature_flag(feature_flags, feature, ctx.w) {
+                        None => return eval(e2, ctx),
+                        Some(enabled) => enabled,
+                    };
+
+                    let on_false = eval(e2, ctx);
+                    let on_true = eval(e1, ctx);
+
+                    ctx.w.exists_no_check(match is_feature_enabled {
+                        Boolean::True => on_true,
+                        Boolean::False => on_false,
+                    })
                 }
-            }
+            },
         }
     }
 
@@ -620,8 +704,8 @@ mod scalars {
                 extract_caches(y, cache);
                 extract_caches(x, cache);
             }
-            VanishesOnLast4Rows => (),
-            UnnormalizedLagrangeBasis(_i) => (),
+            VanishesOnLast4Rows => todo!(),
+            UnnormalizedLagrangeBasis(_i) => todo!(),
             Cell(_v) => (),
             Cache(id, e) => {
                 let mut cached = Cached::default();
@@ -652,16 +736,17 @@ mod scalars {
         pub alpha: F,
         pub beta: F,
         pub gamma: F,
+        pub lookup: Option<F>,
     }
 
     pub fn compute<F: FieldWitness>(
         gate: Option<GateType>,
         minimal: &MinimalForScalar<F>,
         evals: &ProofEvaluations<[F; 2]>,
+        env: &ScalarsEnv<F>,
         w: &mut Witness<F>,
     ) -> F {
         let (constant_term, index_terms) = &*{
-            use std::rc::Rc;
             type TermsMap<F> = BTreeMap<Column, Expr<ConstantExpr<F>>>;
             type Const<F> = Expr<ConstantExpr<F>>;
             type Terms<F> = Rc<(Const<F>, TermsMap<F>)>;
@@ -714,7 +799,7 @@ mod scalars {
             alpha: minimal.alpha,
             beta: minimal.beta,
             gamma: minimal.gamma,
-            joint_combiner: None,
+            joint_combiner: minimal.lookup,
             endo_coefficient: {
                 let (base, _) = endos::<F>();
                 base
@@ -731,6 +816,7 @@ mod scalars {
             evals: &evals,
             constants: &constants,
             cache: BTreeMap::new(),
+            env,
             w,
         };
 
@@ -754,6 +840,7 @@ pub fn ft_eval0_checked<F: FieldWitness, const NLIMB: usize>(
     env: &ScalarsEnv<F>,
     evals: &ProofEvaluations<[F; 2]>,
     minimal: &PlonkMinimal<F, NLIMB>,
+    lookup: Option<F>,
     p_eval0: F,
     w: &mut Witness<F>,
 ) -> F {
@@ -820,8 +907,9 @@ pub fn ft_eval0_checked<F: FieldWitness, const NLIMB: usize>(
         alpha: minimal.alpha,
         beta: minimal.beta,
         gamma: minimal.gamma,
+        lookup,
     };
-    let constant_term = scalars::compute(None, &minimal, evals, w);
+    let constant_term = scalars::compute(None, &minimal, evals, env, w);
     ft_eval0 - constant_term
 }
 

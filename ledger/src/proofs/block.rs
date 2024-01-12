@@ -1592,17 +1592,23 @@ pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
     let unfinalized_proofs_unextended: [&Unfinalized; N_PREVIOUS] =
         w.exists(std::array::from_fn(|i| &expanded_proofs[i].unfinalized));
 
-    let messages_for_next_wrap_proof: [Fp; 2] = w.exists({
-        let n_padding = 2 - expanded_proofs.len();
+    let messages_for_next_wrap_proof: [Fp; N_PREVIOUS] = {
         let f = u64_to_field::<Fp, 4>;
+        std::array::from_fn(|i| {
+            f(&expanded_proofs[i]
+                .prev_statement_with_hashes
+                .proof_state
+                .messages_for_next_wrap_proof)
+        })
+    };
+
+    let messages_for_next_wrap_proof_padded: [Fp; 2] = w.exists({
+        let n_padding = 2 - expanded_proofs.len();
         std::array::from_fn(|i| {
             if i < n_padding {
                 get_messages_for_next_wrap_proof_padding()
             } else {
-                f(&expanded_proofs[i - n_padding]
-                    .prev_statement_with_hashes
-                    .proof_state
-                    .messages_for_next_wrap_proof)
+                messages_for_next_wrap_proof[i - n_padding]
             }
         })
     });
@@ -1652,7 +1658,7 @@ pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
                 } = stmt;
 
                 match data.wrap_domain {
-                    ForStepKind::SideLoaded => {} // Nothing
+                    ForStepKind::SideLoaded(_) => {} // Nothing
                     ForStepKind::Known(wrap_domain) => {
                         let actual_wrap_domain = wrap_domains(actual_wrap_domain);
                         assert_eq!(actual_wrap_domain.h, wrap_domain);
@@ -1665,7 +1671,6 @@ pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
                     msg_for_next_wrap_proof,
                     unfinalized,
                     *should_verify,
-                    hack_feature_flags,
                     w,
                 );
                 chals.try_into().unwrap()
@@ -1686,15 +1691,21 @@ pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
         crate::proofs::witness::checked_hash2(&msg.to_fields(), w)
     };
 
-    // Or padding
-    assert_eq!(unfinalized_proofs_unextended.len(), 2);
+    let unfinalized_proofs = {
+        let mut unfinalized_proofs: Vec<_> =
+            unfinalized_proofs_unextended.into_iter().cloned().collect();
+        while unfinalized_proofs.len() < 2 {
+            unfinalized_proofs.insert(0, Unfinalized::dummy());
+        }
+        unfinalized_proofs
+    };
 
     let statement = crate::proofs::witness::StepMainStatement {
         proof_state: crate::proofs::witness::StepMainProofState {
-            unfinalized_proofs: unfinalized_proofs_unextended.into_iter().cloned().collect(),
+            unfinalized_proofs,
             messages_for_next_step_proof,
         },
-        messages_for_next_wrap_proof: messages_for_next_wrap_proof.to_vec(),
+        messages_for_next_wrap_proof: messages_for_next_wrap_proof_padded.to_vec(),
     };
 
     w.primary = statement.to_field_elements_owned();

@@ -2,7 +2,7 @@ use mina_hasher::Fp;
 
 use super::{
     merge::{Basic, FeatureFlags, ForStep, ForStepKind, OptFlag},
-    witness::CircuitPlonkVerificationKeyEvals,
+    witness::{Boolean, CircuitPlonkVerificationKeyEvals},
     wrap::{Domain, Domains},
 };
 
@@ -297,8 +297,12 @@ pub fn make_step_zkapp_data(wrap_key: &CircuitPlonkVerificationKeyEvals<Fp>) -> 
         ),
         public_input: (),
         wrap_key: wrap_key.clone(), // TODO: Use ref
-        wrap_domain: ForStepKind::SideLoaded,
-        step_domains: ForStepKind::SideLoaded,
+        wrap_domain: ForStepKind::SideLoaded(Box::new([
+            Boolean::True,
+            Boolean::False,
+            Boolean::False,
+        ])),
+        step_domains: ForStepKind::SideLoaded(()),
         feature_flags: basic.feature_flags,
     };
 

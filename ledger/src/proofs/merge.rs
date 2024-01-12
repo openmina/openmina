@@ -264,6 +264,7 @@ pub fn expand_deferred(
             zeta_to_domain_size,
             zeta_to_srs_length,
             perm,
+            lookup: _,
         } = derive_plonk(&env, &combined_evals, &plonk_minimal);
 
         Plonk {
@@ -1123,6 +1124,7 @@ pub mod step_verifier {
         util::{
             challenge_polynomial_checked, proof_evaluation_to_list_opt, to_absorption_sequence_opt,
         },
+        verifier_index::wrap_domains,
         witness::{
             field, poseidon::Sponge, scalar_challenge, ReducedMessagesForNextStepProof, ToBoolean,
         },
@@ -1130,7 +1132,10 @@ pub mod step_verifier {
             make_scalars_env_checked, one_hot_vector, ones_vector,
             pcs_batch::PcsBatch,
             pseudo::{self, PseudoDomain},
-            wrap_verifier::{actual_evaluation, lowest_128_bits, split_commitments::Point, Advice},
+            wrap_verifier::{
+                actual_evaluation, chunks_needed, lowest_128_bits, split_commitments::Point,
+                Advice, OPS_BITS_PER_CHUNK,
+            },
             CircuitVar, PERMUTS_MINUS_1_ADD_N1,
         },
     };
@@ -1243,7 +1248,7 @@ pub mod step_verifier {
 
         let vanishing_polynomial = |mask: Vec<Boolean>| {
             Box::new(move |x: Fp, w: &mut Witness<Fp>| {
-                let result = mask.iter().fold(x, |acc, should_square| {
+                let result = mask.iter().rev().fold(x, |acc, should_square| {
                     let squared = field::square(acc, w);
                     w.exists_no_check(match should_square {
                         Boolean::True => squared,
@@ -1334,10 +1339,15 @@ pub mod step_verifier {
             dbg!(zeta, alpha);
 
             // We decompose this way because of OCaml evaluation order
-            if let OptFlag::Maybe = hack_feature_flags {
-                // TODO: Hack
-                // https://github.com/MinaProtocol/mina/blob/a51f09d09e6ae83362ea74eaca072c8e40d08b52/src/lib/pickles/composition_types/composition_types.ml#L131
-                scalar(&[0, 0], w);
+            let lookup = match hack_feature_flags {
+                OptFlag::No => None,
+                OptFlag::Maybe => {
+                    // TODO: Hack
+                    // This assumes that `plonk.lookup` (just above) is [0, 0]
+                    // https://github.com/MinaProtocol/mina/blob/a51f09d09e6ae83362ea74eaca072c8e40d08b52/src/lib/pickles/composition_types/composition_types.ml#L131
+                    Some(scalar(&[0, 0], w))
+                }
+                OptFlag::Yes => todo!(),
             };
             let zeta = scalar(zeta, w);
             let alpha = scalar(alpha, w);
@@ -1350,12 +1360,13 @@ pub mod step_verifier {
                 zeta_to_domain_size: zeta_to_domain_size.clone(),
                 zeta_to_srs_length: zeta_to_srs_length.clone(),
                 perm: perm.clone(),
+                lookup,
             }
         };
 
-        let domain: Box<dyn PlonkDomain<Fp>> = match step_domains {
-            ForStepKind::Known(ds) => Box::new(domain_for_compiled(ds, branch_data, w)),
-            ForStepKind::SideLoaded => Box::new(side_loaded_domain(
+        let domain: Rc<dyn PlonkDomain<Fp>> = match step_domains {
+            ForStepKind::Known(ds) => Rc::new(domain_for_compiled(ds, branch_data, w)),
+            ForStepKind::SideLoaded(()) => Rc::new(side_loaded_domain(
                 branch_data.domain_log2.as_u8() as u64,
                 w,
             )),
@@ -1410,10 +1421,38 @@ pub mod step_verifier {
             sponge.absorb(&[evals.public_input.0], w);
             sponge.absorb(&[evals.public_input.1], w);
 
-            for eval in &to_absorption_sequence_opt(&evals.evals) {
-                // TODO: Support sequences with Maybe
-                if let Some([x1, x2]) = eval.as_ref().copied() {
-                    sponge.absorb(&[x1, x2], w);
+            for eval in &to_absorption_sequence_opt(&evals.evals, hack_feature_flags) {
+                match eval {
+                    Opt::No => {}
+                    Opt::Some([x1, x2]) => {
+                        sponge.absorb(&[*x1, *x2], w);
+                    }
+                    Opt::Maybe(b, [x1, x2]) => {
+                        let sponge_state_before = sponge.sponge_state.clone();
+                        let state_before = sponge.state;
+
+                        sponge.absorb(&[*x1, *x2], w);
+
+                        // TODO: Does it panic in OCaml ?
+                        use mina_poseidon::poseidon::SpongeState::{Absorbed, Squeezed};
+                        match (sponge_state_before, &sponge.sponge_state) {
+                            (Absorbed(x), Absorbed(y)) => assert_eq!(x, *y),
+                            (Squeezed(x), Squeezed(y)) => assert_eq!(x, *y),
+                            (Absorbed(_), Squeezed(_)) => panic!(),
+                            (Squeezed(_), Absorbed(_)) => panic!(),
+                        }
+
+                        sponge
+                            .state
+                            .iter_mut()
+                            .zip(state_before)
+                            .for_each(|(then, else_)| {
+                                *then = w.exists_no_check(match b {
+                                    Boolean::True => *then,
+                                    Boolean::False => else_,
+                                })
+                            });
+                    }
                 }
             }
         };
@@ -1458,16 +1497,29 @@ pub mod step_verifier {
         };
 
         let srs_length_log2 = COMMON_MAX_DEGREE_STEP_LOG2 as u64;
-        let env = make_scalars_env_checked(&plonk_mininal, domain, srs_length_log2, w);
-
+        let env = make_scalars_env_checked(
+            &plonk_mininal,
+            domain,
+            srs_length_log2,
+            hack_feature_flags,
+            w,
+        );
         let combined_inner_product_correct = {
             let p_eval0 = evals.public_input.0;
-            let ft_eval0 = ft_eval0_checked(&env, &combined_evals, &plonk_mininal, p_eval0, w);
-            let a = proof_evaluation_to_list_opt(&evals.evals)
+
+            let ft_eval0 = ft_eval0_checked(
+                &env,
+                &combined_evals,
+                &plonk_mininal,
+                plonk.lookup,
+                p_eval0,
+                w,
+            );
+            let a = proof_evaluation_to_list_opt(&evals.evals, hack_feature_flags)
                 .into_iter()
                 .filter_map(|v| match v {
-                    Some(v) => Some(Opt::Some(v)),
-                    None => None,
+                    Opt::No => None,
+                    x => Some(x),
                 })
                 .collect::<Vec<_>>();
 
@@ -1810,6 +1862,152 @@ pub mod step_verifier {
         w.add_fast(v, scaled)
     }
 
+    fn public_input_commitment_dynamic(
+        which: &[Boolean],
+        srs: &mut poly_commitment::srs::SRS<Pallas>,
+        domains: Vec<Domains>,
+        public_input: Vec<Packed>,
+        w: &mut Witness<Fp>,
+    ) -> GroupAffine<Fp> {
+        let lagrange_commitment =
+            |d: &Domains, i: usize, srs: &mut poly_commitment::srs::SRS<Pallas>| {
+                let d = 2u64.pow(d.h.log2_size() as u32);
+                let unshifted = wrap_verifier::lagrange_commitment::<Fp>(srs, d, i).unshifted;
+                assert_eq!(unshifted.len(), 1);
+                InnerCurve::<Fp>::of_affine(unshifted[0])
+            };
+
+        fn select_curve_points(
+            domains: &[Domains],
+            which: &[Boolean],
+            srs: &mut poly_commitment::srs::SRS<Pallas>,
+            w: &mut Witness<Fp>,
+            points_for_domain: impl Fn(
+                &Domains,
+                &mut poly_commitment::srs::SRS<Pallas>,
+            ) -> Vec<InnerCurve<Fp>>,
+        ) -> Vec<InnerCurve<Fp>> {
+            let (d, ds) = domains.split_first().unwrap();
+            if ds.iter().all(|d2| d2.h == d.h) {
+                points_for_domain(d, srs)
+            } else {
+                let index = which.iter().position(|b| b.as_bool()).unwrap();
+                let domain = &domains[index];
+                let points = points_for_domain(domain, srs);
+                for p in points.iter().rev() {
+                    let GroupAffine::<Fp> { x, y, .. } = p.to_affine();
+                    w.exists_no_check([y, x]);
+                }
+                points
+            }
+        }
+
+        let lagrange =
+            |i: usize, srs: &mut poly_commitment::srs::SRS<Pallas>, w: &mut Witness<Fp>| {
+                let vec = select_curve_points(&domains, which, srs, w, |d, srs| {
+                    vec![lagrange_commitment(d, i, srs)]
+                });
+                vec[0].clone()
+            };
+
+        let pow2pow = |x: InnerCurve<Fp>, n: usize| (0..n).fold(x, |acc, _| acc.clone() + acc);
+
+        let lagrange_with_correction = |input_length: usize,
+                                        i: usize,
+                                        srs: &mut poly_commitment::srs::SRS<Pallas>,
+                                        w: &mut Witness<Fp>|
+         -> Vec<InnerCurve<Fp>> {
+            let actual_shift = OPS_BITS_PER_CHUNK * chunks_needed(input_length);
+
+            select_curve_points(&domains, which, srs, w, |d, srs| {
+                let g = lagrange_commitment(d, i, srs);
+                let powed = pow2pow(g.clone(), actual_shift);
+                let powed = powed.to_affine().neg();
+                vec![g, InnerCurve::of_affine(powed)]
+            })
+        };
+
+        let x_hat = {
+            let (constant_part, non_constant_part): (Vec<_>, Vec<_>) = public_input
+                .into_iter()
+                .enumerate()
+                .partition_map(|(i, t)| {
+                    use itertools::Either::{Left, Right};
+                    use CircuitVar::Constant;
+                    use Packed::{Field, PackedBits};
+
+                    match t {
+                        Field(Constant(c)) | PackedBits(Constant(c), _) => Left(if c.is_zero() {
+                            None
+                        } else if c.is_one() {
+                            Some(lagrange(i, srs, w))
+                        } else {
+                            todo!()
+                        }),
+                        Field(x) => Right((i, (x, 255))),
+                        PackedBits(x, n) => Right((i, (x, n))),
+                    }
+                });
+
+            #[derive(Debug)]
+            enum CondOrAdd {
+                CondAdd(CircuitVar<Boolean>, InnerCurve<Fp>),
+                AddWithCorrection((CircuitVar<Fq>, usize), Vec<InnerCurve<Fp>>),
+            }
+
+            let terms = non_constant_part
+                .into_iter()
+                .map(|(i, x)| match x {
+                    (b, 1) => CondOrAdd::CondAdd(CircuitVar::of_cvar(b), lagrange(i, srs, w)),
+                    (x, n) => {
+                        dbg!(x, n);
+                        CondOrAdd::AddWithCorrection((x, n), lagrange_with_correction(n, i, srs, w))
+                    }
+                })
+                .collect::<Vec<_>>();
+
+            let correction = terms
+                .iter()
+                .filter_map(|term| match term {
+                    CondOrAdd::CondAdd(_, _) => None,
+                    CondOrAdd::AddWithCorrection(_, v) => {
+                        let [_, corr] = v.as_slice() else { panic!() };
+                        Some(corr.to_affine())
+                    }
+                })
+                .reduce(|a, b| w.add_fast(a, b))
+                .unwrap();
+
+            let init =
+                constant_part
+                    .iter()
+                    .filter_map(|term| term.as_ref())
+                    .fold(correction, |acc, v| {
+                        let v = v.to_affine();
+                        w.add_fast(acc, v)
+                    });
+
+            let result = terms.iter().fold(init, |acc, term| match term {
+                CondOrAdd::CondAdd(b, g) => {
+                    let on_true = w.add_fast(g.to_affine(), acc);
+                    w.exists_no_check(match b.value() {
+                        Boolean::True => on_true,
+                        Boolean::False => acc,
+                    })
+                }
+                CondOrAdd::AddWithCorrection((x, num_bits), slice) => {
+                    let g = &slice[0];
+                    let g = CircuitVar::Var(g.to_affine());
+                    let acc2 = scale_fast2_prime(g, *x.value(), *num_bits, w);
+                    w.add_fast(acc, acc2)
+                }
+            });
+            result.neg()
+        };
+
+        x_hat
+    }
+
     fn multiscale_known(ts: &[(&Packed, InnerCurve<Fp>)], w: &mut Witness<Fp>) -> GroupAffine<Fp> {
         let pow2pow = |x: InnerCurve<Fp>, n: usize| (0..n).fold(x, |acc, _| acc.clone() + acc);
 
@@ -2073,7 +2271,7 @@ pub mod step_verifier {
     struct IncrementallyVerifyProofParams<'a> {
         pub proofs_verified: usize,
         pub srs: &'a mut poly_commitment::srs::SRS<Pallas>,
-        pub wrap_domain: &'a ForStepKind<Domain>,
+        pub wrap_domain: &'a ForStepKind<Domain, Box<[Boolean]>>,
         pub sponge: Sponge<Fp>,
         pub sponge_after_index: Sponge<Fp>,
         pub wrap_verification_key: &'a CircuitPlonkVerificationKeyEvals<Fp>,
@@ -2138,7 +2336,13 @@ pub mod step_verifier {
                     .collect::<Vec<_>>();
                 multiscale_known(&ts, w).neg()
             }
-            ForStepKind::SideLoaded => todo!(),
+            ForStepKind::SideLoaded(which) => {
+                let domains = [0, 1, 2]
+                    .into_iter()
+                    .map(|proofs_verified| wrap_domains(proofs_verified))
+                    .collect();
+                public_input_commitment_dynamic(which, srs, domains, public_input, w)
+            }
         };
 
         let x_hat = {
@@ -2231,13 +2435,14 @@ pub mod step_verifier {
         pub feature_flags: &'a FeatureFlags<OptFlag>,
         pub lookup_parameters: (),
         pub proofs_verified: usize,
-        pub wrap_domain: &'a ForStepKind<Domain>,
+        pub wrap_domain: &'a ForStepKind<Domain, Box<[Boolean]>>,
         pub is_base_case: CircuitVar<Boolean>,
         pub sponge_after_index: Sponge<Fp>,
         pub sg_old: &'a Vec<GroupAffine<Fp>>,
         pub proof: &'a ProverProof<GroupAffine<Fp>>,
         pub wrap_verification_key: &'a CircuitPlonkVerificationKeyEvals<Fp>,
         pub statement: &'a PreparedStatement,
+        pub hack_feature_flags: OptFlag,
         pub unfinalized: &'a Unfinalized,
     }
 
@@ -2254,14 +2459,17 @@ pub mod step_verifier {
             proof,
             wrap_verification_key,
             statement,
+            hack_feature_flags,
             unfinalized,
         } = params;
 
         let public_input = {
-            let mut public_input = statement.to_public_input_cvar(39);
-            // TODO: See how padding works
-            public_input.push(Packed::PackedBits(CircuitVar::Constant(Fq::zero()), 128));
-            public_input
+            let npublic_input = match hack_feature_flags {
+                OptFlag::No => 39,
+                OptFlag::Maybe => 40,
+                OptFlag::Yes => todo!(),
+            };
+            statement.to_public_input_cvar(hack_feature_flags, npublic_input)
         };
 
         let unfinalized::DeferredValues {
@@ -2326,7 +2534,6 @@ pub fn verify_one(
     messages_for_next_wrap_proof: Fp,
     unfinalized: &Unfinalized,
     should_verify: CircuitVar<Boolean>,
-    hack_feature_flags: OptFlag,
     w: &mut Witness<Fp>,
 ) -> (Vec<Fp>, Boolean) {
     let PerProofWitness {
@@ -2416,6 +2623,7 @@ pub fn verify_one(
             proof: wrap_proof,
             wrap_verification_key: &data.wrap_key,
             statement: &statement,
+            hack_feature_flags: *hack_feature_flags,
             unfinalized,
         },
         w,
@@ -2441,48 +2649,38 @@ impl std::fmt::Debug for Packed {
     }
 }
 
-pub fn extract_recursion_challenges(
-    proofs: &[&v2::PicklesProofProofsVerified2ReprStableV2; 2],
+pub fn extract_recursion_challenges<const N: usize>(
+    proofs: &[&v2::PicklesProofProofsVerified2ReprStableV2; N],
 ) -> Vec<RecursionChallenge<GroupAffine<Fq>>> {
     use poly_commitment::PolyComm;
 
     let (_, endo) = endos::<Fq>();
-    let [p1, p2] = proofs;
 
-    let comms_0 = {
-        let (a, b) = &p1
+    let comms: [(Fq, Fq); N] = std::array::from_fn(|i| {
+        let p = &proofs[i];
+        let (a, b) = &p
             .statement
             .proof_state
             .messages_for_next_wrap_proof
             .challenge_polynomial_commitment;
-        dbg!(a.to_field::<Fq>(), b.to_field::<Fq>())
-    };
-    let comms_1 = {
-        let (a, b) = &p2
-            .statement
-            .proof_state
-            .messages_for_next_wrap_proof
-            .challenge_polynomial_commitment;
-        dbg!(a.to_field::<Fq>(), b.to_field::<Fq>())
-    };
+        (a.to_field::<Fq>(), b.to_field::<Fq>())
+    });
 
-    let challs = {
-        let a = &p1
-            .statement
-            .proof_state
-            .deferred_values
-            .bulletproof_challenges;
-        let b = &p2
-            .statement
-            .proof_state
-            .deferred_values
-            .bulletproof_challenges;
-        extract_bulletproof(&[a.clone(), b.clone()], &endo)
-    };
+    let challs = proofs
+        .iter()
+        .map(|p| {
+            p.statement
+                .proof_state
+                .deferred_values
+                .bulletproof_challenges
+                .clone()
+        })
+        .collect::<Vec<_>>();
+    let challs = extract_bulletproof(&challs, &endo);
 
     challs
         .into_iter()
-        .zip([comms_0, comms_1])
+        .zip(comms)
         .map(|(chals, (x, y))| {
             let comm = PolyComm::<mina_curves::pasta::Vesta> {
                 unshifted: vec![make_group(x, y)],
@@ -2628,7 +2826,7 @@ impl<T> Opt<T> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct FeatureFlags<Bool> {
     pub range_check0: Bool,
     pub range_check1: Bool,
@@ -2638,6 +2836,21 @@ pub struct FeatureFlags<Bool> {
     pub rot: Bool,
     pub lookup: Bool,
     pub runtime_tables: Bool,
+}
+
+impl FeatureFlags<Boolean> {
+    pub fn empty() -> Self {
+        Self {
+            range_check0: Boolean::False,
+            range_check1: Boolean::False,
+            foreign_field_add: Boolean::False,
+            foreign_field_mul: Boolean::False,
+            xor: Boolean::False,
+            rot: Boolean::False,
+            lookup: Boolean::False,
+            runtime_tables: Boolean::False,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -2650,9 +2863,9 @@ pub struct Basic {
 }
 
 #[derive(Debug)]
-pub enum ForStepKind<T> {
+pub enum ForStepKind<T, T2 = ()> {
     Known(T),
-    SideLoaded,
+    SideLoaded(T2),
 }
 
 #[derive(Debug)]
@@ -2662,7 +2875,7 @@ pub struct ForStep {
     pub proof_verifieds: ForStepKind<Vec<Fp>>,
     pub public_input: (), // Typ
     pub wrap_key: CircuitPlonkVerificationKeyEvals<Fp>,
-    pub wrap_domain: ForStepKind<Domain>,
+    pub wrap_domain: ForStepKind<Domain, Box<[Boolean]>>,
     pub step_domains: ForStepKind<Vec<Domains>>,
     pub feature_flags: FeatureFlags<OptFlag>,
 }

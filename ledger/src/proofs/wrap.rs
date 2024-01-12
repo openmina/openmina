@@ -18,6 +18,7 @@ use poly_commitment::{commitment::b_poly_coefficients, PolyComm};
 
 use crate::{
     proofs::{
+        merge::OptFlag,
         opt_sponge::OptSponge,
         public_input::{
             plonk_checks::{derive_plonk, ft_eval0, ShiftingValue},
@@ -32,14 +33,13 @@ use crate::{
         },
         BACKEND_TICK_ROUNDS_N,
     },
+    scan_state::transaction_logic::local_state::LazyValue,
     verifier::get_srs,
 };
 
-use self::pseudo::PseudoDomain;
-
 use super::{
     constants::{ForWrapData, ProofConstants, WrapData},
-    merge::step_verifier::PlonkDomain,
+    merge::{step_verifier::PlonkDomain, FeatureFlags},
     public_input::{
         messages::{dummy_ipa_step_sg, MessagesForNextWrapProof},
         plonk_checks::{PlonkMinimal, ScalarsEnv, ShiftedValue},
@@ -215,6 +215,13 @@ impl<F: FieldWitness> Oracles<F> {
 
     pub fn zeta(&self) -> F {
         self.o.zeta_chal.0
+    }
+
+    pub fn joint_combiner(&self) -> Option<F> {
+        self.o
+            .joint_combiner
+            .as_ref()
+            .map(|(_scalar, field)| *field)
     }
 
     pub fn v(&self) -> ScalarChallenge<F> {
@@ -1049,7 +1056,7 @@ pub mod pseudo {
     }
 
     pub fn shifts(
-        (which, log2s): &(Vec<Boolean>, Vec<u64>),
+        (_which, log2s): &(Vec<Boolean>, Vec<u64>),
         shifts: impl Fn(u64) -> Box<[Fp; PERMUTS]>,
     ) -> Box<[Fp; PERMUTS]> {
         let all_shifts = log2s.iter().map(|d| shifts(*d)).collect::<Vec<_>>();
@@ -1118,10 +1125,101 @@ impl Domains {
     }
 }
 
+#[derive(Debug)]
+pub struct AllFeatureFlags<F: FieldWitness> {
+    pub lookup_tables: LazyValue<Boolean, Witness<F>>,
+    pub table_width_at_least_1: LazyValue<Boolean, Witness<F>>,
+    pub table_width_at_least_2: LazyValue<Boolean, Witness<F>>,
+    pub table_width_3: LazyValue<Boolean, Witness<F>>,
+    pub lookups_per_row_3: LazyValue<Boolean, Witness<F>>,
+    pub lookups_per_row_4: LazyValue<Boolean, Witness<F>>,
+    pub lookup_pattern_xor: LazyValue<Boolean, Witness<F>>,
+    pub lookup_pattern_range_check: LazyValue<Boolean, Witness<F>>,
+    pub features: FeatureFlags<Boolean>,
+}
+
+fn expand_feature_flags<F: FieldWitness>(features: &FeatureFlags<Boolean>) -> AllFeatureFlags<F> {
+    let FeatureFlags::<Boolean> {
+        range_check0,
+        range_check1,
+        foreign_field_add: _,
+        foreign_field_mul,
+        xor,
+        rot,
+        lookup,
+        runtime_tables: _,
+    } = features.clone();
+
+    let lookup_pattern_range_check = LazyValue::make(move |w: &mut Witness<F>| {
+        let first = range_check0.or(&range_check1, w);
+        first.or(&rot, w)
+    });
+
+    let lookup_pattern_xor = LazyValue::make(move |_w: &mut Witness<F>| xor);
+
+    let lookup_pattern_xor_clone = lookup_pattern_xor.clone();
+    let table_width_3 = LazyValue::make(move |w: &mut Witness<F>| *lookup_pattern_xor_clone.get(w));
+
+    let table_width_3_clone = table_width_3.clone();
+    let table_width_at_least_2 = LazyValue::make(move |w: &mut Witness<F>| {
+        let table_width_3 = table_width_3_clone.get(w);
+        table_width_3.or(&lookup, w)
+    });
+
+    let table_width_at_least_2_clone = table_width_at_least_2.clone();
+    let lookup_pattern_range_check_clone = lookup_pattern_range_check.clone();
+    let table_width_at_least_1 = LazyValue::make(move |w: &mut Witness<F>| {
+        let table_width_at_least_2 = *table_width_at_least_2_clone.get(w);
+        let lookup_pattern_range_check = *lookup_pattern_range_check_clone.get(w);
+        Boolean::any(
+            &[
+                table_width_at_least_2,
+                lookup_pattern_range_check,
+                foreign_field_mul,
+            ],
+            w,
+        )
+    });
+
+    let lookup_pattern_xor_clone = lookup_pattern_xor.clone();
+    let lookup_pattern_range_check_clone = lookup_pattern_range_check.clone();
+    let lookups_per_row_4 = LazyValue::make(move |w: &mut Witness<F>| {
+        let lookup_pattern_xor = *lookup_pattern_xor_clone.get(w);
+        let lookup_pattern_range_check = *lookup_pattern_range_check_clone.get(w);
+        Boolean::any(
+            &[
+                lookup_pattern_xor,
+                lookup_pattern_range_check,
+                foreign_field_mul,
+            ],
+            w,
+        )
+    });
+
+    let lookups_per_row_4_clone = lookups_per_row_4.clone();
+    let lookups_per_row_3 = LazyValue::make(move |w: &mut Witness<F>| {
+        let lookups_per_row_4 = *lookups_per_row_4_clone.get(w);
+        lookups_per_row_4.or(&lookup, w)
+    });
+
+    AllFeatureFlags {
+        lookup_tables: lookups_per_row_3.clone(),
+        table_width_at_least_1,
+        table_width_at_least_2,
+        table_width_3,
+        lookups_per_row_3,
+        lookups_per_row_4,
+        lookup_pattern_xor,
+        lookup_pattern_range_check,
+        features: features.clone(),
+    }
+}
+
 pub fn make_scalars_env_checked<F: FieldWitness>(
     minimal: &PlonkMinimal<F, 4>,
-    domain: Box<dyn PlonkDomain<F>>,
+    domain: Rc<dyn PlonkDomain<F>>,
     srs_length_log2: u64,
+    hack_feature_flags: OptFlag,
     w: &mut Witness<F>,
 ) -> ScalarsEnv<F> {
     let PlonkMinimal {
@@ -1143,15 +1241,14 @@ pub fn make_scalars_env_checked<F: FieldWitness>(
         alphas
     };
 
-    let (_w4, w3, w2, w1) = {
+    let (w4, w3, w2, w1) = {
         let gen = domain.generator();
         let w1 = field::div(F::one(), gen, w);
         let w2 = field::square(w1, w);
         let w3 = field::mul(w2, w1, w);
-        // let w4 = (); // unused for now
-        // let w4 = w3 * w1;
+        let w4 = LazyValue::make(move |w: &mut Witness<F>| field::mul(w3, w1, w));
 
-        ((), w3, w2, w1)
+        (w4, w3, w2, w1)
     };
 
     let zeta = *zeta;
@@ -1164,7 +1261,47 @@ pub fn make_scalars_env_checked<F: FieldWitness>(
         field::mul(res, c, w)
     };
 
+    let vanishes_on_last_4_rows = match hack_feature_flags {
+        OptFlag::Maybe => {
+            let w4 = *w4.get(w);
+            field::mul(zk_polynomial, zeta - w4, w)
+        }
+        _ => F::one(),
+    };
+
     let zeta_to_n_minus_1 = domain.vanishing_polynomial(zeta, w);
+
+    let domain_clone = Rc::clone(&domain);
+    let zeta_to_n_minus_1_lazy =
+        LazyValue::make(move |w: &mut Witness<F>| domain_clone.vanishing_polynomial(zeta, w));
+
+    let feature_flags = match hack_feature_flags {
+        OptFlag::Maybe => Some(expand_feature_flags::<F>(&FeatureFlags::empty())),
+        _ => None,
+    };
+
+    let unnormalized_lagrange_basis = match hack_feature_flags {
+        OptFlag::Maybe => {
+            let generator = domain.generator();
+            let w4_clone = w4.clone();
+            let fun: Box<dyn Fn(i32, &mut Witness<F>) -> F> =
+                Box::new(move |i: i32, w: &mut Witness<F>| {
+                    let w_to_i = match i {
+                        0 => F::one(),
+                        1 => generator,
+                        -1 => w1,
+                        -2 => w2,
+                        -3 => w3,
+                        -4 => *w4_clone.get(w),
+                        _ => todo!(),
+                    };
+                    let zeta_to_n_minus_1 = *zeta_to_n_minus_1_lazy.get(w);
+                    field::div_by_inv(zeta_to_n_minus_1, zeta - w_to_i, w)
+                });
+            Some(fun)
+        }
+        _ => None,
+    };
 
     ScalarsEnv {
         zk_polynomial,
@@ -1172,6 +1309,9 @@ pub fn make_scalars_env_checked<F: FieldWitness>(
         srs_length_log2,
         domain,
         omega_to_minus_3: w3,
+        feature_flags,
+        unnormalized_lagrange_basis,
+        vanishes_on_last_4_rows,
     }
 }
 
@@ -1280,6 +1420,7 @@ pub mod wrap_verifier {
     use poly_commitment::{evaluation_proof::OpeningProof, srs::SRS};
 
     use crate::proofs::{
+        merge::Opt,
         public_input::plonk_checks::{self, ft_eval0_checked},
         unfinalized,
         util::{challenge_polynomial_checked, to_absorption_sequence_opt},
@@ -1464,10 +1605,13 @@ pub mod wrap_verifier {
             sponge.absorb(&[evals.public_input.0], w);
             sponge.absorb(&[evals.public_input.1], w);
 
-            for eval in &to_absorption_sequence_opt(&evals.evals) {
-                // TODO: Support sequences with Maybe
-                if let Some([x1, x2]) = eval.as_ref().copied() {
-                    sponge.absorb(&[x1, x2], w);
+            for eval in &to_absorption_sequence_opt(&evals.evals, OptFlag::No) {
+                match eval {
+                    Opt::No => {}
+                    Opt::Some([x1, x2]) => {
+                        sponge.absorb(&[*x1, *x2], w);
+                    }
+                    Opt::Maybe(_b, [_x1, _x2]) => todo!(),
                 }
             }
         };
@@ -1514,12 +1658,18 @@ pub mod wrap_verifier {
         };
 
         let srs_length_log2 = COMMON_MAX_DEGREE_WRAP_LOG2 as u64;
-        let env =
-            make_scalars_env_checked(&plonk_mininal, Box::new(domain.clone()), srs_length_log2, w);
+        let env = make_scalars_env_checked(
+            &plonk_mininal,
+            Rc::new(domain.clone()),
+            srs_length_log2,
+            OptFlag::No,
+            w,
+        );
 
         let combined_inner_product_correct = {
             let p_eval0 = evals.public_input.0;
-            let ft_eval0 = ft_eval0_checked(&env, &combined_evals, &plonk_mininal, p_eval0, w);
+            let ft_eval0 =
+                ft_eval0_checked(&env, &combined_evals, &plonk_mininal, None, p_eval0, w);
             let a = proof_evaluation_to_list(&evals.evals);
 
             let actual_combined_inner_product = {
@@ -2547,6 +2697,17 @@ impl CircuitVar<Boolean> {
 
     fn as_cvar<F: FieldWitness>(&self) -> CircuitVar<F> {
         self.map(|b| b.to_field::<F>())
+    }
+
+    pub fn of_cvar<F: FieldWitness>(cvar: CircuitVar<F>) -> Self {
+        cvar.map(|b| {
+            // TODO: Should we check for `is_one` or `is_zero` here ? To match OCaml behavior
+            if b.is_one() {
+                Boolean::True
+            } else {
+                Boolean::False
+            }
+        })
     }
 
     pub fn and<F: FieldWitness>(&self, other: &Self, w: &mut Witness<F>) -> Self {
