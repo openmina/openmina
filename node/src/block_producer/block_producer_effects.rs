@@ -12,9 +12,10 @@ use super::{
     BlockProducerBlockProducedAction, BlockProducerBlockUnprovenBuildAction, BlockProducerService,
     BlockProducerStagedLedgerDiffCreateInitAction,
     BlockProducerStagedLedgerDiffCreatePendingAction,
-    BlockProducerStagedLedgerDiffCreateSuccessAction, BlockProducerWonSlotAction,
-    BlockProducerWonSlotDiscardAction, BlockProducerWonSlotProduceInitAction,
-    BlockProducerWonSlotSearchAction, BlockProducerWonSlotWaitAction,
+    BlockProducerStagedLedgerDiffCreateSuccessAction, BlockProducerWonSlot,
+    BlockProducerWonSlotAction, BlockProducerWonSlotDiscardAction,
+    BlockProducerWonSlotProduceInitAction, BlockProducerWonSlotSearchAction,
+    BlockProducerWonSlotWaitAction,
 };
 
 pub fn block_producer_effects<S: crate::Service>(
@@ -120,11 +121,23 @@ impl BlockProducerBestTipUpdateAction {
 
 impl BlockProducerWonSlotSearchAction {
     pub fn effects<S: redux::Service>(self, _: &ActionMeta, store: &mut Store<S>) {
-        // TODO(adonagy): find next slot in `won_slots`, for which global
-        // slot is higher then current best tip. It can be in the future,
-        // doesn't have to be next slot.
-        //
-        // store.dispatch(BlockProducerWonSlotAction { won_slot });
+        let vrf_evaluator_state = store.state().block_producer.vrf_evaluator();
+
+        if let Some(vrf_evaluator_state) = vrf_evaluator_state {
+            if let Some((_, won_slot)) = vrf_evaluator_state
+                .won_slots
+                .range(vrf_evaluator_state.current_best_tip_slot + 1..)
+                .next()
+            {
+                let genesis_timestamp = vrf_evaluator_state.genesis_timestamp;
+                store.dispatch(BlockProducerWonSlotAction {
+                    won_slot: BlockProducerWonSlot::from_vrf_won_slot(
+                        won_slot.clone(),
+                        genesis_timestamp,
+                    ),
+                });
+            }
+        }
     }
 }
 

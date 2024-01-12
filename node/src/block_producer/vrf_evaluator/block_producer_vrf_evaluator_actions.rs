@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 
+use crate::account::AccountPublicKey;
 use crate::block_producer::{vrf_evaluator::BlockProducerVrfEvaluatorStatus, BlockProducerAction};
 use ledger::AccountIndex;
 use mina_p2p_messages::v2::{
@@ -7,7 +8,9 @@ use mina_p2p_messages::v2::{
     ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1, LedgerHash,
 };
 use serde::{Deserialize, Serialize};
-use vrf::{VrfEvaluationOutput, VrfEvaluatorInput};
+use vrf::VrfEvaluationOutput;
+
+use super::VrfEvaluatorInput;
 
 pub type BlockProducerVrfEvaluatorActionWithMeta =
     redux::ActionWithMeta<BlockProducerVrfEvaluatorAction>;
@@ -47,8 +50,8 @@ impl redux::EnablingCondition<crate::State>
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BlockProducerVrfEvaluatorUpdateProducerAndDelegatesSuccessAction {
-    pub current_epoch_producer_and_delegators: BTreeMap<AccountIndex, (String, u64)>,
-    pub next_epoch_producer_and_delegators: BTreeMap<AccountIndex, (String, u64)>,
+    pub current_epoch_producer_and_delegators: BTreeMap<AccountIndex, (AccountPublicKey, u64)>,
+    pub next_epoch_producer_and_delegators: BTreeMap<AccountIndex, (AccountPublicKey, u64)>,
 }
 
 impl redux::EnablingCondition<crate::State>
