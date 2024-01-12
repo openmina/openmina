@@ -246,6 +246,7 @@ impl Node {
                             _ => panic!("unknown --record strategy"),
                         },
                         replayer: None,
+                        invariants_state: Default::default(),
                     };
                     let state = State::new(config);
                     let mut node = ::node::Node::new(state, service, None);

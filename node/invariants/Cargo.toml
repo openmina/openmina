@@ -1,0 +1,19 @@
+[package]
+name = "openmina-node-invariants"
+version = "0.0.1"
+edition = "2021"
+license = "Apache-2.0"
+
+[lib]
+name = "openmina_node_invariants"
+path = "src/lib.rs"
+
+[dependencies]
+lazy_static = "1.4.0"
+documented = { version = "0.1" }
+strum = "0.24.1"
+strum_macros = "0.24.3"
+serde = "1.0.147"
+serde_json = { version = "1.0.82", features = ["unbounded_depth", "arbitrary_precision"] }
+redux = { git = "https://github.com/openmina/redux-rs.git", branch="feat/global-time", features = ["serde"] }
+node = { path = "../" }

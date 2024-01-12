@@ -253,3 +253,9 @@ impl ExternalSnarkWorkerService for NodeTestingService {
         self.real.kill()
     }
 }
+
+impl node::core::invariants::InvariantService for NodeTestingService {
+    fn invariants_state(&mut self) -> &mut openmina_core::invariants::InvariantsState {
+        &mut self.real.invariants_state
+    }
+}

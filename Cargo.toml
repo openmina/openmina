@@ -9,6 +9,7 @@ members = [
     "p2p/libp2p-rpc-behaviour",
     "node",
     "node/native",
+    "node/invariants",
     "node/testing",
     "cli",
     "cli/replay_dynamic_effects",

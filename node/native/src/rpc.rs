@@ -153,3 +153,9 @@ impl node::rpc::RpcService for NodeService {
     rpc_service_impl!(respond_health_check, RpcHealthCheckResponse);
     rpc_service_impl!(respond_readiness_check, RpcReadinessCheckResponse);
 }
+
+impl node::core::invariants::InvariantService for NodeService {
+    fn invariants_state(&mut self) -> &mut openmina_core::invariants::InvariantsState {
+        &mut self.invariants_state
+    }
+}

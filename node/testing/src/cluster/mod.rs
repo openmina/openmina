@@ -2,6 +2,7 @@ mod config;
 pub use config::ClusterConfig;
 
 mod p2p_task_spawner;
+use openmina_node_invariants::{InvariantResult, Invariants};
 pub use p2p_task_spawner::P2pTaskSpawner;
 
 mod node_id;
@@ -236,6 +237,7 @@ impl Cluster {
             stats: node::stats::Stats::new(),
             recorder: Recorder::None,
             replayer: None,
+            invariants_state: Default::default(),
         };
         let mut service = NodeTestingService::new(real_service, shutdown_rx);
         if self.config.all_rust_to_rust_use_webrtc() {
@@ -243,9 +245,24 @@ impl Cluster {
         }
 
         let state = node::State::new(config);
-        fn effects<S: node::Service>(store: &mut node::Store<S>, action: node::ActionWithMeta) {
+        fn effects(store: &mut node::Store<NodeTestingService>, action: node::ActionWithMeta) {
             let peer_id = store.state().p2p.my_id();
             openmina_core::log::trace!(action.time(); "{peer_id}: {:?}", action.action().kind());
+
+            for (invariant, res) in Invariants::check_all(store, &action) {
+                // TODO(binier): record instead of panicing.
+                match res {
+                    InvariantResult::Violation(violation) => {
+                        panic!(
+                            "Invariant({}) violated! violation: {violation}",
+                            invariant.to_str()
+                        );
+                    }
+                    InvariantResult::Updated => {}
+                    InvariantResult::Ok => {}
+                }
+            }
+
             node::effects(store, action)
         }
         let store = node::Store::new(

@@ -1,6 +1,7 @@
+use openmina_core::consensus::{is_short_range_fork, long_range_fork_take, short_range_fork_take};
+
 use super::{
-    is_short_range_fork, long_range_fork_take, short_range_fork_take, ConsensusAction,
-    ConsensusActionWithMetaRef, ConsensusBlockState, ConsensusBlockStatus,
+    ConsensusAction, ConsensusActionWithMetaRef, ConsensusBlockState, ConsensusBlockStatus,
     ConsensusLongRangeForkDecision, ConsensusShortRangeForkDecision, ConsensusState,
 };
 

@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use ledger::scan_state::scan_state::transaction_snark::{SokDigest, Statement};
 use mina_p2p_messages::v2::{LedgerProofProdStableV2, TransactionSnarkWorkTStableV2Proofs};
+use openmina_core::invariants::InvariantsState;
 use rand::prelude::*;
 use redux::ActionMeta;
 use serde::Serialize;
@@ -49,6 +50,7 @@ pub struct NodeService {
     pub stats: Stats,
     pub recorder: Recorder,
     pub replayer: Option<ReplayerState>,
+    pub invariants_state: InvariantsState,
 }
 
 pub struct ReplayerState {

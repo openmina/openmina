@@ -7,15 +7,11 @@ use mina_p2p_messages::v2::{
 use serde::{Deserialize, Serialize};
 
 use openmina_core::block::{ArcBlockWithHash, BlockWithHash};
+use openmina_core::consensus::{
+    ConsensusLongRangeForkDecisionReason, ConsensusShortRangeForkDecisionReason,
+};
 
 use crate::snark::block_verify::SnarkBlockVerifyId;
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum ConsensusShortRangeForkDecisionReason {
-    ChainLength,
-    Vrf,
-    StateHash,
-}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum ConsensusShortRangeForkDecision {
@@ -28,14 +24,6 @@ impl ConsensusShortRangeForkDecision {
     pub fn use_as_best_tip(&self) -> bool {
         matches!(self, Self::TakeNoBestTip | Self::Take(_))
     }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum ConsensusLongRangeForkDecisionReason {
-    SubWindowDensity,
-    ChainLength,
-    Vrf,
-    StateHash,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
