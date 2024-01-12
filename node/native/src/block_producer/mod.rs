@@ -1,11 +1,9 @@
 mod vrf_evaluator;
 
 use mina_signer::Keypair;
-use node::core::channels::mpsc;
+use node::{core::channels::mpsc, block_producer::vrf_evaluator::VrfEvaluatorInput};
 
 use crate::NodeService;
-
-use vrf::VrfEvaluatorInput;
 
 pub struct BlockProducerService {
     vrf_evaluation_sender: mpsc::UnboundedSender<VrfEvaluatorInput>,

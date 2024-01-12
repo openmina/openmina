@@ -26,12 +26,17 @@ use mina_p2p_messages::{
     bigint::BigInt,
     v2::{
         BlockTimeTimeStableV1, ConsensusGlobalSlotStableV1, ConsensusVrfOutputTruncatedStableV1,
-        LedgerHash, MinaNumbersGlobalSlotSinceGenesisMStableV1, NonZeroCurvePoint,
+        LedgerHash, MinaNumbersGlobalSlotSinceGenesisMStableV1,
+        MinaNumbersGlobalSlotSinceHardForkMStableV1, NonZeroCurvePoint,
         UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
     },
 };
+use mina_signer::CompressedPubKey;
 use openmina_core::block::ArcBlockWithHash;
 use serde::{Deserialize, Serialize};
+use vrf::VrfWonSlot;
+
+use crate::account::AccountPublicKey;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct BlockProducerWonSlot {
@@ -43,11 +48,45 @@ pub struct BlockProducerWonSlot {
     // TODO(adonagy): maybe instead of passing it here, it can be
     // calculated on spot from `vrf_output`? Maybe with `vrf_output.blake2b()`?
     pub vrf_hash: BigInt,
-    /// Staking ledger which was used during vrf evaluation.
-    pub staking_ledger_hash: LedgerHash,
+    // Staking ledger which was used during vrf evaluation.
+    // pub staking_ledger_hash: LedgerHash,
 }
 
 impl BlockProducerWonSlot {
+    pub fn from_vrf_won_slot(won_slot: VrfWonSlot, genesis_timestamp: redux::Timestamp) -> Self {
+        let slot_time = Self::calculate_slot_time(genesis_timestamp, won_slot.global_slot);
+
+        let winner_pub_key = AccountPublicKey::from(
+            CompressedPubKey::from_address(&won_slot.winner_account).unwrap(),
+        );
+        let delegator = (winner_pub_key.into(), won_slot.account_index.clone());
+        let global_slot = ConsensusGlobalSlotStableV1 {
+            slot_number: MinaNumbersGlobalSlotSinceHardForkMStableV1::SinceHardFork(
+                won_slot.global_slot.into(),
+            ),
+            slots_per_epoch: 7140.into(), // TODO
+        };
+        let global_slot_since_genesis =
+            MinaNumbersGlobalSlotSinceGenesisMStableV1::SinceGenesis(won_slot.global_slot.into());
+
+        let vrf_output = ConsensusVrfOutputTruncatedStableV1(won_slot.vrf_output_bytes.into());
+        let vrf_hash = won_slot.vrf_hash;
+        Self {
+            slot_time,
+            delegator,
+            global_slot,
+            global_slot_since_genesis,
+            vrf_output,
+            vrf_hash,
+        }
+    }
+
+    fn calculate_slot_time(genesis_timestamp: redux::Timestamp, slot: u32) -> redux::Timestamp {
+        // FIXME: this calculation must use values from the protocol constants,
+        // now it assumes 3 minutes blocks.
+        genesis_timestamp + (slot as u64) * 3 * 60 * 1_000_000_000_u64
+    }
+
     pub fn timestamp(&self) -> BlockTimeTimeStableV1 {
         let ms = u64::from(self.slot_time) / 1_000_000;
         BlockTimeTimeStableV1(UnsignedExtendedUInt64Int64ForVersionTagsStableV1(ms.into()))
