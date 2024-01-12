@@ -5,6 +5,7 @@ use std::{collections::BTreeMap, ffi::OsStr, sync::Arc};
 
 use ledger::Mask;
 use mina_p2p_messages::v2::{CurrencyFeeStableV1, LedgerHash, NonZeroCurvePoint};
+use node::block_producer::vrf_evaluator::VrfEvaluatorInput;
 use node::core::channels::mpsc;
 use node::core::requests::{PendingRequests, RequestId};
 use node::core::snark::{Snark, SnarkJobId};
@@ -34,7 +35,6 @@ use node::{
 use node::{ActionWithMeta, State};
 use openmina_node_native::NodeService;
 use redux::Instant;
-use vrf::VrfEvaluatorInput;
 
 pub type DynEffects = Box<dyn FnMut(&State, &NodeTestingService, &ActionWithMeta) + Send>;
 

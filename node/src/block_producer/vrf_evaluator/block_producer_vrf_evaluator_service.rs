@@ -2,7 +2,10 @@ use std::collections::BTreeMap;
 
 use ledger::AccountIndex;
 use mina_p2p_messages::v2::LedgerHash;
-use vrf::VrfEvaluatorInput;
+
+use crate::account::AccountPublicKey;
+
+use super::VrfEvaluatorInput;
 
 pub trait BlockProducerVrfEvaluatorService: redux::Service {
     fn evaluate(&mut self, data: VrfEvaluatorInput);
@@ -13,5 +16,5 @@ pub trait BlockProducerVrfEvaluatorLedgerService: redux::Service {
         &mut self,
         ledger_hash: LedgerHash,
         producer: String,
-    ) -> BTreeMap<AccountIndex, (String, u64)>;
+    ) -> BTreeMap<AccountIndex, (AccountPublicKey, u64)>;
 }

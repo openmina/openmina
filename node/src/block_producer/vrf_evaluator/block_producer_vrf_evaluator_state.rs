@@ -4,6 +4,7 @@ use ledger::AccountIndex;
 use serde::{Deserialize, Serialize};
 use vrf::VrfWonSlot;
 
+use crate::account::AccountPublicKey;
 use crate::BlockProducerConfig;
 
 // TODO(adonagy): consodilate types, make more clear
@@ -21,6 +22,7 @@ pub struct BlockProducerVrfEvaluatorState {
     pub current_best_tip_slot: u32,
     pub latest_evaluated_slot: u32,
     pub last_possible_evaluation_slot: u32,
+    pub genesis_timestamp: redux::Timestamp,
 }
 
 impl BlockProducerVrfEvaluatorState {
@@ -36,6 +38,7 @@ impl BlockProducerVrfEvaluatorState {
             current_best_tip_slot: Default::default(),
             latest_evaluated_slot: Default::default(),
             last_possible_evaluation_slot: Default::default(),
+            genesis_timestamp: redux::Timestamp::ZERO,
         }
     }
 }
@@ -44,7 +47,7 @@ impl BlockProducerVrfEvaluatorState {
 pub struct EpochData {
     pub seed: String,
     pub ledger: String,
-    pub delegator_table: BTreeMap<AccountIndex, (String, u64)>,
+    pub delegator_table: BTreeMap<AccountIndex, (AccountPublicKey, u64)>,
     pub total_currency: u64,
 }
 

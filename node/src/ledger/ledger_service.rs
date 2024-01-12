@@ -956,7 +956,7 @@ impl<T: LedgerService> BlockProducerVrfEvaluatorLedgerService for T {
         &mut self,
         ledger_hash: LedgerHash,
         producer: String,
-    ) -> BTreeMap<ledger::AccountIndex, (String, u64)> {
+    ) -> BTreeMap<ledger::AccountIndex, (AccountPublicKey, u64)> {
         let producer_pub_key = PubKey::from_address(&producer).unwrap().into_compressed();
 
         // TODO(adonagy): unwrap
@@ -970,7 +970,7 @@ impl<T: LedgerService> BlockProducerVrfEvaluatorLedgerService for T {
 
         delegate_table
             .into_iter()
-            .map(|(index, pub_key, balance)| (index, (pub_key.to_string(), balance)))
+            .map(|(index, pub_key, balance)| (index, (pub_key, balance)))
             .collect()
     }
 }
