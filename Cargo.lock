@@ -3904,6 +3904,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "openmina-node-invariants"
+version = "0.0.1"
+dependencies = [
+ "documented",
+ "lazy_static",
+ "node",
+ "redux",
+ "serde",
+ "serde_json",
+ "strum",
+ "strum_macros",
+]
+
+[[package]]
 name = "openmina-node-native"
 version = "0.0.1"
 dependencies = [
@@ -3946,6 +3960,7 @@ dependencies = [
  "node",
  "num_cpus",
  "openmina-core",
+ "openmina-node-invariants",
  "openmina-node-native",
  "rand 0.8.5",
  "rayon",
@@ -4759,6 +4774,7 @@ version = "0.0.1"
 dependencies = [
  "cli",
  "node",
+ "openmina-node-invariants",
  "openmina-node-native",
 ]
 

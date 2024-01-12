@@ -10,4 +10,5 @@ name = "replay_dynamic_effects"
 [dependencies]
 node = { path = "../../node", features = ["replay"] }
 openmina-node-native = { path = "../../node/native" }
+openmina-node-invariants = { path = "../../node/invariants" }
 cli = { path = "../" }

@@ -70,6 +70,7 @@ impl ReplayStateWithInputActions {
                 expected_actions: Default::default(),
                 replay_dynamic_effects_lib: dynamic_effects_lib,
             }),
+            invariants_state: Default::default(),
         };
 
         let mut node = ::node::Node::new(state, service, Some(replayer_effects));
