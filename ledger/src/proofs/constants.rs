@@ -3,7 +3,7 @@ use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
 
 use super::{
-    merge::{Basic, FeatureFlags, ForStep, ForStepKind, OptFlag},
+    step::{Basic, FeatureFlags, ForStep, ForStepKind, OptFlag},
     witness::{Boolean, CircuitPlonkVerificationKeyEvals},
     wrap::{Domain, Domains},
 };

@@ -11,8 +11,8 @@ use mina_p2p_messages::{
 use crate::proofs::witness::field;
 
 use super::{
-    merge::{Opt, OptFlag},
     public_input::scalar_challenge::ScalarChallenge,
+    step::{Opt, OptFlag},
     witness::{Boolean, FieldWitness, InnerCurve, Witness},
 };
 

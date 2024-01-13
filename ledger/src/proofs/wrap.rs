@@ -18,12 +18,12 @@ use poly_commitment::{commitment::b_poly_coefficients, PolyComm};
 
 use crate::{
     proofs::{
-        merge::OptFlag,
         opt_sponge::OptSponge,
         public_input::{
             plonk_checks::{derive_plonk, ft_eval0, ShiftingValue},
             prepared_statement::{DeferredValues, Plonk, PreparedStatement, ProofState},
         },
+        step::OptFlag,
         unfinalized::{dummy_ipa_wrap_challenges, Unfinalized},
         util::{challenge_polynomial, proof_evaluation_to_list},
         verification::make_scalars_env,
@@ -39,11 +39,11 @@ use crate::{
 
 use super::{
     constants::{ForWrapData, ProofConstants, WrapData},
-    merge::{step_verifier::PlonkDomain, FeatureFlags},
     public_input::{
         messages::{dummy_ipa_step_sg, MessagesForNextWrapProof},
         plonk_checks::{PlonkMinimal, ScalarsEnv, ShiftedValue},
     },
+    step::{step_verifier::PlonkDomain, FeatureFlags},
     to_field_elements::ToFieldElements,
     unfinalized::{AllEvals, EvalsWithPublicInput},
     util::u64_to_field,
@@ -1422,8 +1422,8 @@ pub mod wrap_verifier {
     use poly_commitment::{evaluation_proof::OpeningProof, srs::SRS};
 
     use crate::proofs::{
-        merge::Opt,
         public_input::plonk_checks::{self, ft_eval0_checked},
+        step::Opt,
         unfinalized,
         util::{challenge_polynomial_checked, to_absorption_sequence_opt},
         verifier_index::wrap_domains,

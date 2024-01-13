@@ -1,13 +1,20 @@
 use std::borrow::Cow;
 
-use ark_ff::Field;
-use kimchi::proof::ProofEvaluations;
+use crate::proofs::public_input::plonk_checks::ShiftingValue;
+use ark_ff::{Field, One, Zero};
+use kimchi::proof::{ProofEvaluations, ProverCommitments, ProverProof};
 use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
 use mina_p2p_messages::{string::ByteString, v2};
 use mina_signer::CompressedPubKey;
+use poly_commitment::evaluation_proof::OpeningProof;
 
 use crate::{
+    proofs::{
+        public_input::prepared_statement::{DeferredValues, Plonk, ProofState},
+        step::OptFlag,
+        util::u64_to_field,
+    },
     scan_state::{
         currency::{self, Sgn},
         fee_excess::FeeExcess,
@@ -25,6 +32,7 @@ use crate::{
 
 use super::{
     numbers::currency::{CheckedCurrency, CheckedSigned},
+    step::PerProofWitness,
     unfinalized::{AllEvals, EvalsWithPublicInput},
     witness::{
         field_to_bits, Boolean, FieldWitness, GroupAffine, InnerCurve, PlonkVerificationKeyEvals,
@@ -940,5 +948,172 @@ impl ToFieldElements<Fp> for StepMainStatement {
         unfinalized_proofs.to_field_elements(fields);
         messages_for_next_step_proof.to_field_elements(fields);
         messages_for_next_wrap_proof.to_field_elements(fields);
+    }
+}
+
+impl ToFieldElements<Fp> for PerProofWitness {
+    fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+        let Self {
+            app_state,
+            wrap_proof,
+            proof_state,
+            prev_proof_evals,
+            prev_challenges,
+            prev_challenge_polynomial_commitments,
+            hack_feature_flags,
+        } = self;
+
+        assert!(app_state.is_none());
+
+        let push_affine = |g: GroupAffine<Fp>, fields: &mut Vec<Fp>| {
+            let GroupAffine::<Fp> { x, y, .. } = g;
+            x.to_field_elements(fields);
+            y.to_field_elements(fields);
+        };
+
+        let push_affines = |slice: &[GroupAffine<Fp>], fields: &mut Vec<Fp>| {
+            slice.iter().copied().for_each(|g| push_affine(g, fields))
+        };
+
+        let ProverProof {
+            commitments:
+                ProverCommitments {
+                    w_comm,
+                    z_comm,
+                    t_comm,
+                    lookup: _,
+                },
+            proof:
+                OpeningProof {
+                    lr,
+                    delta,
+                    z1,
+                    z2,
+                    sg,
+                },
+            evals: _,
+            ft_eval1: _,
+            prev_challenges: _,
+        } = wrap_proof;
+
+        for w in w_comm {
+            push_affines(&w.unshifted, fields);
+        }
+
+        push_affines(&z_comm.unshifted, fields);
+        push_affines(&t_comm.unshifted, fields);
+
+        for (a, b) in lr {
+            push_affine(*a, fields);
+            push_affine(*b, fields);
+        }
+
+        let shift = |f: Fq| <Fq as FieldWitness>::Shifting::of_field(f);
+
+        shift(*z1).to_field_elements(fields);
+        shift(*z2).to_field_elements(fields);
+
+        push_affines(&[*delta, *sg], fields);
+
+        let ProofState {
+            deferred_values:
+                DeferredValues {
+                    plonk:
+                        Plonk {
+                            alpha,
+                            beta,
+                            gamma,
+                            zeta,
+                            zeta_to_srs_length,
+                            zeta_to_domain_size,
+                            perm,
+                            lookup: _,
+                        },
+                    combined_inner_product,
+                    b,
+                    xi,
+                    bulletproof_challenges,
+                    branch_data,
+                },
+            sponge_digest_before_evaluations,
+            messages_for_next_wrap_proof: _,
+        } = proof_state;
+
+        u64_to_field::<Fp, 2>(alpha).to_field_elements(fields);
+        u64_to_field::<Fp, 2>(beta).to_field_elements(fields);
+        u64_to_field::<Fp, 2>(gamma).to_field_elements(fields);
+        u64_to_field::<Fp, 2>(zeta).to_field_elements(fields);
+
+        zeta_to_srs_length.to_field_elements(fields);
+        zeta_to_domain_size.to_field_elements(fields);
+        perm.to_field_elements(fields);
+        match hack_feature_flags {
+            OptFlag::Maybe => {
+                // This block is used only when proving zkapps using proof authorization.
+                // https://github.com/MinaProtocol/mina/blob/126d4d2e3495d03adc8f9597113d58a7e8fbcfd0/src/lib/pickles/composition_types/composition_types.ml#L150-L155
+                // https://github.com/MinaProtocol/mina/blob/126d4d2e3495d03adc8f9597113d58a7e8fbcfd0/src/lib/pickles/per_proof_witness.ml#L149
+                // https://github.com/MinaProtocol/mina/blob/a51f09d09e6ae83362ea74eaca072c8e40d08b52/src/lib/pickles_types/plonk_types.ml#L104-L119
+                // https://github.com/MinaProtocol/mina/blob/a51f09d09e6ae83362ea74eaca072c8e40d08b52/src/lib/pickles_types/plonk_types.ml#L253-L303
+
+                // the first 8 elements are the `Plonk_types.Features.typ`
+                // The last 2 elements are the `Plonk_types.Opt.typ`
+                // So far I've only seen proofs without feature flags.
+                // TODO: Are feature flags ever used in the server node ? Or they are only used in browser/client ?
+                let zeros: [u64; 10] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+                zeros.to_field_elements(fields);
+            }
+            OptFlag::Yes => unimplemented!(), // Is that used ?
+            OptFlag::No => {}
+        }
+
+        combined_inner_product.to_field_elements(fields);
+        b.to_field_elements(fields);
+        u64_to_field::<Fp, 2>(xi).to_field_elements(fields);
+        bulletproof_challenges.to_field_elements(fields);
+
+        // Index
+        {
+            let v2::CompositionTypesBranchDataStableV1 {
+                proofs_verified,
+                domain_log2,
+            } = branch_data;
+            // https://github.com/MinaProtocol/mina/blob/32a91613c388a71f875581ad72276e762242f802/src/lib/pickles_base/proofs_verified.ml#L58
+            let proofs_verified = match proofs_verified {
+                v2::PicklesBaseProofsVerifiedStableV1::N0 => [Fp::zero(), Fp::zero()],
+                v2::PicklesBaseProofsVerifiedStableV1::N1 => [Fp::zero(), Fp::one()],
+                v2::PicklesBaseProofsVerifiedStableV1::N2 => [Fp::one(), Fp::one()],
+            };
+            let domain_log2: u64 = domain_log2.0.as_u8() as u64;
+
+            proofs_verified.to_field_elements(fields);
+            Fp::from(domain_log2).to_field_elements(fields);
+        }
+
+        u64_to_field::<Fp, 4>(sponge_digest_before_evaluations).to_field_elements(fields);
+
+        let AllEvals {
+            ft_eval1,
+            evals:
+                EvalsWithPublicInput {
+                    evals,
+                    public_input,
+                },
+        } = prev_proof_evals;
+
+        public_input.to_field_elements(fields);
+        evals.to_field_elements(fields);
+        match hack_feature_flags {
+            OptFlag::Maybe => {
+                // See above.
+                // https://github.com/MinaProtocol/mina/blob/a51f09d09e6ae83362ea74eaca072c8e40d08b52/src/lib/pickles_types/plonk_types.ml#L1028-L1046
+                let zeros: [u64; 57] = [0; 57];
+                zeros.to_field_elements(fields);
+            }
+            OptFlag::Yes => unimplemented!(), // Is that used ?
+            OptFlag::No => {}
+        }
+        ft_eval1.to_field_elements(fields);
+        prev_challenges.to_field_elements(fields);
+        push_affines(prev_challenge_polynomial_commitments, fields);
     }
 }

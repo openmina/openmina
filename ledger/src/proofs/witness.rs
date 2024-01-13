@@ -4236,11 +4236,11 @@ pub mod transaction_snark {
 }
 
 pub fn get_messages_for_next_wrap_proof_padded() -> Vec<Fp> {
-    let hash = get_messages_for_next_wrap_proof_padding();
+    let hash = messages_for_next_wrap_proof_padding();
     vec![hash, hash]
 }
 
-pub fn get_messages_for_next_wrap_proof_padding() -> Fp {
+pub fn messages_for_next_wrap_proof_padding() -> Fp {
     cache_one!(Fp, {
         let msg = MessagesForNextWrapProof {
             challenge_polynomial_commitment: InnerCurve::from(dummy_ipa_step_sg()),

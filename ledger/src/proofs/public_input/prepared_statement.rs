@@ -6,7 +6,7 @@ use mina_p2p_messages::v2::{
 };
 
 use crate::proofs::{
-    merge::{OptFlag, Packed},
+    step::{OptFlag, Packed},
     util::u64_to_field,
     witness::FieldWitness,
     wrap::CircuitVar,

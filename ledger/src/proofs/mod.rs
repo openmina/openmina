@@ -10,6 +10,7 @@ pub mod numbers;
 pub mod opt_sponge;
 mod prover;
 pub mod public_input;
+pub mod step;
 pub mod to_field_elements;
 pub mod transition_chain;
 pub mod unfinalized;

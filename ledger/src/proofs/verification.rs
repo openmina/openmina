@@ -5,7 +5,7 @@ use ark_poly::{EvaluationDomain, Radix2EvaluationDomain};
 use crate::{
     proofs::{
         accumulator_check,
-        merge::{expand_deferred, StatementProofState},
+        step::{expand_deferred, StatementProofState},
         unfinalized::AllEvals,
         verifier_index::make_zkapp_verifier_index,
         witness::endos,
@@ -21,8 +21,8 @@ use crate::{
 };
 
 use super::{
-    merge::step_verifier::PlonkDomain,
     public_input::plonk_checks::make_shifts,
+    step::step_verifier::PlonkDomain,
     to_field_elements::ToFieldElements,
     util::{extract_bulletproof, extract_polynomial_commitment, u64_to_field},
     witness::{FieldWitness, InnerCurve, PlonkVerificationKeyEvals},

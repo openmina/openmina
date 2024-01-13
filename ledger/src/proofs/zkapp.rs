@@ -16,17 +16,17 @@ use mina_p2p_messages::v2;
 use crate::{
     hash_with_kimchi,
     proofs::{
-        block::{step, StepParams},
         constants::{
             make_step_transaction_data, make_step_zkapp_data, StepMergeProof,
             StepZkappOptSignedOptSignedProof, WrapTransactionProof, WrapZkappOptSignedProof,
             WrapZkappProof,
         },
-        merge::{
-            dlog_plonk_index, extract_recursion_challenges, generate_merge_proof, InductiveRule,
-            MergeParams, OptFlag, PreviousProofStatement,
-        },
+        merge::{dlog_plonk_index, generate_merge_proof, MergeParams},
         public_input::{messages::MessagesForNextWrapProof, prepared_statement::DeferredValues},
+        step::{
+            extract_recursion_challenges, step, InductiveRule, OptFlag, PreviousProofStatement,
+            StepParams,
+        },
         unfinalized::{AllEvals, EvalsWithPublicInput},
         util::sha256_sum,
         verification::prev_evals_to_p2p,
