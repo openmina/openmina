@@ -14,7 +14,7 @@ use super::{
     public_input::{
         plonk_checks::{PlonkMinimal, ShiftedValue},
         prepared_statement::Plonk,
-        scalar_challenge::{endo_fq, ScalarChallenge},
+        scalar_challenge::ScalarChallenge,
     },
     to_field_elements::ToFieldElements,
     util::u64_to_field,
@@ -304,8 +304,10 @@ impl Unfinalized {
         let gamma_bytes: [u64; 2] = [8902445049614368905, -5479804816757020655i64 as u64];
         let zeta_bytes: [u64; 2] = [621834770194220300, -4327941673388439925i64 as u64];
 
-        let zeta: Fq = ScalarChallenge::from(zeta_bytes).to_field(&endo_fq());
-        let alpha: Fq = ScalarChallenge::from(alpha_bytes).to_field(&endo_fq());
+        let (_, endo) = endos::<Fp>();
+
+        let zeta: Fq = ScalarChallenge::from(zeta_bytes).to_field(&endo);
+        let alpha: Fq = ScalarChallenge::from(alpha_bytes).to_field(&endo);
         let beta: Fq = u64_to_field(&beta_bytes);
         let gamma: Fq = u64_to_field(&gamma_bytes);
 

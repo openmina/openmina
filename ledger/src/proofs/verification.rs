@@ -55,7 +55,7 @@ use super::public_input::{
     messages::{MessagesForNextStepProof, MessagesForNextWrapProof},
     plonk_checks::{PlonkMinimal, ScalarsEnv},
     prepared_statement::{DeferredValues, PreparedStatement, ProofState},
-    scalar_challenge::{endo_fp, endo_fq, ScalarChallenge},
+    scalar_challenge::ScalarChallenge,
 };
 
 #[cfg(target_family = "wasm")]
@@ -345,10 +345,12 @@ where
         old_bulletproof_challenges,
     } = messages_for_next_step_proof;
 
+    let (_, endo) = endos::<Fq>();
+
     let challenge_polynomial_commitments: Vec<InnerCurve<Fp>> =
         extract_polynomial_commitment(challenge_polynomial_commitments);
     let old_bulletproof_challenges: Vec<[Fp; 16]> =
-        extract_bulletproof(old_bulletproof_challenges, &endo_fp());
+        extract_bulletproof(old_bulletproof_challenges, &endo);
     let dlog_plonk_index = commitments;
 
     MessagesForNextStepProof {
@@ -368,12 +370,14 @@ fn get_message_for_next_wrap_proof(
     let challenge_polynomial_commitments: Vec<InnerCurve<Fq>> =
         extract_polynomial_commitment(&[challenge_polynomial_commitment.clone()]);
 
+    let (_, endo) = endos::<Fp>();
+
     let old_bulletproof_challenges: Vec<[Fq; 15]> = extract_bulletproof(
         &[
             old_bulletproof_challenges[0].0.clone(),
             old_bulletproof_challenges[1].0.clone(),
         ],
-        &endo_fq(),
+        &endo,
     );
 
     MessagesForNextWrapProof {
