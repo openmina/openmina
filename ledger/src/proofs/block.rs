@@ -41,7 +41,7 @@ use super::{
         currency::CheckedAmount,
         nat::{CheckedBlockTime, CheckedBlockTimeSpan, CheckedLength},
     },
-    step::{step, InductiveRule, OptFlag, PreviousProofStatement, StepParams},
+    step::{step, InductiveRule, OptFlag, PreviousProofStatement, StepParams, StepProof},
     to_field_elements::ToFieldElements,
     witness::{
         field,
@@ -1808,7 +1808,11 @@ pub fn generate_block_proof(params: BlockParams, w: &mut Witness<Fp>) -> WrapPro
 
     let app_state: Rc<dyn ToFieldElementsDebug> = Rc::new(new_state_hash);
 
-    let (step_statement, prev_evals, proof) = step::<StepBlockProof, BLOCK_N_PREVIOUS_PROOFS>(
+    let StepProof {
+        statement,
+        prev_evals,
+        proof,
+    } = step::<StepBlockProof, BLOCK_N_PREVIOUS_PROOFS>(
         StepParams {
             app_state: Rc::clone(&app_state),
             rule,
@@ -1837,7 +1841,7 @@ pub fn generate_block_proof(params: BlockParams, w: &mut Witness<Fp>) -> WrapPro
         WrapParams {
             app_state,
             proof: &proof,
-            step_statement,
+            step_statement: statement,
             prev_evals: &prev_evals,
             dlog_plonk_index: &dlog_plonk_index,
             step_prover_index: &block_step_prover.index,

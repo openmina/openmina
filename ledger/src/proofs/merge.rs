@@ -24,7 +24,9 @@ use crate::{
 use super::{
     constants::WrapMergeProof,
     public_input::plonk_checks::PlonkMinimal,
-    step::{extract_recursion_challenges, InductiveRule, OptFlag, PreviousProofStatement},
+    step::{
+        extract_recursion_challenges, InductiveRule, OptFlag, PreviousProofStatement, StepProof,
+    },
     witness::{Boolean, FieldWitness, PlonkVerificationKeyEvals, Prover, Witness},
     wrap::{CircuitVar, WrapProof},
 };
@@ -218,7 +220,11 @@ pub fn generate_merge_proof(params: MergeParams, w: &mut Witness<Fp>) -> WrapPro
         (verifier_index, &dlog_plonk_index_cvar),
     ];
 
-    let (step_statement, prev_evals, proof) = step::<StepMergeProof, MERGE_N_PREVIOUS_PROOFS>(
+    let StepProof {
+        statement,
+        prev_evals,
+        proof,
+    } = step::<StepMergeProof, MERGE_N_PREVIOUS_PROOFS>(
         StepParams {
             app_state: Rc::new(statement_with_sok.clone()),
             rule,
@@ -247,7 +253,7 @@ pub fn generate_merge_proof(params: MergeParams, w: &mut Witness<Fp>) -> WrapPro
         WrapParams {
             app_state: Rc::new(statement_with_sok),
             proof: &proof,
-            step_statement,
+            step_statement: statement,
             prev_evals: &prev_evals,
             dlog_plonk_index: &dlog_plonk_index,
             step_prover_index: &step_prover.index,

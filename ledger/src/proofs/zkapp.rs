@@ -25,7 +25,7 @@ use crate::{
         public_input::{messages::MessagesForNextWrapProof, prepared_statement::DeferredValues},
         step::{
             extract_recursion_challenges, step, InductiveRule, OptFlag, PreviousProofStatement,
-            StepParams,
+            StepParams, StepProof,
         },
         unfinalized::{AllEvals, EvalsWithPublicInput},
         util::sha256_sum,
@@ -1301,7 +1301,11 @@ where
 
         let prev_challenge_polynomial_commitments = extract_recursion_challenges(&[&proof]);
 
-        let (step_statement, prev_evals, proof) = step::<StepConstants, 1>(
+        let StepProof {
+            statement: step_statement,
+            prev_evals,
+            proof,
+        } = step::<StepConstants, 1>(
             StepParams {
                 app_state: Rc::new(statement.clone()),
                 rule: InductiveRule {

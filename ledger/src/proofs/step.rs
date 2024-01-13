@@ -2478,14 +2478,16 @@ pub struct StepParams<'a, const N_PREVIOUS: usize> {
     pub wrap_prover: &'a Prover<Fq>,
 }
 
+pub struct StepProof {
+    pub statement: StepStatement,
+    pub prev_evals: Vec<AllEvals<Fq>>,
+    pub proof: kimchi::proof::ProverProof<GroupAffine<Fq>>,
+}
+
 pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
     params: StepParams<N_PREVIOUS>,
     w: &mut Witness<Fp>,
-) -> (
-    StepStatement,
-    Vec<AllEvals<Fq>>,
-    kimchi::proof::ProverProof<GroupAffine<Fq>>,
-) {
+) -> StepProof {
     let StepParams {
         app_state,
         rule,
@@ -2707,5 +2709,9 @@ pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
         messages_for_next_wrap_proof,
     };
 
-    (step_statement, prev_evals, proof)
+    StepProof {
+        statement: step_statement,
+        prev_evals,
+        proof,
+    }
 }
