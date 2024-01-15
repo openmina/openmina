@@ -22,7 +22,7 @@ use crate::{
 
 use super::{
     public_input::plonk_checks::make_shifts,
-    step::step_verifier::PlonkDomain,
+    step::{step_verifier::PlonkDomain, ExpandDeferredParams},
     to_field_elements::ToFieldElements,
     util::{extract_bulletproof, extract_polynomial_commitment, u64_to_field},
     witness::{FieldWitness, InnerCurve, PlonkVerificationKeyEvals},
@@ -580,7 +580,11 @@ fn compute_deferred_values(proof: &PicklesProofProofsVerified2ReprStableV2) -> D
         let proof_state: StatementProofState = (&proof.statement.proof_state).into();
         let evals: AllEvals<Fp> = (&proof.prev_evals).into();
 
-        expand_deferred(&evals, &old_bulletproof_challenges, &proof_state)
+        expand_deferred(ExpandDeferredParams {
+            evals: &evals,
+            old_bulletproof_challenges: &old_bulletproof_challenges,
+            proof_state: &proof_state,
+        })
     };
 
     DeferredValues {

@@ -39,7 +39,7 @@ use crate::proofs::{
     verification::{make_scalars_env, prev_evals_from_p2p},
     witness::endos,
     wrap::{
-        combined_inner_product2, evals_of_split_evals, CombinedInnerProductParams2,
+        combined_inner_product, evals_of_split_evals, CombinedInnerProductParams,
         COMMON_MAX_DEGREE_STEP_LOG2,
     },
     BACKEND_TICK_ROUNDS_N, BACKEND_TOCK_ROUNDS_N,
@@ -129,7 +129,7 @@ pub struct Basic {
     pub proof_verifieds: Vec<u64>,
     // branches: u64,
     pub wrap_domain: Domains,
-    pub step_domains: Vec<Domains>,
+    pub step_domains: Box<[Domains]>,
     pub feature_flags: FeatureFlags<OptFlag>,
 }
 
@@ -147,7 +147,7 @@ pub struct ForStep {
     pub public_input: (), // Typ
     pub wrap_key: CircuitPlonkVerificationKeyEvals<Fp>,
     pub wrap_domain: ForStepKind<Domain, Box<[Boolean]>>,
-    pub step_domains: ForStepKind<Vec<Domains>>,
+    pub step_domains: ForStepKind<Box<[Domains]>>,
     pub feature_flags: FeatureFlags<OptFlag>,
 }
 
@@ -251,7 +251,7 @@ pub mod step_verifier {
                 actual_evaluation, chunks_needed, lowest_128_bits, split_commitments::Point,
                 Advice, OPS_BITS_PER_CHUNK,
             },
-            CircuitVar, PERMUTS_MINUS_1_ADD_N1,
+            CircuitVar, MakeScalarsEnvParams, PERMUTS_MINUS_1_ADD_N1,
         },
     };
     use itertools::Itertools;
@@ -398,7 +398,9 @@ pub mod step_verifier {
         domain(Domains::max().h.log2_size())
     }
 
-    pub fn proof_verified_to_prefix(p: &v2::PicklesBaseProofsVerifiedStableV1) -> [Boolean; 2] {
+    pub(super) fn proof_verified_to_prefix(
+        p: &v2::PicklesBaseProofsVerifiedStableV1,
+    ) -> [Boolean; 2] {
         use v2::PicklesBaseProofsVerifiedStableV1::*;
 
         match p {
@@ -408,17 +410,32 @@ pub mod step_verifier {
         }
     }
 
-    pub fn finalize_other_proof(
-        max_proof_verified: usize,
-        _feature_flags: &FeatureFlags<OptFlag>,
-        step_domains: &ForStepKind<Vec<Domains>>,
-        mut sponge: Sponge<Fp>,
-        prev_challenges: &[[Fp; Fp::NROUNDS]],
-        deferred_values: &DeferredValues<Fp>,
-        evals: &AllEvals<Fp>,
-        hack_feature_flags: OptFlag,
+    pub(super) struct FinalizeOtherProofParams<'a> {
+        pub(super) max_proof_verified: usize,
+        pub(super) feature_flags: &'a FeatureFlags<OptFlag>,
+        pub(super) step_domains: &'a ForStepKind<Box<[Domains]>>,
+        pub(super) sponge: Sponge<Fp>,
+        pub(super) prev_challenges: &'a [[Fp; Fp::NROUNDS]],
+        pub(super) deferred_values: &'a DeferredValues<Fp>,
+        pub(super) evals: &'a AllEvals<Fp>,
+        pub(super) hack_feature_flags: OptFlag,
+    }
+
+    pub(super) fn finalize_other_proof(
+        params: FinalizeOtherProofParams,
         w: &mut Witness<Fp>,
     ) -> (Boolean, Vec<Fp>) {
+        let FinalizeOtherProofParams {
+            max_proof_verified,
+            feature_flags: _,
+            step_domains,
+            mut sponge,
+            prev_challenges,
+            deferred_values,
+            evals,
+            hack_feature_flags,
+        } = params;
+
         let DeferredValues {
             plonk,
             combined_inner_product,
@@ -613,10 +630,12 @@ pub mod step_verifier {
 
         let srs_length_log2 = COMMON_MAX_DEGREE_STEP_LOG2 as u64;
         let env = make_scalars_env_checked(
-            &plonk_mininal,
-            domain,
-            srs_length_log2,
-            hack_feature_flags,
+            MakeScalarsEnvParams {
+                minimal: &plonk_mininal,
+                domain,
+                srs_length_log2,
+                hack_feature_flags,
+            },
             w,
         );
         let combined_inner_product_correct = {
@@ -749,7 +768,7 @@ pub mod step_verifier {
         (finalized, bulletproof_challenges)
     }
 
-    pub fn sponge_after_index(
+    pub(super) fn sponge_after_index(
         index: &PlonkVerificationKeyEvals<Fp>,
         w: &mut Witness<Fp>,
     ) -> Sponge<Fp> {
@@ -759,7 +778,7 @@ pub mod step_verifier {
         sponge
     }
 
-    pub fn hash_messages_for_next_step_proof_opt(
+    pub(super) fn hash_messages_for_next_step_proof_opt(
         msg: ReducedMessagesForNextStepProof,
         sponge: Sponge<Fp>,
         _widths: &ForStepKind<Vec<Fp>>,
@@ -905,7 +924,7 @@ pub mod step_verifier {
     }
 
     // TODO: Dedup with the one in `wrap_verifier`
-    pub fn scale_fast2_prime<F: FieldWitness, F2: FieldWitness>(
+    pub(super) fn scale_fast2_prime<F: FieldWitness, F2: FieldWitness>(
         g: CircuitVar<GroupAffine<F>>,
         s: F2,
         num_bits: usize,
@@ -925,7 +944,7 @@ pub mod step_verifier {
     }
 
     // TODO: Dedup with the one in `wrap_verifier`
-    pub fn ft_comm<F: FieldWitness, Scale>(
+    pub(super) fn ft_comm<F: FieldWitness, Scale>(
         plonk: &Plonk<F::Scalar>,
         t_comm: &PolyComm<GroupAffine<F>>,
         verification_key: &CircuitPlonkVerificationKeyEvals<F>,
@@ -1186,7 +1205,7 @@ pub mod step_verifier {
         w.add_fast(acc, add_opt(constant_part, &correction).to_affine())
     }
 
-    pub fn lagrange_commitment<F: FieldWitness>(
+    fn lagrange_commitment<F: FieldWitness>(
         srs: &mut SRS<GroupAffine<F>>,
         domain: &Domain,
         i: usize,
@@ -1545,23 +1564,23 @@ pub mod step_verifier {
         (sponge_digest_before_evaluations, bulletproof_challenges)
     }
 
-    pub struct VerifyParams<'a> {
-        pub srs: &'a mut poly_commitment::srs::SRS<Pallas>,
-        pub feature_flags: &'a FeatureFlags<OptFlag>,
-        pub lookup_parameters: (),
-        pub proofs_verified: usize,
-        pub wrap_domain: &'a ForStepKind<Domain, Box<[Boolean]>>,
-        pub is_base_case: CircuitVar<Boolean>,
-        pub sponge_after_index: Sponge<Fp>,
-        pub sg_old: &'a Vec<GroupAffine<Fp>>,
-        pub proof: &'a ProverProof<GroupAffine<Fp>>,
-        pub wrap_verification_key: &'a CircuitPlonkVerificationKeyEvals<Fp>,
-        pub statement: &'a PreparedStatement,
-        pub hack_feature_flags: OptFlag,
-        pub unfinalized: &'a Unfinalized,
+    pub(super) struct VerifyParams<'a> {
+        pub(super) srs: &'a mut poly_commitment::srs::SRS<Pallas>,
+        pub(super) feature_flags: &'a FeatureFlags<OptFlag>,
+        pub(super) lookup_parameters: (),
+        pub(super) proofs_verified: usize,
+        pub(super) wrap_domain: &'a ForStepKind<Domain, Box<[Boolean]>>,
+        pub(super) is_base_case: CircuitVar<Boolean>,
+        pub(super) sponge_after_index: Sponge<Fp>,
+        pub(super) sg_old: &'a Vec<GroupAffine<Fp>>,
+        pub(super) proof: &'a ProverProof<GroupAffine<Fp>>,
+        pub(super) wrap_verification_key: &'a CircuitPlonkVerificationKeyEvals<Fp>,
+        pub(super) statement: &'a PreparedStatement,
+        pub(super) hack_feature_flags: OptFlag,
+        pub(super) unfinalized: &'a Unfinalized,
     }
 
-    pub fn verify(params: VerifyParams, w: &mut Witness<Fp>) -> Boolean {
+    pub(super) fn verify(params: VerifyParams, w: &mut Witness<Fp>) -> Boolean {
         let VerifyParams {
             srs,
             feature_flags: _,
@@ -1642,15 +1661,25 @@ pub mod step_verifier {
     }
 }
 
-pub fn verify_one(
-    srs: &mut poly_commitment::srs::SRS<Pallas>,
-    proof: &PerProofWitness,
-    data: &ForStep,
+struct VerifyOneParams<'a> {
+    srs: &'a mut poly_commitment::srs::SRS<Pallas>,
+    proof: &'a PerProofWitness,
+    data: &'a ForStep,
     messages_for_next_wrap_proof: Fp,
-    unfinalized: &Unfinalized,
+    unfinalized: &'a Unfinalized,
     should_verify: CircuitVar<Boolean>,
-    w: &mut Witness<Fp>,
-) -> (Vec<Fp>, Boolean) {
+}
+
+fn verify_one(params: VerifyOneParams, w: &mut Witness<Fp>) -> (Vec<Fp>, Boolean) {
+    let VerifyOneParams {
+        srs,
+        proof,
+        data,
+        messages_for_next_wrap_proof,
+        unfinalized,
+        should_verify,
+    } = params;
+
     let PerProofWitness {
         app_state,
         wrap_proof,
@@ -1673,14 +1702,16 @@ pub fn verify_one(
         };
 
         step_verifier::finalize_other_proof(
-            data.max_proofs_verified,
-            &data.feature_flags,
-            &data.step_domains,
-            sponge,
-            prev_challenges,
-            deferred_values,
-            prev_proof_evals,
-            *hack_feature_flags,
+            step_verifier::FinalizeOtherProofParams {
+                max_proof_verified: data.max_proofs_verified,
+                feature_flags: &data.feature_flags,
+                step_domains: &data.step_domains,
+                sponge,
+                prev_challenges,
+                deferred_values,
+                evals: prev_proof_evals,
+                hack_feature_flags: *hack_feature_flags,
+            },
             w,
         )
     };
@@ -1759,11 +1790,19 @@ fn to_4limbs(v: [u64; 2]) -> [u64; 4] {
     [v[0], v[1], 0, 0]
 }
 
-pub fn expand_deferred(
-    evals: &AllEvals<Fp>,
-    old_bulletproof_challenges: &Vec<[Fp; 16]>,
-    proof_state: &StatementProofState,
-) -> DeferredValues<Fp> {
+pub struct ExpandDeferredParams<'a> {
+    pub evals: &'a AllEvals<Fp>,
+    pub old_bulletproof_challenges: &'a Vec<[Fp; 16]>,
+    pub proof_state: &'a StatementProofState,
+}
+
+pub fn expand_deferred(params: ExpandDeferredParams) -> DeferredValues<Fp> {
+    let ExpandDeferredParams {
+        evals,
+        old_bulletproof_challenges,
+        proof_state,
+    } = params;
+
     use super::public_input::scalar_challenge::ScalarChallenge;
 
     let (_, endo) = endos::<Fq>();
@@ -1860,7 +1899,7 @@ pub fn expand_deferred(
 
     let public_input = &evals.evals.public_input;
     let combined_inner_product_actual =
-        combined_inner_product2(CombinedInnerProductParams2::<_, { Fp::NROUNDS }, 4> {
+        combined_inner_product(CombinedInnerProductParams::<_, { Fp::NROUNDS }, 4> {
             env: &env,
             evals: &evals.evals.evals,
             public: [public_input.0, public_input.1],
@@ -1918,16 +1957,29 @@ fn wrap_compute_sg(challenges: &[[u64; 2]]) -> GroupAffine<Fp> {
     comm.unshifted[0]
 }
 
-pub fn expand_proof(
-    dlog_vk: &VerifierIndex<Pallas>,
-    dlog_plonk_index: &CircuitPlonkVerificationKeyEvals<Fp>,
-    app_state: &Rc<dyn ToFieldElementsDebug>,
-    t: &v2::PicklesProofProofsVerified2ReprStableV2,
+struct ExpandProofParams<'a> {
+    dlog_vk: &'a VerifierIndex<Pallas>,
+    dlog_plonk_index: &'a CircuitPlonkVerificationKeyEvals<Fp>,
+    app_state: &'a Rc<dyn ToFieldElementsDebug>,
+    t: &'a v2::PicklesProofProofsVerified2ReprStableV2,
     public_input_length: usize,
-    _tag: (),
+    tag: (),
     must_verify: CircuitVar<Boolean>,
     hack_feature_flags: OptFlag,
-) -> ExpandedProof {
+}
+
+fn expand_proof(params: ExpandProofParams) -> ExpandedProof {
+    let ExpandProofParams {
+        dlog_vk,
+        dlog_plonk_index,
+        app_state,
+        t,
+        public_input_length,
+        tag: _,
+        must_verify,
+        hack_feature_flags,
+    } = params;
+
     use super::public_input::scalar_challenge::ScalarChallenge;
 
     let plonk0: PlonkMinimal<Fp> = (&t.statement.proof_state.deferred_values.plonk).into();
@@ -2003,7 +2055,11 @@ pub fn expand_proof(
         let evals: AllEvals<Fp> = (&t.prev_evals).into();
         let proof_state: StatementProofState = (&statement.proof_state).into();
 
-        expand_deferred(&evals, &old_bulletproof_challenges, &proof_state)
+        expand_deferred(ExpandDeferredParams {
+            evals: &evals,
+            old_bulletproof_challenges: &old_bulletproof_challenges,
+            proof_state: &proof_state,
+        })
     };
 
     let (_, endo) = endos::<Fq>();
@@ -2214,7 +2270,7 @@ pub fn expand_proof(
         srs_length_log2 as u64,
     );
 
-    let combined_inner_product = combined_inner_product2(CombinedInnerProductParams2 {
+    let combined_inner_product = combined_inner_product(CombinedInnerProductParams {
         env: &tock_env,
         evals: &tock_combined_evals,
         public: [x_hat.0, x_hat.1],
@@ -2266,13 +2322,13 @@ pub fn expand_proof(
 }
 
 #[derive(Debug)]
-pub struct ExpandedProof {
-    pub sg: GroupAffine<Fp>,
-    pub unfinalized: Unfinalized,
-    pub prev_statement_with_hashes: PreparedStatement,
-    pub x_hat: (Fq, Fq),
-    pub witness: PerProofWitness,
-    pub actual_wrap_domain: u32,
+struct ExpandedProof {
+    sg: GroupAffine<Fp>,
+    unfinalized: Unfinalized,
+    prev_statement_with_hashes: PreparedStatement,
+    x_hat: (Fq, Fq),
+    witness: PerProofWitness,
+    actual_wrap_domain: u32,
 }
 
 #[derive(Clone, Debug)]
@@ -2512,16 +2568,16 @@ pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
                 proof_must_verify,
             } = statement;
 
-            expand_proof(
-                verifier_index,
+            expand_proof(ExpandProofParams {
+                dlog_vk: verifier_index,
                 dlog_plonk_index,
-                public_input,
-                proof,
-                40,
-                (),
-                *proof_must_verify,
+                app_state: public_input,
+                t: proof,
+                public_input_length: 40,
+                tag: (),
+                must_verify: *proof_must_verify,
                 hack_feature_flags,
-            )
+            })
         })
         .collect::<Vec<_>>()
         .try_into()
@@ -2605,12 +2661,14 @@ pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
                     }
                 }
                 let (chals, _verified) = verify_one(
-                    &mut srs,
-                    proof,
-                    data,
-                    msg_for_next_wrap_proof,
-                    unfinalized,
-                    *should_verify,
+                    VerifyOneParams {
+                        srs: &mut srs,
+                        proof,
+                        data,
+                        messages_for_next_wrap_proof: msg_for_next_wrap_proof,
+                        unfinalized,
+                        should_verify: *should_verify,
+                    },
                     w,
                 );
                 chals.try_into().unwrap()

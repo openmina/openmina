@@ -11,7 +11,7 @@ use mina_curves::pasta::{Fq, Pallas, Vesta};
 use mina_hasher::Fp;
 use mina_p2p_messages::v2::{
     CompositionTypesBranchDataDomainLog2StableV1, CompositionTypesBranchDataStableV1,
-    PicklesBaseProofsVerifiedStableV1, PicklesProofProofsVerified2ReprStableV2,
+    PicklesBaseProofsVerifiedStableV1,
 };
 use mina_poseidon::{sponge::ScalarChallenge, FqSponge};
 use poly_commitment::{commitment::b_poly_coefficients, PolyComm};
@@ -57,75 +57,7 @@ use super::{
 /// Common.Max_degree.wrap_log2
 pub const COMMON_MAX_DEGREE_WRAP_LOG2: usize = 15;
 
-pub struct CombinedInnerProductParams<'a> {
-    pub env: &'a ScalarsEnv<Fp>,
-    pub evals: &'a ProofEvaluations<[Fp; 2]>,
-    pub minimal: &'a PlonkMinimal<Fp>,
-    pub proof: &'a PicklesProofProofsVerified2ReprStableV2,
-    pub r: Fp,
-    pub old_bulletproof_challenges: &'a [[Fp; 16]],
-    pub xi: Fp,
-    pub zetaw: Fp,
-}
-
-/// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/pickles/wrap.ml#L37
-pub fn combined_inner_product(params: CombinedInnerProductParams) -> Fp {
-    let CombinedInnerProductParams {
-        env,
-        old_bulletproof_challenges,
-        evals,
-        minimal,
-        proof,
-        r,
-        xi,
-        zetaw,
-    } = params;
-
-    let ft_eval0 = ft_eval0(
-        env,
-        evals,
-        minimal,
-        proof.prev_evals.evals.public_input.0.to_field(),
-    );
-
-    let challenge_polys: Vec<_> = old_bulletproof_challenges
-        .iter()
-        .map(|v| challenge_polynomial(v))
-        .collect();
-
-    let a = proof_evaluation_to_list(evals);
-    let ft_eval1: Fp = proof.prev_evals.ft_eval1.to_field();
-
-    enum WhichEval {
-        First,
-        Second,
-    }
-
-    let combine = |which_eval: WhichEval, ft: Fp, pt: Fp| -> Fp {
-        let f = |[x, y]: &[Fp; 2]| match which_eval {
-            WhichEval::First => *x,
-            WhichEval::Second => *y,
-        };
-        let a = a.iter().map(f);
-        let public_input = &proof.prev_evals.evals.public_input;
-        let public_input: [Fp; 2] = [public_input.0.to_field(), public_input.1.to_field()];
-
-        challenge_polys
-            .iter()
-            .map(|f| f(pt))
-            .chain([f(&public_input), ft])
-            .chain(a)
-            .rev()
-            .reduce(|acc, fx| fx + (xi * acc))
-            .unwrap()
-    };
-
-    combine(WhichEval::First, ft_eval0, minimal.zeta)
-        + (r * combine(WhichEval::Second, ft_eval1, zetaw))
-}
-
-// TODO: De-duplicate with CombinedInnerProductParams
-pub struct CombinedInnerProductParams2<
+pub struct CombinedInnerProductParams<
     'a,
     F: FieldWitness,
     const NROUNDS: usize,
@@ -142,12 +74,11 @@ pub struct CombinedInnerProductParams2<
     pub zetaw: F,
 }
 
-// TODO: De-duplicate with combined_inner_product
 /// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/pickles/wrap.ml#L37
-pub fn combined_inner_product2<F: FieldWitness, const NROUNDS: usize, const NLIMB: usize>(
-    params: CombinedInnerProductParams2<F, NROUNDS, NLIMB>,
+pub fn combined_inner_product<F: FieldWitness, const NROUNDS: usize, const NLIMB: usize>(
+    params: CombinedInnerProductParams<F, NROUNDS, NLIMB>,
 ) -> F {
-    let CombinedInnerProductParams2 {
+    let CombinedInnerProductParams {
         env,
         old_bulletproof_challenges,
         evals,
@@ -306,7 +237,7 @@ pub fn create_oracle<F: FieldWitness>(
     }
 }
 
-pub fn make_lagrange<F: FieldWitness>(
+fn make_lagrange<F: FieldWitness>(
     srs: &mut poly_commitment::srs::SRS<F::OtherCurve>,
     domain_log2: u32,
 ) -> Vec<PolyComm<F::OtherCurve>> {
@@ -349,14 +280,25 @@ pub fn evals_of_split_evals<F: FieldWitness>(
 /// Value of `Common.Max_degree.step_log2`
 pub const COMMON_MAX_DEGREE_STEP_LOG2: u64 = 16;
 
-fn deferred_values(
+struct DeferredValuesParams<'a> {
     _sgs: Vec<InnerCurve<Fp>>,
     prev_challenges: Vec<[Fp; 16]>,
-    public_input: &[Fp],
-    proof: &kimchi::proof::ProverProof<Vesta>,
+    public_input: &'a [Fp],
+    proof: &'a kimchi::proof::ProverProof<Vesta>,
     actual_proofs_verified: usize,
-    prover_index: &kimchi::prover_index::ProverIndex<Vesta>,
-) -> DeferredValuesAndHints {
+    prover_index: &'a kimchi::prover_index::ProverIndex<Vesta>,
+}
+
+fn deferred_values(params: DeferredValuesParams) -> DeferredValuesAndHints {
+    let DeferredValuesParams {
+        _sgs,
+        prev_challenges,
+        public_input,
+        proof,
+        actual_proofs_verified,
+        prover_index,
+    } = params;
+
     let step_vk = prover_index.verifier_index();
     let log_size_of_group = step_vk.domain.log_size_of_group;
 
@@ -447,7 +389,7 @@ fn deferred_values(
         });
 
     let combined_inner_product =
-        combined_inner_product2(CombinedInnerProductParams2::<_, { Fp::NROUNDS }, 2> {
+        combined_inner_product(CombinedInnerProductParams::<_, { Fp::NROUNDS }, 2> {
             env: &tick_env,
             evals: &evals,
             minimal: &tick_plonk_minimal,
@@ -622,6 +564,7 @@ pub fn wrap<C: ProofConstants + ForWrapData>(params: WrapParams, w: &mut Witness
         pi_branches,
         step_widths,
         step_domains,
+        wrap_domain_indices,
     } = C::wrap_data();
 
     let (_, endo) = endos::<Fq>();
@@ -697,14 +640,14 @@ pub fn wrap<C: ProofConstants + ForWrapData>(params: WrapParams, w: &mut Witness
         deferred_values,
         sponge_digest_before_evaluations,
         x_hat_evals,
-    } = deferred_values(
-        vec![],
+    } = deferred_values(DeferredValuesParams {
+        _sgs: vec![],
         prev_challenges,
-        &public_input,
+        public_input: &public_input,
         proof,
         actual_proofs_verified,
-        step_prover_index,
-    );
+        prover_index: step_prover_index,
+    });
 
     let to_fq = |[a, b]: [u64; 2]| Fq::from(BigInteger256([a, b, 0, 0]));
     let to_fqs = |v: &[[u64; 2]]| v.iter().copied().map(to_fq).collect::<Vec<_>>();
@@ -803,7 +746,7 @@ pub fn wrap<C: ProofConstants + ForWrapData>(params: WrapParams, w: &mut Witness
             pi_branches,
             step_widths,
             step_domains,
-            wrap_domain_indices: C::wrap_domain_indices(),
+            wrap_domain_indices,
             messages_for_next_step_proof_hash,
             prev_evals,
             proof,
@@ -1217,13 +1160,24 @@ fn expand_feature_flags<F: FieldWitness>(features: &FeatureFlags<Boolean>) -> Al
     }
 }
 
+pub struct MakeScalarsEnvParams<'a, F: FieldWitness> {
+    pub minimal: &'a PlonkMinimal<F, 4>,
+    pub domain: Rc<dyn PlonkDomain<F>>,
+    pub srs_length_log2: u64,
+    pub hack_feature_flags: OptFlag,
+}
+
 pub fn make_scalars_env_checked<F: FieldWitness>(
-    minimal: &PlonkMinimal<F, 4>,
-    domain: Rc<dyn PlonkDomain<F>>,
-    srs_length_log2: u64,
-    hack_feature_flags: OptFlag,
+    params: MakeScalarsEnvParams<'_, F>,
     w: &mut Witness<F>,
 ) -> ScalarsEnv<F> {
+    let MakeScalarsEnvParams {
+        minimal,
+        domain,
+        srs_length_log2,
+        hack_feature_flags,
+    } = params;
+
     let PlonkMinimal {
         alpha,
         beta: _,
@@ -1323,7 +1277,7 @@ pub const PERMUTS_MINUS_1_ADD_N1: usize = 6;
 /// Other_field.Packed.Constant.size_in_bits
 const OTHER_FIELD_PACKED_CONSTANT_SIZE_IN_BITS: usize = 255;
 
-pub fn ft_comm<F: FieldWitness, Scale>(
+fn ft_comm<F: FieldWitness, Scale>(
     plonk: &Plonk<F::Scalar>,
     t_comm: &PolyComm<GroupAffine<F>>,
     verification_key: &PlonkVerificationKeyEvals<F>,
@@ -1554,14 +1508,26 @@ pub mod wrap_verifier {
         })
     }
 
-    pub fn finalize_other_proof(
-        domain: &PseudoDomain<Fq>,
-        mut sponge: Sponge<Fq>,
-        old_bulletproof_challenges: &[[Fq; 15]],
-        deferred_values: &unfinalized::DeferredValues,
-        evals: &AllEvals<Fq>,
+    pub(super) struct FinalizeOtherProofParams<'a> {
+        pub(super) domain: &'a PseudoDomain<Fq>,
+        pub(super) sponge: Sponge<Fq>,
+        pub(super) old_bulletproof_challenges: &'a [[Fq; 15]],
+        pub(super) deferred_values: &'a unfinalized::DeferredValues,
+        pub(super) evals: &'a AllEvals<Fq>,
+    }
+
+    pub(super) fn finalize_other_proof(
+        params: FinalizeOtherProofParams,
         w: &mut Witness<Fq>,
     ) -> (Boolean, Vec<Fq>) {
+        let FinalizeOtherProofParams {
+            domain,
+            mut sponge,
+            old_bulletproof_challenges,
+            deferred_values,
+            evals,
+        } = params;
+
         let unfinalized::DeferredValues {
             plonk,
             combined_inner_product,
@@ -1661,10 +1627,12 @@ pub mod wrap_verifier {
 
         let srs_length_log2 = COMMON_MAX_DEGREE_WRAP_LOG2 as u64;
         let env = make_scalars_env_checked(
-            &plonk_mininal,
-            Rc::new(domain.clone()),
-            srs_length_log2,
-            OptFlag::No,
+            MakeScalarsEnvParams {
+                minimal: &plonk_mininal,
+                domain: Rc::new(domain.clone()),
+                srs_length_log2,
+                hack_feature_flags: OptFlag::No,
+            },
             w,
         );
 
@@ -2172,23 +2140,23 @@ pub mod wrap_verifier {
         pub combined_inner_product: ShiftedValue<F::Scalar>,
     }
 
-    pub struct IncrementallyVerifyProofParams<'a> {
-        pub actual_proofs_verified_mask: Vec<Boolean>,
-        pub step_domains: Box<[Domains]>,
-        pub verification_key: &'a PlonkVerificationKeyEvals<Fq>,
-        pub srs: Arc<SRS<Vesta>>,
-        pub xi: &'a [u64; 2],
-        pub sponge: OptSponge<Fq>,
-        pub public_input: Vec<Packed<Boolean>>,
-        pub sg_old: Vec<InnerCurve<Fq>>,
-        pub advice: Advice<Fq>,
-        pub messages: &'a kimchi::proof::ProverCommitments<Vesta>,
-        pub which_branch: Vec<Boolean>,
-        pub openings_proof: &'a OpeningProof<Vesta>,
-        pub plonk: &'a Plonk<Fp>,
+    pub(super) struct IncrementallyVerifyProofParams<'a> {
+        pub(super) actual_proofs_verified_mask: Vec<Boolean>,
+        pub(super) step_domains: Box<[Domains]>,
+        pub(super) verification_key: &'a PlonkVerificationKeyEvals<Fq>,
+        pub(super) srs: Arc<SRS<Vesta>>,
+        pub(super) xi: &'a [u64; 2],
+        pub(super) sponge: OptSponge<Fq>,
+        pub(super) public_input: Vec<Packed<Boolean>>,
+        pub(super) sg_old: Vec<InnerCurve<Fq>>,
+        pub(super) advice: Advice<Fq>,
+        pub(super) messages: &'a kimchi::proof::ProverCommitments<Vesta>,
+        pub(super) which_branch: Vec<Boolean>,
+        pub(super) openings_proof: &'a OpeningProof<Vesta>,
+        pub(super) plonk: &'a Plonk<Fp>,
     }
 
-    pub fn incrementally_verify_proof(
+    pub(super) fn incrementally_verify_proof(
         params: IncrementallyVerifyProofParams,
         w: &mut Witness<Fq>,
     ) -> (Fq, (Boolean, Vec<Fq>)) {
@@ -2450,11 +2418,6 @@ pub mod wrap_verifier {
 
         (sponge_digest_before_evaluations, bulletproof_challenges)
     }
-}
-
-fn wrap_domain_indices() -> [Fq; 2] {
-    // TODO
-    [Fq::one(), Fq::one()]
 }
 
 pub mod one_hot_vector {
@@ -2918,19 +2881,19 @@ fn split_field(x: Fq, w: &mut Witness<Fq>) -> (Fq, Boolean) {
     w.exists((y, is_odd.to_boolean()))
 }
 
-pub struct WrapMainParams<'a> {
-    pub step_statement: StepStatement,
-    pub next_statement: &'a WrapStatement,
-    pub messages_for_next_wrap_proof_padded: Vec<MessagesForNextWrapProof>,
-    pub which_index: u64,
-    pub pi_branches: u64,
-    pub step_widths: Box<[u64]>,
-    pub step_domains: Box<[Domains]>,
-    pub wrap_domain_indices: [Fq; 2],
-    pub messages_for_next_step_proof_hash: [u64; 4],
-    pub prev_evals: &'a [AllEvals<Fq>],
-    pub proof: &'a ProverProof<Vesta>,
-    pub step_prover_index: &'a kimchi::prover_index::ProverIndex<Vesta>,
+struct WrapMainParams<'a> {
+    step_statement: StepStatement,
+    next_statement: &'a WrapStatement,
+    messages_for_next_wrap_proof_padded: Vec<MessagesForNextWrapProof>,
+    which_index: u64,
+    pi_branches: u64,
+    step_widths: Box<[u64]>,
+    step_domains: Box<[Domains]>,
+    wrap_domain_indices: Box<[Fq; 2]>,
+    messages_for_next_step_proof_hash: [u64; 4],
+    prev_evals: &'a [AllEvals<Fq>],
+    proof: &'a ProverProof<Vesta>,
+    step_prover_index: &'a kimchi::prover_index::ProverIndex<Vesta>,
 }
 
 fn wrap_main(params: WrapMainParams, w: &mut Witness<Fq>) {
@@ -3002,7 +2965,7 @@ fn wrap_main(params: WrapMainParams, w: &mut Witness<Fq>) {
         let chals = {
             let wrap_domains: Vec<_> = {
                 let all_possible_domains = wrap_verifier::all_possible_domains();
-                let wrap_domain_indices = w.exists(wrap_domain_indices);
+                let wrap_domain_indices = w.exists(&*wrap_domain_indices);
 
                 let mut wrap_domains = wrap_domain_indices
                     .iter()
@@ -3043,11 +3006,13 @@ fn wrap_main(params: WrapMainParams, w: &mut Witness<Fq>) {
                         assert_eq!(old_bulletproof_challenges.len(), 2);
 
                         let (finalized, chals) = wrap_verifier::finalize_other_proof(
-                            wrap_domain,
-                            sponge,
-                            old_bulletproof_challenges,
-                            deferred_values,
-                            evals,
+                            wrap_verifier::FinalizeOtherProofParams {
+                                domain: wrap_domain,
+                                sponge,
+                                old_bulletproof_challenges,
+                                deferred_values,
+                                evals,
+                            },
                             w,
                         );
                         Boolean::assert_any(&[finalized, should_finalize.to_boolean().neg()], w);
