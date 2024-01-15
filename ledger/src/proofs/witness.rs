@@ -50,6 +50,7 @@ use crate::{
     Account, MyCow, ReceiptChainHash, SpongeParamsForField, TimingAsRecord, TokenId, TokenSymbol,
 };
 
+use super::step::{InductiveRule, OptFlag, StepProof};
 use super::{
     constants::ProofConstants,
     public_input::{
@@ -4273,34 +4274,6 @@ pub struct StepMainStatement {
     pub messages_for_next_wrap_proof: Vec<Fp>,
 }
 
-fn step_main(
-    statement_with_sok: &Statement<SokDigest>,
-    tx_witness: &v2::TransactionWitnessStableV2,
-    dlog_plonk_index: &PlonkVerificationKeyEvals<Fp>,
-    w: &mut Witness<Fp>,
-) -> StepMainStatement {
-    let statement_with_sok = w.exists(statement_with_sok);
-
-    transaction_snark::main(statement_with_sok, tx_witness, w);
-
-    let dlog_plonk_index = w.exists(dlog_plonk_index);
-
-    let messages_for_next_wrap_proof = w.exists(get_messages_for_next_wrap_proof_padded());
-
-    let mut inputs = dlog_plonk_index.to_field_elements_owned();
-    statement_with_sok.to_field_elements(&mut inputs);
-
-    let messages_for_next_step_proof = checked_hash2(&inputs, w);
-
-    StepMainStatement {
-        proof_state: StepMainProofState {
-            unfinalized_proofs: vec![Unfinalized::dummy(); 2],
-            messages_for_next_step_proof,
-        },
-        messages_for_next_wrap_proof,
-    }
-}
-
 #[derive(Clone, Debug)]
 pub struct StepProofState {
     pub unfinalized_proofs: Vec<Unfinalized>,
@@ -4317,55 +4290,6 @@ pub struct StepStatement {
 pub struct StepStatementWithHash {
     pub proof_state: StepProofState,
     pub messages_for_next_wrap_proof: Vec<[u64; 4]>,
-}
-
-fn step(
-    statement_with_sok: &Statement<SokDigest>,
-    tx_witness: &v2::TransactionWitnessStableV2,
-    dlog_plonk_index: &PlonkVerificationKeyEvals<Fp>,
-    w: &mut Witness<Fp>,
-) -> StepStatement {
-    let statement = step_main(statement_with_sok, tx_witness, dlog_plonk_index, w);
-    w.primary = statement.to_field_elements_owned();
-
-    dbg!(&w.primary);
-
-    let msg = ReducedMessagesForNextStepProof {
-        app_state: Rc::new(statement_with_sok.clone()),
-        challenge_polynomial_commitments: vec![],
-        old_bulletproof_challenges: vec![],
-    };
-
-    // let msg = MessagesForNextStepProof {
-    //     app_state: &statement_with_sok,
-    //     challenge_polynomial_commitments: vec![],
-    //     old_bulletproof_challenges: vec![],
-    //     dlog_plonk_index,
-    // };
-
-    // let hash: [u64; 4] = msg.hash();
-    // eprintln!("hash[0]={:?}", hash[0] as i64);
-    // eprintln!("hash[1]={:?}", hash[1] as i64);
-    // eprintln!("hash[2]={:?}", hash[2] as i64);
-    // eprintln!("hash[3]={:?}", hash[3] as i64);
-
-    // assert_eq!(
-    //     hash,
-    //     [
-    //         -7356330309193778536i64 as u64,
-    //         9069183817894203571,
-    //         -4599336761250751607i64 as u64,
-    //         117782671464327204
-    //     ]
-    // );
-
-    StepStatement {
-        proof_state: StepProofState {
-            unfinalized_proofs: statement.proof_state.unfinalized_proofs,
-            messages_for_next_step_proof: msg,
-        },
-        messages_for_next_wrap_proof: vec![],
-    }
 }
 
 #[derive(Clone, Debug)]
@@ -4455,6 +4379,10 @@ pub fn compute_witness<C: ProofConstants, F: FieldWitness>(
     prover: &Prover<F>,
     w: &Witness<F>,
 ) -> [Vec<F>; COLUMNS] {
+    if !w.ocaml_aux.is_empty() {
+        assert_eq!(w.aux.len(), w.ocaml_aux.len());
+    };
+
     let external_values = |i: usize| {
         if i < C::PRIMARY_LEN {
             w.primary[i]
@@ -4607,13 +4535,26 @@ fn generate_tx_proof(params: TransactionParams, w: &mut Witness<Fp>) -> WrapProo
     let dlog_plonk_index =
         { PlonkVerificationKeyEvals::from(tx_wrap_prover.index.verifier_index.as_ref().unwrap()) };
 
-    let step_statement = step(&statement_with_sok, tx_witness, &dlog_plonk_index, w);
+    let statement_with_sok = w.exists(statement_with_sok);
+    transaction_snark::main(&statement_with_sok, tx_witness, w);
 
-    // TODO: Not always dummy
-    let prev_evals = vec![AllEvals::dummy(); 2];
-
-    let prev_challenges = vec![];
-    let proof = create_proof::<StepTransactionProof, Fp>(tx_step_prover, prev_challenges, w);
+    let StepProof {
+        statement: step_statement,
+        prev_evals,
+        proof,
+    } = super::step::step::<StepTransactionProof, 0>(
+        super::step::StepParams {
+            app_state: Rc::new(statement_with_sok.clone()),
+            rule: InductiveRule::empty(),
+            for_step_datas: [],
+            indexes: [],
+            prev_challenge_polynomial_commitments: vec![],
+            hack_feature_flags: OptFlag::No,
+            step_prover: tx_step_prover,
+            wrap_prover: tx_wrap_prover,
+        },
+        w,
+    );
 
     if let Some(expected) = expected_step_proof {
         let proof_json = serde_json::to_vec(&proof).unwrap();
@@ -5600,8 +5541,6 @@ mod tests {
             );
         }
 
-        let base_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("rampup4");
-
         if !base_dir.exists() {
             eprintln!("{:?} not found", base_dir);
             return;
@@ -5634,11 +5573,27 @@ mod tests {
             ("fee_transfer_9_rampup4.bin", "087a07eddedf5de18b2f2bd7ded3cd474d00a0030e9c13d7a5fd2433c72fc7d5"),
         ];
 
+        fn read_witnesses(filename: &str) -> Vec<Fp> {
+            let f = std::fs::read_to_string(
+                std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(filename),
+            )
+            .unwrap();
+            f.lines()
+                .filter(|s| !s.is_empty())
+                .map(|s| Fp::from_str(s).unwrap())
+                .collect::<Vec<_>>()
+        }
+
         for (file, expected_sum) in requests {
             let data = std::fs::read(base_dir.join(file)).unwrap();
             let (statement, tx_witness, message) = extract_request(&data);
 
             let mut witnesses: Witness<Fp> = Witness::new::<StepTransactionProof>();
+
+            if file == "request_payment_0_rampup4.bin" {
+                witnesses.ocaml_aux = read_witnesses("fps_rampup4.txt");
+            }
+
             let WrapProof { proof, .. } = generate_tx_proof(
                 TransactionParams {
                     statement: &statement,
@@ -5655,7 +5610,7 @@ mod tests {
             let proof_json = serde_json::to_vec(&proof).unwrap();
             let sum = sha256_sum(&proof_json);
 
-            if sum != expected_sum {
+            if dbg!(&sum) != expected_sum {
                 eprintln!("Wrong proof: {:?}", file);
                 eprintln!("got sum:  {:?}", sum);
                 eprintln!("expected: {:?}", expected_sum);
