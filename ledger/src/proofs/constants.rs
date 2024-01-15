@@ -125,92 +125,117 @@ impl ProofConstants for StepBlockProof {
 
 pub trait ForWrapData {
     fn wrap_data() -> WrapData;
-    fn wrap_domain_indices() -> [Fq; 2] {
-        [Fq::one(), Fq::one()]
-    }
+}
+
+#[derive(Debug)]
+pub struct WrapData {
+    pub which_index: u64,
+    pub pi_branches: u64,
+    pub step_widths: Box<[u64]>, // TODO: Use array with size=pi_branches
+    pub step_domains: Box<[Domains]>, // Here too
+    pub wrap_domain_indices: Box<[Fq; 2]>,
 }
 
 impl ForWrapData for WrapTransactionProof {
     fn wrap_data() -> WrapData {
-        make_wrap_transaction_data()
+        WrapData {
+            which_index: 0,
+            pi_branches: 5,
+            step_widths: default_step_widths(),
+            step_domains: default_step_domains(),
+            wrap_domain_indices: default_wrap_domain_indices(),
+        }
     }
 }
 
 impl ForWrapData for WrapZkappProof {
     fn wrap_data() -> WrapData {
-        make_wrap_zkapp_data()
+        WrapData {
+            which_index: 2,
+            pi_branches: 5,
+            step_widths: default_step_widths(),
+            step_domains: default_step_domains(),
+            wrap_domain_indices: default_wrap_domain_indices(),
+        }
     }
 }
 
 impl ForWrapData for WrapZkappProofProof {
     fn wrap_data() -> WrapData {
-        make_wrap_zkapp_proof_data()
-    }
-    fn wrap_domain_indices() -> [Fq; 2] {
-        [Fq::one(), Fq::zero()]
+        WrapData {
+            which_index: 4,
+            pi_branches: 5,
+            step_widths: default_step_widths(),
+            step_domains: default_step_domains(),
+            wrap_domain_indices: Box::new([Fq::one(), Fq::zero()]),
+        }
     }
 }
 
 impl ForWrapData for WrapZkappOptSignedProof {
     fn wrap_data() -> WrapData {
-        make_wrap_zkapp_opt_signed_data()
+        WrapData {
+            which_index: 3,
+            pi_branches: 5,
+            step_widths: default_step_widths(),
+            step_domains: default_step_domains(),
+            wrap_domain_indices: default_wrap_domain_indices(),
+        }
     }
 }
 
 impl ForWrapData for WrapBlockProof {
     fn wrap_data() -> WrapData {
-        make_wrap_block_data()
+        WrapData {
+            which_index: 0,
+            pi_branches: 1,
+            step_widths: Box::new([2]),
+            step_domains: Box::new([Domains {
+                h: Domain::Pow2RootsOfUnity(16),
+            }]),
+            wrap_domain_indices: default_wrap_domain_indices(),
+        }
     }
 }
 
 impl ForWrapData for WrapMergeProof {
     fn wrap_data() -> WrapData {
-        make_wrap_merge_data()
+        WrapData {
+            which_index: 1,
+            pi_branches: 5,
+            step_widths: default_step_widths(),
+            step_domains: default_step_domains(),
+            wrap_domain_indices: default_wrap_domain_indices(),
+        }
     }
 }
 
-pub fn make_step_block_data(wrap_key: &CircuitPlonkVerificationKeyEvals<Fp>) -> ForStep {
-    let basic = Basic {
-        proof_verifieds: vec![2],
-        wrap_domain: Domains {
+fn default_step_domains() -> Box<[Domains]> {
+    Box::new([
+        Domains {
+            h: Domain::Pow2RootsOfUnity(15),
+        },
+        Domains {
+            h: Domain::Pow2RootsOfUnity(15),
+        },
+        Domains {
+            h: Domain::Pow2RootsOfUnity(15),
+        },
+        Domains {
             h: Domain::Pow2RootsOfUnity(14),
         },
-        step_domains: vec![Domains {
-            h: Domain::Pow2RootsOfUnity(16),
-        }],
-        feature_flags: FeatureFlags {
-            range_check0: OptFlag::No,
-            range_check1: OptFlag::No,
-            foreign_field_add: OptFlag::No,
-            foreign_field_mul: OptFlag::No,
-            xor: OptFlag::No,
-            rot: OptFlag::No,
-            lookup: OptFlag::No,
-            runtime_tables: OptFlag::No,
+        Domains {
+            h: Domain::Pow2RootsOfUnity(15),
         },
-    };
+    ])
+}
 
-    let self_branches = 1;
-    let max_proofs_verified = 2;
-    let self_data = ForStep {
-        branches: self_branches,
-        max_proofs_verified,
-        proof_verifieds: ForStepKind::Known(
-            basic
-                .proof_verifieds
-                .iter()
-                .copied()
-                .map(Fp::from)
-                .collect(),
-        ),
-        public_input: (),
-        wrap_key: wrap_key.clone(), // TODO: Use ref
-        wrap_domain: ForStepKind::Known(basic.wrap_domain.h),
-        step_domains: ForStepKind::Known(basic.step_domains),
-        feature_flags: basic.feature_flags,
-    };
+fn default_wrap_domain_indices() -> Box<[Fq; 2]> {
+    Box::new([Fq::one(), Fq::one()])
+}
 
-    self_data
+fn default_step_widths() -> Box<[u64]> {
+    Box::new([0, 2, 0, 0, 1])
 }
 
 pub fn make_step_transaction_data(wrap_key: &CircuitPlonkVerificationKeyEvals<Fp>) -> ForStep {
@@ -219,23 +244,7 @@ pub fn make_step_transaction_data(wrap_key: &CircuitPlonkVerificationKeyEvals<Fp
         wrap_domain: Domains {
             h: Domain::Pow2RootsOfUnity(14),
         },
-        step_domains: vec![
-            Domains {
-                h: Domain::Pow2RootsOfUnity(15),
-            },
-            Domains {
-                h: Domain::Pow2RootsOfUnity(15),
-            },
-            Domains {
-                h: Domain::Pow2RootsOfUnity(15),
-            },
-            Domains {
-                h: Domain::Pow2RootsOfUnity(14),
-            },
-            Domains {
-                h: Domain::Pow2RootsOfUnity(15),
-            },
-        ],
+        step_domains: default_step_domains(),
         feature_flags: FeatureFlags {
             range_check0: OptFlag::No,
             range_check1: OptFlag::No,
@@ -278,23 +287,7 @@ pub fn make_step_zkapp_data(wrap_key: &CircuitPlonkVerificationKeyEvals<Fp>) -> 
         wrap_domain: Domains {
             h: Domain::Pow2RootsOfUnity(15),
         },
-        step_domains: vec![
-            Domains {
-                h: Domain::Pow2RootsOfUnity(15),
-            },
-            Domains {
-                h: Domain::Pow2RootsOfUnity(15),
-            },
-            Domains {
-                h: Domain::Pow2RootsOfUnity(15),
-            },
-            Domains {
-                h: Domain::Pow2RootsOfUnity(14),
-            },
-            Domains {
-                h: Domain::Pow2RootsOfUnity(15),
-            },
-        ],
+        step_domains: default_step_domains(),
         feature_flags: FeatureFlags {
             range_check0: OptFlag::Maybe,
             range_check1: OptFlag::Maybe,
@@ -334,148 +327,46 @@ pub fn make_step_zkapp_data(wrap_key: &CircuitPlonkVerificationKeyEvals<Fp>) -> 
     self_data
 }
 
-#[derive(Debug)]
-pub struct WrapData {
-    pub which_index: u64,
-    pub pi_branches: u64,
-    pub step_widths: Box<[u64]>, // TODO: Use array with size=pi_branches
-    pub step_domains: Box<[Domains]>, // Here too
-}
-
-fn make_wrap_block_data() -> WrapData {
-    WrapData {
-        which_index: 0,
-        pi_branches: 1,
-        step_widths: Box::new([2]),
+pub fn make_step_block_data(wrap_key: &CircuitPlonkVerificationKeyEvals<Fp>) -> ForStep {
+    let basic = Basic {
+        proof_verifieds: vec![2],
+        wrap_domain: Domains {
+            h: Domain::Pow2RootsOfUnity(14),
+        },
         step_domains: Box::new([Domains {
             h: Domain::Pow2RootsOfUnity(16),
         }]),
-    }
-}
+        feature_flags: FeatureFlags {
+            range_check0: OptFlag::No,
+            range_check1: OptFlag::No,
+            foreign_field_add: OptFlag::No,
+            foreign_field_mul: OptFlag::No,
+            xor: OptFlag::No,
+            rot: OptFlag::No,
+            lookup: OptFlag::No,
+            runtime_tables: OptFlag::No,
+        },
+    };
 
-fn make_wrap_merge_data() -> WrapData {
-    WrapData {
-        which_index: 1,
-        pi_branches: 5,
-        step_widths: Box::new([0, 2, 0, 0, 1]),
-        step_domains: Box::new([
-            Domains {
-                h: Domain::Pow2RootsOfUnity(15),
-            },
-            Domains {
-                h: Domain::Pow2RootsOfUnity(15),
-            },
-            Domains {
-                h: Domain::Pow2RootsOfUnity(15),
-            },
-            Domains {
-                h: Domain::Pow2RootsOfUnity(14),
-            },
-            Domains {
-                h: Domain::Pow2RootsOfUnity(15),
-            },
-        ]),
-    }
-}
+    let self_branches = 1;
+    let max_proofs_verified = 2;
+    let self_data = ForStep {
+        branches: self_branches,
+        max_proofs_verified,
+        proof_verifieds: ForStepKind::Known(
+            basic
+                .proof_verifieds
+                .iter()
+                .copied()
+                .map(Fp::from)
+                .collect(),
+        ),
+        public_input: (),
+        wrap_key: wrap_key.clone(), // TODO: Use ref
+        wrap_domain: ForStepKind::Known(basic.wrap_domain.h),
+        step_domains: ForStepKind::Known(basic.step_domains),
+        feature_flags: basic.feature_flags,
+    };
 
-fn make_wrap_transaction_data() -> WrapData {
-    WrapData {
-        which_index: 0,
-        pi_branches: 5,
-        step_widths: Box::new([0, 2, 0, 0, 1]),
-        step_domains: Box::new([
-            Domains {
-                h: Domain::Pow2RootsOfUnity(15),
-            },
-            Domains {
-                h: Domain::Pow2RootsOfUnity(15),
-            },
-            Domains {
-                h: Domain::Pow2RootsOfUnity(15),
-            },
-            Domains {
-                h: Domain::Pow2RootsOfUnity(14),
-            },
-            Domains {
-                h: Domain::Pow2RootsOfUnity(15),
-            },
-        ]),
-    }
-}
-
-/// Using signature authorizarion
-fn make_wrap_zkapp_data() -> WrapData {
-    WrapData {
-        which_index: 2,
-        pi_branches: 5,
-        step_widths: Box::new([0, 2, 0, 0, 1]),
-        step_domains: Box::new([
-            Domains {
-                h: Domain::Pow2RootsOfUnity(15),
-            },
-            Domains {
-                h: Domain::Pow2RootsOfUnity(15),
-            },
-            Domains {
-                h: Domain::Pow2RootsOfUnity(15),
-            },
-            Domains {
-                h: Domain::Pow2RootsOfUnity(14),
-            },
-            Domains {
-                h: Domain::Pow2RootsOfUnity(15),
-            },
-        ]),
-    }
-}
-
-/// Using proof authorizarion
-fn make_wrap_zkapp_proof_data() -> WrapData {
-    WrapData {
-        which_index: 4,
-        pi_branches: 5,
-        step_widths: Box::new([0, 2, 0, 0, 1]),
-        step_domains: Box::new([
-            Domains {
-                h: Domain::Pow2RootsOfUnity(15),
-            },
-            Domains {
-                h: Domain::Pow2RootsOfUnity(15),
-            },
-            Domains {
-                h: Domain::Pow2RootsOfUnity(15),
-            },
-            Domains {
-                h: Domain::Pow2RootsOfUnity(14),
-            },
-            Domains {
-                h: Domain::Pow2RootsOfUnity(15),
-            },
-        ]),
-    }
-}
-
-fn make_wrap_zkapp_opt_signed_data() -> WrapData {
-    WrapData {
-        which_index: 3,
-        pi_branches: 5,
-        step_widths: Box::new([0, 2, 0, 0, 1]),
-        step_domains: Box::new([
-            Domains {
-                h: Domain::Pow2RootsOfUnity(15),
-            },
-            Domains {
-                h: Domain::Pow2RootsOfUnity(15),
-            },
-            Domains {
-                h: Domain::Pow2RootsOfUnity(15),
-            },
-            Domains {
-                h: Domain::Pow2RootsOfUnity(14),
-            },
-            Domains {
-                h: Domain::Pow2RootsOfUnity(15),
-            },
-        ]),
-    }
+    self_data
 }
