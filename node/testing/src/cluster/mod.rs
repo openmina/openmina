@@ -11,8 +11,8 @@ use std::collections::BTreeMap;
 use std::time::Duration;
 use std::{collections::VecDeque, sync::Arc};
 
-use libp2p::futures::{stream::FuturesUnordered, StreamExt};
 use ledger::proofs::{VerifierIndex, VerifierSRS};
+use libp2p::futures::{stream::FuturesUnordered, StreamExt};
 use node::core::channels::mpsc;
 use node::core::requests::RpcId;
 use node::{
@@ -270,6 +270,9 @@ impl Cluster {
 
         let state = node::State::new(config);
         fn effects(store: &mut node::Store<NodeTestingService>, action: node::ActionWithMeta) {
+            // if action.action().kind().to_string().starts_with("BlockProducer") {
+            //     dbg!(action.action());
+            // }
             store.service.dyn_effects(store.state.get(), &action);
             let peer_id = store.state().p2p.my_id();
             openmina_core::log::trace!(action.time(); "{peer_id}: {:?}", action.action().kind());
