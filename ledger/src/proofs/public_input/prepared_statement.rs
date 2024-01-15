@@ -6,10 +6,9 @@ use mina_p2p_messages::v2::{
 };
 
 use crate::proofs::{
+    field::{CircuitVar, FieldWitness},
     step::{OptFlag, Packed},
     util::u64_to_field,
-    witness::FieldWitness,
-    wrap::CircuitVar,
 };
 
 #[derive(Clone, Debug)]

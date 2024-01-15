@@ -11,14 +11,15 @@ use crate::{
         constants::{
             make_step_block_data, make_step_transaction_data, StepBlockProof, WrapBlockProof,
         },
+        field::{Boolean, CircuitVar},
         numbers::{
             currency::CheckedSigned,
             nat::{CheckedNat, CheckedSlot},
         },
         step::extract_recursion_challenges,
         util::sha256_sum,
-        witness::{Boolean, ToFieldElementsDebug},
-        wrap::{wrap, CircuitVar, WrapParams},
+        witness::ToFieldElementsDebug,
+        wrap::{wrap, WrapParams},
     },
     scan_state::{
         fee_excess::{self, FeeExcess},
@@ -37,6 +38,7 @@ use crate::{
 };
 
 use super::{
+    field::field,
     numbers::{
         currency::CheckedAmount,
         nat::{CheckedBlockTime, CheckedBlockTimeSpan, CheckedLength},
@@ -44,7 +46,6 @@ use super::{
     step::{step, InductiveRule, OptFlag, PreviousProofStatement, StepParams, StepProof},
     to_field_elements::ToFieldElements,
     witness::{
-        field,
         transaction_snark::{checked_hash, CONSTRAINT_CONSTANTS},
         Check, Prover, Witness,
     },
@@ -255,10 +256,7 @@ mod floating_point {
     use num_bigint::BigUint;
 
     use crate::{
-        proofs::{
-            to_field_elements::field_of_bits,
-            witness::{field_to_bits2, FieldWitness},
-        },
+        proofs::{field::FieldWitness, to_field_elements::field_of_bits, witness::field_to_bits2},
         scan_state::currency::{Amount, Balance, Sgn},
     };
 
@@ -514,7 +512,7 @@ mod floating_point {
 }
 
 mod snarky_taylor {
-    use crate::{proofs::witness::FieldWitness, scan_state::currency::Sgn};
+    use crate::{proofs::field::FieldWitness, scan_state::currency::Sgn};
 
     use super::*;
     use floating_point::*;

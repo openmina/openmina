@@ -3,8 +3,9 @@ use std::marker::PhantomData;
 use mina_hasher::Fp;
 use mina_signer::CompressedPubKey;
 
+use crate::proofs::field::{Boolean, FieldWitness};
 use crate::proofs::to_field_elements::ToFieldElements;
-use crate::proofs::witness::{Boolean, Check, FieldWitness};
+use crate::proofs::witness::Check;
 
 use crate::proofs::zkapp_logic;
 use crate::scan_state::currency::{self, SlotSpan};

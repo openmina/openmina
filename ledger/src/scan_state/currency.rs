@@ -3,8 +3,9 @@ use std::cmp::Ordering::{Equal, Greater, Less};
 use ark_ff::{BigInteger256, Field};
 use rand::Rng;
 
+use crate::proofs::field::FieldWitness;
 use crate::proofs::to_field_elements::ToFieldElements;
-use crate::proofs::witness::{Check, FieldWitness, Witness};
+use crate::proofs::witness::{Check, Witness};
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Sgn {

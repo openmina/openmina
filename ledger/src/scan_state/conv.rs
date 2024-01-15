@@ -96,7 +96,7 @@ use mina_signer::Signature;
 
 use crate::{
     array_into_with,
-    proofs::witness::FieldWitness,
+    proofs::field::FieldWitness,
     scan_state::{
         currency::BlockTime,
         pending_coinbase::{Stack, StackHasher},

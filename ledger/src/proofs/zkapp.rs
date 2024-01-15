@@ -22,6 +22,7 @@ use crate::{
             StepZkappOptSignedOptSignedProof, WrapTransactionProof, WrapZkappOptSignedProof,
             WrapZkappProof,
         },
+        field::{field, Boolean, CircuitVar, FieldWitness, ToBoolean},
         merge::{dlog_plonk_index, generate_merge_proof, MergeParams},
         public_input::{messages::MessagesForNextWrapProof, prepared_statement::DeferredValues},
         step::{
@@ -32,9 +33,7 @@ use crate::{
         util::sha256_sum,
         verification::prev_evals_to_p2p,
         verifier_index::make_zkapp_verifier_index,
-        witness::{
-            transaction_snark::CONSTRAINT_CONSTANTS, ReducedMessagesForNextStepProof, ToBoolean,
-        },
+        witness::{transaction_snark::CONSTRAINT_CONSTANTS, ReducedMessagesForNextStepProof},
         wrap::{self, WrapParams, WrapProofState, WrapStatement},
         zkapp::group::{State, ZkappCommandIntermediateState},
         zkapp_logic,
@@ -80,8 +79,8 @@ use super::{
         nat::{CheckedIndex, CheckedNat, CheckedSlot},
     },
     to_field_elements::ToFieldElements,
-    witness::{dummy_constraints, Boolean, Check, FieldWitness, GroupAffine, Prover, Witness},
-    wrap::{CircuitVar, WrapProof},
+    witness::{dummy_constraints, Check, GroupAffine, Prover, Witness},
+    wrap::WrapProof,
 };
 
 pub struct ZkappParams<'a> {

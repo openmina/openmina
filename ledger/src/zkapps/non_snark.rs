@@ -2,8 +2,9 @@ use mina_hasher::Fp;
 
 use crate::{
     proofs::{
+        field::{Boolean, FieldWitness},
         to_field_elements::ToFieldElements,
-        witness::{Boolean, Check, FieldWitness},
+        witness::Check,
     },
     scan_state::{
         currency::{Amount, Index, Signed},

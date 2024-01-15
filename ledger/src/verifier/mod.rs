@@ -2,7 +2,7 @@ use std::sync::{Arc, Mutex};
 
 use crate::{
     proofs::{
-        verification, verifier_index::get_verifier_index, witness::FieldWitness, VerifierIndex,
+        field::FieldWitness, verification, verifier_index::get_verifier_index, VerifierIndex,
     },
     scan_state::{
         scan_state::transaction_snark::{

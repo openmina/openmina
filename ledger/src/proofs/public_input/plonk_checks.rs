@@ -7,10 +7,11 @@ use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
 
 use crate::proofs::{
+    field::{field, Boolean, FieldWitness},
     public_input::plonk_checks::scalars::MinimalForScalar,
     step::step_verifier::PlonkDomain,
     to_field_elements::ToFieldElements,
-    witness::{field, Boolean, FieldWitness, Witness},
+    witness::Witness,
     wrap::{wrap_verifier::PlonkWithField, AllFeatureFlags},
 };
 

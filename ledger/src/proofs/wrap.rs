@@ -18,6 +18,7 @@ use poly_commitment::{commitment::b_poly_coefficients, PolyComm};
 
 use crate::{
     proofs::{
+        field::{field, Boolean, CircuitVar, FieldWitness, ToBoolean},
         opt_sponge::OptSponge,
         public_input::{
             plonk_checks::{derive_plonk, ft_eval0, ShiftingValue},
@@ -27,10 +28,7 @@ use crate::{
         unfinalized::{dummy_ipa_wrap_challenges, Unfinalized},
         util::{challenge_polynomial, proof_evaluation_to_list},
         verification::make_scalars_env,
-        witness::{
-            create_proof, endos, field, make_group, Boolean, FieldWitness, InnerCurve,
-            StepStatementWithHash, ToBoolean,
-        },
+        witness::{create_proof, endos, make_group, InnerCurve, StepStatementWithHash},
         BACKEND_TICK_ROUNDS_N,
     },
     scan_state::transaction_logic::local_state::LazyValue,
@@ -2563,199 +2561,6 @@ impl<T: std::fmt::Debug> std::fmt::Debug for Packed<T> {
             Self::Field((a, b)) => f.write_fmt(format_args!("Field({:?}, {:?})", a, b)),
             Self::PackedBits(a, b) => f.write_fmt(format_args!("PackedBits({:?}, {:?})", a, b)),
         }
-    }
-}
-
-#[derive(Clone, Copy, Debug)]
-pub enum CircuitVar<F> {
-    Var(F),
-    Constant(F),
-}
-
-impl<F: FieldWitness> CircuitVar<F> {
-    pub fn as_field(&self) -> F {
-        match self {
-            CircuitVar::Var(f) => *f,
-            CircuitVar::Constant(f) => *f,
-        }
-    }
-
-    fn scale(x: CircuitVar<F>, s: F) -> CircuitVar<F> {
-        use CircuitVar::*;
-
-        if s.is_zero() {
-            Constant(F::zero())
-        } else if s.is_one() {
-            x
-        } else {
-            match x {
-                Constant(x) => Constant(x * s),
-                Var(x) => Var(x * s),
-            }
-        }
-    }
-
-    fn mul(&self, other: &Self, w: &mut Witness<F>) -> CircuitVar<F> {
-        use CircuitVar::*;
-
-        let (x, y) = (*self, *other);
-        match (x, y) {
-            (Constant(x), Constant(y)) => Constant(x * y),
-            (Constant(x), _) => Self::scale(y, x),
-            (_, Constant(y)) => Self::scale(x, y),
-            (Var(x), Var(y)) => Var(w.exists(x * y)),
-        }
-    }
-
-    fn equal(x: &Self, y: &Self, w: &mut Witness<F>) -> CircuitVar<Boolean> {
-        match (x, y) {
-            (CircuitVar::Constant(x), CircuitVar::Constant(y)) => {
-                let eq = if x == y {
-                    Boolean::True
-                } else {
-                    Boolean::False
-                };
-                CircuitVar::Constant(eq)
-            }
-            _ => {
-                let x = x.as_field();
-                let y = y.as_field();
-                CircuitVar::Var(field::equal(x, y, w))
-            }
-        }
-    }
-}
-
-impl<T> CircuitVar<T> {
-    pub fn is_const(&self) -> bool {
-        match self {
-            CircuitVar::Var(_) => false,
-            CircuitVar::Constant(_) => true,
-        }
-    }
-
-    pub fn value(&self) -> &T {
-        match self {
-            CircuitVar::Var(v) => v,
-            CircuitVar::Constant(v) => v,
-        }
-    }
-
-    pub fn map<Fun, V>(&self, fun: Fun) -> CircuitVar<V>
-    where
-        Fun: Fn(&T) -> V,
-    {
-        match self {
-            CircuitVar::Var(v) => CircuitVar::Var(fun(v)),
-            CircuitVar::Constant(v) => CircuitVar::Constant(fun(v)),
-        }
-    }
-}
-
-impl CircuitVar<Boolean> {
-    pub fn as_boolean(&self) -> Boolean {
-        match self {
-            CircuitVar::Var(b) => *b,
-            CircuitVar::Constant(b) => *b,
-        }
-    }
-
-    fn as_cvar<F: FieldWitness>(&self) -> CircuitVar<F> {
-        self.map(|b| b.to_field::<F>())
-    }
-
-    pub fn of_cvar<F: FieldWitness>(cvar: CircuitVar<F>) -> Self {
-        cvar.map(|b| {
-            // TODO: Should we check for `is_one` or `is_zero` here ? To match OCaml behavior
-            if b.is_one() {
-                Boolean::True
-            } else {
-                Boolean::False
-            }
-        })
-    }
-
-    pub fn and<F: FieldWitness>(&self, other: &Self, w: &mut Witness<F>) -> Self {
-        self.as_cvar().mul(&other.as_cvar(), w).map(|v| {
-            // TODO: Should we check for `is_one` or `is_zero` here ? To match OCaml behavior
-            if v.is_one() {
-                Boolean::True
-            } else {
-                Boolean::False
-            }
-        })
-    }
-
-    fn boolean_sum<F: FieldWitness>(x: &[Self]) -> CircuitVar<F> {
-        let sum = x.iter().fold(0u64, |acc, b| {
-            acc + match b.as_boolean() {
-                Boolean::True => 1,
-                Boolean::False => 0,
-            }
-        });
-        if x.iter().all(|x| matches!(x, CircuitVar::Constant(_))) {
-            CircuitVar::Constant(F::from(sum))
-        } else {
-            CircuitVar::Var(F::from(sum))
-        }
-    }
-
-    pub fn any<F: FieldWitness>(x: &[Self], w: &mut Witness<F>) -> CircuitVar<Boolean> {
-        match x {
-            [] => CircuitVar::Constant(Boolean::False),
-            [b1] => *b1,
-            [b1, b2] => b1.or(b2, w),
-            bs => {
-                let sum = Self::boolean_sum(bs);
-                CircuitVar::equal(&sum, &CircuitVar::Constant(F::zero()), w).map(Boolean::neg)
-            }
-        }
-    }
-
-    pub fn all<F: FieldWitness>(x: &[Self], w: &mut Witness<F>) -> CircuitVar<Boolean> {
-        match x {
-            [] => CircuitVar::Constant(Boolean::True),
-            [b1] => *b1,
-            [b1, b2] => b1.and(b2, w),
-            bs => {
-                let sum = Self::boolean_sum(bs);
-                let len = F::from(bs.len() as u64);
-                CircuitVar::equal(&CircuitVar::Constant(len), &sum, w)
-            }
-        }
-    }
-
-    pub fn neg(&self) -> Self {
-        self.map(Boolean::neg)
-    }
-
-    pub fn or<F: FieldWitness>(&self, other: &Self, w: &mut Witness<F>) -> Self {
-        let both_false = self.neg().and(&other.neg(), w);
-        both_false.neg()
-    }
-
-    pub fn lxor<F: FieldWitness>(&self, other: &Self, w: &mut Witness<F>) -> Self {
-        match (self, other) {
-            (CircuitVar::Var(a), CircuitVar::Var(b)) => CircuitVar::Var(a.lxor(b, w)),
-            (CircuitVar::Constant(a), CircuitVar::Constant(b)) => {
-                CircuitVar::Constant(a.const_lxor(b))
-            }
-            (a, b) => CircuitVar::Var(a.as_boolean().const_lxor(&b.as_boolean())),
-        }
-    }
-
-    pub fn equal_bool<F: FieldWitness>(&self, other: &Self, w: &mut Witness<F>) -> Self {
-        self.lxor(other, w).neg()
-    }
-
-    pub fn assert_any<F: FieldWitness>(bs: &[Self], w: &mut Witness<F>) {
-        let num_true = bs.iter().fold(0u64, |acc, b| {
-            acc + match b.as_boolean() {
-                Boolean::True => 1,
-                Boolean::False => 0,
-            }
-        });
-        Boolean::assert_non_zero::<F>(F::from(num_true), w)
     }
 }
 

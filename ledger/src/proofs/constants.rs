@@ -3,8 +3,9 @@ use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
 
 use super::{
+    field::Boolean,
     step::{Basic, FeatureFlags, ForStep, ForStepKind, OptFlag},
-    witness::{Boolean, CircuitPlonkVerificationKeyEvals},
+    witness::CircuitPlonkVerificationKeyEvals,
     wrap::{Domain, Domains},
 };
 

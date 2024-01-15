@@ -8,12 +8,12 @@ use mina_p2p_messages::{
     v2::PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A,
 };
 
-use crate::proofs::witness::field;
+use crate::proofs::field::{field, Boolean, FieldWitness};
 
 use super::{
     public_input::scalar_challenge::ScalarChallenge,
     step::{Opt, OptFlag},
-    witness::{Boolean, FieldWitness, InnerCurve, Witness},
+    witness::{InnerCurve, Witness},
 };
 
 pub fn extract_polynomial_commitment<F: FieldWitness>(

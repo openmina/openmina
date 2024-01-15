@@ -3,8 +3,9 @@ use mina_hasher::Fp;
 use crate::{
     proofs::{
         block::consensus::ConsensusConstantsChecked,
+        field::{field, Boolean, FieldWitness},
         to_field_elements::ToFieldElements,
-        witness::{field, Boolean, Check, FieldWitness, Witness},
+        witness::{Check, Witness},
     },
     scan_state::currency::{
         BlockTime, BlockTimeSpan, Index, Length, Magnitude, MinMax, Nonce, Slot, SlotSpan,

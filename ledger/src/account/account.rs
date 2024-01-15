@@ -10,14 +10,15 @@ use crate::{
     gen_compressed,
     hash::{hash_noinputs, hash_with_kimchi, Inputs},
     proofs::{
+        field::{Boolean, FieldWitness, ToBoolean},
         numbers::{
             currency::{CheckedBalance, CheckedCurrency},
             nat::CheckedSlot,
         },
         to_field_elements::ToFieldElements,
         witness::{
-            make_group, transaction_snark::checked_min_balance_at_slot, Boolean, Check,
-            FieldWitness, InnerCurve, PlonkVerificationKeyEvals, ToBoolean, Witness,
+            make_group, transaction_snark::checked_min_balance_at_slot, Check, InnerCurve,
+            PlonkVerificationKeyEvals, Witness,
         },
     },
     scan_state::{
@@ -786,7 +787,7 @@ impl AccountId {
     }
 
     pub fn checked_equal(&self, other: &Self, w: &mut Witness<Fp>) -> Boolean {
-        use crate::proofs::witness::field;
+        use crate::proofs::field::field;
 
         // public_key
         let pk_equal = checked_equal_compressed_key(&self.public_key, &other.public_key, w);
@@ -804,7 +805,7 @@ pub fn checked_equal_compressed_key(
     b: &CompressedPubKey,
     w: &mut Witness<Fp>,
 ) -> Boolean {
-    use crate::proofs::witness::field;
+    use crate::proofs::field::field;
 
     let x_eq = field::equal(a.x, b.x, w);
     let odd_eq = Boolean::equal(&a.is_odd.to_boolean(), &b.is_odd.to_boolean(), w);
@@ -817,7 +818,7 @@ pub fn checked_equal_compressed_key_const_and(
     b: &CompressedPubKey,
     w: &mut Witness<Fp>,
 ) -> Boolean {
-    use crate::proofs::witness::field;
+    use crate::proofs::field::field;
 
     if b == &CompressedPubKey::empty() {
         let x_eq = field::equal(a.x, b.x, w);

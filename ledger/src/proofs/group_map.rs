@@ -1,6 +1,7 @@
 use std::ops::Neg;
 
-use crate::proofs::witness::{field, FieldWitness, Witness};
+use crate::proofs::field::{field, FieldWitness};
+use crate::proofs::witness::Witness;
 
 pub mod bw19 {
     use super::*;
@@ -100,7 +101,8 @@ use mina_hasher::Fp;
 
 use self::tock::Conic;
 
-use super::witness::{make_group, Boolean, GroupAffine, ToBoolean};
+use super::field::{Boolean, ToBoolean};
+use super::witness::{make_group, GroupAffine};
 
 fn sqrt_exn<F: FieldWitness>(x: F, w: &mut Witness<F>) -> F {
     let y = w.exists(x.sqrt().unwrap());

@@ -47,17 +47,18 @@ use crate::proofs::{
 
 use super::{
     constants::ProofConstants,
+    field::{Boolean, CircuitVar, FieldWitness},
     public_input::{messages::MessagesForNextWrapProof, plonk_checks::PlonkMinimal},
     to_field_elements::ToFieldElements,
     unfinalized::{evals_from_p2p, AllEvals, EvalsWithPublicInput, Unfinalized},
     util::extract_bulletproof,
     witness::{
         create_proof, make_group, messages_for_next_wrap_proof_padding,
-        scalar_challenge::to_field_checked, Boolean, Check, CircuitPlonkVerificationKeyEvals,
-        FieldWitness, GroupAffine, InnerCurve, MessagesForNextStepProof, PlonkVerificationKeyEvals,
-        Prover, ReducedMessagesForNextStepProof, StepStatement, ToFieldElementsDebug, Witness,
+        scalar_challenge::to_field_checked, Check, CircuitPlonkVerificationKeyEvals, GroupAffine,
+        InnerCurve, MessagesForNextStepProof, PlonkVerificationKeyEvals, Prover,
+        ReducedMessagesForNextStepProof, StepStatement, ToFieldElementsDebug, Witness,
     },
-    wrap::{CircuitVar, Domains},
+    wrap::Domains,
 };
 
 #[derive(Clone)]
@@ -242,6 +243,7 @@ pub mod step_verifier {
 
     use super::*;
     use crate::proofs::{
+        field::{field, CircuitVar, ToBoolean},
         opt_sponge::OptSponge,
         public_input::plonk_checks::{self, ft_eval0_checked},
         unfinalized,
@@ -249,10 +251,7 @@ pub mod step_verifier {
             challenge_polynomial_checked, proof_evaluation_to_list_opt, to_absorption_sequence_opt,
         },
         verifier_index::wrap_domains,
-        witness::{
-            field, poseidon::Sponge, scalar_challenge, ReducedMessagesForNextStepProof, ToBoolean,
-            Witness,
-        },
+        witness::{poseidon::Sponge, scalar_challenge, ReducedMessagesForNextStepProof, Witness},
         wrap::{
             make_scalars_env_checked, one_hot_vector, ones_vector,
             pcs_batch::PcsBatch,
@@ -261,7 +260,7 @@ pub mod step_verifier {
                 actual_evaluation, chunks_needed, lowest_128_bits, split_commitments::Point,
                 Advice, OPS_BITS_PER_CHUNK,
             },
-            CircuitVar, MakeScalarsEnvParams, PERMUTS_MINUS_1_ADD_N1,
+            MakeScalarsEnvParams, PERMUTS_MINUS_1_ADD_N1,
         },
     };
     use itertools::Itertools;

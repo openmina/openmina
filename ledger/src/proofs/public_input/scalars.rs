@@ -3,7 +3,7 @@ use kimchi::proof::ProofEvaluations;
 use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
 
-use crate::proofs::witness::FieldWitness;
+use crate::proofs::field::FieldWitness;
 
 use super::plonk_checks::NPOWERS_OF_ALPHA;
 

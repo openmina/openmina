@@ -8,7 +8,7 @@ use mina_signer::{CompressedPubKey, CurvePoint, Keypair, PubKey};
 mod backtrace;
 mod time;
 
-use crate::proofs::{to_field_elements::ToFieldElements, witness::FieldWitness};
+use crate::proofs::{field::FieldWitness, to_field_elements::ToFieldElements};
 pub use crate::util::backtrace::*;
 pub use time::*;
 

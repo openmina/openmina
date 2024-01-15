@@ -21,11 +21,12 @@ use crate::{
 };
 
 use super::{
+    field::FieldWitness,
     public_input::plonk_checks::make_shifts,
     step::{step_verifier::PlonkDomain, ExpandDeferredParams},
     to_field_elements::ToFieldElements,
     util::{extract_bulletproof, extract_polynomial_commitment, u64_to_field},
-    witness::{FieldWitness, InnerCurve, PlonkVerificationKeyEvals},
+    witness::{InnerCurve, PlonkVerificationKeyEvals},
     VerifierSRS,
 };
 use kimchi::{

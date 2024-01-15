@@ -844,8 +844,9 @@ pub mod zkapp_command {
     use crate::{
         account, dummy, gen_compressed, gen_keypair, hash_noinputs, hash_with_kimchi,
         proofs::{
+            field::{Boolean, ToBoolean},
             to_field_elements::ToFieldElements,
-            witness::{Boolean, Check, ToBoolean},
+            witness::Check,
         },
         scan_state::currency::{Balance, Length, MinMax, Sgn, Signed, Slot, SlotSpan},
         zkapps::snark::zkapp_check::InSnarkCheck,
@@ -2746,7 +2747,7 @@ pub mod zkapp_command {
 
     impl Check<Fp> for MayUseToken {
         fn check(&self, w: &mut Witness<Fp>) {
-            use crate::proofs::witness::field;
+            use crate::proofs::field::field;
 
             let [parents_own_token, inherit_from_parent] = self.to_bits();
             let [parents_own_token, inherit_from_parent] = [
@@ -4583,7 +4584,7 @@ pub mod transaction_witness {
 pub mod protocol_state {
     use mina_p2p_messages::v2::{self, MinaStateProtocolStateValueStableV2};
 
-    use crate::proofs::witness::FieldWitness;
+    use crate::proofs::field::FieldWitness;
 
     use super::*;
 
@@ -4744,9 +4745,9 @@ pub mod local_state {
     use crate::{
         hash_with_kimchi,
         proofs::{
+            field::{field, Boolean, ToBoolean},
             numbers::nat::CheckedNat,
             to_field_elements::ToFieldElements,
-            witness::{field, Boolean, ToBoolean},
         },
         scan_state::currency::{Index, Signed},
         zkapps::intefaces::{

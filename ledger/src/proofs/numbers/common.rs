@@ -1,5 +1,6 @@
 use crate::{
-    proofs::witness::{field, Boolean, FieldWitness, Witness},
+    proofs::field::{field, Boolean, FieldWitness},
+    proofs::witness::Witness,
     scan_state::currency::Magnitude,
 };
 

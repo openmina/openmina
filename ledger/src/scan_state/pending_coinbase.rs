@@ -29,14 +29,14 @@ use sha2::{Digest, Sha256};
 use crate::{
     hash_noinputs, hash_with_kimchi,
     proofs::{
+        field::{field, Boolean},
         numbers::{
             currency::{CheckedAmount, CheckedCurrency},
             nat::{CheckedNat, CheckedSlot},
         },
         witness::{
-            field,
             transaction_snark::{checked_hash, CONSTRAINT_CONSTANTS},
-            Boolean, Witness,
+            Witness,
         },
     },
     staged_ledger::hash::PendingCoinbaseAux,

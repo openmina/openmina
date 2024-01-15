@@ -1,8 +1,8 @@
 use crate::ArithmeticSpongeParams;
 
 use super::{
-    witness::{field, Boolean, FieldWitness, Witness},
-    wrap::CircuitVar,
+    field::{field, Boolean, CircuitVar, FieldWitness},
+    witness::Witness,
 };
 
 const M: usize = 3;

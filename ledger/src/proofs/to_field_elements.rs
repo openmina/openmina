@@ -31,14 +31,14 @@ use crate::{
 };
 
 use super::{
+    field::{Boolean, CircuitVar, FieldWitness},
     numbers::currency::{CheckedCurrency, CheckedSigned},
     step::PerProofWitness,
     unfinalized::{AllEvals, EvalsWithPublicInput},
     witness::{
-        field_to_bits, Boolean, FieldWitness, GroupAffine, InnerCurve, PlonkVerificationKeyEvals,
-        StepMainProofState, StepMainStatement,
+        field_to_bits, GroupAffine, InnerCurve, PlonkVerificationKeyEvals, StepMainProofState,
+        StepMainStatement,
     },
-    wrap::CircuitVar,
 };
 
 pub trait ToFieldElements<F: Field> {
@@ -262,7 +262,7 @@ impl<F: FieldWitness, T: ToFieldElements<F>> ToFieldElements<F> for Box<[T]> {
 
 impl<F: FieldWitness> ToFieldElements<F> for Fp {
     fn to_field_elements(&self, fields: &mut Vec<F>) {
-        use crate::proofs::witness::IntoGeneric;
+        use crate::proofs::field::IntoGeneric;
         fields.push(self.into_gen());
     }
 }
@@ -288,7 +288,7 @@ pub fn field_of_bits<F: FieldWitness, const N: usize>(bs: &[bool; N]) -> F {
 
 impl<F: FieldWitness> ToFieldElements<F> for Fq {
     fn to_field_elements(&self, fields: &mut Vec<F>) {
-        use crate::proofs::witness::IntoGeneric;
+        use crate::proofs::field::IntoGeneric;
         use std::any::TypeId;
 
         // TODO: Refactor when specialization is stable

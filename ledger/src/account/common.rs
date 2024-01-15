@@ -5,12 +5,12 @@ use o1_utils::{field_helpers::FieldHelpersError, FieldHelpers};
 use crate::{
     hash::hash_noinputs,
     proofs::{
+        field::{Boolean, FieldWitness, ToBoolean},
         numbers::{
             currency::{CheckedAmount, CheckedBalance},
             nat::{CheckedSlot, CheckedSlotSpan},
         },
         to_field_elements::ToFieldElements,
-        witness::{Boolean, FieldWitness, ToBoolean},
     },
     scan_state::currency::{Amount, Balance, Magnitude, Slot, SlotSpan},
     ControlTag, ToInputs,

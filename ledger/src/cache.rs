@@ -69,7 +69,7 @@ macro_rules! cache_one {
 
 #[cfg(test)]
 mod tests {
-    use crate::proofs::witness::FieldWitness;
+    use crate::proofs::field::FieldWitness;
     use ark_ec::short_weierstrass_jacobian::GroupAffine;
     use poly_commitment::srs::endos;
     use std::sync::atomic::AtomicUsize;

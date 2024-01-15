@@ -2,8 +2,9 @@ use crate::scan_state::currency::{self, Amount, Balance, Fee, Magnitude, MinMax,
 use std::{cell::Cell, cmp::Ordering::Less};
 
 use crate::proofs::{
+    field::{field, Boolean, FieldWitness},
     to_field_elements::ToFieldElements,
-    witness::{field, Boolean, Check, FieldWitness, Witness},
+    witness::{Check, Witness},
 };
 use crate::ToInputs;
 

@@ -23,12 +23,13 @@ use crate::{
 
 use super::{
     constants::WrapMergeProof,
+    field::{Boolean, CircuitVar, FieldWitness},
     public_input::plonk_checks::PlonkMinimal,
     step::{
         extract_recursion_challenges, InductiveRule, OptFlag, PreviousProofStatement, StepProof,
     },
-    witness::{Boolean, FieldWitness, PlonkVerificationKeyEvals, Prover, Witness},
-    wrap::{CircuitVar, WrapProof},
+    witness::{PlonkVerificationKeyEvals, Prover, Witness},
+    wrap::WrapProof,
 };
 
 pub fn read_witnesses() -> std::io::Result<Vec<Fp>> {

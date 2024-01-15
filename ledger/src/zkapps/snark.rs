@@ -7,6 +7,7 @@ use mina_signer::CompressedPubKey;
 use crate::{
     checked_equal_compressed_key, checked_equal_compressed_key_const_and,
     proofs::{
+        field::{field, Boolean, CircuitVar, FieldWitness, ToBoolean},
         numbers::{
             common::ForZkappCheck,
             currency::{CheckedAmount, CheckedBalance, CheckedCurrency, CheckedSigned},
@@ -14,11 +15,10 @@ use crate::{
         },
         to_field_elements::ToFieldElements,
         witness::{
-            create_shifted_inner_curve, decompress_var, field,
+            create_shifted_inner_curve, decompress_var,
             transaction_snark::{check_timing, checked_chunked_signature_verify, checked_hash},
-            Boolean, Check, FieldWitness, InnerCurve, ToBoolean, Witness,
+            Check, InnerCurve, Witness,
         },
-        wrap::CircuitVar,
         zkapp::{GlobalStateForProof, LedgerWithHash, WithStackHash, ZkappSingleData},
         zkapp_logic,
     },

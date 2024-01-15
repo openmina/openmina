@@ -17,7 +17,10 @@ use mina_p2p_messages::{
 };
 
 use crate::{
-    proofs::witness::{make_group, FieldWitness, InnerCurve, PlonkVerificationKeyEvals},
+    proofs::{
+        field::FieldWitness,
+        witness::{make_group, InnerCurve, PlonkVerificationKeyEvals},
+    },
     scan_state::currency::{Amount, Balance, Nonce, Slot, SlotSpan},
     Permissions, ProofVerified, ReceiptChainHash, Timing, TokenSymbol, VerificationKey, VotingFor,
     ZkAppAccount,

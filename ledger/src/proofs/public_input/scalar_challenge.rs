@@ -2,7 +2,7 @@ use std::array::IntoIter;
 
 use ark_ff::{BigInteger256, Field};
 
-use crate::proofs::witness::FieldWitness;
+use crate::proofs::field::FieldWitness;
 
 #[derive(Clone, Debug)]
 pub struct ScalarChallenge {

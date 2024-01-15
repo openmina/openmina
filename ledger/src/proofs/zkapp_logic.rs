@@ -23,7 +23,7 @@ use crate::{
 use ark_ff::{One, Zero};
 
 use super::{
-    witness::{Boolean, ToBoolean},
+    field::{Boolean, ToBoolean},
     zkapp::{StartDataSkeleton, ZkappSingleData},
 };
 
