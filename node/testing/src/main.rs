@@ -39,6 +39,19 @@ impl Command {
         let rt = setup();
         let _rt_guard = rt.enter();
 
+        let (shutdown_tx, shutdown_rx) = openmina_core::channels::oneshot::channel();
+        let mut shutdown_tx = Some(shutdown_tx);
+
+        ctrlc::set_handler(move || match shutdown_tx.take() {
+            Some(tx) => {
+                let _ = tx.send(());
+            }
+            None => {
+                std::process::exit(1);
+            }
+        })
+        .expect("Error setting Ctrl-C handler");
+
         match self {
             Self::Server(args) => {
                 server(args.port);
@@ -56,22 +69,32 @@ impl Command {
                         config
                     };
 
-                    if let Some(name) = cmd.name {
-                        if let Some(scenario) = Scenarios::iter()
-                            .into_iter()
-                            .find(|s| <&'static str>::from(s) == name)
-                        {
-                            rt.block_on(scenario.run_and_save_from_scratch(config));
+                    let fut = async move {
+                        if let Some(name) = cmd.name {
+                            if let Some(scenario) = Scenarios::iter()
+                                .into_iter()
+                                .find(|s| <&'static str>::from(s) == name)
+                            {
+                                scenario.run_and_save_from_scratch(config).await;
+                            } else {
+                                anyhow::bail!("no such scenario: \"{name}\"");
+                            }
                         } else {
-                            anyhow::bail!("no such scenario: \"{name}\"");
+                            for scenario in Scenarios::iter() {
+                                scenario.run_and_save_from_scratch(config.clone()).await;
+                            }
                         }
-                    } else {
-                        for scenario in Scenarios::iter() {
-                            rt.block_on(scenario.run_and_save_from_scratch(config.clone()));
-                        }
-                    }
+                        Ok(())
+                    };
 
-                    Ok(())
+                    rt.block_on(async {
+                        tokio::select! {
+                            res = fut => res,
+                            _ = shutdown_rx => {
+                                anyhow::bail!("Received ctrl-c signal! shutting down...");
+                            }
+                        }
+                    })
                 }
                 #[cfg(not(feature = "scenario-generators"))]
                 Err("binary not compiled with `scenario-generators` feature"

@@ -140,14 +140,30 @@ impl Scenarios {
     }
 
     pub async fn run_and_save(self, cluster: &mut Cluster) {
+        struct ScenarioSaveOnExit(Scenario);
+
+        impl Drop for ScenarioSaveOnExit {
+            fn drop(&mut self) {
+                let info = self.0.info.clone();
+                let steps = std::mem::take(&mut self.0.steps);
+                let scenario = Scenario { info, steps };
+
+                eprintln!("saving scenario({}) before exit...", scenario.info.id);
+                if let Err(err) = scenario.save_sync() {
+                    eprintln!(
+                        "failed to save scenario({})! error: {}",
+                        scenario.info.id, err
+                    );
+                }
+            }
+        }
+
         eprintln!("run_and_save: {}", self.to_str());
-        let mut scenario = self.blank_scenario();
-        self.run(cluster, |step| scenario.add_step(step.clone()).unwrap())
+        let mut scenario = ScenarioSaveOnExit(self.blank_scenario());
+        self.run(cluster, |step| scenario.0.add_step(step.clone()).unwrap())
             .await;
-        scenario
-            .save()
-            .await
-            .expect("failed to save scenario after run");
+        // drop to save it.
+        let _ = scenario;
     }
 
     pub async fn run_only(self, cluster: &mut Cluster) {

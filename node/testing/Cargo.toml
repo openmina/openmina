@@ -27,6 +27,7 @@ axum = "0.6"
 tower-http = { version = "0.4.4", features = ["cors"] }
 strum = "0.24.1"
 strum_macros = "0.24.3"
+tracing-log = "0.2.0"
 documented = { version = "0.1", optional = true }
 redux = { git = "https://github.com/openmina/redux-rs.git", branch="feat/global-time", features = ["serde"] }
 ledger = { workspace = true }
@@ -34,17 +35,17 @@ mina-p2p-messages = { workspace = true }
 libp2p = { workspace = true, features = ["macros", "serde", "tcp", "dns", "tokio", "yamux", "pnet", "noise", "gossipsub"] }
 vrf = { workspace = true }
 
+nix = { version = "0.27.1", features = ["process", "signal"] }
+ctrlc = "3.4.2"
+temp-dir = "0.1.11"
 console = "0.15.5"
 clap = { version = "4.3", features = [ "derive", "env" ] }
+reqwest = { version = "0.11.22", features = ["blocking", "json"] }
 
 openmina-core = { path = "../../core" }
 node = { path = "../../node" }
 openmina-node-invariants = { path = "../../node/invariants" }
 openmina-node-native = { path = "../../node/native" }
-reqwest = { version = "0.11.22", features = ["blocking", "json"] }
-temp-dir = "0.1.11"
-nix = { version = "0.27.1", features = ["process", "signal"] }
-tracing-log = "0.2.0"
 
 [features]
 default = ["scenario-generators"]
