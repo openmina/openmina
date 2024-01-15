@@ -2,7 +2,7 @@ use mina_p2p_messages::v2::{
     ConsensusBodyReferenceStableV1, LedgerProofProdStableV2, MinaBaseStagedLedgerHashStableV1,
     NonZeroCurvePoint, StagedLedgerDiffDiffStableV2,
 };
-use openmina_core::block::ArcBlockWithHash;
+use openmina_core::{block::ArcBlockWithHash, consensus::consensus_take};
 use serde::{Deserialize, Serialize};
 
 use super::{
@@ -85,8 +85,12 @@ pub enum BlockProducerCurrentState {
     },
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum BlockProducerWonSlotDiscardReason {}
+#[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Clone)]
+pub enum BlockProducerWonSlotDiscardReason {
+    BestTipStakingLedgerDifferent,
+    BestTipGlobalSlotHigher,
+    BestTipSuperior,
+}
 
 impl BlockProducerState {
     pub fn new(now: redux::Timestamp, config: Option<BlockProducerConfig>) -> Self {
@@ -197,9 +201,44 @@ impl BlockProducerCurrentState {
 
     pub fn won_slot_should_wait(&self, now: redux::Timestamp) -> bool {
         match self {
-            Self::WonSlot { won_slot, .. } => won_slot.slot_time < now,
+            Self::WonSlot { won_slot, .. } => now < won_slot.slot_time,
             _ => false,
         }
+    }
+
+    pub fn won_slot_should_produce(&self, now: redux::Timestamp) -> bool {
+        match self {
+            Self::WonSlot { won_slot, .. } | Self::WonSlotWait { won_slot, .. } => {
+                now >= won_slot.slot_time
+            }
+            _ => false,
+        }
+    }
+
+    pub fn won_slot_should_discard(
+        &self,
+        best_tip: &ArcBlockWithHash,
+    ) -> Option<BlockProducerWonSlotDiscardReason> {
+        let won_slot = self.won_slot()?;
+        if won_slot.global_slot_since_genesis.as_u32() < best_tip.global_slot() {
+            return Some(BlockProducerWonSlotDiscardReason::BestTipGlobalSlotHigher);
+        }
+        // TODO(binier): check if staking ledger changed
+
+        if won_slot < best_tip
+            || self.produced_block().map_or(false, |block| {
+                !consensus_take(
+                    best_tip.consensus_state(),
+                    block.consensus_state(),
+                    best_tip.hash(),
+                    block.hash(),
+                )
+            })
+        {
+            return Some(BlockProducerWonSlotDiscardReason::BestTipSuperior);
+        }
+
+        None
     }
 
     pub fn is_producing(&self) -> bool {

@@ -1,5 +1,6 @@
 use mina_p2p_messages::v2::StateHash;
 use openmina_core::block::ArcBlockWithHash;
+use openmina_core::consensus::consensus_take;
 use serde::{Deserialize, Serialize};
 
 use crate::p2p::channels::rpc::P2pRpcId;
@@ -91,10 +92,15 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncBestTipUpd
                 .sync
                 .best_tip()
                 .map_or(true, |tip| self.best_tip.hash != tip.hash)
+            // TODO(binier): TMP. we shouldn't need to check consensus here.
             && state
-                .consensus
+                .transition_frontier
+                .sync
                 .best_tip()
-                .map_or(true, |tip| &self.best_tip.hash == tip.hash)
+                .or(state.transition_frontier.best_tip())
+                .map_or(false, |tip| {
+                    consensus_take(tip.consensus_state(), self.best_tip.consensus_state(), tip.hash(), self.best_tip.hash())
+                })
             // Don't sync to best tip if we are in the middle of producing
             // a block unless that best tip candidate is better consensus-wise
             // than the one that we are producing.

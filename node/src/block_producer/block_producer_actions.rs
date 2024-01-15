@@ -66,32 +66,10 @@ impl redux::EnablingCondition<crate::State> for BlockProducerWonSlotAction {
             let Some(best_tip) = state.transition_frontier.best_tip() else {
                 return false;
             };
-            let is_won_slot_old = |won_slot: &BlockProducerWonSlot| {
-                best_tip.global_slot() > won_slot.global_slot_since_genesis.as_u32()
-            };
 
-            state.time() < self.won_slot.next_slot_time()
-                && is_won_slot_old(&self.won_slot)
-                && this
-                    .current
-                    .won_slot()
-                    .filter(|won_slot| !is_won_slot_old(won_slot))
-                    .map_or(true, |won_slot| {
-                        match self
-                            .won_slot
-                            .global_slot_since_genesis
-                            .as_u32()
-                            .cmp(&won_slot.global_slot_since_genesis.as_u32())
-                        {
-                            // old won_slot is further in the future, pick new one instead.
-                            Ordering::Less => true,
-                            Ordering::Equal => &self.won_slot > won_slot,
-                            // new won_slot is further in the future. Ignore it.
-                            Ordering::Greater => false,
-                        }
-                    })
-            // TODO(binier): do we need to check if staking epoch ledger for an
-            // existing won slot is still current best tip's staking epoch ledger.
+            this.current.won_slot_should_search()
+                && state.time() < self.won_slot.next_slot_time()
+                && self.won_slot.global_slot_since_genesis.as_u32() >= best_tip.global_slot()
         })
     }
 }
@@ -113,7 +91,7 @@ pub struct BlockProducerWonSlotProduceInitAction {}
 impl redux::EnablingCondition<crate::State> for BlockProducerWonSlotProduceInitAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
         state.block_producer.with(false, |this| {
-            this.current.won_slot().is_some() && !this.current.won_slot_should_wait(state.time())
+            this.current.won_slot_should_produce(state.time())
         })
     }
 }
@@ -199,10 +177,7 @@ pub struct BlockProducerBlockInjectAction {}
 impl redux::EnablingCondition<crate::State> for BlockProducerBlockInjectAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
         state.block_producer.with(false, |this| {
-            matches!(
-                this.current,
-                BlockProducerCurrentState::BlockUnprovenBuilt { .. }
-            )
+            matches!(this.current, BlockProducerCurrentState::Produced { .. })
         })
     }
 }
@@ -213,10 +188,7 @@ pub struct BlockProducerBlockInjectedAction {}
 impl redux::EnablingCondition<crate::State> for BlockProducerBlockInjectedAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
         state.block_producer.with(false, |this| {
-            matches!(
-                this.current,
-                BlockProducerCurrentState::BlockUnprovenBuilt { .. }
-            )
+            matches!(this.current, BlockProducerCurrentState::Produced { .. })
         })
     }
 }
@@ -228,7 +200,11 @@ pub struct BlockProducerWonSlotDiscardAction {
 
 impl redux::EnablingCondition<crate::State> for BlockProducerWonSlotDiscardAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
-        todo!("validate reason")
+        let reason = state.block_producer.with(None, |bp| {
+            let best_tip = state.transition_frontier.best_tip()?;
+            bp.current.won_slot_should_discard(best_tip)
+        });
+        Some(&self.reason) == reason.as_ref()
     }
 }
 
