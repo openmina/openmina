@@ -128,7 +128,7 @@ mod tests {
             ScalarChallenge::new(7895667244538374865i64 as u64,-7599583809327744882i64 as u64),
         ];
 
-        let (_, endo) = crate::proofs::witness::endos::<Fq>();
+        let (_, endo) = crate::proofs::transaction::endos::<Fq>();
 
         let challenges: Vec<_> = scalar_challenges
             .iter()
@@ -179,7 +179,7 @@ mod tests {
             ScalarChallenge::new(-1805085648820294365i64 as u64,4705625510417283644i64 as u64),
         ];
 
-        let (_, endo) = crate::proofs::witness::endos::<Fp>();
+        let (_, endo) = crate::proofs::transaction::endos::<Fp>();
 
         let challenges: Vec<_> = scalar_challenges
             .iter()

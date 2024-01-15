@@ -6,9 +6,9 @@ use crate::{
     proofs::{
         accumulator_check,
         step::{expand_deferred, StatementProofState},
+        transaction::endos,
         unfinalized::AllEvals,
         verifier_index::make_zkapp_verifier_index,
-        witness::endos,
         wrap::Domain,
         BACKEND_TICK_ROUNDS_N,
     },
@@ -25,8 +25,8 @@ use super::{
     public_input::plonk_checks::make_shifts,
     step::{step_verifier::PlonkDomain, ExpandDeferredParams},
     to_field_elements::ToFieldElements,
+    transaction::{InnerCurve, PlonkVerificationKeyEvals},
     util::{extract_bulletproof, extract_polynomial_commitment, u64_to_field},
-    witness::{InnerCurve, PlonkVerificationKeyEvals},
     VerifierSRS,
 };
 use kimchi::{

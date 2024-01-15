@@ -8,7 +8,7 @@ use crate::scan_state::transaction_logic::zkapp_command::{
 };
 use crate::Permissions;
 use crate::{
-    proofs::{numbers::nat::CheckedNat, witness::transaction_snark::CONSTRAINT_CONSTANTS},
+    proofs::{numbers::nat::CheckedNat, transaction::transaction_snark::CONSTRAINT_CONSTANTS},
     scan_state::{
         currency::{Amount, Magnitude, SlotSpan},
         scan_state::ConstraintConstants,

@@ -7,7 +7,7 @@ use ark_ff::Zero;
 use mina_hasher::Fp;
 
 use crate::{
-    proofs::witness::transaction_snark::CONSTRAINT_CONSTANTS,
+    proofs::transaction::transaction_snark::CONSTRAINT_CONSTANTS,
     scan_state::{
         conv::to_ledger_hash,
         currency::{Amount, Signed, Slot},

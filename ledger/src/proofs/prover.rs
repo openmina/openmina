@@ -9,7 +9,7 @@ use mina_hasher::Fp;
 use once_cell::sync::Lazy;
 use poly_commitment::{commitment::CommitmentCurve, evaluation_proof::OpeningProof};
 
-use crate::proofs::witness::endos;
+use crate::proofs::transaction::endos;
 
 use super::util::extract_bulletproof;
 use mina_curves::pasta::Fq;

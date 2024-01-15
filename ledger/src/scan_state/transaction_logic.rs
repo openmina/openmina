@@ -557,7 +557,7 @@ impl Memo {
     const MAX_DIGESTIBLE_STRING_LENGTH: usize = 1000;
 
     pub fn to_bits(&self) -> [bool; std::mem::size_of::<Self>() * 8] {
-        use crate::proofs::witness::legacy_input::BitsIterator;
+        use crate::proofs::transaction::legacy_input::BitsIterator;
 
         const NBYTES: usize = 34;
         const NBITS: usize = NBYTES * 8;
@@ -846,7 +846,7 @@ pub mod zkapp_command {
         proofs::{
             field::{Boolean, ToBoolean},
             to_field_elements::ToFieldElements,
-            witness::Check,
+            transaction::Check,
         },
         scan_state::currency::{Balance, Length, MinMax, Sgn, Signed, Slot, SlotSpan},
         zkapps::snark::zkapp_check::InSnarkCheck,
@@ -4993,10 +4993,10 @@ pub mod local_state {
             let fields = inputs.to_fields();
 
             if self.is_default {
-                use crate::proofs::witness::transaction_snark::checked_hash3;
+                use crate::proofs::transaction::transaction_snark::checked_hash3;
                 checked_hash3("MinaAcctUpdStckFrm", &fields, w)
             } else {
-                use crate::proofs::witness::transaction_snark::checked_hash;
+                use crate::proofs::transaction::transaction_snark::checked_hash;
                 checked_hash("MinaAcctUpdStckFrm", &fields, w)
             }
         }
@@ -7326,8 +7326,8 @@ pub fn checked_cons_signed_command_payload(
     last_receipt_chain_hash: ReceiptChainHash,
     w: &mut Witness<Fp>,
 ) -> ReceiptChainHash {
-    use crate::proofs::witness::legacy_input::CheckedLegacyInput;
-    use crate::proofs::witness::transaction_snark::checked_legacy_hash;
+    use crate::proofs::transaction::legacy_input::CheckedLegacyInput;
+    use crate::proofs::transaction::transaction_snark::checked_legacy_hash;
 
     let mut inputs = payload.to_checked_legacy_input_owned(w);
     inputs.append_field(last_receipt_chain_hash.0);

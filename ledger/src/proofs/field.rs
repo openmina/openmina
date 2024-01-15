@@ -14,9 +14,13 @@ use crate::SpongeParamsForField;
 use super::{
     public_input::plonk_checks::{self, ShiftedValue},
     to_field_elements::ToFieldElements,
-    witness::{Check, GroupAffine, Witness},
+    transaction::Check,
+    witness::Witness,
     BACKEND_TICK_ROUNDS_N, BACKEND_TOCK_ROUNDS_N,
 };
+
+pub type GroupAffine<F> =
+    ark_ec::short_weierstrass_jacobian::GroupAffine<<F as FieldWitness>::Parameters>;
 
 /// All the generics we need during witness generation
 pub trait FieldWitness
@@ -155,7 +159,7 @@ impl<F: FieldWitness> IntoGeneric<F> for Fq {
 }
 
 pub mod field {
-    use crate::{proofs::witness::field_to_bits2, zkapps::intefaces::WitnessGenerator};
+    use crate::{proofs::transaction::field_to_bits2, zkapps::intefaces::WitnessGenerator};
 
     use super::*;
 

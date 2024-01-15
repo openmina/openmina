@@ -101,8 +101,8 @@ use mina_hasher::Fp;
 
 use self::tock::Conic;
 
-use super::field::{Boolean, ToBoolean};
-use super::witness::{make_group, GroupAffine};
+use super::field::{Boolean, GroupAffine, ToBoolean};
+use super::transaction::make_group;
 
 fn sqrt_exn<F: FieldWitness>(x: F, w: &mut Witness<F>) -> F {
     let y = w.exists(x.sqrt().unwrap());

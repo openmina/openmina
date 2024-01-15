@@ -1,7 +1,8 @@
 use std::str::FromStr;
 
 use crate::proofs::to_field_elements::ToFieldElements;
-use crate::proofs::witness::{checked_hash2, InnerCurve, PlonkVerificationKeyEvals, Witness};
+use crate::proofs::transaction::{checked_hash2, InnerCurve, PlonkVerificationKeyEvals};
+use crate::proofs::witness::Witness;
 use crate::proofs::VerifierIndex;
 use ark_ec::short_weierstrass_jacobian::GroupAffine;
 use ark_ff::{BigInteger256, PrimeField};
@@ -71,7 +72,7 @@ impl MessagesForNextWrapProof {
     // TODO: De-duplicate with above
     pub fn hash_checked3(&self, w: &mut Witness<Fq>) -> [u64; 4] {
         let fields: Vec<Fq> = self.to_fields();
-        let field: Fq = crate::proofs::witness::checked_hash3(&fields, w);
+        let field: Fq = crate::proofs::transaction::checked_hash3(&fields, w);
 
         let bigint: BigInteger256 = field.into_repr();
         bigint.0

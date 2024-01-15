@@ -20,15 +20,15 @@ use once_cell::sync::OnceCell;
 use ark_poly::{EvaluationDomain, Radix2EvaluationDomain};
 
 use crate::{
-    proofs::{witness::GroupAffine, BACKEND_TOCK_ROUNDS_N},
+    proofs::{field::GroupAffine, BACKEND_TOCK_ROUNDS_N},
     VerificationKey,
 };
 
 use super::{
-    witness::endos,
+    transaction::endos,
     wrap::{Domain, Domains},
 };
-use super::{witness::InnerCurve, VerifierIndex};
+use super::{transaction::InnerCurve, VerifierIndex};
 
 const PERMUTS: usize = 7;
 const COLUMNS: usize = 15;

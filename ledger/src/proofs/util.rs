@@ -13,7 +13,8 @@ use crate::proofs::field::{field, Boolean, FieldWitness};
 use super::{
     public_input::scalar_challenge::ScalarChallenge,
     step::{Opt, OptFlag},
-    witness::{InnerCurve, Witness},
+    transaction::InnerCurve,
+    witness::Witness,
 };
 
 pub fn extract_polynomial_commitment<F: FieldWitness>(

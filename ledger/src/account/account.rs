@@ -16,10 +16,11 @@ use crate::{
             nat::CheckedSlot,
         },
         to_field_elements::ToFieldElements,
-        witness::{
+        transaction::{
             make_group, transaction_snark::checked_min_balance_at_slot, Check, InnerCurve,
-            PlonkVerificationKeyEvals, Witness,
+            PlonkVerificationKeyEvals,
         },
+        witness::Witness,
     },
     scan_state::{
         currency::{Balance, Magnitude, Nonce, Slot},
@@ -1187,7 +1188,7 @@ impl Account {
     }
 
     pub fn checked_hash(&self, w: &mut Witness<Fp>) -> Fp {
-        use crate::proofs::witness::transaction_snark::checked_hash;
+        use crate::proofs::transaction::transaction_snark::checked_hash;
 
         let inputs = self.to_inputs_owned();
 
@@ -1384,7 +1385,7 @@ pub fn checked_verify_merkle_path(
     merkle_path: &[MerklePath],
     w: &mut Witness<Fp>,
 ) -> Fp {
-    use crate::proofs::witness::transaction_snark::checked_hash;
+    use crate::proofs::transaction::transaction_snark::checked_hash;
 
     let account_hash = account.checked_hash(w);
     let mut param = String::with_capacity(16);

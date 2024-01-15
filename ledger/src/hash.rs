@@ -256,7 +256,7 @@ pub trait ToInputs {
     }
 
     fn checked_hash_with_param(&self, param: &str, w: &mut Witness<Fp>) -> Fp {
-        use crate::proofs::witness::transaction_snark::checked_hash;
+        use crate::proofs::transaction::transaction_snark::checked_hash;
 
         let inputs = self.to_inputs_owned();
         checked_hash(param, &inputs.to_fields(), w)

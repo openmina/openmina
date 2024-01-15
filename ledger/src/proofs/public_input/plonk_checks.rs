@@ -462,7 +462,7 @@ mod scalars {
         proof::PointEvaluations,
     };
 
-    use crate::proofs::witness::endos;
+    use crate::proofs::transaction::endos;
 
     use super::*;
 

@@ -19,7 +19,7 @@ use mina_p2p_messages::{
 use crate::{
     proofs::{
         field::FieldWitness,
-        witness::{make_group, InnerCurve, PlonkVerificationKeyEvals},
+        transaction::{make_group, InnerCurve, PlonkVerificationKeyEvals},
     },
     scan_state::currency::{Amount, Balance, Nonce, Slot, SlotSpan},
     Permissions, ProofVerified, ReceiptChainHash, Timing, TokenSymbol, VerificationKey, VotingFor,

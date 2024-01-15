@@ -16,7 +16,7 @@ pub trait ForZkappCheck<F: FieldWitness>: Magnitude {
 }
 
 fn range_check_impl<F: FieldWitness, const NBITS: usize>(number: F, w: &mut Witness<F>) -> F {
-    use crate::proofs::witness::scalar_challenge::to_field_checked_prime;
+    use crate::proofs::transaction::scalar_challenge::to_field_checked_prime;
 
     let (_, _, actual_packed) = to_field_checked_prime::<F, NBITS>(number, w);
     actual_packed

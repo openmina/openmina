@@ -25,10 +25,10 @@ use crate::{
             prepared_statement::{DeferredValues, Plonk, PreparedStatement, ProofState},
         },
         step::OptFlag,
+        transaction::{create_proof, endos, make_group, InnerCurve, StepStatementWithHash},
         unfinalized::{dummy_ipa_wrap_challenges, Unfinalized},
         util::{challenge_polynomial, proof_evaluation_to_list},
         verification::make_scalars_env,
-        witness::{create_proof, endos, make_group, InnerCurve, StepStatementWithHash},
         BACKEND_TICK_ROUNDS_N,
     },
     scan_state::transaction_logic::local_state::LazyValue,
@@ -37,19 +37,20 @@ use crate::{
 
 use super::{
     constants::{ForWrapData, ProofConstants, WrapData},
+    field::GroupAffine,
     public_input::{
         messages::{dummy_ipa_step_sg, MessagesForNextWrapProof},
         plonk_checks::{PlonkMinimal, ScalarsEnv, ShiftedValue},
     },
     step::{step_verifier::PlonkDomain, FeatureFlags},
-    to_field_elements::ToFieldElements,
+    to_field_elements::{ToFieldElements, ToFieldElementsDebug},
+    transaction::{
+        plonk_curve_ops::scale_fast, Check, PlonkVerificationKeyEvals, Prover,
+        ReducedMessagesForNextStepProof, StepProofState, StepStatement,
+    },
     unfinalized::{AllEvals, EvalsWithPublicInput},
     util::u64_to_field,
-    witness::{
-        plonk_curve_ops::scale_fast, Check, GroupAffine, PlonkVerificationKeyEvals, Prover,
-        ReducedMessagesForNextStepProof, StepProofState, StepStatement, ToFieldElementsDebug,
-        Witness,
-    },
+    witness::Witness,
 };
 
 /// Common.Max_degree.wrap_log2
@@ -567,7 +568,7 @@ pub fn wrap<C: ProofConstants + ForWrapData>(params: WrapParams, w: &mut Witness
 
     let (_, endo) = endos::<Fq>();
 
-    let messages_for_next_step_proof_hash = crate::proofs::witness::MessagesForNextStepProof {
+    let messages_for_next_step_proof_hash = crate::proofs::transaction::MessagesForNextStepProof {
         app_state,
         challenge_polynomial_commitments: step_statement
             .proof_state
@@ -834,7 +835,7 @@ impl Check<Fp> for ShiftedValue<Fq> {
         // https://github.com/MinaProtocol/mina/blob/e85cf6969e42060f69d305fb63df9b8d7215d3d7/src/lib/pickles/impls.ml#L94C1-L105C45
 
         let to_high_low = |fq: Fq| {
-            let [low, high @ ..] = crate::proofs::witness::field_to_bits::<Fq, 255>(fq);
+            let [low, high @ ..] = crate::proofs::transaction::field_to_bits::<Fq, 255>(fq);
             (of_bits::<Fp>(&high), low.to_boolean())
         };
 
@@ -1376,13 +1377,13 @@ pub mod wrap_verifier {
     use crate::proofs::{
         public_input::plonk_checks::{self, ft_eval0_checked},
         step::Opt,
-        unfinalized,
-        util::{challenge_polynomial_checked, to_absorption_sequence_opt},
-        verifier_index::wrap_domains,
-        witness::{
+        transaction::{
             scalar_challenge::{self, to_field_checked},
             InnerCurve,
         },
+        unfinalized,
+        util::{challenge_polynomial_checked, to_absorption_sequence_opt},
+        verifier_index::wrap_domains,
         wrap::pcs_batch::PcsBatch,
     };
 
@@ -1435,7 +1436,7 @@ pub mod wrap_verifier {
         [0, 1, 2].map(|proofs_verified| wrap_domains(proofs_verified).h)
     }
 
-    use crate::proofs::witness::poseidon::Sponge;
+    use crate::proofs::transaction::poseidon::Sponge;
 
     #[derive(Clone, Debug)]
     pub struct PlonkWithField<F: FieldWitness> {
@@ -1842,7 +1843,7 @@ pub mod wrap_verifier {
         num_bits: usize,
         w: &mut Witness<F>,
     ) -> GroupAffine<F> {
-        use crate::proofs::witness::plonk_curve_ops::scale_fast_unpack;
+        use crate::proofs::transaction::plonk_curve_ops::scale_fast_unpack;
 
         let s_div_2_bits = num_bits - 1;
         let chunks_needed = chunks_needed(s_div_2_bits);
@@ -1896,7 +1897,7 @@ pub mod wrap_verifier {
     }
 
     pub mod split_commitments {
-        use crate::proofs::witness::scalar_challenge;
+        use crate::proofs::transaction::scalar_challenge;
 
         use super::*;
 
@@ -2803,7 +2804,7 @@ fn wrap_main(params: WrapMainParams, w: &mut Witness<Fq>) {
                             sponge_digest_before_evaluations,
                         } = unfinalized;
 
-                        let mut sponge = crate::proofs::witness::poseidon::Sponge::<Fq>::new();
+                        let mut sponge = crate::proofs::transaction::poseidon::Sponge::<Fq>::new();
                         sponge.absorb2(&[u64_to_field(sponge_digest_before_evaluations)], w);
 
                         // sponge

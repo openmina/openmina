@@ -4,7 +4,8 @@ use std::{cell::Cell, cmp::Ordering::Less};
 use crate::proofs::{
     field::{field, Boolean, FieldWitness},
     to_field_elements::ToFieldElements,
-    witness::{Check, Witness},
+    transaction::Check,
+    witness::Witness,
 };
 use crate::ToInputs;
 

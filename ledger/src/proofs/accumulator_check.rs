@@ -7,8 +7,8 @@ use mina_p2p_messages::{bigint::BigInt, v2::PicklesProofProofsVerified2ReprStabl
 use poly_commitment::{commitment::CommitmentCurve, srs::SRS};
 
 use super::public_input::scalar_challenge::ScalarChallenge;
+use super::transaction::endos;
 use super::urs_utils;
-use super::witness::endos;
 
 const OTHER_URS_LENGTH: usize = 65536;
 

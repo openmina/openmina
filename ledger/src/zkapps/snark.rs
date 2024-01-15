@@ -14,11 +14,12 @@ use crate::{
             nat::{CheckedIndex, CheckedNat, CheckedSlot},
         },
         to_field_elements::ToFieldElements,
-        witness::{
+        transaction::{
             create_shifted_inner_curve, decompress_var,
             transaction_snark::{check_timing, checked_chunked_signature_verify, checked_hash},
-            Check, InnerCurve, Witness,
+            Check, InnerCurve,
         },
+        witness::Witness,
         zkapp::{GlobalStateForProof, LedgerWithHash, WithStackHash, ZkappSingleData},
         zkapp_logic,
     },

@@ -4,7 +4,7 @@ use crate::{
     proofs::{
         field::{Boolean, FieldWitness},
         to_field_elements::ToFieldElements,
-        witness::Check,
+        transaction::Check,
     },
     scan_state::{
         currency::{Amount, Index, Signed},

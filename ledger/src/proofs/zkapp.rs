@@ -29,11 +29,11 @@ use crate::{
             extract_recursion_challenges, step, InductiveRule, OptFlag, PreviousProofStatement,
             StepParams, StepProof,
         },
+        transaction::{transaction_snark::CONSTRAINT_CONSTANTS, ReducedMessagesForNextStepProof},
         unfinalized::{AllEvals, EvalsWithPublicInput},
         util::sha256_sum,
         verification::prev_evals_to_p2p,
         verifier_index::make_zkapp_verifier_index,
-        witness::{transaction_snark::CONSTRAINT_CONSTANTS, ReducedMessagesForNextStepProof},
         wrap::{self, WrapParams, WrapProofState, WrapStatement},
         zkapp::group::{State, ZkappCommandIntermediateState},
         zkapp_logic,
@@ -74,12 +74,14 @@ use super::{
         ForWrapData, ProofConstants, StepZkappOptSignedProof, StepZkappProofProof,
         WrapZkappProofProof,
     },
+    field::GroupAffine,
     numbers::{
         currency::{CheckedAmount, CheckedSigned},
         nat::{CheckedIndex, CheckedNat, CheckedSlot},
     },
     to_field_elements::ToFieldElements,
-    witness::{dummy_constraints, Check, GroupAffine, Prover, Witness},
+    transaction::{dummy_constraints, Check, Prover},
+    witness::Witness,
     wrap::WrapProof,
 };
 

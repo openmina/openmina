@@ -17,8 +17,8 @@ use crate::{
             nat::{CheckedNat, CheckedSlot},
         },
         step::extract_recursion_challenges,
+        to_field_elements::ToFieldElementsDebug,
         util::sha256_sum,
-        witness::ToFieldElementsDebug,
         wrap::{wrap, WrapParams},
     },
     scan_state::{
@@ -45,10 +45,11 @@ use super::{
     },
     step::{step, InductiveRule, OptFlag, PreviousProofStatement, StepParams, StepProof},
     to_field_elements::ToFieldElements,
-    witness::{
+    transaction::{
         transaction_snark::{checked_hash, CONSTRAINT_CONSTANTS},
-        Check, Prover, Witness,
+        Check, Prover,
     },
+    witness::Witness,
     wrap::WrapProof,
 };
 
@@ -256,7 +257,9 @@ mod floating_point {
     use num_bigint::BigUint;
 
     use crate::{
-        proofs::{field::FieldWitness, to_field_elements::field_of_bits, witness::field_to_bits2},
+        proofs::{
+            field::FieldWitness, to_field_elements::field_of_bits, transaction::field_to_bits2,
+        },
         scan_state::currency::{Amount, Balance, Sgn},
     };
 
@@ -568,10 +571,11 @@ mod vrf {
     use crate::{
         checked_verify_merkle_path,
         proofs::{
+            field::GroupAffine,
             numbers::nat::{CheckedNat, CheckedSlot},
-            witness::{
+            transaction::{
                 decompress_var, field_to_bits, legacy_input::to_bits, scale_known,
-                scale_non_constant, GroupAffine, InnerCurve,
+                scale_non_constant, InnerCurve,
             },
         },
         scan_state::{
@@ -781,7 +785,7 @@ pub mod consensus {
                 currency::CheckedCurrency,
                 nat::{CheckedN, CheckedN32, CheckedNat, CheckedSlot, CheckedSlotSpan},
             },
-            witness::{compress_var, create_shifted_inner_curve, CompressedPubKeyVar},
+            transaction::{compress_var, create_shifted_inner_curve, CompressedPubKeyVar},
         },
         scan_state::{
             currency::{Amount, Length},

@@ -5,7 +5,8 @@ use crate::{
         block::consensus::ConsensusConstantsChecked,
         field::{field, Boolean, FieldWitness},
         to_field_elements::ToFieldElements,
-        witness::{Check, Witness},
+        transaction::Check,
+        witness::Witness,
     },
     scan_state::currency::{
         BlockTime, BlockTimeSpan, Index, Length, Magnitude, MinMax, Nonce, Slot, SlotSpan,

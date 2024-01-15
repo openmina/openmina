@@ -34,10 +34,8 @@ use crate::{
             currency::{CheckedAmount, CheckedCurrency},
             nat::{CheckedNat, CheckedSlot},
         },
-        witness::{
-            transaction_snark::{checked_hash, CONSTRAINT_CONSTANTS},
-            Witness,
-        },
+        transaction::transaction_snark::{checked_hash, CONSTRAINT_CONSTANTS},
+        witness::Witness,
     },
     staged_ledger::hash::PendingCoinbaseAux,
     Address, Inputs, MerklePath, ToInputs,

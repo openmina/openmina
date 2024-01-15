@@ -5,7 +5,8 @@ use rand::Rng;
 
 use crate::proofs::field::FieldWitness;
 use crate::proofs::to_field_elements::ToFieldElements;
-use crate::proofs::witness::{Check, Witness};
+use crate::proofs::transaction::Check;
+use crate::proofs::witness::Witness;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum Sgn {
@@ -471,7 +472,7 @@ macro_rules! impl_number {
             }
 
             pub fn to_bits(&self) -> [bool; <$inner>::BITS as usize] {
-                use crate::proofs::witness::legacy_input::bits_iter;
+                use crate::proofs::transaction::legacy_input::bits_iter;
 
                 let mut iter = bits_iter::<$inner, { <$inner>::BITS as usize }>(self.0);
                 std::array::from_fn(|_| iter.next().unwrap())
@@ -508,7 +509,7 @@ macro_rules! impl_number {
 
         impl<F: FieldWitness> Check<F> for $name {
             fn check(&self, witnesses: &mut Witness<F>) {
-                use crate::proofs::witness::scalar_challenge::to_field_checked_prime;
+                use crate::proofs::transaction::scalar_challenge::to_field_checked_prime;
 
                 const NBITS: usize = <$inner>::BITS as usize;
 

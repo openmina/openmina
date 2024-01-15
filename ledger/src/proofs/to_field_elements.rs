@@ -31,15 +31,18 @@ use crate::{
 };
 
 use super::{
-    field::{Boolean, CircuitVar, FieldWitness},
+    field::{Boolean, CircuitVar, FieldWitness, GroupAffine},
     numbers::currency::{CheckedCurrency, CheckedSigned},
     step::PerProofWitness,
-    unfinalized::{AllEvals, EvalsWithPublicInput},
-    witness::{
-        field_to_bits, GroupAffine, InnerCurve, PlonkVerificationKeyEvals, StepMainProofState,
-        StepMainStatement,
+    transaction::{
+        field_to_bits, InnerCurve, PlonkVerificationKeyEvals, StepMainProofState, StepMainStatement,
     },
+    unfinalized::{AllEvals, EvalsWithPublicInput},
 };
+
+pub trait ToFieldElementsDebug: ToFieldElements<Fp> + std::fmt::Debug {}
+
+impl<T: ToFieldElements<Fp> + std::fmt::Debug> ToFieldElementsDebug for T {}
 
 pub trait ToFieldElements<F: Field> {
     fn to_field_elements(&self, fields: &mut Vec<F>);

@@ -4,8 +4,8 @@ use mina_hasher::Fp;
 use mina_p2p_messages::v2;
 
 use crate::proofs::{
-    field::FieldWitness, public_input::plonk_checks::derive_plonk, verification::make_scalars_env,
-    witness::endos, BACKEND_TICK_ROUNDS_N,
+    field::FieldWitness, public_input::plonk_checks::derive_plonk, transaction::endos,
+    verification::make_scalars_env, BACKEND_TICK_ROUNDS_N,
 };
 
 use super::{
@@ -15,9 +15,10 @@ use super::{
         scalar_challenge::ScalarChallenge,
     },
     to_field_elements::ToFieldElements,
+    transaction::Check,
     util::u64_to_field,
     verification::prev_evals_from_p2p,
-    witness::{Check, Witness},
+    witness::Witness,
     BACKEND_TOCK_ROUNDS_N,
 };
 
@@ -28,7 +29,7 @@ pub mod ro {
 
     use crate::proofs::{
         field::FieldWitness, public_input::scalar_challenge::ScalarChallenge,
-        witness::legacy_input::BitsIterator,
+        transaction::legacy_input::BitsIterator,
     };
 
     fn of_bits<F: FieldWitness>(bs: [bool; 255]) -> F {

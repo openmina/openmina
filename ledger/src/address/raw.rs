@@ -505,7 +505,7 @@ impl<const NBYTES: usize> Address<NBYTES> {
     }
 
     pub fn to_bits(&self) -> [bool; NBITS] {
-        use crate::proofs::witness::legacy_input::bits_iter;
+        use crate::proofs::transaction::legacy_input::bits_iter;
 
         let AccountIndex(index) = self.to_index();
         let mut bits = bits_iter::<_, NBITS>(index).take(NBITS);

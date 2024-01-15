@@ -35,9 +35,9 @@ use crate::proofs::{
         plonk_checks::{derive_plonk, InCircuit},
         prepared_statement::Plonk,
     },
+    transaction::endos,
     util::{challenge_polynomial, to_absorption_sequence2, u64_to_field},
     verification::{make_scalars_env, prev_evals_from_p2p},
-    witness::endos,
     wrap::{
         combined_inner_product, evals_of_split_evals, CombinedInnerProductParams,
         COMMON_MAX_DEGREE_STEP_LOG2,
@@ -47,17 +47,18 @@ use crate::proofs::{
 
 use super::{
     constants::ProofConstants,
-    field::{Boolean, CircuitVar, FieldWitness},
+    field::{Boolean, CircuitVar, FieldWitness, GroupAffine},
     public_input::{messages::MessagesForNextWrapProof, plonk_checks::PlonkMinimal},
-    to_field_elements::ToFieldElements,
+    to_field_elements::{ToFieldElements, ToFieldElementsDebug},
+    transaction::{
+        create_proof, make_group, messages_for_next_wrap_proof_padding,
+        scalar_challenge::to_field_checked, Check, CircuitPlonkVerificationKeyEvals, InnerCurve,
+        MessagesForNextStepProof, PlonkVerificationKeyEvals, Prover,
+        ReducedMessagesForNextStepProof, StepStatement,
+    },
     unfinalized::{evals_from_p2p, AllEvals, EvalsWithPublicInput, Unfinalized},
     util::extract_bulletproof,
-    witness::{
-        create_proof, make_group, messages_for_next_wrap_proof_padding,
-        scalar_challenge::to_field_checked, Check, CircuitPlonkVerificationKeyEvals, GroupAffine,
-        InnerCurve, MessagesForNextStepProof, PlonkVerificationKeyEvals, Prover,
-        ReducedMessagesForNextStepProof, StepStatement, ToFieldElementsDebug, Witness,
-    },
+    witness::Witness,
     wrap::Domains,
 };
 
@@ -246,12 +247,13 @@ pub mod step_verifier {
         field::{field, CircuitVar, ToBoolean},
         opt_sponge::OptSponge,
         public_input::plonk_checks::{self, ft_eval0_checked},
+        transaction::{poseidon::Sponge, scalar_challenge, ReducedMessagesForNextStepProof},
         unfinalized,
         util::{
             challenge_polynomial_checked, proof_evaluation_to_list_opt, to_absorption_sequence_opt,
         },
         verifier_index::wrap_domains,
-        witness::{poseidon::Sponge, scalar_challenge, ReducedMessagesForNextStepProof, Witness},
+        witness::Witness,
         wrap::{
             make_scalars_env_checked, one_hot_vector, ones_vector,
             pcs_batch::PcsBatch,
@@ -866,7 +868,7 @@ pub mod step_verifier {
         num_bits: usize,
         w: &mut Witness<F>,
     ) -> GroupAffine<F> {
-        use crate::proofs::witness::plonk_curve_ops::scale_fast_unpack;
+        use crate::proofs::transaction::plonk_curve_ops::scale_fast_unpack;
         use wrap_verifier::*;
 
         let s_div_2_bits = num_bits - 1;
@@ -905,7 +907,7 @@ pub mod step_verifier {
         num_bits: usize,
         w: &mut Witness<F>,
     ) -> GroupAffine<F> {
-        use crate::proofs::witness::plonk_curve_ops::scale_fast_unpack;
+        use crate::proofs::transaction::plonk_curve_ops::scale_fast_unpack;
         use wrap_verifier::*;
 
         let s_div_2_bits = num_bits - 1;
@@ -1238,7 +1240,7 @@ pub mod step_verifier {
             })
         }
         let to_high_low = |fq: Fq| {
-            let [low, high @ ..] = crate::proofs::witness::field_to_bits::<Fq, 255>(fq);
+            let [low, high @ ..] = crate::proofs::transaction::field_to_bits::<Fq, 255>(fq);
             (of_bits::<Fp>(&high), low.to_boolean())
         };
         to_high_low(f)
@@ -1705,7 +1707,7 @@ fn verify_one(params: VerifyOneParams, w: &mut Witness<Fp>) -> (Vec<Fp>, Boolean
         let sponge_digest = proof_state.sponge_digest_before_evaluations;
 
         let sponge = {
-            let mut sponge = crate::proofs::witness::poseidon::Sponge::<Fp>::new();
+            let mut sponge = crate::proofs::transaction::poseidon::Sponge::<Fp>::new();
             sponge.absorb2(&[u64_to_field(&sponge_digest)], w);
             sponge
         };
@@ -2695,7 +2697,7 @@ pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
                 .collect(),
             old_bulletproof_challenges: bulletproof_challenges,
         };
-        crate::proofs::witness::checked_hash2(&msg.to_fields(), w)
+        crate::proofs::transaction::checked_hash2(&msg.to_fields(), w)
     };
 
     let unfinalized_proofs = {
@@ -2707,8 +2709,8 @@ pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
         unfinalized_proofs
     };
 
-    let statement = crate::proofs::witness::StepMainStatement {
-        proof_state: crate::proofs::witness::StepMainProofState {
+    let statement = crate::proofs::transaction::StepMainStatement {
+        proof_state: crate::proofs::transaction::StepMainProofState {
             unfinalized_proofs,
             messages_for_next_step_proof,
         },
@@ -2764,8 +2766,8 @@ pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
         .map(|v: [[u64; 2]; 16]| std::array::from_fn(|i| u64_to_field::<Fp, 2>(&v[i])))
         .collect();
 
-    let step_statement = crate::proofs::witness::StepStatement {
-        proof_state: crate::proofs::witness::StepProofState {
+    let step_statement = crate::proofs::transaction::StepStatement {
+        proof_state: crate::proofs::transaction::StepProofState {
             unfinalized_proofs: statement.proof_state.unfinalized_proofs,
             messages_for_next_step_proof: ReducedMessagesForNextStepProof {
                 app_state: Rc::clone(&app_state),

@@ -5,7 +5,7 @@ use mina_hasher::Fp;
 use super::{
     field::Boolean,
     step::{Basic, FeatureFlags, ForStep, ForStepKind, OptFlag},
-    witness::CircuitPlonkVerificationKeyEvals,
+    transaction::CircuitPlonkVerificationKeyEvals,
     wrap::{Domain, Domains},
 };
 

@@ -11,7 +11,7 @@ use mina_hasher::Fp;
 use mina_p2p_messages::v2;
 
 use crate::{
-    proofs::{util::u64_to_field, witness::transaction_snark::assert_equal_local_state},
+    proofs::{transaction::transaction_snark::assert_equal_local_state, util::u64_to_field},
     scan_state::{
         fee_excess::FeeExcess,
         pending_coinbase,
@@ -28,7 +28,8 @@ use super::{
     step::{
         extract_recursion_challenges, InductiveRule, OptFlag, PreviousProofStatement, StepProof,
     },
-    witness::{PlonkVerificationKeyEvals, Prover, Witness},
+    transaction::{PlonkVerificationKeyEvals, Prover},
+    witness::Witness,
     wrap::WrapProof,
 };
 
