@@ -73,6 +73,16 @@ pub struct InductiveRule<'a, const N_PREVIOUS: usize> {
     pub auxiliary_output: (),
 }
 
+impl InductiveRule<'_, 0> {
+    pub fn empty() -> Self {
+        Self {
+            previous_proof_statements: [],
+            public_output: (),
+            auxiliary_output: (),
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 pub enum OptFlag {
     Yes,

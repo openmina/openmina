@@ -2,6 +2,7 @@
 
 use std::{
     cell::{Ref, RefCell},
+    collections::VecDeque,
     rc::Rc,
     str::FromStr,
 };
@@ -34,7 +35,7 @@ use crate::{
         witness::{
             transaction_snark::CONSTRAINT_CONSTANTS, ReducedMessagesForNextStepProof, ToBoolean,
         },
-        wrap::{WrapParams, WrapProofState, WrapStatement},
+        wrap::{self, WrapParams, WrapProofState, WrapStatement},
         zkapp::group::{State, ZkappCommandIntermediateState},
         zkapp_logic,
     },
@@ -92,11 +93,11 @@ pub struct ZkappParams<'a> {
     pub step_proof_prover: &'a Prover<Fp>,
     pub merge_step_prover: &'a Prover<Fp>,
     pub tx_wrap_prover: &'a Prover<Fq>,
-    // pub tx_wrap_prover: &'a Prover<Fq>,
+
     /// For debugging only
-    pub expected_step_proof: Option<&'static str>,
+    pub opt_signed_path: Option<&'a str>,
     /// For debugging only
-    pub ocaml_wrap_witness: Option<Vec<Fq>>,
+    pub proved_path: Option<&'a str>,
 }
 
 mod group {
@@ -1268,8 +1269,8 @@ fn of_zkapp_command_segment_exn<StepConstants, WrapConstants>(
     spec: &SegmentBasic,
     step_prover: &Prover<Fp>,
     tx_wrap_prover: &Prover<Fq>,
-    fps_path: Option<&str>,
-    fqs_path: Option<&str>,
+    fps_path: Option<String>,
+    fqs_path: Option<String>,
 ) -> LedgerProof
 where
     StepConstants: ProofConstants,
@@ -1280,136 +1281,76 @@ where
     let s = basic_spec(spec);
     let mut w = Witness::new::<StepConstants>();
 
-    if let Some(path) = fps_path {
+    if let Some(path) = fps_path.as_ref() {
         w.ocaml_aux = read_witnesses(path);
     };
 
     let (zkapp_input, must_verify) = zkapp_main(statement.clone(), witness, &s, &mut w);
 
-    if let Proved = spec {
-        let (proof, vk) = snapp_proof_data(witness).unwrap();
-
-        let proof = proof.into();
-
-        let dlog_plonk_index_cvar = vk.wrap_index.to_cvar(CircuitVar::Var);
-        let verifier_index = make_zkapp_verifier_index(&vk);
-
-        let zkapp_data = make_step_zkapp_data(&dlog_plonk_index_cvar);
-        let for_step_datas = [&zkapp_data];
-
-        let indexes = [(&verifier_index, &dlog_plonk_index_cvar)];
-
-        let prev_challenge_polynomial_commitments = extract_recursion_challenges(&[&proof]);
-
-        let StepProof {
-            statement: step_statement,
-            prev_evals,
-            proof,
-        } = step::<StepConstants, 1>(
+    let StepProof {
+        statement: step_statement,
+        prev_evals,
+        proof,
+    } = match spec {
+        OptSignedOptSigned | OptSigned => step::<StepConstants, 0>(
             StepParams {
                 app_state: Rc::new(statement.clone()),
-                rule: InductiveRule {
-                    previous_proof_statements: [PreviousProofStatement {
-                        public_input: Rc::new(zkapp_input.unwrap()),
-                        proof: &proof,
-                        proof_must_verify: must_verify.var(),
-                    }],
-                    public_output: (),
-                    auxiliary_output: (),
-                },
-                for_step_datas,
-                indexes,
-                prev_challenge_polynomial_commitments,
-                hack_feature_flags: OptFlag::Maybe,
+                rule: InductiveRule::empty(),
+                for_step_datas: [],
+                indexes: [],
+                prev_challenge_polynomial_commitments: vec![],
+                hack_feature_flags: OptFlag::No,
                 step_prover,
                 wrap_prover: tx_wrap_prover,
             },
             &mut w,
-        );
+        ),
+        Proved => {
+            let (proof, vk) = snapp_proof_data(witness).unwrap();
+            let proof = proof.into();
 
-        let proof_json = serde_json::to_vec(&proof).unwrap();
-        dbg!(sha256_sum(&proof_json));
+            let dlog_plonk_index_cvar = vk.wrap_index.to_cvar(CircuitVar::Var);
+            let verifier_index = make_zkapp_verifier_index(&vk);
 
-        let mut w: Witness<Fq> = Witness::new::<WrapConstants>();
+            let zkapp_data = make_step_zkapp_data(&dlog_plonk_index_cvar);
+            let for_step_datas = [&zkapp_data];
 
-        w.ocaml_aux = read_witnesses("zkapp_proof2_fqs.txt");
+            let indexes = [(&verifier_index, &dlog_plonk_index_cvar)];
+            let prev_challenge_polynomial_commitments = extract_recursion_challenges(&[&proof]);
 
-        let dlog_plonk_index = super::merge::dlog_plonk_index(tx_wrap_prover);
-
-        let proof = crate::proofs::wrap::wrap::<WrapConstants>(
-            WrapParams {
-                app_state: Rc::new(statement.clone()),
-                proof: &proof,
-                step_statement,
-                prev_evals: &prev_evals,
-                dlog_plonk_index: &dlog_plonk_index,
-                // dlog_plonk_index: &vk.wrap_index,
-                step_prover_index: &step_prover.index,
-                wrap_prover: tx_wrap_prover,
-            },
-            &mut w,
-        );
-
-        let proof_json = serde_json::to_vec(&proof.proof).unwrap();
-        dbg!(sha256_sum(&proof_json));
-
-        return LedgerProof { statement, proof };
+            step::<StepConstants, 1>(
+                StepParams {
+                    app_state: Rc::new(statement.clone()),
+                    rule: InductiveRule {
+                        previous_proof_statements: [PreviousProofStatement {
+                            public_input: Rc::new(zkapp_input.unwrap()),
+                            proof: &proof,
+                            proof_must_verify: must_verify.var(),
+                        }],
+                        public_output: (),
+                        auxiliary_output: (),
+                    },
+                    for_step_datas,
+                    indexes,
+                    prev_challenge_polynomial_commitments,
+                    hack_feature_flags: OptFlag::Maybe,
+                    step_prover,
+                    wrap_prover: tx_wrap_prover,
+                },
+                &mut w,
+            )
+        }
     };
 
-    let dlog_plonk_index = w.exists(super::merge::dlog_plonk_index(tx_wrap_prover));
-    let messages_for_next_wrap_proof =
-        w.exists(crate::proofs::witness::get_messages_for_next_wrap_proof_padded());
-    let mut inputs = dlog_plonk_index.to_field_elements_owned();
-    statement.to_field_elements(&mut inputs);
-    let messages_for_next_step_proof = crate::proofs::witness::checked_hash2(&inputs, &mut w);
-
-    let step_main_statement = crate::proofs::witness::StepMainStatement {
-        proof_state: crate::proofs::witness::StepMainProofState {
-            unfinalized_proofs: vec![crate::proofs::unfinalized::Unfinalized::dummy(); 2],
-            messages_for_next_step_proof,
-        },
-        messages_for_next_wrap_proof,
-    };
-    w.primary = step_main_statement.to_field_elements_owned();
-
-    let msg = crate::proofs::witness::ReducedMessagesForNextStepProof {
-        app_state: Rc::new(statement.clone()),
-        challenge_polynomial_commitments: vec![],
-        old_bulletproof_challenges: vec![],
-    };
-
-    let step_statement = crate::proofs::witness::StepStatement {
-        proof_state: crate::proofs::witness::StepProofState {
-            unfinalized_proofs: step_main_statement.proof_state.unfinalized_proofs,
-            messages_for_next_step_proof: msg,
-        },
-        messages_for_next_wrap_proof: vec![],
-    };
-
-    // TODO: Not always dummy
-    let prev_evals = vec![crate::proofs::unfinalized::AllEvals::dummy(); 2];
-
-    let prev_challenges = vec![];
-    let proof = crate::proofs::witness::create_proof::<StepConstants, Fp>(
-        step_prover,
-        prev_challenges,
-        &mut w,
-    );
-
-    let proof_json = serde_json::to_vec(&proof).unwrap();
-    dbg!(crate::proofs::util::sha256_sum(&proof_json));
-    // assert_eq!(
-    //     sha256_sum(&proof_json),
-    //     "be5393f0366a52ff694200702496f6c30e1d79de48dc06953b9b85baf4701ac0"
-    // );
+    let dlog_plonk_index = super::merge::dlog_plonk_index(tx_wrap_prover);
 
     let mut w: Witness<Fq> = Witness::new::<WrapConstants>();
 
-    if let Some(path) = fqs_path {
+    if let Some(path) = fqs_path.as_ref() {
         w.ocaml_aux = read_witnesses(path);
     };
 
-    let proof = crate::proofs::wrap::wrap::<WrapConstants>(
+    let proof = wrap::wrap::<WrapConstants>(
         WrapParams {
             app_state: Rc::new(statement.clone()),
             proof: &proof,
@@ -1662,21 +1603,21 @@ fn of_zkapp_command_segment(
     step_opt_signed_prover: &Prover<Fp>,
     step_proof_prover: &Prover<Fp>,
     tx_wrap_prover: &Prover<Fq>,
+    opt_signed_path: Option<&str>,
+    proved_path: Option<&str>,
 ) -> LedgerProof {
     let (step_prover, step_path, wrap_path) = match spec {
         SegmentBasic::OptSignedOptSigned => (step_opt_signed_opt_signed_prover, None, None),
-        SegmentBasic::OptSigned => (
-            step_opt_signed_prover,
-            Some("zkapp_proof_fps.txt"),
-            Some("zkapp_proof_fqs.txt"),
-            // Some("zkapp_opt_signed_fps.txt"),
-            // Some("zkapp_opt_signed_fqs.txt"),
-        ),
-        SegmentBasic::Proved => (
-            step_proof_prover,
-            Some("zkapp_proof2_fps.txt"),
-            Some("zkapp_proof2_fqs.txt"),
-        ),
+        SegmentBasic::OptSigned => {
+            let fps_path = opt_signed_path.map(|p| format!("{}_fps.txt", p));
+            let fqs_path = opt_signed_path.map(|p| format!("{}_fqs.txt", p));
+            (step_opt_signed_prover, fps_path, fqs_path)
+        }
+        SegmentBasic::Proved => {
+            let fps_path = proved_path.map(|p| format!("{}_fps.txt", p));
+            let fqs_path = proved_path.map(|p| format!("{}_fqs.txt", p));
+            (step_proof_prover, fps_path, fqs_path)
+        }
     };
 
     let of_zkapp_command_segment_exn = match spec {
@@ -1710,10 +1651,10 @@ pub fn generate_zkapp_proof(params: ZkappParams, w: &mut Witness<Fp>) -> LedgerP
         step_opt_signed_opt_signed_prover,
         step_opt_signed_prover,
         step_proof_prover,
-        expected_step_proof,
-        ocaml_wrap_witness,
         tx_wrap_prover,
         merge_step_prover,
+        opt_signed_path,
+        proved_path,
     } = params;
 
     let zkapp = match &tx_witness.transaction {
@@ -1755,6 +1696,8 @@ pub fn generate_zkapp_proof(params: ZkappParams, w: &mut Witness<Fp>) -> LedgerP
             step_opt_signed_prover,
             step_proof_prover,
             tx_wrap_prover,
+            opt_signed_path,
+            proved_path,
         )
     };
 
@@ -1813,19 +1756,6 @@ fn merge_zkapp_proofs(
         },
         &mut w,
     );
-
-    let proof_json = serde_json::to_vec(&wrap_proof.proof).unwrap();
-    let sum = dbg!(sha256_sum(&proof_json));
-
-    assert_eq!(
-        sum,
-        "e2ca355ce4ed5aaf379e992c0c8c5b1c4ac1687546ceac5a5c6c9c4994002249"
-    );
-    // assert_eq!(
-    //     sum,
-    //     "6e9bb6ed613cf0aa737188e0e8ddde7438211ca54c02e89aff32816c181caca9"
-    // );
-    eprintln!("OK");
 
     LedgerProof {
         statement: statement_with_sok,
