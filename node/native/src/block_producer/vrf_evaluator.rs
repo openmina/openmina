@@ -1,5 +1,8 @@
 use mina_signer::Keypair;
-use node::{block_producer::{BlockProducerEvent, vrf_evaluator::VrfEvaluatorInput}, event_source::Event};
+use node::{
+    block_producer::{vrf_evaluator::VrfEvaluatorInput, BlockProducerEvent},
+    event_source::Event,
+};
 use openmina_core::channels::mpsc::{UnboundedReceiver, UnboundedSender};
 use vrf::{VrfEvaluationInput, VrfEvaluationOutput};
 

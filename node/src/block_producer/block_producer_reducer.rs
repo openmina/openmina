@@ -171,11 +171,8 @@ impl BlockProducerEnabled {
                 let global_slot_since_genesis = won_slot.global_slot_since_genesis.clone();
                 let (pred_epoch, _) = to_epoch_and_slot(&pred_global_slot);
                 let (next_epoch, next_slot) = to_epoch_and_slot(&curr_global_slot);
-                let has_ancestor_in_same_checkpoint_window = in_same_checkpoint_window(
-                    &pred_global_slot,
-                    &curr_global_slot,
-                    pred_block.constants(),
-                );
+                let has_ancestor_in_same_checkpoint_window =
+                    in_same_checkpoint_window(&pred_global_slot, &curr_global_slot);
 
                 let block_stake_winner = won_slot.delegator.0.clone();
                 let vrf_truncated_output = won_slot.vrf_output.clone();
@@ -440,7 +437,7 @@ impl BlockProducerEnabled {
                         time: meta.time(),
                         won_slot: won_slot.clone(),
                         chain: std::mem::take(chain),
-                        block: block.clone(),
+                        block: dbg!(block).clone(),
                     };
                 }
             }
@@ -453,7 +450,7 @@ impl BlockProducerEnabled {
                     ..
                 } = &mut self.current
                 {
-                    self.current = BlockProducerCurrentState::Produced {
+                    self.current = BlockProducerCurrentState::Injected {
                         time: meta.time(),
                         won_slot: won_slot.clone(),
                         chain: std::mem::take(chain),
@@ -517,15 +514,11 @@ fn in_seed_update_range(
 fn in_same_checkpoint_window(
     slot1: &ConsensusGlobalSlotStableV1,
     slot2: &ConsensusGlobalSlotStableV1,
-    constants: &MinaBaseProtocolConstantsCheckedValueStableV1,
 ) -> bool {
-    checkpoint_window(slot1, constants) == checkpoint_window(slot2, constants)
+    checkpoint_window(slot1) == checkpoint_window(slot2)
 }
 
-fn checkpoint_window(
-    slot: &ConsensusGlobalSlotStableV1,
-    constants: &MinaBaseProtocolConstantsCheckedValueStableV1,
-) -> u32 {
+fn checkpoint_window(slot: &ConsensusGlobalSlotStableV1) -> u32 {
     slot.slot_number.as_u32() / checkpoint_window_size_in_slots()
 }
 
@@ -537,7 +530,7 @@ fn checkpoint_window_size_in_slots() -> u32 {
     let one_year_ms = days_to_ms(365);
     let slots_per_year = one_year_ms / CONSTRAINT_CONSTANTS.block_window_duration_ms;
     let size_in_slots = slots_per_year / 12;
-    assert_eq!(size_in_slots % 12, 0);
+    assert_eq!(slots_per_year % 12, 0);
     size_in_slots as u32
 }
 

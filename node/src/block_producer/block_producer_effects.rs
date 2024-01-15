@@ -14,8 +14,8 @@ use super::{
     BlockProducerStagedLedgerDiffCreatePendingAction,
     BlockProducerStagedLedgerDiffCreateSuccessAction, BlockProducerWonSlot,
     BlockProducerWonSlotAction, BlockProducerWonSlotDiscardAction,
-    BlockProducerWonSlotProduceInitAction, BlockProducerWonSlotSearchAction,
-    BlockProducerWonSlotWaitAction,
+    BlockProducerWonSlotDiscardReason, BlockProducerWonSlotProduceInitAction,
+    BlockProducerWonSlotSearchAction, BlockProducerWonSlotWaitAction,
 };
 
 pub fn block_producer_effects<S: crate::Service>(
@@ -92,13 +92,20 @@ impl BlockProducerBestTipUpdateAction {
     pub fn effects<S: redux::Service>(self, _: &ActionMeta, store: &mut Store<S>) {
         let protocol_state = &self.best_tip.block.header.protocol_state.body;
 
-        let current_epoch = store
-            .state()
-            .block_producer
-            .with(None, |this| this.vrf_evaluator.current_epoch);
+        let vrf_evaluator_epoch = store.state().block_producer.with(None, |this| {
+            Some(&this.vrf_evaluator.current_epoch_data.ledger)
+        });
 
-        // on new run when no current_epoch is set
-        if current_epoch.is_none() {
+        if vrf_evaluator_epoch.cloned()
+            != Some(
+                protocol_state
+                    .consensus_state
+                    .staking_epoch_data
+                    .ledger
+                    .hash
+                    .to_string(),
+            )
+        {
             store.dispatch(BlockProducerVrfEvaluatorEpochDataUpdateAction {
                 new_epoch_number: protocol_state.consensus_state.epoch_count.as_u32(),
                 epoch_data: protocol_state.consensus_state.staking_epoch_data.clone(),
@@ -106,15 +113,10 @@ impl BlockProducerBestTipUpdateAction {
             });
         }
 
-        // on epoch change
-        if let Some(current_epoch) = current_epoch {
-            if current_epoch != protocol_state.consensus_state.epoch_count.as_u32() {
-                store.dispatch(BlockProducerVrfEvaluatorEpochDataUpdateAction {
-                    new_epoch_number: protocol_state.consensus_state.epoch_count.as_u32(),
-                    epoch_data: protocol_state.consensus_state.staking_epoch_data.clone(),
-                    next_epoch_data: protocol_state.consensus_state.next_epoch_data.clone(),
-                });
-            }
+        if let Some(reason) = store.state().block_producer.with(None, |bp| {
+            bp.current.won_slot_should_discard(&self.best_tip)
+        }) {
+            store.dispatch(BlockProducerWonSlotDiscardAction { reason });
         }
     }
 }
