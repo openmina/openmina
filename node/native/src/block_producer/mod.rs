@@ -1,7 +1,7 @@
 mod vrf_evaluator;
 
 use mina_signer::Keypair;
-use node::{core::channels::mpsc, block_producer::vrf_evaluator::VrfEvaluatorInput};
+use node::{block_producer::vrf_evaluator::VrfEvaluatorInput, core::channels::mpsc};
 
 use crate::NodeService;
 
