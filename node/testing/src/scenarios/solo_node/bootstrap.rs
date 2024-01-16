@@ -1,8 +1,7 @@
 use std::time::Duration;
 
 use node::{
-    event_source::Event,
-    p2p::{connection::outgoing::P2pConnectionOutgoingInitOpts, P2pEvent},
+    p2p::connection::outgoing::P2pConnectionOutgoingInitOpts,
     transition_frontier::sync::TransitionFrontierSyncState,
 };
 use tokio::time::Instant;
