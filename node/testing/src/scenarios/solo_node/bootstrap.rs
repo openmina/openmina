@@ -1,8 +1,7 @@
 use std::time::Duration;
 
 use node::{
-    event_source::Event,
-    p2p::{connection::outgoing::P2pConnectionOutgoingInitOpts, P2pEvent},
+    p2p::connection::outgoing::P2pConnectionOutgoingInitOpts,
     transition_frontier::sync::TransitionFrontierSyncState,
 };
 use tokio::time::Instant;
@@ -42,18 +41,9 @@ impl SoloNodeBootstrap {
             let steps = runner
                 .pending_events()
                 .map(|(node_id, _, events)| {
-                    events.map(move |(_, event)| {
-                        match event {
-                            Event::P2p(P2pEvent::MioEvent(event)) => {
-                                // eprintln!("event: {event}");
-                                let _ = event;
-                            }
-                            _ => {}
-                        }
-                        ScenarioStep::Event {
-                            node_id,
-                            event: event.to_string(),
-                        }
+                    events.map(move |(_, event)| ScenarioStep::Event {
+                        node_id,
+                        event: event.to_string(),
                     })
                 })
                 .flatten()
