@@ -33,13 +33,13 @@ pub enum IsStart<T> {
     Compute(T),
 }
 
-pub enum PerformResult<Z: ZkappApplication> {
+enum PerformResult<Z: ZkappApplication> {
     None,
     Bool(Z::Bool),
     Account(Z::Account),
 }
 
-pub struct GetNextAccountUpdateResult<Z: ZkappApplication> {
+struct GetNextAccountUpdateResult<Z: ZkappApplication> {
     pub account_update: Z::AccountUpdate,
     pub caller_id: TokenId,
     pub account_update_forest: Z::CallForest,
@@ -333,15 +333,24 @@ pub type StartData<Z> = StartDataSkeleton<
     <Z as ZkappApplication>::Bool,       // will_succeed
 >;
 
-pub fn apply<Z>(
-    is_start: IsStart<StartData<Z>>,
-    (global_state, local_state): (&mut Z::GlobalState, &mut LocalState<Z>),
-    single_data: Z::SingleData,
-    w: &mut Z::WitnessGenerator,
-) -> Result<(), String>
+pub struct ApplyZkappParams<'a, Z: ZkappApplication> {
+    pub is_start: IsStart<StartData<Z>>,
+    pub global_state: &'a mut Z::GlobalState,
+    pub local_state: &'a mut LocalState<Z>,
+    pub single_data: Z::SingleData,
+}
+
+pub fn apply<Z>(params: ApplyZkappParams<'_, Z>, w: &mut Z::WitnessGenerator) -> Result<(), String>
 where
     Z: ZkappApplication,
 {
+    let ApplyZkappParams {
+        is_start,
+        global_state,
+        local_state,
+        single_data,
+    } = params;
+
     let is_start2 = {
         let is_empty_call_forest = local_state.stack_frame.calls().is_empty(w);
         match is_start {

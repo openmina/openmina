@@ -159,7 +159,7 @@ impl<F: FieldWitness> IntoGeneric<F> for Fq {
 }
 
 pub mod field {
-    use crate::{proofs::transaction::field_to_bits2, zkapps::intefaces::WitnessGenerator};
+    use crate::proofs::transaction::field_to_bits2;
 
     use super::*;
 
@@ -233,7 +233,7 @@ pub mod field {
         x + y
     }
 
-    pub fn equal<F: FieldWitness>(x: F, y: F, w: &mut impl WitnessGenerator<F>) -> Boolean {
+    pub fn equal<F: FieldWitness>(x: F, y: F, w: &mut Witness<F>) -> Boolean {
         let z = x - y;
 
         let (boolean, r, inv) = if x == y {

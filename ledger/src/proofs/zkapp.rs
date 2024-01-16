@@ -36,7 +36,7 @@ use crate::{
         verifier_index::make_zkapp_verifier_index,
         wrap::{self, WrapParams, WrapProofState, WrapStatement},
         zkapp::group::{State, ZkappCommandIntermediateState},
-        zkapp_logic,
+        zkapp_logic::{self, ApplyZkappParams},
     },
     scan_state::{
         currency::{Amount, Index, Signed, Slot},
@@ -1112,7 +1112,7 @@ fn zkapp_main(
             Skip,
         }
 
-        let mut finish = |v: StartOrSkip<&StartData>, states| {
+        let mut finish = |v: StartOrSkip<&StartData>, (global_state, local_state)| {
             let ps = match v {
                 StartOrSkip::Skip => CallForest::empty(),
                 StartOrSkip::Start(p) => p.account_updates.all_account_updates(),
@@ -1143,13 +1143,21 @@ fn zkapp_main(
                     IsStart::ComputeInCircuit => zkapp_logic::IsStart::Compute(start_data),
                 };
 
-                let data = ZkappSingleData {
+                let single_data = ZkappSingleData {
                     spec: account_update_spec.clone(),
                     zkapp_input: Rc::clone(&zkapp_input),
                     must_verify: Rc::clone(&must_verify),
                 };
 
-                zkapp_logic::apply::<ZkappSnark>(is_start, states, data, w)
+                zkapp_logic::apply::<ZkappSnark>(
+                    ApplyZkappParams {
+                        is_start,
+                        global_state,
+                        local_state,
+                        single_data,
+                    },
+                    w,
+                )
             }
         };
 
@@ -1157,13 +1165,21 @@ fn zkapp_main(
             IsStart::No => {
                 let is_start = zkapp_logic::IsStart::No;
 
-                let data = ZkappSingleData {
+                let single_data = ZkappSingleData {
                     spec: account_update_spec.clone(),
                     zkapp_input: Rc::clone(&zkapp_input),
                     must_verify: Rc::clone(&must_verify),
                 };
 
-                zkapp_logic::apply::<ZkappSnark>(is_start, (&mut global, &mut local), data, w)
+                zkapp_logic::apply::<ZkappSnark>(
+                    ApplyZkappParams {
+                        is_start,
+                        global_state: &mut global,
+                        local_state: &mut local,
+                        single_data,
+                    },
+                    w,
+                )
             }
             IsStart::ComputeInCircuit => {
                 let v = match start_zkapp_command {
