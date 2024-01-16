@@ -232,19 +232,21 @@ impl P2pNetworkSchedulerAction {
                     .service()
                     .send_mio_cmd(MioCmd::ListenOn(SocketAddr::new(a.ip, port)));
 
-                // TODO: connect all initial peers
-                let addr = match &store.state().config.initial_peers[0] {
-                    P2pConnectionOutgoingInitOpts::LibP2P(v) => match &v.host {
-                        Host::Ipv4(ip) => SocketAddr::new((*ip).into(), v.port),
-                        _ => panic!(),
-                    },
-                    _ => panic!(),
-                };
-                let _ = addr;
-                let addr = SocketAddr::from(([127, 0, 0, 1], 8303));
+                // TODO: implement it properly, add more actions
+                let initial_peers = store.state().config.initial_peers.clone();
+                for peer in &initial_peers {
+                    let addr = match peer {
+                        P2pConnectionOutgoingInitOpts::LibP2P(v) => match &v.host {
+                            Host::Ipv4(ip) => SocketAddr::new((*ip).into(), v.port),
+                            Host::Ipv6(ip) => SocketAddr::new((*ip).into(), v.port),
+                            _ => continue,
+                        },
+                        _ => continue,
+                    };
 
-                if addr.is_ipv4() == a.ip.is_ipv4() {
-                    store.service().send_mio_cmd(MioCmd::Connect(addr));
+                    if addr.is_ipv4() == a.ip.is_ipv4() {
+                        store.service().send_mio_cmd(MioCmd::Connect(addr));
+                    }
                 }
             }
             Self::InterfaceExpired(_) => {}

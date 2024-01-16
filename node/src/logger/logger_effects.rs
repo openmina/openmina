@@ -693,6 +693,22 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                             peer_id = action.peer_id.to_string(),
                         )
                     }
+                    P2pNetworkNoiseAction::IncomingChunk(action) => {
+                        openmina_core::log::debug!(
+                            meta.time();
+                            kind = kind.to_string(),
+                            addr = action.addr.to_string(),
+                            data = format!("{:?}", action.data),
+                        )
+                    }
+                    P2pNetworkNoiseAction::OutgoingChunk(action) => {
+                        openmina_core::log::debug!(
+                            meta.time();
+                            kind = kind.to_string(),
+                            addr = action.addr.to_string(),
+                            data = format!("{:?}", action.data),
+                        )
+                    }
                     _ => {}
                 },
                 P2pNetworkAction::Yamux(action) => match action {
