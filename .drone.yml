@@ -72,7 +72,7 @@ steps:
 
   # o sole mio :)
   - name: solo-mio-bootstrap
-    image: ubuntu:20.04
+    image: vladsimplestakingcom/mina-debugger:2.0.0rampup4-focal
     failure: ignore
     commands:
       - cp target/release/openmina-node-testing-mio /usr/bin/openmina-node-testing-mio
