@@ -7,8 +7,8 @@ use crate::proofs::field::{Boolean, FieldWitness};
 use crate::proofs::to_field_elements::ToFieldElements;
 use crate::proofs::transaction::Check;
 
-use crate::proofs::zkapp_logic;
 use crate::scan_state::currency::{self, SlotSpan};
+use crate::zkapps::zkapp_logic;
 
 use crate::scan_state::transaction_logic::zkapp_command::{
     self, CheckAuthorizationResult, SetOrKeep,

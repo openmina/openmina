@@ -21,7 +21,6 @@ use crate::{
         },
         witness::Witness,
         zkapp::{GlobalStateForProof, LedgerWithHash, WithStackHash, ZkappSingleData},
-        zkapp_logic,
     },
     scan_state::{
         currency::{Amount, SlotSpan},
@@ -37,6 +36,7 @@ use crate::{
         },
     },
     sparse_ledger::SparseLedger,
+    zkapps::zkapp_logic,
     Account, AccountId, AuthRequired, AuthRequiredEncoded, Inputs, MyCow, ReceiptChainHash,
     ToInputs, TokenId, VerificationKey, ZkAppAccount,
 };

@@ -22,7 +22,7 @@ use crate::{
 };
 use ark_ff::{One, Zero};
 
-use super::{
+use crate::proofs::{
     field::{Boolean, ToBoolean},
     zkapp::{StartDataSkeleton, ZkappSingleData},
 };
@@ -40,11 +40,11 @@ enum PerformResult<Z: ZkappApplication> {
 }
 
 struct GetNextAccountUpdateResult<Z: ZkappApplication> {
-    pub account_update: Z::AccountUpdate,
-    pub caller_id: TokenId,
-    pub account_update_forest: Z::CallForest,
-    pub new_call_stack: Z::CallStack,
-    pub new_frame: Z::StackFrame,
+    account_update: Z::AccountUpdate,
+    caller_id: TokenId,
+    account_update_forest: Z::CallForest,
+    new_call_stack: Z::CallStack,
+    new_frame: Z::StackFrame,
 }
 
 fn assert_<Z: ZkappApplication>(_b: Z::Bool) -> Result<(), String> {

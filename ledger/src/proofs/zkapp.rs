@@ -36,7 +36,6 @@ use crate::{
         verifier_index::make_zkapp_verifier_index,
         wrap::{self, WrapParams, WrapProofState, WrapStatement},
         zkapp::group::{State, ZkappCommandIntermediateState},
-        zkapp_logic::{self, ApplyZkappParams},
     },
     scan_state::{
         currency::{Amount, Index, Signed, Slot},
@@ -63,6 +62,7 @@ use crate::{
     zkapps::{
         intefaces::ZkappApplication,
         snark::{zkapp_check::InSnarkCheck, AccountUnhashed, ZkappSnark},
+        zkapp_logic::{self, ApplyZkappParams},
     },
     AccountId, ControlTag, MyCow, ToInputs, TokenId, ZkAppAccount,
 };
