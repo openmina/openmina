@@ -2,7 +2,6 @@ mod config;
 use std::time::Duration;
 
 pub use config::*;
-use ledger::proofs::witness::transaction_snark::CONSTRAINT_CONSTANTS;
 use node::{
     p2p::connection::outgoing::P2pConnectionOutgoingInitOpts, ActionKind, BlockProducerConfig,
     State,
@@ -195,28 +194,33 @@ impl Simulator {
         self.set_up_normal_nodes(&mut runner).await;
         self.set_up_block_producer_nodes(&mut runner).await;
 
-        let three_block_times =
-            Duration::from_millis(CONSTRAINT_CONSTANTS.block_window_duration_ms * 3);
         let run_until = self.config.run_until.clone();
         let mut timeout = self.config.run_until_timeout;
         let mut rng = rand::rngs::StdRng::seed_from_u64(1);
 
         while !timeout.is_zero() {
             let t = redux::Instant::now();
+            tokio::task::yield_now().await;
             let _ = runner
                 .run(
-                    Duration::from_millis(50),
+                    Duration::ZERO,
                     |_, _, _| RunDecision::ContinueExec,
                     |_, _, _, _| false,
                 )
                 .await;
 
-            for (_, node) in runner.nodes_iter() {
+            for (node_id, node) in runner.nodes_iter() {
                 let Some(best_tip) = node.state().transition_frontier.best_tip() else {
                     continue;
                 };
                 let consensus_state = &best_tip.header().protocol_state.body.consensus_state;
 
+                eprintln!(
+                    "[node_status] node_{node_id} {} - {} [{}]",
+                    best_tip.height(),
+                    best_tip.hash(),
+                    best_tip.producer()
+                );
                 match &run_until {
                     SimulatorRunUntil::Epoch(epoch) => {
                         let cur_epoch = consensus_state.epoch_count.as_u32();
@@ -228,15 +232,16 @@ impl Simulator {
             }
 
             // advance global time randomly.
-            let elapsed = t.elapsed().as_nanos() as u64;
-            let max_advance_time = (elapsed * 20).min(three_block_times.as_nanos() as u64);
-            let by_nanos = rng.gen_range(elapsed..max_advance_time);
+            let advance_time = Duration::from_millis(rng.gen_range(1..300));
+            let elapsed = t.elapsed();
+            let by_nanos = advance_time.as_nanos() as u64;
+            eprintln!("[TIME] elapsed {elapsed:?}; advance_by: {advance_time:?}");
             runner
                 .exec_step(ScenarioStep::AdvanceTime { by_nanos })
                 .await
                 .unwrap();
 
-            timeout -= t.elapsed();
+            timeout = timeout.saturating_sub(elapsed);
         }
 
         panic!("simulation timed out");
