@@ -30,7 +30,6 @@ impl RustNodeAsSeed {
         let ocaml_node_config = OcamlNodeTestingConfig {
             initial_peers: vec![rust_node_dial_addr],
             daemon_json: DaemonJson::Custom("/var/lib/coda/berkeley.json".to_owned()),
-            daemon_json_update_timestamp: false,
         };
 
         let ocaml_node0 = runner.add_ocaml_node(ocaml_node_config.clone());
@@ -127,7 +126,6 @@ impl OCamlToRust {
         let ocaml_node_config = OcamlNodeTestingConfig {
             initial_peers: vec![rust_node_dial_addr],
             daemon_json: DaemonJson::Custom("/var/lib/coda/berkeley.json".to_owned()),
-            daemon_json_update_timestamp: false,
         };
 
         let ocaml_node = runner.add_ocaml_node(ocaml_node_config.clone());
@@ -187,7 +185,6 @@ impl RustToOCaml {
         let ocaml_seed_config = OcamlNodeTestingConfig {
             initial_peers: Vec::new(),
             daemon_json: DaemonJson::Custom("/var/lib/coda/berkeley.json".to_owned()),
-            daemon_json_update_timestamp: false,
         };
 
         let seed_node = runner.add_ocaml_node(ocaml_seed_config);
@@ -264,7 +261,6 @@ impl OCamlToRustViaSeed {
         let ocaml_seed_config = OcamlNodeTestingConfig {
             initial_peers: Vec::new(),
             daemon_json: DaemonJson::Custom("/var/lib/coda/berkeley.json".to_owned()),
-            daemon_json_update_timestamp: false,
         };
 
         let seed_node = runner.add_ocaml_node(ocaml_seed_config.clone());
@@ -370,7 +366,6 @@ impl RustToOCamlViaSeed {
         let ocaml_seed_config = OcamlNodeTestingConfig {
             initial_peers: Vec::new(),
             daemon_json: DaemonJson::Custom("/var/lib/coda/berkeley.json".to_owned()),
-            daemon_json_update_timestamp: false,
         };
 
         let seed_node = runner.add_ocaml_node(ocaml_seed_config.clone());
