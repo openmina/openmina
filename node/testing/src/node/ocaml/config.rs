@@ -9,7 +9,6 @@ use serde::{Deserialize, Serialize};
 pub struct OcamlNodeTestingConfig {
     pub initial_peers: Vec<P2pConnectionOutgoingInitOpts>,
     pub daemon_json: DaemonJson,
-    pub daemon_json_update_timestamp: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -30,12 +29,12 @@ pub struct OcamlNodeConfig {
     /// Command for mina executable.
     pub executable: OcamlNodeExecutable,
     pub dir: temp_dir::TempDir,
+    pub libp2p_keypair_i: usize,
     pub libp2p_port: u16,
     pub graphql_port: u16,
     pub client_port: u16,
     pub initial_peers: Vec<P2pConnectionOutgoingInitOpts>,
     pub daemon_json: DaemonJson,
-    pub daemon_json_update_timestamp: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
