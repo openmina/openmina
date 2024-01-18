@@ -2,10 +2,7 @@ use std::time::Duration;
 
 use node::{
     event_source::Event,
-    p2p::{
-        connection::outgoing::P2pConnectionOutgoingInitOpts, P2pConnectionEvent, P2pEvent,
-        P2pPeerState, P2pPeerStatus, P2pState, PeerId,
-    },
+    p2p::{P2pConnectionEvent, P2pEvent, P2pPeerState, P2pPeerStatus, P2pState, PeerId},
 };
 
 use crate::{
@@ -109,26 +106,13 @@ impl AllNodesConnectionsAreSymmetric {
 
         let mut driver = Driver::new(runner);
 
-        let (_, (_, seed_addr)) =
-            driver.add_rust_node_with(RustNodeTestingConfig::berkeley_default(), |state| {
-                let config = &state.p2p.config;
-                let port = config.libp2p_port.unwrap();
-                let peer_id = config.identity_pub_key.peer_id();
-                let addr = format!(
-                    "/ip4/127.0.0.1/tcp/{port}/p2p/{}",
-                    peer_id.clone().to_libp2p_string()
-                )
-                .parse::<P2pConnectionOutgoingInitOpts>()
-                .unwrap();
-                (peer_id, addr)
-            });
+        let (seed_id, _) = driver.add_rust_node(RustNodeTestingConfig::berkeley_default());
 
         let peers: Vec<_> = (0..MAX)
             .into_iter()
             .map(|_| {
                 driver.add_rust_node(
-                    RustNodeTestingConfig::berkeley_default()
-                        .initial_peers(vec![seed_addr.clone()]),
+                    RustNodeTestingConfig::berkeley_default().initial_peers(vec![seed_id.into()]),
                 )
             })
             .collect();
@@ -182,26 +166,14 @@ impl SeedConnectionsAreSymmetric {
 
         let mut driver = Driver::new(runner);
 
-        let (node_ut, (node_ut_peer_id, seed_addr)) =
-            driver.add_rust_node_with(RustNodeTestingConfig::berkeley_default(), |state| {
-                let config = &state.p2p.config;
-                let port = config.libp2p_port.unwrap();
-                let peer_id = config.identity_pub_key.peer_id();
-                let addr = format!(
-                    "/ip4/127.0.0.1/tcp/{port}/p2p/{}",
-                    peer_id.clone().to_libp2p_string()
-                )
-                .parse::<P2pConnectionOutgoingInitOpts>()
-                .unwrap();
-                (peer_id, addr)
-            });
+        let (node_ut, node_ut_peer_id) =
+            driver.add_rust_node(RustNodeTestingConfig::berkeley_default());
 
         let peers: Vec<_> = (0..MAX)
             .into_iter()
             .map(|_| {
                 driver.add_rust_node(
-                    RustNodeTestingConfig::berkeley_default()
-                        .initial_peers(vec![seed_addr.clone()]),
+                    RustNodeTestingConfig::berkeley_default().initial_peers(vec![node_ut.into()]),
                 )
             })
             .collect();

@@ -8,7 +8,7 @@ use node::{
 
 use crate::{
     node::{DaemonJson, OcamlNodeTestingConfig, RustNodeTestingConfig},
-    scenario::ScenarioStep,
+    scenario::{ListenerNode, ScenarioStep},
     scenarios::cluster_runner::ClusterRunner,
 };
 
@@ -38,6 +38,7 @@ impl SoloNodeBasicConnectivityAcceptIncoming {
             .into_iter()
             .map(|s| s.parse::<Multiaddr>().unwrap())
             .map(|maddr| P2pConnectionOutgoingInitOpts::try_from(&maddr).unwrap())
+            .map(ListenerNode::from)
             .collect::<Vec<_>>();
         eprintln!("set max peers per node: {MAX_PEERS_PER_NODE}");
         for seed in seeds {

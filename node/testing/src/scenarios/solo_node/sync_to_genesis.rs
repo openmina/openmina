@@ -49,7 +49,6 @@ impl SoloNodeSyncToGenesis {
             max_peers: 100,
             ask_initial_peers_interval: Duration::from_secs(60 * 60),
             initial_peers: Vec::new(),
-            libp2p_port: None,
             peer_id: Default::default(),
             block_producer: None,
         });
