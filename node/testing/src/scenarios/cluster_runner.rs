@@ -14,8 +14,8 @@ use crate::{
     cluster::{Cluster, ClusterNodeId, ClusterOcamlNodeId},
     network_debugger::Debugger,
     node::{
-        DaemonJson, DaemonJsonGenConfig, Node, OcamlNode, OcamlNodeTestingConfig,
-        RustNodeTestingConfig,
+        DaemonJson, DaemonJsonGenConfig, Node, NodeTestingConfig, OcamlNode,
+        OcamlNodeTestingConfig, RustNodeTestingConfig,
     },
     scenario::ScenarioStep,
     service::{DynEffects, NodeTestingService, PendingEventId},
@@ -67,6 +67,10 @@ impl<'a> ClusterRunner<'a> {
         self.cluster.nodes_iter()
     }
 
+    pub fn ocaml_nodes_iter(&self) -> impl Iterator<Item = (ClusterOcamlNodeId, &OcamlNode)> {
+        self.cluster.ocaml_nodes_iter()
+    }
+
     pub fn daemon_json_gen(
         &mut self,
         genesis_timestamp: &str,
@@ -98,11 +102,33 @@ impl<'a> ClusterRunner<'a> {
     }
 
     pub fn add_rust_node(&mut self, testing_config: RustNodeTestingConfig) -> ClusterNodeId {
-        self.cluster.add_rust_node(testing_config)
+        let step = ScenarioStep::AddNode {
+            config: testing_config.into(),
+        };
+        (self.add_step)(&step);
+        let ScenarioStep::AddNode {
+            config: NodeTestingConfig::Rust(config),
+        } = step
+        else {
+            unreachable!()
+        };
+
+        self.cluster.add_rust_node(config)
     }
 
     pub fn add_ocaml_node(&mut self, testing_config: OcamlNodeTestingConfig) -> ClusterOcamlNodeId {
-        self.cluster.add_ocaml_node(testing_config)
+        let step = ScenarioStep::AddNode {
+            config: testing_config.into(),
+        };
+        (self.add_step)(&step);
+        let ScenarioStep::AddNode {
+            config: NodeTestingConfig::Ocaml(config),
+        } = step
+        else {
+            unreachable!()
+        };
+
+        self.cluster.add_ocaml_node(config)
     }
 
     pub async fn exec_step(&mut self, step: ScenarioStep) -> anyhow::Result<bool> {

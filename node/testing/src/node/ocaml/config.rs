@@ -211,6 +211,7 @@ impl DaemonJson {
             let sec_key = AccountSecretKey::rand();
             let pub_key = sec_key.public_key();
             let account = serde_json::json!({
+                "sk": sec_key.to_string(),
                 "pk": pub_key.to_string(),
                 "balance": format!("{balance}.000000000"),
                 "delegate": pub_key.to_string(),

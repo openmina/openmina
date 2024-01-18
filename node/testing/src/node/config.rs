@@ -5,7 +5,7 @@ pub use super::ocaml::{
 };
 pub use super::rust::{RustNodeBlockProducerTestingConfig, RustNodeTestingConfig, TestPeerId};
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, derive_more::From, Debug, Clone)]
 #[serde(tag = "kind")]
 pub enum NodeTestingConfig {
     Rust(RustNodeTestingConfig),
