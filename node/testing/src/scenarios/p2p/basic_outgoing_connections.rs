@@ -3,11 +3,15 @@ use std::{
     time::Duration,
 };
 
-use node::p2p::{identity::SecretKey, P2pPeerState, P2pPeerStatus, PeerId};
+use node::p2p::{
+    connection::outgoing::P2pConnectionOutgoingInitLibp2pOpts, identity::SecretKey, P2pPeerState,
+    P2pPeerStatus, PeerId,
+};
 
 use crate::{
     cluster::ClusterNodeId,
     node::RustNodeTestingConfig,
+    scenario::ListenerNode,
     scenarios::{
         add_rust_nodes, add_rust_nodes_with, as_connection_finalized_event,
         connection_finalized_event, connection_finalized_with_res_event,
@@ -138,16 +142,11 @@ impl DontConnectToNodeWithSameId {
     pub async fn run<'cluster>(self, runner: ClusterRunner<'cluster>) {
         let mut driver = Driver::new(runner);
 
-        let port = 11108;
-        let node_ut_port = 11109;
         let bytes: [u8; 32] = rand::random();
 
         // start a node with the same peer_id on different port
-        let (node, _) = driver.add_rust_node(
-            RustNodeTestingConfig::berkeley_default()
-                .libp2p_port(port)
-                .with_peer_id(bytes),
-        );
+        let (node, _) =
+            driver.add_rust_node(RustNodeTestingConfig::berkeley_default().with_peer_id(bytes));
         // wait for it to be ready
         assert!(
             wait_for_nodes_listening_on_localhost(&mut driver, Duration::from_secs(30), [node])
@@ -157,11 +156,8 @@ impl DontConnectToNodeWithSameId {
         );
 
         // start node under test with the other node as its initial peer
-        let (node_ut, _) = driver.add_rust_node(
-            RustNodeTestingConfig::berkeley_default()
-                .libp2p_port(node_ut_port)
-                .with_peer_id(bytes),
-        );
+        let (node_ut, _) =
+            driver.add_rust_node(RustNodeTestingConfig::berkeley_default().with_peer_id(bytes));
 
         driver
             .exec_step(crate::scenario::ScenarioStep::ConnectNodes {
@@ -194,20 +190,9 @@ impl DontConnectToSelfInitialPeer {
     pub async fn run<'cluster>(self, runner: ClusterRunner<'cluster>) {
         let mut driver = Driver::new(runner);
 
-        let port = 11109;
-        let bytes: [u8; 32] = rand::random();
-        let peer_id = SecretKey::from_bytes(bytes.clone())
-            .public_key()
-            .peer_id()
-            .to_libp2p_string();
-        let self_maddr = format!("/ip4/127.0.0.1/tcp/{port}/p2p/{peer_id}")
-            .parse()
-            .unwrap();
+        let node_ut = ClusterNodeId::new_unchecked(0);
         let (node_ut, _) = driver.add_rust_node(
-            RustNodeTestingConfig::berkeley_default()
-                .libp2p_port(port)
-                .with_peer_id(bytes)
-                .initial_peers(vec![self_maddr]),
+            RustNodeTestingConfig::berkeley_default().initial_peers(vec![node_ut.into()]),
         );
         assert!(
             wait_for_nodes_listening_on_localhost(&mut driver, Duration::from_secs(30), [node_ut])
@@ -239,24 +224,11 @@ impl DontConnectToInitialPeerWithSameId {
     pub async fn run<'cluster>(self, runner: ClusterRunner<'cluster>) {
         let mut driver = Driver::new(runner);
 
-        let port = 11108;
-        let node_ut_port = 11109;
         let bytes: [u8; 32] = rand::random();
-        let peer_id = SecretKey::from_bytes(bytes.clone())
-            .public_key()
-            .peer_id()
-            .to_libp2p_string();
-
-        let self_maddr = format!("/ip4/127.0.0.1/tcp/{port}/p2p/{peer_id}")
-            .parse()
-            .unwrap();
 
         // start a node with the same peer_id on different port
-        let (node, _) = driver.add_rust_node(
-            RustNodeTestingConfig::berkeley_default()
-                .libp2p_port(port)
-                .with_peer_id(bytes),
-        );
+        let (node, _) =
+            driver.add_rust_node(RustNodeTestingConfig::berkeley_default().with_peer_id(bytes));
         // wait for it to be ready
         assert!(
             wait_for_nodes_listening_on_localhost(&mut driver, Duration::from_secs(30), [node])
@@ -268,9 +240,8 @@ impl DontConnectToInitialPeerWithSameId {
         // start node under test with the other node as its initial peer
         let (node_ut, _) = driver.add_rust_node(
             RustNodeTestingConfig::berkeley_default()
-                .libp2p_port(node_ut_port)
                 .with_peer_id(bytes)
-                .initial_peers(vec![self_maddr]),
+                .initial_peers(vec![node.into()]),
         );
 
         let connected = driver
@@ -298,15 +269,14 @@ impl ConnectToInitialPeers {
 
         let mut driver = Driver::new(runner);
 
-        let (peers, port_peer_ids): (Vec<ClusterNodeId>, Vec<_>) = add_rust_nodes_with(
+        let (peers, peer_ids): (Vec<ClusterNodeId>, Vec<_>) = add_rust_nodes_with(
             &mut driver,
             MAX,
             RustNodeTestingConfig::berkeley_default(),
             |state| {
                 let config = &state.p2p.config;
-                let port = config.libp2p_port.unwrap();
                 let peer_id = config.identity_pub_key.peer_id();
-                (port, peer_id)
+                peer_id
             },
         );
 
@@ -320,23 +290,12 @@ impl ConnectToInitialPeers {
         .unwrap();
         assert!(satisfied, "all peers should be listening");
 
-        let initial_peers = port_peer_ids
-            .iter()
-            .map(|(port, peer_id)| {
-                format!(
-                    "/ip4/127.0.0.1/tcp/{port}/p2p/{peer_id}",
-                    peer_id = peer_id.clone().to_libp2p_string()
-                )
-                .parse()
-                .unwrap()
-            })
-            .collect::<Vec<_>>();
+        let initial_peers = peers.iter().map(|id| (*id).into()).collect();
         let (node_ut, _) = driver
             .add_rust_node(RustNodeTestingConfig::berkeley_default().initial_peers(initial_peers));
 
         // matches event "the node established connection with peer"
-        let mut peer_ids =
-            BTreeSet::from_iter(port_peer_ids.into_iter().map(|(_, peer_id)| peer_id));
+        let mut peer_ids = peer_ids.into_iter().collect::<BTreeSet<_>>();
         let pred = |node_id, event: &_, _state: &_| {
             if node_id != node_ut {
                 false
@@ -363,26 +322,12 @@ pub struct ConnectToInitialPeersBecomeReady;
 
 impl ConnectToInitialPeersBecomeReady {
     pub async fn run<'cluster>(self, runner: ClusterRunner<'cluster>) {
-        const MAX: u16 = 32;
+        const MAX: usize = 32;
 
         let mut driver = Driver::new(runner);
 
-        let port_bytes: Vec<_> = (0..MAX)
-            .into_iter()
-            .map(|p| (12000 + p, rand::random::<[u8; 32]>()))
-            .collect();
-
-        let initial_peers = port_bytes
-            .iter()
-            .map(|(port, bytes)| {
-                let secret_key = SecretKey::from_bytes(bytes.clone());
-                format!(
-                    "/ip4/127.0.0.1/tcp/{port}/p2p/{peer_id}",
-                    peer_id = secret_key.public_key().peer_id().to_libp2p_string()
-                )
-                .parse()
-                .unwrap()
-            })
+        let initial_peers = (0..MAX)
+            .map(|i| ClusterNodeId::new_unchecked(i).into())
             .collect::<Vec<_>>();
         let (node_ut, _) = driver
             .add_rust_node(RustNodeTestingConfig::berkeley_default().initial_peers(initial_peers));
@@ -392,15 +337,8 @@ impl ConnectToInitialPeersBecomeReady {
             .await
             .unwrap();
 
-        let (_peers, mut peer_ids): (Vec<ClusterNodeId>, BTreeSet<PeerId>) = port_bytes
-            .into_iter()
-            .map(|(port, bytes)| {
-                driver.add_rust_node(
-                    RustNodeTestingConfig::berkeley_default()
-                        .libp2p_port(port)
-                        .with_peer_id(bytes),
-                )
-            })
+        let (_peers, mut peer_ids): (Vec<ClusterNodeId>, BTreeSet<PeerId>) = (0..MAX)
+            .map(|_| driver.add_rust_node(RustNodeTestingConfig::berkeley_default()))
             .unzip();
 
         // matches event "the node established connection with peer"
@@ -439,14 +377,15 @@ impl ConnectToUnavailableInitialPeers {
         let (initial_peers, peer_ids): (Vec<_>, Vec<_>) = (0..MAX)
             .into_iter()
             .map(|i| {
-                let port: u16 = 11200 + i;
                 let peer_id = SecretKey::rand().public_key().peer_id();
-                let addr = format!(
-                    "/ip4/127.0.0.1/tcp/{port}/p2p/{peer_id}",
-                    peer_id = peer_id.clone().to_libp2p_string()
-                )
-                .parse()
-                .unwrap();
+                let addr = ListenerNode::Custom(
+                    P2pConnectionOutgoingInitLibp2pOpts {
+                        peer_id,
+                        host: [127, 0, 0, 1].into(),
+                        port: 11200 + i,
+                    }
+                    .into(),
+                );
                 (addr, peer_id)
             })
             .unzip();

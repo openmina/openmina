@@ -67,13 +67,11 @@ impl MultiNodeBasicConnectivityPeerDiscovery {
         let config = RustNodeTestingConfig::berkeley_default()
             .ask_initial_peers_interval(Duration::from_secs(3600))
             .max_peers(100)
-            .libp2p_port(10000)
             .initial_peers(
                 nodes
                     .iter()
                     .chain(std::iter::once(&seed_a))
-                    .filter_map(|node_id| runner.ocaml_node(*node_id))
-                    .map(|node| node.dial_addr())
+                    .map(|node_id| (*node_id).into())
                     .collect(),
             );
         let node_id = runner.add_rust_node(config);

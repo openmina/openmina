@@ -153,22 +153,31 @@ impl Cluster {
                 )
             })
             .unwrap();
-        let libp2p_port = testing_config.libp2p_port.unwrap_or_else(|| {
-            self.available_ports
-                .next()
-                .ok_or_else(|| {
-                    anyhow::anyhow!(
-                        "couldn't find available port in port range: {:?}",
-                        self.config.port_range()
-                    )
-                })
-                .unwrap()
-        });
+        let libp2p_port = self
+            .available_ports
+            .next()
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "couldn't find available port in port range: {:?}",
+                    self.config.port_range()
+                )
+            })
+            .unwrap();
 
         let (block_producer_sec_key, block_producer_config) = testing_config
             .block_producer
             .map(|v| (v.sec_key, v.config))
             .unzip();
+
+        let initial_peers = testing_config
+            .initial_peers
+            .into_iter()
+            .map(|node| match node {
+                ListenerNode::Rust(id) => self.node(id).unwrap().dial_addr(),
+                ListenerNode::Ocaml(id) => self.ocaml_node(id).unwrap().dial_addr(),
+                ListenerNode::Custom(addr) => addr,
+            })
+            .collect();
 
         let config = Config {
             ledger: LedgerConfig {},
@@ -187,7 +196,7 @@ impl Cluster {
                 libp2p_port: Some(libp2p_port),
                 listen_port: http_port,
                 identity_pub_key: pub_key,
-                initial_peers: testing_config.initial_peers,
+                initial_peers,
                 max_peers: testing_config.max_peers,
                 ask_initial_peers_interval: testing_config.ask_initial_peers_interval,
                 enabled_channels: ChannelId::iter_all().collect(),
