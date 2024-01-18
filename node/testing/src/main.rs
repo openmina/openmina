@@ -1,6 +1,7 @@
 use clap::Parser;
 
-use openmina_node_testing::cluster::ClusterConfig;
+use openmina_node_testing::cluster::{Cluster, ClusterConfig};
+use openmina_node_testing::scenario::Scenario;
 use openmina_node_testing::scenarios::Scenarios;
 use openmina_node_testing::{exit_with_error, server, setup};
 
@@ -18,6 +19,7 @@ pub enum Command {
     Server(CommandServer),
 
     ScenariosGenerate(CommandScenariosGenerate),
+    ScenariosRun(CommandScenariosRun),
 }
 
 #[derive(Debug, clap::Args)]
@@ -32,6 +34,16 @@ pub struct CommandScenariosGenerate {
     pub name: Option<String>,
     #[arg(long, short)]
     pub use_debugger: bool,
+}
+
+/// Run scenario located at `res/scenarios`.
+#[derive(Debug, clap::Args)]
+pub struct CommandScenariosRun {
+    /// Name of the scenario.
+    ///
+    /// Must match filename in `res/scenarios` (without an extension).
+    #[arg(long, short)]
+    pub name: String,
 }
 
 impl Command {
@@ -100,6 +112,27 @@ impl Command {
                 Err("binary not compiled with `scenario-generators` feature"
                     .to_owned()
                     .into())
+            }
+            Self::ScenariosRun(cmd) => {
+                let config = ClusterConfig::new(None).map_err(|err| {
+                    anyhow::anyhow!("failed to create cluster configuration: {err}")
+                })?;
+
+                let id = cmd.name.parse()?;
+                let fut = async move {
+                    let mut cluster = Cluster::new(config);
+                    cluster.start(Scenario::load(&id).await?).await?;
+                    cluster.exec_to_end().await?;
+                    Ok(())
+                };
+                rt.block_on(async {
+                    tokio::select! {
+                        res = fut => res,
+                        _ = shutdown_rx => {
+                            anyhow::bail!("Received ctrl-c signal! shutting down...");
+                        }
+                    }
+                })
             }
         }
     }

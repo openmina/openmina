@@ -545,7 +545,7 @@ impl Cluster {
                     .nodes
                     .get_mut(node_id.index())
                     .ok_or_else(|| anyhow::anyhow!("node {node_id:?} not found"))?;
-                let timeout = tokio::time::sleep(Duration::from_secs(5));
+                let timeout = tokio::time::sleep(Duration::from_secs(60));
                 tokio::select! {
                     res = node.wait_for_event_and_dispatch(&event) => res,
                     _ = timeout => {
