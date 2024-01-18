@@ -1,7 +1,17 @@
+use std::str::FromStr;
+
 use serde::{Deserialize, Deserializer, Serialize};
 
 #[derive(Serialize, Debug, Eq, PartialEq, Clone)]
 pub struct ScenarioId(String);
+
+#[derive(thiserror::Error, Debug)]
+pub enum ScenarioIdParseError {
+    #[error("scenario id can't contain upper-case characters")]
+    ContainsUpperCaseCharacters,
+    #[error("scenario id must match pattern /[a-z0-9_-]*/")]
+    AcceptedPatternMismatch,
+}
 
 #[cfg(feature = "scenario-generators")]
 impl From<crate::scenarios::Scenarios> for ScenarioId {
@@ -16,26 +26,30 @@ impl std::fmt::Display for ScenarioId {
     }
 }
 
+impl FromStr for ScenarioId {
+    type Err = ScenarioIdParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        for c in s.chars() {
+            if ('A'..'Z').contains(&c) {
+                return Err(ScenarioIdParseError::ContainsUpperCaseCharacters);
+            }
+            if ('a'..'z').contains(&c) || ('0'..'9').contains(&c) || c == '-' || c == '_' {
+                continue;
+            }
+            return Err(ScenarioIdParseError::AcceptedPatternMismatch);
+        }
+        Ok(Self(s.to_owned()))
+    }
+}
+
 impl<'de> Deserialize<'de> for ScenarioId {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        let s: String = Deserialize::deserialize(deserializer)?;
-        for c in s.chars() {
-            if ('A'..'Z').contains(&c) {
-                return Err(serde::de::Error::custom(
-                    "scenario id can't contain upper-case characters",
-                ));
-            }
-            if ('a'..'z').contains(&c) || ('0'..'9').contains(&c) || c == '-' || c == '_' {
-                continue;
-            }
-            return Err(serde::de::Error::custom(
-                "scenario id must match pattern /[a-z0-9_-]*/",
-            ));
-        }
+        let s: &str = Deserialize::deserialize(deserializer)?;
 
-        Ok(ScenarioId(s))
+        Self::from_str(s).map_err(|err| serde::de::Error::custom(err))
     }
 }
