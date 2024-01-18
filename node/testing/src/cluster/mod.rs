@@ -64,6 +64,7 @@ pub struct Cluster {
     ocaml_nodes: Vec<Option<OcamlNode>>,
 
     rpc_counter: usize,
+    ocaml_libp2p_keypair_i: usize,
 
     verifier_srs: Arc<VerifierSRS>,
     block_verifier_index: Arc<VerifierIndex>,
@@ -102,6 +103,7 @@ impl Cluster {
             ocaml_nodes: Vec::new(),
 
             rpc_counter: 0,
+            ocaml_libp2p_keypair_i: 0,
 
             verifier_srs: VERIFIER_SRS.clone(),
             block_verifier_index: BLOCK_VERIFIER_INDEX.clone(),
@@ -322,14 +324,16 @@ impl Cluster {
         let node = OcamlNode::start(OcamlNodeConfig {
             executable: self.config.ocaml_node_executable().clone(),
             dir: temp_dir,
+            libp2p_keypair_i: self.ocaml_libp2p_keypair_i,
             libp2p_port: next_port().unwrap(),
             graphql_port: next_port().unwrap(),
             client_port: next_port().unwrap(),
             initial_peers: testing_config.initial_peers,
             daemon_json: testing_config.daemon_json,
-            daemon_json_update_timestamp: testing_config.daemon_json_update_timestamp,
         })
         .expect("failed to start ocaml node");
+
+        self.ocaml_libp2p_keypair_i += 1;
 
         self.ocaml_nodes.push(Some(node));
         ClusterOcamlNodeId::new_unchecked(node_i)
