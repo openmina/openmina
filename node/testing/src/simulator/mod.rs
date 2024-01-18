@@ -1,11 +1,9 @@
 mod config;
+pub use config::*;
+
 use std::time::Duration;
 
-pub use config::*;
-use node::{
-    p2p::connection::outgoing::P2pConnectionOutgoingInitOpts, ActionKind, BlockProducerConfig,
-    State,
-};
+use node::{ActionKind, BlockProducerConfig, State};
 use rand::{Rng, SeedableRng};
 
 use crate::{
@@ -48,7 +46,6 @@ impl Simulator {
             max_peers: 1000,
             ask_initial_peers_interval: Duration::from_secs(60),
             initial_peers: Vec::new(),
-            libp2p_port: None,
             peer_id: Default::default(),
             block_producer: None,
         }
@@ -127,12 +124,9 @@ impl Simulator {
         runner.nodes_iter().take(self.config.seed_nodes)
     }
 
-    fn seed_node_dial_addrs(
-        &self,
-        runner: &ClusterRunner<'_>,
-    ) -> Vec<P2pConnectionOutgoingInitOpts> {
+    fn seed_node_dial_addrs(&self, runner: &ClusterRunner<'_>) -> Vec<ListenerNode> {
         self.seed_nodes_iter(runner)
-            .map(|(_, node)| node.dial_addr())
+            .map(|(id, _)| id.into())
             .collect()
     }
 

@@ -45,7 +45,7 @@ pub enum ScenarioStep {
     },
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, derive_more::From, Debug, Clone)]
 pub enum ListenerNode {
     Rust(ClusterNodeId),
     Ocaml(ClusterOcamlNodeId),

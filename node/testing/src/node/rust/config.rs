@@ -1,10 +1,9 @@
 use std::time::Duration;
 
-use node::{
-    account::AccountSecretKey, p2p::connection::outgoing::P2pConnectionOutgoingInitOpts,
-    BlockProducerConfig,
-};
+use node::{account::AccountSecretKey, BlockProducerConfig};
 use serde::{Deserialize, Serialize};
+
+use crate::scenario::ListenerNode;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub enum TestPeerId {
@@ -24,8 +23,7 @@ pub struct RustNodeTestingConfig {
     pub initial_time: redux::Timestamp,
     pub max_peers: usize,
     pub ask_initial_peers_interval: Duration,
-    pub initial_peers: Vec<P2pConnectionOutgoingInitOpts>,
-    pub libp2p_port: Option<u16>,
+    pub initial_peers: Vec<ListenerNode>,
     pub peer_id: TestPeerId,
     pub block_producer: Option<RustNodeBlockProducerTestingConfig>,
 }
@@ -44,7 +42,6 @@ impl RustNodeTestingConfig {
             max_peers: 100,
             ask_initial_peers_interval: Duration::from_secs(10),
             initial_peers: Vec::new(),
-            libp2p_port: None,
             peer_id: TestPeerId::default(),
             block_producer: None,
         }
@@ -65,13 +62,8 @@ impl RustNodeTestingConfig {
         self
     }
 
-    pub fn initial_peers(mut self, v: Vec<P2pConnectionOutgoingInitOpts>) -> Self {
+    pub fn initial_peers(mut self, v: Vec<ListenerNode>) -> Self {
         self.initial_peers = v;
-        self
-    }
-
-    pub fn libp2p_port(mut self, v: u16) -> Self {
-        self.libp2p_port = Some(v);
         self
     }
 
