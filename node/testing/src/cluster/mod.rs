@@ -38,7 +38,7 @@ use openmina_node_native::{http_server, rpc::RpcService, NodeService, RpcSender}
 use rand::{rngs::StdRng, SeedableRng};
 use serde::Serialize;
 
-use crate::node::{OcamlStep, TestPeerId};
+use crate::node::{DaemonJson, OcamlStep, TestPeerId};
 use crate::{
     network_debugger::Debugger,
     node::{
@@ -385,6 +385,14 @@ impl Cluster {
             .map(|(i, node)| (ClusterNodeId::new_unchecked(i), node))
     }
 
+    pub fn ocaml_nodes_iter(&self) -> impl Iterator<Item = (ClusterOcamlNodeId, &OcamlNode)> {
+        self.ocaml_nodes
+            .iter()
+            .enumerate()
+            .filter_map(|(i, node)| node.as_ref().map(|node| (i, node)))
+            .map(|(i, node)| (ClusterOcamlNodeId::new_unchecked(i), node))
+    }
+
     pub fn node(&self, node_id: ClusterNodeId) -> Option<&Node> {
         self.nodes.get(node_id.index())
     }
@@ -545,6 +553,45 @@ impl Cluster {
                     }
                 }
             }
+            ScenarioStep::AddNode { config } => match config {
+                NodeTestingConfig::Rust(config) => {
+                    self.add_rust_node(config);
+                    true
+                }
+                NodeTestingConfig::Ocaml(config) => {
+                    // before starting ocaml node, read and save secret
+                    // keys from daemon.json.
+                    let mut json_owned = None;
+                    let json = match &config.daemon_json {
+                        DaemonJson::Custom(path) => {
+                            let bytes = tokio::fs::read(path).await.map_err(|err| {
+                                anyhow::anyhow!(
+                                    "error reading daemon.json from path({path}): {err}"
+                                )
+                            })?;
+                            let json = serde_json::from_slice(&bytes).map_err(|err| {
+                                anyhow::anyhow!(
+                                    "failed to parse damon.json from path({path}): {err}"
+                                )
+                            })?;
+                            json_owned.insert(json)
+                        }
+                        DaemonJson::InMem(json) => json,
+                    };
+                    let accounts = json["ledger"]["accounts"].as_array().ok_or_else(|| {
+                        anyhow::anyhow!("daemon.json `.ledger.accounts` is not array")
+                    })?;
+
+                    accounts
+                        .iter()
+                        .filter_map(|account| account["sk"].as_str())
+                        .filter_map(|sk| sk.parse().ok())
+                        .for_each(|sk| self.add_account_sec_key(sk));
+
+                    self.add_ocaml_node(config);
+                    true
+                }
+            },
             ScenarioStep::ConnectNodes { dialer, listener } => {
                 let listener_addr = match listener {
                     ListenerNode::Rust(listener) => {

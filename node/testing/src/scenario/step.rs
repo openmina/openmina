@@ -2,7 +2,7 @@ use node::{event_source::Event, p2p::connection::outgoing::P2pConnectionOutgoing
 use serde::{Deserialize, Serialize};
 
 use crate::cluster::{ClusterNodeId, ClusterOcamlNodeId};
-use crate::node::OcamlStep;
+use crate::node::{NodeTestingConfig, OcamlStep};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "kind")]
@@ -18,6 +18,10 @@ pub enum ScenarioStep {
     Event {
         node_id: ClusterNodeId,
         event: String,
+    },
+    /// Create a new node, start it and add it to the cluster.
+    AddNode {
+        config: NodeTestingConfig,
     },
     ConnectNodes {
         dialer: ClusterNodeId,
