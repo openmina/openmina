@@ -1,3 +1,9 @@
+use p2p::connection::libp2p::outgoing::P2pConnectionLibP2pOutgoingFinalizeTimeoutAction;
+use p2p::connection::webrtc::incoming::P2pConnectionWebRTCIncomingTimeoutAction;
+use p2p::connection::webrtc::outgoing::P2pConnectionWebRTCOutgoingTimeoutAction;
+use p2p::connection::P2pConnectionState;
+use p2p::peer::P2pPeerReconnectAction;
+use p2p::{P2pPeerStatus, P2pWebRTCPeerState};
 use redux::ActionMeta;
 
 use crate::consensus::consensus_effects;
@@ -11,11 +17,6 @@ use crate::p2p::channels::rpc::{
     P2pChannelsRpcRequestSendAction, P2pChannelsRpcTimeoutAction, P2pRpcKind, P2pRpcRequest,
 };
 use crate::p2p::channels::snark::P2pChannelsSnarkRequestSendAction;
-use crate::p2p::connection::incoming::P2pConnectionIncomingTimeoutAction;
-use crate::p2p::connection::outgoing::{
-    P2pConnectionOutgoingRandomInitAction, P2pConnectionOutgoingReconnectAction,
-    P2pConnectionOutgoingTimeoutAction,
-};
 use crate::p2p::discovery::{P2pDiscoveryKademliaBootstrapAction, P2pDiscoveryKademliaInitAction};
 use crate::p2p::p2p_effects;
 use crate::rpc::rpc_effects;
@@ -52,7 +53,8 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
 
             p2p_connection_timeouts(store, &meta);
 
-            store.dispatch(P2pConnectionOutgoingRandomInitAction {});
+            // TODO(akoptelov): reimplement this if needed
+            // store.dispatch(P2pConnectionOutgoingRandomInitAction {});
 
             p2p_try_reconnect_disconnected_peers(store);
 
@@ -120,18 +122,43 @@ fn p2p_connection_timeouts<S: Service>(store: &mut Store<S>, meta: &ActionMeta) 
         .peers
         .iter()
         .filter_map(|(peer_id, peer)| {
-            let s = peer.status.as_connecting()?;
-            match s.is_timed_out(now) {
-                true => Some((*peer_id, s.as_outgoing().is_some())),
-                false => None,
+            match peer {
+                p2p::P2pPeerState::WebRTC(P2pWebRTCPeerState {
+                    status: P2pPeerStatus::Connecting(P2pConnectionState::Incoming(s)),
+                    ..
+                }) if s.is_timed_out(now) => Some((*peer_id, true, false)),
+                p2p::P2pPeerState::WebRTC(P2pWebRTCPeerState {
+                    status: P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(s)),
+                    ..
+                }) if s.is_timed_out(now) => Some((*peer_id, true, true)),
+                // TODO(akoptelov): should libp2p layer be responsible for this?
+                // p2p::P2pPeerState::Libp2p(P2pLibP2pPeerState {
+                //     status: P2pPeerStatus::Connecting(P2pConnectionState::Incoming(s)),
+                //     ..
+                // }) if s.is_timed_out(now) => Some((peer_id, false, false)),
+                // p2p::P2pPeerState::Libp2p(P2pLibP2pPeerState {
+                //     status: P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(s)),
+                //     ..
+                // }) if s.is_timed_out(now) => Some((peer_id, false, true)),
+                _ => return None,
             }
         })
         .collect();
 
-    for (peer_id, is_outgoing) in p2p_connection_timeouts {
-        match is_outgoing {
-            true => store.dispatch(P2pConnectionOutgoingTimeoutAction { peer_id }),
-            false => store.dispatch(P2pConnectionIncomingTimeoutAction { peer_id }),
+    for (peer_id, is_webrct, is_outgoing) in p2p_connection_timeouts {
+        match (is_webrct, is_outgoing) {
+            (true, true) => {
+                store.dispatch(P2pConnectionWebRTCOutgoingTimeoutAction { peer_id });
+            }
+            (true, false) => {
+                store.dispatch(P2pConnectionWebRTCIncomingTimeoutAction { peer_id });
+            }
+            (false, true) => {
+                store.dispatch(P2pConnectionLibP2pOutgoingFinalizeTimeoutAction { peer_id });
+            }
+            (false, false) => {
+                // TODO(akoptelov): can this happen?
+            }
         };
     }
 }
@@ -141,9 +168,8 @@ fn p2p_try_reconnect_disconnected_peers<S: Service>(store: &mut Store<S>) {
         .state()
         .p2p
         .peers
-        .iter()
-        .filter_map(|(_, p)| p.dial_opts.clone())
-        .map(|opts| P2pConnectionOutgoingReconnectAction { opts, rpc_id: None })
+        .keys()
+        .map(|peer_id| P2pPeerReconnectAction { peer_id: *peer_id })
         .collect();
     for action in reconnect_actions {
         store.dispatch(action);
@@ -224,7 +250,14 @@ fn p2p_discovery_request<S: Service>(store: &mut Store<S>, meta: &ActionMeta) {
         .p2p
         .ready_peers_iter()
         .filter_map(|(peer_id, _)| {
-            let Some(t) = store.state().p2p.kademlia.peer_timestamp.get(peer_id).cloned() else {
+            let Some(t) = store
+                .state()
+                .p2p
+                .kademlia
+                .peer_timestamp
+                .get(peer_id)
+                .cloned()
+            else {
                 return Some(*peer_id);
             };
             let elapsed = meta

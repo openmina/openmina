@@ -1,135 +1,127 @@
 use redux::ActionMeta;
 
+use crate::connection::webrtc::P2pConnectionWebRTCService;
 use crate::disconnection::{P2pDisconnectionInitAction, P2pDisconnectionReason};
 use crate::peer::P2pPeerReadyAction;
-use crate::{connection::P2pConnectionService, webrtc};
+use crate::webrtc;
 
-use super::{
-    P2pConnectionIncomingAnswerReadyAction, P2pConnectionIncomingAnswerSdpCreateErrorAction,
-    P2pConnectionIncomingAnswerSdpCreatePendingAction,
-    P2pConnectionIncomingAnswerSdpCreateSuccessAction,
-    P2pConnectionIncomingAnswerSendSuccessAction, P2pConnectionIncomingError,
-    P2pConnectionIncomingErrorAction, P2pConnectionIncomingFinalizeErrorAction,
-    P2pConnectionIncomingFinalizePendingAction, P2pConnectionIncomingFinalizeSuccessAction,
-    P2pConnectionIncomingInitAction, P2pConnectionIncomingLibp2pReceivedAction,
-    P2pConnectionIncomingSuccessAction, P2pConnectionIncomingTimeoutAction,
-};
+use super::*;
 
-impl P2pConnectionIncomingInitAction {
+impl P2pConnectionWebRTCIncomingInitAction {
     pub fn effects<Store, S>(self, _: &ActionMeta, store: &mut Store)
     where
         Store: crate::P2pStore<S>,
-        Store::Service: P2pConnectionService,
-        P2pConnectionIncomingAnswerSdpCreatePendingAction: redux::EnablingCondition<S>,
+        Store::Service: P2pConnectionWebRTCService,
+        P2pConnectionWebRTCIncomingAnswerSdpCreatePendingAction: redux::EnablingCondition<S>,
     {
         let peer_id = self.opts.peer_id;
         store.service().incoming_init(peer_id, self.opts.offer);
-        store.dispatch(P2pConnectionIncomingAnswerSdpCreatePendingAction { peer_id });
+        store.dispatch(P2pConnectionWebRTCIncomingAnswerSdpCreatePendingAction { peer_id });
     }
 }
 
-impl P2pConnectionIncomingAnswerSdpCreateErrorAction {
+impl P2pConnectionWebRTCIncomingAnswerSdpCreateErrorAction {
     pub fn effects<Store, S>(self, _: &ActionMeta, store: &mut Store)
     where
         Store: crate::P2pStore<S>,
-        Store::Service: P2pConnectionService,
-        P2pConnectionIncomingErrorAction: redux::EnablingCondition<S>,
+        Store::Service: P2pConnectionWebRTCService,
+        P2pConnectionWebRTCIncomingErrorAction: redux::EnablingCondition<S>,
     {
-        store.dispatch(P2pConnectionIncomingErrorAction {
+        store.dispatch(P2pConnectionWebRTCIncomingErrorAction {
             peer_id: self.peer_id,
-            error: P2pConnectionIncomingError::SdpCreateError(self.error),
+            error: P2pConnectionWebRTCIncomingError::SdpCreateError(self.error),
         });
     }
 }
 
-impl P2pConnectionIncomingAnswerSdpCreateSuccessAction {
+impl P2pConnectionWebRTCIncomingAnswerSdpCreateSuccessAction {
     pub fn effects<Store, S>(self, _: &ActionMeta, store: &mut Store)
     where
         Store: crate::P2pStore<S>,
-        Store::Service: P2pConnectionService,
-        P2pConnectionIncomingAnswerReadyAction: redux::EnablingCondition<S>,
+        Store::Service: P2pConnectionWebRTCService,
+        P2pConnectionWebRTCIncomingAnswerReadyAction: redux::EnablingCondition<S>,
     {
         let answer = webrtc::Answer {
             sdp: self.sdp,
             identity_pub_key: store.state().config.identity_pub_key.clone(),
             target_peer_id: self.peer_id,
         };
-        store.dispatch(P2pConnectionIncomingAnswerReadyAction {
+        store.dispatch(P2pConnectionWebRTCIncomingAnswerReadyAction {
             peer_id: self.peer_id,
             answer,
         });
     }
 }
 
-impl P2pConnectionIncomingAnswerReadyAction {
+impl P2pConnectionWebRTCIncomingAnswerReadyAction {
     pub fn effects<Store, S>(self, _: &ActionMeta, store: &mut Store)
     where
         Store: crate::P2pStore<S>,
-        Store::Service: P2pConnectionService,
+        Store::Service: P2pConnectionWebRTCService,
     {
         store.service().set_answer(self.peer_id, self.answer);
     }
 }
 
-impl P2pConnectionIncomingAnswerSendSuccessAction {
+impl P2pConnectionWebRTCIncomingAnswerSendSuccessAction {
     pub fn effects<Store, S>(self, _: &ActionMeta, store: &mut Store)
     where
         Store: crate::P2pStore<S>,
-        Store::Service: P2pConnectionService,
-        P2pConnectionIncomingFinalizePendingAction: redux::EnablingCondition<S>,
+        Store::Service: P2pConnectionWebRTCService,
+        P2pConnectionWebRTCIncomingFinalizePendingAction: redux::EnablingCondition<S>,
     {
-        store.dispatch(P2pConnectionIncomingFinalizePendingAction {
+        store.dispatch(P2pConnectionWebRTCIncomingFinalizePendingAction {
             peer_id: self.peer_id,
         });
     }
 }
 
-impl P2pConnectionIncomingFinalizeErrorAction {
+impl P2pConnectionWebRTCIncomingFinalizeErrorAction {
     pub fn effects<Store, S>(self, _: &ActionMeta, store: &mut Store)
     where
         Store: crate::P2pStore<S>,
-        Store::Service: P2pConnectionService,
-        P2pConnectionIncomingErrorAction: redux::EnablingCondition<S>,
+        Store::Service: P2pConnectionWebRTCService,
+        P2pConnectionWebRTCIncomingErrorAction: redux::EnablingCondition<S>,
     {
-        store.dispatch(P2pConnectionIncomingErrorAction {
+        store.dispatch(P2pConnectionWebRTCIncomingErrorAction {
             peer_id: self.peer_id,
-            error: P2pConnectionIncomingError::FinalizeError(self.error),
+            error: P2pConnectionWebRTCIncomingError::FinalizeError(self.error),
         });
     }
 }
 
-impl P2pConnectionIncomingFinalizeSuccessAction {
+impl P2pConnectionWebRTCIncomingFinalizeSuccessAction {
     pub fn effects<Store, S>(self, _: &ActionMeta, store: &mut Store)
     where
         Store: crate::P2pStore<S>,
-        Store::Service: P2pConnectionService,
-        P2pConnectionIncomingSuccessAction: redux::EnablingCondition<S>,
+        Store::Service: P2pConnectionWebRTCService,
+        P2pConnectionWebRTCIncomingSuccessAction: redux::EnablingCondition<S>,
     {
-        store.dispatch(P2pConnectionIncomingSuccessAction {
+        store.dispatch(P2pConnectionWebRTCIncomingSuccessAction {
             peer_id: self.peer_id,
         });
     }
 }
 
-impl P2pConnectionIncomingTimeoutAction {
+impl P2pConnectionWebRTCIncomingTimeoutAction {
     pub fn effects<Store, S>(self, _: &ActionMeta, store: &mut Store)
     where
         Store: crate::P2pStore<S>,
-        Store::Service: P2pConnectionService,
-        P2pConnectionIncomingErrorAction: redux::EnablingCondition<S>,
+        Store::Service: P2pConnectionWebRTCService,
+        P2pConnectionWebRTCIncomingErrorAction: redux::EnablingCondition<S>,
     {
-        store.dispatch(P2pConnectionIncomingErrorAction {
+        store.dispatch(P2pConnectionWebRTCIncomingErrorAction {
             peer_id: self.peer_id,
-            error: P2pConnectionIncomingError::Timeout,
+            error: P2pConnectionWebRTCIncomingError::Timeout,
         });
     }
 }
 
-impl P2pConnectionIncomingSuccessAction {
+impl P2pConnectionWebRTCIncomingSuccessAction {
     pub fn effects<Store, S>(self, _: &ActionMeta, store: &mut Store)
     where
         Store: crate::P2pStore<S>,
-        Store::Service: P2pConnectionService,
+        Store::Service: P2pConnectionWebRTCService,
         P2pPeerReadyAction: redux::EnablingCondition<S>,
     {
         let peer_id = self.peer_id;
@@ -140,11 +132,11 @@ impl P2pConnectionIncomingSuccessAction {
     }
 }
 
-impl P2pConnectionIncomingLibp2pReceivedAction {
+impl P2pConnectionWebRTCIncomingLibp2pReceivedAction {
     pub fn effects<Store, S>(self, _: &ActionMeta, store: &mut Store)
     where
         Store: crate::P2pStore<S>,
-        Store::Service: P2pConnectionService,
+        Store::Service: P2pConnectionWebRTCService,
         P2pPeerReadyAction: redux::EnablingCondition<S>,
         P2pDisconnectionInitAction: redux::EnablingCondition<S>,
     {

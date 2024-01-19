@@ -12,7 +12,7 @@ impl RpcState {
             RpcAction::PeersGet(_) => {}
             RpcAction::P2pConnectionOutgoingInit(content) => {
                 let rpc_state = RpcRequestState {
-                    req: RpcRequest::P2pConnectionOutgoing(content.opts.clone()),
+                    req: RpcRequest::P2pConnectionOutgoing(content.peer_id.clone(), content.addrs.clone()),
                     status: RpcRequestStatus::Init { time: meta.time() },
                 };
                 self.requests.insert(content.rpc_id, rpc_state);
@@ -40,7 +40,7 @@ impl RpcState {
             }
             RpcAction::P2pConnectionIncomingInit(content) => {
                 let rpc_state = RpcRequestState {
-                    req: RpcRequest::P2pConnectionIncoming(content.opts.clone()),
+                    req: RpcRequest::P2pConnectionWebRTCIncoming(content.opts.clone()),
                     status: RpcRequestStatus::Init { time: meta.time() },
                 };
                 self.requests.insert(content.rpc_id, rpc_state);

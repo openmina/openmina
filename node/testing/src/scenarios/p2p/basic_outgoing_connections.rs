@@ -3,15 +3,14 @@ use std::{
     time::Duration,
 };
 
-use node::p2p::{identity::SecretKey, P2pPeerState, P2pPeerStatus, PeerId};
+use node::p2p::{identity::SecretKey, PeerId};
 
 use crate::{
     cluster::ClusterNodeId,
     node::RustNodeTestingConfig,
     scenarios::{
         add_rust_nodes, add_rust_nodes_with, as_connection_finalized_event,
-        connection_finalized_event, connection_finalized_with_res_event,
-        wait_for_nodes_listening_on_localhost, ClusterRunner, Driver,
+        connection_established_event, wait_for_nodes_listening_on_localhost, ClusterRunner, Driver,
     },
 };
 
@@ -47,7 +46,7 @@ impl MakeOutgoingConnection {
         let connected = driver
             .wait_for(
                 Duration::from_secs(10),
-                connection_finalized_event(|node_id, peer| node_id == node1 && peer == &peer_id2),
+                connection_established_event(|node_id, peer| node_id == node1 && peer == &peer_id2),
             )
             .await
             .unwrap()
@@ -58,13 +57,11 @@ impl MakeOutgoingConnection {
             .unwrap()
             .expect("connected event sholuld be executed");
         assert!(
-            matches!(
-                state.p2p.peers.get(&peer_id2),
-                Some(P2pPeerState {
-                    status: P2pPeerStatus::Ready(..),
-                    ..
-                })
-            ),
+            state
+                .p2p
+                .get_libp2p_peer(&peer_id2)
+                .and_then(|peer| peer.status.as_ready())
+                .is_some(),
             "peer should exist"
         );
     }
@@ -114,8 +111,9 @@ impl MakeMultipleOutgoingConnections {
             if node_id != node_ut {
                 false
             } else if let Some((peer_id, res)) = as_connection_finalized_event(event) {
-                assert!(res.is_ok(), "connection to {peer_id} should succeed");
-                peer_ids.remove(&peer_id);
+                let peer_id = peer_id.unwrap();
+                assert!(res, "connection to {peer_id} should succeed");
+                peer_ids.remove(peer_id);
                 peer_ids.is_empty()
             } else {
                 false
@@ -174,7 +172,7 @@ impl DontConnectToNodeWithSameId {
         let connected = driver
             .wait_for(
                 Duration::from_secs(60),
-                connection_finalized_event(|node_id, _peer| node_id == node_ut),
+                connection_established_event(|node_id, _peer| node_id == node_ut),
             )
             .await
             .unwrap();
@@ -219,7 +217,7 @@ impl DontConnectToSelfInitialPeer {
         let connected = driver
             .wait_for(
                 Duration::from_secs(60),
-                connection_finalized_with_res_event(|node_id, _peer, _res| node_id == node_ut),
+                connection_established_event(|node_id, _peer| node_id == node_ut),
             )
             .await
             .unwrap();
@@ -276,7 +274,7 @@ impl DontConnectToInitialPeerWithSameId {
         let connected = driver
             .wait_for(
                 Duration::from_secs(60),
-                connection_finalized_with_res_event(|node_id, _peer, _res| node_id == node_ut),
+                connection_established_event(|node_id, _peer| node_id == node_ut),
             )
             .await
             .unwrap();
@@ -341,7 +339,8 @@ impl ConnectToInitialPeers {
             if node_id != node_ut {
                 false
             } else if let Some((peer_id, res)) = as_connection_finalized_event(event) {
-                assert!(res.is_ok(), "connection to {peer_id} should succeed");
+                let peer_id = peer_id.unwrap();
+                assert!(res, "connection to {peer_id} should succeed");
                 peer_ids.remove(&peer_id);
                 peer_ids.is_empty()
             } else {
@@ -408,8 +407,8 @@ impl ConnectToInitialPeersBecomeReady {
             if node_id != node_ut {
                 false
             } else if let Some((peer_id, res)) = as_connection_finalized_event(event) {
-                if res.is_ok() {
-                    peer_ids.remove(&peer_id);
+                if res {
+                    peer_ids.remove(peer_id.unwrap());
                 }
                 peer_ids.is_empty()
             } else {
@@ -462,7 +461,8 @@ impl ConnectToUnavailableInitialPeers {
             if node_id != node_ut {
                 false
             } else if let Some((peer_id, res)) = as_connection_finalized_event(event) {
-                assert!(res.is_err(), "connection to {peer_id} should succeed");
+                let peer_id = peer_id.unwrap();
+                assert!(res, "connection to {peer_id} should succeed");
                 let retries = peer_retries.get_mut(&peer_id).unwrap();
                 *retries += 1;
                 if *retries >= RETRIES {

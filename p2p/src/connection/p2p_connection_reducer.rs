@@ -1,53 +1,31 @@
-use crate::{P2pPeerState, P2pPeerStatus};
+use openmina_core::log::error;
+use redux::ActionWithMeta;
 
-use super::{
-    incoming::{P2pConnectionIncomingAction, P2pConnectionIncomingState},
-    outgoing::{P2pConnectionOutgoingAction, P2pConnectionOutgoingState},
-    P2pConnectionAction, P2pConnectionActionWithMetaRef, P2pConnectionState,
-};
+use crate::P2pPeerState;
+
+use super::{webrtc::p2p_connection_webrtc_reducer, P2pConnectionAction};
 
 pub fn p2p_connection_reducer(
     state: &mut P2pPeerState,
-    action: P2pConnectionActionWithMetaRef<'_>,
+    action: ActionWithMeta<&'_ P2pConnectionAction>,
 ) {
     let (action, meta) = action.split();
+    // TODO(akoptelov): decide if method or function style reducer should be used
     match action {
-        P2pConnectionAction::Outgoing(action) => {
-            if let P2pConnectionOutgoingAction::Reconnect(a) = action {
-                state.status = P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(
-                    P2pConnectionOutgoingState::Init {
-                        time: meta.time(),
-                        opts: a.opts.clone(),
-                        rpc_id: a.rpc_id,
-                    },
-                ));
-            }
-            let P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(state)) = &mut state.status
-            else {
+        P2pConnectionAction::LibP2p(action) => {
+            let P2pPeerState::Libp2p(libp2p_state) = state else {
+                error!(meta.time(); "invalid peer state {state:?}");
                 return;
             };
-            state.reducer(meta.with_action(action));
+            libp2p_state.reducer(meta.with_action(action));
         }
-        P2pConnectionAction::Incoming(action) => {
-            if let P2pConnectionIncomingAction::Init(a) = action {
-                state.status = P2pPeerStatus::Connecting(P2pConnectionState::Incoming(
-                    P2pConnectionIncomingState::Init {
-                        time: meta.time(),
-                        signaling: a.opts.signaling.clone(),
-                        offer: a.opts.offer.clone(),
-                        rpc_id: a.rpc_id,
-                    },
-                ))
-            } else if let P2pConnectionIncomingAction::Libp2pReceived(_) = action {
-                state.status = P2pPeerStatus::Connecting(P2pConnectionState::Incoming(
-                    P2pConnectionIncomingState::Libp2pReceived { time: meta.time() },
-                ))
-            }
-            let P2pPeerStatus::Connecting(P2pConnectionState::Incoming(state)) = &mut state.status
-            else {
+        P2pConnectionAction::WebRTC(action) => {
+            let P2pPeerState::WebRTC(webrtc_state) = state else {
+                error!(meta.time(); "invalid peer state {state:?}");
                 return;
             };
-            state.reducer(meta.with_action(action));
+
+            p2p_connection_webrtc_reducer(webrtc_state, meta.with_action(action));
         }
     }
 }

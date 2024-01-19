@@ -21,7 +21,6 @@ pub mod webrtc {
 
     use crate::{
         channels::{ChannelId, ChannelMsg, MsgId},
-        connection::outgoing::P2pConnectionOutgoingInitOpts,
         identity::SecretKey,
         webrtc, P2pEvent, PeerId,
     };
@@ -39,10 +38,10 @@ pub mod webrtc {
 
     #[allow(unused_variables)]
     pub trait P2pServiceWebrtc: redux::Service {
-        fn random_pick(
-            &mut self,
-            list: &[P2pConnectionOutgoingInitOpts],
-        ) -> P2pConnectionOutgoingInitOpts;
+        // fn random_pick(
+        //     &mut self,
+        //     list: &[P2pConnectionOutgoingInitOpts],
+        // ) -> P2pConnectionOutgoingInitOpts;
 
         fn event_sender(&mut self) -> &mut mpsc::UnboundedSender<P2pEvent>;
 

@@ -1,22 +1,22 @@
-mod p2p_connection_incoming_state;
-pub use p2p_connection_incoming_state::*;
+mod p2p_connection_webrtc_incoming_state;
+pub use p2p_connection_webrtc_incoming_state::*;
 
-mod p2p_connection_incoming_actions;
-pub use p2p_connection_incoming_actions::*;
+mod p2p_connection_webrtc_incoming_actions;
+pub use p2p_connection_webrtc_incoming_actions::*;
 
-mod p2p_connection_incoming_reducer;
-pub use p2p_connection_incoming_reducer::*;
+mod p2p_connection_webrtc_incoming_reducer;
+pub use p2p_connection_webrtc_incoming_reducer::*;
 
-mod p2p_connection_incoming_effects;
-pub use p2p_connection_incoming_effects::*;
+mod p2p_connection_webrtc_incoming_effects;
+pub use p2p_connection_webrtc_incoming_effects::*;
 
 use serde::{Deserialize, Serialize};
 
-use crate::connection::RejectionReason;
+use crate::connection::webrtc::RejectionReason;
 use crate::{webrtc, P2pState, PeerId};
 
 #[derive(Serialize, Deserialize, Eq, PartialEq, Debug, Clone)]
-pub struct P2pConnectionIncomingInitOpts {
+pub struct P2pConnectionWebRTCIncomingInitOpts {
     pub peer_id: PeerId,
     pub signaling: IncomingSignalingMethod,
     pub offer: webrtc::Offer,

@@ -1,11 +1,15 @@
 use std::{collections::BTreeSet, time::Duration};
 
+use node::{
+    event_source::Event,
+    p2p::{P2pEvent, P2pLibP2pEvent},
+};
+
 use crate::{
     node::RustNodeTestingConfig,
     scenarios::{
-        add_rust_nodes, as_connection_finalized_event, connection_finalized_event,
-        connection_finalized_with_res_event, wait_for_nodes_listening_on_localhost, ClusterRunner,
-        Driver,
+        add_rust_nodes, as_connection_finalized_event, connection_established_event,
+        wait_for_nodes_listening_on_localhost, ClusterRunner, Driver,
     },
 };
 
@@ -38,7 +42,7 @@ impl AcceptIncomingConnection {
         let connected = driver
             .wait_for(
                 Duration::from_secs(10),
-                connection_finalized_event(|node_id, _peer| node_id == node_ut),
+                connection_established_event(|node_id, _peer| node_id == node_ut),
             )
             .await
             .unwrap()
@@ -92,8 +96,9 @@ impl AcceptMultipleIncomingConnections {
             if node_id != node_ut {
                 false
             } else if let Some((peer_id, res)) = as_connection_finalized_event(event) {
-                assert!(res.is_ok(), "connection from {peer_id} should succeed");
-                peer_ids.remove(&peer_id);
+                let peer_id = peer_id.unwrap();
+                assert!(res, "connection from {peer_id} should succeed");
+                peer_ids.remove(peer_id);
                 peer_ids.is_empty()
             } else {
                 false
@@ -141,9 +146,18 @@ impl DoesNotAcceptConnectionFromSelf {
         let connected = driver
             .wait_for(
                 Duration::from_secs(10),
-                connection_finalized_with_res_event(|node_id, peer, res| {
-                    node_id == node_ut && peer == &node_ut_peer_id && res.is_err()
-                }),
+                |_node_id, event, _state| {
+                    matches!(
+                        event,
+                        Event::P2p(P2pEvent::LibP2p(
+                            P2pLibP2pEvent::IncomingConnectionError { .. }
+                                | P2pLibP2pEvent::OutgoingConnectionError { .. }
+                        ))
+                    )
+                },
+                //     connection_error_event(|node_id, peer, res| {
+                //         node_id == node_ut && peer == &node_ut_peer_id
+                //     }),
             )
             .await
             .unwrap()

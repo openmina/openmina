@@ -6,14 +6,15 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     channels::{ChannelId, ChannelMsg, MsgId},
-    connection::{outgoing::P2pConnectionOutgoingInitOpts, P2pConnectionResponse},
-    PeerId, P2pListenerId,
+    common::P2pGenericAddrs,
+    connection::webrtc::P2pConnectionWebRTCResponse,
+    P2pConnectionId, P2pListenerId, PeerId,
 };
 
 #[derive(Serialize, Deserialize, From, Debug, Clone)]
 pub enum P2pEvent {
-    Connection(P2pConnectionEvent),
-    Listen(P2pListenEvent),
+    WebRTC(P2pWebRTCEvent),
+    LibP2p(P2pLibP2pEvent),
     Channel(P2pChannelEvent),
     #[cfg(not(target_arch = "wasm32"))]
     Libp2pIdentify(PeerId, libp2p::Multiaddr),
@@ -21,22 +22,56 @@ pub enum P2pEvent {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum P2pConnectionEvent {
+pub enum P2pWebRTCEvent {
     OfferSdpReady(PeerId, Result<String, String>),
     AnswerSdpReady(PeerId, Result<String, String>),
-    AnswerReceived(PeerId, P2pConnectionResponse),
+    AnswerReceived(PeerId, P2pConnectionWebRTCResponse),
     Finalized(PeerId, Result<(), String>),
     Closed(PeerId),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum P2pListenEvent {
-    NewListenAddr     { listener_id: P2pListenerId, addr: libp2p::Multiaddr, },
-    ExpiredListenAddr { listener_id: P2pListenerId, addr: libp2p::Multiaddr, },
-    ListenerError     { listener_id: P2pListenerId, error: String, },
-    ListenerClosed    { listener_id: P2pListenerId, error: Option<String>, },
+pub enum P2pLibP2pEvent {
+    IncomingConnection {
+        connection_id: P2pConnectionId,
+    },
+    Dialing {
+        connection_id: P2pConnectionId,
+    },
+    IncomingConnectionError {
+        connection_id: P2pConnectionId,
+        error: String,
+    },
+    OutgoingConnectionError {
+        connection_id: P2pConnectionId,
+        peer_id: PeerId,
+        error: String,
+    },
+    ConnectionEstablished {
+        peer_id: PeerId,
+        connection_id: P2pConnectionId,
+    },
+    ConnectionClosed {
+        peer_id: PeerId,
+        cause: Option<String>,
+    },
+    NewListenAddr {
+        listener_id: P2pListenerId,
+        addr: libp2p::Multiaddr,
+    },
+    ExpiredListenAddr {
+        listener_id: P2pListenerId,
+        addr: libp2p::Multiaddr,
+    },
+    ListenerError {
+        listener_id: P2pListenerId,
+        error: String,
+    },
+    ListenerClosed {
+        listener_id: P2pListenerId,
+        error: Option<String>,
+    },
 }
-
 
 #[derive(Serialize, Deserialize, From, Debug, Clone)]
 pub enum P2pChannelEvent {
@@ -52,7 +87,7 @@ pub enum P2pDiscoveryEvent {
     Ready,
     DidFindPeers(Vec<PeerId>),
     DidFindPeersError(String),
-    AddRoute(PeerId, Vec<P2pConnectionOutgoingInitOpts>),
+    AddRoute(PeerId, P2pGenericAddrs),
 }
 
 fn res_kind<T, E>(res: &Result<T, E>) -> &'static str {
@@ -66,8 +101,8 @@ impl fmt::Display for P2pEvent {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "P2p, ")?;
         match self {
-            Self::Connection(v) => v.fmt(f),
-            Self::Listen(v) => v.fmt(f),
+            Self::WebRTC(v) => v.fmt(f),
+            Self::LibP2p(v) => v.fmt(f),
             Self::Channel(v) => v.fmt(f),
             #[cfg(not(target_arch = "wasm32"))]
             Self::Libp2pIdentify(peer_id, addr) => {
@@ -78,20 +113,55 @@ impl fmt::Display for P2pEvent {
     }
 }
 
-impl fmt::Display for P2pListenEvent {
+impl fmt::Display for P2pLibP2pEvent {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Listen, ")?;
+        write!(f, "LibP2p, ")?;
         match self {
-            P2pListenEvent::NewListenAddr { listener_id, addr } => write!(f, "NewListenAddr, {listener_id}, {addr}"),
-            P2pListenEvent::ExpiredListenAddr { listener_id, addr } => write!(f, "ExpiredListenAddr, {listener_id}, {addr}"),
-            P2pListenEvent::ListenerError { listener_id, error } => write!(f, "ListenerError, {listener_id}, {error}"),
-            P2pListenEvent::ListenerClosed { listener_id, error: Some(error) } => write!(f, "ListenerClosed, {listener_id}, {error}"),
-            P2pListenEvent::ListenerClosed { listener_id, error: None } => write!(f, "ListenerClosed, {listener_id}"),
+            P2pLibP2pEvent::NewListenAddr { listener_id, addr } => {
+                write!(f, "NewListenAddr, {listener_id}, {addr}")
+            }
+            P2pLibP2pEvent::ExpiredListenAddr { listener_id, addr } => {
+                write!(f, "ExpiredListenAddr, {listener_id}, {addr}")
+            }
+            P2pLibP2pEvent::ListenerError { listener_id, error } => {
+                write!(f, "ListenerError, {listener_id}, {error}")
+            }
+            P2pLibP2pEvent::ListenerClosed {
+                listener_id,
+                error: Some(error),
+            } => write!(f, "ListenerClosed, {listener_id}, {error}"),
+            P2pLibP2pEvent::ListenerClosed {
+                listener_id,
+                error: None,
+            } => write!(f, "ListenerClosed, {listener_id}"),
+            P2pLibP2pEvent::IncomingConnection { connection_id } => {
+                write!(f, "IncomingConnection, {connection_id}")
+            }
+            P2pLibP2pEvent::IncomingConnectionError {
+                connection_id,
+                error,
+            } => write!(f, "IncomingConnectionError, {connection_id}, {error}"),
+            P2pLibP2pEvent::OutgoingConnectionError {
+                connection_id,
+                peer_id,
+                error,
+            } => write!(
+                f,
+                "OutgoingConnectionError, {connection_id}, {peer_id}, {error}"
+            ),
+            P2pLibP2pEvent::Dialing { connection_id } => write!(f, "Dialing, {connection_id}"),
+            P2pLibP2pEvent::ConnectionEstablished {
+                peer_id,
+                connection_id,
+            } => write!(f, "ConnectionEstablished, {peer_id}, {connection_id}"),
+            P2pLibP2pEvent::ConnectionClosed { peer_id, cause } => {
+                write!(f, "ConnectionClosed, {peer_id}, {cause:?}")
+            }
         }
     }
 }
 
-impl fmt::Display for P2pConnectionEvent {
+impl fmt::Display for P2pWebRTCEvent {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Connection, ")?;
         match self {
@@ -102,13 +172,13 @@ impl fmt::Display for P2pConnectionEvent {
                 write!(f, "AnswerSdpReady, {peer_id}, {}", res_kind(res))
             }
             Self::AnswerReceived(peer_id, ans) => match ans {
-                P2pConnectionResponse::Accepted(_) => {
+                P2pConnectionWebRTCResponse::Accepted(_) => {
                     write!(f, "AnswerReceived, {peer_id}, Accepted")
                 }
-                P2pConnectionResponse::Rejected(reason) => {
+                P2pConnectionWebRTCResponse::Rejected(reason) => {
                     write!(f, "AnswerReceived, {peer_id}, Rejected, {reason:?}")
                 }
-                P2pConnectionResponse::InternalError => {
+                P2pConnectionWebRTCResponse::InternalError => {
                     write!(f, "AnswerReceived, {peer_id}, InternalError")
                 }
             },
@@ -233,14 +303,7 @@ impl fmt::Display for P2pDiscoveryEvent {
             Self::DidFindPeersError(description) => {
                 write!(f, "DidFindPeersError: {description}",)
             }
-            Self::AddRoute(peer_id, opts) => write!(
-                f,
-                "AddRoute, peer_id: {peer_id}, {}",
-                opts.iter()
-                    .map(|x| x.peer_id().to_string())
-                    .collect::<Vec<_>>()
-                    .join(",")
-            ),
+            Self::AddRoute(peer_id, opts) => write!(f, "AddRoute, peer_id: {peer_id}, {opts}",),
         }
     }
 }

@@ -10,6 +10,8 @@ pub mod identity;
 pub use identity::PeerId;
 
 pub mod webrtc;
+pub mod libp2p;
+pub mod common;
 
 pub mod service_impl;
 

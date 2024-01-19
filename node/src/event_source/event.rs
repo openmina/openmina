@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::external_snark_worker::ExternalSnarkWorkerEvent;
-pub use crate::p2p::{P2pConnectionEvent, P2pEvent};
+pub use crate::p2p::{P2pWebRTCEvent, P2pEvent};
 pub use crate::rpc::{RpcId, RpcRequest};
 pub use crate::snark::SnarkEvent;
 
@@ -25,10 +25,10 @@ impl std::fmt::Display for Event {
                     RpcRequest::ActionStatsGet(query) => write!(f, "ActionStatsGet, {query:?}"),
                     RpcRequest::SyncStatsGet(query) => write!(f, "SyncStatsGet, {query:?}"),
                     RpcRequest::PeersGet => write!(f, "PeersGet"),
-                    RpcRequest::P2pConnectionOutgoing(opts) => {
-                        write!(f, "P2pConnectionOutgoing, {opts}")
+                    RpcRequest::P2pConnectionOutgoing(peer, addrs) => {
+                        write!(f, "P2pConnectionOutgoing, {peer}, {addrs:?}")
                     }
-                    RpcRequest::P2pConnectionIncoming(opts) => {
+                    RpcRequest::P2pConnectionWebRTCIncoming(opts) => {
                         write!(f, "P2pConnectionIncoming, {}", opts.peer_id)
                     }
                     RpcRequest::ScanStateSummaryGet(query) => {

@@ -1,4 +1,6 @@
-use crate::P2pKademliaState;
+use openmina_core::warn;
+
+use crate::{P2pKademliaState, common::peer_addrs_iter};
 
 use super::{
     P2pDiscoveryAction, P2pDiscoveryActionWithMetaRef, P2pDiscoveryInitAction,
@@ -14,10 +16,22 @@ impl P2pKademliaState {
                 self.is_bootstrapping = true;
             }
             P2pDiscoveryAction::Init(P2pDiscoveryInitAction { .. }) => {}
-            P2pDiscoveryAction::Success(P2pDiscoverySuccessAction { peers, peer_id }) => {
+            P2pDiscoveryAction::Success(P2pDiscoverySuccessAction { peer_id, peers }) => {
                 self.peer_timestamp.insert(*peer_id, meta.time());
-                self.known_peers
-                    .extend(peers.iter().cloned().map(|peer| (*peer.peer_id(), peer)));
+                let peers = peers.iter().filter_map(|peer| match peer.clone().try_into() {
+                    Ok(v) => Some(v),
+                    Err(e) => {
+                        warn!(meta.time(); "error converting network peer {peer:?}: {e}");
+                        None
+                    }
+                });
+                self.known_peers.extend(peer_addrs_iter(peers).filter_map(|v| match v {
+                    Ok(v) => Some(v),
+                    Err(e) => {
+                        warn!(meta.time(); "error collecting addr for peer {e}");
+                        None
+                    },
+                }));
             }
             P2pDiscoveryAction::KademliaInit(..) => {
                 self.outgoing_requests += 1;
@@ -37,11 +51,9 @@ impl P2pKademliaState {
                         .peers
                         .iter()
                         .map(|peer_id| {
-                            // TODO(vlad9486): use all
                             self.routes
                                 .get(peer_id)
-                                .and_then(|r| r.first())
-                                .map(|opts| (opts.peer_id().clone(), opts.clone()))
+                                .map(|addrs| (peer_id.clone(), addrs.clone()))
                         })
                         .flatten(),
                 );

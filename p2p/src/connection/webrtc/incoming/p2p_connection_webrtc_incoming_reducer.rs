@@ -1,12 +1,12 @@
-use super::{
-    P2pConnectionIncomingAction, P2pConnectionIncomingActionWithMetaRef, P2pConnectionIncomingState,
-};
+use redux::ActionWithMeta;
 
-impl P2pConnectionIncomingState {
-    pub fn reducer(&mut self, action: P2pConnectionIncomingActionWithMetaRef<'_>) {
+use super::*;
+
+impl P2pConnectionWebRTCIncomingState {
+    pub fn reducer(&mut self, action: ActionWithMeta<&'_ P2pConnectionWebRTCIncomingAction>) {
         let (action, meta) = action.split();
         match action {
-            P2pConnectionIncomingAction::Init(content) => {
+            P2pConnectionWebRTCIncomingAction::Init(content) => {
                 *self = Self::Init {
                     time: meta.time(),
                     signaling: content.opts.signaling.clone(),
@@ -14,7 +14,7 @@ impl P2pConnectionIncomingState {
                     rpc_id: content.rpc_id,
                 };
             }
-            P2pConnectionIncomingAction::AnswerSdpCreatePending(_) => {
+            P2pConnectionWebRTCIncomingAction::AnswerSdpCreatePending(_) => {
                 if let Self::Init {
                     signaling,
                     offer,
@@ -30,8 +30,8 @@ impl P2pConnectionIncomingState {
                     };
                 }
             }
-            P2pConnectionIncomingAction::AnswerSdpCreateError(_) => {}
-            P2pConnectionIncomingAction::AnswerSdpCreateSuccess(action) => {
+            P2pConnectionWebRTCIncomingAction::AnswerSdpCreateError(_) => {}
+            P2pConnectionWebRTCIncomingAction::AnswerSdpCreateSuccess(action) => {
                 if let Self::AnswerSdpCreatePending {
                     signaling,
                     offer,
@@ -48,7 +48,7 @@ impl P2pConnectionIncomingState {
                     };
                 }
             }
-            P2pConnectionIncomingAction::AnswerReady(action) => {
+            P2pConnectionWebRTCIncomingAction::AnswerReady(action) => {
                 if let Self::AnswerSdpCreateSuccess {
                     signaling,
                     offer,
@@ -65,7 +65,7 @@ impl P2pConnectionIncomingState {
                     };
                 }
             }
-            P2pConnectionIncomingAction::AnswerSendSuccess(_) => {
+            P2pConnectionWebRTCIncomingAction::AnswerSendSuccess(_) => {
                 if let Self::AnswerReady {
                     signaling,
                     offer,
@@ -83,7 +83,7 @@ impl P2pConnectionIncomingState {
                     };
                 }
             }
-            P2pConnectionIncomingAction::FinalizePending(_) => {
+            P2pConnectionWebRTCIncomingAction::FinalizePending(_) => {
                 if let Self::AnswerSendSuccess {
                     signaling,
                     offer,
@@ -101,8 +101,8 @@ impl P2pConnectionIncomingState {
                     };
                 }
             }
-            P2pConnectionIncomingAction::FinalizeError(_) => {}
-            P2pConnectionIncomingAction::FinalizeSuccess(_) => {
+            P2pConnectionWebRTCIncomingAction::FinalizeError(_) => {}
+            P2pConnectionWebRTCIncomingAction::FinalizeSuccess(_) => {
                 if let Self::FinalizePending {
                     signaling,
                     offer,
@@ -120,8 +120,8 @@ impl P2pConnectionIncomingState {
                     };
                 }
             }
-            P2pConnectionIncomingAction::Timeout(_) => {}
-            P2pConnectionIncomingAction::Error(action) => {
+            P2pConnectionWebRTCIncomingAction::Timeout(_) => {}
+            P2pConnectionWebRTCIncomingAction::Error(action) => {
                 let rpc_id = self.rpc_id();
                 *self = Self::Error {
                     time: meta.time(),
@@ -129,7 +129,7 @@ impl P2pConnectionIncomingState {
                     rpc_id,
                 };
             }
-            P2pConnectionIncomingAction::Success(_) => {
+            P2pConnectionWebRTCIncomingAction::Success(_) => {
                 if let Self::FinalizeSuccess {
                     signaling,
                     offer,
@@ -147,7 +147,7 @@ impl P2pConnectionIncomingState {
                     };
                 }
             }
-            P2pConnectionIncomingAction::Libp2pReceived(_) => {
+            P2pConnectionWebRTCIncomingAction::Libp2pReceived(_) => {
                 // handled in the parent reducer.
             }
         }

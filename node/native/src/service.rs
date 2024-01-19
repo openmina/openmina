@@ -3,7 +3,9 @@ use std::collections::{BTreeMap, VecDeque};
 use std::sync::Arc;
 
 use ledger::scan_state::scan_state::transaction_snark::{SokDigest, Statement};
+use libp2p::Multiaddr;
 use mina_p2p_messages::v2::{LedgerProofProdStableV2, TransactionSnarkWorkTStableV2Proofs};
+use node::p2p::common::P2pGenericAddrs;
 use rand::prelude::*;
 use redux::ActionMeta;
 use serde::Serialize;
@@ -12,13 +14,12 @@ use node::core::channels::{mpsc, oneshot};
 use node::core::snark::{Snark, SnarkJobId};
 use node::event_source::Event;
 use node::ledger::LedgerCtx;
-use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 use node::p2p::service_impl::libp2p::Libp2pService;
 use node::p2p::service_impl::webrtc::{Cmd, P2pServiceWebrtc, PeerState};
 use node::p2p::service_impl::webrtc_with_libp2p::P2pServiceWebrtcWithLibp2p;
 use node::p2p::service_impl::TaskSpawner;
 use node::p2p::{P2pEvent, PeerId};
-use node::rpc::{RpcP2pConnectionOutgoingResponse, RpcRequest};
+use node::rpc::RpcRequest;
 use node::service::{EventSourceService, Recorder};
 use node::snark::block_verify::{
     SnarkBlockVerifyError, SnarkBlockVerifyId, SnarkBlockVerifyService, VerifiableBlockWithHash,
@@ -109,12 +110,13 @@ impl EventSourceService for NodeService {
 }
 
 impl P2pServiceWebrtc for NodeService {
-    fn random_pick(
-        &mut self,
-        list: &[P2pConnectionOutgoingInitOpts],
-    ) -> P2pConnectionOutgoingInitOpts {
-        list.choose(&mut self.rng).unwrap().clone()
-    }
+    // TODO(akoptelov): reimplement random pick
+    // fn random_pick(
+    //     &mut self,
+    //     list: &[P2pConnectionOutgoingInitOpts],
+    // ) -> P2pConnectionOutgoingInitOpts {
+    //     list.choose(&mut self.rng).unwrap().clone()
+    // }
 
     fn event_sender(&mut self) -> &mut mpsc::UnboundedSender<P2pEvent> {
         &mut self.p2p_event_sender
@@ -147,16 +149,16 @@ impl P2pServiceWebrtcWithLibp2p for NodeService {
             .unwrap_or_default();
     }
 
-    fn start_discovery(&mut self, peers: Vec<P2pConnectionOutgoingInitOpts>) {
+    fn start_discovery(&mut self, peers: Vec<(PeerId, P2pGenericAddrs)>) {
         use node::p2p::service_impl::libp2p::Cmd;
 
         let peers = peers
             .into_iter()
-            .filter_map(|opts| {
+            .filter_map(|(peer_id, addrs)| {
                 Some((
-                    opts.peer_id().clone().into(),
-                    match opts {
-                        P2pConnectionOutgoingInitOpts::LibP2P(opts) => opts.to_maddr(),
+                    peer_id.clone().into(),
+                    match addrs {
+                        P2pGenericAddrs::LibP2p(opts) => opts.iter().map(Multiaddr::from).collect(),
                         _ => return None,
                     },
                 ))
@@ -345,19 +347,6 @@ impl RpcSender {
         let _ = sender.send(NodeRpcRequest { req, responder }).await;
 
         rx
-    }
-
-    pub async fn peer_connect(
-        &self,
-        opts: P2pConnectionOutgoingInitOpts,
-    ) -> Result<String, String> {
-        let peer_id = opts.peer_id().to_string();
-        let req = RpcRequest::P2pConnectionOutgoing(opts);
-        self.oneshot_request::<RpcP2pConnectionOutgoingResponse>(req)
-            .await
-            .ok_or_else(|| "state machine shut down".to_owned())??;
-
-        Ok(peer_id)
     }
 }
 

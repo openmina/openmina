@@ -2,9 +2,7 @@ use std::{collections::BTreeSet, time::Duration};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    channels::ChannelId, connection::outgoing::P2pConnectionOutgoingInitOpts, identity::PublicKey,
-};
+use crate::{channels::ChannelId, common::P2pGenericPeer, identity::PublicKey};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pConfig {
@@ -15,7 +13,7 @@ pub struct P2pConfig {
     /// The public key used for authentication all p2p communication.
     pub identity_pub_key: PublicKey,
     /// A list addresses of seed nodes.
-    pub initial_peers: Vec<P2pConnectionOutgoingInitOpts>,
+    pub initial_peers: Vec<P2pGenericPeer>,
 
     /// The time interval that must elapse before the next peer discovery request.
     /// The node periodically polls peers for their connections to keep our list up to date.

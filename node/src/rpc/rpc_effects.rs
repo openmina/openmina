@@ -1,11 +1,15 @@
 use std::time::Duration;
 
 use mina_p2p_messages::v2::MinaBaseTransactionStatusStableV2;
+use p2p::connection::ConnectionState;
+use p2p::connection::webrtc::incoming::P2pConnectionWebRTCIncomingInitAction;
+use p2p::connection::webrtc::P2pConnectionWebRTCResponse;
+use p2p::libp2p::P2pLibP2pAddr;
+use p2p::peer::{P2pPeerAddLibP2pAction, P2pPeerAddWebRTCAction};
+use p2p::webrtc::SignalingMethod;
+use p2p::{P2pLibP2pPeerState, P2pWebRTCPeerState};
 
 use crate::external_snark_worker::available_job_to_snark_worker_spec;
-use crate::p2p::connection::incoming::P2pConnectionIncomingInitAction;
-use crate::p2p::connection::outgoing::P2pConnectionOutgoingInitAction;
-use crate::p2p::connection::P2pConnectionResponse;
 use crate::rpc::{PeerConnectionStatus, RpcPeerInfo};
 use crate::snark_pool::SnarkPoolCommitmentCreateAction;
 use crate::{Service, Store};
@@ -17,7 +21,7 @@ use super::{
     RpcScanStateSummary, RpcScanStateSummaryBlock, RpcScanStateSummaryBlockTransaction,
     RpcScanStateSummaryBlockTransactionKind, RpcScanStateSummaryGetQuery,
     RpcScanStateSummaryScanStateJob, RpcSnarkPoolJobFull, RpcSnarkPoolJobSnarkWork,
-    RpcSnarkPoolJobSummary, RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse,
+    RpcSnarkPoolJobSummary, RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse, RpcP2pConnectionOutgoingInitAction,
 };
 
 macro_rules! respond_or_log {
@@ -76,44 +80,53 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                 .p2p
                 .peers
                 .iter()
-                .map(|(peer_id, state)| {
-                    let best_tip = state.status.as_ready().and_then(|r| r.best_tip.as_ref());
-                    let (connection_status, time) = match &state.status {
-                        p2p::P2pPeerStatus::Connecting(c) => match c {
-                            p2p::connection::P2pConnectionState::Outgoing(o) => {
-                                (PeerConnectionStatus::Connecting, o.time().into())
-                            }
-                            p2p::connection::P2pConnectionState::Incoming(i) => {
-                                (PeerConnectionStatus::Connecting, i.time().into())
-                            }
-                        },
-                        p2p::P2pPeerStatus::Disconnected { time } => {
-                            (PeerConnectionStatus::Disconnected, (*time).into())
+                .filter_map(|(peer_id, state)| {
+                    let best_tip = state.status_as_ready().and_then(|r| r.best_tip.as_ref());
+                    let (connection_status, time, address) = match state {
+                        p2p::P2pPeerState::Default => return None,
+                        p2p::P2pPeerState::WebRTC(P2pWebRTCPeerState { dial_opts, status }) => {
+                            let address = dial_opts.iter().map(SignalingMethod::to_rpc_string).collect();
+                            let (connection_status, time) = match status {
+                                p2p::P2pPeerStatus::Default => return None,
+                                p2p::P2pPeerStatus::Connecting(s) => {
+                                    (PeerConnectionStatus::Connecting, s.time().into())
+                                }
+                                p2p::P2pPeerStatus::Disconnected { time } => {
+                                    (PeerConnectionStatus::Disconnected, (*time).into())
+                                }
+                                p2p::P2pPeerStatus::Ready(r) => {
+                                    (PeerConnectionStatus::Connected, r.connected_since.into())
+                                }
+                            };
+                            (connection_status, time, address)
                         }
-                        p2p::P2pPeerStatus::Ready(r) => {
-                            (PeerConnectionStatus::Connected, r.connected_since.into())
+                        p2p::P2pPeerState::Libp2p(P2pLibP2pPeerState { dial_opts, status }) => {
+                            let address = dial_opts.iter().map(P2pLibP2pAddr::to_string).collect();
+                            let (connection_status, time) = match status {
+                                p2p::P2pPeerStatus::Default => return None,
+                                p2p::P2pPeerStatus::Connecting(s) => {
+                                    (PeerConnectionStatus::Connecting, s.time().into())
+                                }
+                                p2p::P2pPeerStatus::Disconnected { time } => {
+                                    (PeerConnectionStatus::Disconnected, (*time).into())
+                                }
+                                p2p::P2pPeerStatus::Ready(r) => {
+                                    (PeerConnectionStatus::Connected, r.connected_since.into())
+                                }
+                            };
+                            (connection_status, time, address)
                         }
                     };
-                    RpcPeerInfo {
+                    Some(RpcPeerInfo {
                         peer_id: peer_id.clone(),
                         connection_status,
-                        address: state
-                            .dial_opts
-                            .as_ref()
-                            .and_then(|opts| opts.try_into_mina_rpc())
-                            .map(|p| {
-                                format!(
-                                    "{}:{}",
-                                    String::try_from(p.host).unwrap_or("0.0.0.0".to_string()),
-                                    p.libp2p_port.to_string()
-                                )
-                            }),
+                        address,
                         best_tip: best_tip.map(|bt| bt.hash.clone()),
                         best_tip_height: best_tip.map(|bt| bt.height()),
                         best_tip_global_slot: best_tip.map(|bt| bt.global_slot()),
                         best_tip_timestamp: best_tip.map(|bt| bt.timestamp().into()),
                         time,
-                    }
+                    })
                 })
                 .collect();
             respond_or_log!(
@@ -122,11 +135,23 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
             );
         }
         RpcAction::P2pConnectionOutgoingInit(action) => {
-            let (rpc_id, opts) = (action.rpc_id, action.opts);
-            store.dispatch(P2pConnectionOutgoingInitAction {
-                opts,
-                rpc_id: Some(rpc_id),
-            });
+            let RpcP2pConnectionOutgoingInitAction { rpc_id, peer_id, addrs } = action;
+            match addrs {
+                p2p::common::P2pGenericAddrs::WebRTC(addr) => {
+                    store.dispatch(P2pPeerAddWebRTCAction {
+                        peer_id,
+                        addr,
+                        rpc_id: Some(rpc_id),
+                    });
+                }
+                p2p::common::P2pGenericAddrs::LibP2p(addrs) => {
+                    store.dispatch(P2pPeerAddLibP2pAction {
+                        peer_id,
+                        addrs,
+                        rpc_id: Some(rpc_id),
+                    });
+                }
+            }
             store.dispatch(RpcP2pConnectionOutgoingPendingAction { rpc_id });
         }
         RpcAction::P2pConnectionOutgoingPending(_) => {}
@@ -155,14 +180,14 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                 .incoming_accept(action.opts.peer_id, &action.opts.offer)
             {
                 Ok(_) => {
-                    store.dispatch(P2pConnectionIncomingInitAction {
+                    store.dispatch(P2pConnectionWebRTCIncomingInitAction {
                         opts: action.opts,
                         rpc_id: Some(rpc_id),
                     });
                     store.dispatch(RpcP2pConnectionIncomingPendingAction { rpc_id });
                 }
                 Err(reason) => {
-                    let response = P2pConnectionResponse::Rejected(reason);
+                    let response = P2pConnectionWebRTCResponse::Rejected(reason);
                     store.dispatch(RpcP2pConnectionIncomingRespondAction { rpc_id, response });
                 }
             }
@@ -171,9 +196,13 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
         RpcAction::P2pConnectionIncomingRespond(action) => {
             let rpc_id = action.rpc_id;
             let error = match &action.response {
-                P2pConnectionResponse::Accepted(_) => None,
-                P2pConnectionResponse::InternalError => Some("RemoteInternalError".to_owned()),
-                P2pConnectionResponse::Rejected(reason) => Some(format!("Rejected({:?})", reason)),
+                P2pConnectionWebRTCResponse::Accepted(_) => None,
+                P2pConnectionWebRTCResponse::InternalError => {
+                    Some("RemoteInternalError".to_owned())
+                }
+                P2pConnectionWebRTCResponse::Rejected(reason) => {
+                    Some(format!("Rejected({:?})", reason))
+                }
             };
             let _ = store
                 .service

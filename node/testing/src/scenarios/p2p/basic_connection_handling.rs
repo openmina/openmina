@@ -3,8 +3,8 @@ use std::time::Duration;
 use node::{
     event_source::Event,
     p2p::{
-        connection::outgoing::P2pConnectionOutgoingInitOpts, P2pConnectionEvent, P2pEvent,
-        P2pPeerState, P2pPeerStatus, P2pState, PeerId,
+        common::P2pGenericPeer, P2pEvent, P2pLibP2pEvent, P2pLibP2pPeerState,
+        P2pPeerStatus, P2pState, PeerId,
     },
 };
 
@@ -73,13 +73,13 @@ impl SimultaneousConnections {
         let p2p_state1 = &driver.inner().node(node1).unwrap().state().p2p;
         let p2p_state2 = &driver.inner().node(node2).unwrap().state().p2p;
 
-        let node1_peer = p2p_state1.peers.get(&peer_id2);
-        let node2_peer = p2p_state2.peers.get(&peer_id1);
+        let node1_peer = p2p_state1.get_libp2p_peer(&peer_id2);
+        let node2_peer = p2p_state2.get_libp2p_peer(&peer_id1);
 
         assert!(
             matches!(
                 node1_peer,
-                Some(P2pPeerState {
+                Some(P2pLibP2pPeerState {
                     status: P2pPeerStatus::Ready(..),
                     ..
                 })
@@ -89,7 +89,7 @@ impl SimultaneousConnections {
         assert!(
             matches!(
                 node2_peer,
-                Some(P2pPeerState {
+                Some(P2pLibP2pPeerState {
                     status: P2pPeerStatus::Ready(..),
                     ..
                 })
@@ -118,7 +118,7 @@ impl AllNodesConnectionsAreSymmetric {
                     "/ip4/127.0.0.1/tcp/{port}/p2p/{}",
                     peer_id.clone().to_libp2p_string()
                 )
-                .parse::<P2pConnectionOutgoingInitOpts>()
+                .parse::<P2pGenericPeer>()
                 .unwrap();
                 (peer_id, addr)
             });
@@ -191,7 +191,7 @@ impl SeedConnectionsAreSymmetric {
                     "/ip4/127.0.0.1/tcp/{port}/p2p/{}",
                     peer_id.clone().to_libp2p_string()
                 )
-                .parse::<P2pConnectionOutgoingInitOpts>()
+                .parse::<P2pGenericPeer>()
                 .unwrap();
                 (peer_id, addr)
             });
@@ -298,14 +298,14 @@ impl MaxNumberOfPeers {
                 if node_id != node_ut {
                     return false;
                 }
-                let Event::P2p(P2pEvent::Connection(conn_event)) = event else {
+                let Event::P2p(P2pEvent::LibP2p(conn_event)) = event else {
                     return false;
                 };
                 match conn_event {
-                    node::p2p::P2pConnectionEvent::Finalized(_, Ok(())) => {
+                    node::p2p::P2pLibP2pEvent::ConnectionEstablished { .. } => {
                         connected += 1;
                     }
-                    node::p2p::P2pConnectionEvent::Closed(_) => {
+                    node::p2p::P2pLibP2pEvent::ConnectionClosed { .. } => {
                         connected -= 1;
                     }
                     _ => {}
@@ -333,7 +333,7 @@ impl MaxNumberOfPeers {
         let peers_connected = peers
             .into_iter()
             .filter_map(|peer| driver.inner().node(peer))
-            .filter_map(|peer| peer.state().p2p.peers.get(&nut_peer_id))
+            .filter_map(|peer| peer.state().p2p.get_libp2p_peer(&nut_peer_id))
             .filter(|state| matches!(state.status, P2pPeerStatus::Ready(..)))
             .count();
         assert!(
@@ -377,7 +377,7 @@ impl ConnectionStability {
             .run_until(Duration::from_secs(CONNECTED_TIME_SEC), |_, event, _| {
                 matches!(
                     event,
-                    Event::P2p(P2pEvent::Connection(P2pConnectionEvent::Closed(_)))
+                    Event::P2p(P2pEvent::LibP2p(P2pLibP2pEvent::ConnectionClosed { .. }))
                 )
             })
             .await

@@ -61,29 +61,45 @@ use crate::p2p::channels::snark_job_commitment::{
     P2pChannelsSnarkJobCommitmentResponseSendAction,
 };
 use crate::p2p::channels::{P2pChannelsAction, P2pChannelsMessageReceivedAction};
-use crate::p2p::connection::incoming::{
-    P2pConnectionIncomingAction, P2pConnectionIncomingAnswerReadyAction,
-    P2pConnectionIncomingAnswerSdpCreateErrorAction,
-    P2pConnectionIncomingAnswerSdpCreatePendingAction,
-    P2pConnectionIncomingAnswerSdpCreateSuccessAction,
-    P2pConnectionIncomingAnswerSendSuccessAction, P2pConnectionIncomingErrorAction,
-    P2pConnectionIncomingFinalizeErrorAction, P2pConnectionIncomingFinalizePendingAction,
-    P2pConnectionIncomingFinalizeSuccessAction, P2pConnectionIncomingInitAction,
-    P2pConnectionIncomingLibp2pReceivedAction, P2pConnectionIncomingSuccessAction,
-    P2pConnectionIncomingTimeoutAction,
+use crate::p2p::connection::libp2p::incoming::{
+    P2pConnectionLibP2pIncomingAction, P2pConnectionLibP2pIncomingSuccessAction,
 };
-use crate::p2p::connection::outgoing::{
-    P2pConnectionOutgoingAction, P2pConnectionOutgoingAnswerRecvErrorAction,
-    P2pConnectionOutgoingAnswerRecvPendingAction, P2pConnectionOutgoingAnswerRecvSuccessAction,
-    P2pConnectionOutgoingErrorAction, P2pConnectionOutgoingFinalizeErrorAction,
-    P2pConnectionOutgoingFinalizePendingAction, P2pConnectionOutgoingFinalizeSuccessAction,
-    P2pConnectionOutgoingInitAction, P2pConnectionOutgoingOfferReadyAction,
-    P2pConnectionOutgoingOfferSdpCreateErrorAction,
-    P2pConnectionOutgoingOfferSdpCreatePendingAction,
-    P2pConnectionOutgoingOfferSdpCreateSuccessAction, P2pConnectionOutgoingOfferSendSuccessAction,
-    P2pConnectionOutgoingRandomInitAction, P2pConnectionOutgoingReconnectAction,
-    P2pConnectionOutgoingSuccessAction, P2pConnectionOutgoingTimeoutAction,
+use crate::p2p::connection::libp2p::outgoing::{
+    P2pConnectionLibP2pOutgoingAction, P2pConnectionLibP2pOutgoingErrorAction,
+    P2pConnectionLibP2pOutgoingFinalizeErrorAction,
+    P2pConnectionLibP2pOutgoingFinalizePendingAction,
+    P2pConnectionLibP2pOutgoingFinalizeSuccessAction,
+    P2pConnectionLibP2pOutgoingFinalizeTimeoutAction, P2pConnectionLibP2pOutgoingInitAction,
+    P2pConnectionLibP2pOutgoingSuccessAction,
 };
+use crate::p2p::connection::libp2p::P2pConnectionLibP2pAction;
+use crate::p2p::connection::webrtc::incoming::{
+    P2pConnectionWebRTCIncomingAction, P2pConnectionWebRTCIncomingAnswerReadyAction,
+    P2pConnectionWebRTCIncomingAnswerSdpCreateErrorAction,
+    P2pConnectionWebRTCIncomingAnswerSdpCreatePendingAction,
+    P2pConnectionWebRTCIncomingAnswerSdpCreateSuccessAction,
+    P2pConnectionWebRTCIncomingAnswerSendSuccessAction, P2pConnectionWebRTCIncomingErrorAction,
+    P2pConnectionWebRTCIncomingFinalizeErrorAction,
+    P2pConnectionWebRTCIncomingFinalizePendingAction,
+    P2pConnectionWebRTCIncomingFinalizeSuccessAction, P2pConnectionWebRTCIncomingInitAction,
+    P2pConnectionWebRTCIncomingLibp2pReceivedAction, P2pConnectionWebRTCIncomingSuccessAction,
+    P2pConnectionWebRTCIncomingTimeoutAction,
+};
+use crate::p2p::connection::webrtc::outgoing::{
+    P2pConnectionWebRTCOutgoingAction, P2pConnectionWebRTCOutgoingAnswerRecvErrorAction,
+    P2pConnectionWebRTCOutgoingAnswerRecvPendingAction,
+    P2pConnectionWebRTCOutgoingAnswerRecvSuccessAction, P2pConnectionWebRTCOutgoingErrorAction,
+    P2pConnectionWebRTCOutgoingFinalizeErrorAction,
+    P2pConnectionWebRTCOutgoingFinalizePendingAction,
+    P2pConnectionWebRTCOutgoingFinalizeSuccessAction, P2pConnectionWebRTCOutgoingInitAction,
+    P2pConnectionWebRTCOutgoingOfferReadyAction,
+    P2pConnectionWebRTCOutgoingOfferSdpCreateErrorAction,
+    P2pConnectionWebRTCOutgoingOfferSdpCreatePendingAction,
+    P2pConnectionWebRTCOutgoingOfferSdpCreateSuccessAction,
+    P2pConnectionWebRTCOutgoingOfferSendSuccessAction, P2pConnectionWebRTCOutgoingSuccessAction,
+    P2pConnectionWebRTCOutgoingTimeoutAction,
+};
+use crate::p2p::connection::webrtc::P2pConnectionWebRTCAction;
 use crate::p2p::connection::P2pConnectionAction;
 use crate::p2p::disconnection::{
     P2pDisconnectionAction, P2pDisconnectionFinishAction, P2pDisconnectionInitAction,
@@ -97,7 +113,10 @@ use crate::p2p::listen::{
     P2pListenAction, P2pListenClosedAction, P2pListenErrorAction, P2pListenExpiredAction,
     P2pListenNewAction,
 };
-use crate::p2p::peer::{P2pPeerAction, P2pPeerBestTipUpdateAction, P2pPeerReadyAction};
+use crate::p2p::peer::{
+    P2pPeerAction, P2pPeerAddLibP2pAction, P2pPeerAddWebRTCAction, P2pPeerBestTipUpdateAction,
+    P2pPeerReadyAction, P2pPeerReconnectAction,
+};
 use crate::p2p::P2pAction;
 use crate::rpc::{
     RpcAction, RpcActionStatsGetAction, RpcFinishAction, RpcGlobalStateGetAction,
@@ -266,36 +285,42 @@ pub enum ActionKind {
     P2pChannelsSnarkRequestReceived,
     P2pChannelsSnarkRequestSend,
     P2pChannelsSnarkResponseSend,
-    P2pConnectionIncomingAnswerReady,
-    P2pConnectionIncomingAnswerSdpCreateError,
-    P2pConnectionIncomingAnswerSdpCreatePending,
-    P2pConnectionIncomingAnswerSdpCreateSuccess,
-    P2pConnectionIncomingAnswerSendSuccess,
-    P2pConnectionIncomingError,
-    P2pConnectionIncomingFinalizeError,
-    P2pConnectionIncomingFinalizePending,
-    P2pConnectionIncomingFinalizeSuccess,
-    P2pConnectionIncomingInit,
-    P2pConnectionIncomingLibp2pReceived,
-    P2pConnectionIncomingSuccess,
-    P2pConnectionIncomingTimeout,
-    P2pConnectionOutgoingAnswerRecvError,
-    P2pConnectionOutgoingAnswerRecvPending,
-    P2pConnectionOutgoingAnswerRecvSuccess,
-    P2pConnectionOutgoingError,
-    P2pConnectionOutgoingFinalizeError,
-    P2pConnectionOutgoingFinalizePending,
-    P2pConnectionOutgoingFinalizeSuccess,
-    P2pConnectionOutgoingInit,
-    P2pConnectionOutgoingOfferReady,
-    P2pConnectionOutgoingOfferSdpCreateError,
-    P2pConnectionOutgoingOfferSdpCreatePending,
-    P2pConnectionOutgoingOfferSdpCreateSuccess,
-    P2pConnectionOutgoingOfferSendSuccess,
-    P2pConnectionOutgoingRandomInit,
-    P2pConnectionOutgoingReconnect,
-    P2pConnectionOutgoingSuccess,
-    P2pConnectionOutgoingTimeout,
+    P2pConnectionLibP2pIncomingSuccess,
+    P2pConnectionLibP2pOutgoingError,
+    P2pConnectionLibP2pOutgoingFinalizeError,
+    P2pConnectionLibP2pOutgoingFinalizePending,
+    P2pConnectionLibP2pOutgoingFinalizeSuccess,
+    P2pConnectionLibP2pOutgoingFinalizeTimeout,
+    P2pConnectionLibP2pOutgoingInit,
+    P2pConnectionLibP2pOutgoingSuccess,
+    P2pConnectionWebRTCIncomingAnswerReady,
+    P2pConnectionWebRTCIncomingAnswerSdpCreateError,
+    P2pConnectionWebRTCIncomingAnswerSdpCreatePending,
+    P2pConnectionWebRTCIncomingAnswerSdpCreateSuccess,
+    P2pConnectionWebRTCIncomingAnswerSendSuccess,
+    P2pConnectionWebRTCIncomingError,
+    P2pConnectionWebRTCIncomingFinalizeError,
+    P2pConnectionWebRTCIncomingFinalizePending,
+    P2pConnectionWebRTCIncomingFinalizeSuccess,
+    P2pConnectionWebRTCIncomingInit,
+    P2pConnectionWebRTCIncomingLibp2pReceived,
+    P2pConnectionWebRTCIncomingSuccess,
+    P2pConnectionWebRTCIncomingTimeout,
+    P2pConnectionWebRTCOutgoingAnswerRecvError,
+    P2pConnectionWebRTCOutgoingAnswerRecvPending,
+    P2pConnectionWebRTCOutgoingAnswerRecvSuccess,
+    P2pConnectionWebRTCOutgoingError,
+    P2pConnectionWebRTCOutgoingFinalizeError,
+    P2pConnectionWebRTCOutgoingFinalizePending,
+    P2pConnectionWebRTCOutgoingFinalizeSuccess,
+    P2pConnectionWebRTCOutgoingInit,
+    P2pConnectionWebRTCOutgoingOfferReady,
+    P2pConnectionWebRTCOutgoingOfferSdpCreateError,
+    P2pConnectionWebRTCOutgoingOfferSdpCreatePending,
+    P2pConnectionWebRTCOutgoingOfferSdpCreateSuccess,
+    P2pConnectionWebRTCOutgoingOfferSendSuccess,
+    P2pConnectionWebRTCOutgoingSuccess,
+    P2pConnectionWebRTCOutgoingTimeout,
     P2pDisconnectionFinish,
     P2pDisconnectionInit,
     P2pDiscoveryInit,
@@ -309,8 +334,11 @@ pub enum ActionKind {
     P2pListenError,
     P2pListenExpired,
     P2pListenNew,
+    P2pPeerAddLibP2p,
+    P2pPeerAddWebRTC,
     P2pPeerBestTipUpdate,
     P2pPeerReady,
+    P2pPeerReconnect,
     RpcActionStatsGet,
     RpcFinish,
     RpcGlobalStateGet,
@@ -423,7 +451,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 215;
+    pub const COUNT: u16 = 224;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -634,8 +662,8 @@ impl ActionKindGet for P2pListenAction {
 impl ActionKindGet for P2pConnectionAction {
     fn kind(&self) -> ActionKind {
         match self {
-            Self::Outgoing(a) => a.kind(),
-            Self::Incoming(a) => a.kind(),
+            Self::LibP2p(a) => a.kind(),
+            Self::WebRTC(a) => a.kind(),
         }
     }
 }
@@ -678,6 +706,9 @@ impl ActionKindGet for P2pChannelsAction {
 impl ActionKindGet for P2pPeerAction {
     fn kind(&self) -> ActionKind {
         match self {
+            Self::AddLibP2p(a) => a.kind(),
+            Self::AddWebRTC(a) => a.kind(),
+            Self::Reconnect(a) => a.kind(),
             Self::Ready(a) => a.kind(),
             Self::BestTipUpdate(a) => a.kind(),
         }
@@ -1161,46 +1192,20 @@ impl ActionKindGet for P2pListenClosedAction {
     }
 }
 
-impl ActionKindGet for P2pConnectionOutgoingAction {
+impl ActionKindGet for P2pConnectionLibP2pAction {
     fn kind(&self) -> ActionKind {
         match self {
-            Self::RandomInit(a) => a.kind(),
-            Self::Init(a) => a.kind(),
-            Self::Reconnect(a) => a.kind(),
-            Self::OfferSdpCreatePending(a) => a.kind(),
-            Self::OfferSdpCreateError(a) => a.kind(),
-            Self::OfferSdpCreateSuccess(a) => a.kind(),
-            Self::OfferReady(a) => a.kind(),
-            Self::OfferSendSuccess(a) => a.kind(),
-            Self::AnswerRecvPending(a) => a.kind(),
-            Self::AnswerRecvError(a) => a.kind(),
-            Self::AnswerRecvSuccess(a) => a.kind(),
-            Self::FinalizePending(a) => a.kind(),
-            Self::FinalizeError(a) => a.kind(),
-            Self::FinalizeSuccess(a) => a.kind(),
-            Self::Timeout(a) => a.kind(),
-            Self::Error(a) => a.kind(),
-            Self::Success(a) => a.kind(),
+            Self::Outgoing(a) => a.kind(),
+            Self::Incoming(a) => a.kind(),
         }
     }
 }
 
-impl ActionKindGet for P2pConnectionIncomingAction {
+impl ActionKindGet for P2pConnectionWebRTCAction {
     fn kind(&self) -> ActionKind {
         match self {
-            Self::Init(a) => a.kind(),
-            Self::AnswerSdpCreatePending(a) => a.kind(),
-            Self::AnswerSdpCreateError(a) => a.kind(),
-            Self::AnswerSdpCreateSuccess(a) => a.kind(),
-            Self::AnswerReady(a) => a.kind(),
-            Self::AnswerSendSuccess(a) => a.kind(),
-            Self::FinalizePending(a) => a.kind(),
-            Self::FinalizeError(a) => a.kind(),
-            Self::FinalizeSuccess(a) => a.kind(),
-            Self::Timeout(a) => a.kind(),
-            Self::Error(a) => a.kind(),
-            Self::Success(a) => a.kind(),
-            Self::Libp2pReceived(a) => a.kind(),
+            Self::Outgoing(a) => a.kind(),
+            Self::Incoming(a) => a.kind(),
         }
     }
 }
@@ -1323,6 +1328,24 @@ impl ActionKindGet for P2pChannelsRpcAction {
             Self::RequestReceived(a) => a.kind(),
             Self::ResponseSend(a) => a.kind(),
         }
+    }
+}
+
+impl ActionKindGet for P2pPeerAddLibP2pAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pPeerAddLibP2p
+    }
+}
+
+impl ActionKindGet for P2pPeerAddWebRTCAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pPeerAddWebRTC
+    }
+}
+
+impl ActionKindGet for P2pPeerReconnectAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pPeerReconnect
     }
 }
 
@@ -1589,183 +1612,67 @@ impl ActionKindGet for SnarkPoolCandidatePeerPruneAction {
     }
 }
 
-impl ActionKindGet for P2pConnectionOutgoingRandomInitAction {
+impl ActionKindGet for P2pConnectionLibP2pOutgoingAction {
     fn kind(&self) -> ActionKind {
-        ActionKind::P2pConnectionOutgoingRandomInit
+        match self {
+            Self::Init(a) => a.kind(),
+            Self::FinalizePending(a) => a.kind(),
+            Self::FinalizeSuccess(a) => a.kind(),
+            Self::FinalizeError(a) => a.kind(),
+            Self::FinalizeTimeout(a) => a.kind(),
+            Self::Success(a) => a.kind(),
+            Self::Error(a) => a.kind(),
+        }
     }
 }
 
-impl ActionKindGet for P2pConnectionOutgoingInitAction {
+impl ActionKindGet for P2pConnectionLibP2pIncomingAction {
     fn kind(&self) -> ActionKind {
-        ActionKind::P2pConnectionOutgoingInit
+        match self {
+            Self::Success(a) => a.kind(),
+        }
     }
 }
 
-impl ActionKindGet for P2pConnectionOutgoingReconnectAction {
+impl ActionKindGet for P2pConnectionWebRTCOutgoingAction {
     fn kind(&self) -> ActionKind {
-        ActionKind::P2pConnectionOutgoingReconnect
+        match self {
+            Self::Init(a) => a.kind(),
+            Self::OfferSdpCreatePending(a) => a.kind(),
+            Self::OfferSdpCreateError(a) => a.kind(),
+            Self::OfferSdpCreateSuccess(a) => a.kind(),
+            Self::OfferReady(a) => a.kind(),
+            Self::OfferSendSuccess(a) => a.kind(),
+            Self::AnswerRecvPending(a) => a.kind(),
+            Self::AnswerRecvError(a) => a.kind(),
+            Self::AnswerRecvSuccess(a) => a.kind(),
+            Self::FinalizePending(a) => a.kind(),
+            Self::FinalizeError(a) => a.kind(),
+            Self::FinalizeSuccess(a) => a.kind(),
+            Self::Timeout(a) => a.kind(),
+            Self::Error(a) => a.kind(),
+            Self::Success(a) => a.kind(),
+        }
     }
 }
 
-impl ActionKindGet for P2pConnectionOutgoingOfferSdpCreatePendingAction {
+impl ActionKindGet for P2pConnectionWebRTCIncomingAction {
     fn kind(&self) -> ActionKind {
-        ActionKind::P2pConnectionOutgoingOfferSdpCreatePending
-    }
-}
-
-impl ActionKindGet for P2pConnectionOutgoingOfferSdpCreateErrorAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pConnectionOutgoingOfferSdpCreateError
-    }
-}
-
-impl ActionKindGet for P2pConnectionOutgoingOfferSdpCreateSuccessAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pConnectionOutgoingOfferSdpCreateSuccess
-    }
-}
-
-impl ActionKindGet for P2pConnectionOutgoingOfferReadyAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pConnectionOutgoingOfferReady
-    }
-}
-
-impl ActionKindGet for P2pConnectionOutgoingOfferSendSuccessAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pConnectionOutgoingOfferSendSuccess
-    }
-}
-
-impl ActionKindGet for P2pConnectionOutgoingAnswerRecvPendingAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pConnectionOutgoingAnswerRecvPending
-    }
-}
-
-impl ActionKindGet for P2pConnectionOutgoingAnswerRecvErrorAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pConnectionOutgoingAnswerRecvError
-    }
-}
-
-impl ActionKindGet for P2pConnectionOutgoingAnswerRecvSuccessAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pConnectionOutgoingAnswerRecvSuccess
-    }
-}
-
-impl ActionKindGet for P2pConnectionOutgoingFinalizePendingAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pConnectionOutgoingFinalizePending
-    }
-}
-
-impl ActionKindGet for P2pConnectionOutgoingFinalizeErrorAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pConnectionOutgoingFinalizeError
-    }
-}
-
-impl ActionKindGet for P2pConnectionOutgoingFinalizeSuccessAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pConnectionOutgoingFinalizeSuccess
-    }
-}
-
-impl ActionKindGet for P2pConnectionOutgoingTimeoutAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pConnectionOutgoingTimeout
-    }
-}
-
-impl ActionKindGet for P2pConnectionOutgoingErrorAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pConnectionOutgoingError
-    }
-}
-
-impl ActionKindGet for P2pConnectionOutgoingSuccessAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pConnectionOutgoingSuccess
-    }
-}
-
-impl ActionKindGet for P2pConnectionIncomingInitAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pConnectionIncomingInit
-    }
-}
-
-impl ActionKindGet for P2pConnectionIncomingAnswerSdpCreatePendingAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pConnectionIncomingAnswerSdpCreatePending
-    }
-}
-
-impl ActionKindGet for P2pConnectionIncomingAnswerSdpCreateErrorAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pConnectionIncomingAnswerSdpCreateError
-    }
-}
-
-impl ActionKindGet for P2pConnectionIncomingAnswerSdpCreateSuccessAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pConnectionIncomingAnswerSdpCreateSuccess
-    }
-}
-
-impl ActionKindGet for P2pConnectionIncomingAnswerReadyAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pConnectionIncomingAnswerReady
-    }
-}
-
-impl ActionKindGet for P2pConnectionIncomingAnswerSendSuccessAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pConnectionIncomingAnswerSendSuccess
-    }
-}
-
-impl ActionKindGet for P2pConnectionIncomingFinalizePendingAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pConnectionIncomingFinalizePending
-    }
-}
-
-impl ActionKindGet for P2pConnectionIncomingFinalizeErrorAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pConnectionIncomingFinalizeError
-    }
-}
-
-impl ActionKindGet for P2pConnectionIncomingFinalizeSuccessAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pConnectionIncomingFinalizeSuccess
-    }
-}
-
-impl ActionKindGet for P2pConnectionIncomingTimeoutAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pConnectionIncomingTimeout
-    }
-}
-
-impl ActionKindGet for P2pConnectionIncomingErrorAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pConnectionIncomingError
-    }
-}
-
-impl ActionKindGet for P2pConnectionIncomingSuccessAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pConnectionIncomingSuccess
-    }
-}
-
-impl ActionKindGet for P2pConnectionIncomingLibp2pReceivedAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pConnectionIncomingLibp2pReceived
+        match self {
+            Self::Init(a) => a.kind(),
+            Self::AnswerSdpCreatePending(a) => a.kind(),
+            Self::AnswerSdpCreateError(a) => a.kind(),
+            Self::AnswerSdpCreateSuccess(a) => a.kind(),
+            Self::AnswerReady(a) => a.kind(),
+            Self::AnswerSendSuccess(a) => a.kind(),
+            Self::FinalizePending(a) => a.kind(),
+            Self::FinalizeError(a) => a.kind(),
+            Self::FinalizeSuccess(a) => a.kind(),
+            Self::Timeout(a) => a.kind(),
+            Self::Error(a) => a.kind(),
+            Self::Success(a) => a.kind(),
+            Self::Libp2pReceived(a) => a.kind(),
+        }
     }
 }
 
@@ -2014,6 +1921,222 @@ impl ActionKindGet for TransitionFrontierSyncLedgerStagedAction {
 impl ActionKindGet for TransitionFrontierSyncLedgerSuccessAction {
     fn kind(&self) -> ActionKind {
         ActionKind::TransitionFrontierSyncLedgerSuccess
+    }
+}
+
+impl ActionKindGet for P2pConnectionLibP2pOutgoingInitAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pConnectionLibP2pOutgoingInit
+    }
+}
+
+impl ActionKindGet for P2pConnectionLibP2pOutgoingFinalizePendingAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pConnectionLibP2pOutgoingFinalizePending
+    }
+}
+
+impl ActionKindGet for P2pConnectionLibP2pOutgoingFinalizeSuccessAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pConnectionLibP2pOutgoingFinalizeSuccess
+    }
+}
+
+impl ActionKindGet for P2pConnectionLibP2pOutgoingFinalizeErrorAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pConnectionLibP2pOutgoingFinalizeError
+    }
+}
+
+impl ActionKindGet for P2pConnectionLibP2pOutgoingFinalizeTimeoutAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pConnectionLibP2pOutgoingFinalizeTimeout
+    }
+}
+
+impl ActionKindGet for P2pConnectionLibP2pOutgoingSuccessAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pConnectionLibP2pOutgoingSuccess
+    }
+}
+
+impl ActionKindGet for P2pConnectionLibP2pOutgoingErrorAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pConnectionLibP2pOutgoingError
+    }
+}
+
+impl ActionKindGet for P2pConnectionLibP2pIncomingSuccessAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pConnectionLibP2pIncomingSuccess
+    }
+}
+
+impl ActionKindGet for P2pConnectionWebRTCOutgoingInitAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pConnectionWebRTCOutgoingInit
+    }
+}
+
+impl ActionKindGet for P2pConnectionWebRTCOutgoingOfferSdpCreatePendingAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pConnectionWebRTCOutgoingOfferSdpCreatePending
+    }
+}
+
+impl ActionKindGet for P2pConnectionWebRTCOutgoingOfferSdpCreateErrorAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pConnectionWebRTCOutgoingOfferSdpCreateError
+    }
+}
+
+impl ActionKindGet for P2pConnectionWebRTCOutgoingOfferSdpCreateSuccessAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pConnectionWebRTCOutgoingOfferSdpCreateSuccess
+    }
+}
+
+impl ActionKindGet for P2pConnectionWebRTCOutgoingOfferReadyAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pConnectionWebRTCOutgoingOfferReady
+    }
+}
+
+impl ActionKindGet for P2pConnectionWebRTCOutgoingOfferSendSuccessAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pConnectionWebRTCOutgoingOfferSendSuccess
+    }
+}
+
+impl ActionKindGet for P2pConnectionWebRTCOutgoingAnswerRecvPendingAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pConnectionWebRTCOutgoingAnswerRecvPending
+    }
+}
+
+impl ActionKindGet for P2pConnectionWebRTCOutgoingAnswerRecvErrorAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pConnectionWebRTCOutgoingAnswerRecvError
+    }
+}
+
+impl ActionKindGet for P2pConnectionWebRTCOutgoingAnswerRecvSuccessAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pConnectionWebRTCOutgoingAnswerRecvSuccess
+    }
+}
+
+impl ActionKindGet for P2pConnectionWebRTCOutgoingFinalizePendingAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pConnectionWebRTCOutgoingFinalizePending
+    }
+}
+
+impl ActionKindGet for P2pConnectionWebRTCOutgoingFinalizeErrorAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pConnectionWebRTCOutgoingFinalizeError
+    }
+}
+
+impl ActionKindGet for P2pConnectionWebRTCOutgoingFinalizeSuccessAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pConnectionWebRTCOutgoingFinalizeSuccess
+    }
+}
+
+impl ActionKindGet for P2pConnectionWebRTCOutgoingTimeoutAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pConnectionWebRTCOutgoingTimeout
+    }
+}
+
+impl ActionKindGet for P2pConnectionWebRTCOutgoingErrorAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pConnectionWebRTCOutgoingError
+    }
+}
+
+impl ActionKindGet for P2pConnectionWebRTCOutgoingSuccessAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pConnectionWebRTCOutgoingSuccess
+    }
+}
+
+impl ActionKindGet for P2pConnectionWebRTCIncomingInitAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pConnectionWebRTCIncomingInit
+    }
+}
+
+impl ActionKindGet for P2pConnectionWebRTCIncomingAnswerSdpCreatePendingAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pConnectionWebRTCIncomingAnswerSdpCreatePending
+    }
+}
+
+impl ActionKindGet for P2pConnectionWebRTCIncomingAnswerSdpCreateErrorAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pConnectionWebRTCIncomingAnswerSdpCreateError
+    }
+}
+
+impl ActionKindGet for P2pConnectionWebRTCIncomingAnswerSdpCreateSuccessAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pConnectionWebRTCIncomingAnswerSdpCreateSuccess
+    }
+}
+
+impl ActionKindGet for P2pConnectionWebRTCIncomingAnswerReadyAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pConnectionWebRTCIncomingAnswerReady
+    }
+}
+
+impl ActionKindGet for P2pConnectionWebRTCIncomingAnswerSendSuccessAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pConnectionWebRTCIncomingAnswerSendSuccess
+    }
+}
+
+impl ActionKindGet for P2pConnectionWebRTCIncomingFinalizePendingAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pConnectionWebRTCIncomingFinalizePending
+    }
+}
+
+impl ActionKindGet for P2pConnectionWebRTCIncomingFinalizeErrorAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pConnectionWebRTCIncomingFinalizeError
+    }
+}
+
+impl ActionKindGet for P2pConnectionWebRTCIncomingFinalizeSuccessAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pConnectionWebRTCIncomingFinalizeSuccess
+    }
+}
+
+impl ActionKindGet for P2pConnectionWebRTCIncomingTimeoutAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pConnectionWebRTCIncomingTimeout
+    }
+}
+
+impl ActionKindGet for P2pConnectionWebRTCIncomingErrorAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pConnectionWebRTCIncomingError
+    }
+}
+
+impl ActionKindGet for P2pConnectionWebRTCIncomingSuccessAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pConnectionWebRTCIncomingSuccess
+    }
+}
+
+impl ActionKindGet for P2pConnectionWebRTCIncomingLibp2pReceivedAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pConnectionWebRTCIncomingLibp2pReceived
     }
 }
 

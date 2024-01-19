@@ -36,12 +36,12 @@ impl MultiNodeBasicConnectivityPeerDiscovery {
         };
 
         let seed_a = runner.add_ocaml_node(ocaml_seed_config.clone());
-        let seed_a_dial_addr = runner.ocaml_node(seed_a).unwrap().dial_addr();
+        let seed_a_dial_addr = runner.ocaml_node(seed_a).unwrap().to_peers::<Vec::<_>>();
 
-        eprintln!("launching OCaml seed node: {seed_a_dial_addr}");
+        eprintln!("launching OCaml seed node: {}", seed_a_dial_addr.iter().map(|v| v.to_string()).collect::<Vec<_>>().join(","));
 
         let ocaml_node_config = OcamlNodeTestingConfig {
-            initial_peers: vec![seed_a_dial_addr],
+            initial_peers: seed_a_dial_addr,
             ..ocaml_seed_config
         };
 
@@ -74,7 +74,7 @@ impl MultiNodeBasicConnectivityPeerDiscovery {
                     .iter()
                     .chain(std::iter::once(&seed_a))
                     .filter_map(|node_id| runner.ocaml_node(*node_id))
-                    .map(|node| node.dial_addr())
+                    .flat_map(|node| node.to_peers::<Vec<_>>())
                     .collect(),
             );
         let node_id = runner.add_rust_node(config);
@@ -97,7 +97,7 @@ impl MultiNodeBasicConnectivityPeerDiscovery {
                     events.map(move |(_, event)| {
                         match event {
                             Event::P2p(P2pEvent::Discovery(event)) => {
-                                eprintln!("event: {event}");
+                                eprintln!("event: {event:?}");
                             }
                             _ => {}
                         }
@@ -156,8 +156,8 @@ impl MultiNodeBasicConnectivityPeerDiscovery {
                     .p2p
                     .peers
                     .iter()
-                    .filter(|(id, n)| n.is_libp2p && id == &peer_id)
-                    .filter_map(|(_, n)| n.status.as_ready())
+                    .filter(|(id, n)| n.is_libp2p() && id == &peer_id)
+                    .filter_map(|(_, n)| n.status_as_ready())
                     .find(|n| n.is_incoming)
                     .is_some()
                 {

@@ -9,11 +9,11 @@ use warp::{
     Filter, Rejection, Reply,
 };
 
-use node::rpc::{
+use node::{rpc::{
     ActionStatsQuery, RpcPeerInfo, RpcRequest, RpcScanStateSummaryGetQuery,
     RpcScanStateSummaryGetResponse, RpcSnarkPoolJobGetResponse, RpcSnarkerWorkersResponse,
     SyncStatsQuery,
-};
+}, p2p::connection::{incoming::P2pConnectionWebRTCIncomingInitOpts, webrtc::P2pConnectionWebRTCResponse}};
 use openmina_core::snark::SnarkJobId;
 
 use super::rpc::{
@@ -25,10 +25,7 @@ pub async fn run(port: u16, rpc_sender: super::RpcSender) {
     #[cfg(feature = "p2p-webrtc")]
     let signaling = {
         use node::p2p::{
-            connection::{
-                incoming::{IncomingSignalingMethod, P2pConnectionIncomingInitOpts},
-                P2pConnectionResponse,
-            },
+            connection::incoming::IncomingSignalingMethod,
             webrtc, PeerId,
         };
 
@@ -44,30 +41,34 @@ pub async fn run(port: u16, rpc_sender: super::RpcSender) {
                     let mut rx = rpc_sender_clone
                         .multishot_request(
                             2,
-                            RpcRequest::P2pConnectionIncoming(P2pConnectionIncomingInitOpts {
-                                peer_id: PeerId::from_public_key(offer.identity_pub_key.clone()),
-                                signaling: IncomingSignalingMethod::Http,
-                                offer,
-                            }),
+                            RpcRequest::P2pConnectionWebRTCIncoming(
+                                P2pConnectionWebRTCIncomingInitOpts {
+                                    peer_id: PeerId::from_public_key(
+                                        offer.identity_pub_key.clone(),
+                                    ),
+                                    signaling: IncomingSignalingMethod::Http,
+                                    offer,
+                                },
+                            ),
                         )
                         .await;
 
                     match rx.recv().await {
                         Some(RpcP2pConnectionIncomingResponse::Answer(answer)) => {
                             let status = match &answer {
-                                P2pConnectionResponse::Accepted(_) => StatusCode::OK,
-                                P2pConnectionResponse::Rejected(reason) => match reason.is_bad() {
+                                P2pConnectionWebRTCResponse::Accepted(_) => StatusCode::OK,
+                                P2pConnectionWebRTCResponse::Rejected(reason) => match reason.is_bad() {
                                     false => StatusCode::OK,
                                     true => StatusCode::BAD_REQUEST,
                                 },
-                                P2pConnectionResponse::InternalError => {
+                                P2pConnectionWebRTCResponse::InternalError => {
                                     StatusCode::INTERNAL_SERVER_ERROR
                                 }
                             };
                             with_json_reply(&answer, status)
                         }
                         _ => {
-                            let resp = P2pConnectionResponse::internal_error_str();
+                            let resp = P2pConnectionWebRTCResponse::internal_error_str();
                             with_json_reply(&resp, StatusCode::INTERNAL_SERVER_ERROR)
                         }
                     }

@@ -1,4 +1,4 @@
-use p2p::{connection::outgoing::P2pConnectionOutgoingInitOpts, P2pDiscoveryEvent, P2pEvent};
+use p2p::{P2pDiscoveryEvent, P2pEvent};
 
 use crate::{event_source::Event, Action, ActionWithMeta, EventSourceAction, State};
 
@@ -9,10 +9,12 @@ pub fn reducer(state: &mut State, action: &ActionWithMeta) {
         Action::EventSource(EventSourceAction::NewEvent(content)) => match &content.event {
             #[cfg(not(target_arch = "wasm32"))]
             Event::P2p(P2pEvent::Libp2pIdentify(peer_id, maddr)) => {
-                if let Some(peer) = state.p2p.peers.get_mut(peer_id) {
-                    match maddr.try_into() {
+                if let Some(peer) = state.p2p.get_libp2p_peer_mut(peer_id) {
+                    match maddr.clone().try_into() {
                         Ok(opts) => {
-                            peer.dial_opts = Some(P2pConnectionOutgoingInitOpts::LibP2P(opts));
+                            if !peer.dial_opts.contains(&opts) {
+                                peer.dial_opts.push(opts);
+                            }
                         }
                         Err(err) => {
                             openmina_core::warn!(meta.time();

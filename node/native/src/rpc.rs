@@ -1,9 +1,9 @@
+use node::p2p::connection::webrtc::P2pConnectionWebRTCResponse;
 use node::rpc::{RpcHealthCheckResponse, RpcPeersGetResponse, RpcReadinessCheckResponse};
 use serde::{Deserialize, Serialize};
 
 use node::core::channels::{mpsc, oneshot};
 use node::core::requests::PendingRequests;
-use node::p2p::connection::P2pConnectionResponse;
 pub use node::rpc::{
     ActionStatsResponse, RespondError, RpcActionStatsGetResponse, RpcId, RpcIdType,
     RpcP2pConnectionOutgoingResponse, RpcScanStateSummaryGetResponse, RpcSnarkPoolGetResponse,
@@ -17,7 +17,7 @@ use super::{NodeRpcRequest, NodeService};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum RpcP2pConnectionIncomingResponse {
-    Answer(P2pConnectionResponse),
+    Answer(P2pConnectionWebRTCResponse),
     Result(Result<(), String>),
 }
 
@@ -103,7 +103,7 @@ impl node::rpc::RpcService for NodeService {
     fn respond_p2p_connection_incoming_answer(
         &mut self,
         rpc_id: RpcId,
-        response: P2pConnectionResponse,
+        response: P2pConnectionWebRTCResponse,
     ) -> Result<(), RespondError> {
         let entry = self.rpc.pending.get(rpc_id);
         let chan = entry.ok_or(RespondError::UnknownRpcId)?;

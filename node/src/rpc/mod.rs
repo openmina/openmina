@@ -4,6 +4,8 @@ use mina_p2p_messages::v2::{
     MinaBaseUserCommandStableV2, MinaTransactionTransactionStableV2,
     SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponse, StateHash, TransactionHash,
 };
+use p2p::common::P2pGenericAddrs;
+use p2p::connection::webrtc::incoming::P2pConnectionWebRTCIncomingInitOpts;
 pub use rpc_state::*;
 
 mod rpc_actions;
@@ -31,8 +33,6 @@ use serde::{Deserialize, Serialize};
 use crate::external_snark_worker::{
     ExternalSnarkWorkerError, ExternalSnarkWorkerWorkError, SnarkWorkSpecError,
 };
-use crate::p2p::connection::incoming::P2pConnectionIncomingInitOpts;
-use crate::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 use crate::p2p::PeerId;
 use crate::snark_pool::{JobCommitment, JobSummary};
 use crate::stats::actions::{ActionStatsForBlock, ActionStatsSnapshot};
@@ -45,8 +45,8 @@ pub enum RpcRequest {
     ActionStatsGet(ActionStatsQuery),
     SyncStatsGet(SyncStatsQuery),
     PeersGet,
-    P2pConnectionOutgoing(P2pConnectionOutgoingInitOpts),
-    P2pConnectionIncoming(P2pConnectionIncomingInitOpts),
+    P2pConnectionOutgoing(PeerId, P2pGenericAddrs),
+    P2pConnectionWebRTCIncoming(P2pConnectionWebRTCIncomingInitOpts),
     ScanStateSummaryGet(RpcScanStateSummaryGetQuery),
     SnarkPoolGet,
     SnarkPoolJobGet { job_id: SnarkJobId },
@@ -99,7 +99,7 @@ pub struct RpcPeerInfo {
     pub best_tip_global_slot: Option<u32>,
     pub best_tip_timestamp: Option<u64>,
     pub connection_status: PeerConnectionStatus,
-    pub address: Option<String>,
+    pub address: Vec<String>,
     pub time: u64,
 }
 

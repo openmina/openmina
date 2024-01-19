@@ -1,10 +1,19 @@
 use openmina_core::snark::SnarkJobId;
+use p2p::{
+    common::P2pGenericAddrs,
+    connection::{
+        libp2p::outgoing::P2pConnectionLibP2pOutgoingError,
+        webrtc::{
+            incoming::P2pConnectionWebRTCIncomingInitOpts,
+            outgoing::P2pConnectionWebRTCOutgoingError,
+        },
+    },
+    PeerId,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::external_snark_worker::SnarkWorkId;
-use crate::p2p::connection::incoming::P2pConnectionIncomingInitOpts;
-use crate::p2p::connection::outgoing::{P2pConnectionOutgoingError, P2pConnectionOutgoingInitOpts};
-use crate::p2p::connection::P2pConnectionResponse;
+use crate::p2p::connection::webrtc::P2pConnectionWebRTCResponse;
 
 use super::{ActionStatsQuery, RpcId, RpcScanStateSummaryGetQuery, SyncStatsQuery};
 
@@ -82,7 +91,8 @@ impl redux::EnablingCondition<crate::State> for RpcPeersGetAction {}
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RpcP2pConnectionOutgoingInitAction {
     pub rpc_id: RpcId,
-    pub opts: P2pConnectionOutgoingInitOpts,
+    pub peer_id: PeerId,
+    pub addrs: P2pGenericAddrs,
 }
 
 impl redux::EnablingCondition<crate::State> for RpcP2pConnectionOutgoingInitAction {
@@ -106,10 +116,18 @@ impl redux::EnablingCondition<crate::State> for RpcP2pConnectionOutgoingPendingA
     }
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, thiserror::Error)]
+pub enum RpcP2pConnectionOutgoingError {
+    #[error(transparent)]
+    WebRTC(#[from] P2pConnectionWebRTCOutgoingError),
+    #[error(transparent)]
+    LibP2p(#[from] P2pConnectionLibP2pOutgoingError),
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RpcP2pConnectionOutgoingErrorAction {
     pub rpc_id: RpcId,
-    pub error: P2pConnectionOutgoingError,
+    pub error: RpcP2pConnectionOutgoingError,
 }
 
 impl redux::EnablingCondition<crate::State> for RpcP2pConnectionOutgoingErrorAction {
@@ -140,7 +158,7 @@ impl redux::EnablingCondition<crate::State> for RpcP2pConnectionOutgoingSuccessA
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RpcP2pConnectionIncomingInitAction {
     pub rpc_id: RpcId,
-    pub opts: P2pConnectionIncomingInitOpts,
+    pub opts: P2pConnectionWebRTCIncomingInitOpts,
 }
 
 impl redux::EnablingCondition<crate::State> for RpcP2pConnectionIncomingInitAction {
@@ -167,7 +185,7 @@ impl redux::EnablingCondition<crate::State> for RpcP2pConnectionIncomingPendingA
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RpcP2pConnectionIncomingRespondAction {
     pub rpc_id: RpcId,
-    pub response: P2pConnectionResponse,
+    pub response: P2pConnectionWebRTCResponse,
 }
 
 impl redux::EnablingCondition<crate::State> for RpcP2pConnectionIncomingRespondAction {

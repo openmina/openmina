@@ -7,6 +7,7 @@ use mina_p2p_messages::v2::{CurrencyFeeStableV1, NonZeroCurvePoint};
 use node::core::channels::mpsc;
 use node::core::requests::{PendingRequests, RequestId};
 use node::core::snark::{Snark, SnarkJobId};
+use node::p2p::common::P2pGenericAddrs;
 use node::recorder::Recorder;
 use node::snark::block_verify::{
     SnarkBlockVerifyId, SnarkBlockVerifyService, VerifiableBlockWithHash,
@@ -20,7 +21,6 @@ use node::{
     external_snark_worker::{ExternalSnarkWorkerService, SnarkWorkSpec},
     ledger::LedgerCtx,
     p2p::{
-        connection::outgoing::P2pConnectionOutgoingInitOpts,
         service_impl::{
             libp2p::Libp2pService,
             webrtc::{Cmd, P2pServiceWebrtc, PeerState},
@@ -140,12 +140,12 @@ impl node::event_source::EventSourceService for NodeTestingService {
 }
 
 impl P2pServiceWebrtc for NodeTestingService {
-    fn random_pick(
-        &mut self,
-        list: &[P2pConnectionOutgoingInitOpts],
-    ) -> P2pConnectionOutgoingInitOpts {
-        self.real.random_pick(list)
-    }
+    // fn random_pick(
+    //     &mut self,
+    //     list: &[P2pConnectionOutgoingInitOpts],
+    // ) -> P2pConnectionOutgoingInitOpts {
+    //     self.real.random_pick(list)
+    // }
 
     fn event_sender(&mut self) -> &mut mpsc::UnboundedSender<P2pEvent> {
         &mut self.real.p2p_event_sender
@@ -177,7 +177,7 @@ impl P2pServiceWebrtcWithLibp2p for NodeTestingService {
         self.real.find_random_peer()
     }
 
-    fn start_discovery(&mut self, peers: Vec<P2pConnectionOutgoingInitOpts>) {
+    fn start_discovery(&mut self, peers: Vec<(PeerId, P2pGenericAddrs)>) {
         self.real.start_discovery(peers)
     }
 }

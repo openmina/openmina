@@ -5,70 +5,64 @@ use serde::{Deserialize, Serialize};
 
 use openmina_core::requests::RpcId;
 
-use crate::{connection::RejectionReason, webrtc};
+use crate::{
+    connection::{webrtc::RejectionReason, ConnectionState},
+    webrtc,
+};
 
-use super::P2pConnectionOutgoingInitOpts;
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum P2pConnectionOutgoingState {
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+pub enum P2pConnectionWebRTCOutgoingState {
+    #[default]
+    Default,
     Init {
         time: Timestamp,
-        opts: P2pConnectionOutgoingInitOpts,
         rpc_id: Option<RpcId>,
     },
     OfferSdpCreatePending {
         time: Timestamp,
-        opts: P2pConnectionOutgoingInitOpts,
         rpc_id: Option<RpcId>,
     },
     OfferSdpCreateSuccess {
         time: Timestamp,
-        opts: P2pConnectionOutgoingInitOpts,
         sdp: String,
         rpc_id: Option<RpcId>,
     },
     OfferReady {
         time: Timestamp,
-        opts: P2pConnectionOutgoingInitOpts,
         offer: webrtc::Offer,
         rpc_id: Option<RpcId>,
     },
     OfferSendSuccess {
         time: Timestamp,
-        opts: P2pConnectionOutgoingInitOpts,
         offer: webrtc::Offer,
         rpc_id: Option<RpcId>,
     },
     AnswerRecvPending {
         time: Timestamp,
-        opts: P2pConnectionOutgoingInitOpts,
         offer: webrtc::Offer,
         rpc_id: Option<RpcId>,
     },
     AnswerRecvSuccess {
         time: Timestamp,
-        opts: P2pConnectionOutgoingInitOpts,
         offer: webrtc::Offer,
         answer: webrtc::Answer,
         rpc_id: Option<RpcId>,
     },
     FinalizePending {
         time: Timestamp,
-        opts: P2pConnectionOutgoingInitOpts,
         offer: Option<webrtc::Offer>,
         answer: Option<webrtc::Answer>,
         rpc_id: Option<RpcId>,
     },
     FinalizeSuccess {
         time: Timestamp,
-        opts: P2pConnectionOutgoingInitOpts,
         offer: Option<webrtc::Offer>,
         answer: Option<webrtc::Answer>,
         rpc_id: Option<RpcId>,
     },
     Error {
         time: Timestamp,
-        error: P2pConnectionOutgoingError,
+        error: P2pConnectionWebRTCOutgoingError,
         rpc_id: Option<RpcId>,
     },
     Success {
@@ -79,9 +73,10 @@ pub enum P2pConnectionOutgoingState {
     },
 }
 
-impl P2pConnectionOutgoingState {
+impl P2pConnectionWebRTCOutgoingState {
     pub fn time(&self) -> Timestamp {
         match self {
+            Self::Default => Timestamp::ZERO,
             Self::Init { time, .. } => *time,
             Self::OfferSdpCreatePending { time, .. } => *time,
             Self::OfferSdpCreateSuccess { time, .. } => *time,
@@ -98,6 +93,7 @@ impl P2pConnectionOutgoingState {
 
     pub fn rpc_id(&self) -> Option<RpcId> {
         match self {
+            Self::Default => None,
             Self::Init { rpc_id, .. } => *rpc_id,
             Self::OfferSdpCreatePending { rpc_id, .. } => *rpc_id,
             Self::OfferSdpCreateSuccess { rpc_id, .. } => *rpc_id,
@@ -120,11 +116,60 @@ impl P2pConnectionOutgoingState {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum P2pConnectionOutgoingError {
+#[derive(Serialize, Deserialize, Debug, Clone, thiserror::Error)]
+pub enum P2pConnectionWebRTCOutgoingError {
+    #[error("error creating SDP: {0}")]
     SdpCreateError(String),
+    #[error("rejected: {0}")]
     Rejected(RejectionReason),
+    #[error("remote internal error")]
     RemoteInternalError,
+    #[error("error finalizing: {0}")]
     FinalizeError(String),
+    #[error("timeout")]
     Timeout,
+}
+
+impl ConnectionState for P2pConnectionWebRTCOutgoingState {
+    fn is_success(&self) -> bool {
+        matches!(self, P2pConnectionWebRTCOutgoingState::Success { .. })
+    }
+
+    fn is_error(&self) -> bool {
+        matches!(self, P2pConnectionWebRTCOutgoingState::Error { .. })
+    }
+
+    fn rpc_id(&self) -> Option<RpcId> {
+        match self {
+            Self::Default => None,
+            Self::Init { rpc_id, .. } => *rpc_id,
+            Self::OfferSdpCreatePending { rpc_id, .. } => *rpc_id,
+            Self::OfferSdpCreateSuccess { rpc_id, .. } => *rpc_id,
+            Self::OfferReady { rpc_id, .. } => *rpc_id,
+            Self::OfferSendSuccess { rpc_id, .. } => *rpc_id,
+            Self::AnswerRecvPending { rpc_id, .. } => *rpc_id,
+            Self::AnswerRecvSuccess { rpc_id, .. } => *rpc_id,
+            Self::FinalizePending { rpc_id, .. } => *rpc_id,
+            Self::FinalizeSuccess { rpc_id, .. } => *rpc_id,
+            Self::Error { rpc_id, .. } => *rpc_id,
+            Self::Success { rpc_id, .. } => *rpc_id,
+        }
+    }
+
+    fn time(&self) -> Timestamp {
+        match self {
+            P2pConnectionWebRTCOutgoingState::Default => Timestamp::ZERO,
+            P2pConnectionWebRTCOutgoingState::Init { time, .. } => *time,
+            P2pConnectionWebRTCOutgoingState::OfferSdpCreatePending { time, .. } => *time,
+            P2pConnectionWebRTCOutgoingState::OfferSdpCreateSuccess { time, .. } => *time,
+            P2pConnectionWebRTCOutgoingState::OfferReady { time, .. } => *time,
+            P2pConnectionWebRTCOutgoingState::OfferSendSuccess { time, .. } => *time,
+            P2pConnectionWebRTCOutgoingState::AnswerRecvPending { time, .. } => *time,
+            P2pConnectionWebRTCOutgoingState::AnswerRecvSuccess { time, .. } => *time,
+            P2pConnectionWebRTCOutgoingState::FinalizePending { time, .. } => *time,
+            P2pConnectionWebRTCOutgoingState::FinalizeSuccess { time, .. } => *time,
+            P2pConnectionWebRTCOutgoingState::Error { time, .. } => *time,
+            P2pConnectionWebRTCOutgoingState::Success { time, .. } => *time,
+        }
+    }
 }

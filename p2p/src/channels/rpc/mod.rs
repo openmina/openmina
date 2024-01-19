@@ -16,15 +16,14 @@ use binprot_derive::{BinProtRead, BinProtWrite};
 use mina_p2p_messages::v2::{
     LedgerHash, MinaBasePendingCoinbaseStableV2, MinaBaseStateBodyHashStableV1,
     MinaLedgerSyncLedgerAnswerStableV2, MinaLedgerSyncLedgerQueryStableV1,
-    MinaStateProtocolStateValueStableV2, StateHash, TransactionSnarkScanStateStableV2,
+    MinaStateProtocolStateValueStableV2, NetworkPeerPeerStableV1, StateHash,
+    TransactionSnarkScanStateStableV2,
 };
 use openmina_core::{
     block::ArcBlock,
     snark::{Snark, SnarkJobId},
 };
 use serde::{Deserialize, Serialize};
-
-use crate::connection::outgoing::P2pConnectionOutgoingInitOpts;
 
 pub type P2pRpcId = u32;
 
@@ -164,7 +163,7 @@ pub enum P2pRpcResponse {
     StagedLedgerAuxAndPendingCoinbasesAtBlock(Arc<StagedLedgerAuxAndPendingCoinbases>),
     Block(ArcBlock),
     Snark(Snark),
-    InitialPeers(Vec<P2pConnectionOutgoingInitOpts>),
+    InitialPeers(Vec<NetworkPeerPeerStableV1>),
 }
 
 impl P2pRpcResponse {

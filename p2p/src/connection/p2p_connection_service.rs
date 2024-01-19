@@ -3,10 +3,10 @@ use crate::{webrtc, PeerId};
 use super::outgoing::P2pConnectionOutgoingInitOpts;
 
 pub trait P2pConnectionService: redux::Service {
-    fn random_pick(
-        &mut self,
-        list: &[P2pConnectionOutgoingInitOpts],
-    ) -> P2pConnectionOutgoingInitOpts;
+    // fn random_pick(
+    //     &mut self,
+    //     list: &[P2pConnectionOutgoingInitOpts],
+    // ) -> P2pConnectionOutgoingInitOpts;
 
     /// Initiates an outgoing connection and creates an offer sdp,
     /// which will be received in the state machine as an event.
@@ -20,7 +20,7 @@ pub trait P2pConnectionService: redux::Service {
 
     fn http_signaling_request(&mut self, url: String, offer: webrtc::Offer);
 
-    fn start_discovery(&mut self, peers: Vec<P2pConnectionOutgoingInitOpts>);
+    fn start_discovery(&mut self, peers: Vec<(PeerId, P2pGenericAddrs)>);
 
     fn find_random_peer(&mut self);
 }

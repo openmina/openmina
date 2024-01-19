@@ -3,15 +3,11 @@ use std::{
     time::Duration,
 };
 
-use libp2p::Multiaddr;
 use node::{
     event_source::Event,
     p2p::{
-        connection::outgoing::{
-            P2pConnectionOutgoingInitLibp2pOpts, P2pConnectionOutgoingInitOpts,
-        },
-        webrtc::SignalingMethod,
-        P2pConnectionEvent, P2pEvent,
+        common::P2pGenericPeer, webrtc::SignalingMethod, P2pEvent, P2pLibP2pEvent,
+        P2pWebRTCEvent,
     },
 };
 
@@ -52,13 +48,13 @@ impl MultiNodeBasicConnectivityInitialJoining {
             full_config.libp2p_port.unwrap(),
             libp2p::PeerId::from(peer_id)
         );
-        let this_maddr = this.parse::<Multiaddr>().unwrap();
         eprintln!("launch Openmina seed node, id: {seed_node}, addr: {this}");
-        let init_opts = P2pConnectionOutgoingInitOpts::LibP2P(
-            P2pConnectionOutgoingInitLibp2pOpts::try_from(&this_maddr).unwrap(),
-        );
+        let init_opts = this.parse::<P2pGenericPeer>().unwrap();
         let signaling = SignalingMethod::Http(([127, 0, 0, 1], full_config.listen_port).into());
-        let init_opts_webrtc = P2pConnectionOutgoingInitOpts::WebRTC { peer_id, signaling };
+        let init_opts_webrtc = P2pGenericPeer {
+            peer_id,
+            addr: node::p2p::common::P2pGenericAddr1::WebRTC(signaling),
+        };
 
         let mut nodes = vec![seed_node];
 
@@ -98,28 +94,43 @@ impl MultiNodeBasicConnectivityInitialJoining {
                     .map(|(_, event)| {
                         match event {
                             Event::P2p(P2pEvent::Discovery(event)) => {
-                                eprintln!("event: {event}");
+                                eprintln!("event: {event:?}");
                             }
-                            Event::P2p(P2pEvent::Connection(P2pConnectionEvent::Finalized(
+                            _ => {}
+                        };
+                        if let Some((peer_id, result)) = match event {
+                            Event::P2p(P2pEvent::WebRTC(P2pWebRTCEvent::Finalized(
                                 peer_id,
                                 result,
-                            ))) => connection_events
+                            ))) => Some((
+                                Some(*peer_id),
+                                result
+                                    .as_ref()
+                                    .err()
+                                    .cloned()
+                                    .unwrap_or_else(|| "ok".to_owned()),
+                            )),
+                            Event::P2p(P2pEvent::LibP2p(
+                                P2pLibP2pEvent::ConnectionEstablished { peer_id, .. },
+                            )) => Some((Some(*peer_id), "ok".to_owned())),
+                            Event::P2p(P2pEvent::LibP2p(
+                                P2pLibP2pEvent::IncomingConnectionError { error, .. },
+                            )) => Some((None, error.clone())),
+                            Event::P2p(P2pEvent::LibP2p(
+                                P2pLibP2pEvent::OutgoingConnectionError { peer_id, error, .. },
+                            )) => Some((Some(*peer_id), error.clone())),
+                            _ => None,
+                        } {
+                            connection_events
                                 .entry(this_id)
                                 .or_default()
-                                .entry(*peer_id)
+                                .entry(peer_id)
                                 .or_default()
-                                .push(
-                                    result
-                                        .as_ref()
-                                        .err()
-                                        .cloned()
-                                        .unwrap_or_else(|| "ok".to_owned()),
-                                ),
-                            _ => {}
+                                .push(result);
                         }
                         ScenarioStep::Event {
                             node_id,
-                            event: event.to_string(),
+                            event: format!("{event:?}"),
                         }
                     })
                     .collect::<Vec<_>>();
@@ -169,7 +180,11 @@ impl MultiNodeBasicConnectivityInitialJoining {
                 for (this_id, events) in &connection_events {
                     for (peer_id, results) in events {
                         for result in results {
-                            eprintln!("{this_id} <-> {peer_id}: {result}");
+                            eprintln!(
+                                "{this_id} <-> {peer_id}: {result}",
+                                peer_id = peer_id
+                                    .map_or_else(|| "<unknown>".to_owned(), |v| v.to_string(),)
+                            );
                         }
                     }
                 }

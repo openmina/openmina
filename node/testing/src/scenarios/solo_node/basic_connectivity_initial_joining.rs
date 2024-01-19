@@ -1,11 +1,6 @@
 use std::{collections::HashMap, time::Duration};
 
-use libp2p::Multiaddr;
-
-use node::{
-    event_source::Event,
-    p2p::{connection::outgoing::P2pConnectionOutgoingInitOpts, P2pEvent},
-};
+use node::{event_source::Event, p2p::P2pEvent};
 
 use crate::{
     node::RustNodeTestingConfig, scenario::ScenarioStep, scenarios::cluster_runner::ClusterRunner,
@@ -35,8 +30,7 @@ impl SoloNodeBasicConnectivityInitialJoining {
 
         let initial_peers = seeds
             .into_iter()
-            .map(|s| s.parse::<Multiaddr>().unwrap())
-            .map(|maddr| P2pConnectionOutgoingInitOpts::try_from(&maddr).unwrap())
+            .map(|s| s.parse().unwrap())
             .collect::<Vec<_>>();
         eprintln!("set max peers per node: {MAX_PEERS_PER_NODE}");
         for seed in seeds {

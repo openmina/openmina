@@ -1,12 +1,12 @@
 use std::ffi::{OsStr, OsString};
 use std::process::{Command, Stdio};
 
-use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
+use node::p2p::common::P2pGenericPeer;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct OcamlNodeTestingConfig {
-    pub initial_peers: Vec<P2pConnectionOutgoingInitOpts>,
+    pub initial_peers: Vec<P2pGenericPeer>,
     pub daemon_json: DaemonJson,
     pub daemon_json_update_timestamp: bool,
 }
@@ -25,7 +25,7 @@ pub struct OcamlNodeConfig {
     pub libp2p_port: u16,
     pub graphql_port: u16,
     pub client_port: u16,
-    pub initial_peers: Vec<P2pConnectionOutgoingInitOpts>,
+    pub initial_peers: Vec<P2pGenericPeer>,
     pub daemon_json: DaemonJson,
     pub daemon_json_update_timestamp: bool,
 }

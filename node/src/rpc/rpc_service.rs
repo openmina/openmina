@@ -2,7 +2,7 @@ use mina_p2p_messages::v2::LedgerHash;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::p2p::connection::P2pConnectionResponse;
+use crate::p2p::connection::webrtc::P2pConnectionWebRTCResponse;
 use crate::State;
 
 use super::{
@@ -55,7 +55,7 @@ pub trait RpcService: RpcLedgerService {
     fn respond_p2p_connection_incoming_answer(
         &mut self,
         rpc_id: RpcId,
-        response: P2pConnectionResponse,
+        response: P2pConnectionWebRTCResponse,
     ) -> Result<(), RespondError>;
     fn respond_p2p_connection_incoming(
         &mut self,

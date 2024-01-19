@@ -42,11 +42,8 @@ use crate::channels::rpc::{
     StagedLedgerAuxAndPendingCoinbases,
 };
 use crate::channels::{ChannelId, ChannelMsg};
-use crate::connection::outgoing::{
-    P2pConnectionOutgoingInitLibp2pOpts, P2pConnectionOutgoingInitOpts,
-};
 use crate::identity::SecretKey;
-use crate::{P2pChannelEvent, P2pConnectionEvent, P2pDiscoveryEvent, P2pEvent, P2pListenEvent};
+use crate::{P2pChannelEvent, P2pEvent, P2pLibP2pEvent};
 
 use super::TaskSpawner;
 
@@ -61,7 +58,7 @@ pub enum Cmd {
     Disconnect(PeerId),
     SendMessage(PeerId, ChannelMsg),
     SnarkBroadcast(Snark, u32),
-    RunDiscovery(Vec<(PeerId, Multiaddr)>),
+    RunDiscovery(Vec<(PeerId, Vec<Multiaddr>)>),
     FindNode(PeerId),
 }
 
@@ -273,11 +270,11 @@ impl Libp2pService {
             swarm.behaviour_mut().kademlia.set_mode(Some(Mode::Server));
 
             if let Some(port) = libp2p_port {
-                for ip in determine_own_ip().await {
-                    let mut addr = Multiaddr::from(ip);
-                    addr.push(libp2p::multiaddr::Protocol::Tcp(port));
-                    swarm.add_external_address(addr);
-                }
+                // for ip in determine_own_ip().await {
+                //     let mut addr = Multiaddr::from(ip);
+                //     addr.push(libp2p::multiaddr::Protocol::Tcp(port));
+                //     swarm.add_external_address(addr);
+                // }
 
                 if let Err(err) = swarm.listen_on(format!("/ip6/::/tcp/{port}").parse().unwrap()) {
                     openmina_core::log::error!(
@@ -394,8 +391,10 @@ impl Libp2pService {
                 Self::gossipsub_send(swarm, &GossipNetMessage::SnarkPoolDiff { message, nonce });
             }
             Cmd::RunDiscovery(peers) => {
-                for (peer_id, addr) in peers {
-                    swarm.behaviour_mut().kademlia.add_address(&peer_id, addr);
+                for (peer_id, addrs) in peers {
+                    for addr in addrs {
+                        swarm.behaviour_mut().kademlia.add_address(&peer_id, addr);
+                    }
                 }
 
                 match swarm.behaviour_mut().kademlia.bootstrap() {
@@ -550,11 +549,17 @@ impl Libp2pService {
                         Some(P2pRpcResponse::Snark(_)) => {}
                         Some(P2pRpcResponse::InitialPeers(peers)) => {
                             type T = GetSomeInitialPeersV1ForV2;
-                            let r = Ok(peers
-                                .iter()
-                                .filter_map(P2pConnectionOutgoingInitOpts::try_into_mina_rpc)
-                                .collect());
-                            b.rpc.respond::<T>(peer_id, stream_id, id, r)?;
+                            let r = peers;
+                            //     .into_iter()
+                            //     .filter_map(|peer| match mina_p2p_messages::v2::NetworkPeerPeerStableV1::try_from(peer) {
+                            //         Ok(v) => Some(v),
+                            //         Err(e) => {
+                            //             error!(system_time(); "failed to convert peer {peer:?}: {e}");
+                            //             None
+                            //         }
+                            //     })
+                            //     .collect();
+                            b.rpc.respond::<T>(peer_id, stream_id, id, Ok(r))?;
                         }
                     }
                 }
@@ -583,7 +588,7 @@ impl Libp2pService {
                     listener_id = listener_id,
                     maddr = maddr,
                 );
-                let event = P2pEvent::Listen(P2pListenEvent::NewListenAddr {
+                let event = P2pEvent::LibP2p(P2pLibP2pEvent::NewListenAddr {
                     listener_id: listener_id.into(),
                     addr: address,
                 });
@@ -603,7 +608,7 @@ impl Libp2pService {
                     listener_id = listener_id,
                     maddr = maddr,
                 );
-                let event = P2pEvent::Listen(P2pListenEvent::ExpiredListenAddr {
+                let event = P2pEvent::LibP2p(P2pLibP2pEvent::ExpiredListenAddr {
                     listener_id: listener_id.into(),
                     addr: address,
                 });
@@ -617,7 +622,7 @@ impl Libp2pService {
                     summary = format!("libp2p.{listener_id:?} listener error: {error:?}"),
                     listener_id = listener_id,
                 );
-                let event = P2pEvent::Listen(P2pListenEvent::ListenerError {
+                let event = P2pEvent::LibP2p(P2pLibP2pEvent::ListenerError {
                     listener_id: listener_id.into(),
                     error: error.to_string(),
                 });
@@ -629,13 +634,23 @@ impl Libp2pService {
                 ..
             } => {
                 let listener_id = format!("{listener_id:?}");
-                openmina_core::log::warn!(
-                    openmina_core::log::system_time();
-                    kind = "Libp2pListenError",
-                    summary = format!("libp2p.{listener_id} closed. Reason: {reason:?}"),
-                    listener_id = listener_id,
-                );
-                let event = P2pEvent::Listen(P2pListenEvent::ListenerClosed {
+                if let Err(e) = &reason {
+                    openmina_core::log::warn!(
+                        openmina_core::log::system_time();
+                        kind = "Libp2pListenError",
+                        summary = format!("libp2p.{listener_id} closed. Reason: {e}"),
+                        reason = e.to_string(),
+                        listener_id = listener_id,
+                    );
+                } else {
+                    openmina_core::log::info!(
+                        openmina_core::log::system_time();
+                        kind = "Libp2pListenClosed",
+                        summary = format!("libp2p.{listener_id} closed."),
+                        listener_id = listener_id,
+                    );
+                }
+                let event = P2pEvent::LibP2p(P2pLibP2pEvent::ListenerClosed {
                     listener_id: listener_id.into(),
                     error: reason.err().map(|err| err.to_string()),
                 });
@@ -653,8 +668,16 @@ impl Libp2pService {
                     summary = format!("libp2p incoming {connection_id} {local_addr} {send_back_addr}"),
                     connection_id = connection_id,
                 );
+                let event = P2pEvent::LibP2p(P2pLibP2pEvent::IncomingConnection {
+                    connection_id: connection_id.into(),
+                });
+                let _ = swarm.behaviour_mut().event_source_sender.send(event.into());
             }
-            SwarmEvent::ConnectionEstablished { peer_id, .. } => {
+            SwarmEvent::ConnectionEstablished {
+                peer_id,
+                connection_id,
+                ..
+            } => {
                 openmina_core::log::info!(
                     openmina_core::log::system_time();
                     kind = "PeerConnected",
@@ -662,14 +685,13 @@ impl Libp2pService {
                     peer_id = peer_id.to_string()
                 );
                 swarm.behaviour_mut().identify.push(Some(peer_id));
-                let event =
-                    P2pEvent::Connection(P2pConnectionEvent::Finalized(peer_id.into(), Ok(())));
+                let event = P2pEvent::LibP2p(P2pLibP2pEvent::ConnectionEstablished {
+                    connection_id: connection_id.into(),
+                    peer_id: peer_id.into(),
+                });
                 let _ = swarm.behaviour_mut().event_source_sender.send(event.into());
             }
             SwarmEvent::ConnectionClosed { peer_id, cause, .. } => {
-                let event = P2pEvent::Connection(P2pConnectionEvent::Closed(peer_id.into()));
-                let _ = swarm.behaviour_mut().event_source_sender.send(event.into());
-
                 // TODO(binier): move to log effects
                 openmina_core::log::warn!(
                     openmina_core::log::system_time();
@@ -678,9 +700,14 @@ impl Libp2pService {
                     peer_id = peer_id.to_string(),
                     cause = format!("{:?}", cause)
                 );
+                let event = P2pEvent::LibP2p(P2pLibP2pEvent::ConnectionClosed {
+                    peer_id: peer_id.into(),
+                    cause: cause.map(|c| c.to_string()),
+                });
+                let _ = swarm.behaviour_mut().event_source_sender.send(event.into());
             }
             SwarmEvent::OutgoingConnectionError {
-                connection_id: _,
+                connection_id,
                 peer_id,
                 error,
             } => {
@@ -693,81 +720,82 @@ impl Libp2pService {
                     // because our PeerId cannot represent this peer_id
                     return;
                 }
-                let event = P2pEvent::Connection(P2pConnectionEvent::Finalized(
-                    peer_id.into(),
-                    Err(error.to_string()),
-                ));
+                let event = P2pEvent::LibP2p(P2pLibP2pEvent::OutgoingConnectionError {
+                    connection_id: connection_id.into(),
+                    peer_id: peer_id.into(),
+                    error: error.to_string(),
+                });
                 let _ = swarm.behaviour_mut().event_source_sender.send(event.into());
             }
             SwarmEvent::Behaviour(event) => match event {
                 BehaviourEvent::Kademlia(event) => {
                     match event {
                         kad::Event::RoutingUpdated {
-                            peer, addresses, ..
+                            peer, addresses: _, ..
                         } => {
                             if peer.as_ref().code() != 0x12 {
-                                let event = P2pEvent::Discovery(P2pDiscoveryEvent::AddRoute(
-                                    peer.into(),
-                                    addresses
-                                        .iter()
-                                        .filter_map(|a| {
-                                            P2pConnectionOutgoingInitLibp2pOpts::try_from(a).ok()
-                                        })
-                                        .map(P2pConnectionOutgoingInitOpts::LibP2P)
-                                        .collect(),
-                                ));
-                                let _ =
-                                    swarm.behaviour_mut().event_source_sender.send(event.into());
+                                // let event = P2pEvent::Discovery(P2pDiscoveryEvent::AddRoute(
+                                //     peer.into(),
+                                //     addresses
+                                //         .iter()
+                                //         .filter_map(|a| {
+                                //             P2pConnectionOutgoingInitLibp2pOpts::try_from(a).ok()
+                                //         })
+                                //         .map(P2pConnectionOutgoingInitOpts::LibP2P)
+                                //         .collect(),
+                                // ));
+                                // let _ =
+                                //     swarm.behaviour_mut().event_source_sender.send(event.into());
                             }
                         }
-                        kad::Event::OutboundQueryProgressed { step, result, .. } => {
-                            let b = swarm.behaviour_mut();
-                            match result {
-                                kad::QueryResult::Bootstrap(Ok(_v)) => {
-                                    use sha2::digest::{FixedOutput, Update};
+                        kad::Event::OutboundQueryProgressed { step: _, result: _, .. } => {
+                            // let b = swarm.behaviour_mut();
+                            // match result {
+                            //     kad::QueryResult::Bootstrap(Ok(_v)) => {
+                            //         use sha2::digest::{FixedOutput, Update};
 
-                                    if step.last {
-                                        let key = b.rendezvous_string.clone();
-                                        let r =
-                                            sha2::Sha256::default().chain(&key).finalize_fixed();
-                                        // TODO(vlad9486): use multihash, remove hardcode
-                                        let mut key = vec![18, 32];
-                                        key.extend_from_slice(&r);
-                                        let key = kad::record::Key::new(&key);
+                            //         if step.last {
+                            //             let key = b.rendezvous_string.clone();
+                            //             let r =
+                            //                 sha2::Sha256::default().chain(&key).finalize_fixed();
+                            //             // TODO(vlad9486): use multihash, remove hardcode
+                            //             let mut key = vec![18, 32];
+                            //             key.extend_from_slice(&r);
+                            //             let key = kad::record::Key::new(&key);
 
-                                        if let Err(_err) = b.kademlia.start_providing(key) {
-                                            // memory storage should not return error
-                                        }
-                                        // initial bootstrap is done
-                                        b.event_source_sender
-                                            .send(
-                                                P2pEvent::Discovery(P2pDiscoveryEvent::Ready)
-                                                    .into(),
-                                            )
-                                            .unwrap_or_default();
-                                    }
-                                }
-                                kad::QueryResult::GetClosestPeers(Ok(v)) => {
-                                    let peers = v.peers.into_iter().filter_map(|peer_id| {
-                                        if peer_id.as_ref().code() == 0x12 {
-                                            return None;
-                                        }
-                                        Some(peer_id.into())
-                                    });
-                                    let response = P2pDiscoveryEvent::DidFindPeers(peers.collect());
-                                    b.event_source_sender
-                                        .send(P2pEvent::Discovery(response).into())
-                                        .unwrap_or_default()
-                                }
-                                kad::QueryResult::GetClosestPeers(Err(err)) => {
-                                    let response =
-                                        P2pDiscoveryEvent::DidFindPeersError(err.to_string());
-                                    b.event_source_sender
-                                        .send(P2pEvent::Discovery(response).into())
-                                        .unwrap_or_default()
-                                }
-                                _ => {}
-                            }
+                            //             if let Err(_err) = b.kademlia.start_providing(key) {
+                            //                 // memory storage should not return error
+                            //             }
+                            //             // initial bootstrap is done
+                            //             b.event_source_sender
+                            //                 .send(
+                            //                     P2pEvent::Discovery(P2pDiscoveryEvent::Ready)
+                            //                         .into(),
+                            //                 )
+                            //                 .unwrap_or_default();
+                            //         }
+                            //     }
+                            //     kad::QueryResult::GetClosestPeers(Ok(v)) => {
+                            //         let peers = v.peers.into_iter().filter_map(|peer_id| {
+                            //             if peer_id.as_ref().code() == 0x12 {
+                            //                 return None;
+                            //             }
+                            //             Some(peer_id.into())
+                            //         });
+                            //         let response = P2pDiscoveryEvent::DidFindPeers(peers.collect());
+                            //         b.event_source_sender
+                            //             .send(P2pEvent::Discovery(response).into())
+                            //             .unwrap_or_default()
+                            //     }
+                            //     kad::QueryResult::GetClosestPeers(Err(err)) => {
+                            //         let response =
+                            //             P2pDiscoveryEvent::DidFindPeersError(err.to_string());
+                            //         b.event_source_sender
+                            //             .send(P2pEvent::Discovery(response).into())
+                            //             .unwrap_or_default()
+                            //     }
+                            //     _ => {}
+                            // }
                         }
                         _ => {}
                     }
@@ -1111,20 +1139,27 @@ impl Libp2pService {
                             (
                                 GetSomeInitialPeersV1ForV2::NAME,
                                 GetSomeInitialPeersV1ForV2::VERSION,
-                            ) => {
-                                match parse_r::<GetSomeInitialPeersV1ForV2>(bytes) {
-                                    Ok(response) => {
-                                        let response = response.ok().unwrap_or_default();
-                                        if response.is_empty() {
-                                            send(None)
-                                        } else {
-                                            let peers = response.into_iter().filter_map(P2pConnectionOutgoingInitOpts::try_from_mina_rpc).collect();
-                                            send(Some(P2pRpcResponse::InitialPeers(peers)));
-                                        }
+                            ) => match parse_r::<GetSomeInitialPeersV1ForV2>(bytes) {
+                                Ok(response) => {
+                                    let response = response.ok().unwrap_or_default();
+                                    if response.is_empty() {
+                                        send(None)
+                                    } else {
+                                        let peers = response;
+                                            // .into_iter()
+                                            // .filter_map(|peer| match P2pGenericPeer::try_from(peer) {
+                                            //     Ok(v) => Some(v),
+                                            //     Err(e) => {
+                                            //         error!(system_time(); "error converting peer {peer:?}");
+                                            //         None
+                                            //     }
+                                            // })
+                                            // .collect();
+                                        send(Some(P2pRpcResponse::InitialPeers(peers)));
                                     }
-                                    Err(err) => send_error(err),
                                 }
-                            }
+                                Err(err) => send_error(err),
+                            },
                             _ => send(None),
                         }
                     }

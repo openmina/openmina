@@ -212,7 +212,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsSnarkLibp2pReceivedAction
             .peers
             .get(&self.peer_id)
             .filter(|p| p.is_libp2p())
-            .and_then(|p| p.status.as_ready())
+            .and_then(|p| p.status_as_ready())
             .map_or(false, |p| p.channels.snark.is_ready())
     }
 }
@@ -228,7 +228,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsSnarkLibp2pBroadcastActio
         state
             .peers
             .iter()
-            .any(|(_, p)| p.is_libp2p() && p.status.as_ready().is_some())
+            .any(|(_, p)| p.is_libp2p() && p.status_as_ready().is_some())
     }
 }
 

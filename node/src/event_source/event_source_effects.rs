@@ -1,7 +1,8 @@
+use p2p::connection::webrtc::outgoing::P2pConnectionWebRTCOutgoingOfferSdpCreateErrorAction;
 use p2p::listen::{
     P2pListenClosedAction, P2pListenErrorAction, P2pListenExpiredAction, P2pListenNewAction,
 };
-use p2p::P2pListenEvent;
+use p2p::P2pLibP2pEvent;
 
 use crate::action::CheckTimeoutsAction;
 use crate::external_snark_worker::{
@@ -16,18 +17,13 @@ use crate::p2p::channels::snark::{
 };
 use crate::p2p::channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentReadyAction;
 use crate::p2p::channels::{ChannelId, P2pChannelsMessageReceivedAction};
-use crate::p2p::connection::incoming::{
-    P2pConnectionIncomingAnswerSdpCreateErrorAction,
-    P2pConnectionIncomingAnswerSdpCreateSuccessAction, P2pConnectionIncomingFinalizeErrorAction,
-    P2pConnectionIncomingFinalizeSuccessAction, P2pConnectionIncomingLibp2pReceivedAction,
+use crate::p2p::connection::libp2p::incoming::*;
+use crate::p2p::connection::libp2p::outgoing::*;
+use crate::p2p::connection::webrtc::incoming::*;
+use crate::p2p::connection::webrtc::outgoing::*;
+use crate::p2p::connection::webrtc::{
+    P2pConnectionWebRTCErrorResponse, P2pConnectionWebRTCResponse,
 };
-use crate::p2p::connection::outgoing::{
-    P2pConnectionOutgoingAnswerRecvErrorAction, P2pConnectionOutgoingAnswerRecvSuccessAction,
-    P2pConnectionOutgoingFinalizeErrorAction, P2pConnectionOutgoingFinalizeSuccessAction,
-    P2pConnectionOutgoingOfferSdpCreateErrorAction,
-    P2pConnectionOutgoingOfferSdpCreateSuccessAction,
-};
-use crate::p2p::connection::{P2pConnectionErrorResponse, P2pConnectionResponse};
 use crate::p2p::disconnection::{
     P2pDisconnectionFinishAction, P2pDisconnectionInitAction, P2pDisconnectionReason,
 };
@@ -50,8 +46,8 @@ use crate::snark::SnarkEvent;
 use crate::{Service, Store};
 
 use super::{
-    Event, EventSourceAction, EventSourceActionWithMeta, EventSourceNewEventAction,
-    P2pConnectionEvent, P2pEvent,
+    Event, EventSourceAction, EventSourceActionWithMeta, EventSourceNewEventAction, P2pEvent,
+    P2pWebRTCEvent,
 };
 
 pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourceActionWithMeta) {
@@ -78,92 +74,134 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
         // "Translate" event into the corresponding action and dispatch it.
         EventSourceAction::NewEvent(content) => match content.event {
             Event::P2p(e) => match e {
-                P2pEvent::Listen(e) => match e {
-                    P2pListenEvent::NewListenAddr { listener_id, addr } => {
+                P2pEvent::LibP2p(e) => match e {
+                    P2pLibP2pEvent::IncomingConnection { connection_id: _ } => {
+                        // TODO(akoptelov): track incoming connection initiation
+                    }
+                    P2pLibP2pEvent::Dialing { connection_id: _ } => {
+                        // TODO(akoptelov): track outgoing connection initiated from libp2p
+                    }
+                    P2pLibP2pEvent::IncomingConnectionError {
+                        connection_id: _,
+                        error: _,
+                    } => {
+                        // TODO(akoptelov): track incoming connection error
+                    }
+                    P2pLibP2pEvent::OutgoingConnectionError {
+                        connection_id: _,
+                        peer_id,
+                        error,
+                    } => {
+                        store.dispatch(P2pConnectionLibP2pOutgoingFinalizeErrorAction {
+                            peer_id: peer_id.into(),
+                            error: error.to_string(),
+                        });
+                    }
+                    P2pLibP2pEvent::ConnectionEstablished {
+                        peer_id,
+                        connection_id,
+                    } => {
+                        let _ = store.dispatch(P2pConnectionLibP2pOutgoingFinalizeSuccessAction {
+                            peer_id: peer_id.into(),
+                        }) || store.dispatch(P2pConnectionLibP2pIncomingSuccessAction {
+                            peer_id: peer_id.into(),
+                            connection_id,
+                        });
+                    }
+                    P2pLibP2pEvent::ConnectionClosed { peer_id, cause: _ } => {
+                        store.dispatch(P2pDisconnectionFinishAction {
+                            peer_id: peer_id.into(),
+                        });
+                    },
+                    P2pLibP2pEvent::NewListenAddr { listener_id, addr } => {
                         store.dispatch(P2pListenNewAction { listener_id, addr });
                     }
-                    P2pListenEvent::ExpiredListenAddr { listener_id, addr } => {
+                    P2pLibP2pEvent::ExpiredListenAddr { listener_id, addr } => {
                         store.dispatch(P2pListenExpiredAction { listener_id, addr });
                     }
-                    P2pListenEvent::ListenerError { listener_id, error } => {
+                    P2pLibP2pEvent::ListenerError { listener_id, error } => {
                         store.dispatch(P2pListenErrorAction { listener_id, error });
                     }
-                    P2pListenEvent::ListenerClosed { listener_id, error } => {
+                    P2pLibP2pEvent::ListenerClosed { listener_id, error } => {
                         store.dispatch(P2pListenClosedAction { listener_id, error });
                     }
                 },
-                P2pEvent::Connection(e) => match e {
-                    P2pConnectionEvent::OfferSdpReady(peer_id, res) => match res {
+                P2pEvent::WebRTC(e) => match e {
+                    P2pWebRTCEvent::OfferSdpReady(peer_id, res) => match res {
                         Err(error) => {
-                            store.dispatch(P2pConnectionOutgoingOfferSdpCreateErrorAction {
+                            store.dispatch(P2pConnectionWebRTCOutgoingOfferSdpCreateErrorAction {
                                 peer_id,
                                 error,
                             });
                         }
                         Ok(sdp) => {
-                            store.dispatch(P2pConnectionOutgoingOfferSdpCreateSuccessAction {
-                                peer_id,
-                                sdp,
-                            });
+                            store.dispatch(
+                                P2pConnectionWebRTCOutgoingOfferSdpCreateSuccessAction {
+                                    peer_id,
+                                    sdp,
+                                },
+                            );
                         }
                     },
-                    P2pConnectionEvent::AnswerSdpReady(peer_id, res) => match res {
+                    P2pWebRTCEvent::AnswerSdpReady(peer_id, res) => match res {
                         Err(error) => {
-                            store.dispatch(P2pConnectionIncomingAnswerSdpCreateErrorAction {
+                            store.dispatch(P2pConnectionWebRTCIncomingAnswerSdpCreateErrorAction {
                                 peer_id,
                                 error,
                             });
                         }
                         Ok(sdp) => {
-                            store.dispatch(P2pConnectionIncomingAnswerSdpCreateSuccessAction {
-                                peer_id,
-                                sdp,
-                            });
+                            store.dispatch(
+                                P2pConnectionWebRTCIncomingAnswerSdpCreateSuccessAction {
+                                    peer_id,
+                                    sdp,
+                                },
+                            );
                         }
                     },
-                    P2pConnectionEvent::AnswerReceived(peer_id, res) => match res {
-                        P2pConnectionResponse::Accepted(answer) => {
-                            store.dispatch(P2pConnectionOutgoingAnswerRecvSuccessAction {
+                    P2pWebRTCEvent::AnswerReceived(peer_id, res) => match res {
+                        P2pConnectionWebRTCResponse::Accepted(answer) => {
+                            store.dispatch(P2pConnectionWebRTCOutgoingAnswerRecvSuccessAction {
                                 peer_id,
                                 answer,
                             });
                         }
-                        P2pConnectionResponse::Rejected(reason) => {
-                            store.dispatch(P2pConnectionOutgoingAnswerRecvErrorAction {
+                        P2pConnectionWebRTCResponse::Rejected(reason) => {
+                            store.dispatch(P2pConnectionWebRTCOutgoingAnswerRecvErrorAction {
                                 peer_id,
-                                error: P2pConnectionErrorResponse::Rejected(reason),
+                                error: P2pConnectionWebRTCErrorResponse::Rejected(reason),
                             });
                         }
-                        P2pConnectionResponse::InternalError => {
-                            store.dispatch(P2pConnectionOutgoingAnswerRecvErrorAction {
+                        P2pConnectionWebRTCResponse::InternalError => {
+                            store.dispatch(P2pConnectionWebRTCOutgoingAnswerRecvErrorAction {
                                 peer_id,
-                                error: P2pConnectionErrorResponse::InternalError,
+                                error: P2pConnectionWebRTCErrorResponse::InternalError,
                             });
                         }
                     },
-                    P2pConnectionEvent::Finalized(peer_id, res) => match res {
+                    P2pWebRTCEvent::Finalized(peer_id, res) => match res {
                         Err(error) => {
-                            store.dispatch(P2pConnectionOutgoingFinalizeErrorAction {
+                            store.dispatch(P2pConnectionWebRTCOutgoingFinalizeErrorAction {
                                 peer_id,
                                 error: error.clone(),
                             });
-                            store.dispatch(P2pConnectionIncomingFinalizeErrorAction {
+                            store.dispatch(P2pConnectionWebRTCIncomingFinalizeErrorAction {
                                 peer_id,
                                 error,
                             });
                         }
                         Ok(_) => {
-                            let _ = store
-                                .dispatch(P2pConnectionOutgoingFinalizeSuccessAction { peer_id })
-                                || store.dispatch(P2pConnectionIncomingFinalizeSuccessAction {
+                            let _ =
+                                store.dispatch(P2pConnectionWebRTCOutgoingFinalizeSuccessAction {
                                     peer_id,
-                                })
-                                || store.dispatch(P2pConnectionIncomingLibp2pReceivedAction {
-                                    peer_id,
-                                });
+                                }) || store.dispatch(
+                                    P2pConnectionWebRTCIncomingFinalizeSuccessAction { peer_id },
+                                ) || store.dispatch(
+                                    P2pConnectionWebRTCIncomingLibp2pReceivedAction { peer_id },
+                                );
                         }
                     },
-                    P2pConnectionEvent::Closed(peer_id) => {
+                    P2pWebRTCEvent::Closed(peer_id) => {
                         store.dispatch(P2pDisconnectionFinishAction { peer_id });
                     }
                 },
@@ -230,7 +268,10 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                     store.dispatch(P2pDiscoveryKademliaFailureAction { description });
                 }
                 P2pEvent::Discovery(p2p::P2pDiscoveryEvent::AddRoute(peer_id, addresses)) => {
-                    store.dispatch(P2pDiscoveryKademliaAddRouteAction { peer_id, addresses });
+                    store.dispatch(P2pDiscoveryKademliaAddRouteAction {
+                        peer_id,
+                        addresses: addresses.into(),
+                    });
                 }
             },
             Event::Snark(event) => match event {
@@ -264,10 +305,14 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                 RpcRequest::PeersGet => {
                     store.dispatch(RpcPeersGetAction { rpc_id });
                 }
-                RpcRequest::P2pConnectionOutgoing(opts) => {
-                    store.dispatch(RpcP2pConnectionOutgoingInitAction { rpc_id, opts });
+                RpcRequest::P2pConnectionOutgoing(peer_id, addrs) => {
+                    store.dispatch(RpcP2pConnectionOutgoingInitAction {
+                        rpc_id,
+                        peer_id,
+                        addrs,
+                    });
                 }
-                RpcRequest::P2pConnectionIncoming(opts) => {
+                RpcRequest::P2pConnectionWebRTCIncoming(opts) => {
                     store.dispatch(RpcP2pConnectionIncomingInitAction {
                         rpc_id,
                         opts: opts.clone(),

@@ -492,24 +492,24 @@ impl Cluster {
                 }
             }
             ScenarioStep::ConnectNodes { dialer, listener } => {
-                let listener_addr = match listener {
+                let (peer_id, listener_addr) = match listener {
                     ListenerNode::Rust(listener) => {
                         let listener = self
                             .nodes
-                            .get_mut(listener.index())
+                            .get(listener.index())
                             .ok_or(anyhow::anyhow!("node {listener:?} not found"))?;
 
-                        listener.dial_addr()
+                        (listener.peer_id(), listener.dial_addr())
                     }
                     ListenerNode::Ocaml(listener) => {
                         let listener = self
                             .ocaml_nodes
-                            .get_mut(listener.index())
+                            .get(listener.index())
                             .ok_or(anyhow::anyhow!("ocaml node {listener:?} not found"))?;
 
-                        listener.dial_addr()
+                        (listener.peer_id(), listener.dial_addr())
                     }
-                    ListenerNode::Custom(addr) => addr.clone(),
+                    ListenerNode::Custom(addr) => (addr.peer_id.clone(), addr.addr.clone().into()),
                 };
 
                 self.rpc_counter += 1;
@@ -519,7 +519,7 @@ impl Cluster {
                     .get_mut(dialer.index())
                     .ok_or(anyhow::anyhow!("node {dialer:?} not found"))?;
 
-                let req = node::rpc::RpcRequest::P2pConnectionOutgoing(listener_addr);
+                let req = node::rpc::RpcRequest::P2pConnectionOutgoing(peer_id, listener_addr);
                 dialer.dispatch_event(Event::Rpc(rpc_id, req))
             }
             ScenarioStep::CheckTimeouts { node_id } => {

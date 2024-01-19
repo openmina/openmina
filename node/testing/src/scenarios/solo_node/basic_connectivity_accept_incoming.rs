@@ -1,9 +1,8 @@
 use std::time::Duration;
 
-use libp2p::Multiaddr;
 use node::{
     event_source::Event,
-    p2p::{connection::outgoing::P2pConnectionOutgoingInitOpts, P2pEvent, PeerId},
+    p2p::{common::P2pGenericPeer, P2pEvent, PeerId},
 };
 
 use crate::{
@@ -36,8 +35,7 @@ impl SoloNodeBasicConnectivityAcceptIncoming {
 
         let initial_peers = seeds
             .into_iter()
-            .map(|s| s.parse::<Multiaddr>().unwrap())
-            .map(|maddr| P2pConnectionOutgoingInitOpts::try_from(&maddr).unwrap())
+            .map(|s| s.parse::<P2pGenericPeer>().unwrap())
             .collect::<Vec<_>>();
         eprintln!("set max peers per node: {MAX_PEERS_PER_NODE}");
         for seed in seeds {
@@ -50,9 +48,16 @@ impl SoloNodeBasicConnectivityAcceptIncoming {
             .with_random_peer_id();
 
         let node_id = runner.add_rust_node(config);
-        let node_addr = runner.node(node_id).unwrap().dial_addr();
+        let node_addr = runner.node(node_id).unwrap().to_peers::<Vec<_>>();
 
-        eprintln!("launch Openmina node, id: {node_id}, addr: {node_addr}");
+        eprintln!(
+            "launch Openmina node, id: {node_id}, addr: {node_addr}",
+            node_addr = (&node_addr)
+                .into_iter()
+                .map(|v| v.to_string())
+                .collect::<Vec<_>>()
+                .join(",")
+        );
 
         let mut ocaml_node = None::<PeerId>;
 
@@ -113,7 +118,7 @@ impl SoloNodeBasicConnectivityAcceptIncoming {
                     *peer_id
                 } else {
                     let node_id = runner.add_ocaml_node(OcamlNodeTestingConfig {
-                        initial_peers: vec![node_addr.clone()],
+                        initial_peers: node_addr.clone(),
                         daemon_json: DaemonJson::Custom("/var/lib/coda/berkeley.json".to_owned()),
                         daemon_json_update_timestamp: false,
                     });

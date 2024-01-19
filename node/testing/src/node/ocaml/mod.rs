@@ -1,8 +1,7 @@
 mod config;
 pub use config::*;
 use node::p2p::{
-    connection::outgoing::{P2pConnectionOutgoingInitLibp2pOpts, P2pConnectionOutgoingInitOpts},
-    PeerId,
+    PeerId, common::{P2pGenericAddrs, P2pGenericPeer}, libp2p::P2pLibP2pAddr,
 };
 
 use std::{
@@ -117,12 +116,18 @@ impl OcamlNode {
         })
     }
 
-    pub fn dial_addr(&self) -> P2pConnectionOutgoingInitOpts {
-        P2pConnectionOutgoingInitOpts::LibP2P(P2pConnectionOutgoingInitLibp2pOpts {
-            peer_id: self.peer_id(),
-            host: [127, 0, 0, 1].into(),
-            port: self.libp2p_port,
-        })
+    pub fn dial_addr(&self) -> P2pGenericAddrs {
+        P2pGenericAddrs::LibP2p(vec![
+            P2pLibP2pAddr {
+                host: [127, 0, 0, 1].into(),
+                port: self.libp2p_port,
+            }
+        ])
+    }
+
+    pub fn to_peers<T: FromIterator<P2pGenericPeer>>(&self) -> T {
+        let peer_id = self.peer_id();
+        self.dial_addr().to_generic_peers(&peer_id)
     }
 
     pub fn peer_id(&self) -> PeerId {

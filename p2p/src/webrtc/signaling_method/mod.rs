@@ -27,6 +27,13 @@ impl SignalingMethod {
             info.host, info.port,
         ))
     }
+
+    pub fn to_rpc_string(&self) -> String {
+        match self {
+            SignalingMethod::Http(info) => format!("http://{}:{}", info.host, info.port),
+            SignalingMethod::Https(info) => format!("https://{}:{}", info.host, info.port),
+        }
+    }
 }
 
 impl fmt::Display for SignalingMethod {

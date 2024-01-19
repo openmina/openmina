@@ -4,9 +4,10 @@ use libp2p::Multiaddr;
 use node::{
     event_source::Event,
     p2p::{
-        connection::outgoing::P2pConnectionOutgoingInitOpts,
+        common::{P2pGenericAddr1, P2pGenericPeer},
+        libp2p::P2pLibP2pAddr,
         webrtc::{Host, HttpSignalingInfo, SignalingMethod},
-        P2pConnectionEvent, P2pEvent, P2pListenEvent, P2pListenerId, PeerId,
+        P2pEvent, P2pLibP2pEvent, P2pListenerId, P2pWebRTCEvent, PeerId,
     },
     State,
 };
@@ -15,30 +16,14 @@ use crate::{cluster::ClusterNodeId, node::RustNodeTestingConfig, scenario::Scena
 
 use super::ClusterRunner;
 
-pub fn match_addr_with_port_and_peer_id(
-    port: u16,
-    peer_id: PeerId,
-) -> impl Fn(&P2pConnectionOutgoingInitOpts) -> bool {
+pub fn match_addr_with_port_and_peer_id(port: u16) -> impl Fn(&P2pGenericAddr1) -> bool {
     move |conn_opt| match conn_opt {
-        P2pConnectionOutgoingInitOpts::WebRTC {
-            peer_id: pid,
-            signaling:
-                SignalingMethod::Http(HttpSignalingInfo {
-                    host: Host::Ipv4(_ip4),
-                    port: p,
-                }),
-        }
-        | P2pConnectionOutgoingInitOpts::WebRTC {
-            peer_id: pid,
-            signaling:
-                SignalingMethod::Https(HttpSignalingInfo {
-                    host: Host::Ipv4(_ip4),
-                    port: p,
-                }),
-        } => &peer_id == pid && port == *p,
-        P2pConnectionOutgoingInitOpts::LibP2P(libp2p_opts) => {
-            &libp2p_opts.peer_id == &peer_id && libp2p_opts.port == port
-        }
+        P2pGenericAddr1::WebRTC(
+            SignalingMethod::Http(HttpSignalingInfo { port: p, .. })
+            | SignalingMethod::Https(HttpSignalingInfo { port: p, .. }),
+        ) => port == *p,
+
+        P2pGenericAddr1::LibP2p(P2pLibP2pAddr { port: p, .. }) => p == &port,
         _ => false,
     }
 }
@@ -70,30 +55,19 @@ pub const PEERS_QUERY: &str = r#"query {
   }
 }"#;
 
-pub fn connection_finalized_event(
+pub fn connection_established_event(
     pred: impl Fn(ClusterNodeId, &PeerId) -> bool,
 ) -> impl Fn(ClusterNodeId, &Event, &State) -> bool {
     move |node_id, event, _| {
         matches!(
             event,
-            Event::P2p(P2pEvent::Connection(P2pConnectionEvent::Finalized(peer, res))) if pred(node_id, peer) && res.is_ok()
-        )
-    }
-}
-
-pub fn connection_finalized_with_res_event(
-    pred: impl Fn(ClusterNodeId, &PeerId, &Result<(), String>) -> bool,
-) -> impl Fn(ClusterNodeId, &Event, &State) -> bool {
-    move |node_id, event, _| {
-        matches!(
-            event,
-            Event::P2p(P2pEvent::Connection(P2pConnectionEvent::Finalized(peer, res))) if pred(node_id, peer, res)
+            Event::P2p(P2pEvent::LibP2p(P2pLibP2pEvent::ConnectionEstablished { peer_id, .. })) if pred(node_id, peer_id)
         )
     }
 }
 
 pub fn as_listen_new_addr_event(event: &Event) -> Option<(&Multiaddr, &P2pListenerId)> {
-    if let Event::P2p(P2pEvent::Listen(P2pListenEvent::NewListenAddr { listener_id, addr })) = event
+    if let Event::P2p(P2pEvent::LibP2p(P2pLibP2pEvent::NewListenAddr { listener_id, addr })) = event
     {
         Some((addr, listener_id))
     } else {
@@ -101,11 +75,12 @@ pub fn as_listen_new_addr_event(event: &Event) -> Option<(&Multiaddr, &P2pListen
     }
 }
 
-pub fn as_connection_finalized_event(event: &Event) -> Option<(&PeerId, &Result<(), String>)> {
-    if let Event::P2p(P2pEvent::Connection(P2pConnectionEvent::Finalized(peer, res))) = event {
-        Some((peer, res))
-    } else {
-        None
+pub fn as_connection_finalized_event(event: &Event) -> Option<(Option<&PeerId>, bool)> {
+    match event {
+        Event::P2p(P2pEvent::LibP2p(P2pLibP2pEvent::ConnectionEstablished { peer_id, .. })) => Some((Some(peer_id), true)),
+        Event::P2p(P2pEvent::LibP2p(P2pLibP2pEvent::OutgoingConnectionError { peer_id, .. })) => Some((Some(peer_id), false)),
+        Event::P2p(P2pEvent::LibP2p(P2pLibP2pEvent::IncomingConnectionError { .. })) => Some((None, false)),
+        _ => None
     }
 }
 

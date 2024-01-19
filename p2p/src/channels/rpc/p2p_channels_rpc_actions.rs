@@ -89,7 +89,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsRpcRequestSendAction {
             .peers
             .get(&self.peer_id)
             .filter(|p| !p.is_libp2p() || self.request.kind().supported_by_libp2p())
-            .and_then(|p| p.status.as_ready())
+            .and_then(|p| p.status_as_ready())
             .map_or(false, |p| match &p.channels.rpc {
                 P2pChannelsRpcState::Ready {
                     local,

@@ -21,10 +21,7 @@ impl redux::EnablingCondition<crate::P2pState> for P2pDisconnectionInitAction {
         state
             .peers
             .get(&self.peer_id)
-            .map_or(false, |peer| match &peer.status {
-                P2pPeerStatus::Disconnected { .. } => false,
-                _ => true,
-            })
+            .map_or(false, |peer| !peer.is_disconnected())
     }
 }
 
@@ -38,15 +35,11 @@ impl redux::EnablingCondition<crate::P2pState> for P2pDisconnectionFinishAction 
         state
             .peers
             .get(&self.peer_id)
-            .map_or(false, |peer| match &peer.status {
-                P2pPeerStatus::Disconnected { .. } => false,
-                _ => true,
-            })
+            .map_or(false, |peer| !peer.is_disconnected()) // TODO(akoptelov): review this
     }
 }
 
 // --- From<LeafAction> for Action impls.
-use crate::P2pPeerStatus;
 
 impl From<P2pDisconnectionInitAction> for crate::P2pAction {
     fn from(a: P2pDisconnectionInitAction) -> Self {

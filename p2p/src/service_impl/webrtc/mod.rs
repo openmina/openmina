@@ -18,9 +18,8 @@ use openmina_core::channels::{mpsc, oneshot};
 
 use crate::{
     channels::{ChannelId, ChannelMsg, MsgId},
-    connection::outgoing::P2pConnectionOutgoingInitOpts,
     identity::SecretKey,
-    webrtc, P2pChannelEvent, P2pConnectionEvent, P2pEvent, PeerId,
+    webrtc, P2pChannelEvent, P2pEvent, P2pWebRTCEvent, PeerId,
 };
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -236,7 +235,7 @@ async fn peer_start(args: PeerAddArgs) {
         Ok(v) => v,
         Err(err) => {
             let _ = event_sender
-                .send(P2pConnectionEvent::OfferSdpReady(peer_id, Err(err.to_string())).into());
+                .send(P2pWebRTCEvent::OfferSdpReady(peer_id, Err(err.to_string())).into());
             return;
         }
     };
@@ -245,13 +244,13 @@ async fn peer_start(args: PeerAddArgs) {
         let answer_fut = async {
             let sdp = pc.local_sdp().await.unwrap();
             event_sender
-                .send(P2pConnectionEvent::OfferSdpReady(peer_id, Ok(sdp)).into())
+                .send(P2pWebRTCEvent::OfferSdpReady(peer_id, Ok(sdp)).into())
                 .or(Err(Error::ChannelClosed))?;
             match cmd_receiver.recv().await.ok_or(Error::ChannelClosed)? {
                 PeerCmd::PeerHttpOfferSend(url, offer) => {
                     let answer = webrtc_signal_send(&url, offer).await?;
                     event_sender
-                        .send(P2pConnectionEvent::AnswerReceived(peer_id, answer).into())
+                        .send(P2pWebRTCEvent::AnswerReceived(peer_id, answer).into())
                         .or(Err(Error::ChannelClosed))?;
 
                     if let PeerCmd::AnswerSet(v) =
@@ -278,7 +277,7 @@ async fn peer_start(args: PeerAddArgs) {
     if is_outgoing {
         if let Err(err) = pc.remote_desc_set(answer).await {
             let err = Error::from(err).to_string();
-            let _ = event_sender.send(P2pConnectionEvent::Finalized(peer_id, Err(err)).into());
+            let _ = event_sender.send(P2pWebRTCEvent::Finalized(peer_id, Err(err)).into());
         }
     } else {
         let fut = async {
@@ -290,7 +289,7 @@ async fn peer_start(args: PeerAddArgs) {
         let is_err = res.is_err();
         let is_err = is_err
             || event_sender
-                .send(P2pConnectionEvent::AnswerSdpReady(peer_id, res).into())
+                .send(P2pWebRTCEvent::AnswerSdpReady(peer_id, res).into())
                 .is_err();
         if is_err {
             return;
@@ -314,7 +313,7 @@ async fn peer_start(args: PeerAddArgs) {
                     if let Some(connected_tx) = connected_tx.take() {
                         let _ = connected_tx.send(Err("disconnected"));
                     } else {
-                        let _ = event_sender.send(P2pConnectionEvent::Closed(peer_id).into());
+                        let _ = event_sender.send(P2pWebRTCEvent::Closed(peer_id).into());
                     }
                 }
                 _ => {}
@@ -329,12 +328,12 @@ async fn peer_start(args: PeerAddArgs) {
     {
         Ok(_) => {}
         Err(err) => {
-            let _ = event_sender.send(P2pConnectionEvent::Finalized(peer_id, Err(err)).into());
+            let _ = event_sender.send(P2pWebRTCEvent::Finalized(peer_id, Err(err)).into());
         }
     }
     let _ = main_channel.close().await;
 
-    let _ = event_sender.send(P2pConnectionEvent::Finalized(peer_id, Ok(())).into());
+    let _ = event_sender.send(P2pWebRTCEvent::Finalized(peer_id, Ok(())).into());
 
     peer_loop(peer_id, event_sender, cmd_receiver, pc).await
 }
@@ -614,10 +613,10 @@ async fn peer_loop(
 }
 
 pub trait P2pServiceWebrtc: redux::Service {
-    fn random_pick(
-        &mut self,
-        list: &[P2pConnectionOutgoingInitOpts],
-    ) -> P2pConnectionOutgoingInitOpts;
+    // fn random_pick(
+    //     &mut self,
+    //     list: &[P2pConnectionOutgoingInitOpts],
+    // ) -> P2pConnectionOutgoingInitOpts;
 
     fn event_sender(&mut self) -> &mut mpsc::UnboundedSender<P2pEvent>;
 

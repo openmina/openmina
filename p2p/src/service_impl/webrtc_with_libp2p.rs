@@ -1,11 +1,15 @@
+use libp2p::Multiaddr;
 use openmina_core::channels::mpsc;
 use openmina_core::snark::Snark;
 
 use crate::{
     channels::{ChannelId, ChannelMsg, MsgId, P2pChannelsService},
-    connection::{outgoing::P2pConnectionOutgoingInitOpts, P2pConnectionService},
+    common::P2pGenericAddrs,
+    connection::{libp2p::P2pConnectionLibP2pService, webrtc::P2pConnectionWebRTCService},
     disconnection::P2pDisconnectionService,
     identity::SecretKey,
+    libp2p::P2pLibP2pAddr,
+    webrtc::SignalingMethod,
     P2pChannelEvent, P2pEvent, PeerId,
 };
 
@@ -40,27 +44,19 @@ pub trait P2pServiceWebrtcWithLibp2p: P2pServiceWebrtc {
 
     fn find_random_peer(&mut self);
 
-    fn start_discovery(&mut self, peers: Vec<P2pConnectionOutgoingInitOpts>);
+    fn start_discovery(&mut self, peers: Vec<(PeerId, P2pGenericAddrs)>);
 }
 
-impl<T: P2pServiceWebrtcWithLibp2p> P2pConnectionService for T {
-    fn random_pick(
-        &mut self,
-        list: &[P2pConnectionOutgoingInitOpts],
-    ) -> P2pConnectionOutgoingInitOpts {
-        P2pServiceWebrtc::random_pick(self, list)
-    }
+impl<T: P2pServiceWebrtcWithLibp2p> P2pConnectionWebRTCService for T {
+    // fn random_pick(
+    //     &mut self,
+    //     list: &[P2pConnectionOutgoingInitOpts],
+    // ) -> P2pConnectionOutgoingInitOpts {
+    //     P2pServiceWebrtc::random_pick(self, list)
+    // }
 
-    fn outgoing_init(&mut self, opts: P2pConnectionOutgoingInitOpts) {
-        match opts {
-            P2pConnectionOutgoingInitOpts::WebRTC { peer_id, .. } => {
-                P2pServiceWebrtc::outgoing_init(self, peer_id);
-            }
-            P2pConnectionOutgoingInitOpts::LibP2P(opts) => {
-                let cmd = super::libp2p::Cmd::Dial(opts.peer_id.into(), vec![opts.to_maddr()]);
-                let _ = self.libp2p().cmd_sender().send(cmd);
-            }
-        }
+    fn outgoing_init(&mut self, peer_id: PeerId, _opts: SignalingMethod) {
+        P2pServiceWebrtc::outgoing_init(self, peer_id);
     }
 
     fn incoming_init(&mut self, peer_id: PeerId, offer: crate::webrtc::Offer) {
@@ -74,9 +70,32 @@ impl<T: P2pServiceWebrtcWithLibp2p> P2pConnectionService for T {
     fn http_signaling_request(&mut self, url: String, offer: crate::webrtc::Offer) {
         P2pServiceWebrtc::http_signaling_request(self, url, offer)
     }
+}
 
-    fn start_discovery(&mut self, peers: Vec<P2pConnectionOutgoingInitOpts>) {
-        P2pServiceWebrtcWithLibp2p::start_discovery(self, peers)
+impl<T: P2pServiceWebrtcWithLibp2p> P2pConnectionLibP2pService for T {
+    // fn random_pick(
+    //     &mut self,
+    //     list: &[P2pConnectionOutgoingInitOpts],
+    // ) -> P2pConnectionOutgoingInitOpts {
+    //     P2pServiceWebrtc::random_pick(self, list)
+    // }
+
+    fn start_discovery(&mut self, peers: Vec<(PeerId, Vec<P2pLibP2pAddr>)>) {
+        P2pServiceWebrtcWithLibp2p::start_discovery(
+            self,
+            peers
+                .into_iter()
+                .map(|(peer_id, addrs)| (peer_id, P2pGenericAddrs::LibP2p(addrs)))
+                .collect(),
+        )
+    }
+
+    fn outgoing_init(&mut self, peer_id: PeerId, opts: Vec<P2pLibP2pAddr>) {
+        let cmd = super::libp2p::Cmd::Dial(
+            peer_id.into(),
+            opts.into_iter().map(Multiaddr::from).collect(),
+        );
+        let _ = self.libp2p().cmd_sender().send(cmd);
     }
 
     fn find_random_peer(&mut self) {

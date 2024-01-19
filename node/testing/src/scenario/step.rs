@@ -1,4 +1,5 @@
-use node::{event_source::Event, p2p::connection::outgoing::P2pConnectionOutgoingInitOpts};
+use node::event_source::Event;
+use node::p2p::common::P2pGenericPeer;
 use serde::{Deserialize, Serialize};
 
 use crate::cluster::{ClusterNodeId, ClusterOcamlNodeId};
@@ -45,5 +46,5 @@ pub enum ScenarioStep {
 pub enum ListenerNode {
     Rust(ClusterNodeId),
     Ocaml(ClusterOcamlNodeId),
-    Custom(P2pConnectionOutgoingInitOpts),
+    Custom(P2pGenericPeer),
 }

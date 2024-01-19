@@ -7,6 +7,7 @@ use std::time::Duration;
 use mina_p2p_messages::v2::{
     CurrencyFeeStableV1, UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
 };
+use node::p2p::common::P2pGenericPeer;
 use rand::prelude::*;
 
 use tokio::select;
@@ -19,7 +20,6 @@ use node::event_source::{
 };
 use node::ledger::LedgerCtx;
 use node::p2p::channels::ChannelId;
-use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 use node::p2p::identity::SecretKey;
 use node::p2p::service_impl::webrtc::P2pServiceCtx;
 use node::p2p::service_impl::webrtc_with_libp2p::{self, P2pServiceWebrtcWithLibp2p};
@@ -60,7 +60,7 @@ pub struct Node {
     pub verbosity: Level,
 
     #[arg(long, short = 'P', alias = "peer", num_args = 0.., default_values_t = default_peers(), env, value_delimiter = ' ')]
-    pub peers: Vec<P2pConnectionOutgoingInitOpts>,
+    pub peers: Vec<P2pGenericPeer>,
 
     /// Run Snark Worker.
     ///
@@ -86,7 +86,7 @@ pub struct Node {
     pub additional_ledgers_path: Option<PathBuf>,
 }
 
-fn default_peers() -> Vec<P2pConnectionOutgoingInitOpts> {
+fn default_peers() -> Vec<P2pGenericPeer> {
     [
         "/2ajh5CpZCHdv7tmMrotVnLjQXuhcuCzqKosdDmvN3tNTScw2fsd/http/65.109.110.75/10000",
 

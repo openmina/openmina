@@ -16,7 +16,7 @@ use webrtc::{
 };
 
 use crate::{
-    connection::P2pConnectionResponse,
+    connection::webrtc::P2pConnectionWebRTCResponse,
     webrtc::{Answer, Offer},
 };
 
@@ -164,7 +164,7 @@ impl RTCChannel {
 pub async fn webrtc_signal_send(
     url: &str,
     offer: Offer,
-) -> std::result::Result<P2pConnectionResponse, RTCSignalingError> {
+) -> std::result::Result<P2pConnectionWebRTCResponse, RTCSignalingError> {
     let client = hyper::Client::new();
     let req = hyper::Request::post(url).body(serde_json::to_string(&offer)?.into())?;
     let body = client.request(req).await?.into_body();

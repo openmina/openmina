@@ -2,9 +2,8 @@ mod config;
 pub use config::{RustNodeTestingConfig, TestPeerId};
 
 use node::event_source::{Event, EventSourceNewEventAction};
-use node::p2p::connection::outgoing::{
-    P2pConnectionOutgoingInitLibp2pOpts, P2pConnectionOutgoingInitOpts,
-};
+use node::p2p::common::{P2pGenericAddrs, P2pGenericPeer};
+use node::p2p::libp2p::P2pLibP2pAddr;
 use node::p2p::webrtc::SignalingMethod;
 use node::p2p::PeerId;
 use node::{Action, CheckTimeoutsAction, State, Store};
@@ -29,20 +28,22 @@ impl Node {
         &mut self.store.service
     }
 
-    pub fn dial_addr(&self) -> P2pConnectionOutgoingInitOpts {
-        let peer_id = self.store.state().p2p.my_id();
+    pub fn dial_addr(&self) -> P2pGenericAddrs {
         if self.service().rust_to_rust_use_webrtc() {
             let port = self.store.state().p2p.config.listen_port;
             let signaling = SignalingMethod::Http(([127, 0, 0, 1], port).into());
-            P2pConnectionOutgoingInitOpts::WebRTC { peer_id, signaling }
+            signaling.into()
         } else {
-            let opts = P2pConnectionOutgoingInitLibp2pOpts {
-                peer_id,
+            P2pGenericAddrs::LibP2p(vec![P2pLibP2pAddr {
                 host: node::p2p::webrtc::Host::Ipv4([127, 0, 0, 1].into()),
                 port: self.store.state().p2p.config.libp2p_port.unwrap(),
-            };
-            P2pConnectionOutgoingInitOpts::LibP2P(opts)
+            }])
         }
+    }
+
+    pub fn to_peers<T: FromIterator<P2pGenericPeer>>(&self) -> T {
+        let peer_id = self.store.state().p2p.my_id();
+        self.dial_addr().to_generic_peers(&peer_id)
     }
 
     pub fn state(&self) -> &State {
@@ -86,7 +87,7 @@ impl Node {
         let event_id = self
             .service_mut()
             .pending_events()
-            .find(|(_, event)| event.to_string().starts_with(event_pattern))
+            .find(|(_, event)| format!("{event}").starts_with(event_pattern))
             .map(|(id, _)| id);
         let event_id = match event_id {
             Some(id) => Some(id),

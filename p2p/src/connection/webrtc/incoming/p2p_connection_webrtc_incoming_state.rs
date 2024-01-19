@@ -5,12 +5,14 @@ use serde::{Deserialize, Serialize};
 
 use openmina_core::requests::RpcId;
 
-use crate::webrtc;
+use crate::{connection::ConnectionState, webrtc};
 
 use super::IncomingSignalingMethod;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum P2pConnectionIncomingState {
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+pub enum P2pConnectionWebRTCIncomingState {
+    #[default]
+    Default,
     Init {
         time: redux::Timestamp,
         signaling: IncomingSignalingMethod,
@@ -60,7 +62,7 @@ pub enum P2pConnectionIncomingState {
     },
     Error {
         time: redux::Timestamp,
-        error: P2pConnectionIncomingError,
+        error: P2pConnectionWebRTCIncomingError,
         rpc_id: Option<RpcId>,
     },
     Success {
@@ -75,9 +77,11 @@ pub enum P2pConnectionIncomingState {
     },
 }
 
-impl P2pConnectionIncomingState {
+impl P2pConnectionWebRTCIncomingState {
+    // TODO(akoptelov): remove in favor of ConnectionState
     pub fn time(&self) -> Timestamp {
         match self {
+            Self::Default => Timestamp::ZERO,
             Self::Init { time, .. } => *time,
             Self::AnswerSdpCreatePending { time, .. } => *time,
             Self::AnswerSdpCreateSuccess { time, .. } => *time,
@@ -91,8 +95,10 @@ impl P2pConnectionIncomingState {
         }
     }
 
+    // TODO(akoptelov): remove in favor of ConnectionState
     pub fn rpc_id(&self) -> Option<RpcId> {
         match self {
+            Self::Default => None,
             Self::Init { rpc_id, .. } => *rpc_id,
             Self::AnswerSdpCreatePending { rpc_id, .. } => *rpc_id,
             Self::AnswerSdpCreateSuccess { rpc_id, .. } => *rpc_id,
@@ -115,8 +121,50 @@ impl P2pConnectionIncomingState {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum P2pConnectionIncomingError {
+pub enum P2pConnectionWebRTCIncomingError {
     SdpCreateError(String),
     FinalizeError(String),
     Timeout,
+}
+
+impl ConnectionState for P2pConnectionWebRTCIncomingState {
+    fn is_success(&self) -> bool {
+        matches!(self, P2pConnectionWebRTCIncomingState::Success { .. })
+    }
+
+    fn is_error(&self) -> bool {
+        matches!(self, P2pConnectionWebRTCIncomingState::Error { .. })
+    }
+
+    fn rpc_id(&self) -> Option<RpcId> {
+        match self {
+            Self::Default => None,
+            Self::Init { rpc_id, .. } => *rpc_id,
+            Self::AnswerSdpCreatePending { rpc_id, .. } => *rpc_id,
+            Self::AnswerSdpCreateSuccess { rpc_id, .. } => *rpc_id,
+            Self::AnswerReady { rpc_id, .. } => *rpc_id,
+            Self::AnswerSendSuccess { rpc_id, .. } => *rpc_id,
+            Self::FinalizePending { rpc_id, .. } => *rpc_id,
+            Self::FinalizeSuccess { rpc_id, .. } => *rpc_id,
+            Self::Error { rpc_id, .. } => *rpc_id,
+            Self::Success { rpc_id, .. } => *rpc_id,
+            Self::Libp2pReceived { .. } => None,
+        }
+    }
+
+    fn time(&self) -> Timestamp {
+        match self {
+            P2pConnectionWebRTCIncomingState::Default => Timestamp::ZERO,
+            P2pConnectionWebRTCIncomingState::Init { time, .. } => *time,
+            P2pConnectionWebRTCIncomingState::AnswerSdpCreatePending { time, .. } => *time,
+            P2pConnectionWebRTCIncomingState::AnswerSdpCreateSuccess { time, .. } => *time,
+            P2pConnectionWebRTCIncomingState::AnswerReady { time, .. } => *time,
+            P2pConnectionWebRTCIncomingState::AnswerSendSuccess { time, .. } => *time,
+            P2pConnectionWebRTCIncomingState::FinalizePending { time, .. } => *time,
+            P2pConnectionWebRTCIncomingState::FinalizeSuccess { time, .. } => *time,
+            P2pConnectionWebRTCIncomingState::Error { time, .. } => *time,
+            P2pConnectionWebRTCIncomingState::Success { time, .. } => *time,
+            P2pConnectionWebRTCIncomingState::Libp2pReceived { time } => *time,
+        }
+    }
 }

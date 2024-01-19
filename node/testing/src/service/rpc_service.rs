@@ -1,5 +1,5 @@
 use node::State;
-use node::{p2p::connection::P2pConnectionResponse, rpc::RespondError, service::RpcService};
+use node::{p2p::connection::webrtc::P2pConnectionWebRTCResponse, rpc::RespondError, service::RpcService};
 use openmina_core::requests::RpcId;
 
 impl RpcService for super::NodeTestingService {
@@ -42,7 +42,7 @@ impl RpcService for super::NodeTestingService {
     fn respond_p2p_connection_incoming_answer(
         &mut self,
         rpc_id: RpcId,
-        response: P2pConnectionResponse,
+        response: P2pConnectionWebRTCResponse,
     ) -> Result<(), RespondError> {
         self.real
             .respond_p2p_connection_incoming_answer(rpc_id, response)
