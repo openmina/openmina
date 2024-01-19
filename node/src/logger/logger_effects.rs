@@ -1019,11 +1019,13 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                 }
                 BlockProducerVrfEvaluatorAction::EvaluationSuccess { vrf_output, .. } => {
                     match vrf_output {
-                        vrf::VrfEvaluationOutput::SlotWon(_) => {
+                        vrf::VrfEvaluationOutput::SlotWon(won_slot) => {
                             openmina_core::log::info!(
                                 meta.time();
                                 kind = kind.to_string(),
-                                summary = format!("Slot evaluation result - won slot: {:?}", vrf_output),
+                                summary = format!("Slot evaluation result - won slot"),
+                                global_slot = won_slot.global_slot,
+                                vrf_output = won_slot.vrf_output
                             )
                         }
                         vrf::VrfEvaluationOutput::SlotLost(_) => {
@@ -1040,6 +1042,67 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                         meta.time();
                         kind = kind.to_string(),
                         summary = format!("Vrf Evaluation requested: {:?}", vrf_input),
+                    )
+                }
+                BlockProducerVrfEvaluatorAction::CanEvaluateVrf {current_epoch_number, current_best_tip_global_slot, current_best_tip_slot, ..} => {
+                    openmina_core::log::info!(
+                        meta.time();
+                        kind = kind.to_string(),
+                        summary = format!("Checking possible Vrf evaluations"),
+                        current_epoch = current_epoch_number,
+                        current_best_tip_global_slot = current_best_tip_global_slot,
+                        current_best_tip_slot = current_best_tip_slot,
+                    )
+                }
+                BlockProducerVrfEvaluatorAction::EvaluateEpochInit { .. } => {}
+                BlockProducerVrfEvaluatorAction::ConstructDelegatorTable {epoch_context, current_epoch_number, current_best_tip_global_slot, current_best_tip_slot, ..} => {
+                    openmina_core::log::info!(
+                        meta.time();
+                        kind = kind.to_string(),
+                        summary = format!("Constructing delegator table"),
+                        epoch_context = epoch_context.to_string(),
+                        current_epoch = current_epoch_number,
+                        current_best_tip_global_slot = current_best_tip_global_slot,
+                        current_best_tip_slot = current_best_tip_slot,
+                    )
+                }
+                BlockProducerVrfEvaluatorAction::EvaluateEpoch {epoch_context, current_epoch_number, current_best_tip_global_slot, current_best_tip_slot, ..} => {
+                    openmina_core::log::info!(
+                        meta.time();
+                        kind = kind.to_string(),
+                        summary = format!("Starting epoch evaluation"),
+                        epoch_context = epoch_context.to_string(),
+                        current_epoch = current_epoch_number,
+                        current_best_tip_global_slot = current_best_tip_global_slot,
+                        current_best_tip_slot = current_best_tip_slot,
+                    )
+                }
+                BlockProducerVrfEvaluatorAction::ConstructDelegatorTableSuccess {epoch_context, current_epoch_number, current_best_tip_global_slot, current_best_tip_slot, ..} => {
+                    openmina_core::log::info!(
+                        meta.time();
+                        kind = kind.to_string(),
+                        summary = format!("Delegator table constructed"),
+                        epoch_context = epoch_context.to_string(),
+                        current_epoch = current_epoch_number,
+                        current_best_tip_global_slot = current_best_tip_global_slot,
+                        current_best_tip_slot = current_best_tip_slot,
+                    )
+                }
+                BlockProducerVrfEvaluatorAction::SaveLastBlockHeightInEpoch {epoch_number, last_block_height, ..} => {
+                    openmina_core::log::info!(
+                        meta.time();
+                        kind = kind.to_string(),
+                        summary = format!("Saving last block height in epoch"),
+                        epoch = epoch_number,
+                        last_block_height = last_block_height,
+                    )
+                }
+                BlockProducerVrfEvaluatorAction::EvaluatorInit { .. } => {}
+                BlockProducerVrfEvaluatorAction::EvaluatorInitSuccess { .. } => {
+                    openmina_core::log::info!(
+                        meta.time();
+                        kind = kind.to_string(),
+                        summary = format!("Vrf evaluator initilaized"),
                     )
                 }
             },

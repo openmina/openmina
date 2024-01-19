@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::block_producer::BlockProducerWonSlot;
 
-use super::{DelegatorTable, VrfWonSlotWithHash};
+use super::{DelegatorTable, VrfEvaluatorInput, VrfWonSlotWithHash};
 
 // TODO(adonagy): consodilate types, make more clear
 // pub type AccountAddressAndBalance = (String, u64);
@@ -42,14 +42,10 @@ use super::{DelegatorTable, VrfWonSlotWithHash};
 pub struct BlockProducerVrfEvaluatorState {
     pub status: BlockProducerVrfEvaluatorStatus,
     pub won_slots: BTreeMap<u32, VrfWonSlotWithHash>,
-    pub current_epoch_data: Option<EpochData>,
-    pub next_epoch_data: Option<EpochData>,
-    // TODO(adonagy): move to block producer state probably
-    pub current_epoch: Option<u32>,
-    pub current_best_tip_slot: u32,
     pub latest_evaluated_slot: u32,
-    pub last_possible_evaluation_slot: u32,
     pub genesis_timestamp: redux::Timestamp,
+    last_evaluated_epoch: Option<u32>,
+    last_block_heights_in_epoch: BTreeMap<u32, u32>,
 }
 
 impl BlockProducerVrfEvaluatorState {
@@ -57,13 +53,10 @@ impl BlockProducerVrfEvaluatorState {
         Self {
             status: BlockProducerVrfEvaluatorStatus::Idle { time: now },
             won_slots: Default::default(),
-            current_epoch_data: Default::default(),
-            next_epoch_data: Default::default(),
-            current_epoch: None,
-            current_best_tip_slot: Default::default(),
             latest_evaluated_slot: Default::default(),
-            last_possible_evaluation_slot: Default::default(),
             genesis_timestamp: redux::Timestamp::ZERO,
+            last_evaluated_epoch: Default::default(),
+            last_block_heights_in_epoch: Default::default(),
         }
     }
 
@@ -77,8 +70,45 @@ impl BlockProducerVrfEvaluatorState {
             .map(|(_, won_slot)| {
                 BlockProducerWonSlot::from_vrf_won_slot(won_slot, best_tip.genesis_timestamp())
             })
-            .filter(|won_slot| won_slot > best_tip)
-            .next()
+            .find(|won_slot| won_slot > best_tip)
+    }
+
+    pub fn last_evaluated_epoch(&self) -> Option<u32> {
+        self.last_evaluated_epoch
+    }
+
+    pub fn add_last_height(&mut self, epoch: u32, height: u32) {
+        self.last_block_heights_in_epoch.insert(epoch, height);
+    }
+
+    pub fn last_height(&self, epoch: u32) -> Option<u32> {
+        self.last_block_heights_in_epoch.get(&epoch).copied()
+    }
+
+    pub fn last_evaluated_global_slot(&self) -> u32 {
+        self.latest_evaluated_slot
+    }
+
+    pub fn set_last_evaluated_global_slot(&mut self, global_slot: &u32) {
+        if self.status.is_evaluating() {
+            self.latest_evaluated_slot = *global_slot
+        }
+    }
+
+    pub fn initialize_evaluator(&mut self, epoch: u32, last_height: u32) {
+        if !self.status.is_initialized() {
+            self.last_block_heights_in_epoch.insert(epoch, last_height);
+        }
+    }
+
+    pub fn set_last_evaluated_epoch(&mut self) -> bool {
+        match self.status {
+            BlockProducerVrfEvaluatorStatus::EpochEvaluationPending { epoch_number, .. } => {
+                self.last_evaluated_epoch = Some(epoch_number);
+                true
+            }
+            _ => false,
+        }
     }
 }
 
@@ -102,50 +132,303 @@ impl EpochData {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct PendingEvaluation {
+    pub epoch_number: u32,
+    pub epoch_data: EpochData,
+    pub latest_evaluated_slot: u32,
+    pub epoch_context: EpochContext,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum BlockProducerVrfEvaluatorStatus {
     Idle {
         time: redux::Timestamp,
     },
-    EpochChanged {
+    EvaluatorInitialisationPending {
         time: redux::Timestamp,
     },
-    DataPending {
+    EvaluatorInitialized {
         time: redux::Timestamp,
     },
-    DataSuccess {
+    CanEvaluateVrf {
         time: redux::Timestamp,
+        current_epoch_number: u32,
+        is_current_epoch_evaluated: bool,
+        is_next_epoch_evaluated: bool,
     },
-    DataFail {
+    EpochEvaluationInit {
         time: redux::Timestamp,
+        epoch_context: EpochContext,
     },
-    SlotsRequested {
+    EpochDelegatorTablePending {
         time: redux::Timestamp,
-        global_slot: u32,
-        staking_ledger_hash: LedgerHash,
+        epoch_number: u32,
+        staking_epoch_ledger_hash: LedgerHash,
+        epoch_context: EpochContext,
     },
-    SlotsReceived {
+    EpochDelegatorTableSuccess {
         time: redux::Timestamp,
-        global_slot: u32,
-        staking_ledger_hash: LedgerHash,
+        epoch_number: u32,
+        staking_epoch_ledger_hash: LedgerHash,
+        epoch_context: EpochContext,
+    },
+    EpochEvaluationPending {
+        time: redux::Timestamp,
+        epoch_number: u32,
+        epoch_data: EpochData,
+        latest_evaluated_slot: u32,
+        epoch_context: EpochContext,
+    },
+    EpochEvaluationSuccess {
+        time: redux::Timestamp,
+        epoch_number: u32,
+        epoch_context: EpochContext,
+    },
+    WaitingForEvaluation {
+        time: redux::Timestamp,
+        current_epoch_number: u32,
+        current_best_tip_height: u32,
+        current_best_tip_slot: u32,
+        current_best_tip_global_slot: u32,
+        last_epoch_block_height: Option<u32>,
+        transition_frontier_size: u32,
     },
 }
 
-impl BlockProducerVrfEvaluatorStatus {
-    pub fn matches_requested_slot(
-        &self,
-        expected_global_slot: u32,
-        expected_staking_ledger_hash: &LedgerHash,
-    ) -> bool {
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum EpochContext {
+    Current,
+    Next,
+    Waiting,
+}
+
+impl std::fmt::Display for EpochContext {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::SlotsRequested {
-                global_slot,
-                staking_ledger_hash,
+            Self::Current => write!(f, "Current"),
+            Self::Next => write!(f, "Next"),
+            Self::Waiting => write!(f, "Waiting"),
+        }
+    }
+}
+
+impl BlockProducerVrfEvaluatorStatus {
+    pub fn epoch_context(&self) -> EpochContext {
+        match self {
+            Self::Idle { .. } => EpochContext::Current,
+            Self::EpochEvaluationInit { epoch_context, .. }
+            | Self::EpochDelegatorTablePending { epoch_context, .. }
+            | Self::EpochDelegatorTableSuccess { epoch_context, .. }
+            | Self::EpochEvaluationPending { epoch_context, .. } => epoch_context.clone(),
+            Self::CanEvaluateVrf { .. } | Self::WaitingForEvaluation { .. } => {
+                EpochContext::Waiting
+            }
+            // TODO(adonagy): remove once the old states are cleaned up
+            _ => panic!("this: {:?}", self),
+        }
+    }
+
+    pub fn is_initialized(&self) -> bool {
+        !matches!(self, Self::Idle { .. })
+    }
+
+    pub fn is_evaluating_current_epoch(&self) -> bool {
+        matches!(
+            self,
+            Self::EpochEvaluationPending {
+                epoch_context: EpochContext::Current,
+                ..
+            }
+        )
+    }
+
+    pub fn is_evaluating_next_epoch(&self) -> bool {
+        matches!(
+            self,
+            Self::EpochEvaluationPending {
+                epoch_context: EpochContext::Next,
+                ..
+            }
+        )
+    }
+
+    pub fn is_evaluating(&self) -> bool {
+        self.is_evaluating_current_epoch() | self.is_evaluating_next_epoch()
+    }
+
+    pub fn is_evaluator_ready(&self, last_evaluated_epoch: Option<u32>) -> bool {
+        match self {
+            Self::EvaluatorInitialized { .. }
+            | Self::EpochEvaluationSuccess {
+                epoch_context: EpochContext::Current,
+                ..
+            } => true,
+            Self::WaitingForEvaluation {
+                transition_frontier_size,
+                current_best_tip_height,
+                last_epoch_block_height: Some(last_epoch_block_height),
                 ..
             } => {
-                &expected_global_slot == global_slot
-                    && expected_staking_ledger_hash == staking_ledger_hash
+                // predicate 1: only start the next epoch evaluation if the last evaluated epoch is the current epoch
+                // predicate 2: and there were at least k (k == 290 == transition_frontier_size) blocks created in the current epoch
+                // so the next_epoch_ledger (staking ledger for the next epoch) is "stabilized" (was in the root of the transition frontier)
+
+                // TODO(adonagy): edge case when the current epoch won't have enough slots filled, this is an extreme and should it happen the network has
+                // some serious issues. Handle it as well?
+                !self.is_next_epoch_evaluated(last_evaluated_epoch)
+                    && (current_best_tip_height.saturating_sub(*last_epoch_block_height))
+                        > *transition_frontier_size
             }
             _ => false,
+        }
+    }
+
+    pub fn epoch_to_evaluate(&self) -> EpochContext {
+        match self {
+            Self::CanEvaluateVrf {
+                is_current_epoch_evaluated,
+                ..
+            } => {
+                if !is_current_epoch_evaluated {
+                    EpochContext::Current
+                } else {
+                    EpochContext::Next
+                }
+            }
+            _ => EpochContext::Waiting,
+        }
+    }
+
+    pub fn is_current_epoch_evaluated(&self, last_evaluated_epoch: Option<u32>) -> bool {
+        match self {
+            BlockProducerVrfEvaluatorStatus::CanEvaluateVrf {
+                current_epoch_number,
+                ..
+            } => last_evaluated_epoch >= Some(*current_epoch_number),
+            BlockProducerVrfEvaluatorStatus::EpochEvaluationSuccess {
+                epoch_context: EpochContext::Current,
+                ..
+            }
+            | BlockProducerVrfEvaluatorStatus::EpochEvaluationInit {
+                epoch_context: EpochContext::Next,
+                ..
+            }
+            | BlockProducerVrfEvaluatorStatus::EpochDelegatorTablePending {
+                epoch_context: EpochContext::Next,
+                ..
+            }
+            | BlockProducerVrfEvaluatorStatus::EpochDelegatorTableSuccess {
+                epoch_context: EpochContext::Next,
+                ..
+            }
+            | BlockProducerVrfEvaluatorStatus::EpochEvaluationPending {
+                epoch_context: EpochContext::Next,
+                ..
+            }
+            | BlockProducerVrfEvaluatorStatus::EpochEvaluationSuccess {
+                epoch_context: EpochContext::Next,
+                ..
+            }
+            | BlockProducerVrfEvaluatorStatus::WaitingForEvaluation { .. } => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_next_epoch_evaluated(&self, last_evaluated_epoch: Option<u32>) -> bool {
+        match self {
+            BlockProducerVrfEvaluatorStatus::CanEvaluateVrf {
+                current_epoch_number,
+                ..
+            }
+            | BlockProducerVrfEvaluatorStatus::WaitingForEvaluation {
+                current_epoch_number,
+                ..
+            } => last_evaluated_epoch >= Some(current_epoch_number + 1),
+            BlockProducerVrfEvaluatorStatus::EpochEvaluationSuccess {
+                epoch_context: EpochContext::Next,
+                ..
+            } => true,
+            _ => false,
+        }
+    }
+
+    pub fn can_construct_delegator_table(&self) -> bool {
+        matches!(self, Self::EpochEvaluationInit { .. })
+    }
+
+    pub fn is_delegator_table_requested(&self) -> bool {
+        matches!(self, Self::EpochDelegatorTablePending { .. })
+    }
+
+    pub fn can_start_current_epoch_evaluation(&self) -> bool {
+        matches!(
+            self,
+            Self::EpochDelegatorTableSuccess {
+                epoch_context: EpochContext::Current,
+                ..
+            }
+        )
+    }
+
+    pub fn can_start_next_epoch_evaluation(&self) -> bool {
+        matches!(
+            self,
+            Self::EpochDelegatorTableSuccess {
+                epoch_context: EpochContext::Next,
+                ..
+            }
+        )
+    }
+
+    pub fn is_current_epoch_initiated(&self) -> bool {
+        matches!(
+            self,
+            Self::EpochEvaluationInit {
+                epoch_context: EpochContext::Current,
+                ..
+            }
+        )
+    }
+
+    pub fn is_next_epoch_initiated(&self) -> bool {
+        matches!(
+            self,
+            Self::EpochEvaluationInit {
+                epoch_context: EpochContext::Next,
+                ..
+            }
+        )
+    }
+
+    pub fn construct_vrf_input(&self) -> Option<VrfEvaluatorInput> {
+        if let Some(pending_evaluation) = self.current_evaluation() {
+            Some(VrfEvaluatorInput::new(
+                pending_evaluation.epoch_data.seed,
+                pending_evaluation.epoch_data.delegator_table,
+                pending_evaluation.latest_evaluated_slot + 1,
+                pending_evaluation.epoch_data.total_currency,
+                pending_evaluation.epoch_data.ledger,
+            ))
+        } else {
+            None
+        }
+    }
+
+    pub fn current_evaluation(&self) -> Option<PendingEvaluation> {
+        match self {
+            Self::EpochEvaluationPending {
+                epoch_number,
+                epoch_data,
+                latest_evaluated_slot,
+                epoch_context,
+                ..
+            } => Some(PendingEvaluation {
+                epoch_data: epoch_data.clone(),
+                epoch_number: *epoch_number,
+                latest_evaluated_slot: *latest_evaluated_slot,
+                epoch_context: epoch_context.clone(),
+            }),
+            _ => None,
         }
     }
 }

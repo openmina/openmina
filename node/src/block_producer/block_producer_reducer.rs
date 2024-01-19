@@ -48,16 +48,6 @@ impl BlockProducerEnabled {
                 self.vrf_evaluator.reducer(meta.with_action(action))
             }
             BlockProducerAction::BestTipUpdate { best_tip } => {
-                self.vrf_evaluator.current_best_tip_slot = best_tip
-                    .block
-                    .header
-                    .protocol_state
-                    .body
-                    .consensus_state
-                    .curr_global_slot_since_hard_fork
-                    .slot_number
-                    .as_u32();
-
                 // set the genesis timestamp on the first best tip update
                 // TODO: move/remove once we can generate the genesis block
                 if self.vrf_evaluator.genesis_timestamp == redux::Timestamp::ZERO {

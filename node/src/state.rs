@@ -83,4 +83,18 @@ impl State {
 
         Some(best_tip.global_slot() + (slots as u32))
     }
+
+    pub fn current_epoch(&self) -> Option<u32> {
+        let best_tip = self.transition_frontier.best_tip()?;
+        Some(
+            best_tip
+                .block
+                .header
+                .protocol_state
+                .body
+                .consensus_state
+                .epoch_count
+                .as_u32(),
+        )
+    }
 }

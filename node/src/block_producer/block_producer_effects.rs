@@ -2,7 +2,7 @@ use crate::transition_frontier::sync::TransitionFrontierSyncAction;
 use crate::Store;
 
 use super::vrf_evaluator::BlockProducerVrfEvaluatorAction;
-use super::{BlockProducerAction, BlockProducerActionWithMeta};
+use super::{next_epoch_first_slot, to_epoch_and_slot, BlockProducerAction, BlockProducerActionWithMeta};
 
 pub fn block_producer_effects<S: crate::Service>(
     store: &mut Store<S>,
@@ -25,27 +25,25 @@ pub fn block_producer_effects<S: crate::Service>(
             }
         }
         BlockProducerAction::BestTipUpdate { best_tip } => {
-            let best_tip_staking_ledger = best_tip.staking_epoch_ledger_hash();
-            let protocol_state = &best_tip.block.header.protocol_state.body;
+            let global_slot = best_tip.consensus_state().curr_global_slot.clone();
 
-            let vrf_evaluator_current_epoch_ledger = store
-                .state()
-                .block_producer
-                .vrf_evaluator()
-                .and_then(|vrf_evaluator| {
-                    vrf_evaluator
-                        .current_epoch_data
-                        .as_ref()
-                        .map(|epoch_data| &epoch_data.ledger)
-                });
+            let (epoch, slot) = to_epoch_and_slot(&global_slot);
+            let next_epoch_first_slot = next_epoch_first_slot(&global_slot);
 
-            if vrf_evaluator_current_epoch_ledger != Some(best_tip_staking_ledger) {
-                store.dispatch(BlockProducerVrfEvaluatorAction::EpochDataUpdate {
-                    new_epoch_number: protocol_state.consensus_state.epoch_count.as_u32(),
-                    epoch_data: protocol_state.consensus_state.staking_epoch_data.clone(),
-                    next_epoch_data: protocol_state.consensus_state.next_epoch_data.clone(),
-                });
-            }
+            store.dispatch(BlockProducerVrfEvaluatorInitAction {
+                best_tip: best_tip.clone(),
+            });
+
+            store.dispatch(BlockProducerVrfCanEvaluateVrfAction {
+                current_epoch_number: epoch,
+                current_best_tip_height: best_tip.height(),
+                current_best_tip_slot: slot,
+                current_best_tip_global_slot: best_tip.global_slot(),
+                next_epoch_first_slot,
+                staking_epoch_data: best_tip.consensus_state().staking_epoch_data.clone(),
+                next_epoch_data: best_tip.consensus_state().next_epoch_data.clone(),
+                transition_frontier_size: best_tip.constants().k.as_u32(),
+            });
 
             if let Some(reason) = store
                 .state()

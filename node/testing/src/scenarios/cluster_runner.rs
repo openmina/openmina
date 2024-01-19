@@ -1,4 +1,5 @@
 use std::{
+    path::PathBuf,
     sync::{Arc, Mutex, MutexGuard},
     time::Duration,
 };
@@ -96,6 +97,30 @@ impl<'a> ClusterRunner<'a> {
             whales_n,
             fish_n,
         )
+    }
+
+    pub fn daemon_json_load(&mut self, path: PathBuf, genesis_timestamp: &str) -> DaemonJson {
+        DaemonJson::load(
+            |sec_key| self.cluster.add_account_sec_key(sec_key),
+            path,
+            Some(genesis_timestamp),
+        )
+    }
+
+    pub fn get_chain_id(&self) -> Option<String> {
+        self.cluster.get_chain_id()
+    }
+
+    pub fn get_initial_time(&self) -> Option<redux::Timestamp> {
+        self.cluster.get_initial_time()
+    }
+
+    pub fn set_chain_id(&mut self, chain_id: &str) {
+        self.cluster.set_chain_id(chain_id)
+    }
+
+    pub fn set_initial_time(&mut self, initial_time: redux::Timestamp) {
+        self.cluster.set_initial_time(initial_time)
     }
 
     pub fn get_account_sec_key(&self, pub_key: &AccountPublicKey) -> Option<&AccountSecretKey> {
@@ -405,6 +430,157 @@ impl<'a> ClusterRunner<'a> {
                     Some((sec_key.clone(), account))
                 }),
         )
+    }
+
+    /// Produces blocks in 5 second run intervals advancing time to the next won slot each time until predicate is true
+    /// Assumes there is a block producer running in the cluster
+    pub async fn produce_blocks_until<F>(
+        &mut self,
+        producer_node: ClusterNodeId,
+        log_tag: &str,
+        timeout: Duration,
+        step_duration: Duration,
+        predicate: F,
+    ) -> u32
+    where
+        F: Fn(&State, u32, u32) -> bool,
+    {
+        let now = tokio::time::Instant::now();
+
+        let mut last_slot: u32 = 0;
+        let mut produced_blocks: u32 = 0;
+
+        let nodes: Vec<_> = self.nodes_iter().map(|(id, _)| id).collect();
+        while now.elapsed() <= timeout {
+            // andvance the time to slot 1
+            // TODO: this should be the next won slot, not slot 1
+            if last_slot == 0 {
+                let by_nanos = Duration::from_secs(3 * 60).as_nanos() as u64;
+                self.exec_step(ScenarioStep::AdvanceTime { by_nanos })
+                    .await
+                    .unwrap();
+            }
+            // run
+            let _ = self
+                .run(
+                    step_duration,
+                    |_, _, _| RunDecision::ContinueExec,
+                    move |node_id, _, _ , action| {
+                        false
+                    })
+                .await;
+            // make sure every node is synced, longer timeout in case one node disconnects and it needs to resync
+            self
+                .run_until_nodes_synced(Duration::from_secs(5 * 60), &nodes)
+                .await
+                .unwrap();
+
+            let (state, _) = self.node_pending_events(producer_node).unwrap();
+
+            let current_state_machine_time = state.time();
+
+            let best_tip = if let Some(best_tip) = state.transition_frontier.best_tip() {
+                best_tip
+            } else {
+                eprintln!("[{log_tag}] No best tip");
+                continue;
+            };
+
+            let current_global_slot = state.cur_global_slot().unwrap();
+
+            let next_won_slot = state
+                .block_producer
+                .vrf_evaluator()
+                .and_then(|vrf_state| vrf_state.next_won_slot(current_global_slot, best_tip));
+
+            let best_tip_slot = &best_tip
+                .header()
+                .protocol_state
+                .body
+                .consensus_state
+                .curr_global_slot
+                .slot_number
+                .as_u32();
+
+            eprintln!("[{log_tag}] Slot(best tip / current slot): {best_tip_slot} / {current_global_slot}");
+
+            if best_tip_slot <= &0 {
+                let by_nanos = Duration::from_secs(3 * 60).as_nanos() as u64;
+                self.exec_step(ScenarioStep::AdvanceTime { by_nanos })
+                    .await
+                    .unwrap();
+                continue;
+            } else if best_tip_slot > &last_slot {
+                last_slot = *best_tip_slot;
+                produced_blocks += 1;
+            } else {
+                continue;
+            }
+
+            let (state, _) = self.node_pending_events(producer_node).unwrap();
+
+            if predicate(state, last_slot, produced_blocks) {
+                eprintln!("[{log_tag}] Condition met");
+                return produced_blocks;
+            }
+
+            if let Some(won_slot) = next_won_slot {
+                if let Some(diff) = won_slot.slot_time.checked_sub(current_state_machine_time) {
+                    eprintln!("[{log_tag}] advancing time by {diff:?}");
+                    let by_nanos = diff.as_nanos() as u64;
+                    self.exec_step(ScenarioStep::AdvanceTime { by_nanos })
+                        .await
+                        .unwrap();
+                } else {
+                    continue;
+                }
+            } else {
+                continue;
+            }
+        }
+
+        panic!("Global timeout reached");
+    }
+
+    /// Skip to 3 blocks before the epoch end by advancing time
+    /// Assumes there is a block producer running in the cluster
+    pub async fn advance_to_epoch_bounds(
+        &mut self,
+        producer_node: ClusterNodeId,
+        timeout: Duration,
+        step_duration: Duration,
+    ) -> u32 {
+        const SLOTS_PER_EPOCH: u32 = 7_140;
+
+        let (state, _) = self.node_pending_events(producer_node).unwrap();
+        let current_epoch = state.current_epoch().unwrap();
+        let latest_slot = state.cur_global_slot().unwrap();
+        let current_epoch_end = current_epoch * SLOTS_PER_EPOCH + SLOTS_PER_EPOCH - 1;
+        let to_epoch_bound = ((current_epoch_end - latest_slot) - 3) as u64;
+
+        let diff = Duration::from_secs(3 * 60 * to_epoch_bound);
+
+        eprintln!("[EPOCH BOUNDS] advancing time by {diff:?}");
+        let by_nanos = diff.as_nanos() as u64;
+        self.exec_step(ScenarioStep::AdvanceTime { by_nanos })
+            .await
+            .unwrap();
+
+        self.produce_blocks_until(producer_node, "EPOCH BOUNDS", timeout, step_duration, |state, last_slot, produced_blocks| {
+            eprintln!("\nSnarks: {}", state.snark_pool.last_index());
+            eprintln!("Produced blocks: {produced_blocks}");
+            // let first_pass_ledger_source = state.transition_frontier.best_tip().unwrap().block.header.protocol_state.body.blockchain_state.ledger_proof_statement.source.first_pass_ledger.clone();
+            // let first_pass_ledger_target = state.transition_frontier.best_tip().unwrap().block.header.protocol_state.body.blockchain_state.ledger_proof_statement.target.first_pass_ledger.clone();
+            // let second_pass_ledger_source = state.transition_frontier.best_tip().unwrap().block.header.protocol_state.body.blockchain_state.ledger_proof_statement.source.second_pass_ledger.clone();
+            // let second_pass_ledger_target = state.transition_frontier.best_tip().unwrap().block.header.protocol_state.body.blockchain_state.ledger_proof_statement.target.second_pass_ledger.clone();
+
+            // eprintln!("Source first pass ledger: {first_pass_ledger_source}");
+            // eprintln!("Source second pass ledger: {second_pass_ledger_source}");
+            // eprintln!("Target first pass ledger: {first_pass_ledger_target}");
+            // eprintln!("Target second pass ledger: {second_pass_ledger_target}\n");
+            last_slot >= current_epoch_end
+        })
+        .await
     }
 }
 

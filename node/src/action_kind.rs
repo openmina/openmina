@@ -14,7 +14,9 @@
 use num_enum::TryFromPrimitive;
 use serde::{Deserialize, Serialize};
 
-use crate::block_producer::vrf_evaluator::BlockProducerVrfEvaluatorAction;
+use crate::block_producer::vrf_evaluator::{
+    BlockProducerVrfEvaluatorAction, BlockProducerVrfEvaluatorAction,
+};
 use crate::block_producer::BlockProducerAction;
 use crate::consensus::ConsensusAction;
 use crate::event_source::EventSourceAction;
@@ -99,11 +101,16 @@ pub enum ActionKind {
     BlockProducerWonSlotProduceInit,
     BlockProducerWonSlotSearch,
     BlockProducerWonSlotWait,
-    BlockProducerVrfEvaluatorEpochDataUpdate,
+    BlockProducerVrfEvaluatorCanEvaluateVrf,
+    BlockProducerVrfEvaluatorConstructDelegatorTable,
+    BlockProducerVrfEvaluatorConstructDelegatorTableSuccess,
+    BlockProducerVrfEvaluatorEvaluateEpoch,
+    BlockProducerVrfEvaluatorEvaluateEpochInit,
     BlockProducerVrfEvaluatorEvaluateVrf,
     BlockProducerVrfEvaluatorEvaluationSuccess,
-    BlockProducerVrfEvaluatorUpdateProducerAndDelegates,
-    BlockProducerVrfEvaluatorUpdateProducerAndDelegatesSuccess,
+    BlockProducerVrfEvaluatorEvaluatorInit,
+    BlockProducerVrfEvaluatorEvaluatorInitSuccess,
+    BlockProducerVrfEvaluatorSaveLastBlockHeightInEpoch,
     CheckTimeouts,
     ConsensusBestTipUpdate,
     ConsensusBlockChainProofUpdate,
@@ -357,7 +364,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 269;
+    pub const COUNT: u16 = 274;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -757,16 +764,27 @@ impl ActionKindGet for SnarkPoolCandidateAction {
 impl ActionKindGet for BlockProducerVrfEvaluatorAction {
     fn kind(&self) -> ActionKind {
         match self {
-            Self::EpochDataUpdate { .. } => ActionKind::BlockProducerVrfEvaluatorEpochDataUpdate,
             Self::EvaluateVrf { .. } => ActionKind::BlockProducerVrfEvaluatorEvaluateVrf,
             Self::EvaluationSuccess { .. } => {
                 ActionKind::BlockProducerVrfEvaluatorEvaluationSuccess
             }
-            Self::UpdateProducerAndDelegates { .. } => {
-                ActionKind::BlockProducerVrfEvaluatorUpdateProducerAndDelegates
+            Self::EvaluatorInit { .. } => ActionKind::BlockProducerVrfEvaluatorEvaluatorInit,
+            Self::EvaluatorInitSuccess { .. } => {
+                ActionKind::BlockProducerVrfEvaluatorEvaluatorInitSuccess
             }
-            Self::UpdateProducerAndDelegatesSuccess { .. } => {
-                ActionKind::BlockProducerVrfEvaluatorUpdateProducerAndDelegatesSuccess
+            Self::CanEvaluateVrf { .. } => ActionKind::BlockProducerVrfEvaluatorCanEvaluateVrf,
+            Self::EvaluateEpochInit { .. } => {
+                ActionKind::BlockProducerVrfEvaluatorEvaluateEpochInit
+            }
+            Self::ConstructDelegatorTable { .. } => {
+                ActionKind::BlockProducerVrfEvaluatorConstructDelegatorTable
+            }
+            Self::ConstructDelegatorTableSuccess { .. } => {
+                ActionKind::BlockProducerVrfEvaluatorConstructDelegatorTableSuccess
+            }
+            Self::EvaluateEpoch { .. } => ActionKind::BlockProducerVrfEvaluatorEvaluateEpoch,
+            Self::SaveLastBlockHeightInEpoch { .. } => {
+                ActionKind::BlockProducerVrfEvaluatorSaveLastBlockHeightInEpoch
             }
         }
     }

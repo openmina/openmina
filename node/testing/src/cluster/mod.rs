@@ -123,6 +123,9 @@ pub struct Cluster {
     account_sec_keys: BTreeMap<AccountPublicKey, AccountSecretKey>,
     nodes: Vec<Node>,
     ocaml_nodes: Vec<Option<OcamlNode>>,
+    // TODO: remove option if this is viable in the future
+    chain_id: Option<String>,
+    initial_time: Option<redux::Timestamp>,
 
     rpc_counter: usize,
     ocaml_libp2p_keypair_i: usize,
@@ -162,6 +165,8 @@ impl Cluster {
             account_sec_keys: Default::default(),
             nodes: Vec::new(),
             ocaml_nodes: Vec::new(),
+            chain_id: None,
+            initial_time: None,
 
             rpc_counter: 0,
             ocaml_libp2p_keypair_i: 0,
@@ -184,6 +189,22 @@ impl Cluster {
 
     pub fn get_account_sec_key(&self, pub_key: &AccountPublicKey) -> Option<&AccountSecretKey> {
         self.account_sec_keys.get(pub_key)
+    }
+
+    pub fn set_chain_id(&mut self, chain_id: &str) {
+        self.chain_id = Some(chain_id.to_string())
+    }
+
+    pub fn set_initial_time(&mut self, initial_time: redux::Timestamp) {
+        self.initial_time = Some(initial_time)
+    }
+
+    pub fn get_chain_id(&self) -> Option<String> {
+        self.chain_id.clone()
+    }
+
+    pub fn get_initial_time(&self) -> Option<redux::Timestamp> {
+        self.initial_time
     }
 
     pub fn add_rust_node(&mut self, testing_config: RustNodeTestingConfig) -> ClusterNodeId {

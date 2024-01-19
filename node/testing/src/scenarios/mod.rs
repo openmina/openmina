@@ -27,8 +27,13 @@ use crate::scenario::{Scenario, ScenarioId, ScenarioStep};
 use self::multi_node::basic_connectivity_initial_joining::MultiNodeBasicConnectivityInitialJoining;
 use self::multi_node::basic_connectivity_peer_discovery::MultiNodeBasicConnectivityPeerDiscovery;
 use self::multi_node::sync_4_block_producers::MultiNodeSync4BlockProducers;
+use self::multi_node::vrf_correct_ledgers::MultiNodeVrfGetCorrectLedgers;
+use self::multi_node::vrf_correct_slots::MultiNodeVrfGetCorrectSlots;
+use self::multi_node::vrf_epoch_bounds_evaluation::MultiNodeVrfEpochBoundsEvaluation;
+use self::multi_node::vrf_epoch_bounds_correct_ledgers::MultiNodeVrfEpochBoundsCorrectLedger;
 use self::simulation::small::SimulationSmall;
 use self::solo_node::sync_to_genesis::SoloNodeSyncToGenesis;
+use self::solo_node::sync_to_genesis_custom::SoloNodeSyncToGenesisCustom;
 use self::solo_node::{
     basic_connectivity_accept_incoming::SoloNodeBasicConnectivityAcceptIncoming,
     basic_connectivity_initial_joining::SoloNodeBasicConnectivityInitialJoining,
@@ -40,10 +45,15 @@ use self::solo_node::{
 pub enum Scenarios {
     SoloNodeSyncToGenesis(SoloNodeSyncToGenesis),
     SoloNodeBootstrap(SoloNodeBootstrap),
+    SoloNodeSyncToGenesisCustom(SoloNodeSyncToGenesisCustom),
     SoloNodeSyncRootSnarkedLedger(SoloNodeSyncRootSnarkedLedger),
     SoloNodeBasicConnectivityInitialJoining(SoloNodeBasicConnectivityInitialJoining),
     SoloNodeBasicConnectivityAcceptIncoming(SoloNodeBasicConnectivityAcceptIncoming),
     MultiNodeSync4BlockProducers(MultiNodeSync4BlockProducers),
+    MultiNodeVrfGetCorrectLedgers(MultiNodeVrfGetCorrectLedgers),
+    MultiNodeVrfGetCorrectSlots(MultiNodeVrfGetCorrectSlots),
+    MultiNodeVrfEpochBoundsEvaluation(MultiNodeVrfEpochBoundsEvaluation),
+    MultiNodeVrfEpochBoundsCorrectLedger(MultiNodeVrfEpochBoundsCorrectLedger),
     MultiNodeBasicConnectivityInitialJoining(MultiNodeBasicConnectivityInitialJoining),
     MultiNodeBasicConnectivityPeerDiscovery(MultiNodeBasicConnectivityPeerDiscovery),
     SimulationSmall(SimulationSmall),
@@ -59,10 +69,15 @@ impl Scenarios {
         match self {
             Self::SoloNodeSyncToGenesis(_) => true,
             Self::SoloNodeBootstrap(_) => false,
+            Self::SoloNodeSyncToGenesisCustom(_) => true,
             Self::SoloNodeSyncRootSnarkedLedger(_) => false,
             Self::SoloNodeBasicConnectivityInitialJoining(_) => false,
             Self::SoloNodeBasicConnectivityAcceptIncoming(_) => cfg!(feature = "p2p-webrtc"),
             Self::MultiNodeSync4BlockProducers(_) => false,
+            Self::MultiNodeVrfGetCorrectLedgers(_) => false,
+            Self::MultiNodeVrfGetCorrectSlots(_) => false,
+            Self::MultiNodeVrfEpochBoundsEvaluation(_) => false,
+            Self::MultiNodeVrfEpochBoundsCorrectLedger(_) => false,
             Self::MultiNodeBasicConnectivityInitialJoining(_) => false,
             Self::MultiNodeBasicConnectivityPeerDiscovery(_) => cfg!(feature = "p2p-webrtc"),
             Self::SimulationSmall(_) => false,
@@ -81,10 +96,15 @@ impl Scenarios {
         match self {
             Self::SoloNodeSyncToGenesis(_) => None,
             Self::SoloNodeBootstrap(_) => None,
+            Self::SoloNodeSyncToGenesisCustom(_) => None,
             Self::SoloNodeSyncRootSnarkedLedger(_) => None,
             Self::SoloNodeBasicConnectivityInitialJoining(_) => None,
             Self::SoloNodeBasicConnectivityAcceptIncoming(_) => None,
             Self::MultiNodeSync4BlockProducers(_) => Some(SoloNodeSyncToGenesis.into()),
+            Self::MultiNodeVrfGetCorrectLedgers(_) => Some(SoloNodeSyncToGenesisCustom.into()),
+            Self::MultiNodeVrfGetCorrectSlots(_) => Some(SoloNodeSyncToGenesisCustom.into()),
+            Self::MultiNodeVrfEpochBoundsEvaluation(_) => Some(SoloNodeSyncToGenesisCustom.into()),
+            Self::MultiNodeVrfEpochBoundsCorrectLedger(_) => Some(SoloNodeSyncToGenesisCustom.into()),
             Self::MultiNodeBasicConnectivityInitialJoining(_) => None,
             Self::MultiNodeBasicConnectivityPeerDiscovery(_) => None,
             Self::SimulationSmall(_) => None,
@@ -100,6 +120,7 @@ impl Scenarios {
         match self {
             Self::SoloNodeSyncToGenesis(_) => SoloNodeSyncToGenesis::DOCS,
             Self::SoloNodeBootstrap(_) => SoloNodeBootstrap::DOCS,
+            Self::SoloNodeSyncToGenesisCustom(_) => SoloNodeSyncToGenesis::DOCS,
             Self::SoloNodeSyncRootSnarkedLedger(_) => SoloNodeSyncRootSnarkedLedger::DOCS,
             Self::SoloNodeBasicConnectivityInitialJoining(_) => {
                 SoloNodeBasicConnectivityInitialJoining::DOCS
@@ -108,6 +129,10 @@ impl Scenarios {
                 SoloNodeBasicConnectivityAcceptIncoming::DOCS
             }
             Self::MultiNodeSync4BlockProducers(_) => MultiNodeSync4BlockProducers::DOCS,
+            Self::MultiNodeVrfGetCorrectLedgers(_) => MultiNodeVrfGetCorrectLedgers::DOCS,
+            Self::MultiNodeVrfGetCorrectSlots(_) => MultiNodeVrfGetCorrectSlots::DOCS,
+            Self::MultiNodeVrfEpochBoundsEvaluation(_) => MultiNodeVrfEpochBoundsEvaluation::DOCS,
+            Self::MultiNodeVrfEpochBoundsCorrectLedger(_) => MultiNodeVrfEpochBoundsCorrectLedger::DOCS,
             Self::MultiNodeBasicConnectivityInitialJoining(_) => {
                 MultiNodeBasicConnectivityInitialJoining::DOCS
             }
@@ -134,10 +159,15 @@ impl Scenarios {
         match self {
             Self::SoloNodeSyncToGenesis(v) => v.run(runner).await,
             Self::SoloNodeBootstrap(v) => v.run(runner).await,
+            Self::SoloNodeSyncToGenesisCustom(v) => v.run(runner).await,
             Self::SoloNodeSyncRootSnarkedLedger(v) => v.run(runner).await,
             Self::SoloNodeBasicConnectivityInitialJoining(v) => v.run(runner).await,
             Self::SoloNodeBasicConnectivityAcceptIncoming(v) => v.run(runner).await,
             Self::MultiNodeSync4BlockProducers(v) => v.run(runner).await,
+            Self::MultiNodeVrfGetCorrectLedgers(v) => v.run(runner).await,
+            Self::MultiNodeVrfGetCorrectSlots(v) => v.run(runner).await,
+            Self::MultiNodeVrfEpochBoundsEvaluation(v) => v.run(runner).await,
+            Self::MultiNodeVrfEpochBoundsCorrectLedger(v) => v.run(runner).await,
             Self::MultiNodeBasicConnectivityInitialJoining(v) => v.run(runner).await,
             Self::MultiNodeBasicConnectivityPeerDiscovery(v) => v.run(runner).await,
             Self::SimulationSmall(v) => v.run(runner).await,

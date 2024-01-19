@@ -146,3 +146,22 @@ impl PartialOrd<ArcBlockWithHash> for BlockProducerWonSlot {
         }))
     }
 }
+
+pub fn to_epoch_and_slot(global_slot: &ConsensusGlobalSlotStableV1) -> (u32, u32) {
+    let epoch = global_slot.slot_number.as_u32() / global_slot.slots_per_epoch.as_u32();
+    let slot = global_slot.slot_number.as_u32() % global_slot.slots_per_epoch.as_u32();
+    (epoch, slot)
+}
+
+pub fn next_epoch_first_slot(global_slot: &ConsensusGlobalSlotStableV1) -> u32 {
+    let (epoch, slot) = to_epoch_and_slot(global_slot);
+    (epoch + 1) * global_slot.slots_per_epoch.as_u32()
+}
+
+// Returns the epoch number and whether it is the last slot of the epoch
+// pub fn epoch_with_bounds(global_slot: u32) -> (u32, bool) {
+//     // let epoch_bound = |global_slot| -> (u32, bool) {
+//     //     (global_slot / SLOTS_PER_EPOCH, (global_slot + 1) % SLOTS_PER_EPOCH == 0)
+//     // };
+
+// }

@@ -1,5 +1,8 @@
 use std::ffi::{OsStr, OsString};
+use std::fs;
+use std::path::PathBuf;
 use std::process::{Command, Stdio};
+use std::str::FromStr;
 
 use node::account::AccountSecretKey;
 use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
@@ -42,6 +45,15 @@ pub enum OcamlNodeExecutable {
     Installed(String),
     Docker(String),
     DockerDefault,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct OcamlVrfOutput {
+    pub vrf_output: String,
+    pub vrf_output_fractional: f64,
+    pub threshold_met: bool,
+    pub public_key: String,
 }
 
 impl OcamlNodeConfig {
@@ -163,6 +175,34 @@ impl OcamlNodeExecutable {
 }
 
 impl DaemonJson {
+    pub fn load(
+        mut add_account_sec_key: impl FnMut(AccountSecretKey),
+        path: PathBuf,
+        set_timestamp: Option<&str>,
+    ) -> Self {
+        let mut deamon_json: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(path).unwrap()).unwrap();
+
+        if let Some(time_str) = set_timestamp {
+            deamon_json["genesis"]["genesis_state_timestamp"] = time_str.into();
+        }
+
+        deamon_json
+            .get("ledger")
+            .unwrap()
+            .get("accounts")
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .iter()
+            .for_each(|val| {
+                let sec_key_str = val.get("sk").unwrap().as_str().unwrap();
+                add_account_sec_key(AccountSecretKey::from_str(sec_key_str).unwrap());
+            });
+
+        Self::InMem(deamon_json)
+    }
+
     pub fn gen(
         add_account_sec_key: impl FnMut(AccountSecretKey),
         genesis_timestamp: &str,

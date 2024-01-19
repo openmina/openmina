@@ -1134,9 +1134,9 @@ dependencies = [
 
 [[package]]
 name = "cpufeatures"
-version = "0.2.10"
+version = "0.2.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3fbc60abd742b35f2492f808e1abbb83d45f72db402e14c55057edc9c7b1e9e4"
+checksum = "53fe5e26ff1b7aef8bca9c6080520cfb8d9333c7568e1829cef191a9723e5504"
 dependencies = [
  "libc",
 ]
@@ -4187,6 +4187,8 @@ dependencies = [
  "axum",
  "bincode",
  "clap 4.4.7",
+ "chrono",
+ "clap",
  "console",
  "ctrlc",
  "derive_more",
