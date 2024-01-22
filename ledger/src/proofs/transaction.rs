@@ -4669,22 +4669,18 @@ mod tests {
             zkapp_step_proof_prover,
         } = make_provers();
 
-        let mut witnesses: Witness<Fp> = Witness::new::<StepZkappOptSignedOptSignedProof>();
-        let LedgerProof { proof, .. } = generate_zkapp_proof(
-            ZkappParams {
-                statement: &statement,
-                tx_witness: &tx_witness,
-                message: &message,
-                step_opt_signed_opt_signed_prover: &zkapp_step_opt_signed_opt_signed_prover,
-                step_opt_signed_prover: &zkapp_step_opt_signed_prover,
-                step_proof_prover: &zkapp_step_proof_prover,
-                merge_step_prover: &merge_step_prover,
-                tx_wrap_prover: &tx_wrap_prover,
-                opt_signed_path: Some("zkapp_opt_signed"),
-                proved_path: None,
-            },
-            &mut witnesses,
-        );
+        let LedgerProof { proof, .. } = generate_zkapp_proof(ZkappParams {
+            statement: &statement,
+            tx_witness: &tx_witness,
+            message: &message,
+            step_opt_signed_opt_signed_prover: &zkapp_step_opt_signed_opt_signed_prover,
+            step_opt_signed_prover: &zkapp_step_opt_signed_prover,
+            step_proof_prover: &zkapp_step_proof_prover,
+            merge_step_prover: &merge_step_prover,
+            tx_wrap_prover: &tx_wrap_prover,
+            opt_signed_path: Some("zkapp_opt_signed"),
+            proved_path: None,
+        });
 
         let proof_json = serde_json::to_vec(&proof.proof).unwrap();
         let sum = dbg!(sha256_sum(&proof_json));
@@ -4719,22 +4715,18 @@ mod tests {
             zkapp_step_proof_prover,
         } = make_provers();
 
-        let mut witnesses: Witness<Fp> = Witness::new::<StepZkappProofProof>();
-        let LedgerProof { proof, .. } = generate_zkapp_proof(
-            ZkappParams {
-                statement: &statement,
-                tx_witness: &tx_witness,
-                message: &message,
-                step_opt_signed_opt_signed_prover: &zkapp_step_opt_signed_opt_signed_prover,
-                step_opt_signed_prover: &zkapp_step_opt_signed_prover,
-                step_proof_prover: &zkapp_step_proof_prover,
-                merge_step_prover: &merge_step_prover,
-                tx_wrap_prover: &tx_wrap_prover,
-                opt_signed_path: Some("zkapp_proof"),
-                proved_path: Some("zkapp_proof2"),
-            },
-            &mut witnesses,
-        );
+        let LedgerProof { proof, .. } = generate_zkapp_proof(ZkappParams {
+            statement: &statement,
+            tx_witness: &tx_witness,
+            message: &message,
+            step_opt_signed_opt_signed_prover: &zkapp_step_opt_signed_opt_signed_prover,
+            step_opt_signed_prover: &zkapp_step_opt_signed_prover,
+            step_proof_prover: &zkapp_step_proof_prover,
+            merge_step_prover: &merge_step_prover,
+            tx_wrap_prover: &tx_wrap_prover,
+            opt_signed_path: Some("zkapp_proof"),
+            proved_path: Some("zkapp_proof2"),
+        });
 
         let proof_json = serde_json::to_vec(&proof.proof).unwrap();
         let sum = dbg!(sha256_sum(&proof_json));
@@ -4824,66 +4816,37 @@ mod tests {
             zkapp_step_proof_prover,
         } = make_provers();
 
-        // zkapp proof with signature authorization
-        {
-            let data = std::fs::read(base_dir.join("zkapp_0_rampup4.bin")).unwrap();
+        #[rustfmt::skip]
+        let zkapp_cases = [
+            // zkapp proof with signature authorization
+            ("zkapp_0_rampup4.bin", Some("zkapp_opt_signed"), None, "6e9bb6ed613cf0aa737188e0e8ddde7438211ca54c02e89aff32816c181caca9"),
+            // zkapp proof with proof authorization
+            ("zkapp_10_rampup4.bin", Some("zkapp_proof"), Some("zkapp_proof2"), "e2ca355ce4ed5aaf379e992c0c8c5b1c4ac1687546ceac5a5c6c9c4994002249"),
+            // zkapp with multiple account updates
+            ("zkapp_2_0_rampup4.bin", None, None, "03153d1c5b934e00c7102d3683f27572b6e8bfe0335817cb822d701c83415930"),
+        ];
+
+        for (file, opt_signed_path, proved_path, expected_sum) in zkapp_cases {
+            let data = std::fs::read(base_dir.join(file)).unwrap();
             let (statement, tx_witness, message) = extract_request(&data);
 
-            let mut witnesses: Witness<Fp> = Witness::new::<StepZkappOptSignedOptSignedProof>();
-            let LedgerProof { proof, .. } = generate_zkapp_proof(
-                ZkappParams {
-                    statement: &statement,
-                    tx_witness: &tx_witness,
-                    message: &message,
-                    step_opt_signed_opt_signed_prover: &zkapp_step_opt_signed_opt_signed_prover,
-                    step_opt_signed_prover: &zkapp_step_opt_signed_prover,
-                    step_proof_prover: &zkapp_step_proof_prover,
-                    merge_step_prover: &merge_step_prover,
-                    tx_wrap_prover: &tx_wrap_prover,
-                    opt_signed_path: Some("zkapp_opt_signed"),
-                    proved_path: None,
-                },
-                &mut witnesses,
-            );
+            let LedgerProof { proof, .. } = generate_zkapp_proof(ZkappParams {
+                statement: &statement,
+                tx_witness: &tx_witness,
+                message: &message,
+                step_opt_signed_opt_signed_prover: &zkapp_step_opt_signed_opt_signed_prover,
+                step_opt_signed_prover: &zkapp_step_opt_signed_prover,
+                step_proof_prover: &zkapp_step_proof_prover,
+                merge_step_prover: &merge_step_prover,
+                tx_wrap_prover: &tx_wrap_prover,
+                opt_signed_path,
+                proved_path,
+            });
 
             let proof_json = serde_json::to_vec(&proof.proof).unwrap();
             let sum = dbg!(sha256_sum(&proof_json));
 
-            assert_eq!(
-                sum,
-                "6e9bb6ed613cf0aa737188e0e8ddde7438211ca54c02e89aff32816c181caca9"
-            );
-        }
-
-        // zkapp proof with proof authorization
-        {
-            let data = std::fs::read(base_dir.join("zkapp_10_rampup4.bin")).unwrap();
-            let (statement, tx_witness, message) = extract_request(&data);
-
-            let mut witnesses: Witness<Fp> = Witness::new::<StepZkappProofProof>();
-            let LedgerProof { proof, .. } = generate_zkapp_proof(
-                ZkappParams {
-                    statement: &statement,
-                    tx_witness: &tx_witness,
-                    message: &message,
-                    step_opt_signed_opt_signed_prover: &zkapp_step_opt_signed_opt_signed_prover,
-                    step_opt_signed_prover: &zkapp_step_opt_signed_prover,
-                    step_proof_prover: &zkapp_step_proof_prover,
-                    merge_step_prover: &merge_step_prover,
-                    tx_wrap_prover: &tx_wrap_prover,
-                    opt_signed_path: Some("zkapp_proof"),
-                    proved_path: Some("zkapp_proof2"),
-                },
-                &mut witnesses,
-            );
-
-            let proof_json = serde_json::to_vec(&proof.proof).unwrap();
-            let sum = dbg!(sha256_sum(&proof_json));
-
-            assert_eq!(
-                sum,
-                "e2ca355ce4ed5aaf379e992c0c8c5b1c4ac1687546ceac5a5c6c9c4994002249"
-            );
+            assert_eq!(sum, expected_sum);
         }
 
         // Block proof

@@ -1197,7 +1197,18 @@ fn zkapp_main(
                 };
                 finish(v, (&mut global, &mut local))
             }
-            IsStart::Yes => todo!(),
+            IsStart::Yes => {
+                assert!(local.stack_frame.data.calls.data.is_empty());
+
+                let v = match start_zkapp_command {
+                    [] => unreachable!(),
+                    [p, ps @ ..] => {
+                        start_zkapp_command = ps;
+                        StartOrSkip::Start(p)
+                    }
+                };
+                finish(v, (&mut global, &mut local))
+            }
         };
 
         new_acc.unwrap() // TODO: Remove unwrap
@@ -1282,7 +1293,7 @@ fn snapp_proof_data<'a>(
 
 fn of_zkapp_command_segment_exn<StepConstants, WrapConstants>(
     statement: Statement<SokDigest>,
-    witness: &ZkappCommandSegmentWitness,
+    zkapp_witness: &ZkappCommandSegmentWitness,
     spec: &SegmentBasic,
     step_prover: &Prover<Fp>,
     tx_wrap_prover: &Prover<Fq>,
@@ -1302,7 +1313,7 @@ where
         w.ocaml_aux = read_witnesses(path);
     };
 
-    let (zkapp_input, must_verify) = zkapp_main(statement.clone(), witness, &s, &mut w);
+    let (zkapp_input, must_verify) = zkapp_main(statement.clone(), zkapp_witness, &s, &mut w);
 
     let StepProof {
         statement: step_statement,
@@ -1323,7 +1334,7 @@ where
             &mut w,
         ),
         Proved => {
-            let (proof, vk) = snapp_proof_data(witness).unwrap();
+            let (proof, vk) = snapp_proof_data(zkapp_witness).unwrap();
             let proof = proof.into();
 
             let dlog_plonk_index_cvar = vk.wrap_index.to_cvar(CircuitVar::Var);
@@ -1614,7 +1625,7 @@ impl From<&WrapProof> for v2::PicklesProofProofsVerified2ReprStableV2 {
 
 fn of_zkapp_command_segment(
     statement: Statement<SokDigest>,
-    witness: &ZkappCommandSegmentWitness,
+    zkapp_witness: &ZkappCommandSegmentWitness,
     spec: &SegmentBasic,
     step_opt_signed_opt_signed_prover: &Prover<Fp>,
     step_opt_signed_prover: &Prover<Fp>,
@@ -1651,7 +1662,7 @@ fn of_zkapp_command_segment(
 
     of_zkapp_command_segment_exn(
         statement,
-        witness,
+        zkapp_witness,
         spec,
         step_prover,
         tx_wrap_prover,
@@ -1660,7 +1671,7 @@ fn of_zkapp_command_segment(
     )
 }
 
-pub fn generate_zkapp_proof(params: ZkappParams, w: &mut Witness<Fp>) -> LedgerProof {
+pub fn generate_zkapp_proof(params: ZkappParams) -> LedgerProof {
     let ZkappParams {
         statement,
         tx_witness,
@@ -1703,11 +1714,11 @@ pub fn generate_zkapp_proof(params: ZkappParams, w: &mut Witness<Fp>) -> LedgerP
     });
 
     let of_zkapp_command_segment = |statement: Statement<SokDigest>,
-                                    witness: &ZkappCommandSegmentWitness<'_>,
+                                    zkapp_witness: &ZkappCommandSegmentWitness<'_>,
                                     spec: &SegmentBasic| {
         of_zkapp_command_segment(
             statement,
-            witness,
+            zkapp_witness,
             spec,
             step_opt_signed_opt_signed_prover,
             step_opt_signed_prover,
@@ -1720,23 +1731,32 @@ pub fn generate_zkapp_proof(params: ZkappParams, w: &mut Witness<Fp>) -> LedgerP
 
     let sok_digest = message.digest();
     let mut witnesses_specs_stmts = witnesses_specs_stmts.into_iter().rev();
-    let (witness, spec, statement) = witnesses_specs_stmts.next().unwrap(); // last one
+    let (zkapp_witness, spec, statement) = witnesses_specs_stmts.next().unwrap(); // last one
 
-    let mut first_proof =
-        of_zkapp_command_segment(statement.with_digest(sok_digest.clone()), &witness, &spec);
+    let mut first_proof = of_zkapp_command_segment(
+        statement.with_digest(sok_digest.clone()),
+        &zkapp_witness,
+        &spec,
+    );
 
-    witnesses_specs_stmts.fold(first_proof, |prev_proof, (witness, spec, statement)| {
-        let curr_proof =
-            of_zkapp_command_segment(statement.with_digest(sok_digest.clone()), &witness, &spec);
+    witnesses_specs_stmts.fold(
+        first_proof,
+        |prev_proof, (zkapp_witness, spec, statement)| {
+            let curr_proof = of_zkapp_command_segment(
+                statement.with_digest(sok_digest.clone()),
+                &zkapp_witness,
+                &spec,
+            );
 
-        merge_zkapp_proofs(
-            prev_proof,
-            curr_proof,
-            message,
-            merge_step_prover,
-            tx_wrap_prover,
-        )
-    })
+            merge_zkapp_proofs(
+                prev_proof,
+                curr_proof,
+                message,
+                merge_step_prover,
+                tx_wrap_prover,
+            )
+        },
+    )
 }
 
 fn merge_zkapp_proofs(

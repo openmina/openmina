@@ -53,7 +53,7 @@ pub fn read_witnesses() -> std::io::Result<Vec<Fp>> {
 }
 
 fn merge_main(
-    statement: Statement<SokDigest>,
+    statement: &Statement<SokDigest>,
     proofs: &[v2::LedgerProofProdStableV2; 2],
     w: &mut Witness<Fp>,
 ) -> (Statement<SokDigest>, Statement<SokDigest>) {
@@ -179,11 +179,11 @@ pub fn generate_merge_proof(params: MergeParams, w: &mut Witness<Fp>) -> WrapPro
     } = params;
 
     let sok_digest = message.digest();
-    let statement_with_sok = statement.with_digest(sok_digest);
+    let statement_with_sok = Rc::new(statement.with_digest(sok_digest));
 
-    w.exists(&statement_with_sok);
+    w.exists(&*statement_with_sok);
 
-    let (s1, s2) = merge_main(statement_with_sok.clone(), proofs, w);
+    let (s1, s2) = merge_main(&statement_with_sok, proofs, w);
 
     let proofs: [&v2::PicklesProofProofsVerified2ReprStableV2; 2] = {
         let [p1, p2] = proofs;
@@ -228,7 +228,7 @@ pub fn generate_merge_proof(params: MergeParams, w: &mut Witness<Fp>) -> WrapPro
         proof,
     } = step::<StepMergeProof, MERGE_N_PREVIOUS_PROOFS>(
         StepParams {
-            app_state: Rc::new(statement_with_sok.clone()),
+            app_state: Rc::clone(&statement_with_sok) as _,
             rule,
             for_step_datas,
             indexes,
@@ -253,7 +253,7 @@ pub fn generate_merge_proof(params: MergeParams, w: &mut Witness<Fp>) -> WrapPro
 
     wrap::<WrapMergeProof>(
         WrapParams {
-            app_state: Rc::new(statement_with_sok),
+            app_state: statement_with_sok,
             proof: &proof,
             step_statement: statement,
             prev_evals: &prev_evals,
