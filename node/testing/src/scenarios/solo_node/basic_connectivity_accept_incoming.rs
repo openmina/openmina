@@ -5,6 +5,7 @@ use node::{
     event_source::Event,
     p2p::{connection::outgoing::P2pConnectionOutgoingInitOpts, P2pEvent, PeerId},
 };
+use rand::Rng;
 
 use crate::{
     node::{DaemonJson, OcamlNodeTestingConfig, RustNodeTestingConfig},
@@ -48,7 +49,7 @@ impl SoloNodeBasicConnectivityAcceptIncoming {
             .ask_initial_peers_interval(Duration::from_secs(3600))
             .max_peers(MAX_PEERS_PER_NODE)
             .initial_peers(initial_peers)
-            .with_random_peer_id();
+            .with_peer_id(rand::thread_rng().gen());
 
         let node_id = runner.add_rust_node(config);
         let node_addr = runner.node(node_id).unwrap().dial_addr();
