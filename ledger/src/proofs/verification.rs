@@ -56,7 +56,6 @@ use super::public_input::{
     messages::{MessagesForNextStepProof, MessagesForNextWrapProof},
     plonk_checks::{PlonkMinimal, ScalarsEnv},
     prepared_statement::{DeferredValues, PreparedStatement, ProofState},
-    scalar_challenge::ScalarChallenge,
 };
 
 #[cfg(target_family = "wasm")]
@@ -552,8 +551,6 @@ fn run_checks(
 }
 
 fn compute_deferred_values(proof: &PicklesProofProofsVerified2ReprStableV2) -> DeferredValues<Fp> {
-    let (_, endo) = endos::<Fq>();
-
     let bulletproof_challenges: Vec<Fp> = proof
         .statement
         .proof_state
@@ -563,7 +560,7 @@ fn compute_deferred_values(proof: &PicklesProofProofsVerified2ReprStableV2) -> D
         .map(|chal| {
             let prechallenge = &chal.prechallenge.inner;
             let prechallenge: [u64; 2] = array::from_fn(|k| prechallenge[k].as_u64());
-            ScalarChallenge::from(prechallenge).to_field(&endo)
+            u64_to_field(&prechallenge)
         })
         .collect();
 
@@ -713,16 +710,17 @@ where
 //         hash::{Hash, Hasher},
 //     };
 
-//     use binprot::BinProtRead;
-//     use mina_curves::pasta::Vesta;
+//     // use binprot::BinProtRead;
+//     use mina_curves::pasta::{Vesta, Fq};
+//     use mina_hasher::Fp;
 //     use mina_p2p_messages::v2::MinaBlockHeaderStableV2;
 //     use poly_commitment::srs::SRS;
 
 //     use crate::{
-//         block::caching::{
+//         proofs::{caching::{
 //             srs_from_bytes, srs_to_bytes, verifier_index_from_bytes, verifier_index_to_bytes,
-//         },
-//         get_srs, get_verifier_index,
+//         }, verifier_index::{get_verifier_index, VerifierKind}}, verifier::get_srs,
+//         // get_srs, get_verifier_index,
 //     };
 
 //     #[cfg(target_family = "wasm")]
@@ -731,55 +729,61 @@ where
 //     #[test]
 //     fn test_verification() {
 //         let now = std::time::Instant::now();
-//         let verifier_index = get_verifier_index();
+//         let verifier_index = get_verifier_index(VerifierKind::Blockchain);
 //         println!("get_verifier_index={:?}", now.elapsed());
 
 //         let now = std::time::Instant::now();
-//         let srs = get_srs();
+//         let srs = get_srs::<Fp>();
+//         let srs = srs.lock().unwrap();
 //         println!("get_srs={:?}\n", now.elapsed());
 
-//         let now = std::time::Instant::now();
-//         let bytes = verifier_index_to_bytes(&verifier_index);
-//         println!("verifier_elapsed={:?}", now.elapsed());
-//         println!("verifier_length={:?}", bytes.len());
-//         assert_eq!(bytes.len(), 5622520);
+//         // let now = std::time::Instant::now();
+//         // let bytes = verifier_index_to_bytes(&verifier_index);
+//         // println!("verifier_elapsed={:?}", now.elapsed());
+//         // println!("verifier_length={:?}", bytes.len());
+//         // assert_eq!(bytes.len(), 5622520);
 
-//         let now = std::time::Instant::now();
-//         let verifier_index = verifier_index_from_bytes(&bytes);
-//         println!("verifier_deserialize_elapsed={:?}\n", now.elapsed());
+//         // let now = std::time::Instant::now();
+//         // let verifier_index = verifier_index_from_bytes(&bytes);
+//         // println!("verifier_deserialize_elapsed={:?}\n", now.elapsed());
 
-//         let now = std::time::Instant::now();
-//         let bytes = srs_to_bytes(&srs);
-//         println!("srs_elapsed={:?}", now.elapsed());
-//         println!("srs_length={:?}", bytes.len());
-//         assert_eq!(bytes.len(), 5308513);
+//         // let now = std::time::Instant::now();
+//         // let bytes = srs_to_bytes(&srs);
+//         // println!("srs_elapsed={:?}", now.elapsed());
+//         // println!("srs_length={:?}", bytes.len());
+//         // assert_eq!(bytes.len(), 5308513);
 
-//         let now = std::time::Instant::now();
-//         let srs: SRS<Vesta> = srs_from_bytes(&bytes);
-//         println!("deserialize_elapsed={:?}\n", now.elapsed());
+//         // let now = std::time::Instant::now();
+//         // let srs: SRS<Vesta> = srs_from_bytes(&bytes);
+//         // println!("deserialize_elapsed={:?}\n", now.elapsed());
 
 //         // Few blocks headers from berkeleynet
 //         let files = [
-//             include_bytes!("../data/rampup.binprot"),
-//             include_bytes!("../data/5573.binprot"),
-//             include_bytes!("../data/5574.binprot"),
-//             include_bytes!("../data/5575.binprot"),
-//             include_bytes!("../data/5576.binprot"),
-//             include_bytes!("../data/5577.binprot"),
-//             include_bytes!("../data/5578.binprot"),
-//             include_bytes!("../data/5579.binprot"),
-//             include_bytes!("../data/5580.binprot"),
+//             include_bytes!("/tmp/block-rampup4.binprot"),
+//             // include_bytes!("../data/5573.binprot"),
+//             // include_bytes!("../data/5574.binprot"),
+//             // include_bytes!("../data/5575.binprot"),
+//             // include_bytes!("../data/5576.binprot"),
+//             // include_bytes!("../data/5577.binprot"),
+//             // include_bytes!("../data/5578.binprot"),
+//             // include_bytes!("../data/5579.binprot"),
+//             // include_bytes!("../data/5580.binprot"),
 //         ];
+
+//         use mina_p2p_messages::binprot::BinProtRead;
+//         use crate::proofs::accumulator_check::accumulator_check;
 
 //         for file in files {
 //             let header = MinaBlockHeaderStableV2::binprot_read(&mut file.as_slice()).unwrap();
 
 //             let now = std::time::Instant::now();
-//             let accum_check = crate::accumulator_check(&srs, &header.protocol_state_proof.0);
+//             let accum_check = accumulator_check(&*srs, &header.protocol_state_proof.0);
 //             println!("accumulator_check={:?}", now.elapsed());
 
 //             let now = std::time::Instant::now();
-//             let verified = crate::verify(&header, &verifier_index);
+//             let verified = super::verify_block(&header, &verifier_index, &*srs);
+
+//             // let verified = crate::verify(&header, &verifier_index);
 //             println!("snark::verify={:?}", now.elapsed());
 
 //             assert!(accum_check);
