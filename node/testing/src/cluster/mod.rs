@@ -127,18 +127,17 @@ impl Cluster {
 
     pub fn add_rust_node(&mut self, testing_config: RustNodeTestingConfig) -> ClusterNodeId {
         let node_config = testing_config.clone();
-        let node_i = self.nodes.len();
+        let node_id = ClusterNodeId::new_unchecked(self.nodes.len());
         let (shutdown_tx, shutdown_rx) = mpsc::channel(1);
         let secret_key = P2pSecretKey::from_bytes(match testing_config.peer_id {
             TestPeerId::Derived => {
                 let mut bytes = [0; 32];
                 let bytes_len = bytes.len();
-                let i_bytes = node_i.to_be_bytes();
+                let i_bytes = node_id.index().to_be_bytes();
                 let i = bytes_len - i_bytes.len();
                 bytes[i..bytes_len].copy_from_slice(&i_bytes);
                 bytes
             }
-            TestPeerId::Random => rand::random(),
             TestPeerId::Bytes(bytes) => bytes,
         });
         let pub_key = secret_key.public_key();
@@ -274,7 +273,7 @@ impl Cluster {
         if let Some(producer_key) = block_producer_sec_key {
             real_service.block_producer_start(producer_key.into());
         }
-        let mut service = NodeTestingService::new(real_service, shutdown_rx);
+        let mut service = NodeTestingService::new(real_service, node_id, shutdown_rx);
         if self.config.all_rust_to_rust_use_webrtc() {
             service.set_rust_to_rust_use_webrtc();
         }
@@ -314,7 +313,7 @@ impl Cluster {
         let node = Node::new(node_config, store);
 
         self.nodes.push(node);
-        ClusterNodeId::new_unchecked(node_i)
+        node_id
     }
 
     pub fn add_ocaml_node(&mut self, testing_config: OcamlNodeTestingConfig) -> ClusterOcamlNodeId {

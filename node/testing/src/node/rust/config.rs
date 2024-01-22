@@ -13,7 +13,6 @@ pub enum TestPeerId {
     /// runs (e.g. peer_id might be blacklisted).
     #[default]
     Derived,
-    Random,
     Bytes([u8; 32]),
 }
 
@@ -64,11 +63,6 @@ impl RustNodeTestingConfig {
 
     pub fn initial_peers(mut self, v: Vec<ListenerNode>) -> Self {
         self.initial_peers = v;
-        self
-    }
-
-    pub fn with_random_peer_id(mut self) -> Self {
-        self.peer_id = TestPeerId::Random;
         self
     }
 
