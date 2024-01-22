@@ -1,9 +1,4 @@
-use std::{
-    collections::{BTreeMap, VecDeque},
-    net::SocketAddr,
-    str,
-    sync::Arc,
-};
+use std::{collections::VecDeque, net::SocketAddr, str, sync::Arc};
 
 use binprot::{BinProtRead, BinProtWrite};
 use redux::ActionMeta;
@@ -35,7 +30,7 @@ pub struct P2pNetworkRpcState {
     pub addr: SocketAddr,
     pub stream_id: StreamId,
     pub last_id: i64,
-    pub pending: BTreeMap<i64, (CharString, i32)>,
+    pub pending: Option<(i64, (CharString, i32))>,
     pub is_incoming: bool,
     pub buffer: Vec<u8>,
     pub incoming: VecDeque<RpcMessage>,
@@ -48,7 +43,7 @@ impl P2pNetworkRpcState {
             addr,
             stream_id,
             last_id: 0,
-            pending: BTreeMap::default(),
+            pending: None,
             is_incoming: false,
             buffer: vec![],
             incoming: Default::default(),
@@ -166,8 +161,7 @@ impl P2pNetworkRpcState {
             P2pNetworkRpcAction::OutgoingQuery(a) => {
                 self.last_id = a.query.id;
                 // TODO: remove when query is done
-                self.pending
-                    .insert(a.query.id, (a.query.tag.clone(), a.query.version));
+                self.pending = Some((a.query.id, (a.query.tag.clone(), a.query.version)));
             }
             _ => {}
         }
@@ -263,7 +257,7 @@ impl P2pNetworkRpcAction {
                                 .map_err(|err| format!("response {} {}", M::NAME, err))
                         }
 
-                        if let Some((tag, version)) = state.pending.get(&header.id) {
+                        if let Some((_, (tag, version))) = &state.pending {
                             if let Ok(tag) = std::str::from_utf8(tag.as_ref()) {
                                 match (tag, *version) {
                                     (rpc::GetBestTipV2::NAME, rpc::GetBestTipV2::VERSION) => {
