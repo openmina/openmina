@@ -36,6 +36,8 @@ use node::{ActionWithMeta, State};
 use openmina_node_native::NodeService;
 use redux::Instant;
 
+use crate::cluster::ClusterNodeId;
+
 pub type DynEffects = Box<dyn FnMut(&State, &NodeTestingService, &ActionWithMeta) + Send>;
 
 #[derive(Hash, Ord, PartialOrd, Eq, PartialEq)]
@@ -49,6 +51,7 @@ pub type PendingEventId = RequestId<PendingEventIdType>;
 
 pub struct NodeTestingService {
     real: NodeService,
+    id: ClusterNodeId,
     // Use webrtc p2p between Rust nodes.
     rust_to_rust_use_webrtc: bool,
     monotonic_time: Instant,
@@ -60,9 +63,10 @@ pub struct NodeTestingService {
 }
 
 impl NodeTestingService {
-    pub fn new(real: NodeService, _shutdown: mpsc::Receiver<()>) -> Self {
+    pub fn new(real: NodeService, id: ClusterNodeId, _shutdown: mpsc::Receiver<()>) -> Self {
         Self {
             real,
+            id,
             rust_to_rust_use_webrtc: false,
             monotonic_time: Instant::now(),
             pending_events: PendingRequests::new(),
@@ -201,7 +205,23 @@ impl P2pServiceWebrtcWithLibp2p for NodeTestingService {
     }
 
     fn find_random_peer(&mut self) {
-        self.real.find_random_peer()
+        use node::p2p::identity::SecretKey as P2pSecretKey;
+        use node::p2p::service_impl::libp2p::Cmd;
+
+        let secret_key = P2pSecretKey::from_bytes({
+            let mut bytes = [1; 32];
+            let bytes_len = bytes.len();
+            let i_bytes = self.id.index().to_be_bytes();
+            let i = bytes_len - i_bytes.len();
+            bytes[i..bytes_len].copy_from_slice(&i_bytes);
+            bytes
+        });
+        let peer_id = secret_key.public_key().peer_id();
+
+        self.libp2p()
+            .cmd_sender()
+            .send(Cmd::FindNode(peer_id.into()))
+            .unwrap_or_default();
     }
 
     fn start_discovery(&mut self, peers: Vec<P2pConnectionOutgoingInitOpts>) {
