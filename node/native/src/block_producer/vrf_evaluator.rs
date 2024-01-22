@@ -1,6 +1,9 @@
 use mina_signer::Keypair;
 use node::{
-    block_producer::{vrf_evaluator::VrfEvaluatorInput, BlockProducerEvent},
+    block_producer::{
+        vrf_evaluator::{VrfEvaluationOutputWithHash, VrfEvaluatorInput},
+        BlockProducerEvent,
+    },
     event_source::Event,
 };
 use openmina_core::channels::mpsc::{UnboundedReceiver, UnboundedSender};
@@ -15,14 +18,6 @@ pub fn vrf_evaluator(
     keypair: Keypair,
 ) {
     while let Some(vrf_evaluator_input) = vrf_evaluation_receiver.blocking_recv() {
-        // TODO(adonagy): check correctness of epoch bound calculations
-        // const SLOT_PER_EPOCH: u32 = 7140;
-        // let epoch_num = vrf_evaluator_input.start_at_slot / SLOT_PER_EPOCH;
-        // let end = epoch_num * SLOT_PER_EPOCH + SLOT_PER_EPOCH;
-
-        // println!("[vrf] evaluating: {} - {}", vrf_evaluator_input.start_at_slot, end);
-
-        // let mut batch: Vec<VrfEvaluationOutput> = Vec::new();
         let mut vrf_result = VrfEvaluationOutput::SlotLost(vrf_evaluator_input.global_slot);
 
         for (index, account) in vrf_evaluator_input.delegatee_table.iter() {
@@ -42,10 +37,16 @@ pub fn vrf_evaluator(
                 break;
             }
         }
+        let vrf_result_with_hash = VrfEvaluationOutputWithHash::new(
+            vrf_result,
+            vrf_evaluator_input.staking_ledger_hash.clone(),
+        );
         // send the result back to the state machine
         let _ = event_sender.send(
-            BlockProducerEvent::VrfEvaluator(BlockProducerVrfEvaluatorEvent::Evaluated(vrf_result))
-                .into(),
+            BlockProducerEvent::VrfEvaluator(BlockProducerVrfEvaluatorEvent::Evaluated(
+                vrf_result_with_hash,
+            ))
+            .into(),
         );
     }
 }

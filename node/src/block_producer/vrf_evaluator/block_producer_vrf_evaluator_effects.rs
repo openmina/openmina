@@ -53,29 +53,32 @@ impl BlockProducerVrfEvaluatorEvaluationSuccessAction {
             // TODO(adonagy): Can we get this from somewhere?
             const SLOTS_PER_EPOCH: u32 = 7140;
             // determine the epoch of the slot
-            if let Some(current_epoch) = vrf_evaluator_state.current_epoch {
+            if let (Some(current_epoch), Some(current_epoch_data), Some(next_epoch_data)) = (
+                &vrf_evaluator_state.current_epoch,
+                &vrf_evaluator_state.current_epoch_data,
+                &vrf_evaluator_state.next_epoch_data,
+            ) {
                 let current_epoch_end = current_epoch * SLOTS_PER_EPOCH + SLOTS_PER_EPOCH - 1;
                 let next_epoch_end = (current_epoch + 1) * SLOTS_PER_EPOCH + SLOTS_PER_EPOCH - 1;
 
                 // slot is in the current epoch
                 if next_slot <= current_epoch_end {
                     let vrf_input: VrfEvaluatorInput = VrfEvaluatorInput::new(
-                        vrf_evaluator_state.current_epoch_data.seed.clone(),
-                        vrf_evaluator_state
-                            .current_epoch_data
-                            .delegator_table
-                            .clone(),
+                        current_epoch_data.seed.clone(),
+                        current_epoch_data.delegator_table.clone(),
                         next_slot,
-                        vrf_evaluator_state.current_epoch_data.total_currency,
+                        current_epoch_data.total_currency,
+                        current_epoch_data.ledger.clone(),
                     );
                     store.dispatch(BlockProducerVrfEvaluatorEvaluateVrfAction { vrf_input });
                 // slot is in the next epoch
                 } else if next_slot > current_epoch_end && next_slot <= next_epoch_end {
                     let vrf_input = VrfEvaluatorInput::new(
-                        vrf_evaluator_state.next_epoch_data.seed.clone(),
-                        vrf_evaluator_state.next_epoch_data.delegator_table.clone(),
+                        next_epoch_data.seed.clone(),
+                        next_epoch_data.delegator_table.clone(),
                         next_slot,
-                        vrf_evaluator_state.next_epoch_data.total_currency,
+                        next_epoch_data.total_currency,
+                        next_epoch_data.ledger.clone(),
                     );
                     store.dispatch(BlockProducerVrfEvaluatorEvaluateVrfAction { vrf_input });
                 }
@@ -113,16 +116,16 @@ impl BlockProducerVrfEvaluatorUpdateProducerAndDelegatesSuccessAction {
         let vrf_evaluator_state = store.state().block_producer.vrf_evaluator();
 
         if let Some(vrf_evaluator_state) = vrf_evaluator_state {
-            let vrf_input: VrfEvaluatorInput = VrfEvaluatorInput::new(
-                vrf_evaluator_state.current_epoch_data.seed.clone(),
-                vrf_evaluator_state
-                    .current_epoch_data
-                    .delegator_table
-                    .clone(),
-                vrf_evaluator_state.current_best_tip_slot + 1,
-                vrf_evaluator_state.current_epoch_data.total_currency,
-            );
-            store.dispatch(BlockProducerVrfEvaluatorEvaluateVrfAction { vrf_input });
+            if let Some(current_epoch_data) = &vrf_evaluator_state.current_epoch_data {
+                let vrf_input: VrfEvaluatorInput = VrfEvaluatorInput::new(
+                    current_epoch_data.seed.clone(),
+                    current_epoch_data.delegator_table.clone(),
+                    vrf_evaluator_state.current_best_tip_slot + 1,
+                    current_epoch_data.total_currency,
+                    current_epoch_data.ledger.clone(),
+                );
+                store.dispatch(BlockProducerVrfEvaluatorEvaluateVrfAction { vrf_input });
+            }
         }
     }
 }

@@ -92,18 +92,25 @@ impl BlockProducerBestTipUpdateAction {
     pub fn effects<S: redux::Service>(self, _: &ActionMeta, store: &mut Store<S>) {
         let protocol_state = &self.best_tip.block.header.protocol_state.body;
 
-        let vrf_evaluator_epoch = store.state().block_producer.with(None, |this| {
-            Some(&this.vrf_evaluator.current_epoch_data.ledger)
-        });
+        let vrf_evaluator_current_epoch_ledger = store
+            .state()
+            .block_producer
+            .vrf_evaluator()
+            .and_then(|vrf_evaluator| {
+                vrf_evaluator
+                    .current_epoch_data
+                    .clone()
+                    .map(|epoch_data| epoch_data.ledger)
+            });
 
-        if vrf_evaluator_epoch.cloned()
+        if vrf_evaluator_current_epoch_ledger
             != Some(
                 protocol_state
                     .consensus_state
                     .staking_epoch_data
                     .ledger
                     .hash
-                    .to_string(),
+                    .clone(),
             )
         {
             store.dispatch(BlockProducerVrfEvaluatorEpochDataUpdateAction {
