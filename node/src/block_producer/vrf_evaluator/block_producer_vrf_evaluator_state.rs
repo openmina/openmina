@@ -1,11 +1,14 @@
 use std::collections::BTreeMap;
 
 use ledger::AccountIndex;
+use mina_p2p_messages::v2::LedgerHash;
 use serde::{Deserialize, Serialize};
 use vrf::VrfWonSlot;
 
 use crate::account::AccountPublicKey;
 use crate::BlockProducerConfig;
+
+use super::VrfWonSlotWithHash;
 
 // TODO(adonagy): consodilate types, make more clear
 // pub type AccountAddressAndBalance = (String, u64);
@@ -13,9 +16,9 @@ use crate::BlockProducerConfig;
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BlockProducerVrfEvaluatorState {
     pub status: BlockProducerVrfEvaluatorStatus,
-    pub won_slots: BTreeMap<u32, VrfWonSlot>,
-    pub current_epoch_data: EpochData,
-    pub next_epoch_data: EpochData,
+    pub won_slots: BTreeMap<u32, VrfWonSlotWithHash>,
+    pub current_epoch_data: Option<EpochData>,
+    pub next_epoch_data: Option<EpochData>,
     pub producer_pub_key: String,
     // TODO(adonagy): move to block producer state probably
     pub current_epoch: Option<u32>,
@@ -43,12 +46,23 @@ impl BlockProducerVrfEvaluatorState {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct EpochData {
     pub seed: String,
-    pub ledger: String,
+    pub ledger: LedgerHash,
     pub delegator_table: BTreeMap<AccountIndex, (AccountPublicKey, u64)>,
     pub total_currency: u64,
+}
+
+impl EpochData {
+    pub fn new(seed: String, ledger: LedgerHash, total_currency: u64) -> Self {
+        Self {
+            seed,
+            ledger,
+            total_currency,
+            delegator_table: Default::default(),
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

@@ -1,9 +1,11 @@
 use serde::{Deserialize, Serialize};
 use vrf::VrfEvaluationOutput;
 
+use super::VrfEvaluationOutputWithHash;
+
 #[derive(derive_more::From, Serialize, Deserialize, Debug, Clone)]
 pub enum BlockProducerVrfEvaluatorEvent {
-    Evaluated(VrfEvaluationOutput),
+    Evaluated(VrfEvaluationOutputWithHash),
 }
 
 impl std::fmt::Display for BlockProducerVrfEvaluatorEvent {

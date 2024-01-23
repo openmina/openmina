@@ -90,22 +90,21 @@ pub fn block_producer_effects<S: crate::Service>(
 
 impl BlockProducerBestTipUpdateAction {
     pub fn effects<S: redux::Service>(self, _: &ActionMeta, store: &mut Store<S>) {
+        let best_tip_staking_ledger = self.best_tip.staking_epoch_ledger_hash();
         let protocol_state = &self.best_tip.block.header.protocol_state.body;
 
-        let vrf_evaluator_epoch = store.state().block_producer.with(None, |this| {
-            Some(&this.vrf_evaluator.current_epoch_data.ledger)
-        });
+        let vrf_evaluator_current_epoch_ledger = store
+            .state()
+            .block_producer
+            .vrf_evaluator()
+            .and_then(|vrf_evaluator| {
+                vrf_evaluator
+                    .current_epoch_data
+                    .as_ref()
+                    .map(|epoch_data| &epoch_data.ledger)
+            });
 
-        if vrf_evaluator_epoch.cloned()
-            != Some(
-                protocol_state
-                    .consensus_state
-                    .staking_epoch_data
-                    .ledger
-                    .hash
-                    .to_string(),
-            )
-        {
+        if vrf_evaluator_current_epoch_ledger != Some(best_tip_staking_ledger) {
             store.dispatch(BlockProducerVrfEvaluatorEpochDataUpdateAction {
                 new_epoch_number: protocol_state.consensus_state.epoch_count.as_u32(),
                 epoch_data: protocol_state.consensus_state.staking_epoch_data.clone(),
