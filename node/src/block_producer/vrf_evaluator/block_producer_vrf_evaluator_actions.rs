@@ -87,6 +87,7 @@ impl redux::EnablingCondition<crate::State> for BlockProducerVrfEvaluatorEvaluat
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BlockProducerVrfEvaluatorEvaluationSuccessAction {
     pub vrf_output: VrfEvaluationOutput,
+    pub staking_ledger_hash: LedgerHash,
 }
 
 impl redux::EnablingCondition<crate::State> for BlockProducerVrfEvaluatorEvaluationSuccessAction {

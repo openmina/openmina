@@ -1,7 +1,9 @@
 mod block_producer_vrf_evaluator_state;
 use crate::account::AccountPublicKey;
 use ledger::AccountIndex;
+use mina_p2p_messages::v2::LedgerHash;
 use std::collections::BTreeMap;
+use vrf::{VrfEvaluationOutput, VrfWonSlot};
 
 pub use block_producer_vrf_evaluator_state::*;
 
@@ -21,12 +23,43 @@ mod block_producer_vrf_evaluator_service;
 pub use block_producer_vrf_evaluator_service::*;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Default, Deserialize, Clone, Serialize)]
+#[derive(Debug, Deserialize, Clone, Serialize)]
 pub struct VrfEvaluatorInput {
     pub epoch_seed: String,
     pub delegatee_table: BTreeMap<AccountIndex, (AccountPublicKey, u64)>,
     pub global_slot: u32,
     pub total_currency: u64,
+    pub staking_ledger_hash: LedgerHash,
+}
+
+#[derive(Debug, Deserialize, Clone, Serialize)]
+pub struct VrfWonSlotWithHash {
+    pub won_slot: VrfWonSlot,
+    pub staking_ledger_hash: LedgerHash,
+}
+
+impl VrfWonSlotWithHash {
+    pub fn new(won_slot: VrfWonSlot, staking_ledger_hash: LedgerHash) -> Self {
+        Self {
+            won_slot,
+            staking_ledger_hash,
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, Clone, Serialize)]
+pub struct VrfEvaluationOutputWithHash {
+    pub evaluation_result: VrfEvaluationOutput,
+    pub staking_ledger_hash: LedgerHash,
+}
+
+impl VrfEvaluationOutputWithHash {
+    pub fn new(evaluation_result: VrfEvaluationOutput, staking_ledger_hash: LedgerHash) -> Self {
+        Self {
+            evaluation_result,
+            staking_ledger_hash,
+        }
+    }
 }
 
 impl VrfEvaluatorInput {
@@ -35,12 +68,14 @@ impl VrfEvaluatorInput {
         delegatee_table: BTreeMap<AccountIndex, (AccountPublicKey, u64)>,
         global_slot: u32,
         total_currency: u64,
+        staking_ledger_hash: LedgerHash,
     ) -> Self {
         Self {
             epoch_seed,
             delegatee_table,
             global_slot,
             total_currency,
+            staking_ledger_hash,
         }
     }
 }
