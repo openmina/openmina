@@ -38,6 +38,8 @@ use vrf::VrfWonSlot;
 
 use crate::account::AccountPublicKey;
 
+use self::vrf_evaluator::VrfWonSlotWithHash;
+
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct BlockProducerWonSlot {
     pub slot_time: redux::Timestamp,
@@ -49,11 +51,19 @@ pub struct BlockProducerWonSlot {
     // calculated on spot from `vrf_output`? Maybe with `vrf_output.blake2b()`?
     pub vrf_hash: BigInt,
     // Staking ledger which was used during vrf evaluation.
-    // pub staking_ledger_hash: LedgerHash,
+    pub staking_ledger_hash: LedgerHash,
 }
 
 impl BlockProducerWonSlot {
-    pub fn from_vrf_won_slot(won_slot: VrfWonSlot, genesis_timestamp: redux::Timestamp) -> Self {
+    pub fn from_vrf_won_slot(
+        won_slot_with_hash: VrfWonSlotWithHash,
+        genesis_timestamp: redux::Timestamp,
+    ) -> Self {
+        let VrfWonSlotWithHash {
+            won_slot,
+            staking_ledger_hash,
+        } = won_slot_with_hash;
+
         let slot_time = Self::calculate_slot_time(genesis_timestamp, won_slot.global_slot);
 
         let winner_pub_key = AccountPublicKey::from(
@@ -78,6 +88,7 @@ impl BlockProducerWonSlot {
             global_slot_since_genesis,
             vrf_output,
             vrf_hash,
+            staking_ledger_hash,
         }
     }
 
