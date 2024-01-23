@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use openmina_core::snark::Snark;
 
@@ -11,7 +11,7 @@ pub trait SnarkWorkVerifyService: redux::Service {
         &mut self,
         req_id: SnarkWorkVerifyId,
         verifier_index: Arc<VerifierIndex>,
-        verifier_srs: Arc<VerifierSRS>,
+        verifier_srs: Arc<Mutex<VerifierSRS>>,
         work: Vec<Snark>,
     );
 }

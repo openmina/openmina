@@ -8,11 +8,12 @@ mod node_id;
 pub use node_id::{ClusterNodeId, ClusterOcamlNodeId};
 
 use std::collections::BTreeMap;
+use std::sync::Mutex;
 use std::time::Duration;
 use std::{collections::VecDeque, sync::Arc};
 
-use ledger::proofs::{VerifierIndex, VerifierSRS};
 use libp2p::futures::{stream::FuturesUnordered, StreamExt};
+use node::snark::{VerifierIndex, VerifierSRS};
 use node::core::channels::mpsc;
 use node::core::requests::RpcId;
 use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
@@ -52,7 +53,7 @@ use crate::{
 };
 
 lazy_static::lazy_static! {
-    static ref VERIFIER_SRS: Arc<VerifierSRS> = get_srs().into();
+    static ref VERIFIER_SRS: Arc<Mutex<VerifierSRS>> = get_srs();
     static ref BLOCK_VERIFIER_INDEX: Arc<VerifierIndex> = get_verifier_index(VerifierKind::Blockchain).into();
     static ref WORK_VERIFIER_INDEX: Arc<VerifierIndex> = get_verifier_index(VerifierKind::Transaction).into();
 }
@@ -68,7 +69,7 @@ pub struct Cluster {
     rpc_counter: usize,
     ocaml_libp2p_keypair_i: usize,
 
-    verifier_srs: Arc<VerifierSRS>,
+    verifier_srs: Arc<Mutex<VerifierSRS>>,
     block_verifier_index: Arc<VerifierIndex>,
     work_verifier_index: Arc<VerifierIndex>,
 

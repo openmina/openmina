@@ -12,15 +12,13 @@ use kimchi::{
         wires::{COLUMNS, PERMUTS},
     },
     mina_curves::pasta::Pallas,
-    verifier_index::LookupVerifierIndex,
+    verifier_index::{LookupVerifierIndex, VerifierIndex},
 };
 use mina_curves::pasta::Fq;
 use mina_p2p_messages::bigint::BigInt;
 use once_cell::sync::OnceCell;
 use poly_commitment::{commitment::CommitmentCurve, srs::SRS, PolyComm};
 use serde::{Deserialize, Serialize};
-
-use super::VerifierIndex;
 
 fn into<'a, U, T>(slice: &'a [U]) -> Vec<T>
 where
@@ -275,8 +273,8 @@ where
     }
 }
 
-impl From<&VerifierIndex> for VerifierIndexCached {
-    fn from(v: &VerifierIndex) -> Self {
+impl From<&VerifierIndex<Pallas>> for VerifierIndexCached {
+    fn from(v: &VerifierIndex<Pallas>) -> Self {
         Self {
             domain: (&v.domain).into(),
             max_poly_size: v.max_poly_size,
@@ -303,7 +301,7 @@ impl From<&VerifierIndex> for VerifierIndexCached {
     }
 }
 
-impl From<&VerifierIndexCached> for VerifierIndex {
+impl From<&VerifierIndexCached> for VerifierIndex<Pallas> {
     fn from(v: &VerifierIndexCached) -> Self {
         Self {
             domain: (&v.domain).into(),
@@ -349,7 +347,7 @@ impl From<&VerifierIndexCached> for VerifierIndex {
     }
 }
 
-pub fn verifier_index_to_bytes(verifier: &VerifierIndex) -> Vec<u8> {
+pub fn verifier_index_to_bytes(verifier: &VerifierIndex<Pallas>) -> Vec<u8> {
     const NBYTES: usize = 5328359;
 
     let verifier: VerifierIndexCached = verifier.into();
@@ -359,7 +357,7 @@ pub fn verifier_index_to_bytes(verifier: &VerifierIndex) -> Vec<u8> {
     bytes
 }
 
-pub fn verifier_index_from_bytes(bytes: &[u8]) -> VerifierIndex {
+pub fn verifier_index_from_bytes(bytes: &[u8]) -> VerifierIndex<Pallas> {
     let verifier: VerifierIndexCached = bincode::deserialize(bytes).unwrap();
     (&verifier).into()
 }

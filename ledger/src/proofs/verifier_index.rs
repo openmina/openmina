@@ -12,6 +12,8 @@ use kimchi::{
     },
     curve::KimchiCurve,
     linearization::expr_linearization,
+    mina_curves::pasta::Pallas,
+    verifier_index::VerifierIndex,
 };
 use mina_curves::pasta::Fq;
 
@@ -24,11 +26,11 @@ use crate::{
     VerificationKey,
 };
 
+use super::transaction::InnerCurve;
 use super::{
     transaction::endos,
     wrap::{Domain, Domains},
 };
-use super::{transaction::InnerCurve, VerifierIndex};
 
 const PERMUTS: usize = 7;
 const COLUMNS: usize = 15;
@@ -38,7 +40,7 @@ pub enum VerifierKind {
     Transaction,
 }
 
-pub fn get_verifier_index(kind: VerifierKind) -> VerifierIndex {
+pub fn get_verifier_index(kind: VerifierKind) -> VerifierIndex<Pallas> {
     let make = |data: &str| {
         let verifier_index: kimchi::verifier_index::VerifierIndex<GroupAffine<Fp>> =
             serde_json::from_str(data).unwrap();
@@ -47,12 +49,12 @@ pub fn get_verifier_index(kind: VerifierKind) -> VerifierIndex {
 
     match kind {
         VerifierKind::Blockchain => {
-            cache_one!(VerifierIndex, {
+            cache_one!(VerifierIndex<Pallas>, {
                 make(include_str!("data/blockchain_verifier_index.json"))
             })
         }
         VerifierKind::Transaction => {
-            cache_one!(VerifierIndex, {
+            cache_one!(VerifierIndex<Pallas>, {
                 make(include_str!("data/transaction_verifier_index.json"))
             })
         }
@@ -61,7 +63,7 @@ pub fn get_verifier_index(kind: VerifierKind) -> VerifierIndex {
 
 fn make_verifier_index(
     index: kimchi::verifier_index::VerifierIndex<GroupAffine<Fp>>,
-) -> VerifierIndex {
+) -> VerifierIndex<Pallas> {
     let domain = index.domain;
     let max_poly_size: usize = index.max_poly_size;
     let (endo, _) = endos::<Fq>();
@@ -147,7 +149,7 @@ pub fn wrap_domains(proofs_verified: usize) -> Domains {
 }
 
 /// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/pickles/side_loaded_verification_key.ml#L206
-pub fn make_zkapp_verifier_index(vk: &VerificationKey) -> VerifierIndex {
+pub fn make_zkapp_verifier_index(vk: &VerificationKey) -> VerifierIndex<Pallas> {
     let d = wrap_domains(vk.actual_wrap_domain_size.to_int());
     let log2_size = d.h.log2_size();
 

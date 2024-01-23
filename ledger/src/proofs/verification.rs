@@ -1,6 +1,7 @@
 use std::{array, rc::Rc};
 
 use ark_poly::{EvaluationDomain, Radix2EvaluationDomain};
+use poly_commitment::srs::SRS;
 
 use crate::{
     proofs::{
@@ -27,15 +28,15 @@ use super::{
     to_field_elements::ToFieldElements,
     transaction::{InnerCurve, PlonkVerificationKeyEvals},
     util::{extract_bulletproof, extract_polynomial_commitment, u64_to_field},
-    VerifierSRS,
 };
 use kimchi::{
     circuits::{polynomials::permutation::eval_zk_polynomial, wires::PERMUTS},
     error::VerifyError,
     mina_curves::pasta::Pallas,
-    proof::{PointEvaluations, ProofEvaluations},
+    proof::{PointEvaluations, ProofEvaluations, ProverProof},
+    verifier_index::VerifierIndex,
 };
-use mina_curves::pasta::Fq;
+use mina_curves::pasta::{Fq, Vesta};
 use mina_hasher::Fp;
 use mina_p2p_messages::{
     bigint::BigInt,
@@ -50,7 +51,7 @@ use mina_p2p_messages::{
     },
 };
 
-use super::{prover::make_padded_proof_from_p2p, ProverProof, VerifierIndex};
+use super::prover::make_padded_proof_from_p2p;
 
 use super::public_input::{
     messages::{MessagesForNextStepProof, MessagesForNextWrapProof},
@@ -409,8 +410,8 @@ where
 }
 
 fn verify_with(
-    verifier_index: &VerifierIndex,
-    proof: &ProverProof,
+    verifier_index: &VerifierIndex<Pallas>,
+    proof: &ProverProof<Pallas>,
     public_input: &[Fq],
 ) -> Result<(), VerifyError> {
     use kimchi::groupmap::GroupMap;
@@ -433,7 +434,7 @@ fn verify_with(
 
 fn run_checks(
     proof: &PicklesProofProofsVerified2ReprStableV2,
-    verifier_index: &VerifierIndex,
+    verifier_index: &VerifierIndex<Pallas>,
 ) -> bool {
     let mut errors: Vec<String> = vec![];
     let mut checks = |condition: bool, s: &str| {
@@ -594,14 +595,14 @@ fn compute_deferred_values(proof: &PicklesProofProofsVerified2ReprStableV2) -> D
 /// https://github.com/MinaProtocol/mina/blob/4e0b324912017c3ff576704ee397ade3d9bda412/src/lib/pickles/verification_key.mli#L30
 pub struct VK<'a> {
     pub commitments: PlonkVerificationKeyEvals<Fp>,
-    pub index: &'a VerifierIndex,
+    pub index: &'a VerifierIndex<Pallas>,
     pub data: (), // Unused in proof verification
 }
 
 pub fn verify_block(
     header: &MinaBlockHeaderStableV2,
-    verifier_index: &VerifierIndex,
-    srs: &VerifierSRS,
+    verifier_index: &VerifierIndex<Pallas>,
+    srs: &SRS<Vesta>,
 ) -> bool {
     let MinaBlockHeaderStableV2 {
         protocol_state,
@@ -622,8 +623,8 @@ pub fn verify_block(
 
 pub fn verify_transaction<'a>(
     proofs: impl IntoIterator<Item = (&'a Statement<SokDigest>, &'a TransactionSnarkProofStableV2)>,
-    verifier_index: &VerifierIndex,
-    srs: &VerifierSRS,
+    verifier_index: &VerifierIndex<Pallas>,
+    srs: &SRS<Vesta>,
 ) -> bool {
     let vk = VK {
         commitments: PlonkVerificationKeyEvals::from(verifier_index),
@@ -643,7 +644,7 @@ pub fn verify_zkapp(
     verification_key: &VerificationKey,
     zkapp_statement: ZkappStatement,
     sideloaded_proof: &PicklesProofProofsVerified2ReprStableV2,
-    srs: &VerifierSRS,
+    srs: &SRS<Vesta>,
 ) -> bool {
     let verifier_index = make_zkapp_verifier_index(verification_key);
     // https://github.com/MinaProtocol/mina/blob/4e0b324912017c3ff576704ee397ade3d9bda412/src/lib/pickles/pickles.ml#LL260C1-L274C18

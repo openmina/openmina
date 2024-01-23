@@ -1,7 +1,6 @@
 use std::array;
 
-use kimchi::curve::KimchiCurve;
-use mina_curves::pasta::{Fq, Pallas, Vesta};
+use mina_curves::pasta::{Fq, Vesta};
 use mina_hasher::Fp;
 use mina_p2p_messages::{bigint::BigInt, v2::PicklesProofProofsVerified2ReprStableV2};
 use poly_commitment::{commitment::CommitmentCurve, srs::SRS};
@@ -10,15 +9,8 @@ use super::public_input::scalar_challenge::ScalarChallenge;
 use super::transaction::endos;
 use super::urs_utils;
 
-const OTHER_URS_LENGTH: usize = 65536;
-
-pub fn get_srs() -> super::VerifierSRS {
-    // We need an URS with 65536 points (should be in the other verfifier index - step?)
-    SRS::<<Pallas as KimchiCurve>::OtherCurve>::create(OTHER_URS_LENGTH)
-}
-
 pub fn accumulator_check(
-    urs: &super::VerifierSRS,
+    urs: &SRS<Vesta>,
     proof: &PicklesProofProofsVerified2ReprStableV2,
 ) -> bool {
     // accumulator check

@@ -152,7 +152,7 @@ impl Node {
 
         let work_dir = shellexpand::full(&self.work_dir).unwrap().into_owned();
         let rng_seed = rng.next_u64();
-        let srs: Arc<_> = get_srs().into();
+        let srs: Arc<_> = get_srs();
         let config = Config {
             ledger: LedgerConfig {},
             snark: SnarkConfig {

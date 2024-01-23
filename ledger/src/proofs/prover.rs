@@ -2,7 +2,9 @@ use std::{array, borrow::Cow, str::FromStr};
 
 use kimchi::{
     poly_commitment::PolyComm,
-    proof::{PointEvaluations, ProofEvaluations, ProverCommitments, RecursionChallenge},
+    proof::{
+        PointEvaluations, ProofEvaluations, ProverCommitments, ProverProof, RecursionChallenge,
+    },
 };
 use mina_curves::pasta::Pallas;
 use mina_hasher::Fp;
@@ -14,8 +16,6 @@ use crate::proofs::transaction::endos;
 use super::util::extract_bulletproof;
 use mina_curves::pasta::Fq;
 use mina_p2p_messages::{bigint::BigInt, v2::PicklesProofProofsVerified2ReprStableV2};
-
-use super::ProverProof;
 
 fn get_challenge_polynomial_commitments_padding() -> (BigInt, BigInt) {
     static PADDING: Lazy<(BigInt, BigInt)> = Lazy::new(|| {
@@ -40,7 +40,7 @@ pub fn make_padded_proof_from_p2p(
         prev_evals: _, // unused
         proof,
     }: &PicklesProofProofsVerified2ReprStableV2,
-) -> ProverProof {
+) -> ProverProof<Pallas> {
     let of_coord = |(a, b): &(BigInt, BigInt)| Pallas::of_coordinates(a.to_field(), b.to_field());
 
     let make_poly = |poly: &(BigInt, BigInt)| PolyComm {

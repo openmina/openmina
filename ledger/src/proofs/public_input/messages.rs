@@ -3,17 +3,17 @@ use std::str::FromStr;
 use crate::proofs::to_field_elements::ToFieldElements;
 use crate::proofs::transaction::{checked_hash2, InnerCurve, PlonkVerificationKeyEvals};
 use crate::proofs::witness::Witness;
-use crate::proofs::VerifierIndex;
 use ark_ec::short_weierstrass_jacobian::GroupAffine;
 use ark_ff::{BigInteger256, PrimeField};
+use kimchi::verifier_index::VerifierIndex;
 use mina_curves::{pasta::Fq, pasta::Pallas};
 use mina_hasher::Fp;
 use poly_commitment::PolyComm;
 
 use crate::hash::hash_fields;
 
-impl<'a> From<&'a VerifierIndex> for PlonkVerificationKeyEvals<Fp> {
-    fn from(verifier_index: &'a VerifierIndex) -> Self {
+impl<'a> From<&'a VerifierIndex<Pallas>> for PlonkVerificationKeyEvals<Fp> {
+    fn from(verifier_index: &'a VerifierIndex<Pallas>) -> Self {
         let to_curve = |v: &PolyComm<Pallas>| InnerCurve::of_affine(v.unshifted[0]);
 
         Self {
