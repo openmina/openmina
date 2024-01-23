@@ -21,9 +21,7 @@ use crate::p2p::discovery::{P2pDiscoveryKademliaBootstrapAction, P2pDiscoveryKad
 use crate::p2p::p2p_effects;
 use crate::rpc::rpc_effects;
 use crate::snark::snark_effects;
-use crate::snark_pool::candidate::{
-    SnarkPoolCandidateWorkFetchAllAction, SnarkPoolCandidateWorkVerifyNextAction,
-};
+use crate::snark_pool::candidate::SnarkPoolCandidateAction;
 use crate::snark_pool::{
     snark_pool_effects, SnarkPoolCheckTimeoutsAction, SnarkPoolP2pSendAllAction,
 };
@@ -62,8 +60,8 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
 
             p2p_request_best_tip_if_needed(store);
 
-            store.dispatch(SnarkPoolCandidateWorkFetchAllAction {});
-            store.dispatch(SnarkPoolCandidateWorkVerifyNextAction {});
+            store.dispatch(SnarkPoolCandidateAction::WorkFetchAll {});
+            store.dispatch(SnarkPoolCandidateAction::WorkVerifyNext {});
 
             p2p_request_snarks_if_needed(store);
 

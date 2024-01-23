@@ -6,29 +6,37 @@ impl SnarkPoolCandidatesState {
     pub fn reducer(&mut self, action: SnarkPoolCandidateActionWithMetaRef<'_>) {
         let (action, meta) = action.split();
         match action {
-            SnarkPoolCandidateAction::InfoReceived(a) => {
-                self.info_received(meta.time(), a.peer_id, a.info.clone());
+            SnarkPoolCandidateAction::InfoReceived { peer_id, info } => {
+                self.info_received(meta.time(), *peer_id, info.clone());
             }
-            SnarkPoolCandidateAction::WorkFetchAll(_) => {}
-            SnarkPoolCandidateAction::WorkFetchInit(_) => {}
-            SnarkPoolCandidateAction::WorkFetchPending(a) => {
-                self.work_fetch_pending(meta.time(), &a.peer_id, &a.job_id, a.rpc_id);
+            SnarkPoolCandidateAction::WorkFetchAll => {}
+            SnarkPoolCandidateAction::WorkFetchInit { .. } => {}
+            SnarkPoolCandidateAction::WorkFetchPending {
+                peer_id,
+                job_id,
+                rpc_id,
+            } => {
+                self.work_fetch_pending(meta.time(), peer_id, job_id, *rpc_id);
             }
-            SnarkPoolCandidateAction::WorkReceived(a) => {
-                self.work_received(meta.time(), a.peer_id, a.work.clone());
+            SnarkPoolCandidateAction::WorkReceived { peer_id, work } => {
+                self.work_received(meta.time(), *peer_id, work.clone());
             }
-            SnarkPoolCandidateAction::WorkVerifyNext(_) => {}
-            SnarkPoolCandidateAction::WorkVerifyPending(a) => {
-                self.verify_pending(meta.time(), &a.peer_id, a.verify_id, &a.job_ids);
+            SnarkPoolCandidateAction::WorkVerifyNext => {}
+            SnarkPoolCandidateAction::WorkVerifyPending {
+                peer_id,
+                job_ids,
+                verify_id,
+            } => {
+                self.verify_pending(meta.time(), peer_id, *verify_id, job_ids);
             }
-            SnarkPoolCandidateAction::WorkVerifyError(a) => {
-                self.verify_result(meta.time(), &a.peer_id, a.verify_id, Err(()));
+            SnarkPoolCandidateAction::WorkVerifyError { peer_id, verify_id } => {
+                self.verify_result(meta.time(), peer_id, *verify_id, Err(()));
             }
-            SnarkPoolCandidateAction::WorkVerifySuccess(a) => {
-                self.verify_result(meta.time(), &a.peer_id, a.verify_id, Ok(()));
+            SnarkPoolCandidateAction::WorkVerifySuccess { peer_id, verify_id } => {
+                self.verify_result(meta.time(), peer_id, *verify_id, Ok(()));
             }
-            SnarkPoolCandidateAction::PeerPrune(a) => {
-                self.peer_remove(a.peer_id);
+            SnarkPoolCandidateAction::PeerPrune { peer_id } => {
+                self.peer_remove(*peer_id);
             }
         }
     }

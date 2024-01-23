@@ -1,7 +1,5 @@
 use crate::consensus::ConsensusBlockSnarkVerifySuccessAction;
-use crate::snark_pool::candidate::{
-    SnarkPoolCandidateWorkVerifyErrorAction, SnarkPoolCandidateWorkVerifySuccessAction,
-};
+use crate::snark_pool::candidate::SnarkPoolCandidateAction;
 use crate::snark_pool::SnarkPoolWorkAddAction;
 use crate::{Service, Store};
 
@@ -41,7 +39,7 @@ pub fn snark_effects<S: Service>(store: &mut Store<S>, action: SnarkActionWithMe
                 let Some(req) = req else { return };
                 let sender = req.sender().parse().unwrap();
 
-                store.dispatch(SnarkPoolCandidateWorkVerifyErrorAction {
+                store.dispatch(SnarkPoolCandidateAction::WorkVerifyError {
                     peer_id: sender,
                     verify_id: a.req_id,
                 });
@@ -53,7 +51,7 @@ pub fn snark_effects<S: Service>(store: &mut Store<S>, action: SnarkActionWithMe
                 let sender = req.sender().parse().unwrap();
                 let batch = req.batch().to_vec();
 
-                store.dispatch(SnarkPoolCandidateWorkVerifySuccessAction {
+                store.dispatch(SnarkPoolCandidateAction::WorkVerifySuccess {
                     peer_id: sender,
                     verify_id: a.req_id,
                 });

@@ -13,199 +13,125 @@ pub type SnarkPoolCandidateActionWithMeta = redux::ActionWithMeta<SnarkPoolCandi
 pub type SnarkPoolCandidateActionWithMetaRef<'a> =
     redux::ActionWithMeta<&'a SnarkPoolCandidateAction>;
 
-#[derive(derive_more::From, Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum SnarkPoolCandidateAction {
-    InfoReceived(SnarkPoolCandidateInfoReceivedAction),
-    WorkFetchAll(SnarkPoolCandidateWorkFetchAllAction),
-    WorkFetchInit(SnarkPoolCandidateWorkFetchInitAction),
-    WorkFetchPending(SnarkPoolCandidateWorkFetchPendingAction),
-    WorkReceived(SnarkPoolCandidateWorkReceivedAction),
-    WorkVerifyNext(SnarkPoolCandidateWorkVerifyNextAction),
-    WorkVerifyPending(SnarkPoolCandidateWorkVerifyPendingAction),
-    WorkVerifyError(SnarkPoolCandidateWorkVerifyErrorAction),
-    WorkVerifySuccess(SnarkPoolCandidateWorkVerifySuccessAction),
-    PeerPrune(SnarkPoolCandidatePeerPruneAction),
+    InfoReceived {
+        peer_id: PeerId,
+        info: SnarkInfo,
+    },
+    WorkFetchAll,
+    WorkFetchInit {
+        peer_id: PeerId,
+        job_id: SnarkJobId,
+    },
+    WorkFetchPending {
+        peer_id: PeerId,
+        job_id: SnarkJobId,
+        rpc_id: P2pRpcId,
+    },
+    WorkReceived {
+        peer_id: PeerId,
+        work: Snark,
+    },
+    WorkVerifyNext,
+    WorkVerifyPending {
+        peer_id: PeerId,
+        job_ids: Vec<SnarkJobId>,
+        verify_id: SnarkWorkVerifyId,
+    },
+    WorkVerifyError {
+        peer_id: PeerId,
+        verify_id: SnarkWorkVerifyId,
+    },
+    WorkVerifySuccess {
+        peer_id: PeerId,
+        verify_id: SnarkWorkVerifyId,
+    },
+    PeerPrune {
+        peer_id: PeerId,
+    },
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct SnarkPoolCandidateInfoReceivedAction {
-    pub peer_id: PeerId,
-    pub info: SnarkInfo,
-}
-
-impl redux::EnablingCondition<crate::State> for SnarkPoolCandidateInfoReceivedAction {
+impl redux::EnablingCondition<crate::State> for SnarkPoolCandidateAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
-        state.snark_pool.contains(&self.info.job_id)
-            && state
+        match self {
+            SnarkPoolCandidateAction::InfoReceived { peer_id, info } => {
+                state.snark_pool.contains(&info.job_id)
+                    && state
+                        .snark_pool
+                        .candidates
+                        .get(*peer_id, &info.job_id)
+                        .map_or(true, |v| info > v)
+            }
+            SnarkPoolCandidateAction::WorkFetchAll => true,
+            SnarkPoolCandidateAction::WorkFetchInit { peer_id, job_id } => {
+                let is_peer_available = state
+                    .p2p
+                    .get_ready_peer(peer_id)
+                    .map_or(false, |peer| peer.channels.rpc.can_send_request());
+                is_peer_available
+                    && state
+                        .snark_pool
+                        .candidates
+                        .get(*peer_id, job_id)
+                        .map_or(false, |s| {
+                            matches!(s, SnarkPoolCandidateState::InfoReceived { .. })
+                        })
+            }
+            SnarkPoolCandidateAction::WorkFetchPending {
+                peer_id, job_id, ..
+            } => state
                 .snark_pool
                 .candidates
-                .get(self.peer_id, &self.info.job_id)
-                .map_or(true, |v| &self.info > v)
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct SnarkPoolCandidateWorkFetchAllAction {}
-
-impl redux::EnablingCondition<crate::State> for SnarkPoolCandidateWorkFetchAllAction {
-    fn is_enabled(&self, _: &crate::State) -> bool {
-        true
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct SnarkPoolCandidateWorkFetchInitAction {
-    pub peer_id: PeerId,
-    pub job_id: SnarkJobId,
-}
-
-impl redux::EnablingCondition<crate::State> for SnarkPoolCandidateWorkFetchInitAction {
-    fn is_enabled(&self, state: &crate::State) -> bool {
-        let is_peer_available = state
-            .p2p
-            .get_ready_peer(&self.peer_id)
-            .map_or(false, |peer| peer.channels.rpc.can_send_request());
-        is_peer_available
-            && state
-                .snark_pool
-                .candidates
-                .get(self.peer_id, &self.job_id)
+                .get(*peer_id, job_id)
                 .map_or(false, |s| {
                     matches!(s, SnarkPoolCandidateState::InfoReceived { .. })
-                })
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct SnarkPoolCandidateWorkFetchPendingAction {
-    pub peer_id: PeerId,
-    pub job_id: SnarkJobId,
-    pub rpc_id: P2pRpcId,
-}
-
-impl redux::EnablingCondition<crate::State> for SnarkPoolCandidateWorkFetchPendingAction {
-    fn is_enabled(&self, state: &crate::State) -> bool {
-        state
-            .snark_pool
-            .candidates
-            .get(self.peer_id, &self.job_id)
-            .map_or(false, |s| {
-                matches!(s, SnarkPoolCandidateState::InfoReceived { .. })
-            })
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct SnarkPoolCandidateWorkReceivedAction {
-    pub peer_id: PeerId,
-    pub work: Snark,
-}
-
-impl redux::EnablingCondition<crate::State> for SnarkPoolCandidateWorkReceivedAction {
-    fn is_enabled(&self, state: &crate::State) -> bool {
-        let job_id = self.work.job_id();
-        state.snark_pool.contains(&job_id)
-            && state
-                .snark_pool
-                .candidates
-                .get(self.peer_id, &job_id)
-                .map_or(true, |v| match self.work.partial_cmp(v).unwrap() {
-                    Ordering::Less => false,
-                    Ordering::Greater => true,
-                    Ordering::Equal => {
-                        matches!(v, SnarkPoolCandidateState::WorkFetchPending { .. })
-                    }
-                })
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct SnarkPoolCandidateWorkVerifyNextAction {}
-
-impl redux::EnablingCondition<crate::State> for SnarkPoolCandidateWorkVerifyNextAction {
-    fn is_enabled(&self, state: &crate::State) -> bool {
-        state.snark.work_verify.jobs.is_empty()
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct SnarkPoolCandidateWorkVerifyPendingAction {
-    pub peer_id: PeerId,
-    pub job_ids: Vec<SnarkJobId>,
-    pub verify_id: SnarkWorkVerifyId,
-}
-
-impl redux::EnablingCondition<crate::State> for SnarkPoolCandidateWorkVerifyPendingAction {
-    fn is_enabled(&self, state: &crate::State) -> bool {
-        !self.job_ids.is_empty()
-            && state
-                .snark_pool
-                .candidates
-                .jobs_from_peer_with_job_ids(self.peer_id, &self.job_ids)
-                .all(|(_, state)| {
-                    matches!(state, Some(SnarkPoolCandidateState::WorkReceived { .. }))
-                })
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct SnarkPoolCandidateWorkVerifyErrorAction {
-    pub peer_id: PeerId,
-    pub verify_id: SnarkWorkVerifyId,
-}
-
-impl redux::EnablingCondition<crate::State> for SnarkPoolCandidateWorkVerifyErrorAction {
-    fn is_enabled(&self, state: &crate::State) -> bool {
-        // TODO(bineir)
-        let _ = state;
-        true
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct SnarkPoolCandidateWorkVerifySuccessAction {
-    pub peer_id: PeerId,
-    pub verify_id: SnarkWorkVerifyId,
-}
-
-impl redux::EnablingCondition<crate::State> for SnarkPoolCandidateWorkVerifySuccessAction {
-    fn is_enabled(&self, state: &crate::State) -> bool {
-        // TODO(bineir)
-        let _ = state;
-        true
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct SnarkPoolCandidatePeerPruneAction {
-    pub peer_id: PeerId,
-}
-
-impl redux::EnablingCondition<crate::State> for SnarkPoolCandidatePeerPruneAction {
-    fn is_enabled(&self, state: &crate::State) -> bool {
-        state.snark_pool.candidates.peer_work_count(&self.peer_id) > 0
+                }),
+            SnarkPoolCandidateAction::WorkReceived { peer_id, work } => {
+                let job_id = work.job_id();
+                state.snark_pool.contains(&job_id)
+                    && state
+                        .snark_pool
+                        .candidates
+                        .get(*peer_id, &job_id)
+                        .map_or(true, |v| match work.partial_cmp(v).unwrap() {
+                            Ordering::Less => false,
+                            Ordering::Greater => true,
+                            Ordering::Equal => {
+                                matches!(v, SnarkPoolCandidateState::WorkFetchPending { .. })
+                            }
+                        })
+            }
+            SnarkPoolCandidateAction::WorkVerifyNext => state.snark.work_verify.jobs.is_empty(),
+            SnarkPoolCandidateAction::WorkVerifyPending {
+                peer_id, job_ids, ..
+            } => {
+                !job_ids.is_empty()
+                    && state
+                        .snark_pool
+                        .candidates
+                        .jobs_from_peer_with_job_ids(*peer_id, job_ids)
+                        .all(|(_, state)| {
+                            matches!(state, Some(SnarkPoolCandidateState::WorkReceived { .. }))
+                        })
+            }
+            SnarkPoolCandidateAction::WorkVerifyError { .. } => {
+                true
+            }
+            SnarkPoolCandidateAction::WorkVerifySuccess { .. } => {
+                true
+            }
+            SnarkPoolCandidateAction::PeerPrune { peer_id } => {
+                state.snark_pool.candidates.peer_work_count(peer_id) > 0
+            }
+        }
     }
 }
 
 use crate::snark_pool::SnarkPoolAction;
 
-macro_rules! impl_into_global_action {
-    ($a:ty) => {
-        impl From<$a> for crate::Action {
-            fn from(value: $a) -> Self {
-                Self::SnarkPool(SnarkPoolAction::Candidate(value.into()))
-            }
-        }
-    };
+impl From<SnarkPoolCandidateAction> for crate::Action {
+    fn from(value: SnarkPoolCandidateAction) -> Self {
+        Self::SnarkPool(SnarkPoolAction::Candidate(value))
+    }
 }
-
-impl_into_global_action!(SnarkPoolCandidateInfoReceivedAction);
-impl_into_global_action!(SnarkPoolCandidateWorkFetchAllAction);
-impl_into_global_action!(SnarkPoolCandidateWorkFetchInitAction);
-impl_into_global_action!(SnarkPoolCandidateWorkFetchPendingAction);
-impl_into_global_action!(SnarkPoolCandidateWorkReceivedAction);
-impl_into_global_action!(SnarkPoolCandidateWorkVerifyNextAction);
-impl_into_global_action!(SnarkPoolCandidateWorkVerifyPendingAction);
-impl_into_global_action!(SnarkPoolCandidateWorkVerifyErrorAction);
-impl_into_global_action!(SnarkPoolCandidateWorkVerifySuccessAction);
-impl_into_global_action!(SnarkPoolCandidatePeerPruneAction);
