@@ -1,9 +1,7 @@
 mod config;
 pub use config::ClusterConfig;
 
-#[cfg(feature = "p2p-libp2p")]
 mod p2p_task_spawner;
-#[cfg(feature = "p2p-libp2p")]
 pub use p2p_task_spawner::P2pTaskSpawner;
 
 mod node_id;
@@ -19,12 +17,8 @@ use libp2p::identity::Keypair;
 use node::core::channels::mpsc;
 use node::core::requests::RpcId;
 use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
-#[cfg(not(feature = "p2p-libp2p"))]
-use node::p2p::service_impl::mio::MioService;
-#[cfg(feature = "p2p-libp2p")]
 use node::p2p::service_impl::{
-    webrtc::P2pServiceCtx,
-    webrtc_with_libp2p::{self, P2pServiceWebrtcWithLibp2p},
+    webrtc::P2pServiceCtx, webrtc_with_libp2p::P2pServiceWebrtcWithLibp2p,
 };
 use node::p2p::{P2pConnectionEvent, P2pDiscoveryEvent, P2pEvent, PeerId};
 use node::{
@@ -213,29 +207,15 @@ impl Cluster {
         let keypair = Keypair::ed25519_from_bytes(secret_key.to_bytes())
             .expect("secret key bytes must be valid");
 
-        #[cfg(feature = "p2p-libp2p")]
-        let webrtc_with_libp2p::P2pServiceCtx {
-            libp2p,
-            webrtc: P2pServiceCtx { cmd_sender, peers },
-        } = <NodeService as P2pServiceWebrtcWithLibp2p>::init(
+        let p2p_service_ctx = <NodeService as P2pServiceWebrtcWithLibp2p>::init(
             Some(libp2p_port),
             secret_key.clone(),
             testing_config.chain_id,
             event_sender.clone(),
             p2p_task_spawner::P2pTaskSpawner::new(shutdown_tx.clone()),
         );
-        #[cfg(not(feature = "p2p-libp2p"))]
-        let (cmd_sender, peers) = { (mpsc::unbounded_channel().0, Default::default()) };
 
-        #[cfg(not(feature = "p2p-libp2p"))]
-        let mio = MioService::run({
-            let event_sender = event_sender.clone();
-            move |mio_event| {
-                event_sender
-                    .send(P2pEvent::MioEvent(mio_event).into())
-                    .unwrap_or_default()
-            }
-        });
+        let P2pServiceCtx { cmd_sender, peers } = p2p_service_ctx.webrtc;
 
         let mut rpc_service = RpcService::new();
 
@@ -270,9 +250,9 @@ impl Cluster {
             ledger,
             peers,
             #[cfg(feature = "p2p-libp2p")]
-            libp2p,
+            libp2p: p2p_service_ctx.libp2p,
             #[cfg(not(feature = "p2p-libp2p"))]
-            mio,
+            mio: p2p_service_ctx.mio,
             block_producer: None,
             keypair,
             snark_worker_sender: None,
