@@ -110,7 +110,10 @@ pub enum VerifyCommandsResult {
 }
 
 impl Verifier {
-    pub fn verify(&self, _proofs: &[LedgerProofWithSokMessage]) -> Result<Result<(), ()>, String> {
+    pub fn verify(
+        &self,
+        _proofs: &[Arc<LedgerProofWithSokMessage>],
+    ) -> Result<Result<(), ()>, String> {
         // Implement verification later
         //
         // https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/pickles/pickles.ml#L1122

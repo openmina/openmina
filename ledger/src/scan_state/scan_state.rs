@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, sync::Arc};
 
 use binprot::macros::BinProtWrite;
 use blake2::{
@@ -68,8 +68,8 @@ pub type AvailableJobMessage = super::parallel_scan::AvailableJob<
     TransactionSnarkScanStateLedgerProofWithSokMessageStableV2,
 >;
 pub type AvailableJob = super::parallel_scan::AvailableJob<
-    transaction_snark::TransactionWithWitness,
-    transaction_snark::LedgerProofWithSokMessage,
+    Arc<transaction_snark::TransactionWithWitness>,
+    Arc<transaction_snark::LedgerProofWithSokMessage>,
 >;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -81,11 +81,11 @@ pub struct BorderBlockContinuedInTheNextTree(pub(super) bool);
 #[derive(Clone)]
 pub struct ScanState {
     pub scan_state: ParallelScan<
-        transaction_snark::TransactionWithWitness,
-        transaction_snark::LedgerProofWithSokMessage,
+        Arc<transaction_snark::TransactionWithWitness>,
+        Arc<transaction_snark::LedgerProofWithSokMessage>,
     >,
     pub previous_incomplete_zkapp_updates: (
-        Vec<transaction_snark::TransactionWithWitness>,
+        Vec<Arc<transaction_snark::TransactionWithWitness>>,
         BorderBlockContinuedInTheNextTree,
     ),
 }
@@ -711,9 +711,9 @@ impl ScanState {
             |buffer, proof| {
                 #[cfg(test)]
                 {
-                    let a: mina_p2p_messages::v2::TransactionSnarkScanStateLedgerProofWithSokMessageStableV2 = proof.into();
+                    let a: mina_p2p_messages::v2::TransactionSnarkScanStateLedgerProofWithSokMessageStableV2 = proof.as_ref().into();
                     let b: LedgerProofWithSokMessage = (&a).into();
-                    assert_eq!(&b, proof);
+                    assert_eq!(&b, proof.as_ref());
                 }
 
                 proof.binprot_write(buffer).unwrap();
@@ -721,9 +721,9 @@ impl ScanState {
             |buffer, transaction| {
                 #[cfg(test)]
                 {
-                    let a: mina_p2p_messages::v2::TransactionSnarkScanStateTransactionWithWitnessStableV2 = transaction.into();
+                    let a: mina_p2p_messages::v2::TransactionSnarkScanStateTransactionWithWitnessStableV2 = transaction.as_ref().into();
                     let b: TransactionWithWitness = (&a).into();
-                    assert_eq!(&b, transaction);
+                    assert_eq!(&b, transaction.as_ref());
                 }
 
                 transaction.binprot_write(buffer).unwrap();
@@ -951,7 +951,7 @@ where
 fn completed_work_to_scanable_work(
     job: AvailableJob,
     (fee, current_proof, prover): (Fee, LedgerProof, CompressedPubKey),
-) -> Result<LedgerProofWithSokMessage, String> {
+) -> Result<Arc<LedgerProofWithSokMessage>, String> {
     use super::parallel_scan::AvailableJob::{Base, Merge};
 
     let sok_digest = current_proof.0.statement.sok_digest;
@@ -959,14 +959,15 @@ fn completed_work_to_scanable_work(
     let proof = &current_proof.0.proof;
 
     match job {
-        Base(TransactionWithWitness { statement, .. }) => {
-            let ledger_proof = LedgerProof::create(statement, sok_digest, proof.clone());
+        Base(t) => {
+            let TransactionWithWitness { statement, .. } = t.as_ref();
+            let ledger_proof = LedgerProof::create(statement.clone(), sok_digest, proof.clone());
             let sok_message = SokMessage::create(fee, prover);
 
-            Ok(LedgerProofWithSokMessage {
+            Ok(Arc::new(LedgerProofWithSokMessage {
                 proof: ledger_proof,
                 sok_message,
-            })
+            }))
         }
         Merge {
             left: proof1,
@@ -980,10 +981,10 @@ fn completed_work_to_scanable_work(
             let ledger_proof = LedgerProof::create(statement, sok_digest, proof.clone());
             let sok_message = SokMessage::create(fee, prover);
 
-            Ok(LedgerProofWithSokMessage {
+            Ok(Arc::new(LedgerProofWithSokMessage {
                 proof: ledger_proof,
                 sok_message,
-            })
+            }))
         }
     }
 }
@@ -1007,9 +1008,9 @@ impl ScanState {
     where
         F: Fn(Fp) -> MinaStateProtocolStateValueStableV2,
     {
-        struct Acc(Option<(Statement<()>, Vec<LedgerProofWithSokMessage>)>);
+        struct Acc(Option<(Statement<()>, Vec<Arc<LedgerProofWithSokMessage>>)>);
 
-        let merge_acc = |mut proofs: Vec<LedgerProofWithSokMessage>,
+        let merge_acc = |mut proofs: Vec<Arc<LedgerProofWithSokMessage>>,
                          acc: Acc,
                          s2: &Statement<()>|
          -> Result<Acc, String> {
@@ -1046,7 +1047,7 @@ impl ScanState {
         };
 
         let fold_step_a = |(acc_statement, acc_pc): (Acc, Option<Statement<()>>),
-                           job: &merge::Job<LedgerProofWithSokMessage>|
+                           job: &merge::Job<Arc<LedgerProofWithSokMessage>>|
          -> Result<(Acc, Option<Statement<()>>), String> {
             use merge::{
                 Job::{Empty, Full, Part},
@@ -1055,15 +1056,16 @@ impl ScanState {
             use JobStatus::Done;
 
             match job {
-                Part(ref ledger @ LedgerProofWithSokMessage { ref proof, .. }) => {
+                Part(ref ledger) => {
+                    let LedgerProofWithSokMessage { proof, .. } = ledger.as_ref();
                     let statement = proof.statement();
                     let acc_stmt = merge_acc(vec![ledger.clone()], acc_statement, &statement)?;
                     Ok((acc_stmt, acc_pc))
                 }
                 Empty | Full(Record { state: Done, .. }) => Ok((acc_statement, acc_pc)),
                 Full(Record { left, right, .. }) => {
-                    let LedgerProofWithSokMessage { proof: proof1, .. } = &left;
-                    let LedgerProofWithSokMessage { proof: proof2, .. } = &right;
+                    let LedgerProofWithSokMessage { proof: proof1, .. } = left.as_ref();
+                    let LedgerProofWithSokMessage { proof: proof2, .. } = right.as_ref();
 
                     let stmt1 = proof1.statement();
                     let stmt2 = proof2.statement();
@@ -1107,7 +1109,7 @@ impl ScanState {
         };
 
         let fold_step_d = |(acc_statement, acc_pc): (Acc, Option<Statement<()>>),
-                           job: &base::Job<TransactionWithWitness>|
+                           job: &base::Job<Arc<TransactionWithWitness>>|
          -> Result<(Acc, Option<Statement<()>>), String> {
             use base::{
                 Job::{Empty, Full},
@@ -1171,10 +1173,13 @@ impl ScanState {
         use super::parallel_scan::AvailableJob::{Base, Merge};
 
         match job {
-            Base(TransactionWithWitness { statement, .. }) => Some(statement.clone()),
+            Base(t) => {
+                let TransactionWithWitness { statement, .. } = t.as_ref();
+                Some(statement.clone())
+            }
             Merge { left, right } => {
-                let LedgerProofWithSokMessage { proof: p1, .. } = left;
-                let LedgerProofWithSokMessage { proof: p2, .. } = right;
+                let LedgerProofWithSokMessage { proof: p1, .. } = left.as_ref();
+                let LedgerProofWithSokMessage { proof: p2, .. } = right.as_ref();
 
                 p1.statement().merge(&p2.statement()).ok()
             }
@@ -1201,7 +1206,7 @@ impl ScanState {
     }
 
     fn extract_txn_and_global_slot(
-        txn_with_witness: TransactionWithWitness,
+        txn_with_witness: &TransactionWithWitness,
     ) -> (WithStatus<Transaction>, Fp, Slot) {
         let txn = txn_with_witness.transaction_with_info.transaction();
 
@@ -1214,7 +1219,7 @@ impl ScanState {
         &self,
     ) -> Option<(
         &LedgerProofWithSokMessage,
-        Vec<TransactionsOrdered<TransactionWithWitness>>,
+        Vec<TransactionsOrdered<Arc<TransactionWithWitness>>>,
     )> {
         let (proof, txns_with_witnesses) = self.scan_state.last_emitted_value()?;
 
@@ -1262,7 +1267,7 @@ impl ScanState {
         self.latest_ledger_proof_impl().map(|(p, txns)| {
             let txns = txns
                 .into_iter()
-                .map(|ordered| ordered.map(Self::extract_txn_and_global_slot))
+                .map(|ordered| ordered.map(|t| Self::extract_txn_and_global_slot(t.as_ref())))
                 .collect::<Vec<_>>();
 
             (p, txns)
@@ -1274,7 +1279,7 @@ impl ScanState {
     ) -> Option<(
         LedgerProofWithSokMessage,
         (
-            Vec<TransactionWithWitness>,
+            Vec<Arc<TransactionWithWitness>>,
             BorderBlockContinuedInTheNextTree,
         ),
     )> {
@@ -1304,7 +1309,7 @@ impl ScanState {
         Some((proof.clone(), txns))
     }
 
-    fn staged_transactions(&self) -> Vec<TransactionsOrdered<TransactionWithWitness>> {
+    fn staged_transactions(&self) -> Vec<TransactionsOrdered<Arc<TransactionWithWitness>>> {
         let (previous_incomplete, BorderBlockContinuedInTheNextTree(continued_in_next_tree)) =
             match self.incomplete_txns_from_recent_proof_tree() {
                 Some((_proof, v)) => v,
@@ -1350,13 +1355,13 @@ impl ScanState {
     ) -> Vec<TransactionsOrdered<(WithStatus<Transaction>, Fp, Slot)>> {
         self.staged_transactions()
             .into_iter()
-            .map(|ordered| ordered.map(Self::extract_txn_and_global_slot))
+            .map(|ordered| ordered.map(|t| Self::extract_txn_and_global_slot(t.as_ref())))
             .collect::<Vec<_>>()
     }
 
     fn apply_ordered_txns_stepwise<L, F, ApplyFirst, ApplySecond, ApplyFirstSparse>(
         stop_at_first_pass: Option<bool>,
-        ordered_txns: Vec<TransactionsOrdered<TransactionWithWitness>>,
+        ordered_txns: Vec<TransactionsOrdered<Arc<TransactionWithWitness>>>,
         ledger: &mut L,
         get_protocol_state: F,
         apply_first_pass: ApplyFirst,
@@ -1386,7 +1391,7 @@ impl ScanState {
 
         #[derive(Clone)]
         enum PreviousIncompleteTxns<L: LedgerIntf + Clone> {
-            Unapplied(Vec<TransactionWithWitness>),
+            Unapplied(Vec<Arc<TransactionWithWitness>>),
             PartiallyApplied(Vec<(TransactionStatus, TransactionPartiallyApplied<L>)>),
         }
 
@@ -1435,13 +1440,13 @@ impl ScanState {
         type Acc<L> = Vec<(TransactionStatus, TransactionPartiallyApplied<L>)>;
 
         let apply_txns_first_pass = |mut acc: Acc<L>,
-                                     txns: Vec<TransactionWithWitness>|
+                                     txns: Vec<Arc<TransactionWithWitness>>|
          -> Result<(Pass, Acc<L>), String> {
             let mut ledger = ledger.clone();
 
             for txn in txns {
                 let (transaction, state_hash, block_global_slot) =
-                    Self::extract_txn_and_global_slot(txn);
+                    Self::extract_txn_and_global_slot(txn.as_ref());
                 let expected_status = transaction.status;
 
                 let partially_applied_txn = apply(
@@ -1584,7 +1589,7 @@ impl ScanState {
                 }
             };
 
-            let apply_txns_to_witnesses_first_pass = |txns: Vec<TransactionWithWitness>| {
+            let apply_txns_to_witnesses_first_pass = |txns: Vec<Arc<TransactionWithWitness>>| {
                 let acc = txns
                     .into_iter()
                     .map(|txn| {
@@ -1592,7 +1597,7 @@ impl ScanState {
                             txn.first_pass_ledger_witness.copy_content();
 
                         let (transaction, state_hash, block_global_slot) =
-                            ScanState::extract_txn_and_global_slot(txn);
+                            ScanState::extract_txn_and_global_slot(txn.as_ref());
                         let expected_status = transaction.status.clone();
 
                         let partially_applied_txn = apply(
@@ -1628,13 +1633,13 @@ impl ScanState {
 
         fn apply_txns<'a, L>(
             mut previous_incomplete: PreviousIncompleteTxns<L>,
-            ordered_txns: Vec<TransactionsOrdered<TransactionWithWitness>>,
+            ordered_txns: Vec<TransactionsOrdered<Arc<TransactionWithWitness>>>,
             mut first_pass_ledger_hash: Pass,
             stop_at_first_pass: bool,
             apply_previous_incomplete_txns: &'a impl Fn(PreviousIncompleteTxns<L>) -> Result<(), String>,
             apply_txns_first_pass: &'a impl Fn(
                 Acc<L>,
-                Vec<TransactionWithWitness>,
+                Vec<Arc<TransactionWithWitness>>,
             ) -> Result<(Pass, Acc<L>), String>,
             apply_txns_second_pass: &'a impl Fn(Acc<L>) -> Result<(), String>,
         ) -> Result<Pass, String>
@@ -1782,7 +1787,7 @@ impl ScanState {
 
     fn apply_ordered_txns_sync<L, F, ApplyFirst, ApplySecond, ApplyFirstSparse>(
         stop_at_first_pass: Option<bool>,
-        ordered_txns: Vec<TransactionsOrdered<TransactionWithWitness>>,
+        ordered_txns: Vec<TransactionsOrdered<Arc<TransactionWithWitness>>>,
         ledger: &mut L,
         get_protocol_state: F,
         apply_first_pass: ApplyFirst,
@@ -1908,14 +1913,14 @@ impl ScanState {
         self.scan_state.next_on_new_tree()
     }
 
-    pub fn base_jobs_on_latest_tree(&self) -> impl Iterator<Item = TransactionWithWitness> {
+    pub fn base_jobs_on_latest_tree(&self) -> impl Iterator<Item = Arc<TransactionWithWitness>> {
         self.scan_state.base_jobs_on_latest_tree()
     }
 
     pub fn base_jobs_on_earlier_tree(
         &self,
         index: usize,
-    ) -> impl Iterator<Item = TransactionWithWitness> {
+    ) -> impl Iterator<Item = Arc<TransactionWithWitness>> {
         self.scan_state.base_jobs_on_earlier_tree(index)
     }
 
@@ -1940,18 +1945,19 @@ impl ScanState {
 
         match job {
             Base(d) => Extracted::First {
-                transaction_with_info: d.transaction_with_info,
-                statement: Box::new(d.statement),
+                transaction_with_info: d.transaction_with_info.to_owned(),
+                statement: Box::new(d.statement.to_owned()),
                 state_hash: d.state_hash,
-                first_pass_ledger_witness: d.first_pass_ledger_witness,
-                second_pass_ledger_witness: d.second_pass_ledger_witness,
-                init_stack: d.init_stack,
+                first_pass_ledger_witness: d.first_pass_ledger_witness.to_owned(),
+                second_pass_ledger_witness: d.second_pass_ledger_witness.to_owned(),
+                init_stack: d.init_stack.to_owned(),
                 block_global_slot: d.block_global_slot,
             },
-            Merge {
-                left: LedgerProofWithSokMessage { proof: p1, .. },
-                right: LedgerProofWithSokMessage { proof: p2, .. },
-            } => Extracted::Second(Box::new((p1, p2))),
+            Merge { left, right } => {
+                let LedgerProofWithSokMessage { proof: p1, .. } = left.as_ref();
+                let LedgerProofWithSokMessage { proof: p2, .. } = right.as_ref();
+                Extracted::Second(Box::new((p1.clone(), p2.clone())))
+            }
         }
     }
 
@@ -2067,7 +2073,7 @@ impl ScanState {
 
     pub fn fill_work_and_enqueue_transactions(
         &mut self,
-        transactions: Vec<TransactionWithWitness>,
+        transactions: Vec<Arc<TransactionWithWitness>>,
         work: Vec<transaction_snark::work::Unchecked>,
     ) -> Result<
         Option<(
@@ -2105,9 +2111,10 @@ impl ScanState {
             );
         }
 
-        let fill_in_transaction_snark_work =
-            |works: Vec<transaction_snark::work::Work>| -> Result<Vec<LedgerProofWithSokMessage>, String>
-        {
+        let fill_in_transaction_snark_work = |works: Vec<transaction_snark::work::Work>| -> Result<
+            Vec<Arc<LedgerProofWithSokMessage>>,
+            String,
+        > {
             let next_jobs = self
                 .scan_state
                 .jobs_for_next_update()
@@ -2115,11 +2122,22 @@ impl ScanState {
                 .flatten()
                 .take(total_proofs(&works));
 
-            let works = works.into_iter().flat_map(|transaction_snark::work::Work { fee, proofs, prover }| {
-                proofs.into_map(|proof| (fee, proof, prover.clone())).into_iter()
-            });
+            let works = works.into_iter().flat_map(
+                |transaction_snark::work::Work {
+                     fee,
+                     proofs,
+                     prover,
+                 }| {
+                    proofs
+                        .into_map(|proof| (fee, proof, prover.clone()))
+                        .into_iter()
+                },
+            );
 
-            next_jobs.zip(works).map(|(job, work)| completed_work_to_scanable_work(job, work)).collect()
+            next_jobs
+                .zip(works)
+                .map(|(job, work)| completed_work_to_scanable_work(job, work))
+                .collect()
         };
 
         // get incomplete transactions from previous proof which will be completed in
@@ -2141,7 +2159,8 @@ impl ScanState {
 
         match proof_opt {
             None => Ok(None),
-            Some((LedgerProofWithSokMessage { proof, .. }, _txns_with_witnesses)) => {
+            Some((pwsm, _txns_with_witnesses)) => {
+                let LedgerProofWithSokMessage { proof, .. } = pwsm.as_ref();
                 let curr_stmt = proof.statement();
 
                 let (prev_stmt, incomplete_zkapp_updates_from_old_proof) =
@@ -2275,15 +2294,15 @@ impl<T> TransactionsOrdered<T> {
     }
 }
 
-impl TransactionsOrdered<TransactionWithWitness> {
+impl TransactionsOrdered<Arc<TransactionWithWitness>> {
     fn first_and_second_pass_transactions_per_tree(
-        previous_incomplete: Vec<TransactionWithWitness>,
-        txns_per_tree: Vec<TransactionWithWitness>,
+        previous_incomplete: Vec<Arc<TransactionWithWitness>>,
+        txns_per_tree: Vec<Arc<TransactionWithWitness>>,
     ) -> Vec<Self> {
         let txns_per_tree_len = txns_per_tree.len();
 
-        let complete_and_incomplete_transactions = |txs: Vec<TransactionWithWitness>| -> Option<
-            TransactionsOrdered<TransactionWithWitness>,
+        let complete_and_incomplete_transactions = |txs: Vec<Arc<TransactionWithWitness>>| -> Option<
+            TransactionsOrdered<Arc<TransactionWithWitness>>,
         > {
             let target_first_pass_ledger = txs.get(0)?.statement.source.first_pass_ledger;
             let first_state_hash = txs.get(0)?.state_hash.0;
@@ -2350,11 +2369,12 @@ impl TransactionsOrdered<TransactionWithWitness> {
             })
         };
 
-        let txns_by_block = |txns_per_tree: Vec<TransactionWithWitness>| {
+        let txns_by_block = |txns_per_tree: Vec<Arc<TransactionWithWitness>>| {
             let mut global = Vec::with_capacity(txns_per_tree.len());
             let txns_per_tree_len = txns_per_tree.len();
 
-            let make_current = || Vec::<TransactionWithWitness>::with_capacity(txns_per_tree_len);
+            let make_current =
+                || Vec::<Arc<TransactionWithWitness>>::with_capacity(txns_per_tree_len);
             let mut current = make_current();
 
             for next in txns_per_tree {
@@ -2384,8 +2404,8 @@ impl TransactionsOrdered<TransactionWithWitness> {
     }
 
     fn first_and_second_pass_transactions_per_forest(
-        scan_state_txns: Vec<Vec<TransactionWithWitness>>,
-        previous_incomplete: Vec<TransactionWithWitness>,
+        scan_state_txns: Vec<Vec<Arc<TransactionWithWitness>>>,
+        previous_incomplete: Vec<Arc<TransactionWithWitness>>,
     ) -> Vec<Vec<Self>> {
         scan_state_txns
             .into_iter()
