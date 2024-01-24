@@ -2176,6 +2176,14 @@ where
             )
         }
 
+        if data.is_empty() && completed_jobs.is_empty() {
+            // We don't need to go further
+            // It would increment `self.curr_job_seq_no`, and we don't want that
+            // when the block is empty
+            println!("scan_state update: Empty block");
+            return Ok(None);
+        }
+
         let delay = self.delay + 1;
 
         // Increment the sequence number
