@@ -259,7 +259,9 @@ fn p2p_request_snarks_if_needed<S: Service>(store: &mut Store<S>) {
 /// Iterate all connected peers and check the time of the last response to the peer discovery request.
 /// If the elapsed time is large enough, send another discovery request.
 #[cfg(feature = "p2p-webrtc")]
-fn p2p_discovery_request<S: Service>(store: &mut Store<S>, meta: &ActionMeta) {
+fn p2p_discovery_request<S: Service>(store: &mut Store<S>, meta: &redux::ActionMeta) {
+    use crate::p2p::discovery::P2pDiscoveryAction;
+
     let peer_ids = store
         .state()
         .p2p
