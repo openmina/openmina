@@ -165,6 +165,13 @@ impl P2pState {
             .count()
     }
 
+    pub fn is_peer_connecting(&self, peer_id: &PeerId) -> bool {
+        self.peers
+            .get(peer_id)
+            .and_then(|p| p.status.as_connecting())
+            .map_or(false, |p| !p.is_error())
+    }
+
     pub fn is_peer_connected_or_connecting(&self, peer_id: &PeerId) -> bool {
         self.peers
             .get(peer_id)

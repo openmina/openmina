@@ -14,8 +14,8 @@ use super::{
     BlockProducerStagedLedgerDiffCreatePendingAction,
     BlockProducerStagedLedgerDiffCreateSuccessAction, BlockProducerWonSlot,
     BlockProducerWonSlotAction, BlockProducerWonSlotDiscardAction,
-    BlockProducerWonSlotDiscardReason, BlockProducerWonSlotProduceInitAction,
-    BlockProducerWonSlotSearchAction, BlockProducerWonSlotWaitAction,
+    BlockProducerWonSlotProduceInitAction, BlockProducerWonSlotSearchAction,
+    BlockProducerWonSlotWaitAction,
 };
 
 pub fn block_producer_effects<S: crate::Service>(

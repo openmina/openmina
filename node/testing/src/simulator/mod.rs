@@ -60,7 +60,7 @@ impl Simulator {
         while !runner.nodes_iter().all(|(_, node)| is_synced(node.state())) {
             runner
                 .run(
-                    Duration::from_secs(10),
+                    Duration::from_secs(20),
                     |_, _, _| RunDecision::ContinueExec,
                     move |_, _, _, action| {
                         matches!(action.action().kind(), ActionKind::TransitionFrontierSynced)

@@ -37,6 +37,7 @@ use openmina_node_native::NodeService;
 use redux::Instant;
 
 use crate::cluster::ClusterNodeId;
+use crate::node::NonDeterministicEvent;
 
 pub type DynEffects = Box<dyn FnMut(&State, &NodeTestingService, &ActionWithMeta) + Send>;
 
@@ -52,8 +53,10 @@ pub type PendingEventId = RequestId<PendingEventIdType>;
 pub struct NodeTestingService {
     real: NodeService,
     id: ClusterNodeId,
-    // Use webrtc p2p between Rust nodes.
+    /// Use webrtc p2p between Rust nodes.
     rust_to_rust_use_webrtc: bool,
+    /// We are replaying this node so disable some non-deterministic services.
+    is_replay: bool,
     monotonic_time: Instant,
     /// Events sent by the real service not yet received by state machine.
     pending_events: PendingRequests<PendingEventIdType, Event>,
@@ -68,6 +71,7 @@ impl NodeTestingService {
             real,
             id,
             rust_to_rust_use_webrtc: false,
+            is_replay: false,
             monotonic_time: Instant::now(),
             pending_events: PendingRequests::new(),
             dyn_effects: None,
@@ -75,13 +79,23 @@ impl NodeTestingService {
         }
     }
 
+    pub fn node_id(&self) -> ClusterNodeId {
+        self.id
+    }
+
     pub fn rust_to_rust_use_webrtc(&self) -> bool {
         self.rust_to_rust_use_webrtc
     }
 
-    pub fn set_rust_to_rust_use_webrtc(&mut self) {
+    pub fn set_rust_to_rust_use_webrtc(&mut self) -> &mut Self {
         assert!(cfg!(feature = "p2p-webrtc"));
         self.rust_to_rust_use_webrtc = true;
+        self
+    }
+
+    pub fn set_replay(&mut self) -> &mut Self {
+        self.is_replay = true;
+        self
     }
 
     pub fn advance_time(&mut self, by_nanos: u64) {
@@ -108,23 +122,43 @@ impl NodeTestingService {
             self.real.process_rpc_request(req);
         }
         while let Some(event) = self.real.event_receiver.try_next() {
+            // Drop non-deterministic events during replay. We
+            // have those recorded as `ScenarioStep::NonDeterministicEvent`.
+            if self.is_replay && NonDeterministicEvent::should_drop_event(&event) {
+                eprintln!("dropping non-deterministic event: {event:?}");
+                continue;
+            }
             self.pending_events.add(event);
         }
         self.pending_events.iter()
     }
 
     pub async fn next_pending_event(&mut self) -> Option<(PendingEventId, &Event)> {
-        tokio::select! {
-            Some(rpc) = self.real.rpc.req_receiver().recv() => {
-                self.real.process_rpc_request(rpc);
+        let event = loop {
+            tokio::select! {
+                Some(rpc) = self.real.rpc.req_receiver().recv() => {
+                    self.real.process_rpc_request(rpc);
+                    break self.real.event_receiver.try_next().unwrap();
+                }
+                res = self.real.event_receiver.wait_for_events() => {
+                    res.ok()?;
+                    let event = self.real.event_receiver.try_next().unwrap();
+                    // Drop non-deterministic events during replay. We
+                    // have those recorded as `ScenarioStep::NonDeterministicEvent`.
+                    if self.is_replay && NonDeterministicEvent::should_drop_event(&event) {
+                        eprintln!("dropping non-deterministic event: {event:?}");
+                        continue;
+                    }
+                    break event;
+                }
             }
-            res = self.real.event_receiver.wait_for_events() => {
-                res.ok()?;
-            }
-        }
-        let event = self.real.event_receiver.try_next().unwrap();
+        };
         let id = self.pending_events.add(event);
         Some((id, self.pending_events.get(id).unwrap()))
+    }
+
+    pub fn get_pending_event(&self, id: PendingEventId) -> Option<&Event> {
+        self.pending_events.get(id)
     }
 
     pub fn take_pending_event(&mut self, id: PendingEventId) -> Option<Event> {
@@ -208,6 +242,10 @@ impl P2pServiceWebrtcWithLibp2p for NodeTestingService {
         use node::p2p::identity::SecretKey as P2pSecretKey;
         use node::p2p::service_impl::libp2p::Cmd;
 
+        if self.is_replay {
+            return;
+        }
+
         let secret_key = P2pSecretKey::from_bytes({
             let mut bytes = [1; 32];
             let bytes_len = bytes.len();
@@ -225,6 +263,9 @@ impl P2pServiceWebrtcWithLibp2p for NodeTestingService {
     }
 
     fn start_discovery(&mut self, peers: Vec<P2pConnectionOutgoingInitOpts>) {
+        if self.is_replay {
+            return;
+        }
         self.real.start_discovery(peers)
     }
 }
