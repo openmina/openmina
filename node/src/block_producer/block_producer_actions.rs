@@ -1,5 +1,3 @@
-use std::cmp::Ordering;
-
 use mina_p2p_messages::v2::{
     ConsensusBodyReferenceStableV1, LedgerProofProdStableV2, MinaBaseStagedLedgerHashStableV1,
     StagedLedgerDiffDiffStableV2,

@@ -929,11 +929,7 @@ impl Libp2pService {
 
                 match received {
                     Received::Menu(_) => {}
-                    Received::HandshakeDone => {
-                        ch_send(
-                            P2pChannelEvent::Opened(peer_id.into(), ChannelId::Rpc, Ok(())).into(),
-                        );
-                    }
+                    Received::HandshakeDone => {}
                     Received::Query {
                         header: QueryHeader { tag, version, id },
                         bytes,

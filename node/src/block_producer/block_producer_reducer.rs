@@ -437,7 +437,7 @@ impl BlockProducerEnabled {
                         time: meta.time(),
                         won_slot: won_slot.clone(),
                         chain: std::mem::take(chain),
-                        block: dbg!(block).clone(),
+                        block: block.clone(),
                     };
                 }
             }

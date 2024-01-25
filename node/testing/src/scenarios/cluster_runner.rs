@@ -14,7 +14,7 @@ use crate::{
     cluster::{Cluster, ClusterNodeId, ClusterOcamlNodeId},
     network_debugger::Debugger,
     node::{
-        DaemonJson, DaemonJsonGenConfig, Node, NodeTestingConfig, OcamlNode,
+        DaemonJson, DaemonJsonGenConfig, Node, NodeTestingConfig, NonDeterministicEvent, OcamlNode,
         OcamlNodeTestingConfig, RustNodeTestingConfig,
     },
     scenario::ScenarioStep,
@@ -132,8 +132,27 @@ impl<'a> ClusterRunner<'a> {
     }
 
     pub async fn exec_step(&mut self, step: ScenarioStep) -> anyhow::Result<bool> {
-        (self.add_step)(&step);
-        self.cluster.exec_step(step).await
+        match &step {
+            ScenarioStep::Event { node_id, event } => {
+                let node_id = *node_id;
+                let event_id = self.cluster.wait_for_pending_event(node_id, &event).await?;
+                let node = self.cluster.node(node_id).unwrap();
+                let event_ref = node.get_pending_event(event_id).unwrap();
+                if let Some(event) = NonDeterministicEvent::new(event_ref) {
+                    (self.add_step)(&ScenarioStep::NonDeterministicEvent { node_id, event });
+                } else {
+                    (self.add_step)(&step);
+                }
+                Ok(self
+                    .node_mut(node_id)
+                    .unwrap()
+                    .take_event_and_dispatch(event_id))
+            }
+            _ => {
+                (self.add_step)(&step);
+                self.cluster.exec_step(step).await
+            }
+        }
     }
 
     async fn exec_step_with_dyn_effects(
