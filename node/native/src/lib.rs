@@ -7,3 +7,6 @@ pub mod tracing;
 
 mod service;
 pub use service::*;
+
+mod alloc_tracker;
+pub use self::alloc_tracker::AllocTracker;
