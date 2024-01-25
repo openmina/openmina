@@ -92,9 +92,10 @@ impl BlockProducerVrfEvaluatorUpdateProducerAndDelegatesAction {
         let current_epoch_producer_and_delegators: std::collections::BTreeMap<
             ledger::AccountIndex,
             (AccountPublicKey, u64),
-        > = store
-            .service
-            .get_producer_and_delegates(self.current_epoch_ledger_hash, self.producer.clone());
+        > = store.service.get_producer_and_delegates(
+            self.current_epoch_ledger_hash.clone(),
+            self.producer.clone(),
+        );
         let next_epoch_producer_and_delegators: std::collections::BTreeMap<
             ledger::AccountIndex,
             (AccountPublicKey, u64),
@@ -106,6 +107,7 @@ impl BlockProducerVrfEvaluatorUpdateProducerAndDelegatesAction {
             BlockProducerVrfEvaluatorUpdateProducerAndDelegatesSuccessAction {
                 current_epoch_producer_and_delegators,
                 next_epoch_producer_and_delegators,
+                staking_ledger_hash: self.current_epoch_ledger_hash,
             },
         );
     }

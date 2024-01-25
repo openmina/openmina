@@ -79,6 +79,15 @@ pub enum VrfEvaluationOutput {
     SlotLost(u32), // TODO(adonagy): create or use existing a type
 }
 
+impl VrfEvaluationOutput {
+    pub fn global_slot(&self) -> u32 {
+        match self {
+            Self::SlotWon(won_slot) => won_slot.global_slot,
+            Self::SlotLost(global_slot) => *global_slot,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct VrfEvaluationInput {
     producer_key: Keypair,

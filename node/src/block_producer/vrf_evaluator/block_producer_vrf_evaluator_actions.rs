@@ -52,6 +52,7 @@ impl redux::EnablingCondition<crate::State>
 pub struct BlockProducerVrfEvaluatorUpdateProducerAndDelegatesSuccessAction {
     pub current_epoch_producer_and_delegators: BTreeMap<AccountIndex, (AccountPublicKey, u64)>,
     pub next_epoch_producer_and_delegators: BTreeMap<AccountIndex, (AccountPublicKey, u64)>,
+    pub staking_ledger_hash: LedgerHash,
 }
 
 impl redux::EnablingCondition<crate::State>
@@ -62,7 +63,11 @@ impl redux::EnablingCondition<crate::State>
             matches!(
                 this.vrf_evaluator.status,
                 BlockProducerVrfEvaluatorStatus::DataPending { .. }
-            )
+            ) && this
+                .vrf_evaluator
+                .current_epoch_data
+                .as_ref()
+                .is_some_and(|epoch_data| epoch_data.ledger == self.staking_ledger_hash)
         })
     }
 }
@@ -93,10 +98,9 @@ pub struct BlockProducerVrfEvaluatorEvaluationSuccessAction {
 impl redux::EnablingCondition<crate::State> for BlockProducerVrfEvaluatorEvaluationSuccessAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
         state.block_producer.with(false, |this| {
-            matches!(
-                this.vrf_evaluator.status,
-                BlockProducerVrfEvaluatorStatus::SlotsRequested { .. }
-            )
+            this.vrf_evaluator
+                .status
+                .matches_requsted_slot(self.vrf_output.global_slot(), &self.staking_ledger_hash)
         })
     }
 }

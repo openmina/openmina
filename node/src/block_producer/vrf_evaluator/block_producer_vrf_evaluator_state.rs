@@ -67,11 +67,49 @@ impl EpochData {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum BlockProducerVrfEvaluatorStatus {
-    Idle { time: redux::Timestamp },
-    EpochChanged { time: redux::Timestamp },
-    DataPending { time: redux::Timestamp },
-    DataSuccess { time: redux::Timestamp },
-    DataFail { time: redux::Timestamp },
-    SlotsRequested { time: redux::Timestamp },
-    SlotsReceived { time: redux::Timestamp },
+    Idle {
+        time: redux::Timestamp,
+    },
+    EpochChanged {
+        time: redux::Timestamp,
+    },
+    DataPending {
+        time: redux::Timestamp,
+    },
+    DataSuccess {
+        time: redux::Timestamp,
+    },
+    DataFail {
+        time: redux::Timestamp,
+    },
+    SlotsRequested {
+        time: redux::Timestamp,
+        global_slot: u32,
+        staking_ledger_hash: LedgerHash,
+    },
+    SlotsReceived {
+        time: redux::Timestamp,
+        global_slot: u32,
+        staking_ledger_hash: LedgerHash,
+    },
+}
+
+impl BlockProducerVrfEvaluatorStatus {
+    pub fn matches_requsted_slot(
+        &self,
+        expected_global_slot: u32,
+        expected_staking_ledger_hash: &LedgerHash,
+    ) -> bool {
+        match self {
+            Self::SlotsRequested {
+                global_slot,
+                staking_ledger_hash,
+                ..
+            } => {
+                &expected_global_slot == global_slot
+                    && expected_staking_ledger_hash == staking_ledger_hash
+            }
+            _ => false,
+        }
+    }
 }
