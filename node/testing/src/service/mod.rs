@@ -36,6 +36,7 @@ use node::{
 use node::{ActionWithMeta, State};
 use openmina_node_native::NodeService;
 use redux::Instant;
+use tracking_allocator::AllocationGroupToken;
 
 use crate::cluster::ClusterNodeId;
 use crate::node::NonDeterministicEvent;
@@ -64,6 +65,7 @@ pub struct NodeTestingService {
     dyn_effects: Option<DynEffects>,
     /// Once dropped, it will cause all threads associated to shutdown.
     _shutdown: mpsc::Receiver<()>,
+    allocation_group: AllocationGroupToken,
 }
 
 impl NodeTestingService {
@@ -77,6 +79,8 @@ impl NodeTestingService {
             pending_events: PendingRequests::new(),
             dyn_effects: None,
             _shutdown,
+            allocation_group: AllocationGroupToken::register()
+                .expect("failed to register allocation group"),
         }
     }
 
@@ -122,6 +126,7 @@ impl NodeTestingService {
         while let Ok(req) = self.real.rpc.req_receiver().try_recv() {
             self.real.process_rpc_request(req);
         }
+        let _guart = self.allocation_group.enter();
         while let Some(event) = self.real.event_receiver.try_next() {
             // Drop non-deterministic events during replay. We
             // have those recorded as `ScenarioStep::NonDeterministicEvent`.
@@ -154,6 +159,8 @@ impl NodeTestingService {
                 }
             }
         };
+        let event = self.real.event_receiver.try_next().unwrap();
+        let _guart = self.allocation_group.enter();
         let id = self.pending_events.add(event);
         Some((id, self.pending_events.get(id).unwrap()))
     }
@@ -163,6 +170,7 @@ impl NodeTestingService {
     }
 
     pub fn take_pending_event(&mut self, id: PendingEventId) -> Option<Event> {
+        let _guart = self.allocation_group.enter();
         self.pending_events.remove(id)
     }
 
