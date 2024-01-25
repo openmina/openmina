@@ -2,12 +2,16 @@ mod config;
 pub use config::ClusterConfig;
 
 mod p2p_task_spawner;
+use openmina_core::log::system_time;
+use openmina_core::{warn, info};
 pub use p2p_task_spawner::P2pTaskSpawner;
 
 mod node_id;
 pub use node_id::{ClusterNodeId, ClusterOcamlNodeId};
+use serde::de::DeserializeOwned;
 
 use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 use std::{collections::VecDeque, sync::Arc};
 
@@ -47,10 +51,93 @@ use crate::{
     service::{NodeTestingService, PendingEventId},
 };
 
+fn openmina_path<P: AsRef<Path>>(path: P) -> Option<PathBuf> {
+    std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".cache/openmina").join(path))
+}
+
+fn read_index<T: DeserializeOwned>(name: &str) -> Option<T> {
+    openmina_path(name)
+        .and_then(|path| {
+            if !path.exists() {
+                return None;
+            }
+            match std::fs::File::open(path) {
+                    Ok(v) => Some(v),
+                    Err(e) => {
+                        warn!(system_time(); "cannot find verifier index for {name}: {e}");
+                        None
+                    }
+                }
+        })
+        .and_then(|file| match serde_cbor::from_reader(file) {
+            Ok(v) => Some(v),
+            Err(e) => {
+                warn!(system_time(); "cannot read verifier index for {name}: {e}");
+                None
+            }
+        })
+}
+
+fn write_index<T: Serialize>(name: &str, index: &T) -> Option<()> {
+    openmina_path(name)
+        .and_then(|path| {
+            let Some(parent) = path.parent() else {
+                warn!(system_time(); "cannot get parent for {path:?}");
+                return None;
+            };
+            if let Err(e) = std::fs::create_dir_all(parent) {
+                warn!(system_time(); "cannot create parent dir for {parent:?}: {e}");
+                return None;
+            }
+            match std::fs::File::create(&path) {
+                Ok(v) => Some(v),
+                Err(e) => {
+                    warn!(system_time(); "cannot create file {path:?}: {e}");
+                    None
+                }
+            }
+        })
+        .and_then(|file| match serde_cbor::to_writer(file, index) {
+            Ok(_) => Some(()),
+            Err(e) => {
+                warn!(system_time(); "cannot write verifier index for {name}: {e}");
+                None
+            }
+        })
+}
+
 lazy_static::lazy_static! {
     static ref VERIFIER_SRS: Arc<VerifierSRS> = get_srs().into();
-    static ref BLOCK_VERIFIER_INDEX: Arc<VerifierIndex> = get_verifier_index(VerifierKind::Blockchain).into();
-    static ref WORK_VERIFIER_INDEX: Arc<VerifierIndex> = get_verifier_index(VerifierKind::Transaction).into();
+    static ref BLOCK_VERIFIER_INDEX: Arc<VerifierIndex> = {
+        const NAME: &str = "block_verifier_index.bin";
+        read_index(NAME).map(|v| {
+            info!(system_time(); "Block verifier index is loaded from {NAME}");
+            v
+        }).unwrap_or_else(|| {
+            info!(system_time(); "Generating block verifier index...");
+            let index = get_verifier_index(VerifierKind::Blockchain);
+            if write_index(NAME, &index).is_some() {
+                info!(system_time(); "Writing block verifier index to {NAME}...");
+            }
+            index
+        })
+        .into()
+    };
+    static ref WORK_VERIFIER_INDEX: Arc<VerifierIndex> = {
+        const NAME: &str = "transaction_verifier_index.bin";
+        read_index(NAME).map(|v| {
+            info!(system_time(); "Transaction verifier index is loaded from {NAME}");
+            v
+        }).unwrap_or_else(|| {
+            info!(system_time(); "Generating transaction verifier index...");
+            let index = get_verifier_index(VerifierKind::Transaction);
+            if write_index(NAME, &index).is_some() {
+                info!(system_time(); "Writing transaction verifier index to {NAME}...");
+            }
+            index
+        })
+        .into()
+    };
 }
 
 pub struct Cluster {
