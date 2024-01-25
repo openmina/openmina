@@ -1,0 +1,43 @@
+<div class="pl-12 pr-12 fx-row-vert-cent flex-between h-xl">
+  <div class="fx-row-vert-cent">
+    <span class="mina-icon icon-200 mr-10 tertiary primary-hover pointer"
+          *ngIf="breadcrumbs?.length > 1"
+          (click)="back()">arrow_back
+    </span>
+    <div class="f-600 secondary h-xl lh-xl" *ngIf="activeResource">
+      {{ activeResource.name.executableName }}
+      <span class="f-400 ml-8">{{ activeResource.value | resSize }}</span>
+    </div>
+  </div>
+  <div class="fx-row-vert-cent">
+    <div class="f-600 tertiary mr-10">Granularity</div>
+    <button class="gran btn-primary fx-row-vert-cent flex-between"
+            #granBtn
+            (click)="openGranularityDropdown($event)">
+      {{ granularity }} KB
+      <span class="mina-icon icon-200">arrow_drop_down</span>
+    </button>
+    <div class="f-600 tertiary mr-10 ml-16">Treemap</div>
+    <button class="tree btn-primary fx-row-vert-cent" #treemapBtn
+            (click)="openTreemapDropdown($event)">
+      {{ treemapView }}
+      <span class="mina-icon icon-200">arrow_drop_down</span>
+    </button>
+  </div>
+</div>
+
+<ng-template #granularityDropdown>
+  <div class="flex-column popup-box-shadow-weak bg-surface-top border border-rad-6 pointer w-100 f-600 secondary"
+       (clickOutside)="detach()">
+    <div class="h-md lh-md bg-container-hover pl-10 pr-10 primary-hover"
+         *ngFor="let g of granularities" (click)="setGranularity(g)">{{ g }} KB</div>
+  </div>
+</ng-template>
+
+<ng-template #treemapDropdown>
+  <div class="flex-column popup-box-shadow-weak bg-surface-top border border-rad-6 pointer w-100 f-600 secondary"
+       (clickOutside)="detach()">
+    <div class="h-md lh-md bg-container-hover pl-10 pr-10 primary-hover"
+         *ngFor="let view of treemapOptions" (click)="setTreemapView(view)">{{ view }}</div>
+  </div>
+</ng-template>

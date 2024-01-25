@@ -14,14 +14,25 @@ export const environment: Readonly<MinaEnv> = {
     },
   },
   configs: [
+    // {
+    //   name: 'feat/frontend-api-peers',
+    //   url: 'http://176.9.147.28:3000',
+    //   features: {
+    //     dashboard: [],
+    //     nodes: ['overview', 'live', 'bootstrap'],
+    //     state: ['actions'],
+    //     snarks: ['scan-state', /*'work-pool'*/],
+    //     resources: ['memory'],
+    //   },
+    // },
     {
-      name: 'feat/frontend-api-peers',
-      url: 'http://176.9.147.28:3000',
+      name: 'Node with mem profiler',
+      url: 'http://1.k8.openmina.com:30252',
+      memoryProfiler: 'http://1.k8.openmina.com:31164',
       features: {
-        dashboard: [],
         nodes: ['overview', 'live', 'bootstrap'],
         state: ['actions'],
-        snarks: ['scan-state', /*'work-pool'*/],
+        snarks: ['scan-state'],
         resources: ['memory'],
       },
     },
@@ -37,18 +48,18 @@ export const environment: Readonly<MinaEnv> = {
         resources: ['memory'],
       },
     },
-    // {
-    //   name: 'Snarker 1',
-    //   url: 'http://webrtc2.webnode.openmina.com:10000',
-    // },
-    // {
-    //   name: 'Snarker 2',
-    //   url: 'http://webrtc3.webnode.openmina.com:10000',
-    // },
-    // {
-    //   name: 'Snarker 3',
-    //   url: 'http://webrtc4.webnode.openmina.com:10000',
-    // }
+    {
+      name: 'Snarker 1',
+      url: 'http://webrtc2.webnode.openmina.com:10000',
+    },
+    {
+      name: 'Snarker 2',
+      url: 'http://webrtc3.webnode.openmina.com:10000',
+    },
+    {
+      name: 'Snarker 3',
+      url: 'http://webrtc4.webnode.openmina.com:10000',
+    }
   ],
 };
 

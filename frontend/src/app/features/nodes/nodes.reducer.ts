@@ -21,7 +21,7 @@ export type NodesAction =
   & NodesLiveAction
   ;
 
-export const reducer: ActionReducer<NodesState, NodesActions> = combineReducers<NodesState, NodesActions>({
+export const nodesReducer: ActionReducer<NodesState, NodesActions> = combineReducers<NodesState, NodesActions>({
   overview: fromDashboard.reducer,
   bootstrap: fromBootstrap.reducer,
   live: fromLive.reducer,

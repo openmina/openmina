@@ -3,15 +3,8 @@ import { catchError, forkJoin, map, Observable, of } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
 import { NodesOverviewNode, NodesOverviewNodeKindType } from '@shared/types/nodes/dashboard/nodes-overview-node.type';
 import { hasValue, ONE_BILLION, ONE_MILLION, toReadableDate } from '@openmina/shared';
-import {
-  NodesOverviewBlock,
-  NodesOverviewNodeBlockStatus
-} from '@shared/types/nodes/dashboard/nodes-overview-block.type';
-import {
-  NodesOverviewLedger,
-  NodesOverviewLedgerStep,
-  NodesOverviewLedgerStepState
-} from '@shared/types/nodes/dashboard/nodes-overview-ledger.type';
+import { NodesOverviewBlock, NodesOverviewNodeBlockStatus } from '@shared/types/nodes/dashboard/nodes-overview-block.type';
+import { NodesOverviewLedger, NodesOverviewLedgerStep, NodesOverviewLedgerStepState } from '@shared/types/nodes/dashboard/nodes-overview-ledger.type';
 import { CONFIG } from '@shared/constants/config';
 import { MinaNode } from '@shared/types/core/environment/mina-env.type';
 
@@ -123,12 +116,21 @@ export class NodesOverviewService {
     };
     if (ledgers.staking_epoch) {
       ledger.stakingEpoch = getLedgerStep(ledgers.staking_epoch);
+      if (ledger.stakingEpoch.state !== NodesOverviewLedgerStepState.SUCCESS && (ledgers.staking_epoch.synced || ledgers.next_epoch.synced || ledgers.root.synced)) {
+        ledger.stakingEpoch.state = NodesOverviewLedgerStepState.SUCCESS;
+      }
     }
     if (ledgers.next_epoch) {
       ledger.nextEpoch = getLedgerStep(ledgers.next_epoch);
+      if (ledger.nextEpoch.state !== NodesOverviewLedgerStepState.SUCCESS && (ledgers.next_epoch.synced || ledgers.root.synced)) {
+        ledger.nextEpoch.state = NodesOverviewLedgerStepState.SUCCESS;
+      }
     }
     if (ledgers.root) {
       ledger.root = getLedgerStep(ledgers.root);
+      if (ledger.root.state !== NodesOverviewLedgerStepState.SUCCESS && ledgers.root.synced) {
+        ledger.root.state = NodesOverviewLedgerStepState.SUCCESS;
+      }
     }
     return ledger;
   }

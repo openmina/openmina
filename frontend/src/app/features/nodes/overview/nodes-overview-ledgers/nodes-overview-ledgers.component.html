@@ -11,7 +11,7 @@
           *ngTemplateOutlet="ledgerTime; context: { state: ledgers.stakingEpoch.state, time: ledgers.stakingEpoch.totalTime }"></ng-container>
       </span>
     </div>
-    <div class="steps flex-column pr-12">
+    <div *ngIf="stepsMap['stakingEpoch']" class="steps flex-column pr-12">
       <div class="flex-row flex-between h-lg lh-lg"
            (mouseenter)="show($event, ledgers.stakingEpoch.snarked.fetchHashesStart, ledgers.stakingEpoch.snarked.fetchHashesEnd)"
            (mouseleave)="hide()">
@@ -53,7 +53,7 @@
           *ngTemplateOutlet="ledgerTime; context: { state: ledgers.nextEpoch.state, time: ledgers.nextEpoch.totalTime }"></ng-container>
       </span>
     </div>
-    <div class="steps flex-column pr-12">
+    <div *ngIf="stepsMap['nextEpoch']" class="steps flex-column pr-12">
       <div class="flex-row flex-between h-lg lh-lg"
            (mouseenter)="show($event, ledgers.nextEpoch.snarked.fetchHashesStart, ledgers.nextEpoch.snarked.fetchHashesEnd)"
            (mouseleave)="hide()">
@@ -95,7 +95,7 @@
           *ngTemplateOutlet="ledgerTime; context: { state: ledgers.root.state, time: ledgers.root.totalTime }"></ng-container>
       </span>
     </div>
-    <div class="steps flex-column pr-12">
+    <div *ngIf="stepsMap['root']" class="steps flex-column pr-12">
       <div class="flex-row flex-between h-lg lh-lg"
            (mouseenter)="show($event, ledgers.root.snarked.fetchHashesStart, ledgers.root.snarked.fetchHashesEnd)"
            (mouseleave)="hide()">

@@ -3,7 +3,7 @@ import { MinaState } from '@app/app.setup';
 import { NetworkBlocksState } from '@network/blocks/network-blocks.state';
 import { stateSliceAsPromise } from '../../../support/commands';
 
-const condition = (state: NetworkBlocksState) => state && state.blocks.length > 2;
+const condition = (state: NetworkBlocksState) => state && state.blocks?.length > 2;
 const networkBlocksState = (store: Store<MinaState>) => stateSliceAsPromise<NetworkBlocksState>(store, condition, 'network', 'blocks');
 
 
@@ -18,7 +18,7 @@ describe('NETWORK BLOCKS TOOLBAR', () => {
       .its('store')
       .then(networkBlocksState)
       .then((state: NetworkBlocksState) => {
-        if (state && state.blocks.length > 2) {
+        if (condition(state)) {
           let activeBlock = state.activeBlock;
           cy.get('mina-network-blocks-toolbar > div:first-child .pagination-group button:last-child')
             .should('have.class', 'disabled')
@@ -32,6 +32,7 @@ describe('NETWORK BLOCKS TOOLBAR', () => {
             .then(networkBlocksState)
             .then((state: NetworkBlocksState) => {
               if (state && activeBlock !== undefined) {
+                expect(state.filteredBlocks.every(m => m.height === activeBlock - 1)).to.be.true;
                 expect(activeBlock).to.equal(state.activeBlock + 1);
                 cy.get('mina-network-blocks-toolbar > div:first-child .pagination-group button:last-child')
                   .should('not.have.class', 'disabled')
@@ -49,7 +50,7 @@ describe('NETWORK BLOCKS TOOLBAR', () => {
       .its('store')
       .then(networkBlocksState)
       .then((state: NetworkBlocksState) => {
-        if (state && state.blocks.length > 2) {
+        if (condition(state)) {
           let activeBlock = state.activeBlock;
           cy.get('mina-network-blocks-toolbar > div:first-child .pagination-group button:last-child')
             .should('have.class', 'disabled')
@@ -74,6 +75,7 @@ describe('NETWORK BLOCKS TOOLBAR', () => {
                   .then((state: NetworkBlocksState) => {
                     if (state && activeBlock !== undefined) {
                       expect(activeBlock).to.equal(state.activeBlock);
+                      expect(state.filteredBlocks.every(m => m.height === activeBlock)).to.be.true;
                       cy.get('mina-network-blocks-toolbar > div:first-child .pagination-group button:last-child')
                         .should('have.class', 'disabled')
                         .get('mina-network-blocks-toolbar > div:first-child button:last-child')
@@ -92,7 +94,7 @@ describe('NETWORK BLOCKS TOOLBAR', () => {
       .its('store')
       .then(networkBlocksState)
       .then((state: NetworkBlocksState) => {
-        if (state && state.blocks.length > 2) {
+        if (condition(state)) {
           let earliestBlock = state.earliestBlock;
           cy.get('mina-network-blocks-toolbar > div:first-child .pagination-group button:last-child')
             .should('have.class', 'disabled')
@@ -117,6 +119,7 @@ describe('NETWORK BLOCKS TOOLBAR', () => {
             .then((state: NetworkBlocksState) => {
               if (state && earliestBlock !== undefined) {
                 expect(earliestBlock).to.equal(state.activeBlock);
+                expect(state.filteredBlocks.every(m => m.height === earliestBlock)).to.be.true;
                 cy.get('mina-network-blocks-toolbar > div:first-child .pagination-group button:last-child')
                   .should('have.class', 'disabled')
                   .get('mina-network-blocks-toolbar > div:first-child button:last-child')

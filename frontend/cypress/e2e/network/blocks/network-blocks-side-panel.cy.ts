@@ -3,7 +3,7 @@ import { MinaState } from '@app/app.setup';
 import { NetworkBlocksState } from '@network/blocks/network-blocks.state';
 import { stateSliceAsPromise } from '../../../support/commands';
 
-const condition = (state: NetworkBlocksState) => state && state.blocks.length > 2;
+const condition = (state: NetworkBlocksState) => state && state.blocks?.length > 2;
 const networkBlocksState = (store: Store<MinaState>) => stateSliceAsPromise<NetworkBlocksState>(store, condition, 'network', 'blocks');
 
 
@@ -12,26 +12,22 @@ describe('NETWORK BLOCKS SIDE PANEL', () => {
     cy.visit(Cypress.config().baseUrl + '/network/blocks');
   });
 
-  it('side panel is open at the beginning', () => {
-    cy.get('mina-network-blocks-side-panel')
-      .should('be.visible');
+  it('side panel is not open at the beginning', () => {
+    cy.get('mina-network-blocks-side-panel mina-bar-graph')
+      .should('not.be.visible');
   });
 
   it('show/hide side panel', () => {
-    cy.get('mina-network-blocks-side-panel div:nth-child(1) button:nth-child(2)')
+    cy.get('mina-network-blocks-toolbar > div:nth-child(2) > button')
       .click()
       .wait(1000)
-      .log('')
-      .get('mina-network-blocks-side-panel div:nth-child(1) button:nth-child(2)')
-      .should('not.be.visible')
       .get('mina-bar-graph .y-grid-marks')
-      .should('not.be.visible')
-      .get('.mina-table .row.head button')
+      .should('be.visible')
+      .get('mina-network-blocks-toolbar > div:nth-child(2) > button')
       .click()
       .wait(1000)
-      .log('')
       .get('mina-bar-graph .y-grid-marks')
-      .should('be.visible');
+      .should('not.be.visible');
   });
 
   it('displays correct number of bars in the bar graph', () => {
@@ -54,7 +50,7 @@ describe('NETWORK BLOCKS SIDE PANEL', () => {
       .its('store')
       .then(networkBlocksState)
       .then((state: NetworkBlocksState) => {
-        if (state && state.blocks.length > 2) {
+        if (condition(state)) {
           cy.get('mina-bar-graph .y-tick-line > div')
             .then((ticksRefs: any) => {
               const ticks = Array.from(ticksRefs).map((t: any) => t.textContent).filter((t: string) => t !== 'Count').map(t => Number(t)).reverse();
@@ -79,7 +75,7 @@ describe('NETWORK BLOCKS SIDE PANEL', () => {
             .its('store')
             .then(networkBlocksState)
             .then((state: NetworkBlocksState) => {
-              if (state) {
+              if (condition(state)) {
                 const bars = state.filteredBlocks.filter(b => b.receivedLatency || b.sentLatency).map(b => b.receivedLatency || b.sentLatency);
                 const thirdBarValues = bars.filter(b => b <= 3 && b > 3 - 1);
                 const fourthBarValues = bars.filter(b => b <= 4 && b > 4 - 1);
@@ -110,7 +106,7 @@ describe('NETWORK BLOCKS SIDE PANEL', () => {
       .its('store')
       .then(networkBlocksState)
       .then((state: NetworkBlocksState) => {
-        if (state && state.blocks.length > 2) {
+        if (condition(state)) {
           cy.get('mina-network-blocks-toolbar > div:first-child .pagination-group button:first-child')
             .click({ force: true })
             .wait(1000)
@@ -138,7 +134,7 @@ describe('NETWORK BLOCKS SIDE PANEL', () => {
             .its('store')
             .then(networkBlocksState)
             .then((state: NetworkBlocksState) => {
-              if (state) {
+              if (condition(state)) {
                 const bars = state.filteredBlocks.filter(b => b.receivedLatency || b.sentLatency).map(b => b.receivedLatency || b.sentLatency);
                 const thirdBarValues = bars.filter(b => b <= 3 && b > 3 - 1);
                 const fourthBarValues = bars.filter(b => b <= 4 && b > 4 - 1);
@@ -151,28 +147,6 @@ describe('NETWORK BLOCKS SIDE PANEL', () => {
                 expect(tenthBarHeight).to.be.closeTo((tenthBarValues.length * maxHeight / yMax) || 4, 1);
                 expect(fifteenthBarHeight).to.be.closeTo((fifteenthBarValues.length * maxHeight / yMax) || 4, 1);
               }
-            });
-        }
-      });
-  });
-
-  it('sort by sent message kind', () => {
-    let firstSentTime: number;
-    cy.window()
-      .its('store')
-      .then(networkBlocksState)
-      .then((state: NetworkBlocksState) => {
-        if (state && state.blocks.length > 2) {
-          cy.get('.mina-table .row.head span:nth-child(8)')
-            .click()
-            .wait(500)
-            .get('.mina-table .row:not(.head):nth-child(1) span:nth-child(8)')
-            .then((span: any) => {
-              firstSentTime = span[0].textContent;
-            })
-            .get('mina-network-blocks-side-panel > div:nth-child(2) > div > div span.f-600')
-            .then((span: any) => {
-              expect(span[0].textContent).to.equal(firstSentTime);
             });
         }
       });

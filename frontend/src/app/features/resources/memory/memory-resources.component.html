@@ -1,1 +1,14 @@
-<app-memory-resources-tree-map></app-memory-resources-tree-map>
+<app-memory-resources-toolbar></app-memory-resources-toolbar>
+<app-memory-resources-treemap class="pl-12 pr-12"></app-memory-resources-treemap>
+<div class="h-xl">
+  <mina-horizontal-menu [template]="breadcrumbsRef" [clz]="'pl-12 pr-12 h-xl'"></mina-horizontal-menu>
+  <ng-template #breadcrumbsRef>
+    <ng-container *ngFor="let breadcrumb of breadcrumbs; let i=index">
+      <span class="breadcrumb mr-10 text-nowrap"
+            (click)="setActiveResource(breadcrumb)">{{ breadcrumb.name.executableName }}</span>
+      <span class="mina-icon icon-200 mr-10 tertiary"
+            *ngIf="i !== breadcrumbs.length - 1">chevron_right</span>
+    </ng-container>
+  </ng-template>
+</div>
+<app-memory-resources-table></app-memory-resources-table>

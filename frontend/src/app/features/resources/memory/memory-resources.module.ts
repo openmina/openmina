@@ -1,19 +1,33 @@
 import { NgModule } from '@angular/core';
-import { CommonModule } from '@angular/common';
 
 import { MemoryResourcesRouting } from '@resources/memory/memory-resources.routing';
-import { MemoryResourcesTreeMapComponent } from '@resources/memory/memory-resources-tree-map/memory-resources-tree-map.component';
 import { MemoryResourcesComponent } from '@resources/memory/memory-resources.component';
+import { SharedModule } from '@shared/shared.module';
+import { EffectsModule } from '@ngrx/effects';
+import { MemoryResourcesEffects } from '@resources/memory/memory-resources.effects';
+import { MemoryResourcesTableComponent } from '@resources/memory/memory-resources-table/memory-resources-table.component';
+import { HorizontalMenuComponent } from '@openmina/shared';
+import { ResourcesSizePipe } from '@resources/memory/memory-resources.pipe';
+import { MemoryResourcesTreemapComponent } from '@resources/memory/memory-resources-treemap/memory-resources-treemap.component';
+import { MemoryResourcesToolbarComponent } from './memory-resources-toolbar/memory-resources-toolbar.component';
 
 
 @NgModule({
   declarations: [
     MemoryResourcesComponent,
-    MemoryResourcesTreeMapComponent,
+    MemoryResourcesTableComponent,
+    MemoryResourcesTreemapComponent,
+    ResourcesSizePipe,
+    MemoryResourcesToolbarComponent,
   ],
   imports: [
-    CommonModule,
     MemoryResourcesRouting,
+    SharedModule,
+    EffectsModule.forFeature(MemoryResourcesEffects),
+    HorizontalMenuComponent,
+  ],
+  providers: [
+    ResourcesSizePipe,
   ],
 })
 export class MemoryResourcesModule {}

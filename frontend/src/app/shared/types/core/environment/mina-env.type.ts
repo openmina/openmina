@@ -10,6 +10,7 @@ export interface MinaEnv {
 export interface MinaNode {
   name: string;
   url: string;
+  memoryProfiler?: string;
   debugger?: string;
   features?: FeaturesConfig;
 }

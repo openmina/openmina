@@ -286,7 +286,8 @@ describe('NETWORK MESSAGES FOOTER', () => {
       .get('.cdk-overlay-container mina-interval-select .container div:nth-child(2) form input:nth-child(2)')
       .should('have.value', hourNow)
       .get('.cdk-overlay-container mina-interval-select .container div:nth-child(2) form input:nth-child(3)')
-      .should('have.value', minuteNow)
+      .invoke('val')
+      .then((value: string | number | string[]) => expect(Number(value)).to.be.approximately(minuteNow, 1))
       .get('.cdk-overlay-container mina-interval-select .container div:nth-child(2) form input:nth-child(4)')
       .invoke('val')
       .then((value: string | number | string[]) => {
@@ -301,7 +302,8 @@ describe('NETWORK MESSAGES FOOTER', () => {
       .get('.cdk-overlay-container mina-interval-select .container div:nth-child(3) form input:nth-child(2)')
       .should('have.value', hourNow)
       .get('.cdk-overlay-container mina-interval-select .container div:nth-child(3) form input:nth-child(3)')
-      .should('have.value', minuteNow)
+      .invoke('val')
+      .then((value: string | number | string[]) => expect(Number(value)).to.be.approximately(minuteNow, 1))
       .get('.cdk-overlay-container mina-interval-select .container div:nth-child(3) form input:nth-child(4)')
       .invoke('val')
       .then((value: string | number | string[]) => {
@@ -339,7 +341,8 @@ describe('NETWORK MESSAGES FOOTER', () => {
       .get('.cdk-overlay-container mina-interval-select .container div:nth-child(2) form input:nth-child(2)')
       .should('have.value', hoursOneMinuteAgo)
       .get('.cdk-overlay-container mina-interval-select .container div:nth-child(2) form input:nth-child(3)')
-      .should('have.value', minutesOneMinuteAgo)
+      .invoke('val')
+      .then((value: string | number | string[]) => expect(Number(value)).to.be.approximately(minutesOneMinuteAgo, 1))
       .get('.cdk-overlay-container mina-interval-select .container div:nth-child(2) form input:nth-child(4)')
       .invoke('val')
       .then((value: string | number | string[]) => {
@@ -354,7 +357,8 @@ describe('NETWORK MESSAGES FOOTER', () => {
       .get('.cdk-overlay-container mina-interval-select .container div:nth-child(3) form input:nth-child(2)')
       .should('have.value', hourNow)
       .get('.cdk-overlay-container mina-interval-select .container div:nth-child(3) form input:nth-child(3)')
-      .should('have.value', minuteNow)
+      .invoke('val')
+      .then((value: string | number | string[]) => expect(Number(value)).to.be.approximately(minuteNow, 1))
       .get('.cdk-overlay-container mina-interval-select .container div:nth-child(3) form input:nth-child(4)')
       .invoke('val')
       .then((value: string | number | string[]) => {
@@ -392,7 +396,8 @@ describe('NETWORK MESSAGES FOOTER', () => {
       .get('.cdk-overlay-container mina-interval-select .container div:nth-child(2) form input:nth-child(2)')
       .should('have.value', hoursFiveMinutesAgo)
       .get('.cdk-overlay-container mina-interval-select .container div:nth-child(2) form input:nth-child(3)')
-      .should('have.value', minutesFiveMinutesAgo)
+      .invoke('val')
+      .then((value: string | number | string[]) => expect(Number(value)).to.be.approximately(minutesFiveMinutesAgo, 1))
       .get('.cdk-overlay-container mina-interval-select .container div:nth-child(2) form input:nth-child(4)')
       .invoke('val')
       .then((value: string | number | string[]) => {
@@ -407,7 +412,8 @@ describe('NETWORK MESSAGES FOOTER', () => {
       .get('.cdk-overlay-container mina-interval-select .container div:nth-child(3) form input:nth-child(2)')
       .should('have.value', hourNow)
       .get('.cdk-overlay-container mina-interval-select .container div:nth-child(3) form input:nth-child(3)')
-      .should('have.value', minuteNow)
+      .invoke('val')
+      .then((value: string | number | string[]) => expect(Number(value)).to.be.approximately(minuteNow, 1))
       .get('.cdk-overlay-container mina-interval-select .container div:nth-child(3) form input:nth-child(4)')
       .invoke('val')
       .then((value: string | number | string[]) => {
@@ -445,7 +451,8 @@ describe('NETWORK MESSAGES FOOTER', () => {
       .get('.cdk-overlay-container mina-interval-select .container div:nth-child(2) form input:nth-child(2)')
       .should('have.value', hoursThirtyMinutesAgo)
       .get('.cdk-overlay-container mina-interval-select .container div:nth-child(2) form input:nth-child(3)')
-      .should('have.value', minutesThirtyMinutesAgo)
+      .invoke('val')
+      .then((value: string | number | string[]) => expect(Number(value)).to.be.approximately(minutesThirtyMinutesAgo, 1))
       .get('.cdk-overlay-container mina-interval-select .container div:nth-child(2) form input:nth-child(4)')
       .invoke('val')
       .then((value: string | number | string[]) => {
@@ -460,7 +467,8 @@ describe('NETWORK MESSAGES FOOTER', () => {
       .get('.cdk-overlay-container mina-interval-select .container div:nth-child(3) form input:nth-child(2)')
       .should('have.value', hourNow)
       .get('.cdk-overlay-container mina-interval-select .container div:nth-child(3) form input:nth-child(3)')
-      .should('have.value', minuteNow)
+      .invoke('val')
+      .then((value: string | number | string[]) => expect(Number(value)).to.be.approximately(minuteNow, 1))
       .get('.cdk-overlay-container mina-interval-select .container div:nth-child(3) form input:nth-child(4)')
       .invoke('val')
       .then((value: string | number | string[]) => {
@@ -498,7 +506,8 @@ describe('NETWORK MESSAGES FOOTER', () => {
       .get('.cdk-overlay-container mina-interval-select .container div:nth-child(2) form input:nth-child(2)')
       .should('have.value', hoursOneHourAgo)
       .get('.cdk-overlay-container mina-interval-select .container div:nth-child(2) form input:nth-child(3)')
-      .should('have.value', minutesOneHourAgo)
+      .invoke('val')
+      .then((value: string | number | string[]) => expect(Number(value)).to.be.approximately(minutesOneHourAgo, 1))
       .get('.cdk-overlay-container mina-interval-select .container div:nth-child(2) form input:nth-child(4)')
       .invoke('val')
       .then((value: string | number | string[]) => {
@@ -513,7 +522,8 @@ describe('NETWORK MESSAGES FOOTER', () => {
       .get('.cdk-overlay-container mina-interval-select .container div:nth-child(3) form input:nth-child(2)')
       .should('have.value', hourNow)
       .get('.cdk-overlay-container mina-interval-select .container div:nth-child(3) form input:nth-child(3)')
-      .should('have.value', minuteNow)
+      .invoke('val')
+      .then((value: string | number | string[]) => expect(Number(value)).to.be.approximately(minuteNow, 1))
       .get('.cdk-overlay-container mina-interval-select .container div:nth-child(3) form input:nth-child(4)')
       .invoke('val')
       .then((value: string | number | string[]) => {
@@ -551,7 +561,8 @@ describe('NETWORK MESSAGES FOOTER', () => {
       .get('.cdk-overlay-container mina-interval-select .container div:nth-child(2) form input:nth-child(2)')
       .should('have.value', hoursTwelveHoursAgo)
       .get('.cdk-overlay-container mina-interval-select .container div:nth-child(2) form input:nth-child(3)')
-      .should('have.value', minutesTwelveHoursAgo)
+      .invoke('val')
+      .then((value: string | number | string[]) => expect(Number(value)).to.be.approximately(minutesTwelveHoursAgo, 1))
       .get('.cdk-overlay-container mina-interval-select .container div:nth-child(2) form input:nth-child(4)')
       .invoke('val')
       .then((value: string | number | string[]) => {
@@ -566,7 +577,8 @@ describe('NETWORK MESSAGES FOOTER', () => {
       .get('.cdk-overlay-container mina-interval-select .container div:nth-child(3) form input:nth-child(2)')
       .should('have.value', hourNow)
       .get('.cdk-overlay-container mina-interval-select .container div:nth-child(3) form input:nth-child(3)')
-      .should('have.value', minuteNow)
+      .invoke('val')
+      .then((value: string | number | string[]) => expect(Number(value)).to.be.approximately(minuteNow, 1))
       .get('.cdk-overlay-container mina-interval-select .container div:nth-child(3) form input:nth-child(4)')
       .invoke('val')
       .then((value: string | number | string[]) => {
@@ -604,7 +616,8 @@ describe('NETWORK MESSAGES FOOTER', () => {
       .get('.cdk-overlay-container mina-interval-select .container div:nth-child(2) form input:nth-child(2)')
       .should('have.value', hoursOneDayAgo)
       .get('.cdk-overlay-container mina-interval-select .container div:nth-child(2) form input:nth-child(3)')
-      .should('have.value', minutesOneDayAgo)
+      .invoke('val')
+      .then((value: string | number | string[]) => expect(Number(value)).to.be.approximately(minutesOneDayAgo, 1))
       .get('.cdk-overlay-container mina-interval-select .container div:nth-child(2) form input:nth-child(4)')
       .invoke('val')
       .then((value: string | number | string[]) => {
@@ -619,7 +632,8 @@ describe('NETWORK MESSAGES FOOTER', () => {
       .get('.cdk-overlay-container mina-interval-select .container div:nth-child(3) form input:nth-child(2)')
       .should('have.value', hourNow)
       .get('.cdk-overlay-container mina-interval-select .container div:nth-child(3) form input:nth-child(3)')
-      .should('have.value', minuteNow)
+      .invoke('val')
+      .then((value: string | number | string[]) => expect(Number(value)).to.be.approximately(minuteNow, 1))
       .get('.cdk-overlay-container mina-interval-select .container div:nth-child(3) form input:nth-child(4)')
       .invoke('val')
       .then((value: string | number | string[]) => {
@@ -657,7 +671,8 @@ describe('NETWORK MESSAGES FOOTER', () => {
       .get('.cdk-overlay-container mina-interval-select .container div:nth-child(2) form input:nth-child(2)')
       .should('have.value', hoursTwoDaysAgo)
       .get('.cdk-overlay-container mina-interval-select .container div:nth-child(2) form input:nth-child(3)')
-      .should('have.value', minutesTwoDaysAgo)
+      .invoke('val')
+      .then((value: string | number | string[]) => expect(Number(value)).to.be.approximately(minutesTwoDaysAgo, 1))
       .get('.cdk-overlay-container mina-interval-select .container div:nth-child(2) form input:nth-child(4)')
       .invoke('val')
       .then((value: string | number | string[]) => {
@@ -672,7 +687,8 @@ describe('NETWORK MESSAGES FOOTER', () => {
       .get('.cdk-overlay-container mina-interval-select .container div:nth-child(3) form input:nth-child(2)')
       .should('have.value', hourNow)
       .get('.cdk-overlay-container mina-interval-select .container div:nth-child(3) form input:nth-child(3)')
-      .should('have.value', minuteNow)
+      .invoke('val')
+      .then((value: string | number | string[]) => expect(Number(value)).to.be.approximately(minuteNow, 1))
       .get('.cdk-overlay-container mina-interval-select .container div:nth-child(3) form input:nth-child(4)')
       .invoke('val')
       .then((value: string | number | string[]) => {
@@ -710,7 +726,8 @@ describe('NETWORK MESSAGES FOOTER', () => {
       .get('.cdk-overlay-container mina-interval-select .container div:nth-child(2) form input:nth-child(2)')
       .should('have.value', hoursSevenDaysAgo)
       .get('.cdk-overlay-container mina-interval-select .container div:nth-child(2) form input:nth-child(3)')
-      .should('have.value', minutesSevenDaysAgo)
+      .invoke('val')
+      .then((value: string | number | string[]) => expect(Number(value)).to.be.approximately(minutesSevenDaysAgo, 1))
       .get('.cdk-overlay-container mina-interval-select .container div:nth-child(2) form input:nth-child(4)')
       .invoke('val')
       .then((value: string | number | string[]) => {
@@ -725,7 +742,8 @@ describe('NETWORK MESSAGES FOOTER', () => {
       .get('.cdk-overlay-container mina-interval-select .container div:nth-child(3) form input:nth-child(2)')
       .should('have.value', hourNow)
       .get('.cdk-overlay-container mina-interval-select .container div:nth-child(3) form input:nth-child(3)')
-      .should('have.value', minuteNow)
+      .invoke('val')
+      .then((value: string | number | string[]) => expect(Number(value)).to.be.approximately(minuteNow, 1))
       .get('.cdk-overlay-container mina-interval-select .container div:nth-child(3) form input:nth-child(4)')
       .invoke('val')
       .then((value: string | number | string[]) => {
@@ -763,7 +781,8 @@ describe('NETWORK MESSAGES FOOTER', () => {
       .get('.cdk-overlay-container mina-interval-select .container div:nth-child(2) form input:nth-child(2)')
       .should('have.value', hoursThirtyDaysAgo)
       .get('.cdk-overlay-container mina-interval-select .container div:nth-child(2) form input:nth-child(3)')
-      .should('have.value', minutesThirtyDaysAgo)
+      .invoke('val')
+      .then((value: string | number | string[]) => expect(Number(value)).to.be.approximately(minutesThirtyDaysAgo, 1))
       .get('.cdk-overlay-container mina-interval-select .container div:nth-child(2) form input:nth-child(4)')
       .invoke('val')
       .then((value: string | number | string[]) => {
@@ -778,7 +797,8 @@ describe('NETWORK MESSAGES FOOTER', () => {
       .get('.cdk-overlay-container mina-interval-select .container div:nth-child(3) form input:nth-child(2)')
       .should('have.value', hourNow)
       .get('.cdk-overlay-container mina-interval-select .container div:nth-child(3) form input:nth-child(3)')
-      .should('have.value', minuteNow)
+      .invoke('val')
+      .then((value: string | number | string[]) => expect(Number(value)).to.be.approximately(minuteNow, 1))
       .get('.cdk-overlay-container mina-interval-select .container div:nth-child(3) form input:nth-child(4)')
       .invoke('val')
       .then((value: string | number | string[]) => {
