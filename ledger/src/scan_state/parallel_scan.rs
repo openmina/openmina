@@ -2,6 +2,7 @@ use std::collections::{BTreeMap, VecDeque};
 use std::fmt::Debug;
 use std::io::Write;
 use std::ops::ControlFlow;
+use std::sync::Arc;
 
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
@@ -792,7 +793,7 @@ where
     }
 }
 
-impl Tree<base::Base<TransactionWithWitness>, merge::Merge<LedgerProofWithSokMessage>> {
+impl Tree<base::Base<Arc<TransactionWithWitness>>, merge::Merge<Arc<LedgerProofWithSokMessage>>> {
     pub fn view(&self) -> impl Iterator<Item = JobValueWithIndex<'_>> {
         self.values
             .iter()
@@ -808,8 +809,8 @@ impl Tree<base::Base<TransactionWithWitness>, merge::Merge<LedgerProofWithSokMes
 }
 
 pub type JobValue<'a> = super::parallel_scan::Value<
-    &'a base::Job<TransactionWithWitness>,
-    &'a merge::Job<LedgerProofWithSokMessage>,
+    &'a base::Job<Arc<TransactionWithWitness>>,
+    &'a merge::Job<Arc<LedgerProofWithSokMessage>>,
 >;
 
 pub struct JobValueWithIndex<'a> {

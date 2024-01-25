@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use mina_hasher::Fp;
 use mina_p2p_messages::v2::MinaStateProtocolStateValueStableV2;
 use mina_signer::CompressedPubKey;
@@ -1146,6 +1148,7 @@ impl StagedLedger {
         Self::check_zero_fee_excess(&self.scan_state, &data)?;
 
         let data_is_empty = data.is_empty();
+        let data: Vec<_> = data.into_iter().map(Arc::new).collect();
 
         let res_opt = {
             self.scan_state
@@ -1977,13 +1980,14 @@ impl StagedLedger {
         use scan_state::transaction_logic::transaction_applied::Varying;
 
         let block_transactions_applied = {
-            let f = |TransactionWithWitness {
-                         transaction_with_info,
-                         state_hash: (leaf_block_hash, _),
-                         ..
-                     }: TransactionWithWitness| {
-                if leaf_block_hash == previous_block_state_hash {
-                    Some(transaction_with_info.varying)
+            let f = |t: Arc<TransactionWithWitness>| {
+                let TransactionWithWitness {
+                    transaction_with_info,
+                    state_hash: (leaf_block_hash, _),
+                    ..
+                } = t.as_ref();
+                if leaf_block_hash == &previous_block_state_hash {
+                    Some(transaction_with_info.varying.to_owned())
                 } else {
                     None
                 }

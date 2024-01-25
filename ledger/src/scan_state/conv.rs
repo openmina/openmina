@@ -1,5 +1,7 @@
 #![allow(unused_variables, unreachable_code)]
 
+use std::sync::Arc;
+
 use mina_hasher::Fp;
 use mina_p2p_messages::{
     binprot,
@@ -1801,10 +1803,10 @@ pub fn to_pending_coinbase_hash(value: &Fp) -> mina_p2p_messages::v2::PendingCoi
 impl From<&AvailableJob> for AvailableJobMessage {
     fn from(value: &AvailableJob) -> Self {
         match value {
-            AvailableJob::Base(v) => AvailableJobMessage::Base(v.into()),
+            AvailableJob::Base(v) => AvailableJobMessage::Base(v.as_ref().into()),
             AvailableJob::Merge { left, right } => AvailableJobMessage::Merge {
-                left: left.into(),
-                right: right.into(),
+                left: left.as_ref().into(),
+                right: right.as_ref().into(),
             },
         }
     }
@@ -2089,13 +2091,13 @@ impl From<&ParallelScanJobStatusStableV1> for JobStatus {
 }
 
 impl From<&TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1>
-    for super::parallel_scan::merge::Job<LedgerProofWithSokMessage>
+    for super::parallel_scan::merge::Job<Arc<LedgerProofWithSokMessage>>
 {
     fn from(value: &TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1) -> Self {
         match value {
             TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1::Empty => Self::Empty,
             TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1::Part(proof) => {
-                Self::Part((&**proof).into())
+                Self::Part(Arc::new((&**proof).into()))
             }
             TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1::Full(record) => {
                 let TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1Full {
@@ -2106,8 +2108,8 @@ impl From<&TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1>
                 } = &**record;
 
                 Self::Full(super::parallel_scan::merge::Record {
-                    left: left.into(),
-                    right: right.into(),
+                    left: Arc::new(left.into()),
+                    right: Arc::new(right.into()),
                     seq_no: seq_no.into(),
                     state: status.into(),
                 })
@@ -2117,7 +2119,7 @@ impl From<&TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1>
 }
 
 impl From<&TransactionSnarkScanStateStableV2ScanStateTreesABaseT1>
-    for super::parallel_scan::base::Job<TransactionWithWitness>
+    for super::parallel_scan::base::Job<Arc<TransactionWithWitness>>
 {
     fn from(value: &TransactionSnarkScanStateStableV2ScanStateTreesABaseT1) -> Self {
         match value {
@@ -2130,7 +2132,7 @@ impl From<&TransactionSnarkScanStateStableV2ScanStateTreesABaseT1>
                 } = &**record;
 
                 Self::Full(super::parallel_scan::base::Record {
-                    job: job.into(),
+                    job: Arc::new(job.into()),
                     seq_no: seq_no.into(),
                     state: status.into(),
                 })
@@ -2156,7 +2158,7 @@ impl From<&TransactionSnarkScanStateStableV2> for ScanState {
                     delay,
                 } = scan_state;
 
-                ParallelScan::<TransactionWithWitness, LedgerProofWithSokMessage> {
+                ParallelScan::<Arc<TransactionWithWitness>, Arc<LedgerProofWithSokMessage>> {
                     trees: {
                         use mina_p2p_messages::v2::TransactionSnarkScanStateStableV2ScanStateTreesA::{Leaf, Node};
                         use super::parallel_scan::Weight;
@@ -2182,7 +2184,7 @@ impl From<&TransactionSnarkScanStateStableV2> for ScanState {
                                     rust_tree.values.extend(value.iter().map(|(weights, job)| {
                                         let weight: (Weight, Weight) = from_two_weights(weights);
                                         let job: super::parallel_scan::merge::Job<
-                                            LedgerProofWithSokMessage,
+                                            Arc<LedgerProofWithSokMessage>,
                                         > = job.into();
 
                                         let merge =
@@ -2202,7 +2204,7 @@ impl From<&TransactionSnarkScanStateStableV2> for ScanState {
                                 rust_tree.values.extend(leaves.iter().map(|(weight, job)| {
                                     let weight: Weight = weight.into();
                                     let job: super::parallel_scan::base::Job<
-                                        TransactionWithWitness,
+                                        Arc<TransactionWithWitness>,
                                     > = job.into();
 
                                     let base = super::parallel_scan::base::Base { weight, job };
@@ -2214,9 +2216,12 @@ impl From<&TransactionSnarkScanStateStableV2> for ScanState {
                             })
                             .collect()
                     },
-                    acc: acc
-                        .as_ref()
-                        .map(|(proof, txns)| (proof.into(), txns.iter().map(Into::into).collect())),
+                    acc: acc.as_ref().map(|(proof, txns)| {
+                        (
+                            Arc::new(proof.into()),
+                            txns.iter().map(|t| Arc::new(t.into())).collect(),
+                        )
+                    }),
                     curr_job_seq_no: { SequenceNumber::new(curr_job_seq_no.as_u64()) },
                     max_base_jobs: max_base_jobs.as_u64(),
                     delay: delay.as_u64(),
@@ -2231,7 +2236,16 @@ impl From<&TransactionSnarkScanStateStableV2> for ScanState {
                     }
                 };
 
-                (txns.iter().map(Into::into).collect(), continue_next)
+                (
+                    txns.iter()
+                        .map(
+                            |t: &TransactionSnarkScanStateTransactionWithWitnessStableV2| {
+                                Arc::new(t.into())
+                            },
+                        )
+                        .collect(),
+                    continue_next,
+                )
             },
         }
     }
@@ -2263,19 +2277,22 @@ impl From<&JobStatus> for ParallelScanJobStatusStableV1 {
     }
 }
 
-impl From<&super::parallel_scan::base::Job<TransactionWithWitness>>
+impl From<&super::parallel_scan::base::Job<Arc<TransactionWithWitness>>>
     for TransactionSnarkScanStateStableV2ScanStateTreesABaseT1
 {
-    fn from(value: &super::parallel_scan::base::Job<TransactionWithWitness>) -> Self {
+    fn from(value: &super::parallel_scan::base::Job<Arc<TransactionWithWitness>>) -> Self {
         match value {
             parallel_scan::base::Job::Empty => Self::Empty,
             parallel_scan::base::Job::Full(record) => {
-                let parallel_scan::base::Record::<TransactionWithWitness> { job, seq_no, state } =
-                    record;
+                let parallel_scan::base::Record::<Arc<TransactionWithWitness>> {
+                    job,
+                    seq_no,
+                    state,
+                } = record;
 
                 Self::Full(Box::new(
                     TransactionSnarkScanStateStableV2ScanStateTreesABaseT1Full {
-                        job: job.into(),
+                        job: job.as_ref().into(),
                         seq_no: seq_no.into(),
                         status: state.into(),
                     },
@@ -2285,15 +2302,15 @@ impl From<&super::parallel_scan::base::Job<TransactionWithWitness>>
     }
 }
 
-impl From<&parallel_scan::merge::Job<LedgerProofWithSokMessage>>
+impl From<&parallel_scan::merge::Job<Arc<LedgerProofWithSokMessage>>>
     for TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1
 {
-    fn from(value: &parallel_scan::merge::Job<LedgerProofWithSokMessage>) -> Self {
+    fn from(value: &parallel_scan::merge::Job<Arc<LedgerProofWithSokMessage>>) -> Self {
         match value {
             parallel_scan::merge::Job::Empty => Self::Empty,
-            parallel_scan::merge::Job::Part(part) => Self::Part(Box::new(part.into())),
+            parallel_scan::merge::Job::Part(part) => Self::Part(Box::new(part.as_ref().into())),
             parallel_scan::merge::Job::Full(record) => {
-                let parallel_scan::merge::Record::<LedgerProofWithSokMessage> {
+                let parallel_scan::merge::Record::<Arc<LedgerProofWithSokMessage>> {
                     left,
                     right,
                     seq_no,
@@ -2302,8 +2319,8 @@ impl From<&parallel_scan::merge::Job<LedgerProofWithSokMessage>>
 
                 Self::Full(Box::new(
                     TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1Full {
-                        left: left.into(),
-                        right: right.into(),
+                        left: left.as_ref().into(),
+                        right: right.as_ref().into(),
                         seq_no: seq_no.into(),
                         status: state.into(),
                     },
@@ -2313,24 +2330,24 @@ impl From<&parallel_scan::merge::Job<LedgerProofWithSokMessage>>
     }
 }
 
-impl From<&&parallel_scan::base::Base<TransactionWithWitness>>
+impl From<&&parallel_scan::base::Base<Arc<TransactionWithWitness>>>
     for (
         ParallelScanWeightStableV1,
         TransactionSnarkScanStateStableV2ScanStateTreesABaseT1,
     )
 {
-    fn from(value: &&parallel_scan::base::Base<TransactionWithWitness>) -> Self {
-        let parallel_scan::base::Base::<TransactionWithWitness> { weight, job } = value;
+    fn from(value: &&parallel_scan::base::Base<Arc<TransactionWithWitness>>) -> Self {
+        let parallel_scan::base::Base::<Arc<TransactionWithWitness>> { weight, job } = value;
 
         (weight.into(), job.into())
     }
 }
 
-impl From<&&parallel_scan::merge::Merge<LedgerProofWithSokMessage>>
+impl From<&&parallel_scan::merge::Merge<Arc<LedgerProofWithSokMessage>>>
     for TransactionSnarkScanStateStableV2TreesAMerge
 {
-    fn from(value: &&parallel_scan::merge::Merge<LedgerProofWithSokMessage>) -> Self {
-        let parallel_scan::merge::Merge::<LedgerProofWithSokMessage> { weight, job } = value;
+    fn from(value: &&parallel_scan::merge::Merge<Arc<LedgerProofWithSokMessage>>) -> Self {
+        let parallel_scan::merge::Merge::<Arc<LedgerProofWithSokMessage>> { weight, job } = value;
 
         let (w1, w2) = weight;
         ((w1.into(), w2.into()), job.into())
@@ -2393,9 +2410,12 @@ impl From<&ScanState> for TransactionSnarkScanStateStableV2 {
 
                         (first, rest)
                     },
-                    acc: acc
-                        .as_ref()
-                        .map(|(proof, txns)| (proof.into(), txns.iter().map(Into::into).collect())),
+                    acc: acc.as_ref().map(|(proof, txns)| {
+                        (
+                            proof.as_ref().into(),
+                            txns.iter().map(|t| t.as_ref().into()).collect(),
+                        )
+                    }),
                     curr_job_seq_no: curr_job_seq_no.as_u64().into(),
                     max_base_jobs: max_base_jobs.into(),
                     delay: delay.into(),
@@ -2410,7 +2430,10 @@ impl From<&ScanState> for TransactionSnarkScanStateStableV2 {
                     }
                 };
 
-                (txns.iter().map(Into::into).collect(), continue_next)
+                (
+                    txns.iter().map(|t| t.as_ref().into()).collect(),
+                    continue_next,
+                )
             },
         }
     }
