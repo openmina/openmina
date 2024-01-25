@@ -223,7 +223,10 @@ impl BlockProducerCurrentState {
         if won_slot.global_slot_since_genesis.as_u32() < best_tip.global_slot() {
             return Some(BlockProducerWonSlotDiscardReason::BestTipGlobalSlotHigher);
         }
-        // TODO(binier): check if staking ledger changed
+
+        if &won_slot.staking_ledger_hash != best_tip.staking_epoch_ledger_hash() {
+            return Some(BlockProducerWonSlotDiscardReason::BestTipStakingLedgerDifferent);
+        }
 
         if won_slot < best_tip
             || self.produced_block().map_or(false, |block| {
