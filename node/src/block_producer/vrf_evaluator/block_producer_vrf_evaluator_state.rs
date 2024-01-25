@@ -19,7 +19,6 @@ pub struct BlockProducerVrfEvaluatorState {
     pub won_slots: BTreeMap<u32, VrfWonSlotWithHash>,
     pub current_epoch_data: Option<EpochData>,
     pub next_epoch_data: Option<EpochData>,
-    pub producer_pub_key: String,
     // TODO(adonagy): move to block producer state probably
     pub current_epoch: Option<u32>,
     pub current_best_tip_slot: u32,
@@ -30,13 +29,11 @@ pub struct BlockProducerVrfEvaluatorState {
 
 impl BlockProducerVrfEvaluatorState {
     pub fn new(now: redux::Timestamp, config: BlockProducerConfig) -> Self {
-        let producer_pub_key = config.pub_key.to_string();
         Self {
             status: BlockProducerVrfEvaluatorStatus::Idle { time: now },
             won_slots: Default::default(),
             current_epoch_data: Default::default(),
             next_epoch_data: Default::default(),
-            producer_pub_key,
             current_epoch: None,
             current_best_tip_slot: Default::default(),
             latest_evaluated_slot: Default::default(),

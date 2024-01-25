@@ -950,19 +950,17 @@ impl<T: LedgerService> RpcLedgerService for T {
 }
 
 impl<T: LedgerService> BlockProducerVrfEvaluatorLedgerService for T {
-    // TODO(adonagy): avoid using strings for account pub keys.
-    // Use `AccountPublicKey` instead.
     fn get_producer_and_delegates(
         &mut self,
         ledger_hash: LedgerHash,
-        producer: String,
+        producer: AccountPublicKey,
     ) -> BTreeMap<ledger::AccountIndex, (AccountPublicKey, u64)> {
-        let producer_pub_key = PubKey::from_address(&producer).unwrap().into_compressed();
-
-        // TODO(adonagy): unwrap
+        // TODO(adonagy): Error handling
         let delegate_table = self
             .ctx()
-            .producers_with_delegates(&ledger_hash, |pub_key| pub_key == &producer_pub_key)
+            .producers_with_delegates(&ledger_hash, |pub_key| {
+                AccountPublicKey::from(pub_key.clone()) == producer
+            })
             .unwrap()
             .into_values()
             .next()

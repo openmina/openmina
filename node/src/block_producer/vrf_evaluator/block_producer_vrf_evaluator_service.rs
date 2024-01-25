@@ -15,6 +15,6 @@ pub trait BlockProducerVrfEvaluatorLedgerService: redux::Service {
     fn get_producer_and_delegates(
         &mut self,
         ledger_hash: LedgerHash,
-        producer: String,
+        producer: AccountPublicKey,
     ) -> BTreeMap<AccountIndex, (AccountPublicKey, u64)>;
 }

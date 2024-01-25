@@ -32,7 +32,7 @@ pub enum BlockProducerVrfEvaluatorAction {
 pub struct BlockProducerVrfEvaluatorUpdateProducerAndDelegatesAction {
     pub current_epoch_ledger_hash: LedgerHash,
     pub next_epoch_ledger_hash: LedgerHash,
-    pub producer: String,
+    pub producer: AccountPublicKey,
 }
 
 impl redux::EnablingCondition<crate::State>

@@ -14,21 +14,13 @@ use super::{
 
 impl BlockProducerVrfEvaluatorEpochDataUpdateAction {
     pub fn effects<S: Service>(self, _: &ActionMeta, store: &mut Store<S>) {
-        // TODO(adonagy): once block producer is enabled
-        // if let Some(config) = store.state().block_producer.config() {
-        //     store.dispatch(BlockProducerVrfEvaluatorUpdateProducerAndDelegatesAction {
-        //         current_epoch_ledger_hash: self.epoch_data.ledger.hash,
-        //         next_epoch_ledger_hash: self.next_epoch_data.ledger.hash,
-        //         producer: config.pub_key.to_string(),
-        //     });
-        // }
-
-        // let vrf_evaluator_state = store.state().block_producer.vrf_evaluator();
-        if let Some(vrf_evaluator_state) = store.state().block_producer.vrf_evaluator() {
+        let vrf_evaluator_state_with_config =
+            store.state().block_producer.vrf_evaluator_with_config();
+        if let Some((vrf_evaluator_state, config)) = vrf_evaluator_state_with_config {
             store.dispatch(BlockProducerVrfEvaluatorUpdateProducerAndDelegatesAction {
                 current_epoch_ledger_hash: self.epoch_data.ledger.hash,
                 next_epoch_ledger_hash: self.next_epoch_data.ledger.hash,
-                producer: vrf_evaluator_state.producer_pub_key.to_string(),
+                producer: config.pub_key.clone().into(),
             });
         }
     }
@@ -39,10 +31,6 @@ impl BlockProducerVrfEvaluatorEvaluateVrfAction {
         store.service.evaluate(self.vrf_input);
     }
 }
-
-// impl BlockProducerVrfEvaluatorEvaluationPendingAction {
-//     pub fn effects<S: Service>(self, _: &ActionMeta, store: &mut Store<S>) {}
-// }
 
 impl BlockProducerVrfEvaluatorEvaluationSuccessAction {
     pub fn effects<S: Service>(self, _: &ActionMeta, store: &mut Store<S>) {
