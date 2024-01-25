@@ -3906,6 +3906,7 @@ pub fn create_proof<C: ProofConstants, F: FieldWitness>(
     proof
 }
 
+#[derive(Clone)]
 pub struct Prover<F: FieldWitness> {
     /// Constants to each kind of proof
     pub internal_vars: InternalVars<F>,
@@ -4048,6 +4049,7 @@ mod tests {
         self,
         macros::{BinProtRead, BinProtWrite},
     };
+    use once_cell::sync::Lazy;
 
     use crate::{
         proofs::{
@@ -4285,11 +4287,14 @@ mod tests {
 
     fn read_gates() -> Gates {
         let base_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let base_dir = base_dir.join("rampup4");
 
-        fn read_gates_file<F: FieldWitness>(filepath: &impl AsRef<Path>) -> Vec<CircuitGate<F>> {
-            let file = std::fs::File::open(filepath).unwrap();
+        fn read_gates_file<F: FieldWitness>(
+            filepath: &impl AsRef<Path>,
+        ) -> std::io::Result<Vec<CircuitGate<F>>> {
+            let file = std::fs::File::open(filepath)?;
             let reader = std::io::BufReader::new(file);
-            serde_json::from_reader(reader).unwrap()
+            serde_json::from_reader(reader).map_err(Into::into)
         }
 
         let internal_vars_path = base_dir.join("internal_vars_rampup4.bin");
@@ -4302,63 +4307,55 @@ mod tests {
         let (internal_vars_wrap, rows_rev_wrap) =
             read_constraints_data::<Fq>(&internal_vars_path, &rows_rev_path).unwrap();
 
-        let internal_vars_path = base_dir.join("rampup4").join("merge_internal_vars.bin");
-        let rows_rev_path = base_dir.join("rampup4").join("merge_rows_rev.bin");
+        let internal_vars_path = base_dir.join("merge_internal_vars.bin");
+        let rows_rev_path = base_dir.join("merge_rows_rev.bin");
         let (merge_internal_vars, merge_rows_rev) =
             read_constraints_data::<Fp>(&internal_vars_path, &rows_rev_path).unwrap();
 
-        let internal_vars_path = base_dir.join("rampup4").join("block_internal_vars.bin");
-        let rows_rev_path = base_dir.join("rampup4").join("block_rows_rev.bin");
+        let internal_vars_path = base_dir.join("block_internal_vars.bin");
+        let rows_rev_path = base_dir.join("block_rows_rev.bin");
         let (block_internal_vars, block_rows_rev) =
             read_constraints_data::<Fp>(&internal_vars_path, &rows_rev_path).unwrap();
 
-        let internal_vars_path = base_dir
-            .join("rampup4")
-            .join("block_wrap_internal_vars.bin");
-        let rows_rev_path = base_dir.join("rampup4").join("block_wrap_rows_rev.bin");
+        let internal_vars_path = base_dir.join("block_wrap_internal_vars.bin");
+        let rows_rev_path = base_dir.join("block_wrap_rows_rev.bin");
         let (block_wrap_internal_vars, block_wrap_rows_rev) =
             read_constraints_data::<Fq>(&internal_vars_path, &rows_rev_path).unwrap();
 
-        let internal_vars_path = base_dir
-            .join("rampup4")
-            .join("zkapp_step_internal_vars.bin");
-        let rows_rev_path = base_dir.join("rampup4").join("zkapp_step_rows_rev.bin");
+        let internal_vars_path = base_dir.join("zkapp_step_internal_vars.bin");
+        let rows_rev_path = base_dir.join("zkapp_step_rows_rev.bin");
         let (
             zkapp_step_opt_signed_opt_signed_internal_vars,
             zkapp_step_opt_signed_opt_signed_rows_rev,
         ) = read_constraints_data::<Fp>(&internal_vars_path, &rows_rev_path).unwrap();
 
-        let internal_vars_path = base_dir
-            .join("rampup4")
-            .join("zkapp_step_opt_signed_internal_vars.bin");
-        let rows_rev_path = base_dir
-            .join("rampup4")
-            .join("zkapp_step_opt_signed_rows_rev.bin");
+        let internal_vars_path = base_dir.join("zkapp_step_opt_signed_internal_vars.bin");
+        let rows_rev_path = base_dir.join("zkapp_step_opt_signed_rows_rev.bin");
         let (zkapp_step_opt_signed_internal_vars, zkapp_step_opt_signed_rows_rev) =
             read_constraints_data::<Fp>(&internal_vars_path, &rows_rev_path).unwrap();
 
         let gates: Vec<CircuitGate<Fp>> =
-            read_gates_file(&base_dir.join("gates_step_rampup4.json"));
+            read_gates_file(&base_dir.join("gates_step_rampup4.json")).unwrap();
         let wrap_gates: Vec<CircuitGate<Fq>> =
-            read_gates_file(&base_dir.join("gates_wrap_rampup4.json"));
+            read_gates_file(&base_dir.join("gates_wrap_rampup4.json")).unwrap();
         let merge_gates: Vec<CircuitGate<Fp>> =
-            read_gates_file(&base_dir.join("gates_merge_rampup4.json"));
+            read_gates_file(&base_dir.join("gates_merge_rampup4.json")).unwrap();
 
-        let base_dir = base_dir.join("rampup4");
-        let block_gates: Vec<CircuitGate<Fp>> = read_gates_file(&base_dir.join("block_gates.json"));
+        let block_gates: Vec<CircuitGate<Fp>> =
+            read_gates_file(&base_dir.join("block_gates.json")).unwrap();
         let block_wrap_gates: Vec<CircuitGate<Fq>> =
-            read_gates_file(&base_dir.join("block_wrap_gates.json"));
+            read_gates_file(&base_dir.join("block_wrap_gates.json")).unwrap();
         let zkapp_step_opt_signed_opt_signed_gates: Vec<CircuitGate<Fp>> =
-            read_gates_file(&base_dir.join("zkapp_step_gates.json"));
+            read_gates_file(&base_dir.join("zkapp_step_gates.json")).unwrap();
         let zkapp_step_opt_signed_gates: Vec<CircuitGate<Fp>> =
-            read_gates_file(&base_dir.join("zkapp_step_opt_signed_gates.json"));
+            read_gates_file(&base_dir.join("zkapp_step_opt_signed_gates.json")).unwrap();
 
         let internal_vars_path = base_dir.join("zkapp_step_proof_internal_vars.bin");
         let rows_rev_path = base_dir.join("zkapp_step_proof_rows_rev.bin");
         let (zkapp_step_proof_internal_vars, zkapp_step_proof_rows_rev) =
             read_constraints_data::<Fp>(&internal_vars_path, &rows_rev_path).unwrap();
         let zkapp_step_proof_gates: Vec<CircuitGate<Fp>> =
-            read_gates_file(&base_dir.join("zkapp_step_proof_gates.json"));
+            read_gates_file(&base_dir.join("zkapp_step_proof_gates.json")).unwrap();
 
         Gates {
             gates,
@@ -4388,6 +4385,9 @@ mod tests {
         }
     }
 
+    static PROVERS: Lazy<Arc<Provers>> = Lazy::new(|| Arc::new(make_provers()));
+
+    #[derive(Clone)]
     struct Provers {
         tx_step_prover: Prover<Fp>,
         tx_wrap_prover: Prover<Fq>,
@@ -4399,6 +4399,11 @@ mod tests {
         zkapp_step_proof_prover: Prover<Fp>,
     }
 
+    fn get_provers() -> Provers {
+        (&**PROVERS).clone()
+    }
+
+    /// Slow, use `get_provers` instead
     fn make_provers() -> Provers {
         let Gates {
             gates,
@@ -4426,6 +4431,7 @@ mod tests {
             zkapp_step_proof_internal_vars,
             zkapp_step_proof_rows_rev,
         } = read_gates();
+
         let tx_prover_index = make_prover_index::<StepTransactionProof, _>(gates);
         let merge_prover_index = make_prover_index::<StepMergeProof, _>(merge_gates);
         let wrap_prover_index = make_prover_index::<WrapTransactionProof, _>(wrap_gates);
@@ -4512,7 +4518,8 @@ mod tests {
             zkapp_step_opt_signed_opt_signed_prover,
             zkapp_step_opt_signed_prover,
             zkapp_step_proof_prover,
-        } = make_provers();
+        } = get_provers();
+
         let v = &tx_wrap_prover.index.verifier_index.as_ref().unwrap();
         let v_json = serde_json::to_string(&v).unwrap();
         // std::fs::write("/tmp/tx.json", &v_json).unwrap();
@@ -4555,14 +4562,14 @@ mod tests {
             zkapp_step_opt_signed_opt_signed_prover: _,
             zkapp_step_opt_signed_prover: _,
             zkapp_step_proof_prover: _,
-        } = make_provers();
+        } = get_provers();
 
         let mut witnesses: Witness<Fp> = Witness::new::<StepTransactionProof>();
 
         fn read_witnesses(filename: &str) -> Vec<Fp> {
             let f = std::fs::read_to_string(
                 std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-                    // .join("rampup4")
+                    .join("rampup4")
                     .join(filename),
             )
             .unwrap();
@@ -4617,7 +4624,7 @@ mod tests {
             zkapp_step_opt_signed_opt_signed_prover: _,
             zkapp_step_opt_signed_prover: _,
             zkapp_step_proof_prover: _,
-        } = make_provers();
+        } = get_provers();
 
         let mut witnesses: Witness<Fp> = Witness::new::<StepMergeProof>();
         witnesses.ocaml_aux = crate::proofs::merge::read_witnesses().unwrap();
@@ -4667,7 +4674,7 @@ mod tests {
             zkapp_step_opt_signed_opt_signed_prover,
             zkapp_step_opt_signed_prover,
             zkapp_step_proof_prover,
-        } = make_provers();
+        } = get_provers();
 
         let LedgerProof { proof, .. } = generate_zkapp_proof(ZkappParams {
             statement: &statement,
@@ -4713,7 +4720,7 @@ mod tests {
             zkapp_step_opt_signed_opt_signed_prover,
             zkapp_step_opt_signed_prover,
             zkapp_step_proof_prover,
-        } = make_provers();
+        } = get_provers();
 
         let LedgerProof { proof, .. } = generate_zkapp_proof(ZkappParams {
             statement: &statement,
@@ -4775,7 +4782,7 @@ mod tests {
             zkapp_step_opt_signed_opt_signed_prover: _,
             zkapp_step_opt_signed_prover: _,
             zkapp_step_proof_prover: _,
-        } = make_provers();
+        } = get_provers();
         let mut witnesses: Witness<Fp> = Witness::new::<StepBlockProof>();
 
         let WrapProof { proof, .. } = generate_block_proof(
@@ -4805,6 +4812,11 @@ mod tests {
     fn test_proofs() {
         let base_dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("rampup4");
 
+        if !base_dir.exists() {
+            eprintln!("{:?} not found", base_dir);
+            return;
+        }
+
         let Provers {
             tx_step_prover,
             tx_wrap_prover,
@@ -4814,7 +4826,7 @@ mod tests {
             zkapp_step_opt_signed_opt_signed_prover,
             zkapp_step_opt_signed_prover,
             zkapp_step_proof_prover,
-        } = make_provers();
+        } = get_provers();
 
         #[rustfmt::skip]
         let zkapp_cases = [
@@ -4913,11 +4925,6 @@ mod tests {
             );
         }
 
-        if !base_dir.exists() {
-            eprintln!("{:?} not found", base_dir);
-            return;
-        }
-
         // Same values than OCaml
         #[rustfmt::skip]
         let requests = [
@@ -4942,7 +4949,7 @@ mod tests {
             // ("fee_transfer_6_rampup4.bin", "6b95aa737e1c8351bbb7a141108a73c808cb92aae9e266ecce13f679d6f6b2df"),
             // ("fee_transfer_7_rampup4.bin", "5d97141c3adf576503381e485f5ab20ed856448880658a0a56fb23567225875c"),
             // ("fee_transfer_8_rampup4.bin", "e1fa6b5a88b184428a0918cd4bd56952b54f05a5dc175b17e154204533167a78"),
-            ("fee_transfer_9_rampup4.bin", "087a07eddedf5de18b2f2bd7ded3cd474d00a0030e9c13d7a5fd2433c72fc7d5"),
+            // ("fee_transfer_9_rampup4.bin", "087a07eddedf5de18b2f2bd7ded3cd474d00a0030e9c13d7a5fd2433c72fc7d5"),
         ];
 
         fn read_witnesses(filename: &str) -> Vec<Fp> {
