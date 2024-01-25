@@ -15,6 +15,8 @@ use ledger::proofs::{VerifierIndex, VerifierSRS};
 use libp2p::futures::{stream::FuturesUnordered, StreamExt};
 use node::core::channels::mpsc;
 use node::core::requests::RpcId;
+use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
+use node::p2p::{P2pConnectionEvent, P2pDiscoveryEvent, PeerId};
 use node::{
     account::{AccountPublicKey, AccountSecretKey},
     event_source::Event,
@@ -38,7 +40,7 @@ use openmina_node_native::{http_server, rpc::RpcService, NodeService, RpcSender}
 use rand::{rngs::StdRng, SeedableRng};
 use serde::Serialize;
 
-use crate::node::{DaemonJson, OcamlStep, TestPeerId};
+use crate::node::{DaemonJson, NonDeterministicEvent, OcamlStep, TestPeerId};
 use crate::{
     network_debugger::Debugger,
     node::{
@@ -277,6 +279,9 @@ impl Cluster {
         if self.config.all_rust_to_rust_use_webrtc() {
             service.set_rust_to_rust_use_webrtc();
         }
+        if self.config.is_replay() {
+            service.set_replay();
+        }
 
         let state = node::State::new(config);
         fn effects(store: &mut node::Store<NodeTestingService>, action: node::ActionWithMeta) {
@@ -409,6 +414,12 @@ impl Cluster {
         self.nodes.get(node_id.index())
     }
 
+    pub fn node_by_peer_id(&self, peer_id: PeerId) -> Option<&Node> {
+        self.nodes_iter()
+            .find(|(_, node)| node.peer_id() == peer_id)
+            .map(|(_, node)| node)
+    }
+
     pub fn node_mut(&mut self, node_id: ClusterNodeId) -> Option<&mut Node> {
         self.nodes.get_mut(node_id.index())
     }
@@ -417,6 +428,12 @@ impl Cluster {
         self.ocaml_nodes
             .get(node_id.index())
             .map(|opt| opt.as_ref().expect("tried to access removed ocaml node"))
+    }
+
+    pub fn ocaml_node_by_peer_id(&self, peer_id: PeerId) -> Option<&OcamlNode> {
+        self.ocaml_nodes_iter()
+            .find(|(_, node)| node.peer_id() == peer_id)
+            .map(|(_, node)| node)
     }
 
     pub fn pending_events(
@@ -471,6 +488,35 @@ impl Cluster {
         }
     }
 
+    pub async fn wait_for_pending_event(
+        &mut self,
+        node_id: ClusterNodeId,
+        event_pattern: &str,
+    ) -> anyhow::Result<PendingEventId> {
+        let node = self
+            .nodes
+            .get_mut(node_id.index())
+            .ok_or_else(|| anyhow::anyhow!("node {node_id:?} not found"))?;
+        let timeout = tokio::time::sleep(Duration::from_secs(60));
+        tokio::select! {
+            opt = node.wait_for_event(&event_pattern) => opt.ok_or_else(|| anyhow::anyhow!("wait_for_event: None")),
+            _ = timeout => {
+                let pending_events = node.pending_events().map(|(_, event)| event.to_string()).collect::<Vec<_>>();
+                return Err(anyhow::anyhow!("waiting for event timed out! node {node_id:?}, event: \"{event_pattern}\"\n{pending_events:?}"));
+            }
+        }
+    }
+
+    pub async fn wait_for_event_and_dispatch(
+        &mut self,
+        node_id: ClusterNodeId,
+        event_pattern: &str,
+    ) -> anyhow::Result<bool> {
+        let event_id = self.wait_for_pending_event(node_id, event_pattern).await?;
+        let node = self.nodes.get_mut(node_id.index()).unwrap();
+        Ok(node.take_event_and_dispatch(event_id))
+    }
+
     pub async fn add_steps_and_save(&mut self, steps: impl IntoIterator<Item = ScenarioStep>) {
         let scenario = self.scenario.chain.back_mut().unwrap();
         steps
@@ -480,10 +526,14 @@ impl Cluster {
     }
 
     pub async fn exec_to_end(&mut self) -> Result<(), anyhow::Error> {
+        let mut i = 0;
+        let total = self.scenario.cur_scenario().steps.len();
         loop {
+            eprintln!("[step]: {i}/{total}");
             if !self.exec_next().await? {
                 break Ok(());
             }
+            i += 1;
         }
     }
 
@@ -545,29 +595,129 @@ impl Cluster {
         Ok(dispatched)
     }
 
-    pub async fn exec_step(&mut self, step: ScenarioStep) -> Result<bool, anyhow::Error> {
+    pub async fn exec_step(&mut self, step: ScenarioStep) -> anyhow::Result<bool> {
+        fn node_addr_by_peer_id(
+            cluster: &Cluster,
+            peer_id: PeerId,
+        ) -> anyhow::Result<P2pConnectionOutgoingInitOpts> {
+            cluster
+                .node_by_peer_id(peer_id)
+                .map(|node| node.dial_addr())
+                .or_else(|| {
+                    cluster
+                        .ocaml_node_by_peer_id(peer_id)
+                        .map(|node| node.dial_addr())
+                })
+                .ok_or_else(|| anyhow::anyhow!("node with peer_id: '{peer_id}' not found"))
+        }
+
         Ok(match step {
+            ScenarioStep::Event { node_id, event } => {
+                return self.wait_for_event_and_dispatch(node_id, &event).await;
+            }
             ScenarioStep::ManualEvent { node_id, event } => self
                 .nodes
                 .get_mut(node_id.index())
                 .ok_or_else(|| anyhow::anyhow!("node {node_id:?} not found"))?
                 .dispatch_event(*event),
-            ScenarioStep::Event { node_id, event } => {
-                let node = self
-                    .nodes
-                    .get_mut(node_id.index())
-                    .ok_or_else(|| anyhow::anyhow!("node {node_id:?} not found"))?;
-                let timeout = tokio::time::sleep(Duration::from_secs(60));
-                tokio::select! {
-                    res = node.wait_for_event_and_dispatch(&event) => res,
-                    _ = timeout => {
-                        return Err(anyhow::anyhow!("waiting for event timed out! node {node_id:?}, event: \"{event}\""));
+            ScenarioStep::NonDeterministicEvent { node_id, event } => {
+                let event = match *event {
+                    NonDeterministicEvent::P2pListen => return Ok(true),
+                    NonDeterministicEvent::P2pConnectionClosed(peer_id) => {
+                        let node = self
+                            .nodes
+                            .get_mut(node_id.index())
+                            .ok_or_else(|| anyhow::anyhow!("node {node_id:?} not found"))?;
+                        node.p2p_disconnect(peer_id);
+                        let event =
+                            Event::P2p(P2pEvent::Connection(P2pConnectionEvent::Closed(peer_id)));
+                        return self
+                            .wait_for_event_and_dispatch(node_id, &event.to_string())
+                            .await;
                     }
-                }
+                    NonDeterministicEvent::P2pConnectionFinalized(peer_id, res) => {
+                        let node = self
+                            .nodes
+                            .get(node_id.index())
+                            .ok_or_else(|| anyhow::anyhow!("node {node_id:?} not found"))?;
+                        let res_is_ok = res.is_ok();
+                        let event = Event::P2p(P2pEvent::Connection(
+                            P2pConnectionEvent::Finalized(peer_id, res),
+                        ));
+
+                        if res_is_ok {
+                            let is_peer_connected =
+                                node.state().p2p.get_ready_peer(&peer_id).is_some();
+                            // deduce if kad initiated this conn.
+                            if !node.state().p2p.is_peer_connected_or_connecting(&peer_id) {
+                                let my_addr = node.dial_addr();
+                                let peer = self
+                                    .nodes
+                                    .iter_mut()
+                                    .find(|node| node.peer_id() == peer_id)
+                                    .ok_or_else(|| {
+                                        anyhow::anyhow!("node with peer_id: '{peer_id}' not found")
+                                    })?;
+
+                                if !peer.state().p2p.is_peer_connecting(my_addr.peer_id()) {
+                                    // kad initiated this connection so replay that.
+                                    eprintln!(
+                                        "p2p_kad_outgoing_init({:?}) -> {:?} - {}",
+                                        peer.node_id(),
+                                        node_id,
+                                        my_addr
+                                    );
+                                    peer.p2p_kad_outgoing_init(my_addr);
+                                }
+                            }
+                            if is_peer_connected {
+                                // we are already connected, so skip the extra event.
+                                return Ok(true);
+                            }
+                            eprintln!("non_deterministic_wait_for_event_and_dispatch({node_id:?}): {event}");
+                            return self
+                                .wait_for_event_and_dispatch(node_id, &event.to_string())
+                                .await;
+                        } else {
+                            event
+                        }
+                    }
+                    NonDeterministicEvent::P2pLibp2pIdentify(peer_id) => {
+                        let addr = match node_addr_by_peer_id(self, peer_id)? {
+                            P2pConnectionOutgoingInitOpts::LibP2P(v) => (&v).into(),
+                            _ => unreachable!(),
+                        };
+                        P2pEvent::Libp2pIdentify(peer_id, addr).into()
+                    }
+                    NonDeterministicEvent::P2pDiscoveryReady => {
+                        P2pEvent::Discovery(P2pDiscoveryEvent::Ready).into()
+                    }
+                    NonDeterministicEvent::P2pDiscoveryDidFindPeers(ids) => {
+                        P2pEvent::Discovery(P2pDiscoveryEvent::DidFindPeers(ids)).into()
+                    }
+                    NonDeterministicEvent::P2pDiscoveryDidFindPeersError(err) => {
+                        P2pEvent::Discovery(P2pDiscoveryEvent::DidFindPeersError(err)).into()
+                    }
+                    NonDeterministicEvent::P2pDiscoveryAddRoute(id, ids) => {
+                        let addrs = ids
+                            .into_iter()
+                            .map(|id| node_addr_by_peer_id(&self, id))
+                            .collect::<Result<Vec<_>, _>>()?;
+                        P2pEvent::Discovery(P2pDiscoveryEvent::AddRoute(id, addrs)).into()
+                    }
+                    NonDeterministicEvent::RpcReadonly(id, req) => Event::Rpc(id, req).into(),
+                };
+                eprintln!("non_deterministic_event_dispatch({node_id:?}): {event}");
+                self.nodes
+                    .get_mut(node_id.index())
+                    .ok_or_else(|| anyhow::anyhow!("node {node_id:?} not found"))?
+                    .dispatch_event(event)
             }
             ScenarioStep::AddNode { config } => match config {
                 NodeTestingConfig::Rust(config) => {
                     self.add_rust_node(config);
+                    // TODO(binier): wait for node ports to be opened instead.
+                    tokio::time::sleep(Duration::from_secs(2)).await;
                     true
                 }
                 NodeTestingConfig::Ocaml(config) => {

@@ -117,12 +117,25 @@ impl Command {
                 let config = ClusterConfig::new(None).map_err(|err| {
                     anyhow::anyhow!("failed to create cluster configuration: {err}")
                 })?;
+                let config = config.set_replay();
 
                 let id = cmd.name.parse()?;
                 let fut = async move {
                     let mut cluster = Cluster::new(config);
                     cluster.start(Scenario::load(&id).await?).await?;
                     cluster.exec_to_end().await?;
+                    for (node_id, node) in cluster.nodes_iter() {
+                        let Some(best_tip) = node.state().transition_frontier.best_tip() else {
+                            continue;
+                        };
+
+                        eprintln!(
+                            "[node_status] node_{node_id} {} - {} [{}]",
+                            best_tip.height(),
+                            best_tip.hash(),
+                            best_tip.producer()
+                        );
+                    }
                     Ok(())
                 };
                 rt.block_on(async {

@@ -1,15 +1,21 @@
 mod config;
 pub use config::{RustNodeBlockProducerTestingConfig, RustNodeTestingConfig, TestPeerId};
 
-use node::event_source::{Event, EventSourceNewEventAction};
+mod event;
+pub use event::*;
+
+use node::event_source::EventSourceNewEventAction;
 use node::p2p::connection::outgoing::{
     P2pConnectionOutgoingInitLibp2pOpts, P2pConnectionOutgoingInitOpts,
 };
+use node::p2p::service_impl::webrtc_with_libp2p::P2pServiceWebrtcWithLibp2p;
 use node::p2p::webrtc::SignalingMethod;
 use node::p2p::PeerId;
+use node::service::P2pDisconnectionService;
 use node::{Action, CheckTimeoutsAction, State, Store};
 use redux::EnablingCondition;
 
+use crate::cluster::ClusterNodeId;
 use crate::service::{DynEffects, NodeTestingService, PendingEventId};
 
 pub struct Node {
@@ -62,6 +68,10 @@ impl Node {
         self.store.state()
     }
 
+    pub fn node_id(&self) -> ClusterNodeId {
+        self.service().node_id()
+    }
+
     pub fn peer_id(&self) -> PeerId {
         self.state().p2p.config.identity_pub_key.peer_id()
     }
@@ -87,6 +97,19 @@ impl Node {
         self.dispatch(EventSourceNewEventAction { event })
     }
 
+    pub fn get_pending_event(&self, event_id: PendingEventId) -> Option<&Event> {
+        self.service().get_pending_event(event_id)
+    }
+
+    pub fn take_pending_event(&mut self, event_id: PendingEventId) -> Option<Event> {
+        self.service_mut().take_pending_event(event_id)
+    }
+
+    pub fn take_event_and_dispatch(&mut self, event_id: PendingEventId) -> bool {
+        let event = self.service_mut().take_pending_event(event_id).unwrap();
+        self.dispatch_event(event)
+    }
+
     pub fn check_timeouts(&mut self) {
         self.dispatch(CheckTimeoutsAction {});
     }
@@ -99,13 +122,29 @@ impl Node {
         self.service_mut().next_pending_event().await
     }
 
-    pub async fn wait_for_event_and_dispatch(&mut self, event_pattern: &str) -> bool {
+    pub async fn wait_for_event(&mut self, event_pattern: &str) -> Option<PendingEventId> {
+        let readonly_rpcs = self
+            .service_mut()
+            .pending_events()
+            .filter(|(_, event)| {
+                matches!(
+                    NonDeterministicEvent::new(event).as_deref(),
+                    Some(NonDeterministicEvent::RpcReadonly(..))
+                )
+            })
+            .map(|(id, _)| id)
+            .collect::<Vec<_>>();
+
+        for event_id in readonly_rpcs {
+            self.take_event_and_dispatch(event_id);
+        }
+
         let event_id = self
             .service_mut()
             .pending_events()
             .find(|(_, event)| event.to_string().starts_with(event_pattern))
             .map(|(id, _)| id);
-        let event_id = match event_id {
+        match event_id {
             Some(id) => Some(id),
             None => loop {
                 let (id, event) = match self.service_mut().next_pending_event().await {
@@ -114,14 +153,36 @@ impl Node {
                 };
                 if event.to_string().starts_with(event_pattern) {
                     break Some(id);
+                } else if matches!(
+                    NonDeterministicEvent::new(event).as_deref(),
+                    Some(NonDeterministicEvent::RpcReadonly(..))
+                ) {
+                    self.take_event_and_dispatch(id);
                 }
             },
-        };
+        }
+    }
 
-        if let Some(id) = event_id {
-            let event = self.service_mut().take_pending_event(id).unwrap();
-            return self.dispatch_event(event);
+    pub async fn wait_for_event_and_dispatch(&mut self, event_pattern: &str) -> bool {
+        if let Some(id) = self.wait_for_event(event_pattern).await {
+            return self.take_event_and_dispatch(id);
         }
         false
+    }
+
+    /// Reproduce connection initiated by kad.
+    pub fn p2p_kad_outgoing_init(&mut self, addr: P2pConnectionOutgoingInitOpts) {
+        use node::p2p::service_impl::libp2p::Cmd;
+
+        let maddr = match &addr {
+            P2pConnectionOutgoingInitOpts::LibP2P(v) => v.into(),
+            _ => unreachable!(),
+        };
+        let cmd = Cmd::Dial((*addr.peer_id()).into(), vec![maddr]);
+        let _ = self.service_mut().libp2p().cmd_sender().send(cmd);
+    }
+
+    pub fn p2p_disconnect(&mut self, peer_id: PeerId) {
+        self.service_mut().disconnect(peer_id)
     }
 }
