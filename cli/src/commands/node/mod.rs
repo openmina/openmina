@@ -1,3 +1,4 @@
+use std::alloc::System;
 use std::ffi::OsString;
 
 use std::path::PathBuf;
@@ -35,12 +36,17 @@ use node::{
 };
 
 use openmina_node_native::rpc::RpcService;
-use openmina_node_native::{http_server, tracing, NodeService, RpcSender};
+use openmina_node_native::{http_server, tracing, AllocTracker, NodeService, RpcSender};
+
+use tracking_allocator::{AllocationGroupToken, AllocationRegistry, Allocator};
 
 #[cfg(not(feature = "p2p-libp2p"))]
 use node::p2p::{service_impl::mio::MioService, P2pEvent};
 #[cfg(feature = "p2p-libp2p")]
 use openmina_node_native::P2pTaskSpawner;
+
+#[global_allocator]
+static GLOBAL: Allocator<System> = Allocator::system();
 
 /// Openmina node
 #[derive(Debug, clap::Args)]
@@ -116,6 +122,13 @@ fn default_peers() -> Vec<P2pConnectionOutgoingInitOpts> {
 impl Node {
     pub fn run(self) -> Result<(), crate::CommandError> {
         tracing::initialize(self.verbosity);
+        AllocationRegistry::set_global_tracker(AllocTracker::void())
+            .expect("no other global tracker should be set yet");
+        AllocationRegistry::enable_tracking();
+
+        let mut local_token =
+            AllocationGroupToken::register().expect("failed to register allocation group");
+        let local_guard = local_token.enter();
 
         if let Err(ref e) = rayon::ThreadPoolBuilder::new()
             .num_threads(num_cpus::get().max(2) - 1)
@@ -318,6 +331,9 @@ impl Node {
                 }
             }
         });
+
+        drop(local_guard);
+        AllocationRegistry::disable_tracking();
 
         Ok(())
     }

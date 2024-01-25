@@ -1034,6 +1034,7 @@ dependencies = [
  "shellexpand",
  "tokio",
  "tracing",
+ "tracking-allocator",
  "vrf",
 ]
 
@@ -4093,6 +4094,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
+ "tracking-allocator",
  "vrf",
  "warp",
 ]
@@ -4132,6 +4134,7 @@ dependencies = [
  "tokio",
  "tower-http",
  "tracing-log 0.2.0",
+ "tracking-allocator",
  "vrf",
 ]
 
@@ -6160,6 +6163,16 @@ dependencies = [
  "tracing-core",
  "tracing-log 0.1.4",
  "tracing-serde",
+]
+
+[[package]]
+name = "tracking-allocator"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1b61e0cb3385e17df7db29c565b40fd0350dfe8a076c7eea83d416e30cfd0581"
+dependencies = [
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
