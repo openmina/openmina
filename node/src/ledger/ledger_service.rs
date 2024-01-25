@@ -40,7 +40,6 @@ use openmina_core::snark::{Snark, SnarkJobId};
 use mina_signer::{CompressedPubKey, PubKey};
 use openmina_core::block::ArcBlockWithHash;
 
-use crate::account::AccountPublicKey;
 use crate::block_producer::vrf_evaluator::BlockProducerVrfEvaluatorLedgerService;
 use crate::block_producer::{
     BlockProducerService, BlockProducerWonSlot, StagedLedgerDiffCreateOutput,
@@ -51,6 +50,7 @@ use crate::transition_frontier::sync::{
     TransitionFrontierRootSnarkedLedgerUpdates,
 };
 use crate::transition_frontier::TransitionFrontierService;
+use crate::{account::AccountPublicKey, block_producer::vrf_evaluator::DelegatorTable};
 use crate::{
     p2p::channels::rpc::StagedLedgerAuxAndPendingCoinbases, transition_frontier::CommitResult,
 };
@@ -954,7 +954,7 @@ impl<T: LedgerService> BlockProducerVrfEvaluatorLedgerService for T {
         &mut self,
         ledger_hash: LedgerHash,
         producer: AccountPublicKey,
-    ) -> BTreeMap<ledger::AccountIndex, (AccountPublicKey, u64)> {
+    ) -> DelegatorTable {
         // TODO(adonagy): Error handling
         let delegate_table = self
             .ctx()

@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::sync::Arc;
 
 use ledger::AccountIndex;
 use mina_p2p_messages::v2::LedgerHash;
@@ -8,7 +9,7 @@ use vrf::VrfWonSlot;
 use crate::account::AccountPublicKey;
 use crate::BlockProducerConfig;
 
-use super::VrfWonSlotWithHash;
+use super::{DelegatorTable, VrfWonSlotWithHash};
 
 // TODO(adonagy): consodilate types, make more clear
 // pub type AccountAddressAndBalance = (String, u64);
@@ -47,7 +48,7 @@ impl BlockProducerVrfEvaluatorState {
 pub struct EpochData {
     pub seed: String,
     pub ledger: LedgerHash,
-    pub delegator_table: BTreeMap<AccountIndex, (AccountPublicKey, u64)>,
+    pub delegator_table: Arc<DelegatorTable>,
     pub total_currency: u64,
 }
 

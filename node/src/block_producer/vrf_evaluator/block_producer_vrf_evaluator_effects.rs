@@ -77,24 +77,18 @@ impl BlockProducerVrfEvaluatorEvaluationSuccessAction {
 
 impl BlockProducerVrfEvaluatorUpdateProducerAndDelegatesAction {
     pub fn effects<S: Service>(self, _: &ActionMeta, store: &mut Store<S>) {
-        let current_epoch_producer_and_delegators: std::collections::BTreeMap<
-            ledger::AccountIndex,
-            (AccountPublicKey, u64),
-        > = store.service.get_producer_and_delegates(
+        let current_epoch_producer_and_delegators = store.service.get_producer_and_delegates(
             self.current_epoch_ledger_hash.clone(),
             self.producer.clone(),
         );
-        let next_epoch_producer_and_delegators: std::collections::BTreeMap<
-            ledger::AccountIndex,
-            (AccountPublicKey, u64),
-        > = store
+        let next_epoch_producer_and_delegators = store
             .service
             .get_producer_and_delegates(self.next_epoch_ledger_hash, self.producer.clone());
 
         store.dispatch(
             BlockProducerVrfEvaluatorUpdateProducerAndDelegatesSuccessAction {
-                current_epoch_producer_and_delegators,
-                next_epoch_producer_and_delegators,
+                current_epoch_producer_and_delegators: current_epoch_producer_and_delegators.into(),
+                next_epoch_producer_and_delegators: next_epoch_producer_and_delegators.into(),
                 staking_ledger_hash: self.current_epoch_ledger_hash,
             },
         );

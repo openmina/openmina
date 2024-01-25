@@ -20,7 +20,7 @@ pub fn vrf_evaluator(
     while let Some(vrf_evaluator_input) = vrf_evaluation_receiver.blocking_recv() {
         let mut vrf_result = VrfEvaluationOutput::SlotLost(vrf_evaluator_input.global_slot);
 
-        for (index, account) in vrf_evaluator_input.delegatee_table.iter() {
+        for (index, account) in vrf_evaluator_input.delegator_table.iter() {
             let vrf_input = VrfEvaluationInput::new(
                 keypair.clone(),
                 vrf_evaluator_input.epoch_seed.clone(),
