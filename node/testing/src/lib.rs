@@ -43,7 +43,7 @@ pub fn setup_without_rt() {
                         None
                     }
                 }
-            }).unwrap_or(openmina_node_native::tracing::Level::DEBUG);
+            }).unwrap_or(openmina_node_native::tracing::Level::INFO);
             openmina_node_native::tracing::initialize(level);
 
             if let Err(err) = tracing_log::LogTracer::init() {
