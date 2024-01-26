@@ -54,7 +54,6 @@ pub fn vrf_evaluator(
 impl node::block_producer::vrf_evaluator::BlockProducerVrfEvaluatorService for NodeService {
     fn evaluate(&mut self, data: VrfEvaluatorInput) {
         if let Some(bp) = self.block_producer.as_mut() {
-            // TODO(adonagy): send the data to the vrf_evaluator thread
             let _ = bp.vrf_evaluation_sender.send(data);
         }
     }

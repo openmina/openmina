@@ -55,6 +55,13 @@ impl BlockProducerVrfEvaluatorState {
             }
             BlockProducerVrfEvaluatorAction::UpdateProducerAndDelegatesSuccess(action) => {
                 self.status = BlockProducerVrfEvaluatorStatus::DataSuccess { time: meta.time() };
+                // TODO(adonagy): causes reevaluation of already evaluated slots.
+                // Needed since delegate table changed and we might miss slots
+                // in case of the fork.
+
+                // TODO(adonagy): we are also missing cleanup logic for won_slots.
+                // We might produce invalid blocks because of that.
+                self.latest_evaluated_slot = 0;
 
                 if let Some(epoch_data) = self.current_epoch_data.as_mut() {
                     epoch_data.delegator_table =

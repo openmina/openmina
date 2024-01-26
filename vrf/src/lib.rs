@@ -1,6 +1,4 @@
-use std::collections::BTreeMap;
-
-use ark_ec::{AffineCurve, ProjectiveCurve};
+use ark_ec::AffineCurve;
 use ark_ff::{BigInteger, BigInteger256, One, PrimeField, SquareRootField, Zero};
 use ledger::AccountIndex;
 // use keypair::Keypair;

@@ -91,7 +91,7 @@ impl BlockProducerEnabled {
             BlockProducerAction::WonSlotProduceInit(_) => {
                 if let Some(won_slot) = self.current.won_slot() {
                     let Some(chain) = best_chain.last().map(|best_tip| {
-                        if best_tip.global_slot() == won_slot.global_slot_since_genesis.as_u32() {
+                        if best_tip.global_slot() == won_slot.global_slot() {
                             // We are producing block which replaces current best tip
                             // instead of extending it.
                             best_chain[..(best_chain.len() - 1)].to_vec()
@@ -168,7 +168,8 @@ impl BlockProducerEnabled {
                 let block_timestamp = won_slot.timestamp();
                 let pred_global_slot = pred_consensus_state.curr_global_slot.clone();
                 let curr_global_slot = won_slot.global_slot.clone();
-                let global_slot_since_genesis = won_slot.global_slot_since_genesis.clone();
+                let global_slot_since_genesis =
+                    won_slot.global_slot_since_genesis(pred_block.global_slot_diff());
                 let (pred_epoch, _) = to_epoch_and_slot(&pred_global_slot);
                 let (next_epoch, next_slot) = to_epoch_and_slot(&curr_global_slot);
                 let has_ancestor_in_same_checkpoint_window =

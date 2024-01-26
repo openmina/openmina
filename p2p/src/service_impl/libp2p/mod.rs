@@ -41,7 +41,7 @@ use crate::channels::rpc::{
     BestTipWithProof, P2pRpcRequest, P2pRpcResponse, RpcChannelMsg,
     StagedLedgerAuxAndPendingCoinbases,
 };
-use crate::channels::{ChannelId, ChannelMsg};
+use crate::channels::ChannelMsg;
 use crate::connection::outgoing::{
     P2pConnectionOutgoingInitLibp2pOpts, P2pConnectionOutgoingInitOpts,
 };

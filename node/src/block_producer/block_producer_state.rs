@@ -96,7 +96,7 @@ impl BlockProducerState {
     pub fn new(now: redux::Timestamp, config: Option<BlockProducerConfig>) -> Self {
         Self(config.map(|config| BlockProducerEnabled {
             config: config.clone(),
-            vrf_evaluator: BlockProducerVrfEvaluatorState::new(now, config),
+            vrf_evaluator: BlockProducerVrfEvaluatorState::new(now),
             current: BlockProducerCurrentState::Idle { time: now },
         }))
     }
@@ -226,7 +226,7 @@ impl BlockProducerCurrentState {
         best_tip: &ArcBlockWithHash,
     ) -> Option<BlockProducerWonSlotDiscardReason> {
         let won_slot = self.won_slot()?;
-        if won_slot.global_slot_since_genesis.as_u32() < best_tip.global_slot() {
+        if won_slot.global_slot() < best_tip.global_slot() {
             return Some(BlockProducerWonSlotDiscardReason::BestTipGlobalSlotHigher);
         }
 
