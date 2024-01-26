@@ -3,6 +3,7 @@ use crate::account::AccountPublicKey;
 use ledger::AccountIndex;
 use mina_p2p_messages::v2::LedgerHash;
 use std::collections::BTreeMap;
+use std::sync::Arc;
 use vrf::{VrfEvaluationOutput, VrfWonSlot};
 
 pub use block_producer_vrf_evaluator_state::*;
@@ -23,10 +24,12 @@ mod block_producer_vrf_evaluator_service;
 pub use block_producer_vrf_evaluator_service::*;
 use serde::{Deserialize, Serialize};
 
+pub type DelegatorTable = BTreeMap<AccountIndex, (AccountPublicKey, u64)>;
+
 #[derive(Debug, Deserialize, Clone, Serialize)]
 pub struct VrfEvaluatorInput {
     pub epoch_seed: String,
-    pub delegatee_table: BTreeMap<AccountIndex, (AccountPublicKey, u64)>,
+    pub delegator_table: Arc<DelegatorTable>,
     pub global_slot: u32,
     pub total_currency: u64,
     pub staking_ledger_hash: LedgerHash,
@@ -53,6 +56,20 @@ pub struct VrfEvaluationOutputWithHash {
     pub staking_ledger_hash: LedgerHash,
 }
 
+impl std::fmt::Display for VrfEvaluationOutputWithHash {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} ", self.staking_ledger_hash.to_string())?;
+        match &self.evaluation_result {
+            VrfEvaluationOutput::SlotWon(won_slot) => {
+                write!(f, "SlotWon {}", won_slot.global_slot)
+            }
+            VrfEvaluationOutput::SlotLost(global_slot) => {
+                write!(f, "SlotLost {}", global_slot)
+            }
+        }
+    }
+}
+
 impl VrfEvaluationOutputWithHash {
     pub fn new(evaluation_result: VrfEvaluationOutput, staking_ledger_hash: LedgerHash) -> Self {
         Self {
@@ -65,14 +82,14 @@ impl VrfEvaluationOutputWithHash {
 impl VrfEvaluatorInput {
     pub fn new(
         epoch_seed: String,
-        delegatee_table: BTreeMap<AccountIndex, (AccountPublicKey, u64)>,
+        delegator_table: Arc<DelegatorTable>,
         global_slot: u32,
         total_currency: u64,
         staking_ledger_hash: LedgerHash,
     ) -> Self {
         Self {
             epoch_seed,
-            delegatee_table,
+            delegator_table,
             global_slot,
             total_currency,
             staking_ledger_hash,

@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::sync::Arc;
 
 use ledger::AccountIndex;
 use mina_p2p_messages::v2::LedgerHash;
@@ -8,7 +9,7 @@ use vrf::VrfWonSlot;
 use crate::account::AccountPublicKey;
 use crate::BlockProducerConfig;
 
-use super::VrfWonSlotWithHash;
+use super::{DelegatorTable, VrfWonSlotWithHash};
 
 // TODO(adonagy): consodilate types, make more clear
 // pub type AccountAddressAndBalance = (String, u64);
@@ -19,7 +20,6 @@ pub struct BlockProducerVrfEvaluatorState {
     pub won_slots: BTreeMap<u32, VrfWonSlotWithHash>,
     pub current_epoch_data: Option<EpochData>,
     pub next_epoch_data: Option<EpochData>,
-    pub producer_pub_key: String,
     // TODO(adonagy): move to block producer state probably
     pub current_epoch: Option<u32>,
     pub current_best_tip_slot: u32,
@@ -30,13 +30,11 @@ pub struct BlockProducerVrfEvaluatorState {
 
 impl BlockProducerVrfEvaluatorState {
     pub fn new(now: redux::Timestamp, config: BlockProducerConfig) -> Self {
-        let producer_pub_key = config.pub_key.to_string();
         Self {
             status: BlockProducerVrfEvaluatorStatus::Idle { time: now },
             won_slots: Default::default(),
             current_epoch_data: Default::default(),
             next_epoch_data: Default::default(),
-            producer_pub_key,
             current_epoch: None,
             current_best_tip_slot: Default::default(),
             latest_evaluated_slot: Default::default(),
@@ -50,7 +48,7 @@ impl BlockProducerVrfEvaluatorState {
 pub struct EpochData {
     pub seed: String,
     pub ledger: LedgerHash,
-    pub delegator_table: BTreeMap<AccountIndex, (AccountPublicKey, u64)>,
+    pub delegator_table: Arc<DelegatorTable>,
     pub total_currency: u64,
 }
 
@@ -67,11 +65,49 @@ impl EpochData {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum BlockProducerVrfEvaluatorStatus {
-    Idle { time: redux::Timestamp },
-    EpochChanged { time: redux::Timestamp },
-    DataPending { time: redux::Timestamp },
-    DataSuccess { time: redux::Timestamp },
-    DataFail { time: redux::Timestamp },
-    SlotsRequested { time: redux::Timestamp },
-    SlotsReceived { time: redux::Timestamp },
+    Idle {
+        time: redux::Timestamp,
+    },
+    EpochChanged {
+        time: redux::Timestamp,
+    },
+    DataPending {
+        time: redux::Timestamp,
+    },
+    DataSuccess {
+        time: redux::Timestamp,
+    },
+    DataFail {
+        time: redux::Timestamp,
+    },
+    SlotsRequested {
+        time: redux::Timestamp,
+        global_slot: u32,
+        staking_ledger_hash: LedgerHash,
+    },
+    SlotsReceived {
+        time: redux::Timestamp,
+        global_slot: u32,
+        staking_ledger_hash: LedgerHash,
+    },
+}
+
+impl BlockProducerVrfEvaluatorStatus {
+    pub fn matches_requsted_slot(
+        &self,
+        expected_global_slot: u32,
+        expected_staking_ledger_hash: &LedgerHash,
+    ) -> bool {
+        match self {
+            Self::SlotsRequested {
+                global_slot,
+                staking_ledger_hash,
+                ..
+            } => {
+                &expected_global_slot == global_slot
+                    && expected_staking_ledger_hash == staking_ledger_hash
+            }
+            _ => false,
+        }
+    }
 }

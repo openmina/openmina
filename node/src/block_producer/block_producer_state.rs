@@ -153,6 +153,12 @@ impl BlockProducerState {
     pub fn vrf_evaluator(&self) -> Option<&BlockProducerVrfEvaluatorState> {
         self.with(None, |this| Some(&this.vrf_evaluator))
     }
+
+    pub fn vrf_evaluator_with_config(
+        &self,
+    ) -> Option<(&BlockProducerVrfEvaluatorState, &BlockProducerConfig)> {
+        self.with(None, |this| Some((&this.vrf_evaluator, &this.config)))
+    }
 }
 
 impl BlockProducerCurrentState {

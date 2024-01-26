@@ -13,7 +13,7 @@ impl std::fmt::Display for BlockProducerVrfEvaluatorEvent {
         write!(f, "VrfEvaluator, ")?;
         match self {
             Self::Evaluated(vrf_output) => {
-                write!(f, "Evaluated, {:?}", vrf_output)
+                write!(f, "Evaluated, {}", vrf_output)
             }
         }
     }
