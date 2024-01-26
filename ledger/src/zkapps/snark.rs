@@ -327,15 +327,6 @@ impl AmountInterface for SnarkAmount {
     fn zero() -> Self {
         <CheckedAmount<_> as CheckedCurrency<Fp>>::zero()
     }
-    fn equal(&self, other: &Self) -> Self::Bool {
-        todo!()
-    }
-    fn add_flagged(&self, other: &Self, w: &mut Self::W) -> (Self, Self::Bool) {
-        todo!()
-    }
-    fn add_signed_flagged(&self, signed: &impl SignedAmountInterface) -> (Self, Self::Bool) {
-        todo!()
-    }
     fn of_constant_fee(fee: crate::scan_state::currency::Fee) -> Self {
         Amount::of_fee(&fee).to_checked()
     }
@@ -362,7 +353,7 @@ impl CallForestInterface for SnarkCallForest {
         field::equal(empty, *hash, w).var()
     }
     fn pop_exn(&self, w: &mut Self::W) -> ((Self::AccountUpdate, Self), Self) {
-        let Self { data, hash } = self;
+        let Self { data, hash: _ } = self;
         let hd_r = &data.first().unwrap().elt;
         let account_update = &hd_r.account_update;
         let auth = &account_update.authorization;
@@ -388,7 +379,7 @@ impl CallForestInterface for SnarkCallForest {
         });
         let tree_hash = [account_update.hash, subforest.hash]
             .checked_hash_with_param(Tree::<AccountUpdate>::HASH_PARAM, w);
-        let hash_cons =
+        let _hash_cons =
             [tree_hash, tl_hash].checked_hash_with_param(ACCOUNT_UPDATE_CONS_HASH_PARAM, w);
         let account = Self::AccountUpdate {
             body: account_update,
@@ -517,9 +508,6 @@ impl StackInterface for WithHash<Vec<WithStackHash<WithHash<StackFrame>>>> {
         let Self { hash, data: _ } = self;
         let empty = Fp::zero();
         field::equal(empty, *hash, w).var()
-    }
-    fn pop_exn(&self) -> (Self::Elt, Self) {
-        todo!()
     }
     fn pop(&self, w: &mut Self::W) -> Opt<(Self::Elt, Self)> {
         let Self { data, hash } = self;
@@ -661,12 +649,6 @@ impl GlobalSlotSinceGenesisInterface for SnarkGlobalSlot {
     type W = Witness<Fp>;
     type Bool = SnarkBool;
 
-    fn zero() -> Self {
-        todo!()
-    }
-    fn greater_than(&self, other: &Self) -> Self::Bool {
-        todo!()
-    }
     fn equal(&self, other: &Self, w: &mut Self::W) -> Self::Bool {
         <Self as CheckedNat<_, 32>>::equal(&self, other, w).var()
     }
@@ -813,7 +795,7 @@ impl LocalStateInterface for zkapp_logic::LocalState<ZkappSnark> {
 
     fn add_check(
         local: &mut zkapp_logic::LocalState<Self::Z>,
-        failure: TransactionFailure,
+        _failure: TransactionFailure,
         b: Self::Bool,
         w: &mut Self::W,
     ) {
@@ -1102,7 +1084,10 @@ impl LedgerInterface for LedgerWithHash {
         account_update: &Self::AccountUpdate,
         w: &mut Self::W,
     ) -> (Self::Account, Self::InclusionProof) {
-        let Self { ledger, hash: root } = self;
+        let Self {
+            ledger,
+            hash: _root,
+        } = self;
         let idx = ledger.find_index_exn(account_update.body.account_id());
         let account = w.exists(AccountUnhashed(ledger.get_exn(&idx)));
         // TODO: Don't clone here
@@ -1256,9 +1241,6 @@ impl BalanceInterface for SnarkBalance {
     type Amount = SnarkAmount;
     type SignedAmount = SnarkSignedAmount;
 
-    fn sub_amount_flagged(&self, amount: Self::Amount) -> (Self, Self::Bool) {
-        todo!()
-    }
     fn add_signed_amount_flagged(
         &self,
         signed_amount: Self::SignedAmount,
@@ -1278,7 +1260,7 @@ impl TransactionCommitmentInterface for SnarkTransactionCommitment {
         Fp::zero()
     }
 
-    fn commitment(account_updates: &Self::CallForest, w: &mut Self::W) -> Fp {
+    fn commitment(account_updates: &Self::CallForest) -> Fp {
         let Self::CallForest {
             data: _,
             hash: account_updates_hash,
@@ -1347,7 +1329,7 @@ impl ControllerInterface for SnarkController {
     type SingleData = ZkappSingleData;
 
     fn check(
-        proof_verifies: Self::Bool,
+        _proof_verifies: Self::Bool,
         signature_verifies: Self::Bool,
         auth: &AuthRequired,
         single_data: &Self::SingleData,
@@ -1383,10 +1365,6 @@ impl GlobalSlotSpanInterface for SnarkGlobalSlotSpan {
     type W = Witness<Fp>;
     type Bool = SnarkBool;
     type SlotSpan = SlotSpan;
-
-    fn zero() -> Self {
-        todo!()
-    }
 
     fn greater_than(this: &Self::SlotSpan, other: &Self::SlotSpan, w: &mut Self::W) -> Self::Bool {
         let this = this.to_checked::<Fp>();

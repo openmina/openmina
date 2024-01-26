@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 use mina_hasher::Fp;
 
 use crate::{
@@ -49,15 +51,6 @@ impl AmountInterface for Amount {
     type W = ();
     type Bool = Boolean;
     fn zero() -> Self {
-        todo!()
-    }
-    fn equal(&self, other: &Self) -> Self::Bool {
-        todo!()
-    }
-    fn add_flagged(&self, other: &Self, w: &mut Self::W) -> (Self, Self::Bool) {
-        todo!()
-    }
-    fn add_signed_flagged(&self, signed: &impl SignedAmountInterface) -> (Self, Self::Bool) {
         todo!()
     }
     fn of_constant_fee(fee: crate::scan_state::currency::Fee) -> Self {
@@ -143,9 +136,6 @@ impl StackInterface for CallStack {
         todo!()
     }
     fn is_empty(&self, w: &mut Self::W) -> Boolean {
-        todo!()
-    }
-    fn pop_exn(&self) -> (Self::Elt, Self) {
         todo!()
     }
     fn pop(&self, w: &mut Self::W) -> Opt<(Self::Elt, Self)> {

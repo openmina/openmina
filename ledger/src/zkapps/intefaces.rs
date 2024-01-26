@@ -110,9 +110,6 @@ where
     type Bool: BoolInterface;
 
     fn zero() -> Self;
-    fn equal(&self, other: &Self) -> Self::Bool;
-    fn add_flagged(&self, other: &Self, w: &mut Self::W) -> (Self, Self::Bool);
-    fn add_signed_flagged(&self, signed: &impl SignedAmountInterface) -> (Self, Self::Bool);
     fn of_constant_fee(fee: currency::Fee) -> Self;
 }
 
@@ -147,7 +144,6 @@ where
     type Amount: AmountInterface;
     type SignedAmount: SignedAmountInterface;
 
-    fn sub_amount_flagged(&self, amount: Self::Amount) -> (Self, Self::Bool);
     fn add_signed_amount_flagged(
         &self,
         signed_amount: Self::SignedAmount,
@@ -185,8 +181,6 @@ pub trait GlobalSlotSinceGenesisInterface {
     type W: WitnessGenerator<Fp>;
     type Bool: BoolInterface;
 
-    fn zero() -> Self;
-    fn greater_than(&self, other: &Self) -> Self::Bool;
     fn equal(&self, other: &Self, w: &mut Self::W) -> Self::Bool;
 }
 
@@ -195,7 +189,6 @@ pub trait GlobalSlotSpanInterface {
     type Bool: BoolInterface;
     type SlotSpan;
 
-    fn zero() -> Self;
     fn greater_than(this: &Self::SlotSpan, other: &Self::SlotSpan, w: &mut Self::W) -> Self::Bool;
 }
 
@@ -261,7 +254,6 @@ where
 
     fn empty() -> Self;
     fn is_empty(&self, w: &mut Self::W) -> Self::Bool;
-    fn pop_exn(&self) -> (Self::Elt, Self);
     fn pop(&self, w: &mut Self::W) -> Opt<(Self::Elt, Self)>;
     fn push(elt: Self::Elt, onto: Self, w: &mut Self::W) -> Self;
 }
@@ -412,7 +404,7 @@ pub trait TransactionCommitmentInterface {
     type W: WitnessGenerator<Fp>;
 
     fn empty() -> Fp;
-    fn commitment(account_updates: &Self::CallForest, w: &mut Self::W) -> Fp;
+    fn commitment(account_updates: &Self::CallForest) -> Fp;
     fn full_commitment(
         account_updates: &Self::AccountUpdate,
         memo_hash: Fp,

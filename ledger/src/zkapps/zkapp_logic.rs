@@ -1,17 +1,12 @@
-#![allow(unused)]
-
 use mina_hasher::Fp;
 use mina_signer::CompressedPubKey;
 
-use crate::scan_state::transaction_logic::zkapp_command::{
-    Actions, Numeric, SetOrKeep, ZkAppPreconditions,
-};
+use crate::scan_state::transaction_logic::zkapp_command::{Actions, SetOrKeep};
 use crate::Permissions;
 use crate::{
-    proofs::{numbers::nat::CheckedNat, transaction::transaction_snark::CONSTRAINT_CONSTANTS},
+    proofs::transaction::transaction_snark::CONSTRAINT_CONSTANTS,
     scan_state::{
-        currency::{Amount, Magnitude, SlotSpan},
-        scan_state::ConstraintConstants,
+        currency::{Magnitude, SlotSpan},
         transaction_logic::{
             protocol_state::GlobalStateSkeleton, zkapp_command::CheckAuthorizationResult,
             TransactionFailure,
@@ -20,11 +15,10 @@ use crate::{
     zkapps::intefaces::*,
     AuthRequired, AuthRequiredEncoded, MyCow, TokenId, VerificationKey,
 };
-use ark_ff::{One, Zero};
 
 use crate::proofs::{
     field::{Boolean, ToBoolean},
-    zkapp::{StartDataSkeleton, ZkappSingleData},
+    zkapp::StartDataSkeleton,
 };
 
 pub enum IsStart<T> {
@@ -458,7 +452,7 @@ where
             ),
             IsStart::Yes(start_data) | IsStart::Compute(start_data) => {
                 let tx_commitment_on_start =
-                    Z::TransactionCommitment::commitment(remaining.calls(), w);
+                    Z::TransactionCommitment::commitment(remaining.calls());
                 let full_tx_commitment_on_start = Z::TransactionCommitment::full_commitment(
                     &account_update,
                     start_data.memo_hash,
@@ -654,7 +648,6 @@ where
             w,
         );
         let timing = w.exists_no_check({
-            use crate::scan_state::transaction_logic::zkapp_command::SetOrKeep;
             match timing {
                 SetOrKeep::Set(timing) => timing.clone().to_account_timing(),
                 SetOrKeep::Keep => a.get().timing.clone(),
