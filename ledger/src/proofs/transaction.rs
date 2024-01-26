@@ -3777,14 +3777,14 @@ pub fn compute_witness<C: ProofConstants, F: FieldWitness>(
     w: &Witness<F>,
 ) -> [Vec<F>; COLUMNS] {
     if !w.ocaml_aux.is_empty() {
-        assert_eq!(w.aux.len(), w.ocaml_aux.len());
+        assert_eq!(w.aux().len(), w.ocaml_aux.len());
     };
 
     let external_values = |i: usize| {
         if i < C::PRIMARY_LEN {
             w.primary[i]
         } else {
-            w.aux[i - C::PRIMARY_LEN]
+            w.aux()[i - C::PRIMARY_LEN]
         }
     };
 
@@ -4011,7 +4011,7 @@ mod tests_with_wasm {
 
         assert_eq!(res, (131085.into(), 65636.into(), 1866.into()));
         assert_eq!(
-            witness.aux,
+            witness.aux(),
             &[
                 0.into(),
                 0.into(),
