@@ -1,5 +1,6 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
+    net::SocketAddr,
     time::Duration,
 };
 
@@ -13,9 +14,8 @@ use crate::{
     node::RustNodeTestingConfig,
     scenario::ListenerNode,
     scenarios::{
-        add_rust_nodes, add_rust_nodes_with, as_connection_finalized_event,
-        connection_finalized_event, connection_finalized_with_res_event,
-        wait_for_nodes_listening_on_localhost, ClusterRunner, Driver,
+        add_rust_nodes, add_rust_nodes_with, peer_is_ready, wait_for_connection_established,
+        wait_for_connection_event, wait_for_nodes_listening_on_localhost, ClusterRunner, Driver,
     },
 };
 
@@ -31,13 +31,10 @@ impl MakeOutgoingConnection {
         let (node2, peer_id2) = driver.add_rust_node(RustNodeTestingConfig::berkeley_default());
 
         // wait for the peer to listen
-        let satisfied = wait_for_nodes_listening_on_localhost(
-            &mut driver,
-            Duration::from_secs(3 * 60),
-            [node2],
-        )
-        .await
-        .unwrap();
+        let satisfied =
+            wait_for_nodes_listening_on_localhost(&mut driver, Duration::from_secs(30), [node2])
+                .await
+                .unwrap();
         assert!(satisfied, "the peer should be listening");
 
         driver
@@ -48,28 +45,18 @@ impl MakeOutgoingConnection {
             .await
             .expect("connect event should be dispatched");
 
-        let connected = driver
-            .wait_for(
-                Duration::from_secs(10),
-                connection_finalized_event(|node_id, peer| node_id == node1 && peer == &peer_id2),
-            )
-            .await
-            .unwrap()
-            .expect("connected event");
-        let state = driver
-            .exec_even_step(connected)
-            .await
-            .unwrap()
-            .expect("connected event sholuld be executed");
+        let connected = wait_for_connection_established(
+            &mut driver,
+            Duration::from_secs(30),
+            (node1, &peer_id2),
+        )
+        .await
+        .unwrap();
+        assert!(connected, "peer should be connected");
+
         assert!(
-            matches!(
-                state.p2p.peers.get(&peer_id2),
-                Some(P2pPeerState {
-                    status: P2pPeerStatus::Ready(..),
-                    ..
-                })
-            ),
-            "peer should exist"
+            peer_is_ready(driver.inner(), node1, &peer_id2),
+            "peer should be ready"
         );
     }
 }
@@ -113,24 +100,14 @@ impl MakeMultipleOutgoingConnections {
                 .expect("connect event should be dispatched");
         }
 
-        // matches event "the node established connection with peer"
-        let pred = |node_id, event: &_, _state: &_| {
-            if node_id != node_ut {
-                false
-            } else if let Some((peer_id, res)) = as_connection_finalized_event(event) {
-                assert!(res.is_ok(), "connection to {peer_id} should succeed");
-                peer_ids.remove(&peer_id);
-                peer_ids.is_empty()
-            } else {
-                false
-            }
-        };
-
-        let satisfied = driver
-            .run_until(Duration::from_secs(3 * 60), pred)
-            .await
-            .unwrap();
-        assert!(satisfied, "did not connect to peers: {:?}", peer_ids);
+        let connected = wait_for_connection_established(
+            &mut driver,
+            Duration::from_secs(3 * 60),
+            (node_ut, &mut peer_ids),
+        )
+        .await
+        .unwrap();
+        assert!(connected, "did not connect to peers: {:?}", peer_ids);
     }
 }
 
@@ -167,18 +144,11 @@ impl DontConnectToNodeWithSameId {
             .await
             .expect("connect event should be dispatched");
 
-        let connected = driver
-            .wait_for(
-                Duration::from_secs(60),
-                connection_finalized_event(|node_id, _peer| node_id == node_ut),
-            )
-            .await
-            .unwrap();
-
-        assert!(
-            connected.is_none(),
-            "the node sholdn't try to connect to itself"
-        );
+        let connected =
+            wait_for_connection_established(&mut driver, Duration::from_secs(3 * 60), node_ut)
+                .await
+                .unwrap();
+        assert!(!connected, "the node sholdn't try to connect to itself");
     }
 }
 
@@ -201,18 +171,11 @@ impl DontConnectToSelfInitialPeer {
             "node should be listening"
         );
 
-        let connected = driver
-            .wait_for(
-                Duration::from_secs(60),
-                connection_finalized_with_res_event(|node_id, _peer, _res| node_id == node_ut),
-            )
-            .await
-            .unwrap();
-
-        assert!(
-            connected.is_none(),
-            "the node sholdn't try to connect to itself"
-        );
+        let connected =
+            wait_for_connection_established(&mut driver, Duration::from_secs(3 * 60), node_ut)
+                .await
+                .unwrap();
+        assert!(!connected, "the node sholdn't try to connect to itself");
     }
 }
 
@@ -244,18 +207,11 @@ impl DontConnectToInitialPeerWithSameId {
                 .initial_peers(vec![node.into()]),
         );
 
-        let connected = driver
-            .wait_for(
-                Duration::from_secs(60),
-                connection_finalized_with_res_event(|node_id, _peer, _res| node_id == node_ut),
-            )
-            .await
-            .unwrap();
-
-        assert!(
-            connected.is_none(),
-            "the node sholdn't try to connect to itself"
-        );
+        let connected =
+            wait_for_connection_established(&mut driver, Duration::from_secs(3 * 60), node_ut)
+                .await
+                .unwrap();
+        assert!(!connected, "the node sholdn't try to connect to itself");
     }
 }
 
@@ -296,23 +252,20 @@ impl ConnectToInitialPeers {
 
         // matches event "the node established connection with peer"
         let mut peer_ids = peer_ids.into_iter().collect::<BTreeSet<_>>();
-        let pred = |node_id, event: &_, _state: &_| {
-            if node_id != node_ut {
-                false
-            } else if let Some((peer_id, res)) = as_connection_finalized_event(event) {
-                assert!(res.is_ok(), "connection to {peer_id} should succeed");
-                peer_ids.remove(&peer_id);
-                peer_ids.is_empty()
-            } else {
-                false
-            }
-        };
-
-        let satisfied = driver
-            .run_until(Duration::from_secs(3 * 60), pred)
-            .await
-            .unwrap();
-        assert!(satisfied, "did not connect to peers: {:?}", peer_ids);
+        let connected = wait_for_connection_established(
+            &mut driver,
+            Duration::from_secs(3 * 60),
+            (node_ut, &mut peer_ids),
+        )
+        .await
+        .unwrap();
+        if !connected {
+            println!(
+                "{:#?}",
+                driver.inner().node(node_ut).unwrap().state().p2p.peers
+            );
+        }
+        assert!(connected, "did not connect to peers: {:?}", peer_ids);
     }
 }
 
@@ -341,25 +294,20 @@ impl ConnectToInitialPeersBecomeReady {
             .map(|_| driver.add_rust_node(RustNodeTestingConfig::berkeley_default()))
             .unzip();
 
-        // matches event "the node established connection with peer"
-        let pred = |node_id, event: &_, _state: &_| {
-            if node_id != node_ut {
-                false
-            } else if let Some((peer_id, res)) = as_connection_finalized_event(event) {
-                if res.is_ok() {
-                    peer_ids.remove(&peer_id);
-                }
-                peer_ids.is_empty()
-            } else {
-                false
-            }
-        };
-
-        let satisfied = driver
-            .run_until(Duration::from_secs(3 * 60), pred)
-            .await
-            .unwrap();
-        assert!(satisfied, "did not connect to peers: {:?}", peer_ids);
+        let connected = wait_for_connection_established(
+            &mut driver,
+            Duration::from_secs(3 * 60),
+            (node_ut, &mut peer_ids),
+        )
+        .await
+        .unwrap();
+        if !connected {
+            println!(
+                "{:#?}",
+                driver.inner().node(node_ut).unwrap().state().p2p.peers
+            );
+        }
+        assert!(connected, "did not connect to peers: {:?}", peer_ids);
     }
 }
 
@@ -374,49 +322,50 @@ impl ConnectToUnavailableInitialPeers {
 
         let mut driver = Driver::new(runner);
 
-        let (initial_peers, peer_ids): (Vec<_>, Vec<_>) = (0..MAX)
+        let (initial_peers, ports): (Vec<_>, Vec<_>) = (0..MAX)
             .into_iter()
             .map(|i| {
+                let port = 11200 + i;
                 let peer_id = SecretKey::rand().public_key().peer_id();
                 let addr = ListenerNode::Custom(
                     P2pConnectionOutgoingInitLibp2pOpts {
                         peer_id,
                         host: [127, 0, 0, 1].into(),
-                        port: 11200 + i,
+                        port,
                     }
                     .into(),
                 );
-                (addr, peer_id)
+                (addr, port)
             })
             .unzip();
 
         let (node_ut, _) = driver
             .add_rust_node(RustNodeTestingConfig::berkeley_default().initial_peers(initial_peers));
 
-        let mut peer_retries =
-            BTreeMap::from_iter(peer_ids.into_iter().map(|peer_id| (peer_id, 0_u8)));
+        let mut peer_retries = BTreeMap::from_iter(ports.into_iter().map(|port| (port, 0_u8)));
 
-        // matches event "the node established connection with peer"
-        let pred = |node_id, event: &_, _state: &_| {
-            if node_id != node_ut {
-                false
-            } else if let Some((peer_id, res)) = as_connection_finalized_event(event) {
-                assert!(res.is_err(), "connection to {peer_id} should succeed");
-                let retries = peer_retries.get_mut(&peer_id).unwrap();
+        let satisfied = wait_for_connection_event(
+            &mut driver,
+            Duration::from_secs(3 * 60),
+            |node_id: ClusterNodeId, peer_addr: SocketAddr, result: &Result<_, _>| {
+                println!("{peer_addr}: {result:?}");
+                if node_id != node_ut {
+                    return false;
+                }
+                assert!(
+                    result.is_err(),
+                    "connection to {peer_addr} shouldn't succeed"
+                );
+                let retries = peer_retries.get_mut(&peer_addr.port()).unwrap();
                 *retries += 1;
                 if *retries >= RETRIES {
-                    peer_retries.remove(&peer_id);
+                    peer_retries.remove(&peer_addr.port());
                 }
                 peer_retries.is_empty()
-            } else {
-                false
-            }
-        };
-
-        let satisfied = driver
-            .run_until(Duration::from_secs(1 * 60), pred)
-            .await
-            .unwrap();
+            },
+        )
+        .await
+        .unwrap();
 
         println!("{:#?}", driver.inner().node(node_ut).unwrap().state().p2p);
 
