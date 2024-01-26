@@ -1,3 +1,4 @@
+use ledger::proofs::witness::transaction_snark::CONSTRAINT_CONSTANTS;
 use redux::{ActionMeta, Timestamp};
 use serde::{Deserialize, Serialize};
 
@@ -68,5 +69,18 @@ impl State {
     pub fn action_applied(&mut self, action: &ActionWithMeta) {
         self.last_action = action.meta().clone();
         self.applied_actions_count += 1;
+    }
+
+    /// Current global slot based on constants and current time.
+    ///
+    /// It's not equal to global slot of the best tip.
+    pub fn cur_global_slot(&self) -> Option<u32> {
+        let best_tip = self.transition_frontier.best_tip()?;
+        let best_tip_ms = u64::from(best_tip.timestamp()) / 1_000_000;
+        let now_ms = u64::from(self.time()) / 1_000_000;
+        let ms = now_ms.saturating_sub(best_tip_ms) as u64;
+        let slots = ms / CONSTRAINT_CONSTANTS.block_window_duration_ms;
+
+        Some(best_tip.global_slot() + (slots as u32))
     }
 }

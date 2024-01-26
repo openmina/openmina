@@ -34,7 +34,6 @@ use mina_p2p_messages::{
 use mina_signer::CompressedPubKey;
 use openmina_core::block::ArcBlockWithHash;
 use serde::{Deserialize, Serialize};
-use vrf::VrfWonSlot;
 
 use crate::account::AccountPublicKey;
 
@@ -45,7 +44,6 @@ pub struct BlockProducerWonSlot {
     pub slot_time: redux::Timestamp,
     pub delegator: (NonZeroCurvePoint, AccountIndex),
     pub global_slot: ConsensusGlobalSlotStableV1,
-    pub global_slot_since_genesis: MinaNumbersGlobalSlotSinceGenesisMStableV1,
     pub vrf_output: ConsensusVrfOutputTruncatedStableV1,
     // TODO(adonagy): maybe instead of passing it here, it can be
     // calculated on spot from `vrf_output`? Maybe with `vrf_output.blake2b()`?
@@ -56,7 +54,7 @@ pub struct BlockProducerWonSlot {
 
 impl BlockProducerWonSlot {
     pub fn from_vrf_won_slot(
-        won_slot_with_hash: VrfWonSlotWithHash,
+        won_slot_with_hash: &VrfWonSlotWithHash,
         genesis_timestamp: redux::Timestamp,
     ) -> Self {
         let VrfWonSlotWithHash {
@@ -76,19 +74,16 @@ impl BlockProducerWonSlot {
             ),
             slots_per_epoch: 7140.into(), // TODO
         };
-        let global_slot_since_genesis =
-            MinaNumbersGlobalSlotSinceGenesisMStableV1::SinceGenesis(won_slot.global_slot.into());
 
-        let vrf_output = ConsensusVrfOutputTruncatedStableV1(won_slot.vrf_output_bytes.into());
-        let vrf_hash = won_slot.vrf_hash;
         Self {
             slot_time,
             delegator,
             global_slot,
-            global_slot_since_genesis,
-            vrf_output,
-            vrf_hash,
-            staking_ledger_hash,
+            vrf_output: ConsensusVrfOutputTruncatedStableV1(
+                (&won_slot.vrf_output_bytes[..]).into(),
+            ),
+            vrf_hash: won_slot.vrf_hash.clone(),
+            staking_ledger_hash: staking_ledger_hash.clone(),
         }
     }
 
@@ -96,6 +91,18 @@ impl BlockProducerWonSlot {
         // FIXME: this calculation must use values from the protocol constants,
         // now it assumes 3 minutes blocks.
         genesis_timestamp + (slot as u64) * 3 * 60 * 1_000_000_000_u64
+    }
+
+    pub fn global_slot(&self) -> u32 {
+        self.global_slot.slot_number.as_u32()
+    }
+
+    pub fn global_slot_since_genesis(
+        &self,
+        slot_diff: u32,
+    ) -> MinaNumbersGlobalSlotSinceGenesisMStableV1 {
+        let slot = self.global_slot() + slot_diff;
+        MinaNumbersGlobalSlotSinceGenesisMStableV1::SinceGenesis(slot.into())
     }
 
     pub fn timestamp(&self) -> BlockTimeTimeStableV1 {
@@ -111,9 +118,8 @@ impl BlockProducerWonSlot {
 impl PartialOrd for BlockProducerWonSlot {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(
-            self.global_slot_since_genesis
-                .as_u32()
-                .cmp(&other.global_slot_since_genesis.as_u32())
+            self.global_slot()
+                .cmp(&other.global_slot())
                 .then_with(|| self.vrf_output.blake2b().cmp(&other.vrf_output.blake2b())),
         )
     }
@@ -128,21 +134,16 @@ impl PartialEq<ArcBlockWithHash> for BlockProducerWonSlot {
 impl PartialOrd<ArcBlockWithHash> for BlockProducerWonSlot {
     fn partial_cmp(&self, other: &ArcBlockWithHash) -> Option<std::cmp::Ordering> {
         // TODO(binier): this assumes short range fork
-        Some(
-            self.global_slot_since_genesis
-                .as_u32()
-                .cmp(&other.global_slot())
-                .then_with(|| {
-                    self.vrf_output.blake2b().cmp(
-                        &other
-                            .header()
-                            .protocol_state
-                            .body
-                            .consensus_state
-                            .last_vrf_output
-                            .blake2b(),
-                    )
-                }),
-        )
+        Some(self.global_slot().cmp(&other.global_slot()).then_with(|| {
+            self.vrf_output.blake2b().cmp(
+                &other
+                    .header()
+                    .protocol_state
+                    .body
+                    .consensus_state
+                    .last_vrf_output
+                    .blake2b(),
+            )
+        }))
     }
 }

@@ -37,7 +37,7 @@ use mina_p2p_messages::v2::{
 };
 use openmina_core::snark::{Snark, SnarkJobId};
 
-use mina_signer::{CompressedPubKey, PubKey};
+use mina_signer::CompressedPubKey;
 use openmina_core::block::ArcBlockWithHash;
 
 use crate::block_producer::vrf_evaluator::BlockProducerVrfEvaluatorLedgerService;
@@ -497,7 +497,7 @@ impl<T: LedgerService> TransitionFrontierService for T {
             .ok_or_else(|| "parent staged ledger missing")?
             .clone();
 
-        let global_slot = block.global_slot();
+        let global_slot = block.global_slot_since_genesis();
         let prev_protocol_state = &pred_block.header().protocol_state;
         let prev_state_view = protocol_state_view(prev_protocol_state);
 
@@ -762,12 +762,14 @@ impl<T: LedgerService> BlockProducerService for T {
             .clone();
 
         let protocol_state_view = protocol_state_view(&pred_block.header().protocol_state);
+        let global_slot_since_genesis =
+            won_slot.global_slot_since_genesis(pred_block.global_slot_diff());
 
         // TODO(binier): include `invalid_txns` in output.
         let (pre_diff, invalid_txns) = staged_ledger
             .create_diff(
                 &CONSTRAINT_CONSTANTS,
-                (&won_slot.global_slot_since_genesis).into(),
+                (&global_slot_since_genesis).into(),
                 Some(true),
                 coinbase_receiver.into(),
                 (),
@@ -792,7 +794,7 @@ impl<T: LedgerService> BlockProducerService for T {
         let res = staged_ledger
             .apply_diff_unchecked(
                 &CONSTRAINT_CONSTANTS,
-                (&won_slot.global_slot_since_genesis).into(),
+                (&global_slot_since_genesis).into(),
                 pre_diff,
                 (),
                 &protocol_state_view,

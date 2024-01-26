@@ -1,9 +1,7 @@
-use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use crate::account::AccountPublicKey;
 use crate::block_producer::{vrf_evaluator::BlockProducerVrfEvaluatorStatus, BlockProducerAction};
-use ledger::AccountIndex;
 use mina_p2p_messages::v2::{
     ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1,
     ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1, LedgerHash,

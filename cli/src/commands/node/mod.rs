@@ -5,8 +5,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use mina_p2p_messages::v2::{
-    CurrencyFeeStableV1, NonZeroCurvePoint, NonZeroCurvePointUncompressedStableV1,
-    UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
+    CurrencyFeeStableV1, UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
 };
 use rand::prelude::*;
 

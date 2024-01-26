@@ -1,6 +1,3 @@
-use std::collections::BTreeMap;
-
-use ledger::AccountIndex;
 use mina_p2p_messages::v2::LedgerHash;
 
 use crate::account::AccountPublicKey;

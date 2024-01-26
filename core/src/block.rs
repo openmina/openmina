@@ -65,6 +65,14 @@ impl<T: AsRef<Block>> BlockWithHash<T> {
         global_slot(self.header())
     }
 
+    pub fn global_slot_since_genesis(&self) -> u32 {
+        global_slot_since_genesis(self.header())
+    }
+
+    pub fn global_slot_diff(&self) -> u32 {
+        global_slot_diff(self.header())
+    }
+
     pub fn timestamp(&self) -> Timestamp {
         timestamp(self.header())
     }
@@ -191,6 +199,14 @@ impl<T: AsRef<BlockHeader>> BlockHeaderWithHash<T> {
         global_slot(self.header())
     }
 
+    pub fn global_slot_since_genesis(&self) -> u32 {
+        global_slot_since_genesis(self.header())
+    }
+
+    pub fn global_slot_diff(&self) -> u32 {
+        global_slot_diff(self.header())
+    }
+
     pub fn timestamp(&self) -> Timestamp {
         timestamp(self.header())
     }
@@ -237,12 +253,23 @@ fn height(header: &BlockHeader) -> u32 {
 }
 
 fn global_slot(header: &BlockHeader) -> u32 {
+    consensus_state(header).global_slot()
+}
+
+fn global_slot_since_genesis(header: &BlockHeader) -> u32 {
     consensus_state(header).global_slot_since_genesis.as_u32()
+}
+
+fn global_slot_diff(header: &BlockHeader) -> u32 {
+    let s = consensus_state(header);
+    s.global_slot_since_genesis
+        .as_u32()
+        .saturating_sub(s.global_slot())
 }
 
 fn timestamp(header: &BlockHeader) -> Timestamp {
     let genesis_timestamp = constants(header).genesis_state_timestamp.0.as_u64();
-    let slot = global_slot(header) as u64;
+    let slot = global_slot_since_genesis(header) as u64;
     // FIXME: this calculation must use values from the protocol constants,
     // now it assumes 3 minutes blocks.
     let time_ms = genesis_timestamp + slot * 3 * 60 * 1000;

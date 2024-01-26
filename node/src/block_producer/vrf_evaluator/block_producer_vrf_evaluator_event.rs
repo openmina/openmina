@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use vrf::VrfEvaluationOutput;
 
 use super::VrfEvaluationOutputWithHash;
 

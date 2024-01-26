@@ -35,7 +35,7 @@ pub struct BlockProducerBestTipUpdateAction {
 }
 
 impl redux::EnablingCondition<crate::State> for BlockProducerBestTipUpdateAction {
-    fn is_enabled(&self, state: &crate::State) -> bool {
+    fn is_enabled(&self, _state: &crate::State) -> bool {
         true
     }
 }
@@ -47,9 +47,16 @@ impl redux::EnablingCondition<crate::State> for BlockProducerWonSlotSearchAction
     fn is_enabled(&self, state: &crate::State) -> bool {
         state
             .block_producer
-            .with(false, |this| this.current.won_slot_should_search())
-        // TODO(adonagy): check also if we have any won slots with higher
-        // global slot than current best tip in transition frontier.
+            .with(None, |this| {
+                if !this.current.won_slot_should_search() {
+                    return None;
+                }
+                let best_tip = state.transition_frontier.best_tip()?;
+                let cur_global_slot = state.cur_global_slot()?;
+                let next = this.vrf_evaluator.next_won_slot(cur_global_slot, best_tip);
+                Some(next.is_some())
+            })
+            .is_some_and(|v| v)
     }
 }
 
@@ -66,8 +73,8 @@ impl redux::EnablingCondition<crate::State> for BlockProducerWonSlotAction {
             };
 
             this.current.won_slot_should_search()
-                && state.time() < self.won_slot.next_slot_time()
-                && self.won_slot.global_slot_since_genesis.as_u32() >= best_tip.global_slot()
+                && self.won_slot.global_slot() >= state.cur_global_slot().unwrap()
+                && &self.won_slot > best_tip
         })
     }
 }
