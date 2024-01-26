@@ -1225,27 +1225,15 @@ impl<F: FieldWitness> InnerCurve<F> {
         Self { inner }
     }
 
-    fn fake_random() -> Self {
-        // static SEED: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
-        // dbg!(SEED.load(std::sync::atomic::Ordering::Relaxed));
+    pub fn random() -> Self {
+        // NOTE: Not random in `cfg(test)`
+        let mut rng = get_rng();
 
-        let mut rng: rand::rngs::StdRng = rand::SeedableRng::seed_from_u64(
-            0,
-            // SEED.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
-        );
+        // Both `proj` below are the same type, but we use `into()` to make it generic
         let proj: GroupProjective<F::Parameters> = ark_ff::UniformRand::rand(&mut rng);
         let proj: F::Projective = proj.into();
+
         Self { inner: proj }
-    }
-
-    pub fn random() -> Self {
-        Self::fake_random()
-        // // Both `proj` below are the same type, but we use `into()` to make it generic
-        // let rng = &mut rand::rngs::OsRng;
-        // let proj: GroupProjective<F::Parameters> = ark_ff::UniformRand::rand(rng);
-        // let proj: F::Projective = proj.into();
-
-        // Self { inner: proj }
     }
 }
 
@@ -3877,6 +3865,17 @@ fn make_prover_index<C: ProofConstants, F: FieldWitness>(
     index
 }
 
+/// During tests, we don't want randomness, to get reproducible witness/proofs
+/// TODO: Are there other cases where we don't want randomness ?
+#[cfg(test)]
+fn get_rng() -> rand::rngs::StdRng {
+    <rand::rngs::StdRng as rand::SeedableRng>::seed_from_u64(0)
+}
+#[cfg(not(test))]
+fn get_rng() -> rand::rngs::OsRng {
+    rand::rngs::OsRng
+}
+
 pub fn create_proof<C: ProofConstants, F: FieldWitness>(
     prover: &Prover<F>,
     prev_challenges: Vec<RecursionChallenge<F::OtherCurve>>,
@@ -3887,7 +3886,9 @@ pub fn create_proof<C: ProofConstants, F: FieldWitness>(
     let computed_witness: [Vec<F>; COLUMNS] = compute_witness::<C, _>(prover, w);
     let prover_index: &ProverIndex<F::OtherCurve> = &prover.index;
 
-    let mut rng: rand::rngs::StdRng = rand::SeedableRng::seed_from_u64(0);
+    // NOTE: Not random in `cfg(test)`
+    let mut rng = get_rng();
+
     let now = std::time::Instant::now();
     let group_map = kimchi::groupmap::GroupMap::<F::Scalar>::setup();
     let proof = kimchi::proof::ProverProof::create_recursive::<F::FqSponge, EFrSponge<F>>(
