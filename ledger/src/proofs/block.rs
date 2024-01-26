@@ -1,4 +1,4 @@
-use std::{path::Path, rc::Rc, str::FromStr, sync::Arc};
+use std::{rc::Rc, sync::Arc};
 
 use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
@@ -52,23 +52,6 @@ use super::{
     witness::Witness,
     wrap::WrapProof,
 };
-
-fn read_witnesses() -> Vec<Fp> {
-    let f = std::fs::read_to_string(
-        Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("rampup4")
-            .join("block_fps.txt"),
-    )
-    .unwrap();
-
-    let fps = f
-        .lines()
-        .filter(|s| !s.is_empty())
-        .map(|s| Fp::from_str(s).unwrap())
-        .collect::<Vec<_>>();
-
-    fps
-}
 
 impl ToFieldElements<Fp> for v2::MinaStateSnarkTransitionValueStableV2 {
     fn to_field_elements(&self, fields: &mut Vec<Fp>) {
@@ -1744,8 +1727,6 @@ pub struct BlockParams<'a> {
 const BLOCK_N_PREVIOUS_PROOFS: usize = 2;
 
 pub(super) fn generate_block_proof(params: BlockParams, w: &mut Witness<Fp>) -> WrapProof {
-    w.ocaml_aux = read_witnesses();
-
     let BlockParams {
         input:
             v2::ProverExtendBlockchainInputStableV2 {

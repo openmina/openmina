@@ -1,4 +1,4 @@
-use std::{path::Path, rc::Rc, str::FromStr};
+use std::rc::Rc;
 
 use crate::proofs::{
     constants::{make_step_transaction_data, StepMergeProof},
@@ -32,25 +32,6 @@ use super::{
     witness::Witness,
     wrap::WrapProof,
 };
-
-pub fn read_witnesses() -> std::io::Result<Vec<Fp>> {
-    let f = std::fs::read_to_string(
-        Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("rampup4")
-            .join("fps_merge.txt"),
-    )?;
-    // let f = std::fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("fps.txt"))?;
-
-    let fps = f
-        .lines()
-        .filter(|s| !s.is_empty())
-        .map(|s| Fp::from_str(s).unwrap())
-        .collect::<Vec<_>>();
-
-    // TODO: Implement [0..652]
-    // Ok(fps.split_off(652))
-    Ok(fps)
-}
 
 fn merge_main(
     statement: &Statement<SokDigest>,

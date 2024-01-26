@@ -4609,7 +4609,7 @@ mod tests {
         } = get_provers();
 
         let mut witnesses: Witness<Fp> = Witness::new::<StepMergeProof>();
-        witnesses.ocaml_aux = crate::proofs::merge::read_witnesses().unwrap();
+        witnesses.ocaml_aux = read_witnesses("fps_merge.txt").unwrap();
 
         let WrapProof { proof, .. } = generate_merge_proof(
             MergeParams {
@@ -4752,6 +4752,7 @@ mod tests {
             zkapp_step_proof_prover: _,
         } = get_provers();
         let mut witnesses: Witness<Fp> = Witness::new::<StepBlockProof>();
+        witnesses.ocaml_aux = read_witnesses("block_fps.txt").unwrap();
 
         let WrapProof { proof, .. } = generate_block_proof(
             BlockParams {
@@ -4837,6 +4838,7 @@ mod tests {
                 read_binprot(&mut data.as_slice());
 
             let mut witnesses: Witness<Fp> = Witness::new::<StepBlockProof>();
+            witnesses.ocaml_aux = read_witnesses("block_fps.txt").unwrap();
 
             let WrapProof { proof, .. } = generate_block_proof(
                 BlockParams {
@@ -4867,7 +4869,7 @@ mod tests {
             let (statement, proofs, message) = extract_merge(&data);
 
             let mut witnesses: Witness<Fp> = Witness::new::<StepMergeProof>();
-            witnesses.ocaml_aux = crate::proofs::merge::read_witnesses().unwrap();
+            witnesses.ocaml_aux = read_witnesses("fps_merge.txt").unwrap();
 
             let WrapProof { proof, .. } = generate_merge_proof(
                 MergeParams {
