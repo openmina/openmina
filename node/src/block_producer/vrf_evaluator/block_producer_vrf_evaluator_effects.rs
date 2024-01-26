@@ -14,21 +14,13 @@ use super::{
 
 impl BlockProducerVrfEvaluatorEpochDataUpdateAction {
     pub fn effects<S: Service>(self, _: &ActionMeta, store: &mut Store<S>) {
-        // TODO(adonagy): once block producer is enabled
-        // if let Some(config) = store.state().block_producer.config() {
-        //     store.dispatch(BlockProducerVrfEvaluatorUpdateProducerAndDelegatesAction {
-        //         current_epoch_ledger_hash: self.epoch_data.ledger.hash,
-        //         next_epoch_ledger_hash: self.next_epoch_data.ledger.hash,
-        //         producer: config.pub_key.to_string(),
-        //     });
-        // }
-
-        // let vrf_evaluator_state = store.state().block_producer.vrf_evaluator();
-        if let Some(vrf_evaluator_state) = store.state().block_producer.vrf_evaluator() {
+        let vrf_evaluator_state_with_config =
+            store.state().block_producer.vrf_evaluator_with_config();
+        if let Some((vrf_evaluator_state, config)) = vrf_evaluator_state_with_config {
             store.dispatch(BlockProducerVrfEvaluatorUpdateProducerAndDelegatesAction {
                 current_epoch_ledger_hash: self.epoch_data.ledger.hash,
                 next_epoch_ledger_hash: self.next_epoch_data.ledger.hash,
-                producer: vrf_evaluator_state.producer_pub_key.to_string(),
+                producer: config.pub_key.clone().into(),
             });
         }
     }
@@ -39,10 +31,6 @@ impl BlockProducerVrfEvaluatorEvaluateVrfAction {
         store.service.evaluate(self.vrf_input);
     }
 }
-
-// impl BlockProducerVrfEvaluatorEvaluationPendingAction {
-//     pub fn effects<S: Service>(self, _: &ActionMeta, store: &mut Store<S>) {}
-// }
 
 impl BlockProducerVrfEvaluatorEvaluationSuccessAction {
     pub fn effects<S: Service>(self, _: &ActionMeta, store: &mut Store<S>) {
@@ -89,23 +77,19 @@ impl BlockProducerVrfEvaluatorEvaluationSuccessAction {
 
 impl BlockProducerVrfEvaluatorUpdateProducerAndDelegatesAction {
     pub fn effects<S: Service>(self, _: &ActionMeta, store: &mut Store<S>) {
-        let current_epoch_producer_and_delegators: std::collections::BTreeMap<
-            ledger::AccountIndex,
-            (AccountPublicKey, u64),
-        > = store
-            .service
-            .get_producer_and_delegates(self.current_epoch_ledger_hash, self.producer.clone());
-        let next_epoch_producer_and_delegators: std::collections::BTreeMap<
-            ledger::AccountIndex,
-            (AccountPublicKey, u64),
-        > = store
+        let current_epoch_producer_and_delegators = store.service.get_producer_and_delegates(
+            self.current_epoch_ledger_hash.clone(),
+            self.producer.clone(),
+        );
+        let next_epoch_producer_and_delegators = store
             .service
             .get_producer_and_delegates(self.next_epoch_ledger_hash, self.producer.clone());
 
         store.dispatch(
             BlockProducerVrfEvaluatorUpdateProducerAndDelegatesSuccessAction {
-                current_epoch_producer_and_delegators,
-                next_epoch_producer_and_delegators,
+                current_epoch_producer_and_delegators: current_epoch_producer_and_delegators.into(),
+                next_epoch_producer_and_delegators: next_epoch_producer_and_delegators.into(),
+                staking_ledger_hash: self.current_epoch_ledger_hash,
             },
         );
     }

@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::sync::Arc;
 
 use crate::account::AccountPublicKey;
 use crate::block_producer::{vrf_evaluator::BlockProducerVrfEvaluatorStatus, BlockProducerAction};
@@ -10,7 +11,7 @@ use mina_p2p_messages::v2::{
 use serde::{Deserialize, Serialize};
 use vrf::VrfEvaluationOutput;
 
-use super::VrfEvaluatorInput;
+use super::{DelegatorTable, VrfEvaluatorInput};
 
 pub type BlockProducerVrfEvaluatorActionWithMeta =
     redux::ActionWithMeta<BlockProducerVrfEvaluatorAction>;
@@ -32,7 +33,7 @@ pub enum BlockProducerVrfEvaluatorAction {
 pub struct BlockProducerVrfEvaluatorUpdateProducerAndDelegatesAction {
     pub current_epoch_ledger_hash: LedgerHash,
     pub next_epoch_ledger_hash: LedgerHash,
-    pub producer: String,
+    pub producer: AccountPublicKey,
 }
 
 impl redux::EnablingCondition<crate::State>
@@ -50,8 +51,9 @@ impl redux::EnablingCondition<crate::State>
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BlockProducerVrfEvaluatorUpdateProducerAndDelegatesSuccessAction {
-    pub current_epoch_producer_and_delegators: BTreeMap<AccountIndex, (AccountPublicKey, u64)>,
-    pub next_epoch_producer_and_delegators: BTreeMap<AccountIndex, (AccountPublicKey, u64)>,
+    pub current_epoch_producer_and_delegators: Arc<DelegatorTable>,
+    pub next_epoch_producer_and_delegators: Arc<DelegatorTable>,
+    pub staking_ledger_hash: LedgerHash,
 }
 
 impl redux::EnablingCondition<crate::State>
@@ -62,7 +64,11 @@ impl redux::EnablingCondition<crate::State>
             matches!(
                 this.vrf_evaluator.status,
                 BlockProducerVrfEvaluatorStatus::DataPending { .. }
-            )
+            ) && this
+                .vrf_evaluator
+                .current_epoch_data
+                .as_ref()
+                .is_some_and(|epoch_data| epoch_data.ledger == self.staking_ledger_hash)
         })
     }
 }
@@ -93,10 +99,9 @@ pub struct BlockProducerVrfEvaluatorEvaluationSuccessAction {
 impl redux::EnablingCondition<crate::State> for BlockProducerVrfEvaluatorEvaluationSuccessAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
         state.block_producer.with(false, |this| {
-            matches!(
-                this.vrf_evaluator.status,
-                BlockProducerVrfEvaluatorStatus::SlotsRequested { .. }
-            )
+            this.vrf_evaluator
+                .status
+                .matches_requsted_slot(self.vrf_output.global_slot(), &self.staking_ledger_hash)
         })
     }
 }

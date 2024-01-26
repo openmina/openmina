@@ -21,9 +21,12 @@ impl BlockProducerVrfEvaluatorState {
                 ));
                 self.current_epoch = Some(action.new_epoch_number);
             }
-            BlockProducerVrfEvaluatorAction::EvaluateVrf(_) => {
-                // self.status = BlockProducerVrfEvaluatorStatus::Pending(action.vrf_input.global_slot);
-                self.status = BlockProducerVrfEvaluatorStatus::SlotsRequested { time: meta.time() };
+            BlockProducerVrfEvaluatorAction::EvaluateVrf(action) => {
+                self.status = BlockProducerVrfEvaluatorStatus::SlotsRequested {
+                    time: meta.time(),
+                    global_slot: action.vrf_input.global_slot,
+                    staking_ledger_hash: action.vrf_input.staking_ledger_hash.clone(),
+                };
             }
             // BlockProducerVrfEvaluatorAction::EvaluationPending(_) => todo!(),
             BlockProducerVrfEvaluatorAction::EvaluationSuccess(action) => {
@@ -40,7 +43,11 @@ impl BlockProducerVrfEvaluatorState {
                     }
                     vrf::VrfEvaluationOutput::SlotLost(global_slot) => *global_slot,
                 };
-                self.status = BlockProducerVrfEvaluatorStatus::SlotsReceived { time: meta.time() };
+                self.status = BlockProducerVrfEvaluatorStatus::SlotsReceived {
+                    time: meta.time(),
+                    global_slot: global_slot_evaluated,
+                    staking_ledger_hash: action.staking_ledger_hash.clone(),
+                };
                 self.latest_evaluated_slot = global_slot_evaluated;
             }
             BlockProducerVrfEvaluatorAction::UpdateProducerAndDelegates(_) => {

@@ -32,9 +32,6 @@ pub fn block_producer_effects<S: crate::Service>(
             BlockProducerVrfEvaluatorAction::EvaluateVrf(action) => {
                 action.effects(&meta, store);
             }
-            // BlockProducerVrfEvaluatorAction::EvaluationPending(action) => {
-            //     action.effects(&meta, store);
-            // },
             BlockProducerVrfEvaluatorAction::EvaluationSuccess(action) => {
                 let has_won_slot =
                     matches!(action.vrf_output, vrf::VrfEvaluationOutput::SlotWon(_));
