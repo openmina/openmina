@@ -16,6 +16,7 @@ crate-type = ["staticlib", "cdylib", "lib"]
 # https://stackoverflow.com/a/73023306
 
 [dependencies]
+openmina-core = { path = "../core" }
 mina-hasher = { workspace = true }
 mina-signer = { workspace = true }
 mina-curves = { workspace = true }

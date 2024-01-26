@@ -14,9 +14,10 @@ use std::{sync::Arc, time::Duration};
 
 use binprot_derive::{BinProtRead, BinProtWrite};
 use mina_p2p_messages::v2::{
-    LedgerHash, MinaBasePendingCoinbaseStableV2, MinaBaseStateBodyHashStableV1,
-    MinaLedgerSyncLedgerAnswerStableV2, MinaLedgerSyncLedgerQueryStableV1,
-    MinaStateProtocolStateValueStableV2, StateHash, TransactionSnarkScanStateStableV2,
+    LedgerHash, MerkleAddressBinableArgStableV1, MinaBasePendingCoinbaseStableV2,
+    MinaBaseStateBodyHashStableV1, MinaLedgerSyncLedgerAnswerStableV2,
+    MinaLedgerSyncLedgerQueryStableV1, MinaStateProtocolStateValueStableV2, StateHash,
+    TransactionSnarkScanStateStableV2,
 };
 use openmina_core::{
     block::ArcBlock,
@@ -108,15 +109,30 @@ impl Default for P2pRpcRequest {
     }
 }
 
+fn to_binary(bytes: &[u8]) -> String {
+    bytes
+        .into_iter()
+        .copied()
+        .map(|byte| {
+            (0..8)
+                .into_iter()
+                .map(|b| byte & (1 << (7 - b)) != 0)
+                .map(|b| if b { '1' } else { '0' })
+                .collect::<String>()
+        })
+        .collect()
+}
+
 impl std::fmt::Display for P2pRpcRequest {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", self.kind())?;
         match self {
             Self::BestTipWithProof => Ok(()),
             Self::LedgerQuery(ledger_hash, query) => {
-                let addr_to_str = |addr| {
-                    let addr = ledger::Address::from(addr);
-                    format!("depth: {}, addr: {}", addr.length(), addr.to_string())
+                let addr_to_str = |addr: &MerkleAddressBinableArgStableV1| {
+                    let depth = &addr.0 .0;
+                    let bits = to_binary(&addr.1[..(*depth as usize)]);
+                    format!("depth: {depth}, addr: {bits}")
                 };
 
                 match query {
