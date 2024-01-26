@@ -3928,7 +3928,7 @@ pub struct TransactionParams<'a> {
     pub ocaml_wrap_witness: Option<Vec<Fq>>,
 }
 
-fn generate_tx_proof(params: TransactionParams, w: &mut Witness<Fp>) -> WrapProof {
+pub(super) fn generate_tx_proof(params: TransactionParams, w: &mut Witness<Fp>) -> WrapProof {
     let TransactionParams {
         statement,
         tx_witness,

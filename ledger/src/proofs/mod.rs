@@ -24,3 +24,20 @@ pub mod zkapp;
 
 pub const BACKEND_TICK_ROUNDS_N: usize = 16;
 pub const BACKEND_TOCK_ROUNDS_N: usize = 15;
+
+pub fn generate_tx_proof(params: transaction::TransactionParams) -> wrap::WrapProof {
+    use {mina_hasher::Fp, witness::Witness};
+    let mut w: Witness<Fp> = Witness::new::<constants::StepTransactionProof>();
+    transaction::generate_tx_proof(params, &mut w)
+}
+pub fn generate_merge_proof(params: merge::MergeParams) -> wrap::WrapProof {
+    use {mina_hasher::Fp, witness::Witness};
+    let mut w: Witness<Fp> = Witness::new::<constants::StepMergeProof>();
+    merge::generate_merge_proof(params, &mut w)
+}
+pub fn generate_block_proof(params: block::BlockParams) -> wrap::WrapProof {
+    use {mina_hasher::Fp, witness::Witness};
+    let mut w: Witness<Fp> = Witness::new::<constants::StepBlockProof>();
+    block::generate_block_proof(params, &mut w)
+}
+pub use zkapp::generate_zkapp_proof;

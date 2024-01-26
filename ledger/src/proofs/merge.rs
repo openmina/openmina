@@ -167,7 +167,7 @@ pub struct MergeParams<'a> {
 
 const MERGE_N_PREVIOUS_PROOFS: usize = 2;
 
-pub fn generate_merge_proof(params: MergeParams, w: &mut Witness<Fp>) -> WrapProof {
+pub(super) fn generate_merge_proof(params: MergeParams, w: &mut Witness<Fp>) -> WrapProof {
     let MergeParams {
         statement,
         proofs,

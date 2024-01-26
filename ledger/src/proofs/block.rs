@@ -1743,7 +1743,7 @@ pub struct BlockParams<'a> {
 
 const BLOCK_N_PREVIOUS_PROOFS: usize = 2;
 
-pub fn generate_block_proof(params: BlockParams, w: &mut Witness<Fp>) -> WrapProof {
+pub(super) fn generate_block_proof(params: BlockParams, w: &mut Witness<Fp>) -> WrapProof {
     w.ocaml_aux = read_witnesses();
 
     let BlockParams {
