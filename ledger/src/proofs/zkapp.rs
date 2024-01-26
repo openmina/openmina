@@ -1,14 +1,6 @@
-#![allow(unused)]
-
-use std::{
-    cell::{Ref, RefCell},
-    collections::VecDeque,
-    rc::Rc,
-    str::FromStr,
-};
+use std::{cell::RefCell, rc::Rc};
 
 use ark_ff::{BigInteger256, Zero};
-use ark_poly::{EvaluationDomain, Radix2EvaluationDomain};
 use kimchi::proof::PointEvaluations;
 use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
@@ -18,20 +10,18 @@ use crate::{
     hash_with_kimchi,
     proofs::{
         constants::{
-            make_step_transaction_data, make_step_zkapp_data, StepMergeProof,
-            StepZkappOptSignedOptSignedProof, WrapTransactionProof, WrapZkappOptSignedProof,
-            WrapZkappProof,
+            make_step_zkapp_data, StepMergeProof, StepZkappOptSignedOptSignedProof,
+            WrapZkappOptSignedProof, WrapZkappProof,
         },
-        field::{field, Boolean, CircuitVar, FieldWitness, ToBoolean},
-        merge::{dlog_plonk_index, generate_merge_proof, MergeParams},
+        field::{Boolean, CircuitVar, FieldWitness, ToBoolean},
+        merge::{generate_merge_proof, MergeParams},
         public_input::{messages::MessagesForNextWrapProof, prepared_statement::DeferredValues},
         step::{
             extract_recursion_challenges, step, InductiveRule, OptFlag, PreviousProofStatement,
             StepParams, StepProof,
         },
-        transaction::{transaction_snark::CONSTRAINT_CONSTANTS, ReducedMessagesForNextStepProof},
+        transaction::ReducedMessagesForNextStepProof,
         unfinalized::{AllEvals, EvalsWithPublicInput},
-        util::sha256_sum,
         verification::prev_evals_to_p2p,
         verifier_index::make_zkapp_verifier_index,
         wrap::{self, WrapParams, WrapProofState, WrapStatement},
@@ -45,14 +35,11 @@ use crate::{
         transaction_logic::{
             local_state::{
                 LocalState, LocalStateEnv, LocalStateSkeleton, StackFrame, StackFrameChecked,
-                WithLazyHash,
             },
-            protocol_state::{
-                protocol_state_body_view, protocol_state_view, GlobalState, GlobalStateSkeleton,
-            },
+            protocol_state::{protocol_state_body_view, GlobalState, GlobalStateSkeleton},
             zkapp_command::{
-                self, AccountUpdate, AccountUpdateSkeleton, CallForest, ClosedInterval, Control,
-                WithHash, ZkAppCommand, ZkAppPreconditions, ACCOUNT_UPDATE_CONS_HASH_PARAM,
+                AccountUpdate, CallForest, Control, WithHash, ZkAppCommand,
+                ACCOUNT_UPDATE_CONS_HASH_PARAM,
             },
             zkapp_statement::{TransactionCommitment, ZkappStatement},
             TransactionFailure,
@@ -60,11 +47,10 @@ use crate::{
     },
     sparse_ledger::SparseLedger,
     zkapps::{
-        intefaces::ZkappApplication,
-        snark::{zkapp_check::InSnarkCheck, AccountUnhashed, ZkappSnark},
+        snark::ZkappSnark,
         zkapp_logic::{self, ApplyZkappParams},
     },
-    AccountId, ControlTag, MyCow, ToInputs, TokenId, ZkAppAccount,
+    AccountId, ControlTag, ToInputs, TokenId,
 };
 
 use self::group::SegmentBasic;
@@ -77,7 +63,7 @@ use super::{
     field::GroupAffine,
     numbers::{
         currency::{CheckedAmount, CheckedSigned},
-        nat::{CheckedIndex, CheckedNat, CheckedSlot},
+        nat::{CheckedIndex, CheckedSlot},
     },
     to_field_elements::ToFieldElements,
     transaction::{dummy_constraints, Check, Prover},
@@ -213,7 +199,7 @@ mod group {
             // I don't take responsability for this code, see OCaml comments
             // https://github.com/MinaProtocol/mina/blob/78535ae3a73e0e90c5f66155365a934a15535779/src/lib/mina_base/zkapp_command.ml#L1590
             match (zkapp_commands, stmtss) {
-                (([] | [[]]), [ _ ]) => {
+                ([] | [[]], [ _ ]) => {
                     eprintln!("GROUP 1");
                     return;
                 },
@@ -285,7 +271,7 @@ mod group {
                     group_by_zkapp_command_rev_impl(zkapp_commands.as_slice(), stmtss.as_slice(), acc);
                 }
                 ([[], zkapp_command @ [AccountUpdate { authorization: a1, .. }, AccountUpdate { authorization: Proof(_), .. }, ..], zkapp_commands @ ..],
-                 ([[ _ ], stmts @ [before, after, ..], stmtss @ ..])
+                 [[ _ ], stmts @ [before, after, ..], stmtss @ ..]
                 ) => {
                     eprintln!("GROUP 9");
                     let stmts = &stmts[1..];
@@ -578,7 +564,7 @@ pub fn zkapp_command_witnesses_exn(
         target: Stack::empty(),
     };
 
-    let mut w = Vec::with_capacity(32);
+    let w = Vec::with_capacity(32);
     states.into_iter().fold(w, |mut witnesses, s| {
         let ZkappCommandIntermediateState {
             kind,
@@ -681,7 +667,7 @@ pub fn zkapp_command_witnesses_exn(
                             zkapp_command1,
                         ) = v1;
                         let (
-                            pending_coinbase_init_stack2,
+                            _pending_coinbase_init_stack2,
                             pending_coinbase_stack_state2,
                             zkapp_command2,
                         ) = v2;
@@ -817,7 +803,7 @@ pub fn zkapp_command_witnesses_exn(
                             full_transaction_commitment,
                             excess,
                             supply_increase,
-                            ledger,
+                            ledger: _,
                             success,
                             account_update_index,
                             failure_status_tbl,
@@ -851,7 +837,7 @@ pub fn zkapp_command_witnesses_exn(
                             full_transaction_commitment,
                             excess,
                             supply_increase,
-                            ledger,
+                            ledger: _,
                             success,
                             account_update_index,
                             failure_status_tbl,
@@ -1215,7 +1201,7 @@ fn zkapp_main(
     });
 
     let on_true = local.stack_frame.hash(w);
-    let local_state_ledger = w.exists_no_check(match local.success.as_boolean() {
+    let _local_state_ledger = w.exists_no_check(match local.success.as_boolean() {
         Boolean::True => on_true,
         Boolean::False => statement.target.local_state.stack_frame,
     });
@@ -1416,7 +1402,7 @@ impl From<&WrapProof> for v2::PicklesProofProofsVerified2ReprStableV2 {
                         },
                     evals,
                     ft_eval1,
-                    prev_challenges,
+                    prev_challenges: _,
                 },
             statement:
                 WrapStatement {
@@ -1425,6 +1411,8 @@ impl From<&WrapProof> for v2::PicklesProofProofsVerified2ReprStableV2 {
                 },
             prev_evals,
         } = value;
+
+        assert!(lookup.is_none());
 
         use mina_p2p_messages::bigint::BigInt;
         use mina_p2p_messages::pseq::PaddedSeq;
@@ -1439,9 +1427,9 @@ impl From<&WrapProof> for v2::PicklesProofProofsVerified2ReprStableV2 {
                         deferred_values:
                             DeferredValues {
                                 plonk,
-                                combined_inner_product,
-                                b,
-                                xi,
+                                combined_inner_product: _,
+                                b: _,
+                                xi: _,
                                 bulletproof_challenges,
                                 branch_data,
                             },
@@ -1530,7 +1518,7 @@ impl From<&WrapProof> for v2::PicklesProofProofsVerified2ReprStableV2 {
                 },
                 messages_for_next_step_proof: {
                     let ReducedMessagesForNextStepProof {
-                        app_state,
+                        app_state: _,
                         challenge_polynomial_commitments,
                         old_bulletproof_challenges,
                     } = messages_for_next_step_proof;
@@ -1733,7 +1721,7 @@ pub fn generate_zkapp_proof(params: ZkappParams) -> LedgerProof {
     let mut witnesses_specs_stmts = witnesses_specs_stmts.into_iter().rev();
     let (zkapp_witness, spec, statement) = witnesses_specs_stmts.next().unwrap(); // last one
 
-    let mut first_proof = of_zkapp_command_segment(
+    let first_proof = of_zkapp_command_segment(
         statement.with_digest(sok_digest.clone()),
         &zkapp_witness,
         &spec,
