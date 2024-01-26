@@ -4041,7 +4041,7 @@ mod tests_with_wasm {
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::HashMap, path::Path, str::FromStr};
+    use std::{collections::HashMap, path::Path};
 
     use kimchi::circuits::gate::CircuitGate;
     use mina_hasher::Fp;
@@ -4098,21 +4098,17 @@ mod tests {
         T::binprot_read(&mut read).unwrap()
     }
 
-    fn read_witnesses() -> std::io::Result<Vec<Fp>> {
+    fn read_witnesses<F: FieldWitness>(filename: &str) -> Result<Vec<F>, ()> {
         let f = std::fs::read_to_string(
-            Path::new(env!("CARGO_MANIFEST_DIR")).join("/tmp/fps_rampup4.txt"),
-        )?;
-        // let f = std::fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("fps.txt"))?;
-
-        let fps = f
-            .lines()
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("rampup4")
+                .join(filename),
+        )
+        .unwrap();
+        f.lines()
             .filter(|s| !s.is_empty())
-            .map(|s| Fp::from_str(s).unwrap())
-            .collect::<Vec<_>>();
-
-        // TODO: Implement [0..652]
-        // Ok(fps.split_off(652))
-        Ok(fps)
+            .map(|s| F::from_str(s).map_err(|_| ()))
+            .collect()
     }
 
     fn read_constraints_data<F: FieldWitness>(
@@ -4566,22 +4562,7 @@ mod tests {
 
         let mut witnesses: Witness<Fp> = Witness::new::<StepTransactionProof>();
 
-        fn read_witnesses(filename: &str) -> Vec<Fp> {
-            let f = std::fs::read_to_string(
-                std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-                    .join("rampup4")
-                    .join(filename),
-            )
-            .unwrap();
-            let fqs = f
-                .lines()
-                .filter(|s| !s.is_empty())
-                .map(|s| Fp::from_str(s).unwrap())
-                .collect::<Vec<_>>();
-            fqs
-        }
-
-        witnesses.ocaml_aux = read_witnesses("fps_rampup4.txt");
+        witnesses.ocaml_aux = read_witnesses("fps_rampup4.txt").unwrap();
 
         let WrapProof { proof, .. } = generate_tx_proof(
             TransactionParams {
@@ -4639,7 +4620,8 @@ mod tests {
                 expected_step_proof: Some(
                     "fb89b6d51ce5ed6fe7815b86ca37a7dcdc34d9891b4967692d3751dad32842f8",
                 ),
-                ocaml_wrap_witness: Some(read_witnesses_fq("fqs_merge.txt")),
+
+                ocaml_wrap_witness: Some(read_witnesses("fqs_merge.txt").unwrap()),
             },
             &mut witnesses,
         );
@@ -4744,21 +4726,6 @@ mod tests {
         );
     }
 
-    fn read_witnesses_fq(filename: &str) -> Vec<Fq> {
-        let f = std::fs::read_to_string(
-            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("rampup4")
-                .join(filename),
-        )
-        .unwrap();
-        let fqs = f
-            .lines()
-            .filter(|s| !s.is_empty())
-            .map(|s| Fq::from_str(s).unwrap())
-            .collect::<Vec<_>>();
-        fqs
-    }
-
     #[test]
     fn test_block_proof() {
         let Ok(data) = std::fs::read(
@@ -4794,7 +4761,7 @@ mod tests {
                 expected_step_proof: Some(
                     "a82a10e5c276dd6dc251241dcbad005201034ffff5752516a179f317dfe385f5",
                 ),
-                ocaml_wrap_witness: Some(read_witnesses_fq("block_fqs.txt")),
+                ocaml_wrap_witness: Some(read_witnesses("block_fqs.txt").unwrap()),
             },
             &mut witnesses,
         );
@@ -4879,7 +4846,7 @@ mod tests {
                     expected_step_proof: Some(
                         "a82a10e5c276dd6dc251241dcbad005201034ffff5752516a179f317dfe385f5",
                     ),
-                    ocaml_wrap_witness: Some(read_witnesses_fq("block_fqs.txt")),
+                    ocaml_wrap_witness: Some(read_witnesses("block_fqs.txt").unwrap()),
                 },
                 &mut witnesses,
             );
@@ -4911,7 +4878,7 @@ mod tests {
                     expected_step_proof: Some(
                         "fb89b6d51ce5ed6fe7815b86ca37a7dcdc34d9891b4967692d3751dad32842f8",
                     ),
-                    ocaml_wrap_witness: Some(read_witnesses_fq("fqs_merge.txt")),
+                    ocaml_wrap_witness: Some(read_witnesses("fqs_merge.txt").unwrap()),
                 },
                 &mut witnesses,
             );
@@ -4952,17 +4919,6 @@ mod tests {
             // ("fee_transfer_9_rampup4.bin", "087a07eddedf5de18b2f2bd7ded3cd474d00a0030e9c13d7a5fd2433c72fc7d5"),
         ];
 
-        fn read_witnesses(filename: &str) -> Vec<Fp> {
-            let f = std::fs::read_to_string(
-                std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(filename),
-            )
-            .unwrap();
-            f.lines()
-                .filter(|s| !s.is_empty())
-                .map(|s| Fp::from_str(s).unwrap())
-                .collect::<Vec<_>>()
-        }
-
         for (file, expected_sum) in requests {
             let data = std::fs::read(base_dir.join(file)).unwrap();
             let (statement, tx_witness, message) = extract_request(&data);
@@ -4970,7 +4926,7 @@ mod tests {
             let mut witnesses: Witness<Fp> = Witness::new::<StepTransactionProof>();
 
             if file == "request_payment_0_rampup4.bin" {
-                witnesses.ocaml_aux = read_witnesses("fps_rampup4.txt");
+                witnesses.ocaml_aux = read_witnesses("fps_rampup4.txt").unwrap();
             }
 
             let WrapProof { proof, .. } = generate_tx_proof(
