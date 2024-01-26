@@ -15,6 +15,7 @@ use mina_p2p_messages::{
     },
 };
 use mina_signer::CompressedPubKey;
+use openmina_core::snark::SnarkJobId;
 use sha2::Sha256;
 
 use crate::{
@@ -528,6 +529,16 @@ pub mod transaction_snark {
         pub type Unchecked = Work;
 
         pub type Checked = Work;
+
+        impl From<&openmina_core::snark::Snark> for Work {
+            fn from(value: &openmina_core::snark::Snark) -> Self {
+                Self {
+                    prover: (&value.snarker).into(),
+                    fee: (&value.fee).into(),
+                    proofs: (&*value.proofs).into(),
+                }
+            }
+}
 
         impl Work {
             pub fn statement(&self) -> Statement {
@@ -2603,4 +2614,37 @@ impl TransactionsOrdered<Arc<TransactionWithWitness>> {
 #[derive(Clone, Debug)]
 pub enum Pass {
     FirstPassLedgerHash(Fp),
+}
+
+impl From<&OneOrTwo<AvailableJobMessage>> for SnarkJobId {
+    fn from(value: &OneOrTwo<AvailableJobMessage>) -> Self {
+        let (first, second) = match value {
+            OneOrTwo::One(j) => (j, j),
+            OneOrTwo::Two((j1, j2)) => (j1, j2),
+        };
+
+        let source = match first {
+            AvailableJobMessage::Base(base) => &base.statement.0.source,
+            AvailableJobMessage::Merge { left, .. } => &left.0 .0.statement.source,
+        };
+        let target = match second {
+            AvailableJobMessage::Base(base) => &base.statement.0.target,
+            AvailableJobMessage::Merge { right, .. } => &right.0 .0.statement.target,
+        };
+
+        (source, target).into()
+    }
+}
+
+impl From<&OneOrTwo<Statement<()>>> for SnarkJobId {
+    fn from(value: &OneOrTwo<Statement<()>>) -> Self {
+        let (source, target): (
+            mina_p2p_messages::v2::MinaStateBlockchainStateValueStableV2LedgerProofStatementSource,
+            mina_p2p_messages::v2::MinaStateBlockchainStateValueStableV2LedgerProofStatementSource,
+        ) = match value {
+            OneOrTwo::One(stmt) => ((&stmt.source).into(), (&stmt.target).into()),
+            OneOrTwo::Two((stmt1, stmt2)) => ((&stmt1.source).into(), (&stmt2.target).into()),
+        };
+        (&source, &target).into()
+    }
 }
