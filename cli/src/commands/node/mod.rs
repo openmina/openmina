@@ -29,10 +29,9 @@ use node::service::{Recorder, Service};
 use node::snark::{get_srs, get_verifier_index, VerifierKind};
 use node::stats::Stats;
 use node::{
-    BlockProducerConfig, BuildEnv, Config, GlobalConfig, LedgerConfig, SnarkConfig, SnarkerConfig,
-    SnarkerStrategy, State, TransitionFrontierConfig,
+    BuildEnv, Config, GlobalConfig, LedgerConfig, SnarkConfig, SnarkerConfig, SnarkerStrategy,
+    State, TransitionFrontierConfig,
 };
-use vrf::keypair_from_bs58_string;
 
 use openmina_node_native::rpc::RpcService;
 use openmina_node_native::{http_server, tracing, NodeService, P2pTaskSpawner, RpcSender};
@@ -70,10 +69,9 @@ pub struct Node {
     #[arg(long, env)]
     pub run_snarker: Option<AccountPublicKey>,
 
-    /// Enable block producer with this key
-    #[arg(long, env)]
-    pub producer_key: Option<String>,
-
+    // /// Enable block producer with this key
+    // #[arg(long, env)]
+    // pub producer_key: Option<String>,
     /// Snark fee, in Mina
     #[arg(long, env, default_value_t = 1_000_000)]
     pub snarker_fee: u64,
@@ -138,20 +136,20 @@ impl Node {
         });
         let pub_key = secret_key.public_key();
 
-        let block_producer: Option<BlockProducerConfig> =
-            self.producer_key.clone().map(|producer_key| {
-                let compressed_pub_key = keypair_from_bs58_string(&producer_key)
-                    .public
-                    .into_compressed();
-                BlockProducerConfig {
-                    pub_key: NonZeroCurvePoint::from(NonZeroCurvePointUncompressedStableV1 {
-                        x: compressed_pub_key.x.into(),
-                        is_odd: compressed_pub_key.is_odd,
-                    }),
-                    custom_coinbase_receiver: None,
-                    proposed_protocol_version: None,
-                }
-            });
+        // let block_producer: Option<BlockProducerConfig> =
+        //     self.producer_key.clone().map(|producer_key| {
+        //         let compressed_pub_key = keypair_from_bs58_string(&producer_key)
+        //             .public
+        //             .into_compressed();
+        //         BlockProducerConfig {
+        //             pub_key: NonZeroCurvePoint::from(NonZeroCurvePointUncompressedStableV1 {
+        //                 x: compressed_pub_key.x.into(),
+        //                 is_odd: compressed_pub_key.is_odd,
+        //             }),
+        //             custom_coinbase_receiver: None,
+        //             proposed_protocol_version: None,
+        //         }
+        //     });
 
         let work_dir = shellexpand::full(&self.work_dir).unwrap().into_owned();
         let rng_seed = rng.next_u64();
@@ -187,8 +185,7 @@ impl Node {
                 enabled_channels: ChannelId::iter_all().collect(),
             },
             transition_frontier: TransitionFrontierConfig::default(),
-            // TODO(binier)
-            block_producer,
+            block_producer: None,
         };
         let (event_sender, event_receiver) = mpsc::unbounded_channel();
 
@@ -251,7 +248,7 @@ impl Node {
 
                 let local_set = tokio::task::LocalSet::new();
                 local_set.block_on(&runtime, async move {
-                    let mut service = NodeService {
+                    let service = NodeService {
                         rng: StdRng::seed_from_u64(rng_seed),
                         event_sender,
                         p2p_event_sender,
@@ -272,9 +269,9 @@ impl Node {
                         replayer: None,
                         invariants_state: Default::default(),
                     };
-                    if let Some(producer_key) = self.producer_key {
-                        service.block_producer_start(keypair_from_bs58_string(&producer_key));
-                    }
+                    // if let Some(producer_key) = self.producer_key {
+                    //     service.block_producer_start(keypair_from_bs58_string(&producer_key));
+                    // }
 
                     let state = State::new(config);
                     let mut node = ::node::Node::new(state, service, None);
