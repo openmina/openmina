@@ -2,7 +2,7 @@ FROM vladsimplestakingcom/mina-openmina-builder:focal as builder
 
 RUN git fetch && git checkout feat/tests-with-debugger
 
-RUN source ~/.cargo/env && cargo +nightly-2023-06-01 build --release -p openmina-node-testing --bin runner --bin openmina-node-testing
+RUN source ~/.cargo/env && cargo +nightly-2023-12-21 build --release -p openmina-node-testing --bin runner --bin openmina-node-testing
 
 FROM vladsimplestakingcom/mina-debugger:2.0.0rampup4-focal
 

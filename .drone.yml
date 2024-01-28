@@ -54,10 +54,10 @@ steps:
       - cp /usr/local/bin/mina cli/bin/
 
   - name: build
-    image: rust:1.71-bullseye
+    image: rust:1.75-bullseye
     commands:
       - apt-get update && apt-get install -y libssl-dev libjemalloc-dev jq
-      - rustup update nightly-2023-06-01 && rustup default nightly-2023-06-01
+      - rustup update nightly-2023-12-21 && rustup default nightly-2023-12-21
       - rustup component add rustfmt
       - cargo test --release -p cli
       - cargo build --release -p cli --bin openmina
