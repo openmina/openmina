@@ -221,10 +221,15 @@ where
                             }
                         }
                     }
+                    let interests = if connection.transmits.is_empty() {
+                        mio::Interest::READABLE
+                    } else {
+                        mio::Interest::READABLE | mio::Interest::WRITABLE
+                    };
                     if let Err(err) = self.poll.registry().reregister(
                         &mut connection.stream,
                         event.token(),
-                        mio::Interest::READABLE | mio::Interest::WRITABLE,
+                        interests,
                     ) {
                         self.send(MioEvent::ConnectionDidClose(addr, Err(err.to_string())));
                     } else {
@@ -396,6 +401,15 @@ where
             Send(addr, buf) => {
                 if let Some(connection) = self.connections.get_mut(&addr) {
                     connection.transmits.push_back((buf, 0));
+                    let token = self.tokens.register(Token::Connection(addr));
+                    self.poll
+                        .registry()
+                        .reregister(
+                            &mut connection.stream,
+                            token,
+                            mio::Interest::READABLE | mio::Interest::WRITABLE,
+                        )
+                        .unwrap();
                 } else {
                     self.send(MioEvent::OutgoingDataDidSend(
                         addr,
