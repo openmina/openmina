@@ -43,6 +43,8 @@ impl SoloNodeBootstrap {
         let mut timeout = TIMEOUT;
         let mut last_time = Instant::now();
         loop {
+            runner.wait_for_pending_events().await;
+
             let steps = runner
                 .pending_events()
                 .map(|(node_id, _, events)| {
