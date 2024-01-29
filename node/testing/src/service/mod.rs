@@ -175,7 +175,6 @@ impl NodeTestingService {
                 }
             }
         };
-        let event = self.real.event_receiver.try_next().unwrap();
         let _guart = self.allocation_group.enter();
         let id = self.pending_events.add(event);
         Some((id, self.pending_events.get(id).unwrap()))
