@@ -387,7 +387,7 @@ where
                         }
                         if close {
                             self.send(MioEvent::ConnectionDidClose(addr, Ok(())))
-                        } else if read != 0 {
+                        } else {
                             self.send(MioEvent::IncomingDataDidReceive(addr, res));
                         }
                     }
