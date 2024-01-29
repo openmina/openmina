@@ -43,21 +43,29 @@ impl SoloNodeBootstrap {
         let mut timeout = TIMEOUT;
         let mut last_time = Instant::now();
         loop {
-            runner.wait_for_pending_events().await;
-
-            let steps = runner
-                .pending_events()
-                .map(|(node_id, _, events)| {
-                    events.map(move |(_, event)| ScenarioStep::Event {
-                        node_id,
-                        event: event.to_string(),
+            if runner
+                .wait_for_pending_events_with_timeout(Duration::from_secs(1))
+                .await
+            {
+                let steps = runner
+                    .pending_events()
+                    .map(|(node_id, _, events)| {
+                        events.map(move |(_, event)| ScenarioStep::Event {
+                            node_id,
+                            event: event.to_string(),
+                        })
                     })
-                })
-                .flatten()
-                .collect::<Vec<_>>();
+                    .flatten()
+                    .collect::<Vec<_>>();
 
-            for step in steps {
-                runner.exec_step(step).await.unwrap();
+                for step in steps {
+                    runner.exec_step(step).await.unwrap();
+                }
+            } else {
+                runner
+                    .exec_step(ScenarioStep::CheckTimeouts { node_id })
+                    .await
+                    .unwrap();
             }
 
             let new = Instant::now();
