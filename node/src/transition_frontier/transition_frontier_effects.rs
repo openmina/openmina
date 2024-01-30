@@ -1,7 +1,7 @@
 use redux::Timestamp;
 
 use crate::block_producer::BlockProducerBestTipUpdateAction;
-use crate::consensus::ConsensusPruneAction;
+use crate::consensus::ConsensusAction;
 use crate::ledger::LEDGER_DEPTH;
 use crate::p2p::channels::best_tip::P2pChannelsBestTipResponseSendAction;
 use crate::snark_pool::{SnarkPoolJobsUpdateAction, SnarkWork};
@@ -327,7 +327,7 @@ pub fn transition_frontier_effects<S: crate::Service>(
                 });
             }
 
-            store.dispatch(ConsensusPruneAction {});
+            store.dispatch(ConsensusAction::Prune);
             store.dispatch(BlockProducerBestTipUpdateAction { best_tip });
         }
     }

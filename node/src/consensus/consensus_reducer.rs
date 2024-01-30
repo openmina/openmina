@@ -9,38 +9,42 @@ impl ConsensusState {
     pub fn reducer(&mut self, action: ConsensusActionWithMetaRef<'_>) {
         let (action, meta) = action.split();
         match action {
-            ConsensusAction::BlockReceived(a) => {
+            ConsensusAction::BlockReceived {
+                hash,
+                block,
+                chain_proof,
+            } => {
                 self.blocks.insert(
-                    a.hash.clone(),
+                    hash.clone(),
                     ConsensusBlockState {
-                        block: a.block.clone(),
+                        block: block.clone(),
                         status: ConsensusBlockStatus::Received { time: meta.time() },
-                        chain_proof: a.chain_proof.clone(),
+                        chain_proof: chain_proof.clone(),
                     },
                 );
             }
-            ConsensusAction::BlockChainProofUpdate(a) => {
-                if self.best_tip.as_ref() == Some(&a.hash) {
-                    self.best_tip_chain_proof = Some(a.chain_proof.clone());
-                } else if let Some(block) = self.blocks.get_mut(&a.hash) {
-                    block.chain_proof = Some(a.chain_proof.clone());
+            ConsensusAction::BlockChainProofUpdate { hash, chain_proof } => {
+                if self.best_tip.as_ref() == Some(hash) {
+                    self.best_tip_chain_proof = Some(chain_proof.clone());
+                } else if let Some(block) = self.blocks.get_mut(hash) {
+                    block.chain_proof = Some(chain_proof.clone());
                 }
             }
-            ConsensusAction::BlockSnarkVerifyPending(a) => {
-                if let Some(block) = self.blocks.get_mut(&a.hash) {
+            ConsensusAction::BlockSnarkVerifyPending { req_id, hash } => {
+                if let Some(block) = self.blocks.get_mut(hash) {
                     block.status = ConsensusBlockStatus::SnarkVerifyPending {
                         time: meta.time(),
-                        req_id: a.req_id,
+                        req_id: req_id.clone(),
                     };
                 }
             }
-            ConsensusAction::BlockSnarkVerifySuccess(a) => {
-                if let Some(block) = self.blocks.get_mut(&a.hash) {
+            ConsensusAction::BlockSnarkVerifySuccess { hash } => {
+                if let Some(block) = self.blocks.get_mut(hash) {
                     block.status = ConsensusBlockStatus::SnarkVerifySuccess { time: meta.time() };
                 }
             }
-            ConsensusAction::DetectForkRange(a) => {
-                let candidate_hash = &a.hash;
+            ConsensusAction::DetectForkRange { hash } => {
+                let candidate_hash = hash;
                 let Some(candidate_state) = self.blocks.get(candidate_hash) else {
                     return;
                 };
@@ -67,8 +71,8 @@ impl ConsensusState {
                 }
                 openmina_core::log::debug!(openmina_core::log::system_time(); kind = "ConsensusAction::DetectForkRange");
             }
-            ConsensusAction::ShortRangeForkResolve(a) => {
-                let candidate_hash = &a.hash;
+            ConsensusAction::ShortRangeForkResolve { hash } => {
+                let candidate_hash = hash;
                 if let Some(candidate) = self.blocks.get(candidate_hash) {
                     let (best_tip_hash, decision): (_, ConsensusShortRangeForkDecision) =
                         match self.best_tip() {
@@ -104,9 +108,9 @@ impl ConsensusState {
                     }
                 }
             }
-            ConsensusAction::LongRangeForkResolve(a) => {
+            ConsensusAction::LongRangeForkResolve { hash } => {
                 openmina_core::log::debug!(openmina_core::log::system_time(); kind = "ConsensusAction::LongRangeForkResolve");
-                let candidate_hash = &a.hash;
+                let candidate_hash = hash;
                 let Some(tip_ref) = self.best_tip() else {
                     return;
                 };
@@ -138,14 +142,14 @@ impl ConsensusState {
                 };
                 openmina_core::log::debug!(openmina_core::log::system_time(); kind = "ConsensusAction::LongRangeForkResolve", status = serde_json::to_string(&candidate_state.status).unwrap());
             }
-            ConsensusAction::BestTipUpdate(a) => {
-                self.best_tip = Some(a.hash.clone());
+            ConsensusAction::BestTipUpdate { hash } => {
+                self.best_tip = Some(hash.clone());
 
-                if let Some(tip) = self.blocks.get_mut(&a.hash) {
+                if let Some(tip) = self.blocks.get_mut(hash) {
                     self.best_tip_chain_proof = tip.chain_proof.take();
                 }
             }
-            ConsensusAction::Prune(_) => {
+            ConsensusAction::Prune => {
                 let Some(best_tip_hash) = self.best_tip.clone() else {
                     return;
                 };

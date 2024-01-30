@@ -1,4 +1,4 @@
-use crate::consensus::ConsensusBlockSnarkVerifySuccessAction;
+use crate::consensus::ConsensusAction;
 use crate::snark_pool::candidate::SnarkPoolCandidateAction;
 use crate::snark_pool::SnarkPoolWorkAddAction;
 use crate::{Service, Store};
@@ -22,7 +22,7 @@ pub fn snark_effects<S: Service>(store: &mut Store<S>, action: SnarkActionWithMe
             SnarkBlockVerifyAction::Success(a) => {
                 let req = store.state().snark.block_verify.jobs.get(a.req_id);
                 let Some(req) = req else { return };
-                store.dispatch(ConsensusBlockSnarkVerifySuccessAction {
+                store.dispatch(ConsensusAction::BlockSnarkVerifySuccess {
                     hash: req.block().hash_ref().clone(),
                 });
                 a.effects(&meta, store);

@@ -1,7 +1,7 @@
 use mina_p2p_messages::v2::{MinaLedgerSyncLedgerAnswerStableV2, StateHash};
 use openmina_core::block::BlockWithHash;
 
-use crate::consensus::{ConsensusBlockChainProofUpdateAction, ConsensusBlockReceivedAction};
+use crate::consensus::ConsensusAction;
 use crate::rpc::{
     RpcP2pConnectionIncomingErrorAction, RpcP2pConnectionIncomingRespondAction,
     RpcP2pConnectionIncomingSuccessAction, RpcP2pConnectionOutgoingErrorAction,
@@ -489,7 +489,7 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                                     return;
                                 }
                             }
-                            store.dispatch(ConsensusBlockChainProofUpdateAction {
+                            store.dispatch(ConsensusAction::BlockChainProofUpdate {
                                 hash: best_tip.hash,
                                 chain_proof: (hashes, root_block),
                             });
@@ -685,7 +685,7 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                 action.effects(&meta, store);
             }
             P2pPeerAction::BestTipUpdate(action) => {
-                store.dispatch(ConsensusBlockReceivedAction {
+                store.dispatch(ConsensusAction::BlockReceived {
                     hash: action.best_tip.hash,
                     block: action.best_tip.block,
                     chain_proof: None,
