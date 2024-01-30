@@ -525,39 +525,43 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
         }
         Action::Snark(a) => match a {
             SnarkAction::WorkVerify(a) => match a {
-                SnarkWorkVerifyAction::Init(a) => {
+                SnarkWorkVerifyAction::Init {
+                    req_id,
+                    batch,
+                    sender,
+                } => {
                     openmina_core::log::info!(
                         meta.time();
                         kind = kind.to_string(),
-                        summary = format!("id: {}, batch size: {}", a.req_id, a.batch.len()),
-                        peer_id = a.sender,
-                        rpc_id = a.req_id.to_string(),
-                        trace_batch = serde_json::to_string(&a.batch.iter().map(|v| v.job_id()).collect::<Vec<_>>()).ok()
+                        summary = format!("id: {}, batch size: {}", req_id, batch.len()),
+                        peer_id = sender,
+                        rpc_id = req_id.to_string(),
+                        trace_batch = serde_json::to_string(&batch.iter().map(|v| v.job_id()).collect::<Vec<_>>()).ok()
                     );
                 }
-                SnarkWorkVerifyAction::Error(a) => {
-                    let Some(req) = store.state().snark.work_verify.jobs.get(a.req_id) else {
+                SnarkWorkVerifyAction::Error { req_id, .. } => {
+                    let Some(req) = store.state().snark.work_verify.jobs.get(*req_id) else {
                         return;
                     };
                     openmina_core::log::warn!(
                         meta.time();
                         kind = kind.to_string(),
-                        summary = format!("id: {}, batch size: {}", a.req_id, req.batch().len()),
+                        summary = format!("id: {}, batch size: {}", req_id, req.batch().len()),
                         peer_id = req.sender(),
-                        rpc_id = a.req_id.to_string(),
+                        rpc_id = req_id.to_string(),
                         trace_batch = serde_json::to_string(&req.batch().iter().map(|v| v.job_id()).collect::<Vec<_>>()).ok()
                     );
                 }
-                SnarkWorkVerifyAction::Success(a) => {
-                    let Some(req) = store.state().snark.work_verify.jobs.get(a.req_id) else {
+                SnarkWorkVerifyAction::Success { req_id } => {
+                    let Some(req) = store.state().snark.work_verify.jobs.get(*req_id) else {
                         return;
                     };
                     openmina_core::log::info!(
                         meta.time();
                         kind = kind.to_string(),
-                        summary = format!("id: {}, batch size: {}", a.req_id, req.batch().len()),
+                        summary = format!("id: {}, batch size: {}", req_id, req.batch().len()),
                         peer_id = req.sender(),
-                        rpc_id = a.req_id.to_string(),
+                        rpc_id = req_id.to_string(),
                         trace_batch = serde_json::to_string(&req.batch().iter().map(|v| v.job_id()).collect::<Vec<_>>()).ok()
                     );
                 }

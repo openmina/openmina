@@ -46,7 +46,7 @@ use crate::rpc::{
     RpcSyncStatsGetAction,
 };
 use crate::snark::block_verify::SnarkBlockVerifyAction;
-use crate::snark::work_verify::{SnarkWorkVerifyErrorAction, SnarkWorkVerifySuccessAction};
+use crate::snark::work_verify::SnarkWorkVerifyAction;
 use crate::snark::SnarkEvent;
 use crate::{Service, Store};
 
@@ -245,10 +245,10 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                 },
                 SnarkEvent::WorkVerify(req_id, result) => match result {
                     Err(error) => {
-                        store.dispatch(SnarkWorkVerifyErrorAction { req_id, error });
+                        store.dispatch(SnarkWorkVerifyAction::Error { req_id, error });
                     }
                     Ok(()) => {
-                        store.dispatch(SnarkWorkVerifySuccessAction { req_id });
+                        store.dispatch(SnarkWorkVerifyAction::Success { req_id });
                     }
                 },
             },

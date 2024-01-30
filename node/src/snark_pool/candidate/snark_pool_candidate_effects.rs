@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use snark::work_verify::SnarkWorkVerifyInitAction;
+use snark::work_verify::SnarkWorkVerifyAction;
 
 use crate::p2p::channels::rpc::{P2pChannelsRpcRequestSendAction, P2pRpcRequest};
 use crate::p2p::disconnection::{P2pDisconnectionInitAction, P2pDisconnectionReason};
@@ -71,7 +71,7 @@ pub fn snark_pool_candidate_effects<S: redux::Service>(
             let req_id = state.snark.work_verify.next_req_id();
             let job_ids = batch.iter().map(|v| v.job_id()).collect::<Vec<_>>();
             let sender = peer_id.to_string();
-            store.dispatch(SnarkWorkVerifyInitAction {
+            store.dispatch(SnarkWorkVerifyAction::Init {
                 req_id,
                 batch,
                 sender,
