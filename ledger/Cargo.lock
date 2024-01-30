@@ -928,7 +928,6 @@ dependencies = [
  "o1-utils",
  "ocaml-interop",
  "once_cell",
- "packed_simd",
  "poly-commitment",
  "rand",
  "rand_pcg",
@@ -1081,16 +1080,6 @@ name = "opaque-debug"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "624a8340c38c1b80fd549087862da4ba43e08858af025b236e509b6649fc13d5"
-
-[[package]]
-name = "packed_simd"
-version = "0.3.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1f9f08af0c877571712e2e3e686ad79efad9657dbf0f7c3c8ba943ff6c38932d"
-dependencies = [
- "cfg-if",
- "num-traits",
-]
 
 [[package]]
 name = "paste"
