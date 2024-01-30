@@ -29,7 +29,7 @@ use ledger::{
 };
 use mina_hasher::Fp;
 use mina_p2p_messages::v2::{
-    DataHashLibStateHashStableV1, LedgerHash, MinaBaseAccountBinableArgStableV2,
+    self, DataHashLibStateHashStableV1, LedgerHash, MinaBaseAccountBinableArgStableV2,
     MinaBaseLedgerHash0StableV1, MinaBaseSokMessageStableV1, MinaBaseStagedLedgerHashStableV1,
     MinaLedgerSyncLedgerAnswerStableV2, MinaLedgerSyncLedgerQueryStableV1,
     MinaStateBlockchainStateValueStableV2LedgerProofStatement, MinaStateProtocolStateValueStableV2,
@@ -530,7 +530,25 @@ impl<T: LedgerService> TransitionFrontierService for T {
         // TODO(binier): return error if not matching.
         let expected_ledger_hashes = block.staged_ledger_hashes();
         if &ledger_hashes != expected_ledger_hashes {
-            panic!("staged ledger hash mismatch. found: {ledger_hashes:?}, expected: {expected_ledger_hashes:?}");
+            let staged_ledger = self
+                .ctx_mut()
+                .staged_ledger_mut(&pred_block.staged_ledger_hash())
+                .unwrap(); // We already know the ledger exists, see the same call a few lines above
+
+            match dump_application_to_file(staged_ledger, block.clone(), pred_block) {
+                Ok(filename) => openmina_core::info!(
+                    openmina_core::log::system_time();
+                    kind = "LedgerService::dump - Failed application",
+                    summary = format!("StagedLedger and block saved to: {filename:?}")
+                ),
+                Err(e) => openmina_core::error!(
+                    openmina_core::log::system_time();
+                    kind = "LedgerService::dump - Failed application",
+                    summary = format!("Failed to save block application to file: {e:?}")
+                ),
+            }
+
+            panic!("staged ledger hash mismatch. found: {ledger_hashes:#?}, expected: {expected_ledger_hashes:#?}");
         }
 
         let ledger_hash = block.staged_ledger_hash();
@@ -973,6 +991,54 @@ impl<T: LedgerService> BlockProducerVrfEvaluatorLedgerService for T {
             .map(|(index, pub_key, balance)| (index, (pub_key, balance)))
             .collect()
     }
+}
+
+/// Save staged ledger and block to file, when the application fail.
+/// So we can easily reproduce the application both in Rust and OCaml, to compare them.
+/// - https://github.com/openmina/openmina/blob/8e68037aafddd43842a54c8439baeafee4c6e1eb/ledger/src/staged_ledger/staged_ledger.rs#L5959
+/// - TODO: Find OCaml link, I remember having the same test in OCaml but I can't find where
+fn dump_application_to_file(
+    staged_ledger: &StagedLedger,
+    block: ArcBlockWithHash,
+    pred_block: ArcBlockWithHash,
+) -> std::io::Result<String> {
+    use mina_p2p_messages::{
+        binprot,
+        binprot::macros::{BinProtRead, BinProtWrite},
+    };
+
+    #[derive(BinProtRead, BinProtWrite)]
+    struct ApplyContext {
+        accounts: Vec<v2::MinaBaseAccountBinableArgStableV2>,
+        scan_state: v2::TransactionSnarkScanStateStableV2,
+        pending_coinbase: v2::MinaBasePendingCoinbaseStableV2,
+        pred_block: v2::MinaBlockBlockStableV2,
+        blocks: Vec<v2::MinaBlockBlockStableV2>,
+    }
+
+    let cs = &block.block.header.protocol_state.body.consensus_state;
+    let block_height = cs.blockchain_length.as_u32();
+
+    let apply_context = ApplyContext {
+        accounts: staged_ledger
+            .ledger()
+            .to_list()
+            .iter()
+            .map(v2::MinaBaseAccountBinableArgStableV2::from)
+            .collect::<Vec<_>>(),
+        scan_state: staged_ledger.scan_state().into(),
+        pending_coinbase: staged_ledger.pending_coinbase_collection().into(),
+        pred_block: (*pred_block.block).clone(),
+        blocks: vec![(*block.block).clone()],
+    };
+
+    use mina_p2p_messages::binprot::BinProtWrite;
+    let filename = format!("/tmp/failed_application_ctx_{}.binprot", block_height);
+    let mut file = std::fs::File::create(&filename)?;
+    apply_context.binprot_write(&mut file)?;
+    file.sync_all()?;
+
+    Ok(filename)
 }
 
 #[cfg(test)]
