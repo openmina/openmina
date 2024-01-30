@@ -280,15 +280,13 @@ impl P2pNetworkSchedulerAction {
             }
             Self::IncomingDataDidReceive(a) => {
                 if let Ok(data) = &a.result {
-                    if !data.is_empty() {
-                        store.dispatch(P2pNetworkPnetIncomingDataAction {
-                            addr: a.addr,
-                            data: data.clone(),
-                        });
-                    }
+                    store.dispatch(P2pNetworkPnetIncomingDataAction {
+                        addr: a.addr,
+                        data: data.clone(),
+                    });
                     store
                         .service()
-                        .send_mio_cmd(MioCmd::Recv(a.addr, vec![0; 0x1000].into_boxed_slice()));
+                        .send_mio_cmd(MioCmd::Recv(a.addr, vec![0; 0x10000].into_boxed_slice()));
                 }
             }
             Self::SelectDone(a) => {
