@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     channels::{ChannelId, ChannelMsg, MsgId},
     connection::{outgoing::P2pConnectionOutgoingInitOpts, P2pConnectionResponse},
-    P2pListenerId, PeerId,
+    Data, P2pListenerId, PeerId,
 };
 
 #[derive(Serialize, Deserialize, From, Debug, Clone)]
@@ -43,7 +43,7 @@ pub enum MioEvent {
     /// The remote peer is trying to send us some data.
     IncomingDataIsReady(SocketAddr),
     /// We received the data from the remote peer.
-    IncomingDataDidReceive(SocketAddr, Result<Box<[u8]>, String>),
+    IncomingDataDidReceive(SocketAddr, Result<Data, String>),
 
     /// We connected to the remote peer by the address.
     OutgoingConnectionDidConnect(SocketAddr, Result<(), String>),
