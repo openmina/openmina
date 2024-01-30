@@ -1,5 +1,5 @@
-use openmina_core::snark::Snark;
 use openmina_core::channels::mpsc;
+use openmina_core::snark::Snark;
 
 use crate::{
     channels::{ChannelId, ChannelMsg, MsgId, P2pChannelsService},
