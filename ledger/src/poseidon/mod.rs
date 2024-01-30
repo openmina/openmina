@@ -11,7 +11,6 @@ use std::str::FromStr;
 mod fp;
 
 mod fq_params;
-mod simd;
 
 pub use fq_params::*;
 
