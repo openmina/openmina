@@ -9,6 +9,8 @@ pub struct SimulatorConfig {
     pub daemon_json: DaemonJsonGenConfig,
     pub seed_nodes: usize,
     pub normal_nodes: usize,
+    pub snark_workers: usize,
+    pub block_producers: usize,
     pub run_until: SimulatorRunUntil,
     pub run_until_timeout: Duration,
 }

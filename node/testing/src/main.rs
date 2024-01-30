@@ -87,13 +87,15 @@ impl Command {
                                 .into_iter()
                                 .find(|s| <&'static str>::from(s) == name)
                             {
-                                scenario.run_and_save_from_scratch(config).await;
+                                scenario.run_only_from_scratch(config).await;
+                                // scenario.run_and_save_from_scratch(config).await;
                             } else {
                                 anyhow::bail!("no such scenario: \"{name}\"");
                             }
                         } else {
                             for scenario in Scenarios::iter() {
-                                scenario.run_and_save_from_scratch(config.clone()).await;
+                                scenario.run_only_from_scratch(config.clone()).await;
+                                // scenario.run_and_save_from_scratch(config.clone()).await;
                             }
                         }
                         Ok(())

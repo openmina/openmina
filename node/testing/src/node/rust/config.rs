@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use node::{account::AccountSecretKey, BlockProducerConfig};
+use node::{account::AccountSecretKey, BlockProducerConfig, SnarkerConfig};
 use serde::{Deserialize, Serialize};
 
 use crate::scenario::ListenerNode;
@@ -24,6 +24,7 @@ pub struct RustNodeTestingConfig {
     pub ask_initial_peers_interval: Duration,
     pub initial_peers: Vec<ListenerNode>,
     pub peer_id: TestPeerId,
+    pub snark_worker: Option<SnarkerConfig>,
     pub block_producer: Option<RustNodeBlockProducerTestingConfig>,
 }
 
@@ -43,6 +44,7 @@ impl RustNodeTestingConfig {
             initial_peers: Vec::new(),
             peer_id: TestPeerId::default(),
             block_producer: None,
+            snark_worker: None,
         }
     }
 

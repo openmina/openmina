@@ -35,6 +35,15 @@ impl From<CompressedPubKey> for AccountPublicKey {
     }
 }
 
+impl From<AccountPublicKey> for CompressedPubKey {
+    fn from(value: AccountPublicKey) -> Self {
+        Self {
+            is_odd: value.0.is_odd,
+            x: value.0.into_inner().x.into(),
+        }
+    }
+}
+
 impl From<NonZeroCurvePoint> for AccountPublicKey {
     fn from(value: NonZeroCurvePoint) -> Self {
         Self(value)
