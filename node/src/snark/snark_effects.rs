@@ -11,24 +11,16 @@ pub fn snark_effects<S: Service>(store: &mut Store<S>, action: SnarkActionWithMe
     let (action, meta) = action.split();
 
     match action {
-        SnarkAction::BlockVerify(a) => match a {
-            SnarkBlockVerifyAction::Init(a) => {
-                a.effects(&meta, store);
-            }
-            SnarkBlockVerifyAction::Pending(_) => {}
-            SnarkBlockVerifyAction::Error(a) => {
-                a.effects(&meta, store);
-            }
-            SnarkBlockVerifyAction::Success(a) => {
-                let req = store.state().snark.block_verify.jobs.get(a.req_id);
+        SnarkAction::BlockVerify(a) => {
+            if let SnarkBlockVerifyAction::Success { req_id } = a {
+                let req = store.state().snark.block_verify.jobs.get(req_id);
                 let Some(req) = req else { return };
                 store.dispatch(ConsensusAction::BlockSnarkVerifySuccess {
                     hash: req.block().hash_ref().clone(),
                 });
-                a.effects(&meta, store);
             }
-            SnarkBlockVerifyAction::Finish(_) => {}
-        },
+            a.effects(&meta, store);
+        }
         SnarkAction::WorkVerify(a) => match a {
             SnarkWorkVerifyAction::Init(a) => {
                 a.effects(&meta, store);

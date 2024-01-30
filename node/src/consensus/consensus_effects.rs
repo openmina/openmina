@@ -4,7 +4,7 @@ use crate::transition_frontier::sync::{
 use crate::watched_accounts::WatchedAccountsLedgerInitialStateGetInitAction;
 use crate::Store;
 use crate::{
-    snark::block_verify::SnarkBlockVerifyInitAction,
+    snark::block_verify::SnarkBlockVerifyAction,
     watched_accounts::WatchedAccountsBlockTransactionsIncludedAction,
 };
 
@@ -16,7 +16,7 @@ pub fn consensus_effects<S: crate::Service>(store: &mut Store<S>, action: Consen
     match action {
         ConsensusAction::BlockReceived { hash, block, .. } => {
             let req_id = store.state().snark.block_verify.next_req_id();
-            store.dispatch(SnarkBlockVerifyInitAction {
+            store.dispatch(SnarkBlockVerifyAction::Init {
                 req_id,
                 block: (hash.clone(), block).into(),
             });
