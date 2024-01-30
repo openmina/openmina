@@ -3,19 +3,28 @@ mod rpc_service;
 use std::time::Duration;
 use std::{collections::BTreeMap, ffi::OsStr, sync::Arc};
 
+use ledger::dummy::dummy_transaction_proof;
+use ledger::scan_state::scan_state::transaction_snark::SokMessage;
 use ledger::Mask;
-use mina_p2p_messages::v2::{CurrencyFeeStableV1, LedgerHash, NonZeroCurvePoint};
+use mina_p2p_messages::v2::{
+    CurrencyFeeStableV1, LedgerHash, LedgerProofProdStableV2, MinaBaseZkappAccountZkappUriStableV1,
+    MinaStateSnarkedLedgerStateWithSokStableV2, NonZeroCurvePoint,
+    SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0Single, TransactionSnarkStableV2,
+    TransactionSnarkWorkTStableV2Proofs,
+};
+use node::account::AccountPublicKey;
 use node::block_producer::vrf_evaluator::VrfEvaluatorInput;
 use node::core::channels::mpsc;
 use node::core::requests::{PendingRequests, RequestId};
 use node::core::snark::{Snark, SnarkJobId};
+use node::external_snark_worker::ExternalSnarkWorkerEvent;
 use node::recorder::Recorder;
 use node::service::BlockProducerVrfEvaluatorService;
 use node::snark::block_verify::{
     SnarkBlockVerifyId, SnarkBlockVerifyService, VerifiableBlockWithHash,
 };
 use node::snark::work_verify::{SnarkWorkVerifyId, SnarkWorkVerifyService};
-use node::snark::{VerifierIndex, VerifierSRS};
+use node::snark::{SnarkEvent, VerifierIndex, VerifierSRS};
 use node::snark_pool::{JobState, SnarkPoolService};
 use node::stats::Stats;
 use node::{
@@ -61,6 +70,8 @@ pub struct NodeTestingService {
     /// Events sent by the real service not yet received by state machine.
     pending_events: PendingRequests<PendingEventIdType, Event>,
     dyn_effects: Option<DynEffects>,
+
+    snarker_sok_digest: Option<MinaBaseZkappAccountZkappUriStableV1>,
     /// Once dropped, it will cause all threads associated to shutdown.
     _shutdown: mpsc::Receiver<()>,
 }
@@ -75,6 +86,7 @@ impl NodeTestingService {
             monotonic_time: Instant::now(),
             pending_events: PendingRequests::new(),
             dyn_effects: None,
+            snarker_sok_digest: None,
             _shutdown,
         }
     }
@@ -115,6 +127,10 @@ impl NodeTestingService {
 
     pub fn remove_dyn_effects(&mut self) -> Option<DynEffects> {
         self.dyn_effects.take()
+    }
+
+    pub fn set_snarker_sok_digest(&mut self, digest: MinaBaseZkappAccountZkappUriStableV1) {
+        self.snarker_sok_digest = Some(digest);
     }
 
     pub fn pending_events(&mut self) -> impl Iterator<Item = (PendingEventId, &Event)> {
@@ -278,13 +294,18 @@ impl SnarkBlockVerifyService for NodeTestingService {
         verifier_srs: Arc<VerifierSRS>,
         block: VerifiableBlockWithHash,
     ) {
-        SnarkBlockVerifyService::verify_init(
-            &mut self.real,
-            req_id,
-            verifier_index,
-            verifier_srs,
-            block,
-        )
+        let _ = (verifier_index, verifier_srs, block);
+        let _ = self
+            .real
+            .event_sender
+            .send(SnarkEvent::BlockVerify(req_id, Ok(())).into());
+        // SnarkBlockVerifyService::verify_init(
+        //     &mut self.real,
+        //     req_id,
+        //     verifier_index,
+        //     verifier_srs,
+        //     block,
+        // )
     }
 }
 
@@ -296,13 +317,18 @@ impl SnarkWorkVerifyService for NodeTestingService {
         verifier_srs: Arc<VerifierSRS>,
         work: Vec<Snark>,
     ) {
-        SnarkWorkVerifyService::verify_init(
-            &mut self.real,
-            req_id,
-            verifier_index,
-            verifier_srs,
-            work,
-        )
+        let _ = (verifier_index, verifier_srs, work);
+        let _ = self
+            .real
+            .event_sender
+            .send(SnarkEvent::WorkVerify(req_id, Ok(())).into());
+        // SnarkWorkVerifyService::verify_init(
+        //     &mut self.real,
+        //     req_id,
+        //     verifier_index,
+        //     verifier_srs,
+        //     work,
+        // )
     }
 }
 
@@ -329,22 +355,74 @@ impl ExternalSnarkWorkerService for NodeTestingService {
         public_key: NonZeroCurvePoint,
         fee: CurrencyFeeStableV1,
     ) -> Result<(), node::external_snark_worker::ExternalSnarkWorkerError> {
-        self.real.start(path, public_key, fee)
+        let _ = path;
+
+        let pub_key = AccountPublicKey::from(public_key);
+        let sok_message = SokMessage::create((&fee).into(), pub_key.into());
+        self.set_snarker_sok_digest((&sok_message.digest()).into());
+        let _ = self
+            .real
+            .event_sender
+            .send(ExternalSnarkWorkerEvent::Started.into());
+        Ok(())
+        // self.real.start(path, public_key, fee)
     }
 
     fn submit(
         &mut self,
         spec: SnarkWorkSpec,
     ) -> Result<(), node::external_snark_worker::ExternalSnarkWorkerError> {
-        self.real.submit(spec)
+        let sok_digest = self.snarker_sok_digest.clone().unwrap();
+        let make_dummy_proof = |spec| {
+            let statement = match spec {
+                SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0Single::Transition(v, _) => v.0,
+                SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0Single::Merge(v) => v.0 .0,
+            };
+
+            LedgerProofProdStableV2(TransactionSnarkStableV2 {
+                statement: MinaStateSnarkedLedgerStateWithSokStableV2 {
+                    source: statement.source,
+                    target: statement.target,
+                    connecting_ledger_left: statement.connecting_ledger_left,
+                    connecting_ledger_right: statement.connecting_ledger_right,
+                    supply_increase: statement.supply_increase,
+                    fee_excess: statement.fee_excess,
+                    sok_digest: sok_digest.clone(),
+                },
+                proof: (*dummy_transaction_proof()).clone(),
+            })
+        };
+        let res = match spec {
+            SnarkWorkSpec::One(v) => TransactionSnarkWorkTStableV2Proofs::One(make_dummy_proof(v)),
+            SnarkWorkSpec::Two((v1, v2)) => TransactionSnarkWorkTStableV2Proofs::Two((
+                make_dummy_proof(v1),
+                make_dummy_proof(v2),
+            )),
+        };
+        let _ = self
+            .real
+            .event_sender
+            .send(ExternalSnarkWorkerEvent::WorkResult(Arc::new(res)).into());
+        Ok(())
+        // self.real.submit(spec)
     }
 
     fn cancel(&mut self) -> Result<(), node::external_snark_worker::ExternalSnarkWorkerError> {
-        self.real.cancel()
+        let _ = self
+            .real
+            .event_sender
+            .send(ExternalSnarkWorkerEvent::WorkCancelled.into());
+        Ok(())
+        // self.real.cancel()
     }
 
     fn kill(&mut self) -> Result<(), node::external_snark_worker::ExternalSnarkWorkerError> {
-        self.real.kill()
+        let _ = self
+            .real
+            .event_sender
+            .send(ExternalSnarkWorkerEvent::Killed.into());
+        Ok(())
+        // self.real.kill()
     }
 }
 

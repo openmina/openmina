@@ -50,6 +50,7 @@ impl SoloNodeSyncToGenesis {
             ask_initial_peers_interval: Duration::from_secs(60 * 60),
             initial_peers: Vec::new(),
             peer_id: Default::default(),
+            snark_worker: None,
             block_producer: None,
         });
 

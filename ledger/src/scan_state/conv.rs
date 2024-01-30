@@ -616,8 +616,14 @@ impl From<&Statement<SokDigest>> for MinaStateSnarkedLedgerStateWithSokStableV2 
             .into(),
             supply_increase: (&value.supply_increase).into(),
             fee_excess: (&value.fee_excess).into(),
-            sok_digest: MinaBaseZkappAccountZkappUriStableV1(value.sok_digest.as_slice().into()),
+            sok_digest: (&value.sok_digest).into(),
         }
+    }
+}
+
+impl From<&SokDigest> for MinaBaseZkappAccountZkappUriStableV1 {
+    fn from(value: &SokDigest) -> Self {
+        Self(value.as_slice().into())
     }
 }
 

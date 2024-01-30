@@ -191,7 +191,7 @@ impl Cluster {
             },
             global: GlobalConfig {
                 build: BuildEnv::get().into(),
-                snarker: None,
+                snarker: testing_config.snark_worker,
             },
             p2p: P2pConfig {
                 libp2p_port: Some(libp2p_port),

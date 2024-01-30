@@ -23,7 +23,9 @@ impl SimulationSmall {
             daemon_json: DaemonJsonGenConfig::Counts { whales: 2, fish: 4 },
             seed_nodes: 2,
             normal_nodes: 2,
-            run_until: SimulatorRunUntil::Epoch(8),
+            snark_workers: 1,
+            block_producers: 6,
+            run_until: SimulatorRunUntil::Epoch(3),
             run_until_timeout: Duration::from_secs(30 * 60),
         });
         simulator.run(runner).await;

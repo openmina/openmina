@@ -3,6 +3,7 @@ use std::{
     time::Duration,
 };
 
+use ledger::BaseLedger;
 use node::{
     account::{AccountPublicKey, AccountSecretKey},
     event_source::Event,
@@ -338,7 +339,7 @@ impl<'a> ClusterRunner<'a> {
         self.cluster.debugger()
     }
 
-    /// Block producer accounts, ordered by total stake, smallest first.
+    /// Block producer accounts, ordered by total stake, largest first.
     ///
     /// Warning: caller must ensure we are using custom daemon json if
     /// this method is called, so that we have secret keys for
@@ -373,8 +374,35 @@ impl<'a> ClusterRunner<'a> {
             .collect::<Vec<_>>();
 
         // order by stake
-        block_producers.sort_by(|(_, s1), (_, s2)| s1.cmp(s2));
+        block_producers.sort_by(|(_, s1), (_, s2)| s2.cmp(s1));
         block_producers
+    }
+
+    pub fn accounts_with_sec_keys<'b>(
+        &'b self,
+        node_id: ClusterNodeId,
+    ) -> Box<dyn 'b + Iterator<Item = (AccountSecretKey, Box<ledger::Account>)>> {
+        let Some(mask) = self.node(node_id).and_then(|node| {
+            let best_tip = node.state().transition_frontier.best_tip()?;
+            let ledger_hash = best_tip.staged_ledger_hash();
+            let (mask, _) = LedgerService::ctx(node.service()).mask(ledger_hash)?;
+            Some(mask)
+        }) else {
+            return Box::new(std::iter::empty());
+        };
+
+        let depth = mask.depth() as usize;
+        let num_accounts = mask.num_accounts() as u64;
+        Box::new(
+            (0..num_accounts)
+                .map(ledger::AccountIndex)
+                .filter_map(move |index| mask.get(ledger::Address::from_index(index, depth)))
+                .filter_map(|account| {
+                    let pub_key = account.public_key.clone().into();
+                    let sec_key = self.get_account_sec_key(&pub_key)?;
+                    Some((sec_key.clone(), account))
+                }),
+        )
     }
 }
 
