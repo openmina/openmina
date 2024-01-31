@@ -13,60 +13,60 @@ impl ExternalSnarkWorker {
     pub fn reducer(&mut self, action: ExternalSnarkWorkerActionWithMetaRef<'_>) {
         let (action, meta) = action.split();
         match action {
-            ExternalSnarkWorkerAction::Start(_) => {
+            ExternalSnarkWorkerAction::Start => {
                 self.state = ExternalSnarkWorkerState::Starting;
             }
-            ExternalSnarkWorkerAction::Started(_) => {
+            ExternalSnarkWorkerAction::Started => {
                 self.state = ExternalSnarkWorkerState::Idle;
             }
-            ExternalSnarkWorkerAction::StartTimeout(_) => {
+            ExternalSnarkWorkerAction::StartTimeout { .. } => {
                 return;
             }
-            ExternalSnarkWorkerAction::Kill(_) => {
+            ExternalSnarkWorkerAction::Kill => {
                 self.state = ExternalSnarkWorkerState::Killing;
             }
-            ExternalSnarkWorkerAction::Killed(_) => {
+            ExternalSnarkWorkerAction::Killed => {
                 self.state = ExternalSnarkWorkerState::None;
             }
-            ExternalSnarkWorkerAction::Error(a) => {
-                self.state = ExternalSnarkWorkerState::Error(a.error.clone(), a.permanent);
+            ExternalSnarkWorkerAction::Error { error, permanent } => {
+                self.state = ExternalSnarkWorkerState::Error(error.clone(), *permanent);
             }
-            ExternalSnarkWorkerAction::SubmitWork(action) => {
+            ExternalSnarkWorkerAction::SubmitWork { job_id, summary } => {
                 self.state = ExternalSnarkWorkerState::Working(
-                    action.job_id.clone(),
-                    action.summary.clone(),
+                    job_id.clone(),
+                    summary.clone(),
                 );
             }
-            ExternalSnarkWorkerAction::WorkResult(action) => {
+            ExternalSnarkWorkerAction::WorkResult { result } => {
                 let ExternalSnarkWorkerState::Working(job_id, _) = &self.state else {
                     return;
                 };
                 self.state =
-                    ExternalSnarkWorkerState::WorkReady(job_id.clone(), action.result.clone());
+                    ExternalSnarkWorkerState::WorkReady(job_id.clone(), result.clone());
             }
-            ExternalSnarkWorkerAction::WorkError(action) => {
+            ExternalSnarkWorkerAction::WorkError { error } => {
                 let ExternalSnarkWorkerState::Working(job_id, _) = &self.state else {
                     return;
                 };
                 self.state =
-                    ExternalSnarkWorkerState::WorkError(job_id.clone(), action.error.clone());
+                    ExternalSnarkWorkerState::WorkError(job_id.clone(), error.clone());
             }
-            ExternalSnarkWorkerAction::WorkTimeout(_) => {
+            ExternalSnarkWorkerAction::WorkTimeout { .. } => {
                 return;
             }
-            ExternalSnarkWorkerAction::CancelWork(_) => {
+            ExternalSnarkWorkerAction::CancelWork => {
                 let ExternalSnarkWorkerState::Working(job_id, _) = &self.state else {
                     return;
                 };
                 self.state = ExternalSnarkWorkerState::Cancelling(job_id.clone());
             }
-            ExternalSnarkWorkerAction::WorkCancelled(_) => {
+            ExternalSnarkWorkerAction::WorkCancelled => {
                 let ExternalSnarkWorkerState::Cancelling(job_id) = &self.state else {
                     return;
                 };
                 self.state = ExternalSnarkWorkerState::Cancelled(job_id.clone());
             }
-            ExternalSnarkWorkerAction::PruneWork(_) => {
+            ExternalSnarkWorkerAction::PruneWork => {
                 self.state = ExternalSnarkWorkerState::Idle;
             }
         }

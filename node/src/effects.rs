@@ -3,10 +3,7 @@ use redux::ActionMeta;
 use crate::block_producer::{block_producer_effects, BlockProducerWonSlotProduceInitAction};
 use crate::consensus::consensus_effects;
 use crate::event_source::event_source_effects;
-use crate::external_snark_worker::{
-    external_snark_worker_effects, ExternalSnarkWorkerStartAction,
-    ExternalSnarkWorkerStartTimeoutAction, ExternalSnarkWorkerWorkTimeoutAction,
-};
+use crate::external_snark_worker::external_snark_worker_effects;
 use crate::logger::logger_effects;
 use crate::p2p::channels::rpc::{
     P2pChannelsRpcRequestSendAction, P2pChannelsRpcTimeoutAction, P2pRpcKind, P2pRpcRequest,
@@ -28,7 +25,7 @@ use crate::snark_pool::{
 use crate::transition_frontier::sync::TransitionFrontierSyncBlocksNextApplyInitAction;
 use crate::transition_frontier::transition_frontier_effects;
 use crate::watched_accounts::watched_accounts_effects;
-use crate::{Action, ActionWithMeta, Service, Store};
+use crate::{Action, ActionWithMeta, ExternalSnarkWorkerAction, Service, Store};
 
 pub const MAX_PEER_PENDING_SNARKS: usize = 32;
 
@@ -47,7 +44,7 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
         // effect execution should be as light as possible.
         Action::CheckTimeouts(_) => {
             // TODO(binier): create init action and dispatch this there.
-            store.dispatch(ExternalSnarkWorkerStartAction {});
+            store.dispatch(ExternalSnarkWorkerAction::Start);
 
             p2p_connection_timeouts(store, &meta);
 
@@ -78,8 +75,8 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
             // TODO(binier): remove once ledger communication is async.
             store.dispatch(TransitionFrontierSyncBlocksNextApplyInitAction {});
 
-            store.dispatch(ExternalSnarkWorkerStartTimeoutAction { now: meta.time() });
-            store.dispatch(ExternalSnarkWorkerWorkTimeoutAction { now: meta.time() });
+            store.dispatch(ExternalSnarkWorkerAction::StartTimeout { now: meta.time() });
+            store.dispatch(ExternalSnarkWorkerAction::WorkTimeout { now: meta.time() });
 
             store.dispatch(BlockProducerWonSlotProduceInitAction {});
         }

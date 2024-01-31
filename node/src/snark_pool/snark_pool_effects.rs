@@ -1,13 +1,10 @@
 use openmina_core::snark::SnarkJobCommitment;
 
-use crate::external_snark_worker::{
-    ExternalSnarkWorkerCancelWorkAction, ExternalSnarkWorkerSubmitWorkAction,
-};
 use crate::p2p::channels::snark::{
     P2pChannelsSnarkLibp2pBroadcastAction, P2pChannelsSnarkResponseSendAction,
 };
 use crate::p2p::channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentResponseSendAction;
-use crate::{Service, SnarkerStrategy, State, Store};
+use crate::{ExternalSnarkWorkerAction, Service, SnarkerStrategy, State, Store};
 
 use super::candidate::snark_pool_candidate_effects;
 use super::{
@@ -28,7 +25,7 @@ pub fn snark_pool_effects<S: Service>(store: &mut Store<S>, action: SnarkPoolAct
             if let Some(job_id) = state.external_snark_worker.working_job_id() {
                 if !state.snark_pool.contains(job_id) {
                     // job is no longer needed.
-                    store.dispatch(ExternalSnarkWorkerCancelWorkAction {});
+                    store.dispatch(ExternalSnarkWorkerAction::CancelWork);
                 }
             } else {
                 store.dispatch(SnarkPoolAutoCreateCommitmentAction {});
@@ -67,7 +64,7 @@ pub fn snark_pool_effects<S: Service>(store: &mut Store<S>, action: SnarkPoolAct
             let Some(summary) = store.state().snark_pool.job_summary(&a.job_id) else {
                 return;
             };
-            if store.dispatch(ExternalSnarkWorkerSubmitWorkAction {
+            if store.dispatch(ExternalSnarkWorkerAction::SubmitWork {
                 job_id: a.job_id.clone(),
                 summary,
             }) {
@@ -95,7 +92,7 @@ pub fn snark_pool_effects<S: Service>(store: &mut Store<S>, action: SnarkPoolAct
                 if &a.commitment.job_id == job_id
                     && &a.commitment.snarker != config.public_key.as_ref()
                 {
-                    store.dispatch(ExternalSnarkWorkerCancelWorkAction {});
+                    store.dispatch(ExternalSnarkWorkerAction::CancelWork);
                 }
             }
         }
@@ -112,7 +109,7 @@ pub fn snark_pool_effects<S: Service>(store: &mut Store<S>, action: SnarkPoolAct
                     .and_then(|job| job.commitment.as_ref())
                 {
                     if a.snark > commitment.commitment {
-                        store.dispatch(ExternalSnarkWorkerCancelWorkAction {});
+                        store.dispatch(ExternalSnarkWorkerAction::CancelWork);
                     }
                 }
             }

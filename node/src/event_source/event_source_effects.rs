@@ -5,11 +5,7 @@ use p2p::P2pListenEvent;
 
 use crate::action::CheckTimeoutsAction;
 use crate::block_producer::vrf_evaluator::BlockProducerVrfEvaluatorEvaluationSuccessAction;
-use crate::external_snark_worker::{
-    ExternalSnarkWorkerErrorAction, ExternalSnarkWorkerEvent, ExternalSnarkWorkerKilledAction,
-    ExternalSnarkWorkerStartedAction, ExternalSnarkWorkerWorkCancelledAction,
-    ExternalSnarkWorkerWorkErrorAction, ExternalSnarkWorkerWorkResultAction,
-};
+use crate::external_snark_worker::ExternalSnarkWorkerEvent;
 use crate::p2p::channels::best_tip::P2pChannelsBestTipReadyAction;
 use crate::p2p::channels::rpc::P2pChannelsRpcReadyAction;
 use crate::p2p::channels::snark::{
@@ -48,7 +44,7 @@ use crate::rpc::{
 use crate::snark::block_verify::SnarkBlockVerifyAction;
 use crate::snark::work_verify::SnarkWorkVerifyAction;
 use crate::snark::SnarkEvent;
-use crate::{Service, Store};
+use crate::{ExternalSnarkWorkerAction, Service, Store};
 
 use super::{
     Event, EventSourceAction, EventSourceActionWithMeta, EventSourceNewEventAction,
@@ -304,22 +300,22 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
             },
             Event::ExternalSnarkWorker(e) => match e {
                 ExternalSnarkWorkerEvent::Started => {
-                    store.dispatch(ExternalSnarkWorkerStartedAction {});
+                    store.dispatch(ExternalSnarkWorkerAction::Started);
                 }
                 ExternalSnarkWorkerEvent::Killed => {
-                    store.dispatch(ExternalSnarkWorkerKilledAction {});
+                    store.dispatch(ExternalSnarkWorkerAction::Killed);
                 }
                 ExternalSnarkWorkerEvent::WorkResult(result) => {
-                    store.dispatch(ExternalSnarkWorkerWorkResultAction { result });
+                    store.dispatch(ExternalSnarkWorkerAction::WorkResult { result });
                 }
                 ExternalSnarkWorkerEvent::WorkError(error) => {
-                    store.dispatch(ExternalSnarkWorkerWorkErrorAction { error });
+                    store.dispatch(ExternalSnarkWorkerAction::WorkError { error });
                 }
                 ExternalSnarkWorkerEvent::WorkCancelled => {
-                    store.dispatch(ExternalSnarkWorkerWorkCancelledAction {});
+                    store.dispatch(ExternalSnarkWorkerAction::WorkCancelled);
                 }
                 ExternalSnarkWorkerEvent::Error(error) => {
-                    store.dispatch(ExternalSnarkWorkerErrorAction {
+                    store.dispatch(ExternalSnarkWorkerAction::Error {
                         error,
                         permanent: false,
                     });

@@ -464,58 +464,58 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
         Action::ExternalSnarkWorker(a) => {
             use crate::external_snark_worker::ExternalSnarkWorkerAction;
             match a {
-                ExternalSnarkWorkerAction::Start(_)
-                | ExternalSnarkWorkerAction::Started(_)
-                | ExternalSnarkWorkerAction::Kill(_)
-                | ExternalSnarkWorkerAction::Killed(_)
-                | ExternalSnarkWorkerAction::WorkCancelled(_)
-                | ExternalSnarkWorkerAction::PruneWork(_) => {
+                ExternalSnarkWorkerAction::Start
+                | ExternalSnarkWorkerAction::Started
+                | ExternalSnarkWorkerAction::Kill
+                | ExternalSnarkWorkerAction::Killed
+                | ExternalSnarkWorkerAction::WorkCancelled
+                | ExternalSnarkWorkerAction::PruneWork => {
                     openmina_core::log::debug!(
                         meta.time();
                         kind = kind.to_string(),
                         trace_action = serde_json::to_string(&a).ok()
                     )
                 }
-                ExternalSnarkWorkerAction::SubmitWork(a) => {
+                ExternalSnarkWorkerAction::SubmitWork { job_id, .. } => {
                     openmina_core::log::info!(
                         meta.time();
                         kind = kind.to_string(),
-                        work_id = a.job_id.to_string(),
+                        work_id = job_id.to_string(),
                     )
                 }
-                ExternalSnarkWorkerAction::WorkResult(_) => {
-                    openmina_core::log::info!(
-                        meta.time();
-                        kind = kind.to_string(),
-                    )
-                }
-                ExternalSnarkWorkerAction::CancelWork(_) => {
+                ExternalSnarkWorkerAction::WorkResult { .. } => {
                     openmina_core::log::info!(
                         meta.time();
                         kind = kind.to_string(),
                     )
                 }
-                ExternalSnarkWorkerAction::WorkError(a) => {
+                ExternalSnarkWorkerAction::CancelWork => {
+                    openmina_core::log::info!(
+                        meta.time();
+                        kind = kind.to_string(),
+                    )
+                }
+                ExternalSnarkWorkerAction::WorkError { error, .. } => {
                     openmina_core::log::warn!(
                         meta.time();
                         kind = kind.to_string(),
-                        error = a.error.to_string(),
+                        error = error.to_string(),
                     )
                 }
-                ExternalSnarkWorkerAction::Error(a) => {
+                ExternalSnarkWorkerAction::Error { error, .. } => {
                     openmina_core::log::info!(
                         meta.time();
                         kind = kind.to_string(),
-                        error = a.error.to_string(),
+                        error = error.to_string(),
                     )
                 }
-                ExternalSnarkWorkerAction::StartTimeout(_) => {
+                ExternalSnarkWorkerAction::StartTimeout { .. } => {
                     openmina_core::log::warn!(
                         meta.time();
                         kind = kind.to_string(),
                     )
                 }
-                ExternalSnarkWorkerAction::WorkTimeout(_) => {
+                ExternalSnarkWorkerAction::WorkTimeout { .. } => {
                     openmina_core::log::warn!(
                         meta.time();
                         kind = kind.to_string(),
