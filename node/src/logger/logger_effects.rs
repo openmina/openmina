@@ -363,20 +363,20 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
             P2pAction::Channels(action) => match action {
                 P2pChannelsAction::MessageReceived(_) => {}
                 P2pChannelsAction::BestTip(action) => match action {
-                    P2pChannelsBestTipAction::Init(action) => {
+                    P2pChannelsBestTipAction::Init { peer_id } => {
                         openmina_core::log::debug!(
                             meta.time();
                             kind = kind.to_string(),
-                            summary = format!("peer_id: {}", action.peer_id),
-                            peer_id = action.peer_id.to_string()
+                            summary = format!("peer_id: {peer_id}"),
+                            peer_id = peer_id.to_string()
                         );
                     }
-                    P2pChannelsBestTipAction::Ready(action) => {
+                    P2pChannelsBestTipAction::Ready { peer_id } => {
                         openmina_core::log::debug!(
                             meta.time();
                             kind = kind.to_string(),
-                            summary = format!("peer_id: {}", action.peer_id),
-                            peer_id = action.peer_id.to_string()
+                            summary = format!("peer_id: {peer_id}"),
+                            peer_id = peer_id.to_string()
                         );
                     }
                     _ => {}

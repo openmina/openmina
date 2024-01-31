@@ -107,7 +107,7 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncBestTipUpd
             //
             // Otherwise other block producers might spam the network
             // with blocks that are better than current best tip, yet
-            // inferrior to the block that we are producing and we can't
+            // inferior to the block that we are producing and we can't
             // let that get in the way of us producing a block.
             && state.block_producer.producing_won_slot()
                 .filter(|_| !state.block_producer.is_me(self.best_tip.producer()))

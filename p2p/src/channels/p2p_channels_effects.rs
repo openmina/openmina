@@ -4,10 +4,7 @@ use redux::ActionMeta;
 use crate::disconnection::{P2pDisconnectionInitAction, P2pDisconnectionReason};
 
 use super::{
-    best_tip::{
-        BestTipPropagationChannelMsg, P2pChannelsBestTipReceivedAction,
-        P2pChannelsBestTipRequestReceivedAction,
-    },
+    best_tip::{BestTipPropagationChannelMsg, P2pChannelsBestTipAction},
     rpc::{
         P2pChannelsRpcRequestReceivedAction, P2pChannelsRpcResponseReceivedAction, RpcChannelMsg,
     },
@@ -28,8 +25,7 @@ impl P2pChannelsMessageReceivedAction {
     pub fn effects<Store, S>(self, _: &ActionMeta, store: &mut Store)
     where
         Store: crate::P2pStore<S>,
-        P2pChannelsBestTipRequestReceivedAction: redux::EnablingCondition<S>,
-        P2pChannelsBestTipReceivedAction: redux::EnablingCondition<S>,
+        P2pChannelsBestTipAction: redux::EnablingCondition<S>,
         P2pChannelsSnarkRequestReceivedAction: redux::EnablingCondition<S>,
         P2pChannelsSnarkPromiseReceivedAction: redux::EnablingCondition<S>,
         P2pChannelsSnarkReceivedAction: redux::EnablingCondition<S>,
@@ -45,11 +41,11 @@ impl P2pChannelsMessageReceivedAction {
         let was_expected = match self.message {
             ChannelMsg::BestTipPropagation(msg) => match msg {
                 BestTipPropagationChannelMsg::GetNext => {
-                    store.dispatch(P2pChannelsBestTipRequestReceivedAction { peer_id })
+                    store.dispatch(P2pChannelsBestTipAction::RequestReceived { peer_id })
                 }
                 BestTipPropagationChannelMsg::BestTip(best_tip) => {
                     let best_tip = BlockWithHash::new(best_tip);
-                    store.dispatch(P2pChannelsBestTipReceivedAction { peer_id, best_tip })
+                    store.dispatch(P2pChannelsBestTipAction::Received { peer_id, best_tip })
                 }
             },
             ChannelMsg::SnarkPropagation(msg) => match msg {

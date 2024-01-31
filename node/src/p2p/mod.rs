@@ -97,13 +97,7 @@ impl_into_global_action!(discovery::P2pDiscoveryKademliaAddRouteAction);
 
 impl_into_global_action!(channels::P2pChannelsMessageReceivedAction);
 
-impl_into_global_action!(channels::best_tip::P2pChannelsBestTipInitAction);
-impl_into_global_action!(channels::best_tip::P2pChannelsBestTipPendingAction);
-impl_into_global_action!(channels::best_tip::P2pChannelsBestTipReadyAction);
-impl_into_global_action!(channels::best_tip::P2pChannelsBestTipRequestSendAction);
-impl_into_global_action!(channels::best_tip::P2pChannelsBestTipReceivedAction);
-impl_into_global_action!(channels::best_tip::P2pChannelsBestTipRequestReceivedAction);
-impl_into_global_action!(channels::best_tip::P2pChannelsBestTipResponseSendAction);
+impl_into_global_action!(channels::best_tip::P2pChannelsBestTipAction);
 
 impl_into_global_action!(channels::snark::P2pChannelsSnarkInitAction);
 impl_into_global_action!(channels::snark::P2pChannelsSnarkPendingAction);

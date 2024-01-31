@@ -138,7 +138,7 @@ pub struct P2pChannelsRpcResponseReceivedAction {
 impl redux::EnablingCondition<P2pState> for P2pChannelsRpcResponseReceivedAction {
     fn is_enabled(&self, state: &P2pState) -> bool {
         // TODO(binier): use consensus to enforce that peer doesn't send
-        // us inferrior block than it has in the past.
+        // us inferior block than it has in the past.
         state
             .get_ready_peer(&self.peer_id)
             .map_or(false, |p| match &p.channels.rpc {

@@ -6,7 +6,7 @@ use p2p::P2pListenEvent;
 use crate::action::CheckTimeoutsAction;
 use crate::block_producer::vrf_evaluator::BlockProducerVrfEvaluatorEvaluationSuccessAction;
 use crate::external_snark_worker::ExternalSnarkWorkerEvent;
-use crate::p2p::channels::best_tip::P2pChannelsBestTipReadyAction;
+use crate::p2p::channels::best_tip::P2pChannelsBestTipAction;
 use crate::p2p::channels::rpc::P2pChannelsRpcReadyAction;
 use crate::p2p::channels::snark::{
     P2pChannelsSnarkLibp2pReceivedAction, P2pChannelsSnarkReadyAction,
@@ -173,7 +173,7 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                         Ok(_) => match chan_id {
                             ChannelId::BestTipPropagation => {
                                 // TODO(binier): maybe dispatch success and then ready.
-                                store.dispatch(P2pChannelsBestTipReadyAction { peer_id });
+                                store.dispatch(P2pChannelsBestTipAction::Ready { peer_id });
                             }
                             ChannelId::SnarkPropagation => {
                                 // TODO(binier): maybe dispatch success and then ready.

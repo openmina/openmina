@@ -75,7 +75,7 @@ impl SnarkPoolState {
                     sender: a.sender,
                 });
                 self.insert(job);
-                self.candidates.remove_inferrior_snarks(&a.snark);
+                self.candidates.remove_inferior_snarks(&a.snark);
             }
             SnarkPoolAction::P2pSendAll(_) => {}
             SnarkPoolAction::P2pSend(_) => {}

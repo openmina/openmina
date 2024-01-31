@@ -31,7 +31,7 @@ use crate::watched_accounts::{
 };
 use crate::{Service, Store};
 
-use super::channels::best_tip::{P2pChannelsBestTipAction, P2pChannelsBestTipResponseSendAction};
+use super::channels::best_tip::P2pChannelsBestTipAction;
 use super::channels::rpc::{
     BestTipWithProof, P2pChannelsRpcAction, P2pChannelsRpcRequestSendAction,
     P2pChannelsRpcResponseSendAction, P2pRpcRequest, P2pRpcResponse,
@@ -313,32 +313,17 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
             P2pChannelsAction::MessageReceived(action) => {
                 action.effects(&meta, store);
             }
-            P2pChannelsAction::BestTip(action) => match action {
-                P2pChannelsBestTipAction::Init(action) => {
-                    action.effects(&meta, store);
-                }
-                P2pChannelsBestTipAction::Pending(_) => {}
-                P2pChannelsBestTipAction::Ready(action) => {
-                    action.effects(&meta, store);
-                }
-                P2pChannelsBestTipAction::RequestSend(action) => {
-                    action.effects(&meta, store);
-                }
-                P2pChannelsBestTipAction::Received(action) => {
-                    action.effects(&meta, store);
-                }
-                P2pChannelsBestTipAction::RequestReceived(action) => {
+            P2pChannelsAction::BestTip(action) => {
+                if let P2pChannelsBestTipAction::RequestReceived { peer_id } = action {
                     if let Some(best_tip) = store.state().transition_frontier.best_tip() {
-                        store.dispatch(P2pChannelsBestTipResponseSendAction {
-                            peer_id: action.peer_id,
+                        store.dispatch(P2pChannelsBestTipAction::ResponseSend {
+                            peer_id,
                             best_tip: best_tip.clone(),
                         });
                     }
                 }
-                P2pChannelsBestTipAction::ResponseSend(action) => {
-                    action.effects(&meta, store);
-                }
-            },
+                action.effects(&meta, store);
+            }
             P2pChannelsAction::Snark(action) => match action {
                 P2pChannelsSnarkAction::Init(action) => {
                     action.effects(&meta, store);
