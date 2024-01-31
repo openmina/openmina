@@ -52,7 +52,7 @@ pub trait P2pServiceWebrtcWithLibp2p: P2pServiceWebrtc {
             mio: MioService::run({
                 move |mio_event| {
                     event_source_sender
-                        .send(P2pEvent::MioEvent(mio_event).into())
+                        .send(P2pEvent::MioEvent(dbg!(mio_event)).into())
                         .unwrap_or_default()
                 }
             }),
