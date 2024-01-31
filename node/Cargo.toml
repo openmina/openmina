@@ -30,8 +30,9 @@ snark = { path = "../snark" }
 p2p = { path = "../p2p" }
 
 [build-dependencies]
-regex = "1"
+anyhow = "1.0.70"
 rust-format = "0.3"
+syn = "2.0.38"
 vergen = { version = "8.2.4", features = ["build", "cargo", "git", "gitcl", "rustc"] }
 
 [features]

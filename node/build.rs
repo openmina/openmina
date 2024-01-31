@@ -1,17 +1,18 @@
 // This build script will generate `node/src/action_kind.rs`.
 // See the top comment on that file for some context.
 
-use std::collections::btree_map::Entry as BTreeMapEntry;
 use std::collections::{BTreeMap, VecDeque};
-use std::error::Error;
 use std::fs::{self, DirEntry};
-use std::io::{self, BufRead, BufReader, Read};
+use std::io::Read;
 use std::path::{Path, PathBuf};
 
-use regex::Regex;
 use rust_format::Formatter;
+use syn::{ItemEnum, ItemStruct};
 
-fn visit_dirs(dir: &PathBuf, cb: &mut dyn FnMut(&DirEntry)) -> io::Result<()> {
+fn visit_dirs<F: FnMut(&DirEntry) -> anyhow::Result<()>>(
+    dir: &PathBuf,
+    cb: &mut F,
+) -> anyhow::Result<()> {
     if dir.is_dir() {
         for entry in fs::read_dir(dir)? {
             let entry = entry?;
@@ -19,11 +20,15 @@ fn visit_dirs(dir: &PathBuf, cb: &mut dyn FnMut(&DirEntry)) -> io::Result<()> {
             if path.is_dir() {
                 visit_dirs(&path, cb)?;
             } else {
-                cb(&entry);
+                cb(&entry)?;
             }
         }
     }
     Ok(())
+}
+
+fn trim_action_name(s: &str) -> &str {
+    s.trim_end_matches("Action")
 }
 
 fn is_same_file<P: AsRef<Path>>(file1: P, file2: P) -> Result<bool, std::io::Error> {
@@ -52,15 +57,16 @@ fn is_same_file<P: AsRef<Path>>(file1: P, file2: P) -> Result<bool, std::io::Err
 enum ActionMeta {
     Struct,
     Enum(Vec<(String, String)>),
+    EnumStruct(Vec<String>),
 }
 
 impl ActionMeta {
-    pub fn is_struct(&self) -> bool {
-        matches!(self, Self::Struct)
+    pub fn is_leaf(&self) -> bool {
+        matches!(self, ActionMeta::Struct)
     }
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() -> anyhow::Result<()> {
     vergen::EmitBuilder::builder()
         .all_build()
         .all_cargo()
@@ -76,10 +82,6 @@ fn main() -> Result<(), Box<dyn Error>> {
         dir
     };
 
-    let action_def_re = Regex::new(r"^pub (struct|enum) ([a-zA-Z0-9]*Action)( |\n)\{").unwrap();
-    let action_enum_variant_re =
-        Regex::new(r"([a-zA-Z0-9]*)\(\n? *([a-zA-Z0-9]*Action),?\n? *\)").unwrap();
-
     let mut use_statements: BTreeMap<Vec<String>, Vec<String>> = Default::default();
     use_statements.insert(vec![], vec!["ActionKindGet".to_owned()]);
     // `BTreeMap` will ensure that the order is deterministic across runs.
@@ -89,59 +91,83 @@ fn main() -> Result<(), Box<dyn Error>> {
         let mut path = file.path();
         let path_str = path.to_str().unwrap();
         if !path_str.ends_with("_actions.rs") && !path_str.ends_with("action.rs") {
-            return;
+            return Ok(());
         }
-
-        let file = fs::File::open(&path).unwrap();
-        let reader = BufReader::new(file);
-
-        let mut lines = reader.lines();
         let mut action_defs: Vec<String> = vec![];
 
-        loop {
-            let Some(line) = lines.next() else { break };
-            let line = line.unwrap();
+        {
+            let file = std::fs::read_to_string(file.path())?;
+            let file = syn::parse_str::<syn::File>(&file)?;
 
-            let Some(matches) = action_def_re.captures(&line) else {
-                continue;
-            };
-            match &matches[1] {
-                "struct" => {
-                    if let Some(action_name) = matches.get(2) {
-                        let action_name = action_name.as_str().to_owned();
-                        actions.insert(action_name.clone(), ActionMeta::Struct);
-                        action_defs.push(action_name);
-                    }
-                }
-                "enum" => {
-                    if let Some(action_name) = matches.get(2) {
-                        let action_name = action_name.as_str().to_owned();
-                        let mut variant_lines = vec![];
-                        loop {
-                            let Some(line) = lines.next() else { break };
-                            let line = line.unwrap();
-                            if line.contains('}') {
-                                break;
+            for item in file.items {
+                match item {
+                    syn::Item::Enum(ItemEnum {
+                        ident, variants, ..
+                    }) if ident.to_string().ends_with("Action") => {
+                        match variants.first().map(|v| &v.fields) {
+                            None | Some(syn::Fields::Unit) => break,
+                            Some(syn::Fields::Unnamed(syn::FieldsUnnamed { .. })) => {
+                                let variants = variants
+                                    .into_iter()
+                                    .map(|variant| {
+                                        let v1 = variant.ident.to_string();
+                                        let syn::Fields::Unnamed(syn::FieldsUnnamed {
+                                            unnamed,
+                                            ..
+                                        }) = variant.fields
+                                        else {
+                                            anyhow::bail!("unexpected variant {v1}");
+                                        };
+                                        let mut unnamed_it = unnamed.into_iter();
+                                        let Some(inner) = unnamed_it.next() else {
+                                            anyhow::bail!("single item tuple expected: {v1}");
+                                        };
+                                        if unnamed_it.next().is_some() {
+                                            anyhow::bail!("single item tuple expected: {v1}");
+                                        }
+                                        let syn::Type::Path(syn::TypePath { path, .. }) = inner.ty
+                                        else {
+                                            anyhow::bail!("single item tuple expected: {v1}");
+                                        };
+                                        let mut items = path.segments.into_iter();
+                                        let Some(last) = items.next_back() else {
+                                            anyhow::bail!("empty path: {v1}");
+                                        };
+                                        Ok((v1, last.ident.to_string()))
+                                    })
+                                    .collect::<Result<_, _>>()?;
+                                actions.insert(ident.to_string(), ActionMeta::Enum(variants));
+                                action_defs.push(ident.to_string());
                             }
-                            variant_lines.push(line);
+                            Some(syn::Fields::Named(syn::FieldsNamed { .. })) => {
+                                let variants = variants
+                                    .into_iter()
+                                    .map(|variant| variant.ident.to_string())
+                                    .collect::<Vec<_>>();
+                                let name = trim_action_name(&ident.to_string()).to_string();
+                                for v in &variants {
+                                    let action_kind = format!("{name}{v}Action");
+                                    actions.insert(action_kind.clone(), ActionMeta::Struct);
+                                }
+                                actions.insert(ident.to_string(), ActionMeta::EnumStruct(variants));
+                                action_defs.push(ident.to_string());
+                            }
                         }
-                        let variants_str = variant_lines.join("");
-
-                        let variants = action_enum_variant_re
-                            .captures_iter(&variants_str)
-                            .map(|matches| (matches[1].to_owned(), matches[2].to_owned()))
-                            .collect();
-                        actions.insert(action_name.clone(), ActionMeta::Enum(variants));
-                        action_defs.push(action_name);
                     }
+                    syn::Item::Struct(ItemStruct { ident, .. })
+                        if ident.to_string().ends_with("Action") =>
+                    {
+                        actions.insert(ident.to_string(), ActionMeta::Struct);
+                        action_defs.push(ident.to_string());
+                    }
+                    _ => {}
                 }
-                _ => continue,
             }
         }
 
         path.pop();
         if action_defs.is_empty() {
-            return;
+            return Ok(());
         }
         let path = path.strip_prefix(&node_dir).unwrap();
         let use_path = path
@@ -152,14 +178,8 @@ fn main() -> Result<(), Box<dyn Error>> {
             .filter(|v| v != "src" && v != "node")
             .collect::<Vec<_>>();
 
-        match use_statements.entry(use_path) {
-            BTreeMapEntry::Vacant(v) => {
-                v.insert(action_defs);
-            }
-            BTreeMapEntry::Occupied(mut v) => {
-                v.get_mut().extend(action_defs);
-            }
-        }
+        use_statements.entry(use_path).or_default().extend(action_defs);
+        Ok(())
     })?;
 
     let top_comment = [
@@ -198,9 +218,9 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let action_kinds_iter = actions
         .iter()
-        .filter(|(_, meta)| meta.is_struct())
+        .filter(|(_, meta)| meta.is_leaf())
         // Remove suffix `Action` from action name.
-        .map(|(name, _)| name[..(name.len() - 6)].to_string());
+        .map(|(name, _)| trim_action_name(name).to_string());
     let action_kinds = std::iter::once("None".to_owned())
         .chain(action_kinds_iter)
         .collect::<Vec<_>>();
@@ -233,7 +253,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         while let Some(action_name) = queue.pop_front() {
             let fn_body = match actions.get(dbg!(&action_name)).unwrap() {
                 ActionMeta::Struct => {
-                    let action_kind = &action_name[..(action_name.len() - 6)];
+                    let action_kind = trim_action_name(&action_name);
                     format!("ActionKind::{action_kind}")
                 }
                 ActionMeta::Enum(variants) => {
@@ -244,6 +264,16 @@ fn main() -> Result<(), Box<dyn Error>> {
                     let variants_iter = variants
                         .iter()
                         .map(|(v, _)| format!("            Self::{v}(a) => a.kind(),"));
+                    std::iter::once("match self {".to_owned())
+                        .chain(variants_iter)
+                        .chain(std::iter::once("        }".to_owned()))
+                        .collect::<Vec<_>>()
+                        .join("\n")
+                }
+                ActionMeta::EnumStruct(variants) => {
+                    let variants_iter = variants
+                        .iter()
+                        .map(|v| format!("            Self::{v} {{ .. }} => ActionKind::{}{},", trim_action_name(&action_name), v));
                     std::iter::once("match self {".to_owned())
                         .chain(variants_iter)
                         .chain(std::iter::once("        }".to_owned()))
