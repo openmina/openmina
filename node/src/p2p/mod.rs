@@ -99,16 +99,7 @@ impl_into_global_action!(channels::P2pChannelsMessageReceivedAction);
 
 impl_into_global_action!(channels::best_tip::P2pChannelsBestTipAction);
 
-impl_into_global_action!(channels::snark::P2pChannelsSnarkInitAction);
-impl_into_global_action!(channels::snark::P2pChannelsSnarkPendingAction);
-impl_into_global_action!(channels::snark::P2pChannelsSnarkReadyAction);
-impl_into_global_action!(channels::snark::P2pChannelsSnarkRequestSendAction);
-impl_into_global_action!(channels::snark::P2pChannelsSnarkPromiseReceivedAction);
-impl_into_global_action!(channels::snark::P2pChannelsSnarkReceivedAction);
-impl_into_global_action!(channels::snark::P2pChannelsSnarkRequestReceivedAction);
-impl_into_global_action!(channels::snark::P2pChannelsSnarkResponseSendAction);
-impl_into_global_action!(channels::snark::P2pChannelsSnarkLibp2pReceivedAction);
-impl_into_global_action!(channels::snark::P2pChannelsSnarkLibp2pBroadcastAction);
+impl_into_global_action!(channels::snark::P2pChannelsSnarkAction);
 
 impl_into_global_action!(channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentAction);
 

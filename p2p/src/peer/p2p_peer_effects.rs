@@ -2,7 +2,7 @@ use redux::ActionMeta;
 
 use crate::channels::{
     best_tip::P2pChannelsBestTipAction, rpc::P2pChannelsRpcInitAction,
-    snark::P2pChannelsSnarkInitAction, snark_job_commitment::P2pChannelsSnarkJobCommitmentAction,
+    snark::P2pChannelsSnarkAction, snark_job_commitment::P2pChannelsSnarkJobCommitmentAction,
     ChannelId,
 };
 
@@ -13,7 +13,7 @@ impl P2pPeerReadyAction {
     where
         Store: crate::P2pStore<S>,
         P2pChannelsBestTipAction: redux::EnablingCondition<S>,
-        P2pChannelsSnarkInitAction: redux::EnablingCondition<S>,
+        P2pChannelsSnarkAction: redux::EnablingCondition<S>,
         P2pChannelsSnarkJobCommitmentAction: redux::EnablingCondition<S>,
         P2pChannelsRpcInitAction: redux::EnablingCondition<S>,
     {
@@ -26,7 +26,7 @@ impl P2pPeerReadyAction {
                     store.dispatch(P2pChannelsBestTipAction::Init { peer_id });
                 }
                 ChannelId::SnarkPropagation => {
-                    store.dispatch(P2pChannelsSnarkInitAction { peer_id });
+                    store.dispatch(P2pChannelsSnarkAction::Init { peer_id });
                 }
                 ChannelId::SnarkJobCommitmentPropagation => {
                     store.dispatch(P2pChannelsSnarkJobCommitmentAction::Init { peer_id });

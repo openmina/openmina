@@ -324,39 +324,25 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                 }
                 action.effects(&meta, store);
             }
-            P2pChannelsAction::Snark(action) => match action {
-                P2pChannelsSnarkAction::Init(action) => {
-                    action.effects(&meta, store);
+            P2pChannelsAction::Snark(action) => {
+                // TODO: does the order matter here? if not this clone can be removed
+                action.clone().effects(&meta, store);
+                match action {
+                    P2pChannelsSnarkAction::Received { peer_id, snark } => {
+                        store.dispatch(SnarkPoolCandidateAction::InfoReceived {
+                            peer_id: peer_id,
+                            info: snark,
+                        });
+                    }
+                    P2pChannelsSnarkAction::Libp2pReceived { peer_id, snark, .. } => {
+                        store.dispatch(SnarkPoolCandidateAction::WorkReceived {
+                            peer_id: peer_id,
+                            work: snark,
+                        });
+                    }
+                    _ => {}
                 }
-                P2pChannelsSnarkAction::Pending(_) => {}
-                P2pChannelsSnarkAction::Ready(action) => {
-                    action.effects(&meta, store);
-                }
-                P2pChannelsSnarkAction::RequestSend(action) => {
-                    action.effects(&meta, store);
-                }
-                P2pChannelsSnarkAction::PromiseReceived(_) => {}
-                P2pChannelsSnarkAction::Received(action) => {
-                    action.effects(&meta, store);
-                    store.dispatch(SnarkPoolCandidateAction::InfoReceived {
-                        peer_id: action.peer_id,
-                        info: action.snark,
-                    });
-                }
-                P2pChannelsSnarkAction::RequestReceived(_) => {}
-                P2pChannelsSnarkAction::ResponseSend(action) => {
-                    action.effects(&meta, store);
-                }
-                P2pChannelsSnarkAction::Libp2pReceived(action) => {
-                    store.dispatch(SnarkPoolCandidateAction::WorkReceived {
-                        peer_id: action.peer_id,
-                        work: action.snark,
-                    });
-                }
-                P2pChannelsSnarkAction::Libp2pBroadcast(action) => {
-                    action.effects(&meta, store);
-                }
-            },
+            }
             P2pChannelsAction::SnarkJobCommitment(action) => {
                 // TODO: does the order matter here? if not this clone can be removed
                 action.clone().effects(&meta, store);

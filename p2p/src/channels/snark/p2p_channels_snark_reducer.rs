@@ -7,13 +7,13 @@ impl P2pChannelsSnarkState {
     pub fn reducer(&mut self, action: P2pChannelsSnarkActionWithMetaRef<'_>) {
         let (action, meta) = action.split();
         match action {
-            P2pChannelsSnarkAction::Init(_) => {
+            P2pChannelsSnarkAction::Init { .. } => {
                 *self = Self::Init { time: meta.time() };
             }
-            P2pChannelsSnarkAction::Pending(_) => {
+            P2pChannelsSnarkAction::Pending { .. } => {
                 *self = Self::Pending { time: meta.time() };
             }
-            P2pChannelsSnarkAction::Ready(_) => {
+            P2pChannelsSnarkAction::Ready { .. } => {
                 *self = Self::Ready {
                     time: meta.time(),
                     local: SnarkPropagationState::WaitingForRequest { time: meta.time() },
@@ -21,16 +21,16 @@ impl P2pChannelsSnarkState {
                     next_send_index: 0,
                 };
             }
-            P2pChannelsSnarkAction::RequestSend(action) => {
+            P2pChannelsSnarkAction::RequestSend { limit, .. } => {
                 let Self::Ready { local, .. } = self else {
                     return;
                 };
                 *local = SnarkPropagationState::Requested {
                     time: meta.time(),
-                    requested_limit: action.limit,
+                    requested_limit: *limit,
                 };
             }
-            P2pChannelsSnarkAction::PromiseReceived(action) => {
+            P2pChannelsSnarkAction::PromiseReceived { promised_count, .. } => {
                 let Self::Ready { local, .. } = self else {
                     return;
                 };
@@ -40,15 +40,14 @@ impl P2pChannelsSnarkState {
                 else {
                     return;
                 };
-
                 *local = SnarkPropagationState::Responding {
                     time: meta.time(),
                     requested_limit: *requested_limit,
-                    promised_count: action.promised_count,
+                    promised_count: *promised_count,
                     current_count: 0,
                 };
             }
-            P2pChannelsSnarkAction::Received(_) => {
+            P2pChannelsSnarkAction::Received { .. } => {
                 let Self::Ready { local, .. } = self else {
                     return;
                 };
@@ -70,17 +69,18 @@ impl P2pChannelsSnarkState {
                     };
                 }
             }
-            P2pChannelsSnarkAction::RequestReceived(action) => {
+            P2pChannelsSnarkAction::RequestReceived { limit, .. } => {
                 let Self::Ready { remote, .. } = self else {
                     return;
                 };
-
                 *remote = SnarkPropagationState::Requested {
                     time: meta.time(),
-                    requested_limit: action.limit,
+                    requested_limit: *limit,
                 };
             }
-            P2pChannelsSnarkAction::ResponseSend(action) => {
+            P2pChannelsSnarkAction::ResponseSend {
+                snarks, last_index, ..
+            } => {
                 let Self::Ready {
                     remote,
                     next_send_index,
@@ -89,20 +89,20 @@ impl P2pChannelsSnarkState {
                 else {
                     return;
                 };
-                *next_send_index = action.last_index + 1;
+                *next_send_index = last_index + 1;
 
-                let count = action.snarks.len() as u8;
+                let count = snarks.len() as u8;
                 if count == 0 {
                     return;
                 }
 
                 *remote = SnarkPropagationState::Responded {
                     time: meta.time(),
-                    count: action.snarks.len() as u8,
+                    count,
                 };
             }
-            P2pChannelsSnarkAction::Libp2pReceived(_)
-            | P2pChannelsSnarkAction::Libp2pBroadcast(_) => {}
+            P2pChannelsSnarkAction::Libp2pReceived { .. }
+            | P2pChannelsSnarkAction::Libp2pBroadcast { .. } => {}
         }
     }
 }

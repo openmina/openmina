@@ -1,3 +1,4 @@
+use p2p::channels::snark::P2pChannelsSnarkAction;
 use redux::ActionMeta;
 
 use crate::block_producer::{block_producer_effects, BlockProducerWonSlotProduceInitAction};
@@ -8,7 +9,6 @@ use crate::logger::logger_effects;
 use crate::p2p::channels::rpc::{
     P2pChannelsRpcRequestSendAction, P2pChannelsRpcTimeoutAction, P2pRpcKind, P2pRpcRequest,
 };
-use crate::p2p::channels::snark::P2pChannelsSnarkRequestSendAction;
 use crate::p2p::connection::incoming::P2pConnectionIncomingTimeoutAction;
 use crate::p2p::connection::outgoing::{
     P2pConnectionOutgoingRandomInitAction, P2pConnectionOutgoingReconnectAction,
@@ -210,7 +210,7 @@ fn p2p_request_snarks_if_needed<S: Service>(store: &mut Store<S>) {
         .collect::<Vec<_>>();
 
     for (peer_id, limit) in snark_reqs {
-        store.dispatch(P2pChannelsSnarkRequestSendAction { peer_id, limit });
+        store.dispatch(P2pChannelsSnarkAction::RequestSend { peer_id, limit });
     }
 }
 

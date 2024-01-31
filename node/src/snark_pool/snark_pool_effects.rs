@@ -1,8 +1,6 @@
 use openmina_core::snark::SnarkJobCommitment;
+use p2p::channels::snark::P2pChannelsSnarkAction;
 
-use crate::p2p::channels::snark::{
-    P2pChannelsSnarkLibp2pBroadcastAction, P2pChannelsSnarkResponseSendAction,
-};
 use crate::p2p::channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentAction;
 use crate::{ExternalSnarkWorkerAction, Service, SnarkerStrategy, State, Store};
 
@@ -114,7 +112,7 @@ pub fn snark_pool_effects<S: Service>(store: &mut Store<S>, action: SnarkPoolAct
                 }
             }
 
-            store.dispatch(P2pChannelsSnarkLibp2pBroadcastAction {
+            store.dispatch(P2pChannelsSnarkAction::Libp2pBroadcast {
                 snark: a.snark,
                 nonce: 0,
             });
@@ -151,7 +149,7 @@ pub fn snark_pool_effects<S: Service>(store: &mut Store<S>, action: SnarkPoolAct
                 data_to_send(state, index_and_limit, |job| job.snark_msg());
 
             store.dispatch(send_commitments);
-            store.dispatch(P2pChannelsSnarkResponseSendAction {
+            store.dispatch(P2pChannelsSnarkAction::ResponseSend {
                 peer_id: a.peer_id,
                 snarks,
                 first_index,
