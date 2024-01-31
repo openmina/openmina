@@ -8,7 +8,7 @@ use crate::action::CheckTimeoutsAction;
 use crate::block_producer::vrf_evaluator::BlockProducerVrfEvaluatorEvaluationSuccessAction;
 use crate::external_snark_worker::ExternalSnarkWorkerEvent;
 use crate::p2p::channels::best_tip::P2pChannelsBestTipAction;
-use crate::p2p::channels::rpc::P2pChannelsRpcReadyAction;
+use crate::p2p::channels::rpc::P2pChannelsRpcAction;
 use crate::p2p::channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentAction;
 use crate::p2p::channels::{ChannelId, P2pChannelsMessageReceivedAction};
 use crate::p2p::connection::incoming::{
@@ -185,7 +185,7 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                             }
                             ChannelId::Rpc => {
                                 // TODO(binier): maybe dispatch success and then ready.
-                                store.dispatch(P2pChannelsRpcReadyAction { peer_id });
+                                store.dispatch(P2pChannelsRpcAction::Ready { peer_id });
                             }
                         },
                     },

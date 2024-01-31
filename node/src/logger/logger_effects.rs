@@ -420,40 +420,48 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     _ => {}
                 },
                 P2pChannelsAction::Rpc(action) => match action {
-                    P2pChannelsRpcAction::Init(action) => {
+                    P2pChannelsRpcAction::Init { peer_id } => {
                         openmina_core::log::debug!(
                             meta.time();
                             kind = kind.to_string(),
-                            summary = format!("peer_id: {}", action.peer_id),
-                            peer_id = action.peer_id.to_string()
+                            summary = format!("peer_id: {peer_id}", ),
+                            peer_id = peer_id.to_string()
                         );
                     }
-                    P2pChannelsRpcAction::Ready(action) => {
+                    P2pChannelsRpcAction::Ready { peer_id } => {
                         openmina_core::log::debug!(
                             meta.time();
                             kind = kind.to_string(),
-                            summary = format!("peer_id: {}", action.peer_id),
-                            peer_id = action.peer_id.to_string()
+                            summary = format!("peer_id: {peer_id}", ),
+                            peer_id = peer_id.to_string()
                         );
                     }
-                    P2pChannelsRpcAction::RequestSend(action) => {
+                    P2pChannelsRpcAction::RequestSend {
+                        peer_id,
+                        id,
+                        request,
+                    } => {
                         openmina_core::log::debug!(
                             meta.time();
                             kind = kind.to_string(),
-                            summary = format!("peer_id: {}, rpc_id: {}, kind: {:?}", action.peer_id, action.id, action.request.kind()),
-                            peer_id = action.peer_id.to_string(),
-                            rpc_id = action.id.to_string(),
-                            trace_request = serde_json::to_string(&action.request).ok()
+                            summary = format!("peer_id: {peer_id}, rpc_id: {id}, kind: {:?}", request.kind()),
+                            peer_id = peer_id.to_string(),
+                            rpc_id = id.to_string(),
+                            trace_request = serde_json::to_string(request).ok()
                         );
                     }
-                    P2pChannelsRpcAction::ResponseReceived(action) => {
+                    P2pChannelsRpcAction::ResponseReceived {
+                        peer_id,
+                        id,
+                        response,
+                    } => {
                         openmina_core::log::debug!(
                             meta.time();
                             kind = kind.to_string(),
-                            summary = format!("peer_id: {}, rpc_id: {}", action.peer_id, action.id),
-                            peer_id = action.peer_id.to_string(),
-                            rpc_id = action.id.to_string(),
-                            trace_response = serde_json::to_string(&action.response).ok()
+                            summary = format!("peer_id: {peer_id}, rpc_id: {id}"),
+                            peer_id = peer_id.to_string(),
+                            rpc_id = id.to_string(),
+                            trace_response = serde_json::to_string(response).ok()
                         );
                     }
                     _ => {}

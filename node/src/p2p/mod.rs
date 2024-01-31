@@ -103,11 +103,4 @@ impl_into_global_action!(channels::snark::P2pChannelsSnarkAction);
 
 impl_into_global_action!(channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentAction);
 
-impl_into_global_action!(channels::rpc::P2pChannelsRpcInitAction);
-impl_into_global_action!(channels::rpc::P2pChannelsRpcPendingAction);
-impl_into_global_action!(channels::rpc::P2pChannelsRpcReadyAction);
-impl_into_global_action!(channels::rpc::P2pChannelsRpcRequestSendAction);
-impl_into_global_action!(channels::rpc::P2pChannelsRpcTimeoutAction);
-impl_into_global_action!(channels::rpc::P2pChannelsRpcResponseReceivedAction);
-impl_into_global_action!(channels::rpc::P2pChannelsRpcRequestReceivedAction);
-impl_into_global_action!(channels::rpc::P2pChannelsRpcResponseSendAction);
+impl_into_global_action!(channels::rpc::P2pChannelsRpcAction);

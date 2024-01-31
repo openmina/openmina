@@ -6,9 +6,7 @@ use crate::consensus::consensus_effects;
 use crate::event_source::event_source_effects;
 use crate::external_snark_worker::external_snark_worker_effects;
 use crate::logger::logger_effects;
-use crate::p2p::channels::rpc::{
-    P2pChannelsRpcRequestSendAction, P2pChannelsRpcTimeoutAction, P2pRpcKind, P2pRpcRequest,
-};
+use crate::p2p::channels::rpc::{P2pChannelsRpcAction, P2pRpcKind, P2pRpcRequest};
 use crate::p2p::connection::incoming::P2pConnectionIncomingTimeoutAction;
 use crate::p2p::connection::outgoing::{
     P2pConnectionOutgoingRandomInitAction, P2pConnectionOutgoingReconnectAction,
@@ -69,7 +67,7 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
 
             let state = store.state();
             for (peer_id, id) in state.p2p.peer_rpc_timeouts(state.time()) {
-                store.dispatch(P2pChannelsRpcTimeoutAction { peer_id, id });
+                store.dispatch(P2pChannelsRpcAction::Timeout { peer_id, id });
             }
 
             // TODO(binier): remove once ledger communication is async.
@@ -182,7 +180,7 @@ fn p2p_request_best_tip_if_needed<S: Service>(store: &mut Store<S>) {
                 .map(|(peer_id, p)| (*peer_id, p.channels.rpc.next_local_rpc_id()))
                 .last()
             {
-                store.dispatch(P2pChannelsRpcRequestSendAction {
+                store.dispatch(P2pChannelsRpcAction::RequestSend {
                     peer_id,
                     id,
                     request: P2pRpcRequest::BestTipWithProof,

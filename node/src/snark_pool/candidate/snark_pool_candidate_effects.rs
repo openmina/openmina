@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use snark::work_verify::SnarkWorkVerifyAction;
 
-use crate::p2p::channels::rpc::{P2pChannelsRpcRequestSendAction, P2pRpcRequest};
+use crate::p2p::channels::rpc::{P2pChannelsRpcAction, P2pRpcRequest};
 use crate::p2p::disconnection::{P2pDisconnectionInitAction, P2pDisconnectionReason};
 use crate::Store;
 
@@ -39,7 +39,7 @@ pub fn snark_pool_candidate_effects<S: redux::Service>(
                 return;
             };
             let rpc_id = peer.channels.rpc.next_local_rpc_id();
-            store.dispatch(P2pChannelsRpcRequestSendAction {
+            store.dispatch(P2pChannelsRpcAction::RequestSend {
                 peer_id,
                 id: rpc_id,
                 request: P2pRpcRequest::Snark(job_id.clone()),

@@ -32,10 +32,7 @@ use crate::watched_accounts::{
 use crate::{Service, Store};
 
 use super::channels::best_tip::P2pChannelsBestTipAction;
-use super::channels::rpc::{
-    BestTipWithProof, P2pChannelsRpcAction, P2pChannelsRpcRequestSendAction,
-    P2pChannelsRpcResponseSendAction, P2pRpcRequest, P2pRpcResponse,
-};
+use super::channels::rpc::{BestTipWithProof, P2pChannelsRpcAction, P2pRpcRequest, P2pRpcResponse};
 use super::channels::snark::P2pChannelsSnarkAction;
 use super::channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentAction;
 use super::channels::P2pChannelsAction;
@@ -272,7 +269,7 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                 let P2pPeerStatus::Ready(status) = &peer.status else {
                     return;
                 };
-                store.dispatch(P2pChannelsRpcRequestSendAction {
+                store.dispatch(P2pChannelsRpcAction::RequestSend {
                     peer_id,
                     id: status.channels.rpc.next_local_rpc_id(),
                     request: P2pRpcRequest::InitialPeers,
@@ -357,289 +354,304 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                     });
                 }
             }
-            P2pChannelsAction::Rpc(action) => match action {
-                P2pChannelsRpcAction::Init(action) => {
-                    action.effects(&meta, store);
-                }
-                P2pChannelsRpcAction::Pending(_) => {}
-                P2pChannelsRpcAction::Ready(a) => {
-                    store.dispatch(P2pChannelsRpcRequestSendAction {
-                        peer_id: a.peer_id,
-                        id: 0,
-                        request: P2pRpcRequest::BestTipWithProof,
-                    });
+            P2pChannelsAction::Rpc(action) => {
+                // TODO: does the order matter here? if not this clone can be removed
+                action.clone().effects(&meta, store);
+                match action {
+                    P2pChannelsRpcAction::Ready { peer_id } => {
+                        store.dispatch(P2pChannelsRpcAction::RequestSend {
+                            peer_id,
+                            id: 0,
+                            request: P2pRpcRequest::BestTipWithProof,
+                        });
 
-                    store.dispatch(TransitionFrontierSyncLedgerSnarkedPeersQueryAction {});
-                    store.dispatch(TransitionFrontierSyncLedgerStagedPartsPeerFetchInitAction {});
-                    store.dispatch(TransitionFrontierSyncBlocksPeersQueryAction {});
-                }
-                P2pChannelsRpcAction::RequestSend(action) => {
-                    action.effects(&meta, store);
-                }
-                P2pChannelsRpcAction::Timeout(action) => {
-                    store.dispatch(TransitionFrontierSyncLedgerSnarkedPeerQueryErrorAction {
-                        peer_id: action.peer_id,
-                        rpc_id: action.id,
-                        error: PeerLedgerQueryError::Timeout,
-                    });
-                    store.dispatch(
-                        TransitionFrontierSyncLedgerStagedPartsPeerFetchErrorAction {
-                            peer_id: action.peer_id,
-                            rpc_id: action.id,
-                            error: PeerStagedLedgerPartsFetchError::Timeout,
-                        },
-                    );
-                    store.dispatch(TransitionFrontierSyncBlocksPeerQueryErrorAction {
-                        peer_id: action.peer_id,
-                        rpc_id: action.id,
-                        error: PeerBlockFetchError::Timeout,
-                    });
-                    store.dispatch(P2pDisconnectionInitAction {
-                        peer_id: action.peer_id,
-                        reason: P2pDisconnectionReason::TransitionFrontierRpcTimeout,
-                    });
-                }
-                P2pChannelsRpcAction::ResponseReceived(action) => {
-                    action.effects(&meta, store);
-                    match action.response.as_ref() {
-                        None => {
-                            store.dispatch(
-                                TransitionFrontierSyncLedgerSnarkedPeerQueryErrorAction {
-                                    peer_id: action.peer_id,
-                                    rpc_id: action.id,
-                                    error: PeerLedgerQueryError::DataUnavailable,
-                                },
-                            );
-                            store.dispatch(
-                                TransitionFrontierSyncLedgerStagedPartsPeerFetchErrorAction {
-                                    peer_id: action.peer_id,
-                                    rpc_id: action.id,
-                                    error: PeerStagedLedgerPartsFetchError::DataUnavailable,
-                                },
-                            );
-                            store.dispatch(TransitionFrontierSyncBlocksPeerQueryErrorAction {
-                                peer_id: action.peer_id,
-                                rpc_id: action.id,
-                                error: PeerBlockFetchError::DataUnavailable,
-                            });
-                        }
-                        Some(P2pRpcResponse::BestTipWithProof(resp)) => {
-                            let (body_hashes, root_block) = &resp.proof;
-                            let best_tip = BlockWithHash::new(resp.best_tip.clone());
-                            let root_block = BlockWithHash::new(root_block.clone());
+                        store.dispatch(TransitionFrontierSyncLedgerSnarkedPeersQueryAction {});
+                        store.dispatch(
+                            TransitionFrontierSyncLedgerStagedPartsPeerFetchInitAction {},
+                        );
+                        store.dispatch(TransitionFrontierSyncBlocksPeersQueryAction {});
+                    }
+                    P2pChannelsRpcAction::Timeout { peer_id, id } => {
+                        store.dispatch(TransitionFrontierSyncLedgerSnarkedPeerQueryErrorAction {
+                            peer_id,
+                            rpc_id: id,
+                            error: PeerLedgerQueryError::Timeout,
+                        });
+                        store.dispatch(
+                            TransitionFrontierSyncLedgerStagedPartsPeerFetchErrorAction {
+                                peer_id,
+                                rpc_id: id,
+                                error: PeerStagedLedgerPartsFetchError::Timeout,
+                            },
+                        );
+                        store.dispatch(TransitionFrontierSyncBlocksPeerQueryErrorAction {
+                            peer_id,
+                            rpc_id: id,
+                            error: PeerBlockFetchError::Timeout,
+                        });
+                        store.dispatch(P2pDisconnectionInitAction {
+                            peer_id,
+                            reason: P2pDisconnectionReason::TransitionFrontierRpcTimeout,
+                        });
+                    }
+                    P2pChannelsRpcAction::ResponseReceived {
+                        peer_id,
+                        id,
+                        response,
+                    } => {
+                        match response.as_ref() {
+                            None => {
+                                store.dispatch(
+                                    TransitionFrontierSyncLedgerSnarkedPeerQueryErrorAction {
+                                        peer_id,
+                                        rpc_id: id,
+                                        error: PeerLedgerQueryError::DataUnavailable,
+                                    },
+                                );
+                                store.dispatch(
+                                    TransitionFrontierSyncLedgerStagedPartsPeerFetchErrorAction {
+                                        peer_id,
+                                        rpc_id: id,
+                                        error: PeerStagedLedgerPartsFetchError::DataUnavailable,
+                                    },
+                                );
+                                store.dispatch(TransitionFrontierSyncBlocksPeerQueryErrorAction {
+                                    peer_id,
+                                    rpc_id: id,
+                                    error: PeerBlockFetchError::DataUnavailable,
+                                });
+                            }
+                            Some(P2pRpcResponse::BestTipWithProof(resp)) => {
+                                let (body_hashes, root_block) = &resp.proof;
+                                let best_tip = BlockWithHash::new(resp.best_tip.clone());
+                                let root_block = BlockWithHash::new(root_block.clone());
 
-                            // reconstruct hashes
-                            let hashes = body_hashes
-                                .iter()
-                                .take(body_hashes.len().saturating_sub(1))
-                                .scan(root_block.hash.clone(), |pred_hash, body_hash| {
-                                    *pred_hash = StateHash::from_hashes(pred_hash, body_hash);
-                                    Some(pred_hash.clone())
-                                })
-                                .collect::<Vec<_>>();
+                                // reconstruct hashes
+                                let hashes = body_hashes
+                                    .iter()
+                                    .take(body_hashes.len().saturating_sub(1))
+                                    .scan(root_block.hash.clone(), |pred_hash, body_hash| {
+                                        *pred_hash = StateHash::from_hashes(pred_hash, body_hash);
+                                        Some(pred_hash.clone())
+                                    })
+                                    .collect::<Vec<_>>();
 
-                            if let Some(pred_hash) = hashes.last() {
-                                let expected_hash =
-                                    &best_tip.block.header.protocol_state.previous_state_hash;
-                                if pred_hash != expected_hash {
-                                    openmina_core::warn!(meta.time();
+                                if let Some(pred_hash) = hashes.last() {
+                                    let expected_hash =
+                                        &best_tip.block.header.protocol_state.previous_state_hash;
+                                    if pred_hash != expected_hash {
+                                        openmina_core::warn!(meta.time();
                                         kind = "P2pRpcBestTipHashMismatch",
-                                        response = serde_json::to_string(resp).ok(),
+                                        response = serde_json::to_string(&resp).ok(),
                                         expected_hash = expected_hash.to_string(),
                                         calculated_hash = pred_hash.to_string());
-                                    return;
+                                        return;
+                                    }
                                 }
+                                store.dispatch(ConsensusAction::BlockChainProofUpdate {
+                                    hash: best_tip.hash,
+                                    chain_proof: (hashes, root_block),
+                                });
                             }
-                            store.dispatch(ConsensusAction::BlockChainProofUpdate {
-                                hash: best_tip.hash,
-                                chain_proof: (hashes, root_block),
-                            });
-                        }
-                        Some(P2pRpcResponse::LedgerQuery(answer)) => match answer {
-                            MinaLedgerSyncLedgerAnswerStableV2::ChildHashesAre(left, right) => {
+                            Some(P2pRpcResponse::LedgerQuery(answer)) => match answer {
+                                MinaLedgerSyncLedgerAnswerStableV2::ChildHashesAre(left, right) => {
+                                    store.dispatch(
+                                        TransitionFrontierSyncLedgerSnarkedPeerQuerySuccessAction {
+                                            peer_id,
+                                            rpc_id: id,
+                                            response: PeerLedgerQueryResponse::ChildHashes(
+                                                left.clone(),
+                                                right.clone(),
+                                            ),
+                                        },
+                                    );
+                                }
+                                MinaLedgerSyncLedgerAnswerStableV2::ContentsAre(accounts) => {
+                                    store.dispatch(
+                                        TransitionFrontierSyncLedgerSnarkedPeerQuerySuccessAction {
+                                            peer_id,
+                                            rpc_id: id,
+                                            response: PeerLedgerQueryResponse::ChildAccounts(
+                                                accounts.clone(),
+                                            ),
+                                        },
+                                    );
+                                }
+                                _ => {}
+                            },
+                            Some(P2pRpcResponse::StagedLedgerAuxAndPendingCoinbasesAtBlock(
+                                parts,
+                            )) => {
                                 store.dispatch(
-                                    TransitionFrontierSyncLedgerSnarkedPeerQuerySuccessAction {
-                                        peer_id: action.peer_id,
-                                        rpc_id: action.id,
-                                        response: PeerLedgerQueryResponse::ChildHashes(
-                                            left.clone(),
-                                            right.clone(),
-                                        ),
+                                    TransitionFrontierSyncLedgerStagedPartsPeerFetchSuccessAction {
+                                        peer_id,
+                                        rpc_id: id,
+                                        parts: parts.clone(),
                                     },
                                 );
                             }
-                            MinaLedgerSyncLedgerAnswerStableV2::ContentsAre(accounts) => {
+                            Some(P2pRpcResponse::Block(block)) => {
+                                let block = BlockWithHash::new(block.clone());
                                 store.dispatch(
-                                    TransitionFrontierSyncLedgerSnarkedPeerQuerySuccessAction {
-                                        peer_id: action.peer_id,
-                                        rpc_id: action.id,
-                                        response: PeerLedgerQueryResponse::ChildAccounts(
-                                            accounts.clone(),
-                                        ),
+                                    TransitionFrontierSyncBlocksPeerQuerySuccessAction {
+                                        peer_id,
+                                        rpc_id: id,
+                                        response: block,
                                     },
                                 );
                             }
-                            _ => {}
-                        },
-                        Some(P2pRpcResponse::StagedLedgerAuxAndPendingCoinbasesAtBlock(parts)) => {
-                            store.dispatch(
-                                TransitionFrontierSyncLedgerStagedPartsPeerFetchSuccessAction {
-                                    peer_id: action.peer_id,
-                                    rpc_id: action.id,
-                                    parts: parts.clone(),
-                                },
-                            );
+                            Some(P2pRpcResponse::Snark(snark)) => {
+                                store.dispatch(SnarkPoolCandidateAction::WorkReceived {
+                                    peer_id,
+                                    work: snark.clone(),
+                                });
+                            }
+                            Some(P2pRpcResponse::InitialPeers(peers)) => {
+                                store.dispatch(P2pDiscoverySuccessAction {
+                                    peer_id,
+                                    peers: peers.clone(),
+                                });
+                            }
                         }
-                        Some(P2pRpcResponse::Block(block)) => {
-                            let block = BlockWithHash::new(block.clone());
-                            store.dispatch(TransitionFrontierSyncBlocksPeerQuerySuccessAction {
-                                peer_id: action.peer_id,
-                                rpc_id: action.id,
-                                response: block,
-                            });
-                        }
-                        Some(P2pRpcResponse::Snark(snark)) => {
-                            store.dispatch(SnarkPoolCandidateAction::WorkReceived {
-                                peer_id: action.peer_id,
-                                work: snark.clone(),
-                            });
-                        }
-                        Some(P2pRpcResponse::InitialPeers(peers)) => {
-                            store.dispatch(P2pDiscoverySuccessAction {
-                                peer_id: action.peer_id,
-                                peers: peers.clone(),
-                            });
-                        }
+                        store.dispatch(TransitionFrontierSyncLedgerSnarkedPeersQueryAction {});
+                        store.dispatch(
+                            TransitionFrontierSyncLedgerStagedPartsPeerFetchInitAction {},
+                        );
+                        store.dispatch(TransitionFrontierSyncBlocksPeersQueryAction {});
                     }
-                    store.dispatch(TransitionFrontierSyncLedgerSnarkedPeersQueryAction {});
-                    store.dispatch(TransitionFrontierSyncLedgerStagedPartsPeerFetchInitAction {});
-                    store.dispatch(TransitionFrontierSyncBlocksPeersQueryAction {});
-                }
-                P2pChannelsRpcAction::RequestReceived(action) => {
-                    match action.request {
-                        P2pRpcRequest::BestTipWithProof => {
-                            let best_chain = &store.state().transition_frontier.best_chain;
-                            let response = None.or_else(|| {
-                                let best_tip = best_chain.last()?;
-                                let mut chain_iter = best_chain.iter();
-                                let root_block = chain_iter.next()?;
-                                // TODO(binier): cache body hashes
-                                let body_hashes = chain_iter
-                                    .map(|b| b.block.header.protocol_state.body.hash())
-                                    .collect();
-
-                                Some(BestTipWithProof {
-                                    best_tip: best_tip.block.clone(),
-                                    proof: (body_hashes, root_block.block.clone()),
-                                })
-                            });
-                            let response = response.map(P2pRpcResponse::BestTipWithProof);
-                            store.dispatch(P2pChannelsRpcResponseSendAction {
-                                peer_id: action.peer_id,
-                                id: action.id,
-                                response,
-                            });
-                        }
-                        P2pRpcRequest::Block(hash) => {
-                            let best_chain = &store.state().transition_frontier.best_chain;
-                            let response = best_chain
-                                .iter()
-                                .rev()
-                                .find(|block| block.hash == hash)
-                                .map(|block| block.block.clone())
-                                .map(P2pRpcResponse::Block);
-                            store.dispatch(P2pChannelsRpcResponseSendAction {
-                                peer_id: action.peer_id,
-                                id: action.id,
-                                response,
-                            });
-                        }
-                        P2pRpcRequest::LedgerQuery(ledger_hash, query) => {
-                            let response = store
-                                .service
-                                .answer_ledger_query(ledger_hash, query)
-                                .map(P2pRpcResponse::LedgerQuery);
-
-                            store.dispatch(P2pChannelsRpcResponseSendAction {
-                                peer_id: action.peer_id,
-                                id: action.id,
-                                response,
-                            });
-                        }
-                        P2pRpcRequest::StagedLedgerAuxAndPendingCoinbasesAtBlock(block_hash) => {
-                            let transition_frontier = &store.state.get().transition_frontier;
-                            let best_chain = &transition_frontier.best_chain;
-
-                            let response = best_chain
-                                .iter()
-                                .find(|b| b.hash == block_hash)
-                                .map(|b| b.staged_ledger_hash().clone())
-                                .and_then(|ledger_hash| {
-                                    let protocol_states = transition_frontier
-                                        .needed_protocol_states
-                                        .iter()
-                                        .map(|(hash, b)| (hash.clone(), b.clone()))
-                                        .chain(
-                                            best_chain
-                                                .iter()
-                                                .take_while(|b| b.hash() != &block_hash)
-                                                .map(|b| {
-                                                    (
-                                                        b.hash().clone(),
-                                                        b.header().protocol_state.clone(),
-                                                    )
-                                                }),
-                                        )
+                    P2pChannelsRpcAction::RequestReceived {
+                        peer_id,
+                        id,
+                        request,
+                    } => {
+                        match request {
+                            P2pRpcRequest::BestTipWithProof => {
+                                let best_chain = &store.state().transition_frontier.best_chain;
+                                let response = None.or_else(|| {
+                                    let best_tip = best_chain.last()?;
+                                    let mut chain_iter = best_chain.iter();
+                                    let root_block = chain_iter.next()?;
+                                    // TODO(binier): cache body hashes
+                                    let body_hashes = chain_iter
+                                        .map(|b| b.block.header.protocol_state.body.hash())
                                         .collect();
 
-                                    store.service.staged_ledger_aux_and_pending_coinbase(
-                                        ledger_hash,
-                                        protocol_states,
-                                    )
-                                })
-                                .map(P2pRpcResponse::StagedLedgerAuxAndPendingCoinbasesAtBlock);
+                                    Some(BestTipWithProof {
+                                        best_tip: best_tip.block.clone(),
+                                        proof: (body_hashes, root_block.block.clone()),
+                                    })
+                                });
+                                let response = response.map(P2pRpcResponse::BestTipWithProof);
+                                store.dispatch(P2pChannelsRpcAction::ResponseSend {
+                                    peer_id,
+                                    id,
+                                    response,
+                                });
+                            }
+                            P2pRpcRequest::Block(hash) => {
+                                let best_chain = &store.state().transition_frontier.best_chain;
+                                let response = best_chain
+                                    .iter()
+                                    .rev()
+                                    .find(|block| block.hash == hash)
+                                    .map(|block| block.block.clone())
+                                    .map(P2pRpcResponse::Block);
+                                store.dispatch(P2pChannelsRpcAction::ResponseSend {
+                                    peer_id,
+                                    id,
+                                    response,
+                                });
+                            }
+                            P2pRpcRequest::LedgerQuery(ledger_hash, query) => {
+                                let response = store
+                                    .service
+                                    .answer_ledger_query(ledger_hash, query)
+                                    .map(P2pRpcResponse::LedgerQuery);
 
-                            store.dispatch(P2pChannelsRpcResponseSendAction {
-                                peer_id: action.peer_id,
-                                id: action.id,
-                                response,
-                            });
-                        }
-                        P2pRpcRequest::Snark(job_id) => {
-                            let job = store.state().snark_pool.get(&job_id);
-                            let response = job
-                                .and_then(|job| job.snark.as_ref())
-                                .map(|snark| snark.work.clone())
-                                .map(P2pRpcResponse::Snark);
+                                store.dispatch(P2pChannelsRpcAction::ResponseSend {
+                                    peer_id,
+                                    id,
+                                    response,
+                                });
+                            }
+                            P2pRpcRequest::StagedLedgerAuxAndPendingCoinbasesAtBlock(
+                                block_hash,
+                            ) => {
+                                let transition_frontier = &store.state.get().transition_frontier;
+                                let best_chain = &transition_frontier.best_chain;
 
-                            store.dispatch(P2pChannelsRpcResponseSendAction {
-                                peer_id: action.peer_id,
-                                id: action.id,
-                                response,
-                            });
-                        }
-                        P2pRpcRequest::InitialPeers => {
-                            let peers = store
-                                .state()
-                                .p2p
-                                .peers
-                                .iter()
-                                .filter_map(|(_, v)| v.dial_opts.clone())
-                                .collect();
-                            let response = Some(P2pRpcResponse::InitialPeers(peers));
+                                let response = best_chain
+                                    .iter()
+                                    .find(|b| b.hash == block_hash)
+                                    .map(|b| b.staged_ledger_hash().clone())
+                                    .and_then(|ledger_hash| {
+                                        let protocol_states = transition_frontier
+                                            .needed_protocol_states
+                                            .iter()
+                                            .map(|(hash, b)| (hash.clone(), b.clone()))
+                                            .chain(
+                                                best_chain
+                                                    .iter()
+                                                    .take_while(|b| b.hash() != &block_hash)
+                                                    .map(|b| {
+                                                        (
+                                                            b.hash().clone(),
+                                                            b.header().protocol_state.clone(),
+                                                        )
+                                                    }),
+                                            )
+                                            .collect();
 
-                            store.dispatch(P2pChannelsRpcResponseSendAction {
-                                peer_id: action.peer_id,
-                                id: action.id,
-                                response,
-                            });
+                                        store.service.staged_ledger_aux_and_pending_coinbase(
+                                            ledger_hash,
+                                            protocol_states,
+                                        )
+                                    })
+                                    .map(P2pRpcResponse::StagedLedgerAuxAndPendingCoinbasesAtBlock);
+
+                                store.dispatch(P2pChannelsRpcAction::ResponseSend {
+                                    peer_id,
+                                    id,
+                                    response,
+                                });
+                            }
+                            P2pRpcRequest::Snark(job_id) => {
+                                let job = store.state().snark_pool.get(&job_id);
+                                let response = job
+                                    .and_then(|job| job.snark.as_ref())
+                                    .map(|snark| snark.work.clone())
+                                    .map(P2pRpcResponse::Snark);
+
+                                store.dispatch(P2pChannelsRpcAction::ResponseSend {
+                                    peer_id,
+                                    id,
+                                    response,
+                                });
+                            }
+                            P2pRpcRequest::InitialPeers => {
+                                let peers = store
+                                    .state()
+                                    .p2p
+                                    .peers
+                                    .iter()
+                                    .filter_map(|(_, v)| v.dial_opts.clone())
+                                    .collect();
+                                let response = Some(P2pRpcResponse::InitialPeers(peers));
+
+                                store.dispatch(P2pChannelsRpcAction::ResponseSend {
+                                    peer_id,
+                                    id,
+                                    response,
+                                });
+                            }
                         }
                     }
+                    P2pChannelsRpcAction::Init { .. } => {}
+                    P2pChannelsRpcAction::Pending { .. } => {}
+                    P2pChannelsRpcAction::RequestSend { .. } => {}
+                    P2pChannelsRpcAction::ResponseSend { .. } => {}
                 }
-                P2pChannelsRpcAction::ResponseSend(action) => {
-                    action.effects(&meta, store);
-                }
-            },
+            }
         },
         P2pAction::Peer(action) => match action {
             P2pPeerAction::Ready(action) => {
