@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use ledger::{
-    proofs::witness::transaction_snark::CONSTRAINT_CONSTANTS,
+    proofs::transaction::transaction_snark::CONSTRAINT_CONSTANTS,
     scan_state::currency::{Amount, Signed},
 };
 use mina_p2p_messages::{
