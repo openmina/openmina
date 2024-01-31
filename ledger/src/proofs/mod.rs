@@ -3,6 +3,7 @@ pub mod block;
 pub mod caching;
 pub mod constants;
 pub mod field;
+pub mod gates;
 pub mod group_map;
 pub mod merge;
 pub mod numbers;
