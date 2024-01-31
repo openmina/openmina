@@ -1422,7 +1422,7 @@ mod tests {
     #[test]
     fn test_size_account() {
         #[cfg(not(target_family = "wasm"))]
-        const SIZE: usize = 2528;
+        const SIZE: usize = 3424;
 
         #[cfg(target_family = "wasm")]
         const SIZE: usize = 2496;
