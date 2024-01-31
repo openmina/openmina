@@ -200,21 +200,21 @@ mod group {
             // https://github.com/MinaProtocol/mina/blob/78535ae3a73e0e90c5f66155365a934a15535779/src/lib/mina_base/zkapp_command.ml#L1590
             match (zkapp_commands, stmtss) {
                 ([] | [[]], [ _ ]) => {
-                    eprintln!("GROUP 1");
+                    // eprintln!("GROUP 1");
                     return;
                 },
                 ([[ AccountUpdate { authorization: a1, .. } ]], [[ before, after ]]) => {
-                    eprintln!("GROUP 2");
+                    // eprintln!("GROUP 2");
                     acc.push(intermediate_state(Same, to_spec(a1), before, after));
                 }
                 ([[], [AccountUpdate { authorization: a1, .. }]], [[ _ ], [ before, after ]]) => {
-                    eprintln!("GROUP 3");
+                    // eprintln!("GROUP 3");
                     acc.push(intermediate_state(New, to_spec(a1), before, after));
                 }
                 ([[AccountUpdate { authorization: a1 @ Proof(_), .. }, zkapp_command @ ..], zkapp_commands @ ..],
                  [stmts @ [ before, after, ..], stmtss @ .. ]
                 ) => {
-                    eprintln!("GROUP 4");
+                    // eprintln!("GROUP 4");
                     let stmts = &stmts[1..];
                     let zkapp_commands = prepend(zkapp_command, zkapp_commands);
                     let stmtss = prepend(stmts, stmtss);
@@ -225,7 +225,7 @@ mod group {
                 ([[], [AccountUpdate { authorization: a1 @ Proof(_), .. }, zkapp_command @ .. ], zkapp_commands @ ..],
                  [[ _ ], stmts @ [ before, after, ..], stmtss @ ..]
                 ) => {
-                    eprintln!("GROUP 5");
+                    // eprintln!("GROUP 5");
                     let stmts = &stmts[1..];
                     let zkapp_commands = prepend(zkapp_command, zkapp_commands);
                     let stmtss = prepend(stmts, stmtss);
@@ -236,7 +236,7 @@ mod group {
                 ([zkapp_command @ [AccountUpdate { authorization: a1, .. }, AccountUpdate { authorization: Proof(_), .. }, ..], zkapp_commands @ ..],
                  [stmts @ [before, after, ..], stmtss @ ..]
                 ) => {
-                    eprintln!("GROUP 6");
+                    // eprintln!("GROUP 6");
                     let stmts = &stmts[1..];
                     let zkapp_command = &zkapp_command[1..];
                     let zkapp_commands = prepend(zkapp_command, zkapp_commands);
@@ -248,7 +248,7 @@ mod group {
                 (zkapp_commands @ [[AccountUpdate { authorization: a1, .. }], zkapp_command @ [], [AccountUpdate { authorization: Proof(_), .. }, ..], ..],
                  [stmts @ [before, after, ..], stmtss @ ..]
                 ) => {
-                    eprintln!("GROUP 7");
+                    // eprintln!("GROUP 7");
                     let stmts = &stmts[1..];
                     let zkapp_commands = &zkapp_commands[2..];
                     let zkapp_commands = prepend(*zkapp_command, zkapp_commands);
@@ -262,7 +262,7 @@ mod group {
                    zkapp_command @ ..], zkapp_commands @ ..],
                  [stmts @ [before, _, after, ..], stmtss @ ..]
                 ) => {
-                    eprintln!("GROUP 8");
+                    // eprintln!("GROUP 8");
                     let stmts = &stmts[2..];
                     let zkapp_commands = prepend(zkapp_command, zkapp_commands);
                     let stmtss = prepend(stmts, stmtss);
@@ -273,7 +273,7 @@ mod group {
                 ([[], zkapp_command @ [AccountUpdate { authorization: a1, .. }, AccountUpdate { authorization: Proof(_), .. }, ..], zkapp_commands @ ..],
                  [[ _ ], stmts @ [before, after, ..], stmtss @ ..]
                 ) => {
-                    eprintln!("GROUP 9");
+                    // eprintln!("GROUP 9");
                     let stmts = &stmts[1..];
                     let zkapp_command = &zkapp_command[1..];
                     let zkapp_commands = prepend(zkapp_command, zkapp_commands);
@@ -286,7 +286,7 @@ mod group {
                        AccountUpdate { authorization: a2 @ (Signature(_) | NoneGiven), .. },
                        zkapp_command @ ..], zkapp_commands @ ..],
                  [[ _ ], stmts @ [before, _, after, ..], stmtss @ ..] ) => {
-                    eprintln!("GROUP 10");
+                    // eprintln!("GROUP 10");
                     let stmts = &stmts[2..];
                     let zkapp_commands = prepend(zkapp_command, zkapp_commands);
                     let stmtss = prepend(stmts, stmtss);
@@ -299,7 +299,7 @@ mod group {
                   zkapp_commands @ ..],
                  [[before, _after1], stmts @ [_before2, after, ..], stmtss @ .. ]
                 ) => {
-                    eprintln!("GROUP 11");
+                    // eprintln!("GROUP 11");
                     let stmts = &stmts[1..];
                     let zkapp_commands = prepend(zkapp_command, zkapp_commands);
                     let stmtss = prepend(stmts, stmtss);
@@ -311,7 +311,7 @@ mod group {
                   [AccountUpdate { authorization: Proof(_), .. }, ..], ..],
                  stmtss @ [[ _ ], [before], stmts @ [after], _, ..]
                 ) => {
-                    eprintln!("GROUP 12");
+                    // eprintln!("GROUP 12");
                     let stmtss = &stmtss[3..];
                     let zkapp_commands = &zkapp_commands[2..];
                     let zkapp_commands = prepend(zkapp_command, zkapp_commands);
@@ -325,7 +325,7 @@ mod group {
                   zkapp_commands @ ..],
                  [[ _ ], [before, _after1], stmts @ [_before2, after, ..], stmtss @ ..]
                 ) => {
-                    eprintln!("GROUP 13");
+                    // eprintln!("GROUP 13");
                     let stmts = &stmts[1..];
                     let zkapp_commands = prepend(zkapp_command, zkapp_commands);
                     let stmtss = prepend(stmts, stmtss);
@@ -334,11 +334,11 @@ mod group {
                     group_by_zkapp_command_rev_impl(zkapp_commands.as_slice(), stmtss.as_slice(), acc);
                 }
                 ([[AccountUpdate { authorization: a1, .. }]], [[before, after, ..], ..]) => {
-                    eprintln!("GROUP 14");
+                    // eprintln!("GROUP 14");
                     acc.push(intermediate_state(Same, to_spec(a1), before, after));
                 }
                 ([[], [AccountUpdate { authorization: a1, .. }], [], ..], [[ _ ], [before, after, ..], ..]) => {
-                    eprintln!("GROUP 15");
+                    // eprintln!("GROUP 15");
                     acc.push(intermediate_state(New, to_spec(a1), before, after));
                 }
                 _ => panic!("invalid")

@@ -837,7 +837,6 @@ pub mod consensus {
             let slots = {
                 let n_days = {
                     let n_days_ms = of_u64(num_days * N_MILLIS_PER_DAY);
-                    dbg!(&n_days_ms);
                     n_days_ms.div_mod(&block_window_duration_ms, w).0
                 };
                 n_days.min(&slots_per_epoch, w)

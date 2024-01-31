@@ -3140,9 +3140,6 @@ pub mod transaction_snark {
             let is_empty_and_writeable = {
                 let aid = &receiver;
                 let account_already_there = account.id().checked_equal(aid, w);
-                dbg!(account.public_key.clone(), &CompressedPubKey::empty());
-                dbg!(account.public_key.x, &CompressedPubKey::empty().x);
-                dbg!(account.public_key.is_odd, &CompressedPubKey::empty().is_odd);
                 let account_not_there = checked_equal_compressed_key_const_and(
                     &account.public_key,
                     &CompressedPubKey::empty(),
@@ -3520,7 +3517,6 @@ pub mod transaction_snark {
         };
 
         let supply_increase = {
-            dbg!(payload.body.amount);
             let expected_supply_increase = match is_coinbase {
                 Boolean::True => CheckedSigned::of_unsigned(payload.body.amount.to_checked()),
                 Boolean::False => CheckedSigned::of_unsigned(CheckedAmount::zero()),
@@ -3829,8 +3825,6 @@ pub fn compute_witness<C: ProofConstants, F: FieldWitness>(
             }
         }
     }
-
-    dbg!(internal_values.len());
 
     res
 }

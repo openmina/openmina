@@ -479,8 +479,6 @@ pub mod step_verifier {
                 lookup: (),
             } = plonk;
 
-            dbg!(zeta, alpha);
-
             // We decompose this way because of OCaml evaluation order
             let lookup = match hack_feature_flags {
                 OptFlag::No => None,
@@ -1105,7 +1103,6 @@ pub mod step_verifier {
                 .map(|(i, x)| match x {
                     (b, 1) => CondOrAdd::CondAdd(CircuitVar::of_cvar(b), lagrange(i, srs, w)),
                     (x, n) => {
-                        dbg!(x, n);
                         CondOrAdd::AddWithCorrection((x, n), lagrange_with_correction(n, i, srs, w))
                     }
                 })
@@ -2004,11 +2001,10 @@ fn expand_proof(params: ExpandProofParams) -> ExpandedProof {
 
         let alpha = ScalarChallenge::limbs_to_field(&plonk0.alpha_bytes);
         let zeta = ScalarChallenge::limbs_to_field(&plonk0.zeta_bytes);
-        // let w: Fp = Radix2EvaluationDomain::new(1 << dlog_vk.domain.log_size_of_group)
         let w: Fp = Radix2EvaluationDomain::new(1 << domain).unwrap().group_gen;
         let zetaw = zeta * w;
 
-        dbg!(alpha, zeta, zetaw, dlog_vk.domain.log_size_of_group, domain);
+        // dbg!(alpha, zeta, zetaw, dlog_vk.domain.log_size_of_group, domain);
 
         let es = prev_evals_from_p2p(&t.prev_evals.evals.evals);
         let combined_evals = evals_of_split_evals(zeta, zetaw, &es, BACKEND_TICK_ROUNDS_N);
