@@ -3877,15 +3877,49 @@ fn get_rng() -> rand::rngs::OsRng {
     rand::rngs::OsRng
 }
 
-pub fn create_proof<C: ProofConstants, F: FieldWitness>(
-    prover: &Prover<F>,
-    prev_challenges: Vec<RecursionChallenge<F::OtherCurve>>,
+#[derive(Debug, derive_more::From)]
+pub enum ProofError {
+    #[from]
+    ProvingError(kimchi::error::ProverError),
+    ConstraintsNotSatisfied(String),
+    /// We still return an error when `only_verify_constraints` is true and
+    /// constraints are verified, to short-circuit easily
+    ConstraintsOk,
+}
+
+pub(super) struct CreateProofParams<'a, F: FieldWitness> {
+    pub(super) prover: &'a Prover<F>,
+    pub(super) prev_challenges: Vec<RecursionChallenge<F::OtherCurve>>,
+    pub(super) only_verify_constraints: bool,
+}
+
+pub(super) fn create_proof<C: ProofConstants, F: FieldWitness>(
+    params: CreateProofParams<F>,
     w: &Witness<F>,
-) -> kimchi::proof::ProverProof<F::OtherCurve> {
+) -> Result<kimchi::proof::ProverProof<F::OtherCurve>, ProofError> {
     type EFrSponge<F> = mina_poseidon::sponge::DefaultFrSponge<F, PlonkSpongeConstantsKimchi>;
+
+    let CreateProofParams {
+        prover,
+        prev_challenges,
+        only_verify_constraints,
+    } = params;
 
     let computed_witness: [Vec<F>; COLUMNS] = compute_witness::<C, _>(prover, w);
     let prover_index: &ProverIndex<F::OtherCurve> = &prover.index;
+
+    if only_verify_constraints {
+        let public = &computed_witness[0][0..prover_index.cs.public];
+        prover_index
+            .verify(&computed_witness, &public)
+            .map_err(|e| {
+                ProofError::ConstraintsNotSatisfied(format!("incorrect witness: {:?}", e))
+            })?;
+
+        // We still return an error when `only_verify_constraints` is true and
+        // constraints are verified, to short-circuit easily
+        return Err(ProofError::ConstraintsOk);
+    }
 
     // NOTE: Not random in `cfg(test)`
     let mut rng = get_rng();
@@ -3900,12 +3934,11 @@ pub fn create_proof<C: ProofConstants, F: FieldWitness>(
         prev_challenges,
         None,
         &mut rng,
-    )
-    .unwrap();
+    )?;
 
     eprintln!("proof_elapsed={:?}", now.elapsed());
 
-    proof
+    Ok(proof)
 }
 
 #[derive(Clone)]
@@ -3923,19 +3956,26 @@ pub struct TransactionParams<'a> {
     pub message: &'a SokMessage,
     pub tx_step_prover: &'a Prover<Fp>,
     pub tx_wrap_prover: &'a Prover<Fq>,
+    /// When set to `true`, `generate_block_proof` will not create a proof, but only
+    /// verify constraints in the step witnesses
+    pub only_verify_constraints: bool,
     /// For debugging only
     pub expected_step_proof: Option<&'static str>,
     /// For debugging only
     pub ocaml_wrap_witness: Option<Vec<Fq>>,
 }
 
-pub(super) fn generate_tx_proof(params: TransactionParams, w: &mut Witness<Fp>) -> WrapProof {
+pub(super) fn generate_tx_proof(
+    params: TransactionParams,
+    w: &mut Witness<Fp>,
+) -> Result<WrapProof, ProofError> {
     let TransactionParams {
         statement,
         tx_witness,
         message,
         tx_step_prover,
         tx_wrap_prover,
+        only_verify_constraints,
         expected_step_proof,
         ocaml_wrap_witness,
     } = params;
@@ -3964,9 +4004,10 @@ pub(super) fn generate_tx_proof(params: TransactionParams, w: &mut Witness<Fp>) 
             hack_feature_flags: OptFlag::No,
             step_prover: tx_step_prover,
             wrap_prover: tx_wrap_prover,
+            only_verify_constraints,
         },
         w,
-    );
+    )?;
 
     if let Some(expected) = expected_step_proof {
         let proof_json = serde_json::to_vec(&proof).unwrap();
@@ -4259,11 +4300,13 @@ mod tests {
                 message: &message,
                 tx_step_prover: &tx_step_prover,
                 tx_wrap_prover: &tx_wrap_prover,
+                only_verify_constraints: false,
                 expected_step_proof: None,
                 ocaml_wrap_witness: None,
             },
             &mut witnesses,
-        );
+        )
+        .unwrap();
 
         let proof_json = serde_json::to_vec(&proof).unwrap();
         let sum = sha256_sum(&proof_json);
@@ -4305,6 +4348,7 @@ mod tests {
                 message: &message,
                 step_prover: &merge_step_prover,
                 wrap_prover: &tx_wrap_prover,
+                only_verify_constraints: false,
                 expected_step_proof: Some(
                     "fb89b6d51ce5ed6fe7815b86ca37a7dcdc34d9891b4967692d3751dad32842f8",
                 ),
@@ -4312,7 +4356,8 @@ mod tests {
                 ocaml_wrap_witness: Some(read_witnesses("fqs_merge.txt").unwrap()),
             },
             &mut witnesses,
-        );
+        )
+        .unwrap();
         let proof_json = serde_json::to_vec(&proof).unwrap();
 
         let sum = sha256_sum(&proof_json);
@@ -4357,7 +4402,8 @@ mod tests {
             tx_wrap_prover: &tx_wrap_prover,
             opt_signed_path: Some("zkapp_opt_signed"),
             proved_path: None,
-        });
+        })
+        .unwrap();
 
         let proof_json = serde_json::to_vec(&proof.proof).unwrap();
         let sum = dbg!(sha256_sum(&proof_json));
@@ -4403,7 +4449,8 @@ mod tests {
             tx_wrap_prover: &tx_wrap_prover,
             opt_signed_path: Some("zkapp_proof"),
             proved_path: Some("zkapp_proof2"),
-        });
+        })
+        .unwrap();
 
         let proof_json = serde_json::to_vec(&proof.proof).unwrap();
         let sum = dbg!(sha256_sum(&proof_json));
@@ -4447,13 +4494,15 @@ mod tests {
                 block_step_prover: &block_step_prover,
                 block_wrap_prover: &block_wrap_prover,
                 tx_wrap_prover: &tx_wrap_prover,
+                only_verify_constraints: false,
                 expected_step_proof: Some(
                     "a82a10e5c276dd6dc251241dcbad005201034ffff5752516a179f317dfe385f5",
                 ),
                 ocaml_wrap_witness: Some(read_witnesses("block_fqs.txt").unwrap()),
             },
             &mut witnesses,
-        );
+        )
+        .unwrap();
 
         let proof_json = serde_json::to_vec(&proof).unwrap();
 
@@ -4509,7 +4558,8 @@ mod tests {
                 tx_wrap_prover: &tx_wrap_prover,
                 opt_signed_path,
                 proved_path,
-            });
+            })
+            .unwrap();
 
             let proof_json = serde_json::to_vec(&proof.proof).unwrap();
             let sum = dbg!(sha256_sum(&proof_json));
@@ -4533,13 +4583,15 @@ mod tests {
                     block_step_prover: &block_step_prover,
                     block_wrap_prover: &block_wrap_prover,
                     tx_wrap_prover: &tx_wrap_prover,
+                    only_verify_constraints: false,
                     expected_step_proof: Some(
                         "a82a10e5c276dd6dc251241dcbad005201034ffff5752516a179f317dfe385f5",
                     ),
                     ocaml_wrap_witness: Some(read_witnesses("block_fqs.txt").unwrap()),
                 },
                 &mut witnesses,
-            );
+            )
+            .unwrap();
             let proof_json = serde_json::to_vec(&proof).unwrap();
 
             let sum = sha256_sum(&proof_json);
@@ -4565,13 +4617,15 @@ mod tests {
                     message: &message,
                     step_prover: &merge_step_prover,
                     wrap_prover: &tx_wrap_prover,
+                    only_verify_constraints: false,
                     expected_step_proof: Some(
                         "fb89b6d51ce5ed6fe7815b86ca37a7dcdc34d9891b4967692d3751dad32842f8",
                     ),
                     ocaml_wrap_witness: Some(read_witnesses("fqs_merge.txt").unwrap()),
                 },
                 &mut witnesses,
-            );
+            )
+            .unwrap();
 
             let proof_json = serde_json::to_vec(&proof).unwrap();
 
@@ -4626,11 +4680,13 @@ mod tests {
                     message: &message,
                     tx_step_prover: &tx_step_prover,
                     tx_wrap_prover: &tx_wrap_prover,
+                    only_verify_constraints: false,
                     expected_step_proof: None,
                     ocaml_wrap_witness: None,
                 },
                 &mut witnesses,
-            );
+            )
+            .unwrap();
 
             let proof_json = serde_json::to_vec(&proof).unwrap();
             let sum = sha256_sum(&proof_json);

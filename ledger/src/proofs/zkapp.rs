@@ -66,7 +66,7 @@ use super::{
         nat::{CheckedIndex, CheckedSlot},
     },
     to_field_elements::ToFieldElements,
-    transaction::{dummy_constraints, Check, Prover},
+    transaction::{dummy_constraints, Check, ProofError, Prover},
     witness::Witness,
     wrap::WrapProof,
 };
@@ -1285,7 +1285,7 @@ fn of_zkapp_command_segment_exn<StepConstants, WrapConstants>(
     tx_wrap_prover: &Prover<Fq>,
     fps_path: Option<String>,
     fqs_path: Option<String>,
-) -> LedgerProof
+) -> Result<LedgerProof, ProofError>
 where
     StepConstants: ProofConstants,
     WrapConstants: ProofConstants + ForWrapData,
@@ -1316,9 +1316,10 @@ where
                 hack_feature_flags: OptFlag::No,
                 step_prover,
                 wrap_prover: tx_wrap_prover,
+                only_verify_constraints: false,
             },
             &mut w,
-        ),
+        )?,
         Proved => {
             let (proof, vk) = snapp_proof_data(zkapp_witness).unwrap();
             let proof = proof.into();
@@ -1350,9 +1351,10 @@ where
                     hack_feature_flags: OptFlag::Maybe,
                     step_prover,
                     wrap_prover: tx_wrap_prover,
+                    only_verify_constraints: false,
                 },
                 &mut w,
-            )
+            )?
         }
     };
 
@@ -1375,9 +1377,9 @@ where
             wrap_prover: tx_wrap_prover,
         },
         &mut w,
-    );
+    )?;
 
-    LedgerProof { statement, proof }
+    Ok(LedgerProof { statement, proof })
 }
 
 impl From<&WrapProof> for v2::PicklesProofProofsVerified2ReprStableV2 {
@@ -1621,7 +1623,7 @@ fn of_zkapp_command_segment(
     tx_wrap_prover: &Prover<Fq>,
     opt_signed_path: Option<&str>,
     proved_path: Option<&str>,
-) -> LedgerProof {
+) -> Result<LedgerProof, ProofError> {
     let (step_prover, step_path, wrap_path) = match spec {
         SegmentBasic::OptSignedOptSigned => (step_opt_signed_opt_signed_prover, None, None),
         SegmentBasic::OptSigned => {
@@ -1659,7 +1661,7 @@ fn of_zkapp_command_segment(
     )
 }
 
-pub fn generate_zkapp_proof(params: ZkappParams) -> LedgerProof {
+pub fn generate_zkapp_proof(params: ZkappParams) -> Result<LedgerProof, ProofError> {
     let ZkappParams {
         statement,
         tx_witness,
@@ -1730,11 +1732,12 @@ pub fn generate_zkapp_proof(params: ZkappParams) -> LedgerProof {
     witnesses_specs_stmts.fold(
         first_proof,
         |prev_proof, (zkapp_witness, spec, statement)| {
+            let prev_proof = prev_proof?;
             let curr_proof = of_zkapp_command_segment(
                 statement.with_digest(sok_digest.clone()),
                 &zkapp_witness,
                 &spec,
-            );
+            )?;
 
             merge_zkapp_proofs(
                 prev_proof,
@@ -1753,7 +1756,7 @@ fn merge_zkapp_proofs(
     message: &SokMessage,
     merge_step_prover: &Prover<Fp>,
     tx_wrap_prover: &Prover<Fq>,
-) -> LedgerProof {
+) -> Result<LedgerProof, ProofError> {
     let merged_statement = prev
         .statement
         .clone()
@@ -1776,14 +1779,15 @@ fn merge_zkapp_proofs(
             message,
             step_prover: merge_step_prover,
             wrap_prover: tx_wrap_prover,
+            only_verify_constraints: false,
             expected_step_proof: None,
             ocaml_wrap_witness: None,
         },
         &mut w,
-    );
+    )?;
 
-    LedgerProof {
+    Ok(LedgerProof {
         statement: statement_with_sok,
         proof: wrap_proof,
-    }
+    })
 }

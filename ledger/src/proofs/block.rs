@@ -47,7 +47,7 @@ use super::{
     to_field_elements::ToFieldElements,
     transaction::{
         transaction_snark::{checked_hash, CONSTRAINT_CONSTANTS},
-        Check, Prover,
+        Check, ProofError, Prover,
     },
     witness::Witness,
     wrap::WrapProof,
@@ -1718,6 +1718,9 @@ pub struct BlockParams<'a> {
     pub block_step_prover: &'a Prover<Fp>,
     pub block_wrap_prover: &'a Prover<Fq>,
     pub tx_wrap_prover: &'a Prover<Fq>,
+    /// When set to `true`, `generate_block_proof` will not create a proof, but only
+    /// verify constraints in the step witnesses
+    pub only_verify_constraints: bool,
     /// For debugging only
     pub expected_step_proof: Option<&'static str>,
     /// For debugging only
@@ -1726,7 +1729,10 @@ pub struct BlockParams<'a> {
 
 const BLOCK_N_PREVIOUS_PROOFS: usize = 2;
 
-pub(super) fn generate_block_proof(params: BlockParams, w: &mut Witness<Fp>) -> WrapProof {
+pub(super) fn generate_block_proof(
+    params: BlockParams,
+    w: &mut Witness<Fp>,
+) -> Result<WrapProof, ProofError> {
     let BlockParams {
         input:
             v2::ProverExtendBlockchainInputStableV2 {
@@ -1740,6 +1746,7 @@ pub(super) fn generate_block_proof(params: BlockParams, w: &mut Witness<Fp>) -> 
         block_step_prover,
         block_wrap_prover,
         tx_wrap_prover,
+        only_verify_constraints,
         expected_step_proof,
         ocaml_wrap_witness,
     } = params;
@@ -1805,9 +1812,10 @@ pub(super) fn generate_block_proof(params: BlockParams, w: &mut Witness<Fp>) -> 
             hack_feature_flags: OptFlag::No,
             wrap_prover: block_wrap_prover,
             step_prover: block_step_prover,
+            only_verify_constraints,
         },
         w,
-    );
+    )?;
 
     if let Some(expected) = expected_step_proof {
         let proof_json = serde_json::to_vec(&proof).unwrap();

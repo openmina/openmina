@@ -25,7 +25,9 @@ use crate::{
             prepared_statement::{DeferredValues, Plonk, PreparedStatement, ProofState},
         },
         step::OptFlag,
-        transaction::{create_proof, endos, make_group, InnerCurve, StepStatementWithHash},
+        transaction::{
+            create_proof, endos, make_group, CreateProofParams, InnerCurve, StepStatementWithHash,
+        },
         unfinalized::{dummy_ipa_wrap_challenges, Unfinalized},
         util::{challenge_polynomial, proof_evaluation_to_list},
         verification::make_scalars_env,
@@ -45,7 +47,7 @@ use super::{
     step::{step_verifier::PlonkDomain, FeatureFlags},
     to_field_elements::{ToFieldElements, ToFieldElementsDebug},
     transaction::{
-        plonk_curve_ops::scale_fast, Check, PlonkVerificationKeyEvals, Prover,
+        plonk_curve_ops::scale_fast, Check, PlonkVerificationKeyEvals, ProofError, Prover,
         ReducedMessagesForNextStepProof, StepProofState, StepStatement,
     },
     unfinalized::{AllEvals, EvalsWithPublicInput},
@@ -547,7 +549,10 @@ pub struct WrapParams<'a> {
     pub wrap_prover: &'a Prover<Fq>,
 }
 
-pub fn wrap<C: ProofConstants + ForWrapData>(params: WrapParams, w: &mut Witness<Fq>) -> WrapProof {
+pub fn wrap<C: ProofConstants + ForWrapData>(
+    params: WrapParams,
+    w: &mut Witness<Fq>,
+) -> Result<WrapProof, ProofError> {
     use crate::proofs::public_input::scalar_challenge::ScalarChallenge;
 
     let WrapParams {
@@ -751,9 +756,16 @@ pub fn wrap<C: ProofConstants + ForWrapData>(params: WrapParams, w: &mut Witness
         })
         .collect();
 
-    let next_proof = create_proof::<C, Fq>(wrap_prover, prev, &w);
+    let next_proof = create_proof::<C, Fq>(
+        CreateProofParams {
+            prover: wrap_prover,
+            prev_challenges: prev,
+            only_verify_constraints: false,
+        },
+        &w,
+    )?;
 
-    WrapProof {
+    Ok(WrapProof {
         proof: next_proof,
         statement: next_statement,
         prev_evals: AllEvals {
@@ -765,7 +777,7 @@ pub fn wrap<C: ProofConstants + ForWrapData>(params: WrapParams, w: &mut Witness
                     .map_ref(&|PointEvaluations { zeta, zeta_omega }| [zeta[0], zeta_omega[0]]),
             },
         },
-    }
+    })
 }
 
 pub struct WrapProof {

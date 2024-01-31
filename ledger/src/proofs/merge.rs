@@ -28,7 +28,7 @@ use super::{
     step::{
         extract_recursion_challenges, InductiveRule, OptFlag, PreviousProofStatement, StepProof,
     },
-    transaction::{PlonkVerificationKeyEvals, Prover},
+    transaction::{PlonkVerificationKeyEvals, ProofError, Prover},
     witness::Witness,
     wrap::WrapProof,
 };
@@ -140,6 +140,9 @@ pub struct MergeParams<'a> {
     pub message: &'a SokMessage,
     pub step_prover: &'a Prover<Fp>,
     pub wrap_prover: &'a Prover<Fq>,
+    /// When set to `true`, `generate_block_proof` will not create a proof, but only
+    /// verify constraints in the step witnesses
+    pub only_verify_constraints: bool,
     /// For debugging only
     pub expected_step_proof: Option<&'static str>,
     /// For debugging only
@@ -148,13 +151,17 @@ pub struct MergeParams<'a> {
 
 const MERGE_N_PREVIOUS_PROOFS: usize = 2;
 
-pub(super) fn generate_merge_proof(params: MergeParams, w: &mut Witness<Fp>) -> WrapProof {
+pub(super) fn generate_merge_proof(
+    params: MergeParams,
+    w: &mut Witness<Fp>,
+) -> Result<WrapProof, ProofError> {
     let MergeParams {
         statement,
         proofs,
         message,
         step_prover,
         wrap_prover,
+        only_verify_constraints,
         expected_step_proof,
         ocaml_wrap_witness,
     } = params;
@@ -217,9 +224,10 @@ pub(super) fn generate_merge_proof(params: MergeParams, w: &mut Witness<Fp>) -> 
             prev_challenge_polynomial_commitments,
             step_prover,
             hack_feature_flags: OptFlag::No,
+            only_verify_constraints,
         },
         w,
-    );
+    )?;
 
     if let Some(expected) = expected_step_proof {
         let proof_json = serde_json::to_vec(&proof).unwrap();

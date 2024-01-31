@@ -52,9 +52,9 @@ use super::{
     to_field_elements::{ToFieldElements, ToFieldElementsDebug},
     transaction::{
         create_proof, make_group, messages_for_next_wrap_proof_padding,
-        scalar_challenge::to_field_checked, Check, CircuitPlonkVerificationKeyEvals, InnerCurve,
-        MessagesForNextStepProof, PlonkVerificationKeyEvals, Prover,
-        ReducedMessagesForNextStepProof, StepStatement,
+        scalar_challenge::to_field_checked, Check, CircuitPlonkVerificationKeyEvals,
+        CreateProofParams, InnerCurve, MessagesForNextStepProof, PlonkVerificationKeyEvals,
+        ProofError, Prover, ReducedMessagesForNextStepProof, StepStatement,
     },
     unfinalized::{evals_from_p2p, AllEvals, EvalsWithPublicInput, Unfinalized},
     util::extract_bulletproof,
@@ -2532,6 +2532,7 @@ pub struct StepParams<'a, const N_PREVIOUS: usize> {
     pub hack_feature_flags: OptFlag,
     pub step_prover: &'a Prover<Fp>,
     pub wrap_prover: &'a Prover<Fq>,
+    pub only_verify_constraints: bool,
 }
 
 pub struct StepProof {
@@ -2543,7 +2544,7 @@ pub struct StepProof {
 pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
     params: StepParams<N_PREVIOUS>,
     w: &mut Witness<Fp>,
-) -> StepProof {
+) -> Result<StepProof, ProofError> {
     let StepParams {
         app_state,
         rule,
@@ -2553,6 +2554,7 @@ pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
         hack_feature_flags,
         step_prover,
         wrap_prover,
+        only_verify_constraints,
     } = params;
 
     let dlog_plonk_index = w.exists(super::merge::dlog_plonk_index(wrap_prover));
@@ -2708,7 +2710,14 @@ pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
 
     w.primary = statement.to_field_elements_owned();
 
-    let proof = create_proof::<C, Fp>(step_prover, prev_challenge_polynomial_commitments, w);
+    let proof = create_proof::<C, Fp>(
+        CreateProofParams {
+            prover: step_prover,
+            prev_challenges: prev_challenge_polynomial_commitments,
+            only_verify_constraints,
+        },
+        w,
+    )?;
 
     let proofs: [&v2::PicklesProofProofsVerified2ReprStableV2; N_PREVIOUS] =
         std::array::from_fn(|i| rule.previous_proof_statements[i].proof);
@@ -2767,9 +2776,9 @@ pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
         messages_for_next_wrap_proof,
     };
 
-    StepProof {
+    Ok(StepProof {
         statement: step_statement,
         prev_evals,
         proof,
-    }
+    })
 }
