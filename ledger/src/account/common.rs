@@ -4,7 +4,15 @@ use o1_utils::{field_helpers::FieldHelpersError, FieldHelpers};
 
 use crate::{
     hash::hash_noinputs,
-    scan_state::currency::{Amount, Balance, Slot, SlotSpan},
+    proofs::{
+        field::{Boolean, FieldWitness, ToBoolean},
+        numbers::{
+            currency::{CheckedAmount, CheckedBalance},
+            nat::{CheckedSlot, CheckedSlotSpan},
+        },
+        to_field_elements::ToFieldElements,
+    },
+    scan_state::currency::{Amount, Balance, Magnitude, Slot, SlotSpan},
     ControlTag, ToInputs,
 };
 
@@ -14,6 +22,13 @@ pub struct VotingFor(pub Fp);
 impl VotingFor {
     pub fn dummy() -> Self {
         Self(Fp::zero())
+    }
+}
+
+impl ToFieldElements<Fp> for VotingFor {
+    fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+        let Self(f) = self;
+        f.to_field_elements(fields)
     }
 }
 
@@ -82,6 +97,80 @@ pub enum Timing {
     },
 }
 
+impl Timing {
+    pub fn is_timed(&self) -> bool {
+        match self {
+            Timing::Untimed => false,
+            Timing::Timed { .. } => true,
+        }
+    }
+
+    pub fn to_record(&self) -> TimingAsRecord {
+        match self.clone() {
+            Timing::Untimed => TimingAsRecord {
+                is_timed: false,
+                initial_minimum_balance: Balance::zero(),
+                cliff_time: Slot::zero(),
+                cliff_amount: Amount::zero(),
+                vesting_period: SlotSpan::from_u32(1),
+                vesting_increment: Amount::zero(),
+            },
+            Timing::Timed {
+                initial_minimum_balance,
+                cliff_time,
+                cliff_amount,
+                vesting_period,
+                vesting_increment,
+            } => TimingAsRecord {
+                is_timed: true,
+                initial_minimum_balance,
+                cliff_time,
+                cliff_amount,
+                vesting_period,
+                vesting_increment,
+            },
+        }
+    }
+
+    pub fn to_record_checked<F: FieldWitness>(&self) -> TimingAsRecordChecked<F> {
+        let TimingAsRecord {
+            is_timed,
+            initial_minimum_balance,
+            cliff_time,
+            cliff_amount,
+            vesting_period,
+            vesting_increment,
+        } = self.to_record();
+
+        TimingAsRecordChecked {
+            is_timed: is_timed.to_boolean(),
+            initial_minimum_balance: initial_minimum_balance.to_checked(),
+            cliff_time: cliff_time.to_checked(),
+            cliff_amount: cliff_amount.to_checked(),
+            vesting_period: vesting_period.to_checked(),
+            vesting_increment: vesting_increment.to_checked(),
+        }
+    }
+}
+
+pub struct TimingAsRecord {
+    pub is_timed: bool,
+    pub initial_minimum_balance: Balance,
+    pub cliff_time: Slot,
+    pub cliff_amount: Amount,
+    pub vesting_period: SlotSpan,
+    pub vesting_increment: Amount,
+}
+
+pub struct TimingAsRecordChecked<F: FieldWitness> {
+    pub is_timed: Boolean,
+    pub initial_minimum_balance: CheckedBalance<F>,
+    pub cliff_time: CheckedSlot<F>,
+    pub cliff_amount: CheckedAmount<F>,
+    pub vesting_period: CheckedSlotSpan<F>,
+    pub vesting_increment: CheckedAmount<F>,
+}
+
 // https://github.com/MinaProtocol/mina/blob/develop/src/lib/mina_numbers/intf.ml#L155
 // pub type Nonce = u32;
 
@@ -129,14 +218,14 @@ impl From<ControlTag> for AuthRequired {
 }
 
 #[derive(Copy, Clone, Debug)]
-pub struct AuthRequiredEncoded {
-    constant: bool,
-    signature_necessary: bool,
-    signature_sufficient: bool,
+pub struct AuthRequiredEncoded<Bool> {
+    pub constant: Bool,
+    pub signature_necessary: Bool,
+    pub signature_sufficient: Bool,
 }
 
 impl AuthRequired {
-    pub fn encode(self) -> AuthRequiredEncoded {
+    pub fn encode(self) -> AuthRequiredEncoded<bool> {
         let (constant, signature_necessary, signature_sufficient) = match self {
             AuthRequired::None => (true, false, true),
             AuthRequired::Either => (false, false, true),
@@ -185,7 +274,7 @@ impl AuthRequired {
     }
 }
 
-impl AuthRequiredEncoded {
+impl AuthRequiredEncoded<bool> {
     pub fn decode(self) -> AuthRequired {
         match (
             self.constant,

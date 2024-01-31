@@ -1,5 +1,6 @@
 mod rpc_service;
 
+use std::sync::Mutex;
 use std::time::Duration;
 use std::{collections::BTreeMap, ffi::OsStr, sync::Arc};
 
@@ -291,7 +292,7 @@ impl SnarkBlockVerifyService for NodeTestingService {
         &mut self,
         req_id: SnarkBlockVerifyId,
         verifier_index: Arc<VerifierIndex>,
-        verifier_srs: Arc<VerifierSRS>,
+        verifier_srs: Arc<Mutex<VerifierSRS>>,
         block: VerifiableBlockWithHash,
     ) {
         let _ = (verifier_index, verifier_srs, block);
@@ -314,7 +315,7 @@ impl SnarkWorkVerifyService for NodeTestingService {
         &mut self,
         req_id: SnarkWorkVerifyId,
         verifier_index: Arc<VerifierIndex>,
-        verifier_srs: Arc<VerifierSRS>,
+        verifier_srs: Arc<Mutex<VerifierSRS>>,
         work: Vec<Snark>,
     ) {
         let _ = (verifier_index, verifier_srs, work);

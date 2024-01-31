@@ -5,7 +5,7 @@ use mina_signer::CompressedPubKey;
 use crate::{
     check_permission, hash_with_kimchi,
     scan_state::{
-        currency::{Amount, Balance, Index, Magnitude, Sgn, Signed, Slot},
+        currency::{Amount, Index, Magnitude, Sgn, Signed, Slot},
         scan_state::ConstraintConstants,
         transaction_logic::{
             account_check_timing, cons_zkapp_command_commitment, get_account, is_timed,
@@ -24,7 +24,10 @@ use crate::{
 
 use super::{
     currency::SlotSpan,
-    transaction_logic::{zkapp_command::Actions, Eff, ExistingOrNew, PerformResult},
+    transaction_logic::{
+        zkapp_command::{Actions, ACCOUNT_UPDATE_CONS_HASH_PARAM},
+        Eff, ExistingOrNew, PerformResult,
+    },
 };
 
 /*
@@ -72,45 +75,9 @@ pub fn full_commitment(
 ) -> ReceiptChainHash {
     let fee_payer_hash = account_update.digest();
     ReceiptChainHash(hash_with_kimchi(
-        "MinaAcctUpdateCons",
+        ACCOUNT_UPDATE_CONS_HASH_PARAM,
         &[memo_hash, fee_payer_hash, commitment.0],
     ))
-}
-
-pub struct TimingAsRecord {
-    is_timed: bool,
-    initial_minimum_balance: Balance,
-    cliff_time: Slot,
-    cliff_amount: Amount,
-    vesting_period: SlotSpan,
-    vesting_increment: Amount,
-}
-
-pub fn to_record(t: Timing) -> TimingAsRecord {
-    match t {
-        Timing::Untimed => TimingAsRecord {
-            is_timed: false,
-            initial_minimum_balance: Balance::zero(),
-            cliff_time: Slot::zero(),
-            cliff_amount: Amount::zero(),
-            vesting_period: SlotSpan::from_u32(1),
-            vesting_increment: Amount::zero(),
-        },
-        Timing::Timed {
-            initial_minimum_balance,
-            cliff_time,
-            cliff_amount,
-            vesting_period,
-            vesting_increment,
-        } => TimingAsRecord {
-            is_timed: true,
-            initial_minimum_balance,
-            cliff_time,
-            cliff_amount,
-            vesting_period,
-            vesting_increment,
-        },
-    }
 }
 
 pub fn controller_check(
@@ -594,7 +561,7 @@ where
     // https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/transaction_logic/mina_transaction_logic.ml#L1197
     let vesting_period = match &timing {
         Some(timing) => timing.vesting_period,
-        None => to_record(Timing::Untimed).vesting_period,
+        None => Timing::Untimed.to_record().vesting_period,
     };
 
     __assert!(vesting_period > SlotSpan::zero())?;
@@ -654,7 +621,7 @@ where
                     sgn: Sgn::Neg,
                 });
             let local_state = local_state.add_check(
-                TransactionFailure::AmountInsufficientToCreateAccount,
+                TransactionFailure::LocalExcessOverflow,
                 !(pay_creation_fee_from_excess && excess_update_failed),
             );
             LocalStateEnv {
@@ -662,6 +629,24 @@ where
                     excess_minus_creation_fee
                 } else {
                     local_state.excess
+                },
+                ..local_state
+            }
+        };
+        let local_state = {
+            // Conditionally subtract account creation fee from supply increase
+            let (supply_increase_minus_creation_fee, supply_increase_update_failed) = local_state
+                .supply_increase
+                .add_flagged(Signed::of_unsigned(account_creation_fee).negate());
+            let local_state = local_state.add_check(
+                TransactionFailure::LocalSupplyIncreaseOverflow,
+                !(account_is_new && supply_increase_update_failed),
+            );
+            LocalStateEnv {
+                supply_increase: if account_is_new {
+                    supply_increase_minus_creation_fee
+                } else {
+                    local_state.supply_increase
                 },
                 ..local_state
             }
@@ -1145,6 +1130,11 @@ where
             Index::zero()
         } else {
             local_state.account_update_index.incr()
+        },
+        supply_increase: if is_last_account_update {
+            Signed::zero()
+        } else {
+            local_state.supply_increase
         },
         will_succeed: if is_last_account_update {
             true

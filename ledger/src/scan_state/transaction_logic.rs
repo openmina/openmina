@@ -7,6 +7,7 @@ use mina_p2p_messages::binprot;
 use mina_p2p_messages::v2::{MinaBaseUserCommandStableV2, MinaTransactionTransactionStableV2};
 use mina_signer::CompressedPubKey;
 
+use crate::proofs::witness::Witness;
 use crate::scan_state::transaction_logic::transaction_partially_applied::FullyApplied;
 use crate::scan_state::zkapp_logic;
 use crate::{hash_with_kimchi, ControlTag, Inputs};
@@ -174,7 +175,7 @@ pub enum TransactionStatus {
 }
 
 impl TransactionStatus {
-    fn is_applied(&self) -> bool {
+    pub fn is_applied(&self) -> bool {
         matches!(self, Self::Applied)
     }
 }
@@ -556,7 +557,7 @@ impl Memo {
     const MAX_DIGESTIBLE_STRING_LENGTH: usize = 1000;
 
     pub fn to_bits(&self) -> [bool; std::mem::size_of::<Self>() * 8] {
-        use crate::proofs::witness::legacy_input::BitsIterator;
+        use crate::proofs::transaction::legacy_input::BitsIterator;
 
         const NBYTES: usize = 34;
         const NBITS: usize = NBYTES * 8;
@@ -609,8 +610,9 @@ impl Memo {
     }
 
     pub fn empty() -> Self {
-        // TODO
-        Self([0; 34])
+        let mut array = [0; 34];
+        array[0] = 1;
+        Self(array)
     }
 
     /// Example:
@@ -838,16 +840,21 @@ pub mod zkapp_command {
     use mina_p2p_messages::v2::MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA;
     use mina_signer::Signature;
     use rand::{seq::SliceRandom, Rng};
-    //use rand::{seq::SliceRandom, Rng};
 
     use crate::{
         account, dummy, gen_compressed, gen_keypair, hash_noinputs, hash_with_kimchi,
+        proofs::{
+            field::{Boolean, ToBoolean},
+            to_field_elements::ToFieldElements,
+            transaction::Check,
+        },
         scan_state::currency::{Balance, Length, MinMax, Sgn, Signed, Slot, SlotSpan},
+        zkapps::snark::zkapp_check::InSnarkCheck,
         AuthRequired, ControlTag, Inputs, MyCow, Permissions, ToInputs, TokenSymbol,
-        VerificationKey, VotingFor, ZkAppUri,
+        VerificationKey, VotingFor, ZkAppAccount, ZkAppUri,
     };
 
-    use super::*;
+    use super::{zkapp_statement::TransactionCommitment, *};
 
     #[derive(Debug, Clone, PartialEq)]
     pub struct Event(pub Vec<Fp>);
@@ -881,12 +888,13 @@ pub mod zkapp_command {
     }
 
     /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_account.ml#L23
-    trait MakeEvents {
+    pub trait MakeEvents {
         const SALT_PHRASE: &'static str;
         const HASH_PREFIX: &'static str;
         const DERIVER_NAME: (); // Unused here for now
 
         fn events(&self) -> &[Event];
+        fn empty_hash() -> Fp;
     }
 
     /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_account.ml#L100
@@ -896,6 +904,9 @@ pub mod zkapp_command {
         const DERIVER_NAME: () = ();
         fn events(&self) -> &[Event] {
             self.0.as_slice()
+        }
+        fn empty_hash() -> Fp {
+            cache_one!(Fp, events_to_field(&Events::empty()))
         }
     }
 
@@ -907,31 +918,44 @@ pub mod zkapp_command {
         fn events(&self) -> &[Event] {
             self.0.as_slice()
         }
+        fn empty_hash() -> Fp {
+            cache_one!(Fp, events_to_field(&Actions::empty()))
+        }
     }
 
     /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_account.ml#L52
-    fn events_to_inputs<E>(e: &E, inputs: &mut Inputs)
+    pub fn events_to_field<E>(e: &E) -> Fp
     where
         E: MakeEvents,
     {
         let init = hash_noinputs(E::SALT_PHRASE);
 
-        let field = e.events().iter().rfold(init, |accum, elem| {
+        e.events().iter().rfold(init, |accum, elem| {
             hash_with_kimchi(E::HASH_PREFIX, &[accum, elem.hash()])
-        });
-
-        inputs.append_field(field);
+        })
     }
 
     impl ToInputs for Events {
         fn to_inputs(&self, inputs: &mut Inputs) {
-            events_to_inputs(self, inputs);
+            inputs.append(&events_to_field(self));
         }
     }
 
     impl ToInputs for Actions {
         fn to_inputs(&self, inputs: &mut Inputs) {
-            events_to_inputs(self, inputs);
+            inputs.append(&events_to_field(self));
+        }
+    }
+
+    impl ToFieldElements<Fp> for Events {
+        fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+            events_to_field(self).to_field_elements(fields);
+        }
+    }
+
+    impl ToFieldElements<Fp> for Actions {
+        fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+            events_to_field(self).to_field_elements(fields);
         }
     }
 
@@ -997,6 +1021,42 @@ pub mod zkapp_command {
                 vesting_period,
                 vesting_increment,
             }
+        }
+    }
+
+    impl ToFieldElements<Fp> for Timing {
+        fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+            let Self {
+                initial_minimum_balance,
+                cliff_time,
+                cliff_amount,
+                vesting_period,
+                vesting_increment,
+            } = self;
+
+            initial_minimum_balance.to_field_elements(fields);
+            cliff_time.to_field_elements(fields);
+            cliff_amount.to_field_elements(fields);
+            vesting_period.to_field_elements(fields);
+            vesting_increment.to_field_elements(fields);
+        }
+    }
+
+    impl Check<Fp> for Timing {
+        fn check(&self, w: &mut Witness<Fp>) {
+            let Self {
+                initial_minimum_balance,
+                cliff_time,
+                cliff_amount,
+                vesting_period,
+                vesting_increment,
+            } = self;
+
+            initial_minimum_balance.check(w);
+            cliff_time.check(w);
+            cliff_amount.check(w);
+            vesting_period.check(w);
+            vesting_increment.check(w);
         }
     }
 
@@ -1153,10 +1213,71 @@ pub mod zkapp_command {
         }
     }
 
+    impl<T, F> ToFieldElements<Fp> for (&SetOrKeep<T>, F)
+    where
+        T: ToFieldElements<Fp>,
+        T: Clone,
+        F: Fn() -> T,
+    {
+        fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+            let (set_or_keep, default_fn) = self;
+
+            match set_or_keep {
+                SetOrKeep::Set(this) => {
+                    Boolean::True.to_field_elements(fields);
+                    this.to_field_elements(fields);
+                }
+                SetOrKeep::Keep => {
+                    Boolean::False.to_field_elements(fields);
+                    let default = default_fn();
+                    default.to_field_elements(fields);
+                }
+            }
+        }
+    }
+
+    impl<T, F> Check<Fp> for (&SetOrKeep<T>, F)
+    where
+        T: Check<Fp>,
+        T: Clone,
+        F: Fn() -> T,
+    {
+        fn check(&self, w: &mut Witness<Fp>) {
+            let (set_or_keep, default_fn) = self;
+            let value = match set_or_keep {
+                SetOrKeep::Set(this) => MyCow::Borrow(this),
+                SetOrKeep::Keep => MyCow::Own(default_fn()),
+            };
+            value.check(w);
+        }
+    }
+
     #[derive(Debug, Clone, PartialEq, Eq)]
     pub struct WithHash<T> {
         pub data: T,
         pub hash: Fp,
+    }
+
+    impl<T> ToFieldElements<Fp> for WithHash<T> {
+        fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+            let Self { data: _, hash } = self;
+            hash.to_field_elements(fields);
+        }
+    }
+
+    impl<T> std::ops::Deref for WithHash<T> {
+        type Target = T;
+
+        fn deref(&self) -> &Self::Target {
+            &self.data
+        }
+    }
+
+    impl<T> WithHash<T> {
+        pub fn of_data(data: T, hash_data: impl Fn(&T) -> Fp) -> Self {
+            let hash = hash_data(&data);
+            Self { data, hash }
+        }
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/account_update.ml#L319
@@ -1170,6 +1291,32 @@ pub mod zkapp_command {
         pub token_symbol: SetOrKeep<TokenSymbol>,
         pub timing: SetOrKeep<Timing>,
         pub voting_for: SetOrKeep<VotingFor>,
+    }
+
+    impl ToFieldElements<Fp> for Update {
+        fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+            let Self {
+                app_state,
+                delegate,
+                verification_key,
+                permissions,
+                zkapp_uri,
+                token_symbol,
+                timing,
+                voting_for,
+            } = self;
+
+            for s in app_state {
+                (s, Fp::zero).to_field_elements(fields);
+            }
+            (delegate, CompressedPubKey::empty).to_field_elements(fields);
+            (&verification_key.map(|w| w.hash), Fp::zero).to_field_elements(fields);
+            (permissions, Permissions::empty).to_field_elements(fields);
+            (&zkapp_uri.map(Some), || Option::<&ZkAppUri>::None).to_field_elements(fields);
+            (token_symbol, TokenSymbol::default).to_field_elements(fields);
+            (timing, Timing::dummy).to_field_elements(fields);
+            (voting_for, VotingFor::dummy).to_field_elements(fields);
+        }
     }
 
     impl Update {
@@ -1270,21 +1417,23 @@ pub mod zkapp_command {
         }
     }
 
-    pub trait Check {
+    pub trait OutSnarkCheck {
         type A;
         type B;
 
-        fn check(&self, label: String, x: Self::B) -> Result<(), String>;
+        /// zkapp check
+        fn zcheck(&self, label: String, x: Self::B) -> Result<(), String>;
     }
 
-    impl<T> Check for T
+    impl<T> OutSnarkCheck for T
     where
         T: Eq,
     {
         type A = T;
         type B = T;
 
-        fn check(&self, label: String, rhs: Self::B) -> Result<(), String> {
+        /// zkapp check
+        fn zcheck(&self, label: String, rhs: Self::B) -> Result<(), String> {
             if *self == rhs {
                 Ok(())
             } else {
@@ -1305,7 +1454,7 @@ pub mod zkapp_command {
     where
         T: MinMax,
     {
-        fn min_max() -> Self {
+        pub fn min_max() -> Self {
             Self {
                 lower: T::min(),
                 upper: T::max(),
@@ -1326,14 +1475,38 @@ pub mod zkapp_command {
         }
     }
 
-    impl<T> Check for ClosedInterval<T>
+    impl<T> ToFieldElements<Fp> for ClosedInterval<T>
+    where
+        T: ToFieldElements<Fp>,
+    {
+        fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+            let ClosedInterval { lower, upper } = self;
+
+            lower.to_field_elements(fields);
+            upper.to_field_elements(fields);
+        }
+    }
+
+    impl<T> Check<Fp> for ClosedInterval<T>
+    where
+        T: Check<Fp>,
+    {
+        fn check(&self, w: &mut Witness<Fp>) {
+            let ClosedInterval { lower, upper } = self;
+            lower.check(w);
+            upper.check(w);
+        }
+    }
+
+    impl<T> OutSnarkCheck for ClosedInterval<T>
     where
         T: PartialOrd + std::fmt::Debug,
     {
         type A = ClosedInterval<T>;
         type B = T;
 
-        fn check(&self, label: String, rhs: Self::B) -> Result<(), String> {
+        /// zkapp check
+        fn zcheck(&self, label: String, rhs: Self::B) -> Result<(), String> {
             /*println!(
                 "bounds check lower {:?} rhs {:?} upper {:?}",
                 self.lower, rhs, self.upper
@@ -1406,15 +1579,53 @@ pub mod zkapp_command {
         }
     }
 
+    impl<T, F> ToFieldElements<Fp> for (&OrIgnore<T>, F)
+    where
+        T: ToFieldElements<Fp>,
+        F: Fn() -> T,
+    {
+        fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+            let (or_ignore, default_fn) = self;
+
+            match or_ignore {
+                OrIgnore::Check(this) => {
+                    Boolean::True.to_field_elements(fields);
+                    this.to_field_elements(fields);
+                }
+                OrIgnore::Ignore => {
+                    Boolean::False.to_field_elements(fields);
+                    let default = default_fn();
+                    default.to_field_elements(fields);
+                }
+            };
+        }
+    }
+
+    impl<T, F> Check<Fp> for (&OrIgnore<T>, F)
+    where
+        T: Check<Fp>,
+        F: Fn() -> T,
+    {
+        fn check(&self, w: &mut Witness<Fp>) {
+            let (or_ignore, default_fn) = self;
+            let value = match or_ignore {
+                OrIgnore::Check(this) => MyCow::Borrow(this),
+                OrIgnore::Ignore => MyCow::Own(default_fn()),
+            };
+            value.check(w);
+        }
+    }
+
     impl<T> OrIgnore<T>
     where
-        T: Check<A = T>,
+        T: OutSnarkCheck<A = T>,
     {
-        pub fn check(&self, label: String, rhs: T::B) -> Result<(), String> {
+        /// zkapp check
+        pub fn zcheck(&self, label: String, rhs: T::B) -> Result<(), String> {
             // println!("[rust] check {}, {:?}", label, ret);
             match self {
                 Self::Ignore => Ok(()),
-                Self::Check(t) => t.check(label, rhs),
+                Self::Check(t) => t.zcheck(label, rhs),
             }
         }
     }
@@ -1476,9 +1687,9 @@ pub mod zkapp_command {
 
     impl EpochLedger {
         pub fn epoch_ledger(&self, t: protocol_state::EpochLedger<Fp>) -> Result<(), String> {
-            self.hash.check("epoch_ledger_hash".to_string(), t.hash)?;
+            self.hash.zcheck("epoch_ledger_hash".to_string(), t.hash)?;
             self.total_currency
-                .check("epoch_ledger_total_currency".to_string(), t.total_currency)
+                .zcheck("epoch_ledger_total_currency".to_string(), t.total_currency)
         }
     }
 
@@ -1520,6 +1731,60 @@ pub mod zkapp_command {
         }
     }
 
+    impl ToFieldElements<Fp> for EpochData {
+        fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+            let EpochData {
+                ledger,
+                seed,
+                start_checkpoint,
+                lock_checkpoint,
+                epoch_length,
+            } = self;
+
+            {
+                let EpochLedger {
+                    hash,
+                    total_currency,
+                } = ledger;
+
+                (hash, Fp::zero).to_field_elements(fields);
+                (total_currency, ClosedInterval::min_max).to_field_elements(fields);
+            }
+
+            (seed, Fp::zero).to_field_elements(fields);
+            (start_checkpoint, Fp::zero).to_field_elements(fields);
+            (lock_checkpoint, Fp::zero).to_field_elements(fields);
+            (epoch_length, ClosedInterval::min_max).to_field_elements(fields);
+        }
+    }
+
+    impl Check<Fp> for EpochData {
+        fn check(&self, w: &mut Witness<Fp>) {
+            let EpochData {
+                ledger,
+                seed,
+                start_checkpoint,
+                lock_checkpoint,
+                epoch_length,
+            } = self;
+
+            {
+                let EpochLedger {
+                    hash,
+                    total_currency,
+                } = ledger;
+
+                (hash, Fp::zero).check(w);
+                (total_currency, ClosedInterval::min_max).check(w);
+            }
+
+            (seed, Fp::zero).check(w);
+            (start_checkpoint, Fp::zero).check(w);
+            (lock_checkpoint, Fp::zero).check(w);
+            (epoch_length, ClosedInterval::min_max).check(w);
+        }
+    }
+
     impl EpochData {
         pub fn epoch_data(
             &self,
@@ -1528,16 +1793,16 @@ pub mod zkapp_command {
         ) -> Result<(), String> {
             self.ledger.epoch_ledger(t.ledger)?;
             // ignore seed
-            self.start_checkpoint.check(
+            self.start_checkpoint.zcheck(
                 format!("{}_{}", label, "start_checkpoint"),
                 t.start_checkpoint,
             )?;
-            self.lock_checkpoint.check(
+            self.lock_checkpoint.zcheck(
                 format!("{}_{}", label, "lock_checkpoint"),
                 t.lock_checkpoint,
             )?;
             self.epoch_length
-                .check(format!("{}_{}", label, "epoch_length"), t.epoch_length)
+                .zcheck(format!("{}_{}", label, "epoch_length"), t.epoch_length)
         }
 
         pub fn gen() -> Self {
@@ -1569,16 +1834,17 @@ pub mod zkapp_command {
     }
 
     impl ZkAppPreconditions {
-        pub fn check(&self, s: ProtocolStateView) -> Result<(), String> {
+        /// zkapp check
+        pub fn zcheck(&self, s: ProtocolStateView) -> Result<(), String> {
             self.snarked_ledger_hash
-                .check("snarker_ledger_hash".to_string(), s.snarked_ledger_hash)?;
+                .zcheck("snarker_ledger_hash".to_string(), s.snarked_ledger_hash)?;
             self.blockchain_length
-                .check("blockchain_length".to_string(), s.blockchain_length)?;
+                .zcheck("blockchain_length".to_string(), s.blockchain_length)?;
             self.min_window_density
-                .check("min_window_density".to_string(), s.min_window_density)?;
+                .zcheck("min_window_density".to_string(), s.min_window_density)?;
             self.total_currency
-                .check("total_currency".to_string(), s.total_currency)?;
-            self.global_slot_since_genesis.check(
+                .zcheck("total_currency".to_string(), s.total_currency)?;
+            self.global_slot_since_genesis.zcheck(
                 "global_slot_since_genesis".to_string(),
                 s.global_slot_since_genesis,
             )?;
@@ -1586,6 +1852,69 @@ pub mod zkapp_command {
                 .epoch_data("staking_epoch_data", s.staking_epoch_data)?;
             self.next_epoch_data
                 .epoch_data("next_epoch_data", s.next_epoch_data)
+        }
+
+        pub fn checked_zcheck(&self, s: &ProtocolStateView, w: &mut Witness<Fp>) -> Boolean {
+            let Self {
+                snarked_ledger_hash,
+                blockchain_length,
+                min_window_density,
+                total_currency,
+                global_slot_since_genesis,
+                staking_epoch_data,
+                next_epoch_data,
+            } = self;
+
+            // NOTE: Here the 2nd element in the tuples is the default value of `OrIgnore`
+
+            let epoch_data = |epoch_data: &EpochData,
+                              view: &protocol_state::EpochData<Fp>,
+                              w: &mut Witness<Fp>| {
+                let EpochData {
+                    ledger:
+                        EpochLedger {
+                            hash,
+                            total_currency,
+                        },
+                    seed: _,
+                    start_checkpoint,
+                    lock_checkpoint,
+                    epoch_length,
+                } = epoch_data;
+                // Reverse to match OCaml order of the list, while still executing `checked_zcheck`
+                // in correct order
+                [
+                    (epoch_length, ClosedInterval::min_max).checked_zcheck(&view.epoch_length, w),
+                    (lock_checkpoint, Fp::zero).checked_zcheck(&view.lock_checkpoint, w),
+                    (start_checkpoint, Fp::zero).checked_zcheck(&view.start_checkpoint, w),
+                    (total_currency, ClosedInterval::min_max)
+                        .checked_zcheck(&view.ledger.total_currency, w),
+                    (hash, Fp::zero).checked_zcheck(&view.ledger.hash, w),
+                ]
+            };
+
+            let next_epoch_data = epoch_data(next_epoch_data, &s.next_epoch_data, w);
+            let staking_epoch_data = epoch_data(staking_epoch_data, &s.staking_epoch_data, w);
+
+            // Reverse to match OCaml order of the list, while still executing `checked_zcheck`
+            // in correct order
+            let bools = [
+                (global_slot_since_genesis, ClosedInterval::min_max)
+                    .checked_zcheck(&s.global_slot_since_genesis, w),
+                (total_currency, ClosedInterval::min_max).checked_zcheck(&s.total_currency, w),
+                (min_window_density, ClosedInterval::min_max)
+                    .checked_zcheck(&s.min_window_density, w),
+                (blockchain_length, ClosedInterval::min_max)
+                    .checked_zcheck(&s.blockchain_length, w),
+                (snarked_ledger_hash, Fp::zero).checked_zcheck(&s.snarked_ledger_hash, w),
+            ]
+            .into_iter()
+            .rev()
+            .chain(staking_epoch_data.into_iter().rev())
+            .chain(next_epoch_data.into_iter().rev())
+            .collect::<Vec<_>>();
+
+            Boolean::all(&bools, w)
         }
 
         /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/mina_base/zkapp_precondition.ml#L1303
@@ -1627,14 +1956,56 @@ pub mod zkapp_command {
             } = &self;
 
             inputs.append(&(snarked_ledger_hash, Fp::zero));
-
             inputs.append(&(blockchain_length, ClosedInterval::min_max));
             inputs.append(&(min_window_density, ClosedInterval::min_max));
             inputs.append(&(total_currency, ClosedInterval::min_max));
             inputs.append(&(global_slot_since_genesis, ClosedInterval::min_max));
-
             inputs.append(staking_epoch_data);
             inputs.append(next_epoch_data);
+        }
+    }
+
+    impl ToFieldElements<Fp> for ZkAppPreconditions {
+        fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+            let Self {
+                snarked_ledger_hash,
+                blockchain_length,
+                min_window_density,
+                total_currency,
+                global_slot_since_genesis,
+                staking_epoch_data,
+                next_epoch_data,
+            } = self;
+
+            (snarked_ledger_hash, Fp::zero).to_field_elements(fields);
+            (blockchain_length, ClosedInterval::min_max).to_field_elements(fields);
+            (min_window_density, ClosedInterval::min_max).to_field_elements(fields);
+            (total_currency, ClosedInterval::min_max).to_field_elements(fields);
+            (global_slot_since_genesis, ClosedInterval::min_max).to_field_elements(fields);
+            staking_epoch_data.to_field_elements(fields);
+            next_epoch_data.to_field_elements(fields);
+        }
+    }
+
+    impl Check<Fp> for ZkAppPreconditions {
+        fn check(&self, w: &mut Witness<Fp>) {
+            let Self {
+                snarked_ledger_hash,
+                blockchain_length,
+                min_window_density,
+                total_currency,
+                global_slot_since_genesis,
+                staking_epoch_data,
+                next_epoch_data,
+            } = self;
+
+            (snarked_ledger_hash, Fp::zero).check(w);
+            (blockchain_length, ClosedInterval::min_max).check(w);
+            (min_window_density, ClosedInterval::min_max).check(w);
+            (total_currency, ClosedInterval::min_max).check(w);
+            (global_slot_since_genesis, ClosedInterval::min_max).check(w);
+            staking_epoch_data.check(w);
+            next_epoch_data.check(w);
         }
     }
 
@@ -1676,16 +2047,17 @@ pub mod zkapp_command {
     }
 
     impl Account {
-        pub fn check<F>(&self, new_account: bool, mut check: F, a: account::Account)
+        /// zkapp check
+        pub fn zcheck<F>(&self, new_account: bool, mut check: F, a: account::Account)
         where
             F: FnMut(TransactionFailure, bool),
         {
-            self.checks(new_account, a)
+            self.zchecks(new_account, a)
                 .iter()
                 .for_each(|(failure, res)| check(failure.clone(), res.is_ok()))
         }
 
-        fn checks(
+        fn zchecks(
             &self,
             new_account: bool,
             a: account::Account,
@@ -1694,20 +2066,20 @@ pub mod zkapp_command {
             let mut ret = vec![
                 (
                     TransactionFailure::AccountBalancePreconditionUnsatisfied,
-                    self.balance.check("balance".to_string(), a.balance),
+                    self.balance.zcheck("balance".to_string(), a.balance),
                 ),
                 (
                     TransactionFailure::AccountNoncePreconditionUnsatisfied,
-                    self.nonce.check("nonce".to_string(), a.nonce),
+                    self.nonce.zcheck("nonce".to_string(), a.nonce),
                 ),
                 (
                     TransactionFailure::AccountReceiptChainHashPreconditionUnsatisfied,
                     self.receipt_chain_hash
-                        .check("receipt_chain_hash".to_string(), a.receipt_chain_hash.0),
+                        .zcheck("receipt_chain_hash".to_string(), a.receipt_chain_hash.0),
                 ),
                 (
                     TransactionFailure::AccountDelegatePreconditionUnsatisfied,
-                    self.delegate.check(
+                    self.delegate.zcheck(
                         "delegate".to_string(),
                         a.delegate.unwrap_or_else(invalid_public_key),
                     ),
@@ -1717,7 +2089,7 @@ pub mod zkapp_command {
                     match zkapp
                         .action_state
                         .iter()
-                        .find(|state| self.action_state.check("".to_string(), **state).is_ok())
+                        .find(|state| self.action_state.zcheck("".to_string(), **state).is_ok())
                     {
                         None => Err("Action state mismatch".to_string()),
                         Some(_) => Ok(()),
@@ -1728,7 +2100,7 @@ pub mod zkapp_command {
             for (i, (c, v)) in self.state.iter().zip(zkapp.app_state.iter()).enumerate() {
                 ret.push((
                     TransactionFailure::AccountAppStatePreconditionUnsatisfied(i as i64),
-                    c.check(format!("state[{}]", i), *v),
+                    c.zcheck(format!("state[{}]", i), *v),
                 ));
             }
 
@@ -1736,16 +2108,110 @@ pub mod zkapp_command {
                 (
                     TransactionFailure::AccountProvedStatePreconditionUnsatisfied,
                     self.proved_state
-                        .check("proved_state".to_string(), zkapp.proved_state),
+                        .zcheck("proved_state".to_string(), zkapp.proved_state),
                 ),
                 (
                     TransactionFailure::AccountIsNewPreconditionUnsatisfied,
-                    self.is_new.check("is_new".to_string(), new_account),
+                    self.is_new.zcheck("is_new".to_string(), new_account),
                 ),
             ];
 
             ret.append(&mut ret2);
             ret
+        }
+
+        fn checked_zchecks(
+            &self,
+            account: &crate::Account,
+            new_account: Boolean,
+            w: &mut Witness<Fp>,
+        ) -> Vec<(TransactionFailure, Boolean)> {
+            use TransactionFailure::*;
+
+            let Self {
+                balance,
+                nonce,
+                receipt_chain_hash,
+                delegate,
+                state,
+                action_state,
+                proved_state,
+                is_new,
+            } = self;
+
+            let zkapp_account = account.zkapp_or_empty();
+            let is_new = is_new.map(ToBoolean::to_boolean);
+            let proved_state = proved_state.map(ToBoolean::to_boolean);
+
+            // NOTE: Here we need to execute all `checked_zcheck` in the exact same order than OCaml
+            // so we execute them in reverse order (compared to OCaml): OCaml evaluates from right
+            // to left.
+            // We then have to reverse the resulting vector, to match OCaml resulting list.
+
+            // NOTE 2: Here the 2nd element in the tuples is the default value of `OrIgnore`
+            let mut checks: Vec<(TransactionFailure, _)> = [
+                (
+                    AccountIsNewPreconditionUnsatisfied,
+                    (&is_new, || Boolean::False).checked_zcheck(&new_account, w),
+                ),
+                (
+                    AccountProvedStatePreconditionUnsatisfied,
+                    (&proved_state, || Boolean::False)
+                        .checked_zcheck(&zkapp_account.proved_state.to_boolean(), w),
+                ),
+            ]
+            .into_iter()
+            .chain({
+                let bools = state
+                    .iter()
+                    .zip(&zkapp_account.app_state)
+                    .enumerate()
+                    .rev()
+                    .map(|(i, (s, account_s))| {
+                        let b = (s, Fp::zero).checked_zcheck(account_s, w);
+                        (AccountAppStatePreconditionUnsatisfied(i as i64), b)
+                    })
+                    .collect::<Vec<_>>();
+                // We need to call rev here, in order to match OCaml order
+                bools.into_iter().rev()
+            })
+            .chain([
+                {
+                    let bools: Vec<_> = zkapp_account
+                        .action_state
+                        .iter()
+                        .map(|account_s| {
+                            (action_state, ZkAppAccount::empty_action_state)
+                                .checked_zcheck(account_s, w)
+                        })
+                        .collect();
+                    (
+                        AccountActionStatePreconditionUnsatisfied,
+                        Boolean::any(&bools, w),
+                    )
+                },
+                (
+                    AccountDelegatePreconditionUnsatisfied,
+                    (delegate, CompressedPubKey::empty)
+                        .checked_zcheck(&*account.delegate_or_empty(), w),
+                ),
+                (
+                    AccountReceiptChainHashPreconditionUnsatisfied,
+                    (receipt_chain_hash, Fp::zero).checked_zcheck(&account.receipt_chain_hash.0, w),
+                ),
+                (
+                    AccountNoncePreconditionUnsatisfied,
+                    (nonce, ClosedInterval::min_max).checked_zcheck(&account.nonce, w),
+                ),
+                (
+                    AccountBalancePreconditionUnsatisfied,
+                    (balance, ClosedInterval::min_max).checked_zcheck(&account.balance, w),
+                ),
+            ])
+            .collect::<Vec<_>>();
+
+            checks.reverse();
+            checks
         }
     }
 
@@ -1761,18 +2227,7 @@ pub mod zkapp_command {
         /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/account_update.ml#L635
         /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_precondition.ml#L568
         fn to_inputs(&self, inputs: &mut Inputs) {
-            let account = match self {
-                AccountPreconditions::Full(account) => MyCow::Borrow(&**account),
-                AccountPreconditions::Nonce(nonce) => {
-                    let mut account = Account::accept();
-                    account.nonce = Numeric::Check(ClosedInterval {
-                        lower: *nonce,
-                        upper: *nonce,
-                    });
-                    MyCow::Own(account)
-                }
-                AccountPreconditions::Accept => MyCow::Own(Account::accept()),
-            };
+            let account = self.to_full();
 
             let Account {
                 balance,
@@ -1789,18 +2244,69 @@ pub mod zkapp_command {
             inputs.append(&(nonce, ClosedInterval::min_max));
             inputs.append(&(receipt_chain_hash, Fp::zero));
             inputs.append(&(delegate, CompressedPubKey::empty));
-
             state.iter().for_each(|s| {
                 inputs.append(&(s, Fp::zero));
             });
-
             // https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_account.ml#L168
-            inputs.append(&(action_state, || {
-                hash_noinputs("MinaZkappActionStateEmptyElt")
-            }));
-
+            inputs.append(&(action_state, ZkAppAccount::empty_action_state));
             inputs.append(&(proved_state, || false));
             inputs.append(&(is_new, || false));
+        }
+    }
+
+    impl ToFieldElements<Fp> for AccountPreconditions {
+        fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+            let account = self.to_full();
+
+            let Account {
+                balance,
+                nonce,
+                receipt_chain_hash,
+                delegate,
+                state,
+                action_state,
+                proved_state,
+                is_new,
+            } = account.as_ref();
+
+            (balance, ClosedInterval::min_max).to_field_elements(fields);
+            (nonce, ClosedInterval::min_max).to_field_elements(fields);
+            (receipt_chain_hash, Fp::zero).to_field_elements(fields);
+            (delegate, CompressedPubKey::empty).to_field_elements(fields);
+            state.iter().for_each(|s| {
+                (s, Fp::zero).to_field_elements(fields);
+            });
+            (action_state, ZkAppAccount::empty_action_state).to_field_elements(fields);
+            (proved_state, || false).to_field_elements(fields);
+            (is_new, || false).to_field_elements(fields);
+        }
+    }
+
+    impl Check<Fp> for AccountPreconditions {
+        fn check(&self, w: &mut Witness<Fp>) {
+            let account = self.to_full();
+
+            let Account {
+                balance,
+                nonce,
+                receipt_chain_hash,
+                delegate,
+                state,
+                action_state,
+                proved_state,
+                is_new,
+            } = account.as_ref();
+
+            (balance, ClosedInterval::min_max).check(w);
+            (nonce, ClosedInterval::min_max).check(w);
+            (receipt_chain_hash, Fp::zero).check(w);
+            (delegate, CompressedPubKey::empty).check(w);
+            state.iter().for_each(|s| {
+                (s, Fp::zero).check(w);
+            });
+            (action_state, ZkAppAccount::empty_action_state).check(w);
+            (proved_state, || false).check(w);
+            (is_new, || false).check(w);
         }
     }
 
@@ -1816,18 +2322,34 @@ pub mod zkapp_command {
             }
         }
 
-        pub fn to_full(&self) -> Account {
+        /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/account_update.ml#L635
+        pub fn to_full(&self) -> MyCow<Account> {
             match self {
-                AccountPreconditions::Full(s) => (**s).clone(),
+                AccountPreconditions::Full(s) => MyCow::Borrow(&**s),
                 AccountPreconditions::Nonce(nonce) => {
                     let mut account = Account::accept();
                     account.nonce = OrIgnore::Check(ClosedInterval {
                         lower: *nonce,
                         upper: *nonce,
                     });
-                    account
+                    MyCow::Own(account)
                 }
-                AccountPreconditions::Accept => Account::accept(),
+                AccountPreconditions::Accept => MyCow::Own(Account::accept()),
+            }
+        }
+
+        pub fn checked_zcheck<Fun>(
+            &self,
+            new_account: Boolean,
+            account: &crate::Account,
+            mut check: Fun,
+            w: &mut Witness<Fp>,
+        ) where
+            Fun: FnMut(TransactionFailure, Boolean, &mut Witness<Fp>),
+        {
+            let this = self.to_full();
+            for (failure, passed) in this.checked_zchecks(account, new_account, w) {
+                check(failure, passed, w);
             }
         }
     }
@@ -1838,6 +2360,34 @@ pub mod zkapp_command {
         pub(crate) network: ZkAppPreconditions,
         pub account: AccountPreconditions,
         pub valid_while: Numeric<Slot>,
+    }
+
+    impl ToFieldElements<Fp> for Preconditions {
+        fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+            let Self {
+                network,
+                account,
+                valid_while,
+            } = self;
+
+            network.to_field_elements(fields);
+            account.to_field_elements(fields);
+            (valid_while, ClosedInterval::min_max).to_field_elements(fields);
+        }
+    }
+
+    impl Check<Fp> for Preconditions {
+        fn check(&self, w: &mut Witness<Fp>) {
+            let Self {
+                network,
+                account,
+                valid_while,
+            } = self;
+
+            network.check(w);
+            account.check(w);
+            (valid_while, ClosedInterval::min_max).check(w);
+        }
     }
 
     impl ToInputs for Preconditions {
@@ -1863,28 +2413,59 @@ pub mod zkapp_command {
         Proof(Fp), // hash
     }
 
-    impl ToInputs for AuthorizationKind {
-        /// https://github.com/MinaProtocol/mina/blob/2ff0292b637684ce0372e7b8e23ec85404dc5091/src/lib/mina_base/account_update.ml#L142
-        fn to_inputs(&self, inputs: &mut Inputs) {
+    impl AuthorizationKind {
+        pub fn vk_hash(&self) -> Fp {
+            match self {
+                AuthorizationKind::NoneGiven | AuthorizationKind::Signature => {
+                    VerificationKey::dummy().hash()
+                }
+                AuthorizationKind::Proof(hash) => *hash,
+            }
+        }
+
+        pub fn is_proved(&self) -> bool {
+            match self {
+                AuthorizationKind::Proof(_) => true,
+                AuthorizationKind::NoneGiven => false,
+                AuthorizationKind::Signature => false,
+            }
+        }
+
+        pub fn is_signed(&self) -> bool {
+            match self {
+                AuthorizationKind::Proof(_) => false,
+                AuthorizationKind::NoneGiven => false,
+                AuthorizationKind::Signature => true,
+            }
+        }
+
+        fn to_structured(&self) -> ([bool; 2], Fp) {
             // bits: [is_signed, is_proved]
             let bits = match self {
                 AuthorizationKind::NoneGiven => [false, false],
                 AuthorizationKind::Signature => [true, false],
                 AuthorizationKind::Proof(_) => [false, true],
             };
+            let field = self.vk_hash();
+            (bits, field)
+        }
+    }
+
+    impl ToInputs for AuthorizationKind {
+        /// https://github.com/MinaProtocol/mina/blob/2ff0292b637684ce0372e7b8e23ec85404dc5091/src/lib/mina_base/account_update.ml#L142
+        fn to_inputs(&self, inputs: &mut Inputs) {
+            let (bits, field) = self.to_structured();
 
             for bit in bits {
                 inputs.append_bool(bit);
             }
-
-            let field = match self {
-                AuthorizationKind::NoneGiven | AuthorizationKind::Signature => {
-                    VerificationKey::dummy().hash()
-                }
-                AuthorizationKind::Proof(hash) => *hash,
-            };
-
             inputs.append_field(field);
+        }
+    }
+
+    impl ToFieldElements<Fp> for AuthorizationKind {
+        fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+            self.to_structured().to_field_elements(fields);
         }
     }
 
@@ -1904,6 +2485,149 @@ pub mod zkapp_command {
         pub implicit_account_creation_fee: bool,
         pub may_use_token: MayUseToken,
         pub authorization_kind: AuthorizationKind,
+    }
+
+    impl ToInputs for Body {
+        /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/account_update.ml#L1297
+        fn to_inputs(&self, inputs: &mut Inputs) {
+            let Self {
+                public_key,
+                token_id,
+                update,
+                balance_change,
+                increment_nonce,
+                events,
+                actions,
+                call_data,
+                preconditions,
+                use_full_commitment,
+                implicit_account_creation_fee,
+                may_use_token,
+                authorization_kind,
+            } = self;
+
+            inputs.append(public_key);
+            inputs.append(token_id);
+
+            // `Body::update`
+            {
+                let Update {
+                    app_state,
+                    delegate,
+                    verification_key,
+                    permissions,
+                    zkapp_uri,
+                    token_symbol,
+                    timing,
+                    voting_for,
+                } = update;
+
+                for state in app_state {
+                    inputs.append(&(state, Fp::zero));
+                }
+
+                inputs.append(&(delegate, CompressedPubKey::empty));
+                inputs.append(&(&verification_key.map(|w| w.hash), Fp::zero));
+                inputs.append(&(permissions, Permissions::empty));
+                inputs.append(&(&zkapp_uri.map(Some), || Option::<&ZkAppUri>::None));
+                inputs.append(&(token_symbol, TokenSymbol::default));
+                inputs.append(&(timing, Timing::dummy));
+                inputs.append(&(voting_for, VotingFor::dummy));
+            }
+
+            inputs.append(balance_change);
+            inputs.append(increment_nonce);
+            inputs.append(events);
+            inputs.append(actions);
+            inputs.append(call_data);
+            inputs.append(preconditions);
+            inputs.append(use_full_commitment);
+            inputs.append(implicit_account_creation_fee);
+            inputs.append(may_use_token);
+            inputs.append(authorization_kind);
+        }
+    }
+
+    impl ToFieldElements<Fp> for Body {
+        fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+            let Self {
+                public_key,
+                token_id,
+                update,
+                balance_change,
+                increment_nonce,
+                events,
+                actions,
+                call_data,
+                preconditions,
+                use_full_commitment,
+                implicit_account_creation_fee,
+                may_use_token,
+                authorization_kind,
+            } = self;
+
+            public_key.to_field_elements(fields);
+            token_id.to_field_elements(fields);
+            update.to_field_elements(fields);
+            balance_change.to_field_elements(fields);
+            increment_nonce.to_field_elements(fields);
+            events.to_field_elements(fields);
+            actions.to_field_elements(fields);
+            call_data.to_field_elements(fields);
+            preconditions.to_field_elements(fields);
+            use_full_commitment.to_field_elements(fields);
+            implicit_account_creation_fee.to_field_elements(fields);
+            may_use_token.to_field_elements(fields);
+            authorization_kind.to_field_elements(fields);
+        }
+    }
+
+    impl Check<Fp> for Body {
+        fn check(&self, w: &mut Witness<Fp>) {
+            let Self {
+                public_key: _,
+                token_id: _,
+                update:
+                    Update {
+                        app_state: _,
+                        delegate: _,
+                        verification_key: _,
+                        permissions: _,
+                        zkapp_uri: _,
+                        token_symbol,
+                        timing,
+                        voting_for: _,
+                    },
+                balance_change,
+                increment_nonce: _,
+                events: _,
+                actions: _,
+                call_data: _,
+                preconditions,
+                use_full_commitment: _,
+                implicit_account_creation_fee: _,
+                may_use_token,
+                authorization_kind: _,
+            } = self;
+
+            (token_symbol, TokenSymbol::default).check(w);
+            (timing, Timing::dummy).check(w);
+            balance_change.check(w);
+
+            preconditions.check(w);
+            may_use_token.check(w);
+        }
+    }
+
+    impl Body {
+        pub fn account_id(&self) -> AccountId {
+            let Self {
+                public_key,
+                token_id,
+                ..
+            } = self;
+            AccountId::create(public_key.clone(), token_id.clone())
+        }
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ff0292b637684ce0372e7b8e23ec85404dc5091/src/lib/mina_base/account_update.ml#L1284
@@ -1994,31 +2718,58 @@ pub mod zkapp_command {
         pub fn inherit_from_parent(&self) -> bool {
             matches!(self, Self::InheritFromParent)
         }
+
+        fn to_bits(&self) -> [bool; 2] {
+            // [ parents_own_token; inherit_from_parent ]
+            match self {
+                MayUseToken::No => [false, false],
+                MayUseToken::ParentsOwnToken => [true, false],
+                MayUseToken::InheritFromParent => [false, true],
+            }
+        }
     }
 
     impl ToInputs for MayUseToken {
         fn to_inputs(&self, inputs: &mut Inputs) {
-            // [ parents_own_token; inherit_from_parent ]
-            let bits = match self {
-                MayUseToken::No => [false, false],
-                MayUseToken::ParentsOwnToken => [true, false],
-                MayUseToken::InheritFromParent => [false, true],
-            };
-
-            for bit in bits {
+            for bit in self.to_bits() {
                 inputs.append_bool(bit);
             }
         }
     }
 
-    pub struct CheckAuthorizationResult {
-        pub proof_verifies: bool,
-        pub signature_verifies: bool,
+    impl ToFieldElements<Fp> for MayUseToken {
+        fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+            for bit in self.to_bits() {
+                bit.to_field_elements(fields);
+            }
+        }
+    }
+
+    impl Check<Fp> for MayUseToken {
+        fn check(&self, w: &mut Witness<Fp>) {
+            use crate::proofs::field::field;
+
+            let [parents_own_token, inherit_from_parent] = self.to_bits();
+            let [parents_own_token, inherit_from_parent] = [
+                parents_own_token.to_boolean(),
+                inherit_from_parent.to_boolean(),
+            ];
+
+            let sum = parents_own_token.to_field::<Fp>() + inherit_from_parent.to_field::<Fp>();
+            let _sum_squared = field::mul(sum, sum, w);
+        }
+    }
+
+    pub struct CheckAuthorizationResult<Bool> {
+        pub proof_verifies: Bool,
+        pub signature_verifies: Bool,
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/account_update.ml#L1437
+    pub type AccountUpdate = AccountUpdateSkeleton<Body>;
+
     #[derive(Debug, Clone, PartialEq)]
-    pub struct AccountUpdate {
+    pub struct AccountUpdateSkeleton<Body> {
         pub body: Body,
         pub authorization: Control,
     }
@@ -2039,65 +2790,14 @@ pub mod zkapp_command {
                 authorization: _,
             } = self;
 
-            let Body {
-                public_key,
-                token_id,
-                update,
-                balance_change,
-                increment_nonce,
-                events,
-                actions,
-                call_data,
-                preconditions,
-                use_full_commitment,
-                implicit_account_creation_fee,
-                may_use_token,
-                authorization_kind,
-            } = body;
-
-            inputs.append(public_key);
-            inputs.append(token_id);
-
-            // `Body::update`
-            {
-                let Update {
-                    app_state,
-                    delegate,
-                    verification_key,
-                    permissions,
-                    zkapp_uri,
-                    token_symbol,
-                    timing,
-                    voting_for,
-                } = update;
-
-                for state in app_state {
-                    inputs.append(&(state, Fp::zero));
-                }
-
-                inputs.append(&(delegate, CompressedPubKey::empty));
-                inputs.append(&(&verification_key.map(|w| w.hash), Fp::zero));
-                inputs.append(&(permissions, Permissions::empty));
-                inputs.append(&(&zkapp_uri.map(Some), || Option::<&ZkAppUri>::None));
-                inputs.append(&(token_symbol, TokenSymbol::default));
-                inputs.append(&(timing, Timing::dummy));
-                inputs.append(&(voting_for, VotingFor::dummy));
-            }
-
-            inputs.append(balance_change);
-            inputs.append(increment_nonce);
-            inputs.append(events);
-            inputs.append(actions);
-            inputs.append(call_data);
-            inputs.append(preconditions);
-            inputs.append(use_full_commitment);
-            inputs.append(implicit_account_creation_fee);
-            inputs.append(may_use_token);
-            inputs.append(authorization_kind);
+            inputs.append(body);
         }
     }
 
     impl AccountUpdate {
+        // TODO: mainnet: MainnetZkappBody
+        pub const HASH_PARAM: &'static str = "TestnetZkappBody";
+
         /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/mina_base/account_update.ml#L1538
         /// https://github.com/MinaProtocol/mina/blob/2ff0292b637684ce0372e7b8e23ec85404dc5091/src/lib/mina_base/account_update.ml#L1465
         pub fn of_fee_payer(fee_payer: FeePayer) -> Self {
@@ -2157,7 +2857,7 @@ pub mod zkapp_command {
         /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/account_update.ml#L1327
         pub fn digest(&self) -> Fp {
             // TODO: mainnet: "MainnetZkappBody"
-            self.hash_with_param("TestnetZkappBody")
+            self.hash_with_param(AccountUpdate::HASH_PARAM)
         }
 
         pub fn timing(&self) -> SetOrKeep<Timing> {
@@ -2194,7 +2894,7 @@ pub mod zkapp_command {
             _will_succeed: bool,
             _commitment: Fp,
             _calls: CallForest<AccountUpdate>,
-        ) -> CheckAuthorizationResult {
+        ) -> CheckAuthorizationResult<bool> {
             match self.authorization {
                 Control::Signature(_) => CheckAuthorizationResult {
                     proof_verifies: false,
@@ -2474,6 +3174,8 @@ pub mod zkapp_command {
     }
 
     impl<AccUpdate: Clone> Tree<AccUpdate> {
+        pub const HASH_PARAM: &'static str = "MinaAcctUpdateNode";
+
         pub fn digest(&self) -> Fp {
             let stack_hash = match self.calls.0.first() {
                 Some(e) => e.stack_hash,
@@ -2483,10 +3185,7 @@ pub mod zkapp_command {
             // self.account_update_digest should have been updated in `CallForest::accumulate_hashes`
             assert_ne!(self.account_update_digest, Fp::zero());
 
-            hash_with_kimchi(
-                "MinaAcctUpdateNode",
-                &[self.account_update_digest, stack_hash],
-            )
+            hash_with_kimchi(Self::HASH_PARAM, &[self.account_update_digest, stack_hash])
         }
 
         fn fold<F>(&self, init: Vec<AccountId>, f: &mut F) -> Vec<AccountId>
@@ -2520,9 +3219,15 @@ pub mod zkapp_command {
         this: TokenId,
     }
 
+    pub const ACCOUNT_UPDATE_CONS_HASH_PARAM: &'static str = "MinaAcctUpdateCons";
+
     impl<AccUpdate: Clone> CallForest<AccUpdate> {
         pub fn new() -> Self {
             Self(Vec::new())
+        }
+
+        pub fn empty() -> Self {
+            Self::new()
         }
 
         pub fn is_empty(&self) -> bool {
@@ -2535,6 +3240,14 @@ pub mod zkapp_command {
         pub fn iter(&self) -> impl Iterator<Item = &WithStackHash<AccUpdate>> {
             self.0.iter() //.rev()
         }
+        // Warning: Update this if we ever change the order
+        pub fn first(&self) -> Option<&WithStackHash<AccUpdate>> {
+            self.0.first()
+        }
+        // Warning: Update this if we ever change the order
+        pub fn tail(&self) -> Option<&[WithStackHash<AccUpdate>]> {
+            self.0.get(1..)
+        }
 
         pub fn hash(&self) -> Fp {
             /*
@@ -2543,7 +3256,7 @@ pub mod zkapp_command {
             }
             */
 
-            if let Some(x) = self.0.first() {
+            if let Some(x) = self.first() {
                 x.stack_hash
             } else {
                 Fp::zero()
@@ -2554,7 +3267,7 @@ pub mod zkapp_command {
             let hash = tree.digest();
             let h_tl = self.hash();
 
-            let stack_hash = hash_with_kimchi("MinaAcctUpdateCons", &[hash, h_tl]);
+            let stack_hash = hash_with_kimchi(ACCOUNT_UPDATE_CONS_HASH_PARAM, &[hash, h_tl]);
             let node = WithStackHash::<AccUpdate> {
                 elt: tree,
                 stack_hash,
@@ -2755,7 +3468,7 @@ pub mod zkapp_command {
         {
             /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_command.ml#L293
             fn cons(hash: Fp, h_tl: Fp) -> Fp {
-                hash_with_kimchi("MinaAcctUpdateCons", &[hash, h_tl])
+                hash_with_kimchi(ACCOUNT_UPDATE_CONS_HASH_PARAM, &[hash, h_tl])
             }
 
             /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_command.ml#L561
@@ -2933,6 +3646,21 @@ pub mod zkapp_command {
             fee_payer.authorization = Control::Signature(p.authorization.clone());
 
             self.account_updates.cons(None, fee_payer)
+        }
+
+        pub fn all_account_updates_list(&self) -> Vec<AccountUpdate> {
+            let mut account_updates = Vec::with_capacity(16);
+            account_updates.push(AccountUpdate::of_fee_payer(self.fee_payer.clone()));
+
+            self.account_updates.fold(account_updates, |mut acc, u| {
+                acc.push(u.clone());
+                acc
+            })
+        }
+
+        pub fn commitment(&self) -> TransactionCommitment {
+            let account_updates_hash = self.account_updates_hash();
+            TransactionCommitment::create(account_updates_hash)
         }
     }
 
@@ -3238,7 +3966,7 @@ pub mod zkapp_command {
 
 pub mod zkapp_statement {
     use super::{
-        zkapp_command::{CallForest, Tree},
+        zkapp_command::{CallForest, Tree, ACCOUNT_UPDATE_CONS_HASH_PARAM},
         *,
     };
 
@@ -3254,9 +3982,13 @@ pub mod zkapp_statement {
         /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/mina_base/zkapp_command.ml#L1368
         pub fn create_complete(&self, memo_hash: Fp, fee_payer_hash: Fp) -> Self {
             Self(hash_with_kimchi(
-                "MinaAcctUpdateCons",
+                ACCOUNT_UPDATE_CONS_HASH_PARAM,
                 &[memo_hash, fee_payer_hash, self.0],
             ))
+        }
+
+        pub fn empty() -> Self {
+            Self(Fp::zero())
         }
     }
 
@@ -3280,8 +4012,8 @@ pub mod zkapp_statement {
 
     #[derive(Clone, Debug)]
     pub struct ZkappStatement {
-        account_update: TransactionCommitment,
-        calls: TransactionCommitment,
+        pub account_update: TransactionCommitment,
+        pub calls: TransactionCommitment,
     }
 
     impl ZkappStatement {
@@ -3850,9 +4582,9 @@ pub mod transaction_witness {
 }
 
 pub mod protocol_state {
-    use mina_p2p_messages::v2::MinaStateProtocolStateValueStableV2;
+    use mina_p2p_messages::v2::{self, MinaStateProtocolStateValueStableV2};
 
-    use crate::proofs::witness::FieldWitness;
+    use crate::proofs::field::FieldWitness;
 
     use super::*;
 
@@ -3884,15 +4616,25 @@ pub mod protocol_state {
 
     /// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/mina_state/protocol_state.ml#L180
     pub fn protocol_state_view(state: &MinaStateProtocolStateValueStableV2) -> ProtocolStateView {
-        let cs = &state.body.consensus_state;
+        let MinaStateProtocolStateValueStableV2 {
+            previous_state_hash: _,
+            body,
+        } = state;
+
+        protocol_state_body_view(body)
+    }
+
+    pub fn protocol_state_body_view(
+        body: &v2::MinaStateProtocolStateBodyValueStableV2,
+    ) -> ProtocolStateView {
+        let cs = &body.consensus_state;
         let sed = &cs.staking_epoch_data;
-        let ned = &cs.staking_epoch_data;
+        let ned = &cs.next_epoch_data;
 
         ProtocolStateView {
             // https://github.com/MinaProtocol/mina/blob/436023ba41c43a50458a551b7ef7a9ae61670b25/src/lib/mina_state/blockchain_state.ml#L58
             //
-            snarked_ledger_hash: state
-                .body
+            snarked_ledger_hash: body
                 .blockchain_state
                 .ledger_proof_statement
                 .target
@@ -3925,12 +4667,14 @@ pub mod protocol_state {
         }
     }
 
+    pub type GlobalState<L> = GlobalStateSkeleton<L, Signed<Amount>, Slot>;
+
     #[derive(Debug, Clone)]
-    pub struct GlobalState<L: LedgerIntf + Clone> {
+    pub struct GlobalStateSkeleton<L, SignedAmount, Slot> {
         pub first_pass_ledger: L,
         pub second_pass_ledger: L,
-        pub fee_excess: Signed<Amount>,
-        pub supply_increase: Signed<Amount>,
+        pub fee_excess: SignedAmount,
+        pub supply_increase: SignedAmount,
         pub protocol_state: ProtocolStateView,
         /// Slot of block when the transaction is applied.
         /// NOTE: This is at least 1 slot after the protocol_state's view,
@@ -3994,11 +4738,21 @@ pub mod protocol_state {
 }
 
 pub mod local_state {
+    use std::{cell::RefCell, rc::Rc};
+
     use ark_ff::Zero;
 
     use crate::{
         hash_with_kimchi,
+        proofs::{
+            field::{field, Boolean, ToBoolean},
+            numbers::nat::CheckedNat,
+            to_field_elements::ToFieldElements,
+        },
         scan_state::currency::{Index, Signed},
+        zkapps::intefaces::{
+            CallStackInterface, IndexInterface, SignedAmountInterface, StackFrameInterface,
+        },
         Inputs, ToInputs,
     };
 
@@ -4010,6 +4764,156 @@ pub mod local_state {
         pub caller_caller: TokenId,
         pub calls: CallForest<AccountUpdate>, // TODO
     }
+
+    // https://github.com/MinaProtocol/mina/blob/78535ae3a73e0e90c5f66155365a934a15535779/src/lib/transaction_snark/transaction_snark.ml#L1081
+    #[derive(Debug, Clone)]
+    pub struct StackFrameCheckedFrame {
+        pub caller: TokenId,
+        pub caller_caller: TokenId,
+        pub calls: WithHash<CallForest<AccountUpdate>>,
+        /// Hack until we have proper cvar
+        pub is_default: bool,
+    }
+
+    impl ToFieldElements<Fp> for StackFrameCheckedFrame {
+        fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+            let Self {
+                caller,
+                caller_caller,
+                calls,
+                is_default: _,
+            } = self;
+
+            // calls.hash().to_field_elements(fields);
+            calls.hash.to_field_elements(fields);
+            caller_caller.to_field_elements(fields);
+            caller.to_field_elements(fields);
+        }
+    }
+
+    enum LazyValueInner<T, D> {
+        Value(T),
+        Fun(Box<dyn FnOnce(&mut D) -> T>),
+        None,
+    }
+
+    impl<T, D> Default for LazyValueInner<T, D> {
+        fn default() -> Self {
+            Self::None
+        }
+    }
+
+    pub struct LazyValue<T, D> {
+        value: Rc<RefCell<LazyValueInner<T, D>>>,
+    }
+
+    impl<T, D> Clone for LazyValue<T, D> {
+        fn clone(&self) -> Self {
+            Self {
+                value: Rc::clone(&self.value),
+            }
+        }
+    }
+
+    impl<T: std::fmt::Debug, D> std::fmt::Debug for LazyValue<T, D> {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            let v = self.try_get();
+            f.debug_struct("LazyValue").field("value", &v).finish()
+        }
+    }
+
+    impl<T, D> LazyValue<T, D> {
+        pub fn make<F>(fun: F) -> Self
+        where
+            F: FnOnce(&mut D) -> T + 'static,
+        {
+            Self {
+                value: Rc::new(RefCell::new(LazyValueInner::Fun(Box::new(fun)))),
+            }
+        }
+
+        fn get_impl(&self) -> std::cell::Ref<'_, T> {
+            use std::cell::Ref;
+
+            let inner = self.value.borrow();
+            Ref::map(inner, |inner| {
+                let LazyValueInner::Value(value) = inner else {
+                    panic!("invalid state");
+                };
+                value
+            })
+        }
+
+        /// Returns the value when it already has been "computed"
+        pub fn try_get(&self) -> Option<std::cell::Ref<'_, T>> {
+            let inner = self.value.borrow();
+
+            match &*inner {
+                LazyValueInner::Value(_) => {}
+                LazyValueInner::Fun(_) => return None,
+                LazyValueInner::None => panic!("invalid state"),
+            }
+
+            Some(self.get_impl())
+        }
+
+        pub fn get(&self, data: &mut D) -> std::cell::Ref<'_, T> {
+            let v = self.value.borrow();
+
+            if let LazyValueInner::Fun(_) = &*v {
+                std::mem::drop(v);
+
+                let LazyValueInner::Fun(fun) = self.value.take() else {
+                    panic!("invalid state");
+                };
+
+                let data = fun(data);
+                self.value.replace(LazyValueInner::Value(data));
+            };
+
+            self.get_impl()
+        }
+    }
+
+    #[derive(Clone, Debug)]
+    pub struct WithLazyHash<T> {
+        pub data: T,
+        hash: LazyValue<Fp, Witness<Fp>>,
+    }
+
+    impl<T> WithLazyHash<T> {
+        pub fn new<F>(data: T, fun: F) -> Self
+        where
+            F: FnOnce(&mut Witness<Fp>) -> Fp + 'static,
+        {
+            Self {
+                data,
+                hash: LazyValue::make(fun),
+            }
+        }
+
+        pub fn hash(&self, w: &mut Witness<Fp>) -> Fp {
+            *self.hash.get(w)
+        }
+    }
+
+    impl<T> std::ops::Deref for WithLazyHash<T> {
+        type Target = T;
+
+        fn deref(&self) -> &Self::Target {
+            &self.data
+        }
+    }
+
+    impl<T> ToFieldElements<Fp> for WithLazyHash<T> {
+        fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+            let hash = self.hash.try_get().expect("hash hasn't been computed yet");
+            hash.to_field_elements(fields)
+        }
+    }
+
+    // https://github.com/MinaProtocol/mina/blob/78535ae3a73e0e90c5f66155365a934a15535779/src/lib/transaction_snark/transaction_snark.ml#L1083
+    pub type StackFrameChecked = WithLazyHash<StackFrameCheckedFrame>;
 
     impl Default for StackFrame {
         fn default() -> Self {
@@ -4047,10 +4951,69 @@ pub mod local_state {
 
             hash_with_kimchi("MinaAcctUpdStckFrm", &inputs.to_fields())
         }
+
+        pub fn digest(&self) -> Fp {
+            self.hash()
+        }
+
+        pub fn unhash(&self, _h: Fp, w: &mut Witness<Fp>) -> StackFrameChecked {
+            let v = self.exists_elt(w);
+            v.hash(w);
+            v
+        }
+
+        pub fn exists_elt(&self, w: &mut Witness<Fp>) -> StackFrameChecked {
+            // We decompose this way because of OCaml evaluation order
+            let calls = WithHash {
+                data: self.calls.clone(),
+                hash: w.exists(self.calls.hash()),
+            };
+            let caller_caller = w.exists(self.caller_caller.clone());
+            let caller = w.exists(self.caller.clone());
+
+            let frame = StackFrameCheckedFrame {
+                caller,
+                caller_caller,
+                calls,
+                is_default: false,
+            };
+
+            StackFrameChecked::of_frame(frame)
+        }
+    }
+
+    impl StackFrameCheckedFrame {
+        pub fn hash(&self, w: &mut Witness<Fp>) -> Fp {
+            let mut inputs = Inputs::new();
+
+            inputs.append(&self.caller);
+            inputs.append(&self.caller_caller.0);
+            inputs.append(&self.calls.hash);
+
+            let fields = inputs.to_fields();
+
+            if self.is_default {
+                use crate::proofs::transaction::transaction_snark::checked_hash3;
+                checked_hash3("MinaAcctUpdStckFrm", &fields, w)
+            } else {
+                use crate::proofs::transaction::transaction_snark::checked_hash;
+                checked_hash("MinaAcctUpdStckFrm", &fields, w)
+            }
+        }
+    }
+
+    impl StackFrameChecked {
+        pub fn of_frame(frame: StackFrameCheckedFrame) -> Self {
+            // TODO: Don't clone here
+            let frame2 = frame.clone();
+            let hash = LazyValue::make(move |w: &mut Witness<Fp>| frame2.hash(w));
+
+            Self { data: frame, hash }
+        }
     }
 
     #[derive(Debug, Clone)]
-    pub struct CallStack(Vec<StackFrame>);
+    pub struct CallStack(pub Vec<StackFrame>);
 
     impl Default for CallStack {
         fn default() -> Self {
@@ -4096,20 +5059,40 @@ pub mod local_state {
     /// One with concrete types for the stack frame, call stack, and ledger. Created from the Env
     /// And the other with their hashes. To differentiate them I renamed the first LocalStateEnv
     /// Maybe a better solution is to keep the LocalState name and put it under a different module
+    pub type LocalStateEnv<L> = LocalStateSkeleton<
+        L,                            // ledger
+        StackFrame,                   // stack_frame
+        CallStack,                    // call_stack
+        ReceiptChainHash,             // commitments
+        Signed<Amount>,               // excess & supply_increase
+        Vec<Vec<TransactionFailure>>, // failure_status_tbl
+        bool,                         // success & will_succeed
+        Index,                        // account_update_index
+    >;
+
     #[derive(Debug, Clone)]
-    pub struct LocalStateEnv<L: LedgerIntf + Clone> {
+    pub struct LocalStateSkeleton<
+        L: LedgerIntf + Clone,
+        StackFrame: StackFrameInterface,
+        CallStack: CallStackInterface,
+        TC,
+        SignedAmount: SignedAmountInterface,
+        FailuresTable,
+        Bool,
+        Index: IndexInterface,
+    > {
         pub stack_frame: StackFrame,
         pub call_stack: CallStack,
-        pub transaction_commitment: ReceiptChainHash,
-        pub full_transaction_commitment: ReceiptChainHash,
-        pub excess: Signed<Amount>,
-        pub supply_increase: Signed<Amount>,
+        pub transaction_commitment: TC,
+        pub full_transaction_commitment: TC,
+        pub excess: SignedAmount,
+        pub supply_increase: SignedAmount,
         pub ledger: L,
-        pub success: bool,
+        pub success: Bool,
         pub account_update_index: Index,
         // TODO: optimize by reversing the insertion order
-        pub failure_status_tbl: Vec<Vec<TransactionFailure>>,
-        pub will_succeed: bool,
+        pub failure_status_tbl: FailuresTable,
+        pub will_succeed: Bool,
     }
 
     impl<L: LedgerIntf + Clone> LocalStateEnv<L> {
@@ -4196,7 +5179,7 @@ pub mod local_state {
                 supply_increase: Signed::<Amount>::zero(),
                 ledger: Fp::zero(),
                 success: true,
-                account_update_index: Index::zero(),
+                account_update_index: <Index as Magnitude>::zero(),
                 failure_status_tbl: Vec::new(),
                 will_succeed: true,
             }
@@ -4232,8 +5215,80 @@ pub mod local_state {
                 && failure_status_tbl == &other.failure_status_tbl
                 && will_succeed == &other.will_succeed
         }
+
+        pub fn checked_equal_prime(&self, other: &Self, w: &mut Witness<Fp>) -> [Boolean; 11] {
+            let Self {
+                stack_frame,
+                call_stack,
+                transaction_commitment,
+                full_transaction_commitment,
+                excess,
+                supply_increase,
+                ledger,
+                success,
+                account_update_index,
+                failure_status_tbl: _,
+                will_succeed,
+            } = self;
+
+            // { stack_frame : 'stack_frame
+            // ; call_stack : 'call_stack
+            // ; transaction_commitment : 'comm
+            // ; full_transaction_commitment : 'comm
+            // ; excess : 'signed_amount
+            // ; supply_increase : 'signed_amount
+            // ; ledger : 'ledger
+            // ; success : 'bool
+            // ; account_update_index : 'length
+            // ; failure_status_tbl : 'failure_status_tbl
+            // ; will_succeed : 'bool
+            // }
+
+            let mut alls = [
+                field::equal(*stack_frame, other.stack_frame, w),
+                field::equal(*call_stack, other.call_stack, w),
+                field::equal(*transaction_commitment, other.transaction_commitment, w),
+                field::equal(
+                    *full_transaction_commitment,
+                    other.full_transaction_commitment,
+                    w,
+                ),
+                excess
+                    .to_checked::<Fp>()
+                    .equal(&other.excess.to_checked(), w),
+                supply_increase
+                    .to_checked::<Fp>()
+                    .equal(&other.supply_increase.to_checked(), w),
+                field::equal(*ledger, other.ledger, w),
+                success.to_boolean().equal(&other.success.to_boolean(), w),
+                account_update_index
+                    .to_checked::<Fp>()
+                    .equal(&other.account_update_index.to_checked(), w),
+                Boolean::True,
+                will_succeed
+                    .to_boolean()
+                    .equal(&other.will_succeed.to_boolean(), w),
+            ];
+            alls.reverse();
+            alls
+        }
     }
 }
+
+// let equal' (t1 : t) (t2 : t) =
+//   let ( ! ) f x y = Impl.run_checked (f x y) in
+//   let f eq acc f = Core_kernel.Field.(eq (get f t1) (get f t2)) :: acc in
+//   Mina_transaction_logic.Zkapp_command_logic.Local_state.Fields.fold ~init:[]
+//     ~stack_frame:(f Stack_frame.Digest.Checked.equal)
+//     ~call_stack:(f Call_stack_digest.Checked.equal)
+//     ~transaction_commitment:(f Field.equal)
+//     ~full_transaction_commitment:(f Field.equal)
+//     ~excess:(f !Currency.Amount.Signed.Checked.equal)
+//     ~supply_increase:(f !Currency.Amount.Signed.Checked.equal)
+//     ~ledger:(f !Ledger_hash.equal_var) ~success:(f Impl.Boolean.equal)
+//     ~account_update_index:(f !Mina_numbers.Index.Checked.equal)
+//     ~failure_status_tbl:(f (fun () () -> Impl.Boolean.true_))
+//     ~will_succeed:(f Impl.Boolean.equal)
 
 pub enum Eff<L: LedgerIntf + Clone> {
     CheckValidWhilePrecondition(Numeric<Slot>, GlobalState<L>),
@@ -4284,14 +5339,14 @@ where
         match eff {
             Eff::CheckValidWhilePrecondition(valid_while, global_state) => PerformResult::Bool(
                 valid_while
-                    .check(
+                    .zcheck(
                         "valid_while_precondition".to_string(),
                         global_state.block_global_slot,
                     )
                     .is_ok(),
             ),
             Eff::CheckProtocolStatePrecondition(pred, global_state) => {
-                PerformResult::Bool(pred.check(global_state.protocol_state).is_ok())
+                PerformResult::Bool(pred.zcheck(global_state.protocol_state).is_ok())
             }
             Eff::CheckAccountPrecondition(account_update, account, new_account, local_state) => {
                 let local_state = match account_update.body.preconditions.account {
@@ -4305,7 +5360,7 @@ where
                         let check = |failure, b| {
                             _local_state = _local_state.add_check(failure, b);
                         };
-                        precondition_account.check(new_account, check, account);
+                        precondition_account.zcheck(new_account, check, account);
                         _local_state
                     }
                 };
@@ -4381,7 +5436,7 @@ where
 /// apply zkapp command fee payer's while stubbing out the second pass ledger
 /// CAUTION: If you use the intermediate local states, you MUST update the
 ///   [will_succeed] field to [false] if the [status] is [Failed].*)
-fn apply_zkapp_command_first_pass_aux<A, F, L>(
+pub fn apply_zkapp_command_first_pass_aux<A, F, L>(
     constraint_constants: &ConstraintConstants,
     global_slot: Slot,
     state_view: &ProtocolStateView,
@@ -4476,154 +5531,6 @@ where
     Ok((res, user_acc))
 }
 
-// fn apply_zkapp_command_unchecked_aux<L>(
-//     constraint_constants: &ConstraintConstants,
-//     global_slot: Slot,
-//     state_view: &ProtocolStateView,
-//     init: Option<(LocalStateEnv<L>, Signed<Fee>)>,
-//     f: fn(
-//         Option<(LocalStateEnv<L>, Signed<Fee>)>,
-//         (GlobalState<L>, LocalStateEnv<L>),
-//     ) -> Option<(LocalStateEnv<L>, Signed<Fee>)>,
-//     fee_excess: Option<Signed<Fee>>,
-//     ledger: &mut L,
-//     c: &ZkAppCommand,
-// ) -> Result<(ZkappCommandApplied, Option<(LocalStateEnv<L>, Signed<Fee>)>), String>
-// where
-//     L: LedgerIntf + Clone,
-// {
-//     let fee_excess = fee_excess.unwrap_or_else(Signed::<Fee>::zero);
-//     let perform = |eff| Env::perform(eff);
-//     let accounts_accessed = c.accounts_accessed(TransactionStatus::Applied);
-//     let original_account_states = accounts_accessed.iter().map(|id| {
-//         (id, {
-//             let loc = ledger.location_of_account(id);
-//             let account = loc.as_ref().and_then(|loc| ledger.get(loc));
-//             loc.zip(account)
-//         })
-//     });
-
-//     let initial_state = (
-//         GlobalState {
-//             ledger: ledger.clone(),
-//             fee_excess,
-//             protocol_state: state_view.clone(),
-//         },
-//         LocalStateEnv {
-//             stack_frame: StackFrame::default(),
-//             call_stack: CallStack::new(),
-//             transaction_commitment: ReceiptChainHash(Fp::zero()),
-//             full_transaction_commitment: ReceiptChainHash(Fp::zero()),
-//             token_id: TokenId::default(),
-//             excess: Signed::<Fee>::zero(),
-//             ledger: ledger.clone(),
-//             success: true,
-//             account_update_index: Index::zero(),
-//             failure_status_tbl: Vec::new(),
-//         },
-//     );
-
-//     let user_acc = f(init, initial_state.clone());
-//     let start = {
-//         let zkapp_command = c
-//             .account_updates
-//             .cons(None, AccountUpdate::of_fee_payer(c.fee_payer.clone()));
-
-//         apply(
-//             constraint_constants,
-//             IsStart::Yes(StartData {
-//                 zkapp_command,
-//                 memo_hash: c.memo.hash(),
-//             }),
-//             Handler { perform },
-//             initial_state,
-//         )
-//     };
-
-//     let accounts_accessed = c.accounts_accessed(TransactionStatus::Applied);
-
-//     let mut account_states_after_fee_payer = accounts_accessed.iter().map(|id| {
-//         let loc = ledger.location_of_account(id);
-//         let a = loc.as_ref().and_then(|loc| ledger.get(loc));
-
-//         match a {
-//             Some(a) => (id, Some((loc.unwrap(), a))),
-//             None => (id, None),
-//         }
-//     });
-
-//     let _original_account_states = original_account_states.clone();
-//     let accounts = || {
-//         _original_account_states.map(|(id, account)| (id.clone(), account.map(|(_loc, acc)| acc)))
-//     };
-
-//     match step_all(
-//         constraint_constants,
-//         f,
-//         perform,
-//         f(user_acc, start.clone()),
-//         start,
-//     ) {
-//         Err(e) => Err(e),
-//         Ok((s, failure_status_tbl)) => {
-//             let account_ids_originally_not_in_ledger =
-//                 original_account_states.filter_map(|(acct_id, loc_and_acct)| {
-//                     if loc_and_acct.is_none() {
-//                         Some(acct_id)
-//                     } else {
-//                         None
-//                     }
-//                 });
-//             let successfully_applied = failure_status_tbl.is_empty();
-//             let new_accounts = account_ids_originally_not_in_ledger
-//                 .filter_map(|acct_id| {
-//                     let loc = ledger.location_of_account(acct_id);
-//                     let acc = loc.and_then(|loc| ledger.get(&loc));
-//                     match acc {
-//                         Some(acc) if acc.id() == *acct_id => Some(acct_id.clone()),
-//                         _ => None,
-//                     }
-//                 })
-//                 .collect::<Vec<AccountId>>();
-
-//             let valid_result = Ok((
-//                 ZkappCommandApplied {
-//                     accounts: accounts().collect(),
-//                     command: WithStatus::<ZkAppCommand> {
-//                         data: c.clone(),
-//                         status: if successfully_applied {
-//                             TransactionStatus::Applied
-//                         } else {
-//                             TransactionStatus::Failed(failure_status_tbl)
-//                         },
-//                     },
-//                     new_accounts: new_accounts.clone(),
-//                 },
-//                 s,
-//             ));
-
-//             if successfully_applied {
-//                 valid_result
-//             } else {
-//                 let other_account_update_accounts_unchanged = account_states_after_fee_payer
-//                     .fold_while(true, |acc, (_, loc_opt)| match loc_opt {
-//                         Some((loc, a)) => match ledger.get(&loc) {
-//                             Some(a_) if !(a == a_) => Done(false),
-//                             _ => Continue(acc),
-//                         },
-//                         _ => Continue(acc),
-//                     })
-//                     .into_inner();
-//                 if new_accounts.is_empty() && other_account_update_accounts_unchanged {
-//                     valid_result
-//                 } else {
-//                     Err("Zkapp_command application failed but new accounts created or some of the other account_update updates applied".to_string())
-//                 }
-//             }
-//         }
-//     }
-// }
-
 fn apply_zkapp_command_first_pass<L>(
     constraint_constants: &ConstraintConstants,
     global_slot: Slot,
@@ -4651,7 +5558,7 @@ where
     Ok(partial_stmt)
 }
 
-fn apply_zkapp_command_second_pass_aux<A, F, L>(
+pub fn apply_zkapp_command_second_pass_aux<A, F, L>(
     constraint_constants: &ConstraintConstants,
     init: A,
     f: F,
@@ -6413,6 +7320,23 @@ pub fn cons_signed_command_payload(
     ReceiptChainHash(hasher.digest())
 }
 
+/// Returns the new `receipt_chain_hash`
+pub fn checked_cons_signed_command_payload(
+    payload: &TransactionUnionPayload,
+    last_receipt_chain_hash: ReceiptChainHash,
+    w: &mut Witness<Fp>,
+) -> ReceiptChainHash {
+    use crate::proofs::transaction::legacy_input::CheckedLegacyInput;
+    use crate::proofs::transaction::transaction_snark::checked_legacy_hash;
+
+    let mut inputs = payload.to_checked_legacy_input_owned(w);
+    inputs.append_field(last_receipt_chain_hash.0);
+
+    let receipt_chain_hash = checked_legacy_hash("MinaReceiptUC", inputs, w);
+
+    ReceiptChainHash(receipt_chain_hash)
+}
+
 /// prepend account_update index computed by Zkapp_command_logic.apply
 ///
 /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/mina_base/receipt.ml#L66
@@ -6552,7 +7476,6 @@ fn validate_timing_with_min_balance_impl(
             vesting_increment,
         } => {
             let account_balance = account.balance;
-            let initial_minimum_balance = initial_minimum_balance;
 
             let (invalid_balance, invalid_timing, curr_min_balance) =
                 match account_balance.sub_amount(txn_amount) {
@@ -6564,11 +7487,6 @@ fn validate_timing_with_min_balance_impl(
                         (true, false, *initial_minimum_balance)
                     }
                     Some(proposed_new_balance) => {
-                        let cliff_time = cliff_time;
-                        let cliff_amount = cliff_amount;
-                        let vesting_period = vesting_period;
-                        let vesting_increment = vesting_increment;
-
                         let curr_min_balance = account_min_balance_at_slot(
                             *txn_global_slot,
                             *cliff_time,

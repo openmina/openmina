@@ -94,5 +94,5 @@ pub fn sideloaded_proof() -> Arc<PicklesProofProofsVerifiedMaxStableV2> {
     let mut cursor = std::io::Cursor::new(include_bytes!("sideloaded_proof.bin"));
     let proof = PicklesProofProofsVerifiedMaxStableV2::binprot_read(&mut cursor).unwrap();
 
-    proof.into()
+    Arc::new(proof)
 }

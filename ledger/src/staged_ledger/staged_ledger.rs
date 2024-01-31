@@ -821,7 +821,7 @@ impl StagedLedger {
         match map_opt(job_msg_proofs, |job, msg, proof| {
             ScanState::statement_of_job(&job).map(|s| (proof, s, msg))
         }) {
-            None => Err(format!("Error creating statement from job").into()),
+            None => Err("Error creating statement from job".to_string().into()),
             Some(proof_statement_msgs) => {
                 Self::verify_proofs(logger, verifier, proof_statement_msgs)
             }
@@ -5863,6 +5863,7 @@ mod tests_ocaml {
 mod tests {
     use std::{collections::BTreeMap, fs::File};
 
+    use mina_hasher::Fp;
     use mina_p2p_messages::binprot;
 
     use crate::{
@@ -5878,7 +5879,7 @@ mod tests {
             staged_ledger::{tests_ocaml::CONSTRAINT_CONSTANTS, StagedLedger},
             validate_block::validate_block,
         },
-        verifier::{Verifier, SRS},
+        verifier::{get_srs, Verifier},
         Account, BaseLedger, Database, Mask,
     };
     use binprot::BinProtRead;
@@ -6027,7 +6028,8 @@ mod tests {
 
         dbg!(staged_ledger.ledger.nmasks_to_root());
 
-        let srs = SRS.as_ref();
+        let srs = get_srs::<Fp>();
+        let srs = srs.lock().unwrap();
 
         for (index, block) in blocks.into_iter().enumerate() {
             validate_block(&block).unwrap();
@@ -6049,7 +6051,7 @@ mod tests {
                 .global_slot_since_genesis
                 .as_u32();
 
-            crate::proofs::verification::verify_block(&block.header, &block_verifier, srs);
+            crate::proofs::verification::verify_block(&block.header, &block_verifier, &srs);
 
             let diff: Diff = (&block.body.staged_ledger_diff).into();
 

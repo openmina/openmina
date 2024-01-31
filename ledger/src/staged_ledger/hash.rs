@@ -2,9 +2,7 @@ use ark_ff::{PrimeField, ToBytes};
 use mina_hasher::Fp;
 use sha2::{Digest, Sha256};
 
-use crate::{
-    proofs::witness::FieldWitness, scan_state::pending_coinbase::PendingCoinbase, ToInputs,
-};
+use crate::{proofs::field::FieldWitness, scan_state::pending_coinbase::PendingCoinbase, ToInputs};
 
 /// Convert to/from OCaml strings, such as
 /// "u~\218kzX\228$\027qG\239\135\255:\143\171\186\011\200P\243\163\135\223T>\017\172\254\1906"

@@ -1,12 +1,19 @@
-use std::{array::IntoIter, str::FromStr};
+use std::array::IntoIter;
 
-use ark_ff::Field;
-use mina_curves::pasta::Fq;
-use mina_hasher::Fp;
+use ark_ff::{BigInteger256, Field};
+
+use crate::proofs::{field::FieldWitness, transaction::endos};
 
 #[derive(Clone, Debug)]
 pub struct ScalarChallenge {
     pub inner: [u64; 2],
+}
+
+impl<F: FieldWitness> From<F> for ScalarChallenge {
+    fn from(value: F) -> Self {
+        let bigint: BigInteger256 = value.into();
+        Self::new(bigint.0[0], bigint.0[1])
+    }
 }
 
 impl From<[u64; 2]> for ScalarChallenge {
@@ -35,25 +42,13 @@ impl Iterator for ScalarChallengeBitsIterator {
     }
 }
 
-pub fn endo_fp() -> Fp {
-    // That's a constant but it seems to be computed somewhere.
-    // TODO: Find where it's computed
-    // https://github.com/MinaProtocol/mina/blob/32a91613c388a71f875581ad72276e762242f802/src/lib/pickles/endo.ml#L9
-    Fp::from_str("8503465768106391777493614032514048814691664078728891710322960303815233784505")
-        .unwrap()
-}
-
-pub fn endo_fq() -> Fq {
-    // That's a constant but it seems to be computed somewhere.
-    // TODO: Find where it's computed
-    // https://github.com/MinaProtocol/mina/blob/32a91613c388a71f875581ad72276e762242f802/src/lib/pickles/endo.ml#L20
-    Fq::from_str("26005156700822196841419187675678338661165322343552424574062261873906994770353")
-        .unwrap()
-}
-
 impl ScalarChallenge {
     pub fn new(a: u64, b: u64) -> Self {
         Self { inner: [a, b] }
+    }
+
+    pub fn dummy() -> Self {
+        Self::new(1, 1)
     }
 
     fn iter_bits(&self) -> ScalarChallengeBitsIterator {
@@ -97,6 +92,16 @@ impl ScalarChallenge {
 
         (a * endo) + b
     }
+
+    pub fn array_to_fields<F: FieldWitness, const N: usize>(array: &[F; N]) -> [F; N] {
+        let (_, endo) = endos::<F::Scalar>();
+        std::array::from_fn(|i| Self::from(array[i]).to_field(&endo))
+    }
+
+    pub fn limbs_to_field<F: FieldWitness>(limbs: &[u64; 2]) -> F {
+        let (_, endo) = endos::<F::Scalar>();
+        Self::from(*limbs).to_field(&endo)
+    }
 }
 
 #[cfg(test)]
@@ -104,6 +109,9 @@ mod tests {
     use crate::util::FpExt;
 
     use super::*;
+
+    use mina_curves::pasta::Fq;
+    use mina_hasher::Fp;
 
     #[cfg(target_family = "wasm")]
     use wasm_bindgen_test::wasm_bindgen_test as test;
@@ -130,7 +138,7 @@ mod tests {
             ScalarChallenge::new(7895667244538374865i64 as u64,-7599583809327744882i64 as u64),
         ];
 
-        let endo = endo_fp();
+        let (_, endo) = crate::proofs::transaction::endos::<Fq>();
 
         let challenges: Vec<_> = scalar_challenges
             .iter()
@@ -181,7 +189,7 @@ mod tests {
             ScalarChallenge::new(-1805085648820294365i64 as u64,4705625510417283644i64 as u64),
         ];
 
-        let endo = endo_fq();
+        let (_, endo) = crate::proofs::transaction::endos::<Fp>();
 
         let challenges: Vec<_> = scalar_challenges
             .iter()

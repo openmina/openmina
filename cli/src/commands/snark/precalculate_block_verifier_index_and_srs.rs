@@ -20,7 +20,11 @@ impl PrecalculateBlockVerifierIndexAndSrs {
         hasher.update(&verifier_index);
         let index_hash = hex::encode(hasher.finalize());
 
-        let srs = srs_to_bytes(&get_srs());
+        let srs = {
+            let srs = get_srs();
+            let srs = srs.lock().expect("Failed to lock SRS");
+            srs_to_bytes(&srs)
+        };
         let mut hasher = Sha256::new();
         hasher.update(&srs);
         let srs_hash = hex::encode(hasher.finalize());

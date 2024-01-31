@@ -1,6 +1,8 @@
 #![allow(clippy::type_complexity)]
 
+use ark_ec::short_weierstrass_jacobian::GroupAffine;
 use ark_ff::Field;
+use mina_hasher::Fp;
 use mina_p2p_messages::{
     bigint::BigInt,
     binprot,
@@ -15,9 +17,13 @@ use mina_p2p_messages::{
 };
 
 use crate::{
+    proofs::{
+        field::FieldWitness,
+        transaction::{make_group, InnerCurve, PlonkVerificationKeyEvals},
+    },
     scan_state::currency::{Amount, Balance, Nonce, Slot, SlotSpan},
-    CurveAffine, Permissions, PlonkVerificationKeyEvals, ProofVerified, ReceiptChainHash, Timing,
-    TokenSymbol, VerificationKey, VotingFor, ZkAppAccount,
+    Permissions, ProofVerified, ReceiptChainHash, Timing, TokenSymbol, VerificationKey, VotingFor,
+    ZkAppAccount,
 };
 
 use super::{Account, AccountId, AuthRequired, TokenId};
@@ -48,39 +54,41 @@ impl From<TokenId> for TokenIdKeyHash {
     }
 }
 
-impl<F> From<(BigInt, BigInt)> for CurveAffine<F>
+impl<F: FieldWitness> From<(BigInt, BigInt)> for InnerCurve<F>
 where
     F: Field + From<BigInt>,
 {
-    fn from((a, b): (BigInt, BigInt)) -> Self {
-        Self(a.into(), b.into())
+    fn from((x, y): (BigInt, BigInt)) -> Self {
+        Self::of_affine(make_group::<F>(x.to_field(), y.to_field()))
     }
 }
 
-impl<F> From<CurveAffine<F>> for (BigInt, BigInt)
+impl<F: FieldWitness> From<InnerCurve<F>> for (BigInt, BigInt)
 where
     F: Field + Into<BigInt>,
 {
-    fn from(fps: CurveAffine<F>) -> Self {
-        (fps.0.into(), fps.1.into())
+    fn from(fps: InnerCurve<F>) -> Self {
+        let GroupAffine { x, y, .. } = fps.to_affine();
+        (x.into(), y.into())
     }
 }
 
-impl<F> From<&(BigInt, BigInt)> for CurveAffine<F>
+impl<F: FieldWitness> From<&(BigInt, BigInt)> for InnerCurve<F>
 where
     F: Field + From<BigInt>,
 {
-    fn from((a, b): &(BigInt, BigInt)) -> Self {
-        Self(a.to_field(), b.to_field())
+    fn from((x, y): &(BigInt, BigInt)) -> Self {
+        Self::of_affine(make_group::<F>(x.to_field(), y.to_field()))
     }
 }
 
-impl<F> From<&CurveAffine<F>> for (BigInt, BigInt)
+impl<F: FieldWitness> From<&InnerCurve<F>> for (BigInt, BigInt)
 where
     F: Field + Into<BigInt>,
 {
-    fn from(fps: &CurveAffine<F>) -> Self {
-        (fps.0.into(), fps.1.into())
+    fn from(fps: &InnerCurve<F>) -> Self {
+        let GroupAffine { x, y, .. } = fps.to_affine();
+        (x.into(), y.into())
     }
 }
 
@@ -304,22 +312,22 @@ impl From<&AuthRequired> for mina_p2p_messages::v2::MinaBasePermissionsAuthRequi
     }
 }
 
-impl From<&PlonkVerificationKeyEvals>
+impl From<&PlonkVerificationKeyEvals<Fp>>
     for mina_p2p_messages::v2::MinaBaseVerificationKeyWireStableV1WrapIndex
 {
-    fn from(vk: &PlonkVerificationKeyEvals) -> Self {
+    fn from(vk: &PlonkVerificationKeyEvals<Fp>) -> Self {
         let sigma = PaddedSeq(array_into(&vk.sigma));
         let coef = PaddedSeq(array_into(&vk.coefficients));
 
         Self {
             sigma_comm: sigma,
             coefficients_comm: coef,
-            generic_comm: vk.generic.into(),
-            psm_comm: vk.psm.into(),
-            complete_add_comm: vk.complete_add.into(),
-            mul_comm: vk.mul.into(),
-            emul_comm: vk.emul.into(),
-            endomul_scalar_comm: vk.endomul_scalar.into(),
+            generic_comm: (&vk.generic).into(),
+            psm_comm: (&vk.psm).into(),
+            complete_add_comm: (&vk.complete_add).into(),
+            mul_comm: (&vk.mul).into(),
+            emul_comm: (&vk.emul).into(),
+            endomul_scalar_comm: (&vk.endomul_scalar).into(),
         }
     }
 }

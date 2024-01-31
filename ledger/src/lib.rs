@@ -4,6 +4,7 @@
 #![allow(clippy::uninlined_format_args)]
 #![allow(clippy::len_without_is_empty)]
 #![allow(clippy::result_unit_err)]
+// #![forbid(clippy::needless_pass_by_ref_mut)]
 
 // Unused, we don't want to print on stdout
 // /// Print logs on stdout with the prefix `[ledger]`
@@ -33,6 +34,9 @@ mod wasm {
     wasm_bindgen_test_configure!(run_in_browser);
 }
 
+#[macro_use]
+mod cache;
+
 #[cfg(all(not(target_family = "wasm"), feature = "ocaml-interop"))]
 mod ffi;
 
@@ -58,6 +62,7 @@ mod tree;
 mod tree_version;
 mod util;
 pub mod verifier;
+pub mod zkapps;
 
 pub use account::*;
 pub use address::*;

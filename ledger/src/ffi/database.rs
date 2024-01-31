@@ -11,6 +11,7 @@ use std::{
 use ark_ff::BigInteger256;
 use binprot::BinProtWrite;
 use mina_hasher::Fp;
+use mina_p2p_messages::binprot;
 use mina_p2p_messages::{
     bigint::BigInt,
     v2::{MinaBaseAccountUpdateTStableV1, NonZeroCurvePointUncompressedStableV1},

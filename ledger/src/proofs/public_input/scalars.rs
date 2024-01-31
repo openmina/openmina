@@ -1,6 +1,9 @@
 use ark_ff::{BigInteger256, Field, FromBytes};
 use kimchi::proof::ProofEvaluations;
+use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
+
+use crate::proofs::field::FieldWitness;
 
 use super::plonk_checks::NPOWERS_OF_ALPHA;
 
@@ -50,7 +53,7 @@ where
     bigint.into()
 }
 
-fn field(s: &str) -> Fp {
+fn field<F: FieldWitness>(s: &str) -> F {
     field_from_hex(s)
 }
 
@@ -75,15 +78,16 @@ where
 
 #[allow(clippy::double_parens)]
 #[allow(unused_parens)]
-pub fn complete_add(
-    evals: &ProofEvaluations<[Fp; 2]>,
-    powers_of_alpha: &[Fp; NPOWERS_OF_ALPHA],
-) -> Fp {
+pub fn complete_add<F: FieldWitness>(
+    evals: &ProofEvaluations<[F; 2]>,
+    powers_of_alpha: &[F; NPOWERS_OF_ALPHA],
+) -> F {
     use Column::*;
     use CurrOrNext::*;
 
     let var = get_var(evals);
     let alpha_pow = |i: usize| powers_of_alpha[i];
+    let field = field::<F>;
 
     // Auto-generated code with the test `generate_plonk`
     let x_0 = { (cell(var(Witness(2), Curr)) - cell(var(Witness(0), Curr))) };
@@ -117,15 +121,16 @@ pub fn complete_add(
 
 #[allow(clippy::double_parens)]
 #[allow(unused_parens)]
-pub fn var_base_mul(
-    evals: &ProofEvaluations<[Fp; 2]>,
-    powers_of_alpha: &[Fp; NPOWERS_OF_ALPHA],
-) -> Fp {
+pub fn var_base_mul<F: FieldWitness>(
+    evals: &ProofEvaluations<[F; 2]>,
+    powers_of_alpha: &[F; NPOWERS_OF_ALPHA],
+) -> F {
     use Column::*;
     use CurrOrNext::*;
 
     let var = get_var(evals);
     let alpha_pow = |i: usize| powers_of_alpha[i];
+    let field = field::<F>;
 
     // Auto-generated code with the test `generate_plonk`
     let x_0 = { (cell(var(Witness(7), Next)) * cell(var(Witness(7), Next))) };
@@ -313,13 +318,17 @@ pub fn var_base_mul(
 
 #[allow(clippy::double_parens)]
 #[allow(unused_parens)]
-pub fn endo_mul(evals: &ProofEvaluations<[Fp; 2]>, powers_of_alpha: &[Fp; NPOWERS_OF_ALPHA]) -> Fp {
+pub fn endo_mul<F: FieldWitness>(
+    evals: &ProofEvaluations<[F; 2]>,
+    powers_of_alpha: &[F; NPOWERS_OF_ALPHA],
+) -> F {
     use Column::*;
     use CurrOrNext::*;
 
     let var = get_var(evals);
     let alpha_pow = |i: usize| powers_of_alpha[i];
-    let endo_coefficient: Fp = mina_poseidon::sponge::endo_coefficient();
+    let endo_coefficient: F = mina_poseidon::sponge::endo_coefficient();
+    let field = field::<F>;
 
     // Auto-generated code with the test `generate_plonk`
     let x_0 = {
@@ -391,15 +400,35 @@ pub fn endo_mul(evals: &ProofEvaluations<[Fp; 2]>, powers_of_alpha: &[Fp; NPOWER
                 - cell(var(Witness(6), Next)))))
 }
 
+pub fn endo_mul_scalar<F: FieldWitness>(
+    evals: &ProofEvaluations<[F; 2]>,
+    powers_of_alpha: &[F; NPOWERS_OF_ALPHA],
+) -> F {
+    use std::any::TypeId;
+
+    // TODO: Might use a Trait here
+    if TypeId::of::<F>() == TypeId::of::<Fp>() {
+        endo_mul_scalar_fp(evals, powers_of_alpha)
+    } else if TypeId::of::<F>() == TypeId::of::<Fq>() {
+        endo_mul_scalar_fq(evals, powers_of_alpha)
+    } else {
+        unimplemented!()
+    }
+}
+
 #[allow(clippy::double_parens)]
 #[allow(unused_parens)]
 #[rustfmt::skip] // See below
-pub fn endo_mul_scalar(evals: &ProofEvaluations<[Fp; 2]>, powers_of_alpha: &[Fp; NPOWERS_OF_ALPHA]) -> Fp {
+fn endo_mul_scalar_fp<F: FieldWitness>(
+    evals: &ProofEvaluations<[F; 2]>,
+    powers_of_alpha: &[F; NPOWERS_OF_ALPHA]
+) -> F {
     use Column::*;
     use CurrOrNext::*;
 
     let var = get_var(evals);
     let alpha_pow = |i: usize| powers_of_alpha[i];
+    let field = field::<F>;
 
     // Auto-generated code with the test `generate_plonk`
     let x_0 = {
@@ -569,12 +598,97 @@ pub fn endo_mul_scalar(evals: &ProofEvaluations<[Fp; 2]>, powers_of_alpha: &[Fp;
      * cell(var(Witness(13), Curr)))))
 }
 
+#[allow(clippy::double_parens)]
+#[allow(unused_parens)]
+#[rustfmt::skip] // See below
+fn endo_mul_scalar_fq<F: FieldWitness>(
+    evals: &ProofEvaluations<[F; 2]>,
+    powers_of_alpha: &[F; NPOWERS_OF_ALPHA],
+) -> F {
+    use Column::*;
+    use CurrOrNext::*;
+
+    let var = get_var(evals);
+    let alpha_pow = |i: usize| powers_of_alpha[i];
+    let field = field::<F>;
+
+    // Auto-generated code with the test `generate_plonk`
+    let x_0 = {
+        (((((field("0x1555555555555555555555555555555560C232FEADDC3849D96CF90B00000001")
+            * cell(var(Witness(6), Curr)))
+            + field("0x2000000000000000000000000000000011234C7E04CA546EC62375907FFFFFFE"))
+            * cell(var(Witness(6), Curr)))
+            + field("0x0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB061197F56EE1C24ECB67C8580000002"))
+            * cell(var(Witness(6), Curr)))
+    };
+    let x_1 = {
+        (((((field("0x1555555555555555555555555555555560C232FEADDC3849D96CF90B00000001")
+            * cell(var(Witness(7), Curr)))
+            + field("0x2000000000000000000000000000000011234C7E04CA546EC62375907FFFFFFE"))
+            * cell(var(Witness(7), Curr)))
+            + field("0x0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB061197F56EE1C24ECB67C8580000002"))
+            * cell(var(Witness(7), Curr)))
+    };
+    let x_2 = {
+        (((((field("0x1555555555555555555555555555555560C232FEADDC3849D96CF90B00000001")
+            * cell(var(Witness(8), Curr)))
+            + field("0x2000000000000000000000000000000011234C7E04CA546EC62375907FFFFFFE"))
+            * cell(var(Witness(8), Curr)))
+            + field("0x0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB061197F56EE1C24ECB67C8580000002"))
+            * cell(var(Witness(8), Curr)))
+    };
+    let x_3 = {
+        (((((field("0x1555555555555555555555555555555560C232FEADDC3849D96CF90B00000001")
+            * cell(var(Witness(9), Curr)))
+            + field("0x2000000000000000000000000000000011234C7E04CA546EC62375907FFFFFFE"))
+            * cell(var(Witness(9), Curr)))
+            + field("0x0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB061197F56EE1C24ECB67C8580000002"))
+            * cell(var(Witness(9), Curr)))
+    };
+    let x_4 = {
+        (((((field("0x1555555555555555555555555555555560C232FEADDC3849D96CF90B00000001")
+            * cell(var(Witness(10), Curr)))
+            + field("0x2000000000000000000000000000000011234C7E04CA546EC62375907FFFFFFE"))
+            * cell(var(Witness(10), Curr)))
+            + field("0x0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB061197F56EE1C24ECB67C8580000002"))
+            * cell(var(Witness(10), Curr)))
+    };
+    let x_5 = {
+        (((((field("0x1555555555555555555555555555555560C232FEADDC3849D96CF90B00000001")
+            * cell(var(Witness(11), Curr)))
+            + field("0x2000000000000000000000000000000011234C7E04CA546EC62375907FFFFFFE"))
+            * cell(var(Witness(11), Curr)))
+            + field("0x0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB061197F56EE1C24ECB67C8580000002"))
+            * cell(var(Witness(11), Curr)))
+    };
+    let x_6 = {
+        (((((field("0x1555555555555555555555555555555560C232FEADDC3849D96CF90B00000001")
+            * cell(var(Witness(12), Curr)))
+            + field("0x2000000000000000000000000000000011234C7E04CA546EC62375907FFFFFFE"))
+            * cell(var(Witness(12), Curr)))
+            + field("0x0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB061197F56EE1C24ECB67C8580000002"))
+            * cell(var(Witness(12), Curr)))
+    };
+    let x_7 = {
+        (((((field("0x1555555555555555555555555555555560C232FEADDC3849D96CF90B00000001")
+            * cell(var(Witness(13), Curr)))
+            + field("0x2000000000000000000000000000000011234C7E04CA546EC62375907FFFFFFE"))
+            * cell(var(Witness(13), Curr)))
+            + field("0x0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB061197F56EE1C24ECB67C8580000002"))
+            * cell(var(Witness(13), Curr)))
+    };
+
+    // Note: `rustfmt` is not able to format that, it runs undefinitely
+    ((((((((((((double(double((double(double((double(double((double(double((double(double((double(double((double(double((double(double(cell(var(Witness(0), Curr)))) + cell(var(Witness(6), Curr))))) + cell(var(Witness(7), Curr))))) + cell(var(Witness(8), Curr))))) + cell(var(Witness(9), Curr))))) + cell(var(Witness(10), Curr))))) + cell(var(Witness(11), Curr))))) + cell(var(Witness(12), Curr))))) + cell(var(Witness(13), Curr))) - cell(var(Witness(1), Curr))) + (alpha_pow(1) * ((double((double((double((double((double((double((double((double(cell(var(Witness(2), Curr))) + x_0)) + x_1)) + x_2)) + x_3)) + x_4)) + x_5)) + x_6)) + x_7) - cell(var(Witness(4), Curr))))) + (alpha_pow(2) * ((double((double((double((double((double((double((double((double(cell(var(Witness(3), Curr))) + (x_0 + ((((field("0x40000000000000000000000000000000224698FC0994A8DD8C46EB2100000000") * cell(var(Witness(6), Curr))) + field("0x0000000000000000000000000000000000000000000000000000000000000003")) * cell(var(Witness(6), Curr))) + field("0x40000000000000000000000000000000224698FC0994A8DD8C46EB2100000000"))))) + (x_1 + ((((field("0x40000000000000000000000000000000224698FC0994A8DD8C46EB2100000000") * cell(var(Witness(7), Curr))) + field("0x0000000000000000000000000000000000000000000000000000000000000003")) * cell(var(Witness(7), Curr))) + field("0x40000000000000000000000000000000224698FC0994A8DD8C46EB2100000000"))))) + (x_2 + ((((field("0x40000000000000000000000000000000224698FC0994A8DD8C46EB2100000000") * cell(var(Witness(8), Curr))) + field("0x0000000000000000000000000000000000000000000000000000000000000003")) * cell(var(Witness(8), Curr))) + field("0x40000000000000000000000000000000224698FC0994A8DD8C46EB2100000000"))))) + (x_3 + ((((field("0x40000000000000000000000000000000224698FC0994A8DD8C46EB2100000000") * cell(var(Witness(9), Curr))) + field("0x0000000000000000000000000000000000000000000000000000000000000003")) * cell(var(Witness(9), Curr))) + field("0x40000000000000000000000000000000224698FC0994A8DD8C46EB2100000000"))))) + (x_4 + ((((field("0x40000000000000000000000000000000224698FC0994A8DD8C46EB2100000000") * cell(var(Witness(10), Curr))) + field("0x0000000000000000000000000000000000000000000000000000000000000003")) * cell(var(Witness(10), Curr))) + field("0x40000000000000000000000000000000224698FC0994A8DD8C46EB2100000000"))))) + (x_5 + ((((field("0x40000000000000000000000000000000224698FC0994A8DD8C46EB2100000000") * cell(var(Witness(11), Curr))) + field("0x0000000000000000000000000000000000000000000000000000000000000003")) * cell(var(Witness(11), Curr))) + field("0x40000000000000000000000000000000224698FC0994A8DD8C46EB2100000000"))))) + (x_6 + ((((field("0x40000000000000000000000000000000224698FC0994A8DD8C46EB2100000000") * cell(var(Witness(12), Curr))) + field("0x0000000000000000000000000000000000000000000000000000000000000003")) * cell(var(Witness(12), Curr))) + field("0x40000000000000000000000000000000224698FC0994A8DD8C46EB2100000000"))))) + (x_7 + ((((field("0x40000000000000000000000000000000224698FC0994A8DD8C46EB2100000000") * cell(var(Witness(13), Curr))) + field("0x0000000000000000000000000000000000000000000000000000000000000003")) * cell(var(Witness(13), Curr))) + field("0x40000000000000000000000000000000224698FC0994A8DD8C46EB2100000000")))) - cell(var(Witness(5), Curr))))) + (alpha_pow(3) * ((((((cell(var(Witness(6), Curr)) + field("0x40000000000000000000000000000000224698FC0994A8DD8C46EB20FFFFFFFB")) * cell(var(Witness(6), Curr))) + field("0x000000000000000000000000000000000000000000000000000000000000000B")) * cell(var(Witness(6), Curr))) + field("0x40000000000000000000000000000000224698FC0994A8DD8C46EB20FFFFFFFB")) * cell(var(Witness(6), Curr))))) + (alpha_pow(4) * ((((((cell(var(Witness(7), Curr)) + field("0x40000000000000000000000000000000224698FC0994A8DD8C46EB20FFFFFFFB")) * cell(var(Witness(7), Curr))) + field("0x000000000000000000000000000000000000000000000000000000000000000B")) * cell(var(Witness(7), Curr))) + field("0x40000000000000000000000000000000224698FC0994A8DD8C46EB20FFFFFFFB")) * cell(var(Witness(7), Curr))))) + (alpha_pow(5) * ((((((cell(var(Witness(8), Curr)) + field("0x40000000000000000000000000000000224698FC0994A8DD8C46EB20FFFFFFFB")) * cell(var(Witness(8), Curr))) + field("0x000000000000000000000000000000000000000000000000000000000000000B")) * cell(var(Witness(8), Curr))) + field("0x40000000000000000000000000000000224698FC0994A8DD8C46EB20FFFFFFFB")) * cell(var(Witness(8), Curr))))) + (alpha_pow(6) * ((((((cell(var(Witness(9), Curr)) + field("0x40000000000000000000000000000000224698FC0994A8DD8C46EB20FFFFFFFB")) * cell(var(Witness(9), Curr))) + field("0x000000000000000000000000000000000000000000000000000000000000000B")) * cell(var(Witness(9), Curr))) + field("0x40000000000000000000000000000000224698FC0994A8DD8C46EB20FFFFFFFB")) * cell(var(Witness(9), Curr))))) + (alpha_pow(7) * ((((((cell(var(Witness(10), Curr)) + field("0x40000000000000000000000000000000224698FC0994A8DD8C46EB20FFFFFFFB")) * cell(var(Witness(10), Curr))) + field("0x000000000000000000000000000000000000000000000000000000000000000B")) * cell(var(Witness(10), Curr))) + field("0x40000000000000000000000000000000224698FC0994A8DD8C46EB20FFFFFFFB")) * cell(var(Witness(10), Curr))))) + (alpha_pow(8) * ((((((cell(var(Witness(11), Curr)) + field("0x40000000000000000000000000000000224698FC0994A8DD8C46EB20FFFFFFFB")) * cell(var(Witness(11), Curr))) + field("0x000000000000000000000000000000000000000000000000000000000000000B")) * cell(var(Witness(11), Curr))) + field("0x40000000000000000000000000000000224698FC0994A8DD8C46EB20FFFFFFFB")) * cell(var(Witness(11), Curr))))) + (alpha_pow(9) * ((((((cell(var(Witness(12), Curr)) + field("0x40000000000000000000000000000000224698FC0994A8DD8C46EB20FFFFFFFB")) * cell(var(Witness(12), Curr))) + field("0x000000000000000000000000000000000000000000000000000000000000000B")) * cell(var(Witness(12), Curr))) + field("0x40000000000000000000000000000000224698FC0994A8DD8C46EB20FFFFFFFB")) * cell(var(Witness(12), Curr))))) + (alpha_pow(10) * ((((((cell(var(Witness(13), Curr)) + field("0x40000000000000000000000000000000224698FC0994A8DD8C46EB20FFFFFFFB")) * cell(var(Witness(13), Curr))) + field("0x000000000000000000000000000000000000000000000000000000000000000B")) * cell(var(Witness(13), Curr))) + field("0x40000000000000000000000000000000224698FC0994A8DD8C46EB20FFFFFFFB")) * cell(var(Witness(13), Curr)))))
+}
+
 #[cfg(test)]
 mod tests {
     use kimchi::{
         circuits::expr::Linearization,
         linearization::{constraints_expr, linearization_columns},
     };
+    use mina_curves::pasta::Fq;
     use mina_hasher::Fp;
     use sha2::{Digest, Sha256};
     #[cfg(target_family = "wasm")]
@@ -584,22 +698,22 @@ mod tests {
     /// We use the same method to generate our Rust code
     ///
     /// https://github.com/MinaProtocol/mina/blob/0b63498e271575dbffe2b31f3ab8be293490b1ac/src/lib/crypto/kimchi_bindings/stubs/src/linearization.rs#L11
-    // #[test] // TODO: Re-enable when proof verification is working on rampup4
+    // #[test]
     fn generate_plonk() {
         let lookup_configuration = None;
-        let evaluated_cols = linearization_columns::<Fp>(lookup_configuration);
-        let (linearization, _powers_of_alpha) = constraints_expr::<Fp>(None, true);
+        let fp_evaluated_cols = linearization_columns::<Fp>(lookup_configuration);
+        let (fp_linearization, _powers_of_alpha) = constraints_expr::<Fp>(None, true);
 
         let Linearization {
             constant_term: _,
-            mut index_terms,
-        } = linearization.linearize(evaluated_cols).unwrap();
+            index_terms: mut index_terms_fp,
+        } = fp_linearization.linearize(fp_evaluated_cols).unwrap();
 
         // HashMap deliberately uses an unstable order; here we sort to ensure that the output is
         // consistent when printing.
-        index_terms.sort_by(|(x, _), (y, _)| x.cmp(y));
+        index_terms_fp.sort_by(|(x, _), (y, _)| x.cmp(y));
 
-        let other_terms: Vec<(String, String)> = index_terms
+        let fp_other_terms: Vec<(String, String)> = index_terms_fp
             .iter()
             .map(|(col, expr)| (format!("{:?}", col), expr.ocaml_str()))
             .collect();
@@ -611,7 +725,7 @@ mod tests {
         };
 
         // Convert to Rust code
-        for (v, terms) in &other_terms {
+        for (v, terms) in &fp_other_terms {
             println!("value={:?} sum=\n{}\n", v, sum(terms));
 
             // Replace "let a = b in " with "let a = { b };", to make the output a Rust syntax
@@ -624,26 +738,71 @@ mod tests {
 
         // Make sure the generated code doesn't change if we update the `proof-systems` dependency
 
-        let value_of = |s: &str| &other_terms.iter().find(|(v, _)| v == s).unwrap().1;
+        let value_of = |s: &str| &fp_other_terms.iter().find(|(v, _)| v == s).unwrap().1;
 
+        let fp_sum_complete_add = sum(value_of("Index(CompleteAdd)"));
         assert_eq!(
-            sum(value_of("Index(CompleteAdd)")),
+            fp_sum_complete_add,
             "c478727783cc551528384c6f05c26414bf64bbd1dc6a0c47c30eb917a825b9a0"
         );
 
+        let fp_sum_var_base_mul = sum(value_of("Index(VarBaseMul)"));
         assert_eq!(
-            sum(value_of("Index(VarBaseMul)")),
+            fp_sum_var_base_mul,
             "4437fea516a70ff606b11eda22cfde29e2d95b86154010b5886b3510909d2ab2"
         );
 
+        let fp_sum_endomul = sum(value_of("Index(EndoMul)"));
         assert_eq!(
-            sum(value_of("Index(EndoMul)")),
+            fp_sum_endomul,
             "561f3c95177dc76aa596d506be6e1dd5530dd3a9f44d25d2f5e4e9ad1c89176e"
         );
 
+        let fp_sum_endomul_scalar = sum(value_of("Index(EndoMulScalar)"));
         assert_eq!(
-            sum(value_of("Index(EndoMulScalar)")),
+            fp_sum_endomul_scalar,
             "d56e30e8015f38922a7069cc87daaf21ffb15d96cc80fdd9b257e3267145b919"
+        );
+
+        // Same but for `Fq`. EndoMulScalar is different
+
+        let fq_evaluated_cols = linearization_columns::<Fq>(lookup_configuration);
+        let (fq_linearization, _powers_of_alpha) = constraints_expr::<Fq>(None, true);
+
+        let Linearization {
+            constant_term,
+            index_terms: mut index_terms_fq,
+        } = fq_linearization.linearize(fq_evaluated_cols).unwrap();
+
+        dbg!(constant_term.ocaml_str());
+
+        // HashMap deliberately uses an unstable order; here we sort to ensure that the output is
+        // consistent when printing.
+        index_terms_fq.sort_by(|(x, _), (y, _)| x.cmp(y));
+
+        // dbg!(index_terms_fq)
+
+        let fq_other_terms: Vec<(String, String)> = index_terms_fq
+            .iter()
+            .map(|(col, expr)| (format!("{:?}", col), expr.ocaml_str()))
+            .collect();
+
+        let value_of = |s: &str| &fq_other_terms.iter().find(|(v, _)| v == s).unwrap().1;
+
+        let fq_sum_complete_add = sum(value_of("Index(CompleteAdd)"));
+        assert_eq!(fq_sum_complete_add, fp_sum_complete_add);
+
+        let fq_sum_var_base_mul = sum(value_of("Index(VarBaseMul)"));
+        assert_eq!(fq_sum_var_base_mul, fp_sum_var_base_mul);
+
+        let fq_sum_endomul = sum(value_of("Index(EndoMul)"));
+        assert_eq!(fq_sum_endomul, fp_sum_endomul);
+
+        let fq_sum_endomul_scalar = sum(value_of("Index(EndoMulScalar)"));
+        assert_ne!(fq_sum_endomul_scalar, fp_sum_endomul_scalar);
+        assert_eq!(
+            fq_sum_endomul_scalar,
+            "bcf65a903f377ad4c115d4357817a7129381b42ff3a23e41f4fc2c735943db0f"
         );
     }
 }

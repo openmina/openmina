@@ -96,7 +96,7 @@ use mina_signer::Signature;
 
 use crate::{
     array_into_with,
-    proofs::witness::FieldWitness,
+    proofs::field::FieldWitness,
     scan_state::{
         currency::BlockTime,
         pending_coinbase::{Stack, StackHasher},
@@ -1934,7 +1934,7 @@ impl From<&TransactionSnarkStableV2> for TransactionSnark<SokDigest> {
     fn from(value: &TransactionSnarkStableV2) -> Self {
         Self {
             statement: (&value.statement).into(),
-            proof: value.proof.clone().into(),
+            proof: Arc::new(value.proof.clone()),
         }
     }
 }

@@ -1,23 +1,15 @@
 use std::array;
 
-use kimchi::curve::KimchiCurve;
-use mina_curves::pasta::{Pallas, Vesta};
+use mina_curves::pasta::Vesta;
 use mina_hasher::Fp;
 use mina_p2p_messages::{bigint::BigInt, v2::PicklesProofProofsVerified2ReprStableV2};
 use poly_commitment::{commitment::CommitmentCurve, srs::SRS};
 
-use super::public_input::scalar_challenge::{endo_fp, ScalarChallenge};
+use super::public_input::scalar_challenge::ScalarChallenge;
 use super::urs_utils;
 
-const OTHER_URS_LENGTH: usize = 65536;
-
-pub fn get_srs() -> super::VerifierSRS {
-    // We need an URS with 65536 points (should be in the other verfifier index - step?)
-    SRS::<<Pallas as KimchiCurve>::OtherCurve>::create(OTHER_URS_LENGTH)
-}
-
 pub fn accumulator_check(
-    urs: &super::VerifierSRS,
+    urs: &SRS<Vesta>,
     proof: &PicklesProofProofsVerified2ReprStableV2,
 ) -> bool {
     // accumulator check
@@ -33,11 +25,11 @@ pub fn accumulator_check(
             let prechallenge = &chal.prechallenge.inner;
             let prechallenge: [u64; 2] = array::from_fn(|k| prechallenge[k].as_u64());
 
-            ScalarChallenge::from(prechallenge).to_field(&endo_fp())
+            ScalarChallenge::limbs_to_field(&prechallenge)
         })
         .collect();
 
-    let of_coord = |x: &(BigInt, BigInt)| Vesta::of_coordinates(x.0.to_field(), x.1.to_field());
+    let of_coord = |(x, y): &(BigInt, BigInt)| Vesta::of_coordinates(x.to_field(), y.to_field());
 
     // statement.proof_state.messages_for_next_wrap_proof.challenge_polynomial_commitment
     let acc_comm = &proof

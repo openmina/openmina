@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use serde::{Deserialize, Serialize};
 
@@ -12,12 +12,12 @@ use super::{SnarkWorkVerifyError, SnarkWorkVerifyId, SnarkWorkVerifyIdType};
 #[derive(Serialize, Deserialize, Clone)]
 pub struct SnarkWorkVerifyState {
     pub verifier_index: Arc<VerifierIndex>,
-    pub verifier_srs: Arc<VerifierSRS>,
+    pub verifier_srs: Arc<Mutex<VerifierSRS>>,
     pub jobs: PendingRequests<SnarkWorkVerifyIdType, SnarkWorkVerifyStatus>,
 }
 
 impl SnarkWorkVerifyState {
-    pub fn new(verifier_index: Arc<VerifierIndex>, verifier_srs: Arc<VerifierSRS>) -> Self {
+    pub fn new(verifier_index: Arc<VerifierIndex>, verifier_srs: Arc<Mutex<VerifierSRS>>) -> Self {
         Self {
             verifier_index,
             verifier_srs,
