@@ -7,7 +7,6 @@ use crate::{
     proofs::{
         accumulator_check,
         step::{expand_deferred, StatementProofState},
-        transaction::endos,
         unfinalized::AllEvals,
         verifier_index::make_zkapp_verifier_index,
         wrap::Domain,
@@ -346,12 +345,9 @@ where
         old_bulletproof_challenges,
     } = messages_for_next_step_proof;
 
-    let (_, endo) = endos::<Fq>();
-
     let challenge_polynomial_commitments: Vec<InnerCurve<Fp>> =
         extract_polynomial_commitment(challenge_polynomial_commitments);
-    let old_bulletproof_challenges: Vec<[Fp; 16]> =
-        extract_bulletproof(old_bulletproof_challenges, &endo);
+    let old_bulletproof_challenges: Vec<[Fp; 16]> = extract_bulletproof(old_bulletproof_challenges);
     let dlog_plonk_index = commitments;
 
     MessagesForNextStepProof {
@@ -371,15 +367,10 @@ fn get_message_for_next_wrap_proof(
     let challenge_polynomial_commitments: Vec<InnerCurve<Fq>> =
         extract_polynomial_commitment(&[challenge_polynomial_commitment.clone()]);
 
-    let (_, endo) = endos::<Fp>();
-
-    let old_bulletproof_challenges: Vec<[Fq; 15]> = extract_bulletproof(
-        &[
-            old_bulletproof_challenges[0].0.clone(),
-            old_bulletproof_challenges[1].0.clone(),
-        ],
-        &endo,
-    );
+    let old_bulletproof_challenges: Vec<[Fq; 15]> = extract_bulletproof(&[
+        old_bulletproof_challenges[0].0.clone(),
+        old_bulletproof_challenges[1].0.clone(),
+    ]);
 
     MessagesForNextWrapProof {
         challenge_polynomial_commitment: challenge_polynomial_commitments[0].clone(),

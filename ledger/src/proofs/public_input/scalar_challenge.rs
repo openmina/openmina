@@ -2,7 +2,7 @@ use std::array::IntoIter;
 
 use ark_ff::{BigInteger256, Field};
 
-use crate::proofs::field::FieldWitness;
+use crate::proofs::{field::FieldWitness, transaction::endos};
 
 #[derive(Clone, Debug)]
 pub struct ScalarChallenge {
@@ -91,6 +91,16 @@ impl ScalarChallenge {
         }
 
         (a * endo) + b
+    }
+
+    pub fn array_to_fields<F: FieldWitness, const N: usize>(array: &[F; N]) -> [F; N] {
+        let (_, endo) = endos::<F::Scalar>();
+        std::array::from_fn(|i| Self::from(array[i]).to_field(&endo))
+    }
+
+    pub fn limbs_to_field<F: FieldWitness>(limbs: &[u64; 2]) -> F {
+        let (_, endo) = endos::<F::Scalar>();
+        Self::from(*limbs).to_field(&endo)
     }
 }
 

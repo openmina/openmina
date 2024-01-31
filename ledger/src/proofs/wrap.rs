@@ -548,6 +548,8 @@ pub struct WrapParams<'a> {
 }
 
 pub fn wrap<C: ProofConstants + ForWrapData>(params: WrapParams, w: &mut Witness<Fq>) -> WrapProof {
+    use crate::proofs::public_input::scalar_challenge::ScalarChallenge;
+
     let WrapParams {
         app_state,
         proof,
@@ -566,8 +568,6 @@ pub fn wrap<C: ProofConstants + ForWrapData>(params: WrapParams, w: &mut Witness
         wrap_domain_indices,
     } = C::wrap_data();
 
-    let (_, endo) = endos::<Fq>();
-
     let messages_for_next_step_proof_hash = crate::proofs::transaction::MessagesForNextStepProof {
         app_state,
         challenge_polynomial_commitments: step_statement
@@ -580,10 +580,7 @@ pub fn wrap<C: ProofConstants + ForWrapData>(params: WrapParams, w: &mut Witness
             .messages_for_next_step_proof
             .old_bulletproof_challenges
             .iter()
-            .map(|v| {
-                use crate::proofs::public_input::scalar_challenge::ScalarChallenge;
-                std::array::from_fn(|i| ScalarChallenge::from(v[i]).to_field(&endo))
-            })
+            .map(ScalarChallenge::array_to_fields)
             .collect(),
         dlog_plonk_index,
     }
@@ -594,15 +591,10 @@ pub fn wrap<C: ProofConstants + ForWrapData>(params: WrapParams, w: &mut Witness
         .iter()
         .cloned()
         .map(|mut v| {
-            let (_, endo) = endos::<Fp>();
-
             let old_bulletproof_challenges = v
                 .old_bulletproof_challenges
                 .iter()
-                .map(|v| {
-                    use crate::proofs::public_input::scalar_challenge::ScalarChallenge;
-                    std::array::from_fn(|i| ScalarChallenge::from(v[i]).to_field(&endo))
-                })
+                .map(ScalarChallenge::array_to_fields)
                 .collect();
             v.old_bulletproof_challenges = old_bulletproof_challenges;
             v
@@ -627,10 +619,7 @@ pub fn wrap<C: ProofConstants + ForWrapData>(params: WrapParams, w: &mut Witness
         .messages_for_next_step_proof
         .old_bulletproof_challenges
         .iter()
-        .map(|v| {
-            use crate::proofs::public_input::scalar_challenge::ScalarChallenge;
-            std::array::from_fn(|i| ScalarChallenge::from(v[i]).to_field(&endo))
-        })
+        .map(ScalarChallenge::array_to_fields)
         .collect();
 
     let actual_proofs_verified = prev_challenges.len();
@@ -666,20 +655,16 @@ pub fn wrap<C: ProofConstants + ForWrapData>(params: WrapParams, w: &mut Witness
     };
 
     let messages_for_next_wrap_proof_prepared = {
-        use crate::proofs::public_input::scalar_challenge::ScalarChallenge;
-
         let MessagesForNextWrapProof {
             challenge_polynomial_commitment,
             old_bulletproof_challenges,
         } = &messages_for_next_wrap_proof;
 
-        let (_, endo) = endos::<Fp>();
-
         MessagesForNextWrapProof {
             challenge_polynomial_commitment: challenge_polynomial_commitment.clone(),
             old_bulletproof_challenges: old_bulletproof_challenges
                 .iter()
-                .map(|c| c.map(|c| ScalarChallenge::from(c).to_field(&endo)))
+                .map(ScalarChallenge::array_to_fields)
                 .collect(),
         }
     };

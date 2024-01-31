@@ -32,9 +32,6 @@ use super::{
     wrap::{Domain, Domains},
 };
 
-const PERMUTS: usize = 7;
-const COLUMNS: usize = 15;
-
 pub enum VerifierKind {
     Blockchain,
     Transaction,

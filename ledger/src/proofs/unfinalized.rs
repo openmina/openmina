@@ -4,8 +4,8 @@ use mina_hasher::Fp;
 use mina_p2p_messages::v2;
 
 use crate::proofs::{
-    field::FieldWitness, public_input::plonk_checks::derive_plonk, transaction::endos,
-    verification::make_scalars_env, BACKEND_TICK_ROUNDS_N,
+    field::FieldWitness, public_input::plonk_checks::derive_plonk, verification::make_scalars_env,
+    BACKEND_TICK_ROUNDS_N,
 };
 
 use super::{
@@ -288,9 +288,7 @@ pub fn dummy_ipa_step_challenges() -> [[u64; 2]; BACKEND_TICK_ROUNDS_N] {
 pub fn dummy_ipa_step_challenges_computed() -> [Fp; BACKEND_TICK_ROUNDS_N] {
     cache_one!([Fp; BACKEND_TICK_ROUNDS_N], {
         let challenges = dummy_ipa_step_challenges();
-        let (_, endo) = endos::<Fq>();
-
-        std::array::from_fn(|i| ScalarChallenge::from(challenges[i]).to_field(&endo))
+        std::array::from_fn(|i| ScalarChallenge::limbs_to_field(&challenges[i]))
     })
 }
 
@@ -303,10 +301,8 @@ impl Unfinalized {
         let gamma_bytes: [u64; 2] = [8902445049614368905, -5479804816757020655i64 as u64];
         let zeta_bytes: [u64; 2] = [621834770194220300, -4327941673388439925i64 as u64];
 
-        let (_, endo) = endos::<Fp>();
-
-        let zeta: Fq = ScalarChallenge::from(zeta_bytes).to_field(&endo);
-        let alpha: Fq = ScalarChallenge::from(alpha_bytes).to_field(&endo);
+        let zeta: Fq = ScalarChallenge::limbs_to_field(&zeta_bytes);
+        let alpha: Fq = ScalarChallenge::limbs_to_field(&alpha_bytes);
         let beta: Fq = u64_to_field(&beta_bytes);
         let gamma: Fq = u64_to_field(&gamma_bytes);
 

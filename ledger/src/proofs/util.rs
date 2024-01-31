@@ -26,19 +26,18 @@ pub fn extract_polynomial_commitment<F: FieldWitness>(
         .collect()
 }
 
-pub fn extract_bulletproof<F: Field + From<i32>, const N: usize>(
+pub fn extract_bulletproof<F: FieldWitness, const N: usize>(
     v: &[PaddedSeq<
         PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A,
         N,
     >],
-    endo: &F,
 ) -> Vec<[F; N]> {
     v.iter()
         .map(|old| {
             array::from_fn(|j| {
                 let prechallenge = &old[j].prechallenge.inner;
                 let prechallenge: [u64; 2] = array::from_fn(|k| prechallenge[k].as_u64());
-                ScalarChallenge::from(prechallenge).to_field(endo)
+                ScalarChallenge::limbs_to_field(&prechallenge)
             })
         })
         .collect()

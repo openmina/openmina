@@ -1820,8 +1820,8 @@ pub fn expand_deferred(params: ExpandDeferredParams) -> DeferredValues<Fp> {
 
     let plonk0 = &proof_state.deferred_values.plonk;
 
-    let zeta = ScalarChallenge::from(plonk0.zeta_bytes).to_field(&endo);
-    let alpha = ScalarChallenge::from(plonk0.alpha_bytes).to_field(&endo);
+    let zeta = ScalarChallenge::limbs_to_field(&plonk0.zeta_bytes);
+    let alpha = ScalarChallenge::limbs_to_field(&plonk0.alpha_bytes);
     let step_domain: u8 = proof_state.deferred_values.branch_data.domain_log2.as_u8();
     let domain: Radix2EvaluationDomain<Fp> =
         Radix2EvaluationDomain::new(1 << step_domain as u64).unwrap();
@@ -1877,7 +1877,7 @@ pub fn expand_deferred(params: ExpandDeferredParams) -> DeferredValues<Fp> {
 
     let old_bulletproof_challenges: Vec<_> = old_bulletproof_challenges
         .iter()
-        .map(|v| std::array::from_fn(|i| ScalarChallenge::from(v[i]).to_field(&endo)))
+        .map(ScalarChallenge::array_to_fields)
         .collect();
 
     let challenges_digest = {
@@ -1926,7 +1926,7 @@ pub fn expand_deferred(params: ExpandDeferredParams) -> DeferredValues<Fp> {
         .deferred_values
         .bulletproof_challenges
         .iter()
-        .map(|v| ScalarChallenge::from(*v).to_field(&endo))
+        .map(ScalarChallenge::limbs_to_field)
         .collect();
 
     let b_actual = {
@@ -1950,11 +1950,9 @@ pub fn expand_deferred(params: ExpandDeferredParams) -> DeferredValues<Fp> {
 fn wrap_compute_sg(challenges: &[[u64; 2]]) -> GroupAffine<Fp> {
     use super::public_input::scalar_challenge::ScalarChallenge;
 
-    let (_, endo) = endos::<Fp>();
-
     let challenges = challenges
         .iter()
-        .map(|c| ScalarChallenge::from(*c).to_field(&endo))
+        .map(ScalarChallenge::limbs_to_field)
         .collect::<Vec<_>>();
 
     let coeffs = b_poly_coefficients(&challenges);
@@ -2004,9 +2002,8 @@ fn expand_proof(params: ExpandProofParams) -> ExpandedProof {
             .domain_log2
             .as_u8();
 
-        let (_, endo) = endos::<Fq>();
-        let alpha = ScalarChallenge::from(plonk0.alpha_bytes).to_field(&endo);
-        let zeta = ScalarChallenge::from(plonk0.zeta_bytes).to_field(&endo);
+        let alpha = ScalarChallenge::limbs_to_field(&plonk0.alpha_bytes);
+        let zeta = ScalarChallenge::limbs_to_field(&plonk0.zeta_bytes);
         // let w: Fp = Radix2EvaluationDomain::new(1 << dlog_vk.domain.log_size_of_group)
         let w: Fp = Radix2EvaluationDomain::new(1 << domain).unwrap().group_gen;
         let zetaw = zeta * w;
@@ -2037,19 +2034,14 @@ fn expand_proof(params: ExpandProofParams) -> ExpandedProof {
     let statement = &t.statement;
 
     let prev_challenges: Vec<[Fq; BACKEND_TOCK_ROUNDS_N]> = {
-        let (_, endo) = endos::<Fp>();
-
         let old_bulletproof_challenges = &statement
             .proof_state
             .messages_for_next_wrap_proof
             .old_bulletproof_challenges;
-        extract_bulletproof(
-            &[
-                old_bulletproof_challenges.0[0].0.clone(),
-                old_bulletproof_challenges.0[1].0.clone(),
-            ],
-            &endo,
-        )
+        extract_bulletproof(&[
+            old_bulletproof_challenges.0[0].0.clone(),
+            old_bulletproof_challenges.0[1].0.clone(),
+        ])
     };
 
     let old_bulletproof_challenges: Vec<[Fp; 16]> = statement
@@ -2073,10 +2065,9 @@ fn expand_proof(params: ExpandProofParams) -> ExpandedProof {
         })
     };
 
-    let (_, endo) = endos::<Fq>();
     let old_bulletproof_challenges: Vec<_> = old_bulletproof_challenges
         .iter()
-        .map(|v| std::array::from_fn(|i| ScalarChallenge::from(v[i]).to_field(&endo)))
+        .map(ScalarChallenge::array_to_fields)
         .collect();
 
     let messages_for_next_step_proof = MessagesForNextStepProof {
@@ -2486,8 +2477,6 @@ pub fn extract_recursion_challenges<const N: usize>(
 ) -> Vec<RecursionChallenge<GroupAffine<Fq>>> {
     use poly_commitment::PolyComm;
 
-    let (_, endo) = endos::<Fq>();
-
     let comms: [(Fq, Fq); N] = std::array::from_fn(|i| {
         let p = &proofs[i];
         let (a, b) = &p
@@ -2508,7 +2497,7 @@ pub fn extract_recursion_challenges<const N: usize>(
                 .clone()
         })
         .collect::<Vec<_>>();
-    let challs = extract_bulletproof(&challs, &endo);
+    let challs = extract_bulletproof(&challs);
 
     challs
         .into_iter()

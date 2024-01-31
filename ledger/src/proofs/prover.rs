@@ -11,8 +11,6 @@ use mina_hasher::Fp;
 use once_cell::sync::Lazy;
 use poly_commitment::{commitment::CommitmentCurve, evaluation_proof::OpeningProof};
 
-use crate::proofs::transaction::endos;
-
 use super::util::extract_bulletproof;
 use mina_curves::pasta::Fq;
 use mina_p2p_messages::{bigint::BigInt, v2::PicklesProofProofsVerified2ReprStableV2};
@@ -115,19 +113,14 @@ pub fn make_padded_proof_from_p2p(
 
     let ft_eval1: Fq = proof.ft_eval1.to_field();
 
-    let (_, endo) = endos::<Fp>();
-
     let old_bulletproof_challenges = &statement
         .proof_state
         .messages_for_next_wrap_proof
         .old_bulletproof_challenges;
-    let old_bulletproof_challenges: Vec<[Fq; 15]> = extract_bulletproof(
-        &[
-            old_bulletproof_challenges.0[0].0.clone(),
-            old_bulletproof_challenges.0[1].0.clone(),
-        ],
-        &endo,
-    );
+    let old_bulletproof_challenges: Vec<[Fq; 15]> = extract_bulletproof(&[
+        old_bulletproof_challenges.0[0].0.clone(),
+        old_bulletproof_challenges.0[1].0.clone(),
+    ]);
 
     let make_poly = |poly: &(BigInt, BigInt)| {
         let point = of_coord(poly);
