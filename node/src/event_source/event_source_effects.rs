@@ -11,7 +11,7 @@ use crate::p2p::channels::rpc::P2pChannelsRpcReadyAction;
 use crate::p2p::channels::snark::{
     P2pChannelsSnarkLibp2pReceivedAction, P2pChannelsSnarkReadyAction,
 };
-use crate::p2p::channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentReadyAction;
+use crate::p2p::channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentAction;
 use crate::p2p::channels::{ChannelId, P2pChannelsMessageReceivedAction};
 use crate::p2p::connection::incoming::{
     P2pConnectionIncomingAnswerSdpCreateErrorAction,
@@ -181,8 +181,9 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                             }
                             ChannelId::SnarkJobCommitmentPropagation => {
                                 // TODO(binier): maybe dispatch success and then ready.
-                                store
-                                    .dispatch(P2pChannelsSnarkJobCommitmentReadyAction { peer_id });
+                                store.dispatch(P2pChannelsSnarkJobCommitmentAction::Ready {
+                                    peer_id,
+                                });
                             }
                             ChannelId::Rpc => {
                                 // TODO(binier): maybe dispatch success and then ready.

@@ -401,20 +401,20 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     _ => {}
                 },
                 P2pChannelsAction::SnarkJobCommitment(action) => match action {
-                    P2pChannelsSnarkJobCommitmentAction::Init(action) => {
+                    P2pChannelsSnarkJobCommitmentAction::Init { peer_id } => {
                         openmina_core::log::debug!(
                             meta.time();
                             kind = kind.to_string(),
-                            summary = format!("peer_id: {}", action.peer_id),
-                            peer_id = action.peer_id.to_string()
+                            summary = format!("peer_id: {}", peer_id),
+                            peer_id = peer_id.to_string()
                         );
                     }
-                    P2pChannelsSnarkJobCommitmentAction::Ready(action) => {
+                    P2pChannelsSnarkJobCommitmentAction::Ready { peer_id } => {
                         openmina_core::log::debug!(
                             meta.time();
                             kind = kind.to_string(),
-                            summary = format!("peer_id: {}", action.peer_id),
-                            peer_id = action.peer_id.to_string()
+                            summary = format!("peer_id: {}", peer_id),
+                            peer_id = peer_id.to_string()
                         );
                     }
                     _ => {}

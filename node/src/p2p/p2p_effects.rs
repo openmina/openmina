@@ -357,30 +357,20 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                     action.effects(&meta, store);
                 }
             },
-            P2pChannelsAction::SnarkJobCommitment(action) => match action {
-                P2pChannelsSnarkJobCommitmentAction::Init(action) => {
-                    action.effects(&meta, store);
-                }
-                P2pChannelsSnarkJobCommitmentAction::Pending(_) => {}
-                P2pChannelsSnarkJobCommitmentAction::Ready(action) => {
-                    action.effects(&meta, store);
-                }
-                P2pChannelsSnarkJobCommitmentAction::RequestSend(action) => {
-                    action.effects(&meta, store);
-                }
-                P2pChannelsSnarkJobCommitmentAction::PromiseReceived(_) => {}
-                P2pChannelsSnarkJobCommitmentAction::Received(action) => {
-                    action.effects(&meta, store);
+            P2pChannelsAction::SnarkJobCommitment(action) => {
+                // TODO: does the order matter here? if not this clone can be removed
+                action.clone().effects(&meta, store);
+                if let P2pChannelsSnarkJobCommitmentAction::Received {
+                    peer_id,
+                    commitment,
+                } = action
+                {
                     store.dispatch(SnarkPoolJobCommitmentAddAction {
-                        commitment: action.commitment,
-                        sender: action.peer_id,
+                        commitment,
+                        sender: peer_id,
                     });
                 }
-                P2pChannelsSnarkJobCommitmentAction::RequestReceived(_) => {}
-                P2pChannelsSnarkJobCommitmentAction::ResponseSend(action) => {
-                    action.effects(&meta, store);
-                }
-            },
+            }
             P2pChannelsAction::Rpc(action) => match action {
                 P2pChannelsRpcAction::Init(action) => {
                     action.effects(&meta, store);

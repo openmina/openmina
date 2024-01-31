@@ -110,26 +110,7 @@ impl_into_global_action!(channels::snark::P2pChannelsSnarkResponseSendAction);
 impl_into_global_action!(channels::snark::P2pChannelsSnarkLibp2pReceivedAction);
 impl_into_global_action!(channels::snark::P2pChannelsSnarkLibp2pBroadcastAction);
 
-impl_into_global_action!(channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentInitAction);
-impl_into_global_action!(
-    channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentPendingAction
-);
-impl_into_global_action!(channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentReadyAction);
-impl_into_global_action!(
-    channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentRequestSendAction
-);
-impl_into_global_action!(
-    channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentPromiseReceivedAction
-);
-impl_into_global_action!(
-    channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentReceivedAction
-);
-impl_into_global_action!(
-    channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentRequestReceivedAction
-);
-impl_into_global_action!(
-    channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentResponseSendAction
-);
+impl_into_global_action!(channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentAction);
 
 impl_into_global_action!(channels::rpc::P2pChannelsRpcInitAction);
 impl_into_global_action!(channels::rpc::P2pChannelsRpcPendingAction);

@@ -13,10 +13,7 @@ use super::{
         P2pChannelsSnarkRequestReceivedAction, SnarkPropagationChannelMsg,
     },
     snark_job_commitment::{
-        P2pChannelsSnarkJobCommitmentPromiseReceivedAction,
-        P2pChannelsSnarkJobCommitmentReceivedAction,
-        P2pChannelsSnarkJobCommitmentRequestReceivedAction,
-        SnarkJobCommitmentPropagationChannelMsg,
+        P2pChannelsSnarkJobCommitmentAction, SnarkJobCommitmentPropagationChannelMsg,
     },
     ChannelMsg, P2pChannelsMessageReceivedAction,
 };
@@ -29,9 +26,7 @@ impl P2pChannelsMessageReceivedAction {
         P2pChannelsSnarkRequestReceivedAction: redux::EnablingCondition<S>,
         P2pChannelsSnarkPromiseReceivedAction: redux::EnablingCondition<S>,
         P2pChannelsSnarkReceivedAction: redux::EnablingCondition<S>,
-        P2pChannelsSnarkJobCommitmentRequestReceivedAction: redux::EnablingCondition<S>,
-        P2pChannelsSnarkJobCommitmentPromiseReceivedAction: redux::EnablingCondition<S>,
-        P2pChannelsSnarkJobCommitmentReceivedAction: redux::EnablingCondition<S>,
+        P2pChannelsSnarkJobCommitmentAction: redux::EnablingCondition<S>,
         P2pChannelsRpcRequestReceivedAction: redux::EnablingCondition<S>,
         P2pChannelsRpcResponseReceivedAction: redux::EnablingCondition<S>,
         P2pDisconnectionInitAction: redux::EnablingCondition<S>,
@@ -64,19 +59,19 @@ impl P2pChannelsMessageReceivedAction {
             },
             ChannelMsg::SnarkJobCommitmentPropagation(msg) => match msg {
                 SnarkJobCommitmentPropagationChannelMsg::GetNext { limit } => {
-                    store.dispatch(P2pChannelsSnarkJobCommitmentRequestReceivedAction {
+                    store.dispatch(P2pChannelsSnarkJobCommitmentAction::RequestReceived {
                         peer_id,
                         limit,
                     })
                 }
                 SnarkJobCommitmentPropagationChannelMsg::WillSend { count } => {
-                    store.dispatch(P2pChannelsSnarkJobCommitmentPromiseReceivedAction {
+                    store.dispatch(P2pChannelsSnarkJobCommitmentAction::PromiseReceived {
                         peer_id,
                         promised_count: count,
                     })
                 }
                 SnarkJobCommitmentPropagationChannelMsg::Commitment(commitment) => {
-                    store.dispatch(P2pChannelsSnarkJobCommitmentReceivedAction {
+                    store.dispatch(P2pChannelsSnarkJobCommitmentAction::Received {
                         peer_id,
                         commitment,
                     })
