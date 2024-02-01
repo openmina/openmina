@@ -51,7 +51,7 @@ openmina-node-invariants = { path = "../../node/invariants" }
 openmina-node-native = { path = "../../node/native" }
 
 [features]
-default = ["scenario-generators"]
+default = ["scenario-generators", "p2p-libp2p"]
 scenario-generators = ["documented"]
 p2p-webrtc = ["openmina-node-native/p2p-webrtc"]
 p2p-libp2p = ["openmina-node-native/p2p-libp2p"]

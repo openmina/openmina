@@ -63,6 +63,5 @@ web-sys = { version = "0.3", features = ["RtcPeerConnection", "RtcConfiguration"
 tokio = { version = "1.26", features = ["macros"] }
 
 [features]
-# default = ["p2p-libp2p"]
 p2p-webrtc = ["webrtc"]
 p2p-libp2p = ["libp2p", "libp2p-rpc-behaviour"]
