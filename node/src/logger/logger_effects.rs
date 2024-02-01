@@ -736,9 +736,6 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     }
                     _ => {}
                 },
-                P2pNetworkAction::Kad(_) => {
-                    //
-                }
                 P2pNetworkAction::Rpc(action) => match action {
                     P2pNetworkRpcAction::Init(action) => {
                         openmina_core::log::info!(
