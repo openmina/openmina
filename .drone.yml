@@ -65,7 +65,7 @@ steps:
       # unit tests
       - cargo test --features p2p-libp2p --release -p cli
       # build tester binaries
-      - cargo build --release --features scenario-generators -p openmina-node-testing && mv target/release/openmina-node-testing target/release/openmina-node-testing-mio
+      - cargo build --release --features scenario-generators --no-default-features -p openmina-node-testing && mv target/release/openmina-node-testing target/release/openmina-node-testing-mio
       - cargo build --release --features scenario-generators,p2p-libp2p -p openmina-node-testing && mv target/release/openmina-node-testing target/release/openmina-node-testing-libp2p
       - cargo build --release --features scenario-generators,p2p-libp2p,p2p-webrtc -p openmina-node-testing && mv target/release/openmina-node-testing target/release/openmina-node-testing-webrtc
       - cargo build --release --bin runner
