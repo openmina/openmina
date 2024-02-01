@@ -50,7 +50,7 @@ impl P2pNetworkSelectState {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum P2pNetworkSelectStateInner {
-    Error,
+    Error(String),
     Initiator { proposing: token::Protocol },
     Uncertain { proposing: token::Protocol },
     Responder,
@@ -63,7 +63,7 @@ impl Default for P2pNetworkSelectStateInner {
 }
 
 impl P2pNetworkSelectAction {
-    pub fn effects<Store, S>(&self, _meta: &ActionMeta, store: &mut Store)
+    pub fn effects<Store, S>(&self, meta: &ActionMeta, store: &mut Store)
     where
         Store: crate::P2pStore<S>,
         P2pNetworkPnetOutgoingDataAction: redux::EnablingCondition<S>,
@@ -76,6 +76,7 @@ impl P2pNetworkSelectAction {
         P2pNetworkYamuxIncomingDataAction: redux::EnablingCondition<S>,
         P2pNetworkYamuxOutgoingDataAction: redux::EnablingCondition<S>,
         P2pNetworkRpcIncomingDataAction: redux::EnablingCondition<S>,
+        // P2pNetworkKademliaAction: redux::EnablingCondition<S>,
     {
         use self::token::*;
 
@@ -96,10 +97,11 @@ impl P2pNetworkSelectAction {
                 None => return,
             },
         };
-        if let P2pNetworkSelectStateInner::Error = &state.inner {
+        if let P2pNetworkSelectStateInner::Error(error) = &state.inner {
             store.dispatch(P2pNetworkSchedulerSelectErrorAction {
                 addr: self.addr(),
                 kind: self.id(),
+                error: error.clone(),
             });
             return;
         }
@@ -143,26 +145,30 @@ impl P2pNetworkSelectAction {
                                 data: a.data.clone(),
                             });
                         }
-                        Protocol::Stream(kind) => match kind {
-                            StreamKind::Discovery(DiscoveryAlgorithm::Kademlia1_0_0) => {
-                                // send to kademlia handler
-                                unimplemented!()
-                            }
-                            StreamKind::Broadcast(BroadcastAlgorithm::Meshsub1_1_0) => {
-                                // send to meshsub handler
-                                unimplemented!()
-                            }
-                            StreamKind::Rpc(RpcAlgorithm::Rpc0_0_1) => match a.kind {
-                                SelectKind::Stream(peer_id, stream_id) => {
-                                    store.dispatch(P2pNetworkRpcIncomingDataAction {
-                                        addr: a.addr,
-                                        peer_id,
-                                        stream_id,
-                                        data: a.data.clone(),
-                                    });
+                        Protocol::Stream(kind) => match a.kind {
+                            SelectKind::Stream(peer_id, stream_id) => {
+                                match kind {
+                                    StreamKind::Discovery(DiscoveryAlgorithm::Kademlia1_0_0) => {
+                                        // send to kademlia handler
+                                        unimplemented!()
+                                    }
+                                    StreamKind::Broadcast(BroadcastAlgorithm::Meshsub1_1_0) => {
+                                        // send to meshsub handler
+                                        unimplemented!()
+                                    }
+                                    StreamKind::Rpc(RpcAlgorithm::Rpc0_0_1) => {
+                                        store.dispatch(P2pNetworkRpcIncomingDataAction {
+                                            addr: a.addr,
+                                            peer_id,
+                                            stream_id,
+                                            data: a.data.clone(),
+                                        });
+                                    }
                                 }
-                                _ => {}
-                            },
+                            }
+                            _ => {
+                                openmina_core::error!(meta.time(); "invalid select protocol kind: {:?}", a.kind);
+                            }
                         },
                     }
                 } else {
@@ -181,7 +187,7 @@ impl P2pNetworkSelectAction {
                     store.dispatch(P2pNetworkSelectOutgoingTokensAction {
                         addr: a.addr,
                         kind: a.kind,
-                        tokens: vec![*token],
+                        tokens: vec![token.clone()],
                     });
                 }
             }
@@ -229,7 +235,7 @@ impl P2pNetworkSelectAction {
 
 impl P2pNetworkSelectState {
     pub fn reducer(&mut self, action: redux::ActionWithMeta<&P2pNetworkSelectAction>) {
-        if let P2pNetworkSelectStateInner::Error = &self.inner {
+        if let P2pNetworkSelectStateInner::Error(_) = &self.inner {
             return;
         }
 
@@ -246,7 +252,7 @@ impl P2pNetworkSelectState {
                     loop {
                         match self.recv.parse_token() {
                             Err(()) => {
-                                self.inner = P2pNetworkSelectStateInner::Error;
+                                self.inner = P2pNetworkSelectStateInner::Error("parse_token".to_owned());
                                 break;
                             }
                             Ok(None) => break,
@@ -261,28 +267,28 @@ impl P2pNetworkSelectState {
                 };
                 self.to_send = None;
                 match &self.inner {
-                    P2pNetworkSelectStateInner::Error => {}
+                    P2pNetworkSelectStateInner::Error(_) => {}
                     P2pNetworkSelectStateInner::Initiator { proposing } => match token {
                         token::Token::Handshake => {}
                         token::Token::Na => {
                             // TODO: check if we can propose alternative
-                            self.inner = P2pNetworkSelectStateInner::Error;
+                            self.inner = P2pNetworkSelectStateInner::Error("token is NA".to_owned());
                             self.negotiated = Some(None);
                         }
                         token::Token::SimultaneousConnect => {
                             // unexpected token
-                            self.inner = P2pNetworkSelectStateInner::Error;
+                            self.inner = P2pNetworkSelectStateInner::Error("simultaneous connect token".to_owned());
                         }
                         token::Token::Protocol(response) => {
                             if response == *proposing {
                                 self.negotiated = Some(Some(response));
                             } else {
-                                self.inner = P2pNetworkSelectStateInner::Error;
+                                self.inner = P2pNetworkSelectStateInner::Error(format!("protocol mismatch: {response:?} != {proposing:?}"));
                             }
                         }
-                        token::Token::UnknownProtocol => {
+                        token::Token::UnknownProtocol(name) => {
                             // unexpected token
-                            self.inner = P2pNetworkSelectStateInner::Error;
+                            self.inner = P2pNetworkSelectStateInner::Error(format!("unknown protocol `{}`", String::from_utf8_lossy(&name)));
                             self.negotiated = Some(None);
                         }
                     },
@@ -296,10 +302,10 @@ impl P2pNetworkSelectState {
                             // TODO: decide who is initiator
                         }
                         token::Token::Protocol(_) => {
-                            self.inner = P2pNetworkSelectStateInner::Error;
+                            self.inner = P2pNetworkSelectStateInner::Error("protocol mismatch: uncertain".to_owned());
                         }
-                        token::Token::UnknownProtocol => {
-                            self.inner = P2pNetworkSelectStateInner::Error;
+                        token::Token::UnknownProtocol(name) => {
+                            self.inner = P2pNetworkSelectStateInner::Error(format!("protocol mismatch: uncertain with unknown protocol {}", String::from_utf8_lossy(&name)));
                         }
                     },
                     P2pNetworkSelectStateInner::Responder => match token {
@@ -334,7 +340,8 @@ impl P2pNetworkSelectState {
                             self.negotiated = Some(negotiated);
                             self.to_send = Some(reply);
                         }
-                        token::Token::UnknownProtocol => {
+                        token::Token::UnknownProtocol(name) => {
+                            openmina_core::error!(_meta.time(); "unknown protocol: {}", String::from_utf8_lossy(&name));
                             self.to_send = Some(token::Token::Na);
                             self.negotiated = Some(None);
                         }

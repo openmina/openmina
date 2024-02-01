@@ -72,6 +72,7 @@ pub struct P2pNetworkSchedulerSelectDoneAction {
 pub struct P2pNetworkSchedulerSelectErrorAction {
     pub addr: SocketAddr,
     pub kind: SelectKind,
+    pub error: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
