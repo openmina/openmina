@@ -1,6 +1,6 @@
 use crate::consensus::ConsensusAction;
 use crate::snark_pool::candidate::SnarkPoolCandidateAction;
-use crate::snark_pool::SnarkPoolWorkAddAction;
+use crate::snark_pool::SnarkPoolAction;
 use crate::{Service, Store};
 
 use super::block_verify::SnarkBlockVerifyAction;
@@ -50,7 +50,7 @@ pub fn snark_effects<S: Service>(store: &mut Store<S>, action: SnarkActionWithMe
                         verify_id: req_id,
                     });
                     for snark in batch {
-                        store.dispatch(SnarkPoolWorkAddAction { snark, sender });
+                        store.dispatch(SnarkPoolAction::WorkAdd { snark, sender });
                     }
                 }
                 SnarkWorkVerifyAction::Init { .. } => {}

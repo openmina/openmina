@@ -8,7 +8,7 @@ use crate::rpc::{
     RpcP2pConnectionOutgoingSuccessAction,
 };
 use crate::snark_pool::candidate::SnarkPoolCandidateAction;
-use crate::snark_pool::SnarkPoolJobCommitmentAddAction;
+use crate::snark_pool::SnarkPoolAction;
 use crate::transition_frontier::sync::ledger::snarked::{
     PeerLedgerQueryError, PeerLedgerQueryResponse,
     TransitionFrontierSyncLedgerSnarkedPeerQueryErrorAction,
@@ -348,7 +348,7 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                     commitment,
                 } = action
                 {
-                    store.dispatch(SnarkPoolJobCommitmentAddAction {
+                    store.dispatch(SnarkPoolAction::CommitmentAdd {
                         commitment,
                         sender: peer_id,
                     });

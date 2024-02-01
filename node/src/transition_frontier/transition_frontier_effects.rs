@@ -4,7 +4,7 @@ use crate::block_producer::BlockProducerBestTipUpdateAction;
 use crate::consensus::ConsensusAction;
 use crate::ledger::LEDGER_DEPTH;
 use crate::p2p::channels::best_tip::P2pChannelsBestTipAction;
-use crate::snark_pool::{SnarkPoolJobsUpdateAction, SnarkWork};
+use crate::snark_pool::{SnarkPoolAction, SnarkWork};
 use crate::stats::sync::SyncingLedger;
 use crate::Store;
 
@@ -301,7 +301,7 @@ pub fn transition_frontier_effects<S: crate::Service>(
                 store.dispatch(TransitionFrontierSyncedAction {
                     needed_protocol_states,
                 });
-                store.dispatch(SnarkPoolJobsUpdateAction {
+                store.dispatch(SnarkPoolAction::JobsUpdate {
                     jobs,
                     orphaned_snarks,
                 });

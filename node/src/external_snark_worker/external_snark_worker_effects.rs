@@ -1,6 +1,6 @@
 use openmina_core::snark::Snark;
 
-use crate::snark_pool::{SnarkPoolAutoCreateCommitmentAction, SnarkPoolWorkAddAction};
+use crate::snark_pool::SnarkPoolAction;
 
 use super::{
     available_job_to_snark_worker_spec, ExternalSnarkWorkerAction,
@@ -27,7 +27,7 @@ pub fn external_snark_worker_effects<S: crate::Service>(
             }
         }
         ExternalSnarkWorkerAction::Started => {
-            store.dispatch(SnarkPoolAutoCreateCommitmentAction {});
+            store.dispatch(SnarkPoolAction::AutoCreateCommitment {});
         }
         ExternalSnarkWorkerAction::StartTimeout { .. } => {
             store.dispatch(ExternalSnarkWorkerAction::Error {
@@ -78,7 +78,7 @@ pub fn external_snark_worker_effects<S: crate::Service>(
                 proofs: result.clone(),
             };
             let sender = store.state().p2p.my_id();
-            store.dispatch(SnarkPoolWorkAddAction { snark, sender });
+            store.dispatch(SnarkPoolAction::WorkAdd { snark, sender });
             store.dispatch(ExternalSnarkWorkerAction::PruneWork);
         }
         ExternalSnarkWorkerAction::WorkError { .. } => {
@@ -100,7 +100,7 @@ pub fn external_snark_worker_effects<S: crate::Service>(
             store.dispatch(ExternalSnarkWorkerAction::PruneWork);
         }
         ExternalSnarkWorkerAction::PruneWork => {
-            store.dispatch(SnarkPoolAutoCreateCommitmentAction {});
+            store.dispatch(SnarkPoolAction::AutoCreateCommitment {});
         }
     }
 }

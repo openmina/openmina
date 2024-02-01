@@ -5,11 +5,7 @@ use crate::p2p::channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentAct
 use crate::{ExternalSnarkWorkerAction, Service, SnarkerStrategy, State, Store};
 
 use super::candidate::snark_pool_candidate_effects;
-use super::{
-    JobState, SnarkPoolAction, SnarkPoolActionWithMeta, SnarkPoolAutoCreateCommitmentAction,
-    SnarkPoolCommitmentCreateAction, SnarkPoolJobCommitmentAddAction,
-    SnarkPoolJobCommitmentTimeoutAction, SnarkPoolP2pSendAction,
-};
+use super::{JobState, SnarkPoolAction, SnarkPoolActionWithMeta};
 
 pub fn snark_pool_effects<S: Service>(store: &mut Store<S>, action: SnarkPoolActionWithMeta) {
     let (action, meta) = action.split();
@@ -18,7 +14,7 @@ pub fn snark_pool_effects<S: Service>(store: &mut Store<S>, action: SnarkPoolAct
         SnarkPoolAction::Candidate(action) => {
             snark_pool_candidate_effects(store, meta.with_action(action))
         }
-        SnarkPoolAction::JobsUpdate(_) => {
+        SnarkPoolAction::JobsUpdate { .. } => {
             let state = store.state();
             if let Some(job_id) = state.external_snark_worker.working_job_id() {
                 if !state.snark_pool.contains(job_id) {
@@ -26,10 +22,10 @@ pub fn snark_pool_effects<S: Service>(store: &mut Store<S>, action: SnarkPoolAct
                     store.dispatch(ExternalSnarkWorkerAction::CancelWork);
                 }
             } else {
-                store.dispatch(SnarkPoolAutoCreateCommitmentAction {});
+                store.dispatch(SnarkPoolAction::AutoCreateCommitment);
             }
         }
-        SnarkPoolAction::AutoCreateCommitment(_) => {
+        SnarkPoolAction::AutoCreateCommitment { .. } => {
             let state = store.state.get();
             let Some(snarker_config) = &state.config.snarker else {
                 return;
@@ -54,26 +50,26 @@ pub fn snark_pool_effects<S: Service>(store: &mut Store<S>, action: SnarkPoolAct
                 };
 
                 for job_id in job_ids {
-                    store.dispatch(SnarkPoolCommitmentCreateAction { job_id });
+                    store.dispatch(SnarkPoolAction::CommitmentCreate { job_id });
                 }
             }
         }
-        SnarkPoolAction::CommitmentCreate(a) => {
-            let Some(summary) = store.state().snark_pool.job_summary(&a.job_id) else {
+        SnarkPoolAction::CommitmentCreate { job_id } => {
+            let Some(summary) = store.state().snark_pool.job_summary(&job_id) else {
                 return;
             };
             if store.dispatch(ExternalSnarkWorkerAction::SubmitWork {
-                job_id: a.job_id.clone(),
+                job_id: job_id.clone(),
                 summary,
             }) {
                 let timestamp_ms = meta.time_as_nanos() / 1_000_000;
                 let Some(config) = store.state.get().config.snarker.as_ref() else {
                     return;
                 };
-                store.dispatch(SnarkPoolJobCommitmentAddAction {
+                store.dispatch(SnarkPoolAction::CommitmentAdd {
                     commitment: SnarkJobCommitment::new(
                         timestamp_ms,
-                        a.job_id,
+                        job_id,
                         config.fee.clone(),
                         config.public_key.clone().into(),
                     ),
@@ -81,50 +77,46 @@ pub fn snark_pool_effects<S: Service>(store: &mut Store<S>, action: SnarkPoolAct
                 });
             }
         }
-        SnarkPoolAction::CommitmentAdd(a) => {
+        SnarkPoolAction::CommitmentAdd { commitment, .. } => {
             let state = store.state();
             if let Some(job_id) = state.external_snark_worker.working_job_id() {
                 let Some(config) = store.state.get().config.snarker.as_ref() else {
                     return;
                 };
-                if &a.commitment.job_id == job_id
-                    && &a.commitment.snarker != config.public_key.as_ref()
+                if &commitment.job_id == job_id && &commitment.snarker != config.public_key.as_ref()
                 {
                     store.dispatch(ExternalSnarkWorkerAction::CancelWork);
                 }
             }
         }
-        SnarkPoolAction::WorkAdd(a) => {
+        SnarkPoolAction::WorkAdd { snark, .. } => {
             let state = store.state();
             if let Some(job_id) = state
                 .external_snark_worker
                 .working_job_id()
-                .filter(|job_id| *job_id == &a.snark.job_id())
+                .filter(|job_id| *job_id == &snark.job_id())
             {
                 if let Some(commitment) = state
                     .snark_pool
                     .get(job_id)
                     .and_then(|job| job.commitment.as_ref())
                 {
-                    if a.snark > commitment.commitment {
+                    if snark > commitment.commitment {
                         store.dispatch(ExternalSnarkWorkerAction::CancelWork);
                     }
                 }
             }
 
-            store.dispatch(P2pChannelsSnarkAction::Libp2pBroadcast {
-                snark: a.snark,
-                nonce: 0,
-            });
+            store.dispatch(P2pChannelsSnarkAction::Libp2pBroadcast { snark, nonce: 0 });
         }
-        SnarkPoolAction::P2pSendAll(_) => {
+        SnarkPoolAction::P2pSendAll { .. } => {
             for peer_id in store.state().p2p.ready_peers() {
-                store.dispatch(SnarkPoolP2pSendAction { peer_id });
+                store.dispatch(SnarkPoolAction::P2pSend { peer_id });
             }
         }
-        SnarkPoolAction::P2pSend(a) => {
+        SnarkPoolAction::P2pSend { peer_id } => {
             let state = store.state();
-            let Some(peer) = state.p2p.get_ready_peer(&a.peer_id) else {
+            let Some(peer) = state.p2p.get_ready_peer(&peer_id) else {
                 return;
             };
 
@@ -137,7 +129,7 @@ pub fn snark_pool_effects<S: Service>(store: &mut Store<S>, action: SnarkPoolAct
                 data_to_send(state, index_and_limit, |job| job.commitment_msg().cloned());
 
             let send_commitments = P2pChannelsSnarkJobCommitmentAction::ResponseSend {
-                peer_id: a.peer_id,
+                peer_id,
                 commitments,
                 first_index,
                 last_index,
@@ -150,13 +142,13 @@ pub fn snark_pool_effects<S: Service>(store: &mut Store<S>, action: SnarkPoolAct
 
             store.dispatch(send_commitments);
             store.dispatch(P2pChannelsSnarkAction::ResponseSend {
-                peer_id: a.peer_id,
+                peer_id,
                 snarks,
                 first_index,
                 last_index,
             });
         }
-        SnarkPoolAction::CheckTimeouts(_) => {
+        SnarkPoolAction::CheckTimeouts { .. } => {
             let timed_out_ids = store
                 .state()
                 .snark_pool
@@ -164,11 +156,11 @@ pub fn snark_pool_effects<S: Service>(store: &mut Store<S>, action: SnarkPoolAct
                 .cloned()
                 .collect::<Vec<_>>();
             for job_id in timed_out_ids {
-                store.dispatch(SnarkPoolJobCommitmentTimeoutAction { job_id });
+                store.dispatch(SnarkPoolAction::JobCommitmentTimeout { job_id });
             }
         }
-        SnarkPoolAction::JobCommitmentTimeout(_) => {
-            store.dispatch(SnarkPoolAutoCreateCommitmentAction {});
+        SnarkPoolAction::JobCommitmentTimeout { .. } => {
+            store.dispatch(SnarkPoolAction::AutoCreateCommitment {});
         }
     }
 }

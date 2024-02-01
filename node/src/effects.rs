@@ -17,9 +17,7 @@ use crate::p2p::p2p_effects;
 use crate::rpc::rpc_effects;
 use crate::snark::snark_effects;
 use crate::snark_pool::candidate::SnarkPoolCandidateAction;
-use crate::snark_pool::{
-    snark_pool_effects, SnarkPoolCheckTimeoutsAction, SnarkPoolP2pSendAllAction,
-};
+use crate::snark_pool::{snark_pool_effects, SnarkPoolAction};
 use crate::transition_frontier::sync::TransitionFrontierSyncBlocksNextApplyInitAction;
 use crate::transition_frontier::transition_frontier_effects;
 use crate::watched_accounts::watched_accounts_effects;
@@ -50,8 +48,8 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
 
             p2p_try_reconnect_disconnected_peers(store);
 
-            store.dispatch(SnarkPoolCheckTimeoutsAction {});
-            store.dispatch(SnarkPoolP2pSendAllAction {});
+            store.dispatch(SnarkPoolAction::CheckTimeouts {});
+            store.dispatch(SnarkPoolAction::P2pSendAll {});
 
             p2p_request_best_tip_if_needed(store);
 

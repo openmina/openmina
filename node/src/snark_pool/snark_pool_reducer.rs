@@ -10,13 +10,17 @@ impl SnarkPoolState {
     pub fn reducer(&mut self, action: SnarkPoolActionWithMetaRef<'_>) {
         let (action, meta) = action.split();
         match action {
-            SnarkPoolAction::Candidate(action) => self.candidates.reducer(meta.with_action(action)),
-            SnarkPoolAction::JobsUpdate(action) => {
-                let mut jobs_map = action
-                    .jobs
+            SnarkPoolAction::Candidate(action) => {
+                self.candidates.reducer(meta.with_action(action));
+            }
+            SnarkPoolAction::JobsUpdate {
+                jobs,
+                orphaned_snarks,
+            } => {
+                let mut jobs_map = jobs
                     .iter()
                     .enumerate()
-                    .map(|(index, job)| (SnarkJobId::from(job), (index, job)))
+                    .map(|(index, job)| (SnarkJobId::from(job), (index, job.clone())))
                     .collect::<BTreeMap<_, _>>();
 
                 self.retain(|id| jobs_map.remove(id).map(|(order, _)| order));
@@ -24,17 +28,16 @@ impl SnarkPoolState {
                     self.insert(JobState {
                         time: meta.time(),
                         id,
-                        job: job.clone(),
+                        job,
                         commitment: None,
                         snark: None,
                         order,
                     });
                 }
 
-                let orphaned_snarks = action
-                    .orphaned_snarks
+                let orphaned_snarks = orphaned_snarks
                     .iter()
-                    .map(|snark| (snark.work.job_id(), snark));
+                    .map(|snark| (snark.work.job_id(), snark.clone()));
 
                 for (id, snark) in orphaned_snarks {
                     let take = self
@@ -51,39 +54,39 @@ impl SnarkPoolState {
 
                 self.candidates_prune();
             }
-            SnarkPoolAction::AutoCreateCommitment(_) => {}
-            SnarkPoolAction::CommitmentCreate(_) => {}
-            SnarkPoolAction::CommitmentAdd(a) => {
-                let Some(mut job) = self.remove(&a.commitment.job_id) else {
+            SnarkPoolAction::AutoCreateCommitment => {}
+            SnarkPoolAction::CommitmentCreate { .. } => {}
+            SnarkPoolAction::CommitmentAdd { commitment, sender } => {
+                let Some(mut job) = self.remove(&commitment.job_id) else {
                     return;
                 };
                 job.commitment = Some(JobCommitment {
-                    commitment: a.commitment.clone(),
+                    commitment: commitment.clone(),
                     received_t: meta.time(),
-                    sender: a.sender,
+                    sender: *sender,
                 });
                 self.insert(job);
             }
-            SnarkPoolAction::WorkAdd(a) => {
-                let job_id = a.snark.job_id();
+            SnarkPoolAction::WorkAdd { snark, sender } => {
+                let job_id = snark.job_id();
                 let Some(mut job) = self.remove(&job_id) else {
                     return;
                 };
                 job.snark = Some(SnarkWork {
-                    work: a.snark.clone(),
+                    work: snark.clone(),
                     received_t: meta.time(),
-                    sender: a.sender,
+                    sender: *sender,
                 });
                 self.insert(job);
-                self.candidates.remove_inferior_snarks(&a.snark);
+                self.candidates.remove_inferior_snarks(snark);
             }
-            SnarkPoolAction::P2pSendAll(_) => {}
-            SnarkPoolAction::P2pSend(_) => {}
-            SnarkPoolAction::CheckTimeouts(_) => {
+            SnarkPoolAction::P2pSendAll { .. } => {}
+            SnarkPoolAction::P2pSend { .. } => {}
+            SnarkPoolAction::CheckTimeouts => {
                 self.last_check_timeouts = meta.time();
             }
-            SnarkPoolAction::JobCommitmentTimeout(a) => {
-                self.remove_commitment(&a.job_id);
+            SnarkPoolAction::JobCommitmentTimeout { job_id } => {
+                self.remove_commitment(&job_id);
             }
         }
     }
