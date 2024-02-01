@@ -3,13 +3,13 @@ use serde::{Deserialize, Serialize};
 const MAX_TOKEN_LENGTH: usize = 256;
 
 /// Possible valid token of multistream-select protocol
-#[derive(Clone, Copy, Serialize, Deserialize, Debug)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub enum Token {
     Handshake,
     Na,
     SimultaneousConnect,
     Protocol(Protocol),
-    UnknownProtocol,
+    UnknownProtocol(Vec<u8>),
 }
 
 impl Token {
@@ -19,7 +19,7 @@ impl Token {
             Self::Na => b"\x03na\n",
             Self::SimultaneousConnect => b"\x1d/libp2p/simultaneous-connect\n",
             Self::Protocol(v) => v.name(),
-            Self::UnknownProtocol => b"",
+            Self::UnknownProtocol(_) => b"",
         }
     }
 
@@ -167,7 +167,7 @@ impl State {
         let token = Token::ALL
             .iter()
             .find(|t| t.name() == &self.buffer[..(len_length + len)]);
-        self.buffer.drain(..(len_length + len));
-        Ok(Some(token.copied().unwrap_or(Token::UnknownProtocol)))
+        let name = self.buffer.drain(..(len_length + len)).collect();
+        Ok(Some(token.cloned().unwrap_or(Token::UnknownProtocol(name))))
     }
 }

@@ -554,14 +554,16 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                             openmina_core::log::error!(
                                 meta.time();
                                 kind = kind.to_string(),
-                                summary = format!("failed select authentication on addr: {}", action.addr),
+                                error = action.error,
+                                summary = format!("failed select authentication on addr {}: {}", action.addr, action.error),
                             )
                         }
                         SelectKind::Multiplexing(peer_id) => {
                             openmina_core::log::error!(
                                 meta.time();
                                 kind = kind.to_string(),
-                                summary = format!("failed select multiplexing on addr: {}", action.addr),
+                                error = action.error,
+                                summary = format!("failed select multiplexing on addr {}: {}", action.addr, action.error),
                                 peer_id = peer_id.to_string(),
                             )
                         }
@@ -569,7 +571,8 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                             openmina_core::log::error!(
                                 meta.time();
                                 kind = kind.to_string(),
-                                summary = format!("failed select stream on addr: {}", action.addr),
+                                error = action.error,
+                                summary = format!("failed select stream on addr {}: {}", action.addr, action.error),
                                 peer_id = peer_id.to_string(),
                                 stream_id = stream_id,
                             )
@@ -733,6 +736,9 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     }
                     _ => {}
                 },
+                P2pNetworkAction::Kad(_) => {
+                    //
+                }
                 P2pNetworkAction::Rpc(action) => match action {
                     P2pNetworkRpcAction::Init(action) => {
                         openmina_core::log::info!(
