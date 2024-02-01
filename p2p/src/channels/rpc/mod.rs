@@ -109,18 +109,23 @@ impl Default for P2pRpcRequest {
     }
 }
 
-fn to_binary(bytes: &[u8]) -> String {
-    bytes
+fn addr_to_str(
+    MerkleAddressBinableArgStableV1(mina_p2p_messages::number::Number(length), byte_string): &MerkleAddressBinableArgStableV1,
+) -> String {
+    let addr = byte_string
+        .as_ref()
         .into_iter()
         .copied()
-        .map(|byte| {
+        .flat_map(|byte| {
             (0..8)
                 .into_iter()
-                .map(|b| byte & (1 << (7 - b)) != 0)
+                .map(move |b| byte & (1 << (7 - b)) != 0)
                 .map(|b| if b { '1' } else { '0' })
-                .collect::<String>()
         })
-        .collect()
+        .take(*length as usize)
+        .collect::<String>();
+
+    format!("depth: {length}, addr: {addr}")
 }
 
 impl std::fmt::Display for P2pRpcRequest {
@@ -129,12 +134,6 @@ impl std::fmt::Display for P2pRpcRequest {
         match self {
             Self::BestTipWithProof => Ok(()),
             Self::LedgerQuery(ledger_hash, query) => {
-                let addr_to_str = |addr: &MerkleAddressBinableArgStableV1| {
-                    let depth = &addr.0 .0;
-                    let bits = to_binary(&addr.1[..(*depth as usize)]);
-                    format!("depth: {depth}, addr: {bits}")
-                };
-
                 match query {
                     MinaLedgerSyncLedgerQueryStableV1::NumAccounts => write!(f, ", NumAccounts, ")?,
                     MinaLedgerSyncLedgerQueryStableV1::WhatChildHashes(addr) => {
