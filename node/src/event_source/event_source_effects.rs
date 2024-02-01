@@ -89,7 +89,7 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
         EventSourceAction::NewEvent(content) => match content.event {
             Event::P2p(e) => match e {
                 #[cfg(all(not(target_arch = "wasm32"), not(feature = "p2p-libp2p")))]
-                P2pEvent::MioEvent(e) => match dbg!(e) {
+                P2pEvent::MioEvent(e) => match e {
                     MioEvent::InterfaceDetected(ip) => {
                         store.dispatch(P2pNetworkSchedulerInterfaceDetectedAction { ip });
                     }
