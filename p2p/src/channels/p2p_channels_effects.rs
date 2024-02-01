@@ -4,22 +4,11 @@ use redux::ActionMeta;
 use crate::disconnection::{P2pDisconnectionInitAction, P2pDisconnectionReason};
 
 use super::{
-    best_tip::{
-        BestTipPropagationChannelMsg, P2pChannelsBestTipReceivedAction,
-        P2pChannelsBestTipRequestReceivedAction,
-    },
-    rpc::{
-        P2pChannelsRpcRequestReceivedAction, P2pChannelsRpcResponseReceivedAction, RpcChannelMsg,
-    },
-    snark::{
-        P2pChannelsSnarkPromiseReceivedAction, P2pChannelsSnarkReceivedAction,
-        P2pChannelsSnarkRequestReceivedAction, SnarkPropagationChannelMsg,
-    },
+    best_tip::{BestTipPropagationChannelMsg, P2pChannelsBestTipAction},
+    rpc::{P2pChannelsRpcAction, RpcChannelMsg},
+    snark::{P2pChannelsSnarkAction, SnarkPropagationChannelMsg},
     snark_job_commitment::{
-        P2pChannelsSnarkJobCommitmentPromiseReceivedAction,
-        P2pChannelsSnarkJobCommitmentReceivedAction,
-        P2pChannelsSnarkJobCommitmentRequestReceivedAction,
-        SnarkJobCommitmentPropagationChannelMsg,
+        P2pChannelsSnarkJobCommitmentAction, SnarkJobCommitmentPropagationChannelMsg,
     },
     ChannelMsg, P2pChannelsMessageReceivedAction,
 };
@@ -28,16 +17,10 @@ impl P2pChannelsMessageReceivedAction {
     pub fn effects<Store, S>(self, _: &ActionMeta, store: &mut Store)
     where
         Store: crate::P2pStore<S>,
-        P2pChannelsBestTipRequestReceivedAction: redux::EnablingCondition<S>,
-        P2pChannelsBestTipReceivedAction: redux::EnablingCondition<S>,
-        P2pChannelsSnarkRequestReceivedAction: redux::EnablingCondition<S>,
-        P2pChannelsSnarkPromiseReceivedAction: redux::EnablingCondition<S>,
-        P2pChannelsSnarkReceivedAction: redux::EnablingCondition<S>,
-        P2pChannelsSnarkJobCommitmentRequestReceivedAction: redux::EnablingCondition<S>,
-        P2pChannelsSnarkJobCommitmentPromiseReceivedAction: redux::EnablingCondition<S>,
-        P2pChannelsSnarkJobCommitmentReceivedAction: redux::EnablingCondition<S>,
-        P2pChannelsRpcRequestReceivedAction: redux::EnablingCondition<S>,
-        P2pChannelsRpcResponseReceivedAction: redux::EnablingCondition<S>,
+        P2pChannelsBestTipAction: redux::EnablingCondition<S>,
+        P2pChannelsSnarkAction: redux::EnablingCondition<S>,
+        P2pChannelsSnarkJobCommitmentAction: redux::EnablingCondition<S>,
+        P2pChannelsRpcAction: redux::EnablingCondition<S>,
         P2pDisconnectionInitAction: redux::EnablingCondition<S>,
     {
         let peer_id = self.peer_id;
@@ -45,42 +28,42 @@ impl P2pChannelsMessageReceivedAction {
         let was_expected = match self.message {
             ChannelMsg::BestTipPropagation(msg) => match msg {
                 BestTipPropagationChannelMsg::GetNext => {
-                    store.dispatch(P2pChannelsBestTipRequestReceivedAction { peer_id })
+                    store.dispatch(P2pChannelsBestTipAction::RequestReceived { peer_id })
                 }
                 BestTipPropagationChannelMsg::BestTip(best_tip) => {
                     let best_tip = BlockWithHash::new(best_tip);
-                    store.dispatch(P2pChannelsBestTipReceivedAction { peer_id, best_tip })
+                    store.dispatch(P2pChannelsBestTipAction::Received { peer_id, best_tip })
                 }
             },
             ChannelMsg::SnarkPropagation(msg) => match msg {
                 SnarkPropagationChannelMsg::GetNext { limit } => {
-                    store.dispatch(P2pChannelsSnarkRequestReceivedAction { peer_id, limit })
+                    store.dispatch(P2pChannelsSnarkAction::RequestReceived { peer_id, limit })
                 }
                 SnarkPropagationChannelMsg::WillSend { count } => {
-                    store.dispatch(P2pChannelsSnarkPromiseReceivedAction {
+                    store.dispatch(P2pChannelsSnarkAction::PromiseReceived {
                         peer_id,
                         promised_count: count,
                     })
                 }
                 SnarkPropagationChannelMsg::Snark(snark) => {
-                    store.dispatch(P2pChannelsSnarkReceivedAction { peer_id, snark })
+                    store.dispatch(P2pChannelsSnarkAction::Received { peer_id, snark })
                 }
             },
             ChannelMsg::SnarkJobCommitmentPropagation(msg) => match msg {
                 SnarkJobCommitmentPropagationChannelMsg::GetNext { limit } => {
-                    store.dispatch(P2pChannelsSnarkJobCommitmentRequestReceivedAction {
+                    store.dispatch(P2pChannelsSnarkJobCommitmentAction::RequestReceived {
                         peer_id,
                         limit,
                     })
                 }
                 SnarkJobCommitmentPropagationChannelMsg::WillSend { count } => {
-                    store.dispatch(P2pChannelsSnarkJobCommitmentPromiseReceivedAction {
+                    store.dispatch(P2pChannelsSnarkJobCommitmentAction::PromiseReceived {
                         peer_id,
                         promised_count: count,
                     })
                 }
                 SnarkJobCommitmentPropagationChannelMsg::Commitment(commitment) => {
-                    store.dispatch(P2pChannelsSnarkJobCommitmentReceivedAction {
+                    store.dispatch(P2pChannelsSnarkJobCommitmentAction::Received {
                         peer_id,
                         commitment,
                     })
@@ -88,14 +71,14 @@ impl P2pChannelsMessageReceivedAction {
             },
             ChannelMsg::Rpc(msg) => match msg {
                 RpcChannelMsg::Request(id, request) => {
-                    store.dispatch(P2pChannelsRpcRequestReceivedAction {
+                    store.dispatch(P2pChannelsRpcAction::RequestReceived {
                         peer_id,
                         id,
                         request,
                     })
                 }
                 RpcChannelMsg::Response(id, response) => {
-                    store.dispatch(P2pChannelsRpcResponseReceivedAction {
+                    store.dispatch(P2pChannelsRpcAction::ResponseReceived {
                         peer_id,
                         id,
                         response,

@@ -1,6 +1,6 @@
 use redux::ActionMeta;
 
-use crate::p2p::channels::rpc::{P2pChannelsRpcRequestSendAction, P2pRpcRequest};
+use crate::p2p::channels::rpc::{P2pChannelsRpcAction, P2pRpcRequest};
 use crate::Store;
 
 use super::{
@@ -42,7 +42,7 @@ impl TransitionFrontierSyncLedgerStagedPartsPeerFetchInitAction {
 
         for (peer_id, rpc_id) in ready_peers {
             // TODO(binier): maybe
-            if store.dispatch(P2pChannelsRpcRequestSendAction {
+            if store.dispatch(P2pChannelsRpcAction::RequestSend {
                 peer_id,
                 id: rpc_id,
                 request: P2pRpcRequest::StagedLedgerAuxAndPendingCoinbasesAtBlock(

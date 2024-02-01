@@ -7,15 +7,15 @@ impl SnarkWorkVerifyState {
     pub fn reducer(&mut self, action: SnarkWorkVerifyActionWithMetaRef<'_>) {
         let (action, meta) = action.split();
         match action {
-            SnarkWorkVerifyAction::Init(action) => {
+            SnarkWorkVerifyAction::Init { batch, sender, .. } => {
                 self.jobs.add(SnarkWorkVerifyStatus::Init {
                     time: meta.time(),
-                    batch: action.batch.clone(),
-                    sender: action.sender.clone(),
+                    batch: batch.clone(),
+                    sender: sender.clone(),
                 });
             }
-            SnarkWorkVerifyAction::Pending(action) => {
-                if let Some(req) = self.jobs.get_mut(action.req_id) {
+            SnarkWorkVerifyAction::Pending { req_id } => {
+                if let Some(req) = self.jobs.get_mut(*req_id) {
                     *req = match req {
                         SnarkWorkVerifyStatus::Init { batch, sender, .. } => {
                             SnarkWorkVerifyStatus::Pending {
@@ -28,23 +28,23 @@ impl SnarkWorkVerifyState {
                     };
                 }
             }
-            SnarkWorkVerifyAction::Error(action) => {
-                if let Some(req) = self.jobs.get_mut(action.req_id) {
+            SnarkWorkVerifyAction::Error { req_id, error } => {
+                if let Some(req) = self.jobs.get_mut(*req_id) {
                     *req = match req {
                         SnarkWorkVerifyStatus::Pending { batch, sender, .. } => {
                             SnarkWorkVerifyStatus::Error {
                                 time: meta.time(),
                                 batch: std::mem::take(batch),
                                 sender: std::mem::take(sender),
-                                error: action.error.clone(),
+                                error: error.clone(),
                             }
                         }
                         _ => return,
                     };
                 }
             }
-            SnarkWorkVerifyAction::Success(action) => {
-                if let Some(req) = self.jobs.get_mut(action.req_id) {
+            SnarkWorkVerifyAction::Success { req_id } => {
+                if let Some(req) = self.jobs.get_mut(*req_id) {
                     *req = match req {
                         SnarkWorkVerifyStatus::Pending { batch, sender, .. } => {
                             SnarkWorkVerifyStatus::Success {
@@ -57,8 +57,8 @@ impl SnarkWorkVerifyState {
                     };
                 }
             }
-            SnarkWorkVerifyAction::Finish(action) => {
-                self.jobs.remove(action.req_id);
+            SnarkWorkVerifyAction::Finish { req_id } => {
+                self.jobs.remove(*req_id);
             }
         }
     }

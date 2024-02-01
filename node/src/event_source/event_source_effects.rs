@@ -1,3 +1,4 @@
+use p2p::channels::snark::P2pChannelsSnarkAction;
 use p2p::listen::{
     P2pListenClosedAction, P2pListenErrorAction, P2pListenExpiredAction, P2pListenNewAction,
 };
@@ -5,17 +6,10 @@ use p2p::P2pListenEvent;
 
 use crate::action::CheckTimeoutsAction;
 use crate::block_producer::vrf_evaluator::BlockProducerVrfEvaluatorEvaluationSuccessAction;
-use crate::external_snark_worker::{
-    ExternalSnarkWorkerErrorAction, ExternalSnarkWorkerEvent, ExternalSnarkWorkerKilledAction,
-    ExternalSnarkWorkerStartedAction, ExternalSnarkWorkerWorkCancelledAction,
-    ExternalSnarkWorkerWorkErrorAction, ExternalSnarkWorkerWorkResultAction,
-};
-use crate::p2p::channels::best_tip::P2pChannelsBestTipReadyAction;
-use crate::p2p::channels::rpc::P2pChannelsRpcReadyAction;
-use crate::p2p::channels::snark::{
-    P2pChannelsSnarkLibp2pReceivedAction, P2pChannelsSnarkReadyAction,
-};
-use crate::p2p::channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentReadyAction;
+use crate::external_snark_worker::ExternalSnarkWorkerEvent;
+use crate::p2p::channels::best_tip::P2pChannelsBestTipAction;
+use crate::p2p::channels::rpc::P2pChannelsRpcAction;
+use crate::p2p::channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentAction;
 use crate::p2p::channels::{ChannelId, P2pChannelsMessageReceivedAction};
 use crate::p2p::connection::incoming::{
     P2pConnectionIncomingAnswerSdpCreateErrorAction,
@@ -45,10 +39,10 @@ use crate::rpc::{
     RpcSnarkerJobCommitAction, RpcSnarkerJobSpecAction, RpcSnarkersWorkersGetAction,
     RpcSyncStatsGetAction,
 };
-use crate::snark::block_verify::{SnarkBlockVerifyErrorAction, SnarkBlockVerifySuccessAction};
-use crate::snark::work_verify::{SnarkWorkVerifyErrorAction, SnarkWorkVerifySuccessAction};
+use crate::snark::block_verify::SnarkBlockVerifyAction;
+use crate::snark::work_verify::SnarkWorkVerifyAction;
 use crate::snark::SnarkEvent;
-use crate::{Service, Store};
+use crate::{ExternalSnarkWorkerAction, Service, Store};
 
 use super::{
     Event, EventSourceAction, EventSourceActionWithMeta, EventSourceNewEventAction,
@@ -177,20 +171,21 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                         Ok(_) => match chan_id {
                             ChannelId::BestTipPropagation => {
                                 // TODO(binier): maybe dispatch success and then ready.
-                                store.dispatch(P2pChannelsBestTipReadyAction { peer_id });
+                                store.dispatch(P2pChannelsBestTipAction::Ready { peer_id });
                             }
                             ChannelId::SnarkPropagation => {
                                 // TODO(binier): maybe dispatch success and then ready.
-                                store.dispatch(P2pChannelsSnarkReadyAction { peer_id });
+                                store.dispatch(P2pChannelsSnarkAction::Ready { peer_id });
                             }
                             ChannelId::SnarkJobCommitmentPropagation => {
                                 // TODO(binier): maybe dispatch success and then ready.
-                                store
-                                    .dispatch(P2pChannelsSnarkJobCommitmentReadyAction { peer_id });
+                                store.dispatch(P2pChannelsSnarkJobCommitmentAction::Ready {
+                                    peer_id,
+                                });
                             }
                             ChannelId::Rpc => {
                                 // TODO(binier): maybe dispatch success and then ready.
-                                store.dispatch(P2pChannelsRpcReadyAction { peer_id });
+                                store.dispatch(P2pChannelsRpcAction::Ready { peer_id });
                             }
                         },
                     },
@@ -210,7 +205,7 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                         }
                     },
                     P2pChannelEvent::Libp2pSnarkReceived(peer_id, snark, nonce) => {
-                        store.dispatch(P2pChannelsSnarkLibp2pReceivedAction {
+                        store.dispatch(P2pChannelsSnarkAction::Libp2pReceived {
                             peer_id,
                             snark,
                             nonce,
@@ -237,18 +232,18 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
             Event::Snark(event) => match event {
                 SnarkEvent::BlockVerify(req_id, result) => match result {
                     Err(error) => {
-                        store.dispatch(SnarkBlockVerifyErrorAction { req_id, error });
+                        store.dispatch(SnarkBlockVerifyAction::Error { req_id, error });
                     }
                     Ok(()) => {
-                        store.dispatch(SnarkBlockVerifySuccessAction { req_id });
+                        store.dispatch(SnarkBlockVerifyAction::Success { req_id });
                     }
                 },
                 SnarkEvent::WorkVerify(req_id, result) => match result {
                     Err(error) => {
-                        store.dispatch(SnarkWorkVerifyErrorAction { req_id, error });
+                        store.dispatch(SnarkWorkVerifyAction::Error { req_id, error });
                     }
                     Ok(()) => {
-                        store.dispatch(SnarkWorkVerifySuccessAction { req_id });
+                        store.dispatch(SnarkWorkVerifyAction::Success { req_id });
                     }
                 },
             },
@@ -304,22 +299,22 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
             },
             Event::ExternalSnarkWorker(e) => match e {
                 ExternalSnarkWorkerEvent::Started => {
-                    store.dispatch(ExternalSnarkWorkerStartedAction {});
+                    store.dispatch(ExternalSnarkWorkerAction::Started);
                 }
                 ExternalSnarkWorkerEvent::Killed => {
-                    store.dispatch(ExternalSnarkWorkerKilledAction {});
+                    store.dispatch(ExternalSnarkWorkerAction::Killed);
                 }
                 ExternalSnarkWorkerEvent::WorkResult(result) => {
-                    store.dispatch(ExternalSnarkWorkerWorkResultAction { result });
+                    store.dispatch(ExternalSnarkWorkerAction::WorkResult { result });
                 }
                 ExternalSnarkWorkerEvent::WorkError(error) => {
-                    store.dispatch(ExternalSnarkWorkerWorkErrorAction { error });
+                    store.dispatch(ExternalSnarkWorkerAction::WorkError { error });
                 }
                 ExternalSnarkWorkerEvent::WorkCancelled => {
-                    store.dispatch(ExternalSnarkWorkerWorkCancelledAction {});
+                    store.dispatch(ExternalSnarkWorkerAction::WorkCancelled);
                 }
                 ExternalSnarkWorkerEvent::Error(error) => {
-                    store.dispatch(ExternalSnarkWorkerErrorAction {
+                    store.dispatch(ExternalSnarkWorkerAction::Error {
                         error,
                         permanent: false,
                     });

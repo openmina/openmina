@@ -1,4 +1,4 @@
-use p2p::channels::rpc::P2pChannelsRpcRequestSendAction;
+use p2p::channels::rpc::P2pChannelsRpcAction;
 use redux::ActionMeta;
 
 use crate::p2p::channels::rpc::P2pRpcRequest;
@@ -152,7 +152,7 @@ impl TransitionFrontierSyncBlocksPeerQueryInitAction {
             return;
         };
 
-        if store.dispatch(P2pChannelsRpcRequestSendAction {
+        if store.dispatch(P2pChannelsRpcAction::RequestSend {
             peer_id: self.peer_id,
             id: rpc_id,
             request: P2pRpcRequest::Block(self.hash.clone()),
@@ -177,7 +177,7 @@ impl TransitionFrontierSyncBlocksPeerQueryRetryAction {
             return;
         };
 
-        if store.dispatch(P2pChannelsRpcRequestSendAction {
+        if store.dispatch(P2pChannelsRpcAction::RequestSend {
             peer_id: self.peer_id,
             id: rpc_id,
             request: P2pRpcRequest::Block(self.hash.clone()),

@@ -5,100 +5,53 @@ use super::{SnarkBlockVerifyError, SnarkBlockVerifyId, VerifiableBlockWithHash};
 pub type SnarkBlockVerifyActionWithMeta = redux::ActionWithMeta<SnarkBlockVerifyAction>;
 pub type SnarkBlockVerifyActionWithMetaRef<'a> = redux::ActionWithMeta<&'a SnarkBlockVerifyAction>;
 
-#[derive(derive_more::From, Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum SnarkBlockVerifyAction {
-    Init(SnarkBlockVerifyInitAction),
-    Pending(SnarkBlockVerifyPendingAction),
-    Error(SnarkBlockVerifyErrorAction),
-    Success(SnarkBlockVerifySuccessAction),
-    Finish(SnarkBlockVerifyFinishAction),
+    Init {
+        req_id: SnarkBlockVerifyId,
+        block: VerifiableBlockWithHash,
+    },
+    Pending {
+        req_id: SnarkBlockVerifyId,
+    },
+    Error {
+        req_id: SnarkBlockVerifyId,
+        error: SnarkBlockVerifyError,
+    },
+    Success {
+        req_id: SnarkBlockVerifyId,
+    },
+    Finish {
+        req_id: SnarkBlockVerifyId,
+    },
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct SnarkBlockVerifyInitAction {
-    pub req_id: SnarkBlockVerifyId,
-    pub block: VerifiableBlockWithHash,
-}
-
-impl redux::EnablingCondition<crate::SnarkState> for SnarkBlockVerifyInitAction {
+impl redux::EnablingCondition<crate::SnarkState> for SnarkBlockVerifyAction {
     fn is_enabled(&self, state: &crate::SnarkState) -> bool {
-        state.block_verify.jobs.next_req_id() == self.req_id
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct SnarkBlockVerifyPendingAction {
-    pub req_id: SnarkBlockVerifyId,
-}
-
-impl redux::EnablingCondition<crate::SnarkState> for SnarkBlockVerifyPendingAction {
-    fn is_enabled(&self, state: &crate::SnarkState) -> bool {
-        state
-            .block_verify
-            .jobs
-            .get(self.req_id)
-            .map_or(false, |v| v.is_init())
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct SnarkBlockVerifyErrorAction {
-    pub req_id: SnarkBlockVerifyId,
-    pub error: SnarkBlockVerifyError,
-}
-
-impl redux::EnablingCondition<crate::SnarkState> for SnarkBlockVerifyErrorAction {
-    fn is_enabled(&self, state: &crate::SnarkState) -> bool {
-        state
-            .block_verify
-            .jobs
-            .get(self.req_id)
-            .map_or(false, |v| v.is_pending())
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct SnarkBlockVerifySuccessAction {
-    pub req_id: SnarkBlockVerifyId,
-}
-
-impl redux::EnablingCondition<crate::SnarkState> for SnarkBlockVerifySuccessAction {
-    fn is_enabled(&self, state: &crate::SnarkState) -> bool {
-        state
-            .block_verify
-            .jobs
-            .get(self.req_id)
-            .map_or(false, |v| v.is_pending())
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct SnarkBlockVerifyFinishAction {
-    pub req_id: SnarkBlockVerifyId,
-}
-
-impl redux::EnablingCondition<crate::SnarkState> for SnarkBlockVerifyFinishAction {
-    fn is_enabled(&self, state: &crate::SnarkState) -> bool {
-        state
-            .block_verify
-            .jobs
-            .get(self.req_id)
-            .map_or(false, |v| v.is_finished())
-    }
-}
-
-macro_rules! impl_into_snark_action {
-    ($a:ty) => {
-        impl From<$a> for crate::SnarkAction {
-            fn from(value: $a) -> Self {
-                Self::BlockVerify(value.into())
+        match self {
+            SnarkBlockVerifyAction::Init { req_id, .. } => {
+                state.block_verify.jobs.next_req_id() == *req_id
             }
+            SnarkBlockVerifyAction::Pending { req_id } => state
+                .block_verify
+                .jobs
+                .get(*req_id)
+                .map_or(false, |v| v.is_init()),
+            SnarkBlockVerifyAction::Error { req_id, .. } => state
+                .block_verify
+                .jobs
+                .get(*req_id)
+                .map_or(false, |v| v.is_pending()),
+            SnarkBlockVerifyAction::Success { req_id } => state
+                .block_verify
+                .jobs
+                .get(*req_id)
+                .map_or(false, |v| v.is_pending()),
+            SnarkBlockVerifyAction::Finish { req_id } => state
+                .block_verify
+                .jobs
+                .get(*req_id)
+                .map_or(false, |v| v.is_finished()),
         }
-    };
+    }
 }
-
-impl_into_snark_action!(SnarkBlockVerifyInitAction);
-impl_into_snark_action!(SnarkBlockVerifyPendingAction);
-impl_into_snark_action!(SnarkBlockVerifyErrorAction);
-impl_into_snark_action!(SnarkBlockVerifySuccessAction);
-impl_into_snark_action!(SnarkBlockVerifyFinishAction);

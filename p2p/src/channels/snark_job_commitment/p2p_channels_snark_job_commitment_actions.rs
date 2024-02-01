@@ -9,252 +9,171 @@ use super::{
 pub type P2pChannelsSnarkJobCommitmentActionWithMetaRef<'a> =
     redux::ActionWithMeta<&'a P2pChannelsSnarkJobCommitmentAction>;
 
-#[derive(derive_more::From, Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum P2pChannelsSnarkJobCommitmentAction {
-    Init(P2pChannelsSnarkJobCommitmentInitAction),
-    Pending(P2pChannelsSnarkJobCommitmentPendingAction),
-    Ready(P2pChannelsSnarkJobCommitmentReadyAction),
-
-    RequestSend(P2pChannelsSnarkJobCommitmentRequestSendAction),
-    PromiseReceived(P2pChannelsSnarkJobCommitmentPromiseReceivedAction),
-    Received(P2pChannelsSnarkJobCommitmentReceivedAction),
-
-    RequestReceived(P2pChannelsSnarkJobCommitmentRequestReceivedAction),
-    ResponseSend(P2pChannelsSnarkJobCommitmentResponseSendAction),
+    Init {
+        peer_id: PeerId,
+    },
+    Pending {
+        peer_id: PeerId,
+    },
+    Ready {
+        peer_id: PeerId,
+    },
+    RequestSend {
+        peer_id: PeerId,
+        limit: u8,
+    },
+    PromiseReceived {
+        peer_id: PeerId,
+        promised_count: u8,
+    },
+    Received {
+        peer_id: PeerId,
+        commitment: SnarkJobCommitment,
+    },
+    RequestReceived {
+        peer_id: PeerId,
+        limit: u8,
+    },
+    ResponseSend {
+        peer_id: PeerId,
+        commitments: Vec<SnarkJobCommitment>,
+        first_index: u64,
+        last_index: u64,
+    },
 }
 
 impl P2pChannelsSnarkJobCommitmentAction {
     pub fn peer_id(&self) -> &PeerId {
         match self {
-            Self::Init(v) => &v.peer_id,
-            Self::Pending(v) => &v.peer_id,
-            Self::Ready(v) => &v.peer_id,
-            Self::RequestSend(v) => &v.peer_id,
-            Self::PromiseReceived(v) => &v.peer_id,
-            Self::Received(v) => &v.peer_id,
-            Self::RequestReceived(v) => &v.peer_id,
-            Self::ResponseSend(v) => &v.peer_id,
+            Self::Init { peer_id }
+            | Self::Pending { peer_id }
+            | Self::Ready { peer_id }
+            | Self::RequestSend { peer_id, .. }
+            | Self::PromiseReceived { peer_id, .. }
+            | Self::Received { peer_id, .. }
+            | Self::RequestReceived { peer_id, .. }
+            | Self::ResponseSend { peer_id, .. } => peer_id,
         }
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct P2pChannelsSnarkJobCommitmentInitAction {
-    pub peer_id: PeerId,
-}
-
-impl redux::EnablingCondition<P2pState> for P2pChannelsSnarkJobCommitmentInitAction {
+impl redux::EnablingCondition<P2pState> for P2pChannelsSnarkJobCommitmentAction {
     fn is_enabled(&self, state: &P2pState) -> bool {
-        state.get_ready_peer(&self.peer_id).map_or(false, |p| {
-            matches!(
-                &p.channels.snark_job_commitment,
-                P2pChannelsSnarkJobCommitmentState::Enabled
-            )
-        })
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct P2pChannelsSnarkJobCommitmentPendingAction {
-    pub peer_id: PeerId,
-}
-
-impl redux::EnablingCondition<P2pState> for P2pChannelsSnarkJobCommitmentPendingAction {
-    fn is_enabled(&self, state: &P2pState) -> bool {
-        state.get_ready_peer(&self.peer_id).map_or(false, |p| {
-            matches!(
-                &p.channels.snark_job_commitment,
-                P2pChannelsSnarkJobCommitmentState::Init { .. }
-            )
-        })
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct P2pChannelsSnarkJobCommitmentReadyAction {
-    pub peer_id: PeerId,
-}
-
-impl redux::EnablingCondition<P2pState> for P2pChannelsSnarkJobCommitmentReadyAction {
-    fn is_enabled(&self, state: &P2pState) -> bool {
-        state.get_ready_peer(&self.peer_id).map_or(false, |p| {
-            matches!(
-                &p.channels.snark_job_commitment,
-                P2pChannelsSnarkJobCommitmentState::Pending { .. }
-            )
-        })
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct P2pChannelsSnarkJobCommitmentRequestSendAction {
-    pub peer_id: PeerId,
-    pub limit: u8,
-}
-
-impl redux::EnablingCondition<P2pState> for P2pChannelsSnarkJobCommitmentRequestSendAction {
-    fn is_enabled(&self, state: &P2pState) -> bool {
-        state.get_ready_peer(&self.peer_id).map_or(false, |p| {
-            match &p.channels.snark_job_commitment {
-                P2pChannelsSnarkJobCommitmentState::Ready { local, .. } => match local {
-                    SnarkJobCommitmentPropagationState::WaitingForRequest { .. } => true,
-                    SnarkJobCommitmentPropagationState::Responded { .. } => true,
-                    _ => false,
-                },
-                _ => false,
+        match self {
+            P2pChannelsSnarkJobCommitmentAction::Init { peer_id } => {
+                state.get_ready_peer(peer_id).map_or(false, |p| {
+                    matches!(
+                        &p.channels.snark_job_commitment,
+                        P2pChannelsSnarkJobCommitmentState::Enabled
+                    )
+                })
             }
-        })
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct P2pChannelsSnarkJobCommitmentPromiseReceivedAction {
-    pub peer_id: PeerId,
-    pub promised_count: u8,
-}
-
-impl redux::EnablingCondition<P2pState> for P2pChannelsSnarkJobCommitmentPromiseReceivedAction {
-    fn is_enabled(&self, state: &P2pState) -> bool {
-        state.get_ready_peer(&self.peer_id).map_or(false, |p| {
-            match &p.channels.snark_job_commitment {
-                P2pChannelsSnarkJobCommitmentState::Ready { local, .. } => match local {
-                    SnarkJobCommitmentPropagationState::Requested {
-                        requested_limit, ..
-                    } => self.promised_count > 0 && self.promised_count <= *requested_limit,
-                    _ => false,
-                },
-                _ => false,
+            P2pChannelsSnarkJobCommitmentAction::Pending { peer_id } => {
+                state.get_ready_peer(peer_id).map_or(false, |p| {
+                    matches!(
+                        &p.channels.snark_job_commitment,
+                        P2pChannelsSnarkJobCommitmentState::Init { .. }
+                    )
+                })
             }
-        })
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct P2pChannelsSnarkJobCommitmentReceivedAction {
-    pub peer_id: PeerId,
-    pub commitment: SnarkJobCommitment,
-}
-
-impl redux::EnablingCondition<P2pState> for P2pChannelsSnarkJobCommitmentReceivedAction {
-    fn is_enabled(&self, state: &P2pState) -> bool {
-        state.get_ready_peer(&self.peer_id).map_or(false, |p| {
-            match &p.channels.snark_job_commitment {
-                P2pChannelsSnarkJobCommitmentState::Ready { local, .. } => match local {
-                    SnarkJobCommitmentPropagationState::Responding { .. } => true,
-                    _ => false,
-                },
-                _ => false,
+            P2pChannelsSnarkJobCommitmentAction::Ready { peer_id } => {
+                state.get_ready_peer(peer_id).map_or(false, |p| {
+                    matches!(
+                        &p.channels.snark_job_commitment,
+                        P2pChannelsSnarkJobCommitmentState::Pending { .. }
+                    )
+                })
             }
-        })
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct P2pChannelsSnarkJobCommitmentRequestReceivedAction {
-    pub peer_id: PeerId,
-    pub limit: u8,
-}
-
-impl redux::EnablingCondition<P2pState> for P2pChannelsSnarkJobCommitmentRequestReceivedAction {
-    fn is_enabled(&self, state: &P2pState) -> bool {
-        self.limit > 0
-            && state.get_ready_peer(&self.peer_id).map_or(false, |p| {
-                match &p.channels.snark_job_commitment {
-                    P2pChannelsSnarkJobCommitmentState::Ready { remote, .. } => match remote {
+            P2pChannelsSnarkJobCommitmentAction::RequestSend { peer_id, .. } => state
+                .get_ready_peer(peer_id)
+                .map_or(false, |p| match &p.channels.snark_job_commitment {
+                    P2pChannelsSnarkJobCommitmentState::Ready { local, .. } => match local {
                         SnarkJobCommitmentPropagationState::WaitingForRequest { .. } => true,
                         SnarkJobCommitmentPropagationState::Responded { .. } => true,
                         _ => false,
                     },
                     _ => false,
-                }
-            })
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct P2pChannelsSnarkJobCommitmentResponseSendAction {
-    pub peer_id: PeerId,
-    pub commitments: Vec<SnarkJobCommitment>,
-    pub first_index: u64,
-    pub last_index: u64,
-}
-
-impl redux::EnablingCondition<P2pState> for P2pChannelsSnarkJobCommitmentResponseSendAction {
-    fn is_enabled(&self, state: &P2pState) -> bool {
-        !self.commitments.is_empty()
-            && self.first_index < self.last_index
-            && state.get_ready_peer(&self.peer_id).map_or(false, |p| {
+                }),
+            P2pChannelsSnarkJobCommitmentAction::PromiseReceived {
+                peer_id,
+                promised_count,
+            } => state.get_ready_peer(peer_id).map_or(false, |p| {
                 match &p.channels.snark_job_commitment {
-                    P2pChannelsSnarkJobCommitmentState::Ready {
-                        remote,
-                        next_send_index,
-                        ..
-                    } => {
-                        if self.first_index < *next_send_index {
-                            return false;
-                        }
-                        match remote {
-                            SnarkJobCommitmentPropagationState::Requested {
-                                requested_limit,
-                                ..
-                            } => self.commitments.len() <= *requested_limit as usize,
-                            _ => false,
-                        }
-                    }
+                    P2pChannelsSnarkJobCommitmentState::Ready { local, .. } => match local {
+                        SnarkJobCommitmentPropagationState::Requested {
+                            requested_limit, ..
+                        } => *promised_count > 0 && promised_count <= requested_limit,
+                        _ => false,
+                    },
                     _ => false,
                 }
-            })
+            }),
+            P2pChannelsSnarkJobCommitmentAction::Received { peer_id, .. } => state
+                .get_ready_peer(peer_id)
+                .map_or(false, |p| match &p.channels.snark_job_commitment {
+                    P2pChannelsSnarkJobCommitmentState::Ready { local, .. } => match local {
+                        SnarkJobCommitmentPropagationState::Responding { .. } => true,
+                        _ => false,
+                    },
+                    _ => false,
+                }),
+            P2pChannelsSnarkJobCommitmentAction::RequestReceived { peer_id, limit } => {
+                *limit > 0
+                    && state.get_ready_peer(peer_id).map_or(false, |p| {
+                        match &p.channels.snark_job_commitment {
+                            P2pChannelsSnarkJobCommitmentState::Ready { remote, .. } => {
+                                match remote {
+                                    SnarkJobCommitmentPropagationState::WaitingForRequest {
+                                        ..
+                                    } => true,
+                                    SnarkJobCommitmentPropagationState::Responded { .. } => true,
+                                    _ => false,
+                                }
+                            }
+                            _ => false,
+                        }
+                    })
+            }
+            P2pChannelsSnarkJobCommitmentAction::ResponseSend {
+                peer_id,
+                commitments,
+                first_index,
+                last_index,
+            } => {
+                !commitments.is_empty()
+                    && first_index < last_index
+                    && state.get_ready_peer(peer_id).map_or(false, |p| {
+                        match &p.channels.snark_job_commitment {
+                            P2pChannelsSnarkJobCommitmentState::Ready {
+                                remote,
+                                next_send_index,
+                                ..
+                            } => {
+                                if first_index < next_send_index {
+                                    return false;
+                                }
+                                match remote {
+                                    SnarkJobCommitmentPropagationState::Requested {
+                                        requested_limit,
+                                        ..
+                                    } => commitments.len() <= *requested_limit as usize,
+                                    _ => false,
+                                }
+                            }
+                            _ => false,
+                        }
+                    })
+            }
+        }
     }
 }
-
-// --- From<LeafAction> for Action impls.
 
 use crate::channels::P2pChannelsAction;
 
-impl From<P2pChannelsSnarkJobCommitmentInitAction> for crate::P2pAction {
-    fn from(a: P2pChannelsSnarkJobCommitmentInitAction) -> Self {
-        Self::Channels(P2pChannelsAction::SnarkJobCommitment(a.into()))
-    }
-}
-
-impl From<P2pChannelsSnarkJobCommitmentPendingAction> for crate::P2pAction {
-    fn from(a: P2pChannelsSnarkJobCommitmentPendingAction) -> Self {
-        Self::Channels(P2pChannelsAction::SnarkJobCommitment(a.into()))
-    }
-}
-
-impl From<P2pChannelsSnarkJobCommitmentReadyAction> for crate::P2pAction {
-    fn from(a: P2pChannelsSnarkJobCommitmentReadyAction) -> Self {
-        Self::Channels(P2pChannelsAction::SnarkJobCommitment(a.into()))
-    }
-}
-
-impl From<P2pChannelsSnarkJobCommitmentRequestSendAction> for crate::P2pAction {
-    fn from(a: P2pChannelsSnarkJobCommitmentRequestSendAction) -> Self {
-        Self::Channels(P2pChannelsAction::SnarkJobCommitment(a.into()))
-    }
-}
-
-impl From<P2pChannelsSnarkJobCommitmentPromiseReceivedAction> for crate::P2pAction {
-    fn from(a: P2pChannelsSnarkJobCommitmentPromiseReceivedAction) -> Self {
-        Self::Channels(P2pChannelsAction::SnarkJobCommitment(a.into()))
-    }
-}
-
-impl From<P2pChannelsSnarkJobCommitmentReceivedAction> for crate::P2pAction {
-    fn from(a: P2pChannelsSnarkJobCommitmentReceivedAction) -> Self {
-        Self::Channels(P2pChannelsAction::SnarkJobCommitment(a.into()))
-    }
-}
-
-impl From<P2pChannelsSnarkJobCommitmentRequestReceivedAction> for crate::P2pAction {
-    fn from(a: P2pChannelsSnarkJobCommitmentRequestReceivedAction) -> Self {
-        Self::Channels(P2pChannelsAction::SnarkJobCommitment(a.into()))
-    }
-}
-
-impl From<P2pChannelsSnarkJobCommitmentResponseSendAction> for crate::P2pAction {
-    fn from(a: P2pChannelsSnarkJobCommitmentResponseSendAction) -> Self {
-        Self::Channels(P2pChannelsAction::SnarkJobCommitment(a.into()))
+impl From<P2pChannelsSnarkJobCommitmentAction> for crate::P2pAction {
+    fn from(action: P2pChannelsSnarkJobCommitmentAction) -> Self {
+        Self::Channels(P2pChannelsAction::SnarkJobCommitment(action))
     }
 }

@@ -44,7 +44,7 @@ pub struct P2pPeerBestTipUpdateAction {
 
 impl redux::EnablingCondition<P2pState> for P2pPeerBestTipUpdateAction {
     fn is_enabled(&self, state: &P2pState) -> bool {
-        // TODO(binier): don't enable if block inferrior than existing peer's
+        // TODO(binier): don't enable if block inferior than existing peer's
         // best tip.
         state.get_ready_peer(&self.peer_id).is_some()
     }
