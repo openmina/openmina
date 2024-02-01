@@ -160,7 +160,7 @@ pub fn snark_pool_effects<S: Service>(store: &mut Store<S>, action: SnarkPoolAct
             }
         }
         SnarkPoolAction::JobCommitmentTimeout { .. } => {
-            store.dispatch(SnarkPoolAction::AutoCreateCommitment {});
+            store.dispatch(SnarkPoolAction::AutoCreateCommitment);
         }
     }
 }

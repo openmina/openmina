@@ -116,9 +116,11 @@ impl redux::EnablingCondition<crate::State> for SnarkPoolCandidateAction {
                         })
             }
             SnarkPoolCandidateAction::WorkVerifyError { .. } => {
+                // TODO(binier)
                 true
             }
             SnarkPoolCandidateAction::WorkVerifySuccess { .. } => {
+                // TODO(binier)
                 true
             }
             SnarkPoolCandidateAction::PeerPrune { peer_id } => {

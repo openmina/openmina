@@ -101,8 +101,11 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsRpcAction {
                 })
             },
             P2pChannelsRpcAction::ResponseReceived { peer_id, id, .. } => {
+                // TODO(binier): use consensus to enforce that peer doesn't send
+                // us inferior block than it has in the past.
                 state.get_ready_peer(peer_id).map_or(false, |p| match &p.channels.rpc {
                     P2pChannelsRpcState::Ready { local, .. } => {
+                        // TODO(binier): validate that response corresponds to request.
                         matches!(local, P2pRpcLocalState::Requested { id: rpc_id, .. } if rpc_id == id)
                     },
                     _ => false,
@@ -120,6 +123,7 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsRpcAction {
             P2pChannelsRpcAction::ResponseSend { peer_id, id, .. } => {
                 state.get_ready_peer(peer_id).map_or(false, |p| match &p.channels.rpc {
                     P2pChannelsRpcState::Ready { remote, .. } => {
+                        // TODO(binier): validate that response corresponds to request.
                         remote.pending_requests.iter().any(|v| v.id == *id)
                     },
                     _ => false,

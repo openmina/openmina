@@ -48,13 +48,13 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
 
             p2p_try_reconnect_disconnected_peers(store);
 
-            store.dispatch(SnarkPoolAction::CheckTimeouts {});
-            store.dispatch(SnarkPoolAction::P2pSendAll {});
+            store.dispatch(SnarkPoolAction::CheckTimeouts);
+            store.dispatch(SnarkPoolAction::P2pSendAll);
 
             p2p_request_best_tip_if_needed(store);
 
-            store.dispatch(SnarkPoolCandidateAction::WorkFetchAll {});
-            store.dispatch(SnarkPoolCandidateAction::WorkVerifyNext {});
+            store.dispatch(SnarkPoolCandidateAction::WorkFetchAll);
+            store.dispatch(SnarkPoolCandidateAction::WorkVerifyNext);
 
             p2p_request_snarks_if_needed(store);
 
