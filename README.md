@@ -169,7 +169,6 @@ Open your browser and navigate to [http://localhost:4200](http://localhost:4200)
   - [Debugger](https://github.com/openmina/mina-network-debugger?tab=readme-ov-file#Preparing-for-build)
   - [Web Node](https://github.com/openmina/webnode/blob/main/README.md#try-out-the-mina-web-node)
 - External links
-  - [Substack](https://openmina.substack.com/)
   - [Medium](https://medium.com/openmina)
   - [Twitter](https://twitter.com/viable_systems)
 
