@@ -16,7 +16,7 @@ use mina_p2p_messages::{
 
 use crate::{
     channels::rpc::{
-        BestTipWithProof, P2pChannelsRpcAction, P2pChannelsRpcState, P2pRpcRequest, P2pRpcResponse,
+        BestTipWithProof, P2pChannelsRpcAction, P2pChannelsRpcState, P2pRpcResponse,
         StagedLedgerAuxAndPendingCoinbases,
     },
     connection::outgoing::P2pConnectionOutgoingInitOpts,
@@ -227,12 +227,6 @@ impl P2pNetworkRpcAction {
                             //     },
                             //     data: v.into(),
                             // });
-
-                            store.dispatch(P2pChannelsRpcAction::RequestSend {
-                                peer_id: a.peer_id,
-                                id: state.last_id as _,
-                                request: P2pRpcRequest::BestTipWithProof,
-                            });
                         }
                     }
                     RpcMessage::Heartbeat => {
