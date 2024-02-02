@@ -48,7 +48,7 @@ impl SoloNodeBootstrap {
                 .await
             {
                 let steps = runner
-                    .pending_events()
+                    .pending_events(true)
                     .map(|(node_id, _, events)| {
                         events.map(move |(_, event)| ScenarioStep::Event {
                             node_id,

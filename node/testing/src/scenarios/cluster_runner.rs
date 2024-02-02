@@ -213,7 +213,7 @@ impl<'a> ClusterRunner<'a> {
         tokio::time::timeout(timeout, async move {
             while !dyn_effects_data.inner().exit {
                 let event_to_take_action_on = self
-                    .pending_events()
+                    .pending_events(true)
                     .flat_map(|(node_id, state, events)| {
                         events.map(move |event| (node_id, state, event))
                     })
@@ -308,6 +308,7 @@ impl<'a> ClusterRunner<'a> {
 
     pub fn pending_events(
         &mut self,
+        poll: bool,
     ) -> impl Iterator<
         Item = (
             ClusterNodeId,
@@ -315,14 +316,15 @@ impl<'a> ClusterRunner<'a> {
             impl Iterator<Item = (PendingEventId, &Event)>,
         ),
     > {
-        self.cluster.pending_events()
+        self.cluster.pending_events(poll)
     }
 
     pub fn node_pending_events(
         &mut self,
         node_id: ClusterNodeId,
+        poll: bool,
     ) -> anyhow::Result<(&State, impl Iterator<Item = (PendingEventId, &Event)>)> {
-        self.cluster.node_pending_events(node_id)
+        self.cluster.node_pending_events(node_id, poll)
     }
 
     pub async fn wait_for_pending_events(&mut self) {

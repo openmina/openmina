@@ -205,8 +205,8 @@ impl P2pServiceWebrtcWithLibp2p for NodeService {
     }
 
     fn find_random_peer(&mut self) {
-        use node::p2p::service_impl::libp2p::Cmd;
         use libp2p::identity::PeerId;
+        use node::p2p::service_impl::libp2p::Cmd;
 
         // Generate some random peer_id
         let peer_id = PeerId::random();
@@ -340,6 +340,9 @@ pub struct EventReceiver {
 impl EventReceiver {
     /// If `Err(())`, `mpsc::Sender` for this channel was dropped.
     pub async fn wait_for_events(&mut self) -> Result<(), ()> {
+        if !self.queue.is_empty() {
+            return Ok(());
+        }
         let next = self.rx.recv().await.ok_or(())?;
         self.queue.push(next);
         Ok(())
