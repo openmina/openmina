@@ -1,7 +1,7 @@
 use openmina_node_testing::scenarios::p2p::basic_outgoing_connections::{
-    ConnectToInitialPeers, ConnectToInitialPeersBecomeReady, DontConnectToInitialPeerWithSameId,
-    DontConnectToNodeWithSameId, DontConnectToSelfInitialPeer, MakeMultipleOutgoingConnections,
-    MakeOutgoingConnection, ConnectToUnavailableInitialPeers,
+    ConnectToInitialPeers, ConnectToInitialPeersBecomeReady, ConnectToUnavailableInitialPeers,
+    DontConnectToInitialPeerWithSameId, DontConnectToNodeWithSameId, DontConnectToSelfInitialPeer,
+    MakeMultipleOutgoingConnections, MakeOutgoingConnection,
 };
 
 mod common;

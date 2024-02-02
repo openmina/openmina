@@ -4,53 +4,44 @@ use crate::transition_frontier::sync::{
 use crate::watched_accounts::WatchedAccountsLedgerInitialStateGetInitAction;
 use crate::Store;
 use crate::{
-    snark::block_verify::SnarkBlockVerifyInitAction,
+    snark::block_verify::SnarkBlockVerifyAction,
     watched_accounts::WatchedAccountsBlockTransactionsIncludedAction,
 };
 
-use super::{
-    ConsensusAction, ConsensusActionWithMeta, ConsensusBestTipUpdateAction,
-    ConsensusBlockSnarkVerifyPendingAction, ConsensusDetectForkRangeAction,
-    ConsensusLongRangeForkResolveAction, ConsensusShortRangeForkResolveAction,
-};
+use super::{ConsensusAction, ConsensusActionWithMeta};
 
 pub fn consensus_effects<S: crate::Service>(store: &mut Store<S>, action: ConsensusActionWithMeta) {
     let (action, _) = action.split();
 
     match action {
-        ConsensusAction::BlockReceived(action) => {
+        ConsensusAction::BlockReceived { hash, block, .. } => {
             let req_id = store.state().snark.block_verify.next_req_id();
-            store.dispatch(SnarkBlockVerifyInitAction {
+            store.dispatch(SnarkBlockVerifyAction::Init {
                 req_id,
-                block: (action.hash.clone(), action.block).into(),
+                block: (hash.clone(), block).into(),
             });
-            store.dispatch(ConsensusBlockSnarkVerifyPendingAction {
-                req_id,
-                hash: action.hash,
-            });
+            store.dispatch(ConsensusAction::BlockSnarkVerifyPending { req_id, hash });
         }
-        ConsensusAction::BlockChainProofUpdate(a) => {
-            if store.state().consensus.best_tip.as_ref() == Some(&a.hash) {
+        ConsensusAction::BlockChainProofUpdate { hash, .. } => {
+            if store.state().consensus.best_tip.as_ref() == Some(&hash) {
                 transition_frontier_new_best_tip(store);
             }
         }
-        ConsensusAction::BlockSnarkVerifyPending(_) => {}
-        ConsensusAction::BlockSnarkVerifySuccess(a) => {
-            store.dispatch(ConsensusDetectForkRangeAction { hash: a.hash });
+        ConsensusAction::BlockSnarkVerifyPending { .. } => {}
+        ConsensusAction::BlockSnarkVerifySuccess { hash } => {
+            store.dispatch(ConsensusAction::DetectForkRange { hash });
         }
-        ConsensusAction::DetectForkRange(a) => {
-            store.dispatch(ConsensusShortRangeForkResolveAction {
-                hash: a.hash.clone(),
-            });
-            store.dispatch(ConsensusLongRangeForkResolveAction { hash: a.hash });
+        ConsensusAction::DetectForkRange { hash } => {
+            store.dispatch(ConsensusAction::ShortRangeForkResolve { hash: hash.clone() });
+            store.dispatch(ConsensusAction::LongRangeForkResolve { hash });
         }
-        ConsensusAction::ShortRangeForkResolve(a) => {
-            store.dispatch(ConsensusBestTipUpdateAction { hash: a.hash });
+        ConsensusAction::ShortRangeForkResolve { hash } => {
+            store.dispatch(ConsensusAction::BestTipUpdate { hash });
         }
-        ConsensusAction::LongRangeForkResolve(a) => {
-            store.dispatch(ConsensusBestTipUpdateAction { hash: a.hash });
+        ConsensusAction::LongRangeForkResolve { hash } => {
+            store.dispatch(ConsensusAction::BestTipUpdate { hash });
         }
-        ConsensusAction::BestTipUpdate(_) => {
+        ConsensusAction::BestTipUpdate { .. } => {
             let Some(block) = store.state.get().consensus.best_tip_block_with_hash() else {
                 return;
             };
@@ -66,6 +57,7 @@ pub fn consensus_effects<S: crate::Service>(store: &mut Store<S>, action: Consen
 
             transition_frontier_new_best_tip(store);
         }
+        ConsensusAction::Prune => {}
     }
 }
 

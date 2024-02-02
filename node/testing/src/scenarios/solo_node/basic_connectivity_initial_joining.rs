@@ -8,7 +8,9 @@ use node::{
 };
 
 use crate::{
-    node::RustNodeTestingConfig, scenario::ScenarioStep, scenarios::cluster_runner::ClusterRunner,
+    node::RustNodeTestingConfig,
+    scenario::{ListenerNode, ScenarioStep},
+    scenarios::cluster_runner::ClusterRunner,
 };
 
 /// Local test to ensure that the Openmina node can connect to an existing OCaml testnet.
@@ -37,6 +39,7 @@ impl SoloNodeBasicConnectivityInitialJoining {
             .into_iter()
             .map(|s| s.parse::<Multiaddr>().unwrap())
             .map(|maddr| P2pConnectionOutgoingInitOpts::try_from(&maddr).unwrap())
+            .map(ListenerNode::from)
             .collect::<Vec<_>>();
         eprintln!("set max peers per node: {MAX_PEERS_PER_NODE}");
         for seed in seeds {
@@ -114,7 +117,7 @@ impl SoloNodeBasicConnectivityInitialJoining {
                 eprintln!("connected peers: {ready_peers}");
                 eprintln!("success");
 
-                if let Some(debugger) = runner.cluster().debugger() {
+                if let Some(debugger) = runner.debugger() {
                     tokio::time::sleep(Duration::from_secs(10)).await;
                     let connections = debugger
                         .connections_raw(0)

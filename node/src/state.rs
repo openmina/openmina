@@ -1,6 +1,8 @@
+use ledger::proofs::transaction::transaction_snark::CONSTRAINT_CONSTANTS;
 use redux::{ActionMeta, Timestamp};
 use serde::{Deserialize, Serialize};
 
+pub use crate::block_producer::BlockProducerState;
 use crate::config::GlobalConfig;
 pub use crate::consensus::ConsensusState;
 use crate::external_snark_worker::ExternalSnarkWorkers;
@@ -22,8 +24,9 @@ pub struct State {
     pub consensus: ConsensusState,
     pub transition_frontier: TransitionFrontierState,
     pub snark_pool: SnarkPoolState,
-    pub rpc: RpcState,
     pub external_snark_worker: ExternalSnarkWorkers,
+    pub block_producer: BlockProducerState,
+    pub rpc: RpcState,
 
     pub watched_accounts: WatchedAccountsState,
 
@@ -41,8 +44,9 @@ impl State {
             snark: SnarkState::new(config.snark),
             consensus: ConsensusState::new(),
             transition_frontier: TransitionFrontierState::new(config.transition_frontier),
-            rpc: RpcState::new(),
             external_snark_worker: ExternalSnarkWorkers::new(now),
+            block_producer: BlockProducerState::new(now, config.block_producer),
+            rpc: RpcState::new(),
 
             watched_accounts: WatchedAccountsState::new(),
 
@@ -65,5 +69,18 @@ impl State {
     pub fn action_applied(&mut self, action: &ActionWithMeta) {
         self.last_action = action.meta().clone();
         self.applied_actions_count += 1;
+    }
+
+    /// Current global slot based on constants and current time.
+    ///
+    /// It's not equal to global slot of the best tip.
+    pub fn cur_global_slot(&self) -> Option<u32> {
+        let best_tip = self.transition_frontier.best_tip()?;
+        let best_tip_ms = u64::from(best_tip.timestamp()) / 1_000_000;
+        let now_ms = u64::from(self.time()) / 1_000_000;
+        let ms = now_ms.saturating_sub(best_tip_ms) as u64;
+        let slots = ms / CONSTRAINT_CONSTANTS.block_window_duration_ms;
+
+        Some(best_tip.global_slot() + (slots as u32))
     }
 }

@@ -1,0 +1,28 @@
+<ng-container #minaTable></ng-container>
+
+<ng-template #rowTemplate let-row="row">
+  <span class="fx-row-vert-cent f-600 children" [class.has]="row.children.length">
+    <div class="length">{{ row.children.length }}</div>
+    <span class="mina-icon icon-200">chevron_right</span>
+  </span>
+  <span class="fx-row-vert-cent secondary" [class.has]="row.children.length">
+    <div class="perc"
+         [class.red]="row.value / activeResource.value * 100 > 50"
+         [class.yellow]="row.value / activeResource.value * 100 > 10">{{ row.value / activeResource.value * 100 | number: '1.0-1' }}%</div>
+    <div class="progress-background ml-10">
+      <div class="progress-background"
+           [class.red]="row.value / activeResource.value * 100 > 50"
+           [class.yellow]="row.value / activeResource.value * 100 > 10"
+           [style.width.%]="row.value / activeResource.value * 100"></div>
+    </div>
+  </span>
+  <span class="secondary" [class.has]="row.children.length">{{ row.name.executableName | truncateMid: 19: 0 }}</span>
+  <span class="secondary" [class.has]="row.children.length">{{ row.value | resSize }}</span>
+  <span class="truncate"
+        [class.has]="row.children.length"
+        [showDelay]="1000"
+        [position]="position"
+        [maxWidth]="tooltipWidth"
+        [html]="false"
+        [tooltip]="row.name.functionName">{{ row.name.functionName ?? '-' }}</span>
+</ng-template>

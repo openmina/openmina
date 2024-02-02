@@ -3,7 +3,7 @@ import { MinaState } from '@app/app.setup';
 import { NetworkConnectionsState } from '@network/connections/network-connections.state';
 import { stateSliceAsPromise } from '../../../support/commands';
 
-const condition = (state: NetworkConnectionsState) => state && state.connections.length > 2;
+const condition = (state: NetworkConnectionsState) => state && state.connections?.length > 2;
 const networkConnectionsState = (store: Store<MinaState>) => stateSliceAsPromise<NetworkConnectionsState>(store, condition, 'network', 'connections');
 
 
@@ -17,7 +17,7 @@ describe('NETWORK CONNECTIONS SIDE PANEL', () => {
       .its('store')
       .then(networkConnectionsState)
       .then((state: NetworkConnectionsState) => {
-        if (state && state.connections.length > 2) {
+        if (condition(state)) {
           cy
             .get('mina-network-connections-side-panel mina-json-viewer')
             .should('not.be.visible')
@@ -27,7 +27,7 @@ describe('NETWORK CONNECTIONS SIDE PANEL', () => {
             .click()
             .wait(1000)
             .url()
-            .should('include', '/network/connections/0')
+            .should('include', '/network/connections/' + state.connections[0].connectionId)
             .get('mina-network-connections-side-panel mina-json-viewer')
             .should('be.visible')
             .get('mina-network-connections .mina-table')
@@ -43,9 +43,8 @@ describe('NETWORK CONNECTIONS SIDE PANEL', () => {
       .its('store')
       .then(networkConnectionsState)
       .then((state: NetworkConnectionsState) => {
-        if (state && state.connections.length > 2) {
-          cy
-            .get('mina-network-connections-side-panel mina-json-viewer')
+        if (condition(state)) {
+          cy.get('mina-network-connections-side-panel mina-json-viewer')
             .should('not.be.visible')
             .get('mina-network-connections .mina-table')
             .find('.row:not(.head)')

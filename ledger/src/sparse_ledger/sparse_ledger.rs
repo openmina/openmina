@@ -7,7 +7,20 @@ use ark_ff::Zero;
 use mina_hasher::Fp;
 
 use crate::{
-    scan_state::{conv::to_ledger_hash, currency::Slot, transaction_logic::AccountState},
+    proofs::transaction::transaction_snark::CONSTRAINT_CONSTANTS,
+    scan_state::{
+        conv::to_ledger_hash,
+        currency::{Amount, Signed, Slot},
+        transaction_logic::{
+            apply_zkapp_command_first_pass_aux, apply_zkapp_command_second_pass_aux,
+            local_state::LocalStateEnv,
+            protocol_state::{GlobalState, ProtocolStateView},
+            transaction_applied::ZkappCommandApplied,
+            transaction_partially_applied::ZkappCommandPartiallyApplied,
+            zkapp_command::ZkAppCommand,
+            AccountState,
+        },
+    },
     Account, AccountId, AccountIndex, Address, HashesMatrix, Mask, MerklePath,
 };
 
@@ -84,8 +97,9 @@ impl SparseLedger {
         self.with(|this| this.add_path(merkle_path, account_id, account))
     }
 
-    pub fn get_exn(&self, addr: &Address) -> Account {
-        self.with(|this| this.get_exn(addr).clone())
+    #[inline(never)]
+    pub fn get_exn(&self, addr: &Address) -> Box<Account> {
+        self.with(|this| Box::new(this.get_exn(addr).clone()))
     }
 
     pub fn set_exn(&mut self, addr: Address, value: Box<Account>) {
@@ -105,11 +119,126 @@ impl SparseLedger {
     }
 
     pub fn get_account(&self, key: &AccountId) -> Box<Account> {
-        // TODO: Return empty account when not found
-        self.with(|this| {
-            let addr = this.find_index_exn(key.clone());
-            this.get(&addr).unwrap()
-        })
+        let account = self.with(|this| {
+            let addr = this.get_index(key)?;
+            this.get(addr)
+        });
+        account.unwrap_or_else(|| Box::new(Account::empty()))
+    }
+
+    pub fn apply_zkapp_first_pass_unchecked_with_states(
+        &mut self,
+        global_slot: Slot,
+        state_view: &ProtocolStateView,
+        fee_excess: Signed<Amount>,
+        supply_increase: Signed<Amount>,
+        second_pass_ledger: &Self,
+        zkapp_command: &ZkAppCommand,
+    ) -> Result<
+        (
+            ZkappCommandPartiallyApplied<SparseLedger>,
+            Vec<(GlobalState<SparseLedger>, LocalStateEnv<SparseLedger>)>,
+        ),
+        String,
+    > {
+        apply_zkapp_command_first_pass_aux(
+            &CONSTRAINT_CONSTANTS,
+            global_slot,
+            state_view,
+            Vec::with_capacity(16),
+            |mut acc, (global_state, mut local_state)| {
+                let GlobalState {
+                    first_pass_ledger,
+                    second_pass_ledger: _,
+                    fee_excess,
+                    supply_increase,
+                    protocol_state,
+                    block_global_slot,
+                } = global_state;
+
+                local_state.ledger = local_state.ledger.copy_content();
+
+                acc.insert(
+                    0,
+                    (
+                        GlobalState {
+                            first_pass_ledger: first_pass_ledger.copy_content(),
+                            second_pass_ledger: second_pass_ledger.copy_content(),
+                            fee_excess,
+                            supply_increase,
+                            protocol_state,
+                            block_global_slot,
+                        },
+                        local_state,
+                    ),
+                );
+                acc
+            },
+            Some(fee_excess),
+            Some(supply_increase),
+            self,
+            zkapp_command,
+        )
+    }
+
+    pub fn apply_zkapp_second_pass_unchecked_with_states(
+        &mut self,
+        init: Vec<(GlobalState<SparseLedger>, LocalStateEnv<SparseLedger>)>,
+        c: ZkappCommandPartiallyApplied<Self>,
+    ) -> Result<
+        (
+            ZkappCommandApplied,
+            Vec<(GlobalState<SparseLedger>, LocalStateEnv<SparseLedger>)>,
+        ),
+        String,
+    > {
+        let (account_update_applied, mut rev_states) = apply_zkapp_command_second_pass_aux(
+            &CONSTRAINT_CONSTANTS,
+            init,
+            |mut acc, (global_state, mut local_state)| {
+                let GlobalState {
+                    first_pass_ledger,
+                    second_pass_ledger,
+                    fee_excess,
+                    supply_increase,
+                    protocol_state,
+                    block_global_slot,
+                } = global_state;
+
+                local_state.ledger = local_state.ledger.copy_content();
+
+                acc.insert(
+                    0,
+                    (
+                        GlobalState {
+                            first_pass_ledger: first_pass_ledger.copy_content(),
+                            second_pass_ledger: second_pass_ledger.copy_content(),
+                            fee_excess,
+                            supply_increase,
+                            protocol_state,
+                            block_global_slot,
+                        },
+                        local_state,
+                    ),
+                );
+                acc
+            },
+            self,
+            c,
+        )?;
+
+        let will_succeed = account_update_applied.command.status.is_applied();
+
+        rev_states.reverse();
+        // All but first and last
+        let nintermediate = rev_states.len().saturating_sub(2);
+
+        for (_global_state, local_state) in rev_states.iter_mut().skip(1).take(nintermediate) {
+            local_state.will_succeed = will_succeed;
+        }
+
+        let states = rev_states;
+        Ok((account_update_applied, states))
     }
 }
 

@@ -1,7 +1,9 @@
 use std::sync::Arc;
 
 use mina_p2p_messages::v2::{
-    LedgerHash, MinaBaseStagedLedgerHashStableV1, StagedLedgerDiffDiffFtStableV1,
+    ConsensusProofOfStakeDataConsensusStateValueStableV2, LedgerHash,
+    MinaBaseProtocolConstantsCheckedValueStableV1, MinaBaseStagedLedgerHashStableV1,
+    NonZeroCurvePoint, StagedLedgerDiffDiffFtStableV1,
     StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2Coinbase,
 };
 use mina_p2p_messages::v2::{
@@ -39,16 +41,20 @@ impl<T: AsRef<Block>> BlockWithHash<T> {
         }
     }
 
-    pub fn header(&self) -> &BlockHeader {
-        &self.block.as_ref().header
-    }
-
     pub fn hash(&self) -> &BlockHash {
         &self.hash
     }
 
     pub fn pred_hash(&self) -> &BlockHash {
         &self.header().protocol_state.previous_state_hash
+    }
+
+    pub fn header(&self) -> &BlockHeader {
+        &self.block.as_ref().header
+    }
+
+    pub fn consensus_state(&self) -> &ConsensusProofOfStakeDataConsensusStateValueStableV2 {
+        consensus_state(self.header())
     }
 
     pub fn height(&self) -> u32 {
@@ -59,8 +65,28 @@ impl<T: AsRef<Block>> BlockWithHash<T> {
         global_slot(self.header())
     }
 
+    pub fn global_slot_since_genesis(&self) -> u32 {
+        global_slot_since_genesis(self.header())
+    }
+
+    pub fn global_slot_diff(&self) -> u32 {
+        global_slot_diff(self.header())
+    }
+
     pub fn timestamp(&self) -> Timestamp {
         timestamp(self.header())
+    }
+
+    pub fn genesis_timestamp(&self) -> Timestamp {
+        genesis_timestamp(self.header())
+    }
+
+    pub fn constants(&self) -> &MinaBaseProtocolConstantsCheckedValueStableV1 {
+        constants(self.header())
+    }
+
+    pub fn producer(&self) -> &NonZeroCurvePoint {
+        producer(self.header())
     }
 
     pub fn snarked_ledger_hash(&self) -> &LedgerHash {
@@ -84,7 +110,7 @@ impl<T: AsRef<Block>> BlockWithHash<T> {
     }
 
     pub fn root_block_height(&self) -> u32 {
-        let k = self.header().protocol_state.body.constants.k.as_u32();
+        let k = self.constants().k.as_u32();
         self.height().saturating_sub(k).max(1)
     }
 
@@ -149,16 +175,20 @@ impl<T: AsRef<BlockHeader>> BlockHeaderWithHash<T> {
         }
     }
 
-    pub fn header(&self) -> &BlockHeader {
-        &self.header.as_ref()
-    }
-
     pub fn hash(&self) -> &BlockHash {
         &self.hash
     }
 
     pub fn pred_hash(&self) -> &BlockHash {
         &self.header().protocol_state.previous_state_hash
+    }
+
+    pub fn header(&self) -> &BlockHeader {
+        &self.header.as_ref()
+    }
+
+    pub fn consensus_state(&self) -> &ConsensusProofOfStakeDataConsensusStateValueStableV2 {
+        consensus_state(self.header())
     }
 
     pub fn height(&self) -> u32 {
@@ -169,8 +199,28 @@ impl<T: AsRef<BlockHeader>> BlockHeaderWithHash<T> {
         global_slot(self.header())
     }
 
+    pub fn global_slot_since_genesis(&self) -> u32 {
+        global_slot_since_genesis(self.header())
+    }
+
+    pub fn global_slot_diff(&self) -> u32 {
+        global_slot_diff(self.header())
+    }
+
     pub fn timestamp(&self) -> Timestamp {
         timestamp(self.header())
+    }
+
+    pub fn genesis_timestamp(&self) -> Timestamp {
+        genesis_timestamp(self.header())
+    }
+
+    pub fn constants(&self) -> &MinaBaseProtocolConstantsCheckedValueStableV1 {
+        constants(self.header())
+    }
+
+    pub fn producer(&self) -> &NonZeroCurvePoint {
+        producer(self.header())
     }
 
     pub fn snarked_ledger_hash(&self) -> &LedgerHash {
@@ -194,38 +244,49 @@ impl<T: AsRef<BlockHeader>> BlockHeaderWithHash<T> {
     }
 }
 
+fn consensus_state(header: &BlockHeader) -> &ConsensusProofOfStakeDataConsensusStateValueStableV2 {
+    &header.protocol_state.body.consensus_state
+}
+
 fn height(header: &BlockHeader) -> u32 {
-    header
-        .protocol_state
-        .body
-        .consensus_state
-        .blockchain_length
-        .0
-        .as_u32()
+    consensus_state(header).blockchain_length.as_u32()
 }
 
 fn global_slot(header: &BlockHeader) -> u32 {
-    header
-        .protocol_state
-        .body
-        .consensus_state
-        .global_slot_since_genesis
+    consensus_state(header).global_slot()
+}
+
+fn global_slot_since_genesis(header: &BlockHeader) -> u32 {
+    consensus_state(header).global_slot_since_genesis.as_u32()
+}
+
+fn global_slot_diff(header: &BlockHeader) -> u32 {
+    let s = consensus_state(header);
+    s.global_slot_since_genesis
         .as_u32()
+        .saturating_sub(s.global_slot())
 }
 
 fn timestamp(header: &BlockHeader) -> Timestamp {
-    let genesis_timestamp = header
-        .protocol_state
-        .body
-        .constants
-        .genesis_state_timestamp
-        .0
-        .as_u64();
-    let slot = global_slot(header) as u64;
+    let genesis_timestamp = constants(header).genesis_state_timestamp.0.as_u64();
+    let slot = global_slot_since_genesis(header) as u64;
     // FIXME: this calculation must use values from the protocol constants,
     // now it assumes 3 minutes blocks.
     let time_ms = genesis_timestamp + slot * 3 * 60 * 1000;
     Timestamp::new(time_ms * 1_000_000)
+}
+
+fn genesis_timestamp(header: &BlockHeader) -> Timestamp {
+    let genesis_timestamp = constants(header).genesis_state_timestamp.0.as_u64();
+    Timestamp::new(genesis_timestamp * 1_000_000)
+}
+
+fn constants(header: &BlockHeader) -> &MinaBaseProtocolConstantsCheckedValueStableV1 {
+    &header.protocol_state.body.constants
+}
+
+fn producer(header: &BlockHeader) -> &NonZeroCurvePoint {
+    &header.protocol_state.body.consensus_state.block_creator
 }
 
 fn snarked_ledger_hash(header: &BlockHeader) -> &LedgerHash {
@@ -239,23 +300,11 @@ fn snarked_ledger_hash(header: &BlockHeader) -> &LedgerHash {
 }
 
 fn staking_epoch_ledger_hash(header: &BlockHeader) -> &LedgerHash {
-    &header
-        .protocol_state
-        .body
-        .consensus_state
-        .staking_epoch_data
-        .ledger
-        .hash
+    &consensus_state(header).staking_epoch_data.ledger.hash
 }
 
 fn next_epoch_ledger_hash(header: &BlockHeader) -> &LedgerHash {
-    &header
-        .protocol_state
-        .body
-        .consensus_state
-        .next_epoch_data
-        .ledger
-        .hash
+    &consensus_state(header).next_epoch_data.ledger.hash
 }
 
 fn staged_ledger_hash(header: &BlockHeader) -> &LedgerHash {

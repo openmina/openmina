@@ -12,7 +12,9 @@ use serde::{Deserialize, Serialize};
 
 use mina_signer::{CompressedPubKey, PubKey};
 
-#[derive(BinProtWrite, BinProtRead, Serialize, Deserialize, Debug, Clone)]
+#[derive(
+    BinProtWrite, BinProtRead, Serialize, Deserialize, Debug, Ord, PartialOrd, Eq, PartialEq, Clone,
+)]
 pub struct AccountPublicKey(NonZeroCurvePoint);
 
 impl From<PubKey> for AccountPublicKey {
@@ -30,6 +32,15 @@ impl From<CompressedPubKey> for AccountPublicKey {
             }
             .into(),
         )
+    }
+}
+
+impl From<AccountPublicKey> for CompressedPubKey {
+    fn from(value: AccountPublicKey) -> Self {
+        Self {
+            is_odd: value.0.is_odd,
+            x: value.0.into_inner().x.into(),
+        }
     }
 }
 

@@ -7,14 +7,14 @@ impl SnarkBlockVerifyState {
     pub fn reducer(&mut self, action: SnarkBlockVerifyActionWithMetaRef<'_>) {
         let (action, meta) = action.split();
         match action {
-            SnarkBlockVerifyAction::Init(action) => {
+            SnarkBlockVerifyAction::Init { block, .. } => {
                 self.jobs.add(SnarkBlockVerifyStatus::Init {
                     time: meta.time(),
-                    block: action.block.clone(),
+                    block: block.clone(),
                 });
             }
-            SnarkBlockVerifyAction::Pending(action) => {
-                if let Some(req) = self.jobs.get_mut(action.req_id) {
+            SnarkBlockVerifyAction::Pending { req_id, .. } => {
+                if let Some(req) = self.jobs.get_mut(*req_id) {
                     *req = match req {
                         SnarkBlockVerifyStatus::Init { block, .. } => {
                             SnarkBlockVerifyStatus::Pending {
@@ -26,22 +26,22 @@ impl SnarkBlockVerifyState {
                     };
                 }
             }
-            SnarkBlockVerifyAction::Error(action) => {
-                if let Some(req) = self.jobs.get_mut(action.req_id) {
+            SnarkBlockVerifyAction::Error { req_id, error, .. } => {
+                if let Some(req) = self.jobs.get_mut(*req_id) {
                     *req = match req {
                         SnarkBlockVerifyStatus::Pending { block, .. } => {
                             SnarkBlockVerifyStatus::Error {
                                 time: meta.time(),
                                 block: block.clone(),
-                                error: action.error.clone(),
+                                error: error.clone(),
                             }
                         }
                         _ => return,
                     };
                 }
             }
-            SnarkBlockVerifyAction::Success(action) => {
-                if let Some(req) = self.jobs.get_mut(action.req_id) {
+            SnarkBlockVerifyAction::Success { req_id, .. } => {
+                if let Some(req) = self.jobs.get_mut(*req_id) {
                     *req = match req {
                         SnarkBlockVerifyStatus::Pending { block, .. } => {
                             SnarkBlockVerifyStatus::Success {
@@ -53,8 +53,8 @@ impl SnarkBlockVerifyState {
                     };
                 }
             }
-            SnarkBlockVerifyAction::Finish(action) => {
-                self.jobs.remove(action.req_id);
+            SnarkBlockVerifyAction::Finish { req_id, .. } => {
+                self.jobs.remove(*req_id);
             }
         }
     }

@@ -1,23 +1,46 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+use crate::node::OcamlNodeExecutable;
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ClusterConfig {
     port_range: Option<(u16, u16)>,
     all_rust_to_rust_use_webrtc: bool,
+    is_replay: bool,
     use_debugger: bool,
+    ocaml_node_executable: OcamlNodeExecutable,
 }
 
 impl ClusterConfig {
-    pub fn new(use_debugger: bool) -> Self {
-        ClusterConfig {
-            use_debugger,
-            ..Default::default()
-        }
+    pub fn new(ocaml_node_executable: Option<OcamlNodeExecutable>) -> anyhow::Result<Self> {
+        Ok(Self {
+            port_range: None,
+            all_rust_to_rust_use_webrtc: false,
+            is_replay: false,
+            use_debugger: false,
+            ocaml_node_executable: match ocaml_node_executable {
+                Some(v) => v,
+                None => OcamlNodeExecutable::find_working()?,
+            },
+        })
     }
 
     pub fn use_debugger(mut self) -> Self {
         self.use_debugger = true;
         self
+    }
+
+    pub fn is_use_debugger(&self) -> bool {
+        self.use_debugger
+    }
+
+    pub fn set_replay(mut self) -> Self {
+        self.is_replay = true;
+        self
+    }
+
+    pub fn is_replay(&self) -> bool {
+        self.is_replay
     }
 
     pub fn port_range(&self) -> std::ops::RangeInclusive<u16> {
@@ -35,7 +58,12 @@ impl ClusterConfig {
         self.all_rust_to_rust_use_webrtc
     }
 
-    pub fn is_use_debugger(&self) -> bool {
-        self.use_debugger
+    pub fn set_ocaml_node_executable(mut self, executable: OcamlNodeExecutable) -> Self {
+        self.ocaml_node_executable = executable;
+        self
+    }
+
+    pub fn ocaml_node_executable(&self) -> &OcamlNodeExecutable {
+        &self.ocaml_node_executable
     }
 }

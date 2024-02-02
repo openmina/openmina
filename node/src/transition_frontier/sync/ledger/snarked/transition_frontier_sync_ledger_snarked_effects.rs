@@ -1,5 +1,5 @@
 use mina_p2p_messages::v2::MinaLedgerSyncLedgerQueryStableV1;
-use p2p::channels::rpc::{P2pChannelsRpcRequestSendAction, P2pRpcRequest};
+use p2p::channels::rpc::{P2pChannelsRpcAction, P2pRpcRequest};
 use p2p::PeerId;
 use redux::ActionMeta;
 
@@ -43,7 +43,7 @@ fn query_peer_init<S: redux::Service>(
         MinaLedgerSyncLedgerQueryStableV1::WhatChildHashes(address.clone().into())
     };
 
-    if store.dispatch(P2pChannelsRpcRequestSendAction {
+    if store.dispatch(P2pChannelsRpcAction::RequestSend {
         peer_id,
         id: rpc_id,
         request: P2pRpcRequest::LedgerQuery(ledger_hash, query),

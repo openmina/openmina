@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use mina_hasher::Fp;
 use mina_p2p_messages::v2::MinaStateProtocolStateValueStableV2;
 use mina_signer::CompressedPubKey;
@@ -117,11 +119,11 @@ pub struct PreStatement<L: sparse_ledger::LedgerIntf + Clone> {
 #[derive(Debug)]
 pub struct DiffResult {
     pub hash_after_applying: StagedLedgerHash<Fp>,
-    ledger_proof: Option<(
+    pub ledger_proof: Option<(
         LedgerProof,
         Vec<TransactionsOrdered<(WithStatus<Transaction>, Fp, Slot)>>,
     )>,
-    pending_coinbase_update: (bool, Update),
+    pub pending_coinbase_update: (bool, Update),
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -819,7 +821,7 @@ impl StagedLedger {
         match map_opt(job_msg_proofs, |job, msg, proof| {
             ScanState::statement_of_job(&job).map(|s| (proof, s, msg))
         }) {
-            None => Err(format!("Error creating statement from job").into()),
+            None => Err("Error creating statement from job".to_string().into()),
             Some(proof_statement_msgs) => {
                 Self::verify_proofs(logger, verifier, proof_statement_msgs)
             }
@@ -1146,6 +1148,7 @@ impl StagedLedger {
         Self::check_zero_fee_excess(&self.scan_state, &data)?;
 
         let data_is_empty = data.is_empty();
+        let data: Vec<_> = data.into_iter().map(Arc::new).collect();
 
         let res_opt = {
             self.scan_state
@@ -1298,7 +1301,7 @@ impl StagedLedger {
     }
 
     /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#L1095
-    fn apply_diff_unchecked(
+    pub fn apply_diff_unchecked(
         &mut self,
         constraint_constants: &ConstraintConstants,
         global_slot: Slot,
@@ -1977,13 +1980,14 @@ impl StagedLedger {
         use scan_state::transaction_logic::transaction_applied::Varying;
 
         let block_transactions_applied = {
-            let f = |TransactionWithWitness {
-                         transaction_with_info,
-                         state_hash: (leaf_block_hash, _),
-                         ..
-                     }: TransactionWithWitness| {
-                if leaf_block_hash == previous_block_state_hash {
-                    Some(transaction_with_info.varying)
+            let f = |t: Arc<TransactionWithWitness>| {
+                let TransactionWithWitness {
+                    transaction_with_info,
+                    state_hash: (leaf_block_hash, _),
+                    ..
+                } = t.as_ref();
+                if leaf_block_hash == &previous_block_state_hash {
+                    Some(transaction_with_info.varying.to_owned())
                 } else {
                     None
                 }
@@ -5859,6 +5863,7 @@ mod tests_ocaml {
 mod tests {
     use std::{collections::BTreeMap, fs::File};
 
+    use mina_hasher::Fp;
     use mina_p2p_messages::binprot;
 
     use crate::{
@@ -5874,7 +5879,7 @@ mod tests {
             staged_ledger::{tests_ocaml::CONSTRAINT_CONSTANTS, StagedLedger},
             validate_block::validate_block,
         },
-        verifier::{Verifier, SRS},
+        verifier::{get_srs, Verifier},
         Account, BaseLedger, Database, Mask,
     };
     use binprot::BinProtRead;
@@ -6023,7 +6028,8 @@ mod tests {
 
         dbg!(staged_ledger.ledger.nmasks_to_root());
 
-        let srs = SRS.as_ref();
+        let srs = get_srs::<Fp>();
+        let srs = srs.lock().unwrap();
 
         for (index, block) in blocks.into_iter().enumerate() {
             validate_block(&block).unwrap();
@@ -6045,7 +6051,7 @@ mod tests {
                 .global_slot_since_genesis
                 .as_u32();
 
-            crate::proofs::verification::verify_block(&block.header, &block_verifier, srs);
+            crate::proofs::verification::verify_block(&block.header, &block_verifier, &srs);
 
             let diff: Diff = (&block.body.staged_ledger_diff).into();
 

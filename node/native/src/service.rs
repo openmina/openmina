@@ -1,9 +1,10 @@
 use std::collections::{BTreeMap, VecDeque};
 
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use ledger::scan_state::scan_state::transaction_snark::{SokDigest, Statement};
 use mina_p2p_messages::v2::{LedgerProofProdStableV2, TransactionSnarkWorkTStableV2Proofs};
+use openmina_core::invariants::InvariantsState;
 use rand::prelude::*;
 use redux::ActionMeta;
 use serde::Serialize;
@@ -29,6 +30,7 @@ use node::snark_pool::{JobState, SnarkPoolService};
 use node::stats::Stats;
 use node::ActionKind;
 
+use crate::block_producer::BlockProducerService;
 use crate::ext_snark_worker;
 use crate::rpc::RpcService;
 
@@ -44,11 +46,13 @@ pub struct NodeService {
     pub ledger: LedgerCtx,
     pub peers: BTreeMap<PeerId, PeerState>,
     pub libp2p: Libp2pService,
-    pub rpc: RpcService,
+    pub block_producer: Option<BlockProducerService>,
     pub snark_worker_sender: Option<ext_snark_worker::ExternalSnarkWorkerFacade>,
+    pub rpc: RpcService,
     pub stats: Stats,
     pub recorder: Recorder,
     pub replayer: Option<ReplayerState>,
+    pub invariants_state: InvariantsState,
 }
 
 pub struct ReplayerState {
@@ -175,7 +179,7 @@ impl SnarkBlockVerifyService for NodeService {
         &mut self,
         req_id: SnarkBlockVerifyId,
         verifier_index: Arc<VerifierIndex>,
-        verifier_srs: Arc<VerifierSRS>,
+        verifier_srs: Arc<Mutex<VerifierSRS>>,
         block: VerifiableBlockWithHash,
     ) {
         if self.replayer.is_some() {
@@ -185,6 +189,7 @@ impl SnarkBlockVerifyService for NodeService {
         rayon::spawn_fifo(move || {
             let header = block.header_ref();
             let result = {
+                let verifier_srs = verifier_srs.lock().expect("Failed to lock the SRS");
                 if !ledger::proofs::verification::verify_block(
                     header,
                     &verifier_index,
@@ -206,7 +211,7 @@ impl SnarkWorkVerifyService for NodeService {
         &mut self,
         req_id: SnarkWorkVerifyId,
         verifier_index: Arc<VerifierIndex>,
-        verifier_srs: Arc<VerifierSRS>,
+        verifier_srs: Arc<Mutex<VerifierSRS>>,
         work: Vec<Snark>,
     ) {
         if self.replayer.is_some() {
@@ -231,6 +236,7 @@ impl SnarkWorkVerifyService for NodeService {
                     })
                     .filter_map(|v| v)
                     .collect::<Vec<_>>();
+                let verifier_srs = verifier_srs.lock().expect("Failed to lock SRS");
                 if !ledger::proofs::verification::verify_transaction(
                     works.iter().map(|(v1, v2)| (v1, v2)),
                     &verifier_index,

@@ -3,6 +3,7 @@ use std::{collections::HashSet, hash::Hash, io::Cursor};
 use binprot::{BinProtRead, BinProtWrite};
 use mina_hasher::Fp;
 use mina_p2p_messages::bigint::BigInt;
+use mina_p2p_messages::binprot;
 use ocaml_interop::*;
 
 use crate::{Account, AccountIndex, Address};

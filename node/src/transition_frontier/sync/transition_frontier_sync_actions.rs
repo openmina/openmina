@@ -1,5 +1,6 @@
 use mina_p2p_messages::v2::StateHash;
 use openmina_core::block::ArcBlockWithHash;
+use openmina_core::consensus::consensus_take;
 use serde::{Deserialize, Serialize};
 
 use crate::p2p::channels::rpc::P2pRpcId;
@@ -91,10 +92,29 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncBestTipUpd
                 .sync
                 .best_tip()
                 .map_or(true, |tip| self.best_tip.hash != tip.hash)
+            // TODO(binier): TMP. we shouldn't need to check consensus here.
             && state
-                .consensus
+                .transition_frontier
+                .sync
                 .best_tip()
-                .map_or(true, |tip| &self.best_tip.hash == tip.hash)
+                .or(state.transition_frontier.best_tip())
+                .map_or(false, |tip| {
+                    consensus_take(tip.consensus_state(), self.best_tip.consensus_state(), tip.hash(), self.best_tip.hash())
+                })
+            // Don't sync to best tip if we are in the middle of producing
+            // a block unless that best tip candidate is better consensus-wise
+            // than the one that we are producing.
+            //
+            // Otherwise other block producers might spam the network
+            // with blocks that are better than current best tip, yet
+            // inferior to the block that we are producing and we can't
+            // let that get in the way of us producing a block.
+            && state.block_producer.producing_won_slot()
+                .filter(|_| !state.block_producer.is_me(self.best_tip.producer()))
+                // TODO(binier): check if candidate best tip is short or
+                // long range fork and based on that compare slot that
+                // we are producing.
+                .map_or(true, |won_slot| won_slot < &self.best_tip)
     }
 }
 

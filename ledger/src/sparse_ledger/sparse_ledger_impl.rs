@@ -186,7 +186,7 @@ impl SparseLedgerImpl<AccountId, Account> {
         self.values.insert(index, account);
     }
 
-    fn get_index(&self, account_id: &AccountId) -> Option<&Address> {
+    pub(super) fn get_index(&self, account_id: &AccountId) -> Option<&Address> {
         self.indexes.get(account_id)
     }
 

@@ -10,9 +10,9 @@ use super::{
         snarked::TransitionFrontierSyncLedgerSnarkedState, SyncLedgerTarget, SyncLedgerTargetKind,
         TransitionFrontierSyncLedgerState,
     },
-    PeerRpcState, TransitionFrontierSyncAction,
-    TransitionFrontierSyncActionWithMetaRef, TransitionFrontierSyncBlockState,
-    TransitionFrontierSyncLedgerPending, TransitionFrontierSyncState,
+    PeerRpcState, TransitionFrontierSyncAction, TransitionFrontierSyncActionWithMetaRef,
+    TransitionFrontierSyncBlockState, TransitionFrontierSyncLedgerPending,
+    TransitionFrontierSyncState,
 };
 
 impl TransitionFrontierSyncState {

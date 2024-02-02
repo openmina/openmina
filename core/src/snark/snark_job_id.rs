@@ -1,6 +1,5 @@
 use std::str::FromStr;
 
-use ledger::scan_state::scan_state::{transaction_snark::OneOrTwo, AvailableJobMessage};
 use mina_p2p_messages::binprot::{
     self,
     macros::{BinProtRead, BinProtWrite},
@@ -104,26 +103,6 @@ impl<'de> Deserialize<'de> for LedgerHashTransition {
                 target: v.target,
             })
         }
-    }
-}
-
-impl From<&OneOrTwo<AvailableJobMessage>> for SnarkJobId {
-    fn from(value: &OneOrTwo<AvailableJobMessage>) -> Self {
-        let (first, second) = match value {
-            OneOrTwo::One(j) => (j, j),
-            OneOrTwo::Two((j1, j2)) => (j1, j2),
-        };
-
-        let source = match first {
-            AvailableJobMessage::Base(base) => &base.statement.0.source,
-            AvailableJobMessage::Merge { left, .. } => &left.0 .0.statement.source,
-        };
-        let target = match second {
-            AvailableJobMessage::Base(base) => &base.statement.0.target,
-            AvailableJobMessage::Merge { right, .. } => &right.0 .0.statement.target,
-        };
-
-        (source, target).into()
     }
 }
 

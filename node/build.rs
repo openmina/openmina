@@ -48,15 +48,52 @@ fn is_same_file<P: AsRef<Path>>(file1: P, file2: P) -> Result<bool, std::io::Err
     Ok(b1 == b2)
 }
 
+#[derive(Debug, Clone)]
+enum EnumElement {
+    InlineFields {
+        tag: String,
+        action_kind: String,
+        has_fields: bool,
+    },
+    Nested((String, String)),
+}
+
 #[derive(Debug)]
 enum ActionMeta {
     Struct,
-    Enum(Vec<(String, String)>),
+    Enum(Vec<EnumElement>),
 }
 
 impl ActionMeta {
     pub fn is_struct(&self) -> bool {
         matches!(self, Self::Struct)
+    }
+
+    pub fn is_inlined(&self) -> bool {
+        if let Self::Enum(fields) = self {
+            fields
+                .iter()
+                .any(|field| matches!(field, EnumElement::InlineFields { .. }))
+        } else {
+            false
+        }
+    }
+
+    pub fn action_kinds(&self) -> Vec<String> {
+        match self {
+            Self::Struct => vec![],
+            Self::Enum(elts) => {
+                let mut action_kinds = elts
+                    .iter()
+                    .filter_map(|elt| match elt {
+                        EnumElement::Nested(_) => None,
+                        EnumElement::InlineFields { action_kind, .. } => Some(action_kind.clone()),
+                    })
+                    .collect::<Vec<_>>();
+                action_kinds.sort();
+                action_kinds
+            }
+        }
     }
 }
 
@@ -77,8 +114,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     };
 
     let action_def_re = Regex::new(r"^pub (struct|enum) ([a-zA-Z0-9]*Action)( |\n)\{").unwrap();
-    let action_enum_variant_re =
+    let action_enum_variant_nested_re =
         Regex::new(r"([a-zA-Z0-9]*)\(\n? *([a-zA-Z0-9]*Action),?\n? *\)").unwrap();
+    let action_enum_variant_inline_re =
+        Regex::new(r"(?m)^\s*([A-Z][a-zA-Z0-9]+)(\s*\{[^}]*\})?,").unwrap();
 
     let mut use_statements: BTreeMap<Vec<String>, Vec<String>> = Default::default();
     use_statements.insert(vec![], vec!["ActionKindGet".to_owned()]);
@@ -116,20 +155,45 @@ fn main() -> Result<(), Box<dyn Error>> {
                 "enum" => {
                     if let Some(action_name) = matches.get(2) {
                         let action_name = action_name.as_str().to_owned();
+                        // Without 'Action' suffix
+                        let action_name_base = action_name[..(action_name.len() - 6)].to_string();
                         let mut variant_lines = vec![];
                         loop {
                             let Some(line) = lines.next() else { break };
                             let line = line.unwrap();
-                            if line.contains('}') {
+                            if line.ends_with('}') {
                                 break;
                             }
                             variant_lines.push(line);
                         }
-                        let variants_str = variant_lines.join("");
+                        let variants_str = variant_lines.join("\n");
 
-                        let variants = action_enum_variant_re
+                        let variants_nested = action_enum_variant_nested_re
                             .captures_iter(&variants_str)
-                            .map(|matches| (matches[1].to_owned(), matches[2].to_owned()))
+                            .map(|matches| {
+                                EnumElement::Nested((matches[1].to_owned(), matches[2].to_owned()))
+                            })
+                            .collect::<Vec<_>>();
+                        let variants_inlined = action_enum_variant_inline_re
+                            .captures_iter(&variants_str)
+                            .filter_map(|matches| {
+                                let tag = matches[1].to_owned();
+                                if tag.ends_with("Action") {
+                                    None
+                                } else {
+                                    let action_kind = format!("{action_name_base}{tag}");
+                                    Some(EnumElement::InlineFields {
+                                        tag,
+                                        action_kind,
+                                        has_fields: matches.get(2).is_some(),
+                                    })
+                                }
+                            })
+                            .collect::<Vec<_>>();
+                        let variants = variants_nested
+                            .iter()
+                            .chain(variants_inlined.iter())
+                            .cloned()
                             .collect();
                         actions.insert(action_name.clone(), ActionMeta::Enum(variants));
                         action_defs.push(action_name);
@@ -198,9 +262,15 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let action_kinds_iter = actions
         .iter()
-        .filter(|(_, meta)| meta.is_struct())
-        // Remove suffix `Action` from action name.
-        .map(|(name, _)| name[..(name.len() - 6)].to_string());
+        .filter(|(_, meta)| meta.is_struct() || meta.is_inlined())
+        .flat_map(|(name, meta)| {
+            if meta.is_inlined() {
+                meta.action_kinds()
+            } else {
+                // Remove suffix `Action` from action name.
+                vec![name[..(name.len() - 6)].to_string()]
+            }
+        });
     let action_kinds = std::iter::once("None".to_owned())
         .chain(action_kinds_iter)
         .collect::<Vec<_>>();
@@ -237,13 +307,33 @@ fn main() -> Result<(), Box<dyn Error>> {
                     format!("ActionKind::{action_kind}")
                 }
                 ActionMeta::Enum(variants) => {
-                    for (_, a) in variants {
-                        queue.push_back(a.clone());
+                    for elt in variants {
+                        if let EnumElement::Nested((_, a)) = elt {
+                            queue.push_back(a.clone());
+                        }
                     }
 
-                    let variants_iter = variants
-                        .iter()
-                        .map(|(v, _)| format!("            Self::{v}(a) => a.kind(),"));
+                    let variants_iter = variants.iter().map(|elt| match elt {
+                        EnumElement::Nested((v, _)) => {
+                            format!("            Self::{v}(a) => a.kind(),")
+                        }
+                        EnumElement::InlineFields {
+                            tag,
+                            action_kind,
+                            has_fields: true,
+                        } => {
+                            format!(
+                                "            Self::{tag} {{ .. }} => ActionKind::{action_kind},"
+                            )
+                        }
+                        EnumElement::InlineFields {
+                            tag,
+                            action_kind,
+                            has_fields: false,
+                        } => {
+                            format!("            Self::{tag} => ActionKind::{action_kind},")
+                        }
+                    });
                     std::iter::once("match self {".to_owned())
                         .chain(variants_iter)
                         .chain(std::iter::once("        }".to_owned()))

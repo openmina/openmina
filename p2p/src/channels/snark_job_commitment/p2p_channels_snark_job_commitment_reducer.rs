@@ -7,13 +7,13 @@ impl P2pChannelsSnarkJobCommitmentState {
     pub fn reducer(&mut self, action: P2pChannelsSnarkJobCommitmentActionWithMetaRef<'_>) {
         let (action, meta) = action.split();
         match action {
-            P2pChannelsSnarkJobCommitmentAction::Init(_) => {
+            P2pChannelsSnarkJobCommitmentAction::Init { .. } => {
                 *self = Self::Init { time: meta.time() };
             }
-            P2pChannelsSnarkJobCommitmentAction::Pending(_) => {
+            P2pChannelsSnarkJobCommitmentAction::Pending { .. } => {
                 *self = Self::Pending { time: meta.time() };
             }
-            P2pChannelsSnarkJobCommitmentAction::Ready(_) => {
+            P2pChannelsSnarkJobCommitmentAction::Ready { .. } => {
                 *self = Self::Ready {
                     time: meta.time(),
                     local: SnarkJobCommitmentPropagationState::WaitingForRequest {
@@ -25,16 +25,16 @@ impl P2pChannelsSnarkJobCommitmentState {
                     next_send_index: 0,
                 };
             }
-            P2pChannelsSnarkJobCommitmentAction::RequestSend(action) => {
+            P2pChannelsSnarkJobCommitmentAction::RequestSend { limit, .. } => {
                 let Self::Ready { local, .. } = self else {
                     return;
                 };
                 *local = SnarkJobCommitmentPropagationState::Requested {
                     time: meta.time(),
-                    requested_limit: action.limit,
+                    requested_limit: *limit,
                 };
             }
-            P2pChannelsSnarkJobCommitmentAction::PromiseReceived(action) => {
+            P2pChannelsSnarkJobCommitmentAction::PromiseReceived { promised_count, .. } => {
                 let Self::Ready { local, .. } = self else {
                     return;
                 };
@@ -48,11 +48,11 @@ impl P2pChannelsSnarkJobCommitmentState {
                 *local = SnarkJobCommitmentPropagationState::Responding {
                     time: meta.time(),
                     requested_limit: *requested_limit,
-                    promised_count: action.promised_count,
+                    promised_count: *promised_count,
                     current_count: 0,
                 };
             }
-            P2pChannelsSnarkJobCommitmentAction::Received(_) => {
+            P2pChannelsSnarkJobCommitmentAction::Received { .. } => {
                 let Self::Ready { local, .. } = self else {
                     return;
                 };
@@ -74,17 +74,20 @@ impl P2pChannelsSnarkJobCommitmentState {
                     };
                 }
             }
-            P2pChannelsSnarkJobCommitmentAction::RequestReceived(action) => {
+            P2pChannelsSnarkJobCommitmentAction::RequestReceived { limit, .. } => {
                 let Self::Ready { remote, .. } = self else {
                     return;
                 };
-
                 *remote = SnarkJobCommitmentPropagationState::Requested {
                     time: meta.time(),
-                    requested_limit: action.limit,
+                    requested_limit: *limit,
                 };
             }
-            P2pChannelsSnarkJobCommitmentAction::ResponseSend(action) => {
+            P2pChannelsSnarkJobCommitmentAction::ResponseSend {
+                last_index,
+                commitments,
+                ..
+            } => {
                 let Self::Ready {
                     remote,
                     next_send_index,
@@ -93,9 +96,9 @@ impl P2pChannelsSnarkJobCommitmentState {
                 else {
                     return;
                 };
-                *next_send_index = action.last_index + 1;
+                *next_send_index = last_index + 1;
 
-                let count = action.commitments.len() as u8;
+                let count = commitments.len() as u8;
                 if count == 0 {
                     return;
                 }

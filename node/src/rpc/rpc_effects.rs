@@ -7,7 +7,7 @@ use crate::p2p::connection::incoming::P2pConnectionIncomingInitAction;
 use crate::p2p::connection::outgoing::P2pConnectionOutgoingInitAction;
 use crate::p2p::connection::P2pConnectionResponse;
 use crate::rpc::{PeerConnectionStatus, RpcPeerInfo};
-use crate::snark_pool::SnarkPoolCommitmentCreateAction;
+use crate::snark_pool::SnarkPoolAction;
 use crate::{Service, Store};
 
 use super::{
@@ -110,7 +110,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                             }),
                         best_tip: best_tip.map(|bt| bt.hash.clone()),
                         best_tip_height: best_tip.map(|bt| bt.height()),
-                        best_tip_global_slot: best_tip.map(|bt| bt.global_slot()),
+                        best_tip_global_slot: best_tip.map(|bt| bt.global_slot_since_genesis()),
                         best_tip_timestamp: best_tip.map(|bt| bt.timestamp().into()),
                         time,
                     }
@@ -229,7 +229,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                 let block_summary = RpcScanStateSummaryBlock {
                     hash: block.hash().clone(),
                     height: block.height(),
-                    global_slot: block.global_slot(),
+                    global_slot: block.global_slot_since_genesis(),
                     transactions: block
                         .commands_iter()
                         .map(|tx| RpcScanStateSummaryBlockTransaction {
@@ -369,7 +369,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
             {
                 return;
             }
-            store.dispatch(SnarkPoolCommitmentCreateAction { job_id });
+            store.dispatch(SnarkPoolAction::CommitmentCreate { job_id });
         }
         RpcAction::SnarkerJobSpec(action) => {
             let job_id = action.job_id;

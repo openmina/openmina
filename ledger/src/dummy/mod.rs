@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use mina_p2p_messages::binprot::BinProtRead;
+use mina_p2p_messages::v2::MinaBaseProofStableV2;
 use mina_p2p_messages::v2::PicklesProofProofsVerifiedMaxStableV2;
 use mina_p2p_messages::v2::TransactionSnarkProofStableV2;
 
@@ -26,10 +27,30 @@ pub mod for_tests;
 /// Core.Printf.eprintf !"dummy proof= %{sexp: Proof.t}\n%!" dummy;
 /// Core.Printf.eprintf !"dummy proof= %s\n%!" s;
 pub fn dummy_transaction_proof() -> Arc<TransactionSnarkProofStableV2> {
-    let mut cursor = std::io::Cursor::new(include_bytes!("dummy_transaction_proof.bin"));
-    TransactionSnarkProofStableV2::binprot_read(&mut cursor)
-        .unwrap()
-        .into()
+    lazy_static::lazy_static! {
+        static ref DUMMY_PROOF: Arc<TransactionSnarkProofStableV2> = {
+            let bytes = include_bytes!("dummy_transaction_proof.bin");
+            TransactionSnarkProofStableV2::binprot_read(&mut bytes.as_slice())
+                .unwrap()
+                .into()
+        };
+    }
+
+    DUMMY_PROOF.clone()
+}
+
+/// Value of `Proof.blockchain_dummy`
+pub fn dummy_blockchain_proof() -> Arc<MinaBaseProofStableV2> {
+    lazy_static::lazy_static! {
+        static ref DUMMY_PROOF: Arc<MinaBaseProofStableV2> = {
+            let bytes = include_bytes!("dummy_blockchain_proof.bin");
+            MinaBaseProofStableV2::binprot_read(&mut bytes.as_slice())
+                .unwrap()
+                .into()
+        };
+    }
+
+    DUMMY_PROOF.clone()
 }
 
 /// Value of `vk` when we run `dune runtest src/lib/staged_ledger -f`
@@ -73,5 +94,5 @@ pub fn sideloaded_proof() -> Arc<PicklesProofProofsVerifiedMaxStableV2> {
     let mut cursor = std::io::Cursor::new(include_bytes!("sideloaded_proof.bin"));
     let proof = PicklesProofProofsVerifiedMaxStableV2::binprot_read(&mut cursor).unwrap();
 
-    proof.into()
+    Arc::new(proof)
 }

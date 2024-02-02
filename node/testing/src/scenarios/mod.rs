@@ -9,12 +9,13 @@
 //! Dynamic IP Handling: Nodes with frequently changing IP addresses should maintain stable connections.
 
 pub mod multi_node;
+pub mod simulation;
 pub mod solo_node;
 
 pub mod p2p;
 
 mod cluster_runner;
-pub use cluster_runner::ClusterRunner;
+pub use cluster_runner::*;
 mod driver;
 pub use driver::*;
 
@@ -25,20 +26,26 @@ use crate::scenario::{Scenario, ScenarioId, ScenarioStep};
 
 use self::multi_node::basic_connectivity_initial_joining::MultiNodeBasicConnectivityInitialJoining;
 use self::multi_node::basic_connectivity_peer_discovery::MultiNodeBasicConnectivityPeerDiscovery;
+use self::multi_node::sync_4_block_producers::MultiNodeSync4BlockProducers;
+use self::simulation::small::SimulationSmall;
+use self::solo_node::sync_to_genesis::SoloNodeSyncToGenesis;
 use self::solo_node::{
     basic_connectivity_accept_incoming::SoloNodeBasicConnectivityAcceptIncoming,
     basic_connectivity_initial_joining::SoloNodeBasicConnectivityInitialJoining,
     sync_root_snarked_ledger::SoloNodeSyncRootSnarkedLedger,
 };
 
-#[derive(EnumIter, EnumString, IntoStaticStr, Clone, Copy)]
+#[derive(EnumIter, EnumString, IntoStaticStr, derive_more::From, Clone, Copy)]
 #[strum(serialize_all = "kebab-case")]
 pub enum Scenarios {
+    SoloNodeSyncToGenesis(SoloNodeSyncToGenesis),
     SoloNodeSyncRootSnarkedLedger(SoloNodeSyncRootSnarkedLedger),
     SoloNodeBasicConnectivityInitialJoining(SoloNodeBasicConnectivityInitialJoining),
     SoloNodeBasicConnectivityAcceptIncoming(SoloNodeBasicConnectivityAcceptIncoming),
+    MultiNodeSync4BlockProducers(MultiNodeSync4BlockProducers),
     MultiNodeBasicConnectivityInitialJoining(MultiNodeBasicConnectivityInitialJoining),
     MultiNodeBasicConnectivityPeerDiscovery(MultiNodeBasicConnectivityPeerDiscovery),
+    SimulationSmall(SimulationSmall),
 }
 
 impl Scenarios {
@@ -49,11 +56,14 @@ impl Scenarios {
 
     fn skip(&self) -> bool {
         match self {
+            Self::SoloNodeSyncToGenesis(_) => true,
             Self::SoloNodeSyncRootSnarkedLedger(_) => false,
             Self::SoloNodeBasicConnectivityInitialJoining(_) => false,
             Self::SoloNodeBasicConnectivityAcceptIncoming(_) => cfg!(feature = "p2p-webrtc"),
+            Self::MultiNodeSync4BlockProducers(_) => false,
             Self::MultiNodeBasicConnectivityInitialJoining(_) => false,
             Self::MultiNodeBasicConnectivityPeerDiscovery(_) => cfg!(feature = "p2p-webrtc"),
+            Self::SimulationSmall(_) => false,
         }
     }
 
@@ -67,11 +77,14 @@ impl Scenarios {
 
     pub fn parent(self) -> Option<Self> {
         match self {
+            Self::SoloNodeSyncToGenesis(_) => None,
             Self::SoloNodeSyncRootSnarkedLedger(_) => None,
             Self::SoloNodeBasicConnectivityInitialJoining(_) => None,
             Self::SoloNodeBasicConnectivityAcceptIncoming(_) => None,
+            Self::MultiNodeSync4BlockProducers(_) => Some(SoloNodeSyncToGenesis.into()),
             Self::MultiNodeBasicConnectivityInitialJoining(_) => None,
             Self::MultiNodeBasicConnectivityPeerDiscovery(_) => None,
+            Self::SimulationSmall(_) => None,
         }
     }
 
@@ -82,6 +95,7 @@ impl Scenarios {
     pub fn description(self) -> &'static str {
         use documented::Documented;
         match self {
+            Self::SoloNodeSyncToGenesis(_) => SoloNodeSyncToGenesis::DOCS,
             Self::SoloNodeSyncRootSnarkedLedger(_) => SoloNodeSyncRootSnarkedLedger::DOCS,
             Self::SoloNodeBasicConnectivityInitialJoining(_) => {
                 SoloNodeBasicConnectivityInitialJoining::DOCS
@@ -89,38 +103,21 @@ impl Scenarios {
             Self::SoloNodeBasicConnectivityAcceptIncoming(_) => {
                 SoloNodeBasicConnectivityAcceptIncoming::DOCS
             }
+            Self::MultiNodeSync4BlockProducers(_) => MultiNodeSync4BlockProducers::DOCS,
             Self::MultiNodeBasicConnectivityInitialJoining(_) => {
                 MultiNodeBasicConnectivityInitialJoining::DOCS
             }
             Self::MultiNodeBasicConnectivityPeerDiscovery(_) => {
                 MultiNodeBasicConnectivityPeerDiscovery::DOCS
             }
+            Self::SimulationSmall(_) => SimulationSmall::DOCS,
         }
     }
 
     pub fn blank_scenario(self) -> Scenario {
         let mut scenario = Scenario::new(self.id(), self.parent_id());
         scenario.set_description(self.description().to_owned());
-        scenario.info.nodes = match self {
-            Self::SoloNodeSyncRootSnarkedLedger(_) => vec![serde_json::from_str(
-                r#"
-            {
-                "kind": "Rust",
-                "chain_id": "3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e",
-                "initial_time": 1695702049579000000,
-                "max_peers": 100,
-                "ask_initial_peers_interval": { "secs": 10, "nanos": 0 },
-                "initial_peers": [],
-                "randomize_peer_id": false
-            }
-                                                                           "#,
-            )
-            .unwrap()],
-            Self::SoloNodeBasicConnectivityInitialJoining(_) => vec![],
-            Self::SoloNodeBasicConnectivityAcceptIncoming(_) => vec![],
-            Self::MultiNodeBasicConnectivityInitialJoining(_) => vec![],
-            Self::MultiNodeBasicConnectivityPeerDiscovery(_) => vec![],
-        };
+        scenario.info.nodes = Vec::new();
 
         scenario
     }
@@ -131,25 +128,46 @@ impl Scenarios {
     {
         let runner = ClusterRunner::new(cluster, add_step);
         match self {
+            Self::SoloNodeSyncToGenesis(v) => v.run(runner).await,
             Self::SoloNodeSyncRootSnarkedLedger(v) => v.run(runner).await,
             Self::SoloNodeBasicConnectivityInitialJoining(v) => v.run(runner).await,
             Self::SoloNodeBasicConnectivityAcceptIncoming(v) => v.run(runner).await,
+            Self::MultiNodeSync4BlockProducers(v) => v.run(runner).await,
             Self::MultiNodeBasicConnectivityInitialJoining(v) => v.run(runner).await,
             Self::MultiNodeBasicConnectivityPeerDiscovery(v) => v.run(runner).await,
+            Self::SimulationSmall(v) => v.run(runner).await,
         }
     }
 
     pub async fn run_and_save(self, cluster: &mut Cluster) {
-        let mut scenario = self.blank_scenario();
-        self.run(cluster, |step| scenario.add_step(step.clone()).unwrap())
+        struct ScenarioSaveOnExit(Scenario);
+
+        impl Drop for ScenarioSaveOnExit {
+            fn drop(&mut self) {
+                let info = self.0.info.clone();
+                let steps = std::mem::take(&mut self.0.steps);
+                let scenario = Scenario { info, steps };
+
+                eprintln!("saving scenario({}) before exit...", scenario.info.id);
+                if let Err(err) = scenario.save_sync() {
+                    eprintln!(
+                        "failed to save scenario({})! error: {}",
+                        scenario.info.id, err
+                    );
+                }
+            }
+        }
+
+        eprintln!("run_and_save: {}", self.to_str());
+        let mut scenario = ScenarioSaveOnExit(self.blank_scenario());
+        self.run(cluster, |step| scenario.0.add_step(step.clone()).unwrap())
             .await;
-        scenario
-            .save()
-            .await
-            .expect("failed to save scenario after run");
+        // drop to save it.
+        let _ = scenario;
     }
 
     pub async fn run_only(self, cluster: &mut Cluster) {
+        eprintln!("run_only: {}", self.to_str());
         self.run(cluster, |_| {}).await
     }
 

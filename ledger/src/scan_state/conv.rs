@@ -1,5 +1,7 @@
 #![allow(unused_variables, unreachable_code)]
 
+use std::sync::Arc;
+
 use mina_hasher::Fp;
 use mina_p2p_messages::{
     binprot,
@@ -86,15 +88,15 @@ use mina_p2p_messages::{
         TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1Full,
         TransactionSnarkScanStateStableV2TreesAMerge,
         TransactionSnarkScanStateTransactionWithWitnessStableV2, TransactionSnarkStableV2,
-        TransactionSnarkWorkTStableV2, UnsignedExtendedUInt32StableV1,
-        UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
+        TransactionSnarkWorkTStableV2, TransactionSnarkWorkTStableV2Proofs,
+        UnsignedExtendedUInt32StableV1, UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
     },
 };
 use mina_signer::Signature;
 
 use crate::{
     array_into_with,
-    proofs::witness::FieldWitness,
+    proofs::field::FieldWitness,
     scan_state::{
         currency::BlockTime,
         pending_coinbase::{Stack, StackHasher},
@@ -614,8 +616,14 @@ impl From<&Statement<SokDigest>> for MinaStateSnarkedLedgerStateWithSokStableV2 
             .into(),
             supply_increase: (&value.supply_increase).into(),
             fee_excess: (&value.fee_excess).into(),
-            sok_digest: MinaBaseZkappAccountZkappUriStableV1(value.sok_digest.as_slice().into()),
+            sok_digest: (&value.sok_digest).into(),
         }
+    }
+}
+
+impl From<&SokDigest> for MinaBaseZkappAccountZkappUriStableV1 {
+    fn from(value: &SokDigest) -> Self {
+        Self(value.as_slice().into())
     }
 }
 
@@ -1801,10 +1809,10 @@ pub fn to_pending_coinbase_hash(value: &Fp) -> mina_p2p_messages::v2::PendingCoi
 impl From<&AvailableJob> for AvailableJobMessage {
     fn from(value: &AvailableJob) -> Self {
         match value {
-            AvailableJob::Base(v) => AvailableJobMessage::Base(v.into()),
+            AvailableJob::Base(v) => AvailableJobMessage::Base(v.as_ref().into()),
             AvailableJob::Merge { left, right } => AvailableJobMessage::Merge {
-                left: left.into(),
-                right: right.into(),
+                left: left.as_ref().into(),
+                right: right.as_ref().into(),
             },
         }
     }
@@ -1926,7 +1934,7 @@ impl From<&TransactionSnarkStableV2> for TransactionSnark<SokDigest> {
     fn from(value: &TransactionSnarkStableV2) -> Self {
         Self {
             statement: (&value.statement).into(),
-            proof: value.proof.clone().into(),
+            proof: Arc::new(value.proof.clone()),
         }
     }
 }
@@ -2089,13 +2097,13 @@ impl From<&ParallelScanJobStatusStableV1> for JobStatus {
 }
 
 impl From<&TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1>
-    for super::parallel_scan::merge::Job<LedgerProofWithSokMessage>
+    for super::parallel_scan::merge::Job<Arc<LedgerProofWithSokMessage>>
 {
     fn from(value: &TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1) -> Self {
         match value {
             TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1::Empty => Self::Empty,
             TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1::Part(proof) => {
-                Self::Part((&**proof).into())
+                Self::Part(Arc::new((&**proof).into()))
             }
             TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1::Full(record) => {
                 let TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1Full {
@@ -2106,8 +2114,8 @@ impl From<&TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1>
                 } = &**record;
 
                 Self::Full(super::parallel_scan::merge::Record {
-                    left: left.into(),
-                    right: right.into(),
+                    left: Arc::new(left.into()),
+                    right: Arc::new(right.into()),
                     seq_no: seq_no.into(),
                     state: status.into(),
                 })
@@ -2117,7 +2125,7 @@ impl From<&TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1>
 }
 
 impl From<&TransactionSnarkScanStateStableV2ScanStateTreesABaseT1>
-    for super::parallel_scan::base::Job<TransactionWithWitness>
+    for super::parallel_scan::base::Job<Arc<TransactionWithWitness>>
 {
     fn from(value: &TransactionSnarkScanStateStableV2ScanStateTreesABaseT1) -> Self {
         match value {
@@ -2130,7 +2138,7 @@ impl From<&TransactionSnarkScanStateStableV2ScanStateTreesABaseT1>
                 } = &**record;
 
                 Self::Full(super::parallel_scan::base::Record {
-                    job: job.into(),
+                    job: Arc::new(job.into()),
                     seq_no: seq_no.into(),
                     state: status.into(),
                 })
@@ -2156,7 +2164,7 @@ impl From<&TransactionSnarkScanStateStableV2> for ScanState {
                     delay,
                 } = scan_state;
 
-                ParallelScan::<TransactionWithWitness, LedgerProofWithSokMessage> {
+                ParallelScan::<Arc<TransactionWithWitness>, Arc<LedgerProofWithSokMessage>> {
                     trees: {
                         use mina_p2p_messages::v2::TransactionSnarkScanStateStableV2ScanStateTreesA::{Leaf, Node};
                         use super::parallel_scan::Weight;
@@ -2182,7 +2190,7 @@ impl From<&TransactionSnarkScanStateStableV2> for ScanState {
                                     rust_tree.values.extend(value.iter().map(|(weights, job)| {
                                         let weight: (Weight, Weight) = from_two_weights(weights);
                                         let job: super::parallel_scan::merge::Job<
-                                            LedgerProofWithSokMessage,
+                                            Arc<LedgerProofWithSokMessage>,
                                         > = job.into();
 
                                         let merge =
@@ -2202,7 +2210,7 @@ impl From<&TransactionSnarkScanStateStableV2> for ScanState {
                                 rust_tree.values.extend(leaves.iter().map(|(weight, job)| {
                                     let weight: Weight = weight.into();
                                     let job: super::parallel_scan::base::Job<
-                                        TransactionWithWitness,
+                                        Arc<TransactionWithWitness>,
                                     > = job.into();
 
                                     let base = super::parallel_scan::base::Base { weight, job };
@@ -2214,9 +2222,12 @@ impl From<&TransactionSnarkScanStateStableV2> for ScanState {
                             })
                             .collect()
                     },
-                    acc: acc
-                        .as_ref()
-                        .map(|(proof, txns)| (proof.into(), txns.iter().map(Into::into).collect())),
+                    acc: acc.as_ref().map(|(proof, txns)| {
+                        (
+                            Arc::new(proof.into()),
+                            txns.iter().map(|t| Arc::new(t.into())).collect(),
+                        )
+                    }),
                     curr_job_seq_no: { SequenceNumber::new(curr_job_seq_no.as_u64()) },
                     max_base_jobs: max_base_jobs.as_u64(),
                     delay: delay.as_u64(),
@@ -2231,7 +2242,16 @@ impl From<&TransactionSnarkScanStateStableV2> for ScanState {
                     }
                 };
 
-                (txns.iter().map(Into::into).collect(), continue_next)
+                (
+                    txns.iter()
+                        .map(
+                            |t: &TransactionSnarkScanStateTransactionWithWitnessStableV2| {
+                                Arc::new(t.into())
+                            },
+                        )
+                        .collect(),
+                    continue_next,
+                )
             },
         }
     }
@@ -2263,19 +2283,22 @@ impl From<&JobStatus> for ParallelScanJobStatusStableV1 {
     }
 }
 
-impl From<&super::parallel_scan::base::Job<TransactionWithWitness>>
+impl From<&super::parallel_scan::base::Job<Arc<TransactionWithWitness>>>
     for TransactionSnarkScanStateStableV2ScanStateTreesABaseT1
 {
-    fn from(value: &super::parallel_scan::base::Job<TransactionWithWitness>) -> Self {
+    fn from(value: &super::parallel_scan::base::Job<Arc<TransactionWithWitness>>) -> Self {
         match value {
             parallel_scan::base::Job::Empty => Self::Empty,
             parallel_scan::base::Job::Full(record) => {
-                let parallel_scan::base::Record::<TransactionWithWitness> { job, seq_no, state } =
-                    record;
+                let parallel_scan::base::Record::<Arc<TransactionWithWitness>> {
+                    job,
+                    seq_no,
+                    state,
+                } = record;
 
                 Self::Full(Box::new(
                     TransactionSnarkScanStateStableV2ScanStateTreesABaseT1Full {
-                        job: job.into(),
+                        job: job.as_ref().into(),
                         seq_no: seq_no.into(),
                         status: state.into(),
                     },
@@ -2285,15 +2308,15 @@ impl From<&super::parallel_scan::base::Job<TransactionWithWitness>>
     }
 }
 
-impl From<&parallel_scan::merge::Job<LedgerProofWithSokMessage>>
+impl From<&parallel_scan::merge::Job<Arc<LedgerProofWithSokMessage>>>
     for TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1
 {
-    fn from(value: &parallel_scan::merge::Job<LedgerProofWithSokMessage>) -> Self {
+    fn from(value: &parallel_scan::merge::Job<Arc<LedgerProofWithSokMessage>>) -> Self {
         match value {
             parallel_scan::merge::Job::Empty => Self::Empty,
-            parallel_scan::merge::Job::Part(part) => Self::Part(Box::new(part.into())),
+            parallel_scan::merge::Job::Part(part) => Self::Part(Box::new(part.as_ref().into())),
             parallel_scan::merge::Job::Full(record) => {
-                let parallel_scan::merge::Record::<LedgerProofWithSokMessage> {
+                let parallel_scan::merge::Record::<Arc<LedgerProofWithSokMessage>> {
                     left,
                     right,
                     seq_no,
@@ -2302,8 +2325,8 @@ impl From<&parallel_scan::merge::Job<LedgerProofWithSokMessage>>
 
                 Self::Full(Box::new(
                     TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1Full {
-                        left: left.into(),
-                        right: right.into(),
+                        left: left.as_ref().into(),
+                        right: right.as_ref().into(),
                         seq_no: seq_no.into(),
                         status: state.into(),
                     },
@@ -2313,24 +2336,24 @@ impl From<&parallel_scan::merge::Job<LedgerProofWithSokMessage>>
     }
 }
 
-impl From<&&parallel_scan::base::Base<TransactionWithWitness>>
+impl From<&&parallel_scan::base::Base<Arc<TransactionWithWitness>>>
     for (
         ParallelScanWeightStableV1,
         TransactionSnarkScanStateStableV2ScanStateTreesABaseT1,
     )
 {
-    fn from(value: &&parallel_scan::base::Base<TransactionWithWitness>) -> Self {
-        let parallel_scan::base::Base::<TransactionWithWitness> { weight, job } = value;
+    fn from(value: &&parallel_scan::base::Base<Arc<TransactionWithWitness>>) -> Self {
+        let parallel_scan::base::Base::<Arc<TransactionWithWitness>> { weight, job } = value;
 
         (weight.into(), job.into())
     }
 }
 
-impl From<&&parallel_scan::merge::Merge<LedgerProofWithSokMessage>>
+impl From<&&parallel_scan::merge::Merge<Arc<LedgerProofWithSokMessage>>>
     for TransactionSnarkScanStateStableV2TreesAMerge
 {
-    fn from(value: &&parallel_scan::merge::Merge<LedgerProofWithSokMessage>) -> Self {
-        let parallel_scan::merge::Merge::<LedgerProofWithSokMessage> { weight, job } = value;
+    fn from(value: &&parallel_scan::merge::Merge<Arc<LedgerProofWithSokMessage>>) -> Self {
+        let parallel_scan::merge::Merge::<Arc<LedgerProofWithSokMessage>> { weight, job } = value;
 
         let (w1, w2) = weight;
         ((w1.into(), w2.into()), job.into())
@@ -2393,9 +2416,12 @@ impl From<&ScanState> for TransactionSnarkScanStateStableV2 {
 
                         (first, rest)
                     },
-                    acc: acc
-                        .as_ref()
-                        .map(|(proof, txns)| (proof.into(), txns.iter().map(Into::into).collect())),
+                    acc: acc.as_ref().map(|(proof, txns)| {
+                        (
+                            proof.as_ref().into(),
+                            txns.iter().map(|t| t.as_ref().into()).collect(),
+                        )
+                    }),
                     curr_job_seq_no: curr_job_seq_no.as_u64().into(),
                     max_base_jobs: max_base_jobs.into(),
                     delay: delay.into(),
@@ -2410,7 +2436,10 @@ impl From<&ScanState> for TransactionSnarkScanStateStableV2 {
                     }
                 };
 
-                (txns.iter().map(Into::into).collect(), continue_next)
+                (
+                    txns.iter().map(|t| t.as_ref().into()).collect(),
+                    continue_next,
+                )
             },
         }
     }
@@ -2692,9 +2721,6 @@ impl From<&MinaTransactionTransactionStableV2> for Transaction {
 
 impl From<&TransactionSnarkWorkTStableV2> for super::scan_state::transaction_snark::work::Work {
     fn from(value: &TransactionSnarkWorkTStableV2) -> Self {
-        use super::scan_state::transaction_snark::OneOrTwo::{One, Two};
-        use mina_p2p_messages::v2::TransactionSnarkWorkTStableV2Proofs as B;
-
         let TransactionSnarkWorkTStableV2 {
             fee,
             proofs,
@@ -2703,11 +2729,52 @@ impl From<&TransactionSnarkWorkTStableV2> for super::scan_state::transaction_sna
 
         Self {
             fee: fee.into(),
-            proofs: match proofs {
-                B::One(proof) => One(proof.into()),
-                B::Two((p1, p2)) => Two((p1.into(), p2.into())),
-            },
+            proofs: proofs.into(),
             prover: prover.into(),
+        }
+    }
+}
+
+impl From<&super::scan_state::transaction_snark::work::Work> for TransactionSnarkWorkTStableV2 {
+    fn from(value: &super::scan_state::transaction_snark::work::Work) -> Self {
+        let super::scan_state::transaction_snark::work::Work {
+            fee,
+            proofs,
+            prover,
+        } = value;
+
+        Self {
+            fee: fee.into(),
+            proofs: proofs.into(),
+            prover: prover.into(),
+        }
+    }
+}
+
+impl From<&TransactionSnarkWorkTStableV2Proofs>
+    for super::scan_state::transaction_snark::OneOrTwo<LedgerProof>
+{
+    fn from(value: &TransactionSnarkWorkTStableV2Proofs) -> Self {
+        use super::scan_state::transaction_snark::OneOrTwo::{One, Two};
+        use TransactionSnarkWorkTStableV2Proofs as B;
+
+        match value {
+            B::One(proof) => One(proof.into()),
+            B::Two((p1, p2)) => Two((p1.into(), p2.into())),
+        }
+    }
+}
+
+impl From<&super::scan_state::transaction_snark::OneOrTwo<LedgerProof>>
+    for TransactionSnarkWorkTStableV2Proofs
+{
+    fn from(value: &super::scan_state::transaction_snark::OneOrTwo<LedgerProof>) -> Self {
+        use super::scan_state::transaction_snark::OneOrTwo as B;
+        use TransactionSnarkWorkTStableV2Proofs::{One, Two};
+
+        match value {
+            B::One(proof) => One(proof.into()),
+            B::Two((p1, p2)) => Two((p1.into(), p2.into())),
         }
     }
 }
@@ -2718,6 +2785,30 @@ impl From<&StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2B> for WithSt
 
         Self {
             data: data.into(),
+            status: status.into(),
+        }
+    }
+}
+
+impl From<&WithStatus<UserCommand>> for StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2B {
+    fn from(value: &WithStatus<UserCommand>) -> Self {
+        let WithStatus { data, status } = value;
+
+        Self {
+            data: data.into(),
+            status: status.into(),
+        }
+    }
+}
+
+impl From<&WithStatus<transaction_logic::valid::UserCommand>>
+    for StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2B
+{
+    fn from(value: &WithStatus<transaction_logic::valid::UserCommand>) -> Self {
+        let WithStatus { data, status } = value;
+
+        Self {
+            data: (&data.forget_check()).into(),
             status: status.into(),
         }
     }
@@ -2735,12 +2826,42 @@ impl From<&StagedLedgerDiffDiffFtStableV1> for transaction_logic::CoinbaseFeeTra
     }
 }
 
+impl From<&transaction_logic::CoinbaseFeeTransfer> for StagedLedgerDiffDiffFtStableV1 {
+    fn from(value: &transaction_logic::CoinbaseFeeTransfer) -> Self {
+        let transaction_logic::CoinbaseFeeTransfer { receiver_pk, fee } = value;
+
+        Self(MinaBaseCoinbaseFeeTransferStableV1 {
+            receiver_pk: receiver_pk.into(),
+            fee: fee.into(),
+        })
+    }
+}
+
 impl From<&StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2Coinbase>
     for crate::staged_ledger::diff::AtMostTwo<transaction_logic::CoinbaseFeeTransfer>
 {
     fn from(value: &StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2Coinbase) -> Self {
         use crate::staged_ledger::diff::AtMostTwo::*;
         use StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2Coinbase as B;
+
+        match value {
+            B::Zero => Zero,
+            B::One(one) => One(one.as_ref().map(Into::into)),
+            B::Two(twos) => Two(twos
+                .as_ref()
+                .map(|(one, two)| (one.into(), two.as_ref().map(Into::into)))),
+        }
+    }
+}
+
+impl From<&crate::staged_ledger::diff::AtMostTwo<transaction_logic::CoinbaseFeeTransfer>>
+    for StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2Coinbase
+{
+    fn from(
+        value: &crate::staged_ledger::diff::AtMostTwo<transaction_logic::CoinbaseFeeTransfer>,
+    ) -> Self {
+        use crate::staged_ledger::diff::AtMostTwo as B;
+        use StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2Coinbase::*;
 
         match value {
             B::Zero => Zero,
@@ -2772,12 +2893,78 @@ impl From<&StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2>
     }
 }
 
+impl From<&crate::staged_ledger::diff::PreDiffWithAtMostTwoCoinbase>
+    for StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2
+{
+    fn from(value: &crate::staged_ledger::diff::PreDiffWithAtMostTwoCoinbase) -> Self {
+        let crate::staged_ledger::diff::PreDiffWithAtMostTwoCoinbase {
+            completed_works,
+            commands,
+            coinbase,
+            internal_command_statuses,
+        } = value;
+
+        Self {
+            completed_works: completed_works.iter().map(Into::into).collect(),
+            commands: commands.iter().map(Into::into).collect(),
+            coinbase: coinbase.into(),
+            internal_command_statuses: internal_command_statuses.iter().map(Into::into).collect(),
+        }
+    }
+}
+
+impl
+    From<
+        &crate::staged_ledger::diff::PreDiffTwo<
+            crate::scan_state::scan_state::transaction_snark::work::Work,
+            WithStatus<transaction_logic::valid::UserCommand>,
+        >,
+    > for StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2
+{
+    fn from(
+        value: &crate::staged_ledger::diff::PreDiffTwo<
+            crate::scan_state::scan_state::transaction_snark::work::Work,
+            WithStatus<transaction_logic::valid::UserCommand>,
+        >,
+    ) -> Self {
+        let crate::staged_ledger::diff::PreDiffTwo {
+            completed_works,
+            commands,
+            coinbase,
+            internal_command_statuses,
+        } = value;
+
+        Self {
+            completed_works: completed_works.iter().map(Into::into).collect(),
+            commands: commands.iter().map(Into::into).collect(),
+            coinbase: coinbase.into(),
+            internal_command_statuses: internal_command_statuses.iter().map(Into::into).collect(),
+        }
+    }
+}
+
 impl From<&StagedLedgerDiffDiffPreDiffWithAtMostOneCoinbaseStableV2Coinbase>
     for crate::staged_ledger::diff::AtMostOne<transaction_logic::CoinbaseFeeTransfer>
 {
     fn from(value: &StagedLedgerDiffDiffPreDiffWithAtMostOneCoinbaseStableV2Coinbase) -> Self {
         use crate::staged_ledger::diff::AtMostOne::*;
         use StagedLedgerDiffDiffPreDiffWithAtMostOneCoinbaseStableV2Coinbase as B;
+
+        match value {
+            B::Zero => Zero,
+            B::One(one) => One(one.as_ref().map(Into::into)),
+        }
+    }
+}
+
+impl From<&crate::staged_ledger::diff::AtMostOne<transaction_logic::CoinbaseFeeTransfer>>
+    for StagedLedgerDiffDiffPreDiffWithAtMostOneCoinbaseStableV2Coinbase
+{
+    fn from(
+        value: &crate::staged_ledger::diff::AtMostOne<transaction_logic::CoinbaseFeeTransfer>,
+    ) -> Self {
+        use crate::staged_ledger::diff::AtMostOne as B;
+        use StagedLedgerDiffDiffPreDiffWithAtMostOneCoinbaseStableV2Coinbase::*;
 
         match value {
             B::Zero => Zero,
@@ -2806,6 +2993,56 @@ impl From<&StagedLedgerDiffDiffPreDiffWithAtMostOneCoinbaseStableV2>
     }
 }
 
+impl From<&crate::staged_ledger::diff::PreDiffWithAtMostOneCoinbase>
+    for StagedLedgerDiffDiffPreDiffWithAtMostOneCoinbaseStableV2
+{
+    fn from(value: &crate::staged_ledger::diff::PreDiffWithAtMostOneCoinbase) -> Self {
+        let crate::staged_ledger::diff::PreDiffOne {
+            completed_works,
+            commands,
+            coinbase,
+            internal_command_statuses,
+        } = value;
+
+        Self {
+            completed_works: completed_works.iter().map(Into::into).collect(),
+            commands: commands.iter().map(Into::into).collect(),
+            coinbase: coinbase.into(),
+            internal_command_statuses: internal_command_statuses.iter().map(Into::into).collect(),
+        }
+    }
+}
+
+impl
+    From<
+        &crate::staged_ledger::diff::PreDiffOne<
+            crate::scan_state::scan_state::transaction_snark::work::Work,
+            WithStatus<transaction_logic::valid::UserCommand>,
+        >,
+    > for StagedLedgerDiffDiffPreDiffWithAtMostOneCoinbaseStableV2
+{
+    fn from(
+        value: &crate::staged_ledger::diff::PreDiffOne<
+            crate::scan_state::scan_state::transaction_snark::work::Work,
+            WithStatus<transaction_logic::valid::UserCommand>,
+        >,
+    ) -> Self {
+        let crate::staged_ledger::diff::PreDiffOne {
+            completed_works,
+            commands,
+            coinbase,
+            internal_command_statuses,
+        } = value;
+
+        Self {
+            completed_works: completed_works.iter().map(Into::into).collect(),
+            commands: commands.iter().map(Into::into).collect(),
+            coinbase: coinbase.into(),
+            internal_command_statuses: internal_command_statuses.iter().map(Into::into).collect(),
+        }
+    }
+}
+
 impl From<&StagedLedgerDiffDiffStableV2> for crate::staged_ledger::diff::Diff {
     fn from(value: &StagedLedgerDiffDiffStableV2) -> Self {
         let StagedLedgerDiffDiffStableV2 { diff } = value;
@@ -2813,6 +3050,18 @@ impl From<&StagedLedgerDiffDiffStableV2> for crate::staged_ledger::diff::Diff {
 
         Self {
             diff: (first.into(), second.as_ref().map(Into::into)),
+        }
+    }
+}
+
+impl From<&crate::staged_ledger::diff::with_valid_signatures_and_proofs::Diff>
+    for StagedLedgerDiffDiffStableV2
+{
+    fn from(value: &crate::staged_ledger::diff::with_valid_signatures_and_proofs::Diff) -> Self {
+        let (first, second) = &value.diff;
+
+        StagedLedgerDiffDiffStableV2 {
+            diff: StagedLedgerDiffDiffDiffStableV2(first.into(), second.as_ref().map(Into::into)),
         }
     }
 }

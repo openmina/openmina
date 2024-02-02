@@ -25,7 +25,9 @@ use crate::{webrtc, PeerId};
 use crate::webrtc::{Host, HttpSignalingInfo, SignalingMethod};
 
 // TODO(binier): maybe move to `crate::webrtc` module
-#[derive(BinProtWrite, BinProtRead, Eq, PartialEq, Ord, PartialOrd, Debug, Clone)]
+#[derive(
+    BinProtWrite, BinProtRead, derive_more::From, Debug, Ord, PartialOrd, Eq, PartialEq, Clone,
+)]
 pub enum P2pConnectionOutgoingInitOpts {
     WebRTC {
         peer_id: PeerId,

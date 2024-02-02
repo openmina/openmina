@@ -7,13 +7,13 @@ impl P2pChannelsBestTipState {
     pub fn reducer(&mut self, action: P2pChannelsBestTipActionWithMetaRef<'_>) {
         let (action, meta) = action.split();
         match action {
-            P2pChannelsBestTipAction::Init(_) => {
+            P2pChannelsBestTipAction::Init { .. } => {
                 *self = Self::Init { time: meta.time() };
             }
-            P2pChannelsBestTipAction::Pending(_) => {
+            P2pChannelsBestTipAction::Pending { .. } => {
                 *self = Self::Pending { time: meta.time() };
             }
-            P2pChannelsBestTipAction::Ready(_) => {
+            P2pChannelsBestTipAction::Ready { .. } => {
                 *self = Self::Ready {
                     time: meta.time(),
                     local: BestTipPropagationState::WaitingForRequest { time: meta.time() },
@@ -22,13 +22,13 @@ impl P2pChannelsBestTipState {
                     last_received: None,
                 };
             }
-            P2pChannelsBestTipAction::RequestSend(_) => {
+            P2pChannelsBestTipAction::RequestSend { .. } => {
                 let Self::Ready { local, .. } = self else {
                     return;
                 };
                 *local = BestTipPropagationState::Requested { time: meta.time() };
             }
-            P2pChannelsBestTipAction::Received(action) => {
+            P2pChannelsBestTipAction::Received { best_tip, .. } => {
                 let Self::Ready {
                     local,
                     last_received,
@@ -39,16 +39,16 @@ impl P2pChannelsBestTipState {
                 };
 
                 *local = BestTipPropagationState::Responded { time: meta.time() };
-                *last_received = Some(action.best_tip.clone());
+                *last_received = Some(best_tip.clone());
             }
-            P2pChannelsBestTipAction::RequestReceived(_) => {
+            P2pChannelsBestTipAction::RequestReceived { .. } => {
                 let Self::Ready { remote, .. } = self else {
                     return;
                 };
 
                 *remote = BestTipPropagationState::Requested { time: meta.time() };
             }
-            P2pChannelsBestTipAction::ResponseSend(action) => {
+            P2pChannelsBestTipAction::ResponseSend { best_tip, .. } => {
                 let Self::Ready {
                     remote, last_sent, ..
                 } = self
@@ -57,7 +57,7 @@ impl P2pChannelsBestTipState {
                 };
 
                 *remote = BestTipPropagationState::Responded { time: meta.time() };
-                *last_sent = Some(action.best_tip.clone());
+                *last_sent = Some(best_tip.clone());
             }
         }
     }

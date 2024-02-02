@@ -1,0 +1,76 @@
+@import 'openmina';
+
+:host ::ng-deep mina-table {
+  .row {
+    background-color: unset !important;
+    pointer-events: none;
+
+    .truncate {
+      pointer-events: all !important;
+
+      &:hover:not(.has) {
+        color: $base-tertiary !important;
+      }
+    }
+  }
+}
+
+span.has {
+  cursor: pointer !important;
+}
+
+span:not(.has):not(.mina-icon) {
+  cursor: default !important;
+}
+
+.children {
+  .length {
+    min-width: 10px;
+  }
+
+  &.has {
+    color: $base-primary;
+
+    span {
+      color: $base-secondary;
+    }
+  }
+
+  &:not(.has) {
+    opacity: 0;
+  }
+}
+
+span {
+  .perc {
+    width: 35px;
+
+    &.yellow {
+      color: $aware-primary;
+    }
+
+    &.red {
+      color: $warn-primary;
+    }
+  }
+
+  .progress-background {
+    height: 2px;
+    border-radius: 3px;
+    background-color: $base-container;
+    width: 110px;
+
+    .progress-background {
+      min-width: 4px;
+      background-color: $base-tertiary;
+
+      &.yellow {
+        background-color: $aware-primary;
+      }
+
+      &.red {
+        background-color: $warn-primary;
+      }
+    }
+  }
+}

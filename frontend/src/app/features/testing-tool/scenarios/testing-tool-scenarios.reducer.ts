@@ -22,7 +22,6 @@ export function reducer(state: TestingToolScenariosState = initialState, action:
   switch (action.type) {
 
     case TESTING_TOOL_SCENARIOS_GET_SCENARIO_SUCCESS: {
-      console.log(action.payload);
       return {
         ...state,
         scenario: action.payload,

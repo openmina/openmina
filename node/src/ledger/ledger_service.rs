@@ -22,27 +22,35 @@ use ledger::{
     staged_ledger::{
         diff::Diff,
         staged_ledger::{SkipVerification, StagedLedger},
+        validate_block::block_body_hash,
     },
     verifier::Verifier,
     AccountIndex, BaseLedger, Mask, TreeVersion, UnregisterBehavior,
 };
 use mina_hasher::Fp;
 use mina_p2p_messages::v2::{
-    DataHashLibStateHashStableV1, LedgerHash, MinaBaseAccountBinableArgStableV2,
+    self, DataHashLibStateHashStableV1, LedgerHash, MinaBaseAccountBinableArgStableV2,
     MinaBaseLedgerHash0StableV1, MinaBaseSokMessageStableV1, MinaBaseStagedLedgerHashStableV1,
     MinaLedgerSyncLedgerAnswerStableV2, MinaLedgerSyncLedgerQueryStableV1,
     MinaStateBlockchainStateValueStableV2LedgerProofStatement, MinaStateProtocolStateValueStableV2,
-    MinaTransactionTransactionStableV2, StateHash,
+    MinaTransactionTransactionStableV2, NonZeroCurvePoint, StateHash,
 };
-use mina_signer::CompressedPubKey;
-use openmina_core::{block::ArcBlockWithHash, snark::SnarkJobId};
+use openmina_core::snark::{Snark, SnarkJobId};
 
+use mina_signer::CompressedPubKey;
+use openmina_core::block::ArcBlockWithHash;
+
+use crate::block_producer::vrf_evaluator::BlockProducerVrfEvaluatorLedgerService;
+use crate::block_producer::{
+    BlockProducerService, BlockProducerWonSlot, StagedLedgerDiffCreateOutput,
+};
 use crate::transition_frontier::sync::ledger::staged::TransitionFrontierSyncLedgerStagedService;
 use crate::transition_frontier::sync::{
     ledger::staged::StagedLedgerAuxAndPendingCoinbasesValid,
     TransitionFrontierRootSnarkedLedgerUpdates,
 };
 use crate::transition_frontier::TransitionFrontierService;
+use crate::{account::AccountPublicKey, block_producer::vrf_evaluator::DelegatorTable};
 use crate::{
     p2p::channels::rpc::StagedLedgerAuxAndPendingCoinbases, transition_frontier::CommitResult,
 };
@@ -138,7 +146,7 @@ impl LedgerCtx {
 
     // TODO(tizoc): explain when `is_synced` is `true` and when it is `false`. Also use something else than a boolean.
     /// Returns a tuple of `(mask, is_synced)` for a [Mask] with the specified `hash` if it exists or `None` otherwise.
-    fn mask(&self, hash: &LedgerHash) -> Option<(Mask, bool)> {
+    pub fn mask(&self, hash: &LedgerHash) -> Option<(Mask, bool)> {
         self.snarked_ledgers
             .get(hash)
             .cloned()
@@ -288,6 +296,43 @@ impl LedgerCtx {
             .insert(new_root_snarked_ledger_hash.clone(), mt);
 
         Ok(())
+    }
+
+    pub fn producers_with_delegates<F: FnMut(&CompressedPubKey) -> bool>(
+        &self,
+        ledger_hash: &LedgerHash,
+        mut filter: F,
+    ) -> Option<BTreeMap<AccountPublicKey, Vec<(ledger::AccountIndex, AccountPublicKey, u64)>>>
+    {
+        let (mask, _) = self.mask(ledger_hash)?;
+        let mut accounts = Vec::new();
+
+        mask.iter(|account| {
+            if filter(&account.public_key)
+                || account.delegate.as_ref().map_or(false, |key| filter(key))
+            {
+                accounts.push((
+                    account.id(),
+                    account.delegate.clone(),
+                    account.balance.as_u64(),
+                ))
+            }
+        });
+
+        let producers = accounts.into_iter().fold(
+            BTreeMap::<_, Vec<_>>::new(),
+            |mut producers, (id, delegate, balance)| {
+                let index = mask.index_of_account(id.clone()).unwrap();
+                let pub_key = AccountPublicKey::from(id.public_key);
+                let producer = delegate.map(Into::into).unwrap_or(pub_key.clone());
+                producers
+                    .entry(producer)
+                    .or_default()
+                    .push((index, pub_key, balance));
+                producers
+            },
+        );
+        Some(producers)
     }
 }
 
@@ -452,7 +497,7 @@ impl<T: LedgerService> TransitionFrontierService for T {
             .ok_or_else(|| "parent staged ledger missing")?
             .clone();
 
-        let global_slot = block.global_slot();
+        let global_slot = block.global_slot_since_genesis();
         let prev_protocol_state = &pred_block.header().protocol_state;
         let prev_state_view = protocol_state_view(prev_protocol_state);
 
@@ -485,7 +530,25 @@ impl<T: LedgerService> TransitionFrontierService for T {
         // TODO(binier): return error if not matching.
         let expected_ledger_hashes = block.staged_ledger_hashes();
         if &ledger_hashes != expected_ledger_hashes {
-            panic!("staged ledger hash mismatch. found: {ledger_hashes:?}, expected: {expected_ledger_hashes:?}");
+            let staged_ledger = self
+                .ctx_mut()
+                .staged_ledger_mut(&pred_block.staged_ledger_hash())
+                .unwrap(); // We already know the ledger exists, see the same call a few lines above
+
+            match dump_application_to_file(staged_ledger, block.clone(), pred_block) {
+                Ok(filename) => openmina_core::info!(
+                    openmina_core::log::system_time();
+                    kind = "LedgerService::dump - Failed application",
+                    summary = format!("StagedLedger and block saved to: {filename:?}")
+                ),
+                Err(e) => openmina_core::error!(
+                    openmina_core::log::system_time();
+                    kind = "LedgerService::dump - Failed application",
+                    summary = format!("Failed to save block application to file: {e:?}")
+                ),
+            }
+
+            panic!("staged ledger hash mismatch. found: {ledger_hashes:#?}, expected: {expected_ledger_hashes:#?}");
         }
 
         let ledger_hash = block.staged_ledger_hash();
@@ -701,6 +764,75 @@ impl<T: LedgerService> TransitionFrontierService for T {
     }
 }
 
+impl<T: LedgerService> BlockProducerService for T {
+    fn staged_ledger_diff_create(
+        &mut self,
+        pred_block: &ArcBlockWithHash,
+        won_slot: &BlockProducerWonSlot,
+        coinbase_receiver: &NonZeroCurvePoint,
+        completed_snarks: BTreeMap<SnarkJobId, Snark>,
+        supercharge_coinbase: bool,
+    ) -> Result<StagedLedgerDiffCreateOutput, String> {
+        let mut staged_ledger = self
+            .ctx_mut()
+            .staged_ledger_mut(&pred_block.staged_ledger_hash())
+            .ok_or_else(|| "parent staged ledger missing")?
+            .clone();
+
+        let protocol_state_view = protocol_state_view(&pred_block.header().protocol_state);
+        let global_slot_since_genesis =
+            won_slot.global_slot_since_genesis(pred_block.global_slot_diff());
+
+        // TODO(binier): include `invalid_txns` in output.
+        let (pre_diff, invalid_txns) = staged_ledger
+            .create_diff(
+                &CONSTRAINT_CONSTANTS,
+                (&global_slot_since_genesis).into(),
+                Some(true),
+                coinbase_receiver.into(),
+                (),
+                &protocol_state_view,
+                // TODO(binier): once we have transaction pool, pass
+                // transactions here.
+                Vec::new(),
+                |stmt| {
+                    let job_id = SnarkJobId::from(stmt);
+                    completed_snarks.get(&job_id).map(Into::into)
+                },
+                supercharge_coinbase,
+            )
+            .map_err(|err| format!("{err:?}"))?;
+
+        // TODO(binier): maybe here, check if block reward is above threshold.
+        // https://github.com/minaprotocol/mina/blob/b3d418a8c0ae4370738886c2b26f0ec7bdb49303/src/lib/block_producer/block_producer.ml#L222
+
+        let pred_body_hash = pred_block.header().protocol_state.body.hash();
+        let diff = (&pre_diff).into();
+
+        let res = staged_ledger
+            .apply_diff_unchecked(
+                &CONSTRAINT_CONSTANTS,
+                (&global_slot_since_genesis).into(),
+                pre_diff,
+                (),
+                &protocol_state_view,
+                (pred_block.hash().0.to_field(), pred_body_hash.0.to_field()),
+                coinbase_receiver.into(),
+                supercharge_coinbase,
+            )
+            .map_err(|err| format!("{err:?}"))?;
+
+        let diff_hash = block_body_hash(&diff).map_err(|err| format!("{err:?}"))?;
+
+        Ok(StagedLedgerDiffCreateOutput {
+            staged_ledger_hash: (&res.hash_after_applying).into(),
+            emitted_ledger_proof: res.ledger_proof.map(|(proof, ..)| (&proof).into()),
+            diff,
+            diff_hash,
+        })
+    }
+}
+
 impl<T: LedgerService> RpcLedgerService for T {
     fn scan_state_summary(
         &self,
@@ -835,6 +967,78 @@ impl<T: LedgerService> RpcLedgerService for T {
             })
             .collect()
     }
+}
+
+impl<T: LedgerService> BlockProducerVrfEvaluatorLedgerService for T {
+    fn get_producer_and_delegates(
+        &mut self,
+        ledger_hash: LedgerHash,
+        producer: AccountPublicKey,
+    ) -> DelegatorTable {
+        // TODO(adonagy): Error handling
+        let delegate_table = self
+            .ctx()
+            .producers_with_delegates(&ledger_hash, |pub_key| {
+                AccountPublicKey::from(pub_key.clone()) == producer
+            })
+            .unwrap()
+            .into_values()
+            .next()
+            .unwrap();
+
+        delegate_table
+            .into_iter()
+            .map(|(index, pub_key, balance)| (index, (pub_key, balance)))
+            .collect()
+    }
+}
+
+/// Save staged ledger and block to file, when the application fail.
+/// So we can easily reproduce the application both in Rust and OCaml, to compare them.
+/// - https://github.com/openmina/openmina/blob/8e68037aafddd43842a54c8439baeafee4c6e1eb/ledger/src/staged_ledger/staged_ledger.rs#L5959
+/// - TODO: Find OCaml link, I remember having the same test in OCaml but I can't find where
+fn dump_application_to_file(
+    staged_ledger: &StagedLedger,
+    block: ArcBlockWithHash,
+    pred_block: ArcBlockWithHash,
+) -> std::io::Result<String> {
+    use mina_p2p_messages::{
+        binprot,
+        binprot::macros::{BinProtRead, BinProtWrite},
+    };
+
+    #[derive(BinProtRead, BinProtWrite)]
+    struct ApplyContext {
+        accounts: Vec<v2::MinaBaseAccountBinableArgStableV2>,
+        scan_state: v2::TransactionSnarkScanStateStableV2,
+        pending_coinbase: v2::MinaBasePendingCoinbaseStableV2,
+        pred_block: v2::MinaBlockBlockStableV2,
+        blocks: Vec<v2::MinaBlockBlockStableV2>,
+    }
+
+    let cs = &block.block.header.protocol_state.body.consensus_state;
+    let block_height = cs.blockchain_length.as_u32();
+
+    let apply_context = ApplyContext {
+        accounts: staged_ledger
+            .ledger()
+            .to_list()
+            .iter()
+            .map(v2::MinaBaseAccountBinableArgStableV2::from)
+            .collect::<Vec<_>>(),
+        scan_state: staged_ledger.scan_state().into(),
+        pending_coinbase: staged_ledger.pending_coinbase_collection().into(),
+        pred_block: (*pred_block.block).clone(),
+        blocks: vec![(*block.block).clone()],
+    };
+
+    use mina_p2p_messages::binprot::BinProtWrite;
+    let filename = format!("/tmp/failed_application_ctx_{}.binprot", block_height);
+    let mut file = std::fs::File::create(&filename)?;
+    apply_context.binprot_write(&mut file)?;
+    file.sync_all()?;
+
+    Ok(filename)
 }
 
 #[cfg(test)]

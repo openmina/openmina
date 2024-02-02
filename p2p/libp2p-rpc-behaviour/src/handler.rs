@@ -9,9 +9,10 @@ use std::{
 use libp2p::{
     core::upgrade::ReadyUpgrade,
     swarm::{
-        handler::{ConnectionEvent, InboundUpgradeSend}, ConnectionHandler, ConnectionHandlerEvent, KeepAlive,
-        SubstreamProtocol,
-    }, StreamProtocol,
+        handler::{ConnectionEvent, InboundUpgradeSend},
+        ConnectionHandler, ConnectionHandlerEvent, KeepAlive, SubstreamProtocol,
+    },
+    StreamProtocol,
 };
 
 use super::{
@@ -50,7 +51,11 @@ impl Handler {
         }
     }
 
-    fn add_stream(&mut self, incoming: bool, io: <ReadyUpgrade<StreamProtocol> as InboundUpgradeSend>::Output) {
+    fn add_stream(
+        &mut self,
+        incoming: bool,
+        io: <ReadyUpgrade<StreamProtocol> as InboundUpgradeSend>::Output,
+    ) {
         if incoming {
             let id = self.last_incoming_id;
             self.last_incoming_id += 1;
@@ -77,8 +82,11 @@ impl ConnectionHandler for Handler {
     type InboundOpenInfo = ();
 
     fn listen_protocol(&self) -> SubstreamProtocol<Self::InboundProtocol, Self::InboundOpenInfo> {
-        SubstreamProtocol::new(ReadyUpgrade::new(StreamProtocol::new(Self::PROTOCOL_NAME)), ())
-            .with_timeout(Duration::from_secs(15))
+        SubstreamProtocol::new(
+            ReadyUpgrade::new(StreamProtocol::new(Self::PROTOCOL_NAME)),
+            (),
+        )
+        .with_timeout(Duration::from_secs(15))
     }
 
     fn connection_keep_alive(&self) -> KeepAlive {
@@ -102,7 +110,10 @@ impl ConnectionHandler for Handler {
         self.failed.clear();
 
         let outbound_request = ConnectionHandlerEvent::OutboundSubstreamRequest {
-            protocol: SubstreamProtocol::new(ReadyUpgrade::new(StreamProtocol::new(Self::PROTOCOL_NAME)), ()),
+            protocol: SubstreamProtocol::new(
+                ReadyUpgrade::new(StreamProtocol::new(Self::PROTOCOL_NAME)),
+                (),
+            ),
         };
         for (stream_id, stream) in &mut self.streams {
             match stream.poll_stream(*stream_id, cx) {

@@ -1,3 +1,4 @@
+use crate::block_producer::vrf_evaluator::BlockProducerVrfEvaluatorAction;
 use crate::p2p::channels::best_tip::P2pChannelsBestTipAction;
 use crate::p2p::channels::rpc::P2pChannelsRpcAction;
 use crate::p2p::channels::snark::P2pChannelsSnarkAction;
@@ -13,7 +14,7 @@ use crate::snark::work_verify::SnarkWorkVerifyAction;
 use crate::snark::SnarkAction;
 use crate::transition_frontier::sync::TransitionFrontierSyncAction;
 use crate::transition_frontier::TransitionFrontierAction;
-use crate::{Action, ActionWithMetaRef, Service, Store};
+use crate::{Action, ActionWithMetaRef, BlockProducerAction, Service, Store};
 
 pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_>) {
     let (action, meta) = action.split();
@@ -362,97 +363,105 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
             P2pAction::Channels(action) => match action {
                 P2pChannelsAction::MessageReceived(_) => {}
                 P2pChannelsAction::BestTip(action) => match action {
-                    P2pChannelsBestTipAction::Init(action) => {
+                    P2pChannelsBestTipAction::Init { peer_id } => {
                         openmina_core::log::debug!(
                             meta.time();
                             kind = kind.to_string(),
-                            summary = format!("peer_id: {}", action.peer_id),
-                            peer_id = action.peer_id.to_string()
+                            summary = format!("peer_id: {peer_id}"),
+                            peer_id = peer_id.to_string()
                         );
                     }
-                    P2pChannelsBestTipAction::Ready(action) => {
+                    P2pChannelsBestTipAction::Ready { peer_id } => {
                         openmina_core::log::debug!(
                             meta.time();
                             kind = kind.to_string(),
-                            summary = format!("peer_id: {}", action.peer_id),
-                            peer_id = action.peer_id.to_string()
+                            summary = format!("peer_id: {peer_id}"),
+                            peer_id = peer_id.to_string()
                         );
                     }
                     _ => {}
                 },
                 P2pChannelsAction::Snark(action) => match action {
-                    P2pChannelsSnarkAction::Init(action) => {
+                    P2pChannelsSnarkAction::Init { peer_id } => {
                         openmina_core::log::debug!(
                             meta.time();
                             kind = kind.to_string(),
-                            summary = format!("peer_id: {}", action.peer_id),
-                            peer_id = action.peer_id.to_string()
+                            summary = format!("peer_id: {peer_id}", ),
+                            peer_id = peer_id.to_string()
                         );
                     }
-                    P2pChannelsSnarkAction::Ready(action) => {
+                    P2pChannelsSnarkAction::Ready { peer_id } => {
                         openmina_core::log::debug!(
                             meta.time();
                             kind = kind.to_string(),
-                            summary = format!("peer_id: {}", action.peer_id),
-                            peer_id = action.peer_id.to_string()
+                            summary = format!("peer_id: {peer_id}", ),
+                            peer_id = peer_id.to_string()
                         );
                     }
                     _ => {}
                 },
                 P2pChannelsAction::SnarkJobCommitment(action) => match action {
-                    P2pChannelsSnarkJobCommitmentAction::Init(action) => {
+                    P2pChannelsSnarkJobCommitmentAction::Init { peer_id } => {
                         openmina_core::log::debug!(
                             meta.time();
                             kind = kind.to_string(),
-                            summary = format!("peer_id: {}", action.peer_id),
-                            peer_id = action.peer_id.to_string()
+                            summary = format!("peer_id: {}", peer_id),
+                            peer_id = peer_id.to_string()
                         );
                     }
-                    P2pChannelsSnarkJobCommitmentAction::Ready(action) => {
+                    P2pChannelsSnarkJobCommitmentAction::Ready { peer_id } => {
                         openmina_core::log::debug!(
                             meta.time();
                             kind = kind.to_string(),
-                            summary = format!("peer_id: {}", action.peer_id),
-                            peer_id = action.peer_id.to_string()
+                            summary = format!("peer_id: {}", peer_id),
+                            peer_id = peer_id.to_string()
                         );
                     }
                     _ => {}
                 },
                 P2pChannelsAction::Rpc(action) => match action {
-                    P2pChannelsRpcAction::Init(action) => {
+                    P2pChannelsRpcAction::Init { peer_id } => {
                         openmina_core::log::debug!(
                             meta.time();
                             kind = kind.to_string(),
-                            summary = format!("peer_id: {}", action.peer_id),
-                            peer_id = action.peer_id.to_string()
+                            summary = format!("peer_id: {peer_id}", ),
+                            peer_id = peer_id.to_string()
                         );
                     }
-                    P2pChannelsRpcAction::Ready(action) => {
+                    P2pChannelsRpcAction::Ready { peer_id } => {
                         openmina_core::log::debug!(
                             meta.time();
                             kind = kind.to_string(),
-                            summary = format!("peer_id: {}", action.peer_id),
-                            peer_id = action.peer_id.to_string()
+                            summary = format!("peer_id: {peer_id}", ),
+                            peer_id = peer_id.to_string()
                         );
                     }
-                    P2pChannelsRpcAction::RequestSend(action) => {
+                    P2pChannelsRpcAction::RequestSend {
+                        peer_id,
+                        id,
+                        request,
+                    } => {
                         openmina_core::log::debug!(
                             meta.time();
                             kind = kind.to_string(),
-                            summary = format!("peer_id: {}, rpc_id: {}, kind: {:?}", action.peer_id, action.id, action.request.kind()),
-                            peer_id = action.peer_id.to_string(),
-                            rpc_id = action.id.to_string(),
-                            trace_request = serde_json::to_string(&action.request).ok()
+                            summary = format!("peer_id: {peer_id}, rpc_id: {id}, kind: {:?}", request.kind()),
+                            peer_id = peer_id.to_string(),
+                            rpc_id = id.to_string(),
+                            trace_request = serde_json::to_string(request).ok()
                         );
                     }
-                    P2pChannelsRpcAction::ResponseReceived(action) => {
+                    P2pChannelsRpcAction::ResponseReceived {
+                        peer_id,
+                        id,
+                        response,
+                    } => {
                         openmina_core::log::debug!(
                             meta.time();
                             kind = kind.to_string(),
-                            summary = format!("peer_id: {}, rpc_id: {}", action.peer_id, action.id),
-                            peer_id = action.peer_id.to_string(),
-                            rpc_id = action.id.to_string(),
-                            trace_response = serde_json::to_string(&action.response).ok()
+                            summary = format!("peer_id: {peer_id}, rpc_id: {id}"),
+                            peer_id = peer_id.to_string(),
+                            rpc_id = id.to_string(),
+                            trace_response = serde_json::to_string(response).ok()
                         );
                     }
                     _ => {}
@@ -463,58 +472,58 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
         Action::ExternalSnarkWorker(a) => {
             use crate::external_snark_worker::ExternalSnarkWorkerAction;
             match a {
-                ExternalSnarkWorkerAction::Start(_)
-                | ExternalSnarkWorkerAction::Started(_)
-                | ExternalSnarkWorkerAction::Kill(_)
-                | ExternalSnarkWorkerAction::Killed(_)
-                | ExternalSnarkWorkerAction::WorkCancelled(_)
-                | ExternalSnarkWorkerAction::PruneWork(_) => {
+                ExternalSnarkWorkerAction::Start
+                | ExternalSnarkWorkerAction::Started
+                | ExternalSnarkWorkerAction::Kill
+                | ExternalSnarkWorkerAction::Killed
+                | ExternalSnarkWorkerAction::WorkCancelled
+                | ExternalSnarkWorkerAction::PruneWork => {
                     openmina_core::log::debug!(
                         meta.time();
                         kind = kind.to_string(),
                         trace_action = serde_json::to_string(&a).ok()
                     )
                 }
-                ExternalSnarkWorkerAction::SubmitWork(a) => {
+                ExternalSnarkWorkerAction::SubmitWork { job_id, .. } => {
                     openmina_core::log::info!(
                         meta.time();
                         kind = kind.to_string(),
-                        work_id = a.job_id.to_string(),
+                        work_id = job_id.to_string(),
                     )
                 }
-                ExternalSnarkWorkerAction::WorkResult(_) => {
-                    openmina_core::log::info!(
-                        meta.time();
-                        kind = kind.to_string(),
-                    )
-                }
-                ExternalSnarkWorkerAction::CancelWork(_) => {
+                ExternalSnarkWorkerAction::WorkResult { .. } => {
                     openmina_core::log::info!(
                         meta.time();
                         kind = kind.to_string(),
                     )
                 }
-                ExternalSnarkWorkerAction::WorkError(a) => {
+                ExternalSnarkWorkerAction::CancelWork => {
+                    openmina_core::log::info!(
+                        meta.time();
+                        kind = kind.to_string(),
+                    )
+                }
+                ExternalSnarkWorkerAction::WorkError { error, .. } => {
                     openmina_core::log::warn!(
                         meta.time();
                         kind = kind.to_string(),
-                        error = a.error.to_string(),
+                        error = error.to_string(),
                     )
                 }
-                ExternalSnarkWorkerAction::Error(a) => {
+                ExternalSnarkWorkerAction::Error { error, .. } => {
                     openmina_core::log::info!(
                         meta.time();
                         kind = kind.to_string(),
-                        error = a.error.to_string(),
+                        error = error.to_string(),
                     )
                 }
-                ExternalSnarkWorkerAction::StartTimeout(_) => {
+                ExternalSnarkWorkerAction::StartTimeout { .. } => {
                     openmina_core::log::warn!(
                         meta.time();
                         kind = kind.to_string(),
                     )
                 }
-                ExternalSnarkWorkerAction::WorkTimeout(_) => {
+                ExternalSnarkWorkerAction::WorkTimeout { .. } => {
                     openmina_core::log::warn!(
                         meta.time();
                         kind = kind.to_string(),
@@ -524,39 +533,43 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
         }
         Action::Snark(a) => match a {
             SnarkAction::WorkVerify(a) => match a {
-                SnarkWorkVerifyAction::Init(a) => {
+                SnarkWorkVerifyAction::Init {
+                    req_id,
+                    batch,
+                    sender,
+                } => {
                     openmina_core::log::info!(
                         meta.time();
                         kind = kind.to_string(),
-                        summary = format!("id: {}, batch size: {}", a.req_id, a.batch.len()),
-                        peer_id = a.sender,
-                        rpc_id = a.req_id.to_string(),
-                        trace_batch = serde_json::to_string(&a.batch.iter().map(|v| v.job_id()).collect::<Vec<_>>()).ok()
+                        summary = format!("id: {}, batch size: {}", req_id, batch.len()),
+                        peer_id = sender,
+                        rpc_id = req_id.to_string(),
+                        trace_batch = serde_json::to_string(&batch.iter().map(|v| v.job_id()).collect::<Vec<_>>()).ok()
                     );
                 }
-                SnarkWorkVerifyAction::Error(a) => {
-                    let Some(req) = store.state().snark.work_verify.jobs.get(a.req_id) else {
+                SnarkWorkVerifyAction::Error { req_id, .. } => {
+                    let Some(req) = store.state().snark.work_verify.jobs.get(*req_id) else {
                         return;
                     };
                     openmina_core::log::warn!(
                         meta.time();
                         kind = kind.to_string(),
-                        summary = format!("id: {}, batch size: {}", a.req_id, req.batch().len()),
+                        summary = format!("id: {}, batch size: {}", req_id, req.batch().len()),
                         peer_id = req.sender(),
-                        rpc_id = a.req_id.to_string(),
+                        rpc_id = req_id.to_string(),
                         trace_batch = serde_json::to_string(&req.batch().iter().map(|v| v.job_id()).collect::<Vec<_>>()).ok()
                     );
                 }
-                SnarkWorkVerifyAction::Success(a) => {
-                    let Some(req) = store.state().snark.work_verify.jobs.get(a.req_id) else {
+                SnarkWorkVerifyAction::Success { req_id } => {
+                    let Some(req) = store.state().snark.work_verify.jobs.get(*req_id) else {
                         return;
                     };
                     openmina_core::log::info!(
                         meta.time();
                         kind = kind.to_string(),
-                        summary = format!("id: {}, batch size: {}", a.req_id, req.batch().len()),
+                        summary = format!("id: {}, batch size: {}", req_id, req.batch().len()),
                         peer_id = req.sender(),
-                        rpc_id = a.req_id.to_string(),
+                        rpc_id = req_id.to_string(),
                         trace_batch = serde_json::to_string(&req.batch().iter().map(|v| v.job_id()).collect::<Vec<_>>()).ok()
                     );
                 }
@@ -624,6 +637,54 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                 kind = kind.to_string(),
                 summary = "Transition frontier synced".to_string(),
             ),
+        },
+        Action::BlockProducer(a) => match a {
+            BlockProducerAction::VrfEvaluator(a) => match a {
+                BlockProducerVrfEvaluatorAction::EpochDataUpdate(a) => {
+                    openmina_core::log::info!(
+                        meta.time();
+                        kind = kind.to_string(),
+                        summary = format!("seed: {}, ledger: {}", a.epoch_data.seed.to_string(), a.epoch_data.ledger.hash.to_string()),
+                    );
+                }
+                BlockProducerVrfEvaluatorAction::UpdateProducerAndDelegates(_) => {}
+                BlockProducerVrfEvaluatorAction::UpdateProducerAndDelegatesSuccess(a) => {
+                    openmina_core::log::info!(
+                        meta.time();
+                        kind = kind.to_string(),
+                        summary = format!("Current epoch accounts: {:?}, Next epoch accounts: {:?}",
+                            a.current_epoch_producer_and_delegators.values().map(| a | a.0.clone()).collect::<Vec<_>>(),
+                            a.next_epoch_producer_and_delegators.values().map(| a | a.0.clone()).collect::<Vec<_>>()
+                        ),
+                    );
+                }
+                BlockProducerVrfEvaluatorAction::EvaluationSuccess(a) => match a.vrf_output {
+                    vrf::VrfEvaluationOutput::SlotWon(_) => {
+                        openmina_core::log::info!(
+                            meta.time();
+                            kind = kind.to_string(),
+                            summary = format!("Slot evaluation result - won slot: {:?}", a.vrf_output),
+                        )
+                    }
+                    vrf::VrfEvaluationOutput::SlotLost(_) => {
+                        openmina_core::log::debug!(
+                            meta.time();
+                            kind = kind.to_string(),
+                            summary = format!("Slot evaluation result - lost slot: {:?}", a.vrf_output),
+                        )
+                    }
+                },
+                BlockProducerVrfEvaluatorAction::EvaluateVrf(a) => {
+                    openmina_core::log::debug!(
+                        meta.time();
+                        kind = kind.to_string(),
+                        summary = format!("Vrf Evaluation requested: {:?}", a.vrf_input),
+                    )
+                }
+                _ => {}
+            },
+            BlockProducerAction::BestTipUpdate(_) => {}
+            _ => {}
         },
         _ => {}
     }

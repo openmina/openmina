@@ -12,15 +12,13 @@ use kimchi::{
         wires::{COLUMNS, PERMUTS},
     },
     mina_curves::pasta::Pallas,
-    verifier_index::LookupVerifierIndex,
+    verifier_index::{LookupVerifierIndex, VerifierIndex},
 };
 use mina_curves::pasta::Fq;
 use mina_p2p_messages::bigint::BigInt;
 use once_cell::sync::OnceCell;
 use poly_commitment::{commitment::CommitmentCurve, srs::SRS, PolyComm};
 use serde::{Deserialize, Serialize};
-
-use super::VerifierIndex;
 
 fn into<'a, U, T>(slice: &'a [U]) -> Vec<T>
 where
@@ -216,8 +214,12 @@ struct VerifierIndexCached {
     mul_comm: PolyComm<Pallas>,
     emul_comm: PolyComm<Pallas>,
     endomul_scalar_comm: PolyComm<Pallas>,
+    range_check0_comm: Option<PolyComm<Pallas>>,
+    range_check1_comm: Option<PolyComm<Pallas>>,
     foreign_field_add_comm: Option<PolyComm<Pallas>>,
+    foreign_field_mul_comm: Option<PolyComm<Pallas>>,
     xor_comm: Option<PolyComm<Pallas>>,
+    rot_comm: Option<PolyComm<Pallas>>,
     shift: [BigInt; PERMUTS], // Fq
     zkpm: DensePolynomialCached,
     w: BigInt,    // Fq
@@ -275,58 +277,119 @@ where
     }
 }
 
-impl From<&VerifierIndex> for VerifierIndexCached {
-    fn from(v: &VerifierIndex) -> Self {
+impl From<&VerifierIndex<Pallas>> for VerifierIndexCached {
+    fn from(v: &VerifierIndex<Pallas>) -> Self {
+        let VerifierIndex {
+            domain,
+            max_poly_size,
+            srs,
+            public,
+            prev_challenges,
+            sigma_comm,
+            coefficients_comm,
+            generic_comm,
+            psm_comm,
+            complete_add_comm,
+            mul_comm,
+            emul_comm,
+            endomul_scalar_comm,
+            range_check0_comm,
+            range_check1_comm,
+            foreign_field_add_comm,
+            foreign_field_mul_comm,
+            xor_comm,
+            rot_comm,
+            shift,
+            zkpm,
+            w,
+            endo,
+            lookup_index,
+            linearization,
+            powers_of_alpha: _, // ignored
+        } = v;
+
         Self {
-            domain: (&v.domain).into(),
-            max_poly_size: v.max_poly_size,
-            srs: (&**v.srs.get().unwrap()).into(),
-            public: v.public,
-            prev_challenges: v.prev_challenges,
-            sigma_comm: v.sigma_comm.clone(),
-            coefficients_comm: v.coefficients_comm.clone(),
-            generic_comm: v.generic_comm.clone(),
-            psm_comm: v.psm_comm.clone(),
-            complete_add_comm: v.complete_add_comm.clone(),
-            mul_comm: v.mul_comm.clone(),
-            emul_comm: v.emul_comm.clone(),
-            endomul_scalar_comm: v.endomul_scalar_comm.clone(),
-            foreign_field_add_comm: v.foreign_field_add_comm.clone(),
-            xor_comm: v.xor_comm.clone(),
-            shift: std::array::from_fn(|i| v.shift[i].into()),
-            zkpm: v.zkpm.get().unwrap().into(),
-            w: (*v.w.get().unwrap()).into(),
-            endo: v.endo.into(),
-            lookup_index: v.lookup_index.clone(),
-            linearization: conv_linearization(&v.linearization),
+            domain: domain.into(),
+            max_poly_size: *max_poly_size,
+            srs: (&**srs.get().unwrap()).into(),
+            public: *public,
+            prev_challenges: *prev_challenges,
+            sigma_comm: sigma_comm.clone(),
+            coefficients_comm: coefficients_comm.clone(),
+            generic_comm: generic_comm.clone(),
+            psm_comm: psm_comm.clone(),
+            complete_add_comm: complete_add_comm.clone(),
+            mul_comm: mul_comm.clone(),
+            emul_comm: emul_comm.clone(),
+            endomul_scalar_comm: endomul_scalar_comm.clone(),
+            range_check0_comm: range_check0_comm.clone(),
+            range_check1_comm: range_check1_comm.clone(),
+            foreign_field_add_comm: foreign_field_add_comm.clone(),
+            foreign_field_mul_comm: foreign_field_mul_comm.clone(),
+            xor_comm: xor_comm.clone(),
+            rot_comm: rot_comm.clone(),
+            shift: std::array::from_fn(|i| shift[i].into()),
+            zkpm: zkpm.get().unwrap().into(),
+            w: (*w.get().unwrap()).into(),
+            endo: endo.into(),
+            lookup_index: lookup_index.clone(),
+            linearization: conv_linearization(&linearization),
         }
     }
 }
 
-impl From<&VerifierIndexCached> for VerifierIndex {
+impl From<&VerifierIndexCached> for VerifierIndex<Pallas> {
     fn from(v: &VerifierIndexCached) -> Self {
+        let VerifierIndexCached {
+            domain,
+            max_poly_size,
+            srs,
+            public,
+            prev_challenges,
+            sigma_comm,
+            coefficients_comm,
+            generic_comm,
+            psm_comm,
+            complete_add_comm,
+            mul_comm,
+            emul_comm,
+            endomul_scalar_comm,
+            range_check0_comm,
+            range_check1_comm,
+            foreign_field_add_comm,
+            foreign_field_mul_comm,
+            xor_comm,
+            rot_comm,
+            shift,
+            zkpm,
+            w,
+            endo,
+            lookup_index,
+            linearization,
+        } = v;
+
         Self {
-            domain: (&v.domain).into(),
-            max_poly_size: v.max_poly_size,
-            srs: OnceCell::with_value(Arc::new((&v.srs).into())),
-            public: v.public,
-            prev_challenges: v.prev_challenges,
-            sigma_comm: v.sigma_comm.clone(),
-            coefficients_comm: v.coefficients_comm.clone(),
-            generic_comm: v.generic_comm.clone(),
-            psm_comm: v.psm_comm.clone(),
-            complete_add_comm: v.complete_add_comm.clone(),
-            mul_comm: v.mul_comm.clone(),
-            emul_comm: v.emul_comm.clone(),
-            endomul_scalar_comm: v.endomul_scalar_comm.clone(),
-            foreign_field_add_comm: v.foreign_field_add_comm.clone(),
-            xor_comm: v.xor_comm.clone(),
-            shift: std::array::from_fn(|i| v.shift[i].to_field()),
-            zkpm: OnceCell::with_value((&v.zkpm).into()),
-            w: OnceCell::with_value(v.w.to_field()),
-            endo: v.endo.to_field(),
-            lookup_index: v.lookup_index.clone(),
-            linearization: conv_linearization(&v.linearization),
+            domain: domain.into(),
+            max_poly_size: *max_poly_size,
+            srs: OnceCell::with_value(Arc::new(srs.into())),
+            public: *public,
+            prev_challenges: *prev_challenges,
+            sigma_comm: sigma_comm.clone(),
+            coefficients_comm: coefficients_comm.clone(),
+            generic_comm: generic_comm.clone(),
+            psm_comm: psm_comm.clone(),
+            complete_add_comm: complete_add_comm.clone(),
+            mul_comm: mul_comm.clone(),
+            emul_comm: emul_comm.clone(),
+            endomul_scalar_comm: endomul_scalar_comm.clone(),
+            foreign_field_add_comm: foreign_field_add_comm.clone(),
+            xor_comm: xor_comm.clone(),
+            shift: std::array::from_fn(|i| shift[i].to_field()),
+            zkpm: OnceCell::with_value(zkpm.into()),
+            w: OnceCell::with_value(w.to_field()),
+            endo: endo.to_field(),
+            lookup_index: lookup_index.clone(),
+            linearization: conv_linearization(&linearization),
             powers_of_alpha: {
                 // `Alphas` contains private data, so we can't de/serialize it.
                 // Initializing an `Alphas` is cheap anyway (for block verification).
@@ -341,15 +404,15 @@ impl From<&VerifierIndexCached> for VerifierIndex {
                 powers_of_alpha.register(ArgumentType::Permutation, permutation::CONSTRAINTS);
                 powers_of_alpha
             },
-            range_check0_comm: None,
-            range_check1_comm: None,
-            foreign_field_mul_comm: None,
-            rot_comm: None,
+            range_check0_comm: range_check0_comm.clone(),
+            range_check1_comm: range_check1_comm.clone(),
+            foreign_field_mul_comm: foreign_field_mul_comm.clone(),
+            rot_comm: rot_comm.clone(),
         }
     }
 }
 
-pub fn verifier_index_to_bytes(verifier: &VerifierIndex) -> Vec<u8> {
+pub fn verifier_index_to_bytes(verifier: &VerifierIndex<Pallas>) -> Vec<u8> {
     const NBYTES: usize = 5328359;
 
     let verifier: VerifierIndexCached = verifier.into();
@@ -359,7 +422,7 @@ pub fn verifier_index_to_bytes(verifier: &VerifierIndex) -> Vec<u8> {
     bytes
 }
 
-pub fn verifier_index_from_bytes(bytes: &[u8]) -> VerifierIndex {
+pub fn verifier_index_from_bytes(bytes: &[u8]) -> VerifierIndex<Pallas> {
     let verifier: VerifierIndexCached = bincode::deserialize(bytes).unwrap();
     (&verifier).into()
 }

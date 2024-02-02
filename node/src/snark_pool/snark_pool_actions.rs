@@ -11,173 +11,102 @@ use super::SnarkWork;
 pub type SnarkPoolActionWithMeta = redux::ActionWithMeta<SnarkPoolAction>;
 pub type SnarkPoolActionWithMetaRef<'a> = redux::ActionWithMeta<&'a SnarkPoolAction>;
 
-#[derive(derive_more::From, Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum SnarkPoolAction {
     Candidate(SnarkPoolCandidateAction),
 
-    JobsUpdate(SnarkPoolJobsUpdateAction),
-    AutoCreateCommitment(SnarkPoolAutoCreateCommitmentAction),
-    CommitmentCreate(SnarkPoolCommitmentCreateAction),
-    CommitmentAdd(SnarkPoolJobCommitmentAddAction),
-    WorkAdd(SnarkPoolWorkAddAction),
-    P2pSendAll(SnarkPoolP2pSendAllAction),
-    P2pSend(SnarkPoolP2pSendAction),
-    CheckTimeouts(SnarkPoolCheckTimeoutsAction),
-    JobCommitmentTimeout(SnarkPoolJobCommitmentTimeoutAction),
+    JobsUpdate {
+        jobs: Vec<OneOrTwo<AvailableJobMessage>>,
+        orphaned_snarks: Vec<SnarkWork>,
+    },
+    AutoCreateCommitment,
+    CommitmentCreate {
+        job_id: SnarkJobId,
+    },
+    CommitmentAdd {
+        commitment: SnarkJobCommitment,
+        sender: PeerId,
+    },
+    WorkAdd {
+        snark: Snark,
+        sender: PeerId,
+    },
+    P2pSendAll,
+    P2pSend {
+        peer_id: PeerId,
+    },
+    CheckTimeouts,
+    JobCommitmentTimeout {
+        job_id: SnarkJobId,
+    },
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct SnarkPoolJobsUpdateAction {
-    pub jobs: Vec<OneOrTwo<AvailableJobMessage>>,
-    pub orphaned_snarks: Vec<SnarkWork>,
-}
-
-impl redux::EnablingCondition<crate::State> for SnarkPoolJobsUpdateAction {}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct SnarkPoolAutoCreateCommitmentAction {}
-
-impl redux::EnablingCondition<crate::State> for SnarkPoolAutoCreateCommitmentAction {
-    fn is_enabled(&self, #[allow(unused_variables)] state: &crate::State) -> bool {
-        state
-            .config
-            .snarker
-            .as_ref()
-            .map_or(false, |v| v.auto_commit)
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct SnarkPoolCommitmentCreateAction {
-    pub job_id: SnarkJobId,
-}
-
-impl redux::EnablingCondition<crate::State> for SnarkPoolCommitmentCreateAction {
+impl redux::EnablingCondition<crate::State> for SnarkPoolAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
-        state.config.snarker.is_some() && state.snark_pool.should_create_commitment(&self.job_id)
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct SnarkPoolJobCommitmentAddAction {
-    pub commitment: SnarkJobCommitment,
-    pub sender: PeerId,
-}
-
-impl redux::EnablingCondition<crate::State> for SnarkPoolJobCommitmentAddAction {
-    fn is_enabled(&self, state: &crate::State) -> bool {
-        state
-            .snark_pool
-            .get(&self.commitment.job_id)
-            .map_or(false, |s| match s.commitment.as_ref() {
-                Some(cur) => self.commitment > cur.commitment,
-                None => true,
-            })
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct SnarkPoolWorkAddAction {
-    pub snark: Snark,
-    pub sender: PeerId,
-}
-
-impl redux::EnablingCondition<crate::State> for SnarkPoolWorkAddAction {
-    fn is_enabled(&self, state: &crate::State) -> bool {
-        state
-            .snark_pool
-            .get(&self.snark.job_id())
-            .map_or(false, |s| match s.snark.as_ref() {
-                Some(cur) => self.snark > cur.work,
-                None => true,
-            })
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct SnarkPoolP2pSendAllAction {}
-
-impl redux::EnablingCondition<crate::State> for SnarkPoolP2pSendAllAction {}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct SnarkPoolP2pSendAction {
-    pub peer_id: PeerId,
-}
-
-impl redux::EnablingCondition<crate::State> for SnarkPoolP2pSendAction {
-    fn is_enabled(&self, state: &crate::State) -> bool {
-        state
-            .p2p
-            .get_ready_peer(&self.peer_id)
-            // Only send commitments/snarks if peer has the same best tip,
-            // or its best tip is extension of our best tip. In such case
-            // no commitment/snark will be dropped by peer, because it
-            // doesn't yet have those jobs.
-            //
-            // By sending commitments/snarks to the peer, which has next
-            // best tip, we might send outdated commitments/snarks, but
-            // we might send useful ones as well.
-            .and_then(|p| {
-                let peer_best_tip = p.best_tip.as_ref()?;
-                let our_best_tip = state.transition_frontier.best_tip()?.hash();
-                Some(p).filter(|_| {
-                    peer_best_tip.hash() == our_best_tip
-                        || peer_best_tip.pred_hash() == our_best_tip
-                })
-            })
-            .map_or(false, |p| {
-                let check = |(next_index, limit), last_index| limit > 0 && next_index <= last_index;
-                let last_index = state.snark_pool.last_index();
-
-                check(
-                    p.channels.snark_job_commitment.next_send_index_and_limit(),
-                    last_index,
-                ) || check(p.channels.snark.next_send_index_and_limit(), last_index)
-            })
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct SnarkPoolCheckTimeoutsAction {}
-
-impl redux::EnablingCondition<crate::State> for SnarkPoolCheckTimeoutsAction {
-    fn is_enabled(&self, state: &crate::State) -> bool {
-        state
-            .time()
-            .checked_sub(state.snark_pool.last_check_timeouts)
-            .map_or(false, |dur| dur.as_secs() >= 5)
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct SnarkPoolJobCommitmentTimeoutAction {
-    pub job_id: SnarkJobId,
-}
-
-impl redux::EnablingCondition<crate::State> for SnarkPoolJobCommitmentTimeoutAction {
-    fn is_enabled(&self, state: &crate::State) -> bool {
-        state
-            .snark_pool
-            .is_commitment_timed_out(&self.job_id, state.time())
-    }
-}
-
-macro_rules! impl_into_global_action {
-    ($a:ty) => {
-        impl From<$a> for crate::Action {
-            fn from(value: $a) -> Self {
-                Self::SnarkPool(value.into())
+        match self {
+            SnarkPoolAction::Candidate(action) => action.is_enabled(state),
+            SnarkPoolAction::AutoCreateCommitment => state
+                .config
+                .snarker
+                .as_ref()
+                .map_or(false, |v| v.auto_commit),
+            SnarkPoolAction::CommitmentCreate { job_id } => {
+                state.config.snarker.is_some() && state.snark_pool.should_create_commitment(job_id)
             }
-        }
-    };
-}
+            SnarkPoolAction::CommitmentAdd { commitment, .. } => state
+                .snark_pool
+                .get(&commitment.job_id)
+                .map_or(false, |s| match s.commitment.as_ref() {
+                    Some(cur) => commitment > &cur.commitment,
+                    None => true,
+                }),
+            SnarkPoolAction::WorkAdd { snark, .. } => {
+                state
+                    .snark_pool
+                    .get(&snark.job_id())
+                    .map_or(false, |s| match s.snark.as_ref() {
+                        Some(cur) => snark > &cur.work,
+                        None => true,
+                    })
+            }
+            SnarkPoolAction::P2pSend { peer_id } => state
+                .p2p
+                .get_ready_peer(peer_id)
+                // Only send commitments/snarks if peer has the same best tip,
+                // or its best tip is extension of our best tip. In such case
+                // no commitment/snark will be dropped by peer, because it
+                // doesn't yet have those jobs.
+                //
+                // By sending commitments/snarks to the peer, which has next
+                // best tip, we might send outdated commitments/snarks, but
+                // we might send useful ones as well.
+                .and_then(|p| {
+                    let peer_best_tip = p.best_tip.as_ref()?;
+                    let our_best_tip = state.transition_frontier.best_tip()?.hash();
+                    Some(p).filter(|_| {
+                        peer_best_tip.hash() == our_best_tip
+                            || peer_best_tip.pred_hash() == our_best_tip
+                    })
+                })
+                .map_or(false, |p| {
+                    let check =
+                        |(next_index, limit), last_index| limit > 0 && next_index <= last_index;
+                    let last_index = state.snark_pool.last_index();
 
-impl_into_global_action!(SnarkPoolJobsUpdateAction);
-impl_into_global_action!(SnarkPoolAutoCreateCommitmentAction);
-impl_into_global_action!(SnarkPoolCommitmentCreateAction);
-impl_into_global_action!(SnarkPoolJobCommitmentAddAction);
-impl_into_global_action!(SnarkPoolWorkAddAction);
-impl_into_global_action!(SnarkPoolP2pSendAllAction);
-impl_into_global_action!(SnarkPoolP2pSendAction);
-impl_into_global_action!(SnarkPoolCheckTimeoutsAction);
-impl_into_global_action!(SnarkPoolJobCommitmentTimeoutAction);
+                    check(
+                        p.channels.snark_job_commitment.next_send_index_and_limit(),
+                        last_index,
+                    ) || check(p.channels.snark.next_send_index_and_limit(), last_index)
+                }),
+            SnarkPoolAction::CheckTimeouts => state
+                .time()
+                .checked_sub(state.snark_pool.last_check_timeouts)
+                .map_or(false, |dur| dur.as_secs() >= 5),
+            SnarkPoolAction::JobCommitmentTimeout { job_id } => state
+                .snark_pool
+                .is_commitment_timed_out(job_id, state.time()),
+            SnarkPoolAction::JobsUpdate { .. } => true,
+            SnarkPoolAction::P2pSendAll => true,
+        }
+    }
+}

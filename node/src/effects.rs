@@ -1,16 +1,12 @@
+use p2p::channels::snark::P2pChannelsSnarkAction;
 use redux::ActionMeta;
 
+use crate::block_producer::{block_producer_effects, BlockProducerWonSlotProduceInitAction};
 use crate::consensus::consensus_effects;
 use crate::event_source::event_source_effects;
-use crate::external_snark_worker::{
-    external_snark_worker_effects, ExternalSnarkWorkerStartAction,
-    ExternalSnarkWorkerStartTimeoutAction, ExternalSnarkWorkerWorkTimeoutAction,
-};
+use crate::external_snark_worker::external_snark_worker_effects;
 use crate::logger::logger_effects;
-use crate::p2p::channels::rpc::{
-    P2pChannelsRpcRequestSendAction, P2pChannelsRpcTimeoutAction, P2pRpcKind, P2pRpcRequest,
-};
-use crate::p2p::channels::snark::P2pChannelsSnarkRequestSendAction;
+use crate::p2p::channels::rpc::{P2pChannelsRpcAction, P2pRpcKind, P2pRpcRequest};
 use crate::p2p::connection::incoming::P2pConnectionIncomingTimeoutAction;
 use crate::p2p::connection::outgoing::{
     P2pConnectionOutgoingRandomInitAction, P2pConnectionOutgoingReconnectAction,
@@ -20,16 +16,12 @@ use crate::p2p::discovery::{P2pDiscoveryKademliaBootstrapAction, P2pDiscoveryKad
 use crate::p2p::p2p_effects;
 use crate::rpc::rpc_effects;
 use crate::snark::snark_effects;
-use crate::snark_pool::candidate::{
-    SnarkPoolCandidateWorkFetchAllAction, SnarkPoolCandidateWorkVerifyNextAction,
-};
-use crate::snark_pool::{
-    snark_pool_effects, SnarkPoolCheckTimeoutsAction, SnarkPoolP2pSendAllAction,
-};
+use crate::snark_pool::candidate::SnarkPoolCandidateAction;
+use crate::snark_pool::{snark_pool_effects, SnarkPoolAction};
 use crate::transition_frontier::sync::TransitionFrontierSyncBlocksNextApplyInitAction;
 use crate::transition_frontier::transition_frontier_effects;
 use crate::watched_accounts::watched_accounts_effects;
-use crate::{Action, ActionWithMeta, Service, Store};
+use crate::{Action, ActionWithMeta, ExternalSnarkWorkerAction, Service, Store};
 
 pub const MAX_PEER_PENDING_SNARKS: usize = 32;
 
@@ -48,7 +40,7 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
         // effect execution should be as light as possible.
         Action::CheckTimeouts(_) => {
             // TODO(binier): create init action and dispatch this there.
-            store.dispatch(ExternalSnarkWorkerStartAction {});
+            store.dispatch(ExternalSnarkWorkerAction::Start);
 
             p2p_connection_timeouts(store, &meta);
 
@@ -56,13 +48,13 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
 
             p2p_try_reconnect_disconnected_peers(store);
 
-            store.dispatch(SnarkPoolCheckTimeoutsAction {});
-            store.dispatch(SnarkPoolP2pSendAllAction {});
+            store.dispatch(SnarkPoolAction::CheckTimeouts);
+            store.dispatch(SnarkPoolAction::P2pSendAll);
 
             p2p_request_best_tip_if_needed(store);
 
-            store.dispatch(SnarkPoolCandidateWorkFetchAllAction {});
-            store.dispatch(SnarkPoolCandidateWorkVerifyNextAction {});
+            store.dispatch(SnarkPoolCandidateAction::WorkFetchAll);
+            store.dispatch(SnarkPoolCandidateAction::WorkVerifyNext);
 
             p2p_request_snarks_if_needed(store);
 
@@ -73,14 +65,16 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
 
             let state = store.state();
             for (peer_id, id) in state.p2p.peer_rpc_timeouts(state.time()) {
-                store.dispatch(P2pChannelsRpcTimeoutAction { peer_id, id });
+                store.dispatch(P2pChannelsRpcAction::Timeout { peer_id, id });
             }
 
             // TODO(binier): remove once ledger communication is async.
             store.dispatch(TransitionFrontierSyncBlocksNextApplyInitAction {});
 
-            store.dispatch(ExternalSnarkWorkerStartTimeoutAction { now: meta.time() });
-            store.dispatch(ExternalSnarkWorkerWorkTimeoutAction { now: meta.time() });
+            store.dispatch(ExternalSnarkWorkerAction::StartTimeout { now: meta.time() });
+            store.dispatch(ExternalSnarkWorkerAction::WorkTimeout { now: meta.time() });
+
+            store.dispatch(BlockProducerWonSlotProduceInitAction {});
         }
         Action::EventSource(action) => {
             event_source_effects(store, meta.with_action(action));
@@ -100,11 +94,14 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
         Action::SnarkPool(action) => {
             snark_pool_effects(store, meta.with_action(action));
         }
-        Action::Rpc(action) => {
-            rpc_effects(store, meta.with_action(action));
+        Action::BlockProducer(action) => {
+            block_producer_effects(store, meta.with_action(action));
         }
         Action::ExternalSnarkWorker(action) => {
             external_snark_worker_effects(store, meta.with_action(action));
+        }
+        Action::Rpc(action) => {
+            rpc_effects(store, meta.with_action(action));
         }
         Action::WatchedAccounts(action) => {
             watched_accounts_effects(store, meta.with_action(action));
@@ -181,7 +178,7 @@ fn p2p_request_best_tip_if_needed<S: Service>(store: &mut Store<S>) {
                 .map(|(peer_id, p)| (*peer_id, p.channels.rpc.next_local_rpc_id()))
                 .last()
             {
-                store.dispatch(P2pChannelsRpcRequestSendAction {
+                store.dispatch(P2pChannelsRpcAction::RequestSend {
                     peer_id,
                     id,
                     request: P2pRpcRequest::BestTipWithProof,
@@ -209,7 +206,7 @@ fn p2p_request_snarks_if_needed<S: Service>(store: &mut Store<S>) {
         .collect::<Vec<_>>();
 
     for (peer_id, limit) in snark_reqs {
-        store.dispatch(P2pChannelsSnarkRequestSendAction { peer_id, limit });
+        store.dispatch(P2pChannelsSnarkAction::RequestSend { peer_id, limit });
     }
 }
 
@@ -224,7 +221,14 @@ fn p2p_discovery_request<S: Service>(store: &mut Store<S>, meta: &ActionMeta) {
         .p2p
         .ready_peers_iter()
         .filter_map(|(peer_id, _)| {
-            let Some(t) = store.state().p2p.kademlia.peer_timestamp.get(peer_id).cloned() else {
+            let Some(t) = store
+                .state()
+                .p2p
+                .kademlia
+                .peer_timestamp
+                .get(peer_id)
+                .cloned()
+            else {
                 return Some(*peer_id);
             };
             let elapsed = meta

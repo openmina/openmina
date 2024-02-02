@@ -50,7 +50,7 @@ where
 }
 
 #[derive(Default)]
-struct TracingFieldFormatter(Pretty);
+struct TracingFieldFormatter(#[allow(dead_code)] Pretty);
 
 impl<'writer> FormatFields<'writer> for TracingFieldFormatter {
     fn format_fields<R: RecordFields>(

@@ -10,9 +10,9 @@ pub mod scenario;
 #[cfg(feature = "scenario-generators")]
 pub mod scenarios;
 pub mod service;
+pub mod simulator;
 
 pub mod network_debugger;
-pub mod ocaml;
 
 mod server;
 pub use server::server;
@@ -64,7 +64,7 @@ lazy_static::lazy_static! {
     static ref GATE: Arc<Mutex<()>> = Arc::new(Mutex::new(()));
 }
 
-pub struct TestGate(MutexGuard<'static, ()>);
+pub struct TestGate(#[allow(dead_code)] MutexGuard<'static, ()>);
 
 impl TestGate {
     async fn there_can_be_only_one() -> Self {

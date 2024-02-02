@@ -17,7 +17,7 @@ export type SnarksAction =
   & ScanStateAction
   ;
 
-export const reducer: ActionReducer<SnarksState, SnarksActions> = combineReducers<SnarksState, SnarksActions>({
+export const snarksReducer: ActionReducer<SnarksState, SnarksActions> = combineReducers<SnarksState, SnarksActions>({
   workPool: fromWorkPool.reducer,
   scanState: fromScanState.reducer,
 });

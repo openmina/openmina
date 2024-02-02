@@ -34,9 +34,9 @@ pub fn replace_authorizations(
 
     let sign_for_account_update = |use_full_commitment: bool, _kp: &Keypair| {
         let _commitment = if use_full_commitment {
-            full_txn_commitment.clone()
+            full_txn_commitment
         } else {
-            txn_commitment.clone()
+            txn_commitment
         };
 
         // TODO: Really sign the zkapp

@@ -3,16 +3,9 @@ use std::{
     time::Duration,
 };
 
-use libp2p::Multiaddr;
 use node::{
     event_source::Event,
-    p2p::{
-        connection::outgoing::{
-            P2pConnectionOutgoingInitLibp2pOpts, P2pConnectionOutgoingInitOpts,
-        },
-        webrtc::SignalingMethod,
-        P2pConnectionEvent, P2pEvent,
-    },
+    p2p::{P2pConnectionEvent, P2pEvent},
 };
 
 use crate::{
@@ -39,26 +32,8 @@ impl MultiNodeBasicConnectivityInitialJoining {
 
         let seed_node =
             runner.add_rust_node(RustNodeTestingConfig::berkeley_default().max_peers(TOTAL_PEERS));
-        let full_config = &runner
-            .node(seed_node)
-            .expect("must exist")
-            .state()
-            .p2p
-            .config;
 
-        let peer_id = full_config.identity_pub_key.peer_id();
-        let this = format!(
-            "/ip4/127.0.0.1/tcp/{}/p2p/{}",
-            full_config.libp2p_port.unwrap(),
-            libp2p::PeerId::from(peer_id)
-        );
-        let this_maddr = this.parse::<Multiaddr>().unwrap();
-        eprintln!("launch Openmina seed node, id: {seed_node}, addr: {this}");
-        let init_opts = P2pConnectionOutgoingInitOpts::LibP2P(
-            P2pConnectionOutgoingInitLibp2pOpts::try_from(&this_maddr).unwrap(),
-        );
-        let signaling = SignalingMethod::Http(([127, 0, 0, 1], full_config.listen_port).into());
-        let init_opts_webrtc = P2pConnectionOutgoingInitOpts::WebRTC { peer_id, signaling };
+        eprintln!("launch Openmina seed node, id: {seed_node}");
 
         let mut nodes = vec![seed_node];
 
@@ -69,7 +44,7 @@ impl MultiNodeBasicConnectivityInitialJoining {
                 let node = runner.add_rust_node(
                     RustNodeTestingConfig::berkeley_default()
                         .max_peers(MAX_PEERS_PER_NODE)
-                        .initial_peers(vec![init_opts.clone(), init_opts_webrtc.clone()])
+                        .initial_peers(vec![seed_node.into()])
                         .ask_initial_peers_interval(Duration::from_secs(10)),
                 );
                 eprintln!("launch Openmina node, id: {node}, connects to {seed_node}");
@@ -177,7 +152,7 @@ impl MultiNodeBasicConnectivityInitialJoining {
                 let mut total_connections_known = 0;
                 let mut total_connections_ready = 0;
                 for &node_id in &nodes {
-                    let node = runner.cluster_mut().node(node_id).expect("node must exist");
+                    let node = runner.node(node_id).expect("node must exist");
 
                     let p2p = &node.state().p2p;
                     let ready_peers = p2p.ready_peers_iter().count();
@@ -196,7 +171,7 @@ impl MultiNodeBasicConnectivityInitialJoining {
                 }
 
                 // TODO: calculate per peer
-                if let Some(debugger) = runner.cluster().debugger() {
+                if let Some(debugger) = runner.debugger() {
                     tokio::time::sleep(Duration::from_secs(10)).await;
 
                     let connections = debugger

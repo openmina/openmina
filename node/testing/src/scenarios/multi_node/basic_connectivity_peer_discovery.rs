@@ -1,14 +1,12 @@
 use std::time::Duration;
 
 use node::event_source::Event;
-use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
-use node::p2p::P2pEvent;
-use tokio::task::JoinSet;
+use node::p2p::{P2pEvent, PeerId};
 
+use crate::cluster::ClusterOcamlNodeId;
+use crate::node::{DaemonJson, OcamlNodeTestingConfig, OcamlStep};
 use crate::scenarios::cluster_runner::ClusterRunner;
 use crate::{node::RustNodeTestingConfig, scenario::ScenarioStep};
-
-use crate::ocaml::{self, Node};
 
 /// Global test with OCaml nodes.
 /// Run an OCaml node as a seed node. Run three normal OCaml nodes connecting only to the seed node.
@@ -31,61 +29,55 @@ impl MultiNodeBasicConnectivityPeerDiscovery {
         const TOTAL_OCAML_NODES: u16 = 4;
         const PAUSE_UNTIL_OCAML_NODES_READY: Duration = Duration::from_secs(30 * 60);
 
-        let temp_dir = temp_dir::TempDir::new().unwrap();
+        let ocaml_seed_config = OcamlNodeTestingConfig {
+            initial_peers: Vec::new(),
+            daemon_json: DaemonJson::Custom("/var/lib/coda/berkeley.json".to_owned()),
+        };
 
-        let mut seed_a = Node::spawn::<_, &str>(
-            runner.cluster_mut().available_port().unwrap(),
-            runner.cluster_mut().available_port().unwrap(),
-            runner.cluster_mut().available_port().unwrap(),
-            &temp_dir.path().join("seed"),
-            [],
-        )
-        .expect("seed ocaml node");
-        eprintln!("launching OCaml seed node: {}", seed_a.local_addr());
+        let seed_a = runner.add_ocaml_node(ocaml_seed_config.clone());
+        let seed_a_dial_addr = runner.ocaml_node(seed_a).unwrap().dial_addr();
+
+        eprintln!("launching OCaml seed node: {seed_a_dial_addr}");
+
+        let ocaml_node_config = OcamlNodeTestingConfig {
+            initial_peers: vec![seed_a_dial_addr],
+            ..ocaml_seed_config
+        };
 
         tokio::time::sleep(Duration::from_secs(60)).await;
 
         let nodes = (1..TOTAL_OCAML_NODES)
-            .map(|i| {
-                let n = Node::spawn(
-                    runner.cluster_mut().available_port().unwrap(),
-                    runner.cluster_mut().available_port().unwrap(),
-                    runner.cluster_mut().available_port().unwrap(),
-                    &temp_dir.path().join(i.to_string()),
-                    [seed_a.local_addr().to_string()],
-                )
-                .expect("ocaml node");
-                eprintln!("launching OCaml node {}", n.local_addr());
-                n
-            })
+            .map(|_| runner.add_ocaml_node(ocaml_node_config.clone()))
             .collect::<Vec<_>>();
 
         // wait for ocaml nodes to be ready
-        let mut join_set = JoinSet::new();
-        for n in &nodes {
-            let w = ocaml::wait_for_port_ready(n.port, PAUSE_UNTIL_OCAML_NODES_READY);
-            join_set.spawn(w);
-        }
-        while let Some(res) = join_set.join_next().await {
-            assert!(res.unwrap().unwrap(), "OCaml node should be ready");
+        for node in &nodes {
+            runner
+                .exec_step(ScenarioStep::Ocaml {
+                    node_id: *node,
+                    step: OcamlStep::WaitReady {
+                        timeout: PAUSE_UNTIL_OCAML_NODES_READY,
+                    },
+                })
+                .await
+                .expect("OCaml node should be ready");
         }
         eprintln!("OCaml nodes should be ready now");
 
         let config = RustNodeTestingConfig::berkeley_default()
             .ask_initial_peers_interval(Duration::from_secs(3600))
             .max_peers(100)
-            .libp2p_port(10000)
             .initial_peers(
                 nodes
                     .iter()
                     .chain(std::iter::once(&seed_a))
-                    .map(|n| P2pConnectionOutgoingInitOpts::try_from(&n.local_addr()).unwrap())
+                    .map(|node_id| (*node_id).into())
                     .collect(),
             );
         let node_id = runner.add_rust_node(config);
         eprintln!("launching Openmina node {node_id}");
 
-        let mut additional_ocaml_node = None::<Node>;
+        let mut additional_ocaml_node = None::<(ClusterOcamlNodeId, PeerId)>;
 
         let mut timeout = STEPS;
         loop {
@@ -137,27 +129,22 @@ impl MultiNodeBasicConnectivityPeerDiscovery {
             if this.state().p2p.kademlia.saturated.is_some() {
                 // the node must find all already running OCaml nodes
                 // assert_eq!(this.state().p2p.peers.len(), TOTAL_OCAML_NODES as usize);
-                additional_ocaml_node.get_or_insert_with(|| {
-                    let n = Node::spawn(
-                        9000,
-                        4000,
-                        9001,
-                        &temp_dir.path().join("add"),
-                        [seed_a.local_addr().to_string()],
-                    )
-                    .expect("additional ocaml node");
+                if additional_ocaml_node.is_none() {
                     eprintln!("the Openmina node finished peer discovery",);
                     eprintln!(
                         "connected peers: {:?}",
                         this.state().p2p.peers.keys().collect::<Vec<_>>()
                     );
-                    eprintln!("launching additional OCaml node {}", n.local_addr());
-                    n
-                });
+                    let node_id = runner.add_ocaml_node(ocaml_node_config.clone());
+                    let node = runner.ocaml_node(node_id).unwrap();
+                    eprintln!("launching additional OCaml node {}", node.dial_addr());
+
+                    additional_ocaml_node = Some((node_id, node.peer_id()));
+                }
             }
 
-            if let Some(additional_ocaml_node) = &additional_ocaml_node {
-                let peer_id = additional_ocaml_node.peer_id();
+            if let Some((_, additional_ocaml_node_peer_id)) = &additional_ocaml_node {
+                let peer_id = additional_ocaml_node_peer_id;
 
                 if runner
                     .node(node_id)
@@ -166,7 +153,7 @@ impl MultiNodeBasicConnectivityPeerDiscovery {
                     .p2p
                     .peers
                     .iter()
-                    .filter(|(id, n)| n.is_libp2p && *id == &peer_id)
+                    .filter(|(id, n)| n.is_libp2p && id == &peer_id)
                     .filter_map(|(_, n)| n.status.as_ready())
                     .find(|n| n.is_incoming)
                     .is_some()
@@ -178,12 +165,6 @@ impl MultiNodeBasicConnectivityPeerDiscovery {
                 }
             }
         }
-
-        for mut node in nodes {
-            node.kill();
-        }
-        seed_a.kill();
-        additional_ocaml_node.as_mut().map(Node::kill);
 
         if timeout == 0 {
             panic!("timeout");

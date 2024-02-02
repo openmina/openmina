@@ -68,6 +68,9 @@ pub struct Node {
     #[arg(long, env)]
     pub run_snarker: Option<AccountPublicKey>,
 
+    // /// Enable block producer with this key
+    // #[arg(long, env)]
+    // pub producer_key: Option<String>,
     /// Snark fee, in Mina
     #[arg(long, env, default_value_t = 1_000_000)]
     pub snarker_fee: u64,
@@ -132,9 +135,24 @@ impl Node {
         });
         let pub_key = secret_key.public_key();
 
+        // let block_producer: Option<BlockProducerConfig> =
+        //     self.producer_key.clone().map(|producer_key| {
+        //         let compressed_pub_key = keypair_from_bs58_string(&producer_key)
+        //             .public
+        //             .into_compressed();
+        //         BlockProducerConfig {
+        //             pub_key: NonZeroCurvePoint::from(NonZeroCurvePointUncompressedStableV1 {
+        //                 x: compressed_pub_key.x.into(),
+        //                 is_odd: compressed_pub_key.is_odd,
+        //             }),
+        //             custom_coinbase_receiver: None,
+        //             proposed_protocol_version: None,
+        //         }
+        //     });
+
         let work_dir = shellexpand::full(&self.work_dir).unwrap().into_owned();
         let rng_seed = rng.next_u64();
-        let srs: Arc<_> = get_srs().into();
+        let srs: Arc<_> = get_srs();
         let config = Config {
             ledger: LedgerConfig {},
             snark: SnarkConfig {
@@ -166,6 +184,7 @@ impl Node {
                 enabled_channels: ChannelId::iter_all().collect(),
             },
             transition_frontier: TransitionFrontierConfig::default(),
+            block_producer: None,
         };
         let (event_sender, event_receiver) = mpsc::unbounded_channel();
 
@@ -237,8 +256,9 @@ impl Node {
                         ledger,
                         peers,
                         libp2p,
-                        rpc: rpc_service,
+                        block_producer: None,
                         snark_worker_sender: None,
+                        rpc: rpc_service,
                         stats: Stats::new(),
                         recorder: match record.trim() {
                             "none" => Recorder::None,
@@ -246,7 +266,12 @@ impl Node {
                             _ => panic!("unknown --record strategy"),
                         },
                         replayer: None,
+                        invariants_state: Default::default(),
                     };
+                    // if let Some(producer_key) = self.producer_key {
+                    //     service.block_producer_start(keypair_from_bs58_string(&producer_key));
+                    // }
+
                     let state = State::new(config);
                     let mut node = ::node::Node::new(state, service, None);
 

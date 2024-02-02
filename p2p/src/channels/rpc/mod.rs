@@ -14,9 +14,10 @@ use std::{sync::Arc, time::Duration};
 
 use binprot_derive::{BinProtRead, BinProtWrite};
 use mina_p2p_messages::v2::{
-    LedgerHash, MinaBasePendingCoinbaseStableV2, MinaBaseStateBodyHashStableV1,
-    MinaLedgerSyncLedgerAnswerStableV2, MinaLedgerSyncLedgerQueryStableV1,
-    MinaStateProtocolStateValueStableV2, StateHash, TransactionSnarkScanStateStableV2,
+    LedgerHash, MerkleAddressBinableArgStableV1, MinaBasePendingCoinbaseStableV2,
+    MinaBaseStateBodyHashStableV1, MinaLedgerSyncLedgerAnswerStableV2,
+    MinaLedgerSyncLedgerQueryStableV1, MinaStateProtocolStateValueStableV2, StateHash,
+    TransactionSnarkScanStateStableV2,
 };
 use openmina_core::{
     block::ArcBlock,
@@ -108,17 +109,31 @@ impl Default for P2pRpcRequest {
     }
 }
 
+fn addr_to_str(
+    MerkleAddressBinableArgStableV1(mina_p2p_messages::number::Number(length), byte_string): &MerkleAddressBinableArgStableV1,
+) -> String {
+    let addr = byte_string
+        .as_ref()
+        .into_iter()
+        .copied()
+        .flat_map(|byte| {
+            (0..8)
+                .into_iter()
+                .map(move |b| byte & (1 << (7 - b)) != 0)
+                .map(|b| if b { '1' } else { '0' })
+        })
+        .take(*length as usize)
+        .collect::<String>();
+
+    format!("depth: {length}, addr: {addr}")
+}
+
 impl std::fmt::Display for P2pRpcRequest {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", self.kind())?;
         match self {
             Self::BestTipWithProof => Ok(()),
             Self::LedgerQuery(ledger_hash, query) => {
-                let addr_to_str = |addr| {
-                    let addr = ledger::Address::from(addr);
-                    format!("depth: {}, addr: {}", addr.length(), addr.to_string())
-                };
-
                 match query {
                     MinaLedgerSyncLedgerQueryStableV1::NumAccounts => write!(f, ", NumAccounts, ")?,
                     MinaLedgerSyncLedgerQueryStableV1::WhatChildHashes(addr) => {

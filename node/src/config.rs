@@ -5,6 +5,7 @@ use mina_p2p_messages::v2::CurrencyFeeStableV1;
 use serde::{Deserialize, Serialize};
 
 use crate::account::AccountPublicKey;
+pub use crate::block_producer::BlockProducerConfig;
 pub use crate::ledger::LedgerConfig;
 pub use crate::p2p::P2pConfig;
 pub use crate::snark::SnarkConfig;
@@ -20,6 +21,7 @@ pub struct Config {
     pub snark: SnarkConfig,
     pub p2p: P2pConfig,
     pub transition_frontier: TransitionFrontierConfig,
+    pub block_producer: Option<BlockProducerConfig>,
     pub global: GlobalConfig,
 }
 
@@ -78,6 +80,7 @@ pub struct RustCBuildEnv {
     pub llvm_version: String,
 }
 
+#[allow(clippy::eq_op)]
 impl BuildEnv {
     pub fn get() -> Self {
         Self {

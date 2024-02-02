@@ -1,4 +1,4 @@
-use node::rpc::{RpcHealthCheckResponse, RpcReadinessCheckResponse, RpcPeersGetResponse};
+use node::rpc::{RpcHealthCheckResponse, RpcPeersGetResponse, RpcReadinessCheckResponse};
 use serde::{Deserialize, Serialize};
 
 use node::core::channels::{mpsc, oneshot};
@@ -152,4 +152,10 @@ impl node::rpc::RpcService for NodeService {
     );
     rpc_service_impl!(respond_health_check, RpcHealthCheckResponse);
     rpc_service_impl!(respond_readiness_check, RpcReadinessCheckResponse);
+}
+
+impl node::core::invariants::InvariantService for NodeService {
+    fn invariants_state(&mut self) -> &mut openmina_core::invariants::InvariantsState {
+        &mut self.invariants_state
+    }
 }

@@ -3,9 +3,10 @@ use serde::{Deserialize, Serialize};
 pub type ActionWithMeta = redux::ActionWithMeta<Action>;
 pub type ActionWithMetaRef<'a> = redux::ActionWithMeta<&'a Action>;
 
+pub use crate::block_producer::BlockProducerAction;
 pub use crate::consensus::ConsensusAction;
 pub use crate::event_source::EventSourceAction;
-use crate::external_snark_worker::ExternalSnarkWorkerAction;
+pub use crate::external_snark_worker::ExternalSnarkWorkerAction;
 pub use crate::p2p::P2pAction;
 pub use crate::rpc::RpcAction;
 pub use crate::snark::SnarkAction;
@@ -27,8 +28,9 @@ pub enum Action {
     Consensus(ConsensusAction),
     TransitionFrontier(TransitionFrontierAction),
     SnarkPool(SnarkPoolAction),
-    Rpc(RpcAction),
     ExternalSnarkWorker(ExternalSnarkWorkerAction),
+    BlockProducer(BlockProducerAction),
+    Rpc(RpcAction),
 
     WatchedAccounts(WatchedAccountsAction),
 }

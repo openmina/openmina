@@ -1,7 +1,7 @@
 use redux::EnablingCondition;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
-use crate::{P2pListenerId, P2pState, P2pAction};
+use crate::{P2pAction, P2pListenerId, P2pState};
 
 pub type P2pListenActionWithMetaRef<'a> = redux::ActionWithMeta<&'a P2pListenAction>;
 

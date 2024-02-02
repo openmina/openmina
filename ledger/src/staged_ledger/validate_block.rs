@@ -2,7 +2,10 @@ use std::collections::{BTreeMap, VecDeque};
 
 use itertools::Itertools;
 use mina_p2p_messages::binprot::BinProtWrite;
-use mina_p2p_messages::v2::{MinaBlockBlockStableV2, StagedLedgerDiffDiffStableV2};
+use mina_p2p_messages::v2::{
+    Blake2MakeStableV1, ConsensusBodyReferenceStableV1, MinaBlockBlockStableV2,
+    StagedLedgerDiffDiffStableV2,
+};
 
 const BODY_TAG: u8 = 0;
 const MAX_BLOCK_SIZE: usize = 262144;
@@ -21,27 +24,34 @@ pub enum BlockBodyValidationError {
     InvalidState,
 }
 
-pub fn validate_block(block: &MinaBlockBlockStableV2) -> Result<(), BlockBodyValidationError> {
-    let bytes = serialize_with_len_and_tag(&block.body.staged_ledger_diff);
+pub fn block_body_hash(
+    body: &StagedLedgerDiffDiffStableV2,
+) -> Result<ConsensusBodyReferenceStableV1, BlockBodyValidationError> {
+    let bytes = serialize_with_len_and_tag(body);
+    blocks_of_data(MAX_BLOCK_SIZE, &bytes)
+        .map(|(_, hash)| hash)
+        .map(|hash| Blake2MakeStableV1(hash.as_slice().into()))
+        .map(ConsensusBodyReferenceStableV1)
+}
 
-    let body_reference = &block
+pub fn validate_block(block: &MinaBlockBlockStableV2) -> Result<(), BlockBodyValidationError> {
+    let calculated = block_body_hash(&block.body.staged_ledger_diff)?;
+
+    let expected = &block
         .header
         .protocol_state
         .body
         .blockchain_state
         .body_reference;
-    let body_reference: &[u8] = body_reference;
 
-    let (_, hash) = blocks_of_data(MAX_BLOCK_SIZE, &bytes)?;
-
-    if body_reference == &hash[..] {
+    if &calculated == expected {
         Ok(())
     } else {
         let hex = |bytes: &[u8]| bytes.iter().map(|b| format!("{:x}", b)).join("");
 
         Err(BlockBodyValidationError::HashMismatch {
-            expected_from_header: hex(body_reference),
-            got: hex(&hash[..]),
+            expected_from_header: hex(expected),
+            got: hex(&calculated),
         })
     }
 }
@@ -114,7 +124,7 @@ fn blocks_of_data(
             let mut block = Vec::with_capacity(size);
             block.extend((num_links as u16).to_le_bytes());
             for link in links.iter() {
-                let link: &[u8; LINK_SIZE] = &link;
+                let link: &[u8; LINK_SIZE] = link;
                 block.extend(link);
             }
             block.extend(chunk);

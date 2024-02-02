@@ -20,10 +20,11 @@ pub use rpc_service::*;
 
 mod rpc_impls;
 
+pub use openmina_core::requests::{RpcId, RpcIdType};
+
 use ledger::scan_state::scan_state::transaction_snark::OneOrTwo;
 use ledger::scan_state::scan_state::AvailableJobMessage;
 use mina_p2p_messages::v2::{CurrencyFeeStableV1, NonZeroCurvePoint};
-pub use openmina_core::requests::{RpcId, RpcIdType};
 use openmina_core::snark::SnarkJobId;
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
@@ -88,7 +89,7 @@ pub enum ActionStatsResponse {
 pub enum PeerConnectionStatus {
     Disconnected,
     Connecting,
-    Connected
+    Connected,
 }
 
 #[derive(Serialize, Debug, Clone)]

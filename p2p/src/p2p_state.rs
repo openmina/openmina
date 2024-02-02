@@ -34,7 +34,19 @@ pub struct P2pKademliaState {
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
 pub struct P2pListenersState(pub BTreeMap<P2pListenerId, P2pListenerState>);
 
-#[derive(Default, Serialize, Deserialize, derive_more::From, PartialEq, Eq, PartialOrd, Ord, Debug, Clone, derive_more::Display)]
+#[derive(
+    Default,
+    Serialize,
+    Deserialize,
+    derive_more::From,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Debug,
+    Clone,
+    derive_more::Display,
+)]
 pub struct P2pListenerId(String);
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -49,7 +61,10 @@ pub enum P2pListenerState {
 
 impl Default for P2pListenerState {
     fn default() -> Self {
-        P2pListenerState::Open { addrs: BTreeSet::default(), errors: Vec::new() }
+        P2pListenerState::Open {
+            addrs: BTreeSet::default(),
+            errors: Vec::new(),
+        }
     }
 }
 
@@ -148,6 +163,13 @@ impl P2pState {
             .iter()
             .filter(|(_, p)| p.status.is_connected_or_connecting())
             .count()
+    }
+
+    pub fn is_peer_connecting(&self, peer_id: &PeerId) -> bool {
+        self.peers
+            .get(peer_id)
+            .and_then(|p| p.status.as_connecting())
+            .map_or(false, |p| !p.is_error())
     }
 
     pub fn is_peer_connected_or_connecting(&self, peer_id: &PeerId) -> bool {

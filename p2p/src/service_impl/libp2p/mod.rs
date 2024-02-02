@@ -41,7 +41,7 @@ use crate::channels::rpc::{
     BestTipWithProof, P2pRpcRequest, P2pRpcResponse, RpcChannelMsg,
     StagedLedgerAuxAndPendingCoinbases,
 };
-use crate::channels::{ChannelId, ChannelMsg};
+use crate::channels::ChannelMsg;
 use crate::connection::outgoing::{
     P2pConnectionOutgoingInitLibp2pOpts, P2pConnectionOutgoingInitOpts,
 };
@@ -929,11 +929,7 @@ impl Libp2pService {
 
                 match received {
                     Received::Menu(_) => {}
-                    Received::HandshakeDone => {
-                        ch_send(
-                            P2pChannelEvent::Opened(peer_id.into(), ChannelId::Rpc, Ok(())).into(),
-                        );
-                    }
+                    Received::HandshakeDone => {}
                     Received::Query {
                         header: QueryHeader { tag, version, id },
                         bytes,

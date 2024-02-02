@@ -112,7 +112,8 @@ impl From<PeerId> for libp2p::PeerId {
 #[cfg(not(target_arch = "wasm32"))]
 impl PartialEq<libp2p::PeerId> for PeerId {
     fn eq(&self, other: &libp2p::PeerId) -> bool {
-        let key = libp2p::identity::PublicKey::try_decode_protobuf(other.as_ref().digest()).unwrap();
+        let key =
+            libp2p::identity::PublicKey::try_decode_protobuf(other.as_ref().digest()).unwrap();
         let bytes = key.try_into_ed25519().unwrap().to_bytes();
         self == &PeerId::from_bytes(bytes)
     }

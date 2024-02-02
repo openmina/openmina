@@ -1,20 +1,33 @@
-use std::{borrow::Cow, fmt::Write, io::Cursor, str::FromStr};
+use std::{fmt::Write, io::Cursor, str::FromStr};
 
-use ark_ff::{BigInteger256, Field, One, UniformRand, Zero};
+use ark_ff::{BigInteger256, One, UniformRand, Zero};
 use mina_hasher::Fp;
 use mina_p2p_messages::binprot::{BinProtRead, BinProtWrite};
 use mina_signer::CompressedPubKey;
 use rand::{prelude::ThreadRng, seq::SliceRandom, Rng};
 
 use crate::{
-    gen_compressed, gen_keypair,
+    gen_compressed,
     hash::{hash_noinputs, hash_with_kimchi, Inputs},
-    proofs::witness::{Boolean, Witness},
+    proofs::{
+        field::{Boolean, FieldWitness, ToBoolean},
+        numbers::{
+            currency::{CheckedBalance, CheckedCurrency},
+            nat::CheckedSlot,
+        },
+        to_field_elements::ToFieldElements,
+        transaction::{
+            make_group, transaction_snark::checked_min_balance_at_slot, Check, InnerCurve,
+            PlonkVerificationKeyEvals,
+        },
+        witness::Witness,
+    },
     scan_state::{
         currency::{Balance, Magnitude, Nonce, Slot},
         transaction_logic::account_min_balance_at_slot,
     },
-    MerklePath, ToInputs,
+    zkapps::snark::FlaggedOption,
+    MerklePath, MyCow, ToInputs,
 };
 
 use super::common::*;
@@ -61,6 +74,25 @@ impl TokenSymbol {
 
         Self(sym)
     }
+
+    pub fn to_bytes(&self, bytes: &mut [u8]) {
+        if self.is_empty() {
+            return;
+        }
+        let len = self.len();
+        let s = self.as_bytes();
+        bytes[..len].copy_from_slice(&s[..len.min(6)]);
+    }
+
+    pub fn to_field<F: FieldWitness>(&self) -> F {
+        use ark_ff::FromBytes;
+
+        let mut s = <[u8; 32]>::default();
+        self.to_bytes(&mut s);
+
+        let bigint = BigInteger256::read(&s[..]).unwrap();
+        F::from(bigint)
+    }
 }
 
 #[allow(clippy::derivable_impls)]
@@ -92,10 +124,7 @@ impl ToInputs for TokenSymbol {
         //assert!(self.len() <= 6);
 
         let mut s = <[u8; 6]>::default();
-        if !self.is_empty() {
-            let len = self.len();
-            s[..len].copy_from_slice(self.as_bytes());
-        }
+        self.to_bytes(&mut s);
         inputs.append_u48(s);
     }
 }
@@ -118,8 +147,11 @@ pub struct Permissions<Controller> {
     pub set_timing: Controller,
 }
 
-impl ToInputs for Permissions<AuthRequired> {
-    fn to_inputs(&self, inputs: &mut Inputs) {
+impl Permissions<AuthRequired> {
+    pub fn iter_as_bits<F>(&self, mut fun: F)
+    where
+        F: FnMut(bool),
+    {
         let Self {
             edit_state,
             access,
@@ -152,9 +184,17 @@ impl ToInputs for Permissions<AuthRequired> {
             set_timing,
         ] {
             for bit in auth.encode().to_bits() {
-                inputs.append_bool(bit);
+                fun(bit);
             }
         }
+    }
+}
+
+impl ToInputs for Permissions<AuthRequired> {
+    fn to_inputs(&self, inputs: &mut Inputs) {
+        self.iter_as_bits(|bit| {
+            inputs.append_bool(bit);
+        });
     }
 }
 
@@ -235,79 +275,6 @@ impl Permissions<AuthRequired> {
     }
 }
 
-// TODO: Not sure if the name is correct
-// It seems that a similar type exist in proof-systems: TODO
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub struct CurveAffine<F: Field>(pub F, pub F);
-
-impl CurveAffine<Fp> {
-    pub fn rand() -> Self {
-        let kp = gen_keypair();
-        let point = kp.public.into_point();
-        assert!(point.is_on_curve());
-        Self(point.x, point.y)
-    }
-}
-
-impl ToInputs for CurveAffine<Fp> {
-    fn to_inputs(&self, inputs: &mut Inputs) {
-        inputs.append_field(self.0);
-        inputs.append_field(self.1);
-    }
-}
-
-// https://github.com/MinaProtocol/mina/blob/a6e5f182855b3f4b4afb0ea8636760e618e2f7a0/src/lib/pickles_types/plonk_verification_key_evals.ml#L9-L18
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct PlonkVerificationKeyEvals {
-    pub sigma: [CurveAffine<Fp>; 7],
-    pub coefficients: [CurveAffine<Fp>; 15],
-    pub generic: CurveAffine<Fp>,
-    pub psm: CurveAffine<Fp>,
-    pub complete_add: CurveAffine<Fp>,
-    pub mul: CurveAffine<Fp>,
-    pub emul: CurveAffine<Fp>,
-    pub endomul_scalar: CurveAffine<Fp>,
-} // 28 CurveAffine, 56 Fp
-
-impl PlonkVerificationKeyEvals {
-    pub fn rand() -> Self {
-        Self {
-            sigma: [
-                CurveAffine::rand(),
-                CurveAffine::rand(),
-                CurveAffine::rand(),
-                CurveAffine::rand(),
-                CurveAffine::rand(),
-                CurveAffine::rand(),
-                CurveAffine::rand(),
-            ],
-            coefficients: [
-                CurveAffine::rand(),
-                CurveAffine::rand(),
-                CurveAffine::rand(),
-                CurveAffine::rand(),
-                CurveAffine::rand(),
-                CurveAffine::rand(),
-                CurveAffine::rand(),
-                CurveAffine::rand(),
-                CurveAffine::rand(),
-                CurveAffine::rand(),
-                CurveAffine::rand(),
-                CurveAffine::rand(),
-                CurveAffine::rand(),
-                CurveAffine::rand(),
-                CurveAffine::rand(),
-            ],
-            generic: CurveAffine::rand(),
-            psm: CurveAffine::rand(),
-            complete_add: CurveAffine::rand(),
-            mul: CurveAffine::rand(),
-            emul: CurveAffine::rand(),
-            endomul_scalar: CurveAffine::rand(),
-        }
-    }
-}
-
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ProofVerified {
     N0,
@@ -341,13 +308,74 @@ impl ToInputs for ProofVerified {
     }
 }
 
+// One_hot
+impl ToFieldElements<Fp> for ProofVerified {
+    fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+        use Boolean::{False, True};
+
+        let bits = match self {
+            ProofVerified::N0 => [True, False, False],
+            ProofVerified::N1 => [False, True, False],
+            ProofVerified::N2 => [False, False, True],
+        };
+
+        bits.to_field_elements(fields);
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct VerificationKey {
     pub max_proofs_verified: ProofVerified,
     pub actual_wrap_domain_size: ProofVerified,
-    pub wrap_index: PlonkVerificationKeyEvals,
+    pub wrap_index: PlonkVerificationKeyEvals<Fp>,
     // `wrap_vk` is not used for hash inputs
     pub wrap_vk: Option<()>,
+}
+
+impl Check<Fp> for VerificationKey {
+    fn check(&self, w: &mut Witness<Fp>) {
+        let Self {
+            max_proofs_verified: _,
+            actual_wrap_domain_size: _,
+            wrap_index,
+            wrap_vk: _,
+        } = self;
+
+        wrap_index.check(w);
+    }
+}
+
+impl ToFieldElements<Fp> for VerificationKey {
+    fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+        let Self {
+            max_proofs_verified,
+            actual_wrap_domain_size,
+            wrap_index:
+                PlonkVerificationKeyEvals {
+                    sigma,
+                    coefficients,
+                    generic,
+                    psm,
+                    complete_add,
+                    mul,
+                    emul,
+                    endomul_scalar,
+                },
+            wrap_vk: _,
+        } = self;
+
+        max_proofs_verified.to_field_elements(fields);
+        actual_wrap_domain_size.to_field_elements(fields);
+
+        sigma.to_field_elements(fields);
+        coefficients.to_field_elements(fields);
+        generic.to_field_elements(fields);
+        psm.to_field_elements(fields);
+        complete_add.to_field_elements(fields);
+        mul.to_field_elements(fields);
+        emul.to_field_elements(fields);
+        endomul_scalar.to_field_elements(fields);
+    }
 }
 
 impl ToInputs for VerificationKey {
@@ -388,26 +416,28 @@ impl ToInputs for VerificationKey {
 }
 
 impl VerificationKey {
+    pub const HASH_PARAM: &'static str = "MinaSideLoadedVk";
+
     /// https://github.com/MinaProtocol/mina/blob/436023ba41c43a50458a551b7ef7a9ae61670b25/src/lib/pickles/side_loaded_verification_key.ml#L310
     pub fn dummy() -> Self {
-        let g = CurveAffine(
+        let g = InnerCurve::of_affine(make_group(
             Fp::one(),
             Fp::from_str(
                 "12418654782883325593414442427049395787963493412651469444558597405572177144507",
             )
             .unwrap(),
-        );
+        ));
         Self {
             max_proofs_verified: ProofVerified::N2,
             actual_wrap_domain_size: ProofVerified::N2,
             wrap_index: PlonkVerificationKeyEvals {
-                sigma: [g; 7],
-                coefficients: [g; 15],
-                generic: g,
-                psm: g,
-                complete_add: g,
-                mul: g,
-                emul: g,
+                sigma: std::array::from_fn(|_| g.clone()),
+                coefficients: std::array::from_fn(|_| g.clone()),
+                generic: g.clone(),
+                psm: g.clone(),
+                complete_add: g.clone(),
+                mul: g.clone(),
+                emul: g.clone(),
                 endomul_scalar: g,
             },
             wrap_vk: None,
@@ -419,7 +449,7 @@ impl VerificationKey {
     }
 
     pub fn hash(&self) -> Fp {
-        self.hash_with_param("MinaSideLoadedVk")
+        self.hash_with_param(Self::HASH_PARAM)
     }
 
     pub fn gen() -> Self {
@@ -471,33 +501,41 @@ impl ZkAppUri {
 
         Self(zkapp_uri)
     }
+
+    fn opt_to_field(opt: Option<&ZkAppUri>) -> Fp {
+        let mut inputs = Inputs::new();
+
+        match opt {
+            Some(zkapp_uri) => {
+                for c in zkapp_uri.0.as_bytes() {
+                    for j in 0..8 {
+                        inputs.append_bool((c & (1 << j)) != 0);
+                    }
+                }
+                inputs.append_bool(true);
+            }
+            None => {
+                inputs.append_field(Fp::zero());
+                inputs.append_field(Fp::zero());
+            }
+        }
+
+        hash_with_kimchi("MinaZkappUri", &inputs.to_fields())
+    }
+}
+
+impl ToFieldElements<Fp> for Option<&ZkAppUri> {
+    fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+        let field_zkapp_uri = ZkAppUri::opt_to_field(*self);
+        field_zkapp_uri.to_field_elements(fields);
+    }
 }
 
 impl ToInputs for Option<&ZkAppUri> {
     /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_account.ml#L313
     fn to_inputs(&self, inputs: &mut Inputs) {
-        let field_zkapp_uri = {
-            let mut inputs = Inputs::new();
-
-            match self {
-                Some(zkapp_uri) => {
-                    for c in zkapp_uri.0.as_bytes() {
-                        for j in 0..8 {
-                            inputs.append_bool((c & (1 << j)) != 0);
-                        }
-                    }
-                    inputs.append_bool(true);
-                }
-                None => {
-                    inputs.append_field(Fp::zero());
-                    inputs.append_field(Fp::zero());
-                }
-            }
-
-            hash_with_kimchi("MinaZkappUri", &inputs.to_fields())
-        };
-
-        inputs.append_field(field_zkapp_uri);
+        let field_zkapp_uri = ZkAppUri::opt_to_field(*self);
+        inputs.append(&field_zkapp_uri);
     }
 }
 
@@ -536,6 +574,83 @@ pub struct ZkAppAccount {
     pub zkapp_uri: ZkAppUri,
 }
 
+impl ToInputs for ZkAppAccount {
+    fn to_inputs(&self, inputs: &mut Inputs) {
+        let Self {
+            app_state,
+            verification_key,
+            zkapp_version,
+            action_state,
+            last_action_slot,
+            proved_state,
+            zkapp_uri,
+        } = self;
+
+        // Self::zkapp_uri
+        inputs.append(&Some(zkapp_uri));
+
+        inputs.append_bool(*proved_state);
+        inputs.append_u32(last_action_slot.as_u32());
+        for fp in action_state {
+            inputs.append_field(*fp);
+        }
+        inputs.append_u32(*zkapp_version);
+        let vk_hash = MyCow::borrow_or_else(verification_key, VerificationKey::dummy).hash();
+        inputs.append_field(vk_hash);
+        for fp in app_state {
+            inputs.append_field(*fp);
+        }
+    }
+}
+
+impl ToFieldElements<Fp> for ZkAppAccount {
+    fn to_field_elements(&self, fields: &mut Vec<Fp>) {
+        let Self {
+            app_state,
+            verification_key,
+            zkapp_version,
+            action_state,
+            last_action_slot,
+            proved_state,
+            zkapp_uri,
+        } = self;
+
+        app_state.to_field_elements(fields);
+        (
+            FlaggedOption::from(
+                verification_key
+                    .as_ref()
+                    .map(VerificationKey::hash)
+                    .as_ref(),
+            ),
+            || VerificationKey::dummy().hash(),
+        )
+            .to_field_elements(fields);
+        Fp::from(*zkapp_version).to_field_elements(fields);
+        action_state.to_field_elements(fields);
+        last_action_slot.to_field_elements(fields);
+        proved_state.to_field_elements(fields);
+        Some(zkapp_uri).to_field_elements(fields);
+    }
+}
+
+impl Check<Fp> for ZkAppAccount {
+    fn check(&self, w: &mut Witness<Fp>) {
+        let Self {
+            app_state: _,
+            verification_key: _,
+            zkapp_version,
+            action_state: _,
+            last_action_slot,
+            proved_state: _,
+            zkapp_uri: _,
+        } = self;
+
+        zkapp_version.check(w);
+        last_action_slot.check(w);
+    }
+}
+
 impl Default for ZkAppAccount {
     fn default() -> Self {
         Self {
@@ -543,13 +658,26 @@ impl Default for ZkAppAccount {
             verification_key: None,
             zkapp_version: 0,
             action_state: {
-                let empty = hash_noinputs("MinaZkappActionStateEmptyElt");
+                let empty = Self::empty_action_state();
                 [empty, empty, empty, empty, empty]
             },
             last_action_slot: Slot::zero(),
             proved_state: false,
             zkapp_uri: ZkAppUri::new(),
         }
+    }
+}
+
+impl ZkAppAccount {
+    pub const HASH_PARAM: &'static str = "MinaZkappAccount";
+
+    pub fn hash(&self) -> Fp {
+        self.hash_with_param(Self::HASH_PARAM)
+    }
+
+    /// empty_state_element
+    pub fn empty_action_state() -> Fp {
+        cache_one!(Fp, { hash_noinputs("MinaZkappActionStateEmptyElt") })
     }
 }
 
@@ -586,7 +714,20 @@ impl PartialOrd for AccountId {
     }
 }
 
+impl ToInputs for AccountId {
+    fn to_inputs(&self, inputs: &mut Inputs) {
+        let Self {
+            public_key,
+            token_id,
+        } = self;
+        inputs.append(public_key);
+        inputs.append(token_id);
+    }
+}
+
 impl AccountId {
+    pub const DERIVE_TOKEN_ID_HASH_PARAM: &'static str = "MinaDeriveTokenId";
+
     pub fn empty() -> Self {
         Self {
             public_key: CompressedPubKey::empty(),
@@ -599,13 +740,14 @@ impl AccountId {
     }
 
     pub fn derive_token_id(&self) -> TokenId {
+        // TODO: Use `ToInputs`
         let is_odd_field = match self.public_key.is_odd {
             true => Fp::one(),
             false => Fp::zero(),
         };
 
         TokenId(hash_with_kimchi(
-            "MinaDeriveTokenId",
+            Self::DERIVE_TOKEN_ID_HASH_PARAM,
             &[self.public_key.x, self.token_id.0, is_odd_field],
         ))
     }
@@ -646,7 +788,7 @@ impl AccountId {
     }
 
     pub fn checked_equal(&self, other: &Self, w: &mut Witness<Fp>) -> Boolean {
-        use crate::proofs::witness::field;
+        use crate::proofs::field::field;
 
         // public_key
         let pk_equal = checked_equal_compressed_key(&self.public_key, &other.public_key, w);
@@ -664,15 +806,30 @@ pub fn checked_equal_compressed_key(
     b: &CompressedPubKey,
     w: &mut Witness<Fp>,
 ) -> Boolean {
-    use crate::proofs::witness::field;
+    use crate::proofs::field::field;
 
     let x_eq = field::equal(a.x, b.x, w);
-    let odd_eq = Boolean::equal(
-        &Boolean::from_bool(a.is_odd),
-        &Boolean::from_bool(b.is_odd),
-        w,
-    );
+    let odd_eq = Boolean::equal(&a.is_odd.to_boolean(), &b.is_odd.to_boolean(), w);
     x_eq.and(&odd_eq, w)
+}
+
+// TODO: Dedup with above
+pub fn checked_equal_compressed_key_const_and(
+    a: &CompressedPubKey,
+    b: &CompressedPubKey,
+    w: &mut Witness<Fp>,
+) -> Boolean {
+    use crate::proofs::field::field;
+
+    if b == &CompressedPubKey::empty() {
+        let x_eq = field::equal(a.x, b.x, w);
+        let odd_eq = Boolean::const_equal(&a.is_odd.to_boolean(), &b.is_odd.to_boolean());
+        x_eq.and(&odd_eq, w)
+    } else {
+        let x_eq = field::equal(a.x, b.x, w);
+        let odd_eq = Boolean::equal(&a.is_odd.to_boolean(), &b.is_odd.to_boolean(), w);
+        x_eq.const_and(&odd_eq)
+    }
 }
 
 impl std::fmt::Debug for AccountId {
@@ -750,6 +907,43 @@ pub fn check_permission(auth: AuthRequired, tag: ControlTag) -> bool {
     }
 }
 
+// TODO: Dedup with the one in `snark.rs`
+pub fn eval_no_proof<F: FieldWitness>(
+    auth: AuthRequired,
+    signature_verifies: Boolean,
+    is_and_const: bool,
+    is_or_const: bool,
+    w: &mut Witness<F>,
+) -> Boolean {
+    // TODO: Remove this hack with `is_const`
+
+    let AuthRequiredEncoded {
+        constant,
+        signature_necessary: _,
+        signature_sufficient,
+    } = auth.encode();
+
+    let constant = constant.to_boolean();
+    let signature_sufficient = signature_sufficient.to_boolean();
+
+    let a = if is_and_const {
+        constant.neg().const_and(&signature_verifies)
+    } else {
+        constant.neg().and(&signature_verifies, w)
+    };
+    let b = if is_or_const {
+        constant.const_or(&a)
+    } else {
+        constant.or(&a, w)
+    };
+    signature_sufficient.and(&b, w)
+}
+
+pub struct PermsConst {
+    pub and_const: bool,
+    pub or_const: bool,
+}
+
 // https://github.com/MinaProtocol/mina/blob/1765ba6bdfd7c454e5ae836c49979fa076de1bea/src/lib/mina_base/account.ml#L368
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Account {
@@ -811,6 +1005,14 @@ impl Account {
             permissions: Permissions::user_default(),
             zkapp: None,
         }
+    }
+
+    pub fn delegate_or_empty(&self) -> MyCow<CompressedPubKey> {
+        MyCow::borrow_or_else(&self.delegate, CompressedPubKey::empty)
+    }
+
+    pub fn zkapp_or_empty(&self) -> MyCow<ZkAppAccount> {
+        MyCow::borrow_or_else(&self.zkapp, ZkAppAccount::default)
     }
 
     pub fn initialize(account_id: &AccountId) -> Self {
@@ -878,6 +1080,34 @@ impl Account {
         }
     }
 
+    pub fn has_locked_tokens_checked(
+        &self,
+        global_slot: &CheckedSlot<Fp>,
+        w: &mut Witness<Fp>,
+    ) -> Boolean {
+        let TimingAsRecordChecked {
+            is_timed: _,
+            initial_minimum_balance,
+            cliff_time,
+            cliff_amount,
+            vesting_period,
+            vesting_increment,
+        } = self.timing.to_record_checked::<Fp>();
+
+        let cur_min_balance = checked_min_balance_at_slot(
+            global_slot,
+            &cliff_time,
+            &cliff_amount,
+            &vesting_period,
+            &vesting_increment,
+            &initial_minimum_balance,
+            w,
+        );
+
+        let zero_min_balance = CheckedBalance::zero().equal(&cur_min_balance, w);
+        zero_min_balance.neg()
+    }
+
     /// https://github.com/MinaProtocol/mina/blob/2ff0292b637684ce0372e7b8e23ec85404dc5091/src/lib/mina_base/account.ml#L794
     pub fn has_permission_to(&self, control: ControlTag, to: PermissionTo) -> bool {
         match to {
@@ -889,6 +1119,43 @@ impl Account {
                 check_permission(self.permissions.increment_nonce, control)
             }
         }
+    }
+
+    pub fn checked_has_permission_to<F: FieldWitness>(
+        &self,
+        consts: PermsConst,
+        signature_verifies: Option<Boolean>,
+        to: PermissionTo,
+        w: &mut Witness<F>,
+    ) -> Boolean {
+        let signature_verifies = match signature_verifies {
+            Some(signature_verifies) => signature_verifies,
+            None => match to {
+                PermissionTo::Send => Boolean::True,
+                PermissionTo::Receive => Boolean::False,
+                PermissionTo::SetDelegate => Boolean::True,
+                PermissionTo::IncrementNonce => Boolean::True,
+                PermissionTo::Access => {
+                    panic!("signature_verifies argument must be given for access permission")
+                }
+            },
+        };
+
+        let auth = match to {
+            PermissionTo::Send => self.permissions.send,
+            PermissionTo::Receive => self.permissions.receive,
+            PermissionTo::SetDelegate => self.permissions.set_delegate,
+            PermissionTo::IncrementNonce => self.permissions.increment_nonce,
+            PermissionTo::Access => self.permissions.access,
+        };
+
+        eval_no_proof(
+            auth,
+            signature_verifies,
+            consts.and_const,
+            consts.or_const,
+            w,
+        )
     }
 
     /// [true] iff account has permissions set that enable them to transfer Mina (assuming the command is signed)
@@ -916,116 +1183,16 @@ impl Account {
     }
 
     pub fn hash(&self) -> Fp {
-        // elog!("account={:#?}", self);
-
-        let mut inputs = Inputs::new();
-
-        // Self::zkapp
-        let field_zkapp = {
-            let zkapp = match self.zkapp.as_ref() {
-                Some(zkapp) => Cow::Borrowed(zkapp),
-                None => Cow::Owned(ZkAppAccount::default()),
-            };
-            let zkapp = zkapp.as_ref();
-
-            let mut inputs = Inputs::new();
-
-            // Self::zkapp_uri
-            inputs.append(&Some(&zkapp.zkapp_uri));
-
-            inputs.append_bool(zkapp.proved_state);
-            inputs.append_u32(zkapp.last_action_slot.as_u32());
-            for fp in &zkapp.action_state {
-                inputs.append_field(*fp);
-            }
-            inputs.append_u32(zkapp.zkapp_version);
-            let vk_hash = match zkapp.verification_key.as_ref() {
-                Some(vk) => vk.hash(),
-                None => VerificationKey::dummy().hash(),
-            };
-            inputs.append_field(vk_hash);
-            for fp in &zkapp.app_state {
-                inputs.append_field(*fp);
-            }
-
-            hash_with_kimchi("MinaZkappAccount", &inputs.to_fields())
-        };
-
-        inputs.append_field(field_zkapp);
-
-        inputs.append(&self.permissions);
-
-        // Self::timing
-        match &self.timing {
-            Timing::Untimed => {
-                inputs.append_bool(false);
-                inputs.append_u64(0); // initial_minimum_balance
-                inputs.append_u32(0); // cliff_time
-                inputs.append_u64(0); // cliff_amount
-                inputs.append_u32(1); // vesting_period
-                inputs.append_u64(0); // vesting_increment
-            }
-            Timing::Timed {
-                initial_minimum_balance,
-                cliff_time,
-                cliff_amount,
-                vesting_period,
-                vesting_increment,
-            } => {
-                inputs.append_bool(true);
-                inputs.append_u64(initial_minimum_balance.as_u64());
-                inputs.append_u32(cliff_time.as_u32());
-                inputs.append_u64(cliff_amount.as_u64());
-                inputs.append_u32(vesting_period.as_u32());
-                inputs.append_u64(vesting_increment.as_u64());
-            }
-        }
-
-        // Self::voting_for
-        inputs.append_field(self.voting_for.0);
-
-        // Self::delegate
-        match self.delegate.as_ref() {
-            Some(delegate) => {
-                inputs.append_field(delegate.x);
-                inputs.append_bool(delegate.is_odd);
-            }
-            None => {
-                // Public_key.Compressed.empty
-                inputs.append_field(Fp::zero());
-                inputs.append_bool(false);
-            }
-        }
-
-        // Self::receipt_chain_hash
-        inputs.append_field(self.receipt_chain_hash.0);
-
-        // Self::nonce
-        inputs.append_u32(self.nonce.as_u32());
-
-        // Self::balance
-        inputs.append_u64(self.balance.as_u64());
-
-        // Self::token_symbol
-
-        // https://github.com/MinaProtocol/mina/blob/2fac5d806a06af215dbab02f7b154b4f032538b7/src/lib/mina_base/account.ml#L97
-        assert!(self.token_symbol.len() <= 6);
-
-        let mut s = <[u8; 6]>::default();
-        if !self.token_symbol.is_empty() {
-            let len = self.token_symbol.len();
-            s[..len].copy_from_slice(self.token_symbol.as_bytes());
-        }
-        inputs.append_u48(s);
-
-        // Self::token_id
-        inputs.append_field(self.token_id.0);
-
-        // Self::public_key
-        inputs.append_field(self.public_key.x);
-        inputs.append_bool(self.public_key.is_odd);
-
+        let inputs = self.to_inputs_owned();
         hash_with_kimchi("MinaAccount", &inputs.to_fields())
+    }
+
+    pub fn checked_hash(&self, w: &mut Witness<Fp>) -> Fp {
+        use crate::proofs::transaction::transaction_snark::checked_hash;
+
+        let inputs = self.to_inputs_owned();
+
+        checked_hash("MinaAccount", &inputs.to_fields(), w)
     }
 
     pub fn rand() -> Self {
@@ -1130,6 +1297,68 @@ impl Account {
     }
 }
 
+impl ToInputs for Account {
+    fn to_inputs(&self, inputs: &mut Inputs) {
+        let Self {
+            public_key,
+            token_id,
+            token_symbol,
+            balance,
+            nonce,
+            receipt_chain_hash,
+            delegate,
+            voting_for,
+            timing,
+            permissions,
+            zkapp,
+        } = self;
+
+        // Self::zkapp
+        let field_zkapp = {
+            let zkapp = MyCow::borrow_or_default(zkapp);
+            zkapp.hash()
+        };
+        inputs.append_field(field_zkapp);
+        inputs.append(permissions);
+
+        // Self::timing
+        let TimingAsRecord {
+            is_timed,
+            initial_minimum_balance,
+            cliff_time,
+            cliff_amount,
+            vesting_period,
+            vesting_increment,
+        } = timing.to_record();
+        inputs.append_bool(is_timed);
+        inputs.append_u64(initial_minimum_balance.as_u64());
+        inputs.append_u32(cliff_time.as_u32());
+        inputs.append_u64(cliff_amount.as_u64());
+        inputs.append_u32(vesting_period.as_u32());
+        inputs.append_u64(vesting_increment.as_u64());
+
+        // Self::voting_for
+        inputs.append_field(voting_for.0);
+        // Self::delegate
+        let delegate = MyCow::borrow_or_else(delegate, CompressedPubKey::empty);
+        inputs.append(delegate.as_ref());
+        // Self::receipt_chain_hash
+        inputs.append_field(receipt_chain_hash.0);
+        // Self::nonce
+        inputs.append_u32(nonce.as_u32());
+        // Self::balance
+        inputs.append_u64(balance.as_u64());
+        // Self::token_symbol
+        // https://github.com/MinaProtocol/mina/blob/2fac5d806a06af215dbab02f7b154b4f032538b7/src/lib/mina_base/account.ml#L97
+        assert!(token_symbol.len() <= 6);
+        inputs.append(token_symbol);
+        // Self::token_id
+        inputs.append_field(token_id.0);
+        // Self::public_key
+        inputs.append(public_key);
+    }
+}
+
 fn verify_merkle_path(account: &Account, merkle_path: &[MerklePath]) -> Fp {
     let account_hash = account.hash();
     let mut param = String::with_capacity(16);
@@ -1150,6 +1379,34 @@ fn verify_merkle_path(account: &Account, merkle_path: &[MerklePath]) -> Fp {
         })
 }
 
+/// `implied_root` in OCaml
+pub fn checked_verify_merkle_path(
+    account: &Account,
+    merkle_path: &[MerklePath],
+    w: &mut Witness<Fp>,
+) -> Fp {
+    use crate::proofs::transaction::transaction_snark::checked_hash;
+
+    let account_hash = account.checked_hash(w);
+    let mut param = String::with_capacity(16);
+
+    merkle_path
+        .iter()
+        .enumerate()
+        .fold(account_hash, |accum, (depth, path)| {
+            let hashes = match path {
+                MerklePath::Left(right) => [accum, *right],
+                MerklePath::Right(left) => [*left, accum],
+            };
+
+            param.clear();
+            write!(&mut param, "MinaMklTree{:03}", depth).unwrap();
+
+            w.exists(hashes);
+            checked_hash(param.as_str(), &hashes, w)
+        })
+}
+
 #[cfg(test)]
 mod tests {
     use o1_utils::FieldHelpers;
@@ -1165,7 +1422,7 @@ mod tests {
     #[test]
     fn test_size_account() {
         #[cfg(not(target_family = "wasm"))]
-        const SIZE: usize = 2528;
+        const SIZE: usize = 3424;
 
         #[cfg(target_family = "wasm")]
         const SIZE: usize = 2496;

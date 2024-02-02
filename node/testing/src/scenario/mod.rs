@@ -101,4 +101,12 @@ impl Scenario {
         tokio::fs::write(&tmp_file, encoded).await?;
         Ok(tokio::fs::rename(tmp_file, self.file_path()).await?)
     }
+
+    pub fn save_sync(&self) -> Result<(), anyhow::Error> {
+        let tmp_file = self.tmp_file_path();
+        let encoded = serde_json::to_vec_pretty(self)?;
+        std::fs::create_dir_all(Self::PATH)?;
+        std::fs::write(&tmp_file, encoded)?;
+        Ok(std::fs::rename(tmp_file, self.file_path())?)
+    }
 }

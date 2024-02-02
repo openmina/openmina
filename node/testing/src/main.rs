@@ -1,10 +1,11 @@
 use clap::Parser;
 
-use openmina_node_testing::cluster::ClusterConfig;
+use openmina_node_testing::cluster::{Cluster, ClusterConfig};
+use openmina_node_testing::scenario::Scenario;
 use openmina_node_testing::scenarios::Scenarios;
 use openmina_node_testing::{exit_with_error, server, setup};
 
-pub type CommandError = Box<dyn std::error::Error>;
+pub type CommandError = anyhow::Error;
 
 #[derive(Debug, clap::Parser)]
 #[command(name = "openmina-testing", about = "Openmina Testing Cli")]
@@ -18,6 +19,7 @@ pub enum Command {
     Server(CommandServer),
 
     ScenariosGenerate(CommandScenariosGenerate),
+    ScenariosRun(CommandScenariosRun),
 }
 
 #[derive(Debug, clap::Args)]
@@ -34,10 +36,33 @@ pub struct CommandScenariosGenerate {
     pub use_debugger: bool,
 }
 
+/// Run scenario located at `res/scenarios`.
+#[derive(Debug, clap::Args)]
+pub struct CommandScenariosRun {
+    /// Name of the scenario.
+    ///
+    /// Must match filename in `res/scenarios` (without an extension).
+    #[arg(long, short)]
+    pub name: String,
+}
+
 impl Command {
     pub fn run(self) -> Result<(), crate::CommandError> {
         let rt = setup();
         let _rt_guard = rt.enter();
+
+        let (shutdown_tx, shutdown_rx) = openmina_core::channels::oneshot::channel();
+        let mut shutdown_tx = Some(shutdown_tx);
+
+        ctrlc::set_handler(move || match shutdown_tx.take() {
+            Some(tx) => {
+                let _ = tx.send(());
+            }
+            None => {
+                std::process::exit(1);
+            }
+        })
+        .expect("Error setting Ctrl-C handler");
 
         match self {
             Self::Server(args) => {
@@ -47,29 +72,82 @@ impl Command {
             Self::ScenariosGenerate(cmd) => {
                 #[cfg(feature = "scenario-generators")]
                 {
-                    let config = ClusterConfig::new(cmd.use_debugger);
-
-                    if let Some(name) = cmd.name {
-                        if let Some(scenario) = Scenarios::iter()
-                            .into_iter()
-                            .find(|s| <&'static str>::from(s) == name)
-                        {
-                            rt.block_on(scenario.run_and_save_from_scratch(config));
-                        } else {
-                            panic!("no such scenario: \"{name}\"");
-                        }
+                    let config = ClusterConfig::new(None).map_err(|err| {
+                        anyhow::anyhow!("failed to create cluster configuration: {err}")
+                    })?;
+                    let config = if cmd.use_debugger {
+                        config.use_debugger()
                     } else {
-                        for scenario in Scenarios::iter() {
-                            rt.block_on(scenario.run_and_save_from_scratch(config.clone()));
-                        }
-                    }
+                        config
+                    };
 
-                    Ok(())
+                    let fut = async move {
+                        if let Some(name) = cmd.name {
+                            if let Some(scenario) = Scenarios::iter()
+                                .into_iter()
+                                .find(|s| <&'static str>::from(s) == name)
+                            {
+                                scenario.run_only_from_scratch(config).await;
+                                // scenario.run_and_save_from_scratch(config).await;
+                            } else {
+                                anyhow::bail!("no such scenario: \"{name}\"");
+                            }
+                        } else {
+                            for scenario in Scenarios::iter() {
+                                scenario.run_only_from_scratch(config.clone()).await;
+                                // scenario.run_and_save_from_scratch(config.clone()).await;
+                            }
+                        }
+                        Ok(())
+                    };
+
+                    rt.block_on(async {
+                        tokio::select! {
+                            res = fut => res,
+                            _ = shutdown_rx => {
+                                anyhow::bail!("Received ctrl-c signal! shutting down...");
+                            }
+                        }
+                    })
                 }
                 #[cfg(not(feature = "scenario-generators"))]
                 Err("binary not compiled with `scenario-generators` feature"
                     .to_owned()
                     .into())
+            }
+            Self::ScenariosRun(cmd) => {
+                let config = ClusterConfig::new(None).map_err(|err| {
+                    anyhow::anyhow!("failed to create cluster configuration: {err}")
+                })?;
+                let config = config.set_replay();
+
+                let id = cmd.name.parse()?;
+                let fut = async move {
+                    let mut cluster = Cluster::new(config);
+                    cluster.start(Scenario::load(&id).await?).await?;
+                    cluster.exec_to_end().await?;
+                    for (node_id, node) in cluster.nodes_iter() {
+                        let Some(best_tip) = node.state().transition_frontier.best_tip() else {
+                            continue;
+                        };
+
+                        eprintln!(
+                            "[node_status] node_{node_id} {} - {} [{}]",
+                            best_tip.height(),
+                            best_tip.hash(),
+                            best_tip.producer()
+                        );
+                    }
+                    Ok(())
+                };
+                rt.block_on(async {
+                    tokio::select! {
+                        res = fut => res,
+                        _ = shutdown_rx => {
+                            anyhow::bail!("Received ctrl-c signal! shutting down...");
+                        }
+                    }
+                })
             }
         }
     }

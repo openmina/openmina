@@ -21,7 +21,7 @@ const initialState: AppState = {
   activeNode: undefined,
 };
 
-export function reducer(state: AppState = initialState, action: any): AppState {
+export function appReducer(state: AppState = initialState, action: any): AppState {
   switch (action.type) {
 
     case APP_INIT: {

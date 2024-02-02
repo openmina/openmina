@@ -1,39 +1,36 @@
 import { ActionReducerMap, MetaReducer } from '@ngrx/store';
 
-import * as fromErrorPreview from '@error-preview/error-preview.reducer';
+import { errorReducer } from '@error-preview/error-preview.reducer';
 import { ErrorPreviewAction } from '@error-preview/error-preview.actions';
 import { ErrorPreviewState } from '@error-preview/error-preview.state';
 
-import * as fromApp from '@app/app.reducer';
+import { appReducer } from '@app/app.reducer';
 import { AppAction } from '@app/app.actions';
 import { AppState } from '@app/app.state';
 
-import * as fromLoading from '@app/layout/toolbar/loading.reducer';
-import { LoadingState } from '@app/layout/toolbar/loading.reducer';
+import { loadingReducer, LoadingState } from '@app/layout/toolbar/loading.reducer';
 
-import * as fromDashboard from '@dashboard/dashboard.reducer';
+import { dashboardReducer } from '@dashboard/dashboard.reducer';
 import { DashboardAction } from '@dashboard/dashboard.actions';
 import { DashboardState } from '@dashboard/dashboard.state';
 
-import * as fromNetwork from '@network/network.reducer';
-import { NetworkAction } from '@network/network.reducer';
+import { NetworkAction, networkReducer } from '@network/network.reducer';
 import { NetworkState } from '@network/network.state';
 
-import * as fromNodes from '@nodes/nodes.reducer';
-import { NodesAction } from '@nodes/nodes.reducer';
+import { NodesAction, nodesReducer } from '@nodes/nodes.reducer';
 import { NodesState } from '@nodes/nodes.state';
 
-import * as fromState from '@state/state.reducer';
-import { StateAction } from '@state/state.reducer';
+import { StateAction, stateReducer } from '@state/state.reducer';
 import { StateState } from '@state/state.state';
 
-import * as fromSnarks from '@snarks/snarks.reducer';
-import { SnarksAction } from '@snarks/snarks.reducer';
+import { SnarksAction, snarksReducer } from '@snarks/snarks.reducer';
 import { SnarksState } from '@snarks/snarks.state';
 
-import * as fromTestingTool from '@testing-tool/testing-tool.reducer';
-import { TestingToolAction } from '@testing-tool/testing-tool.reducer';
+import { TestingToolAction, testingToolReducer } from '@testing-tool/testing-tool.reducer';
 import { TestingToolState } from '@testing-tool/testing-tool.state';
+
+import { ResourcesAction, resourcesReducer } from '@resources/resources.reducer';
+import { ResourcesState } from '@resources/resources.state';
 
 
 export interface MinaState {
@@ -43,6 +40,7 @@ export interface MinaState {
   loading: LoadingState;
   network: NetworkState;
   nodes: NodesState;
+  resources: ResourcesState;
   state: StateState;
   snarks: SnarksState;
   testingTool: TestingToolState;
@@ -54,21 +52,23 @@ type MinaAction =
   & DashboardAction
   & NetworkAction
   & NodesAction
+  & ResourcesAction
   & StateAction
   & SnarksAction
   & TestingToolAction
   ;
 
 export const reducers: ActionReducerMap<MinaState, MinaAction> = {
-  app: fromApp.reducer,
-  error: fromErrorPreview.reducer,
-  loading: fromLoading.reducer,
-  dashboard: fromDashboard.reducer,
-  network: fromNetwork.reducer,
-  nodes: fromNodes.reducer,
-  state: fromState.reducer,
-  snarks: fromSnarks.reducer,
-  testingTool: fromTestingTool.reducer,
+  app: appReducer,
+  error: errorReducer,
+  loading: loadingReducer,
+  dashboard: dashboardReducer,
+  network: networkReducer,
+  nodes: nodesReducer,
+  resources: resourcesReducer,
+  state: stateReducer,
+  snarks: snarksReducer,
+  testingTool: testingToolReducer,
 };
 
 export const metaReducers: MetaReducer<MinaState, MinaAction>[] = [];

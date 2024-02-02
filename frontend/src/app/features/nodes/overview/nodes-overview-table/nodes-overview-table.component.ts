@@ -6,7 +6,7 @@ import { NodesOverviewSetActiveNode, NodesOverviewSortNodes } from '@nodes/overv
 import {
   selectNodesOverviewActiveNode,
   selectNodesOverviewNodes,
-  selectNodesOverviewSort
+  selectNodesOverviewSort,
 } from '@nodes/overview/nodes-overview.state';
 import { Routes } from '@shared/enums/routes.enum';
 import { filter, take } from 'rxjs';
@@ -27,33 +27,33 @@ export class NodesOverviewTableComponent extends MinaTableRustWrapper<NodesOverv
     {
       name: 'best tip',
       sort: 'bestTip',
-      tooltip: 'The blockchain\'s latest block with the highest known chain strength.'
+      tooltip: 'The blockchain\'s latest block with the highest known chain strength.',
     },
     { name: 'datetime', sort: 'bestTipReceivedTimestamp', tooltip: 'The date when the block was received.' },
     {
       name: 'applied',
       sort: 'appliedBlocks',
-      tooltip: 'Number of blocks that node has applied with the latest synchronization attempt.'
+      tooltip: 'Number of blocks that node has applied with the latest synchronization attempt.',
     },
     {
       name: 'applying',
       sort: 'applyingBlocks',
-      tooltip: 'Number of blocks that node is currently applying with the latest synchronization attempt.'
+      tooltip: 'Number of blocks that node is currently applying with the latest synchronization attempt.',
     },
     {
       name: 'fetching',
       sort: 'fetchingBlocks',
-      tooltip: 'Number of blocks that node is currently fetching with the latest synchronization attempt.'
+      tooltip: 'Number of blocks that node is currently fetching with the latest synchronization attempt.',
     },
     {
       name: 'fetched',
       sort: 'fetchedBlocks',
-      tooltip: 'Number of blocks that node has fetched with the latest synchronization attempt.'
+      tooltip: 'Number of blocks that node has fetched with the latest synchronization attempt.',
     },
     {
       name: 'missing blocks',
       sort: 'missingBlocks',
-      tooltip: 'Number of blocks that the node needs to fetch with the latest synchronization attempt.'
+      tooltip: 'Number of blocks that the node needs to fetch with the latest synchronization attempt.',
     },
   ];
 
@@ -70,7 +70,8 @@ export class NodesOverviewTableComponent extends MinaTableRustWrapper<NodesOverv
   }
 
   protected override setupTable(): void {
-    this.table.gridTemplateColumns = [100, 120, 80, 130, 165, 120, 120, 120, 120, 120];
+    this.table.gridTemplateColumns = [100, 180, 80, 130, 165, 120, 120, 120, 120, 120];
+    this.table.minWidth = 1335;
     this.table.propertyForActiveCheck = 'name';
     this.table.thGroupsTemplate = this.thGroupsTemplate;
     this.table.sortClz = NodesOverviewSortNodes;

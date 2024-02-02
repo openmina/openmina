@@ -256,16 +256,24 @@ pub trait ToInputs {
     }
 
     fn checked_hash_with_param(&self, param: &str, w: &mut Witness<Fp>) -> Fp {
-        use crate::proofs::witness::transaction_snark::hash;
+        use crate::proofs::transaction::transaction_snark::checked_hash;
 
         let inputs = self.to_inputs_owned();
-        hash(param, inputs, w)
+        checked_hash(param, &inputs.to_fields(), w)
     }
 }
 
 impl ToInputs for Fp {
     fn to_inputs(&self, inputs: &mut Inputs) {
         inputs.append_field(*self);
+    }
+}
+
+impl<const N: usize> ToInputs for [Fp; N] {
+    fn to_inputs(&self, inputs: &mut Inputs) {
+        for field in self {
+            inputs.append(field);
+        }
     }
 }
 

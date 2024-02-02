@@ -1,4 +1,6 @@
-use p2p::listen::{P2pListenNewAction, P2pListenExpiredAction, P2pListenErrorAction, P2pListenClosedAction};
+use p2p::listen::{
+    P2pListenClosedAction, P2pListenErrorAction, P2pListenExpiredAction, P2pListenNewAction,
+};
 use redux::EnablingCondition;
 
 use crate::State;

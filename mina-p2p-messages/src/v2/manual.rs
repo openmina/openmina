@@ -697,9 +697,6 @@ impl<'de> Deserialize<'de> for SgnStableV1 {
     }
 }
 
-#[derive(Deserialize)]
-struct Foo(SgnStableV1);
-
 #[cfg(test)]
 mod tests_sgn {
     use crate::v2::SgnStableV1;

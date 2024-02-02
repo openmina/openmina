@@ -274,7 +274,7 @@ impl SnarkPoolCandidatesState {
         }
     }
 
-    pub fn remove_inferrior_snarks(&mut self, snark: &Snark) {
+    pub fn remove_inferior_snarks(&mut self, snark: &Snark) {
         let job_id = snark.job_id();
         let by_peer = &mut self.by_peer;
         if let Some(peers) = self.by_job_id.get_mut(&job_id) {
