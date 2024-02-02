@@ -946,7 +946,7 @@ checksum = "702fc72eb24e5a1e48ce58027a675bc24edd52096d5397d4aea7c6dd9eca0bd1"
 
 [[package]]
 name = "cli"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "bytes",
  "clap",
@@ -2964,7 +2964,7 @@ dependencies = [
 
 [[package]]
 name = "libp2p-rpc-behaviour"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "libp2p",
  "log",
@@ -3299,7 +3299,7 @@ dependencies = [
 
 [[package]]
 name = "mina-tree"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -3598,7 +3598,7 @@ dependencies = [
 
 [[package]]
 name = "node"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "bincode",
@@ -3905,7 +3905,7 @@ checksum = "624a8340c38c1b80fd549087862da4ba43e08858af025b236e509b6649fc13d5"
 
 [[package]]
 name = "openmina-core"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "mina-hasher",
  "mina-p2p-messages",
@@ -3919,7 +3919,7 @@ dependencies = [
 
 [[package]]
 name = "openmina-node-invariants"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "documented",
  "lazy_static",
@@ -3933,7 +3933,7 @@ dependencies = [
 
 [[package]]
 name = "openmina-node-native"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "bytes",
  "juniper",
@@ -3960,7 +3960,7 @@ dependencies = [
 
 [[package]]
 name = "openmina-node-testing"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "axum",
@@ -4066,7 +4066,7 @@ dependencies = [
 
 [[package]]
 name = "p2p"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "anyhow",
  "binprot",
@@ -4778,7 +4778,7 @@ checksum = "c08c74e62047bb2de4ff487b251e4a92e24f48745648451635cec7d591162d9f"
 
 [[package]]
 name = "replay_dynamic_effects"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "cli",
  "node",
@@ -5382,7 +5382,7 @@ dependencies = [
 
 [[package]]
 name = "snark"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "ark-ec",
  "ark-ff",
