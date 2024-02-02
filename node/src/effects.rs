@@ -18,13 +18,9 @@ use crate::p2p::channels::rpc::{P2pChannelsRpcAction, P2pRpcRequest};
 #[cfg(feature = "p2p-libp2p")]
 use {
     crate::p2p::channels::rpc::P2pRpcKind,
-    crate::p2p::connection::incoming::P2pConnectionIncomingTimeoutAction,
-    crate::p2p::connection::outgoing::{
-        P2pConnectionOutgoingRandomInitAction, P2pConnectionOutgoingReconnectAction,
-        P2pConnectionOutgoingTimeoutAction,
-    },
-    crate::p2p::discovery::{P2pDiscoveryKademliaBootstrapAction, P2pDiscoveryKademliaInitAction},
-    redux::ActionMeta,
+    crate::p2p::connection::incoming::P2pConnectionIncomingAction,
+    crate::p2p::connection::outgoing::P2pConnectionOutgoingAction,
+    crate::p2p::discovery::P2pDiscoveryAction, redux::ActionMeta,
 };
 
 pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
@@ -47,14 +43,14 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
             #[cfg(feature = "p2p-libp2p")]
             {
                 p2p_connection_timeouts(store, &meta);
-                store.dispatch(P2pConnectionOutgoingRandomInitAction {});
+                store.dispatch(P2pConnectionOutgoingAction::RandomInit {});
 
                 p2p_try_reconnect_disconnected_peers(store);
                 p2p_request_best_tip_if_needed(store);
                 p2p_request_snarks_if_needed(store);
 
-                store.dispatch(P2pDiscoveryKademliaBootstrapAction {});
-                store.dispatch(P2pDiscoveryKademliaInitAction {});
+                store.dispatch(P2pDiscoveryAction::KademliaBootstrap {});
+                store.dispatch(P2pDiscoveryAction::KademliaInit {});
             }
 
             store.dispatch(SnarkPoolAction::CheckTimeouts);

@@ -198,7 +198,7 @@ impl<'cluster> Driver<'cluster> {
         while std::time::Instant::now() < timeout {
             let mut steps = Vec::new();
             let mut found = None;
-            for (node_id, state, events) in self.runner.pending_events() {
+            for (node_id, state, events) in self.runner.pending_events(true) {
                 for (_, event) in events {
                     if f(node_id, event, state) {
                         found = Some((node_id, event.clone()));
@@ -229,7 +229,7 @@ impl<'cluster> Driver<'cluster> {
         while std::time::Instant::now() < timeout {
             let mut steps = Vec::new();
             let mut found = false;
-            'pending_events: for (node_id, state, events) in self.runner.pending_events() {
+            'pending_events: for (node_id, state, events) in self.runner.pending_events(true) {
                 for (_, event) in events {
                     found = f(node_id, event, state);
                     steps.push(ScenarioStep::Event {
@@ -280,7 +280,7 @@ impl<'cluster> Driver<'cluster> {
 
     pub fn next_event(&mut self) -> Option<(ClusterNodeId, Event)> {
         self.runner
-            .pending_events()
+            .pending_events(true)
             .find_map(|(node_id, _, mut events)| {
                 events.next().map(|(_, event)| (node_id, event.clone()))
             })

@@ -62,7 +62,7 @@ impl SoloNodeBasicConnectivityAcceptIncoming {
             tokio::time::sleep(STEP_DELAY).await;
 
             let steps = runner
-                .pending_events()
+                .pending_events(true)
                 .map(|(node_id, _, events)| {
                     events.map(move |(_, event)| {
                         match event {

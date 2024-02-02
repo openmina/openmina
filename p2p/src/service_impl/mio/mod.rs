@@ -379,6 +379,7 @@ where
                                 addr,
                                 Ok(buf[..read].to_vec().into()),
                             ));
+                            self.send(MioEvent::IncomingDataIsReady(addr));
                             keep = true;
                         }
                         Err(err) if err.kind() == io::ErrorKind::WouldBlock => {

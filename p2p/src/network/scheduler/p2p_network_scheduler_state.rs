@@ -284,9 +284,6 @@ impl P2pNetworkSchedulerAction {
                         addr: a.addr,
                         data: data.clone(),
                     });
-                    store
-                        .service()
-                        .send_mio_cmd(MioCmd::Recv(a.addr, vec![0; 0x10000].into_boxed_slice()));
                 }
             }
             Self::SelectDone(a) => {
