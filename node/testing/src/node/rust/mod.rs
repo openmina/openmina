@@ -77,14 +77,18 @@ impl Node {
         self.state().p2p.config.identity_pub_key.peer_id()
     }
 
-    pub fn pending_events(&mut self) -> impl Iterator<Item = (PendingEventId, &Event)> {
-        self.pending_events_with_state().1
+    pub fn pending_events(&mut self, poll: bool) -> impl Iterator<Item = (PendingEventId, &Event)> {
+        self.pending_events_with_state(poll).1
     }
 
     pub fn pending_events_with_state(
         &mut self,
+        poll: bool,
     ) -> (&State, impl Iterator<Item = (PendingEventId, &Event)>) {
-        (self.store.state.get(), self.store.service.pending_events())
+        (
+            self.store.state.get(),
+            self.store.service.pending_events(poll),
+        )
     }
 
     fn dispatch<T>(&mut self, action: T) -> bool
@@ -126,7 +130,7 @@ impl Node {
     pub async fn wait_for_event(&mut self, event_pattern: &str) -> Option<PendingEventId> {
         let readonly_rpcs = self
             .service_mut()
-            .pending_events()
+            .pending_events(false)
             .filter(|(_, event)| {
                 matches!(
                     NonDeterministicEvent::new(event).as_deref(),
@@ -142,7 +146,7 @@ impl Node {
 
         let event_id = self
             .service_mut()
-            .pending_events()
+            .pending_events(false)
             .find(|(_, event)| event.to_string().starts_with(event_pattern))
             .map(|(id, _)| id);
         match event_id {

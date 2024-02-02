@@ -139,19 +139,21 @@ impl NodeTestingService {
         self.snarker_sok_digest = Some(digest);
     }
 
-    pub fn pending_events(&mut self) -> impl Iterator<Item = (PendingEventId, &Event)> {
+    pub fn pending_events(&mut self, poll: bool) -> impl Iterator<Item = (PendingEventId, &Event)> {
         while let Ok(req) = self.real.rpc.req_receiver().try_recv() {
             self.real.process_rpc_request(req);
         }
         let _guart = self.allocation_group.enter();
-        while let Some(event) = self.real.event_receiver.try_next() {
-            // Drop non-deterministic events during replay. We
-            // have those recorded as `ScenarioStep::NonDeterministicEvent`.
-            if self.is_replay && NonDeterministicEvent::should_drop_event(&event) {
-                eprintln!("dropping non-deterministic event: {event:?}");
-                continue;
+        if poll {
+            while let Some(event) = self.real.event_receiver.try_next() {
+                // Drop non-deterministic events during replay. We
+                // have those recorded as `ScenarioStep::NonDeterministicEvent`.
+                if self.is_replay && NonDeterministicEvent::should_drop_event(&event) {
+                    eprintln!("dropping non-deterministic event: {event:?}");
+                    continue;
+                }
+                self.pending_events.add(event);
             }
-            self.pending_events.add(event);
         }
         self.pending_events.iter()
     }

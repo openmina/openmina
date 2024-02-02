@@ -488,6 +488,7 @@ impl Cluster {
 
     pub fn pending_events(
         &mut self,
+        poll: bool,
     ) -> impl Iterator<
         Item = (
             ClusterNodeId,
@@ -495,9 +496,9 @@ impl Cluster {
             impl Iterator<Item = (PendingEventId, &Event)>,
         ),
     > {
-        self.nodes.iter_mut().enumerate().map(|(i, node)| {
+        self.nodes.iter_mut().enumerate().map(move |(i, node)| {
             let node_id = ClusterNodeId::new_unchecked(i);
-            let (state, pending_events) = node.pending_events_with_state();
+            let (state, pending_events) = node.pending_events_with_state(poll);
             (node_id, state, pending_events)
         })
     }
@@ -505,12 +506,13 @@ impl Cluster {
     pub fn node_pending_events(
         &mut self,
         node_id: ClusterNodeId,
+        poll: bool,
     ) -> Result<(&State, impl Iterator<Item = (PendingEventId, &Event)>), anyhow::Error> {
         let node = self
             .nodes
             .get_mut(node_id.index())
             .ok_or_else(|| anyhow::anyhow!("node {node_id:?} not found"))?;
-        Ok(node.pending_events_with_state())
+        Ok(node.pending_events_with_state(poll))
     }
 
     pub async fn wait_for_pending_events(&mut self) {
@@ -551,7 +553,7 @@ impl Cluster {
         tokio::select! {
             opt = node.wait_for_event(&event_pattern) => opt.ok_or_else(|| anyhow::anyhow!("wait_for_event: None")),
             _ = timeout => {
-                let pending_events = node.pending_events().map(|(_, event)| event.to_string()).collect::<Vec<_>>();
+                let pending_events = node.pending_events(false).map(|(_, event)| event.to_string()).collect::<Vec<_>>();
                 return Err(anyhow::anyhow!("waiting for event timed out! node {node_id:?}, event: \"{event_pattern}\"\n{pending_events:?}"));
             }
         }

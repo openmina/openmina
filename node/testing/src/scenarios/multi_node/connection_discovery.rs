@@ -429,7 +429,7 @@ impl RustToOCamlViaSeed {
         let mut found = false;
         while !found && std::time::Instant::now() < timeout {
             let mut steps = Vec::new();
-            for (node_id, state, events) in driver.inner_mut().pending_events() {
+            for (node_id, state, events) in driver.inner_mut().pending_events(true) {
                 for (_, event) in events {
                     match event {
                         Event::P2p(P2pEvent::Connection(P2pConnectionEvent::Finalized(
