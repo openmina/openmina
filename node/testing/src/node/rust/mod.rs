@@ -4,7 +4,7 @@ pub use config::{RustNodeBlockProducerTestingConfig, RustNodeTestingConfig, Test
 mod event;
 pub use event::*;
 
-use node::event_source::EventSourceNewEventAction;
+use node::event_source::EventSourceAction;
 use node::p2p::connection::outgoing::{
     P2pConnectionOutgoingInitLibp2pOpts, P2pConnectionOutgoingInitOpts,
 };
@@ -94,7 +94,7 @@ impl Node {
     }
 
     pub fn dispatch_event(&mut self, event: Event) -> bool {
-        self.dispatch(EventSourceNewEventAction { event })
+        self.dispatch(EventSourceAction::NewEvent { event })
     }
 
     pub fn get_pending_event(&self, event_id: PendingEventId) -> Option<&Event> {

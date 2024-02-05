@@ -70,7 +70,7 @@ impl Recorder {
                 let is_input = match action.action() {
                     Action::CheckTimeouts(_) => true,
                     Action::EventSource(e) => match e {
-                        EventSourceAction::NewEvent(_) => true,
+                        EventSourceAction::NewEvent { .. } => true,
                         _ => return,
                     },
                     _ => false,

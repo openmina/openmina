@@ -45,14 +45,14 @@ use crate::snark::SnarkEvent;
 use crate::{ExternalSnarkWorkerAction, Service, Store};
 
 use super::{
-    Event, EventSourceAction, EventSourceActionWithMeta, EventSourceNewEventAction,
+    Event, EventSourceAction, EventSourceActionWithMeta, 
     P2pConnectionEvent, P2pEvent,
 };
 
 pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourceActionWithMeta) {
     let (action, meta) = action.split();
     match action {
-        EventSourceAction::ProcessEvents(_) => {
+        EventSourceAction::ProcessEvents => {
             // This action gets continously called until there are no more
             // events available.
             //
@@ -63,7 +63,7 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
             for _ in 0..1024 {
                 match store.service.next_event() {
                     Some(event) => {
-                        store.dispatch(EventSourceNewEventAction { event });
+                        store.dispatch(EventSourceAction::NewEvent { event });
                     }
                     None => break,
                 }
@@ -71,7 +71,7 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
             store.dispatch(CheckTimeoutsAction {});
         }
         // "Translate" event into the corresponding action and dispatch it.
-        EventSourceAction::NewEvent(content) => match content.event {
+        EventSourceAction::NewEvent { event } => match event {
             Event::P2p(e) => match e {
                 P2pEvent::Listen(e) => match e {
                     P2pListenEvent::NewListenAddr { listener_id, addr } => {
@@ -333,9 +333,9 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                 },
             },
         },
-        EventSourceAction::WaitTimeout(_) => {
+        EventSourceAction::WaitTimeout => {
             store.dispatch(CheckTimeoutsAction {});
         }
-        EventSourceAction::WaitForEvents(_) => {}
+        EventSourceAction::WaitForEvents => {}
     }
 }
