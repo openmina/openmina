@@ -25,7 +25,6 @@ thiserror = "1.0.44"
 nix = { version = "0.26.2", features = ["signal"] }
 vrf = { workspace = true }
 getrandom = "0.2.11"
-tracking-allocator = "0.4.0"
 
 openmina-core = { path = "../../core" }
 node = { path = "../../node", features = ["replay"] }

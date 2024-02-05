@@ -154,27 +154,8 @@ impl Command {
 }
 
 pub fn main() {
-    use std::alloc::System;
-
-    use openmina_node_native::AllocTracker;
-    use tracking_allocator::{AllocationGroupToken, AllocationRegistry, Allocator};
-
-    #[global_allocator]
-    static GLOBAL: Allocator<System> = Allocator::system();
-
-    AllocationRegistry::set_global_tracker(AllocTracker::void())
-        .expect("no other global tracker should be set yet");
-    AllocationRegistry::enable_tracking();
-
-    let mut local_token =
-        AllocationGroupToken::register().expect("failed to register allocation group");
-    let local_guard = local_token.enter();
-
     match OpenminaTestingCli::parse().command.run() {
         Ok(_) => {}
         Err(err) => exit_with_error(err),
     }
-
-    drop(local_guard);
-    AllocationRegistry::disable_tracking();
 }
