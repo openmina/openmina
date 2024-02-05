@@ -654,13 +654,13 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
             }
         },
         P2pAction::Peer(action) => match action {
-            P2pPeerAction::Ready(action) => {
+            P2pPeerAction::Ready { .. } => {
                 action.effects(&meta, store);
             }
-            P2pPeerAction::BestTipUpdate(action) => {
+            P2pPeerAction::BestTipUpdate { best_tip, .. } => {
                 store.dispatch(ConsensusAction::BlockReceived {
-                    hash: action.best_tip.hash,
-                    block: action.best_tip.block,
+                    hash: best_tip.hash,
+                    block: best_tip.block,
                     chain_proof: None,
                 });
                 store.dispatch(TransitionFrontierSyncLedgerSnarkedPeersQueryAction {});

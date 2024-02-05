@@ -3,7 +3,7 @@ use redux::ActionMeta;
 
 use crate::{
     channels::{ChannelId, MsgId, P2pChannelsService},
-    peer::P2pPeerBestTipUpdateAction,
+    peer::P2pPeerAction,
 };
 
 use super::{P2pChannelsRpcAction, P2pRpcResponse, RpcChannelMsg};
@@ -13,7 +13,7 @@ impl P2pChannelsRpcAction {
     where
         Store: crate::P2pStore<S>,
         Store::Service: P2pChannelsService,
-        P2pPeerBestTipUpdateAction: redux::EnablingCondition<S>,
+        P2pPeerAction: redux::EnablingCondition<S>,
         Self: redux::EnablingCondition<S>,
     {
         match self {
@@ -35,7 +35,7 @@ impl P2pChannelsRpcAction {
                 peer_id, response, ..
             } => {
                 if let Some(P2pRpcResponse::BestTipWithProof(resp)) = response {
-                    store.dispatch(P2pPeerBestTipUpdateAction {
+                    store.dispatch(P2pPeerAction::BestTipUpdate {
                         peer_id,
                         best_tip: BlockWithHash::new(resp.best_tip.clone()),
                     });

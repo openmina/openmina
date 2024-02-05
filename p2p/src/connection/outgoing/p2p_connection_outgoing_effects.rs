@@ -1,7 +1,7 @@
 use redux::ActionMeta;
 
 use crate::connection::{P2pConnectionErrorResponse, P2pConnectionState};
-use crate::peer::P2pPeerReadyAction;
+use crate::peer::P2pPeerAction;
 use crate::webrtc::Host;
 use crate::P2pPeerStatus;
 use crate::{connection::P2pConnectionService, webrtc};
@@ -237,10 +237,10 @@ impl P2pConnectionOutgoingSuccessAction {
     where
         Store: crate::P2pStore<S>,
         Store::Service: P2pConnectionService,
-        P2pPeerReadyAction: redux::EnablingCondition<S>,
+        P2pPeerAction: redux::EnablingCondition<S>,
     {
         let peer_id = self.peer_id;
-        store.dispatch(P2pPeerReadyAction {
+        store.dispatch(P2pPeerAction::Ready {
             peer_id,
             incoming: false,
         });

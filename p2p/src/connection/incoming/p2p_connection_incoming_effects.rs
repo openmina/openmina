@@ -1,7 +1,7 @@
 use redux::ActionMeta;
 
 use crate::disconnection::{P2pDisconnectionInitAction, P2pDisconnectionReason};
-use crate::peer::P2pPeerReadyAction;
+use crate::peer::P2pPeerAction;
 use crate::{connection::P2pConnectionService, webrtc};
 
 use super::{
@@ -130,10 +130,10 @@ impl P2pConnectionIncomingSuccessAction {
     where
         Store: crate::P2pStore<S>,
         Store::Service: P2pConnectionService,
-        P2pPeerReadyAction: redux::EnablingCondition<S>,
+        P2pPeerAction: redux::EnablingCondition<S>,
     {
         let peer_id = self.peer_id;
-        store.dispatch(P2pPeerReadyAction {
+        store.dispatch(P2pPeerAction::Ready {
             peer_id,
             incoming: true,
         });
@@ -145,7 +145,7 @@ impl P2pConnectionIncomingLibp2pReceivedAction {
     where
         Store: crate::P2pStore<S>,
         Store::Service: P2pConnectionService,
-        P2pPeerReadyAction: redux::EnablingCondition<S>,
+        P2pPeerAction: redux::EnablingCondition<S>,
         P2pDisconnectionInitAction: redux::EnablingCondition<S>,
     {
         let peer_id = self.peer_id;
@@ -155,7 +155,7 @@ impl P2pConnectionIncomingLibp2pReceivedAction {
                 reason: P2pDisconnectionReason::Libp2pIncomingRejected(err),
             });
         } else {
-            store.dispatch(P2pPeerReadyAction {
+            store.dispatch(P2pPeerAction::Ready {
                 peer_id,
                 incoming: true,
             });
