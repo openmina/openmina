@@ -26,8 +26,8 @@ use crate::transition_frontier::sync::{
     TransitionFrontierSyncBlocksPeersQueryAction,
 };
 use crate::watched_accounts::{
-    WatchedAccountLedgerInitialState, WatchedAccountsLedgerInitialStateGetError,
-    WatchedAccountsLedgerInitialStateGetErrorAction,
+    WatchedAccountLedgerInitialState, WatchedAccountsAction,
+    WatchedAccountsLedgerInitialStateGetError,
 };
 use crate::{Service, Store};
 
@@ -244,7 +244,7 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                                 ..
                             } => {
                                 if account_peer_id == &peer_id {
-                                    Some(WatchedAccountsLedgerInitialStateGetErrorAction {
+                                    Some(WatchedAccountsAction::LedgerInitialStateGetError {
                                     pub_key: pub_key.clone(),
                                     error:
                                         WatchedAccountsLedgerInitialStateGetError::PeerDisconnected,
