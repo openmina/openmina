@@ -96,7 +96,7 @@ impl P2pState {
         Self {
             config,
             network: P2pNetworkState::new(
-                "3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e",
+                "fd7d111973bf5a9e3e87384f560fdead2f272589ca00b6d9e357fca9839631da",
             ),
             listeners: Default::default(),
             peers: Default::default(),

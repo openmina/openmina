@@ -33,6 +33,10 @@ use node::{
 use openmina_node_native::rpc::RpcService;
 use openmina_node_native::{http_server, tracing, NodeService, P2pTaskSpawner, RpcSender};
 
+// old:
+// 3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e
+const CHAIN_ID: &'static str = "fd7d111973bf5a9e3e87384f560fdead2f272589ca00b6d9e357fca9839631da";
+
 /// Openmina node
 #[derive(Debug, clap::Args)]
 pub struct Node {
@@ -91,9 +95,9 @@ fn default_peers() -> Vec<P2pConnectionOutgoingInitOpts> {
 
         // "/dns4/seed-1.berkeley.o1test.net/tcp/10000/p2p/12D3KooWAdgYL6hv18M3iDBdaK1dRygPivSfAfBNDzie6YqydVbs",
         "/ip4/34.170.114.52/tcp/10000/p2p/12D3KooWAdgYL6hv18M3iDBdaK1dRygPivSfAfBNDzie6YqydVbs",
-        // "/dns4/seed-2.berkeley.o1test.net/tcp/10001/p2p/12D3KooWLjs54xHzVmMmGYb7W5RVibqbwD1co7M2ZMfPgPm7iAag",
-        // "/dns4/seed-3.berkeley.o1test.net/tcp/10002/p2p/12D3KooWEiGVAFC7curXWXiGZyMWnZK9h8BKr88U8D5PKV3dXciv",
-
+        "/dns4/seed-2.berkeley.o1test.net/tcp/10001/p2p/12D3KooWLjs54xHzVmMmGYb7W5RVibqbwD1co7M2ZMfPgPm7iAag",
+        "/dns4/seed-3.berkeley.o1test.net/tcp/10002/p2p/12D3KooWEiGVAFC7curXWXiGZyMWnZK9h8BKr88U8D5PKV3dXciv",
+        //
         // "/dns4/webrtc2.webnode.openmina.com/tcp/443/p2p/12D3KooWFpqySZDHx7k5FMjdwmrU3TLhDbdADECCautBcEGtG4fr",
         // "/dns4/webrtc2.webnode.openmina.com/tcp/4431/p2p/12D3KooWJBeXosFxdBwe2mbKRjgRG69ERaUTpS9qo9NRkoE8kBpj",
 
@@ -187,7 +191,7 @@ impl Node {
         let p2p_service_ctx = <NodeService as P2pServiceWebrtcWithLibp2p>::init(
             Some(self.libp2p_port),
             secret_key.clone(),
-            "3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e".to_owned(),
+            CHAIN_ID.to_owned(),
             event_sender.clone(),
             P2pTaskSpawner {},
         );
