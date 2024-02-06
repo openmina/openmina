@@ -84,8 +84,7 @@ impl_into_global_action!(connection::incoming::P2pConnectionIncomingErrorAction)
 impl_into_global_action!(connection::incoming::P2pConnectionIncomingSuccessAction);
 impl_into_global_action!(connection::incoming::P2pConnectionIncomingLibp2pReceivedAction);
 
-impl_into_global_action!(disconnection::P2pDisconnectionInitAction);
-impl_into_global_action!(disconnection::P2pDisconnectionFinishAction);
+impl_into_global_action!(disconnection::P2pDisconnectionAction);
 
 impl_into_global_action!(discovery::P2pDiscoveryInitAction);
 impl_into_global_action!(discovery::P2pDiscoverySuccessAction);

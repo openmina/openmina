@@ -1,17 +1,22 @@
 use redux::ActionMeta;
 
-use super::{P2pDisconnectionFinishAction, P2pDisconnectionInitAction, P2pDisconnectionService};
+use super::{P2pDisconnectionAction, P2pDisconnectionService};
 
-impl P2pDisconnectionInitAction {
+impl P2pDisconnectionAction {
     pub fn effects<Store, S>(&self, _: &ActionMeta, store: &mut Store)
     where
         Store: crate::P2pStore<S>,
         Store::Service: P2pDisconnectionService,
-        P2pDisconnectionFinishAction: redux::EnablingCondition<S>,
+        P2pDisconnectionAction: redux::EnablingCondition<S>,
     {
-        store.service().disconnect(self.peer_id);
-        store.dispatch(P2pDisconnectionFinishAction {
-            peer_id: self.peer_id,
-        });
+        match self {
+            P2pDisconnectionAction::Init { peer_id, .. } => {
+                store.service().disconnect(*peer_id);
+                store.dispatch(P2pDisconnectionAction::Finish {
+                    peer_id: *peer_id,
+                });
+            }
+            P2pDisconnectionAction::Finish { .. } => {}
+        }
     }
 }

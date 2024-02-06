@@ -23,9 +23,7 @@ use crate::p2p::connection::outgoing::{
     P2pConnectionOutgoingOfferSdpCreateSuccessAction,
 };
 use crate::p2p::connection::{P2pConnectionErrorResponse, P2pConnectionResponse};
-use crate::p2p::disconnection::{
-    P2pDisconnectionFinishAction, P2pDisconnectionInitAction, P2pDisconnectionReason,
-};
+use crate::p2p::disconnection::{P2pDisconnectionAction, P2pDisconnectionReason};
 use crate::p2p::discovery::{
     P2pDiscoveryKademliaAddRouteAction, P2pDiscoveryKademliaFailureAction,
     P2pDiscoveryKademliaSuccessAction,
@@ -44,10 +42,7 @@ use crate::snark::work_verify::SnarkWorkVerifyAction;
 use crate::snark::SnarkEvent;
 use crate::{ExternalSnarkWorkerAction, Service, Store};
 
-use super::{
-    Event, EventSourceAction, EventSourceActionWithMeta, 
-    P2pConnectionEvent, P2pEvent,
-};
+use super::{Event, EventSourceAction, EventSourceActionWithMeta, P2pConnectionEvent, P2pEvent};
 
 pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourceActionWithMeta) {
     let (action, meta) = action.split();
@@ -159,7 +154,7 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                         }
                     },
                     P2pConnectionEvent::Closed(peer_id) => {
-                        store.dispatch(P2pDisconnectionFinishAction { peer_id });
+                        store.dispatch(P2pDisconnectionAction::Finish { peer_id });
                     }
                 },
                 P2pEvent::Channel(e) => match e {
@@ -192,13 +187,13 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                     P2pChannelEvent::Sent(peer_id, _, _, res) => {
                         if let Err(err) = res {
                             let reason = P2pDisconnectionReason::P2pChannelSendFailed(err);
-                            store.dispatch(P2pDisconnectionInitAction { peer_id, reason });
+                            store.dispatch(P2pDisconnectionAction::Init { peer_id, reason });
                         }
                     }
                     P2pChannelEvent::Received(peer_id, res) => match res {
                         Err(err) => {
                             let reason = P2pDisconnectionReason::P2pChannelReceiveFailed(err);
-                            store.dispatch(P2pDisconnectionInitAction { peer_id, reason });
+                            store.dispatch(P2pDisconnectionAction::Init { peer_id, reason });
                         }
                         Ok(message) => {
                             store.dispatch(P2pChannelsMessageReceivedAction { peer_id, message });
@@ -213,7 +208,7 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                     }
                     P2pChannelEvent::Closed(peer_id, chan_id) => {
                         let reason = P2pDisconnectionReason::P2pChannelClosed(chan_id);
-                        store.dispatch(P2pDisconnectionInitAction { peer_id, reason });
+                        store.dispatch(P2pDisconnectionAction::Init { peer_id, reason });
                     }
                 },
                 #[cfg(not(target_arch = "wasm32"))]

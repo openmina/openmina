@@ -289,21 +289,21 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                 },
             },
             P2pAction::Disconnection(action) => match action {
-                P2pDisconnectionAction::Init(action) => {
+                P2pDisconnectionAction::Init { peer_id, reason } => {
                     openmina_core::log::info!(
                         meta.time();
                         kind = kind.to_string(),
-                        summary = format!("peer_id: {}", action.peer_id),
-                        peer_id = action.peer_id.to_string(),
-                        reason = format!("{:?}", action.reason)
+                        summary = format!("peer_id: {peer_id}", ),
+                        peer_id = peer_id.to_string(),
+                        reason = format!("{:?}", reason)
                     );
                 }
-                P2pDisconnectionAction::Finish(action) => {
+                P2pDisconnectionAction::Finish { peer_id } => {
                     openmina_core::log::info!(
                         meta.time();
                         kind = kind.to_string(),
-                        summary = format!("peer_id: {}", action.peer_id),
-                        peer_id = action.peer_id.to_string()
+                        summary = format!("peer_id: {peer_id}", ),
+                        peer_id = peer_id.to_string()
                     );
                 }
             },

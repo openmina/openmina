@@ -1,6 +1,6 @@
 use redux::ActionMeta;
 
-use crate::disconnection::{P2pDisconnectionInitAction, P2pDisconnectionReason};
+use crate::disconnection::{P2pDisconnectionAction, P2pDisconnectionReason};
 use crate::peer::P2pPeerAction;
 use crate::{connection::P2pConnectionService, webrtc};
 
@@ -146,11 +146,11 @@ impl P2pConnectionIncomingLibp2pReceivedAction {
         Store: crate::P2pStore<S>,
         Store::Service: P2pConnectionService,
         P2pPeerAction: redux::EnablingCondition<S>,
-        P2pDisconnectionInitAction: redux::EnablingCondition<S>,
+        P2pDisconnectionAction: redux::EnablingCondition<S>,
     {
         let peer_id = self.peer_id;
         if let Err(err) = store.state().libp2p_incoming_accept(peer_id) {
-            store.dispatch(P2pDisconnectionInitAction {
+            store.dispatch(P2pDisconnectionAction::Init {
                 peer_id,
                 reason: P2pDisconnectionReason::Libp2pIncomingRejected(err),
             });

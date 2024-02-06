@@ -67,9 +67,9 @@ impl P2pState {
                 p2p_connection_reducer(peer, meta.with_action(action));
             }
             P2pAction::Disconnection(action) => match action {
-                P2pDisconnectionAction::Init(_) => {}
-                P2pDisconnectionAction::Finish(a) => {
-                    let Some(peer) = self.peers.get_mut(&a.peer_id) else {
+                P2pDisconnectionAction::Init { .. } => {}
+                P2pDisconnectionAction::Finish { peer_id } => {
+                    let Some(peer) = self.peers.get_mut(peer_id) else {
                         return;
                     };
                     peer.status = P2pPeerStatus::Disconnected { time: meta.time() };
