@@ -37,7 +37,7 @@ pub struct RustNodeBlockProducerTestingConfig {
 impl RustNodeTestingConfig {
     pub fn berkeley_default() -> Self {
         Self {
-            chain_id: "3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e".to_owned(),
+            chain_id: "fd7d111973bf5a9e3e87384f560fdead2f272589ca00b6d9e357fca9839631da".to_owned(),
             initial_time: redux::Timestamp::ZERO,
             max_peers: 100,
             ask_initial_peers_interval: Duration::from_secs(10),

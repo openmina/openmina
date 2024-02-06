@@ -4,6 +4,9 @@ version = "0.1.0"
 edition = "2021"
 license = "Apache-2.0"
 
+[dev-dependencies]
+serde_json = { version = "1.0" }
+
 [dependencies]
 serde = { version = "1.0.147", features = ["rc"] }
 slab = { version = "0.4.7", features = ["serde"] }
