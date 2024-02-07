@@ -138,7 +138,7 @@ pub struct Permissions<Controller> {
     pub receive: Controller,
     pub set_delegate: Controller,
     pub set_permissions: Controller,
-    pub set_verification_key: Controller,
+    pub set_verification_key: (Controller, u32),
     pub set_zkapp_uri: Controller,
     pub edit_action_state: Controller,
     pub set_token_symbol: Controller,
@@ -175,7 +175,16 @@ impl Permissions<AuthRequired> {
             receive,
             set_delegate,
             set_permissions,
-            set_verification_key,
+            &set_verification_key.0,
+        ] {
+            for bit in auth.encode().to_bits() {
+                fun(bit);
+            }
+        }
+        for j in 0..32 {
+            fun((set_verification_key.1 & (1 << j)) != 0);
+        }
+        for auth in [
             set_zkapp_uri,
             edit_action_state,
             set_token_symbol,
@@ -213,7 +222,7 @@ impl Permissions<AuthRequired> {
             receive: None,
             set_delegate: Signature,
             set_permissions: Signature,
-            set_verification_key: Signature,
+            set_verification_key: (Signature, 0),
             set_zkapp_uri: Signature,
             edit_action_state: Signature,
             set_token_symbol: Signature,
@@ -233,7 +242,7 @@ impl Permissions<AuthRequired> {
             access: None,
             set_delegate: None,
             set_permissions: None,
-            set_verification_key: None,
+            set_verification_key: (None, 0),
             set_zkapp_uri: None,
             edit_action_state: None,
             set_token_symbol: None,
@@ -259,7 +268,7 @@ impl Permissions<AuthRequired> {
             receive: auth_required_gen(&mut rng),
             set_delegate: auth_required_gen(&mut rng),
             set_permissions: auth_required_gen(&mut rng),
-            set_verification_key: auth_required_gen(&mut rng),
+            set_verification_key: (auth_required_gen(&mut rng), 0),
             set_zkapp_uri: auth_required_gen(&mut rng),
             edit_action_state: auth_required_gen(&mut rng),
             set_token_symbol: auth_required_gen(&mut rng),
@@ -1252,7 +1261,7 @@ impl Account {
                 receive: gen_perm(rng),
                 set_delegate: gen_perm(rng),
                 set_permissions: gen_perm(rng),
-                set_verification_key: gen_perm(rng),
+                set_verification_key: (gen_perm(rng), 0),
                 set_zkapp_uri: gen_perm(rng),
                 edit_action_state: gen_perm(rng),
                 set_token_symbol: gen_perm(rng),

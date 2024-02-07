@@ -36,8 +36,7 @@ use mina_p2p_messages::{
         MinaBaseStakeDelegationStableV2, MinaBaseStateBodyHashStableV1,
         MinaBaseTransactionStatusFailureCollectionStableV1,
         MinaBaseTransactionStatusFailureStableV2, MinaBaseTransactionStatusStableV2,
-        MinaBaseUserCommandStableV2, MinaBaseZkappAccountZkappUriStableV1,
-        MinaBaseZkappCommandTStableV1WireStableV1,
+        MinaBaseUserCommandStableV2, MinaBaseZkappCommandTStableV1WireStableV1,
         MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA,
         MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAA,
         MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAACallsA,
@@ -621,12 +620,6 @@ impl From<&Statement<SokDigest>> for MinaStateSnarkedLedgerStateWithSokStableV2 
     }
 }
 
-impl From<&SokDigest> for MinaBaseZkappAccountZkappUriStableV1 {
-    fn from(value: &SokDigest) -> Self {
-        Self(value.as_slice().into())
-    }
-}
-
 impl From<&MinaBaseTransactionStatusStableV2> for TransactionStatus {
     fn from(value: &MinaBaseTransactionStatusStableV2) -> Self {
         match value {
@@ -882,7 +875,6 @@ impl From<&zkapp_command::EpochData> for MinaBaseZkappPreconditionProtocolStateE
 
 impl From<&MinaBaseAccountUpdatePreconditionsStableV1> for zkapp_command::Preconditions {
     fn from(value: &MinaBaseAccountUpdatePreconditionsStableV1) -> Self {
-        use mina_p2p_messages::v2::MinaBaseAccountUpdateAccountPreconditionStableV1 as MAccount;
         use mina_p2p_messages::v2::MinaBaseZkappPreconditionProtocolStateStableV1Amount as MAmount;
         use mina_p2p_messages::v2::MinaBaseZkappPreconditionProtocolStateStableV1GlobalSlot as MSlot;
         use mina_p2p_messages::v2::MinaBaseZkappPreconditionProtocolStateStableV1SnarkedLedgerHash as Ledger;
@@ -914,63 +906,57 @@ impl From<&MinaBaseAccountUpdatePreconditionsStableV1> for zkapp_command::Precon
                 staking_epoch_data: (&value.network.staking_epoch_data).into(),
                 next_epoch_data: (&value.network.next_epoch_data).into(),
             },
-            account: match &value.account {
-                MAccount::Full(account) => {
-                    use mina_p2p_messages::v2::MinaBaseZkappPreconditionAccountStableV2Balance as MBalance;
-                    use mina_p2p_messages::v2::MinaBaseZkappPreconditionAccountStableV2Delegate as Delegate;
-                    use mina_p2p_messages::v2::MinaBaseZkappPreconditionAccountStableV2ProvedState as Proved;
-                    use mina_p2p_messages::v2::MinaBaseZkappPreconditionAccountStableV2ReceiptChainHash as Receipt;
-                    use mina_p2p_messages::v2::MinaBaseZkappPreconditionAccountStableV2StateA as State;
-                    use mina_p2p_messages::v2::MinaBaseZkappPreconditionProtocolStateStableV1Length as MNonce;
+            account: {
+                let account = &value.account.0;
+                use mina_p2p_messages::v2::MinaBaseZkappPreconditionAccountStableV2Balance as MBalance;
+                use mina_p2p_messages::v2::MinaBaseZkappPreconditionAccountStableV2Delegate as Delegate;
+                use mina_p2p_messages::v2::MinaBaseZkappPreconditionAccountStableV2ProvedState as Proved;
+                use mina_p2p_messages::v2::MinaBaseZkappPreconditionAccountStableV2ReceiptChainHash as Receipt;
+                use mina_p2p_messages::v2::MinaBaseZkappPreconditionAccountStableV2StateA as State;
+                use mina_p2p_messages::v2::MinaBaseZkappPreconditionProtocolStateStableV1Length as MNonce;
 
-                    let account = &**account;
-                    AccountPreconditions::Full(Box::new(zkapp_command::Account {
-                        balance: match &account.balance {
-                            MBalance::Check(balance) => OrIgnore::Check(ClosedInterval {
-                                lower: Balance::from_u64(balance.lower.0.as_u64()),
-                                upper: Balance::from_u64(balance.upper.0.as_u64()),
-                            }),
-                            MBalance::Ignore => OrIgnore::Ignore,
-                        },
-                        nonce: match &account.nonce {
-                            MNonce::Check(balance) => OrIgnore::Check(ClosedInterval {
-                                lower: Nonce::from_u32(balance.lower.0.as_u32()),
-                                upper: Nonce::from_u32(balance.upper.0.as_u32()),
-                            }),
-                            MNonce::Ignore => OrIgnore::Ignore,
-                        },
-                        receipt_chain_hash: match &account.receipt_chain_hash {
-                            Receipt::Check(hash) => OrIgnore::Check(hash.to_field()),
-                            Receipt::Ignore => OrIgnore::Ignore,
-                        },
-                        delegate: match &account.delegate {
-                            Delegate::Check(delegate) => {
-                                OrIgnore::Check(delegate.clone().into_inner().into())
-                            }
-                            Delegate::Ignore => OrIgnore::Ignore,
-                        },
-                        state: array_into_with(&account.state, |s| match s {
-                            State::Check(s) => OrIgnore::Check(s.to_field()),
-                            State::Ignore => OrIgnore::Ignore,
+                AccountPreconditions(zkapp_command::Account {
+                    balance: match &account.balance {
+                        MBalance::Check(balance) => OrIgnore::Check(ClosedInterval {
+                            lower: Balance::from_u64(balance.lower.0.as_u64()),
+                            upper: Balance::from_u64(balance.upper.0.as_u64()),
                         }),
-                        action_state: match &account.action_state {
-                            State::Check(s) => OrIgnore::Check(s.to_field()),
-                            State::Ignore => OrIgnore::Ignore,
-                        },
-                        proved_state: match account.proved_state {
-                            Proved::Check(state) => OrIgnore::Check(state),
-                            Proved::Ignore => OrIgnore::Ignore,
-                        },
-                        is_new: match account.is_new {
-                            Proved::Check(state) => OrIgnore::Check(state),
-                            Proved::Ignore => OrIgnore::Ignore,
-                        },
-                    }))
-                }
-                MAccount::Nonce(nonce) => {
-                    AccountPreconditions::Nonce(Nonce::from_u32(nonce.as_u32()))
-                }
-                MAccount::Accept => AccountPreconditions::Accept,
+                        MBalance::Ignore => OrIgnore::Ignore,
+                    },
+                    nonce: match &account.nonce {
+                        MNonce::Check(balance) => OrIgnore::Check(ClosedInterval {
+                            lower: Nonce::from_u32(balance.lower.0.as_u32()),
+                            upper: Nonce::from_u32(balance.upper.0.as_u32()),
+                        }),
+                        MNonce::Ignore => OrIgnore::Ignore,
+                    },
+                    receipt_chain_hash: match &account.receipt_chain_hash {
+                        Receipt::Check(hash) => OrIgnore::Check(hash.to_field()),
+                        Receipt::Ignore => OrIgnore::Ignore,
+                    },
+                    delegate: match &account.delegate {
+                        Delegate::Check(delegate) => {
+                            OrIgnore::Check(delegate.clone().into_inner().into())
+                        }
+                        Delegate::Ignore => OrIgnore::Ignore,
+                    },
+                    state: array_into_with(&account.state, |s| match s {
+                        State::Check(s) => OrIgnore::Check(s.to_field()),
+                        State::Ignore => OrIgnore::Ignore,
+                    }),
+                    action_state: match &account.action_state {
+                        State::Check(s) => OrIgnore::Check(s.to_field()),
+                        State::Ignore => OrIgnore::Ignore,
+                    },
+                    proved_state: match account.proved_state {
+                        Proved::Check(state) => OrIgnore::Check(state),
+                        Proved::Ignore => OrIgnore::Ignore,
+                    },
+                    is_new: match account.is_new {
+                        Proved::Check(state) => OrIgnore::Check(state),
+                        Proved::Ignore => OrIgnore::Ignore,
+                    },
+                })
             },
             valid_while: match &value.valid_while {
                 MSlot::Check(valid_while) => OrIgnore::Check(ClosedInterval {
@@ -997,7 +983,6 @@ impl From<&zkapp_command::Preconditions> for MinaBaseAccountUpdatePreconditionsS
         use mina_p2p_messages::v2::MinaBaseZkappPreconditionProtocolStateStableV1Amount as MAmount;
         use mina_p2p_messages::v2::MinaBaseZkappPreconditionProtocolStateStableV1GlobalSlot as MSlot;
         use mina_p2p_messages::v2::MinaBaseZkappPreconditionProtocolStateStableV1SnarkedLedgerHash as Ledger;
-        use zkapp_command::AccountPreconditions;
         use zkapp_command::{Numeric, OrIgnore};
 
         Self {
@@ -1032,65 +1017,61 @@ impl From<&zkapp_command::Preconditions> for MinaBaseAccountUpdatePreconditionsS
                 staking_epoch_data: (&value.network.staking_epoch_data).into(),
                 next_epoch_data: (&value.network.next_epoch_data).into(),
             },
-            account: match &value.account {
-                AccountPreconditions::Full(account) => {
-                    use mina_p2p_messages::v2::MinaBaseZkappPreconditionAccountStableV2Balance as MBalance;
-                    use mina_p2p_messages::v2::MinaBaseZkappPreconditionAccountStableV2Delegate as Delegate;
-                    use mina_p2p_messages::v2::MinaBaseZkappPreconditionAccountStableV2ProvedState as Proved;
-                    use mina_p2p_messages::v2::MinaBaseZkappPreconditionAccountStableV2ReceiptChainHash as Receipt;
-                    use mina_p2p_messages::v2::MinaBaseZkappPreconditionAccountStableV2StateA as State;
-                    use mina_p2p_messages::v2::MinaBaseZkappPreconditionProtocolStateStableV1Length as MNonce;
+            account: {
+                use mina_p2p_messages::v2::MinaBaseZkappPreconditionAccountStableV2Balance as MBalance;
+                use mina_p2p_messages::v2::MinaBaseZkappPreconditionAccountStableV2Delegate as Delegate;
+                use mina_p2p_messages::v2::MinaBaseZkappPreconditionAccountStableV2ProvedState as Proved;
+                use mina_p2p_messages::v2::MinaBaseZkappPreconditionAccountStableV2ReceiptChainHash as Receipt;
+                use mina_p2p_messages::v2::MinaBaseZkappPreconditionAccountStableV2StateA as State;
+                use mina_p2p_messages::v2::MinaBaseZkappPreconditionProtocolStateStableV1Length as MNonce;
 
-                    let account = &**account;
-                    MAccount::Full(Box::new(MinaBaseZkappPreconditionAccountStableV2 {
-                        balance: match &account.balance {
-                            OrIgnore::Check(balance) => {
-                                MBalance::Check(MinaBaseZkappPreconditionAccountStableV2BalanceA {
-                                    lower: (&balance.lower).into(),
-                                    upper: (&balance.upper).into(),
-                                })
-                            }
-                            OrIgnore::Ignore => MBalance::Ignore,
-                        },
-                        nonce: match &account.nonce {
-                            OrIgnore::Check(nonce) => MNonce::Check(
-                                MinaBaseZkappPreconditionProtocolStateStableV1LengthA {
-                                    lower: (&nonce.lower).into(),
-                                    upper: (&nonce.upper).into(),
-                                },
-                            ),
-                            OrIgnore::Ignore => MNonce::Ignore,
-                        },
-                        receipt_chain_hash: match &account.receipt_chain_hash {
-                            OrIgnore::Check(hash) => {
-                                Receipt::Check(MinaBaseReceiptChainHashStableV1(hash.into()))
-                            }
-                            OrIgnore::Ignore => Receipt::Ignore,
-                        },
-                        delegate: match &account.delegate {
-                            OrIgnore::Check(delegate) => Delegate::Check(delegate.into()),
-                            OrIgnore::Ignore => Delegate::Ignore,
-                        },
-                        state: PaddedSeq(array_into_with(&account.state, |s| match s {
-                            OrIgnore::Check(s) => State::Check(s.into()),
-                            OrIgnore::Ignore => State::Ignore,
-                        })),
-                        action_state: match &account.action_state {
-                            OrIgnore::Check(s) => State::Check(s.into()),
-                            OrIgnore::Ignore => State::Ignore,
-                        },
-                        proved_state: match account.proved_state {
-                            OrIgnore::Check(state) => Proved::Check(state),
-                            OrIgnore::Ignore => Proved::Ignore,
-                        },
-                        is_new: match account.is_new {
-                            OrIgnore::Check(state) => Proved::Check(state),
-                            OrIgnore::Ignore => Proved::Ignore,
-                        },
-                    }))
-                }
-                AccountPreconditions::Nonce(nonce) => MAccount::Nonce(nonce.into()),
-                AccountPreconditions::Accept => MAccount::Accept,
+                let account = &value.account.0;
+                MAccount(MinaBaseZkappPreconditionAccountStableV2 {
+                    balance: match &account.balance {
+                        OrIgnore::Check(balance) => {
+                            MBalance::Check(MinaBaseZkappPreconditionAccountStableV2BalanceA {
+                                lower: (&balance.lower).into(),
+                                upper: (&balance.upper).into(),
+                            })
+                        }
+                        OrIgnore::Ignore => MBalance::Ignore,
+                    },
+                    nonce: match &account.nonce {
+                        OrIgnore::Check(nonce) => {
+                            MNonce::Check(MinaBaseZkappPreconditionProtocolStateStableV1LengthA {
+                                lower: (&nonce.lower).into(),
+                                upper: (&nonce.upper).into(),
+                            })
+                        }
+                        OrIgnore::Ignore => MNonce::Ignore,
+                    },
+                    receipt_chain_hash: match &account.receipt_chain_hash {
+                        OrIgnore::Check(hash) => {
+                            Receipt::Check(MinaBaseReceiptChainHashStableV1(hash.into()))
+                        }
+                        OrIgnore::Ignore => Receipt::Ignore,
+                    },
+                    delegate: match &account.delegate {
+                        OrIgnore::Check(delegate) => Delegate::Check(delegate.into()),
+                        OrIgnore::Ignore => Delegate::Ignore,
+                    },
+                    state: PaddedSeq(array_into_with(&account.state, |s| match s {
+                        OrIgnore::Check(s) => State::Check(s.into()),
+                        OrIgnore::Ignore => State::Ignore,
+                    })),
+                    action_state: match &account.action_state {
+                        OrIgnore::Check(s) => State::Check(s.into()),
+                        OrIgnore::Ignore => State::Ignore,
+                    },
+                    proved_state: match account.proved_state {
+                        OrIgnore::Check(state) => Proved::Check(state),
+                        OrIgnore::Ignore => Proved::Ignore,
+                    },
+                    is_new: match account.is_new {
+                        OrIgnore::Check(state) => Proved::Check(state),
+                        OrIgnore::Ignore => Proved::Ignore,
+                    },
+                })
             },
             valid_while: match &value.valid_while {
                 OrIgnore::Check(valid_while) => {
@@ -1116,10 +1097,9 @@ impl From<&MinaBaseAccountUpdateTStableV1> for AccountUpdate {
         use mina_p2p_messages::v2::MinaBaseAccountUpdateUpdateStableV1Delegate as Delegate;
         use mina_p2p_messages::v2::MinaBaseAccountUpdateUpdateStableV1Permissions as Perm;
         use mina_p2p_messages::v2::MinaBaseAccountUpdateUpdateStableV1Timing as Timing;
-        use mina_p2p_messages::v2::MinaBaseAccountUpdateUpdateStableV1TokenSymbol as Symbol;
         use mina_p2p_messages::v2::MinaBaseAccountUpdateUpdateStableV1VerificationKey as VK;
         use mina_p2p_messages::v2::MinaBaseAccountUpdateUpdateStableV1VotingFor as Voting;
-        use mina_p2p_messages::v2::MinaBaseAccountUpdateUpdateStableV1ZkappUri as Uri;
+        use mina_p2p_messages::v2::MinaBaseAccountUpdateUpdateStableV1ZkappUri as BString;
         use MinaBaseAccountUpdateUpdateStableV1AppStateA as AppState;
 
         Self {
@@ -1144,12 +1124,12 @@ impl From<&MinaBaseAccountUpdateTStableV1> for AccountUpdate {
                         Perm::Keep => SetOrKeep::Keep,
                     },
                     zkapp_uri: match &value.body.update.zkapp_uri {
-                        Uri::Set(s) => SetOrKeep::Set(s.try_into().unwrap()),
-                        Uri::Keep => SetOrKeep::Keep,
+                        BString::Set(s) => SetOrKeep::Set(s.try_into().unwrap()),
+                        BString::Keep => SetOrKeep::Keep,
                     },
                     token_symbol: match &value.body.update.token_symbol {
-                        Symbol::Set(s) => SetOrKeep::Set((&s.0).try_into().unwrap()),
-                        Symbol::Keep => SetOrKeep::Keep,
+                        BString::Set(s) => SetOrKeep::Set(s.try_into().unwrap()),
+                        BString::Keep => SetOrKeep::Keep,
                     },
                     timing: match &value.body.update.timing {
                         Timing::Set(timing) => SetOrKeep::Set((&**timing).into()),
@@ -1290,10 +1270,9 @@ impl From<&AccountUpdate> for MinaBaseAccountUpdateTStableV1 {
         use mina_p2p_messages::v2::MinaBaseAccountUpdateUpdateStableV1Delegate as Delegate;
         use mina_p2p_messages::v2::MinaBaseAccountUpdateUpdateStableV1Permissions as Perm;
         use mina_p2p_messages::v2::MinaBaseAccountUpdateUpdateStableV1Timing as Timing;
-        use mina_p2p_messages::v2::MinaBaseAccountUpdateUpdateStableV1TokenSymbol as Symbol;
         use mina_p2p_messages::v2::MinaBaseAccountUpdateUpdateStableV1VerificationKey as VK;
         use mina_p2p_messages::v2::MinaBaseAccountUpdateUpdateStableV1VotingFor as Voting;
-        use mina_p2p_messages::v2::MinaBaseAccountUpdateUpdateStableV1ZkappUri as Uri;
+        use mina_p2p_messages::v2::MinaBaseAccountUpdateUpdateStableV1ZkappUri as BString;
         use MinaBaseAccountUpdateUpdateStableV1AppStateA as AppState;
 
         Self {
@@ -1318,12 +1297,12 @@ impl From<&AccountUpdate> for MinaBaseAccountUpdateTStableV1 {
                         SetOrKeep::Keep => Perm::Keep,
                     },
                     zkapp_uri: match &value.body.update.zkapp_uri {
-                        SetOrKeep::Set(s) => Uri::Set(s.into()),
-                        SetOrKeep::Keep => Uri::Keep,
+                        SetOrKeep::Set(s) => BString::Set(s.into()),
+                        SetOrKeep::Keep => BString::Keep,
                     },
                     token_symbol: match &value.body.update.token_symbol {
-                        SetOrKeep::Set(s) => Symbol::Set(MinaBaseZkappAccountZkappUriStableV1(s.into())),
-                        SetOrKeep::Keep => Symbol::Keep,
+                        SetOrKeep::Set(s) => BString::Set(s.into()),
+                        SetOrKeep::Keep => BString::Keep,
                     },
                     timing: match &value.body.update.timing {
                         SetOrKeep::Set(timing) => Timing::Set(Box::new(timing.into())),
@@ -2262,8 +2241,8 @@ impl From<&parallel_scan::Weight> for ParallelScanWeightStableV1 {
         let parallel_scan::Weight { base, merge } = value;
 
         Self {
-            base: base.into(),
-            merge: merge.into(),
+            base: (*base).into(),
+            merge: (*merge).into(),
         }
     }
 }
@@ -2554,7 +2533,7 @@ impl From<&PendingCoinbase> for MinaBasePendingCoinbaseStableV2 {
                         let addr = value.indexes.get(id).unwrap();
 
                         let index = addr.to_index();
-                        let index: mina_p2p_messages::number::Int64 = index.as_u64().into();
+                        let index: mina_p2p_messages::number::UInt64 = index.as_u64().into();
 
                         let id: MinaBasePendingCoinbaseStackIdStableV1 = id.into();
 

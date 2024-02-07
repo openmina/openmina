@@ -129,7 +129,7 @@ fn permissions_exists<Z: ZkappApplication>(
         receive,
         set_delegate,
         set_permissions,
-        set_verification_key,
+        &set_verification_key.0,
         set_zkapp_uri,
         edit_action_state,
         set_token_symbol,
@@ -898,7 +898,7 @@ where
             Z::Controller::check(
                 proof_verifies,
                 signature_verifies,
-                set_verification_key,
+                &set_verification_key.0,
                 &single_data,
                 w,
             )
