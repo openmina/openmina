@@ -5,9 +5,9 @@ use crate::p2p::channels::rpc::P2pRpcRequest;
 use crate::transition_frontier::TransitionFrontierService;
 use crate::Store;
 
-use super::ledger::snarked::TransitionFrontierSyncLedgerSnarkedPeersQueryAction;
-use super::ledger::staged::TransitionFrontierSyncLedgerStagedPartsFetchPendingAction;
-use super::ledger::TransitionFrontierSyncLedgerInitAction;
+use super::ledger::snarked::TransitionFrontierSyncLedgerSnarkedAction;
+use super::ledger::staged::TransitionFrontierSyncLedgerStagedAction;
+use super::ledger::TransitionFrontierSyncLedgerAction;
 use super::{
     TransitionFrontierSyncBestTipUpdateAction, TransitionFrontierSyncBlocksFetchSuccessAction,
     TransitionFrontierSyncBlocksNextApplyInitAction,
@@ -36,11 +36,11 @@ impl TransitionFrontierSyncInitAction {
 impl TransitionFrontierSyncBestTipUpdateAction {
     pub fn effects<S: redux::Service>(&self, _: &ActionMeta, store: &mut Store<S>) {
         // if root snarked ledger changed.
-        store.dispatch(TransitionFrontierSyncLedgerInitAction {});
+        store.dispatch(TransitionFrontierSyncLedgerAction::Init);
         // if root snarked ledger stayed same but root block changed
         // while reconstructing staged ledger.
-        store.dispatch(TransitionFrontierSyncLedgerStagedPartsFetchPendingAction {});
-        store.dispatch(TransitionFrontierSyncLedgerSnarkedPeersQueryAction {});
+        store.dispatch(TransitionFrontierSyncLedgerStagedAction::PartsFetchPending);
+        store.dispatch(TransitionFrontierSyncLedgerSnarkedAction::PeersQuery);
         // if we don't need to sync root staged ledger.
         store.dispatch(TransitionFrontierSyncBlocksPeersQueryAction {});
         // if we already have a block ready to be applied.
@@ -52,7 +52,7 @@ impl TransitionFrontierSyncBestTipUpdateAction {
 
 impl TransitionFrontierSyncLedgerStakingPendingAction {
     pub fn effects<S: redux::Service>(&self, _: &ActionMeta, store: &mut Store<S>) {
-        store.dispatch(TransitionFrontierSyncLedgerInitAction {});
+        store.dispatch(TransitionFrontierSyncLedgerAction::Init);
     }
 }
 
@@ -66,7 +66,7 @@ impl TransitionFrontierSyncLedgerStakingSuccessAction {
 
 impl TransitionFrontierSyncLedgerNextEpochPendingAction {
     pub fn effects<S: redux::Service>(&self, _: &ActionMeta, store: &mut Store<S>) {
-        store.dispatch(TransitionFrontierSyncLedgerInitAction {});
+        store.dispatch(TransitionFrontierSyncLedgerAction::Init);
     }
 }
 
@@ -78,7 +78,7 @@ impl TransitionFrontierSyncLedgerNextEpochSuccessAction {
 
 impl TransitionFrontierSyncLedgerRootPendingAction {
     pub fn effects<S: redux::Service>(&self, _: &ActionMeta, store: &mut Store<S>) {
-        store.dispatch(TransitionFrontierSyncLedgerInitAction {});
+        store.dispatch(TransitionFrontierSyncLedgerAction::Init);
     }
 }
 

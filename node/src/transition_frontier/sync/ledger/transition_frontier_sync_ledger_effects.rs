@@ -2,34 +2,30 @@ use redux::ActionMeta;
 
 use crate::Store;
 
-use super::snarked::{
-    TransitionFrontierSyncLedgerSnarkedPendingAction,
-    TransitionFrontierSyncLedgerSnarkedSuccessAction,
-};
-use super::staged::{
-    TransitionFrontierSyncLedgerStagedPartsFetchPendingAction,
-    TransitionFrontierSyncLedgerStagedReconstructEmptyAction,
-    TransitionFrontierSyncLedgerStagedSuccessAction,
-};
-use super::{TransitionFrontierSyncLedgerInitAction, TransitionFrontierSyncLedgerSuccessAction};
+use super::snarked::TransitionFrontierSyncLedgerSnarkedAction;
+use super::staged::TransitionFrontierSyncLedgerStagedAction;
+use super::TransitionFrontierSyncLedgerAction;
 
-impl TransitionFrontierSyncLedgerInitAction {
-    pub fn effects<S: redux::Service>(self, _: &ActionMeta, store: &mut Store<S>) {
-        store.dispatch(TransitionFrontierSyncLedgerSnarkedPendingAction {});
+pub fn transition_frontier_sync_ledger_init_effects<S: redux::Service>(
+    _: &ActionMeta,
+    store: &mut Store<S>,
+) {
+    store.dispatch(TransitionFrontierSyncLedgerSnarkedAction::Pending);
+}
+
+pub fn transition_frontier_sync_ledger_snarked_success_effects<S: redux::Service>(
+    _: &ActionMeta,
+    store: &mut Store<S>,
+) {
+    if store.dispatch(TransitionFrontierSyncLedgerAction::Success) {
+    } else if store.dispatch(TransitionFrontierSyncLedgerStagedAction::ReconstructEmpty) {
+    } else if store.dispatch(TransitionFrontierSyncLedgerStagedAction::PartsFetchPending) {
     }
 }
 
-impl TransitionFrontierSyncLedgerSnarkedSuccessAction {
-    pub fn effects<S: redux::Service>(self, _: &ActionMeta, store: &mut Store<S>) {
-        if store.dispatch(TransitionFrontierSyncLedgerSuccessAction {}) {
-        } else if store.dispatch(TransitionFrontierSyncLedgerStagedReconstructEmptyAction {}) {
-        } else if store.dispatch(TransitionFrontierSyncLedgerStagedPartsFetchPendingAction {}) {
-        }
-    }
-}
-
-impl TransitionFrontierSyncLedgerStagedSuccessAction {
-    pub fn effects<S: redux::Service>(self, _: &ActionMeta, store: &mut Store<S>) {
-        store.dispatch(TransitionFrontierSyncLedgerSuccessAction {});
-    }
+pub fn transition_frontier_sync_ledger_staged_success_effects<S: redux::Service>(
+    _: &ActionMeta,
+    store: &mut Store<S>,
+) {
+    store.dispatch(TransitionFrontierSyncLedgerAction::Success);
 }

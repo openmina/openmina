@@ -1,5 +1,8 @@
 use serde::{Deserialize, Serialize};
 
+use crate::transition_frontier::sync::TransitionFrontierSyncAction;
+use crate::TransitionFrontierAction;
+
 use super::snarked::TransitionFrontierSyncLedgerSnarkedAction;
 use super::staged::TransitionFrontierSyncLedgerStagedAction;
 use super::TransitionFrontierSyncLedgerState;
@@ -11,45 +14,32 @@ pub type TransitionFrontierSyncLedgerActionWithMetaRef<'a> =
 
 #[derive(derive_more::From, Serialize, Deserialize, Debug, Clone)]
 pub enum TransitionFrontierSyncLedgerAction {
-    Init(TransitionFrontierSyncLedgerInitAction),
+    Init,
     Snarked(TransitionFrontierSyncLedgerSnarkedAction),
     Staged(TransitionFrontierSyncLedgerStagedAction),
-    Success(TransitionFrontierSyncLedgerSuccessAction),
+    Success,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransitionFrontierSyncLedgerInitAction {}
-
-impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerInitAction {
+impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
-        state.transition_frontier.sync.ledger().map_or(false, |s| {
-            matches!(s, TransitionFrontierSyncLedgerState::Init { .. })
-        })
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransitionFrontierSyncLedgerSuccessAction {}
-
-impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerSuccessAction {
-    fn is_enabled(&self, state: &crate::State) -> bool {
-        state.transition_frontier.sync.is_ledger_sync_complete()
-    }
-}
-
-use crate::transition_frontier::{sync::TransitionFrontierSyncAction, TransitionFrontierAction};
-
-macro_rules! impl_into_global_action {
-    ($a:ty) => {
-        impl From<$a> for crate::Action {
-            fn from(value: $a) -> Self {
-                Self::TransitionFrontier(TransitionFrontierAction::Sync(
-                    TransitionFrontierSyncAction::Ledger(value.into()),
-                ))
+        match self {
+            TransitionFrontierSyncLedgerAction::Init => {
+                state.transition_frontier.sync.ledger().map_or(false, |s| {
+                    matches!(s, TransitionFrontierSyncLedgerState::Init { .. })
+                })
             }
+            TransitionFrontierSyncLedgerAction::Success => {
+                state.transition_frontier.sync.is_ledger_sync_complete()
+            }
+            _ => true,
         }
-    };
+    }
 }
 
-impl_into_global_action!(TransitionFrontierSyncLedgerInitAction);
-impl_into_global_action!(TransitionFrontierSyncLedgerSuccessAction);
+impl From<TransitionFrontierSyncLedgerAction> for crate::Action {
+    fn from(value: TransitionFrontierSyncLedgerAction) -> Self {
+        Self::TransitionFrontier(TransitionFrontierAction::Sync(
+            TransitionFrontierSyncAction::Ledger(value),
+        ))
+    }
+}

@@ -1,8 +1,6 @@
 use super::{
     PeerStagedLedgerPartsFetchState, StagedLedgerAuxAndPendingCoinbasesValidated,
     TransitionFrontierSyncLedgerStagedAction, TransitionFrontierSyncLedgerStagedActionWithMetaRef,
-    TransitionFrontierSyncLedgerStagedPartsPeerInvalidAction,
-    TransitionFrontierSyncLedgerStagedPartsPeerValidAction,
     TransitionFrontierSyncLedgerStagedState,
 };
 
@@ -10,27 +8,30 @@ impl TransitionFrontierSyncLedgerStagedState {
     pub fn reducer(&mut self, action: TransitionFrontierSyncLedgerStagedActionWithMetaRef<'_>) {
         let (action, meta) = action.split();
         match action {
-            TransitionFrontierSyncLedgerStagedAction::PartsFetchPending(_) => {
+            TransitionFrontierSyncLedgerStagedAction::PartsFetchPending => {
                 // handled in parent.
             }
-            TransitionFrontierSyncLedgerStagedAction::PartsPeerFetchInit(_) => {}
-            TransitionFrontierSyncLedgerStagedAction::PartsPeerFetchPending(action) => {
+            TransitionFrontierSyncLedgerStagedAction::PartsPeerFetchInit => {}
+            TransitionFrontierSyncLedgerStagedAction::PartsPeerFetchPending { peer_id, rpc_id } => {
                 let Self::PartsFetchPending { attempts, .. } = self else {
                     return;
                 };
                 attempts.insert(
-                    action.peer_id,
+                    *peer_id,
                     PeerStagedLedgerPartsFetchState::Pending {
                         time: meta.time(),
-                        rpc_id: action.rpc_id,
+                        rpc_id: *rpc_id,
                     },
                 );
             }
-            TransitionFrontierSyncLedgerStagedAction::PartsPeerFetchError(action) => {
+            TransitionFrontierSyncLedgerStagedAction::PartsPeerFetchError {
+                peer_id,
+                error, ..
+            } => {
                 let Self::PartsFetchPending { attempts, .. } = self else {
                     return;
                 };
-                let Some(attempt) = attempts.get_mut(&action.peer_id) else {
+                let Some(attempt) = attempts.get_mut(peer_id) else {
                     return;
                 };
                 let PeerStagedLedgerPartsFetchState::Pending { rpc_id, .. } = &attempt else {
@@ -39,37 +40,35 @@ impl TransitionFrontierSyncLedgerStagedState {
                 *attempt = PeerStagedLedgerPartsFetchState::Error {
                     time: meta.time(),
                     rpc_id: *rpc_id,
-                    error: action.error.clone(),
+                    error: error.clone(),
                 };
             }
-            TransitionFrontierSyncLedgerStagedAction::PartsPeerFetchSuccess(action) => {
+            TransitionFrontierSyncLedgerStagedAction::PartsPeerFetchSuccess {
+                peer_id,
+                parts,
+                ..
+            } => {
                 let Self::PartsFetchPending {
                     target, attempts, ..
                 } = self
                 else {
                     return;
                 };
-                let Some(attempt) = attempts.get_mut(&action.peer_id) else {
+                let Some(attempt) = attempts.get_mut(peer_id) else {
                     return;
                 };
 
                 let expected_hash = &target.staged.hashes;
-                let validated = StagedLedgerAuxAndPendingCoinbasesValidated::validate(
-                    &action.parts,
-                    expected_hash,
-                );
+                let validated =
+                    StagedLedgerAuxAndPendingCoinbasesValidated::validate(parts, expected_hash);
 
                 *attempt = PeerStagedLedgerPartsFetchState::Success {
                     time: meta.time(),
                     parts: validated,
                 };
             }
-            TransitionFrontierSyncLedgerStagedAction::PartsPeerInvalid(
-                TransitionFrontierSyncLedgerStagedPartsPeerInvalidAction { sender, .. },
-            )
-            | TransitionFrontierSyncLedgerStagedAction::PartsPeerValid(
-                TransitionFrontierSyncLedgerStagedPartsPeerValidAction { sender, .. },
-            ) => {
+            TransitionFrontierSyncLedgerStagedAction::PartsPeerInvalid { sender, .. }
+            | TransitionFrontierSyncLedgerStagedAction::PartsPeerValid { sender, .. } => {
                 let Self::PartsFetchPending { attempts, .. } = self else {
                     return;
                 };
@@ -92,14 +91,14 @@ impl TransitionFrontierSyncLedgerStagedState {
                     }
                 }
             }
-            TransitionFrontierSyncLedgerStagedAction::PartsFetchSuccess(action) => {
+            TransitionFrontierSyncLedgerStagedAction::PartsFetchSuccess { sender } => {
                 let Self::PartsFetchPending {
                     target, attempts, ..
                 } = self
                 else {
                     return;
                 };
-                let Some(attempt) = attempts.get_mut(&action.sender) else {
+                let Some(attempt) = attempts.get_mut(sender) else {
                     return;
                 };
                 let PeerStagedLedgerPartsFetchState::Valid { parts, .. } = attempt else {
@@ -111,11 +110,11 @@ impl TransitionFrontierSyncLedgerStagedState {
                     parts: parts.clone(),
                 };
             }
-            TransitionFrontierSyncLedgerStagedAction::ReconstructEmpty(_) => {
+            TransitionFrontierSyncLedgerStagedAction::ReconstructEmpty => {
                 // handled in parent.
             }
-            TransitionFrontierSyncLedgerStagedAction::ReconstructInit(_) => {}
-            TransitionFrontierSyncLedgerStagedAction::ReconstructPending(_) => {
+            TransitionFrontierSyncLedgerStagedAction::ReconstructInit => {}
+            TransitionFrontierSyncLedgerStagedAction::ReconstructPending => {
                 let Some((target, parts)) = self.target_with_parts() else {
                     return;
                 };
@@ -125,7 +124,7 @@ impl TransitionFrontierSyncLedgerStagedState {
                     parts: parts.cloned(),
                 }
             }
-            TransitionFrontierSyncLedgerStagedAction::ReconstructError(action) => {
+            TransitionFrontierSyncLedgerStagedAction::ReconstructError { error } => {
                 let Self::ReconstructPending { target, parts, .. } = self else {
                     return;
                 };
@@ -133,10 +132,10 @@ impl TransitionFrontierSyncLedgerStagedState {
                     time: meta.time(),
                     target: target.clone(),
                     parts: parts.clone(),
-                    error: action.error.clone(),
+                    error: error.clone(),
                 };
             }
-            TransitionFrontierSyncLedgerStagedAction::ReconstructSuccess(_) => {
+            TransitionFrontierSyncLedgerStagedAction::ReconstructSuccess => {
                 let Self::ReconstructPending { target, parts, .. } = self else {
                     return;
                 };
@@ -146,7 +145,7 @@ impl TransitionFrontierSyncLedgerStagedState {
                     parts: parts.clone(),
                 };
             }
-            TransitionFrontierSyncLedgerStagedAction::Success(_) => {
+            TransitionFrontierSyncLedgerStagedAction::Success => {
                 let Self::ReconstructSuccess { target, parts, .. } = self else {
                     return;
                 };
