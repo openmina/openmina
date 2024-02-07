@@ -252,7 +252,8 @@ impl P2pNetworkSelectState {
                     loop {
                         match self.recv.parse_token() {
                             Err(()) => {
-                                self.inner = P2pNetworkSelectStateInner::Error("parse_token".to_owned());
+                                self.inner =
+                                    P2pNetworkSelectStateInner::Error("parse_token".to_owned());
                                 break;
                             }
                             Ok(None) => break,
@@ -272,23 +273,31 @@ impl P2pNetworkSelectState {
                         token::Token::Handshake => {}
                         token::Token::Na => {
                             // TODO: check if we can propose alternative
-                            self.inner = P2pNetworkSelectStateInner::Error("token is NA".to_owned());
+                            self.inner =
+                                P2pNetworkSelectStateInner::Error("token is NA".to_owned());
                             self.negotiated = Some(None);
                         }
                         token::Token::SimultaneousConnect => {
                             // unexpected token
-                            self.inner = P2pNetworkSelectStateInner::Error("simultaneous connect token".to_owned());
+                            self.inner = P2pNetworkSelectStateInner::Error(
+                                "simultaneous connect token".to_owned(),
+                            );
                         }
                         token::Token::Protocol(response) => {
                             if response == *proposing {
                                 self.negotiated = Some(Some(response));
                             } else {
-                                self.inner = P2pNetworkSelectStateInner::Error(format!("protocol mismatch: {response:?} != {proposing:?}"));
+                                self.inner = P2pNetworkSelectStateInner::Error(format!(
+                                    "protocol mismatch: {response:?} != {proposing:?}"
+                                ));
                             }
                         }
                         token::Token::UnknownProtocol(name) => {
                             // unexpected token
-                            self.inner = P2pNetworkSelectStateInner::Error(format!("unknown protocol `{}`", String::from_utf8_lossy(&name)));
+                            self.inner = P2pNetworkSelectStateInner::Error(format!(
+                                "unknown protocol `{}`",
+                                String::from_utf8_lossy(&name)
+                            ));
                             self.negotiated = Some(None);
                         }
                     },
@@ -302,10 +311,15 @@ impl P2pNetworkSelectState {
                             // TODO: decide who is initiator
                         }
                         token::Token::Protocol(_) => {
-                            self.inner = P2pNetworkSelectStateInner::Error("protocol mismatch: uncertain".to_owned());
+                            self.inner = P2pNetworkSelectStateInner::Error(
+                                "protocol mismatch: uncertain".to_owned(),
+                            );
                         }
                         token::Token::UnknownProtocol(name) => {
-                            self.inner = P2pNetworkSelectStateInner::Error(format!("protocol mismatch: uncertain with unknown protocol {}", String::from_utf8_lossy(&name)));
+                            self.inner = P2pNetworkSelectStateInner::Error(format!(
+                                "protocol mismatch: uncertain with unknown protocol {}",
+                                String::from_utf8_lossy(&name)
+                            ));
                         }
                     },
                     P2pNetworkSelectStateInner::Responder => match token {
