@@ -752,7 +752,7 @@ where
         let has_permission = controller_check(
             proof_verifies,
             signature_verifies,
-            a.permissions.set_verification_key,
+            a.permissions.set_verification_key.0,
         )?;
 
         let local_state = local_state.add_check(

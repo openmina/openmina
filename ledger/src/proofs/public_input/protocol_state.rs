@@ -51,7 +51,7 @@ impl ToInputs for MinaStateProtocolStateBodyValueStableV2 {
                 sub_window_densities,
                 last_vrf_output,
                 total_currency,
-                curr_global_slot,
+                curr_global_slot_since_hard_fork,
                 global_slot_since_genesis,
                 staking_epoch_data,
                 next_epoch_data,
@@ -78,8 +78,8 @@ impl ToInputs for MinaStateProtocolStateBodyValueStableV2 {
                 }
             }
             inputs.append_u64(total_currency.as_u64());
-            inputs.append_u32(curr_global_slot.slot_number.as_u32());
-            inputs.append_u32(curr_global_slot.slots_per_epoch.as_u32());
+            inputs.append_u32(curr_global_slot_since_hard_fork.slot_number.as_u32());
+            inputs.append_u32(curr_global_slot_since_hard_fork.slots_per_epoch.as_u32());
             inputs.append_u32(global_slot_since_genesis.as_u32());
             inputs.append_bool(*has_ancestor_in_same_checkpoint_window);
             inputs.append_bool(*supercharge_coinbase);
@@ -306,6 +306,7 @@ impl ToInputs for MinaBaseProtocolConstantsCheckedValueStableV1 {
             slots_per_sub_window,
             delta,
             genesis_state_timestamp,
+            grace_period_slots: _,
         } = self;
 
         inputs.append_u32(k.as_u32());

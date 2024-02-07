@@ -54,7 +54,7 @@ impl BlockProducerEnabled {
                     .protocol_state
                     .body
                     .consensus_state
-                    .curr_global_slot
+                    .curr_global_slot_since_hard_fork
                     .slot_number
                     .as_u32();
 
@@ -166,14 +166,14 @@ impl BlockProducerEnabled {
                 let genesis_ledger_hash = &pred_blockchain_state.genesis_ledger_hash;
 
                 let block_timestamp = won_slot.timestamp();
-                let pred_global_slot = pred_consensus_state.curr_global_slot.clone();
-                let curr_global_slot = won_slot.global_slot.clone();
+                let pred_global_slot = pred_consensus_state.curr_global_slot_since_hard_fork.clone();
+                let curr_global_slot_since_hard_fork = won_slot.global_slot.clone();
                 let global_slot_since_genesis =
                     won_slot.global_slot_since_genesis(pred_block.global_slot_diff());
                 let (pred_epoch, _) = to_epoch_and_slot(&pred_global_slot);
-                let (next_epoch, next_slot) = to_epoch_and_slot(&curr_global_slot);
+                let (next_epoch, next_slot) = to_epoch_and_slot(&curr_global_slot_since_hard_fork);
                 let has_ancestor_in_same_checkpoint_window =
-                    in_same_checkpoint_window(&pred_global_slot, &curr_global_slot);
+                    in_same_checkpoint_window(&pred_global_slot, &curr_global_slot_since_hard_fork);
 
                 let block_stake_winner = won_slot.delegator.0.clone();
                 let vrf_truncated_output = won_slot.vrf_output.clone();
@@ -264,7 +264,7 @@ impl BlockProducerEnabled {
                     let pred_global_sub_window =
                         global_sub_window(&pred_global_slot, pred_block.constants());
                     let next_global_sub_window =
-                        global_sub_window(&curr_global_slot, pred_block.constants());
+                        global_sub_window(&curr_global_slot_since_hard_fork, pred_block.constants());
 
                     let pred_relative_sub_window = relative_sub_window(pred_global_sub_window);
                     let next_relative_sub_window = relative_sub_window(next_global_sub_window);
@@ -299,7 +299,7 @@ impl BlockProducerEnabled {
 
                     let grace_period_end = grace_period_end(pred_block.constants());
                     let min_window_density = if is_same_global_sub_window
-                        || curr_global_slot.slot_number.as_u32() < grace_period_end
+                        || curr_global_slot_since_hard_fork.slot_number.as_u32() < grace_period_end
                     {
                         pred_consensus_state.min_window_density.clone()
                     } else {
@@ -347,7 +347,7 @@ impl BlockProducerEnabled {
                     sub_window_densities,
                     last_vrf_output: vrf_truncated_output,
                     total_currency: (&total_currency).into(),
-                    curr_global_slot,
+                    curr_global_slot_since_hard_fork,
                     global_slot_since_genesis,
                     staking_epoch_data,
                     next_epoch_data,

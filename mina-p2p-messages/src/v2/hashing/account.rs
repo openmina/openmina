@@ -11,12 +11,12 @@ use crate::{
         MinaBaseAccountBinableArgStableV2, MinaBaseAccountTimingStableV2,
         MinaBasePermissionsAuthRequiredStableV2, MinaBasePermissionsStableV2,
         MinaBaseVerificationKeyWireStableV1, MinaBaseVerificationKeyWireStableV1WrapIndex,
-        MinaBaseZkappAccountStableV2, MinaBaseZkappAccountZkappUriStableV1,
+        MinaBaseZkappAccountStableV2,
         MinaNumbersGlobalSlotSinceGenesisMStableV1, PicklesBaseProofsVerifiedStableV1,
     },
 };
 
-use super::{hash_noinputs, hash_with_kimchi};
+use super::hash_noinputs;
 
 impl ToInput for MinaBaseAccountBinableArgStableV2 {
     fn to_input(&self, inputs: &mut Inputs) {
@@ -93,21 +93,20 @@ impl ToInput for MinaBasePermissionsStableV2 {
         } = self;
         to_input_fields!(
             inputs,
-            vec![
                 edit_state,
                 access,
                 send,
                 receive,
                 set_delegate,
                 set_permissions,
-                set_verification_key,
+                set_verification_key.0,
+                set_verification_key.1,
                 set_zkapp_uri,
                 edit_action_state,
                 set_token_symbol,
                 increment_nonce,
                 set_voting_for,
                 set_timing
-            ]
         );
     }
 }
@@ -165,15 +164,6 @@ impl Default for MinaBaseZkappAccountStableV2 {
             proved_state: Default::default(),
             zkapp_uri: Default::default(),
         }
-    }
-}
-
-impl ToInput for MinaBaseZkappAccountZkappUriStableV1 {
-    fn to_input(&self, inputs: &mut Inputs) {
-        let mut inputs1 = Inputs::new();
-        inputs1.append_bytes(self.as_ref());
-        inputs1.append_bool(true);
-        inputs.append_field(hash_with_kimchi("MinaZkappUri", &inputs1.to_fields()));
     }
 }
 

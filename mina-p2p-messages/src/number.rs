@@ -68,6 +68,18 @@ impl From<&u64> for Number<i64> {
     }
 }
 
+impl From<&u32> for Number<u32> {
+    fn from(value: &u32) -> Self {
+        Self(*value)
+    }
+}
+
+impl From<&u64> for Number<u64> {
+    fn from(value: &u64) -> Self {
+        Self(*value)
+    }
+}
+
 impl<T> Serialize for Number<T>
 where
     T: Serialize + Display,

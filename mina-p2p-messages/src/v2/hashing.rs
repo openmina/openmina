@@ -453,20 +453,8 @@ impl ToInput for MinaStateProtocolStateBodyValueStableV2 {
 }
 
 impl ToInput for MinaBaseProtocolConstantsCheckedValueStableV1 {
-    fn to_input(&self, inputs: &mut Inputs) {
-        let MinaBaseProtocolConstantsCheckedValueStableV1 {
-            k,
-            slots_per_epoch,
-            slots_per_sub_window,
-            delta,
-            genesis_state_timestamp,
-        } = self;
-
-        k.to_input(inputs);
-        delta.to_input(inputs);
-        slots_per_epoch.to_input(inputs);
-        slots_per_sub_window.to_input(inputs);
-        genesis_state_timestamp.to_input(inputs);
+    fn to_input(&self, _inputs: &mut Inputs) {
+        todo!("implement proper hashing")
     }
 }
 
@@ -500,7 +488,7 @@ impl ToInput for ConsensusProofOfStakeDataConsensusStateValueStableV2 {
             sub_window_densities,
             last_vrf_output,
             total_currency,
-            curr_global_slot,
+            curr_global_slot_since_hard_fork,
             global_slot_since_genesis,
             staking_epoch_data,
             next_epoch_data,
@@ -518,7 +506,7 @@ impl ToInput for ConsensusProofOfStakeDataConsensusStateValueStableV2 {
             sub_window_densities,
             last_vrf_output,
             total_currency,
-            curr_global_slot,
+            curr_global_slot_since_hard_fork,
             global_slot_since_genesis,
             has_ancestor_in_same_checkpoint_window,
             supercharge_coinbase,

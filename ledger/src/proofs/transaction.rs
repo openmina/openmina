@@ -1088,7 +1088,7 @@ impl<F: FieldWitness> Check<F> for MinaStateProtocolStateBodyValueStableV2 {
                     sub_window_densities,
                     last_vrf_output: _,
                     total_currency,
-                    curr_global_slot,
+                    curr_global_slot_since_hard_fork,
                     global_slot_since_genesis,
                     staking_epoch_data,
                     next_epoch_data,
@@ -1105,6 +1105,7 @@ impl<F: FieldWitness> Check<F> for MinaStateProtocolStateBodyValueStableV2 {
                     slots_per_sub_window,
                     delta,
                     genesis_state_timestamp,
+                    grace_period_slots: _
                 },
         } = self;
 
@@ -1118,7 +1119,7 @@ impl<F: FieldWitness> Check<F> for MinaStateProtocolStateBodyValueStableV2 {
             sub_window_density.check(w);
         }
         total_currency.check(w);
-        curr_global_slot.check(w);
+        curr_global_slot_since_hard_fork.check(w);
         global_slot_since_genesis.check(w);
         staking_epoch_data.check(w);
         next_epoch_data.check(w);

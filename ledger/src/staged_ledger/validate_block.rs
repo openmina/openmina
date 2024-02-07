@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, VecDeque};
 use itertools::Itertools;
 use mina_p2p_messages::binprot::BinProtWrite;
 use mina_p2p_messages::v2::{
-    Blake2MakeStableV1, ConsensusBodyReferenceStableV1, MinaBlockBlockStableV2,
+    ConsensusBodyReferenceStableV1, MinaBlockBlockStableV2,
     StagedLedgerDiffDiffStableV2,
 };
 
@@ -30,7 +30,7 @@ pub fn block_body_hash(
     let bytes = serialize_with_len_and_tag(body);
     blocks_of_data(MAX_BLOCK_SIZE, &bytes)
         .map(|(_, hash)| hash)
-        .map(|hash| Blake2MakeStableV1(hash.as_slice().into()))
+        .map(|hash| hash.as_slice().into())
         .map(ConsensusBodyReferenceStableV1)
 }
 

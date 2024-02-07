@@ -520,7 +520,7 @@ impl<F: FieldWitness> ToFieldElements<F>
             sub_window_densities,
             last_vrf_output,
             total_currency,
-            curr_global_slot:
+            curr_global_slot_since_hard_fork:
                 v2::ConsensusGlobalSlotStableV1 {
                     slot_number,
                     slots_per_epoch,
@@ -575,6 +575,7 @@ impl<F: FieldWitness> ToFieldElements<F> for v2::MinaBaseProtocolConstantsChecke
             slots_per_sub_window,
             delta,
             genesis_state_timestamp,
+            grace_period_slots: _,
         } = self;
 
         k.as_u32().to_field_elements(fields);

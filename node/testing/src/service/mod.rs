@@ -7,8 +7,9 @@ use std::{collections::BTreeMap, ffi::OsStr, sync::Arc};
 use ledger::dummy::dummy_transaction_proof;
 use ledger::scan_state::scan_state::transaction_snark::SokMessage;
 use ledger::Mask;
+use mina_p2p_messages::string::ByteString;
 use mina_p2p_messages::v2::{
-    CurrencyFeeStableV1, LedgerHash, LedgerProofProdStableV2, MinaBaseZkappAccountZkappUriStableV1,
+    CurrencyFeeStableV1, LedgerHash, LedgerProofProdStableV2,
     MinaStateSnarkedLedgerStateWithSokStableV2, NonZeroCurvePoint,
     SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0Single, TransactionSnarkStableV2,
     TransactionSnarkWorkTStableV2Proofs,
@@ -72,7 +73,7 @@ pub struct NodeTestingService {
     pending_events: PendingRequests<PendingEventIdType, Event>,
     dyn_effects: Option<DynEffects>,
 
-    snarker_sok_digest: Option<MinaBaseZkappAccountZkappUriStableV1>,
+    snarker_sok_digest: Option<ByteString>,
     /// Once dropped, it will cause all threads associated to shutdown.
     _shutdown: mpsc::Receiver<()>,
 }
@@ -130,7 +131,7 @@ impl NodeTestingService {
         self.dyn_effects.take()
     }
 
-    pub fn set_snarker_sok_digest(&mut self, digest: MinaBaseZkappAccountZkappUriStableV1) {
+    pub fn set_snarker_sok_digest(&mut self, digest: ByteString) {
         self.snarker_sok_digest = Some(digest);
     }
 

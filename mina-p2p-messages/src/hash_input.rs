@@ -7,10 +7,7 @@ use mina_hasher::Fp;
 use o1_utils::FieldHelpers;
 
 use crate::{
-    b58::Base58CheckOfBinProt,
-    bigint::BigInt,
-    number::{Int32, Int64, UInt32, UInt64},
-    pseq::PaddedSeq,
+    b58::Base58CheckOfBinProt, bigint::BigInt, number::{Int32, Int64, UInt32, UInt64}, pseq::PaddedSeq, string::ByteString
 };
 
 pub trait ToInput {
@@ -50,6 +47,12 @@ impl ToInput for UInt32 {
 impl ToInput for UInt64 {
     fn to_input(&self, inputs: &mut Inputs) {
         inputs.append_u64(self.as_u64())
+    }
+}
+
+impl ToInput for ByteString {
+    fn to_input(&self, inputs: &mut Inputs) {
+        inputs.append_bytes(self.as_ref())
     }
 }
 
