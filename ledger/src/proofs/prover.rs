@@ -140,7 +140,7 @@ pub fn make_padded_proof_from_p2p(
     // https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/pickles/verify.ml#L361C1-L364C51
     while challenge_polynomial_commitments.len() < 2 {
         let padding = get_challenge_polynomial_commitments_padding();
-        challenge_polynomial_commitments.to_mut().insert(0, padding);
+        challenge_polynomial_commitments.to_mut().push_front(padding);
     }
 
     let challenge_polynomial_commitments: Vec<PolyComm<Pallas>> = challenge_polynomial_commitments

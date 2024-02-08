@@ -1,6 +1,8 @@
-use std::ops::{Deref, DerefMut};
+use std::{collections::LinkedList, ops::{Deref, DerefMut}};
 
 use binprot::{BinProtRead, BinProtWrite, Nat0};
+
+pub type Backend<T> = LinkedList<T>;
 
 /// Represents OCaml list type.
 #[derive(
@@ -16,40 +18,40 @@ use binprot::{BinProtRead, BinProtWrite, Nat0};
     derive_more::From,
     derive_more::Into,
 )]
-pub struct List<T>(Vec<T>);
+pub struct List<T>(Backend<T>);
 
 impl<T> List<T> {
     pub fn new() -> Self {
-        List(Vec::new())
+        List(Backend::new())
     }
 
-    pub fn iter(&self) -> <&Vec<T> as IntoIterator>::IntoIter {
+    pub fn iter(&self) -> <&Backend<T> as IntoIterator>::IntoIter {
         (self).into_iter()
     }
 
-    pub fn insert(&mut self, index: usize, element: T) {
-        self.0.insert(index, element)
+    pub fn push_front(&mut self, element: T) {
+        self.0.push_front(element)
     }
 }
 
 impl<T> Deref for List<T> {
-    type Target = [T];
+    type Target = Backend<T>;
 
     fn deref(&self) -> &Self::Target {
-        self.0.as_slice()
+        &self.0
     }
 }
 
 impl<T> DerefMut for List<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        self.0.as_mut_slice()
+        &mut self.0
     }
 }
 
 impl<T> IntoIterator for List<T> {
     type Item = T;
 
-    type IntoIter = <Vec<T> as IntoIterator>::IntoIter;
+    type IntoIter = <Backend<T> as IntoIterator>::IntoIter;
 
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()
@@ -59,7 +61,7 @@ impl<T> IntoIterator for List<T> {
 impl<'a, T> IntoIterator for &'a List<T> {
     type Item = &'a T;
 
-    type IntoIter = <&'a Vec<T> as IntoIterator>::IntoIter;
+    type IntoIter = <&'a Backend<T> as IntoIterator>::IntoIter;
 
     fn into_iter(self) -> Self::IntoIter {
         (&self.0).into_iter()
@@ -68,7 +70,7 @@ impl<'a, T> IntoIterator for &'a List<T> {
 
 impl<T> FromIterator<T> for List<T> {
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
-        List(Vec::from_iter(iter))
+        List(Backend::from_iter(iter))
     }
 }
 
@@ -78,10 +80,10 @@ where
 {
     fn binprot_read<R: std::io::prelude::Read + ?Sized>(r: &mut R) -> Result<Self, binprot::Error> {
         let Nat0(len) = Nat0::binprot_read(r)?;
-        let mut v: Vec<T> = Vec::new();
+        let mut v: Backend<T> = Backend::new();
         for _i in 0..len {
             let item = T::binprot_read(r)?;
-            v.push(item)
+            v.push_back(item)
         }
         Ok(List(v))
     }

@@ -17,22 +17,33 @@ use super::{
     witness::Witness,
 };
 
-pub fn extract_polynomial_commitment<F: FieldWitness>(
-    curves: &[(BigInt, BigInt)],
+pub fn extract_polynomial_commitment<
+    'a,
+    F: FieldWitness,
+    I: IntoIterator<Item = &'a (BigInt, BigInt)>,
+>(
+    curves: I,
 ) -> Vec<InnerCurve<F>> {
     curves
-        .iter()
+        .into_iter()
         .map(|curve| InnerCurve::from((curve.0.to_field::<F>(), curve.1.to_field())))
         .collect()
 }
 
-pub fn extract_bulletproof<F: FieldWitness, const N: usize>(
-    v: &[PaddedSeq<
-        PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A,
-        N,
-    >],
+pub fn extract_bulletproof<
+    'a,
+    F: FieldWitness,
+    I: IntoIterator<
+        Item = &'a PaddedSeq<
+            PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A,
+            N,
+        >,
+    >,
+    const N: usize,
+>(
+    v: I,
 ) -> Vec<[F; N]> {
-    v.iter()
+    v.into_iter()
         .map(|old| {
             array::from_fn(|j| {
                 let prechallenge = &old[j].prechallenge.inner;
@@ -417,7 +428,7 @@ pub fn to_absorption_sequence2<F: FieldWitness>(
             lookup_aggregation,
             lookup_table,
         ]
-        .iter()
+        .into_iter()
         .filter_map(|v| v.as_ref()),
     );
 
@@ -432,7 +443,7 @@ pub fn to_absorption_sequence2<F: FieldWitness>(
             range_check_lookup_selector,
             foreign_field_mul_lookup_selector,
         ]
-        .iter()
+        .into_iter()
         .filter_map(|v| v.as_ref()),
     );
 

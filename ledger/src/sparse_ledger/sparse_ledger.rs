@@ -381,7 +381,7 @@ impl From<&SparseLedger> for mina_p2p_messages::v2::MinaBaseSparseLedgerBaseStab
         let depth: u64 = value.depth.try_into().unwrap();
 
         Self {
-            indexes: indexes.into(),
+            indexes: indexes.into_iter().collect(),
             depth: depth.into(),
             tree,
         }
