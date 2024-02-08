@@ -32,6 +32,8 @@ use crate::{
 
 use super::common::*;
 
+const CURRENT_TRANSACTION: u32 = 2;
+
 #[derive(Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TokenId(pub Fp);
 
@@ -222,7 +224,7 @@ impl Permissions<AuthRequired> {
             receive: None,
             set_delegate: Signature,
             set_permissions: Signature,
-            set_verification_key: (Signature, 0),
+            set_verification_key: (Signature, CURRENT_TRANSACTION),
             set_zkapp_uri: Signature,
             edit_action_state: Signature,
             set_token_symbol: Signature,
@@ -242,7 +244,7 @@ impl Permissions<AuthRequired> {
             access: None,
             set_delegate: None,
             set_permissions: None,
-            set_verification_key: (None, 0),
+            set_verification_key: (None, CURRENT_TRANSACTION),
             set_zkapp_uri: None,
             edit_action_state: None,
             set_token_symbol: None,
@@ -268,7 +270,7 @@ impl Permissions<AuthRequired> {
             receive: auth_required_gen(&mut rng),
             set_delegate: auth_required_gen(&mut rng),
             set_permissions: auth_required_gen(&mut rng),
-            set_verification_key: (auth_required_gen(&mut rng), 0),
+            set_verification_key: (auth_required_gen(&mut rng), CURRENT_TRANSACTION),
             set_zkapp_uri: auth_required_gen(&mut rng),
             edit_action_state: auth_required_gen(&mut rng),
             set_token_symbol: auth_required_gen(&mut rng),
