@@ -2,7 +2,7 @@ use binprot_derive::{BinProtRead, BinProtWrite};
 use derive_more::Deref;
 use serde::{Deserialize, Serialize};
 
-use crate::pseq::PaddedSeq;
+use crate::{array::ArrayN16, pseq::PaddedSeq};
 
 use super::manual::*;
 
@@ -410,7 +410,7 @@ pub struct PicklesProofProofsVerified2ReprStableV2PrevEvals {
 /// Args: (crate :: bigint :: BigInt , crate :: bigint :: BigInt ,) , crate :: bigint :: BigInt
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct PicklesWrapWireProofStableV1Bulletproof {
-    pub lr: Vec<(
+    pub lr: ArrayN16<(
         (crate::bigint::BigInt, crate::bigint::BigInt),
         (crate::bigint::BigInt, crate::bigint::BigInt),
     )>,
@@ -1745,7 +1745,7 @@ pub struct MinaBaseAccountUpdatePreconditionsStableV1 {
 /// Location: [src/list0.ml:6:0](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/list0.ml#L6)
 /// Args: Vec < crate :: bigint :: BigInt >
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref)]
-pub struct MinaBaseAccountUpdateBodyEventsStableV1(pub Vec<Vec<crate::bigint::BigInt>>);
+pub struct MinaBaseAccountUpdateBodyEventsStableV1(pub Vec<ArrayN16<crate::bigint::BigInt>>);
 
 /// **OCaml name**: `Mina_base__Account_update.Body.Stable.V1`
 ///

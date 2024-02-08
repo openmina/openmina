@@ -12,6 +12,7 @@ pub mod phantom;
 pub mod rpc;
 pub mod rpc_kernel;
 pub mod string;
+pub mod array;
 pub mod utils;
 #[macro_use]
 pub mod versioned;

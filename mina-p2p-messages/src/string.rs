@@ -1,6 +1,8 @@
 use binprot::Nat0;
 use serde::{de::Visitor, Deserialize, Serialize};
 
+const MINA_STRING_MAX_LENGTH: usize = 100_000_000;
+
 /// String of bytes.
 #[derive(Clone, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ByteString(Vec<u8>);
@@ -109,8 +111,11 @@ impl binprot::BinProtRead for ByteString {
     where
         Self: Sized,
     {
-        let len = Nat0::binprot_read(r)?;
-        let mut buf: Vec<u8> = vec![0u8; len.0 as usize];
+        let len = Nat0::binprot_read(r)?.0 as usize;
+        if len > MINA_STRING_MAX_LENGTH {
+            return Err(MinaStringTooLong::as_binprot_err(len));
+        }
+        let mut buf: Vec<u8> = vec![0u8; len];
         r.read_exact(&mut buf)?;
         Ok(Self(buf))
     }
@@ -118,6 +123,9 @@ impl binprot::BinProtRead for ByteString {
 
 impl binprot::BinProtWrite for ByteString {
     fn binprot_write<W: std::io::Write>(&self, w: &mut W) -> std::io::Result<()> {
+        if self.0.len() > MINA_STRING_MAX_LENGTH {
+            return Err(MinaStringTooLong::as_io_err(self.0.len()));
+        }
         let _ = Nat0(self.0.len() as u64).binprot_write(w)?;
         let _ = w.write_all(&self.0)?;
         Ok(())
@@ -235,8 +243,11 @@ impl binprot::BinProtRead for CharString {
     where
         Self: Sized,
     {
-        let len = Nat0::binprot_read(r)?;
-        let mut buf: Vec<u8> = vec![0u8; len.0 as usize];
+        let len = Nat0::binprot_read(r)?.0 as usize;
+        if len > MINA_STRING_MAX_LENGTH {
+            return Err(MinaStringTooLong::as_binprot_err(len));
+        }
+        let mut buf: Vec<u8> = vec![0u8; len];
         r.read_exact(&mut buf)?;
         Ok(Self(buf))
     }
@@ -244,8 +255,100 @@ impl binprot::BinProtRead for CharString {
 
 impl binprot::BinProtWrite for CharString {
     fn binprot_write<W: std::io::Write>(&self, w: &mut W) -> std::io::Result<()> {
+        if self.0.len() > MINA_STRING_MAX_LENGTH {
+            return Err(MinaStringTooLong::as_io_err(self.0.len()));
+        }
         let _ = Nat0(self.0.len() as u64).binprot_write(w)?;
         let _ = w.write_all(&self.0)?;
         Ok(())
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+#[error("String length `{actual}` is greater than maximum `{max}`")]
+pub struct MinaStringTooLong {
+    max: usize,
+    actual: usize,
+}
+
+impl MinaStringTooLong {
+    fn boxed(actual: usize) -> Box<Self> {
+        Box::new(MinaStringTooLong {
+            max: MINA_STRING_MAX_LENGTH,
+            actual,
+        })
+    }
+
+    fn as_io_err(actual: usize) -> std::io::Error {
+        std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            MinaStringTooLong::boxed(actual),
+        )
+    }
+
+    fn as_binprot_err(actual: usize) -> binprot::Error {
+        binprot::Error::CustomError(MinaStringTooLong::boxed(actual))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io::Cursor;
+
+    use binprot::{BinProtRead, BinProtWrite, Nat0};
+
+    use crate::string::CharString;
+
+    use super::{ByteString, MINA_STRING_MAX_LENGTH};
+
+    #[test]
+    fn bounded_string_binprot_write() {
+        let bs = ByteString::from(vec![0; MINA_STRING_MAX_LENGTH]);
+        let mut out = Vec::new();
+        let res = bs.binprot_write(&mut out);
+        assert!(res.is_ok());
+
+        let bs = CharString::from(vec![0; MINA_STRING_MAX_LENGTH]);
+        let mut out = Vec::new();
+        let res = bs.binprot_write(&mut out);
+        assert!(res.is_ok());
+
+        let bs = ByteString::from(vec![0; MINA_STRING_MAX_LENGTH + 1]);
+        let mut out = Vec::new();
+        let res = bs.binprot_write(&mut out);
+        assert!(res.is_err());
+
+        let bs = CharString::from(vec![0; MINA_STRING_MAX_LENGTH + 1]);
+        let mut out = Vec::new();
+        let res = bs.binprot_write(&mut out);
+        assert!(res.is_err());
+    }
+
+    #[test]
+    fn bounded_string_binprot_read() {
+        fn input(len: usize) -> Cursor<Vec<u8>> {
+            let mut input = Vec::new();
+            // prepare input
+            Nat0(len as u64).binprot_write(&mut input).unwrap();
+            vec![0; len].binprot_write(&mut input).unwrap();
+            Cursor::new(input)
+        }
+
+        let mut inp = input(MINA_STRING_MAX_LENGTH);
+        let res = ByteString::binprot_read(&mut inp);
+        assert!(res.is_ok());
+
+        let mut inp = input(MINA_STRING_MAX_LENGTH);
+        let res = CharString::binprot_read(&mut inp);
+        assert!(res.is_ok());
+
+        let mut inp = input(MINA_STRING_MAX_LENGTH + 1);
+        let res = ByteString::binprot_read(&mut inp);
+        assert!(res.is_err());
+
+        let mut inp = input(MINA_STRING_MAX_LENGTH + 1);
+        let res = CharString::binprot_read(&mut inp);
+        assert!(res.is_err());
+
     }
 }
