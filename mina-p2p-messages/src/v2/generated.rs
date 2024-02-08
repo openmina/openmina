@@ -2,9 +2,10 @@ use binprot_derive::{BinProtRead, BinProtWrite};
 use derive_more::Deref;
 use serde::{Deserialize, Serialize};
 
-use crate::{array::ArrayN16, pseq::PaddedSeq};
+use crate::{array::ArrayN16, list::List, pseq::PaddedSeq};
 
 use super::manual::*;
+
 
 /// **OCaml name**: `Mina_block__Block.Stable.V2`
 ///
@@ -31,7 +32,7 @@ pub struct MinaBlockBlockStableV2 {
 /// Location: [src/list0.ml:6:0](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/list0.ml#L6)
 /// Args: MinaBaseUserCommandStableV2
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref)]
-pub struct NetworkPoolTransactionPoolDiffVersionedStableV2(pub Vec<MinaBaseUserCommandStableV2>);
+pub struct NetworkPoolTransactionPoolDiffVersionedStableV2(pub List<MinaBaseUserCommandStableV2>);
 
 /// **OCaml name**: `Network_pool__Snark_pool.Diff_versioned.Stable.V2`
 ///
@@ -59,7 +60,7 @@ pub enum NetworkPoolSnarkPoolDiffVersionedStableV2 {
 /// Args: LedgerHash , MinaBaseAccountIdStableV2 , MinaBaseAccountBinableArgStableV2
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaBaseSparseLedgerBaseStableV2 {
-    pub indexes: Vec<(MinaBaseAccountIdStableV2, crate::number::UInt64)>,
+    pub indexes: List<(MinaBaseAccountIdStableV2, crate::number::UInt64)>,
     pub depth: crate::number::UInt64,
     pub tree: MinaBaseSparseLedgerBaseStableV2Tree,
 }
@@ -107,7 +108,7 @@ pub struct NetworkPeerPeerStableV1 {
 pub struct TransactionSnarkScanStateStableV2 {
     pub scan_state: TransactionSnarkScanStateStableV2ScanState,
     pub previous_incomplete_zkapp_updates: (
-        Vec<TransactionSnarkScanStateTransactionWithWitnessStableV2>,
+        List<TransactionSnarkScanStateTransactionWithWitnessStableV2>,
         TransactionSnarkScanStateStableV2PreviousIncompleteZkappUpdates1,
     ),
 }
@@ -124,7 +125,7 @@ pub struct TransactionSnarkScanStateStableV2 {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaBasePendingCoinbaseStableV2 {
     pub tree: MinaBasePendingCoinbaseMerkleTreeVersionedStableV2,
-    pub pos_list: Vec<MinaBasePendingCoinbaseStackIdStableV1>,
+    pub pos_list: List<MinaBasePendingCoinbaseStackIdStableV1>,
     pub new_pos: MinaBasePendingCoinbaseStackIdStableV1,
 }
 
@@ -171,7 +172,7 @@ pub enum MinaLedgerSyncLedgerQueryStableV1 {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub enum MinaLedgerSyncLedgerAnswerStableV2 {
     ChildHashesAre(LedgerHash, LedgerHash),
-    ContentsAre(Vec<MinaBaseAccountBinableArgStableV2>),
+    ContentsAre(List<MinaBaseAccountBinableArgStableV2>),
     NumAccounts(crate::number::UInt64, LedgerHash),
 }
 
@@ -189,7 +190,7 @@ pub struct ConsensusProofOfStakeDataConsensusStateValueStableV2 {
     pub blockchain_length: UnsignedExtendedUInt32StableV1,
     pub epoch_count: UnsignedExtendedUInt32StableV1,
     pub min_window_density: UnsignedExtendedUInt32StableV1,
-    pub sub_window_densities: Vec<UnsignedExtendedUInt32StableV1>,
+    pub sub_window_densities: List<UnsignedExtendedUInt32StableV1>,
     pub last_vrf_output: ConsensusVrfOutputTruncatedStableV1,
     pub total_currency: CurrencyAmountStableV1,
     pub curr_global_slot_since_hard_fork: ConsensusGlobalSlotStableV1,
@@ -344,48 +345,128 @@ pub struct PicklesProofProofsVerified2ReprStableV2StatementProofStateDeferredVal
 ///
 /// Gid: `465`
 /// Location: [src/lib/pickles_types/plonk_types.ml:363:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/pickles_types/plonk_types.ml#L363)
-/// Args: (Vec < crate :: bigint :: BigInt > , Vec < crate :: bigint :: BigInt > ,)
+/// Args: (ArrayN16 < crate :: bigint :: BigInt > , ArrayN16 < crate :: bigint :: BigInt > ,)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct PicklesProofProofsVerified2ReprStableV2PrevEvalsEvalsEvals {
-    pub w: PaddedSeq<(Vec<crate::bigint::BigInt>, Vec<crate::bigint::BigInt>), 15>,
-    pub coefficients: PaddedSeq<(Vec<crate::bigint::BigInt>, Vec<crate::bigint::BigInt>), 15>,
-    pub z: (Vec<crate::bigint::BigInt>, Vec<crate::bigint::BigInt>),
-    pub s: PaddedSeq<(Vec<crate::bigint::BigInt>, Vec<crate::bigint::BigInt>), 6>,
-    pub generic_selector: (Vec<crate::bigint::BigInt>, Vec<crate::bigint::BigInt>),
-    pub poseidon_selector: (Vec<crate::bigint::BigInt>, Vec<crate::bigint::BigInt>),
-    pub complete_add_selector: (Vec<crate::bigint::BigInt>, Vec<crate::bigint::BigInt>),
-    pub mul_selector: (Vec<crate::bigint::BigInt>, Vec<crate::bigint::BigInt>),
-    pub emul_selector: (Vec<crate::bigint::BigInt>, Vec<crate::bigint::BigInt>),
-    pub endomul_scalar_selector: (Vec<crate::bigint::BigInt>, Vec<crate::bigint::BigInt>),
-    pub range_check0_selector: Option<(Vec<crate::bigint::BigInt>, Vec<crate::bigint::BigInt>)>,
-    pub range_check1_selector: Option<(Vec<crate::bigint::BigInt>, Vec<crate::bigint::BigInt>)>,
-    pub foreign_field_add_selector:
-        Option<(Vec<crate::bigint::BigInt>, Vec<crate::bigint::BigInt>)>,
-    pub foreign_field_mul_selector:
-        Option<(Vec<crate::bigint::BigInt>, Vec<crate::bigint::BigInt>)>,
-    pub xor_selector: Option<(Vec<crate::bigint::BigInt>, Vec<crate::bigint::BigInt>)>,
-    pub rot_selector: Option<(Vec<crate::bigint::BigInt>, Vec<crate::bigint::BigInt>)>,
-    pub lookup_aggregation: Option<(Vec<crate::bigint::BigInt>, Vec<crate::bigint::BigInt>)>,
-    pub lookup_table: Option<(Vec<crate::bigint::BigInt>, Vec<crate::bigint::BigInt>)>,
-    pub lookup_sorted:
-        PaddedSeq<Option<(Vec<crate::bigint::BigInt>, Vec<crate::bigint::BigInt>)>, 5>,
-    pub runtime_lookup_table: Option<(Vec<crate::bigint::BigInt>, Vec<crate::bigint::BigInt>)>,
-    pub runtime_lookup_table_selector:
-        Option<(Vec<crate::bigint::BigInt>, Vec<crate::bigint::BigInt>)>,
-    pub xor_lookup_selector: Option<(Vec<crate::bigint::BigInt>, Vec<crate::bigint::BigInt>)>,
-    pub lookup_gate_lookup_selector:
-        Option<(Vec<crate::bigint::BigInt>, Vec<crate::bigint::BigInt>)>,
-    pub range_check_lookup_selector:
-        Option<(Vec<crate::bigint::BigInt>, Vec<crate::bigint::BigInt>)>,
-    pub foreign_field_mul_lookup_selector:
-        Option<(Vec<crate::bigint::BigInt>, Vec<crate::bigint::BigInt>)>,
+    pub w: PaddedSeq<
+        (
+            ArrayN16<crate::bigint::BigInt>,
+            ArrayN16<crate::bigint::BigInt>,
+        ),
+        15,
+    >,
+    pub coefficients: PaddedSeq<
+        (
+            ArrayN16<crate::bigint::BigInt>,
+            ArrayN16<crate::bigint::BigInt>,
+        ),
+        15,
+    >,
+    pub z: (
+        ArrayN16<crate::bigint::BigInt>,
+        ArrayN16<crate::bigint::BigInt>,
+    ),
+    pub s: PaddedSeq<
+        (
+            ArrayN16<crate::bigint::BigInt>,
+            ArrayN16<crate::bigint::BigInt>,
+        ),
+        6,
+    >,
+    pub generic_selector: (
+        ArrayN16<crate::bigint::BigInt>,
+        ArrayN16<crate::bigint::BigInt>,
+    ),
+    pub poseidon_selector: (
+        ArrayN16<crate::bigint::BigInt>,
+        ArrayN16<crate::bigint::BigInt>,
+    ),
+    pub complete_add_selector: (
+        ArrayN16<crate::bigint::BigInt>,
+        ArrayN16<crate::bigint::BigInt>,
+    ),
+    pub mul_selector: (
+        ArrayN16<crate::bigint::BigInt>,
+        ArrayN16<crate::bigint::BigInt>,
+    ),
+    pub emul_selector: (
+        ArrayN16<crate::bigint::BigInt>,
+        ArrayN16<crate::bigint::BigInt>,
+    ),
+    pub endomul_scalar_selector: (
+        ArrayN16<crate::bigint::BigInt>,
+        ArrayN16<crate::bigint::BigInt>,
+    ),
+    pub range_check0_selector: Option<(
+        ArrayN16<crate::bigint::BigInt>,
+        ArrayN16<crate::bigint::BigInt>,
+    )>,
+    pub range_check1_selector: Option<(
+        ArrayN16<crate::bigint::BigInt>,
+        ArrayN16<crate::bigint::BigInt>,
+    )>,
+    pub foreign_field_add_selector: Option<(
+        ArrayN16<crate::bigint::BigInt>,
+        ArrayN16<crate::bigint::BigInt>,
+    )>,
+    pub foreign_field_mul_selector: Option<(
+        ArrayN16<crate::bigint::BigInt>,
+        ArrayN16<crate::bigint::BigInt>,
+    )>,
+    pub xor_selector: Option<(
+        ArrayN16<crate::bigint::BigInt>,
+        ArrayN16<crate::bigint::BigInt>,
+    )>,
+    pub rot_selector: Option<(
+        ArrayN16<crate::bigint::BigInt>,
+        ArrayN16<crate::bigint::BigInt>,
+    )>,
+    pub lookup_aggregation: Option<(
+        ArrayN16<crate::bigint::BigInt>,
+        ArrayN16<crate::bigint::BigInt>,
+    )>,
+    pub lookup_table: Option<(
+        ArrayN16<crate::bigint::BigInt>,
+        ArrayN16<crate::bigint::BigInt>,
+    )>,
+    pub lookup_sorted: PaddedSeq<
+        Option<(
+            ArrayN16<crate::bigint::BigInt>,
+            ArrayN16<crate::bigint::BigInt>,
+        )>,
+        5,
+    >,
+    pub runtime_lookup_table: Option<(
+        ArrayN16<crate::bigint::BigInt>,
+        ArrayN16<crate::bigint::BigInt>,
+    )>,
+    pub runtime_lookup_table_selector: Option<(
+        ArrayN16<crate::bigint::BigInt>,
+        ArrayN16<crate::bigint::BigInt>,
+    )>,
+    pub xor_lookup_selector: Option<(
+        ArrayN16<crate::bigint::BigInt>,
+        ArrayN16<crate::bigint::BigInt>,
+    )>,
+    pub lookup_gate_lookup_selector: Option<(
+        ArrayN16<crate::bigint::BigInt>,
+        ArrayN16<crate::bigint::BigInt>,
+    )>,
+    pub range_check_lookup_selector: Option<(
+        ArrayN16<crate::bigint::BigInt>,
+        ArrayN16<crate::bigint::BigInt>,
+    )>,
+    pub foreign_field_mul_lookup_selector: Option<(
+        ArrayN16<crate::bigint::BigInt>,
+        ArrayN16<crate::bigint::BigInt>,
+    )>,
 }
 
 /// Derived name: `Pickles__Proof.Proofs_verified_2.Repr.Stable.V2.prev_evals.evals`
 ///
 /// Gid: `466`
 /// Location: [src/lib/pickles_types/plonk_types.ml:1057:8](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/pickles_types/plonk_types.ml#L1057)
-/// Args: (crate :: bigint :: BigInt , crate :: bigint :: BigInt ,) , (Vec < crate :: bigint :: BigInt > , Vec < crate :: bigint :: BigInt > ,)
+/// Args: (crate :: bigint :: BigInt , crate :: bigint :: BigInt ,) , (ArrayN16 < crate :: bigint :: BigInt > , ArrayN16 < crate :: bigint :: BigInt > ,)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct PicklesProofProofsVerified2ReprStableV2PrevEvalsEvals {
     pub public_input: (crate::bigint::BigInt, crate::bigint::BigInt),
@@ -396,7 +477,7 @@ pub struct PicklesProofProofsVerified2ReprStableV2PrevEvalsEvals {
 ///
 /// Gid: `467`
 /// Location: [src/lib/pickles_types/plonk_types.ml:1092:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/pickles_types/plonk_types.ml#L1092)
-/// Args: crate :: bigint :: BigInt , Vec < crate :: bigint :: BigInt >
+/// Args: crate :: bigint :: BigInt , ArrayN16 < crate :: bigint :: BigInt >
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct PicklesProofProofsVerified2ReprStableV2PrevEvals {
     pub evals: PicklesProofProofsVerified2ReprStableV2PrevEvalsEvals,
@@ -691,12 +772,12 @@ pub struct PicklesWrapWireProofStableV1 {
 ///
 /// Gid: `542`
 /// Location: [src/lib/pickles/reduced_messages_for_next_proof_over_same_field.ml:16:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/pickles/reduced_messages_for_next_proof_over_same_field.ml#L16)
-/// Args: () , Vec < (crate :: bigint :: BigInt , crate :: bigint :: BigInt ,) > , Vec < PaddedSeq < PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , 16 > >
+/// Args: () , List < (crate :: bigint :: BigInt , crate :: bigint :: BigInt ,) > , List < PaddedSeq < PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A , 16 > >
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct PicklesProofProofsVerified2ReprStableV2MessagesForNextStepProof {
     pub app_state: (),
-    pub challenge_polynomial_commitments: Vec<(crate::bigint::BigInt, crate::bigint::BigInt)>,
-    pub old_bulletproof_challenges: Vec<
+    pub challenge_polynomial_commitments: List<(crate::bigint::BigInt, crate::bigint::BigInt)>,
+    pub old_bulletproof_challenges: List<
         PaddedSeq<PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A, 16>,
     >,
 }
@@ -1167,15 +1248,15 @@ pub enum MinaBaseTransactionStatusFailureStableV2 {
 ///
 /// Gid: `167`
 /// Location: [src/std_internal.ml:131:2](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/std_internal.ml#L131)
-/// Args: Vec < MinaBaseTransactionStatusFailureStableV2 >
+/// Args: List < MinaBaseTransactionStatusFailureStableV2 >
 ///
 ///
 /// Gid: `50`
 /// Location: [src/list0.ml:6:0](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/list0.ml#L6)
-/// Args: Vec < MinaBaseTransactionStatusFailureStableV2 >
+/// Args: List < MinaBaseTransactionStatusFailureStableV2 >
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref)]
 pub struct MinaBaseTransactionStatusFailureCollectionStableV1(
-    pub Vec<Vec<MinaBaseTransactionStatusFailureStableV2>>,
+    pub List<List<MinaBaseTransactionStatusFailureStableV2>>,
 );
 
 /// **OCaml name**: `Mina_base__Transaction_status.Stable.V2`
@@ -1738,14 +1819,14 @@ pub struct MinaBaseAccountUpdatePreconditionsStableV1 {
 ///
 /// Gid: `167`
 /// Location: [src/std_internal.ml:131:2](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/std_internal.ml#L131)
-/// Args: Vec < crate :: bigint :: BigInt >
+/// Args: ArrayN16 < crate :: bigint :: BigInt >
 ///
 ///
 /// Gid: `50`
 /// Location: [src/list0.ml:6:0](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/list0.ml#L6)
-/// Args: Vec < crate :: bigint :: BigInt >
+/// Args: ArrayN16 < crate :: bigint :: BigInt >
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref)]
-pub struct MinaBaseAccountUpdateBodyEventsStableV1(pub Vec<ArrayN16<crate::bigint::BigInt>>);
+pub struct MinaBaseAccountUpdateBodyEventsStableV1(pub List<ArrayN16<crate::bigint::BigInt>>);
 
 /// **OCaml name**: `Mina_base__Account_update.Body.Stable.V1`
 ///
@@ -1886,7 +1967,7 @@ pub struct MinaTransactionLogicTransactionAppliedZkappCommandAppliedStableV1Comm
 pub struct MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAA {
     pub account_update: MinaBaseAccountUpdateTStableV1,
     pub account_update_digest: (),
-    pub calls: Vec<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAACallsA>,
+    pub calls: List<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAACallsA>,
 }
 
 /// **OCaml name**: `Mina_base__Zkapp_command.T.Stable.V1.Wire.Stable.V1`
@@ -1896,7 +1977,7 @@ pub struct MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAA {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaBaseZkappCommandTStableV1WireStableV1 {
     pub fee_payer: MinaBaseAccountUpdateFeePayerStableV1,
-    pub account_updates: Vec<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA>,
+    pub account_updates: List<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA>,
     pub memo: MinaBaseSignedCommandMemoStableV1,
 }
 
@@ -2085,7 +2166,7 @@ pub struct MinaBasePendingCoinbaseHashVersionedStableV1(
 /// Args: PendingCoinbaseHash , MinaBasePendingCoinbaseStackIdStableV1 , MinaBasePendingCoinbaseStackVersionedStableV1
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaBasePendingCoinbaseMerkleTreeVersionedStableV2 {
-    pub indexes: Vec<(
+    pub indexes: List<(
         MinaBasePendingCoinbaseStackIdStableV1,
         crate::number::UInt64,
     )>,
@@ -2267,7 +2348,7 @@ pub struct MinaTransactionLogicTransactionAppliedSignedCommandAppliedCommonStabl
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub enum MinaTransactionLogicTransactionAppliedSignedCommandAppliedBodyStableV2 {
     Payment {
-        new_accounts: Vec<MinaBaseAccountIdStableV2>,
+        new_accounts: List<MinaBaseAccountIdStableV2>,
     },
     StakeDelegation {
         previous_delegate: Option<NonZeroCurvePoint>,
@@ -2291,12 +2372,12 @@ pub struct MinaTransactionLogicTransactionAppliedSignedCommandAppliedStableV2 {
 /// Location: [src/lib/transaction_logic/mina_transaction_logic.ml:65:8](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/transaction_logic/mina_transaction_logic.ml#L65)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaTransactionLogicTransactionAppliedZkappCommandAppliedStableV1 {
-    pub accounts: Vec<(
+    pub accounts: List<(
         MinaBaseAccountIdStableV2,
         Option<MinaBaseAccountBinableArgStableV2>,
     )>,
     pub command: MinaTransactionLogicTransactionAppliedZkappCommandAppliedStableV1Command,
-    pub new_accounts: Vec<MinaBaseAccountIdStableV2>,
+    pub new_accounts: List<MinaBaseAccountIdStableV2>,
 }
 
 /// **OCaml name**: `Mina_transaction_logic.Transaction_applied.Command_applied.Stable.V2`
@@ -2316,7 +2397,7 @@ pub enum MinaTransactionLogicTransactionAppliedCommandAppliedStableV2 {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaTransactionLogicTransactionAppliedFeeTransferAppliedStableV2 {
     pub fee_transfer: MinaTransactionLogicTransactionAppliedFeeTransferAppliedStableV2FeeTransfer,
-    pub new_accounts: Vec<MinaBaseAccountIdStableV2>,
+    pub new_accounts: List<MinaBaseAccountIdStableV2>,
     pub burned_tokens: CurrencyAmountStableV1,
 }
 
@@ -2327,7 +2408,7 @@ pub struct MinaTransactionLogicTransactionAppliedFeeTransferAppliedStableV2 {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct MinaTransactionLogicTransactionAppliedCoinbaseAppliedStableV2 {
     pub coinbase: MinaTransactionLogicTransactionAppliedCoinbaseAppliedStableV2Coinbase,
-    pub new_accounts: Vec<MinaBaseAccountIdStableV2>,
+    pub new_accounts: List<MinaBaseAccountIdStableV2>,
     pub burned_tokens: CurrencyAmountStableV1,
 }
 
@@ -2674,10 +2755,10 @@ pub struct StagedLedgerDiffDiffFtStableV1(pub MinaBaseCoinbaseFeeTransferStableV
 /// Args: TransactionSnarkWorkTStableV2 , StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2B
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2 {
-    pub completed_works: Vec<TransactionSnarkWorkTStableV2>,
-    pub commands: Vec<StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2B>,
+    pub completed_works: List<TransactionSnarkWorkTStableV2>,
+    pub commands: List<StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2B>,
     pub coinbase: StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2Coinbase,
-    pub internal_command_statuses: Vec<MinaBaseTransactionStatusStableV2>,
+    pub internal_command_statuses: List<MinaBaseTransactionStatusStableV2>,
 }
 
 /// **OCaml name**: `Staged_ledger_diff__Diff.Make_str.Pre_diff_with_at_most_one_coinbase.Stable.V2`
@@ -2691,10 +2772,10 @@ pub struct StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2 {
 /// Args: TransactionSnarkWorkTStableV2 , StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2B
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
 pub struct StagedLedgerDiffDiffPreDiffWithAtMostOneCoinbaseStableV2 {
-    pub completed_works: Vec<TransactionSnarkWorkTStableV2>,
-    pub commands: Vec<StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2B>,
+    pub completed_works: List<TransactionSnarkWorkTStableV2>,
+    pub commands: List<StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2B>,
     pub coinbase: StagedLedgerDiffDiffPreDiffWithAtMostOneCoinbaseStableV2Coinbase,
-    pub internal_command_statuses: Vec<MinaBaseTransactionStatusStableV2>,
+    pub internal_command_statuses: List<MinaBaseTransactionStatusStableV2>,
 }
 
 /// **OCaml name**: `Staged_ledger_diff__Diff.Make_str.Diff.Stable.V2`
@@ -2848,11 +2929,11 @@ pub enum TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1 {
 pub struct TransactionSnarkScanStateStableV2ScanState {
     pub trees: (
         TransactionSnarkScanStateStableV2ScanStateTreesA,
-        Vec<TransactionSnarkScanStateStableV2ScanStateTreesA>,
+        List<TransactionSnarkScanStateStableV2ScanStateTreesA>,
     ),
     pub acc: Option<(
         TransactionSnarkScanStateLedgerProofWithSokMessageStableV2,
-        Vec<TransactionSnarkScanStateTransactionWithWitnessStableV2>,
+        List<TransactionSnarkScanStateTransactionWithWitnessStableV2>,
     )>,
     pub curr_job_seq_no: crate::number::UInt64,
     pub max_base_jobs: crate::number::UInt64,
@@ -2892,7 +2973,7 @@ pub struct TransactionSnarkScanStateLedgerProofWithSokMessageStableV2(
 pub struct MinaBlockHeaderStableV2 {
     pub protocol_state: MinaStateProtocolStateValueStableV2,
     pub protocol_state_proof: MinaBaseProofStableV2,
-    pub delta_block_chain_proof: (StateHash, Vec<StateBodyHash>),
+    pub delta_block_chain_proof: (StateHash, List<StateBodyHash>),
     pub current_protocol_version: ProtocolVersionStableV2,
     pub proposed_protocol_version_opt: Option<ProtocolVersionStableV2>,
 }

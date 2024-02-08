@@ -7,7 +7,7 @@ use mina_hasher::Fp;
 use o1_utils::FieldHelpers;
 
 use crate::{
-    b58::Base58CheckOfBinProt, bigint::BigInt, number::{Int32, Int64, UInt32, UInt64}, pseq::PaddedSeq, string::ByteString
+    b58::Base58CheckOfBinProt, bigint::BigInt, list::List, number::{Int32, Int64, UInt32, UInt64}, pseq::PaddedSeq, string::ByteString
 };
 
 pub trait ToInput {
@@ -63,6 +63,16 @@ where
 {
     fn to_input(&self, inputs: &mut Inputs) {
         self.iter().for_each(|v| v.to_input(inputs));
+    }
+}
+
+impl<T, D> ToInput for List<D>
+where
+    D: Deref<Target = T>,
+    T: ToInput,
+{
+    fn to_input(&self, inputs: &mut Inputs) {
+        self.deref().into_iter().for_each(|v| v.to_input(inputs));
     }
 }
 

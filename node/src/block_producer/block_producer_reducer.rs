@@ -5,8 +5,7 @@ use ledger::{
     scan_state::currency::{Amount, Signed},
 };
 use mina_p2p_messages::{
-    bigint::BigInt,
-    v2::{
+    bigint::BigInt, list::List, v2::{
         ConsensusGlobalSlotStableV1, ConsensusProofOfStakeDataConsensusStateValueStableV2,
         ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1,
         ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1,
@@ -16,7 +15,7 @@ use mina_p2p_messages::{
         MinaStateBlockchainStateValueStableV2LedgerProofStatement,
         MinaStateProtocolStateBodyValueStableV2, MinaStateProtocolStateValueStableV2,
         StagedLedgerDiffBodyStableV1, StateBodyHash, StateHash, UnsignedExtendedUInt32StableV1,
-    },
+    }
 };
 use openmina_core::block::{ArcBlockWithHash, BlockWithHash};
 
@@ -385,7 +384,7 @@ impl BlockProducerEnabled {
                 // TODO(binier): test
                 let chain_proof_len = pred_block.constants().delta.as_u32() as usize;
                 let delta_block_chain_proof = match chain_proof_len {
-                    0 => (hash.clone(), Vec::new()),
+                    0 => (hash.clone(), List::new()),
                     chain_proof_len => {
                         let mut iter = chain.iter().rev().take(chain_proof_len).rev();
                         let first_hash = iter
@@ -395,7 +394,7 @@ impl BlockProducerEnabled {
                             .map(|b| b.header().protocol_state.body.hash())
                             .chain(std::iter::once(body_hash))
                             .map(StateBodyHash::from)
-                            .collect::<Vec<_>>();
+                            .collect();
                         (first_hash, body_hashes)
                     }
                 };
