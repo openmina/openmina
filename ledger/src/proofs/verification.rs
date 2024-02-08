@@ -38,6 +38,7 @@ use kimchi::{
 use mina_curves::pasta::{Fq, Vesta};
 use mina_hasher::Fp;
 use mina_p2p_messages::{
+    array::ArrayN,
     bigint::BigInt,
     v2::{
         CompositionTypesDigestConstantStableV1, MinaBlockHeaderStableV2,
@@ -136,6 +137,21 @@ fn validate_feature_flags(
     .all(|b| *b == true)
 }
 
+fn of<const N: u64, F: FieldWitness>(
+    (zeta, zeta_omega): &(ArrayN<BigInt, N>, ArrayN<BigInt, N>),
+) -> PointEvaluations<Vec<F>> {
+    PointEvaluations {
+        zeta: zeta.into_iter().map(BigInt::to_field).collect(),
+        zeta_omega: zeta_omega.into_iter().map(BigInt::to_field).collect(),
+    }
+}
+
+fn of_opt<const N: u64, F: FieldWitness>(
+    v: &Option<(ArrayN<BigInt, N>, ArrayN<BigInt, N>)>,
+) -> Option<PointEvaluations<Vec<F>>> {
+    v.as_ref().map(of)
+}
+
 pub fn prev_evals_from_p2p<F: FieldWitness>(
     evals: &PicklesProofProofsVerified2ReprStableV2PrevEvalsEvalsEvals,
 ) -> ProofEvaluations<PointEvaluations<Vec<F>>> {
@@ -167,14 +183,14 @@ pub fn prev_evals_from_p2p<F: FieldWitness>(
         foreign_field_mul_lookup_selector,
     } = evals;
 
-    let of = |(zeta, zeta_omega): &(Vec<BigInt>, Vec<BigInt>)| -> PointEvaluations<Vec<F>> {
-        PointEvaluations {
-            zeta: zeta.iter().map(BigInt::to_field).collect(),
-            zeta_omega: zeta_omega.iter().map(BigInt::to_field).collect(),
-        }
-    };
+    // let of = |(zeta, zeta_omega): &(ArrayN<_, _>, ArrayN<_, _>)| -> PointEvaluations<Vec<F>> {
+    //     PointEvaluations {
+    //         zeta: zeta.into_iter().map(BigInt::to_field).collect(),
+    //         zeta_omega: zeta_omega.into_iter().map(BigInt::to_field).collect(),
+    //     }
+    // };
 
-    let of_opt = |v: &Option<(Vec<BigInt>, Vec<BigInt>)>| v.as_ref().map(of);
+    // let of_opt = |v: &Option<(Vec<BigInt>, Vec<BigInt>)>| v.as_ref().map(of);
 
     ProofEvaluations {
         w: array::from_fn(|i| of(&w[i])),
@@ -238,9 +254,8 @@ pub fn prev_evals_to_p2p(
 
     use mina_p2p_messages::pseq::PaddedSeq;
 
-    let of = |[zeta, zeta_omega]: &[Fp; 2]| -> (Vec<BigInt>, Vec<BigInt>) {
-        (vec![zeta.into()], vec![zeta_omega.into()])
-    };
+    let of =
+        |[zeta, zeta_omega]: &[Fp; 2]| (vec![zeta.into()].into(), vec![zeta_omega.into()].into());
 
     let of_opt = |v: &Option<[Fp; 2]>| v.as_ref().map(of);
 
