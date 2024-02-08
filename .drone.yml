@@ -57,7 +57,7 @@ steps:
     image: rust:1.75-bullseye
     commands:
       - apt-get update && apt-get install -y libssl-dev libjemalloc-dev jq
-      - rustup update nightly-2023-12-21 && rustup default nightly-2023-12-21
+      - rustup update 1.75 && rustup default 1.75
       - rustup component add rustfmt
       - cargo test --release -p cli
       - cargo build --release -p cli --bin openmina
