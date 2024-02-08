@@ -1,3 +1,6 @@
+// TODO: remove after finalization (once the num::* rexports have been removed)
+#![allow(hidden_glob_reexports)]
+
 use ark_ec::AffineCurve;
 use ark_ff::{BigInteger, BigInteger256, One, PrimeField, SquareRootField, Zero};
 use ledger::AccountIndex;
@@ -20,7 +23,7 @@ mod message;
 mod output;
 mod threshold;
 
-// TODO: remove after finalization
+// TODO: remove after finalization, and `hidden_glob_reexports` lint attribute at beginning of file
 pub use num::*;
 
 type VrfResult<T> = std::result::Result<T, VrfError>;
