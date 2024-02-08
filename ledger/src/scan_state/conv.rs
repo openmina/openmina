@@ -1535,7 +1535,7 @@ impl From<&MinaBaseZkappCommandTStableV1WireStableV1> for zkapp_command::ZkAppCo
         // TODO: is to_wire needed? if yes, implement it for mut iterator
         Self {
             fee_payer: (&cmd.fee_payer).into(),
-            account_updates: (&cmd.account_updates as &[_]).into(),
+            account_updates: (&cmd.account_updates).iter().collect(),
             memo: (&cmd.memo).into(),
         }
     }
@@ -2393,7 +2393,7 @@ impl From<&ScanState> for TransactionSnarkScanStateStableV2 {
                         let first = trees.remove(0);
                         let rest = trees;
 
-                        (first, rest.into())
+                        (first, rest.into_iter().collect())
                     },
                     acc: acc.as_ref().map(|(proof, txns)| {
                         (
@@ -2602,7 +2602,7 @@ impl From<&PendingCoinbase> for MinaBasePendingCoinbaseStableV2 {
                 let depth: u64 = value.depth.try_into().unwrap();
 
                 MinaBasePendingCoinbaseMerkleTreeVersionedStableV2 {
-                    indexes: indexes.into(),
+                    indexes: indexes.into_iter().collect(),
                     depth: depth.into(),
                     tree,
                 }
