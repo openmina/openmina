@@ -5,4 +5,4 @@ mod p2p_peer_reducer;
 pub use p2p_peer_reducer::*;
 
 mod p2p_peer_effects;
-pub use p2p_peer_effects::*;
+

@@ -784,7 +784,7 @@ impl<T: LedgerService> BlockProducerService for T {
             won_slot.global_slot_since_genesis(pred_block.global_slot_diff());
 
         // TODO(binier): include `invalid_txns` in output.
-        let (pre_diff, invalid_txns) = staged_ledger
+        let (pre_diff, _invalid_txns) = staged_ledger
             .create_diff(
                 &CONSTRAINT_CONSTANTS,
                 (&global_slot_since_genesis).into(),
