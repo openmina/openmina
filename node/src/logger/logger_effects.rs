@@ -23,48 +23,48 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
     match action {
         Action::P2p(action) => match action {
             P2pAction::Listen(action) => match action {
-                p2p::listen::P2pListenAction::New(action) => {
+                p2p::listen::P2pListenAction::New { listener_id, addr } => {
                     openmina_core::log::info!(
                         meta.time();
                         kind = kind.to_string(),
-                        summary = format!("addr: {}", action.addr),
-                        addr = action.addr.to_string(),
-                        listener_id = action.listener_id.to_string(),
+                        summary = format!("addr: {addr}", ),
+                        addr = addr.to_string(),
+                        listener_id = listener_id.to_string(),
                     );
                 }
-                p2p::listen::P2pListenAction::Expired(action) => {
+                p2p::listen::P2pListenAction::Expired { listener_id, addr } => {
                     openmina_core::log::info!(
                         meta.time();
                         kind = kind.to_string(),
-                        summary = format!("addr: {}", action.addr),
-                        addr = action.addr.to_string(),
-                        listener_id = action.listener_id.to_string(),
+                        summary = format!("addr: {addr}", ),
+                        addr = addr.to_string(),
+                        listener_id = listener_id.to_string(),
                     );
                 }
-                p2p::listen::P2pListenAction::Error(action) => {
+                p2p::listen::P2pListenAction::Error { listener_id, error } => {
                     openmina_core::log::warn!(
                         meta.time();
                         kind = kind.to_string(),
-                        summary = format!("id: {}, error: {}", action.listener_id, action.error),
-                        error = action.error,
-                        listener_id = action.listener_id.to_string(),
+                        summary = format!("id: {listener_id}, error: {error}", ),
+                        error = error,
+                        listener_id = listener_id.to_string(),
                     );
                 }
-                p2p::listen::P2pListenAction::Closed(action) => {
-                    if let Some(error) = &action.error {
+                p2p::listen::P2pListenAction::Closed { listener_id, error } => {
+                    if let Some(error) = error {
                         openmina_core::log::warn!(
                             meta.time();
                             kind = kind.to_string(),
-                            summary = format!("id: {}, error: {error}", action.listener_id),
+                            summary = format!("id: {listener_id}, error: {error}", ),
                             error = error,
-                            listener_id = action.listener_id.to_string(),
+                            listener_id = listener_id.to_string(),
                         );
                     } else {
                         openmina_core::log::info!(
                             meta.time();
                             kind = kind.to_string(),
-                            summary = format!("id: {},", action.listener_id),
-                            listener_id = action.listener_id.to_string(),
+                            summary = format!("id: {listener_id},", ),
+                            listener_id = listener_id.to_string(),
                         );
                     }
                 }

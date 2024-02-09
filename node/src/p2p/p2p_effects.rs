@@ -43,20 +43,9 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
     let (action, meta) = action.split();
 
     match action {
-        P2pAction::Listen(action) => match action {
-            p2p::listen::P2pListenAction::New(action) => {
-                action.effects(&meta, store);
-            }
-            p2p::listen::P2pListenAction::Expired(action) => {
-                action.effects(&meta, store);
-            }
-            p2p::listen::P2pListenAction::Error(action) => {
-                action.effects(&meta, store);
-            }
-            p2p::listen::P2pListenAction::Closed(action) => {
-                action.effects(&meta, store);
-            }
-        },
+        P2pAction::Listen(action) => {
+            action.effects(&meta, store);
+        }
         P2pAction::Connection(action) => match action {
             P2pConnectionAction::Outgoing(action) => match action {
                 P2pConnectionOutgoingAction::RandomInit(action) => {

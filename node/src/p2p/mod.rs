@@ -47,10 +47,7 @@ macro_rules! impl_into_global_action {
     };
 }
 
-impl_into_global_action!(listen::P2pListenNewAction);
-impl_into_global_action!(listen::P2pListenExpiredAction);
-impl_into_global_action!(listen::P2pListenErrorAction);
-impl_into_global_action!(listen::P2pListenClosedAction);
+impl_into_global_action!(listen::P2pListenAction);
 
 impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingRandomInitAction);
 impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingInitAction);

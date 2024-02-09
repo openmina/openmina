@@ -1,7 +1,5 @@
 use p2p::channels::snark::P2pChannelsSnarkAction;
-use p2p::listen::{
-    P2pListenClosedAction, P2pListenErrorAction, P2pListenExpiredAction, P2pListenNewAction,
-};
+use p2p::listen::P2pListenAction;
 use p2p::P2pListenEvent;
 
 use crate::action::CheckTimeoutsAction;
@@ -60,16 +58,16 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
             Event::P2p(e) => match e {
                 P2pEvent::Listen(e) => match e {
                     P2pListenEvent::NewListenAddr { listener_id, addr } => {
-                        store.dispatch(P2pListenNewAction { listener_id, addr });
+                        store.dispatch(P2pListenAction::New { listener_id, addr });
                     }
                     P2pListenEvent::ExpiredListenAddr { listener_id, addr } => {
-                        store.dispatch(P2pListenExpiredAction { listener_id, addr });
+                        store.dispatch(P2pListenAction::Expired { listener_id, addr });
                     }
                     P2pListenEvent::ListenerError { listener_id, error } => {
-                        store.dispatch(P2pListenErrorAction { listener_id, error });
+                        store.dispatch(P2pListenAction::Error { listener_id, error });
                     }
                     P2pListenEvent::ListenerClosed { listener_id, error } => {
-                        store.dispatch(P2pListenClosedAction { listener_id, error });
+                        store.dispatch(P2pListenAction::Closed { listener_id, error });
                     }
                 },
                 P2pEvent::Connection(e) => match e {
