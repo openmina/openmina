@@ -1728,7 +1728,7 @@ dependencies = [
  "ff",
  "generic-array",
  "group",
- "hkdf 0.12.3",
+ "hkdf 0.12.4",
  "pem-rfc7468",
  "pkcs8",
  "rand_core 0.6.4",
@@ -2352,9 +2352,9 @@ dependencies = [
 
 [[package]]
 name = "hkdf"
-version = "0.12.3"
+version = "0.12.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "791a029f6b9fc27657f6f188ec6e5e43f6911f6f878e0dc5501396e09809d437"
+checksum = "7b5f8eb2ad728638ea2c7d47a21db23b7b58a72ed6a38256b8a1849f15fbbdf7"
 dependencies = [
  "hmac 0.12.1",
 ]
@@ -2965,7 +2965,7 @@ checksum = "cdd6317441f361babc74c2989c6484eb0726045399b6648de039e1805ea96972"
 dependencies = [
  "bs58 0.5.0",
  "ed25519-dalek",
- "hkdf 0.12.3",
+ "hkdf 0.12.4",
  "log",
  "multihash 0.19.1",
  "quick-protobuf",
@@ -4230,6 +4230,7 @@ dependencies = [
  "faster-stun",
  "gloo-utils 0.2.0",
  "hex",
+ "hkdf 0.12.4",
  "hyper",
  "js-sys",
  "libc",
@@ -4255,7 +4256,6 @@ dependencies = [
  "tokio",
  "unsigned-varint 0.8.0",
  "url",
- "vru-noise",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "wasm-timer",
@@ -6519,21 +6519,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "vru-noise"
-version = "1.7.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "55e288869b8a26f1507df8d53c9a1ca53a588543d102a89018616764df76a3ed"
-dependencies = [
- "aead 0.5.2",
- "digest 0.10.7",
- "generic-array",
- "hex",
- "hkdf 0.12.3",
- "serde",
- "zeroize",
-]
-
-[[package]]
 name = "waitgroup"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6795,7 +6780,7 @@ dependencies = [
  "cbc",
  "ccm",
  "der-parser",
- "hkdf 0.12.3",
+ "hkdf 0.12.4",
  "hmac 0.12.1",
  "log",
  "p256",

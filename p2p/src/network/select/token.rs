@@ -75,7 +75,7 @@ pub enum MuxKind {
 
 impl MuxKind {
     pub const fn name(&self) -> &'static [u8] {
-        b"\x12/coda/yamux/1.0.0\n"
+        b"\x11/coda/yamux/1.0.0"
     }
 }
 
@@ -168,16 +168,6 @@ impl State {
         let token = Token::ALL
             .iter()
             .find(|t| t.name() == &self.buffer[..(len_length + len)]);
-        // or it should match one of tokens without `'\n'` symbol
-        let token_alt = || {
-            Token::ALL.iter().find(|t| {
-                let name = t.name();
-                let name_len = name.len();
-                let name = &name[..(name_len - 1)];
-                self.buffer[0] == name[0] - 1 && (&name[1..]) == &self.buffer[1..(len_length + len)]
-            })
-        };
-        let token = token.or_else(token_alt);
         let name = self.buffer.drain(..(len_length + len)).collect();
         Ok(Some(token.cloned().unwrap_or(Token::UnknownProtocol(name))))
     }

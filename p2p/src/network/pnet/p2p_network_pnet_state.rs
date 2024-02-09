@@ -122,6 +122,7 @@ impl P2pNetworkPnetAction {
                     addr: a.addr,
                     kind: SelectKind::Authentication,
                     incoming: a.incoming,
+                    send_handshake: true,
                 });
             }
         }

@@ -246,6 +246,7 @@ impl P2pNetworkYamuxAction {
                         addr: a.addr,
                         kind: SelectKind::Stream(peer_id, frame.stream_id),
                         incoming: true,
+                        send_handshake: true,
                     });
                 }
                 match &frame.inner {
@@ -337,6 +338,7 @@ impl P2pNetworkYamuxAction {
                     addr: a.addr,
                     kind: SelectKind::Stream(peer_id, a.stream_id),
                     incoming: false,
+                    send_handshake: true,
                 });
             }
         }

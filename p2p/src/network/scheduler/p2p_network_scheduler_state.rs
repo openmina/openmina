@@ -348,6 +348,9 @@ impl P2pNetworkSchedulerAction {
                             SelectKind::Authentication => {
                                 // TODO: close the connection
                             }
+                            SelectKind::MultiplexingNoPeerId => {
+                                // WARNING: must not happen
+                            }
                             SelectKind::Multiplexing(_) => {
                                 // TODO: close the connection
                             }

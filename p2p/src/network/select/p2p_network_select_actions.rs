@@ -18,6 +18,7 @@ pub enum P2pNetworkSelectAction {
 pub enum SelectKind {
     #[default]
     Authentication,
+    MultiplexingNoPeerId,
     Multiplexing(PeerId),
     Stream(PeerId, StreamId),
 }
@@ -26,6 +27,7 @@ impl SelectKind {
     pub fn peer_id(&self) -> Option<PeerId> {
         match self {
             Self::Authentication => None,
+            Self::MultiplexingNoPeerId => None,
             Self::Multiplexing(v) => Some(*v),
             Self::Stream(v, _) => Some(*v),
         }
@@ -34,6 +36,7 @@ impl SelectKind {
     pub fn stream_id(&self) -> Option<StreamId> {
         match self {
             Self::Authentication => None,
+            Self::MultiplexingNoPeerId => None,
             Self::Multiplexing(_) => None,
             Self::Stream(_, v) => Some(*v),
         }
@@ -69,6 +72,7 @@ pub struct P2pNetworkSelectInitAction {
     pub addr: SocketAddr,
     pub kind: SelectKind,
     pub incoming: bool,
+    pub send_handshake: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
