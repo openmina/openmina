@@ -38,7 +38,6 @@ use kimchi::{
 use mina_curves::pasta::{Fq, Vesta};
 use mina_hasher::Fp;
 use mina_p2p_messages::{
-    array::ArrayN,
     bigint::BigInt,
     v2::{
         CompositionTypesDigestConstantStableV1, MinaBlockHeaderStableV2,
@@ -137,19 +136,14 @@ fn validate_feature_flags(
     .all(|b| *b == true)
 }
 
-fn of<const N: u64, F: FieldWitness>(
-    (zeta, zeta_omega): &(ArrayN<BigInt, N>, ArrayN<BigInt, N>),
+fn _of<'a, F: FieldWitness, I: IntoIterator<Item = &'a BigInt>>(
+    zeta: I,
+    zeta_omega: I,
 ) -> PointEvaluations<Vec<F>> {
     PointEvaluations {
         zeta: zeta.into_iter().map(BigInt::to_field).collect(),
         zeta_omega: zeta_omega.into_iter().map(BigInt::to_field).collect(),
     }
-}
-
-fn of_opt<const N: u64, F: FieldWitness>(
-    v: &Option<(ArrayN<BigInt, N>, ArrayN<BigInt, N>)>,
-) -> Option<PointEvaluations<Vec<F>>> {
-    v.as_ref().map(of)
 }
 
 pub fn prev_evals_from_p2p<F: FieldWitness>(
@@ -183,14 +177,8 @@ pub fn prev_evals_from_p2p<F: FieldWitness>(
         foreign_field_mul_lookup_selector,
     } = evals;
 
-    // let of = |(zeta, zeta_omega): &(ArrayN<_, _>, ArrayN<_, _>)| -> PointEvaluations<Vec<F>> {
-    //     PointEvaluations {
-    //         zeta: zeta.into_iter().map(BigInt::to_field).collect(),
-    //         zeta_omega: zeta_omega.into_iter().map(BigInt::to_field).collect(),
-    //     }
-    // };
-
-    // let of_opt = |v: &Option<(Vec<BigInt>, Vec<BigInt>)>| v.as_ref().map(of);
+    let of = |(zeta, zeta_omega): &(_, _)| -> PointEvaluations<Vec<F>> { _of(zeta, zeta_omega) };
+    let of_opt = |v: &Option<(_, _)>| v.as_ref().map(of);
 
     ProofEvaluations {
         w: array::from_fn(|i| of(&w[i])),
