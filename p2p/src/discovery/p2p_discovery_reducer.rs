@@ -1,40 +1,33 @@
 use crate::P2pKademliaState;
 
-use super::{
-    P2pDiscoveryAction, P2pDiscoveryActionWithMetaRef, P2pDiscoveryInitAction,
-    P2pDiscoveryKademliaAddRouteAction, P2pDiscoverySuccessAction,
-};
+use super::{P2pDiscoveryAction, P2pDiscoveryActionWithMetaRef};
 
 impl P2pKademliaState {
     pub fn reducer(&mut self, action: P2pDiscoveryActionWithMetaRef) {
         let (action, meta) = action.split();
 
         match action {
-            P2pDiscoveryAction::KademliaBootstrap(_) => {
+            P2pDiscoveryAction::KademliaBootstrap => {
                 self.is_bootstrapping = true;
             }
-            P2pDiscoveryAction::Init(P2pDiscoveryInitAction { .. }) => {}
-            P2pDiscoveryAction::Success(P2pDiscoverySuccessAction { peers, peer_id }) => {
+            P2pDiscoveryAction::Init { .. } => {}
+            P2pDiscoveryAction::Success { peers, peer_id } => {
                 self.peer_timestamp.insert(*peer_id, meta.time());
                 self.known_peers
                     .extend(peers.iter().cloned().map(|peer| (*peer.peer_id(), peer)));
             }
-            P2pDiscoveryAction::KademliaInit(..) => {
+            P2pDiscoveryAction::KademliaInit => {
                 self.outgoing_requests += 1;
             }
-            P2pDiscoveryAction::KademliaAddRoute(P2pDiscoveryKademliaAddRouteAction {
-                peer_id,
-                addresses,
-            }) => {
+            P2pDiscoveryAction::KademliaAddRoute { peer_id, addresses } => {
                 self.routes.insert(*peer_id, addresses.clone());
             }
-            P2pDiscoveryAction::KademliaSuccess(action) => {
+            P2pDiscoveryAction::KademliaSuccess { peers } => {
                 // TODO(vlad9486): handle failure, decrement the counter
                 self.outgoing_requests -= 1;
                 let len = self.known_peers.len();
                 self.known_peers.extend(
-                    action
-                        .peers
+                    peers
                         .iter()
                         .map(|peer_id| {
                             // TODO(vlad9486): use all
@@ -52,7 +45,7 @@ impl P2pKademliaState {
                     self.saturated = None;
                 }
             }
-            P2pDiscoveryAction::KademliaFailure(_) => {
+            P2pDiscoveryAction::KademliaFailure { .. } => {
                 if !self.known_peers.is_empty() {
                     self.saturated = Some(meta.time());
                 }

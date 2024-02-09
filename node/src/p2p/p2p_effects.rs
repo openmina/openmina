@@ -37,7 +37,7 @@ use super::connection::incoming::{
 use super::connection::outgoing::P2pConnectionOutgoingAction;
 use super::connection::{P2pConnectionAction, P2pConnectionResponse};
 use super::disconnection::{P2pDisconnectionAction, P2pDisconnectionReason};
-use super::discovery::{P2pDiscoveryAction, P2pDiscoveryInitAction, P2pDiscoverySuccessAction};
+use super::discovery::P2pDiscoveryAction;
 use super::peer::P2pPeerAction;
 use super::{P2pAction, P2pActionWithMeta};
 
@@ -261,7 +261,7 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
             }
         }
         P2pAction::Discovery(action) => match action {
-            P2pDiscoveryAction::Init(P2pDiscoveryInitAction { peer_id }) => {
+            P2pDiscoveryAction::Init { peer_id } => {
                 let Some(peer) = store.state().p2p.peers.get(&peer_id) else {
                     return;
                 };
@@ -274,8 +274,8 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                     request: P2pRpcRequest::InitialPeers,
                 });
             }
-            P2pDiscoveryAction::Success(_) => {}
-            P2pDiscoveryAction::KademliaBootstrap(_) => {
+            P2pDiscoveryAction::Success { .. } => {}
+            P2pDiscoveryAction::KademliaBootstrap => {
                 // seed node doesn't have initial peers
                 // it will rely on incoming peers
                 let initial_peers = if !store.state().p2p.config.initial_peers.is_empty() {
@@ -298,12 +298,12 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                     store.service().start_discovery(initial_peers);
                 }
             }
-            P2pDiscoveryAction::KademliaInit(_) => {
+            P2pDiscoveryAction::KademliaInit => {
                 store.service().find_random_peer();
             }
-            P2pDiscoveryAction::KademliaAddRoute(_) => {}
-            P2pDiscoveryAction::KademliaSuccess(_) => {}
-            P2pDiscoveryAction::KademliaFailure(_) => {}
+            P2pDiscoveryAction::KademliaAddRoute { .. } => {}
+            P2pDiscoveryAction::KademliaSuccess { .. } => {}
+            P2pDiscoveryAction::KademliaFailure { .. } => {}
         },
         P2pAction::Channels(action) => match action {
             P2pChannelsAction::MessageReceived(action) => {
@@ -505,7 +505,7 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                                 });
                             }
                             Some(P2pRpcResponse::InitialPeers(peers)) => {
-                                store.dispatch(P2pDiscoverySuccessAction {
+                                store.dispatch(P2pDiscoveryAction::Success {
                                     peer_id,
                                     peers: peers.clone(),
                                 });

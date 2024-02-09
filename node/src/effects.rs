@@ -12,7 +12,7 @@ use crate::p2p::connection::outgoing::{
     P2pConnectionOutgoingRandomInitAction, P2pConnectionOutgoingReconnectAction,
     P2pConnectionOutgoingTimeoutAction,
 };
-use crate::p2p::discovery::{P2pDiscoveryKademliaBootstrapAction, P2pDiscoveryKademliaInitAction};
+use crate::p2p::discovery::P2pDiscoveryAction;
 use crate::p2p::p2p_effects;
 use crate::rpc::rpc_effects;
 use crate::snark::snark_effects;
@@ -58,8 +58,8 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
 
             p2p_request_snarks_if_needed(store);
 
-            store.dispatch(P2pDiscoveryKademliaBootstrapAction {});
-            store.dispatch(P2pDiscoveryKademliaInitAction {});
+            store.dispatch(P2pDiscoveryAction::KademliaBootstrap);
+            store.dispatch(P2pDiscoveryAction::KademliaInit);
             #[cfg(feature = "p2p-webrtc")]
             p2p_discovery_request(store, &meta);
 
@@ -214,8 +214,6 @@ fn p2p_request_snarks_if_needed<S: Service>(store: &mut Store<S>) {
 /// If the elapsed time is large enough, send another discovery request.
 #[cfg(feature = "p2p-webrtc")]
 fn p2p_discovery_request<S: Service>(store: &mut Store<S>, meta: &ActionMeta) {
-    use crate::p2p::discovery::P2pDiscoveryInitAction;
-
     let peer_ids = store
         .state()
         .p2p
@@ -245,6 +243,6 @@ fn p2p_discovery_request<S: Service>(store: &mut Store<S>, meta: &ActionMeta) {
         .collect::<Vec<_>>();
 
     for peer_id in peer_ids {
-        store.dispatch(P2pDiscoveryInitAction { peer_id });
+        store.dispatch(P2pDiscoveryAction::Init { peer_id });
     }
 }

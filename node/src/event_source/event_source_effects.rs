@@ -24,10 +24,7 @@ use crate::p2p::connection::outgoing::{
 };
 use crate::p2p::connection::{P2pConnectionErrorResponse, P2pConnectionResponse};
 use crate::p2p::disconnection::{P2pDisconnectionAction, P2pDisconnectionReason};
-use crate::p2p::discovery::{
-    P2pDiscoveryKademliaAddRouteAction, P2pDiscoveryKademliaFailureAction,
-    P2pDiscoveryKademliaSuccessAction,
-};
+use crate::p2p::discovery::P2pDiscoveryAction;
 use crate::p2p::P2pChannelEvent;
 use crate::rpc::{
     RpcActionStatsGetAction, RpcGlobalStateGetAction, RpcHealthCheckAction,
@@ -215,13 +212,13 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                 P2pEvent::Libp2pIdentify(..) => {}
                 P2pEvent::Discovery(p2p::P2pDiscoveryEvent::Ready) => {}
                 P2pEvent::Discovery(p2p::P2pDiscoveryEvent::DidFindPeers(peers)) => {
-                    store.dispatch(P2pDiscoveryKademliaSuccessAction { peers });
+                    store.dispatch(P2pDiscoveryAction::KademliaSuccess { peers });
                 }
                 P2pEvent::Discovery(p2p::P2pDiscoveryEvent::DidFindPeersError(description)) => {
-                    store.dispatch(P2pDiscoveryKademliaFailureAction { description });
+                    store.dispatch(P2pDiscoveryAction::KademliaFailure { description });
                 }
                 P2pEvent::Discovery(p2p::P2pDiscoveryEvent::AddRoute(peer_id, addresses)) => {
-                    store.dispatch(P2pDiscoveryKademliaAddRouteAction { peer_id, addresses });
+                    store.dispatch(P2pDiscoveryAction::KademliaAddRoute { peer_id, addresses });
                 }
             },
             Event::Snark(event) => match event {
