@@ -696,7 +696,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     )
                 }
             },
-            BlockProducerAction::BestTipUpdate(_) => {}
+            BlockProducerAction::BestTipUpdate { .. } => {}
             _ => {}
         },
         _ => {}

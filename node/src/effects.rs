@@ -1,7 +1,7 @@
 use p2p::channels::snark::P2pChannelsSnarkAction;
 use redux::ActionMeta;
 
-use crate::block_producer::{block_producer_effects, BlockProducerWonSlotProduceInitAction};
+use crate::block_producer::{block_producer_effects, BlockProducerAction};
 use crate::consensus::consensus_effects;
 use crate::event_source::event_source_effects;
 use crate::external_snark_worker::external_snark_worker_effects;
@@ -74,7 +74,7 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
             store.dispatch(ExternalSnarkWorkerAction::StartTimeout { now: meta.time() });
             store.dispatch(ExternalSnarkWorkerAction::WorkTimeout { now: meta.time() });
 
-            store.dispatch(BlockProducerWonSlotProduceInitAction {});
+            store.dispatch(BlockProducerAction::WonSlotProduceInit);
         }
         Action::EventSource(action) => {
             event_source_effects(store, meta.with_action(action));

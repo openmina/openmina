@@ -90,6 +90,6 @@ impl redux::EnablingCondition<crate::State> for BlockProducerVrfEvaluatorAction 
 
 impl From<BlockProducerVrfEvaluatorAction> for crate::Action {
     fn from(value: BlockProducerVrfEvaluatorAction) -> Self {
-        Self::BlockProducer(value.into())
+        Self::BlockProducer(crate::BlockProducerAction::VrfEvaluator(value.into()))
     }
 }
