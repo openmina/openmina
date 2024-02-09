@@ -68,7 +68,7 @@ pub struct P2pNetworkNoiseOutgoingDataAction {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pNetworkNoiseDecryptedDataAction {
     pub addr: SocketAddr,
-    pub peer_id: PeerId,
+    pub peer_id: Option<PeerId>,
     pub data: Data,
 }
 

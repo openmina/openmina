@@ -91,7 +91,7 @@ impl P2pNetworkSelectAction {
         };
         let state = match self.id() {
             SelectKind::Authentication => &state.select_auth,
-            SelectKind::Multiplexing(_) => &state.select_mux,
+            SelectKind::Multiplexing(_) | SelectKind::MultiplexingNoPeerId => &state.select_mux,
             SelectKind::Stream(_, stream_id) => match state.streams.get(&stream_id) {
                 Some(v) => &v.select,
                 None => return,
@@ -113,7 +113,10 @@ impl P2pNetworkSelectAction {
         let incoming = matches!(&state.inner, P2pNetworkSelectStateInner::Responder { .. });
         match self {
             Self::Init(a) => {
-                let mut tokens = vec![Token::Handshake];
+                let mut tokens = vec![];
+                if a.send_handshake {
+                    tokens.push(Token::Handshake);
+                }
                 match &state.inner {
                     P2pNetworkSelectStateInner::Uncertain { proposing } => {
                         tokens.push(Token::SimultaneousConnect);
@@ -203,7 +206,7 @@ impl P2pNetworkSelectAction {
                             data: data.into(),
                         });
                     }
-                    SelectKind::Multiplexing(_) => {
+                    SelectKind::Multiplexing(_) | SelectKind::MultiplexingNoPeerId => {
                         store.dispatch(P2pNetworkNoiseOutgoingDataAction {
                             addr: a.addr,
                             data: data.into(),

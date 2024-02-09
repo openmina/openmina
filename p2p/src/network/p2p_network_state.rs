@@ -113,7 +113,9 @@ impl P2pNetworkState {
                     .get_mut(&a.addr())
                     .map(|cn| match a.id() {
                         SelectKind::Authentication => cn.select_auth.reducer(meta.with_action(&a)),
-                        SelectKind::Multiplexing(_) => cn.select_mux.reducer(meta.with_action(&a)),
+                        SelectKind::Multiplexing(_) | SelectKind::MultiplexingNoPeerId => {
+                            cn.select_mux.reducer(meta.with_action(&a))
+                        }
                         SelectKind::Stream(_, stream_id) => {
                             cn.streams
                                 .get_mut(&stream_id)
