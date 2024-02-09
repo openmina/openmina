@@ -26,14 +26,7 @@ use crate::p2p::connection::{P2pConnectionErrorResponse, P2pConnectionResponse};
 use crate::p2p::disconnection::{P2pDisconnectionAction, P2pDisconnectionReason};
 use crate::p2p::discovery::P2pDiscoveryAction;
 use crate::p2p::P2pChannelEvent;
-use crate::rpc::{
-    RpcActionStatsGetAction, RpcGlobalStateGetAction, RpcHealthCheckAction,
-    RpcP2pConnectionIncomingInitAction, RpcP2pConnectionOutgoingInitAction, RpcPeersGetAction,
-    RpcReadinessCheckAction, RpcRequest, RpcScanStateSummaryGetAction,
-    RpcSnarkPoolAvailableJobsGetAction, RpcSnarkPoolJobGetAction, RpcSnarkerConfigGetAction,
-    RpcSnarkerJobCommitAction, RpcSnarkerJobSpecAction, RpcSnarkersWorkersGetAction,
-    RpcSyncStatsGetAction,
-};
+use crate::rpc::{RpcAction, RpcRequest};
 use crate::snark::block_verify::SnarkBlockVerifyAction;
 use crate::snark::work_verify::SnarkWorkVerifyAction;
 use crate::snark::SnarkEvent;
@@ -241,52 +234,52 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
             },
             Event::Rpc(rpc_id, e) => match e {
                 RpcRequest::StateGet => {
-                    store.dispatch(RpcGlobalStateGetAction { rpc_id });
+                    store.dispatch(RpcAction::GlobalStateGet { rpc_id });
                 }
                 RpcRequest::ActionStatsGet(query) => {
-                    store.dispatch(RpcActionStatsGetAction { rpc_id, query });
+                    store.dispatch(RpcAction::ActionStatsGet { rpc_id, query });
                 }
                 RpcRequest::SyncStatsGet(query) => {
-                    store.dispatch(RpcSyncStatsGetAction { rpc_id, query });
+                    store.dispatch(RpcAction::SyncStatsGet { rpc_id, query });
                 }
                 RpcRequest::PeersGet => {
-                    store.dispatch(RpcPeersGetAction { rpc_id });
+                    store.dispatch(RpcAction::PeersGet { rpc_id });
                 }
                 RpcRequest::P2pConnectionOutgoing(opts) => {
-                    store.dispatch(RpcP2pConnectionOutgoingInitAction { rpc_id, opts });
+                    store.dispatch(RpcAction::P2pConnectionOutgoingInit { rpc_id, opts });
                 }
                 RpcRequest::P2pConnectionIncoming(opts) => {
-                    store.dispatch(RpcP2pConnectionIncomingInitAction {
+                    store.dispatch(RpcAction::P2pConnectionIncomingInit {
                         rpc_id,
                         opts: opts.clone(),
                     });
                 }
                 RpcRequest::ScanStateSummaryGet(query) => {
-                    store.dispatch(RpcScanStateSummaryGetAction { rpc_id, query });
+                    store.dispatch(RpcAction::ScanStateSummaryGet { rpc_id, query });
                 }
                 RpcRequest::SnarkPoolGet => {
-                    store.dispatch(RpcSnarkPoolAvailableJobsGetAction { rpc_id });
+                    store.dispatch(RpcAction::SnarkPoolAvailableJobsGet { rpc_id });
                 }
                 RpcRequest::SnarkPoolJobGet { job_id } => {
-                    store.dispatch(RpcSnarkPoolJobGetAction { rpc_id, job_id });
+                    store.dispatch(RpcAction::SnarkPoolJobGet { rpc_id, job_id });
                 }
                 RpcRequest::SnarkerConfig => {
-                    store.dispatch(RpcSnarkerConfigGetAction { rpc_id });
+                    store.dispatch(RpcAction::SnarkerConfigGet { rpc_id });
                 }
                 RpcRequest::SnarkerJobCommit { job_id } => {
-                    store.dispatch(RpcSnarkerJobCommitAction { rpc_id, job_id });
+                    store.dispatch(RpcAction::SnarkerJobCommit { rpc_id, job_id });
                 }
                 RpcRequest::SnarkerJobSpec { job_id } => {
-                    store.dispatch(RpcSnarkerJobSpecAction { rpc_id, job_id });
+                    store.dispatch(RpcAction::SnarkerJobSpec { rpc_id, job_id });
                 }
                 RpcRequest::SnarkerWorkers => {
-                    store.dispatch(RpcSnarkersWorkersGetAction { rpc_id });
+                    store.dispatch(RpcAction::SnarkerWorkersGet { rpc_id });
                 }
                 RpcRequest::HealthCheck => {
-                    store.dispatch(RpcHealthCheckAction { rpc_id });
+                    store.dispatch(RpcAction::HealthCheck { rpc_id });
                 }
                 RpcRequest::ReadinessCheck => {
-                    store.dispatch(RpcReadinessCheckAction { rpc_id });
+                    store.dispatch(RpcAction::ReadinessCheck { rpc_id });
                 }
             },
             Event::ExternalSnarkWorker(e) => match e {
