@@ -131,7 +131,7 @@ pub enum BlockProducerVrfEvaluatorStatus {
 }
 
 impl BlockProducerVrfEvaluatorStatus {
-    pub fn matches_requsted_slot(
+    pub fn matches_requested_slot(
         &self,
         expected_global_slot: u32,
         expected_staking_ledger_hash: &LedgerHash,

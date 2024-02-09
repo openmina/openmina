@@ -5,7 +5,7 @@ use p2p::listen::{
 use p2p::P2pListenEvent;
 
 use crate::action::CheckTimeoutsAction;
-use crate::block_producer::vrf_evaluator::BlockProducerVrfEvaluatorEvaluationSuccessAction;
+use crate::block_producer::vrf_evaluator::BlockProducerVrfEvaluatorAction;
 use crate::external_snark_worker::ExternalSnarkWorkerEvent;
 use crate::p2p::channels::best_tip::P2pChannelsBestTipAction;
 use crate::p2p::channels::rpc::P2pChannelsRpcAction;
@@ -310,7 +310,7 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                     crate::block_producer::BlockProducerVrfEvaluatorEvent::Evaluated(
                         vrf_output_with_hash,
                     ) => {
-                        store.dispatch(BlockProducerVrfEvaluatorEvaluationSuccessAction {
+                        store.dispatch(BlockProducerVrfEvaluatorAction::EvaluationSuccess {
                             vrf_output: vrf_output_with_hash.evaluation_result,
                             staking_ledger_hash: vrf_output_with_hash.staking_ledger_hash,
                         });

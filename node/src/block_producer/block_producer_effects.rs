@@ -3,9 +3,7 @@ use redux::ActionMeta;
 use crate::transition_frontier::sync::TransitionFrontierSyncBestTipUpdateAction;
 use crate::Store;
 
-use super::vrf_evaluator::{
-    BlockProducerVrfEvaluatorAction, BlockProducerVrfEvaluatorEpochDataUpdateAction,
-};
+use super::vrf_evaluator::BlockProducerVrfEvaluatorAction;
 use super::{
     BlockProducerAction, BlockProducerActionWithMeta, BlockProducerBestTipUpdateAction,
     BlockProducerBlockInjectAction, BlockProducerBlockInjectedAction,
@@ -24,28 +22,19 @@ pub fn block_producer_effects<S: crate::Service>(
     let (action, meta) = action.split();
 
     match action {
-        BlockProducerAction::VrfEvaluator(action) => match action {
-            BlockProducerVrfEvaluatorAction::EpochDataUpdate(action) => {
-                action.effects(&meta, store);
-            }
-            BlockProducerVrfEvaluatorAction::EvaluateVrf(action) => {
-                action.effects(&meta, store);
-            }
-            BlockProducerVrfEvaluatorAction::EvaluationSuccess(action) => {
-                let has_won_slot =
-                    matches!(action.vrf_output, vrf::VrfEvaluationOutput::SlotWon(_));
-                action.effects(&meta, store);
-                if has_won_slot {
-                    store.dispatch(BlockProducerWonSlotSearchAction {});
+        BlockProducerAction::VrfEvaluator(action) => {
+            // TODO: does the order matter? can this clone be avoided?
+            action.clone().effects(&meta, store);
+            match action {
+                BlockProducerVrfEvaluatorAction::EvaluationSuccess { vrf_output, .. } => {
+                    let has_won_slot = matches!(vrf_output, vrf::VrfEvaluationOutput::SlotWon(_));
+                    if has_won_slot {
+                        store.dispatch(BlockProducerWonSlotSearchAction {});
+                    }
                 }
+                _ => {}
             }
-            BlockProducerVrfEvaluatorAction::UpdateProducerAndDelegates(action) => {
-                action.effects(&meta, store);
-            }
-            BlockProducerVrfEvaluatorAction::UpdateProducerAndDelegatesSuccess(action) => {
-                action.effects(&meta, store);
-            }
-        },
+        }
         BlockProducerAction::BestTipUpdate(action) => {
             action.effects(&meta, store);
         }
@@ -101,7 +90,7 @@ impl BlockProducerBestTipUpdateAction {
             });
 
         if vrf_evaluator_current_epoch_ledger != Some(best_tip_staking_ledger) {
-            store.dispatch(BlockProducerVrfEvaluatorEpochDataUpdateAction {
+            store.dispatch(BlockProducerVrfEvaluatorAction::EpochDataUpdate {
                 new_epoch_number: protocol_state.consensus_state.epoch_count.as_u32(),
                 epoch_data: protocol_state.consensus_state.staking_epoch_data.clone(),
                 next_epoch_data: protocol_state.consensus_state.next_epoch_data.clone(),

@@ -640,45 +640,51 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
         },
         Action::BlockProducer(a) => match a {
             BlockProducerAction::VrfEvaluator(a) => match a {
-                BlockProducerVrfEvaluatorAction::EpochDataUpdate(a) => {
+                BlockProducerVrfEvaluatorAction::EpochDataUpdate { epoch_data, .. } => {
                     openmina_core::log::info!(
                         meta.time();
                         kind = kind.to_string(),
-                        summary = format!("seed: {}, ledger: {}", a.epoch_data.seed.to_string(), a.epoch_data.ledger.hash.to_string()),
+                        summary = format!("seed: {}, ledger: {}", epoch_data.seed.to_string(), epoch_data.ledger.hash.to_string()),
                     );
                 }
-                BlockProducerVrfEvaluatorAction::UpdateProducerAndDelegates(_) => {}
-                BlockProducerVrfEvaluatorAction::UpdateProducerAndDelegatesSuccess(a) => {
+                BlockProducerVrfEvaluatorAction::UpdateProducerAndDelegates { .. } => {}
+                BlockProducerVrfEvaluatorAction::UpdateProducerAndDelegatesSuccess {
+                    current_epoch_producer_and_delegators,
+                    next_epoch_producer_and_delegators,
+                    ..
+                } => {
                     openmina_core::log::info!(
                         meta.time();
                         kind = kind.to_string(),
                         summary = format!("Current epoch accounts: {:?}, Next epoch accounts: {:?}",
-                            a.current_epoch_producer_and_delegators.values().map(| a | a.0.clone()).collect::<Vec<_>>(),
-                            a.next_epoch_producer_and_delegators.values().map(| a | a.0.clone()).collect::<Vec<_>>()
+                            current_epoch_producer_and_delegators.values().map(| a | a.0.clone()).collect::<Vec<_>>(),
+                            next_epoch_producer_and_delegators.values().map(| a | a.0.clone()).collect::<Vec<_>>()
                         ),
                     );
                 }
-                BlockProducerVrfEvaluatorAction::EvaluationSuccess(a) => match a.vrf_output {
-                    vrf::VrfEvaluationOutput::SlotWon(_) => {
-                        openmina_core::log::info!(
-                            meta.time();
-                            kind = kind.to_string(),
-                            summary = format!("Slot evaluation result - won slot: {:?}", a.vrf_output),
-                        )
+                BlockProducerVrfEvaluatorAction::EvaluationSuccess { vrf_output, .. } => {
+                    match vrf_output {
+                        vrf::VrfEvaluationOutput::SlotWon(_) => {
+                            openmina_core::log::info!(
+                                meta.time();
+                                kind = kind.to_string(),
+                                summary = format!("Slot evaluation result - won slot: {:?}", vrf_output),
+                            )
+                        }
+                        vrf::VrfEvaluationOutput::SlotLost(_) => {
+                            openmina_core::log::debug!(
+                                meta.time();
+                                kind = kind.to_string(),
+                                summary = format!("Slot evaluation result - lost slot: {:?}", vrf_output),
+                            )
+                        }
                     }
-                    vrf::VrfEvaluationOutput::SlotLost(_) => {
-                        openmina_core::log::debug!(
-                            meta.time();
-                            kind = kind.to_string(),
-                            summary = format!("Slot evaluation result - lost slot: {:?}", a.vrf_output),
-                        )
-                    }
-                },
-                BlockProducerVrfEvaluatorAction::EvaluateVrf(a) => {
+                }
+                BlockProducerVrfEvaluatorAction::EvaluateVrf { vrf_input } => {
                     openmina_core::log::debug!(
                         meta.time();
                         kind = kind.to_string(),
-                        summary = format!("Vrf Evaluation requested: {:?}", a.vrf_input),
+                        summary = format!("Vrf Evaluation requested: {:?}", vrf_input),
                     )
                 }
             },
