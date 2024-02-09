@@ -579,50 +579,58 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
         },
         Action::TransitionFrontier(a) => match a {
             TransitionFrontierAction::Sync(action) => match action {
-                TransitionFrontierSyncAction::Init(action) => openmina_core::log::info!(
+                TransitionFrontierSyncAction::Init {
+                    best_tip,
+                    root_block,
+                    ..
+                } => openmina_core::log::info!(
                     meta.time();
                     kind = kind.to_string(),
                     summary = "Transition frontier sync init".to_string(),
-                    block_hash = action.best_tip.hash.to_string(),
-                    root_block_hash = action.root_block.hash.to_string(),
+                    block_hash = best_tip.hash.to_string(),
+                    root_block_hash = root_block.hash.to_string(),
                 ),
-                TransitionFrontierSyncAction::BestTipUpdate(action) => openmina_core::log::info!(
+                TransitionFrontierSyncAction::BestTipUpdate {
+                    best_tip,
+                    root_block,
+                    ..
+                } => openmina_core::log::info!(
                     meta.time();
                     kind = kind.to_string(),
                     summary = "New best tip received".to_string(),
-                    block_hash = action.best_tip.hash.to_string(),
-                    root_block_hash = action.root_block.hash.to_string(),
+                    block_hash = best_tip.hash.to_string(),
+                    root_block_hash = root_block.hash.to_string(),
                 ),
-                TransitionFrontierSyncAction::LedgerStakingPending(_) => openmina_core::log::info!(
+                TransitionFrontierSyncAction::LedgerStakingPending => openmina_core::log::info!(
                     meta.time();
                     kind = kind.to_string(),
                     summary = "Staking ledger sync pending".to_string(),
                 ),
-                TransitionFrontierSyncAction::LedgerStakingSuccess(_) => openmina_core::log::info!(
+                TransitionFrontierSyncAction::LedgerStakingSuccess => openmina_core::log::info!(
                     meta.time();
                     kind = kind.to_string(),
                     summary = "Staking ledger sync success".to_string(),
                 ),
-                TransitionFrontierSyncAction::LedgerNextEpochPending(_) => {
+                TransitionFrontierSyncAction::LedgerNextEpochPending => {
                     openmina_core::log::info!(
                         meta.time();
                         kind = kind.to_string(),
                         summary = "Next epoch ledger sync pending".to_string(),
                     )
                 }
-                TransitionFrontierSyncAction::LedgerNextEpochSuccess(_) => {
+                TransitionFrontierSyncAction::LedgerNextEpochSuccess => {
                     openmina_core::log::info!(
                         meta.time();
                         kind = kind.to_string(),
                         summary = "Next epoch ledger sync pending".to_string(),
                     )
                 }
-                TransitionFrontierSyncAction::LedgerRootPending(_) => openmina_core::log::info!(
+                TransitionFrontierSyncAction::LedgerRootPending => openmina_core::log::info!(
                     meta.time();
                     kind = kind.to_string(),
                     summary = "Transition frontier root ledger sync pending".to_string(),
                 ),
-                TransitionFrontierSyncAction::LedgerRootSuccess(_) => openmina_core::log::info!(
+                TransitionFrontierSyncAction::LedgerRootSuccess => openmina_core::log::info!(
                     meta.time();
                     kind = kind.to_string(),
                     summary = "Transition frontier root ledger sync success".to_string(),

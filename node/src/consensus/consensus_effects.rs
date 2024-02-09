@@ -1,7 +1,5 @@
 use crate::snark::block_verify::SnarkBlockVerifyAction;
-use crate::transition_frontier::sync::{
-    TransitionFrontierSyncBestTipUpdateAction, TransitionFrontierSyncInitAction,
-};
+use crate::transition_frontier::sync::TransitionFrontierSyncAction;
 use crate::watched_accounts::WatchedAccountsAction;
 use crate::Store;
 
@@ -87,13 +85,13 @@ fn transition_frontier_new_best_tip<S: crate::Service>(store: &mut Store<S>) {
     };
 
     if !state.transition_frontier.sync.is_pending() && !state.transition_frontier.sync.is_synced() {
-        store.dispatch(TransitionFrontierSyncInitAction {
+        store.dispatch(TransitionFrontierSyncAction::Init {
             best_tip,
             root_block,
             blocks_inbetween,
         });
     } else {
-        store.dispatch(TransitionFrontierSyncBestTipUpdateAction {
+        store.dispatch(TransitionFrontierSyncAction::BestTipUpdate {
             best_tip,
             root_block,
             blocks_inbetween,

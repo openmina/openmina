@@ -1,6 +1,6 @@
 use redux::ActionMeta;
 
-use crate::transition_frontier::sync::TransitionFrontierSyncBestTipUpdateAction;
+use crate::transition_frontier::sync::TransitionFrontierSyncAction;
 use crate::Store;
 
 use super::vrf_evaluator::BlockProducerVrfEvaluatorAction;
@@ -203,7 +203,7 @@ impl BlockProducerBlockInjectAction {
             return;
         };
 
-        if store.dispatch(TransitionFrontierSyncBestTipUpdateAction {
+        if store.dispatch(TransitionFrontierSyncAction::BestTipUpdate {
             best_tip,
             root_block,
             blocks_inbetween,

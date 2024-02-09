@@ -18,7 +18,7 @@ use crate::rpc::rpc_effects;
 use crate::snark::snark_effects;
 use crate::snark_pool::candidate::SnarkPoolCandidateAction;
 use crate::snark_pool::{snark_pool_effects, SnarkPoolAction};
-use crate::transition_frontier::sync::TransitionFrontierSyncBlocksNextApplyInitAction;
+use crate::transition_frontier::sync::TransitionFrontierSyncAction;
 use crate::transition_frontier::transition_frontier_effects;
 use crate::watched_accounts::watched_accounts_effects;
 use crate::{Action, ActionWithMeta, ExternalSnarkWorkerAction, Service, Store};
@@ -69,7 +69,7 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
             }
 
             // TODO(binier): remove once ledger communication is async.
-            store.dispatch(TransitionFrontierSyncBlocksNextApplyInitAction {});
+            store.dispatch(TransitionFrontierSyncAction::BlocksNextApplyInit);
 
             store.dispatch(ExternalSnarkWorkerAction::StartTimeout { now: meta.time() });
             store.dispatch(ExternalSnarkWorkerAction::WorkTimeout { now: meta.time() });
