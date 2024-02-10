@@ -10,12 +10,7 @@ use crate::p2p::channels::rpc::P2pChannelsRpcAction;
 use crate::p2p::channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentAction;
 use crate::p2p::channels::{ChannelId, P2pChannelsMessageReceivedAction};
 use crate::p2p::connection::incoming::P2pConnectionIncomingAction;
-use crate::p2p::connection::outgoing::{
-    P2pConnectionOutgoingAnswerRecvErrorAction, P2pConnectionOutgoingAnswerRecvSuccessAction,
-    P2pConnectionOutgoingFinalizeErrorAction, P2pConnectionOutgoingFinalizeSuccessAction,
-    P2pConnectionOutgoingOfferSdpCreateErrorAction,
-    P2pConnectionOutgoingOfferSdpCreateSuccessAction,
-};
+use crate::p2p::connection::outgoing::P2pConnectionOutgoingAction;
 use crate::p2p::connection::{P2pConnectionErrorResponse, P2pConnectionResponse};
 use crate::p2p::disconnection::{P2pDisconnectionAction, P2pDisconnectionReason};
 use crate::p2p::discovery::P2pDiscoveryAction;
@@ -69,13 +64,13 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                 P2pEvent::Connection(e) => match e {
                     P2pConnectionEvent::OfferSdpReady(peer_id, res) => match res {
                         Err(error) => {
-                            store.dispatch(P2pConnectionOutgoingOfferSdpCreateErrorAction {
+                            store.dispatch(P2pConnectionOutgoingAction::OfferSdpCreateError {
                                 peer_id,
                                 error,
                             });
                         }
                         Ok(sdp) => {
-                            store.dispatch(P2pConnectionOutgoingOfferSdpCreateSuccessAction {
+                            store.dispatch(P2pConnectionOutgoingAction::OfferSdpCreateSuccess {
                                 peer_id,
                                 sdp,
                             });
@@ -97,19 +92,19 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                     },
                     P2pConnectionEvent::AnswerReceived(peer_id, res) => match res {
                         P2pConnectionResponse::Accepted(answer) => {
-                            store.dispatch(P2pConnectionOutgoingAnswerRecvSuccessAction {
+                            store.dispatch(P2pConnectionOutgoingAction::AnswerRecvSuccess {
                                 peer_id,
                                 answer,
                             });
                         }
                         P2pConnectionResponse::Rejected(reason) => {
-                            store.dispatch(P2pConnectionOutgoingAnswerRecvErrorAction {
+                            store.dispatch(P2pConnectionOutgoingAction::AnswerRecvError {
                                 peer_id,
                                 error: P2pConnectionErrorResponse::Rejected(reason),
                             });
                         }
                         P2pConnectionResponse::InternalError => {
-                            store.dispatch(P2pConnectionOutgoingAnswerRecvErrorAction {
+                            store.dispatch(P2pConnectionOutgoingAction::AnswerRecvError {
                                 peer_id,
                                 error: P2pConnectionErrorResponse::InternalError,
                             });
@@ -117,7 +112,7 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                     },
                     P2pConnectionEvent::Finalized(peer_id, res) => match res {
                         Err(error) => {
-                            store.dispatch(P2pConnectionOutgoingFinalizeErrorAction {
+                            store.dispatch(P2pConnectionOutgoingAction::FinalizeError {
                                 peer_id,
                                 error: error.clone(),
                             });
@@ -128,7 +123,7 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                         }
                         Ok(_) => {
                             let _ = store
-                                .dispatch(P2pConnectionOutgoingFinalizeSuccessAction { peer_id })
+                                .dispatch(P2pConnectionOutgoingAction::FinalizeSuccess { peer_id })
                                 || store.dispatch(P2pConnectionIncomingAction::FinalizeSuccess {
                                     peer_id,
                                 })

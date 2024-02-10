@@ -8,10 +8,7 @@ use crate::external_snark_worker::external_snark_worker_effects;
 use crate::logger::logger_effects;
 use crate::p2p::channels::rpc::{P2pChannelsRpcAction, P2pRpcKind, P2pRpcRequest};
 use crate::p2p::connection::incoming::P2pConnectionIncomingAction;
-use crate::p2p::connection::outgoing::{
-    P2pConnectionOutgoingRandomInitAction, P2pConnectionOutgoingReconnectAction,
-    P2pConnectionOutgoingTimeoutAction,
-};
+use crate::p2p::connection::outgoing::P2pConnectionOutgoingAction;
 use crate::p2p::discovery::P2pDiscoveryAction;
 use crate::p2p::p2p_effects;
 use crate::rpc::rpc_effects;
@@ -44,7 +41,7 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
 
             p2p_connection_timeouts(store, &meta);
 
-            store.dispatch(P2pConnectionOutgoingRandomInitAction {});
+            store.dispatch(P2pConnectionOutgoingAction::RandomInit);
 
             p2p_try_reconnect_disconnected_peers(store);
 
@@ -127,7 +124,7 @@ fn p2p_connection_timeouts<S: Service>(store: &mut Store<S>, meta: &ActionMeta) 
 
     for (peer_id, is_outgoing) in p2p_connection_timeouts {
         match is_outgoing {
-            true => store.dispatch(P2pConnectionOutgoingTimeoutAction { peer_id }),
+            true => store.dispatch(P2pConnectionOutgoingAction::Timeout { peer_id }),
             false => store.dispatch(P2pConnectionIncomingAction::Timeout { peer_id }),
         };
     }
@@ -140,7 +137,7 @@ fn p2p_try_reconnect_disconnected_peers<S: Service>(store: &mut Store<S>) {
         .peers
         .iter()
         .filter_map(|(_, p)| p.dial_opts.clone())
-        .map(|opts| P2pConnectionOutgoingReconnectAction { opts, rpc_id: None })
+        .map(|opts| P2pConnectionOutgoingAction::Reconnect { opts, rpc_id: None })
         .collect();
     for action in reconnect_actions {
         store.dispatch(action);

@@ -6,22 +6,22 @@ impl P2pConnectionOutgoingState {
     pub fn reducer(&mut self, action: P2pConnectionOutgoingActionWithMetaRef<'_>) {
         let (action, meta) = action.split();
         match action {
-            P2pConnectionOutgoingAction::RandomInit(_) => {}
-            P2pConnectionOutgoingAction::Init(content) => {
+            P2pConnectionOutgoingAction::RandomInit => {}
+            P2pConnectionOutgoingAction::Init { opts, rpc_id } => {
                 *self = Self::Init {
                     time: meta.time(),
-                    opts: content.opts.clone(),
-                    rpc_id: content.rpc_id,
+                    opts: opts.clone(),
+                    rpc_id: *rpc_id,
                 };
             }
-            P2pConnectionOutgoingAction::Reconnect(action) => {
+            P2pConnectionOutgoingAction::Reconnect { opts, rpc_id } => {
                 *self = Self::Init {
                     time: meta.time(),
-                    opts: action.opts.clone(),
-                    rpc_id: action.rpc_id,
+                    opts: opts.clone(),
+                    rpc_id: *rpc_id,
                 };
             }
-            P2pConnectionOutgoingAction::OfferSdpCreatePending(_) => {
+            P2pConnectionOutgoingAction::OfferSdpCreatePending { .. } => {
                 if let Self::Init { opts, rpc_id, .. } = self {
                     *self = Self::OfferSdpCreatePending {
                         time: meta.time(),
@@ -30,28 +30,28 @@ impl P2pConnectionOutgoingState {
                     };
                 }
             }
-            P2pConnectionOutgoingAction::OfferSdpCreateError(_) => {}
-            P2pConnectionOutgoingAction::OfferSdpCreateSuccess(action) => {
+            P2pConnectionOutgoingAction::OfferSdpCreateError { .. } => {}
+            P2pConnectionOutgoingAction::OfferSdpCreateSuccess { sdp, .. } => {
                 if let Self::OfferSdpCreatePending { opts, rpc_id, .. } = self {
                     *self = Self::OfferSdpCreateSuccess {
                         time: meta.time(),
                         opts: opts.clone(),
-                        sdp: action.sdp.clone(),
+                        sdp: sdp.clone(),
                         rpc_id: rpc_id.take(),
                     };
                 }
             }
-            P2pConnectionOutgoingAction::OfferReady(action) => {
+            P2pConnectionOutgoingAction::OfferReady { offer, .. } => {
                 if let Self::OfferSdpCreateSuccess { opts, rpc_id, .. } = self {
                     *self = Self::OfferReady {
                         time: meta.time(),
                         opts: opts.clone(),
-                        offer: action.offer.clone(),
+                        offer: offer.clone(),
                         rpc_id: rpc_id.take(),
                     };
                 }
             }
-            P2pConnectionOutgoingAction::OfferSendSuccess(_) => {
+            P2pConnectionOutgoingAction::OfferSendSuccess { .. } => {
                 if let Self::OfferReady {
                     opts,
                     offer,
@@ -67,7 +67,7 @@ impl P2pConnectionOutgoingState {
                     };
                 }
             }
-            P2pConnectionOutgoingAction::AnswerRecvPending(_) => {
+            P2pConnectionOutgoingAction::AnswerRecvPending { .. } => {
                 if let Self::OfferSendSuccess {
                     opts,
                     offer,
@@ -83,8 +83,8 @@ impl P2pConnectionOutgoingState {
                     };
                 }
             }
-            P2pConnectionOutgoingAction::AnswerRecvError(_) => {}
-            P2pConnectionOutgoingAction::AnswerRecvSuccess(action) => {
+            P2pConnectionOutgoingAction::AnswerRecvError { .. } => {}
+            P2pConnectionOutgoingAction::AnswerRecvSuccess { answer, .. } => {
                 if let Self::AnswerRecvPending {
                     opts,
                     offer,
@@ -96,12 +96,12 @@ impl P2pConnectionOutgoingState {
                         time: meta.time(),
                         opts: opts.clone(),
                         offer: offer.clone(),
-                        answer: action.answer.clone(),
+                        answer: answer.clone(),
                         rpc_id: rpc_id.take(),
                     };
                 }
             }
-            P2pConnectionOutgoingAction::FinalizePending(_) => match self {
+            P2pConnectionOutgoingAction::FinalizePending { .. } => match self {
                 Self::Init { opts, rpc_id, .. } => {
                     *self = Self::FinalizePending {
                         time: meta.time(),
@@ -128,8 +128,8 @@ impl P2pConnectionOutgoingState {
                 }
                 _ => {}
             },
-            P2pConnectionOutgoingAction::FinalizeError(_) => {}
-            P2pConnectionOutgoingAction::FinalizeSuccess(_) => {
+            P2pConnectionOutgoingAction::FinalizeError { .. } => {}
+            P2pConnectionOutgoingAction::FinalizeSuccess { .. } => {
                 if let Self::FinalizePending {
                     opts,
                     offer,
@@ -147,16 +147,16 @@ impl P2pConnectionOutgoingState {
                     };
                 }
             }
-            P2pConnectionOutgoingAction::Timeout(_) => {}
-            P2pConnectionOutgoingAction::Error(action) => {
+            P2pConnectionOutgoingAction::Timeout { .. } => {}
+            P2pConnectionOutgoingAction::Error { error, .. } => {
                 let rpc_id = self.rpc_id();
                 *self = Self::Error {
                     time: meta.time(),
-                    error: action.error.clone(),
+                    error: error.clone(),
                     rpc_id,
                 };
             }
-            P2pConnectionOutgoingAction::Success(_) => {
+            P2pConnectionOutgoingAction::Success { .. } => {
                 if let Self::FinalizeSuccess {
                     offer,
                     answer,

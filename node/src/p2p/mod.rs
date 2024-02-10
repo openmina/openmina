@@ -49,23 +49,7 @@ macro_rules! impl_into_global_action {
 
 impl_into_global_action!(listen::P2pListenAction);
 
-impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingRandomInitAction);
-impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingInitAction);
-impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingReconnectAction);
-impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingOfferSdpCreatePendingAction);
-impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingOfferSdpCreateErrorAction);
-impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingOfferSdpCreateSuccessAction);
-impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingOfferReadyAction);
-impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingOfferSendSuccessAction);
-impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingAnswerRecvPendingAction);
-impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingAnswerRecvErrorAction);
-impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingAnswerRecvSuccessAction);
-impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingFinalizePendingAction);
-impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingFinalizeErrorAction);
-impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingFinalizeSuccessAction);
-impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingTimeoutAction);
-impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingErrorAction);
-impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingSuccessAction);
+impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingAction);
 
 impl_into_global_action!(connection::incoming::P2pConnectionIncomingAction);
 

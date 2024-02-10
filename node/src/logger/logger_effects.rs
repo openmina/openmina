@@ -71,121 +71,123 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
             },
             P2pAction::Connection(action) => match action {
                 P2pConnectionAction::Outgoing(action) => match action {
-                    P2pConnectionOutgoingAction::RandomInit(_) => {}
-                    P2pConnectionOutgoingAction::Init(action) => {
+                    P2pConnectionOutgoingAction::RandomInit => {}
+                    P2pConnectionOutgoingAction::Init { opts, .. } => {
+                        let peer_id = opts.peer_id();
                         openmina_core::log::info!(
                             meta.time();
                             kind = kind.to_string(),
-                            summary = format!("peer_id: {}", action.opts.peer_id()),
-                            peer_id = action.opts.peer_id().to_string(),
-                            transport = action.opts.kind(),
+                            summary = format!("peer_id: {peer_id}"),
+                            peer_id = peer_id.to_string(),
+                            transport = opts.kind(),
                         );
                     }
-                    P2pConnectionOutgoingAction::Reconnect(action) => {
+                    P2pConnectionOutgoingAction::Reconnect { opts, .. } => {
+                        let peer_id = opts.peer_id();
                         openmina_core::log::info!(
                             meta.time();
                             kind = kind.to_string(),
-                            summary = format!("peer_id: {}", action.opts.peer_id()),
-                            peer_id = action.opts.peer_id().to_string(),
-                            transport = action.opts.kind(),
+                            summary = format!("peer_id: {peer_id}"),
+                            peer_id = peer_id.to_string(),
+                            transport = opts.kind(),
                         );
                     }
-                    P2pConnectionOutgoingAction::OfferSdpCreatePending(_) => {}
-                    P2pConnectionOutgoingAction::OfferSdpCreateError(action) => {
+                    P2pConnectionOutgoingAction::OfferSdpCreatePending { .. } => {}
+                    P2pConnectionOutgoingAction::OfferSdpCreateError { peer_id, error } => {
                         openmina_core::log::warn!(
                             meta.time();
                             kind = kind.to_string(),
-                            summary = format!("peer_id: {}", action.peer_id),
-                            peer_id = action.peer_id.to_string(),
-                            error = action.error.clone(),
+                            summary = format!("peer_id: {peer_id}"),
+                            peer_id = peer_id.to_string(),
+                            error = error.clone(),
                         );
                     }
-                    P2pConnectionOutgoingAction::OfferSdpCreateSuccess(action) => {
+                    P2pConnectionOutgoingAction::OfferSdpCreateSuccess { peer_id, sdp } => {
                         openmina_core::log::debug!(
                             meta.time();
                             kind = kind.to_string(),
-                            summary = format!("peer_id: {}", action.peer_id),
-                            peer_id = action.peer_id.to_string(),
-                            sdp = action.sdp.clone(),
+                            summary = format!("peer_id: {peer_id}"),
+                            peer_id = peer_id.to_string(),
+                            sdp = sdp.clone(),
                         );
                     }
-                    P2pConnectionOutgoingAction::OfferReady(action) => {
+                    P2pConnectionOutgoingAction::OfferReady { peer_id, offer } => {
                         openmina_core::log::debug!(
                             meta.time();
                             kind = kind.to_string(),
-                            summary = format!("peer_id: {}", action.peer_id),
-                            peer_id = action.peer_id.to_string(),
-                            offer = serde_json::to_string(&action.offer).ok()
+                            summary = format!("peer_id: {peer_id}"),
+                            peer_id = peer_id.to_string(),
+                            offer = serde_json::to_string(offer).ok()
                         );
                     }
-                    P2pConnectionOutgoingAction::OfferSendSuccess(action) => {
+                    P2pConnectionOutgoingAction::OfferSendSuccess { peer_id } => {
                         openmina_core::log::debug!(
                             meta.time();
                             kind = kind.to_string(),
-                            summary = format!("peer_id: {}", action.peer_id),
-                            peer_id = action.peer_id.to_string(),
+                            summary = format!("peer_id: {peer_id}"),
+                            peer_id = peer_id.to_string(),
                         );
                     }
-                    P2pConnectionOutgoingAction::AnswerRecvPending(_) => {}
-                    P2pConnectionOutgoingAction::AnswerRecvError(action) => {
+                    P2pConnectionOutgoingAction::AnswerRecvPending { .. } => {}
+                    P2pConnectionOutgoingAction::AnswerRecvError { peer_id, error } => {
                         openmina_core::log::warn!(
                             meta.time();
                             kind = kind.to_string(),
-                            summary = format!("peer_id: {}", action.peer_id),
-                            peer_id = action.peer_id.to_string(),
-                            error = format!("{:?}", action.error),
+                            summary = format!("peer_id: {peer_id}"),
+                            peer_id = peer_id.to_string(),
+                            error = format!("{:?}", error),
                         );
                     }
-                    P2pConnectionOutgoingAction::AnswerRecvSuccess(action) => {
+                    P2pConnectionOutgoingAction::AnswerRecvSuccess { peer_id, answer } => {
                         openmina_core::log::debug!(
                             meta.time();
                             kind = kind.to_string(),
-                            summary = format!("peer_id: {}", action.peer_id),
-                            peer_id = action.peer_id.to_string(),
-                            trace_answer = serde_json::to_string(&action.answer).ok()
+                            summary = format!("peer_id: {peer_id}"),
+                            peer_id = peer_id.to_string(),
+                            trace_answer = serde_json::to_string(answer).ok()
                         );
                     }
-                    P2pConnectionOutgoingAction::FinalizePending(_) => {}
-                    P2pConnectionOutgoingAction::FinalizeError(action) => {
+                    P2pConnectionOutgoingAction::FinalizePending { .. } => {}
+                    P2pConnectionOutgoingAction::FinalizeError { peer_id, error } => {
                         openmina_core::log::warn!(
                             meta.time();
                             kind = kind.to_string(),
-                            summary = format!("peer_id: {}", action.peer_id),
-                            peer_id = action.peer_id.to_string(),
-                            error = action.error.clone(),
+                            summary = format!("peer_id: {peer_id}"),
+                            peer_id = peer_id.to_string(),
+                            error = error.clone(),
                         );
                     }
-                    P2pConnectionOutgoingAction::FinalizeSuccess(action) => {
+                    P2pConnectionOutgoingAction::FinalizeSuccess { peer_id } => {
                         openmina_core::log::info!(
                             meta.time();
                             kind = kind.to_string(),
-                            summary = format!("peer_id: {}", action.peer_id),
-                            peer_id = action.peer_id.to_string()
+                            summary = format!("peer_id: {peer_id}"),
+                            peer_id = peer_id.to_string()
                         );
                     }
-                    P2pConnectionOutgoingAction::Timeout(action) => {
+                    P2pConnectionOutgoingAction::Timeout { peer_id } => {
                         openmina_core::log::warn!(
                             meta.time();
                             kind = kind.to_string(),
-                            summary = format!("peer_id: {}", action.peer_id),
-                            peer_id = action.peer_id.to_string()
+                            summary = format!("peer_id: {peer_id}"),
+                            peer_id = peer_id.to_string()
                         );
                     }
-                    P2pConnectionOutgoingAction::Error(action) => {
+                    P2pConnectionOutgoingAction::Error { peer_id, error } => {
                         openmina_core::log::warn!(
                             meta.time();
                             kind = kind.to_string(),
-                            summary = format!("peer_id: {}", action.peer_id),
-                            peer_id = action.peer_id.to_string(),
-                            error = format!("{:?}", action.error),
+                            summary = format!("peer_id: {peer_id}"),
+                            peer_id = peer_id.to_string(),
+                            error = format!("{:?}", error),
                         );
                     }
-                    P2pConnectionOutgoingAction::Success(action) => {
+                    P2pConnectionOutgoingAction::Success { peer_id } => {
                         openmina_core::log::info!(
                             meta.time();
                             kind = kind.to_string(),
-                            summary = format!("peer_id: {}", action.peer_id),
-                            peer_id = action.peer_id.to_string()
+                            summary = format!("peer_id: {peer_id}"),
+                            peer_id = peer_id.to_string()
                         );
                     }
                 },

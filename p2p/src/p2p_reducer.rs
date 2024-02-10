@@ -18,15 +18,14 @@ impl P2pState {
                     return;
                 };
                 let peer = match action {
-                    P2pConnectionAction::Outgoing(P2pConnectionOutgoingAction::Init(v)) => {
-                        self.peers.entry(*peer_id).or_insert_with(|| P2pPeerState {
-                            is_libp2p: v.opts.is_libp2p(),
-                            dial_opts: Some(v.opts.clone()),
-                            status: P2pPeerStatus::Connecting(P2pConnectionState::outgoing_init(
-                                &v.opts,
-                            )),
-                        })
-                    }
+                    P2pConnectionAction::Outgoing(P2pConnectionOutgoingAction::Init {
+                        opts,
+                        ..
+                    }) => self.peers.entry(*peer_id).or_insert_with(|| P2pPeerState {
+                        is_libp2p: opts.is_libp2p(),
+                        dial_opts: Some(opts.clone()),
+                        status: P2pPeerStatus::Connecting(P2pConnectionState::outgoing_init(opts)),
+                    }),
                     P2pConnectionAction::Incoming(P2pConnectionIncomingAction::Init {
                         opts,
                         ..

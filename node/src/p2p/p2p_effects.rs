@@ -41,64 +41,30 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
             action.effects(&meta, store);
         }
         P2pAction::Connection(action) => match action {
-            P2pConnectionAction::Outgoing(action) => match action {
-                P2pConnectionOutgoingAction::RandomInit(action) => {
-                    action.effects(&meta, store);
-                }
-                P2pConnectionOutgoingAction::Init(action) => {
-                    action.effects(&meta, store);
-                }
-                P2pConnectionOutgoingAction::Reconnect(action) => {
-                    action.effects(&meta, store);
-                }
-                P2pConnectionOutgoingAction::OfferSdpCreatePending(_) => {}
-                P2pConnectionOutgoingAction::OfferSdpCreateError(action) => {
-                    action.effects(&meta, store);
-                }
-                P2pConnectionOutgoingAction::OfferSdpCreateSuccess(action) => {
-                    action.effects(&meta, store);
-                }
-                P2pConnectionOutgoingAction::OfferReady(action) => {
-                    action.effects(&meta, store);
-                }
-                P2pConnectionOutgoingAction::OfferSendSuccess(action) => {
-                    action.effects(&meta, store);
-                }
-                P2pConnectionOutgoingAction::AnswerRecvPending(_) => {}
-                P2pConnectionOutgoingAction::AnswerRecvError(action) => {
-                    action.effects(&meta, store);
-                }
-                P2pConnectionOutgoingAction::AnswerRecvSuccess(action) => {
-                    action.effects(&meta, store);
-                }
-                P2pConnectionOutgoingAction::FinalizePending(_) => {}
-                P2pConnectionOutgoingAction::FinalizeError(action) => {
-                    action.effects(&meta, store);
-                }
-                P2pConnectionOutgoingAction::FinalizeSuccess(action) => {
-                    action.effects(&meta, store);
-                }
-                P2pConnectionOutgoingAction::Timeout(action) => {
-                    action.effects(&meta, store);
-                }
-                P2pConnectionOutgoingAction::Error(action) => {
-                    let p2p = &store.state().p2p;
-                    if let Some(rpc_id) = p2p.peer_connection_rpc_id(&action.peer_id) {
-                        store.dispatch(RpcAction::P2pConnectionOutgoingError {
-                            rpc_id,
-                            error: action.error.clone(),
-                        });
+            P2pConnectionAction::Outgoing(action) => {
+                match action {
+                    P2pConnectionOutgoingAction::Error {
+                        ref peer_id,
+                        ref error,
+                    } => {
+                        let p2p = &store.state().p2p;
+                        if let Some(rpc_id) = p2p.peer_connection_rpc_id(peer_id) {
+                            store.dispatch(RpcAction::P2pConnectionOutgoingError {
+                                rpc_id,
+                                error: error.clone(),
+                            });
+                        }
                     }
-                    // action.effects(&meta, store);
-                }
-                P2pConnectionOutgoingAction::Success(action) => {
-                    let p2p = &store.state().p2p;
-                    if let Some(rpc_id) = p2p.peer_connection_rpc_id(&action.peer_id) {
-                        store.dispatch(RpcAction::P2pConnectionOutgoingSuccess { rpc_id });
+                    P2pConnectionOutgoingAction::Success { ref peer_id } => {
+                        let p2p = &store.state().p2p;
+                        if let Some(rpc_id) = p2p.peer_connection_rpc_id(peer_id) {
+                            store.dispatch(RpcAction::P2pConnectionOutgoingSuccess { rpc_id });
+                        }
                     }
-                    action.effects(&meta, store);
+                    _ => {}
                 }
-            },
+                action.effects(&meta, store);
+            }
             P2pConnectionAction::Incoming(action) => {
                 match &action {
                     P2pConnectionIncomingAction::AnswerReady { peer_id, answer } => {

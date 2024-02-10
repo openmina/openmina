@@ -13,12 +13,12 @@ pub fn p2p_connection_reducer(
     let (action, meta) = action.split();
     match action {
         P2pConnectionAction::Outgoing(action) => {
-            if let P2pConnectionOutgoingAction::Reconnect(a) = action {
+            if let P2pConnectionOutgoingAction::Reconnect { opts, rpc_id } = action {
                 state.status = P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(
                     P2pConnectionOutgoingState::Init {
                         time: meta.time(),
-                        opts: a.opts.clone(),
-                        rpc_id: a.rpc_id,
+                        opts: opts.clone(),
+                        rpc_id: *rpc_id,
                     },
                 ));
             }

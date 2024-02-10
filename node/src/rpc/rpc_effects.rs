@@ -4,7 +4,7 @@ use mina_p2p_messages::v2::MinaBaseTransactionStatusStableV2;
 
 use crate::external_snark_worker::available_job_to_snark_worker_spec;
 use crate::p2p::connection::incoming::P2pConnectionIncomingAction;
-use crate::p2p::connection::outgoing::P2pConnectionOutgoingInitAction;
+use crate::p2p::connection::outgoing::P2pConnectionOutgoingAction;
 use crate::p2p::connection::P2pConnectionResponse;
 use crate::rpc::{PeerConnectionStatus, RpcPeerInfo};
 use crate::snark_pool::SnarkPoolAction;
@@ -118,7 +118,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
             );
         }
         RpcAction::P2pConnectionOutgoingInit { rpc_id, opts } => {
-            store.dispatch(P2pConnectionOutgoingInitAction {
+            store.dispatch(P2pConnectionOutgoingAction::Init {
                 opts,
                 rpc_id: Some(rpc_id),
             });
