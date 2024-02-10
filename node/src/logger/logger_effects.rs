@@ -27,7 +27,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     openmina_core::log::info!(
                         meta.time();
                         kind = kind.to_string(),
-                        summary = format!("addr: {addr}", ),
+                        summary = format!("addr: {addr}"),
                         addr = addr.to_string(),
                         listener_id = listener_id.to_string(),
                     );
@@ -36,7 +36,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     openmina_core::log::info!(
                         meta.time();
                         kind = kind.to_string(),
-                        summary = format!("addr: {addr}", ),
+                        summary = format!("addr: {addr}"),
                         addr = addr.to_string(),
                         listener_id = listener_id.to_string(),
                     );
@@ -45,7 +45,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     openmina_core::log::warn!(
                         meta.time();
                         kind = kind.to_string(),
-                        summary = format!("id: {listener_id}, error: {error}", ),
+                        summary = format!("id: {listener_id}, error: {error}"),
                         error = error,
                         listener_id = listener_id.to_string(),
                     );
@@ -55,7 +55,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                         openmina_core::log::warn!(
                             meta.time();
                             kind = kind.to_string(),
-                            summary = format!("id: {listener_id}, error: {error}", ),
+                            summary = format!("id: {listener_id}, error: {error}"),
                             error = error,
                             listener_id = listener_id.to_string(),
                         );
@@ -63,7 +63,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                         openmina_core::log::info!(
                             meta.time();
                             kind = kind.to_string(),
-                            summary = format!("id: {listener_id},", ),
+                            summary = format!("id: {listener_id},"),
                             listener_id = listener_id.to_string(),
                         );
                     }
@@ -190,100 +190,101 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     }
                 },
                 P2pConnectionAction::Incoming(action) => match action {
-                    P2pConnectionIncomingAction::Init(action) => {
+                    P2pConnectionIncomingAction::Init { opts, .. } => {
+                        let peer_id = opts.peer_id;
                         openmina_core::log::info!(
                             meta.time();
                             kind = kind.to_string(),
-                            summary = format!("peer_id: {}", action.opts.peer_id),
-                            peer_id = action.opts.peer_id.to_string(),
-                            trace_signaling = format!("{:?}", action.opts.signaling),
+                            summary = format!("peer_id: {peer_id}"),
+                            peer_id = peer_id.to_string(),
+                            trace_signaling = format!("{:?}", opts.signaling),
                         );
                     }
-                    P2pConnectionIncomingAction::AnswerSdpCreatePending(_) => {}
-                    P2pConnectionIncomingAction::AnswerSdpCreateError(action) => {
+                    P2pConnectionIncomingAction::AnswerSdpCreatePending { .. } => {}
+                    P2pConnectionIncomingAction::AnswerSdpCreateError { peer_id, error } => {
                         openmina_core::log::warn!(
                             meta.time();
                             kind = kind.to_string(),
-                            summary = format!("peer_id: {}", action.peer_id),
-                            peer_id = action.peer_id.to_string(),
-                            error = format!("{:?}", action.error),
+                            summary = format!("peer_id: {peer_id}"),
+                            peer_id = peer_id.to_string(),
+                            error = format!("{:?}", error),
                         );
                     }
-                    P2pConnectionIncomingAction::AnswerSdpCreateSuccess(action) => {
+                    P2pConnectionIncomingAction::AnswerSdpCreateSuccess { peer_id, sdp } => {
                         openmina_core::log::info!(
                             meta.time();
                             kind = kind.to_string(),
-                            summary = format!("peer_id: {}", action.peer_id),
-                            peer_id = action.peer_id.to_string(),
-                            trace_sdp = action.sdp.clone(),
+                            summary = format!("peer_id: {peer_id}"),
+                            peer_id = peer_id.to_string(),
+                            trace_sdp = sdp.clone(),
                         );
                     }
-                    P2pConnectionIncomingAction::AnswerReady(action) => {
+                    P2pConnectionIncomingAction::AnswerReady { peer_id, answer } => {
                         openmina_core::log::info!(
                             meta.time();
                             kind = kind.to_string(),
-                            summary = format!("peer_id: {}", action.peer_id),
-                            peer_id = action.peer_id.to_string(),
-                            trace_answer = serde_json::to_string(&action.answer).ok()
+                            summary = format!("peer_id: {peer_id}"),
+                            peer_id = peer_id.to_string(),
+                            trace_answer = serde_json::to_string(answer).ok()
                         );
                     }
-                    P2pConnectionIncomingAction::AnswerSendSuccess(action) => {
+                    P2pConnectionIncomingAction::AnswerSendSuccess { peer_id } => {
                         openmina_core::log::info!(
                             meta.time();
                             kind = kind.to_string(),
-                            summary = format!("peer_id: {}", action.peer_id),
-                            peer_id = action.peer_id.to_string()
+                            summary = format!("peer_id: {peer_id}"),
+                            peer_id = peer_id.to_string(),
                         );
                     }
-                    P2pConnectionIncomingAction::FinalizePending(_) => {}
-                    P2pConnectionIncomingAction::FinalizeError(action) => {
+                    P2pConnectionIncomingAction::FinalizePending { .. } => {}
+                    P2pConnectionIncomingAction::FinalizeError { peer_id, error } => {
                         openmina_core::log::warn!(
                             meta.time();
                             kind = kind.to_string(),
-                            summary = format!("peer_id: {}", action.peer_id),
-                            peer_id = action.peer_id.to_string(),
-                            error = format!("{:?}", action.error),
+                            summary = format!("peer_id: {peer_id}"),
+                            peer_id = peer_id.to_string(),
+                            error = format!("{:?}", error),
                         );
                     }
-                    P2pConnectionIncomingAction::FinalizeSuccess(action) => {
+                    P2pConnectionIncomingAction::FinalizeSuccess { peer_id } => {
                         openmina_core::log::info!(
                             meta.time();
                             kind = kind.to_string(),
-                            summary = format!("peer_id: {}", action.peer_id),
-                            peer_id = action.peer_id.to_string()
+                            summary = format!("peer_id: {peer_id}"),
+                            peer_id = peer_id.to_string(),
                         );
                     }
-                    P2pConnectionIncomingAction::Timeout(action) => {
+                    P2pConnectionIncomingAction::Timeout { peer_id } => {
                         openmina_core::log::warn!(
                             meta.time();
                             kind = kind.to_string(),
-                            summary = format!("peer_id: {}", action.peer_id),
-                            peer_id = action.peer_id.to_string()
+                            summary = format!("peer_id: {peer_id}"),
+                            peer_id = peer_id.to_string(),
                         );
                     }
-                    P2pConnectionIncomingAction::Error(action) => {
+                    P2pConnectionIncomingAction::Error { peer_id, error } => {
                         openmina_core::log::warn!(
                             meta.time();
                             kind = kind.to_string(),
-                            summary = format!("peer_id: {}", action.peer_id),
-                            peer_id = action.peer_id.to_string(),
-                            error = format!("{:?}", action.error),
+                            summary = format!("peer_id: {peer_id}"),
+                            peer_id = peer_id.to_string(),
+                            error = format!("{:?}", error),
                         );
                     }
-                    P2pConnectionIncomingAction::Success(action) => {
+                    P2pConnectionIncomingAction::Success { peer_id } => {
                         openmina_core::log::info!(
                             meta.time();
                             kind = kind.to_string(),
-                            summary = format!("peer_id: {}", action.peer_id),
-                            peer_id = action.peer_id.to_string()
+                            summary = format!("peer_id: {peer_id}"),
+                            peer_id = peer_id.to_string(),
                         );
                     }
-                    P2pConnectionIncomingAction::Libp2pReceived(action) => {
+                    P2pConnectionIncomingAction::Libp2pReceived { peer_id } => {
                         openmina_core::log::info!(
                             meta.time();
                             kind = kind.to_string(),
-                            summary = format!("peer_id: {}", action.peer_id),
-                            peer_id = action.peer_id.to_string(),
+                            summary = format!("peer_id: {peer_id}"),
+                            peer_id = peer_id.to_string(),
                         );
                     }
                 },
@@ -293,7 +294,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     openmina_core::log::info!(
                         meta.time();
                         kind = kind.to_string(),
-                        summary = format!("peer_id: {peer_id}", ),
+                        summary = format!("peer_id: {peer_id}"),
                         peer_id = peer_id.to_string(),
                         reason = format!("{:?}", reason)
                     );
@@ -302,7 +303,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     openmina_core::log::info!(
                         meta.time();
                         kind = kind.to_string(),
-                        summary = format!("peer_id: {peer_id}", ),
+                        summary = format!("peer_id: {peer_id}"),
                         peer_id = peer_id.to_string()
                     );
                 }
@@ -312,7 +313,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     openmina_core::log::debug!(
                         meta.time();
                         kind = kind.to_string(),
-                        summary = format!("peer_id: {peer_id}", ),
+                        summary = format!("peer_id: {peer_id}"),
                         peer_id = peer_id.to_string()
                     );
                 }
@@ -320,7 +321,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     openmina_core::log::debug!(
                         meta.time();
                         kind = kind.to_string(),
-                        summary = format!("peer_id: {peer_id}", ),
+                        summary = format!("peer_id: {peer_id}"),
                         peer_id = peer_id.to_string()
                     );
                 }
@@ -386,7 +387,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                         openmina_core::log::debug!(
                             meta.time();
                             kind = kind.to_string(),
-                            summary = format!("peer_id: {peer_id}", ),
+                            summary = format!("peer_id: {peer_id}"),
                             peer_id = peer_id.to_string()
                         );
                     }
@@ -394,7 +395,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                         openmina_core::log::debug!(
                             meta.time();
                             kind = kind.to_string(),
-                            summary = format!("peer_id: {peer_id}", ),
+                            summary = format!("peer_id: {peer_id}"),
                             peer_id = peer_id.to_string()
                         );
                     }
@@ -424,7 +425,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                         openmina_core::log::debug!(
                             meta.time();
                             kind = kind.to_string(),
-                            summary = format!("peer_id: {peer_id}", ),
+                            summary = format!("peer_id: {peer_id}"),
                             peer_id = peer_id.to_string()
                         );
                     }
@@ -432,7 +433,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                         openmina_core::log::debug!(
                             meta.time();
                             kind = kind.to_string(),
-                            summary = format!("peer_id: {peer_id}", ),
+                            summary = format!("peer_id: {peer_id}"),
                             peer_id = peer_id.to_string()
                         );
                     }

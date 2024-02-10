@@ -3,7 +3,7 @@ use std::time::Duration;
 use mina_p2p_messages::v2::MinaBaseTransactionStatusStableV2;
 
 use crate::external_snark_worker::available_job_to_snark_worker_spec;
-use crate::p2p::connection::incoming::P2pConnectionIncomingInitAction;
+use crate::p2p::connection::incoming::P2pConnectionIncomingAction;
 use crate::p2p::connection::outgoing::P2pConnectionOutgoingInitAction;
 use crate::p2p::connection::P2pConnectionResponse;
 use crate::rpc::{PeerConnectionStatus, RpcPeerInfo};
@@ -140,7 +140,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
             let rpc_id = rpc_id;
             match store.state().p2p.incoming_accept(opts.peer_id, &opts.offer) {
                 Ok(_) => {
-                    store.dispatch(P2pConnectionIncomingInitAction {
+                    store.dispatch(P2pConnectionIncomingAction::Init {
                         opts,
                         rpc_id: Some(rpc_id),
                     });

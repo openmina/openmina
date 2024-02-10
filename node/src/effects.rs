@@ -7,7 +7,7 @@ use crate::event_source::event_source_effects;
 use crate::external_snark_worker::external_snark_worker_effects;
 use crate::logger::logger_effects;
 use crate::p2p::channels::rpc::{P2pChannelsRpcAction, P2pRpcKind, P2pRpcRequest};
-use crate::p2p::connection::incoming::P2pConnectionIncomingTimeoutAction;
+use crate::p2p::connection::incoming::P2pConnectionIncomingAction;
 use crate::p2p::connection::outgoing::{
     P2pConnectionOutgoingRandomInitAction, P2pConnectionOutgoingReconnectAction,
     P2pConnectionOutgoingTimeoutAction,
@@ -128,7 +128,7 @@ fn p2p_connection_timeouts<S: Service>(store: &mut Store<S>, meta: &ActionMeta) 
     for (peer_id, is_outgoing) in p2p_connection_timeouts {
         match is_outgoing {
             true => store.dispatch(P2pConnectionOutgoingTimeoutAction { peer_id }),
-            false => store.dispatch(P2pConnectionIncomingTimeoutAction { peer_id }),
+            false => store.dispatch(P2pConnectionIncomingAction::Timeout { peer_id }),
         };
     }
 }

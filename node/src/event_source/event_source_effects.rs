@@ -9,11 +9,7 @@ use crate::p2p::channels::best_tip::P2pChannelsBestTipAction;
 use crate::p2p::channels::rpc::P2pChannelsRpcAction;
 use crate::p2p::channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentAction;
 use crate::p2p::channels::{ChannelId, P2pChannelsMessageReceivedAction};
-use crate::p2p::connection::incoming::{
-    P2pConnectionIncomingAnswerSdpCreateErrorAction,
-    P2pConnectionIncomingAnswerSdpCreateSuccessAction, P2pConnectionIncomingFinalizeErrorAction,
-    P2pConnectionIncomingFinalizeSuccessAction, P2pConnectionIncomingLibp2pReceivedAction,
-};
+use crate::p2p::connection::incoming::P2pConnectionIncomingAction;
 use crate::p2p::connection::outgoing::{
     P2pConnectionOutgoingAnswerRecvErrorAction, P2pConnectionOutgoingAnswerRecvSuccessAction,
     P2pConnectionOutgoingFinalizeErrorAction, P2pConnectionOutgoingFinalizeSuccessAction,
@@ -87,13 +83,13 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                     },
                     P2pConnectionEvent::AnswerSdpReady(peer_id, res) => match res {
                         Err(error) => {
-                            store.dispatch(P2pConnectionIncomingAnswerSdpCreateErrorAction {
+                            store.dispatch(P2pConnectionIncomingAction::AnswerSdpCreateError {
                                 peer_id,
                                 error,
                             });
                         }
                         Ok(sdp) => {
-                            store.dispatch(P2pConnectionIncomingAnswerSdpCreateSuccessAction {
+                            store.dispatch(P2pConnectionIncomingAction::AnswerSdpCreateSuccess {
                                 peer_id,
                                 sdp,
                             });
@@ -125,7 +121,7 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                                 peer_id,
                                 error: error.clone(),
                             });
-                            store.dispatch(P2pConnectionIncomingFinalizeErrorAction {
+                            store.dispatch(P2pConnectionIncomingAction::FinalizeError {
                                 peer_id,
                                 error,
                             });
@@ -133,10 +129,10 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                         Ok(_) => {
                             let _ = store
                                 .dispatch(P2pConnectionOutgoingFinalizeSuccessAction { peer_id })
-                                || store.dispatch(P2pConnectionIncomingFinalizeSuccessAction {
+                                || store.dispatch(P2pConnectionIncomingAction::FinalizeSuccess {
                                     peer_id,
                                 })
-                                || store.dispatch(P2pConnectionIncomingLibp2pReceivedAction {
+                                || store.dispatch(P2pConnectionIncomingAction::Libp2pReceived {
                                     peer_id,
                                 });
                         }

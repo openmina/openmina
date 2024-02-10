@@ -29,16 +29,16 @@ pub fn p2p_connection_reducer(
             state.reducer(meta.with_action(action));
         }
         P2pConnectionAction::Incoming(action) => {
-            if let P2pConnectionIncomingAction::Init(a) = action {
+            if let P2pConnectionIncomingAction::Init { opts, rpc_id } = action {
                 state.status = P2pPeerStatus::Connecting(P2pConnectionState::Incoming(
                     P2pConnectionIncomingState::Init {
                         time: meta.time(),
-                        signaling: a.opts.signaling.clone(),
-                        offer: a.opts.offer.clone(),
-                        rpc_id: a.rpc_id,
+                        signaling: opts.signaling.clone(),
+                        offer: opts.offer.clone(),
+                        rpc_id: *rpc_id,
                     },
                 ))
-            } else if let P2pConnectionIncomingAction::Libp2pReceived(_) = action {
+            } else if let P2pConnectionIncomingAction::Libp2pReceived { .. } = action {
                 state.status = P2pPeerStatus::Connecting(P2pConnectionState::Incoming(
                     P2pConnectionIncomingState::Libp2pReceived { time: meta.time() },
                 ))

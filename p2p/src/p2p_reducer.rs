@@ -27,31 +27,30 @@ impl P2pState {
                             )),
                         })
                     }
-                    P2pConnectionAction::Incoming(P2pConnectionIncomingAction::Init(v)) => {
-                        self.peers.entry(*peer_id).or_insert_with(|| P2pPeerState {
-                            is_libp2p: false,
-                            dial_opts: {
-                                let signaling = match v.opts.signaling {
-                                    IncomingSignalingMethod::Http => {
-                                        SignalingMethod::Http(HttpSignalingInfo {
-                                            host: v.opts.offer.host.clone(),
-                                            port: v.opts.offer.listen_port,
-                                        })
-                                    }
-                                };
-                                Some(P2pConnectionOutgoingInitOpts::WebRTC {
-                                    peer_id: *peer_id,
-                                    signaling,
-                                })
-                            },
-                            status: P2pPeerStatus::Connecting(P2pConnectionState::incoming_init(
-                                &v.opts,
-                            )),
-                        })
-                    }
-                    P2pConnectionAction::Incoming(P2pConnectionIncomingAction::Libp2pReceived(
-                        _,
-                    )) => {
+                    P2pConnectionAction::Incoming(P2pConnectionIncomingAction::Init {
+                        opts,
+                        ..
+                    }) => self.peers.entry(*peer_id).or_insert_with(|| P2pPeerState {
+                        is_libp2p: false,
+                        dial_opts: {
+                            let signaling = match opts.signaling {
+                                IncomingSignalingMethod::Http => {
+                                    SignalingMethod::Http(HttpSignalingInfo {
+                                        host: opts.offer.host.clone(),
+                                        port: opts.offer.listen_port,
+                                    })
+                                }
+                            };
+                            Some(P2pConnectionOutgoingInitOpts::WebRTC {
+                                peer_id: *peer_id,
+                                signaling,
+                            })
+                        },
+                        status: P2pPeerStatus::Connecting(P2pConnectionState::incoming_init(opts)),
+                    }),
+                    P2pConnectionAction::Incoming(
+                        P2pConnectionIncomingAction::Libp2pReceived { .. },
+                    ) => {
                         self.peers.entry(*peer_id).or_insert_with(|| P2pPeerState {
                             is_libp2p: true,
                             dial_opts: None,
