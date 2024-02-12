@@ -38,7 +38,7 @@ use crate::{
     },
     Account, AccountId, AuthRequired, BaseLedger, ControlTag, Mask, MyCowMut, Permissions,
     ReceiptChainHash, SetVerificationKey, TokenId, VerificationKey, VotingFor, ZkAppAccount,
-    CURRENT_TRANSACTION,
+    TXN_VERSION_CURRENT,
 };
 
 // use mina_p2p_messages::v2::MinaBaseAccountUpdateCallTypeStableV1 as CallType;
@@ -1499,7 +1499,7 @@ pub fn gen_zkapp_command_from(params: GenZkappCommandParams) -> ZkAppCommand {
                             NotPermitedOf::VerificationKey => {
                                 perm.set_verification_key = SetVerificationKey {
                                     auth: AuthRequired::from(auth_tag),
-                                    txn_version: CURRENT_TRANSACTION,
+                                    txn_version: TXN_VERSION_CURRENT,
                                 }
                             }
                             NotPermitedOf::ZkappUri => {

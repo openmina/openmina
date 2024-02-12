@@ -14,7 +14,7 @@ use crate::{
         },
     },
     util, Account, AccountId, AuthRequired, BaseLedger, Mask, MyCowMut, Permissions, TokenId,
-    VerificationKey, ZkAppAccount, CURRENT_TRANSACTION,
+    VerificationKey, ZkAppAccount, TXN_VERSION_CURRENT,
 };
 
 use super::{
@@ -115,7 +115,7 @@ fn zkapp_command_with_ledger(
             set_permissions: AuthRequired::Either,
             set_verification_key: crate::SetVerificationKey {
                 auth: AuthRequired::Either,
-                txn_version: CURRENT_TRANSACTION,
+                txn_version: TXN_VERSION_CURRENT,
             },
             set_zkapp_uri: AuthRequired::Either,
             edit_action_state: AuthRequired::Either,

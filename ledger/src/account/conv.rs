@@ -21,7 +21,7 @@ use crate::{
         field::FieldWitness,
         transaction::{make_group, InnerCurve, PlonkVerificationKeyEvals},
     },
-    scan_state::currency::{Amount, Balance, Nonce, Slot, SlotSpan},
+    scan_state::currency::{Amount, Balance, Nonce, Slot, SlotSpan, TxnVersion},
     Permissions, ProofVerified, ReceiptChainHash, SetVerificationKey, Timing, TokenSymbol,
     VerificationKey, VotingFor, ZkAppAccount,
 };
@@ -443,7 +443,7 @@ impl From<&MinaBasePermissionsStableV2> for Permissions<AuthRequired> {
             set_permissions: set_permissions.into(),
             set_verification_key: SetVerificationKey {
                 auth: auth.into(),
-                txn_version: txn_version.as_u32(),
+                txn_version: TxnVersion::from_u32(txn_version.as_u32()),
             },
             set_zkapp_uri: set_zkapp_uri.into(),
             edit_action_state: edit_action_state.into(),
@@ -480,7 +480,7 @@ impl From<&Permissions<AuthRequired>> for MinaBasePermissionsStableV2 {
             receive: receive.into(),
             set_delegate: set_delegate.into(),
             set_permissions: set_permissions.into(),
-            set_verification_key: (auth.into(), (*txn_version).into()),
+            set_verification_key: (auth.into(), txn_version.as_u32().into()),
             set_zkapp_uri: set_zkapp_uri.into(),
             edit_action_state: edit_action_state.into(),
             set_token_symbol: set_token_symbol.into(),

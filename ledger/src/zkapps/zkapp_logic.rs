@@ -897,17 +897,30 @@ where
     // Set verification key.
     let (_a, _local_state) = {
         let verification_key = &account_update.body().update.verification_key;
-        let has_permission = {
-            let set_verification_key = &a.get().permissions.set_verification_key;
 
-            todo!()
-            // Z::Controller::check(
-            //     proof_verifies,
-            //     signature_verifies,
-            //     &set_verification_key.0,
-            //     &single_data,
-            //     w,
-            // )
+        let has_permission = {
+            let SetVerificationKey { auth, txn_version } =
+                &a.get().permissions.set_verification_key;
+
+            let older_than_current_version = Z::TxnVersion::older_than_current(*txn_version, w);
+            let original_auth = auth;
+
+            let auth = {
+                let on_true = Z::Branch::make(w, |w| {
+                    Z::Controller::verification_key_perm_fallback_to_signature_with_older_version(
+                        original_auth,
+                        w,
+                    )
+                });
+                let on_false = Z::Branch::make(w, |_| original_auth.clone());
+
+                w.on_if(
+                    older_than_current_version,
+                    BranchParam { on_true, on_false },
+                )
+            };
+
+            Z::Controller::check(proof_verifies, signature_verifies, &auth, &single_data, w)
         };
         Z::LocalState::add_check(
             local_state,

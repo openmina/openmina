@@ -7610,7 +7610,7 @@ pub mod for_tests {
 
     use crate::{
         gen_keypair, scan_state::parallel_scan::ceil_log2, AuthRequired, BaseLedger, Mask,
-        Permissions, ZkAppAccount, CURRENT_TRANSACTION,
+        Permissions, ZkAppAccount, TXN_VERSION_CURRENT,
     };
 
     use super::*;
@@ -7703,7 +7703,7 @@ pub mod for_tests {
                     set_permissions: Either,
                     set_verification_key: crate::SetVerificationKey {
                         auth: Either,
-                        txn_version: CURRENT_TRANSACTION,
+                        txn_version: TXN_VERSION_CURRENT,
                     },
                     set_zkapp_uri: Either,
                     edit_action_state: Either,

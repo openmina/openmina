@@ -19,7 +19,8 @@ use crate::{
         },
     },
     sparse_ledger::LedgerIntf,
-    Account, AuthRequired, ControlTag, Mask, ReceiptChainHash, Timing, TokenId, ZkAppAccount,
+    Account, AuthRequired, ControlTag, Mask, ReceiptChainHash, SetVerificationKey, Timing, TokenId,
+    ZkAppAccount, TXN_VERSION_CURRENT,
 };
 
 use super::{
@@ -750,12 +751,18 @@ where
     let (a, local_state) = {
         let verification_key = account_update.verification_key();
 
-        let has_permission = todo!();
-        // let has_permission = controller_check(
-        //     proof_verifies,
-        //     signature_verifies,
-        //     a.permissions.set_verification_key.0,
-        // )?;
+        let SetVerificationKey { auth, txn_version } = &a.permissions.set_verification_key;
+
+        let older_than_current_version = txn_version.lt(&TXN_VERSION_CURRENT);
+        let original_auth = auth;
+
+        let auth = if older_than_current_version {
+            original_auth.verification_key_perm_fallback_to_signature_with_older_version()
+        } else {
+            original_auth.clone()
+        };
+
+        let has_permission = controller_check(proof_verifies, signature_verifies, auth)?;
 
         let local_state = local_state.add_check(
             TransactionFailure::UpdateNotPermittedVerificationKey,
