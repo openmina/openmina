@@ -61,7 +61,7 @@ Open up the command line and enter the following:
 ``` sh
 apt install curl git
 
-curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain nightly-2023-10-07
+curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain 1.75
 
 source "$HOME/.cargo/env"
 

@@ -60,11 +60,11 @@ spec:
             - |
               apt-get update && apt-get -y install git curl gcc libssl-dev pkg-config
               curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-              PATH=$PATH:~/.cargo/bin && rustup update nightly-2023-10-01
+              PATH=$PATH:~/.cargo/bin && rustup update 1.75
               git clone https://github.com/openmina/openmina
               cd openmina
               git fetch && git checkout feat/tests-with-debugger
-              PATH=$PATH:~/.cargo/bin && cargo +nightly-2023-10-01 build --release --bin openmina 
+              PATH=$PATH:~/.cargo/bin && cargo +1.75 build --release --bin openmina
               cp target/release/openmina /usr/local/bin/openmina
               openmina node -p 10000 --libp2p-port 8302
           ports:

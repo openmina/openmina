@@ -18,8 +18,8 @@ jobs:
 
       - name: Setup Rust
         run: |
-          rustup install stable
-          rustup override set stable
+          rustup install 1.75
+          rustup override set 1.75
           rustup component add clippy rustfmt
 
       # - name: Check
