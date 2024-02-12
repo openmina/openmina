@@ -32,7 +32,7 @@ use crate::{
 
 use super::common::*;
 
-const CURRENT_TRANSACTION: u32 = 2;
+pub const CURRENT_TRANSACTION: u32 = 2;
 
 #[derive(Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TokenId(pub Fp);
