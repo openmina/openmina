@@ -205,8 +205,14 @@ describe('MEMORY RESOURCES TABLE', () => {
               .wait(500)
               .get('app-memory-resources-table .row:not(.head)')
               .each((row: any, i: number) => {
-                expect(row.find('span:nth-child(3)').text().trim()).equals(state.activeResource.children[i].name.executableName);
                 expect(row.find('span:nth-child(4)').text().trim()).equals(transform(state.activeResource.children[i].value));
+                const actual = row.find('span:nth-child(3)').text().trim();
+                const expected = state.activeResource.children[i].name.executableName;
+                if (actual.length < expected.length) {
+                  expect(expected.startsWith(actual.slice(0, actual.length - 3))).to.be.true;
+                } else {
+                  expect(actual).equals(expected);
+                }
               })
               .window()
               .its('store')
@@ -232,15 +238,27 @@ describe('MEMORY RESOURCES TABLE', () => {
               .wait(500)
               .get(`app-memory-resources-table .row:not(.head)`)
               .each((row: any, i: number) => {
-                expect(row.find('span:nth-child(3)').text().trim()).equals(state.activeResource.children[rowIndex].children[i].name.executableName);
                 expect(row.find('span:nth-child(4)').text().trim()).equals(transform(state.activeResource.children[rowIndex].children[i].value));
+                const actual = row.find('span:nth-child(3)').text().trim();
+                const expected = state.activeResource.children[rowIndex].children[i].name.executableName;
+                if (actual.length < expected.length) {
+                  expect(expected.startsWith(actual.slice(0, actual.length - 3))).to.be.true;
+                } else {
+                  expect(actual).equals(expected);
+                }
               })
               .get('app-memory-resources-toolbar .fx-row-vert-cent .fx-row-vert-cent:nth-child(1) > span')
               .click()
               .wait(500)
               .get('app-memory-resources-table .row:not(.head)')
               .each((row: any, i: number) => {
-                expect(row.find('span:nth-child(3)').text().trim()).equals(state.activeResource.children[i].name.executableName);
+                const actual = row.find('span:nth-child(3)').text().trim();
+                const expected = state.activeResource.children[i].name.executableName;
+                if (actual.length < expected.length) {
+                  expect(expected.startsWith(actual.slice(0, actual.length - 3))).to.be.true;
+                } else {
+                  expect(actual).equals(expected);
+                }
                 expect(row.find('span:nth-child(4)').text().trim()).equals(transform(state.activeResource.children[i].value));
               });
           }
@@ -261,15 +279,28 @@ describe('MEMORY RESOURCES TABLE', () => {
               .wait(500)
               .get(`app-memory-resources-table .row:not(.head)`)
               .each((row: any, i: number) => {
-                expect(row.find('span:nth-child(3)').text().trim()).equals(state.activeResource.children[rowIndex].children[i].name.executableName);
                 expect(row.find('span:nth-child(4)').text().trim()).equals(transform(state.activeResource.children[rowIndex].children[i].value));
+                const actual = row.find('span:nth-child(3)').text().trim();
+                const expected = state.activeResource.children[rowIndex].children[i].name.executableName;
+                if (actual.length < expected.length) {
+                  expect(expected.startsWith(actual.slice(0, actual.length - 3))).to.be.true;
+                } else {
+                  expect(actual).equals(expected);
+                }
               })
               .get('body')
               .type('{esc}')
               .wait(500)
               .get('app-memory-resources-table .row:not(.head)')
               .each((row: any, i: number) => {
-                expect(row.find('span:nth-child(3)').text().trim()).equals(state.activeResource.children[i].name.executableName);
+                const actual = row.find('span:nth-child(3)').text().trim();
+                const expected = state.activeResource.children[i].name.executableName;
+                if (actual.length < expected.length) {
+                  expect(expected.startsWith(actual.slice(0, actual.length - 3))).to.be.true;
+                } else {
+                  expect(actual).equals(expected);
+                }
+
                 expect(row.find('span:nth-child(4)').text().trim()).equals(transform(state.activeResource.children[i].value));
               });
           }

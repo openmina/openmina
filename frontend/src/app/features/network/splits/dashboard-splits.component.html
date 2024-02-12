@@ -1,0 +1,19 @@
+<div class="flex-row w-100 h-100" #parent>
+  <mina-horizontal-resizable-container [leftTemplate]="left"
+                                       [rightTemplate]="right"
+                                       [show]="show"
+                                       [minWidth]="420"
+                                       [maxWidthElement]="parent"
+                                       localStorageKey="network-topology-spw"></mina-horizontal-resizable-container>
+</div>
+
+<ng-template #left>
+  <div class="flex-column h-100 w-100">
+    <mina-dashboard-splits-toolbar></mina-dashboard-splits-toolbar>
+    <mina-dashboard-splits-graph></mina-dashboard-splits-graph>
+  </div>
+</ng-template>
+
+<ng-template #right>
+  <mina-dashboard-splits-side-panel></mina-dashboard-splits-side-panel>
+</ng-template>

@@ -8,6 +8,7 @@ import * as fromBlocks from '@network/blocks/network-blocks.reducer';
 import { NetworkMessagesAction, NetworkMessagesActions } from '@network/messages/network-messages.actions';
 import { NetworkConnectionsAction, NetworkConnectionsActions } from '@network/connections/network-connections.actions';
 import { NetworkBlocksAction, NetworkBlocksActions } from '@network/blocks/network-blocks.actions';
+import { topologyReducer } from '@network/splits/dashboard-splits.reducer';
 
 export type NetworkActions = NetworkMessagesActions & NetworkConnectionsActions & NetworkBlocksActions;
 export type NetworkAction = NetworkMessagesAction & NetworkConnectionsAction & NetworkBlocksAction;
@@ -16,4 +17,5 @@ export const networkReducer: ActionReducer<NetworkState, NetworkActions> = combi
   messages: fromMessages.reducer,
   connections: fromConnections.reducer,
   blocks: fromBlocks.reducer,
+  splits: topologyReducer,
 });

@@ -14,7 +14,7 @@ import { ResourcesSizePipe } from '@resources/memory/memory-resources.pipe';
 import { MemoryResourcesSetActiveResource } from '@resources/memory/memory-resources.actions';
 import { untilDestroyed } from '@ngneat/until-destroy';
 import { TreemapView } from '@shared/types/resources/memory/treemap-view.type';
-import { isDesktop, isMobile, TooltipService } from '@openmina/shared';
+import { isDesktop, TooltipService } from '@openmina/shared';
 import { selectAppMenu } from '@app/app.state';
 
 @Component({
@@ -456,12 +456,7 @@ export class MemoryResourcesTreemapComponent extends StoreDispatcher implements 
   };
 
   private findNodeByName(node: MemoryResource, root: HierarchyRectangularNode<MemoryResource>): HierarchyRectangularNode<MemoryResource> {
-    if (
-      root.data.name.executableName === node.name.executableName
-      && root.data.name.functionName === node.name.functionName
-      && root.data.value === node.value
-      && root.data.children.length === node.children.length
-    ) {
+    if (root.data.id === node.id) {
       return root;
     } else if (root.children) {
       let found: HierarchyRectangularNode<MemoryResource> = null;

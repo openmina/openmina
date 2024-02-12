@@ -5,13 +5,16 @@ import { map, Observable } from 'rxjs';
 import { RustService } from '@core/services/rust.service';
 
 @Injectable({
-  providedIn: 'root'
+  providedIn: 'root',
 })
 export class MemoryResourcesService {
+
+  private id: number = 0;
 
   constructor(private rust: RustService) { }
 
   getStorageResources(threshold: number, reversed: boolean = false): Observable<MemoryResource> {
+    this.id = 0;
     return this.rust.getMemProfiler<MemoryResourceTree>(`/v1/tree?threshold=${threshold}&reverse=${reversed}`)
       .pipe(map((response: MemoryResourceTree) => this.mapMemoryResponse(response, threshold)));
   }
@@ -20,7 +23,8 @@ export class MemoryResourcesService {
     return {
       name: { ...response.name, executableName: 'root' },
       value: round(response.value/* - (response.cacheValue || 0)*/),
-      children: this.build(response.frames, threshold)
+      children: this.build(response.frames, threshold),
+      id: this.nextId,
     };
   }
 
@@ -33,6 +37,7 @@ export class MemoryResourcesService {
           name: this.getFrameName(frame.name, threshold),
           value: size,
           children: this.build(frame.frames || [], threshold),
+          id: this.nextId,
         };
         children.push(items);
       });
@@ -49,8 +54,12 @@ export class MemoryResourcesService {
 
     return {
       executableName: `${name.executable}@${name.offset}`,
-      functionName: name.functionName
+      functionName: name.functionName,
     };
+  }
+
+  private get nextId(): number {
+    return this.id++;
   }
 }
 

@@ -4,4 +4,5 @@ export class MemoryResource {
   name: MemoryResourceName;
   children: MemoryResource[];
   value?: number;
+  id: number;
 }
