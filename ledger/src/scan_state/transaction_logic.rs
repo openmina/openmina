@@ -27,9 +27,7 @@ use self::{
         TransactionApplied, ZkappCommandApplied,
     },
     transaction_union_payload::TransactionUnionPayload,
-    zkapp_command::{
-        AccountUpdate, WithHash, ZkAppCommand, ZkAppPreconditions,
-    },
+    zkapp_command::{AccountUpdate, WithHash, ZkAppCommand, ZkAppPreconditions},
 };
 
 use super::currency::SlotSpan;

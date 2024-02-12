@@ -550,7 +550,7 @@ pub mod transaction_snark {
                     proofs: (&*value.proofs).into(),
                 }
             }
-}
+        }
 
         impl Work {
             pub fn statement(&self) -> Statement {

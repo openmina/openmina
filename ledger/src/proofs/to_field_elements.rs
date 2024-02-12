@@ -775,8 +775,11 @@ impl<F: FieldWitness> ToFieldElements<F> for crate::Timing {
 
 impl<F: FieldWitness> ToFieldElements<F> for crate::Permissions<crate::AuthRequired> {
     fn to_field_elements(&self, fields: &mut Vec<F>) {
-        self.iter_as_bits(|bit| {
-            bit.to_field_elements(fields);
+        use crate::AuthOrVersion;
+
+        self.iter_as_bits(|bit| match bit {
+            AuthOrVersion::Auth(bit) => bit.to_field_elements(fields),
+            AuthOrVersion::Version(version) => version.to_field_elements(fields),
         });
     }
 }

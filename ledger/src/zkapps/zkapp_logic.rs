@@ -2,7 +2,6 @@ use mina_hasher::Fp;
 use mina_signer::CompressedPubKey;
 
 use crate::scan_state::transaction_logic::zkapp_command::{Actions, SetOrKeep};
-use crate::Permissions;
 use crate::{
     proofs::transaction::transaction_snark::CONSTRAINT_CONSTANTS,
     scan_state::{
@@ -15,6 +14,7 @@ use crate::{
     zkapps::intefaces::*,
     AuthRequired, AuthRequiredEncoded, MyCow, TokenId, VerificationKey,
 };
+use crate::{Permissions, SetVerificationKey};
 
 use crate::proofs::{
     field::{Boolean, ToBoolean},
@@ -113,7 +113,11 @@ fn permissions_exists<Z: ZkappApplication>(
         receive,
         set_delegate,
         set_permissions,
-        set_verification_key,
+        set_verification_key:
+            SetVerificationKey {
+                auth: set_verification_key_auth,
+                txn_version: _,
+            },
         set_zkapp_uri,
         edit_action_state,
         set_token_symbol,
@@ -129,7 +133,7 @@ fn permissions_exists<Z: ZkappApplication>(
         receive,
         set_delegate,
         set_permissions,
-        &set_verification_key.0,
+        set_verification_key_auth,
         set_zkapp_uri,
         edit_action_state,
         set_token_symbol,
@@ -895,13 +899,15 @@ where
         let verification_key = &account_update.body().update.verification_key;
         let has_permission = {
             let set_verification_key = &a.get().permissions.set_verification_key;
-            Z::Controller::check(
-                proof_verifies,
-                signature_verifies,
-                &set_verification_key.0,
-                &single_data,
-                w,
-            )
+
+            todo!()
+            // Z::Controller::check(
+            //     proof_verifies,
+            //     signature_verifies,
+            //     &set_verification_key.0,
+            //     &single_data,
+            //     w,
+            // )
         };
         Z::LocalState::add_check(
             local_state,

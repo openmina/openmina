@@ -749,11 +749,13 @@ where
 
     let (a, local_state) = {
         let verification_key = account_update.verification_key();
-        let has_permission = controller_check(
-            proof_verifies,
-            signature_verifies,
-            a.permissions.set_verification_key.0,
-        )?;
+
+        let has_permission = todo!();
+        // let has_permission = controller_check(
+        //     proof_verifies,
+        //     signature_verifies,
+        //     a.permissions.set_verification_key.0,
+        // )?;
 
         let local_state = local_state.add_check(
             TransactionFailure::UpdateNotPermittedVerificationKey,

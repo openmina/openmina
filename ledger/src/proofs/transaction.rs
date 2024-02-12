@@ -1105,7 +1105,7 @@ impl<F: FieldWitness> Check<F> for MinaStateProtocolStateBodyValueStableV2 {
                     slots_per_sub_window,
                     delta,
                     genesis_state_timestamp,
-                    grace_period_slots: _
+                    grace_period_slots: _,
                 },
         } = self;
 
