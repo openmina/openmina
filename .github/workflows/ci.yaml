@@ -75,7 +75,7 @@ jobs:
     needs: [ build ]
     runs-on: ubuntu-20.04
     container:
-      image: minaprotocol/mina-daemon:2.0.0rampup4-14047c5-focal-berkeley
+      image: minaprotocol/mina-daemon:2.0.0berkeley-rc1-1551e2f-focal-berkeley
     strategy:
       matrix:
         test: [p2p_basic_connections, p2p_basic_incoming, p2p_basic_outgoing]
@@ -99,7 +99,7 @@ jobs:
     needs: [ build ]
     runs-on: ubuntu-20.04
     container:
-      image: minaprotocol/mina-daemon:2.0.0rampup4-14047c5-focal-berkeley
+      image: minaprotocol/mina-daemon:2.0.0berkeley-rc1-1551e2f-focal-berkeley
     strategy:
       matrix:
         test: [single_node, multi_node, connection_discovery, webrtc_single_node, webrtc_multi_node]
