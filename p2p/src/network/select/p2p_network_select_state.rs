@@ -248,7 +248,18 @@ impl P2pNetworkSelectState {
 
         let (action, _meta) = action.split();
         match action {
-            P2pNetworkSelectAction::Init(_) => {}
+            // hack for noise
+            P2pNetworkSelectAction::Init(a) => match (&self.inner, a.incoming) {
+                (P2pNetworkSelectStateInner::Initiator { .. }, true) => {
+                    self.inner = P2pNetworkSelectStateInner::Responder
+                }
+                (P2pNetworkSelectStateInner::Responder, false) => {
+                    self.inner = P2pNetworkSelectStateInner::Initiator {
+                        proposing: token::Protocol::Mux(token::MuxKind::Yamux1_0_0),
+                    }
+                }
+                _ => {}
+            },
             P2pNetworkSelectAction::IncomingData(a) => {
                 if self.negotiated.is_none() {
                     self.recv.put(&a.data);
