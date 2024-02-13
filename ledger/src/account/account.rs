@@ -23,7 +23,7 @@ use crate::{
         witness::Witness,
     },
     scan_state::{
-        currency::{Balance, Magnitude, Nonce, Slot},
+        currency::{Balance, Magnitude, Nonce, Slot, TxnVersion},
         transaction_logic::account_min_balance_at_slot,
     },
     zkapps::snark::FlaggedOption,
@@ -32,7 +32,8 @@ use crate::{
 
 use super::common::*;
 
-const CURRENT_TRANSACTION: u32 = 2;
+/// Mina_numbers.Txn_version.current
+pub const TXN_VERSION_CURRENT: TxnVersion = TxnVersion::from_u32(2);
 
 #[derive(Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TokenId(pub Fp);
@@ -131,6 +132,12 @@ impl ToInputs for TokenSymbol {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SetVerificationKey<Controller> {
+    pub auth: Controller,
+    pub txn_version: TxnVersion,
+}
+
 // https://github.com/MinaProtocol/mina/blob/develop/src/lib/mina_base/permissions.mli#L49
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Permissions<Controller> {
@@ -140,7 +147,7 @@ pub struct Permissions<Controller> {
     pub receive: Controller,
     pub set_delegate: Controller,
     pub set_permissions: Controller,
-    pub set_verification_key: (Controller, u32),
+    pub set_verification_key: SetVerificationKey<Controller>,
     pub set_zkapp_uri: Controller,
     pub edit_action_state: Controller,
     pub set_token_symbol: Controller,
@@ -149,10 +156,15 @@ pub struct Permissions<Controller> {
     pub set_timing: Controller,
 }
 
+pub enum AuthOrVersion<'a, T> {
+    Auth(&'a T),
+    Version(u32),
+}
+
 impl Permissions<AuthRequired> {
     pub fn iter_as_bits<F>(&self, mut fun: F)
     where
-        F: FnMut(bool),
+        F: FnMut(AuthOrVersion<'_, bool>),
     {
         let Self {
             edit_state,
@@ -161,7 +173,11 @@ impl Permissions<AuthRequired> {
             receive,
             set_delegate,
             set_permissions,
-            set_verification_key,
+            set_verification_key:
+                SetVerificationKey {
+                    auth: set_verification_key_auth,
+                    txn_version,
+                },
             set_zkapp_uri,
             edit_action_state,
             set_token_symbol,
@@ -171,31 +187,30 @@ impl Permissions<AuthRequired> {
         } = self;
 
         for auth in [
-            edit_state,
-            access,
-            send,
-            receive,
-            set_delegate,
-            set_permissions,
-            &set_verification_key.0,
+            AuthOrVersion::Auth(edit_state),
+            AuthOrVersion::Auth(access),
+            AuthOrVersion::Auth(send),
+            AuthOrVersion::Auth(receive),
+            AuthOrVersion::Auth(set_delegate),
+            AuthOrVersion::Auth(set_permissions),
+            AuthOrVersion::Auth(set_verification_key_auth),
+            AuthOrVersion::Version(txn_version.as_u32()),
+            AuthOrVersion::Auth(set_zkapp_uri),
+            AuthOrVersion::Auth(edit_action_state),
+            AuthOrVersion::Auth(set_token_symbol),
+            AuthOrVersion::Auth(increment_nonce),
+            AuthOrVersion::Auth(set_voting_for),
+            AuthOrVersion::Auth(set_timing),
         ] {
-            for bit in auth.encode().to_bits() {
-                fun(bit);
-            }
-        }
-        for j in 0..32 {
-            fun((set_verification_key.1 & (1 << j)) != 0);
-        }
-        for auth in [
-            set_zkapp_uri,
-            edit_action_state,
-            set_token_symbol,
-            increment_nonce,
-            set_voting_for,
-            set_timing,
-        ] {
-            for bit in auth.encode().to_bits() {
-                fun(bit);
+            match auth {
+                AuthOrVersion::Auth(auth) => {
+                    for bit in auth.encode().to_bits() {
+                        fun(AuthOrVersion::Auth(&bit));
+                    }
+                }
+                AuthOrVersion::Version(version) => {
+                    fun(AuthOrVersion::Version(version));
+                }
             }
         }
     }
@@ -203,8 +218,9 @@ impl Permissions<AuthRequired> {
 
 impl ToInputs for Permissions<AuthRequired> {
     fn to_inputs(&self, inputs: &mut Inputs) {
-        self.iter_as_bits(|bit| {
-            inputs.append_bool(bit);
+        self.iter_as_bits(|bit| match bit {
+            AuthOrVersion::Auth(bit) => inputs.append_bool(*bit),
+            AuthOrVersion::Version(version) => inputs.append_u32(version),
         });
     }
 }
@@ -224,7 +240,10 @@ impl Permissions<AuthRequired> {
             receive: None,
             set_delegate: Signature,
             set_permissions: Signature,
-            set_verification_key: (Signature, CURRENT_TRANSACTION),
+            set_verification_key: SetVerificationKey {
+                auth: Signature,
+                txn_version: TXN_VERSION_CURRENT,
+            },
             set_zkapp_uri: Signature,
             edit_action_state: Signature,
             set_token_symbol: Signature,
@@ -244,7 +263,10 @@ impl Permissions<AuthRequired> {
             access: None,
             set_delegate: None,
             set_permissions: None,
-            set_verification_key: (None, CURRENT_TRANSACTION),
+            set_verification_key: SetVerificationKey {
+                auth: None,
+                txn_version: TXN_VERSION_CURRENT,
+            },
             set_zkapp_uri: None,
             edit_action_state: None,
             set_token_symbol: None,
@@ -270,7 +292,10 @@ impl Permissions<AuthRequired> {
             receive: auth_required_gen(&mut rng),
             set_delegate: auth_required_gen(&mut rng),
             set_permissions: auth_required_gen(&mut rng),
-            set_verification_key: (auth_required_gen(&mut rng), CURRENT_TRANSACTION),
+            set_verification_key: SetVerificationKey {
+                auth: auth_required_gen(&mut rng),
+                txn_version: TXN_VERSION_CURRENT,
+            },
             set_zkapp_uri: auth_required_gen(&mut rng),
             edit_action_state: auth_required_gen(&mut rng),
             set_token_symbol: auth_required_gen(&mut rng),
@@ -1263,7 +1288,10 @@ impl Account {
                 receive: gen_perm(rng),
                 set_delegate: gen_perm(rng),
                 set_permissions: gen_perm(rng),
-                set_verification_key: (gen_perm(rng), 0),
+                set_verification_key: SetVerificationKey {
+                    auth: gen_perm(rng),
+                    txn_version: TXN_VERSION_CURRENT, // TODO: Make the version random ?
+                },
                 set_zkapp_uri: gen_perm(rng),
                 edit_action_state: gen_perm(rng),
                 set_token_symbol: gen_perm(rng),

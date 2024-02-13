@@ -27,9 +27,7 @@ use self::{
         TransactionApplied, ZkappCommandApplied,
     },
     transaction_union_payload::TransactionUnionPayload,
-    zkapp_command::{
-        AccountUpdate, WithHash, ZkAppCommand, ZkAppPreconditions,
-    },
+    zkapp_command::{AccountUpdate, WithHash, ZkAppCommand, ZkAppPreconditions},
 };
 
 use super::currency::SlotSpan;
@@ -7612,7 +7610,7 @@ pub mod for_tests {
 
     use crate::{
         gen_keypair, scan_state::parallel_scan::ceil_log2, AuthRequired, BaseLedger, Mask,
-        Permissions, ZkAppAccount,
+        Permissions, ZkAppAccount, TXN_VERSION_CURRENT,
     };
 
     use super::*;
@@ -7703,7 +7701,10 @@ pub mod for_tests {
                     receive: AuthRequired::None,
                     set_delegate: Either,
                     set_permissions: Either,
-                    set_verification_key: (Either, 0),
+                    set_verification_key: crate::SetVerificationKey {
+                        auth: Either,
+                        txn_version: TXN_VERSION_CURRENT,
+                    },
                     set_zkapp_uri: Either,
                     edit_action_state: Either,
                     set_token_symbol: Either,

@@ -35,7 +35,7 @@ use node::{
 use openmina_node_native::rpc::RpcService;
 use openmina_node_native::{http_server, tracing, NodeService, P2pTaskSpawner, RpcSender};
 
-const CHAIN_ID: &'static str = "3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e";
+const CHAIN_ID: &'static str = "fd7d111973bf5a9e3e87384f560fdead2f272589ca00b6d9e357fca9839631da";
 
 /// Openmina node
 #[derive(Debug, clap::Args)]
