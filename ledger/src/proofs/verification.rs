@@ -136,16 +136,6 @@ fn validate_feature_flags(
     .all(|b| *b == true)
 }
 
-fn _of<'a, F: FieldWitness, I: IntoIterator<Item = &'a BigInt>>(
-    zeta: I,
-    zeta_omega: I,
-) -> PointEvaluations<Vec<F>> {
-    PointEvaluations {
-        zeta: zeta.into_iter().map(BigInt::to_field).collect(),
-        zeta_omega: zeta_omega.into_iter().map(BigInt::to_field).collect(),
-    }
-}
-
 pub fn prev_evals_from_p2p<F: FieldWitness>(
     evals: &PicklesProofProofsVerified2ReprStableV2PrevEvalsEvalsEvals,
 ) -> ProofEvaluations<PointEvaluations<Vec<F>>> {
@@ -177,7 +167,17 @@ pub fn prev_evals_from_p2p<F: FieldWitness>(
         foreign_field_mul_lookup_selector,
     } = evals;
 
-    let of = |(zeta, zeta_omega): &(_, _)| -> PointEvaluations<Vec<F>> { _of(zeta, zeta_omega) };
+    fn of<'a, F: FieldWitness, I: IntoIterator<Item = &'a BigInt>>(
+        zeta: I,
+        zeta_omega: I,
+    ) -> PointEvaluations<Vec<F>> {
+        PointEvaluations {
+            zeta: zeta.into_iter().map(BigInt::to_field).collect(),
+            zeta_omega: zeta_omega.into_iter().map(BigInt::to_field).collect(),
+        }
+    }
+
+    let of = |(zeta, zeta_omega): &(_, _)| -> PointEvaluations<Vec<F>> { of(zeta, zeta_omega) };
     let of_opt = |v: &Option<(_, _)>| v.as_ref().map(of);
 
     ProofEvaluations {
@@ -283,16 +283,16 @@ struct LimitedDomain<F: FieldWitness> {
 
 impl<F: FieldWitness> PlonkDomain<F> for LimitedDomain<F> {
     fn vanishing_polynomial(&self, _x: F, _w: &mut super::witness::Witness<F>) -> F {
-        todo!()
+        unimplemented!() // Unused during proof verification
     }
     fn generator(&self) -> F {
-        todo!()
+        unimplemented!() // Unused during proof verification
     }
     fn shifts(&self) -> &[F; PERMUTS] {
         self.shifts.shifts()
     }
     fn log2_size(&self) -> u64 {
-        todo!()
+        unimplemented!() // Unused during proof verification
     }
 }
 
