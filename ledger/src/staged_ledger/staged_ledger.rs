@@ -2608,7 +2608,11 @@ mod tests_ocaml {
 
             let global_slot_since_genesis = {
                 let since_genesis = &state.body.consensus_state.global_slot_since_genesis;
-                let curr = &state.body.consensus_state.curr_global_slot.slot_number;
+                let curr = &state
+                    .body
+                    .consensus_state
+                    .curr_global_slot_since_hard_fork
+                    .slot_number;
 
                 let since_genesis: Slot = since_genesis.into();
                 let curr: Slot = curr.into();
@@ -2619,7 +2623,7 @@ mod tests_ocaml {
             };
 
             let cs = &mut state.body.consensus_state;
-            cs.curr_global_slot.slot_number = (&new_global_slot).into();
+            cs.curr_global_slot_since_hard_fork.slot_number = (&new_global_slot).into();
             cs.global_slot_since_genesis = (&global_slot_since_genesis).into();
         };
 

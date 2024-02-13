@@ -8,7 +8,7 @@ use binprot_derive::{BinProtRead, BinProtWrite};
 use derive_more::Deref;
 use serde::{Deserialize, Serialize};
 _blank_!();
-use crate::pseq::PaddedSeq;
+use crate::{array::ArrayN16, list::List, pseq::PaddedSeq};
 _blank_!();
 use super::manual::*;
 _blank_!();
@@ -75,15 +75,15 @@ rust_id = 'bool'
 args_num = 'None'
 
 [base_types.int]
-rust_id = 'crate::number::Int64'
+rust_id = 'crate::number::UInt64'
 args_num = 'None'
 
 [base_types.int32]
-rust_id = 'crate::number::Int32'
+rust_id = 'crate::number::UInt32'
 args_num = 'None'
 
 [base_types.int64]
-rust_id = 'crate::number::Int64'
+rust_id = 'crate::number::UInt64'
 args_num = 'None'
 
 [base_types.char]
@@ -91,7 +91,15 @@ rust_id = 'crate::char::Char'
 args_num = 'None'
 
 [base_types.list]
-rust_id = 'Vec'
+rust_id = 'List'
+args_num = 'Single'
+
+[base_types."Bounded_types.String.t"]
+rust_id = 'crate::string::ByteString'
+args_num = 'None'
+
+[base_types."Bounded_types.Array.t"]
+rust_id = 'ArrayN16'
 args_num = 'Single'
 
 [ocaml_mod_mapping]

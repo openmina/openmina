@@ -7,7 +7,7 @@ use crate::proofs::field::{Boolean, FieldWitness};
 use crate::proofs::to_field_elements::ToFieldElements;
 use crate::proofs::transaction::Check;
 
-use crate::scan_state::currency::{self, SlotSpan};
+use crate::scan_state::currency::{self, SlotSpan, TxnVersion};
 use crate::zkapps::zkapp_logic;
 
 use crate::scan_state::transaction_logic::zkapp_command::{
@@ -373,6 +373,19 @@ pub trait ControllerInterface {
         single_data: &Self::SingleData,
         w: &mut Self::W,
     ) -> Self::Bool;
+
+    fn verification_key_perm_fallback_to_signature_with_older_version(
+        auth: &AuthRequired,
+        w: &mut Self::W,
+    ) -> AuthRequired;
+}
+
+pub trait TxnVersionInterface {
+    type W: WitnessGenerator<Fp>;
+    type Bool: BoolInterface;
+
+    fn equal_to_current(version: TxnVersion, w: &mut Self::W) -> Self::Bool;
+    fn older_than_current(version: TxnVersion, w: &mut Self::W) -> Self::Bool;
 }
 
 pub trait BoolInterface
@@ -617,6 +630,7 @@ where
         Bool = Self::Bool,
         SingleData = Self::SingleData,
     >;
+    type TxnVersion: TxnVersionInterface<W = Self::WitnessGenerator, Bool = Self::Bool>;
     type SetOrKeep: SetOrKeepInterface<Bool = Self::Bool>;
     type GlobalSlotSpan: GlobalSlotSpanInterface<
         W = Self::WitnessGenerator,

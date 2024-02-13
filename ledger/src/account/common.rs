@@ -272,6 +272,15 @@ impl AuthRequired {
     pub fn gen_for_none_given_authorization(_rng: &mut rand::rngs::ThreadRng) -> Self {
         Self::None
     }
+
+    pub fn verification_key_perm_fallback_to_signature_with_older_version(&self) -> Self {
+        use AuthRequired::*;
+
+        match self {
+            Impossible | Proof => Signature,
+            x => x.clone(),
+        }
+    }
 }
 
 impl AuthRequiredEncoded<bool> {

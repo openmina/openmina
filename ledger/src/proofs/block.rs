@@ -1216,7 +1216,7 @@ pub mod consensus {
         let constants = create_constant(prev_state, w);
 
         let v2::ConsensusProofOfStakeDataConsensusStateValueStableV2 {
-            curr_global_slot: prev_global_slot,
+            curr_global_slot_since_hard_fork: prev_global_slot,
             ..
         } = &prev_state.body.consensus_state;
         let prev_global_slot: GlobalSlot = prev_global_slot.into();
@@ -1438,7 +1438,7 @@ fn is_genesis_state_var(
 ) -> Boolean {
     use crate::scan_state::currency::Slot;
 
-    let curr_global_slot = &cs.curr_global_slot;
+    let curr_global_slot = &cs.curr_global_slot_since_hard_fork;
     let slot_number = Slot::from_u32(curr_global_slot.slot_number.as_u32()).to_checked::<Fp>();
 
     CheckedSlot::zero().equal(&slot_number, w)

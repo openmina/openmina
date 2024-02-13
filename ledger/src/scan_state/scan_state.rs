@@ -96,7 +96,7 @@ pub mod transaction_snark {
 
     use itertools::Itertools;
     use mina_hasher::Fp;
-    use mina_p2p_messages::{binprot, v2::TransactionSnarkProofStableV2};
+    use mina_p2p_messages::{binprot, string::ByteString, v2::TransactionSnarkProofStableV2};
     use mina_signer::CompressedPubKey;
     use serde::{Deserialize, Serialize};
 
@@ -186,6 +186,18 @@ pub mod transaction_snark {
 
     #[derive(Clone, PartialEq, Eq, derive_more::Deref)]
     pub struct SokDigest(pub Vec<u8>);
+
+    impl From<SokDigest> for ByteString {
+        fn from(value: SokDigest) -> Self {
+            value.0.into()
+        }
+    }
+
+    impl From<&SokDigest> for ByteString {
+        fn from(value: &SokDigest) -> Self {
+            value.0.clone().into()
+        }
+    }
 
     impl OCamlString for SokDigest {
         fn to_ocaml_str(&self) -> String {
@@ -538,7 +550,7 @@ pub mod transaction_snark {
                     proofs: (&*value.proofs).into(),
                 }
             }
-}
+        }
 
         impl Work {
             pub fn statement(&self) -> Statement {

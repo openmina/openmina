@@ -472,7 +472,7 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                                             peer_id,
                                             rpc_id: id,
                                             response: PeerLedgerQueryResponse::ChildAccounts(
-                                                accounts.clone(),
+                                                accounts.iter().cloned().collect(),
                                             ),
                                         },
                                     );

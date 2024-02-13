@@ -17,7 +17,7 @@ use super::{
     MinaBaseStateBodyHashStableV1, NonZeroCurvePointUncompressedStableV1,
     ParallelScanWeightStableV1, PicklesProofProofsVerified2ReprStableV2,
     PicklesProofProofsVerified2ReprStableV2StatementFp, PicklesProofProofsVerifiedMaxStableV2,
-    ProtocolVersionStableV1, SgnStableV1, TransactionSnarkScanStateStableV2ScanStateTreesABaseT1,
+    ProtocolVersionStableV2, SgnStableV1, TransactionSnarkScanStateStableV2ScanStateTreesABaseT1,
     TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1,
 };
 
@@ -531,14 +531,14 @@ impl<'de> Deserialize<'de> for ConsensusVrfOutputTruncatedStableV1 {
 
 mod serde_protocol_ver {
     #[derive(serde::Serialize, serde::Deserialize)]
-    pub struct ProtocolVersionStableV1 {
-        pub major: crate::number::Int64,
-        pub minor: crate::number::Int64,
-        pub patch: crate::number::Int64,
+    pub struct ProtocolVersionStableV2 {
+        pub transaction: crate::number::UInt64,
+        pub network: crate::number::UInt64,
+        pub patch: crate::number::UInt64,
     }
 }
 
-impl<'de> Deserialize<'de> for ProtocolVersionStableV1 {
+impl<'de> Deserialize<'de> for ProtocolVersionStableV2 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -549,44 +549,44 @@ impl<'de> Deserialize<'de> for ProtocolVersionStableV1 {
             let err = || serde::de::Error::custom(format!("incorrect protocol version '{}'", s));
 
             let parse_number =
-                |s: Option<&str>| s.and_then(|s| s.parse::<i64>().ok()).ok_or_else(err);
+                |s: Option<&str>| s.and_then(|s| s.parse::<u64>().ok()).ok_or_else(err);
 
             let mut versions = s.split('.');
-            let major = parse_number(versions.next())?.into();
-            let minor = parse_number(versions.next())?.into();
+            let transaction = parse_number(versions.next())?.into();
+            let network = parse_number(versions.next())?.into();
             let patch = parse_number(versions.next())?.into();
 
             if versions.next().is_some() {
-                return Err(err()); // We expect the format "major.minor.patch"
+                return Err(err()); // We expect the format "transaction.network.patch"
             }
 
             Ok(Self {
-                major,
-                minor,
+                transaction,
+                network,
                 patch,
             })
         } else {
-            serde_protocol_ver::ProtocolVersionStableV1::deserialize(deserializer).map(|s| Self {
-                major: s.major,
-                minor: s.minor,
+            serde_protocol_ver::ProtocolVersionStableV2::deserialize(deserializer).map(|s| Self {
+                transaction: s.transaction,
+                network: s.network,
                 patch: s.patch,
             })
         }
     }
 }
 
-impl Serialize for ProtocolVersionStableV1 {
+impl Serialize for ProtocolVersionStableV2 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
         if serializer.is_human_readable() {
-            let s = format!("{}.{}.{}", *self.major, *self.minor, *self.patch);
+            let s = format!("{}.{}.{}", *self.transaction, *self.network, *self.patch);
             s.serialize(serializer)
         } else {
-            let s = serde_protocol_ver::ProtocolVersionStableV1 {
-                major: self.major,
-                minor: self.minor,
+            let s = serde_protocol_ver::ProtocolVersionStableV2 {
+                transaction: self.transaction,
+                network: self.network,
                 patch: self.patch,
             };
             s.serialize(serializer)
@@ -605,7 +605,7 @@ pub enum MerkleTreeNode {
 
 impl ConsensusProofOfStakeDataConsensusStateValueStableV2 {
     pub fn global_slot(&self) -> u32 {
-        match &self.curr_global_slot.slot_number {
+        match &self.curr_global_slot_since_hard_fork.slot_number {
             super::MinaNumbersGlobalSlotSinceHardForkMStableV1::SinceHardFork(s) => s.as_u32(),
         }
     }

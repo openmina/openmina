@@ -21,9 +21,9 @@ use crate::{
         field::FieldWitness,
         transaction::{make_group, InnerCurve, PlonkVerificationKeyEvals},
     },
-    scan_state::currency::{Amount, Balance, Nonce, Slot, SlotSpan},
-    Permissions, ProofVerified, ReceiptChainHash, Timing, TokenSymbol, VerificationKey, VotingFor,
-    ZkAppAccount,
+    scan_state::currency::{Amount, Balance, Nonce, Slot, SlotSpan, TxnVersion},
+    Permissions, ProofVerified, ReceiptChainHash, SetVerificationKey, Timing, TokenSymbol,
+    VerificationKey, VotingFor, ZkAppAccount,
 };
 
 use super::{Account, AccountId, AuthRequired, TokenId};
@@ -259,7 +259,7 @@ impl From<&Account> for mina_p2p_messages::v2::MinaBaseAccountBinableArgStableV2
         Self {
             public_key: (&acc.public_key).into(),
             token_id: (&acc.token_id).into(),
-            token_symbol: MinaBaseZkappAccountZkappUriStableV1(acc.token_symbol.as_bytes().into()),
+            token_symbol: acc.token_symbol.as_bytes().into(),
             balance: CurrencyBalanceStableV1(CurrencyAmountStableV1(
                 UnsignedExtendedUInt64Int64ForVersionTagsStableV1(acc.balance.as_u64().into()),
             )),
@@ -290,9 +290,7 @@ impl From<&Account> for mina_p2p_messages::v2::MinaBaseAccountBinableArgStableV2
                     action_state,
                     last_action_slot: (&zkapp.last_action_slot).into(),
                     proved_state: zkapp.proved_state,
-                    zkapp_uri: MinaBaseZkappAccountZkappUriStableV1(
-                        zkapp.zkapp_uri.as_bytes().into(),
-                    ),
+                    zkapp_uri: zkapp.zkapp_uri.as_bytes().into(),
                 }
             }),
         }
@@ -428,7 +426,7 @@ impl From<&MinaBasePermissionsStableV2> for Permissions<AuthRequired> {
             receive,
             set_delegate,
             set_permissions,
-            set_verification_key,
+            set_verification_key: (auth, txn_version),
             set_zkapp_uri,
             edit_action_state,
             set_token_symbol,
@@ -443,7 +441,10 @@ impl From<&MinaBasePermissionsStableV2> for Permissions<AuthRequired> {
             receive: receive.into(),
             set_delegate: set_delegate.into(),
             set_permissions: set_permissions.into(),
-            set_verification_key: set_verification_key.into(),
+            set_verification_key: SetVerificationKey {
+                auth: auth.into(),
+                txn_version: TxnVersion::from_u32(txn_version.as_u32()),
+            },
             set_zkapp_uri: set_zkapp_uri.into(),
             edit_action_state: edit_action_state.into(),
             set_token_symbol: set_token_symbol.into(),
@@ -464,7 +465,7 @@ impl From<&Permissions<AuthRequired>> for MinaBasePermissionsStableV2 {
             receive,
             set_delegate,
             set_permissions,
-            set_verification_key,
+            set_verification_key: SetVerificationKey { auth, txn_version },
             set_zkapp_uri,
             edit_action_state,
             set_token_symbol,
@@ -479,7 +480,7 @@ impl From<&Permissions<AuthRequired>> for MinaBasePermissionsStableV2 {
             receive: receive.into(),
             set_delegate: set_delegate.into(),
             set_permissions: set_permissions.into(),
-            set_verification_key: set_verification_key.into(),
+            set_verification_key: (auth.into(), txn_version.as_u32().into()),
             set_zkapp_uri: set_zkapp_uri.into(),
             edit_action_state: edit_action_state.into(),
             set_token_symbol: set_token_symbol.into(),
@@ -497,7 +498,7 @@ impl From<&MinaBaseAccountBinableArgStableV2> for Account {
             public_key: acc.public_key.inner().into(),
             token_id: acc.token_id.inner().into(),
             token_symbol: {
-                let s: String = (&acc.token_symbol.0).try_into().unwrap();
+                let s: String = (&acc.token_symbol).try_into().unwrap();
                 TokenSymbol::from(s)
             },
             balance: Balance::from_u64(acc.balance.0 .0 .0 .0 as u64),
@@ -517,7 +518,7 @@ impl From<&MinaBaseAccountBinableArgStableV2> for Account {
                     action_state: std::array::from_fn(|i| zkapp.action_state[i].to_field()),
                     last_action_slot: Slot::from_u32(zkapp.last_action_slot.as_u32()),
                     proved_state: zkapp.proved_state,
-                    zkapp_uri: (&zkapp.zkapp_uri.0).try_into().unwrap(),
+                    zkapp_uri: (&zkapp.zkapp_uri).try_into().unwrap(),
                 }
             }),
         }
