@@ -573,14 +573,15 @@ impl<F: FieldWitness> ToFieldElements<F> for v2::MinaBaseProtocolConstantsChecke
             k,
             slots_per_epoch,
             slots_per_sub_window,
+            grace_period_slots,
             delta,
             genesis_state_timestamp,
-            grace_period_slots: _,
         } = self;
 
         k.as_u32().to_field_elements(fields);
         slots_per_epoch.as_u32().to_field_elements(fields);
         slots_per_sub_window.as_u32().to_field_elements(fields);
+        grace_period_slots.as_u32().to_field_elements(fields);
         delta.as_u32().to_field_elements(fields);
         genesis_state_timestamp.as_u64().to_field_elements(fields);
     }
