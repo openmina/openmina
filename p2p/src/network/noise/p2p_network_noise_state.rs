@@ -422,9 +422,9 @@ impl P2pNetworkNoiseState {
                                 if let Err(_) =
                                     aead.decrypt_in_place_detached(&nonce, &[], data, tag)
                                 {
-                                    *state = P2pNetworkNoiseStateInner::Error(
-                                        NoiseError::FirstMacMismatch,
-                                    );
+                                    *state = P2pNetworkNoiseStateInner::Error(dbg!(
+                                        NoiseError::FirstMacMismatch
+                                    ));
                                 } else {
                                     self.decrypted_chunks.push_back(data.to_vec().into());
                                 }
@@ -441,6 +441,9 @@ impl P2pNetworkNoiseState {
                 let Some(state) = &mut self.inner else {
                     return;
                 };
+                if a.data.is_empty() {
+                    return;
+                }
                 match state {
                     P2pNetworkNoiseStateInner::Done {
                         send_key,
