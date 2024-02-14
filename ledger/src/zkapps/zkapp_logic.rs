@@ -101,7 +101,6 @@ fn controller_exists<Z: ZkappApplication>(
 }
 
 // Different order than in `Permissions::iter_as_bits`
-// Here we use `Iterator::rev()`
 fn permissions_exists<Z: ZkappApplication>(
     perms: Permissions<AuthRequired>,
     w: &mut Z::WitnessGenerator,
@@ -116,7 +115,7 @@ fn permissions_exists<Z: ZkappApplication>(
         set_verification_key:
             SetVerificationKey {
                 auth: set_verification_key_auth,
-                txn_version: _,
+                txn_version,
             },
         set_zkapp_uri,
         edit_action_state,
@@ -126,25 +125,34 @@ fn permissions_exists<Z: ZkappApplication>(
         set_timing,
     } = &perms;
 
+    use crate::AuthOrVersion;
+
     for auth in [
-        edit_state,
-        access,
-        send,
-        receive,
-        set_delegate,
-        set_permissions,
-        set_verification_key_auth,
-        set_zkapp_uri,
-        edit_action_state,
-        set_token_symbol,
-        increment_nonce,
-        set_voting_for,
-        set_timing,
+        AuthOrVersion::Auth(edit_state),
+        AuthOrVersion::Auth(send),
+        AuthOrVersion::Auth(receive),
+        AuthOrVersion::Auth(set_delegate),
+        AuthOrVersion::Auth(set_permissions),
+        AuthOrVersion::Auth(set_verification_key_auth),
+        AuthOrVersion::Version(*txn_version),
+        AuthOrVersion::Auth(set_zkapp_uri),
+        AuthOrVersion::Auth(edit_action_state),
+        AuthOrVersion::Auth(set_token_symbol),
+        AuthOrVersion::Auth(increment_nonce),
+        AuthOrVersion::Auth(set_voting_for),
+        AuthOrVersion::Auth(set_timing),
+        AuthOrVersion::Auth(access),
     ]
     .into_iter()
-    .rev()
     {
-        controller_exists::<Z>(*auth, w);
+        match auth {
+            AuthOrVersion::Auth(auth) => {
+                controller_exists::<Z>(*auth, w);
+            }
+            AuthOrVersion::Version(version) => {
+                w.exists_no_check(version);
+            }
+        }
     }
     perms
 }

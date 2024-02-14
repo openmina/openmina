@@ -158,7 +158,7 @@ pub struct Permissions<Controller> {
 
 pub enum AuthOrVersion<'a, T> {
     Auth(&'a T),
-    Version(u32),
+    Version(TxnVersion),
 }
 
 impl Permissions<AuthRequired> {
@@ -194,7 +194,7 @@ impl Permissions<AuthRequired> {
             AuthOrVersion::Auth(set_delegate),
             AuthOrVersion::Auth(set_permissions),
             AuthOrVersion::Auth(set_verification_key_auth),
-            AuthOrVersion::Version(txn_version.as_u32()),
+            AuthOrVersion::Version(*txn_version),
             AuthOrVersion::Auth(set_zkapp_uri),
             AuthOrVersion::Auth(edit_action_state),
             AuthOrVersion::Auth(set_token_symbol),
@@ -220,7 +220,7 @@ impl ToInputs for Permissions<AuthRequired> {
     fn to_inputs(&self, inputs: &mut Inputs) {
         self.iter_as_bits(|bit| match bit {
             AuthOrVersion::Auth(bit) => inputs.append_bool(*bit),
-            AuthOrVersion::Version(version) => inputs.append_u32(version),
+            AuthOrVersion::Version(version) => inputs.append(&version),
         });
     }
 }
