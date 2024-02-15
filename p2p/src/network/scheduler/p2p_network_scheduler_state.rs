@@ -9,17 +9,24 @@ use crate::PeerId;
 
 use super::super::*;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+pub type StreamState<T> = BTreeMap<PeerId, BTreeMap<StreamId, T>>;
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pNetworkSchedulerState {
     pub interfaces: BTreeSet<IpAddr>,
     pub listeners: BTreeSet<SocketAddr>,
     pub pnet_key: [u8; 32],
     pub connections: BTreeMap<SocketAddr, P2pNetworkConnectionState>,
     pub broadcast_state: (),
-    pub discovery_state: (),
-    pub rpc_incoming_streams: BTreeMap<PeerId, BTreeMap<StreamId, P2pNetworkRpcState>>,
-    pub rpc_outgoing_streams: BTreeMap<PeerId, BTreeMap<StreamId, P2pNetworkRpcState>>,
+    pub discovery_state: Option<P2pNetworkKadState>,
+    pub rpc_incoming_streams: StreamState<P2pNetworkRpcState>,
+    pub rpc_outgoing_streams: StreamState<P2pNetworkRpcState>,
+}
+
+impl P2pNetworkSchedulerState {
+    pub fn discovery_state(&self) -> Option<&P2pNetworkKadState> {
+        self.discovery_state.as_ref()
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

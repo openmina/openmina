@@ -33,7 +33,7 @@ pub struct MultiNodeVrfEpochBoundsCorrectLedger;
 impl MultiNodeVrfEpochBoundsCorrectLedger {
     pub async fn run(self, mut runner: ClusterRunner<'_>) {
         let start = tokio::time::Instant::now();
-        let chain_id = runner.get_chain_id().unwrap();
+        let chain_id = Vec::from(runner.get_chain_id().unwrap());
         let initial_time = runner.get_initial_time().unwrap();
 
         let (initial_node, _) = runner.nodes_iter().last().unwrap();

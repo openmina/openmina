@@ -1,7 +1,10 @@
+use redux::Timestamp;
+
 use crate::connection::incoming::{IncomingSignalingMethod, P2pConnectionIncomingAction};
 use crate::connection::outgoing::{P2pConnectionOutgoingAction, P2pConnectionOutgoingInitOpts};
 use crate::connection::{p2p_connection_reducer, P2pConnectionAction, P2pConnectionState};
 use crate::disconnection::P2pDisconnectionAction;
+use crate::discovery::P2pDiscoveryAction;
 use crate::peer::p2p_peer_reducer;
 use crate::webrtc::{HttpSignalingInfo, SignalingMethod};
 use crate::{P2pAction, P2pActionWithMetaRef, P2pPeerState, P2pPeerStatus, P2pState};
@@ -86,6 +89,21 @@ impl P2pState {
                 peer.channels.reducer(meta.with_action(action));
             }
             P2pAction::Discovery(action) => {
+                if let P2pDiscoveryAction::KademliaAddRoute { peer_id, addresses } = action {
+                    let dial_opts = addresses.first().cloned();
+                    if dial_opts.is_some() {
+                        self.peers.insert(
+                            peer_id.clone(),
+                            P2pPeerState {
+                                is_libp2p: true,
+                                dial_opts,
+                                status: P2pPeerStatus::Disconnected {
+                                    time: Timestamp::ZERO,
+                                },
+                            },
+                        );
+                    }
+                }
                 self.kademlia.reducer(meta.with_action(action));
             }
             P2pAction::Network(action) => self

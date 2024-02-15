@@ -6,17 +6,6 @@ impl P2pNetworkSelectAction {
     pub fn effects<Store, S>(&self, meta: &redux::ActionMeta, store: &mut Store)
     where
         Store: crate::P2pStore<S>,
-        P2pNetworkPnetOutgoingDataAction: redux::EnablingCondition<S>,
-        P2pNetworkSelectIncomingTokenAction: redux::EnablingCondition<S>,
-        P2pNetworkSchedulerSelectErrorAction: redux::EnablingCondition<S>,
-        P2pNetworkSchedulerSelectDoneAction: redux::EnablingCondition<S>,
-        P2pNetworkNoiseIncomingDataAction: redux::EnablingCondition<S>,
-        P2pNetworkSelectOutgoingTokensAction: redux::EnablingCondition<S>,
-        P2pNetworkNoiseOutgoingDataAction: redux::EnablingCondition<S>,
-        P2pNetworkYamuxIncomingDataAction: redux::EnablingCondition<S>,
-        P2pNetworkYamuxOutgoingDataAction: redux::EnablingCondition<S>,
-        P2pNetworkRpcIncomingDataAction: redux::EnablingCondition<S>,
-        // P2pNetworkKademliaAction: redux::EnablingCondition<S>,
     {
         use self::token::*;
 
@@ -92,8 +81,25 @@ impl P2pNetworkSelectAction {
                             SelectKind::Stream(peer_id, stream_id) => {
                                 match kind {
                                     StreamKind::Discovery(DiscoveryAlgorithm::Kademlia1_0_0) => {
-                                        // send to kademlia handler
-                                        unimplemented!()
+                                        if !a.fin {
+                                            println!("==== {}", hex::encode(&a.data.0));
+                                            store.dispatch(
+                                                P2pNetworkKademliaStreamAction::IncomingData {
+                                                    addr: a.addr,
+                                                    peer_id,
+                                                    stream_id,
+                                                    data: a.data.clone(),
+                                                },
+                                            );
+                                        } else {
+                                            store.dispatch(
+                                                P2pNetworkKademliaStreamAction::RemoteClose {
+                                                    addr: a.addr,
+                                                    peer_id,
+                                                    stream_id,
+                                                },
+                                            );
+                                        }
                                     }
                                     StreamKind::Broadcast(BroadcastAlgorithm::Meshsub1_1_0) => {
                                         // send to meshsub handler

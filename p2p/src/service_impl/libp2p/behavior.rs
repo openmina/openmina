@@ -39,4 +39,3 @@ pub enum Event {
     Identify(identify::Event),
     Kademlia(kad::Event),
 }
-

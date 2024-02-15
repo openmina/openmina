@@ -62,6 +62,8 @@ impl SoloNodeSyncToGenesisCustom {
         runner.set_chain_id(&chain_id);
         runner.set_initial_time(initial_time);
 
+        let chain_id = Vec::from(chain_id);
+
         let rust_node = runner.add_rust_node(RustNodeTestingConfig {
             chain_id,
             initial_time,

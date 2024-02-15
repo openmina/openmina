@@ -1,6 +1,6 @@
 use node::rpc::{
-    RpcHealthCheckResponse, RpcMessageProgressResponse, RpcPeersGetResponse,
-    RpcReadinessCheckResponse,
+    RpcDiscoveryRoutingTableResponse, RpcHealthCheckResponse, RpcMessageProgressResponse,
+    RpcPeersGetResponse, RpcReadinessCheckResponse,
 };
 use serde::{Deserialize, Serialize};
 
@@ -159,6 +159,10 @@ impl node::rpc::RpcService for NodeService {
     );
     rpc_service_impl!(respond_health_check, RpcHealthCheckResponse);
     rpc_service_impl!(respond_readiness_check, RpcReadinessCheckResponse);
+    rpc_service_impl!(
+        respond_discovery_routing_table,
+        RpcDiscoveryRoutingTableResponse
+    );
 }
 
 impl node::core::invariants::InvariantService for NodeService {

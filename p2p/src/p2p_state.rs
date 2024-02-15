@@ -1,4 +1,6 @@
+use multiaddr::multiaddr;
 use openmina_core::block::ArcBlockWithHash;
+use redux::Timestamp;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -70,17 +72,6 @@ impl Default for P2pListenerState {
     }
 }
 
-// pub enum P2pKademliaState {
-//     /// Kademlia is not running
-//     None,
-//     /// Kademlia is bootstrapping by
-//     FindingNearestPeers,
-//     ///
-//     FindRandomPeers,
-//     ///
-//     Ready,
-// }
-
 impl P2pState {
     pub fn new(config: P2pConfig) -> Self {
         let mut kademlia = P2pKademliaState::default();
@@ -93,13 +84,53 @@ impl P2pState {
             );
         }
 
+        let addrs = config
+            .libp2p_port
+            .map(|port| multiaddr!(Ip4([127, 0, 0, 1]), Tcp((port))))
+            .into_iter()
+            .collect();
+
+        let known_peers = config
+            .initial_peers
+            .iter()
+            .filter_map(|peer| {
+                if let P2pConnectionOutgoingInitOpts::LibP2P(peer) = peer {
+                    Some(peer.into())
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        let peers = config
+            .initial_peers
+            .iter()
+            .map(|peer| {
+                (
+                    peer.peer_id().clone(),
+                    P2pPeerState {
+                        dial_opts: Some(peer.clone()),
+                        is_libp2p: peer.is_libp2p(),
+                        status: P2pPeerStatus::Disconnected {
+                            time: Timestamp::ZERO,
+                        },
+                    },
+                )
+            })
+            .collect();
+
+        let network = P2pNetworkState::new(
+            config.identity_pub_key.peer_id(),
+            addrs,
+            known_peers,
+            &config.chain_id,
+            config.peer_discovery,
+        );
         Self {
             config,
-            network: P2pNetworkState::new(
-                "fd7d111973bf5a9e3e87384f560fdead2f272589ca00b6d9e357fca9839631da",
-            ),
+            network,
             listeners: Default::default(),
-            peers: Default::default(),
+            peers,
             kademlia,
         }
     }
@@ -141,6 +172,21 @@ impl P2pState {
             })
             .cloned()
             .collect()
+    }
+
+    pub fn disconnected_peers(&self) -> impl '_ + Iterator<Item = P2pConnectionOutgoingInitOpts> {
+        self.peers.iter().filter_map(|(_, state)| {
+            if let P2pPeerState {
+                status: P2pPeerStatus::Disconnected { .. },
+                dial_opts: Some(opts),
+                ..
+            } = state
+            {
+                Some(opts.clone())
+            } else {
+                None
+            }
+        })
     }
 
     pub fn ready_peers_iter(&self) -> impl Iterator<Item = (&PeerId, &P2pPeerStatusReady)> {

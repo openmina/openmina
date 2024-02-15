@@ -94,6 +94,7 @@ impl P2pNetworkNoiseAction {
                 addr: self.addr(),
                 kind,
                 data: a.data.clone(),
+                fin: false,
             });
             return;
         }

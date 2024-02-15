@@ -22,6 +22,7 @@ impl P2pNetworkPnetAction {
                         addr: a.addr,
                         kind: SelectKind::Authentication,
                         data,
+                        fin: false,
                     });
                 }
                 _ => {}

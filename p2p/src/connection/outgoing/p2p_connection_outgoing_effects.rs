@@ -19,9 +19,9 @@ impl P2pConnectionOutgoingAction {
     {
         match self {
             P2pConnectionOutgoingAction::RandomInit => {
-                let peers = store.state().initial_unused_peers();
+                let peers = store.state().disconnected_peers().collect::<Vec<_>>();
                 let picked_peer = store.service().random_pick(&peers);
-                store.dispatch(P2pConnectionOutgoingAction::Init {
+                store.dispatch(P2pConnectionOutgoingAction::Reconnect {
                     opts: picked_peer,
                     rpc_id: None,
                 });

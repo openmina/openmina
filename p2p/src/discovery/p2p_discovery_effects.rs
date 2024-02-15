@@ -2,7 +2,8 @@ use redux::ActionMeta;
 
 use crate::{
     channels::rpc::{P2pChannelsRpcAction, P2pRpcRequest},
-    P2pPeerStatus, P2pStore, connection::P2pConnectionService,
+    connection::P2pConnectionService,
+    P2pPeerStatus, P2pStore,
 };
 
 use super::P2pDiscoveryAction;

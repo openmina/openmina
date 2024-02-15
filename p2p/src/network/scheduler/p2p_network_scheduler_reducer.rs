@@ -1,5 +1,7 @@
 use std::collections::BTreeMap;
 
+use openmina_core::error;
+
 use crate::{
     channels::{ChannelId, P2pChannelsState},
     P2pPeerState, P2pPeerStatus, P2pPeerStatusReady, PeerId,
@@ -13,7 +15,8 @@ impl P2pNetworkSchedulerState {
         peers: &mut BTreeMap<PeerId, P2pPeerState>,
         action: redux::ActionWithMeta<&P2pNetworkSchedulerAction>,
     ) {
-        match action.action() {
+        let (action, meta) = action.split();
+        match action {
             P2pNetworkSchedulerAction::InterfaceDetected(a) => drop(self.interfaces.insert(a.ip)),
             P2pNetworkSchedulerAction::InterfaceExpired(a) => drop(self.interfaces.remove(&a.ip)),
             P2pNetworkSchedulerAction::IncomingConnectionIsReady(_) => {}
@@ -69,7 +72,7 @@ impl P2pNetworkSchedulerState {
                             dial_opts: None,
                             status: P2pPeerStatus::Ready(P2pPeerStatusReady {
                                 is_incoming: a.incoming,
-                                connected_since: action.time(),
+                                connected_since: meta.time(),
                                 channels: P2pChannelsState::new(&enabled_channels),
                                 best_tip: None,
                             }),
@@ -86,15 +89,15 @@ impl P2pNetworkSchedulerState {
                     Some(token::Protocol::Mux(
                         token::MuxKind::Yamux1_0_0 | token::MuxKind::YamuxNoNewLine1_0_0,
                     )) => {
-                        connection.mux = Some(P2pNetworkConnectionMuxState::Yamux(
-                            P2pNetworkYamuxState::default(),
-                        ));
+                        connection.mux =
+                            Some(P2pNetworkConnectionMuxState::Yamux(P2pNetworkYamuxState {
+                                init: true,
+                                ..Default::default()
+                            }));
                     }
                     Some(token::Protocol::Stream(stream_kind)) => {
-                        let Some(stream_id) = a.kind.stream_id() else {
-                            return;
-                        };
-                        let Some(peer_id) = a.kind.peer_id() else {
+                        let SelectKind::Stream(peer_id, stream_id) = a.kind else {
+                            error!(meta.time(); "incorrect stream kind for protocol stream: {stream_kind:?}");
                             return;
                         };
                         match stream_kind {
@@ -118,7 +121,7 @@ impl P2pNetworkSchedulerState {
                                 }
                             }
                             token::StreamKind::Broadcast(_) => unimplemented!(),
-                            token::StreamKind::Discovery(_) => unimplemented!(),
+                            token::StreamKind::Discovery(_) => {},
                         }
                     }
                     None => {}

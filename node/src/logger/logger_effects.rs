@@ -819,6 +819,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     }
                     _ => {}
                 },
+                P2pNetworkAction::Kad(_) => {}
             },
         },
         Action::ExternalSnarkWorker(a) => {

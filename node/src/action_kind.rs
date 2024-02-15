@@ -30,6 +30,10 @@ use crate::p2p::connection::P2pConnectionAction;
 use crate::p2p::disconnection::P2pDisconnectionAction;
 use crate::p2p::discovery::P2pDiscoveryAction;
 use crate::p2p::listen::P2pListenAction;
+use crate::p2p::network::kad::bootstrap::P2pNetworkKadBootstrapAction;
+use crate::p2p::network::kad::request::P2pNetworkKadRequestAction;
+use crate::p2p::network::kad::stream::P2pNetworkKademliaStreamAction;
+use crate::p2p::network::kad::{P2pNetworkKadAction, P2pNetworkKademliaAction};
 use crate::p2p::network::noise::{
     P2pNetworkNoiseAction, P2pNetworkNoiseDecryptedDataAction, P2pNetworkNoiseHandshakeDoneAction,
     P2pNetworkNoiseIncomingChunkAction, P2pNetworkNoiseIncomingDataAction,
@@ -222,6 +226,31 @@ pub enum ActionKind {
     P2pListenError,
     P2pListenExpired,
     P2pListenNew,
+    P2pNetworkKadBootstrapCreateRequests,
+    P2pNetworkKadBootstrapRequestDone,
+    P2pNetworkKadRequestError,
+    P2pNetworkKadRequestMuxReady,
+    P2pNetworkKadRequestNew,
+    P2pNetworkKadRequestPeerIsConnecting,
+    P2pNetworkKadRequestPrune,
+    P2pNetworkKadRequestReplyReceived,
+    P2pNetworkKadRequestRequestSent,
+    P2pNetworkKadRequestStreamIsCreating,
+    P2pNetworkKadRequestStreamReady,
+    P2pNetworkKademliaAnswerFindNodeRequest,
+    P2pNetworkKademliaBootstrapFinished,
+    P2pNetworkKademliaStartBootstrap,
+    P2pNetworkKademliaUpdateFindNodeRequest,
+    P2pNetworkKademliaStreamClose,
+    P2pNetworkKademliaStreamIncomingData,
+    P2pNetworkKademliaStreamNew,
+    P2pNetworkKademliaStreamOutgoingDataReady,
+    P2pNetworkKademliaStreamPrune,
+    P2pNetworkKademliaStreamRemoteClose,
+    P2pNetworkKademliaStreamSendReply,
+    P2pNetworkKademliaStreamSendRequest,
+    P2pNetworkKademliaStreamWaitIncoming,
+    P2pNetworkKademliaStreamWaitOutgoing,
     P2pNetworkNoiseDecryptedData,
     P2pNetworkNoiseHandshakeDone,
     P2pNetworkNoiseIncomingChunk,
@@ -260,6 +289,7 @@ pub enum ActionKind {
     P2pPeerBestTipUpdate,
     P2pPeerReady,
     RpcActionStatsGet,
+    RpcDiscoveryRoutingTable,
     RpcFinish,
     RpcGlobalStateGet,
     RpcHealthCheck,
@@ -372,7 +402,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 284;
+    pub const COUNT: u16 = 310;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -565,6 +595,7 @@ impl ActionKindGet for RpcAction {
             Self::SnarkerWorkersGet { .. } => ActionKind::RpcSnarkerWorkersGet,
             Self::HealthCheck { .. } => ActionKind::RpcHealthCheck,
             Self::ReadinessCheck { .. } => ActionKind::RpcReadinessCheck,
+            Self::DiscoveryRoutingTable { .. } => ActionKind::RpcDiscoveryRoutingTable,
             Self::Finish { .. } => ActionKind::RpcFinish,
         }
     }
@@ -675,6 +706,7 @@ impl ActionKindGet for P2pNetworkAction {
             Self::Select(a) => a.kind(),
             Self::Noise(a) => a.kind(),
             Self::Yamux(a) => a.kind(),
+            Self::Kad(a) => a.kind(),
             Self::Rpc(a) => a.kind(),
         }
     }
@@ -1014,6 +1046,17 @@ impl ActionKindGet for P2pNetworkYamuxAction {
     }
 }
 
+impl ActionKindGet for P2pNetworkKadAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::System(a) => a.kind(),
+            Self::Bootstrap(a) => a.kind(),
+            Self::Request(a) => a.kind(),
+            Self::Stream(a) => a.kind(),
+        }
+    }
+}
+
 impl ActionKindGet for P2pNetworkRpcAction {
     fn kind(&self) -> ActionKind {
         match self {
@@ -1214,6 +1257,63 @@ impl ActionKindGet for P2pNetworkYamuxPingStreamAction {
 impl ActionKindGet for P2pNetworkYamuxOpenStreamAction {
     fn kind(&self) -> ActionKind {
         ActionKind::P2pNetworkYamuxOpenStream
+    }
+}
+
+impl ActionKindGet for P2pNetworkKademliaAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::AnswerFindNodeRequest { .. } => {
+                ActionKind::P2pNetworkKademliaAnswerFindNodeRequest
+            }
+            Self::UpdateFindNodeRequest { .. } => {
+                ActionKind::P2pNetworkKademliaUpdateFindNodeRequest
+            }
+            Self::StartBootstrap { .. } => ActionKind::P2pNetworkKademliaStartBootstrap,
+            Self::BootstrapFinished { .. } => ActionKind::P2pNetworkKademliaBootstrapFinished,
+        }
+    }
+}
+
+impl ActionKindGet for P2pNetworkKadBootstrapAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::CreateRequests { .. } => ActionKind::P2pNetworkKadBootstrapCreateRequests,
+            Self::RequestDone { .. } => ActionKind::P2pNetworkKadBootstrapRequestDone,
+        }
+    }
+}
+
+impl ActionKindGet for P2pNetworkKadRequestAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::New { .. } => ActionKind::P2pNetworkKadRequestNew,
+            Self::PeerIsConnecting { .. } => ActionKind::P2pNetworkKadRequestPeerIsConnecting,
+            Self::MuxReady { .. } => ActionKind::P2pNetworkKadRequestMuxReady,
+            Self::StreamIsCreating { .. } => ActionKind::P2pNetworkKadRequestStreamIsCreating,
+            Self::StreamReady { .. } => ActionKind::P2pNetworkKadRequestStreamReady,
+            Self::RequestSent { .. } => ActionKind::P2pNetworkKadRequestRequestSent,
+            Self::ReplyReceived { .. } => ActionKind::P2pNetworkKadRequestReplyReceived,
+            Self::Prune { .. } => ActionKind::P2pNetworkKadRequestPrune,
+            Self::Error { .. } => ActionKind::P2pNetworkKadRequestError,
+        }
+    }
+}
+
+impl ActionKindGet for P2pNetworkKademliaStreamAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::New { .. } => ActionKind::P2pNetworkKademliaStreamNew,
+            Self::IncomingData { .. } => ActionKind::P2pNetworkKademliaStreamIncomingData,
+            Self::WaitOutgoing { .. } => ActionKind::P2pNetworkKademliaStreamWaitOutgoing,
+            Self::SendRequest { .. } => ActionKind::P2pNetworkKademliaStreamSendRequest,
+            Self::SendReply { .. } => ActionKind::P2pNetworkKademliaStreamSendReply,
+            Self::OutgoingDataReady { .. } => ActionKind::P2pNetworkKademliaStreamOutgoingDataReady,
+            Self::WaitIncoming { .. } => ActionKind::P2pNetworkKademliaStreamWaitIncoming,
+            Self::Close { .. } => ActionKind::P2pNetworkKademliaStreamClose,
+            Self::RemoteClose { .. } => ActionKind::P2pNetworkKademliaStreamRemoteClose,
+            Self::Prune { .. } => ActionKind::P2pNetworkKademliaStreamPrune,
+        }
     }
 }
 
