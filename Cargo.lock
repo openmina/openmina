@@ -3083,7 +3083,6 @@ dependencies = [
 name = "libp2p-rpc-behaviour"
 version = "0.1.0"
 dependencies = [
- "hex",
  "libp2p",
  "log",
  "mina-p2p-messages",
@@ -3368,6 +3367,7 @@ dependencies = [
  "mina-poseidon",
  "mina-signer",
  "o1-utils",
+ "rsexp",
  "serde",
  "serde_json",
  "sha2 0.10.8",
@@ -5078,6 +5078,12 @@ dependencies = [
  "rmp",
  "serde",
 ]
+
+[[package]]
+name = "rsexp"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c3df9a9b6491d42c0fc527e92a87525c17e45c6b9c22345702a6dc0400320bf1"
 
 [[package]]
 name = "rtcp"
