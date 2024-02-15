@@ -63,6 +63,12 @@ where
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, derive_more::From)]
 pub struct NeedsLength<T>(pub T);
 
+impl<T> NeedsLength<T> {
+    pub fn into_inner(self) -> T {
+        self.0
+    }
+}
+
 impl<T> BinProtRead for NeedsLength<T>
 where
     T: BinProtRead,
@@ -297,7 +303,7 @@ where
         R: Read,
     {
         ResponsePayload::<Self::Response>::binprot_read(r)
-            .map(|v| Result::from(v).map(|NeedsLength(v)| v))
+            .map(|v| Result::from(v).map(NeedsLength::into_inner))
     }
 }
 
@@ -353,7 +359,7 @@ where
         R: Read,
     {
         if let Message::Response(response) = Message::<T::Response>::binprot_read(r)? {
-            Ok(Result::from(response.data).map(|v| v.0))
+            Ok(Result::from(response.data).map(NeedsLength::into_inner))
         } else {
             Err(RpcDebuggerReaderError::ExpectResponse)
         }
