@@ -155,11 +155,18 @@
 - [x] Noise protocol for incoming connections.
 - [x] Yamux multiplexer.
 
-### Peer discovery
+### Peer management
 
 - [ ] Create connection scheduler to limit work for each peer
 - [ ] Handle reconnection and exponential backoff.
+
+### Peer discovery
+
 - [ ] Implement Kademlia algorithm.
+  - [x] Implement Kademlia FIND_NODE (client/server).
+  - [x] Implement Kademlia Bootstrap process.
+  - [ ] Update Kademlia routing table according to Identify protocol messages.
+  
 
 ### RPC 
 

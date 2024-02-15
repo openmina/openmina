@@ -2,6 +2,8 @@ use openmina_core::requests::RpcId;
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
 
+use crate::P2pTimeouts;
+
 use super::incoming::{P2pConnectionIncomingInitOpts, P2pConnectionIncomingState};
 use super::outgoing::{P2pConnectionOutgoingInitOpts, P2pConnectionOutgoingState};
 
@@ -50,10 +52,10 @@ impl P2pConnectionState {
         }
     }
 
-    pub fn is_timed_out(&self, now: Timestamp) -> bool {
+    pub fn is_timed_out(&self, now: Timestamp, timeouts: &P2pTimeouts) -> bool {
         match self {
-            Self::Outgoing(v) => v.is_timed_out(now),
-            Self::Incoming(v) => v.is_timed_out(now),
+            Self::Outgoing(v) => v.is_timed_out(now, timeouts),
+            Self::Incoming(v) => v.is_timed_out(now, timeouts),
         }
     }
 

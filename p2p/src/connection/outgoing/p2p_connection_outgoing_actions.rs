@@ -1,5 +1,4 @@
-use std::time::Duration;
-
+use redux::Timestamp;
 use serde::{Deserialize, Serialize};
 
 use openmina_core::requests::RpcId;
@@ -102,10 +101,29 @@ impl redux::EnablingCondition<P2pState> for P2pConnectionOutgoingAction {
     fn is_enabled(&self, state: &P2pState, time: redux::Timestamp) -> bool {
         match self {
             P2pConnectionOutgoingAction::RandomInit => {
-                !state.already_has_min_peers() && !state.initial_unused_peers().is_empty()
+                #[cfg(feature = "p2p-libp2p")]
+                {
+                    !state.already_has_min_peers() && !state.initial_unused_peers().is_empty()
+                }
+                #[cfg(not(feature = "p2p-libp2p"))]
+                {
+                    !state.already_has_min_peers() && state.disconnected_peers().next().is_some()
+                }
             }
             P2pConnectionOutgoingAction::Init { opts, .. } => {
-                !state.already_has_min_peers() && !state.peers.contains_key(opts.peer_id())
+                #[cfg(feature = "p2p-libp2p")]
+                {
+                    !state.already_has_min_peers() && !state.peers.contains_key(opts.peer_id())
+                }
+                #[cfg(not(feature = "p2p-libp2p"))]
+                {
+                    state
+                        .peers
+                        .get(opts.peer_id())
+                        .map_or(true, |peer| !peer.status.is_connected_or_connecting())
+                }
+                // TODO: merge with this --V
+                // !state.already_has_min_peers() && !state.peers.contains_key(opts.peer_id())
             }
             P2pConnectionOutgoingAction::Reconnect { opts, .. } => {
                 if state.already_has_min_peers() {
@@ -133,7 +151,8 @@ impl redux::EnablingCondition<P2pState> for P2pConnectionOutgoingAction {
                     .filter(|(_, id, _)| *id == opts.peer_id())
                     .filter(|(.., peer_opts)| peer_opts.as_ref().map_or(true, |o| o == opts))
                     .map_or(false, |(t, ..)| {
-                        time.checked_sub(t) >= Some(Duration::from_secs(30))
+                        t == Timestamp::ZERO
+                            || time.checked_sub(t) >= state.config.timeouts.reconnect_timeout
                     })
             }
             P2pConnectionOutgoingAction::OfferSdpCreatePending { peer_id } => state
@@ -241,7 +260,7 @@ impl redux::EnablingCondition<P2pState> for P2pConnectionOutgoingAction {
                 .peers
                 .get(peer_id)
                 .and_then(|peer| peer.status.as_connecting()?.as_outgoing())
-                .map_or(false, |s| s.is_timed_out(time)),
+                .map_or(false, |s| s.is_timed_out(time, &state.config.timeouts)),
             P2pConnectionOutgoingAction::Error { peer_id, error } => state
                 .peers
                 .get(peer_id)

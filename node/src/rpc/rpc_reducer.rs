@@ -77,6 +77,8 @@ impl RpcState {
             RpcAction::SnarkerWorkersGet { .. } => {}
             RpcAction::HealthCheck { .. } => {}
             RpcAction::ReadinessCheck { .. } => {}
+            RpcAction::DiscoveryRoutingTable { .. } => {}
+            RpcAction::DiscoveryBoostrapStats { .. } => {}
             RpcAction::Finish { rpc_id } => {
                 self.requests.remove(rpc_id);
             }

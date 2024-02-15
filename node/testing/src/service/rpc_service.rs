@@ -1,5 +1,5 @@
-use node::State;
 use node::rpc::RpcMessageProgressResponse;
+use node::State;
 use node::{p2p::connection::P2pConnectionResponse, rpc::RespondError, service::RpcService};
 use openmina_core::requests::RpcId;
 
@@ -67,5 +67,9 @@ impl RpcService for super::NodeTestingService {
     to_real!(
         respond_discovery_routing_table,
         node::rpc::RpcDiscoveryRoutingTableResponse
+    );
+    to_real!(
+        respond_discovery_bootstrap_stats,
+        node::rpc::RpcDiscoveryBoostrapStatsResponse
     );
 }

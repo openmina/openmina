@@ -81,8 +81,24 @@ impl P2pNetworkSelectAction {
                             SelectKind::Stream(peer_id, stream_id) => {
                                 match kind {
                                     StreamKind::Discovery(DiscoveryAlgorithm::Kademlia1_0_0) => {
-                                        // send to kademlia handler
-                                        unimplemented!()
+                                        if !a.fin {
+                                            store.dispatch(
+                                                P2pNetworkKademliaStreamAction::IncomingData {
+                                                    addr: a.addr,
+                                                    peer_id,
+                                                    stream_id,
+                                                    data: a.data.clone(),
+                                                },
+                                            );
+                                        } else {
+                                            store.dispatch(
+                                                P2pNetworkKademliaStreamAction::RemoteClose {
+                                                    addr: a.addr,
+                                                    peer_id,
+                                                    stream_id,
+                                                },
+                                            );
+                                        }
                                     }
                                     StreamKind::Broadcast(BroadcastAlgorithm::Meshsub1_1_0) => {
                                         // send to meshsub handler

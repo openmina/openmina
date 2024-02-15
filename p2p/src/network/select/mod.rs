@@ -6,6 +6,6 @@ pub use self::p2p_network_select_state::P2pNetworkSelectState;
 
 pub mod token;
 
-mod p2p_networl_select_reducer;
+mod p2p_network_select_reducer;
 
-mod p2p_networl_select_effects;
+mod p2p_network_select_effects;

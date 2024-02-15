@@ -160,7 +160,7 @@ impl redux::EnablingCondition<P2pState> for P2pConnectionIncomingAction {
                 .peers
                 .get(peer_id)
                 .and_then(|peer| peer.status.as_connecting()?.as_incoming())
-                .map_or(false, |s| s.is_timed_out(time)),
+                .map_or(false, |s| s.is_timed_out(time, &state.config.timeouts)),
             P2pConnectionIncomingAction::Error { peer_id, error } => state
                 .peers
                 .get(peer_id)

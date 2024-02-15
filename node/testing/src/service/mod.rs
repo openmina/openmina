@@ -27,7 +27,7 @@ use node::external_snark_worker::ExternalSnarkWorkerEvent;
 #[cfg(feature = "p2p-libp2p")]
 use node::p2p::service_impl::libp2p::Libp2pService;
 use node::p2p::service_impl::webrtc_with_libp2p::P2pServiceWebrtcWithLibp2p;
-use node::p2p::{P2pCryptoService, P2pMioService};
+use node::p2p::P2pCryptoService;
 use node::recorder::Recorder;
 use node::service::{BlockProducerService, BlockProducerVrfEvaluatorService};
 use node::snark::block_verify::{

@@ -1,5 +1,6 @@
 use std::{
     collections::BTreeSet,
+    fmt::Debug,
     net::SocketAddr,
     time::{Duration, Instant},
 };
@@ -299,8 +300,8 @@ impl<'cluster> Driver<'cluster> {
                 };
                 let node_id = node_id;
                 self.runner.exec_step(step).await?;
-                let state = self.runner.node(node_id).unwrap().state();
-                println!("{node_id} state: {state:#?}, state = state.p2p");
+                let _state = self.runner.node(node_id).unwrap().state();
+                // println!("{node_id} state: {state:#?}, state = state.p2p");
             }
             self.idle(Duration::from_millis(100)).await?;
         }
@@ -760,4 +761,65 @@ pub async fn connect_rust_nodes(
         })
         .await
         .expect("connect event should be dispatched");
+}
+
+pub async fn trace_steps(runner: &mut ClusterRunner<'_>) -> anyhow::Result<()> {
+    loop {
+        while let Some((node_id, event)) = next_event(runner) {
+            println!("{node_id} event: {event}");
+            let step = ScenarioStep::Event {
+                node_id,
+                event: event.to_string(),
+            };
+            runner.exec_step(step).await?;
+        }
+        idle(runner, Duration::from_millis(100)).await?;
+    }
+}
+
+pub async fn trace_steps_state<T: Debug, F: Fn(&State) -> T>(
+    runner: &mut ClusterRunner<'_>,
+    f: F,
+) -> anyhow::Result<()> {
+    loop {
+        while let Some((node_id, event)) = next_event(runner) {
+            println!("{node_id} event: {event}");
+            let step = ScenarioStep::Event {
+                node_id,
+                event: event.to_string(),
+            };
+            let node_id = node_id;
+            runner.exec_step(step).await?;
+            let state = runner.node(node_id).unwrap().state();
+            let t = f(state);
+            println!("{node_id} state: {t:#?}");
+        }
+        idle(runner, Duration::from_millis(100)).await?;
+    }
+}
+
+pub async fn idle(runner: &mut ClusterRunner<'_>, duration: Duration) -> anyhow::Result<()> {
+    tokio::time::sleep(duration).await;
+    runner
+        .exec_step(ScenarioStep::AdvanceTime {
+            by_nanos: duration.as_nanos().try_into()?,
+        })
+        .await?;
+    let nodes = runner
+        .nodes_iter()
+        .map(|(node_id, _)| node_id)
+        .collect::<Vec<_>>();
+    for node_id in nodes {
+        runner
+            .exec_step(ScenarioStep::CheckTimeouts { node_id })
+            .await?;
+    }
+    Ok(())
+}
+pub fn next_event(runner: &mut ClusterRunner<'_>) -> Option<(ClusterNodeId, Event)> {
+    runner
+        .pending_events(true)
+        .find_map(|(node_id, _, mut events)| {
+            events.next().map(|(_, event)| (node_id, event.clone()))
+        })
 }

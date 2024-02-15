@@ -14,12 +14,15 @@ use super::PeerLedgerQueryError;
 
 static SYNC_PENDING_EMPTY: BTreeMap<LedgerAddress, LedgerQueryPending> = BTreeMap::new();
 
+#[serde_with::serde_as]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum TransitionFrontierSyncLedgerSnarkedState {
     /// Doing BFS to sync snarked ledger tree.
     Pending {
         time: Timestamp,
         target: SyncLedgerTarget,
+
+        #[serde_as(as = "Vec<(_, _)>")]
         pending: BTreeMap<LedgerAddress, LedgerQueryPending>,
         /// `None` means we are done.
         next_addr: Option<LedgerAddress>,

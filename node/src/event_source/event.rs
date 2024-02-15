@@ -49,6 +49,8 @@ impl std::fmt::Display for Event {
                     RpcRequest::SnarkerWorkers => write!(f, "SnarkerWorkers"),
                     RpcRequest::HealthCheck => write!(f, "HealthCheck"),
                     RpcRequest::ReadinessCheck => write!(f, "ReadinessCheck"),
+                    RpcRequest::DiscoveryRoutingTable => write!(f, "DiscoveryRoutingTable"),
+                    RpcRequest::DiscoveryBoostrapStats => write!(f, "DiscoveryBoostrapStats"),
                 }
             }
             Self::ExternalSnarkWorker(event) => {

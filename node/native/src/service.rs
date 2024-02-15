@@ -23,7 +23,7 @@ use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 use node::p2p::service_impl::libp2p::Libp2pService;
 use node::p2p::service_impl::webrtc::{Cmd, P2pServiceWebrtc, PeerState};
 use node::p2p::service_impl::TaskSpawner;
-use node::p2p::{P2pCryptoService, P2pMioService, PeerId};
+use node::p2p::{P2pCryptoService, PeerId};
 use node::rpc::{RpcP2pConnectionOutgoingResponse, RpcRequest};
 use node::service::{EventSourceService, Recorder};
 use node::snark::block_verify::{

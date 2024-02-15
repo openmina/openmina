@@ -1,9 +1,10 @@
 use redux::{ActionMeta, ActionWithMeta};
 
 use crate::{
-    channels::{rpc::P2pChannelsRpcAction, P2pChannelsAction, P2pChannelsService},
+    channels::{P2pChannelsAction, P2pChannelsService},
     connection::{
-        outgoing::P2pConnectionOutgoingAction, P2pConnectionAction, P2pConnectionService,
+        incoming::P2pConnectionIncomingState, outgoing::P2pConnectionOutgoingAction,
+        P2pConnectionAction, P2pConnectionService, P2pConnectionState,
     },
     disconnection::P2pDisconnectionService,
     discovery::P2pDiscoveryAction,
@@ -25,7 +26,7 @@ where
     #[cfg(feature = "p2p-webrtc")]
     p2p_discovery_request(store, &meta);
 
-    #[cfg(feature = "p2p-internal-libp2p")]
+    #[cfg(not(feature = "p2p-libp2p"))]
     store.dispatch(
         crate::network::kad::P2pNetworkKademliaAction::StartBootstrap {
             key: store.state().config.identity_pub_key.peer_id(),
@@ -36,7 +37,7 @@ where
     {
         let state = store.state();
         for (peer_id, id) in state.peer_rpc_timeouts(meta.time()) {
-            store.dispatch(P2pChannelsRpcAction::Timeout { peer_id, id });
+            store.dispatch(crate::channels::rpc::P2pChannelsRpcAction::Timeout { peer_id, id });
         }
     }
 }
@@ -48,13 +49,14 @@ where
     use crate::connection::incoming::P2pConnectionIncomingAction;
 
     let now = meta.time();
+    let timeouts = &store.state().config.timeouts;
     let p2p_connection_timeouts: Vec<_> = store
         .state()
         .peers
         .iter()
         .filter_map(|(peer_id, peer)| {
             let s = peer.status.as_connecting()?;
-            match s.is_timed_out(now) {
+            match s.is_timed_out(now, timeouts) {
                 true => Some((*peer_id, s.as_outgoing().is_some())),
                 false => None,
             }
@@ -77,7 +79,13 @@ where
         .state()
         .peers
         .iter()
-        .filter_map(|(_, p)| p.dial_opts.clone())
+        .filter_map(|(_, p)| match p.status {
+            crate::P2pPeerStatus::Connecting(P2pConnectionState::Incoming(
+                P2pConnectionIncomingState::Error { .. },
+            ))
+            | crate::P2pPeerStatus::Disconnected { .. } => p.dial_opts.clone(),
+            _ => None,
+        })
         .map(|opts| P2pConnectionOutgoingAction::Reconnect { opts, rpc_id: None })
         .collect();
     for action in reconnect_actions {

@@ -183,6 +183,7 @@ impl Node {
                 enabled_channels: ChannelId::iter_all().collect(),
                 timeouts: P2pTimeouts::default(),
                 chain_id: CHAIN_ID.to_owned(),
+                peer_discovery: true,
             },
             transition_frontier: TransitionFrontierConfig::default(),
             block_producer: None,

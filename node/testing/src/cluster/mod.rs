@@ -284,6 +284,7 @@ impl Cluster {
                 enabled_channels: ChannelId::iter_all().collect(),
                 timeouts: testing_config.timeouts,
                 chain_id: openmina_core::CHAIN_ID.to_owned(),
+                peer_discovery: true,
             },
             transition_frontier: TransitionFrontierConfig::default(),
             block_producer: block_producer_config,
