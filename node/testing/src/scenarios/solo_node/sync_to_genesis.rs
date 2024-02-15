@@ -47,7 +47,8 @@ impl SoloNodeSyncToGenesis {
             .unwrap()
             .chain_id_async()
             .await
-            .unwrap();
+            .unwrap()
+            .into_bytes();
         let rust_node = runner.add_rust_node(RustNodeTestingConfig {
             chain_id,
             initial_time,

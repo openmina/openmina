@@ -1212,12 +1212,13 @@ checksum = "7a81dae078cea95a014a339291cec439d2f232ebe854a9d672b796c6afafa9b7"
 
 [[package]]
 name = "crypto-bigint"
-version = "0.5.3"
+version = "0.5.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "740fe28e594155f10cfc383984cbefd529d7396050557148f79cb0f621204124"
+checksum = "0dc92fb57ca44df6db8059111ab3af99a63d5d0f8375d9972e319a379c6bab76"
 dependencies = [
  "generic-array",
  "rand_core 0.6.4",
+ "serdect",
  "subtle",
  "zeroize",
 ]
@@ -4192,10 +4193,13 @@ dependencies = [
  "ctrlc",
  "derive_more",
  "documented",
+ "hex",
  "lazy_static",
  "libp2p",
  "mina-p2p-messages",
  "mina-tree",
+ "multiaddr",
+ "multihash 0.18.1",
  "nix 0.27.1",
  "node",
  "num_cpus",
@@ -4300,6 +4304,7 @@ dependencies = [
  "bytes",
  "cfg-if",
  "chacha20poly1305 0.10.1",
+ "crypto-bigint",
  "curve25519-dalek 4.1.2",
  "derive_more",
  "ecies-ed25519",
@@ -4315,10 +4320,12 @@ dependencies = [
  "libp2p-identity",
  "libp2p-rpc-behaviour",
  "mina-p2p-messages",
+ "mina-tree",
  "mio",
  "multiaddr",
  "multihash 0.18.1",
  "openmina-core",
+ "quick-protobuf",
  "rand 0.8.5",
  "redux",
  "reqwest",
@@ -4327,6 +4334,7 @@ dependencies = [
  "serde_json",
  "sha2 0.10.8",
  "smallvec",
+ "snark",
  "strum",
  "strum_macros",
  "thiserror",
@@ -5552,6 +5560,16 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.38",
+]
+
+[[package]]
+name = "serdect"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a84f14a19e9a014bb9f4512488d9829a68e04ecabffb0f9904cd1ace94598177"
+dependencies = [
+ "base16ct",
+ "serde",
 ]
 
 [[package]]

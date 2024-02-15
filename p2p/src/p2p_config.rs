@@ -27,6 +27,12 @@ pub struct P2pConfig {
     pub max_peers: usize,
 
     pub timeouts: P2pTimeouts,
+
+    /// Chain id
+    pub chain_id: Vec<u8>,
+
+    /// Use peers discovery.
+    pub peer_discovery: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -50,4 +56,5 @@ impl Default for P2pTimeouts {
             initial_peers: Some(Duration::from_secs(5)),
         }
     }
+
 }

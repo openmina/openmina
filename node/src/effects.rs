@@ -94,6 +94,11 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
             #[cfg(feature = "p2p-webrtc")]
             p2p_discovery_request(store, &meta);
 
+            #[cfg(not(feature = "p2p-libp2p"))]
+            store.dispatch(p2p::network::kad::P2pNetworkKademliaAction::StartBootstrap {
+                key: store.state().p2p.config.identity_pub_key.peer_id(),
+            });
+
             #[cfg(feature = "p2p-libp2p")]
             {
                 let state = store.state();

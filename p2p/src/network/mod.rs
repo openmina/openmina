@@ -22,6 +22,9 @@ pub use self::noise::*;
 pub mod yamux;
 pub use self::yamux::*;
 
+pub mod kad;
+pub use self::kad::*;
+
 pub mod rpc;
 pub use self::rpc::*;
 

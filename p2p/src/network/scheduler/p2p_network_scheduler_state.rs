@@ -3,30 +3,37 @@ use std::{
     net::{IpAddr, SocketAddr},
 };
 
+use openmina_core::error;
 use redux::ActionMeta;
 use serde::{Deserialize, Serialize};
 
 use crate::{
     channels::{ChannelId, P2pChannelsState},
-    connection::outgoing::P2pConnectionOutgoingInitOpts,
-    webrtc::Host,
+    request::P2pNetworkKadRequestAction,
     MioCmd, P2pCryptoService, P2pMioService, P2pPeerState, P2pPeerStatus, P2pPeerStatusReady,
-    PeerId,
+    PeerId, token::{StreamKind, RpcAlgorithm},
 };
 
 use super::{super::*, *};
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+pub type StreamState<T> = BTreeMap<PeerId, BTreeMap<StreamId, T>>;
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pNetworkSchedulerState {
     pub interfaces: BTreeSet<IpAddr>,
     pub listeners: BTreeSet<SocketAddr>,
     pub pnet_key: [u8; 32],
     pub connections: BTreeMap<SocketAddr, P2pNetworkConnectionState>,
     pub broadcast_state: (),
-    pub discovery_state: (),
-    pub rpc_incoming_streams: BTreeMap<PeerId, BTreeMap<StreamId, P2pNetworkRpcState>>,
-    pub rpc_outgoing_streams: BTreeMap<PeerId, BTreeMap<StreamId, P2pNetworkRpcState>>,
+    pub discovery_state: Option<P2pNetworkKadState>,
+    pub rpc_incoming_streams: StreamState<P2pNetworkRpcState>,
+    pub rpc_outgoing_streams: StreamState<P2pNetworkRpcState>,
+}
+
+impl P2pNetworkSchedulerState {
+    pub fn discovery_state(&self) -> Option<&P2pNetworkKadState> {
+        self.discovery_state.as_ref()
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -84,7 +91,8 @@ impl P2pNetworkSchedulerState {
         peers: &mut BTreeMap<PeerId, P2pPeerState>,
         action: redux::ActionWithMeta<&P2pNetworkSchedulerAction>,
     ) {
-        match action.action() {
+        let (action, meta) = action.split();
+        match action {
             P2pNetworkSchedulerAction::InterfaceDetected(a) => drop(self.interfaces.insert(a.ip)),
             P2pNetworkSchedulerAction::InterfaceExpired(a) => drop(self.interfaces.remove(&a.ip)),
             P2pNetworkSchedulerAction::IncomingConnectionIsReady(_) => {}
@@ -140,7 +148,7 @@ impl P2pNetworkSchedulerState {
                             dial_opts: None,
                             status: P2pPeerStatus::Ready(P2pPeerStatusReady {
                                 is_incoming: a.incoming,
-                                connected_since: action.time(),
+                                connected_since: meta.time(),
                                 channels: P2pChannelsState::new(&enabled_channels),
                                 best_tip: None,
                             }),
@@ -157,15 +165,15 @@ impl P2pNetworkSchedulerState {
                     Some(token::Protocol::Mux(
                         token::MuxKind::Yamux1_0_0 | token::MuxKind::YamuxNoNewLine1_0_0,
                     )) => {
-                        connection.mux = Some(P2pNetworkConnectionMuxState::Yamux(
-                            P2pNetworkYamuxState::default(),
-                        ));
+                        connection.mux =
+                            Some(P2pNetworkConnectionMuxState::Yamux(P2pNetworkYamuxState {
+                                init: true,
+                                ..Default::default()
+                            }));
                     }
                     Some(token::Protocol::Stream(stream_kind)) => {
-                        let Some(stream_id) = a.kind.stream_id() else {
-                            return;
-                        };
-                        let Some(peer_id) = a.kind.peer_id() else {
+                        let SelectKind::Stream(peer_id, stream_id) = a.kind else {
+                            error!(meta.time(); "incorrect stream kind for protocol stream: {stream_kind:?}");
                             return;
                         };
                         match stream_kind {
@@ -189,7 +197,7 @@ impl P2pNetworkSchedulerState {
                                 }
                             }
                             token::StreamKind::Broadcast(_) => unimplemented!(),
-                            token::StreamKind::Discovery(_) => unimplemented!(),
+                            token::StreamKind::Discovery(_) => {}
                         }
                     }
                     None => {}
@@ -216,7 +224,7 @@ impl P2pNetworkSchedulerState {
 }
 
 impl P2pNetworkSchedulerAction {
-    pub fn effects<Store, S>(&self, _: &ActionMeta, store: &mut Store)
+    pub fn effects<Store, S>(&self, meta: &ActionMeta, store: &mut Store)
     where
         Store: crate::P2pStore<S>,
         Store::Service: P2pMioService + P2pCryptoService,
@@ -226,6 +234,9 @@ impl P2pNetworkSchedulerAction {
         P2pNetworkYamuxOpenStreamAction: redux::EnablingCondition<S>,
         P2pNetworkYamuxPingStreamAction: redux::EnablingCondition<S>,
         P2pNetworkRpcInitAction: redux::EnablingCondition<S>,
+        P2pNetworkKadRequestAction: redux::EnablingCondition<S>,
+        P2pNetworkKademliaStreamAction: redux::EnablingCondition<S>,
+        P2pNetworkSchedulerYamuxDidInitAction: redux::EnablingCondition<S>,
     {
         match self {
             Self::InterfaceDetected(a) => {
@@ -235,21 +246,21 @@ impl P2pNetworkSchedulerAction {
                     .send_mio_cmd(MioCmd::ListenOn(SocketAddr::new(a.ip, port)));
 
                 // TODO: implement it properly, add more actions
-                let initial_peers = store.state().config.initial_peers.clone();
-                for peer in &initial_peers {
-                    let addr = match peer {
-                        P2pConnectionOutgoingInitOpts::LibP2P(v) => match &v.host {
-                            Host::Ipv4(ip) => SocketAddr::new((*ip).into(), v.port),
-                            Host::Ipv6(ip) => SocketAddr::new((*ip).into(), v.port),
-                            _ => continue,
-                        },
-                        _ => continue,
-                    };
+                // let initial_peers = store.state().config.initial_peers.clone();
+                // for peer in &initial_peers {
+                //     let addr = match peer {
+                //         P2pConnectionOutgoingInitOpts::LibP2P(v) => match &v.host {
+                //             Host::Ipv4(ip) => SocketAddr::new((*ip).into(), v.port),
+                //             Host::Ipv6(ip) => SocketAddr::new((*ip).into(), v.port),
+                //             _ => continue,
+                //         },
+                //         _ => continue,
+                //     };
 
-                    if addr.is_ipv4() == a.ip.is_ipv4() {
-                        store.service().send_mio_cmd(MioCmd::Connect(addr));
-                    }
-                }
+                //     if addr.is_ipv4() == a.ip.is_ipv4() {
+                //         store.service().send_mio_cmd(MioCmd::Connect(addr));
+                //     }
+                // }
             }
             Self::InterfaceExpired(_) => {}
             Self::IncomingConnectionIsReady(a) => {
@@ -311,30 +322,39 @@ impl P2pNetworkSchedulerAction {
                         });
                     }
                     Some(Protocol::Mux(MuxKind::Yamux1_0_0 | MuxKind::YamuxNoNewLine1_0_0)) => {
-                        if let Some(cn) = store.state().network.scheduler.connections.get(&a.addr) {
-                            // for each negotiated yamux conenction open a new outgoing RPC stream
-                            let stream_id = if cn.incoming { 2 } else { 1 };
-                            store.dispatch(P2pNetworkYamuxOpenStreamAction {
-                                addr: a.addr,
-                                stream_id,
-                                stream_kind: StreamKind::Rpc(RpcAlgorithm::Rpc0_0_1),
-                            });
-                        }
+                        store.dispatch(P2pNetworkSchedulerYamuxDidInitAction { addr: a.addr });
                     }
-                    Some(Protocol::Stream(StreamKind::Discovery(
-                        DiscoveryAlgorithm::Kademlia1_0_0,
-                    ))) => {
-                        // init the stream
-                        unimplemented!()
-                    }
-                    Some(Protocol::Stream(StreamKind::Broadcast(
-                        BroadcastAlgorithm::Meshsub1_1_0,
-                    ))) => {
-                        unimplemented!()
-                    }
-                    Some(Protocol::Stream(StreamKind::Rpc(RpcAlgorithm::Rpc0_0_1))) => {
-                        match a.kind {
-                            SelectKind::Stream(peer_id, stream_id) => {
+                    Some(Protocol::Stream(kind)) => {
+                        let SelectKind::Stream(peer_id, stream_id) = a.kind else {
+                            error!(meta.time(); "wrong kind for stream protocol action: {:?}", a.kind);
+                            return;
+                        };
+                        match kind {
+                            StreamKind::Discovery(DiscoveryAlgorithm::Kademlia1_0_0) => {
+                                if let Some(discovery_state) =
+                                    store.state().network.scheduler.discovery_state()
+                                {
+                                    let request =
+                                        !a.incoming && discovery_state.request(&a.addr).is_some();
+                                    store.dispatch(P2pNetworkKademliaStreamAction::New {
+                                        addr: a.addr,
+                                        peer_id,
+                                        stream_id,
+                                        incoming: a.incoming,
+                                    });
+                                    // if our node initiated a request to the peer, notify that the stream is ready.
+                                    if request {
+                                        store.dispatch(P2pNetworkKadRequestAction::StreamReady {
+                                            addr: a.addr,
+                                            stream_id,
+                                        });
+                                    }
+                                }
+                            }
+                            StreamKind::Broadcast(BroadcastAlgorithm::Meshsub1_1_0) => {
+                                unimplemented!()
+                            }
+                            StreamKind::Rpc(RpcAlgorithm::Rpc0_0_1) => {
                                 store.dispatch(P2pNetworkRpcInitAction {
                                     addr: a.addr,
                                     peer_id,
@@ -342,7 +362,6 @@ impl P2pNetworkSchedulerAction {
                                     incoming: a.incoming,
                                 });
                             }
-                            _ => {}
                         }
                     }
                     None => {
@@ -364,7 +383,29 @@ impl P2pNetworkSchedulerAction {
             Self::SelectError(_) => {
                 // TODO: close stream or connection
             }
-            Self::YamuxDidInit(_) => {}
+            Self::YamuxDidInit(a) => {
+                if let Some(cn) = store.state().network.scheduler.connections.get(&a.addr) {
+                    // for each negotiated yamux conenction open a new outgoing RPC stream
+                    // TODO(akoptelov,vlad): should we do that? shouldn't upper layer decide when to open RPC streams?
+                    // Also rpc streams are short-living -- they only persist for a single request-response (?)
+                    let stream_id = if cn.incoming { 2 } else { 1 };
+                    store.dispatch(P2pNetworkYamuxOpenStreamAction {
+                        addr: a.addr,
+                        stream_id,
+                        stream_kind: StreamKind::Rpc(RpcAlgorithm::Rpc0_0_1),
+                    });
+                    // Kademlia: if the connection is initiated by Kademlia request, notify that it is ready.
+                    if store
+                        .state()
+                        .network
+                        .scheduler
+                        .discovery_state()
+                        .map_or(false, |state| state.request(&a.addr).is_some())
+                    {
+                        store.dispatch(P2pNetworkKadRequestAction::MuxReady { addr: a.addr });
+                    }
+                }
+            }
         }
     }
 }

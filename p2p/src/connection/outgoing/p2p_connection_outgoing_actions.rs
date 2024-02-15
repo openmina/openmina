@@ -105,7 +105,9 @@ impl redux::EnablingCondition<P2pState> for P2pConnectionOutgoingAction {
                 !state.already_has_min_peers() && !state.initial_unused_peers().is_empty()
             }
             P2pConnectionOutgoingAction::Init { opts, .. } => {
-                !state.already_has_min_peers() && !state.peers.contains_key(opts.peer_id())
+                state.peers.get(opts.peer_id()).map_or(true, |peer| !peer.status.is_connected_or_connecting())
+                // TODO: merge with this --V
+                // !state.already_has_min_peers() && !state.peers.contains_key(opts.peer_id())
             }
             P2pConnectionOutgoingAction::Reconnect { opts, .. } => {
                 if state.already_has_min_peers() {

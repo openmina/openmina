@@ -76,7 +76,7 @@ impl P2pNetworkSelectAction {
         P2pNetworkYamuxIncomingDataAction: redux::EnablingCondition<S>,
         P2pNetworkYamuxOutgoingDataAction: redux::EnablingCondition<S>,
         P2pNetworkRpcIncomingDataAction: redux::EnablingCondition<S>,
-        // P2pNetworkKademliaAction: redux::EnablingCondition<S>,
+        P2pNetworkKademliaStreamAction: redux::EnablingCondition<S>,
     {
         use self::token::*;
 
@@ -127,6 +127,7 @@ impl P2pNetworkSelectAction {
                     }
                     _ => {}
                 };
+                dbg!(&tokens);
                 store.dispatch(P2pNetworkSelectOutgoingTokensAction {
                     addr: a.addr,
                     kind: a.kind,
@@ -152,8 +153,21 @@ impl P2pNetworkSelectAction {
                             SelectKind::Stream(peer_id, stream_id) => {
                                 match kind {
                                     StreamKind::Discovery(DiscoveryAlgorithm::Kademlia1_0_0) => {
-                                        // send to kademlia handler
-                                        unimplemented!()
+                                        if !a.fin {
+                                            println!("==== {}", hex::encode(&a.data.0));
+                                            store.dispatch(P2pNetworkKademliaStreamAction::IncomingData {
+                                                addr: a.addr,
+                                                peer_id,
+                                                stream_id,
+                                                data: a.data.clone(),
+                                            });
+                                        } else {
+                                            store.dispatch(P2pNetworkKademliaStreamAction::RemoteClose {
+                                                addr: a.addr,
+                                                peer_id,
+                                                stream_id,
+                                            });
+                                        }
                                     }
                                     StreamKind::Broadcast(BroadcastAlgorithm::Meshsub1_1_0) => {
                                         // send to meshsub handler
@@ -190,7 +204,7 @@ impl P2pNetworkSelectAction {
                     store.dispatch(P2pNetworkSelectOutgoingTokensAction {
                         addr: a.addr,
                         kind: a.kind,
-                        tokens: vec![token.clone()],
+                        tokens: vec![dbg!(token).clone()],
                     });
                 }
             }
@@ -357,13 +371,10 @@ impl P2pNetworkSelectState {
                                         token::MuxKind::YamuxNoNewLine1_0_0,
                                     ))
                                 }
-                                token::Protocol::Stream(token::StreamKind::Rpc(_)) => {
+                                token::Protocol::Stream(token::StreamKind::Rpc(_) | token::StreamKind::Discovery(_)) => {
                                     token::Token::Protocol(protocol)
                                 }
                                 token::Protocol::Stream(token::StreamKind::Broadcast(_)) => {
-                                    token::Token::Na
-                                }
-                                token::Protocol::Stream(token::StreamKind::Discovery(_)) => {
                                     token::Token::Na
                                 }
                             };

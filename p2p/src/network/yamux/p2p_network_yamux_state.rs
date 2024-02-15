@@ -268,6 +268,7 @@ impl P2pNetworkYamuxAction {
                             addr: a.addr,
                             kind: SelectKind::Stream(peer_id, frame.stream_id),
                             data: data.clone(),
+                            fin: a.frame.flags.contains(YamuxFlags::FIN),
                         });
                     }
                     YamuxFrameInner::Ping { opaque } => {
@@ -352,6 +353,14 @@ impl P2pNetworkYamuxState {
 
     pub fn set_res(&mut self, res: Result<(), YamuxSessionError>) {
         self.terminated = Some(Ok(res));
+    }
+
+    pub fn next_stream_id(&self) -> Option<StreamId> {
+        if self.init && self.terminated.is_none() {
+            Some(self.streams.keys().max().map_or(1, |id| (id + 1) / 2 * 2 + 1))
+        } else {
+            None
+        }
     }
 
     pub fn reducer(

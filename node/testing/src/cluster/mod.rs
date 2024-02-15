@@ -262,6 +262,8 @@ impl Cluster {
                 ask_initial_peers_interval: testing_config.ask_initial_peers_interval,
                 enabled_channels: ChannelId::iter_all().collect(),
                 timeouts: testing_config.timeouts,
+                peer_discovery: true,
+                chain_id: openmina_core::CHAIN_ID.to_vec()
             },
             transition_frontier: TransitionFrontierConfig::default(),
             block_producer: block_producer_config,

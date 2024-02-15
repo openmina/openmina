@@ -80,6 +80,7 @@ pub struct P2pNetworkSchedulerYamuxDidInitAction {
     pub addr: SocketAddr,
 }
 
+
 impl From<P2pNetworkSchedulerInterfaceDetectedAction> for crate::P2pAction {
     fn from(a: P2pNetworkSchedulerInterfaceDetectedAction) -> Self {
         Self::Network(P2pNetworkSchedulerAction::from(a).into())

@@ -8,6 +8,7 @@ mod p2p_connection_outgoing_reducer;
 
 mod p2p_connection_outgoing_effects;
 
+use std::net::SocketAddr;
 use std::{fmt, str::FromStr};
 
 use binprot_derive::{BinProtRead, BinProtWrite};
@@ -42,6 +43,52 @@ pub struct P2pConnectionOutgoingInitLibp2pOpts {
     pub peer_id: PeerId,
     pub host: Host,
     pub port: u16,
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+mod libp2p_opts {
+    use std::net::SocketAddr;
+
+    use multiaddr::Multiaddr;
+
+    use crate::{PeerId, webrtc::Host};
+
+    impl super::P2pConnectionOutgoingInitLibp2pOpts {
+        fn to_peer_id_multiaddr(&self) -> (PeerId, Multiaddr) {
+            (
+                self.peer_id.clone(),
+                Multiaddr::from_iter([(&self.host).into(), multiaddr::Protocol::Tcp(self.port)]),
+            )
+        }
+        fn into_peer_id_multiaddr(self) -> (PeerId, Multiaddr) {
+            (
+                self.peer_id,
+                Multiaddr::from_iter([(&self.host).into(), multiaddr::Protocol::Tcp(self.port)]),
+            )
+        }
+    }
+
+    impl From<&super::P2pConnectionOutgoingInitLibp2pOpts> for (PeerId, Multiaddr) {
+        fn from(value: &super::P2pConnectionOutgoingInitLibp2pOpts) -> Self {
+            value.to_peer_id_multiaddr()
+        }
+    }
+
+    impl From<super::P2pConnectionOutgoingInitLibp2pOpts> for (PeerId, Multiaddr) {
+        fn from(value: super::P2pConnectionOutgoingInitLibp2pOpts) -> Self {
+            value.into_peer_id_multiaddr()
+        }
+    }
+
+    impl From<(PeerId, SocketAddr)> for super::P2pConnectionOutgoingInitLibp2pOpts {
+        fn from((peer_id, addr): (PeerId, SocketAddr)) -> Self {
+            let (host, port) = match addr {
+                SocketAddr::V4(v4) => (Host::Ipv4(*v4.ip()), v4.port()),
+                SocketAddr::V6(v6) => (Host::Ipv6(*v6.ip()), v6.port()),
+            };
+            super::P2pConnectionOutgoingInitLibp2pOpts { peer_id, host, port }
+        }
+    }
 }
 
 impl P2pConnectionOutgoingInitOpts {
@@ -147,6 +194,10 @@ impl P2pConnectionOutgoingInitOpts {
                 }),
             },
         }
+    }
+
+    pub fn from_libp2p_socket_addr(peer_id: PeerId, addr: SocketAddr) -> Self {
+        P2pConnectionOutgoingInitOpts::LibP2P((peer_id, addr).into())
     }
 }
 

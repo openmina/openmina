@@ -42,6 +42,7 @@ impl Simulator {
                 .chain_id_async()
                 .await
                 .unwrap()
+                .into_bytes()
         };
 
         RustNodeTestingConfig {

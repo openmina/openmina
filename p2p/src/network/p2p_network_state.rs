@@ -1,9 +1,12 @@
 use std::collections::BTreeMap;
 
+use multiaddr::Multiaddr;
+use openmina_core::error;
 use redux::ActionMeta;
 use serde::{Deserialize, Serialize};
 
 use crate::channels::rpc::P2pChannelsRpcAction;
+use crate::connection::outgoing::P2pConnectionOutgoingAction;
 use crate::{P2pPeerState, P2pPeerStatus, PeerId};
 
 use super::*;
@@ -14,7 +17,13 @@ pub struct P2pNetworkState {
 }
 
 impl P2pNetworkState {
-    pub fn new(chain_id: &str) -> Self {
+    pub fn new(
+        peer_id: PeerId,
+        addrs: Vec<Multiaddr>,
+        known_peers: Vec<(PeerId, Multiaddr)>,
+        chain_id: &[u8],
+        discovery: bool,
+    ) -> Self {
         let pnet_key = {
             use blake2::{
                 digest::{generic_array::GenericArray, Update, VariableOutput},
@@ -25,11 +34,25 @@ impl P2pNetworkState {
             Blake2bVar::new(32)
                 .expect("valid constant")
                 .chain(b"/coda/0.0.1/")
-                .chain(chain_id.as_bytes())
+                .chain(chain_id)
                 .finalize_variable(&mut key)
                 .expect("good buffer size");
             key.into()
         };
+
+        let discovery_state = discovery.then(|| {
+            let mut routing_table =
+                P2pNetworkKadRoutingTable::new(P2pNetworkKadEntry::new(peer_id, addrs));
+            routing_table.extend(
+                known_peers
+                    .into_iter()
+                    .map(|(peer_id, maddr)| P2pNetworkKadEntry::new(peer_id, vec![maddr])),
+            );
+            P2pNetworkKadState {
+                routing_table,
+                ..Default::default()
+            }
+        });
 
         P2pNetworkState {
             scheduler: P2pNetworkSchedulerState {
@@ -38,7 +61,7 @@ impl P2pNetworkState {
                 pnet_key,
                 connections: Default::default(),
                 broadcast_state: Default::default(),
-                discovery_state: Default::default(),
+                discovery_state,
                 rpc_incoming_streams: Default::default(),
                 rpc_outgoing_streams: Default::default(),
             },
@@ -80,6 +103,11 @@ impl P2pNetworkAction {
         P2pNetworkRpcIncomingMessageAction: redux::EnablingCondition<S>,
         P2pNetworkRpcOutgoingQueryAction: redux::EnablingCondition<S>,
         P2pChannelsRpcAction: redux::EnablingCondition<S>,
+        P2pNetworkKademliaAction: redux::EnablingCondition<S>,
+        P2pConnectionOutgoingAction: redux::EnablingCondition<S>,
+        super::kad::bootstrap::P2pNetworkKadBootstrapAction: redux::EnablingCondition<S>,
+        super::kad::request::P2pNetworkKadRequestAction: redux::EnablingCondition<S>,
+        super::kad::P2pNetworkKademliaStreamAction: redux::EnablingCondition<S>,
     {
         match self {
             Self::Scheduler(v) => v.effects(meta, store),
@@ -87,6 +115,10 @@ impl P2pNetworkAction {
             Self::Select(v) => v.effects(meta, store),
             Self::Noise(v) => v.effects(meta, store),
             Self::Yamux(v) => v.effects(meta, store),
+            Self::Kad(v) => match v.effects(meta, store) {
+                Ok(_) => {}
+                Err(e) => error!(meta.time(); "error dispatching Kademlia stream action: {e}"),
+            },
             Self::Rpc(v) => v.effects(meta, store),
         }
     }
@@ -145,6 +177,18 @@ impl P2pNetworkState {
                         _ => {}
                     });
             }
+            P2pNetworkAction::Kad(a) => {
+                let Some(state) = &mut self.scheduler.discovery_state else {
+                    error!(meta.time(); "kademlia is not configured");
+                    return;
+                };
+                let time = meta.time();
+                // println!("======= kad reducer for {state:?}");
+                if let Err(err) = state.reducer(meta.with_action(&a)) {
+                    error!(time; "{err}");
+                }
+                // println!("======= kad reducer result {state:?}");
+            }
             P2pNetworkAction::Rpc(a) => {
                 if let Some(state) = self.find_rpc_state_mut(a) {
                     if let Some(peer_state) = peers.get_mut(&a.peer_id()) {
@@ -170,15 +214,12 @@ impl P2pNetworkState {
                         .get(&a.peer_id())
                         .and_then(|cn| cn.get(&stream_id))
                 }),
-            RpcStreamId::AnyIncoming => {
-                if let Some(streams) = self.scheduler.rpc_incoming_streams.get(&a.peer_id()) {
-                    if let Some((k, _)) = streams.first_key_value() {
-                        return Some(streams.get(k).expect("checked above"));
-                    }
-                }
-
-                None
-            }
+            RpcStreamId::AnyIncoming => self
+                .scheduler
+                .rpc_incoming_streams
+                .get(&a.peer_id())
+                .and_then(|stream| stream.first_key_value())
+                .map(|(_k, v)| v),
             RpcStreamId::AnyOutgoing => {
                 if let Some(streams) = self.scheduler.rpc_outgoing_streams.get(&a.peer_id()) {
                     if let Some((k, _)) = streams.first_key_value() {
