@@ -3,7 +3,7 @@ use std::{future::Future, io, pin::Pin};
 use thiserror::Error;
 
 use ledger::{Account, AccountIndex, Address, BaseLedger, Database, Mask};
-use mina_p2p_messages::{core::Info, list::List, rpc::AnswerSyncLedgerQueryV2, v2};
+use mina_p2p_messages::{list::List, rpc::AnswerSyncLedgerQueryV2, v2};
 
 use super::client::Client;
 
@@ -69,12 +69,15 @@ impl SnarkedLedger {
 
     pub async fn sync_new(&mut self, client: &mut Client, root: &v2::LedgerHash) {
         let q = v2::MinaLedgerSyncLedgerQueryStableV1::NumAccounts;
-        let r = client
+        let r = match client
             .rpc::<AnswerSyncLedgerQueryV2>((root.0.clone(), q))
             .await
             .unwrap()
             .0
-            .unwrap();
+        {
+            Ok(v) => v,
+            Err(e) => panic!("answer_sync_ledger returned error: {e}"),
+        };
         let (num, hash) = match r {
             v2::MinaLedgerSyncLedgerAnswerStableV2::NumAccounts(num, hash) => (num.0, hash),
             _ => panic!(),
@@ -130,14 +133,8 @@ impl SnarkedLedger {
                 .unwrap()
                 .0;
             match r {
-                // TODO(tizoc): This used to match against Info::CouldNotConstruct(s)
-                // must be updated with the equivalent.
-                Err(_error) => {
-                    log::error!(
-                        "num: {}, could not construct",
-                        self.num,
-                        //s.to_string_lossy()
-                    );
+                Err(err) => {
+                    log::error!("num: {}, error: {err}", self.num);
                 }
                 Ok(v2::MinaLedgerSyncLedgerAnswerStableV2::ContentsAre(accounts)) => {
                     for (o, account) in accounts.into_iter().enumerate() {
