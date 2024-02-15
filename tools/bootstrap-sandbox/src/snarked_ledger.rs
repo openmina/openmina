@@ -130,11 +130,13 @@ impl SnarkedLedger {
                 .unwrap()
                 .0;
             match r {
-                Err(Info::CouldNotConstruct(s)) => {
+                // TODO(tizoc): This used to match against Info::CouldNotConstruct(s)
+                // must be updated with the equivalent.
+                Err(_error) => {
                     log::error!(
-                        "num: {}, could not construct {}",
+                        "num: {}, could not construct",
                         self.num,
-                        s.to_string_lossy()
+                        //s.to_string_lossy()
                     );
                 }
                 Ok(v2::MinaLedgerSyncLedgerAnswerStableV2::ContentsAre(accounts)) => {
