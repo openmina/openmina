@@ -227,16 +227,25 @@ pub enum ActionKind {
     P2pListenExpired,
     P2pListenNew,
     P2pNetworkKadBootstrapCreateRequests,
+    P2pNetworkKadBootstrapCreateRequests,
     P2pNetworkKadBootstrapRequestDone,
-    P2pNetworkKadBootstrapRequestError,
+    P2pNetworkKadBootstrapRequestDone,
     P2pNetworkKadRequestError,
+    P2pNetworkKadRequestError,
+    P2pNetworkKadRequestMuxReady,
     P2pNetworkKadRequestMuxReady,
     P2pNetworkKadRequestNew,
     P2pNetworkKadRequestPeerIsConnecting,
+    P2pNetworkKadRequestPeerIsConnecting,
+    P2pNetworkKadRequestPrune,
     P2pNetworkKadRequestPrune,
     P2pNetworkKadRequestReplyReceived,
+    P2pNetworkKadRequestReplyReceived,
+    P2pNetworkKadRequestRequestSent,
     P2pNetworkKadRequestRequestSent,
     P2pNetworkKadRequestStreamIsCreating,
+    P2pNetworkKadRequestStreamIsCreating,
+    P2pNetworkKadRequestStreamReady,
     P2pNetworkKadRequestStreamReady,
     P2pNetworkKademliaAnswerFindNodeRequest,
     P2pNetworkKademliaBootstrapFinished,
@@ -404,7 +413,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 312;
+    pub const COUNT: u16 = 321;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -1283,7 +1292,8 @@ impl ActionKindGet for P2pNetworkKadBootstrapAction {
         match self {
             Self::CreateRequests => ActionKind::P2pNetworkKadBootstrapCreateRequests,
             Self::RequestDone { .. } => ActionKind::P2pNetworkKadBootstrapRequestDone,
-            Self::RequestError { .. } => ActionKind::P2pNetworkKadBootstrapRequestError,
+            Self::CreateRequests { .. } => ActionKind::P2pNetworkKadBootstrapCreateRequests,
+            Self::RequestDone { .. } => ActionKind::P2pNetworkKadBootstrapRequestDone,
         }
     }
 }
@@ -1292,6 +1302,14 @@ impl ActionKindGet for P2pNetworkKadRequestAction {
     fn kind(&self) -> ActionKind {
         match self {
             Self::New { .. } => ActionKind::P2pNetworkKadRequestNew,
+            Self::PeerIsConnecting { .. } => ActionKind::P2pNetworkKadRequestPeerIsConnecting,
+            Self::MuxReady { .. } => ActionKind::P2pNetworkKadRequestMuxReady,
+            Self::StreamIsCreating { .. } => ActionKind::P2pNetworkKadRequestStreamIsCreating,
+            Self::StreamReady { .. } => ActionKind::P2pNetworkKadRequestStreamReady,
+            Self::RequestSent { .. } => ActionKind::P2pNetworkKadRequestRequestSent,
+            Self::ReplyReceived { .. } => ActionKind::P2pNetworkKadRequestReplyReceived,
+            Self::Prune { .. } => ActionKind::P2pNetworkKadRequestPrune,
+            Self::Error { .. } => ActionKind::P2pNetworkKadRequestError,
             Self::PeerIsConnecting { .. } => ActionKind::P2pNetworkKadRequestPeerIsConnecting,
             Self::MuxReady { .. } => ActionKind::P2pNetworkKadRequestMuxReady,
             Self::StreamIsCreating { .. } => ActionKind::P2pNetworkKadRequestStreamIsCreating,
