@@ -25,7 +25,8 @@ Modules in the stack can communicate between each other despite differences in w
 
 LibP2P provides vertical complexity in the form of layers. Each layer serves a specific purpose, which lets us neatly organize the various functions of the P2P network. It allows us to separate concerns, making the network architecture easier to manage and debug.
 
-<img width="250" alt="P2Players" src="https://github.com/openmina/openmina/assets/60480123/add64ddd-3201-4413-8b64-b9e3b954693e">
+
+<img width="500" alt="JustLayers (1)" src="https://github.com/openmina/openmina/assets/60480123/25bb08e8-d877-42b6-9c1f-b2ce29b14520">
 
 
 _Above: A simplified overview of the Open Mina LibP2P networking stack. The abstraction is in an ascending order, i.e. the layers at the top have more abstraction than the layers at the bottom. _
