@@ -6,15 +6,13 @@ use std::{
 };
 
 use binprot::{BinProtRead, BinProtWrite};
+use ledger::proofs::public_input::protocol_state::MinaHash;
 use libp2p::Swarm;
 use libp2p_rpc_behaviour::Behaviour;
 use mina_p2p_messages::{
     rpc::{
-        GetBestTipV2,
-        GetStagedLedgerAuxAndPendingCoinbasesAtHashV2,
-        GetTransitionChainProofV1ForV2,
-        GetTransitionChainV2,
-        //WithHashV1, GetAncestryV2,
+        GetAncestryV2, GetBestTipV2, GetStagedLedgerAuxAndPendingCoinbasesAtHashV2,
+        GetTransitionChainProofV1ForV2, GetTransitionChainV2, WithHashV1,
     },
     v2,
 };
@@ -44,47 +42,47 @@ pub async fn run(swarm: Swarm<Behaviour>, path_main: &Path, bootstrap: bool) {
     let mut file = File::create(path.join("best_tip")).unwrap();
     Some(best_tip.clone()).binprot_write(&mut file).unwrap();
 
-    // let q = best_tip
-    //     .data
-    //     .header
-    //     .protocol_state
-    //     .body
-    //     .consensus_state
-    //     .clone();
-    // let hash = best_tip.data.header.protocol_state.hash().0.clone();
-    // let q = WithHashV1 { data: q, hash };
-    // let ancestry = client.rpc::<GetAncestryV2>(q).await.unwrap().unwrap();
+    let q = best_tip
+        .data
+        .header
+        .protocol_state
+        .body
+        .consensus_state
+        .clone();
+    let hash = MinaHash::hash(&best_tip.data.header.protocol_state).into();
+    let q = WithHashV1 { data: q, hash };
+    let ancestry = client.rpc::<GetAncestryV2>(q).await.unwrap().unwrap();
 
-    // let mut file = File::create(path.join("ancestry")).unwrap();
-    // Some(ancestry.clone()).binprot_write(&mut file).unwrap();
+    let mut file = File::create(path.join("ancestry")).unwrap();
+    Some(ancestry.clone()).binprot_write(&mut file).unwrap();
 
     let snarked_protocol_state = best_tip.proof.1.header.protocol_state;
 
-    let mut epoch_ledger = match File::open(path.join("epoch_ledger.bin")) {
-        Ok(file) => SnarkedLedger::load_bin(file).unwrap(),
-        Err(_) => SnarkedLedger::empty(),
-    };
-    let next_epoch_ledger_hash = snarked_protocol_state
-        .body
-        .consensus_state
-        .next_epoch_data
-        .ledger
-        .hash
-        .clone();
-    let next_epoch_ledger_hash_str = match serde_json::to_value(&next_epoch_ledger_hash).unwrap() {
-        serde_json::Value::String(s) => s,
-        _ => panic!(),
-    };
+    // let mut epoch_ledger = match File::open(path.join("epoch_ledger.bin")) {
+    //     Ok(file) => SnarkedLedger::load_bin(file).unwrap(),
+    //     Err(_) => SnarkedLedger::empty(),
+    // };
+    // let next_epoch_ledger_hash = snarked_protocol_state
+    //     .body
+    //     .consensus_state
+    //     .next_epoch_data
+    //     .ledger
+    //     .hash
+    //     .clone();
+    // let next_epoch_ledger_hash_str = match serde_json::to_value(&next_epoch_ledger_hash).unwrap() {
+    //     serde_json::Value::String(s) => s,
+    //     _ => panic!(),
+    // };
 
-    epoch_ledger
-        .sync_new(&mut client, &next_epoch_ledger_hash)
-        .await;
-    epoch_ledger
-        .store_bin(File::create(path.join("ledgers").join(next_epoch_ledger_hash_str)).unwrap())
-        .unwrap();
-    epoch_ledger
-        .store_bin(File::create(path.join("epoch_ledger.bin")).unwrap())
-        .unwrap();
+    // epoch_ledger
+    //     .sync_new(&mut client, &next_epoch_ledger_hash)
+    //     .await;
+    // epoch_ledger
+    //     .store_bin(File::create(path.join("ledgers").join(next_epoch_ledger_hash_str)).unwrap())
+    //     .unwrap();
+    // epoch_ledger
+    //     .store_bin(File::create(path.join("epoch_ledger.bin")).unwrap())
+    //     .unwrap();
 
     let snarked_ledger_hash = snarked_protocol_state
         .body
@@ -118,10 +116,9 @@ pub async fn run(swarm: Swarm<Behaviour>, path_main: &Path, bootstrap: bool) {
         .staged_ledger_hash
         .clone();
 
-    let snarked_block_hash = snarked_protocol_state.hash();
-    let snarked_block_hash = v2::StateHash::from(v2::DataHashLibStateHashStableV1(
-        snarked_block_hash.inner().0.clone(),
-    ));
+    let snarked_block_hash = MinaHash::hash(&snarked_protocol_state);
+    let snarked_block_hash =
+        v2::StateHash::from(v2::DataHashLibStateHashStableV1(snarked_block_hash.into()));
     log::info!("downloading staged_ledger_aux and pending_coinbases at {snarked_block_hash}");
     let info = client
         .rpc::<GetStagedLedgerAuxAndPendingCoinbasesAtHashV2>(snarked_block_hash.0.clone())

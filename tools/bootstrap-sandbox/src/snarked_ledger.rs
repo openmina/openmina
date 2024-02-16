@@ -151,7 +151,11 @@ impl SnarkedLedger {
             }
         } else {
             let b = ((depth as usize + 7) / 8).min(4);
-            let p = pos * (1 << (32 - depth));
+            let p = if depth > 0 {
+                pos * (1 << (32 - depth))
+            } else {
+                0
+            };
             let p = p.to_be_bytes()[..b].to_vec();
             let q = v2::MinaLedgerSyncLedgerQueryStableV1::WhatChildHashes(
                 v2::MerkleAddressBinableArgStableV1((depth as u64).into(), p.into()),
