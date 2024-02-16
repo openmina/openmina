@@ -18,6 +18,7 @@ use crate::{v1, v2};
 
 macro_rules! mina_rpc {
     ($name:ident, $tag:literal, $version:literal, $query:ty, $response:ty $(,)?) => {
+        #[derive(Debug)]
         pub struct $name;
         impl crate::rpc_kernel::RpcMethod for $name {
             const NAME: &'static str = $tag;
@@ -93,7 +94,7 @@ mina_rpc!(
 mina_rpc!(
     AnswerSyncLedgerQueryV2,
     "answer_sync_ledger_query",
-    2,
+    3,
     (LedgerHashV1, v2::MinaLedgerSyncLedgerQueryStableV1),
     RpcResult<v2::MinaLedgerSyncLedgerAnswerStableV2, core::Error>
 );
