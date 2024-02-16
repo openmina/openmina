@@ -29,7 +29,7 @@ LibP2P provides vertical complexity in the form of layers. Each layer serves a s
 <img width="500" alt="JustLayers (1)" src="https://github.com/openmina/openmina/assets/60480123/25bb08e8-d877-42b6-9c1f-b2ce29b14520">
 
 
-_Above: A simplified overview of the Open Mina LibP2P networking stack. The abstraction is in an ascending order, i.e. the layers at the top have more abstraction than the layers at the bottom. _
+_Above: A simplified overview of the Open Mina LibP2P networking stack. The abstraction is in an ascending order, i.e. the layers at the top have more abstraction than the layers at the bottom._
 
 
 Now we describe each layer of the P2P networking stack in descending order of abstraction.
