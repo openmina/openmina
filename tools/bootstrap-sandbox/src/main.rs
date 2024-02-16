@@ -18,7 +18,7 @@ use structopt::StructOpt;
 
 #[derive(StructOpt)]
 struct Args {
-    #[structopt(long, default_value = "target/default")]
+    #[structopt(long, default_value = "target/record")]
     path: PathBuf,
     #[structopt(
         long,

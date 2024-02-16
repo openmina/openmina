@@ -2274,6 +2274,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1b43ede17f21864e81be2fa654110bf1e793774238d86ef8555c37e6519c0403"
 
 [[package]]
+name = "hash-tool"
+version = "0.1.0"
+dependencies = [
+ "bs58 0.5.0",
+ "hex",
+ "structopt",
+]
+
+[[package]]
 name = "hashbrown"
 version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
