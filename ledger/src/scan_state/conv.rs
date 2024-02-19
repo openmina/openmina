@@ -5,6 +5,7 @@ use std::sync::Arc;
 use mina_hasher::Fp;
 use mina_p2p_messages::{
     binprot,
+    list::List,
     pseq::PaddedSeq,
     string::CharString,
     v2::{
@@ -1190,70 +1191,55 @@ impl From<&MinaBaseAccountUpdateTStableV1> for AccountUpdate {
     }
 }
 
-impl<'a> FromIterator<&'a MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAACallsA>
+/// Notes: childs
+impl From<&List<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAACallsA>>
     for CallForest<AccountUpdate>
 {
-    fn from_iter<
-        T: IntoIterator<Item = &'a MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAACallsA>,
-    >(
-        iter: T,
-    ) -> Self {
-        Self(iter.into_iter().map(Into::into).collect())
-    }
-}
-
-impl From<&MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAACallsA>
-    for WithStackHash<AccountUpdate>
-{
-    fn from(update: &MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAACallsA) -> Self {
+    fn from(value: &List<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAACallsA>) -> Self {
         use ark_ff::Zero;
-        WithStackHash {
-            elt: zkapp_command::Tree {
-                account_update: (&update.elt.account_update).into(),
-                account_update_digest: Fp::zero(), // replaced later in `of_wire`
-                calls: (&update.elt.calls).into_iter().collect(),
-            },
-            stack_hash: Fp::zero(), // replaced later in `of_wire`
-        }
-    }
-}
 
-impl<'a> FromIterator<&'a MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA>
-    for CallForest<AccountUpdate>
-{
-    fn from_iter<
-        T: IntoIterator<Item = &'a MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA>,
-    >(
-        iter: T,
-    ) -> Self {
-        CallForest(iter.into_iter().map(Into::into).collect())
+        Self(
+            value
+                .iter()
+                .map(|update| WithStackHash {
+                    elt: zkapp_command::Tree {
+                        account_update: (&update.elt.account_update).into(),
+                        account_update_digest: Fp::zero(), // replaced later
+                        calls: (&update.elt.calls).into(),
+                    },
+                    stack_hash: Fp::zero(), // replaced later
+                })
+                .collect(),
+        )
     }
 }
 
 /// Notes: root
-impl From<&[MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA]>
+impl From<&List<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA>>
     for CallForest<AccountUpdate>
 {
-    fn from(value: &[MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA]) -> Self {
-        let mut call_forest: Self = value.into_iter().collect();
-        call_forest.of_wire(value);
-        call_forest
-    }
-}
-
-impl From<&MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA>
-    for WithStackHash<AccountUpdate>
-{
-    fn from(update: &MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA) -> Self {
+    fn from(value: &List<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA>) -> Self {
         use ark_ff::Zero;
-        WithStackHash {
-            elt: zkapp_command::Tree {
-                account_update: (&update.elt.account_update).into(),
-                account_update_digest: Fp::zero(), // replaced later in `of_wire`
-                calls: (&update.elt.calls).into_iter().collect(),
-            },
-            stack_hash: Fp::zero(), // replaced later in `of_wire`
-        }
+
+        let values = value
+            .iter()
+            .map(|update| WithStackHash {
+                elt: zkapp_command::Tree {
+                    account_update: (&update.elt.account_update).into(),
+                    account_update_digest: Fp::zero(), // replaced later in `of_wire`
+                    calls: (&update.elt.calls).into(),
+                },
+                stack_hash: Fp::zero(), // replaced later in `of_wire`
+            })
+            .collect::<Vec<_>>();
+
+        // https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_command.ml#L1113-L1115
+
+        let mut call_forest = CallForest(values);
+        call_forest.of_wire(&[]);
+        // call_forest.of_wire(value);
+
+        call_forest
     }
 }
 
@@ -1376,33 +1362,50 @@ impl From<&AccountUpdate> for MinaBaseAccountUpdateTStableV1 {
     }
 }
 
-impl From<&WithStackHash<AccountUpdate>>
-    for MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAACallsA
+/// Childs
+impl From<&CallForest<AccountUpdate>>
+    for List<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAACallsA>
 {
-    fn from(update: &WithStackHash<AccountUpdate>) -> Self {
-        MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAACallsA {
-            elt: Box::new(MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAA {
-                account_update: (&update.elt.account_update).into(),
-                account_update_digest: (),
-                calls: (&update.elt.calls).iter().map(Into::into).collect(),
-            }),
-            stack_hash: (),
-        }
+    fn from(value: &CallForest<AccountUpdate>) -> Self {
+        value
+            .0
+            .iter()
+            .map(
+                |update| MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAACallsA {
+                    elt: Box::new(MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAA {
+                        account_update: (&update.elt.account_update).into(),
+                        account_update_digest: (),
+                        calls: (&update.elt.calls).into(),
+                    }),
+                    stack_hash: (),
+                },
+            )
+            .collect()
     }
 }
 
-impl From<&WithStackHash<AccountUpdate>>
-    for MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA
+/// Root
+impl From<&CallForest<AccountUpdate>>
+    for List<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA>
 {
-    fn from(update: &WithStackHash<AccountUpdate>) -> Self {
-        MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA {
-            elt: MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAA {
-                account_update: (&update.elt.account_update).into(),
-                account_update_digest: (),
-                calls: (&update.elt.calls).iter().map(Into::into).collect(),
-            },
-            stack_hash: (),
-        }
+    fn from(value: &CallForest<AccountUpdate>) -> Self {
+        let mut wired: Vec<_> = value
+            .0
+            .iter()
+            .map(
+                |update| MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA {
+                    elt: MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAA {
+                        account_update: (&update.elt.account_update).into(),
+                        account_update_digest: (),
+                        calls: (&update.elt.calls).into(),
+                    },
+                    stack_hash: (),
+                },
+            )
+            .collect();
+
+        value.to_wire(&mut wired);
+        wired.into_iter().collect()
     }
 }
 
@@ -1532,10 +1535,9 @@ impl From<&SignedCommand> for MinaBaseSignedCommandStableV2 {
 
 impl From<&MinaBaseZkappCommandTStableV1WireStableV1> for zkapp_command::ZkAppCommand {
     fn from(cmd: &MinaBaseZkappCommandTStableV1WireStableV1) -> Self {
-        // TODO: is to_wire needed? if yes, implement it for mut iterator
         Self {
             fee_payer: (&cmd.fee_payer).into(),
-            account_updates: (&cmd.account_updates).iter().collect(),
+            account_updates: (&cmd.account_updates).into(),
             memo: (&cmd.memo).into(),
         }
     }
@@ -1545,7 +1547,7 @@ impl From<&zkapp_command::ZkAppCommand> for MinaBaseZkappCommandTStableV1WireSta
     fn from(cmd: &zkapp_command::ZkAppCommand) -> Self {
         Self {
             fee_payer: (&cmd.fee_payer).into(),
-            account_updates: (&cmd.account_updates).iter().map(Into::into).collect(),
+            account_updates: (&cmd.account_updates).into(),
             memo: (&cmd.memo).into(),
         }
     }
@@ -1997,7 +1999,7 @@ impl From<&MinaBaseUserCommandStableV2> for transaction_logic::valid::UserComman
                 Self::ZkAppCommand(Box::new(zkapp_command::valid::ZkAppCommand {
                     zkapp_command: zkapp_command::ZkAppCommand {
                         fee_payer: (&cmd.fee_payer).into(),
-                        account_updates: (&cmd.account_updates).into_iter().collect(),
+                        account_updates: (&cmd.account_updates).into(),
                         memo: (&cmd.memo).into(),
                     },
                 }))
