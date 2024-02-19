@@ -73,41 +73,41 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                 P2pConnectionAction::Outgoing(action) => match action {
                     P2pConnectionOutgoingAction::RandomInit(_) => {}
                     P2pConnectionOutgoingAction::Init(action) => {
-                        openmina_core::log::info!(
-                            meta.time();
-                            kind = kind.to_string(),
-                            summary = format!("peer_id: {}", action.opts.peer_id()),
-                            peer_id = action.opts.peer_id().to_string(),
-                            transport = action.opts.kind(),
-                        );
+                        // openmina_core::log::info!(
+                        //     meta.time();
+                        //     kind = kind.to_string(),
+                        //     summary = format!("peer_id: {}", action.opts.peer_id()),
+                        //     peer_id = action.opts.peer_id().to_string(),
+                        //     transport = action.opts.kind(),
+                        // );
                     }
                     P2pConnectionOutgoingAction::Reconnect(action) => {
-                        openmina_core::log::info!(
-                            meta.time();
-                            kind = kind.to_string(),
-                            summary = format!("peer_id: {}", action.opts.peer_id()),
-                            peer_id = action.opts.peer_id().to_string(),
-                            transport = action.opts.kind(),
-                        );
+                        // openmina_core::log::info!(
+                        //     meta.time();
+                        //     kind = kind.to_string(),
+                        //     summary = format!("peer_id: {}", action.opts.peer_id()),
+                        //     peer_id = action.opts.peer_id().to_string(),
+                        //     transport = action.opts.kind(),
+                        // );
                     }
                     P2pConnectionOutgoingAction::OfferSdpCreatePending(_) => {}
                     P2pConnectionOutgoingAction::OfferSdpCreateError(action) => {
-                        openmina_core::log::warn!(
-                            meta.time();
-                            kind = kind.to_string(),
-                            summary = format!("peer_id: {}", action.peer_id),
-                            peer_id = action.peer_id.to_string(),
-                            error = action.error.clone(),
-                        );
+                        // openmina_core::log::warn!(
+                        //     meta.time();
+                        //     kind = kind.to_string(),
+                        //     summary = format!("peer_id: {}", action.peer_id),
+                        //     peer_id = action.peer_id.to_string(),
+                        //     error = action.error.clone(),
+                        // );
                     }
                     P2pConnectionOutgoingAction::OfferSdpCreateSuccess(action) => {
-                        openmina_core::log::debug!(
-                            meta.time();
-                            kind = kind.to_string(),
-                            summary = format!("peer_id: {}", action.peer_id),
-                            peer_id = action.peer_id.to_string(),
-                            sdp = action.sdp.clone(),
-                        );
+                        // openmina_core::log::debug!(
+                        //     meta.time();
+                        //     kind = kind.to_string(),
+                        //     summary = format!("peer_id: {}", action.peer_id),
+                        //     peer_id = action.peer_id.to_string(),
+                        //     sdp = action.sdp.clone(),
+                        // );
                     }
                     P2pConnectionOutgoingAction::OfferReady(action) => {
                         openmina_core::log::debug!(
@@ -128,13 +128,13 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     }
                     P2pConnectionOutgoingAction::AnswerRecvPending(_) => {}
                     P2pConnectionOutgoingAction::AnswerRecvError(action) => {
-                        openmina_core::log::warn!(
-                            meta.time();
-                            kind = kind.to_string(),
-                            summary = format!("peer_id: {}", action.peer_id),
-                            peer_id = action.peer_id.to_string(),
-                            error = format!("{:?}", action.error),
-                        );
+                        // openmina_core::log::warn!(
+                        //     meta.time();
+                        //     kind = kind.to_string(),
+                        //     summary = format!("peer_id: {}", action.peer_id),
+                        //     peer_id = action.peer_id.to_string(),
+                        //     error = format!("{:?}", action.error),
+                        // );
                     }
                     P2pConnectionOutgoingAction::AnswerRecvSuccess(action) => {
                         openmina_core::log::debug!(
@@ -147,13 +147,13 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     }
                     P2pConnectionOutgoingAction::FinalizePending(_) => {}
                     P2pConnectionOutgoingAction::FinalizeError(action) => {
-                        openmina_core::log::warn!(
-                            meta.time();
-                            kind = kind.to_string(),
-                            summary = format!("peer_id: {}", action.peer_id),
-                            peer_id = action.peer_id.to_string(),
-                            error = action.error.clone(),
-                        );
+                        // openmina_core::log::warn!(
+                        //     meta.time();
+                        //     kind = kind.to_string(),
+                        //     summary = format!("peer_id: {}", action.peer_id),
+                        //     peer_id = action.peer_id.to_string(),
+                        //     error = action.error.clone(),
+                        // );
                     }
                     P2pConnectionOutgoingAction::FinalizeSuccess(action) => {
                         openmina_core::log::info!(
@@ -164,147 +164,147 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                         );
                     }
                     P2pConnectionOutgoingAction::Timeout(action) => {
-                        openmina_core::log::warn!(
-                            meta.time();
-                            kind = kind.to_string(),
-                            summary = format!("peer_id: {}", action.peer_id),
-                            peer_id = action.peer_id.to_string()
-                        );
+                        // openmina_core::log::warn!(
+                        //     meta.time();
+                        //     kind = kind.to_string(),
+                        //     summary = format!("peer_id: {}", action.peer_id),
+                        //     peer_id = action.peer_id.to_string()
+                        // );
                     }
                     P2pConnectionOutgoingAction::Error(action) => {
-                        openmina_core::log::warn!(
-                            meta.time();
-                            kind = kind.to_string(),
-                            summary = format!("peer_id: {}", action.peer_id),
-                            peer_id = action.peer_id.to_string(),
-                            error = format!("{:?}", action.error),
-                        );
+                        // openmina_core::log::warn!(
+                        //     meta.time();
+                        //     kind = kind.to_string(),
+                        //     summary = format!("peer_id: {}", action.peer_id),
+                        //     peer_id = action.peer_id.to_string(),
+                        //     error = format!("{:?}", action.error),
+                        // );
                     }
                     P2pConnectionOutgoingAction::Success(action) => {
-                        openmina_core::log::info!(
-                            meta.time();
-                            kind = kind.to_string(),
-                            summary = format!("peer_id: {}", action.peer_id),
-                            peer_id = action.peer_id.to_string()
-                        );
+                        // openmina_core::log::info!(
+                        //     meta.time();
+                        //     kind = kind.to_string(),
+                        //     summary = format!("peer_id: {}", action.peer_id),
+                        //     peer_id = action.peer_id.to_string()
+                        // );
                     }
                 },
                 P2pConnectionAction::Incoming(action) => match action {
                     P2pConnectionIncomingAction::Init(action) => {
-                        openmina_core::log::info!(
-                            meta.time();
-                            kind = kind.to_string(),
-                            summary = format!("peer_id: {}", action.opts.peer_id),
-                            peer_id = action.opts.peer_id.to_string(),
-                            trace_signaling = format!("{:?}", action.opts.signaling),
-                        );
+                        // openmina_core::log::info!(
+                        //     meta.time();
+                        //     kind = kind.to_string(),
+                        //     summary = format!("peer_id: {}", action.opts.peer_id),
+                        //     peer_id = action.opts.peer_id.to_string(),
+                        //     trace_signaling = format!("{:?}", action.opts.signaling),
+                        // );
                     }
                     P2pConnectionIncomingAction::AnswerSdpCreatePending(_) => {}
                     P2pConnectionIncomingAction::AnswerSdpCreateError(action) => {
-                        openmina_core::log::warn!(
-                            meta.time();
-                            kind = kind.to_string(),
-                            summary = format!("peer_id: {}", action.peer_id),
-                            peer_id = action.peer_id.to_string(),
-                            error = format!("{:?}", action.error),
-                        );
+                        // openmina_core::log::warn!(
+                        //     meta.time();
+                        //     kind = kind.to_string(),
+                        //     summary = format!("peer_id: {}", action.peer_id),
+                        //     peer_id = action.peer_id.to_string(),
+                        //     error = format!("{:?}", action.error),
+                        // );
                     }
                     P2pConnectionIncomingAction::AnswerSdpCreateSuccess(action) => {
-                        openmina_core::log::info!(
-                            meta.time();
-                            kind = kind.to_string(),
-                            summary = format!("peer_id: {}", action.peer_id),
-                            peer_id = action.peer_id.to_string(),
-                            trace_sdp = action.sdp.clone(),
-                        );
+                        // openmina_core::log::info!(
+                        //     meta.time();
+                        //     kind = kind.to_string(),
+                        //     summary = format!("peer_id: {}", action.peer_id),
+                        //     peer_id = action.peer_id.to_string(),
+                        //     trace_sdp = action.sdp.clone(),
+                        // );
                     }
                     P2pConnectionIncomingAction::AnswerReady(action) => {
-                        openmina_core::log::info!(
-                            meta.time();
-                            kind = kind.to_string(),
-                            summary = format!("peer_id: {}", action.peer_id),
-                            peer_id = action.peer_id.to_string(),
-                            trace_answer = serde_json::to_string(&action.answer).ok()
-                        );
+                        // openmina_core::log::info!(
+                        //     meta.time();
+                        //     kind = kind.to_string(),
+                        //     summary = format!("peer_id: {}", action.peer_id),
+                        //     peer_id = action.peer_id.to_string(),
+                        //     trace_answer = serde_json::to_string(&action.answer).ok()
+                        // );
                     }
                     P2pConnectionIncomingAction::AnswerSendSuccess(action) => {
-                        openmina_core::log::info!(
-                            meta.time();
-                            kind = kind.to_string(),
-                            summary = format!("peer_id: {}", action.peer_id),
-                            peer_id = action.peer_id.to_string()
-                        );
+                        // openmina_core::log::info!(
+                        //     meta.time();
+                        //     kind = kind.to_string(),
+                        //     summary = format!("peer_id: {}", action.peer_id),
+                        //     peer_id = action.peer_id.to_string()
+                        // );
                     }
                     P2pConnectionIncomingAction::FinalizePending(_) => {}
                     P2pConnectionIncomingAction::FinalizeError(action) => {
-                        openmina_core::log::warn!(
-                            meta.time();
-                            kind = kind.to_string(),
-                            summary = format!("peer_id: {}", action.peer_id),
-                            peer_id = action.peer_id.to_string(),
-                            error = format!("{:?}", action.error),
-                        );
+                        // openmina_core::log::warn!(
+                        //     meta.time();
+                        //     kind = kind.to_string(),
+                        //     summary = format!("peer_id: {}", action.peer_id),
+                        //     peer_id = action.peer_id.to_string(),
+                        //     error = format!("{:?}", action.error),
+                        // );
                     }
                     P2pConnectionIncomingAction::FinalizeSuccess(action) => {
-                        openmina_core::log::info!(
-                            meta.time();
-                            kind = kind.to_string(),
-                            summary = format!("peer_id: {}", action.peer_id),
-                            peer_id = action.peer_id.to_string()
-                        );
+                        // openmina_core::log::info!(
+                        //     meta.time();
+                        //     kind = kind.to_string(),
+                        //     summary = format!("peer_id: {}", action.peer_id),
+                        //     peer_id = action.peer_id.to_string()
+                        // );
                     }
                     P2pConnectionIncomingAction::Timeout(action) => {
-                        openmina_core::log::warn!(
-                            meta.time();
-                            kind = kind.to_string(),
-                            summary = format!("peer_id: {}", action.peer_id),
-                            peer_id = action.peer_id.to_string()
-                        );
+                        // openmina_core::log::warn!(
+                        //     meta.time();
+                        //     kind = kind.to_string(),
+                        //     summary = format!("peer_id: {}", action.peer_id),
+                        //     peer_id = action.peer_id.to_string()
+                        // );
                     }
                     P2pConnectionIncomingAction::Error(action) => {
-                        openmina_core::log::warn!(
-                            meta.time();
-                            kind = kind.to_string(),
-                            summary = format!("peer_id: {}", action.peer_id),
-                            peer_id = action.peer_id.to_string(),
-                            error = format!("{:?}", action.error),
-                        );
+                        // openmina_core::log::warn!(
+                        //     meta.time();
+                        //     kind = kind.to_string(),
+                        //     summary = format!("peer_id: {}", action.peer_id),
+                        //     peer_id = action.peer_id.to_string(),
+                        //     error = format!("{:?}", action.error),
+                        // );
                     }
                     P2pConnectionIncomingAction::Success(action) => {
-                        openmina_core::log::info!(
-                            meta.time();
-                            kind = kind.to_string(),
-                            summary = format!("peer_id: {}", action.peer_id),
-                            peer_id = action.peer_id.to_string()
-                        );
+                        // openmina_core::log::info!(
+                        //     meta.time();
+                        //     kind = kind.to_string(),
+                        //     summary = format!("peer_id: {}", action.peer_id),
+                        //     peer_id = action.peer_id.to_string()
+                        // );
                     }
                     P2pConnectionIncomingAction::Libp2pReceived(action) => {
-                        openmina_core::log::info!(
-                            meta.time();
-                            kind = kind.to_string(),
-                            summary = format!("peer_id: {}", action.peer_id),
-                            peer_id = action.peer_id.to_string(),
-                        );
+                        // openmina_core::log::info!(
+                        //     meta.time();
+                        //     kind = kind.to_string(),
+                        //     summary = format!("peer_id: {}", action.peer_id),
+                        //     peer_id = action.peer_id.to_string(),
+                        // );
                     }
                 },
             },
             P2pAction::Disconnection(action) => match action {
                 P2pDisconnectionAction::Init(action) => {
-                    openmina_core::log::info!(
-                        meta.time();
-                        kind = kind.to_string(),
-                        summary = format!("peer_id: {}", action.peer_id),
-                        peer_id = action.peer_id.to_string(),
-                        reason = format!("{:?}", action.reason)
-                    );
+                    // openmina_core::log::info!(
+                    //     meta.time();
+                    //     kind = kind.to_string(),
+                    //     summary = format!("peer_id: {}", action.peer_id),
+                    //     peer_id = action.peer_id.to_string(),
+                    //     reason = format!("{:?}", action.reason)
+                    // );
                 }
                 P2pDisconnectionAction::Finish(action) => {
-                    openmina_core::log::info!(
-                        meta.time();
-                        kind = kind.to_string(),
-                        summary = format!("peer_id: {}", action.peer_id),
-                        peer_id = action.peer_id.to_string()
-                    );
+                    // openmina_core::log::info!(
+                    //     meta.time();
+                    //     kind = kind.to_string(),
+                    //     summary = format!("peer_id: {}", action.peer_id),
+                    //     peer_id = action.peer_id.to_string()
+                    // );
                 }
             },
             P2pAction::Discovery(action) => match action {
@@ -471,65 +471,65 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
         },
         Action::ExternalSnarkWorker(a) => {
             use crate::external_snark_worker::ExternalSnarkWorkerAction;
-            match a {
-                ExternalSnarkWorkerAction::Start
-                | ExternalSnarkWorkerAction::Started
-                | ExternalSnarkWorkerAction::Kill
-                | ExternalSnarkWorkerAction::Killed
-                | ExternalSnarkWorkerAction::WorkCancelled
-                | ExternalSnarkWorkerAction::PruneWork => {
-                    openmina_core::log::debug!(
-                        meta.time();
-                        kind = kind.to_string(),
-                        trace_action = serde_json::to_string(&a).ok()
-                    )
-                }
-                ExternalSnarkWorkerAction::SubmitWork { job_id, .. } => {
-                    openmina_core::log::info!(
-                        meta.time();
-                        kind = kind.to_string(),
-                        work_id = job_id.to_string(),
-                    )
-                }
-                ExternalSnarkWorkerAction::WorkResult { .. } => {
-                    openmina_core::log::info!(
-                        meta.time();
-                        kind = kind.to_string(),
-                    )
-                }
-                ExternalSnarkWorkerAction::CancelWork => {
-                    openmina_core::log::info!(
-                        meta.time();
-                        kind = kind.to_string(),
-                    )
-                }
-                ExternalSnarkWorkerAction::WorkError { error, .. } => {
-                    openmina_core::log::warn!(
-                        meta.time();
-                        kind = kind.to_string(),
-                        error = error.to_string(),
-                    )
-                }
-                ExternalSnarkWorkerAction::Error { error, .. } => {
-                    openmina_core::log::info!(
-                        meta.time();
-                        kind = kind.to_string(),
-                        error = error.to_string(),
-                    )
-                }
-                ExternalSnarkWorkerAction::StartTimeout { .. } => {
-                    openmina_core::log::warn!(
-                        meta.time();
-                        kind = kind.to_string(),
-                    )
-                }
-                ExternalSnarkWorkerAction::WorkTimeout { .. } => {
-                    openmina_core::log::warn!(
-                        meta.time();
-                        kind = kind.to_string(),
-                    )
-                }
-            }
+            // match a {
+            //     ExternalSnarkWorkerAction::Start(_)
+            //     | ExternalSnarkWorkerAction::Started(_)
+            //     | ExternalSnarkWorkerAction::Kill(_)
+            //     | ExternalSnarkWorkerAction::Killed(_)
+            //     | ExternalSnarkWorkerAction::WorkCancelled(_)
+            //     | ExternalSnarkWorkerAction::PruneWork(_) => {
+            //         openmina_core::log::debug!(
+            //             meta.time();
+            //             kind = kind.to_string(),
+            //             trace_action = serde_json::to_string(&a).ok()
+            //         )
+            //     }
+            //     ExternalSnarkWorkerAction::SubmitWork(a) => {
+            //         openmina_core::log::info!(
+            //             meta.time();
+            //             kind = kind.to_string(),
+            //             work_id = a.job_id.to_string(),
+            //         )
+            //     }
+            //     ExternalSnarkWorkerAction::WorkResult(_) => {
+            //         openmina_core::log::info!(
+            //             meta.time();
+            //             kind = kind.to_string(),
+            //         )
+            //     }
+            //     ExternalSnarkWorkerAction::CancelWork(_) => {
+            //         openmina_core::log::info!(
+            //             meta.time();
+            //             kind = kind.to_string(),
+            //         )
+            //     }
+            //     ExternalSnarkWorkerAction::WorkError(a) => {
+            //         openmina_core::log::warn!(
+            //             meta.time();
+            //             kind = kind.to_string(),
+            //             error = a.error.to_string(),
+            //         )
+            //     }
+            //     ExternalSnarkWorkerAction::Error(a) => {
+            //         openmina_core::log::info!(
+            //             meta.time();
+            //             kind = kind.to_string(),
+            //             error = a.error.to_string(),
+            //         )
+            //     }
+            //     ExternalSnarkWorkerAction::StartTimeout(_) => {
+            //         openmina_core::log::warn!(
+            //             meta.time();
+            //             kind = kind.to_string(),
+            //         )
+            //     }
+            //     ExternalSnarkWorkerAction::WorkTimeout(_) => {
+            //         openmina_core::log::warn!(
+            //             meta.time();
+            //             kind = kind.to_string(),
+            //         )
+            //     }
+            // }
         }
         Action::Snark(a) => match a {
             SnarkAction::WorkVerify(a) => match a {

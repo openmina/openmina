@@ -127,7 +127,8 @@ mod tests {
     #[test]
     fn snark_work2() {
         let Ok(r) = std::fs::read(
-            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("requests_rampup4.bin"),
+            std::path::Path::new("/tmp/requests.bin"),
+            // std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("requests_rampup4.bin"),
         ) else {
             return;
         };
@@ -157,7 +158,7 @@ mod tests {
 
             let (_stmt, witness) = match work {
                 mina_p2p_messages::v2::SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0Single::Transition(stmt, witness) => (stmt, witness),
-                mina_p2p_messages::v2::SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0Single::Merge(_) => todo!(),
+                mina_p2p_messages::v2::SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0Single::Merge(_) => continue,
             };
 
             if matches!(witness.status, MinaBaseTransactionStatusStableV2::Failed(_)) {
@@ -220,13 +221,14 @@ mod tests {
         dbg!(good.len());
         // dbg!(&good[0]);
 
-        let n = 10.min(good.len());
+        let n = good.len();
+        // let n = 10.min(good.len());
         for index in 0..n {
             let value = good[index].clone();
             let value = ExternalSnarkWorkerRequest::PerformJob(value);
 
             let mut file =
-                std::fs::File::create(format!("/tmp/zkapp_{}_rampup4.bin", index)).unwrap();
+                std::fs::File::create(format!("/tmp/zkapp_multi_{}_rampup4.bin", index + 10)).unwrap();
             write_binprot(value, &mut file);
             file.sync_all().unwrap();
         }

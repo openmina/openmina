@@ -1,6 +1,7 @@
 use std::{collections::HashSet, sync::Arc};
+use mina_p2p_messages::binprot::BinProtWrite;
+use mina_p2p_messages::binprot::macros::BinProtWrite;
 
-use binprot::macros::BinProtWrite;
 use blake2::{
     digest::{generic_array::GenericArray, typenum::U32},
     Digest,
@@ -96,7 +97,7 @@ pub mod transaction_snark {
 
     use itertools::Itertools;
     use mina_hasher::Fp;
-    use mina_p2p_messages::{binprot, v2::TransactionSnarkProofStableV2};
+    use mina_p2p_messages::v2::TransactionSnarkProofStableV2;
     use mina_signer::CompressedPubKey;
     use serde::{Deserialize, Serialize};
 
@@ -651,7 +652,9 @@ pub mod transaction_snark {
         }
 
         pub fn digest(&self) -> SokDigest {
-            use binprot::BinProtWrite;
+
+            // use binprot::BinProtWrite;
+            use mina_p2p_messages::binprot::BinProtWrite;
 
             let mut bytes = Vec::with_capacity(10000);
             let binprot: mina_p2p_messages::v2::MinaBaseSokMessageStableV1 = self.into();
@@ -824,7 +827,7 @@ fn sha256_digest(bytes: &[u8]) -> GenericArray<u8, U32> {
 
 impl ScanState {
     pub fn hash(&self) -> AuxHash {
-        use binprot::BinProtWrite;
+        // use binprot::BinProtWrite;
 
         let Self {
             scan_state,

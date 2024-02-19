@@ -448,6 +448,22 @@ impl<T: LedgerService> TransitionFrontierSyncLedgerStagedService for T {
 
         let mask = snarked_ledger.copy();
 
+        use std::collections::HashMap;
+        use mina_p2p_messages::v2::SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponse;
+        // use mina_p2p_messages::v2::SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0Instances;
+        use ledger::scan_state::scan_state::transaction_snark::OneOrTwo;
+        use mina_p2p_messages::v2::SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0;
+        use mina_p2p_messages::v2::SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0Instances;
+        use mina_p2p_messages::binprot::BinProtWrite;
+
+        let states = parts
+            .as_ref()
+            .unwrap()
+            .needed_blocks
+            .iter()
+            .map(|state| (state.hash().to_fp().unwrap(), state.clone()))
+            .collect::<BTreeMap<_, _>>();
+
         let staged_ledger = if let Some(parts) = parts {
             let states = parts
                 .needed_blocks
@@ -469,6 +485,116 @@ impl<T: LedgerService> TransitionFrontierSyncLedgerStagedService for T {
         } else {
             StagedLedger::create_exn(CONSTRAINT_CONSTANTS.clone(), mask)?
         };
+
+        // let mut all_pairs = Vec::with_capacity(10_000);
+        let get_state = |hash: &Fp| states.get(hash).cloned();
+        let pairs = staged_ledger.scan_state().all_work_pairs2(get_state);
+
+        let pairs: Vec<_> = pairs.into_iter().filter(|p| {
+            match p {
+                OneOrTwo::One(w) => {
+                    match w {
+                        ledger::scan_state::snark_work::spec::Work::Transition((statement, witness)) => {
+                            match &witness.transaction {
+                                ledger::scan_state::transaction_logic::Transaction::Command(cmd) => {
+                                    match cmd {
+                                        ledger::scan_state::transaction_logic::UserCommand::SignedCommand(_) => eprintln!("signed_cmd"),
+                                        ledger::scan_state::transaction_logic::UserCommand::ZkAppCommand(_) => eprintln!("zkapp"),
+                                    }
+
+                                },
+                                ledger::scan_state::transaction_logic::Transaction::FeeTransfer(_) => eprintln!("fee_transfer"),
+                                ledger::scan_state::transaction_logic::Transaction::Coinbase(_) => eprintln!("coinbase"),
+                            }
+                            true
+                        },
+                        ledger::scan_state::snark_work::spec::Work::Merge(m) => true,
+                    }
+                },
+                OneOrTwo::Two(_) => todo!(),
+            }
+        }).collect();
+
+        dbg!(pairs.len());
+
+        // let prover = crate::gen_compressed();
+        let prover = CompressedPubKey::from_address(
+            "B62qpK6TcG4sWdtT3BzdbWHiK3RJMj3Zbo9mqwBos7cVsydPMCj5wZx",
+        )
+            .unwrap();
+
+        use mina_p2p_messages::v2;
+
+        let pairs: Vec<_> = pairs.iter().map(|p| {
+            match p {
+                OneOrTwo::One(w) => {
+                    match w {
+                        ledger::scan_state::snark_work::spec::Work::Transition((statement, witness)) => {
+                            let statement: v2::MinaStateSnarkedLedgerStateStableV2 = (&**statement).into();
+                            // let witness: TransactionWitnessStableV2 = witness.into();
+
+                            let transaction_witness = v2::TransactionWitnessStableV2 {
+                                transaction: (&witness.transaction).into(),
+                                first_pass_ledger: (&witness.first_pass_ledger).into(),
+                                second_pass_ledger: (&witness.second_pass_ledger).into(),
+                                protocol_state_body: witness.protocol_state_body.clone(),
+                                init_stack: (&witness.init_stack).into(),
+                                status: (&witness.status).into(),
+                                block_global_slot: (&witness.block_global_slot).into(),
+                            };
+
+                            v2::SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0Single::Transition(
+                                statement,
+                                transaction_witness,
+                            )
+                        },
+                        ledger::scan_state::snark_work::spec::Work::Merge(m) => {
+                            let (stmt, proofs) = &**m;
+                            let (p1, p2) = &**proofs;
+
+                            let statement: v2::MinaStateSnarkedLedgerStateStableV2 = stmt.into();
+                            let p1: v2::LedgerProofProdStableV2 = p1.into();
+                            let p2: v2::LedgerProofProdStableV2 = p2.into();
+
+                            v2::SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0Single::Merge(
+                                Box::new((statement, p1, p2))
+                            )
+                        },
+                    }
+                },
+                OneOrTwo::Two(_) => todo!(),
+            }
+        }).map(|a| SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0Instances::One(a))
+          .map(|a| {
+              SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0 {
+                  instances: a,
+                  fee: (&Fee::from_u64(1_000_000)).into(),
+              }
+          })
+          .map(|a| {
+              SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponse(Some((a, (&prover).into())))
+          })
+          .collect();
+
+        let all_pairs: HashMap<_, _> = pairs
+            .into_iter()
+            .map(|p| {
+                let mut bytes = Vec::with_capacity(1_000);
+                p.binprot_write(&mut bytes).unwrap();
+                (bytes, p)
+            })
+            .collect();
+
+        dbg!(all_pairs.len());
+        let all_pairs: Vec<_> = all_pairs.into_values().collect();
+        dbg!(all_pairs.len());
+
+        let mut file = std::fs::File::create("/tmp/requests.bin").unwrap();
+        all_pairs.binprot_write(&mut file).unwrap();
+        file.sync_all().unwrap();
+
+        eprintln!("DONE");
+        std::process::exit(0);
 
         self.ctx_mut()
             .sync

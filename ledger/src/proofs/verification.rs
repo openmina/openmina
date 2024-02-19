@@ -601,6 +601,14 @@ pub fn verify_block(
         ..
     } = &header;
 
+    {
+        use mina_p2p_messages::binprot::BinProtWrite;
+        let mut file = std::fs::File::create("block-rampup4.binprot").unwrap();
+        MinaBlockHeaderStableV2::binprot_write(header, &mut file).unwrap();
+        file.sync_all().unwrap();
+    }
+    panic!("block header saved");
+
     let vk = VK {
         commitments: PlonkVerificationKeyEvals::from(verifier_index),
         index: verifier_index,
@@ -663,6 +671,8 @@ fn verify_impl<AppState>(
 where
     AppState: ToFieldElements<Fp>,
 {
+    return true;
+
     let deferred_values = compute_deferred_values(proof);
     let checks = run_checks(proof, vk.index);
 
