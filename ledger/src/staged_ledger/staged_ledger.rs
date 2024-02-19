@@ -53,16 +53,13 @@ pub struct StackStateWithInitStack {
     pub init_stack: Stack,
 }
 
-// pub enum PreDiffError {
-//     CoinbaseError(&'static str),
-// }
-
 /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/staged_ledger/staged_ledger.ml#L23
-#[derive(Debug)]
+#[derive(Debug, derive_more::From)]
 pub enum StagedLedgerError {
     NonZeroFeeExcess(Vec<WithStatus<Transaction>>, SpacePartition),
     InvalidProofs(Vec<(LedgerProof, Statement<()>, SokMessage)>, String),
     CouldntReachVerifier,
+    #[from]
     PreDiff(PreDiffError),
     InsufficientWork(String),
     MismatchedStatuses {
@@ -70,38 +67,15 @@ pub enum StagedLedgerError {
         got: TransactionStatus,
     },
     InvalidPublicKey(CompressedPubKey),
+    ZkAppsExceedLimit {
+        count: usize,
+        limit: usize,
+    },
+    #[from]
     Unexpected(String),
 }
 
-impl From<String> for StagedLedgerError {
-    fn from(value: String) -> Self {
-        Self::Unexpected(value)
-    }
-}
-
-impl From<PreDiffError> for StagedLedgerError {
-    fn from(value: PreDiffError) -> Self {
-        Self::PreDiff(value)
-    }
-}
-
-// module Staged_ledger_error = struct
-//   type t =
-//     | Non_zero_fee_excess of
-//         Scan_state.Space_partition.t * Transaction.t With_status.t list
-//     | Invalid_proofs of
-//         ( Ledger_proof.t
-//         * Transaction_snark.Statement.t
-//         * Mina_base.Sok_message.t )
-//         list
-//     | Couldn't_reach_verifier of Error.t
-//     | Pre_diff of Pre_diff_info.Error.t
-//     | Insufficient_work of string
-//     | Mismatched_statuses of
-//         Transaction.t With_status.t * Transaction_status.t
-//     | Invalid_public_key of Public_key.Compressed.t
-//     | Unexpected of Error.t
-//   [@@deriving sexp]
+const ZKAPP_LIMIT_PER_BLOCK: Option<usize> = None;
 
 pub struct PreStatement<L: sparse_ledger::LedgerIntf + Clone> {
     partially_applied_transaction: TransactionPartiallyApplied<L>,
@@ -1110,6 +1084,16 @@ impl StagedLedger {
         let mut new_ledger = self.ledger.make_child();
 
         let (transactions, works, _commands_count, coinbases) = pre_diff_info;
+
+        if let Some(zkapp_limit) = ZKAPP_LIMIT_PER_BLOCK {
+            let zkapp_count = transactions.iter().filter(|t| t.data.is_zkapp()).count();
+            if zkapp_count > zkapp_limit {
+                return Err(StagedLedgerError::ZkAppsExceedLimit {
+                    count: zkapp_count,
+                    limit: zkapp_limit,
+                });
+            }
+        };
 
         let (
             is_new_stack,
