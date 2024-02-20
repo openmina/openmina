@@ -19,7 +19,7 @@ pub enum TestPeerId {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RustNodeTestingConfig {
-    pub chain_id: String,
+    pub chain_id: Vec<u8>,
     pub initial_time: redux::Timestamp,
     pub max_peers: usize,
     pub ask_initial_peers_interval: Duration,
@@ -58,7 +58,7 @@ impl RustNodeTestingConfig {
         self
     }
 
-    pub fn chain_id(mut self, s: impl AsRef<str>) -> Self {
+    pub fn chain_id(mut self, s: impl AsRef<[u8]>) -> Self {
         self.chain_id = s.as_ref().to_owned();
         self
     }
