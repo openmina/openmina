@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use node::{account::AccountSecretKey, p2p::P2pTimeouts, BlockProducerConfig, SnarkerConfig};
+use openmina_core::CHAIN_ID;
 use serde::{Deserialize, Serialize};
 
 use crate::scenario::ListenerNode;
@@ -39,7 +40,7 @@ pub struct RustNodeBlockProducerTestingConfig {
 impl RustNodeTestingConfig {
     pub fn berkeley_default() -> Self {
         Self {
-            chain_id: "fd7d111973bf5a9e3e87384f560fdead2f272589ca00b6d9e357fca9839631da".to_owned(),
+            chain_id: CHAIN_ID.to_owned(),
             initial_time: redux::Timestamp::ZERO,
             max_peers: 100,
             ask_initial_peers_interval: Duration::from_secs(10),

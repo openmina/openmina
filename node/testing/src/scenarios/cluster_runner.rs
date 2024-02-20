@@ -116,7 +116,7 @@ impl<'a> ClusterRunner<'a> {
         self.cluster.get_initial_time()
     }
 
-    pub fn set_chain_id(&mut self, chain_id: &str) {
+    pub fn set_chain_id(&mut self, chain_id: String) {
         self.cluster.set_chain_id(chain_id)
     }
 

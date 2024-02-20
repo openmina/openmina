@@ -200,8 +200,7 @@ mod tests {
     macro_rules! fork_file {
         ($prefix:expr, $tip:expr, $cnd:expr, $suffix:expr) => {
             concat!(
-                env!("CARGO_MANIFEST_DIR"),
-                "/../tests/files/forks/",
+                "../../tests/files/forks/",
                 $prefix,
                 "-",
                 $tip,

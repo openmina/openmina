@@ -191,8 +191,8 @@ impl Cluster {
         self.account_sec_keys.get(pub_key)
     }
 
-    pub fn set_chain_id(&mut self, chain_id: &str) {
-        self.chain_id = Some(chain_id.to_string())
+    pub fn set_chain_id(&mut self, chain_id: String) {
+        self.chain_id = Some(chain_id)
     }
 
     pub fn set_initial_time(&mut self, initial_time: redux::Timestamp) {
@@ -283,6 +283,7 @@ impl Cluster {
                 ask_initial_peers_interval: testing_config.ask_initial_peers_interval,
                 enabled_channels: ChannelId::iter_all().collect(),
                 timeouts: testing_config.timeouts,
+                chain_id: openmina_core::CHAIN_ID.to_owned(),
             },
             transition_frontier: TransitionFrontierConfig::default(),
             block_producer: block_producer_config,

@@ -27,6 +27,9 @@ pub struct P2pConfig {
     pub max_peers: usize,
 
     pub timeouts: P2pTimeouts,
+
+    /// Chain id
+    pub chain_id: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
