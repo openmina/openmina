@@ -4095,8 +4095,7 @@ mod tests {
         proofs::{
             block::{generate_block_proof, BlockParams},
             constants::{StepBlockProof, StepMergeProof},
-            gates::Provers,
-            gates::{get_provers, read_constraints_data},
+            gates::{get_provers, read_constraints_data, Provers},
             merge::{generate_merge_proof, MergeParams},
             util::sha256_sum,
             zkapp::{generate_zkapp_proof, LedgerProof, ZkappParams},
@@ -4242,15 +4241,57 @@ mod tests {
             zkapp_step_opt_signed_opt_signed_prover,
             zkapp_step_opt_signed_prover,
             zkapp_step_proof_prover,
+            // } = crate::proofs::gates::make_provers2();
         } = &*get_provers();
 
-        let v = &tx_wrap_prover.index.verifier_index.as_ref().unwrap();
-        let v_json = serde_json::to_string(&v).unwrap();
-        // std::fs::write("/tmp/tx.json", &v_json).unwrap();
+        // use crate::proofs::verifier_index::get_verifier_index;
 
-        // let linear = &v.linearization;
-
+        // let v = &tx_wrap_prover.index.verifier_index.as_ref().unwrap();
+        // let v = verifier_index_to_bytes(&v);
         // let new_v = get_verifier_index(crate::proofs::verifier_index::VerifierKind::Transaction);
+        // let new_v = verifier_index_to_bytes(&new_v);
+        // assert_eq!(v, new_v);
+        // let tx_old = new_v;
+
+        // let v = &block_wrap_prover.index.verifier_index.as_ref().unwrap();
+        // let v = verifier_index_to_bytes(&v);
+        // let new_v = get_verifier_index(crate::proofs::verifier_index::VerifierKind::Blockchain);
+        // let new_v = verifier_index_to_bytes(&new_v);
+        // assert_eq!(v, new_v);
+        // let block_old = new_v;
+
+        eprintln!("OK");
+
+        // let Provers {
+        //     tx_step_prover,
+        //     tx_wrap_prover,
+        //     merge_step_prover,
+        //     block_step_prover,
+        //     block_wrap_prover,
+        //     zkapp_step_opt_signed_opt_signed_prover,
+        //     zkapp_step_opt_signed_prover,
+        //     zkapp_step_proof_prover,
+        // } = crate::proofs::gates::make_provers2();
+
+        // // let writer = std::fs::File::create("/tmp/transaction_verifier_index.json").unwrap();
+        // // let value = tx_wrap_prover.index.verifier_index.as_ref().unwrap();
+        // // serde_json::to_writer(writer, value).unwrap();
+
+        // // let writer = std::fs::File::create("/tmp/blockchain_verifier_index.json").unwrap();
+        // // let value = block_wrap_prover.index.verifier_index.as_ref().unwrap();
+        // // serde_json::to_writer(writer, value).unwrap();
+
+        // let v = &tx_wrap_prover.index.verifier_index.as_ref().unwrap();
+        // let v = verifier_index_to_bytes(&v);
+        // let tx_is_same = v == tx_old;
+
+        // let v = &block_wrap_prover.index.verifier_index.as_ref().unwrap();
+        // let v = verifier_index_to_bytes(&v);
+        // let block_is_same = v == block_old;
+
+        // dbg!(tx_is_same, block_is_same);
+        // eprintln!("OK2");
+
         // let linear2 = &new_v.linearization;
 
         // assert_eq!(linear.constant_term, linear2.constant_term);

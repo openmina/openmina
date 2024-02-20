@@ -27,13 +27,13 @@ pub struct WrapBlockProof {}
 pub struct StepMergeProof {}
 pub struct WrapMergeProof {}
 
-pub struct StepZkappProofProof {}
+pub struct StepZkappProvedProof {}
 pub struct StepZkappOptSignedProof {}
 pub struct StepZkappOptSignedOptSignedProof {}
 /// Using signature authorization
 pub struct WrapZkappProof {}
 /// Using proof authorization
-pub struct WrapZkappProofProof {}
+pub struct WrapZkappProvedProof {}
 pub struct WrapZkappOptSignedProof {}
 
 impl ProofConstants for StepZkappOptSignedOptSignedProof {
@@ -50,7 +50,7 @@ impl ProofConstants for StepZkappOptSignedProof {
     const ROWS: usize = 11298;
 }
 
-impl ProofConstants for StepZkappProofProof {
+impl ProofConstants for StepZkappProvedProof {
     const PRIMARY_LEN: usize = 67;
     const AUX_LEN: usize = 210282;
     const PREVIOUS_CHALLENGES: usize = 1;
@@ -66,7 +66,7 @@ impl ProofConstants for WrapZkappProof {
 }
 
 // Same values than `WrapTransactionProof`
-impl ProofConstants for WrapZkappProofProof {
+impl ProofConstants for WrapZkappProvedProof {
     const PRIMARY_LEN: usize = WrapTransactionProof::PRIMARY_LEN;
     const AUX_LEN: usize = WrapTransactionProof::AUX_LEN;
     const PREVIOUS_CHALLENGES: usize = WrapTransactionProof::PREVIOUS_CHALLENGES;
@@ -161,7 +161,7 @@ impl ForWrapData for WrapZkappProof {
     }
 }
 
-impl ForWrapData for WrapZkappProofProof {
+impl ForWrapData for WrapZkappProvedProof {
     fn wrap_data() -> WrapData {
         WrapData {
             which_index: 4,

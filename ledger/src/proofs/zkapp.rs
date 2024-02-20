@@ -57,8 +57,8 @@ use self::group::SegmentBasic;
 
 use super::{
     constants::{
-        ForWrapData, ProofConstants, StepZkappOptSignedProof, StepZkappProofProof,
-        WrapZkappProofProof,
+        ForWrapData, ProofConstants, StepZkappOptSignedProof, StepZkappProvedProof,
+        WrapZkappProvedProof,
     },
     field::GroupAffine,
     numbers::{
@@ -1646,7 +1646,7 @@ fn of_zkapp_command_segment(
             of_zkapp_command_segment_exn::<StepZkappOptSignedProof, WrapZkappOptSignedProof>
         }
         SegmentBasic::Proved => {
-            of_zkapp_command_segment_exn::<StepZkappProofProof, WrapZkappProofProof>
+            of_zkapp_command_segment_exn::<StepZkappProvedProof, WrapZkappProvedProof>
         }
     };
 
