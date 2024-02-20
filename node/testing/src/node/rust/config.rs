@@ -21,7 +21,7 @@ pub enum TestPeerId {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RustNodeTestingConfig {
-    pub chain_id: String,
+    pub chain_id: Vec<u8>,
     pub initial_time: redux::Timestamp,
     pub genesis: Arc<GenesisConfig>,
     pub max_peers: usize,
@@ -43,7 +43,7 @@ pub struct RustNodeBlockProducerTestingConfig {
 impl RustNodeTestingConfig {
     pub fn berkeley_default() -> Self {
         Self {
-            chain_id: CHAIN_ID.to_owned(),
+            chain_id: CHAIN_ID.to_owned().into_bytes(),
             initial_time: redux::Timestamp::ZERO,
             genesis: node::BERKELEY_CONFIG.clone(),
             max_peers: 100,
@@ -78,7 +78,7 @@ impl RustNodeTestingConfig {
         self
     }
 
-    pub fn chain_id(mut self, s: impl AsRef<str>) -> Self {
+    pub fn chain_id(mut self, s: impl AsRef<[u8]>) -> Self {
         self.chain_id = s.as_ref().to_owned();
         self
     }
