@@ -44,7 +44,7 @@ impl Client {
             if let Some(query) = query.take() {
                 self.swarm
                     .behaviour_mut()
-                    .query::<M>(peer_id, stream_id, dbg!(self.id), query)?;
+                    .query::<M>(peer_id, stream_id, self.id, query)?;
                 self.id += 1;
             }
         }

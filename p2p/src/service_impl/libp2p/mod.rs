@@ -481,11 +481,14 @@ impl Libp2pService {
                             }
                             (AnswerSyncLedgerQueryV2::NAME, AnswerSyncLedgerQueryV2::VERSION) => {
                                 type T = AnswerSyncLedgerQueryV2;
+                                let sl = [0u8];
                                 b.rpc.respond::<T>(
                                     peer_id,
                                     stream_id,
                                     id,
-                                    Ok(RpcResult(Err(Info::String(Vec::new().into())))),
+                                    Ok(RpcResult(Err(
+                                        Info::binprot_read(&mut sl.as_slice()).unwrap()
+                                    ))),
                                 )?
                             }
                             (
