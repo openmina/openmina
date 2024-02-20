@@ -164,7 +164,7 @@ impl Libp2pService {
     pub fn run<E, S>(
         libp2p_port: Option<u16>,
         secret_key: SecretKey,
-        chain_id: String,
+        chain_id: Vec<u8>,
         event_source_sender: mpsc::UnboundedSender<E>,
         spawner: S,
     ) -> Self
