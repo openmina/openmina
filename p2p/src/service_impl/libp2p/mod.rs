@@ -165,7 +165,7 @@ impl Libp2pService {
     pub fn run<E, S>(
         libp2p_port: Option<u16>,
         secret_key: SecretKey,
-        chain_id: String,
+        chain_id: Vec<u8>,
         event_source_sender: mpsc::UnboundedSender<E>,
         spawner: S,
     ) -> Self
@@ -228,21 +228,14 @@ impl Libp2pService {
             },
             identify,
             kademlia,
-            rendezvous_string: format!("/coda/0.0.1/{}", chain_id),
+            chain_id,
             event_source_sender,
             ongoing: BTreeMap::default(),
             ongoing_incoming: BTreeMap::default(),
         };
 
         let (cmd_sender, mut cmd_receiver) = mpsc::unbounded_channel();
-        let psk = {
-            let mut hasher = Blake2b256::default();
-            hasher.update(behaviour.rendezvous_string.as_ref());
-            let hash = hasher.finalize();
-            let mut psk_fixed: [u8; 32] = Default::default();
-            psk_fixed.copy_from_slice(hash.as_ref());
-            PreSharedKey::new(psk_fixed)
-        };
+        let psk = PreSharedKey::new(openmina_core::preshared_key(&behaviour.chain_id));
 
         let fut = async move {
             let mut swarm = libp2p::SwarmBuilder::with_existing_identity(identity_keys)
@@ -728,9 +721,10 @@ impl Libp2pService {
                                     use sha2::digest::{FixedOutput, Update};
 
                                     if step.last {
-                                        let key = b.rendezvous_string.clone();
-                                        let r =
-                                            sha2::Sha256::default().chain(&key).finalize_fixed();
+                                        let r = sha2::Sha256::default()
+                                            .chain(b"/coda/0.0.1/")
+                                            .chain(&b.chain_id)
+                                            .finalize_fixed();
                                         // TODO(vlad9486): use multihash, remove hardcode
                                         let mut key = vec![18, 32];
                                         key.extend_from_slice(&r);
