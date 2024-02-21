@@ -6,7 +6,7 @@ pub fn reducer(state: &mut State, action: &ActionWithMeta) {
     let meta = action.meta().clone();
     match action.action() {
         Action::CheckTimeouts(_) => {}
-        Action::EventSource(EventSourceAction::NewEvent(content)) => match &content.event {
+        Action::EventSource(EventSourceAction::NewEvent { event }) => match event {
             #[cfg(not(target_arch = "wasm32"))]
             Event::P2p(P2pEvent::Libp2pIdentify(peer_id, maddr)) => {
                 if let Some(peer) = state.p2p.peers.get_mut(peer_id) {

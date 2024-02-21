@@ -2,7 +2,7 @@ use redux::ActionMeta;
 
 use crate::{
     channels::{ChannelId, MsgId, P2pChannelsService},
-    peer::P2pPeerBestTipUpdateAction,
+    peer::P2pPeerAction,
 };
 
 use super::{BestTipPropagationChannelMsg, P2pChannelsBestTipAction};
@@ -13,7 +13,7 @@ impl P2pChannelsBestTipAction {
         Store: crate::P2pStore<S>,
         Store::Service: P2pChannelsService,
         P2pChannelsBestTipAction: redux::EnablingCondition<S>,
-        P2pPeerBestTipUpdateAction: redux::EnablingCondition<S>,
+        P2pPeerAction: redux::EnablingCondition<S>,
     {
         match self {
             P2pChannelsBestTipAction::Init { peer_id } => {
@@ -35,7 +35,7 @@ impl P2pChannelsBestTipAction {
                     .channel_send(peer_id, MsgId::first(), msg.into());
             }
             P2pChannelsBestTipAction::Received { peer_id, best_tip } => {
-                store.dispatch(P2pPeerBestTipUpdateAction {
+                store.dispatch(P2pPeerAction::BestTipUpdate {
                     peer_id,
                     best_tip: best_tip.clone(),
                 });

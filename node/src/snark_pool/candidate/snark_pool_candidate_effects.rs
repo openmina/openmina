@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use snark::work_verify::SnarkWorkVerifyAction;
 
 use crate::p2p::channels::rpc::{P2pChannelsRpcAction, P2pRpcRequest};
-use crate::p2p::disconnection::{P2pDisconnectionInitAction, P2pDisconnectionReason};
+use crate::p2p::disconnection::{P2pDisconnectionAction, P2pDisconnectionReason};
 use crate::Store;
 
 use super::{SnarkPoolCandidateAction, SnarkPoolCandidateActionWithMeta};
@@ -85,7 +85,7 @@ pub fn snark_pool_candidate_effects<S: redux::Service>(
         SnarkPoolCandidateAction::WorkVerifyPending { .. } => {}
         SnarkPoolCandidateAction::WorkVerifyError { peer_id, .. } => {
             // TODO(binier): blacklist peer
-            store.dispatch(P2pDisconnectionInitAction {
+            store.dispatch(P2pDisconnectionAction::Init {
                 peer_id,
                 reason: P2pDisconnectionReason::SnarkPoolVerifyError,
             });

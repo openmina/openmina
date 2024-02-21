@@ -7,16 +7,8 @@ use crate::ledger::{LedgerAddress, LEDGER_DEPTH};
 use crate::Store;
 
 use super::{
-    PeerLedgerQueryResponse, TransitionFrontierSyncLedgerSnarkedChildAccountsReceivedAction,
-    TransitionFrontierSyncLedgerSnarkedChildHashesReceivedAction,
-    TransitionFrontierSyncLedgerSnarkedPeerQueryErrorAction,
-    TransitionFrontierSyncLedgerSnarkedPeerQueryInitAction,
-    TransitionFrontierSyncLedgerSnarkedPeerQueryPendingAction,
-    TransitionFrontierSyncLedgerSnarkedPeerQueryRetryAction,
-    TransitionFrontierSyncLedgerSnarkedPeerQuerySuccessAction,
-    TransitionFrontierSyncLedgerSnarkedPeersQueryAction,
-    TransitionFrontierSyncLedgerSnarkedPendingAction, TransitionFrontierSyncLedgerSnarkedService,
-    TransitionFrontierSyncLedgerSnarkedSuccessAction,
+    PeerLedgerQueryResponse, TransitionFrontierSyncLedgerSnarkedAction,
+    TransitionFrontierSyncLedgerSnarkedService,
 };
 
 fn query_peer_init<S: redux::Service>(
@@ -48,164 +40,164 @@ fn query_peer_init<S: redux::Service>(
         id: rpc_id,
         request: P2pRpcRequest::LedgerQuery(ledger_hash, query),
     }) {
-        store.dispatch(TransitionFrontierSyncLedgerSnarkedPeerQueryPendingAction {
-            address,
-            peer_id,
-            rpc_id,
-        });
+        store.dispatch(
+            TransitionFrontierSyncLedgerSnarkedAction::PeerQueryPending {
+                address,
+                peer_id,
+                rpc_id,
+            },
+        );
     }
 }
 
-impl TransitionFrontierSyncLedgerSnarkedPendingAction {
-    pub fn effects<S: redux::Service>(self, _: &ActionMeta, store: &mut Store<S>) {
-        store.dispatch(TransitionFrontierSyncLedgerSnarkedPeersQueryAction {});
-    }
-}
-
-impl TransitionFrontierSyncLedgerSnarkedPeersQueryAction {
-    pub fn effects<S: redux::Service>(self, _: &ActionMeta, store: &mut Store<S>) {
-        // TODO(binier): make sure they have the ledger we want to query.
-        let mut peer_ids = store
-            .state()
-            .p2p
-            .ready_peers_iter()
-            .filter(|(_, p)| p.channels.rpc.can_send_request())
-            .map(|(id, p)| (*id, p.connected_since))
-            .collect::<Vec<_>>();
-        peer_ids.sort_by(|(_, t1), (_, t2)| t2.cmp(t1));
-
-        let mut retry_addresses = store
-            .state()
-            .transition_frontier
-            .sync
-            .ledger()
-            .and_then(|s| s.snarked())
-            .map_or(vec![], |s| s.sync_retry_iter().collect());
-        retry_addresses.reverse();
-
-        for (peer_id, _) in peer_ids {
-            if let Some(address) = retry_addresses.last() {
-                if store.dispatch(TransitionFrontierSyncLedgerSnarkedPeerQueryRetryAction {
-                    peer_id,
-                    address: address.clone(),
-                }) {
-                    retry_addresses.pop();
-                    continue;
-                }
-            }
-
-            let address = store
-                .state()
-                .transition_frontier
-                .sync
-                .ledger()
-                .and_then(|s| s.snarked())
-                .and_then(|s| s.sync_next());
-            match address {
-                Some(address) => {
-                    store.dispatch(TransitionFrontierSyncLedgerSnarkedPeerQueryInitAction {
-                        peer_id,
-                        address,
-                    });
-                }
-                None if retry_addresses.is_empty() => break,
-                None => {}
-            }
-        }
-    }
-}
-
-impl TransitionFrontierSyncLedgerSnarkedPeerQueryInitAction {
-    pub fn effects<S: redux::Service>(self, _: &ActionMeta, store: &mut Store<S>) {
-        query_peer_init(store, self.peer_id, self.address);
-    }
-}
-
-impl TransitionFrontierSyncLedgerSnarkedPeerQueryRetryAction {
-    pub fn effects<S: redux::Service>(self, _: &ActionMeta, store: &mut Store<S>) {
-        query_peer_init(store, self.peer_id, self.address);
-    }
-}
-
-impl TransitionFrontierSyncLedgerSnarkedPeerQueryErrorAction {
-    pub fn effects<S: redux::Service>(self, _: &ActionMeta, store: &mut Store<S>) {
-        store.dispatch(TransitionFrontierSyncLedgerSnarkedPeersQueryAction {});
-    }
-}
-
-impl TransitionFrontierSyncLedgerSnarkedPeerQuerySuccessAction {
-    pub fn effects<S: redux::Service>(self, _: &ActionMeta, store: &mut Store<S>) {
-        let ledger = store.state().transition_frontier.sync.ledger();
-        let Some(address) = ledger
-            .and_then(|s| s.snarked()?.peer_query_get(&self.peer_id, self.rpc_id))
-            .map(|(addr, _)| addr.clone())
-        else {
-            return;
-        };
-
-        match self.response {
-            PeerLedgerQueryResponse::ChildHashes(left, right) => {
-                store.dispatch(
-                    TransitionFrontierSyncLedgerSnarkedChildHashesReceivedAction {
-                        address,
-                        hashes: (left, right),
-                        sender: self.peer_id,
-                    },
-                );
-            }
-            PeerLedgerQueryResponse::ChildAccounts(accounts) => {
-                store.dispatch(
-                    TransitionFrontierSyncLedgerSnarkedChildAccountsReceivedAction {
-                        address,
-                        accounts,
-                        sender: self.peer_id,
-                    },
-                );
-            }
-        }
-    }
-}
-
-impl TransitionFrontierSyncLedgerSnarkedChildHashesReceivedAction {
-    pub fn effects<S>(self, _: &ActionMeta, store: &mut Store<S>)
+impl TransitionFrontierSyncLedgerSnarkedAction {
+    pub fn effects<S: redux::Service>(&self, _: &ActionMeta, store: &mut Store<S>)
     where
         S: TransitionFrontierSyncLedgerSnarkedService,
     {
-        let Some(snarked_ledger_hash) = None.or_else(|| {
-            let ledger = store.state().transition_frontier.sync.ledger()?;
-            Some(ledger.snarked()?.ledger_hash().clone())
-        }) else {
-            return;
-        };
-        store
-            .service
-            .hashes_set(snarked_ledger_hash, &self.address, self.hashes)
-            .unwrap();
+        match self {
+            TransitionFrontierSyncLedgerSnarkedAction::Pending => {
+                store.dispatch(TransitionFrontierSyncLedgerSnarkedAction::PeersQuery);
+            }
+            TransitionFrontierSyncLedgerSnarkedAction::PeersQuery => {
+                // TODO(binier): make sure they have the ledger we want to query.
+                let mut peer_ids = store
+                    .state()
+                    .p2p
+                    .ready_peers_iter()
+                    .filter(|(_, p)| p.channels.rpc.can_send_request())
+                    .map(|(id, p)| (*id, p.connected_since))
+                    .collect::<Vec<_>>();
+                peer_ids.sort_by(|(_, t1), (_, t2)| t2.cmp(t1));
 
-        if !store.dispatch(TransitionFrontierSyncLedgerSnarkedPeersQueryAction {}) {
-            store.dispatch(TransitionFrontierSyncLedgerSnarkedSuccessAction {});
-        }
-    }
-}
+                let mut retry_addresses = store
+                    .state()
+                    .transition_frontier
+                    .sync
+                    .ledger()
+                    .and_then(|s| s.snarked())
+                    .map_or(vec![], |s| s.sync_retry_iter().collect());
+                retry_addresses.reverse();
 
-impl TransitionFrontierSyncLedgerSnarkedChildAccountsReceivedAction {
-    pub fn effects<S>(self, _: &ActionMeta, store: &mut Store<S>)
-    where
-        S: TransitionFrontierSyncLedgerSnarkedService,
-    {
-        let Some(snarked_ledger_hash) = None.or_else(|| {
-            let ledger = store.state().transition_frontier.sync.ledger()?;
-            Some(ledger.snarked()?.ledger_hash().clone())
-        }) else {
-            return;
-        };
-        store
-            .service
-            .accounts_set(snarked_ledger_hash, &self.address, self.accounts)
-            .unwrap();
+                for (peer_id, _) in peer_ids {
+                    if let Some(address) = retry_addresses.last() {
+                        if store.dispatch(
+                            TransitionFrontierSyncLedgerSnarkedAction::PeerQueryRetry {
+                                peer_id,
+                                address: address.clone(),
+                            },
+                        ) {
+                            retry_addresses.pop();
+                            continue;
+                        }
+                    }
 
-        if !store.dispatch(TransitionFrontierSyncLedgerSnarkedPeersQueryAction {}) {
-            store.dispatch(TransitionFrontierSyncLedgerSnarkedSuccessAction {});
+                    let address = store
+                        .state()
+                        .transition_frontier
+                        .sync
+                        .ledger()
+                        .and_then(|s| s.snarked())
+                        .and_then(|s| s.sync_next());
+                    match address {
+                        Some(address) => {
+                            store.dispatch(
+                                TransitionFrontierSyncLedgerSnarkedAction::PeerQueryInit {
+                                    peer_id,
+                                    address,
+                                },
+                            );
+                        }
+                        None if retry_addresses.is_empty() => break,
+                        None => {}
+                    }
+                }
+            }
+            TransitionFrontierSyncLedgerSnarkedAction::PeerQueryInit { peer_id, address } => {
+                query_peer_init(store, *peer_id, address.clone());
+            }
+            TransitionFrontierSyncLedgerSnarkedAction::PeerQueryRetry { peer_id, address } => {
+                query_peer_init(store, *peer_id, address.clone());
+            }
+            TransitionFrontierSyncLedgerSnarkedAction::PeerQueryError { .. } => {
+                store.dispatch(TransitionFrontierSyncLedgerSnarkedAction::PeersQuery);
+            }
+            TransitionFrontierSyncLedgerSnarkedAction::PeerQuerySuccess {
+                peer_id,
+                rpc_id,
+                response,
+            } => {
+                let ledger = store.state().transition_frontier.sync.ledger();
+                let Some(address) = ledger
+                    .and_then(|s| s.snarked()?.peer_query_get(peer_id, *rpc_id))
+                    .map(|(addr, _)| addr.clone())
+                else {
+                    return;
+                };
+
+                match response {
+                    PeerLedgerQueryResponse::ChildHashes(left, right) => {
+                        store.dispatch(
+                            TransitionFrontierSyncLedgerSnarkedAction::ChildHashesReceived {
+                                address,
+                                hashes: (left.clone(), right.clone()),
+                                sender: *peer_id,
+                            },
+                        );
+                    }
+                    PeerLedgerQueryResponse::ChildAccounts(accounts) => {
+                        store.dispatch(
+                            TransitionFrontierSyncLedgerSnarkedAction::ChildAccountsReceived {
+                                address,
+                                accounts: accounts.clone(),
+                                sender: *peer_id,
+                            },
+                        );
+                    }
+                }
+            }
+            TransitionFrontierSyncLedgerSnarkedAction::ChildHashesReceived {
+                address,
+                hashes,
+                ..
+            } => {
+                let Some(snarked_ledger_hash) = None.or_else(|| {
+                    let ledger = store.state().transition_frontier.sync.ledger()?;
+                    Some(ledger.snarked()?.ledger_hash().clone())
+                }) else {
+                    return;
+                };
+                store
+                    .service
+                    .hashes_set(snarked_ledger_hash, address, hashes.clone())
+                    .unwrap();
+
+                if !store.dispatch(TransitionFrontierSyncLedgerSnarkedAction::PeersQuery) {
+                    store.dispatch(TransitionFrontierSyncLedgerSnarkedAction::Success);
+                }
+            }
+            TransitionFrontierSyncLedgerSnarkedAction::ChildAccountsReceived {
+                address,
+                accounts,
+                ..
+            } => {
+                let Some(snarked_ledger_hash) = None.or_else(|| {
+                    let ledger = store.state().transition_frontier.sync.ledger()?;
+                    Some(ledger.snarked()?.ledger_hash().clone())
+                }) else {
+                    return;
+                };
+                store
+                    .service
+                    .accounts_set(snarked_ledger_hash, address, accounts.clone())
+                    .unwrap();
+
+                if !store.dispatch(TransitionFrontierSyncLedgerSnarkedAction::PeersQuery) {
+                    store.dispatch(TransitionFrontierSyncLedgerSnarkedAction::Success);
+                }
+            }
+            TransitionFrontierSyncLedgerSnarkedAction::PeerQueryPending { .. } => {}
+            TransitionFrontierSyncLedgerSnarkedAction::Success => {}
         }
     }
 }

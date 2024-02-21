@@ -14,150 +14,36 @@
 use num_enum::TryFromPrimitive;
 use serde::{Deserialize, Serialize};
 
-use crate::block_producer::vrf_evaluator::{
-    BlockProducerVrfEvaluatorAction, BlockProducerVrfEvaluatorEpochDataUpdateAction,
-    BlockProducerVrfEvaluatorEvaluateVrfAction, BlockProducerVrfEvaluatorEvaluationSuccessAction,
-    BlockProducerVrfEvaluatorUpdateProducerAndDelegatesAction,
-    BlockProducerVrfEvaluatorUpdateProducerAndDelegatesSuccessAction,
-};
-use crate::block_producer::{
-    BlockProducerAction, BlockProducerBestTipUpdateAction, BlockProducerBlockInjectAction,
-    BlockProducerBlockInjectedAction, BlockProducerBlockProducedAction,
-    BlockProducerBlockUnprovenBuildAction, BlockProducerStagedLedgerDiffCreateInitAction,
-    BlockProducerStagedLedgerDiffCreatePendingAction,
-    BlockProducerStagedLedgerDiffCreateSuccessAction, BlockProducerWonSlotAction,
-    BlockProducerWonSlotDiscardAction, BlockProducerWonSlotProduceInitAction,
-    BlockProducerWonSlotSearchAction, BlockProducerWonSlotWaitAction,
-};
+use crate::block_producer::vrf_evaluator::BlockProducerVrfEvaluatorAction;
+use crate::block_producer::BlockProducerAction;
 use crate::consensus::ConsensusAction;
-use crate::event_source::{
-    EventSourceAction, EventSourceNewEventAction, EventSourceProcessEventsAction,
-    EventSourceWaitForEventsAction, EventSourceWaitTimeoutAction,
-};
+use crate::event_source::EventSourceAction;
 use crate::external_snark_worker::ExternalSnarkWorkerAction;
 use crate::p2p::channels::best_tip::P2pChannelsBestTipAction;
 use crate::p2p::channels::rpc::P2pChannelsRpcAction;
 use crate::p2p::channels::snark::P2pChannelsSnarkAction;
 use crate::p2p::channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentAction;
 use crate::p2p::channels::{P2pChannelsAction, P2pChannelsMessageReceivedAction};
-use crate::p2p::connection::incoming::{
-    P2pConnectionIncomingAction, P2pConnectionIncomingAnswerReadyAction,
-    P2pConnectionIncomingAnswerSdpCreateErrorAction,
-    P2pConnectionIncomingAnswerSdpCreatePendingAction,
-    P2pConnectionIncomingAnswerSdpCreateSuccessAction,
-    P2pConnectionIncomingAnswerSendSuccessAction, P2pConnectionIncomingErrorAction,
-    P2pConnectionIncomingFinalizeErrorAction, P2pConnectionIncomingFinalizePendingAction,
-    P2pConnectionIncomingFinalizeSuccessAction, P2pConnectionIncomingInitAction,
-    P2pConnectionIncomingLibp2pReceivedAction, P2pConnectionIncomingSuccessAction,
-    P2pConnectionIncomingTimeoutAction,
-};
-use crate::p2p::connection::outgoing::{
-    P2pConnectionOutgoingAction, P2pConnectionOutgoingAnswerRecvErrorAction,
-    P2pConnectionOutgoingAnswerRecvPendingAction, P2pConnectionOutgoingAnswerRecvSuccessAction,
-    P2pConnectionOutgoingErrorAction, P2pConnectionOutgoingFinalizeErrorAction,
-    P2pConnectionOutgoingFinalizePendingAction, P2pConnectionOutgoingFinalizeSuccessAction,
-    P2pConnectionOutgoingInitAction, P2pConnectionOutgoingOfferReadyAction,
-    P2pConnectionOutgoingOfferSdpCreateErrorAction,
-    P2pConnectionOutgoingOfferSdpCreatePendingAction,
-    P2pConnectionOutgoingOfferSdpCreateSuccessAction, P2pConnectionOutgoingOfferSendSuccessAction,
-    P2pConnectionOutgoingRandomInitAction, P2pConnectionOutgoingReconnectAction,
-    P2pConnectionOutgoingSuccessAction, P2pConnectionOutgoingTimeoutAction,
-};
+use crate::p2p::connection::incoming::P2pConnectionIncomingAction;
+use crate::p2p::connection::outgoing::P2pConnectionOutgoingAction;
 use crate::p2p::connection::P2pConnectionAction;
-use crate::p2p::disconnection::{
-    P2pDisconnectionAction, P2pDisconnectionFinishAction, P2pDisconnectionInitAction,
-};
-use crate::p2p::discovery::{
-    P2pDiscoveryAction, P2pDiscoveryInitAction, P2pDiscoveryKademliaAddRouteAction,
-    P2pDiscoveryKademliaBootstrapAction, P2pDiscoveryKademliaFailureAction,
-    P2pDiscoveryKademliaInitAction, P2pDiscoveryKademliaSuccessAction, P2pDiscoverySuccessAction,
-};
-use crate::p2p::listen::{
-    P2pListenAction, P2pListenClosedAction, P2pListenErrorAction, P2pListenExpiredAction,
-    P2pListenNewAction,
-};
-use crate::p2p::peer::{P2pPeerAction, P2pPeerBestTipUpdateAction, P2pPeerReadyAction};
+use crate::p2p::disconnection::P2pDisconnectionAction;
+use crate::p2p::discovery::P2pDiscoveryAction;
+use crate::p2p::listen::P2pListenAction;
+use crate::p2p::peer::P2pPeerAction;
 use crate::p2p::P2pAction;
-use crate::rpc::{
-    RpcAction, RpcActionStatsGetAction, RpcFinishAction, RpcGlobalStateGetAction,
-    RpcHealthCheckAction, RpcP2pConnectionIncomingErrorAction, RpcP2pConnectionIncomingInitAction,
-    RpcP2pConnectionIncomingPendingAction, RpcP2pConnectionIncomingRespondAction,
-    RpcP2pConnectionIncomingSuccessAction, RpcP2pConnectionOutgoingErrorAction,
-    RpcP2pConnectionOutgoingInitAction, RpcP2pConnectionOutgoingPendingAction,
-    RpcP2pConnectionOutgoingSuccessAction, RpcPeersGetAction, RpcReadinessCheckAction,
-    RpcScanStateSummaryGetAction, RpcSnarkPoolAvailableJobsGetAction, RpcSnarkPoolJobGetAction,
-    RpcSnarkerConfigGetAction, RpcSnarkerJobCommitAction, RpcSnarkerJobSpecAction,
-    RpcSnarkersWorkersGetAction, RpcSyncStatsGetAction,
-};
+use crate::rpc::RpcAction;
 use crate::snark::block_verify::SnarkBlockVerifyAction;
 use crate::snark::work_verify::SnarkWorkVerifyAction;
 use crate::snark::SnarkAction;
 use crate::snark_pool::candidate::SnarkPoolCandidateAction;
 use crate::snark_pool::SnarkPoolAction;
-use crate::transition_frontier::sync::ledger::snarked::{
-    TransitionFrontierSyncLedgerSnarkedAction,
-    TransitionFrontierSyncLedgerSnarkedChildAccountsReceivedAction,
-    TransitionFrontierSyncLedgerSnarkedChildHashesReceivedAction,
-    TransitionFrontierSyncLedgerSnarkedPeerQueryErrorAction,
-    TransitionFrontierSyncLedgerSnarkedPeerQueryInitAction,
-    TransitionFrontierSyncLedgerSnarkedPeerQueryPendingAction,
-    TransitionFrontierSyncLedgerSnarkedPeerQueryRetryAction,
-    TransitionFrontierSyncLedgerSnarkedPeerQuerySuccessAction,
-    TransitionFrontierSyncLedgerSnarkedPeersQueryAction,
-    TransitionFrontierSyncLedgerSnarkedPendingAction,
-    TransitionFrontierSyncLedgerSnarkedSuccessAction,
-};
-use crate::transition_frontier::sync::ledger::staged::{
-    TransitionFrontierSyncLedgerStagedAction,
-    TransitionFrontierSyncLedgerStagedPartsFetchPendingAction,
-    TransitionFrontierSyncLedgerStagedPartsFetchSuccessAction,
-    TransitionFrontierSyncLedgerStagedPartsPeerFetchErrorAction,
-    TransitionFrontierSyncLedgerStagedPartsPeerFetchInitAction,
-    TransitionFrontierSyncLedgerStagedPartsPeerFetchPendingAction,
-    TransitionFrontierSyncLedgerStagedPartsPeerFetchSuccessAction,
-    TransitionFrontierSyncLedgerStagedPartsPeerInvalidAction,
-    TransitionFrontierSyncLedgerStagedPartsPeerValidAction,
-    TransitionFrontierSyncLedgerStagedReconstructEmptyAction,
-    TransitionFrontierSyncLedgerStagedReconstructErrorAction,
-    TransitionFrontierSyncLedgerStagedReconstructInitAction,
-    TransitionFrontierSyncLedgerStagedReconstructPendingAction,
-    TransitionFrontierSyncLedgerStagedReconstructSuccessAction,
-    TransitionFrontierSyncLedgerStagedSuccessAction,
-};
-use crate::transition_frontier::sync::ledger::{
-    TransitionFrontierSyncLedgerAction, TransitionFrontierSyncLedgerInitAction,
-    TransitionFrontierSyncLedgerSuccessAction,
-};
-use crate::transition_frontier::sync::{
-    TransitionFrontierSyncAction, TransitionFrontierSyncBestTipUpdateAction,
-    TransitionFrontierSyncBlocksFetchSuccessAction,
-    TransitionFrontierSyncBlocksNextApplyInitAction,
-    TransitionFrontierSyncBlocksNextApplyPendingAction,
-    TransitionFrontierSyncBlocksNextApplySuccessAction,
-    TransitionFrontierSyncBlocksPeerQueryErrorAction,
-    TransitionFrontierSyncBlocksPeerQueryInitAction,
-    TransitionFrontierSyncBlocksPeerQueryPendingAction,
-    TransitionFrontierSyncBlocksPeerQueryRetryAction,
-    TransitionFrontierSyncBlocksPeerQuerySuccessAction,
-    TransitionFrontierSyncBlocksPeersQueryAction, TransitionFrontierSyncBlocksPendingAction,
-    TransitionFrontierSyncBlocksSuccessAction, TransitionFrontierSyncInitAction,
-    TransitionFrontierSyncLedgerNextEpochPendingAction,
-    TransitionFrontierSyncLedgerNextEpochSuccessAction,
-    TransitionFrontierSyncLedgerRootPendingAction, TransitionFrontierSyncLedgerRootSuccessAction,
-    TransitionFrontierSyncLedgerStakingPendingAction,
-    TransitionFrontierSyncLedgerStakingSuccessAction,
-};
+use crate::transition_frontier::sync::ledger::snarked::TransitionFrontierSyncLedgerSnarkedAction;
+use crate::transition_frontier::sync::ledger::staged::TransitionFrontierSyncLedgerStagedAction;
+use crate::transition_frontier::sync::ledger::TransitionFrontierSyncLedgerAction;
+use crate::transition_frontier::sync::TransitionFrontierSyncAction;
 use crate::transition_frontier::{TransitionFrontierAction, TransitionFrontierSyncedAction};
-use crate::watched_accounts::{
-    WatchedAccountsAction, WatchedAccountsAddAction, WatchedAccountsBlockLedgerQueryInitAction,
-    WatchedAccountsBlockLedgerQueryPendingAction, WatchedAccountsBlockLedgerQuerySuccessAction,
-    WatchedAccountsBlockTransactionsIncludedAction,
-    WatchedAccountsLedgerInitialStateGetErrorAction,
-    WatchedAccountsLedgerInitialStateGetInitAction,
-    WatchedAccountsLedgerInitialStateGetPendingAction,
-    WatchedAccountsLedgerInitialStateGetRetryAction,
-    WatchedAccountsLedgerInitialStateGetSuccessAction,
-};
+use crate::watched_accounts::WatchedAccountsAction;
 use crate::{Action, ActionKindGet, CheckTimeoutsAction};
 
 /// Unified kind enum for all action types
@@ -175,16 +61,16 @@ pub enum ActionKind {
     BlockProducerStagedLedgerDiffCreateInit,
     BlockProducerStagedLedgerDiffCreatePending,
     BlockProducerStagedLedgerDiffCreateSuccess,
-    BlockProducerVrfEvaluatorEpochDataUpdate,
-    BlockProducerVrfEvaluatorEvaluateVrf,
-    BlockProducerVrfEvaluatorEvaluationSuccess,
-    BlockProducerVrfEvaluatorUpdateProducerAndDelegates,
-    BlockProducerVrfEvaluatorUpdateProducerAndDelegatesSuccess,
     BlockProducerWonSlot,
     BlockProducerWonSlotDiscard,
     BlockProducerWonSlotProduceInit,
     BlockProducerWonSlotSearch,
     BlockProducerWonSlotWait,
+    BlockProducerVrfEvaluatorEpochDataUpdate,
+    BlockProducerVrfEvaluatorEvaluateVrf,
+    BlockProducerVrfEvaluatorEvaluationSuccess,
+    BlockProducerVrfEvaluatorUpdateProducerAndDelegates,
+    BlockProducerVrfEvaluatorUpdateProducerAndDelegatesSuccess,
     CheckTimeouts,
     ConsensusBestTipUpdate,
     ConsensusBlockChainProofUpdate,
@@ -312,7 +198,7 @@ pub enum ActionKind {
     RpcSnarkerConfigGet,
     RpcSnarkerJobCommit,
     RpcSnarkerJobSpec,
-    RpcSnarkersWorkersGet,
+    RpcSnarkerWorkersGet,
     RpcSyncStatsGet,
     SnarkBlockVerifyError,
     SnarkBlockVerifyFinish,
@@ -357,11 +243,14 @@ pub enum ActionKind {
     TransitionFrontierSyncBlocksPending,
     TransitionFrontierSyncBlocksSuccess,
     TransitionFrontierSyncInit,
-    TransitionFrontierSyncLedgerInit,
     TransitionFrontierSyncLedgerNextEpochPending,
     TransitionFrontierSyncLedgerNextEpochSuccess,
     TransitionFrontierSyncLedgerRootPending,
     TransitionFrontierSyncLedgerRootSuccess,
+    TransitionFrontierSyncLedgerStakingPending,
+    TransitionFrontierSyncLedgerStakingSuccess,
+    TransitionFrontierSyncLedgerInit,
+    TransitionFrontierSyncLedgerSuccess,
     TransitionFrontierSyncLedgerSnarkedChildAccountsReceived,
     TransitionFrontierSyncLedgerSnarkedChildHashesReceived,
     TransitionFrontierSyncLedgerSnarkedPeerQueryError,
@@ -386,20 +275,17 @@ pub enum ActionKind {
     TransitionFrontierSyncLedgerStagedReconstructPending,
     TransitionFrontierSyncLedgerStagedReconstructSuccess,
     TransitionFrontierSyncLedgerStagedSuccess,
-    TransitionFrontierSyncLedgerStakingPending,
-    TransitionFrontierSyncLedgerStakingSuccess,
-    TransitionFrontierSyncLedgerSuccess,
     TransitionFrontierSynced,
     WatchedAccountsAdd,
     WatchedAccountsBlockLedgerQueryInit,
     WatchedAccountsBlockLedgerQueryPending,
     WatchedAccountsBlockLedgerQuerySuccess,
-    WatchedAccountsBlockTransactionsIncluded,
     WatchedAccountsLedgerInitialStateGetError,
     WatchedAccountsLedgerInitialStateGetInit,
     WatchedAccountsLedgerInitialStateGetPending,
     WatchedAccountsLedgerInitialStateGetRetry,
     WatchedAccountsLedgerInitialStateGetSuccess,
+    WatchedAccountsTransactionsIncludedInBlock,
 }
 
 impl ActionKind {
@@ -439,10 +325,10 @@ impl ActionKindGet for CheckTimeoutsAction {
 impl ActionKindGet for EventSourceAction {
     fn kind(&self) -> ActionKind {
         match self {
-            Self::ProcessEvents(a) => a.kind(),
-            Self::NewEvent(a) => a.kind(),
-            Self::WaitForEvents(a) => a.kind(),
-            Self::WaitTimeout(a) => a.kind(),
+            Self::ProcessEvents => ActionKind::EventSourceProcessEvents,
+            Self::NewEvent { .. } => ActionKind::EventSourceNewEvent,
+            Self::WaitForEvents => ActionKind::EventSourceWaitForEvents,
+            Self::WaitTimeout => ActionKind::EventSourceWaitTimeout,
         }
     }
 }
@@ -535,19 +421,23 @@ impl ActionKindGet for BlockProducerAction {
     fn kind(&self) -> ActionKind {
         match self {
             Self::VrfEvaluator(a) => a.kind(),
-            Self::BestTipUpdate(a) => a.kind(),
-            Self::WonSlotSearch(a) => a.kind(),
-            Self::WonSlot(a) => a.kind(),
-            Self::WonSlotDiscard(a) => a.kind(),
-            Self::WonSlotWait(a) => a.kind(),
-            Self::WonSlotProduceInit(a) => a.kind(),
-            Self::StagedLedgerDiffCreateInit(a) => a.kind(),
-            Self::StagedLedgerDiffCreatePending(a) => a.kind(),
-            Self::StagedLedgerDiffCreateSuccess(a) => a.kind(),
-            Self::BlockUnprovenBuild(a) => a.kind(),
-            Self::BlockProduced(a) => a.kind(),
-            Self::BlockInject(a) => a.kind(),
-            Self::BlockInjected(a) => a.kind(),
+            Self::BestTipUpdate { .. } => ActionKind::BlockProducerBestTipUpdate,
+            Self::WonSlotSearch => ActionKind::BlockProducerWonSlotSearch,
+            Self::WonSlot { .. } => ActionKind::BlockProducerWonSlot,
+            Self::WonSlotDiscard { .. } => ActionKind::BlockProducerWonSlotDiscard,
+            Self::WonSlotWait => ActionKind::BlockProducerWonSlotWait,
+            Self::WonSlotProduceInit => ActionKind::BlockProducerWonSlotProduceInit,
+            Self::StagedLedgerDiffCreateInit => ActionKind::BlockProducerStagedLedgerDiffCreateInit,
+            Self::StagedLedgerDiffCreatePending => {
+                ActionKind::BlockProducerStagedLedgerDiffCreatePending
+            }
+            Self::StagedLedgerDiffCreateSuccess { .. } => {
+                ActionKind::BlockProducerStagedLedgerDiffCreateSuccess
+            }
+            Self::BlockUnprovenBuild => ActionKind::BlockProducerBlockUnprovenBuild,
+            Self::BlockProduced => ActionKind::BlockProducerBlockProduced,
+            Self::BlockInject => ActionKind::BlockProducerBlockInject,
+            Self::BlockInjected => ActionKind::BlockProducerBlockInjected,
         }
     }
 }
@@ -555,29 +445,39 @@ impl ActionKindGet for BlockProducerAction {
 impl ActionKindGet for RpcAction {
     fn kind(&self) -> ActionKind {
         match self {
-            Self::GlobalStateGet(a) => a.kind(),
-            Self::ActionStatsGet(a) => a.kind(),
-            Self::SyncStatsGet(a) => a.kind(),
-            Self::PeersGet(a) => a.kind(),
-            Self::P2pConnectionOutgoingInit(a) => a.kind(),
-            Self::P2pConnectionOutgoingPending(a) => a.kind(),
-            Self::P2pConnectionOutgoingError(a) => a.kind(),
-            Self::P2pConnectionOutgoingSuccess(a) => a.kind(),
-            Self::P2pConnectionIncomingInit(a) => a.kind(),
-            Self::P2pConnectionIncomingPending(a) => a.kind(),
-            Self::P2pConnectionIncomingRespond(a) => a.kind(),
-            Self::P2pConnectionIncomingError(a) => a.kind(),
-            Self::P2pConnectionIncomingSuccess(a) => a.kind(),
-            Self::ScanStateSummaryGet(a) => a.kind(),
-            Self::SnarkPoolAvailableJobsGet(a) => a.kind(),
-            Self::SnarkPoolJobGet(a) => a.kind(),
-            Self::SnarkerConfigGet(a) => a.kind(),
-            Self::SnarkerJobCommit(a) => a.kind(),
-            Self::SnarkerJobSpec(a) => a.kind(),
-            Self::SnarkerWorkersGet(a) => a.kind(),
-            Self::HealthCheck(a) => a.kind(),
-            Self::ReadinessCheck(a) => a.kind(),
-            Self::Finish(a) => a.kind(),
+            Self::GlobalStateGet { .. } => ActionKind::RpcGlobalStateGet,
+            Self::ActionStatsGet { .. } => ActionKind::RpcActionStatsGet,
+            Self::SyncStatsGet { .. } => ActionKind::RpcSyncStatsGet,
+            Self::PeersGet { .. } => ActionKind::RpcPeersGet,
+            Self::P2pConnectionOutgoingInit { .. } => ActionKind::RpcP2pConnectionOutgoingInit,
+            Self::P2pConnectionOutgoingPending { .. } => {
+                ActionKind::RpcP2pConnectionOutgoingPending
+            }
+            Self::P2pConnectionOutgoingError { .. } => ActionKind::RpcP2pConnectionOutgoingError,
+            Self::P2pConnectionOutgoingSuccess { .. } => {
+                ActionKind::RpcP2pConnectionOutgoingSuccess
+            }
+            Self::P2pConnectionIncomingInit { .. } => ActionKind::RpcP2pConnectionIncomingInit,
+            Self::P2pConnectionIncomingPending { .. } => {
+                ActionKind::RpcP2pConnectionIncomingPending
+            }
+            Self::P2pConnectionIncomingRespond { .. } => {
+                ActionKind::RpcP2pConnectionIncomingRespond
+            }
+            Self::P2pConnectionIncomingError { .. } => ActionKind::RpcP2pConnectionIncomingError,
+            Self::P2pConnectionIncomingSuccess { .. } => {
+                ActionKind::RpcP2pConnectionIncomingSuccess
+            }
+            Self::ScanStateSummaryGet { .. } => ActionKind::RpcScanStateSummaryGet,
+            Self::SnarkPoolAvailableJobsGet { .. } => ActionKind::RpcSnarkPoolAvailableJobsGet,
+            Self::SnarkPoolJobGet { .. } => ActionKind::RpcSnarkPoolJobGet,
+            Self::SnarkerConfigGet { .. } => ActionKind::RpcSnarkerConfigGet,
+            Self::SnarkerJobCommit { .. } => ActionKind::RpcSnarkerJobCommit,
+            Self::SnarkerJobSpec { .. } => ActionKind::RpcSnarkerJobSpec,
+            Self::SnarkerWorkersGet { .. } => ActionKind::RpcSnarkerWorkersGet,
+            Self::HealthCheck { .. } => ActionKind::RpcHealthCheck,
+            Self::ReadinessCheck { .. } => ActionKind::RpcReadinessCheck,
+            Self::Finish { .. } => ActionKind::RpcFinish,
         }
     }
 }
@@ -585,51 +485,43 @@ impl ActionKindGet for RpcAction {
 impl ActionKindGet for WatchedAccountsAction {
     fn kind(&self) -> ActionKind {
         match self {
-            Self::Add(a) => a.kind(),
-            Self::LedgerInitialStateGetInit(a) => a.kind(),
-            Self::LedgerInitialStateGetPending(a) => a.kind(),
-            Self::LedgerInitialStateGetError(a) => a.kind(),
-            Self::LedgerInitialStateGetRetry(a) => a.kind(),
-            Self::LedgerInitialStateGetSuccess(a) => a.kind(),
-            Self::TransactionsIncludedInBlock(a) => a.kind(),
-            Self::BlockLedgerQueryInit(a) => a.kind(),
-            Self::BlockLedgerQueryPending(a) => a.kind(),
-            Self::BlockLedgerQuerySuccess(a) => a.kind(),
+            Self::Add { .. } => ActionKind::WatchedAccountsAdd,
+            Self::LedgerInitialStateGetInit { .. } => {
+                ActionKind::WatchedAccountsLedgerInitialStateGetInit
+            }
+            Self::LedgerInitialStateGetPending { .. } => {
+                ActionKind::WatchedAccountsLedgerInitialStateGetPending
+            }
+            Self::LedgerInitialStateGetError { .. } => {
+                ActionKind::WatchedAccountsLedgerInitialStateGetError
+            }
+            Self::LedgerInitialStateGetRetry { .. } => {
+                ActionKind::WatchedAccountsLedgerInitialStateGetRetry
+            }
+            Self::LedgerInitialStateGetSuccess { .. } => {
+                ActionKind::WatchedAccountsLedgerInitialStateGetSuccess
+            }
+            Self::TransactionsIncludedInBlock { .. } => {
+                ActionKind::WatchedAccountsTransactionsIncludedInBlock
+            }
+            Self::BlockLedgerQueryInit { .. } => ActionKind::WatchedAccountsBlockLedgerQueryInit,
+            Self::BlockLedgerQueryPending { .. } => {
+                ActionKind::WatchedAccountsBlockLedgerQueryPending
+            }
+            Self::BlockLedgerQuerySuccess { .. } => {
+                ActionKind::WatchedAccountsBlockLedgerQuerySuccess
+            }
         }
-    }
-}
-
-impl ActionKindGet for EventSourceProcessEventsAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::EventSourceProcessEvents
-    }
-}
-
-impl ActionKindGet for EventSourceNewEventAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::EventSourceNewEvent
-    }
-}
-
-impl ActionKindGet for EventSourceWaitForEventsAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::EventSourceWaitForEvents
-    }
-}
-
-impl ActionKindGet for EventSourceWaitTimeoutAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::EventSourceWaitTimeout
     }
 }
 
 impl ActionKindGet for P2pListenAction {
     fn kind(&self) -> ActionKind {
         match self {
-            Self::New(a) => a.kind(),
-            Self::Expired(a) => a.kind(),
-            Self::Error(a) => a.kind(),
-            Self::Closed(a) => a.kind(),
+            Self::New { .. } => ActionKind::P2pListenNew,
+            Self::Expired { .. } => ActionKind::P2pListenExpired,
+            Self::Error { .. } => ActionKind::P2pListenError,
+            Self::Closed { .. } => ActionKind::P2pListenClosed,
         }
     }
 }
@@ -646,8 +538,8 @@ impl ActionKindGet for P2pConnectionAction {
 impl ActionKindGet for P2pDisconnectionAction {
     fn kind(&self) -> ActionKind {
         match self {
-            Self::Init(a) => a.kind(),
-            Self::Finish(a) => a.kind(),
+            Self::Init { .. } => ActionKind::P2pDisconnectionInit,
+            Self::Finish { .. } => ActionKind::P2pDisconnectionFinish,
         }
     }
 }
@@ -655,13 +547,13 @@ impl ActionKindGet for P2pDisconnectionAction {
 impl ActionKindGet for P2pDiscoveryAction {
     fn kind(&self) -> ActionKind {
         match self {
-            Self::Init(a) => a.kind(),
-            Self::Success(a) => a.kind(),
-            Self::KademliaBootstrap(a) => a.kind(),
-            Self::KademliaInit(a) => a.kind(),
-            Self::KademliaAddRoute(a) => a.kind(),
-            Self::KademliaSuccess(a) => a.kind(),
-            Self::KademliaFailure(a) => a.kind(),
+            Self::Init { .. } => ActionKind::P2pDiscoveryInit,
+            Self::Success { .. } => ActionKind::P2pDiscoverySuccess,
+            Self::KademliaBootstrap => ActionKind::P2pDiscoveryKademliaBootstrap,
+            Self::KademliaInit => ActionKind::P2pDiscoveryKademliaInit,
+            Self::KademliaAddRoute { .. } => ActionKind::P2pDiscoveryKademliaAddRoute,
+            Self::KademliaSuccess { .. } => ActionKind::P2pDiscoveryKademliaSuccess,
+            Self::KademliaFailure { .. } => ActionKind::P2pDiscoveryKademliaFailure,
         }
     }
 }
@@ -681,8 +573,8 @@ impl ActionKindGet for P2pChannelsAction {
 impl ActionKindGet for P2pPeerAction {
     fn kind(&self) -> ActionKind {
         match self {
-            Self::Ready(a) => a.kind(),
-            Self::BestTipUpdate(a) => a.kind(),
+            Self::Ready { .. } => ActionKind::P2pPeerReady,
+            Self::BestTipUpdate { .. } => ActionKind::P2pPeerBestTipUpdate,
         }
     }
 }
@@ -714,27 +606,45 @@ impl ActionKindGet for SnarkWorkVerifyAction {
 impl ActionKindGet for TransitionFrontierSyncAction {
     fn kind(&self) -> ActionKind {
         match self {
-            Self::Init(a) => a.kind(),
-            Self::BestTipUpdate(a) => a.kind(),
-            Self::LedgerStakingPending(a) => a.kind(),
-            Self::LedgerStakingSuccess(a) => a.kind(),
-            Self::LedgerNextEpochPending(a) => a.kind(),
-            Self::LedgerNextEpochSuccess(a) => a.kind(),
-            Self::LedgerRootPending(a) => a.kind(),
-            Self::LedgerRootSuccess(a) => a.kind(),
-            Self::BlocksPending(a) => a.kind(),
-            Self::BlocksPeersQuery(a) => a.kind(),
-            Self::BlocksPeerQueryInit(a) => a.kind(),
-            Self::BlocksPeerQueryRetry(a) => a.kind(),
-            Self::BlocksPeerQueryPending(a) => a.kind(),
-            Self::BlocksPeerQueryError(a) => a.kind(),
-            Self::BlocksPeerQuerySuccess(a) => a.kind(),
-            Self::BlocksFetchSuccess(a) => a.kind(),
-            Self::BlocksNextApplyInit(a) => a.kind(),
-            Self::BlocksNextApplyPending(a) => a.kind(),
-            Self::BlocksNextApplySuccess(a) => a.kind(),
-            Self::BlocksSuccess(a) => a.kind(),
             Self::Ledger(a) => a.kind(),
+            Self::Init { .. } => ActionKind::TransitionFrontierSyncInit,
+            Self::BestTipUpdate { .. } => ActionKind::TransitionFrontierSyncBestTipUpdate,
+            Self::LedgerStakingPending => ActionKind::TransitionFrontierSyncLedgerStakingPending,
+            Self::LedgerStakingSuccess => ActionKind::TransitionFrontierSyncLedgerStakingSuccess,
+            Self::LedgerNextEpochPending => {
+                ActionKind::TransitionFrontierSyncLedgerNextEpochPending
+            }
+            Self::LedgerNextEpochSuccess => {
+                ActionKind::TransitionFrontierSyncLedgerNextEpochSuccess
+            }
+            Self::LedgerRootPending => ActionKind::TransitionFrontierSyncLedgerRootPending,
+            Self::LedgerRootSuccess => ActionKind::TransitionFrontierSyncLedgerRootSuccess,
+            Self::BlocksPending => ActionKind::TransitionFrontierSyncBlocksPending,
+            Self::BlocksPeersQuery => ActionKind::TransitionFrontierSyncBlocksPeersQuery,
+            Self::BlocksPeerQueryInit { .. } => {
+                ActionKind::TransitionFrontierSyncBlocksPeerQueryInit
+            }
+            Self::BlocksPeerQueryRetry { .. } => {
+                ActionKind::TransitionFrontierSyncBlocksPeerQueryRetry
+            }
+            Self::BlocksPeerQueryPending { .. } => {
+                ActionKind::TransitionFrontierSyncBlocksPeerQueryPending
+            }
+            Self::BlocksPeerQueryError { .. } => {
+                ActionKind::TransitionFrontierSyncBlocksPeerQueryError
+            }
+            Self::BlocksPeerQuerySuccess { .. } => {
+                ActionKind::TransitionFrontierSyncBlocksPeerQuerySuccess
+            }
+            Self::BlocksFetchSuccess { .. } => ActionKind::TransitionFrontierSyncBlocksFetchSuccess,
+            Self::BlocksNextApplyInit => ActionKind::TransitionFrontierSyncBlocksNextApplyInit,
+            Self::BlocksNextApplyPending { .. } => {
+                ActionKind::TransitionFrontierSyncBlocksNextApplyPending
+            }
+            Self::BlocksNextApplySuccess { .. } => {
+                ActionKind::TransitionFrontierSyncBlocksNextApplySuccess
+            }
+            Self::BlocksSuccess => ActionKind::TransitionFrontierSyncBlocksSuccess,
         }
     }
 }
@@ -765,335 +675,47 @@ impl ActionKindGet for SnarkPoolCandidateAction {
 impl ActionKindGet for BlockProducerVrfEvaluatorAction {
     fn kind(&self) -> ActionKind {
         match self {
-            Self::EpochDataUpdate(a) => a.kind(),
-            Self::EvaluateVrf(a) => a.kind(),
-            Self::EvaluationSuccess(a) => a.kind(),
-            Self::UpdateProducerAndDelegates(a) => a.kind(),
-            Self::UpdateProducerAndDelegatesSuccess(a) => a.kind(),
+            Self::EpochDataUpdate { .. } => ActionKind::BlockProducerVrfEvaluatorEpochDataUpdate,
+            Self::EvaluateVrf { .. } => ActionKind::BlockProducerVrfEvaluatorEvaluateVrf,
+            Self::EvaluationSuccess { .. } => {
+                ActionKind::BlockProducerVrfEvaluatorEvaluationSuccess
+            }
+            Self::UpdateProducerAndDelegates { .. } => {
+                ActionKind::BlockProducerVrfEvaluatorUpdateProducerAndDelegates
+            }
+            Self::UpdateProducerAndDelegatesSuccess { .. } => {
+                ActionKind::BlockProducerVrfEvaluatorUpdateProducerAndDelegatesSuccess
+            }
         }
-    }
-}
-
-impl ActionKindGet for BlockProducerBestTipUpdateAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::BlockProducerBestTipUpdate
-    }
-}
-
-impl ActionKindGet for BlockProducerWonSlotSearchAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::BlockProducerWonSlotSearch
-    }
-}
-
-impl ActionKindGet for BlockProducerWonSlotAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::BlockProducerWonSlot
-    }
-}
-
-impl ActionKindGet for BlockProducerWonSlotDiscardAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::BlockProducerWonSlotDiscard
-    }
-}
-
-impl ActionKindGet for BlockProducerWonSlotWaitAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::BlockProducerWonSlotWait
-    }
-}
-
-impl ActionKindGet for BlockProducerWonSlotProduceInitAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::BlockProducerWonSlotProduceInit
-    }
-}
-
-impl ActionKindGet for BlockProducerStagedLedgerDiffCreateInitAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::BlockProducerStagedLedgerDiffCreateInit
-    }
-}
-
-impl ActionKindGet for BlockProducerStagedLedgerDiffCreatePendingAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::BlockProducerStagedLedgerDiffCreatePending
-    }
-}
-
-impl ActionKindGet for BlockProducerStagedLedgerDiffCreateSuccessAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::BlockProducerStagedLedgerDiffCreateSuccess
-    }
-}
-
-impl ActionKindGet for BlockProducerBlockUnprovenBuildAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::BlockProducerBlockUnprovenBuild
-    }
-}
-
-impl ActionKindGet for BlockProducerBlockProducedAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::BlockProducerBlockProduced
-    }
-}
-
-impl ActionKindGet for BlockProducerBlockInjectAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::BlockProducerBlockInject
-    }
-}
-
-impl ActionKindGet for BlockProducerBlockInjectedAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::BlockProducerBlockInjected
-    }
-}
-
-impl ActionKindGet for RpcGlobalStateGetAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::RpcGlobalStateGet
-    }
-}
-
-impl ActionKindGet for RpcActionStatsGetAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::RpcActionStatsGet
-    }
-}
-
-impl ActionKindGet for RpcSyncStatsGetAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::RpcSyncStatsGet
-    }
-}
-
-impl ActionKindGet for RpcPeersGetAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::RpcPeersGet
-    }
-}
-
-impl ActionKindGet for RpcP2pConnectionOutgoingInitAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::RpcP2pConnectionOutgoingInit
-    }
-}
-
-impl ActionKindGet for RpcP2pConnectionOutgoingPendingAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::RpcP2pConnectionOutgoingPending
-    }
-}
-
-impl ActionKindGet for RpcP2pConnectionOutgoingErrorAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::RpcP2pConnectionOutgoingError
-    }
-}
-
-impl ActionKindGet for RpcP2pConnectionOutgoingSuccessAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::RpcP2pConnectionOutgoingSuccess
-    }
-}
-
-impl ActionKindGet for RpcP2pConnectionIncomingInitAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::RpcP2pConnectionIncomingInit
-    }
-}
-
-impl ActionKindGet for RpcP2pConnectionIncomingPendingAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::RpcP2pConnectionIncomingPending
-    }
-}
-
-impl ActionKindGet for RpcP2pConnectionIncomingRespondAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::RpcP2pConnectionIncomingRespond
-    }
-}
-
-impl ActionKindGet for RpcP2pConnectionIncomingErrorAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::RpcP2pConnectionIncomingError
-    }
-}
-
-impl ActionKindGet for RpcP2pConnectionIncomingSuccessAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::RpcP2pConnectionIncomingSuccess
-    }
-}
-
-impl ActionKindGet for RpcScanStateSummaryGetAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::RpcScanStateSummaryGet
-    }
-}
-
-impl ActionKindGet for RpcSnarkPoolAvailableJobsGetAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::RpcSnarkPoolAvailableJobsGet
-    }
-}
-
-impl ActionKindGet for RpcSnarkPoolJobGetAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::RpcSnarkPoolJobGet
-    }
-}
-
-impl ActionKindGet for RpcSnarkerConfigGetAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::RpcSnarkerConfigGet
-    }
-}
-
-impl ActionKindGet for RpcSnarkerJobCommitAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::RpcSnarkerJobCommit
-    }
-}
-
-impl ActionKindGet for RpcSnarkerJobSpecAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::RpcSnarkerJobSpec
-    }
-}
-
-impl ActionKindGet for RpcSnarkersWorkersGetAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::RpcSnarkersWorkersGet
-    }
-}
-
-impl ActionKindGet for RpcHealthCheckAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::RpcHealthCheck
-    }
-}
-
-impl ActionKindGet for RpcReadinessCheckAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::RpcReadinessCheck
-    }
-}
-
-impl ActionKindGet for RpcFinishAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::RpcFinish
-    }
-}
-
-impl ActionKindGet for WatchedAccountsAddAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::WatchedAccountsAdd
-    }
-}
-
-impl ActionKindGet for WatchedAccountsLedgerInitialStateGetInitAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::WatchedAccountsLedgerInitialStateGetInit
-    }
-}
-
-impl ActionKindGet for WatchedAccountsLedgerInitialStateGetPendingAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::WatchedAccountsLedgerInitialStateGetPending
-    }
-}
-
-impl ActionKindGet for WatchedAccountsLedgerInitialStateGetErrorAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::WatchedAccountsLedgerInitialStateGetError
-    }
-}
-
-impl ActionKindGet for WatchedAccountsLedgerInitialStateGetRetryAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::WatchedAccountsLedgerInitialStateGetRetry
-    }
-}
-
-impl ActionKindGet for WatchedAccountsLedgerInitialStateGetSuccessAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::WatchedAccountsLedgerInitialStateGetSuccess
-    }
-}
-
-impl ActionKindGet for WatchedAccountsBlockTransactionsIncludedAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::WatchedAccountsBlockTransactionsIncluded
-    }
-}
-
-impl ActionKindGet for WatchedAccountsBlockLedgerQueryInitAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::WatchedAccountsBlockLedgerQueryInit
-    }
-}
-
-impl ActionKindGet for WatchedAccountsBlockLedgerQueryPendingAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::WatchedAccountsBlockLedgerQueryPending
-    }
-}
-
-impl ActionKindGet for WatchedAccountsBlockLedgerQuerySuccessAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::WatchedAccountsBlockLedgerQuerySuccess
-    }
-}
-
-impl ActionKindGet for P2pListenNewAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pListenNew
-    }
-}
-
-impl ActionKindGet for P2pListenExpiredAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pListenExpired
-    }
-}
-
-impl ActionKindGet for P2pListenErrorAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pListenError
-    }
-}
-
-impl ActionKindGet for P2pListenClosedAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pListenClosed
     }
 }
 
 impl ActionKindGet for P2pConnectionOutgoingAction {
     fn kind(&self) -> ActionKind {
         match self {
-            Self::RandomInit(a) => a.kind(),
-            Self::Init(a) => a.kind(),
-            Self::Reconnect(a) => a.kind(),
-            Self::OfferSdpCreatePending(a) => a.kind(),
-            Self::OfferSdpCreateError(a) => a.kind(),
-            Self::OfferSdpCreateSuccess(a) => a.kind(),
-            Self::OfferReady(a) => a.kind(),
-            Self::OfferSendSuccess(a) => a.kind(),
-            Self::AnswerRecvPending(a) => a.kind(),
-            Self::AnswerRecvError(a) => a.kind(),
-            Self::AnswerRecvSuccess(a) => a.kind(),
-            Self::FinalizePending(a) => a.kind(),
-            Self::FinalizeError(a) => a.kind(),
-            Self::FinalizeSuccess(a) => a.kind(),
-            Self::Timeout(a) => a.kind(),
-            Self::Error(a) => a.kind(),
-            Self::Success(a) => a.kind(),
+            Self::RandomInit => ActionKind::P2pConnectionOutgoingRandomInit,
+            Self::Init { .. } => ActionKind::P2pConnectionOutgoingInit,
+            Self::Reconnect { .. } => ActionKind::P2pConnectionOutgoingReconnect,
+            Self::OfferSdpCreatePending { .. } => {
+                ActionKind::P2pConnectionOutgoingOfferSdpCreatePending
+            }
+            Self::OfferSdpCreateError { .. } => {
+                ActionKind::P2pConnectionOutgoingOfferSdpCreateError
+            }
+            Self::OfferSdpCreateSuccess { .. } => {
+                ActionKind::P2pConnectionOutgoingOfferSdpCreateSuccess
+            }
+            Self::OfferReady { .. } => ActionKind::P2pConnectionOutgoingOfferReady,
+            Self::OfferSendSuccess { .. } => ActionKind::P2pConnectionOutgoingOfferSendSuccess,
+            Self::AnswerRecvPending { .. } => ActionKind::P2pConnectionOutgoingAnswerRecvPending,
+            Self::AnswerRecvError { .. } => ActionKind::P2pConnectionOutgoingAnswerRecvError,
+            Self::AnswerRecvSuccess { .. } => ActionKind::P2pConnectionOutgoingAnswerRecvSuccess,
+            Self::FinalizePending { .. } => ActionKind::P2pConnectionOutgoingFinalizePending,
+            Self::FinalizeError { .. } => ActionKind::P2pConnectionOutgoingFinalizeError,
+            Self::FinalizeSuccess { .. } => ActionKind::P2pConnectionOutgoingFinalizeSuccess,
+            Self::Timeout { .. } => ActionKind::P2pConnectionOutgoingTimeout,
+            Self::Error { .. } => ActionKind::P2pConnectionOutgoingError,
+            Self::Success { .. } => ActionKind::P2pConnectionOutgoingSuccess,
         }
     }
 }
@@ -1101,74 +723,26 @@ impl ActionKindGet for P2pConnectionOutgoingAction {
 impl ActionKindGet for P2pConnectionIncomingAction {
     fn kind(&self) -> ActionKind {
         match self {
-            Self::Init(a) => a.kind(),
-            Self::AnswerSdpCreatePending(a) => a.kind(),
-            Self::AnswerSdpCreateError(a) => a.kind(),
-            Self::AnswerSdpCreateSuccess(a) => a.kind(),
-            Self::AnswerReady(a) => a.kind(),
-            Self::AnswerSendSuccess(a) => a.kind(),
-            Self::FinalizePending(a) => a.kind(),
-            Self::FinalizeError(a) => a.kind(),
-            Self::FinalizeSuccess(a) => a.kind(),
-            Self::Timeout(a) => a.kind(),
-            Self::Error(a) => a.kind(),
-            Self::Success(a) => a.kind(),
-            Self::Libp2pReceived(a) => a.kind(),
+            Self::Init { .. } => ActionKind::P2pConnectionIncomingInit,
+            Self::AnswerSdpCreatePending { .. } => {
+                ActionKind::P2pConnectionIncomingAnswerSdpCreatePending
+            }
+            Self::AnswerSdpCreateError { .. } => {
+                ActionKind::P2pConnectionIncomingAnswerSdpCreateError
+            }
+            Self::AnswerSdpCreateSuccess { .. } => {
+                ActionKind::P2pConnectionIncomingAnswerSdpCreateSuccess
+            }
+            Self::AnswerReady { .. } => ActionKind::P2pConnectionIncomingAnswerReady,
+            Self::AnswerSendSuccess { .. } => ActionKind::P2pConnectionIncomingAnswerSendSuccess,
+            Self::FinalizePending { .. } => ActionKind::P2pConnectionIncomingFinalizePending,
+            Self::FinalizeError { .. } => ActionKind::P2pConnectionIncomingFinalizeError,
+            Self::FinalizeSuccess { .. } => ActionKind::P2pConnectionIncomingFinalizeSuccess,
+            Self::Timeout { .. } => ActionKind::P2pConnectionIncomingTimeout,
+            Self::Error { .. } => ActionKind::P2pConnectionIncomingError,
+            Self::Success { .. } => ActionKind::P2pConnectionIncomingSuccess,
+            Self::Libp2pReceived { .. } => ActionKind::P2pConnectionIncomingLibp2pReceived,
         }
-    }
-}
-
-impl ActionKindGet for P2pDisconnectionInitAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pDisconnectionInit
-    }
-}
-
-impl ActionKindGet for P2pDisconnectionFinishAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pDisconnectionFinish
-    }
-}
-
-impl ActionKindGet for P2pDiscoveryInitAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pDiscoveryInit
-    }
-}
-
-impl ActionKindGet for P2pDiscoverySuccessAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pDiscoverySuccess
-    }
-}
-
-impl ActionKindGet for P2pDiscoveryKademliaBootstrapAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pDiscoveryKademliaBootstrap
-    }
-}
-
-impl ActionKindGet for P2pDiscoveryKademliaInitAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pDiscoveryKademliaInit
-    }
-}
-
-impl ActionKindGet for P2pDiscoveryKademliaAddRouteAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pDiscoveryKademliaAddRoute
-    }
-}
-
-impl ActionKindGet for P2pDiscoveryKademliaSuccessAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pDiscoveryKademliaSuccess
-    }
-}
-
-impl ActionKindGet for P2pDiscoveryKademliaFailureAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pDiscoveryKademliaFailure
     }
 }
 
@@ -1243,378 +817,44 @@ impl ActionKindGet for P2pChannelsRpcAction {
     }
 }
 
-impl ActionKindGet for P2pPeerReadyAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pPeerReady
-    }
-}
-
-impl ActionKindGet for P2pPeerBestTipUpdateAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pPeerBestTipUpdate
-    }
-}
-
-impl ActionKindGet for TransitionFrontierSyncInitAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::TransitionFrontierSyncInit
-    }
-}
-
-impl ActionKindGet for TransitionFrontierSyncBestTipUpdateAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::TransitionFrontierSyncBestTipUpdate
-    }
-}
-
-impl ActionKindGet for TransitionFrontierSyncLedgerStakingPendingAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::TransitionFrontierSyncLedgerStakingPending
-    }
-}
-
-impl ActionKindGet for TransitionFrontierSyncLedgerStakingSuccessAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::TransitionFrontierSyncLedgerStakingSuccess
-    }
-}
-
-impl ActionKindGet for TransitionFrontierSyncLedgerNextEpochPendingAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::TransitionFrontierSyncLedgerNextEpochPending
-    }
-}
-
-impl ActionKindGet for TransitionFrontierSyncLedgerNextEpochSuccessAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::TransitionFrontierSyncLedgerNextEpochSuccess
-    }
-}
-
-impl ActionKindGet for TransitionFrontierSyncLedgerRootPendingAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::TransitionFrontierSyncLedgerRootPending
-    }
-}
-
-impl ActionKindGet for TransitionFrontierSyncLedgerRootSuccessAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::TransitionFrontierSyncLedgerRootSuccess
-    }
-}
-
-impl ActionKindGet for TransitionFrontierSyncBlocksPendingAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::TransitionFrontierSyncBlocksPending
-    }
-}
-
-impl ActionKindGet for TransitionFrontierSyncBlocksPeersQueryAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::TransitionFrontierSyncBlocksPeersQuery
-    }
-}
-
-impl ActionKindGet for TransitionFrontierSyncBlocksPeerQueryInitAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::TransitionFrontierSyncBlocksPeerQueryInit
-    }
-}
-
-impl ActionKindGet for TransitionFrontierSyncBlocksPeerQueryRetryAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::TransitionFrontierSyncBlocksPeerQueryRetry
-    }
-}
-
-impl ActionKindGet for TransitionFrontierSyncBlocksPeerQueryPendingAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::TransitionFrontierSyncBlocksPeerQueryPending
-    }
-}
-
-impl ActionKindGet for TransitionFrontierSyncBlocksPeerQueryErrorAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::TransitionFrontierSyncBlocksPeerQueryError
-    }
-}
-
-impl ActionKindGet for TransitionFrontierSyncBlocksPeerQuerySuccessAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::TransitionFrontierSyncBlocksPeerQuerySuccess
-    }
-}
-
-impl ActionKindGet for TransitionFrontierSyncBlocksFetchSuccessAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::TransitionFrontierSyncBlocksFetchSuccess
-    }
-}
-
-impl ActionKindGet for TransitionFrontierSyncBlocksNextApplyInitAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::TransitionFrontierSyncBlocksNextApplyInit
-    }
-}
-
-impl ActionKindGet for TransitionFrontierSyncBlocksNextApplyPendingAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::TransitionFrontierSyncBlocksNextApplyPending
-    }
-}
-
-impl ActionKindGet for TransitionFrontierSyncBlocksNextApplySuccessAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::TransitionFrontierSyncBlocksNextApplySuccess
-    }
-}
-
-impl ActionKindGet for TransitionFrontierSyncBlocksSuccessAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::TransitionFrontierSyncBlocksSuccess
-    }
-}
-
 impl ActionKindGet for TransitionFrontierSyncLedgerAction {
     fn kind(&self) -> ActionKind {
         match self {
-            Self::Init(a) => a.kind(),
             Self::Snarked(a) => a.kind(),
             Self::Staged(a) => a.kind(),
-            Self::Success(a) => a.kind(),
+            Self::Init => ActionKind::TransitionFrontierSyncLedgerInit,
+            Self::Success => ActionKind::TransitionFrontierSyncLedgerSuccess,
         }
-    }
-}
-
-impl ActionKindGet for BlockProducerVrfEvaluatorEpochDataUpdateAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::BlockProducerVrfEvaluatorEpochDataUpdate
-    }
-}
-
-impl ActionKindGet for BlockProducerVrfEvaluatorEvaluateVrfAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::BlockProducerVrfEvaluatorEvaluateVrf
-    }
-}
-
-impl ActionKindGet for BlockProducerVrfEvaluatorEvaluationSuccessAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::BlockProducerVrfEvaluatorEvaluationSuccess
-    }
-}
-
-impl ActionKindGet for BlockProducerVrfEvaluatorUpdateProducerAndDelegatesAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::BlockProducerVrfEvaluatorUpdateProducerAndDelegates
-    }
-}
-
-impl ActionKindGet for BlockProducerVrfEvaluatorUpdateProducerAndDelegatesSuccessAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::BlockProducerVrfEvaluatorUpdateProducerAndDelegatesSuccess
-    }
-}
-
-impl ActionKindGet for P2pConnectionOutgoingRandomInitAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pConnectionOutgoingRandomInit
-    }
-}
-
-impl ActionKindGet for P2pConnectionOutgoingInitAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pConnectionOutgoingInit
-    }
-}
-
-impl ActionKindGet for P2pConnectionOutgoingReconnectAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pConnectionOutgoingReconnect
-    }
-}
-
-impl ActionKindGet for P2pConnectionOutgoingOfferSdpCreatePendingAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pConnectionOutgoingOfferSdpCreatePending
-    }
-}
-
-impl ActionKindGet for P2pConnectionOutgoingOfferSdpCreateErrorAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pConnectionOutgoingOfferSdpCreateError
-    }
-}
-
-impl ActionKindGet for P2pConnectionOutgoingOfferSdpCreateSuccessAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pConnectionOutgoingOfferSdpCreateSuccess
-    }
-}
-
-impl ActionKindGet for P2pConnectionOutgoingOfferReadyAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pConnectionOutgoingOfferReady
-    }
-}
-
-impl ActionKindGet for P2pConnectionOutgoingOfferSendSuccessAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pConnectionOutgoingOfferSendSuccess
-    }
-}
-
-impl ActionKindGet for P2pConnectionOutgoingAnswerRecvPendingAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pConnectionOutgoingAnswerRecvPending
-    }
-}
-
-impl ActionKindGet for P2pConnectionOutgoingAnswerRecvErrorAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pConnectionOutgoingAnswerRecvError
-    }
-}
-
-impl ActionKindGet for P2pConnectionOutgoingAnswerRecvSuccessAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pConnectionOutgoingAnswerRecvSuccess
-    }
-}
-
-impl ActionKindGet for P2pConnectionOutgoingFinalizePendingAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pConnectionOutgoingFinalizePending
-    }
-}
-
-impl ActionKindGet for P2pConnectionOutgoingFinalizeErrorAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pConnectionOutgoingFinalizeError
-    }
-}
-
-impl ActionKindGet for P2pConnectionOutgoingFinalizeSuccessAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pConnectionOutgoingFinalizeSuccess
-    }
-}
-
-impl ActionKindGet for P2pConnectionOutgoingTimeoutAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pConnectionOutgoingTimeout
-    }
-}
-
-impl ActionKindGet for P2pConnectionOutgoingErrorAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pConnectionOutgoingError
-    }
-}
-
-impl ActionKindGet for P2pConnectionOutgoingSuccessAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pConnectionOutgoingSuccess
-    }
-}
-
-impl ActionKindGet for P2pConnectionIncomingInitAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pConnectionIncomingInit
-    }
-}
-
-impl ActionKindGet for P2pConnectionIncomingAnswerSdpCreatePendingAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pConnectionIncomingAnswerSdpCreatePending
-    }
-}
-
-impl ActionKindGet for P2pConnectionIncomingAnswerSdpCreateErrorAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pConnectionIncomingAnswerSdpCreateError
-    }
-}
-
-impl ActionKindGet for P2pConnectionIncomingAnswerSdpCreateSuccessAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pConnectionIncomingAnswerSdpCreateSuccess
-    }
-}
-
-impl ActionKindGet for P2pConnectionIncomingAnswerReadyAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pConnectionIncomingAnswerReady
-    }
-}
-
-impl ActionKindGet for P2pConnectionIncomingAnswerSendSuccessAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pConnectionIncomingAnswerSendSuccess
-    }
-}
-
-impl ActionKindGet for P2pConnectionIncomingFinalizePendingAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pConnectionIncomingFinalizePending
-    }
-}
-
-impl ActionKindGet for P2pConnectionIncomingFinalizeErrorAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pConnectionIncomingFinalizeError
-    }
-}
-
-impl ActionKindGet for P2pConnectionIncomingFinalizeSuccessAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pConnectionIncomingFinalizeSuccess
-    }
-}
-
-impl ActionKindGet for P2pConnectionIncomingTimeoutAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pConnectionIncomingTimeout
-    }
-}
-
-impl ActionKindGet for P2pConnectionIncomingErrorAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pConnectionIncomingError
-    }
-}
-
-impl ActionKindGet for P2pConnectionIncomingSuccessAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pConnectionIncomingSuccess
-    }
-}
-
-impl ActionKindGet for P2pConnectionIncomingLibp2pReceivedAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pConnectionIncomingLibp2pReceived
-    }
-}
-
-impl ActionKindGet for TransitionFrontierSyncLedgerInitAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::TransitionFrontierSyncLedgerInit
     }
 }
 
 impl ActionKindGet for TransitionFrontierSyncLedgerSnarkedAction {
     fn kind(&self) -> ActionKind {
         match self {
-            Self::Pending(a) => a.kind(),
-            Self::PeersQuery(a) => a.kind(),
-            Self::PeerQueryInit(a) => a.kind(),
-            Self::PeerQueryPending(a) => a.kind(),
-            Self::PeerQueryRetry(a) => a.kind(),
-            Self::PeerQueryError(a) => a.kind(),
-            Self::PeerQuerySuccess(a) => a.kind(),
-            Self::ChildHashesReceived(a) => a.kind(),
-            Self::ChildAccountsReceived(a) => a.kind(),
-            Self::Success(a) => a.kind(),
+            Self::Pending => ActionKind::TransitionFrontierSyncLedgerSnarkedPending,
+            Self::PeersQuery => ActionKind::TransitionFrontierSyncLedgerSnarkedPeersQuery,
+            Self::PeerQueryInit { .. } => {
+                ActionKind::TransitionFrontierSyncLedgerSnarkedPeerQueryInit
+            }
+            Self::PeerQueryPending { .. } => {
+                ActionKind::TransitionFrontierSyncLedgerSnarkedPeerQueryPending
+            }
+            Self::PeerQueryRetry { .. } => {
+                ActionKind::TransitionFrontierSyncLedgerSnarkedPeerQueryRetry
+            }
+            Self::PeerQueryError { .. } => {
+                ActionKind::TransitionFrontierSyncLedgerSnarkedPeerQueryError
+            }
+            Self::PeerQuerySuccess { .. } => {
+                ActionKind::TransitionFrontierSyncLedgerSnarkedPeerQuerySuccess
+            }
+            Self::ChildHashesReceived { .. } => {
+                ActionKind::TransitionFrontierSyncLedgerSnarkedChildHashesReceived
+            }
+            Self::ChildAccountsReceived { .. } => {
+                ActionKind::TransitionFrontierSyncLedgerSnarkedChildAccountsReceived
+            }
+            Self::Success => ActionKind::TransitionFrontierSyncLedgerSnarkedSuccess,
         }
     }
 }
@@ -1622,170 +862,44 @@ impl ActionKindGet for TransitionFrontierSyncLedgerSnarkedAction {
 impl ActionKindGet for TransitionFrontierSyncLedgerStagedAction {
     fn kind(&self) -> ActionKind {
         match self {
-            Self::PartsFetchPending(a) => a.kind(),
-            Self::PartsPeerFetchInit(a) => a.kind(),
-            Self::PartsPeerFetchPending(a) => a.kind(),
-            Self::PartsPeerFetchError(a) => a.kind(),
-            Self::PartsPeerFetchSuccess(a) => a.kind(),
-            Self::PartsPeerInvalid(a) => a.kind(),
-            Self::PartsPeerValid(a) => a.kind(),
-            Self::PartsFetchSuccess(a) => a.kind(),
-            Self::ReconstructEmpty(a) => a.kind(),
-            Self::ReconstructInit(a) => a.kind(),
-            Self::ReconstructPending(a) => a.kind(),
-            Self::ReconstructError(a) => a.kind(),
-            Self::ReconstructSuccess(a) => a.kind(),
-            Self::Success(a) => a.kind(),
+            Self::PartsFetchPending => {
+                ActionKind::TransitionFrontierSyncLedgerStagedPartsFetchPending
+            }
+            Self::PartsPeerFetchInit => {
+                ActionKind::TransitionFrontierSyncLedgerStagedPartsPeerFetchInit
+            }
+            Self::PartsPeerFetchPending { .. } => {
+                ActionKind::TransitionFrontierSyncLedgerStagedPartsPeerFetchPending
+            }
+            Self::PartsPeerFetchError { .. } => {
+                ActionKind::TransitionFrontierSyncLedgerStagedPartsPeerFetchError
+            }
+            Self::PartsPeerFetchSuccess { .. } => {
+                ActionKind::TransitionFrontierSyncLedgerStagedPartsPeerFetchSuccess
+            }
+            Self::PartsPeerInvalid { .. } => {
+                ActionKind::TransitionFrontierSyncLedgerStagedPartsPeerInvalid
+            }
+            Self::PartsPeerValid { .. } => {
+                ActionKind::TransitionFrontierSyncLedgerStagedPartsPeerValid
+            }
+            Self::PartsFetchSuccess { .. } => {
+                ActionKind::TransitionFrontierSyncLedgerStagedPartsFetchSuccess
+            }
+            Self::ReconstructEmpty => {
+                ActionKind::TransitionFrontierSyncLedgerStagedReconstructEmpty
+            }
+            Self::ReconstructInit => ActionKind::TransitionFrontierSyncLedgerStagedReconstructInit,
+            Self::ReconstructPending => {
+                ActionKind::TransitionFrontierSyncLedgerStagedReconstructPending
+            }
+            Self::ReconstructError { .. } => {
+                ActionKind::TransitionFrontierSyncLedgerStagedReconstructError
+            }
+            Self::ReconstructSuccess => {
+                ActionKind::TransitionFrontierSyncLedgerStagedReconstructSuccess
+            }
+            Self::Success => ActionKind::TransitionFrontierSyncLedgerStagedSuccess,
         }
-    }
-}
-
-impl ActionKindGet for TransitionFrontierSyncLedgerSuccessAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::TransitionFrontierSyncLedgerSuccess
-    }
-}
-
-impl ActionKindGet for TransitionFrontierSyncLedgerSnarkedPendingAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::TransitionFrontierSyncLedgerSnarkedPending
-    }
-}
-
-impl ActionKindGet for TransitionFrontierSyncLedgerSnarkedPeersQueryAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::TransitionFrontierSyncLedgerSnarkedPeersQuery
-    }
-}
-
-impl ActionKindGet for TransitionFrontierSyncLedgerSnarkedPeerQueryInitAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::TransitionFrontierSyncLedgerSnarkedPeerQueryInit
-    }
-}
-
-impl ActionKindGet for TransitionFrontierSyncLedgerSnarkedPeerQueryPendingAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::TransitionFrontierSyncLedgerSnarkedPeerQueryPending
-    }
-}
-
-impl ActionKindGet for TransitionFrontierSyncLedgerSnarkedPeerQueryRetryAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::TransitionFrontierSyncLedgerSnarkedPeerQueryRetry
-    }
-}
-
-impl ActionKindGet for TransitionFrontierSyncLedgerSnarkedPeerQueryErrorAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::TransitionFrontierSyncLedgerSnarkedPeerQueryError
-    }
-}
-
-impl ActionKindGet for TransitionFrontierSyncLedgerSnarkedPeerQuerySuccessAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::TransitionFrontierSyncLedgerSnarkedPeerQuerySuccess
-    }
-}
-
-impl ActionKindGet for TransitionFrontierSyncLedgerSnarkedChildHashesReceivedAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::TransitionFrontierSyncLedgerSnarkedChildHashesReceived
-    }
-}
-
-impl ActionKindGet for TransitionFrontierSyncLedgerSnarkedChildAccountsReceivedAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::TransitionFrontierSyncLedgerSnarkedChildAccountsReceived
-    }
-}
-
-impl ActionKindGet for TransitionFrontierSyncLedgerSnarkedSuccessAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::TransitionFrontierSyncLedgerSnarkedSuccess
-    }
-}
-
-impl ActionKindGet for TransitionFrontierSyncLedgerStagedPartsFetchPendingAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::TransitionFrontierSyncLedgerStagedPartsFetchPending
-    }
-}
-
-impl ActionKindGet for TransitionFrontierSyncLedgerStagedPartsPeerFetchInitAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::TransitionFrontierSyncLedgerStagedPartsPeerFetchInit
-    }
-}
-
-impl ActionKindGet for TransitionFrontierSyncLedgerStagedPartsPeerFetchPendingAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::TransitionFrontierSyncLedgerStagedPartsPeerFetchPending
-    }
-}
-
-impl ActionKindGet for TransitionFrontierSyncLedgerStagedPartsPeerFetchErrorAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::TransitionFrontierSyncLedgerStagedPartsPeerFetchError
-    }
-}
-
-impl ActionKindGet for TransitionFrontierSyncLedgerStagedPartsPeerFetchSuccessAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::TransitionFrontierSyncLedgerStagedPartsPeerFetchSuccess
-    }
-}
-
-impl ActionKindGet for TransitionFrontierSyncLedgerStagedPartsPeerInvalidAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::TransitionFrontierSyncLedgerStagedPartsPeerInvalid
-    }
-}
-
-impl ActionKindGet for TransitionFrontierSyncLedgerStagedPartsPeerValidAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::TransitionFrontierSyncLedgerStagedPartsPeerValid
-    }
-}
-
-impl ActionKindGet for TransitionFrontierSyncLedgerStagedPartsFetchSuccessAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::TransitionFrontierSyncLedgerStagedPartsFetchSuccess
-    }
-}
-
-impl ActionKindGet for TransitionFrontierSyncLedgerStagedReconstructEmptyAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::TransitionFrontierSyncLedgerStagedReconstructEmpty
-    }
-}
-
-impl ActionKindGet for TransitionFrontierSyncLedgerStagedReconstructInitAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::TransitionFrontierSyncLedgerStagedReconstructInit
-    }
-}
-
-impl ActionKindGet for TransitionFrontierSyncLedgerStagedReconstructPendingAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::TransitionFrontierSyncLedgerStagedReconstructPending
-    }
-}
-
-impl ActionKindGet for TransitionFrontierSyncLedgerStagedReconstructErrorAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::TransitionFrontierSyncLedgerStagedReconstructError
-    }
-}
-
-impl ActionKindGet for TransitionFrontierSyncLedgerStagedReconstructSuccessAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::TransitionFrontierSyncLedgerStagedReconstructSuccess
-    }
-}
-
-impl ActionKindGet for TransitionFrontierSyncLedgerStagedSuccessAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::TransitionFrontierSyncLedgerStagedSuccess
     }
 }

@@ -1,24 +1,21 @@
 use p2p::channels::snark::P2pChannelsSnarkAction;
 use redux::ActionMeta;
 
-use crate::block_producer::{block_producer_effects, BlockProducerWonSlotProduceInitAction};
+use crate::block_producer::{block_producer_effects, BlockProducerAction};
 use crate::consensus::consensus_effects;
 use crate::event_source::event_source_effects;
 use crate::external_snark_worker::external_snark_worker_effects;
 use crate::logger::logger_effects;
 use crate::p2p::channels::rpc::{P2pChannelsRpcAction, P2pRpcKind, P2pRpcRequest};
-use crate::p2p::connection::incoming::P2pConnectionIncomingTimeoutAction;
-use crate::p2p::connection::outgoing::{
-    P2pConnectionOutgoingRandomInitAction, P2pConnectionOutgoingReconnectAction,
-    P2pConnectionOutgoingTimeoutAction,
-};
-use crate::p2p::discovery::{P2pDiscoveryKademliaBootstrapAction, P2pDiscoveryKademliaInitAction};
+use crate::p2p::connection::incoming::P2pConnectionIncomingAction;
+use crate::p2p::connection::outgoing::P2pConnectionOutgoingAction;
+use crate::p2p::discovery::P2pDiscoveryAction;
 use crate::p2p::p2p_effects;
 use crate::rpc::rpc_effects;
 use crate::snark::snark_effects;
 use crate::snark_pool::candidate::SnarkPoolCandidateAction;
 use crate::snark_pool::{snark_pool_effects, SnarkPoolAction};
-use crate::transition_frontier::sync::TransitionFrontierSyncBlocksNextApplyInitAction;
+use crate::transition_frontier::sync::TransitionFrontierSyncAction;
 use crate::transition_frontier::transition_frontier_effects;
 use crate::watched_accounts::watched_accounts_effects;
 use crate::{Action, ActionWithMeta, ExternalSnarkWorkerAction, Service, Store};
@@ -44,7 +41,7 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
 
             p2p_connection_timeouts(store, &meta);
 
-            store.dispatch(P2pConnectionOutgoingRandomInitAction {});
+            store.dispatch(P2pConnectionOutgoingAction::RandomInit);
 
             p2p_try_reconnect_disconnected_peers(store);
 
@@ -58,8 +55,8 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
 
             p2p_request_snarks_if_needed(store);
 
-            store.dispatch(P2pDiscoveryKademliaBootstrapAction {});
-            store.dispatch(P2pDiscoveryKademliaInitAction {});
+            store.dispatch(P2pDiscoveryAction::KademliaBootstrap);
+            store.dispatch(P2pDiscoveryAction::KademliaInit);
             #[cfg(feature = "p2p-webrtc")]
             p2p_discovery_request(store, &meta);
 
@@ -69,12 +66,12 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
             }
 
             // TODO(binier): remove once ledger communication is async.
-            store.dispatch(TransitionFrontierSyncBlocksNextApplyInitAction {});
+            store.dispatch(TransitionFrontierSyncAction::BlocksNextApplyInit);
 
             store.dispatch(ExternalSnarkWorkerAction::StartTimeout { now: meta.time() });
             store.dispatch(ExternalSnarkWorkerAction::WorkTimeout { now: meta.time() });
 
-            store.dispatch(BlockProducerWonSlotProduceInitAction {});
+            store.dispatch(BlockProducerAction::WonSlotProduceInit);
         }
         Action::EventSource(action) => {
             event_source_effects(store, meta.with_action(action));
@@ -127,8 +124,8 @@ fn p2p_connection_timeouts<S: Service>(store: &mut Store<S>, meta: &ActionMeta) 
 
     for (peer_id, is_outgoing) in p2p_connection_timeouts {
         match is_outgoing {
-            true => store.dispatch(P2pConnectionOutgoingTimeoutAction { peer_id }),
-            false => store.dispatch(P2pConnectionIncomingTimeoutAction { peer_id }),
+            true => store.dispatch(P2pConnectionOutgoingAction::Timeout { peer_id }),
+            false => store.dispatch(P2pConnectionIncomingAction::Timeout { peer_id }),
         };
     }
 }
@@ -140,7 +137,7 @@ fn p2p_try_reconnect_disconnected_peers<S: Service>(store: &mut Store<S>) {
         .peers
         .iter()
         .filter_map(|(_, p)| p.dial_opts.clone())
-        .map(|opts| P2pConnectionOutgoingReconnectAction { opts, rpc_id: None })
+        .map(|opts| P2pConnectionOutgoingAction::Reconnect { opts, rpc_id: None })
         .collect();
     for action in reconnect_actions {
         store.dispatch(action);
@@ -214,8 +211,6 @@ fn p2p_request_snarks_if_needed<S: Service>(store: &mut Store<S>) {
 /// If the elapsed time is large enough, send another discovery request.
 #[cfg(feature = "p2p-webrtc")]
 fn p2p_discovery_request<S: Service>(store: &mut Store<S>, meta: &ActionMeta) {
-    use crate::p2p::discovery::P2pDiscoveryInitAction;
-
     let peer_ids = store
         .state()
         .p2p
@@ -245,6 +240,6 @@ fn p2p_discovery_request<S: Service>(store: &mut Store<S>, meta: &ActionMeta) {
         .collect::<Vec<_>>();
 
     for peer_id in peer_ids {
-        store.dispatch(P2pDiscoveryInitAction { peer_id });
+        store.dispatch(P2pDiscoveryAction::Init { peer_id });
     }
 }

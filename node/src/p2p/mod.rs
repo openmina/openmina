@@ -47,53 +47,15 @@ macro_rules! impl_into_global_action {
     };
 }
 
-impl_into_global_action!(listen::P2pListenNewAction);
-impl_into_global_action!(listen::P2pListenExpiredAction);
-impl_into_global_action!(listen::P2pListenErrorAction);
-impl_into_global_action!(listen::P2pListenClosedAction);
+impl_into_global_action!(listen::P2pListenAction);
 
-impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingRandomInitAction);
-impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingInitAction);
-impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingReconnectAction);
-impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingOfferSdpCreatePendingAction);
-impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingOfferSdpCreateErrorAction);
-impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingOfferSdpCreateSuccessAction);
-impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingOfferReadyAction);
-impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingOfferSendSuccessAction);
-impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingAnswerRecvPendingAction);
-impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingAnswerRecvErrorAction);
-impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingAnswerRecvSuccessAction);
-impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingFinalizePendingAction);
-impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingFinalizeErrorAction);
-impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingFinalizeSuccessAction);
-impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingTimeoutAction);
-impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingErrorAction);
-impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingSuccessAction);
+impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingAction);
 
-impl_into_global_action!(connection::incoming::P2pConnectionIncomingInitAction);
-impl_into_global_action!(connection::incoming::P2pConnectionIncomingAnswerSdpCreatePendingAction);
-impl_into_global_action!(connection::incoming::P2pConnectionIncomingAnswerSdpCreateErrorAction);
-impl_into_global_action!(connection::incoming::P2pConnectionIncomingAnswerSdpCreateSuccessAction);
-impl_into_global_action!(connection::incoming::P2pConnectionIncomingAnswerReadyAction);
-impl_into_global_action!(connection::incoming::P2pConnectionIncomingAnswerSendSuccessAction);
-impl_into_global_action!(connection::incoming::P2pConnectionIncomingFinalizePendingAction);
-impl_into_global_action!(connection::incoming::P2pConnectionIncomingFinalizeErrorAction);
-impl_into_global_action!(connection::incoming::P2pConnectionIncomingFinalizeSuccessAction);
-impl_into_global_action!(connection::incoming::P2pConnectionIncomingTimeoutAction);
-impl_into_global_action!(connection::incoming::P2pConnectionIncomingErrorAction);
-impl_into_global_action!(connection::incoming::P2pConnectionIncomingSuccessAction);
-impl_into_global_action!(connection::incoming::P2pConnectionIncomingLibp2pReceivedAction);
+impl_into_global_action!(connection::incoming::P2pConnectionIncomingAction);
 
-impl_into_global_action!(disconnection::P2pDisconnectionInitAction);
-impl_into_global_action!(disconnection::P2pDisconnectionFinishAction);
+impl_into_global_action!(disconnection::P2pDisconnectionAction);
 
-impl_into_global_action!(discovery::P2pDiscoveryInitAction);
-impl_into_global_action!(discovery::P2pDiscoverySuccessAction);
-impl_into_global_action!(discovery::P2pDiscoveryKademliaBootstrapAction);
-impl_into_global_action!(discovery::P2pDiscoveryKademliaInitAction);
-impl_into_global_action!(discovery::P2pDiscoveryKademliaSuccessAction);
-impl_into_global_action!(discovery::P2pDiscoveryKademliaFailureAction);
-impl_into_global_action!(discovery::P2pDiscoveryKademliaAddRouteAction);
+impl_into_global_action!(discovery::P2pDiscoveryAction);
 
 impl_into_global_action!(channels::P2pChannelsMessageReceivedAction);
 

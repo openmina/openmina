@@ -6,21 +6,21 @@ pub fn p2p_peer_reducer(state: &mut P2pState, action: P2pPeerActionWithMetaRef<'
     let (action, meta) = action.split();
 
     match action {
-        P2pPeerAction::Ready(action) => {
-            let Some(peer) = state.peers.get_mut(&action.peer_id) else {
+        P2pPeerAction::Ready { peer_id, incoming } => {
+            let Some(peer) = state.peers.get_mut(peer_id) else {
                 return;
             };
             peer.status = P2pPeerStatus::Ready(P2pPeerStatusReady::new(
-                action.incoming,
+                *incoming,
                 meta.time(),
                 &state.config.enabled_channels,
             ));
         }
-        P2pPeerAction::BestTipUpdate(action) => {
-            let Some(peer) = state.get_ready_peer_mut(&action.peer_id) else {
+        P2pPeerAction::BestTipUpdate { peer_id, best_tip } => {
+            let Some(peer) = state.get_ready_peer_mut(peer_id) else {
                 return;
             };
-            peer.best_tip = Some(action.best_tip.clone());
+            peer.best_tip = Some(best_tip.clone());
         }
     }
 }

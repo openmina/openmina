@@ -9,11 +9,11 @@ impl TransitionFrontierSyncLedgerSnarkedState {
     pub fn reducer(&mut self, action: TransitionFrontierSyncLedgerSnarkedActionWithMetaRef<'_>) {
         let (action, meta) = action.split();
         match action {
-            TransitionFrontierSyncLedgerSnarkedAction::Pending(_) => {
+            TransitionFrontierSyncLedgerSnarkedAction::Pending => {
                 // handled in parent reducer.
             }
-            TransitionFrontierSyncLedgerSnarkedAction::PeersQuery(_) => {}
-            TransitionFrontierSyncLedgerSnarkedAction::PeerQueryInit(action) => {
+            TransitionFrontierSyncLedgerSnarkedAction::PeersQuery => {}
+            TransitionFrontierSyncLedgerSnarkedAction::PeerQueryInit { address, peer_id } => {
                 if let Self::Pending {
                     pending,
                     next_addr,
@@ -22,11 +22,11 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                 } = self
                 {
                     pending.insert(
-                        action.address.clone(),
+                        address.clone(),
                         LedgerQueryPending {
                             time: meta.time(),
                             attempts: std::iter::once((
-                                action.peer_id,
+                                *peer_id,
                                 PeerRpcState::Init { time: meta.time() },
                             ))
                             .collect(),
@@ -54,54 +54,66 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                         .filter(|addr| addr.length() < LEDGER_DEPTH);
                 }
             }
-            TransitionFrontierSyncLedgerSnarkedAction::PeerQueryRetry(action) => {
+            TransitionFrontierSyncLedgerSnarkedAction::PeerQueryRetry { address, peer_id } => {
                 if let Self::Pending { pending, .. } = self {
-                    if let Some(pending) = pending.get_mut(&action.address) {
+                    if let Some(pending) = pending.get_mut(address) {
                         pending
                             .attempts
-                            .insert(action.peer_id, PeerRpcState::Init { time: meta.time() });
+                            .insert(*peer_id, PeerRpcState::Init { time: meta.time() });
                     }
                 }
             }
-            TransitionFrontierSyncLedgerSnarkedAction::PeerQueryPending(action) => {
+            TransitionFrontierSyncLedgerSnarkedAction::PeerQueryPending {
+                address,
+                peer_id,
+                rpc_id,
+            } => {
                 let Self::Pending { pending, .. } = self else {
                     return;
                 };
                 let Some(rpc_state) = pending
-                    .get_mut(&action.address)
-                    .and_then(|s| s.attempts.get_mut(&action.peer_id))
+                    .get_mut(address)
+                    .and_then(|s| s.attempts.get_mut(peer_id))
                 else {
                     return;
                 };
 
                 *rpc_state = PeerRpcState::Pending {
                     time: meta.time(),
-                    rpc_id: action.rpc_id,
+                    rpc_id: *rpc_id,
                 };
             }
-            TransitionFrontierSyncLedgerSnarkedAction::PeerQueryError(action) => {
-                let Some(rpc_state) = self.peer_query_get_mut(&action.peer_id, action.rpc_id)
-                else {
+            TransitionFrontierSyncLedgerSnarkedAction::PeerQueryError {
+                peer_id,
+                rpc_id,
+                error,
+            } => {
+                let Some(rpc_state) = self.peer_query_get_mut(peer_id, *rpc_id) else {
                     return;
                 };
 
                 *rpc_state = PeerRpcState::Error {
                     time: meta.time(),
-                    rpc_id: action.rpc_id,
-                    error: action.error.clone(),
+                    rpc_id: *rpc_id,
+                    error: error.clone(),
                 };
             }
-            TransitionFrontierSyncLedgerSnarkedAction::PeerQuerySuccess(action) => {
-                let Some(rpc_state) = self.peer_query_get_mut(&action.peer_id, action.rpc_id)
-                else {
+            TransitionFrontierSyncLedgerSnarkedAction::PeerQuerySuccess {
+                peer_id, rpc_id, ..
+            } => {
+                let Some(rpc_state) = self.peer_query_get_mut(peer_id, *rpc_id) else {
                     return;
                 };
                 *rpc_state = PeerRpcState::Success {
                     time: meta.time(),
-                    rpc_id: action.rpc_id,
+                    rpc_id: *rpc_id,
                 };
             }
-            TransitionFrontierSyncLedgerSnarkedAction::ChildHashesReceived(action) => {
+            TransitionFrontierSyncLedgerSnarkedAction::ChildHashesReceived {
+                address,
+                hashes,
+                ..
+            } => {
                 let Self::Pending {
                     pending,
                     next_addr,
@@ -111,9 +123,9 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                 else {
                     return;
                 };
-                let addr = &action.address;
+                let addr = address;
                 pending.remove(&addr);
-                let (left, right) = &action.hashes;
+                let (left, right) = hashes;
 
                 let empty_hash = ledger_empty_hash_at_depth(addr.length() + 1);
                 if right == &empty_hash {
@@ -131,13 +143,15 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                     }
                 }
             }
-            TransitionFrontierSyncLedgerSnarkedAction::ChildAccountsReceived(action) => {
+            TransitionFrontierSyncLedgerSnarkedAction::ChildAccountsReceived {
+                address, ..
+            } => {
                 let Self::Pending { pending, .. } = self else {
                     return;
                 };
-                pending.remove(&action.address);
+                pending.remove(address);
             }
-            TransitionFrontierSyncLedgerSnarkedAction::Success(_) => {
+            TransitionFrontierSyncLedgerSnarkedAction::Success => {
                 let Self::Pending { target, .. } = self else {
                     return;
                 };

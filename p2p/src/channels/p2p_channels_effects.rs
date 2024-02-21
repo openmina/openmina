@@ -1,7 +1,7 @@
 use openmina_core::block::BlockWithHash;
 use redux::ActionMeta;
 
-use crate::disconnection::{P2pDisconnectionInitAction, P2pDisconnectionReason};
+use crate::disconnection::{P2pDisconnectionAction, P2pDisconnectionReason};
 
 use super::{
     best_tip::{BestTipPropagationChannelMsg, P2pChannelsBestTipAction},
@@ -21,7 +21,7 @@ impl P2pChannelsMessageReceivedAction {
         P2pChannelsSnarkAction: redux::EnablingCondition<S>,
         P2pChannelsSnarkJobCommitmentAction: redux::EnablingCondition<S>,
         P2pChannelsRpcAction: redux::EnablingCondition<S>,
-        P2pDisconnectionInitAction: redux::EnablingCondition<S>,
+        P2pDisconnectionAction: redux::EnablingCondition<S>,
     {
         let peer_id = self.peer_id;
         let chan_id = self.message.channel_id();
@@ -89,7 +89,7 @@ impl P2pChannelsMessageReceivedAction {
 
         if !was_expected {
             let reason = P2pDisconnectionReason::P2pChannelMsgUnexpected(chan_id);
-            store.dispatch(P2pDisconnectionInitAction { peer_id, reason });
+            store.dispatch(P2pDisconnectionAction::Init { peer_id, reason });
         }
     }
 }

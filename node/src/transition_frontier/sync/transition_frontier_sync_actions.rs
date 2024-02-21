@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use crate::p2p::channels::rpc::P2pRpcId;
 use crate::p2p::PeerId;
 use crate::transition_frontier::sync::TransitionFrontierSyncLedgerPending;
+use crate::TransitionFrontierAction;
 
 use super::ledger::{
     SyncLedgerTarget, TransitionFrontierSyncLedgerAction, TransitionFrontierSyncLedgerState,
@@ -16,436 +17,282 @@ pub type TransitionFrontierSyncActionWithMeta = redux::ActionWithMeta<Transition
 pub type TransitionFrontierSyncActionWithMetaRef<'a> =
     redux::ActionWithMeta<&'a TransitionFrontierSyncAction>;
 
-#[derive(derive_more::From, Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum TransitionFrontierSyncAction {
     /// Set transition frontier target to new best tip (for still unsynced frontiers)
-    Init(TransitionFrontierSyncInitAction),
+    Init {
+        best_tip: ArcBlockWithHash,
+        root_block: ArcBlockWithHash,
+        blocks_inbetween: Vec<StateHash>,
+    },
     /// Set sync target to a new best tip (for already synced frontiers)
-    BestTipUpdate(TransitionFrontierSyncBestTipUpdateAction),
+    BestTipUpdate {
+        best_tip: ArcBlockWithHash,
+        root_block: ArcBlockWithHash,
+        blocks_inbetween: Vec<StateHash>,
+    },
     /// Staking Ledger sync is pending
-    LedgerStakingPending(TransitionFrontierSyncLedgerStakingPendingAction),
+    LedgerStakingPending,
     /// Staking Ledger sync was successful
-    LedgerStakingSuccess(TransitionFrontierSyncLedgerStakingSuccessAction),
+    LedgerStakingSuccess,
     /// Next Epoch Ledger sync is pending
-    LedgerNextEpochPending(TransitionFrontierSyncLedgerNextEpochPendingAction),
+    LedgerNextEpochPending,
     /// Next Epoch Ledger sync was successful
-    LedgerNextEpochSuccess(TransitionFrontierSyncLedgerNextEpochSuccessAction),
+    LedgerNextEpochSuccess,
     /// Transition frontier Root Ledger sync is pending
-    LedgerRootPending(TransitionFrontierSyncLedgerRootPendingAction),
+    LedgerRootPending,
     /// Transition frontier Root Ledger sync was successful
-    LedgerRootSuccess(TransitionFrontierSyncLedgerRootSuccessAction),
-    BlocksPending(TransitionFrontierSyncBlocksPendingAction),
-    BlocksPeersQuery(TransitionFrontierSyncBlocksPeersQueryAction),
-    BlocksPeerQueryInit(TransitionFrontierSyncBlocksPeerQueryInitAction),
-    BlocksPeerQueryRetry(TransitionFrontierSyncBlocksPeerQueryRetryAction),
-    BlocksPeerQueryPending(TransitionFrontierSyncBlocksPeerQueryPendingAction),
-    BlocksPeerQueryError(TransitionFrontierSyncBlocksPeerQueryErrorAction),
-    BlocksPeerQuerySuccess(TransitionFrontierSyncBlocksPeerQuerySuccessAction),
-    BlocksFetchSuccess(TransitionFrontierSyncBlocksFetchSuccessAction),
-    BlocksNextApplyInit(TransitionFrontierSyncBlocksNextApplyInitAction),
-    BlocksNextApplyPending(TransitionFrontierSyncBlocksNextApplyPendingAction),
-    BlocksNextApplySuccess(TransitionFrontierSyncBlocksNextApplySuccessAction),
-    BlocksSuccess(TransitionFrontierSyncBlocksSuccessAction),
-
+    LedgerRootSuccess,
+    BlocksPending,
+    BlocksPeersQuery,
+    BlocksPeerQueryInit {
+        hash: StateHash,
+        peer_id: PeerId,
+    },
+    BlocksPeerQueryRetry {
+        hash: StateHash,
+        peer_id: PeerId,
+    },
+    BlocksPeerQueryPending {
+        hash: StateHash,
+        peer_id: PeerId,
+        rpc_id: P2pRpcId,
+    },
+    BlocksPeerQueryError {
+        peer_id: PeerId,
+        rpc_id: P2pRpcId,
+        error: PeerBlockFetchError,
+    },
+    BlocksPeerQuerySuccess {
+        peer_id: PeerId,
+        rpc_id: P2pRpcId,
+        response: ArcBlockWithHash,
+    },
+    BlocksFetchSuccess {
+        hash: StateHash,
+    },
+    BlocksNextApplyInit,
+    BlocksNextApplyPending {
+        hash: StateHash,
+    },
+    BlocksNextApplySuccess {
+        hash: StateHash,
+    },
+    BlocksSuccess,
     /// Synchronization to a target ledger
     Ledger(TransitionFrontierSyncLedgerAction),
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransitionFrontierSyncInitAction {
-    pub best_tip: ArcBlockWithHash,
-    pub root_block: ArcBlockWithHash,
-    pub blocks_inbetween: Vec<StateHash>,
-}
-
-impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncInitAction {
+impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncAction {
     fn is_enabled(&self, state: &crate::State) -> bool {
-        !state.transition_frontier.sync.is_pending()
-            && !state.transition_frontier.sync.is_synced()
-            && state
-                .transition_frontier
-                .best_tip()
-                .map_or(true, |tip| self.best_tip.hash != tip.hash)
-            && state
-                .consensus
-                .best_tip()
-                .map_or(false, |tip| &self.best_tip.hash == tip.hash)
-    }
-}
+        match self {
+            TransitionFrontierSyncAction::Init { best_tip, .. } => {
+                !state.transition_frontier.sync.is_pending()
+                    && !state.transition_frontier.sync.is_synced()
+                    && state
+                        .transition_frontier
+                        .best_tip()
+                        .map_or(true, |tip| best_tip.hash != tip.hash)
+                    && state
+                        .consensus
+                        .best_tip()
+                        .map_or(false, |tip| &best_tip.hash == tip.hash)
+            }
+            TransitionFrontierSyncAction::BestTipUpdate { best_tip, .. } => {
+                (state.transition_frontier.sync.is_pending() || state.transition_frontier.sync.is_synced())
+                && state
+                    .transition_frontier
+                    .best_tip()
+                    .map_or(true, |tip| best_tip.hash != tip.hash)
+                && state
+                    .transition_frontier
+                    .sync
+                    .best_tip()
+                    .map_or(true, |tip| best_tip.hash != tip.hash)
+                // TODO(binier): TMP. we shouldn't need to check consensus here.
+                && state
+                    .transition_frontier
+                    .sync
+                    .best_tip()
+                    .or(state.transition_frontier.best_tip())
+                    .map_or(false, |tip| {
+                        consensus_take(tip.consensus_state(), best_tip.consensus_state(), tip.hash(), best_tip.hash())
+                    })
+                // Don't sync to best tip if we are in the middle of producing
+                // a block unless that best tip candidate is better consensus-wise
+                // than the one that we are producing.
+                //
+                // Otherwise other block producers might spam the network
+                // with blocks that are better than current best tip, yet
+                // inferior to the block that we are producing and we can't
+                // let that get in the way of us producing a block.
+                && state.block_producer.producing_won_slot()
+                    .filter(|_| !state.block_producer.is_me(best_tip.producer()))
+                    // TODO(binier): check if candidate best tip is short or
+                    // long range fork and based on that compare slot that
+                    // we are producing.
+                    .map_or(true, |won_slot| won_slot < best_tip)
+            }
+            TransitionFrontierSyncAction::LedgerStakingPending => {
+                matches!(
+                    state.transition_frontier.sync,
+                    TransitionFrontierSyncState::Init { .. }
+                )
+            }
+            TransitionFrontierSyncAction::LedgerStakingSuccess => matches!(
+                state.transition_frontier.sync,
+                TransitionFrontierSyncState::StakingLedgerPending(
+                    TransitionFrontierSyncLedgerPending {
+                        ledger: TransitionFrontierSyncLedgerState::Success { .. },
+                        ..
+                    }
+                )
+            ),
+            TransitionFrontierSyncAction::LedgerNextEpochPending => {
+                match &state.transition_frontier.sync {
+                    TransitionFrontierSyncState::StakingLedgerSuccess {
+                        best_tip,
+                        root_block,
+                        ..
+                    } => SyncLedgerTarget::next_epoch(best_tip, root_block).is_some(),
+                    _ => false,
+                }
+            }
+            TransitionFrontierSyncAction::LedgerNextEpochSuccess => matches!(
+                state.transition_frontier.sync,
+                TransitionFrontierSyncState::NextEpochLedgerPending(
+                    TransitionFrontierSyncLedgerPending {
+                        ledger: TransitionFrontierSyncLedgerState::Success { .. },
+                        ..
+                    }
+                )
+            ),
+            TransitionFrontierSyncAction::LedgerRootPending => {
+                match &state.transition_frontier.sync {
+                    TransitionFrontierSyncState::StakingLedgerSuccess {
+                        best_tip,
+                        root_block,
+                        ..
+                    } => SyncLedgerTarget::next_epoch(best_tip, root_block).is_none(),
+                    TransitionFrontierSyncState::NextEpochLedgerSuccess { .. } => true,
+                    _ => false,
+                }
+            }
+            TransitionFrontierSyncAction::LedgerRootSuccess => matches!(
+                state.transition_frontier.sync,
+                TransitionFrontierSyncState::RootLedgerPending(
+                    TransitionFrontierSyncLedgerPending {
+                        ledger: TransitionFrontierSyncLedgerState::Success { .. },
+                        ..
+                    }
+                )
+            ),
+            TransitionFrontierSyncAction::BlocksPending => matches!(
+                state.transition_frontier.sync,
+                TransitionFrontierSyncState::RootLedgerSuccess { .. }
+            ),
+            TransitionFrontierSyncAction::BlocksPeersQuery => {
+                let peers_available = state
+                    .p2p
+                    .ready_peers_iter()
+                    .any(|(_, p)| p.channels.rpc.can_send_request());
+                let sync = &state.transition_frontier.sync;
+                peers_available
+                    && (sync.blocks_fetch_next().is_some()
+                        || sync.blocks_fetch_retry_iter().next().is_some())
+            }
+            TransitionFrontierSyncAction::BlocksPeerQueryInit { hash, peer_id } => {
+                let check_next_hash = state
+                    .transition_frontier
+                    .sync
+                    .blocks_fetch_next()
+                    .map_or(false, |expected| &expected == hash);
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransitionFrontierSyncBestTipUpdateAction {
-    pub best_tip: ArcBlockWithHash,
-    pub root_block: ArcBlockWithHash,
-    pub blocks_inbetween: Vec<StateHash>,
-}
+                let check_peer_available = state
+                    .p2p
+                    .get_ready_peer(peer_id)
+                    .and_then(|p| {
+                        let sync_best_tip = state.transition_frontier.sync.best_tip()?;
+                        let peer_best_tip = p.best_tip.as_ref()?;
+                        Some(p).filter(|_| sync_best_tip.hash == peer_best_tip.hash)
+                    })
+                    .map_or(false, |p| p.channels.rpc.can_send_request());
 
-impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncBestTipUpdateAction {
-    fn is_enabled(&self, state: &crate::State) -> bool {
-        (state.transition_frontier.sync.is_pending() || state.transition_frontier.sync.is_synced())
-            && state
-                .transition_frontier
-                .best_tip()
-                .map_or(true, |tip| self.best_tip.hash != tip.hash)
-            && state
+                check_next_hash && check_peer_available
+            }
+            TransitionFrontierSyncAction::BlocksPeerQueryRetry { hash, peer_id } => {
+                let check_next_hash = state
+                    .transition_frontier
+                    .sync
+                    .blocks_fetch_retry_iter()
+                    .next()
+                    .map_or(false, |expected| &expected == hash);
+
+                let check_peer_available = state
+                    .p2p
+                    .get_ready_peer(peer_id)
+                    .and_then(|p| {
+                        let sync_best_tip = state.transition_frontier.sync.best_tip()?;
+                        let peer_best_tip = p.best_tip.as_ref()?;
+                        Some(p).filter(|_| sync_best_tip.hash == peer_best_tip.hash)
+                    })
+                    .map_or(false, |p| p.channels.rpc.can_send_request());
+
+                check_next_hash && check_peer_available
+            }
+            TransitionFrontierSyncAction::BlocksPeerQueryPending { hash, peer_id, .. } => state
                 .transition_frontier
                 .sync
-                .best_tip()
-                .map_or(true, |tip| self.best_tip.hash != tip.hash)
-            // TODO(binier): TMP. we shouldn't need to check consensus here.
-            && state
+                .block_state(hash)
+                .map_or(false, |b| b.is_fetch_init_from_peer(peer_id)),
+            TransitionFrontierSyncAction::BlocksPeerQueryError {
+                peer_id, rpc_id, ..
+            } => state
                 .transition_frontier
                 .sync
-                .best_tip()
-                .or(state.transition_frontier.best_tip())
-                .map_or(false, |tip| {
-                    consensus_take(tip.consensus_state(), self.best_tip.consensus_state(), tip.hash(), self.best_tip.hash())
-                })
-            // Don't sync to best tip if we are in the middle of producing
-            // a block unless that best tip candidate is better consensus-wise
-            // than the one that we are producing.
-            //
-            // Otherwise other block producers might spam the network
-            // with blocks that are better than current best tip, yet
-            // inferior to the block that we are producing and we can't
-            // let that get in the way of us producing a block.
-            && state.block_producer.producing_won_slot()
-                .filter(|_| !state.block_producer.is_me(self.best_tip.producer()))
-                // TODO(binier): check if candidate best tip is short or
-                // long range fork and based on that compare slot that
-                // we are producing.
-                .map_or(true, |won_slot| won_slot < &self.best_tip)
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransitionFrontierSyncLedgerStakingPendingAction {}
-
-impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerStakingPendingAction {
-    fn is_enabled(&self, state: &crate::State) -> bool {
-        matches!(
-            state.transition_frontier.sync,
-            TransitionFrontierSyncState::Init { .. }
-        )
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransitionFrontierSyncLedgerStakingSuccessAction {}
-
-impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerStakingSuccessAction {
-    fn is_enabled(&self, state: &crate::State) -> bool {
-        matches!(
-            state.transition_frontier.sync,
-            TransitionFrontierSyncState::StakingLedgerPending(
-                TransitionFrontierSyncLedgerPending {
-                    ledger: TransitionFrontierSyncLedgerState::Success { .. },
-                    ..
-                }
-            )
-        )
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransitionFrontierSyncLedgerNextEpochPendingAction {}
-
-impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerNextEpochPendingAction {
-    fn is_enabled(&self, state: &crate::State) -> bool {
-        match &state.transition_frontier.sync {
-            TransitionFrontierSyncState::StakingLedgerSuccess {
-                best_tip,
-                root_block,
-                ..
-            } => SyncLedgerTarget::next_epoch(best_tip, root_block).is_some(),
-            _ => false,
-        }
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransitionFrontierSyncLedgerNextEpochSuccessAction {}
-
-impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerNextEpochSuccessAction {
-    fn is_enabled(&self, state: &crate::State) -> bool {
-        matches!(
-            state.transition_frontier.sync,
-            TransitionFrontierSyncState::NextEpochLedgerPending(
-                TransitionFrontierSyncLedgerPending {
-                    ledger: TransitionFrontierSyncLedgerState::Success { .. },
-                    ..
-                }
-            )
-        )
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransitionFrontierSyncLedgerRootPendingAction {}
-
-impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerRootPendingAction {
-    fn is_enabled(&self, state: &crate::State) -> bool {
-        match &state.transition_frontier.sync {
-            TransitionFrontierSyncState::StakingLedgerSuccess {
-                best_tip,
-                root_block,
-                ..
-            } => SyncLedgerTarget::next_epoch(best_tip, root_block).is_none(),
-            TransitionFrontierSyncState::NextEpochLedgerSuccess { .. } => true,
-            _ => false,
-        }
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransitionFrontierSyncLedgerRootSuccessAction {}
-
-impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerRootSuccessAction {
-    fn is_enabled(&self, state: &crate::State) -> bool {
-        matches!(
-            state.transition_frontier.sync,
-            TransitionFrontierSyncState::RootLedgerPending(TransitionFrontierSyncLedgerPending {
-                ledger: TransitionFrontierSyncLedgerState::Success { .. },
-                ..
-            })
-        )
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransitionFrontierSyncBlocksPendingAction {}
-
-impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncBlocksPendingAction {
-    fn is_enabled(&self, state: &crate::State) -> bool {
-        matches!(
-            state.transition_frontier.sync,
-            TransitionFrontierSyncState::RootLedgerSuccess { .. }
-        )
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransitionFrontierSyncBlocksPeersQueryAction {}
-
-impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncBlocksPeersQueryAction {
-    fn is_enabled(&self, state: &crate::State) -> bool {
-        let peers_available = state
-            .p2p
-            .ready_peers_iter()
-            .any(|(_, p)| p.channels.rpc.can_send_request());
-        let sync = &state.transition_frontier.sync;
-        peers_available
-            && (sync.blocks_fetch_next().is_some()
-                || sync.blocks_fetch_retry_iter().next().is_some())
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransitionFrontierSyncBlocksPeerQueryInitAction {
-    pub hash: StateHash,
-    pub peer_id: PeerId,
-}
-
-impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncBlocksPeerQueryInitAction {
-    fn is_enabled(&self, state: &crate::State) -> bool {
-        let check_next_hash = state
-            .transition_frontier
-            .sync
-            .blocks_fetch_next()
-            .map_or(false, |expected| expected == self.hash);
-
-        let check_peer_available = state
-            .p2p
-            .get_ready_peer(&self.peer_id)
-            .and_then(|p| {
-                let sync_best_tip = state.transition_frontier.sync.best_tip()?;
-                let peer_best_tip = p.best_tip.as_ref()?;
-                Some(p).filter(|_| sync_best_tip.hash == peer_best_tip.hash)
-            })
-            .map_or(false, |p| p.channels.rpc.can_send_request());
-
-        check_next_hash && check_peer_available
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransitionFrontierSyncBlocksPeerQueryRetryAction {
-    pub hash: StateHash,
-    pub peer_id: PeerId,
-}
-
-impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncBlocksPeerQueryRetryAction {
-    fn is_enabled(&self, state: &crate::State) -> bool {
-        let check_next_hash = state
-            .transition_frontier
-            .sync
-            .blocks_fetch_retry_iter()
-            .next()
-            .map_or(false, |expected| expected == self.hash);
-
-        let check_peer_available = state
-            .p2p
-            .get_ready_peer(&self.peer_id)
-            .and_then(|p| {
-                let sync_best_tip = state.transition_frontier.sync.best_tip()?;
-                let peer_best_tip = p.best_tip.as_ref()?;
-                Some(p).filter(|_| sync_best_tip.hash == peer_best_tip.hash)
-            })
-            .map_or(false, |p| p.channels.rpc.can_send_request());
-
-        check_next_hash && check_peer_available
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransitionFrontierSyncBlocksPeerQueryPendingAction {
-    pub hash: StateHash,
-    pub peer_id: PeerId,
-    pub rpc_id: P2pRpcId,
-}
-
-impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncBlocksPeerQueryPendingAction {
-    fn is_enabled(&self, state: &crate::State) -> bool {
-        state
-            .transition_frontier
-            .sync
-            .block_state(&self.hash)
-            .map_or(false, |b| b.is_fetch_init_from_peer(&self.peer_id))
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransitionFrontierSyncBlocksPeerQueryErrorAction {
-    pub peer_id: PeerId,
-    pub rpc_id: P2pRpcId,
-    pub error: PeerBlockFetchError,
-}
-
-impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncBlocksPeerQueryErrorAction {
-    fn is_enabled(&self, state: &crate::State) -> bool {
-        state
-            .transition_frontier
-            .sync
-            .blocks_iter()
-            .any(|s| s.is_fetch_pending_from_peer(&self.peer_id, self.rpc_id))
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransitionFrontierSyncBlocksPeerQuerySuccessAction {
-    pub peer_id: PeerId,
-    pub rpc_id: P2pRpcId,
-    pub response: ArcBlockWithHash,
-}
-
-impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncBlocksPeerQuerySuccessAction {
-    fn is_enabled(&self, state: &crate::State) -> bool {
-        state
-            .transition_frontier
-            .sync
-            .block_state(&self.response.hash)
-            .filter(|s| s.is_fetch_pending_from_peer(&self.peer_id, self.rpc_id))
-            .map_or(false, |s| s.block_hash() == &self.response.hash)
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransitionFrontierSyncBlocksFetchSuccessAction {
-    pub hash: StateHash,
-}
-
-impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncBlocksFetchSuccessAction {
-    fn is_enabled(&self, state: &crate::State) -> bool {
-        state
-            .transition_frontier
-            .sync
-            .block_state(&self.hash)
-            .map_or(false, |s| s.fetch_pending_fetched_block().is_some())
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransitionFrontierSyncBlocksNextApplyInitAction {}
-
-impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncBlocksNextApplyInitAction {
-    fn is_enabled(&self, state: &crate::State) -> bool {
-        state.transition_frontier.sync.blocks_apply_next().is_some()
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransitionFrontierSyncBlocksNextApplyPendingAction {
-    pub hash: StateHash,
-}
-
-impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncBlocksNextApplyPendingAction {
-    fn is_enabled(&self, state: &crate::State) -> bool {
-        state
-            .transition_frontier
-            .sync
-            .blocks_apply_next()
-            .map_or(false, |(b, _)| b.hash == self.hash)
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransitionFrontierSyncBlocksNextApplySuccessAction {
-    pub hash: StateHash,
-}
-
-impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncBlocksNextApplySuccessAction {
-    fn is_enabled(&self, state: &crate::State) -> bool {
-        state
-            .transition_frontier
-            .sync
-            .blocks_apply_pending()
-            .map_or(false, |b| b.hash == self.hash)
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct TransitionFrontierSyncBlocksSuccessAction {}
-
-impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncBlocksSuccessAction {
-    fn is_enabled(&self, state: &crate::State) -> bool {
-        match &state.transition_frontier.sync {
-            TransitionFrontierSyncState::BlocksPending { chain, .. } => {
-                chain.iter().all(|v| v.is_apply_success())
+                .blocks_iter()
+                .any(|s| s.is_fetch_pending_from_peer(peer_id, *rpc_id)),
+            TransitionFrontierSyncAction::BlocksPeerQuerySuccess {
+                peer_id,
+                rpc_id,
+                response,
+            } => state
+                .transition_frontier
+                .sync
+                .block_state(&response.hash)
+                .filter(|s| s.is_fetch_pending_from_peer(peer_id, *rpc_id))
+                .map_or(false, |s| s.block_hash() == &response.hash),
+            TransitionFrontierSyncAction::BlocksFetchSuccess { hash } => state
+                .transition_frontier
+                .sync
+                .block_state(hash)
+                .map_or(false, |s| s.fetch_pending_fetched_block().is_some()),
+            TransitionFrontierSyncAction::BlocksNextApplyInit => {
+                state.transition_frontier.sync.blocks_apply_next().is_some()
             }
-            _ => false,
+            TransitionFrontierSyncAction::BlocksNextApplyPending { hash } => state
+                .transition_frontier
+                .sync
+                .blocks_apply_next()
+                .map_or(false, |(b, _)| &b.hash == hash),
+            TransitionFrontierSyncAction::BlocksNextApplySuccess { hash } => state
+                .transition_frontier
+                .sync
+                .blocks_apply_pending()
+                .map_or(false, |b| &b.hash == hash),
+            TransitionFrontierSyncAction::BlocksSuccess => match &state.transition_frontier.sync {
+                TransitionFrontierSyncState::BlocksPending { chain, .. } => {
+                    chain.iter().all(|v| v.is_apply_success())
+                }
+                _ => false,
+            },
+            TransitionFrontierSyncAction::Ledger(action) => action.is_enabled(state),
         }
     }
 }
 
-use crate::transition_frontier::TransitionFrontierAction;
-
-macro_rules! impl_into_global_action {
-    ($a:ty) => {
-        impl From<$a> for crate::Action {
-            fn from(value: $a) -> Self {
-                Self::TransitionFrontier(TransitionFrontierAction::Sync(value.into()))
-            }
-        }
-    };
+impl From<TransitionFrontierSyncAction> for crate::Action {
+    fn from(value: TransitionFrontierSyncAction) -> Self {
+        Self::TransitionFrontier(TransitionFrontierAction::Sync(value))
+    }
 }
-
-impl_into_global_action!(TransitionFrontierSyncInitAction);
-impl_into_global_action!(TransitionFrontierSyncBestTipUpdateAction);
-impl_into_global_action!(TransitionFrontierSyncLedgerStakingPendingAction);
-impl_into_global_action!(TransitionFrontierSyncLedgerStakingSuccessAction);
-impl_into_global_action!(TransitionFrontierSyncLedgerNextEpochPendingAction);
-impl_into_global_action!(TransitionFrontierSyncLedgerNextEpochSuccessAction);
-impl_into_global_action!(TransitionFrontierSyncLedgerRootPendingAction);
-impl_into_global_action!(TransitionFrontierSyncLedgerRootSuccessAction);
-impl_into_global_action!(TransitionFrontierSyncBlocksPendingAction);
-impl_into_global_action!(TransitionFrontierSyncBlocksPeersQueryAction);
-impl_into_global_action!(TransitionFrontierSyncBlocksPeerQueryInitAction);
-impl_into_global_action!(TransitionFrontierSyncBlocksPeerQueryRetryAction);
-impl_into_global_action!(TransitionFrontierSyncBlocksPeerQueryPendingAction);
-impl_into_global_action!(TransitionFrontierSyncBlocksPeerQueryErrorAction);
-impl_into_global_action!(TransitionFrontierSyncBlocksPeerQuerySuccessAction);
-impl_into_global_action!(TransitionFrontierSyncBlocksFetchSuccessAction);
-impl_into_global_action!(TransitionFrontierSyncBlocksNextApplyInitAction);
-impl_into_global_action!(TransitionFrontierSyncBlocksNextApplyPendingAction);
-impl_into_global_action!(TransitionFrontierSyncBlocksNextApplySuccessAction);
-impl_into_global_action!(TransitionFrontierSyncBlocksSuccessAction);

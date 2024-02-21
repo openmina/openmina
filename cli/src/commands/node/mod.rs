@@ -14,9 +14,7 @@ use tokio::select;
 use node::account::AccountPublicKey;
 use node::core::channels::mpsc;
 use node::core::log::inner::Level;
-use node::event_source::{
-    EventSourceProcessEventsAction, EventSourceWaitForEventsAction, EventSourceWaitTimeoutAction,
-};
+use node::event_source::EventSourceAction;
 use node::ledger::LedgerCtx;
 use node::p2p::channels::ChannelId;
 use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
@@ -283,11 +281,11 @@ impl Node {
 
                     node
                         .store_mut()
-                        .dispatch(EventSourceProcessEventsAction {});
+                        .dispatch(EventSourceAction::ProcessEvents);
                     loop {
                         node
                             .store_mut()
-                            .dispatch(EventSourceWaitForEventsAction {});
+                            .dispatch(EventSourceAction::WaitForEvents);
 
                         let service = &mut node.store_mut().service;
                         let wait_for_events = service.event_receiver.wait_for_events();
@@ -303,7 +301,7 @@ impl Node {
                         select! {
                             _ = wait_for_events => {
                                 while node.store_mut().service.event_receiver.has_next() {
-                                    node.store_mut().dispatch(EventSourceProcessEventsAction {});
+                                    node.store_mut().dispatch(EventSourceAction::ProcessEvents);
                                 }
                             }
                             req = rpc_req_fut => {
@@ -314,7 +312,7 @@ impl Node {
                                 }
                             }
                             _ = timeout => {
-                                node.store_mut().dispatch(EventSourceWaitTimeoutAction {});
+                                node.store_mut().dispatch(EventSourceAction::WaitTimeout);
                             }
                         }
                     }
