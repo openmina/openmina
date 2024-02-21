@@ -86,7 +86,7 @@ fn pop_call_stack<Z: ZkappApplication>(
 // We don't use `AuthRequired::to_field_elements`, because in OCaml `Controller.if_`
 // push values in reverse order (because of OCaml evaluation order)
 // https://github.com/MinaProtocol/mina/blob/4283d70c8c5c1bd9eebb0d3e449c36fb0bf0c9af/src/lib/mina_base/permissions.ml#L174
-fn controller_exists<Z: ZkappApplication>(
+pub(super) fn controller_exists<Z: ZkappApplication>(
     auth: AuthRequired,
     w: &mut Z::WitnessGenerator,
 ) -> AuthRequired {
@@ -101,7 +101,6 @@ fn controller_exists<Z: ZkappApplication>(
 }
 
 // Different order than in `Permissions::iter_as_bits`
-// Here we use `Iterator::rev()`
 fn permissions_exists<Z: ZkappApplication>(
     perms: Permissions<AuthRequired>,
     w: &mut Z::WitnessGenerator,
@@ -116,7 +115,7 @@ fn permissions_exists<Z: ZkappApplication>(
         set_verification_key:
             SetVerificationKey {
                 auth: set_verification_key_auth,
-                txn_version: _,
+                txn_version,
             },
         set_zkapp_uri,
         edit_action_state,
@@ -126,25 +125,34 @@ fn permissions_exists<Z: ZkappApplication>(
         set_timing,
     } = &perms;
 
+    use crate::AuthOrVersion;
+
     for auth in [
-        edit_state,
-        access,
-        send,
-        receive,
-        set_delegate,
-        set_permissions,
-        set_verification_key_auth,
-        set_zkapp_uri,
-        edit_action_state,
-        set_token_symbol,
-        increment_nonce,
-        set_voting_for,
-        set_timing,
+        AuthOrVersion::Auth(edit_state),
+        AuthOrVersion::Auth(send),
+        AuthOrVersion::Auth(receive),
+        AuthOrVersion::Auth(set_delegate),
+        AuthOrVersion::Auth(set_permissions),
+        AuthOrVersion::Auth(set_verification_key_auth),
+        AuthOrVersion::Version(*txn_version),
+        AuthOrVersion::Auth(set_zkapp_uri),
+        AuthOrVersion::Auth(edit_action_state),
+        AuthOrVersion::Auth(set_token_symbol),
+        AuthOrVersion::Auth(increment_nonce),
+        AuthOrVersion::Auth(set_voting_for),
+        AuthOrVersion::Auth(set_timing),
+        AuthOrVersion::Auth(access),
     ]
     .into_iter()
-    .rev()
     {
-        controller_exists::<Z>(*auth, w);
+        match auth {
+            AuthOrVersion::Auth(auth) => {
+                controller_exists::<Z>(*auth, w);
+            }
+            AuthOrVersion::Version(version) => {
+                w.exists_no_check(version);
+            }
+        }
     }
     perms
 }
@@ -914,9 +922,10 @@ where
                 });
                 let on_false = Z::Branch::make(w, |_| original_auth.clone());
 
-                w.on_if(
+                Z::Controller::on_if(
                     older_than_current_version,
                     BranchParam { on_true, on_false },
+                    w,
                 )
             };
 

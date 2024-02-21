@@ -378,6 +378,15 @@ pub trait ControllerInterface {
         auth: &AuthRequired,
         w: &mut Self::W,
     ) -> AuthRequired;
+
+    fn on_if<F, F2>(
+        b: Self::Bool,
+        param: BranchParam<AuthRequired, Self::W, F, F2>,
+        w: &mut Self::W,
+    ) -> AuthRequired
+    where
+        F: FnOnce(&mut Self::W) -> AuthRequired,
+        F2: FnOnce(&mut Self::W) -> AuthRequired;
 }
 
 pub trait TxnVersionInterface {

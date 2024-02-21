@@ -8,7 +8,7 @@ use once_cell::sync::Lazy;
 use super::{
     constants::{
         StepBlockProof, StepMergeProof, StepTransactionProof, StepZkappOptSignedOptSignedProof,
-        StepZkappOptSignedProof, StepZkappProofProof, WrapBlockProof, WrapTransactionProof,
+        StepZkappOptSignedProof, StepZkappProvedProof, WrapBlockProof, WrapTransactionProof,
     },
     field::FieldWitness,
     transaction::{make_prover_index, InternalVars, Prover, V},
@@ -20,127 +20,126 @@ use mina_p2p_messages::binprot::{
 };
 
 struct Gates {
-    gates: Vec<CircuitGate<Fp>>,
-    wrap_gates: Vec<CircuitGate<Fq>>,
-    merge_gates: Vec<CircuitGate<Fp>>,
-    block_gates: Vec<CircuitGate<Fp>>,
-    block_wrap_gates: Vec<CircuitGate<Fq>>,
-    zkapp_step_opt_signed_opt_signed_gates: Vec<CircuitGate<Fp>>,
-    zkapp_step_opt_signed_gates: Vec<CircuitGate<Fp>>,
-    zkapp_step_proof_gates: Vec<CircuitGate<Fp>>,
-    internal_vars: HashMap<usize, (Vec<(Fp, V)>, Option<Fp>)>,
-    rows_rev: Vec<Vec<Option<V>>>,
-    internal_vars_wrap: HashMap<usize, (Vec<(Fq, V)>, Option<Fq>)>,
-    rows_rev_wrap: Vec<Vec<Option<V>>>,
-    merge_internal_vars: HashMap<usize, (Vec<(Fp, V)>, Option<Fp>)>,
-    merge_rows_rev: Vec<Vec<Option<V>>>,
-    block_internal_vars: HashMap<usize, (Vec<(Fp, V)>, Option<Fp>)>,
-    block_rows_rev: Vec<Vec<Option<V>>>,
-    block_wrap_internal_vars: HashMap<usize, (Vec<(Fq, V)>, Option<Fq>)>,
-    block_wrap_rows_rev: Vec<Vec<Option<V>>>,
-    zkapp_step_opt_signed_opt_signed_internal_vars: HashMap<usize, (Vec<(Fp, V)>, Option<Fp>)>,
-    zkapp_step_opt_signed_opt_signed_rows_rev: Vec<Vec<Option<V>>>,
-    zkapp_step_opt_signed_internal_vars: HashMap<usize, (Vec<(Fp, V)>, Option<Fp>)>,
-    zkapp_step_opt_signed_rows_rev: Vec<Vec<Option<V>>>,
-    zkapp_step_proof_internal_vars: HashMap<usize, (Vec<(Fp, V)>, Option<Fp>)>,
-    zkapp_step_proof_rows_rev: Vec<Vec<Option<V>>>,
+    step_tx_gates: Vec<CircuitGate<Fp>>,
+    wrap_tx_gates: Vec<CircuitGate<Fq>>,
+    step_merge_gates: Vec<CircuitGate<Fp>>,
+    step_block_gates: Vec<CircuitGate<Fp>>,
+    wrap_block_gates: Vec<CircuitGate<Fq>>,
+    step_opt_signed_opt_signed_gates: Vec<CircuitGate<Fp>>,
+    step_opt_signed_gates: Vec<CircuitGate<Fp>>,
+    step_proved_gates: Vec<CircuitGate<Fp>>,
+    step_tx_internal_vars: HashMap<usize, (Vec<(Fp, V)>, Option<Fp>)>,
+    step_tx_rows_rev: Vec<Vec<Option<V>>>,
+    wrap_tx_internal_vars: HashMap<usize, (Vec<(Fq, V)>, Option<Fq>)>,
+    wrap_tx_rows_rev: Vec<Vec<Option<V>>>,
+    step_merge_internal_vars: HashMap<usize, (Vec<(Fp, V)>, Option<Fp>)>,
+    step_merge_rows_rev: Vec<Vec<Option<V>>>,
+    step_block_internal_vars: HashMap<usize, (Vec<(Fp, V)>, Option<Fp>)>,
+    step_block_rows_rev: Vec<Vec<Option<V>>>,
+    wrap_block_internal_vars: HashMap<usize, (Vec<(Fq, V)>, Option<Fq>)>,
+    wrap_block_rows_rev: Vec<Vec<Option<V>>>,
+    step_opt_signed_opt_signed_internal_vars: HashMap<usize, (Vec<(Fp, V)>, Option<Fp>)>,
+    step_opt_signed_opt_signed_rows_rev: Vec<Vec<Option<V>>>,
+    step_opt_signed_internal_vars: HashMap<usize, (Vec<(Fp, V)>, Option<Fp>)>,
+    step_opt_signed_rows_rev: Vec<Vec<Option<V>>>,
+    step_proved_internal_vars: HashMap<usize, (Vec<(Fp, V)>, Option<Fp>)>,
+    step_proved_rows_rev: Vec<Vec<Option<V>>>,
 }
 
 fn read_gates() -> Gates {
-    let base_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
-    let base_dir = base_dir.join("rampup4");
-
     fn read_gates_file<F: FieldWitness>(
         filepath: &impl AsRef<Path>,
     ) -> std::io::Result<Vec<CircuitGate<F>>> {
+        use serde_with::serde_as;
+
+        #[serde_as]
+        #[derive(serde::Deserialize)]
+        struct GatesFile<F: ark_ff::PrimeField> {
+            public_input_size: usize,
+            #[serde_as(as = "Vec<_>")]
+            gates: Vec<CircuitGate<F>>,
+        }
+
         let file = std::fs::File::open(filepath)?;
         let reader = std::io::BufReader::new(file);
-        serde_json::from_reader(reader).map_err(Into::into)
+        let data: GatesFile<F> = serde_json::from_reader(reader)?;
+        Ok(data.gates)
     }
 
-    let internal_vars_path = base_dir.join("internal_vars_rampup4.bin");
-    let rows_rev_path = base_dir.join("rows_rev_rampup4.bin");
-    let (internal_vars, rows_rev) =
-        read_constraints_data::<Fp>(&internal_vars_path, &rows_rev_path).unwrap();
+    fn make<F: FieldWitness>(
+        filename: &str,
+    ) -> (
+        HashMap<usize, (Vec<(F, V)>, Option<F>)>,
+        Vec<Vec<Option<V>>>,
+        Vec<CircuitGate<F>>,
+    ) {
+        let base_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let base_dir = base_dir.join("berkeley_rc1");
 
-    let internal_vars_path = base_dir.join("internal_vars_wrap_rampup4.bin");
-    let rows_rev_path = base_dir.join("rows_rev_wrap_rampup4.bin");
-    let (internal_vars_wrap, rows_rev_wrap) =
-        read_constraints_data::<Fq>(&internal_vars_path, &rows_rev_path).unwrap();
+        let internal_vars_path = base_dir.join(format!("{}_internal_vars.bin", filename));
+        let rows_rev_path = base_dir.join(format!("{}_rows_rev.bin", filename));
+        let gates_path = base_dir.join(format!("{}_gates.json", filename));
 
-    let internal_vars_path = base_dir.join("merge_internal_vars.bin");
-    let rows_rev_path = base_dir.join("merge_rows_rev.bin");
-    let (merge_internal_vars, merge_rows_rev) =
-        read_constraints_data::<Fp>(&internal_vars_path, &rows_rev_path).unwrap();
+        let gates: Vec<CircuitGate<F>> = read_gates_file(&gates_path).unwrap();
+        let (internal_vars_path, rows_rev_path) =
+            read_constraints_data::<F>(&internal_vars_path, &rows_rev_path).unwrap();
 
-    let internal_vars_path = base_dir.join("block_internal_vars.bin");
-    let rows_rev_path = base_dir.join("block_rows_rev.bin");
-    let (block_internal_vars, block_rows_rev) =
-        read_constraints_data::<Fp>(&internal_vars_path, &rows_rev_path).unwrap();
+        (internal_vars_path, rows_rev_path, gates)
+    }
 
-    let internal_vars_path = base_dir.join("block_wrap_internal_vars.bin");
-    let rows_rev_path = base_dir.join("block_wrap_rows_rev.bin");
-    let (block_wrap_internal_vars, block_wrap_rows_rev) =
-        read_constraints_data::<Fq>(&internal_vars_path, &rows_rev_path).unwrap();
-
-    let internal_vars_path = base_dir.join("zkapp_step_internal_vars.bin");
-    let rows_rev_path = base_dir.join("zkapp_step_rows_rev.bin");
-    let (zkapp_step_opt_signed_opt_signed_internal_vars, zkapp_step_opt_signed_opt_signed_rows_rev) =
-        read_constraints_data::<Fp>(&internal_vars_path, &rows_rev_path).unwrap();
-
-    let internal_vars_path = base_dir.join("zkapp_step_opt_signed_internal_vars.bin");
-    let rows_rev_path = base_dir.join("zkapp_step_opt_signed_rows_rev.bin");
-    let (zkapp_step_opt_signed_internal_vars, zkapp_step_opt_signed_rows_rev) =
-        read_constraints_data::<Fp>(&internal_vars_path, &rows_rev_path).unwrap();
-
-    let gates: Vec<CircuitGate<Fp>> =
-        read_gates_file(&base_dir.join("gates_step_rampup4.json")).unwrap();
-    let wrap_gates: Vec<CircuitGate<Fq>> =
-        read_gates_file(&base_dir.join("gates_wrap_rampup4.json")).unwrap();
-    let merge_gates: Vec<CircuitGate<Fp>> =
-        read_gates_file(&base_dir.join("gates_merge_rampup4.json")).unwrap();
-
-    let block_gates: Vec<CircuitGate<Fp>> =
-        read_gates_file(&base_dir.join("block_gates.json")).unwrap();
-    let block_wrap_gates: Vec<CircuitGate<Fq>> =
-        read_gates_file(&base_dir.join("block_wrap_gates.json")).unwrap();
-    let zkapp_step_opt_signed_opt_signed_gates: Vec<CircuitGate<Fp>> =
-        read_gates_file(&base_dir.join("zkapp_step_gates.json")).unwrap();
-    let zkapp_step_opt_signed_gates: Vec<CircuitGate<Fp>> =
-        read_gates_file(&base_dir.join("zkapp_step_opt_signed_gates.json")).unwrap();
-
-    let internal_vars_path = base_dir.join("zkapp_step_proof_internal_vars.bin");
-    let rows_rev_path = base_dir.join("zkapp_step_proof_rows_rev.bin");
-    let (zkapp_step_proof_internal_vars, zkapp_step_proof_rows_rev) =
-        read_constraints_data::<Fp>(&internal_vars_path, &rows_rev_path).unwrap();
-    let zkapp_step_proof_gates: Vec<CircuitGate<Fp>> =
-        read_gates_file(&base_dir.join("zkapp_step_proof_gates.json")).unwrap();
+    let (step_tx_internal_vars, step_tx_rows_rev, step_tx_gates) = {
+        make("step-step-proving-key-transaction-snark-transaction-0-81cc493d6bc2538fdbee3ad60fd77758")
+    };
+    let (wrap_tx_internal_vars, wrap_tx_rows_rev, wrap_tx_gates) =
+        { make("wrap-wrap-proving-key-transaction-snark-96f388cb62fd3b955368b475623e0a92") };
+    let (step_merge_internal_vars, step_merge_rows_rev, step_merge_gates) = {
+        make("step-step-proving-key-transaction-snark-merge-1-ba1d52dfdc2dd4d2e61f6c66ff2a5b2f")
+    };
+    let (step_block_internal_vars, step_block_rows_rev, step_block_gates) =
+        { make("step-step-proving-key-blockchain-snark-step-0-c6715547791ab80660cda1f715ce8c58") };
+    let (wrap_block_internal_vars, wrap_block_rows_rev, wrap_block_gates) =
+        { make("wrap-wrap-proving-key-blockchain-snark-b18a44f63a978aec2c3f3dbb392acbfb") };
+    let (
+        step_opt_signed_opt_signed_internal_vars,
+        step_opt_signed_opt_signed_rows_rev,
+        step_opt_signed_opt_signed_gates,
+    ) = {
+        make("step-step-proving-key-transaction-snark-opt_signed-opt_signed-2-4a4a49c139f2fb195603ffc386c41cc6")
+    };
+    let (step_opt_signed_internal_vars, step_opt_signed_rows_rev, step_opt_signed_gates) = {
+        make(
+            "step-step-proving-key-transaction-snark-opt_signed-3-6f4b0c362fb64d33fe3c8a3ed1351de5",
+        )
+    };
+    let (step_proved_internal_vars, step_proved_rows_rev, step_proved_gates) = {
+        make("step-step-proving-key-transaction-snark-proved-4-879547e44319e1b0a4bb2513c66be9f8")
+    };
 
     Gates {
-        gates,
-        wrap_gates,
-        merge_gates,
-        block_gates,
-        internal_vars,
-        rows_rev,
-        internal_vars_wrap,
-        rows_rev_wrap,
-        merge_internal_vars,
-        merge_rows_rev,
-        block_internal_vars,
-        block_rows_rev,
-        block_wrap_gates,
-        block_wrap_internal_vars,
-        block_wrap_rows_rev,
-        zkapp_step_opt_signed_opt_signed_gates,
-        zkapp_step_opt_signed_opt_signed_internal_vars,
-        zkapp_step_opt_signed_opt_signed_rows_rev,
-        zkapp_step_opt_signed_gates,
-        zkapp_step_opt_signed_internal_vars,
-        zkapp_step_opt_signed_rows_rev,
-        zkapp_step_proof_gates,
-        zkapp_step_proof_internal_vars,
-        zkapp_step_proof_rows_rev,
+        step_tx_gates,
+        wrap_tx_gates,
+        step_merge_gates,
+        step_block_gates,
+        step_tx_internal_vars,
+        step_tx_rows_rev,
+        wrap_tx_internal_vars,
+        wrap_tx_rows_rev,
+        step_merge_internal_vars,
+        step_merge_rows_rev,
+        step_block_internal_vars,
+        step_block_rows_rev,
+        wrap_block_gates,
+        wrap_block_internal_vars,
+        wrap_block_rows_rev,
+        step_opt_signed_opt_signed_gates,
+        step_opt_signed_opt_signed_internal_vars,
+        step_opt_signed_opt_signed_rows_rev,
+        step_opt_signed_gates,
+        step_opt_signed_internal_vars,
+        step_opt_signed_rows_rev,
+        step_proved_gates,
+        step_proved_internal_vars,
+        step_proved_rows_rev,
     }
 }
 
@@ -164,91 +163,89 @@ pub fn get_provers() -> Arc<Provers> {
 /// Slow, use `get_provers` instead
 fn make_provers() -> Provers {
     let Gates {
-        gates,
-        wrap_gates,
-        merge_gates,
-        block_gates,
-        internal_vars,
-        rows_rev,
-        internal_vars_wrap,
-        rows_rev_wrap,
-        merge_internal_vars,
-        merge_rows_rev,
-        block_internal_vars,
-        block_rows_rev,
-        block_wrap_gates,
-        block_wrap_internal_vars,
-        block_wrap_rows_rev,
-        zkapp_step_opt_signed_opt_signed_gates,
-        zkapp_step_opt_signed_opt_signed_internal_vars,
-        zkapp_step_opt_signed_opt_signed_rows_rev,
-        zkapp_step_opt_signed_gates,
-        zkapp_step_opt_signed_internal_vars,
-        zkapp_step_opt_signed_rows_rev,
-        zkapp_step_proof_gates,
-        zkapp_step_proof_internal_vars,
-        zkapp_step_proof_rows_rev,
+        step_tx_gates,
+        wrap_tx_gates,
+        step_merge_gates,
+        step_block_gates,
+        step_tx_internal_vars,
+        step_tx_rows_rev,
+        wrap_tx_internal_vars,
+        wrap_tx_rows_rev,
+        step_merge_internal_vars,
+        step_merge_rows_rev,
+        step_block_internal_vars,
+        step_block_rows_rev,
+        wrap_block_gates,
+        wrap_block_internal_vars,
+        wrap_block_rows_rev,
+        step_opt_signed_opt_signed_gates,
+        step_opt_signed_opt_signed_internal_vars,
+        step_opt_signed_opt_signed_rows_rev,
+        step_opt_signed_gates,
+        step_opt_signed_internal_vars,
+        step_opt_signed_rows_rev,
+        step_proved_gates,
+        step_proved_internal_vars,
+        step_proved_rows_rev,
     } = read_gates();
 
-    let tx_prover_index = make_prover_index::<StepTransactionProof, _>(gates);
-    let merge_prover_index = make_prover_index::<StepMergeProof, _>(merge_gates);
-    let wrap_prover_index = make_prover_index::<WrapTransactionProof, _>(wrap_gates);
-    let wrap_block_prover_index = make_prover_index::<WrapBlockProof, _>(block_wrap_gates);
-    let block_prover_index = make_prover_index::<StepBlockProof, _>(block_gates);
+    let tx_prover_index = make_prover_index::<StepTransactionProof, _>(step_tx_gates);
+    let merge_prover_index = make_prover_index::<StepMergeProof, _>(step_merge_gates);
+    let wrap_prover_index = make_prover_index::<WrapTransactionProof, _>(wrap_tx_gates);
+    let wrap_block_prover_index = make_prover_index::<WrapBlockProof, _>(wrap_block_gates);
+    let block_prover_index = make_prover_index::<StepBlockProof, _>(step_block_gates);
     let zkapp_step_opt_signed_opt_signed_prover_index =
-        make_prover_index::<StepZkappOptSignedOptSignedProof, _>(
-            zkapp_step_opt_signed_opt_signed_gates,
-        );
+        make_prover_index::<StepZkappOptSignedOptSignedProof, _>(step_opt_signed_opt_signed_gates);
     let zkapp_step_opt_signed_prover_index =
-        make_prover_index::<StepZkappOptSignedProof, _>(zkapp_step_opt_signed_gates);
+        make_prover_index::<StepZkappOptSignedProof, _>(step_opt_signed_gates);
     let zkapp_step_proof_prover_index =
-        make_prover_index::<StepZkappProofProof, _>(zkapp_step_proof_gates);
+        make_prover_index::<StepZkappProvedProof, _>(step_proved_gates);
 
     let tx_step_prover = Prover {
-        internal_vars,
-        rows_rev,
+        internal_vars: step_tx_internal_vars,
+        rows_rev: step_tx_rows_rev,
         index: tx_prover_index,
     };
 
     let merge_step_prover = Prover {
-        internal_vars: merge_internal_vars,
-        rows_rev: merge_rows_rev,
+        internal_vars: step_merge_internal_vars,
+        rows_rev: step_merge_rows_rev,
         index: merge_prover_index,
     };
 
     let tx_wrap_prover = Prover {
-        internal_vars: internal_vars_wrap,
-        rows_rev: rows_rev_wrap,
+        internal_vars: wrap_tx_internal_vars,
+        rows_rev: wrap_tx_rows_rev,
         index: wrap_prover_index,
     };
 
     let block_step_prover = Prover {
-        internal_vars: block_internal_vars,
-        rows_rev: block_rows_rev,
+        internal_vars: step_block_internal_vars,
+        rows_rev: step_block_rows_rev,
         index: block_prover_index,
     };
 
     let block_wrap_prover = Prover {
-        internal_vars: block_wrap_internal_vars,
-        rows_rev: block_wrap_rows_rev,
+        internal_vars: wrap_block_internal_vars,
+        rows_rev: wrap_block_rows_rev,
         index: wrap_block_prover_index,
     };
 
     let zkapp_step_opt_signed_opt_signed_prover = Prover {
-        internal_vars: zkapp_step_opt_signed_opt_signed_internal_vars,
-        rows_rev: zkapp_step_opt_signed_opt_signed_rows_rev,
+        internal_vars: step_opt_signed_opt_signed_internal_vars,
+        rows_rev: step_opt_signed_opt_signed_rows_rev,
         index: zkapp_step_opt_signed_opt_signed_prover_index,
     };
 
     let zkapp_step_opt_signed_prover = Prover {
-        internal_vars: zkapp_step_opt_signed_internal_vars,
-        rows_rev: zkapp_step_opt_signed_rows_rev,
+        internal_vars: step_opt_signed_internal_vars,
+        rows_rev: step_opt_signed_rows_rev,
         index: zkapp_step_opt_signed_prover_index,
     };
 
     let zkapp_step_proof_prover = Prover {
-        internal_vars: zkapp_step_proof_internal_vars,
-        rows_rev: zkapp_step_proof_rows_rev,
+        internal_vars: step_proved_internal_vars,
+        rows_rev: step_proved_rows_rev,
         index: zkapp_step_proof_prover_index,
     };
 

@@ -32,7 +32,7 @@ use crate::{
         constants::{StepTransactionProof, WrapTransactionProof},
         unfinalized::AllEvals,
         util::sha256_sum,
-        wrap::WrapParams,
+        wrap::{self, WrapParams},
     },
     scan_state::{
         currency::{self, Sgn},
@@ -45,7 +45,6 @@ use crate::{
     Account, MyCow, ReceiptChainHash, SpongeParamsForField, TimingAsRecord, TokenId, TokenSymbol,
 };
 
-use super::field::{field, Boolean, CircuitVar, FieldWitness, ToBoolean};
 use super::step::{InductiveRule, OptFlag, StepProof};
 use super::{
     constants::ProofConstants,
@@ -55,6 +54,10 @@ use super::{
     unfinalized::Unfinalized,
     witness::Witness,
     wrap::WrapProof,
+};
+use super::{
+    field::{field, Boolean, CircuitVar, FieldWitness, ToBoolean},
+    step,
 };
 
 pub trait Check<F: FieldWitness> {
@@ -2791,16 +2794,16 @@ pub mod transaction_snark {
         let mut ledger = sparse_ledger.copy_content();
 
         let tag = payload.body.tag.clone();
-        let is_user_command = tag.is_user_command().to_boolean();
+        let is_user_command = tag.is_user_command();
 
         check_signature(shifted, payload, is_user_command, signer, signature, w);
 
         let _signer_pk = compress_var(signer.point(), w);
 
-        let is_payment = tag.is_payment().to_boolean();
-        let is_stake_delegation = tag.is_stake_delegation().to_boolean();
-        let is_fee_transfer = tag.is_fee_transfer().to_boolean();
-        let is_coinbase = tag.is_coinbase().to_boolean();
+        let is_payment = tag.is_payment();
+        let is_stake_delegation = tag.is_stake_delegation();
+        let is_fee_transfer = tag.is_fee_transfer();
+        let is_coinbase = tag.is_coinbase();
 
         let fee_token = &payload.common.fee_token;
         let fee_token_default = field::equal(fee_token.0, TokenId::default().0, w);
@@ -3572,10 +3575,10 @@ pub mod transaction_snark {
         dummy_constraints(w);
         let shifted = create_shifted_inner_curve(w);
 
-        let tx = w.exists(tx);
-        let pending_coinbase_init = w.exists(tx_witness.init_stack.clone());
-        let state_body = w.exists(tx_witness.protocol_state_body.clone());
-        let global_slot = w.exists(tx_witness.block_global_slot.clone());
+        let tx = w.exists(&tx);
+        let pending_coinbase_init = w.exists(&tx_witness.init_stack);
+        let state_body = w.exists(&tx_witness.protocol_state_body);
+        let global_slot = w.exists(&tx_witness.block_global_slot);
 
         let sparse_ledger: SparseLedger = (&tx_witness.first_pass_ledger).into();
 
@@ -3583,11 +3586,11 @@ pub mod transaction_snark {
             &shifted,
             statement_with_sok.source.first_pass_ledger,
             currency::Slot::from_u32(global_slot.as_u32()),
-            &pending_coinbase_init,
+            pending_coinbase_init,
             &statement_with_sok.source.pending_coinbase_stack,
             &statement_with_sok.target.pending_coinbase_stack,
-            &state_body,
-            &tx,
+            state_body,
+            tx,
             &sparse_ledger,
             w,
         );
@@ -3775,6 +3778,15 @@ pub fn compute_witness<C: ProofConstants, F: FieldWitness>(
     prover: &Prover<F>,
     w: &Witness<F>,
 ) -> [Vec<F>; COLUMNS] {
+    #[cfg(test)]
+    {
+        // Make sure our constants are correct
+        eprintln!("compute_witness {:?}", std::any::type_name::<C>());
+        assert_eq!(C::ROWS, prover.rows_rev.len() + C::PRIMARY_LEN);
+        assert_eq!(C::AUX_LEN, w.aux().len());
+        assert_eq!(C::AUX_LEN, w.aux_capacity());
+    }
+
     if !w.ocaml_aux.is_empty() {
         assert_eq!(w.aux().len(), w.ocaml_aux.len());
     };
@@ -3788,7 +3800,6 @@ pub fn compute_witness<C: ProofConstants, F: FieldWitness>(
     };
 
     let mut internal_values = HashMap::<usize, F>::with_capacity(13_000);
-
     let public_input_size = C::PRIMARY_LEN;
     let num_rows = C::ROWS;
 
@@ -3907,7 +3918,7 @@ pub(super) fn create_proof<C: ProofConstants, F: FieldWitness>(
     if only_verify_constraints {
         let public = &computed_witness[0][0..prover_index.cs.public];
         prover_index
-            .verify(&computed_witness, &public)
+            .verify(&computed_witness, public)
             .map_err(|e| {
                 ProofError::ConstraintsNotSatisfied(format!("incorrect witness: {:?}", e))
             })?;
@@ -3983,16 +3994,16 @@ pub(super) fn generate_tx_proof(
     let dlog_plonk_index =
         { PlonkVerificationKeyEvals::from(tx_wrap_prover.index.verifier_index.as_ref().unwrap()) };
 
-    let statement_with_sok = w.exists(statement_with_sok);
+    let statement_with_sok = Rc::new(w.exists(statement_with_sok));
     transaction_snark::main(&statement_with_sok, tx_witness, w);
 
     let StepProof {
         statement: step_statement,
         prev_evals,
         proof,
-    } = super::step::step::<StepTransactionProof, 0>(
-        super::step::StepParams {
-            app_state: Rc::new(statement_with_sok.clone()),
+    } = step::step::<StepTransactionProof, 0>(
+        step::StepParams {
+            app_state: Rc::clone(&statement_with_sok) as _,
             rule: InductiveRule::empty(),
             for_step_datas: [],
             indexes: [],
@@ -4016,9 +4027,9 @@ pub(super) fn generate_tx_proof(
         w.ocaml_aux = ocaml_aux;
     };
 
-    crate::proofs::wrap::wrap::<WrapTransactionProof>(
+    wrap::wrap::<WrapTransactionProof>(
         WrapParams {
-            app_state: Rc::new(statement_with_sok),
+            app_state: statement_with_sok,
             proof: &proof,
             step_statement,
             prev_evals: &prev_evals,
@@ -4092,8 +4103,7 @@ mod tests {
         proofs::{
             block::{generate_block_proof, BlockParams},
             constants::{StepBlockProof, StepMergeProof},
-            gates::Provers,
-            gates::{get_provers, read_constraints_data},
+            gates::{get_provers, read_constraints_data, Provers},
             merge::{generate_merge_proof, MergeParams},
             util::sha256_sum,
             zkapp::{generate_zkapp_proof, LedgerProof, ZkappParams},
@@ -4239,15 +4249,57 @@ mod tests {
             zkapp_step_opt_signed_opt_signed_prover,
             zkapp_step_opt_signed_prover,
             zkapp_step_proof_prover,
+            // } = crate::proofs::gates::make_provers2();
         } = &*get_provers();
 
-        let v = &tx_wrap_prover.index.verifier_index.as_ref().unwrap();
-        let v_json = serde_json::to_string(&v).unwrap();
-        // std::fs::write("/tmp/tx.json", &v_json).unwrap();
+        // use crate::proofs::verifier_index::get_verifier_index;
 
-        // let linear = &v.linearization;
-
+        // let v = &tx_wrap_prover.index.verifier_index.as_ref().unwrap();
+        // let v = verifier_index_to_bytes(&v);
         // let new_v = get_verifier_index(crate::proofs::verifier_index::VerifierKind::Transaction);
+        // let new_v = verifier_index_to_bytes(&new_v);
+        // assert_eq!(v, new_v);
+        // let tx_old = new_v;
+
+        // let v = &block_wrap_prover.index.verifier_index.as_ref().unwrap();
+        // let v = verifier_index_to_bytes(&v);
+        // let new_v = get_verifier_index(crate::proofs::verifier_index::VerifierKind::Blockchain);
+        // let new_v = verifier_index_to_bytes(&new_v);
+        // assert_eq!(v, new_v);
+        // let block_old = new_v;
+
+        eprintln!("OK");
+
+        // let Provers {
+        //     tx_step_prover,
+        //     tx_wrap_prover,
+        //     merge_step_prover,
+        //     block_step_prover,
+        //     block_wrap_prover,
+        //     zkapp_step_opt_signed_opt_signed_prover,
+        //     zkapp_step_opt_signed_prover,
+        //     zkapp_step_proof_prover,
+        // } = crate::proofs::gates::make_provers2();
+
+        // // let writer = std::fs::File::create("/tmp/transaction_verifier_index.json").unwrap();
+        // // let value = tx_wrap_prover.index.verifier_index.as_ref().unwrap();
+        // // serde_json::to_writer(writer, value).unwrap();
+
+        // // let writer = std::fs::File::create("/tmp/blockchain_verifier_index.json").unwrap();
+        // // let value = block_wrap_prover.index.verifier_index.as_ref().unwrap();
+        // // serde_json::to_writer(writer, value).unwrap();
+
+        // let v = &tx_wrap_prover.index.verifier_index.as_ref().unwrap();
+        // let v = verifier_index_to_bytes(&v);
+        // let tx_is_same = v == tx_old;
+
+        // let v = &block_wrap_prover.index.verifier_index.as_ref().unwrap();
+        // let v = verifier_index_to_bytes(&v);
+        // let block_is_same = v == block_old;
+
+        // dbg!(tx_is_same, block_is_same);
+        // eprintln!("OK2");
+
         // let linear2 = &new_v.linearization;
 
         // assert_eq!(linear.constant_term, linear2.constant_term);

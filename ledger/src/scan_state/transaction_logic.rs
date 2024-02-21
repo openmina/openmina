@@ -2579,7 +2579,7 @@ pub mod zkapp_command {
                         app_state: _,
                         delegate: _,
                         verification_key: _,
-                        permissions: _,
+                        permissions,
                         zkapp_uri: _,
                         token_symbol,
                         timing,
@@ -2597,6 +2597,7 @@ pub mod zkapp_command {
                 authorization_kind: _,
             } = self;
 
+            (permissions, Permissions::empty).check(w);
             (token_symbol, TokenSymbol::default).check(w);
             (timing, Timing::dummy).check(w);
             balance_change.check(w);
@@ -6871,6 +6872,7 @@ pub mod transaction_union_payload {
 
     use crate::{
         decompress_pk,
+        proofs::field::Boolean,
         scan_state::transaction_logic::signed_command::{PaymentPayload, StakeDelegationPayload},
     };
 
@@ -6895,38 +6897,38 @@ pub mod transaction_union_payload {
     }
 
     impl Tag {
-        pub fn is_user_command(&self) -> bool {
+        pub fn is_user_command(&self) -> Boolean {
             match self {
-                Tag::Payment | Tag::StakeDelegation => true,
-                Tag::FeeTransfer | Tag::Coinbase => false,
+                Tag::Payment | Tag::StakeDelegation => Boolean::True,
+                Tag::FeeTransfer | Tag::Coinbase => Boolean::False,
             }
         }
 
-        pub fn is_payment(&self) -> bool {
+        pub fn is_payment(&self) -> Boolean {
             match self {
-                Tag::Payment => true,
-                Tag::FeeTransfer | Tag::Coinbase | Tag::StakeDelegation => false,
+                Tag::Payment => Boolean::True,
+                Tag::FeeTransfer | Tag::Coinbase | Tag::StakeDelegation => Boolean::False,
             }
         }
 
-        pub fn is_stake_delegation(&self) -> bool {
+        pub fn is_stake_delegation(&self) -> Boolean {
             match self {
-                Tag::StakeDelegation => true,
-                Tag::FeeTransfer | Tag::Coinbase | Tag::Payment => false,
+                Tag::StakeDelegation => Boolean::True,
+                Tag::FeeTransfer | Tag::Coinbase | Tag::Payment => Boolean::False,
             }
         }
 
-        pub fn is_fee_transfer(&self) -> bool {
+        pub fn is_fee_transfer(&self) -> Boolean {
             match self {
-                Tag::FeeTransfer => true,
-                Tag::StakeDelegation | Tag::Coinbase | Tag::Payment => false,
+                Tag::FeeTransfer => Boolean::True,
+                Tag::StakeDelegation | Tag::Coinbase | Tag::Payment => Boolean::False,
             }
         }
 
-        pub fn is_coinbase(&self) -> bool {
+        pub fn is_coinbase(&self) -> Boolean {
             match self {
-                Tag::Coinbase => true,
-                Tag::StakeDelegation | Tag::FeeTransfer | Tag::Payment => false,
+                Tag::Coinbase => Boolean::True,
+                Tag::StakeDelegation | Tag::FeeTransfer | Tag::Payment => Boolean::False,
             }
         }
 

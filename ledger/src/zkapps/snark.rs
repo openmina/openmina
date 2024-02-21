@@ -41,15 +41,19 @@ use crate::{
     ToInputs, TokenId, VerificationKey, ZkAppAccount, TXN_VERSION_CURRENT,
 };
 
-use super::intefaces::{
-    AccountIdInterface, AccountInterface, AccountUpdateInterface, ActionsInterface,
-    AmountInterface, BalanceInterface, BoolInterface, BranchEvaluation, BranchInterface,
-    BranchParam, CallForestInterface, CallStackInterface, ControllerInterface,
-    GlobalSlotSinceGenesisInterface, GlobalSlotSpanInterface, GlobalStateInterface, IndexInterface,
-    LedgerInterface, LocalStateInterface, Opt, ReceiptChainHashInterface, SetOrKeepInterface,
-    SignedAmountBranchParam, SignedAmountInterface, StackFrameInterface, StackFrameMakeParams,
-    StackInterface, TokenIdInterface, TransactionCommitmentInterface, TxnVersionInterface,
-    VerificationKeyHashInterface, WitnessGenerator, ZkappApplication, ZkappHandler,
+use super::{
+    intefaces::{
+        AccountIdInterface, AccountInterface, AccountUpdateInterface, ActionsInterface,
+        AmountInterface, BalanceInterface, BoolInterface, BranchEvaluation, BranchInterface,
+        BranchParam, CallForestInterface, CallStackInterface, ControllerInterface,
+        GlobalSlotSinceGenesisInterface, GlobalSlotSpanInterface, GlobalStateInterface,
+        IndexInterface, LedgerInterface, LocalStateInterface, Opt, ReceiptChainHashInterface,
+        SetOrKeepInterface, SignedAmountBranchParam, SignedAmountInterface, StackFrameInterface,
+        StackFrameMakeParams, StackInterface, TokenIdInterface, TransactionCommitmentInterface,
+        TxnVersionInterface, VerificationKeyHashInterface, WitnessGenerator, ZkappApplication,
+        ZkappHandler,
+    },
+    zkapp_logic::controller_exists,
 };
 
 pub struct ZkappSnark;
@@ -909,7 +913,7 @@ impl Check<Fp> for AccountUnhashed {
             delegate: _,
             voting_for: _,
             timing,
-            permissions: _,
+            permissions,
             zkapp,
         } = &*self.0;
 
@@ -917,6 +921,7 @@ impl Check<Fp> for AccountUnhashed {
         balance.check(w);
         nonce.check(w);
         timing.check(w);
+        permissions.check(w);
         (
             FlaggedOption::from(zkapp.as_ref()),
             crate::ZkAppAccount::default,
@@ -1334,10 +1339,14 @@ fn verification_key_perm_fallback_to_signature_with_older_version(
         ..
     } = encode_auth(auth);
 
-    w.exists_no_check(match signature_sufficient.neg().as_boolean() {
-        Boolean::True => AuthRequired::Signature,
-        Boolean::False => auth.clone(),
-    })
+    SnarkController::on_if(
+        signature_sufficient.neg(),
+        BranchParam {
+            on_true: SnarkBranch::make(w, |_| AuthRequired::Signature),
+            on_false: SnarkBranch::make(w, |_| auth.clone()),
+        },
+        w,
+    )
 }
 
 impl ControllerInterface for SnarkController {
@@ -1365,6 +1374,26 @@ impl ControllerInterface for SnarkController {
         w: &mut Self::W,
     ) -> AuthRequired {
         verification_key_perm_fallback_to_signature_with_older_version(auth, w)
+    }
+
+    fn on_if<F, F2>(
+        b: Self::Bool,
+        param: BranchParam<AuthRequired, Self::W, F, F2>,
+        w: &mut Self::W,
+    ) -> AuthRequired
+    where
+        F: FnOnce(&mut Self::W) -> AuthRequired,
+        F2: FnOnce(&mut Self::W) -> AuthRequired,
+    {
+        let BranchParam { on_true, on_false } = param;
+
+        controller_exists::<ZkappSnark>(
+            match b.as_boolean() {
+                Boolean::True => on_true.eval(w),
+                Boolean::False => on_false.eval(w),
+            },
+            w,
+        )
     }
 }
 
