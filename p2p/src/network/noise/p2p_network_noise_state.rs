@@ -24,7 +24,7 @@ pub struct P2pNetworkNoiseState {
     pub decrypted_chunks: VecDeque<Data>,
 
     pub inner: Option<P2pNetworkNoiseStateInner>,
-    pub handshake_done_reported: bool,
+    pub handshake_optimized: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -158,6 +158,7 @@ impl P2pNetworkNoiseAction {
         Store: crate::P2pStore<S>,
         P2pNetworkPnetOutgoingDataAction: redux::EnablingCondition<S>,
         P2pNetworkNoiseIncomingChunkAction: redux::EnablingCondition<S>,
+        P2pNetworkNoiseOutgoingDataAction: redux::EnablingCondition<S>,
         P2pNetworkNoiseOutgoingChunkAction: redux::EnablingCondition<S>,
         P2pNetworkSelectIncomingDataAction: redux::EnablingCondition<S>,
         P2pNetworkSelectInitAction: redux::EnablingCondition<S>,
@@ -172,33 +173,6 @@ impl P2pNetworkNoiseAction {
             return;
         };
 
-        if let Self::DecryptedData(a) = self {
-            let kind = match &a.peer_id {
-                Some(peer_id) => SelectKind::Multiplexing(peer_id.clone()),
-                None => SelectKind::MultiplexingNoPeerId,
-            };
-            // it is not a mistake, if we are initiator of noise, the select will be incoming
-            // because noise is
-            // initiator -> responder (ephemeral key)
-            // initiator <- responder (ephemeral key, encrypted static kay and **encrypted payload**)
-            // initiator -> responder (encrypted static kay and **encrypted payload**)
-            // so the responder is sending payload first, hence responder will be initiator of underlying protocol
-            if let Some(P2pNetworkNoiseStateInner::Initiator(..)) = &state.inner {
-                store.dispatch(P2pNetworkSelectInitAction {
-                    addr: self.addr(),
-                    kind,
-                    incoming: true,
-                    send_handshake: false,
-                });
-            }
-            store.dispatch(P2pNetworkSelectIncomingDataAction {
-                addr: self.addr(),
-                kind,
-                data: a.data.clone(),
-            });
-            return;
-        }
-
         let incoming = state.incoming_chunks.front().cloned().map(Into::into);
         let outgoing = state.outgoing_chunks.front().cloned().map(Into::into);
         let decrypted = state.decrypted_chunks.front().cloned();
@@ -211,17 +185,69 @@ impl P2pNetworkNoiseAction {
         let handshake_done = if let Some(P2pNetworkNoiseStateInner::Done {
             remote_peer_id,
             incoming,
+            send_nonce,
+            recv_nonce,
             ..
         }) = &state.inner
         {
-            if state.handshake_done_reported {
-                None
-            } else {
+            if ((matches!(self, Self::IncomingChunk(..)) && *incoming)
+                || (matches!(self, Self::OutgoingChunk(..)) && !*incoming))
+                && *send_nonce == 0
+                && *recv_nonce == 0
+            {
                 Some((remote_peer_id.clone(), *incoming))
+            } else {
+                None
             }
         } else {
             None
         };
+        let handshake_optimized = state.handshake_optimized;
+        let middle_initiator =
+            matches!(&state.inner, Some(P2pNetworkNoiseStateInner::Initiator(..)));
+        let middle_responder = matches!(
+            &state.inner,
+            Some(P2pNetworkNoiseStateInner::Responder(
+                P2pNetworkNoiseStateResponder::Init { .. },
+            ))
+        );
+
+        if let Self::HandshakeDone(a) = self {
+            store.dispatch(P2pNetworkSelectInitAction {
+                addr: a.addr,
+                kind: SelectKind::Multiplexing(a.peer_id.clone()),
+                incoming: a.incoming,
+                send_handshake: true,
+            });
+            return;
+        }
+
+        if let Self::DecryptedData(a) = self {
+            let kind = match &a.peer_id {
+                Some(peer_id) => SelectKind::Multiplexing(peer_id.clone()),
+                None => SelectKind::MultiplexingNoPeerId,
+            };
+            if handshake_optimized && middle_initiator {
+                store.dispatch(P2pNetworkSelectInitAction {
+                    addr: self.addr(),
+                    kind,
+                    // it is not a mistake, if we are initiator of noise, the select will be incoming
+                    // because noise is
+                    // initiator -> responder (ephemeral key)
+                    // initiator <- responder (ephemeral key, encrypted static kay and **encrypted payload**)
+                    // initiator -> responder (encrypted static kay and **encrypted payload**)
+                    // so the responder is sending payload first, hence responder will be initiator of underlying protocol
+                    incoming: true,
+                    send_handshake: false,
+                });
+            }
+            store.dispatch(P2pNetworkSelectIncomingDataAction {
+                addr: self.addr(),
+                kind,
+                data: a.data.clone(),
+            });
+            return;
+        }
 
         match self {
             Self::Init(_) | Self::OutgoingData(_) => {
@@ -241,10 +267,7 @@ impl P2pNetworkNoiseAction {
                 }
             }
             Self::IncomingChunk(_) => {
-                if let Some(P2pNetworkNoiseStateInner::Responder(
-                    P2pNetworkNoiseStateResponder::Init { .. },
-                )) = &state.inner
-                {
+                if handshake_optimized && middle_responder {
                     store.dispatch(P2pNetworkSelectInitAction {
                         addr: self.addr(),
                         kind: SelectKind::MultiplexingNoPeerId,
@@ -257,13 +280,6 @@ impl P2pNetworkNoiseAction {
                     store.dispatch(P2pNetworkNoiseOutgoingChunkAction {
                         addr: self.addr(),
                         data,
-                    });
-                }
-                if let Some((peer_id, incoming)) = handshake_done {
-                    store.dispatch(P2pNetworkNoiseHandshakeDoneAction {
-                        addr: self.addr(),
-                        peer_id,
-                        incoming,
                     });
                 }
                 if let Some(data) = decrypted {
@@ -287,6 +303,23 @@ impl P2pNetworkNoiseAction {
                 });
             }
             _ => {}
+        }
+
+        if !handshake_optimized {
+            if (middle_initiator || middle_responder) && matches!(self, Self::IncomingChunk(..)) {
+                store.dispatch(P2pNetworkNoiseOutgoingDataAction {
+                    addr: self.addr(),
+                    data: Data(vec![].into_boxed_slice()),
+                });
+            } else {
+                if let Some((peer_id, incoming)) = handshake_done {
+                    store.dispatch(P2pNetworkNoiseHandshakeDoneAction {
+                        addr: self.addr(),
+                        peer_id,
+                        incoming,
+                    });
+                }
+            }
         }
     }
 }
@@ -366,6 +399,7 @@ impl P2pNetworkNoiseState {
                     match state {
                         P2pNetworkNoiseStateInner::Initiator(i) => match i.consume(&mut chunk) {
                             Ok(remote_payload) => {
+                                self.handshake_optimized = remote_payload.is_some();
                                 if let Some(remote_payload) = remote_payload {
                                     self.decrypted_chunks
                                         .push_back(remote_payload.to_vec().into());
@@ -394,6 +428,7 @@ impl P2pNetworkNoiseState {
                                     remote_pk,
                                     remote_peer_id,
                                 };
+                                self.handshake_optimized = remote_payload.is_some();
                                 if let Some(remote_payload) = remote_payload {
                                     self.decrypted_chunks
                                         .push_back(remote_payload.to_vec().into());
@@ -441,7 +476,7 @@ impl P2pNetworkNoiseState {
                 let Some(state) = &mut self.inner else {
                     return;
                 };
-                if a.data.is_empty() {
+                if a.data.is_empty() && self.handshake_optimized {
                     return;
                 }
                 match state {
@@ -501,9 +536,7 @@ impl P2pNetworkNoiseState {
             P2pNetworkNoiseAction::DecryptedData(_) => {
                 self.decrypted_chunks.pop_front();
             }
-            P2pNetworkNoiseAction::HandshakeDone(_) => {
-                self.handshake_done_reported = true;
-            }
+            P2pNetworkNoiseAction::HandshakeDone(_) => {}
         }
     }
 }
@@ -545,9 +578,12 @@ impl P2pNetworkNoiseStateInitiator {
         let tag = noise.encrypt::<1>(&mut i_spk_bytes);
         noise.mix_secret(&*i_ssk * r_epk);
         let mut payload = payload.0.to_vec();
-        payload.extend_from_slice(b"\x22\x13");
-        payload.push(data.len() as u8);
-        payload.extend_from_slice(data);
+        // if handshake is optimized by early mux negotiation
+        if !data.is_empty() {
+            payload.extend_from_slice(b"\x22\x13");
+            payload.push(data.len() as u8);
+            payload.extend_from_slice(data);
+        }
         let payload_tag = noise.encrypt::<0>(&mut payload);
 
         let mut chunk = vec![0; 2];
@@ -633,9 +669,11 @@ impl P2pNetworkNoiseStateResponder {
         };
 
         let mut payload = payload.0.to_vec();
-        payload.extend_from_slice(b"\x22\x13");
-        payload.push(data.len() as u8);
-        payload.extend_from_slice(data);
+        if !data.is_empty() {
+            payload.extend_from_slice(b"\x22\x13");
+            payload.push(data.len() as u8);
+            payload.extend_from_slice(data);
+        }
         let payload_tag = noise.encrypt::<0>(&mut payload);
 
         buffer.extend_from_slice(&*payload);

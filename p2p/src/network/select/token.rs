@@ -30,6 +30,7 @@ impl Token {
         Token::SimultaneousConnect,
         Token::Protocol(Protocol::Auth(AuthKind::Noise)),
         Token::Protocol(Protocol::Mux(MuxKind::Yamux1_0_0)),
+        Token::Protocol(Protocol::Mux(MuxKind::YamuxNoNewLine1_0_0)),
         Token::Protocol(Protocol::Stream(StreamKind::Discovery(
             DiscoveryAlgorithm::Kademlia1_0_0,
         ))),
@@ -71,11 +72,15 @@ impl AuthKind {
 #[derive(Clone, Copy, Serialize, Deserialize, Debug, PartialEq, Eq)]
 pub enum MuxKind {
     Yamux1_0_0,
+    YamuxNoNewLine1_0_0,
 }
 
 impl MuxKind {
     pub const fn name(&self) -> &'static [u8] {
-        b"\x11/coda/yamux/1.0.0"
+        match self {
+            Self::Yamux1_0_0 => b"\x12/coda/yamux/1.0.0\n",
+            Self::YamuxNoNewLine1_0_0 => b"\x11/coda/yamux/1.0.0",
+        }
     }
 }
 

@@ -154,7 +154,9 @@ impl P2pNetworkSchedulerState {
                         connection.auth =
                             Some(P2pNetworkAuthState::Noise(P2pNetworkNoiseState::default()));
                     }
-                    Some(token::Protocol::Mux(token::MuxKind::Yamux1_0_0)) => {
+                    Some(token::Protocol::Mux(
+                        token::MuxKind::Yamux1_0_0 | token::MuxKind::YamuxNoNewLine1_0_0,
+                    )) => {
                         connection.mux = Some(P2pNetworkConnectionMuxState::Yamux(
                             P2pNetworkYamuxState::default(),
                         ));
@@ -308,7 +310,7 @@ impl P2pNetworkSchedulerAction {
                             signature,
                         });
                     }
-                    Some(Protocol::Mux(MuxKind::Yamux1_0_0)) => {
+                    Some(Protocol::Mux(MuxKind::Yamux1_0_0 | MuxKind::YamuxNoNewLine1_0_0)) => {
                         if let Some(cn) = store.state().network.scheduler.connections.get(&a.addr) {
                             // for each negotiated yamux conenction open a new outgoing RPC stream
                             let stream_id = if cn.incoming { 2 } else { 1 };
