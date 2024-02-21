@@ -142,7 +142,7 @@ impl P2pNetworkSelectAction {
                                 data: a.data.clone(),
                             });
                         }
-                        Protocol::Mux(MuxKind::Yamux1_0_0) => {
+                        Protocol::Mux(MuxKind::Yamux1_0_0 | MuxKind::YamuxNoNewLine1_0_0) => {
                             store.dispatch(P2pNetworkYamuxIncomingDataAction {
                                 addr: a.addr,
                                 data: a.data.clone(),
@@ -255,7 +255,7 @@ impl P2pNetworkSelectState {
                 }
                 (P2pNetworkSelectStateInner::Responder, false) => {
                     self.inner = P2pNetworkSelectStateInner::Initiator {
-                        proposing: token::Protocol::Mux(token::MuxKind::Yamux1_0_0),
+                        proposing: token::Protocol::Mux(token::MuxKind::YamuxNoNewLine1_0_0),
                     }
                 }
                 _ => {}
@@ -347,9 +347,16 @@ impl P2pNetworkSelectState {
                                 token::Protocol::Auth(_) => token::Token::Protocol(
                                     token::Protocol::Auth(token::AuthKind::Noise),
                                 ),
-                                token::Protocol::Mux(_) => token::Token::Protocol(
-                                    token::Protocol::Mux(token::MuxKind::Yamux1_0_0),
-                                ),
+                                token::Protocol::Mux(token::MuxKind::Yamux1_0_0) => {
+                                    token::Token::Protocol(token::Protocol::Mux(
+                                        token::MuxKind::Yamux1_0_0,
+                                    ))
+                                }
+                                token::Protocol::Mux(token::MuxKind::YamuxNoNewLine1_0_0) => {
+                                    token::Token::Protocol(token::Protocol::Mux(
+                                        token::MuxKind::YamuxNoNewLine1_0_0,
+                                    ))
+                                }
                                 token::Protocol::Stream(token::StreamKind::Rpc(_)) => {
                                     token::Token::Protocol(protocol)
                                 }
