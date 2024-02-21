@@ -37,10 +37,6 @@ impl<F: FieldWitness> Witness<F> {
         &self.aux
     }
 
-    pub(super) fn aux_capacity(&self) -> usize {
-        self.aux.capacity()
-    }
-
     pub fn exists<T>(&mut self, data: T) -> T
     where
         T: ToFieldElements<F> + Check<F>,

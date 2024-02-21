@@ -83,9 +83,9 @@ impl ProofConstants for WrapZkappOptSignedProof {
 
 impl ProofConstants for StepTransactionProof {
     const PRIMARY_LEN: usize = 67;
-    const AUX_LEN: usize = 94386;
+    const AUX_LEN: usize = 94478;
     const PREVIOUS_CHALLENGES: usize = 0;
-    const ROWS: usize = 17794;
+    const ROWS: usize = 17805;
 }
 
 impl ProofConstants for WrapTransactionProof {
@@ -119,9 +119,9 @@ impl ProofConstants for StepMergeProof {
 
 impl ProofConstants for StepBlockProof {
     const PRIMARY_LEN: usize = 67;
-    const AUX_LEN: usize = 339034;
+    const AUX_LEN: usize = 338850;
     const PREVIOUS_CHALLENGES: usize = 2;
-    const ROWS: usize = 34811;
+    const ROWS: usize = 34794;
 }
 
 pub trait ForWrapData {

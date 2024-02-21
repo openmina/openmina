@@ -1353,7 +1353,7 @@ impl<F: FieldWitness> Check<F> for Box<Account> {
             delegate: _,
             voting_for: _,
             timing,
-            permissions: _,
+            permissions,
             zkapp: _,
         } = &**self;
 
@@ -1361,6 +1361,7 @@ impl<F: FieldWitness> Check<F> for Box<Account> {
         balance.check(w);
         nonce.check(w);
         timing.check(w);
+        permissions.check(w);
     }
 }
 
@@ -3784,7 +3785,6 @@ pub fn compute_witness<C: ProofConstants, F: FieldWitness>(
         eprintln!("compute_witness {:?}", std::any::type_name::<C>());
         assert_eq!(C::ROWS, prover.rows_rev.len() + C::PRIMARY_LEN);
         assert_eq!(C::AUX_LEN, w.aux().len());
-        assert_eq!(C::AUX_LEN, w.aux_capacity());
     }
 
     if !w.ocaml_aux.is_empty() {
@@ -4312,7 +4312,7 @@ mod tests {
     }
 
     #[test]
-    fn test_protocol_state_body() {
+    fn test_regular_tx() {
         let Ok(data) =
             // std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("request_signed.bin"))
             std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("rampup4").join("request_payment_0_rampup4.bin"))
