@@ -38,16 +38,16 @@ pub struct WrapZkappOptSignedProof {}
 
 impl ProofConstants for StepZkappOptSignedOptSignedProof {
     const PRIMARY_LEN: usize = 67;
-    const AUX_LEN: usize = 104744;
+    const AUX_LEN: usize = 104914;
     const PREVIOUS_CHALLENGES: usize = 0;
-    const ROWS: usize = 18590;
+    const ROWS: usize = 18655;
 }
 
 impl ProofConstants for StepZkappOptSignedProof {
     const PRIMARY_LEN: usize = 67;
-    const AUX_LEN: usize = 71779;
+    const AUX_LEN: usize = 71842;
     const PREVIOUS_CHALLENGES: usize = 0;
-    const ROWS: usize = 11298;
+    const ROWS: usize = 11332;
 }
 
 impl ProofConstants for StepZkappProvedProof {
@@ -112,7 +112,7 @@ impl ProofConstants for WrapBlockProof {
 
 impl ProofConstants for StepMergeProof {
     const PRIMARY_LEN: usize = 67;
-    const AUX_LEN: usize = 352536;
+    const AUX_LEN: usize = 352469;
     const PREVIOUS_CHALLENGES: usize = 2;
     const ROWS: usize = 29010;
 }

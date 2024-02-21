@@ -37,6 +37,10 @@ impl<F: FieldWitness> Witness<F> {
         &self.aux
     }
 
+    pub(super) fn aux_capacity(&self) -> usize {
+        self.aux.capacity()
+    }
+
     pub fn exists<T>(&mut self, data: T) -> T
     where
         T: ToFieldElements<F> + Check<F>,
@@ -81,7 +85,7 @@ impl<F: FieldWitness> Witness<F> {
 
         eprintln!(
             "index={:?} w{:?}",
-            self.aux.len() + self.primary.capacity(),
+            start_offset + self.primary.capacity(),
             &self.aux[start_offset..]
         );
     }

@@ -2579,7 +2579,7 @@ pub mod zkapp_command {
                         app_state: _,
                         delegate: _,
                         verification_key: _,
-                        permissions: _,
+                        permissions,
                         zkapp_uri: _,
                         token_symbol,
                         timing,
@@ -2597,6 +2597,7 @@ pub mod zkapp_command {
                 authorization_kind: _,
             } = self;
 
+            (permissions, Permissions::empty).check(w);
             (token_symbol, TokenSymbol::default).check(w);
             (timing, Timing::dummy).check(w);
             balance_change.check(w);

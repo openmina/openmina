@@ -3778,6 +3778,15 @@ pub fn compute_witness<C: ProofConstants, F: FieldWitness>(
     prover: &Prover<F>,
     w: &Witness<F>,
 ) -> [Vec<F>; COLUMNS] {
+    #[cfg(test)]
+    {
+        // Make sure our constants are correct
+        eprintln!("compute_witness {:?}", std::any::type_name::<C>());
+        assert_eq!(C::ROWS, prover.rows_rev.len() + C::PRIMARY_LEN);
+        assert_eq!(C::AUX_LEN, w.aux().len());
+        assert_eq!(C::AUX_LEN, w.aux_capacity());
+    }
+
     if !w.ocaml_aux.is_empty() {
         assert_eq!(w.aux().len(), w.ocaml_aux.len());
     };
@@ -3791,7 +3800,6 @@ pub fn compute_witness<C: ProofConstants, F: FieldWitness>(
     };
 
     let mut internal_values = HashMap::<usize, F>::with_capacity(13_000);
-
     let public_input_size = C::PRIMARY_LEN;
     let num_rows = C::ROWS;
 

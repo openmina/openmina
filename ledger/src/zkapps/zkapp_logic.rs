@@ -86,7 +86,7 @@ fn pop_call_stack<Z: ZkappApplication>(
 // We don't use `AuthRequired::to_field_elements`, because in OCaml `Controller.if_`
 // push values in reverse order (because of OCaml evaluation order)
 // https://github.com/MinaProtocol/mina/blob/4283d70c8c5c1bd9eebb0d3e449c36fb0bf0c9af/src/lib/mina_base/permissions.ml#L174
-fn controller_exists<Z: ZkappApplication>(
+pub(super) fn controller_exists<Z: ZkappApplication>(
     auth: AuthRequired,
     w: &mut Z::WitnessGenerator,
 ) -> AuthRequired {
@@ -922,9 +922,10 @@ where
                 });
                 let on_false = Z::Branch::make(w, |_| original_auth.clone());
 
-                w.on_if(
+                Z::Controller::on_if(
                     older_than_current_version,
                     BranchParam { on_true, on_false },
+                    w,
                 )
             };
 

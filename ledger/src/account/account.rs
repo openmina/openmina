@@ -225,6 +225,32 @@ impl ToInputs for Permissions<AuthRequired> {
     }
 }
 
+impl<F: FieldWitness> Check<F> for Permissions<AuthRequired> {
+    fn check(&self, w: &mut Witness<F>) {
+        let Self {
+            edit_state: _,
+            access: _,
+            send: _,
+            receive: _,
+            set_delegate: _,
+            set_permissions: _,
+            set_verification_key:
+                SetVerificationKey {
+                    auth: _,
+                    txn_version,
+                },
+            set_zkapp_uri: _,
+            edit_action_state: _,
+            set_token_symbol: _,
+            increment_nonce: _,
+            set_voting_for: _,
+            set_timing: _,
+        } = self;
+
+        txn_version.check(w);
+    }
+}
+
 impl Default for Permissions<AuthRequired> {
     fn default() -> Self {
         Self::user_default()
