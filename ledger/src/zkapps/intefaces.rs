@@ -366,6 +366,9 @@ pub trait ControllerInterface {
     type Bool: BoolInterface;
     type SingleData;
 
+    /// Specialized because it doesn't use `ToFieldElements` implementation
+    fn exists(auth: AuthRequired, w: &mut Self::W) -> AuthRequired;
+
     fn check(
         proof_verifies: Self::Bool,
         signature_verifies: Self::Bool,

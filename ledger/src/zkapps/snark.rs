@@ -41,19 +41,15 @@ use crate::{
     ToInputs, TokenId, VerificationKey, ZkAppAccount, TXN_VERSION_CURRENT,
 };
 
-use super::{
-    intefaces::{
-        AccountIdInterface, AccountInterface, AccountUpdateInterface, ActionsInterface,
-        AmountInterface, BalanceInterface, BoolInterface, BranchEvaluation, BranchInterface,
-        BranchParam, CallForestInterface, CallStackInterface, ControllerInterface,
-        GlobalSlotSinceGenesisInterface, GlobalSlotSpanInterface, GlobalStateInterface,
-        IndexInterface, LedgerInterface, LocalStateInterface, Opt, ReceiptChainHashInterface,
-        SetOrKeepInterface, SignedAmountBranchParam, SignedAmountInterface, StackFrameInterface,
-        StackFrameMakeParams, StackInterface, TokenIdInterface, TransactionCommitmentInterface,
-        TxnVersionInterface, VerificationKeyHashInterface, WitnessGenerator, ZkappApplication,
-        ZkappHandler,
-    },
-    zkapp_logic::controller_exists,
+use super::intefaces::{
+    AccountIdInterface, AccountInterface, AccountUpdateInterface, ActionsInterface,
+    AmountInterface, BalanceInterface, BoolInterface, BranchEvaluation, BranchInterface,
+    BranchParam, CallForestInterface, CallStackInterface, ControllerInterface,
+    GlobalSlotSinceGenesisInterface, GlobalSlotSpanInterface, GlobalStateInterface, IndexInterface,
+    LedgerInterface, LocalStateInterface, Opt, ReceiptChainHashInterface, SetOrKeepInterface,
+    SignedAmountBranchParam, SignedAmountInterface, StackFrameInterface, StackFrameMakeParams,
+    StackInterface, TokenIdInterface, TransactionCommitmentInterface, TxnVersionInterface,
+    VerificationKeyHashInterface, WitnessGenerator, ZkappApplication, ZkappHandler,
 };
 
 pub struct ZkappSnark;
@@ -1354,6 +1350,19 @@ impl ControllerInterface for SnarkController {
     type Bool = SnarkBool;
     type SingleData = ZkappSingleData;
 
+    fn exists(auth: AuthRequired, w: &mut Self::W) -> AuthRequired {
+        // We don't use `AuthRequired::to_field_elements`, because in OCaml `Controller.if_`
+        // push values in reverse order (because of OCaml evaluation order)
+        // https://github.com/MinaProtocol/mina/blob/4283d70c8c5c1bd9eebb0d3e449c36fb0bf0c9af/src/lib/mina_base/permissions.ml#L174
+        let AuthRequiredEncoded {
+            constant,
+            signature_necessary,
+            signature_sufficient,
+        } = auth.encode();
+        w.exists_no_check([signature_sufficient, signature_necessary, constant]);
+        auth
+    }
+
     fn check(
         _proof_verifies: Self::Bool,
         signature_verifies: Self::Bool,
@@ -1387,7 +1396,7 @@ impl ControllerInterface for SnarkController {
     {
         let BranchParam { on_true, on_false } = param;
 
-        controller_exists::<ZkappSnark>(
+        Self::exists(
             match b.as_boolean() {
                 Boolean::True => on_true.eval(w),
                 Boolean::False => on_false.eval(w),
