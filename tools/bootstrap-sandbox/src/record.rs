@@ -58,31 +58,41 @@ pub async fn run(swarm: Swarm<Behaviour>, path_main: &Path, bootstrap: bool) {
 
     let snarked_protocol_state = best_tip.proof.1.header.protocol_state;
 
-    // let mut epoch_ledger = match File::open(path.join("epoch_ledger.bin")) {
-    //     Ok(file) => SnarkedLedger::load_bin(file).unwrap(),
-    //     Err(_) => SnarkedLedger::empty(),
-    // };
-    // let next_epoch_ledger_hash = snarked_protocol_state
-    //     .body
-    //     .consensus_state
-    //     .next_epoch_data
-    //     .ledger
-    //     .hash
-    //     .clone();
-    // let next_epoch_ledger_hash_str = match serde_json::to_value(&next_epoch_ledger_hash).unwrap() {
-    //     serde_json::Value::String(s) => s,
-    //     _ => panic!(),
-    // };
+    let mut epoch_ledger = match File::open(path.join("epoch_ledger.bin")) {
+        Ok(file) => SnarkedLedger::load_bin(file).unwrap(),
+        Err(_) => match File::open(path.parent().expect("msg").join("epoch_ledger.bin")) {
+            Ok(file) => SnarkedLedger::load_bin(file).unwrap(),
+            Err(_) => SnarkedLedger::empty(),
+        },
+    };
+    let next_epoch_ledger_hash = snarked_protocol_state
+        .body
+        .consensus_state
+        .next_epoch_data
+        .ledger
+        .hash
+        .clone();
+    let next_epoch_ledger_hash_str = match serde_json::to_value(&next_epoch_ledger_hash).unwrap() {
+        serde_json::Value::String(s) => s,
+        _ => panic!(),
+    };
 
-    // epoch_ledger
-    //     .sync_new(&mut client, &next_epoch_ledger_hash)
-    //     .await;
-    // epoch_ledger
-    //     .store_bin(File::create(path.join("ledgers").join(next_epoch_ledger_hash_str)).unwrap())
-    //     .unwrap();
-    // epoch_ledger
-    //     .store_bin(File::create(path.join("epoch_ledger.bin")).unwrap())
-    //     .unwrap();
+    epoch_ledger
+        .sync_new(&mut client, &next_epoch_ledger_hash)
+        .await;
+    epoch_ledger
+        .store_bin(File::create(path.join("ledgers").join(next_epoch_ledger_hash_str)).unwrap())
+        .unwrap();
+    epoch_ledger
+        .store_bin(File::create(path.join("epoch_ledger.bin")).unwrap())
+        .unwrap();
+    fs::copy(
+        path.join("epoch_ledger.bin"),
+        path.parent()
+            .expect("must have parent")
+            .join("epoch_ledger.bin"),
+    )
+    .unwrap();
 
     let snarked_ledger_hash = snarked_protocol_state
         .body
@@ -98,7 +108,10 @@ pub async fn run(swarm: Swarm<Behaviour>, path_main: &Path, bootstrap: bool) {
     log::info!("snarked_ledger_hash: {snarked_ledger_hash_str}");
     let mut snarked_ledger = match File::open(path.join("current_ledger.bin")) {
         Ok(file) => SnarkedLedger::load_bin(file).unwrap(),
-        Err(_) => SnarkedLedger::empty(),
+        Err(_) => match File::open(path.parent().expect("msg").join("current_ledger.bin")) {
+            Ok(file) => SnarkedLedger::load_bin(file).unwrap(),
+            Err(_) => SnarkedLedger::empty(),
+        },
     };
     snarked_ledger
         .sync_new(&mut client, &snarked_ledger_hash)
@@ -109,6 +122,13 @@ pub async fn run(swarm: Swarm<Behaviour>, path_main: &Path, bootstrap: bool) {
     snarked_ledger
         .store_bin(File::create(path.join("current_ledger.bin")).unwrap())
         .unwrap();
+    fs::copy(
+        path.join("current_ledger.bin"),
+        path.parent()
+            .expect("must have parent")
+            .join("current_ledger.bin"),
+    )
+    .unwrap();
 
     let expected_hash = snarked_protocol_state
         .body
