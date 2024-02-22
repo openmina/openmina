@@ -787,9 +787,16 @@ impl<F: FieldWitness> ToFieldElements<F> for crate::Permissions<crate::AuthRequi
 
 impl<F: FieldWitness> ToFieldElements<F> for crate::AuthRequired {
     fn to_field_elements(&self, fields: &mut Vec<F>) {
-        for bit in self.encode().to_bits() {
-            bit.to_field_elements(fields);
-        }
+        // In OCaml `Controller.if_`
+        // push values in reverse order (because of OCaml evaluation order)
+        // https://github.com/MinaProtocol/mina/blob/4283d70c8c5c1bd9eebb0d3e449c36fb0bf0c9af/src/lib/mina_base/permissions.ml#L174
+        let crate::AuthRequiredEncoded {
+            constant,
+            signature_necessary,
+            signature_sufficient,
+        } = self.encode();
+
+        [signature_sufficient, signature_necessary, constant].to_field_elements(fields);
     }
 }
 

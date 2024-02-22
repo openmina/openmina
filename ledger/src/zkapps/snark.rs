@@ -1335,13 +1335,12 @@ fn verification_key_perm_fallback_to_signature_with_older_version(
         ..
     } = encode_auth(auth);
 
-    SnarkController::on_if(
+    let on_true = SnarkBranch::make(w, |_| AuthRequired::Signature);
+    let on_false = SnarkBranch::make(w, |_| auth.clone());
+
+    w.on_if(
         signature_sufficient.neg(),
-        BranchParam {
-            on_true: SnarkBranch::make(w, |_| AuthRequired::Signature),
-            on_false: SnarkBranch::make(w, |_| auth.clone()),
-        },
-        w,
+        BranchParam { on_true, on_false },
     )
 }
 
@@ -1349,19 +1348,6 @@ impl ControllerInterface for SnarkController {
     type W = Witness<Fp>;
     type Bool = SnarkBool;
     type SingleData = ZkappSingleData;
-
-    fn exists(auth: AuthRequired, w: &mut Self::W) -> AuthRequired {
-        // We don't use `AuthRequired::to_field_elements`, because in OCaml `Controller.if_`
-        // push values in reverse order (because of OCaml evaluation order)
-        // https://github.com/MinaProtocol/mina/blob/4283d70c8c5c1bd9eebb0d3e449c36fb0bf0c9af/src/lib/mina_base/permissions.ml#L174
-        let AuthRequiredEncoded {
-            constant,
-            signature_necessary,
-            signature_sufficient,
-        } = auth.encode();
-        w.exists_no_check([signature_sufficient, signature_necessary, constant]);
-        auth
-    }
 
     fn check(
         _proof_verifies: Self::Bool,
@@ -1383,26 +1369,6 @@ impl ControllerInterface for SnarkController {
         w: &mut Self::W,
     ) -> AuthRequired {
         verification_key_perm_fallback_to_signature_with_older_version(auth, w)
-    }
-
-    fn on_if<F, F2>(
-        b: Self::Bool,
-        param: BranchParam<AuthRequired, Self::W, F, F2>,
-        w: &mut Self::W,
-    ) -> AuthRequired
-    where
-        F: FnOnce(&mut Self::W) -> AuthRequired,
-        F2: FnOnce(&mut Self::W) -> AuthRequired,
-    {
-        let BranchParam { on_true, on_false } = param;
-
-        Self::exists(
-            match b.as_boolean() {
-                Boolean::True => on_true.eval(w),
-                Boolean::False => on_false.eval(w),
-            },
-            w,
-        )
     }
 }
 

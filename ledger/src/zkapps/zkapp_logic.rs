@@ -130,7 +130,7 @@ fn permissions_exists<Z: ZkappApplication>(
     {
         match auth {
             AuthOrVersion::Auth(auth) => {
-                Z::Controller::exists(*auth, w);
+                w.exists_no_check(*auth);
             }
             AuthOrVersion::Version(version) => {
                 w.exists_no_check(version);
@@ -760,14 +760,11 @@ where
 
         let is_receiver = actual_balance_change.is_non_neg();
         let _local_state = {
-            let controller = Z::Controller::on_if(
-                is_receiver,
-                BranchParam {
-                    on_true: Z::Branch::make(w, |_| a.get().permissions.receive),
-                    on_false: Z::Branch::make(w, |_| a.get().permissions.send),
-                },
-                w,
-            );
+            let controller = {
+                let on_true = Z::Branch::make(w, |_| a.get().permissions.receive);
+                let on_false = Z::Branch::make(w, |_| a.get().permissions.send);
+                w.on_if(is_receiver, BranchParam { on_true, on_false })
+            };
             let has_permission = Z::Controller::check(
                 proof_verifies,
                 signature_verifies,
@@ -905,11 +902,9 @@ where
                     )
                 });
                 let on_false = Z::Branch::make(w, |_| original_auth.clone());
-
-                Z::Controller::on_if(
+                w.on_if(
                     older_than_current_version,
                     BranchParam { on_true, on_false },
-                    w,
                 )
             };
 

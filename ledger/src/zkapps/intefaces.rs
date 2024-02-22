@@ -366,9 +366,6 @@ pub trait ControllerInterface {
     type Bool: BoolInterface;
     type SingleData;
 
-    /// Specialized because it doesn't use `ToFieldElements` implementation
-    fn exists(auth: AuthRequired, w: &mut Self::W) -> AuthRequired;
-
     fn check(
         proof_verifies: Self::Bool,
         signature_verifies: Self::Bool,
@@ -381,15 +378,6 @@ pub trait ControllerInterface {
         auth: &AuthRequired,
         w: &mut Self::W,
     ) -> AuthRequired;
-
-    fn on_if<F, F2>(
-        b: Self::Bool,
-        param: BranchParam<AuthRequired, Self::W, F, F2>,
-        w: &mut Self::W,
-    ) -> AuthRequired
-    where
-        F: FnOnce(&mut Self::W) -> AuthRequired,
-        F2: FnOnce(&mut Self::W) -> AuthRequired;
 }
 
 pub trait TxnVersionInterface {
