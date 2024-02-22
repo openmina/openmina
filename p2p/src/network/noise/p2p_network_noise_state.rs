@@ -176,12 +176,16 @@ impl P2pNetworkNoiseAction {
         let incoming = state.incoming_chunks.front().cloned().map(Into::into);
         let outgoing = state.outgoing_chunks.front().cloned().map(Into::into);
         let decrypted = state.decrypted_chunks.front().cloned();
-        let remote_peer_id =
-            if let Some(P2pNetworkNoiseStateInner::Done { remote_peer_id, .. }) = &state.inner {
+        let remote_peer_id = match &state.inner {
+            Some(P2pNetworkNoiseStateInner::Done { remote_peer_id, .. }) => {
                 Some(remote_peer_id.clone())
-            } else {
-                None
-            };
+            }
+            Some(P2pNetworkNoiseStateInner::Initiator(P2pNetworkNoiseStateInitiator {
+                remote_pk: Some(pk),
+                ..
+            })) => Some(pk.peer_id()),
+            _ => None,
+        };
         let handshake_done = if let Some(P2pNetworkNoiseStateInner::Done {
             remote_peer_id,
             incoming,
@@ -204,7 +208,8 @@ impl P2pNetworkNoiseAction {
         };
         let handshake_optimized = state.handshake_optimized;
         let middle_initiator =
-            matches!(&state.inner, Some(P2pNetworkNoiseStateInner::Initiator(..)));
+            matches!(&state.inner, Some(P2pNetworkNoiseStateInner::Initiator(..)))
+                && remote_peer_id.is_some();
         let middle_responder = matches!(
             &state.inner,
             Some(P2pNetworkNoiseStateInner::Responder(
@@ -223,7 +228,7 @@ impl P2pNetworkNoiseAction {
         }
 
         if let Self::DecryptedData(a) = self {
-            let kind = match &a.peer_id {
+            let kind = match &a.peer_id.or(remote_peer_id) {
                 Some(peer_id) => SelectKind::Multiplexing(peer_id.clone()),
                 None => SelectKind::MultiplexingNoPeerId,
             };
@@ -268,9 +273,14 @@ impl P2pNetworkNoiseAction {
             }
             Self::IncomingChunk(_) => {
                 if handshake_optimized && middle_responder {
+                    let kind = match &remote_peer_id {
+                        Some(peer_id) => SelectKind::Multiplexing(peer_id.clone()),
+                        None => SelectKind::MultiplexingNoPeerId,
+                    };
+
                     store.dispatch(P2pNetworkSelectInitAction {
                         addr: self.addr(),
-                        kind: SelectKind::MultiplexingNoPeerId,
+                        kind,
                         incoming: false,
                         send_handshake: false,
                     });
