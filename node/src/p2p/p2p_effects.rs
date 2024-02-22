@@ -1,3 +1,4 @@
+use ledger::proofs::public_input::protocol_state::MinaHash;
 use mina_p2p_messages::v2::{MinaLedgerSyncLedgerAnswerStableV2, StateHash};
 use openmina_core::block::BlockWithHash;
 
@@ -343,8 +344,10 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                             }
                             Some(P2pRpcResponse::BestTipWithProof(resp)) => {
                                 let (body_hashes, root_block) = &resp.proof;
-                                let best_tip = BlockWithHash::new(resp.best_tip.clone());
-                                let root_block = BlockWithHash::new(root_block.clone());
+                                let best_tip =
+                                    BlockWithHash::new(resp.best_tip.clone(), MinaHash::hash);
+                                let root_block =
+                                    BlockWithHash::new(root_block.clone(), MinaHash::hash);
 
                                 // reconstruct hashes
                                 let hashes = body_hashes
@@ -411,7 +414,7 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                                 );
                             }
                             Some(P2pRpcResponse::Block(block)) => {
-                                let block = BlockWithHash::new(block.clone());
+                                let block = BlockWithHash::new(block.clone(), MinaHash::hash);
                                 store.dispatch(
                                     TransitionFrontierSyncAction::BlocksPeerQuerySuccess {
                                         peer_id,

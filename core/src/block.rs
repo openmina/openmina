@@ -1,9 +1,10 @@
 use std::sync::Arc;
 
+use mina_hasher::Fp;
 use mina_p2p_messages::v2::{
     ConsensusProofOfStakeDataConsensusStateValueStableV2, LedgerHash,
     MinaBaseProtocolConstantsCheckedValueStableV1, MinaBaseStagedLedgerHashStableV1,
-    NonZeroCurvePoint, StagedLedgerDiffDiffFtStableV1,
+    MinaStateProtocolStateValueStableV2, NonZeroCurvePoint, StagedLedgerDiffDiffFtStableV1,
     StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2Coinbase,
 };
 use mina_p2p_messages::v2::{
@@ -34,9 +35,12 @@ pub struct BlockHeaderWithHash<T: AsRef<BlockHeader>> {
 }
 
 impl<T: AsRef<Block>> BlockWithHash<T> {
-    pub fn new(block: T) -> Self {
+    pub fn new<F>(block: T, hash_fn: F) -> Self
+    where
+        F: Fn(&MinaStateProtocolStateValueStableV2) -> Fp,
+    {
         Self {
-            hash: block.as_ref().hash(),
+            hash: BlockHash::from_fp(hash_fn(&block.as_ref().header.protocol_state)),
             block,
         }
     }
@@ -120,7 +124,8 @@ impl<T: AsRef<Block>> BlockWithHash<T> {
 
     pub fn commands_iter<'a>(
         &'a self,
-    ) -> Box<dyn 'a + Iterator<Item = &'a StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2B>> {
+    ) -> Box<dyn 'a + Iterator<Item = &'a StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2B>>
+    {
         let diff = self.staged_ledger_diff();
         let iter = diff.0.commands.iter();
         if let Some(_1) = diff.1.as_ref() {
@@ -160,7 +165,9 @@ impl<T: AsRef<Block>> BlockWithHash<T> {
         coinbases.into_iter().filter_map(|v| v)
     }
 
-    pub fn completed_works_iter<'a>(&'a self) -> Box<dyn 'a + Iterator<Item = &'a TransactionSnarkWorkTStableV2>> {
+    pub fn completed_works_iter<'a>(
+        &'a self,
+    ) -> Box<dyn 'a + Iterator<Item = &'a TransactionSnarkWorkTStableV2>> {
         let diff = self.staged_ledger_diff();
         let _0 = &diff.0;
         if let Some(_1) = diff.1.as_ref() {
