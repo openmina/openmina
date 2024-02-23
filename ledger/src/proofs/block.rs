@@ -1181,7 +1181,7 @@ pub mod consensus {
         pub min_window_density: CheckedLength<Fp>,
         pub sub_window_densities: Vec<CheckedLength<Fp>>,
         pub last_vrf_output: Box<[bool; VRF_OUTPUT_NBITS]>,
-        pub curr_global_slot: GlobalSlot,
+        pub curr_global_slot_since_hard_fork: GlobalSlot,
         pub global_slot_since_genesis: CheckedSlot<Fp>,
         pub total_currency: CheckedAmount<Fp>,
         pub staking_epoch_data: EpochData<Fp>,
@@ -1421,7 +1421,7 @@ pub mod consensus {
             min_window_density,
             sub_window_densities,
             last_vrf_output: truncated_vrf_result,
-            curr_global_slot: next_global_slot,
+            curr_global_slot_since_hard_fork: next_global_slot,
             global_slot_since_genesis,
             total_currency: new_total_currency,
             staking_epoch_data,
@@ -1450,7 +1450,7 @@ fn is_genesis_state_var(
 }
 
 fn is_genesis_state_var2(cs: &ConsensusState, w: &mut Witness<Fp>) -> Boolean {
-    let curr_global_slot = &cs.curr_global_slot;
+    let curr_global_slot = &cs.curr_global_slot_since_hard_fork;
     let slot_number = &curr_global_slot.slot_number;
 
     CheckedSlot::zero().equal(slot_number, w)

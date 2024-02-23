@@ -105,7 +105,7 @@ impl ProofConstants for WrapMergeProof {
 
 impl ProofConstants for WrapBlockProof {
     const PRIMARY_LEN: usize = 40;
-    const AUX_LEN: usize = 179248;
+    const AUX_LEN: usize = 179208;
     const PREVIOUS_CHALLENGES: usize = 2;
     const ROWS: usize = 14657;
 }
@@ -119,7 +119,7 @@ impl ProofConstants for StepMergeProof {
 
 impl ProofConstants for StepBlockProof {
     const PRIMARY_LEN: usize = 67;
-    const AUX_LEN: usize = 338850;
+    const AUX_LEN: usize = 338872;
     const PREVIOUS_CHALLENGES: usize = 2;
     const ROWS: usize = 34794;
 }

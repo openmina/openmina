@@ -344,7 +344,7 @@ impl ToInputs for ProtocolStateBody {
                 sub_window_densities,
                 last_vrf_output,
                 total_currency,
-                curr_global_slot,
+                curr_global_slot_since_hard_fork,
                 global_slot_since_genesis,
                 staking_epoch_data,
                 next_epoch_data,
@@ -367,8 +367,8 @@ impl ToInputs for ProtocolStateBody {
             }
 
             inputs.append(total_currency);
-            inputs.append(&curr_global_slot.slot_number);
-            inputs.append(&curr_global_slot.slots_per_epoch);
+            inputs.append(&curr_global_slot_since_hard_fork.slot_number);
+            inputs.append(&curr_global_slot_since_hard_fork.slots_per_epoch);
             inputs.append(global_slot_since_genesis);
             inputs.append_bool(has_ancestor_in_same_checkpoint_window.as_bool());
             inputs.append_bool(supercharge_coinbase.as_bool());
