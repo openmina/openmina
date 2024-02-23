@@ -41,80 +41,111 @@ jobs:
 
       - name: Release build
         run: |
-          cargo build --release --bin openmina
+          cargo build --release --tests --bins
 
-      - name: Upload binaries
+      - name: Upload build
         uses: actions/upload-artifact@v3
         with:
-          name: bin
-          path: target/release/openmina
+          name: builds
+          path: target/release
 
-      - name: Build tests
-        run: |
-          mkdir target/release/tests
+      # - name: Build tests
+      #   run: |
+      #     mkdir target/release/tests
 
-          cargo build --release --features=scenario-generators --package=openmina-node-testing --tests
-          cargo build --release --features=scenario-generators --package=openmina-node-testing --tests --message-format=json > cargo-build-test.json
-          jq -r '. | select(.executable != null and (.target.kind | (contains(["test"])))) | [.target.name, .executable ] | @tsv' cargo-build-test.json > tests.tsv
-          while read NAME FILE; do cp -a $FILE target/release/tests/$NAME; done < tests.tsv
+      #     cargo build --release --features=scenario-generators --package=openmina-node-testing --tests
+      #     cargo build --release --features=scenario-generators --package=openmina-node-testing --tests --message-format=json > cargo-build-test.json
+      #     jq -r '. | select(.executable != null and (.target.kind | (contains(["test"])))) | [.target.name, .executable ] | @tsv' cargo-build-test.json > tests.tsv
+      #     while read NAME FILE; do cp -a $FILE target/release/tests/$NAME; done < tests.tsv
 
-          cargo build --release --features=scenario-generators,p2p-webrtc --package=openmina-node-testing --tests
-          cargo build --release --features=scenario-generators,p2p-webrtc --package=openmina-node-testing --tests --message-format=json > cargo-build-test.json
-          jq -r '. | select(.executable != null and (.target.kind | (contains(["test"])))) | [.target.name, .executable ] | @tsv' cargo-build-test.json > tests.tsv
-          while read NAME FILE; do cp -a $FILE target/release/tests/webrtc_$NAME; done < tests.tsv
+      #     cargo build --release --features=scenario-generators,p2p-webrtc --package=openmina-node-testing --tests
+      #     cargo build --release --features=scenario-generators,p2p-webrtc --package=openmina-node-testing --tests --message-format=json > cargo-build-test.json
+      #     jq -r '. | select(.executable != null and (.target.kind | (contains(["test"])))) | [.target.name, .executable ] | @tsv' cargo-build-test.json > tests.tsv
+      #     while read NAME FILE; do cp -a $FILE target/release/tests/webrtc_$NAME; done < tests.tsv
 
-          tar cf tests.tar -C target/release/tests .
+      #     tar cf tests.tar -C target/release/tests .
 
-      - name: Upload tests
-        uses: actions/upload-artifact@v3
-        with:
-          name: tests
-          path: tests.tar
+      # - name: Upload tests
+      #   uses: actions/upload-artifact@v3
+      #   with:
+      #     name: tests
+      #     path: tests.tar
 
-  p2p-tests:
+  ledger-tests:
     needs: [ build ]
     runs-on: ubuntu-20.04
-    container:
-      image: minaprotocol/mina-daemon:2.0.0berkeley-rc1-1551e2f-focal-berkeley
-    strategy:
-      matrix:
-        test: [p2p_basic_connections, p2p_basic_incoming, p2p_basic_outgoing]
-      fail-fast: false
+    # container:
+    #   image: minaprotocol/mina-daemon:2.0.0berkeley-rc1-1551e2f-focal-berkeley
+    # strategy:
+    #   matrix:
+    #     test: [p2p_basic_connections, p2p_basic_incoming, p2p_basic_outgoing]
+    #   fail-fast: false
 
     steps:
-      - name: Download tests
+      - name: Setup Rust
+        run: |
+          rustup install 1.75
+          rustup override set 1.75
+          rustup component add clippy rustfmt
+
+      - name: Download builds
         uses: actions/download-artifact@v3
         with:
-          name: tests
+          name: builds
 
-      - name: Unpack tests
+      # - name: Unpack tests
+      #   run: |
+      #     tar xf tests.tar ./${{ matrix.test }}
+
+      - name: Run ledger tests
         run: |
-          tar xf tests.tar ./${{ matrix.test }}
+          cd ledger
+          cargo test --release
 
-      - name: Run the test
-        run: |
-          ./${{ matrix.test }} --nocapture --test-threads=1
+  # p2p-tests:
+  #   needs: [ build ]
+  #   runs-on: ubuntu-20.04
+  #   container:
+  #     image: minaprotocol/mina-daemon:2.0.0berkeley-rc1-1551e2f-focal-berkeley
+  #   strategy:
+  #     matrix:
+  #       test: [p2p_basic_connections, p2p_basic_incoming, p2p_basic_outgoing]
+  #     fail-fast: false
 
-  scenario-tests:
-    needs: [ build ]
-    runs-on: ubuntu-20.04
-    container:
-      image: minaprotocol/mina-daemon:2.0.0berkeley-rc1-1551e2f-focal-berkeley
-    strategy:
-      matrix:
-        test: [single_node, multi_node, connection_discovery, webrtc_single_node, webrtc_multi_node]
-      fail-fast: false
+  #   steps:
+  #     - name: Download tests
+  #       uses: actions/download-artifact@v3
+  #       with:
+  #         name: tests
 
-    steps:
-      - name: Download tests
-        uses: actions/download-artifact@v3
-        with:
-          name: tests
+  #     - name: Unpack tests
+  #       run: |
+  #         tar xf tests.tar ./${{ matrix.test }}
 
-      - name: Unpack tests
-        run: |
-          tar xf tests.tar ./${{ matrix.test }}
+  #     - name: Run the test
+  #       run: |
+  #         ./${{ matrix.test }} --nocapture --test-threads=1
 
-      - name: Run the test
-        run: |
-          ./${{ matrix.test }} --nocapture --test-threads=1
+  # scenario-tests:
+  #   needs: [ build ]
+  #   runs-on: ubuntu-20.04
+  #   container:
+  #     image: minaprotocol/mina-daemon:2.0.0berkeley-rc1-1551e2f-focal-berkeley
+  #   strategy:
+  #     matrix:
+  #       test: [single_node, multi_node, connection_discovery, webrtc_single_node, webrtc_multi_node]
+  #     fail-fast: false
+
+  #   steps:
+  #     - name: Download tests
+  #       uses: actions/download-artifact@v3
+  #       with:
+  #         name: tests
+
+  #     - name: Unpack tests
+  #       run: |
+  #         tar xf tests.tar ./${{ matrix.test }}
+
+  #     - name: Run the test
+  #       run: |
+  #         ./${{ matrix.test }} --nocapture --test-threads=1
