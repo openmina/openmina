@@ -3950,6 +3950,7 @@ dependencies = [
  "mina-p2p-messages",
  "redux",
  "serde",
+ "serde_json",
  "sha2 0.10.8",
  "slab",
  "tokio",
