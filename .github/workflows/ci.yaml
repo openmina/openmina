@@ -41,12 +41,12 @@ jobs:
 
       - name: Release build
         run: |
-          cargo build --release --tests --bins
+          cargo build --release --bin openmina
 
-      - name: Upload build
+      - name: Upload binaries
         uses: actions/upload-artifact@v3
         with:
-          name: builds
+          name: bin
           path: target/release
 
       # - name: Build tests
@@ -72,30 +72,17 @@ jobs:
       #     path: tests.tar
 
   ledger-tests:
-    needs: [ build ]
     runs-on: ubuntu-20.04
-    # container:
-    #   image: minaprotocol/mina-daemon:2.0.0berkeley-rc1-1551e2f-focal-berkeley
-    # strategy:
-    #   matrix:
-    #     test: [p2p_basic_connections, p2p_basic_incoming, p2p_basic_outgoing]
-    #   fail-fast: false
 
     steps:
+      - name: Git checkout
+        uses: actions/checkout@v3
+
       - name: Setup Rust
         run: |
           rustup install 1.75
           rustup override set 1.75
           rustup component add clippy rustfmt
-
-      - name: Download builds
-        uses: actions/download-artifact@v3
-        with:
-          name: builds
-
-      # - name: Unpack tests
-      #   run: |
-      #     tar xf tests.tar ./${{ matrix.test }}
 
       - name: Run ledger tests
         run: |
