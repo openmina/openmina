@@ -1,5 +1,6 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
+    fs::File,
     path::Path,
     sync::Arc,
 };
@@ -26,15 +27,19 @@ use ledger::{
         validate_block::block_body_hash,
     },
     verifier::Verifier,
-    AccountIndex, BaseLedger, Mask, TreeVersion, UnregisterBehavior,
+    Account, AccountIndex, BaseLedger, Database, Mask, TreeVersion, UnregisterBehavior,
 };
 use mina_hasher::Fp;
-use mina_p2p_messages::v2::{
-    self, DataHashLibStateHashStableV1, LedgerHash, MinaBaseAccountBinableArgStableV2,
-    MinaBaseLedgerHash0StableV1, MinaBaseSokMessageStableV1, MinaBaseStagedLedgerHashStableV1,
-    MinaLedgerSyncLedgerAnswerStableV2, MinaLedgerSyncLedgerQueryStableV1,
-    MinaStateBlockchainStateValueStableV2LedgerProofStatement, MinaStateProtocolStateValueStableV2,
-    MinaTransactionTransactionStableV2, NonZeroCurvePoint, StateHash,
+use mina_p2p_messages::{
+    binprot::BinProtRead,
+    v2::{
+        self, DataHashLibStateHashStableV1, LedgerHash, MinaBaseAccountBinableArgStableV2,
+        MinaBaseLedgerHash0StableV1, MinaBaseSokMessageStableV1, MinaBaseStagedLedgerHashStableV1,
+        MinaLedgerSyncLedgerAnswerStableV2, MinaLedgerSyncLedgerQueryStableV1,
+        MinaStateBlockchainStateValueStableV2LedgerProofStatement,
+        MinaStateProtocolStateValueStableV2, MinaTransactionTransactionStableV2, NonZeroCurvePoint,
+        StateHash,
+    },
 };
 use openmina_core::snark::{Snark, SnarkJobId};
 
@@ -104,8 +109,26 @@ struct LedgerSyncState {
 }
 
 impl LedgerCtx {
-    pub fn new() -> Self {
-        Default::default()
+    pub fn load_genesis_ledger<P>(&mut self, path: P)
+    where
+        P: AsRef<Path>,
+    {
+        // TODO: return error
+        let mut reader = File::open(path).unwrap();
+        let top_hash = Option::binprot_read(&mut reader).unwrap();
+        let accounts = Vec::<Account>::binprot_read(&mut reader).unwrap();
+
+        let mut mask = Mask::new_root(Database::create(35));
+        for account in accounts {
+            let account_id = account.id();
+            mask.get_or_create_account(account_id, account).unwrap();
+        }
+
+        let top_hash = top_hash.unwrap_or_else(|| {
+            v2::LedgerHash::from(v2::MinaBaseLedgerHash0StableV1(mask.merkle_root().into()))
+        });
+
+        self.snarked_ledgers.insert(top_hash, mask);
     }
 
     pub fn new_with_additional_snarked_ledgers<P>(path: P) -> Self
@@ -113,9 +136,6 @@ impl LedgerCtx {
         P: AsRef<Path>,
     {
         use std::fs;
-
-        use ledger::{Account, Database};
-        use mina_p2p_messages::binprot::BinProtRead;
 
         let Ok(dir) = fs::read_dir(path) else {
             return Self::default();
