@@ -1697,15 +1697,6 @@ fn block_main<'a>(
     (new_state_hash, previous_proof_statements)
 }
 
-pub struct ProverExtendBlockchainInputStableV22 {
-    pub chain: v2::BlockchainSnarkBlockchainStableV2,
-    pub next_state: v2::MinaStateProtocolStateValueStableV2,
-    pub block: v2::MinaStateSnarkTransitionValueStableV2,
-    pub ledger_proof: Option<v2::LedgerProofProdStableV2>,
-    pub prover_state: v2::ConsensusStakeProofStableV2,
-    pub pending_coinbase: v2::MinaBasePendingCoinbaseWitnessStableV2,
-}
-
 struct BlockMainParams<'a> {
     transition: &'a v2::MinaStateSnarkTransitionValueStableV2,
     prev_state: &'a v2::MinaStateProtocolStateValueStableV2,

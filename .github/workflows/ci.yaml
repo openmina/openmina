@@ -10,6 +10,31 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  ledger-tests:
+    runs-on: ubuntu-20.04
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - name: Git checkout
+        uses: actions/checkout@v3
+      - name: Setup Rust
+        run: |
+          # Nightly to be able to use `--report-time` below
+          rustup install nightly
+          rustup override set nightly
+      - name: Download circuits files
+        run: |
+          git clone --depth 1 https://github.com/openmina/circuit-blobs.git
+          ln -s -b $PWD/circuit-blobs/* ledger/
+      - name: Build ledger tests
+        run: |
+          cd ledger
+          cargo build --release --tests
+      - name: Run ledger tests
+        run: |
+          cd ledger
+          cargo test --release -- -Z unstable-options --report-time
+
   build:
     runs-on: ubuntu-20.04
     steps:

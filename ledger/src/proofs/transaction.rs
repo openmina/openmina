@@ -4125,6 +4125,13 @@ mod tests {
         PerformJob(mina_p2p_messages::v2::SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponse),
     }
 
+    fn panic_in_ci() {
+        fn is_ci() -> bool {
+            std::env::var("CI").is_ok()
+        }
+        assert!(!is_ci(), "missing circuit files !");
+    }
+
     fn read_binprot<T, R>(mut r: R) -> T
     where
         T: binprot::BinProtRead,
@@ -4374,6 +4381,7 @@ mod tests {
             // std::fs::read("/tmp/stake_0_rampup4.bin")
         else {
             eprintln!("request not found");
+            panic_in_ci();
             return;
         };
 
@@ -4488,6 +4496,7 @@ mod tests {
             // std::fs::read("/tmp/stake_0_rampup4.bin")
         else {
             eprintln!("request not found");
+            panic_in_ci();
             return;
         };
 
@@ -4542,6 +4551,7 @@ mod tests {
                 .join("command-260-1.bin"),
         ) else {
             eprintln!("request not found");
+            panic_in_ci();
             return;
         };
 
@@ -4600,6 +4610,7 @@ mod tests {
             // .join("command-12-1.bin"),
         ) else {
             eprintln!("request not found");
+            panic_in_ci();
             return;
         };
 
@@ -4660,6 +4671,7 @@ mod tests {
                 .join("block_input-2775525-0.bin"),
         ) else {
             eprintln!("request not found");
+            panic_in_ci();
             return;
         };
 
@@ -4714,6 +4726,7 @@ mod tests {
 
         if !base_dir.exists() {
             eprintln!("{:?} not found", base_dir);
+            panic_in_ci();
             return;
         }
 
