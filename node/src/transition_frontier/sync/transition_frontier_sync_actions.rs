@@ -150,6 +150,11 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncAction {
             ),
             TransitionFrontierSyncAction::LedgerNextEpochPending => {
                 match &state.transition_frontier.sync {
+                    TransitionFrontierSyncState::Init {
+                        best_tip,
+                        root_block,
+                        ..
+                    } => SyncLedgerTarget::next_epoch(best_tip, root_block).is_some(),
                     TransitionFrontierSyncState::StakingLedgerSuccess {
                         best_tip,
                         root_block,
@@ -169,7 +174,12 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncAction {
             ),
             TransitionFrontierSyncAction::LedgerRootPending => {
                 match &state.transition_frontier.sync {
-                    TransitionFrontierSyncState::StakingLedgerSuccess {
+                    TransitionFrontierSyncState::Init {
+                        best_tip,
+                        root_block,
+                        ..
+                    }
+                    | TransitionFrontierSyncState::StakingLedgerSuccess {
                         best_tip,
                         root_block,
                         ..
