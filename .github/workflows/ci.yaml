@@ -10,44 +10,44 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
-    runs-on: ubuntu-20.04
-    steps:
-      - name: Git checkout
-        uses: actions/checkout@v3
+  # build:
+  #   runs-on: ubuntu-20.04
+  #   steps:
+  #     - name: Git checkout
+  #       uses: actions/checkout@v3
 
-      - name: Setup Rust
-        run: |
-          rustup install 1.75
-          rustup override set 1.75
-          rustup component add clippy rustfmt
+  #     - name: Setup Rust
+  #       run: |
+  #         rustup install 1.75
+  #         rustup override set 1.75
+  #         rustup component add clippy rustfmt
 
-      # - name: Check
-      #   uses: actions-rs/cargo@v1
-      #   with:
-      #     command: check
+  #     # - name: Check
+  #     #   uses: actions-rs/cargo@v1
+  #     #   with:
+  #     #     command: check
 
-      # - name: Clippy
-      #   uses: actions-rs/cargo@v1
-      #   with:
-      #     command: clippy
-      #   # don't fail the job until clippy is fixed
-      #   continue-on-error: true
+  #     # - name: Clippy
+  #     #   uses: actions-rs/cargo@v1
+  #     #   with:
+  #     #     command: clippy
+  #     #   # don't fail the job until clippy is fixed
+  #     #   continue-on-error: true
 
-      - name: Setup Rust Cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          prefix-key: "ver-0"
+  #     - name: Setup Rust Cache
+  #       uses: Swatinem/rust-cache@v2
+  #       with:
+  #         prefix-key: "ver-0"
 
-      - name: Release build
-        run: |
-          cargo build --release --bin openmina
+  #     - name: Release build
+  #       run: |
+  #         cargo build --release --bin openmina
 
-      - name: Upload binaries
-        uses: actions/upload-artifact@v3
-        with:
-          name: bin
-          path: target/release
+  #     - name: Upload binaries
+  #       uses: actions/upload-artifact@v3
+  #       with:
+  #         name: bin
+  #         path: target/release
 
       # - name: Build tests
       #   run: |
