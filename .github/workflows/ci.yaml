@@ -84,6 +84,11 @@ jobs:
           rustup override set 1.75
           rustup component add clippy rustfmt
 
+      - name: Download circuits files
+        run: |
+          git clone --depth 1 https://github.com/openmina/circuit-blobs.git
+          ln -s -b $PWD/circuit-blobs/* ledger/
+
       - name: Run ledger tests
         run: |
           cd ledger
