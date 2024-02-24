@@ -4129,7 +4129,7 @@ mod tests {
         fn is_ci() -> bool {
             std::env::var("CI").is_ok()
         }
-        assert!(!is_ci());
+        assert!(!is_ci(), "missing circuit files !");
     }
 
     fn read_binprot<T, R>(mut r: R) -> T
