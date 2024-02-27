@@ -74,60 +74,47 @@ cargo run --release -p cli node
 
 ## How to launch the UI:
 
-### Prerequisites
+## Prerequisites
 
-The following tools are required to launch the UI:
+### 1. Node.js v20.11.1
 
-- Node.js
-- npm
-- Angular CLI
-
-Here are the steps to install these tools:
-
-#### 1. Node.js
-
-Download and install [Node.js](https://nodejs.org/) for your OS, which includes Node Package Manager (npm).
-
-- After installing Node.js, verify your installation:
-
-  ```bash
-  node -v
-  ```
-  This command should print the version number of your Node.js installation.
-
-#### 2. npm
-- Verify that you are running a version of npm that is at least 6.x.x or higher:
-
-  ```bash
-  npm -v
-  ```
-  This command should print the version number of your npm installation.
-
-#### 3. Angular CLI
-- Install the Angular CLI globally:
-
-  ```bash
-  npm install -g @angular/cli
-  ```
-  This command installs the Angular CLI globally on your system.
-- Verify your Angular CLI installation:
-
-  ```bash
-  ng version
-  ```
-  This command should print the version number of your Angular CLI installation.
-
-### Steps (for any OS)
-
-Open the command line, navigate to the openmina directory and then run
-
-``` sh
-cd frontend
-npm install
-npm start
+#### MacOS
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+brew install node@20.11.1
 ```
 
-Open your browser and navigate to [http://localhost:4200](http://localhost:4200).
+#### Linux
+```bash
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.38.0/install.sh | bash
+source ~/.bashrc
+nvm install 20.11.1
+```
+
+#### Windows
+Download [Node.js v20.11.1](https://nodejs.org/) from the official website, open the installer and follow the prompts to complete the installation.
+
+### 2. Angular CLI v16.2.0
+```bash
+npm install -g @angular/cli@16.2.0
+```
+
+### 3. Installation
+Open a terminal and navigate to this project's root directory
+
+```bash
+cd PROJECT_LOCATION/openmina/frontend
+```
+Install the dependencies
+```bash
+npm install
+```
+
+## Run the application
+
+```bash
+npm start
+```
 
 ## Repository Structure
 
