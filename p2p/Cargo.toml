@@ -32,6 +32,8 @@ mina-p2p-messages = { workspace = true }
 
 openmina-core = { path = "../core" }
 
+ledger = { workspace = true }
+
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 tokio = { version = "1.26", features = ["rt"] }
 webrtc = { git = "https://github.com/openmina/webrtc.git", branch = "openmina-13c490c3", optional = true }

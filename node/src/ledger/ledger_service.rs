@@ -7,6 +7,7 @@ use std::{
 use ledger::{
     scan_state::{
         currency::{Amount, Fee, Slot},
+        protocol_state::MinaHash,
         scan_state::{
             AvailableJobMessage, ConstraintConstants, JobValueBase, JobValueMerge,
             JobValueWithIndex, Pass,
@@ -452,7 +453,7 @@ impl<T: LedgerService> TransitionFrontierSyncLedgerStagedService for T {
             let states = parts
                 .needed_blocks
                 .iter()
-                .map(|state| (state.hash().to_fp().unwrap(), state.clone()))
+                .map(|state| (MinaHash::hash(state), state.clone()))
                 .collect::<BTreeMap<_, _>>();
 
             StagedLedger::of_scan_state_pending_coinbases_and_snarked_ledger(

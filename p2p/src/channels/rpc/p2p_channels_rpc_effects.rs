@@ -1,4 +1,6 @@
+use ledger::proofs::public_input::protocol_state::MinaHash;
 use openmina_core::block::BlockWithHash;
+
 use redux::ActionMeta;
 
 use crate::{
@@ -37,7 +39,7 @@ impl P2pChannelsRpcAction {
                 if let Some(P2pRpcResponse::BestTipWithProof(resp)) = response {
                     store.dispatch(P2pPeerAction::BestTipUpdate {
                         peer_id,
-                        best_tip: BlockWithHash::new(resp.best_tip.clone()),
+                        best_tip: BlockWithHash::new(resp.best_tip.clone(), MinaHash::hash),
                     });
                 }
             }

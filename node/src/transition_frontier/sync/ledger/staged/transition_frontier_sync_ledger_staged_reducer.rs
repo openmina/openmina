@@ -1,3 +1,6 @@
+use ledger::scan_state::protocol_state::MinaHash;
+use mina_p2p_messages::v2;
+
 use super::{
     PeerStagedLedgerPartsFetchState, StagedLedgerAuxAndPendingCoinbasesValidated,
     TransitionFrontierSyncLedgerStagedAction, TransitionFrontierSyncLedgerStagedActionWithMetaRef,
@@ -26,7 +29,8 @@ impl TransitionFrontierSyncLedgerStagedState {
             }
             TransitionFrontierSyncLedgerStagedAction::PartsPeerFetchError {
                 peer_id,
-                error, ..
+                error,
+                ..
             } => {
                 let Self::PartsFetchPending { attempts, .. } = self else {
                     return;
@@ -158,7 +162,7 @@ impl TransitionFrontierSyncLedgerStagedState {
                         .map(|parts| &parts.needed_blocks[..])
                         .unwrap_or(&[])
                         .iter()
-                        .map(|block| (block.hash(), block.clone()))
+                        .map(|block| (v2::StateHash::from_fp(MinaHash::hash(block)), block.clone()))
                         .collect(),
                 };
             }
