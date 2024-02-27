@@ -12,7 +12,7 @@ use crate::{
         },
     },
     zkapps::intefaces::*,
-    AuthRequired, AuthRequiredEncoded, MyCow, TokenId, VerificationKey,
+    AuthRequired, MyCow, TokenId, VerificationKey,
 };
 use crate::{Permissions, SetVerificationKey};
 
@@ -83,23 +83,6 @@ fn pop_call_stack<Z: ZkappApplication>(
     (stack_frame, call_stack)
 }
 
-// We don't use `AuthRequired::to_field_elements`, because in OCaml `Controller.if_`
-// push values in reverse order (because of OCaml evaluation order)
-// https://github.com/MinaProtocol/mina/blob/4283d70c8c5c1bd9eebb0d3e449c36fb0bf0c9af/src/lib/mina_base/permissions.ml#L174
-pub(super) fn controller_exists<Z: ZkappApplication>(
-    auth: AuthRequired,
-    w: &mut Z::WitnessGenerator,
-) -> AuthRequired {
-    let AuthRequiredEncoded {
-        constant,
-        signature_necessary,
-        signature_sufficient,
-    } = auth.encode();
-
-    w.exists_no_check([signature_sufficient, signature_necessary, constant]);
-    auth
-}
-
 // Different order than in `Permissions::iter_as_bits`
 fn permissions_exists<Z: ZkappApplication>(
     perms: Permissions<AuthRequired>,
@@ -147,7 +130,7 @@ fn permissions_exists<Z: ZkappApplication>(
     {
         match auth {
             AuthOrVersion::Auth(auth) => {
-                controller_exists::<Z>(*auth, w);
+                w.exists_no_check(*auth);
             }
             AuthOrVersion::Version(version) => {
                 w.exists_no_check(version);
@@ -777,13 +760,11 @@ where
 
         let is_receiver = actual_balance_change.is_non_neg();
         let _local_state = {
-            let controller = controller_exists::<Z>(
-                match is_receiver.as_boolean() {
-                    Boolean::True => a.get().permissions.receive,
-                    Boolean::False => a.get().permissions.send,
-                },
-                w,
-            );
+            let controller = {
+                let on_true = Z::Branch::make(w, |_| a.get().permissions.receive);
+                let on_false = Z::Branch::make(w, |_| a.get().permissions.send);
+                w.on_if(is_receiver, BranchParam { on_true, on_false })
+            };
             let has_permission = Z::Controller::check(
                 proof_verifies,
                 signature_verifies,
@@ -921,11 +902,9 @@ where
                     )
                 });
                 let on_false = Z::Branch::make(w, |_| original_auth.clone());
-
-                Z::Controller::on_if(
+                w.on_if(
                     older_than_current_version,
                     BranchParam { on_true, on_false },
-                    w,
                 )
             };
 

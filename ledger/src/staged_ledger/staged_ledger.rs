@@ -2567,10 +2567,10 @@ mod tests_ocaml {
 
                 let cmds_applied_count = diff.commands().len();
 
-                let cmds = util::drop(cmds, cmds_applied_count).to_vec();
+                let cmds = util::drop(cmds, cmds_applied_count);
                 let counts_rest = &cmd_iters[1..];
 
-                iter_cmds_acc(&cmds, counts_rest, acc, fun)
+                iter_cmds_acc(cmds, counts_rest, acc, fun)
             }
         }
     }

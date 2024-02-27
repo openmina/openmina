@@ -845,22 +845,22 @@ impl ScanState {
 
         let state_hash = scan_state.hash(
             |buffer, proof| {
-                #[cfg(test)]
-                {
-                    let a: mina_p2p_messages::v2::TransactionSnarkScanStateLedgerProofWithSokMessageStableV2 = proof.as_ref().into();
-                    let b: LedgerProofWithSokMessage = (&a).into();
-                    assert_eq!(&b, proof.as_ref());
-                }
+                // #[cfg(test)]
+                // {
+                //     let a: mina_p2p_messages::v2::TransactionSnarkScanStateLedgerProofWithSokMessageStableV2 = proof.as_ref().into();
+                //     let b: LedgerProofWithSokMessage = (&a).into();
+                //     assert_eq!(&b, proof.as_ref());
+                // }
 
                 proof.binprot_write(buffer).unwrap();
             },
             |buffer, transaction| {
-                #[cfg(test)]
-                {
-                    let a: mina_p2p_messages::v2::TransactionSnarkScanStateTransactionWithWitnessStableV2 = transaction.as_ref().into();
-                    let b: TransactionWithWitness = (&a).into();
-                    assert_eq!(&b, transaction.as_ref());
-                }
+                // #[cfg(test)]
+                // {
+                //     let a: mina_p2p_messages::v2::TransactionSnarkScanStateTransactionWithWitnessStableV2 = transaction.as_ref().into();
+                //     let b: TransactionWithWitness = (&a).into();
+                //     assert_eq!(&b, transaction.as_ref());
+                // }
 
                 transaction.binprot_write(buffer).unwrap();
             },

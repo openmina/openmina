@@ -115,7 +115,7 @@ pub trait CheckedNat<F: FieldWitness, const NBITS: usize>:
         Boolean::assert_any(&[x_gte_y, y_gte_x], w);
 
         let is_equal = field::equal(x, y, w);
-        let underflow = y_gte_x.and(&is_equal, w);
+        let underflow = y_gte_x.and(&is_equal.neg(), w);
 
         let value = w.exists(match underflow {
             Boolean::True => F::zero(),

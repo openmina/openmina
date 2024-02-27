@@ -1181,7 +1181,7 @@ pub mod consensus {
         pub min_window_density: CheckedLength<Fp>,
         pub sub_window_densities: Vec<CheckedLength<Fp>>,
         pub last_vrf_output: Box<[bool; VRF_OUTPUT_NBITS]>,
-        pub curr_global_slot: GlobalSlot,
+        pub curr_global_slot_since_hard_fork: GlobalSlot,
         pub global_slot_since_genesis: CheckedSlot<Fp>,
         pub total_currency: CheckedAmount<Fp>,
         pub staking_epoch_data: EpochData<Fp>,
@@ -1421,7 +1421,7 @@ pub mod consensus {
             min_window_density,
             sub_window_densities,
             last_vrf_output: truncated_vrf_result,
-            curr_global_slot: next_global_slot,
+            curr_global_slot_since_hard_fork: next_global_slot,
             global_slot_since_genesis,
             total_currency: new_total_currency,
             staking_epoch_data,
@@ -1450,7 +1450,7 @@ fn is_genesis_state_var(
 }
 
 fn is_genesis_state_var2(cs: &ConsensusState, w: &mut Witness<Fp>) -> Boolean {
-    let curr_global_slot = &cs.curr_global_slot;
+    let curr_global_slot = &cs.curr_global_slot_since_hard_fork;
     let slot_number = &curr_global_slot.slot_number;
 
     CheckedSlot::zero().equal(slot_number, w)
@@ -1695,15 +1695,6 @@ fn block_main<'a>(
     ];
 
     (new_state_hash, previous_proof_statements)
-}
-
-pub struct ProverExtendBlockchainInputStableV22 {
-    pub chain: v2::BlockchainSnarkBlockchainStableV2,
-    pub next_state: v2::MinaStateProtocolStateValueStableV2,
-    pub block: v2::MinaStateSnarkTransitionValueStableV2,
-    pub ledger_proof: Option<v2::LedgerProofProdStableV2>,
-    pub prover_state: v2::ConsensusStakeProofStableV2,
-    pub pending_coinbase: v2::MinaBasePendingCoinbaseWitnessStableV2,
 }
 
 struct BlockMainParams<'a> {
