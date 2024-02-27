@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
-import { NodesOverviewBlock } from '@shared/types/nodes/dashboard/nodes-overview-block.type';
+import { NodesOverviewBlock, NodesOverviewNodeBlockStatus } from '@shared/types/nodes/dashboard/nodes-overview-block.type';
 import { NodesLiveNode } from '@shared/types/nodes/live/nodes-live-node.type';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
 import { selectNodesLiveActiveNode } from '../nodes-live.state';
@@ -27,6 +27,7 @@ export class NodesLiveBlocksMapComponent extends StoreDispatcher implements OnIn
       this.rootBlock = null;
       this.bestTipBlock = null;
       this.blocks = (node?.blocks || []).slice().reverse();
+
       if (this.blocks.length === 291) {
         this.rootBlock = this.blocks[0];
         this.blocks = this.blocks.slice(1);

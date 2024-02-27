@@ -118,13 +118,13 @@ export class NodesOverviewService {
     };
     if (ledgers.staking_epoch) {
       ledger.stakingEpoch = getLedgerStep(ledgers.staking_epoch);
-      if (ledger.stakingEpoch.state !== NodesOverviewLedgerStepState.SUCCESS && (ledgers.staking_epoch.synced || ledgers.next_epoch.synced || ledgers.root.synced)) {
+      if (ledger.stakingEpoch.state !== NodesOverviewLedgerStepState.SUCCESS && (ledgers.staking_epoch?.synced || ledgers.next_epoch?.synced || ledgers.root?.synced)) {
         ledger.stakingEpoch.state = NodesOverviewLedgerStepState.SUCCESS;
       }
     }
     if (ledgers.next_epoch) {
       ledger.nextEpoch = getLedgerStep(ledgers.next_epoch);
-      if (ledger.nextEpoch.state !== NodesOverviewLedgerStepState.SUCCESS && (ledgers.next_epoch.synced || ledgers.root.synced)) {
+      if (ledger.nextEpoch.state !== NodesOverviewLedgerStepState.SUCCESS && (ledgers.next_epoch?.synced || ledgers.root?.synced)) {
         ledger.nextEpoch.state = NodesOverviewLedgerStepState.SUCCESS;
       }
     }
