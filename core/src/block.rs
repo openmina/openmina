@@ -1,10 +1,9 @@
 use std::sync::Arc;
 
-use mina_hasher::Fp;
 use mina_p2p_messages::v2::{
     ConsensusProofOfStakeDataConsensusStateValueStableV2, LedgerHash,
     MinaBaseProtocolConstantsCheckedValueStableV1, MinaBaseStagedLedgerHashStableV1,
-    MinaStateProtocolStateValueStableV2, NonZeroCurvePoint, StagedLedgerDiffDiffFtStableV1,
+    NonZeroCurvePoint, StagedLedgerDiffDiffFtStableV1,
     StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2Coinbase,
 };
 use mina_p2p_messages::v2::{
@@ -35,12 +34,9 @@ pub struct BlockHeaderWithHash<T: AsRef<BlockHeader>> {
 }
 
 impl<T: AsRef<Block>> BlockWithHash<T> {
-    pub fn new<F>(block: T, hash_fn: F) -> Self
-    where
-        F: Fn(&MinaStateProtocolStateValueStableV2) -> Fp,
-    {
+    pub fn new(block: T) -> Self {
         Self {
-            hash: BlockHash::from_fp(hash_fn(&block.as_ref().header.protocol_state)),
+            hash: block.as_ref().hash(),
             block,
         }
     }
