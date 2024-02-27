@@ -4,7 +4,7 @@ RUN mkdir -p -m 0700 ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
 
 ENV CARGO_NET_GIT_FETCH_WITH_CLI=true
 
-RUN cargo install --git https://github.com/openmina/openmina.git --branch feat/replace-libp2p-rebased-2 openmina-bootstrap-sandbox --locked
+RUN cargo install --git https://github.com/openmina/openmina.git --branch feat/replace-libp2p-rebased-4 openmina-bootstrap-sandbox --locked
 
 FROM debian:bullseye
 
