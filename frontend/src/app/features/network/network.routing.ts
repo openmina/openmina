@@ -29,6 +29,11 @@ const routes: Routes = [
         title: NETWORK_TITLE,
       },
       {
+        path: 'node-dht',
+        loadChildren: () => import('./node-dht/node-dht.module').then(m => m.NodeDhtModule),
+        title: NETWORK_TITLE,
+      },
+      {
         path: '**',
         redirectTo: 'messages',
         pathMatch: 'full',

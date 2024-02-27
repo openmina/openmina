@@ -9,7 +9,7 @@ export const environment: Readonly<MinaEnv> = {
       nodes: ['overview', 'live', 'bootstrap'],
       state: ['actions'],
       network: ['messages', 'connections', 'blocks'],
-      snarks: ['scan-state', /*'work-pool'*/],
+      snarks: ['scan-state' /*'work-pool'*/],
       // 'testing-tool': ['scenarios'],
     },
   },
@@ -34,7 +34,7 @@ export const environment: Readonly<MinaEnv> = {
         state: ['actions'],
         snarks: ['scan-state'],
         resources: ['memory'],
-        network: ['topology'],
+        network: ['topology', 'node-dht', 'graph-overview'],
       },
     },
     {
@@ -60,7 +60,7 @@ export const environment: Readonly<MinaEnv> = {
     {
       name: 'Snarker 3',
       url: 'http://webrtc4.webnode.openmina.com:10000',
-    }
+    },
   ],
 };
 
