@@ -1,4 +1,3 @@
-use ledger::proofs::public_input::protocol_state::MinaHash;
 use openmina_core::block::BlockWithHash;
 use redux::ActionMeta;
 
@@ -32,7 +31,7 @@ impl P2pChannelsMessageReceivedAction {
                     store.dispatch(P2pChannelsBestTipAction::RequestReceived { peer_id })
                 }
                 BestTipPropagationChannelMsg::BestTip(best_tip) => {
-                    let best_tip = BlockWithHash::new(best_tip, MinaHash::hash);
+                    let best_tip = BlockWithHash::new(best_tip);
                     store.dispatch(P2pChannelsBestTipAction::Received { peer_id, best_tip })
                 }
             },
