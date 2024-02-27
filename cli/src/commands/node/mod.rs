@@ -234,14 +234,16 @@ impl Node {
             .unwrap();
         let (redux_exited_tx, redux_exited) = tokio::sync::oneshot::channel();
         let record = self.record;
+
         std::thread::Builder::new()
             .name("openmina_redux".to_owned())
             .spawn(move || {
-                let ledger = if let Some(path) = &self.additional_ledgers_path {
+                let mut ledger = if let Some(path) = &self.additional_ledgers_path {
                     LedgerCtx::new_with_additional_snarked_ledgers(path)
                 } else {
                     LedgerCtx::default()
                 };
+                ledger.load_genesis_ledger("genesis_ledgers/berkeley_genesis_ledger.bin");
 
                 let local_set = tokio::task::LocalSet::new();
                 local_set.block_on(&runtime, async move {
