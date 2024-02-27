@@ -12,7 +12,6 @@ mod transition_frontier_sync_ledger_reducer;
 mod transition_frontier_sync_ledger_effects;
 pub use transition_frontier_sync_ledger_effects::*;
 
-
 use mina_p2p_messages::v2::{LedgerHash, MinaBaseStagedLedgerHashStableV1, StateHash};
 use openmina_core::block::ArcBlockWithHash;
 use serde::{Deserialize, Serialize};
@@ -59,6 +58,7 @@ impl SyncLedgerTarget {
 
     /// Set synchronization target to current best tip's staking epoch ledger.
     pub fn staking_epoch(best_tip: &ArcBlockWithHash) -> Self {
+        // TODO(tizoc): should this return None when it matches the genesis ledger?
         Self {
             kind: SyncLedgerTargetKind::StakingEpoch,
             snarked_ledger_hash: best_tip.staking_epoch_ledger_hash().clone(),
@@ -69,12 +69,15 @@ impl SyncLedgerTarget {
     /// Set synchronization target to current best tip's staking epoch ledger.
     ///
     /// Will return `None` if we shouldn't synchronize it, in case when
-    /// current next_epoch_ledger isn't finalized (reached root).
+    /// current next_epoch_ledger isn't finalized (reached root) or it
+    /// is equal to the genesis ledger.
     ///
     /// In such case, we will reconstruct next_epoch_ledger anyways,
     /// once transition frontier's root will be first slot in the bew epoch.
     pub fn next_epoch(best_tip: &ArcBlockWithHash, root_block: &ArcBlockWithHash) -> Option<Self> {
         if best_tip.next_epoch_ledger_hash() != root_block.next_epoch_ledger_hash() {
+            return None;
+        } else if best_tip.next_epoch_ledger_hash() == best_tip.genesis_ledger_hash() {
             return None;
         }
         Some(Self {

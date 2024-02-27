@@ -93,6 +93,10 @@ impl<T: AsRef<Block>> BlockWithHash<T> {
         producer(self.header())
     }
 
+    pub fn genesis_ledger_hash(&self) -> &LedgerHash {
+        genesis_ledger_hash(self.header())
+    }
+
     pub fn snarked_ledger_hash(&self) -> &LedgerHash {
         snarked_ledger_hash(self.header())
     }
@@ -234,6 +238,10 @@ impl<T: AsRef<BlockHeader>> BlockHeaderWithHash<T> {
         producer(self.header())
     }
 
+    pub fn genesis_ledger_hash(&self) -> &LedgerHash {
+        genesis_ledger_hash(self.header())
+    }
+
     pub fn snarked_ledger_hash(&self) -> &LedgerHash {
         snarked_ledger_hash(self.header())
     }
@@ -298,6 +306,14 @@ fn constants(header: &BlockHeader) -> &MinaBaseProtocolConstantsCheckedValueStab
 
 fn producer(header: &BlockHeader) -> &NonZeroCurvePoint {
     &header.protocol_state.body.consensus_state.block_creator
+}
+
+fn genesis_ledger_hash(header: &BlockHeader) -> &LedgerHash {
+    &header
+        .protocol_state
+        .body
+        .blockchain_state
+        .genesis_ledger_hash
 }
 
 fn snarked_ledger_hash(header: &BlockHeader) -> &LedgerHash {

@@ -285,27 +285,34 @@ impl TransitionFrontierSyncState {
                 }
             }
             TransitionFrontierSyncAction::LedgerNextEpochPending => {
-                if let Self::StakingLedgerSuccess {
-                    best_tip,
-                    root_block,
-                    blocks_inbetween,
-                    ..
-                } = self
-                {
-                    let Some(target) = SyncLedgerTarget::next_epoch(best_tip, root_block) else {
-                        return;
-                    };
-                    *self = Self::NextEpochLedgerPending(TransitionFrontierSyncLedgerPending {
+                let (best_tip, root_block, blocks_inbetween) = match self {
+                    Self::Init {
+                        best_tip,
+                        root_block,
+                        blocks_inbetween,
+                        ..
+                    }
+                    | Self::StakingLedgerSuccess {
+                        best_tip,
+                        root_block,
+                        blocks_inbetween,
+                        ..
+                    } => (best_tip, root_block, blocks_inbetween),
+                    _ => return,
+                };
+                let Some(target) = SyncLedgerTarget::next_epoch(best_tip, root_block) else {
+                    return;
+                };
+                *self = Self::NextEpochLedgerPending(TransitionFrontierSyncLedgerPending {
+                    time: meta.time(),
+                    best_tip: best_tip.clone(),
+                    root_block: root_block.clone(),
+                    blocks_inbetween: std::mem::take(blocks_inbetween),
+                    ledger: TransitionFrontierSyncLedgerState::Init {
                         time: meta.time(),
-                        best_tip: best_tip.clone(),
-                        root_block: root_block.clone(),
-                        blocks_inbetween: std::mem::take(blocks_inbetween),
-                        ledger: TransitionFrontierSyncLedgerState::Init {
-                            time: meta.time(),
-                            target,
-                        },
-                    });
-                }
+                        target,
+                    },
+                });
             }
             TransitionFrontierSyncAction::LedgerNextEpochSuccess => {
                 if let Self::NextEpochLedgerPending(state) = self {
@@ -327,7 +334,13 @@ impl TransitionFrontierSyncState {
             }
             TransitionFrontierSyncAction::LedgerRootPending => {
                 let (best_tip, root_block, blocks_inbetween) = match self {
-                    Self::StakingLedgerSuccess {
+                    Self::Init {
+                        best_tip,
+                        root_block,
+                        blocks_inbetween,
+                        ..
+                    }
+                    | Self::StakingLedgerSuccess {
                         best_tip,
                         root_block,
                         blocks_inbetween,

@@ -16,8 +16,31 @@ impl TransitionFrontierSyncAction {
         S: TransitionFrontierService,
     {
         match self {
-            TransitionFrontierSyncAction::Init { .. } => {
-                store.dispatch(TransitionFrontierSyncAction::LedgerStakingPending);
+            TransitionFrontierSyncAction::Init { best_tip, .. } => {
+                let protocol_state_body = &best_tip.block.header.protocol_state.body;
+                let genesis_ledger_hash = &protocol_state_body.blockchain_state.genesis_ledger_hash;
+                let staking_epoch_ledger_hash = &protocol_state_body
+                    .consensus_state
+                    .staking_epoch_data
+                    .ledger
+                    .hash;
+                let next_epoch_ledger_hash = &protocol_state_body
+                    .consensus_state
+                    .next_epoch_data
+                    .ledger
+                    .hash;
+
+                // TODO(tizoc): if root ledger matches genesis, should anything special be done?
+                // snarked ledger will not need to be synced but staged ledger parts are still
+                // required
+
+                if genesis_ledger_hash != staking_epoch_ledger_hash {
+                    store.dispatch(TransitionFrontierSyncAction::LedgerStakingPending);
+                } else if genesis_ledger_hash != next_epoch_ledger_hash {
+                    store.dispatch(TransitionFrontierSyncAction::LedgerNextEpochPending);
+                } else {
+                    store.dispatch(TransitionFrontierSyncAction::LedgerRootPending);
+                }
             }
             TransitionFrontierSyncAction::BestTipUpdate { .. } => {
                 // if root snarked ledger changed.
