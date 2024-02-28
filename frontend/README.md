@@ -6,22 +6,23 @@ This is a simple Angular application that will help you to see the behaviour of 
 
 ### 1. Node.js
 
-Download and install [Node.js v20.11.1](https://nodejs.org/) for your OS, which includes Node Package Manager (npm).
-Install NodeJS for your OS:
+Install Node.js v20.11.1:
 
 #### MacOS
 ```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 brew install node@20.11.1
 ```
 
 #### Linux
 ```bash
-sudo apt-get install nodejs
-sudo apt-get install npm
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.38.0/install.sh | bash
+source ~/.bashrc
+nvm install 20.11.1
 ```
 
 #### Windows
-Download [Node.js v20.11.1](https://nodejs.org/) from the official website, open the installer and Follow the prompts to complete the installation.
+Download [Node.js v20.11.1](https://nodejs.org/) from the official website, open the installer and follow the prompts to complete the installation.
 
 ### 2. Angular CLI
 Install the Angular CLI v16.2.0 globally:
