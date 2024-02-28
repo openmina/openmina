@@ -28,7 +28,7 @@ impl SoloNodeBootstrap {
         const TIMEOUT: Duration = Duration::from_secs(60 * 40);
 
         const REPLAYER_1: &'static str =
-            "/ip4/65.109.110.75/tcp/18302/p2p/12D3KooWD8jSyPFXNdAcMBHyHjRBcK1AW9t3xvnpfCFSRKMweVKi";
+            "/ip4/135.181.217.23/tcp/31968/p2p/12D3KooWPayQEdprqY2m3biReUUybA5LoULpJE7YWu6wetEKKELv";
         let replayer = (&REPLAYER_1.parse::<libp2p::Multiaddr>().unwrap())
             .try_into()
             .unwrap();
