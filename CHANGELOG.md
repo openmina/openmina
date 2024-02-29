@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2024-02-29
+
+### Changed
+
+- Default Rust toolchain switched to stable channel (as of 1.75).
+- Internal refactoring to how leaf actions in the state machine are organized.
+
+### Fixed
+
+- Node can now connect to the current berkeleynet after updates to:
+  - Wire type definitions.
+  - Verification, proving and circuits.
+  - Ledger and transaction application logic.
+
+### Added
+
+- Ledger tests on CI.
+
 ## [0.1.0] - 2024-02-02
 
 ### Fixed
@@ -34,6 +52,7 @@ First public release.
 - Alpha version of the node which can connect and syncup to the berkeleynet network, and keep applying new blocks to maintain consensus state and ledger up to date.
 - Web-based frontend for the node.
 
-[unreleased]: https://github.com/openmina/openmina/compare/v0.1.0...develop
+[unreleased]: https://github.com/openmina/openmina/compare/v0.2.0...develop
+[0.2.0]: https://github.com/openmina/openmina/releases/tag/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/openmina/openmina/releases/tag/v0.0.1...v0.1.0
 [0.0.1]: https://github.com/openmina/openmina/releases/tag/v0.0.1
