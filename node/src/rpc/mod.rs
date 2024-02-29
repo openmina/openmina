@@ -10,7 +10,7 @@ mod rpc_actions;
 pub use rpc_actions::*;
 
 mod rpc_reducer;
-pub use rpc_reducer::*;
+
 
 mod rpc_effects;
 pub use rpc_effects::*;

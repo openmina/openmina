@@ -26,7 +26,7 @@ mod p2p_state;
 pub use p2p_state::*;
 
 mod p2p_reducer;
-pub use p2p_reducer::*;
+
 
 use redux::SubStore;
 pub trait P2pStore<GlobalState>: SubStore<GlobalState, P2pState, SubAction = P2pAction> {}

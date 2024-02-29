@@ -520,7 +520,7 @@ impl<F: FieldWitness> ToFieldElements<F>
             sub_window_densities,
             last_vrf_output,
             total_currency,
-            curr_global_slot:
+            curr_global_slot_since_hard_fork:
                 v2::ConsensusGlobalSlotStableV1 {
                     slot_number,
                     slots_per_epoch,
@@ -573,6 +573,7 @@ impl<F: FieldWitness> ToFieldElements<F> for v2::MinaBaseProtocolConstantsChecke
             k,
             slots_per_epoch,
             slots_per_sub_window,
+            grace_period_slots,
             delta,
             genesis_state_timestamp,
         } = self;
@@ -580,6 +581,7 @@ impl<F: FieldWitness> ToFieldElements<F> for v2::MinaBaseProtocolConstantsChecke
         k.as_u32().to_field_elements(fields);
         slots_per_epoch.as_u32().to_field_elements(fields);
         slots_per_sub_window.as_u32().to_field_elements(fields);
+        grace_period_slots.as_u32().to_field_elements(fields);
         delta.as_u32().to_field_elements(fields);
         genesis_state_timestamp.as_u64().to_field_elements(fields);
     }
@@ -774,17 +776,27 @@ impl<F: FieldWitness> ToFieldElements<F> for crate::Timing {
 
 impl<F: FieldWitness> ToFieldElements<F> for crate::Permissions<crate::AuthRequired> {
     fn to_field_elements(&self, fields: &mut Vec<F>) {
-        self.iter_as_bits(|bit| {
-            bit.to_field_elements(fields);
+        use crate::AuthOrVersion;
+
+        self.iter_as_bits(|bit| match bit {
+            AuthOrVersion::Auth(bit) => bit.to_field_elements(fields),
+            AuthOrVersion::Version(version) => version.to_field_elements(fields),
         });
     }
 }
 
 impl<F: FieldWitness> ToFieldElements<F> for crate::AuthRequired {
     fn to_field_elements(&self, fields: &mut Vec<F>) {
-        for bit in self.encode().to_bits() {
-            bit.to_field_elements(fields);
-        }
+        // In OCaml `Controller.if_`
+        // push values in reverse order (because of OCaml evaluation order)
+        // https://github.com/MinaProtocol/mina/blob/4283d70c8c5c1bd9eebb0d3e449c36fb0bf0c9af/src/lib/mina_base/permissions.ml#L174
+        let crate::AuthRequiredEncoded {
+            constant,
+            signature_necessary,
+            signature_sufficient,
+        } = self.encode();
+
+        [signature_sufficient, signature_necessary, constant].to_field_elements(fields);
     }
 }
 

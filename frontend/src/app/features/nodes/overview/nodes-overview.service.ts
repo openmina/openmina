@@ -27,10 +27,12 @@ export class NodesOverviewService {
   }
 
   getNodeTips(nodeParam: { url: string, name: string }, qp: string = ''): Observable<NodesOverviewNode[]> {
-    // return of(JSON.parse(JSON.stringify(mock2()))).pipe(delay(250))
     return this.http.get<any[]>(nodeParam.url + '/stats/sync' + qp)
       .pipe(
         map((response: any[]) => {
+          if (response.length === 0) {
+            throw new Error('Empty response');
+          }
           return response.map((node: any) => {
             const blocks = node.blocks.map((block: any) => {
               return {
@@ -116,13 +118,13 @@ export class NodesOverviewService {
     };
     if (ledgers.staking_epoch) {
       ledger.stakingEpoch = getLedgerStep(ledgers.staking_epoch);
-      if (ledger.stakingEpoch.state !== NodesOverviewLedgerStepState.SUCCESS && (ledgers.staking_epoch.synced || ledgers.next_epoch.synced || ledgers.root.synced)) {
+      if (ledger.stakingEpoch.state !== NodesOverviewLedgerStepState.SUCCESS && (ledgers.staking_epoch?.synced || ledgers.next_epoch?.synced || ledgers.root?.synced)) {
         ledger.stakingEpoch.state = NodesOverviewLedgerStepState.SUCCESS;
       }
     }
     if (ledgers.next_epoch) {
       ledger.nextEpoch = getLedgerStep(ledgers.next_epoch);
-      if (ledger.nextEpoch.state !== NodesOverviewLedgerStepState.SUCCESS && (ledgers.next_epoch.synced || ledgers.root.synced)) {
+      if (ledger.nextEpoch.state !== NodesOverviewLedgerStepState.SUCCESS && (ledgers.next_epoch?.synced || ledgers.root?.synced)) {
         ledger.nextEpoch.state = NodesOverviewLedgerStepState.SUCCESS;
       }
     }

@@ -1,9 +1,7 @@
 <div *ngIf="bestTipBlock" class="list-wrapper h-100 w-100 fx-row-vert-cent overflow-y-auto">
-
   <div class="block-list h-100">
-
-    <div class="p-relative w-100 flex-row align-center flex-wrap">
-
+    <div class="p-relative w-100 flex-row align-center flex-wrap pt-12"
+         [class.mt-16]="blocks.length === 1">
       <aside class="flex-column flex-between align-center">
         <div class="w-100 fx-row-vert-cent">
           <div class="arrow"></div>
@@ -28,5 +26,4 @@
            [ngClass]="bestTipBlock?.status">{{ bestTipBlock?.height || '-' }}</div>
     </div>
   </div>
-
 </div>

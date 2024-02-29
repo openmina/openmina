@@ -5,8 +5,7 @@ use ledger::{
     scan_state::currency::{Amount, Signed},
 };
 use mina_p2p_messages::{
-    bigint::BigInt,
-    v2::{
+    bigint::BigInt, list::List, v2::{
         ConsensusGlobalSlotStableV1, ConsensusProofOfStakeDataConsensusStateValueStableV2,
         ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1,
         ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1,
@@ -16,7 +15,7 @@ use mina_p2p_messages::{
         MinaStateBlockchainStateValueStableV2LedgerProofStatement,
         MinaStateProtocolStateBodyValueStableV2, MinaStateProtocolStateValueStableV2,
         StagedLedgerDiffBodyStableV1, StateBodyHash, StateHash, UnsignedExtendedUInt32StableV1,
-    },
+    }
 };
 use openmina_core::block::{ArcBlockWithHash, BlockWithHash};
 
@@ -46,41 +45,40 @@ impl BlockProducerEnabled {
             BlockProducerAction::VrfEvaluator(action) => {
                 self.vrf_evaluator.reducer(meta.with_action(action))
             }
-            BlockProducerAction::BestTipUpdate(action) => {
-                self.vrf_evaluator.current_best_tip_slot = action
-                    .best_tip
+            BlockProducerAction::BestTipUpdate { best_tip } => {
+                self.vrf_evaluator.current_best_tip_slot = best_tip
                     .block
                     .header
                     .protocol_state
                     .body
                     .consensus_state
-                    .curr_global_slot
+                    .curr_global_slot_since_hard_fork
                     .slot_number
                     .as_u32();
 
                 // set the genesis timestamp on the first best tip update
                 // TODO: move/remove once we can generate the genesis block
                 if self.vrf_evaluator.genesis_timestamp == redux::Timestamp::ZERO {
-                    self.vrf_evaluator.genesis_timestamp = action.best_tip.genesis_timestamp();
+                    self.vrf_evaluator.genesis_timestamp = best_tip.genesis_timestamp();
                 }
             }
-            BlockProducerAction::WonSlotSearch(_) => {}
-            BlockProducerAction::WonSlot(action) => {
+            BlockProducerAction::WonSlotSearch => {}
+            BlockProducerAction::WonSlot { won_slot } => {
                 self.current = BlockProducerCurrentState::WonSlot {
                     time: meta.time(),
-                    won_slot: action.won_slot.clone(),
+                    won_slot: won_slot.clone(),
                 };
             }
-            BlockProducerAction::WonSlotDiscard(action) => {
+            BlockProducerAction::WonSlotDiscard { reason } => {
                 if let Some(won_slot) = self.current.won_slot() {
                     self.current = BlockProducerCurrentState::WonSlotDiscarded {
                         time: meta.time(),
                         won_slot: won_slot.clone(),
-                        reason: action.reason.clone(),
+                        reason: reason.clone(),
                     };
                 }
             }
-            BlockProducerAction::WonSlotWait(_) => {
+            BlockProducerAction::WonSlotWait => {
                 if let Some(won_slot) = self.current.won_slot() {
                     self.current = BlockProducerCurrentState::WonSlotWait {
                         time: meta.time(),
@@ -88,7 +86,7 @@ impl BlockProducerEnabled {
                     };
                 }
             }
-            BlockProducerAction::WonSlotProduceInit(_) => {
+            BlockProducerAction::WonSlotProduceInit => {
                 if let Some(won_slot) = self.current.won_slot() {
                     let Some(chain) = best_chain.last().map(|best_tip| {
                         if best_tip.global_slot() == won_slot.global_slot() {
@@ -108,8 +106,8 @@ impl BlockProducerEnabled {
                     };
                 }
             }
-            BlockProducerAction::StagedLedgerDiffCreateInit(_) => {}
-            BlockProducerAction::StagedLedgerDiffCreatePending(_) => {
+            BlockProducerAction::StagedLedgerDiffCreateInit => {}
+            BlockProducerAction::StagedLedgerDiffCreatePending => {
                 let BlockProducerCurrentState::WonSlotProduceInit {
                     won_slot, chain, ..
                 } = &mut self.current
@@ -123,7 +121,12 @@ impl BlockProducerEnabled {
                     transactions: (),
                 };
             }
-            BlockProducerAction::StagedLedgerDiffCreateSuccess(action) => {
+            BlockProducerAction::StagedLedgerDiffCreateSuccess {
+                diff,
+                diff_hash,
+                staged_ledger_hash,
+                emitted_ledger_proof,
+            } => {
                 let BlockProducerCurrentState::StagedLedgerDiffCreatePending {
                     won_slot,
                     chain,
@@ -136,13 +139,13 @@ impl BlockProducerEnabled {
                     time: meta.time(),
                     won_slot: won_slot.clone(),
                     chain: std::mem::take(chain),
-                    diff: action.diff.clone(),
-                    diff_hash: action.diff_hash.clone(),
-                    staged_ledger_hash: action.staged_ledger_hash.clone(),
-                    emitted_ledger_proof: action.emitted_ledger_proof.clone(),
+                    diff: diff.clone(),
+                    diff_hash: diff_hash.clone(),
+                    staged_ledger_hash: staged_ledger_hash.clone(),
+                    emitted_ledger_proof: emitted_ledger_proof.clone(),
                 };
             }
-            BlockProducerAction::BlockUnprovenBuild(_) => {
+            BlockProducerAction::BlockUnprovenBuild => {
                 let BlockProducerCurrentState::StagedLedgerDiffCreateSuccess {
                     won_slot,
                     chain,
@@ -166,14 +169,14 @@ impl BlockProducerEnabled {
                 let genesis_ledger_hash = &pred_blockchain_state.genesis_ledger_hash;
 
                 let block_timestamp = won_slot.timestamp();
-                let pred_global_slot = pred_consensus_state.curr_global_slot.clone();
-                let curr_global_slot = won_slot.global_slot.clone();
+                let pred_global_slot = pred_consensus_state.curr_global_slot_since_hard_fork.clone();
+                let curr_global_slot_since_hard_fork = won_slot.global_slot.clone();
                 let global_slot_since_genesis =
                     won_slot.global_slot_since_genesis(pred_block.global_slot_diff());
                 let (pred_epoch, _) = to_epoch_and_slot(&pred_global_slot);
-                let (next_epoch, next_slot) = to_epoch_and_slot(&curr_global_slot);
+                let (next_epoch, next_slot) = to_epoch_and_slot(&curr_global_slot_since_hard_fork);
                 let has_ancestor_in_same_checkpoint_window =
-                    in_same_checkpoint_window(&pred_global_slot, &curr_global_slot);
+                    in_same_checkpoint_window(&pred_global_slot, &curr_global_slot_since_hard_fork);
 
                 let block_stake_winner = won_slot.delegator.0.clone();
                 let vrf_truncated_output = won_slot.vrf_output.clone();
@@ -264,7 +267,7 @@ impl BlockProducerEnabled {
                     let pred_global_sub_window =
                         global_sub_window(&pred_global_slot, pred_block.constants());
                     let next_global_sub_window =
-                        global_sub_window(&curr_global_slot, pred_block.constants());
+                        global_sub_window(&curr_global_slot_since_hard_fork, pred_block.constants());
 
                     let pred_relative_sub_window = relative_sub_window(pred_global_sub_window);
                     let next_relative_sub_window = relative_sub_window(next_global_sub_window);
@@ -299,7 +302,7 @@ impl BlockProducerEnabled {
 
                     let grace_period_end = grace_period_end(pred_block.constants());
                     let min_window_density = if is_same_global_sub_window
-                        || curr_global_slot.slot_number.as_u32() < grace_period_end
+                        || curr_global_slot_since_hard_fork.slot_number.as_u32() < grace_period_end
                     {
                         pred_consensus_state.min_window_density.clone()
                     } else {
@@ -347,7 +350,7 @@ impl BlockProducerEnabled {
                     sub_window_densities,
                     last_vrf_output: vrf_truncated_output,
                     total_currency: (&total_currency).into(),
-                    curr_global_slot,
+                    curr_global_slot_since_hard_fork,
                     global_slot_since_genesis,
                     staking_epoch_data,
                     next_epoch_data,
@@ -385,7 +388,7 @@ impl BlockProducerEnabled {
                 // TODO(binier): test
                 let chain_proof_len = pred_block.constants().delta.as_u32() as usize;
                 let delta_block_chain_proof = match chain_proof_len {
-                    0 => (hash.clone(), Vec::new()),
+                    0 => (hash.clone(), List::new()),
                     chain_proof_len => {
                         let mut iter = chain.iter().rev().take(chain_proof_len).rev();
                         let first_hash = iter
@@ -395,7 +398,7 @@ impl BlockProducerEnabled {
                             .map(|b| b.header().protocol_state.body.hash())
                             .chain(std::iter::once(body_hash))
                             .map(StateBodyHash::from)
-                            .collect::<Vec<_>>();
+                            .collect();
                         (first_hash, body_hashes)
                     }
                 };
@@ -426,7 +429,7 @@ impl BlockProducerEnabled {
                     },
                 }
             }
-            BlockProducerAction::BlockProduced(_) => {
+            BlockProducerAction::BlockProduced => {
                 if let BlockProducerCurrentState::BlockUnprovenBuilt {
                     won_slot,
                     chain,
@@ -442,8 +445,8 @@ impl BlockProducerEnabled {
                     };
                 }
             }
-            BlockProducerAction::BlockInject(_) => {}
-            BlockProducerAction::BlockInjected(_) => {
+            BlockProducerAction::BlockInject => {}
+            BlockProducerAction::BlockInjected => {
                 if let BlockProducerCurrentState::Produced {
                     won_slot,
                     chain,

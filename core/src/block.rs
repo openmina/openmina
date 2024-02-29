@@ -89,6 +89,10 @@ impl<T: AsRef<Block>> BlockWithHash<T> {
         producer(self.header())
     }
 
+    pub fn genesis_ledger_hash(&self) -> &LedgerHash {
+        genesis_ledger_hash(self.header())
+    }
+
     pub fn snarked_ledger_hash(&self) -> &LedgerHash {
         snarked_ledger_hash(self.header())
     }
@@ -118,14 +122,17 @@ impl<T: AsRef<Block>> BlockWithHash<T> {
         &self.block.as_ref().body.staged_ledger_diff.diff
     }
 
-    pub fn commands_iter(
-        &self,
-    ) -> impl Iterator<Item = &StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2B> {
+    pub fn commands_iter<'a>(
+        &'a self,
+    ) -> Box<dyn 'a + Iterator<Item = &'a StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2B>>
+    {
         let diff = self.staged_ledger_diff();
-        diff.0.commands.iter().chain(match &diff.1.as_ref() {
-            None => &[],
-            Some(v) => &v.commands[..],
-        })
+        let iter = diff.0.commands.iter();
+        if let Some(_1) = diff.1.as_ref() {
+            Box::new(iter.chain(_1.commands.iter()))
+        } else {
+            Box::new(iter)
+        }
     }
 
     pub fn coinbases_iter(&self) -> impl Iterator<Item = &StagedLedgerDiffDiffFtStableV1> {
@@ -158,12 +165,16 @@ impl<T: AsRef<Block>> BlockWithHash<T> {
         coinbases.into_iter().filter_map(|v| v)
     }
 
-    pub fn completed_works_iter(&self) -> impl Iterator<Item = &TransactionSnarkWorkTStableV2> {
+    pub fn completed_works_iter<'a>(
+        &'a self,
+    ) -> Box<dyn 'a + Iterator<Item = &'a TransactionSnarkWorkTStableV2>> {
         let diff = self.staged_ledger_diff();
-        diff.0.completed_works.iter().chain(match &diff.1.as_ref() {
-            None => &[],
-            Some(v) => &v.completed_works[..],
-        })
+        let _0 = &diff.0;
+        if let Some(_1) = diff.1.as_ref() {
+            Box::new(_0.completed_works.iter().chain(_1.completed_works.iter()))
+        } else {
+            Box::new(_0.completed_works.iter())
+        }
     }
 }
 
@@ -221,6 +232,10 @@ impl<T: AsRef<BlockHeader>> BlockHeaderWithHash<T> {
 
     pub fn producer(&self) -> &NonZeroCurvePoint {
         producer(self.header())
+    }
+
+    pub fn genesis_ledger_hash(&self) -> &LedgerHash {
+        genesis_ledger_hash(self.header())
     }
 
     pub fn snarked_ledger_hash(&self) -> &LedgerHash {
@@ -287,6 +302,14 @@ fn constants(header: &BlockHeader) -> &MinaBaseProtocolConstantsCheckedValueStab
 
 fn producer(header: &BlockHeader) -> &NonZeroCurvePoint {
     &header.protocol_state.body.consensus_state.block_creator
+}
+
+fn genesis_ledger_hash(header: &BlockHeader) -> &LedgerHash {
+    &header
+        .protocol_state
+        .body
+        .blockchain_state
+        .genesis_ledger_hash
 }
 
 fn snarked_ledger_hash(header: &BlockHeader) -> &LedgerHash {

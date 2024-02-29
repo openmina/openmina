@@ -6,78 +6,78 @@ impl RpcState {
     pub fn reducer(&mut self, action: RpcActionWithMetaRef<'_>) {
         let (action, meta) = action.split();
         match action {
-            RpcAction::GlobalStateGet(_) => {}
-            RpcAction::ActionStatsGet(_) => {}
-            RpcAction::SyncStatsGet(_) => {}
-            RpcAction::PeersGet(_) => {}
-            RpcAction::P2pConnectionOutgoingInit(content) => {
+            RpcAction::GlobalStateGet { .. } => {}
+            RpcAction::ActionStatsGet { .. } => {}
+            RpcAction::SyncStatsGet { .. } => {}
+            RpcAction::PeersGet { .. } => {}
+            RpcAction::P2pConnectionOutgoingInit { rpc_id, opts } => {
                 let rpc_state = RpcRequestState {
-                    req: RpcRequest::P2pConnectionOutgoing(content.opts.clone()),
+                    req: RpcRequest::P2pConnectionOutgoing(opts.clone()),
                     status: RpcRequestStatus::Init { time: meta.time() },
                 };
-                self.requests.insert(content.rpc_id, rpc_state);
+                self.requests.insert(*rpc_id, rpc_state);
             }
-            RpcAction::P2pConnectionOutgoingPending(content) => {
-                let Some(rpc) = self.requests.get_mut(&content.rpc_id) else {
+            RpcAction::P2pConnectionOutgoingPending { rpc_id } => {
+                let Some(rpc) = self.requests.get_mut(rpc_id) else {
                     return;
                 };
                 rpc.status = RpcRequestStatus::Pending { time: meta.time() };
             }
-            RpcAction::P2pConnectionOutgoingError(content) => {
-                let Some(rpc) = self.requests.get_mut(&content.rpc_id) else {
+            RpcAction::P2pConnectionOutgoingError { rpc_id, error } => {
+                let Some(rpc) = self.requests.get_mut(rpc_id) else {
                     return;
                 };
                 rpc.status = RpcRequestStatus::Error {
                     time: meta.time(),
-                    error: format!("{:?}", content.error),
+                    error: format!("{:?}", error),
                 };
             }
-            RpcAction::P2pConnectionOutgoingSuccess(content) => {
-                let Some(rpc) = self.requests.get_mut(&content.rpc_id) else {
+            RpcAction::P2pConnectionOutgoingSuccess { rpc_id } => {
+                let Some(rpc) = self.requests.get_mut(rpc_id) else {
                     return;
                 };
                 rpc.status = RpcRequestStatus::Success { time: meta.time() };
             }
-            RpcAction::P2pConnectionIncomingInit(content) => {
+            RpcAction::P2pConnectionIncomingInit { rpc_id, opts } => {
                 let rpc_state = RpcRequestState {
-                    req: RpcRequest::P2pConnectionIncoming(content.opts.clone()),
+                    req: RpcRequest::P2pConnectionIncoming(opts.clone()),
                     status: RpcRequestStatus::Init { time: meta.time() },
                 };
-                self.requests.insert(content.rpc_id, rpc_state);
+                self.requests.insert(*rpc_id, rpc_state);
             }
-            RpcAction::P2pConnectionIncomingPending(content) => {
-                let Some(rpc) = self.requests.get_mut(&content.rpc_id) else {
+            RpcAction::P2pConnectionIncomingPending { rpc_id } => {
+                let Some(rpc) = self.requests.get_mut(rpc_id) else {
                     return;
                 };
                 rpc.status = RpcRequestStatus::Pending { time: meta.time() };
             }
-            RpcAction::P2pConnectionIncomingRespond(_) => {}
-            RpcAction::P2pConnectionIncomingError(content) => {
-                let Some(rpc) = self.requests.get_mut(&content.rpc_id) else {
+            RpcAction::P2pConnectionIncomingRespond { .. } => {}
+            RpcAction::P2pConnectionIncomingError { rpc_id, error } => {
+                let Some(rpc) = self.requests.get_mut(rpc_id) else {
                     return;
                 };
                 rpc.status = RpcRequestStatus::Error {
                     time: meta.time(),
-                    error: format!("{:?}", content.error),
+                    error: format!("{:?}", error),
                 };
             }
-            RpcAction::P2pConnectionIncomingSuccess(content) => {
-                let Some(rpc) = self.requests.get_mut(&content.rpc_id) else {
+            RpcAction::P2pConnectionIncomingSuccess { rpc_id } => {
+                let Some(rpc) = self.requests.get_mut(rpc_id) else {
                     return;
                 };
                 rpc.status = RpcRequestStatus::Success { time: meta.time() };
             }
-            RpcAction::ScanStateSummaryGet(_) => {}
-            RpcAction::SnarkPoolAvailableJobsGet(_) => {}
-            RpcAction::SnarkPoolJobGet(_) => {}
-            RpcAction::SnarkerConfigGet(_) => {}
-            RpcAction::SnarkerJobCommit(_) => {}
-            RpcAction::SnarkerJobSpec(_) => {}
-            RpcAction::SnarkerWorkersGet(_) => {}
-            RpcAction::HealthCheck(_) => {}
-            RpcAction::ReadinessCheck(_) => {}
-            RpcAction::Finish(action) => {
-                self.requests.remove(&action.rpc_id);
+            RpcAction::ScanStateSummaryGet { .. } => {}
+            RpcAction::SnarkPoolAvailableJobsGet { .. } => {}
+            RpcAction::SnarkPoolJobGet { .. } => {}
+            RpcAction::SnarkerConfigGet { .. } => {}
+            RpcAction::SnarkerJobCommit { .. } => {}
+            RpcAction::SnarkerJobSpec { .. } => {}
+            RpcAction::SnarkerWorkersGet { .. } => {}
+            RpcAction::HealthCheck { .. } => {}
+            RpcAction::ReadinessCheck { .. } => {}
+            RpcAction::Finish { rpc_id } => {
+                self.requests.remove(rpc_id);
             }
         }
     }

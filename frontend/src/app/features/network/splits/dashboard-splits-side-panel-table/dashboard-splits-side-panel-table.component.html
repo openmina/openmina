@@ -1,0 +1,14 @@
+<ng-container #minaTable></ng-container>
+
+<ng-template #rowTemplate let-row="row">
+  <span class="truncate">
+    <mina-copy [value]="row.address"></mina-copy>
+  </span>
+  <span>{{ row.node || '-' }}</span>
+  <span>
+    <mina-copy [value]="row.peerId" [display]="row.peerId | truncateMid: 0: 4"></mina-copy>
+  </span>
+  <span class="primary text-right pr-12 mr-5">
+    <span class="tertiary">→</span> {{ row.incomingConnections }} <span class="tertiary">/</span> {{ row.outgoingConnections }} <span class="tertiary">→</span>
+  </span>
+</ng-template>

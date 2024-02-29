@@ -14,9 +14,7 @@ use tokio::select;
 use node::account::AccountPublicKey;
 use node::core::channels::mpsc;
 use node::core::log::inner::Level;
-use node::event_source::{
-    EventSourceProcessEventsAction, EventSourceWaitForEventsAction, EventSourceWaitTimeoutAction,
-};
+use node::event_source::EventSourceAction;
 use node::ledger::LedgerCtx;
 use node::p2p::channels::ChannelId;
 use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
@@ -35,7 +33,7 @@ use node::{
 use openmina_node_native::rpc::RpcService;
 use openmina_node_native::{http_server, tracing, NodeService, P2pTaskSpawner, RpcSender};
 
-const CHAIN_ID: &'static str = "3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e";
+const CHAIN_ID: &'static str = "fd7d111973bf5a9e3e87384f560fdead2f272589ca00b6d9e357fca9839631da";
 
 /// Openmina node
 #[derive(Debug, clap::Args)]
@@ -236,14 +234,16 @@ impl Node {
             .unwrap();
         let (redux_exited_tx, redux_exited) = tokio::sync::oneshot::channel();
         let record = self.record;
+
         std::thread::Builder::new()
             .name("openmina_redux".to_owned())
             .spawn(move || {
-                let ledger = if let Some(path) = &self.additional_ledgers_path {
+                let mut ledger = if let Some(path) = &self.additional_ledgers_path {
                     LedgerCtx::new_with_additional_snarked_ledgers(path)
                 } else {
                     LedgerCtx::default()
                 };
+                ledger.load_genesis_ledger("genesis_ledgers/berkeley_genesis_ledger.bin");
 
                 let local_set = tokio::task::LocalSet::new();
                 local_set.block_on(&runtime, async move {
@@ -283,11 +283,11 @@ impl Node {
 
                     node
                         .store_mut()
-                        .dispatch(EventSourceProcessEventsAction {});
+                        .dispatch(EventSourceAction::ProcessEvents);
                     loop {
                         node
                             .store_mut()
-                            .dispatch(EventSourceWaitForEventsAction {});
+                            .dispatch(EventSourceAction::WaitForEvents);
 
                         let service = &mut node.store_mut().service;
                         let wait_for_events = service.event_receiver.wait_for_events();
@@ -303,7 +303,7 @@ impl Node {
                         select! {
                             _ = wait_for_events => {
                                 while node.store_mut().service.event_receiver.has_next() {
-                                    node.store_mut().dispatch(EventSourceProcessEventsAction {});
+                                    node.store_mut().dispatch(EventSourceAction::ProcessEvents);
                                 }
                             }
                             req = rpc_req_fut => {
@@ -314,7 +314,7 @@ impl Node {
                                 }
                             }
                             _ = timeout => {
-                                node.store_mut().dispatch(EventSourceWaitTimeoutAction {});
+                                node.store_mut().dispatch(EventSourceAction::WaitTimeout);
                             }
                         }
                     }

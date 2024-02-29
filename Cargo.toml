@@ -17,6 +17,8 @@ members = [
 
     "mina-p2p-messages",
     "ledger",
+
+    "tools/*",
 ]
 
 resolver = "2"

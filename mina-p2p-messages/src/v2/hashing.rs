@@ -458,15 +458,22 @@ impl ToInput for MinaBaseProtocolConstantsCheckedValueStableV1 {
             k,
             slots_per_epoch,
             slots_per_sub_window,
+            grace_period_slots: _,
             delta,
             genesis_state_timestamp,
         } = self;
 
-        k.to_input(inputs);
-        delta.to_input(inputs);
-        slots_per_epoch.to_input(inputs);
-        slots_per_sub_window.to_input(inputs);
-        genesis_state_timestamp.to_input(inputs);
+        to_input_fields!(
+            inputs,
+            k,
+            delta,
+            slots_per_epoch,
+            slots_per_sub_window,
+            // TODO: 2.0.0berkeley_rc1 doesn't include this, but
+            // that is a bug that will be fixed later.
+            // grace_period_slots,
+            genesis_state_timestamp
+        );
     }
 }
 
@@ -500,7 +507,7 @@ impl ToInput for ConsensusProofOfStakeDataConsensusStateValueStableV2 {
             sub_window_densities,
             last_vrf_output,
             total_currency,
-            curr_global_slot,
+            curr_global_slot_since_hard_fork,
             global_slot_since_genesis,
             staking_epoch_data,
             next_epoch_data,
@@ -518,7 +525,7 @@ impl ToInput for ConsensusProofOfStakeDataConsensusStateValueStableV2 {
             sub_window_densities,
             last_vrf_output,
             total_currency,
-            curr_global_slot,
+            curr_global_slot_since_hard_fork,
             global_slot_since_genesis,
             has_ancestor_in_same_checkpoint_window,
             supercharge_coinbase,

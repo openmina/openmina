@@ -27,7 +27,7 @@ pub enum ConsensusLongRangeForkDecisionReason {
 // using block proof verification, but check just to be sure.
 pub fn is_short_range_fork(a: &MinaConsensusState, b: &MinaConsensusState) -> bool {
     let check = |s1: &MinaConsensusState, s2: &MinaConsensusState| {
-        let slots_per_epoch = s2.curr_global_slot.slots_per_epoch.as_u32();
+        let slots_per_epoch = s2.curr_global_slot_since_hard_fork.slots_per_epoch.as_u32();
         let s2_epoch_slot = s2.global_slot() % slots_per_epoch;
         if s1.epoch_count.as_u32() == s2.epoch_count.as_u32() + 1
             && s2_epoch_slot >= slots_per_epoch * 2 / 3
@@ -104,7 +104,7 @@ fn relative_sub_window(global_slot: u32) -> u32 {
 }
 
 fn global_slot(b: &MinaConsensusState) -> u32 {
-    b.curr_global_slot.slot_number.as_u32()
+    b.curr_global_slot_since_hard_fork.slot_number.as_u32()
 }
 
 pub fn short_range_fork_take(
@@ -200,7 +200,8 @@ mod tests {
     macro_rules! fork_file {
         ($prefix:expr, $tip:expr, $cnd:expr, $suffix:expr) => {
             concat!(
-                "../../../tests/files/forks/",
+                env!("CARGO_MANIFEST_DIR"),
+                "/../tests/files/forks/",
                 $prefix,
                 "-",
                 $tip,

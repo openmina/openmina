@@ -40,6 +40,7 @@ export class NodesLiveService {
     const COMPLETED = 'Completed';
 
     node.blocks.forEach((block: NodesOverviewBlock, index: number) => {
+      const isBestTip = index === 0;
       if (block.fetchStart) {
         const event = {} as NodesLiveBlockEvent;
         event.height = block.height;
@@ -47,7 +48,7 @@ export class NodesLiveService {
         event.timestamp = block.fetchStart;
         event.datetime = toReadableDate(block.fetchStart / ONE_MILLION);
         event.status = STARTED;
-        event.isBestTip = index === 0;
+        event.isBestTip = isBestTip;
         events.push(event);
       }
       if (block.fetchEnd) {
@@ -58,7 +59,7 @@ export class NodesLiveService {
         event.datetime = toReadableDate(block.fetchEnd / ONE_MILLION);
         event.elapsed = block.fetchDuration;
         event.status = COMPLETED;
-        event.isBestTip = index === 0;
+        event.isBestTip = isBestTip;
         events.push(event);
       }
       if (block.applyStart) {
@@ -68,7 +69,7 @@ export class NodesLiveService {
         event.timestamp = block.applyStart;
         event.datetime = toReadableDate(block.applyStart / ONE_MILLION);
         event.status = STARTED;
-        event.isBestTip = index === 0;
+        event.isBestTip = isBestTip;
         events.push(event);
       }
       if (block.applyEnd) {
@@ -79,7 +80,7 @@ export class NodesLiveService {
         event.datetime = toReadableDate(block.applyEnd / ONE_MILLION);
         event.elapsed = block.applyDuration;
         event.status = COMPLETED;
-        event.isBestTip = index === 0;
+        event.isBestTip = isBestTip;
         events.push(event);
       }
     });

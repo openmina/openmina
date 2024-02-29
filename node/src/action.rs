@@ -49,18 +49,6 @@ pub struct CheckTimeoutsAction {}
 
 impl redux::EnablingCondition<crate::State> for CheckTimeoutsAction {}
 
-macro_rules! impl_into_global_action {
-    ($selector:ident : $($action:ty),* $(,)?) => {
-        $(
-            impl From<$action> for crate::Action {
-                fn from(value: $action) -> Self {
-                    Self::$selector(value.into())
-                }
-            }
-        )*
-    };
-}
-
 #[cfg(feature = "replay")]
 impl redux::EnablingCondition<crate::State> for Action {
     fn is_enabled(&self, _: &crate::State) -> bool {

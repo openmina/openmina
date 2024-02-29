@@ -23,7 +23,7 @@ use crate::{
         zkapp::{GlobalStateForProof, LedgerWithHash, WithStackHash, ZkappSingleData},
     },
     scan_state::{
-        currency::{Amount, SlotSpan},
+        currency::{Amount, SlotSpan, TxnVersion},
         transaction_logic::{
             local_state::{StackFrame, StackFrameChecked, StackFrameCheckedFrame, WithLazyHash},
             zkapp_command::{
@@ -38,7 +38,7 @@ use crate::{
     sparse_ledger::SparseLedger,
     zkapps::zkapp_logic,
     Account, AccountId, AuthRequired, AuthRequiredEncoded, Inputs, MyCow, ReceiptChainHash,
-    ToInputs, TokenId, VerificationKey, ZkAppAccount,
+    ToInputs, TokenId, VerificationKey, ZkAppAccount, TXN_VERSION_CURRENT,
 };
 
 use super::intefaces::{
@@ -48,8 +48,8 @@ use super::intefaces::{
     GlobalSlotSinceGenesisInterface, GlobalSlotSpanInterface, GlobalStateInterface, IndexInterface,
     LedgerInterface, LocalStateInterface, Opt, ReceiptChainHashInterface, SetOrKeepInterface,
     SignedAmountBranchParam, SignedAmountInterface, StackFrameInterface, StackFrameMakeParams,
-    StackInterface, TokenIdInterface, TransactionCommitmentInterface, VerificationKeyHashInterface,
-    WitnessGenerator, ZkappApplication, ZkappHandler,
+    StackInterface, TokenIdInterface, TransactionCommitmentInterface, TxnVersionInterface,
+    VerificationKeyHashInterface, WitnessGenerator, ZkappApplication, ZkappHandler,
 };
 
 pub struct ZkappSnark;
@@ -77,6 +77,7 @@ impl ZkappApplication for ZkappSnark {
     type VerificationKeyHash = SnarkVerificationKeyHash;
     type SingleData = ZkappSingleData;
     type Controller = SnarkController;
+    type TxnVersion = SnarkTxnVersion;
     type SetOrKeep = SnarkSetOrKeep;
     type GlobalSlotSpan = SnarkGlobalSlotSpan;
     type Actions = SnarkActions;
@@ -908,7 +909,7 @@ impl Check<Fp> for AccountUnhashed {
             delegate: _,
             voting_for: _,
             timing,
-            permissions: _,
+            permissions,
             zkapp,
         } = &*self.0;
 
@@ -916,6 +917,7 @@ impl Check<Fp> for AccountUnhashed {
         balance.check(w);
         nonce.check(w);
         timing.check(w);
+        permissions.check(w);
         (
             FlaggedOption::from(zkapp.as_ref()),
             crate::ZkAppAccount::default,
@@ -1161,6 +1163,7 @@ pub type SnarkBalance = CheckedBalance<Fp>;
 pub struct SnarkTransactionCommitment;
 pub struct SnarkVerificationKeyHash;
 pub struct SnarkController;
+pub struct SnarkTxnVersion;
 pub struct SnarkSetOrKeep;
 pub struct SnarkGlobalSlotSpan;
 pub struct SnarkActions;
@@ -1323,6 +1326,24 @@ fn eval_proof(auth: &AuthRequired, w: &mut Witness<Fp>) -> SnarkBool {
     signature_necessary.neg().and(&impossible.neg(), w)
 }
 
+fn verification_key_perm_fallback_to_signature_with_older_version(
+    auth: &AuthRequired,
+    w: &mut Witness<Fp>,
+) -> AuthRequired {
+    let AuthRequiredEncoded {
+        signature_sufficient,
+        ..
+    } = encode_auth(auth);
+
+    let on_true = SnarkBranch::make(w, |_| AuthRequired::Signature);
+    let on_false = SnarkBranch::make(w, |_| auth.clone());
+
+    w.on_if(
+        signature_sufficient.neg(),
+        BranchParam { on_true, on_false },
+    )
+}
+
 impl ControllerInterface for SnarkController {
     type W = Witness<Fp>;
     type Bool = SnarkBool;
@@ -1341,6 +1362,30 @@ impl ControllerInterface for SnarkController {
             Proof => eval_proof(auth, w),
             Signature | NoneGiven => eval_no_proof(auth, signature_verifies, w),
         }
+    }
+
+    fn verification_key_perm_fallback_to_signature_with_older_version(
+        auth: &AuthRequired,
+        w: &mut Self::W,
+    ) -> AuthRequired {
+        verification_key_perm_fallback_to_signature_with_older_version(auth, w)
+    }
+}
+
+impl TxnVersionInterface for SnarkTxnVersion {
+    type W = Witness<Fp>;
+    type Bool = SnarkBool;
+
+    fn equal_to_current(version: TxnVersion, w: &mut Self::W) -> Self::Bool {
+        let current = TXN_VERSION_CURRENT.to_checked();
+        let version = version.to_checked();
+        version.equal(&current, w).var()
+    }
+
+    fn older_than_current(version: TxnVersion, w: &mut Self::W) -> Self::Bool {
+        let current = TXN_VERSION_CURRENT.to_checked();
+        let version = version.to_checked();
+        version.less_than(&current, w).var()
     }
 }
 

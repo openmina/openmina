@@ -81,7 +81,7 @@ impl<F: FieldWitness> Witness<F> {
 
         eprintln!(
             "index={:?} w{:?}",
-            self.aux.len() + self.primary.capacity(),
+            start_offset + self.primary.capacity(),
             &self.aux[start_offset..]
         );
     }

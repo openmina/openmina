@@ -480,12 +480,13 @@ impl Libp2pService {
                                 b.rpc.respond::<T>(peer_id, stream_id, id, Ok(None))?
                             }
                             (AnswerSyncLedgerQueryV2::NAME, AnswerSyncLedgerQueryV2::VERSION) => {
+                                // TODO: shouldn't we disable this method in menu?
                                 type T = AnswerSyncLedgerQueryV2;
                                 b.rpc.respond::<T>(
                                     peer_id,
                                     stream_id,
                                     id,
-                                    Ok(RpcResult(Err(Info::String(Vec::new().into())))),
+                                    Ok(RpcResult(Err(Info::from_str("not implemented")))),
                                 )?
                             }
                             (

@@ -37,7 +37,8 @@ use crate::{
         zkapp_logic::{self, ZkAppCommandElt},
     },
     Account, AccountId, AuthRequired, BaseLedger, ControlTag, Mask, MyCowMut, Permissions,
-    ReceiptChainHash, TokenId, VerificationKey, VotingFor, ZkAppAccount,
+    ReceiptChainHash, SetVerificationKey, TokenId, VerificationKey, VotingFor, ZkAppAccount,
+    TXN_VERSION_CURRENT,
 };
 
 // use mina_p2p_messages::v2::MinaBaseAccountUpdateCallTypeStableV1 as CallType;
@@ -479,17 +480,19 @@ fn gen_account_precondition_from_account(
                 }
             };
 
-            AccountPreconditions::Full(Box::new(predicate_account))
+            AccountPreconditions(predicate_account)
         } else {
-            AccountPreconditions::Full(Box::new(predicate_account))
+            AccountPreconditions(predicate_account)
         }
     } else {
         // Nonce
         let Account { nonce, .. } = account;
 
         match failure {
-            Some(Failure::InvalidAccountPrecondition) => AccountPreconditions::Nonce(nonce.succ()),
-            _ => AccountPreconditions::Nonce(*nonce),
+            Some(Failure::InvalidAccountPrecondition) => {
+                AccountPreconditions::with_nonce(nonce.succ())
+            }
+            _ => AccountPreconditions::with_nonce(*nonce),
         }
     }
 }
@@ -1268,7 +1271,7 @@ fn gen_account_update_body_fee_payer(
         // f_account_precondition,
         |_, account| account_precondition_gen(account),
         // f_account_update_account_precondition,
-        |nonce| AccountPreconditions::Nonce(*nonce),
+        |nonce| AccountPreconditions::with_nonce(*nonce),
     );
 
     body_components.to_fee_payer()
@@ -1494,7 +1497,10 @@ pub fn gen_zkapp_command_from(params: GenZkappCommandParams) -> ZkAppCommand {
                                 perm.edit_state = AuthRequired::from(auth_tag);
                             }
                             NotPermitedOf::VerificationKey => {
-                                perm.set_verification_key = AuthRequired::from(auth_tag);
+                                perm.set_verification_key = SetVerificationKey {
+                                    auth: AuthRequired::from(auth_tag),
+                                    txn_version: TXN_VERSION_CURRENT,
+                                }
                             }
                             NotPermitedOf::ZkappUri => {
                                 perm.set_zkapp_uri = AuthRequired::from(auth_tag);

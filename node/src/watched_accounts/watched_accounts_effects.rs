@@ -7,13 +7,7 @@ use mina_p2p_messages::{
 
 use crate::Store;
 
-use super::{
-    WatchedAccountBlockInfo, WatchedAccountsAction, WatchedAccountsActionWithMeta,
-    WatchedAccountsBlockLedgerQueryInitAction, WatchedAccountsBlockLedgerQueryPendingAction,
-    WatchedAccountsLedgerInitialStateGetInitAction,
-    WatchedAccountsLedgerInitialStateGetPendingAction,
-    WatchedAccountsLedgerInitialStateGetRetryAction,
-};
+use super::{WatchedAccountBlockInfo, WatchedAccountsAction, WatchedAccountsActionWithMeta};
 
 pub fn watched_accounts_effects<S: redux::Service>(
     store: &mut Store<S>,
@@ -22,23 +16,17 @@ pub fn watched_accounts_effects<S: redux::Service>(
     let (action, _) = action.split();
 
     match action {
-        WatchedAccountsAction::Add(action) => {
-            store.dispatch(WatchedAccountsLedgerInitialStateGetInitAction {
-                pub_key: action.pub_key.clone(),
+        WatchedAccountsAction::Add { pub_key } => {
+            store.dispatch(WatchedAccountsAction::LedgerInitialStateGetInit { pub_key });
+        }
+        WatchedAccountsAction::TransactionsIncludedInBlock { pub_key, block } => {
+            store.dispatch(WatchedAccountsAction::BlockLedgerQueryInit {
+                pub_key,
+                block_hash: block.hash,
             });
         }
-        WatchedAccountsAction::TransactionsIncludedInBlock(action) => {
-            store.dispatch(WatchedAccountsBlockLedgerQueryInitAction {
-                pub_key: action.pub_key,
-                block_hash: action.block.hash,
-            });
-        }
-        WatchedAccountsAction::LedgerInitialStateGetInit(
-            WatchedAccountsLedgerInitialStateGetInitAction { pub_key },
-        )
-        | WatchedAccountsAction::LedgerInitialStateGetRetry(
-            WatchedAccountsLedgerInitialStateGetRetryAction { pub_key },
-        ) => {
+        WatchedAccountsAction::LedgerInitialStateGetInit { pub_key }
+        | WatchedAccountsAction::LedgerInitialStateGetRetry { pub_key } => {
             // TODO(binier)
             // let Some((peer_id, p2p_rpc_id)) = store.state().p2p.get_free_peer_id_for_rpc() else { return };
             // let block = {
@@ -82,10 +70,10 @@ pub fn watched_accounts_effects<S: redux::Service>(
             //     p2p_rpc_id,
             // });
         }
-        WatchedAccountsAction::LedgerInitialStateGetPending(_) => {}
-        WatchedAccountsAction::LedgerInitialStateGetError(_) => {}
-        WatchedAccountsAction::LedgerInitialStateGetSuccess(_) => {}
-        WatchedAccountsAction::BlockLedgerQueryInit(action) => {
+        WatchedAccountsAction::LedgerInitialStateGetPending { .. } => {}
+        WatchedAccountsAction::LedgerInitialStateGetError { .. } => {}
+        WatchedAccountsAction::LedgerInitialStateGetSuccess { .. } => {}
+        WatchedAccountsAction::BlockLedgerQueryInit { .. } => {
             // TODO(binier)
             // let Some((peer_id, p2p_rpc_id)) = store.state().p2p.get_free_peer_id_for_rpc() else { return };
             // let ledger_hash = {
@@ -119,7 +107,7 @@ pub fn watched_accounts_effects<S: redux::Service>(
             //     p2p_rpc_id,
             // });
         }
-        WatchedAccountsAction::BlockLedgerQueryPending(_) => {}
-        WatchedAccountsAction::BlockLedgerQuerySuccess(_) => {}
+        WatchedAccountsAction::BlockLedgerQueryPending { .. } => {}
+        WatchedAccountsAction::BlockLedgerQuerySuccess { .. } => {}
     }
 }

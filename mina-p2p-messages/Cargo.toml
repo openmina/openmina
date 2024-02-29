@@ -26,6 +26,7 @@ mina-poseidon = { workspace = true, optional = true }
 o1-utils = { workspace = true, optional = true }
 
 ark-ff = { version = "0.3.0", features = [ "parallel", "asm" ], optional = true }
+rsexp = "0.2.3"
 
 [target.'cfg(fuzzing)'.dev-dependencies]
 fuzzcheck = "0.12.1"

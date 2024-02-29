@@ -27,9 +27,7 @@ use self::{
         TransactionApplied, ZkappCommandApplied,
     },
     transaction_union_payload::TransactionUnionPayload,
-    zkapp_command::{
-        AccountPreconditions, AccountUpdate, WithHash, ZkAppCommand, ZkAppPreconditions,
-    },
+    zkapp_command::{AccountUpdate, WithHash, ZkAppCommand, ZkAppPreconditions},
 };
 
 use super::currency::SlotSpan;
@@ -80,7 +78,7 @@ pub enum TransactionFailure {
     AccountReceiptChainHashPreconditionUnsatisfied,
     AccountDelegatePreconditionUnsatisfied,
     AccountActionStatePreconditionUnsatisfied,
-    AccountAppStatePreconditionUnsatisfied(i64),
+    AccountAppStatePreconditionUnsatisfied(u64),
     AccountProvedStatePreconditionUnsatisfied,
     AccountIsNewPreconditionUnsatisfied,
     ProtocolStatePreconditionUnsatisfied,
@@ -2099,7 +2097,7 @@ pub mod zkapp_command {
 
             for (i, (c, v)) in self.state.iter().zip(zkapp.app_state.iter()).enumerate() {
                 ret.push((
-                    TransactionFailure::AccountAppStatePreconditionUnsatisfied(i as i64),
+                    TransactionFailure::AccountAppStatePreconditionUnsatisfied(i as u64),
                     c.zcheck(format!("state[{}]", i), *v),
                 ));
             }
@@ -2169,7 +2167,7 @@ pub mod zkapp_command {
                     .rev()
                     .map(|(i, (s, account_s))| {
                         let b = (s, Fp::zero).checked_zcheck(account_s, w);
-                        (AccountAppStatePreconditionUnsatisfied(i as i64), b)
+                        (AccountAppStatePreconditionUnsatisfied(i as u64), b)
                     })
                     .collect::<Vec<_>>();
                 // We need to call rev here, in order to match OCaml order
@@ -2217,18 +2215,12 @@ pub mod zkapp_command {
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/account_update.ml#L613
     #[derive(Debug, Clone, PartialEq)]
-    pub enum AccountPreconditions {
-        Full(Box<Account>),
-        Nonce(Nonce),
-        Accept,
-    }
+    pub struct AccountPreconditions(pub Account);
 
     impl ToInputs for AccountPreconditions {
         /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/account_update.ml#L635
         /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_precondition.ml#L568
         fn to_inputs(&self, inputs: &mut Inputs) {
-            let account = self.to_full();
-
             let Account {
                 balance,
                 nonce,
@@ -2238,7 +2230,7 @@ pub mod zkapp_command {
                 action_state,
                 proved_state,
                 is_new,
-            } = account.as_ref();
+            } = &self.0;
 
             inputs.append(&(balance, ClosedInterval::min_max));
             inputs.append(&(nonce, ClosedInterval::min_max));
@@ -2256,8 +2248,6 @@ pub mod zkapp_command {
 
     impl ToFieldElements<Fp> for AccountPreconditions {
         fn to_field_elements(&self, fields: &mut Vec<Fp>) {
-            let account = self.to_full();
-
             let Account {
                 balance,
                 nonce,
@@ -2267,7 +2257,7 @@ pub mod zkapp_command {
                 action_state,
                 proved_state,
                 is_new,
-            } = account.as_ref();
+            } = &self.0;
 
             (balance, ClosedInterval::min_max).to_field_elements(fields);
             (nonce, ClosedInterval::min_max).to_field_elements(fields);
@@ -2284,8 +2274,6 @@ pub mod zkapp_command {
 
     impl Check<Fp> for AccountPreconditions {
         fn check(&self, w: &mut Witness<Fp>) {
-            let account = self.to_full();
-
             let Account {
                 balance,
                 nonce,
@@ -2295,7 +2283,7 @@ pub mod zkapp_command {
                 action_state,
                 proved_state,
                 is_new,
-            } = account.as_ref();
+            } = &self.0;
 
             (balance, ClosedInterval::min_max).check(w);
             (nonce, ClosedInterval::min_max).check(w);
@@ -2311,31 +2299,30 @@ pub mod zkapp_command {
     }
 
     impl AccountPreconditions {
-        pub fn nonce(&self) -> Numeric<Nonce> {
-            match self {
-                Self::Full(account) => account.nonce.clone(),
-                Self::Nonce(nonce) => Numeric::Check(ClosedInterval {
-                    lower: *nonce,
-                    upper: *nonce,
+        pub fn with_nonce(nonce: Nonce) -> Self {
+            use OrIgnore::{Check, Ignore};
+            AccountPreconditions(Account {
+                balance: Ignore,
+                nonce: Check(ClosedInterval {
+                    lower: nonce,
+                    upper: nonce,
                 }),
-                Self::Accept => Numeric::Ignore,
-            }
+                receipt_chain_hash: Ignore,
+                delegate: Ignore,
+                state: std::array::from_fn(|_| EqData::Ignore),
+                action_state: Ignore,
+                proved_state: Ignore,
+                is_new: Ignore,
+            })
+        }
+
+        pub fn nonce(&self) -> Numeric<Nonce> {
+            self.0.nonce.clone()
         }
 
         /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/account_update.ml#L635
         pub fn to_full(&self) -> MyCow<Account> {
-            match self {
-                AccountPreconditions::Full(s) => MyCow::Borrow(&**s),
-                AccountPreconditions::Nonce(nonce) => {
-                    let mut account = Account::accept();
-                    account.nonce = OrIgnore::Check(ClosedInterval {
-                        lower: *nonce,
-                        upper: *nonce,
-                    });
-                    MyCow::Own(account)
-                }
-                AccountPreconditions::Accept => MyCow::Own(Account::accept()),
-            }
+            MyCow::Borrow(&self.0)
         }
 
         pub fn checked_zcheck<Fun>(
@@ -2592,7 +2579,7 @@ pub mod zkapp_command {
                         app_state: _,
                         delegate: _,
                         verification_key: _,
-                        permissions: _,
+                        permissions,
                         zkapp_uri: _,
                         token_symbol,
                         timing,
@@ -2610,6 +2597,7 @@ pub mod zkapp_command {
                 authorization_kind: _,
             } = self;
 
+            (permissions, Permissions::empty).check(w);
             (token_symbol, TokenSymbol::default).check(w);
             (timing, Timing::dummy).check(w);
             balance_change.check(w);
@@ -2837,7 +2825,7 @@ pub mod zkapp_command {
 
                             network
                         },
-                        account: AccountPreconditions::Nonce(nonce),
+                        account: AccountPreconditions::with_nonce(nonce),
                         valid_while: Numeric::Ignore,
                     },
                     use_full_commitment: true,
@@ -3089,28 +3077,16 @@ pub mod zkapp_command {
                             staking_epoch_data: EpochData::gen(),
                             next_epoch_data: EpochData::gen(),
                         },
-                        account: {
-                            match AccountPreconditions::Accept {
-                                AccountPreconditions::Full(_) => (),
-                                AccountPreconditions::Nonce(_) => (),
-                                AccountPreconditions::Accept => (),
-                            };
-
-                            match rng.gen_range(0..3) {
-                                0 => AccountPreconditions::Accept,
-                                1 => AccountPreconditions::Nonce(rng.gen()),
-                                _ => AccountPreconditions::Full(Box::new(Account {
-                                    balance: OrIgnore::gen(|| ClosedInterval::gen(|| rng.gen())),
-                                    nonce: OrIgnore::gen(|| ClosedInterval::gen(|| rng.gen())),
-                                    receipt_chain_hash: OrIgnore::gen(|| Fp::rand(rng)),
-                                    delegate: OrIgnore::gen(gen_compressed),
-                                    state: std::array::from_fn(|_| OrIgnore::gen(|| Fp::rand(rng))),
-                                    action_state: OrIgnore::gen(|| Fp::rand(rng)),
-                                    proved_state: OrIgnore::gen(|| rng.gen()),
-                                    is_new: OrIgnore::gen(|| rng.gen()),
-                                })),
-                            }
-                        },
+                        account: AccountPreconditions(Account {
+                            balance: OrIgnore::gen(|| ClosedInterval::gen(|| rng.gen())),
+                            nonce: OrIgnore::gen(|| ClosedInterval::gen(|| rng.gen())),
+                            receipt_chain_hash: OrIgnore::gen(|| Fp::rand(rng)),
+                            delegate: OrIgnore::gen(gen_compressed),
+                            state: std::array::from_fn(|_| OrIgnore::gen(|| Fp::rand(rng))),
+                            action_state: OrIgnore::gen(|| Fp::rand(rng)),
+                            proved_state: OrIgnore::gen(|| rng.gen()),
+                            is_new: OrIgnore::gen(|| rng.gen()),
+                        }),
                         valid_while: OrIgnore::gen(|| ClosedInterval::gen(|| rng.gen())),
                     },
                     use_full_commitment: rng.gen(),
@@ -5349,20 +5325,14 @@ where
                 PerformResult::Bool(pred.zcheck(global_state.protocol_state).is_ok())
             }
             Eff::CheckAccountPrecondition(account_update, account, new_account, local_state) => {
-                let local_state = match account_update.body.preconditions.account {
-                    AccountPreconditions::Accept => local_state,
-                    AccountPreconditions::Nonce(n) => local_state.add_check(
-                        TransactionFailure::AccountNoncePreconditionUnsatisfied,
-                        account.nonce == n,
-                    ),
-                    AccountPreconditions::Full(precondition_account) => {
-                        let mut _local_state = local_state;
-                        let check = |failure, b| {
-                            _local_state = _local_state.add_check(failure, b);
-                        };
-                        precondition_account.zcheck(new_account, check, account);
-                        _local_state
-                    }
+                let local_state = {
+                    let precondition_account = &account_update.body.preconditions.account.0;
+                    let mut _local_state = local_state;
+                    let check = |failure, b| {
+                        _local_state = _local_state.add_check(failure, b);
+                    };
+                    precondition_account.zcheck(new_account, check, account);
+                    _local_state
                 };
                 PerformResult::LocalState(local_state)
             }
@@ -6902,6 +6872,7 @@ pub mod transaction_union_payload {
 
     use crate::{
         decompress_pk,
+        proofs::field::Boolean,
         scan_state::transaction_logic::signed_command::{PaymentPayload, StakeDelegationPayload},
     };
 
@@ -6926,38 +6897,38 @@ pub mod transaction_union_payload {
     }
 
     impl Tag {
-        pub fn is_user_command(&self) -> bool {
+        pub fn is_user_command(&self) -> Boolean {
             match self {
-                Tag::Payment | Tag::StakeDelegation => true,
-                Tag::FeeTransfer | Tag::Coinbase => false,
+                Tag::Payment | Tag::StakeDelegation => Boolean::True,
+                Tag::FeeTransfer | Tag::Coinbase => Boolean::False,
             }
         }
 
-        pub fn is_payment(&self) -> bool {
+        pub fn is_payment(&self) -> Boolean {
             match self {
-                Tag::Payment => true,
-                Tag::FeeTransfer | Tag::Coinbase | Tag::StakeDelegation => false,
+                Tag::Payment => Boolean::True,
+                Tag::FeeTransfer | Tag::Coinbase | Tag::StakeDelegation => Boolean::False,
             }
         }
 
-        pub fn is_stake_delegation(&self) -> bool {
+        pub fn is_stake_delegation(&self) -> Boolean {
             match self {
-                Tag::StakeDelegation => true,
-                Tag::FeeTransfer | Tag::Coinbase | Tag::Payment => false,
+                Tag::StakeDelegation => Boolean::True,
+                Tag::FeeTransfer | Tag::Coinbase | Tag::Payment => Boolean::False,
             }
         }
 
-        pub fn is_fee_transfer(&self) -> bool {
+        pub fn is_fee_transfer(&self) -> Boolean {
             match self {
-                Tag::FeeTransfer => true,
-                Tag::StakeDelegation | Tag::Coinbase | Tag::Payment => false,
+                Tag::FeeTransfer => Boolean::True,
+                Tag::StakeDelegation | Tag::Coinbase | Tag::Payment => Boolean::False,
             }
         }
 
-        pub fn is_coinbase(&self) -> bool {
+        pub fn is_coinbase(&self) -> Boolean {
             match self {
-                Tag::Coinbase => true,
-                Tag::StakeDelegation | Tag::FeeTransfer | Tag::Payment => false,
+                Tag::Coinbase => Boolean::True,
+                Tag::StakeDelegation | Tag::FeeTransfer | Tag::Payment => Boolean::False,
             }
         }
 
@@ -7641,7 +7612,7 @@ pub mod for_tests {
 
     use crate::{
         gen_keypair, scan_state::parallel_scan::ceil_log2, AuthRequired, BaseLedger, Mask,
-        Permissions, ZkAppAccount,
+        Permissions, ZkAppAccount, TXN_VERSION_CURRENT,
     };
 
     use super::*;
@@ -7732,7 +7703,10 @@ pub mod for_tests {
                     receive: AuthRequired::None,
                     set_delegate: Either,
                     set_permissions: Either,
-                    set_verification_key: Either,
+                    set_verification_key: crate::SetVerificationKey {
+                        auth: Either,
+                        txn_version: TXN_VERSION_CURRENT,
+                    },
                     set_zkapp_uri: Either,
                     edit_action_state: Either,
                     set_token_symbol: Either,

@@ -10,6 +10,7 @@ use crate::{
     },
     scan_state::currency::{
         BlockTime, BlockTimeSpan, Index, Length, Magnitude, MinMax, Nonce, Slot, SlotSpan,
+        TxnVersion,
     },
     ToInputs,
 };
@@ -114,7 +115,7 @@ pub trait CheckedNat<F: FieldWitness, const NBITS: usize>:
         Boolean::assert_any(&[x_gte_y, y_gte_x], w);
 
         let is_equal = field::equal(x, y, w);
-        let underflow = y_gte_x.and(&is_equal, w);
+        let underflow = y_gte_x.and(&is_equal.neg(), w);
 
         let value = w.exists(match underflow {
             Boolean::True => F::zero(),
@@ -224,23 +225,12 @@ impl<F: FieldWitness> CheckedLength<F> {
     }
 }
 
-#[derive(Clone, Debug)]
-pub struct CheckedSlot<F: FieldWitness>(F);
-#[derive(Clone, Debug)]
-pub struct CheckedSlotSpan<F: FieldWitness>(F);
-#[derive(Clone, Debug)]
-pub struct CheckedLength<F: FieldWitness>(F);
-#[derive(Clone, Debug)]
-pub struct CheckedNonce<F: FieldWitness>(F);
-#[derive(Clone, Debug)]
-pub struct CheckedIndex<F: FieldWitness>(F);
-#[derive(Clone, Debug)]
-pub struct CheckedBlockTime<F: FieldWitness>(F);
-#[derive(Clone, Debug)]
-pub struct CheckedBlockTimeSpan<F: FieldWitness>(F);
-
 macro_rules! impl_nat {
     ($({$name:tt, $unchecked:tt}),*) => ($(
+
+        #[derive(Clone, Debug)]
+        pub struct $name<F: FieldWitness>(F);
+
         impl<F: FieldWitness> CheckedNat<F, 32> for $name::<F> {
             type Inner = $unchecked;
             fn to_field(&self) -> F {
@@ -289,6 +279,7 @@ macro_rules! impl_nat {
 }
 
 impl_nat!(
+    {CheckedTxnVersion, TxnVersion},
     {CheckedSlot, Slot},
     {CheckedSlotSpan, SlotSpan},
     {CheckedLength, Length},

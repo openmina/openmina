@@ -1,3 +1,6 @@
+use mina_p2p_messages::v2::{
+    BlockTimeTimeStableV1, UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
+};
 use serde::{Deserialize, Serialize};
 
 use crate::ProtocolConstants;
@@ -16,16 +19,17 @@ impl TransitionFrontierConfig {
 impl Default for TransitionFrontierConfig {
     fn default() -> Self {
         // TODO(binier): better way.
-        Self {
-            protocol_constants: serde_json::from_value(serde_json::json!({
-                "k": "290",
-                "slots_per_epoch": "7140",
-                "slots_per_sub_window": "7",
-                "delta": "0",
-                // TODO(binier): fix wrong timestamp
-                "genesis_state_timestamp": "0",
-            }))
-            .unwrap(),
+        TransitionFrontierConfig {
+            protocol_constants: ProtocolConstants {
+                k: 290.into(),
+                slots_per_epoch: 7140.into(),
+                slots_per_sub_window: 7.into(),
+                grace_period_slots: 0.into(),
+                delta: 0.into(),
+                genesis_state_timestamp: BlockTimeTimeStableV1(
+                    UnsignedExtendedUInt64Int64ForVersionTagsStableV1(0.into()),
+                ),
+            },
         }
     }
 }

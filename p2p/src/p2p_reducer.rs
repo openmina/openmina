@@ -18,40 +18,38 @@ impl P2pState {
                     return;
                 };
                 let peer = match action {
-                    P2pConnectionAction::Outgoing(P2pConnectionOutgoingAction::Init(v)) => {
-                        self.peers.entry(*peer_id).or_insert_with(|| P2pPeerState {
-                            is_libp2p: v.opts.is_libp2p(),
-                            dial_opts: Some(v.opts.clone()),
-                            status: P2pPeerStatus::Connecting(P2pConnectionState::outgoing_init(
-                                &v.opts,
-                            )),
-                        })
-                    }
-                    P2pConnectionAction::Incoming(P2pConnectionIncomingAction::Init(v)) => {
-                        self.peers.entry(*peer_id).or_insert_with(|| P2pPeerState {
-                            is_libp2p: false,
-                            dial_opts: {
-                                let signaling = match v.opts.signaling {
-                                    IncomingSignalingMethod::Http => {
-                                        SignalingMethod::Http(HttpSignalingInfo {
-                                            host: v.opts.offer.host.clone(),
-                                            port: v.opts.offer.listen_port,
-                                        })
-                                    }
-                                };
-                                Some(P2pConnectionOutgoingInitOpts::WebRTC {
-                                    peer_id: *peer_id,
-                                    signaling,
-                                })
-                            },
-                            status: P2pPeerStatus::Connecting(P2pConnectionState::incoming_init(
-                                &v.opts,
-                            )),
-                        })
-                    }
-                    P2pConnectionAction::Incoming(P2pConnectionIncomingAction::Libp2pReceived(
-                        _,
-                    )) => {
+                    P2pConnectionAction::Outgoing(P2pConnectionOutgoingAction::Init {
+                        opts,
+                        ..
+                    }) => self.peers.entry(*peer_id).or_insert_with(|| P2pPeerState {
+                        is_libp2p: opts.is_libp2p(),
+                        dial_opts: Some(opts.clone()),
+                        status: P2pPeerStatus::Connecting(P2pConnectionState::outgoing_init(opts)),
+                    }),
+                    P2pConnectionAction::Incoming(P2pConnectionIncomingAction::Init {
+                        opts,
+                        ..
+                    }) => self.peers.entry(*peer_id).or_insert_with(|| P2pPeerState {
+                        is_libp2p: false,
+                        dial_opts: {
+                            let signaling = match opts.signaling {
+                                IncomingSignalingMethod::Http => {
+                                    SignalingMethod::Http(HttpSignalingInfo {
+                                        host: opts.offer.host.clone(),
+                                        port: opts.offer.listen_port,
+                                    })
+                                }
+                            };
+                            Some(P2pConnectionOutgoingInitOpts::WebRTC {
+                                peer_id: *peer_id,
+                                signaling,
+                            })
+                        },
+                        status: P2pPeerStatus::Connecting(P2pConnectionState::incoming_init(opts)),
+                    }),
+                    P2pConnectionAction::Incoming(
+                        P2pConnectionIncomingAction::Libp2pReceived { .. },
+                    ) => {
                         self.peers.entry(*peer_id).or_insert_with(|| P2pPeerState {
                             is_libp2p: true,
                             dial_opts: None,
@@ -67,9 +65,9 @@ impl P2pState {
                 p2p_connection_reducer(peer, meta.with_action(action));
             }
             P2pAction::Disconnection(action) => match action {
-                P2pDisconnectionAction::Init(_) => {}
-                P2pDisconnectionAction::Finish(a) => {
-                    let Some(peer) = self.peers.get_mut(&a.peer_id) else {
+                P2pDisconnectionAction::Init { .. } => {}
+                P2pDisconnectionAction::Finish { peer_id } => {
+                    let Some(peer) = self.peers.get_mut(peer_id) else {
                         return;
                     };
                     peer.status = P2pPeerStatus::Disconnected { time: meta.time() };

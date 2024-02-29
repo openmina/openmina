@@ -13,9 +13,9 @@ impl TransitionFrontierSyncLedgerState {
     pub fn reducer(&mut self, action: TransitionFrontierSyncLedgerActionWithMetaRef<'_>) {
         let (action, meta) = action.split();
         match action {
-            TransitionFrontierSyncLedgerAction::Init(_) => {}
+            TransitionFrontierSyncLedgerAction::Init => {}
             TransitionFrontierSyncLedgerAction::Snarked(action) => {
-                if let TransitionFrontierSyncLedgerSnarkedAction::Pending(_) = action {
+                if let TransitionFrontierSyncLedgerSnarkedAction::Pending = action {
                     let Self::Init { target, .. } = self else {
                         return;
                     };
@@ -30,7 +30,7 @@ impl TransitionFrontierSyncLedgerState {
                 }
             }
             TransitionFrontierSyncLedgerAction::Staged(action) => {
-                if let TransitionFrontierSyncLedgerStagedAction::PartsFetchPending(_) = action {
+                if let TransitionFrontierSyncLedgerStagedAction::PartsFetchPending = action {
                     let Self::Snarked(TransitionFrontierSyncLedgerSnarkedState::Success {
                         target,
                         ..
@@ -50,7 +50,7 @@ impl TransitionFrontierSyncLedgerState {
                             ..
                         }) if matches!(
                             action,
-                            TransitionFrontierSyncLedgerStagedAction::ReconstructEmpty(_)
+                            TransitionFrontierSyncLedgerStagedAction::ReconstructEmpty
                         ) =>
                         {
                             let s = TransitionFrontierSyncLedgerStagedState::ReconstructEmpty {
@@ -64,7 +64,7 @@ impl TransitionFrontierSyncLedgerState {
                     }
                 }
             }
-            TransitionFrontierSyncLedgerAction::Success(_) => {
+            TransitionFrontierSyncLedgerAction::Success => {
                 match self {
                     Self::Staged(TransitionFrontierSyncLedgerStagedState::Success {
                         target,

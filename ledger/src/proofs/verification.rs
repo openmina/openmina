@@ -167,14 +167,18 @@ pub fn prev_evals_from_p2p<F: FieldWitness>(
         foreign_field_mul_lookup_selector,
     } = evals;
 
-    let of = |(zeta, zeta_omega): &(Vec<BigInt>, Vec<BigInt>)| -> PointEvaluations<Vec<F>> {
+    fn of<'a, F: FieldWitness, I: IntoIterator<Item = &'a BigInt>>(
+        zeta: I,
+        zeta_omega: I,
+    ) -> PointEvaluations<Vec<F>> {
         PointEvaluations {
-            zeta: zeta.iter().map(BigInt::to_field).collect(),
-            zeta_omega: zeta_omega.iter().map(BigInt::to_field).collect(),
+            zeta: zeta.into_iter().map(BigInt::to_field).collect(),
+            zeta_omega: zeta_omega.into_iter().map(BigInt::to_field).collect(),
         }
-    };
+    }
 
-    let of_opt = |v: &Option<(Vec<BigInt>, Vec<BigInt>)>| v.as_ref().map(of);
+    let of = |(zeta, zeta_omega): &(_, _)| -> PointEvaluations<Vec<F>> { of(zeta, zeta_omega) };
+    let of_opt = |v: &Option<(_, _)>| v.as_ref().map(of);
 
     ProofEvaluations {
         w: array::from_fn(|i| of(&w[i])),
@@ -238,9 +242,8 @@ pub fn prev_evals_to_p2p(
 
     use mina_p2p_messages::pseq::PaddedSeq;
 
-    let of = |[zeta, zeta_omega]: &[Fp; 2]| -> (Vec<BigInt>, Vec<BigInt>) {
-        (vec![zeta.into()], vec![zeta_omega.into()])
-    };
+    let of =
+        |[zeta, zeta_omega]: &[Fp; 2]| (vec![zeta.into()].into(), vec![zeta_omega.into()].into());
 
     let of_opt = |v: &Option<[Fp; 2]>| v.as_ref().map(of);
 
@@ -280,16 +283,16 @@ struct LimitedDomain<F: FieldWitness> {
 
 impl<F: FieldWitness> PlonkDomain<F> for LimitedDomain<F> {
     fn vanishing_polynomial(&self, _x: F, _w: &mut super::witness::Witness<F>) -> F {
-        todo!()
+        unimplemented!() // Unused during proof verification
     }
     fn generator(&self) -> F {
-        todo!()
+        unimplemented!() // Unused during proof verification
     }
     fn shifts(&self) -> &[F; PERMUTS] {
         self.shifts.shifts()
     }
     fn log2_size(&self) -> u64 {
-        todo!()
+        unimplemented!() // Unused during proof verification
     }
 }
 

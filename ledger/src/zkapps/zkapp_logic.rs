@@ -2,7 +2,6 @@ use mina_hasher::Fp;
 use mina_signer::CompressedPubKey;
 
 use crate::scan_state::transaction_logic::zkapp_command::{Actions, SetOrKeep};
-use crate::Permissions;
 use crate::{
     proofs::transaction::transaction_snark::CONSTRAINT_CONSTANTS,
     scan_state::{
@@ -13,8 +12,9 @@ use crate::{
         },
     },
     zkapps::intefaces::*,
-    AuthRequired, AuthRequiredEncoded, MyCow, TokenId, VerificationKey,
+    AuthRequired, MyCow, TokenId, VerificationKey,
 };
+use crate::{Permissions, SetVerificationKey};
 
 use crate::proofs::{
     field::{Boolean, ToBoolean},
@@ -83,25 +83,7 @@ fn pop_call_stack<Z: ZkappApplication>(
     (stack_frame, call_stack)
 }
 
-// We don't use `AuthRequired::to_field_elements`, because in OCaml `Controller.if_`
-// push values in reverse order (because of OCaml evaluation order)
-// https://github.com/MinaProtocol/mina/blob/4283d70c8c5c1bd9eebb0d3e449c36fb0bf0c9af/src/lib/mina_base/permissions.ml#L174
-fn controller_exists<Z: ZkappApplication>(
-    auth: AuthRequired,
-    w: &mut Z::WitnessGenerator,
-) -> AuthRequired {
-    let AuthRequiredEncoded {
-        constant,
-        signature_necessary,
-        signature_sufficient,
-    } = auth.encode();
-
-    w.exists_no_check([signature_sufficient, signature_necessary, constant]);
-    auth
-}
-
 // Different order than in `Permissions::iter_as_bits`
-// Here we use `Iterator::rev()`
 fn permissions_exists<Z: ZkappApplication>(
     perms: Permissions<AuthRequired>,
     w: &mut Z::WitnessGenerator,
@@ -113,7 +95,11 @@ fn permissions_exists<Z: ZkappApplication>(
         receive,
         set_delegate,
         set_permissions,
-        set_verification_key,
+        set_verification_key:
+            SetVerificationKey {
+                auth: set_verification_key_auth,
+                txn_version,
+            },
         set_zkapp_uri,
         edit_action_state,
         set_token_symbol,
@@ -122,25 +108,34 @@ fn permissions_exists<Z: ZkappApplication>(
         set_timing,
     } = &perms;
 
+    use crate::AuthOrVersion;
+
     for auth in [
-        edit_state,
-        access,
-        send,
-        receive,
-        set_delegate,
-        set_permissions,
-        set_verification_key,
-        set_zkapp_uri,
-        edit_action_state,
-        set_token_symbol,
-        increment_nonce,
-        set_voting_for,
-        set_timing,
+        AuthOrVersion::Auth(edit_state),
+        AuthOrVersion::Auth(send),
+        AuthOrVersion::Auth(receive),
+        AuthOrVersion::Auth(set_delegate),
+        AuthOrVersion::Auth(set_permissions),
+        AuthOrVersion::Auth(set_verification_key_auth),
+        AuthOrVersion::Version(*txn_version),
+        AuthOrVersion::Auth(set_zkapp_uri),
+        AuthOrVersion::Auth(edit_action_state),
+        AuthOrVersion::Auth(set_token_symbol),
+        AuthOrVersion::Auth(increment_nonce),
+        AuthOrVersion::Auth(set_voting_for),
+        AuthOrVersion::Auth(set_timing),
+        AuthOrVersion::Auth(access),
     ]
     .into_iter()
-    .rev()
     {
-        controller_exists::<Z>(*auth, w);
+        match auth {
+            AuthOrVersion::Auth(auth) => {
+                w.exists_no_check(*auth);
+            }
+            AuthOrVersion::Version(version) => {
+                w.exists_no_check(version);
+            }
+        }
     }
     perms
 }
@@ -765,13 +760,11 @@ where
 
         let is_receiver = actual_balance_change.is_non_neg();
         let _local_state = {
-            let controller = controller_exists::<Z>(
-                match is_receiver.as_boolean() {
-                    Boolean::True => a.get().permissions.receive,
-                    Boolean::False => a.get().permissions.send,
-                },
-                w,
-            );
+            let controller = {
+                let on_true = Z::Branch::make(w, |_| a.get().permissions.receive);
+                let on_false = Z::Branch::make(w, |_| a.get().permissions.send);
+                w.on_if(is_receiver, BranchParam { on_true, on_false })
+            };
             let has_permission = Z::Controller::check(
                 proof_verifies,
                 signature_verifies,
@@ -893,15 +886,29 @@ where
     // Set verification key.
     let (_a, _local_state) = {
         let verification_key = &account_update.body().update.verification_key;
+
         let has_permission = {
-            let set_verification_key = &a.get().permissions.set_verification_key;
-            Z::Controller::check(
-                proof_verifies,
-                signature_verifies,
-                set_verification_key,
-                &single_data,
-                w,
-            )
+            let SetVerificationKey { auth, txn_version } =
+                &a.get().permissions.set_verification_key;
+
+            let older_than_current_version = Z::TxnVersion::older_than_current(*txn_version, w);
+            let original_auth = auth;
+
+            let auth = {
+                let on_true = Z::Branch::make(w, |w| {
+                    Z::Controller::verification_key_perm_fallback_to_signature_with_older_version(
+                        original_auth,
+                        w,
+                    )
+                });
+                let on_false = Z::Branch::make(w, |_| original_auth.clone());
+                w.on_if(
+                    older_than_current_version,
+                    BranchParam { on_true, on_false },
+                )
+            };
+
+            Z::Controller::check(proof_verifies, signature_verifies, &auth, &single_data, w)
         };
         Z::LocalState::add_check(
             local_state,

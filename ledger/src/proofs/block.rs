@@ -785,6 +785,7 @@ pub mod consensus {
         pub slots_per_window: CheckedLength<Fp>,
         pub sub_windows_per_window: CheckedLength<Fp>,
         pub slots_per_epoch: CheckedLength<Fp>,
+        pub grace_period_slots: CheckedLength<Fp>,
         pub grace_period_end: CheckedLength<Fp>,
         pub slot_duration_ms: CheckedBlockTimeSpan<Fp>,
         pub epoch_duration: CheckedBlockTimeSpan<Fp>,
@@ -801,7 +802,15 @@ pub mod consensus {
         prev_state: &v2::MinaStateProtocolStateValueStableV2,
         w: &mut Witness<Fp>,
     ) -> ConsensusConstantsChecked {
-        let protocol_constants = &prev_state.body.constants;
+        let v2::MinaBaseProtocolConstantsCheckedValueStableV1 {
+            k,
+            slots_per_epoch,
+            slots_per_sub_window,
+            grace_period_slots,
+            delta,
+            genesis_state_timestamp,
+        } = &prev_state.body.constants;
+
         let constraint_constants = &CONSTRAINT_CONSTANTS;
 
         let of_u64 = |n: u64| CheckedN::<Fp>::from_field(n.into());
@@ -809,14 +818,14 @@ pub mod consensus {
 
         let block_window_duration_ms = of_u64(constraint_constants.block_window_duration_ms);
 
-        let k = of_u32(protocol_constants.k.as_u32());
-        let delta = of_u32(protocol_constants.delta.as_u32());
-        let slots_per_sub_window = of_u32(protocol_constants.slots_per_sub_window.as_u32());
+        let k = of_u32(k.as_u32());
+        let delta = of_u32(delta.as_u32());
+        let slots_per_sub_window = of_u32(slots_per_sub_window.as_u32());
         let sub_windows_per_window = of_u64(constraint_constants.sub_windows_per_window);
 
         let slots_per_window = slots_per_sub_window.const_mul(&sub_windows_per_window, w);
 
-        let slots_per_epoch = of_u32(protocol_constants.slots_per_epoch.as_u32());
+        let slots_per_epoch = of_u32(slots_per_epoch.as_u32());
 
         let slot_duration_ms = block_window_duration_ms.clone();
 
@@ -830,25 +839,8 @@ pub mod consensus {
             slot_duration_ms.const_mul(&delta_plus_one, w)
         };
 
-        let num_days: u64 = 3;
-        assert!(num_days < 14);
-
-        let grace_period_end = {
-            let slots = {
-                let n_days = {
-                    let n_days_ms = of_u64(num_days * N_MILLIS_PER_DAY);
-                    n_days_ms.div_mod(&block_window_duration_ms, w).0
-                };
-                n_days.min(&slots_per_epoch, w)
-            };
-            match constraint_constants.fork.as_ref() {
-                None => slots,
-                Some(f) => {
-                    let previous_global_slot = of_u32(f.previous_global_slot.as_u32());
-                    previous_global_slot.add(&slots, w)
-                }
-            }
-        };
+        let grace_period_slots = of_u32(grace_period_slots.as_u32());
+        let grace_period_end = { grace_period_slots.add(&slots_per_window, w) };
 
         let to_length = |v: CheckedN<Fp>| CheckedLength::from_field(v.to_field());
         let to_timespan = |v: CheckedN<Fp>| CheckedBlockTimeSpan::from_field(v.to_field());
@@ -861,6 +853,7 @@ pub mod consensus {
             slots_per_window: to_length(slots_per_window),
             sub_windows_per_window: to_length(sub_windows_per_window),
             slots_per_epoch: to_length(slots_per_epoch),
+            grace_period_slots: to_length(grace_period_slots),
             grace_period_end: to_length(grace_period_end),
             slot_duration_ms: to_timespan(slot_duration_ms),
             epoch_duration: to_timespan(epoch_duration),
@@ -868,10 +861,20 @@ pub mod consensus {
             checkpoint_window_size_in_slots: CheckedLength::zero(),
             delta_duration: to_timespan(delta_duration),
             genesis_state_timestamp: {
-                let v = of_u64(protocol_constants.genesis_state_timestamp.as_u64());
+                let v = of_u64(genesis_state_timestamp.as_u64());
                 CheckedBlockTime::from_field(v.to_field())
             },
         }
+    }
+
+    fn check_invariants(constants: &ConsensusConstantsChecked) {
+        let slots_per_epoch = constants.slots_per_epoch.to_inner().as_u32();
+        let slots_per_window = constants.slots_per_window.to_inner().as_u32();
+        let grace_period_end = constants.grace_period_end.to_inner().as_u32();
+
+        let grace_period_effective_end = grace_period_end - slots_per_window;
+
+        assert!(grace_period_effective_end < (slots_per_epoch / 3))
     }
 
     fn create_constant(
@@ -903,6 +906,8 @@ pub mod consensus {
 
         constants.checkpoint_window_slots_per_year = checkpoint_window_slots_per_year;
         constants.checkpoint_window_size_in_slots = checkpoint_window_size_in_slots;
+
+        check_invariants(&constants);
 
         constants
     }
@@ -1176,7 +1181,7 @@ pub mod consensus {
         pub min_window_density: CheckedLength<Fp>,
         pub sub_window_densities: Vec<CheckedLength<Fp>>,
         pub last_vrf_output: Box<[bool; VRF_OUTPUT_NBITS]>,
-        pub curr_global_slot: GlobalSlot,
+        pub curr_global_slot_since_hard_fork: GlobalSlot,
         pub global_slot_since_genesis: CheckedSlot<Fp>,
         pub total_currency: CheckedAmount<Fp>,
         pub staking_epoch_data: EpochData<Fp>,
@@ -1216,7 +1221,7 @@ pub mod consensus {
         let constants = create_constant(prev_state, w);
 
         let v2::ConsensusProofOfStakeDataConsensusStateValueStableV2 {
-            curr_global_slot: prev_global_slot,
+            curr_global_slot_since_hard_fork: prev_global_slot,
             ..
         } = &prev_state.body.consensus_state;
         let prev_global_slot: GlobalSlot = prev_global_slot.into();
@@ -1416,7 +1421,7 @@ pub mod consensus {
             min_window_density,
             sub_window_densities,
             last_vrf_output: truncated_vrf_result,
-            curr_global_slot: next_global_slot,
+            curr_global_slot_since_hard_fork: next_global_slot,
             global_slot_since_genesis,
             total_currency: new_total_currency,
             staking_epoch_data,
@@ -1438,14 +1443,14 @@ fn is_genesis_state_var(
 ) -> Boolean {
     use crate::scan_state::currency::Slot;
 
-    let curr_global_slot = &cs.curr_global_slot;
+    let curr_global_slot = &cs.curr_global_slot_since_hard_fork;
     let slot_number = Slot::from_u32(curr_global_slot.slot_number.as_u32()).to_checked::<Fp>();
 
     CheckedSlot::zero().equal(&slot_number, w)
 }
 
 fn is_genesis_state_var2(cs: &ConsensusState, w: &mut Witness<Fp>) -> Boolean {
-    let curr_global_slot = &cs.curr_global_slot;
+    let curr_global_slot = &cs.curr_global_slot_since_hard_fork;
     let slot_number = &curr_global_slot.slot_number;
 
     CheckedSlot::zero().equal(slot_number, w)
@@ -1690,15 +1695,6 @@ fn block_main<'a>(
     ];
 
     (new_state_hash, previous_proof_statements)
-}
-
-pub struct ProverExtendBlockchainInputStableV22 {
-    pub chain: v2::BlockchainSnarkBlockchainStableV2,
-    pub next_state: v2::MinaStateProtocolStateValueStableV2,
-    pub block: v2::MinaStateSnarkTransitionValueStableV2,
-    pub ledger_proof: Option<v2::LedgerProofProdStableV2>,
-    pub prover_state: v2::ConsensusStakeProofStableV2,
-    pub pending_coinbase: v2::MinaBasePendingCoinbaseWitnessStableV2,
 }
 
 struct BlockMainParams<'a> {
