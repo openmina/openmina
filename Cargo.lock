@@ -982,7 +982,7 @@ checksum = "702fc72eb24e5a1e48ce58027a675bc24edd52096d5397d4aea7c6dd9eca0bd1"
 
 [[package]]
 name = "cli"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "bytes",
  "clap 4.4.7",
@@ -2751,7 +2751,7 @@ checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 
 [[package]]
 name = "ledger-tool"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "mina-curves",
@@ -3070,7 +3070,7 @@ dependencies = [
 
 [[package]]
 name = "libp2p-rpc-behaviour"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "libp2p",
  "log",
@@ -3406,7 +3406,7 @@ dependencies = [
 
 [[package]]
 name = "mina-tree"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -3706,7 +3706,7 @@ dependencies = [
 
 [[package]]
 name = "node"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "bincode",
@@ -4013,7 +4013,7 @@ checksum = "624a8340c38c1b80fd549087862da4ba43e08858af025b236e509b6649fc13d5"
 
 [[package]]
 name = "openmina-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "mina-hasher",
  "mina-p2p-messages",
@@ -4028,7 +4028,7 @@ dependencies = [
 
 [[package]]
 name = "openmina-node-invariants"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "documented",
  "lazy_static",
@@ -4042,7 +4042,7 @@ dependencies = [
 
 [[package]]
 name = "openmina-node-native"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "bytes",
  "juniper",
@@ -4069,7 +4069,7 @@ dependencies = [
 
 [[package]]
 name = "openmina-node-testing"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "axum",
@@ -4175,7 +4175,7 @@ dependencies = [
 
 [[package]]
 name = "p2p"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "binprot",
@@ -4887,7 +4887,7 @@ checksum = "c08c74e62047bb2de4ff487b251e4a92e24f48745648451635cec7d591162d9f"
 
 [[package]]
 name = "replay_dynamic_effects"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "cli",
  "node",
@@ -5529,7 +5529,7 @@ dependencies = [
 
 [[package]]
 name = "snark"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -6411,7 +6411,7 @@ checksum = "6a02e4885ed3bc0f2de90ea6dd45ebcbb66dacffe03547fadbb0eeae2770887d"
 
 [[package]]
 name = "vrf"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "ark-ec",
