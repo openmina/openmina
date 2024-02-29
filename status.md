@@ -40,7 +40,7 @@
     - [ ] Transaction pool: **not implemented**
         - No pool is maintained, transactions received over the gossip network are not processed or re-broadcasted
     - SNARK pool
-        - [x] SNARK Verification (our code is up to date  with `rampup4` but not current `berkeleynet`)
+        - [x] SNARK Verification
         - [x] Pool is implemented
         - [x] SNARK work production is implemented (through OCaml). Node can complete and broadcast SNARK work.
 - [x] Compatible ledger implementation
@@ -74,7 +74,7 @@
     - [x] Transaction application logic
     - [x] Block application logic
     - Proof verification:
-        - [x] Block proof verification (or current version is up to date with `rampup4`, but not with current `berkeleynet`)
+        - [x] Block proof verification
         - [x] Transaction proof verification (same as above)
         - [x] Zkapp proof verification (same as above)
 - [ ] Client API (currently the node has a very partial support, not planned at the moment)
