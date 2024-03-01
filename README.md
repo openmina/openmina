@@ -51,24 +51,35 @@ This installation guide has been tested on Debian and Ubuntu and should work on 
 
 **Pre-requisites:**
 
-Ubuntu or Debian-based Linux distribution.
+Ubuntu or Debian-based Linux distribution with the following packages installed:
+
+- `curl`
+- `git`
+- `libssl-dev`
+- `pkg-config`
+
+Example:
+
+``` sh
+# Either using "sudo" or as the "root" user
+sudo apt install curl git libssl-dev pkg-config
+```
 
 **Steps (for Debian-based Linux distros):**
 
 Open up the command line and enter the following:
 
+And then:
 
-``` sh
-apt install curl git
-
+```sh
+# Install rustup and set the default Rust toolchain to 1.75 (newer versions work too)
 curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain 1.75
-
+# Setup the current shell with rustup
 source "$HOME/.cargo/env"
-
+# Clone the openmina repository
 git clone https://github.com/openmina/openmina.git
-
 cd openmina/
-
+# Build and run the node
 cargo run --release -p cli node
 ```
 
