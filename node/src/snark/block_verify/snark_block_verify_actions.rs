@@ -1,8 +1,8 @@
 use super::*;
 
 impl redux::EnablingCondition<crate::State> for SnarkBlockVerifyAction {
-    fn is_enabled(&self, state: &crate::State) -> bool {
-        self.is_enabled(&state.snark)
+    fn is_enabled(&self, state: &crate::State, time: redux::Timestamp) -> bool {
+        self.is_enabled(&state.snark, time)
     }
 }
 

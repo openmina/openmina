@@ -32,7 +32,7 @@ where
 
     fn dispatch<A>(&mut self, action: A) -> bool
     where
-        A: Into<P2pAction> + redux::EnablingCondition<crate::State>,
+        A: Into<P2pAction> + redux::EnablingCondition<P2pState>,
     {
         crate::Store::sub_dispatch(self, action)
     }

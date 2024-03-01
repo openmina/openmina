@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use serde::{Deserialize, Serialize};
 
 use openmina_core::requests::RpcId;
@@ -97,7 +99,7 @@ impl P2pConnectionOutgoingAction {
 }
 
 impl redux::EnablingCondition<P2pState> for P2pConnectionOutgoingAction {
-    fn is_enabled(&self, state: &P2pState) -> bool {
+    fn is_enabled(&self, state: &P2pState, time: redux::Timestamp) -> bool {
         match self {
             P2pConnectionOutgoingAction::RandomInit => {
                 !state.already_has_min_peers() && !state.initial_unused_peers().is_empty()
@@ -130,7 +132,9 @@ impl redux::EnablingCondition<P2pState> for P2pConnectionOutgoingAction {
                     .min_by_key(|(time, ..)| *time)
                     .filter(|(_, id, _)| *id == opts.peer_id())
                     .filter(|(.., peer_opts)| peer_opts.as_ref().map_or(true, |o| o == opts))
-                    .is_some()
+                    .map_or(false, |(t, ..)| {
+                        time.checked_sub(t) >= Some(Duration::from_secs(30))
+                    })
             }
             P2pConnectionOutgoingAction::OfferSdpCreatePending { peer_id } => state
                 .peers
@@ -237,7 +241,7 @@ impl redux::EnablingCondition<P2pState> for P2pConnectionOutgoingAction {
                 .peers
                 .get(peer_id)
                 .and_then(|peer| peer.status.as_connecting()?.as_outgoing())
-                .is_some(),
+                .map_or(false, |s| s.is_timed_out(time)),
             P2pConnectionOutgoingAction::Error { peer_id, error } => state
                 .peers
                 .get(peer_id)

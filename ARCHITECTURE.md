@@ -33,14 +33,14 @@ pub trait EnablingCondition<State> {
     /// Enabling condition for the Action.
     ///
     /// Checks if the given action is enabled for a given state.
-    fn is_enabled(&self, state: &State) -> bool {
+    fn is_enabled(&self, state: &State, time: Timestamp) -> bool {
         ...
     }
 }
 ```
 
-`is_enabled(state)` must return `false`, if action doesn't make sense given
-the current state.
+`is_enabled(state, time)` must return `false`, if action doesn't make sense given
+the current state and, optionally, time.
 
 For example message action from peer that isn't connected or we don't know
 about in the state, must not be enabled.

@@ -27,7 +27,7 @@ pub enum SnarkBlockVerifyAction {
 }
 
 impl redux::EnablingCondition<crate::SnarkState> for SnarkBlockVerifyAction {
-    fn is_enabled(&self, state: &crate::SnarkState) -> bool {
+    fn is_enabled(&self, state: &crate::SnarkState, _time: redux::Timestamp) -> bool {
         match self {
             SnarkBlockVerifyAction::Init { req_id, .. } => {
                 state.block_verify.jobs.next_req_id() == *req_id

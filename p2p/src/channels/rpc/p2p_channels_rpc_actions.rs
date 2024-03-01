@@ -1,3 +1,4 @@
+use redux::Timestamp;
 use serde::{Deserialize, Serialize};
 
 use crate::{P2pState, PeerId};
@@ -61,7 +62,7 @@ impl P2pChannelsRpcAction {
 }
 
 impl redux::EnablingCondition<P2pState> for P2pChannelsRpcAction {
-    fn is_enabled(&self, state: &P2pState) -> bool {
+    fn is_enabled(&self, state: &P2pState, time: Timestamp) -> bool {
         match self {
             P2pChannelsRpcAction::Init { peer_id } => {
                 state.get_ready_peer(peer_id).map_or(false, |p| {
@@ -108,12 +109,8 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsRpcAction {
                     })
             },
             P2pChannelsRpcAction::Timeout { peer_id, id } => {
-                state.get_ready_peer(peer_id).map_or(false, |p| match &p.channels.rpc {
-                    P2pChannelsRpcState::Ready { local, .. } => {
-                        matches!(local, P2pRpcLocalState::Requested { id: rpc_id, .. } if rpc_id == id)
-                    },
-                    _ => false,
-                })
+                state.get_ready_peer(peer_id).map_or(false, |p| matches!(&p.channels.rpc, P2pChannelsRpcState::Ready { local: P2pRpcLocalState::Requested { id: rpc_id, .. }, .. } if rpc_id == id))
+                    && state.is_peer_rpc_timed_out(peer_id, *id, time)
             },
             P2pChannelsRpcAction::ResponseReceived { peer_id, id, .. } => {
                 // TODO(binier): use consensus to enforce that peer doesn't send

@@ -107,7 +107,7 @@ pub enum RpcAction {
 }
 
 impl redux::EnablingCondition<crate::State> for RpcAction {
-    fn is_enabled(&self, state: &crate::State) -> bool {
+    fn is_enabled(&self, state: &crate::State, _time: redux::Timestamp) -> bool {
         match self {
             RpcAction::GlobalStateGet { .. } => true,
             RpcAction::ActionStatsGet { .. } => true,

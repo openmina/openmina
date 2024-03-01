@@ -55,7 +55,7 @@ pub enum TransitionFrontierSyncLedgerStagedAction {
 }
 
 impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerStagedAction {
-    fn is_enabled(&self, state: &crate::State) -> bool {
+    fn is_enabled(&self, state: &crate::State, _time: redux::Timestamp) -> bool {
         match self {
             TransitionFrontierSyncLedgerStagedAction::PartsFetchPending => state
                 .transition_frontier

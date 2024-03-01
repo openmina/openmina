@@ -12,8 +12,6 @@ impl P2pChannelsBestTipAction {
     where
         Store: crate::P2pStore<S>,
         Store::Service: P2pChannelsService,
-        P2pChannelsBestTipAction: redux::EnablingCondition<S>,
-        P2pPeerAction: redux::EnablingCondition<S>,
     {
         match self {
             P2pChannelsBestTipAction::Init { peer_id } => {

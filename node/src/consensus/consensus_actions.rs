@@ -44,7 +44,7 @@ pub enum ConsensusAction {
 }
 
 impl redux::EnablingCondition<crate::State> for ConsensusAction {
-    fn is_enabled(&self, state: &crate::State) -> bool {
+    fn is_enabled(&self, state: &crate::State, _time: redux::Timestamp) -> bool {
         match self {
             ConsensusAction::BlockReceived { hash, .. } => {
                 !state.consensus.blocks.contains_key(hash)

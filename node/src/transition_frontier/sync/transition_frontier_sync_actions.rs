@@ -84,7 +84,7 @@ pub enum TransitionFrontierSyncAction {
 }
 
 impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncAction {
-    fn is_enabled(&self, state: &crate::State) -> bool {
+    fn is_enabled(&self, state: &crate::State, time: redux::Timestamp) -> bool {
         match self {
             TransitionFrontierSyncAction::Init { best_tip, .. } => {
                 !state.transition_frontier.sync.is_pending()
@@ -296,7 +296,7 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncAction {
                 }
                 _ => false,
             },
-            TransitionFrontierSyncAction::Ledger(action) => action.is_enabled(state),
+            TransitionFrontierSyncAction::Ledger(action) => action.is_enabled(state, time),
         }
     }
 }

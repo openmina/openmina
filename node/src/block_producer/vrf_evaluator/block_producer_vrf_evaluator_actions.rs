@@ -43,7 +43,7 @@ pub enum BlockProducerVrfEvaluatorAction {
 }
 
 impl redux::EnablingCondition<crate::State> for BlockProducerVrfEvaluatorAction {
-    fn is_enabled(&self, state: &crate::State) -> bool {
+    fn is_enabled(&self, state: &crate::State, _time: redux::Timestamp) -> bool {
         match self {
             BlockProducerVrfEvaluatorAction::UpdateProducerAndDelegates { .. } => {
                 state.block_producer.with(false, |this| {

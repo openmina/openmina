@@ -17,11 +17,6 @@ impl P2pChannelsMessageReceivedAction {
     pub fn effects<Store, S>(self, _: &ActionMeta, store: &mut Store)
     where
         Store: crate::P2pStore<S>,
-        P2pChannelsBestTipAction: redux::EnablingCondition<S>,
-        P2pChannelsSnarkAction: redux::EnablingCondition<S>,
-        P2pChannelsSnarkJobCommitmentAction: redux::EnablingCondition<S>,
-        P2pChannelsRpcAction: redux::EnablingCondition<S>,
-        P2pDisconnectionAction: redux::EnablingCondition<S>,
     {
         let peer_id = self.peer_id;
         let chan_id = self.message.channel_id();

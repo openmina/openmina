@@ -141,78 +141,78 @@ impl From<P2pNetworkSchedulerYamuxDidInitAction> for crate::P2pAction {
 }
 
 impl redux::EnablingCondition<P2pState> for P2pNetworkSchedulerAction {
-    fn is_enabled(&self, state: &P2pState) -> bool {
+    fn is_enabled(&self, state: &P2pState, time: redux::Timestamp) -> bool {
         match self {
-            Self::InterfaceDetected(a) => a.is_enabled(state),
-            Self::InterfaceExpired(a) => a.is_enabled(state),
-            Self::IncomingConnectionIsReady(a) => a.is_enabled(state),
-            Self::IncomingDidAccept(a) => a.is_enabled(state),
-            Self::OutgoingDidConnect(a) => a.is_enabled(state),
-            Self::IncomingDataIsReady(a) => a.is_enabled(state),
-            Self::IncomingDataDidReceive(a) => a.is_enabled(state),
-            Self::SelectDone(a) => a.is_enabled(state),
-            Self::SelectError(a) => a.is_enabled(state),
-            Self::YamuxDidInit(a) => a.is_enabled(state),
+            Self::InterfaceDetected(a) => a.is_enabled(state, time),
+            Self::InterfaceExpired(a) => a.is_enabled(state, time),
+            Self::IncomingConnectionIsReady(a) => a.is_enabled(state, time),
+            Self::IncomingDidAccept(a) => a.is_enabled(state, time),
+            Self::OutgoingDidConnect(a) => a.is_enabled(state, time),
+            Self::IncomingDataIsReady(a) => a.is_enabled(state, time),
+            Self::IncomingDataDidReceive(a) => a.is_enabled(state, time),
+            Self::SelectDone(a) => a.is_enabled(state, time),
+            Self::SelectError(a) => a.is_enabled(state, time),
+            Self::YamuxDidInit(a) => a.is_enabled(state, time),
         }
     }
 }
 
 impl redux::EnablingCondition<P2pState> for P2pNetworkSchedulerInterfaceDetectedAction {
-    fn is_enabled(&self, _state: &P2pState) -> bool {
+    fn is_enabled(&self, _state: &P2pState, _time: redux::Timestamp) -> bool {
         true
     }
 }
 
 impl redux::EnablingCondition<P2pState> for P2pNetworkSchedulerInterfaceExpiredAction {
-    fn is_enabled(&self, _state: &P2pState) -> bool {
+    fn is_enabled(&self, _state: &P2pState, _time: redux::Timestamp) -> bool {
         true
     }
 }
 
 impl redux::EnablingCondition<P2pState> for P2pNetworkSchedulerIncomingConnectionIsReadyAction {
-    fn is_enabled(&self, _state: &P2pState) -> bool {
+    fn is_enabled(&self, _state: &P2pState, _time: redux::Timestamp) -> bool {
         true
     }
 }
 
 impl redux::EnablingCondition<P2pState> for P2pNetworkSchedulerIncomingDidAcceptAction {
-    fn is_enabled(&self, _state: &P2pState) -> bool {
+    fn is_enabled(&self, _state: &P2pState, _time: redux::Timestamp) -> bool {
         true
     }
 }
 
 impl redux::EnablingCondition<P2pState> for P2pNetworkSchedulerOutgoingDidConnectAction {
-    fn is_enabled(&self, _state: &P2pState) -> bool {
+    fn is_enabled(&self, _state: &P2pState, _time: redux::Timestamp) -> bool {
         true
     }
 }
 
 impl redux::EnablingCondition<P2pState> for P2pNetworkSchedulerIncomingDataIsReadyAction {
-    fn is_enabled(&self, _state: &P2pState) -> bool {
+    fn is_enabled(&self, _state: &P2pState, _time: redux::Timestamp) -> bool {
         true
     }
 }
 
 impl redux::EnablingCondition<P2pState> for P2pNetworkSchedulerIncomingDataDidReceiveAction {
-    fn is_enabled(&self, _state: &P2pState) -> bool {
+    fn is_enabled(&self, _state: &P2pState, _time: redux::Timestamp) -> bool {
         true
     }
 }
 
 impl redux::EnablingCondition<P2pState> for P2pNetworkSchedulerSelectDoneAction {
-    fn is_enabled(&self, _state: &P2pState) -> bool {
+    fn is_enabled(&self, _state: &P2pState, _time: redux::Timestamp) -> bool {
         true
     }
 }
 
 impl redux::EnablingCondition<P2pState> for P2pNetworkSchedulerSelectErrorAction {
-    fn is_enabled(&self, _state: &P2pState) -> bool {
+    fn is_enabled(&self, _state: &P2pState, _time: redux::Timestamp) -> bool {
         true
     }
 }
 
 impl redux::EnablingCondition<P2pState> for P2pNetworkSchedulerYamuxDidInitAction {
-    fn is_enabled(&self, _state: &P2pState) -> bool {
+    fn is_enabled(&self, _state: &P2pState, _time: redux::Timestamp) -> bool {
         true
     }
 }

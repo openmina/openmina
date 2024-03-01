@@ -24,7 +24,7 @@ pub enum EventSourceAction {
 }
 
 impl redux::EnablingCondition<crate::State> for EventSourceAction {
-    fn is_enabled(&self, _: &crate::State) -> bool {
+    fn is_enabled(&self, _: &crate::State, _time: redux::Timestamp) -> bool {
         match self {
             EventSourceAction::ProcessEvents => true,
             EventSourceAction::NewEvent { event: _ } => true,

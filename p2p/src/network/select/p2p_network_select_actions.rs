@@ -121,36 +121,36 @@ impl From<P2pNetworkSelectOutgoingTokensAction> for crate::P2pAction {
 }
 
 impl redux::EnablingCondition<P2pState> for P2pNetworkSelectAction {
-    fn is_enabled(&self, state: &P2pState) -> bool {
+    fn is_enabled(&self, state: &P2pState, time: redux::Timestamp) -> bool {
         match self {
-            Self::Init(v) => v.is_enabled(state),
-            Self::IncomingData(v) => v.is_enabled(state),
-            Self::IncomingToken(v) => v.is_enabled(state),
-            Self::OutgoingTokens(v) => v.is_enabled(state),
+            Self::Init(v) => v.is_enabled(state, time),
+            Self::IncomingData(v) => v.is_enabled(state, time),
+            Self::IncomingToken(v) => v.is_enabled(state, time),
+            Self::OutgoingTokens(v) => v.is_enabled(state, time),
         }
     }
 }
 
 impl redux::EnablingCondition<P2pState> for P2pNetworkSelectInitAction {
-    fn is_enabled(&self, _state: &P2pState) -> bool {
+    fn is_enabled(&self, _state: &P2pState, _time: redux::Timestamp) -> bool {
         true
     }
 }
 
 impl redux::EnablingCondition<P2pState> for P2pNetworkSelectIncomingDataAction {
-    fn is_enabled(&self, _state: &P2pState) -> bool {
+    fn is_enabled(&self, _state: &P2pState, _time: redux::Timestamp) -> bool {
         true
     }
 }
 
 impl redux::EnablingCondition<P2pState> for P2pNetworkSelectIncomingTokenAction {
-    fn is_enabled(&self, _state: &P2pState) -> bool {
+    fn is_enabled(&self, _state: &P2pState, _time: redux::Timestamp) -> bool {
         true
     }
 }
 
 impl redux::EnablingCondition<P2pState> for P2pNetworkSelectOutgoingTokensAction {
-    fn is_enabled(&self, _state: &P2pState) -> bool {
+    fn is_enabled(&self, _state: &P2pState, _time: redux::Timestamp) -> bool {
         true
     }
 }

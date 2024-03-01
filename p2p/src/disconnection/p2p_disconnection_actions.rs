@@ -17,7 +17,7 @@ pub enum P2pDisconnectionAction {
 }
 
 impl redux::EnablingCondition<P2pState> for P2pDisconnectionAction {
-    fn is_enabled(&self, state: &P2pState) -> bool {
+    fn is_enabled(&self, state: &P2pState, _time: redux::Timestamp) -> bool {
         match self {
             P2pDisconnectionAction::Init { peer_id, .. }
             | P2pDisconnectionAction::Finish { peer_id } => {

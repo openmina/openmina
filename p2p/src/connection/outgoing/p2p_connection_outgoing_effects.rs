@@ -16,8 +16,6 @@ impl P2pConnectionOutgoingAction {
     where
         Store: crate::P2pStore<S>,
         Store::Service: P2pConnectionService,
-        Self: redux::EnablingCondition<S>,
-        P2pPeerAction: redux::EnablingCondition<S>,
     {
         match self {
             P2pConnectionOutgoingAction::RandomInit => {

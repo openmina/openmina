@@ -38,6 +38,7 @@ mina-poseidon = {git = "https://github.com/openmina/proof-systems", branch = "le
 poly-commitment = {git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4-vrf"}
 libp2p = { git = "https://github.com/openmina/rust-libp2p", rev = "cd5425a759d959d7fde58a42f71ab059449760c5", default-features = false }
 vrf = { path = "vrf" }
+redux = { git = "https://github.com/openmina/redux-rs.git", branch = "feat/enabling-condition-with-time", features = ["serde"] }
 
 [profile.fuzz]
 inherits = "release"
