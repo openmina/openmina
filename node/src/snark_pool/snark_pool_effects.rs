@@ -4,15 +4,14 @@ use p2p::channels::snark::P2pChannelsSnarkAction;
 use crate::p2p::channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentAction;
 use crate::{ExternalSnarkWorkerAction, Service, SnarkerStrategy, State, Store};
 
-use super::candidate::snark_pool_candidate_effects;
 use super::{JobState, SnarkPoolAction, SnarkPoolActionWithMeta};
 
 pub fn snark_pool_effects<S: Service>(store: &mut Store<S>, action: SnarkPoolActionWithMeta) {
     let (action, meta) = action.split();
 
     match action {
-        SnarkPoolAction::Candidate(action) => {
-            snark_pool_candidate_effects(store, meta.with_action(action))
+        SnarkPoolAction::Candidate(_) => {
+            // Handled by reducer
         }
         SnarkPoolAction::JobsUpdate { .. } => {
             let state = store.state();

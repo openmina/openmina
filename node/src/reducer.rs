@@ -54,7 +54,9 @@ pub fn reducer(
             state.transition_frontier.reducer(meta.with_action(a));
         }
         Action::SnarkPool(a) => {
-            state.snark_pool.reducer(meta.with_action(a));
+            state
+                .snark_pool
+                .reducer(meta.with_action(a), global_state, dispatcher);
         }
         Action::BlockProducer(a) => {
             state

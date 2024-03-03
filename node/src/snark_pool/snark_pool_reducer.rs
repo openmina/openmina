@@ -7,11 +7,17 @@ use crate::snark_pool::JobCommitment;
 use super::{JobState, SnarkPoolAction, SnarkPoolActionWithMetaRef, SnarkPoolState, SnarkWork};
 
 impl SnarkPoolState {
-    pub fn reducer(&mut self, action: SnarkPoolActionWithMetaRef<'_>) {
+    pub fn reducer(
+        &mut self,
+        action: SnarkPoolActionWithMetaRef<'_>,
+        global_state: &crate::State,
+        dispatcher: &mut redux::ActionQueue<crate::Action, crate::State>,
+    ) {
         let (action, meta) = action.split();
         match action {
             SnarkPoolAction::Candidate(action) => {
-                self.candidates.reducer(meta.with_action(action));
+                self.candidates
+                    .reducer(meta.with_action(action), global_state, dispatcher);
             }
             SnarkPoolAction::JobsUpdate {
                 jobs,
