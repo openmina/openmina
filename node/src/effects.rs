@@ -1,5 +1,4 @@
 use crate::block_producer::{block_producer_effects, BlockProducerAction};
-use crate::consensus::consensus_effects;
 use crate::event_source::event_source_effects;
 use crate::external_snark_worker::external_snark_worker_effects;
 use crate::logger::logger_effects;
@@ -116,8 +115,8 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
         Action::Snark(action) => {
             snark_effects(store, meta.with_action(action));
         }
-        Action::Consensus(action) => {
-            consensus_effects(store, meta.with_action(action));
+        Action::Consensus(_) => {
+            // Handled by reducer
         }
         Action::TransitionFrontier(action) => {
             transition_frontier_effects(store, meta.with_action(action));

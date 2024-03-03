@@ -46,7 +46,9 @@ pub fn reducer(
             state.snark.reducer(meta.with_action(a));
         }
         Action::Consensus(a) => {
-            state.consensus.reducer(meta.with_action(a));
+            state
+                .consensus
+                .reducer(meta.with_action(a), global_state, dispatcher);
         }
         Action::TransitionFrontier(a) => {
             state.transition_frontier.reducer(meta.with_action(a));
