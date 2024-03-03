@@ -5,7 +5,12 @@ use p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 
 use crate::{event_source::Event, Action, ActionWithMeta, EventSourceAction, State};
 
-pub fn reducer(state: &mut State, action: &ActionWithMeta) {
+pub fn reducer(
+    state: &mut State,
+    action: &ActionWithMeta,
+    global_state: &State,
+    dispatcher: &mut redux::ActionQueue<Action, State>,
+) {
     let meta = action.meta().clone();
     match action.action() {
         Action::CheckTimeouts(_) => {}
