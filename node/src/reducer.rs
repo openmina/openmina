@@ -68,7 +68,9 @@ pub fn reducer(
             state.rpc.reducer(meta.with_action(a));
         }
         Action::WatchedAccounts(a) => {
-            state.watched_accounts.reducer(meta.with_action(a));
+            state
+                .watched_accounts
+                .reducer(meta.with_action(a), dispatcher);
         }
     }
 
