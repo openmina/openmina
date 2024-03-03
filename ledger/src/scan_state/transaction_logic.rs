@@ -270,6 +270,13 @@ pub mod valid {
                 }
             }
         }
+
+        pub fn fee_payer(&self) -> AccountId {
+            match self {
+                UserCommand::SignedCommand(cmd) => cmd.fee_payer(),
+                UserCommand::ZkAppCommand(cmd) => cmd.zkapp_command.fee_payer(),
+            }
+        }
     }
 
     impl GenericCommand for UserCommand {
@@ -849,8 +856,8 @@ pub mod zkapp_command {
         },
         scan_state::currency::{Balance, Length, MinMax, Sgn, Signed, Slot, SlotSpan},
         zkapps::snark::zkapp_check::InSnarkCheck,
-        AuthRequired, ControlTag, Inputs, MyCow, Permissions, ToInputs, TokenSymbol,
-        VerificationKey, VotingFor, ZkAppAccount, ZkAppUri,
+        AuthRequired, ControlTag, Inputs, MyCow, Permissions, SetVerificationKey, ToInputs,
+        TokenSymbol, VerificationKey, VotingFor, ZkAppAccount, ZkAppUri,
     };
 
     use super::{zkapp_statement::TransactionCommitment, *};
@@ -1251,10 +1258,25 @@ pub mod zkapp_command {
         }
     }
 
-    #[derive(Debug, Clone, PartialEq, Eq)]
-    pub struct WithHash<T> {
+    #[derive(Debug, Clone)]
+    pub struct WithHash<T, H = Fp> {
         pub data: T,
-        pub hash: Fp,
+        pub hash: H,
+    }
+
+    impl<T, H: Eq> Eq for WithHash<T, H> {}
+
+    impl<T, H: PartialEq> PartialEq for WithHash<T, H> {
+        fn eq(&self, other: &Self) -> bool {
+            self.hash == other.hash
+        }
+    }
+
+    impl<T, Hash: std::hash::Hash> std::hash::Hash for WithHash<T, Hash> {
+        fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+            let Self { data: _, hash } = self;
+            hash.hash(state);
+        }
     }
 
     impl<T> ToFieldElements<Fp> for WithHash<T> {
@@ -2684,6 +2706,10 @@ pub mod zkapp_command {
                 ControlTag::NoneGiven => Self::NoneGiven,
             }
         }
+
+        pub fn dummy(&self) -> Self {
+            Self::dummy_of_tag(self.tag())
+        }
     }
 
     #[derive(Clone, Debug, PartialEq)]
@@ -3554,6 +3580,37 @@ pub mod zkapp_command {
             FeeExcess::of_single((self.fee_token(), Signed::<Fee>::of_unsigned(self.fee())))
         }
 
+        pub fn has_zero_vesting_period(&self) -> bool {
+            self.account_updates
+                .iter()
+                .any(|p| match &p.elt.account_update.body.update.timing {
+                    SetOrKeep::Keep => false,
+                    SetOrKeep::Set(Timing { vesting_period, .. }) => vesting_period.is_zero(),
+                })
+        }
+
+        pub fn is_incompatible_version(&self) -> bool {
+            self.account_updates.iter().any(|p| {
+                match &p.elt.account_update.body.update.permissions {
+                    SetOrKeep::Keep => false,
+                    SetOrKeep::Set(Permissions {
+                        set_verification_key,
+                        ..
+                    }) => {
+                        let SetVerificationKey {
+                            auth: _,
+                            txn_version,
+                        } = set_verification_key;
+                        *txn_version != crate::TXN_VERSION_CURRENT
+                    }
+                }
+            })
+        }
+
+        pub fn valid_size(&self) -> Result<(), String> {
+            todo!()
+        }
+
         /// https://github.com/MinaProtocol/mina/blob/2ff0292b637684ce0372e7b8e23ec85404dc5091/src/lib/mina_base/zkapp_command.ml#L997
         pub fn account_access_statuses(
             &self,
@@ -3606,11 +3663,11 @@ pub mod zkapp_command {
         }
 
         /// https://github.com/MinaProtocol/mina/blob/02c9d453576fa47f78b2c388fb2e0025c47d991c/src/lib/mina_base/zkapp_command.ml#L989
-        pub fn extract_vks(&self) -> Vec<WithHash<VerificationKey>> {
+        pub fn extract_vks(&self) -> Vec<(AccountId, WithHash<VerificationKey>)> {
             self.account_updates
                 .fold(Vec::with_capacity(256), |mut acc, p| {
                     if let SetOrKeep::Set(vk) = &p.body.update.verification_key {
-                        acc.push(vk.clone());
+                        acc.push((p.account_id(), vk.clone()));
                     };
                     acc
                 })
@@ -3872,7 +3929,7 @@ pub mod zkapp_command {
                     })
                     .unwrap();
 
-                    for vk in cmd.extract_vks() {
+                    for (_id, vk) in cmd.extract_vks() {
                         running_cache.set(vk.hash, vk);
                     }
 
@@ -4161,7 +4218,7 @@ impl UserCommand {
         }
     }
 
-    pub fn extract_vks(&self) -> Vec<WithHash<VerificationKey>> {
+    pub fn extract_vks(&self) -> Vec<(AccountId, WithHash<VerificationKey>)> {
         match self {
             UserCommand::SignedCommand(_) => vec![],
             UserCommand::ZkAppCommand(zkapp) => zkapp.extract_vks(),
@@ -4256,6 +4313,83 @@ impl UserCommand {
         // Drop the indices
         Ok(ivs.into_iter().unzip::<_, _, Vec<_>, _>().1)
     }
+
+    fn has_insufficient_fee(&self) -> bool {
+        /// `minimum_user_command_fee`
+        const MINIMUM_USER_COMMAND_FEE: Fee = Fee::from_u64(1000000);
+        self.fee() < MINIMUM_USER_COMMAND_FEE
+    }
+
+    fn has_zero_vesting_period(&self) -> bool {
+        match self {
+            UserCommand::SignedCommand(_cmd) => false,
+            UserCommand::ZkAppCommand(cmd) => cmd.has_zero_vesting_period(),
+        }
+    }
+
+    fn is_incompatible_version(&self) -> bool {
+        match self {
+            UserCommand::SignedCommand(_cmd) => false,
+            UserCommand::ZkAppCommand(cmd) => cmd.is_incompatible_version(),
+        }
+    }
+
+    fn is_disabled(&self) -> bool {
+        match self {
+            UserCommand::SignedCommand(_cmd) => false,
+            UserCommand::ZkAppCommand(_cmd) => false, // Mina_compile_config.zkapps_disabled
+        }
+    }
+
+    fn valid_size(&self) -> Result<(), String> {
+        match self {
+            UserCommand::SignedCommand(_cmd) => Ok(()),
+            UserCommand::ZkAppCommand(cmd) => cmd.valid_size(),
+        }
+    }
+
+    pub fn check_well_formedness(&self) -> Result<(), Vec<WellFormednessError>> {
+        let mut errors: Vec<_> = [
+            (
+                Self::has_insufficient_fee as fn(_) -> _,
+                WellFormednessError::InsufficientFee,
+            ),
+            (
+                Self::has_zero_vesting_period as _,
+                WellFormednessError::ZeroVestingPeriod,
+            ),
+            (
+                Self::is_incompatible_version as _,
+                WellFormednessError::IncompatibleVersion,
+            ),
+            (
+                Self::is_disabled as _,
+                WellFormednessError::TransactionTypeDisabled,
+            ),
+        ]
+        .iter()
+        .filter_map(|(fun, e)| if fun(self) { Some(e.clone()) } else { None })
+        .collect();
+
+        if let Err(e) = self.valid_size() {
+            errors.push(WellFormednessError::ZkappTooBig(e));
+        }
+
+        if errors.is_empty() {
+            Ok(())
+        } else {
+            Err(errors)
+        }
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub enum WellFormednessError {
+    InsufficientFee,
+    ZeroVestingPeriod,
+    ZkappTooBig(String),
+    TransactionTypeDisabled,
+    IncompatibleVersion,
 }
 
 impl GenericCommand for UserCommand {
