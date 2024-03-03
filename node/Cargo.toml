@@ -22,7 +22,8 @@ mina-signer = { workspace = true }
 ledger = { workspace = true }
 mina-p2p-messages = { workspace = true }
 vrf = { workspace = true }
-linkme = "0.3.22"
+linkme = { workspace = true }
+
 openmina-core = { path = "../core" }
 snark = { path = "../snark" }
 p2p = { path = "../p2p" }

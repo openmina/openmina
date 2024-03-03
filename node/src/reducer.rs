@@ -3,7 +3,12 @@ use p2p::{P2pAction, P2pInitializeAction};
 
 use crate::{Action, ActionWithMeta, EventSourceAction, P2p, State};
 
-pub fn reducer(state: &mut State, action: &ActionWithMeta) {
+pub fn reducer(
+    state: &mut State,
+    action: &ActionWithMeta,
+    global_state: &State,
+    dispatcher: &mut redux::ActionQueue<Action, State>,
+) {
     let meta = action.meta().clone();
     match action.action() {
         Action::CheckTimeouts(_) => {}
