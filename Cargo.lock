@@ -2282,6 +2282,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "gensym"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "913dce4c5f06c2ea40fc178c06f777ac89fc6b1383e90c254fafb1abe4ba3c82"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.58",
+ "uuid 1.5.0",
+]
+
+[[package]]
 name = "getopts"
 version = "0.2.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5614,9 +5626,12 @@ dependencies = [
 [[package]]
 name = "redux"
 version = "0.1.0"
-source = "git+https://github.com/openmina/redux-rs.git?branch=feat/enabling-condition-with-time#9826c5223104acdd547c36c27966a4be89b34b17"
+source = "git+https://github.com/openmina/redux-rs.git?rev=d453644#d4536446f0169a176dfc4c80dcf409b608206b46"
 dependencies = [
  "enum_dispatch",
+ "gensym",
+ "linkme",
+ "paste",
  "serde",
  "wasm-timer",
 ]
