@@ -64,6 +64,7 @@ p2p-testing = { path = "testing" }
 
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+redux = { workspace = true, features=["serializable_callbacks"] }
 tokio = { version = "1.26", features = ["rt"] }
 webrtc = { git = "https://github.com/openmina/webrtc.git", branch = "openmina-13c490c3", optional = true }
 hyper = { version = "0.14.25", features = ["client", "http1", "tcp"] }
@@ -82,7 +83,7 @@ tokio = { version = "1.26", features = ["macros"] }
 getrandom = { version = "0.2", features = ["js"] }
 
 [features]
-default = [ "p2p-libp2p", "fuzzing" ]
+default = [ "p2p-libp2p", "fuzzing"]
 p2p-webrtc = ["webrtc"]
 p2p-libp2p = ["fuzzing"]
 fuzzing = ["openmina-fuzzer", "openmina-core/fuzzing"]

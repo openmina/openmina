@@ -30,6 +30,9 @@ openmina-core = { path = "../../core" }
 
 node = { path = "../../node", features = ["replay"] }
 
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
+redux = { workspace = true, features=["serializable_callbacks"] }
+
 [features]
 default = ["p2p-libp2p"]
 p2p-webrtc = ["node/p2p-webrtc"]

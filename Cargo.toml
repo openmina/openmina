@@ -44,7 +44,7 @@ mina-poseidon = {git = "https://github.com/openmina/proof-systems", branch = "le
 poly-commitment = {git = "https://github.com/openmina/proof-systems", branch = "ledger-newtypes-rampup4-vrf"}
 libp2p = { git = "https://github.com/openmina/rust-libp2p", rev = "cd5425a759d959d7fde58a42f71ab059449760c5", default-features = false }
 vrf = { path = "vrf" }
-redux = { git = "https://github.com/openmina/redux-rs.git", branch = "feat/enabling-condition-with-time", features = ["serde"] }
+redux = { git = "https://github.com/openmina/redux-rs.git", rev = "8c8ef93", features = ["serde"] }
 serde = "1.0.190"
 serde_json = "1.0.107"
 serde_with = { version = "3.7.0", features = ["hex"] }
@@ -72,3 +72,4 @@ ark-serialize = { git = "https://github.com/openmina/algebra", branch = "openmin
 opt-level = 3
 debug-assertions = true
 overflow-checks = false
+

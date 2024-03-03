@@ -17,7 +17,6 @@ crate-type = ["staticlib", "cdylib", "lib"]
 # https://stackoverflow.com/a/73023306
 
 [dependencies]
-redux = { workspace = true }
 openmina-core = { path = "../core" }
 mina-hasher = { workspace = true }
 mina-signer = { workspace = true }
@@ -94,6 +93,7 @@ compression = ["zstd"]
 # Add this feature to run tests in both nodejs and browser:
 # https://github.com/rustwasm/wasm-bindgen/issues/2571
 in_nodejs = []
+
 
 [profile.release]
 debug = true
