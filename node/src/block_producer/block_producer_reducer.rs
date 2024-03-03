@@ -5,7 +5,9 @@ use ledger::{
     scan_state::currency::{Amount, Signed},
 };
 use mina_p2p_messages::{
-    bigint::BigInt, list::List, v2::{
+    bigint::BigInt,
+    list::List,
+    v2::{
         ConsensusGlobalSlotStableV1, ConsensusProofOfStakeDataConsensusStateValueStableV2,
         ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1,
         ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1,
@@ -15,7 +17,7 @@ use mina_p2p_messages::{
         MinaStateBlockchainStateValueStableV2LedgerProofStatement,
         MinaStateProtocolStateBodyValueStableV2, MinaStateProtocolStateValueStableV2,
         StagedLedgerDiffBodyStableV1, StateBodyHash, StateHash, UnsignedExtendedUInt32StableV1,
-    }
+    },
 };
 use openmina_core::block::{ArcBlockWithHash, BlockWithHash};
 
@@ -169,7 +171,9 @@ impl BlockProducerEnabled {
                 let genesis_ledger_hash = &pred_blockchain_state.genesis_ledger_hash;
 
                 let block_timestamp = won_slot.timestamp();
-                let pred_global_slot = pred_consensus_state.curr_global_slot_since_hard_fork.clone();
+                let pred_global_slot = pred_consensus_state
+                    .curr_global_slot_since_hard_fork
+                    .clone();
                 let curr_global_slot_since_hard_fork = won_slot.global_slot.clone();
                 let global_slot_since_genesis =
                     won_slot.global_slot_since_genesis(pred_block.global_slot_diff());
@@ -266,8 +270,10 @@ impl BlockProducerEnabled {
 
                     let pred_global_sub_window =
                         global_sub_window(&pred_global_slot, pred_block.constants());
-                    let next_global_sub_window =
-                        global_sub_window(&curr_global_slot_since_hard_fork, pred_block.constants());
+                    let next_global_sub_window = global_sub_window(
+                        &curr_global_slot_since_hard_fork,
+                        pred_block.constants(),
+                    );
 
                     let pred_relative_sub_window = relative_sub_window(pred_global_sub_window);
                     let next_relative_sub_window = relative_sub_window(next_global_sub_window);

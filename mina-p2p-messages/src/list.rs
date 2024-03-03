@@ -1,4 +1,7 @@
-use std::{collections::LinkedList, ops::{Deref, DerefMut}};
+use std::{
+    collections::LinkedList,
+    ops::{Deref, DerefMut},
+};
 
 use binprot::{BinProtRead, BinProtWrite, Nat0};
 

@@ -12,9 +12,7 @@ impl P2pDisconnectionAction {
         match self {
             P2pDisconnectionAction::Init { peer_id, .. } => {
                 store.service().disconnect(*peer_id);
-                store.dispatch(P2pDisconnectionAction::Finish {
-                    peer_id: *peer_id,
-                });
+                store.dispatch(P2pDisconnectionAction::Finish { peer_id: *peer_id });
             }
             P2pDisconnectionAction::Finish { .. } => {}
         }

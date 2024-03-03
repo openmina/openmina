@@ -7,7 +7,12 @@ use mina_hasher::Fp;
 use o1_utils::FieldHelpers;
 
 use crate::{
-    b58::Base58CheckOfBinProt, bigint::BigInt, list::List, number::{Int32, Int64, UInt32, UInt64}, pseq::PaddedSeq, string::ByteString
+    b58::Base58CheckOfBinProt,
+    bigint::BigInt,
+    list::List,
+    number::{Int32, Int64, UInt32, UInt64},
+    pseq::PaddedSeq,
+    string::ByteString,
 };
 
 pub trait ToInput {

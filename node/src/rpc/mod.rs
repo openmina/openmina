@@ -11,7 +11,6 @@ pub use rpc_actions::*;
 
 mod rpc_reducer;
 
-
 mod rpc_effects;
 pub use rpc_effects::*;
 

@@ -1,11 +1,11 @@
 use std::net::IpAddr;
 
-use binprot_derive::{BinProtRead, BinProtWrite};
-use serde::{Deserialize, Serialize};
 use crate::{
     string::{ByteString, CharString},
     versioned::Versioned,
 };
+use binprot_derive::{BinProtRead, BinProtWrite};
+use serde::{Deserialize, Serialize};
 
 ///! Types from Janestreet's Core library.
 
@@ -56,8 +56,7 @@ impl TryFrom<SexpString> for Info {
     type Error = InfoFromSexpError;
 
     fn try_from(value: SexpString) -> Result<Self, Self::Error> {
-        let parsed = rsexp::from_slice(&value.0)
-            .map_err(|e| InfoFromSexpError(e))?;
+        let parsed = rsexp::from_slice(&value.0).map_err(|e| InfoFromSexpError(e))?;
         Ok(Info(parsed))
     }
 }
@@ -97,7 +96,7 @@ impl binprot::BinProtWrite for InetAddrV1 {
 
 #[cfg(test)]
 mod test {
-    use binprot::{BinProtWrite, BinProtRead};
+    use binprot::{BinProtRead, BinProtWrite};
 
     use super::Info;
 

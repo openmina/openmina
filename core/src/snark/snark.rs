@@ -100,4 +100,3 @@ impl From<&Snark> for NetworkPoolSnarkPoolDiffVersionedStableV2AddSolvedWork1 {
         }
     }
 }
-

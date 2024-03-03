@@ -6,9 +6,7 @@ pub use snark_work_verify_actions::*;
 
 mod snark_work_verify_reducer;
 
-
 mod snark_work_verify_effects;
-
 
 mod snark_work_verify_service;
 pub use snark_work_verify_service::*;

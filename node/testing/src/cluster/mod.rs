@@ -13,11 +13,11 @@ use std::time::Duration;
 use std::{collections::VecDeque, sync::Arc};
 
 use libp2p::futures::{stream::FuturesUnordered, StreamExt};
-use node::snark::{VerifierIndex, VerifierSRS};
 use node::core::channels::mpsc;
 use node::core::requests::RpcId;
 use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 use node::p2p::{P2pConnectionEvent, P2pDiscoveryEvent, PeerId};
+use node::snark::{VerifierIndex, VerifierSRS};
 use node::{
     account::{AccountPublicKey, AccountSecretKey},
     event_source::Event,

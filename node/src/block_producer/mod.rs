@@ -14,7 +14,6 @@ pub use block_producer_actions::*;
 
 mod block_producer_reducer;
 
-
 mod block_producer_effects;
 pub use block_producer_effects::*;
 

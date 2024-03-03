@@ -32,24 +32,19 @@ impl ExternalSnarkWorker {
                 self.state = ExternalSnarkWorkerState::Error(error.clone(), *permanent);
             }
             ExternalSnarkWorkerAction::SubmitWork { job_id, summary } => {
-                self.state = ExternalSnarkWorkerState::Working(
-                    job_id.clone(),
-                    summary.clone(),
-                );
+                self.state = ExternalSnarkWorkerState::Working(job_id.clone(), summary.clone());
             }
             ExternalSnarkWorkerAction::WorkResult { result } => {
                 let ExternalSnarkWorkerState::Working(job_id, _) = &self.state else {
                     return;
                 };
-                self.state =
-                    ExternalSnarkWorkerState::WorkReady(job_id.clone(), result.clone());
+                self.state = ExternalSnarkWorkerState::WorkReady(job_id.clone(), result.clone());
             }
             ExternalSnarkWorkerAction::WorkError { error } => {
                 let ExternalSnarkWorkerState::Working(job_id, _) = &self.state else {
                     return;
                 };
-                self.state =
-                    ExternalSnarkWorkerState::WorkError(job_id.clone(), error.clone());
+                self.state = ExternalSnarkWorkerState::WorkError(job_id.clone(), error.clone());
             }
             ExternalSnarkWorkerAction::WorkTimeout { .. } => {
                 return;
