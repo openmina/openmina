@@ -1178,6 +1178,32 @@ impl Account {
         zero_min_balance.neg()
     }
 
+    pub fn liquid_balance_at_slot(&self, global_slot: Slot) -> Balance {
+        match self.timing {
+            Timing::Untimed => self.balance,
+            Timing::Timed {
+                initial_minimum_balance,
+                cliff_time,
+                cliff_amount,
+                vesting_period,
+                vesting_increment,
+            } => self
+                .balance
+                .sub_amount(
+                    account_min_balance_at_slot(
+                        global_slot,
+                        cliff_time,
+                        cliff_amount,
+                        vesting_period,
+                        vesting_increment,
+                        initial_minimum_balance,
+                    )
+                    .to_amount(),
+                )
+                .unwrap(),
+        }
+    }
+
     /// https://github.com/MinaProtocol/mina/blob/2ff0292b637684ce0372e7b8e23ec85404dc5091/src/lib/mina_base/account.ml#L794
     pub fn has_permission_to(&self, control: ControlTag, to: PermissionTo) -> bool {
         match to {
