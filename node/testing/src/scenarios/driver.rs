@@ -21,8 +21,8 @@ use node::p2p::connection::outgoing::P2pConnectionOutgoingInitLibp2pOpts;
 
 #[cfg(not(feature = "p2p-libp2p"))]
 use node::p2p::{
-    MioEvent,
-    P2pNetworkAuthState, P2pNetworkNoiseState, P2pNetworkNoiseStateInner, P2pNetworkSelectState,
+    MioEvent, P2pNetworkAuthState, P2pNetworkNoiseState, P2pNetworkNoiseStateInner,
+    P2pNetworkSelectState,
 };
 
 use crate::{cluster::ClusterNodeId, node::RustNodeTestingConfig, scenario::ScenarioStep};

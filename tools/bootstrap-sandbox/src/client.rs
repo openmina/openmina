@@ -79,12 +79,9 @@ impl Client {
 
                         if let (Some(peer_id), Some(stream_id)) = (self.peer, self.stream) {
                             if let Some(query) = query.take() {
-                                self.swarm.behaviour_mut().query::<M>(
-                                    peer_id,
-                                    stream_id,
-                                    self.id,
-                                    query,
-                                )?;
+                                self.swarm
+                                    .behaviour_mut()
+                                    .query::<M>(peer_id, stream_id, self.id, query)?;
                                 self.id += 1;
                             }
                         }
