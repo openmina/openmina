@@ -1,6 +1,6 @@
 use std::{
     collections::BTreeSet,
-    net::{IpAddr, SocketAddr},
+    net::SocketAddr,
     time::{Duration, Instant},
 };
 
@@ -12,9 +12,8 @@ use node::{
             P2pConnectionOutgoingInitLibp2pOpts, P2pConnectionOutgoingInitOpts,
         },
         webrtc::{Host, HttpSignalingInfo, SignalingMethod},
-        P2pConnectionEvent, P2pEvent, P2pListenEvent, P2pListenerId, P2pNetworkAuthState,
-        P2pNetworkNoiseState, P2pNetworkNoiseStateInner, P2pNetworkSelectState, P2pPeerState,
-        P2pPeerStatus, P2pState, PeerId,
+        P2pConnectionEvent, P2pEvent, P2pListenEvent, P2pListenerId, P2pPeerState, P2pPeerStatus,
+        P2pState, PeerId,
     },
     State,
 };

@@ -5,8 +5,7 @@ use std::{
 };
 
 use node::p2p::{
-    connection::outgoing::P2pConnectionOutgoingInitLibp2pOpts, identity::SecretKey, P2pPeerState,
-    P2pPeerStatus, PeerId,
+    connection::outgoing::P2pConnectionOutgoingInitLibp2pOpts, identity::SecretKey, PeerId,
 };
 
 use crate::{

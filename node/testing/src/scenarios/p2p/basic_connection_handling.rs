@@ -2,14 +2,15 @@ use std::time::Duration;
 
 use node::{
     event_source::Event,
-    p2p::{P2pConnectionEvent, P2pEvent, P2pPeerState, P2pPeerStatus, P2pState, PeerId},
+    p2p::{P2pConnectionEvent, P2pEvent, P2pPeerStatus, P2pState, PeerId},
 };
 
 use crate::{
     node::RustNodeTestingConfig,
     scenarios::{
-        add_rust_nodes, get_p2p_state, get_peer_state, peer_is_ready, run_until_no_events,
-        wait_for_nodes_listening_on_localhost, ClusterRunner, Driver, connect_rust_nodes, wait_for_connection_established, add_rust_nodes1,
+        add_rust_nodes1, connect_rust_nodes, get_peer_state, peer_is_ready, run_until_no_events,
+        wait_for_connection_established, wait_for_nodes_listening_on_localhost, ClusterRunner,
+        Driver,
     },
 };
 
@@ -219,7 +220,13 @@ impl MaxNumberOfPeers {
 
         for (peer, peer_id) in &peers {
             connect_rust_nodes(driver.inner_mut(), *peer, node_ut).await;
-            let connected = wait_for_connection_established(&mut driver, Duration::from_secs(10), (node_ut, peer_id)).await.unwrap();
+            let connected = wait_for_connection_established(
+                &mut driver,
+                Duration::from_secs(10),
+                (node_ut, peer_id),
+            )
+            .await
+            .unwrap();
             assert!(connected, "node {peer} is not connected");
         }
 

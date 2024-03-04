@@ -3,7 +3,7 @@ pub use config::ClusterConfig;
 
 mod p2p_task_spawner;
 use openmina_core::log::system_time;
-use openmina_core::{info, warn};
+use openmina_core::warn;
 pub use p2p_task_spawner::P2pTaskSpawner;
 
 mod node_id;
@@ -52,10 +52,12 @@ use crate::{
     service::{NodeTestingService, PendingEventId},
 };
 
+#[allow(dead_code)]
 fn openmina_path<P: AsRef<Path>>(path: P) -> Option<PathBuf> {
     std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".cache/openmina").join(path))
 }
 
+#[allow(dead_code)]
 fn read_index<T: DeserializeOwned>(name: &str) -> Option<T> {
     openmina_path(name)
         .and_then(|path| {
@@ -79,6 +81,7 @@ fn read_index<T: DeserializeOwned>(name: &str) -> Option<T> {
         })
 }
 
+#[allow(dead_code)]
 fn write_index<T: Serialize>(name: &str, index: &T) -> Option<()> {
     openmina_path(name)
         .and_then(|path| {
