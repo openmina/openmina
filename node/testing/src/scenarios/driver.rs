@@ -8,9 +8,7 @@ use libp2p::Multiaddr;
 use node::{
     event_source::Event,
     p2p::{
-        connection::outgoing::{
-            P2pConnectionOutgoingInitLibp2pOpts, P2pConnectionOutgoingInitOpts,
-        },
+        connection::outgoing::P2pConnectionOutgoingInitOpts,
         webrtc::{Host, HttpSignalingInfo, SignalingMethod},
         P2pConnectionEvent, P2pEvent, P2pListenEvent, P2pListenerId, P2pPeerState, P2pPeerStatus,
         P2pState, PeerId,
@@ -18,8 +16,14 @@ use node::{
     State,
 };
 
+#[cfg(feature = "p2p-libp2p")]
+use node::p2p::connection::outgoing::P2pConnectionOutgoingInitLibp2pOpts;
+
 #[cfg(not(feature = "p2p-libp2p"))]
-use node::p2p::MioEvent;
+use node::p2p::{
+    MioEvent,
+    P2pNetworkAuthState, P2pNetworkNoiseState, P2pNetworkNoiseStateInner, P2pNetworkSelectState,
+};
 
 use crate::{cluster::ClusterNodeId, node::RustNodeTestingConfig, scenario::ScenarioStep};
 
@@ -132,7 +136,7 @@ pub fn identify_event(peer_id: PeerId) -> impl Fn(ClusterNodeId, &Event, &State)
 }
 
 #[cfg(not(feature = "p2p-libp2p"))]
-pub fn as_event_mio_interface_detected(event: &Event) -> Option<&IpAddr> {
+pub fn as_event_mio_interface_detected(event: &Event) -> Option<&std::net::IpAddr> {
     if let Event::P2p(P2pEvent::MioEvent(MioEvent::InterfaceDetected(ip_addr))) = event {
         Some(ip_addr)
     } else {
