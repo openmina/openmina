@@ -1,5 +1,4 @@
 use crate::block_producer::{block_producer_effects, BlockProducerAction};
-use crate::consensus::consensus_effects;
 use crate::event_source::event_source_effects;
 use crate::external_snark_worker::external_snark_worker_effects;
 use crate::logger::logger_effects;
@@ -10,7 +9,6 @@ use crate::snark_pool::candidate::SnarkPoolCandidateAction;
 use crate::snark_pool::{snark_pool_effects, SnarkPoolAction};
 use crate::transition_frontier::sync::TransitionFrontierSyncAction;
 use crate::transition_frontier::transition_frontier_effects;
-use crate::watched_accounts::watched_accounts_effects;
 use crate::{Action, ActionWithMeta, ExternalSnarkWorkerAction, Service, Store};
 
 use crate::p2p::channels::rpc::{P2pChannelsRpcAction, P2pRpcRequest};
@@ -116,8 +114,8 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
         Action::Snark(action) => {
             snark_effects(store, meta.with_action(action));
         }
-        Action::Consensus(action) => {
-            consensus_effects(store, meta.with_action(action));
+        Action::Consensus(_) => {
+            // Handled by reducer
         }
         Action::TransitionFrontier(action) => {
             transition_frontier_effects(store, meta.with_action(action));
@@ -126,6 +124,7 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
             p2p_effects(store, meta.with_action(action));
         }
         Action::SnarkPool(action) => {
+            // TODO: still handles one action
             snark_pool_effects(store, meta.with_action(action));
         }
         Action::BlockProducer(action) => {
@@ -137,8 +136,8 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
         Action::Rpc(action) => {
             rpc_effects(store, meta.with_action(action));
         }
-        Action::WatchedAccounts(action) => {
-            watched_accounts_effects(store, meta.with_action(action));
+        Action::WatchedAccounts(_) => {
+            // Handled by reducer
         }
     }
 }

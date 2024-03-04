@@ -37,7 +37,7 @@ blake2 = { version = "0.10.6" }
 chacha20poly1305 = { version = "0.10.1" }
 curve25519-dalek = { version = "4.1" }
 
-redux = { git = "https://github.com/openmina/redux-rs.git", branch="feat/global-time", features = ["serde"] }
+redux = { workspace = true }
 mina-p2p-messages = { workspace = true }
 
 openmina-core = { path = "../core" }

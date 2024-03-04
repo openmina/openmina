@@ -31,7 +31,7 @@ strum = "0.24.1"
 strum_macros = "0.24.3"
 tracing-log = "0.2.0"
 documented = { version = "0.1", optional = true }
-redux = { git = "https://github.com/openmina/redux-rs.git", branch="feat/global-time", features = ["serde"] }
+redux = { workspace = true }
 ledger = { workspace = true }
 mina-p2p-messages = { workspace = true }
 libp2p = { workspace = true, features = ["macros", "serde", "tcp", "dns", "tokio", "yamux", "pnet", "noise", "gossipsub"] }

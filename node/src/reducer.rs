@@ -5,7 +5,12 @@ use p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 
 use crate::{event_source::Event, Action, ActionWithMeta, EventSourceAction, State};
 
-pub fn reducer(state: &mut State, action: &ActionWithMeta) {
+pub fn reducer(
+    state: &mut State,
+    action: &ActionWithMeta,
+    global_state: &State,
+    dispatcher: &mut redux::ActionQueue<Action, State>,
+) {
     let meta = action.meta().clone();
     match action.action() {
         Action::CheckTimeouts(_) => {}
@@ -41,13 +46,17 @@ pub fn reducer(state: &mut State, action: &ActionWithMeta) {
             state.snark.reducer(meta.with_action(a));
         }
         Action::Consensus(a) => {
-            state.consensus.reducer(meta.with_action(a));
+            state
+                .consensus
+                .reducer(meta.with_action(a), global_state, dispatcher);
         }
         Action::TransitionFrontier(a) => {
             state.transition_frontier.reducer(meta.with_action(a));
         }
         Action::SnarkPool(a) => {
-            state.snark_pool.reducer(meta.with_action(a));
+            state
+                .snark_pool
+                .reducer(meta.with_action(a), global_state, dispatcher);
         }
         Action::BlockProducer(a) => {
             state
@@ -61,7 +70,9 @@ pub fn reducer(state: &mut State, action: &ActionWithMeta) {
             state.rpc.reducer(meta.with_action(a));
         }
         Action::WatchedAccounts(a) => {
-            state.watched_accounts.reducer(meta.with_action(a));
+            state
+                .watched_accounts
+                .reducer(meta.with_action(a), dispatcher);
         }
     }
 
