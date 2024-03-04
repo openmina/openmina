@@ -26,7 +26,10 @@ use crate::{
     VerificationKey,
 };
 
-use super::transaction::InnerCurve;
+use super::{
+    caching::{verifier_index_from_bytes, verifier_index_to_bytes},
+    transaction::InnerCurve,
+};
 use super::{
     transaction::endos,
     wrap::{Domain, Domains},
@@ -37,22 +40,116 @@ pub enum VerifierKind {
     Transaction,
 }
 
-pub fn get_verifier_index(kind: VerifierKind) -> VerifierIndex<Pallas> {
-    let make = |data: &str| {
-        let verifier_index: kimchi::verifier_index::VerifierIndex<GroupAffine<Fp>> =
-            serde_json::from_str(data).unwrap();
-        make_verifier_index(verifier_index)
-    };
+use sha2::{Digest, Sha256};
+use std::{
+    fs::File,
+    io::{Read, Write},
+    path::{Path, PathBuf},
+};
 
+use anyhow::Context;
+use openmina_core::{info, log::system_time, warn};
+
+fn openmina_cache_path<P: AsRef<Path>>(path: P) -> Option<PathBuf> {
+    std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".cache/openmina").join(path))
+}
+
+fn read_index(path: &Path, digest: &[u8]) -> anyhow::Result<VerifierIndex<Pallas>> {
+    let mut buf = Vec::with_capacity(5700000);
+    let mut file = File::open(path).context("opening cache file")?;
+    let mut d = [0; 32];
+    // source digest
+    file.read_exact(&mut d).context("reading source digest")?;
+    if &d != digest {
+        anyhow::bail!("source digest verification failed");
+    }
+
+    // index digest
+    file.read_exact(&mut d).context("reading index digest")?;
+    // index
+    file.read_to_end(&mut buf)
+        .context("reading verifier index from cache file")?;
+
+    let mut hasher = Sha256::new();
+    hasher.update(&buf);
+    let digest = hasher.finalize();
+    if &d != digest.as_slice() {
+        anyhow::bail!("verifier index digest verification failed");
+    }
+    Ok(verifier_index_from_bytes(&buf))
+}
+
+fn write_index(path: &Path, index: &VerifierIndex<Pallas>, digest: &[u8]) -> anyhow::Result<()> {
+    let bytes = verifier_index_to_bytes(index);
+    let mut hasher = Sha256::new();
+    hasher.update(&bytes);
+    let Some(parent) = path.parent() else {
+        anyhow::bail!("cannot get parent for {path:?}");
+    };
+    std::fs::create_dir_all(parent).context("creating cache file parent directory")?;
+    let mut file = File::create(&path).context("creating cache file")?;
+    file.write_all(digest).context("storing source digest")?;
+    file.write_all(&hasher.finalize())
+        .context("storing verifier index digest")?;
+    file.write_all(&bytes)
+        .context("storing verifier index into cache file")?;
+    Ok(())
+}
+
+#[cfg(target_family = "wasm")]
+fn make_with_ext_cache(data: &str, cache: &str) -> VerifierIndex<Pallas> {
+    let verifier_index: kimchi::verifier_index::VerifierIndex<GroupAffine<Fp>> =
+        serde_json::from_str(data).unwrap();
+    make_verifier_index(verifier_index)
+}
+
+#[cfg(not(target_family = "wasm"))]
+fn make_with_ext_cache(data: &str, cache: &str) -> VerifierIndex<Pallas> {
+    let verifier_index: kimchi::verifier_index::VerifierIndex<GroupAffine<Fp>> =
+        serde_json::from_str(data).unwrap();
+    let mut hasher = Sha256::new();
+    hasher.update(data);
+    let src_index_digest = hasher.finalize();
+
+    if let Some(path) = openmina_cache_path(cache) {
+        match read_index(&path, &src_index_digest) {
+            Ok(verifier_index) => {
+                info!(system_time(); "Block verifier index is loaded from {path:?}");
+                verifier_index
+            }
+            Err(err) => {
+                warn!(system_time(); "Cannot load verifier index from cache file {path:?}: {err}");
+                let index = make_verifier_index(verifier_index);
+                if let Err(err) = write_index(&path, &index, &src_index_digest) {
+                    warn!(system_time(); "Cannot store verifier index to cache file {path:?}: {err}");
+                } else {
+                    info!(system_time(); "Stored block verifier index to cache file {path:?}");
+                }
+                index
+            }
+        }
+    } else {
+        warn!(system_time(); "Cannot determine cache path for verifier index");
+        make_verifier_index(verifier_index)
+    }
+}
+
+pub fn get_verifier_index(kind: VerifierKind) -> VerifierIndex<Pallas> {
     match kind {
         VerifierKind::Blockchain => {
             cache_one!(VerifierIndex<Pallas>, {
-                make(include_str!("data/blockchain_verifier_index.json"))
+                make_with_ext_cache(
+                    include_str!("data/blockchain_verifier_index.json"),
+                    "block_verifier_index.bin",
+                )
             })
         }
         VerifierKind::Transaction => {
             cache_one!(VerifierIndex<Pallas>, {
-                make(include_str!("data/transaction_verifier_index.json"))
+                make_with_ext_cache(
+                    include_str!("data/transaction_verifier_index.json"),
+                    "transaction_verifier_index.bin",
+                )
             })
         }
     }
