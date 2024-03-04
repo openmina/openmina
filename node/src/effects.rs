@@ -124,6 +124,7 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
             p2p_effects(store, meta.with_action(action));
         }
         Action::SnarkPool(action) => {
+            // TODO: still handles one action
             snark_pool_effects(store, meta.with_action(action));
         }
         Action::BlockProducer(action) => {
