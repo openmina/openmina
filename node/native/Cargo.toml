@@ -24,9 +24,11 @@ tracing = "0.1.37"
 thiserror = "1.0.44"
 nix = { version = "0.26.2", features = ["signal"] }
 vrf = { workspace = true }
+getrandom = "0.2.11"
 
 openmina-core = { path = "../../core" }
 node = { path = "../../node", features = ["replay"] }
 
 [features]
 p2p-webrtc = ["node/p2p-webrtc"]
+p2p-libp2p = ["node/p2p-libp2p"]

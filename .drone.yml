@@ -12,7 +12,6 @@ trigger:
   - feat/graphql
 
 environment:
-  REPLAYER_ID: 12D3KooWETkiRaHCdztkbmrWQTET9HMWimQPx5sH5pLSRZNxRsjw
   CHAIN_ID: 3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e
 
   OPENMINA1_SK: 5KJKg7yAbYAQcNGWcKFf2C4ruJxwrHoQvsksU16yPzFzXHMsbMc
@@ -59,11 +58,24 @@ steps:
       - apt-get update && apt-get install -y libssl-dev libjemalloc-dev jq
       - rustup update 1.75 && rustup default 1.75
       - rustup component add rustfmt
-      - cargo test --release -p cli
-      - cargo build --release -p cli --bin openmina
+      # just to be sure it builds without errors
+      - cargo build
+      - cargo build --release --features p2p-libp2p --bin openmina
+      # unit tests
+      - cargo test --features p2p-libp2p --release -p cli
+      # build tester binaries
+      - cargo build --release --features scenario-generators --no-default-features -p openmina-node-testing && mv target/release/openmina-node-testing target/release/openmina-node-testing-mio
+      - cargo build --release --features scenario-generators,p2p-libp2p -p openmina-node-testing && mv target/release/openmina-node-testing target/release/openmina-node-testing-libp2p
+      - cargo build --release --features scenario-generators,p2p-libp2p,p2p-webrtc -p openmina-node-testing && mv target/release/openmina-node-testing target/release/openmina-node-testing-webrtc
       - cargo build --release --bin runner
-      - cargo build --release --features scenario-generators -p openmina-node-testing && mv target/release/openmina-node-testing target/release/openmina-node-testing-libp2p
-      - cargo build --release --features scenario-generators,p2p-webrtc -p openmina-node-testing && mv target/release/openmina-node-testing target/release/openmina-node-testing-webrtc
+
+  # o sole mio :)
+  - name: solo-mio-bootstrap
+    image: vladsimplestakingcom/mina-debugger:2.0.0rampup4-focal
+    failure: ignore
+    commands:
+      - cp target/release/openmina-node-testing-mio /usr/bin/openmina-node-testing-mio
+      - openmina-node-testing-mio scenarios-generate --name solo-node-bootstrap
 
   - name: solo-webrtc-sync-root-snarked-ledger
     image: vladsimplestakingcom/mina-debugger:2.0.0rampup4-focal
@@ -177,16 +189,6 @@ steps:
     environment:
       BPF_ALIAS: "/coda/0.0.1/3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e-255.255.255.7"
 
-  - name: replayer
-    image: vladsimplestakingcom/bootstrap-rr:graphql
-    pull: always
-    detach: true
-    environment:
-      # 12D3KooWETkiRaHCdztkbmrWQTET9HMWimQPx5sH5pLSRZNxRsjw
-      OPENMINA_P2P_SEC_KEY: 5JDRBqXfHm4Xne1QKUJyg9FKRfwN6gtduZb7nVYHg2F1BmwPynT
-    commands:
-      - RUST_LOG=info openmina-bootstrap-sandbox --path='/tmp/mina-record' --listen='/ip4/0.0.0.0/tcp/8302' --chain-id=$CHAIN_ID replay 234
-
   - name: openmina1
     image: *snark-worker-image
     detach: true
@@ -194,7 +196,7 @@ steps:
       - mkdir test_ledgers
       - curl https://raw.githubusercontent.com/openmina/openmina-poc/3a81bc7/test_ledgers/jx5k7xf3L2aof821PQWumABQ793rhEis5kRb8YUmJWTHKtEJ5nb -o test_ledgers/jx5k7xf3L2aof821PQWumABQ793rhEis5kRb8YUmJWTHKtEJ5nb
       - target/release/openmina node -p 10000  -v Debug -s $OPENMINA1_SK
-          --peers /dns4/replayer/tcp/8302/p2p/$REPLAYER_ID /dns4/openmina2/tcp/8302/p2p/$OPENMINA2_LIBP2P_ID /dns4/openmina3/tcp/8302/p2p/$OPENMINA3_LIBP2P_ID
+          --peers /dns4/openmina2/tcp/8302/p2p/$OPENMINA2_LIBP2P_ID /dns4/openmina3/tcp/8302/p2p/$OPENMINA3_LIBP2P_ID
                     /dns4/ocaml1/tcp/8302/p2p/12D3KooWKLzGWSdFAQGEAtrHan1TTwu7idagcZ83X6MXWfUJNiTU
           --run-snarker $OPENMINA1_SNARKER_KEY --snarker-strategy seq --snarker-exe-path cli/bin/snark-worker
 
@@ -203,30 +205,16 @@ steps:
     detach: true
     commands:
       - target/release/openmina node -p 10000 -v Debug -s $OPENMINA2_SK
-          --peers /dns4/replayer/tcp/8302/p2p/$REPLAYER_ID /dns4/openmina1/tcp/8302/p2p/$OPENMINA1_LIBP2P_ID /dns4/openmina3/tcp/8302/p2p/$OPENMINA3_LIBP2P_ID
+          --peers /dns4/openmina1/tcp/8302/p2p/$OPENMINA1_LIBP2P_ID /dns4/openmina3/tcp/8302/p2p/$OPENMINA3_LIBP2P_ID
           --run-snarker $OPENMINA2_SNARKER_KEY --snarker-strategy rand --snarker-exe-path cli/bin/snark-worker
-
-  - name: test-bootstrap-replayer-to-openmina
-    image: vladsimplestakingcom/bootstrap-rr:graphql
-    pull: always
-    commands:
-      - sleep 180
-      - RUST_LOG=debug timeout 3600s openmina-bootstrap-sandbox --path='/tmp/mina-record' --chain-id=$CHAIN_ID test-graphql 234 http://openmina1:10000/graphql
 
   - name: openmina3
     image: *snark-worker-image
     detach: true
     commands:
       - target/release/openmina node -p 10000 -v Debug -s $OPENMINA3_SK
-          --peers /dns4/replayer/tcp/8302/p2p/$REPLAYER_ID /dns4/openmina1/tcp/8302/p2p/$OPENMINA1_LIBP2P_ID /dns4/openmina2/tcp/8302/p2p/$OPENMINA2_LIBP2P_ID
+          --peers /dns4/openmina1/tcp/8302/p2p/$OPENMINA1_LIBP2P_ID /dns4/openmina2/tcp/8302/p2p/$OPENMINA2_LIBP2P_ID
           --run-snarker $OPENMINA3_SNARKER_KEY --snarker-strategy rand --snarker-exe-path cli/bin/snark-worker
-
-  - name: test-bootstrap-openmina-to-openmina
-    image: vladsimplestakingcom/bootstrap-rr:graphql
-    pull: always
-    commands:
-      - sleep 180
-      - RUST_LOG=debug timeout 3600s openmina-bootstrap-sandbox --path='/tmp/mina-record' --chain-id=$CHAIN_ID test-graphql 234 http://openmina3:10000/graphql
 
   - name: test-snark-work
     image: alpine

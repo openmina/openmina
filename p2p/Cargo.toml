@@ -26,6 +26,16 @@ ecies-ed25519 = "0.5.1"
 ed25519-dalek = { version = "2.0.0-rc.2", features = ["serde"] }
 faster-stun = { version = "1.0.1" }
 reqwest = { version = "0.11.22" }
+unsigned-varint = { version = "0.8.0" }
+hex = { version = "0.4.3" }
+bitflags = { version = "2.4.1", features = ["serde"] }
+# crypto
+zeroize = { version = "1.7" }
+hkdf = { version = "0.12.4" }
+salsa20 = { git = "https://github.com/openmina/stream-ciphers.git", rev = "6bfe160a0cd844b5bbec6757b35f1802f45ff492" }
+blake2 = { version = "0.10.6" }
+chacha20poly1305 = { version = "0.10.1" }
+curve25519-dalek = { version = "4.1" }
 
 redux = { git = "https://github.com/openmina/redux-rs.git", branch="feat/global-time", features = ["serde"] }
 mina-p2p-messages = { workspace = true }
@@ -36,8 +46,12 @@ openmina-core = { path = "../core" }
 tokio = { version = "1.26", features = ["rt"] }
 webrtc = { git = "https://github.com/openmina/webrtc.git", branch = "openmina-13c490c3", optional = true }
 hyper = { version = "0.14.25", features = ["client", "http1", "tcp"] }
-libp2p = { workspace = true, features = ["macros", "serde", "tcp", "dns", "tokio", "yamux", "pnet", "noise", "gossipsub", "identify", "kad"] }
-libp2p-rpc-behaviour = { path = "libp2p-rpc-behaviour" }
+libp2p = { workspace = true, features = ["macros", "serde", "tcp", "dns", "tokio", "yamux", "pnet", "noise", "gossipsub", "identify", "kad"], optional = true }
+libp2p-rpc-behaviour = { path = "libp2p-rpc-behaviour", optional = true }
+libp2p-identity = { version = "=0.2.7", features = ["ed25519"] }
+multiaddr = { version = "0.18.1" }
+mio = { version = "0.8.10", features = ["os-poll"] }
+libc = { version = "0.2.151" }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = "0.2"
@@ -50,3 +64,4 @@ tokio = { version = "1.26", features = ["macros"] }
 
 [features]
 p2p-webrtc = ["webrtc"]
+p2p-libp2p = ["libp2p", "libp2p-rpc-behaviour"]

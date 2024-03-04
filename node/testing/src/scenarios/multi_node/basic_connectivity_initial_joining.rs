@@ -67,7 +67,7 @@ impl MultiNodeBasicConnectivityInitialJoining {
                     .peer_id();
 
                 let node_steps = runner
-                    .node_pending_events(node_id)
+                    .node_pending_events(node_id, true)
                     .unwrap()
                     .1
                     .map(|(_, event)| {

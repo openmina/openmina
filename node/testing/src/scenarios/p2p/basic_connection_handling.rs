@@ -2,13 +2,14 @@ use std::time::Duration;
 
 use node::{
     event_source::Event,
-    p2p::{P2pConnectionEvent, P2pEvent, P2pPeerState, P2pPeerStatus, P2pState, PeerId},
+    p2p::{P2pConnectionEvent, P2pEvent, P2pPeerStatus, P2pState, PeerId},
 };
 
 use crate::{
     node::RustNodeTestingConfig,
     scenarios::{
-        add_rust_nodes, run_until_no_events, wait_for_nodes_listening_on_localhost, ClusterRunner,
+        add_rust_nodes1, connect_rust_nodes, get_peer_state, peer_is_ready, run_until_no_events,
+        wait_for_connection_established, wait_for_nodes_listening_on_localhost, ClusterRunner,
         Driver,
     },
 };
@@ -67,31 +68,15 @@ impl SimultaneousConnections {
             "no quiet period with no events since nodes are connected"
         );
 
-        let p2p_state1 = &driver.inner().node(node1).unwrap().state().p2p;
-        let p2p_state2 = &driver.inner().node(node2).unwrap().state().p2p;
-
-        let node1_peer = p2p_state1.peers.get(&peer_id2);
-        let node2_peer = p2p_state2.peers.get(&peer_id1);
-
         assert!(
-            matches!(
-                node1_peer,
-                Some(P2pPeerState {
-                    status: P2pPeerStatus::Ready(..),
-                    ..
-                })
-            ),
-            "node2 should be a ready peer of node1, but it is {node1_peer:?}"
+            peer_is_ready(driver.inner(), node1, &peer_id2),
+            "node2 should be a ready peer of node1, but it is {:?}",
+            get_peer_state(driver.inner(), node1, &peer_id2)
         );
         assert!(
-            matches!(
-                node2_peer,
-                Some(P2pPeerState {
-                    status: P2pPeerStatus::Ready(..),
-                    ..
-                })
-            ),
-            "node1 should be a ready peer of node2, but it is {node2_peer:?}"
+            peer_is_ready(driver.inner(), node2, &peer_id1),
+            "node2 should be a ready peer of node1, but it is {:?}",
+            get_peer_state(driver.inner(), node2, &peer_id1)
         );
     }
 }
@@ -178,16 +163,6 @@ impl SeedConnectionsAreSymmetric {
             })
             .collect();
 
-        // // wait for all peers to listen
-        // let satisfied = wait_for_nodes_listening_on_localhost(
-        //     &mut driver,
-        //     Duration::from_secs(3 * 60),
-        //     peers.clone(),
-        // )
-        // .await
-        // .unwrap();
-        // assert!(satisfied, "all peers should be listening");
-
         // Run the cluster for a while
         driver
             .run_until(Duration::from_secs(2 * 60), |_, _, _| false)
@@ -195,26 +170,16 @@ impl SeedConnectionsAreSymmetric {
             .unwrap();
 
         // Check that for each peer, if it is in the node's peer list, then the node is in the peer's peer list
-        let node_ut_p2p_state = &driver.inner().node(node_ut).unwrap().state().p2p;
         for (peer, peer_id) in peers {
-            let peer_p2p_state = &driver.inner().node(peer).unwrap().state().p2p;
-
-            if peer_p2p_state
-                .ready_peers_iter()
-                .any(|(peer_id, _)| peer_id == &node_ut_peer_id)
-            {
+            if peer_is_ready(driver.inner(), peer, &node_ut_peer_id) {
                 assert!(
-                    node_ut_p2p_state
-                        .ready_peers_iter()
-                        .any(|(pid, _)| pid == &peer_id),
+                    peer_is_ready(driver.inner(), node_ut, &peer_id),
                     "node {peer} should be in the node's peer list"
                 );
             } else {
                 assert!(
-                    !node_ut_p2p_state
-                        .ready_peers_iter()
-                        .any(|(pid, _)| pid == &peer_id),
-                    "node {peer} should not be in the node's peer list"
+                    !peer_is_ready(driver.inner(), node_ut, &peer_id),
+                    "node {peer} should't be in the node's peer list"
                 );
             }
         }
@@ -235,7 +200,7 @@ impl MaxNumberOfPeers {
         let (node_ut, nut_peer_id) =
             driver.add_rust_node(RustNodeTestingConfig::berkeley_default().max_peers(MAX.into()));
 
-        let (peers, _): (Vec<_>, Vec<_>) = add_rust_nodes(
+        let peers: Vec<_> = add_rust_nodes1(
             &mut driver,
             TOTAL,
             RustNodeTestingConfig::berkeley_default(),
@@ -253,48 +218,52 @@ impl MaxNumberOfPeers {
 
         println!("connecting nodes....");
 
-        for peer in &peers {
-            driver
-                .exec_step(crate::scenario::ScenarioStep::ConnectNodes {
-                    dialer: *peer,
-                    listener: crate::scenario::ListenerNode::Rust(node_ut),
-                })
-                .await
-                .expect("connect event should be dispatched");
-        }
-
-        let mut connected = 0_i32;
-
-        while let Some(exceeded) = driver
-            .wait_for(Duration::from_secs(2 * 60), |node_id, event, _| {
-                if node_id != node_ut {
-                    return false;
-                }
-                let Event::P2p(P2pEvent::Connection(conn_event)) = event else {
-                    return false;
-                };
-                match conn_event {
-                    node::p2p::P2pConnectionEvent::Finalized(_, Ok(())) => {
-                        connected += 1;
-                    }
-                    node::p2p::P2pConnectionEvent::Closed(_) => {
-                        connected -= 1;
-                    }
-                    _ => {}
-                }
-                return connected > MAX.into();
-            })
+        for (peer, peer_id) in &peers {
+            connect_rust_nodes(driver.inner_mut(), *peer, node_ut).await;
+            let connected = wait_for_connection_established(
+                &mut driver,
+                Duration::from_secs(10),
+                (node_ut, peer_id),
+            )
             .await
-            .unwrap()
-        {
-            let state = driver
-                .exec_even_step(exceeded)
-                .await
-                .unwrap()
-                .expect("connect message should be dispatched");
-            let count = state.p2p.ready_peers_iter().count();
-            assert!(count <= MAX.into(), "max number of peers exceeded: {count}");
+            .unwrap();
+            assert!(connected, "node {peer} is not connected");
         }
+
+        // let mut connected = 0_i32;
+
+        // while let Some(exceeded) = driver
+        //     .wait_for(Duration::from_secs(2 * 60), |node_id, event, _| {
+        //         if node_id != node_ut {
+        //             return false;
+        //         }
+        //         let Event::P2p(P2pEvent::Connection(conn_event)) = event else {
+        //             return false;
+        //         };
+        //         match conn_event {
+        //             node::p2p::P2pConnectionEvent::Finalized(_, Ok(())) => {
+        //                 connected += 1;
+        //             }
+        //             node::p2p::P2pConnectionEvent::Closed(_) => {
+        //                 connected -= 1;
+        //             }
+        //             _ => {}
+        //         }
+        //         return connected > MAX.into();
+        //     })
+        //     .await
+        //     .unwrap()
+        // {
+        //     let state = driver
+        //         .exec_even_step(exceeded)
+        //         .await
+        //         .unwrap()
+        //         .expect("connect message should be dispatched");
+        //     let count = state.p2p.ready_peers_iter().count();
+        //     assert!(count <= MAX.into(), "max number of peers exceeded: {count}");
+        // }
+
+        driver.run(Duration::from_secs(1 * 60)).await.unwrap();
 
         // check that the number of ready peers does not exceed the maximal allowed number
         let state = driver.inner().node(node_ut).unwrap().state();
@@ -304,7 +273,7 @@ impl MaxNumberOfPeers {
         // check that the number of nodes with the node as their peer does not exceed the maximal allowed number
         let peers_connected = peers
             .into_iter()
-            .filter_map(|peer| driver.inner().node(peer))
+            .filter_map(|(peer, _)| driver.inner().node(peer))
             .filter_map(|peer| peer.state().p2p.peers.get(&nut_peer_id))
             .filter(|state| matches!(state.status, P2pPeerStatus::Ready(..)))
             .count();

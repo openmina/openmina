@@ -1,3 +1,4 @@
+use libp2p_identity::PeerId;
 use node::{account::AccountSecretKey, p2p::identity::SecretKey};
 
 use crate::CommandError;
@@ -34,7 +35,7 @@ impl P2PKeyPair {
         let secret_key = self.p2p_secret_key.unwrap_or_else(SecretKey::rand);
         let public_key = secret_key.public_key();
         let peer_id = public_key.peer_id();
-        let libp2p_peer_id = libp2p::PeerId::from(peer_id);
+        let libp2p_peer_id = PeerId::from(peer_id);
         println!("secret key: {secret_key}");
         println!("public key: {public_key}");
         println!("peer_id:    {peer_id}");

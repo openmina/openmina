@@ -14,6 +14,15 @@ use crate::p2p::connection::outgoing::P2pConnectionOutgoingAction;
 use crate::p2p::connection::{P2pConnectionErrorResponse, P2pConnectionResponse};
 use crate::p2p::disconnection::{P2pDisconnectionAction, P2pDisconnectionReason};
 use crate::p2p::discovery::P2pDiscoveryAction;
+#[cfg(all(not(target_arch = "wasm32"), not(feature = "p2p-libp2p")))]
+use crate::p2p::network::{
+    P2pNetworkSchedulerIncomingConnectionIsReadyAction,
+    P2pNetworkSchedulerIncomingDataDidReceiveAction, P2pNetworkSchedulerIncomingDataIsReadyAction,
+    P2pNetworkSchedulerIncomingDidAcceptAction, P2pNetworkSchedulerInterfaceDetectedAction,
+    P2pNetworkSchedulerInterfaceExpiredAction, P2pNetworkSchedulerOutgoingDidConnectAction,
+};
+#[cfg(all(not(target_arch = "wasm32"), not(feature = "p2p-libp2p")))]
+use crate::p2p::MioEvent;
 use crate::p2p::P2pChannelEvent;
 use crate::rpc::{RpcAction, RpcRequest};
 use crate::snark::block_verify::SnarkBlockVerifyAction;
@@ -47,6 +56,38 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
         // "Translate" event into the corresponding action and dispatch it.
         EventSourceAction::NewEvent { event } => match event {
             Event::P2p(e) => match e {
+                #[cfg(all(not(target_arch = "wasm32"), not(feature = "p2p-libp2p")))]
+                P2pEvent::MioEvent(e) => match e {
+                    MioEvent::InterfaceDetected(ip) => {
+                        store.dispatch(P2pNetworkSchedulerInterfaceDetectedAction { ip });
+                    }
+                    MioEvent::InterfaceExpired(ip) => {
+                        store.dispatch(P2pNetworkSchedulerInterfaceExpiredAction { ip });
+                    }
+                    MioEvent::IncomingConnectionIsReady { listener } => {
+                        store.dispatch(P2pNetworkSchedulerIncomingConnectionIsReadyAction {
+                            listener,
+                        });
+                    }
+                    MioEvent::IncomingConnectionDidAccept(addr, result) => {
+                        store.dispatch(P2pNetworkSchedulerIncomingDidAcceptAction { addr, result });
+                    }
+                    MioEvent::OutgoingConnectionDidConnect(addr, result) => {
+                        store
+                            .dispatch(P2pNetworkSchedulerOutgoingDidConnectAction { addr, result });
+                    }
+                    MioEvent::IncomingDataIsReady(addr) => {
+                        store.dispatch(P2pNetworkSchedulerIncomingDataIsReadyAction { addr });
+                    }
+                    MioEvent::IncomingDataDidReceive(addr, result) => {
+                        store.dispatch(P2pNetworkSchedulerIncomingDataDidReceiveAction {
+                            addr,
+                            result: result.map(From::from),
+                        });
+                    }
+                    MioEvent::OutgoingDataDidSend(_, _result) => {}
+                    _ => {}
+                },
                 P2pEvent::Listen(e) => match e {
                     P2pListenEvent::NewListenAddr { listener_id, addr } => {
                         store.dispatch(P2pListenAction::New { listener_id, addr });
@@ -190,7 +231,7 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                         store.dispatch(P2pDisconnectionAction::Init { peer_id, reason });
                     }
                 },
-                #[cfg(not(target_arch = "wasm32"))]
+                #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
                 P2pEvent::Libp2pIdentify(..) => {}
                 P2pEvent::Discovery(p2p::P2pDiscoveryEvent::Ready) => {}
                 P2pEvent::Discovery(p2p::P2pDiscoveryEvent::DidFindPeers(peers)) => {

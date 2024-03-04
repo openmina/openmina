@@ -2,9 +2,14 @@ use std::collections::{BTreeMap, VecDeque};
 
 use std::sync::{Arc, Mutex};
 
-use ledger::scan_state::scan_state::transaction_snark::{SokDigest, Statement};
-use mina_p2p_messages::v2::{LedgerProofProdStableV2, TransactionSnarkWorkTStableV2Proofs};
+use node::p2p::service_impl::webrtc_with_libp2p::P2pServiceWebrtcWithLibp2p;
 use openmina_core::invariants::InvariantsState;
+
+use ledger::scan_state::scan_state::transaction_snark::{SokDigest, Statement};
+use libp2p::identity::Keypair;
+use mina_p2p_messages::v2::{LedgerProofProdStableV2, TransactionSnarkWorkTStableV2Proofs};
+#[cfg(not(feature = "p2p-libp2p"))]
+use node::p2p::service_impl::mio::MioService;
 use rand::prelude::*;
 use redux::ActionMeta;
 use serde::Serialize;
@@ -14,11 +19,11 @@ use node::core::snark::{Snark, SnarkJobId};
 use node::event_source::Event;
 use node::ledger::LedgerCtx;
 use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
+#[cfg(feature = "p2p-libp2p")]
 use node::p2p::service_impl::libp2p::Libp2pService;
 use node::p2p::service_impl::webrtc::{Cmd, P2pServiceWebrtc, PeerState};
-use node::p2p::service_impl::webrtc_with_libp2p::P2pServiceWebrtcWithLibp2p;
 use node::p2p::service_impl::TaskSpawner;
-use node::p2p::{P2pEvent, PeerId};
+use node::p2p::{P2pCryptoService, P2pMioService, PeerId};
 use node::rpc::{RpcP2pConnectionOutgoingResponse, RpcRequest};
 use node::service::{EventSourceService, Recorder};
 use node::snark::block_verify::{
@@ -39,14 +44,16 @@ pub struct NodeService {
     /// Events sent on this channel are retrieved and processed in the
     /// `event_source` state machine defined in the `openmina-node` crate.
     pub event_sender: mpsc::UnboundedSender<Event>,
-    // TODO(binier): change so that we only have `event_sender`.
-    pub p2p_event_sender: mpsc::UnboundedSender<P2pEvent>,
     pub event_receiver: EventReceiver,
     pub cmd_sender: mpsc::UnboundedSender<Cmd>,
     pub ledger: LedgerCtx,
     pub peers: BTreeMap<PeerId, PeerState>,
+    #[cfg(feature = "p2p-libp2p")]
     pub libp2p: Libp2pService,
+    #[cfg(not(feature = "p2p-libp2p"))]
+    pub mio: MioService,
     pub block_producer: Option<BlockProducerService>,
+    pub keypair: Keypair,
     pub snark_worker_sender: Option<ext_snark_worker::ExternalSnarkWorkerFacade>,
     pub rpc: RpcService,
     pub stats: Stats,
@@ -106,6 +113,55 @@ impl node::Service for NodeService {
     }
 }
 
+impl P2pCryptoService for NodeService {
+    fn generate_random_nonce(&mut self) -> [u8; 24] {
+        self.rng.gen()
+    }
+
+    fn ephemeral_sk(&mut self) -> [u8; 32] {
+        // TODO: make deterministic
+        // TODO: make network debugger to use seed to derive the same key
+        let mut r = [0; 32];
+        getrandom::getrandom(&mut r).unwrap();
+        r
+    }
+
+    fn static_sk(&mut self) -> [u8; 32] {
+        // TODO: make deterministic
+        // TODO: make network debugger to use seed to derive the same key
+        let mut r = [0; 32];
+        getrandom::getrandom(&mut r).unwrap();
+        r
+    }
+
+    fn sign_key(&mut self, key: &[u8; 32]) -> Vec<u8> {
+        // TODO: make deterministic
+        let msg = &[b"noise-libp2p-static-key:", key.as_ref()].concat();
+        let sig = self.keypair.sign(msg).expect("unable to create signature");
+
+        let mut payload = vec![];
+        payload.extend_from_slice(b"\x0a\x24");
+        payload.extend_from_slice(&self.keypair.public().encode_protobuf());
+        payload.extend_from_slice(b"\x12\x40");
+        payload.extend_from_slice(&sig);
+        payload
+    }
+}
+
+#[cfg(feature = "p2p-libp2p")]
+impl P2pMioService for NodeService {
+    fn send_mio_cmd(&self, _cmd: node::p2p::MioCmd) {
+        panic!("not implemented with libp2p");
+    }
+}
+
+#[cfg(not(feature = "p2p-libp2p"))]
+impl P2pMioService for NodeService {
+    fn send_mio_cmd(&self, cmd: node::p2p::MioCmd) {
+        self.mio.send_mio_cmd(cmd);
+    }
+}
+
 impl EventSourceService for NodeService {
     fn next_event(&mut self) -> Option<Event> {
         self.event_receiver.try_next()
@@ -113,6 +169,8 @@ impl EventSourceService for NodeService {
 }
 
 impl P2pServiceWebrtc for NodeService {
+    type Event = Event;
+
     fn random_pick(
         &mut self,
         list: &[P2pConnectionOutgoingInitOpts],
@@ -120,8 +178,8 @@ impl P2pServiceWebrtc for NodeService {
         list.choose(&mut self.rng).unwrap().clone()
     }
 
-    fn event_sender(&mut self) -> &mut mpsc::UnboundedSender<P2pEvent> {
-        &mut self.p2p_event_sender
+    fn event_sender(&mut self) -> &mut mpsc::UnboundedSender<Self::Event> {
+        &mut self.event_sender
     }
 
     fn cmd_sender(&mut self) -> &mut mpsc::UnboundedSender<Cmd> {
@@ -133,6 +191,14 @@ impl P2pServiceWebrtc for NodeService {
     }
 }
 
+#[cfg(not(feature = "p2p-libp2p"))]
+impl P2pServiceWebrtcWithLibp2p for NodeService {
+    fn mio(&mut self) -> &mut MioService {
+        &mut self.mio
+    }
+}
+
+#[cfg(feature = "p2p-libp2p")]
 impl P2pServiceWebrtcWithLibp2p for NodeService {
     fn libp2p(&mut self) -> &mut Libp2pService {
         &mut self.libp2p
@@ -274,6 +340,9 @@ pub struct EventReceiver {
 impl EventReceiver {
     /// If `Err(())`, `mpsc::Sender` for this channel was dropped.
     pub async fn wait_for_events(&mut self) -> Result<(), ()> {
+        if !self.queue.is_empty() {
+            return Ok(());
+        }
         let next = self.rx.recv().await.ok_or(())?;
         self.queue.push(next);
         Ok(())

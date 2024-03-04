@@ -330,7 +330,7 @@ async fn cluster_run_auto(
     tokio::spawn(async move {
         while !tx.is_closed() {
             let steps = cluster
-                .pending_events()
+                .pending_events(true)
                 .flat_map(|(node_id, _, pending_events)| {
                     pending_events.map(move |(_, event)| ScenarioStep::Event {
                         node_id,
@@ -399,7 +399,7 @@ async fn cluster_events_pending(
         .await
         .map(|mut cluster| {
             cluster
-                .pending_events()
+                .pending_events(true)
                 .map(|(node_id, state, iter)| {
                     let pending_events = iter
                         .map(|(id, event)| ClusterNodePendingEvent {
@@ -424,7 +424,7 @@ async fn cluster_node_events_pending(
 ) -> Result<Json<Vec<ClusterNodePendingEvent>>, (StatusCode, String)> {
     let mut cluster = state.cluster(cluster_id).await?;
     cluster
-        .node_pending_events(node_id)
+        .node_pending_events(node_id, true)
         .map(|(state, iter)| {
             iter.map(|(id, event)| ClusterNodePendingEvent {
                 id,

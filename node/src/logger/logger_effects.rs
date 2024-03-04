@@ -9,6 +9,11 @@ use crate::p2p::connection::outgoing::P2pConnectionOutgoingAction;
 use crate::p2p::connection::P2pConnectionAction;
 use crate::p2p::disconnection::P2pDisconnectionAction;
 use crate::p2p::discovery::P2pDiscoveryAction;
+use crate::p2p::network::{
+    noise::P2pNetworkNoiseAction, pnet::P2pNetworkPnetAction, rpc::P2pNetworkRpcAction,
+    scheduler::P2pNetworkSchedulerAction, select::P2pNetworkSelectAction,
+    yamux::P2pNetworkYamuxAction, P2pNetworkAction, SelectKind,
+};
 use crate::p2p::P2pAction;
 use crate::snark::work_verify::SnarkWorkVerifyAction;
 use crate::snark::SnarkAction;
@@ -471,6 +476,345 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                 },
             },
             P2pAction::Peer(_) => {}
+            // TODO:
+            P2pAction::Network(action) => match action {
+                P2pNetworkAction::Scheduler(action) => match action {
+                    P2pNetworkSchedulerAction::InterfaceDetected(action) => {
+                        openmina_core::log::info!(
+                            meta.time();
+                            kind = kind.to_string(),
+                            summary = format!("ip: {}", action.ip),
+                        );
+                    }
+                    P2pNetworkSchedulerAction::InterfaceExpired(action) => {
+                        openmina_core::log::info!(
+                            meta.time();
+                            kind = kind.to_string(),
+                            summary = format!("ip: {}", action.ip),
+                        );
+                    }
+                    P2pNetworkSchedulerAction::IncomingDidAccept(action) => match &action.result {
+                        Ok(()) => openmina_core::log::info!(
+                            meta.time();
+                            kind = kind.to_string(),
+                            addr = action.addr.as_ref().unwrap().to_string(),
+                        ),
+                        Err(err) => openmina_core::log::error!(
+                            meta.time();
+                            kind = kind.to_string(),
+                            err = err,
+                        ),
+                    },
+                    P2pNetworkSchedulerAction::OutgoingDidConnect(action) => match &action.result {
+                        Ok(()) => openmina_core::log::info!(
+                            meta.time();
+                            kind = kind.to_string(),
+                            addr = action.addr.to_string(),
+                        ),
+                        Err(err) => openmina_core::log::error!(
+                            meta.time();
+                            kind = kind.to_string(),
+                            err = err,
+                        ),
+                    },
+                    P2pNetworkSchedulerAction::SelectDone(action) => match action.kind {
+                        SelectKind::Authentication => {
+                            openmina_core::log::info!(
+                                meta.time();
+                                kind = kind.to_string(),
+                                summary = format!("authentication on addr: {}", action.addr),
+                                negotiated = format!("{:?}", action.protocol),
+                                incoming = action.incoming,
+                            )
+                        }
+                        SelectKind::MultiplexingNoPeerId => {
+                            openmina_core::log::info!(
+                                meta.time();
+                                kind = kind.to_string(),
+                                summary = format!("multiplexing on addr: {}", action.addr),
+                                negotiated = format!("{:?}", action.protocol),
+                                incoming = action.incoming,
+                            )
+                        }
+                        SelectKind::Multiplexing(peer_id) => {
+                            openmina_core::log::info!(
+                                meta.time();
+                                kind = kind.to_string(),
+                                summary = format!("multiplexing on addr: {}", action.addr),
+                                peer_id = peer_id.to_string(),
+                                negotiated = format!("{:?}", action.protocol),
+                                incoming = action.incoming,
+                            )
+                        }
+                        SelectKind::Stream(peer_id, stream_id) => {
+                            openmina_core::log::info!(
+                                meta.time();
+                                kind = kind.to_string(),
+                                summary = format!("stream on addr: {}", action.addr),
+                                peer_id = peer_id.to_string(),
+                                stream_id = stream_id,
+                                negotiated = format!("{:?}", action.protocol),
+                                incoming = action.incoming,
+                            )
+                        }
+                    },
+                    P2pNetworkSchedulerAction::SelectError(action) => match action.kind {
+                        SelectKind::Authentication => {
+                            openmina_core::log::error!(
+                                meta.time();
+                                kind = kind.to_string(),
+                                error = action.error,
+                                summary = format!("failed select authentication on addr {}: {}", action.addr, action.error),
+                            )
+                        }
+                        SelectKind::MultiplexingNoPeerId => {
+                            openmina_core::log::error!(
+                                meta.time();
+                                kind = kind.to_string(),
+                                error = action.error,
+                                summary = format!("failed select multiplexing on addr {}: {}", action.addr, action.error),
+                            )
+                        }
+                        SelectKind::Multiplexing(peer_id) => {
+                            openmina_core::log::error!(
+                                meta.time();
+                                kind = kind.to_string(),
+                                error = action.error,
+                                summary = format!("failed select multiplexing on addr {}: {}", action.addr, action.error),
+                                peer_id = peer_id.to_string(),
+                            )
+                        }
+                        SelectKind::Stream(peer_id, stream_id) => {
+                            openmina_core::log::error!(
+                                meta.time();
+                                kind = kind.to_string(),
+                                error = action.error,
+                                summary = format!("failed select stream on addr {}: {}", action.addr, action.error),
+                                peer_id = peer_id.to_string(),
+                                stream_id = stream_id,
+                            )
+                        }
+                    },
+                    _ => {}
+                },
+                P2pNetworkAction::Pnet(action) => match action {
+                    P2pNetworkPnetAction::SetupNonce(action) => {
+                        openmina_core::log::info!(
+                            meta.time();
+                            kind = kind.to_string(),
+                            addr = action.addr.to_string(),
+                            incoming = action.incoming,
+                        )
+                    }
+                    _ => {}
+                },
+                P2pNetworkAction::Select(action) => match action {
+                    P2pNetworkSelectAction::Init(action) => match action.kind {
+                        SelectKind::Authentication => {
+                            openmina_core::log::info!(
+                                meta.time();
+                                kind = kind.to_string(),
+                                summary = format!("authentication on addr: {}", action.addr),
+                                incoming = action.incoming,
+                            )
+                        }
+                        SelectKind::MultiplexingNoPeerId => {
+                            openmina_core::log::info!(
+                                meta.time();
+                                kind = kind.to_string(),
+                                summary = format!("multiplexing on addr: {}", action.addr),
+                                incoming = action.incoming,
+                            )
+                        }
+                        SelectKind::Multiplexing(peer_id) => {
+                            openmina_core::log::info!(
+                                meta.time();
+                                kind = kind.to_string(),
+                                summary = format!("multiplexing on addr: {}", action.addr),
+                                peer_id = peer_id.to_string(),
+                                incoming = action.incoming,
+                            )
+                        }
+                        SelectKind::Stream(peer_id, stream_id) => {
+                            openmina_core::log::info!(
+                                meta.time();
+                                kind = kind.to_string(),
+                                summary = format!("stream on addr: {}", action.addr),
+                                peer_id = peer_id.to_string(),
+                                stream_id = stream_id,
+                                incoming = action.incoming,
+                            )
+                        }
+                    },
+                    P2pNetworkSelectAction::IncomingToken(action) => match action.kind {
+                        SelectKind::Authentication => {
+                            openmina_core::log::info!(
+                                meta.time();
+                                kind = kind.to_string(),
+                                summary = format!("authentication on addr: {}", action.addr),
+                                token = format!("{:?}", action.token),
+                            )
+                        }
+                        SelectKind::MultiplexingNoPeerId => {
+                            openmina_core::log::info!(
+                                meta.time();
+                                kind = kind.to_string(),
+                                summary = format!("multiplexing on addr: {}", action.addr),
+                                token = format!("{:?}", action.token),
+                            )
+                        }
+                        SelectKind::Multiplexing(peer_id) => {
+                            openmina_core::log::info!(
+                                meta.time();
+                                kind = kind.to_string(),
+                                summary = format!("multiplexing on addr: {}", action.addr),
+                                peer_id = peer_id.to_string(),
+                                token = format!("{:?}", action.token),
+                            )
+                        }
+                        SelectKind::Stream(peer_id, stream_id) => {
+                            openmina_core::log::info!(
+                                meta.time();
+                                kind = kind.to_string(),
+                                summary = format!("stream on addr: {}", action.addr),
+                                peer_id = peer_id.to_string(),
+                                stream_id = stream_id,
+                                token = format!("{:?}", action.token),
+                            )
+                        }
+                    },
+                    P2pNetworkSelectAction::OutgoingTokens(action) => match action.kind {
+                        SelectKind::Authentication => {
+                            openmina_core::log::info!(
+                                meta.time();
+                                kind = kind.to_string(),
+                                summary = format!("authentication on addr: {}", action.addr),
+                                tokens = format!("{:?}", action.tokens),
+                            )
+                        }
+                        SelectKind::MultiplexingNoPeerId => {
+                            openmina_core::log::info!(
+                                meta.time();
+                                kind = kind.to_string(),
+                                summary = format!("multiplexing on addr: {}", action.addr),
+                                tokens = format!("{:?}", action.tokens),
+                            )
+                        }
+                        SelectKind::Multiplexing(peer_id) => {
+                            openmina_core::log::info!(
+                                meta.time();
+                                kind = kind.to_string(),
+                                summary = format!("multiplexing on addr: {}", action.addr),
+                                peer_id = peer_id.to_string(),
+                                tokens = format!("{:?}", action.tokens),
+                            )
+                        }
+                        SelectKind::Stream(peer_id, stream_id) => {
+                            openmina_core::log::info!(
+                                meta.time();
+                                kind = kind.to_string(),
+                                summary = format!("stream on addr: {}", action.addr),
+                                peer_id = peer_id.to_string(),
+                                stream_id = stream_id,
+                                tokens = format!("{:?}", action.tokens),
+                            )
+                        }
+                    },
+                    _ => {}
+                },
+                P2pNetworkAction::Noise(action) => match action {
+                    P2pNetworkNoiseAction::Init(action) => {
+                        openmina_core::log::info!(
+                            meta.time();
+                            kind = kind.to_string(),
+                            addr = action.addr.to_string(),
+                            incoming = action.incoming,
+                        )
+                    }
+                    P2pNetworkNoiseAction::HandshakeDone(action) => {
+                        openmina_core::log::info!(
+                            meta.time();
+                            kind = kind.to_string(),
+                            addr = action.addr.to_string(),
+                            incoming = action.incoming,
+                            peer_id = action.peer_id.to_string(),
+                        )
+                    }
+                    P2pNetworkNoiseAction::IncomingChunk(action) => {
+                        openmina_core::log::debug!(
+                            meta.time();
+                            kind = kind.to_string(),
+                            addr = action.addr.to_string(),
+                            data = format!("{:?}", action.data),
+                        )
+                    }
+                    P2pNetworkNoiseAction::OutgoingChunk(action) => {
+                        openmina_core::log::debug!(
+                            meta.time();
+                            kind = kind.to_string(),
+                            addr = action.addr.to_string(),
+                            data = format!("{:?}", action.data),
+                        )
+                    }
+                    P2pNetworkNoiseAction::DecryptedData(action) => {
+                        openmina_core::log::debug!(
+                            meta.time();
+                            kind = kind.to_string(),
+                            addr = action.addr.to_string(),
+                            data = format!("{:?}", action.data),
+                        )
+                    }
+                    _ => {}
+                },
+                P2pNetworkAction::Yamux(action) => match action {
+                    P2pNetworkYamuxAction::IncomingFrame(action) => {
+                        openmina_core::log::debug!(
+                            meta.time();
+                            kind = kind.to_string(),
+                            addr = action.addr.to_string(),
+                            frame = format!("{:?}", action.frame),
+                        )
+                    }
+                    P2pNetworkYamuxAction::OutgoingFrame(action) => {
+                        openmina_core::log::debug!(
+                            meta.time();
+                            kind = kind.to_string(),
+                            addr = action.addr.to_string(),
+                            frame = format!("{:?}", action.frame),
+                        )
+                    }
+                    _ => {}
+                },
+                P2pNetworkAction::Rpc(action) => match action {
+                    P2pNetworkRpcAction::Init(action) => {
+                        openmina_core::log::info!(
+                            meta.time();
+                            kind = kind.to_string(),
+                            addr = action.addr.to_string(),
+                            peer_id = action.peer_id.to_string(),
+                            stream_id = action.stream_id,
+                            incoming = action.incoming,
+                        )
+                    }
+                    P2pNetworkRpcAction::IncomingMessage(action) => {
+                        let msg = match &action.message {
+                            p2p::RpcMessage::Handshake => "handshake".to_owned(),
+                            p2p::RpcMessage::Heartbeat => "heartbeat".to_owned(),
+                            p2p::RpcMessage::Query { header, .. } => format!("{header:?}"),
+                            p2p::RpcMessage::Response { header, .. } => format!("{header:?}"),
+                        };
+                        openmina_core::log::debug!(
+                            meta.time();
+                            kind = kind.to_string(),
+                            addr = action.addr.to_string(),
+                            peer_id = action.peer_id.to_string(),
+                            stream_id = action.stream_id,
+                            msg = msg,
+                        )
+                    }
+                    _ => {}
+                },
+            },
         },
         Action::ExternalSnarkWorker(a) => {
             use crate::external_snark_worker::ExternalSnarkWorkerAction;

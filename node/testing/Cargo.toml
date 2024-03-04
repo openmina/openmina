@@ -18,6 +18,7 @@ derive_more = "0.99.17"
 serde = "1.0.147"
 serde_json = { version = "1.0.82", features = ["unbounded_depth", "arbitrary_precision"] }
 thiserror = "1.0.37"
+serde_cbor = "0.11.2"
 anyhow = "1.0.70"
 bincode = "1.3.3"
 rand = "0.8"
@@ -49,6 +50,7 @@ openmina-node-invariants = { path = "../../node/invariants" }
 openmina-node-native = { path = "../../node/native" }
 
 [features]
-default = ["scenario-generators"]
+default = ["scenario-generators", "p2p-libp2p"]
 scenario-generators = ["documented"]
 p2p-webrtc = ["openmina-node-native/p2p-webrtc"]
+p2p-libp2p = ["openmina-node-native/p2p-libp2p"]

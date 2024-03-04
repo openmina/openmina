@@ -1,15 +1,8 @@
-use p2p::channels::snark::P2pChannelsSnarkAction;
-use redux::ActionMeta;
-
 use crate::block_producer::{block_producer_effects, BlockProducerAction};
 use crate::consensus::consensus_effects;
 use crate::event_source::event_source_effects;
 use crate::external_snark_worker::external_snark_worker_effects;
 use crate::logger::logger_effects;
-use crate::p2p::channels::rpc::{P2pChannelsRpcAction, P2pRpcKind, P2pRpcRequest};
-use crate::p2p::connection::incoming::P2pConnectionIncomingAction;
-use crate::p2p::connection::outgoing::P2pConnectionOutgoingAction;
-use crate::p2p::discovery::P2pDiscoveryAction;
 use crate::p2p::p2p_effects;
 use crate::rpc::rpc_effects;
 use crate::snark::snark_effects;
@@ -20,7 +13,15 @@ use crate::transition_frontier::transition_frontier_effects;
 use crate::watched_accounts::watched_accounts_effects;
 use crate::{Action, ActionWithMeta, ExternalSnarkWorkerAction, Service, Store};
 
-pub const MAX_PEER_PENDING_SNARKS: usize = 32;
+use crate::p2p::channels::rpc::{P2pChannelsRpcAction, P2pRpcRequest};
+
+#[cfg(feature = "p2p-libp2p")]
+use {
+    crate::p2p::channels::rpc::P2pRpcKind,
+    crate::p2p::connection::incoming::P2pConnectionIncomingAction,
+    crate::p2p::connection::outgoing::P2pConnectionOutgoingAction,
+    crate::p2p::discovery::P2pDiscoveryAction, redux::ActionMeta,
+};
 
 pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
     store.service.recorder().action(&action);
@@ -39,30 +40,66 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
             // TODO(binier): create init action and dispatch this there.
             store.dispatch(ExternalSnarkWorkerAction::Start);
 
-            p2p_connection_timeouts(store, &meta);
+            #[cfg(feature = "p2p-libp2p")]
+            {
+                p2p_connection_timeouts(store, &meta);
+                store.dispatch(P2pConnectionOutgoingAction::RandomInit);
 
-            store.dispatch(P2pConnectionOutgoingAction::RandomInit);
+                p2p_try_reconnect_disconnected_peers(store);
+                p2p_request_best_tip_if_needed(store);
+                p2p_request_snarks_if_needed(store);
 
-            p2p_try_reconnect_disconnected_peers(store);
+                store.dispatch(P2pDiscoveryAction::KademliaBootstrap);
+                store.dispatch(P2pDiscoveryAction::KademliaInit);
+            }
 
             store.dispatch(SnarkPoolAction::CheckTimeouts);
             store.dispatch(SnarkPoolAction::P2pSendAll);
 
-            p2p_request_best_tip_if_needed(store);
+            #[cfg(not(feature = "p2p-libp2p"))]
+            {
+                let state = store.state();
+                let consensus_best_tip_hash = state.consensus.best_tip.as_ref();
+                let best_tip_hash = state.transition_frontier.best_tip().map(|v| &v.hash);
+                let syncing_best_tip_hash =
+                    state.transition_frontier.sync.best_tip().map(|v| &v.hash);
+
+                if consensus_best_tip_hash.is_some()
+                    && consensus_best_tip_hash != best_tip_hash
+                    && consensus_best_tip_hash != syncing_best_tip_hash
+                    && state.consensus.best_tip_chain_proof.is_none()
+                {
+                    if let Some((peer_id, streams)) = state
+                        .p2p
+                        .network
+                        .scheduler
+                        .rpc_outgoing_streams
+                        .iter()
+                        .last()
+                    {
+                        if let Some((_, state)) = streams.iter().last() {
+                            store.dispatch(P2pChannelsRpcAction::RequestSend {
+                                peer_id: *peer_id,
+                                id: state.last_id as _,
+                                request: P2pRpcRequest::BestTipWithProof,
+                            });
+                        }
+                    }
+                }
+            }
 
             store.dispatch(SnarkPoolCandidateAction::WorkFetchAll);
             store.dispatch(SnarkPoolCandidateAction::WorkVerifyNext);
 
-            p2p_request_snarks_if_needed(store);
-
-            store.dispatch(P2pDiscoveryAction::KademliaBootstrap);
-            store.dispatch(P2pDiscoveryAction::KademliaInit);
             #[cfg(feature = "p2p-webrtc")]
             p2p_discovery_request(store, &meta);
 
-            let state = store.state();
-            for (peer_id, id) in state.p2p.peer_rpc_timeouts(state.time()) {
-                store.dispatch(P2pChannelsRpcAction::Timeout { peer_id, id });
+            #[cfg(feature = "p2p-libp2p")]
+            {
+                let state = store.state();
+                for (peer_id, id) in state.p2p.peer_rpc_timeouts(state.time()) {
+                    store.dispatch(P2pChannelsRpcAction::Timeout { peer_id, id });
+                }
             }
 
             // TODO(binier): remove once ledger communication is async.
@@ -106,6 +143,7 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
     }
 }
 
+#[cfg(feature = "p2p-libp2p")]
 fn p2p_connection_timeouts<S: Service>(store: &mut Store<S>, meta: &ActionMeta) {
     let now = meta.time();
     let p2p_connection_timeouts: Vec<_> = store
@@ -130,6 +168,7 @@ fn p2p_connection_timeouts<S: Service>(store: &mut Store<S>, meta: &ActionMeta) 
     }
 }
 
+#[cfg(feature = "p2p-libp2p")]
 fn p2p_try_reconnect_disconnected_peers<S: Service>(store: &mut Store<S>) {
     let reconnect_actions: Vec<_> = store
         .state()
@@ -144,6 +183,7 @@ fn p2p_try_reconnect_disconnected_peers<S: Service>(store: &mut Store<S>) {
     }
 }
 
+#[cfg(feature = "p2p-libp2p")]
 fn p2p_request_best_tip_if_needed<S: Service>(store: &mut Store<S>) {
     // TODO(binier): refactor
     let state = store.state();
@@ -185,7 +225,12 @@ fn p2p_request_best_tip_if_needed<S: Service>(store: &mut Store<S>) {
     }
 }
 
+#[cfg(feature = "p2p-libp2p")]
 fn p2p_request_snarks_if_needed<S: Service>(store: &mut Store<S>) {
+    use p2p::channels::snark::P2pChannelsSnarkAction;
+
+    const MAX_PEER_PENDING_SNARKS: usize = 32;
+
     let state = store.state();
     let snark_reqs = state
         .p2p
@@ -210,7 +255,9 @@ fn p2p_request_snarks_if_needed<S: Service>(store: &mut Store<S>) {
 /// Iterate all connected peers and check the time of the last response to the peer discovery request.
 /// If the elapsed time is large enough, send another discovery request.
 #[cfg(feature = "p2p-webrtc")]
-fn p2p_discovery_request<S: Service>(store: &mut Store<S>, meta: &ActionMeta) {
+fn p2p_discovery_request<S: Service>(store: &mut Store<S>, meta: &redux::ActionMeta) {
+    use crate::p2p::discovery::P2pDiscoveryAction;
+
     let peer_ids = store
         .state()
         .p2p

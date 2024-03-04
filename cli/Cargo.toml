@@ -16,7 +16,7 @@ serde = "1.0.158"
 num_cpus = "1.0"
 rayon = "1.5"
 tokio = { version = "1.26.0" }
-libp2p = { workspace = true, features = ["macros", "serde", "tcp", "dns", "tokio", "yamux", "pnet", "noise", "gossipsub"] }
+libp2p-identity = { version = "=0.2.7", features = ["peerid"] }
 redux = { git = "https://github.com/openmina/redux-rs.git", branch="feat/global-time", features = ["serde"] }
 ledger = { workspace = true }
 mina-p2p-messages = { workspace = true }
@@ -36,4 +36,7 @@ dialoguer = "0.10.4"
 serde_json = "1.0.107"
 
 [features]
+default = ["p2p-libp2p"]
 unsafe-signal-handlers = []
+p2p-libp2p = ["node/p2p-libp2p", "openmina-node-native/p2p-libp2p"]
+p2p-webrtc = ["node/p2p-webrtc", "openmina-node-native/p2p-webrtc"]

@@ -2,35 +2,35 @@ mod config;
 pub use config::ClusterConfig;
 
 mod p2p_task_spawner;
+use openmina_core::log::system_time;
+use openmina_core::warn;
 pub use p2p_task_spawner::P2pTaskSpawner;
 
 mod node_id;
 pub use node_id::{ClusterNodeId, ClusterOcamlNodeId};
+use serde::de::DeserializeOwned;
 
 use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::Duration;
 use std::{collections::VecDeque, sync::Arc};
 
 use libp2p::futures::{stream::FuturesUnordered, StreamExt};
+use libp2p::identity::Keypair;
 use node::core::channels::mpsc;
 use node::core::requests::RpcId;
 use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
-use node::p2p::{P2pConnectionEvent, P2pDiscoveryEvent, PeerId};
+use node::p2p::service_impl::{
+    webrtc::P2pServiceCtx, webrtc_with_libp2p::P2pServiceWebrtcWithLibp2p,
+};
+use node::p2p::{P2pConnectionEvent, P2pDiscoveryEvent, P2pEvent, PeerId};
 use node::snark::{VerifierIndex, VerifierSRS};
 use node::{
     account::{AccountPublicKey, AccountSecretKey},
     event_source::Event,
     ledger::LedgerCtx,
-    p2p::{
-        channels::ChannelId,
-        identity::SecretKey as P2pSecretKey,
-        service_impl::{
-            webrtc::P2pServiceCtx,
-            webrtc_with_libp2p::{self, P2pServiceWebrtcWithLibp2p},
-        },
-        P2pEvent,
-    },
+    p2p::{channels::ChannelId, identity::SecretKey as P2pSecretKey},
     service::Recorder,
     snark::{get_srs, get_verifier_index, VerifierKind},
     BuildEnv, Config, GlobalConfig, LedgerConfig, P2pConfig, SnarkConfig, State,
@@ -51,6 +51,64 @@ use crate::{
     scenario::{ListenerNode, Scenario, ScenarioId, ScenarioStep},
     service::{NodeTestingService, PendingEventId},
 };
+
+#[allow(dead_code)]
+fn openmina_path<P: AsRef<Path>>(path: P) -> Option<PathBuf> {
+    std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".cache/openmina").join(path))
+}
+
+#[allow(dead_code)]
+fn read_index<T: DeserializeOwned>(name: &str) -> Option<T> {
+    openmina_path(name)
+        .and_then(|path| {
+            if !path.exists() {
+                return None;
+            }
+            match std::fs::File::open(path) {
+                Ok(v) => Some(v),
+                Err(e) => {
+                    warn!(system_time(); "cannot find verifier index for {name}: {e}");
+                    None
+                }
+            }
+        })
+        .and_then(|file| match serde_cbor::from_reader(file) {
+            Ok(v) => Some(v),
+            Err(e) => {
+                warn!(system_time(); "cannot read verifier index for {name}: {e}");
+                None
+            }
+        })
+}
+
+#[allow(dead_code)]
+fn write_index<T: Serialize>(name: &str, index: &T) -> Option<()> {
+    openmina_path(name)
+        .and_then(|path| {
+            let Some(parent) = path.parent() else {
+                warn!(system_time(); "cannot get parent for {path:?}");
+                return None;
+            };
+            if let Err(e) = std::fs::create_dir_all(parent) {
+                warn!(system_time(); "cannot create parent dir for {parent:?}: {e}");
+                return None;
+            }
+            match std::fs::File::create(&path) {
+                Ok(v) => Some(v),
+                Err(e) => {
+                    warn!(system_time(); "cannot create file {path:?}: {e}");
+                    None
+                }
+            }
+        })
+        .and_then(|file| match serde_cbor::to_writer(file, index) {
+            Ok(_) => Some(()),
+            Err(e) => {
+                warn!(system_time(); "cannot write verifier index for {name}: {e}");
+                None
+            }
+        })
+}
 
 lazy_static::lazy_static! {
     static ref VERIFIER_SRS: Arc<Mutex<VerifierSRS>> = get_srs();
@@ -209,27 +267,18 @@ impl Cluster {
 
         let (event_sender, event_receiver) = mpsc::unbounded_channel();
 
-        let (p2p_event_sender, mut rx) = mpsc::unbounded_channel::<P2pEvent>();
+        let keypair = Keypair::ed25519_from_bytes(secret_key.to_bytes())
+            .expect("secret key bytes must be valid");
 
-        let webrtc_with_libp2p::P2pServiceCtx {
-            libp2p,
-            webrtc: P2pServiceCtx { cmd_sender, peers },
-        } = <NodeService as P2pServiceWebrtcWithLibp2p>::init(
+        let p2p_service_ctx = <NodeService as P2pServiceWebrtcWithLibp2p>::init(
             Some(libp2p_port),
-            secret_key,
+            secret_key.clone(),
             testing_config.chain_id,
-            p2p_event_sender.clone(),
-            P2pTaskSpawner::new(shutdown_tx.clone()),
+            event_sender.clone(),
+            p2p_task_spawner::P2pTaskSpawner::new(shutdown_tx.clone()),
         );
 
-        let ev_sender = event_sender.clone();
-        tokio::spawn(async move {
-            while let Some(v) = rx.recv().await {
-                if let Err(_) = ev_sender.send(v.into()) {
-                    break;
-                }
-            }
-        });
+        let P2pServiceCtx { cmd_sender, peers } = p2p_service_ctx.webrtc;
 
         let mut rpc_service = RpcService::new();
 
@@ -255,17 +304,21 @@ impl Cluster {
             })
             .unwrap();
 
-        let ledger = LedgerCtx::default();
+        let mut ledger = LedgerCtx::default();
+        ledger.load_genesis_ledger("genesis_ledgers/berkeley_genesis_ledger.bin");
         let mut real_service = NodeService {
             rng: StdRng::seed_from_u64(0),
             event_sender,
-            p2p_event_sender,
             event_receiver: event_receiver.into(),
             cmd_sender,
             ledger,
             peers,
-            libp2p,
+            #[cfg(feature = "p2p-libp2p")]
+            libp2p: p2p_service_ctx.libp2p,
+            #[cfg(not(feature = "p2p-libp2p"))]
+            mio: p2p_service_ctx.mio,
             block_producer: None,
+            keypair,
             snark_worker_sender: None,
             rpc: rpc_service,
             stats: node::stats::Stats::new(),
@@ -439,6 +492,7 @@ impl Cluster {
 
     pub fn pending_events(
         &mut self,
+        poll: bool,
     ) -> impl Iterator<
         Item = (
             ClusterNodeId,
@@ -446,9 +500,9 @@ impl Cluster {
             impl Iterator<Item = (PendingEventId, &Event)>,
         ),
     > {
-        self.nodes.iter_mut().enumerate().map(|(i, node)| {
+        self.nodes.iter_mut().enumerate().map(move |(i, node)| {
             let node_id = ClusterNodeId::new_unchecked(i);
-            let (state, pending_events) = node.pending_events_with_state();
+            let (state, pending_events) = node.pending_events_with_state(poll);
             (node_id, state, pending_events)
         })
     }
@@ -456,12 +510,13 @@ impl Cluster {
     pub fn node_pending_events(
         &mut self,
         node_id: ClusterNodeId,
+        poll: bool,
     ) -> Result<(&State, impl Iterator<Item = (PendingEventId, &Event)>), anyhow::Error> {
         let node = self
             .nodes
             .get_mut(node_id.index())
             .ok_or_else(|| anyhow::anyhow!("node {node_id:?} not found"))?;
-        Ok(node.pending_events_with_state())
+        Ok(node.pending_events_with_state(poll))
     }
 
     pub async fn wait_for_pending_events(&mut self) {
@@ -502,7 +557,7 @@ impl Cluster {
         tokio::select! {
             opt = node.wait_for_event(&event_pattern) => opt.ok_or_else(|| anyhow::anyhow!("wait_for_event: None")),
             _ = timeout => {
-                let pending_events = node.pending_events().map(|(_, event)| event.to_string()).collect::<Vec<_>>();
+                let pending_events = node.pending_events(false).map(|(_, event)| event.to_string()).collect::<Vec<_>>();
                 return Err(anyhow::anyhow!("waiting for event timed out! node {node_id:?}, event: \"{event_pattern}\"\n{pending_events:?}"));
             }
         }
@@ -650,25 +705,30 @@ impl Cluster {
                             let is_peer_connected =
                                 node.state().p2p.get_ready_peer(&peer_id).is_some();
                             // deduce if kad initiated this conn.
-                            if !node.state().p2p.is_peer_connected_or_connecting(&peer_id) {
-                                let my_addr = node.dial_addr();
-                                let peer = self
-                                    .nodes
-                                    .iter_mut()
-                                    .find(|node| node.peer_id() == peer_id)
-                                    .ok_or_else(|| {
-                                        anyhow::anyhow!("node with peer_id: '{peer_id}' not found")
-                                    })?;
+                            #[cfg(feature = "p2p-libp2p")]
+                            {
+                                if !node.state().p2p.is_peer_connected_or_connecting(&peer_id) {
+                                    let my_addr = node.dial_addr();
+                                    let peer = self
+                                        .nodes
+                                        .iter_mut()
+                                        .find(|node| node.peer_id() == peer_id)
+                                        .ok_or_else(|| {
+                                            anyhow::anyhow!(
+                                                "node with peer_id: '{peer_id}' not found"
+                                            )
+                                        })?;
 
-                                if !peer.state().p2p.is_peer_connecting(my_addr.peer_id()) {
-                                    // kad initiated this connection so replay that.
-                                    eprintln!(
-                                        "p2p_kad_outgoing_init({:?}) -> {:?} - {}",
-                                        peer.node_id(),
-                                        node_id,
-                                        my_addr
-                                    );
-                                    peer.p2p_kad_outgoing_init(my_addr);
+                                    if !peer.state().p2p.is_peer_connecting(my_addr.peer_id()) {
+                                        // kad initiated this connection so replay that.
+                                        eprintln!(
+                                            "p2p_kad_outgoing_init({:?}) -> {:?} - {}",
+                                            peer.node_id(),
+                                            node_id,
+                                            my_addr
+                                        );
+                                        peer.p2p_kad_outgoing_init(my_addr);
+                                    }
                                 }
                             }
                             if is_peer_connected {
@@ -683,6 +743,7 @@ impl Cluster {
                             event
                         }
                     }
+                    #[cfg(feature = "p2p-libp2p")]
                     NonDeterministicEvent::P2pLibp2pIdentify(peer_id) => {
                         let addr = match node_addr_by_peer_id(self, peer_id)? {
                             P2pConnectionOutgoingInitOpts::LibP2P(v) => (&v).into(),

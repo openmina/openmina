@@ -20,6 +20,10 @@ use node::core::channels::mpsc;
 use node::core::requests::{PendingRequests, RequestId};
 use node::core::snark::{Snark, SnarkJobId};
 use node::external_snark_worker::ExternalSnarkWorkerEvent;
+#[cfg(feature = "p2p-libp2p")]
+use node::p2p::service_impl::libp2p::Libp2pService;
+use node::p2p::service_impl::webrtc_with_libp2p::P2pServiceWebrtcWithLibp2p;
+use node::p2p::{P2pCryptoService, P2pMioService};
 use node::recorder::Recorder;
 use node::service::BlockProducerVrfEvaluatorService;
 use node::snark::block_verify::{
@@ -35,12 +39,8 @@ use node::{
     ledger::LedgerCtx,
     p2p::{
         connection::outgoing::P2pConnectionOutgoingInitOpts,
-        service_impl::{
-            libp2p::Libp2pService,
-            webrtc::{Cmd, P2pServiceWebrtc, PeerState},
-            webrtc_with_libp2p::P2pServiceWebrtcWithLibp2p,
-        },
-        webrtc, P2pEvent, PeerId,
+        service_impl::webrtc::{Cmd, P2pServiceWebrtc, PeerState},
+        webrtc, PeerId,
     },
 };
 use node::{ActionWithMeta, State};
@@ -135,18 +135,20 @@ impl NodeTestingService {
         self.snarker_sok_digest = Some(digest);
     }
 
-    pub fn pending_events(&mut self) -> impl Iterator<Item = (PendingEventId, &Event)> {
+    pub fn pending_events(&mut self, poll: bool) -> impl Iterator<Item = (PendingEventId, &Event)> {
         while let Ok(req) = self.real.rpc.req_receiver().try_recv() {
             self.real.process_rpc_request(req);
         }
-        while let Some(event) = self.real.event_receiver.try_next() {
-            // Drop non-deterministic events during replay. We
-            // have those recorded as `ScenarioStep::NonDeterministicEvent`.
-            if self.is_replay && NonDeterministicEvent::should_drop_event(&event) {
-                eprintln!("dropping non-deterministic event: {event:?}");
-                continue;
+        if poll {
+            while let Some(event) = self.real.event_receiver.try_next() {
+                // Drop non-deterministic events during replay. We
+                // have those recorded as `ScenarioStep::NonDeterministicEvent`.
+                if self.is_replay && NonDeterministicEvent::should_drop_event(&event) {
+                    eprintln!("dropping non-deterministic event: {event:?}");
+                    continue;
+                }
+                self.pending_events.add(event);
             }
-            self.pending_events.add(event);
         }
         self.pending_events.iter()
     }
@@ -200,6 +202,30 @@ impl node::Service for NodeTestingService {
     }
 }
 
+impl P2pCryptoService for NodeTestingService {
+    fn generate_random_nonce(&mut self) -> [u8; 24] {
+        self.real.generate_random_nonce()
+    }
+
+    fn ephemeral_sk(&mut self) -> [u8; 32] {
+        self.real.ephemeral_sk()
+    }
+
+    fn static_sk(&mut self) -> [u8; 32] {
+        self.real.static_sk()
+    }
+
+    fn sign_key(&mut self, key: &[u8; 32]) -> Vec<u8> {
+        self.real.sign_key(key)
+    }
+}
+
+impl P2pMioService for NodeTestingService {
+    fn send_mio_cmd(&self, cmd: node::p2p::MioCmd) {
+        self.real.send_mio_cmd(cmd);
+    }
+}
+
 impl node::ledger::LedgerService for NodeTestingService {
     fn ctx(&self) -> &LedgerCtx {
         &self.real.ledger
@@ -223,6 +249,8 @@ impl node::event_source::EventSourceService for NodeTestingService {
 }
 
 impl P2pServiceWebrtc for NodeTestingService {
+    type Event = Event;
+
     fn random_pick(
         &mut self,
         list: &[P2pConnectionOutgoingInitOpts],
@@ -230,8 +258,8 @@ impl P2pServiceWebrtc for NodeTestingService {
         self.real.random_pick(list)
     }
 
-    fn event_sender(&mut self) -> &mut mpsc::UnboundedSender<P2pEvent> {
-        &mut self.real.p2p_event_sender
+    fn event_sender(&mut self) -> &mut mpsc::UnboundedSender<Event> {
+        &mut self.real.event_sender
     }
 
     fn cmd_sender(&mut self) -> &mut mpsc::UnboundedSender<Cmd> {
@@ -252,10 +280,12 @@ impl P2pServiceWebrtc for NodeTestingService {
 }
 
 impl P2pServiceWebrtcWithLibp2p for NodeTestingService {
+    #[cfg(feature = "p2p-libp2p")]
     fn libp2p(&mut self) -> &mut Libp2pService {
         &mut self.real.libp2p
     }
 
+    #[cfg(feature = "p2p-libp2p")]
     fn find_random_peer(&mut self) {
         use node::p2p::identity::SecretKey as P2pSecretKey;
         use node::p2p::service_impl::libp2p::Cmd;
@@ -280,11 +310,17 @@ impl P2pServiceWebrtcWithLibp2p for NodeTestingService {
             .unwrap_or_default();
     }
 
+    #[cfg(feature = "p2p-libp2p")]
     fn start_discovery(&mut self, peers: Vec<P2pConnectionOutgoingInitOpts>) {
         if self.is_replay {
             return;
         }
         self.real.start_discovery(peers)
+    }
+
+    #[cfg(not(feature = "p2p-libp2p"))]
+    fn mio(&mut self) -> &mut node::p2p::service_impl::mio::MioService {
+        self.real.mio()
     }
 }
 

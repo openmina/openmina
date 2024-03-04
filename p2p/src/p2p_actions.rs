@@ -4,6 +4,7 @@ use super::channels::P2pChannelsAction;
 use super::connection::P2pConnectionAction;
 use super::disconnection::P2pDisconnectionAction;
 use super::discovery::P2pDiscoveryAction;
+use super::network::P2pNetworkAction;
 use super::peer::P2pPeerAction;
 use crate::listen::P2pListenAction;
 
@@ -18,4 +19,5 @@ pub enum P2pAction {
     Discovery(P2pDiscoveryAction),
     Channels(P2pChannelsAction),
     Peer(P2pPeerAction),
+    Network(P2pNetworkAction),
 }

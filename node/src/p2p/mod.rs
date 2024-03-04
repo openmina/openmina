@@ -5,6 +5,7 @@ pub mod connection;
 pub mod disconnection;
 pub mod discovery;
 pub mod listen;
+pub mod network;
 pub mod peer;
 
 mod p2p_effects;
@@ -56,6 +57,14 @@ impl_into_global_action!(connection::incoming::P2pConnectionIncomingAction);
 impl_into_global_action!(disconnection::P2pDisconnectionAction);
 
 impl_into_global_action!(discovery::P2pDiscoveryAction);
+
+impl_into_global_action!(network::P2pNetworkSchedulerInterfaceDetectedAction);
+impl_into_global_action!(network::P2pNetworkSchedulerInterfaceExpiredAction);
+impl_into_global_action!(network::P2pNetworkSchedulerIncomingConnectionIsReadyAction);
+impl_into_global_action!(network::P2pNetworkSchedulerIncomingDidAcceptAction);
+impl_into_global_action!(network::P2pNetworkSchedulerOutgoingDidConnectAction);
+impl_into_global_action!(network::P2pNetworkSchedulerIncomingDataIsReadyAction);
+impl_into_global_action!(network::P2pNetworkSchedulerIncomingDataDidReceiveAction);
 
 impl_into_global_action!(channels::P2pChannelsMessageReceivedAction);
 
