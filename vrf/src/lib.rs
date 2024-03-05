@@ -126,14 +126,6 @@ impl VrfEvaluationInput {
 // TODO(adonagy): inputs, outputs
 /// Evaluate vrf with a specific input. Used by the block producer
 pub fn evaluate_vrf(vrf_input: VrfEvaluationInput) -> VrfResult<VrfEvaluationOutput> {
-    // TODO(adonagy): mocked, move to inputs
-    // let producer_key = Keypair::from_bs58_string("EKEEpMELfQkMbJDt2fB4cFXKwSf1x4t7YD4twREy5yuJ84HBZtF9");
-    // let global_slot = 518;
-    // let epoch_seed_str = "2va9BGv9JrLTtrzZttiEMDYw1Zj6a6EHzXjmP9evHDTG3oEquURA";
-    // let delegator_index = 2;
-    // let total_currency: BigInt = BigInt::from_str("6000000000001000")?;
-    // let delegated_stake: BigInt = BigInt::from_str("1000000000000000")?;
-
     let VrfEvaluationInput {
         producer_key,
         global_slot,
@@ -144,29 +136,35 @@ pub fn evaluate_vrf(vrf_input: VrfEvaluationInput) -> VrfResult<VrfEvaluationOut
         account_pub_key,
     } = vrf_input;
 
+    // STEP 1: prepare the VrfMessage (inputs to the VRF)
     let epoch_seed = seed_to_basefield(&epoch_seed);
     let vrf_message = VrfMessage::new(global_slot, epoch_seed, delegator_index.as_u64());
 
+    // STEP 2: hash the inputs
     let mut hasher = create_kimchi::<VrfMessage>(());
     let vrf_message_hash = hasher.update(&vrf_message).digest();
-    let vrf_message_hash_group = to_group(vrf_message_hash)?;
 
+    // STEP 3: map the digest to the EC (Simplified SWU map)
+    let vrf_message_hash_group = to_group(vrf_message_hash)?;
     let vrf_message_hash_curve_point =
         CurvePoint::new(vrf_message_hash_group.0, vrf_message_hash_group.1, false);
-    // let scaled_message_hash = vrf_message_hash_curve_point.mul(producer_key.secret.clone().into_scalar()).into_affine();
+
+    // STEP 4: perform scalar multiplication of the mapped point with the secret key (scalar)
     let scaled_message_hash =
         producer_key.secret_multiply_with_curve_point(vrf_message_hash_curve_point);
 
+    // STEP 5: hash the inputs (VrfMessage) and output (scalar multiplication result) together
     let vrf_output_hash_input = VrfOutputHashInput::new(vrf_message, scaled_message_hash);
-
     let mut hasher = create_kimchi::<VrfOutputHashInput>(());
     let vrf_output_hash = hasher.update(&vrf_output_hash_input).digest();
 
+    // STEP 6: truncate the digest to 253 bits
     let vrf_output_hash_bits = vrf_output_hash.to_bits();
     let vrf_output_hash_scalar_repr =
         BigInteger256::from_bits_le(&vrf_output_hash_bits[..vrf_output_hash_bits.len() - 3]);
-
     let vrf_output_hash_scalar = ScalarField::from_repr(vrf_output_hash_scalar_repr).unwrap();
+
+    // STEP 7: determine whether we "passed" the threshold
     let slot_won =
         Threshold::new(delegated_stake, total_currency).threshold_met(vrf_output_hash_scalar_repr);
 
@@ -244,7 +242,7 @@ fn to_group(t: BaseField) -> VrfResult<(BaseField, BaseField)> {
             + BaseField::one();
         let mut res = x;
         res *= &x; // x^2
-        res += BaseField::zero(); // x^2 + A
+        res += BaseField::zero(); // x^2 + A x
         res *= &x; // x^3 + A x
         res += five; // x^3 + A x + B
         res.sqrt()
