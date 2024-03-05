@@ -11,6 +11,7 @@ use node::{
     ledger::LedgerService,
     ActionKind, ActionWithMeta, State,
 };
+use time::OffsetDateTime;
 
 use crate::{
     cluster::{Cluster, ClusterNodeId, ClusterOcamlNodeId},
@@ -440,6 +441,7 @@ impl<'a> ClusterRunner<'a> {
         log_tag: &str,
         timeout: Duration,
         step_duration: Duration,
+        keep_synced: bool,
         predicate: F,
     ) -> u32
     where
@@ -460,24 +462,27 @@ impl<'a> ClusterRunner<'a> {
                     .await
                     .unwrap();
             }
+            
             // run
             let _ = self
                 .run(
                     step_duration,
                     |_, _, _| RunDecision::ContinueExec,
-                    move |node_id, _, _ , action| {
-                        false
-                    })
+                    move |node_id, _, _, action| false,
+                )
                 .await;
-            // make sure every node is synced, longer timeout in case one node disconnects and it needs to resync
-            self
-                .run_until_nodes_synced(Duration::from_secs(5 * 60), &nodes)
-                .await
-                .unwrap();
+            if keep_synced {
+                // make sure every node is synced, longer timeout in case one node disconnects and it needs to resync
+                self.run_until_nodes_synced(Duration::from_secs(5 * 60), &nodes)
+                    .await
+                    .unwrap();
+            }
 
             let (state, _) = self.node_pending_events(producer_node).unwrap();
 
             let current_state_machine_time = state.time();
+            let current_state_machine_time_u64: u64 = current_state_machine_time.into();
+            let current_state_machine_time_formated = OffsetDateTime::from_unix_timestamp_nanos(current_state_machine_time_u64 as i128).unwrap();
 
             let best_tip = if let Some(best_tip) = state.transition_frontier.best_tip() {
                 best_tip
@@ -494,15 +499,13 @@ impl<'a> ClusterRunner<'a> {
                 .and_then(|vrf_state| vrf_state.next_won_slot(current_global_slot, best_tip));
 
             let best_tip_slot = &best_tip
-                .header()
-                .protocol_state
-                .body
-                .consensus_state
-                .curr_global_slot
+                .consensus_state()
+                .curr_global_slot_since_hard_fork
                 .slot_number
                 .as_u32();
 
-            eprintln!("[{log_tag}] Slot(best tip / current slot): {best_tip_slot} / {current_global_slot}");
+            let current_time = OffsetDateTime::now_utc();
+            eprintln!("[{log_tag}][{current_time}][{current_state_machine_time_formated}] Slot(best tip / current slot): {best_tip_slot} / {current_global_slot}");
 
             if best_tip_slot <= &0 {
                 let by_nanos = Duration::from_secs(3 * 60).as_nanos() as u64;
@@ -566,20 +569,18 @@ impl<'a> ClusterRunner<'a> {
             .await
             .unwrap();
 
-        self.produce_blocks_until(producer_node, "EPOCH BOUNDS", timeout, step_duration, |state, last_slot, produced_blocks| {
-            eprintln!("\nSnarks: {}", state.snark_pool.last_index());
-            eprintln!("Produced blocks: {produced_blocks}");
-            // let first_pass_ledger_source = state.transition_frontier.best_tip().unwrap().block.header.protocol_state.body.blockchain_state.ledger_proof_statement.source.first_pass_ledger.clone();
-            // let first_pass_ledger_target = state.transition_frontier.best_tip().unwrap().block.header.protocol_state.body.blockchain_state.ledger_proof_statement.target.first_pass_ledger.clone();
-            // let second_pass_ledger_source = state.transition_frontier.best_tip().unwrap().block.header.protocol_state.body.blockchain_state.ledger_proof_statement.source.second_pass_ledger.clone();
-            // let second_pass_ledger_target = state.transition_frontier.best_tip().unwrap().block.header.protocol_state.body.blockchain_state.ledger_proof_statement.target.second_pass_ledger.clone();
-
-            // eprintln!("Source first pass ledger: {first_pass_ledger_source}");
-            // eprintln!("Source second pass ledger: {second_pass_ledger_source}");
-            // eprintln!("Target first pass ledger: {first_pass_ledger_target}");
-            // eprintln!("Target second pass ledger: {second_pass_ledger_target}\n");
-            last_slot >= current_epoch_end
-        })
+        self.produce_blocks_until(
+            producer_node,
+            "EPOCH BOUNDS",
+            timeout,
+            step_duration,
+            true,
+            |state, last_slot, produced_blocks| {
+                eprintln!("\nSnarks: {}", state.snark_pool.last_index());
+                eprintln!("Produced blocks: {produced_blocks}");
+                last_slot >= current_epoch_end
+            },
+        )
         .await
     }
 }

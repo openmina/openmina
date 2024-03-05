@@ -25,6 +25,9 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
     let (action, meta) = action.split();
     let kind = action.kind();
 
+    let peer_id = store.state().p2p.my_id().to_string();
+    let _guard = openmina_core::log::create_span(&peer_id).entered();
+
     match action {
         Action::P2p(action) => match action {
             P2pAction::Listen(action) => match action {
@@ -995,118 +998,185 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
         },
         Action::BlockProducer(a) => match a {
             BlockProducerAction::VrfEvaluator(a) => match a {
-                BlockProducerVrfEvaluatorAction::EpochDataUpdate { epoch_data, .. } => {
-                    openmina_core::log::info!(
-                        meta.time();
-                        kind = kind.to_string(),
-                        summary = format!("seed: {}, ledger: {}", epoch_data.seed.to_string(), epoch_data.ledger.hash.to_string()),
-                    );
-                }
-                BlockProducerVrfEvaluatorAction::UpdateProducerAndDelegates { .. } => {}
-                BlockProducerVrfEvaluatorAction::UpdateProducerAndDelegatesSuccess {
-                    current_epoch_producer_and_delegators,
-                    next_epoch_producer_and_delegators,
+                BlockProducerVrfEvaluatorAction::ProcessSlotEvaluationSuccess {
+                    vrf_output,
                     ..
-                } => {
-                    openmina_core::log::info!(
-                        meta.time();
-                        kind = kind.to_string(),
-                        summary = format!("Current epoch accounts: {:?}, Next epoch accounts: {:?}",
-                            current_epoch_producer_and_delegators.values().map(| a | a.0.clone()).collect::<Vec<_>>(),
-                            next_epoch_producer_and_delegators.values().map(| a | a.0.clone()).collect::<Vec<_>>()
-                        ),
-                    );
-                }
-                BlockProducerVrfEvaluatorAction::EvaluationSuccess { vrf_output, .. } => {
-                    match vrf_output {
-                        vrf::VrfEvaluationOutput::SlotWon(won_slot) => {
-                            openmina_core::log::info!(
-                                meta.time();
-                                kind = kind.to_string(),
-                                summary = format!("Slot evaluation result - won slot"),
-                                global_slot = won_slot.global_slot,
-                                vrf_output = won_slot.vrf_output
-                            )
-                        }
-                        vrf::VrfEvaluationOutput::SlotLost(_) => {
-                            openmina_core::log::debug!(
-                                meta.time();
-                                kind = kind.to_string(),
-                                summary = format!("Slot evaluation result - lost slot: {:?}", vrf_output),
-                            )
-                        }
+                } => match vrf_output {
+                    vrf::VrfEvaluationOutput::SlotWon(won_slot) => {
+                        openmina_core::log::info!(
+                            meta.time();
+                            kind = kind.to_string(),
+                            summary = format!("Slot evaluation result - won slot"),
+                            global_slot = won_slot.global_slot,
+                            vrf_output = won_slot.vrf_output
+                        )
                     }
-                }
-                BlockProducerVrfEvaluatorAction::EvaluateVrf { vrf_input } => {
+                    vrf::VrfEvaluationOutput::SlotLost(_) => {
+                        openmina_core::log::debug!(
+                            meta.time();
+                            kind = kind.to_string(),
+                            summary = format!("Slot evaluation result - lost slot: {:?}", vrf_output),
+                        )
+                    }
+                },
+                BlockProducerVrfEvaluatorAction::EvaluateSlot { vrf_input } => {
                     openmina_core::log::debug!(
                         meta.time();
                         kind = kind.to_string(),
                         summary = format!("Vrf Evaluation requested: {:?}", vrf_input),
                     )
                 }
-                BlockProducerVrfEvaluatorAction::CanEvaluateVrf {current_epoch_number, current_best_tip_global_slot, current_best_tip_slot, ..} => {
+                BlockProducerVrfEvaluatorAction::CheckEpochEvaluability {
+                    current_epoch_number,
+                    current_best_tip_global_slot,
+                    current_best_tip_slot,
+                    ..
+                } => {
                     openmina_core::log::info!(
                         meta.time();
                         kind = kind.to_string(),
                         summary = format!("Checking possible Vrf evaluations"),
+                        status = store.state().block_producer.vrf_evaluator().unwrap().status.to_string(), // TODO: keep? if yes, no unwrap
+                        status_details = format!("{:?}", store.state().block_producer.vrf_evaluator().unwrap().status),
                         current_epoch = current_epoch_number,
                         current_best_tip_global_slot = current_best_tip_global_slot,
                         current_best_tip_slot = current_best_tip_slot,
                     )
                 }
-                BlockProducerVrfEvaluatorAction::EvaluateEpochInit { .. } => {}
-                BlockProducerVrfEvaluatorAction::ConstructDelegatorTable {epoch_context, current_epoch_number, current_best_tip_global_slot, current_best_tip_slot, ..} => {
+                BlockProducerVrfEvaluatorAction::InitializeEpochEvaluation {
+                    epoch_context,
+                    current_epoch_number,
+                    current_best_tip_global_slot,
+                    current_best_tip_slot,
+                    ..
+                } => {
                     openmina_core::log::info!(
                         meta.time();
                         kind = kind.to_string(),
                         summary = format!("Constructing delegator table"),
+                        status = store.state().block_producer.vrf_evaluator().unwrap().status.to_string(), // TODO: keep? if yes, no unwrap
                         epoch_context = epoch_context.to_string(),
                         current_epoch = current_epoch_number,
                         current_best_tip_global_slot = current_best_tip_global_slot,
                         current_best_tip_slot = current_best_tip_slot,
                     )
                 }
-                BlockProducerVrfEvaluatorAction::EvaluateEpoch {epoch_context, current_epoch_number, current_best_tip_global_slot, current_best_tip_slot, ..} => {
+                BlockProducerVrfEvaluatorAction::BeginDelegatorTableConstruction {
+                    epoch_context,
+                    current_epoch_number,
+                    current_best_tip_global_slot,
+                    current_best_tip_slot,
+                    ..
+                } => {
+                    openmina_core::log::info!(
+                        meta.time();
+                        kind = kind.to_string(),
+                        summary = format!("Constructing delegator table"),
+                        status = store.state().block_producer.vrf_evaluator().unwrap().status.to_string(), // TODO: keep? if yes, no unwrap
+                        epoch_context = epoch_context.to_string(),
+                        current_epoch = current_epoch_number,
+                        current_best_tip_global_slot = current_best_tip_global_slot,
+                        current_best_tip_slot = current_best_tip_slot,
+                    )
+                }
+                BlockProducerVrfEvaluatorAction::BeginEpochEvaluation {
+                    epoch_context,
+                    current_epoch_number,
+                    current_best_tip_global_slot,
+                    current_best_tip_slot,
+                    ..
+                } => {
                     openmina_core::log::info!(
                         meta.time();
                         kind = kind.to_string(),
                         summary = format!("Starting epoch evaluation"),
+                        status = store.state().block_producer.vrf_evaluator().unwrap().status.to_string(), // TODO: keep? if yes, no unwrap
                         epoch_context = epoch_context.to_string(),
                         current_epoch = current_epoch_number,
                         current_best_tip_global_slot = current_best_tip_global_slot,
                         current_best_tip_slot = current_best_tip_slot,
                     )
                 }
-                BlockProducerVrfEvaluatorAction::ConstructDelegatorTableSuccess {epoch_context, current_epoch_number, current_best_tip_global_slot, current_best_tip_slot, ..} => {
+                BlockProducerVrfEvaluatorAction::FinalizeDelegatorTableConstruction {
+                    epoch_context,
+                    current_epoch_number,
+                    current_best_tip_global_slot,
+                    current_best_tip_slot,
+                    ..
+                } => {
                     openmina_core::log::info!(
                         meta.time();
                         kind = kind.to_string(),
                         summary = format!("Delegator table constructed"),
+                        status = store.state().block_producer.vrf_evaluator().unwrap().status.to_string(), // TODO: keep? if yes, no unwrap
                         epoch_context = epoch_context.to_string(),
                         current_epoch = current_epoch_number,
                         current_best_tip_global_slot = current_best_tip_global_slot,
                         current_best_tip_slot = current_best_tip_slot,
                     )
                 }
-                BlockProducerVrfEvaluatorAction::SaveLastBlockHeightInEpoch {epoch_number, last_block_height, ..} => {
+                BlockProducerVrfEvaluatorAction::RecordLastBlockHeightInEpoch {
+                    epoch_number,
+                    last_block_height,
+                    ..
+                } => {
                     openmina_core::log::info!(
                         meta.time();
                         kind = kind.to_string(),
                         summary = format!("Saving last block height in epoch"),
+                        status = store.state().block_producer.vrf_evaluator().unwrap().status.to_string(), // TODO: keep? if yes, no unwrap
                         epoch = epoch_number,
                         last_block_height = last_block_height,
                     )
                 }
-                BlockProducerVrfEvaluatorAction::EvaluatorInit { .. } => {}
-                BlockProducerVrfEvaluatorAction::EvaluatorInitSuccess { .. } => {
+                BlockProducerVrfEvaluatorAction::InitializeEvaluator { .. } => {}
+                BlockProducerVrfEvaluatorAction::FinalizeEvaluatorInitialization { .. } => {
                     openmina_core::log::info!(
                         meta.time();
                         kind = kind.to_string(),
                         summary = format!("Vrf evaluator initilaized"),
                     )
                 }
+                BlockProducerVrfEvaluatorAction::FinishEpochEvaluation {
+                    epoch_number,
+                    last_evaluated_global_slot,
+                    epoch_context,
+                } => {
+                    openmina_core::log::info!(
+                        meta.time();
+                        kind = kind.to_string(),
+                        summary = format!("Epoch evaluation finished"),
+                        epoch_context = epoch_context.to_string(),
+                        epoch_number = epoch_number,
+                        last_evaluated_global_slot = last_evaluated_global_slot,
+                    )
+                }
+                BlockProducerVrfEvaluatorAction::WaitForNextEvaluation {
+                    current_epoch_number,
+                    current_best_tip_height,
+                    ..
+                } => {
+                    openmina_core::log::info!(
+                        meta.time();
+                        kind = kind.to_string(),
+                        summary = format!("Waiting for epoch to evaluate"),
+                        epoch_number = current_epoch_number,
+                        current_best_tip_height = current_best_tip_height,
+                    )
+                }
+                _ => {}
             },
             BlockProducerAction::BestTipUpdate { .. } => {}
+            BlockProducerAction::WonSlot { won_slot } => {
+                openmina_core::log::info!(
+                    meta.time();
+                    kind = kind.to_string(),
+                    summary = format!("Won slot"),
+                    slot = won_slot.global_slot.slot_number.as_u32(),
+                    slot_time = openmina_core::log::to_rfc_3339(won_slot.slot_time).unwrap(),
+                    current_time = openmina_core::log::to_rfc_3339(meta.time()).unwrap(),
+                )
+            }
             _ => {}
         },
         _ => {}

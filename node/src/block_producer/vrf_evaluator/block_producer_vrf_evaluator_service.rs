@@ -4,6 +4,7 @@ use crate::account::AccountPublicKey;
 
 use super::{DelegatorTable, VrfEvaluatorInput};
 
+// TODO(adonagy): Use just one trait as VrfEvaluatorService
 pub trait BlockProducerVrfEvaluatorService: redux::Service {
     fn evaluate(&mut self, data: VrfEvaluatorInput);
 }

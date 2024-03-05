@@ -14,9 +14,7 @@
 use num_enum::TryFromPrimitive;
 use serde::{Deserialize, Serialize};
 
-use crate::block_producer::vrf_evaluator::{
-    BlockProducerVrfEvaluatorAction, BlockProducerVrfEvaluatorAction,
-};
+use crate::block_producer::vrf_evaluator::BlockProducerVrfEvaluatorAction;
 use crate::block_producer::BlockProducerAction;
 use crate::consensus::ConsensusAction;
 use crate::event_source::EventSourceAction;
@@ -101,16 +99,19 @@ pub enum ActionKind {
     BlockProducerWonSlotProduceInit,
     BlockProducerWonSlotSearch,
     BlockProducerWonSlotWait,
-    BlockProducerVrfEvaluatorCanEvaluateVrf,
-    BlockProducerVrfEvaluatorConstructDelegatorTable,
-    BlockProducerVrfEvaluatorConstructDelegatorTableSuccess,
-    BlockProducerVrfEvaluatorEvaluateEpoch,
-    BlockProducerVrfEvaluatorEvaluateEpochInit,
-    BlockProducerVrfEvaluatorEvaluateVrf,
-    BlockProducerVrfEvaluatorEvaluationSuccess,
-    BlockProducerVrfEvaluatorEvaluatorInit,
-    BlockProducerVrfEvaluatorEvaluatorInitSuccess,
-    BlockProducerVrfEvaluatorSaveLastBlockHeightInEpoch,
+    BlockProducerVrfEvaluatorBeginDelegatorTableConstruction,
+    BlockProducerVrfEvaluatorBeginEpochEvaluation,
+    BlockProducerVrfEvaluatorCheckEpochEvaluability,
+    BlockProducerVrfEvaluatorContinueEpochEvaluation,
+    BlockProducerVrfEvaluatorEvaluateSlot,
+    BlockProducerVrfEvaluatorFinalizeDelegatorTableConstruction,
+    BlockProducerVrfEvaluatorFinalizeEvaluatorInitialization,
+    BlockProducerVrfEvaluatorFinishEpochEvaluation,
+    BlockProducerVrfEvaluatorInitializeEpochEvaluation,
+    BlockProducerVrfEvaluatorInitializeEvaluator,
+    BlockProducerVrfEvaluatorProcessSlotEvaluationSuccess,
+    BlockProducerVrfEvaluatorRecordLastBlockHeightInEpoch,
+    BlockProducerVrfEvaluatorWaitForNextEvaluation,
     CheckTimeouts,
     ConsensusBestTipUpdate,
     ConsensusBlockChainProofUpdate,
@@ -364,7 +365,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 274;
+    pub const COUNT: u16 = 277;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -764,27 +765,42 @@ impl ActionKindGet for SnarkPoolCandidateAction {
 impl ActionKindGet for BlockProducerVrfEvaluatorAction {
     fn kind(&self) -> ActionKind {
         match self {
-            Self::EvaluateVrf { .. } => ActionKind::BlockProducerVrfEvaluatorEvaluateVrf,
-            Self::EvaluationSuccess { .. } => {
-                ActionKind::BlockProducerVrfEvaluatorEvaluationSuccess
+            Self::EvaluateSlot { .. } => ActionKind::BlockProducerVrfEvaluatorEvaluateSlot,
+            Self::ProcessSlotEvaluationSuccess { .. } => {
+                ActionKind::BlockProducerVrfEvaluatorProcessSlotEvaluationSuccess
             }
-            Self::EvaluatorInit { .. } => ActionKind::BlockProducerVrfEvaluatorEvaluatorInit,
-            Self::EvaluatorInitSuccess { .. } => {
-                ActionKind::BlockProducerVrfEvaluatorEvaluatorInitSuccess
+            Self::InitializeEvaluator { .. } => {
+                ActionKind::BlockProducerVrfEvaluatorInitializeEvaluator
             }
-            Self::CanEvaluateVrf { .. } => ActionKind::BlockProducerVrfEvaluatorCanEvaluateVrf,
-            Self::EvaluateEpochInit { .. } => {
-                ActionKind::BlockProducerVrfEvaluatorEvaluateEpochInit
+            Self::FinalizeEvaluatorInitialization { .. } => {
+                ActionKind::BlockProducerVrfEvaluatorFinalizeEvaluatorInitialization
             }
-            Self::ConstructDelegatorTable { .. } => {
-                ActionKind::BlockProducerVrfEvaluatorConstructDelegatorTable
+            Self::CheckEpochEvaluability { .. } => {
+                ActionKind::BlockProducerVrfEvaluatorCheckEpochEvaluability
             }
-            Self::ConstructDelegatorTableSuccess { .. } => {
-                ActionKind::BlockProducerVrfEvaluatorConstructDelegatorTableSuccess
+            Self::InitializeEpochEvaluation { .. } => {
+                ActionKind::BlockProducerVrfEvaluatorInitializeEpochEvaluation
             }
-            Self::EvaluateEpoch { .. } => ActionKind::BlockProducerVrfEvaluatorEvaluateEpoch,
-            Self::SaveLastBlockHeightInEpoch { .. } => {
-                ActionKind::BlockProducerVrfEvaluatorSaveLastBlockHeightInEpoch
+            Self::BeginDelegatorTableConstruction { .. } => {
+                ActionKind::BlockProducerVrfEvaluatorBeginDelegatorTableConstruction
+            }
+            Self::FinalizeDelegatorTableConstruction { .. } => {
+                ActionKind::BlockProducerVrfEvaluatorFinalizeDelegatorTableConstruction
+            }
+            Self::BeginEpochEvaluation { .. } => {
+                ActionKind::BlockProducerVrfEvaluatorBeginEpochEvaluation
+            }
+            Self::RecordLastBlockHeightInEpoch { .. } => {
+                ActionKind::BlockProducerVrfEvaluatorRecordLastBlockHeightInEpoch
+            }
+            Self::ContinueEpochEvaluation { .. } => {
+                ActionKind::BlockProducerVrfEvaluatorContinueEpochEvaluation
+            }
+            Self::FinishEpochEvaluation { .. } => {
+                ActionKind::BlockProducerVrfEvaluatorFinishEpochEvaluation
+            }
+            Self::WaitForNextEvaluation { .. } => {
+                ActionKind::BlockProducerVrfEvaluatorWaitForNextEvaluation
             }
         }
     }

@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use chrono::Timelike;
+use time::format_description;
 
 use crate::{
     node::{OcamlNodeTestingConfig, OcamlStep, RustNodeTestingConfig},
@@ -22,20 +22,19 @@ pub struct SoloNodeSyncToGenesisCustom;
 
 impl SoloNodeSyncToGenesisCustom {
     pub async fn run(self, mut runner: ClusterRunner<'_>) {
-        let now = chrono::Utc::now()
-            .with_second(0)
-            .unwrap()
-            .with_nanosecond(0)
-            .unwrap();
+        let now = time::OffsetDateTime::now_utc().replace_second(0).unwrap().replace_nanosecond(0).unwrap();
         eprintln!("Genesis timestamp: {now}");
         let initial_time =
-            redux::Timestamp::new(now.timestamp_nanos_opt().unwrap().try_into().unwrap());
+            redux::Timestamp::new(now.unix_timestamp_nanos().try_into().unwrap());
+
+        let format = format_description::well_known::Rfc3339;
+        let formated_initial_time = now.format(&format).unwrap();
 
         let ocaml_node_config = OcamlNodeTestingConfig {
             initial_peers: Vec::new(),
             daemon_json: runner.daemon_json_load(
                 "./tests/files/vrf_genesis_epoch/daemon.json".into(),
-                &now.to_rfc3339(),
+                &formated_initial_time,
             ),
         };
 

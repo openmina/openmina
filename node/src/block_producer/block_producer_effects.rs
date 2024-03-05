@@ -2,7 +2,9 @@ use crate::transition_frontier::sync::TransitionFrontierSyncAction;
 use crate::Store;
 
 use super::vrf_evaluator::BlockProducerVrfEvaluatorAction;
-use super::{next_epoch_first_slot, to_epoch_and_slot, BlockProducerAction, BlockProducerActionWithMeta};
+use super::{
+    next_epoch_first_slot, to_epoch_and_slot, BlockProducerAction, BlockProducerActionWithMeta,
+};
 
 pub fn block_producer_effects<S: crate::Service>(
     store: &mut Store<S>,
@@ -14,27 +16,38 @@ pub fn block_producer_effects<S: crate::Service>(
         BlockProducerAction::VrfEvaluator(ref a) => {
             // TODO: does the order matter? can this clone be avoided?
             a.clone().effects(&meta, store);
-            match a {
-                BlockProducerVrfEvaluatorAction::EvaluationSuccess { vrf_output, .. } => {
-                    let has_won_slot = matches!(vrf_output, vrf::VrfEvaluationOutput::SlotWon(_));
-                    if has_won_slot {
-                        store.dispatch(BlockProducerAction::WonSlotSearch);
-                    }
+            if let BlockProducerVrfEvaluatorAction::ProcessSlotEvaluationSuccess {
+                vrf_output,
+                ..
+            } = a
+            {
+                let has_won_slot = matches!(vrf_output, vrf::VrfEvaluationOutput::SlotWon(_));
+                if has_won_slot {
+                    store.dispatch(BlockProducerAction::WonSlotSearch);
                 }
-                _ => {}
             }
         }
         BlockProducerAction::BestTipUpdate { best_tip } => {
-            let global_slot = best_tip.consensus_state().curr_global_slot.clone();
+            let global_slot = best_tip
+                .consensus_state()
+                .curr_global_slot_since_hard_fork
+                .clone();
 
             let (epoch, slot) = to_epoch_and_slot(&global_slot);
             let next_epoch_first_slot = next_epoch_first_slot(&global_slot);
 
-            store.dispatch(BlockProducerVrfEvaluatorInitAction {
+            store.dispatch(BlockProducerVrfEvaluatorAction::InitializeEvaluator {
                 best_tip: best_tip.clone(),
             });
 
-            store.dispatch(BlockProducerVrfCanEvaluateVrfAction {
+            store.dispatch(
+                BlockProducerVrfEvaluatorAction::RecordLastBlockHeightInEpoch {
+                    epoch_number: epoch,
+                    last_block_height: best_tip.height(),
+                },
+            );
+
+            store.dispatch(BlockProducerVrfEvaluatorAction::CheckEpochEvaluability {
                 current_epoch_number: epoch,
                 current_best_tip_height: best_tip.height(),
                 current_best_tip_slot: slot,
