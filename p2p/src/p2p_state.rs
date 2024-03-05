@@ -194,14 +194,14 @@ impl P2pState {
         now: redux::Timestamp,
     ) -> bool {
         self.get_ready_peer(peer_id)
-            .map_or(false, |p| p.channels.rpc.is_timed_out(rpc_id, now))
+            .map_or(false, |p| p.channels.rpc.is_timed_out(rpc_id, now, &self.config.timeouts))
     }
 
     pub fn peer_rpc_timeouts(&self, now: redux::Timestamp) -> Vec<(PeerId, P2pRpcId)> {
         self.ready_peers_iter()
             .filter_map(|(peer_id, s)| {
                 let rpc_id = s.channels.rpc.pending_local_rpc_id()?;
-                if !s.channels.rpc.is_timed_out(rpc_id, now) {
+                if !s.channels.rpc.is_timed_out(rpc_id, now, &self.config.timeouts) {
                     return None;
                 }
 

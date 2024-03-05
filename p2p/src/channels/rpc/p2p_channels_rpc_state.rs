@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::P2pTimeouts;
+
 use super::{P2pRpcId, P2pRpcKind, P2pRpcRequest};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -75,7 +77,7 @@ impl P2pChannelsRpcState {
         }
     }
 
-    pub fn is_timed_out(&self, rpc_id: P2pRpcId, now: redux::Timestamp) -> bool {
+    pub fn is_timed_out(&self, rpc_id: P2pRpcId, now: redux::Timestamp, config: &P2pTimeouts) -> bool {
         match self {
             Self::Ready {
                 local: P2pRpcLocalState::Requested { time, id, request },
@@ -84,7 +86,7 @@ impl P2pChannelsRpcState {
                 rpc_id == *id
                     && request
                         .kind()
-                        .timeout()
+                        .timeout(config)
                         .and_then(|timeout| {
                             let dur = now.checked_sub(*time)?;
                             Some(dur >= timeout)

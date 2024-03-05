@@ -52,6 +52,7 @@ impl Simulator {
             peer_id: Default::default(),
             block_producer: None,
             snark_worker: None,
+            timeouts: Default::default(),
         }
     }
 

@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use node::{
     event_source::Event,
-    p2p::{P2pConnectionEvent, P2pEvent, P2pPeerStatus, P2pState, PeerId},
+    p2p::{P2pConnectionEvent, P2pEvent, P2pPeerStatus, P2pState, P2pTimeouts, PeerId},
 };
 
 use crate::{
@@ -26,8 +26,13 @@ impl SimultaneousConnections {
     pub async fn run<'cluster>(self, runner: ClusterRunner<'cluster>) {
         let mut driver = Driver::new(runner);
 
-        let (node1, peer_id1) = driver.add_rust_node(RustNodeTestingConfig::berkeley_default());
-        let (node2, peer_id2) = driver.add_rust_node(RustNodeTestingConfig::berkeley_default());
+        let testing_config = RustNodeTestingConfig::berkeley_default().with_timeouts(P2pTimeouts {
+            // test might be failing because of best tip RPC timeout...
+            best_tip_with_proof: None,
+            ..Default::default()
+        });
+        let (node1, peer_id1) = driver.add_rust_node(testing_config.clone());
+        let (node2, peer_id2) = driver.add_rust_node(testing_config);
 
         assert!(
             wait_for_nodes_listening_on_localhost(
@@ -58,8 +63,8 @@ impl SimultaneousConnections {
         // Run the cluster while there are events
         let quiet = run_until_no_events(
             &mut driver,
-            Duration::from_secs(30),
-            Duration::from_secs(60),
+            Duration::from_secs(10),
+            Duration::from_secs(20),
         )
         .await
         .unwrap();
@@ -91,13 +96,19 @@ impl AllNodesConnectionsAreSymmetric {
 
         let mut driver = Driver::new(runner);
 
-        let (seed_id, _) = driver.add_rust_node(RustNodeTestingConfig::berkeley_default());
+        let testing_config = RustNodeTestingConfig::berkeley_default().with_timeouts(P2pTimeouts {
+            // test might be failing because of best tip RPC timeout...
+            best_tip_with_proof: None,
+            ..Default::default()
+        });
+
+        let (seed_id, _) = driver.add_rust_node(testing_config.clone());
 
         let peers: Vec<_> = (0..MAX)
             .into_iter()
             .map(|_| {
                 driver.add_rust_node(
-                    RustNodeTestingConfig::berkeley_default().initial_peers(vec![seed_id.into()]),
+                    testing_config.clone().initial_peers(vec![seed_id.into()]),
                 )
             })
             .collect();

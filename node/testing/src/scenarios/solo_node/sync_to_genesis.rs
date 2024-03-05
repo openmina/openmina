@@ -52,6 +52,7 @@ impl SoloNodeSyncToGenesis {
             peer_id: Default::default(),
             snark_worker: None,
             block_producer: None,
+            timeouts: Default::default(),
         });
 
         runner
