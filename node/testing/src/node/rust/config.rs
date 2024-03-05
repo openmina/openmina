@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use node::{account::AccountSecretKey, BlockProducerConfig, SnarkerConfig, p2p::P2pTimeouts};
+use node::{account::AccountSecretKey, p2p::P2pTimeouts, BlockProducerConfig, SnarkerConfig};
 use serde::{Deserialize, Serialize};
 
 use crate::scenario::ListenerNode;

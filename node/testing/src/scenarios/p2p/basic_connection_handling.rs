@@ -107,9 +107,7 @@ impl AllNodesConnectionsAreSymmetric {
         let peers: Vec<_> = (0..MAX)
             .into_iter()
             .map(|_| {
-                driver.add_rust_node(
-                    testing_config.clone().initial_peers(vec![seed_id.into()]),
-                )
+                driver.add_rust_node(testing_config.clone().initial_peers(vec![seed_id.into()]))
             })
             .collect();
 

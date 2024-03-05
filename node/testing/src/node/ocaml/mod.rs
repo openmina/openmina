@@ -269,7 +269,9 @@ impl OcamlNode {
 
     /// Queries graphql to get chain_id.
     pub async fn chain_id_async(&self) -> anyhow::Result<String> {
-        let res = self.grapql_query_async("query { daemonStatus { chainId } }").await?;
+        let res = self
+            .grapql_query_async("query { daemonStatus { chainId } }")
+            .await?;
         res["data"]["daemonStatus"]["chainId"]
             .as_str()
             .map(|s| s.to_owned())
@@ -291,7 +293,9 @@ impl OcamlNode {
     /// Queries graphql to check if ocaml node is synced,
     /// returning it's best tip hash if yes.
     pub async fn synced_best_tip_async(&self) -> anyhow::Result<Option<StateHash>> {
-        let mut res = self.grapql_query_async("query { daemonStatus { syncStatus, stateHash } }").await?;
+        let mut res = self
+            .grapql_query_async("query { daemonStatus { syncStatus, stateHash } }")
+            .await?;
         let data = &mut res["data"]["daemonStatus"];
         if data["syncStatus"].as_str() == Some("SYNCED") {
             Ok(Some(serde_json::from_value(data["stateHash"].take())?))
@@ -318,7 +322,8 @@ impl OcamlNode {
                     "query": query
                 })
             })
-            .send().await?;
+            .send()
+            .await?;
 
         Ok(response.json().await?)
     }
@@ -365,7 +370,11 @@ impl OcamlNode {
         tokio::time::timeout(timeout, async {
             loop {
                 interval.tick().await;
-                if self.synced_best_tip_async().await.map_or(false, |tip| tip.is_some()) {
+                if self
+                    .synced_best_tip_async()
+                    .await
+                    .map_or(false, |tip| tip.is_some())
+                {
                     return;
                 }
             }

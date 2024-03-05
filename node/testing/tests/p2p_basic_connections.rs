@@ -29,11 +29,7 @@ scenario_test!(
     SeedConnectionsAreSymmetric
 );
 
-scenario_test!(
-    max_number_of_peers,
-    MaxNumberOfPeers,
-    MaxNumberOfPeers
-);
+scenario_test!(max_number_of_peers, MaxNumberOfPeers, MaxNumberOfPeers);
 
 scenario_test!(
     max_number_of_peers_is_one,

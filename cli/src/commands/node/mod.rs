@@ -221,7 +221,9 @@ impl Node {
         } else {
             LedgerCtx::default()
         };
-        ledger.load_genesis_ledger_bytes(include_bytes!("../../../../genesis_ledgers/berkeley_genesis_ledger.bin"));
+        ledger.load_genesis_ledger_bytes(include_bytes!(
+            "../../../../genesis_ledgers/berkeley_genesis_ledger.bin"
+        ));
 
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()

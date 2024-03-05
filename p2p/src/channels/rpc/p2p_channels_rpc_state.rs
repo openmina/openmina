@@ -77,7 +77,12 @@ impl P2pChannelsRpcState {
         }
     }
 
-    pub fn is_timed_out(&self, rpc_id: P2pRpcId, now: redux::Timestamp, config: &P2pTimeouts) -> bool {
+    pub fn is_timed_out(
+        &self,
+        rpc_id: P2pRpcId,
+        now: redux::Timestamp,
+        config: &P2pTimeouts,
+    ) -> bool {
         match self {
             Self::Ready {
                 local: P2pRpcLocalState::Requested { time, id, request },
