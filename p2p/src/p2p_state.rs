@@ -218,6 +218,11 @@ impl P2pState {
         self.connected_or_connecting_peers_count() >= self.config.max_peers
     }
 
+    /// The peers capacity is exceeded.
+    pub fn already_has_too_many_peers(&self) -> bool {
+        self.connected_or_connecting_peers_count() > self.config.max_peers
+    }
+
     pub fn already_knows_max_peers(&self) -> bool {
         self.kademlia.known_peers.len() >= self.config.max_peers * 2
     }

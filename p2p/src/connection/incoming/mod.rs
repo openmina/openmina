@@ -55,7 +55,7 @@ impl P2pState {
             return Err(RejectionReason::AlreadyConnected);
         }
 
-        if self.already_has_max_peers() {
+        if self.already_has_too_many_peers() {
             return Err(RejectionReason::PeerCapacityFull);
         }
 
@@ -67,7 +67,7 @@ impl P2pState {
             return Err(RejectionReason::ConnectingToSelf);
         }
 
-        if self.already_has_max_peers() {
+        if self.already_has_too_many_peers() {
             return Err(RejectionReason::PeerCapacityFull);
         }
 
