@@ -28,18 +28,21 @@ impl Simulator {
         Self { config }
     }
 
-    fn seed_config(&self, runner: &ClusterRunner<'_>) -> RustNodeTestingConfig {
-        let chain_id = runner
+    async fn seed_config_async(&self, runner: &ClusterRunner<'_>) -> RustNodeTestingConfig {
+        let chain_id = if let Some(chain_id) = runner
             .nodes_iter()
             .next()
             .map(|(_, node)| node.config().chain_id.clone())
-            .unwrap_or_else(|| {
-                runner
-                    .ocaml_node(ClusterOcamlNodeId::new_unchecked(0))
-                    .unwrap()
-                    .chain_id()
-                    .unwrap()
-            });
+        {
+            chain_id
+        } else {
+            runner
+                .ocaml_node(ClusterOcamlNodeId::new_unchecked(0))
+                .unwrap()
+                .chain_id_async()
+                .await
+                .unwrap()
+        };
 
         RustNodeTestingConfig {
             chain_id,
@@ -98,7 +101,7 @@ impl Simulator {
             .unwrap();
 
         eprintln!("setting up rust seed nodes: {}", self.config.seed_nodes);
-        let seed_config = self.seed_config(runner);
+        let seed_config = self.seed_config_async(runner).await;
 
         for _ in 0..(self.config.seed_nodes) {
             let rust_node = runner.add_rust_node(seed_config.clone());
@@ -142,7 +145,7 @@ impl Simulator {
         let node_config = RustNodeTestingConfig {
             max_peers: 100,
             initial_peers: self.seed_node_dial_addrs(runner),
-            ..self.seed_config(runner)
+            ..self.seed_config_async(runner).await
         };
 
         for _ in 0..(self.config.normal_nodes) {
@@ -161,7 +164,7 @@ impl Simulator {
         let node_config = RustNodeTestingConfig {
             max_peers: 100,
             initial_peers: self.seed_node_dial_addrs(runner),
-            ..self.seed_config(runner)
+            ..self.seed_config_async(runner).await
         };
 
         let bp_pub_keys = runner
@@ -216,7 +219,7 @@ impl Simulator {
         let node_config = RustNodeTestingConfig {
             max_peers: 100,
             initial_peers: self.seed_node_dial_addrs(runner),
-            ..self.seed_config(runner)
+            ..self.seed_config_async(runner).await
         };
 
         for (sec_key, stake) in block_producers

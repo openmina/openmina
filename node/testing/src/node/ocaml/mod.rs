@@ -267,6 +267,15 @@ impl OcamlNode {
             .ok_or_else(|| anyhow::anyhow!("empty chain_id response"))
     }
 
+    /// Queries graphql to get chain_id.
+    pub async fn chain_id_async(&self) -> anyhow::Result<String> {
+        let res = self.grapql_query_async("query { daemonStatus { chainId } }").await?;
+        res["data"]["daemonStatus"]["chainId"]
+            .as_str()
+            .map(|s| s.to_owned())
+            .ok_or_else(|| anyhow::anyhow!("empty chain_id response"))
+    }
+
     /// Queries graphql to check if ocaml node is synced,
     /// returning it's best tip hash if yes.
     pub fn synced_best_tip(&self) -> anyhow::Result<Option<StateHash>> {
@@ -279,10 +288,40 @@ impl OcamlNode {
         }
     }
 
+    /// Queries graphql to check if ocaml node is synced,
+    /// returning it's best tip hash if yes.
+    pub async fn synced_best_tip_async(&self) -> anyhow::Result<Option<StateHash>> {
+        let mut res = self.grapql_query_async("query { daemonStatus { syncStatus, stateHash } }").await?;
+        let data = &mut res["data"]["daemonStatus"];
+        if data["syncStatus"].as_str() == Some("SYNCED") {
+            Ok(Some(serde_json::from_value(data["stateHash"].take())?))
+        } else {
+            Ok(None)
+        }
+    }
+
     fn graphql_addr(&self) -> String {
         format!("http://127.0.0.1:{}/graphql", self.graphql_port)
     }
 
+    // TODO(binier): shouldn't be publically accessible.
+    //
+    // Only `exec` function should be exposed and instead of this, we
+    // should have a step to query graphql and assert response as a part
+    // of that step.
+    pub async fn grapql_query_async(&self, query: &str) -> anyhow::Result<serde_json::Value> {
+        let client = reqwest::Client::new();
+        let response = client
+            .post(self.graphql_addr())
+            .json(&{
+                serde_json::json!({
+                    "query": query
+                })
+            })
+            .send().await?;
+
+        Ok(response.json().await?)
+    }
     // TODO(binier): shouldn't be publically accessible.
     //
     // Only `exec` function should be exposed and instead of this, we
@@ -326,7 +365,7 @@ impl OcamlNode {
         tokio::time::timeout(timeout, async {
             loop {
                 interval.tick().await;
-                if self.synced_best_tip().map_or(false, |tip| tip.is_some()) {
+                if self.synced_best_tip_async().await.map_or(false, |tip| tip.is_some()) {
                     return;
                 }
             }
