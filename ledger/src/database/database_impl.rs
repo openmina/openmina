@@ -263,6 +263,10 @@ impl DatabaseImpl<V2> {
         self.hashes_matrix.set(addr, hash);
     }
 
+    pub fn remove_cached_hash(&mut self, addr: &Address) -> Option<Fp> {
+        self.hashes_matrix.remove(addr)
+    }
+
     pub fn empty_hash_at_height(&mut self, height: usize) -> Fp {
         self.hashes_matrix.empty_hash_at_height(height)
     }

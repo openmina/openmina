@@ -558,6 +558,16 @@ impl MaskImpl {
         matrix.set(addr, hash);
     }
 
+    pub fn remove_cached_hash(&mut self, addr: &Address) -> Option<Fp> {
+        let matrix = match self {
+            Root { database, .. } => return database.remove_cached_hash(addr),
+            Attached { hashes, .. } => hashes,
+            Unattached { hashes, .. } => hashes,
+        };
+
+        matrix.remove(addr)
+    }
+
     pub fn empty_hash_at_height(&mut self, height: usize) -> Fp {
         let matrix = match self {
             Root { database, .. } => return database.empty_hash_at_height(height),

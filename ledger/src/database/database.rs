@@ -93,6 +93,10 @@ impl Database<V2> {
         self.with(|this| this.set_cached_hash(addr, hash))
     }
 
+    pub fn remove_cached_hash(&mut self, addr: &Address) -> Option<Fp> {
+        self.with(|this| this.remove_cached_hash(addr))
+    }
+
     pub fn empty_hash_at_height(&mut self, height: usize) -> Fp {
         self.with(|this| this.empty_hash_at_height(height))
     }

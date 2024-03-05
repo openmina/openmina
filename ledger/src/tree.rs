@@ -106,17 +106,18 @@ impl HashesMatrix {
         self.nhashes += 1;
     }
 
-    pub fn remove(&mut self, addr: &Address) {
+    pub fn remove(&mut self, addr: &Address) -> Option<Fp> {
         let linear = addr.to_linear_index();
-        self.remove_at_index(linear);
+        self.remove_at_index(linear)
     }
 
-    fn remove_at_index(&mut self, index: usize) {
+    fn remove_at_index(&mut self, index: usize) -> Option<Fp> {
         let linear: u64 = index.try_into().unwrap();
         let old = self.matrix.remove(&linear);
         if old.is_some() {
             self.nhashes -= 1;
         }
+        old
 
         // let hash = match self.matrix.get_mut(index) {
         //     Some(hash) => hash,
