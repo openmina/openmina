@@ -54,15 +54,14 @@ pub enum P2pRpcKind {
 
 impl P2pRpcKind {
     pub fn timeout(self) -> Option<Duration> {
-        None
-        // match self {
-        //     Self::BestTipWithProof => Some(Duration::from_secs(10)),
-        //     Self::LedgerQuery => Some(Duration::from_secs(2)),
-        //     Self::StagedLedgerAuxAndPendingCoinbasesAtBlock => Some(Duration::from_secs(120)),
-        //     Self::Block => Some(Duration::from_secs(5)),
-        //     Self::Snark => Some(Duration::from_secs(5)),
-        //     Self::InitialPeers => Some(Duration::from_secs(5)),
-        // }
+        match self {
+            Self::BestTipWithProof => Some(Duration::from_secs(10)),
+            Self::LedgerQuery => Some(Duration::from_secs(2)),
+            Self::StagedLedgerAuxAndPendingCoinbasesAtBlock => Some(Duration::from_secs(120)),
+            Self::Block => Some(Duration::from_secs(5)),
+            Self::Snark => Some(Duration::from_secs(5)),
+            Self::InitialPeers => Some(Duration::from_secs(5)),
+        }
     }
 
     pub fn supported_by_libp2p(self) -> bool {
