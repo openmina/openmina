@@ -22,6 +22,7 @@ members = [
     "tools/bootstrap-sandbox",
     "tools/hash-tool",
     "tools/ledger-tool",
+    "tools/salsa-simple",
 ]
 
 resolver = "2"

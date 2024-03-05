@@ -32,7 +32,6 @@ bitflags = { version = "2.4.1", features = ["serde"] }
 # crypto
 zeroize = { version = "1.7" }
 hkdf = { version = "0.12.4" }
-salsa20 = { git = "https://github.com/openmina/stream-ciphers.git", rev = "6bfe160a0cd844b5bbec6757b35f1802f45ff492" }
 blake2 = { version = "0.10.6" }
 chacha20poly1305 = { version = "0.10.1" }
 curve25519-dalek = { version = "4.1" }
@@ -40,6 +39,7 @@ curve25519-dalek = { version = "4.1" }
 redux = { git = "https://github.com/openmina/redux-rs.git", branch="feat/global-time", features = ["serde"] }
 mina-p2p-messages = { workspace = true }
 
+salsa-simple = { path = "../tools/salsa-simple" }
 openmina-core = { path = "../core" }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]

@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use zeroize::Zeroize;
 
-use super::salsa::XSalsa20Wrapper;
+use salsa_simple::XSalsa20;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pNetworkPnetState {
@@ -36,12 +36,6 @@ impl P2pNetworkPnetState {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum Half {
-    Buffering {
-        buffer: [u8; 24],
-        offset: usize,
-    },
-    Done {
-        cipher: XSalsa20Wrapper,
-        to_send: Vec<u8>,
-    },
+    Buffering { buffer: [u8; 24], offset: usize },
+    Done { cipher: XSalsa20, to_send: Vec<u8> },
 }

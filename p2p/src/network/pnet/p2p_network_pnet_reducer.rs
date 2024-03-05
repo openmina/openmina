@@ -1,8 +1,7 @@
-use salsa20::cipher::StreamCipher;
+use salsa_simple::XSalsa20;
 
 use super::{
     p2p_network_pnet_state::{Half, P2pNetworkPnetState},
-    salsa::XSalsa20Wrapper,
     *,
 };
 
@@ -20,7 +19,7 @@ impl Half {
                     let nonce = *buffer;
                     let remaining = data[(24 - *offset)..].to_vec().into_boxed_slice();
                     *self = Half::Done {
-                        cipher: XSalsa20Wrapper::new(shared_secret, &nonce),
+                        cipher: XSalsa20::new(*shared_secret, nonce),
                         to_send: vec![],
                     };
                     self.reduce(shared_secret, &remaining);
