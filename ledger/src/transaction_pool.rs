@@ -9,7 +9,13 @@ use mina_p2p_messages::v2;
 use crate::{
     scan_state::{
         currency::{Amount, Balance, Nonce, Slot},
-        transaction_logic::{valid, zkapp_command::WithHash, WithStatus},
+        transaction_logic::{
+            valid,
+            zkapp_command::{
+                from_unapplied_sequence::FromUnappliedSequence, MaybeWithStatus, WithHash,
+            },
+            UserCommand, WithStatus,
+        },
     },
     Account, AccountId, BaseLedger, Mask, TokenId, VerificationKey,
 };
@@ -774,8 +780,22 @@ impl TransactionPool {
         }
 
         let ledger = self.best_tip_ledger.as_ref().ok_or_else(|| {
-            "We don't have a transition frontier at the moment, so we're unable to verify any transactions.".to_string()
+            "We don't have a transition frontier at the moment, so we're unable to verify any transactions."
         })?;
+
+        // use crate::scan_state::transaction_logic::zkapp_command::last::Last;
+        let cs = diff
+            .data()
+            .list
+            .iter()
+            .cloned()
+            .map(|cmd| MaybeWithStatus { cmd, status: None })
+            .collect::<Vec<_>>();
+        UserCommand::to_all_verifiable::<FromUnappliedSequence, _>(cs, |account_ids| {
+            todo!()
+            // find_vk_via_ledger(ledger.clone(), expected_vk_hash, account_id)
+        })
+        .unwrap(); // TODO: No unwrap
 
         Ok(())
     }

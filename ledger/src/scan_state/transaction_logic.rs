@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use ark_ff::Zero;
 use itertools::{FoldWhile, Itertools};
@@ -10,8 +10,10 @@ use openmina_core::constants::ConstraintConstants;
 
 use crate::proofs::witness::Witness;
 use crate::scan_state::transaction_logic::transaction_partially_applied::FullyApplied;
+use crate::scan_state::transaction_logic::zkapp_command::MaybeWithStatus;
 use crate::scan_state::zkapp_logic;
-use crate::{hash_with_kimchi, ControlTag, Inputs};
+use crate::transaction_pool::VerificationKeyWire;
+use crate::{hash_with_kimchi, BaseLedger, ControlTag, Inputs};
 use crate::{
     scan_state::transaction_logic::transaction_applied::{CommandApplied, Varying},
     sparse_ledger::{LedgerIntf, SparseLedger},
@@ -176,6 +178,9 @@ pub enum TransactionStatus {
 impl TransactionStatus {
     pub fn is_applied(&self) -> bool {
         matches!(self, Self::Applied)
+    }
+    pub fn is_failed(&self) -> bool {
+        matches!(self, Self::Failed(_))
     }
 }
 
@@ -855,6 +860,7 @@ pub mod zkapp_command {
             transaction::Check,
         },
         scan_state::currency::{Balance, Length, MinMax, Sgn, Signed, Slot, SlotSpan},
+        transaction_pool::VerificationKeyWire,
         zkapps::snark::zkapp_check::InSnarkCheck,
         AuthRequired, ControlTag, Inputs, MyCow, Permissions, SetVerificationKey, ToInputs,
         TokenSymbol, VerificationKey, VotingFor, ZkAppAccount, ZkAppUri,
@@ -3786,7 +3792,7 @@ pub mod zkapp_command {
         /// ledger for the key (ie set by a previous transaction).
         pub fn create(
             zkapp: &super::ZkAppCommand,
-            status: &TransactionStatus,
+            is_failed: bool,
             find_vk: impl Fn(Fp, &AccountId) -> Result<WithHash<VerificationKey>, String>,
         ) -> Result<ZkAppCommand, String> {
             let super::ZkAppCommand {
@@ -3809,8 +3815,8 @@ pub mod zkapp_command {
 
                 check_authorization(p)?;
 
-                match (&p.body.authorization_kind, status.is_applied()) {
-                    (AuthorizationKind::Proof(vk_hash), true) => {
+                match (&p.body.authorization_kind, is_failed) {
+                    (AuthorizationKind::Proof(vk_hash), false) => {
                         let prioritized_vk = {
                             // only lookup _past_ vk setting, ie exclude the new one we
                             // potentially set in this account_update (use the non-'
@@ -3882,118 +3888,143 @@ pub mod zkapp_command {
             status: &TransactionStatus,
             find_vk: impl Fn(Fp, &AccountId) -> Result<WithHash<VerificationKey>, String>,
         ) -> Result<ZkAppCommand, String> {
-            create(&zkapp_command, status, find_vk).map(of_verifiable)
+            create(&zkapp_command, status.is_failed(), find_vk).map(of_verifiable)
         }
     }
 
-    pub trait Strategy {
-        fn create_all(
-            cmds: Vec<WithStatus<Box<ZkAppCommand>>>,
-            find_vk: impl Fn(Fp, &AccountId) -> Result<WithHash<VerificationKey>, String>,
-        ) -> Result<Vec<WithStatus<verifiable::ZkAppCommand>>, String>;
+    pub struct MaybeWithStatus<T> {
+        pub cmd: T,
+        pub status: Option<TransactionStatus>,
     }
 
-    trait CreateAll {
-        type Value;
-
-        fn empty() -> Self;
-        fn find(&self, key: Fp) -> Option<&Self::Value>;
-        fn set(&mut self, key: Fp, value: Self::Value);
-    }
-
-    impl<T> Strategy for T
-    where
-        T: CreateAll<Value = WithHash<VerificationKey>>,
-    {
-        /// https://github.com/MinaProtocol/mina/blob/02c9d453576fa47f78b2c388fb2e0025c47d991c/src/lib/mina_base/zkapp_command.ml#L1346
-        fn create_all(
-            cmds: Vec<WithStatus<Box<ZkAppCommand>>>,
-            find_vk: impl Fn(Fp, &AccountId) -> Result<WithHash<VerificationKey>, String>,
-        ) -> Result<Vec<WithStatus<verifiable::ZkAppCommand>>, String> {
-            let mut running_cache = Self::empty();
-
-            Ok(cmds
-                .into_iter()
-                .map(|WithStatus { data: cmd, status }| {
-                    let verified_cmd = verifiable::create(&cmd, &status, |vk_hash, account_id| {
-                        // first we check if there's anything in the running
-                        // cache within this chunk so far
-
-                        match running_cache.find(vk_hash) {
-                            None => {
-                                // before falling back to the find_vk
-                                find_vk(vk_hash, account_id)
-                            }
-                            Some(vk) => Ok(vk.clone()),
-                        }
-                    })
-                    .unwrap();
-
-                    for (_id, vk) in cmd.extract_vks() {
-                        running_cache.set(vk.hash, vk);
-                    }
-
-                    WithStatus {
-                        data: verified_cmd,
-                        status,
-                    }
-                })
-                .collect())
+    impl<T> From<WithStatus<T>> for MaybeWithStatus<T> {
+        fn from(value: WithStatus<T>) -> Self {
+            let WithStatus { data, status } = value;
+            Self {
+                cmd: data,
+                status: Some(status),
+            }
         }
     }
 
-    mod any {
+    impl<T> From<MaybeWithStatus<T>> for WithStatus<T> {
+        fn from(value: MaybeWithStatus<T>) -> Self {
+            let MaybeWithStatus { cmd, status } = value;
+            Self {
+                data: cmd,
+                status: status.unwrap(),
+            }
+        }
+    }
+
+    impl<T> MaybeWithStatus<T> {
+        pub fn cmd(&self) -> &T {
+            &self.cmd
+        }
+        pub fn is_failed(&self) -> bool {
+            self.status
+                .as_ref()
+                .map(TransactionStatus::is_failed)
+                .unwrap_or(false)
+        }
+        pub fn map<V, F>(self, fun: F) -> MaybeWithStatus<V>
+        where
+            F: FnOnce(T) -> V,
+        {
+            MaybeWithStatus {
+                cmd: fun(self.cmd),
+                status: self.status,
+            }
+        }
+    }
+
+    pub trait ToVerifiableCache {
+        fn find(&self, account_id: &AccountId, vk_hash: &Fp) -> Option<&VerificationKeyWire>;
+        fn add(&mut self, account_id: AccountId, vk: VerificationKeyWire);
+    }
+
+    pub trait ToVerifiableStrategy {
+        type Cache: ToVerifiableCache;
+
+        fn create_all(
+            cmd: &ZkAppCommand,
+            is_failed: bool,
+            cache: &mut Self::Cache,
+        ) -> Result<verifiable::ZkAppCommand, String> {
+            let verified_cmd = verifiable::create(cmd, is_failed, |vk_hash, account_id| {
+                cache
+                    .find(account_id, &vk_hash)
+                    .cloned()
+                    .ok_or_else(|| "verification key not found in cache".to_string())
+            })?;
+            if !is_failed {
+                for (account_id, vk) in cmd.extract_vks() {
+                    cache.add(account_id, vk);
+                }
+            }
+            Ok(verified_cmd)
+        }
+    }
+
+    pub mod from_unapplied_sequence {
+        use super::*;
         use std::collections::HashMap;
 
-        use super::*;
-
-        struct Any<T> {
-            inner: std::collections::HashMap<Fp, T>,
+        pub struct Cache {
+            cache: HashMap<AccountId, HashMap<Fp, VerificationKeyWire>>,
         }
 
-        impl<T> super::CreateAll for Any<T> {
-            type Value = T;
-
-            fn empty() -> Self {
-                Self {
-                    inner: HashMap::with_capacity(128),
-                }
+        impl Cache {
+            pub fn new(cache: HashMap<AccountId, HashMap<Fp, VerificationKeyWire>>) -> Self {
+                Self { cache }
             }
+        }
 
-            fn find(&self, key: Fp) -> Option<&Self::Value> {
-                self.inner.get(&key)
+        impl ToVerifiableCache for Cache {
+            fn find(&self, account_id: &AccountId, vk_hash: &Fp) -> Option<&VerificationKeyWire> {
+                let vks = self.cache.get(account_id)?;
+                vks.get(vk_hash)
             }
+            fn add(&mut self, account_id: AccountId, vk: VerificationKeyWire) {
+                let vks = self.cache.entry(account_id).or_default();
+                vks.insert(vk.hash, vk);
+            }
+        }
 
-            fn set(&mut self, key: Fp, value: Self::Value) {
-                self.inner.insert(key, value);
-            }
+        pub struct FromUnappliedSequence;
+
+        impl ToVerifiableStrategy for FromUnappliedSequence {
+            type Cache = Cache;
         }
     }
 
-    pub mod last {
+    pub mod from_applied_sequence {
         use super::*;
+        use std::collections::HashMap;
 
-        pub struct Last<T> {
-            inner: Option<(Fp, T)>,
+        pub struct Cache {
+            cache: HashMap<AccountId, VerificationKeyWire>,
         }
 
-        impl<T> CreateAll for Last<T> {
-            type Value = T;
-
-            fn empty() -> Self {
-                Self { inner: None }
+        impl Cache {
+            pub fn new(cache: HashMap<AccountId, VerificationKeyWire>) -> Self {
+                Self { cache }
             }
+        }
 
-            fn find(&self, key: Fp) -> Option<&Self::Value> {
-                match self.inner.as_ref() {
-                    Some((k, value)) if k == &key => Some(value),
-                    _ => None,
-                }
+        impl ToVerifiableCache for Cache {
+            fn find(&self, account_id: &AccountId, vk_hash: &Fp) -> Option<&VerificationKeyWire> {
+                self.cache.get(account_id).filter(|vk| &vk.hash == vk_hash)
             }
+            fn add(&mut self, account_id: AccountId, vk: VerificationKeyWire) {
+                self.cache.insert(account_id, vk);
+            }
+        }
 
-            fn set(&mut self, key: Fp, value: Self::Value) {
-                self.inner = Some((key, value));
-            }
+        pub struct FromAppliedSequence;
+
+        impl ToVerifiableStrategy for FromAppliedSequence {
+            type Cache = Cache;
         }
     }
 }
@@ -4250,68 +4281,74 @@ impl UserCommand {
         match self {
             UserCommand::SignedCommand(cmd) => Ok(SignedCommand(cmd.clone())),
             UserCommand::ZkAppCommand(zkapp) => Ok(ZkAppCommand(Box::new(
-                zkapp_command::verifiable::create(zkapp, status, find_vk)?,
+                zkapp_command::verifiable::create(zkapp, status.is_failed(), find_vk)?,
             ))),
         }
     }
 
-    pub fn to_all_verifiable<S, F>(
-        ts: Vec<WithStatus<Self>>,
-        find_vk: F,
-    ) -> Result<Vec<WithStatus<verifiable::UserCommand>>, String>
-    where
-        F: Fn(Fp, &AccountId) -> Result<WithHash<VerificationKey>, String>,
-        S: zkapp_command::Strategy,
-    {
-        // https://github.com/MinaProtocol/mina/blob/436023ba41c43a50458a551b7ef7a9ae61670b25/src/lib/mina_base/user_command.ml#L180
-        use itertools::Either;
-
-        let (izk_cmds, is_cmds) = ts
+    pub fn load_vks_from_ledger(
+        account_ids: HashSet<AccountId>,
+        ledger: &crate::Mask,
+    ) -> HashMap<AccountId, VerificationKeyWire> {
+        let ids: Vec<_> = account_ids.iter().cloned().collect();
+        let locations: Vec<_> = ledger
+            .location_of_account_batch(&ids)
             .into_iter()
-            .enumerate()
-            .partition_map::<Vec<_>, Vec<_>, _, _, _>(|(i, cmd)| match cmd.data {
-                UserCommand::ZkAppCommand(c) => Either::Left((
-                    i,
-                    WithStatus {
-                        data: c,
-                        status: cmd.status,
-                    },
-                )),
-                UserCommand::SignedCommand(c) => Either::Right((
-                    i,
-                    WithStatus {
-                        data: c,
-                        status: cmd.status,
-                    },
-                )),
-            });
-
-        // then unzip the indices
-        let (ixs, zk_cmds): (Vec<_>, Vec<_>) = izk_cmds.into_iter().unzip();
-
-        // then we verify the zkapp commands
-        let vzk_cmds = S::create_all(zk_cmds, find_vk)?;
-
-        // rezip indices
-        let ivzk_cmds: Vec<_> = ixs.into_iter().zip(vzk_cmds).collect();
-
-        // Put them back in with a sort by index (un-partition)
-
-        use verifiable::UserCommand::{SignedCommand, ZkAppCommand};
-        let mut ivs: Vec<_> = is_cmds
-            .into_iter()
-            .map(|(i, cmd)| (i, cmd.into_map(SignedCommand)))
-            .chain(
-                ivzk_cmds
-                    .into_iter()
-                    .map(|(i, cmd)| (i, cmd.into_map(|cmd| ZkAppCommand(Box::new(cmd))))),
-            )
+            .filter_map(|(_, addr)| addr)
             .collect();
+        ledger
+            .get_batch(&locations)
+            .into_iter()
+            .filter_map(|(_, account)| {
+                let account = account.unwrap();
+                let zkapp = account.zkapp.as_ref()?;
+                let vk = zkapp.verification_key.clone()?;
 
-        ivs.sort_unstable_by_key(|(i, _)| *i);
+                // TODO: The account should contains the `WithHash<VerificationKey>`
+                let hash = vk.hash();
+                let vk = WithHash { data: vk, hash };
 
-        // Drop the indices
-        Ok(ivs.into_iter().unzip::<_, _, Vec<_>, _>().1)
+                Some((account.id(), vk))
+            })
+            .collect()
+    }
+
+    pub fn to_all_verifiable<S, F>(
+        ts: Vec<MaybeWithStatus<UserCommand>>,
+        load_vk_cache: F,
+    ) -> Result<Vec<MaybeWithStatus<verifiable::UserCommand>>, String>
+    where
+        S: zkapp_command::ToVerifiableStrategy,
+        F: Fn(HashSet<AccountId>) -> S::Cache,
+    {
+        let accounts_referenced: HashSet<AccountId> = ts
+            .iter()
+            .flat_map(|cmd| match cmd.cmd() {
+                UserCommand::SignedCommand(_) => Vec::new(),
+                UserCommand::ZkAppCommand(cmd) => cmd.accounts_referenced(),
+            })
+            .collect();
+        let mut vk_cache = load_vk_cache(accounts_referenced);
+
+        ts.into_iter()
+            .map(|cmd| {
+                let is_failed = cmd.is_failed();
+                let MaybeWithStatus { cmd, status } = cmd;
+                match cmd {
+                    UserCommand::SignedCommand(c) => Ok(MaybeWithStatus {
+                        cmd: verifiable::UserCommand::SignedCommand(c),
+                        status,
+                    }),
+                    UserCommand::ZkAppCommand(c) => {
+                        let zkapp_verifiable = S::create_all(&*c, is_failed, &mut vk_cache)?;
+                        Ok(MaybeWithStatus {
+                            cmd: verifiable::UserCommand::ZkAppCommand(Box::new(zkapp_verifiable)),
+                            status,
+                        })
+                    }
+                }
+            })
+            .collect()
     }
 
     fn has_insufficient_fee(&self) -> bool {
@@ -4355,15 +4392,15 @@ impl UserCommand {
                 WellFormednessError::InsufficientFee,
             ),
             (
-                Self::has_zero_vesting_period as _,
+                Self::has_zero_vesting_period,
                 WellFormednessError::ZeroVestingPeriod,
             ),
             (
-                Self::is_incompatible_version as _,
+                Self::is_incompatible_version,
                 WellFormednessError::IncompatibleVersion,
             ),
             (
-                Self::is_disabled as _,
+                Self::is_disabled,
                 WellFormednessError::TransactionTypeDisabled,
             ),
         ]
