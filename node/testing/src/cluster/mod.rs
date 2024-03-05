@@ -305,7 +305,9 @@ impl Cluster {
             .unwrap();
 
         let mut ledger = LedgerCtx::default();
-        ledger.load_genesis_ledger("genesis_ledgers/berkeley_genesis_ledger.bin");
+        ledger.load_genesis_ledger_bytes(include_bytes!(
+            "../../../../genesis_ledgers/berkeley_genesis_ledger.bin"
+        ));
         let mut real_service = NodeService {
             rng: StdRng::seed_from_u64(0),
             event_sender,

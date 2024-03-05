@@ -1,6 +1,5 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
-    fs::File,
     path::Path,
     sync::Arc,
 };
@@ -112,10 +111,14 @@ impl LedgerCtx {
     where
         P: AsRef<Path>,
     {
+        let bytes = std::fs::read(path).unwrap();
+        self.load_genesis_ledger_bytes(&bytes)
+    }
+
+    pub fn load_genesis_ledger_bytes(&mut self, mut bytes: &[u8]) {
         // TODO: return error
-        let mut reader = File::open(path).unwrap();
-        let top_hash = Option::binprot_read(&mut reader).unwrap();
-        let accounts = Vec::<Account>::binprot_read(&mut reader).unwrap();
+        let top_hash = Option::binprot_read(&mut bytes).unwrap();
+        let accounts = Vec::<Account>::binprot_read(&mut bytes).unwrap();
 
         let mut mask = Mask::new_root(Database::create(35));
         for account in accounts {
