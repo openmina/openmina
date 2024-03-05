@@ -53,6 +53,7 @@ impl SoloNodeSyncToGenesis {
             snark_worker: None,
             block_producer: None,
             timeouts: Default::default(),
+            libp2p_port: None,
         });
 
         runner

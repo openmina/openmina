@@ -295,7 +295,53 @@ impl MaxNumberOfPeers {
     }
 }
 
+/// Two nodes with max peers = 1 can connect to each other.
+#[derive(documented::Documented, Default, Clone, Copy)]
+pub struct MaxNumberOfPeersIs1;
+
+impl MaxNumberOfPeersIs1 {
+    pub async fn run<'cluster>(self, runner: ClusterRunner<'cluster>) {
+        const CONNECTED_TIME_SEC: u64 = 10;
+        let mut driver = Driver::new(runner);
+
+        let (node1, _) =
+            driver.add_rust_node(RustNodeTestingConfig::berkeley_default().max_peers(1));
+        let (node2, _) =
+            driver.add_rust_node(RustNodeTestingConfig::berkeley_default().max_peers(1));
+
+        assert!(
+            wait_for_nodes_listening_on_localhost(&mut driver, Duration::from_secs(30), [node2])
+                .await
+                .unwrap(),
+            "nodes should be listening"
+        );
+
+        driver
+            .exec_step(crate::scenario::ScenarioStep::ConnectNodes {
+                dialer: node1,
+                listener: crate::scenario::ListenerNode::Rust(node2),
+            })
+            .await
+            .expect("connect event should be dispatched");
+
+        // Run the cluster while there are events
+        let disconnected = driver
+            .run_until(Duration::from_secs(CONNECTED_TIME_SEC), |_, event, _| {
+                matches!(
+                    event,
+                    Event::P2p(P2pEvent::Connection(P2pConnectionEvent::Closed(_)))
+                )
+            })
+            .await
+            .unwrap();
+
+        assert!(!disconnected, "there shouldn't be a disconnection");
+    }
+}
+
 /// Two nodes should stay connected for a long period of time.
+///
+/// TODO: this is worth to make it slightly more sophisticated...
 #[derive(documented::Documented, Default, Clone, Copy)]
 pub struct ConnectionStability;
 

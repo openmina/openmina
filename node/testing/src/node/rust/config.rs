@@ -27,6 +27,7 @@ pub struct RustNodeTestingConfig {
     pub snark_worker: Option<SnarkerConfig>,
     pub block_producer: Option<RustNodeBlockProducerTestingConfig>,
     pub timeouts: P2pTimeouts,
+    pub libp2p_port: Option<u16>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -47,6 +48,7 @@ impl RustNodeTestingConfig {
             block_producer: None,
             snark_worker: None,
             timeouts: P2pTimeouts::default(),
+            libp2p_port: None,
         }
     }
 
@@ -77,6 +79,11 @@ impl RustNodeTestingConfig {
 
     pub fn with_timeouts(mut self, timeouts: P2pTimeouts) -> Self {
         self.timeouts = timeouts;
+        self
+    }
+
+    pub fn with_libp2p_port(mut self, libp2p_port: u16) -> Self {
+        self.libp2p_port = Some(libp2p_port);
         self
     }
 }

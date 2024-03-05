@@ -213,16 +213,17 @@ impl Cluster {
                 )
             })
             .unwrap();
-        let libp2p_port = self
-            .available_ports
-            .next()
-            .ok_or_else(|| {
-                anyhow::anyhow!(
-                    "couldn't find available port in port range: {:?}",
-                    self.config.port_range()
-                )
-            })
-            .unwrap();
+        let libp2p_port = testing_config.libp2p_port.unwrap_or_else(|| {
+            self.available_ports
+                .next()
+                .ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "couldn't find available port in port range: {:?}",
+                        self.config.port_range()
+                    )
+                })
+                .unwrap()
+        });
 
         let (block_producer_sec_key, block_producer_config) = testing_config
             .block_producer

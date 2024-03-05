@@ -56,6 +56,7 @@ impl Simulator {
             block_producer: None,
             snark_worker: None,
             timeouts: Default::default(),
+            libp2p_port: None,
         }
     }
 

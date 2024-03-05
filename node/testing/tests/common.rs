@@ -10,8 +10,10 @@ macro_rules! scenario_doc {
 
 #[macro_export]
 macro_rules! scenario_test {
-    ($name:ident, $scenario:ty, $scenario_instance:expr) => {
+
+    ($(#[$meta:meta])? $name:ident, $scenario:ty, $scenario_instance:expr) => {
         #[tokio::test]
+        $(#[$meta])?
         async fn $name() {
             use openmina_node_testing::{
                 cluster::{Cluster, ClusterConfig},
