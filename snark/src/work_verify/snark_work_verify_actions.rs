@@ -30,7 +30,7 @@ pub enum SnarkWorkVerifyAction {
 }
 
 impl redux::EnablingCondition<crate::SnarkState> for SnarkWorkVerifyAction {
-    fn is_enabled(&self, state: &crate::SnarkState) -> bool {
+    fn is_enabled(&self, state: &crate::SnarkState, _time: redux::Timestamp) -> bool {
         match self {
             SnarkWorkVerifyAction::Init { req_id, batch, .. } => {
                 !batch.is_empty() && state.work_verify.jobs.next_req_id() == *req_id

@@ -97,7 +97,7 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
             #[cfg(feature = "p2p-libp2p")]
             {
                 let state = store.state();
-                for (peer_id, id) in state.p2p.peer_rpc_timeouts(state.time()) {
+                for (peer_id, id) in state.p2p.peer_rpc_timeouts(meta.prev_time()) {
                     store.dispatch(P2pChannelsRpcAction::Timeout { peer_id, id });
                 }
             }

@@ -84,7 +84,7 @@ fn should_request_ledger_initial_state(state: &crate::State, pub_key: &NonZeroCu
 }
 
 impl redux::EnablingCondition<crate::State> for WatchedAccountsAction {
-    fn is_enabled(&self, state: &crate::State) -> bool {
+    fn is_enabled(&self, state: &crate::State, time: redux::Timestamp) -> bool {
         match self {
             WatchedAccountsAction::Add { pub_key } => state.watched_accounts.get(pub_key).is_none(),
             WatchedAccountsAction::LedgerInitialStateGetInit { pub_key } => {
@@ -105,10 +105,9 @@ impl redux::EnablingCondition<crate::State> for WatchedAccountsAction {
                 .watched_accounts
                 .get(pub_key)
                 .map_or(false, |a| match &a.initial_state {
-                    WatchedAccountLedgerInitialState::Error { time, .. } => state
-                        .time()
-                        .checked_sub(*time)
-                        .map_or(false, |d| d.as_secs() >= 3),
+                    WatchedAccountLedgerInitialState::Error { time: t, .. } => {
+                        time.checked_sub(*t).map_or(false, |d| d.as_secs() >= 3)
+                    }
                     _ => false,
                 }),
             WatchedAccountsAction::LedgerInitialStateGetSuccess { pub_key, .. } => {

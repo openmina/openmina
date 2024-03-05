@@ -15,14 +15,14 @@ pub enum P2pNetworkAction {
 }
 
 impl redux::EnablingCondition<P2pState> for P2pNetworkAction {
-    fn is_enabled(&self, state: &P2pState) -> bool {
+    fn is_enabled(&self, state: &P2pState, time: redux::Timestamp) -> bool {
         match self {
-            Self::Scheduler(v) => v.is_enabled(state),
-            Self::Pnet(v) => v.is_enabled(state),
-            Self::Select(v) => v.is_enabled(state),
-            Self::Noise(v) => v.is_enabled(state),
-            Self::Yamux(v) => v.is_enabled(state),
-            Self::Rpc(v) => v.is_enabled(state),
+            Self::Scheduler(v) => v.is_enabled(state, time),
+            Self::Pnet(v) => v.is_enabled(state, time),
+            Self::Select(v) => v.is_enabled(state, time),
+            Self::Noise(v) => v.is_enabled(state, time),
+            Self::Yamux(v) => v.is_enabled(state, time),
+            Self::Rpc(v) => v.is_enabled(state, time),
         }
     }
 }

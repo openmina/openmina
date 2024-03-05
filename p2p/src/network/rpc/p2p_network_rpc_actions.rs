@@ -114,43 +114,43 @@ impl From<P2pNetworkRpcOutgoingDataAction> for crate::P2pAction {
 }
 
 impl redux::EnablingCondition<P2pState> for P2pNetworkRpcAction {
-    fn is_enabled(&self, state: &P2pState) -> bool {
+    fn is_enabled(&self, state: &P2pState, time: redux::Timestamp) -> bool {
         match self {
-            Self::Init(v) => v.is_enabled(state),
-            Self::IncomingData(v) => v.is_enabled(state),
-            Self::IncomingMessage(v) => v.is_enabled(state),
-            Self::OutgoingQuery(v) => v.is_enabled(state),
-            Self::OutgoingData(v) => v.is_enabled(state),
+            Self::Init(v) => v.is_enabled(state, time),
+            Self::IncomingData(v) => v.is_enabled(state, time),
+            Self::IncomingMessage(v) => v.is_enabled(state, time),
+            Self::OutgoingQuery(v) => v.is_enabled(state, time),
+            Self::OutgoingData(v) => v.is_enabled(state, time),
         }
     }
 }
 
 impl redux::EnablingCondition<P2pState> for P2pNetworkRpcInitAction {
-    fn is_enabled(&self, _state: &P2pState) -> bool {
+    fn is_enabled(&self, _state: &P2pState, _time: redux::Timestamp) -> bool {
         true
     }
 }
 
 impl redux::EnablingCondition<P2pState> for P2pNetworkRpcIncomingDataAction {
-    fn is_enabled(&self, _state: &P2pState) -> bool {
+    fn is_enabled(&self, _state: &P2pState, _time: redux::Timestamp) -> bool {
         true
     }
 }
 
 impl redux::EnablingCondition<P2pState> for P2pNetworkRpcIncomingMessageAction {
-    fn is_enabled(&self, _state: &P2pState) -> bool {
+    fn is_enabled(&self, _state: &P2pState, _time: redux::Timestamp) -> bool {
         true
     }
 }
 
 impl redux::EnablingCondition<P2pState> for P2pNetworkRpcOutgoingQueryAction {
-    fn is_enabled(&self, _state: &P2pState) -> bool {
+    fn is_enabled(&self, _state: &P2pState, _time: redux::Timestamp) -> bool {
         true
     }
 }
 
 impl redux::EnablingCondition<P2pState> for P2pNetworkRpcOutgoingDataAction {
-    fn is_enabled(&self, _state: &P2pState) -> bool {
+    fn is_enabled(&self, _state: &P2pState, _time: redux::Timestamp) -> bool {
         true
     }
 }

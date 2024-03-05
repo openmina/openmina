@@ -9,7 +9,6 @@ impl P2pChannelsSnarkJobCommitmentAction {
     where
         Store: crate::P2pStore<S>,
         Store::Service: P2pChannelsService,
-        P2pChannelsSnarkJobCommitmentAction: redux::EnablingCondition<S>,
     {
         match self {
             P2pChannelsSnarkJobCommitmentAction::Init { peer_id } => {

@@ -30,7 +30,7 @@ pub enum P2pDiscoveryAction {
 }
 
 impl redux::EnablingCondition<P2pState> for P2pDiscoveryAction {
-    fn is_enabled(&self, state: &P2pState) -> bool {
+    fn is_enabled(&self, state: &P2pState, _time: redux::Timestamp) -> bool {
         match self {
             Self::Init { peer_id } => state.get_ready_peer(peer_id).is_some(),
             Self::Success { .. } => true,

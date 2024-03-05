@@ -104,50 +104,50 @@ impl From<P2pNetworkYamuxOpenStreamAction> for crate::P2pAction {
 }
 
 impl redux::EnablingCondition<P2pState> for P2pNetworkYamuxAction {
-    fn is_enabled(&self, state: &P2pState) -> bool {
+    fn is_enabled(&self, state: &P2pState, time: redux::Timestamp) -> bool {
         match self {
-            Self::IncomingData(v) => v.is_enabled(state),
-            Self::OutgoingData(v) => v.is_enabled(state),
-            Self::IncomingFrame(v) => v.is_enabled(state),
-            Self::OutgoingFrame(v) => v.is_enabled(state),
-            Self::PingStream(v) => v.is_enabled(state),
-            Self::OpenStream(v) => v.is_enabled(state),
+            Self::IncomingData(v) => v.is_enabled(state, time),
+            Self::OutgoingData(v) => v.is_enabled(state, time),
+            Self::IncomingFrame(v) => v.is_enabled(state, time),
+            Self::OutgoingFrame(v) => v.is_enabled(state, time),
+            Self::PingStream(v) => v.is_enabled(state, time),
+            Self::OpenStream(v) => v.is_enabled(state, time),
         }
     }
 }
 
 impl redux::EnablingCondition<P2pState> for P2pNetworkYamuxIncomingDataAction {
-    fn is_enabled(&self, _state: &P2pState) -> bool {
+    fn is_enabled(&self, _state: &P2pState, _time: redux::Timestamp) -> bool {
         true
     }
 }
 
 impl redux::EnablingCondition<P2pState> for P2pNetworkYamuxOutgoingDataAction {
-    fn is_enabled(&self, _state: &P2pState) -> bool {
+    fn is_enabled(&self, _state: &P2pState, _time: redux::Timestamp) -> bool {
         true
     }
 }
 
 impl redux::EnablingCondition<P2pState> for P2pNetworkYamuxIncomingFrameAction {
-    fn is_enabled(&self, _state: &P2pState) -> bool {
+    fn is_enabled(&self, _state: &P2pState, _time: redux::Timestamp) -> bool {
         true
     }
 }
 
 impl redux::EnablingCondition<P2pState> for P2pNetworkYamuxOutgoingFrameAction {
-    fn is_enabled(&self, _state: &P2pState) -> bool {
+    fn is_enabled(&self, _state: &P2pState, _time: redux::Timestamp) -> bool {
         true
     }
 }
 
 impl redux::EnablingCondition<P2pState> for P2pNetworkYamuxPingStreamAction {
-    fn is_enabled(&self, _state: &P2pState) -> bool {
+    fn is_enabled(&self, _state: &P2pState, _time: redux::Timestamp) -> bool {
         true
     }
 }
 
 impl redux::EnablingCondition<P2pState> for P2pNetworkYamuxOpenStreamAction {
-    fn is_enabled(&self, _state: &P2pState) -> bool {
+    fn is_enabled(&self, _state: &P2pState, _time: redux::Timestamp) -> bool {
         true
     }
 }

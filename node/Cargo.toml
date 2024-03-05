@@ -18,7 +18,7 @@ bs58 = "0.4.0"
 bincode = "1.3.3"
 hex = "0.4.3"
 rand = "0.8"
-redux = { git = "https://github.com/openmina/redux-rs.git", branch="feat/global-time", features = ["serde"] }
+redux = { workspace = true }
 mina-hasher = { workspace = true }
 mina-signer = { workspace = true }
 ledger = { workspace = true }

@@ -22,7 +22,7 @@ pub struct TransitionFrontierSyncedAction {
 }
 
 impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncedAction {
-    fn is_enabled(&self, state: &crate::State) -> bool {
+    fn is_enabled(&self, state: &crate::State, _time: redux::Timestamp) -> bool {
         matches!(
             state.transition_frontier.sync,
             TransitionFrontierSyncState::BlocksSuccess { .. }

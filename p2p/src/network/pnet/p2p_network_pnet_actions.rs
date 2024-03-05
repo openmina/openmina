@@ -67,25 +67,25 @@ impl From<P2pNetworkPnetSetupNonceAction> for crate::P2pAction {
 }
 
 impl redux::EnablingCondition<P2pState> for P2pNetworkPnetAction {
-    fn is_enabled(&self, _state: &P2pState) -> bool {
+    fn is_enabled(&self, _state: &P2pState, _time: redux::Timestamp) -> bool {
         true
     }
 }
 
 impl redux::EnablingCondition<P2pState> for P2pNetworkPnetIncomingDataAction {
-    fn is_enabled(&self, _state: &P2pState) -> bool {
+    fn is_enabled(&self, _state: &P2pState, _time: redux::Timestamp) -> bool {
         true
     }
 }
 
 impl redux::EnablingCondition<P2pState> for P2pNetworkPnetOutgoingDataAction {
-    fn is_enabled(&self, _state: &P2pState) -> bool {
+    fn is_enabled(&self, _state: &P2pState, _time: redux::Timestamp) -> bool {
         true
     }
 }
 
 impl redux::EnablingCondition<P2pState> for P2pNetworkPnetSetupNonceAction {
-    fn is_enabled(&self, _state: &P2pState) -> bool {
+    fn is_enabled(&self, _state: &P2pState, _time: redux::Timestamp) -> bool {
         true
     }
 }

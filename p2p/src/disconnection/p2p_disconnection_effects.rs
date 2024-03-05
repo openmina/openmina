@@ -7,7 +7,6 @@ impl P2pDisconnectionAction {
     where
         Store: crate::P2pStore<S>,
         Store::Service: P2pDisconnectionService,
-        P2pDisconnectionAction: redux::EnablingCondition<S>,
     {
         match self {
             P2pDisconnectionAction::Init { peer_id, .. } => {

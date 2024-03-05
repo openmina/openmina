@@ -57,7 +57,7 @@ pub enum TransitionFrontierSyncLedgerSnarkedAction {
 }
 
 impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerSnarkedAction {
-    fn is_enabled(&self, state: &crate::State) -> bool {
+    fn is_enabled(&self, state: &crate::State, _time: redux::Timestamp) -> bool {
         match self {
             TransitionFrontierSyncLedgerSnarkedAction::Pending => {
                 state.transition_frontier.sync.ledger().map_or(false, |s| {

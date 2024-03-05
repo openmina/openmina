@@ -28,7 +28,7 @@ impl P2pPeerAction {
 }
 
 impl redux::EnablingCondition<P2pState> for P2pPeerAction {
-    fn is_enabled(&self, state: &P2pState) -> bool {
+    fn is_enabled(&self, state: &P2pState, _time: redux::Timestamp) -> bool {
         match self {
             Self::Ready { peer_id, .. } => state
                 .peers

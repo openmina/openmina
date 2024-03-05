@@ -51,7 +51,7 @@ pub type ExternalSnarkWorkerActionWithMetaRef<'a> =
     redux::ActionWithMeta<&'a ExternalSnarkWorkerAction>;
 
 impl EnablingCondition<State> for ExternalSnarkWorkerAction {
-    fn is_enabled(&self, state: &State) -> bool {
+    fn is_enabled(&self, state: &State, _time: redux::Timestamp) -> bool {
         match self {
             ExternalSnarkWorkerAction::Start => {
                 state.config.snarker.is_some()

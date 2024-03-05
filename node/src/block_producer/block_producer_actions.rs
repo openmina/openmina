@@ -41,9 +41,9 @@ pub enum BlockProducerAction {
 }
 
 impl redux::EnablingCondition<crate::State> for BlockProducerAction {
-    fn is_enabled(&self, state: &crate::State) -> bool {
+    fn is_enabled(&self, state: &crate::State, time: redux::Timestamp) -> bool {
         match self {
-            BlockProducerAction::VrfEvaluator(a) => a.is_enabled(state),
+            BlockProducerAction::VrfEvaluator(a) => a.is_enabled(state, time),
             BlockProducerAction::BestTipUpdate { .. } => true,
             BlockProducerAction::WonSlotSearch => state
                 .block_producer
@@ -66,12 +66,12 @@ impl redux::EnablingCondition<crate::State> for BlockProducerAction {
                     && won_slot.global_slot() >= state.cur_global_slot().unwrap()
                     && won_slot > best_tip
             }),
-            BlockProducerAction::WonSlotWait => state.block_producer.with(false, |this| {
-                this.current.won_slot_should_wait(state.time())
-            }),
-            BlockProducerAction::WonSlotProduceInit => state.block_producer.with(false, |this| {
-                this.current.won_slot_should_produce(state.time())
-            }),
+            BlockProducerAction::WonSlotWait => state
+                .block_producer
+                .with(false, |this| this.current.won_slot_should_wait(time)),
+            BlockProducerAction::WonSlotProduceInit => state
+                .block_producer
+                .with(false, |this| this.current.won_slot_should_produce(time)),
             BlockProducerAction::StagedLedgerDiffCreateInit => {
                 state.block_producer.with(false, |this| {
                     matches!(

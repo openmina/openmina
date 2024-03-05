@@ -11,10 +11,6 @@ impl P2pPeerAction {
     pub fn effects<Store, S>(self, _: &ActionMeta, store: &mut Store)
     where
         Store: crate::P2pStore<S>,
-        P2pChannelsBestTipAction: redux::EnablingCondition<S>,
-        P2pChannelsSnarkAction: redux::EnablingCondition<S>,
-        P2pChannelsSnarkJobCommitmentAction: redux::EnablingCondition<S>,
-        P2pChannelsRpcAction: redux::EnablingCondition<S>,
     {
         match self {
             P2pPeerAction::Ready { peer_id, .. } => {

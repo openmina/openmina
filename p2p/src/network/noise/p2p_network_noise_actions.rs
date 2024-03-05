@@ -122,57 +122,57 @@ impl From<P2pNetworkNoiseHandshakeDoneAction> for crate::P2pAction {
 }
 
 impl redux::EnablingCondition<P2pState> for P2pNetworkNoiseAction {
-    fn is_enabled(&self, state: &P2pState) -> bool {
+    fn is_enabled(&self, state: &P2pState, time: redux::Timestamp) -> bool {
         match self {
-            Self::Init(v) => v.is_enabled(state),
-            Self::IncomingData(v) => v.is_enabled(state),
-            Self::IncomingChunk(v) => v.is_enabled(state),
-            Self::OutgoingChunk(v) => v.is_enabled(state),
-            Self::OutgoingData(v) => v.is_enabled(state),
-            Self::DecryptedData(v) => v.is_enabled(state),
-            Self::HandshakeDone(v) => v.is_enabled(state),
+            Self::Init(v) => v.is_enabled(state, time),
+            Self::IncomingData(v) => v.is_enabled(state, time),
+            Self::IncomingChunk(v) => v.is_enabled(state, time),
+            Self::OutgoingChunk(v) => v.is_enabled(state, time),
+            Self::OutgoingData(v) => v.is_enabled(state, time),
+            Self::DecryptedData(v) => v.is_enabled(state, time),
+            Self::HandshakeDone(v) => v.is_enabled(state, time),
         }
     }
 }
 
 impl redux::EnablingCondition<P2pState> for P2pNetworkNoiseInitAction {
-    fn is_enabled(&self, _state: &P2pState) -> bool {
+    fn is_enabled(&self, _state: &P2pState, _time: redux::Timestamp) -> bool {
         true
     }
 }
 
 impl redux::EnablingCondition<P2pState> for P2pNetworkNoiseIncomingDataAction {
-    fn is_enabled(&self, _state: &P2pState) -> bool {
+    fn is_enabled(&self, _state: &P2pState, _time: redux::Timestamp) -> bool {
         true
     }
 }
 
 impl redux::EnablingCondition<P2pState> for P2pNetworkNoiseIncomingChunkAction {
-    fn is_enabled(&self, _state: &P2pState) -> bool {
+    fn is_enabled(&self, _state: &P2pState, _time: redux::Timestamp) -> bool {
         true
     }
 }
 
 impl redux::EnablingCondition<P2pState> for P2pNetworkNoiseOutgoingChunkAction {
-    fn is_enabled(&self, _state: &P2pState) -> bool {
+    fn is_enabled(&self, _state: &P2pState, _time: redux::Timestamp) -> bool {
         true
     }
 }
 
 impl redux::EnablingCondition<P2pState> for P2pNetworkNoiseOutgoingDataAction {
-    fn is_enabled(&self, _state: &P2pState) -> bool {
+    fn is_enabled(&self, _state: &P2pState, _time: redux::Timestamp) -> bool {
         true
     }
 }
 
 impl redux::EnablingCondition<P2pState> for P2pNetworkNoiseDecryptedDataAction {
-    fn is_enabled(&self, _state: &P2pState) -> bool {
+    fn is_enabled(&self, _state: &P2pState, _time: redux::Timestamp) -> bool {
         true
     }
 }
 
 impl redux::EnablingCondition<P2pState> for P2pNetworkNoiseHandshakeDoneAction {
-    fn is_enabled(&self, _state: &P2pState) -> bool {
+    fn is_enabled(&self, _state: &P2pState, _time: redux::Timestamp) -> bool {
         true
     }
 }

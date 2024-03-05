@@ -17,7 +17,7 @@ num_cpus = "1.0"
 rayon = "1.5"
 tokio = { version = "1.26.0" }
 libp2p-identity = { version = "=0.2.7", features = ["peerid"] }
-redux = { git = "https://github.com/openmina/redux-rs.git", branch="feat/global-time", features = ["serde"] }
+redux = { workspace = true }
 ledger = { workspace = true }
 mina-p2p-messages = { workspace = true }
 vrf = { workspace = true }
