@@ -20,13 +20,14 @@ impl BlockProducerVrfEvaluatorAction {
             BlockProducerVrfEvaluatorAction::ProcessSlotEvaluationSuccess {
                 vrf_output, ..
             } => {
+                // TODO(adonagy): pure function, move to reducer
                 let epoch_bound = |global_slot| -> (u32, bool) {
                     (
                         global_slot / SLOTS_PER_EPOCH,
                         (global_slot + 1) % SLOTS_PER_EPOCH == 0,
                     )
                 };
-                let (epoch, is_epoch_end) = epoch_bound(vrf_output.global_slot());
+                let (_, is_epoch_end) = epoch_bound(vrf_output.global_slot());
 
                 const SLOTS_PER_EPOCH: u32 = 7140;
 
@@ -35,7 +36,6 @@ impl BlockProducerVrfEvaluatorAction {
                         if is_epoch_end {
                             store.dispatch(
                                 BlockProducerVrfEvaluatorAction::FinishEpochEvaluation {
-                                    epoch_context: pending_evaluation.epoch_context,
                                     epoch_number: pending_evaluation.epoch_number,
                                     last_evaluated_global_slot: vrf_output.global_slot(),
                                 },
@@ -43,7 +43,6 @@ impl BlockProducerVrfEvaluatorAction {
                         } else {
                             store.dispatch(
                                 BlockProducerVrfEvaluatorAction::ContinueEpochEvaluation {
-                                    epoch_context: pending_evaluation.epoch_context,
                                     latest_evaluated_global_slot: vrf_output.global_slot(),
                                     epoch_number: pending_evaluation.epoch_number,
                                 },
@@ -53,6 +52,7 @@ impl BlockProducerVrfEvaluatorAction {
                 }
             }
             BlockProducerVrfEvaluatorAction::InitializeEvaluator { best_tip } => {
+                // TODO(adonagy): pure function, move to reducer
                 if store.state().block_producer.vrf_evaluator().is_some() {
                     if best_tip.consensus_state().epoch_count.as_u32() == 0 {
                         store.dispatch(
@@ -105,10 +105,11 @@ impl BlockProducerVrfEvaluatorAction {
             } => {
                 let vrf_evaluator_state = store.state().block_producer.vrf_evaluator_with_config();
 
+                // TODO(adonagy) pure function, move to reducer, hmm config?
                 if let Some((vrf_evaluator_state, config)) = vrf_evaluator_state {
-                    let last_epoch_block_height =
+                    let last_epoch_block_height: Option<u32> =
                         vrf_evaluator_state.last_height(current_epoch_number - 1);
-                    let epoch_data = match vrf_evaluator_state.status.epoch_to_evaluate() {
+                    let epoch_data = match vrf_evaluator_state.epoch_context() {
                         EpochContext::Current => EpochData::new(
                             staking_epoch_data.seed.to_string(),
                             staking_epoch_data.ledger.hash,
@@ -136,7 +137,6 @@ impl BlockProducerVrfEvaluatorAction {
                     };
                     println!("[Initialize epoch eval]");
                     store.dispatch(BlockProducerVrfEvaluatorAction::InitializeEpochEvaluation {
-                        epoch_context: vrf_evaluator_state.status.epoch_to_evaluate(),
                         staking_epoch_data: epoch_data,
                         producer: config.pub_key.clone().into(),
                         current_best_tip_height,
@@ -149,7 +149,6 @@ impl BlockProducerVrfEvaluatorAction {
                 }
             }
             BlockProducerVrfEvaluatorAction::InitializeEpochEvaluation {
-                epoch_context,
                 staking_epoch_data,
                 producer,
                 current_epoch_number,
@@ -161,7 +160,6 @@ impl BlockProducerVrfEvaluatorAction {
             } => {
                 store.dispatch(
                     BlockProducerVrfEvaluatorAction::BeginDelegatorTableConstruction {
-                        epoch_context,
                         staking_epoch_data,
                         producer,
                         current_best_tip_height,
@@ -174,7 +172,6 @@ impl BlockProducerVrfEvaluatorAction {
                 );
             }
             BlockProducerVrfEvaluatorAction::BeginDelegatorTableConstruction {
-                epoch_context,
                 staking_epoch_data,
                 producer,
                 current_epoch_number,
@@ -193,7 +190,6 @@ impl BlockProducerVrfEvaluatorAction {
 
                 store.dispatch(
                     BlockProducerVrfEvaluatorAction::FinalizeDelegatorTableConstruction {
-                        epoch_context,
                         staking_epoch_data: epoch_data,
                         producer,
                         current_epoch_number,
@@ -214,36 +210,30 @@ impl BlockProducerVrfEvaluatorAction {
                 next_epoch_first_slot,
                 ..
             } => {
-                if let (Some(vrf_evaluator_state), Some(current_global_slot)) = (
-                    store.state().block_producer.vrf_evaluator(),
-                    store.state().cur_global_slot(),
-                ) {
-                    // TODO(adonagy): move this?
-                    let latest_evaluated_global_slot =
-                        match vrf_evaluator_state.status.epoch_context() {
-                            // Note: BlockProducerVrfEvaluateEpochAction increments the slot at each dispatch
-                            // For current epoch evaluation start at the current_global slot
-                            EpochContext::Current => current_global_slot,
-                            EpochContext::Next => next_epoch_first_slot - 1,
-                            EpochContext::Waiting => return,
-                        };
-
-                    store.dispatch(BlockProducerVrfEvaluatorAction::BeginEpochEvaluation {
-                        epoch_context: vrf_evaluator_state.status.epoch_context(),
-                        current_best_tip_height,
-                        current_best_tip_global_slot,
-                        current_best_tip_slot,
-                        current_epoch_number,
-                        staking_epoch_data,
-                        latest_evaluated_global_slot,
-                    });
-                }
+                // TODO(adonagy): pure function, move to reducer
+                let current_global_slot =
+                    if let Some(current_global_slot) = store.state().cur_global_slot() {
+                        current_global_slot
+                    } else {
+                        // error here!
+                        return;
+                    };
+                store.dispatch(BlockProducerVrfEvaluatorAction::SelectInitialSlot {
+                    current_global_slot,
+                    current_best_tip_height,
+                    current_best_tip_global_slot,
+                    current_best_tip_slot,
+                    current_epoch_number,
+                    staking_epoch_data,
+                    next_epoch_first_slot,
+                });
             }
             BlockProducerVrfEvaluatorAction::BeginEpochEvaluation {
                 staking_epoch_data,
                 latest_evaluated_global_slot,
                 ..
             } => {
+                // TODO(adonagy): pure function, move to reducer
                 let next_slot = latest_evaluated_global_slot + 1;
 
                 let vrf_input = VrfEvaluatorInput::new(
@@ -257,6 +247,7 @@ impl BlockProducerVrfEvaluatorAction {
             }
             BlockProducerVrfEvaluatorAction::RecordLastBlockHeightInEpoch { .. } => {}
             BlockProducerVrfEvaluatorAction::ContinueEpochEvaluation { .. } => {
+                // TODO(adonagy): pure function, move to reducer
                 if let Some(vrf_evaluator_state) = store.state().block_producer.vrf_evaluator() {
                     if let Some(vrf_input) = vrf_evaluator_state.construct_vrf_input() {
                         store.dispatch(BlockProducerVrfEvaluatorAction::EvaluateSlot { vrf_input });
@@ -265,6 +256,31 @@ impl BlockProducerVrfEvaluatorAction {
             }
             BlockProducerVrfEvaluatorAction::FinishEpochEvaluation { .. } => {}
             BlockProducerVrfEvaluatorAction::WaitForNextEvaluation { .. } => {}
+            BlockProducerVrfEvaluatorAction::SelectInitialSlot {
+                current_epoch_number,
+                current_best_tip_height,
+                current_best_tip_global_slot,
+                current_best_tip_slot,
+                staking_epoch_data,
+                ..
+            } => {
+                // TODO(adonagy): pure function, move to reducer
+                if let Some(initial_slot) = store
+                    .state()
+                    .block_producer
+                    .vrf_evaluator()
+                    .and_then(|v| v.initial_slot())
+                {
+                    store.dispatch(BlockProducerVrfEvaluatorAction::BeginEpochEvaluation {
+                        current_epoch_number,
+                        current_best_tip_height,
+                        current_best_tip_global_slot,
+                        current_best_tip_slot,
+                        staking_epoch_data,
+                        latest_evaluated_global_slot: initial_slot,
+                    });
+                }
+            }
         }
     }
 }

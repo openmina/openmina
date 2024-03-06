@@ -1044,7 +1044,6 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     )
                 }
                 BlockProducerVrfEvaluatorAction::InitializeEpochEvaluation {
-                    epoch_context,
                     current_epoch_number,
                     current_best_tip_global_slot,
                     current_best_tip_slot,
@@ -1055,14 +1054,12 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                         kind = kind.to_string(),
                         summary = format!("Constructing delegator table"),
                         status = store.state().block_producer.vrf_evaluator().unwrap().status.to_string(), // TODO: keep? if yes, no unwrap
-                        epoch_context = epoch_context.to_string(),
                         current_epoch = current_epoch_number,
                         current_best_tip_global_slot = current_best_tip_global_slot,
                         current_best_tip_slot = current_best_tip_slot,
                     )
                 }
                 BlockProducerVrfEvaluatorAction::BeginDelegatorTableConstruction {
-                    epoch_context,
                     current_epoch_number,
                     current_best_tip_global_slot,
                     current_best_tip_slot,
@@ -1073,14 +1070,12 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                         kind = kind.to_string(),
                         summary = format!("Constructing delegator table"),
                         status = store.state().block_producer.vrf_evaluator().unwrap().status.to_string(), // TODO: keep? if yes, no unwrap
-                        epoch_context = epoch_context.to_string(),
                         current_epoch = current_epoch_number,
                         current_best_tip_global_slot = current_best_tip_global_slot,
                         current_best_tip_slot = current_best_tip_slot,
                     )
                 }
                 BlockProducerVrfEvaluatorAction::BeginEpochEvaluation {
-                    epoch_context,
                     current_epoch_number,
                     current_best_tip_global_slot,
                     current_best_tip_slot,
@@ -1091,14 +1086,12 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                         kind = kind.to_string(),
                         summary = format!("Starting epoch evaluation"),
                         status = store.state().block_producer.vrf_evaluator().unwrap().status.to_string(), // TODO: keep? if yes, no unwrap
-                        epoch_context = epoch_context.to_string(),
                         current_epoch = current_epoch_number,
                         current_best_tip_global_slot = current_best_tip_global_slot,
                         current_best_tip_slot = current_best_tip_slot,
                     )
                 }
                 BlockProducerVrfEvaluatorAction::FinalizeDelegatorTableConstruction {
-                    epoch_context,
                     current_epoch_number,
                     current_best_tip_global_slot,
                     current_best_tip_slot,
@@ -1109,7 +1102,6 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                         kind = kind.to_string(),
                         summary = format!("Delegator table constructed"),
                         status = store.state().block_producer.vrf_evaluator().unwrap().status.to_string(), // TODO: keep? if yes, no unwrap
-                        epoch_context = epoch_context.to_string(),
                         current_epoch = current_epoch_number,
                         current_best_tip_global_slot = current_best_tip_global_slot,
                         current_best_tip_slot = current_best_tip_slot,
@@ -1140,13 +1132,11 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                 BlockProducerVrfEvaluatorAction::FinishEpochEvaluation {
                     epoch_number,
                     last_evaluated_global_slot,
-                    epoch_context,
                 } => {
                     openmina_core::log::info!(
                         meta.time();
                         kind = kind.to_string(),
                         summary = format!("Epoch evaluation finished"),
-                        epoch_context = epoch_context.to_string(),
                         epoch_number = epoch_number,
                         last_evaluated_global_slot = last_evaluated_global_slot,
                     )
@@ -1160,6 +1150,19 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                         meta.time();
                         kind = kind.to_string(),
                         summary = format!("Waiting for epoch to evaluate"),
+                        epoch_number = current_epoch_number,
+                        current_best_tip_height = current_best_tip_height,
+                    )
+                }
+                BlockProducerVrfEvaluatorAction::SelectInitialSlot {
+                    current_epoch_number,
+                    current_best_tip_height,
+                    ..
+                } => {
+                    openmina_core::log::info!(
+                        meta.time();
+                        kind = kind.to_string(),
+                        summary = format!("Selecting starting slot"),
                         epoch_number = current_epoch_number,
                         current_best_tip_height = current_best_tip_height,
                     )

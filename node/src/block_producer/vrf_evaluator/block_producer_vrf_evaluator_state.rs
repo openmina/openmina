@@ -18,7 +18,7 @@ pub struct BlockProducerVrfEvaluatorState {
     last_evaluated_epoch: Option<u32>,
     last_block_heights_in_epoch: BTreeMap<u32, u32>,
     pending_evaluation: Option<PendingEvaluation>,
-    // epoch_context: EpochContext,
+    epoch_context: EpochContext,
 }
 
 impl BlockProducerVrfEvaluatorState {
@@ -31,7 +31,7 @@ impl BlockProducerVrfEvaluatorState {
             last_evaluated_epoch: Default::default(),
             last_block_heights_in_epoch: Default::default(),
             pending_evaluation: Default::default(),
-            // epoch_context: EpochContext::Current,
+            epoch_context: EpochContext::Current,
         }
     }
 
@@ -48,13 +48,48 @@ impl BlockProducerVrfEvaluatorState {
             .find(|won_slot| won_slot > best_tip)
     }
 
-    // pub fn epoch_context(&self) -> &EpochContext {
-    //     &self.epoch_context
-    // }
+    pub fn epoch_context(&self) -> &EpochContext {
+        &self.epoch_context
+    }
 
-    // pub fn set_epoch_context(&mut self) {
+    pub fn set_epoch_context(&mut self) {
+        // guard the epoch context change and permit it only if in the ReadinessCheck state
+        if let BlockProducerVrfEvaluatorStatus::ReadinessCheck {
+            last_epoch_block_height,
+            current_best_tip_height,
+            transition_frontier_size,
+            current_epoch_number,
+            ..
+        } = self.status
+        {
+            if !self.is_epoch_evaluated(current_epoch_number) {
+                self.epoch_context = EpochContext::Current
+            } else if !self.is_epoch_evaluated(current_epoch_number + 1) {
+                if let Some(last_epoch_block_height) = last_epoch_block_height {
+                    if (last_epoch_block_height + transition_frontier_size)
+                        >= current_best_tip_height
+                    {
+                        self.epoch_context = EpochContext::Next
+                    } else {
+                        self.epoch_context = EpochContext::Waiting
+                    }
+                } else {
+                    // if last_epoch_block_height is not set, we are still in genesis epoch, Next epoch evaluation is possible
+                    self.epoch_context = EpochContext::Next
+                }
+            } else {
+                self.epoch_context = EpochContext::Waiting
+            }
+        }
+    }
 
-    // }
+    pub fn is_epoch_evaluated(&self, epoch_number: u32) -> bool {
+        if let Some(last_evaluated_epoch) = self.last_evaluated_epoch {
+            last_evaluated_epoch >= epoch_number
+        } else {
+            false
+        }
+    }
 
     pub fn last_evaluated_epoch(&self) -> Option<u32> {
         self.last_evaluated_epoch
@@ -72,8 +107,74 @@ impl BlockProducerVrfEvaluatorState {
         self.latest_evaluated_slot
     }
 
+    pub fn is_readiness_check(&self) -> bool {
+        matches!(
+            self.status,
+            BlockProducerVrfEvaluatorStatus::ReadinessCheck { .. }
+        )
+    }
+
+    pub fn is_waiting_for_slot_evaluation(&self) -> bool {
+        matches!(
+            self.status,
+            BlockProducerVrfEvaluatorStatus::SlotEvaluationPending { .. }
+        )
+    }
+
+    pub fn can_check_next_evaluation(&self) -> bool {
+        matches!(
+            self.status,
+            BlockProducerVrfEvaluatorStatus::WaitingForNextEvaluation { .. }
+                | BlockProducerVrfEvaluatorStatus::EpochEvaluationSuccess { .. }
+                | BlockProducerVrfEvaluatorStatus::InitialisationComplete { .. }
+        )
+    }
+
+    pub fn can_construct_delegator_table(&self) -> bool {
+        matches!(
+            self.status,
+            BlockProducerVrfEvaluatorStatus::ReadyToEvaluate { .. }
+        )
+    }
+
+    pub fn is_delegator_table_requested(&self) -> bool {
+        matches!(
+            self.status,
+            BlockProducerVrfEvaluatorStatus::EpochDelegatorTablePending { .. }
+        )
+    }
+
+    pub fn is_delegator_table_constructed(&self) -> bool {
+        matches!(
+            self.status,
+            BlockProducerVrfEvaluatorStatus::EpochDelegatorTableSuccess { .. }
+        )
+    }
+
+    pub fn can_start_epoch_evaluation(&self) -> bool {
+        matches!(
+            self.status,
+            BlockProducerVrfEvaluatorStatus::EpochDelegatorTableSuccess { .. }
+        )
+    }
+
+    pub fn is_evaluating(&self) -> bool {
+        matches!(
+            self.status,
+            BlockProducerVrfEvaluatorStatus::SlotEvaluationPending { .. }
+                | BlockProducerVrfEvaluatorStatus::EpochEvaluationPending { .. }
+        )
+    }
+
+    pub fn is_slot_selection(&self) -> bool {
+        matches!(
+            self.status,
+            BlockProducerVrfEvaluatorStatus::InitialSlotSelection { .. }
+        )
+    }
+
     pub fn set_last_evaluated_global_slot(&mut self, global_slot: &u32) {
-        if self.status.is_evaluating() {
+        if self.is_evaluating() {
             if let Some(ref mut pending_evaluation) = self.pending_evaluation {
                 pending_evaluation.latest_evaluated_slot = *global_slot;
             }
@@ -88,17 +189,24 @@ impl BlockProducerVrfEvaluatorState {
     }
 
     pub fn set_last_evaluated_epoch(&mut self) {
-        if let BlockProducerVrfEvaluatorStatus::EpochEvaluationSuccess {
-            epoch_number,
-            epoch_context,
-            ..
-        } = &self.status
+        if let BlockProducerVrfEvaluatorStatus::EpochEvaluationSuccess { epoch_number, .. } =
+            &self.status
         {
-            match epoch_context {
+            match self.epoch_context {
                 EpochContext::Current => self.last_evaluated_epoch = Some(*epoch_number),
                 EpochContext::Next => self.last_evaluated_epoch = Some(epoch_number + 1),
                 EpochContext::Waiting => {}
             }
+        }
+    }
+
+    pub fn initial_slot(&self) -> Option<u32> {
+        if let BlockProducerVrfEvaluatorStatus::InitialSlotSelection { initial_slot, .. } =
+            self.status
+        {
+            Some(initial_slot)
+        } else {
+            None
         }
     }
 
@@ -153,7 +261,6 @@ pub struct PendingEvaluation {
     pub epoch_number: u32,
     pub epoch_data: EpochData,
     pub latest_evaluated_slot: u32,
-    pub epoch_context: EpochContext,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -167,7 +274,6 @@ pub enum BlockProducerVrfEvaluatorStatus {
     /// Evaluator is ready and able to evaluate an epoch
     ReadyToEvaluate {
         time: redux::Timestamp,
-        epoch_context: EpochContext,
         current_epoch_number: u32,
         is_current_epoch_evaluated: bool,
         is_next_epoch_evaluated: bool,
@@ -177,14 +283,17 @@ pub enum BlockProducerVrfEvaluatorStatus {
         time: redux::Timestamp,
         epoch_number: u32,
         staking_epoch_ledger_hash: LedgerHash,
-        epoch_context: EpochContext,
     },
     /// Delegator table built successfully
     EpochDelegatorTableSuccess {
         time: redux::Timestamp,
         epoch_number: u32,
         staking_epoch_ledger_hash: LedgerHash,
-        epoch_context: EpochContext,
+    },
+    InitialSlotSelection {
+        time: redux::Timestamp,
+        epoch_number: u32,
+        initial_slot: u32,
     },
     /// Epoch evaluation in progress
     EpochEvaluationPending {
@@ -192,23 +301,16 @@ pub enum BlockProducerVrfEvaluatorStatus {
         epoch_number: u32,
         epoch_data: EpochData,
         latest_evaluated_global_slot: u32,
-        epoch_context: EpochContext,
     },
     /// A slot was sent for evaluation to the vrf evaluator service
     SlotEvaluationPending {
         time: redux::Timestamp,
-        // epoch_number: u32,
-        // epoch_data: EpochData,
-        // latest_evaluated_global_slot: u32,
         global_slot: u32,
-        // staking_epoch_ledger: LedgerHash,
-        epoch_context: EpochContext,
     },
     /// The service returned the evaluation succesfully
     EpochEvaluationSuccess {
         time: redux::Timestamp,
         epoch_number: u32,
-        epoch_context: EpochContext,
     },
     /// Waiting for the next possible epoch evaluation
     WaitingForNextEvaluation {
@@ -248,6 +350,7 @@ impl std::fmt::Display for BlockProducerVrfEvaluatorStatus {
             Self::EpochEvaluationSuccess { .. } => write!(f, "EpochEvaluationSuccess"),
             Self::WaitingForNextEvaluation { .. } => write!(f, "WaitingForNextEvaluation"),
             Self::ReadinessCheck { .. } => write!(f, "ReadinessCheck"),
+            Self::InitialSlotSelection { .. } => write!(f, "StartingSlotSelection"),
         }
     }
 }
@@ -270,215 +373,197 @@ impl std::fmt::Display for EpochContext {
 }
 
 impl BlockProducerVrfEvaluatorStatus {
-    pub fn epoch_context(&self) -> EpochContext {
-        match self {
-            Self::Idle { .. }
-            | Self::InitialisationPending { .. }
-            | Self::InitialisationComplete { .. } => EpochContext::Current,
-            Self::EpochDelegatorTablePending { epoch_context, .. }
-            | Self::EpochDelegatorTableSuccess { epoch_context, .. }
-            | Self::EpochEvaluationPending { epoch_context, .. }
-            | Self::EpochEvaluationSuccess { epoch_context, .. }
-            | Self::SlotEvaluationPending { epoch_context, .. }
-            | Self::ReadyToEvaluate { epoch_context, .. } => epoch_context.clone(),
-            Self::ReadinessCheck { .. } | Self::WaitingForNextEvaluation { .. } => {
-                EpochContext::Waiting
-            }
-        }
-    }
-
     pub fn is_initialized(&self) -> bool {
         !matches!(self, Self::Idle { .. })
     }
+}
 
-    pub fn is_evaluating_current_epoch(&self) -> bool {
-        match self {
-            Self::EpochEvaluationPending { epoch_context, .. }
-            | Self::SlotEvaluationPending { epoch_context, .. } => {
-                matches!(epoch_context, EpochContext::Current)
-            }
-            _ => false,
-        }
-    }
+#[cfg(test)]
+mod test {
+    use std::{collections::BTreeMap, sync::Mutex};
 
-    pub fn is_evaluating_next_epoch(&self) -> bool {
-        match self {
-            Self::EpochEvaluationPending { epoch_context, .. }
-            | Self::SlotEvaluationPending { epoch_context, .. } => {
-                matches!(epoch_context, EpochContext::Next)
-            }
-            _ => false,
-        }
-    }
+    use lazy_static::lazy_static;
 
-    pub fn is_evaluating(&self) -> bool {
-        self.is_evaluating_current_epoch() | self.is_evaluating_next_epoch()
-    }
+    use crate::block_producer::vrf_evaluator::{
+        BlockProducerVrfEvaluatorState, BlockProducerVrfEvaluatorStatus, EpochContext,
+    };
 
-    pub fn can_evaluate_epoch(&self, last_evaluated_epoch: Option<u32>) -> bool {
-        println!("[can_evaluate_epoch] STATE: {}", self);
-        match self {
-            // Self::InitialisationComplete { .. } => true,
-            Self::ReadinessCheck {
-                transition_frontier_size,
-                current_best_tip_height,
-                last_epoch_block_height,
-                current_epoch_number,
-                ..
-            } => {
-                // so the next_epoch_ledger (staking ledger for the next epoch) is "stabilized" (was in the root of the transition frontier)
-
-                // TODO(adonagy): edge case when the current epoch won't have enough slots filled, this is an extreme and should it happen the network has
-                // some serious issues. Handle it as well?
-                println!(
-                    "Is current epoch evaluated?: {}",
-                    self.is_current_epoch_evaluated(last_evaluated_epoch)
-                );
-                // predicate 1: if the current epoch is not evaluated, start the evaluation
-                if !self.is_current_epoch_evaluated(last_evaluated_epoch)
-                    || (!self.is_next_epoch_evaluated(last_evaluated_epoch)
-                        && *current_epoch_number == 0)
-                {
-                    true
-                // predicate 2: or only start the next epoch evaluation if the current epoch is evaluated
-                // predicate 3: and the next epoch is NOT evaluated
-                // predicate 4: and there were at least k (k == 290 == transition_frontier_size) blocks created in the current epoch
-                } else if let Some(last_epoch_block_height) = last_epoch_block_height {
-                    self.is_current_epoch_evaluated(last_evaluated_epoch)
-                        && !self.is_next_epoch_evaluated(last_evaluated_epoch)
-                        && (current_best_tip_height.saturating_sub(*last_epoch_block_height))
-                            > *transition_frontier_size
-                } else {
-                    false
-                }
-            }
-            _ => false,
-        }
-    }
-
-    pub fn is_readiness_check(&self) -> bool {
-        matches!(self, Self::ReadinessCheck { .. })
-    }
-
-    pub fn is_waiting_for_slot_evaluation(&self) -> bool {
-        matches!(self, Self::SlotEvaluationPending { .. })
-    }
-
-    pub fn can_check_next_evaluation(&self) -> bool {
-        matches!(
-            self,
-            Self::WaitingForNextEvaluation { .. }
-                | Self::EpochEvaluationSuccess { .. }
-                | Self::InitialisationComplete { .. }
-        )
-    }
-
-    pub fn epoch_to_evaluate(&self) -> EpochContext {
-        match self {
-            Self::ReadinessCheck {
-                is_current_epoch_evaluated,
-                is_next_epoch_evaluated,
-                last_evaluated_epoch,
-                ..
-            } => {
-                if !is_current_epoch_evaluated {
-                    EpochContext::Current
-                } else if !is_next_epoch_evaluated {
-                    if self.can_evaluate_epoch(*last_evaluated_epoch) {
-                        EpochContext::Next
-                    } else {
-                        EpochContext::Waiting
-                    }
-                } else {
-                    EpochContext::Waiting
-                }
-            }
-            _ => EpochContext::Waiting,
-        }
-    }
-
-    pub fn is_current_epoch_evaluated(&self, last_evaluated_epoch: Option<u32>) -> bool {
-        match self {
-            BlockProducerVrfEvaluatorStatus::ReadinessCheck {
-                current_epoch_number,
-                ..
-            }
-            | BlockProducerVrfEvaluatorStatus::ReadyToEvaluate {
-                current_epoch_number,
-                ..
-            } => last_evaluated_epoch >= Some(*current_epoch_number),
-            BlockProducerVrfEvaluatorStatus::EpochEvaluationSuccess {
+    lazy_static! {
+        static ref GENESIS_EPOCH_FIRST_SLOT: Mutex<BlockProducerVrfEvaluatorState> = {
+            let state = BlockProducerVrfEvaluatorState {
+                status: BlockProducerVrfEvaluatorStatus::ReadinessCheck {
+                    time: redux::Timestamp::global_now(),
+                    current_epoch_number: 0,
+                    is_current_epoch_evaluated: false,
+                    is_next_epoch_evaluated: false,
+                    transition_frontier_size: 290,
+                    current_best_tip_height: 1,
+                    last_evaluated_epoch: None,
+                    last_epoch_block_height: Some(1),
+                },
+                won_slots: BTreeMap::new(),
+                latest_evaluated_slot: 0,
+                genesis_timestamp: redux::Timestamp::global_now(),
+                last_evaluated_epoch: None,
+                last_block_heights_in_epoch: BTreeMap::new(),
+                pending_evaluation: None,
                 epoch_context: EpochContext::Current,
-                ..
-            }
-            | BlockProducerVrfEvaluatorStatus::EpochDelegatorTablePending {
-                epoch_context: EpochContext::Next,
-                ..
-            }
-            | BlockProducerVrfEvaluatorStatus::EpochDelegatorTableSuccess {
-                epoch_context: EpochContext::Next,
-                ..
-            }
-            | BlockProducerVrfEvaluatorStatus::EpochEvaluationPending {
-                epoch_context: EpochContext::Next,
-                ..
-            }
-            | BlockProducerVrfEvaluatorStatus::EpochEvaluationSuccess {
-                epoch_context: EpochContext::Next,
-                ..
-            }
-            | BlockProducerVrfEvaluatorStatus::WaitingForNextEvaluation { .. } => true,
-            _ => false,
-        }
-    }
-
-    pub fn is_next_epoch_evaluated(&self, last_evaluated_epoch: Option<u32>) -> bool {
-        match self {
-            BlockProducerVrfEvaluatorStatus::ReadinessCheck {
-                current_epoch_number,
-                ..
-            }
-            | BlockProducerVrfEvaluatorStatus::ReadyToEvaluate {
-                current_epoch_number,
-                ..
-            }
-            | BlockProducerVrfEvaluatorStatus::WaitingForNextEvaluation {
-                current_epoch_number,
-                ..
-            } => last_evaluated_epoch >= Some(current_epoch_number + 1),
-            BlockProducerVrfEvaluatorStatus::EpochEvaluationSuccess {
-                epoch_context: EpochContext::Next,
-                ..
-            } => true,
-            _ => false,
-        }
-    }
-
-    pub fn can_construct_delegator_table(&self) -> bool {
-        matches!(self, Self::ReadyToEvaluate { .. })
-    }
-
-    pub fn is_delegator_table_requested(&self) -> bool {
-        matches!(self, Self::EpochDelegatorTablePending { .. })
-    }
-
-    pub fn can_start_current_epoch_evaluation(&self) -> bool {
-        matches!(
-            self,
-            Self::EpochDelegatorTableSuccess {
+            };
+            Mutex::new(state)
+        };
+        static ref GENESIS_EPOCH_CURRENT_EPOCH_EVALUATED: Mutex<BlockProducerVrfEvaluatorState> = {
+            let state = BlockProducerVrfEvaluatorState {
+                status: BlockProducerVrfEvaluatorStatus::ReadinessCheck {
+                    time: redux::Timestamp::global_now(),
+                    current_epoch_number: 0,
+                    is_current_epoch_evaluated: true,
+                    is_next_epoch_evaluated: false,
+                    transition_frontier_size: 290,
+                    current_best_tip_height: 900,
+                    last_evaluated_epoch: Some(0),
+                    last_epoch_block_height: None,
+                },
+                won_slots: BTreeMap::new(),
+                latest_evaluated_slot: 7139,
+                genesis_timestamp: redux::Timestamp::global_now(),
+                last_evaluated_epoch: Some(0),
+                last_block_heights_in_epoch: BTreeMap::new(),
+                pending_evaluation: None,
                 epoch_context: EpochContext::Current,
-                ..
-            }
-        )
+            };
+            Mutex::new(state)
+        };
+        static ref GENESIS_EPOCH_NEXT_EPOCH_EVALUATED: Mutex<BlockProducerVrfEvaluatorState> = {
+            let state = BlockProducerVrfEvaluatorState {
+                status: BlockProducerVrfEvaluatorStatus::ReadinessCheck {
+                    time: redux::Timestamp::global_now(),
+                    current_epoch_number: 0,
+                    is_current_epoch_evaluated: true,
+                    is_next_epoch_evaluated: true,
+                    transition_frontier_size: 290,
+                    current_best_tip_height: 1500,
+                    last_evaluated_epoch: Some(1),
+                    last_epoch_block_height: None,
+                },
+                won_slots: BTreeMap::new(),
+                latest_evaluated_slot: 14279,
+                genesis_timestamp: redux::Timestamp::global_now(),
+                last_evaluated_epoch: Some(1),
+                last_block_heights_in_epoch: BTreeMap::new(),
+                pending_evaluation: None,
+                epoch_context: EpochContext::Current,
+            };
+            Mutex::new(state)
+        };
+        static ref SECOND_EPOCH_STARTUP: Mutex<BlockProducerVrfEvaluatorState> = {
+            let state = BlockProducerVrfEvaluatorState {
+                status: BlockProducerVrfEvaluatorStatus::ReadinessCheck {
+                    time: redux::Timestamp::global_now(),
+                    current_epoch_number: 2,
+                    is_current_epoch_evaluated: false,
+                    is_next_epoch_evaluated: false,
+                    transition_frontier_size: 290,
+                    current_best_tip_height: 15000,
+                    last_evaluated_epoch: None,
+                    last_epoch_block_height: Some(14500),
+                },
+                won_slots: BTreeMap::new(),
+                latest_evaluated_slot: 0,
+                genesis_timestamp: redux::Timestamp::global_now(),
+                last_evaluated_epoch: None,
+                last_block_heights_in_epoch: BTreeMap::new(),
+                pending_evaluation: None,
+                epoch_context: EpochContext::Current,
+            };
+            Mutex::new(state)
+        };
+        static ref SECOND_EPOCH_CURRENT_EPOCH_EVALUATED_WAIT_FOR_NEXT: Mutex<BlockProducerVrfEvaluatorState> = {
+            let state = BlockProducerVrfEvaluatorState {
+                status: BlockProducerVrfEvaluatorStatus::ReadinessCheck {
+                    time: redux::Timestamp::global_now(),
+                    current_epoch_number: 2,
+                    is_current_epoch_evaluated: true,
+                    is_next_epoch_evaluated: false,
+                    transition_frontier_size: 290,
+                    current_best_tip_height: 15000,
+                    last_evaluated_epoch: Some(2),
+                    last_epoch_block_height: Some(14900),
+                },
+                won_slots: BTreeMap::new(),
+                latest_evaluated_slot: 21419,
+                genesis_timestamp: redux::Timestamp::global_now(),
+                last_evaluated_epoch: Some(2),
+                last_block_heights_in_epoch: BTreeMap::new(),
+                pending_evaluation: None,
+                epoch_context: EpochContext::Current,
+            };
+            Mutex::new(state)
+        };
     }
 
-    pub fn can_start_next_epoch_evaluation(&self) -> bool {
-        matches!(
-            self,
-            Self::EpochDelegatorTableSuccess {
-                epoch_context: EpochContext::Next,
-                ..
-            }
-        )
+    fn test_set_epoch_context(state: &mut BlockProducerVrfEvaluatorState, _expected: EpochContext) {
+        state.set_epoch_context();
+        assert!(matches!(state.epoch_context(), _expected));
+    }
+
+    #[test]
+    fn correctly_set_epoch_context_on_startup() {
+        let mut vrf_evaluator_state = GENESIS_EPOCH_FIRST_SLOT.lock().unwrap();
+        test_set_epoch_context(&mut vrf_evaluator_state, EpochContext::Current)
+    }
+
+    #[test]
+    fn correctly_switch_to_next_epoch() {
+        let mut vrf_evaluator_state = GENESIS_EPOCH_CURRENT_EPOCH_EVALUATED.lock().unwrap();
+        test_set_epoch_context(&mut vrf_evaluator_state, EpochContext::Next)
+    }
+
+    #[test]
+    fn correctly_switch_to_waiting() {
+        let mut vrf_evaluator_state = GENESIS_EPOCH_NEXT_EPOCH_EVALUATED.lock().unwrap();
+        test_set_epoch_context(&mut vrf_evaluator_state, EpochContext::Waiting)
+    }
+
+    #[test]
+    fn generic_epoch_set_epoch_context_on_startup() {
+        let mut vrf_evaluator_state = SECOND_EPOCH_STARTUP.lock().unwrap();
+        test_set_epoch_context(&mut vrf_evaluator_state, EpochContext::Current)
+    }
+
+    #[test]
+    fn generic_epoch_correctly_switch_to_next_epoch() {
+        // Staking ledger not yet materialized (wait k=290 blocks)
+        let mut vrf_evaluator_state = SECOND_EPOCH_CURRENT_EPOCH_EVALUATED_WAIT_FOR_NEXT
+            .lock()
+            .unwrap();
+        test_set_epoch_context(&mut vrf_evaluator_state, EpochContext::Waiting);
+
+        vrf_evaluator_state.status = BlockProducerVrfEvaluatorStatus::ReadinessCheck {
+            time: redux::Timestamp::global_now(),
+            current_epoch_number: 2,
+            is_current_epoch_evaluated: true,
+            is_next_epoch_evaluated: false,
+            transition_frontier_size: 290,
+            // one block until can evaluate next
+            current_best_tip_height: 15189,
+            last_evaluated_epoch: Some(2),
+            last_epoch_block_height: Some(14900),
+        };
+
+        test_set_epoch_context(&mut vrf_evaluator_state, EpochContext::Waiting);
+
+        vrf_evaluator_state.status = BlockProducerVrfEvaluatorStatus::ReadinessCheck {
+            time: redux::Timestamp::global_now(),
+            current_epoch_number: 2,
+            is_current_epoch_evaluated: true,
+            is_next_epoch_evaluated: false,
+            transition_frontier_size: 290,
+            // Best tip at position that the ledger is set and materialized
+            current_best_tip_height: 15190,
+            last_evaluated_epoch: Some(2),
+            last_epoch_block_height: Some(14900),
+        };
+
+        test_set_epoch_context(&mut vrf_evaluator_state, EpochContext::Next);
     }
 }
