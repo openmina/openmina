@@ -131,11 +131,20 @@ impl SyncStats {
             self.snapshots.pop_front();
         }
 
+        // Retain the target ledger information from previous epochs in `ledgers`. 
+        // This ensures that the frontend continues to have access to historical ledger data even
+        // after the node completes synchronization (at which point the sync stats no longer receive
+        // updates about the older epoch or root ledgers).
+        let ledgers = self
+            .snapshots
+            .back()
+            .map_or_else(|| Default::default(), |snapshot| snapshot.ledgers.clone());
+
         self.snapshots.push_back(SyncStatsSnapshot {
             kind,
             best_tip_received: time,
             synced: None,
-            ledgers: Default::default(),
+            ledgers,
             blocks: vec![best_tip_block_state],
         });
 
