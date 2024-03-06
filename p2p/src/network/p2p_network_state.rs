@@ -5,8 +5,6 @@ use openmina_core::error;
 use redux::ActionMeta;
 use serde::{Deserialize, Serialize};
 
-use crate::channels::rpc::P2pChannelsRpcAction;
-use crate::connection::outgoing::P2pConnectionOutgoingAction;
 use crate::{P2pPeerState, P2pPeerStatus, PeerId};
 
 use super::*;
@@ -70,44 +68,19 @@ impl P2pNetworkState {
 }
 
 impl P2pNetworkAction {
+    #[cfg(feature = "p2p-libp2p")]
+    pub fn effects<Store, S>(self, _meta: &ActionMeta, _store: &mut Store)
+    where
+        Store: crate::P2pStore<S>,
+    {
+        unimplemented!("not implemented for external libp2p")
+    }
+
+    #[cfg(not(feature = "p2p-libp2p"))]
     pub fn effects<Store, S>(self, meta: &ActionMeta, store: &mut Store)
     where
         Store: crate::P2pStore<S>,
         Store::Service: P2pMioService + P2pCryptoService,
-        P2pNetworkPnetIncomingDataAction: redux::EnablingCondition<S>,
-        P2pNetworkPnetSetupNonceAction: redux::EnablingCondition<S>,
-        P2pNetworkSelectIncomingDataAction: redux::EnablingCondition<S>,
-        P2pNetworkSelectInitAction: redux::EnablingCondition<S>,
-        P2pNetworkPnetOutgoingDataAction: redux::EnablingCondition<S>,
-        P2pNetworkSelectIncomingTokenAction: redux::EnablingCondition<S>,
-        P2pNetworkSchedulerSelectErrorAction: redux::EnablingCondition<S>,
-        P2pNetworkSchedulerSelectDoneAction: redux::EnablingCondition<S>,
-        P2pNetworkNoiseInitAction: redux::EnablingCondition<S>,
-        P2pNetworkNoiseIncomingDataAction: redux::EnablingCondition<S>,
-        P2pNetworkSelectOutgoingTokensAction: redux::EnablingCondition<S>,
-        P2pNetworkNoiseIncomingChunkAction: redux::EnablingCondition<S>,
-        P2pNetworkNoiseOutgoingChunkAction: redux::EnablingCondition<S>,
-        P2pNetworkNoiseOutgoingDataAction: redux::EnablingCondition<S>,
-        P2pNetworkNoiseDecryptedDataAction: redux::EnablingCondition<S>,
-        P2pNetworkNoiseHandshakeDoneAction: redux::EnablingCondition<S>,
-        P2pNetworkSchedulerYamuxDidInitAction: redux::EnablingCondition<S>,
-        P2pNetworkYamuxIncomingDataAction: redux::EnablingCondition<S>,
-        P2pNetworkYamuxOutgoingDataAction: redux::EnablingCondition<S>,
-        P2pNetworkYamuxIncomingFrameAction: redux::EnablingCondition<S>,
-        P2pNetworkYamuxPingStreamAction: redux::EnablingCondition<S>,
-        P2pNetworkYamuxOpenStreamAction: redux::EnablingCondition<S>,
-        P2pNetworkYamuxOutgoingFrameAction: redux::EnablingCondition<S>,
-        P2pNetworkRpcInitAction: redux::EnablingCondition<S>,
-        P2pNetworkRpcIncomingDataAction: redux::EnablingCondition<S>,
-        P2pNetworkRpcOutgoingDataAction: redux::EnablingCondition<S>,
-        P2pNetworkRpcIncomingMessageAction: redux::EnablingCondition<S>,
-        P2pNetworkRpcOutgoingQueryAction: redux::EnablingCondition<S>,
-        P2pChannelsRpcAction: redux::EnablingCondition<S>,
-        P2pNetworkKademliaAction: redux::EnablingCondition<S>,
-        P2pConnectionOutgoingAction: redux::EnablingCondition<S>,
-        super::kad::bootstrap::P2pNetworkKadBootstrapAction: redux::EnablingCondition<S>,
-        super::kad::request::P2pNetworkKadRequestAction: redux::EnablingCondition<S>,
-        super::kad::P2pNetworkKademliaStreamAction: redux::EnablingCondition<S>,
     {
         match self {
             Self::Scheduler(v) => v.effects(meta, store),

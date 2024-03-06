@@ -1,4 +1,4 @@
-use redux::{ActionMeta, EnablingCondition};
+use redux::ActionMeta;
 
 use crate::{
     connection::outgoing::P2pConnectionOutgoingAction, P2pNetworkConnectionMuxState,
@@ -11,10 +11,6 @@ impl P2pNetworkKadRequestAction {
     pub fn effects<Store, S>(self, _meta: &ActionMeta, store: &mut Store) -> Result<(), String>
     where
         Store: crate::P2pStore<S>,
-        P2pNetworkKadRequestAction: EnablingCondition<S>,
-        P2pNetworkKademliaStreamAction: EnablingCondition<S>,
-        P2pConnectionOutgoingAction: EnablingCondition<S>,
-        P2pNetworkYamuxOpenStreamAction: EnablingCondition<S>,
     {
         let scheduler = &store.state().network.scheduler;
         let discovery_state = scheduler

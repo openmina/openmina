@@ -8,14 +8,6 @@ impl P2pNetworkNoiseAction {
     pub fn effects<Store, S>(&self, _meta: &redux::ActionMeta, store: &mut Store)
     where
         Store: crate::P2pStore<S>,
-        P2pNetworkPnetOutgoingDataAction: redux::EnablingCondition<S>,
-        P2pNetworkNoiseIncomingChunkAction: redux::EnablingCondition<S>,
-        P2pNetworkNoiseOutgoingDataAction: redux::EnablingCondition<S>,
-        P2pNetworkNoiseOutgoingChunkAction: redux::EnablingCondition<S>,
-        P2pNetworkSelectIncomingDataAction: redux::EnablingCondition<S>,
-        P2pNetworkSelectInitAction: redux::EnablingCondition<S>,
-        P2pNetworkNoiseHandshakeDoneAction: redux::EnablingCondition<S>,
-        P2pNetworkNoiseDecryptedDataAction: redux::EnablingCondition<S>,
     {
         let state = store.state();
         let Some(state) = state.network.scheduler.connections.get(&self.addr()) else {

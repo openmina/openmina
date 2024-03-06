@@ -1,5 +1,5 @@
 use openmina_core::warn;
-use redux::{ActionMeta, EnablingCondition};
+use redux::ActionMeta;
 
 use crate::{Data, P2pNetworkKademliaAction, P2pNetworkYamuxOutgoingDataAction};
 
@@ -12,9 +12,6 @@ impl P2pNetworkKademliaStreamAction {
     pub fn effects<Store, S>(self, meta: &ActionMeta, store: &mut Store) -> Result<(), String>
     where
         Store: crate::P2pStore<S>,
-        P2pNetworkKademliaAction: EnablingCondition<S>,
-        P2pNetworkYamuxOutgoingDataAction: EnablingCondition<S>,
-        P2pNetworkKademliaStreamAction: EnablingCondition<S>,
     {
         use super::P2pNetworkKadStreamState as S;
         use P2pNetworkKademliaStreamAction as A;

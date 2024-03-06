@@ -1,4 +1,4 @@
-use redux::{ActionMeta, EnablingCondition};
+use redux::ActionMeta;
 
 use super::{
     bootstrap::P2pNetworkKadBootstrapAction, request::P2pNetworkKadRequestAction,
@@ -8,22 +8,11 @@ use super::{
 use super::P2pNetworkKadAction;
 
 use crate::P2pNetworkKademliaRpcReply;
-use crate::{
-    connection::outgoing::P2pConnectionOutgoingAction, P2pNetworkYamuxOpenStreamAction,
-    P2pNetworkYamuxOutgoingDataAction,
-};
 
 impl P2pNetworkKadAction {
     pub fn effects<Store, S>(self, meta: &ActionMeta, store: &mut Store) -> Result<(), String>
     where
         Store: crate::P2pStore<S>,
-        P2pNetworkYamuxOpenStreamAction: EnablingCondition<S>,
-        P2pNetworkYamuxOutgoingDataAction: EnablingCondition<S>,
-        P2pConnectionOutgoingAction: EnablingCondition<S>,
-        P2pNetworkKademliaAction: EnablingCondition<S>,
-        P2pNetworkKadBootstrapAction: EnablingCondition<S>,
-        P2pNetworkKadRequestAction: EnablingCondition<S>,
-        P2pNetworkKademliaStreamAction: EnablingCondition<S>,
     {
         match self {
             crate::P2pNetworkKadAction::System(action) => action.effects(meta, store),
@@ -38,9 +27,6 @@ impl P2pNetworkKademliaAction {
     pub fn effects<Store, S>(self, _meta: &ActionMeta, store: &mut Store) -> Result<(), String>
     where
         Store: crate::P2pStore<S>,
-        P2pNetworkKademliaStreamAction: redux::EnablingCondition<S>,
-        P2pNetworkKadRequestAction: redux::EnablingCondition<S>,
-        P2pNetworkKadBootstrapAction: redux::EnablingCondition<S>,
     {
         // use super::P2pNetworkKadStatus::*;
         use super::P2pNetworkKademliaAction::*;

@@ -199,3 +199,14 @@ impl<T: P2pServiceWebrtcWithLibp2p> P2pChannelsService for T {
         }
     }
 }
+
+impl<T: P2pServiceWebrtcWithLibp2p> crate::P2pMioService for T {
+    #[cfg(not(feature = "p2p-libp2p"))]
+    fn send_mio_cmd(&mut self, cmd: crate::MioCmd) {
+        self.mio().send_mio_cmd(cmd)
+    }
+    #[cfg(feature = "p2p-libp2p")]
+    fn send_mio_cmd(&mut self, _cmd: crate::MioCmd) {
+        unimplemented!("mio is not supproted")
+    }
+}

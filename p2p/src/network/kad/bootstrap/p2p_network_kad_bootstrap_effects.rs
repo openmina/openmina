@@ -1,4 +1,4 @@
-use redux::{ActionMeta, EnablingCondition};
+use redux::ActionMeta;
 
 use crate::{request::P2pNetworkKadRequestAction, P2pNetworkKademliaAction, P2pStore};
 
@@ -8,9 +8,6 @@ impl P2pNetworkKadBootstrapAction {
     pub fn effects<Store, S>(self, _meta: &ActionMeta, store: &mut Store) -> Result<(), String>
     where
         Store: P2pStore<S>,
-        P2pNetworkKadBootstrapAction: EnablingCondition<S>,
-        P2pNetworkKadRequestAction: EnablingCondition<S>,
-        P2pNetworkKademliaAction: EnablingCondition<S>,
     {
         let discovery_state = &store
             .state()

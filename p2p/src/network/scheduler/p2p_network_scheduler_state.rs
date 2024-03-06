@@ -228,15 +228,6 @@ impl P2pNetworkSchedulerAction {
     where
         Store: crate::P2pStore<S>,
         Store::Service: P2pMioService + P2pCryptoService,
-        P2pNetworkPnetIncomingDataAction: redux::EnablingCondition<S>,
-        P2pNetworkPnetSetupNonceAction: redux::EnablingCondition<S>,
-        P2pNetworkNoiseInitAction: redux::EnablingCondition<S>,
-        P2pNetworkYamuxOpenStreamAction: redux::EnablingCondition<S>,
-        P2pNetworkYamuxPingStreamAction: redux::EnablingCondition<S>,
-        P2pNetworkRpcInitAction: redux::EnablingCondition<S>,
-        P2pNetworkKadRequestAction: redux::EnablingCondition<S>,
-        P2pNetworkKademliaStreamAction: redux::EnablingCondition<S>,
-        P2pNetworkSchedulerYamuxDidInitAction: redux::EnablingCondition<S>,
     {
         match self {
             Self::InterfaceDetected(a) => {

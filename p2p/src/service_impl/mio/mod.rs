@@ -48,7 +48,7 @@ impl redux::TimeService for MioService {}
 impl redux::Service for MioService {}
 
 impl P2pMioService for MioService {
-    fn send_mio_cmd(&self, cmd: MioCmd) {
+    fn send_mio_cmd(&mut self, cmd: MioCmd) {
         self.cmd_sender.send(cmd).unwrap_or_default();
         self.waker.as_ref().map(|w| w.wake().unwrap_or_default());
     }
