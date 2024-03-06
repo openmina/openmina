@@ -31,9 +31,7 @@ use super::discovery::P2pDiscoveryAction;
 use super::peer::P2pPeerAction;
 use super::{P2pAction, P2pActionWithMeta};
 
-use p2p::P2pPeerStatus;
-
-pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) {
+pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) {
     let (action, meta) = action.split();
 
     match action {
@@ -180,55 +178,7 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                 }
             }
         }
-        P2pAction::Discovery(action) => match action {
-            P2pDiscoveryAction::Init { peer_id } => {
-                let Some(peer) = store.state().p2p.peers.get(&peer_id) else {
-                    return;
-                };
-                let P2pPeerStatus::Ready(status) = &peer.status else {
-                    return;
-                };
-                store.dispatch(P2pChannelsRpcAction::RequestSend {
-                    peer_id,
-                    id: status.channels.rpc.next_local_rpc_id(),
-                    request: P2pRpcRequest::InitialPeers,
-                });
-            }
-            P2pDiscoveryAction::Success { .. } => {}
-            P2pDiscoveryAction::KademliaBootstrap => {
-                #[cfg(feature = "p2p-libp2p")]
-                {
-                    // seed node doesn't have initial peers
-                    // it will rely on incoming peers
-                    let initial_peers = if !store.state().p2p.config.initial_peers.is_empty() {
-                        store.state().p2p.config.initial_peers.clone()
-                    } else if !store.state().p2p.kademlia.routes.is_empty() {
-                        store
-                            .state()
-                            .p2p
-                            .kademlia
-                            .routes
-                            .values()
-                            .flatten()
-                            .cloned()
-                            .collect()
-                    } else {
-                        vec![]
-                    };
-
-                    if !initial_peers.is_empty() {
-                        store.service().start_discovery(initial_peers);
-                    }
-                }
-            }
-            P2pDiscoveryAction::KademliaInit => {
-                #[cfg(feature = "p2p-libp2p")]
-                store.service().find_random_peer();
-            }
-            P2pDiscoveryAction::KademliaAddRoute { .. } => {}
-            P2pDiscoveryAction::KademliaSuccess { .. } => {}
-            P2pDiscoveryAction::KademliaFailure { .. } => {}
-        },
+        P2pAction::Discovery(action) => action.effects(&meta, store),
         P2pAction::Channels(action) => match action {
             P2pChannelsAction::MessageReceived(action) => {
                 action.effects(&meta, store);
@@ -250,13 +200,13 @@ pub fn p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithMeta) 
                 match action {
                     P2pChannelsSnarkAction::Received { peer_id, snark } => {
                         store.dispatch(SnarkPoolCandidateAction::InfoReceived {
-                            peer_id: peer_id,
+                            peer_id,
                             info: snark,
                         });
                     }
                     P2pChannelsSnarkAction::Libp2pReceived { peer_id, snark, .. } => {
                         store.dispatch(SnarkPoolCandidateAction::WorkReceived {
-                            peer_id: peer_id,
+                            peer_id,
                             work: snark,
                         });
                     }

@@ -15,9 +15,6 @@ impl P2pChannelsRpcAction {
     where
         Store: crate::P2pStore<S>,
         Store::Service: P2pChannelsService,
-        P2pPeerAction: redux::EnablingCondition<S>,
-        Self: redux::EnablingCondition<S>,
-        P2pNetworkRpcOutgoingQueryAction: redux::EnablingCondition<S>,
     {
         match self {
             P2pChannelsRpcAction::Init { peer_id } => {

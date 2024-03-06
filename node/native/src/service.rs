@@ -148,20 +148,6 @@ impl P2pCryptoService for NodeService {
     }
 }
 
-#[cfg(feature = "p2p-libp2p")]
-impl P2pMioService for NodeService {
-    fn send_mio_cmd(&self, _cmd: node::p2p::MioCmd) {
-        panic!("not implemented with libp2p");
-    }
-}
-
-#[cfg(not(feature = "p2p-libp2p"))]
-impl P2pMioService for NodeService {
-    fn send_mio_cmd(&self, cmd: node::p2p::MioCmd) {
-        self.mio.send_mio_cmd(cmd);
-    }
-}
-
 impl EventSourceService for NodeService {
     fn next_event(&mut self) -> Option<Event> {
         self.event_receiver.try_next()

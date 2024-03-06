@@ -6,13 +6,6 @@ impl P2pNetworkYamuxAction {
     pub fn effects<Store, S>(&self, _meta: &redux::ActionMeta, store: &mut Store)
     where
         Store: crate::P2pStore<S>,
-        P2pNetworkYamuxIncomingFrameAction: redux::EnablingCondition<S>,
-        P2pNetworkNoiseOutgoingDataAction: redux::EnablingCondition<S>,
-        P2pNetworkSelectInitAction: redux::EnablingCondition<S>,
-        P2pNetworkSelectIncomingDataAction: redux::EnablingCondition<S>,
-        P2pNetworkYamuxOutgoingFrameAction: redux::EnablingCondition<S>,
-        P2pNetworkYamuxPingStreamAction: redux::EnablingCondition<S>,
-        P2pNetworkSchedulerYamuxDidInitAction: redux::EnablingCondition<S>,
     {
         let state = store.state();
         let Some(state) = state.network.scheduler.connections.get(&self.addr()) else {
