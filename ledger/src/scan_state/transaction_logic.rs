@@ -751,6 +751,24 @@ pub mod signed_command {
         }
     }
 
+    /// https://github.com/MinaProtocol/mina/blob/1551e2faaa246c01636908aabe5f7981715a10f4/src/lib/mina_base/signed_command_payload.ml#L362
+    mod weight {
+        use super::*;
+
+        fn payment(_: &PaymentPayload) -> u64 {
+            1
+        }
+        fn stake_delegation(_: &StakeDelegationPayload) -> u64 {
+            1
+        }
+        pub fn of_body(body: &Body) -> u64 {
+            match body {
+                Body::Payment(p) => payment(p),
+                Body::StakeDelegation(s) => stake_delegation(s),
+            }
+        }
+    }
+
     #[derive(Debug, Clone, PartialEq)]
     pub struct SignedCommand {
         pub payload: SignedCommandPayload,
@@ -772,6 +790,15 @@ pub mod signed_command {
         /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/signed_command_payload.ml#L320
         pub fn fee_payer_pk(&self) -> &CompressedPubKey {
             &self.payload.common.fee_payer_pk
+        }
+
+        pub fn weight(&self) -> u64 {
+            let Self {
+                payload: SignedCommandPayload { common: _, body },
+                signer: _,
+                signature: _,
+            } = self;
+            weight::of_body(body)
         }
 
         /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/signed_command_payload.ml#L318
@@ -3586,6 +3613,21 @@ pub mod zkapp_command {
             FeeExcess::of_single((self.fee_token(), Signed::<Fee>::of_unsigned(self.fee())))
         }
 
+        pub fn weight(&self) -> u64 {
+            let Self {
+                fee_payer,
+                account_updates,
+                memo,
+            } = self;
+            [
+                zkapp_weight::fee_payer(fee_payer),
+                zkapp_weight::account_updates(account_updates),
+                zkapp_weight::memo(memo),
+            ]
+            .iter()
+            .sum()
+        }
+
         pub fn has_zero_vesting_period(&self) -> bool {
             self.account_updates
                 .iter()
@@ -4027,6 +4069,26 @@ pub mod zkapp_command {
             type Cache = Cache;
         }
     }
+
+    /// https://github.com/MinaProtocol/mina/blob/1551e2faaa246c01636908aabe5f7981715a10f4/src/lib/mina_base/zkapp_command.ml#L1421
+    pub mod zkapp_weight {
+        use crate::scan_state::transaction_logic::zkapp_command::{
+            AccountUpdate, CallForest, FeePayer,
+        };
+
+        pub fn account_update(_: &AccountUpdate) -> u64 {
+            1
+        }
+        pub fn fee_payer(_: &FeePayer) -> u64 {
+            1
+        }
+        pub fn account_updates(list: &CallForest<AccountUpdate>) -> u64 {
+            list.fold(0, |acc, p| acc + account_update(p))
+        }
+        pub fn memo(_: &super::Memo) -> u64 {
+            0
+        }
+    }
 }
 
 pub mod zkapp_statement {
@@ -4247,6 +4309,23 @@ impl UserCommand {
             UserCommand::SignedCommand(cmd) => cmd.fee(),
             UserCommand::ZkAppCommand(cmd) => cmd.fee(),
         }
+    }
+
+    pub fn weight(&self) -> u64 {
+        match self {
+            UserCommand::SignedCommand(cmd) => cmd.weight(),
+            UserCommand::ZkAppCommand(cmd) => cmd.weight(),
+        }
+    }
+
+    /// Fee per weight unit
+    pub fn fee_per_wu(&self) -> f64 {
+        let fee = self.fee().as_u64();
+        let weight = self.weight();
+
+        assert!(weight != 0);
+        // TODO: OCaml uses lossless fractions
+        fee as f64 / weight as f64
     }
 
     pub fn extract_vks(&self) -> Vec<(AccountId, WithHash<VerificationKey>)> {

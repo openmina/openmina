@@ -8,7 +8,7 @@ use mina_p2p_messages::v2;
 
 use crate::{
     scan_state::{
-        currency::{Amount, Balance, Nonce, Slot},
+        currency::{Amount, Balance, Fee, Nonce, Slot},
         transaction_logic::{
             valid,
             zkapp_command::{
@@ -302,6 +302,10 @@ impl IndexedPool {
         todo!()
     }
 
+    fn min_fee(&self) -> Option<Fee> {
+        todo!()
+    }
+
     fn member(&self, cmd: &ValidCommandWithHash) -> bool {
         todo!()
     }
@@ -430,7 +434,16 @@ pub struct TransactionPool {
 
 impl TransactionPool {
     fn has_sufficient_fee(&self, pool_max_size: usize, cmd: &valid::UserCommand) -> bool {
-        todo!()
+        match self.pool.min_fee() {
+            None => true,
+            Some(min_fee) => {
+                if self.pool.size() >= pool_max_size {
+                    cmd.forget_check().fee_per_wu() > min_fee.as_u64() as f64
+                } else {
+                    true
+                }
+            }
+        }
     }
 
     fn handle_transition_frontier_diff(&mut self, diff: diff::BestTipDiff, best_tip_ledger: Mask) {
@@ -856,6 +869,7 @@ impl TransactionPool {
 mod tests {
     use super::*;
 
+    /// Make sure that the merge in `TransactionPool::verify` is correct
     #[test]
     fn test_map_merge() {
         let mut a = HashMap::new();
@@ -883,6 +897,12 @@ mod tests {
                 }
                 accum
             });
+
+        let one = merged.get(&1).unwrap();
+        assert!(one.get(&1).is_some());
+        assert!(one.get(&2).is_some());
+        assert!(one.get(&3).is_some());
+
         dbg!(merged);
     }
 }
