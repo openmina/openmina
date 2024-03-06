@@ -193,15 +193,22 @@ impl P2pState {
         rpc_id: P2pRpcId,
         now: redux::Timestamp,
     ) -> bool {
-        self.get_ready_peer(peer_id)
-            .map_or(false, |p| p.channels.rpc.is_timed_out(rpc_id, now))
+        self.get_ready_peer(peer_id).map_or(false, |p| {
+            p.channels
+                .rpc
+                .is_timed_out(rpc_id, now, &self.config.timeouts)
+        })
     }
 
     pub fn peer_rpc_timeouts(&self, now: redux::Timestamp) -> Vec<(PeerId, P2pRpcId)> {
         self.ready_peers_iter()
             .filter_map(|(peer_id, s)| {
                 let rpc_id = s.channels.rpc.pending_local_rpc_id()?;
-                if !s.channels.rpc.is_timed_out(rpc_id, now) {
+                if !s
+                    .channels
+                    .rpc
+                    .is_timed_out(rpc_id, now, &self.config.timeouts)
+                {
                     return None;
                 }
 
@@ -216,6 +223,11 @@ impl P2pState {
 
     pub fn already_has_max_peers(&self) -> bool {
         self.connected_or_connecting_peers_count() >= self.config.max_peers
+    }
+
+    /// The peers capacity is exceeded.
+    pub fn already_has_too_many_peers(&self) -> bool {
+        self.connected_or_connecting_peers_count() > self.config.max_peers
     }
 
     pub fn already_knows_max_peers(&self) -> bool {

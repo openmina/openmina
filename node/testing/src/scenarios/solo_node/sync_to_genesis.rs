@@ -42,7 +42,12 @@ impl SoloNodeSyncToGenesis {
             .await
             .unwrap();
 
-        let chain_id = runner.ocaml_node(ocaml_node).unwrap().chain_id().unwrap();
+        let chain_id = runner
+            .ocaml_node(ocaml_node)
+            .unwrap()
+            .chain_id_async()
+            .await
+            .unwrap();
         let rust_node = runner.add_rust_node(RustNodeTestingConfig {
             chain_id,
             initial_time,
@@ -52,6 +57,8 @@ impl SoloNodeSyncToGenesis {
             peer_id: Default::default(),
             snark_worker: None,
             block_producer: None,
+            timeouts: Default::default(),
+            libp2p_port: None,
         });
 
         runner

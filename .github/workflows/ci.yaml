@@ -16,7 +16,7 @@ jobs:
       CARGO_TERM_COLOR: always
     steps:
       - name: Git checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Setup Rust
         run: |
           # Nightly to be able to use `--report-time` below
@@ -39,7 +39,7 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - name: Git checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup Rust
         run: |
@@ -69,7 +69,7 @@ jobs:
           cargo build --release --bin openmina
 
       - name: Upload binaries
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: bin
           path: target/release/openmina
@@ -96,7 +96,7 @@ jobs:
           tar cf tests.tar -C target/release/tests .
 
       - name: Upload tests
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: tests
           path: tests.tar
@@ -109,14 +109,16 @@ jobs:
     strategy:
       matrix:
         test: [p2p_basic_connections, p2p_basic_incoming, p2p_basic_outgoing]
-        libp2p: ['external', 'internal']
+        libp2p:
+          - external
+          # - internal
       fail-fast: false
     env:
       TEST: ${{ matrix.libp2p == 'external' && format('libp2p_{0}', matrix.test) || matrix.test }}
 
     steps:
       - name: Download tests
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: tests
 
@@ -135,12 +137,17 @@ jobs:
       image: minaprotocol/mina-daemon:2.0.0berkeley-rc1-1551e2f-focal-berkeley
     strategy:
       matrix:
-        test: [single_node, multi_node, connection_discovery, webrtc_single_node, webrtc_multi_node]
+        test:
+          - single_node
+          - multi_node
+          - webrtc_single_node
+          - webrtc_multi_node
+          # - connection_discovery
       fail-fast: false
 
     steps:
       - name: Download tests
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: tests
 

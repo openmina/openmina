@@ -23,7 +23,7 @@ use openmina_core::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::connection::outgoing::P2pConnectionOutgoingInitOpts;
+use crate::{connection::outgoing::P2pConnectionOutgoingInitOpts, P2pTimeouts};
 
 pub type P2pRpcId = u32;
 
@@ -53,14 +53,16 @@ pub enum P2pRpcKind {
 }
 
 impl P2pRpcKind {
-    pub fn timeout(self) -> Option<Duration> {
+    pub fn timeout(self, config: &P2pTimeouts) -> Option<Duration> {
         match self {
-            Self::BestTipWithProof => Some(Duration::from_secs(10)),
-            Self::LedgerQuery => Some(Duration::from_secs(2)),
-            Self::StagedLedgerAuxAndPendingCoinbasesAtBlock => Some(Duration::from_secs(120)),
-            Self::Block => Some(Duration::from_secs(5)),
-            Self::Snark => Some(Duration::from_secs(5)),
-            Self::InitialPeers => Some(Duration::from_secs(5)),
+            Self::BestTipWithProof => config.best_tip_with_proof,
+            Self::LedgerQuery => config.ledger_query,
+            Self::StagedLedgerAuxAndPendingCoinbasesAtBlock => {
+                config.staged_ledger_aux_and_pending_coinbases_at_block
+            }
+            Self::Block => config.block,
+            Self::Snark => config.snark,
+            Self::InitialPeers => config.initial_peers,
         }
     }
 

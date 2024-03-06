@@ -21,7 +21,7 @@ use node::p2p::channels::ChannelId;
 use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 use node::p2p::identity::SecretKey;
 use node::p2p::service_impl::webrtc_with_libp2p::P2pServiceWebrtcWithLibp2p;
-use node::p2p::P2pConfig;
+use node::p2p::{P2pConfig, P2pTimeouts};
 use node::service::{Recorder, Service};
 use node::snark::{get_srs, get_verifier_index, VerifierKind};
 use node::stats::Stats;
@@ -181,6 +181,7 @@ impl Node {
                 max_peers: 100,
                 ask_initial_peers_interval: Duration::from_secs(3600),
                 enabled_channels: ChannelId::iter_all().collect(),
+                timeouts: P2pTimeouts::default(),
             },
             transition_frontier: TransitionFrontierConfig::default(),
             block_producer: None,
@@ -220,7 +221,9 @@ impl Node {
         } else {
             LedgerCtx::default()
         };
-        ledger.load_genesis_ledger("genesis_ledgers/berkeley_genesis_ledger.bin");
+        ledger.load_genesis_ledger_bytes(include_bytes!(
+            "../../../../genesis_ledgers/berkeley_genesis_ledger.bin"
+        ));
 
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()

@@ -25,4 +25,29 @@ pub struct P2pConfig {
 
     /// Maximal allowed number of connections.
     pub max_peers: usize,
+
+    pub timeouts: P2pTimeouts,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct P2pTimeouts {
+    pub best_tip_with_proof: Option<Duration>,
+    pub ledger_query: Option<Duration>,
+    pub staged_ledger_aux_and_pending_coinbases_at_block: Option<Duration>,
+    pub block: Option<Duration>,
+    pub snark: Option<Duration>,
+    pub initial_peers: Option<Duration>,
+}
+
+impl Default for P2pTimeouts {
+    fn default() -> Self {
+        Self {
+            best_tip_with_proof: Some(Duration::from_secs(10)),
+            ledger_query: Some(Duration::from_secs(2)),
+            staged_ledger_aux_and_pending_coinbases_at_block: Some(Duration::from_secs(120)),
+            block: Some(Duration::from_secs(5)),
+            snark: Some(Duration::from_secs(5)),
+            initial_peers: Some(Duration::from_secs(5)),
+        }
+    }
 }

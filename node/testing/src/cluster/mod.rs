@@ -213,16 +213,17 @@ impl Cluster {
                 )
             })
             .unwrap();
-        let libp2p_port = self
-            .available_ports
-            .next()
-            .ok_or_else(|| {
-                anyhow::anyhow!(
-                    "couldn't find available port in port range: {:?}",
-                    self.config.port_range()
-                )
-            })
-            .unwrap();
+        let libp2p_port = testing_config.libp2p_port.unwrap_or_else(|| {
+            self.available_ports
+                .next()
+                .ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "couldn't find available port in port range: {:?}",
+                        self.config.port_range()
+                    )
+                })
+                .unwrap()
+        });
 
         let (block_producer_sec_key, block_producer_config) = testing_config
             .block_producer
@@ -260,6 +261,7 @@ impl Cluster {
                 max_peers: testing_config.max_peers,
                 ask_initial_peers_interval: testing_config.ask_initial_peers_interval,
                 enabled_channels: ChannelId::iter_all().collect(),
+                timeouts: testing_config.timeouts,
             },
             transition_frontier: TransitionFrontierConfig::default(),
             block_producer: block_producer_config,
@@ -305,7 +307,9 @@ impl Cluster {
             .unwrap();
 
         let mut ledger = LedgerCtx::default();
-        ledger.load_genesis_ledger("genesis_ledgers/berkeley_genesis_ledger.bin");
+        ledger.load_genesis_ledger_bytes(include_bytes!(
+            "../../../../genesis_ledgers/berkeley_genesis_ledger.bin"
+        ));
         let mut real_service = NodeService {
             rng: StdRng::seed_from_u64(0),
             event_sender,
