@@ -12,11 +12,14 @@ use crate::{
         transaction_logic::{
             valid,
             zkapp_command::{
-                from_unapplied_sequence::FromUnappliedSequence, MaybeWithStatus, WithHash,
+                from_unapplied_sequence::{self, FromUnappliedSequence},
+                MaybeWithStatus, WithHash,
             },
+            TransactionStatus::Applied,
             UserCommand, WithStatus,
         },
     },
+    verifier::Verifier,
     Account, AccountId, BaseLedger, Mask, TokenId, VerificationKey,
 };
 
@@ -759,9 +762,7 @@ impl TransactionPool {
         }
     }
 
-    fn verify(&self, diff: Envelope<diff::Diff>) -> Result<(), String> {
-        let is_sender_local = diff.is_sender_local();
-
+    fn verify(&self, diff: Envelope<diff::Diff>) -> Result<Vec<valid::UserCommand>, String> {
         let well_formedness_errors: HashSet<_> = diff
             .data()
             .list
@@ -783,7 +784,6 @@ impl TransactionPool {
             "We don't have a transition frontier at the moment, so we're unable to verify any transactions."
         })?;
 
-        // use crate::scan_state::transaction_logic::zkapp_command::last::Last;
         let cs = diff
             .data()
             .list
@@ -791,12 +791,98 @@ impl TransactionPool {
             .cloned()
             .map(|cmd| MaybeWithStatus { cmd, status: None })
             .collect::<Vec<_>>();
-        UserCommand::to_all_verifiable::<FromUnappliedSequence, _>(cs, |account_ids| {
-            todo!()
-            // find_vk_via_ledger(ledger.clone(), expected_vk_hash, account_id)
-        })
-        .unwrap(); // TODO: No unwrap
 
-        Ok(())
+        let diff = UserCommand::to_all_verifiable::<FromUnappliedSequence, _>(cs, |account_ids| {
+            let mempool_vks: HashMap<_, _> = account_ids
+                .iter()
+                .map(|id| {
+                    let vks = self.verification_key_table.find_vks_by_account_id(id);
+                    let vks: HashMap<_, _> =
+                        vks.iter().map(|vk| (vk.hash, (*vk).clone())).collect();
+                    (id.clone(), vks)
+                })
+                .collect();
+
+            let ledger_vks = UserCommand::load_vks_from_ledger(account_ids, ledger);
+            let ledger_vks: HashMap<_, _> = ledger_vks
+                .into_iter()
+                .map(|(id, vk)| {
+                    let mut map = HashMap::new();
+                    map.insert(vk.hash, vk);
+                    (id, map)
+                })
+                .collect();
+
+            let new_map: HashMap<AccountId, HashMap<Fp, VerificationKeyWire>> = HashMap::new();
+            let merged =
+                mempool_vks
+                    .into_iter()
+                    .chain(ledger_vks)
+                    .fold(new_map, |mut accum, (id, map)| {
+                        let entry = accum.entry(id).or_default();
+                        for (hash, vk) in map {
+                            entry.insert(hash, vk);
+                        }
+                        accum
+                    });
+
+            from_unapplied_sequence::Cache::new(merged)
+        })
+        .map_err(|e| format!("Invalid {:?}", e))?;
+
+        let diff = diff
+            .into_iter()
+            .map(|MaybeWithStatus { cmd, status: _ }| WithStatus {
+                data: cmd,
+                status: Applied,
+            })
+            .collect::<Vec<_>>();
+
+        Verifier
+            .verify_commands(diff, None)
+            .into_iter()
+            .map(|cmd| {
+                // TODO: Handle invalids
+                match cmd {
+                    crate::verifier::VerifyCommandsResult::Valid(cmd) => Ok(cmd),
+                    e => Err(format!("invalid tx: {:?}", e)),
+                }
+            })
+            .collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_map_merge() {
+        let mut a = HashMap::new();
+        a.insert(1, {
+            let mut map = HashMap::new();
+            map.insert(1, 10);
+            map.insert(2, 12);
+            map
+        });
+        let mut b = HashMap::new();
+        b.insert(1, {
+            let mut map = HashMap::new();
+            map.insert(3, 20);
+            map
+        });
+
+        let new_map: HashMap<_, HashMap<_, _>> = HashMap::new();
+        let merged = a
+            .into_iter()
+            .chain(b)
+            .fold(new_map, |mut accum, (id, map)| {
+                let entry = accum.entry(id).or_default();
+                for (hash, vk) in map {
+                    entry.insert(hash, vk);
+                }
+                accum
+            });
+        dbg!(merged);
     }
 }
