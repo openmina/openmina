@@ -103,6 +103,7 @@ fn verify_digest_only(ts: Vec<(LedgerProof, SokMessage)>) -> Result<(), String> 
 }
 
 /// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/verifier/verifier_intf.ml#L10C1-L36C29
+#[derive(Debug)]
 pub enum VerifyCommandsResult {
     Valid(valid::UserCommand),
     ValidAssuming(
