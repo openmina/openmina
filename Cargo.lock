@@ -1986,6 +1986,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "fraction"
+version = "0.15.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fac69bd85b6b19696fae3aa269c3e03c2d12e19a87f0e67f01bc1518cf0025e0"
+dependencies = [
+ "num",
+]
+
+[[package]]
 name = "funty"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3609,6 +3618,7 @@ dependencies = [
  "chrono",
  "crc32fast",
  "derive_more",
+ "fraction",
  "getrandom 0.2.14",
  "hex",
  "itertools 0.10.5",

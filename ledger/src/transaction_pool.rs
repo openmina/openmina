@@ -8,7 +8,8 @@ use mina_p2p_messages::v2;
 
 use crate::{
     scan_state::{
-        currency::{Amount, Balance, Fee, Nonce, Slot},
+        currency::{Amount, Balance, BlockTime, Nonce, Slot},
+        fee_rate::FeeRate,
         transaction_logic::{
             valid,
             zkapp_command::{
@@ -82,30 +83,17 @@ mod diff {
 }
 
 fn preload_accounts(
-    _ledger: &Mask,
-    _account_ids: &HashSet<AccountId>,
+    ledger: &Mask,
+    account_ids: &HashSet<AccountId>,
 ) -> HashMap<AccountId, Account> {
-    todo!()
-    // let preload_accounts ledger account_ids =
-    //   let existing_account_ids, existing_account_locs =
-    //     Set.to_list account_ids
-    //     |> Base_ledger.location_of_account_batch ledger
-    //     |> List.filter_map ~f:(function
-    //          | id, Some loc ->
-    //              Some (id, loc)
-    //          | _, None ->
-    //              None )
-    //     |> List.unzip
-    //   in
-    //   Base_ledger.get_batch ledger existing_account_locs
-    //   |> List.map ~f:snd
-    //   |> List.zip_exn existing_account_ids
-    //   |> List.fold ~init:Account_id.Map.empty ~f:(fun map (id, maybe_account) ->
-    //          let account =
-    //            Option.value_exn maybe_account
-    //              ~message:"Somehow a public key has a location but no account"
-    //          in
-    //          Map.add_exn map ~key:id ~data:account )
+    account_ids
+        .iter()
+        .filter_map(|id| {
+            let addr = ledger.location_of_account(id)?;
+            let account = ledger.get(addr)?;
+            Some((id.clone(), *account))
+        })
+        .collect()
 }
 
 struct Config {
@@ -289,7 +277,21 @@ impl From<CommandError> for diff::Error {
 }
 
 struct IndexedPool {
-    // global_slot_since_genesis: Slot,
+    /// Transactions valid against the current ledger, indexed by fee per
+    /// weight unit.
+    applicable_by_fee: HashMap<FeeRate, HashSet<ValidCommandWithHash>>,
+    /// All pending transactions along with the total currency required to
+    /// execute them -- plus any currency spent from this account by
+    /// transactions from other accounts -- indexed by sender account.
+    /// Ordered by nonce inside the accounts.
+    all_by_sender: HashMap<AccountId, Vec<(ValidCommandWithHash, Amount)>>,
+    /// All transactions in the pool indexed by fee per weight unit.
+    all_by_fee: HashMap<FeeRate, HashSet<ValidCommandWithHash>>,
+    all_by_hash: HashMap<BlakeHash, ValidCommandWithHash>,
+    /// Only transactions that have an expiry
+    transactions_with_expiration: HashMap<Slot, HashSet<ValidCommandWithHash>>,
+    size: usize,
+    config: Config,
 }
 
 enum RevalidateKind<'a> {
@@ -299,18 +301,20 @@ enum RevalidateKind<'a> {
 
 impl IndexedPool {
     fn size(&self) -> usize {
-        todo!()
+        self.size
     }
 
-    fn min_fee(&self) -> Option<Fee> {
-        todo!()
+    fn min_fee(&self) -> Option<FeeRate> {
+        self.all_by_fee.keys().min().cloned()
     }
 
     fn member(&self, cmd: &ValidCommandWithHash) -> bool {
-        todo!()
+        self.all_by_hash.contains_key(&cmd.hash)
     }
 
     fn global_slot_since_genesis(&self) -> Slot {
+        let current_time = BlockTime::now();
+
         todo!()
     }
 
@@ -438,7 +442,7 @@ impl TransactionPool {
             None => true,
             Some(min_fee) => {
                 if self.pool.size() >= pool_max_size {
-                    cmd.forget_check().fee_per_wu() > min_fee.as_u64() as f64
+                    cmd.forget_check().fee_per_wu() > min_fee
                 } else {
                     true
                 }
