@@ -1,6 +1,7 @@
 pub mod conv;
 pub mod currency;
 pub mod fee_excess;
+pub mod fee_rate;
 mod parallel_scan;
 pub mod pending_coinbase;
 pub mod protocol_state;

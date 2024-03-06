@@ -34,6 +34,7 @@ use self::{
 };
 
 use super::currency::SlotSpan;
+use super::fee_rate::FeeRate;
 use super::zkapp_logic::ZkAppCommandElt;
 use super::{
     currency::{Amount, Balance, Fee, Index, Length, Magnitude, Nonce, Signed, Slot},
@@ -4319,13 +4320,8 @@ impl UserCommand {
     }
 
     /// Fee per weight unit
-    pub fn fee_per_wu(&self) -> f64 {
-        let fee = self.fee().as_u64();
-        let weight = self.weight();
-
-        assert!(weight != 0);
-        // TODO: OCaml uses lossless fractions
-        fee as f64 / weight as f64
+    pub fn fee_per_wu(&self) -> FeeRate {
+        FeeRate::make_exn(self.fee(), self.weight())
     }
 
     pub fn extract_vks(&self) -> Vec<(AccountId, WithHash<VerificationKey>)> {

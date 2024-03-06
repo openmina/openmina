@@ -301,6 +301,14 @@ impl Nonce {
 }
 
 impl BlockTime {
+    pub fn now() -> Self {
+        use std::time::{SystemTime, UNIX_EPOCH};
+
+        let elapsed = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
+        let elapsed: u64 = elapsed.as_millis().try_into().unwrap();
+        Self(elapsed)
+    }
+
     pub fn add(&self, span: BlockTimeSpan) -> Self {
         Self(self.0.checked_add(span.0).unwrap())
     }
