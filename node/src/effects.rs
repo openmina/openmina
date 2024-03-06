@@ -1,9 +1,11 @@
+use p2p::p2p_timeout_effects;
+
 use crate::block_producer::{block_producer_effects, BlockProducerAction};
 use crate::consensus::consensus_effects;
 use crate::event_source::event_source_effects;
 use crate::external_snark_worker::external_snark_worker_effects;
 use crate::logger::logger_effects;
-use crate::p2p::p2p_effects;
+use crate::p2p::node_p2p_effects;
 use crate::rpc::rpc_effects;
 use crate::snark::snark_effects;
 use crate::snark_pool::candidate::SnarkPoolCandidateAction;
@@ -16,12 +18,7 @@ use crate::{Action, ActionWithMeta, ExternalSnarkWorkerAction, Service, Store};
 use crate::p2p::channels::rpc::{P2pChannelsRpcAction, P2pRpcRequest};
 
 #[cfg(feature = "p2p-libp2p")]
-use {
-    crate::p2p::channels::rpc::P2pRpcKind,
-    crate::p2p::connection::incoming::P2pConnectionIncomingAction,
-    crate::p2p::connection::outgoing::P2pConnectionOutgoingAction,
-    crate::p2p::discovery::P2pDiscoveryAction, redux::ActionMeta,
-};
+use crate::p2p::channels::rpc::P2pRpcKind;
 
 pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
     store.service.recorder().action(&action);
@@ -40,67 +37,19 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
             // TODO(binier): create init action and dispatch this there.
             store.dispatch(ExternalSnarkWorkerAction::Start);
 
-            #[cfg(feature = "p2p-libp2p")]
-            {
-                p2p_connection_timeouts(store, &meta);
-                store.dispatch(P2pConnectionOutgoingAction::RandomInit);
+            p2p_timeout_effects(store, &meta);
 
-                p2p_try_reconnect_disconnected_peers(store);
-                p2p_request_best_tip_if_needed(store);
-                p2p_request_snarks_if_needed(store);
-
-                store.dispatch(P2pDiscoveryAction::KademliaBootstrap);
-                store.dispatch(P2pDiscoveryAction::KademliaInit);
-            }
+            p2p_request_best_tip_if_needed(store);
+            // p2p_request_snarks_if_needed(store);
 
             store.dispatch(SnarkPoolAction::CheckTimeouts);
             store.dispatch(SnarkPoolAction::P2pSendAll);
-
-            #[cfg(not(feature = "p2p-libp2p"))]
-            {
-                let state = store.state();
-                let consensus_best_tip_hash = state.consensus.best_tip.as_ref();
-                let best_tip_hash = state.transition_frontier.best_tip().map(|v| &v.hash);
-                let syncing_best_tip_hash =
-                    state.transition_frontier.sync.best_tip().map(|v| &v.hash);
-
-                if consensus_best_tip_hash.is_some()
-                    && consensus_best_tip_hash != best_tip_hash
-                    && consensus_best_tip_hash != syncing_best_tip_hash
-                    && state.consensus.best_tip_chain_proof.is_none()
-                {
-                    if let Some((peer_id, streams)) = state
-                        .p2p
-                        .network
-                        .scheduler
-                        .rpc_outgoing_streams
-                        .iter()
-                        .last()
-                    {
-                        if let Some((_, state)) = streams.iter().last() {
-                            store.dispatch(P2pChannelsRpcAction::RequestSend {
-                                peer_id: *peer_id,
-                                id: state.last_id as _,
-                                request: P2pRpcRequest::BestTipWithProof,
-                            });
-                        }
-                    }
-                }
-            }
 
             store.dispatch(SnarkPoolCandidateAction::WorkFetchAll);
             store.dispatch(SnarkPoolCandidateAction::WorkVerifyNext);
 
             #[cfg(feature = "p2p-webrtc")]
             p2p_discovery_request(store, &meta);
-
-            #[cfg(feature = "p2p-libp2p")]
-            {
-                let state = store.state();
-                for (peer_id, id) in state.p2p.peer_rpc_timeouts(meta.prev_time()) {
-                    store.dispatch(P2pChannelsRpcAction::Timeout { peer_id, id });
-                }
-            }
 
             // TODO(binier): remove once ledger communication is async.
             store.dispatch(TransitionFrontierSyncAction::BlocksNextApplyInit);
@@ -123,7 +72,7 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
             transition_frontier_effects(store, meta.with_action(action));
         }
         Action::P2p(action) => {
-            p2p_effects(store, meta.with_action(action));
+            node_p2p_effects(store, meta.with_action(action));
         }
         Action::SnarkPool(action) => {
             snark_pool_effects(store, meta.with_action(action));
@@ -143,47 +92,6 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
     }
 }
 
-#[cfg(feature = "p2p-libp2p")]
-fn p2p_connection_timeouts<S: Service>(store: &mut Store<S>, meta: &ActionMeta) {
-    let now = meta.time();
-    let p2p_connection_timeouts: Vec<_> = store
-        .state()
-        .p2p
-        .peers
-        .iter()
-        .filter_map(|(peer_id, peer)| {
-            let s = peer.status.as_connecting()?;
-            match s.is_timed_out(now) {
-                true => Some((*peer_id, s.as_outgoing().is_some())),
-                false => None,
-            }
-        })
-        .collect();
-
-    for (peer_id, is_outgoing) in p2p_connection_timeouts {
-        match is_outgoing {
-            true => store.dispatch(P2pConnectionOutgoingAction::Timeout { peer_id }),
-            false => store.dispatch(P2pConnectionIncomingAction::Timeout { peer_id }),
-        };
-    }
-}
-
-#[cfg(feature = "p2p-libp2p")]
-fn p2p_try_reconnect_disconnected_peers<S: Service>(store: &mut Store<S>) {
-    let reconnect_actions: Vec<_> = store
-        .state()
-        .p2p
-        .peers
-        .iter()
-        .filter_map(|(_, p)| p.dial_opts.clone())
-        .map(|opts| P2pConnectionOutgoingAction::Reconnect { opts, rpc_id: None })
-        .collect();
-    for action in reconnect_actions {
-        store.dispatch(action);
-    }
-}
-
-#[cfg(feature = "p2p-libp2p")]
 fn p2p_request_best_tip_if_needed<S: Service>(store: &mut Store<S>) {
     // TODO(binier): refactor
     let state = store.state();
@@ -196,31 +104,60 @@ fn p2p_request_best_tip_if_needed<S: Service>(store: &mut Store<S>) {
         && consensus_best_tip_hash != syncing_best_tip_hash
         && state.consensus.best_tip_chain_proof.is_none()
     {
-        if !state
+        request_best_tip(store, consensus_best_tip_hash.cloned());
+    }
+}
+use mina_p2p_messages::v2::StateHash;
+
+#[cfg(feature = "p2p-libp2p")]
+fn request_best_tip<S: Service>(store: &mut Store<S>, consensus_best_tip_hash: Option<StateHash>) {
+    if !store
+        .state()
+        .p2p
+        .ready_peers_iter()
+        .filter_map(|(_, s)| s.channels.rpc.pending_local_rpc_kind())
+        .any(|kind| matches!(kind, P2pRpcKind::BestTipWithProof))
+    {
+        // TODO(binier): choose randomly.
+        if let Some((peer_id, id)) = store
+            .state()
             .p2p
             .ready_peers_iter()
-            .filter_map(|(_, s)| s.channels.rpc.pending_local_rpc_kind())
-            .any(|kind| matches!(kind, P2pRpcKind::BestTipWithProof))
+            .filter(|(_, p)| p.channels.rpc.can_send_request())
+            .filter(|(_, p)| {
+                p.best_tip
+                    .as_ref()
+                    .map_or(true, |b| Some(b.hash()) == consensus_best_tip_hash.as_ref())
+            })
+            .map(|(peer_id, p)| (*peer_id, p.channels.rpc.next_local_rpc_id()))
+            .last()
         {
-            // TODO(binier): choose randomly.
-            if let Some((peer_id, id)) = state
-                .p2p
-                .ready_peers_iter()
-                .filter(|(_, p)| p.channels.rpc.can_send_request())
-                .filter(|(_, p)| {
-                    p.best_tip
-                        .as_ref()
-                        .map_or(true, |b| Some(b.hash()) == consensus_best_tip_hash)
-                })
-                .map(|(peer_id, p)| (*peer_id, p.channels.rpc.next_local_rpc_id()))
-                .last()
-            {
-                store.dispatch(P2pChannelsRpcAction::RequestSend {
-                    peer_id,
-                    id,
-                    request: P2pRpcRequest::BestTipWithProof,
-                });
-            }
+            store.dispatch(P2pChannelsRpcAction::RequestSend {
+                peer_id,
+                id,
+                request: P2pRpcRequest::BestTipWithProof,
+            });
+        }
+    }
+}
+
+#[cfg(not(feature = "p2p-libp2p"))]
+fn request_best_tip<S: Service>(store: &mut Store<S>, consensus_best_tip_hash: Option<StateHash>) {
+    if let Some((peer_id, streams)) = store
+        .state()
+        .p2p
+        .network
+        .scheduler
+        .rpc_outgoing_streams
+        .iter()
+        .last()
+    {
+        if let Some((_, state)) = streams.iter().last() {
+            store.dispatch(P2pChannelsRpcAction::RequestSend {
+                peer_id: *peer_id,
+                id: state.last_id as _,
+                request: P2pRpcRequest::BestTipWithProof,
+            });
         }
     }
 }
