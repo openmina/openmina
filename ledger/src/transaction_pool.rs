@@ -7,9 +7,11 @@ use mina_hasher::Fp;
 use mina_p2p_messages::v2;
 
 use crate::{
+    proofs::transaction::transaction_snark::CONSTRAINT_CONSTANTS,
     scan_state::{
-        currency::{Amount, Balance, BlockTime, Nonce, Slot},
+        currency::{Amount, Balance, BlockTime, Magnitude, Nonce, Slot, SlotSpan},
         fee_rate::FeeRate,
+        scan_state::ForkConstants,
         transaction_logic::{
             valid,
             zkapp_command::{
@@ -23,6 +25,104 @@ use crate::{
     verifier::Verifier,
     Account, AccountId, BaseLedger, Mask, TokenId, VerificationKey,
 };
+
+mod consensus {
+    use crate::scan_state::currency::{BlockTimeSpan, Epoch, Length};
+
+    use super::*;
+
+    pub struct Constants {
+        k: Length,
+        delta: Length,
+        slots_per_sub_window: Length,
+        slots_per_window: Length,
+        sub_windows_per_window: Length,
+        slots_per_epoch: Length,
+        grace_period_slots: Length,
+        grace_period_end: Slot,
+        checkpoint_window_slots_per_year: Length,
+        checkpoint_window_size_in_slots: Length,
+        block_window_duration_ms: BlockTimeSpan,
+        slot_duration_ms: BlockTimeSpan,
+        epoch_duration: BlockTimeSpan,
+        delta_duration: BlockTimeSpan,
+        genesis_state_timestamp: BlockTime,
+    }
+
+    // Consensus epoch
+    impl Epoch {
+        fn of_time_exn(constants: &Constants, time: BlockTime) -> Result<Self, String> {
+            if time < constants.genesis_state_timestamp {
+                return Err(
+                    "Epoch.of_time: time is earlier than genesis block timestamp".to_string(),
+                );
+            }
+
+            let time_since_genesis = time.diff(constants.genesis_state_timestamp);
+            let epoch = time_since_genesis.to_ms() / constants.epoch_duration.to_ms();
+            let epoch: u32 = epoch.try_into().unwrap();
+
+            Ok(Self::from_u32(epoch))
+        }
+
+        fn start_time(constants: &Constants, epoch: Self) -> BlockTime {
+            let ms = constants
+                .genesis_state_timestamp
+                .to_span_since_epoch()
+                .to_ms()
+                + ((epoch.as_u32() as u64) * constants.epoch_duration.to_ms());
+            BlockTime::of_span_since_epoch(BlockTimeSpan::of_ms(ms))
+        }
+
+        pub fn epoch_and_slot_of_time_exn(
+            constants: &Constants,
+            time: BlockTime,
+        ) -> Result<(Self, Slot), String> {
+            let epoch = Self::of_time_exn(constants, time)?;
+            let time_since_epoch = time.diff(Self::start_time(constants, epoch));
+
+            let slot: u64 = time_since_epoch.to_ms() / constants.slot_duration_ms.to_ms();
+            let slot = Slot::from_u32(slot.try_into().unwrap());
+
+            Ok((epoch, slot))
+        }
+    }
+
+    /// TODO: Maybe rename to `ConsensusGlobalSlot` ?
+    pub struct GlobalSlot {
+        slot_number: Slot,
+        slots_per_epoch: Length,
+    }
+
+    impl GlobalSlot {
+        fn create(constants: &Constants, epoch: Epoch, slot: Slot) -> Self {
+            let slot_number = slot.as_u32() + (constants.slots_per_epoch.as_u32() * epoch.as_u32());
+            Self {
+                slot_number: Slot::from_u32(slot_number),
+                slots_per_epoch: constants.slots_per_epoch,
+            }
+        }
+
+        fn of_epoch_and_slot(constants: &Constants, (epoch, slot): (Epoch, Slot)) -> Self {
+            Self::create(constants, epoch, slot)
+        }
+
+        pub fn of_time_exn(constants: &Constants, time: BlockTime) -> Result<Self, String> {
+            Ok(Self::of_epoch_and_slot(
+                constants,
+                Epoch::epoch_and_slot_of_time_exn(constants, time)?,
+            ))
+        }
+
+        pub fn to_global_slot(&self) -> Slot {
+            let Self {
+                slot_number,
+                slots_per_epoch: _,
+            } = self;
+            *slot_number
+        }
+    }
+}
 
 type ValidCommandWithHash = WithHash<valid::UserCommand, BlakeHash>;
 
@@ -276,6 +376,21 @@ impl From<CommandError> for diff::Error {
     }
 }
 
+struct IndexedPoolConfig {
+    consensus_constants: consensus::Constants,
+    slot_tx_end: Option<Slot>,
+}
+
+// module Config = struct
+//   type t =
+//     { constraint_constants : Genesis_constants.Constraint_constants.t
+//     ; consensus_constants : Consensus.Constants.t
+//     ; time_controller : Block_time.Controller.t
+//     ; slot_tx_end : Mina_numbers.Global_slot_since_hard_fork.t option
+//     }
+//   [@@deriving sexp_of, equal, compare]
+// end
+
 struct IndexedPool {
     /// Transactions valid against the current ledger, indexed by fee per
     /// weight unit.
@@ -291,7 +406,7 @@ struct IndexedPool {
     /// Only transactions that have an expiry
     transactions_with_expiration: HashMap<Slot, HashSet<ValidCommandWithHash>>,
     size: usize,
-    config: Config,
+    config: IndexedPoolConfig,
 }
 
 enum RevalidateKind<'a> {
@@ -315,7 +430,18 @@ impl IndexedPool {
     fn global_slot_since_genesis(&self) -> Slot {
         let current_time = BlockTime::now();
 
-        todo!()
+        let current_slot =
+            consensus::GlobalSlot::of_time_exn(&self.config.consensus_constants, current_time)
+                .unwrap()
+                .to_global_slot();
+
+        match CONSTRAINT_CONSTANTS.fork.as_ref() {
+            Some(ForkConstants { genesis_slot, .. }) => {
+                let slot_span = SlotSpan::from_u32(current_slot.as_u32());
+                genesis_slot.add(slot_span)
+            }
+            None => current_slot,
+        }
     }
 
     fn add_from_backtrack(&mut self, cmd: ValidCommandWithHash) -> Result<(), String> {
