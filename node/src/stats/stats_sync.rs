@@ -23,6 +23,7 @@ pub struct SyncStatsSnapshot {
     pub synced: Option<Timestamp>,
     pub ledgers: SyncLedgers,
     pub blocks: Vec<SyncBlock>,
+    pub resyncs: Vec<LedgerResyncEvent>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -31,11 +32,73 @@ pub enum SyncKind {
     Catchup,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum LedgerResyncKind {
+    FetchStagedLedgerError(String),
+    RootLedgerChange,
+    EpochChange,
+    BestChainChange,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct LedgerResyncEvent {
+    pub kind: LedgerResyncKind,
+    pub time: Timestamp,
+}
+
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct SyncLedgers {
     pub staking_epoch: Option<SyncLedger>,
     pub next_epoch: Option<SyncLedger>,
     pub root: Option<SyncLedger>,
+}
+
+impl SyncLedgers {
+    /// Figure out if a resync is required, and if so, for what reason.
+    fn resync_kind(
+        &self,
+        best_tip: &ArcBlockWithHash,
+        root_block: &ArcBlockWithHash,
+    ) -> Option<LedgerResyncKind> {
+        let consensus_state = &best_tip.block.header.protocol_state.body.consensus_state;
+        let new_staking_epoch_ledger_hash = &consensus_state.staking_epoch_data.ledger.hash;
+        let new_root_ledger_hash = root_block.snarked_ledger_hash();
+
+        let staking_epoch_ledger_changed = self
+            .staking_epoch
+            .as_ref()
+            .and_then(|sync| sync.snarked.hash.as_ref())
+            .map(|prev_staking_epoch_ledger_hash| {
+                prev_staking_epoch_ledger_hash != new_staking_epoch_ledger_hash
+            })
+            .unwrap_or(false);
+
+        if let Some(prev_next_epoch_snarked_hash) = self
+            .next_epoch
+            .as_ref()
+            .and_then(|sync| sync.snarked.hash.as_ref())
+        {
+            if prev_next_epoch_snarked_hash == new_staking_epoch_ledger_hash {
+                // Previous next epoch moved to staking ledger, which means we advanced one epoch
+                return Some(LedgerResyncKind::EpochChange);
+            } else if staking_epoch_ledger_changed {
+                // If we didn't advance an epoch and neither epoch ledger hash matches, then the best chain changed
+                return Some(LedgerResyncKind::BestChainChange);
+            }
+        }
+
+        if let Some(prev_root_ledger_hash) = self
+            .root
+            .as_ref()
+            .and_then(|sync| sync.snarked.hash.as_ref())
+        {
+            if prev_root_ledger_hash != new_root_ledger_hash {
+                return Some(LedgerResyncKind::RootLedgerChange);
+            }
+        }
+
+        None
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
@@ -108,7 +171,12 @@ pub enum SyncingLedger {
 }
 
 impl SyncStats {
-    pub fn new_target(&mut self, time: Timestamp, best_tip: &ArcBlockWithHash) -> &mut Self {
+    pub fn new_target(
+        &mut self,
+        time: Timestamp,
+        best_tip: &ArcBlockWithHash,
+        root_block: &ArcBlockWithHash,
+    ) -> &mut Self {
         let kind = match self.snapshots.back().map_or(true, |s| {
             matches!(s.kind, SyncKind::Bootstrap) && s.synced.is_none()
         }) {
@@ -131,7 +199,7 @@ impl SyncStats {
             self.snapshots.pop_front();
         }
 
-        // Retain the target ledger information from previous epochs in `ledgers`. 
+        // Retain the target ledger information from previous epochs in `ledgers`.
         // This ensures that the frontend continues to have access to historical ledger data even
         // after the node completes synchronization (at which point the sync stats no longer receive
         // updates about the older epoch or root ledgers).
@@ -140,12 +208,26 @@ impl SyncStats {
             .back()
             .map_or_else(|| Default::default(), |snapshot| snapshot.ledgers.clone());
 
+        let mut resyncs = self
+            .snapshots
+            .back()
+            .map_or_else(|| Default::default(), |snapshot| snapshot.resyncs.clone());
+
+        if let Some(prev_snapshot) = self.snapshots.back() {
+            if prev_snapshot.synced.is_none() {
+                if let Some(kind) = prev_snapshot.ledgers.resync_kind(best_tip, root_block) {
+                    resyncs.push(LedgerResyncEvent { kind, time });
+                }
+            }
+        }
+
         self.snapshots.push_back(SyncStatsSnapshot {
             kind,
             best_tip_received: time,
             synced: None,
             ledgers,
             blocks: vec![best_tip_block_state],
+            resyncs,
         });
 
         self
@@ -265,6 +347,15 @@ impl SyncStats {
     pub fn collect_stats(&self, limit: Option<usize>) -> Vec<SyncStatsSnapshot> {
         let limit = limit.unwrap_or(usize::MAX);
         self.snapshots.iter().rev().take(limit).cloned().collect()
+    }
+
+    pub fn staging_ledger_fetch_failure(&mut self, error: String, time: Timestamp) {
+        if let Some(snapshot) = self.snapshots.back_mut() {
+            snapshot.resyncs.push(LedgerResyncEvent {
+                kind: LedgerResyncKind::FetchStagedLedgerError(error),
+                time,
+            })
+        }
     }
 }
 

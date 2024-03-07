@@ -29,9 +29,13 @@ pub fn transition_frontier_effects<S: crate::Service>(
     match action {
         TransitionFrontierAction::Sync(a) => {
             match a {
-                TransitionFrontierSyncAction::Init { ref best_tip, .. } => {
+                TransitionFrontierSyncAction::Init {
+                    ref best_tip,
+                    ref root_block,
+                    ..
+                } => {
                     if let Some(stats) = store.service.stats() {
-                        stats.new_sync_target(meta.time(), best_tip);
+                        stats.new_sync_target(meta.time(), best_tip, root_block);
                         if let TransitionFrontierSyncState::BlocksPending { chain, .. } =
                             &store.state.get().transition_frontier.sync
                         {
@@ -39,9 +43,13 @@ pub fn transition_frontier_effects<S: crate::Service>(
                         }
                     }
                 }
-                TransitionFrontierSyncAction::BestTipUpdate { ref best_tip, .. } => {
+                TransitionFrontierSyncAction::BestTipUpdate {
+                    ref best_tip,
+                    ref root_block,
+                    ..
+                } => {
                     if let Some(stats) = store.service.stats() {
-                        stats.new_sync_target(meta.time(), best_tip);
+                        stats.new_sync_target(meta.time(), best_tip, root_block);
                         if let Some(target) =
                             store.state.get().transition_frontier.sync.ledger_target()
                         {
@@ -408,6 +416,13 @@ fn handle_transition_frontier_sync_ledger_action<S: crate::Service>(
                         {
                             stats.syncing_ledger(kind, SyncingLedger::FetchParts { start, end });
                         }
+                    }
+                }
+                TransitionFrontierSyncLedgerStagedAction::PartsPeerFetchError {
+                    ref error, ..
+                } => {
+                    if let Some(stats) = store.service.stats() {
+                        stats.staging_ledger_fetch_failure(error, meta.time());
                     }
                 }
                 TransitionFrontierSyncLedgerStagedAction::ReconstructInit { .. } => {
