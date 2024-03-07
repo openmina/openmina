@@ -98,7 +98,7 @@ pub enum BlockProducerVrfEvaluatorAction {
     },
     FinishEpochEvaluation {
         epoch_number: u32,
-        last_evaluated_global_slot: u32,
+        latest_evaluated_global_slot: u32,
     },
     WaitForNextEvaluation {
         current_epoch_number: u32,
@@ -107,6 +107,10 @@ pub enum BlockProducerVrfEvaluatorAction {
         current_best_tip_global_slot: u32,
         last_epoch_block_height: Option<u32>,
         transition_frontier_size: u32,
+    },
+    CheckEpochBounds {
+        epoch_number: u32,
+        latest_evaluated_global_slot: u32,
     },
 }
 
@@ -121,9 +125,13 @@ impl redux::EnablingCondition<crate::State> for BlockProducerVrfEvaluatorAction 
                 staking_ledger_hash,
                 ..
             } => state.block_producer.with(false, |this| {
-                if let Some(current_evaluation) = this.vrf_evaluator.current_evaluation() {
-                    current_evaluation.latest_evaluated_slot + 1 == vrf_output.global_slot()
-                        && current_evaluation.epoch_data.ledger == *staking_ledger_hash
+                if this.vrf_evaluator.is_slot_requested() {
+                    if let Some(current_evaluation) = this.vrf_evaluator.current_evaluation() {
+                        current_evaluation.latest_evaluated_slot + 1 == vrf_output.global_slot()
+                            && current_evaluation.epoch_data.ledger == *staking_ledger_hash
+                    } else {
+                        false
+                    }
                 } else {
                     false
                 }
@@ -147,9 +155,8 @@ impl redux::EnablingCondition<crate::State> for BlockProducerVrfEvaluatorAction 
                     this.vrf_evaluator.is_readiness_check()
                         && matches!(
                             this.vrf_evaluator.epoch_context(),
-                            EpochContext::Current | EpochContext::Next
+                            EpochContext::Current(_) | EpochContext::Next(_)
                         )
-                    // && !(this.vrf_evaluator.status.is_current_epoch_evaluated(last_evaluated_epoch) || this.vrf_evaluator.status.is_next_epoch_evaluated(last_evaluated_epoch))
                 })
             }
             BlockProducerVrfEvaluatorAction::BeginDelegatorTableConstruction { .. } => {
@@ -170,12 +177,13 @@ impl redux::EnablingCondition<crate::State> for BlockProducerVrfEvaluatorAction 
             }
             BlockProducerVrfEvaluatorAction::ContinueEpochEvaluation { .. } => {
                 state.block_producer.with(false, |this| {
-                    this.vrf_evaluator.is_waiting_for_slot_evaluation()
+                    this.vrf_evaluator.is_epoch_bound_evaluated()
+                    || this.vrf_evaluator.is_evaluation_pending()
                 })
             }
             BlockProducerVrfEvaluatorAction::FinishEpochEvaluation { .. } => {
                 state.block_producer.with(false, |this| {
-                    this.vrf_evaluator.is_waiting_for_slot_evaluation()
+                    this.vrf_evaluator.is_epoch_bound_evaluated()
                 })
             }
             BlockProducerVrfEvaluatorAction::WaitForNextEvaluation { .. } => state
@@ -184,6 +192,11 @@ impl redux::EnablingCondition<crate::State> for BlockProducerVrfEvaluatorAction 
             BlockProducerVrfEvaluatorAction::SelectInitialSlot { .. } => {
                 state.block_producer.with(false, |this| {
                     this.vrf_evaluator.is_delegator_table_constructed()
+                })
+            }
+            BlockProducerVrfEvaluatorAction::CheckEpochBounds { .. } => {
+                state.block_producer.with(false, |this| {
+                    this.vrf_evaluator.is_slot_evaluated()
                 })
             }
         }

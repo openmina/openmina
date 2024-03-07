@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use mina_p2p_messages::v2::LedgerHash;
+use mina_p2p_messages::v2::{LedgerHash, ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1, ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1};
 use openmina_core::block::ArcBlockWithHash;
 use serde::{Deserialize, Serialize};
 
@@ -31,7 +31,19 @@ impl BlockProducerVrfEvaluatorState {
             last_evaluated_epoch: Default::default(),
             last_block_heights_in_epoch: Default::default(),
             pending_evaluation: Default::default(),
-            epoch_context: EpochContext::Current,
+            epoch_context: EpochContext::Waiting,
+        }
+    }
+
+    pub fn evaluate_epoch_bounds(global_slot: &u32) -> EpochBounds {
+        const SLOTS_PER_EPOCH: u32 = 7140;
+
+        if global_slot % SLOTS_PER_EPOCH == 0 {
+            EpochBounds::Beginning
+        } else if (global_slot + 1) % SLOTS_PER_EPOCH == 0 {
+            EpochBounds::End
+        } else {
+            EpochBounds::Within
         }
     }
 
@@ -59,23 +71,25 @@ impl BlockProducerVrfEvaluatorState {
             current_best_tip_height,
             transition_frontier_size,
             current_epoch_number,
+            staking_epoch_data,
+            next_epoch_data,
             ..
-        } = self.status
+        } = self.status.clone()
         {
             if !self.is_epoch_evaluated(current_epoch_number) {
-                self.epoch_context = EpochContext::Current
+                self.epoch_context = EpochContext::Current(staking_epoch_data.into())
             } else if !self.is_epoch_evaluated(current_epoch_number + 1) {
                 if let Some(last_epoch_block_height) = last_epoch_block_height {
                     if (last_epoch_block_height + transition_frontier_size)
                         >= current_best_tip_height
                     {
-                        self.epoch_context = EpochContext::Next
+                        self.epoch_context = EpochContext::Next(next_epoch_data.into())
                     } else {
                         self.epoch_context = EpochContext::Waiting
                     }
                 } else {
                     // if last_epoch_block_height is not set, we are still in genesis epoch, Next epoch evaluation is possible
-                    self.epoch_context = EpochContext::Next
+                    self.epoch_context = EpochContext::Next(next_epoch_data.into())
                 }
             } else {
                 self.epoch_context = EpochContext::Waiting
@@ -103,7 +117,7 @@ impl BlockProducerVrfEvaluatorState {
         self.last_block_heights_in_epoch.get(&epoch).copied()
     }
 
-    pub fn last_evaluated_global_slot(&self) -> u32 {
+    pub fn latest_evaluated_global_slot(&self) -> u32 {
         self.latest_evaluated_slot
     }
 
@@ -114,10 +128,10 @@ impl BlockProducerVrfEvaluatorState {
         )
     }
 
-    pub fn is_waiting_for_slot_evaluation(&self) -> bool {
+    pub fn is_epoch_bound_evaluated(&self) -> bool {
         matches!(
             self.status,
-            BlockProducerVrfEvaluatorStatus::SlotEvaluationPending { .. }
+            BlockProducerVrfEvaluatorStatus::EpochBoundsCheck { .. }
         )
     }
 
@@ -162,8 +176,14 @@ impl BlockProducerVrfEvaluatorState {
         matches!(
             self.status,
             BlockProducerVrfEvaluatorStatus::SlotEvaluationPending { .. }
+                | BlockProducerVrfEvaluatorStatus::SlotEvaluationReceived { .. }
                 | BlockProducerVrfEvaluatorStatus::EpochEvaluationPending { .. }
+                | BlockProducerVrfEvaluatorStatus::EpochBoundsCheck { .. }
         )
+    }
+
+    pub fn is_evaluation_pending(&self) -> bool {
+        matches!(self.status, BlockProducerVrfEvaluatorStatus::EpochEvaluationPending { .. })
     }
 
     pub fn is_slot_selection(&self) -> bool {
@@ -173,7 +193,21 @@ impl BlockProducerVrfEvaluatorState {
         )
     }
 
-    pub fn set_last_evaluated_global_slot(&mut self, global_slot: &u32) {
+    pub fn is_slot_requested(&self) -> bool {
+        matches!(
+            self.status,
+            BlockProducerVrfEvaluatorStatus::SlotEvaluationPending { .. }
+        )
+    }
+
+    pub fn is_slot_evaluated(&self) -> bool {
+        matches!(
+            self.status,
+            BlockProducerVrfEvaluatorStatus::SlotEvaluationReceived { .. }
+        )
+    }
+
+    pub fn set_latest_evaluated_global_slot(&mut self, global_slot: &u32) {
         if self.is_evaluating() {
             if let Some(ref mut pending_evaluation) = self.pending_evaluation {
                 pending_evaluation.latest_evaluated_slot = *global_slot;
@@ -193,8 +227,8 @@ impl BlockProducerVrfEvaluatorState {
             &self.status
         {
             match self.epoch_context {
-                EpochContext::Current => self.last_evaluated_epoch = Some(*epoch_number),
-                EpochContext::Next => self.last_evaluated_epoch = Some(epoch_number + 1),
+                EpochContext::Current(_) => self.last_evaluated_epoch = Some(*epoch_number),
+                EpochContext::Next(_) => self.last_evaluated_epoch = Some(epoch_number + 1),
                 EpochContext::Waiting => {}
             }
         }
@@ -205,6 +239,14 @@ impl BlockProducerVrfEvaluatorState {
             self.status
         {
             Some(initial_slot)
+        } else {
+            None
+        }
+    }
+
+    pub fn get_epoch_bound_from_check(&self) -> Option<EpochBounds> {
+        if let BlockProducerVrfEvaluatorStatus::EpochBoundsCheck { epoch_current_bound, .. } = &self.status {
+            Some(epoch_current_bound.clone())
         } else {
             None
         }
@@ -256,6 +298,28 @@ impl EpochData {
     }
 }
 
+impl From<ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1> for EpochData {
+    fn from(value: ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1) -> Self {
+        Self {
+            seed: value.seed.to_string(),
+            ledger: value.ledger.hash,
+            delegator_table: Default::default(),
+            total_currency: value.ledger.total_currency.as_u64(),
+        }
+    }
+}
+
+impl From<ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1> for EpochData {
+    fn from(value: ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1) -> Self {
+        Self {
+            seed: value.seed.to_string(),
+            ledger: value.ledger.hash,
+            delegator_table: Default::default(),
+            total_currency: value.ledger.total_currency.as_u64(),
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct PendingEvaluation {
     pub epoch_number: u32,
@@ -301,9 +365,14 @@ pub enum BlockProducerVrfEvaluatorStatus {
         epoch_number: u32,
         epoch_data: EpochData,
         latest_evaluated_global_slot: u32,
+        // next_vrf_input: Option<VrfEvaluatorInput>,
     },
     /// A slot was sent for evaluation to the vrf evaluator service
     SlotEvaluationPending {
+        time: redux::Timestamp,
+        global_slot: u32,
+    },
+    SlotEvaluationReceived {
         time: redux::Timestamp,
         global_slot: u32,
     },
@@ -333,6 +402,14 @@ pub enum BlockProducerVrfEvaluatorStatus {
         current_best_tip_height: u32,
         last_evaluated_epoch: Option<u32>,
         last_epoch_block_height: Option<u32>,
+        staking_epoch_data: ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1,
+        next_epoch_data: ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1,
+    },
+    EpochBoundsCheck {
+        time: redux::Timestamp,
+        epoch_number: u32,
+        latest_evaluated_global_slot: u32,
+        epoch_current_bound: EpochBounds,
     },
 }
 
@@ -351,23 +428,42 @@ impl std::fmt::Display for BlockProducerVrfEvaluatorStatus {
             Self::WaitingForNextEvaluation { .. } => write!(f, "WaitingForNextEvaluation"),
             Self::ReadinessCheck { .. } => write!(f, "ReadinessCheck"),
             Self::InitialSlotSelection { .. } => write!(f, "StartingSlotSelection"),
+            Self::EpochBoundsCheck { .. } => write!(f, "EpochBoundsCheck"),
+            Self::SlotEvaluationReceived { .. } => write!(f, "SlotEvaluationReceived"),
         }
     }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum EpochContext {
-    Current,
-    Next,
+    Current(EpochData),
+    Next(EpochData),
     Waiting,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum EpochBounds {
+    Beginning,
+    Within,
+    End,
 }
 
 impl std::fmt::Display for EpochContext {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Current => write!(f, "Current"),
-            Self::Next => write!(f, "Next"),
+            Self::Current(_) => write!(f, "Current"),
+            Self::Next(_) => write!(f, "Next"),
             Self::Waiting => write!(f, "Waiting"),
+        }
+    }
+}
+
+impl EpochContext {
+    pub fn get_epoch_data(&self) -> Option<EpochData> {
+        match self {
+            EpochContext::Current(epoch_data)
+            | EpochContext::Next(epoch_data) => Some(epoch_data.clone()),
+            EpochContext::Waiting => None,
         }
     }
 }
@@ -380,15 +476,42 @@ impl BlockProducerVrfEvaluatorStatus {
 
 #[cfg(test)]
 mod test {
-    use std::{collections::BTreeMap, sync::Mutex};
+    use std::{collections::BTreeMap, sync::Mutex, str::FromStr};
 
     use lazy_static::lazy_static;
+    use mina_p2p_messages::{v2::{ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1, MinaBaseEpochLedgerValueStableV1, LedgerHash, CurrencyAmountStableV1, UnsignedExtendedUInt64Int64ForVersionTagsStableV1, MinaBaseEpochSeedStableV1, StateHash, UnsignedExtendedUInt32StableV1, ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1}, number::Number, bigint::BigInt};
 
     use crate::block_producer::vrf_evaluator::{
-        BlockProducerVrfEvaluatorState, BlockProducerVrfEvaluatorStatus, EpochContext,
+        BlockProducerVrfEvaluatorState, BlockProducerVrfEvaluatorStatus, EpochContext, EpochBounds,
     };
 
     lazy_static! {
+        static ref DUMMY_STAKING_EPOCH_DATA: ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1 = {
+            ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1 {
+                ledger: MinaBaseEpochLedgerValueStableV1 {
+                    hash: LedgerHash::from_str("jxTAZfKKDxoX4vtt68pQCWooXoVLjnfBpusaMwewrcZxsL3uWp6").unwrap(),
+                    total_currency: CurrencyAmountStableV1(UnsignedExtendedUInt64Int64ForVersionTagsStableV1(Number(10000000))),
+                },
+                // seed: MinaBaseEpochSeedStableV1(BigInt::from(0))
+                seed: MinaBaseEpochSeedStableV1(BigInt::zero()).into(),
+                start_checkpoint: StateHash::from_str("3NKxUSAJE3wqJkrtBhMYhwzrMq3B5sKjPJQRyXz1YrPWA7761opD").unwrap(),
+                lock_checkpoint: StateHash::from_str("3NKxUSAJE3wqJkrtBhMYhwzrMq3B5sKjPJQRyXz1YrPWA7761opD").unwrap(),
+                epoch_length: UnsignedExtendedUInt32StableV1(Number(7140))
+            }
+        };
+        static ref DUMMY_NEXT_EPOCH_DATA: ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1 = {
+            ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1 {
+                ledger: MinaBaseEpochLedgerValueStableV1 {
+                    hash: LedgerHash::from_str("jxTAZfKKDxoX4vtt68pQCWooXoVLjnfBpusaMwewrcZxsL3uWp6").unwrap(),
+                    total_currency: CurrencyAmountStableV1(UnsignedExtendedUInt64Int64ForVersionTagsStableV1(Number(10000000))),
+                },
+                // seed: MinaBaseEpochSeedStableV1(BigInt::from(0))
+                seed: MinaBaseEpochSeedStableV1(BigInt::zero()).into(),
+                start_checkpoint: StateHash::from_str("3NKxUSAJE3wqJkrtBhMYhwzrMq3B5sKjPJQRyXz1YrPWA7761opD").unwrap(),
+                lock_checkpoint: StateHash::from_str("3NKxUSAJE3wqJkrtBhMYhwzrMq3B5sKjPJQRyXz1YrPWA7761opD").unwrap(),
+                epoch_length: UnsignedExtendedUInt32StableV1(Number(7140))
+            }
+        };
         static ref GENESIS_EPOCH_FIRST_SLOT: Mutex<BlockProducerVrfEvaluatorState> = {
             let state = BlockProducerVrfEvaluatorState {
                 status: BlockProducerVrfEvaluatorStatus::ReadinessCheck {
@@ -400,6 +523,8 @@ mod test {
                     current_best_tip_height: 1,
                     last_evaluated_epoch: None,
                     last_epoch_block_height: Some(1),
+                    staking_epoch_data: DUMMY_STAKING_EPOCH_DATA.to_owned(),
+                    next_epoch_data: DUMMY_NEXT_EPOCH_DATA.to_owned(),
                 },
                 won_slots: BTreeMap::new(),
                 latest_evaluated_slot: 0,
@@ -407,7 +532,7 @@ mod test {
                 last_evaluated_epoch: None,
                 last_block_heights_in_epoch: BTreeMap::new(),
                 pending_evaluation: None,
-                epoch_context: EpochContext::Current,
+                epoch_context: EpochContext::Current(DUMMY_STAKING_EPOCH_DATA.to_owned().into()),
             };
             Mutex::new(state)
         };
@@ -422,6 +547,8 @@ mod test {
                     current_best_tip_height: 900,
                     last_evaluated_epoch: Some(0),
                     last_epoch_block_height: None,
+                    staking_epoch_data: DUMMY_STAKING_EPOCH_DATA.to_owned(),
+                    next_epoch_data: DUMMY_NEXT_EPOCH_DATA.to_owned(),
                 },
                 won_slots: BTreeMap::new(),
                 latest_evaluated_slot: 7139,
@@ -429,7 +556,7 @@ mod test {
                 last_evaluated_epoch: Some(0),
                 last_block_heights_in_epoch: BTreeMap::new(),
                 pending_evaluation: None,
-                epoch_context: EpochContext::Current,
+                epoch_context: EpochContext::Current(DUMMY_STAKING_EPOCH_DATA.to_owned().into()),
             };
             Mutex::new(state)
         };
@@ -444,6 +571,8 @@ mod test {
                     current_best_tip_height: 1500,
                     last_evaluated_epoch: Some(1),
                     last_epoch_block_height: None,
+                    staking_epoch_data: DUMMY_STAKING_EPOCH_DATA.to_owned(),
+                    next_epoch_data: DUMMY_NEXT_EPOCH_DATA.to_owned(),
                 },
                 won_slots: BTreeMap::new(),
                 latest_evaluated_slot: 14279,
@@ -451,7 +580,7 @@ mod test {
                 last_evaluated_epoch: Some(1),
                 last_block_heights_in_epoch: BTreeMap::new(),
                 pending_evaluation: None,
-                epoch_context: EpochContext::Current,
+                epoch_context: EpochContext::Current(DUMMY_STAKING_EPOCH_DATA.to_owned().into()),
             };
             Mutex::new(state)
         };
@@ -466,6 +595,8 @@ mod test {
                     current_best_tip_height: 15000,
                     last_evaluated_epoch: None,
                     last_epoch_block_height: Some(14500),
+                    staking_epoch_data: DUMMY_STAKING_EPOCH_DATA.to_owned(),
+                    next_epoch_data: DUMMY_NEXT_EPOCH_DATA.to_owned(),
                 },
                 won_slots: BTreeMap::new(),
                 latest_evaluated_slot: 0,
@@ -473,7 +604,7 @@ mod test {
                 last_evaluated_epoch: None,
                 last_block_heights_in_epoch: BTreeMap::new(),
                 pending_evaluation: None,
-                epoch_context: EpochContext::Current,
+                epoch_context: EpochContext::Current(DUMMY_STAKING_EPOCH_DATA.to_owned().into()),
             };
             Mutex::new(state)
         };
@@ -488,6 +619,8 @@ mod test {
                     current_best_tip_height: 15000,
                     last_evaluated_epoch: Some(2),
                     last_epoch_block_height: Some(14900),
+                    staking_epoch_data: DUMMY_STAKING_EPOCH_DATA.to_owned(),
+                    next_epoch_data: DUMMY_NEXT_EPOCH_DATA.to_owned(),
                 },
                 won_slots: BTreeMap::new(),
                 latest_evaluated_slot: 21419,
@@ -495,7 +628,7 @@ mod test {
                 last_evaluated_epoch: Some(2),
                 last_block_heights_in_epoch: BTreeMap::new(),
                 pending_evaluation: None,
-                epoch_context: EpochContext::Current,
+                epoch_context: EpochContext::Current(DUMMY_STAKING_EPOCH_DATA.to_owned().into()),
             };
             Mutex::new(state)
         };
@@ -509,13 +642,13 @@ mod test {
     #[test]
     fn correctly_set_epoch_context_on_startup() {
         let mut vrf_evaluator_state = GENESIS_EPOCH_FIRST_SLOT.lock().unwrap();
-        test_set_epoch_context(&mut vrf_evaluator_state, EpochContext::Current)
+        test_set_epoch_context(&mut vrf_evaluator_state, EpochContext::Current(DUMMY_STAKING_EPOCH_DATA.to_owned().into()))
     }
 
     #[test]
     fn correctly_switch_to_next_epoch() {
         let mut vrf_evaluator_state = GENESIS_EPOCH_CURRENT_EPOCH_EVALUATED.lock().unwrap();
-        test_set_epoch_context(&mut vrf_evaluator_state, EpochContext::Next)
+        test_set_epoch_context(&mut vrf_evaluator_state, EpochContext::Next(DUMMY_NEXT_EPOCH_DATA.to_owned().into()))
     }
 
     #[test]
@@ -527,7 +660,7 @@ mod test {
     #[test]
     fn generic_epoch_set_epoch_context_on_startup() {
         let mut vrf_evaluator_state = SECOND_EPOCH_STARTUP.lock().unwrap();
-        test_set_epoch_context(&mut vrf_evaluator_state, EpochContext::Current)
+        test_set_epoch_context(&mut vrf_evaluator_state, EpochContext::Current(DUMMY_STAKING_EPOCH_DATA.to_owned().into()))
     }
 
     #[test]
@@ -548,6 +681,8 @@ mod test {
             current_best_tip_height: 15189,
             last_evaluated_epoch: Some(2),
             last_epoch_block_height: Some(14900),
+            staking_epoch_data: DUMMY_STAKING_EPOCH_DATA.to_owned(),
+            next_epoch_data: DUMMY_NEXT_EPOCH_DATA.to_owned(),
         };
 
         test_set_epoch_context(&mut vrf_evaluator_state, EpochContext::Waiting);
@@ -562,8 +697,37 @@ mod test {
             current_best_tip_height: 15190,
             last_evaluated_epoch: Some(2),
             last_epoch_block_height: Some(14900),
+            staking_epoch_data: DUMMY_STAKING_EPOCH_DATA.to_owned(),
+            next_epoch_data: DUMMY_NEXT_EPOCH_DATA.to_owned(),
         };
 
-        test_set_epoch_context(&mut vrf_evaluator_state, EpochContext::Next);
+        test_set_epoch_context(&mut vrf_evaluator_state, EpochContext::Next(DUMMY_NEXT_EPOCH_DATA.to_owned().into()));
+    }
+
+    #[test]
+    fn test_evaluate_epoch_bounds() {
+        const GENESIS_EPOCH_BEGINNING: u32 = 0;
+        const GENESIS_EPOCH_WITHIN: u32 = 2000;
+        const GENESIS_EPOCH_END: u32 = 7139;
+        
+        const BEGINNING: u32 = 7140;
+        const WITHIN: u32 = 7500;
+        const END: u32 = 14279;
+
+        let res = BlockProducerVrfEvaluatorState::evaluate_epoch_bounds(&GENESIS_EPOCH_BEGINNING);
+        assert!(matches!(res, EpochBounds::Beginning));
+        let res = BlockProducerVrfEvaluatorState::evaluate_epoch_bounds(&GENESIS_EPOCH_WITHIN);
+        assert!(matches!(res, EpochBounds::Within));
+        let res = BlockProducerVrfEvaluatorState::evaluate_epoch_bounds(&GENESIS_EPOCH_END);
+        assert!(matches!(res, EpochBounds::End));
+
+        let res = BlockProducerVrfEvaluatorState::evaluate_epoch_bounds(&BEGINNING);
+        assert!(matches!(res, EpochBounds::Beginning));
+
+        let res = BlockProducerVrfEvaluatorState::evaluate_epoch_bounds(&WITHIN);
+        assert!(matches!(res, EpochBounds::Within));
+
+        let res = BlockProducerVrfEvaluatorState::evaluate_epoch_bounds(&END);
+        assert!(matches!(res, EpochBounds::End));
     }
 }

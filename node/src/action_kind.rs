@@ -101,6 +101,7 @@ pub enum ActionKind {
     BlockProducerWonSlotWait,
     BlockProducerVrfEvaluatorBeginDelegatorTableConstruction,
     BlockProducerVrfEvaluatorBeginEpochEvaluation,
+    BlockProducerVrfEvaluatorCheckEpochBounds,
     BlockProducerVrfEvaluatorCheckEpochEvaluability,
     BlockProducerVrfEvaluatorContinueEpochEvaluation,
     BlockProducerVrfEvaluatorEvaluateSlot,
@@ -111,6 +112,7 @@ pub enum ActionKind {
     BlockProducerVrfEvaluatorInitializeEvaluator,
     BlockProducerVrfEvaluatorProcessSlotEvaluationSuccess,
     BlockProducerVrfEvaluatorRecordLastBlockHeightInEpoch,
+    BlockProducerVrfEvaluatorSelectInitialSlot,
     BlockProducerVrfEvaluatorWaitForNextEvaluation,
     CheckTimeouts,
     ConsensusBestTipUpdate,
@@ -365,7 +367,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 277;
+    pub const COUNT: u16 = 279;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -787,6 +789,9 @@ impl ActionKindGet for BlockProducerVrfEvaluatorAction {
             Self::FinalizeDelegatorTableConstruction { .. } => {
                 ActionKind::BlockProducerVrfEvaluatorFinalizeDelegatorTableConstruction
             }
+            Self::SelectInitialSlot { .. } => {
+                ActionKind::BlockProducerVrfEvaluatorSelectInitialSlot
+            }
             Self::BeginEpochEvaluation { .. } => {
                 ActionKind::BlockProducerVrfEvaluatorBeginEpochEvaluation
             }
@@ -802,6 +807,7 @@ impl ActionKindGet for BlockProducerVrfEvaluatorAction {
             Self::WaitForNextEvaluation { .. } => {
                 ActionKind::BlockProducerVrfEvaluatorWaitForNextEvaluation
             }
+            Self::CheckEpochBounds { .. } => ActionKind::BlockProducerVrfEvaluatorCheckEpochBounds,
         }
     }
 }

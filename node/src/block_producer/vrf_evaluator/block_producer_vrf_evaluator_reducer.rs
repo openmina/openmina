@@ -32,7 +32,18 @@ impl BlockProducerVrfEvaluatorState {
                     }
                     vrf::VrfEvaluationOutput::SlotLost(global_slot) => *global_slot,
                 };
-                self.set_last_evaluated_global_slot(&global_slot_evaluated);
+                self.set_latest_evaluated_global_slot(&global_slot_evaluated);
+
+                self.status = BlockProducerVrfEvaluatorStatus::SlotEvaluationReceived { time: meta.time(), global_slot: global_slot_evaluated }
+            }
+            BlockProducerVrfEvaluatorAction::CheckEpochBounds { epoch_number, latest_evaluated_global_slot } => {
+                let epoch_current_bound = Self::evaluate_epoch_bounds(latest_evaluated_global_slot);
+                self.status = BlockProducerVrfEvaluatorStatus::EpochBoundsCheck {
+                    time: meta.time(),
+                    epoch_number: *epoch_number,
+                    latest_evaluated_global_slot: *latest_evaluated_global_slot,
+                    epoch_current_bound,
+                };
             }
             BlockProducerVrfEvaluatorAction::InitializeEvaluator { .. } => {
                 self.status =
@@ -51,6 +62,8 @@ impl BlockProducerVrfEvaluatorState {
                 current_epoch_number,
                 current_best_tip_height,
                 transition_frontier_size,
+                staking_epoch_data,
+                next_epoch_data,
                 ..
             } => {
                 self.status = BlockProducerVrfEvaluatorStatus::ReadinessCheck {
@@ -62,6 +75,8 @@ impl BlockProducerVrfEvaluatorState {
                     current_best_tip_height: *current_best_tip_height,
                     last_evaluated_epoch: self.last_evaluated_epoch(),
                     last_epoch_block_height: self.last_height(current_epoch_number - 1),
+                    staking_epoch_data: staking_epoch_data.clone(),
+                    next_epoch_data: next_epoch_data.clone(),
                 };
 
                 self.set_epoch_context();
@@ -170,8 +185,8 @@ impl BlockProducerVrfEvaluatorState {
                 ..
             } => {
                 let (epoch_number, initial_slot) = match self.epoch_context() {
-                    super::EpochContext::Current => (*current_epoch_number, *current_global_slot),
-                    super::EpochContext::Next => {
+                    super::EpochContext::Current(_) => (*current_epoch_number, *current_global_slot),
+                    super::EpochContext::Next(_) => {
                         (current_epoch_number + 1, next_epoch_first_slot - 1)
                     }
                     super::EpochContext::Waiting => todo!(),
