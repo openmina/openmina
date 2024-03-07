@@ -298,6 +298,11 @@ impl Nonce {
             self.sub_flagged(&rhs.magnitude)
         }
     }
+
+    /// low <= self <= high
+    pub fn between(&self, low: &Self, high: &Self) -> bool {
+        low <= self && self <= high
+    }
 }
 
 impl BlockTime {
