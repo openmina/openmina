@@ -302,9 +302,9 @@ impl Nonce {
 
 impl BlockTime {
     pub fn now() -> Self {
-        use std::time::{SystemTime, UNIX_EPOCH};
+        use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-        let elapsed = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
+        let elapsed: Duration = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
         let elapsed: u64 = elapsed.as_millis().try_into().unwrap();
         Self(elapsed)
     }
@@ -316,11 +316,29 @@ impl BlockTime {
     pub fn sub(&self, span: BlockTimeSpan) -> Self {
         Self(self.0.checked_sub(span.0).unwrap())
     }
+
+    pub fn diff(&self, other: Self) -> BlockTimeSpan {
+        BlockTimeSpan(self.0 - other.0)
+    }
+
+    pub fn to_span_since_epoch(&self) -> BlockTimeSpan {
+        let Self(ms) = self;
+        BlockTimeSpan(*ms)
+    }
+
+    pub fn of_span_since_epoch(span: BlockTimeSpan) -> Self {
+        let BlockTimeSpan(ms) = span;
+        Self(ms)
+    }
 }
 
 impl BlockTimeSpan {
     pub fn of_ms(ms: u64) -> Self {
         Self(ms)
+    }
+    pub fn to_ms(&self) -> u64 {
+        let Self(ms) = self;
+        *ms
     }
 }
 
@@ -328,6 +346,11 @@ impl Slot {
     // TODO: Not sure if OCaml wraps around here
     pub fn incr(&self) -> Self {
         Self(self.0.wrapping_add(1))
+    }
+
+    pub fn add(&self, other: SlotSpan) -> Self {
+        let SlotSpan(other) = other;
+        Self(self.0.checked_add(other).unwrap())
     }
 
     pub fn succ(&self) -> Self {
@@ -539,6 +562,6 @@ macro_rules! impl_number {
 }
 
 impl_number!(
-    32: { Length, Slot, Nonce, Index, SlotSpan, TxnVersion, },
+    32: { Length, Slot, Nonce, Index, SlotSpan, TxnVersion, Epoch, },
     64: { Amount, Balance, Fee, BlockTime, BlockTimeSpan, N, },
 );
