@@ -369,7 +369,7 @@ macro_rules! impl_number {
         $(impl_number!({$name64, u64, as_u64, from_u64, next_u64, append_u64},);)+
     };
     ($({ $name:ident, $inner:ty, $as_name:ident, $from_name:ident, $next_name:ident, $append_name:ident },)*) => ($(
-        #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+        #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
         pub struct $name(pub(super) $inner);
 
         impl std::fmt::Debug for $name {

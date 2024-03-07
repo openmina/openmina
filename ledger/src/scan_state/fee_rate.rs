@@ -2,7 +2,7 @@ use crate::scan_state::currency::Magnitude;
 
 use super::currency::Fee;
 
-#[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Hash)]
 pub struct FeeRate {
     q: fraction::Fraction,
 }
