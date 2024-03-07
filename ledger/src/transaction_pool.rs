@@ -1,6 +1,6 @@
 use std::{
     borrow::Borrow,
-    collections::{hash_map::Entry, HashMap, HashSet},
+    collections::{hash_map::Entry, HashMap, HashSet, VecDeque},
 };
 
 use mina_hasher::Fp;
@@ -399,7 +399,7 @@ struct IndexedPool {
     /// execute them -- plus any currency spent from this account by
     /// transactions from other accounts -- indexed by sender account.
     /// Ordered by nonce inside the accounts.
-    all_by_sender: HashMap<AccountId, Vec<(ValidCommandWithHash, Amount)>>,
+    all_by_sender: HashMap<AccountId, (VecDeque<ValidCommandWithHash>, Amount)>,
     /// All transactions in the pool indexed by fee per weight unit.
     all_by_fee: HashMap<FeeRate, HashSet<ValidCommandWithHash>>,
     all_by_hash: HashMap<BlakeHash, ValidCommandWithHash>,
@@ -444,8 +444,148 @@ impl IndexedPool {
         }
     }
 
-    fn add_from_backtrack(&mut self, cmd: ValidCommandWithHash) -> Result<(), String> {
-        todo!()
+    fn check_expiry(&self, cmd: &UserCommand) -> Result<(), CommandError> {
+        let global_slot_since_genesis = self.global_slot_since_genesis();
+        let valid_until = cmd.valid_until();
+
+        if valid_until < global_slot_since_genesis {
+            return Err(CommandError::Expired {
+                valid_until,
+                global_slot_since_genesis,
+            });
+        }
+
+        Ok(())
+    }
+
+    /// Insert in a `HashMap<_, HashSet<_>>`
+    fn map_set_insert<K, V>(map: &mut HashMap<K, HashSet<V>>, key: K, value: V)
+    where
+        K: std::hash::Hash + PartialEq + Eq,
+        V: std::hash::Hash + PartialEq + Eq,
+    {
+        let entry = map.entry(key).or_default();
+        entry.insert(value);
+    }
+
+    /// Remove in a `HashMap<_, HashSet<_>>`
+    fn map_set_remove<K, V>(map: &mut HashMap<K, HashSet<V>>, key: K, value: &V)
+    where
+        K: std::hash::Hash + PartialEq + Eq,
+        V: std::hash::Hash + PartialEq + Eq,
+    {
+        let Entry::Occupied(mut entry) = map.entry(key) else {
+            return;
+        };
+        let set = entry.get_mut();
+        set.remove(value);
+        if set.is_empty() {
+            entry.remove();
+        }
+    }
+
+    fn update_expiration_map(&mut self, cmd: ValidCommandWithHash, is_add: bool) {
+        let user_cmd = cmd.data.forget_check();
+        let expiry = user_cmd.valid_until();
+        if expiry == Slot::max() {
+            return; // Do nothing
+        }
+        if is_add {
+            Self::map_set_insert(&mut self.transactions_with_expiration, expiry, cmd);
+        } else {
+            Self::map_set_remove(&mut self.transactions_with_expiration, expiry, &cmd);
+        }
+    }
+
+    fn remove_from_expiration_exn(&mut self, cmd: ValidCommandWithHash) {
+        self.update_expiration_map(cmd, false);
+    }
+
+    fn add_to_expiration(&mut self, cmd: ValidCommandWithHash) {
+        self.update_expiration_map(cmd, true);
+    }
+
+    /// Remove a command from the applicable_by_fee field. This may break an
+    /// invariant.
+    fn remove_applicable_exn(&mut self, cmd: &ValidCommandWithHash) {
+        let fee_per_wu = cmd.data.forget_check().fee_per_wu();
+        Self::map_set_remove(&mut self.applicable_by_fee, fee_per_wu, cmd);
+    }
+
+    fn make_queue<T>() -> VecDeque<T> {
+        VecDeque::with_capacity(256)
+    }
+
+    fn add_from_backtrack(&mut self, cmd: ValidCommandWithHash) -> Result<(), CommandError> {
+        let IndexedPoolConfig {
+            consensus_constants,
+            slot_tx_end,
+        } = &self.config;
+
+        let current_global_slot =
+            consensus::GlobalSlot::of_time_exn(consensus_constants, BlockTime::now())
+                .unwrap()
+                .to_global_slot();
+
+        if !slot_tx_end
+            .as_ref()
+            .map(|slot_tx_end| current_global_slot < *slot_tx_end)
+            .unwrap_or(true)
+        {
+            return Err(CommandError::AfterSlotTxEnd);
+        }
+
+        let ValidCommandWithHash {
+            data: unchecked,
+            hash: cmd_hash,
+        } = &cmd;
+        let unchecked = unchecked.forget_check();
+
+        self.check_expiry(&unchecked)?;
+
+        let fee_payer = unchecked.fee_payer();
+        let fee_per_wu = unchecked.fee_per_wu();
+
+        let consumed = currency_consumed(&unchecked).unwrap();
+
+        match self.all_by_sender.get_mut(&fee_payer) {
+            None => {
+                {
+                    let mut queue = Self::make_queue();
+                    queue.push_back(cmd.clone());
+                    self.all_by_sender.insert(fee_payer, (queue, consumed));
+                }
+                Self::map_set_insert(&mut self.all_by_fee, fee_per_wu.clone(), cmd.clone());
+                self.all_by_hash.insert(cmd_hash.clone(), cmd.clone());
+                Self::map_set_insert(&mut self.applicable_by_fee, fee_per_wu.clone(), cmd.clone());
+                self.add_to_expiration(cmd);
+                self.size += 1;
+            }
+            Some((queue, currency_reserved)) => {
+                let first_queued = queue.front().cloned().unwrap();
+
+                if unchecked.expected_target_nonce()
+                    != first_queued.data.forget_check().applicable_at_nonce()
+                {
+                    panic!("indexed pool nonces inconsistent when adding from backtrack.")
+                }
+
+                // update `self.all_by_sender`
+                {
+                    queue.push_front(cmd.clone());
+                    *currency_reserved = currency_reserved.checked_add(&consumed).unwrap();
+                }
+
+                self.remove_applicable_exn(&first_queued);
+
+                Self::map_set_insert(&mut self.applicable_by_fee, fee_per_wu.clone(), cmd.clone());
+                Self::map_set_insert(&mut self.all_by_fee, fee_per_wu.clone(), cmd.clone());
+                self.all_by_hash.insert(cmd_hash.clone(), cmd.clone());
+                self.add_to_expiration(cmd);
+                self.size += 1;
+            }
+        }
+        Ok(())
     }
 
     fn add_from_gossip_exn(
@@ -471,6 +611,26 @@ impl IndexedPool {
     {
         todo!()
     }
+}
+
+fn currency_consumed(cmd: &UserCommand) -> Option<Amount> {
+    use crate::scan_state::transaction_logic::signed_command::{Body::*, PaymentPayload};
+
+    let fee_amount = Amount::of_fee(&cmd.fee());
+    let amount = match cmd {
+        UserCommand::SignedCommand(c) => {
+            match &c.payload.body {
+                Payment(PaymentPayload { amount, .. }) => {
+                    // The fee-payer is also the sender account, include the amount.
+                    *amount
+                }
+                StakeDelegation(_) => Amount::zero(),
+            }
+        }
+        UserCommand::ZkAppCommand(_) => Amount::zero(),
+    };
+
+    fee_amount.checked_add(&amount)
 }
 
 type BlakeHash = Box<[u8; 32]>;

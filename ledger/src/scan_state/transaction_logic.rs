@@ -3614,6 +3614,15 @@ pub mod zkapp_command {
             FeeExcess::of_single((self.fee_token(), Signed::<Fee>::of_unsigned(self.fee())))
         }
 
+        fn fee_payer_account_update(&self) -> &FeePayer {
+            let Self { fee_payer, .. } = self;
+            fee_payer
+        }
+
+        pub fn applicable_at_nonce(&self) -> Nonce {
+            self.fee_payer_account_update().body.nonce
+        }
+
         pub fn weight(&self) -> u64 {
             let Self {
                 fee_payer,
@@ -3915,6 +3924,9 @@ pub mod zkapp_command {
         impl ZkAppCommand {
             pub fn forget(self) -> super::ZkAppCommand {
                 self.zkapp_command
+            }
+            pub fn forget_ref(&self) -> &super::ZkAppCommand {
+                &self.zkapp_command
             }
         }
 
@@ -4302,6 +4314,34 @@ impl UserCommand {
             .into_iter()
             .map(|(id, _status)| id)
             .collect()
+    }
+
+    pub fn fee_payer(&self) -> AccountId {
+        match self {
+            UserCommand::SignedCommand(cmd) => cmd.fee_payer(),
+            UserCommand::ZkAppCommand(cmd) => cmd.fee_payer(),
+        }
+    }
+
+    pub fn valid_until(&self) -> Slot {
+        match self {
+            UserCommand::SignedCommand(cmd) => cmd.valid_until(),
+            UserCommand::ZkAppCommand(cmd) => {
+                let ZkAppCommand { fee_payer, .. } = &**cmd;
+                fee_payer.body.valid_until.unwrap_or_else(Slot::max)
+            }
+        }
+    }
+
+    pub fn applicable_at_nonce(&self) -> Nonce {
+        match self {
+            UserCommand::SignedCommand(cmd) => cmd.nonce(),
+            UserCommand::ZkAppCommand(cmd) => cmd.applicable_at_nonce(),
+        }
+    }
+
+    pub fn expected_target_nonce(&self) -> Nonce {
+        self.applicable_at_nonce().succ()
     }
 
     /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/user_command.ml#L192
