@@ -9,21 +9,21 @@ use mina_p2p_messages::v2;
 use crate::{
     proofs::transaction::transaction_snark::CONSTRAINT_CONSTANTS,
     scan_state::{
-        currency::{Amount, Balance, BlockTime, Magnitude, Nonce, Slot, SlotSpan},
+        currency::{Amount, Balance, BlockTime, Fee, Magnitude, Nonce, Slot, SlotSpan},
         fee_rate::FeeRate,
         scan_state::ForkConstants,
         transaction_logic::{
             valid,
             zkapp_command::{
                 from_unapplied_sequence::{self, FromUnappliedSequence},
-                MaybeWithStatus, WithHash,
+                AccountUpdate, MaybeWithStatus, WithHash,
             },
             TransactionStatus::Applied,
             UserCommand, WithStatus,
         },
     },
     verifier::Verifier,
-    Account, AccountId, BaseLedger, Mask, TokenId, VerificationKey,
+    Account, AccountId, BaseLedger, ControlTag, Mask, TokenId, VerificationKey,
 };
 
 mod consensus {
@@ -347,8 +347,14 @@ pub enum CommandError {
         expected: Nonce,
     },
     InsufficientFunds {
-        balance: Amount,
-        amount: Amount,
+        balance: Balance,
+        consumed: Amount,
+    },
+    /// NOTE: don't punish for this, attackers can induce nodes to banlist
+    ///       each other that way! *)
+    InsufficientReplaceFee {
+        replace_fee: Fee,
+        fee: Fee,
     },
     Overflow,
     BadToken,
@@ -367,6 +373,7 @@ impl From<CommandError> for diff::Error {
         match value {
             CommandError::InvalidNonce { .. } => diff::Error::InvalidNonce,
             CommandError::InsufficientFunds { .. } => diff::Error::InsufficientFunds,
+            CommandError::InsufficientReplaceFee { .. } => diff::Error::InsufficientReplaceFee,
             CommandError::Overflow => diff::Error::Overflow,
             CommandError::BadToken => diff::Error::BadToken,
             CommandError::Expired { .. } => diff::Error::Expired,
@@ -517,15 +524,9 @@ impl IndexedPool {
     }
 
     fn add_from_backtrack(&mut self, cmd: ValidCommandWithHash) -> Result<(), CommandError> {
-        let IndexedPoolConfig {
-            consensus_constants,
-            slot_tx_end,
-        } = &self.config;
+        let IndexedPoolConfig { slot_tx_end, .. } = &self.config;
 
-        let current_global_slot =
-            consensus::GlobalSlot::of_time_exn(consensus_constants, BlockTime::now())
-                .unwrap()
-                .to_global_slot();
+        let current_global_slot = self.current_global_slot();
 
         if !slot_tx_end
             .as_ref()
@@ -588,12 +589,180 @@ impl IndexedPool {
         Ok(())
     }
 
+    fn current_global_slot(&self) -> Slot {
+        let IndexedPoolConfig {
+            consensus_constants,
+            slot_tx_end: _,
+        } = &self.config;
+
+        consensus::GlobalSlot::of_time_exn(consensus_constants, BlockTime::now())
+            .unwrap()
+            .to_global_slot()
+    }
+
+    fn update_add(
+        &mut self,
+        cmd: ValidCommandWithHash,
+        fee_per_wu: FeeRate,
+        add_to_applicable_by_fee: bool,
+    ) {
+        if add_to_applicable_by_fee {
+            Self::map_set_insert(&mut self.applicable_by_fee, fee_per_wu.clone(), cmd.clone());
+        }
+
+        let cmd_hash = cmd.hash.clone();
+
+        Self::map_set_insert(&mut self.all_by_fee, fee_per_wu, cmd.clone());
+        self.all_by_hash.insert(cmd_hash, cmd.clone());
+        self.add_to_expiration(cmd);
+        self.size += 1;
+    }
+
+    /// Remove a command from the all_by_fee and all_by_hash fields, and decrement
+    /// size. This may break an invariant.
+    fn update_remove_all_by_fee_and_hash_and_expiration(
+        &mut self,
+        cmds: VecDeque<ValidCommandWithHash>,
+    ) {
+        for cmd in cmds {
+            let fee_per_wu = cmd.data.forget_check().fee_per_wu();
+            let cmd_hash = cmd.hash.clone();
+            Self::map_set_remove(&mut self.all_by_fee, fee_per_wu, &cmd);
+            self.all_by_hash.remove(&cmd_hash);
+            self.remove_from_expiration_exn(cmd);
+            self.size = self.size.checked_sub(1).unwrap();
+        }
+    }
+
+    fn update_remove_from_applicable_by_fee(
+        &mut self,
+        fee_per_wu: FeeRate,
+        command: &ValidCommandWithHash,
+    ) {
+        Self::map_set_remove(&mut self.applicable_by_fee, fee_per_wu, command)
+    }
+
     fn add_from_gossip_exn(
         &mut self,
-        tx: &ValidCommandWithHash,
-        nonce: Nonce,
-        amount: Balance,
+        cmd: &ValidCommandWithHash,
+        current_nonce: Nonce,
+        balance: Balance,
     ) -> Result<(ValidCommandWithHash, Vec<ValidCommandWithHash>), CommandError> {
+        let IndexedPoolConfig { slot_tx_end, .. } = &self.config;
+
+        let current_global_slot = self.current_global_slot();
+
+        if !slot_tx_end
+            .as_ref()
+            .map(|slot_tx_end| current_global_slot < *slot_tx_end)
+            .unwrap_or(true)
+        {
+            return Err(CommandError::AfterSlotTxEnd);
+        }
+
+        let unchecked = cmd.data.forget_check();
+        let fee = unchecked.fee();
+        let fee_per_wu = unchecked.fee_per_wu();
+        let cmd_applicable_at_nonce = unchecked.applicable_at_nonce();
+
+        let consumed = {
+            self.check_expiry(&unchecked)?;
+            let consumed = currency_consumed(&unchecked).ok_or(CommandError::Overflow)?;
+            if !unchecked.fee_token().is_default() {
+                return Err(CommandError::BadToken);
+            }
+            consumed
+        };
+
+        let sender = unchecked.fee_payer();
+        match self.all_by_sender.get_mut(&sender) {
+            None => {
+                if current_nonce != cmd_applicable_at_nonce {
+                    return Err(CommandError::InvalidNonce {
+                        account_nonce: current_nonce,
+                        expected: cmd_applicable_at_nonce,
+                    });
+                }
+                if consumed > balance.to_amount() {
+                    return Err(CommandError::InsufficientFunds { balance, consumed });
+                }
+
+                let mut queue = Self::make_queue();
+                queue.push_back(cmd.clone());
+                self.all_by_sender.insert(sender, (queue, consumed));
+
+                self.update_add(cmd.clone(), fee_per_wu, true);
+
+                (cmd, Self::make_queue::<()>())
+            }
+            Some((queued_cmds, reserved_currency)) => {
+                assert!(!queued_cmds.is_empty());
+                let queue_applicable_at_nonce = {
+                    let first = queued_cmds.front().unwrap();
+                    first.data.forget_check().applicable_at_nonce()
+                };
+                let queue_target_nonce = {
+                    let last = queued_cmds.back().unwrap();
+                    last.data.forget_check().expected_target_nonce()
+                };
+                if queue_target_nonce == cmd_applicable_at_nonce {
+                    let reserved_currency = consumed
+                        .checked_add(reserved_currency)
+                        .ok_or(CommandError::Overflow)?;
+
+                    if !(reserved_currency <= balance.to_amount()) {
+                        return Err(CommandError::InsufficientFunds {
+                            balance,
+                            consumed: reserved_currency,
+                        });
+                    }
+
+                    queued_cmds.push_back(cmd.clone());
+
+                    self.update_add(cmd.clone(), fee_per_wu, false);
+                    (cmd, Self::make_queue::<()>())
+                } else if queue_applicable_at_nonce == current_nonce {
+                    if !cmd_applicable_at_nonce
+                        .between(&queue_applicable_at_nonce, &queue_target_nonce)
+                    {
+                        return Err(CommandError::InvalidNonce {
+                            account_nonce: cmd_applicable_at_nonce,
+                            expected: queue_applicable_at_nonce,
+                        });
+                    }
+
+                    let replacement_index = queued_cmds
+                        .iter()
+                        .position(|cmd| {
+                            let cmd_applicable_at_nonce_prime =
+                                cmd.data.forget_check().applicable_at_nonce();
+                            cmd_applicable_at_nonce <= cmd_applicable_at_nonce_prime
+                        })
+                        .unwrap();
+
+                    let drop_queue = queued_cmds.split_off(replacement_index);
+
+                    let to_drop = drop_queue.front().unwrap().data.forget_check();
+                    assert!(cmd_applicable_at_nonce <= to_drop.applicable_at_nonce());
+
+                    // We check the fee increase twice because we need to be sure the
+                    // subtraction is safe.
+                    {
+                        let replace_fee = to_drop.fee();
+                        if !(fee >= replace_fee) {
+                            return Err(CommandError::InsufficientReplaceFee { replace_fee, fee });
+                        }
+                    }
+
+                    // let dropped =
+
+                    todo!()
+                } else {
+                    todo!()
+                }
+            }
+        };
+
         todo!()
     }
 

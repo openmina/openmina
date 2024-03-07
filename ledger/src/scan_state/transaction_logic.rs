@@ -4364,6 +4364,13 @@ impl UserCommand {
         FeeRate::make_exn(self.fee(), self.weight())
     }
 
+    pub fn fee_token(&self) -> TokenId {
+        match self {
+            UserCommand::SignedCommand(cmd) => cmd.fee_token(),
+            UserCommand::ZkAppCommand(cmd) => cmd.fee_token(),
+        }
+    }
+
     pub fn extract_vks(&self) -> Vec<(AccountId, WithHash<VerificationKey>)> {
         match self {
             UserCommand::SignedCommand(_) => vec![],
