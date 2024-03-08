@@ -10,9 +10,9 @@ use warp::{
 };
 
 use node::rpc::{
-    ActionStatsQuery, RpcPeerInfo, RpcRequest, RpcScanStateSummaryGetQuery,
-    RpcScanStateSummaryGetResponse, RpcSnarkPoolJobGetResponse, RpcSnarkerWorkersResponse,
-    SyncStatsQuery,
+    ActionStatsQuery, RpcMessageProgressResponse, RpcPeerInfo, RpcRequest,
+    RpcScanStateSummaryGetQuery, RpcScanStateSummaryGetResponse, RpcSnarkPoolJobGetResponse,
+    RpcSnarkerWorkersResponse, SyncStatsQuery,
 };
 use openmina_core::snark::SnarkJobId;
 
@@ -95,6 +95,20 @@ pub async fn run(port: u16, rpc_sender: super::RpcSender) {
             async move {
                 let result: Option<Vec<RpcPeerInfo>> =
                     rpc_sender_clone.oneshot_request(RpcRequest::PeersGet).await;
+
+                with_json_reply(&result, StatusCode::OK)
+            }
+        });
+
+    let rpc_sender_clone = rpc_sender.clone();
+    let message_progress_get = warp::path!("state" / "message-progress")
+        .and(warp::get())
+        .then(move || {
+            let rpc_sender_clone = rpc_sender_clone.clone();
+            async move {
+                let result = rpc_sender_clone
+                    .oneshot_request::<RpcMessageProgressResponse>(RpcRequest::MessageProgressGet)
+                    .await;
 
                 with_json_reply(&result, StatusCode::OK)
             }
@@ -367,6 +381,7 @@ pub async fn run(port: u16, rpc_sender: super::RpcSender) {
     let routes = signaling.or(state_get);
     let routes = routes
         .or(peers_get)
+        .or(message_progress_get)
         .or(stats)
         .or(scan_state_summary_get)
         .or(snark_pool_jobs_get)

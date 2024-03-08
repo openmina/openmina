@@ -275,6 +275,9 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                 RpcRequest::PeersGet => {
                     store.dispatch(RpcAction::PeersGet { rpc_id });
                 }
+                RpcRequest::MessageProgressGet => {
+                    store.dispatch(RpcAction::MessageProgressGet { rpc_id });
+                }
                 RpcRequest::P2pConnectionOutgoing(opts) => {
                     store.dispatch(RpcAction::P2pConnectionOutgoingInit { rpc_id, opts });
                 }
