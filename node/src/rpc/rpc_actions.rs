@@ -26,6 +26,9 @@ pub enum RpcAction {
         rpc_id: RpcId,
         query: SyncStatsQuery,
     },
+    MessageProgressGet {
+        rpc_id: RpcId,
+    },
 
     PeersGet {
         rpc_id: RpcId,
@@ -112,6 +115,7 @@ impl redux::EnablingCondition<crate::State> for RpcAction {
             RpcAction::GlobalStateGet { .. } => true,
             RpcAction::ActionStatsGet { .. } => true,
             RpcAction::SyncStatsGet { .. } => true,
+            RpcAction::MessageProgressGet { .. } => true,
             RpcAction::PeersGet { .. } => true,
             RpcAction::P2pConnectionOutgoingInit { rpc_id, .. } => {
                 !state.rpc.requests.contains_key(rpc_id)

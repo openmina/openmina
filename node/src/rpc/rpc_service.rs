@@ -6,11 +6,11 @@ use crate::p2p::connection::P2pConnectionResponse;
 use crate::State;
 
 use super::{
-    RpcActionStatsGetResponse, RpcHealthCheckResponse, RpcId, RpcP2pConnectionOutgoingResponse,
-    RpcPeersGetResponse, RpcReadinessCheckResponse, RpcScanStateSummaryGetResponse,
-    RpcScanStateSummaryScanStateJob, RpcSnarkPoolGetResponse, RpcSnarkPoolJobGetResponse,
-    RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse, RpcSnarkerWorkersResponse,
-    RpcSyncStatsGetResponse,
+    RpcActionStatsGetResponse, RpcHealthCheckResponse, RpcId, RpcMessageProgressResponse,
+    RpcP2pConnectionOutgoingResponse, RpcPeersGetResponse, RpcReadinessCheckResponse,
+    RpcScanStateSummaryGetResponse, RpcScanStateSummaryScanStateJob, RpcSnarkPoolGetResponse,
+    RpcSnarkPoolJobGetResponse, RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse,
+    RpcSnarkerWorkersResponse, RpcSyncStatsGetResponse,
 };
 
 #[derive(Error, Serialize, Deserialize, Debug, Clone)]
@@ -41,6 +41,11 @@ pub trait RpcService: RpcLedgerService {
         &mut self,
         rpc_id: RpcId,
         response: RpcSyncStatsGetResponse,
+    ) -> Result<(), RespondError>;
+    fn respond_message_progress_stats_get(
+        &mut self,
+        rpc_id: RpcId,
+        response: RpcMessageProgressResponse,
     ) -> Result<(), RespondError>;
     fn respond_peers_get(
         &mut self,

@@ -11,8 +11,8 @@ use crate::snark_pool::SnarkPoolAction;
 use crate::{Service, Store};
 
 use super::{
-    ActionStatsQuery, ActionStatsResponse, RpcAction, RpcActionWithMeta, RpcScanStateSummary,
-    RpcScanStateSummaryBlock, RpcScanStateSummaryBlockTransaction,
+    ActionStatsQuery, ActionStatsResponse, MessageProgress, RpcAction, RpcActionWithMeta,
+    RpcScanStateSummary, RpcScanStateSummaryBlock, RpcScanStateSummaryBlockTransaction,
     RpcScanStateSummaryBlockTransactionKind, RpcScanStateSummaryGetQuery,
     RpcScanStateSummaryScanStateJob, RpcSnarkPoolJobFull, RpcSnarkPoolJobSnarkWork,
     RpcSnarkPoolJobSummary, RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse,
@@ -65,6 +65,42 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                 .stats()
                 .map(|s| s.collect_sync_stats(query.limit));
             let _ = store.service.respond_sync_stats_get(rpc_id, resp);
+        }
+        RpcAction::MessageProgressGet { rpc_id } => {
+            // TODO: move to stats
+            let response = store
+                .state()
+                .p2p
+                .network
+                .scheduler
+                .rpc_outgoing_streams
+                .iter()
+                .filter_map(|(peer_id, streams)| {
+                    let (_, rpc_state) = streams.first_key_value()?;
+                    let (_, (name, _)) = rpc_state.pending.clone()?;
+                    let name = name.to_string();
+                    let buffer = &rpc_state.buffer;
+                    if buffer.len() < 8 {
+                        None
+                    } else {
+                        let received = buffer.len() - 8;
+                        let total = u64::from_le_bytes(
+                            buffer[..8].try_into().expect("cannot fail checked above"),
+                        ) as usize;
+                        Some((
+                            *peer_id,
+                            MessageProgress {
+                                name,
+                                received,
+                                total,
+                            },
+                        ))
+                    }
+                })
+                .collect();
+            let _ = store
+                .service
+                .respond_message_progress_stats_get(rpc_id, response);
         }
         RpcAction::PeersGet { rpc_id } => {
             let peers = store

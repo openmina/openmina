@@ -1,4 +1,6 @@
 mod rpc_state;
+use std::collections::BTreeMap;
+
 use mina_p2p_messages::v2::{
     MinaBaseSignedCommandPayloadBodyStableV2, MinaBaseTransactionStatusStableV2,
     MinaBaseUserCommandStableV2, MinaTransactionTransactionStableV2,
@@ -44,6 +46,7 @@ pub enum RpcRequest {
     StateGet,
     ActionStatsGet(ActionStatsQuery),
     SyncStatsGet(SyncStatsQuery),
+    MessageProgressGet,
     PeersGet,
     P2pConnectionOutgoing(P2pConnectionOutgoingInitOpts),
     P2pConnectionIncoming(P2pConnectionIncomingInitOpts),
@@ -223,9 +226,17 @@ pub enum RpcSnarkerJobSpecResponse {
     JobNotFound,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct MessageProgress {
+    pub name: String,
+    pub received: usize,
+    pub total: usize,
+}
+
 pub type RpcStateGetResponse = Box<State>;
 pub type RpcActionStatsGetResponse = Option<ActionStatsResponse>;
 pub type RpcSyncStatsGetResponse = Option<Vec<SyncStatsSnapshot>>;
+pub type RpcMessageProgressResponse = BTreeMap<PeerId, MessageProgress>;
 pub type RpcPeersGetResponse = Vec<RpcPeerInfo>;
 pub type RpcP2pConnectionOutgoingResponse = Result<(), String>;
 pub type RpcScanStateSummaryGetResponse = Option<RpcScanStateSummary>;
