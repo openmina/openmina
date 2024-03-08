@@ -27,6 +27,7 @@ impl std::fmt::Display for Event {
                     RpcRequest::ActionStatsGet(query) => write!(f, "ActionStatsGet, {query:?}"),
                     RpcRequest::SyncStatsGet(query) => write!(f, "SyncStatsGet, {query:?}"),
                     RpcRequest::PeersGet => write!(f, "PeersGet"),
+                    RpcRequest::MessageProgressGet => write!(f, "MessageProgressGet"),
                     RpcRequest::P2pConnectionOutgoing(opts) => {
                         write!(f, "P2pConnectionOutgoing, {opts}")
                     }

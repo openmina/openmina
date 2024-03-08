@@ -42,10 +42,17 @@ impl P2pNetworkRpcState {
                                     header,
                                     bytes: slice.to_vec().into(),
                                 },
-                                Ok(MessageHeader::Response(header)) => RpcMessage::Response {
-                                    header,
-                                    bytes: slice.to_vec().into(),
-                                },
+                                Ok(MessageHeader::Response(header)) => {
+                                    if let Some((_, req)) = &self.pending {
+                                        *self.total_stats.entry(req.clone()).or_default() += 1;
+                                    } else {
+                                        // suspisious, peer sent us response, but no request
+                                    }
+                                    RpcMessage::Response {
+                                        header,
+                                        bytes: slice.to_vec().into(),
+                                    }
+                                }
                                 Err(err) => {
                                     self.error = Some(err.to_string());
                                     continue;
@@ -63,7 +70,14 @@ impl P2pNetworkRpcState {
                     self.buffer = self.buffer[offset..].to_vec();
                 }
             }
-            P2pNetworkRpcAction::IncomingMessage(_) => {
+            P2pNetworkRpcAction::IncomingMessage(a) => {
+                if matches!(&a.message, RpcMessage::Response { .. }) {
+                    if let Some((_, req)) = &self.pending {
+                        *self.total_stats.entry(req.clone()).or_default() += 1;
+                    } else {
+                        // suspicious, received some response without request
+                    }
+                }
                 self.incoming.pop_front();
             }
             P2pNetworkRpcAction::OutgoingQuery(a) => {

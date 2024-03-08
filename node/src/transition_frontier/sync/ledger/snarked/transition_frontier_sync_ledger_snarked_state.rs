@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use crate::ledger::LedgerAddress;
 use crate::p2p::channels::rpc::P2pRpcId;
 use crate::p2p::PeerId;
+use crate::rpc::LedgerSyncProgress;
 use crate::transition_frontier::sync::ledger::SyncLedgerTarget;
 
 use super::PeerLedgerQueryError;
@@ -122,6 +123,71 @@ impl TransitionFrontierSyncLedgerSnarkedState {
             Self::Pending { next_addr, .. } => next_addr.clone(),
             _ => None,
         }
+    }
+
+    pub fn estimation(&self) -> Option<LedgerSyncProgress> {
+        const BITS: usize = 35;
+
+        let Self::Pending {
+            next_addr,
+            end_addr,
+            ..
+        } = self
+        else {
+            return None;
+        };
+
+        let next_addr = next_addr.as_ref()?;
+
+        let current_length = next_addr.length();
+
+        // The ledger is a binary tree, it synchronizes layer by layer, the next layer is at most
+        // twice as big as this layer, but can be smaller (by one). For simplicity, let's call
+        // a branch or a leaf of the tree a tree element (or an element) and make no distinction.
+        // This doesn't matter for the estimation. Total 35 layers (0, 1, 2, ..., 34). On the last
+        // layer there could be 2 ^ 34 items. Of course it is much less than that. So the first
+        // few layers contain only 1 element.
+
+        // When the sync algorithm asks childs on the item, it gets two values, left and right.
+        // The algorithm asks childs only on the existing item, so the left child must exist.
+        // But the right child can be missing. In this case it is marked by the special constant.
+        // If the sync algorithm encounters a non-existent right child, it sets `end_addr`
+        // to the address of the left sibling (the last existing element of this layer).
+
+        // The `end_addr` is initialized with layer is zero and position is zero (root).
+
+        // Let it be the first non-existent (right child).
+        // In extereme case it will be right sibling of root, so layer is zero and position is one.
+        // Therefore, further `estimated_this_layer` cannot be zero.
+        let estimated_end_addr = end_addr.next().unwrap_or(end_addr.clone());
+
+        // The chance of `end_addr` being updated during fetching the layer is 50%, so its length
+        // (number of layers) may be less than the current layer. Let's calculate end address
+        // at the current layer.
+        let estimated_this_layer =
+            estimated_end_addr.to_index().0 << (current_length - estimated_end_addr.length());
+
+        // The number of items on the previous layer is twice less than the number of items
+        // on this layer, but cannot be 0.
+        let prev_layers = (0..current_length)
+            .map(|layer| (estimated_this_layer >> (current_length - layer)).max(1))
+            .sum::<u64>();
+
+        // Number of layers pending.
+        let further_layers_number = BITS - 1 - current_length;
+        // Assume the next layer contains twice as many, but it could be twice as many minus one.
+        // So the estimate may become smaller.
+        let estimated_next_layer = estimated_this_layer * 2;
+        // Sum of powers of 2 is power of 2 minus 1
+        let estimated_next_layers = ((1 << further_layers_number) - 1) * estimated_next_layer;
+
+        // We have this many elements on this layer. Add one, because address indexes start at 0.
+        let this_layer = next_addr.to_index().0 + 1;
+
+        Some(LedgerSyncProgress {
+            fetched: prev_layers + this_layer,
+            estimation: prev_layers + estimated_this_layer + estimated_next_layers,
+        })
     }
 
     pub fn peer_query_get(

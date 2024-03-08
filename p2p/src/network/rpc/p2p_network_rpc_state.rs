@@ -1,4 +1,8 @@
-use std::{collections::VecDeque, net::SocketAddr, str};
+use std::{
+    collections::{BTreeMap, VecDeque},
+    net::SocketAddr,
+    str,
+};
 
 use binprot::BinProtWrite;
 use serde::{Deserialize, Serialize};
@@ -18,6 +22,7 @@ pub struct P2pNetworkRpcState {
     pub stream_id: StreamId,
     pub last_id: i64,
     pub pending: Option<(i64, (CharString, i32))>,
+    pub total_stats: BTreeMap<(CharString, i32), usize>,
     pub is_incoming: bool,
     pub buffer: Vec<u8>,
     pub incoming: VecDeque<RpcMessage>,
@@ -31,6 +36,7 @@ impl P2pNetworkRpcState {
             stream_id,
             last_id: 0,
             pending: None,
+            total_stats: BTreeMap::default(),
             is_incoming: false,
             buffer: vec![],
             incoming: Default::default(),

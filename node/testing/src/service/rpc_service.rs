@@ -23,6 +23,15 @@ impl RpcService for super::NodeTestingService {
         self.real.respond_action_stats_get(rpc_id, response)
     }
 
+    fn respond_message_progress_stats_get(
+        &mut self,
+        rpc_id: RpcId,
+        response: node::rpc::RpcMessageProgressResponse,
+    ) -> Result<(), RespondError> {
+        self.real
+            .respond_message_progress_stats_get(rpc_id, response)
+    }
+
     fn respond_peers_get(
         &mut self,
         rpc_id: RpcId,

@@ -1,4 +1,6 @@
 mod rpc_state;
+use std::collections::BTreeMap;
+
 use mina_p2p_messages::v2::{
     MinaBaseSignedCommandPayloadBodyStableV2, MinaBaseTransactionStatusStableV2,
     MinaBaseUserCommandStableV2, MinaTransactionTransactionStableV2,
@@ -44,6 +46,7 @@ pub enum RpcRequest {
     StateGet,
     ActionStatsGet(ActionStatsQuery),
     SyncStatsGet(SyncStatsQuery),
+    MessageProgressGet,
     PeersGet,
     P2pConnectionOutgoing(P2pConnectionOutgoingInitOpts),
     P2pConnectionIncoming(P2pConnectionIncomingInitOpts),
@@ -221,6 +224,33 @@ pub enum RpcSnarkerJobSpecResponse {
     Ok(SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponse),
     Err(SnarkWorkSpecError),
     JobNotFound,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct RpcMessageProgressResponse {
+    pub messages_stats: BTreeMap<PeerId, MessagesStats>,
+    pub staking_ledger_sync: Option<LedgerSyncProgress>,
+    pub next_epoch_ledger_sync: Option<LedgerSyncProgress>,
+    pub root_ledger_sync: Option<LedgerSyncProgress>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct MessagesStats {
+    pub current_request: Option<CurrentMessageProgress>,
+    pub responses: BTreeMap<String, usize>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct LedgerSyncProgress {
+    pub fetched: u64,
+    pub estimation: u64,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CurrentMessageProgress {
+    pub name: String,
+    pub received_bytes: usize,
+    pub total_bytes: usize,
 }
 
 pub type RpcStateGetResponse = Box<State>;
