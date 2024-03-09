@@ -274,6 +274,12 @@ impl Balance {
     }
 }
 
+impl Fee {
+    pub const fn of_nanomina_int_exn(int: u64) -> Self {
+        Self::from_u64(int)
+    }
+}
+
 impl Index {
     // TODO: Not sure if OCaml wraps around here
     pub fn incr(&self) -> Self {

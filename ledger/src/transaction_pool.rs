@@ -16,14 +16,14 @@ use crate::{
             valid,
             zkapp_command::{
                 from_unapplied_sequence::{self, FromUnappliedSequence},
-                AccountUpdate, MaybeWithStatus, WithHash,
+                MaybeWithStatus, WithHash,
             },
             TransactionStatus::Applied,
             UserCommand, WithStatus,
         },
     },
     verifier::Verifier,
-    Account, AccountId, BaseLedger, ControlTag, Mask, TokenId, VerificationKey,
+    Account, AccountId, BaseLedger, Mask, TokenId, VerificationKey,
 };
 
 mod consensus {
@@ -123,6 +123,9 @@ mod consensus {
         }
     }
 }
+
+/// Fee increase required to replace a transaction.
+const REPLACE_FEE: Fee = Fee::of_nanomina_int_exn(1);
 
 type ValidCommandWithHash = WithHash<valid::UserCommand, BlakeHash>;
 
@@ -416,6 +419,27 @@ struct IndexedPool {
     config: IndexedPoolConfig,
 }
 
+enum Update {
+    Add {
+        command: ValidCommandWithHash,
+        fee_per_wu: FeeRate,
+        add_to_applicable_by_fee: bool,
+    },
+    RemoveAllByFeeAndHashAndExpiration {
+        commands: VecDeque<ValidCommandWithHash>,
+    },
+    RemoveFromApplicableByFee {
+        fee_per_wu: FeeRate,
+        command: ValidCommandWithHash,
+    },
+}
+
+#[derive(Clone)]
+struct SenderState {
+    sender: AccountId,
+    state: Option<(VecDeque<ValidCommandWithHash>, Amount)>,
+}
+
 enum RevalidateKind<'a> {
     EntirePool,
     Subset(&'a HashSet<AccountId>),
@@ -642,12 +666,133 @@ impl IndexedPool {
         Self::map_set_remove(&mut self.applicable_by_fee, fee_per_wu, command)
     }
 
+    fn remove_with_dependents_exn(
+        &self,
+        cmd: &ValidCommandWithHash,
+        by_sender: &mut SenderState,
+        updates: &mut Vec<Update>,
+    ) -> VecDeque<ValidCommandWithHash> {
+        let (sender_queue, reserved_currency_ref) = by_sender.state.as_mut().unwrap();
+        let unchecked = cmd.data.forget_check();
+
+        assert!(!sender_queue.is_empty());
+
+        let cmd_nonce = unchecked.applicable_at_nonce();
+
+        let cmd_index = sender_queue
+            .iter()
+            .position(|cmd| {
+                let nonce = cmd.data.forget_check().applicable_at_nonce();
+                // we just compare nonce equality since the command we are looking for already exists in the sequence
+                nonce == cmd_nonce
+            })
+            .unwrap();
+
+        let drop_queue = sender_queue.split_off(cmd_index);
+        let keep_queue = sender_queue;
+        assert!(!drop_queue.is_empty());
+
+        let currency_to_remove = drop_queue.iter().fold(Amount::zero(), |acc, cmd| {
+            let consumed = currency_consumed(&cmd.data.forget_check()).unwrap();
+            consumed.checked_add(&acc).unwrap()
+        });
+
+        // This is safe because the currency in a subset of the commands much be <=
+        // total currency in all the commands.
+        let reserved_currency = reserved_currency_ref
+            .checked_sub(&currency_to_remove)
+            .unwrap();
+
+        updates.push(Update::RemoveAllByFeeAndHashAndExpiration {
+            commands: drop_queue.clone(),
+        });
+
+        if cmd_index == 0 {
+            updates.push(Update::RemoveFromApplicableByFee {
+                fee_per_wu: unchecked.fee_per_wu(),
+                command: cmd.clone(),
+            });
+        }
+
+        // We re-fetch it to make the borrow checker happy
+        // let (keep_queue, reserved_currency_ref) = self.all_by_sender.get_mut(&sender).unwrap();
+        if !keep_queue.is_empty() {
+            *reserved_currency_ref = reserved_currency;
+        } else {
+            assert!(reserved_currency.is_zero());
+            by_sender.state = None;
+        }
+
+        drop_queue
+    }
+
+    fn apply_updates(&mut self, updates: Vec<Update>) {
+        for update in updates {
+            match update {
+                Update::Add {
+                    command,
+                    fee_per_wu,
+                    add_to_applicable_by_fee,
+                } => self.update_add(command, fee_per_wu, add_to_applicable_by_fee),
+                Update::RemoveAllByFeeAndHashAndExpiration { commands } => {
+                    self.update_remove_all_by_fee_and_hash_and_expiration(commands)
+                }
+                Update::RemoveFromApplicableByFee {
+                    fee_per_wu,
+                    command,
+                } => self.update_remove_from_applicable_by_fee(fee_per_wu, &command),
+            }
+        }
+    }
+
+    fn set_sender(&mut self, by_sender: SenderState) {
+        let SenderState { sender, state } = by_sender;
+
+        match state {
+            Some(state) => {
+                self.all_by_sender.insert(sender, state);
+            }
+            None => {
+                self.all_by_sender.remove(&sender);
+            }
+        }
+    }
+
     fn add_from_gossip_exn(
         &mut self,
         cmd: &ValidCommandWithHash,
         current_nonce: Nonce,
         balance: Balance,
-    ) -> Result<(ValidCommandWithHash, Vec<ValidCommandWithHash>), CommandError> {
+    ) -> Result<(ValidCommandWithHash, VecDeque<ValidCommandWithHash>), CommandError> {
+        let sender = cmd.data.fee_payer();
+        let mut by_sender = SenderState {
+            state: self.all_by_sender.get(&sender).cloned(),
+            sender,
+        };
+
+        let mut updates = Vec::<Update>::with_capacity(128);
+        let result = self.add_from_gossip_exn_impl(
+            cmd,
+            current_nonce,
+            balance,
+            &mut by_sender,
+            &mut updates,
+        )?;
+
+        self.set_sender(by_sender);
+        self.apply_updates(updates);
+
+        Ok(result)
+    }
+
+    fn add_from_gossip_exn_impl(
+        &self,
+        cmd: &ValidCommandWithHash,
+        current_nonce: Nonce,
+        balance: Balance,
+        by_sender: &mut SenderState,
+        updates: &mut Vec<Update>,
+    ) -> Result<(ValidCommandWithHash, VecDeque<ValidCommandWithHash>), CommandError> {
         let IndexedPoolConfig { slot_tx_end, .. } = &self.config;
 
         let current_global_slot = self.current_global_slot();
@@ -674,8 +819,7 @@ impl IndexedPool {
             consumed
         };
 
-        let sender = unchecked.fee_payer();
-        match self.all_by_sender.get_mut(&sender) {
+        match by_sender.state.as_mut() {
             None => {
                 if current_nonce != cmd_applicable_at_nonce {
                     return Err(CommandError::InvalidNonce {
@@ -689,11 +833,15 @@ impl IndexedPool {
 
                 let mut queue = Self::make_queue();
                 queue.push_back(cmd.clone());
-                self.all_by_sender.insert(sender, (queue, consumed));
+                by_sender.state = Some((queue, consumed));
 
-                self.update_add(cmd.clone(), fee_per_wu, true);
+                updates.push(Update::Add {
+                    command: cmd.clone(),
+                    fee_per_wu,
+                    add_to_applicable_by_fee: true,
+                });
 
-                (cmd, Self::make_queue::<()>())
+                Ok((cmd.clone(), Self::make_queue()))
             }
             Some((queued_cmds, reserved_currency)) => {
                 assert!(!queued_cmds.is_empty());
@@ -719,8 +867,13 @@ impl IndexedPool {
 
                     queued_cmds.push_back(cmd.clone());
 
-                    self.update_add(cmd.clone(), fee_per_wu, false);
-                    (cmd, Self::make_queue::<()>())
+                    updates.push(Update::Add {
+                        command: cmd.clone(),
+                        fee_per_wu,
+                        add_to_applicable_by_fee: false,
+                    });
+
+                    Ok((cmd.clone(), Self::make_queue()))
                 } else if queue_applicable_at_nonce == current_nonce {
                     if !cmd_applicable_at_nonce
                         .between(&queue_applicable_at_nonce, &queue_target_nonce)
@@ -754,16 +907,91 @@ impl IndexedPool {
                         }
                     }
 
-                    // let dropped =
+                    let dropped = self.remove_with_dependents_exn(
+                        drop_queue.front().unwrap(),
+                        by_sender,
+                        updates,
+                    );
+                    assert_eq!(drop_queue, dropped);
 
-                    todo!()
+                    let (cmd, _) = {
+                        let (v, dropped) = self.add_from_gossip_exn_impl(
+                            cmd,
+                            current_nonce,
+                            balance,
+                            by_sender,
+                            updates,
+                        )?;
+                        // We've already removed them, so this should always be empty.
+                        assert!(dropped.is_empty());
+                        (v, dropped)
+                    };
+
+                    let drop_head = dropped.front().cloned().unwrap();
+                    let mut drop_tail = dropped.into_iter().skip(1).peekable();
+
+                    let mut increment = fee.checked_sub(&to_drop.fee()).unwrap();
+                    let mut dropped = None::<VecDeque<_>>;
+                    let mut current_nonce = current_nonce;
+                    let mut this_updates = Vec::with_capacity(128);
+
+                    while let Some(cmd) = drop_tail.peek() {
+                        if dropped.is_some() {
+                            let cmd_unchecked = cmd.data.forget_check();
+                            let replace_fee = cmd_unchecked.fee();
+
+                            increment = increment.checked_sub(&replace_fee).ok_or_else(|| {
+                                CommandError::InsufficientReplaceFee {
+                                    replace_fee,
+                                    fee: increment,
+                                }
+                            })?;
+                        } else {
+                            current_nonce = current_nonce.succ();
+                            let by_sender_pre = by_sender.clone();
+                            this_updates.clear();
+
+                            match self.add_from_gossip_exn_impl(
+                                cmd,
+                                current_nonce,
+                                balance,
+                                by_sender,
+                                &mut this_updates,
+                            ) {
+                                Ok((_cmd, dropped)) => {
+                                    assert!(dropped.is_empty());
+                                    updates.append(&mut this_updates);
+                                }
+                                Err(_) => {
+                                    *by_sender = by_sender_pre;
+                                    dropped = Some(drop_tail.clone().skip(1).collect());
+                                    continue; // Don't go to next
+                                }
+                            }
+                        }
+                        let _ = drop_tail.next();
+                    }
+
+                    if !(increment >= REPLACE_FEE) {
+                        return Err(CommandError::InsufficientReplaceFee {
+                            replace_fee: REPLACE_FEE,
+                            fee: increment,
+                        });
+                    }
+
+                    let mut dropped = dropped.unwrap_or_else(Self::make_queue);
+                    dropped.push_front(drop_head);
+
+                    Ok((cmd, dropped))
                 } else {
-                    todo!()
+                    // Invalid nonce or duplicate transaction got in- either way error
+                    Err(CommandError::InvalidNonce {
+                        account_nonce: cmd_applicable_at_nonce,
+                        expected: queue_target_nonce,
+                    })
                 }
             }
-        };
-
-        todo!()
+        }
     }
 
     fn remove_expired(&mut self) -> Vec<ValidCommandWithHash> {
