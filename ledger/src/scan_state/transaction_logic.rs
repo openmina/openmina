@@ -1298,6 +1298,18 @@ pub mod zkapp_command {
         pub hash: H,
     }
 
+    impl<T, H: Ord> Ord for WithHash<T, H> {
+        fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+            self.hash.cmp(&other.hash)
+        }
+    }
+
+    impl<T, H: PartialOrd> PartialOrd for WithHash<T, H> {
+        fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+            self.hash.partial_cmp(&other.hash)
+        }
+    }
+
     impl<T, H: Eq> Eq for WithHash<T, H> {}
 
     impl<T, H: PartialEq> PartialEq for WithHash<T, H> {
