@@ -2669,6 +2669,8 @@ pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
         )
         .collect::<Vec<[Fp; 16]>>();
 
+    std::mem::drop(srs);
+
     let messages_for_next_step_proof = {
         let msg = MessagesForNextStepProof {
             app_state: Rc::clone(&app_state),
