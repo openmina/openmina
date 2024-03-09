@@ -162,20 +162,23 @@ pub mod group {
     }
 
     // Note: Unlike OCaml, the returned value (the list) is not reversed, but we keep the same method name
-    pub fn group_by_zkapp_command_rev<GlobalState, LocalState, ConnectingLedgerHash>(
-        zkapp_command: Vec<&ZkAppCommand>,
+    pub fn group_by_zkapp_command_rev<'a, I, GlobalState, LocalState, ConnectingLedgerHash>(
+        zkapp_command: I,
         stmtss: Vec<Vec<(GlobalState, LocalState, ConnectingLedgerHash)>>,
     ) -> Vec<ZkappCommandIntermediateState<GlobalState, LocalState, ConnectingLedgerHash>>
     where
+        I: IntoIterator<Item = &'a ZkAppCommand>,
         GlobalState: Clone,
         LocalState: Clone,
         ConnectingLedgerHash: Clone,
     {
-        let mut zkapp_account_updatess = zkapp_command
-            .iter()
-            .map(|zkapp_command| zkapp_command.all_account_updates_list())
+        let all_account_updates_list = zkapp_command
+            .into_iter()
+            .map(|zkapp_command| zkapp_command.all_account_updates_list());
+
+        let zkapp_account_updatess = std::iter::once(vec![])
+            .chain(all_account_updates_list)
             .collect::<Vec<_>>();
-        zkapp_account_updatess.insert(0, vec![]);
 
         let mut acc = Vec::<
             ZkappCommandIntermediateState<GlobalState, LocalState, ConnectingLedgerHash>,
@@ -526,10 +529,7 @@ pub fn zkapp_command_witnesses_exn(
 
     states.insert(0, vec![states[0][0].clone()]);
     let states = group::group_by_zkapp_command_rev(
-        zkapp_commands_with_context
-            .iter()
-            .map(|v| v.zkapp_command)
-            .collect(),
+        zkapp_commands_with_context.iter().map(|v| v.zkapp_command),
         states,
     );
 

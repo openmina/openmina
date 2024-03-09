@@ -1131,9 +1131,8 @@ impl IndexedPool {
 
                 let to_drop: Vec<_> = drop_queue.into_iter().chain(dropped_for_balance).collect();
 
-                let (head, _tail) = match to_drop.split_first() {
-                    Some((head, tail)) => (head, tail),
-                    None => continue,
+                let Some(head) = to_drop.first() else {
+                    continue;
                 };
 
                 self.remove_applicable_exn(head);
@@ -1393,10 +1392,9 @@ impl TransactionPool {
             };
         }
 
-        let commit_conflicts_locally_generated = dropped_commit_conflicts
+        let _commit_conflicts_locally_generated = dropped_commit_conflicts
             .iter()
-            .filter(|cmd| self.locally_generated_uncommitted.remove(cmd).is_some())
-            .collect::<Vec<_>>();
+            .filter(|cmd| self.locally_generated_uncommitted.remove(cmd).is_some());
 
         for cmd in locally_generated_dropped {
             // If the dropped transaction was included in the winning chain, it'll

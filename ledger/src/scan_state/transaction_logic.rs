@@ -887,7 +887,10 @@ pub mod zkapp_command {
             to_field_elements::ToFieldElements,
             transaction::Check,
         },
-        scan_state::currency::{Balance, Length, MinMax, Sgn, Signed, Slot, SlotSpan},
+        scan_state::{
+            currency::{Balance, Length, MinMax, Sgn, Signed, Slot, SlotSpan},
+            GenesisConstant, GENESIS_CONSTANT,
+        },
         transaction_pool::VerificationKeyWire,
         zkapps::snark::zkapp_check::InSnarkCheck,
         AuthRequired, ControlTag, Inputs, MyCow, Permissions, SetVerificationKey, ToInputs,
@@ -902,6 +905,10 @@ pub mod zkapp_command {
     impl Event {
         pub fn hash(&self) -> Fp {
             hash_with_kimchi("MinaZkappEvent", &self.0[..])
+        }
+        pub fn len(&self) -> usize {
+            let Self(list) = self;
+            list.len()
         }
     }
 
@@ -3345,9 +3352,9 @@ pub mod zkapp_command {
         }
 
         /// https://github.com/MinaProtocol/mina/blob/05c2f73d0f6e4f1341286843814ce02dcb3919e0/src/lib/mina_base/zkapp_command.ml#L68
-        fn fold_impl<A, F>(&self, init: A, fun: &mut F) -> A
+        fn fold_impl<'a, A, F>(&'a self, init: A, fun: &mut F) -> A
         where
-            F: FnMut(A, &AccUpdate) -> A,
+            F: FnMut(A, &'a AccUpdate) -> A,
         {
             let mut accum = init;
             for elem in self.iter() {
@@ -3357,9 +3364,9 @@ pub mod zkapp_command {
             accum
         }
 
-        pub fn fold<A, F>(&self, init: A, mut fun: F) -> A
+        pub fn fold<'a, A, F>(&'a self, init: A, mut fun: F) -> A
         where
-            F: FnMut(A, &AccUpdate) -> A,
+            F: FnMut(A, &'a AccUpdate) -> A,
         {
             self.fold_impl(init, &mut fun)
         }
@@ -3677,8 +3684,96 @@ pub mod zkapp_command {
             })
         }
 
+        fn zkapp_cost(
+            proof_segments: usize,
+            signed_single_segments: usize,
+            signed_pair_segments: usize,
+        ) -> f64 {
+            // (*10.26*np + 10.08*n2 + 9.14*n1 < 69.45*)
+            let GenesisConstant {
+                zkapp_proof_update_cost: proof_cost,
+                zkapp_signed_pair_update_cost: signed_pair_cost,
+                zkapp_signed_single_update_cost: signed_single_cost,
+                ..
+            } = GENESIS_CONSTANT;
+
+            (proof_cost * (proof_segments as f64))
+                + (signed_pair_cost * (signed_pair_segments as f64))
+                + (signed_single_cost * (signed_single_segments as f64))
+        }
+
+        /// Zkapp_command transactions are filtered using this predicate
+        /// - when adding to the transaction pool
+        /// - in incoming blocks
         pub fn valid_size(&self) -> Result<(), String> {
-            todo!()
+            use crate::proofs::zkapp::group::{SegmentBasic, ZkappCommandIntermediateState};
+
+            let Self {
+                account_updates,
+                fee_payer: _,
+                memo: _,
+            } = self;
+
+            let events_elements =
+                |events: &[Event]| -> usize { events.iter().map(Event::len).sum() };
+
+            let mut n_account_updates = 0;
+            let (mut num_event_elements, mut num_action_elements) = (0, 0);
+
+            account_updates.fold((), |_, account_update| {
+                num_event_elements += events_elements(account_update.body.events.events());
+                num_action_elements += events_elements(account_update.body.actions.events());
+                n_account_updates += 1;
+            });
+
+            let group = std::iter::repeat(((), (), ()))
+                .take(n_account_updates + 1) // + 1 to prepend one. See OCaml
+                .collect::<Vec<_>>();
+
+            let groups = crate::proofs::zkapp::group::group_by_zkapp_command_rev::<_, (), (), ()>(
+                [self],
+                vec![vec![((), (), ())], group],
+            );
+
+            let (mut proof_segments, mut signed_single_segments, mut signed_pair_segments) =
+                (0, 0, 0);
+
+            for ZkappCommandIntermediateState { spec, .. } in &groups {
+                match spec {
+                    SegmentBasic::Proved => proof_segments += 1,
+                    SegmentBasic::OptSigned => signed_single_segments += 1,
+                    SegmentBasic::OptSignedOptSigned => signed_pair_segments += 1,
+                }
+            }
+
+            let GenesisConstant {
+                zkapp_transaction_cost_limit: cost_limit,
+                max_event_elements,
+                max_action_elements,
+                ..
+            } = GENESIS_CONSTANT;
+
+            let zkapp_cost_within_limit =
+                Self::zkapp_cost(proof_segments, signed_single_segments, signed_pair_segments)
+                    < cost_limit;
+            let valid_event_elements = num_event_elements <= max_event_elements;
+            let valid_action_elements = num_action_elements <= max_action_elements;
+
+            if zkapp_cost_within_limit && valid_event_elements && valid_action_elements {
+                return Ok(());
+            }
+
+            let err = [
+                (zkapp_cost_within_limit, "zkapp transaction too expensive"),
+                (valid_event_elements, "too many event elements"),
+                (valid_action_elements, "too many action elements"),
+            ]
+            .iter()
+            .filter(|(b, _s)| !b)
+            .map(|(_b, s)| s)
+            .join(";");
+
+            Err(err)
         }
 
         /// https://github.com/MinaProtocol/mina/blob/2ff0292b637684ce0372e7b8e23ec85404dc5091/src/lib/mina_base/zkapp_command.ml#L997
