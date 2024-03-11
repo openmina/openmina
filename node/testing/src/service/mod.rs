@@ -220,11 +220,11 @@ impl P2pCryptoService for NodeTestingService {
     }
 }
 
-impl P2pMioService for NodeTestingService {
-    fn send_mio_cmd(&self, cmd: node::p2p::MioCmd) {
-        self.real.send_mio_cmd(cmd);
-    }
-}
+//impl P2pMioService for NodeTestingService {
+//    fn send_mio_cmd(&self, cmd: node::p2p::MioCmd) {
+//        self.real.send_mio_cmd(cmd);
+//    }
+//}
 
 impl node::ledger::LedgerService for NodeTestingService {
     fn ctx(&self) -> &LedgerCtx {
