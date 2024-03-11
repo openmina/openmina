@@ -7,7 +7,7 @@ use crate::Service;
 use crate::Store;
 
 use super::BlockProducerVrfEvaluatorAction;
-use super::EpochBounds;
+use super::SlotPositionInEpoch;
 
 impl BlockProducerVrfEvaluatorAction {
     pub fn effects<S: Service>(self, _: &ActionMeta, store: &mut Store<S>) {
@@ -25,25 +25,34 @@ impl BlockProducerVrfEvaluatorAction {
                             latest_evaluated_global_slot: vrf_output.global_slot(),
                         });
                     }
-                    
-
                 }
             }
-            BlockProducerVrfEvaluatorAction::CheckEpochBounds { latest_evaluated_global_slot, epoch_number } => {
-                if let Some(epoch_bound) = store.state().block_producer.vrf_evaluator().and_then(|s| s.get_epoch_bound_from_check()) {
+            BlockProducerVrfEvaluatorAction::CheckEpochBounds {
+                latest_evaluated_global_slot,
+                epoch_number,
+            } => {
+                if let Some(epoch_bound) = store
+                    .state()
+                    .block_producer
+                    .vrf_evaluator()
+                    .and_then(|s| s.get_epoch_bound_from_check())
+                {
                     match epoch_bound {
-                        EpochBounds::Beginning
-                        | EpochBounds::Within => {
-                            store.dispatch(BlockProducerVrfEvaluatorAction::ContinueEpochEvaluation {
-                                latest_evaluated_global_slot,
-                                epoch_number
-                            });
+                        SlotPositionInEpoch::Beginning | SlotPositionInEpoch::Within => {
+                            store.dispatch(
+                                BlockProducerVrfEvaluatorAction::ContinueEpochEvaluation {
+                                    latest_evaluated_global_slot,
+                                    epoch_number,
+                                },
+                            );
                         }
-                        EpochBounds::End => {
-                            store.dispatch(BlockProducerVrfEvaluatorAction::FinishEpochEvaluation {
-                                latest_evaluated_global_slot,
-                                epoch_number
-                            });
+                        SlotPositionInEpoch::End => {
+                            store.dispatch(
+                                BlockProducerVrfEvaluatorAction::FinishEpochEvaluation {
+                                    latest_evaluated_global_slot,
+                                    epoch_number,
+                                },
+                            );
                         }
                     }
                 }
@@ -105,28 +114,28 @@ impl BlockProducerVrfEvaluatorAction {
                     let last_epoch_block_height: Option<u32> =
                         vrf_evaluator_state.last_height(current_epoch_number - 1);
                     if let Some(epoch_data) = vrf_evaluator_state.epoch_context().get_epoch_data() {
-                        store.dispatch(BlockProducerVrfEvaluatorAction::InitializeEpochEvaluation {
-                            staking_epoch_data: epoch_data,
-                            producer: config.pub_key.clone().into(),
-                            current_best_tip_height,
-                            current_best_tip_global_slot,
-                            current_epoch_number,
-                            current_best_tip_slot,
-                            transition_frontier_size,
-                            next_epoch_first_slot,
-                        });
-                    } else {
-                        // If None is returned, than we are waiting for evaluation
                         store.dispatch(
-                            BlockProducerVrfEvaluatorAction::WaitForNextEvaluation {
-                                current_epoch_number,
+                            BlockProducerVrfEvaluatorAction::InitializeEpochEvaluation {
+                                staking_epoch_data: epoch_data,
+                                producer: config.pub_key.clone().into(),
                                 current_best_tip_height,
                                 current_best_tip_global_slot,
+                                current_epoch_number,
                                 current_best_tip_slot,
-                                last_epoch_block_height,
                                 transition_frontier_size,
+                                next_epoch_first_slot,
                             },
                         );
+                    } else {
+                        // If None is returned, than we are waiting for evaluation
+                        store.dispatch(BlockProducerVrfEvaluatorAction::WaitForNextEvaluation {
+                            current_epoch_number,
+                            current_best_tip_height,
+                            current_best_tip_global_slot,
+                            current_best_tip_slot,
+                            last_epoch_block_height,
+                            transition_frontier_size,
+                        });
                     }
                 }
             }

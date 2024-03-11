@@ -1,7 +1,10 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use mina_p2p_messages::v2::{LedgerHash, ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1, ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1};
+use mina_p2p_messages::v2::{
+    ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1,
+    ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1, LedgerHash,
+};
 use openmina_core::block::ArcBlockWithHash;
 use serde::{Deserialize, Serialize};
 
@@ -9,6 +12,7 @@ use crate::block_producer::BlockProducerWonSlot;
 
 use super::{DelegatorTable, VrfEvaluatorInput, VrfWonSlotWithHash};
 
+/// Vrf evaluator sub-state
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BlockProducerVrfEvaluatorState {
     pub status: BlockProducerVrfEvaluatorStatus,
@@ -35,18 +39,35 @@ impl BlockProducerVrfEvaluatorState {
         }
     }
 
-    pub fn evaluate_epoch_bounds(global_slot: &u32) -> EpochBounds {
+    /// Determines the position of a slot within an epoch (at the beginning, end, or within the epoch).
+    /// This function calculates the position based on the `global_slot` and a predefined number of slots per epoch.
+    ///
+    /// Arguments:
+    /// - `global_slot`: A reference to a 32-bit unsigned integer representing the global slot number.
+    ///
+    /// Returns:
+    /// - `SlotPositionInEpoch`: An enum indicating the slot's position (Beginning, End, or Within).
+    pub fn evaluate_epoch_bounds(global_slot: &u32) -> SlotPositionInEpoch {
         const SLOTS_PER_EPOCH: u32 = 7140;
 
         if global_slot % SLOTS_PER_EPOCH == 0 {
-            EpochBounds::Beginning
+            SlotPositionInEpoch::Beginning
         } else if (global_slot + 1) % SLOTS_PER_EPOCH == 0 {
-            EpochBounds::End
+            SlotPositionInEpoch::End
         } else {
-            EpochBounds::Within
+            SlotPositionInEpoch::Within
         }
     }
 
+    /// Fetches the next slot that has been won based on the current global slot and the best tip information.
+    /// If there are no future won slots, returns `None`.
+    ///
+    /// Arguments:
+    /// - `cur_global_slot`: The current global slot as a 32-bit unsigned integer.
+    /// - `best_tip`: A reference to the `ArcBlockWithHash` representing the current best tip.
+    ///
+    /// Returns:
+    /// - `Option<BlockProducerWonSlot>`: The next won slot, if any, as a `BlockProducerWonSlot` or `None` if there are no more slots won in the future.
     pub fn next_won_slot(
         &self,
         cur_global_slot: u32,
@@ -60,10 +81,16 @@ impl BlockProducerVrfEvaluatorState {
             .find(|won_slot| won_slot > best_tip)
     }
 
+    /// Retrieves the current epoch context.
+    ///
+    /// Returns:
+    /// - `&EpochContext`: A reference to the `EpochContext`
     pub fn epoch_context(&self) -> &EpochContext {
         &self.epoch_context
     }
 
+    /// Sets the epoch context based on the current evaluation status and the available data.
+    /// This method updates the `epoch_context` field in the `ReadinessCheck` state
     pub fn set_epoch_context(&mut self) {
         // guard the epoch context change and permit it only if in the ReadinessCheck state
         if let BlockProducerVrfEvaluatorStatus::ReadinessCheck {
@@ -97,6 +124,13 @@ impl BlockProducerVrfEvaluatorState {
         }
     }
 
+    /// Determines if a given epoch number has already been evaluated.
+    ///
+    /// Arguments:
+    /// - `epoch_number`: The epoch number as a 32-bit unsigned integer to check.
+    ///
+    /// Returns:
+    /// - `bool`: `true` if the epoch has already been evaluated, otherwise `false`.
     pub fn is_epoch_evaluated(&self, epoch_number: u32) -> bool {
         if let Some(last_evaluated_epoch) = self.last_evaluated_epoch {
             last_evaluated_epoch >= epoch_number
@@ -105,22 +139,41 @@ impl BlockProducerVrfEvaluatorState {
         }
     }
 
+    /// Retrieves the number of the last evaluated epoch, if any.
+    ///
+    /// Returns:
+    /// - `Option<u32>`: The epoch number of the last evaluated epoch, or `None` if no epoch has been evaluated yet.
+
     pub fn last_evaluated_epoch(&self) -> Option<u32> {
         self.last_evaluated_epoch
     }
 
+    /// Adds or updates the highest block height reached within a specified epoch.
+    ///
+    /// Arguments:
+    /// - `epoch`: The epoch number as a 32-bit unsigned integer.
+    /// - `height`: The block height as a 32-bit unsigned integer.
     pub fn add_last_height(&mut self, epoch: u32, height: u32) {
         self.last_block_heights_in_epoch.insert(epoch, height);
     }
 
+    /// Retrieves the highest block height reached in a specified epoch, if available.
+    ///
+    /// Arguments:
+    /// - `epoch`: The epoch number as a 32-bit unsigned integer.
+    ///
+    /// Returns:
+    /// - `Option<u32>`: The highest block height within the specified epoch, or `None` if not available.
     pub fn last_height(&self, epoch: u32) -> Option<u32> {
         self.last_block_heights_in_epoch.get(&epoch).copied()
     }
 
+    /// TODO: remove, not needed anymore
     pub fn latest_evaluated_global_slot(&self) -> u32 {
         self.latest_evaluated_slot
     }
 
+    /// Returns `true` if the evaluator is in the `ReadinessCheck` state, otherwise `false`.
     pub fn is_readiness_check(&self) -> bool {
         matches!(
             self.status,
@@ -128,6 +181,7 @@ impl BlockProducerVrfEvaluatorState {
         )
     }
 
+    /// Returns `true` if the evaluator is in the `EpochBoundsCheck` state, otherwise `false`.
     pub fn is_epoch_bound_evaluated(&self) -> bool {
         matches!(
             self.status,
@@ -135,6 +189,7 @@ impl BlockProducerVrfEvaluatorState {
         )
     }
 
+    /// Returns true if the evaluator is in a state that can perform a `ReadinessCheck``, otherwise `false`.
     pub fn can_check_next_evaluation(&self) -> bool {
         matches!(
             self.status,
@@ -144,6 +199,7 @@ impl BlockProducerVrfEvaluatorState {
         )
     }
 
+    /// Returns `true` if the evaluator is in the `ReadyToEvaluate` state, otherwise `false`.
     pub fn can_construct_delegator_table(&self) -> bool {
         matches!(
             self.status,
@@ -151,6 +207,7 @@ impl BlockProducerVrfEvaluatorState {
         )
     }
 
+    /// Returns `true` if the evaluator is in the `EpochDelegatorTablePending` state, otherwise `false`.
     pub fn is_delegator_table_requested(&self) -> bool {
         matches!(
             self.status,
@@ -158,6 +215,7 @@ impl BlockProducerVrfEvaluatorState {
         )
     }
 
+    /// Returns `true` if the evaluator is in the `EpochDelegatorTableSuccess` state, otherwise `false`.
     pub fn is_delegator_table_constructed(&self) -> bool {
         matches!(
             self.status,
@@ -165,6 +223,7 @@ impl BlockProducerVrfEvaluatorState {
         )
     }
 
+    /// TODO: redundant fn, remove?
     pub fn can_start_epoch_evaluation(&self) -> bool {
         matches!(
             self.status,
@@ -172,6 +231,8 @@ impl BlockProducerVrfEvaluatorState {
         )
     }
 
+    /// Returns `true` if the evaluator is in any of the following states: `SlotEvaluationPending`,
+    /// `SlotEvaluationReceived`, `EpochEvaluationPending`, `EpochBoundsCheck`, otherwise `false` .
     pub fn is_evaluating(&self) -> bool {
         matches!(
             self.status,
@@ -182,10 +243,15 @@ impl BlockProducerVrfEvaluatorState {
         )
     }
 
+    // TODO(adonagy): review this, might be redundant and not needed anymore
     pub fn is_evaluation_pending(&self) -> bool {
-        matches!(self.status, BlockProducerVrfEvaluatorStatus::EpochEvaluationPending { .. })
+        matches!(
+            self.status,
+            BlockProducerVrfEvaluatorStatus::EpochEvaluationPending { .. }
+        )
     }
 
+    /// Returns `true` if the evaluator is in the `InitialSlotSelection` state, otherwise `false`.
     pub fn is_slot_selection(&self) -> bool {
         matches!(
             self.status,
@@ -193,6 +259,7 @@ impl BlockProducerVrfEvaluatorState {
         )
     }
 
+    /// Returns `true` if the evaluator is in the `SlotEvaluationPending` state, otherwise `false`.
     pub fn is_slot_requested(&self) -> bool {
         matches!(
             self.status,
@@ -200,6 +267,7 @@ impl BlockProducerVrfEvaluatorState {
         )
     }
 
+    /// Returns `true` if the evaluator is in the `SlotEvaluationReceived` state, otherwise `false`.
     pub fn is_slot_evaluated(&self) -> bool {
         matches!(
             self.status,
@@ -244,8 +312,12 @@ impl BlockProducerVrfEvaluatorState {
         }
     }
 
-    pub fn get_epoch_bound_from_check(&self) -> Option<EpochBounds> {
-        if let BlockProducerVrfEvaluatorStatus::EpochBoundsCheck { epoch_current_bound, .. } = &self.status {
+    pub fn get_epoch_bound_from_check(&self) -> Option<SlotPositionInEpoch> {
+        if let BlockProducerVrfEvaluatorStatus::EpochBoundsCheck {
+            epoch_current_bound,
+            ..
+        } = &self.status
+        {
             Some(epoch_current_bound.clone())
         } else {
             None
@@ -409,7 +481,7 @@ pub enum BlockProducerVrfEvaluatorStatus {
         time: redux::Timestamp,
         epoch_number: u32,
         latest_evaluated_global_slot: u32,
-        epoch_current_bound: EpochBounds,
+        epoch_current_bound: SlotPositionInEpoch,
     },
 }
 
@@ -441,8 +513,12 @@ pub enum EpochContext {
     Waiting,
 }
 
+/// Represents the position of the slot in the epoch
+/// `Beginning` -> First slot of an epoch
+/// `Within` -> The slot is not at the epoch bounds, i.e. is withing the epoch
+/// `End` -> The last slot of an epoch
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum EpochBounds {
+pub enum SlotPositionInEpoch {
     Beginning,
     Within,
     End,
@@ -461,8 +537,9 @@ impl std::fmt::Display for EpochContext {
 impl EpochContext {
     pub fn get_epoch_data(&self) -> Option<EpochData> {
         match self {
-            EpochContext::Current(epoch_data)
-            | EpochContext::Next(epoch_data) => Some(epoch_data.clone()),
+            EpochContext::Current(epoch_data) | EpochContext::Next(epoch_data) => {
+                Some(epoch_data.clone())
+            }
             EpochContext::Waiting => None,
         }
     }
@@ -476,13 +553,24 @@ impl BlockProducerVrfEvaluatorStatus {
 
 #[cfg(test)]
 mod test {
-    use std::{collections::BTreeMap, sync::Mutex, str::FromStr};
+    use std::{collections::BTreeMap, str::FromStr, sync::Mutex};
 
     use lazy_static::lazy_static;
-    use mina_p2p_messages::{v2::{ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1, MinaBaseEpochLedgerValueStableV1, LedgerHash, CurrencyAmountStableV1, UnsignedExtendedUInt64Int64ForVersionTagsStableV1, MinaBaseEpochSeedStableV1, StateHash, UnsignedExtendedUInt32StableV1, ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1}, number::Number, bigint::BigInt};
+    use mina_p2p_messages::{
+        bigint::BigInt,
+        number::Number,
+        v2::{
+            ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1,
+            ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1,
+            CurrencyAmountStableV1, LedgerHash, MinaBaseEpochLedgerValueStableV1,
+            MinaBaseEpochSeedStableV1, StateHash, UnsignedExtendedUInt32StableV1,
+            UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
+        },
+    };
 
     use crate::block_producer::vrf_evaluator::{
-        BlockProducerVrfEvaluatorState, BlockProducerVrfEvaluatorStatus, EpochContext, EpochBounds,
+        BlockProducerVrfEvaluatorState, BlockProducerVrfEvaluatorStatus, EpochContext,
+        SlotPositionInEpoch,
     };
 
     lazy_static! {
@@ -642,13 +730,19 @@ mod test {
     #[test]
     fn correctly_set_epoch_context_on_startup() {
         let mut vrf_evaluator_state = GENESIS_EPOCH_FIRST_SLOT.lock().unwrap();
-        test_set_epoch_context(&mut vrf_evaluator_state, EpochContext::Current(DUMMY_STAKING_EPOCH_DATA.to_owned().into()))
+        test_set_epoch_context(
+            &mut vrf_evaluator_state,
+            EpochContext::Current(DUMMY_STAKING_EPOCH_DATA.to_owned().into()),
+        )
     }
 
     #[test]
     fn correctly_switch_to_next_epoch() {
         let mut vrf_evaluator_state = GENESIS_EPOCH_CURRENT_EPOCH_EVALUATED.lock().unwrap();
-        test_set_epoch_context(&mut vrf_evaluator_state, EpochContext::Next(DUMMY_NEXT_EPOCH_DATA.to_owned().into()))
+        test_set_epoch_context(
+            &mut vrf_evaluator_state,
+            EpochContext::Next(DUMMY_NEXT_EPOCH_DATA.to_owned().into()),
+        )
     }
 
     #[test]
@@ -660,7 +754,10 @@ mod test {
     #[test]
     fn generic_epoch_set_epoch_context_on_startup() {
         let mut vrf_evaluator_state = SECOND_EPOCH_STARTUP.lock().unwrap();
-        test_set_epoch_context(&mut vrf_evaluator_state, EpochContext::Current(DUMMY_STAKING_EPOCH_DATA.to_owned().into()))
+        test_set_epoch_context(
+            &mut vrf_evaluator_state,
+            EpochContext::Current(DUMMY_STAKING_EPOCH_DATA.to_owned().into()),
+        )
     }
 
     #[test]
@@ -701,7 +798,10 @@ mod test {
             next_epoch_data: DUMMY_NEXT_EPOCH_DATA.to_owned(),
         };
 
-        test_set_epoch_context(&mut vrf_evaluator_state, EpochContext::Next(DUMMY_NEXT_EPOCH_DATA.to_owned().into()));
+        test_set_epoch_context(
+            &mut vrf_evaluator_state,
+            EpochContext::Next(DUMMY_NEXT_EPOCH_DATA.to_owned().into()),
+        );
     }
 
     #[test]
@@ -709,25 +809,25 @@ mod test {
         const GENESIS_EPOCH_BEGINNING: u32 = 0;
         const GENESIS_EPOCH_WITHIN: u32 = 2000;
         const GENESIS_EPOCH_END: u32 = 7139;
-        
+
         const BEGINNING: u32 = 7140;
         const WITHIN: u32 = 7500;
         const END: u32 = 14279;
 
         let res = BlockProducerVrfEvaluatorState::evaluate_epoch_bounds(&GENESIS_EPOCH_BEGINNING);
-        assert!(matches!(res, EpochBounds::Beginning));
+        assert!(matches!(res, SlotPositionInEpoch::Beginning));
         let res = BlockProducerVrfEvaluatorState::evaluate_epoch_bounds(&GENESIS_EPOCH_WITHIN);
-        assert!(matches!(res, EpochBounds::Within));
+        assert!(matches!(res, SlotPositionInEpoch::Within));
         let res = BlockProducerVrfEvaluatorState::evaluate_epoch_bounds(&GENESIS_EPOCH_END);
-        assert!(matches!(res, EpochBounds::End));
+        assert!(matches!(res, SlotPositionInEpoch::End));
 
         let res = BlockProducerVrfEvaluatorState::evaluate_epoch_bounds(&BEGINNING);
-        assert!(matches!(res, EpochBounds::Beginning));
+        assert!(matches!(res, SlotPositionInEpoch::Beginning));
 
         let res = BlockProducerVrfEvaluatorState::evaluate_epoch_bounds(&WITHIN);
-        assert!(matches!(res, EpochBounds::Within));
+        assert!(matches!(res, SlotPositionInEpoch::Within));
 
         let res = BlockProducerVrfEvaluatorState::evaluate_epoch_bounds(&END);
-        assert!(matches!(res, EpochBounds::End));
+        assert!(matches!(res, SlotPositionInEpoch::End));
     }
 }

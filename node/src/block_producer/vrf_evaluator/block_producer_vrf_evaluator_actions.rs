@@ -178,14 +178,12 @@ impl redux::EnablingCondition<crate::State> for BlockProducerVrfEvaluatorAction 
             BlockProducerVrfEvaluatorAction::ContinueEpochEvaluation { .. } => {
                 state.block_producer.with(false, |this| {
                     this.vrf_evaluator.is_epoch_bound_evaluated()
-                    || this.vrf_evaluator.is_evaluation_pending()
+                        || this.vrf_evaluator.is_evaluation_pending()
                 })
             }
-            BlockProducerVrfEvaluatorAction::FinishEpochEvaluation { .. } => {
-                state.block_producer.with(false, |this| {
-                    this.vrf_evaluator.is_epoch_bound_evaluated()
-                })
-            }
+            BlockProducerVrfEvaluatorAction::FinishEpochEvaluation { .. } => state
+                .block_producer
+                .with(false, |this| this.vrf_evaluator.is_epoch_bound_evaluated()),
             BlockProducerVrfEvaluatorAction::WaitForNextEvaluation { .. } => state
                 .block_producer
                 .with(false, |this| this.vrf_evaluator.is_readiness_check()),
@@ -194,11 +192,9 @@ impl redux::EnablingCondition<crate::State> for BlockProducerVrfEvaluatorAction 
                     this.vrf_evaluator.is_delegator_table_constructed()
                 })
             }
-            BlockProducerVrfEvaluatorAction::CheckEpochBounds { .. } => {
-                state.block_producer.with(false, |this| {
-                    this.vrf_evaluator.is_slot_evaluated()
-                })
-            }
+            BlockProducerVrfEvaluatorAction::CheckEpochBounds { .. } => state
+                .block_producer
+                .with(false, |this| this.vrf_evaluator.is_slot_evaluated()),
         }
     }
 }
