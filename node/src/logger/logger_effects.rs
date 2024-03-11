@@ -1131,14 +1131,14 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                 }
                 BlockProducerVrfEvaluatorAction::FinishEpochEvaluation {
                     epoch_number,
-                    last_evaluated_global_slot,
+                    latest_evaluated_global_slot,
                 } => {
                     openmina_core::log::info!(
                         meta.time();
                         kind = kind.to_string(),
                         summary = format!("Epoch evaluation finished"),
                         epoch_number = epoch_number,
-                        last_evaluated_global_slot = last_evaluated_global_slot,
+                        latest_evaluated_global_slot = latest_evaluated_global_slot,
                     )
                 }
                 BlockProducerVrfEvaluatorAction::WaitForNextEvaluation {
@@ -1165,6 +1165,21 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                         summary = format!("Selecting starting slot"),
                         epoch_number = current_epoch_number,
                         current_best_tip_height = current_best_tip_height,
+                    )
+                }
+                BlockProducerVrfEvaluatorAction::CheckEpochBounds { .. } => {
+                    openmina_core::log::trace!(
+                        meta.time();
+                        kind = kind.to_string(),
+                        summary = format!("Checking epoch bounds"),
+                        status = format!("{:?}", store.state().block_producer.vrf_evaluator().unwrap().status),
+                    )
+                }
+                BlockProducerVrfEvaluatorAction::CleanupOldSlots { .. } => {
+                    openmina_core::log::trace!(
+                        meta.time();
+                        kind = kind.to_string(),
+                        summary = format!("Cleaning up old won slots"),
                     )
                 }
                 _ => {}
