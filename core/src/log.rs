@@ -12,6 +12,18 @@ pub fn time_to_str(t: redux::Timestamp) -> String {
     t.to_string()
 }
 
+// pub fn to_rfc_3339(t: redux::Timestamp) -> time::Result<String> {
+//     let t: u64 = t.into();
+//     let datetime = time::OffsetDateTime::from_unix_timestamp_nanos(t as i128)?;
+//     let format = time::format_description::well_known::Rfc3339;
+
+//     Ok(datetime.format(&format)?)
+// }
+
+// pub fn create_span(peer_id: &str) -> tracing::Span {
+//     tracing::span!(tracing::Level::INFO, "span", node_id = peer_id)
+// }
+
 pub mod inner {
     pub use tracing::*;
 }
