@@ -7,6 +7,10 @@ pub use self::p2p_network_service::*;
 mod p2p_network_state;
 pub use self::p2p_network_state::P2pNetworkState;
 
+mod p2p_network_reducer;
+
+mod p2p_network_effects;
+
 pub mod scheduler;
 pub use self::scheduler::*;
 
