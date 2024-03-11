@@ -1,6 +1,6 @@
 use std::fmt;
 
-#[cfg(all(not(target_arch = "wasm32"), not(feature = "p2p-libp2p")))]
+#[cfg(not(target_arch = "wasm32"))]
 use std::net::{IpAddr, SocketAddr};
 
 use derive_more::From;
@@ -18,15 +18,11 @@ pub enum P2pEvent {
     Connection(P2pConnectionEvent),
     Listen(P2pListenEvent),
     Channel(P2pChannelEvent),
-    #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
-    Libp2pIdentify(PeerId, libp2p::Multiaddr),
     Discovery(P2pDiscoveryEvent),
-    #[cfg(all(not(target_arch = "wasm32"), not(feature = "p2p-libp2p")))]
     MioEvent(MioEvent),
 }
 
 /// The mio service reports events.
-#[cfg(all(not(target_arch = "wasm32"), not(feature = "p2p-libp2p")))]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum MioEvent {
     /// A new network interface was detected on the machine.
@@ -114,12 +110,7 @@ impl fmt::Display for P2pEvent {
             Self::Connection(v) => v.fmt(f),
             Self::Listen(v) => v.fmt(f),
             Self::Channel(v) => v.fmt(f),
-            #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
-            Self::Libp2pIdentify(peer_id, _) => {
-                write!(f, "Libp2pIdentify, {peer_id}")
-            }
             Self::Discovery(v) => v.fmt(f),
-            #[cfg(all(not(target_arch = "wasm32"), not(feature = "p2p-libp2p")))]
             Self::MioEvent(v) => v.fmt(f),
         }
     }
@@ -314,7 +305,6 @@ impl fmt::Display for P2pDiscoveryEvent {
     }
 }
 
-#[cfg(all(not(target_arch = "wasm32"), not(feature = "p2p-libp2p")))]
 impl fmt::Display for MioEvent {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

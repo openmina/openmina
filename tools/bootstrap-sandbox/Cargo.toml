@@ -21,7 +21,7 @@ tokio = { version = "1.36", features = ["macros", "rt-multi-thread"] }
 
 binprot = { git = "https://github.com/openmina/binprot-rs", rev = "3f29b25" }
 ledger = { path = "../../ledger", package = "mina-tree" }
-libp2p-rpc-behaviour = { path = "../../p2p/libp2p-rpc-behaviour" }
+libp2p-rpc-behaviour = { path = "../libp2p-rpc-behaviour" }
 mina-transport = { path = "../transport" }
 
 libp2p = { workspace = true }

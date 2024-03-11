@@ -16,8 +16,8 @@ use std::sync::Mutex;
 use std::time::Duration;
 use std::{collections::VecDeque, sync::Arc};
 
-use libp2p::futures::{stream::FuturesUnordered, StreamExt};
-use libp2p::identity::Keypair;
+use futures::{stream::FuturesUnordered, StreamExt};
+use libp2p_identity::Keypair;
 use node::core::channels::mpsc;
 use node::core::requests::RpcId;
 use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
@@ -317,9 +317,6 @@ impl Cluster {
             cmd_sender,
             ledger,
             peers,
-            #[cfg(feature = "p2p-libp2p")]
-            libp2p: p2p_service_ctx.libp2p,
-            #[cfg(not(feature = "p2p-libp2p"))]
             mio: p2p_service_ctx.mio,
             block_producer: None,
             keypair,
@@ -708,33 +705,6 @@ impl Cluster {
                         if res_is_ok {
                             let is_peer_connected =
                                 node.state().p2p.get_ready_peer(&peer_id).is_some();
-                            // deduce if kad initiated this conn.
-                            #[cfg(feature = "p2p-libp2p")]
-                            {
-                                if !node.state().p2p.is_peer_connected_or_connecting(&peer_id) {
-                                    let my_addr = node.dial_addr();
-                                    let peer = self
-                                        .nodes
-                                        .iter_mut()
-                                        .find(|node| node.peer_id() == peer_id)
-                                        .ok_or_else(|| {
-                                            anyhow::anyhow!(
-                                                "node with peer_id: '{peer_id}' not found"
-                                            )
-                                        })?;
-
-                                    if !peer.state().p2p.is_peer_connecting(my_addr.peer_id()) {
-                                        // kad initiated this connection so replay that.
-                                        eprintln!(
-                                            "p2p_kad_outgoing_init({:?}) -> {:?} - {}",
-                                            peer.node_id(),
-                                            node_id,
-                                            my_addr
-                                        );
-                                        peer.p2p_kad_outgoing_init(my_addr);
-                                    }
-                                }
-                            }
                             if is_peer_connected {
                                 // we are already connected, so skip the extra event.
                                 return Ok(true);
@@ -746,14 +716,6 @@ impl Cluster {
                         } else {
                             event
                         }
-                    }
-                    #[cfg(feature = "p2p-libp2p")]
-                    NonDeterministicEvent::P2pLibp2pIdentify(peer_id) => {
-                        let addr = match node_addr_by_peer_id(self, peer_id)? {
-                            P2pConnectionOutgoingInitOpts::LibP2P(v) => (&v).into(),
-                            _ => unreachable!(),
-                        };
-                        P2pEvent::Libp2pIdentify(peer_id, addr).into()
                     }
                     NonDeterministicEvent::P2pDiscoveryReady => {
                         P2pEvent::Discovery(P2pDiscoveryEvent::Ready).into()

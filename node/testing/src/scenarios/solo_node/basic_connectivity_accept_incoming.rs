@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use libp2p::Multiaddr;
+use multiaddr::Multiaddr;
 use node::{
     event_source::Event,
     p2p::{connection::outgoing::P2pConnectionOutgoingInitOpts, P2pEvent, PeerId},

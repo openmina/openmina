@@ -6,9 +6,8 @@ use node::p2p::service_impl::webrtc_with_libp2p::P2pServiceWebrtcWithLibp2p;
 use openmina_core::invariants::InvariantsState;
 
 use ledger::scan_state::scan_state::transaction_snark::{SokDigest, Statement};
-use libp2p::identity::Keypair;
+use libp2p_identity::Keypair;
 use mina_p2p_messages::v2::{LedgerProofProdStableV2, TransactionSnarkWorkTStableV2Proofs};
-#[cfg(not(feature = "p2p-libp2p"))]
 use node::p2p::service_impl::mio::MioService;
 use rand::prelude::*;
 use redux::ActionMeta;
@@ -19,8 +18,6 @@ use node::core::snark::{Snark, SnarkJobId};
 use node::event_source::Event;
 use node::ledger::LedgerCtx;
 use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
-#[cfg(feature = "p2p-libp2p")]
-use node::p2p::service_impl::libp2p::Libp2pService;
 use node::p2p::service_impl::webrtc::{Cmd, P2pServiceWebrtc, PeerState};
 use node::p2p::service_impl::TaskSpawner;
 use node::p2p::{P2pCryptoService, P2pMioService, PeerId};
@@ -48,9 +45,6 @@ pub struct NodeService {
     pub cmd_sender: mpsc::UnboundedSender<Cmd>,
     pub ledger: LedgerCtx,
     pub peers: BTreeMap<PeerId, PeerState>,
-    #[cfg(feature = "p2p-libp2p")]
-    pub libp2p: Libp2pService,
-    #[cfg(not(feature = "p2p-libp2p"))]
     pub mio: MioService,
     pub block_producer: Option<BlockProducerService>,
     pub keypair: Keypair,
@@ -148,14 +142,6 @@ impl P2pCryptoService for NodeService {
     }
 }
 
-#[cfg(feature = "p2p-libp2p")]
-impl P2pMioService for NodeService {
-    fn send_mio_cmd(&self, _cmd: node::p2p::MioCmd) {
-        panic!("not implemented with libp2p");
-    }
-}
-
-#[cfg(not(feature = "p2p-libp2p"))]
 impl P2pMioService for NodeService {
     fn send_mio_cmd(&self, cmd: node::p2p::MioCmd) {
         self.mio.send_mio_cmd(cmd);
@@ -191,52 +177,9 @@ impl P2pServiceWebrtc for NodeService {
     }
 }
 
-#[cfg(not(feature = "p2p-libp2p"))]
 impl P2pServiceWebrtcWithLibp2p for NodeService {
     fn mio(&mut self) -> &mut MioService {
         &mut self.mio
-    }
-}
-
-#[cfg(feature = "p2p-libp2p")]
-impl P2pServiceWebrtcWithLibp2p for NodeService {
-    fn libp2p(&mut self) -> &mut Libp2pService {
-        &mut self.libp2p
-    }
-
-    fn find_random_peer(&mut self) {
-        use libp2p::identity::PeerId;
-        use node::p2p::service_impl::libp2p::Cmd;
-
-        // Generate some random peer_id
-        let peer_id = PeerId::random();
-
-        self.libp2p()
-            .cmd_sender()
-            .send(Cmd::FindNode(peer_id.into()))
-            .unwrap_or_default();
-    }
-
-    fn start_discovery(&mut self, peers: Vec<P2pConnectionOutgoingInitOpts>) {
-        use node::p2p::service_impl::libp2p::Cmd;
-
-        let peers = peers
-            .into_iter()
-            .filter_map(|opts| {
-                Some((
-                    opts.peer_id().clone().into(),
-                    match opts {
-                        P2pConnectionOutgoingInitOpts::LibP2P(opts) => opts.to_maddr(),
-                        _ => return None,
-                    },
-                ))
-            })
-            .collect();
-
-        self.libp2p()
-            .cmd_sender()
-            .send(Cmd::RunDiscovery(peers))
-            .unwrap_or_default()
     }
 }
 

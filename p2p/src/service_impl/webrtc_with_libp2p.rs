@@ -9,26 +9,17 @@ use crate::{
     P2pChannelEvent, P2pEvent, PeerId,
 };
 
-#[cfg(not(feature = "p2p-libp2p"))]
 use super::mio::MioService;
-#[cfg(not(feature = "p2p-libp2p"))]
 use crate::P2pMioService;
 
 use super::{webrtc::P2pServiceWebrtc, TaskSpawner};
 
 pub struct P2pServiceCtx {
     pub webrtc: super::webrtc::P2pServiceCtx,
-    #[cfg(feature = "p2p-libp2p")]
-    pub libp2p: super::libp2p::Libp2pService,
-    #[cfg(not(feature = "p2p-libp2p"))]
     pub mio: MioService,
 }
 
 pub trait P2pServiceWebrtcWithLibp2p: P2pServiceWebrtc {
-    #[cfg(feature = "p2p-libp2p")]
-    fn libp2p(&mut self) -> &mut super::libp2p::Libp2pService;
-
-    #[cfg(not(feature = "p2p-libp2p"))]
     fn mio(&mut self) -> &mut MioService;
 
     fn init<E: From<P2pEvent> + Send + 'static, S: TaskSpawner>(
@@ -39,16 +30,7 @@ pub trait P2pServiceWebrtcWithLibp2p: P2pServiceWebrtc {
         spawner: S,
     ) -> P2pServiceCtx {
         P2pServiceCtx {
-            #[cfg(feature = "p2p-libp2p")]
-            libp2p: super::libp2p::Libp2pService::run::<E, S>(
-                _libp2p_port,
-                secret_key.clone(),
-                _chain_id,
-                event_source_sender,
-                spawner.clone(),
-            ),
             webrtc: <Self as P2pServiceWebrtc>::init(secret_key, spawner),
-            #[cfg(not(feature = "p2p-libp2p"))]
             mio: MioService::run({
                 move |mio_event| {
                     event_source_sender
@@ -58,12 +40,6 @@ pub trait P2pServiceWebrtcWithLibp2p: P2pServiceWebrtc {
             }),
         }
     }
-
-    #[cfg(feature = "p2p-libp2p")]
-    fn find_random_peer(&mut self);
-
-    #[cfg(feature = "p2p-libp2p")]
-    fn start_discovery(&mut self, peers: Vec<P2pConnectionOutgoingInitOpts>);
 }
 
 impl<T: P2pServiceWebrtcWithLibp2p> P2pConnectionService for T {
@@ -79,12 +55,6 @@ impl<T: P2pServiceWebrtcWithLibp2p> P2pConnectionService for T {
             P2pConnectionOutgoingInitOpts::WebRTC { peer_id, .. } => {
                 P2pServiceWebrtc::outgoing_init(self, peer_id);
             }
-            #[cfg(feature = "p2p-libp2p")]
-            P2pConnectionOutgoingInitOpts::LibP2P(opts) => {
-                let cmd = super::libp2p::Cmd::Dial(opts.peer_id.into(), vec![opts.to_maddr()]);
-                let _ = self.libp2p().cmd_sender().send(cmd);
-            }
-            #[cfg(not(feature = "p2p-libp2p"))]
             P2pConnectionOutgoingInitOpts::LibP2P(opts) => {
                 use crate::webrtc::Host;
                 let addr = match opts.host {
@@ -115,16 +85,6 @@ impl<T: P2pServiceWebrtcWithLibp2p> P2pConnectionService for T {
     fn http_signaling_request(&mut self, url: String, offer: crate::webrtc::Offer) {
         P2pServiceWebrtc::http_signaling_request(self, url, offer)
     }
-
-    #[cfg(feature = "p2p-libp2p")]
-    fn start_discovery(&mut self, peers: Vec<P2pConnectionOutgoingInitOpts>) {
-        P2pServiceWebrtcWithLibp2p::start_discovery(self, peers)
-    }
-
-    #[cfg(feature = "p2p-libp2p")]
-    fn find_random_peer(&mut self) {
-        P2pServiceWebrtcWithLibp2p::find_random_peer(self);
-    }
 }
 
 impl<T: P2pServiceWebrtcWithLibp2p> P2pDisconnectionService for T {
@@ -133,19 +93,8 @@ impl<T: P2pServiceWebrtcWithLibp2p> P2pDisconnectionService for T {
         // cause `peer_loop` to end.
         let is_libp2p_peer = self.peers().remove(&peer_id).is_none();
         if is_libp2p_peer {
-            #[cfg(not(feature = "p2p-libp2p"))]
-            {
-                // TODO(akoptelov): pass dial_opt here to get IP address
-                // self.mio().send_mio_cmd(MioCmd::Disconnect())
-            }
-            #[cfg(feature = "p2p-libp2p")]
-            {
-                use super::libp2p::Cmd;
-                let _ = self
-                    .libp2p()
-                    .cmd_sender()
-                    .send(Cmd::Disconnect(peer_id.into()));
-            }
+            // TODO(akoptelov): pass dial_opt here to get IP address
+            // self.mio().send_mio_cmd(MioCmd::Disconnect())
         }
     }
 }
@@ -169,33 +118,11 @@ impl<T: P2pServiceWebrtcWithLibp2p> P2pChannelsService for T {
         if self.peers().contains_key(&peer_id) {
             P2pServiceWebrtc::channel_send(self, peer_id, msg_id, msg)
         } else {
-            #[cfg(feature = "p2p-libp2p")]
-            {
-                use super::libp2p::Cmd;
-                let _ = self
-                    .libp2p()
-                    .cmd_sender()
-                    .send(Cmd::SendMessage(peer_id.into(), msg));
-            }
-            #[cfg(not(feature = "p2p-libp2p"))]
-            {
-                todo!("unimplemented");
-            }
+            todo!("unimplemented");
         }
     }
 
     fn libp2p_broadcast_snark(&mut self, _snark: Snark, _nonce: u32) {
-        #[cfg(feature = "p2p-libp2p")]
-        {
-            use super::libp2p::Cmd;
-            let _ = self
-                .libp2p()
-                .cmd_sender()
-                .send(Cmd::SnarkBroadcast(_snark, _nonce));
-        }
-        #[cfg(not(feature = "p2p-libp2p"))]
-        {
-            todo!("unimplemented");
-        }
+        todo!("unimplemented");
     }
 }

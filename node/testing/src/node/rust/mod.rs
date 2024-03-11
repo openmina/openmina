@@ -8,8 +8,6 @@ use node::event_source::EventSourceAction;
 use node::p2p::connection::outgoing::{
     P2pConnectionOutgoingInitLibp2pOpts, P2pConnectionOutgoingInitOpts,
 };
-#[cfg(feature = "p2p-libp2p")]
-use node::p2p::service_impl::webrtc_with_libp2p::P2pServiceWebrtcWithLibp2p;
 use node::p2p::webrtc::SignalingMethod;
 use node::p2p::PeerId;
 use node::service::P2pDisconnectionService;
@@ -173,19 +171,6 @@ impl Node {
             return self.take_event_and_dispatch(id);
         }
         false
-    }
-
-    /// Reproduce connection initiated by kad.
-    #[cfg(feature = "p2p-libp2p")]
-    pub fn p2p_kad_outgoing_init(&mut self, addr: P2pConnectionOutgoingInitOpts) {
-        use node::p2p::service_impl::libp2p::Cmd;
-
-        let maddr = match &addr {
-            P2pConnectionOutgoingInitOpts::LibP2P(v) => v.into(),
-            _ => unreachable!(),
-        };
-        let cmd = Cmd::Dial((*addr.peer_id()).into(), vec![maddr]);
-        let _ = self.service_mut().libp2p().cmd_sender().send(cmd);
     }
 
     pub fn p2p_disconnect(&mut self, peer_id: PeerId) {

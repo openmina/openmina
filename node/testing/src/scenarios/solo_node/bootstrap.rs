@@ -29,7 +29,7 @@ impl SoloNodeBootstrap {
 
         const REPLAYER_1: &'static str =
             "/ip4/135.181.217.23/tcp/31968/p2p/12D3KooWPayQEdprqY2m3biReUUybA5LoULpJE7YWu6wetEKKELv";
-        let replayer = (&REPLAYER_1.parse::<libp2p::Multiaddr>().unwrap())
+        let replayer = (&REPLAYER_1.parse::<multiaddr::Multiaddr>().unwrap())
             .try_into()
             .unwrap();
 
