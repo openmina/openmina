@@ -116,7 +116,6 @@ impl P2pNetworkSelectAction {
                     }
                     _ => {}
                 };
-                dbg!(&tokens);
                 store.dispatch(P2pNetworkSelectOutgoingTokensAction {
                     addr: a.addr,
                     kind: a.kind,
@@ -193,7 +192,7 @@ impl P2pNetworkSelectAction {
                     store.dispatch(P2pNetworkSelectOutgoingTokensAction {
                         addr: a.addr,
                         kind: a.kind,
-                        tokens: vec![dbg!(token).clone()],
+                        tokens: vec![token.clone()],
                     });
                 }
             }
