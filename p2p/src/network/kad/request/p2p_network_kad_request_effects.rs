@@ -1,8 +1,10 @@
+use std::net::SocketAddr;
+
 use redux::ActionMeta;
 
 use crate::{
-    connection::outgoing::P2pConnectionOutgoingAction, P2pNetworkConnectionMuxState,
-    P2pNetworkYamuxOpenStreamAction,
+    connection::outgoing::{P2pConnectionOutgoingAction, P2pConnectionOutgoingInitOpts}, discovery::P2pDiscoveryAction,
+    socket_addr_try_from_multiaddr, P2pNetworkConnectionMuxState, P2pNetworkYamuxOpenStreamAction,
 };
 
 use super::{super::stream::P2pNetworkKademliaStreamAction, P2pNetworkKadRequestAction};
@@ -95,7 +97,26 @@ impl P2pNetworkKadRequestAction {
                 store.dispatch(A::RequestSent { addr });
             }
             A::RequestSent { .. } => {}
-            A::ReplyReceived { .. } => {}
+            A::ReplyReceived { data, .. } => {
+                let external_addr = |addr: &SocketAddr| match addr.ip() {
+                    std::net::IpAddr::V4(v) => !(v.is_loopback() || v.is_private()),
+                    std::net::IpAddr::V6(v) => !(v.is_loopback()),
+                };
+                for entry in data {
+                    let peer_id = entry.peer_id;
+                    let to_opts = |addr| (peer_id.clone(), addr).into();
+                    let addresses = entry
+                        .addrs
+                        .iter()
+                        .map(socket_addr_try_from_multiaddr)
+                        .filter_map(Result::ok)
+                        .filter(external_addr)
+                        .map(to_opts)
+                        .map(P2pConnectionOutgoingInitOpts::LibP2P)
+                        .collect();
+                    store.dispatch(P2pDiscoveryAction::KademliaAddRoute { peer_id, addresses });
+                }
+            }
             A::Prune { .. } => {}
             A::Error { .. } => {}
         }

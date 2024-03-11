@@ -6,7 +6,7 @@ use super::super::{
     select::{token, SelectKind},
     Data,
 };
-use crate::P2pState;
+use crate::{P2pState, PeerId};
 
 #[derive(derive_more::From, Serialize, Deserialize, Debug, Clone)]
 pub enum P2pNetworkSchedulerAction {
@@ -77,6 +77,7 @@ pub struct P2pNetworkSchedulerSelectErrorAction {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pNetworkSchedulerYamuxDidInitAction {
+    pub peer_id: PeerId,
     pub addr: SocketAddr,
 }
 

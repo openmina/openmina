@@ -174,6 +174,21 @@ impl P2pState {
             .collect()
     }
 
+    pub fn disconnected_peers(&self) -> impl '_ + Iterator<Item = P2pConnectionOutgoingInitOpts> {
+        self.peers.iter().filter_map(|(_, state)| {
+            if let P2pPeerState {
+                status: P2pPeerStatus::Disconnected { .. },
+                dial_opts: Some(opts),
+                ..
+            } = state
+            {
+                Some(opts.clone())
+            } else {
+                None
+            }
+        })
+    }
+
     pub fn ready_peers_iter(&self) -> impl Iterator<Item = (&PeerId, &P2pPeerStatusReady)> {
         self.peers
             .iter()

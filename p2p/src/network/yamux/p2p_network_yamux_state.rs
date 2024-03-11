@@ -217,7 +217,6 @@ impl P2pNetworkYamuxAction {
         };
 
         let incoming = state.incoming.front().cloned();
-        let init = state.init;
 
         match self {
             Self::IncomingData(a) => {
@@ -277,9 +276,6 @@ impl P2pNetworkYamuxAction {
                                 addr: a.addr,
                                 frame: ping.clone().into_frame(),
                             });
-                        }
-                        if !init {
-                            store.dispatch(P2pNetworkSchedulerYamuxDidInitAction { addr: a.addr });
                         }
                     }
                     _ => {}

@@ -9,9 +9,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     channels::{ChannelId, P2pChannelsState},
+    connection::{incoming::P2pConnectionIncomingAction, outgoing::P2pConnectionOutgoingAction},
     request::P2pNetworkKadRequestAction,
+    token::{RpcAlgorithm, StreamKind},
     MioCmd, P2pCryptoService, P2pMioService, P2pPeerState, P2pPeerStatus, P2pPeerStatusReady,
-    PeerId, token::{StreamKind, RpcAlgorithm},
+    PeerId,
 };
 
 use super::{super::*, *};
@@ -313,7 +315,14 @@ impl P2pNetworkSchedulerAction {
                         });
                     }
                     Some(Protocol::Mux(MuxKind::Yamux1_0_0 | MuxKind::YamuxNoNewLine1_0_0)) => {
-                        store.dispatch(P2pNetworkSchedulerYamuxDidInitAction { addr: a.addr });
+                        let SelectKind::Multiplexing(peer_id) = a.kind else {
+                            error!(meta.time(); "wrong kind for multiplexing protocol action: {:?}", a.kind);
+                            return;
+                        };
+                        store.dispatch(P2pNetworkSchedulerYamuxDidInitAction {
+                            addr: a.addr,
+                            peer_id: peer_id.clone(),
+                        });
                     }
                     Some(Protocol::Stream(kind)) => {
                         let SelectKind::Stream(peer_id, stream_id) = a.kind else {
@@ -379,7 +388,8 @@ impl P2pNetworkSchedulerAction {
                     // for each negotiated yamux conenction open a new outgoing RPC stream
                     // TODO(akoptelov,vlad): should we do that? shouldn't upper layer decide when to open RPC streams?
                     // Also rpc streams are short-living -- they only persist for a single request-response (?)
-                    let stream_id = if cn.incoming { 2 } else { 1 };
+                    let incoming = cn.incoming;
+                    let stream_id = if incoming { 2 } else { 1 };
                     store.dispatch(P2pNetworkYamuxOpenStreamAction {
                         addr: a.addr,
                         stream_id,
@@ -394,6 +404,15 @@ impl P2pNetworkSchedulerAction {
                         .map_or(false, |state| state.request(&a.addr).is_some())
                     {
                         store.dispatch(P2pNetworkKadRequestAction::MuxReady { addr: a.addr });
+                    }
+                    if incoming {
+                        store.dispatch(P2pConnectionIncomingAction::FinalizeSuccess {
+                            peer_id: a.peer_id.clone(),
+                        });
+                    } else {
+                        store.dispatch(P2pConnectionOutgoingAction::FinalizeSuccess {
+                            peer_id: a.peer_id.clone(),
+                        });
                     }
                 }
             }

@@ -1,7 +1,7 @@
 use redux::{ActionMeta, ActionWithMeta};
 
 use crate::{
-    channels::{rpc::P2pChannelsRpcAction, P2pChannelsAction, P2pChannelsService},
+    channels::{P2pChannelsAction, P2pChannelsService},
     connection::{
         outgoing::P2pConnectionOutgoingAction, P2pConnectionAction, P2pConnectionService,
     },
@@ -25,7 +25,7 @@ where
     #[cfg(feature = "p2p-webrtc")]
     p2p_discovery_request(store, &meta);
 
-    #[cfg(feature = "p2p-internal-libp2p")]
+    #[cfg(not(feature = "p2p-libp2p"))]
     store.dispatch(
         crate::network::kad::P2pNetworkKademliaAction::StartBootstrap {
             key: store.state().config.identity_pub_key.peer_id(),
@@ -36,7 +36,7 @@ where
     {
         let state = store.state();
         for (peer_id, id) in state.peer_rpc_timeouts(meta.time()) {
-            store.dispatch(P2pChannelsRpcAction::Timeout { peer_id, id });
+            store.dispatch(crate::channels::rpc::P2pChannelsRpcAction::Timeout { peer_id, id });
         }
     }
 }
