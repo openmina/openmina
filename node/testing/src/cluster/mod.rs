@@ -367,6 +367,7 @@ impl Cluster {
             // if action.action().kind().to_string().starts_with("BlockProducer") {
             //     dbg!(action.action());
             // }
+
             store.service.dyn_effects(store.state.get(), &action);
             let peer_id = store.state().p2p.my_id();
             openmina_core::log::trace!(action.time(); "{peer_id}: {:?}", action.action().kind());

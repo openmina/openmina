@@ -7,6 +7,7 @@ use node::{
         BlockProducerVrfEvaluatorEvent,
     },
     event_source::Event,
+    p2p::P2pTimeouts,
     BlockProducerConfig,
 };
 use vrf::VrfEvaluationOutput;
@@ -55,6 +56,8 @@ impl MultiNodeVrfGetCorrectSlots {
                 sec_key,
             }),
             snark_worker: None,
+            timeouts: P2pTimeouts::default(),
+            libp2p_port: None,
         });
 
         tokio::time::sleep(Duration::from_secs(2)).await;

@@ -29,8 +29,8 @@ use self::multi_node::basic_connectivity_peer_discovery::MultiNodeBasicConnectiv
 use self::multi_node::sync_4_block_producers::MultiNodeSync4BlockProducers;
 use self::multi_node::vrf_correct_ledgers::MultiNodeVrfGetCorrectLedgers;
 use self::multi_node::vrf_correct_slots::MultiNodeVrfGetCorrectSlots;
-use self::multi_node::vrf_epoch_bounds_evaluation::MultiNodeVrfEpochBoundsEvaluation;
 use self::multi_node::vrf_epoch_bounds_correct_ledgers::MultiNodeVrfEpochBoundsCorrectLedger;
+use self::multi_node::vrf_epoch_bounds_evaluation::MultiNodeVrfEpochBoundsEvaluation;
 use self::simulation::small::SimulationSmall;
 use self::solo_node::sync_to_genesis::SoloNodeSyncToGenesis;
 use self::solo_node::sync_to_genesis_custom::SoloNodeSyncToGenesisCustom;
@@ -104,7 +104,9 @@ impl Scenarios {
             Self::MultiNodeVrfGetCorrectLedgers(_) => Some(SoloNodeSyncToGenesisCustom.into()),
             Self::MultiNodeVrfGetCorrectSlots(_) => Some(SoloNodeSyncToGenesisCustom.into()),
             Self::MultiNodeVrfEpochBoundsEvaluation(_) => Some(SoloNodeSyncToGenesisCustom.into()),
-            Self::MultiNodeVrfEpochBoundsCorrectLedger(_) => Some(SoloNodeSyncToGenesisCustom.into()),
+            Self::MultiNodeVrfEpochBoundsCorrectLedger(_) => {
+                Some(SoloNodeSyncToGenesisCustom.into())
+            }
             Self::MultiNodeBasicConnectivityInitialJoining(_) => None,
             Self::MultiNodeBasicConnectivityPeerDiscovery(_) => None,
             Self::SimulationSmall(_) => None,
@@ -132,7 +134,9 @@ impl Scenarios {
             Self::MultiNodeVrfGetCorrectLedgers(_) => MultiNodeVrfGetCorrectLedgers::DOCS,
             Self::MultiNodeVrfGetCorrectSlots(_) => MultiNodeVrfGetCorrectSlots::DOCS,
             Self::MultiNodeVrfEpochBoundsEvaluation(_) => MultiNodeVrfEpochBoundsEvaluation::DOCS,
-            Self::MultiNodeVrfEpochBoundsCorrectLedger(_) => MultiNodeVrfEpochBoundsCorrectLedger::DOCS,
+            Self::MultiNodeVrfEpochBoundsCorrectLedger(_) => {
+                MultiNodeVrfEpochBoundsCorrectLedger::DOCS
+            }
             Self::MultiNodeBasicConnectivityInitialJoining(_) => {
                 MultiNodeBasicConnectivityInitialJoining::DOCS
             }

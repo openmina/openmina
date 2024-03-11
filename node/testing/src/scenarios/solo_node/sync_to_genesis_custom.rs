@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use node::p2p::P2pTimeouts;
 use time::format_description;
 
 use crate::{
@@ -22,10 +23,13 @@ pub struct SoloNodeSyncToGenesisCustom;
 
 impl SoloNodeSyncToGenesisCustom {
     pub async fn run(self, mut runner: ClusterRunner<'_>) {
-        let now = time::OffsetDateTime::now_utc().replace_second(0).unwrap().replace_nanosecond(0).unwrap();
+        let now = time::OffsetDateTime::now_utc()
+            .replace_second(0)
+            .unwrap()
+            .replace_nanosecond(0)
+            .unwrap();
         eprintln!("Genesis timestamp: {now}");
-        let initial_time =
-            redux::Timestamp::new(now.unix_timestamp_nanos().try_into().unwrap());
+        let initial_time = redux::Timestamp::new(now.unix_timestamp_nanos().try_into().unwrap());
 
         let format = format_description::well_known::Rfc3339;
         let formated_initial_time = now.format(&format).unwrap();
@@ -66,6 +70,8 @@ impl SoloNodeSyncToGenesisCustom {
             peer_id: Default::default(),
             block_producer: None,
             snark_worker: None,
+            timeouts: P2pTimeouts::default(),
+            libp2p_port: None,
         });
 
         runner

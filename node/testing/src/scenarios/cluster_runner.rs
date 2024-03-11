@@ -462,7 +462,7 @@ impl<'a> ClusterRunner<'a> {
                     .await
                     .unwrap();
             }
-            
+
             // run
             let _ = self
                 .run(
@@ -478,11 +478,13 @@ impl<'a> ClusterRunner<'a> {
                     .unwrap();
             }
 
-            let (state, _) = self.node_pending_events(producer_node).unwrap();
+            let (state, _) = self.node_pending_events(producer_node, false).unwrap();
 
             let current_state_machine_time = state.time();
             let current_state_machine_time_u64: u64 = current_state_machine_time.into();
-            let current_state_machine_time_formated = OffsetDateTime::from_unix_timestamp_nanos(current_state_machine_time_u64 as i128).unwrap();
+            let current_state_machine_time_formated =
+                OffsetDateTime::from_unix_timestamp_nanos(current_state_machine_time_u64 as i128)
+                    .unwrap();
 
             let best_tip = if let Some(best_tip) = state.transition_frontier.best_tip() {
                 best_tip
@@ -520,7 +522,7 @@ impl<'a> ClusterRunner<'a> {
                 continue;
             }
 
-            let (state, _) = self.node_pending_events(producer_node).unwrap();
+            let (state, _) = self.node_pending_events(producer_node, false).unwrap();
 
             if predicate(state, last_slot, produced_blocks) {
                 eprintln!("[{log_tag}] Condition met");
@@ -555,7 +557,7 @@ impl<'a> ClusterRunner<'a> {
     ) -> u32 {
         const SLOTS_PER_EPOCH: u32 = 7_140;
 
-        let (state, _) = self.node_pending_events(producer_node).unwrap();
+        let (state, _) = self.node_pending_events(producer_node, false).unwrap();
         let current_epoch = state.current_epoch().unwrap();
         let latest_slot = state.cur_global_slot().unwrap();
         let current_epoch_end = current_epoch * SLOTS_PER_EPOCH + SLOTS_PER_EPOCH - 1;

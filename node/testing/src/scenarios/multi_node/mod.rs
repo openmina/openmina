@@ -7,5 +7,5 @@ pub mod basic_connectivity_peer_discovery;
 pub mod connection_discovery;
 pub mod vrf_correct_ledgers;
 pub mod vrf_correct_slots;
-pub mod vrf_epoch_bounds_evaluation;
 pub mod vrf_epoch_bounds_correct_ledgers;
+pub mod vrf_epoch_bounds_evaluation;

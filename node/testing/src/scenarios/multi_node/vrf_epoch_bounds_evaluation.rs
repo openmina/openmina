@@ -3,7 +3,10 @@ use std::{str::FromStr, time::Duration};
 use mina_p2p_messages::v2::{
     CurrencyFeeStableV1, UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
 };
-use node::{account::AccountSecretKey, BlockProducerConfig, SnarkerConfig, SnarkerStrategy};
+use node::{
+    account::AccountSecretKey, p2p::P2pTimeouts, BlockProducerConfig, SnarkerConfig,
+    SnarkerStrategy,
+};
 
 use crate::{
     node::{RustNodeBlockProducerTestingConfig, RustNodeTestingConfig},
@@ -12,6 +15,7 @@ use crate::{
 };
 
 const GLOBAL_TIMEOUT: Duration = Duration::from_secs(10 * 60);
+const STEP_DURATION: Duration = Duration::from_secs(2);
 
 const SECOND_EPOCH_LAST_SLOT: u32 = 14_279;
 const THIRD_EPOCH_LAST_SLOT: u32 = 21_419;
@@ -41,6 +45,8 @@ impl MultiNodeVrfEpochBoundsEvaluation {
             peer_id: Default::default(),
             block_producer: None,
             snark_worker: None,
+            timeouts: P2pTimeouts::default(),
+            libp2p_port: None,
         };
 
         let producer_node = runner.add_rust_node(RustNodeTestingConfig {
@@ -97,6 +103,8 @@ impl MultiNodeVrfEpochBoundsEvaluation {
                 producer_node,
                 "EPOCH 0-1 EVAL",
                 GLOBAL_TIMEOUT,
+                STEP_DURATION,
+                false,
                 |state, _, _| {
                     let last_evaluated_slot = state
                         .block_producer
@@ -111,7 +119,7 @@ impl MultiNodeVrfEpochBoundsEvaluation {
             )
             .await;
 
-        let (state, _) = runner.node_pending_events(producer_node).unwrap();
+        let (state, _) = runner.node_pending_events(producer_node, false).unwrap();
         let last_evaluated_slot = state
             .block_producer
             .vrf_evaluator()
@@ -126,18 +134,20 @@ impl MultiNodeVrfEpochBoundsEvaluation {
 
         // skip to the epoch bounds
         runner
-            .advance_to_epoch_bounds(producer_node, GLOBAL_TIMEOUT)
+            .advance_to_epoch_bounds(producer_node, GLOBAL_TIMEOUT, STEP_DURATION)
             .await;
         runner
             .produce_blocks_until(
                 producer_node,
                 "EPOCH 2 EVAL",
                 GLOBAL_TIMEOUT,
+                STEP_DURATION,
+                false,
                 |_, _, produced_blocks| produced_blocks >= 20,
             )
             .await;
 
-        let (state, _) = runner.node_pending_events(producer_node).unwrap();
+        let (state, _) = runner.node_pending_events(producer_node, false).unwrap();
 
         let last_evaluated_slot = state
             .block_producer
@@ -156,6 +166,8 @@ impl MultiNodeVrfEpochBoundsEvaluation {
                 producer_node,
                 "EPOCH 2 EVAL",
                 GLOBAL_TIMEOUT,
+                STEP_DURATION,
+                false,
                 |state, _, _| {
                     let last_evaluated_slot = state
                         .block_producer
