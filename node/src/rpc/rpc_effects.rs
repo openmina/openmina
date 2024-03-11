@@ -11,11 +11,12 @@ use crate::snark_pool::SnarkPoolAction;
 use crate::{Service, Store};
 
 use super::{
-    ActionStatsQuery, ActionStatsResponse, MessageProgress, RpcAction, RpcActionWithMeta,
-    RpcScanStateSummary, RpcScanStateSummaryBlock, RpcScanStateSummaryBlockTransaction,
-    RpcScanStateSummaryBlockTransactionKind, RpcScanStateSummaryGetQuery,
-    RpcScanStateSummaryScanStateJob, RpcSnarkPoolJobFull, RpcSnarkPoolJobSnarkWork,
-    RpcSnarkPoolJobSummary, RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse,
+    ActionStatsQuery, ActionStatsResponse, CurrentMessageProgress, MessagesStats, RpcAction,
+    RpcActionWithMeta, RpcScanStateSummary, RpcScanStateSummaryBlock,
+    RpcScanStateSummaryBlockTransaction, RpcScanStateSummaryBlockTransactionKind,
+    RpcScanStateSummaryGetQuery, RpcScanStateSummaryScanStateJob, RpcSnarkPoolJobFull,
+    RpcSnarkPoolJobSnarkWork, RpcSnarkPoolJobSummary, RpcSnarkerJobCommitResponse,
+    RpcSnarkerJobSpecResponse,
 };
 
 macro_rules! respond_or_log {
@@ -80,22 +81,31 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                     let (_, (name, _)) = rpc_state.pending.clone()?;
                     let name = name.to_string();
                     let buffer = &rpc_state.buffer;
-                    if buffer.len() < 8 {
+                    let current_request = if buffer.len() < 8 {
                         None
                     } else {
-                        let received = buffer.len() - 8;
-                        let total = u64::from_le_bytes(
+                        let received_bytes = buffer.len() - 8;
+                        let total_bytes = u64::from_le_bytes(
                             buffer[..8].try_into().expect("cannot fail checked above"),
                         ) as usize;
-                        Some((
-                            *peer_id,
-                            MessageProgress {
-                                name,
-                                received,
-                                total,
-                            },
-                        ))
-                    }
+                        Some(CurrentMessageProgress {
+                            name,
+                            received_bytes,
+                            total_bytes,
+                        })
+                    };
+
+                    Some((
+                        *peer_id,
+                        MessagesStats {
+                            current_request,
+                            responses: rpc_state
+                                .total_stats
+                                .iter()
+                                .map(|((name, _), count)| (name.to_string(), *count))
+                                .collect(),
+                        },
+                    ))
                 })
                 .collect();
             let _ = store

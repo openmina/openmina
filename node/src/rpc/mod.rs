@@ -227,16 +227,22 @@ pub enum RpcSnarkerJobSpecResponse {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct MessageProgress {
+pub struct MessagesStats {
+    pub current_request: Option<CurrentMessageProgress>,
+    pub responses: BTreeMap<String, usize>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct CurrentMessageProgress {
     pub name: String,
-    pub received: usize,
-    pub total: usize,
+    pub received_bytes: usize,
+    pub total_bytes: usize,
 }
 
 pub type RpcStateGetResponse = Box<State>;
 pub type RpcActionStatsGetResponse = Option<ActionStatsResponse>;
 pub type RpcSyncStatsGetResponse = Option<Vec<SyncStatsSnapshot>>;
-pub type RpcMessageProgressResponse = BTreeMap<PeerId, MessageProgress>;
+pub type RpcMessageProgressResponse = BTreeMap<PeerId, MessagesStats>;
 pub type RpcPeersGetResponse = Vec<RpcPeerInfo>;
 pub type RpcP2pConnectionOutgoingResponse = Result<(), String>;
 pub type RpcScanStateSummaryGetResponse = Option<RpcScanStateSummary>;
