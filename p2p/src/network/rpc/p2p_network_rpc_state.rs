@@ -1,4 +1,9 @@
-use std::{collections::VecDeque, net::SocketAddr, str, sync::Arc};
+use std::{
+    collections::{BTreeMap, VecDeque},
+    net::SocketAddr,
+    str,
+    sync::Arc,
+};
 
 use binprot::{BinProtRead, BinProtWrite};
 use redux::ActionMeta;
@@ -31,6 +36,7 @@ pub struct P2pNetworkRpcState {
     pub stream_id: StreamId,
     pub last_id: i64,
     pub pending: Option<(i64, (CharString, i32))>,
+    pub total_stats: BTreeMap<(CharString, i32), usize>,
     pub is_incoming: bool,
     pub buffer: Vec<u8>,
     pub incoming: VecDeque<RpcMessage>,
@@ -44,6 +50,7 @@ impl P2pNetworkRpcState {
             stream_id,
             last_id: 0,
             pending: None,
+            total_stats: BTreeMap::default(),
             is_incoming: false,
             buffer: vec![],
             incoming: Default::default(),
@@ -134,16 +141,24 @@ impl P2pNetworkRpcState {
                                     header,
                                     bytes: slice.to_vec().into(),
                                 },
-                                Ok(MessageHeader::Response(header)) => RpcMessage::Response {
-                                    header,
-                                    bytes: slice.to_vec().into(),
-                                },
+                                Ok(MessageHeader::Response(header)) => {
+                                    if let Some((_, req)) = &self.pending {
+                                        *self.total_stats.entry(req.clone()).or_default() += 1;
+                                    } else {
+                                        // suspisious, peer sent us response, but no request
+                                    }
+                                    RpcMessage::Response {
+                                        header,
+                                        bytes: slice.to_vec().into(),
+                                    }
+                                }
                                 Err(err) => {
                                     self.error = Some(err.to_string());
                                     continue;
                                 }
                             };
                             self.incoming.push_back(msg);
+
                             continue;
                         }
                     }
@@ -155,7 +170,14 @@ impl P2pNetworkRpcState {
                     self.buffer = self.buffer[offset..].to_vec();
                 }
             }
-            P2pNetworkRpcAction::IncomingMessage(_) => {
+            P2pNetworkRpcAction::IncomingMessage(a) => {
+                if matches!(&a.message, RpcMessage::Response { .. }) {
+                    if let Some((_, req)) = &self.pending {
+                        *self.total_stats.entry(req.clone()).or_default() += 1;
+                    } else {
+                        // suspicious, received some response without request
+                    }
+                }
                 self.incoming.pop_front();
             }
             P2pNetworkRpcAction::OutgoingQuery(a) => {
