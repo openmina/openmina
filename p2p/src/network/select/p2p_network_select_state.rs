@@ -379,7 +379,16 @@ impl P2pNetworkSelectState {
                             self.to_send = Some(reply);
                         }
                         token::Token::UnknownProtocol(name) => {
-                            openmina_core::error!(_meta.time(); "unknown protocol: {}", String::from_utf8_lossy(&name));
+                            const KNOWN_UNKNOWN_PROTOCOLS: [&str; 3] =
+                                ["/ipfs/id/push/1.0.0", "/ipfs/id/1.0.0", "/mina/node-status"];
+                            if !name.is_empty() {
+                                if let Ok(str) = std::str::from_utf8(&name[1..]) {
+                                    let str = str.trim_end_matches('\n');
+                                    if !KNOWN_UNKNOWN_PROTOCOLS.iter().any(|s| (*s).eq(str)) {
+                                        openmina_core::error!(_meta.time(); "unknown protocol: {str}");
+                                    }
+                                }
+                            }
                             self.to_send = Some(token::Token::Na);
                             self.negotiated = Some(None);
                         }
