@@ -268,12 +268,14 @@ impl P2pNetworkSchedulerAction {
                 });
             }
             Self::OutgoingDidConnect(a) => {
-                let nonce = store.service().generate_random_nonce();
-                store.dispatch(P2pNetworkPnetSetupNonceAction {
-                    addr: a.addr,
-                    nonce: nonce.to_vec().into(),
-                    incoming: false,
-                });
+                if a.result.is_ok() {
+                    let nonce = store.service().generate_random_nonce();
+                    store.dispatch(P2pNetworkPnetSetupNonceAction {
+                        addr: a.addr,
+                        nonce: nonce.to_vec().into(),
+                        incoming: false,
+                    });
+                }
             }
             Self::IncomingDataIsReady(a) => {
                 store
