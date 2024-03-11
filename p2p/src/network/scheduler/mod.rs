@@ -6,3 +6,7 @@ pub use self::p2p_network_scheduler_state::{
     P2pNetworkAuthState, P2pNetworkConnectionMuxState, P2pNetworkSchedulerState,
     P2pNetworkStreamHandlerState, P2pNetworkStreamState,
 };
+
+mod p2p_network_scheduler_reducer;
+
+mod p2p_network_scheduler_effects;
