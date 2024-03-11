@@ -11,6 +11,7 @@ tracing = { version = "0.1", features = ["std"] }
 sha2 = "0.10.6"
 redux = { workspace = true }
 tokio = { version = "1.26", features = ["sync"] }
+time = { version = "0.3", features = ["formatting"] }
 
 mina-hasher = { workspace = true }
 mina-p2p-messages = { workspace = true }
