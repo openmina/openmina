@@ -4133,6 +4133,7 @@ dependencies = [
  "serde_json",
  "sha2 0.10.8",
  "slab",
+ "time",
  "tokio",
  "tracing",
 ]
@@ -4187,8 +4188,6 @@ dependencies = [
  "axum",
  "bincode",
  "clap 4.4.7",
- "chrono",
- "clap",
  "console",
  "ctrlc",
  "derive_more",
@@ -4214,8 +4213,10 @@ dependencies = [
  "strum_macros",
  "temp-dir",
  "thiserror",
+ "time",
  "tokio",
  "tower-http",
+ "tracing",
  "tracing-log 0.2.0",
  "vrf",
 ]

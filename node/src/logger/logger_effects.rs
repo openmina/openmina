@@ -25,8 +25,8 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
     let (action, meta) = action.split();
     let kind = action.kind();
 
-    let peer_id = store.state().p2p.my_id().to_string();
-    let _guard = openmina_core::log::create_span(&peer_id).entered();
+    // let peer_id = store.state().p2p.my_id().to_string();
+    // let _guard = openmina_core::log::create_span(&peer_id).entered();
 
     match action {
         Action::P2p(action) => match action {
