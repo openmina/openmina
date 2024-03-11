@@ -1,3 +1,5 @@
+use crate::block_producer::vrf_evaluator::SLOTS_PER_EPOCH;
+
 use super::{
     BlockProducerVrfEvaluatorAction, BlockProducerVrfEvaluatorActionWithMetaRef,
     BlockProducerVrfEvaluatorState, BlockProducerVrfEvaluatorStatus, PendingEvaluation,
@@ -204,6 +206,11 @@ impl BlockProducerVrfEvaluatorState {
                     epoch_number,
                     initial_slot,
                 }
+            }
+            BlockProducerVrfEvaluatorAction::CleanupOldSlots {
+                current_epoch_number,
+            } => {
+                self.cleanup_old_won_slots(current_epoch_number);
             }
         }
     }

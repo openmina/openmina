@@ -112,6 +112,9 @@ pub enum BlockProducerVrfEvaluatorAction {
         epoch_number: u32,
         latest_evaluated_global_slot: u32,
     },
+    CleanupOldSlots {
+        current_epoch_number: u32,
+    },
 }
 
 impl redux::EnablingCondition<crate::State> for BlockProducerVrfEvaluatorAction {
@@ -195,6 +198,16 @@ impl redux::EnablingCondition<crate::State> for BlockProducerVrfEvaluatorAction 
             BlockProducerVrfEvaluatorAction::CheckEpochBounds { .. } => state
                 .block_producer
                 .with(false, |this| this.vrf_evaluator.is_slot_evaluated()),
+            BlockProducerVrfEvaluatorAction::CleanupOldSlots {
+                current_epoch_number,
+            } => state.block_producer.with(false, |this| {
+                let retention_slot = this.vrf_evaluator.retention_slot(current_epoch_number);
+                if let Some((first_won_slot, _)) = this.vrf_evaluator.won_slots.first_key_value() {
+                    *first_won_slot < retention_slot
+                } else {
+                    false
+                }
+            }),
         }
     }
 }

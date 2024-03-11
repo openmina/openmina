@@ -137,6 +137,10 @@ impl BlockProducerVrfEvaluatorAction {
                             transition_frontier_size,
                         });
                     }
+
+                    store.dispatch(BlockProducerVrfEvaluatorAction::CleanupOldSlots {
+                        current_epoch_number,
+                    });
                 }
             }
             BlockProducerVrfEvaluatorAction::InitializeEpochEvaluation {
@@ -264,6 +268,7 @@ impl BlockProducerVrfEvaluatorAction {
                     });
                 }
             }
+            BlockProducerVrfEvaluatorAction::CleanupOldSlots { .. } => {}
         }
     }
 }

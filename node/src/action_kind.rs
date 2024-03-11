@@ -103,6 +103,7 @@ pub enum ActionKind {
     BlockProducerVrfEvaluatorBeginEpochEvaluation,
     BlockProducerVrfEvaluatorCheckEpochBounds,
     BlockProducerVrfEvaluatorCheckEpochEvaluability,
+    BlockProducerVrfEvaluatorCleanupOldSlots,
     BlockProducerVrfEvaluatorContinueEpochEvaluation,
     BlockProducerVrfEvaluatorEvaluateSlot,
     BlockProducerVrfEvaluatorFinalizeDelegatorTableConstruction,
@@ -367,7 +368,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 279;
+    pub const COUNT: u16 = 280;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -808,6 +809,7 @@ impl ActionKindGet for BlockProducerVrfEvaluatorAction {
                 ActionKind::BlockProducerVrfEvaluatorWaitForNextEvaluation
             }
             Self::CheckEpochBounds { .. } => ActionKind::BlockProducerVrfEvaluatorCheckEpochBounds,
+            Self::CleanupOldSlots { .. } => ActionKind::BlockProducerVrfEvaluatorCleanupOldSlots,
         }
     }
 }

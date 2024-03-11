@@ -12,6 +12,7 @@ use crate::block_producer::BlockProducerWonSlot;
 
 use super::{DelegatorTable, VrfEvaluatorInput, VrfWonSlotWithHash};
 
+pub const SLOTS_PER_EPOCH: u32 = 7140;
 /// Vrf evaluator sub-state
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BlockProducerVrfEvaluatorState {
@@ -48,8 +49,6 @@ impl BlockProducerVrfEvaluatorState {
     /// Returns:
     /// - `SlotPositionInEpoch`: An enum indicating the slot's position (Beginning, End, or Within).
     pub fn evaluate_epoch_bounds(global_slot: &u32) -> SlotPositionInEpoch {
-        const SLOTS_PER_EPOCH: u32 = 7140;
-
         if global_slot % SLOTS_PER_EPOCH == 0 {
             SlotPositionInEpoch::Beginning
         } else if (global_slot + 1) % SLOTS_PER_EPOCH == 0 {
@@ -349,6 +348,18 @@ impl BlockProducerVrfEvaluatorState {
             None
         }
     }
+
+    pub fn retention_slot(&self, current_epoch_number: &u32) -> u32 {
+        const PAST_EPOCHS_TO_KEEP: u32 = 2;
+        let cutoff_epoch = current_epoch_number.saturating_sub(PAST_EPOCHS_TO_KEEP);
+        (cutoff_epoch * SLOTS_PER_EPOCH).saturating_sub(1)
+    }
+
+    pub fn cleanup_old_won_slots(&mut self, current_epoch_number: &u32) {
+        let cutoff_slot = self.retention_slot(current_epoch_number);
+        self.won_slots
+            .retain(|global_slot, _| cutoff_slot < *global_slot);
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -556,6 +567,7 @@ mod test {
     use std::{collections::BTreeMap, str::FromStr, sync::Mutex};
 
     use lazy_static::lazy_static;
+    use ledger::AccountIndex;
     use mina_p2p_messages::{
         bigint::BigInt,
         number::Number,
@@ -567,10 +579,11 @@ mod test {
             UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
         },
     };
+    use vrf::VrfWonSlot;
 
     use crate::block_producer::vrf_evaluator::{
         BlockProducerVrfEvaluatorState, BlockProducerVrfEvaluatorStatus, EpochContext,
-        SlotPositionInEpoch,
+        SlotPositionInEpoch, VrfWonSlotWithHash,
     };
 
     lazy_static! {
@@ -829,5 +842,69 @@ mod test {
 
         let res = BlockProducerVrfEvaluatorState::evaluate_epoch_bounds(&END);
         assert!(matches!(res, SlotPositionInEpoch::End));
+    }
+
+    fn generate_slots(
+        start_slot: u32,
+        end_slot: u32,
+    ) -> impl Iterator<Item = (u32, VrfWonSlotWithHash)> {
+        use mina_p2p_messages::bigint::BigInt as MinaBigInt;
+        let dummy_ledger_hash =
+            LedgerHash::from_str("jxTAZfKKDxoX4vtt68pQCWooXoVLjnfBpusaMwewrcZxsL3uWp6").unwrap();
+
+        (start_slot..=end_slot).map(move |slot| {
+            let dummy_won_slot = VrfWonSlot {
+                producer: "Dummy".to_string(),
+                winner_account: "Dummy".to_string(),
+                vrf_output: "VRFDummy".to_string(),
+                vrf_output_bytes: Vec::new(),
+                vrf_fractional: 0.22,
+                global_slot: slot,
+                account_index: AccountIndex(1),
+                vrf_hash: MinaBigInt::one(),
+            };
+            (
+                slot,
+                VrfWonSlotWithHash::new(dummy_won_slot, dummy_ledger_hash.clone()),
+            )
+        })
+    }
+
+    #[test]
+    fn test_cleanup_old_won_slots() {
+        // arbitrary, need it just to fill it with some slots
+        let mut vrf_evaluator_state = SECOND_EPOCH_CURRENT_EPOCH_EVALUATED_WAIT_FOR_NEXT
+            .lock()
+            .unwrap();
+
+        vrf_evaluator_state
+            .won_slots
+            .extend(generate_slots(1, 28560));
+
+        assert_eq!(28560, vrf_evaluator_state.won_slots.len());
+
+        // should keep all the slots
+        vrf_evaluator_state.cleanup_old_won_slots(&1);
+        assert_eq!(
+            1,
+            *vrf_evaluator_state.won_slots.first_key_value().unwrap().0,
+            "First retained slot should be the first slot of the epoch, 7140"
+        );
+
+        // epoch 1 slots should be discarded
+        vrf_evaluator_state.cleanup_old_won_slots(&3);
+        assert_eq!(
+            7140,
+            *vrf_evaluator_state.won_slots.first_key_value().unwrap().0,
+            "First retained slot should be the first slot of the epoch, 7140"
+        );
+
+        // epoch 2 slots should be discarded
+        vrf_evaluator_state.cleanup_old_won_slots(&4);
+        assert_eq!(
+            14280,
+            *vrf_evaluator_state.won_slots.first_key_value().unwrap().0,
+            "First retained slot should be the first slot of the epoch, 142180"
+        );
     }
 }
