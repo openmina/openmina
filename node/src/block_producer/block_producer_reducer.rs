@@ -11,9 +11,10 @@ use mina_p2p_messages::{
         ConsensusGlobalSlotStableV1, ConsensusProofOfStakeDataConsensusStateValueStableV2,
         ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1,
         ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1,
-        DataHashLibStateHashStableV1, LedgerProofProdStableV2, MinaBaseEpochLedgerValueStableV1,
-        MinaBaseEpochSeedStableV1, MinaBaseProtocolConstantsCheckedValueStableV1,
-        MinaBlockBlockStableV2, MinaBlockHeaderStableV2, MinaStateBlockchainStateValueStableV2,
+        ConsensusVrfOutputTruncatedStableV1, DataHashLibStateHashStableV1, LedgerProofProdStableV2,
+        MinaBaseEpochLedgerValueStableV1, MinaBaseEpochSeedStableV1,
+        MinaBaseProtocolConstantsCheckedValueStableV1, MinaBlockBlockStableV2,
+        MinaBlockHeaderStableV2, MinaStateBlockchainStateValueStableV2,
         MinaStateBlockchainStateValueStableV2LedgerProofStatement,
         MinaStateProtocolStateBodyValueStableV2, MinaStateProtocolStateValueStableV2,
         StagedLedgerDiffBodyStableV1, StateBodyHash, StateHash, UnsignedExtendedUInt32StableV1,
@@ -173,8 +174,9 @@ impl BlockProducerEnabled {
                     in_same_checkpoint_window(&pred_global_slot, &curr_global_slot_since_hard_fork);
 
                 let block_stake_winner = won_slot.delegator.0.clone();
-                let vrf_truncated_output = won_slot.vrf_output.clone();
-                let vrf_hash = won_slot.vrf_hash.to_fp().unwrap();
+                let vrf_truncated_output: ConsensusVrfOutputTruncatedStableV1 =
+                    won_slot.vrf_output.clone().into();
+                let vrf_hash = won_slot.vrf_output.hash();
                 let block_creator = self.config.pub_key.clone();
                 let coinbase_receiver = self.config.coinbase_receiver().clone();
                 let proposed_protocol_version_opt = self.config.proposed_protocol_version.clone();

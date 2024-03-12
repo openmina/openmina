@@ -138,11 +138,11 @@ fn compare_vrf(slot_result: &VrfEvaluationOutputWithHash, ocaml_result: Option<&
             VrfEvaluationOutput::SlotWon(rust_won_slot) => {
                 // assert_eq!(pk.to_string(), rust_won_slot.winner_account, "Winner account missmatch");
                 assert_eq!(
-                    ocaml_won_slot.vrf_output, rust_won_slot.vrf_output,
+                    ocaml_won_slot.vrf_output, rust_won_slot.vrf_output.to_string(),
                     "VRF output missmatch"
                 );
                 assert_eq!(
-                    ocaml_won_slot.vrf_output_fractional, rust_won_slot.vrf_fractional,
+                    ocaml_won_slot.vrf_output_fractional, rust_won_slot.vrf_output.fractional(),
                     "Fractional missmatch"
                 )
             }

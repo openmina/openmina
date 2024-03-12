@@ -6586,6 +6586,7 @@ dependencies = [
  "anyhow",
  "ark-ec",
  "ark-ff",
+ "ark-serialize",
  "bs58 0.4.0",
  "hex",
  "itertools 0.12.0",

@@ -1008,7 +1008,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                             kind = kind.to_string(),
                             summary = format!("Slot evaluation result - won slot"),
                             global_slot = won_slot.global_slot,
-                            vrf_output = won_slot.vrf_output
+                            vrf_output = won_slot.vrf_output.to_string(),
                         )
                     }
                     vrf::VrfEvaluationOutput::SlotLost(_) => {

@@ -3,7 +3,8 @@ use std::sync::Arc;
 
 use mina_p2p_messages::v2::{
     ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1,
-    ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1, LedgerHash,
+    ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1, EpochSeed, LedgerHash,
+    MinaBaseEpochSeedStableV1,
 };
 use openmina_core::block::ArcBlockWithHash;
 use serde::{Deserialize, Serialize};
@@ -364,14 +365,14 @@ impl BlockProducerVrfEvaluatorState {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct EpochData {
-    pub seed: String,
+    pub seed: EpochSeed,
     pub ledger: LedgerHash,
     pub delegator_table: Arc<DelegatorTable>,
     pub total_currency: u64,
 }
 
 impl EpochData {
-    pub fn new(seed: String, ledger: LedgerHash, total_currency: u64) -> Self {
+    pub fn new(seed: EpochSeed, ledger: LedgerHash, total_currency: u64) -> Self {
         Self {
             seed,
             ledger,
@@ -384,7 +385,7 @@ impl EpochData {
 impl From<ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1> for EpochData {
     fn from(value: ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1) -> Self {
         Self {
-            seed: value.seed.to_string(),
+            seed: value.seed.into(),
             ledger: value.ledger.hash,
             delegator_table: Default::default(),
             total_currency: value.ledger.total_currency.as_u64(),
@@ -395,7 +396,7 @@ impl From<ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1> 
 impl From<ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1> for EpochData {
     fn from(value: ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1) -> Self {
         Self {
-            seed: value.seed.to_string(),
+            seed: value.seed.into(),
             ledger: value.ledger.hash,
             delegator_table: Default::default(),
             total_currency: value.ledger.total_currency.as_u64(),
@@ -848,7 +849,6 @@ mod test {
         start_slot: u32,
         end_slot: u32,
     ) -> impl Iterator<Item = (u32, VrfWonSlotWithHash)> {
-        use mina_p2p_messages::bigint::BigInt as MinaBigInt;
         let dummy_ledger_hash =
             LedgerHash::from_str("jxTAZfKKDxoX4vtt68pQCWooXoVLjnfBpusaMwewrcZxsL3uWp6").unwrap();
 
@@ -856,12 +856,9 @@ mod test {
             let dummy_won_slot = VrfWonSlot {
                 producer: "Dummy".to_string(),
                 winner_account: "Dummy".to_string(),
-                vrf_output: "VRFDummy".to_string(),
-                vrf_output_bytes: Vec::new(),
-                vrf_fractional: 0.22,
+                vrf_output: vrf::genesis_vrf().unwrap(),
                 global_slot: slot,
-                account_index: AccountIndex(1),
-                vrf_hash: MinaBigInt::one(),
+                account_index: AccountIndex(0),
             };
             (
                 slot,
