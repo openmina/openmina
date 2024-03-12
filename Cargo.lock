@@ -178,7 +178,7 @@ name = "alloc-test"
 version = "0.1.1"
 source = "git+https://github.com/openmina/alloc-test.git#0d3951eaddc58a6ea2d2134966ed5954234889d3"
 dependencies = [
- "clap 4.4.7",
+ "clap 4.5.2",
  "derive_builder",
  "derive_more",
  "num",
@@ -971,9 +971,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.4.7"
+version = "4.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ac495e00dcec98c83465d5ad66c5c4fabd652fd6686e7c6269b117e729a6f17b"
+checksum = "b230ab84b0ffdf890d5a10abdbc8b83ae1c4918275daea1ab8801f71536b2651"
 dependencies = [
  "clap_builder",
  "clap_derive",
@@ -981,21 +981,21 @@ dependencies = [
 
 [[package]]
 name = "clap_builder"
-version = "4.4.7"
+version = "4.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c77ed9a32a62e6ca27175d00d29d05ca32e396ea1eb5fb01d8256b669cec7663"
+checksum = "ae129e2e766ae0ec03484e609954119f123cc1fe650337e155d03b022f24f7b4"
 dependencies = [
  "anstream",
  "anstyle",
  "clap_lex",
- "strsim 0.10.0",
+ "strsim 0.11.0",
 ]
 
 [[package]]
 name = "clap_derive"
-version = "4.4.7"
+version = "4.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cf9804afaaf59a91e75b022a30fb7229a7901f60c755489cc61c9b423b836442"
+checksum = "307bc0538d5f0f83b8248db3087aa92fe504e4691294d0c96c0eabc33f47ba47"
 dependencies = [
  "heck 0.4.1",
  "proc-macro2",
@@ -1005,16 +1005,16 @@ dependencies = [
 
 [[package]]
 name = "clap_lex"
-version = "0.6.0"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "702fc72eb24e5a1e48ce58027a675bc24edd52096d5397d4aea7c6dd9eca0bd1"
+checksum = "98cc8fbded0c607b7ba9dd60cd98df59af97e84d24e49c8557331cfc26d301ce"
 
 [[package]]
 name = "cli"
 version = "0.2.0"
 dependencies = [
  "bytes",
- "clap 4.4.7",
+ "clap 4.5.2",
  "console",
  "dialoguer",
  "hex",
@@ -3420,7 +3420,7 @@ dependencies = [
  "binprot_derive",
  "blake2",
  "bs58 0.4.0",
- "clap 4.4.7",
+ "clap 4.5.2",
  "derive_more",
  "fuzzcheck",
  "gloo-utils 0.1.7",
@@ -4188,7 +4188,7 @@ dependencies = [
  "anyhow",
  "axum",
  "bincode",
- "clap 4.4.7",
+ "clap 4.5.2",
  "console",
  "ctrlc",
  "derive_more",
@@ -4304,6 +4304,7 @@ dependencies = [
  "bytes",
  "cfg-if",
  "chacha20poly1305 0.10.1",
+ "clap 4.5.2",
  "crypto-bigint",
  "curve25519-dalek 4.1.2",
  "derive_more",
@@ -4320,7 +4321,6 @@ dependencies = [
  "libp2p-identity",
  "libp2p-rpc-behaviour",
  "mina-p2p-messages",
- "mina-tree",
  "mio",
  "multiaddr",
  "multihash 0.18.1",
@@ -4334,13 +4334,13 @@ dependencies = [
  "serde_json",
  "sha2 0.10.8",
  "smallvec",
- "snark",
  "strum",
  "strum_macros",
  "thiserror",
  "tokio",
  "unsigned-varint 0.8.0",
  "url",
+ "warp",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "wasm-timer",
@@ -5814,6 +5814,12 @@ name = "strsim"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "73473c0e59e6d5812c5dfe2a064a6444949f089e20eec9a2e5506596494e4623"
+
+[[package]]
+name = "strsim"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5ee073c9e4cd00e28217186dbe12796d692868f432bf2e97ee73bed0c56dfa01"
 
 [[package]]
 name = "structopt"

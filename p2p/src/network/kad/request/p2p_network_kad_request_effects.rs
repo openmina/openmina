@@ -3,7 +3,8 @@ use std::net::SocketAddr;
 use redux::ActionMeta;
 
 use crate::{
-    connection::outgoing::{P2pConnectionOutgoingAction, P2pConnectionOutgoingInitOpts}, discovery::P2pDiscoveryAction,
+    connection::outgoing::{P2pConnectionOutgoingAction, P2pConnectionOutgoingInitOpts},
+    discovery::P2pDiscoveryAction,
     socket_addr_try_from_multiaddr, P2pNetworkConnectionMuxState, P2pNetworkYamuxOpenStreamAction,
 };
 

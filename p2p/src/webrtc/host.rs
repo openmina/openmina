@@ -29,7 +29,7 @@ impl<'a> From<&'a Host> for multiaddr::Protocol<'a> {
             Host::Ipv6(v) => multiaddr::Protocol::Ip6(*v),
         }
     }
-} 
+}
 
 mod binprot_impl {
     use super::*;

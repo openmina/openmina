@@ -275,6 +275,7 @@ pub enum ActionKind {
     P2pPeerBestTipUpdate,
     P2pPeerReady,
     RpcActionStatsGet,
+    RpcDiscoveryRoutingTable,
     RpcFinish,
     RpcGlobalStateGet,
     RpcHealthCheck,
@@ -577,6 +578,7 @@ impl ActionKindGet for RpcAction {
             Self::SnarkerWorkersGet { .. } => ActionKind::RpcSnarkerWorkersGet,
             Self::HealthCheck { .. } => ActionKind::RpcHealthCheck,
             Self::ReadinessCheck { .. } => ActionKind::RpcReadinessCheck,
+            Self::DiscoveryRoutingTable { .. } => ActionKind::RpcDiscoveryRoutingTable,
             Self::Finish { .. } => ActionKind::RpcFinish,
         }
     }

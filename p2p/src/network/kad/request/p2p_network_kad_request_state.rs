@@ -1,8 +1,8 @@
 use std::net::SocketAddr;
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
-use crate::{PeerId, P2pNetworkKadEntry};
+use crate::{P2pNetworkKadEntry, PeerId};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct P2pNetworkKadRequestState {

@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{P2pNetworkKademliaRpcRequest, P2pNetworkKademliaRpcReply};
+use crate::{P2pNetworkKademliaRpcReply, P2pNetworkKademliaRpcRequest};
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub enum P2pNetworkKadStreamKind {
@@ -35,13 +35,9 @@ pub enum P2pNetworkKadStreamState {
         data: Vec<u8>,
     },
     /// Request from the stream is received.
-    IncomingRequest {
-        data: P2pNetworkKademliaRpcRequest,
-    },
+    IncomingRequest { data: P2pNetworkKademliaRpcRequest },
     /// Request from the stream is received.
-    IncomingReply {
-        data: P2pNetworkKademliaRpcReply,
-    },
+    IncomingReply { data: P2pNetworkKademliaRpcReply },
     /// Waiting for an outgoing data, or for finalization of the stream (iff `expect_fin` is `true`)
     WaitingOutgoing {
         kind: P2pNetworkKadStreamKind,
@@ -66,13 +62,13 @@ impl P2pNetworkKadStreamState {
 }
 
 impl From<P2pNetworkKademliaRpcRequest> for P2pNetworkKadStreamState {
-    fn from( data: P2pNetworkKademliaRpcRequest) -> Self {
-         P2pNetworkKadStreamState::IncomingRequest { data }
+    fn from(data: P2pNetworkKademliaRpcRequest) -> Self {
+        P2pNetworkKadStreamState::IncomingRequest { data }
     }
 }
 
 impl From<P2pNetworkKademliaRpcReply> for P2pNetworkKadStreamState {
-    fn from( data: P2pNetworkKademliaRpcReply) -> Self {
-         P2pNetworkKadStreamState::IncomingReply { data }
+    fn from(data: P2pNetworkKademliaRpcReply) -> Self {
+        P2pNetworkKadStreamState::IncomingReply { data }
     }
 }

@@ -51,7 +51,7 @@ mod libp2p_opts {
 
     use multiaddr::Multiaddr;
 
-    use crate::{PeerId, webrtc::Host};
+    use crate::{webrtc::Host, PeerId};
 
     impl super::P2pConnectionOutgoingInitLibp2pOpts {
         fn to_peer_id_multiaddr(&self) -> (PeerId, Multiaddr) {
@@ -86,7 +86,11 @@ mod libp2p_opts {
                 SocketAddr::V4(v4) => (Host::Ipv4(*v4.ip()), v4.port()),
                 SocketAddr::V6(v6) => (Host::Ipv6(*v6.ip()), v6.port()),
             };
-            super::P2pConnectionOutgoingInitLibp2pOpts { peer_id, host, port }
+            super::P2pConnectionOutgoingInitLibp2pOpts {
+                peer_id,
+                host,
+                port,
+            }
         }
     }
 }

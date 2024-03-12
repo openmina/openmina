@@ -97,7 +97,9 @@ impl P2pState {
                             P2pPeerState {
                                 is_libp2p: true,
                                 dial_opts,
-                                status: P2pPeerStatus::Disconnected { time: Timestamp::ZERO },
+                                status: P2pPeerStatus::Disconnected {
+                                    time: Timestamp::ZERO,
+                                },
                             },
                         );
                     }

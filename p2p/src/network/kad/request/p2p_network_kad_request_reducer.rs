@@ -1,6 +1,5 @@
 use redux::ActionWithMeta;
 
-
 use crate::P2pNetworkKademliaRpcRequest;
 
 use super::{P2pNetworkKadRequestAction, P2pNetworkKadRequestState};

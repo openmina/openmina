@@ -465,6 +465,21 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                 meta.time()
             );
         }
+        RpcAction::DiscoveryRoutingTable { rpc_id } => {
+            let response = store
+                .state()
+                .p2p
+                .network
+                .scheduler
+                .discovery_state()
+                .map(|discovery_state| (&discovery_state.routing_table).into());
+            respond_or_log!(
+                store
+                    .service()
+                    .respond_discovery_routing_table(rpc_id, response),
+                meta.time()
+            );
+        }
         RpcAction::Finish { .. } => {}
     }
 }

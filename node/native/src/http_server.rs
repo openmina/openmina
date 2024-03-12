@@ -1,4 +1,4 @@
-use std::{mem::size_of, str::FromStr};
+use std::{convert::Infallible, mem::size_of, str::FromStr};
 
 use mina_p2p_messages::binprot::BinProtWrite;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -392,6 +392,7 @@ pub async fn run(port: u16, rpc_sender: super::RpcSender) {
         .or(snark_workers)
         .or(healthcheck(rpc_sender.clone()))
         .or(readiness(rpc_sender.clone()))
+        .or(discovery::routing_table(rpc_sender.clone()))
         .or(super::graphql::routes(rpc_sender))
         .with(cors);
     warp::serve(routes).run(([0, 0, 0, 0], port)).await;
@@ -448,6 +449,45 @@ fn readiness(
         }
     })
 }
+
+mod discovery {
+    use node::rpc::{RpcDiscoveryRoutingTableResponse, RpcRequest};
+    use warp::Filter;
+
+    use super::super::RpcSender;
+
+    use super::{with_rpc_sender, DroppedChannel};
+
+    pub fn routing_table(
+        rpc_sender: super::super::RpcSender,
+    ) -> impl warp::Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+        warp::path!("discovery" / "routing_table")
+            .and(warp::get())
+            .and(with_rpc_sender(rpc_sender))
+            .and_then(get_routing_table)
+    }
+
+    async fn get_routing_table(rpc_sender: RpcSender) -> Result<impl warp::Reply, warp::Rejection> {
+        rpc_sender
+            .oneshot_request(RpcRequest::DiscoveryRoutingTable)
+            .await
+            .map_or_else(
+                || Err(warp::reject::custom(DroppedChannel)),
+                |reply: RpcDiscoveryRoutingTableResponse| Ok(warp::reply::json(&reply)),
+            )
+    }
+}
+
+fn with_rpc_sender(
+    rpc_sender: super::RpcSender,
+) -> impl warp::Filter<Extract = (super::RpcSender,), Error = Infallible> + Clone {
+    warp::any().map(move || rpc_sender.clone())
+}
+
+#[derive(Debug)]
+struct DroppedChannel;
+
+impl warp::reject::Reject for DroppedChannel {}
 
 use warp::filters::BoxedFilter;
 use warp::reply::{json, Json, WithStatus};

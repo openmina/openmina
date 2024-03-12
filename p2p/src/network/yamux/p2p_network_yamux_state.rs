@@ -346,7 +346,12 @@ impl P2pNetworkYamuxState {
 
     pub fn next_stream_id(&self) -> Option<StreamId> {
         if self.init && self.terminated.is_none() {
-            Some(self.streams.keys().max().map_or(1, |id| (id + 1) / 2 * 2 + 1))
+            Some(
+                self.streams
+                    .keys()
+                    .max()
+                    .map_or(1, |id| (id + 1) / 2 * 2 + 1),
+            )
         } else {
             None
         }

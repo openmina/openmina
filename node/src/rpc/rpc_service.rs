@@ -6,11 +6,11 @@ use crate::p2p::connection::P2pConnectionResponse;
 use crate::State;
 
 use super::{
-    RpcActionStatsGetResponse, RpcHealthCheckResponse, RpcId, RpcMessageProgressResponse,
-    RpcP2pConnectionOutgoingResponse, RpcPeersGetResponse, RpcReadinessCheckResponse,
-    RpcScanStateSummaryGetResponse, RpcScanStateSummaryScanStateJob, RpcSnarkPoolGetResponse,
-    RpcSnarkPoolJobGetResponse, RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse,
-    RpcSnarkerWorkersResponse, RpcSyncStatsGetResponse,
+    RpcActionStatsGetResponse, RpcDiscoveryRoutingTableResponse, RpcHealthCheckResponse, RpcId,
+    RpcMessageProgressResponse, RpcP2pConnectionOutgoingResponse, RpcPeersGetResponse,
+    RpcReadinessCheckResponse, RpcScanStateSummaryGetResponse, RpcScanStateSummaryScanStateJob,
+    RpcSnarkPoolGetResponse, RpcSnarkPoolJobGetResponse, RpcSnarkerJobCommitResponse,
+    RpcSnarkerJobSpecResponse, RpcSnarkerWorkersResponse, RpcSyncStatsGetResponse,
 };
 
 #[derive(Error, Serialize, Deserialize, Debug, Clone)]
@@ -106,6 +106,11 @@ pub trait RpcService: RpcLedgerService {
         &mut self,
         rpc_id: RpcId,
         response: RpcHealthCheckResponse,
+    ) -> Result<(), RespondError>;
+    fn respond_discovery_routing_table(
+        &mut self,
+        rpc_id: RpcId,
+        response: RpcDiscoveryRoutingTableResponse,
     ) -> Result<(), RespondError>;
     fn respond_readiness_check(
         &mut self,

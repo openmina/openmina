@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use super::{noise::*, pnet::*, rpc::*, scheduler::*, select::*, yamux::*, kad::*};
+use super::{kad::*, noise::*, pnet::*, rpc::*, scheduler::*, select::*, yamux::*};
 
 use crate::P2pState;
 

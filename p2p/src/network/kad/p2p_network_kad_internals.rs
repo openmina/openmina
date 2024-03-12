@@ -14,9 +14,54 @@ use crate::{
     ConnectionType, P2pNetworkKademliaMultiaddrError, P2pNetworkKademliaPeerIdError, PeerId,
 };
 
+mod u256_serde {
+    use std::array::TryFromSliceError;
+
+    use crypto_bigint::{Encoding, U256};
+    use serde::{Deserialize, Serialize};
+
+    pub fn serialize<S>(value: &U256, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        if serializer.is_human_readable() {
+            let hex = hex::encode(value.to_be_bytes());
+            serializer.serialize_str(&hex)
+        } else {
+            value.serialize(serializer)
+        }
+    }
+
+    fn decode_error<E: serde::de::Error>(e: hex::FromHexError) -> E {
+        E::custom(format!("error converting from hex string: {e}"))
+    }
+
+    fn bytes_error<E: serde::de::Error>(e: TryFromSliceError) -> E {
+        E::custom(format!("error converting from slice to array: {e}"))
+    }
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<U256, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        if deserializer.is_human_readable() {
+            let s = String::deserialize(deserializer)?;
+            let bytes = hex::decode(&s)
+                .map_err(decode_error)?
+                .as_slice()
+                .try_into()
+                .map_err(bytes_error)?;
+            let u256 = U256::from_be_bytes(bytes);
+            Ok(u256)
+        } else {
+            U256::deserialize(deserializer)
+        }
+    }
+}
+
 /// Kademlia key, sha256 of the node's peer id.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct P2pNetworkKadKey(U256);
+pub struct P2pNetworkKadKey(#[serde(with = "u256_serde")] U256);
 
 impl From<&PeerId> for P2pNetworkKadKey {
     fn from(value: &PeerId) -> Self {
@@ -93,8 +138,8 @@ impl From<PeerId> for P2pNetworkKadKey {
 }
 
 /// Kademlia distance between two nodes, calculated as `XOR` of their keys.
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub struct P2pNetworkKadDist(U256);
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct P2pNetworkKadDist(#[serde(with = "u256_serde")] U256);
 
 impl Debug for P2pNetworkKadDist {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -129,12 +174,12 @@ impl From<usize> for P2pNetworkKadDist {
 #[derive(Clone, Serialize, Deserialize)]
 pub struct P2pNetworkKadRoutingTable<const K: usize = 20> {
     /// SHA256 of the current node's id.
-    this_key: P2pNetworkKadKey,
+    pub this_key: P2pNetworkKadKey,
     /// Kademlia K-buckets. Under index `i` located elements within distance
     /// `2^(256-i)` from the current node at most. If there is also `i+1` (i.e.
     /// `i` is not the last index), then distance from the current node to the
     /// elements under `i` are greater than `2^(256-i-1)`.
-    buckets: Vec<P2pNetworkKadBucket<K>>,
+    pub buckets: Vec<P2pNetworkKadBucket<K>>,
 }
 
 impl<const K: usize> Default for P2pNetworkKadRoutingTable<K> {
@@ -416,11 +461,11 @@ impl<'a, const K: usize> Iterator for FindNode<'a, K> {
 pub struct P2pNetworkKadBucket<const K: usize>(Vec<P2pNetworkKadEntry>);
 
 impl<const K: usize> P2pNetworkKadBucket<K> {
-    fn len(&self) -> usize {
+    pub fn len(&self) -> usize {
         self.0.len()
     }
 
-    fn iter(&self) -> std::slice::Iter<'_, P2pNetworkKadEntry> {
+    pub fn iter(&self) -> std::slice::Iter<'_, P2pNetworkKadEntry> {
         self.0.iter()
     }
 
@@ -497,7 +542,7 @@ mod tests {
     }
 
     fn key_pow_2(pow: usize) -> P2pNetworkKadKey {
-        P2pNetworkKadKey(U256::ONE << pow)
+        P2pNetworkKadKey(U256::ONE.shl_vartime(pow))
     }
 
     fn key_rand() -> P2pNetworkKadKey {
@@ -670,31 +715,5 @@ mod tests {
             );
             assert!(min > max);
         }
-    }
-
-    #[test]
-    fn ttt() {
-        let key: [u8; 38] = [
-            0, 36, 8, 1, 18, 32, 202, 125, 117, 180, 234, 29, 90, 134, 26, 165, 131, 132, 6, 120,
-            45, 252, 98, 205, 238, 123, 5, 154, 51, 79, 13, 161, 83, 213, 147, 134, 160, 154,
-        ];
-
-        let peer_id = libp2p_identity::PeerId::from_bytes(&key).unwrap();
-        println!("{peer_id}");
-        println!("{peer_id:#?}");
-        println!("{}", hex::encode(peer_id.as_ref().digest()));
-        println!("{}", PeerId::from(peer_id));
-
-
-        let key: [u8; 34] = [
-            0, 32, 187, 164, 239, 139, 43, 191, 99, 211, 14, 96, 229, 225, 46, 192, 22, 68, 30, 15,
-            244, 113, 192, 107, 71, 38, 92, 213, 19, 126, 174, 26, 207, 120,
-        ];
-
-        let peer_id = libp2p_identity::PeerId::from_bytes(&key).unwrap();
-        println!("{peer_id}");
-        println!("{peer_id:#?}");
-        println!("{}", hex::encode(peer_id.as_ref().digest()));
-        println!("{}", PeerId::from(peer_id));
     }
 }

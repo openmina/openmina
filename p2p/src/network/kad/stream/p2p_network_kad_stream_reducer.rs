@@ -91,17 +91,25 @@ impl P2pNetworkKadStreamState {
                 };
                 Ok(())
             }
-            (S::WaitingOutgoing { kind: kind @ P2pNetworkKadStreamKind::Outgoing, expect_close }, A::SendRequest { data, .. })
-                if !*expect_close =>
-            {
+            (
+                S::WaitingOutgoing {
+                    kind: kind @ P2pNetworkKadStreamKind::Outgoing,
+                    expect_close,
+                },
+                A::SendRequest { data, .. },
+            ) if !*expect_close => {
                 let message = Message::from(data);
                 let bytes = serialize_into_vec(&message).map_err(|e| format!("{e}"))?;
                 *self = S::OutgoingBytes { kind: *kind, bytes };
                 Ok(())
             }
-            (S::WaitingOutgoing { kind: kind @ P2pNetworkKadStreamKind::Incoming, expect_close }, A::SendReply { data, .. })
-                if !*expect_close =>
-            {
+            (
+                S::WaitingOutgoing {
+                    kind: kind @ P2pNetworkKadStreamKind::Incoming,
+                    expect_close,
+                },
+                A::SendReply { data, .. },
+            ) if !*expect_close => {
                 let message = Message::from(data);
                 let bytes = serialize_into_vec(&message).map_err(|e| format!("{e}"))?;
                 *self = S::OutgoingBytes { kind: *kind, bytes };

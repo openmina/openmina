@@ -143,18 +143,22 @@ impl P2pNetworkSelectAction {
                                     StreamKind::Discovery(DiscoveryAlgorithm::Kademlia1_0_0) => {
                                         if !a.fin {
                                             println!("==== {}", hex::encode(&a.data.0));
-                                            store.dispatch(P2pNetworkKademliaStreamAction::IncomingData {
-                                                addr: a.addr,
-                                                peer_id,
-                                                stream_id,
-                                                data: a.data.clone(),
-                                            });
+                                            store.dispatch(
+                                                P2pNetworkKademliaStreamAction::IncomingData {
+                                                    addr: a.addr,
+                                                    peer_id,
+                                                    stream_id,
+                                                    data: a.data.clone(),
+                                                },
+                                            );
                                         } else {
-                                            store.dispatch(P2pNetworkKademliaStreamAction::RemoteClose {
-                                                addr: a.addr,
-                                                peer_id,
-                                                stream_id,
-                                            });
+                                            store.dispatch(
+                                                P2pNetworkKademliaStreamAction::RemoteClose {
+                                                    addr: a.addr,
+                                                    peer_id,
+                                                    stream_id,
+                                                },
+                                            );
                                         }
                                     }
                                     StreamKind::Broadcast(BroadcastAlgorithm::Meshsub1_1_0) => {
@@ -359,9 +363,9 @@ impl P2pNetworkSelectState {
                                         token::MuxKind::YamuxNoNewLine1_0_0,
                                     ))
                                 }
-                                token::Protocol::Stream(token::StreamKind::Rpc(_) | token::StreamKind::Discovery(_)) => {
-                                    token::Token::Protocol(protocol)
-                                }
+                                token::Protocol::Stream(
+                                    token::StreamKind::Rpc(_) | token::StreamKind::Discovery(_),
+                                ) => token::Token::Protocol(protocol),
                                 token::Protocol::Stream(token::StreamKind::Broadcast(_)) => {
                                     token::Token::Na
                                 }

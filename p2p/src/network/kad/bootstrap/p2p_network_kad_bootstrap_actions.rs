@@ -23,9 +23,7 @@ impl EnablingCondition<P2pState> for P2pNetworkKadBootstrapAction {
                 .discovery_state
                 .as_ref()
                 .and_then(|discovery_state| discovery_state.bootstrap_state())
-                .map_or(false, |bootstrap_state| {
-                    bootstrap_state.requests.len() < 3
-                }),
+                .map_or(false, |bootstrap_state| bootstrap_state.requests.len() < 3),
             P2pNetworkKadBootstrapAction::RequestDone {
                 addr,
                 closest_peers: _,

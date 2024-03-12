@@ -59,6 +59,7 @@ pub enum RpcRequest {
     SnarkerWorkers,
     HealthCheck,
     ReadinessCheck,
+    DiscoveryRoutingTable,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -315,3 +316,84 @@ impl From<&MinaBaseUserCommandStableV2> for RpcScanStateSummaryBlockTransactionK
 
 pub type RpcHealthCheckResponse = Result<(), String>;
 pub type RpcReadinessCheckResponse = Result<(), String>;
+
+pub type RpcDiscoveryRoutingTableResponse = Option<discovery::RpcDiscoveryRoutingTable>;
+
+pub mod discovery {
+    use p2p::{
+        P2pNetworkKadBucket, P2pNetworkKadDist, P2pNetworkKadEntry, P2pNetworkKadKey,
+        P2pNetworkKadRoutingTable, PeerId,
+    };
+    use serde::{Deserialize, Serialize};
+
+    #[derive(Serialize, Deserialize, Debug, Clone)]
+    pub struct RpcDiscoveryRoutingTable {
+        this_key: P2pNetworkKadKey,
+        buckets: Vec<RpcKBucket>,
+    }
+
+    impl From<&P2pNetworkKadRoutingTable> for RpcDiscoveryRoutingTable {
+        fn from(value: &P2pNetworkKadRoutingTable) -> Self {
+            RpcDiscoveryRoutingTable {
+                this_key: value.this_key.clone(),
+                buckets: value
+                    .buckets
+                    .iter()
+                    .enumerate()
+                    .map(|(i, b)| (b, P2pNetworkKadDist::from(i), &value.this_key).into())
+                    .collect(),
+            }
+        }
+    }
+
+    #[derive(Serialize, Deserialize, Debug, Clone)]
+    pub struct RpcKBucket {
+        max_dist: P2pNetworkKadDist,
+        entries: Vec<RpcEntry>,
+    }
+
+    impl<const K: usize>
+        From<(
+            &P2pNetworkKadBucket<K>,
+            P2pNetworkKadDist,
+            &P2pNetworkKadKey,
+        )> for RpcKBucket
+    {
+        fn from(
+            (bucket, max_dist, this_key): (
+                &P2pNetworkKadBucket<K>,
+                P2pNetworkKadDist,
+                &P2pNetworkKadKey,
+            ),
+        ) -> Self {
+            RpcKBucket {
+                max_dist,
+                entries: bucket
+                    .iter()
+                    .map(|entry| (entry, this_key).into())
+                    .collect(),
+            }
+        }
+    }
+
+    #[derive(Serialize, Deserialize, Debug, Clone)]
+    pub struct RpcEntry {
+        peer_id: PeerId,
+        libp2p: p2p::libp2p_identity::PeerId,
+        key: P2pNetworkKadKey,
+        dist: P2pNetworkKadDist,
+        addrs: Vec<p2p::multiaddr::Multiaddr>,
+    }
+
+    impl From<(&P2pNetworkKadEntry, &P2pNetworkKadKey)> for RpcEntry {
+        fn from((value, this_key): (&P2pNetworkKadEntry, &P2pNetworkKadKey)) -> Self {
+            RpcEntry {
+                peer_id: value.peer_id.clone(),
+                libp2p: value.peer_id.clone().into(),
+                key: value.key.clone(),
+                dist: this_key - &value.key,
+                addrs: value.addrs.clone(),
+            }
+        }
+    }
+}
