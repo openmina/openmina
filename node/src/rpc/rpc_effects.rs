@@ -33,8 +33,11 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
     let (action, meta) = action.split();
 
     match action {
-        RpcAction::GlobalStateGet { rpc_id } => {
-            let _ = store.service.respond_state_get(rpc_id, store.state.get());
+        RpcAction::GlobalStateGet { rpc_id, filter } => {
+            let _ = store.service.respond_state_get(
+                rpc_id,
+                (store.state.get(), filter.as_ref().map(String::as_str)),
+            );
         }
         RpcAction::ActionStatsGet { rpc_id, query } => match query {
             ActionStatsQuery::SinceStart => {
@@ -202,7 +205,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
         RpcAction::P2pConnectionOutgoingError { rpc_id, error } => {
             let error = Err(format!("{:?}", error));
             let _ = store.service.respond_p2p_connection_outgoing(rpc_id, error);
-            store.dispatch(RpcAction::Finish { rpc_id: rpc_id });
+            store.dispatch(RpcAction::Finish { rpc_id });
         }
         RpcAction::P2pConnectionOutgoingSuccess { rpc_id } => {
             let _ = store

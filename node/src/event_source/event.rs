@@ -23,7 +23,7 @@ impl std::fmt::Display for Event {
             Self::Rpc(id, req) => {
                 write!(f, "Rpc, {id}, ")?;
                 match req {
-                    RpcRequest::StateGet => write!(f, "StateGet"),
+                    RpcRequest::StateGet(filter) => write!(f, "StateGet, {filter:?}"),
                     RpcRequest::ActionStatsGet(query) => write!(f, "ActionStatsGet, {query:?}"),
                     RpcRequest::SyncStatsGet(query) => write!(f, "SyncStatsGet, {query:?}"),
                     RpcRequest::PeersGet => write!(f, "PeersGet"),

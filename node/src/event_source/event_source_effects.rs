@@ -264,8 +264,8 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                 },
             },
             Event::Rpc(rpc_id, e) => match e {
-                RpcRequest::StateGet => {
-                    store.dispatch(RpcAction::GlobalStateGet { rpc_id });
+                RpcRequest::StateGet(filter) => {
+                    store.dispatch(RpcAction::GlobalStateGet { rpc_id, filter });
                 }
                 RpcRequest::ActionStatsGet(query) => {
                     store.dispatch(RpcAction::ActionStatsGet { rpc_id, query });

@@ -39,11 +39,10 @@ use crate::p2p::PeerId;
 use crate::snark_pool::{JobCommitment, JobSummary};
 use crate::stats::actions::{ActionStatsForBlock, ActionStatsSnapshot};
 use crate::stats::sync::SyncStatsSnapshot;
-use crate::State;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum RpcRequest {
-    StateGet,
+    StateGet(Option<String>),
     ActionStatsGet(ActionStatsQuery),
     SyncStatsGet(SyncStatsQuery),
     MessageProgressGet,
@@ -253,7 +252,13 @@ pub struct CurrentMessageProgress {
     pub total_bytes: usize,
 }
 
-pub type RpcStateGetResponse = Box<State>;
+#[derive(Serialize, Deserialize, Debug, Clone, thiserror::Error)]
+pub enum RpcStateGetError {
+    #[error("failed to parse filter expression: {0}")]
+    FilterError(String),
+}
+
+pub type RpcStateGetResponse = Result<serde_json::Value, RpcStateGetError>;
 pub type RpcActionStatsGetResponse = Option<ActionStatsResponse>;
 pub type RpcSyncStatsGetResponse = Option<Vec<SyncStatsSnapshot>>;
 pub type RpcPeersGetResponse = Vec<RpcPeerInfo>;
