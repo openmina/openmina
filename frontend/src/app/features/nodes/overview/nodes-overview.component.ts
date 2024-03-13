@@ -19,7 +19,7 @@ export class NodesOverviewComponent extends StoreDispatcher implements OnInit, O
   constructor(public el: ElementRef) { super(); }
 
   ngOnInit(): void {
-    timer(0, 10000).pipe(
+    timer(0, 2000).pipe(
       untilDestroyed(this),
     ).subscribe(() => {
       this.dispatch(NodesOverviewGetNodes)

@@ -16,7 +16,7 @@
 			top: -5px;
 			left: 10px;
 			width: 1px;
-			height: 90%;
+			height: calc(100% - 13px);
 			background-color: $base-divider;
 		}
 
@@ -72,16 +72,16 @@
 	}
 }
 
-@keyframes spin {
-	0% {
-		transform: rotate(0);
-	}
-	100% {
-		transform: rotate(360deg);
-	}
-}
-
 .tooltip-row {
 	display: grid;
 	grid-template-columns: 40px 1fr;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }

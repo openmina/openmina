@@ -1,14 +1,18 @@
 export interface NodesOverviewLedger {
-  root?: NodesOverviewLedgerStep;
-  stakingEpoch?: NodesOverviewLedgerStep;
-  nextEpoch?: NodesOverviewLedgerStep;
+  root: NodesOverviewRootLedgerStep;
+  stakingEpoch: NodesOverviewLedgerEpochStep;
+  nextEpoch: NodesOverviewLedgerEpochStep;
 }
 
-export interface NodesOverviewLedgerStep {
+export interface NodesOverviewLedgerEpochStep {
   state: NodesOverviewLedgerStepState;
   snarked: NodesOverviewLedgerStepSnarked;
-  staged: NodesOverviewLedgerStepStaged;
   totalTime: number;
+}
+
+export interface NodesOverviewRootLedgerStep extends NodesOverviewLedgerEpochStep {
+  staged: NodesOverviewStagedLedgerStep;
+  synced: number;
 }
 
 export enum NodesOverviewLedgerStepState {
@@ -26,7 +30,7 @@ export interface NodesOverviewLedgerStepSnarked {
   fetchAccountsDuration: number;
 }
 
-export interface NodesOverviewLedgerStepStaged {
+export interface NodesOverviewStagedLedgerStep {
   fetchPartsStart: number;
   fetchPartsEnd: number;
   reconstructStart: number;

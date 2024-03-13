@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
-import { DashboardGetPeers } from '@dashboard/dashboard.actions';
-import { timer } from 'rxjs';
+import { DashboardGetData, DashboardInit } from '@dashboard/dashboard.actions';
+import { tap, timer } from 'rxjs';
 import { untilDestroyed } from '@ngneat/until-destroy';
 
 @Component({
@@ -14,10 +14,12 @@ import { untilDestroyed } from '@ngneat/until-destroy';
 export class DashboardComponent extends StoreDispatcher implements OnInit {
 
   ngOnInit(): void {
-    timer(0, 2000)
-      .pipe(untilDestroyed(this))
-      .subscribe(() => {
-        this.dispatch(DashboardGetPeers);
-      });
+    this.dispatch(DashboardInit);
+    timer(2000, 2000)
+      .pipe(
+        tap(() => this.dispatch(DashboardGetData)),
+        untilDestroyed(this),
+      )
+      .subscribe();
   }
 }

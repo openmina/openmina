@@ -1,0 +1,90 @@
+@import 'openmina';
+
+.group {
+  .steps {
+    position: relative;
+    padding-left: 40px;
+    color: $base-tertiary;
+
+    &::before {
+      content: '';
+      position: absolute;
+      top: -5px;
+      left: 10px;
+      width: 1px;
+      height: calc(100% - 13px);
+      background-color: $base-divider;
+    }
+
+    .step {
+      position: relative;
+
+      &::before {
+        content: '';
+        position: absolute;
+        top: calc(50% - 1px);
+        left: -29px;
+        width: 20px;
+        height: 1px;
+        background-color: $base-divider;
+      }
+    }
+  }
+
+  &.pending {
+    .group-title {
+      color: $base-tertiary;
+    }
+
+    .steps .step {
+      color: $base-tertiary;
+    }
+  }
+
+  &.success {
+    .steps::before,
+    .steps .step::before {
+      background-color: $success-tertiary;
+    }
+  }
+
+  &.loading {
+    .step {
+      color: $base-secondary;
+    }
+  }
+
+  .pending-icon {
+    width: 20px;
+    height: 20px;
+
+    span {
+      background-color: $base-tertiary;
+      width: 10px;
+      height: 10px;
+      border-radius: 10px;
+    }
+
+    &.success span {
+      background-color: $success-primary;
+    }
+  }
+
+  .loading-icon {
+    animation: spin 2s linear infinite;
+  }
+}
+
+.tooltip-row {
+  display: grid;
+  grid-template-columns: 40px 1fr;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
