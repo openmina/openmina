@@ -15,6 +15,7 @@ pub type RpcActionWithMetaRef<'a> = redux::ActionWithMeta<&'a RpcAction>;
 pub enum RpcAction {
     GlobalStateGet {
         rpc_id: RpcId,
+        filter: Option<String>,
     },
 
     // Stats

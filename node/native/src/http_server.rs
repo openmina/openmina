@@ -12,7 +12,7 @@ use warp::{
 use node::rpc::{
     ActionStatsQuery, RpcMessageProgressResponse, RpcPeerInfo, RpcRequest,
     RpcScanStateSummaryGetQuery, RpcScanStateSummaryGetResponse, RpcSnarkPoolJobGetResponse,
-    RpcSnarkerWorkersResponse, SyncStatsQuery,
+    RpcSnarkerWorkersResponse, RpcStateGetError, SyncStatsQuery,
 };
 use openmina_core::snark::SnarkJobId;
 
@@ -76,16 +76,34 @@ pub async fn run(port: u16, rpc_sender: super::RpcSender) {
     };
 
     // TODO(binier): make endpoint only accessible locally.
-    let rpc_sender_clone = rpc_sender.clone();
-    let state_get = warp::path!("state").and(warp::get()).then(move || {
-        let rpc_sender_clone = rpc_sender_clone.clone();
-        async move {
-            let result: Option<RpcStateGetResponse> =
-                rpc_sender_clone.oneshot_request(RpcRequest::StateGet).await;
+    #[derive(Deserialize)]
+    struct StateQueryParams {
+        filter: Option<String>,
+    }
+    let state_get = warp::path!("state")
+        .and(warp::get())
+        .and(with_rpc_sender(rpc_sender.clone()))
+        .and(warp::query())
+        .and_then(|rpc_sender, filter: StateQueryParams| state_handler(rpc_sender, filter.filter));
 
-            with_json_reply(&result, StatusCode::OK)
-        }
-    });
+    async fn state_handler(
+        rpc_sender: super::RpcSender,
+        filter: Option<String>,
+    ) -> Result<impl warp::Reply, warp::Rejection> {
+        #[derive(Debug)]
+        struct StateGetRejection(RpcStateGetError);
+        impl warp::reject::Reject for StateGetRejection {}
+        rpc_sender
+            .oneshot_request(RpcRequest::StateGet(filter))
+            .await
+            .ok_or_else(|| warp::reject::custom(DroppedChannel))
+            .and_then(|reply: RpcStateGetResponse| {
+                reply.map_or_else(
+                    |err| Err(warp::reject::custom(StateGetRejection(err))),
+                    |state| Ok(warp::reply::json(&state)),
+                )
+            })
+    }
 
     let rpc_sender_clone = rpc_sender.clone();
     let peers_get = warp::path!("state" / "peers")
@@ -452,7 +470,9 @@ fn readiness(
 }
 
 mod discovery {
-    use node::rpc::{RpcDiscoveryRoutingTableResponse, RpcRequest, RpcDiscoveryBoostrapStatsResponse};
+    use node::rpc::{
+        RpcDiscoveryBoostrapStatsResponse, RpcDiscoveryRoutingTableResponse, RpcRequest,
+    };
     use warp::Filter;
 
     use super::super::RpcSender;
@@ -487,7 +507,9 @@ mod discovery {
             )
     }
 
-    async fn get_bootstrap_stats(rpc_sender: RpcSender) -> Result<impl warp::Reply, warp::Rejection> {
+    async fn get_bootstrap_stats(
+        rpc_sender: RpcSender,
+    ) -> Result<impl warp::Reply, warp::Rejection> {
         rpc_sender
             .oneshot_request(RpcRequest::DiscoveryBoostrapStats)
             .await

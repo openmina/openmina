@@ -11,7 +11,7 @@ macro_rules! to_real {
 }
 
 impl RpcService for super::NodeTestingService {
-    to_real!(respond_state_get, &State);
+    to_real!(respond_state_get, (&State, Option<&str>));
     to_real!(respond_sync_stats_get, node::rpc::RpcSyncStatsGetResponse);
 
     to_real!(
