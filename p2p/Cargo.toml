@@ -50,7 +50,7 @@ libp2p = { workspace = true, features = ["macros", "serde", "tcp", "dns", "tokio
 libp2p-rpc-behaviour = { path = "libp2p-rpc-behaviour", optional = true }
 libp2p-identity = { version = "=0.2.7", features = ["ed25519"] }
 multiaddr = { version = "0.18.1" }
-mio = { version = "0.8.10", features = ["os-poll"] }
+mio = { version = "0.8.11", features = ["os-poll"] }
 libc = { version = "0.2.151" }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
