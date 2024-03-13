@@ -33,6 +33,11 @@ import {
   MEMORY_RESOURCES_GET,
   MEMORY_RESOURCES_GET_SUCCESS
 } from '@resources/memory/memory-resources.actions';
+import {
+  NETWORK_NODE_DHT_CLOSE,
+  NETWORK_NODE_DHT_GET_PEERS_SUCCESS,
+  NETWORK_NODE_DHT_INIT
+} from '@network/node-dht/network-node-dht.actions';
 
 export type LoadingState = string[];
 
@@ -44,17 +49,22 @@ export function loadingReducer(state: LoadingState = initialState, action: Featu
     case APP_INIT:
 
     case DASHBOARD_INIT:
+
     case STATE_ACTIONS_GET_EARLIEST_SLOT:
     case STATE_ACTIONS_GET_ACTIONS:
+
     case NODES_OVERVIEW_INIT:
     case NODES_BOOTSTRAP_INIT:
     case NODES_LIVE_INIT:
+
     case SNARKS_WORK_POOL_INIT:
     case SNARKS_WORK_POOL_GET_WORK_POOL_DETAIL:
 
     case SCAN_STATE_INIT:
 
     case MEMORY_RESOURCES_GET:
+
+    case NETWORK_NODE_DHT_INIT:
       return add(state, action);
 
     /* ------------ REMOVE ------------ */
@@ -85,6 +95,7 @@ export function loadingReducer(state: LoadingState = initialState, action: Featu
       return remove(state, NODES_LIVE_INIT);
     case NODES_LIVE_CLOSE:
       return remove(state, [NODES_LIVE_INIT]);
+
     case SNARKS_WORK_POOL_GET_WORK_POOL_SUCCESS:
       return remove(state, SNARKS_WORK_POOL_INIT);
     case SNARKS_WORK_POOL_GET_WORK_POOL_DETAIL_SUCCESS:
@@ -101,6 +112,12 @@ export function loadingReducer(state: LoadingState = initialState, action: Featu
       return remove(state, MEMORY_RESOURCES_GET);
     case MEMORY_RESOURCES_CLOSE:
       return remove(state, [MEMORY_RESOURCES_GET]);
+
+    case NETWORK_NODE_DHT_GET_PEERS_SUCCESS:
+      return remove(state, NETWORK_NODE_DHT_INIT);
+    case NETWORK_NODE_DHT_CLOSE:
+      return remove(state, [NETWORK_NODE_DHT_INIT]);
+
     default:
       return state;
   }

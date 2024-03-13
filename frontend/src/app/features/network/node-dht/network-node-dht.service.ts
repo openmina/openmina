@@ -6,33 +6,37 @@ import { NetworkNodeDHT } from '@shared/types/network/node-dht/network-node-dht.
 @Injectable({
   providedIn: 'root'
 })
-export class NodeDhtService {
+export class NetworkNodeDhtService {
 
   constructor(private rust: RustService) {
   }
 
-  getDhtPeers(): Observable<NetworkNodeDHT[]> {
+  getDhtPeers(): Observable<{ peers: NetworkNodeDHT[], thisKey: string }> {
     return this.rust.get<DhtPeersResponse>('/discovery/routing_table').pipe(
       map((response: DhtPeersResponse) => this.mapDhtPeers(response))
     );
   }
 
-  private mapDhtPeers(response: DhtPeersResponse): NetworkNodeDHT[] {
-    return response.buckets.reduce((acc, bucket) => {
-      const nodes = bucket.entries.map(entry => {
-        const binaryDistance = this.hexToBinary(entry.dist);
-        return {
-          peerId: entry.peer_id,
-          addressesLength: entry.addrs.length,
-          addrs: entry.addrs,
-          hexDistance: entry.dist,
-          binaryDistance,
-          xorDistance: entry.key === response.this_key ? '-' : this.getNumberOfZerosUntilFirst1(binaryDistance),
-          bucketIndex: response.buckets.indexOf(bucket),
-        } as NetworkNodeDHT;
-      });
-      return acc.concat(nodes);
-    }, []);
+  private mapDhtPeers(response: DhtPeersResponse): { peers: NetworkNodeDHT[], thisKey: string } {
+    return {
+      peers: response.buckets.reduce((acc, bucket) => {
+        const nodes = bucket.entries.map(entry => {
+          const binaryDistance = this.hexToBinary(entry.dist);
+          return {
+            peerId: entry.peer_id,
+            addressesLength: entry.addrs.length,
+            addrs: entry.addrs,
+            hexDistance: entry.dist,
+            binaryDistance,
+            xorDistance: entry.key === response.this_key ? '-' : this.getNumberOfZerosUntilFirst1(binaryDistance),
+            bucketIndex: response.buckets.indexOf(bucket),
+            bucketMaxHex: bucket.max_dist
+          } as NetworkNodeDHT;
+        });
+        return acc.concat(nodes);
+      }, []),
+      thisKey: response.this_key
+    };
   }
 
   private hexToBinary(hex: string): string {

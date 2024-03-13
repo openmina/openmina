@@ -3,17 +3,17 @@ import { MinaTableRustWrapper } from '@shared/base-classes/mina-table-rust-wrapp
 import { TableColumnList } from '@openmina/shared';
 import { Router } from '@angular/router';
 import { NetworkNodeDHT } from '@shared/types/network/node-dht/network-node-dht.type';
-import { NodeDhtService } from '@network/node-dht/node-dht.service';
+import { selectNetworkNodeDhtPeers } from '@network/node-dht/network-node-dht.state';
 
 
 @Component({
-  selector: 'app-node-dht-table',
-  templateUrl: './node-dht-table.component.html',
-  styleUrls: ['./node-dht-table.component.scss'],
+  selector: 'mina-network-node-dht-table',
+  templateUrl: './network-node-dht-table.component.html',
+  styleUrls: ['./network-node-dht-table.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex-column h-100' },
 })
-export class NodeDhtTableComponent extends MinaTableRustWrapper<NetworkNodeDHT> implements OnInit {
+export class NetworkNodeDhtTableComponent extends MinaTableRustWrapper<NetworkNodeDHT> implements OnInit {
 
   protected readonly tableHeads: TableColumnList<NetworkNodeDHT> = [
     { name: 'peerId' },
@@ -27,10 +27,7 @@ export class NodeDhtTableComponent extends MinaTableRustWrapper<NetworkNodeDHT> 
   rows: NetworkNodeDHT[] = [];
   activeRow: NetworkNodeDHT;
 
-  constructor(private router: Router,
-              private service: NodeDhtService) {
-    super();
-  }
+  constructor(private router: Router) { super(); }
 
   override async ngOnInit(): Promise<void> {
     await super.ngOnInit();
@@ -44,7 +41,7 @@ export class NodeDhtTableComponent extends MinaTableRustWrapper<NetworkNodeDHT> 
   }
 
   private listenToNetworkConnectionsChanges(): void {
-    this.service.getDhtPeers().subscribe(rows => {
+    this.select(selectNetworkNodeDhtPeers, (rows: NetworkNodeDHT[]) => {
       this.rows = rows;
       this.table.rows = rows;
       this.table.detect();

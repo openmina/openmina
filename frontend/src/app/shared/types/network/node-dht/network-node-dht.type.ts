@@ -7,4 +7,5 @@ export interface NetworkNodeDHT {
   binaryDistance: string;
   xorDistance: string;
   bucketIndex: number;
+  bucketMaxHex: string;
 }

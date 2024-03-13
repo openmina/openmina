@@ -1,11 +1,11 @@
 import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
-import { NodeDhtComponent } from '@network/node-dht/node-dht.component';
+import { NetworkNodeDhtComponent } from '@network/node-dht/network-node-dht.component';
 
 const routes: Routes = [
   {
     path: '',
-    component: NodeDhtComponent,
+    component: NetworkNodeDhtComponent,
   },
 ];
 
@@ -13,4 +13,5 @@ const routes: Routes = [
   imports: [RouterModule.forChild(routes)],
   exports: [RouterModule],
 })
-export class NodeDhtRouting {}
+export class NetworkNodeDhtRouting {
+}
