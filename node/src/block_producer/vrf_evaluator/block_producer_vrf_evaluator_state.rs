@@ -107,8 +107,8 @@ impl BlockProducerVrfEvaluatorState {
                 self.epoch_context = EpochContext::Current(staking_epoch_data.into())
             } else if !self.is_epoch_evaluated(current_epoch_number + 1) {
                 if let Some(last_epoch_block_height) = last_epoch_block_height {
-                    if (last_epoch_block_height + transition_frontier_size)
-                        >= current_best_tip_height
+                    if current_best_tip_height
+                        >= (last_epoch_block_height + transition_frontier_size)
                     {
                         self.epoch_context = EpochContext::Next(next_epoch_data.into())
                     } else {
@@ -736,42 +736,44 @@ mod test {
         };
     }
 
-    fn test_set_epoch_context(state: &mut BlockProducerVrfEvaluatorState, _expected: EpochContext) {
-        state.set_epoch_context();
-        assert!(matches!(state.epoch_context(), _expected));
-    }
-
     #[test]
     fn correctly_set_epoch_context_on_startup() {
         let mut vrf_evaluator_state = GENESIS_EPOCH_FIRST_SLOT.lock().unwrap();
-        test_set_epoch_context(
-            &mut vrf_evaluator_state,
-            EpochContext::Current(DUMMY_STAKING_EPOCH_DATA.to_owned().into()),
-        )
+        vrf_evaluator_state.set_epoch_context();
+        assert!(matches!(
+            vrf_evaluator_state.epoch_context(),
+            EpochContext::Current(_)
+        ));
     }
 
     #[test]
     fn correctly_switch_to_next_epoch() {
         let mut vrf_evaluator_state = GENESIS_EPOCH_CURRENT_EPOCH_EVALUATED.lock().unwrap();
-        test_set_epoch_context(
-            &mut vrf_evaluator_state,
-            EpochContext::Next(DUMMY_NEXT_EPOCH_DATA.to_owned().into()),
-        )
+        vrf_evaluator_state.set_epoch_context();
+        assert!(matches!(
+            vrf_evaluator_state.epoch_context(),
+            EpochContext::Next(_)
+        ));
     }
 
     #[test]
     fn correctly_switch_to_waiting() {
         let mut vrf_evaluator_state = GENESIS_EPOCH_NEXT_EPOCH_EVALUATED.lock().unwrap();
-        test_set_epoch_context(&mut vrf_evaluator_state, EpochContext::Waiting)
+        vrf_evaluator_state.set_epoch_context();
+        assert!(matches!(
+            vrf_evaluator_state.epoch_context(),
+            EpochContext::Waiting
+        ));
     }
 
     #[test]
     fn generic_epoch_set_epoch_context_on_startup() {
         let mut vrf_evaluator_state = SECOND_EPOCH_STARTUP.lock().unwrap();
-        test_set_epoch_context(
-            &mut vrf_evaluator_state,
-            EpochContext::Current(DUMMY_STAKING_EPOCH_DATA.to_owned().into()),
-        )
+        vrf_evaluator_state.set_epoch_context();
+        assert!(matches!(
+            vrf_evaluator_state.epoch_context(),
+            EpochContext::Current(_)
+        ));
     }
 
     #[test]
@@ -780,7 +782,31 @@ mod test {
         let mut vrf_evaluator_state = SECOND_EPOCH_CURRENT_EPOCH_EVALUATED_WAIT_FOR_NEXT
             .lock()
             .unwrap();
-        test_set_epoch_context(&mut vrf_evaluator_state, EpochContext::Waiting);
+        vrf_evaluator_state.set_epoch_context();
+        assert!(matches!(
+            vrf_evaluator_state.epoch_context(),
+            EpochContext::Waiting
+        ));
+
+        vrf_evaluator_state.status = BlockProducerVrfEvaluatorStatus::ReadinessCheck {
+            time: redux::Timestamp::global_now(),
+            current_epoch_number: 2,
+            is_current_epoch_evaluated: true,
+            is_next_epoch_evaluated: false,
+            transition_frontier_size: 290,
+            // right after epoch switch
+            current_best_tip_height: 14900,
+            last_evaluated_epoch: Some(2),
+            last_epoch_block_height: Some(14900),
+            staking_epoch_data: DUMMY_STAKING_EPOCH_DATA.to_owned(),
+            next_epoch_data: DUMMY_NEXT_EPOCH_DATA.to_owned(),
+        };
+
+        vrf_evaluator_state.set_epoch_context();
+        assert!(matches!(
+            vrf_evaluator_state.epoch_context(),
+            EpochContext::Waiting
+        ));
 
         vrf_evaluator_state.status = BlockProducerVrfEvaluatorStatus::ReadinessCheck {
             time: redux::Timestamp::global_now(),
@@ -796,7 +822,11 @@ mod test {
             next_epoch_data: DUMMY_NEXT_EPOCH_DATA.to_owned(),
         };
 
-        test_set_epoch_context(&mut vrf_evaluator_state, EpochContext::Waiting);
+        vrf_evaluator_state.set_epoch_context();
+        assert!(matches!(
+            vrf_evaluator_state.epoch_context(),
+            EpochContext::Waiting
+        ));
 
         vrf_evaluator_state.status = BlockProducerVrfEvaluatorStatus::ReadinessCheck {
             time: redux::Timestamp::global_now(),
@@ -812,10 +842,11 @@ mod test {
             next_epoch_data: DUMMY_NEXT_EPOCH_DATA.to_owned(),
         };
 
-        test_set_epoch_context(
-            &mut vrf_evaluator_state,
-            EpochContext::Next(DUMMY_NEXT_EPOCH_DATA.to_owned().into()),
-        );
+        vrf_evaluator_state.set_epoch_context();
+        assert!(matches!(
+            vrf_evaluator_state.epoch_context(),
+            EpochContext::Next(_)
+        ));
     }
 
     #[test]
@@ -870,9 +901,7 @@ mod test {
     #[test]
     fn test_cleanup_old_won_slots() {
         // arbitrary, need it just to fill it with some slots
-        let mut vrf_evaluator_state = SECOND_EPOCH_CURRENT_EPOCH_EVALUATED_WAIT_FOR_NEXT
-            .lock()
-            .unwrap();
+        let mut vrf_evaluator_state = SECOND_EPOCH_STARTUP.lock().unwrap();
 
         vrf_evaluator_state
             .won_slots
