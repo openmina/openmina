@@ -3,14 +3,14 @@ use std::net::SocketAddr;
 use redux::EnablingCondition;
 use serde::{Deserialize, Serialize};
 
-use crate::{P2pAction, P2pNetworkKadAction, P2pNetworkKadEntry, P2pState};
+use crate::{P2pAction, P2pNetworkKadAction, P2pNetworkKadLatestRequestPeers, P2pState};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum P2pNetworkKadBootstrapAction {
     CreateRequests {},
     RequestDone {
         addr: SocketAddr,
-        closest_peers: Vec<P2pNetworkKadEntry>,
+        closest_peers: P2pNetworkKadLatestRequestPeers,
     },
 }
 

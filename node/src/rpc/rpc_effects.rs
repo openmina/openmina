@@ -528,6 +528,21 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                 meta.time()
             );
         }
+        RpcAction::DiscoveryBoostrapStats { rpc_id } => {
+            let response = store
+                .state()
+                .p2p
+                .network
+                .scheduler
+                .discovery_state()
+                .and_then(|discovery_state| (&discovery_state.bootstrap_stats()).cloned());
+            respond_or_log!(
+                store
+                    .service()
+                    .respond_discovery_bootstrap_stats(rpc_id, response),
+                meta.time()
+            );
+        }
         RpcAction::Finish { .. } => {}
     }
 }

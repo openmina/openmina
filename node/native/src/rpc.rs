@@ -1,6 +1,6 @@
 use node::rpc::{
-    RpcDiscoveryRoutingTableResponse, RpcHealthCheckResponse, RpcMessageProgressResponse,
-    RpcPeersGetResponse, RpcReadinessCheckResponse,
+    RpcDiscoveryBoostrapStatsResponse, RpcDiscoveryRoutingTableResponse, RpcHealthCheckResponse,
+    RpcMessageProgressResponse, RpcPeersGetResponse, RpcReadinessCheckResponse,
 };
 use serde::{Deserialize, Serialize};
 
@@ -162,6 +162,10 @@ impl node::rpc::RpcService for NodeService {
     rpc_service_impl!(
         respond_discovery_routing_table,
         RpcDiscoveryRoutingTableResponse
+    );
+    rpc_service_impl!(
+        respond_discovery_bootstrap_stats,
+        RpcDiscoveryBoostrapStatsResponse
     );
 }
 

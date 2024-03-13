@@ -1,49 +1,35 @@
-use std::{
-    collections::{BTreeSet, VecDeque},
-    net::SocketAddr,
-};
+use std::{collections::BTreeSet, net::SocketAddr};
 
-use multiaddr::Multiaddr;
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
 
-use crate::PeerId;
+use crate::{
+    connection::outgoing::P2pConnectionOutgoingInitOpts, P2pNetworkKadKey,
+    P2pNetworkKadLatestRequestPeers, PeerId,
+};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct P2pNetworkKadBootstrapState {
     /// Key that is used to request closest peers. Usually self peer_id.
     pub key: PeerId,
+    /// Kademlia key, `sha265(self.key)`.
+    pub kademlia_key: P2pNetworkKadKey,
     /// Peers that already been contacted (successfully or not) for FIND_NODE.
     pub processed_peers: BTreeSet<PeerId>,
     /// Ongoing FIND_NODE requests.
     pub requests: Vec<P2pNetworkKadBoostrapRequestState>,
-    /// Queue of peers for FIND_NODE query.
-    pub queue: VecDeque<(PeerId, Vec<Multiaddr>)>,
-    /// Number of peers received.
-    pub discovered_peers_num: usize,
+    /// Bootstrap requests statistics.
+    pub stats: P2pNetworkKadBootstrapStats,
 }
 
 impl P2pNetworkKadBootstrapState {
-    pub fn new<'a, I>(key: PeerId, peers: I) -> Self
-    where
-        I: 'a + IntoIterator<Item = (&'a PeerId, &'a Vec<Multiaddr>)>,
-    {
-        let queue = peers
-            .into_iter()
-            .filter_map(|(peer_id, maddrs)| {
-                if maddrs.is_empty() {
-                    None
-                } else {
-                    Some((peer_id.clone(), maddrs.clone()))
-                }
-            })
-            .collect();
+    pub fn new(key: PeerId) -> Self {
         P2pNetworkKadBootstrapState {
             key,
+            kademlia_key: key.into(),
             processed_peers: BTreeSet::new(),
             requests: Vec::with_capacity(3),
-            queue,
-            discovered_peers_num: 0,
+            stats: Default::default(),
         }
     }
 
@@ -70,4 +56,38 @@ pub struct P2pNetworkKadBoostrapRequestState {
     /// Addresses yet to be used, if current connection will fail.
     // TODO: use Multiaddr
     pub addrs_to_use: Vec<SocketAddr>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
+pub struct P2pNetworkKadBootstrapStats {
+    pub requests: Vec<P2pNetworkKadBootstrapRequestStat>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum P2pNetworkKadBootstrapRequestStat {
+    Ongoing(P2pNetworkKadBootstrapOngoingRequest),
+    Successfull(P2pNetworkKadBootstrapSuccessfullRequest),
+    Failed(P2pNetworkKadBootstrapFailedRequest),
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct P2pNetworkKadBootstrapOngoingRequest {
+    pub address: P2pConnectionOutgoingInitOpts,
+    pub start: Timestamp,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct P2pNetworkKadBootstrapSuccessfullRequest {
+    pub address: P2pConnectionOutgoingInitOpts,
+    pub start: Timestamp,
+    pub finish: Timestamp,
+    pub closest_peers: P2pNetworkKadLatestRequestPeers,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct P2pNetworkKadBootstrapFailedRequest {
+    pub address: P2pConnectionOutgoingInitOpts,
+    pub start: Timestamp,
+    pub finish: Timestamp,
+    pub error: String,
 }

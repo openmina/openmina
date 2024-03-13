@@ -318,6 +318,9 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                 RpcRequest::DiscoveryRoutingTable => {
                     store.dispatch(RpcAction::DiscoveryRoutingTable { rpc_id });
                 }
+                RpcRequest::DiscoveryBoostrapStats => {
+                    store.dispatch(RpcAction::DiscoveryBoostrapStats { rpc_id });
+                }
             },
             Event::ExternalSnarkWorker(e) => match e {
                 ExternalSnarkWorkerEvent::Started => {

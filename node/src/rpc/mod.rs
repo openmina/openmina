@@ -6,6 +6,7 @@ use mina_p2p_messages::v2::{
     MinaBaseUserCommandStableV2, MinaTransactionTransactionStableV2,
     SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponse, StateHash, TransactionHash,
 };
+use p2p::bootstrap::P2pNetworkKadBootstrapStats;
 pub use rpc_state::*;
 
 mod rpc_actions;
@@ -60,6 +61,7 @@ pub enum RpcRequest {
     HealthCheck,
     ReadinessCheck,
     DiscoveryRoutingTable,
+    DiscoveryBoostrapStats,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -337,6 +339,7 @@ pub type RpcHealthCheckResponse = Result<(), String>;
 pub type RpcReadinessCheckResponse = Result<(), String>;
 
 pub type RpcDiscoveryRoutingTableResponse = Option<discovery::RpcDiscoveryRoutingTable>;
+pub type RpcDiscoveryBoostrapStatsResponse = Option<P2pNetworkKadBootstrapStats>;
 
 pub mod discovery {
     use p2p::{

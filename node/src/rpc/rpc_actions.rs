@@ -107,6 +107,9 @@ pub enum RpcAction {
     DiscoveryRoutingTable {
         rpc_id: RpcId,
     },
+    DiscoveryBoostrapStats {
+        rpc_id: RpcId,
+    },
 
     Finish {
         rpc_id: RpcId,
@@ -172,6 +175,7 @@ impl redux::EnablingCondition<crate::State> for RpcAction {
             RpcAction::HealthCheck { .. } => true,
             RpcAction::ReadinessCheck { .. } => true,
             RpcAction::DiscoveryRoutingTable { .. } => true,
+            RpcAction::DiscoveryBoostrapStats { .. } => true,
             RpcAction::Finish { rpc_id } => state
                 .rpc
                 .requests

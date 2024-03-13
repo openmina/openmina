@@ -393,6 +393,7 @@ pub async fn run(port: u16, rpc_sender: super::RpcSender) {
         .or(healthcheck(rpc_sender.clone()))
         .or(readiness(rpc_sender.clone()))
         .or(discovery::routing_table(rpc_sender.clone()))
+        .or(discovery::bootstrap_stats(rpc_sender.clone()))
         .or(super::graphql::routes(rpc_sender))
         .with(cors);
     warp::serve(routes).run(([0, 0, 0, 0], port)).await;
@@ -451,7 +452,7 @@ fn readiness(
 }
 
 mod discovery {
-    use node::rpc::{RpcDiscoveryRoutingTableResponse, RpcRequest};
+    use node::rpc::{RpcDiscoveryRoutingTableResponse, RpcRequest, RpcDiscoveryBoostrapStatsResponse};
     use warp::Filter;
 
     use super::super::RpcSender;
@@ -467,6 +468,15 @@ mod discovery {
             .and_then(get_routing_table)
     }
 
+    pub fn bootstrap_stats(
+        rpc_sender: super::super::RpcSender,
+    ) -> impl warp::Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+        warp::path!("discovery" / "bootstrap_stats")
+            .and(warp::get())
+            .and(with_rpc_sender(rpc_sender))
+            .and_then(get_bootstrap_stats)
+    }
+
     async fn get_routing_table(rpc_sender: RpcSender) -> Result<impl warp::Reply, warp::Rejection> {
         rpc_sender
             .oneshot_request(RpcRequest::DiscoveryRoutingTable)
@@ -474,6 +484,16 @@ mod discovery {
             .map_or_else(
                 || Err(warp::reject::custom(DroppedChannel)),
                 |reply: RpcDiscoveryRoutingTableResponse| Ok(warp::reply::json(&reply)),
+            )
+    }
+
+    async fn get_bootstrap_stats(rpc_sender: RpcSender) -> Result<impl warp::Reply, warp::Rejection> {
+        rpc_sender
+            .oneshot_request(RpcRequest::DiscoveryBoostrapStats)
+            .await
+            .map_or_else(
+                || Err(warp::reject::custom(DroppedChannel)),
+                |reply: RpcDiscoveryBoostrapStatsResponse| Ok(warp::reply::json(&reply)),
             )
     }
 }

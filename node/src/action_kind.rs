@@ -289,6 +289,7 @@ pub enum ActionKind {
     P2pPeerBestTipUpdate,
     P2pPeerReady,
     RpcActionStatsGet,
+    RpcDiscoveryBoostrapStats,
     RpcDiscoveryRoutingTable,
     RpcFinish,
     RpcGlobalStateGet,
@@ -402,7 +403,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 310;
+    pub const COUNT: u16 = 311;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -596,6 +597,7 @@ impl ActionKindGet for RpcAction {
             Self::HealthCheck { .. } => ActionKind::RpcHealthCheck,
             Self::ReadinessCheck { .. } => ActionKind::RpcReadinessCheck,
             Self::DiscoveryRoutingTable { .. } => ActionKind::RpcDiscoveryRoutingTable,
+            Self::DiscoveryBoostrapStats { .. } => ActionKind::RpcDiscoveryBoostrapStats,
             Self::Finish { .. } => ActionKind::RpcFinish,
         }
     }

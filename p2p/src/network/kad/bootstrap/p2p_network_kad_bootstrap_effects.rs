@@ -48,7 +48,19 @@ impl P2pNetworkKadBootstrapAction {
                 Ok(())
             }
             A::RequestDone { .. } => {
-                if bootstrap_state.discovered_peers_num < 20 {
+                if bootstrap_state
+                    .stats
+                    .requests
+                    .iter()
+                    .filter(|req| {
+                        matches!(
+                            req,
+                            crate::bootstrap::P2pNetworkKadBootstrapRequestStat::Successfull(_)
+                        )
+                    })
+                    .count()
+                    < 20
+                {
                     store.dispatch(A::CreateRequests {});
                 }
                 Ok(())

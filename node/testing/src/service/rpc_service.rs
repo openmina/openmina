@@ -68,4 +68,8 @@ impl RpcService for super::NodeTestingService {
         respond_discovery_routing_table,
         node::rpc::RpcDiscoveryRoutingTableResponse
     );
+    to_real!(
+        respond_discovery_bootstrap_stats,
+        node::rpc::RpcDiscoveryBoostrapStatsResponse
+    );
 }

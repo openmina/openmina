@@ -7,7 +7,7 @@ use super::{
     bootstrap::P2pNetworkKadBootstrapState, request::P2pNetworkKadRequestState,
     stream::P2pNetworkKadStreamState, P2pNetworkKadRoutingTable,
 };
-use crate::{PeerId, StreamId};
+use crate::{bootstrap::P2pNetworkKadBootstrapStats, PeerId, StreamId};
 
 /// Kademlia status.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -21,12 +21,15 @@ pub enum P2pNetworkKadStatus {
     Bootstrapped {
         /// Timestamp of the bootstrap.
         time: Timestamp,
+        /// Stats for the latest bootstrap process.
+        stats: P2pNetworkKadBootstrapStats,
     },
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct P2pNetworkKadState {
     pub routing_table: P2pNetworkKadRoutingTable,
+    pub latest_request_peers: P2pNetworkKadLatestRequestPeers,
     pub requests: BTreeMap<SocketAddr, P2pNetworkKadRequestState>,
     pub streams: crate::network::scheduler::StreamState<P2pNetworkKadStreamState>,
     pub status: P2pNetworkKadStatus,
@@ -46,6 +49,14 @@ impl P2pNetworkKadState {
             Some(state)
         } else {
             None
+        }
+    }
+
+    pub fn bootstrap_stats(&self) -> Option<&P2pNetworkKadBootstrapStats> {
+        match &self.status {
+            P2pNetworkKadStatus::Init => None,
+            P2pNetworkKadStatus::Bootstrapping(state) => Some(&state.stats),
+            P2pNetworkKadStatus::Bootstrapped { stats, .. } => Some(stats),
         }
     }
 
@@ -109,4 +120,36 @@ impl P2pNetworkKadState {
             .get_mut(peer_id)
             .map_or(false, |m| m.remove(stream_id).is_some())
     }
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize, derive_more::Deref, derive_more::From)]
+pub struct P2pNetworkKadLatestRequestPeers(Vec<(PeerId, P2pNetworkKadLatestRequestPeerKind)>);
+
+impl P2pNetworkKadLatestRequestPeers {
+    pub fn new(&self) -> impl Iterator<Item = &'_ PeerId> {
+        self.of_kind(P2pNetworkKadLatestRequestPeerKind::New)
+    }
+
+    pub fn existing(&self) -> impl Iterator<Item = &'_ PeerId> {
+        self.of_kind(P2pNetworkKadLatestRequestPeerKind::Existing)
+    }
+
+    pub fn discarded(&self) -> impl Iterator<Item = &'_ PeerId> {
+        self.of_kind(P2pNetworkKadLatestRequestPeerKind::Discarded)
+    }
+
+    fn of_kind(
+        &self,
+        kind: P2pNetworkKadLatestRequestPeerKind,
+    ) -> impl Iterator<Item = &'_ PeerId> {
+        self.iter()
+            .filter_map(move |(peer_id, k)| (kind == *k).then_some(peer_id))
+    }
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum P2pNetworkKadLatestRequestPeerKind {
+    New,
+    Existing,
+    Discarded,
 }

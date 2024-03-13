@@ -74,10 +74,11 @@ impl P2pNetworkKademliaAction {
                     .bootstrap_state()
                     .and_then(|bootstrap_state| bootstrap_state.request(&addr))
                     .is_some();
-                store.dispatch(P2pNetworkKadRequestAction::ReplyReceived {
-                    addr,
-                    data: closest_peers.clone(),
-                });
+                let data = closest_peers.clone();
+                let closest_peers = bootstrap_request
+                    .then(|| state.latest_request_peers.clone())
+                    .unwrap_or_default();
+                store.dispatch(P2pNetworkKadRequestAction::ReplyReceived { addr, data });
                 if bootstrap_request {
                     store.dispatch(P2pNetworkKadBootstrapAction::RequestDone {
                         addr,
@@ -87,16 +88,14 @@ impl P2pNetworkKademliaAction {
                 Ok(())
             }
             (StartBootstrap { .. }, _) => {
-                while store
+                if store
                     .state()
                     .network
                     .scheduler
                     .discovery_state
                     .as_ref()
                     .and_then(P2pNetworkKadState::bootstrap_state)
-                    .map_or(false, |bootstrap_state| {
-                        bootstrap_state.requests.len() < 3 && !bootstrap_state.queue.is_empty()
-                    })
+                    .map_or(false, |bootstrap_state| bootstrap_state.requests.len() < 3)
                 {
                     store.dispatch(P2pNetworkKadBootstrapAction::CreateRequests {});
                 }
