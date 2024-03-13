@@ -1,0 +1,5 @@
+<div class="lh-xl h-xl f-600">Peers Distances</div>
+<div class="list p-relative w-100 flex-row border">
+  <div *ngFor="let point of points" class="point"
+       [ngStyle]="{'background-color': point.color, 'left.%': point.left}"></div>
+</div>
