@@ -36,7 +36,7 @@ dialoguer = "0.10.4"
 serde_json = "1.0.107"
 
 [features]
-default = ["p2p-libp2p"]
+#default = ["p2p-libp2p"]
 unsafe-signal-handlers = []
-p2p-libp2p = ["node/p2p-libp2p", "openmina-node-native/p2p-libp2p"]
-p2p-webrtc = ["node/p2p-webrtc", "openmina-node-native/p2p-webrtc"]
+#p2p-libp2p = ["node/p2p-libp2p", "openmina-node-native/p2p-libp2p"]
+#p2p-webrtc = ["node/p2p-webrtc", "openmina-node-native/p2p-webrtc"]

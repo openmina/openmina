@@ -408,6 +408,26 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     );
                 }
             },
+            P2pAction::Identify(action) => match action {
+                p2p::identify::P2pIdentifyAction::NewRequest{ peer_id, .. } => {
+                    openmina_core::log::debug!(
+                        meta.time();
+                        node_id = node_id,
+                        kind = kind.to_string(),
+                        summary = format!("peer_id: {peer_id}"),
+                        peer_id = peer_id.to_string()
+                    );
+                },
+                p2p::identify::P2pIdentifyAction::UpdatePeerInformation { peer_id, info } => {
+                    openmina_core::log::info!(
+                        meta.time();
+                        node_id = node_id,
+                        kind = kind.to_string(),
+                        summary = format!("peer_id: {peer_id} info: {:?}", info),
+                        peer_id = peer_id.to_string()
+                    );
+                }
+            },
             P2pAction::Channels(action) => match action {
                 P2pChannelsAction::MessageReceived(_) => {}
                 P2pChannelsAction::BestTip(action) => match action {
@@ -902,6 +922,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     }
                     _ => {}
                 },
+                P2pNetworkAction::Identify(_) => {}
                 P2pNetworkAction::Kad(_) => {}
             },
         },

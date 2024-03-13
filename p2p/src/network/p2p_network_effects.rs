@@ -14,6 +14,10 @@ impl P2pNetworkAction {
             Self::Select(v) => v.effects(meta, store),
             Self::Noise(v) => v.effects(meta, store),
             Self::Yamux(v) => v.effects(meta, store),
+            Self::Identify(v) => match v.effects(meta, store) {
+                Ok(_) => {}
+                Err(e) => error!(meta.time(); "error dispatching Identify stream action: {e}"),
+            },
             Self::Kad(v) => match v.effects(meta, store) {
                 Ok(_) => {}
                 Err(e) => error!(meta.time(); "error dispatching Kademlia stream action: {e}"),

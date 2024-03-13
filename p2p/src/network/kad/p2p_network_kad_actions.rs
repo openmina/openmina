@@ -4,7 +4,7 @@ use redux::EnablingCondition;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    request::P2pNetworkKadRequestAction, stream::P2pNetworkKademliaStreamAction, P2pAction,
+    kad::stream::P2pNetworkKademliaStreamAction, request::P2pNetworkKadRequestAction, P2pAction,
     P2pNetworkAction, P2pNetworkKadEntry, P2pState, PeerId, StreamId,
 };
 

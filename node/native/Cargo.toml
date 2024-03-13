@@ -31,5 +31,5 @@ openmina-core = { path = "../../core" }
 node = { path = "../../node", features = ["replay"] }
 
 [features]
-p2p-webrtc = ["node/p2p-webrtc"]
-p2p-libp2p = ["node/p2p-libp2p"]
+#p2p-webrtc = ["node/p2p-webrtc"]
+#p2p-libp2p = ["node/p2p-libp2p"]

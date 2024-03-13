@@ -43,7 +43,7 @@ pub trait P2pServiceWebrtcWithLibp2p: P2pServiceWebrtc {
             libp2p: super::libp2p::Libp2pService::run::<E, S>(
                 _libp2p_port,
                 secret_key.clone(),
-                _chain_id,
+                _chain_id.into(),
                 event_source_sender,
                 spawner.clone(),
             ),

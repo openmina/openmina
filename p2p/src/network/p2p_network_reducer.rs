@@ -52,6 +52,7 @@ impl P2pNetworkState {
                 pnet_key,
                 connections: Default::default(),
                 broadcast_state: Default::default(),
+                identify_state: Default::default(),
                 discovery_state,
                 rpc_incoming_streams: Default::default(),
                 rpc_outgoing_streams: Default::default(),
@@ -112,6 +113,14 @@ impl P2pNetworkState {
                         }
                         _ => {}
                     });
+            }
+            P2pNetworkAction::Identify(a) => {
+                let time = meta.time();
+                // println!("======= identify reducer for {state:?}");
+                if let Err(err) = self.scheduler.identify_state.reducer(meta.with_action(&a)) {
+                    error!(time; "{err}");
+                }
+                // println!("======= identify reducer result {state:?}");
             }
             P2pNetworkAction::Kad(a) => {
                 let Some(state) = &mut self.scheduler.discovery_state else {

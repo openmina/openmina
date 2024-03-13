@@ -65,6 +65,7 @@ impl_into_global_action!(network::P2pNetworkSchedulerIncomingDidAcceptAction);
 impl_into_global_action!(network::P2pNetworkSchedulerOutgoingDidConnectAction);
 impl_into_global_action!(network::P2pNetworkSchedulerIncomingDataIsReadyAction);
 impl_into_global_action!(network::P2pNetworkSchedulerIncomingDataDidReceiveAction);
+impl_into_global_action!(network::identify::P2pNetworkIdentifyAction);
 impl_into_global_action!(network::kad::P2pNetworkKademliaAction);
 
 impl_into_global_action!(channels::P2pChannelsMessageReceivedAction);

@@ -76,6 +76,7 @@ impl P2pNetworkSchedulerState {
                                 channels: P2pChannelsState::new(&enabled_channels),
                                 best_tip: None,
                             }),
+                            identify: None
                         };
                         peers.insert(*peer_id, state);
                     }
@@ -121,7 +122,11 @@ impl P2pNetworkSchedulerState {
                                 }
                             }
                             token::StreamKind::Broadcast(_) => unimplemented!(),
+                            token::StreamKind::Identify(_) => {}
                             token::StreamKind::Discovery(_) => {}
+                            token::StreamKind::Ping(_) => {}
+                            token::StreamKind::Bitswap(_) => {}
+                            token::StreamKind::Status(_) => {}
                         }
                     }
                     None => {}
