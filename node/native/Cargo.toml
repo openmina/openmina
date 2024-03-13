@@ -31,5 +31,5 @@ node = { path = "../../node", features = ["replay"] }
 openmina-node-account = { path = "../account"}
 
 [features]
-p2p-webrtc = ["node/p2p-webrtc"]
-p2p-libp2p = ["node/p2p-libp2p"]
+#p2p-webrtc = ["node/p2p-webrtc"]
+#p2p-libp2p = ["node/p2p-libp2p"]

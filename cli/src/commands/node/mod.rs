@@ -210,7 +210,7 @@ impl Node {
         let p2p_service_ctx = <NodeService as P2pServiceWebrtcWithLibp2p>::init(
             Some(self.libp2p_port),
             secret_key.clone(),
-            CHAIN_ID.to_owned().into_bytes(),
+            CHAIN_ID.to_owned().into(),
             event_sender.clone(),
             P2pTaskSpawner {},
         );

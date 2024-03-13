@@ -2,10 +2,19 @@ use std::collections::BTreeMap;
 
 use openmina_core::error;
 
+use crate::{
+    channels::{ChannelId, P2pChannelsState},
+    P2pPeerState, P2pPeerStatus, P2pPeerStatusReady, PeerId,
+};
+
 use super::{super::*, p2p_network_scheduler_state::P2pNetworkConnectionState, *};
 
 impl P2pNetworkSchedulerState {
-    pub fn reducer(&mut self, action: redux::ActionWithMeta<&P2pNetworkSchedulerAction>) {
+    pub fn reducer(
+        &mut self,
+        peers: &mut BTreeMap<PeerId, P2pPeerState>,
+        action: redux::ActionWithMeta<&P2pNetworkSchedulerAction>,
+    ) {
         let (action, meta) = action.split();
         match action {
             P2pNetworkSchedulerAction::InterfaceDetected { ip, .. } => {
@@ -67,6 +76,24 @@ impl P2pNetworkSchedulerState {
                 let Some(connection) = self.connections.get_mut(addr) else {
                     return;
                 };
+                match kind {
+                    SelectKind::Multiplexing(peer_id) => {
+                        let enabled_channels = Some(ChannelId::Rpc).into_iter().collect();
+                        let state = P2pPeerState {
+                            is_libp2p: true,
+                            dial_opts: None,
+                            status: P2pPeerStatus::Ready(P2pPeerStatusReady {
+                                is_incoming: *incoming,
+                                connected_since: meta.time(),
+                                channels: P2pChannelsState::new(&enabled_channels),
+                                best_tip: None,
+                            }),
+                            identify: None,
+                        };
+                        peers.insert(*peer_id, state);
+                    }
+                    _ => {}
+                }
                 match protocol {
                     Some(token::Protocol::Auth(token::AuthKind::Noise)) => {
                         connection.auth = Some(P2pNetworkAuthState::Noise(P2pNetworkNoiseState {
@@ -109,7 +136,11 @@ impl P2pNetworkSchedulerState {
                                 }
                             }
                             token::StreamKind::Broadcast(_) => unimplemented!(),
+                            token::StreamKind::Identify(_) => {}
                             token::StreamKind::Discovery(_) => {}
+                            token::StreamKind::Ping(_) => {}
+                            token::StreamKind::Bitswap(_) => {}
+                            token::StreamKind::Status(_) => {}
                         }
                     }
                     None => {}

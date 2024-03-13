@@ -5,7 +5,7 @@ pub mod disconnection;
 pub mod discovery;
 pub mod listen;
 pub mod peer;
-
+pub mod identify;
 pub mod identity;
 pub use identity::PeerId;
 

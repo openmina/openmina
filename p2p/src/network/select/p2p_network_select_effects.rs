@@ -1,3 +1,5 @@
+use crate::{network::identify::P2pNetworkIdentifyStreamAction, P2pNetworkPnetAction};
+
 use super::{super::*, p2p_network_select_state::P2pNetworkSelectStateInner, *};
 
 impl P2pNetworkSelectAction {
@@ -107,9 +109,42 @@ impl P2pNetworkSelectAction {
                                             );
                                         }
                                     }
-                                    StreamKind::Broadcast(BroadcastAlgorithm::Meshsub1_1_0) => {
+                                    StreamKind::Identify(IdentifyAlgorithm::Identify1_0_0) => {
+                                        if !fin {
+                                            //println!("==== {}", hex::encode(&a.data.0));
+                                            store.dispatch(
+                                                P2pNetworkIdentifyStreamAction::IncomingData {
+                                                    addr,
+                                                    peer_id,
+                                                    stream_id,
+                                                    data: data.clone(),
+                                                },
+                                            );
+                                        } else {
+                                            store.dispatch(
+                                                P2pNetworkIdentifyStreamAction::RemoteClose {
+                                                    addr,
+                                                    peer_id,
+                                                    stream_id,
+                                                },
+                                            );
+                                        }
+                                    }
+                                    StreamKind::Identify(IdentifyAlgorithm::IdentifyPush1_0_0) => {
+                                        //unimplemented!()
+                                    }
+                                    StreamKind::Broadcast(_) => {
                                         // send to meshsub handler
-                                        unimplemented!()
+                                        //unimplemented!()
+                                    }
+                                    StreamKind::Ping(PingAlgorithm::Ping1_0_0) => {
+                                        //unimplemented!()
+                                    }
+                                    StreamKind::Bitswap(_) => {
+                                        //unimplemented!()
+                                    }
+                                    StreamKind::Status(_) => {
+                                        //unimplemented!()
                                     }
                                     StreamKind::Rpc(RpcAlgorithm::Rpc0_0_1) => {
                                         store.dispatch(P2pNetworkRpcAction::IncomingData {

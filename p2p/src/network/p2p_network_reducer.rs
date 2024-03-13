@@ -1,7 +1,9 @@
+use std::collections::BTreeMap;
+
 use multiaddr::Multiaddr;
 use openmina_core::error;
 
-use crate::PeerId;
+use crate::{P2pPeerState, PeerId};
 
 use super::*;
 
@@ -50,6 +52,7 @@ impl P2pNetworkState {
                 pnet_key,
                 connections: Default::default(),
                 broadcast_state: Default::default(),
+                identify_state: Default::default(),
                 discovery_state,
                 rpc_incoming_streams: Default::default(),
                 rpc_outgoing_streams: Default::default(),
@@ -59,10 +62,14 @@ impl P2pNetworkState {
 }
 
 impl P2pNetworkState {
-    pub fn reducer(&mut self, action: redux::ActionWithMeta<&P2pNetworkAction>) {
+    pub fn reducer(
+        &mut self,
+        peers: &mut BTreeMap<PeerId, P2pPeerState>,
+        action: redux::ActionWithMeta<&P2pNetworkAction>,
+    ) {
         let (action, meta) = action.split();
         match action {
-            P2pNetworkAction::Scheduler(a) => self.scheduler.reducer(meta.with_action(&a)),
+            P2pNetworkAction::Scheduler(a) => self.scheduler.reducer(peers, meta.with_action(&a)),
             P2pNetworkAction::Pnet(a) => {
                 self.scheduler
                     .connections
@@ -106,6 +113,14 @@ impl P2pNetworkState {
                         }
                         _ => {}
                     });
+            }
+            P2pNetworkAction::Identify(a) => {
+                let time = meta.time();
+                // println!("======= identify reducer for {state:?}");
+                if let Err(err) = self.scheduler.identify_state.reducer(meta.with_action(&a)) {
+                    error!(time; "{err}");
+                }
+                // println!("======= identify reducer result {state:?}");
             }
             P2pNetworkAction::Kad(a) => {
                 let Some(state) = &mut self.scheduler.discovery_state else {

@@ -29,7 +29,10 @@ use crate::p2p::connection::outgoing::P2pConnectionOutgoingAction;
 use crate::p2p::connection::P2pConnectionAction;
 use crate::p2p::disconnection::P2pDisconnectionAction;
 use crate::p2p::discovery::P2pDiscoveryAction;
+use crate::p2p::identify::P2pIdentifyAction;
 use crate::p2p::listen::P2pListenAction;
+use crate::p2p::network::identify::stream::P2pNetworkIdentifyStreamAction;
+use crate::p2p::network::identify::P2pNetworkIdentifyAction;
 use crate::p2p::network::kad::bootstrap::P2pNetworkKadBootstrapAction;
 use crate::p2p::network::kad::request::P2pNetworkKadRequestAction;
 use crate::p2p::network::kad::stream::P2pNetworkKademliaStreamAction;
@@ -197,10 +200,17 @@ pub enum ActionKind {
     P2pDiscoveryKademliaInit,
     P2pDiscoveryKademliaSuccess,
     P2pDiscoverySuccess,
+    P2pIdentifyNewRequest,
+    P2pIdentifyUpdatePeerInformation,
     P2pListenClosed,
     P2pListenError,
     P2pListenExpired,
     P2pListenNew,
+    P2pNetworkIdentifyStreamClose,
+    P2pNetworkIdentifyStreamIncomingData,
+    P2pNetworkIdentifyStreamNew,
+    P2pNetworkIdentifyStreamPrune,
+    P2pNetworkIdentifyStreamRemoteClose,
     P2pNetworkKadBootstrapCreateRequests,
     P2pNetworkKadBootstrapRequestDone,
     P2pNetworkKadBootstrapRequestError,
@@ -407,7 +417,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 340;
+    pub const COUNT: u16 = 347;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -458,6 +468,7 @@ impl ActionKindGet for P2pAction {
             Self::Connection(a) => a.kind(),
             Self::Disconnection(a) => a.kind(),
             Self::Discovery(a) => a.kind(),
+            Self::Identify(a) => a.kind(),
             Self::Channels(a) => a.kind(),
             Self::Peer(a) => a.kind(),
             Self::Network(a) => a.kind(),
@@ -685,6 +696,15 @@ impl ActionKindGet for P2pDiscoveryAction {
     }
 }
 
+impl ActionKindGet for P2pIdentifyAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::NewRequest { .. } => ActionKind::P2pIdentifyNewRequest,
+            Self::UpdatePeerInformation { .. } => ActionKind::P2pIdentifyUpdatePeerInformation,
+        }
+    }
+}
+
 impl ActionKindGet for P2pChannelsAction {
     fn kind(&self) -> ActionKind {
         match self {
@@ -714,6 +734,7 @@ impl ActionKindGet for P2pNetworkAction {
             Self::Select(a) => a.kind(),
             Self::Noise(a) => a.kind(),
             Self::Yamux(a) => a.kind(),
+            Self::Identify(a) => a.kind(),
             Self::Kad(a) => a.kind(),
             Self::Rpc(a) => a.kind(),
         }
@@ -1071,6 +1092,14 @@ impl ActionKindGet for P2pNetworkYamuxAction {
     }
 }
 
+impl ActionKindGet for P2pNetworkIdentifyAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::Stream(a) => a.kind(),
+        }
+    }
+}
+
 impl ActionKindGet for P2pNetworkKadAction {
     fn kind(&self) -> ActionKind {
         match self {
@@ -1103,6 +1132,18 @@ impl ActionKindGet for TransitionFrontierSyncLedgerAction {
             Self::Staged(a) => a.kind(),
             Self::Init => ActionKind::TransitionFrontierSyncLedgerInit,
             Self::Success => ActionKind::TransitionFrontierSyncLedgerSuccess,
+        }
+    }
+}
+
+impl ActionKindGet for P2pNetworkIdentifyStreamAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::New { .. } => ActionKind::P2pNetworkIdentifyStreamNew,
+            Self::IncomingData { .. } => ActionKind::P2pNetworkIdentifyStreamIncomingData,
+            Self::Close { .. } => ActionKind::P2pNetworkIdentifyStreamClose,
+            Self::RemoteClose { .. } => ActionKind::P2pNetworkIdentifyStreamRemoteClose,
+            Self::Prune { .. } => ActionKind::P2pNetworkIdentifyStreamPrune,
         }
     }
 }

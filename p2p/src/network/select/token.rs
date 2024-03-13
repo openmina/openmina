@@ -31,8 +31,36 @@ impl Token {
         Token::Protocol(Protocol::Auth(AuthKind::Noise)),
         Token::Protocol(Protocol::Mux(MuxKind::Yamux1_0_0)),
         Token::Protocol(Protocol::Mux(MuxKind::YamuxNoNewLine1_0_0)),
+        Token::Protocol(Protocol::Stream(StreamKind::Status(
+            StatusAlgorithm::MinaNodeStatus,
+        ))),
+        Token::Protocol(Protocol::Stream(StreamKind::Bitswap(
+            BitswapAlgorithm::MinaBitswap,
+        ))),
+        Token::Protocol(Protocol::Stream(StreamKind::Bitswap(
+            BitswapAlgorithm::MinaBitswap1_0_0,
+        ))),
+        Token::Protocol(Protocol::Stream(StreamKind::Bitswap(
+            BitswapAlgorithm::MinaBitswap1_1_0,
+        ))),
+        Token::Protocol(Protocol::Stream(StreamKind::Bitswap(
+            BitswapAlgorithm::MinaBitswap1_2_0,
+        ))),
+        Token::Protocol(Protocol::Stream(StreamKind::Ping(PingAlgorithm::Ping1_0_0))),
+        Token::Protocol(Protocol::Stream(StreamKind::Identify(
+            IdentifyAlgorithm::Identify1_0_0,
+        ))),
+        Token::Protocol(Protocol::Stream(StreamKind::Identify(
+            IdentifyAlgorithm::IdentifyPush1_0_0,
+        ))),
         Token::Protocol(Protocol::Stream(StreamKind::Discovery(
             DiscoveryAlgorithm::Kademlia1_0_0,
+        ))),
+        Token::Protocol(Protocol::Stream(StreamKind::Broadcast(
+            BroadcastAlgorithm::Floodsub1_0_0,
+        ))),
+        Token::Protocol(Protocol::Stream(StreamKind::Broadcast(
+            BroadcastAlgorithm::Meshsub1_0_0,
         ))),
         Token::Protocol(Protocol::Stream(StreamKind::Broadcast(
             BroadcastAlgorithm::Meshsub1_1_0,
@@ -56,6 +84,14 @@ impl Protocol {
             Self::Stream(v) => v.name(),
         }
     }
+
+    pub const fn name_str(&self) -> &'static str {
+        match self {
+            Self::Auth(v) => v.name_str(),
+            Self::Mux(v) => v.name_str(),
+            Self::Stream(v) => v.name_str(),
+        }
+    }
 }
 
 #[derive(Clone, Copy, Serialize, Deserialize, Debug, PartialEq, Eq)]
@@ -66,6 +102,10 @@ pub enum AuthKind {
 impl AuthKind {
     pub const fn name(&self) -> &'static [u8] {
         b"\x07/noise\n"
+    }
+
+    pub const fn name_str(&self) -> &'static str {
+        "/noise"
     }
 }
 
@@ -82,10 +122,21 @@ impl MuxKind {
             Self::YamuxNoNewLine1_0_0 => b"\x11/coda/yamux/1.0.0",
         }
     }
+
+    pub const fn name_str(&self) -> &'static str {
+        match self {
+            Self::Yamux1_0_0 => "/coda/yamux/1.0.0",
+            Self::YamuxNoNewLine1_0_0 => "/coda/yamux/1.0.0",
+        }
+    }
 }
 
 #[derive(Clone, Copy, Serialize, Deserialize, Debug, PartialEq, Eq)]
 pub enum StreamKind {
+    Status(StatusAlgorithm),
+    Bitswap(BitswapAlgorithm),
+    Ping(PingAlgorithm),
+    Identify(IdentifyAlgorithm),
     Discovery(DiscoveryAlgorithm),
     Broadcast(BroadcastAlgorithm),
     Rpc(RpcAlgorithm),
@@ -94,9 +145,113 @@ pub enum StreamKind {
 impl StreamKind {
     pub const fn name(&self) -> &'static [u8] {
         match self {
+            Self::Status(v) => v.name(),
+            Self::Bitswap(v) => v.name(),
+            Self::Ping(v) => v.name(),
+            Self::Identify(v) => v.name(),
             Self::Discovery(v) => v.name(),
             Self::Broadcast(v) => v.name(),
             Self::Rpc(v) => v.name(),
+        }
+    }
+
+    pub const fn name_str(&self) -> &'static str {
+        match self {
+            Self::Status(v) => v.name_str(),
+            Self::Bitswap(v) => v.name_str(),
+            Self::Ping(v) => v.name_str(),
+            Self::Identify(v) => v.name_str(),
+            Self::Discovery(v) => v.name_str(),
+            Self::Broadcast(v) => v.name_str(),
+            Self::Rpc(v) => v.name_str(),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Serialize, Deserialize, Debug, PartialEq, Eq)]
+pub enum StatusAlgorithm {
+    MinaNodeStatus,
+}
+
+impl StatusAlgorithm {
+    pub const fn name(&self) -> &'static [u8] {
+        match self {
+            Self::MinaNodeStatus => b"\x12/mina/node-status\n",
+        }
+    }
+
+    pub const fn name_str(&self) -> &'static str {
+        match self {
+            Self::MinaNodeStatus => "/mina/node-status",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Serialize, Deserialize, Debug, PartialEq, Eq)]
+pub enum BitswapAlgorithm {
+    MinaBitswap,
+    MinaBitswap1_0_0,
+    MinaBitswap1_1_0,
+    MinaBitswap1_2_0,
+}
+
+impl BitswapAlgorithm {
+    pub const fn name(&self) -> &'static [u8] {
+        match self {
+            Self::MinaBitswap => b"\x24/mina/bitswap-exchange/ipfs/bitswap\n",
+            Self::MinaBitswap1_0_0 => b"\x2a/mina/bitswap-exchange/ipfs/bitswap/1.0.0\n",
+            Self::MinaBitswap1_1_0 => b"\x2a/mina/bitswap-exchange/ipfs/bitswap/1.1.0\n",
+            Self::MinaBitswap1_2_0 => b"\x2a/mina/bitswap-exchange/ipfs/bitswap/1.2.0\n",
+        }
+    }
+
+    pub const fn name_str(&self) -> &'static str {
+        match self {
+            Self::MinaBitswap => "/mina/bitswap-exchange/ipfs/bitswap",
+            Self::MinaBitswap1_0_0 => "/mina/bitswap-exchange/ipfs/bitswap/1.0.0",
+            Self::MinaBitswap1_1_0 => "/mina/bitswap-exchange/ipfs/bitswap/1.1.0",
+            Self::MinaBitswap1_2_0 => "/mina/bitswap-exchange/ipfs/bitswap/1.2.0",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Serialize, Deserialize, Debug, PartialEq, Eq)]
+pub enum PingAlgorithm {
+    Ping1_0_0,
+}
+
+impl PingAlgorithm {
+    pub const fn name(&self) -> &'static [u8] {
+        match self {
+            Self::Ping1_0_0 => b"\x11/ipfs/ping/1.0.0\n",
+        }
+    }
+
+    pub const fn name_str(&self) -> &'static str {
+        match self {
+            Self::Ping1_0_0 => "/ipfs/ping/1.0.0",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Serialize, Deserialize, Debug, PartialEq, Eq)]
+pub enum IdentifyAlgorithm {
+    Identify1_0_0,
+    IdentifyPush1_0_0,
+}
+
+impl IdentifyAlgorithm {
+    pub const fn name(&self) -> &'static [u8] {
+        match self {
+            Self::Identify1_0_0 => b"\x0f/ipfs/id/1.0.0\n",
+            Self::IdentifyPush1_0_0 => b"\x14/ipfs/id/push/1.0.0\n",
+        }
+    }
+
+    pub const fn name_str(&self) -> &'static str {
+        match self {
+            Self::Identify1_0_0 => "/ipfs/id/1.0.0",
+            Self::IdentifyPush1_0_0 => "/ipfs/id/push/1.0.0",
         }
     }
 }
@@ -112,17 +267,35 @@ impl DiscoveryAlgorithm {
             Self::Kademlia1_0_0 => b"\x10/coda/kad/1.0.0\n",
         }
     }
+
+    pub const fn name_str(&self) -> &'static str {
+        match self {
+            Self::Kademlia1_0_0 => "/coda/kad/1.0.0",
+        }
+    }
 }
 
 #[derive(Clone, Copy, Serialize, Deserialize, Debug, PartialEq, Eq)]
 pub enum BroadcastAlgorithm {
+    Floodsub1_0_0,
+    Meshsub1_0_0,
     Meshsub1_1_0,
 }
 
 impl BroadcastAlgorithm {
     pub const fn name(&self) -> &'static [u8] {
         match self {
+            Self::Floodsub1_0_0 => b"\x10/floodsub/1.0.0\n",
+            Self::Meshsub1_0_0 => b"\x0f/meshsub/1.0.0\n",
             Self::Meshsub1_1_0 => b"\x0f/meshsub/1.1.0\n",
+        }
+    }
+
+    pub const fn name_str(&self) -> &'static str {
+        match self {
+            Self::Floodsub1_0_0 => "/floodsub/1.0.0",
+            Self::Meshsub1_0_0 => "/meshsub/1.0.0",
+            Self::Meshsub1_1_0 => "/meshsub/1.1.0",
         }
     }
 }
@@ -136,6 +309,12 @@ impl RpcAlgorithm {
     pub const fn name(&self) -> &'static [u8] {
         match self {
             Self::Rpc0_0_1 => b"\x10coda/rpcs/0.0.1\n",
+        }
+    }
+
+    pub const fn name_str(&self) -> &'static str {
+        match self {
+            Self::Rpc0_0_1 => "coda/rpcs/0.0.1",
         }
     }
 }
