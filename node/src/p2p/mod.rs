@@ -67,4 +67,3 @@ impl_into_global_action!(channels::snark::P2pChannelsSnarkAction);
 impl_into_global_action!(channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentAction);
 
 impl_into_global_action!(channels::rpc::P2pChannelsRpcAction);
-

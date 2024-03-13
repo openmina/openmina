@@ -10,6 +10,7 @@ use crate::channels::rpc::P2pRpcId;
 use crate::channels::{ChannelId, P2pChannelsState};
 use crate::connection::incoming::P2pConnectionIncomingState;
 use crate::connection::outgoing::{P2pConnectionOutgoingInitOpts, P2pConnectionOutgoingState};
+use crate::network::identify::P2pNetworkIdentify;
 use crate::network::P2pNetworkState;
 use crate::{is_time_passed, P2pTimeouts, PeerId};
 
@@ -55,6 +56,7 @@ impl P2pState {
                         status: P2pPeerStatus::Disconnected {
                             time: Timestamp::ZERO,
                         },
+                        identify: None,
                     },
                 )
             })
@@ -228,6 +230,7 @@ pub struct P2pPeerState {
     pub is_libp2p: bool,
     pub dial_opts: Option<P2pConnectionOutgoingInitOpts>,
     pub status: P2pPeerStatus,
+    pub identify: Option<P2pNetworkIdentify>,
 }
 
 impl P2pPeerState {

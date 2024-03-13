@@ -106,7 +106,11 @@ impl P2pNetworkSchedulerState {
                                 }
                             }
                             token::StreamKind::Broadcast(_) => unimplemented!(),
+                            token::StreamKind::Identify(_) => {}
                             token::StreamKind::Discovery(_) => {}
+                            token::StreamKind::Ping(_) => {}
+                            token::StreamKind::Bitswap(_) => {}
+                            token::StreamKind::Status(_) => {}
                         }
                     }
                     None => {}

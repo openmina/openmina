@@ -11,7 +11,8 @@ pub fn p2p_peer_reducer(state: &mut P2pState, action: P2pPeerActionWithMetaRef<'
         P2pPeerAction::Discovered { peer_id, dial_opts } => {
             let peer_state = state.peers.entry(*peer_id).or_insert_with(|| P2pPeerState {
                 is_libp2p: true,
-                dial_opts: None,
+                dial_opts: dial_opts.clone(),
+                identify: None,
                 status: P2pPeerStatus::Disconnected {
                     time: Timestamp::ZERO,
                 },

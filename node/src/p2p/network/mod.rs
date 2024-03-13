@@ -1,4 +1,5 @@
 pub use ::p2p::network::*;
+use p2p::network::identify::{P2pNetworkIdentifyAction, P2pNetworkIdentifyStreamAction};
 
 impl redux::EnablingCondition<crate::State> for P2pNetworkSchedulerAction {
     fn is_enabled(&self, state: &crate::State, time: redux::Timestamp) -> bool {
@@ -30,6 +31,18 @@ impl redux::EnablingCondition<crate::State> for P2pNetworkYamuxAction {
 }
 
 impl redux::EnablingCondition<crate::State> for P2pNetworkRpcAction {
+    fn is_enabled(&self, state: &crate::State, time: redux::Timestamp) -> bool {
+        self.is_enabled(&state.p2p, time)
+    }
+}
+
+impl redux::EnablingCondition<crate::State> for P2pNetworkIdentifyStreamAction {
+    fn is_enabled(&self, state: &crate::State, time: redux::Timestamp) -> bool {
+        self.is_enabled(&state.p2p, time)
+    }
+}
+
+impl redux::EnablingCondition<crate::State> for P2pNetworkIdentifyAction {
     fn is_enabled(&self, state: &crate::State, time: redux::Timestamp) -> bool {
         self.is_enabled(&state.p2p, time)
     }

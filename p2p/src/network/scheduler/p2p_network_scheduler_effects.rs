@@ -6,6 +6,8 @@ use redux::ActionMeta;
 use crate::{
     connection::{incoming::P2pConnectionIncomingAction, outgoing::P2pConnectionOutgoingAction},
     disconnection::P2pDisconnectionAction,
+    identify::P2pIdentifyAction,
+    network::identify::P2pNetworkIdentifyStreamAction,
     request::{P2pNetworkKadRequestState, P2pNetworkKadRequestStatus},
     token::{RpcAlgorithm, StreamKind},
     MioCmd, P2pCryptoService, P2pMioService,
@@ -116,6 +118,29 @@ impl P2pNetworkSchedulerAction {
                             return;
                         };
                         match kind {
+                            StreamKind::Status(_) => {
+                                //unimplemented!()
+                            }
+                            StreamKind::Bitswap(_) => {
+                                //unimplemented!()
+                            }
+                            StreamKind::Identify(IdentifyAlgorithm::Identify1_0_0) => {
+                                store.dispatch(P2pNetworkIdentifyStreamAction::New {
+                                    addr,
+                                    peer_id,
+                                    stream_id,
+                                    incoming,
+                                });
+                            }
+                            StreamKind::Identify(IdentifyAlgorithm::IdentifyPush1_0_0) => {
+                                //unimplemented!()
+                            }
+                            StreamKind::Ping(PingAlgorithm::Ping1_0_0) => {
+                                //unimplemented!()
+                            }
+                            StreamKind::Broadcast(_) => {
+                                //unimplemented!()
+                            }
                             StreamKind::Discovery(DiscoveryAlgorithm::Kademlia1_0_0) => {
                                 if let Some(discovery_state) =
                                     store.state().network.scheduler.discovery_state()
@@ -137,9 +162,6 @@ impl P2pNetworkSchedulerAction {
                                         });
                                     }
                                 }
-                            }
-                            StreamKind::Broadcast(BroadcastAlgorithm::Meshsub1_1_0) => {
-                                unimplemented!()
                             }
                             StreamKind::Rpc(RpcAlgorithm::Rpc0_0_1) => {
                                 store.dispatch(P2pNetworkRpcAction::Init {
@@ -199,6 +221,10 @@ impl P2pNetworkSchedulerAction {
                         stream_id,
                         stream_kind: StreamKind::Rpc(RpcAlgorithm::Rpc0_0_1),
                     });
+
+                    // TODO: open RPC and Kad connections only after identify reports support for it?
+                    store.dispatch(P2pIdentifyAction::NewRequest { peer_id, addr });
+
                     // Kademlia: if the connection is initiated by Kademlia request, notify that it is ready.
                     if store
                         .state()
