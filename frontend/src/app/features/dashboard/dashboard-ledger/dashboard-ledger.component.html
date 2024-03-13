@@ -1,0 +1,142 @@
+<div class="flex-column w-100 bg-surface border-rad-6">
+  <div class="h-xl lh-xl fx-row-vert-cent flex-between f-600 pl-12 pr-12 p-relative">
+    <div [class.success-primary]="ledgers.root.synced">Ledgers</div>
+    <div class="tertiary f-400">{{ progress }}</div>
+    <div *ngIf="totalProgress >= 1" [style.width.%]="totalProgress"
+         class="progress-bar p-absolute">
+      <div class="highlight p-absolute" *ngIf="totalProgress < 100"></div>
+      <div class="progress p-absolute w-100"></div>
+    </div>
+  </div>
+  <div class="flex-column h-minus-xl primary pl-12 pr-12">
+    <div class="group flex-column"
+         [ngClass]="ledgers.stakingEpoch.state">
+      <div class="fx-row-vert-cent lh-lg h-lg">
+        <ng-container *ngTemplateOutlet="icon; context: { state: ledgers.stakingEpoch.state }"></ng-container>
+        <span class="group-title pl-5">Staking ledger</span>
+        <div [style.margin-left]="'auto'">
+          <div class="primary f-600"
+               [class.success-primary]="stakingProgress === 100">{{ stakingProgress | number: '1.0-0' }}%
+          </div>
+        </div>
+      </div>
+      <div class="steps flex-column">
+        <div class="flex-row flex-between h-lg lh-lg"
+             (mouseenter)="show($event, ledgers.stakingEpoch.snarked.fetchHashesStart, ledgers.stakingEpoch.snarked.fetchHashesEnd)"
+             (mouseleave)="hide()">
+          <span class="step">Snarked - Fetch hashes</span>
+          <span>{{ ledgers.stakingEpoch.snarked.fetchHashesDuration | secDuration: configMap.stakingEpoch }}</span>
+        </div>
+        <div class="flex-row flex-between h-lg lh-lg"
+             (mouseenter)="show($event, ledgers.stakingEpoch.snarked.fetchAccountsStart, ledgers.stakingEpoch.snarked.fetchAccountsEnd)"
+             (mouseleave)="hide()">
+          <span class="step">Snarked - Fetch accounts</span>
+          <span>{{ ledgers.stakingEpoch.snarked.fetchAccountsDuration | secDuration: configMap.stakingEpoch }}</span>
+        </div>
+      </div>
+    </div>
+    <div class="group flex-column"
+         [ngClass]="ledgers.nextEpoch.state">
+      <div class="fx-row-vert-cent lh-lg h-lg">
+        <ng-container *ngTemplateOutlet="icon; context: { state: ledgers.nextEpoch.state }"></ng-container>
+        <span class="group-title pl-5">Next epoch ledger</span>
+        <div [style.margin-left]="'auto'">
+          <div class="primary f-600" [class.success-primary]="nextProgress === 100">
+            {{ nextProgress | number: '1.0-0' }}%
+          </div>
+        </div>
+      </div>
+      <div class="steps flex-column">
+        <div class="flex-row flex-between h-lg lh-lg"
+             (mouseenter)="show($event, ledgers.nextEpoch.snarked.fetchHashesStart, ledgers.nextEpoch.snarked.fetchHashesEnd)"
+             (mouseleave)="hide()">
+          <span class="step">Snarked - Fetch hashes</span>
+          <span>{{ ledgers.nextEpoch.snarked.fetchHashesDuration | secDuration: configMap.nextEpoch }}</span>
+        </div>
+        <div class="flex-row flex-between h-lg lh-lg"
+             (mouseenter)="show($event, ledgers.nextEpoch.snarked.fetchAccountsStart, ledgers.nextEpoch.snarked.fetchAccountsEnd)"
+             (mouseleave)="hide()">
+          <span class="step">Snarked - Fetch accounts</span>
+          <span>{{ ledgers.nextEpoch.snarked.fetchAccountsDuration | secDuration: configMap.nextEpoch }}</span>
+        </div>
+      </div>
+    </div>
+    <div class="group flex-column"
+         [ngClass]="ledgers.root.state">
+      <div class="fx-row-vert-cent lh-lg h-lg">
+        <ng-container *ngTemplateOutlet="icon; context: { state: ledgers.root.state }"></ng-container>
+        <span class="group-title pl-5">Ledger at the root</span>
+        <div [style.margin-left]="'auto'">
+          <div class="primary f-600" [class.success-primary]="rootProgress === 100">
+            {{ rootProgress | number: '1.0-0' }}%
+          </div>
+        </div>
+      </div>
+      <div class="steps flex-column">
+        <div class="flex-row flex-between h-lg lh-lg"
+             (mouseenter)="show($event, ledgers.root.snarked.fetchHashesStart, ledgers.root.snarked.fetchHashesEnd)"
+             (mouseleave)="hide()">
+          <span class="step">Snarked - Fetch hashes</span>
+          <span>{{ ledgers.root.snarked.fetchHashesDuration | secDuration: configMap.root }}</span>
+        </div>
+        <div class="flex-row flex-between h-lg lh-lg"
+             (mouseenter)="show($event, ledgers.root.snarked.fetchAccountsStart, ledgers.root.snarked.fetchAccountsEnd)"
+             (mouseleave)="hide()">
+          <span class="step">Snarked - Fetch accounts</span>
+          <span>{{ ledgers.root.snarked.fetchAccountsDuration | secDuration: configMap.root }}</span>
+        </div>
+        <div class="flex-row flex-between h-lg lh-lg"
+             (mouseenter)="show($event, ledgers.root.staged.fetchPartsStart, ledgers.root.staged.fetchPartsEnd)"
+             (mouseleave)="hide()">
+          <span class="step">Staged - Fetch parts</span>
+          <span>{{ ledgers.root.staged.fetchPartsDuration | secDuration: configMap.root }}</span>
+        </div>
+        <div class="flex-row flex-between h-lg lh-lg"
+             (mouseenter)="show($event, ledgers.root.staged.reconstructStart, ledgers.root.staged.reconstructEnd)"
+             (mouseleave)="hide()">
+          <span class="step">Staged - Reconstruct</span>
+          <span>{{ ledgers.root.staged.reconstructDuration | secDuration: configMap.root }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<ng-template #icon let-state="state">
+  <ng-container [ngSwitch]="state">
+    <ng-container *ngSwitchCase="'pending'">
+      <span class="pending-icon fx-col-full-cent">
+        <span></span>
+      </span>
+    </ng-container>
+    <ng-container *ngSwitchCase="'loading'">
+      <span class="loading-icon mina-icon icon-200 primary">progress_activity</span>
+    </ng-container>
+    <ng-container *ngSwitchCase="'success'">
+      <span class="pending-icon fx-col-full-cent success">
+        <span></span>
+      </span>
+    </ng-container>
+  </ng-container>
+</ng-template>
+
+<ng-template #ledgerTime let-state="state" let-time="time">
+  <ng-container [ngSwitch]="state">
+    <ng-container *ngSwitchCase="'success'">
+      <span class="primary">{{ time | secDuration: configMap.stakingEpoch }}</span>
+    </ng-container>
+  </ng-container>
+</ng-template>
+
+<ng-template #tooltipRef let-start="start" let-end="end">
+  <div class="bg-surface-top popup-box-shadow-weak border pl-10 pr-10 pt-5 pb-5 border-rad-6">
+    <div class="tooltip-row tertiary lh-sm h-sm">
+      Start:
+      <span class="primary">{{ start | readableDate }}</span>
+    </div>
+    <div class="tooltip-row tertiary lh-sm h-sm">
+      End:
+      <span class="primary">{{ end | readableDate }}</span>
+    </div>
+  </div>
+</ng-template>

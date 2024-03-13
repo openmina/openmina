@@ -30,7 +30,7 @@ const routes: Routes = [
       },
       {
         path: 'node-dht',
-        loadChildren: () => import('./node-dht/node-dht.module').then(m => m.NodeDhtModule),
+        loadChildren: () => import('./node-dht/network-node-dht.module').then(m => m.NetworkNodeDhtModule),
         title: NETWORK_TITLE,
       },
       {
@@ -46,4 +46,5 @@ const routes: Routes = [
   imports: [RouterModule.forChild(routes)],
   exports: [RouterModule],
 })
-export class NetworkRoutingModule {}
+export class NetworkRoutingModule {
+}
