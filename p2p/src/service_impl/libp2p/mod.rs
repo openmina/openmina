@@ -227,7 +227,7 @@ impl Libp2pService {
             },
             identify,
             kademlia,
-            chain_id,
+            chain_id: String::from_utf8(chain_id).unwrap(),
             event_source_sender,
             ongoing: BTreeMap::default(),
             ongoing_incoming: BTreeMap::default(),
