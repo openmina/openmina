@@ -230,6 +230,7 @@ pub enum ActionKind {
     P2pNetworkKadBootstrapCreateRequests,
     P2pNetworkKadBootstrapRequestDone,
     P2pNetworkKadBootstrapRequestDone,
+    P2pNetworkKadBootstrapRequestError,
     P2pNetworkKadRequestError,
     P2pNetworkKadRequestError,
     P2pNetworkKadRequestMuxReady,
@@ -1294,6 +1295,7 @@ impl ActionKindGet for P2pNetworkKadBootstrapAction {
             Self::RequestDone { .. } => ActionKind::P2pNetworkKadBootstrapRequestDone,
             Self::CreateRequests { .. } => ActionKind::P2pNetworkKadBootstrapCreateRequests,
             Self::RequestDone { .. } => ActionKind::P2pNetworkKadBootstrapRequestDone,
+            Self::RequestError { .. } => ActionKind::P2pNetworkKadBootstrapRequestError,
         }
     }
 }
