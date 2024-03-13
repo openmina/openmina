@@ -59,7 +59,7 @@ impl RustNodeTestingConfig {
 
     pub fn berkeley_default_no_rpc_timeouts() -> Self {
         Self {
-            chain_id: CHAIN_ID.to_owned(),
+            chain_id: CHAIN_ID.as_bytes().to_owned(),
             initial_time: redux::Timestamp::ZERO,
             genesis: node::BERKELEY_CONFIG.clone(),
             max_peers: 100,
