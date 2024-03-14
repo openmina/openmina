@@ -2,7 +2,7 @@ use std::net::SocketAddr;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{P2pNetworkKadEntry, PeerId};
+use crate::{P2pNetworkKadEntry, PeerId, StreamId};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct P2pNetworkKadRequestState {
@@ -22,7 +22,7 @@ pub enum P2pNetworkKadRequestStatus {
     Default,
     Disconnected,
     WaitingForConnection,
-    WaitingForKadStream,
+    WaitingForKadStream(StreamId),
     Request(Vec<u8>),
     WaitingForReply,
     Reply(Vec<P2pNetworkKadEntry>),

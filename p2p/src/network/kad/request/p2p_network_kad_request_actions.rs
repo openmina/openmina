@@ -8,52 +8,54 @@ use crate::{P2pAction, P2pNetworkKadEntry, P2pState, PeerId, StreamId};
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum P2pNetworkKadRequestAction {
     New {
-        addr: SocketAddr,
         peer_id: PeerId,
+        addr: SocketAddr,
         key: PeerId,
     },
     PeerIsConnecting {
-        addr: SocketAddr,
+        peer_id: PeerId,
     },
     MuxReady {
+        peer_id: PeerId,
         addr: SocketAddr,
     },
     StreamIsCreating {
-        addr: SocketAddr,
+        peer_id: PeerId,
         stream_id: StreamId,
     },
     StreamReady {
-        addr: SocketAddr,
+        peer_id: PeerId,
         stream_id: StreamId,
+        addr: SocketAddr,
     },
     RequestSent {
-        addr: SocketAddr,
+        peer_id: PeerId,
     },
     ReplyReceived {
-        addr: SocketAddr,
+        peer_id: PeerId,
         data: Vec<P2pNetworkKadEntry>,
     },
     Prune {
-        addr: SocketAddr,
+        peer_id: PeerId,
     },
     Error {
-        addr: SocketAddr,
+        peer_id: PeerId,
         error: String,
     },
 }
 
 impl P2pNetworkKadRequestAction {
-    pub fn addr(&self) -> &SocketAddr {
+    pub fn peer_id(&self) -> &PeerId {
         match self {
-            P2pNetworkKadRequestAction::New { addr, .. }
-            | P2pNetworkKadRequestAction::PeerIsConnecting { addr, .. }
-            | P2pNetworkKadRequestAction::MuxReady { addr, .. }
-            | P2pNetworkKadRequestAction::StreamIsCreating { addr, .. }
-            | P2pNetworkKadRequestAction::StreamReady { addr, .. }
-            | P2pNetworkKadRequestAction::RequestSent { addr, .. }
-            | P2pNetworkKadRequestAction::ReplyReceived { addr, .. }
-            | P2pNetworkKadRequestAction::Prune { addr, .. }
-            | P2pNetworkKadRequestAction::Error { addr, .. } => addr,
+            P2pNetworkKadRequestAction::New { peer_id, .. }
+            | P2pNetworkKadRequestAction::PeerIsConnecting { peer_id, .. }
+            | P2pNetworkKadRequestAction::MuxReady { peer_id, .. }
+            | P2pNetworkKadRequestAction::StreamIsCreating { peer_id, .. }
+            | P2pNetworkKadRequestAction::StreamReady { peer_id, .. }
+            | P2pNetworkKadRequestAction::RequestSent { peer_id, .. }
+            | P2pNetworkKadRequestAction::ReplyReceived { peer_id, .. }
+            | P2pNetworkKadRequestAction::Prune { peer_id, .. }
+            | P2pNetworkKadRequestAction::Error { peer_id, .. } => peer_id,
         }
     }
 }
@@ -66,7 +68,7 @@ impl EnablingCondition<P2pState> for P2pNetworkKadRequestAction {
             .discovery_state()
             .map_or(false, |discovery_state| {
                 // no request for New, some request for anything else.
-                discovery_state.request(self.addr()).is_none()
+                discovery_state.request(self.peer_id()).is_none()
                     == matches!(self, P2pNetworkKadRequestAction::New { .. })
             })
     }

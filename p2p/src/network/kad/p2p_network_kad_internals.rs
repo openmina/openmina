@@ -282,14 +282,16 @@ impl<const K: usize> P2pNetworkKadRoutingTable<K> {
     /// FIND_NODE backend. Returns iterator of nodes closest to the specified
     /// `key`, excluding nodes that correspond to the `key` itself and
     /// `self.this_key`.
-    pub fn find_node<'a>(&'a self, key: &'a P2pNetworkKadKey) -> FindNode<'a, K> {
-        FindNode::new(self, key)
+    ///
+    /// The number of entries is limited to 20.
+    pub fn find_node<'a>(&'a self, key: &'a P2pNetworkKadKey) -> impl Iterator<Item = &'a P2pNetworkKadEntry> {
+        self.closest_peers(key).take(20)
     }
 
     /// Returns iterator of nodes closest to the current one.
     /// TODO: use reverse order over bucket, from the deepest bucket.
-    pub fn closest<'a>(&'a self) -> impl Iterator<Item = &'a P2pNetworkKadEntry> {
-        self.find_node(&self.this_key)
+    pub fn closest_peers<'a>(&'a self, key: &'a P2pNetworkKadKey) -> ClosestPeers<'a, K> {
+        ClosestPeers::new(self, key)
     }
 
     #[cfg(test)]
@@ -396,35 +398,32 @@ impl<'a> From<&'a P2pNetworkKadEntry> for super::mod_Message::Peer<'a> {
     }
 }
 
-pub struct FindNode<'a, const K: usize> {
+pub struct ClosestPeers<'a, const K: usize> {
     table: &'a P2pNetworkKadRoutingTable<K>,
     start_index: usize,
     bucket_index: usize,
-    count: usize,
     bucket_iterator: std::slice::Iter<'a, P2pNetworkKadEntry>,
     key: &'a P2pNetworkKadKey,
 }
 
-impl<'a, const K: usize> FindNode<'a, K> {
+impl<'a, const K: usize> ClosestPeers<'a, K> {
     fn new(table: &'a P2pNetworkKadRoutingTable<K>, key: &'a P2pNetworkKadKey) -> Self {
         let start_index = (&table.this_key - key)
             .to_index()
             .min(table.buckets.len() - 1);
         let bucket_index = start_index;
         let bucket_iterator = table.buckets[start_index].iter();
-        let count = 0;
-        FindNode {
+        ClosestPeers {
             table,
             start_index,
             bucket_index,
             bucket_iterator,
-            count,
             key,
         }
     }
 }
 
-impl<'a, const K: usize> Iterator for FindNode<'a, K> {
+impl<'a, const K: usize> Iterator for ClosestPeers<'a, K> {
     type Item = &'a P2pNetworkKadEntry;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -434,8 +433,7 @@ impl<'a, const K: usize> Iterator for FindNode<'a, K> {
                 if &item.key == self.key || &item.key == &self.table.this_key {
                     continue;
                 }
-                self.count += 1;
-                return (self.count <= K).then_some(item);
+                return Some(item);
             }
             self.bucket_index = if self.bucket_index >= self.start_index {
                 if self.bucket_index + 1 >= self.table.buckets.len() {

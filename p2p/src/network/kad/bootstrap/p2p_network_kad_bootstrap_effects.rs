@@ -27,42 +27,30 @@ impl P2pNetworkKadBootstrapAction {
                     store.dispatch(P2pNetworkKademliaAction::BootstrapFinished {});
                 } else {
                     // start FIND_NODE request for each address if there is no such request already.
-                    let key = bootstrap_state.key.clone();
-                    let peer_id = store.state().config.identity_pub_key.peer_id();
+                    let key = bootstrap_state.key;
                     bootstrap_state
                         .requests
                         .iter()
-                        .filter_map(|req| {
-                            (!discovery_state.requests.contains_key(&req.addr)).then_some(req.addr)
+                        .filter_map(|(peer_id, req)| {
+                            (!discovery_state.requests.contains_key(peer_id))
+                                .then_some((*peer_id, req.addr))
                         })
                         .collect::<Vec<_>>()
                         .into_iter()
-                        .for_each(|addr| {
-                            store.dispatch(P2pNetworkKadRequestAction::New {
-                                addr,
-                                peer_id: peer_id.clone(),
-                                key: key.clone(),
-                            });
+                        .for_each(|(peer_id, addr)| {
+                            store.dispatch(P2pNetworkKadRequestAction::New { addr, peer_id, key });
                         });
                 }
                 Ok(())
             }
             A::RequestDone { .. } => {
-                if bootstrap_state
-                    .stats
-                    .requests
-                    .iter()
-                    .filter(|req| {
-                        matches!(
-                            req,
-                            crate::bootstrap::P2pNetworkKadBootstrapRequestStat::Successfull(_)
-                        )
-                    })
-                    .count()
-                    < 20
-                {
+                if bootstrap_state.successfull_requests < 20 {
                     store.dispatch(A::CreateRequests {});
                 }
+                Ok(())
+            }
+            A::RequestError { .. } => {
+                store.dispatch(A::CreateRequests {});
                 Ok(())
             }
         }

@@ -228,6 +228,7 @@ pub enum ActionKind {
     P2pListenNew,
     P2pNetworkKadBootstrapCreateRequests,
     P2pNetworkKadBootstrapRequestDone,
+    P2pNetworkKadBootstrapRequestError,
     P2pNetworkKadRequestError,
     P2pNetworkKadRequestMuxReady,
     P2pNetworkKadRequestNew,
@@ -403,7 +404,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 311;
+    pub const COUNT: u16 = 312;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -1282,6 +1283,7 @@ impl ActionKindGet for P2pNetworkKadBootstrapAction {
         match self {
             Self::CreateRequests { .. } => ActionKind::P2pNetworkKadBootstrapCreateRequests,
             Self::RequestDone { .. } => ActionKind::P2pNetworkKadBootstrapRequestDone,
+            Self::RequestError { .. } => ActionKind::P2pNetworkKadBootstrapRequestError,
         }
     }
 }

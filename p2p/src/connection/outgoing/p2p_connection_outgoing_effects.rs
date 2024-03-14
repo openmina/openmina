@@ -3,8 +3,8 @@ use redux::ActionMeta;
 use crate::connection::{P2pConnectionErrorResponse, P2pConnectionState};
 use crate::peer::P2pPeerAction;
 use crate::webrtc::Host;
-use crate::P2pPeerStatus;
 use crate::{connection::P2pConnectionService, webrtc};
+use crate::{P2pNetworkKadRequestAction, P2pPeerStatus};
 
 use super::{
     P2pConnectionOutgoingAction, P2pConnectionOutgoingError, P2pConnectionOutgoingInitOpts,
@@ -125,6 +125,20 @@ impl P2pConnectionOutgoingAction {
                     peer_id,
                     incoming: false,
                 });
+            }
+            P2pConnectionOutgoingAction::Error { peer_id, error } => {
+                if let Some(_) = store
+                    .state()
+                    .network
+                    .scheduler
+                    .discovery_state()
+                    .and_then(|discovery_state| discovery_state.request(&peer_id))
+                {
+                    store.dispatch(P2pNetworkKadRequestAction::Error {
+                        peer_id,
+                        error: format!("{error:?}"),
+                    });
+                }
             }
             _ => {}
         }

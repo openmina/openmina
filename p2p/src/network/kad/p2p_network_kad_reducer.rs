@@ -23,16 +23,16 @@ impl super::P2pNetworkKadState {
                 .map_err(|_request| format!("kademlia request to {addr} is already in progress"))
                 .and_then(|request| request.reducer(meta.with_action(action))),
             P2pNetworkKadAction::Request(super::request::P2pNetworkKadRequestAction::Prune {
-                addr,
+                peer_id,
             }) => self
                 .requests
-                .remove(addr)
+                .remove(peer_id)
                 .map(|_| ())
-                .ok_or_else(|| format!("kademlia request for {addr} is not found")),
+                .ok_or_else(|| format!("kademlia request for {peer_id} is not found")),
             P2pNetworkKadAction::Request(action) => self
                 .requests
-                .get_mut(action.addr())
-                .ok_or_else(|| format!("kademlia request for {} is not found", action.addr()))
+                .get_mut(action.peer_id())
+                .ok_or_else(|| format!("kademlia request for {} is not found", action.peer_id()))
                 .and_then(|request| request.reducer(meta.with_action(action))),
 
             P2pNetworkKadAction::Stream(action @ P2pNetworkKademliaStreamAction::New { .. }) => {

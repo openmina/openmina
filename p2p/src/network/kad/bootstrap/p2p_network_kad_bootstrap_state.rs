@@ -1,4 +1,7 @@
-use std::{collections::BTreeSet, net::SocketAddr};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    net::SocketAddr,
+};
 
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
@@ -17,7 +20,11 @@ pub struct P2pNetworkKadBootstrapState {
     /// Peers that already been contacted (successfully or not) for FIND_NODE.
     pub processed_peers: BTreeSet<PeerId>,
     /// Ongoing FIND_NODE requests.
-    pub requests: Vec<P2pNetworkKadBoostrapRequestState>,
+    ///
+    /// TODO: replace with something more lightweight.
+    pub requests: BTreeMap<PeerId, P2pNetworkKadBoostrapRequestState>,
+    ///
+    pub successfull_requests: usize,
     /// Bootstrap requests statistics.
     pub stats: P2pNetworkKadBootstrapStats,
 }
@@ -28,26 +35,19 @@ impl P2pNetworkKadBootstrapState {
             key,
             kademlia_key: key.into(),
             processed_peers: BTreeSet::new(),
-            requests: Vec::with_capacity(3),
+            requests: BTreeMap::new(),
+            successfull_requests: 0,
             stats: Default::default(),
         }
     }
 
-    pub fn request(
-        &self,
-        addr: &SocketAddr,
-    ) -> Option<(usize, &P2pNetworkKadBoostrapRequestState)> {
-        self.requests
-            .iter()
-            .enumerate()
-            .find(|(_, req)| addr == &req.addr)
+    pub fn request(&self, peer_id: &PeerId) -> Option<&P2pNetworkKadBoostrapRequestState> {
+        self.requests.get(peer_id)
     }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct P2pNetworkKadBoostrapRequestState {
-    /// Peer id
-    pub peer_id: PeerId,
     /// Address that is used for the current connection.
     // TODO: generalize to DNS addrs
     pub addr: SocketAddr,
@@ -72,12 +72,14 @@ pub enum P2pNetworkKadBootstrapRequestStat {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct P2pNetworkKadBootstrapOngoingRequest {
+    pub peer_id: PeerId,
     pub address: P2pConnectionOutgoingInitOpts,
     pub start: Timestamp,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct P2pNetworkKadBootstrapSuccessfullRequest {
+    pub peer_id: PeerId,
     pub address: P2pConnectionOutgoingInitOpts,
     pub start: Timestamp,
     pub finish: Timestamp,
@@ -86,6 +88,7 @@ pub struct P2pNetworkKadBootstrapSuccessfullRequest {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct P2pNetworkKadBootstrapFailedRequest {
+    pub peer_id: PeerId,
     pub address: P2pConnectionOutgoingInitOpts,
     pub start: Timestamp,
     pub finish: Timestamp,

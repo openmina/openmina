@@ -3,7 +3,8 @@ use redux::{ActionMeta, ActionWithMeta};
 use crate::{
     channels::{P2pChannelsAction, P2pChannelsService},
     connection::{
-        outgoing::P2pConnectionOutgoingAction, P2pConnectionAction, P2pConnectionService,
+        incoming::P2pConnectionIncomingState, outgoing::P2pConnectionOutgoingAction,
+        P2pConnectionAction, P2pConnectionService, P2pConnectionState,
     },
     disconnection::P2pDisconnectionService,
     discovery::P2pDiscoveryAction,
@@ -77,7 +78,13 @@ where
         .state()
         .peers
         .iter()
-        .filter_map(|(_, p)| p.dial_opts.clone())
+        .filter_map(|(_, p)| match p.status {
+            crate::P2pPeerStatus::Connecting(P2pConnectionState::Incoming(
+                P2pConnectionIncomingState::Error { .. },
+            ))
+            | crate::P2pPeerStatus::Disconnected { .. } => p.dial_opts.clone(),
+            _ => None,
+        })
         .map(|opts| P2pConnectionOutgoingAction::Reconnect { opts, rpc_id: None })
         .collect();
     for action in reconnect_actions {

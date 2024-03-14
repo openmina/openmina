@@ -63,28 +63,15 @@ impl P2pNetworkKademliaAction {
             }
             (
                 UpdateFindNodeRequest {
-                    addr,
-                    peer_id: _,
+                    addr: _,
+                    peer_id,
                     stream_id: _,
                     closest_peers,
                 },
                 _,
             ) => {
-                let bootstrap_request = state
-                    .bootstrap_state()
-                    .and_then(|bootstrap_state| bootstrap_state.request(&addr))
-                    .is_some();
                 let data = closest_peers.clone();
-                let closest_peers = bootstrap_request
-                    .then(|| state.latest_request_peers.clone())
-                    .unwrap_or_default();
-                store.dispatch(P2pNetworkKadRequestAction::ReplyReceived { addr, data });
-                if bootstrap_request {
-                    store.dispatch(P2pNetworkKadBootstrapAction::RequestDone {
-                        addr,
-                        closest_peers,
-                    });
-                }
+                store.dispatch(P2pNetworkKadRequestAction::ReplyReceived { peer_id, data });
                 Ok(())
             }
             (StartBootstrap { .. }, _) => {

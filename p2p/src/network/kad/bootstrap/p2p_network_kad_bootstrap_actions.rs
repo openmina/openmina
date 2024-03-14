@@ -1,16 +1,18 @@
-use std::net::SocketAddr;
-
 use redux::EnablingCondition;
 use serde::{Deserialize, Serialize};
 
-use crate::{P2pAction, P2pNetworkKadAction, P2pNetworkKadLatestRequestPeers, P2pState};
+use crate::{P2pAction, P2pNetworkKadAction, P2pNetworkKadLatestRequestPeers, P2pState, PeerId};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum P2pNetworkKadBootstrapAction {
     CreateRequests {},
     RequestDone {
-        addr: SocketAddr,
+        peer_id: PeerId,
         closest_peers: P2pNetworkKadLatestRequestPeers,
+    },
+    RequestError {
+        peer_id: PeerId,
+        error: String,
     },
 }
 
@@ -24,17 +26,15 @@ impl EnablingCondition<P2pState> for P2pNetworkKadBootstrapAction {
                 .as_ref()
                 .and_then(|discovery_state| discovery_state.bootstrap_state())
                 .map_or(false, |bootstrap_state| bootstrap_state.requests.len() < 3),
-            P2pNetworkKadBootstrapAction::RequestDone {
-                addr,
-                closest_peers: _,
-            } => state
+            P2pNetworkKadBootstrapAction::RequestDone { peer_id, .. }
+            | P2pNetworkKadBootstrapAction::RequestError { peer_id, .. } => state
                 .network
                 .scheduler
                 .discovery_state
                 .as_ref()
                 .and_then(|discovery_state| discovery_state.bootstrap_state())
                 .map_or(false, |bootstrap_state| {
-                    bootstrap_state.request(addr).is_some()
+                    bootstrap_state.request(peer_id).is_some()
                 }),
         }
     }

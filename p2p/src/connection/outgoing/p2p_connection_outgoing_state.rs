@@ -116,7 +116,7 @@ impl P2pConnectionOutgoingState {
         !matches!(self, Self::Error { .. })
             && now
                 .checked_sub(self.time())
-                .map_or(false, |dur| dur >= Duration::from_secs(30))
+                .map_or(false, |dur| dur >= Duration::from_secs(10))
     }
 }
 

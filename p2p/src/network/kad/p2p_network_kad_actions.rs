@@ -69,13 +69,13 @@ impl EnablingCondition<P2pState> for P2pNetworkKademliaAction {
                 peer_id, stream_id, ..
             } => state.find_kad_stream_state(peer_id, stream_id).is_some(),
             P2pNetworkKademliaAction::UpdateFindNodeRequest {
-                addr,
+                addr: _,
                 peer_id,
                 stream_id,
                 ..
             } => {
                 state.find_kad_stream_state(peer_id, stream_id).is_some()
-                    && state.request(addr).is_some()
+                    && state.request(peer_id).is_some()
             }
             P2pNetworkKademliaAction::StartBootstrap { .. } => {
                 // TODO: also can run bootstrap on timely basis.

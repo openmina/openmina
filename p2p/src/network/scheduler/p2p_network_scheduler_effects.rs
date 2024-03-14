@@ -5,6 +5,7 @@ use redux::ActionMeta;
 
 use crate::{
     connection::{incoming::P2pConnectionIncomingAction, outgoing::P2pConnectionOutgoingAction},
+    request::{P2pNetworkKadRequestState, P2pNetworkKadRequestStatus},
     token::{RpcAlgorithm, StreamKind},
     MioCmd, P2pCryptoService, P2pMioService,
 };
@@ -123,7 +124,7 @@ impl P2pNetworkSchedulerAction {
                                     store.state().network.scheduler.discovery_state()
                                 {
                                     let request =
-                                        !a.incoming && discovery_state.request(&a.addr).is_some();
+                                        !a.incoming && discovery_state.request(&peer_id).is_some();
                                     store.dispatch(P2pNetworkKademliaStreamAction::New {
                                         addr: a.addr,
                                         peer_id,
@@ -133,6 +134,7 @@ impl P2pNetworkSchedulerAction {
                                     // if our node initiated a request to the peer, notify that the stream is ready.
                                     if request {
                                         store.dispatch(P2pNetworkKadRequestAction::StreamReady {
+                                            peer_id,
                                             addr: a.addr,
                                             stream_id,
                                         });
@@ -163,7 +165,25 @@ impl P2pNetworkSchedulerAction {
                             SelectKind::Multiplexing(_) => {
                                 // TODO: close the connection
                             }
-                            SelectKind::Stream(_, _) => {}
+                            SelectKind::Stream(peer_id, stream_id) => {
+                                println!("=== SelectDone(Stream(None)), {peer_id} {stream_id}");
+                                if let Some(discovery_state) =
+                                    store.state().network.scheduler.discovery_state()
+                                {
+                                    if let Some(P2pNetworkKadRequestState {
+                                        status: P2pNetworkKadRequestStatus::WaitingForKadStream(id),
+                                        ..
+                                    }) = discovery_state.request(&peer_id)
+                                    {
+                                        if id == stream_id {
+                                            store.dispatch(P2pNetworkKadRequestAction::Error {
+                                                peer_id: *peer_id,
+                                                error: "stream protocol is not negotiated".into(),
+                                            });
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -172,7 +192,9 @@ impl P2pNetworkSchedulerAction {
                 // TODO: close stream or connection
             }
             Self::YamuxDidInit(a) => {
-                if let Some(cn) = store.state().network.scheduler.connections.get(&a.addr) {
+                let peer_id = a.peer_id;
+                let addr = a.addr;
+                if let Some(cn) = store.state().network.scheduler.connections.get(&addr) {
                     // for each negotiated yamux conenction open a new outgoing RPC stream
                     // TODO(akoptelov,vlad): should we do that? shouldn't upper layer decide when to open RPC streams?
                     // Also rpc streams are short-living -- they only persist for a single request-response (?)
@@ -189,18 +211,14 @@ impl P2pNetworkSchedulerAction {
                         .network
                         .scheduler
                         .discovery_state()
-                        .map_or(false, |state| state.request(&a.addr).is_some())
+                        .map_or(false, |state| state.request(&peer_id).is_some())
                     {
-                        store.dispatch(P2pNetworkKadRequestAction::MuxReady { addr: a.addr });
+                        store.dispatch(P2pNetworkKadRequestAction::MuxReady { peer_id, addr });
                     }
                     if incoming {
-                        store.dispatch(P2pConnectionIncomingAction::FinalizeSuccess {
-                            peer_id: a.peer_id.clone(),
-                        });
+                        store.dispatch(P2pConnectionIncomingAction::FinalizeSuccess { peer_id });
                     } else {
-                        store.dispatch(P2pConnectionOutgoingAction::FinalizeSuccess {
-                            peer_id: a.peer_id.clone(),
-                        });
+                        store.dispatch(P2pConnectionOutgoingAction::FinalizeSuccess { peer_id });
                     }
                 }
             }

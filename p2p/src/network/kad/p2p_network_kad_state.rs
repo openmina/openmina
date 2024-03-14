@@ -30,7 +30,7 @@ pub enum P2pNetworkKadStatus {
 pub struct P2pNetworkKadState {
     pub routing_table: P2pNetworkKadRoutingTable,
     pub latest_request_peers: P2pNetworkKadLatestRequestPeers,
-    pub requests: BTreeMap<SocketAddr, P2pNetworkKadRequestState>,
+    pub requests: BTreeMap<PeerId, P2pNetworkKadRequestState>,
     pub streams: crate::network::scheduler::StreamState<P2pNetworkKadStreamState>,
     pub status: P2pNetworkKadStatus,
 }
@@ -60,8 +60,8 @@ impl P2pNetworkKadState {
         }
     }
 
-    pub fn request(&self, addr: &SocketAddr) -> Option<&P2pNetworkKadRequestState> {
-        self.requests.get(addr)
+    pub fn request(&self, peer_id: &PeerId) -> Option<&P2pNetworkKadRequestState> {
+        self.requests.get(peer_id)
     }
 
     pub fn create_request(
@@ -70,7 +70,7 @@ impl P2pNetworkKadState {
         peer_id: PeerId,
         key: PeerId,
     ) -> Result<&mut P2pNetworkKadRequestState, &P2pNetworkKadRequestState> {
-        match self.requests.entry(addr) {
+        match self.requests.entry(peer_id) {
             std::collections::btree_map::Entry::Vacant(v) => {
                 Ok(v.insert(P2pNetworkKadRequestState {
                     peer_id,

@@ -19,7 +19,7 @@ impl P2pNetworkKadRequestState {
             }
             A::PeerIsConnecting { .. } => self.status = S::WaitingForConnection,
             A::MuxReady { .. } => {}
-            A::StreamIsCreating { .. } => self.status = S::WaitingForKadStream,
+            A::StreamIsCreating { stream_id, .. } => self.status = S::WaitingForKadStream(*stream_id),
             A::StreamReady { .. } => {
                 let find_node = P2pNetworkKademliaRpcRequest::FindNode {
                     key: self.key.clone(),
