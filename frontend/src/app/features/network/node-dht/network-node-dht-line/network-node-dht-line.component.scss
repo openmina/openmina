@@ -1,21 +1,41 @@
 @import 'openmina';
 
 .list {
-  height: 30px;
+  height: 16px;
 }
 
 .point {
-  width: 15px;
-  height: 15px;
   position: absolute;
-  border-radius: 20px;
-  top: 6px;
+  width: 8px;
+  height: 8px;
+  border-radius: 8px;
+  background-color: $base-secondary;
+  transform: translateY(-50%);
+
+  &.origin {
+    background-color: $base-surface;
+    border: 2px solid $special-selected-alt-1-primary;
+  }
 }
 
 .bucket {
-  top: 0;
-  width: 2px;
-  height: 30px;
   border-radius: 0;
-  border: 2px solid red;
+  border-right: 2px dashed $base-tertiary;
+  top: 50%;
+  transform: translateY(-50%);
+
+  .mid-line {
+    height: 1px;
+    background-color: $base-tertiary2;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+
+  &:hover {
+    background-color: $selected-container;
+
+    .mid-line {
+      background-color: $selected-primary;
+    }
+  }
 }
