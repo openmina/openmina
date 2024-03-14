@@ -20,8 +20,6 @@ use node::core::channels::mpsc;
 use node::core::requests::{PendingRequests, RequestId};
 use node::core::snark::{Snark, SnarkJobId};
 use node::external_snark_worker::ExternalSnarkWorkerEvent;
-#[cfg(feature = "p2p-libp2p")]
-use node::p2p::service_impl::libp2p::Libp2pService;
 use node::p2p::service_impl::webrtc_with_libp2p::P2pServiceWebrtcWithLibp2p;
 use node::p2p::{P2pCryptoService, P2pMioService};
 use node::recorder::Recorder;
@@ -280,45 +278,6 @@ impl P2pServiceWebrtc for NodeTestingService {
 }
 
 impl P2pServiceWebrtcWithLibp2p for NodeTestingService {
-    #[cfg(feature = "p2p-libp2p")]
-    fn libp2p(&mut self) -> &mut Libp2pService {
-        &mut self.real.libp2p
-    }
-
-    #[cfg(feature = "p2p-libp2p")]
-    fn find_random_peer(&mut self) {
-        use node::p2p::identity::SecretKey as P2pSecretKey;
-        use node::p2p::service_impl::libp2p::Cmd;
-
-        if self.is_replay {
-            return;
-        }
-
-        let secret_key = P2pSecretKey::from_bytes({
-            let mut bytes = [1; 32];
-            let bytes_len = bytes.len();
-            let i_bytes = self.id.index().to_be_bytes();
-            let i = bytes_len - i_bytes.len();
-            bytes[i..bytes_len].copy_from_slice(&i_bytes);
-            bytes
-        });
-        let peer_id = secret_key.public_key().peer_id();
-
-        self.libp2p()
-            .cmd_sender()
-            .send(Cmd::FindNode(peer_id.into()))
-            .unwrap_or_default();
-    }
-
-    #[cfg(feature = "p2p-libp2p")]
-    fn start_discovery(&mut self, peers: Vec<P2pConnectionOutgoingInitOpts>) {
-        if self.is_replay {
-            return;
-        }
-        self.real.start_discovery(peers)
-    }
-
-    #[cfg(not(feature = "p2p-libp2p"))]
     fn mio(&mut self) -> &mut node::p2p::service_impl::mio::MioService {
         self.real.mio()
     }

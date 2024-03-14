@@ -19,7 +19,7 @@ pub struct OcamlNode {
     executable: OcamlNodeExecutable,
     pub libp2p_port: u16,
     pub graphql_port: u16,
-    peer_id: libp2p::PeerId,
+    peer_id: libp2p_identity::PeerId,
     #[allow(dead_code)]
     temp_dir: temp_dir::TempDir,
 }

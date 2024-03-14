@@ -58,9 +58,6 @@ impl ReplayStateWithInputActions {
             cmd_sender: mpsc::unbounded_channel().0,
             ledger: Default::default(),
             peers: Default::default(),
-            #[cfg(feature = "p2p-libp2p")]
-            libp2p: node::p2p::service_impl::libp2p::Libp2pService::mocked().0,
-            #[cfg(not(feature = "p2p-libp2p"))]
             mio: node::p2p::service_impl::mio::MioService::mocked(),
             block_producer: None,
             keypair: Keypair::generate_ed25519(),

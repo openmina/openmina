@@ -37,4 +37,3 @@ vergen = { version = "8.2.4", features = ["build", "cargo", "git", "gitcl", "rus
 [features]
 replay = []
 p2p-webrtc = ["p2p/p2p-webrtc"]
-p2p-libp2p = ["p2p/p2p-libp2p"]

@@ -34,8 +34,10 @@ documented = { version = "0.1", optional = true }
 redux = { workspace = true }
 ledger = { workspace = true }
 mina-p2p-messages = { workspace = true }
-libp2p = { workspace = true, features = ["macros", "serde", "tcp", "dns", "tokio", "yamux", "pnet", "noise", "gossipsub"] }
 vrf = { workspace = true }
+libp2p-identity = { version = "=0.2.7", features = ["peerid"] }
+futures = { version = "0.3.30" }
+multiaddr = { version = "0.18.1" }
 
 nix = { version = "0.27.1", features = ["process", "signal"] }
 ctrlc = "3.4.2"
@@ -50,7 +52,6 @@ openmina-node-invariants = { path = "../../node/invariants" }
 openmina-node-native = { path = "../../node/native" }
 
 [features]
-default = ["scenario-generators", "p2p-libp2p"]
+default = ["scenario-generators"]
 scenario-generators = ["documented"]
 p2p-webrtc = ["openmina-node-native/p2p-webrtc"]
-p2p-libp2p = ["openmina-node-native/p2p-libp2p"]

@@ -1,6 +1,6 @@
 use std::{collections::HashMap, time::Duration};
 
-use libp2p::Multiaddr;
+use multiaddr::Multiaddr;
 
 use node::{
     event_source::Event,
@@ -51,7 +51,7 @@ impl SoloNodeBasicConnectivityInitialJoining {
             .initial_peers(initial_peers);
 
         let node_id = runner.add_rust_node(config);
-        let peer_id = libp2p::PeerId::from(
+        let peer_id = libp2p_identity::PeerId::from(
             runner
                 .node(node_id)
                 .expect("must exist")

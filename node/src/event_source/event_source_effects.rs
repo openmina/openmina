@@ -14,14 +14,12 @@ use crate::p2p::connection::outgoing::P2pConnectionOutgoingAction;
 use crate::p2p::connection::{P2pConnectionErrorResponse, P2pConnectionResponse};
 use crate::p2p::disconnection::{P2pDisconnectionAction, P2pDisconnectionReason};
 use crate::p2p::discovery::P2pDiscoveryAction;
-#[cfg(all(not(target_arch = "wasm32"), not(feature = "p2p-libp2p")))]
 use crate::p2p::network::{
     P2pNetworkSchedulerIncomingConnectionIsReadyAction,
     P2pNetworkSchedulerIncomingDataDidReceiveAction, P2pNetworkSchedulerIncomingDataIsReadyAction,
     P2pNetworkSchedulerIncomingDidAcceptAction, P2pNetworkSchedulerInterfaceDetectedAction,
     P2pNetworkSchedulerInterfaceExpiredAction, P2pNetworkSchedulerOutgoingDidConnectAction,
 };
-#[cfg(all(not(target_arch = "wasm32"), not(feature = "p2p-libp2p")))]
 use crate::p2p::MioEvent;
 use crate::p2p::P2pChannelEvent;
 use crate::rpc::{RpcAction, RpcRequest};
@@ -56,7 +54,6 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
         // "Translate" event into the corresponding action and dispatch it.
         EventSourceAction::NewEvent { event } => match event {
             Event::P2p(e) => match e {
-                #[cfg(all(not(target_arch = "wasm32"), not(feature = "p2p-libp2p")))]
                 P2pEvent::MioEvent(e) => match e {
                     MioEvent::InterfaceDetected(ip) => {
                         store.dispatch(P2pNetworkSchedulerInterfaceDetectedAction { ip });
@@ -231,8 +228,6 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                         store.dispatch(P2pDisconnectionAction::Init { peer_id, reason });
                     }
                 },
-                #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
-                P2pEvent::Libp2pIdentify(..) => {}
                 P2pEvent::Discovery(p2p::P2pDiscoveryEvent::Ready) => {}
                 P2pEvent::Discovery(p2p::P2pDiscoveryEvent::DidFindPeers(peers)) => {
                     store.dispatch(P2pDiscoveryAction::KademliaSuccess { peers });
