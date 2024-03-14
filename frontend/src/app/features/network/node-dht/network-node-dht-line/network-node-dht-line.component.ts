@@ -2,22 +2,15 @@ import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
 import { NetworkNodeDhtState } from '@network/node-dht/network-node-dht.state';
 import { selectNetworkNodeDhtState } from '@network/network.state';
-import { filter, skip, take } from 'rxjs';
+import { filter } from 'rxjs';
 
 interface DhtPoint {
   left: number;
   distance: number;
-  color: string;
   isBucket: boolean;
   isOrigin?: boolean;
   peerId?: string;
 }
-
-const randomColor = () => {
-  return `#${Math.floor(Math.random() * 16777215).toString(16)}`;
-};
-
-const color50Array = Array.from({ length: 50 }, () => randomColor());
 
 @Component({
   selector: 'mina-network-node-dht-line',
@@ -43,7 +36,6 @@ export class NetworkNodeDhtLineComponent extends StoreDispatcher implements OnIn
       this.buckets = [];
       const max_keyspace_hex = 'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';
       const max_keyspace_int = BigInt('0x' + max_keyspace_hex);
-      const this_key_int = BigInt('0x' + state.thisKey);
 
       const buckets = Array.from(new Set(state.peers.map(peer => peer.bucketIndex)));
       for (const bucket of buckets.reverse()) {
@@ -54,7 +46,6 @@ export class NetworkNodeDhtLineComponent extends StoreDispatcher implements OnIn
         this.buckets.push({
           left: left_percent,
           distance: max_dist_int,
-          color: '',
           isBucket: true,
           peerId: ''
         });
@@ -66,14 +57,11 @@ export class NetworkNodeDhtLineComponent extends StoreDispatcher implements OnIn
         this.points.push({
           left: dist_normalized * 100,
           distance: dist_normalized,
-          color: '',
           isBucket: false,
           isOrigin: peer.key === state.thisKey,
           peerId: peer.peerId
         });
       }
-      console.log(this.buckets);
-      this.points.forEach((point, index) => point.color = color50Array[index]);
       this.detect();
     }, filter(state => !!state.thisKey));
   }

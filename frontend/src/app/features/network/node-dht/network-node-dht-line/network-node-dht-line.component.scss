@@ -15,6 +15,14 @@
   &.origin {
     background-color: $base-surface;
     border: 2px solid $special-selected-alt-1-primary;
+
+    &:hover {
+      background-color: $special-selected-alt-1-primary;
+    }
+  }
+
+  &:hover:not(.origin) {
+    background-color: $base-primary;
   }
 }
 
@@ -23,6 +31,7 @@
   border-right: 2px dashed $base-tertiary;
   top: 50%;
   transform: translateY(-50%);
+  background-color: $base-container;
 
   .mid-line {
     height: 1px;
