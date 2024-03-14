@@ -26,6 +26,7 @@ export class NetworkNodeDhtService {
             peerId: entry.peer_id,
             addressesLength: entry.addrs.length,
             addrs: entry.addrs,
+            key: entry.key,
             hexDistance: entry.dist,
             binaryDistance,
             xorDistance: entry.key === response.this_key ? '-' : this.getNumberOfZerosUntilFirst1(binaryDistance),

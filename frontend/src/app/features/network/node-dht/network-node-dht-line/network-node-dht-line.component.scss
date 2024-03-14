@@ -5,8 +5,17 @@
 }
 
 .point {
-  width: 20px;
-  height: 20px;
+  width: 15px;
+  height: 15px;
   position: absolute;
   border-radius: 20px;
+  top: 6px;
+}
+
+.bucket {
+  top: 0;
+  width: 2px;
+  height: 30px;
+  border-radius: 0;
+  border: 2px solid red;
 }
