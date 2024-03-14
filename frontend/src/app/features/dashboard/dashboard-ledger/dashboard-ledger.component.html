@@ -1,18 +1,24 @@
-<div class="flex-column w-100 bg-surface border-rad-6 pl-12 pr-12">
-  <div class="f-600 primary h-xl lh-xl fx-row-vert-cent flex-between">
+<div class="flex-column w-100 bg-surface border-rad-6">
+  <div class="h-xl lh-xl fx-row-vert-cent flex-between f-600 pl-12 pr-12 p-relative">
     <div [class.success-primary]="ledgers.root.synced">Ledgers</div>
     <div class="tertiary f-400">{{ progress }}</div>
+    <div *ngIf="totalProgress" [style.width.%]="totalProgress"
+         class="progress-bar p-absolute">
+      <div class="highlight p-absolute" *ngIf="totalProgress < 100"></div>
+      <div class="progress p-absolute w-100"></div>
+    </div>
   </div>
-  <div class="flex-column h-minus-xl primary">
+  <div class="flex-column h-minus-xl primary pl-12 pr-12">
     <div class="group flex-column"
          [ngClass]="ledgers.stakingEpoch.state">
       <div class="fx-row-vert-cent lh-lg h-lg">
         <ng-container *ngTemplateOutlet="icon; context: { state: ledgers.stakingEpoch.state }"></ng-container>
         <span class="group-title pl-5">Staking ledger</span>
-        <span [style.margin-left]="'auto'">
-        <ng-container
-          *ngTemplateOutlet="ledgerTime; context: { state: ledgers.stakingEpoch.state, time: ledgers.stakingEpoch.totalTime }"></ng-container>
-      </span>
+        <div [style.margin-left]="'auto'">
+          <div class="primary f-600"
+               [class.success-primary]="stakingProgress === 100">{{ stakingProgress | number: '1.0-0' }}%
+          </div>
+        </div>
       </div>
       <div class="steps flex-column">
         <div class="flex-row flex-between h-lg lh-lg"
@@ -34,10 +40,11 @@
       <div class="fx-row-vert-cent lh-lg h-lg">
         <ng-container *ngTemplateOutlet="icon; context: { state: ledgers.nextEpoch.state }"></ng-container>
         <span class="group-title pl-5">Next epoch ledger</span>
-        <span [style.margin-left]="'auto'">
-        <ng-container
-          *ngTemplateOutlet="ledgerTime; context: { state: ledgers.nextEpoch.state, time: ledgers.nextEpoch.totalTime }"></ng-container>
-      </span>
+        <div [style.margin-left]="'auto'">
+          <div class="primary f-600" [class.success-primary]="nextProgress === 100">
+            {{ nextProgress | number: '1.0-0' }}%
+          </div>
+        </div>
       </div>
       <div class="steps flex-column">
         <div class="flex-row flex-between h-lg lh-lg"
@@ -59,10 +66,11 @@
       <div class="fx-row-vert-cent lh-lg h-lg">
         <ng-container *ngTemplateOutlet="icon; context: { state: ledgers.root.state }"></ng-container>
         <span class="group-title pl-5">Ledger at the root</span>
-        <span [style.margin-left]="'auto'">
-        <ng-container
-          *ngTemplateOutlet="ledgerTime; context: { state: ledgers.root.state, time: ledgers.root.totalTime }"></ng-container>
-      </span>
+        <div [style.margin-left]="'auto'">
+          <div class="primary f-600" [class.success-primary]="rootProgress === 100">
+            {{ rootProgress | number: '1.0-0' }}%
+          </div>
+        </div>
       </div>
       <div class="steps flex-column">
         <div class="flex-row flex-between h-lg lh-lg"

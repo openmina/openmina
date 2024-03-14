@@ -47,7 +47,7 @@ export class DashboardService {
       peerResponses,
       stakingLedger: response.staking_ledger_sync,
       nextLedger: response.next_epoch_ledger_sync,
-      rootLedger: response.root_ledger,
+      rootLedger: response.root_ledger_sync,
     };
   }
 }
@@ -67,7 +67,7 @@ export interface MessageProgressResponse {
   messages_stats: MessagesStats;
   staking_ledger_sync: Estimation;
   next_epoch_ledger_sync: Estimation;
-  root_ledger: Estimation;
+  root_ledger_sync: Estimation;
 }
 
 export interface MessagesStats {

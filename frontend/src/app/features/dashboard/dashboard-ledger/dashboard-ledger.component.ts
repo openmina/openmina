@@ -86,6 +86,10 @@ export class DashboardLedgerComponent extends StoreDispatcher implements OnInit,
     nextEpoch: this.emptyConfig,
     root: this.emptyConfig,
   };
+  stakingProgress: number = null;
+  nextProgress: number = null;
+  rootProgress: number = null;
+  totalProgress: number;
 
   @ViewChild('tooltipRef') private tooltipRef: TemplateRef<{ start: number, end: number }>;
   private overlayRef: OverlayRef;
@@ -112,7 +116,20 @@ export class DashboardLedgerComponent extends StoreDispatcher implements OnInit,
         root: getConfig(this.ledgers.root.state),
       };
       this.setProgressTime();
-      console.log(rpcStats);
+      this.stakingProgress = rpcStats.stakingLedger?.fetched / rpcStats.stakingLedger?.estimation * 100 || 0;
+      this.nextProgress = rpcStats.nextLedger?.fetched / rpcStats.nextLedger?.estimation * 100 || 0;
+      this.rootProgress = rpcStats.rootLedger?.fetched / rpcStats.rootLedger?.estimation * 100 || 0;
+
+      if (this.ledgers.stakingEpoch.state === NodesOverviewLedgerStepState.SUCCESS) {
+        this.stakingProgress = 100;
+      }
+      if (this.ledgers.nextEpoch.state === NodesOverviewLedgerStepState.SUCCESS) {
+        this.nextProgress = 100;
+      }
+      if (this.ledgers.root.state === NodesOverviewLedgerStepState.SUCCESS) {
+        this.rootProgress = 100;
+      }
+      this.totalProgress = (this.stakingProgress + this.nextProgress + this.rootProgress) / 3;
       this.detect();
     }, filter(n => n[0].length > 0));
   }
