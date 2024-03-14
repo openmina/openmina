@@ -8,7 +8,7 @@ import {
   ViewContainerRef
 } from '@angular/core';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
-import { selectDashboardNodes } from '@dashboard/dashboard.state';
+import { selectDashboardNodes, selectDashboardNodesAndRpcStats } from '@dashboard/dashboard.state';
 import {
   NodesOverviewLedger,
   NodesOverviewLedgerStepState
@@ -18,6 +18,7 @@ import { NodesOverviewNode } from '@shared/types/nodes/dashboard/nodes-overview-
 import { ONE_MILLION, SecDurationConfig } from '@openmina/shared';
 import { Overlay, OverlayRef } from '@angular/cdk/overlay';
 import { TemplatePortal } from '@angular/cdk/portal';
+import { DashboardRpcStats } from '@shared/types/dashboard/dashboard-rpc-stats.type';
 
 type LedgerConfigMap = {
   stakingEpoch: SecDurationConfig,
@@ -99,7 +100,7 @@ export class DashboardLedgerComponent extends StoreDispatcher implements OnInit,
   }
 
   private listenToNodesChanges(): void {
-    this.select(selectDashboardNodes, (nodes: NodesOverviewNode[]) => {
+    this.select(selectDashboardNodesAndRpcStats, ([nodes, rpcStats]: [NodesOverviewNode[], DashboardRpcStats]) => {
       this.ledgers = nodes[0].ledgers;
 
       const getConfig = (state: NodesOverviewLedgerStepState): SecDurationConfig =>
@@ -111,8 +112,9 @@ export class DashboardLedgerComponent extends StoreDispatcher implements OnInit,
         root: getConfig(this.ledgers.root.state),
       };
       this.setProgressTime();
+      console.log(rpcStats);
       this.detect();
-    }, filter(n => n.length > 0));
+    }, filter(n => n[0].length > 0));
   }
 
   show(event: MouseEvent, start: number, end: number): void {

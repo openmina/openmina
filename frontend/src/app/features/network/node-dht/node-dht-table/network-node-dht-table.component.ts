@@ -11,7 +11,7 @@ import { selectNetworkNodeDhtPeers } from '@network/node-dht/network-node-dht.st
   templateUrl: './network-node-dht-table.component.html',
   styleUrls: ['./network-node-dht-table.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { class: 'flex-column h-100' },
+  host: { class: 'flex-column h-100 w-100 flex-1' },
 })
 export class NetworkNodeDhtTableComponent extends MinaTableRustWrapper<NetworkNodeDHT> implements OnInit {
 

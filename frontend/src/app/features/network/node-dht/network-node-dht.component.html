@@ -7,8 +7,10 @@
 </mina-horizontal-resizable-container>
 
 <ng-template #left>
-  <mina-network-node-dht-line></mina-network-node-dht-line>
-  <mina-network-node-dht-table class="flex-1"></mina-network-node-dht-table>
+  <div class="flex-column h-100">
+    <mina-network-node-dht-line></mina-network-node-dht-line>
+    <mina-network-node-dht-table></mina-network-node-dht-table>
+  </div>
 </ng-template>
 
 <ng-template #right>

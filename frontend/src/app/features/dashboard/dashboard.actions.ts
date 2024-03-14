@@ -1,6 +1,7 @@
 import { FeatureAction, TableSort } from '@openmina/shared';
 import { DashboardPeer } from '@shared/types/dashboard/dashboard.peer';
 import { NodesOverviewNode } from '@shared/types/nodes/dashboard/nodes-overview-node.type';
+import { DashboardRpcStats } from '@shared/types/dashboard/dashboard-rpc-stats.type';
 
 enum DashboardActionTypes {
   DASHBOARD_INIT = 'DASHBOARD_INIT',
@@ -35,8 +36,7 @@ export class DashboardGetData implements DashboardAction {
 export class DashboardGetDataSuccess implements DashboardAction {
   readonly type = DASHBOARD_GET_DATA_SUCCESS;
 
-  constructor(public payload: { peers: DashboardPeer[], ledger: NodesOverviewNode[] }) {
-  }
+  constructor(public payload: { peers: DashboardPeer[], ledger: NodesOverviewNode[], rpcStats: DashboardRpcStats }) { }
 }
 
 export class DashboardGetPeers implements DashboardAction {
@@ -46,15 +46,13 @@ export class DashboardGetPeers implements DashboardAction {
 export class DashboardGetPeersSuccess implements DashboardAction {
   readonly type = DASHBOARD_GET_PEERS_SUCCESS;
 
-  constructor(public payload: DashboardPeer[]) {
-  }
+  constructor(public payload: DashboardPeer[]) { }
 }
 
 export class DashboardPeersSort implements DashboardAction {
   readonly type = DASHBOARD_PEERS_SORT;
 
-  constructor(public payload: TableSort<DashboardPeer>) {
-  }
+  constructor(public payload: TableSort<DashboardPeer>) { }
 }
 
 export class DashboardClose implements DashboardAction {

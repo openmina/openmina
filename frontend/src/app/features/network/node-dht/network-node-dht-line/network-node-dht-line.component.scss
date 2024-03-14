@@ -28,7 +28,7 @@
 
 .bucket {
   border-radius: 0;
-  border-right: 2px dashed $base-tertiary;
+  border-right: 2px dotted $base-tertiary;
   top: 50%;
   transform: translateY(-50%);
   background-color: $base-container;

@@ -20,6 +20,7 @@ import { DashboardService } from '@dashboard/dashboard.service';
 import { DashboardPeer } from '@shared/types/dashboard/dashboard.peer';
 import { NodesOverviewService } from '@nodes/overview/nodes-overview.service';
 import { NodesOverviewNode } from '@shared/types/nodes/dashboard/nodes-overview-node.type';
+import { DashboardPeerRpcResponses, DashboardRpcStats } from '@shared/types/dashboard/dashboard-rpc-stats.type';
 
 @Injectable({
   providedIn: 'root',
@@ -80,12 +81,17 @@ export class DashboardEffects extends MinaRustBaseEffect<DashboardActions> {
               url: state.app.activeNode.url,
               name: state.app.activeNode.name,
             }, '?limit=1', true),
+            this.dashboardService.getRpcCalls(),
           ])
       ),
-      map((payload: [DashboardPeer[], NodesOverviewNode[]]) => ({
-        type: DASHBOARD_GET_DATA_SUCCESS, payload: { peers: payload[0], ledger: payload[1] },
+      map((payload: [DashboardPeer[], NodesOverviewNode[], DashboardRpcStats]) => ({
+        type: DASHBOARD_GET_DATA_SUCCESS, payload: { peers: payload[0], ledger: payload[1], rpcStats: payload[2] },
       })),
-      catchErrorAndRepeat(MinaErrorType.GENERIC, DASHBOARD_GET_DATA_SUCCESS, { peers: [], ledger: [] }),
+      catchErrorAndRepeat(MinaErrorType.GENERIC, DASHBOARD_GET_DATA_SUCCESS, {
+        peers: [],
+        ledger: [],
+        rpcStats: { peerResponses: [], stakingLedger: null, nextLedger: null, rootLedger: null }
+      }),
       tap(() => this.pendingRequest = false),
     ));
   }

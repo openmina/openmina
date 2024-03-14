@@ -23,6 +23,7 @@ export class NetworkNodeDhtLineComponent extends StoreDispatcher implements OnIn
 
   points: DhtPoint[] = [];
   buckets: DhtPoint[] = [];
+
   readonly trackPoints = (_: number, point: DhtPoint) => point.left;
   readonly trackBuckets = (_: number, bucket: DhtPoint) => bucket.left;
 

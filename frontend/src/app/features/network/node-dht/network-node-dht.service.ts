@@ -28,6 +28,7 @@ export class NetworkNodeDhtService {
             addrs: entry.addrs,
             key: entry.key,
             hexDistance: entry.dist,
+            libp2p: entry.libp2p,
             binaryDistance,
             xorDistance: entry.key === response.this_key ? '-' : this.getNumberOfZerosUntilFirst1(binaryDistance),
             bucketIndex: response.buckets.indexOf(bucket),

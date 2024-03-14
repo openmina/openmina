@@ -20,6 +20,12 @@ const initialState: DashboardState = {
     sortDirection: SortDirection.DSC,
   },
   nodes: [],
+  rpcStats: {
+    peerResponses: [],
+    stakingLedger: null,
+    nextLedger: null,
+    rootLedger: null,
+  },
   nodeBootstrappingPercentage: 0,
   appliedBlocks: 0,
   maxBlockHeightSeen: 0,
@@ -51,6 +57,7 @@ export function dashboardReducer(state: DashboardState = initialState, action: D
           disconnected: peers.filter(peer => peer.status === DashboardPeerStatus.DISCONNECTED).length,
         },
         nodes: action.payload.ledger,
+        rpcStats: action.payload.rpcStats,
       };
     }
 

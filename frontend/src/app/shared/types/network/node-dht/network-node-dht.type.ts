@@ -3,6 +3,7 @@ export interface NetworkNodeDHT {
   key: string;
   addressesLength: number;
   addrs: string[];
+  libp2p: string;
   hexDistance: string;
   binaryDistance: string;
   xorDistance: string;
