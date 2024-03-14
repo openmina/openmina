@@ -128,6 +128,13 @@ impl TransitionFrontierSyncLedgerSnarkedState {
     pub fn estimation(&self) -> Option<LedgerSyncProgress> {
         const BITS: usize = 35;
 
+        if let Self::Success { .. } = self {
+            return Some(LedgerSyncProgress {
+                fetched: 1,
+                estimation: 1,
+            });
+        }
+
         let Self::Pending {
             next_addr,
             end_addr,

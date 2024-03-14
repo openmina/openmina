@@ -129,11 +129,20 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                         response.next_epoch_ledger_sync = state.estimation()
                     }
                 }
-                TransitionFrontierSyncState::RootLedgerPending(state) => {
-                    if let TransitionFrontierSyncLedgerState::Snarked(state) = &state.ledger {
+                TransitionFrontierSyncState::RootLedgerPending(state) => match &state.ledger {
+                    TransitionFrontierSyncLedgerState::Snarked(state) => {
                         response.root_ledger_sync = state.estimation()
                     }
-                }
+                    TransitionFrontierSyncLedgerState::Staged(_) => {
+                        // We want to answer with a result that will serve as a 100% complete process for the
+                        // frontend while it is still waiting for the staged ledger to complete. Could be cleaner.
+                        response.root_ledger_sync = Some(super::LedgerSyncProgress {
+                            fetched: 1,
+                            estimation: 1,
+                        });
+                    }
+                    _ => {}
+                },
                 _ => {}
             }
 
