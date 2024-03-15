@@ -44,7 +44,7 @@ impl P2pNetworkKadBootstrapAction {
                 Ok(())
             }
             A::RequestDone { .. } => {
-                if bootstrap_state.successfull_requests < 20 {
+                if bootstrap_state.successful_requests < 20 {
                     store.dispatch(A::CreateRequests {});
                 }
                 Ok(())

@@ -160,7 +160,7 @@ pub struct Query<T> {
 
 /// Type used to encode response payload.
 ///
-/// Response can be either successfull, consisting of the result value prepended
+/// Response can be either successful, consisting of the result value prepended
 /// with its length, or an error of type [Error].
 pub type ResponsePayload<T> = RpcResult<NeedsLength<T>, Error>;
 

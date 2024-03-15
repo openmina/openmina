@@ -24,7 +24,7 @@ pub struct P2pNetworkKadBootstrapState {
     /// TODO: replace with something more lightweight.
     pub requests: BTreeMap<PeerId, P2pNetworkKadBoostrapRequestState>,
     ///
-    pub successfull_requests: usize,
+    pub successful_requests: usize,
     /// Bootstrap requests statistics.
     pub stats: P2pNetworkKadBootstrapStats,
 }
@@ -36,7 +36,7 @@ impl P2pNetworkKadBootstrapState {
             kademlia_key: key.into(),
             processed_peers: BTreeSet::new(),
             requests: BTreeMap::new(),
-            successfull_requests: 0,
+            successful_requests: 0,
             stats: Default::default(),
         }
     }
@@ -67,7 +67,7 @@ pub struct P2pNetworkKadBootstrapStats {
 #[serde(tag = "type")]
 pub enum P2pNetworkKadBootstrapRequestStat {
     Ongoing(P2pNetworkKadBootstrapOngoingRequest),
-    Successful(P2pNetworkKadBootstrapSuccessfullRequest),
+    Successful(P2pNetworkKadBootstrapSuccessfulRequest),
     Failed(P2pNetworkKadBootstrapFailedRequest),
 }
 
@@ -79,7 +79,7 @@ pub struct P2pNetworkKadBootstrapOngoingRequest {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct P2pNetworkKadBootstrapSuccessfullRequest {
+pub struct P2pNetworkKadBootstrapSuccessfulRequest {
     pub peer_id: PeerId,
     pub address: P2pConnectionOutgoingInitOpts,
     pub start: Timestamp,

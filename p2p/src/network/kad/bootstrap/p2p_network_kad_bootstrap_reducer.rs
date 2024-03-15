@@ -5,7 +5,7 @@ use crate::{
     bootstrap::{
         P2pNetworkKadBoostrapRequestState, P2pNetworkKadBootstrapFailedRequest,
         P2pNetworkKadBootstrapOngoingRequest, P2pNetworkKadBootstrapRequestStat,
-        P2pNetworkKadBootstrapSuccessfullRequest,
+        P2pNetworkKadBootstrapSuccessfulRequest,
     },
     connection::outgoing::P2pConnectionOutgoingInitOpts,
     socket_addr_try_from_multiaddr, P2pNetworkKadEntry, P2pNetworkKadRoutingTable,
@@ -85,7 +85,7 @@ impl P2pNetworkKadBootstrapState {
                 let Some(req) = self.requests.remove(&peer_id) else {
                     return Err(format!("cannot find reques for peer {peer_id}"));
                 };
-                self.successfull_requests += 1;
+                self.successful_requests += 1;
                 let address = P2pConnectionOutgoingInitOpts::LibP2P((*peer_id, req.addr).into());
 
                 if let Some(request_stats) = self.stats.requests.iter_mut().rev().find(|req_stat| {
@@ -100,7 +100,7 @@ impl P2pNetworkKadBootstrapState {
                     )
                 }) {
                     *request_stats = P2pNetworkKadBootstrapRequestStat::Successful(
-                        P2pNetworkKadBootstrapSuccessfullRequest {
+                        P2pNetworkKadBootstrapSuccessfulRequest {
                             peer_id: *peer_id,
                             address,
                             start: req.time,
