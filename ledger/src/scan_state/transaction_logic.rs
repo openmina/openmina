@@ -6,6 +6,7 @@ use mina_hasher::{create_kimchi, Fp};
 use mina_p2p_messages::binprot;
 use mina_p2p_messages::v2::{MinaBaseUserCommandStableV2, MinaTransactionTransactionStableV2};
 use mina_signer::CompressedPubKey;
+use openmina_core::constants::ConstraintConstants;
 
 use crate::proofs::witness::Witness;
 use crate::scan_state::transaction_logic::transaction_partially_applied::FullyApplied;
@@ -35,7 +36,7 @@ use super::zkapp_logic::ZkAppCommandElt;
 use super::{
     currency::{Amount, Balance, Fee, Index, Length, Magnitude, Nonce, Signed, Slot},
     fee_excess::FeeExcess,
-    scan_state::{transaction_snark::OneOrTwo, ConstraintConstants},
+    scan_state::transaction_snark::OneOrTwo,
     zkapp_logic::{Handler, StartData},
 };
 
@@ -4509,7 +4510,7 @@ pub mod transaction_applied {
             let burned_tokens = Signed::<Amount>::of_unsigned(self.burned_tokens());
 
             let account_creation_fees = {
-                let account_creation_fee_int = constraint_constants.account_creation_fee.as_u64();
+                let account_creation_fee_int = constraint_constants.account_creation_fee;
                 let num_accounts_created = self.new_accounts().len() as u64;
 
                 // int type is OK, no danger of overflow
@@ -6242,16 +6243,16 @@ fn sub_account_creation_fee(
     action: AccountState,
     amount: Amount,
 ) -> Result<Amount, String> {
-    let fee = &constraint_constants.account_creation_fee;
+    let account_creation_fee = Amount::from_u64(constraint_constants.account_creation_fee);
 
     match action {
         AccountState::Added => {
-            if let Some(amount) = amount.checked_sub(&Amount::of_fee(fee)) {
+            if let Some(amount) = amount.checked_sub(&account_creation_fee) {
                 return Ok(amount);
             }
             Err(format!(
                 "Error subtracting account creation fee {:?}; transaction amount {:?} insufficient",
-                fee, amount
+                account_creation_fee, amount
             ))
         }
         AccountState::Existed => Ok(amount),
@@ -6646,7 +6647,7 @@ where
                 ExistingOrNew::New => {
                     match payment
                         .amount
-                        .checked_sub(&Amount::of_fee(&constraint_constants.account_creation_fee))
+                        .checked_sub(&Amount::from_u64(constraint_constants.account_creation_fee))
                     {
                         Some(amount) => amount,
                         None => return Err(TransactionFailure::AmountInsufficientToCreateAccount),

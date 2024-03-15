@@ -450,6 +450,7 @@ fn run_ocaml() {
         client_port: 8301,
         initial_peers: Vec::new(),
         daemon_json: DaemonJson::Custom("/var/lib/coda/berkeley.json".to_owned()),
+        block_producer: None,
     })
     .unwrap();
     let stdout = node.child.stdout.take().unwrap();

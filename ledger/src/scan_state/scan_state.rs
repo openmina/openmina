@@ -1,20 +1,20 @@
 use std::{collections::HashSet, sync::Arc};
 
-use binprot::macros::BinProtWrite;
 use blake2::{
     digest::{generic_array::GenericArray, typenum::U32},
     Digest,
 };
 use mina_hasher::Fp;
 use mina_p2p_messages::{
-    bigint, binprot, number,
+    binprot,
     v2::{
-        CurrencyAmountStableV1, CurrencyFeeStableV1, MinaStateProtocolStateValueStableV2,
+        MinaStateProtocolStateValueStableV2,
         TransactionSnarkScanStateLedgerProofWithSokMessageStableV2,
         TransactionSnarkScanStateTransactionWithWitnessStableV2,
     },
 };
 use mina_signer::CompressedPubKey;
+use openmina_core::constants::ConstraintConstants;
 use openmina_core::snark::SnarkJobId;
 use sha2::Sha256;
 
@@ -43,7 +43,7 @@ use crate::{
 use self::transaction_snark::{InitStack, LedgerProof, OneOrTwo, Registers};
 
 use super::{
-    currency::{Amount, Fee, Length, Slot},
+    currency::{Fee, Slot},
     parallel_scan::ParallelScan,
     snark_work,
     transaction_logic::{
@@ -893,81 +893,6 @@ impl ScanState {
         let digest = sha256_digest(&bytes);
 
         AuxHash(digest.into())
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct ForkConstants {
-    pub previous_state_hash: Fp, // Pickles.Backend.Tick.Field.Stable.Latest.t,
-    pub previous_length: Length, // Mina_numbers.Length.Stable.Latest.t,
-    pub previous_global_slot: Slot, // Mina_numbers.Global_slot.Stable.Latest.t,
-}
-
-#[derive(Clone, Debug)]
-pub struct ConstraintConstants {
-    pub sub_windows_per_window: u64,
-    pub ledger_depth: u64,
-    pub work_delay: u64,
-    pub block_window_duration_ms: u64,
-    pub transaction_capacity_log_2: u64,
-    pub pending_coinbase_depth: u64,
-    pub coinbase_amount: Amount, // Currency.Amount.Stable.Latest.t,
-    pub supercharged_coinbase_factor: u64,
-    pub account_creation_fee: Fee,   // Currency.Fee.Stable.Latest.t,
-    pub fork: Option<ForkConstants>, // Fork_constants.t option,
-}
-#[derive(Clone, Debug, BinProtWrite)]
-pub struct ForkConstantsUnversioned {
-    previous_state_hash: bigint::BigInt,
-    previous_length: number::Int32,
-    previous_global_slot: number::Int32,
-}
-
-impl From<&ForkConstants> for ForkConstantsUnversioned {
-    fn from(fork_constants: &ForkConstants) -> Self {
-        Self {
-            previous_state_hash: fork_constants.previous_state_hash.into(),
-            previous_length: fork_constants.previous_length.as_u32().into(),
-            previous_global_slot: fork_constants.previous_global_slot.as_u32().into(),
-        }
-    }
-}
-
-#[derive(Clone, Debug, BinProtWrite)]
-pub struct ConstraintConstantsUnversioned {
-    pub sub_windows_per_window: number::Int64,
-    pub ledger_depth: number::Int64,
-    pub work_delay: number::Int64,
-    pub block_window_duration_ms: number::Int64,
-    pub transaction_capacity_log_2: number::Int64,
-    pub pending_coinbase_depth: number::Int64,
-    pub coinbase_amount: CurrencyAmountStableV1,
-    pub supercharged_coinbase_factor: number::Int64,
-    pub account_creation_fee: CurrencyFeeStableV1,
-    pub fork: Option<ForkConstantsUnversioned>,
-}
-
-impl From<&ConstraintConstants> for ConstraintConstantsUnversioned {
-    fn from(constraints: &ConstraintConstants) -> Self {
-        Self {
-            sub_windows_per_window: constraints.sub_windows_per_window.into(),
-            ledger_depth: constraints.ledger_depth.into(),
-            work_delay: constraints.work_delay.into(),
-            block_window_duration_ms: constraints.block_window_duration_ms.into(),
-            transaction_capacity_log_2: constraints.transaction_capacity_log_2.into(),
-            pending_coinbase_depth: constraints.pending_coinbase_depth.into(),
-            coinbase_amount: constraints.coinbase_amount.into(),
-            supercharged_coinbase_factor: constraints.supercharged_coinbase_factor.into(),
-            account_creation_fee: (&constraints.account_creation_fee).into(),
-            fork: constraints.fork.as_ref().map(|fork| fork.into()),
-        }
-    }
-}
-
-impl binprot::BinProtWrite for ConstraintConstants {
-    fn binprot_write<W: std::io::Write>(&self, w: &mut W) -> std::io::Result<()> {
-        let constraints: ConstraintConstantsUnversioned = self.into();
-        constraints.binprot_write(w)
     }
 }
 

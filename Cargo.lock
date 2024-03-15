@@ -4113,6 +4113,7 @@ dependencies = [
  "mina-signer",
  "mina-transport",
  "mina-tree",
+ "openmina-core",
  "rand 0.8.5",
  "reqwest",
  "serde",
@@ -4126,6 +4127,8 @@ dependencies = [
 name = "openmina-core"
 version = "0.2.0"
 dependencies = [
+ "binprot",
+ "binprot_derive",
  "mina-hasher",
  "mina-p2p-messages",
  "redux",

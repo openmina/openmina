@@ -5,9 +5,9 @@ use std::{
 
 use ark_ff::Zero;
 use mina_hasher::Fp;
+use openmina_core::constants::CONSTRAINT_CONSTANTS;
 
 use crate::{
-    proofs::transaction::transaction_snark::CONSTRAINT_CONSTANTS,
     scan_state::{
         conv::to_ledger_hash,
         currency::{Amount, Signed, Slot},

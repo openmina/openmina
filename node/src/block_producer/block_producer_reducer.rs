@@ -1,23 +1,24 @@
-use ledger::{
-    proofs::transaction::transaction_snark::CONSTRAINT_CONSTANTS,
-    scan_state::currency::{Amount, Signed},
-};
+use ledger::scan_state::currency::{Amount, Signed};
 use mina_p2p_messages::{
     bigint::BigInt,
     list::List,
     v2::{
-        ConsensusGlobalSlotStableV1, ConsensusProofOfStakeDataConsensusStateValueStableV2,
+        ConsensusProofOfStakeDataConsensusStateValueStableV2,
         ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1,
         ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1,
         ConsensusVrfOutputTruncatedStableV1, DataHashLibStateHashStableV1, LedgerProofProdStableV2,
         MinaBaseEpochLedgerValueStableV1, MinaBaseEpochSeedStableV1,
-        MinaBaseProtocolConstantsCheckedValueStableV1, MinaStateBlockchainStateValueStableV2,
+        MinaStateBlockchainStateValueStableV2,
         MinaStateBlockchainStateValueStableV2LedgerProofStatement,
         MinaStateProtocolStateBodyValueStableV2, MinaStateProtocolStateValueStableV2,
         StagedLedgerDiffBodyStableV1, StateBodyHash, StateHash, UnsignedExtendedUInt32StableV1,
     },
 };
 use openmina_core::block::ArcBlockWithHash;
+use openmina_core::constants::{
+    global_sub_window, grace_period_end, in_same_checkpoint_window, in_seed_update_range,
+    relative_sub_window, CONSTRAINT_CONSTANTS,
+};
 
 use super::{
     to_epoch_and_slot, BlockProducerAction, BlockProducerActionWithMetaRef,
@@ -537,60 +538,4 @@ fn ledger_proof_statement_from_emitted_proof(
 
 fn empty_state_hash() -> StateHash {
     DataHashLibStateHashStableV1(BigInt::zero()).into()
-}
-
-fn in_seed_update_range(
-    slot: u32,
-    constants: &MinaBaseProtocolConstantsCheckedValueStableV1,
-) -> bool {
-    let third_epoch = constants.slots_per_epoch.as_u32() / 3;
-    assert_eq!(constants.slots_per_epoch.as_u32(), third_epoch * 3);
-    slot < third_epoch * 2
-}
-
-fn in_same_checkpoint_window(
-    slot1: &ConsensusGlobalSlotStableV1,
-    slot2: &ConsensusGlobalSlotStableV1,
-) -> bool {
-    checkpoint_window(slot1) == checkpoint_window(slot2)
-}
-
-fn checkpoint_window(slot: &ConsensusGlobalSlotStableV1) -> u32 {
-    slot.slot_number.as_u32() / checkpoint_window_size_in_slots()
-}
-
-fn days_to_ms(days: u64) -> u64 {
-    days * 24 * 60 * 60 * 1000
-}
-
-fn checkpoint_window_size_in_slots() -> u32 {
-    let one_year_ms = days_to_ms(365);
-    let slots_per_year = one_year_ms / CONSTRAINT_CONSTANTS.block_window_duration_ms;
-    let size_in_slots = slots_per_year / 12;
-    assert_eq!(slots_per_year % 12, 0);
-    size_in_slots as u32
-}
-
-fn grace_period_end(constants: &MinaBaseProtocolConstantsCheckedValueStableV1) -> u32 {
-    let slots = {
-        const NUM_DAYS: u64 = 3;
-        let n_days_ms = days_to_ms(NUM_DAYS);
-        let n_days = n_days_ms / CONSTRAINT_CONSTANTS.block_window_duration_ms;
-        (n_days as u32).min(constants.slots_per_epoch.as_u32())
-    };
-    match CONSTRAINT_CONSTANTS.fork.as_ref() {
-        None => slots,
-        Some(fork) => slots + fork.previous_global_slot.as_u32(),
-    }
-}
-
-fn global_sub_window(
-    slot: &ConsensusGlobalSlotStableV1,
-    constants: &MinaBaseProtocolConstantsCheckedValueStableV1,
-) -> u32 {
-    slot.slot_number.as_u32() / constants.slots_per_sub_window.as_u32()
-}
-
-fn relative_sub_window(global_sub_window: u32) -> u32 {
-    global_sub_window % CONSTRAINT_CONSTANTS.sub_windows_per_window as u32
 }

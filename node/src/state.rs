@@ -1,4 +1,4 @@
-use ledger::proofs::transaction::transaction_snark::CONSTRAINT_CONSTANTS;
+use openmina_core::constants::CONSTRAINT_CONSTANTS;
 use redux::{ActionMeta, Timestamp};
 use serde::{Deserialize, Serialize};
 

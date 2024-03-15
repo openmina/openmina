@@ -6,11 +6,8 @@ use std::{
 
 use ledger::{
     scan_state::{
-        currency::{Amount, Fee, Slot},
-        scan_state::{
-            AvailableJobMessage, ConstraintConstants, JobValueBase, JobValueMerge,
-            JobValueWithIndex, Pass,
-        },
+        currency::Slot,
+        scan_state::{AvailableJobMessage, JobValueBase, JobValueMerge, JobValueWithIndex, Pass},
         transaction_logic::{
             local_state::LocalState,
             protocol_state::{protocol_state_view, ProtocolStateView},
@@ -41,6 +38,7 @@ use mina_p2p_messages::{
         StateHash,
     },
 };
+use openmina_core::constants::CONSTRAINT_CONSTANTS;
 use openmina_core::snark::{Snark, SnarkJobId};
 
 use mina_signer::CompressedPubKey;
@@ -69,20 +67,6 @@ use crate::{
 };
 
 use super::{ledger_empty_hash_at_depth, LedgerAddress, LEDGER_DEPTH};
-
-// TODO(tizoc): this should be configurable at compile time
-const CONSTRAINT_CONSTANTS: ConstraintConstants = ConstraintConstants {
-    sub_windows_per_window: 11,
-    ledger_depth: 35,
-    work_delay: 2,
-    block_window_duration_ms: 180000,
-    transaction_capacity_log_2: 7,
-    pending_coinbase_depth: 5,
-    coinbase_amount: Amount::from_u64(720000000000),
-    supercharged_coinbase_factor: 1,
-    account_creation_fee: Fee::from_u64(1000000000),
-    fork: None,
-};
 
 fn ledger_hash(depth: usize, left: Fp, right: Fp) -> Fp {
     let height = LEDGER_DEPTH - depth - 1;

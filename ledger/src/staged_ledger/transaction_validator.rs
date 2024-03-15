@@ -1,7 +1,8 @@
+use openmina_core::constants::ConstraintConstants;
+
 use crate::{
     scan_state::{
         currency::Slot,
-        scan_state::ConstraintConstants,
         transaction_logic::{
             self,
             protocol_state::ProtocolStateView,

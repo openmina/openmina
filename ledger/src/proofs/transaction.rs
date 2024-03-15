@@ -2206,26 +2206,12 @@ pub mod transaction_snark {
 
     use crate::scan_state::{
         currency,
-        scan_state::ConstraintConstants,
         transaction_logic::transaction_union_payload::{TransactionUnion, TransactionUnionPayload},
     };
     use mina_signer::Signature;
+    use openmina_core::constants::CONSTRAINT_CONSTANTS;
 
     use super::{legacy_input::LegacyInput, *};
-
-    // TODO: De-deplicates this constant in the repo
-    pub const CONSTRAINT_CONSTANTS: ConstraintConstants = ConstraintConstants {
-        sub_windows_per_window: 11,
-        ledger_depth: 35,
-        work_delay: 2,
-        block_window_duration_ms: 180000,
-        transaction_capacity_log_2: 7,
-        pending_coinbase_depth: 5,
-        coinbase_amount: currency::Amount::from_u64(720000000000),
-        supercharged_coinbase_factor: 1,
-        account_creation_fee: currency::Fee::from_u64(1000000000),
-        fork: None,
-    };
 
     mod user_command_failure {
         use crate::scan_state::{
@@ -2431,7 +2417,7 @@ pub mod transaction_snark {
 
                     let amount_insufficient_to_create = {
                         let creation_amount =
-                            currency::Amount::of_fee(&CONSTRAINT_CONSTANTS.account_creation_fee);
+                            currency::Amount::from_u64(CONSTRAINT_CONSTANTS.account_creation_fee);
                         receiver_needs_creating
                             && payload.body.amount.checked_sub(&creation_amount).is_none()
                     };
@@ -2897,7 +2883,7 @@ pub mod transaction_snark {
         };
 
         let account_creation_amount =
-            currency::Amount::of_fee(&CONSTRAINT_CONSTANTS.account_creation_fee).to_checked();
+            currency::Amount::from_u64(CONSTRAINT_CONSTANTS.account_creation_fee).to_checked();
         let is_zero_fee = fee.equal(&CheckedFee::zero(), w);
 
         let is_coinbase_or_fee_transfer = is_user_command.neg();

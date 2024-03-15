@@ -4,6 +4,8 @@ pub mod requests;
 
 pub mod channels;
 
+pub mod constants;
+
 pub mod block;
 pub mod snark;
 
