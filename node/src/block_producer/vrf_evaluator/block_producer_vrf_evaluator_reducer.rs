@@ -1,5 +1,3 @@
-use crate::block_producer::vrf_evaluator::SLOTS_PER_EPOCH;
-
 use super::{
     BlockProducerVrfEvaluatorAction, BlockProducerVrfEvaluatorActionWithMetaRef,
     BlockProducerVrfEvaluatorState, BlockProducerVrfEvaluatorStatus, PendingEvaluation,

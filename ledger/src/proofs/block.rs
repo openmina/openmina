@@ -3,6 +3,7 @@ use std::{rc::Rc, sync::Arc};
 use mina_curves::pasta::Fq;
 use mina_hasher::Fp;
 use mina_p2p_messages::v2;
+use openmina_core::constants::{ForkConstants, CONSTRAINT_CONSTANTS};
 
 use crate::{
     dummy,
@@ -25,12 +26,8 @@ use crate::{
         fee_excess::{self, FeeExcess},
         pending_coinbase::{PendingCoinbase, PendingCoinbaseWitness, Stack},
         protocol_state::MinaHash,
-        scan_state::{
-            transaction_snark::{
-                validate_ledgers_at_merge_checked, Registers, SokDigest, Statement,
-                StatementLedgers,
-            },
-            ForkConstants,
+        scan_state::transaction_snark::{
+            validate_ledgers_at_merge_checked, Registers, SokDigest, Statement, StatementLedgers,
         },
         transaction_logic::protocol_state::EpochLedger,
     },
@@ -45,10 +42,7 @@ use super::{
     },
     step::{step, InductiveRule, OptFlag, PreviousProofStatement, StepParams, StepProof},
     to_field_elements::ToFieldElements,
-    transaction::{
-        transaction_snark::{checked_hash, CONSTRAINT_CONSTANTS},
-        Check, ProofError, Prover,
-    },
+    transaction::{transaction_snark::checked_hash, Check, ProofError, Prover},
     witness::Witness,
     wrap::WrapProof,
 };
@@ -1174,7 +1168,7 @@ pub mod consensus {
         (min_window_density, next_sub_window_densities)
     }
 
-    #[derive(Clone)]
+    #[derive(Debug, Clone)]
     pub struct ConsensusState {
         pub blockchain_length: CheckedLength<Fp>,
         pub epoch_count: CheckedLength<Fp>,
@@ -1468,7 +1462,7 @@ fn genesis_state_hash_checked(
         Boolean::False => state.body.genesis_state_hash.to_field(),
     })
 }
-
+#[derive(Debug, Clone)]
 pub struct ProtocolStateBody {
     pub genesis_state_hash: Fp,
     pub blockchain_state: v2::MinaStateBlockchainStateValueStableV2,
@@ -1476,6 +1470,7 @@ pub struct ProtocolStateBody {
     pub constants: v2::MinaBaseProtocolConstantsCheckedValueStableV1,
 }
 
+#[derive(Debug, Clone)]
 pub struct ProtocolState {
     pub previous_state_hash: Fp,
     pub body: ProtocolStateBody,

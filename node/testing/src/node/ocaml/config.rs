@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 pub struct OcamlNodeTestingConfig {
     pub initial_peers: Vec<P2pConnectionOutgoingInitOpts>,
     pub daemon_json: DaemonJson,
+    pub block_producer: Option<AccountSecretKey>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -38,6 +39,7 @@ pub struct OcamlNodeConfig {
     pub client_port: u16,
     pub initial_peers: Vec<P2pConnectionOutgoingInitOpts>,
     pub daemon_json: DaemonJson,
+    pub block_producer: Option<AccountSecretKey>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

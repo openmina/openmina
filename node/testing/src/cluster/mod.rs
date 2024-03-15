@@ -1,5 +1,5 @@
 mod config;
-pub use config::ClusterConfig;
+pub use config::{ClusterConfig, ProofKind};
 
 mod p2p_task_spawner;
 use openmina_core::log::system_time;
@@ -355,6 +355,7 @@ impl Cluster {
             real_service.block_producer_start(producer_key.into());
         }
         let mut service = NodeTestingService::new(real_service, node_id, shutdown_rx);
+        service.set_proof_kind(self.config.proof_kind());
         if self.config.all_rust_to_rust_use_webrtc() {
             service.set_rust_to_rust_use_webrtc();
         }
@@ -423,6 +424,7 @@ impl Cluster {
             client_port: next_port().unwrap(),
             initial_peers: testing_config.initial_peers,
             daemon_json: testing_config.daemon_json,
+            block_producer: testing_config.block_producer,
         })
         .expect("failed to start ocaml node");
 

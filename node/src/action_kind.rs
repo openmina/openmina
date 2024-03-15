@@ -90,6 +90,9 @@ pub enum ActionKind {
     BlockProducerBlockInject,
     BlockProducerBlockInjected,
     BlockProducerBlockProduced,
+    BlockProducerBlockProveInit,
+    BlockProducerBlockProvePending,
+    BlockProducerBlockProveSuccess,
     BlockProducerBlockUnprovenBuild,
     BlockProducerStagedLedgerDiffCreateInit,
     BlockProducerStagedLedgerDiffCreatePending,
@@ -368,7 +371,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 280;
+    pub const COUNT: u16 = 283;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -515,6 +518,9 @@ impl ActionKindGet for BlockProducerAction {
                 ActionKind::BlockProducerStagedLedgerDiffCreateSuccess
             }
             Self::BlockUnprovenBuild => ActionKind::BlockProducerBlockUnprovenBuild,
+            Self::BlockProveInit => ActionKind::BlockProducerBlockProveInit,
+            Self::BlockProvePending => ActionKind::BlockProducerBlockProvePending,
+            Self::BlockProveSuccess { .. } => ActionKind::BlockProducerBlockProveSuccess,
             Self::BlockProduced => ActionKind::BlockProducerBlockProduced,
             Self::BlockInject => ActionKind::BlockProducerBlockInject,
             Self::BlockInjected => ActionKind::BlockProducerBlockInjected,

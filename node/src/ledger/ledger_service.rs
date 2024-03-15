@@ -6,11 +6,8 @@ use std::{
 
 use ledger::{
     scan_state::{
-        currency::{Amount, Fee, Slot},
-        scan_state::{
-            AvailableJobMessage, ConstraintConstants, JobValueBase, JobValueMerge,
-            JobValueWithIndex, Pass,
-        },
+        currency::Slot,
+        scan_state::{AvailableJobMessage, JobValueBase, JobValueMerge, JobValueWithIndex, Pass},
         transaction_logic::{
             local_state::LocalState,
             protocol_state::{protocol_state_view, ProtocolStateView},
@@ -32,13 +29,16 @@ use mina_p2p_messages::{
     binprot::BinProtRead,
     v2::{
         self, DataHashLibStateHashStableV1, LedgerHash, MinaBaseAccountBinableArgStableV2,
-        MinaBaseLedgerHash0StableV1, MinaBaseSokMessageStableV1, MinaBaseStagedLedgerHashStableV1,
-        MinaLedgerSyncLedgerAnswerStableV2, MinaLedgerSyncLedgerQueryStableV1,
+        MinaBaseLedgerHash0StableV1, MinaBasePendingCoinbaseStableV2,
+        MinaBasePendingCoinbaseWitnessStableV2, MinaBaseSokMessageStableV1,
+        MinaBaseStagedLedgerHashStableV1, MinaLedgerSyncLedgerAnswerStableV2,
+        MinaLedgerSyncLedgerQueryStableV1,
         MinaStateBlockchainStateValueStableV2LedgerProofStatement,
         MinaStateProtocolStateValueStableV2, MinaTransactionTransactionStableV2, NonZeroCurvePoint,
         StateHash,
     },
 };
+use openmina_core::constants::CONSTRAINT_CONSTANTS;
 use openmina_core::snark::{Snark, SnarkJobId};
 
 use mina_signer::CompressedPubKey;
@@ -46,7 +46,7 @@ use openmina_core::block::ArcBlockWithHash;
 
 use crate::block_producer::vrf_evaluator::BlockProducerVrfEvaluatorLedgerService;
 use crate::block_producer::{
-    BlockProducerService, BlockProducerWonSlot, StagedLedgerDiffCreateOutput,
+    BlockProducerLedgerService, BlockProducerWonSlot, StagedLedgerDiffCreateOutput,
 };
 use crate::transition_frontier::sync::ledger::staged::TransitionFrontierSyncLedgerStagedService;
 use crate::transition_frontier::sync::{
@@ -67,20 +67,6 @@ use crate::{
 };
 
 use super::{ledger_empty_hash_at_depth, LedgerAddress, LEDGER_DEPTH};
-
-// TODO(tizoc): this should be configurable at compile time
-const CONSTRAINT_CONSTANTS: ConstraintConstants = ConstraintConstants {
-    sub_windows_per_window: 11,
-    ledger_depth: 35,
-    work_delay: 2,
-    block_window_duration_ms: 180000,
-    transaction_capacity_log_2: 7,
-    pending_coinbase_depth: 5,
-    coinbase_amount: Amount::from_u64(720000000000),
-    supercharged_coinbase_factor: 2,
-    account_creation_fee: Fee::from_u64(1000000000),
-    fork: None,
-};
 
 fn ledger_hash(depth: usize, left: Fp, right: Fp) -> Fp {
     let height = LEDGER_DEPTH - depth - 1;
@@ -787,7 +773,7 @@ impl<T: LedgerService> TransitionFrontierService for T {
     }
 }
 
-impl<T: LedgerService> BlockProducerService for T {
+impl<T: LedgerService> BlockProducerLedgerService for T {
     fn staged_ledger_diff_create(
         &mut self,
         pred_block: &ArcBlockWithHash,
@@ -801,6 +787,11 @@ impl<T: LedgerService> BlockProducerService for T {
             .staged_ledger_mut(&pred_block.staged_ledger_hash())
             .ok_or_else(|| "parent staged ledger missing")?
             .clone();
+
+        // calculate merkle root hash, otherwise `MinaBasePendingCoinbaseStableV2::from` fails.
+        staged_ledger.hash();
+        let pending_coinbase_witness =
+            MinaBasePendingCoinbaseStableV2::from(staged_ledger.pending_coinbase_collection());
 
         let protocol_state_view = protocol_state_view(&pred_block.header().protocol_state);
         let global_slot_since_genesis =
@@ -848,11 +839,35 @@ impl<T: LedgerService> BlockProducerService for T {
         let diff_hash = block_body_hash(&diff).map_err(|err| format!("{err:?}"))?;
 
         Ok(StagedLedgerDiffCreateOutput {
-            staged_ledger_hash: (&res.hash_after_applying).into(),
-            emitted_ledger_proof: res.ledger_proof.map(|(proof, ..)| (&proof).into()),
             diff,
             diff_hash,
+            staged_ledger_hash: (&res.hash_after_applying).into(),
+            emitted_ledger_proof: res
+                .ledger_proof
+                .map(|(proof, ..)| (&proof).into())
+                .map(Box::new),
+            pending_coinbase_update: (&res.pending_coinbase_update.1).into(),
+            pending_coinbase_witness: MinaBasePendingCoinbaseWitnessStableV2 {
+                pending_coinbases: pending_coinbase_witness,
+                is_new_stack: res.pending_coinbase_update.0,
+            },
         })
+    }
+
+    fn stake_proof_sparse_ledger(
+        &mut self,
+        staking_ledger: LedgerHash,
+        producer: NonZeroCurvePoint,
+        delegator: NonZeroCurvePoint,
+    ) -> Option<v2::MinaBaseSparseLedgerBaseStableV2> {
+        let mask = self.ctx_mut().snarked_ledgers.get(&staking_ledger)?;
+        let producer_id = ledger::AccountId::new((&producer).into(), ledger::TokenId::default());
+        let delegator_id = ledger::AccountId::new((&delegator).into(), ledger::TokenId::default());
+        let sparse_ledger = ledger::sparse_ledger::SparseLedger::of_ledger_subset_exn(
+            mask.clone(),
+            &[producer_id, delegator_id],
+        );
+        Some((&sparse_ledger).into())
     }
 }
 

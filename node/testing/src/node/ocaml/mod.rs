@@ -44,7 +44,7 @@ impl OcamlNode {
         let config_dir = dir.join(".config");
         let daemon_json_path = config_dir.join("daemon.json");
 
-        std::fs::create_dir_all(&config_dir)
+        Self::make_dir_rec(&config_dir)
             .map_err(|err| anyhow::anyhow!("failed to create config dir: {err}"))?;
 
         let peer_id = match Self::read_peer_id(dir) {
@@ -77,7 +77,31 @@ impl OcamlNode {
             }
         }
 
-        let mut cmd = config.cmd([("MINA_LIBP2P_PASS", "")]);
+        let block_producer = match config.block_producer.as_ref() {
+            None => None,
+            Some(sec_key) => {
+                let sec_key_bs58 = sec_key.to_string();
+                let key_path = config_dir.join("block_producer_key");
+                let mut cmd = config.cmd([
+                    ("CODA_PRIVKEY", sec_key_bs58.as_str()),
+                    ("MINA_PRIVKEY_PASS", ""),
+                ]);
+                cmd.arg("advanced")
+                    .arg("wrap-key")
+                    .arg("--privkey-path")
+                    .arg(&key_path);
+                if !cmd
+                    .status()
+                    .map_err(|err| anyhow::anyhow!("block producer key wrap failed: {err}"))?
+                    .success()
+                {
+                    anyhow::bail!("block producer key wrap failed! Unknown error");
+                }
+                Some(key_path)
+            }
+        };
+
+        let mut cmd = config.cmd([("MINA_LIBP2P_PASS", ""), ("MINA_PRIVKEY_PASS", "")]);
 
         cmd.arg("daemon");
         cmd.arg("--config-dir").arg(&config_dir);
@@ -93,6 +117,9 @@ impl OcamlNode {
         }
         if is_seed {
             cmd.arg("--seed");
+        }
+        if let Some(key_path) = block_producer {
+            cmd.arg("--block-producer-key").arg(key_path);
         }
 
         cmd.stdout(std::process::Stdio::piped())
@@ -215,20 +242,22 @@ impl OcamlNode {
         )
     }
 
+    fn make_dir_rec(path: &Path) -> anyhow::Result<()> {
+        use std::os::unix::fs::DirBuilderExt;
+        std::fs::DirBuilder::new()
+            .recursive(true)
+            .mode(0o700)
+            .create(path)
+            .map_err(Into::into)
+    }
+
     fn generate_libp2p_keypair(config: &OcamlNodeConfig, dir: &Path) -> anyhow::Result<String> {
-        use std::{
-            fs::OpenOptions,
-            io::Write,
-            os::unix::fs::{DirBuilderExt, OpenOptionsExt},
-        };
+        use std::{fs::OpenOptions, io::Write, os::unix::fs::OpenOptionsExt};
 
         let (peer_id, key) = Self::LIBP2P_KEYS[config.libp2p_keypair_i];
         let privkey_path = Self::privkey_path(dir);
         let privkey_parent_dir = privkey_path.as_path().parent().unwrap();
-        std::fs::DirBuilder::new()
-            .recursive(true)
-            .mode(0o700)
-            .create(privkey_parent_dir)?;
+        Self::make_dir_rec(privkey_parent_dir)?;
 
         let mut file = OpenOptions::new()
             .create(true)
@@ -421,6 +450,7 @@ fn run_ocaml() {
         client_port: 8301,
         initial_peers: Vec::new(),
         daemon_json: DaemonJson::Custom("/var/lib/coda/berkeley.json".to_owned()),
+        block_producer: None,
     })
     .unwrap();
     let stdout = node.child.stdout.take().unwrap();

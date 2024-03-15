@@ -6,9 +6,25 @@ use crate::node::OcamlNodeExecutable;
 pub struct ClusterConfig {
     port_range: Option<(u16, u16)>,
     all_rust_to_rust_use_webrtc: bool,
+    proof_kind: ProofKind,
     is_replay: bool,
     use_debugger: bool,
     ocaml_node_executable: OcamlNodeExecutable,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+pub enum ProofKind {
+    Dummy,
+    ConstraintsChecked,
+    Full,
+}
+
+impl Default for ProofKind {
+    fn default() -> Self {
+        // TODO(binier): change default to `ConstraintsChecked` once
+        // https://github.com/openmina/openmina/issues/260 is closed
+        Self::Dummy
+    }
 }
 
 impl ClusterConfig {
@@ -16,6 +32,7 @@ impl ClusterConfig {
         Ok(Self {
             port_range: None,
             all_rust_to_rust_use_webrtc: false,
+            proof_kind: ProofKind::default(),
             is_replay: false,
             use_debugger: false,
             ocaml_node_executable: match ocaml_node_executable {
@@ -56,6 +73,10 @@ impl ClusterConfig {
 
     pub fn all_rust_to_rust_use_webrtc(&self) -> bool {
         self.all_rust_to_rust_use_webrtc
+    }
+
+    pub fn proof_kind(&self) -> ProofKind {
+        self.proof_kind
     }
 
     pub fn set_ocaml_node_executable(mut self, executable: OcamlNodeExecutable) -> Self {

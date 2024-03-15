@@ -1,12 +1,14 @@
 use mina_p2p_messages::v2::{
-    ConsensusBodyReferenceStableV1, LedgerProofProdStableV2, MinaBaseStagedLedgerHashStableV1,
-    NonZeroCurvePoint, StagedLedgerDiffDiffStableV2,
+    ConsensusBodyReferenceStableV1, LedgerProofProdStableV2, MinaBasePendingCoinbaseUpdateStableV1,
+    MinaBasePendingCoinbaseWitnessStableV2, MinaBaseProofStableV2,
+    MinaBaseStagedLedgerHashStableV1, NonZeroCurvePoint, StagedLedgerDiffDiffStableV2, StateHash,
 };
 use openmina_core::{block::ArcBlockWithHash, consensus::consensus_take};
 use serde::{Deserialize, Serialize};
 
 use super::{
     vrf_evaluator::BlockProducerVrfEvaluatorState, BlockProducerConfig, BlockProducerWonSlot,
+    BlockWithoutProof,
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -60,14 +62,40 @@ pub enum BlockProducerCurrentState {
         /// `protocol_state.blockchain_state.body_reference`
         diff_hash: ConsensusBodyReferenceStableV1,
         staged_ledger_hash: MinaBaseStagedLedgerHashStableV1,
-        emitted_ledger_proof: Option<LedgerProofProdStableV2>,
+        emitted_ledger_proof: Option<Box<LedgerProofProdStableV2>>,
+        pending_coinbase_update: MinaBasePendingCoinbaseUpdateStableV1,
+        pending_coinbase_witness: MinaBasePendingCoinbaseWitnessStableV2,
     },
     BlockUnprovenBuilt {
         time: redux::Timestamp,
         won_slot: BlockProducerWonSlot,
         /// Chain that we are extending.
         chain: Vec<ArcBlockWithHash>,
-        block: ArcBlockWithHash,
+        emitted_ledger_proof: Option<Box<LedgerProofProdStableV2>>,
+        pending_coinbase_update: MinaBasePendingCoinbaseUpdateStableV1,
+        pending_coinbase_witness: MinaBasePendingCoinbaseWitnessStableV2,
+        block: BlockWithoutProof,
+        block_hash: StateHash,
+    },
+    BlockProvePending {
+        time: redux::Timestamp,
+        won_slot: BlockProducerWonSlot,
+        /// Chain that we are extending.
+        chain: Vec<ArcBlockWithHash>,
+        emitted_ledger_proof: Option<Box<LedgerProofProdStableV2>>,
+        pending_coinbase_update: MinaBasePendingCoinbaseUpdateStableV1,
+        pending_coinbase_witness: MinaBasePendingCoinbaseWitnessStableV2,
+        block: BlockWithoutProof,
+        block_hash: StateHash,
+    },
+    BlockProveSuccess {
+        time: redux::Timestamp,
+        won_slot: BlockProducerWonSlot,
+        /// Chain that we are extending.
+        chain: Vec<ArcBlockWithHash>,
+        block: BlockWithoutProof,
+        block_hash: StateHash,
+        proof: Box<MinaBaseProofStableV2>,
     },
     Produced {
         time: redux::Timestamp,
@@ -171,6 +199,8 @@ impl BlockProducerCurrentState {
             | Self::StagedLedgerDiffCreatePending { .. }
             | Self::StagedLedgerDiffCreateSuccess { .. }
             | Self::BlockUnprovenBuilt { .. }
+            | Self::BlockProvePending { .. }
+            | Self::BlockProveSuccess { .. }
             | Self::Produced { .. } => false,
         }
     }
@@ -185,6 +215,8 @@ impl BlockProducerCurrentState {
             | Self::StagedLedgerDiffCreatePending { won_slot, .. }
             | Self::StagedLedgerDiffCreateSuccess { won_slot, .. }
             | Self::BlockUnprovenBuilt { won_slot, .. }
+            | Self::BlockProvePending { won_slot, .. }
+            | Self::BlockProveSuccess { won_slot, .. }
             | Self::Produced { won_slot, .. }
             | Self::Injected { won_slot, .. } => Some(won_slot),
         }
@@ -200,6 +232,8 @@ impl BlockProducerCurrentState {
             | Self::StagedLedgerDiffCreatePending { chain, .. }
             | Self::StagedLedgerDiffCreateSuccess { chain, .. }
             | Self::BlockUnprovenBuilt { chain, .. }
+            | Self::BlockProvePending { chain, .. }
+            | Self::BlockProveSuccess { chain, .. }
             | Self::Produced { chain, .. }
             | Self::Injected { chain, .. } => Some(chain),
         }
@@ -261,6 +295,8 @@ impl BlockProducerCurrentState {
             | Self::StagedLedgerDiffCreatePending { .. }
             | Self::StagedLedgerDiffCreateSuccess { .. }
             | Self::BlockUnprovenBuilt { .. }
+            | Self::BlockProvePending { .. }
+            | Self::BlockProveSuccess { .. }
             | Self::Produced { .. } => true,
         }
     }
@@ -276,6 +312,14 @@ impl BlockProducerCurrentState {
         match self {
             Self::Produced { chain, block, .. } => Some((block, chain)),
             _ => None,
+        }
+    }
+}
+
+impl Default for BlockProducerCurrentState {
+    fn default() -> Self {
+        Self::Idle {
+            time: redux::Timestamp::ZERO,
         }
     }
 }

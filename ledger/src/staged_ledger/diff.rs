@@ -1,7 +1,9 @@
+use openmina_core::constants::ConstraintConstants;
+
 use crate::{
     scan_state::{
         currency::{Amount, Magnitude},
-        scan_state::{transaction_snark::work, ConstraintConstants},
+        scan_state::transaction_snark::work,
         transaction_logic::{
             valid, CoinbaseFeeTransfer, TransactionStatus, UserCommand, WithStatus,
         },

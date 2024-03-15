@@ -50,6 +50,7 @@ openmina-core = { path = "../../core" }
 node = { path = "../../node" }
 openmina-node-invariants = { path = "../../node/invariants" }
 openmina-node-native = { path = "../../node/native" }
+chrono = "0.4.34"
 
 [features]
 default = ["scenario-generators", "p2p-libp2p"]

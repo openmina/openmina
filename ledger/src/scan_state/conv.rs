@@ -29,6 +29,7 @@ use mina_p2p_messages::{
         MinaBasePendingCoinbaseMerkleTreeVersionedStableV2Tree, MinaBasePendingCoinbaseStableV2,
         MinaBasePendingCoinbaseStackHashStableV1, MinaBasePendingCoinbaseStackIdStableV1,
         MinaBasePendingCoinbaseStackVersionedStableV1, MinaBasePendingCoinbaseStateStackStableV1,
+        MinaBasePendingCoinbaseUpdateActionStableV1, MinaBasePendingCoinbaseUpdateStableV1,
         MinaBaseReceiptChainHashStableV1, MinaBaseSignatureStableV1,
         MinaBaseSignedCommandMemoStableV1, MinaBaseSignedCommandPayloadBodyStableV2,
         MinaBaseSignedCommandPayloadCommonStableV2, MinaBaseSignedCommandPayloadStableV2,
@@ -2509,6 +2510,29 @@ impl From<&MinaBasePendingCoinbaseStableV2> for PendingCoinbase {
             },
             pos_list: pos_list.iter().rev().map(Into::into).collect(),
             new_pos: new_pos.into(),
+        }
+    }
+}
+
+impl From<&super::pending_coinbase::update::Update> for MinaBasePendingCoinbaseUpdateStableV1 {
+    fn from(value: &super::pending_coinbase::update::Update) -> Self {
+        Self {
+            action: (&value.action).into(),
+            coinbase_amount: (&value.coinbase_amount).into(),
+        }
+    }
+}
+
+impl From<&super::pending_coinbase::update::Action>
+    for MinaBasePendingCoinbaseUpdateActionStableV1
+{
+    fn from(value: &super::pending_coinbase::update::Action) -> Self {
+        use super::pending_coinbase::update::Action;
+        match value {
+            Action::None => Self::UpdateNone,
+            Action::One => Self::UpdateOne,
+            Action::TwoCoinbaseInFirst => Self::UpdateTwoCoinbaseInFirst,
+            Action::TwoCoinbaseInSecond => Self::UpdateTwoCoinbaseInSecond,
         }
     }
 }

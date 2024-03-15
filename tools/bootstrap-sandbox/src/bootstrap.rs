@@ -5,8 +5,6 @@ use ledger::{
     mask::Mask,
     scan_state::{
         self,
-        currency::{Amount, Fee},
-        scan_state::ConstraintConstants,
         transaction_logic::{local_state::LocalState, protocol_state},
     },
     staged_ledger::{diff::Diff, staged_ledger::StagedLedger},
@@ -18,21 +16,9 @@ use mina_p2p_messages::{
     v2,
 };
 use mina_signer::CompressedPubKey;
+use openmina_core::constants::CONSTRAINT_CONSTANTS;
 
 use super::snarked_ledger::SnarkedLedger;
-
-pub const CONSTRAINT_CONSTANTS: ConstraintConstants = ConstraintConstants {
-    sub_windows_per_window: 11,
-    ledger_depth: 35,
-    work_delay: 2,
-    block_window_duration_ms: 180000,
-    transaction_capacity_log_2: 7,
-    pending_coinbase_depth: 5,
-    coinbase_amount: Amount::from_u64(720000000000),
-    supercharged_coinbase_factor: 2,
-    account_creation_fee: Fee::from_u64(1000000000),
-    fork: None,
-};
 
 pub async fn again(path_main: &Path, height: u32) {
     let path_blocks = path_main.join("blocks");

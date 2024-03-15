@@ -1,11 +1,12 @@
 use std::collections::BTreeMap;
 
 use mina_signer::CompressedPubKey;
+use openmina_core::constants::ConstraintConstants;
 
 use crate::{
     scan_state::{
         currency::{Amount, Fee, Magnitude},
-        scan_state::{transaction_snark::work, ConstraintConstants},
+        scan_state::transaction_snark::work,
         transaction_logic::{valid, CoinbaseFeeTransfer, GenericCommand},
     },
     MyCow,
@@ -175,7 +176,7 @@ impl Resources {
         // be deducted from the reward
         let budget = if is_coinbase_receiver_new {
             coinbase_amount
-                .checked_sub(&Amount::of_fee(&constraint_constants.account_creation_fee))?
+                .checked_sub(&Amount::from_u64(constraint_constants.account_creation_fee))?
         } else {
             coinbase_amount
         };

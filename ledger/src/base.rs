@@ -180,7 +180,7 @@ pub trait BaseLedger {
     fn commit(&mut self);
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct AccountIndex(pub u64);
 
 impl AccountIndex {

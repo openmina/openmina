@@ -3,6 +3,7 @@ use std::sync::Arc;
 use mina_hasher::Fp;
 use mina_p2p_messages::v2::MinaStateProtocolStateValueStableV2;
 use mina_signer::CompressedPubKey;
+use openmina_core::constants::ConstraintConstants;
 
 use crate::{
     decompress_pk,
@@ -19,8 +20,7 @@ use crate::{
                 work, InitStack, LedgerHash, LedgerProof, LedgerProofWithSokMessage, OneOrTwo,
                 Registers, SokMessage, Statement, TransactionWithWitness,
             },
-            AvailableJob, ConstraintConstants, Pass, ScanState, SpacePartition, StatementCheck,
-            TransactionsOrdered,
+            AvailableJob, Pass, ScanState, SpacePartition, StatementCheck, TransactionsOrdered,
         },
         snark_work::spec,
         transaction_logic::{
@@ -483,12 +483,11 @@ impl StagedLedger {
         supercharge_coinbase: bool,
         constraint_constants: &ConstraintConstants,
     ) -> Option<Amount> {
+        let coinbase_amount = Amount::from_u64(constraint_constants.coinbase_amount);
         if supercharge_coinbase {
-            constraint_constants
-                .coinbase_amount
-                .scale(constraint_constants.supercharged_coinbase_factor)
+            coinbase_amount.scale(constraint_constants.supercharged_coinbase_factor)
         } else {
-            Some(constraint_constants.coinbase_amount)
+            Some(coinbase_amount)
         }
     }
 
@@ -1833,7 +1832,7 @@ impl StagedLedger {
                         // their snarks are purchased and their accounts get created*)
 
                         if cw_checked.fee.is_zero()
-                            || cw_checked.fee >= constraint_constants.account_creation_fee
+                            || cw_checked.fee.as_u64() >= constraint_constants.account_creation_fee
                             || !(is_new_account(&cw_checked.prover))
                         {
                             proof_count += cw_checked.proofs.len();
@@ -2062,9 +2061,9 @@ mod tests_ocaml {
         block_window_duration_ms: 180000,
         transaction_capacity_log_2: 7,
         pending_coinbase_depth: 5,
-        coinbase_amount: Amount::from_u64(720000000000),
+        coinbase_amount: 720000000000,
         supercharged_coinbase_factor: 2,
-        account_creation_fee: Fee::from_u64(1000000000),
+        account_creation_fee: 1000000000,
         fork: None,
     };
 
@@ -2784,14 +2783,13 @@ mod tests_ocaml {
         let producer_balance_with_coinbase = {
             let total_cost = if is_producer_acc_new {
                 coinbase_cost
-                    .checked_add(&CONSTRAINT_CONSTANTS.account_creation_fee)
+                    .checked_add(&Fee::from_u64(CONSTRAINT_CONSTANTS.account_creation_fee))
                     .unwrap()
             } else {
                 coinbase_cost
             };
 
-            let reward = CONSTRAINT_CONSTANTS
-                .coinbase_amount
+            let reward = Amount::from_u64(CONSTRAINT_CONSTANTS.coinbase_amount)
                 .checked_sub(&Amount::of_fee(&total_cost))
                 .unwrap();
 
@@ -3133,7 +3131,7 @@ mod tests_ocaml {
         let prover = Keypair::rand(&mut rng).public.into_compressed();
 
         Some(work::Checked {
-            fee: CONSTRAINT_CONSTANTS.account_creation_fee,
+            fee: Fee::from_u64(CONSTRAINT_CONSTANTS.account_creation_fee),
             proofs: proofs(stmt),
             prover,
         })
@@ -4514,7 +4512,7 @@ mod tests_ocaml {
 
                         let diff = create_diff_with_non_zero_fee_excess(
                             sl.ledger.clone(),
-                            CONSTRAINT_CONSTANTS.coinbase_amount,
+                            Amount::from_u64(CONSTRAINT_CONSTANTS.coinbase_amount),
                             global_slot,
                             cmds_this_iter,
                             work_done,
@@ -4557,7 +4555,7 @@ mod tests_ocaml {
         );
     }
 
-    const WORK_FEE: Fee = CONSTRAINT_CONSTANTS.account_creation_fee;
+    const WORK_FEE: Fee = Fee::from_u64(CONSTRAINT_CONSTANTS.account_creation_fee);
 
     /// Provers can't pay the account creation fee
     ///
@@ -5298,7 +5296,7 @@ mod tests_ocaml {
         });
     }
 
-    const NORMAL_COINBASE: Amount = CONSTRAINT_CONSTANTS.coinbase_amount;
+    const NORMAL_COINBASE: Amount = Amount::from_u64(CONSTRAINT_CONSTANTS.coinbase_amount);
 
     const fn scale_exn(amount: Amount, i: u64) -> Amount {
         match amount.scale(i) {
@@ -5308,7 +5306,7 @@ mod tests_ocaml {
     }
 
     const SUPERCHARGED_COINBASE: Amount = scale_exn(
-        CONSTRAINT_CONSTANTS.coinbase_amount,
+        Amount::from_u64(CONSTRAINT_CONSTANTS.coinbase_amount),
         CONSTRAINT_CONSTANTS.supercharged_coinbase_factor,
     );
 
@@ -5563,7 +5561,7 @@ mod tests_ocaml {
         let receiver_pk = gen_keypair().public.into_compressed();
 
         let insufficient_account_creation_fee =
-            Amount::from_u64(CONSTRAINT_CONSTANTS.account_creation_fee.as_u64() / 2);
+            Amount::from_u64(CONSTRAINT_CONSTANTS.account_creation_fee / 2);
 
         let source_pk = kp.public.into_compressed();
 
@@ -5645,14 +5643,13 @@ mod tests_ocaml {
                 match validity {
                     Validity::Valid => {
                         let account_creation_fee =
-                            Amount::of_fee(&CONSTRAINT_CONSTANTS.account_creation_fee);
+                            Amount::from_u64(CONSTRAINT_CONSTANTS.account_creation_fee);
                         let fee = balance.checked_sub(&account_creation_fee).unwrap();
                         (account_creation_fee, Fee::from_u64(fee.as_u64()))
                     }
                     Validity::Invalid => {
                         // Not enough account creation fee and using full balance for fee
-                        let account_creation_fee =
-                            CONSTRAINT_CONSTANTS.account_creation_fee.as_u64() / 2;
+                        let account_creation_fee = CONSTRAINT_CONSTANTS.account_creation_fee / 2;
                         let account_creation_fee = Amount::from_u64(account_creation_fee);
                         (account_creation_fee, Fee::from_u64(balance.as_u64()))
                     }

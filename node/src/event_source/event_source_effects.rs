@@ -4,6 +4,7 @@ use p2p::P2pListenEvent;
 
 use crate::action::CheckTimeoutsAction;
 use crate::block_producer::vrf_evaluator::BlockProducerVrfEvaluatorAction;
+use crate::block_producer::{BlockProducerEvent, BlockProducerVrfEvaluatorEvent};
 use crate::external_snark_worker::ExternalSnarkWorkerEvent;
 use crate::p2p::channels::best_tip::P2pChannelsBestTipAction;
 use crate::p2p::channels::rpc::P2pChannelsRpcAction;
@@ -28,7 +29,7 @@ use crate::rpc::{RpcAction, RpcRequest};
 use crate::snark::block_verify::SnarkBlockVerifyAction;
 use crate::snark::work_verify::SnarkWorkVerifyAction;
 use crate::snark::SnarkEvent;
-use crate::{ExternalSnarkWorkerAction, Service, Store};
+use crate::{BlockProducerAction, ExternalSnarkWorkerAction, Service, Store};
 
 use super::{Event, EventSourceAction, EventSourceActionWithMeta, P2pConnectionEvent, P2pEvent};
 
@@ -336,16 +337,22 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                 }
             },
             Event::BlockProducerEvent(e) => match e {
-                crate::block_producer::BlockProducerEvent::VrfEvaluator(vrf_e) => match vrf_e {
-                    crate::block_producer::BlockProducerVrfEvaluatorEvent::Evaluated(
-                        vrf_output_with_hash,
-                    ) => {
+                BlockProducerEvent::VrfEvaluator(vrf_e) => match vrf_e {
+                    BlockProducerVrfEvaluatorEvent::Evaluated(vrf_output_with_hash) => {
                         store.dispatch(
                             BlockProducerVrfEvaluatorAction::ProcessSlotEvaluationSuccess {
                                 vrf_output: vrf_output_with_hash.evaluation_result,
                                 staking_ledger_hash: vrf_output_with_hash.staking_ledger_hash,
                             },
                         );
+                    }
+                },
+                BlockProducerEvent::BlockProve(block_hash, res) => match res {
+                    Err(err) => todo!(
+                        "error while trying to produce block proof for block {block_hash} - {err}"
+                    ),
+                    Ok(proof) => {
+                        store.dispatch(BlockProducerAction::BlockProveSuccess { proof });
                     }
                 },
             },
