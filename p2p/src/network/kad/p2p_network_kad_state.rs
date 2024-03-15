@@ -11,6 +11,7 @@ use crate::{bootstrap::P2pNetworkKadBootstrapStats, PeerId, StreamId};
 
 /// Kademlia status.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(tag = "type")]
 pub enum P2pNetworkKadStatus {
     /// Initial state.
     #[default]

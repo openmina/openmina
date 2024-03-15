@@ -64,6 +64,7 @@ pub struct P2pNetworkKadBootstrapStats {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(tag = "type")]
 pub enum P2pNetworkKadBootstrapRequestStat {
     Ongoing(P2pNetworkKadBootstrapOngoingRequest),
     Successfull(P2pNetworkKadBootstrapSuccessfullRequest),
