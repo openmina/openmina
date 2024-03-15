@@ -51,7 +51,7 @@ use node::{ActionWithMeta, State};
 use openmina_node_native::NodeService;
 use redux::Instant;
 
-use crate::cluster::ClusterNodeId;
+use crate::cluster::{ClusterNodeId, ProofKind};
 use crate::node::NonDeterministicEvent;
 
 pub type DynEffects = Box<dyn FnMut(&State, &NodeTestingService, &ActionWithMeta) + Send>;
@@ -70,6 +70,7 @@ pub struct NodeTestingService {
     id: ClusterNodeId,
     /// Use webrtc p2p between Rust nodes.
     rust_to_rust_use_webrtc: bool,
+    proof_kind: ProofKind,
     /// We are replaying this node so disable some non-deterministic services.
     is_replay: bool,
     monotonic_time: Instant,
@@ -88,6 +89,7 @@ impl NodeTestingService {
             real,
             id,
             rust_to_rust_use_webrtc: false,
+            proof_kind: ProofKind::default(),
             is_replay: false,
             monotonic_time: Instant::now(),
             pending_events: PendingRequests::new(),
@@ -108,6 +110,15 @@ impl NodeTestingService {
     pub fn set_rust_to_rust_use_webrtc(&mut self) -> &mut Self {
         assert!(cfg!(feature = "p2p-webrtc"));
         self.rust_to_rust_use_webrtc = true;
+        self
+    }
+
+    pub fn proof_kind(&self) -> ProofKind {
+        self.proof_kind
+    }
+
+    pub fn set_proof_kind(&mut self, kind: ProofKind) -> &mut Self {
+        self.proof_kind = kind;
         self
     }
 
@@ -336,18 +347,21 @@ impl SnarkBlockVerifyService for NodeTestingService {
         verifier_srs: Arc<Mutex<VerifierSRS>>,
         block: VerifiableBlockWithHash,
     ) {
-        let _ = (verifier_index, verifier_srs, block);
-        let _ = self
-            .real
-            .event_sender
-            .send(SnarkEvent::BlockVerify(req_id, Ok(())).into());
-        // SnarkBlockVerifyService::verify_init(
-        //     &mut self.real,
-        //     req_id,
-        //     verifier_index,
-        //     verifier_srs,
-        //     block,
-        // )
+        match self.proof_kind() {
+            ProofKind::Dummy | ProofKind::ConstraintsChecked => {
+                let _ = self
+                    .real
+                    .event_sender
+                    .send(SnarkEvent::BlockVerify(req_id, Ok(())).into());
+            }
+            ProofKind::Full => SnarkBlockVerifyService::verify_init(
+                &mut self.real,
+                req_id,
+                verifier_index,
+                verifier_srs,
+                block,
+            ),
+        }
     }
 }
 
@@ -359,18 +373,21 @@ impl SnarkWorkVerifyService for NodeTestingService {
         verifier_srs: Arc<Mutex<VerifierSRS>>,
         work: Vec<Snark>,
     ) {
-        let _ = (verifier_index, verifier_srs, work);
-        let _ = self
-            .real
-            .event_sender
-            .send(SnarkEvent::WorkVerify(req_id, Ok(())).into());
-        // SnarkWorkVerifyService::verify_init(
-        //     &mut self.real,
-        //     req_id,
-        //     verifier_index,
-        //     verifier_srs,
-        //     work,
-        // )
+        match self.proof_kind() {
+            ProofKind::Dummy | ProofKind::ConstraintsChecked => {
+                let _ = self
+                    .real
+                    .event_sender
+                    .send(SnarkEvent::WorkVerify(req_id, Ok(())).into());
+            }
+            ProofKind::Full => SnarkWorkVerifyService::verify_init(
+                &mut self.real,
+                req_id,
+                verifier_index,
+                verifier_srs,
+                work,
+            ),
+        }
     }
 }
 
@@ -396,27 +413,43 @@ impl BlockProducerService for NodeTestingService {
     }
 
     fn prove(&mut self, block_hash: StateHash, input: Box<ProverExtendBlockchainInputStableV2>) {
-        use ledger::proofs::block::BlockParams;
-        let tx = self.real.event_sender.clone();
-        let provers = get_provers();
-        let res = generate_block_proof(BlockParams {
-            input: &*input,
-            block_step_prover: &provers.block_step_prover,
-            block_wrap_prover: &provers.block_wrap_prover,
-            tx_wrap_prover: &provers.tx_wrap_prover,
-            only_verify_constraints: true,
-            expected_step_proof: None,
-            ocaml_wrap_witness: None,
-        });
-        match res {
-            Err(ProofError::ConstraintsOk) => {
-                let dummy_proof = (*ledger::dummy::dummy_blockchain_proof()).clone();
-                let _ = tx.send(
-                    BlockProducerEvent::BlockProve(block_hash, Ok(dummy_proof.into())).into(),
-                );
+        fn dummy_proof_event(block_hash: StateHash) -> Event {
+            let dummy_proof = (*ledger::dummy::dummy_blockchain_proof()).clone();
+            BlockProducerEvent::BlockProve(block_hash, Ok(dummy_proof.into())).into()
+        }
+
+        match self.proof_kind() {
+            ProofKind::Dummy => {
+                let _ = self.real.event_sender.send(dummy_proof_event(block_hash));
             }
-            Err(err) => eprintln!("unexpected block proof generation error: {err:?}"),
-            Ok(_) => unreachable!(),
+            ProofKind::ConstraintsChecked => {
+                use ledger::proofs::block::BlockParams;
+                let tx = self.real.event_sender.clone();
+                let provers = get_provers();
+                let res = generate_block_proof(BlockParams {
+                    input: &*input,
+                    block_step_prover: &provers.block_step_prover,
+                    block_wrap_prover: &provers.block_wrap_prover,
+                    tx_wrap_prover: &provers.tx_wrap_prover,
+                    only_verify_constraints: true,
+                    expected_step_proof: None,
+                    ocaml_wrap_witness: None,
+                });
+                match res {
+                    Err(ProofError::ConstraintsOk) => {
+                        let dummy_proof = (*ledger::dummy::dummy_blockchain_proof()).clone();
+                        let _ = tx.send(
+                            BlockProducerEvent::BlockProve(block_hash, Ok(dummy_proof.into()))
+                                .into(),
+                        );
+                    }
+                    Err(err) => eprintln!("unexpected block proof generation error: {err:?}"),
+                    Ok(_) => unreachable!(),
+                }
+            }
+            ProofKind::Full => {
+                BlockProducerService::prove(self, block_hash, input);
+            }
         }
     }
 }

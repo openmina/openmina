@@ -1,5 +1,5 @@
 mod config;
-pub use config::ClusterConfig;
+pub use config::{ClusterConfig, ProofKind};
 
 mod p2p_task_spawner;
 use openmina_core::log::system_time;
@@ -355,6 +355,7 @@ impl Cluster {
             real_service.block_producer_start(producer_key.into());
         }
         let mut service = NodeTestingService::new(real_service, node_id, shutdown_rx);
+        service.set_proof_kind(self.config.proof_kind());
         if self.config.all_rust_to_rust_use_webrtc() {
             service.set_rust_to_rust_use_webrtc();
         }
