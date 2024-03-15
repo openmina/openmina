@@ -67,7 +67,7 @@ pub struct P2pNetworkKadBootstrapStats {
 #[serde(tag = "type")]
 pub enum P2pNetworkKadBootstrapRequestStat {
     Ongoing(P2pNetworkKadBootstrapOngoingRequest),
-    Successfull(P2pNetworkKadBootstrapSuccessfullRequest),
+    Successful(P2pNetworkKadBootstrapSuccessfullRequest),
     Failed(P2pNetworkKadBootstrapFailedRequest),
 }
 

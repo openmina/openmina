@@ -99,7 +99,7 @@ impl P2pNetworkKadBootstrapState {
                         ) if a == &address
                     )
                 }) {
-                    *request_stats = P2pNetworkKadBootstrapRequestStat::Successfull(
+                    *request_stats = P2pNetworkKadBootstrapRequestStat::Successful(
                         P2pNetworkKadBootstrapSuccessfullRequest {
                             peer_id: *peer_id,
                             address,
