@@ -1,5 +1,6 @@
 import { NodesOverviewLedger } from '@shared/types/nodes/dashboard/nodes-overview-ledger.type';
 import { NodesOverviewBlock } from '@shared/types/nodes/dashboard/nodes-overview-block.type';
+import { NodesOverviewResync } from '@shared/types/nodes/dashboard/nodes-overview-resync.type';
 
 export interface NodesOverviewNode {
   name: string;
@@ -15,6 +16,7 @@ export interface NodesOverviewNode {
   fetchingBlocks: number;
   fetchedBlocks: number;
   ledgers: NodesOverviewLedger;
+  resyncs: NodesOverviewResync[];
   blocks: NodesOverviewBlock[];
 }
 

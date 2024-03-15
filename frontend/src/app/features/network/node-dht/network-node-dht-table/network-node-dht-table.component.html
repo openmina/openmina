@@ -1,0 +1,10 @@
+<ng-container #minaTable></ng-container>
+
+<ng-template #rowTemplate let-row="row">
+  <span>{{ row.peerId | truncateMid }}</span>
+  <span class="secondary">{{ row.addressesLength }}</span>
+  <span>{{ row.hexDistance | truncateMid }}</span>
+  <span class="monospace">{{ row.binaryDistance | truncateMid: 10: 0 }}</span>
+  <span class="secondary">{{ row.xorDistance }}</span>
+  <span class="secondary">{{ row.bucketIndex }}</span>
+</ng-template>

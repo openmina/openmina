@@ -1,0 +1,17 @@
+<div class="fx-row-vert-cent primary h-xl f-600"
+     [ngClass]="!loading ? 'success-primary' : ''">
+  <ng-container *ngTemplateOutlet="icon"></ng-container>
+  Transition frontier
+</div>
+<mina-dashboard-errors></mina-dashboard-errors>
+<div class="flex-column-md flex-row">
+  <mina-dashboard-ledger></mina-dashboard-ledger>
+  <mina-dashboard-blocks-sync class="flex-1"></mina-dashboard-blocks-sync>
+</div>
+
+<ng-template #icon>
+  <span *ngIf="!loading; else spinner" class="mina-icon icon-200 mr-10">margin</span>
+  <ng-template #spinner>
+    <span class="loading-icon mina-icon icon-200 mr-10">progress_activity</span>
+  </ng-template>
+</ng-template>

@@ -1,7 +1,7 @@
-<div class="border-top pl-12 flex-column w-100">
+<div class="pl-12 flex-column w-100"
+     *ngIf="ledgers">
   <div class="f-600 secondary h-xl lh-xl">Ledger Sync</div>
-  <div *ngIf="ledgers.stakingEpoch"
-       class="group flex-column"
+  <div class="group flex-column"
        [ngClass]="ledgers.stakingEpoch.state">
     <div class="fx-row-vert-cent lh-lg h-lg pr-12">
       <ng-container *ngTemplateOutlet="icon; context: { state: ledgers.stakingEpoch.state }"></ng-container>
@@ -11,7 +11,7 @@
           *ngTemplateOutlet="ledgerTime; context: { state: ledgers.stakingEpoch.state, time: ledgers.stakingEpoch.totalTime }"></ng-container>
       </span>
     </div>
-    <div *ngIf="stepsMap['stakingEpoch']" class="steps flex-column pr-12">
+    <div class="steps flex-column pr-12">
       <div class="flex-row flex-between h-lg lh-lg"
            (mouseenter)="show($event, ledgers.stakingEpoch.snarked.fetchHashesStart, ledgers.stakingEpoch.snarked.fetchHashesEnd)"
            (mouseleave)="hide()">
@@ -26,24 +26,9 @@
               class="step">Snarked - Fetch accounts</span>
         <span>{{ ledgers.stakingEpoch.snarked.fetchAccountsDuration | secDuration: secConfig }}</span>
       </div>
-      <div class="flex-row flex-between h-lg lh-lg"
-           (mouseenter)="show($event, ledgers.stakingEpoch.staged.fetchPartsStart, ledgers.stakingEpoch.staged.fetchPartsEnd)"
-           (mouseleave)="hide()">
-        <span [class.secondary]="ledgers.stakingEpoch.staged.fetchPartsDuration"
-              class="step">Staged - Fetch parts</span>
-        <span>{{ ledgers.stakingEpoch.staged.fetchPartsDuration | secDuration: secConfig }}</span>
-      </div>
-      <div class="flex-row flex-between h-lg lh-lg"
-           (mouseenter)="show($event, ledgers.stakingEpoch.staged.reconstructStart, ledgers.stakingEpoch.staged.reconstructEnd)"
-           (mouseleave)="hide()">
-        <span [class.secondary]="ledgers.stakingEpoch.staged.reconstructDuration"
-              class="step">Staged - Reconstruct</span>
-        <span>{{ ledgers.stakingEpoch.staged.reconstructDuration | secDuration: secConfig }}</span>
-      </div>
     </div>
   </div>
-  <div *ngIf="ledgers.nextEpoch"
-       class="group flex-column"
+  <div class="group flex-column"
        [ngClass]="ledgers.nextEpoch.state">
     <div class="fx-row-vert-cent lh-lg h-lg pr-12">
       <ng-container *ngTemplateOutlet="icon; context: { state: ledgers.nextEpoch.state }"></ng-container>
@@ -53,7 +38,7 @@
           *ngTemplateOutlet="ledgerTime; context: { state: ledgers.nextEpoch.state, time: ledgers.nextEpoch.totalTime }"></ng-container>
       </span>
     </div>
-    <div *ngIf="stepsMap['nextEpoch']" class="steps flex-column pr-12">
+    <div class="steps flex-column pr-12">
       <div class="flex-row flex-between h-lg lh-lg"
            (mouseenter)="show($event, ledgers.nextEpoch.snarked.fetchHashesStart, ledgers.nextEpoch.snarked.fetchHashesEnd)"
            (mouseleave)="hide()">
@@ -68,24 +53,9 @@
               class="step">Snarked - Fetch accounts</span>
         <span>{{ ledgers.nextEpoch.snarked.fetchAccountsDuration | secDuration: secConfig }}</span>
       </div>
-      <div class="flex-row flex-between h-lg lh-lg"
-           (mouseenter)="show($event, ledgers.nextEpoch.staged.fetchPartsStart, ledgers.nextEpoch.staged.fetchPartsEnd)"
-           (mouseleave)="hide()">
-        <span [class.secondary]="ledgers.nextEpoch.staged.fetchPartsDuration"
-              class="step">Staged - Fetch parts</span>
-        <span>{{ ledgers.nextEpoch.staged.fetchPartsDuration | secDuration: secConfig }}</span>
-      </div>
-      <div class="flex-row flex-between h-lg lh-lg"
-           (mouseenter)="show($event, ledgers.nextEpoch.staged.reconstructStart, ledgers.nextEpoch.staged.reconstructEnd)"
-           (mouseleave)="hide()">
-        <span [class.secondary]="ledgers.nextEpoch.staged.reconstructDuration"
-              class="step">Staged - Reconstruct</span>
-        <span>{{ ledgers.nextEpoch.staged.reconstructDuration | secDuration: secConfig }}</span>
-      </div>
     </div>
   </div>
-  <div *ngIf="ledgers.root"
-       class="group flex-column"
+  <div class="group flex-column"
        [ngClass]="ledgers.root.state">
     <div class="fx-row-vert-cent lh-lg h-lg pr-12">
       <ng-container *ngTemplateOutlet="icon; context: { state: ledgers.root.state }"></ng-container>
@@ -95,7 +65,7 @@
           *ngTemplateOutlet="ledgerTime; context: { state: ledgers.root.state, time: ledgers.root.totalTime }"></ng-container>
       </span>
     </div>
-    <div *ngIf="stepsMap['root']" class="steps flex-column pr-12">
+    <div class="steps flex-column pr-12">
       <div class="flex-row flex-between h-lg lh-lg"
            (mouseenter)="show($event, ledgers.root.snarked.fetchHashesStart, ledgers.root.snarked.fetchHashesEnd)"
            (mouseleave)="hide()">
@@ -146,9 +116,6 @@
 
 <ng-template #ledgerTime let-state="state" let-time="time">
   <ng-container [ngSwitch]="state">
-    <ng-container *ngSwitchCase="'loading'">
-      <span class="mina-icon icon-200 primary mr--5">more_horiz</span>
-    </ng-container>
     <ng-container *ngSwitchCase="'success'">
       <span class="primary">{{ time | secDuration: secConfig }}</span>
     </ng-container>

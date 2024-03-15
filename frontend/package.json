@@ -2,7 +2,7 @@
   "name": "frontend",
   "version": "0.1",
   "scripts": {
-    "ng": "ng",
+    "install:deps": "npm install",
     "start": "ng serve --configuration local --open",
     "start:dev": "ng serve --configuration development",
     "build": "ng build",
@@ -28,7 +28,7 @@
     "@ngrx/effects": "^16.2.0",
     "@ngrx/router-store": "^16.2.0",
     "@ngrx/store": "^16.2.0",
-    "@openmina/shared": "^0.60.0",
+    "@openmina/shared": "^0.65.0",
     "d3": "^7.8.4",
     "eigen": "^0.2.2",
     "mathjs": "^12.3.0",
@@ -40,7 +40,7 @@
   "devDependencies": {
     "@angular-builders/custom-webpack": "^16.0.1",
     "@angular-builders/dev-server": "^7.3.1",
-    "@angular-devkit/build-angular": "^16.2.4",
+    "@angular-devkit/build-angular": "^16.2.12",
     "@angular/cli": "^16.2.4",
     "@angular/compiler-cli": "^16.2.0",
     "@ngrx/store-devtools": "^16.2.0",

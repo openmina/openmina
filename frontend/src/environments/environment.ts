@@ -8,7 +8,7 @@ export const environment: Readonly<MinaEnv> = {
       dashboard: [],
       nodes: ['overview', 'live', 'bootstrap'],
       state: ['actions'],
-      network: ['messages', 'connections', 'blocks'],
+      network: ['messages', 'connections', 'blocks', 'topology', 'node-dht', 'graph-overview'],
       snarks: ['scan-state' /*'work-pool'*/],
       // 'testing-tool': ['scenarios'],
     },
@@ -26,41 +26,45 @@ export const environment: Readonly<MinaEnv> = {
     //   },
     // },
     {
-      name: 'Node with mem profiler',
-      url: 'http://1.k8.openmina.com:30252',
-      memoryProfiler: 'http://1.k8.openmina.com:31164',
-      features: {
-        nodes: ['overview', 'live', 'bootstrap'],
-        state: ['actions'],
-        snarks: ['scan-state'],
-        resources: ['memory'],
-        network: ['topology', 'node-dht', 'graph-overview'],
-      },
+      name: 'Local rust node',
+      url: 'http://127.0.0.1:3000',
     },
-    {
-      name: 'Node with debugger',
-      url: 'http://1.k8.openmina.com:31688',
-      debugger: 'http://1.k8.openmina.com:31072',
-      features: {
-        nodes: ['overview', 'live', 'bootstrap'],
-        state: ['actions'],
-        network: ['messages', 'connections', 'blocks'],
-        snarks: ['scan-state'],
-        resources: ['memory'],
-      },
-    },
-    {
-      name: 'Snarker 1',
-      url: 'http://webrtc2.webnode.openmina.com:10000',
-    },
-    {
-      name: 'Snarker 2',
-      url: 'http://webrtc3.webnode.openmina.com:10000',
-    },
-    {
-      name: 'Snarker 3',
-      url: 'http://webrtc4.webnode.openmina.com:10000',
-    },
+    // {
+    //   name: 'Node with mem profiler',
+    //   url: 'http://1.k8.openmina.com:30252',
+    //   memoryProfiler: 'http://1.k8.openmina.com:31164',
+    //   features: {
+    //     nodes: ['overview', 'live', 'bootstrap'],
+    //     state: ['actions'],
+    //     snarks: ['scan-state'],
+    //     resources: ['memory'],
+    //     network: ['topology', 'node-dht', 'graph-overview'],
+    //   },
+    // },
+    // {
+    //   name: 'Node with debugger',
+    //   url: 'http://1.k8.openmina.com:31688',
+    //   debugger: 'http://1.k8.openmina.com:31072',
+    //   features: {
+    //     nodes: ['overview', 'live', 'bootstrap'],
+    //     state: ['actions'],
+    //     network: ['messages', 'connections', 'blocks'],
+    //     snarks: ['scan-state'],
+    //     resources: ['memory'],
+    //   },
+    // },
+    // {
+    //   name: 'Snarker 1',
+    //   url: 'http://webrtc2.webnode.openmina.com:10000',
+    // },
+    // {
+    //   name: 'Snarker 2',
+    //   url: 'http://webrtc3.webnode.openmina.com:10000',
+    // },
+    // {
+    //   name: 'Snarker 3',
+    //   url: 'http://webrtc4.webnode.openmina.com:10000',
+    // },
   ],
 };
 

@@ -10,7 +10,7 @@
     {{ row.status }}
   </span>
   <span>{{ row.datetime }}</span>
-  <span class="secondary">{{ row.address ?? '-' }}</span>
+  <span class="secondary">{{ row.address ?? '-' | truncateMid: 20: 0 }}</span>
   <span class="secondary">{{ row.globalSlot ?? '-' }}</span>
   <span class="secondary">{{ row.height ?? '-' }}</span>
   <span>{{ row.bestTipDatetime }}</span>

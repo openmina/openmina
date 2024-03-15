@@ -1,0 +1,30 @@
+<div class="fx-row-vert-cent primary h-xl f-600"
+     [ngClass]="stats.connected ? 'success-primary' : ''">
+  <ng-container *ngTemplateOutlet="icon"></ng-container>
+  Network
+</div>
+<div class="flex-column h-minus-xl">
+  <div class="fx-row-vert-cent">
+    <mina-card label="Connected"
+               [value]="stats.connected"
+               color="var(--success-primary)"
+               [hint]="'Synced Peer' + (stats.connected !== 1 ? 's' : '')"
+               class="mr-8"></mina-card>
+    <mina-card label="Connecting"
+               [value]="stats.connecting"
+               labelColor="var(--base-tertiary)"
+               [hint]="'Peer' + (stats.connecting !== 1 ? 's' : '')"
+               class="mr-8"></mina-card>
+    <mina-card label="Disconnected"
+               labelColor="var(--base-tertiary)"
+               [hint]="'Peer' + (stats.disconnected !== 1 ? 's' : '')"
+               [value]="stats.disconnected"></mina-card>
+  </div>
+</div>
+
+<ng-template #icon>
+  <span *ngIf="stats.connected; else spinner" class="mina-icon icon-200 mr-10">account_tree</span>
+  <ng-template #spinner>
+    <span class="loading-icon mina-icon icon-200 mr-10">progress_activity</span>
+  </ng-template>
+</ng-template>
