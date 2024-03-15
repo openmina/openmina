@@ -99,11 +99,22 @@ pub enum ActionKind {
     BlockProducerWonSlotProduceInit,
     BlockProducerWonSlotSearch,
     BlockProducerWonSlotWait,
-    BlockProducerVrfEvaluatorEpochDataUpdate,
-    BlockProducerVrfEvaluatorEvaluateVrf,
-    BlockProducerVrfEvaluatorEvaluationSuccess,
-    BlockProducerVrfEvaluatorUpdateProducerAndDelegates,
-    BlockProducerVrfEvaluatorUpdateProducerAndDelegatesSuccess,
+    BlockProducerVrfEvaluatorBeginDelegatorTableConstruction,
+    BlockProducerVrfEvaluatorBeginEpochEvaluation,
+    BlockProducerVrfEvaluatorCheckEpochBounds,
+    BlockProducerVrfEvaluatorCheckEpochEvaluability,
+    BlockProducerVrfEvaluatorCleanupOldSlots,
+    BlockProducerVrfEvaluatorContinueEpochEvaluation,
+    BlockProducerVrfEvaluatorEvaluateSlot,
+    BlockProducerVrfEvaluatorFinalizeDelegatorTableConstruction,
+    BlockProducerVrfEvaluatorFinalizeEvaluatorInitialization,
+    BlockProducerVrfEvaluatorFinishEpochEvaluation,
+    BlockProducerVrfEvaluatorInitializeEpochEvaluation,
+    BlockProducerVrfEvaluatorInitializeEvaluator,
+    BlockProducerVrfEvaluatorProcessSlotEvaluationSuccess,
+    BlockProducerVrfEvaluatorRecordLastBlockHeightInEpoch,
+    BlockProducerVrfEvaluatorSelectInitialSlot,
+    BlockProducerVrfEvaluatorWaitForNextEvaluation,
     CheckTimeouts,
     ConsensusBestTipUpdate,
     ConsensusBlockChainProofUpdate,
@@ -357,7 +368,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 269;
+    pub const COUNT: u16 = 280;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -757,17 +768,48 @@ impl ActionKindGet for SnarkPoolCandidateAction {
 impl ActionKindGet for BlockProducerVrfEvaluatorAction {
     fn kind(&self) -> ActionKind {
         match self {
-            Self::EpochDataUpdate { .. } => ActionKind::BlockProducerVrfEvaluatorEpochDataUpdate,
-            Self::EvaluateVrf { .. } => ActionKind::BlockProducerVrfEvaluatorEvaluateVrf,
-            Self::EvaluationSuccess { .. } => {
-                ActionKind::BlockProducerVrfEvaluatorEvaluationSuccess
+            Self::EvaluateSlot { .. } => ActionKind::BlockProducerVrfEvaluatorEvaluateSlot,
+            Self::ProcessSlotEvaluationSuccess { .. } => {
+                ActionKind::BlockProducerVrfEvaluatorProcessSlotEvaluationSuccess
             }
-            Self::UpdateProducerAndDelegates { .. } => {
-                ActionKind::BlockProducerVrfEvaluatorUpdateProducerAndDelegates
+            Self::InitializeEvaluator { .. } => {
+                ActionKind::BlockProducerVrfEvaluatorInitializeEvaluator
             }
-            Self::UpdateProducerAndDelegatesSuccess { .. } => {
-                ActionKind::BlockProducerVrfEvaluatorUpdateProducerAndDelegatesSuccess
+            Self::FinalizeEvaluatorInitialization { .. } => {
+                ActionKind::BlockProducerVrfEvaluatorFinalizeEvaluatorInitialization
             }
+            Self::CheckEpochEvaluability { .. } => {
+                ActionKind::BlockProducerVrfEvaluatorCheckEpochEvaluability
+            }
+            Self::InitializeEpochEvaluation { .. } => {
+                ActionKind::BlockProducerVrfEvaluatorInitializeEpochEvaluation
+            }
+            Self::BeginDelegatorTableConstruction { .. } => {
+                ActionKind::BlockProducerVrfEvaluatorBeginDelegatorTableConstruction
+            }
+            Self::FinalizeDelegatorTableConstruction { .. } => {
+                ActionKind::BlockProducerVrfEvaluatorFinalizeDelegatorTableConstruction
+            }
+            Self::SelectInitialSlot { .. } => {
+                ActionKind::BlockProducerVrfEvaluatorSelectInitialSlot
+            }
+            Self::BeginEpochEvaluation { .. } => {
+                ActionKind::BlockProducerVrfEvaluatorBeginEpochEvaluation
+            }
+            Self::RecordLastBlockHeightInEpoch { .. } => {
+                ActionKind::BlockProducerVrfEvaluatorRecordLastBlockHeightInEpoch
+            }
+            Self::ContinueEpochEvaluation { .. } => {
+                ActionKind::BlockProducerVrfEvaluatorContinueEpochEvaluation
+            }
+            Self::FinishEpochEvaluation { .. } => {
+                ActionKind::BlockProducerVrfEvaluatorFinishEpochEvaluation
+            }
+            Self::WaitForNextEvaluation { .. } => {
+                ActionKind::BlockProducerVrfEvaluatorWaitForNextEvaluation
+            }
+            Self::CheckEpochBounds { .. } => ActionKind::BlockProducerVrfEvaluatorCheckEpochBounds,
+            Self::CleanupOldSlots { .. } => ActionKind::BlockProducerVrfEvaluatorCleanupOldSlots,
         }
     }
 }

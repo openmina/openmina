@@ -33,6 +33,7 @@ use mina_p2p_messages::{
 use mina_signer::CompressedPubKey;
 use openmina_core::block::ArcBlockWithHash;
 use serde::{Deserialize, Serialize};
+use vrf::output::VrfOutput;
 
 use crate::account::AccountPublicKey;
 
@@ -43,10 +44,7 @@ pub struct BlockProducerWonSlot {
     pub slot_time: redux::Timestamp,
     pub delegator: (NonZeroCurvePoint, AccountIndex),
     pub global_slot: ConsensusGlobalSlotStableV1,
-    pub vrf_output: ConsensusVrfOutputTruncatedStableV1,
-    // TODO(adonagy): maybe instead of passing it here, it can be
-    // calculated on spot from `vrf_output`? Maybe with `vrf_output.blake2b()`?
-    pub vrf_hash: BigInt,
+    pub vrf_output: VrfOutput,
     // Staking ledger which was used during vrf evaluation.
     pub staking_ledger_hash: LedgerHash,
 }
@@ -78,10 +76,7 @@ impl BlockProducerWonSlot {
             slot_time,
             delegator,
             global_slot,
-            vrf_output: ConsensusVrfOutputTruncatedStableV1(
-                (&won_slot.vrf_output_bytes[..]).into(),
-            ),
-            vrf_hash: won_slot.vrf_hash.clone(),
+            vrf_output: won_slot.vrf_output.clone(),
             staking_ledger_hash: staking_ledger_hash.clone(),
         }
     }
@@ -116,11 +111,11 @@ impl BlockProducerWonSlot {
 
 impl PartialOrd for BlockProducerWonSlot {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(
-            self.global_slot()
-                .cmp(&other.global_slot())
-                .then_with(|| self.vrf_output.blake2b().cmp(&other.vrf_output.blake2b())),
-        )
+        Some(self.global_slot().cmp(&other.global_slot()).then_with(|| {
+            ConsensusVrfOutputTruncatedStableV1::from(&self.vrf_output)
+                .blake2b()
+                .cmp(&ConsensusVrfOutputTruncatedStableV1::from(&other.vrf_output).blake2b())
+        }))
     }
 }
 
@@ -134,15 +129,36 @@ impl PartialOrd<ArcBlockWithHash> for BlockProducerWonSlot {
     fn partial_cmp(&self, other: &ArcBlockWithHash) -> Option<std::cmp::Ordering> {
         // TODO(binier): this assumes short range fork
         Some(self.global_slot().cmp(&other.global_slot()).then_with(|| {
-            self.vrf_output.blake2b().cmp(
-                &other
-                    .header()
-                    .protocol_state
-                    .body
-                    .consensus_state
-                    .last_vrf_output
-                    .blake2b(),
-            )
+            ConsensusVrfOutputTruncatedStableV1::from(&self.vrf_output)
+                .blake2b()
+                .cmp(
+                    &other
+                        .header()
+                        .protocol_state
+                        .body
+                        .consensus_state
+                        .last_vrf_output
+                        .blake2b(),
+                )
         }))
     }
 }
+
+pub fn to_epoch_and_slot(global_slot: &ConsensusGlobalSlotStableV1) -> (u32, u32) {
+    let epoch = global_slot.slot_number.as_u32() / global_slot.slots_per_epoch.as_u32();
+    let slot = global_slot.slot_number.as_u32() % global_slot.slots_per_epoch.as_u32();
+    (epoch, slot)
+}
+
+pub fn next_epoch_first_slot(global_slot: &ConsensusGlobalSlotStableV1) -> u32 {
+    let (epoch, slot) = to_epoch_and_slot(global_slot);
+    (epoch + 1) * global_slot.slots_per_epoch.as_u32()
+}
+
+// Returns the epoch number and whether it is the last slot of the epoch
+// pub fn epoch_with_bounds(global_slot: u32) -> (u32, bool) {
+//     // let epoch_bound = |global_slot| -> (u32, bool) {
+//     //     (global_slot / SLOTS_PER_EPOCH, (global_slot + 1) % SLOTS_PER_EPOCH == 0)
+//     // };
+
+// }

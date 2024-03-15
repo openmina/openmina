@@ -36,6 +36,8 @@ ledger = { workspace = true }
 mina-p2p-messages = { workspace = true }
 libp2p = { workspace = true, features = ["macros", "serde", "tcp", "dns", "tokio", "yamux", "pnet", "noise", "gossipsub"] }
 vrf = { workspace = true }
+time = { version = "0.3", features = ["formatting"] }
+tracing = { version = "0.1", features = ["std"] }
 
 nix = { version = "0.27.1", features = ["process", "signal"] }
 ctrlc = "3.4.2"

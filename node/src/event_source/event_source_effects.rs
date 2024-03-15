@@ -340,10 +340,12 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                     crate::block_producer::BlockProducerVrfEvaluatorEvent::Evaluated(
                         vrf_output_with_hash,
                     ) => {
-                        store.dispatch(BlockProducerVrfEvaluatorAction::EvaluationSuccess {
-                            vrf_output: vrf_output_with_hash.evaluation_result,
-                            staking_ledger_hash: vrf_output_with_hash.staking_ledger_hash,
-                        });
+                        store.dispatch(
+                            BlockProducerVrfEvaluatorAction::ProcessSlotEvaluationSuccess {
+                                vrf_output: vrf_output_with_hash.evaluation_result,
+                                staking_ledger_hash: vrf_output_with_hash.staking_ledger_hash,
+                            },
+                        );
                     }
                 },
             },
