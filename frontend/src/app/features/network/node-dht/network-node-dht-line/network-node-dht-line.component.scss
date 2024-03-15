@@ -1,5 +1,10 @@
 @import 'openmina';
 
+.base-div {
+  padding-right: 0;
+  transition: 300ms;
+}
+
 .list {
   height: 16px;
 }

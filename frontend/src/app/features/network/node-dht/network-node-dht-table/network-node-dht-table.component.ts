@@ -3,7 +3,8 @@ import { MinaTableRustWrapper } from '@shared/base-classes/mina-table-rust-wrapp
 import { TableColumnList } from '@openmina/shared';
 import { Router } from '@angular/router';
 import { NetworkNodeDHT } from '@shared/types/network/node-dht/network-node-dht.type';
-import { selectNetworkNodeDhtPeers } from '@network/node-dht/network-node-dht.state';
+import { selectNetworkNodeDhtActivePeer, selectNetworkNodeDhtPeers } from '@network/node-dht/network-node-dht.state';
+import { NetworkNodeDhtSetActivePeer } from '@network/node-dht/network-node-dht.actions';
 
 
 @Component({
@@ -32,7 +33,7 @@ export class NetworkNodeDhtTableComponent extends MinaTableRustWrapper<NetworkNo
   override async ngOnInit(): Promise<void> {
     await super.ngOnInit();
     this.listenToNetworkConnectionsChanges();
-    // this.listenToActiveRowChange();
+    this.listenToActiveRowChange();
   }
 
   protected override setupTable(): void {
@@ -49,12 +50,14 @@ export class NetworkNodeDhtTableComponent extends MinaTableRustWrapper<NetworkNo
   }
 
   private listenToActiveRowChange(): void {
-    this.activeRow = this.rows[4];
-    this.table.activeRow = this.activeRow;
+    this.select(selectNetworkNodeDhtActivePeer, (activeRow: NetworkNodeDHT) => {
+      this.activeRow = activeRow;
+      this.table.activeRow = activeRow;
+      this.table.detect();
+    });
   }
 
   protected override onRowClick(row: NetworkNodeDHT): void {
-    this.activeRow = row;
-    this.table.activeRow = this.activeRow;
+    this.dispatch(NetworkNodeDhtSetActivePeer, row);
   }
 }

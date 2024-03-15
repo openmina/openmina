@@ -1,8 +1,9 @@
 import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
-import { NetworkNodeDhtState } from '@network/node-dht/network-node-dht.state';
+import { NetworkNodeDhtState, selectNetworkNodeDhtOpenSidePanel } from '@network/node-dht/network-node-dht.state';
 import { selectNetworkNodeDhtState } from '@network/network.state';
 import { filter } from 'rxjs';
+import { NetworkNodeDhtToggleSidePanel } from '@network/node-dht/network-node-dht.actions';
 
 interface DhtPoint {
   left: number;
@@ -23,12 +24,18 @@ export class NetworkNodeDhtLineComponent extends StoreDispatcher implements OnIn
 
   points: DhtPoint[] = [];
   buckets: DhtPoint[] = [];
+  openSidePanel: boolean;
 
   readonly trackPoints = (_: number, point: DhtPoint) => point.left;
   readonly trackBuckets = (_: number, bucket: DhtPoint) => bucket.left;
 
   ngOnInit(): void {
     this.listenToNodeDhtPeers();
+    this.listenToSidePanelToggling();
+  }
+
+  toggleSidePanel(): void {
+    this.dispatch(NetworkNodeDhtToggleSidePanel);
   }
 
   private listenToNodeDhtPeers(): void {
@@ -65,5 +72,12 @@ export class NetworkNodeDhtLineComponent extends StoreDispatcher implements OnIn
       }
       this.detect();
     }, filter(state => !!state.thisKey));
+  }
+
+  private listenToSidePanelToggling(): void {
+    this.select(selectNetworkNodeDhtOpenSidePanel, (open: boolean) => {
+      this.openSidePanel = open;
+      this.detect();
+    });
   }
 }

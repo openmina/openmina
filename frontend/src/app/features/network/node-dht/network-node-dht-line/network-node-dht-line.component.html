@@ -1,15 +1,25 @@
-<div class="lh-xl h-xl f-600">Peers Distances</div>
-<div class="list p-relative w-100 flex-row">
-  <div *ngFor="let bucket of buckets; let i=index; trackBy: trackBuckets"
-       class="bucket h-100"
-       [tooltip]="'Bucket ' + i"
-       [style.width.%]="i === 0 ? bucket.left : bucket.left - buckets[i-1].left"
-       [style.left.%]="i === 0 ? i : buckets[i-1].left">
-    <div class="mid-line p-absolute w-100"></div>
+<div class="base-div flex-column w-100 p-relative" [style.padding-right.px]="openSidePanel ? 0 : '50'">
+  <div class="lh-xl h-xl f-600">Peers Distances</div>
+  <div class="list p-relative w-100 flex-row">
+    <div *ngFor="let bucket of buckets; let i=index; trackBy: trackBuckets"
+         class="bucket h-100"
+         [tooltip]="'Bucket ' + i"
+         [style.width.%]="i === 0 ? bucket.left : bucket.left - buckets[i-1].left"
+         [style.left.%]="i === 0 ? i : buckets[i-1].left">
+      <div class="mid-line p-absolute w-100"></div>
+    </div>
+    <div *ngFor="let point of points; trackBy: trackPoints"
+         class="point"
+         [class.origin]="point.isOrigin"
+         [tooltip]="point.peerId"
+         [style.left.%]="point.left"></div>
   </div>
-  <div *ngFor="let point of points; trackBy: trackPoints"
-       class="point"
-       [class.origin]="point.isOrigin"
-       [tooltip]="point.peerId"
-       [style.left.%]="point.left"></div>
+
+  <span class="fx-row-vert-cent h-100 p-absolute" style="top:0;right:0">
+    <button *ngIf="!openSidePanel"
+            class="h-sm w-sm fx-row-full-cent btn-selected p-0 mr-10"
+            (click)="toggleSidePanel()">
+      <span class="mina-icon f-20">view_sidebar</span>
+    </button>
+  </span>
 </div>

@@ -86,9 +86,9 @@ export class DashboardLedgerComponent extends StoreDispatcher implements OnInit,
     nextEpoch: this.emptyConfig,
     root: this.emptyConfig,
   };
-  stakingProgress: number = null;
-  nextProgress: number = null;
-  rootProgress: number = null;
+  stakingProgress: number = 0;
+  nextProgress: number = 0;
+  rootProgress: number = 0;
   totalProgress: number;
 
   @ViewChild('tooltipRef') private tooltipRef: TemplateRef<{ start: number, end: number }>;

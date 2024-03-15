@@ -2,7 +2,7 @@
   <div class="h-xl lh-xl fx-row-vert-cent flex-between f-600 pl-12 pr-12 p-relative">
     <div [class.success-primary]="ledgers.root.synced">Ledgers</div>
     <div class="tertiary f-400">{{ progress }}</div>
-    <div *ngIf="totalProgress" [style.width.%]="totalProgress"
+    <div *ngIf="totalProgress >= 1" [style.width.%]="totalProgress"
          class="progress-bar p-absolute">
       <div class="highlight p-absolute" *ngIf="totalProgress < 100"></div>
       <div class="progress p-absolute w-100"></div>

@@ -1,19 +1,25 @@
 import { Injectable } from '@angular/core';
 import { RustService } from '@core/services/rust.service';
-import { map, Observable, of } from 'rxjs';
+import { map, Observable, ObservedValueOf, of } from 'rxjs';
 import { NetworkNodeDHT } from '@shared/types/network/node-dht/network-node-dht.type';
+import { NetworkNodeDhtBootstrapStats } from '@shared/types/network/node-dht/network-node-dht-bootstrap-stats.type';
 
 @Injectable({
-  providedIn: 'root'
+  providedIn: 'root',
 })
 export class NetworkNodeDhtService {
 
-  constructor(private rust: RustService) {
-  }
+  constructor(private rust: RustService) { }
 
   getDhtPeers(): Observable<{ peers: NetworkNodeDHT[], thisKey: string }> {
     return this.rust.get<DhtPeersResponse>('/discovery/routing_table').pipe(
-      map((response: DhtPeersResponse) => this.mapDhtPeers(response))
+      map((response: DhtPeersResponse) => this.mapDhtPeers(response)),
+    );
+  }
+
+  getDhtBootstrapStats(): Observable<NetworkNodeDhtBootstrapStats> {
+    return this.rust.get<NetworkNodeDhtBootstrapStats>('/discovery/bootstrap_stats').pipe(
+      map((response: NetworkNodeDhtBootstrapStats) => this.mapBootstrapStats(response)),
     );
   }
 
@@ -32,12 +38,12 @@ export class NetworkNodeDhtService {
             binaryDistance,
             xorDistance: entry.key === response.this_key ? '-' : this.getNumberOfZerosUntilFirst1(binaryDistance),
             bucketIndex: response.buckets.indexOf(bucket),
-            bucketMaxHex: bucket.max_dist
+            bucketMaxHex: bucket.max_dist,
           } as NetworkNodeDHT;
         });
         return acc.concat(nodes);
       }, []),
-      thisKey: response.this_key
+      thisKey: response.this_key,
     };
   }
 
@@ -57,6 +63,10 @@ export class NetworkNodeDhtService {
       }
     }
     return leadingZeros;
+  }
+
+  private mapBootstrapStats(response: NetworkNodeDhtBootstrapStats): NetworkNodeDhtBootstrapStats {
+    return response;
   }
 }
 

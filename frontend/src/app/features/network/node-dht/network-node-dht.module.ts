@@ -1,9 +1,12 @@
 import { NgModule } from '@angular/core';
 
-import { NetworkNodeDhtTableComponent } from './node-dht-table/network-node-dht-table.component';
 import { SharedModule } from '@shared/shared.module';
 import { NetworkNodeDhtComponent } from '@network/node-dht/network-node-dht.component';
-import { HorizontalResizableContainerComponent, MinaJsonViewerComponent } from '@openmina/shared';
+import {
+  HorizontalResizableContainerComponent,
+  MinaJsonViewerComponent,
+  MinaSidePanelStepperComponent
+} from '@openmina/shared';
 import {
   NetworkNodeDhtSidePanelComponent
 } from '@network/node-dht/network-node-dht-side-panel/network-node-dht-side-panel.component';
@@ -11,6 +14,10 @@ import { NetworkNodeDhtRouting } from '@network/node-dht/network-node-dht.routin
 import { EffectsModule } from '@ngrx/effects';
 import { NetworkNodeDhtEffects } from '@network/node-dht/network-node-dht.effects';
 import { NetworkNodeDhtLineComponent } from './network-node-dht-line/network-node-dht-line.component';
+import { NetworkNodeDhtTableComponent } from './network-node-dht-table/network-node-dht-table.component';
+import { NetworkNodeDhtPeerDetailsComponent } from './network-node-dht-peer-details/network-node-dht-peer-details.component';
+import { NetworkNodeDhtBootstrapStatsComponent } from './network-node-dht-bootstrap-stats/network-node-dht-bootstrap-stats.component';
+import { NetworkNodeDhtBootstrapDetailsComponent } from './network-node-dht-bootstrap-details/network-node-dht-bootstrap-details.component';
 
 
 @NgModule({
@@ -19,13 +26,17 @@ import { NetworkNodeDhtLineComponent } from './network-node-dht-line/network-nod
     NetworkNodeDhtTableComponent,
     NetworkNodeDhtSidePanelComponent,
     NetworkNodeDhtLineComponent,
+    NetworkNodeDhtPeerDetailsComponent,
+    NetworkNodeDhtBootstrapStatsComponent,
+    NetworkNodeDhtBootstrapDetailsComponent,
   ],
   imports: [
     SharedModule,
     NetworkNodeDhtRouting,
     HorizontalResizableContainerComponent,
     MinaJsonViewerComponent,
-    EffectsModule.forFeature(NetworkNodeDhtEffects)
+    EffectsModule.forFeature(NetworkNodeDhtEffects),
+    MinaSidePanelStepperComponent
   ],
 })
 export class NetworkNodeDhtModule {}
