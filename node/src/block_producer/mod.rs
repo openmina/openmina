@@ -22,11 +22,13 @@ pub use block_producer_service::*;
 
 use ledger::AccountIndex;
 use mina_p2p_messages::{
-    bigint::BigInt,
+    list::List,
     v2::{
         BlockTimeTimeStableV1, ConsensusGlobalSlotStableV1, ConsensusVrfOutputTruncatedStableV1,
-        LedgerHash, MinaNumbersGlobalSlotSinceGenesisMStableV1,
-        MinaNumbersGlobalSlotSinceHardForkMStableV1, NonZeroCurvePoint,
+        LedgerHash, MinaBaseProofStableV2, MinaBlockBlockStableV2, MinaBlockHeaderStableV2,
+        MinaNumbersGlobalSlotSinceGenesisMStableV1, MinaNumbersGlobalSlotSinceHardForkMStableV1,
+        MinaStateProtocolStateValueStableV2, NonZeroCurvePoint, ProtocolVersionStableV2,
+        StagedLedgerDiffBodyStableV1, StateBodyHash, StateHash,
         UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
     },
 };
@@ -47,6 +49,15 @@ pub struct BlockProducerWonSlot {
     pub vrf_output: VrfOutput,
     // Staking ledger which was used during vrf evaluation.
     pub staking_ledger_hash: LedgerHash,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct BlockWithoutProof {
+    pub protocol_state: MinaStateProtocolStateValueStableV2,
+    pub delta_block_chain_proof: (StateHash, List<StateBodyHash>),
+    pub current_protocol_version: ProtocolVersionStableV2,
+    pub proposed_protocol_version_opt: Option<ProtocolVersionStableV2>,
+    pub body: StagedLedgerDiffBodyStableV1,
 }
 
 impl BlockProducerWonSlot {
@@ -151,7 +162,7 @@ pub fn to_epoch_and_slot(global_slot: &ConsensusGlobalSlotStableV1) -> (u32, u32
 }
 
 pub fn next_epoch_first_slot(global_slot: &ConsensusGlobalSlotStableV1) -> u32 {
-    let (epoch, slot) = to_epoch_and_slot(global_slot);
+    let (epoch, _) = to_epoch_and_slot(global_slot);
     (epoch + 1) * global_slot.slots_per_epoch.as_u32()
 }
 
@@ -162,3 +173,27 @@ pub fn next_epoch_first_slot(global_slot: &ConsensusGlobalSlotStableV1) -> u32 {
 //     // };
 
 // }
+
+impl BlockWithoutProof {
+    pub fn with_hash_and_proof(
+        self,
+        hash: StateHash,
+        proof: MinaBaseProofStableV2,
+    ) -> ArcBlockWithHash {
+        let block = MinaBlockBlockStableV2 {
+            header: MinaBlockHeaderStableV2 {
+                protocol_state: self.protocol_state,
+                protocol_state_proof: proof,
+                delta_block_chain_proof: self.delta_block_chain_proof,
+                current_protocol_version: self.current_protocol_version,
+                proposed_protocol_version_opt: self.proposed_protocol_version_opt,
+            },
+            body: self.body,
+        };
+
+        ArcBlockWithHash {
+            block: block.into(),
+            hash,
+        }
+    }
+}

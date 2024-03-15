@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use ledger::{
     proofs::transaction::transaction_snark::CONSTRAINT_CONSTANTS,
     scan_state::currency::{Amount, Signed},
@@ -13,18 +11,17 @@ use mina_p2p_messages::{
         ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1,
         ConsensusVrfOutputTruncatedStableV1, DataHashLibStateHashStableV1, LedgerProofProdStableV2,
         MinaBaseEpochLedgerValueStableV1, MinaBaseEpochSeedStableV1,
-        MinaBaseProtocolConstantsCheckedValueStableV1, MinaBlockBlockStableV2,
-        MinaBlockHeaderStableV2, MinaStateBlockchainStateValueStableV2,
+        MinaBaseProtocolConstantsCheckedValueStableV1, MinaStateBlockchainStateValueStableV2,
         MinaStateBlockchainStateValueStableV2LedgerProofStatement,
         MinaStateProtocolStateBodyValueStableV2, MinaStateProtocolStateValueStableV2,
         StagedLedgerDiffBodyStableV1, StateBodyHash, StateHash, UnsignedExtendedUInt32StableV1,
     },
 };
-use openmina_core::block::{ArcBlockWithHash, BlockWithHash};
+use openmina_core::block::ArcBlockWithHash;
 
 use super::{
-    BlockProducerAction, BlockProducerActionWithMetaRef, BlockProducerCurrentState,
-    BlockProducerEnabled, BlockProducerState,
+    to_epoch_and_slot, BlockProducerAction, BlockProducerActionWithMetaRef,
+    BlockProducerCurrentState, BlockProducerEnabled, BlockProducerState, BlockWithoutProof,
 };
 
 impl BlockProducerState {
@@ -114,12 +111,7 @@ impl BlockProducerEnabled {
                     transactions: (),
                 };
             }
-            BlockProducerAction::StagedLedgerDiffCreateSuccess {
-                diff,
-                diff_hash,
-                staged_ledger_hash,
-                emitted_ledger_proof,
-            } => {
+            BlockProducerAction::StagedLedgerDiffCreateSuccess { output } => {
                 let BlockProducerCurrentState::StagedLedgerDiffCreatePending {
                     won_slot,
                     chain,
@@ -132,10 +124,12 @@ impl BlockProducerEnabled {
                     time: meta.time(),
                     won_slot: won_slot.clone(),
                     chain: std::mem::take(chain),
-                    diff: diff.clone(),
-                    diff_hash: diff_hash.clone(),
-                    staged_ledger_hash: staged_ledger_hash.clone(),
-                    emitted_ledger_proof: emitted_ledger_proof.clone(),
+                    diff: output.diff.clone(),
+                    diff_hash: output.diff_hash.clone(),
+                    staged_ledger_hash: output.staged_ledger_hash.clone(),
+                    emitted_ledger_proof: output.emitted_ledger_proof.clone(),
+                    pending_coinbase_update: output.pending_coinbase_update.clone(),
+                    pending_coinbase_witness: output.pending_coinbase_witness.clone(),
                 };
             }
             BlockProducerAction::BlockUnprovenBuild => {
@@ -146,8 +140,10 @@ impl BlockProducerEnabled {
                     diff_hash,
                     staged_ledger_hash,
                     emitted_ledger_proof,
+                    pending_coinbase_update,
+                    pending_coinbase_witness,
                     ..
-                } = &mut self.current
+                } = std::mem::take(&mut self.current)
                 else {
                     return;
                 };
@@ -182,7 +178,7 @@ impl BlockProducerEnabled {
                 let proposed_protocol_version_opt = self.config.proposed_protocol_version.clone();
 
                 let ledger_proof_statement = ledger_proof_statement_from_emitted_proof(
-                    emitted_ledger_proof.as_ref(),
+                    emitted_ledger_proof.as_ref().map(|proof| &**proof),
                     &pred_blockchain_state.ledger_proof_statement,
                 );
 
@@ -357,18 +353,22 @@ impl BlockProducerEnabled {
                     block_creator,
                     coinbase_receiver,
                     // TODO(binier): Staged_ledger.can_apply_supercharged_coinbase_exn
-                    supercharge_coinbase: false,
+                    supercharge_coinbase: CONSTRAINT_CONSTANTS.supercharged_coinbase_factor != 0,
                 };
 
                 let protocol_state = MinaStateProtocolStateValueStableV2 {
                     previous_state_hash: pred_block.hash().clone(),
                     body: MinaStateProtocolStateBodyValueStableV2 {
-                        genesis_state_hash: pred_block
-                            .header()
-                            .protocol_state
-                            .body
-                            .genesis_state_hash
-                            .clone(),
+                        genesis_state_hash: if pred_block.is_genesis() {
+                            pred_block.hash().clone()
+                        } else {
+                            pred_block
+                                .header()
+                                .protocol_state
+                                .body
+                                .genesis_state_hash
+                                .clone()
+                        },
                         constants: pred_block.header().protocol_state.body.constants.clone(),
                         blockchain_state: MinaStateBlockchainStateValueStableV2 {
                             staged_ledger_hash: staged_ledger_hash.clone(),
@@ -401,17 +401,11 @@ impl BlockProducerEnabled {
                     }
                 };
 
-                let block = MinaBlockBlockStableV2 {
-                    header: MinaBlockHeaderStableV2 {
-                        protocol_state,
-                        protocol_state_proof: (*ledger::dummy::dummy_blockchain_proof()).clone(),
-                        delta_block_chain_proof,
-                        current_protocol_version: pred_block
-                            .header()
-                            .current_protocol_version
-                            .clone(),
-                        proposed_protocol_version_opt,
-                    },
+                let block = BlockWithoutProof {
+                    protocol_state,
+                    delta_block_chain_proof,
+                    current_protocol_version: pred_block.header().current_protocol_version.clone(),
+                    proposed_protocol_version_opt,
                     body: StagedLedgerDiffBodyStableV1 {
                         staged_ledger_diff: diff.clone(),
                     },
@@ -419,27 +413,74 @@ impl BlockProducerEnabled {
 
                 self.current = BlockProducerCurrentState::BlockUnprovenBuilt {
                     time: meta.time(),
-                    won_slot: won_slot.clone(),
-                    chain: std::mem::take(chain),
-                    block: BlockWithHash {
-                        hash,
-                        block: Arc::new(block),
-                    },
+                    won_slot,
+                    chain,
+                    emitted_ledger_proof,
+                    pending_coinbase_update,
+                    pending_coinbase_witness,
+                    block,
+                    block_hash: hash,
                 }
             }
-            BlockProducerAction::BlockProduced => {
+            BlockProducerAction::BlockProveInit => {}
+            BlockProducerAction::BlockProvePending => {
                 if let BlockProducerCurrentState::BlockUnprovenBuilt {
                     won_slot,
                     chain,
+                    emitted_ledger_proof,
+                    pending_coinbase_update,
+                    pending_coinbase_witness,
                     block,
+                    block_hash,
                     ..
-                } = &mut self.current
+                } = std::mem::take(&mut self.current)
+                {
+                    self.current = BlockProducerCurrentState::BlockProvePending {
+                        time: meta.time(),
+                        won_slot,
+                        chain,
+                        emitted_ledger_proof,
+                        pending_coinbase_update,
+                        pending_coinbase_witness,
+                        block,
+                        block_hash,
+                    };
+                }
+            }
+            BlockProducerAction::BlockProveSuccess { proof } => {
+                if let BlockProducerCurrentState::BlockProvePending {
+                    won_slot,
+                    chain,
+                    block,
+                    block_hash,
+                    ..
+                } = std::mem::take(&mut self.current)
+                {
+                    self.current = BlockProducerCurrentState::BlockProveSuccess {
+                        time: meta.time(),
+                        won_slot,
+                        chain,
+                        block,
+                        block_hash,
+                        proof: proof.clone(),
+                    };
+                }
+            }
+            BlockProducerAction::BlockProduced => {
+                if let BlockProducerCurrentState::BlockProveSuccess {
+                    won_slot,
+                    chain,
+                    block,
+                    block_hash,
+                    proof,
+                    ..
+                } = std::mem::take(&mut self.current)
                 {
                     self.current = BlockProducerCurrentState::Produced {
                         time: meta.time(),
-                        won_slot: won_slot.clone(),
-                        chain: std::mem::take(chain),
-                        block: block.clone(),
+                        won_slot,
+                        chain,
+                        block: block.with_hash_and_proof(block_hash, *proof),
                     };
                 }
             }
@@ -462,12 +503,6 @@ impl BlockProducerEnabled {
             }
         }
     }
-}
-
-fn to_epoch_and_slot(global_slot: &ConsensusGlobalSlotStableV1) -> (u32, u32) {
-    let epoch = global_slot.slot_number.as_u32() / global_slot.slots_per_epoch.as_u32();
-    let slot = global_slot.slot_number.as_u32() % global_slot.slots_per_epoch.as_u32();
-    (epoch, slot)
 }
 
 fn next_to_staking_epoch_data(

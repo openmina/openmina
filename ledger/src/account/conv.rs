@@ -9,7 +9,7 @@ use mina_p2p_messages::{
     pseq::PaddedSeq,
     v2::{
         MinaBaseAccountBinableArgStableV2, MinaBaseAccountIdDigestStableV1,
-        MinaBaseAccountIdStableV2, MinaBaseAccountTimingStableV2,
+        MinaBaseAccountIdStableV2, MinaBaseAccountIndexStableV1, MinaBaseAccountTimingStableV2,
         MinaBasePermissionsAuthRequiredStableV2, MinaBasePermissionsStableV2,
         MinaBaseVerificationKeyWireStableV1, MinaBaseVerificationKeyWireStableV1WrapIndex,
         NonZeroCurvePointUncompressedStableV1, PicklesBaseProofsVerifiedStableV1, TokenIdKeyHash,
@@ -22,8 +22,8 @@ use crate::{
         transaction::{make_group, InnerCurve, PlonkVerificationKeyEvals},
     },
     scan_state::currency::{Amount, Balance, Nonce, Slot, SlotSpan, TxnVersion},
-    Permissions, ProofVerified, ReceiptChainHash, SetVerificationKey, Timing, TokenSymbol,
-    VerificationKey, VotingFor, ZkAppAccount,
+    AccountIndex, Permissions, ProofVerified, ReceiptChainHash, SetVerificationKey, Timing,
+    TokenSymbol, VerificationKey, VotingFor, ZkAppAccount,
 };
 
 use super::{Account, AccountId, AuthRequired, TokenId};
@@ -522,6 +522,12 @@ impl From<&MinaBaseAccountBinableArgStableV2> for Account {
                 }
             }),
         }
+    }
+}
+
+impl From<AccountIndex> for MinaBaseAccountIndexStableV1 {
+    fn from(value: AccountIndex) -> Self {
+        Self(value.as_u64().into())
     }
 }
 

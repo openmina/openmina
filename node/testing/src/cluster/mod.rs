@@ -423,6 +423,7 @@ impl Cluster {
             client_port: next_port().unwrap(),
             initial_peers: testing_config.initial_peers,
             daemon_json: testing_config.daemon_json,
+            block_producer: testing_config.block_producer,
         })
         .expect("failed to start ocaml node");
 

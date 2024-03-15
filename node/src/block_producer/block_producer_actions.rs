@@ -1,12 +1,12 @@
-use mina_p2p_messages::v2::{
-    ConsensusBodyReferenceStableV1, LedgerProofProdStableV2, MinaBaseStagedLedgerHashStableV1,
-    StagedLedgerDiffDiffStableV2,
-};
+use mina_p2p_messages::v2::MinaBaseProofStableV2;
 use openmina_core::block::ArcBlockWithHash;
 use serde::{Deserialize, Serialize};
 
 use super::vrf_evaluator::BlockProducerVrfEvaluatorAction;
-use super::{BlockProducerCurrentState, BlockProducerWonSlot, BlockProducerWonSlotDiscardReason};
+use super::{
+    BlockProducerCurrentState, BlockProducerWonSlot, BlockProducerWonSlotDiscardReason,
+    StagedLedgerDiffCreateOutput,
+};
 
 pub type BlockProducerActionWithMeta = redux::ActionWithMeta<BlockProducerAction>;
 pub type BlockProducerActionWithMetaRef<'a> = redux::ActionWithMeta<&'a BlockProducerAction>;
@@ -29,12 +29,14 @@ pub enum BlockProducerAction {
     StagedLedgerDiffCreateInit,
     StagedLedgerDiffCreatePending,
     StagedLedgerDiffCreateSuccess {
-        diff: StagedLedgerDiffDiffStableV2,
-        diff_hash: ConsensusBodyReferenceStableV1,
-        staged_ledger_hash: MinaBaseStagedLedgerHashStableV1,
-        emitted_ledger_proof: Option<LedgerProofProdStableV2>,
+        output: StagedLedgerDiffCreateOutput,
     },
     BlockUnprovenBuild,
+    BlockProveInit,
+    BlockProvePending,
+    BlockProveSuccess {
+        proof: Box<MinaBaseProofStableV2>,
+    },
     BlockProduced,
     BlockInject,
     BlockInjected,
@@ -102,10 +104,30 @@ impl redux::EnablingCondition<crate::State> for BlockProducerAction {
                     BlockProducerCurrentState::StagedLedgerDiffCreateSuccess { .. }
                 )
             }),
-            BlockProducerAction::BlockProduced => state.block_producer.with(false, |this| {
+            BlockProducerAction::BlockProveInit => state.block_producer.with(false, |this| {
                 matches!(
                     this.current,
                     BlockProducerCurrentState::BlockUnprovenBuilt { .. }
+                )
+            }),
+            BlockProducerAction::BlockProvePending => state.block_producer.with(false, |this| {
+                matches!(
+                    this.current,
+                    BlockProducerCurrentState::BlockUnprovenBuilt { .. }
+                )
+            }),
+            BlockProducerAction::BlockProveSuccess { .. } => {
+                state.block_producer.with(false, |this| {
+                    matches!(
+                        this.current,
+                        BlockProducerCurrentState::BlockProvePending { .. }
+                    )
+                })
+            }
+            BlockProducerAction::BlockProduced => state.block_producer.with(false, |this| {
+                matches!(
+                    this.current,
+                    BlockProducerCurrentState::BlockProveSuccess { .. }
                 )
             }),
             BlockProducerAction::BlockInject => state.block_producer.with(false, |this| {

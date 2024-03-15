@@ -1174,7 +1174,7 @@ pub mod consensus {
         (min_window_density, next_sub_window_densities)
     }
 
-    #[derive(Clone)]
+    #[derive(Debug, Clone)]
     pub struct ConsensusState {
         pub blockchain_length: CheckedLength<Fp>,
         pub epoch_count: CheckedLength<Fp>,
@@ -1468,7 +1468,7 @@ fn genesis_state_hash_checked(
         Boolean::False => state.body.genesis_state_hash.to_field(),
     })
 }
-
+#[derive(Debug, Clone)]
 pub struct ProtocolStateBody {
     pub genesis_state_hash: Fp,
     pub blockchain_state: v2::MinaStateBlockchainStateValueStableV2,
@@ -1476,6 +1476,7 @@ pub struct ProtocolStateBody {
     pub constants: v2::MinaBaseProtocolConstantsCheckedValueStableV1,
 }
 
+#[derive(Debug, Clone)]
 pub struct ProtocolState {
     pub previous_state_hash: Fp,
     pub body: ProtocolStateBody,

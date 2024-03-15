@@ -27,6 +27,7 @@ impl SoloNodeSyncToGenesis {
         let ocaml_node_config = OcamlNodeTestingConfig {
             initial_peers: Vec::new(),
             daemon_json: runner.daemon_json_gen_with_counts("2023-12-25T09:00:00Z", 2, 2),
+            block_producer: None,
         };
 
         let ocaml_node = runner.add_ocaml_node(ocaml_node_config);

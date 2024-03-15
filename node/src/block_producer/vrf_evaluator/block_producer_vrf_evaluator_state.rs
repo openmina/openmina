@@ -4,7 +4,6 @@ use std::sync::Arc;
 use mina_p2p_messages::v2::{
     ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1,
     ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1, EpochSeed, LedgerHash,
-    MinaBaseEpochSeedStableV1,
 };
 use openmina_core::block::ArcBlockWithHash;
 use serde::{Deserialize, Serialize};

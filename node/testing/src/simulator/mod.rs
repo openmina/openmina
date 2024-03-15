@@ -20,12 +20,20 @@ use crate::{
 };
 
 pub struct Simulator {
+    initial_time: redux::Timestamp,
     config: SimulatorConfig,
 }
 
 impl Simulator {
     pub fn new(config: SimulatorConfig) -> Self {
-        Self { config }
+        Self {
+            initial_time: redux::Timestamp::global_now(),
+            config,
+        }
+    }
+
+    fn initial_time(&self) -> redux::Timestamp {
+        self.initial_time
     }
 
     async fn seed_config_async(&self, runner: &ClusterRunner<'_>) -> RustNodeTestingConfig {
@@ -46,9 +54,7 @@ impl Simulator {
 
         RustNodeTestingConfig {
             chain_id,
-            // TODO(binier): make dynamic.
-            // should match time in daemon_json
-            initial_time: redux::Timestamp::new(1703494800000_000_000),
+            initial_time: self.initial_time(),
             max_peers: 1000,
             ask_initial_peers_interval: Duration::from_secs(60),
             initial_peers: Vec::new(),
@@ -82,13 +88,18 @@ impl Simulator {
     }
 
     async fn set_up_seed_nodes(&mut self, runner: &mut ClusterRunner<'_>) {
+        let genesis_ms = u64::from(self.initial_time()) / 1_000_000;
+        let genesis_dt = chrono::DateTime::from_timestamp_millis(genesis_ms as i64).unwrap();
+        let genesis_timestamp = genesis_dt.format("%Y-%m-%dT%H:%M:%SZ").to_string();
+
         let ocaml_node_config = OcamlNodeTestingConfig {
             initial_peers: Vec::new(),
             daemon_json: runner
-                .daemon_json_gen("2023-12-25T09:00:00Z", self.config.daemon_json.clone()),
+                .daemon_json_gen(&genesis_timestamp, self.config.daemon_json.clone()),
+            block_producer: None,
         };
 
-        let ocaml_node = runner.add_ocaml_node(ocaml_node_config);
+        let ocaml_node = runner.add_ocaml_node(ocaml_node_config.clone());
 
         eprintln!("waiting for ocaml node readiness");
         runner

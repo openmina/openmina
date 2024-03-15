@@ -40,6 +40,7 @@ impl SoloNodeSyncToGenesisCustom {
                 "./tests/files/vrf_genesis_epoch/daemon.json".into(),
                 &formated_initial_time,
             ),
+            block_producer: None,
         };
 
         let ocaml_node = runner.add_ocaml_node(ocaml_node_config);
