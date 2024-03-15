@@ -10,6 +10,7 @@
     </div>
     <div *ngFor="let point of points; trackBy: trackPoints"
          class="point"
+         [class.active]="activePeer?.peerId === point.peerId"
          [class.origin]="point.isOrigin"
          [tooltip]="point.peerId"
          [style.left.px]="point.left"></div>

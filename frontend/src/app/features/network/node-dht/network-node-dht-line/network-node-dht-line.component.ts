@@ -1,10 +1,11 @@
-import { ChangeDetectionStrategy, Component, ElementRef, OnInit, ViewChild } from '@angular/core';
+import { AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
-import { NetworkNodeDhtState } from '@network/node-dht/network-node-dht.state';
+import { NetworkNodeDhtState, selectNetworkNodeDhtActivePeer } from '@network/node-dht/network-node-dht.state';
 import { selectNetworkNodeDhtState } from '@network/network.state';
-import { filter } from 'rxjs';
+import { filter, fromEvent, skip } from 'rxjs';
 import { NetworkNodeDhtToggleSidePanel } from '@network/node-dht/network-node-dht.actions';
 import { NetworkNodeDhtBucket } from '@shared/types/network/node-dht/network-node-dht-bucket.type';
+import { NetworkNodeDhtPeer } from '@shared/types/network/node-dht/network-node-dht.type';
 
 interface DhtPoint {
   left: number;
@@ -21,19 +22,40 @@ interface DhtPoint {
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex-column w-100 pl-12 pr-12' },
 })
-export class NetworkNodeDhtLineComponent extends StoreDispatcher implements OnInit {
+export class NetworkNodeDhtLineComponent extends StoreDispatcher implements AfterViewInit {
 
+  activePeer: NetworkNodeDhtPeer;
   points: DhtPoint[] = [];
   buckets: DhtPoint[] = [];
   openSidePanel: boolean;
+
+  private state: NetworkNodeDhtState;
 
   readonly trackPoints = (_: number, point: DhtPoint) => point.left;
   readonly trackBuckets = (_: number, bucket: DhtPoint) => bucket.left;
 
   @ViewChild('line') private line: ElementRef<HTMLDivElement>;
+  @ViewChild('base') private base: ElementRef<HTMLDivElement>;
 
-  ngOnInit(): void {
+  constructor(private el: ElementRef) { super(); }
+
+  ngAfterViewInit(): void {
     this.listenToNodeDhtPeers();
+    this.listenToActiveNodeDhtPeer();
+
+    //not working
+    fromEvent(this.line.nativeElement, 'resize')
+      .subscribe(() => {
+        console.log('resize');
+        this.calculateInitial(this.state);
+        this.detect();
+      });
+
+    // console.log(this.base.nativeElement.offsetWidth);
+    // setTimeout(() => {
+    //   console.log(this.base.nativeElement.offsetWidth);
+    //
+    // }, 4000);
   }
 
   toggleSidePanel(): void {
@@ -42,13 +64,15 @@ export class NetworkNodeDhtLineComponent extends StoreDispatcher implements OnIn
 
   private listenToNodeDhtPeers(): void {
     this.select(selectNetworkNodeDhtState, (state: NetworkNodeDhtState) => {
-      this.calculateInitial(state);
-
+      this.state = state;
+      if (state.thisKey) {
+        this.calculateInitial(state);
+      }
       // this.calculate(state);
-      console.log(this.points);
+      // console.log(this.points);
       this.openSidePanel = state.openSidePanel;
       this.detect();
-    }, filter(state => !!state.thisKey));
+    });
   }
 
   private calculateInitial(state: NetworkNodeDhtState) {
@@ -130,5 +154,12 @@ export class NetworkNodeDhtLineComponent extends StoreDispatcher implements OnIn
 
   private getMaxOfHex(buckets: NetworkNodeDhtBucket[]): string {
     return buckets.reduce((maxHex, bucket) => maxHex > bucket.bucketMaxHex ? maxHex : bucket.bucketMaxHex, '0');
+  }
+
+  private listenToActiveNodeDhtPeer(): void {
+    this.select(selectNetworkNodeDhtActivePeer, (peer: NetworkNodeDhtPeer) => {
+      this.activePeer = peer;
+      this.detect();
+    }, skip(1));
   }
 }

@@ -29,6 +29,11 @@
   &:hover:not(.origin) {
     background-color: $base-primary;
   }
+
+  &.active {
+    background-color: $selected-primary !important;
+    z-index: 1;
+  }
 }
 
 .bucket {
