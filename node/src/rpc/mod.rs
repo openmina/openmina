@@ -349,7 +349,7 @@ pub type RpcDiscoveryBoostrapStatsResponse = Option<P2pNetworkKadBootstrapStats>
 pub mod discovery {
     use p2p::{
         P2pNetworkKadBucket, P2pNetworkKadDist, P2pNetworkKadEntry, P2pNetworkKadKey,
-        P2pNetworkKadRoutingTable, PeerId,
+        P2pNetworkKadRoutingTable, PeerId, ConnectionType,
     };
     use serde::{Deserialize, Serialize};
 
@@ -410,6 +410,7 @@ pub mod discovery {
         key: P2pNetworkKadKey,
         dist: P2pNetworkKadDist,
         addrs: Vec<p2p::multiaddr::Multiaddr>,
+        connection: ConnectionType,
     }
 
     impl From<(&P2pNetworkKadEntry, &P2pNetworkKadKey)> for RpcEntry {
@@ -420,6 +421,7 @@ pub mod discovery {
                 key: value.key.clone(),
                 dist: this_key - &value.key,
                 addrs: value.addrs.clone(),
+                connection: value.connection,
             }
         }
     }
