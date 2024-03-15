@@ -263,6 +263,7 @@ pub enum ActionKind {
     RpcFinish,
     RpcGlobalStateGet,
     RpcHealthCheck,
+    RpcMessageProgressGet,
     RpcP2pConnectionIncomingError,
     RpcP2pConnectionIncomingInit,
     RpcP2pConnectionIncomingPending,
@@ -371,7 +372,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 283;
+    pub const COUNT: u16 = 284;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -534,6 +535,7 @@ impl ActionKindGet for RpcAction {
             Self::GlobalStateGet { .. } => ActionKind::RpcGlobalStateGet,
             Self::ActionStatsGet { .. } => ActionKind::RpcActionStatsGet,
             Self::SyncStatsGet { .. } => ActionKind::RpcSyncStatsGet,
+            Self::MessageProgressGet { .. } => ActionKind::RpcMessageProgressGet,
             Self::PeersGet { .. } => ActionKind::RpcPeersGet,
             Self::P2pConnectionOutgoingInit { .. } => ActionKind::RpcP2pConnectionOutgoingInit,
             Self::P2pConnectionOutgoingPending { .. } => {

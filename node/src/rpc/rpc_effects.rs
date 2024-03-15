@@ -8,14 +8,17 @@ use crate::p2p::connection::outgoing::P2pConnectionOutgoingAction;
 use crate::p2p::connection::P2pConnectionResponse;
 use crate::rpc::{PeerConnectionStatus, RpcPeerInfo};
 use crate::snark_pool::SnarkPoolAction;
+use crate::transition_frontier::sync::ledger::TransitionFrontierSyncLedgerState;
+use crate::transition_frontier::sync::TransitionFrontierSyncState;
 use crate::{Service, Store};
 
 use super::{
-    ActionStatsQuery, ActionStatsResponse, RpcAction, RpcActionWithMeta, RpcScanStateSummary,
-    RpcScanStateSummaryBlock, RpcScanStateSummaryBlockTransaction,
-    RpcScanStateSummaryBlockTransactionKind, RpcScanStateSummaryGetQuery,
-    RpcScanStateSummaryScanStateJob, RpcSnarkPoolJobFull, RpcSnarkPoolJobSnarkWork,
-    RpcSnarkPoolJobSummary, RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse,
+    ActionStatsQuery, ActionStatsResponse, CurrentMessageProgress, MessagesStats, RpcAction,
+    RpcActionWithMeta, RpcMessageProgressResponse, RpcScanStateSummary, RpcScanStateSummaryBlock,
+    RpcScanStateSummaryBlockTransaction, RpcScanStateSummaryBlockTransactionKind,
+    RpcScanStateSummaryGetQuery, RpcScanStateSummaryScanStateJob, RpcSnarkPoolJobFull,
+    RpcSnarkPoolJobSnarkWork, RpcSnarkPoolJobSummary, RpcSnarkerJobCommitResponse,
+    RpcSnarkerJobSpecResponse,
 };
 
 macro_rules! respond_or_log {
@@ -65,6 +68,87 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                 .stats()
                 .map(|s| s.collect_sync_stats(query.limit));
             let _ = store.service.respond_sync_stats_get(rpc_id, resp);
+        }
+        RpcAction::MessageProgressGet { rpc_id } => {
+            // TODO: move to stats
+            let messages_stats = store
+                .state()
+                .p2p
+                .network
+                .scheduler
+                .rpc_outgoing_streams
+                .iter()
+                .filter_map(|(peer_id, streams)| {
+                    let (_, rpc_state) = streams.first_key_value()?;
+                    let (_, (name, _)) = rpc_state.pending.clone()?;
+                    let name = name.to_string();
+                    let buffer = &rpc_state.buffer;
+                    let current_request = if buffer.len() < 8 {
+                        None
+                    } else {
+                        let received_bytes = buffer.len() - 8;
+                        let total_bytes = u64::from_le_bytes(
+                            buffer[..8].try_into().expect("cannot fail checked above"),
+                        ) as usize;
+                        Some(CurrentMessageProgress {
+                            name,
+                            received_bytes,
+                            total_bytes,
+                        })
+                    };
+
+                    Some((
+                        *peer_id,
+                        MessagesStats {
+                            current_request,
+                            responses: rpc_state
+                                .total_stats
+                                .iter()
+                                .map(|((name, _), count)| (name.to_string(), *count))
+                                .collect(),
+                        },
+                    ))
+                })
+                .collect();
+
+            let mut response = RpcMessageProgressResponse {
+                messages_stats,
+                staking_ledger_sync: None,
+                next_epoch_ledger_sync: None,
+                root_ledger_sync: None,
+            };
+
+            match &store.state().transition_frontier.sync {
+                TransitionFrontierSyncState::StakingLedgerPending(state) => {
+                    if let TransitionFrontierSyncLedgerState::Snarked(state) = &state.ledger {
+                        response.staking_ledger_sync = state.estimation()
+                    }
+                }
+                TransitionFrontierSyncState::NextEpochLedgerPending(state) => {
+                    if let TransitionFrontierSyncLedgerState::Snarked(state) = &state.ledger {
+                        response.next_epoch_ledger_sync = state.estimation()
+                    }
+                }
+                TransitionFrontierSyncState::RootLedgerPending(state) => match &state.ledger {
+                    TransitionFrontierSyncLedgerState::Snarked(state) => {
+                        response.root_ledger_sync = state.estimation()
+                    }
+                    TransitionFrontierSyncLedgerState::Staged(_) => {
+                        // We want to answer with a result that will serve as a 100% complete process for the
+                        // frontend while it is still waiting for the staged ledger to complete. Could be cleaner.
+                        response.root_ledger_sync = Some(super::LedgerSyncProgress {
+                            fetched: 1,
+                            estimation: 1,
+                        });
+                    }
+                    _ => {}
+                },
+                _ => {}
+            }
+
+            let _ = store
+                .service
+                .respond_message_progress_stats_get(rpc_id, response);
         }
         RpcAction::PeersGet { rpc_id } => {
             let peers = store

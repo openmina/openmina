@@ -1,4 +1,7 @@
-use node::rpc::{RpcHealthCheckResponse, RpcPeersGetResponse, RpcReadinessCheckResponse};
+use node::rpc::{
+    RpcHealthCheckResponse, RpcMessageProgressResponse, RpcPeersGetResponse,
+    RpcReadinessCheckResponse,
+};
 use serde::{Deserialize, Serialize};
 
 use node::core::channels::{mpsc, oneshot};
@@ -94,6 +97,10 @@ impl node::rpc::RpcService for NodeService {
 
     rpc_service_impl!(respond_sync_stats_get, RpcSyncStatsGetResponse);
     rpc_service_impl!(respond_action_stats_get, RpcActionStatsGetResponse);
+    rpc_service_impl!(
+        respond_message_progress_stats_get,
+        RpcMessageProgressResponse
+    );
     rpc_service_impl!(respond_peers_get, RpcPeersGetResponse);
     rpc_service_impl!(
         respond_p2p_connection_outgoing,
