@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
-import { NetworkNodeDHT } from '@shared/types/network/node-dht/network-node-dht.type';
+import { NetworkNodeDhtPeer } from '@shared/types/network/node-dht/network-node-dht.type';
 import {
   selectNetworkNodeDhtActiveBootstrapRequest,
   selectNetworkNodeDhtActivePeer,
@@ -16,7 +16,7 @@ import { NetworkNodeDhtSetActivePeer, NetworkNodeDhtToggleSidePanel } from '@net
 })
 export class NetworkNodeDhtSidePanelComponent extends StoreDispatcher implements OnInit {
 
-  activePeer: NetworkNodeDHT;
+  activePeer: NetworkNodeDhtPeer;
   activeStep: number = 0;
 
   ngOnInit(): void {
@@ -25,7 +25,7 @@ export class NetworkNodeDhtSidePanelComponent extends StoreDispatcher implements
   }
 
   private listenToActiveNode(): void {
-    this.select(selectNetworkNodeDhtActivePeer, (peer: NetworkNodeDHT) => {
+    this.select(selectNetworkNodeDhtActivePeer, (peer: NetworkNodeDhtPeer) => {
       this.activePeer = peer;
       if (this.activePeer) {
         this.activeStep = 1;

@@ -1,8 +1,9 @@
 import { Injectable } from '@angular/core';
 import { RustService } from '@core/services/rust.service';
-import { map, Observable, ObservedValueOf, of } from 'rxjs';
-import { NetworkNodeDHT } from '@shared/types/network/node-dht/network-node-dht.type';
+import { map, Observable } from 'rxjs';
+import { NetworkNodeDhtPeer } from '@shared/types/network/node-dht/network-node-dht.type';
 import { NetworkNodeDhtBootstrapStats } from '@shared/types/network/node-dht/network-node-dht-bootstrap-stats.type';
+import { NetworkNodeDhtBucket } from '@shared/types/network/node-dht/network-node-dht-bucket.type';
 
 @Injectable({
   providedIn: 'root',
@@ -11,19 +12,23 @@ export class NetworkNodeDhtService {
 
   constructor(private rust: RustService) { }
 
-  getDhtPeers(): Observable<{ peers: NetworkNodeDHT[], thisKey: string }> {
+  getDhtPeers(): Observable<{ peers: NetworkNodeDhtPeer[], thisKey: string, buckets: NetworkNodeDhtBucket[] }> {
     return this.rust.get<DhtPeersResponse>('/discovery/routing_table').pipe(
       map((response: DhtPeersResponse) => this.mapDhtPeers(response)),
     );
   }
 
-  getDhtBootstrapStats(): Observable<NetworkNodeDhtBootstrapStats> {
-    return this.rust.get<NetworkNodeDhtBootstrapStats>('/discovery/bootstrap_stats').pipe(
-      map((response: NetworkNodeDhtBootstrapStats) => this.mapBootstrapStats(response)),
+  getDhtBootstrapStats(): Observable<NetworkNodeDhtBootstrapStats[]> {
+    return this.rust.get('/discovery/bootstrap_stats').pipe(
+      map((response: any) => this.mapBootstrapStats(response)),
     );
   }
 
-  private mapDhtPeers(response: DhtPeersResponse): { peers: NetworkNodeDHT[], thisKey: string } {
+  private mapDhtPeers(response: DhtPeersResponse): {
+    peers: NetworkNodeDhtPeer[],
+    thisKey: string,
+    buckets: NetworkNodeDhtBucket[]
+  } {
     return {
       peers: response.buckets.reduce((acc, bucket) => {
         const nodes = bucket.entries.map(entry => {
@@ -39,11 +44,16 @@ export class NetworkNodeDhtService {
             xorDistance: entry.key === response.this_key ? '-' : this.getNumberOfZerosUntilFirst1(binaryDistance),
             bucketIndex: response.buckets.indexOf(bucket),
             bucketMaxHex: bucket.max_dist,
-          } as NetworkNodeDHT;
+          } as NetworkNodeDhtPeer;
         });
         return acc.concat(nodes);
       }, []),
       thisKey: response.this_key,
+      buckets: response.buckets.map(bucket => ({
+        peers: bucket.entries.length,
+        bucketMaxHex: bucket.max_dist,
+        maxCapacity: 20,
+      }) as NetworkNodeDhtBucket),
     };
   }
 
@@ -65,8 +75,11 @@ export class NetworkNodeDhtService {
     return leadingZeros;
   }
 
-  private mapBootstrapStats(response: NetworkNodeDhtBootstrapStats): NetworkNodeDhtBootstrapStats {
-    return response;
+  private mapBootstrapStats(response: any): NetworkNodeDhtBootstrapStats[] {
+    return Object.keys(response.requests).map(key => ({
+      status: key,
+      data: response.requests[key],
+    }));
   }
 }
 

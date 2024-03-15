@@ -1,6 +1,7 @@
 import { FeatureAction } from '@openmina/shared';
-import { NetworkNodeDHT } from '@shared/types/network/node-dht/network-node-dht.type';
+import { NetworkNodeDhtPeer } from '@shared/types/network/node-dht/network-node-dht.type';
 import { NetworkNodeDhtBootstrapStats } from '@shared/types/network/node-dht/network-node-dht-bootstrap-stats.type';
+import { NetworkNodeDhtBucket } from '@shared/types/network/node-dht/network-node-dht-bucket.type';
 
 enum NetworkNodeDhtActionTypes {
   NETWORK_NODE_DHT_INIT = 'NETWORK_NODE_DHT_INIT',
@@ -43,7 +44,7 @@ export class NetworkNodeDhtGetBootstrapStats implements NetworkNodeDhtAction {
 export class NetworkNodeDhtGetBootstrapStatsSuccess implements NetworkNodeDhtAction {
   readonly type = NETWORK_NODE_DHT_GET_BOOTSTRAP_STATS_SUCCESS;
 
-  constructor(public payload: NetworkNodeDhtBootstrapStats) { }
+  constructor(public payload: NetworkNodeDhtBootstrapStats[]) { }
 }
 
 export class NetworkNodeDhtSetActiveBootstrapRequest implements NetworkNodeDhtAction {
@@ -59,13 +60,13 @@ export class NetworkNodeDhtGetPeers implements NetworkNodeDhtAction {
 export class NetworkNodeDhtGetPeersSuccess implements NetworkNodeDhtAction {
   readonly type = NETWORK_NODE_DHT_GET_PEERS_SUCCESS;
 
-  constructor(public payload: { peers: NetworkNodeDHT[], thisKey: string }) { }
+  constructor(public payload: { peers: NetworkNodeDhtPeer[], thisKey: string, buckets: NetworkNodeDhtBucket[] }) { }
 }
 
 export class NetworkNodeDhtSetActivePeer implements NetworkNodeDhtAction {
   readonly type = NETWORK_NODE_DHT_SET_ACTIVE_PEER;
 
-  constructor(public payload: NetworkNodeDHT) { }
+  constructor(public payload: NetworkNodeDhtPeer) { }
 }
 
 export class NetworkNodeDhtToggleSidePanel implements NetworkNodeDhtAction {

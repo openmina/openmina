@@ -7,6 +7,8 @@ import {
   NETWORK_NODE_DHT_TOGGLE_SIDE_PANEL,
   NetworkNodeDhtActions,
 } from '@network/node-dht/network-node-dht.actions';
+import { NetworkNodeDhtPeer } from '@shared/types/network/node-dht/network-node-dht.type';
+import { NetworkNodeDhtBucket } from '@shared/types/network/node-dht/network-node-dht-bucket.type';
 
 const initialState: NetworkNodeDhtState = {
   peers: [],
@@ -15,6 +17,7 @@ const initialState: NetworkNodeDhtState = {
   openSidePanel: true,
   boostrapStats: undefined,
   activeBootstrapRequest: undefined,
+  buckets: [],
 };
 
 export function networkDhtReducer(state: NetworkNodeDhtState = initialState, action: NetworkNodeDhtActions): NetworkNodeDhtState {
@@ -28,6 +31,7 @@ export function networkDhtReducer(state: NetworkNodeDhtState = initialState, act
         ...state,
         peers: action.payload.peers,
         thisKey: action.payload.thisKey,
+        buckets: action.payload.buckets,
       };
     }
 

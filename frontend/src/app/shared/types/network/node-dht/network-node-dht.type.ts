@@ -1,4 +1,4 @@
-export interface NetworkNodeDHT {
+export interface NetworkNodeDhtPeer {
   peerId: string;
   key: string;
   addressesLength: number;

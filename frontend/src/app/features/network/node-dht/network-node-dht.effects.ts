@@ -16,8 +16,9 @@ import {
   NetworkNodeDhtActions,
 } from '@network/node-dht/network-node-dht.actions';
 import { NetworkNodeDhtService } from '@network/node-dht/network-node-dht.service';
-import { NetworkNodeDHT } from '@shared/types/network/node-dht/network-node-dht.type';
+import { NetworkNodeDhtPeer } from '@shared/types/network/node-dht/network-node-dht.type';
 import { NetworkNodeDhtBootstrapStats } from '@shared/types/network/node-dht/network-node-dht-bootstrap-stats.type';
+import { NetworkNodeDhtBucket } from '@shared/types/network/node-dht/network-node-dht-bucket.type';
 
 @Injectable({
   providedIn: 'root',
@@ -49,12 +50,16 @@ export class NetworkNodeDhtEffects extends MinaRustBaseEffect<NetworkNodeDhtActi
       filter(() => !this.pendingRequest),
       tap(() => this.pendingRequest = true),
       switchMap(() => this.nodeDhtService.getDhtPeers()),
-      map((payload: { peers: NetworkNodeDHT[], thisKey: string }) => ({
+      map((payload: { peers: NetworkNodeDhtPeer[], thisKey: string, buckets: NetworkNodeDhtBucket[] }) => ({
         type: NETWORK_NODE_DHT_GET_PEERS_SUCCESS,
         payload,
       })),
       tap(() => this.pendingRequest = false),
-      catchErrorAndRepeat(MinaErrorType.RUST, NETWORK_NODE_DHT_GET_PEERS_SUCCESS, { peers: [], thisKey: '' }),
+      catchErrorAndRepeat(MinaErrorType.RUST, NETWORK_NODE_DHT_GET_PEERS_SUCCESS, {
+        peers: [],
+        thisKey: '',
+        buckets: [],
+      }),
     ));
 
     this.getBootstrapStats$ = createEffect(() => this.actions$.pipe(
@@ -62,7 +67,10 @@ export class NetworkNodeDhtEffects extends MinaRustBaseEffect<NetworkNodeDhtActi
       filter(() => !this.pendingRequest2),
       tap(() => this.pendingRequest2 = true),
       switchMap(() => this.nodeDhtService.getDhtBootstrapStats()),
-      map((payload: NetworkNodeDhtBootstrapStats) => ({ type: NETWORK_NODE_DHT_GET_BOOTSTRAP_STATS_SUCCESS, payload })),
+      map((payload: NetworkNodeDhtBootstrapStats[]) => ({
+        type: NETWORK_NODE_DHT_GET_BOOTSTRAP_STATS_SUCCESS,
+        payload,
+      })),
       tap(() => this.pendingRequest2 = false),
       //todo: review catch error payload
       catchErrorAndRepeat(MinaErrorType.RUST, NETWORK_NODE_DHT_GET_BOOTSTRAP_STATS_SUCCESS, {}),

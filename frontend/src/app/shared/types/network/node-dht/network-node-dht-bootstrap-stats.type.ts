@@ -1,3 +1,4 @@
 export interface NetworkNodeDhtBootstrapStats {
-  requests: any[];
+  status: string;
+  data: any;
 }

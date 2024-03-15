@@ -12,14 +12,14 @@ import { NetworkNodeDhtSetActiveBootstrapRequest } from '@network/node-dht/netwo
 })
 export class NetworkNodeDhtBootstrapStatsComponent extends StoreDispatcher implements OnInit {
 
-  bootstrapStats: NetworkNodeDhtBootstrapStats;
+  bootstrapStats: NetworkNodeDhtBootstrapStats[] = [];
 
   ngOnInit(): void {
     this.listenToBootstrapStats();
   }
 
   private listenToBootstrapStats(): void {
-    this.select(selectNetworkNodeDhtBootstrapStats, (stats: NetworkNodeDhtBootstrapStats) => {
+    this.select(selectNetworkNodeDhtBootstrapStats, (stats: NetworkNodeDhtBootstrapStats[]) => {
       this.bootstrapStats = stats;
       this.detect();
     });
