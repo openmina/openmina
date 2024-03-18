@@ -132,7 +132,25 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsRpcAction {
                     _ => false,
                 })
             },
-            P2pChannelsRpcAction::ResponseSend { peer_id, id, .. } => {
+            P2pChannelsRpcAction::ResponseSend { peer_id, id, response } => {
+                if !cfg!(feature = "p2p-libp2p") {
+                    let Some(response) = response.as_ref() else {
+                        return false;
+                    };
+                    return if !response.kind().supported_by_libp2p() {
+                        false
+                    } else if let Some(streams) = state
+                        .network
+                        .scheduler
+                        .rpc_incoming_streams
+                        .get(peer_id)
+                    {
+                        !streams.is_empty()
+                    } else {
+                        false
+                    };
+                }
+
                 state.get_ready_peer(peer_id).map_or(false, |p| match &p.channels.rpc {
                     P2pChannelsRpcState::Ready { remote, .. } => {
                         // TODO(binier): validate that response corresponds to request.

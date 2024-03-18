@@ -43,6 +43,7 @@ use crate::p2p::network::pnet::{
 use crate::p2p::network::rpc::{
     P2pNetworkRpcAction, P2pNetworkRpcIncomingDataAction, P2pNetworkRpcIncomingMessageAction,
     P2pNetworkRpcInitAction, P2pNetworkRpcOutgoingDataAction, P2pNetworkRpcOutgoingQueryAction,
+    P2pNetworkRpcOutgoingResponseAction,
 };
 use crate::p2p::network::scheduler::{
     P2pNetworkSchedulerAction, P2pNetworkSchedulerIncomingConnectionIsReadyAction,
@@ -237,6 +238,7 @@ pub enum ActionKind {
     P2pNetworkRpcInit,
     P2pNetworkRpcOutgoingData,
     P2pNetworkRpcOutgoingQuery,
+    P2pNetworkRpcOutgoingResponse,
     P2pNetworkSchedulerIncomingConnectionIsReady,
     P2pNetworkSchedulerIncomingDataDidReceive,
     P2pNetworkSchedulerIncomingDataIsReady,
@@ -372,7 +374,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 284;
+    pub const COUNT: u16 = 285;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -1021,6 +1023,7 @@ impl ActionKindGet for P2pNetworkRpcAction {
             Self::IncomingData(a) => a.kind(),
             Self::IncomingMessage(a) => a.kind(),
             Self::OutgoingQuery(a) => a.kind(),
+            Self::OutgoingResponse(a) => a.kind(),
             Self::OutgoingData(a) => a.kind(),
         }
     }
@@ -1238,6 +1241,12 @@ impl ActionKindGet for P2pNetworkRpcIncomingMessageAction {
 impl ActionKindGet for P2pNetworkRpcOutgoingQueryAction {
     fn kind(&self) -> ActionKind {
         ActionKind::P2pNetworkRpcOutgoingQuery
+    }
+}
+
+impl ActionKindGet for P2pNetworkRpcOutgoingResponseAction {
+    fn kind(&self) -> ActionKind {
+        ActionKind::P2pNetworkRpcOutgoingResponse
     }
 }
 
