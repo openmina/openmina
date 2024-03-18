@@ -6,17 +6,6 @@ impl P2pNetworkSelectAction {
     pub fn effects<Store, S>(&self, meta: &redux::ActionMeta, store: &mut Store)
     where
         Store: crate::P2pStore<S>,
-        P2pNetworkPnetOutgoingDataAction: redux::EnablingCondition<S>,
-        P2pNetworkSelectIncomingTokenAction: redux::EnablingCondition<S>,
-        P2pNetworkSchedulerSelectErrorAction: redux::EnablingCondition<S>,
-        P2pNetworkSchedulerSelectDoneAction: redux::EnablingCondition<S>,
-        P2pNetworkNoiseIncomingDataAction: redux::EnablingCondition<S>,
-        P2pNetworkSelectOutgoingTokensAction: redux::EnablingCondition<S>,
-        P2pNetworkNoiseOutgoingDataAction: redux::EnablingCondition<S>,
-        P2pNetworkYamuxIncomingDataAction: redux::EnablingCondition<S>,
-        P2pNetworkYamuxOutgoingDataAction: redux::EnablingCondition<S>,
-        P2pNetworkRpcIncomingDataAction: redux::EnablingCondition<S>,
-        // P2pNetworkKademliaAction: redux::EnablingCondition<S>,
     {
         use self::token::*;
 
