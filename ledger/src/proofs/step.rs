@@ -240,16 +240,14 @@ pub mod step_verifier {
 
     use super::*;
     use crate::proofs::{
-        field::{field, CircuitVar, ToBoolean},
+        field::{field, ToBoolean},
         opt_sponge::OptSponge,
         public_input::plonk_checks::{self, ft_eval0_checked},
-        transaction::{poseidon::Sponge, scalar_challenge, ReducedMessagesForNextStepProof},
+        transaction::{poseidon::Sponge, scalar_challenge},
         unfinalized,
         util::{
             challenge_polynomial_checked, proof_evaluation_to_list_opt, to_absorption_sequence_opt,
         },
-        verifier_index::wrap_domains,
-        witness::Witness,
         wrap::{
             make_scalars_env_checked, one_hot_vector, ones_vector,
             pcs_batch::PcsBatch,

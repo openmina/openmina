@@ -89,7 +89,6 @@ pub struct ZkappParams<'a> {
 
 pub mod group {
     use super::*;
-    use crate::scan_state::transaction_logic::zkapp_command::{AccountUpdate, Control};
 
     #[derive(Debug)]
     pub enum SegmentBasic {

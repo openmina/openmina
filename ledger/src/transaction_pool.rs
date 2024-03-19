@@ -130,7 +130,6 @@ type ValidCommandWithHash = WithHash<valid::UserCommand, BlakeHash>;
 
 mod diff {
     use super::*;
-    use crate::scan_state::transaction_logic::{valid, UserCommand, WithStatus};
 
     #[derive(Debug, Clone)]
     pub enum Error {
