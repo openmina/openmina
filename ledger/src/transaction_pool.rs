@@ -5,13 +5,12 @@ use std::{
 
 use mina_hasher::Fp;
 use mina_p2p_messages::v2;
+use openmina_core::constants::{ForkConstants, CONSTRAINT_CONSTANTS};
 
 use crate::{
-    proofs::transaction::transaction_snark::CONSTRAINT_CONSTANTS,
     scan_state::{
         currency::{Amount, Balance, BlockTime, Fee, Magnitude, Nonce, Slot, SlotSpan},
         fee_rate::FeeRate,
-        scan_state::ForkConstants,
         transaction_logic::{
             valid,
             zkapp_command::{
@@ -468,6 +467,7 @@ impl IndexedPool {
 
         match CONSTRAINT_CONSTANTS.fork.as_ref() {
             Some(ForkConstants { genesis_slot, .. }) => {
+                let genesis_slot = Slot::from_u32(*genesis_slot);
                 let slot_span = SlotSpan::from_u32(current_slot.as_u32());
                 genesis_slot.add(slot_span)
             }
