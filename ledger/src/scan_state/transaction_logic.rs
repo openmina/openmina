@@ -676,9 +676,9 @@ pub mod signed_command {
 
     use mina_signer::Signature;
 
-    use crate::{decompress_pk, scan_state::currency::Slot, AccountId};
+    use crate::decompress_pk;
 
-    use super::{zkapp_command::AccessedOrNot, *};
+    use super::*;
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/signed_command_payload.ml#L75
     #[derive(Debug, Clone, PartialEq)]
@@ -875,26 +875,26 @@ pub mod signed_command {
 pub mod zkapp_command {
     use std::sync::Arc;
 
-    use ark_ff::{UniformRand, Zero};
+    use ark_ff::UniformRand;
     use mina_p2p_messages::v2::MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA;
     use mina_signer::Signature;
     use rand::{seq::SliceRandom, Rng};
 
     use crate::{
-        account, dummy, gen_compressed, gen_keypair, hash_noinputs, hash_with_kimchi,
+        account, dummy, gen_compressed, gen_keypair, hash_noinputs,
         proofs::{
             field::{Boolean, ToBoolean},
             to_field_elements::ToFieldElements,
             transaction::Check,
         },
         scan_state::{
-            currency::{Balance, Length, MinMax, Sgn, Signed, Slot, SlotSpan},
+            currency::{MinMax, Sgn},
             GenesisConstant, GENESIS_CONSTANT,
         },
         transaction_pool::VerificationKeyWire,
         zkapps::snark::zkapp_check::InSnarkCheck,
-        AuthRequired, ControlTag, Inputs, MyCow, Permissions, SetVerificationKey, ToInputs,
-        TokenSymbol, VerificationKey, VotingFor, ZkAppAccount, ZkAppUri,
+        AuthRequired, MyCow, Permissions, SetVerificationKey, ToInputs, TokenSymbol,
+        VerificationKey, VotingFor, ZkAppAccount, ZkAppUri,
     };
 
     use super::{zkapp_statement::TransactionCommitment, *};
@@ -3864,10 +3864,7 @@ pub mod zkapp_command {
     }
 
     pub mod verifiable {
-        use std::collections::HashMap;
-
         use super::*;
-        use crate::VerificationKey;
 
         #[derive(Debug, Clone)]
         pub struct ZkAppCommand {
@@ -4130,7 +4127,6 @@ pub mod zkapp_command {
 
     pub mod from_unapplied_sequence {
         use super::*;
-        use std::collections::HashMap;
 
         pub struct Cache {
             cache: HashMap<AccountId, HashMap<Fp, VerificationKeyWire>>,
@@ -4162,7 +4158,6 @@ pub mod zkapp_command {
 
     pub mod from_applied_sequence {
         use super::*;
-        use std::collections::HashMap;
 
         pub struct Cache {
             cache: HashMap<AccountId, VerificationKeyWire>,
@@ -4761,7 +4756,7 @@ impl From<&Transaction> for MinaTransactionTransactionStableV2 {
 }
 
 pub mod transaction_applied {
-    use crate::{Account, AccountId};
+    use crate::AccountId;
 
     use super::*;
 
@@ -5117,20 +5112,16 @@ pub mod protocol_state {
 pub mod local_state {
     use std::{cell::RefCell, rc::Rc};
 
-    use ark_ff::Zero;
-
     use crate::{
-        hash_with_kimchi,
         proofs::{
             field::{field, Boolean, ToBoolean},
             numbers::nat::CheckedNat,
             to_field_elements::ToFieldElements,
         },
-        scan_state::currency::{Index, Signed},
         zkapps::intefaces::{
             CallStackInterface, IndexInterface, SignedAmountInterface, StackFrameInterface,
         },
-        Inputs, ToInputs,
+        ToInputs,
     };
 
     use super::{zkapp_command::CallForest, *};
@@ -8005,15 +7996,12 @@ where
 
 #[cfg(test)]
 pub mod for_tests {
-    use std::collections::{HashMap, HashSet};
-
     use mina_signer::Keypair;
     use rand::Rng;
-    // use o1_utils::math::ceil_log2;
 
     use crate::{
-        gen_keypair, scan_state::parallel_scan::ceil_log2, AuthRequired, BaseLedger, Mask,
-        Permissions, ZkAppAccount, TXN_VERSION_CURRENT,
+        gen_keypair, scan_state::parallel_scan::ceil_log2, AuthRequired, Mask, Permissions,
+        ZkAppAccount, TXN_VERSION_CURRENT,
     };
 
     use super::*;
