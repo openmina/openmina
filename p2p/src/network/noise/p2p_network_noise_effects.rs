@@ -156,6 +156,12 @@ impl P2pNetworkNoiseAction {
                     addr: a.addr,
                     data: a.data.clone(),
                 });
+                if let Some(data) = outgoing {
+                    store.dispatch(P2pNetworkNoiseOutgoingChunkAction {
+                        addr: self.addr(),
+                        data,
+                    });
+                }
             }
             _ => {}
         }
