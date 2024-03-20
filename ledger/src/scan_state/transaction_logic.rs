@@ -13,7 +13,7 @@ use crate::scan_state::transaction_logic::transaction_partially_applied::FullyAp
 use crate::scan_state::transaction_logic::zkapp_command::MaybeWithStatus;
 use crate::scan_state::zkapp_logic;
 use crate::transaction_pool::VerificationKeyWire;
-use crate::{hash_with_kimchi, BaseLedger, ControlTag, Inputs};
+use crate::{hash_with_kimchi, AccountIdOrderable, BaseLedger, ControlTag, Inputs};
 use crate::{
     scan_state::transaction_logic::transaction_applied::{CommandApplied, Varying},
     sparse_ledger::{LedgerIntf, SparseLedger},
@@ -5933,14 +5933,14 @@ where
 {
     let perform = |eff: Eff<L>| Env::perform(eff);
 
-    let original_account_states: Vec<_> = {
+    let original_account_states: Vec<(AccountId, Option<_>)> = {
         // get the original states of all the accounts in each pass.
         // If an account updated in the first pass is referenced in account
         // updates, then retain the value before first pass application*)
 
         let accounts_referenced = c.command.accounts_referenced();
 
-        let mut account_states = BTreeMap::<AccountId, Option<_>>::new();
+        let mut account_states = BTreeMap::<AccountIdOrderable, Option<_>>::new();
 
         let referenced = accounts_referenced.into_iter().map(|id| {
             let location = {
@@ -5957,12 +5957,17 @@ where
             .for_each(|(id, acc_opt)| {
                 use std::collections::btree_map::Entry::Vacant;
 
-                if let Vacant(entry) = account_states.entry(id) {
+                let id_with_order: AccountIdOrderable = id.into();
+                if let Vacant(entry) = account_states.entry(id_with_order) {
                     entry.insert(acc_opt);
                 };
             });
 
-        account_states.into_iter().collect()
+        account_states
+            .into_iter()
+            // Convert back the `AccountIdOrder` into `AccountId`, now that they are sorted
+            .map(|(id, account): (AccountIdOrderable, Option<_>)| (id.into(), account))
+            .collect()
     };
 
     let mut account_states_after_fee_payer = {
