@@ -23,7 +23,7 @@ use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 use node::p2p::service_impl::libp2p::Libp2pService;
 use node::p2p::service_impl::webrtc::{Cmd, P2pServiceWebrtc, PeerState};
 use node::p2p::service_impl::TaskSpawner;
-use node::p2p::{P2pCryptoService, P2pMioService, PeerId};
+use node::p2p::{P2pCryptoService, PeerId};
 use node::rpc::{RpcP2pConnectionOutgoingResponse, RpcRequest};
 use node::service::{EventSourceService, Recorder};
 use node::snark::block_verify::{
@@ -145,20 +145,6 @@ impl P2pCryptoService for NodeService {
         payload.extend_from_slice(b"\x12\x40");
         payload.extend_from_slice(&sig);
         payload
-    }
-}
-
-#[cfg(feature = "p2p-libp2p")]
-impl P2pMioService for NodeService {
-    fn send_mio_cmd(&self, _cmd: node::p2p::MioCmd) {
-        panic!("not implemented with libp2p");
-    }
-}
-
-#[cfg(not(feature = "p2p-libp2p"))]
-impl P2pMioService for NodeService {
-    fn send_mio_cmd(&self, cmd: node::p2p::MioCmd) {
-        self.mio.send_mio_cmd(cmd);
     }
 }
 

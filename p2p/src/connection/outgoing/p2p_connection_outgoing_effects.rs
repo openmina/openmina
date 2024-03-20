@@ -3,8 +3,8 @@ use redux::ActionMeta;
 use crate::connection::{P2pConnectionErrorResponse, P2pConnectionState};
 use crate::peer::P2pPeerAction;
 use crate::webrtc::Host;
-use crate::P2pPeerStatus;
 use crate::{connection::P2pConnectionService, webrtc};
+use crate::{P2pNetworkKadRequestAction, P2pPeerStatus};
 
 use super::{
     P2pConnectionOutgoingAction, P2pConnectionOutgoingError, P2pConnectionOutgoingInitOpts,
@@ -19,12 +19,24 @@ impl P2pConnectionOutgoingAction {
     {
         match self {
             P2pConnectionOutgoingAction::RandomInit => {
-                let peers = store.state().initial_unused_peers();
-                let picked_peer = store.service().random_pick(&peers);
-                store.dispatch(P2pConnectionOutgoingAction::Init {
-                    opts: picked_peer,
-                    rpc_id: None,
-                });
+                #[cfg(feature = "p2p-libp2p")]
+                {
+                    let peers = store.state().initial_unused_peers();
+                    let picked_peer = store.service().random_pick(&peers);
+                    store.dispatch(P2pConnectionOutgoingAction::Init {
+                        opts: picked_peer,
+                        rpc_id: None,
+                    });
+                }
+                #[cfg(not(feature = "p2p-libp2p"))]
+                {
+                    let peers = store.state().disconnected_peers().collect::<Vec<_>>();
+                    let picked_peer = store.service().random_pick(&peers);
+                    store.dispatch(P2pConnectionOutgoingAction::Reconnect {
+                        opts: picked_peer,
+                        rpc_id: None,
+                    });
+                }
             }
             P2pConnectionOutgoingAction::Init { opts, .. } => {
                 let peer_id = *opts.peer_id();
@@ -125,6 +137,20 @@ impl P2pConnectionOutgoingAction {
                     peer_id,
                     incoming: false,
                 });
+            }
+            P2pConnectionOutgoingAction::Error { peer_id, error } => {
+                if let Some(_) = store
+                    .state()
+                    .network
+                    .scheduler
+                    .discovery_state()
+                    .and_then(|discovery_state| discovery_state.request(&peer_id))
+                {
+                    store.dispatch(P2pNetworkKadRequestAction::Error {
+                        peer_id,
+                        error: format!("{error:?}"),
+                    });
+                }
             }
             _ => {}
         }

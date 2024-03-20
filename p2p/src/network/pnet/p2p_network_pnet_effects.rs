@@ -7,8 +7,6 @@ impl P2pNetworkPnetAction {
     where
         Store: crate::P2pStore<S>,
         Store::Service: P2pMioService,
-        P2pNetworkSelectIncomingDataAction: redux::EnablingCondition<S>,
-        P2pNetworkSelectInitAction: redux::EnablingCondition<S>,
     {
         let (state, service) = store.state_and_service();
         let connections = &state.network.scheduler.connections;
@@ -24,6 +22,7 @@ impl P2pNetworkPnetAction {
                         addr: a.addr,
                         kind: SelectKind::Authentication,
                         data,
+                        fin: false,
                     });
                 }
                 _ => {}

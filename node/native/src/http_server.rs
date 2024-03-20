@@ -1,4 +1,4 @@
-use std::{mem::size_of, str::FromStr};
+use std::{convert::Infallible, mem::size_of, str::FromStr};
 
 use mina_p2p_messages::binprot::BinProtWrite;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -12,7 +12,7 @@ use warp::{
 use node::rpc::{
     ActionStatsQuery, RpcMessageProgressResponse, RpcPeerInfo, RpcRequest,
     RpcScanStateSummaryGetQuery, RpcScanStateSummaryGetResponse, RpcSnarkPoolJobGetResponse,
-    RpcSnarkerWorkersResponse, SyncStatsQuery,
+    RpcSnarkerWorkersResponse, RpcStateGetError, SyncStatsQuery,
 };
 use openmina_core::snark::SnarkJobId;
 
@@ -76,16 +76,54 @@ pub async fn run(port: u16, rpc_sender: super::RpcSender) {
     };
 
     // TODO(binier): make endpoint only accessible locally.
-    let rpc_sender_clone = rpc_sender.clone();
-    let state_get = warp::path!("state").and(warp::get()).then(move || {
-        let rpc_sender_clone = rpc_sender_clone.clone();
-        async move {
-            let result: Option<RpcStateGetResponse> =
-                rpc_sender_clone.oneshot_request(RpcRequest::StateGet).await;
+    #[derive(Deserialize)]
+    struct StateQueryParams {
+        filter: Option<String>,
+    }
+    #[derive(Debug)]
+    struct StateGetRejection(RpcStateGetError);
+    impl warp::reject::Reject for StateGetRejection {}
 
-            with_json_reply(&result, StatusCode::OK)
+    let state_get = warp::path!("state")
+        .and(warp::get())
+        .and(with_rpc_sender(rpc_sender.clone()))
+        .and(warp::query())
+        .and_then(state_handler)
+        .recover(state_recover);
+
+    let state_post = warp::path!("state")
+        .and(warp::post())
+        .and(with_rpc_sender(rpc_sender.clone()))
+        .and(warp::body::json())
+        .and_then(state_handler)
+        .recover(state_recover);
+
+    async fn state_handler(
+        rpc_sender: super::RpcSender,
+        StateQueryParams { filter }: StateQueryParams,
+    ) -> Result<impl warp::Reply, warp::Rejection> {
+        rpc_sender
+            .oneshot_request(RpcRequest::StateGet(filter))
+            .await
+            .ok_or_else(|| warp::reject::custom(DroppedChannel))
+            .and_then(|reply: RpcStateGetResponse| {
+                reply.map_or_else(
+                    |err| Err(warp::reject::custom(StateGetRejection(err))),
+                    |state| Ok(warp::reply::json(&state)),
+                )
+            })
+    }
+
+    async fn state_recover(reject: warp::Rejection) -> Result<impl warp::Reply, warp::Rejection> {
+        if let Some(StateGetRejection(error)) = reject.find() {
+            Ok(warp::reply::with_status(
+                warp::reply::json(error),
+                StatusCode::BAD_REQUEST,
+            ))
+        } else {
+            Err(reject)
         }
-    });
+    }
 
     let rpc_sender_clone = rpc_sender.clone();
     let peers_get = warp::path!("state" / "peers")
@@ -376,9 +414,9 @@ pub async fn run(port: u16, rpc_sender: super::RpcSender) {
 
     let cors = warp::cors().allow_any_origin();
     #[cfg(not(feature = "p2p-webrtc"))]
-    let routes = state_get;
+    let routes = state_get.or(state_post);
     #[cfg(feature = "p2p-webrtc")]
-    let routes = signaling.or(state_get);
+    let routes = signaling.or(state_get).or(state_post);
     let routes = routes
         .or(peers_get)
         .or(message_progress_get)
@@ -392,12 +430,13 @@ pub async fn run(port: u16, rpc_sender: super::RpcSender) {
         .or(snark_workers)
         .or(healthcheck(rpc_sender.clone()))
         .or(readiness(rpc_sender.clone()))
+        .or(discovery::routing_table(rpc_sender.clone()))
+        .or(discovery::bootstrap_stats(rpc_sender.clone()))
         .or(super::graphql::routes(rpc_sender))
+        .recover(recover)
         .with(cors);
     warp::serve(routes).run(([0, 0, 0, 0], port)).await;
 }
-
-const DROPPED_CHANNEL: &str = "response channel dropped";
 
 fn healthcheck(
     rpc_sender: super::RpcSender,
@@ -447,6 +486,81 @@ fn readiness(
                 )
         }
     })
+}
+
+mod discovery {
+    use node::rpc::{
+        RpcDiscoveryBoostrapStatsResponse, RpcDiscoveryRoutingTableResponse, RpcRequest,
+    };
+    use warp::Filter;
+
+    use super::super::RpcSender;
+
+    use super::{with_rpc_sender, DroppedChannel};
+
+    pub fn routing_table(
+        rpc_sender: super::super::RpcSender,
+    ) -> impl warp::Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+        warp::path!("discovery" / "routing_table")
+            .and(warp::get())
+            .and(with_rpc_sender(rpc_sender))
+            .and_then(get_routing_table)
+    }
+
+    pub fn bootstrap_stats(
+        rpc_sender: super::super::RpcSender,
+    ) -> impl warp::Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+        warp::path!("discovery" / "bootstrap_stats")
+            .and(warp::get())
+            .and(with_rpc_sender(rpc_sender))
+            .and_then(get_bootstrap_stats)
+    }
+
+    async fn get_routing_table(rpc_sender: RpcSender) -> Result<impl warp::Reply, warp::Rejection> {
+        rpc_sender
+            .oneshot_request(RpcRequest::DiscoveryRoutingTable)
+            .await
+            .map_or_else(
+                || Err(warp::reject::custom(DroppedChannel)),
+                |reply: RpcDiscoveryRoutingTableResponse| Ok(warp::reply::json(&reply)),
+            )
+    }
+
+    async fn get_bootstrap_stats(
+        rpc_sender: RpcSender,
+    ) -> Result<impl warp::Reply, warp::Rejection> {
+        rpc_sender
+            .oneshot_request(RpcRequest::DiscoveryBoostrapStats)
+            .await
+            .map_or_else(
+                || Err(warp::reject::custom(DroppedChannel)),
+                |reply: RpcDiscoveryBoostrapStatsResponse| Ok(warp::reply::json(&reply)),
+            )
+    }
+}
+
+fn with_rpc_sender(
+    rpc_sender: super::RpcSender,
+) -> impl warp::Filter<Extract = (super::RpcSender,), Error = Infallible> + Clone {
+    warp::any().map(move || rpc_sender.clone())
+}
+
+const DROPPED_CHANNEL: &str = "response channel dropped, see error log for details";
+
+#[derive(Debug)]
+struct DroppedChannel;
+
+impl warp::reject::Reject for DroppedChannel {}
+
+async fn recover(rejection: warp::Rejection) -> Result<impl warp::Reply, warp::Rejection> {
+    if let Some(DroppedChannel) = rejection.find() {
+        Ok(warp::reply::with_status(
+            warp::reply::json(&serde_json::json!({"error": DROPPED_CHANNEL})),
+            StatusCode::INTERNAL_SERVER_ERROR,
+        ))
+    } else {
+        Err(rejection)
+    }
 }
 
 use warp::filters::BoxedFilter;

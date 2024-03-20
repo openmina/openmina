@@ -59,7 +59,7 @@ impl SoloNodeSyncToGenesisCustom {
         let chain_id = runner.ocaml_node(ocaml_node).unwrap().chain_id().unwrap();
 
         // set here to be used in other child scenarios
-        runner.set_chain_id(&chain_id);
+        runner.set_chain_id(chain_id.clone());
         runner.set_initial_time(initial_time);
 
         let rust_node = runner.add_rust_node(RustNodeTestingConfig {

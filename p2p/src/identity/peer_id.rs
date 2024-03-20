@@ -63,6 +63,28 @@ impl fmt::Debug for PeerId {
     }
 }
 
+#[derive(Clone, Debug, thiserror::Error, Serialize, Deserialize)]
+pub enum PeerIdFromLibp2pPeerId {
+    #[error("error decoding public key from protobuf: {0}")]
+    Protobuf(String),
+    #[error("error converting public key to ed25519: {0}")]
+    Ed25519(String),
+    #[error("peer_id with unsupported multihash code")]
+    Code,
+}
+
+impl From<libp2p_identity::DecodingError> for PeerIdFromLibp2pPeerId {
+    fn from(value: libp2p_identity::DecodingError) -> Self {
+        PeerIdFromLibp2pPeerId::Protobuf(value.to_string())
+    }
+}
+
+impl From<libp2p_identity::OtherVariantError> for PeerIdFromLibp2pPeerId {
+    fn from(value: libp2p_identity::OtherVariantError) -> Self {
+        PeerIdFromLibp2pPeerId::Ed25519(value.to_string())
+    }
+}
+
 impl FromStr for PeerId {
     type Err = bs58::decode::Error;
 
@@ -82,6 +104,21 @@ impl FromStr for PeerId {
 impl From<PeerId> for [u8; 32] {
     fn from(value: PeerId) -> Self {
         value.to_bytes()
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl TryFrom<&libp2p_identity::PeerId> for PeerId {
+    type Error = PeerIdFromLibp2pPeerId;
+
+    fn try_from(value: &libp2p_identity::PeerId) -> Result<Self, Self::Error> {
+        let slice = value.as_ref().digest();
+        if value.as_ref().code() == 0x12 {
+            return Err(PeerIdFromLibp2pPeerId::Code);
+        };
+        let key = libp2p_identity::PublicKey::try_decode_protobuf(slice)?;
+        let bytes = key.try_into_ed25519()?.to_bytes();
+        Ok(PeerId::from_bytes(bytes))
     }
 }
 

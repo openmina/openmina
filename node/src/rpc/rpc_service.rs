@@ -6,11 +6,12 @@ use crate::p2p::connection::P2pConnectionResponse;
 use crate::State;
 
 use super::{
-    RpcActionStatsGetResponse, RpcHealthCheckResponse, RpcId, RpcMessageProgressResponse,
-    RpcP2pConnectionOutgoingResponse, RpcPeersGetResponse, RpcReadinessCheckResponse,
-    RpcScanStateSummaryGetResponse, RpcScanStateSummaryScanStateJob, RpcSnarkPoolGetResponse,
-    RpcSnarkPoolJobGetResponse, RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse,
-    RpcSnarkerWorkersResponse, RpcSyncStatsGetResponse,
+    RpcActionStatsGetResponse, RpcDiscoveryBoostrapStatsResponse, RpcDiscoveryRoutingTableResponse,
+    RpcHealthCheckResponse, RpcId, RpcMessageProgressResponse, RpcP2pConnectionOutgoingResponse,
+    RpcPeersGetResponse, RpcReadinessCheckResponse, RpcScanStateSummaryGetResponse,
+    RpcScanStateSummaryScanStateJob, RpcSnarkPoolGetResponse, RpcSnarkPoolJobGetResponse,
+    RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse, RpcSnarkerWorkersResponse,
+    RpcSyncStatsGetResponse,
 };
 
 #[derive(Error, Serialize, Deserialize, Debug, Clone)]
@@ -21,7 +22,21 @@ pub enum RespondError {
     UnexpectedResponseType,
     #[error("responding failed")]
     RespondingFailed,
+    #[error("{0}")]
+    Custom(String),
 }
+
+macro_rules! from_error {
+    ($error:ty) => {
+        impl From<$error> for RespondError {
+            fn from(value: $error) -> Self {
+                RespondError::Custom(value.to_string())
+            }
+        }
+    };
+}
+
+from_error!(serde_json::Error);
 
 pub trait RpcLedgerService: redux::Service {
     fn scan_state_summary(
@@ -31,7 +46,11 @@ pub trait RpcLedgerService: redux::Service {
 }
 
 pub trait RpcService: RpcLedgerService {
-    fn respond_state_get(&mut self, rpc_id: RpcId, response: &State) -> Result<(), RespondError>;
+    fn respond_state_get(
+        &mut self,
+        rpc_id: RpcId,
+        response: (&State, Option<&str>),
+    ) -> Result<(), RespondError>;
     fn respond_action_stats_get(
         &mut self,
         rpc_id: RpcId,
@@ -106,6 +125,16 @@ pub trait RpcService: RpcLedgerService {
         &mut self,
         rpc_id: RpcId,
         response: RpcHealthCheckResponse,
+    ) -> Result<(), RespondError>;
+    fn respond_discovery_routing_table(
+        &mut self,
+        rpc_id: RpcId,
+        response: RpcDiscoveryRoutingTableResponse,
+    ) -> Result<(), RespondError>;
+    fn respond_discovery_bootstrap_stats(
+        &mut self,
+        rpc_id: RpcId,
+        response: RpcDiscoveryBoostrapStatsResponse,
     ) -> Result<(), RespondError>;
     fn respond_readiness_check(
         &mut self,

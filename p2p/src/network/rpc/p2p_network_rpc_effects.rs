@@ -21,11 +21,6 @@ impl P2pNetworkRpcAction {
     pub fn effects<Store, S>(&self, _: &redux::ActionMeta, store: &mut Store)
     where
         Store: crate::P2pStore<S>,
-        P2pNetworkRpcOutgoingDataAction: redux::EnablingCondition<S>,
-        P2pNetworkRpcIncomingMessageAction: redux::EnablingCondition<S>,
-        P2pNetworkRpcOutgoingQueryAction: redux::EnablingCondition<S>,
-        P2pNetworkYamuxOutgoingDataAction: redux::EnablingCondition<S>,
-        P2pChannelsRpcAction: redux::EnablingCondition<S>,
     {
         let Some(state) = store.state().network.find_rpc_state(self) else {
             return;

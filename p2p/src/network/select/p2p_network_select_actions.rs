@@ -80,6 +80,7 @@ pub struct P2pNetworkSelectIncomingDataAction {
     pub addr: SocketAddr,
     pub kind: SelectKind,
     pub data: Data,
+    pub fin: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

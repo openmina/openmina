@@ -6,7 +6,7 @@ use tracing::field::Visit;
 use tracing_subscriber::{
     field::{RecordFields, VisitOutput},
     fmt::{
-        format::{Pretty, PrettyVisitor, Writer},
+        format::{PrettyVisitor, Writer},
         time::FormatTime,
         FormatFields,
     },
@@ -50,7 +50,7 @@ where
 }
 
 #[derive(Default)]
-struct TracingFieldFormatter(#[allow(dead_code)] Pretty);
+struct TracingFieldFormatter;
 
 impl<'writer> FormatFields<'writer> for TracingFieldFormatter {
     fn format_fields<R: RecordFields>(
@@ -67,6 +67,8 @@ impl<'writer> FormatFields<'writer> for TracingFieldFormatter {
 pub fn initialize(max_log_level: Level) {
     let builder = tracing_subscriber::FmtSubscriber::builder()
         .with_max_level(max_log_level)
+        .with_ansi(std::io::IsTerminal::is_terminal(&std::io::stdout()))
+        .with_test_writer()
         //.with_timer(ReduxTimer)
         ;
     if max_log_level != Level::TRACE {

@@ -123,13 +123,10 @@ impl P2pNetworkSelectState {
                                         token::MuxKind::YamuxNoNewLine1_0_0,
                                     ))
                                 }
-                                token::Protocol::Stream(token::StreamKind::Rpc(_)) => {
-                                    token::Token::Protocol(protocol)
-                                }
+                                token::Protocol::Stream(
+                                    token::StreamKind::Rpc(_) | token::StreamKind::Discovery(_),
+                                ) => token::Token::Protocol(protocol),
                                 token::Protocol::Stream(token::StreamKind::Broadcast(_)) => {
-                                    token::Token::Na
-                                }
-                                token::Protocol::Stream(token::StreamKind::Discovery(_)) => {
                                     token::Token::Na
                                 }
                             };

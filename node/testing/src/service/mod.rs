@@ -27,7 +27,7 @@ use node::external_snark_worker::ExternalSnarkWorkerEvent;
 #[cfg(feature = "p2p-libp2p")]
 use node::p2p::service_impl::libp2p::Libp2pService;
 use node::p2p::service_impl::webrtc_with_libp2p::P2pServiceWebrtcWithLibp2p;
-use node::p2p::{P2pCryptoService, P2pMioService};
+use node::p2p::P2pCryptoService;
 use node::recorder::Recorder;
 use node::service::{BlockProducerService, BlockProducerVrfEvaluatorService};
 use node::snark::block_verify::{
@@ -232,12 +232,6 @@ impl P2pCryptoService for NodeTestingService {
 
     fn sign_key(&mut self, key: &[u8; 32]) -> Vec<u8> {
         self.real.sign_key(key)
-    }
-}
-
-impl P2pMioService for NodeTestingService {
-    fn send_mio_cmd(&self, cmd: node::p2p::MioCmd) {
-        self.real.send_mio_cmd(cmd);
     }
 }
 

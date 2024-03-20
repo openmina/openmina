@@ -6,13 +6,6 @@ impl P2pNetworkYamuxAction {
     pub fn effects<Store, S>(&self, _meta: &redux::ActionMeta, store: &mut Store)
     where
         Store: crate::P2pStore<S>,
-        P2pNetworkYamuxIncomingFrameAction: redux::EnablingCondition<S>,
-        P2pNetworkNoiseOutgoingDataAction: redux::EnablingCondition<S>,
-        P2pNetworkSelectInitAction: redux::EnablingCondition<S>,
-        P2pNetworkSelectIncomingDataAction: redux::EnablingCondition<S>,
-        P2pNetworkYamuxOutgoingFrameAction: redux::EnablingCondition<S>,
-        P2pNetworkYamuxPingStreamAction: redux::EnablingCondition<S>,
-        P2pNetworkSchedulerYamuxDidInitAction: redux::EnablingCondition<S>,
     {
         let state = store.state();
         let Some(state) = state.network.scheduler.connections.get(&self.addr()) else {
@@ -30,7 +23,6 @@ impl P2pNetworkYamuxAction {
         };
 
         let incoming = state.incoming.front().cloned();
-        let init = state.init;
 
         match self {
             Self::IncomingData(a) => {
@@ -74,6 +66,7 @@ impl P2pNetworkYamuxAction {
                             addr: a.addr,
                             kind: SelectKind::Stream(peer_id, frame.stream_id),
                             data: data.clone(),
+                            fin: a.frame.flags.contains(YamuxFlags::FIN),
                         });
                     }
                     YamuxFrameInner::Ping { opaque } => {
@@ -89,9 +82,6 @@ impl P2pNetworkYamuxAction {
                                 addr: a.addr,
                                 frame: ping.clone().into_frame(),
                             });
-                        }
-                        if !init {
-                            store.dispatch(P2pNetworkSchedulerYamuxDidInitAction { addr: a.addr });
                         }
                     }
                     _ => {}

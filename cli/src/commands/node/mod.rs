@@ -35,7 +35,7 @@ use openmina_node_native::{http_server, tracing, NodeService, P2pTaskSpawner, Rp
 
 // old:
 // 3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e
-const CHAIN_ID: &'static str = "fd7d111973bf5a9e3e87384f560fdead2f272589ca00b6d9e357fca9839631da";
+const CHAIN_ID: &'static str = openmina_core::CHAIN_ID;
 
 /// Openmina node
 #[derive(Debug, clap::Args)]
@@ -182,6 +182,8 @@ impl Node {
                 ask_initial_peers_interval: Duration::from_secs(3600),
                 enabled_channels: ChannelId::iter_all().collect(),
                 timeouts: P2pTimeouts::default(),
+                chain_id: CHAIN_ID.to_owned(),
+                peer_discovery: true,
             },
             transition_frontier: TransitionFrontierConfig::default(),
             block_producer: None,

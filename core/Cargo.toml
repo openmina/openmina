@@ -14,6 +14,7 @@ binprot_derive = { git = "https://github.com/openmina/binprot-rs", rev = "3f29b2
 redux = { workspace = true }
 tokio = { version = "1.26", features = ["sync"] }
 time = { version = "0.3", features = ["formatting"] }
+multihash = { version = "0.18.1", features = ["blake2b"] }
 
 mina-hasher = { workspace = true }
 mina-p2p-messages = { workspace = true }
