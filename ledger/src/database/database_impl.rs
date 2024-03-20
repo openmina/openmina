@@ -61,7 +61,7 @@ impl DatabaseImpl<V2> {
             naccounts: self.naccounts,
             uuid: next_uuid(),
             directory: new_directory,
-            hashes_matrix: HashesMatrix::new(self.depth as usize),
+            hashes_matrix: self.hashes_matrix.clone(),
             // root_hash: RefCell::new(*self.root_hash.borrow()),
         }
     }
