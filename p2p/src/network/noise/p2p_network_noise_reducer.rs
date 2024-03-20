@@ -169,7 +169,7 @@ impl P2pNetworkNoiseState {
                         ..
                     } => {
                         let aead = ChaCha20Poly1305::new(&send_key.0.into());
-                        let chunk_max_size = u16::MAX as usize - 18;
+                        let chunk_max_size = u16::MAX as usize - 19;
                         for data in a.data.chunks(chunk_max_size) {
                             let mut chunk = Vec::with_capacity(18 + data.len());
                             chunk.extend_from_slice(&((data.len() + 16) as u16).to_be_bytes());
