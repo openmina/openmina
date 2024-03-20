@@ -3,6 +3,7 @@ use std::{
     collections::{hash_map::Entry, BTreeSet, HashMap, HashSet, VecDeque},
 };
 
+use itertools::Itertools;
 use mina_hasher::Fp;
 use mina_p2p_messages::v2;
 use openmina_core::constants::{ForkConstants, CONSTRAINT_CONSTANTS};
@@ -338,6 +339,7 @@ impl VkRefcountTable {
     }
 }
 
+#[derive(PartialEq, Eq, PartialOrd, Ord)]
 enum Batch {
     Of(usize),
 }
@@ -1708,6 +1710,70 @@ impl TransactionPool {
                 }
             })
             .collect()
+    }
+
+    fn get_rebroadcastable<F>(&mut self, has_timed_out: F) -> Vec<Vec<UserCommand>>
+    where
+        F: Fn(&std::time::Instant) -> bool,
+    {
+        let log = |has_timed_out: bool, s: &str, cmd: &ValidCommandWithHash| -> bool {
+            if has_timed_out {
+                eprintln!("{}: {:?}", s, cmd);
+                false
+            } else {
+                true
+            }
+        };
+
+        self.locally_generated_uncommitted
+            .retain(|key, (time, _batch)| {
+                log(
+                    has_timed_out(time),
+                    "No longer rebroadcasting uncommitted expired command",
+                    key,
+                )
+            });
+        self.locally_generated_committed
+            .retain(|key, (time, _batch)| {
+                log(
+                    has_timed_out(time),
+                    "Removing committed locally generated expired command",
+                    key,
+                )
+            });
+
+        let mut rebroadcastable_txs = self
+            .locally_generated_uncommitted
+            .iter()
+            .collect::<Vec<_>>();
+
+        rebroadcastable_txs.sort_by(|(txn1, (_, batch1)), (txn2, (_, batch2))| {
+            use std::cmp::Ordering::Equal;
+
+            let get_nonce =
+                |txn: &ValidCommandWithHash| txn.data.forget_check().applicable_at_nonce();
+
+            match batch1.cmp(batch2) {
+                Equal => (),
+                x => return x,
+            }
+            match get_nonce(txn1).cmp(&get_nonce(txn2)) {
+                Equal => (),
+                x => return x,
+            }
+            txn1.hash.cmp(&txn2.hash)
+        });
+
+        rebroadcastable_txs
+            .into_iter()
+            .group_by(|(_txn, (_time, batch))| batch)
+            .into_iter()
+            .map(|(_batch, group_txns)| {
+                group_txns
+                    .map(|(txn, _)| txn.data.forget_check())
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>()
     }
 }
 
