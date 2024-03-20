@@ -25,7 +25,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
     let (action, meta) = action.split();
     let kind = action.kind();
 
-    // let peer_id = store.state().p2p.my_id().to_string();
+    let node_id = store.state().p2p.my_id().to_string();
     // let _guard = openmina_core::log::create_span(&peer_id).entered();
 
     match action {
@@ -34,6 +34,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                 p2p::listen::P2pListenAction::New { listener_id, addr } => {
                     openmina_core::log::info!(
                         meta.time();
+                        node_id = node_id,
                         kind = kind.to_string(),
                         summary = format!("addr: {addr}"),
                         addr = addr.to_string(),
@@ -43,6 +44,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                 p2p::listen::P2pListenAction::Expired { listener_id, addr } => {
                     openmina_core::log::info!(
                         meta.time();
+                        node_id = node_id,
                         kind = kind.to_string(),
                         summary = format!("addr: {addr}"),
                         addr = addr.to_string(),
@@ -52,6 +54,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                 p2p::listen::P2pListenAction::Error { listener_id, error } => {
                     openmina_core::log::warn!(
                         meta.time();
+                        node_id = node_id,
                         kind = kind.to_string(),
                         summary = format!("id: {listener_id}, error: {error}"),
                         error = error,
@@ -62,6 +65,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     if let Some(error) = error {
                         openmina_core::log::warn!(
                             meta.time();
+                            node_id = node_id,
                             kind = kind.to_string(),
                             summary = format!("id: {listener_id}, error: {error}"),
                             error = error,
@@ -70,6 +74,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     } else {
                         openmina_core::log::info!(
                             meta.time();
+                            node_id = node_id,
                             kind = kind.to_string(),
                             summary = format!("id: {listener_id},"),
                             listener_id = listener_id.to_string(),
@@ -94,6 +99,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                         let peer_id = opts.peer_id();
                         openmina_core::log::info!(
                             meta.time();
+                            node_id = node_id,
                             kind = kind.to_string(),
                             summary = format!("peer_id: {peer_id}"),
                             peer_id = peer_id.to_string(),
@@ -104,6 +110,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     P2pConnectionOutgoingAction::OfferSdpCreateError { peer_id, error } => {
                         openmina_core::log::warn!(
                             meta.time();
+                            node_id = node_id,
                             kind = kind.to_string(),
                             summary = format!("peer_id: {peer_id}"),
                             peer_id = peer_id.to_string(),
@@ -113,6 +120,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     P2pConnectionOutgoingAction::OfferSdpCreateSuccess { peer_id, sdp } => {
                         openmina_core::log::debug!(
                             meta.time();
+                            node_id = node_id,
                             kind = kind.to_string(),
                             summary = format!("peer_id: {peer_id}"),
                             peer_id = peer_id.to_string(),
@@ -122,6 +130,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     P2pConnectionOutgoingAction::OfferReady { peer_id, offer } => {
                         openmina_core::log::debug!(
                             meta.time();
+                            node_id = node_id,
                             kind = kind.to_string(),
                             summary = format!("peer_id: {peer_id}"),
                             peer_id = peer_id.to_string(),
@@ -131,6 +140,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     P2pConnectionOutgoingAction::OfferSendSuccess { peer_id } => {
                         openmina_core::log::debug!(
                             meta.time();
+                            node_id = node_id,
                             kind = kind.to_string(),
                             summary = format!("peer_id: {peer_id}"),
                             peer_id = peer_id.to_string(),
@@ -140,6 +150,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     P2pConnectionOutgoingAction::AnswerRecvError { peer_id, error } => {
                         openmina_core::log::warn!(
                             meta.time();
+                            node_id = node_id,
                             kind = kind.to_string(),
                             summary = format!("peer_id: {peer_id}"),
                             peer_id = peer_id.to_string(),
@@ -149,6 +160,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     P2pConnectionOutgoingAction::AnswerRecvSuccess { peer_id, answer } => {
                         openmina_core::log::debug!(
                             meta.time();
+                            node_id = node_id,
                             kind = kind.to_string(),
                             summary = format!("peer_id: {peer_id}"),
                             peer_id = peer_id.to_string(),
@@ -159,6 +171,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     P2pConnectionOutgoingAction::FinalizeError { peer_id, error } => {
                         openmina_core::log::warn!(
                             meta.time();
+                            node_id = node_id,
                             kind = kind.to_string(),
                             summary = format!("peer_id: {peer_id}"),
                             peer_id = peer_id.to_string(),
@@ -168,6 +181,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     P2pConnectionOutgoingAction::FinalizeSuccess { peer_id } => {
                         openmina_core::log::info!(
                             meta.time();
+                            node_id = node_id,
                             kind = kind.to_string(),
                             summary = format!("peer_id: {peer_id}"),
                             peer_id = peer_id.to_string()
@@ -176,6 +190,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     P2pConnectionOutgoingAction::Timeout { peer_id } => {
                         openmina_core::log::warn!(
                             meta.time();
+                            node_id = node_id,
                             kind = kind.to_string(),
                             summary = format!("peer_id: {peer_id}"),
                             peer_id = peer_id.to_string()
@@ -184,6 +199,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     P2pConnectionOutgoingAction::Error { peer_id, error } => {
                         openmina_core::log::warn!(
                             meta.time();
+                            node_id = node_id,
                             kind = kind.to_string(),
                             summary = format!("peer_id: {peer_id}"),
                             peer_id = peer_id.to_string(),
@@ -193,6 +209,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     P2pConnectionOutgoingAction::Success { peer_id } => {
                         openmina_core::log::info!(
                             meta.time();
+                            node_id = node_id,
                             kind = kind.to_string(),
                             summary = format!("peer_id: {peer_id}"),
                             peer_id = peer_id.to_string()
@@ -204,6 +221,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                         let peer_id = opts.peer_id;
                         openmina_core::log::info!(
                             meta.time();
+                            node_id = node_id,
                             kind = kind.to_string(),
                             summary = format!("peer_id: {peer_id}"),
                             peer_id = peer_id.to_string(),
@@ -214,6 +232,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     P2pConnectionIncomingAction::AnswerSdpCreateError { peer_id, error } => {
                         openmina_core::log::warn!(
                             meta.time();
+                            node_id = node_id,
                             kind = kind.to_string(),
                             summary = format!("peer_id: {peer_id}"),
                             peer_id = peer_id.to_string(),
@@ -223,6 +242,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     P2pConnectionIncomingAction::AnswerSdpCreateSuccess { peer_id, sdp } => {
                         openmina_core::log::info!(
                             meta.time();
+                            node_id = node_id,
                             kind = kind.to_string(),
                             summary = format!("peer_id: {peer_id}"),
                             peer_id = peer_id.to_string(),
@@ -232,6 +252,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     P2pConnectionIncomingAction::AnswerReady { peer_id, answer } => {
                         openmina_core::log::info!(
                             meta.time();
+                            node_id = node_id,
                             kind = kind.to_string(),
                             summary = format!("peer_id: {peer_id}"),
                             peer_id = peer_id.to_string(),
@@ -241,6 +262,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     P2pConnectionIncomingAction::AnswerSendSuccess { peer_id } => {
                         openmina_core::log::info!(
                             meta.time();
+                            node_id = node_id,
                             kind = kind.to_string(),
                             summary = format!("peer_id: {peer_id}"),
                             peer_id = peer_id.to_string(),
@@ -250,6 +272,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     P2pConnectionIncomingAction::FinalizeError { peer_id, error } => {
                         openmina_core::log::warn!(
                             meta.time();
+                            node_id = node_id,
                             kind = kind.to_string(),
                             summary = format!("peer_id: {peer_id}"),
                             peer_id = peer_id.to_string(),
@@ -259,6 +282,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     P2pConnectionIncomingAction::FinalizeSuccess { peer_id } => {
                         openmina_core::log::info!(
                             meta.time();
+                            node_id = node_id,
                             kind = kind.to_string(),
                             summary = format!("peer_id: {peer_id}"),
                             peer_id = peer_id.to_string(),
@@ -267,6 +291,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     P2pConnectionIncomingAction::Timeout { peer_id } => {
                         openmina_core::log::warn!(
                             meta.time();
+                            node_id = node_id,
                             kind = kind.to_string(),
                             summary = format!("peer_id: {peer_id}"),
                             peer_id = peer_id.to_string(),
@@ -275,6 +300,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     P2pConnectionIncomingAction::Error { peer_id, error } => {
                         openmina_core::log::warn!(
                             meta.time();
+                            node_id = node_id,
                             kind = kind.to_string(),
                             summary = format!("peer_id: {peer_id}"),
                             peer_id = peer_id.to_string(),
@@ -284,6 +310,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     P2pConnectionIncomingAction::Success { peer_id } => {
                         openmina_core::log::info!(
                             meta.time();
+                            node_id = node_id,
                             kind = kind.to_string(),
                             summary = format!("peer_id: {peer_id}"),
                             peer_id = peer_id.to_string(),
@@ -292,6 +319,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     P2pConnectionIncomingAction::Libp2pReceived { peer_id } => {
                         openmina_core::log::info!(
                             meta.time();
+                            node_id = node_id,
                             kind = kind.to_string(),
                             summary = format!("peer_id: {peer_id}"),
                             peer_id = peer_id.to_string(),
@@ -303,6 +331,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                 P2pDisconnectionAction::Init { peer_id, reason } => {
                     openmina_core::log::info!(
                         meta.time();
+                        node_id = node_id,
                         kind = kind.to_string(),
                         summary = format!("peer_id: {peer_id}"),
                         peer_id = peer_id.to_string(),
@@ -312,6 +341,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                 P2pDisconnectionAction::Finish { peer_id } => {
                     openmina_core::log::info!(
                         meta.time();
+                        node_id = node_id,
                         kind = kind.to_string(),
                         summary = format!("peer_id: {peer_id}"),
                         peer_id = peer_id.to_string()
@@ -322,6 +352,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                 P2pDiscoveryAction::Init { peer_id } => {
                     openmina_core::log::debug!(
                         meta.time();
+                        node_id = node_id,
                         kind = kind.to_string(),
                         summary = format!("peer_id: {peer_id}"),
                         peer_id = peer_id.to_string()
@@ -330,6 +361,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                 P2pDiscoveryAction::Success { peer_id, .. } => {
                     openmina_core::log::debug!(
                         meta.time();
+                        node_id = node_id,
                         kind = kind.to_string(),
                         summary = format!("peer_id: {peer_id}"),
                         peer_id = peer_id.to_string()
@@ -338,6 +370,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                 P2pDiscoveryAction::KademliaBootstrap => {
                     openmina_core::log::debug!(
                         meta.time();
+                        node_id = node_id,
                         kind = kind.to_string(),
                         summary = format!("bootstrap kademlia"),
                     );
@@ -345,6 +378,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                 P2pDiscoveryAction::KademliaInit => {
                     openmina_core::log::info!(
                         meta.time();
+                        node_id = node_id,
                         kind = kind.to_string(),
                         summary = format!("find node"),
                     );
@@ -352,6 +386,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                 P2pDiscoveryAction::KademliaAddRoute { peer_id, addresses } => {
                     openmina_core::log::info!(
                         meta.time();
+                        node_id = node_id,
                         kind = kind.to_string(),
                         summary = format!("add route {peer_id} {:?}", addresses.first()),
                     );
@@ -359,6 +394,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                 P2pDiscoveryAction::KademliaSuccess { peers } => {
                     openmina_core::log::info!(
                         meta.time();
+                        node_id = node_id,
                         kind = kind.to_string(),
                         summary = format!("peers: {:?}", peers),
                     );
@@ -366,6 +402,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                 P2pDiscoveryAction::KademliaFailure { description } => {
                     openmina_core::log::info!(
                         meta.time();
+                        node_id = node_id,
                         kind = kind.to_string(),
                         summary = format!("{:?}", description),
                     );
@@ -377,6 +414,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     P2pChannelsBestTipAction::Init { peer_id } => {
                         openmina_core::log::debug!(
                             meta.time();
+                            node_id = node_id,
                             kind = kind.to_string(),
                             summary = format!("peer_id: {peer_id}"),
                             peer_id = peer_id.to_string()
@@ -385,6 +423,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     P2pChannelsBestTipAction::Ready { peer_id } => {
                         openmina_core::log::debug!(
                             meta.time();
+                            node_id = node_id,
                             kind = kind.to_string(),
                             summary = format!("peer_id: {peer_id}"),
                             peer_id = peer_id.to_string()
@@ -396,6 +435,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     P2pChannelsSnarkAction::Init { peer_id } => {
                         openmina_core::log::debug!(
                             meta.time();
+                            node_id = node_id,
                             kind = kind.to_string(),
                             summary = format!("peer_id: {peer_id}"),
                             peer_id = peer_id.to_string()
@@ -404,6 +444,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     P2pChannelsSnarkAction::Ready { peer_id } => {
                         openmina_core::log::debug!(
                             meta.time();
+                            node_id = node_id,
                             kind = kind.to_string(),
                             summary = format!("peer_id: {peer_id}"),
                             peer_id = peer_id.to_string()
@@ -415,6 +456,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     P2pChannelsSnarkJobCommitmentAction::Init { peer_id } => {
                         openmina_core::log::debug!(
                             meta.time();
+                            node_id = node_id,
                             kind = kind.to_string(),
                             summary = format!("peer_id: {}", peer_id),
                             peer_id = peer_id.to_string()
@@ -423,6 +465,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     P2pChannelsSnarkJobCommitmentAction::Ready { peer_id } => {
                         openmina_core::log::debug!(
                             meta.time();
+                            node_id = node_id,
                             kind = kind.to_string(),
                             summary = format!("peer_id: {}", peer_id),
                             peer_id = peer_id.to_string()
@@ -434,6 +477,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     P2pChannelsRpcAction::Init { peer_id } => {
                         openmina_core::log::debug!(
                             meta.time();
+                            node_id = node_id,
                             kind = kind.to_string(),
                             summary = format!("peer_id: {peer_id}"),
                             peer_id = peer_id.to_string()
@@ -442,6 +486,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     P2pChannelsRpcAction::Ready { peer_id } => {
                         openmina_core::log::debug!(
                             meta.time();
+                            node_id = node_id,
                             kind = kind.to_string(),
                             summary = format!("peer_id: {peer_id}"),
                             peer_id = peer_id.to_string()
@@ -454,6 +499,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     } => {
                         openmina_core::log::debug!(
                             meta.time();
+                            node_id = node_id,
                             kind = kind.to_string(),
                             summary = format!("peer_id: {peer_id}, rpc_id: {id}, kind: {:?}", request.kind()),
                             peer_id = peer_id.to_string(),
@@ -468,6 +514,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     } => {
                         openmina_core::log::debug!(
                             meta.time();
+                            node_id = node_id,
                             kind = kind.to_string(),
                             summary = format!("peer_id: {peer_id}, rpc_id: {id}"),
                             peer_id = peer_id.to_string(),
@@ -485,6 +532,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     P2pNetworkSchedulerAction::InterfaceDetected(action) => {
                         openmina_core::log::info!(
                             meta.time();
+                            node_id = node_id,
                             kind = kind.to_string(),
                             summary = format!("ip: {}", action.ip),
                         );
@@ -492,6 +540,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     P2pNetworkSchedulerAction::InterfaceExpired(action) => {
                         openmina_core::log::info!(
                             meta.time();
+                            node_id = node_id,
                             kind = kind.to_string(),
                             summary = format!("ip: {}", action.ip),
                         );
@@ -499,11 +548,13 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     P2pNetworkSchedulerAction::IncomingDidAccept(action) => match &action.result {
                         Ok(()) => openmina_core::log::info!(
                             meta.time();
+                            node_id = node_id,
                             kind = kind.to_string(),
                             addr = action.addr.as_ref().unwrap().to_string(),
                         ),
                         Err(err) => openmina_core::log::error!(
                             meta.time();
+                            node_id = node_id,
                             kind = kind.to_string(),
                             err = err,
                         ),
@@ -511,11 +562,13 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     P2pNetworkSchedulerAction::OutgoingDidConnect(action) => match &action.result {
                         Ok(()) => openmina_core::log::info!(
                             meta.time();
+                            node_id = node_id,
                             kind = kind.to_string(),
                             addr = action.addr.to_string(),
                         ),
                         Err(err) => openmina_core::log::error!(
                             meta.time();
+                            node_id = node_id,
                             kind = kind.to_string(),
                             err = err,
                         ),
@@ -525,6 +578,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                             SelectKind::Authentication => {
                                 openmina_core::log::info!(
                                     meta.time();
+                                    node_id = node_id,
                                     kind = kind.to_string(),
                                     summary = format!("authentication on addr: {}", action.addr),
                                     negotiated = format!("{:?}", action.protocol),
@@ -534,6 +588,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                             SelectKind::MultiplexingNoPeerId => {
                                 openmina_core::log::info!(
                                     meta.time();
+                                    node_id = node_id,
                                     kind = kind.to_string(),
                                     summary = format!("multiplexing on addr: {}", action.addr),
                                     negotiated = format!("{:?}", action.protocol),
@@ -543,6 +598,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                             SelectKind::Multiplexing(peer_id) => {
                                 openmina_core::log::info!(
                                     meta.time();
+                                    node_id = node_id,
                                     kind = kind.to_string(),
                                     summary = format!("multiplexing on addr: {}", action.addr),
                                     peer_id = peer_id.to_string(),
@@ -553,6 +609,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                             SelectKind::Stream(peer_id, stream_id) => {
                                 openmina_core::log::info!(
                                     meta.time();
+                                    node_id = node_id,
                                     kind = kind.to_string(),
                                     summary = format!("stream on addr: {}", action.addr),
                                     peer_id = peer_id.to_string(),
@@ -567,6 +624,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                         SelectKind::Authentication => {
                             openmina_core::log::error!(
                                 meta.time();
+                                node_id = node_id,
                                 kind = kind.to_string(),
                                 error = action.error,
                                 summary = format!("failed select authentication on addr {}: {}", action.addr, action.error),
@@ -575,6 +633,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                         SelectKind::MultiplexingNoPeerId => {
                             openmina_core::log::error!(
                                 meta.time();
+                                node_id = node_id,
                                 kind = kind.to_string(),
                                 error = action.error,
                                 summary = format!("failed select multiplexing on addr {}: {}", action.addr, action.error),
@@ -583,6 +642,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                         SelectKind::Multiplexing(peer_id) => {
                             openmina_core::log::error!(
                                 meta.time();
+                                node_id = node_id,
                                 kind = kind.to_string(),
                                 error = action.error,
                                 summary = format!("failed select multiplexing on addr {}: {}", action.addr, action.error),
@@ -592,6 +652,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                         SelectKind::Stream(peer_id, stream_id) => {
                             openmina_core::log::error!(
                                 meta.time();
+                                node_id = node_id,
                                 kind = kind.to_string(),
                                 error = action.error,
                                 summary = format!("failed select stream on addr {}: {}", action.addr, action.error),
@@ -606,6 +667,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     P2pNetworkPnetAction::SetupNonce(action) => {
                         openmina_core::log::info!(
                             meta.time();
+                            node_id = node_id,
                             kind = kind.to_string(),
                             addr = action.addr.to_string(),
                             incoming = action.incoming,
@@ -618,6 +680,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                         SelectKind::Authentication => {
                             openmina_core::log::debug!(
                                 meta.time();
+                                node_id = node_id,
                                 kind = kind.to_string(),
                                 summary = format!("authentication on addr: {}", action.addr),
                                 incoming = action.incoming,
@@ -626,6 +689,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                         SelectKind::MultiplexingNoPeerId => {
                             openmina_core::log::debug!(
                                 meta.time();
+                                node_id = node_id,
                                 kind = kind.to_string(),
                                 summary = format!("multiplexing on addr: {}", action.addr),
                                 incoming = action.incoming,
@@ -634,6 +698,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                         SelectKind::Multiplexing(peer_id) => {
                             openmina_core::log::debug!(
                                 meta.time();
+                                node_id = node_id,
                                 kind = kind.to_string(),
                                 summary = format!("multiplexing on addr: {}", action.addr),
                                 peer_id = peer_id.to_string(),
@@ -643,6 +708,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                         SelectKind::Stream(peer_id, stream_id) => {
                             openmina_core::log::debug!(
                                 meta.time();
+                                node_id = node_id,
                                 kind = kind.to_string(),
                                 summary = format!("stream on addr: {}", action.addr),
                                 peer_id = peer_id.to_string(),
@@ -655,6 +721,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                         SelectKind::Authentication => {
                             openmina_core::log::debug!(
                                 meta.time();
+                                node_id = node_id,
                                 kind = kind.to_string(),
                                 summary = format!("authentication on addr: {}", action.addr),
                                 token = format!("{:?}", action.token),
@@ -663,6 +730,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                         SelectKind::MultiplexingNoPeerId => {
                             openmina_core::log::debug!(
                                 meta.time();
+                                node_id = node_id,
                                 kind = kind.to_string(),
                                 summary = format!("multiplexing on addr: {}", action.addr),
                                 token = format!("{:?}", action.token),
@@ -671,6 +739,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                         SelectKind::Multiplexing(peer_id) => {
                             openmina_core::log::debug!(
                                 meta.time();
+                                node_id = node_id,
                                 kind = kind.to_string(),
                                 summary = format!("multiplexing on addr: {}", action.addr),
                                 peer_id = peer_id.to_string(),
@@ -680,6 +749,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                         SelectKind::Stream(peer_id, stream_id) => {
                             openmina_core::log::debug!(
                                 meta.time();
+                                node_id = node_id,
                                 kind = kind.to_string(),
                                 summary = format!("stream on addr: {}", action.addr),
                                 peer_id = peer_id.to_string(),
@@ -692,6 +762,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                         SelectKind::Authentication => {
                             openmina_core::log::debug!(
                                 meta.time();
+                                node_id = node_id,
                                 kind = kind.to_string(),
                                 summary = format!("authentication on addr: {}", action.addr),
                                 tokens = format!("{:?}", action.tokens),
@@ -700,6 +771,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                         SelectKind::MultiplexingNoPeerId => {
                             openmina_core::log::debug!(
                                 meta.time();
+                                node_id = node_id,
                                 kind = kind.to_string(),
                                 summary = format!("multiplexing on addr: {}", action.addr),
                                 tokens = format!("{:?}", action.tokens),
@@ -708,6 +780,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                         SelectKind::Multiplexing(peer_id) => {
                             openmina_core::log::debug!(
                                 meta.time();
+                                node_id = node_id,
                                 kind = kind.to_string(),
                                 summary = format!("multiplexing on addr: {}", action.addr),
                                 peer_id = peer_id.to_string(),
@@ -717,6 +790,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                         SelectKind::Stream(peer_id, stream_id) => {
                             openmina_core::log::debug!(
                                 meta.time();
+                                node_id = node_id,
                                 kind = kind.to_string(),
                                 summary = format!("stream on addr: {}", action.addr),
                                 peer_id = peer_id.to_string(),
@@ -731,6 +805,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     P2pNetworkNoiseAction::Init(action) => {
                         openmina_core::log::info!(
                             meta.time();
+                            node_id = node_id,
                             kind = kind.to_string(),
                             addr = action.addr.to_string(),
                             incoming = action.incoming,
@@ -739,6 +814,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     P2pNetworkNoiseAction::HandshakeDone(action) => {
                         openmina_core::log::info!(
                             meta.time();
+                            node_id = node_id,
                             kind = kind.to_string(),
                             addr = action.addr.to_string(),
                             incoming = action.incoming,
@@ -748,6 +824,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     P2pNetworkNoiseAction::IncomingChunk(action) => {
                         openmina_core::log::debug!(
                             meta.time();
+                            node_id = node_id,
                             kind = kind.to_string(),
                             addr = action.addr.to_string(),
                             data = format!("{:?}", action.data),
@@ -756,6 +833,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     P2pNetworkNoiseAction::OutgoingChunk(action) => {
                         openmina_core::log::debug!(
                             meta.time();
+                            node_id = node_id,
                             kind = kind.to_string(),
                             addr = action.addr.to_string(),
                             data = format!("{:?}", action.data),
@@ -764,6 +842,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     P2pNetworkNoiseAction::DecryptedData(action) => {
                         openmina_core::log::debug!(
                             meta.time();
+                            node_id = node_id,
                             kind = kind.to_string(),
                             addr = action.addr.to_string(),
                             data = format!("{:?}", action.data),
@@ -775,6 +854,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     P2pNetworkYamuxAction::IncomingFrame(action) => {
                         openmina_core::log::debug!(
                             meta.time();
+                            node_id = node_id,
                             kind = kind.to_string(),
                             addr = action.addr.to_string(),
                             frame = format!("{:?}", action.frame),
@@ -783,6 +863,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     P2pNetworkYamuxAction::OutgoingFrame(action) => {
                         openmina_core::log::debug!(
                             meta.time();
+                            node_id = node_id,
                             kind = kind.to_string(),
                             addr = action.addr.to_string(),
                             frame = format!("{:?}", action.frame),
@@ -794,6 +875,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     P2pNetworkRpcAction::Init(action) => {
                         openmina_core::log::info!(
                             meta.time();
+                            node_id = node_id,
                             kind = kind.to_string(),
                             addr = action.addr.to_string(),
                             peer_id = action.peer_id.to_string(),
@@ -810,6 +892,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                         };
                         openmina_core::log::debug!(
                             meta.time();
+                            node_id = node_id,
                             kind = kind.to_string(),
                             addr = action.addr.to_string(),
                             peer_id = action.peer_id.to_string(),
@@ -832,6 +915,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                 | ExternalSnarkWorkerAction::PruneWork => {
                     openmina_core::log::debug!(
                         meta.time();
+                        node_id = node_id,
                         kind = kind.to_string(),
                         trace_action = serde_json::to_string(&a).ok()
                     )
@@ -839,6 +923,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                 ExternalSnarkWorkerAction::SubmitWork { job_id, .. } => {
                     openmina_core::log::info!(
                         meta.time();
+                        node_id = node_id,
                         kind = kind.to_string(),
                         work_id = job_id.to_string(),
                     )
@@ -846,18 +931,21 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                 ExternalSnarkWorkerAction::WorkResult { .. } => {
                     openmina_core::log::info!(
                         meta.time();
+                        node_id = node_id,
                         kind = kind.to_string(),
                     )
                 }
                 ExternalSnarkWorkerAction::CancelWork => {
                     openmina_core::log::info!(
                         meta.time();
+                        node_id = node_id,
                         kind = kind.to_string(),
                     )
                 }
                 ExternalSnarkWorkerAction::WorkError { error, .. } => {
                     openmina_core::log::warn!(
                         meta.time();
+                        node_id = node_id,
                         kind = kind.to_string(),
                         error = error.to_string(),
                     )
@@ -865,6 +953,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                 ExternalSnarkWorkerAction::Error { error, .. } => {
                     openmina_core::log::info!(
                         meta.time();
+                        node_id = node_id,
                         kind = kind.to_string(),
                         error = error.to_string(),
                     )
@@ -872,12 +961,14 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                 ExternalSnarkWorkerAction::StartTimeout { .. } => {
                     openmina_core::log::warn!(
                         meta.time();
+                        node_id = node_id,
                         kind = kind.to_string(),
                     )
                 }
                 ExternalSnarkWorkerAction::WorkTimeout { .. } => {
                     openmina_core::log::warn!(
                         meta.time();
+                        node_id = node_id,
                         kind = kind.to_string(),
                     )
                 }
@@ -892,6 +983,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                 } => {
                     openmina_core::log::info!(
                         meta.time();
+                        node_id = node_id,
                         kind = kind.to_string(),
                         summary = format!("id: {}, batch size: {}", req_id, batch.len()),
                         peer_id = sender,
@@ -905,6 +997,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     };
                     openmina_core::log::warn!(
                         meta.time();
+                        node_id = node_id,
                         kind = kind.to_string(),
                         summary = format!("id: {}, batch size: {}", req_id, req.batch().len()),
                         peer_id = req.sender(),
@@ -918,6 +1011,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     };
                     openmina_core::log::info!(
                         meta.time();
+                        node_id = node_id,
                         kind = kind.to_string(),
                         summary = format!("id: {}, batch size: {}", req_id, req.batch().len()),
                         peer_id = req.sender(),
@@ -937,6 +1031,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     ..
                 } => openmina_core::log::info!(
                     meta.time();
+                    node_id = node_id,
                     kind = kind.to_string(),
                     summary = "Transition frontier sync init".to_string(),
                     block_hash = best_tip.hash.to_string(),
@@ -948,6 +1043,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     ..
                 } => openmina_core::log::info!(
                     meta.time();
+                    node_id = node_id,
                     kind = kind.to_string(),
                     summary = "New best tip received".to_string(),
                     block_hash = best_tip.hash.to_string(),
@@ -955,17 +1051,20 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                 ),
                 TransitionFrontierSyncAction::LedgerStakingPending => openmina_core::log::info!(
                     meta.time();
+                    node_id = node_id,
                     kind = kind.to_string(),
                     summary = "Staking ledger sync pending".to_string(),
                 ),
                 TransitionFrontierSyncAction::LedgerStakingSuccess => openmina_core::log::info!(
                     meta.time();
+                    node_id = node_id,
                     kind = kind.to_string(),
                     summary = "Staking ledger sync success".to_string(),
                 ),
                 TransitionFrontierSyncAction::LedgerNextEpochPending => {
                     openmina_core::log::info!(
                         meta.time();
+                        node_id = node_id,
                         kind = kind.to_string(),
                         summary = "Next epoch ledger sync pending".to_string(),
                     )
@@ -973,27 +1072,32 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                 TransitionFrontierSyncAction::LedgerNextEpochSuccess => {
                     openmina_core::log::info!(
                         meta.time();
+                        node_id = node_id,
                         kind = kind.to_string(),
                         summary = "Next epoch ledger sync pending".to_string(),
                     )
                 }
                 TransitionFrontierSyncAction::LedgerRootPending => openmina_core::log::info!(
                     meta.time();
+                    node_id = node_id,
                     kind = kind.to_string(),
                     summary = "Transition frontier root ledger sync pending".to_string(),
                 ),
                 TransitionFrontierSyncAction::LedgerRootSuccess => openmina_core::log::info!(
                     meta.time();
+                    node_id = node_id,
                     kind = kind.to_string(),
                     summary = "Transition frontier root ledger sync success".to_string(),
                 ),
                 _other => openmina_core::log::debug!(
                     meta.time();
+                    node_id = node_id,
                     kind = kind.to_string(),
                 ),
             },
             TransitionFrontierAction::Synced(_) => openmina_core::log::info!(
                 meta.time();
+                node_id = node_id,
                 kind = kind.to_string(),
                 summary = "Transition frontier synced".to_string(),
             ),
@@ -1007,6 +1111,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     vrf::VrfEvaluationOutput::SlotWon(won_slot) => {
                         openmina_core::log::info!(
                             meta.time();
+                            node_id = node_id,
                             kind = kind.to_string(),
                             summary = format!("Slot evaluation result - won slot"),
                             global_slot = won_slot.global_slot,
@@ -1016,6 +1121,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     vrf::VrfEvaluationOutput::SlotLost(_) => {
                         openmina_core::log::debug!(
                             meta.time();
+                            node_id = node_id,
                             kind = kind.to_string(),
                             summary = format!("Slot evaluation result - lost slot: {:?}", vrf_output),
                         )
@@ -1024,6 +1130,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                 BlockProducerVrfEvaluatorAction::EvaluateSlot { vrf_input } => {
                     openmina_core::log::debug!(
                         meta.time();
+                        node_id = node_id,
                         kind = kind.to_string(),
                         summary = format!("Vrf Evaluation requested: {:?}", vrf_input),
                     )
@@ -1036,6 +1143,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                 } => {
                     openmina_core::log::info!(
                         meta.time();
+                        node_id = node_id,
                         kind = kind.to_string(),
                         summary = format!("Checking possible Vrf evaluations"),
                         status = store.state().block_producer.vrf_evaluator().unwrap().status.to_string(), // TODO: keep? if yes, no unwrap
@@ -1053,6 +1161,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                 } => {
                     openmina_core::log::info!(
                         meta.time();
+                        node_id = node_id,
                         kind = kind.to_string(),
                         summary = format!("Constructing delegator table"),
                         status = store.state().block_producer.vrf_evaluator().unwrap().status.to_string(), // TODO: keep? if yes, no unwrap
@@ -1069,6 +1178,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                 } => {
                     openmina_core::log::info!(
                         meta.time();
+                        node_id = node_id,
                         kind = kind.to_string(),
                         summary = format!("Constructing delegator table"),
                         status = store.state().block_producer.vrf_evaluator().unwrap().status.to_string(), // TODO: keep? if yes, no unwrap
@@ -1085,6 +1195,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                 } => {
                     openmina_core::log::info!(
                         meta.time();
+                        node_id = node_id,
                         kind = kind.to_string(),
                         summary = format!("Starting epoch evaluation"),
                         status = store.state().block_producer.vrf_evaluator().unwrap().status.to_string(), // TODO: keep? if yes, no unwrap
@@ -1101,6 +1212,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                 } => {
                     openmina_core::log::info!(
                         meta.time();
+                        node_id = node_id,
                         kind = kind.to_string(),
                         summary = format!("Delegator table constructed"),
                         status = store.state().block_producer.vrf_evaluator().unwrap().status.to_string(), // TODO: keep? if yes, no unwrap
@@ -1116,6 +1228,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                 } => {
                     openmina_core::log::info!(
                         meta.time();
+                        node_id = node_id,
                         kind = kind.to_string(),
                         summary = format!("Saving last block height in epoch"),
                         status = store.state().block_producer.vrf_evaluator().unwrap().status.to_string(), // TODO: keep? if yes, no unwrap
@@ -1127,6 +1240,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                 BlockProducerVrfEvaluatorAction::FinalizeEvaluatorInitialization { .. } => {
                     openmina_core::log::info!(
                         meta.time();
+                        node_id = node_id,
                         kind = kind.to_string(),
                         summary = format!("Vrf evaluator initilaized"),
                     )
@@ -1137,6 +1251,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                 } => {
                     openmina_core::log::info!(
                         meta.time();
+                        node_id = node_id,
                         kind = kind.to_string(),
                         summary = format!("Epoch evaluation finished"),
                         epoch_number = epoch_number,
@@ -1150,6 +1265,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                 } => {
                     openmina_core::log::info!(
                         meta.time();
+                        node_id = node_id,
                         kind = kind.to_string(),
                         summary = format!("Waiting for epoch to evaluate"),
                         epoch_number = current_epoch_number,
@@ -1163,6 +1279,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                 } => {
                     openmina_core::log::info!(
                         meta.time();
+                        node_id = node_id,
                         kind = kind.to_string(),
                         summary = format!("Selecting starting slot"),
                         epoch_number = current_epoch_number,
@@ -1172,6 +1289,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                 BlockProducerVrfEvaluatorAction::CheckEpochBounds { .. } => {
                     openmina_core::log::trace!(
                         meta.time();
+                        node_id = node_id,
                         kind = kind.to_string(),
                         summary = format!("Checking epoch bounds"),
                         status = format!("{:?}", store.state().block_producer.vrf_evaluator().unwrap().status),
@@ -1180,6 +1298,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                 BlockProducerVrfEvaluatorAction::CleanupOldSlots { .. } => {
                     openmina_core::log::trace!(
                         meta.time();
+                        node_id = node_id,
                         kind = kind.to_string(),
                         summary = format!("Cleaning up old won slots"),
                     )
@@ -1190,6 +1309,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
             BlockProducerAction::WonSlot { won_slot } => {
                 openmina_core::log::info!(
                     meta.time();
+                    node_id = node_id,
                     kind = kind.to_string(),
                     summary = format!("Won slot"),
                     slot = won_slot.global_slot.slot_number.as_u32(),

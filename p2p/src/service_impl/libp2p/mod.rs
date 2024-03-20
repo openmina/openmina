@@ -338,9 +338,12 @@ impl Libp2pService {
             Cmd::Dial(peer_id, addrs) => {
                 let opts = DialOpts::peer_id(peer_id.into()).addresses(addrs).build();
                 if let Err(e) = swarm.dial(opts) {
+                    let peer_id = crate::PeerId::from(peer_id);
                     openmina_core::log::error!(
                         openmina_core::log::system_time();
-                        event = format!("Cmd::Dial(...)"),
+                        node_id = crate::PeerId::from(swarm.local_peer_id().clone()).to_string(),
+                        summary = format!("Cmd::Dial(...)"),
+                        peer_id = peer_id.to_string(),
                         error = e.to_string()
                     );
                 }
@@ -643,25 +646,41 @@ impl Libp2pService {
                 let connection_id = format!("{connection_id:?}");
                 openmina_core::log::info!(
                     openmina_core::log::system_time();
-                    kind = "Libp2pIncomingConnection",
+                    kind = "libp2p::IncomingConnection",
                     summary = format!("libp2p incoming {connection_id} {local_addr} {send_back_addr}"),
                     connection_id = connection_id,
                 );
             }
-            SwarmEvent::ConnectionEstablished { peer_id, .. } => {
+            SwarmEvent::Dialing { peer_id, .. } => {
+                let peer_id = peer_id
+                    .map(crate::PeerId::from)
+                    .as_ref()
+                    .map(ToString::to_string);
+                let peer_id = peer_id.as_ref().map_or("<unknown>", String::as_str);
                 openmina_core::log::info!(
                     openmina_core::log::system_time();
-                    kind = "PeerConnected",
-                    summary = format!("peer_id: {}", peer_id),
-                    peer_id = peer_id.to_string()
+                    node_id = crate::PeerId::from(swarm.local_peer_id().clone()).to_string(),
+                    kind = "libp2p::Dialing",
+                    summary = format!("peer_id: {peer_id}"),
+                    peer_id = peer_id,
                 );
+            }
+            SwarmEvent::ConnectionEstablished { peer_id, .. } => {
                 swarm.behaviour_mut().identify.push(Some(peer_id));
-                let event =
-                    P2pEvent::Connection(P2pConnectionEvent::Finalized(peer_id.into(), Ok(())));
+                let peer_id: crate::PeerId = peer_id.into();
+                openmina_core::log::info!(
+                    openmina_core::log::system_time();
+                    node_id = crate::PeerId::from(swarm.local_peer_id().clone()).to_string(),
+                    kind = "libp2p::ConnectionEstablished",
+                    summary = format!("peer_id: {}", peer_id),
+                    peer_id = peer_id.to_string(),
+                );
+                let event = P2pEvent::Connection(P2pConnectionEvent::Finalized(peer_id, Ok(())));
                 let _ = swarm.behaviour_mut().event_source_sender.send(event.into());
             }
             SwarmEvent::ConnectionClosed { peer_id, cause, .. } => {
-                let event = P2pEvent::Connection(P2pConnectionEvent::Closed(peer_id.into()));
+                let peer_id: crate::PeerId = peer_id.into();
+                let event = P2pEvent::Connection(P2pConnectionEvent::Closed(peer_id));
                 let _ = swarm.behaviour_mut().event_source_sender.send(event.into());
 
                 // TODO(binier): move to log effects
