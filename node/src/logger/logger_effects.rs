@@ -686,14 +686,19 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     _ => {}
                 },
                 P2pNetworkAction::Select(action) => match action {
-                    P2pNetworkSelectAction::Init(action) => match action.kind {
+                    P2pNetworkSelectAction::Init {
+                        addr,
+                        kind: select_kind,
+                        incoming,
+                        ..
+                    } => match select_kind {
                         SelectKind::Authentication => {
                             openmina_core::log::debug!(
                                 meta.time();
                                 node_id = node_id,
                                 kind = kind.to_string(),
-                                summary = format!("authentication on addr: {}", action.addr),
-                                incoming = action.incoming,
+                                summary = format!("authentication on addr: {}", addr),
+                                incoming = incoming,
                             )
                         }
                         SelectKind::MultiplexingNoPeerId => {
@@ -701,8 +706,8 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                                 meta.time();
                                 node_id = node_id,
                                 kind = kind.to_string(),
-                                summary = format!("multiplexing on addr: {}", action.addr),
-                                incoming = action.incoming,
+                                summary = format!("multiplexing on addr: {}", addr),
+                                incoming = incoming,
                             )
                         }
                         SelectKind::Multiplexing(peer_id) => {
@@ -710,9 +715,9 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                                 meta.time();
                                 node_id = node_id,
                                 kind = kind.to_string(),
-                                summary = format!("multiplexing on addr: {}", action.addr),
+                                summary = format!("multiplexing on addr: {}", addr),
                                 peer_id = peer_id.to_string(),
-                                incoming = action.incoming,
+                                incoming = incoming,
                             )
                         }
                         SelectKind::Stream(peer_id, stream_id) => {
@@ -720,21 +725,25 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                                 meta.time();
                                 node_id = node_id,
                                 kind = kind.to_string(),
-                                summary = format!("stream on addr: {}", action.addr),
+                                summary = format!("stream on addr: {}", addr),
                                 peer_id = peer_id.to_string(),
                                 stream_id = stream_id,
-                                incoming = action.incoming,
+                                incoming = incoming,
                             )
                         }
                     },
-                    P2pNetworkSelectAction::IncomingToken(action) => match action.kind {
+                    P2pNetworkSelectAction::IncomingToken {
+                        addr,
+                        kind: stream_kind,
+                        token,
+                    } => match stream_kind {
                         SelectKind::Authentication => {
                             openmina_core::log::debug!(
                                 meta.time();
                                 node_id = node_id,
                                 kind = kind.to_string(),
-                                summary = format!("authentication on addr: {}", action.addr),
-                                token = format!("{:?}", action.token),
+                                summary = format!("authentication on addr: {}", addr),
+                                token = format!("{:?}", token),
                             )
                         }
                         SelectKind::MultiplexingNoPeerId => {
@@ -742,8 +751,8 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                                 meta.time();
                                 node_id = node_id,
                                 kind = kind.to_string(),
-                                summary = format!("multiplexing on addr: {}", action.addr),
-                                token = format!("{:?}", action.token),
+                                summary = format!("multiplexing on addr: {}", addr),
+                                token = format!("{:?}", token),
                             )
                         }
                         SelectKind::Multiplexing(peer_id) => {
@@ -751,9 +760,9 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                                 meta.time();
                                 node_id = node_id,
                                 kind = kind.to_string(),
-                                summary = format!("multiplexing on addr: {}", action.addr),
+                                summary = format!("multiplexing on addr: {}", addr),
                                 peer_id = peer_id.to_string(),
-                                token = format!("{:?}", action.token),
+                                token = format!("{:?}", token),
                             )
                         }
                         SelectKind::Stream(peer_id, stream_id) => {
@@ -761,21 +770,25 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                                 meta.time();
                                 node_id = node_id,
                                 kind = kind.to_string(),
-                                summary = format!("stream on addr: {}", action.addr),
+                                summary = format!("stream on addr: {}", addr),
                                 peer_id = peer_id.to_string(),
                                 stream_id = stream_id,
-                                token = format!("{:?}", action.token),
+                                token = format!("{:?}", token),
                             )
                         }
                     },
-                    P2pNetworkSelectAction::OutgoingTokens(action) => match action.kind {
+                    P2pNetworkSelectAction::OutgoingTokens {
+                        addr,
+                        kind: select_kind,
+                        tokens,
+                    } => match select_kind {
                         SelectKind::Authentication => {
                             openmina_core::log::debug!(
                                 meta.time();
                                 node_id = node_id,
                                 kind = kind.to_string(),
-                                summary = format!("authentication on addr: {}", action.addr),
-                                tokens = format!("{:?}", action.tokens),
+                                summary = format!("authentication on addr: {}", addr),
+                                tokens = format!("{:?}", tokens),
                             )
                         }
                         SelectKind::MultiplexingNoPeerId => {
@@ -783,8 +796,8 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                                 meta.time();
                                 node_id = node_id,
                                 kind = kind.to_string(),
-                                summary = format!("multiplexing on addr: {}", action.addr),
-                                tokens = format!("{:?}", action.tokens),
+                                summary = format!("multiplexing on addr: {}", addr),
+                                tokens = format!("{:?}", tokens),
                             )
                         }
                         SelectKind::Multiplexing(peer_id) => {
@@ -792,9 +805,9 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                                 meta.time();
                                 node_id = node_id,
                                 kind = kind.to_string(),
-                                summary = format!("multiplexing on addr: {}", action.addr),
+                                summary = format!("multiplexing on addr: {}", addr),
                                 peer_id = peer_id.to_string(),
-                                tokens = format!("{:?}", action.tokens),
+                                tokens = format!("{:?}", tokens),
                             )
                         }
                         SelectKind::Stream(peer_id, stream_id) => {
@@ -802,10 +815,10 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                                 meta.time();
                                 node_id = node_id,
                                 kind = kind.to_string(),
-                                summary = format!("stream on addr: {}", action.addr),
+                                summary = format!("stream on addr: {}", addr),
                                 peer_id = peer_id.to_string(),
                                 stream_id = stream_id,
-                                tokens = format!("{:?}", action.tokens),
+                                tokens = format!("{:?}", tokens),
                             )
                         }
                     },

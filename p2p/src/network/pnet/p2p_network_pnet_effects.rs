@@ -18,7 +18,7 @@ impl P2pNetworkPnetAction {
             P2pNetworkPnetAction::IncomingData{ addr, ..} => match &state.incoming {
                 Half::Done { to_send, .. } if !to_send.is_empty() => {
                     let data = to_send.clone().into();
-                    store.dispatch(P2pNetworkSelectIncomingDataAction {
+                    store.dispatch(P2pNetworkSelectAction::IncomingData {
                         addr,
                         kind: SelectKind::Authentication,
                         data,
@@ -41,7 +41,7 @@ impl P2pNetworkPnetAction {
                     addr,
                     nonce.to_vec().into_boxed_slice(),
                 ));
-                store.dispatch(P2pNetworkSelectInitAction {
+                store.dispatch(P2pNetworkSelectAction::Init {
                     addr,
                     kind: SelectKind::Authentication,
                     incoming,

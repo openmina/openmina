@@ -12,30 +12,11 @@ impl redux::EnablingCondition<crate::State> for P2pNetworkPnetAction {
     }
 }
 
-impl redux::EnablingCondition<crate::State> for P2pNetworkSelectInitAction {
+impl redux::EnablingCondition<crate::State> for P2pNetworkSelectAction {
     fn is_enabled(&self, state: &crate::State, time: redux::Timestamp) -> bool {
         self.is_enabled(&state.p2p, time)
     }
 }
-
-impl redux::EnablingCondition<crate::State> for P2pNetworkSelectIncomingDataAction {
-    fn is_enabled(&self, state: &crate::State, time: redux::Timestamp) -> bool {
-        self.is_enabled(&state.p2p, time)
-    }
-}
-
-impl redux::EnablingCondition<crate::State> for P2pNetworkSelectIncomingTokenAction {
-    fn is_enabled(&self, state: &crate::State, time: redux::Timestamp) -> bool {
-        self.is_enabled(&state.p2p, time)
-    }
-}
-
-impl redux::EnablingCondition<crate::State> for P2pNetworkSelectOutgoingTokensAction {
-    fn is_enabled(&self, state: &crate::State, time: redux::Timestamp) -> bool {
-        self.is_enabled(&state.p2p, time)
-    }
-}
-
 impl redux::EnablingCondition<crate::State> for P2pNetworkNoiseAction {
     fn is_enabled(&self, state: &crate::State, time: redux::Timestamp) -> bool {
         self.is_enabled(&state.p2p, time)

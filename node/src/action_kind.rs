@@ -42,11 +42,7 @@ use crate::p2p::network::rpc::{
     P2pNetworkRpcOutgoingResponseAction,
 };
 use crate::p2p::network::scheduler::P2pNetworkSchedulerAction;
-use crate::p2p::network::select::{
-    P2pNetworkSelectAction, P2pNetworkSelectIncomingDataAction,
-    P2pNetworkSelectIncomingTokenAction, P2pNetworkSelectInitAction,
-    P2pNetworkSelectOutgoingTokensAction,
-};
+use crate::p2p::network::select::P2pNetworkSelectAction;
 use crate::p2p::network::yamux::{
     P2pNetworkYamuxAction, P2pNetworkYamuxIncomingDataAction, P2pNetworkYamuxIncomingFrameAction,
     P2pNetworkYamuxOpenStreamAction, P2pNetworkYamuxOutgoingDataAction,
@@ -1026,10 +1022,10 @@ impl ActionKindGet for P2pNetworkPnetAction {
 impl ActionKindGet for P2pNetworkSelectAction {
     fn kind(&self) -> ActionKind {
         match self {
-            Self::Init(a) => a.kind(),
-            Self::IncomingData(a) => a.kind(),
-            Self::IncomingToken(a) => a.kind(),
-            Self::OutgoingTokens(a) => a.kind(),
+            Self::Init { .. } => ActionKind::P2pNetworkSelectInit,
+            Self::IncomingData { .. } => ActionKind::P2pNetworkSelectIncomingData,
+            Self::IncomingToken { .. } => ActionKind::P2pNetworkSelectIncomingToken,
+            Self::OutgoingTokens { .. } => ActionKind::P2pNetworkSelectOutgoingTokens,
         }
     }
 }
@@ -1093,30 +1089,6 @@ impl ActionKindGet for TransitionFrontierSyncLedgerAction {
             Self::Init => ActionKind::TransitionFrontierSyncLedgerInit,
             Self::Success => ActionKind::TransitionFrontierSyncLedgerSuccess,
         }
-    }
-}
-
-impl ActionKindGet for P2pNetworkSelectInitAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pNetworkSelectInit
-    }
-}
-
-impl ActionKindGet for P2pNetworkSelectIncomingDataAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pNetworkSelectIncomingData
-    }
-}
-
-impl ActionKindGet for P2pNetworkSelectIncomingTokenAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pNetworkSelectIncomingToken
-    }
-}
-
-impl ActionKindGet for P2pNetworkSelectOutgoingTokensAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pNetworkSelectOutgoingTokens
     }
 }
 

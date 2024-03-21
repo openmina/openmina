@@ -67,7 +67,7 @@ impl P2pNetworkNoiseAction {
             incoming,
         } = self
         {
-            store.dispatch(P2pNetworkSelectInitAction {
+            store.dispatch(P2pNetworkSelectAction::Init {
                 addr,
                 kind: SelectKind::Multiplexing(peer_id.clone()),
                 incoming,
@@ -87,7 +87,7 @@ impl P2pNetworkNoiseAction {
                 None => SelectKind::MultiplexingNoPeerId,
             };
             if handshake_optimized && middle_initiator {
-                store.dispatch(P2pNetworkSelectInitAction {
+                store.dispatch(P2pNetworkSelectAction::Init {
                     addr,
                     kind,
                     // it is not a mistake, if we are initiator of noise, the select will be incoming
@@ -100,7 +100,7 @@ impl P2pNetworkNoiseAction {
                     send_handshake: false,
                 });
             }
-            store.dispatch(P2pNetworkSelectIncomingDataAction {
+            store.dispatch(P2pNetworkSelectAction::IncomingData {
                 addr,
                 kind,
                 data: data.clone(),
@@ -127,7 +127,7 @@ impl P2pNetworkNoiseAction {
                         None => SelectKind::MultiplexingNoPeerId,
                     };
 
-                    store.dispatch(P2pNetworkSelectInitAction {
+                    store.dispatch(P2pNetworkSelectAction::Init {
                         addr,
                         kind,
                         incoming: false,

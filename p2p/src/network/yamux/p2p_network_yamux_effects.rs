@@ -40,7 +40,7 @@ impl P2pNetworkYamuxAction {
                 };
 
                 if frame.flags.contains(YamuxFlags::SYN) && frame.stream_id != 0 {
-                    store.dispatch(P2pNetworkSelectInitAction {
+                    store.dispatch(P2pNetworkSelectAction::Init {
                         addr: a.addr,
                         kind: SelectKind::Stream(peer_id, frame.stream_id),
                         incoming: true,
@@ -62,7 +62,7 @@ impl P2pNetworkYamuxAction {
                             });
                         }
 
-                        store.dispatch(P2pNetworkSelectIncomingDataAction {
+                        store.dispatch(P2pNetworkSelectAction::IncomingData {
                             addr: a.addr,
                             kind: SelectKind::Stream(peer_id, frame.stream_id),
                             data: data.clone(),
@@ -130,7 +130,7 @@ impl P2pNetworkYamuxAction {
                 });
             }
             Self::OpenStream(a) => {
-                store.dispatch(P2pNetworkSelectInitAction {
+                store.dispatch(P2pNetworkSelectAction::Init {
                     addr: a.addr,
                     kind: SelectKind::Stream(peer_id, a.stream_id),
                     incoming: false,
