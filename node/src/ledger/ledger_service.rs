@@ -22,7 +22,7 @@ use ledger::{
         validate_block::block_body_hash,
     },
     verifier::Verifier,
-    Account, AccountIndex, BaseLedger, Database, Mask, TreeVersion, UnregisterBehavior,
+    Account, BaseLedger, Database, Mask, UnregisterBehavior,
 };
 use mina_hasher::Fp;
 use mina_p2p_messages::{
@@ -67,11 +67,6 @@ use crate::{
 };
 
 use super::{ledger_empty_hash_at_depth, LedgerAddress, LEDGER_DEPTH};
-
-fn ledger_hash(depth: usize, left: Fp, right: Fp) -> Fp {
-    let height = LEDGER_DEPTH - depth - 1;
-    ledger::V2::hash_node(height, left, right)
-}
 
 fn merkle_root(mask: &mut Mask) -> LedgerHash {
     MinaBaseLedgerHash0StableV1(mask.merkle_root().into()).into()
@@ -143,6 +138,54 @@ impl LedgerCtx {
             .map(|mask| (mask, true))
             .or_else(|| Some((self.staged_ledgers.get(hash)?.ledger(), true)))
             .or_else(|| self.sync.mask(hash))
+    }
+
+    fn copy_snarked_ledger_contents(
+        &mut self,
+        origin_snarked_ledger_hash: LedgerHash,
+        target_snarked_ledger_hash: LedgerHash,
+        overwrite: bool,
+    ) -> Result<bool, String> {
+        if !overwrite
+            && self
+                .snarked_ledgers
+                .contains_key(&target_snarked_ledger_hash)
+        {
+            return Ok(false);
+        }
+
+        let origin = self
+            .snarked_ledgers
+            .get_mut(&origin_snarked_ledger_hash)
+            .ok_or(format!(
+                "Tried to copy from non-existing snarked ledger with hash: {}",
+                origin_snarked_ledger_hash.to_string()
+            ))?;
+
+        let target = origin.copy();
+        self.snarked_ledgers
+            .insert(target_snarked_ledger_hash, target);
+
+        Ok(true)
+    }
+
+    fn compute_snarked_ledger_hashes(
+        &mut self,
+        snarked_ledger_hash: &LedgerHash,
+    ) -> Result<(), String> {
+        let origin = self
+            .snarked_ledgers
+            .get_mut(&snarked_ledger_hash)
+            .ok_or(format!(
+                "Cannot hash non-existing snarked ledger: {}",
+                snarked_ledger_hash.to_string()
+            ))?;
+
+        // Our ledger is lazy when it comes to hashing, but retrieving the
+        // merkle root hash forces all pending hashes to be computed.
+        let _force_hashing = origin.merkle_root();
+
+        Ok(())
     }
 
     /// Returns a mutable reference to the [StagedLedger] with the specified `hash` if it exists or `None` otherwise.
@@ -356,36 +399,39 @@ pub trait LedgerService: redux::Service {
 }
 
 impl<T: LedgerService> TransitionFrontierSyncLedgerSnarkedService for T {
-    fn hashes_set(
+    fn compute_snarked_ledger_hashes(
+        &mut self,
+        snarked_ledger_hash: &LedgerHash,
+    ) -> Result<(), String> {
+        self.ctx_mut()
+            .compute_snarked_ledger_hashes(snarked_ledger_hash)?;
+
+        Ok(())
+    }
+
+    fn copy_snarked_ledger_contents(
+        &mut self,
+        origin_snarked_ledger_hash: LedgerHash,
+        target_snarked_ledger_hash: LedgerHash,
+        overwrite: bool,
+    ) -> Result<bool, String> {
+        self.ctx_mut().copy_snarked_ledger_contents(
+            origin_snarked_ledger_hash,
+            target_snarked_ledger_hash,
+            overwrite,
+        )
+    }
+
+    fn child_hashes_get(
         &mut self,
         snarked_ledger_hash: LedgerHash,
         parent: &LedgerAddress,
-        (left, right): (LedgerHash, LedgerHash),
-    ) -> Result<(), String> {
-        let (left, right) = (left.0.to_field(), right.0.to_field());
-        let hash = ledger_hash(parent.length(), left, right);
-
+    ) -> Result<(LedgerHash, LedgerHash), String> {
         let mask = self.ctx_mut().sync.snarked_ledger_mut(snarked_ledger_hash);
+        let left_hash = LedgerHash::from_fp(mask.get_inner_hash_at_addr(parent.child_left())?);
+        let right_hash = LedgerHash::from_fp(mask.get_inner_hash_at_addr(parent.child_right())?);
 
-        if hash != mask.get_inner_hash_at_addr(parent.clone())? {
-            return Err("Inner hash found at address but doesn't match the expected hash".into());
-        }
-
-        // TODO(binier): the `if` condition is temporary until we make
-        // sure we don't call `hashes_set` for the same key for the
-        // same ledger. This can happen E.g. if root snarked ledger
-        // is the same as staking or next epoch ledger, in which case
-        // we will sync same ledger twice. That causes assertion to fail
-        // in `set_cached_hash_unchecked`.
-        //
-        // remove once we have an optimization to not sync same ledgers/addrs
-        // multiple times.
-        if mask.get_cached_hash(&parent.child_left()).is_none() {
-            mask.set_cached_hash_unchecked(&parent.child_left(), left);
-            mask.set_cached_hash_unchecked(&parent.child_right(), right);
-        }
-
-        Ok(())
+        Ok((left_hash, right_hash))
     }
 
     fn accounts_set(
@@ -393,27 +439,19 @@ impl<T: LedgerService> TransitionFrontierSyncLedgerSnarkedService for T {
         snarked_ledger_hash: LedgerHash,
         parent: &LedgerAddress,
         accounts: Vec<MinaBaseAccountBinableArgStableV2>,
-    ) -> Result<(), ()> {
-        // TODO(binier): validate hashes
-        let mut addr = parent.clone();
-        let first_addr = loop {
-            if addr.length() == LEDGER_DEPTH {
-                break addr;
-            }
-            addr = addr.child_left();
-        };
+    ) -> Result<LedgerHash, String> {
         let mask = self.ctx_mut().sync.snarked_ledger_mut(snarked_ledger_hash);
-
-        let first_index = first_addr.to_index();
-        accounts
+        let accounts: Vec<_> = accounts
             .into_iter()
-            .enumerate()
-            .try_for_each(|(index, account)| {
-                let index = AccountIndex(first_index.0 + index as u64);
-                mask.set_at_index(index, Box::new((&account).into()))
-            })?;
+            .map(|account| Box::new((&account).into()))
+            .collect();
 
-        Ok(())
+        mask.set_all_accounts_rooted_at(parent.clone(), &accounts)
+            .or_else(|()| Err("Failed when setting accounts".to_owned()))?;
+
+        let computed_hash = LedgerHash::from_fp(mask.get_inner_hash_at_addr(parent.clone())?);
+
+        Ok(computed_hash)
     }
 }
 
@@ -431,11 +469,6 @@ impl<T: LedgerService> TransitionFrontierSyncLedgerStagedService for T {
             .ctx_mut()
             .sync
             .snarked_ledger_mut(snarked_ledger_hash.clone());
-        // TODO(binier): TMP. Remove for prod version.
-        snarked_ledger
-            .validate_inner_hashes()
-            .map_err(|_| "downloaded hash and recalculated mismatch".to_owned())?;
-
         let mask = snarked_ledger.copy();
 
         let staged_ledger = if let Some(parts) = parts {
@@ -1064,6 +1097,8 @@ fn dump_application_to_file(
 mod tests {
     use mina_p2p_messages::v2::MinaBaseLedgerHash0StableV1;
 
+    use crate::ledger::hash_node_at_depth;
+
     use super::*;
 
     #[test]
@@ -1080,7 +1115,7 @@ mod tests {
             (addr, expected_hash, left, right)
         })
         .for_each(|(address, expected_hash, left, right)| {
-            let hash = ledger_hash(address.length(), left.0.to_field(), right.0.to_field());
+            let hash = hash_node_at_depth(address.length(), left.0.to_field(), right.0.to_field());
             let hash: LedgerHash = MinaBaseLedgerHash0StableV1(hash.into()).into();
             assert_eq!(hash.to_string(), expected_hash);
         });

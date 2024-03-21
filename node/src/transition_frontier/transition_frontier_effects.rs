@@ -190,7 +190,6 @@ pub fn transition_frontier_effects<S: crate::Service>(
                             stats.syncing_block_update(state);
                         }
                     }
-                    // TODO(tizoc): push new snarked roots here?
                 }
                 // Bootstrap/Catchup is practically complete at this point.
                 // This effect is where the finalization part needs to be
@@ -342,8 +341,9 @@ fn handle_transition_frontier_sync_ledger_action<S: crate::Service>(
         }
         TransitionFrontierSyncLedgerAction::Snarked(a) => {
             match a {
-                TransitionFrontierSyncLedgerSnarkedAction::PeerQueryInit {
-                    ref address, ..
+                TransitionFrontierSyncLedgerSnarkedAction::PeerQueryAddressInit {
+                    ref address,
+                    ..
                 } => {
                     if let Some(stats) = store.service.stats() {
                         let (start, end) = (meta.time(), meta.time());
@@ -368,7 +368,7 @@ fn handle_transition_frontier_sync_ledger_action<S: crate::Service>(
                         }
                     }
                 }
-                TransitionFrontierSyncLedgerSnarkedAction::PeerQuerySuccess {
+                TransitionFrontierSyncLedgerSnarkedAction::PeerQueryAddressSuccess {
                     peer_id,
                     rpc_id,
                     ref response,
@@ -382,7 +382,7 @@ fn handle_transition_frontier_sync_ledger_action<S: crate::Service>(
                             .ledger()
                             .and_then(|s| s.snarked())
                             .and_then(|s| {
-                                Some((s.target().kind, s.peer_query_get(&peer_id, rpc_id)?))
+                                Some((s.target().kind, s.peer_address_query_get(&peer_id, rpc_id)?))
                             })
                             .map(|(kind, (_, s))| (kind, s.time, meta.time()))
                         {

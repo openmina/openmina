@@ -104,16 +104,29 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
                 P2pDisconnectionAction::Init { .. } => {}
                 P2pDisconnectionAction::Finish { peer_id } => {
                     if let Some(s) = store.state().transition_frontier.sync.ledger() {
-                        let rpc_ids = s
+                        let snarked_ledger_num_accounts_rpc_id = s
                             .snarked()
-                            .map(|s| s.peer_query_pending_rpc_ids(&peer_id).collect())
+                            .and_then(|s| s.peer_num_accounts_rpc_id(&peer_id));
+                        let snarked_ledger_address_rpc_ids = s
+                            .snarked()
+                            .map(|s| s.peer_address_query_pending_rpc_ids(&peer_id).collect())
                             .unwrap_or(vec![]);
                         let staged_ledger_parts_fetch_rpc_id =
                             s.staged().and_then(|s| s.parts_fetch_rpc_id(&peer_id));
 
-                        for rpc_id in rpc_ids {
+                        for rpc_id in snarked_ledger_address_rpc_ids {
                             store.dispatch(
-                                TransitionFrontierSyncLedgerSnarkedAction::PeerQueryError {
+                                TransitionFrontierSyncLedgerSnarkedAction::PeerQueryAddressError {
+                                    peer_id,
+                                    rpc_id,
+                                    error: PeerLedgerQueryError::Disconnected,
+                                },
+                            );
+                        }
+
+                        if let Some(rpc_id) = snarked_ledger_num_accounts_rpc_id {
+                            store.dispatch(
+                                TransitionFrontierSyncLedgerSnarkedAction::PeerQueryNumAccountsError {
                                     peer_id,
                                     rpc_id,
                                     error: PeerLedgerQueryError::Disconnected,
@@ -244,11 +257,13 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
                         store.dispatch(TransitionFrontierSyncAction::BlocksPeersQuery);
                     }
                     P2pChannelsRpcAction::Timeout { peer_id, id } => {
-                        store.dispatch(TransitionFrontierSyncLedgerSnarkedAction::PeerQueryError {
-                            peer_id,
-                            rpc_id: id,
-                            error: PeerLedgerQueryError::Timeout,
-                        });
+                        store.dispatch(
+                            TransitionFrontierSyncLedgerSnarkedAction::PeerQueryAddressError {
+                                peer_id,
+                                rpc_id: id,
+                                error: PeerLedgerQueryError::Timeout,
+                            },
+                        );
                         store.dispatch(
                             TransitionFrontierSyncLedgerStagedAction::PartsPeerFetchError {
                                 peer_id,
@@ -274,7 +289,7 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
                         match response.as_ref() {
                             None => {
                                 store.dispatch(
-                                    TransitionFrontierSyncLedgerSnarkedAction::PeerQueryError {
+                                    TransitionFrontierSyncLedgerSnarkedAction::PeerQueryAddressError {
                                         peer_id,
                                         rpc_id: id,
                                         error: PeerLedgerQueryError::DataUnavailable,
@@ -330,7 +345,7 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
                             Some(P2pRpcResponse::LedgerQuery(answer)) => match answer {
                                 MinaLedgerSyncLedgerAnswerStableV2::ChildHashesAre(left, right) => {
                                     store.dispatch(
-                                        TransitionFrontierSyncLedgerSnarkedAction::PeerQuerySuccess {
+                                        TransitionFrontierSyncLedgerSnarkedAction::PeerQueryAddressSuccess {
                                             peer_id,
                                             rpc_id: id,
                                             response: PeerLedgerQueryResponse::ChildHashes(
@@ -342,7 +357,7 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
                                 }
                                 MinaLedgerSyncLedgerAnswerStableV2::ContentsAre(accounts) => {
                                     store.dispatch(
-                                        TransitionFrontierSyncLedgerSnarkedAction::PeerQuerySuccess {
+                                        TransitionFrontierSyncLedgerSnarkedAction::PeerQueryAddressSuccess {
                                             peer_id,
                                             rpc_id: id,
                                             response: PeerLedgerQueryResponse::ChildAccounts(
@@ -351,7 +366,20 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
                                         },
                                     );
                                 }
-                                _ => {}
+                                MinaLedgerSyncLedgerAnswerStableV2::NumAccounts(
+                                    count,
+                                    contents_hash,
+                                ) => {
+                                    store.dispatch(
+                                        TransitionFrontierSyncLedgerSnarkedAction::PeerQueryNumAccountsSuccess {
+                                            peer_id,
+                                            rpc_id: id,
+                                            response: PeerLedgerQueryResponse::NumAccounts(
+                                                count.as_u64(), contents_hash.clone()
+                                            ),
+                                        },
+                                    );
+                                }
                             },
                             Some(P2pRpcResponse::StagedLedgerAuxAndPendingCoinbasesAtBlock(
                                 parts,
