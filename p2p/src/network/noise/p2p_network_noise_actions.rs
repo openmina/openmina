@@ -56,7 +56,7 @@ pub struct P2pNetworkNoiseIncomingChunkAction {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pNetworkNoiseOutgoingChunkAction {
     pub addr: SocketAddr,
-    pub data: Data,
+    pub data: Vec<Data>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
