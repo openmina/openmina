@@ -37,10 +37,8 @@ impl From<P2pNetworkPnetAction> for crate::P2pAction {
     }
 }
 
-
 impl redux::EnablingCondition<P2pState> for P2pNetworkPnetAction {
     fn is_enabled(&self, _state: &P2pState, _time: redux::Timestamp) -> bool {
         true
     }
 }
-

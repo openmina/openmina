@@ -15,7 +15,7 @@ impl P2pNetworkPnetAction {
         };
         let state = &state.pnet;
         match self {
-            P2pNetworkPnetAction::IncomingData{ addr, ..} => match &state.incoming {
+            P2pNetworkPnetAction::IncomingData { addr, .. } => match &state.incoming {
                 Half::Done { to_send, .. } if !to_send.is_empty() => {
                     let data = to_send.clone().into();
                     store.dispatch(P2pNetworkSelectAction::IncomingData {
@@ -27,7 +27,7 @@ impl P2pNetworkPnetAction {
                 }
                 _ => {}
             },
-            P2pNetworkPnetAction::OutgoingData{ addr, .. } => match &state.outgoing {
+            P2pNetworkPnetAction::OutgoingData { addr, .. } => match &state.outgoing {
                 Half::Done { to_send, .. } if !to_send.is_empty() => {
                     service.send_mio_cmd(crate::MioCmd::Send(
                         addr,
@@ -36,11 +36,12 @@ impl P2pNetworkPnetAction {
                 }
                 _ => {}
             },
-            P2pNetworkPnetAction::SetupNonce{ addr, nonce, incoming } => {
-                service.send_mio_cmd(crate::MioCmd::Send(
-                    addr,
-                    nonce.to_vec().into_boxed_slice(),
-                ));
+            P2pNetworkPnetAction::SetupNonce {
+                addr,
+                nonce,
+                incoming,
+            } => {
+                service.send_mio_cmd(crate::MioCmd::Send(addr, nonce.to_vec().into_boxed_slice()));
                 store.dispatch(P2pNetworkSelectAction::Init {
                     addr,
                     kind: SelectKind::Authentication,

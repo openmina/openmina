@@ -58,7 +58,6 @@ impl P2pNetworkNoiseAction {
     }
 }
 
-
 impl From<P2pNetworkNoiseAction> for crate::P2pAction {
     fn from(a: P2pNetworkNoiseAction) -> Self {
         Self::Network(P2pNetworkAction::Noise(a))
