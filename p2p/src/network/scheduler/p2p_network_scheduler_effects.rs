@@ -53,7 +53,7 @@ impl P2pNetworkSchedulerAction {
                 };
 
                 let nonce = store.service().generate_random_nonce();
-                store.dispatch(P2pNetworkPnetSetupNonceAction {
+                store.dispatch(P2pNetworkPnetAction::SetupNonce {
                     addr,
                     nonce: nonce.to_vec().into(),
                     incoming: true,
@@ -62,7 +62,7 @@ impl P2pNetworkSchedulerAction {
             Self::OutgoingDidConnect { addr, result } => {
                 if result.is_ok() {
                     let nonce = store.service().generate_random_nonce();
-                    store.dispatch(P2pNetworkPnetSetupNonceAction {
+                    store.dispatch(P2pNetworkPnetAction::SetupNonce {
                         addr,
                         nonce: nonce.to_vec().into(),
                         incoming: false,
@@ -76,7 +76,7 @@ impl P2pNetworkSchedulerAction {
             }
             Self::IncomingDataDidReceive { result, addr } => {
                 if let Ok(data) = &result {
-                    store.dispatch(P2pNetworkPnetIncomingDataAction {
+                    store.dispatch(P2pNetworkPnetAction::IncomingData {
                         addr,
                         data: data.clone(),
                     });

@@ -1,4 +1,3 @@
-use crate::P2pNetworkPnetOutgoingDataAction;
 
 use super::{super::*, p2p_network_select_state::P2pNetworkSelectStateInner, *};
 
@@ -148,7 +147,7 @@ impl P2pNetworkSelectAction {
                 }
                 match &a.kind {
                     SelectKind::Authentication => {
-                        store.dispatch(P2pNetworkPnetOutgoingDataAction {
+                        store.dispatch(P2pNetworkPnetAction::OutgoingData {
                             addr: a.addr,
                             data: data.into(),
                         });

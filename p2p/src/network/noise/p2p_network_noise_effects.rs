@@ -152,7 +152,7 @@ impl P2pNetworkNoiseAction {
                 }
             }
             Self::OutgoingChunk(a) => {
-                store.dispatch(P2pNetworkPnetOutgoingDataAction {
+                store.dispatch(P2pNetworkPnetAction::OutgoingData {
                     addr: a.addr,
                     data: a
                         .data

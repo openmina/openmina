@@ -40,10 +40,7 @@ use crate::p2p::network::noise::{
     P2pNetworkNoiseInitAction, P2pNetworkNoiseOutgoingChunkAction,
     P2pNetworkNoiseOutgoingDataAction,
 };
-use crate::p2p::network::pnet::{
-    P2pNetworkPnetAction, P2pNetworkPnetIncomingDataAction, P2pNetworkPnetOutgoingDataAction,
-    P2pNetworkPnetSetupNonceAction,
-};
+use crate::p2p::network::pnet::P2pNetworkPnetAction;
 use crate::p2p::network::rpc::{
     P2pNetworkRpcAction, P2pNetworkRpcIncomingDataAction, P2pNetworkRpcIncomingMessageAction,
     P2pNetworkRpcInitAction, P2pNetworkRpcOutgoingDataAction, P2pNetworkRpcOutgoingQueryAction,
@@ -1024,9 +1021,9 @@ impl ActionKindGet for P2pNetworkSchedulerAction {
 impl ActionKindGet for P2pNetworkPnetAction {
     fn kind(&self) -> ActionKind {
         match self {
-            Self::IncomingData(a) => a.kind(),
-            Self::OutgoingData(a) => a.kind(),
-            Self::SetupNonce(a) => a.kind(),
+            Self::IncomingData { .. } => ActionKind::P2pNetworkPnetIncomingData,
+            Self::OutgoingData { .. } => ActionKind::P2pNetworkPnetOutgoingData,
+            Self::SetupNonce { .. } => ActionKind::P2pNetworkPnetSetupNonce,
         }
     }
 }
@@ -1101,24 +1098,6 @@ impl ActionKindGet for TransitionFrontierSyncLedgerAction {
             Self::Init => ActionKind::TransitionFrontierSyncLedgerInit,
             Self::Success => ActionKind::TransitionFrontierSyncLedgerSuccess,
         }
-    }
-}
-
-impl ActionKindGet for P2pNetworkPnetIncomingDataAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pNetworkPnetIncomingData
-    }
-}
-
-impl ActionKindGet for P2pNetworkPnetOutgoingDataAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pNetworkPnetOutgoingData
-    }
-}
-
-impl ActionKindGet for P2pNetworkPnetSetupNonceAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pNetworkPnetSetupNonce
     }
 }
 

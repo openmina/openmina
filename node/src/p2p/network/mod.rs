@@ -6,19 +6,7 @@ impl redux::EnablingCondition<crate::State> for P2pNetworkSchedulerAction {
     }
 }
 
-impl redux::EnablingCondition<crate::State> for P2pNetworkPnetIncomingDataAction {
-    fn is_enabled(&self, state: &crate::State, time: redux::Timestamp) -> bool {
-        self.is_enabled(&state.p2p, time)
-    }
-}
-
-impl redux::EnablingCondition<crate::State> for P2pNetworkPnetOutgoingDataAction {
-    fn is_enabled(&self, state: &crate::State, time: redux::Timestamp) -> bool {
-        self.is_enabled(&state.p2p, time)
-    }
-}
-
-impl redux::EnablingCondition<crate::State> for P2pNetworkPnetSetupNonceAction {
+impl redux::EnablingCondition<crate::State> for P2pNetworkPnetAction {
     fn is_enabled(&self, state: &crate::State, time: redux::Timestamp) -> bool {
         self.is_enabled(&state.p2p, time)
     }
