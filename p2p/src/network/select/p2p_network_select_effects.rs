@@ -27,7 +27,7 @@ impl P2pNetworkSelectAction {
             },
         };
         if let P2pNetworkSelectStateInner::Error(error) = &state.inner {
-            store.dispatch(P2pNetworkSchedulerSelectErrorAction {
+            store.dispatch(P2pNetworkSchedulerAction::SelectError {
                 addr: self.addr(),
                 kind: self.id(),
                 error: error.clone(),
@@ -173,7 +173,7 @@ impl P2pNetworkSelectAction {
             }
         }
         if let Some(protocol) = report {
-            store.dispatch(P2pNetworkSchedulerSelectDoneAction {
+            store.dispatch(P2pNetworkSchedulerAction::SelectDone {
                 addr: self.addr(),
                 kind: self.id(),
                 protocol,

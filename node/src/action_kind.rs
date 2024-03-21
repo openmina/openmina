@@ -49,14 +49,7 @@ use crate::p2p::network::rpc::{
     P2pNetworkRpcInitAction, P2pNetworkRpcOutgoingDataAction, P2pNetworkRpcOutgoingQueryAction,
     P2pNetworkRpcOutgoingResponseAction,
 };
-use crate::p2p::network::scheduler::{
-    P2pNetworkSchedulerAction, P2pNetworkSchedulerIncomingConnectionIsReadyAction,
-    P2pNetworkSchedulerIncomingDataDidReceiveAction, P2pNetworkSchedulerIncomingDataIsReadyAction,
-    P2pNetworkSchedulerIncomingDidAcceptAction, P2pNetworkSchedulerInterfaceDetectedAction,
-    P2pNetworkSchedulerInterfaceExpiredAction, P2pNetworkSchedulerOutgoingDidConnectAction,
-    P2pNetworkSchedulerSelectDoneAction, P2pNetworkSchedulerSelectErrorAction,
-    P2pNetworkSchedulerYamuxDidInitAction,
-};
+use crate::p2p::network::scheduler::P2pNetworkSchedulerAction;
 use crate::p2p::network::select::{
     P2pNetworkSelectAction, P2pNetworkSelectIncomingDataAction,
     P2pNetworkSelectIncomingTokenAction, P2pNetworkSelectInitAction,
@@ -1010,16 +1003,20 @@ impl ActionKindGet for P2pChannelsRpcAction {
 impl ActionKindGet for P2pNetworkSchedulerAction {
     fn kind(&self) -> ActionKind {
         match self {
-            Self::InterfaceDetected(a) => a.kind(),
-            Self::InterfaceExpired(a) => a.kind(),
-            Self::IncomingConnectionIsReady(a) => a.kind(),
-            Self::IncomingDidAccept(a) => a.kind(),
-            Self::OutgoingDidConnect(a) => a.kind(),
-            Self::IncomingDataIsReady(a) => a.kind(),
-            Self::IncomingDataDidReceive(a) => a.kind(),
-            Self::SelectDone(a) => a.kind(),
-            Self::SelectError(a) => a.kind(),
-            Self::YamuxDidInit(a) => a.kind(),
+            Self::InterfaceDetected { .. } => ActionKind::P2pNetworkSchedulerInterfaceDetected,
+            Self::InterfaceExpired { .. } => ActionKind::P2pNetworkSchedulerInterfaceExpired,
+            Self::IncomingConnectionIsReady { .. } => {
+                ActionKind::P2pNetworkSchedulerIncomingConnectionIsReady
+            }
+            Self::IncomingDidAccept { .. } => ActionKind::P2pNetworkSchedulerIncomingDidAccept,
+            Self::OutgoingDidConnect { .. } => ActionKind::P2pNetworkSchedulerOutgoingDidConnect,
+            Self::IncomingDataIsReady { .. } => ActionKind::P2pNetworkSchedulerIncomingDataIsReady,
+            Self::IncomingDataDidReceive { .. } => {
+                ActionKind::P2pNetworkSchedulerIncomingDataDidReceive
+            }
+            Self::SelectDone { .. } => ActionKind::P2pNetworkSchedulerSelectDone,
+            Self::SelectError { .. } => ActionKind::P2pNetworkSchedulerSelectError,
+            Self::YamuxDidInit { .. } => ActionKind::P2pNetworkSchedulerYamuxDidInit,
         }
     }
 }
@@ -1104,66 +1101,6 @@ impl ActionKindGet for TransitionFrontierSyncLedgerAction {
             Self::Init => ActionKind::TransitionFrontierSyncLedgerInit,
             Self::Success => ActionKind::TransitionFrontierSyncLedgerSuccess,
         }
-    }
-}
-
-impl ActionKindGet for P2pNetworkSchedulerInterfaceDetectedAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pNetworkSchedulerInterfaceDetected
-    }
-}
-
-impl ActionKindGet for P2pNetworkSchedulerInterfaceExpiredAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pNetworkSchedulerInterfaceExpired
-    }
-}
-
-impl ActionKindGet for P2pNetworkSchedulerIncomingConnectionIsReadyAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pNetworkSchedulerIncomingConnectionIsReady
-    }
-}
-
-impl ActionKindGet for P2pNetworkSchedulerIncomingDidAcceptAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pNetworkSchedulerIncomingDidAccept
-    }
-}
-
-impl ActionKindGet for P2pNetworkSchedulerOutgoingDidConnectAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pNetworkSchedulerOutgoingDidConnect
-    }
-}
-
-impl ActionKindGet for P2pNetworkSchedulerIncomingDataIsReadyAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pNetworkSchedulerIncomingDataIsReady
-    }
-}
-
-impl ActionKindGet for P2pNetworkSchedulerIncomingDataDidReceiveAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pNetworkSchedulerIncomingDataDidReceive
-    }
-}
-
-impl ActionKindGet for P2pNetworkSchedulerSelectDoneAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pNetworkSchedulerSelectDone
-    }
-}
-
-impl ActionKindGet for P2pNetworkSchedulerSelectErrorAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pNetworkSchedulerSelectError
-    }
-}
-
-impl ActionKindGet for P2pNetworkSchedulerYamuxDidInitAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pNetworkSchedulerYamuxDidInit
     }
 }
 

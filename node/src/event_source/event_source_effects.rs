@@ -16,12 +16,7 @@ use crate::p2p::connection::{P2pConnectionErrorResponse, P2pConnectionResponse};
 use crate::p2p::disconnection::{P2pDisconnectionAction, P2pDisconnectionReason};
 use crate::p2p::discovery::P2pDiscoveryAction;
 #[cfg(all(not(target_arch = "wasm32"), not(feature = "p2p-libp2p")))]
-use crate::p2p::network::{
-    P2pNetworkSchedulerIncomingConnectionIsReadyAction,
-    P2pNetworkSchedulerIncomingDataDidReceiveAction, P2pNetworkSchedulerIncomingDataIsReadyAction,
-    P2pNetworkSchedulerIncomingDidAcceptAction, P2pNetworkSchedulerInterfaceDetectedAction,
-    P2pNetworkSchedulerInterfaceExpiredAction, P2pNetworkSchedulerOutgoingDidConnectAction,
-};
+use crate::p2p::network::P2pNetworkSchedulerAction;
 #[cfg(all(not(target_arch = "wasm32"), not(feature = "p2p-libp2p")))]
 use crate::p2p::MioEvent;
 use crate::p2p::P2pChannelEvent;
@@ -61,28 +56,33 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                 #[cfg(all(not(target_arch = "wasm32"), not(feature = "p2p-libp2p")))]
                 P2pEvent::MioEvent(e) => match e {
                     MioEvent::InterfaceDetected(ip) => {
-                        store.dispatch(P2pNetworkSchedulerInterfaceDetectedAction { ip });
+                        store.dispatch(P2pNetworkSchedulerAction::InterfaceDetected { ip });
                     }
                     MioEvent::InterfaceExpired(ip) => {
-                        store.dispatch(P2pNetworkSchedulerInterfaceExpiredAction { ip });
+                        store.dispatch(P2pNetworkSchedulerAction::InterfaceExpired { ip });
                     }
                     MioEvent::IncomingConnectionIsReady { listener } => {
-                        store.dispatch(P2pNetworkSchedulerIncomingConnectionIsReadyAction {
+                        store.dispatch(P2pNetworkSchedulerAction::IncomingConnectionIsReady {
                             listener,
                         });
                     }
                     MioEvent::IncomingConnectionDidAccept(addr, result) => {
-                        store.dispatch(P2pNetworkSchedulerIncomingDidAcceptAction { addr, result });
+                        store.dispatch(P2pNetworkSchedulerAction::IncomingDidAccept {
+                            addr,
+                            result,
+                        });
                     }
                     MioEvent::OutgoingConnectionDidConnect(addr, result) => {
-                        store
-                            .dispatch(P2pNetworkSchedulerOutgoingDidConnectAction { addr, result });
+                        store.dispatch(P2pNetworkSchedulerAction::OutgoingDidConnect {
+                            addr,
+                            result,
+                        });
                     }
                     MioEvent::IncomingDataIsReady(addr) => {
-                        store.dispatch(P2pNetworkSchedulerIncomingDataIsReadyAction { addr });
+                        store.dispatch(P2pNetworkSchedulerAction::IncomingDataIsReady { addr });
                     }
                     MioEvent::IncomingDataDidReceive(addr, result) => {
-                        store.dispatch(P2pNetworkSchedulerIncomingDataDidReceiveAction {
+                        store.dispatch(P2pNetworkSchedulerAction::IncomingDataDidReceive {
                             addr,
                             result: result.map(From::from),
                         });
