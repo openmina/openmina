@@ -878,30 +878,30 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     _ => {}
                 },
                 P2pNetworkAction::Yamux(action) => match action {
-                    P2pNetworkYamuxAction::IncomingData(action) => {
+                    P2pNetworkYamuxAction::IncomingData { addr, data } => {
                         openmina_core::log::debug!(
                             meta.time();
                             kind = kind.to_string(),
-                            addr = action.addr.to_string(),
-                            data = format!("{:?}", action.data),
+                            addr = addr.to_string(),
+                            data = format!("{:?}", data),
                         )
                     }
-                    P2pNetworkYamuxAction::IncomingFrame(action) => {
+                    P2pNetworkYamuxAction::IncomingFrame { addr, frame } => {
                         openmina_core::log::debug!(
                             meta.time();
                             node_id = node_id,
                             kind = kind.to_string(),
-                            addr = action.addr.to_string(),
-                            frame = format!("{:?}", action.frame),
+                            addr = addr.to_string(),
+                            frame = format!("{:?}", frame),
                         )
                     }
-                    P2pNetworkYamuxAction::OutgoingFrame(action) => {
+                    P2pNetworkYamuxAction::OutgoingFrame { addr, frame } => {
                         openmina_core::log::debug!(
                             meta.time();
                             node_id = node_id,
                             kind = kind.to_string(),
-                            addr = action.addr.to_string(),
-                            frame = format!("{:?}", action.frame),
+                            addr = addr.to_string(),
+                            frame = format!("{:?}", frame),
                         )
                     }
                     _ => {}

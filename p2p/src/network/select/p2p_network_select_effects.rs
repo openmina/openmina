@@ -83,7 +83,7 @@ impl P2pNetworkSelectAction {
                             });
                         }
                         Protocol::Mux(MuxKind::Yamux1_0_0 | MuxKind::YamuxNoNewLine1_0_0) => {
-                            store.dispatch(P2pNetworkYamuxIncomingDataAction {
+                            store.dispatch(P2pNetworkYamuxAction::IncomingData {
                                 addr,
                                 data: data.clone(),
                             });
@@ -166,7 +166,7 @@ impl P2pNetworkSelectAction {
                     }
                     SelectKind::Stream(_, stream_id) => {
                         for token in &tokens {
-                            store.dispatch(P2pNetworkYamuxOutgoingDataAction {
+                            store.dispatch(P2pNetworkYamuxAction::OutgoingData {
                                 addr,
                                 stream_id: *stream_id,
                                 data: token.name().to_vec().into(),

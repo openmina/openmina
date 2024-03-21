@@ -1,7 +1,7 @@
 use openmina_core::warn;
 use redux::ActionMeta;
 
-use crate::{Data, P2pNetworkKademliaAction, P2pNetworkYamuxOutgoingDataAction};
+use crate::{Data, P2pNetworkKademliaAction, P2pNetworkYamuxAction};
 
 use super::{
     super::{P2pNetworkKademliaRpcReply, P2pNetworkKademliaRpcRequest},
@@ -106,7 +106,7 @@ impl P2pNetworkKademliaStreamAction {
                 S::OutgoingBytes { bytes, .. },
             ) => {
                 // send data to the network
-                store.dispatch(P2pNetworkYamuxOutgoingDataAction {
+                store.dispatch(P2pNetworkYamuxAction::OutgoingData {
                     addr,
                     stream_id,
                     data: bytes.clone().into(),
@@ -127,7 +127,7 @@ impl P2pNetworkKademliaStreamAction {
                 S::OutgoingBytes { .. },
             ) => {
                 // send FIN to the network
-                store.dispatch(P2pNetworkYamuxOutgoingDataAction {
+                store.dispatch(P2pNetworkYamuxAction::OutgoingData {
                     addr,
                     stream_id,
                     data: Data(Box::new([0; 0])),
@@ -147,7 +147,7 @@ impl P2pNetworkKademliaStreamAction {
                 },
             ) => {
                 // send FIN to the network
-                store.dispatch(P2pNetworkYamuxOutgoingDataAction {
+                store.dispatch(P2pNetworkYamuxAction::OutgoingData {
                     addr,
                     stream_id,
                     data: Data(Box::new([])),

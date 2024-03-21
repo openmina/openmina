@@ -203,7 +203,7 @@ impl P2pNetworkSchedulerAction {
                     // Also rpc streams are short-living -- they only persist for a single request-response (?)
                     let incoming = cn.incoming;
                     let stream_id = if incoming { 2 } else { 1 };
-                    store.dispatch(P2pNetworkYamuxOpenStreamAction {
+                    store.dispatch(P2pNetworkYamuxAction::OpenStream {
                         addr,
                         stream_id,
                         stream_kind: StreamKind::Rpc(RpcAlgorithm::Rpc0_0_1),

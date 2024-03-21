@@ -23,37 +23,7 @@ impl redux::EnablingCondition<crate::State> for P2pNetworkNoiseAction {
     }
 }
 
-impl redux::EnablingCondition<crate::State> for P2pNetworkYamuxIncomingDataAction {
-    fn is_enabled(&self, state: &crate::State, time: redux::Timestamp) -> bool {
-        self.is_enabled(&state.p2p, time)
-    }
-}
-
-impl redux::EnablingCondition<crate::State> for P2pNetworkYamuxOutgoingDataAction {
-    fn is_enabled(&self, state: &crate::State, time: redux::Timestamp) -> bool {
-        self.is_enabled(&state.p2p, time)
-    }
-}
-
-impl redux::EnablingCondition<crate::State> for P2pNetworkYamuxIncomingFrameAction {
-    fn is_enabled(&self, state: &crate::State, time: redux::Timestamp) -> bool {
-        self.is_enabled(&state.p2p, time)
-    }
-}
-
-impl redux::EnablingCondition<crate::State> for P2pNetworkYamuxOutgoingFrameAction {
-    fn is_enabled(&self, state: &crate::State, time: redux::Timestamp) -> bool {
-        self.is_enabled(&state.p2p, time)
-    }
-}
-
-impl redux::EnablingCondition<crate::State> for P2pNetworkYamuxPingStreamAction {
-    fn is_enabled(&self, state: &crate::State, time: redux::Timestamp) -> bool {
-        self.is_enabled(&state.p2p, time)
-    }
-}
-
-impl redux::EnablingCondition<crate::State> for P2pNetworkYamuxOpenStreamAction {
+impl redux::EnablingCondition<crate::State> for P2pNetworkYamuxAction {
     fn is_enabled(&self, state: &crate::State, time: redux::Timestamp) -> bool {
         self.is_enabled(&state.p2p, time)
     }

@@ -43,11 +43,7 @@ use crate::p2p::network::rpc::{
 };
 use crate::p2p::network::scheduler::P2pNetworkSchedulerAction;
 use crate::p2p::network::select::P2pNetworkSelectAction;
-use crate::p2p::network::yamux::{
-    P2pNetworkYamuxAction, P2pNetworkYamuxIncomingDataAction, P2pNetworkYamuxIncomingFrameAction,
-    P2pNetworkYamuxOpenStreamAction, P2pNetworkYamuxOutgoingDataAction,
-    P2pNetworkYamuxOutgoingFrameAction, P2pNetworkYamuxPingStreamAction,
-};
+use crate::p2p::network::yamux::P2pNetworkYamuxAction;
 use crate::p2p::network::P2pNetworkAction;
 use crate::p2p::peer::P2pPeerAction;
 use crate::p2p::P2pAction;
@@ -1047,12 +1043,12 @@ impl ActionKindGet for P2pNetworkNoiseAction {
 impl ActionKindGet for P2pNetworkYamuxAction {
     fn kind(&self) -> ActionKind {
         match self {
-            Self::IncomingData(a) => a.kind(),
-            Self::OutgoingData(a) => a.kind(),
-            Self::IncomingFrame(a) => a.kind(),
-            Self::OutgoingFrame(a) => a.kind(),
-            Self::PingStream(a) => a.kind(),
-            Self::OpenStream(a) => a.kind(),
+            Self::IncomingData { .. } => ActionKind::P2pNetworkYamuxIncomingData,
+            Self::OutgoingData { .. } => ActionKind::P2pNetworkYamuxOutgoingData,
+            Self::IncomingFrame { .. } => ActionKind::P2pNetworkYamuxIncomingFrame,
+            Self::OutgoingFrame { .. } => ActionKind::P2pNetworkYamuxOutgoingFrame,
+            Self::PingStream { .. } => ActionKind::P2pNetworkYamuxPingStream,
+            Self::OpenStream { .. } => ActionKind::P2pNetworkYamuxOpenStream,
         }
     }
 }
@@ -1089,42 +1085,6 @@ impl ActionKindGet for TransitionFrontierSyncLedgerAction {
             Self::Init => ActionKind::TransitionFrontierSyncLedgerInit,
             Self::Success => ActionKind::TransitionFrontierSyncLedgerSuccess,
         }
-    }
-}
-
-impl ActionKindGet for P2pNetworkYamuxIncomingDataAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pNetworkYamuxIncomingData
-    }
-}
-
-impl ActionKindGet for P2pNetworkYamuxOutgoingDataAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pNetworkYamuxOutgoingData
-    }
-}
-
-impl ActionKindGet for P2pNetworkYamuxIncomingFrameAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pNetworkYamuxIncomingFrame
-    }
-}
-
-impl ActionKindGet for P2pNetworkYamuxOutgoingFrameAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pNetworkYamuxOutgoingFrame
-    }
-}
-
-impl ActionKindGet for P2pNetworkYamuxPingStreamAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pNetworkYamuxPingStream
-    }
-}
-
-impl ActionKindGet for P2pNetworkYamuxOpenStreamAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pNetworkYamuxOpenStream
     }
 }
 

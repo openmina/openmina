@@ -3,7 +3,7 @@ use self::p2p_network_yamux_state::{YamuxFlags, YamuxFrame, YamuxFrameInner};
 use super::{super::*, *};
 
 impl P2pNetworkYamuxAction {
-    pub fn effects<Store, S>(&self, _meta: &redux::ActionMeta, store: &mut Store)
+    pub fn effects<Store, S>(self, _meta: &redux::ActionMeta, store: &mut Store)
     where
         Store: crate::P2pStore<S>,
     {
@@ -25,23 +25,20 @@ impl P2pNetworkYamuxAction {
         let incoming = state.incoming.front().cloned();
 
         match self {
-            Self::IncomingData(a) => {
+            Self::IncomingData { addr, .. } => {
                 if let Some(frame) = incoming {
-                    store.dispatch(P2pNetworkYamuxIncomingFrameAction {
-                        addr: a.addr,
-                        frame,
-                    });
+                    store.dispatch(P2pNetworkYamuxAction::IncomingFrame { addr, frame });
                 }
             }
-            Self::IncomingFrame(a) => {
-                let frame = &a.frame;
+            Self::IncomingFrame { addr, frame } => {
+                let frame = &frame;
                 let Some(stream) = state.streams.get(&frame.stream_id).cloned() else {
                     return;
                 };
 
                 if frame.flags.contains(YamuxFlags::SYN) && frame.stream_id != 0 {
                     store.dispatch(P2pNetworkSelectAction::Init {
-                        addr: a.addr,
+                        addr,
                         kind: SelectKind::Stream(peer_id, frame.stream_id),
                         incoming: true,
                         send_handshake: true,
@@ -50,8 +47,8 @@ impl P2pNetworkYamuxAction {
                 match &frame.inner {
                     YamuxFrameInner::Data(data) => {
                         if stream.window_ours < 64 * 1024 {
-                            store.dispatch(P2pNetworkYamuxOutgoingFrameAction {
-                                addr: a.addr,
+                            store.dispatch(P2pNetworkYamuxAction::OutgoingFrame {
+                                addr,
                                 frame: YamuxFrame {
                                     stream_id: frame.stream_id,
                                     flags: YamuxFlags::empty(),
@@ -63,10 +60,10 @@ impl P2pNetworkYamuxAction {
                         }
 
                         store.dispatch(P2pNetworkSelectAction::IncomingData {
-                            addr: a.addr,
+                            addr,
                             kind: SelectKind::Stream(peer_id, frame.stream_id),
                             data: data.clone(),
-                            fin: a.frame.flags.contains(YamuxFlags::FIN),
+                            fin: frame.flags.contains(YamuxFlags::FIN),
                         });
                     }
                     YamuxFrameInner::Ping { opaque } => {
@@ -78,8 +75,8 @@ impl P2pNetworkYamuxAction {
                                 opaque: *opaque,
                                 response: true,
                             };
-                            store.dispatch(P2pNetworkYamuxOutgoingFrameAction {
-                                addr: a.addr,
+                            store.dispatch(P2pNetworkYamuxAction::OutgoingFrame {
+                                addr,
                                 frame: ping.clone().into_frame(),
                             });
                         }
@@ -88,20 +85,22 @@ impl P2pNetworkYamuxAction {
                 }
 
                 if let Some(frame) = incoming {
-                    store.dispatch(P2pNetworkYamuxIncomingFrameAction {
-                        addr: a.addr,
-                        frame,
-                    });
+                    store.dispatch(P2pNetworkYamuxAction::IncomingFrame { addr, frame });
                 }
             }
-            Self::OutgoingFrame(a) => {
+            Self::OutgoingFrame { addr, frame } => {
                 store.dispatch(P2pNetworkNoiseAction::OutgoingData {
-                    addr: a.addr,
-                    data: a.frame.clone().into_bytes().into(),
+                    addr,
+                    data: frame.clone().into_bytes().into(),
                 });
             }
-            Self::OutgoingData(a) => {
-                let Some(stream) = state.streams.get(&a.stream_id) else {
+            Self::OutgoingData {
+                addr,
+                stream_id,
+                data,
+                fin,
+            } => {
+                let Some(stream) = state.streams.get(&stream_id) else {
                     return;
                 };
                 let mut flags = YamuxFlags::empty();
@@ -110,29 +109,28 @@ impl P2pNetworkYamuxAction {
                 } else if stream.incoming && !stream.established {
                     flags.insert(YamuxFlags::ACK);
                 }
-                if a.fin {
+                if fin {
                     flags.insert(YamuxFlags::FIN);
                 }
                 let frame = YamuxFrame {
                     flags,
-                    stream_id: a.stream_id,
-                    inner: YamuxFrameInner::Data(a.data.clone()),
+                    stream_id,
+                    inner: YamuxFrameInner::Data(data.clone()),
                 };
-                store.dispatch(P2pNetworkYamuxOutgoingFrameAction {
-                    addr: a.addr,
-                    frame,
+                store.dispatch(P2pNetworkYamuxAction::OutgoingFrame { addr, frame });
+            }
+            Self::PingStream { addr, ping } => {
+                store.dispatch(P2pNetworkYamuxAction::OutgoingFrame {
+                    addr,
+                    frame: ping.clone().into_frame(),
                 });
             }
-            Self::PingStream(a) => {
-                store.dispatch(P2pNetworkYamuxOutgoingFrameAction {
-                    addr: a.addr,
-                    frame: a.ping.clone().into_frame(),
-                });
-            }
-            Self::OpenStream(a) => {
+            Self::OpenStream {
+                addr, stream_id, ..
+            } => {
                 store.dispatch(P2pNetworkSelectAction::Init {
-                    addr: a.addr,
-                    kind: SelectKind::Stream(peer_id, a.stream_id),
+                    addr,
+                    kind: SelectKind::Stream(peer_id, stream_id),
                     incoming: false,
                     send_handshake: true,
                 });

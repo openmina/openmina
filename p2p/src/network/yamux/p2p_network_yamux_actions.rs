@@ -3,151 +3,77 @@ use std::net::SocketAddr;
 use serde::{Deserialize, Serialize};
 
 use super::p2p_network_yamux_state::{StreamId, YamuxFrame, YamuxPing};
-use crate::{token, Data, P2pNetworkAction, P2pState};
+use crate::{token, Data, P2pState};
 
-#[derive(derive_more::From, Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum P2pNetworkYamuxAction {
-    IncomingData(P2pNetworkYamuxIncomingDataAction),
-    OutgoingData(P2pNetworkYamuxOutgoingDataAction),
-    IncomingFrame(P2pNetworkYamuxIncomingFrameAction),
-    OutgoingFrame(P2pNetworkYamuxOutgoingFrameAction),
-    PingStream(P2pNetworkYamuxPingStreamAction),
-    OpenStream(P2pNetworkYamuxOpenStreamAction),
+    IncomingData {
+        addr: SocketAddr,
+        data: Data,
+    },
+    OutgoingData {
+        addr: SocketAddr,
+        stream_id: StreamId,
+        data: Data,
+        fin: bool,
+    },
+    IncomingFrame {
+        addr: SocketAddr,
+        frame: YamuxFrame,
+    },
+    OutgoingFrame {
+        addr: SocketAddr,
+        frame: YamuxFrame,
+    },
+    PingStream {
+        addr: SocketAddr,
+        ping: YamuxPing,
+    },
+    OpenStream {
+        addr: SocketAddr,
+        stream_id: StreamId,
+        stream_kind: token::StreamKind,
+    },
 }
 
 impl P2pNetworkYamuxAction {
-    pub fn addr(&self) -> SocketAddr {
+    pub fn addr(&self) -> &SocketAddr {
         match self {
-            Self::IncomingData(a) => a.addr,
-            Self::OutgoingData(a) => a.addr,
-            Self::IncomingFrame(a) => a.addr,
-            Self::OutgoingFrame(a) => a.addr,
-            Self::PingStream(a) => a.addr,
-            Self::OpenStream(a) => a.addr,
+            Self::IncomingData { addr, .. } => addr,
+            Self::OutgoingData { addr, .. } => addr,
+            Self::IncomingFrame { addr, .. } => addr,
+            Self::OutgoingFrame { addr, .. } => addr,
+            Self::PingStream { addr, .. } => addr,
+            Self::OpenStream { addr, .. } => addr,
         }
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct P2pNetworkYamuxIncomingDataAction {
-    pub addr: SocketAddr,
-    pub data: Data,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct P2pNetworkYamuxOutgoingDataAction {
-    pub addr: SocketAddr,
-    pub stream_id: StreamId,
-    pub data: Data,
-    pub fin: bool,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct P2pNetworkYamuxIncomingFrameAction {
-    pub addr: SocketAddr,
-    pub frame: YamuxFrame,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct P2pNetworkYamuxOutgoingFrameAction {
-    pub addr: SocketAddr,
-    pub frame: YamuxFrame,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct P2pNetworkYamuxPingStreamAction {
-    pub addr: SocketAddr,
-    pub ping: YamuxPing,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct P2pNetworkYamuxOpenStreamAction {
-    pub addr: SocketAddr,
-    pub stream_id: StreamId,
-    pub stream_kind: token::StreamKind,
-}
-
-impl From<P2pNetworkYamuxIncomingDataAction> for crate::P2pAction {
-    fn from(a: P2pNetworkYamuxIncomingDataAction) -> Self {
-        Self::Network(P2pNetworkAction::Yamux(a.into()))
-    }
-}
-
-impl From<P2pNetworkYamuxOutgoingDataAction> for crate::P2pAction {
-    fn from(a: P2pNetworkYamuxOutgoingDataAction) -> Self {
-        Self::Network(P2pNetworkAction::Yamux(a.into()))
-    }
-}
-
-impl From<P2pNetworkYamuxIncomingFrameAction> for crate::P2pAction {
-    fn from(a: P2pNetworkYamuxIncomingFrameAction) -> Self {
-        Self::Network(P2pNetworkAction::Yamux(a.into()))
-    }
-}
-
-impl From<P2pNetworkYamuxOutgoingFrameAction> for crate::P2pAction {
-    fn from(a: P2pNetworkYamuxOutgoingFrameAction) -> Self {
-        Self::Network(P2pNetworkAction::Yamux(a.into()))
-    }
-}
-
-impl From<P2pNetworkYamuxPingStreamAction> for crate::P2pAction {
-    fn from(a: P2pNetworkYamuxPingStreamAction) -> Self {
-        Self::Network(P2pNetworkAction::Yamux(a.into()))
-    }
-}
-
-impl From<P2pNetworkYamuxOpenStreamAction> for crate::P2pAction {
-    fn from(a: P2pNetworkYamuxOpenStreamAction) -> Self {
-        Self::Network(P2pNetworkAction::Yamux(a.into()))
+impl From<P2pNetworkYamuxAction> for crate::P2pAction {
+    fn from(a: P2pNetworkYamuxAction) -> Self {
+        Self::Network(a.into())
     }
 }
 
 impl redux::EnablingCondition<P2pState> for P2pNetworkYamuxAction {
-    fn is_enabled(&self, state: &P2pState, time: redux::Timestamp) -> bool {
+    fn is_enabled(&self, _state: &P2pState, _time: redux::Timestamp) -> bool {
+        #[allow(unused_variables)]
         match self {
-            Self::IncomingData(v) => v.is_enabled(state, time),
-            Self::OutgoingData(v) => v.is_enabled(state, time),
-            Self::IncomingFrame(v) => v.is_enabled(state, time),
-            Self::OutgoingFrame(v) => v.is_enabled(state, time),
-            Self::PingStream(v) => v.is_enabled(state, time),
-            Self::OpenStream(v) => v.is_enabled(state, time),
+            P2pNetworkYamuxAction::IncomingData { addr, data } => true,
+            P2pNetworkYamuxAction::OutgoingData {
+                addr,
+                stream_id,
+                data,
+                fin,
+            } => true,
+            P2pNetworkYamuxAction::IncomingFrame { addr, frame } => true,
+            P2pNetworkYamuxAction::OutgoingFrame { addr, frame } => true,
+            P2pNetworkYamuxAction::PingStream { addr, ping } => true,
+            P2pNetworkYamuxAction::OpenStream {
+                addr,
+                stream_id,
+                stream_kind,
+            } => true,
         }
-    }
-}
-
-impl redux::EnablingCondition<P2pState> for P2pNetworkYamuxIncomingDataAction {
-    fn is_enabled(&self, _state: &P2pState, _time: redux::Timestamp) -> bool {
-        true
-    }
-}
-
-impl redux::EnablingCondition<P2pState> for P2pNetworkYamuxOutgoingDataAction {
-    fn is_enabled(&self, _state: &P2pState, _time: redux::Timestamp) -> bool {
-        true
-    }
-}
-
-impl redux::EnablingCondition<P2pState> for P2pNetworkYamuxIncomingFrameAction {
-    fn is_enabled(&self, _state: &P2pState, _time: redux::Timestamp) -> bool {
-        true
-    }
-}
-
-impl redux::EnablingCondition<P2pState> for P2pNetworkYamuxOutgoingFrameAction {
-    fn is_enabled(&self, _state: &P2pState, _time: redux::Timestamp) -> bool {
-        true
-    }
-}
-
-impl redux::EnablingCondition<P2pState> for P2pNetworkYamuxPingStreamAction {
-    fn is_enabled(&self, _state: &P2pState, _time: redux::Timestamp) -> bool {
-        true
-    }
-}
-
-impl redux::EnablingCondition<P2pState> for P2pNetworkYamuxOpenStreamAction {
-    fn is_enabled(&self, _state: &P2pState, _time: redux::Timestamp) -> bool {
-        true
     }
 }

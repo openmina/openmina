@@ -13,7 +13,7 @@ use crate::{
         StagedLedgerAuxAndPendingCoinbases,
     },
     connection::outgoing::P2pConnectionOutgoingInitOpts,
-    P2pNetworkYamuxOutgoingDataAction,
+    P2pNetworkYamuxAction,
 };
 
 use super::*;
@@ -384,7 +384,7 @@ impl P2pNetworkRpcAction {
                 });
             }
             Self::OutgoingData(a) => {
-                store.dispatch(P2pNetworkYamuxOutgoingDataAction {
+                store.dispatch(P2pNetworkYamuxAction::OutgoingData {
                     addr: a.addr,
                     stream_id: a.stream_id,
                     data: a.data.clone(),
