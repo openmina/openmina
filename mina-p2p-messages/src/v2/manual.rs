@@ -379,8 +379,8 @@ mod tests {
     b58t!(
         vrf_truncated_output,
         ConsensusVrfOutputTruncatedStableV1,
-        "a5iclEJ9uqh_etVYuaL4MRWJ--1DFGsqp8CrDzNOGwM=",
-        "206b989c94427dbaa87f7ad558b9a2f8311589fbed43146b2aa7c0ab0f334e1b03"
+        "48H9Qk4D6RzS9kAJQX9HCDjiJ5qLiopxgxaS6xbDCWNaKQMQ9Y4C",
+        "261520dfd73283866632d9dbfda15421eacd02800957caad91f3a9ab4cc5ccfb298e03b08ae205"
     );
 
     b58t!(
@@ -504,8 +504,7 @@ impl Serialize for ConsensusVrfOutputTruncatedStableV1 {
         S: serde::Serializer,
     {
         if serializer.is_human_readable() {
-            let base64 = base64::encode_config(&self.0, base64::URL_SAFE);
-            base64.serialize(serializer)
+            bs58::encode(&self.0).into_string().serialize(serializer)
         } else {
             serializer.serialize_newtype_struct("ConsensusVrfOutputTruncatedStableV1", &self.0)
         }
@@ -518,8 +517,9 @@ impl<'de> Deserialize<'de> for ConsensusVrfOutputTruncatedStableV1 {
         D: serde::Deserializer<'de>,
     {
         if deserializer.is_human_readable() {
-            let base64 = String::deserialize(deserializer)?;
-            base64::decode_config(&base64, base64::URL_SAFE)
+            let base58 = String::deserialize(deserializer)?;
+            bs58::decode(base58)
+                .into_vec()
                 .map(ByteString::from)
                 .map_err(|e| serde::de::Error::custom(format!("Error deserializing vrf: {e}")))
         } else {

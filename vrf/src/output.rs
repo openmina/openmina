@@ -69,6 +69,21 @@ impl VrfOutput {
         ScalarField::from_repr(repr).unwrap()
     }
 
+    pub fn truncated_with_prefix_and_checksum(&self) -> Vec<u8> {
+        let mut output_bytes = Vec::new();
+        let prefix = vec![0x15, 0x20];
+
+        output_bytes.extend(prefix);
+
+        output_bytes.extend(self.truncated().to_bytes());
+
+        // checksum
+        let checksum_hash = Sha256::digest(&Sha256::digest(&output_bytes[..])[..]);
+        output_bytes.extend(&checksum_hash[..4]);
+
+        output_bytes
+    }
+
     pub fn fractional(&self) -> f64 {
         // ocaml:   Bignum_bigint.(shift_left one length_in_bits))
         //          where: length_in_bits = Int.min 256 (Field.size_in_bits - 2)
@@ -82,27 +97,23 @@ impl VrfOutput {
 
         BigRational::new(vrf_out, two_tpo_256).to_f64().unwrap()
     }
+
+    pub fn to_base_58(&self) -> String {
+        let bytes = self.truncated_with_prefix_and_checksum();
+        bs58::encode(bytes).into_string()
+    }
 }
 
 impl std::fmt::Display for VrfOutput {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut output_bytes = vec![0x15, 0x20];
-
-        output_bytes.extend(self.truncated().to_bytes());
-
-        // checksum
-        let checksum_hash = Sha256::digest(&Sha256::digest(&output_bytes[..])[..]);
-        output_bytes.extend(&checksum_hash[..4]);
-
-        let encoded = bs58::encode(output_bytes).into_string();
-
+        let encoded = self.to_base_58();
         write!(f, "{encoded}")
     }
 }
 
 impl From<&VrfOutput> for ConsensusVrfOutputTruncatedStableV1 {
     fn from(value: &VrfOutput) -> Self {
-        let bytes = value.truncated().to_bytes();
+        let bytes = value.truncated_with_prefix_and_checksum();
         Self(bytes.into())
     }
 }
@@ -115,6 +126,8 @@ impl From<VrfOutput> for ConsensusVrfOutputTruncatedStableV1 {
 
 #[cfg(test)]
 mod test {
+    use mina_p2p_messages::v2::ConsensusVrfOutputTruncatedStableV1;
+
     use crate::{genesis_vrf, output::VrfOutput};
 
     #[test]
@@ -125,5 +138,17 @@ mod test {
         let deserialized: VrfOutput = serde_json::from_str(&serialized).unwrap();
 
         assert_eq!(vrf_output, deserialized);
+    }
+
+    #[test]
+    fn test_conv_to_mina_type() {
+        let vrf_output = genesis_vrf().unwrap();
+
+        let converted = ConsensusVrfOutputTruncatedStableV1::from(vrf_output);
+        let converted_string = serde_json::to_string_pretty(&converted).unwrap();
+        let converted_string_deser: String = serde_json::from_str(&converted_string).unwrap();
+        let expected = String::from("48H9Qk4D6RzS9kAJQX9HCDjiJ5qLiopxgxaS6xbDCWNaKQMQ9Y4C");
+
+        assert_eq!(expected, converted_string_deser);
     }
 }
