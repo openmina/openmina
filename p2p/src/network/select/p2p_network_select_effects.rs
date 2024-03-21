@@ -67,7 +67,7 @@ impl P2pNetworkSelectAction {
                 if let Some(Some(negotiated)) = &state.negotiated {
                     match negotiated {
                         Protocol::Auth(AuthKind::Noise) => {
-                            store.dispatch(P2pNetworkNoiseIncomingDataAction {
+                            store.dispatch(P2pNetworkNoiseAction::IncomingData {
                                 addr: a.addr,
                                 data: a.data.clone(),
                             });
@@ -153,7 +153,7 @@ impl P2pNetworkSelectAction {
                         });
                     }
                     SelectKind::Multiplexing(_) | SelectKind::MultiplexingNoPeerId => {
-                        store.dispatch(P2pNetworkNoiseOutgoingDataAction {
+                        store.dispatch(P2pNetworkNoiseAction::OutgoingData {
                             addr: a.addr,
                             data: data.into(),
                         });

@@ -812,50 +812,54 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     _ => {}
                 },
                 P2pNetworkAction::Noise(action) => match action {
-                    P2pNetworkNoiseAction::Init(action) => {
+                    P2pNetworkNoiseAction::Init { addr, incoming, .. } => {
                         openmina_core::log::info!(
                             meta.time();
                             node_id = node_id,
                             kind = kind.to_string(),
-                            addr = action.addr.to_string(),
-                            incoming = action.incoming,
+                            addr = addr.to_string(),
+                            incoming = incoming,
                         )
                     }
-                    P2pNetworkNoiseAction::HandshakeDone(action) => {
+                    P2pNetworkNoiseAction::HandshakeDone {
+                        addr,
+                        peer_id,
+                        incoming,
+                    } => {
                         openmina_core::log::info!(
                             meta.time();
                             node_id = node_id,
                             kind = kind.to_string(),
-                            addr = action.addr.to_string(),
-                            incoming = action.incoming,
-                            peer_id = action.peer_id.to_string(),
+                            addr = addr.to_string(),
+                            incoming = incoming,
+                            peer_id = peer_id.to_string(),
                         )
                     }
-                    P2pNetworkNoiseAction::IncomingChunk(action) => {
+                    P2pNetworkNoiseAction::IncomingChunk { addr, data } => {
                         openmina_core::log::debug!(
                             meta.time();
                             node_id = node_id,
                             kind = kind.to_string(),
-                            addr = action.addr.to_string(),
-                            data = format!("{:?}", action.data),
+                            addr = addr.to_string(),
+                            data = format!("{:?}", data),
                         )
                     }
-                    P2pNetworkNoiseAction::OutgoingChunk(action) => {
+                    P2pNetworkNoiseAction::OutgoingChunk { addr, data } => {
                         openmina_core::log::debug!(
                             meta.time();
                             node_id = node_id,
                             kind = kind.to_string(),
-                            addr = action.addr.to_string(),
-                            data = format!("{:?}", action.data),
+                            addr = addr.to_string(),
+                            data = format!("{:?}", data),
                         )
                     }
-                    P2pNetworkNoiseAction::DecryptedData(action) => {
+                    P2pNetworkNoiseAction::DecryptedData { addr, data, .. } => {
                         openmina_core::log::debug!(
                             meta.time();
                             node_id = node_id,
                             kind = kind.to_string(),
-                            addr = action.addr.to_string(),
-                            data = format!("{:?}", action.data),
+                            addr = addr.to_string(),
+                            data = format!("{:?}", data),
                         )
                     }
                     _ => {}

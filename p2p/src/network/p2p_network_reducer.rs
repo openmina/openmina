@@ -94,7 +94,7 @@ impl P2pNetworkState {
             P2pNetworkAction::Noise(a) => {
                 self.scheduler
                     .connections
-                    .get_mut(&a.addr())
+                    .get_mut(a.addr())
                     .map(|cn| match &mut cn.auth {
                         Some(P2pNetworkAuthState::Noise(state)) => {
                             state.reducer(meta.with_action(&a))

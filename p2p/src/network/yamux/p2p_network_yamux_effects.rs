@@ -95,7 +95,7 @@ impl P2pNetworkYamuxAction {
                 }
             }
             Self::OutgoingFrame(a) => {
-                store.dispatch(P2pNetworkNoiseOutgoingDataAction {
+                store.dispatch(P2pNetworkNoiseAction::OutgoingData {
                     addr: a.addr,
                     data: a.frame.clone().into_bytes().into(),
                 });

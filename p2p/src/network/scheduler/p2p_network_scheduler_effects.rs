@@ -101,7 +101,7 @@ impl P2pNetworkSchedulerAction {
                             .service()
                             .sign_key((G * &static_sk).to_montgomery().as_bytes())
                             .into();
-                        store.dispatch(P2pNetworkNoiseInitAction {
+                        store.dispatch(P2pNetworkNoiseAction::Init {
                             addr,
                             incoming,
                             ephemeral_sk,

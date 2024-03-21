@@ -34,12 +34,7 @@ use crate::p2p::network::kad::bootstrap::P2pNetworkKadBootstrapAction;
 use crate::p2p::network::kad::request::P2pNetworkKadRequestAction;
 use crate::p2p::network::kad::stream::P2pNetworkKademliaStreamAction;
 use crate::p2p::network::kad::{P2pNetworkKadAction, P2pNetworkKademliaAction};
-use crate::p2p::network::noise::{
-    P2pNetworkNoiseAction, P2pNetworkNoiseDecryptedDataAction, P2pNetworkNoiseHandshakeDoneAction,
-    P2pNetworkNoiseIncomingChunkAction, P2pNetworkNoiseIncomingDataAction,
-    P2pNetworkNoiseInitAction, P2pNetworkNoiseOutgoingChunkAction,
-    P2pNetworkNoiseOutgoingDataAction,
-};
+use crate::p2p::network::noise::P2pNetworkNoiseAction;
 use crate::p2p::network::pnet::P2pNetworkPnetAction;
 use crate::p2p::network::rpc::{
     P2pNetworkRpcAction, P2pNetworkRpcIncomingDataAction, P2pNetworkRpcIncomingMessageAction,
@@ -1042,13 +1037,13 @@ impl ActionKindGet for P2pNetworkSelectAction {
 impl ActionKindGet for P2pNetworkNoiseAction {
     fn kind(&self) -> ActionKind {
         match self {
-            Self::Init(a) => a.kind(),
-            Self::IncomingData(a) => a.kind(),
-            Self::IncomingChunk(a) => a.kind(),
-            Self::OutgoingChunk(a) => a.kind(),
-            Self::OutgoingData(a) => a.kind(),
-            Self::DecryptedData(a) => a.kind(),
-            Self::HandshakeDone(a) => a.kind(),
+            Self::Init { .. } => ActionKind::P2pNetworkNoiseInit,
+            Self::IncomingData { .. } => ActionKind::P2pNetworkNoiseIncomingData,
+            Self::IncomingChunk { .. } => ActionKind::P2pNetworkNoiseIncomingChunk,
+            Self::OutgoingChunk { .. } => ActionKind::P2pNetworkNoiseOutgoingChunk,
+            Self::OutgoingData { .. } => ActionKind::P2pNetworkNoiseOutgoingData,
+            Self::DecryptedData { .. } => ActionKind::P2pNetworkNoiseDecryptedData,
+            Self::HandshakeDone { .. } => ActionKind::P2pNetworkNoiseHandshakeDone,
         }
     }
 }
@@ -1122,48 +1117,6 @@ impl ActionKindGet for P2pNetworkSelectIncomingTokenAction {
 impl ActionKindGet for P2pNetworkSelectOutgoingTokensAction {
     fn kind(&self) -> ActionKind {
         ActionKind::P2pNetworkSelectOutgoingTokens
-    }
-}
-
-impl ActionKindGet for P2pNetworkNoiseInitAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pNetworkNoiseInit
-    }
-}
-
-impl ActionKindGet for P2pNetworkNoiseIncomingDataAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pNetworkNoiseIncomingData
-    }
-}
-
-impl ActionKindGet for P2pNetworkNoiseIncomingChunkAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pNetworkNoiseIncomingChunk
-    }
-}
-
-impl ActionKindGet for P2pNetworkNoiseOutgoingChunkAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pNetworkNoiseOutgoingChunk
-    }
-}
-
-impl ActionKindGet for P2pNetworkNoiseOutgoingDataAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pNetworkNoiseOutgoingData
-    }
-}
-
-impl ActionKindGet for P2pNetworkNoiseDecryptedDataAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pNetworkNoiseDecryptedData
-    }
-}
-
-impl ActionKindGet for P2pNetworkNoiseHandshakeDoneAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pNetworkNoiseHandshakeDone
     }
 }
 
