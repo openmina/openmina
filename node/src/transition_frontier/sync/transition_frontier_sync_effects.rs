@@ -2,6 +2,7 @@ use p2p::channels::rpc::P2pChannelsRpcAction;
 use redux::ActionMeta;
 
 use crate::p2p::channels::rpc::P2pRpcRequest;
+use crate::service::TransitionFrontierSyncLedgerSnarkedService;
 use crate::transition_frontier::TransitionFrontierService;
 use crate::Store;
 
@@ -13,7 +14,7 @@ use super::TransitionFrontierSyncAction;
 impl TransitionFrontierSyncAction {
     pub fn effects<S: redux::Service>(&self, _: &ActionMeta, store: &mut Store<S>)
     where
-        S: TransitionFrontierService,
+        S: TransitionFrontierService + TransitionFrontierSyncLedgerSnarkedService,
     {
         match self {
             TransitionFrontierSyncAction::Init { best_tip, .. } => {
@@ -57,6 +58,17 @@ impl TransitionFrontierSyncAction {
                 // TODO(binier): cleanup ledgers
             }
             TransitionFrontierSyncAction::LedgerStakingPending => {
+                // The staking ledger is equal to the genesis ledger with changes on top, so
+                // we use it as a base to save work during synchronization.
+                let best_tip = store.state().transition_frontier.sync.best_tip().unwrap();
+                let target = super::ledger::SyncLedgerTarget::staking_epoch(best_tip);
+                let origin = best_tip.genesis_ledger_hash().clone();
+                let target = target.snarked_ledger_hash;
+                // TODO: for the async ledger this should be handled in intermediary action
+                store
+                    .service()
+                    .copy_snarked_ledger_contents(origin, target, false)
+                    .unwrap();
                 store.dispatch(TransitionFrontierSyncLedgerAction::Init);
             }
             TransitionFrontierSyncAction::LedgerStakingSuccess => {
@@ -65,12 +77,48 @@ impl TransitionFrontierSyncAction {
                 }
             }
             TransitionFrontierSyncAction::LedgerNextEpochPending => {
+                // The next epoch ledger is equal to the staking ledger with changes on top, so
+                // we use it as a base to save work during synchronization.
+                let sync = &store.state().transition_frontier.sync;
+                let best_tip = sync.best_tip().unwrap();
+                let root_block = sync.root_block().unwrap();
+                let Some(next_epoch_sync) =
+                    super::ledger::SyncLedgerTarget::next_epoch(best_tip, root_block)
+                else {
+                    return;
+                };
+                let origin =
+                    super::ledger::SyncLedgerTarget::staking_epoch(best_tip).snarked_ledger_hash;
+                let target = next_epoch_sync.snarked_ledger_hash;
+                // TODO: for the async ledger this should be handled in intermediary action
+                store
+                    .service()
+                    .copy_snarked_ledger_contents(origin, target, false)
+                    .unwrap();
+
                 store.dispatch(TransitionFrontierSyncLedgerAction::Init);
             }
             TransitionFrontierSyncAction::LedgerNextEpochSuccess => {
                 store.dispatch(TransitionFrontierSyncAction::LedgerRootPending);
             }
             TransitionFrontierSyncAction::LedgerRootPending => {
+                // The transition frontier root ledger is equal to the next epoch ledger with changes
+                // on top, so we use it as a base to save work during synchronization.
+                let sync = &store.state().transition_frontier.sync;
+                let best_tip = sync.best_tip().unwrap();
+                let root_block = sync.root_block().unwrap();
+                let next_epoch_sync =
+                    super::ledger::SyncLedgerTarget::next_epoch(best_tip, root_block)
+                        .unwrap_or_else(|| {
+                            super::ledger::SyncLedgerTarget::staking_epoch(best_tip)
+                        });
+                let origin = next_epoch_sync.snarked_ledger_hash;
+                let target = root_block.snarked_ledger_hash().clone();
+                // TODO: for the async ledger this should be handled in intermediary action
+                store
+                    .service()
+                    .copy_snarked_ledger_contents(origin, target, false)
+                    .unwrap();
                 store.dispatch(TransitionFrontierSyncLedgerAction::Init);
             }
             TransitionFrontierSyncAction::LedgerRootSuccess => {

@@ -378,13 +378,25 @@ pub enum ActionKind {
     TransitionFrontierSyncLedgerStakingSuccess,
     TransitionFrontierSyncLedgerInit,
     TransitionFrontierSyncLedgerSuccess,
+    TransitionFrontierSyncLedgerSnarkedChildAccountsAccepted,
     TransitionFrontierSyncLedgerSnarkedChildAccountsReceived,
+    TransitionFrontierSyncLedgerSnarkedChildAccountsRejected,
+    TransitionFrontierSyncLedgerSnarkedChildHashesAccepted,
     TransitionFrontierSyncLedgerSnarkedChildHashesReceived,
-    TransitionFrontierSyncLedgerSnarkedPeerQueryError,
-    TransitionFrontierSyncLedgerSnarkedPeerQueryInit,
-    TransitionFrontierSyncLedgerSnarkedPeerQueryPending,
-    TransitionFrontierSyncLedgerSnarkedPeerQueryRetry,
-    TransitionFrontierSyncLedgerSnarkedPeerQuerySuccess,
+    TransitionFrontierSyncLedgerSnarkedChildHashesRejected,
+    TransitionFrontierSyncLedgerSnarkedNumAccountsAccepted,
+    TransitionFrontierSyncLedgerSnarkedNumAccountsReceived,
+    TransitionFrontierSyncLedgerSnarkedNumAccountsRejected,
+    TransitionFrontierSyncLedgerSnarkedPeerQueryAddressError,
+    TransitionFrontierSyncLedgerSnarkedPeerQueryAddressInit,
+    TransitionFrontierSyncLedgerSnarkedPeerQueryAddressPending,
+    TransitionFrontierSyncLedgerSnarkedPeerQueryAddressRetry,
+    TransitionFrontierSyncLedgerSnarkedPeerQueryAddressSuccess,
+    TransitionFrontierSyncLedgerSnarkedPeerQueryNumAccountsError,
+    TransitionFrontierSyncLedgerSnarkedPeerQueryNumAccountsInit,
+    TransitionFrontierSyncLedgerSnarkedPeerQueryNumAccountsPending,
+    TransitionFrontierSyncLedgerSnarkedPeerQueryNumAccountsRetry,
+    TransitionFrontierSyncLedgerSnarkedPeerQueryNumAccountsSuccess,
     TransitionFrontierSyncLedgerSnarkedPeersQuery,
     TransitionFrontierSyncLedgerSnarkedPending,
     TransitionFrontierSyncLedgerSnarkedSuccess,
@@ -415,7 +427,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 321;
+    pub const COUNT: u16 = 333;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -1386,26 +1398,62 @@ impl ActionKindGet for TransitionFrontierSyncLedgerSnarkedAction {
         match self {
             Self::Pending => ActionKind::TransitionFrontierSyncLedgerSnarkedPending,
             Self::PeersQuery => ActionKind::TransitionFrontierSyncLedgerSnarkedPeersQuery,
-            Self::PeerQueryInit { .. } => {
-                ActionKind::TransitionFrontierSyncLedgerSnarkedPeerQueryInit
+            Self::PeerQueryNumAccountsInit { .. } => {
+                ActionKind::TransitionFrontierSyncLedgerSnarkedPeerQueryNumAccountsInit
             }
-            Self::PeerQueryPending { .. } => {
-                ActionKind::TransitionFrontierSyncLedgerSnarkedPeerQueryPending
+            Self::PeerQueryNumAccountsPending { .. } => {
+                ActionKind::TransitionFrontierSyncLedgerSnarkedPeerQueryNumAccountsPending
             }
-            Self::PeerQueryRetry { .. } => {
-                ActionKind::TransitionFrontierSyncLedgerSnarkedPeerQueryRetry
+            Self::PeerQueryNumAccountsRetry { .. } => {
+                ActionKind::TransitionFrontierSyncLedgerSnarkedPeerQueryNumAccountsRetry
             }
-            Self::PeerQueryError { .. } => {
-                ActionKind::TransitionFrontierSyncLedgerSnarkedPeerQueryError
+            Self::PeerQueryNumAccountsError { .. } => {
+                ActionKind::TransitionFrontierSyncLedgerSnarkedPeerQueryNumAccountsError
             }
-            Self::PeerQuerySuccess { .. } => {
-                ActionKind::TransitionFrontierSyncLedgerSnarkedPeerQuerySuccess
+            Self::PeerQueryNumAccountsSuccess { .. } => {
+                ActionKind::TransitionFrontierSyncLedgerSnarkedPeerQueryNumAccountsSuccess
+            }
+            Self::NumAccountsReceived { .. } => {
+                ActionKind::TransitionFrontierSyncLedgerSnarkedNumAccountsReceived
+            }
+            Self::NumAccountsAccepted { .. } => {
+                ActionKind::TransitionFrontierSyncLedgerSnarkedNumAccountsAccepted
+            }
+            Self::NumAccountsRejected { .. } => {
+                ActionKind::TransitionFrontierSyncLedgerSnarkedNumAccountsRejected
+            }
+            Self::PeerQueryAddressInit { .. } => {
+                ActionKind::TransitionFrontierSyncLedgerSnarkedPeerQueryAddressInit
+            }
+            Self::PeerQueryAddressPending { .. } => {
+                ActionKind::TransitionFrontierSyncLedgerSnarkedPeerQueryAddressPending
+            }
+            Self::PeerQueryAddressRetry { .. } => {
+                ActionKind::TransitionFrontierSyncLedgerSnarkedPeerQueryAddressRetry
+            }
+            Self::PeerQueryAddressError { .. } => {
+                ActionKind::TransitionFrontierSyncLedgerSnarkedPeerQueryAddressError
+            }
+            Self::PeerQueryAddressSuccess { .. } => {
+                ActionKind::TransitionFrontierSyncLedgerSnarkedPeerQueryAddressSuccess
             }
             Self::ChildHashesReceived { .. } => {
                 ActionKind::TransitionFrontierSyncLedgerSnarkedChildHashesReceived
             }
+            Self::ChildHashesAccepted { .. } => {
+                ActionKind::TransitionFrontierSyncLedgerSnarkedChildHashesAccepted
+            }
+            Self::ChildHashesRejected { .. } => {
+                ActionKind::TransitionFrontierSyncLedgerSnarkedChildHashesRejected
+            }
             Self::ChildAccountsReceived { .. } => {
                 ActionKind::TransitionFrontierSyncLedgerSnarkedChildAccountsReceived
+            }
+            Self::ChildAccountsAccepted { .. } => {
+                ActionKind::TransitionFrontierSyncLedgerSnarkedChildAccountsAccepted
+            }
+            Self::ChildAccountsRejected { .. } => {
+                ActionKind::TransitionFrontierSyncLedgerSnarkedChildAccountsRejected
             }
             Self::Success => ActionKind::TransitionFrontierSyncLedgerSnarkedSuccess,
         }
