@@ -114,10 +114,7 @@ impl P2pNetworkSchedulerAction {
                             error!(meta.time(); "wrong kind for multiplexing protocol action: {select_kind:?}");
                             return;
                         };
-                        store.dispatch(P2pNetworkSchedulerAction::YamuxDidInit {
-                            addr,
-                            peer_id,
-                        });
+                        store.dispatch(P2pNetworkSchedulerAction::YamuxDidInit { addr, peer_id });
                     }
                     Some(Protocol::Stream(kind)) => {
                         let SelectKind::Stream(peer_id, stream_id) = select_kind else {
@@ -151,7 +148,7 @@ impl P2pNetworkSchedulerAction {
                                 unimplemented!()
                             }
                             StreamKind::Rpc(RpcAlgorithm::Rpc0_0_1) => {
-                                store.dispatch(P2pNetworkRpcInitAction {
+                                store.dispatch(P2pNetworkRpcAction::Init {
                                     addr,
                                     peer_id,
                                     stream_id,

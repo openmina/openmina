@@ -116,7 +116,7 @@ impl P2pNetworkSelectAction {
                                         unimplemented!()
                                     }
                                     StreamKind::Rpc(RpcAlgorithm::Rpc0_0_1) => {
-                                        store.dispatch(P2pNetworkRpcIncomingDataAction {
+                                        store.dispatch(P2pNetworkRpcAction::IncomingData {
                                             addr,
                                             peer_id,
                                             stream_id,

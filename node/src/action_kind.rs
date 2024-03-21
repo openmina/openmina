@@ -36,11 +36,7 @@ use crate::p2p::network::kad::stream::P2pNetworkKademliaStreamAction;
 use crate::p2p::network::kad::{P2pNetworkKadAction, P2pNetworkKademliaAction};
 use crate::p2p::network::noise::P2pNetworkNoiseAction;
 use crate::p2p::network::pnet::P2pNetworkPnetAction;
-use crate::p2p::network::rpc::{
-    P2pNetworkRpcAction, P2pNetworkRpcIncomingDataAction, P2pNetworkRpcIncomingMessageAction,
-    P2pNetworkRpcInitAction, P2pNetworkRpcOutgoingDataAction, P2pNetworkRpcOutgoingQueryAction,
-    P2pNetworkRpcOutgoingResponseAction,
-};
+use crate::p2p::network::rpc::P2pNetworkRpcAction;
 use crate::p2p::network::scheduler::P2pNetworkSchedulerAction;
 use crate::p2p::network::select::P2pNetworkSelectAction;
 use crate::p2p::network::yamux::P2pNetworkYamuxAction;
@@ -1067,12 +1063,12 @@ impl ActionKindGet for P2pNetworkKadAction {
 impl ActionKindGet for P2pNetworkRpcAction {
     fn kind(&self) -> ActionKind {
         match self {
-            Self::Init(a) => a.kind(),
-            Self::IncomingData(a) => a.kind(),
-            Self::IncomingMessage(a) => a.kind(),
-            Self::OutgoingQuery(a) => a.kind(),
-            Self::OutgoingResponse(a) => a.kind(),
-            Self::OutgoingData(a) => a.kind(),
+            Self::Init { .. } => ActionKind::P2pNetworkRpcInit,
+            Self::IncomingData { .. } => ActionKind::P2pNetworkRpcIncomingData,
+            Self::IncomingMessage { .. } => ActionKind::P2pNetworkRpcIncomingMessage,
+            Self::OutgoingQuery { .. } => ActionKind::P2pNetworkRpcOutgoingQuery,
+            Self::OutgoingResponse { .. } => ActionKind::P2pNetworkRpcOutgoingResponse,
+            Self::OutgoingData { .. } => ActionKind::P2pNetworkRpcOutgoingData,
         }
     }
 }
@@ -1143,42 +1139,6 @@ impl ActionKindGet for P2pNetworkKademliaStreamAction {
             Self::RemoteClose { .. } => ActionKind::P2pNetworkKademliaStreamRemoteClose,
             Self::Prune { .. } => ActionKind::P2pNetworkKademliaStreamPrune,
         }
-    }
-}
-
-impl ActionKindGet for P2pNetworkRpcInitAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pNetworkRpcInit
-    }
-}
-
-impl ActionKindGet for P2pNetworkRpcIncomingDataAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pNetworkRpcIncomingData
-    }
-}
-
-impl ActionKindGet for P2pNetworkRpcIncomingMessageAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pNetworkRpcIncomingMessage
-    }
-}
-
-impl ActionKindGet for P2pNetworkRpcOutgoingQueryAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pNetworkRpcOutgoingQuery
-    }
-}
-
-impl ActionKindGet for P2pNetworkRpcOutgoingResponseAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pNetworkRpcOutgoingResponse
-    }
-}
-
-impl ActionKindGet for P2pNetworkRpcOutgoingDataAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::P2pNetworkRpcOutgoingData
     }
 }
 

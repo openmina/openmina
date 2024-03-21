@@ -907,19 +907,29 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     _ => {}
                 },
                 P2pNetworkAction::Rpc(action) => match action {
-                    P2pNetworkRpcAction::Init(action) => {
+                    P2pNetworkRpcAction::Init {
+                        addr,
+                        peer_id,
+                        stream_id,
+                        incoming,
+                    } => {
                         openmina_core::log::info!(
                             meta.time();
                             node_id = node_id,
                             kind = kind.to_string(),
-                            addr = action.addr.to_string(),
-                            peer_id = action.peer_id.to_string(),
-                            stream_id = action.stream_id,
-                            incoming = action.incoming,
+                            addr = addr.to_string(),
+                            peer_id = peer_id.to_string(),
+                            stream_id = stream_id,
+                            incoming = incoming,
                         )
                     }
-                    P2pNetworkRpcAction::IncomingMessage(action) => {
-                        let msg = match &action.message {
+                    P2pNetworkRpcAction::IncomingMessage {
+                        addr,
+                        peer_id,
+                        stream_id,
+                        message,
+                    } => {
+                        let msg = match &message {
                             p2p::RpcMessage::Handshake => "handshake".to_owned(),
                             p2p::RpcMessage::Heartbeat => "heartbeat".to_owned(),
                             p2p::RpcMessage::Query { header, .. } => format!("{header:?}"),
@@ -929,9 +939,9 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                             meta.time();
                             node_id = node_id,
                             kind = kind.to_string(),
-                            addr = action.addr.to_string(),
-                            peer_id = action.peer_id.to_string(),
-                            stream_id = action.stream_id,
+                            addr = addr.to_string(),
+                            peer_id = peer_id.to_string(),
+                            stream_id = stream_id,
                             msg = msg,
                         )
                     }

@@ -5,7 +5,7 @@ use redux::ActionMeta;
 use crate::{
     channels::{ChannelId, MsgId, P2pChannelsService},
     peer::P2pPeerAction,
-    P2pNetworkRpcOutgoingQueryAction, P2pNetworkRpcOutgoingResponseAction,
+    P2pNetworkRpcAction,
 };
 
 use super::{P2pChannelsRpcAction, P2pRpcResponse, RpcChannelMsg};
@@ -33,7 +33,7 @@ impl P2pChannelsRpcAction {
                         .channel_send(peer_id, MsgId::first(), msg.into());
                 } else {
                     if let Some((query, data)) = super::internal_request_into_libp2p(request, id) {
-                        store.dispatch(P2pNetworkRpcOutgoingQueryAction {
+                        store.dispatch(P2pNetworkRpcAction::OutgoingQuery {
                             peer_id,
                             query,
                             data,
@@ -65,7 +65,7 @@ impl P2pChannelsRpcAction {
                     if let Some((response, data)) =
                         super::internal_response_into_libp2p(response, id)
                     {
-                        store.dispatch(P2pNetworkRpcOutgoingResponseAction {
+                        store.dispatch(P2pNetworkRpcAction::OutgoingResponse {
                             peer_id,
                             response,
                             data,

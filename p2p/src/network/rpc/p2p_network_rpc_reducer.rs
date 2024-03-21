@@ -15,14 +15,14 @@ impl P2pNetworkRpcState {
             return;
         }
         match action.action() {
-            P2pNetworkRpcAction::Init(a) => {
-                self.is_incoming = a.incoming;
+            P2pNetworkRpcAction::Init { incoming, .. } => {
+                self.is_incoming = *incoming;
                 *rpc_state = P2pChannelsRpcState::Pending {
                     time: action.time(),
                 };
             }
-            P2pNetworkRpcAction::IncomingData(a) => {
-                self.buffer.extend_from_slice(&a.data);
+            P2pNetworkRpcAction::IncomingData { data, .. } => {
+                self.buffer.extend_from_slice(&data);
                 let mut offset = 0;
                 loop {
                     let buf = &self.buffer[offset..];
@@ -63,8 +63,8 @@ impl P2pNetworkRpcState {
                     self.buffer = self.buffer[offset..].to_vec();
                 }
             }
-            P2pNetworkRpcAction::IncomingMessage(a) => {
-                if matches!(&a.message, RpcMessage::Response { .. }) {
+            P2pNetworkRpcAction::IncomingMessage { message, .. } => {
+                if matches!(&message, RpcMessage::Response { .. }) {
                     if let Some((_, req)) = &self.pending {
                         *self.total_stats.entry(req.clone()).or_default() += 1;
                     } else {
@@ -73,10 +73,10 @@ impl P2pNetworkRpcState {
                 }
                 self.incoming.pop_front();
             }
-            P2pNetworkRpcAction::OutgoingQuery(a) => {
-                self.last_id = a.query.id;
+            P2pNetworkRpcAction::OutgoingQuery { query, .. } => {
+                self.last_id = query.id;
                 // TODO: remove when query is done
-                self.pending = Some((a.query.id, (a.query.tag.clone(), a.query.version)));
+                self.pending = Some((query.id, (query.tag.clone(), query.version)));
             }
             _ => {}
         }
