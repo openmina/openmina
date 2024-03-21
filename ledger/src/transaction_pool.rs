@@ -1,6 +1,7 @@
 use std::{
     borrow::Borrow,
     collections::{hash_map::Entry, BTreeSet, HashMap, HashSet, VecDeque},
+    rc::Rc,
 };
 
 use itertools::Itertools;
@@ -1183,7 +1184,7 @@ fn currency_consumed(cmd: &UserCommand) -> Option<Amount> {
     fee_amount.checked_add(&amount)
 }
 
-type BlakeHash = Box<[u8; 32]>;
+type BlakeHash = Rc<[u8; 32]>;
 
 mod transaction_hash {
     use blake2::{
@@ -1230,7 +1231,14 @@ mod transaction_hash {
 
         let mut hasher = Blake2bVar::new(32).expect("Invalid Blake2bVar output size");
         hasher.update(&buffer);
-        let hash: Box<[u8; 32]> = hasher.finalize_boxed().try_into().unwrap();
+
+        let hash: Rc<[u8; 32]> = {
+            let mut buffer = [0; 32];
+            hasher
+                .finalize_variable(&mut buffer)
+                .expect("Invalid buffer size"); // Never occur
+            Rc::from(buffer)
+        };
 
         WithHash { data: cmd, hash }
     }
