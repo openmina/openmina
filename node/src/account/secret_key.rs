@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::{fmt, str::FromStr};
 
-use mina_signer::{keypair::KeypairError, Keypair};
+use mina_signer::{keypair::KeypairError, Keypair, CompressedPubKey};
 
 use super::AccountPublicKey;
 
@@ -28,6 +28,10 @@ impl AccountSecretKey {
 
     pub fn public_key(&self) -> AccountPublicKey {
         self.0.public.clone().into()
+    }
+
+    pub fn public_key_compressed(&self) -> CompressedPubKey {
+        self.0.public.clone().into_compressed()
     }
 }
 
