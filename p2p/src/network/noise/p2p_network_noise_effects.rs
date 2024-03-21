@@ -167,11 +167,13 @@ impl P2pNetworkNoiseAction {
         }
 
         if !handshake_optimized {
-            if (middle_initiator || middle_responder) && matches!(self, Self::IncomingChunk(..)) {
-                store.dispatch(P2pNetworkNoiseOutgoingDataAction {
-                    addr: self.addr(),
-                    data: Data(vec![].into_boxed_slice()),
-                });
+            if middle_initiator || middle_responder {
+                if matches!(self, Self::IncomingChunk(..)) {
+                    store.dispatch(P2pNetworkNoiseOutgoingDataAction {
+                        addr: self.addr(),
+                        data: Data(vec![].into_boxed_slice()),
+                    });
+                }
             } else {
                 if let Some((peer_id, incoming)) = handshake_done {
                     store.dispatch(P2pNetworkNoiseHandshakeDoneAction {
