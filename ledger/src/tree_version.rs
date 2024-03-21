@@ -23,8 +23,8 @@ impl TreeVersion for V2 {
     type Account = Account;
     type TokenId = TokenId;
 
-    fn hash_node(depth: usize, left: Fp, right: Fp) -> Fp {
-        let param = format!("MinaMklTree{:03}", depth);
+    fn hash_node(height: usize, left: Fp, right: Fp) -> Fp {
+        let param = format!("MinaMklTree{height:03}");
 
         crate::hash::hash_with_kimchi(param.as_str(), &[left, right])
     }
