@@ -1009,7 +1009,7 @@ pub mod consensus {
             let slot_as_field = CheckedN32::from_field(slot_as_field);
 
             let (q, _) = slot_as_field.div_mod(
-                &CheckedN32::from_field(constants.slots_per_window.to_field()),
+                &CheckedN32::from_field(constants.slots_per_sub_window.to_field()),
                 w,
             );
             Self { inner: q }

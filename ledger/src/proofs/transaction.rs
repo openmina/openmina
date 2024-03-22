@@ -4762,14 +4762,19 @@ mod tests {
         }
 
         // Block proof
-        {
-            let data = std::fs::read(base_dir.join("block_input-2775525-0.bin")).unwrap();
+        for (filename, fps_filename) in [
+            ("block_input-2775525-0.bin", Some("block_fps.txt")),
+            ("block_prove_inputs_7.bin", None),
+        ] {
+            let data = std::fs::read(base_dir.join(filename)).unwrap();
 
             let blockchain_input: v2::ProverExtendBlockchainInputStableV2 =
                 read_binprot(&mut data.as_slice());
 
             let mut witnesses: Witness<Fp> = Witness::new::<StepBlockProof>();
-            witnesses.ocaml_aux = read_witnesses("block_fps.txt").unwrap();
+            if let Some(filename) = fps_filename {
+                witnesses.ocaml_aux = read_witnesses(filename).unwrap();
+            };
 
             let WrapProof { proof, .. } = generate_block_proof(
                 BlockParams {
