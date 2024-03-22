@@ -35,7 +35,7 @@ impl P2pNetworkNoiseState {
                 } else {
                     let mut chunk = vec![0, 32];
                     chunk.extend_from_slice(epk.0.as_bytes());
-                    self.outgoing_chunks.push_back(chunk);
+                    self.outgoing_chunks.push_back(vec![chunk.into()]);
 
                     let mut noise = NoiseState::new(*b"Noise_XX_25519_ChaChaPoly_SHA256");
                     noise.mix_hash(b"");
@@ -169,32 +169,37 @@ impl P2pNetworkNoiseState {
                         ..
                     } => {
                         let aead = ChaCha20Poly1305::new(&send_key.0.into());
-                        let chunk_max_size = u16::MAX as usize - 18;
-                        for data in a.data.chunks(chunk_max_size) {
-                            let mut chunk = Vec::with_capacity(18 + data.len());
-                            chunk.extend_from_slice(&((data.len() + 16) as u16).to_be_bytes());
-                            chunk.extend_from_slice(data);
+                        let chunk_max_size = u16::MAX as usize - 19;
+                        let chunks = a
+                            .data
+                            .chunks(chunk_max_size)
+                            .map(|data| {
+                                let mut chunk = Vec::with_capacity(18 + data.len());
+                                chunk.extend_from_slice(&((data.len() + 16) as u16).to_be_bytes());
+                                chunk.extend_from_slice(data);
 
-                            let mut nonce = GenericArray::default();
-                            nonce[4..].clone_from_slice(&send_nonce.to_le_bytes());
-                            *send_nonce += 1;
+                                let mut nonce = GenericArray::default();
+                                nonce[4..].clone_from_slice(&send_nonce.to_le_bytes());
+                                *send_nonce += 1;
 
-                            let tag = aead
-                                .encrypt_in_place_detached(
-                                    &nonce,
-                                    &[],
-                                    &mut chunk[2..(2 + data.len())],
-                                )
-                                .expect("cannot fail");
-                            chunk.extend_from_slice(&tag);
-                            self.outgoing_chunks.push_back(chunk);
-                        }
+                                let tag = aead
+                                    .encrypt_in_place_detached(
+                                        &nonce,
+                                        &[],
+                                        &mut chunk[2..(2 + data.len())],
+                                    )
+                                    .expect("cannot fail");
+                                chunk.extend_from_slice(&tag);
+                                chunk.into()
+                            })
+                            .collect();
+                        self.outgoing_chunks.push_back(chunks);
                     }
                     P2pNetworkNoiseStateInner::Initiator(i) => {
                         if let (Some((chunk, (send_key, recv_key))), Some(remote_pk)) =
                             (i.generate(&a.data), i.remote_pk.clone())
                         {
-                            self.outgoing_chunks.push_back(chunk);
+                            self.outgoing_chunks.push_back(vec![chunk.into()]);
                             let remote_peer_id = remote_pk.peer_id();
                             *state = P2pNetworkNoiseStateInner::Done {
                                 incoming: false,
@@ -209,7 +214,7 @@ impl P2pNetworkNoiseState {
                     }
                     P2pNetworkNoiseStateInner::Responder(r) => {
                         if let Some(chunk) = r.generate(&a.data) {
-                            self.outgoing_chunks.push_back(chunk);
+                            self.outgoing_chunks.push_back(vec![chunk.into()]);
                         }
                     }
                     // TODO: report error

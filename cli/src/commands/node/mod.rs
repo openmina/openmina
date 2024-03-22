@@ -193,6 +193,11 @@ impl Node {
         let keypair = Keypair::ed25519_from_bytes(secret_key.to_bytes())
             .expect("secret key bytes must be valid");
 
+        openmina_core::info!(
+            openmina_core::log::system_time();
+            peer_id = keypair.public().to_peer_id().to_base58(),
+        );
+
         let p2p_service_ctx = <NodeService as P2pServiceWebrtcWithLibp2p>::init(
             Some(self.libp2p_port),
             secret_key.clone(),

@@ -851,6 +851,14 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     _ => {}
                 },
                 P2pNetworkAction::Yamux(action) => match action {
+                    P2pNetworkYamuxAction::IncomingData(action) => {
+                        openmina_core::log::debug!(
+                            meta.time();
+                            kind = kind.to_string(),
+                            addr = action.addr.to_string(),
+                            data = format!("{:?}", action.data),
+                        )
+                    }
                     P2pNetworkYamuxAction::IncomingFrame(action) => {
                         openmina_core::log::debug!(
                             meta.time();

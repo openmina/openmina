@@ -3,13 +3,14 @@ use std::sync::Arc;
 use binprot::BinProtRead;
 use mina_p2p_messages::{
     rpc,
-    rpc_kernel::{Error as RpcError, NeedsLength, ResponsePayload, RpcMethod},
+    rpc_kernel::{Error as RpcError, NeedsLength, QueryPayload, ResponsePayload, RpcMethod},
     v2,
 };
 
 use crate::{
     channels::rpc::{
-        BestTipWithProof, P2pChannelsRpcAction, P2pRpcResponse, StagedLedgerAuxAndPendingCoinbases,
+        BestTipWithProof, P2pChannelsRpcAction, P2pRpcRequest, P2pRpcResponse,
+        StagedLedgerAuxAndPendingCoinbases,
     },
     connection::outgoing::P2pConnectionOutgoingInitOpts,
     P2pNetworkYamuxOutgoingDataAction,
@@ -82,8 +83,107 @@ impl P2pNetworkRpcAction {
                             fin: false,
                         });
                     }
-                    RpcMessage::Query { .. } => {
-                        // TODO: dispatch further action
+                    RpcMessage::Query { header, bytes } => {
+                        fn parse_q<M: RpcMethod>(bytes: &[u8]) -> Result<M::Query, String> {
+                            let mut bytes = bytes;
+                            <QueryPayload<M::Query> as BinProtRead>::binprot_read(&mut bytes)
+                                .map(|x| x.0)
+                                .map_err(|err| format!("response {} {}", M::NAME, err))
+                        }
+
+                        match (header.tag.to_string_lossy().as_str(), header.version) {
+                            (rpc::GetBestTipV2::NAME, rpc::GetBestTipV2::VERSION) => {
+                                let Ok(()) = parse_q::<rpc::GetBestTipV2>(&bytes) else {
+                                    // TODO: close the stream
+                                    panic!();
+                                };
+                                store.dispatch(P2pChannelsRpcAction::RequestReceived {
+                                    peer_id: a.peer_id.clone(),
+                                    id: header.id as u32,
+                                    request: P2pRpcRequest::BestTipWithProof,
+                                });
+                            }
+                            (
+                                rpc::AnswerSyncLedgerQueryV2::NAME,
+                                rpc::AnswerSyncLedgerQueryV2::VERSION,
+                            ) => {
+                                let Ok((hash, query)) =
+                                    parse_q::<rpc::AnswerSyncLedgerQueryV2>(&bytes)
+                                else {
+                                    // TODO: close the stream
+                                    panic!();
+                                };
+
+                                let hash =
+                                    v2::LedgerHash::from(v2::MinaBaseLedgerHash0StableV1(hash));
+
+                                store.dispatch(P2pChannelsRpcAction::RequestReceived {
+                                    peer_id: a.peer_id.clone(),
+                                    id: header.id as u32,
+                                    request: P2pRpcRequest::LedgerQuery(hash, query),
+                                });
+                            }
+                            (
+                                rpc::GetStagedLedgerAuxAndPendingCoinbasesAtHashV2::NAME,
+                                rpc::GetStagedLedgerAuxAndPendingCoinbasesAtHashV2::VERSION,
+                            ) => {
+                                let Ok(hash) = parse_q::<
+                                    rpc::GetStagedLedgerAuxAndPendingCoinbasesAtHashV2,
+                                >(&bytes) else {
+                                    // TODO: close the stream
+                                    panic!();
+                                };
+
+                                let hash =
+                                    v2::StateHash::from(v2::DataHashLibStateHashStableV1(hash));
+                                let request =
+                                    P2pRpcRequest::StagedLedgerAuxAndPendingCoinbasesAtBlock(hash);
+
+                                store.dispatch(P2pChannelsRpcAction::RequestReceived {
+                                    peer_id: a.peer_id.clone(),
+                                    id: header.id as u32,
+                                    request,
+                                });
+                            }
+                            (
+                                rpc::GetTransitionChainV2::NAME,
+                                rpc::GetTransitionChainV2::VERSION,
+                            ) => {
+                                let Ok(hashes) = parse_q::<rpc::GetTransitionChainV2>(&bytes)
+                                else {
+                                    // TODO: close the stream
+                                    panic!();
+                                };
+
+                                for hash in hashes {
+                                    let hash =
+                                        v2::StateHash::from(v2::DataHashLibStateHashStableV1(hash));
+
+                                    store.dispatch(P2pChannelsRpcAction::RequestReceived {
+                                        peer_id: a.peer_id.clone(),
+                                        id: header.id as u32,
+                                        request: P2pRpcRequest::Block(hash),
+                                    });
+                                }
+                            }
+                            (
+                                rpc::GetSomeInitialPeersV1ForV2::NAME,
+                                rpc::GetSomeInitialPeersV1ForV2::VERSION,
+                            ) => {
+                                let Ok(()) = parse_q::<rpc::GetSomeInitialPeersV1ForV2>(&bytes)
+                                else {
+                                    // TODO: close the stream
+                                    panic!();
+                                };
+
+                                store.dispatch(P2pChannelsRpcAction::RequestReceived {
+                                    peer_id: a.peer_id.clone(),
+                                    id: header.id as u32,
+                                    request: P2pRpcRequest::InitialPeers,
+                                });
+                            }
+                            _ => {}
+                        }
                     }
                     RpcMessage::Response { header, bytes } => {
                         fn parse_r<M: RpcMethod>(
@@ -262,6 +362,20 @@ impl P2pNetworkRpcAction {
                     stream_id: state.stream_id,
                     data: RpcMessage::Query {
                         header: a.query.clone(),
+                        bytes: a.data.clone(),
+                    }
+                    .into_bytes()
+                    .into(),
+                    fin: false,
+                });
+            }
+            Self::OutgoingResponse(a) => {
+                store.dispatch(P2pNetworkRpcOutgoingDataAction {
+                    addr: state.addr,
+                    peer_id: a.peer_id,
+                    stream_id: state.stream_id,
+                    data: RpcMessage::Response {
+                        header: a.response.clone(),
                         bytes: a.data.clone(),
                     }
                     .into_bytes()

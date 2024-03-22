@@ -18,7 +18,7 @@ impl P2pNetworkNoiseAction {
         };
 
         let incoming = state.incoming_chunks.front().cloned().map(Into::into);
-        let outgoing = state.outgoing_chunks.front().cloned().map(Into::into);
+        let outgoing = state.outgoing_chunks.front().cloned();
         let decrypted = state.decrypted_chunks.front().cloned();
         let remote_peer_id = match &state.inner {
             Some(P2pNetworkNoiseStateInner::Done { remote_peer_id, .. }) => {
@@ -154,18 +154,33 @@ impl P2pNetworkNoiseAction {
             Self::OutgoingChunk(a) => {
                 store.dispatch(P2pNetworkPnetOutgoingDataAction {
                     addr: a.addr,
-                    data: a.data.clone(),
+                    data: a
+                        .data
+                        .iter()
+                        .fold(vec![], |mut v, item| {
+                            v.extend_from_slice(&*item);
+                            v
+                        })
+                        .into(),
                 });
+                if let Some(data) = outgoing {
+                    store.dispatch(P2pNetworkNoiseOutgoingChunkAction {
+                        addr: self.addr(),
+                        data,
+                    });
+                }
             }
             _ => {}
         }
 
         if !handshake_optimized {
-            if (middle_initiator || middle_responder) && matches!(self, Self::IncomingChunk(..)) {
-                store.dispatch(P2pNetworkNoiseOutgoingDataAction {
-                    addr: self.addr(),
-                    data: Data(vec![].into_boxed_slice()),
-                });
+            if middle_initiator || middle_responder {
+                if matches!(self, Self::IncomingChunk(..)) {
+                    store.dispatch(P2pNetworkNoiseOutgoingDataAction {
+                        addr: self.addr(),
+                        data: Data(vec![].into_boxed_slice()),
+                    });
+                }
             } else {
                 if let Some((peer_id, incoming)) = handshake_done {
                     store.dispatch(P2pNetworkNoiseHandshakeDoneAction {

@@ -11,11 +11,18 @@ mod p2p_channels_rpc_effects;
 use std::{sync::Arc, time::Duration};
 
 use binprot_derive::{BinProtRead, BinProtWrite};
-use mina_p2p_messages::v2::{
-    LedgerHash, MerkleAddressBinableArgStableV1, MinaBasePendingCoinbaseStableV2,
-    MinaBaseStateBodyHashStableV1, MinaLedgerSyncLedgerAnswerStableV2,
-    MinaLedgerSyncLedgerQueryStableV1, MinaStateProtocolStateValueStableV2, StateHash,
-    TransactionSnarkScanStateStableV2,
+use mina_p2p_messages::{
+    rpc,
+    rpc_kernel::{
+        NeedsLength, QueryHeader, QueryPayload, ResponseHeader, ResponsePayload, RpcMethod,
+        RpcResult,
+    },
+    v2::{
+        LedgerHash, MerkleAddressBinableArgStableV1, MinaBasePendingCoinbaseStableV2,
+        MinaBaseStateBodyHashStableV1, MinaLedgerSyncLedgerAnswerStableV2,
+        MinaLedgerSyncLedgerQueryStableV1, MinaStateProtocolStateValueStableV2, StateHash,
+        TransactionSnarkScanStateStableV2,
+    },
 };
 use openmina_core::{
     block::ArcBlock,
@@ -23,7 +30,7 @@ use openmina_core::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::{connection::outgoing::P2pConnectionOutgoingInitOpts, P2pTimeouts};
+use crate::{connection::outgoing::P2pConnectionOutgoingInitOpts, Data, P2pTimeouts};
 
 pub type P2pRpcId = u32;
 
@@ -193,6 +200,189 @@ impl P2pRpcResponse {
             Self::Block(_) => P2pRpcKind::Block,
             Self::Snark(_) => P2pRpcKind::Snark,
             Self::InitialPeers(_) => P2pRpcKind::InitialPeers,
+        }
+    }
+}
+
+fn internal_response_into_libp2p(
+    response: P2pRpcResponse,
+    id: P2pRpcId,
+) -> Option<(ResponseHeader, Data)> {
+    use binprot::BinProtWrite;
+
+    match response {
+        P2pRpcResponse::BestTipWithProof(r) => {
+            type Method = rpc::GetBestTipV2;
+            type Payload = ResponsePayload<<Method as RpcMethod>::Response>;
+
+            let BestTipWithProof {
+                best_tip,
+                proof: (middle, block),
+            } = r;
+
+            let r = RpcResult(Ok(NeedsLength(Some(rpc::ProofCarryingDataStableV1 {
+                data: best_tip.as_ref().clone(),
+                proof: (middle, block.as_ref().clone()),
+            }))));
+
+            let mut v = vec![];
+            <Payload as BinProtWrite>::binprot_write(&r, &mut v).unwrap_or_default();
+            Some((ResponseHeader { id: id as _ }, v.into()))
+        }
+        P2pRpcResponse::LedgerQuery(answer) => {
+            type Method = rpc::AnswerSyncLedgerQueryV2;
+            type Payload = ResponsePayload<<Method as RpcMethod>::Response>;
+
+            let r = RpcResult(Ok(NeedsLength(RpcResult(Ok(answer)))));
+
+            let mut v = vec![];
+            <Payload as BinProtWrite>::binprot_write(&r, &mut v).unwrap_or_default();
+            Some((ResponseHeader { id: id as _ }, v.into()))
+        }
+        P2pRpcResponse::StagedLedgerAuxAndPendingCoinbasesAtBlock(staged_ledger_info) => {
+            type Method = rpc::GetStagedLedgerAuxAndPendingCoinbasesAtHashV2;
+            type Payload = ResponsePayload<<Method as RpcMethod>::Response>;
+
+            let StagedLedgerAuxAndPendingCoinbases {
+                scan_state,
+                staged_ledger_hash,
+                pending_coinbase,
+                needed_blocks,
+            } = staged_ledger_info.as_ref().clone();
+
+            let hash = staged_ledger_hash.inner().0.clone();
+
+            let r = RpcResult(Ok(NeedsLength(Some((
+                scan_state,
+                hash,
+                pending_coinbase,
+                needed_blocks,
+            )))));
+
+            let mut v = vec![];
+            <Payload as BinProtWrite>::binprot_write(&r, &mut v).unwrap_or_default();
+            Some((ResponseHeader { id: id as _ }, v.into()))
+        }
+        P2pRpcResponse::Block(block) => {
+            type Method = rpc::GetTransitionChainV2;
+            type Payload = ResponsePayload<<Method as RpcMethod>::Response>;
+
+            let r = RpcResult(Ok(NeedsLength(Some(vec![block.as_ref().clone()]))));
+
+            let mut v = vec![];
+            <Payload as BinProtWrite>::binprot_write(&r, &mut v).unwrap_or_default();
+            Some((ResponseHeader { id: id as _ }, v.into()))
+        }
+        P2pRpcResponse::Snark(_) => {
+            // should use gossipsub to broadcast
+            None
+        }
+        P2pRpcResponse::InitialPeers(peers) => {
+            type Method = rpc::GetSomeInitialPeersV1ForV2;
+            type Payload = ResponsePayload<<Method as RpcMethod>::Response>;
+
+            let r = peers
+                .into_iter()
+                .filter_map(|peer| peer.try_into_mina_rpc())
+                .collect();
+            let r = RpcResult(Ok(NeedsLength(r)));
+
+            let mut v = vec![];
+            <Payload as BinProtWrite>::binprot_write(&r, &mut v).unwrap_or_default();
+            Some((ResponseHeader { id: id as _ }, v.into()))
+        }
+    }
+}
+
+fn internal_request_into_libp2p(
+    request: P2pRpcRequest,
+    id: P2pRpcId,
+) -> Option<(QueryHeader, Data)> {
+    use binprot::BinProtWrite;
+
+    match request {
+        P2pRpcRequest::BestTipWithProof => {
+            type Method = rpc::GetBestTipV2;
+            type Payload = QueryPayload<<Method as RpcMethod>::Query>;
+
+            let mut v = vec![];
+            <Payload as BinProtWrite>::binprot_write(&NeedsLength(()), &mut v).unwrap_or_default();
+            Some((
+                QueryHeader {
+                    tag: Method::NAME.into(),
+                    version: Method::VERSION,
+                    id: id as _,
+                },
+                v.into(),
+            ))
+        }
+        P2pRpcRequest::LedgerQuery(hash, q) => {
+            type Method = rpc::AnswerSyncLedgerQueryV2;
+            type Payload = QueryPayload<<Method as RpcMethod>::Query>;
+
+            let mut v = vec![];
+            <Payload as BinProtWrite>::binprot_write(&NeedsLength((hash.0.clone(), q)), &mut v)
+                .unwrap_or_default();
+            Some((
+                QueryHeader {
+                    tag: Method::NAME.into(),
+                    version: Method::VERSION,
+                    id: id as _,
+                },
+                v.into(),
+            ))
+        }
+        P2pRpcRequest::StagedLedgerAuxAndPendingCoinbasesAtBlock(hash) => {
+            type Method = rpc::GetStagedLedgerAuxAndPendingCoinbasesAtHashV2;
+            type Payload = QueryPayload<<Method as RpcMethod>::Query>;
+
+            let mut v = vec![];
+            <Payload as BinProtWrite>::binprot_write(&NeedsLength(hash.0.clone()), &mut v)
+                .unwrap_or_default();
+            Some((
+                QueryHeader {
+                    tag: Method::NAME.into(),
+                    version: Method::VERSION,
+                    id: id as _,
+                },
+                v.into(),
+            ))
+        }
+        P2pRpcRequest::Block(hash) => {
+            type Method = rpc::GetTransitionChainV2;
+            type Payload = QueryPayload<<Method as RpcMethod>::Query>;
+
+            let mut v = vec![];
+            <Payload as BinProtWrite>::binprot_write(&NeedsLength(vec![hash.0.clone()]), &mut v)
+                .unwrap_or_default();
+            Some((
+                QueryHeader {
+                    tag: Method::NAME.into(),
+                    version: Method::VERSION,
+                    id: id as _,
+                },
+                v.into(),
+            ))
+        }
+        P2pRpcRequest::Snark(hash) => {
+            let _ = hash;
+            // libp2p cannot fulfill this request
+            None
+        }
+        P2pRpcRequest::InitialPeers => {
+            type Method = rpc::GetSomeInitialPeersV1ForV2;
+            type Payload = QueryPayload<<Method as RpcMethod>::Query>;
+
+            let mut v = vec![];
+            <Payload as BinProtWrite>::binprot_write(&NeedsLength(()), &mut v).unwrap_or_default();
+            Some((
+                QueryHeader {
+                    tag: Method::NAME.into(),
+                    version: Method::VERSION,
+                    id: id as _,
+                },
+                v.into(),
+            ))
         }
     }
 }

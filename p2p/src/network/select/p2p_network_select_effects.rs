@@ -42,25 +42,27 @@ impl P2pNetworkSelectAction {
         let incoming = matches!(&state.inner, P2pNetworkSelectStateInner::Responder { .. });
         match self {
             Self::Init(a) => {
-                let mut tokens = vec![];
-                if a.send_handshake {
-                    tokens.push(Token::Handshake);
+                if state.negotiated.is_none() {
+                    let mut tokens = vec![];
+                    if a.send_handshake {
+                        tokens.push(Token::Handshake);
+                    }
+                    match &state.inner {
+                        P2pNetworkSelectStateInner::Uncertain { proposing } => {
+                            tokens.push(Token::SimultaneousConnect);
+                            tokens.push(Token::Protocol(*proposing));
+                        }
+                        P2pNetworkSelectStateInner::Initiator { proposing } => {
+                            tokens.push(Token::Protocol(*proposing));
+                        }
+                        _ => {}
+                    };
+                    store.dispatch(P2pNetworkSelectOutgoingTokensAction {
+                        addr: a.addr,
+                        kind: a.kind,
+                        tokens,
+                    });
                 }
-                match &state.inner {
-                    P2pNetworkSelectStateInner::Uncertain { proposing } => {
-                        tokens.push(Token::SimultaneousConnect);
-                        tokens.push(Token::Protocol(*proposing));
-                    }
-                    P2pNetworkSelectStateInner::Initiator { proposing } => {
-                        tokens.push(Token::Protocol(*proposing));
-                    }
-                    _ => {}
-                };
-                store.dispatch(P2pNetworkSelectOutgoingTokensAction {
-                    addr: a.addr,
-                    kind: a.kind,
-                    tokens,
-                });
             }
             Self::IncomingData(a) => {
                 if let Some(Some(negotiated)) = &state.negotiated {
