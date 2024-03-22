@@ -42,17 +42,10 @@ impl P2pNetworkRpcState {
                                     header,
                                     bytes: slice.to_vec().into(),
                                 },
-                                Ok(MessageHeader::Response(header)) => {
-                                    if let Some((_, req)) = &self.pending {
-                                        *self.total_stats.entry(req.clone()).or_default() += 1;
-                                    } else {
-                                        // suspisious, peer sent us response, but no request
-                                    }
-                                    RpcMessage::Response {
-                                        header,
-                                        bytes: slice.to_vec().into(),
-                                    }
-                                }
+                                Ok(MessageHeader::Response(header)) => RpcMessage::Response {
+                                    header,
+                                    bytes: slice.to_vec().into(),
+                                },
                                 Err(err) => {
                                     self.error = Some(err.to_string());
                                     continue;
