@@ -1109,7 +1109,7 @@ impl From<&MinaBaseAccountUpdateTStableV1> for AccountUpdate {
                 public_key: value.body.public_key.clone().into_inner().into(),
                 token_id: value.body.token_id.clone().into_inner().into(),
                 update: zkapp_command::Update {
-                    app_state: std::array::from_fn(|i| match &value.body.update.app_state[i] {
+                    app_state: value.body.update.app_state.each_ref().map(|s| match s {
                         AppState::Set(bigint) => SetOrKeep::Set(bigint.to_field()),
                         AppState::Keep => SetOrKeep::Keep,
                     }),
@@ -1283,7 +1283,7 @@ impl From<&AccountUpdate> for MinaBaseAccountUpdateTStableV1 {
                 public_key: (&value.body.public_key).into(),
                 token_id: (&value.body.token_id).into(),
                 update: MinaBaseAccountUpdateUpdateStableV1 {
-                    app_state: PaddedSeq(std::array::from_fn(|i| match &value.body.update.app_state[i] {
+                    app_state: PaddedSeq(value.body.update.app_state.each_ref().map(|s| match s {
                         SetOrKeep::Set(bigint) => AppState::Set(bigint.into()),
                         SetOrKeep::Keep => AppState::Keep,
                     })),

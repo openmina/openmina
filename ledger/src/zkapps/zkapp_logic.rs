@@ -816,13 +816,11 @@ where
     let (_a, _local_state) = {
         let app_state = &account_update.body().update.app_state;
         let keeping_app_state = {
-            let is_all_keep: [_; 8] = std::array::from_fn(|i| Z::SetOrKeep::is_keep(&app_state[i]));
-            assert_eq!(is_all_keep.len(), app_state.len()); // TODO: Use `array::each_ref` when stable
+            let is_all_keep: [_; 8] = app_state.each_ref().map(Z::SetOrKeep::is_keep);
             Z::Bool::all(&is_all_keep, w)
         };
         let changing_entire_app_state = {
-            let is_all_set: [_; 8] = std::array::from_fn(|i| Z::SetOrKeep::is_set(&app_state[i]));
-            assert_eq!(is_all_set.len(), app_state.len()); // TODO: Use `array::each_ref` when stable
+            let is_all_set: [_; 8] = app_state.each_ref().map(Z::SetOrKeep::is_set);
             Z::Bool::all(&is_all_set, w)
         };
         let proved_state = {

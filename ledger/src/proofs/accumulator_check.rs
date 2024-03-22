@@ -1,5 +1,3 @@
-use std::array;
-
 use mina_curves::pasta::Vesta;
 use mina_hasher::Fp;
 use mina_p2p_messages::{bigint::BigInt, v2::PicklesProofProofsVerified2ReprStableV2};
@@ -23,7 +21,7 @@ pub fn accumulator_check(
         .iter()
         .map(|chal| {
             let prechallenge = &chal.prechallenge.inner;
-            let prechallenge: [u64; 2] = array::from_fn(|k| prechallenge[k].as_u64());
+            let prechallenge: [u64; 2] = prechallenge.each_ref().map(|c| c.as_u64());
 
             ScalarChallenge::limbs_to_field(&prechallenge)
         })
