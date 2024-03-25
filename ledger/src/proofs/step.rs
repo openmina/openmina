@@ -209,16 +209,14 @@ impl From<&v2::PicklesProofProofsVerified2ReprStableV2StatementProofState> for S
         Self {
             deferred_values: StatementDeferredValues {
                 plonk: plonk.into(),
-                bulletproof_challenges: std::array::from_fn(|i| {
-                    std::array::from_fn(|j| {
-                        bulletproof_challenges[i].prechallenge.inner[j].as_u64()
-                    })
-                }),
+                bulletproof_challenges: bulletproof_challenges
+                    .each_ref()
+                    .map(|challenge| challenge.prechallenge.inner.each_ref().map(|v| v.as_u64())),
                 branch_data: branch_data.clone(),
             },
-            sponge_digest_before_evaluations: std::array::from_fn(|i| {
-                sponge_digest_before_evaluations[i].as_u64()
-            }),
+            sponge_digest_before_evaluations: sponge_digest_before_evaluations
+                .each_ref()
+                .map(|v| v.as_u64()),
             messages_for_next_wrap_proof: MessagesForNextWrapProof {
                 challenge_polynomial_commitment: InnerCurve::from((
                     c0.to_field::<Fq>(),
@@ -226,11 +224,9 @@ impl From<&v2::PicklesProofProofsVerified2ReprStableV2StatementProofState> for S
                 )),
                 old_bulletproof_challenges: old_bulletproof_challenges
                     .iter()
-                    .map(|v| {
-                        std::array::from_fn(|i| {
-                            u64_to_field::<_, 2>(&std::array::from_fn(|j| {
-                                v.0[i].prechallenge.inner[j].as_u64()
-                            }))
+                    .map(|old_bulletproof_challenge| {
+                        old_bulletproof_challenge.each_ref().map(|chal| {
+                            u64_to_field(&chal.prechallenge.inner.each_ref().map(|v| v.as_u64()))
                         })
                     })
                     .collect(),
@@ -2101,17 +2097,17 @@ fn expand_proof(params: ExpandProofParams) -> ExpandedProof {
                     .deferred_values
                     .bulletproof_challenges
                     .iter()
-                    .map(|v| {
-                        u64_to_field::<_, 2>(&std::array::from_fn(|i| {
-                            v.prechallenge.inner[i].as_u64()
-                        }))
+                    .map(|challenge| {
+                        u64_to_field(&challenge.prechallenge.inner.each_ref().map(|v| v.as_u64()))
                     })
                     .collect(),
                 branch_data: deferred_values.branch_data,
             },
-            sponge_digest_before_evaluations: std::array::from_fn(|i| {
-                statement.proof_state.sponge_digest_before_evaluations[i].as_u64()
-            }),
+            sponge_digest_before_evaluations: statement
+                .proof_state
+                .sponge_digest_before_evaluations
+                .each_ref()
+                .map(|v| v.as_u64()),
             messages_for_next_wrap_proof: MessagesForNextWrapProof {
                 old_bulletproof_challenges: prev_challenges.clone(),
                 challenge_polynomial_commitment: {
@@ -2473,9 +2469,8 @@ pub fn extract_recursion_challenges<const N: usize>(
 ) -> Vec<RecursionChallenge<GroupAffine<Fq>>> {
     use poly_commitment::PolyComm;
 
-    let comms: [(Fq, Fq); N] = std::array::from_fn(|i| {
-        let p = &proofs[i];
-        let (a, b) = &p
+    let comms: [(Fq, Fq); N] = proofs.map(|proof| {
+        let (a, b) = &proof
             .statement
             .proof_state
             .messages_for_next_wrap_proof
@@ -2582,15 +2577,15 @@ pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
         .unwrap();
 
     let prevs: [&PerProofWitness; N_PREVIOUS] =
-        w.exists(std::array::from_fn(|i| &expanded_proofs[i].witness));
+        w.exists(expanded_proofs.each_ref().map(|p| &p.witness));
     let unfinalized_proofs_unextended: [&Unfinalized; N_PREVIOUS] =
-        w.exists(std::array::from_fn(|i| &expanded_proofs[i].unfinalized));
+        w.exists(expanded_proofs.each_ref().map(|p| &p.unfinalized));
 
     let messages_for_next_wrap_proof: [Fp; N_PREVIOUS] = {
         let f = u64_to_field::<Fp, 4>;
-        std::array::from_fn(|i| {
-            f(&expanded_proofs[i]
-                .prev_statement_with_hashes
+
+        expanded_proofs.each_ref().map(|p| {
+            f(&p.prev_statement_with_hashes
                 .proof_state
                 .messages_for_next_wrap_proof)
         })
@@ -2611,7 +2606,7 @@ pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
         let all_possible_domains = wrap_verifier::all_possible_domains();
 
         let actuals_wrap_domain: [u32; N_PREVIOUS] =
-            std::array::from_fn(|i| expanded_proofs[i].actual_wrap_domain);
+            expanded_proofs.each_ref().map(|p| p.actual_wrap_domain);
 
         actuals_wrap_domain.map(|domain_size| {
             let domain_size = domain_size as u64;
@@ -2715,8 +2710,10 @@ pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
         w,
     )?;
 
-    let proofs: [&v2::PicklesProofProofsVerified2ReprStableV2; N_PREVIOUS] =
-        std::array::from_fn(|i| rule.previous_proof_statements[i].proof);
+    let proofs: [&v2::PicklesProofProofsVerified2ReprStableV2; N_PREVIOUS] = rule
+        .previous_proof_statements
+        .each_ref()
+        .map(|stmt| stmt.proof);
 
     let prev_evals = proofs
         .iter()
@@ -2757,7 +2754,7 @@ pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
 
     let old_bulletproof_challenges = old_bulletproof_challenges
         .into_iter()
-        .map(|v: [[u64; 2]; 16]| std::array::from_fn(|i| u64_to_field::<Fp, 2>(&v[i])))
+        .map(|v: [[u64; 2]; 16]| v.each_ref().map(u64_to_field))
         .collect();
 
     let step_statement = crate::proofs::transaction::StepStatement {

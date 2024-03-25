@@ -523,18 +523,17 @@ impl CircuitPlonkVerificationKeyEvals<Fp> {
             endomul_scalar,
         } = self;
 
-        use std::array;
-        let c = |c: &GroupAffine<Fp>| InnerCurve::<Fp>::of_affine(*c);
+        let c = |c: &CircuitVar<GroupAffine<Fp>>| InnerCurve::<Fp>::of_affine(*c.value());
 
         PlonkVerificationKeyEvals::<Fp> {
-            sigma: array::from_fn(|i| c(sigma[i].value())),
-            coefficients: array::from_fn(|i| c(coefficients[i].value())),
-            generic: c(generic.value()),
-            psm: c(psm.value()),
-            complete_add: c(&complete_add.value()),
-            mul: c(&mul.value()),
-            emul: c(&emul.value()),
-            endomul_scalar: c(&endomul_scalar.value()),
+            sigma: sigma.each_ref().map(c),
+            coefficients: coefficients.each_ref().map(c),
+            generic: c(generic),
+            psm: c(psm),
+            complete_add: c(complete_add),
+            mul: c(mul),
+            emul: c(emul),
+            endomul_scalar: c(endomul_scalar),
         }
     }
 }
@@ -555,12 +554,11 @@ impl PlonkVerificationKeyEvals<Fp> {
             endomul_scalar,
         } = self;
 
-        use std::array;
         let cvar = |c: &InnerCurve<Fp>| cvar(c.to_affine());
 
         CircuitPlonkVerificationKeyEvals::<Fp> {
-            sigma: array::from_fn(|i| cvar(&sigma[i])),
-            coefficients: array::from_fn(|i| cvar(&coefficients[i])),
+            sigma: sigma.each_ref().map(cvar),
+            coefficients: coefficients.each_ref().map(cvar),
             generic: cvar(&generic),
             psm: cvar(&psm),
             complete_add: cvar(&complete_add),

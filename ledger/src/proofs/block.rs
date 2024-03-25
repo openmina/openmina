@@ -702,8 +702,8 @@ mod vrf {
     pub const VRF_OUTPUT_NBITS: usize = 253;
 
     fn truncate_vrf_output(output: Fp, w: &mut Witness<Fp>) -> Box<[bool; VRF_OUTPUT_NBITS]> {
-        let output = w.exists(field_to_bits::<_, 255>(output));
-        Box::new(std::array::from_fn(|i| output[i]))
+        let output: [bool; 255] = w.exists(field_to_bits(output));
+        Box::new(std::array::from_fn(|i| output[i])) // 2 last bits are ignored
     }
 
     pub fn check(

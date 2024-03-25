@@ -1493,9 +1493,11 @@ impl From<&WrapProof> for v2::PicklesProofProofsVerified2ReprStableV2 {
                             v2::CompositionTypesDigestConstantStableV1({
                                 let BigInteger256(bigint) =
                                     (*sponge_digest_before_evaluations).into();
-                                PaddedSeq(array::from_fn(|i| {
-                                    v2::LimbVectorConstantHex64StableV1(bigint[i].into())
-                                }))
+                                PaddedSeq(
+                                    bigint
+                                        .each_ref()
+                                        .map(|v| v2::LimbVectorConstantHex64StableV1(v.into())),
+                                )
                             }),
                         messages_for_next_wrap_proof:
                             v2::PicklesProofProofsVerified2ReprStableV2MessagesForNextWrapProof {
@@ -1565,7 +1567,7 @@ impl From<&WrapProof> for v2::PicklesProofProofsVerified2ReprStableV2 {
             },
             proof: v2::PicklesWrapWireProofStableV1 {
                 commitments: v2::PicklesWrapWireProofCommitmentsStableV1 {
-                    w_comm: PaddedSeq(array::from_fn(|i| to_tuple(&w_comm[i].unshifted[0]))),
+                    w_comm: PaddedSeq(w_comm.each_ref().map(|w| to_tuple(&w.unshifted[0]))),
                     z_comm: to_tuple(&z_comm.unshifted[0]),
                     t_comm: PaddedSeq(array::from_fn(|i| to_tuple(&t_comm.unshifted[i]))),
                 },
@@ -1589,10 +1591,10 @@ impl From<&WrapProof> for v2::PicklesProofProofsVerified2ReprStableV2 {
                     };
 
                     v2::PicklesWrapWireProofEvaluationsStableV1 {
-                        w: PaddedSeq(array::from_fn(|i| to_tuple(&w[i]))),
-                        coefficients: PaddedSeq(array::from_fn(|i| to_tuple(&coefficients[i]))),
+                        w: PaddedSeq(w.each_ref().map(to_tuple)),
+                        coefficients: PaddedSeq(coefficients.each_ref().map(to_tuple)),
                         z: to_tuple(z),
-                        s: PaddedSeq(array::from_fn(|i| to_tuple(&s[i]))),
+                        s: PaddedSeq(s.each_ref().map(to_tuple)),
                         generic_selector: to_tuple(generic_selector),
                         poseidon_selector: to_tuple(poseidon_selector),
                         complete_add_selector: to_tuple(complete_add_selector),

@@ -1,5 +1,3 @@
-use std::array;
-
 use ark_ff::{BigInteger256, Field};
 use kimchi::proof::ProofEvaluations;
 use mina_hasher::Fp;
@@ -45,9 +43,8 @@ pub fn extract_bulletproof<
 ) -> Vec<[F; N]> {
     v.into_iter()
         .map(|old| {
-            array::from_fn(|j| {
-                let prechallenge = &old[j].prechallenge.inner;
-                let prechallenge: [u64; 2] = array::from_fn(|k| prechallenge[k].as_u64());
+            old.each_ref().map(|old| {
+                let prechallenge = old.prechallenge.inner.each_ref().map(|v| v.as_u64());
                 ScalarChallenge::limbs_to_field(&prechallenge)
             })
         })

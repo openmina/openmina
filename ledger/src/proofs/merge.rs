@@ -113,10 +113,12 @@ impl<F: FieldWitness>
             feature_flags: _, // TODO: Handle features flags
         } = value;
 
-        let alpha_bytes = std::array::from_fn(|i| alpha.inner[i].as_u64());
-        let beta_bytes = std::array::from_fn(|i| beta[i].as_u64());
-        let gamma_bytes = std::array::from_fn(|i| gamma[i].as_u64());
-        let zeta_bytes = std::array::from_fn(|i| zeta.inner[i].as_u64());
+        let to_bytes = |v: &v2::LimbVectorConstantHex64StableV1| v.as_u64();
+
+        let alpha_bytes = alpha.inner.each_ref().map(to_bytes);
+        let beta_bytes = beta.each_ref().map(to_bytes);
+        let gamma_bytes = gamma.each_ref().map(to_bytes);
+        let zeta_bytes = zeta.inner.each_ref().map(to_bytes);
 
         assert!(joint_combiner.is_none());
 

@@ -195,10 +195,10 @@ pub fn evals_from_p2p<F: FieldWitness>(
 
     use std::array;
     ProofEvaluations {
-        w: array::from_fn(|i| of(&w[i])),
+        w: w.each_ref().map(of),
         z: of(z),
-        s: array::from_fn(|i| of(&s[i])),
-        coefficients: array::from_fn(|i| of(&coefficients[i])),
+        s: s.each_ref().map(of),
+        coefficients: coefficients.each_ref().map(of),
         generic_selector: of(generic_selector),
         poseidon_selector: of(poseidon_selector),
         complete_add_selector: of(complete_add_selector),
@@ -288,7 +288,7 @@ pub fn dummy_ipa_step_challenges() -> [[u64; 2]; BACKEND_TICK_ROUNDS_N] {
 pub fn dummy_ipa_step_challenges_computed() -> [Fp; BACKEND_TICK_ROUNDS_N] {
     cache_one!([Fp; BACKEND_TICK_ROUNDS_N], {
         let challenges = dummy_ipa_step_challenges();
-        std::array::from_fn(|i| ScalarChallenge::limbs_to_field(&challenges[i]))
+        challenges.each_ref().map(ScalarChallenge::limbs_to_field)
     })
 }
 
