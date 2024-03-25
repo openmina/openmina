@@ -22,7 +22,6 @@ const GLOBAL_TIMEOUT: Duration = Duration::from_secs(60 * 60);
 const STEP_DURATION: Duration = Duration::from_millis(500);
 
 const SECOND_EPOCH_LAST_SLOT: u32 = 14_279;
-const THIRD_EPOCH_LAST_SLOT: u32 = 21_419;
 
 const KEEP_SYNCED: bool = true;
 
@@ -109,7 +108,9 @@ impl MultiNodeVrfEpochBoundsCorrectLedger {
             .await
             .unwrap();
 
-        eprintln!("[PREP] Snarker node connected");
+        let (state, _) = runner.node_pending_events(snarker_node, false).unwrap();
+        let snarker_peer_id = state.p2p.my_id().to_string();
+        eprintln!("[PREP] Snarker node connected, peer_id: {snarker_peer_id}");
 
         let mut total_produced_blocks: u32 = 0;
 
@@ -150,7 +151,20 @@ impl MultiNodeVrfEpochBoundsCorrectLedger {
             panic!("No pending evaluation!");
         };
 
-        // produce blocks until evaluation finishes for the first two epochs
+        // produce blocks until we have enough coinbase transactions so the snarked ledger moves
+
+        // TODO(adonagy): get stuff from constants once available
+        const TX_CAP_LOG_2: u32 = 7;
+        const WORK_DELAY: u32 = 2;
+        const NUM_PROOFS: u32 = 1;
+
+        let tx_cap = 2u32.pow(TX_CAP_LOG_2);
+
+        let blocks_for_first_ledger_proof = (WORK_DELAY + 1) * (TX_CAP_LOG_2 + 1) + 1;
+        let tranasctions_needed = (blocks_for_first_ledger_proof * tx_cap) + (tx_cap * (NUM_PROOFS - 1));
+
+        eprintln!("Blocks/TXs needed for snarked ledger: {tranasctions_needed}");
+
         total_produced_blocks += runner
             .produce_blocks_until(
                 producer_node,
@@ -163,18 +177,47 @@ impl MultiNodeVrfEpochBoundsCorrectLedger {
                         &state.block_producer.vrf_evaluator().unwrap().status;
 
                     eprintln!("Evaluator state: {}", vrf_evaluator_status);
-                    // TODO: remove
-                    produced_blocks >= 3600
+                    // 1 Coinbase tx per block
+                    produced_blocks >= tranasctions_needed
+                    // produced_blocks >= 3
                 },
             )
             .await;
+
+        // let (state, _) = runner.node_pending_events(producer_node, false).unwrap();
+        // runner.dump_node_states();
+        // return ;
+        
+
+        // wait until evaluator finishes evaluating all the possible slots
+        eprintln!("Waiting for evaluator to finish evaluation");
+        runner
+            .run(
+                Duration::from_secs(5 * 60),
+                |_, _, _| RunDecision::ContinueExec,
+                move |node_id, _, _, action| {
+                    if node_id == producer_node {
+                        matches!(
+                            action.action().kind(),
+                            ActionKind::BlockProducerVrfEvaluatorWaitForNextEvaluation
+                            | ActionKind::BlockProducerVrfEvaluatorFinishEpochEvaluation
+                        )
+                    } else {
+                        false
+                    }
+                },
+            )
+            .await
+            .unwrap();
+
+        eprintln!("Evaluation Finished");
 
         let (state, _) = runner.node_pending_events(producer_node, false).unwrap();
         let last_evaluated_slot = state
             .block_producer
             .vrf_evaluator()
             .unwrap()
-            .latest_evaluated_slot;
+                .latest_evaluated_slot;
 
         // should have all the slots in the first and second epoch
         assert_eq!(
@@ -257,9 +300,10 @@ impl MultiNodeVrfEpochBoundsCorrectLedger {
             }
         }
 
-        let expected_balance = (total_produced_blocks * 720_000_000) as u64 + initial_balance;
+        let expected_balance = (tranasctions_needed * 720_000_000) as u64 + initial_balance;
 
         assert_eq!(expected_balance, new_balance);
+        eprintln!("Balance OK!");
 
         eprintln!("Test duration: {:?}", start.elapsed());
 

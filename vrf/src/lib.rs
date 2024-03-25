@@ -285,20 +285,20 @@ mod test {
     #[test]
     #[ignore]
     fn test_first_winning_slot() {
-        for i in 0..7000 {
+        for i in 0..14280 {
             let vrf_input = VrfEvaluationInput {
                 producer_key: keypair_from_bs58_string(
-                    "EKEEpMELfQkMbJDt2fB4cFXKwSf1x4t7YD4twREy5yuJ84HBZtF9",
+                    "EKEQGWy4TjbVeqKjbe7TW81DKQM34min5FNmXpKArHKLyGVd3KSP",
                 ),
                 epoch_seed: EpochSeed::from_str(
                     "2va9BGv9JrLTtrzZttiEMDYw1Zj6a6EHzXjmP9evHDTG3oEquURA",
                 )
                 .unwrap(),
                 global_slot: i,
-                delegator_index: AccountIndex(2),
-                delegated_stake: BigInt::from_str("1000000000000000")
+                delegator_index: AccountIndex(173),
+                delegated_stake: BigInt::from_str("2000000000000")
                     .expect("Cannot convert to BigInt"),
-                total_currency: BigInt::from_str("6000000000001000")
+                total_currency: BigInt::from_str("1016216569000001")
                     .expect("Cannot convert to BigInt"),
                 account_pub_key: "Placeholder".to_string(),
             };
@@ -306,6 +306,64 @@ mod test {
                 evaluate_vrf(vrf_input.clone()).expect("Failed to evaluate vrf");
             if evaluation_result != VrfEvaluationOutput::SlotLost(vrf_input.global_slot) {
                 println!("{:?}", evaluation_result);
+            }
+        }
+    }
+
+    #[test]
+    #[ignore]
+    fn test_first_winning_slot_2() {
+
+        let genesis_timestamp_nanos: i128 = 1_706_882_461_000_000_000;
+
+        let to_hrf = |global_slot: u32| -> (String, i128) {
+            let timestamp = genesis_timestamp_nanos + (global_slot as i128) * 3 * 60 * 1_000_000_000;
+            let datetime = time::OffsetDateTime::from_unix_timestamp_nanos(timestamp).unwrap();
+            (datetime.format(&time::format_description::well_known::Rfc3339).unwrap(), timestamp)
+        };
+
+        let to_slot = |timestamp: i128| -> u32 {
+            ((timestamp - genesis_timestamp_nanos) / 3 / 60 / 1_000_000_000) as u32
+        };
+
+        const EPOCH: u32 = 3;
+        let start = EPOCH * 7140;
+        let end = start + 7140 - 1;
+        let epoch_seed = EpochSeed::from_str(
+            "2vbSk4XMzvF21rHF6U2ngpaD7sRK69SSDqZF8sCwmRSsx4ZTBL9b",
+        )
+        .unwrap();
+
+        let now = time::OffsetDateTime::now_utc().unix_timestamp_nanos();
+
+        let start = if now >= to_hrf(start).1 {
+            to_slot(now)
+        } else {
+            start
+        };
+
+        println!("Checking epoch: {EPOCH} - [{start} - {end}] - Seed: {epoch_seed}");
+
+        for i in start..=end {
+            for j in 172..=172 {
+                let vrf_input = VrfEvaluationInput {
+                    producer_key: keypair_from_bs58_string(
+                        "EKFCZDhG2xjTa3UenPkEhKdzGixop6GucS4oMAD6VYWSfUSK2CXd",
+                    ),
+                    epoch_seed: epoch_seed.clone(),
+                    global_slot: i,
+                    delegator_index: AccountIndex(j),
+                    delegated_stake: BigInt::from_str("2000000000000")
+                        .expect("Cannot convert to BigInt"),
+                    total_currency: BigInt::from_str("1019264689000001")
+                        .expect("Cannot convert to BigInt"),
+                    account_pub_key: j.to_string(),
+                };
+                let evaluation_result =
+                    evaluate_vrf(vrf_input.clone()).expect("Failed to evaluate vrf");
+                if let VrfEvaluationOutput::SlotWon(won_slot) = evaluation_result {
+                    println!("Slot: {} - Slot time: {} - Account: {}", won_slot.global_slot, to_hrf(i).0, won_slot.account_index.as_u64());
+                }
             }
         }
     }

@@ -4,6 +4,7 @@ use std::{
     time::Duration,
 };
 
+use anyhow::Ok;
 use ledger::BaseLedger;
 use node::{
     account::{AccountPublicKey, AccountSecretKey},
@@ -20,8 +21,8 @@ use crate::{
         DaemonJson, DaemonJsonGenConfig, Node, NodeTestingConfig, NonDeterministicEvent, OcamlNode,
         OcamlNodeTestingConfig, RustNodeTestingConfig,
     },
-    scenario::ScenarioStep,
-    service::{DynEffects, NodeTestingService, PendingEventId},
+    scenario::{ScenarioStep, ListenerNode},
+    service::{DynEffects, NodeTestingService, PendingEventId}, scenarios::connect_rust_nodes,
 };
 
 pub struct ClusterRunner<'a> {
@@ -141,6 +142,12 @@ impl<'a> ClusterRunner<'a> {
         };
 
         self.cluster.add_rust_node(config)
+    }
+
+    pub fn restart_rust_node(&mut self, node_id: ClusterNodeId) {
+        let config = self.node(node_id).unwrap().config().clone();
+        self.cluster.remove_rust_node(node_id);
+        self.add_rust_node(config.clone());
     }
 
     pub fn add_ocaml_node(&mut self, testing_config: OcamlNodeTestingConfig) -> ClusterOcamlNodeId {
@@ -332,6 +339,72 @@ impl<'a> ClusterRunner<'a> {
         Ok(())
     }
 
+    pub async fn run_until_best_tip_slot(
+        &mut self,
+        mut timeout: Duration,
+        best_tip_global_slot: &u32,
+    ) -> Vec<ClusterNodeId> {
+        while !timeout.is_zero()
+        && !self.nodes_iter().all(|(node_id, _)| {
+            self.node(node_id)
+                .unwrap()
+                .state()
+                .transition_frontier
+                .best_tip()
+                .unwrap()
+                .global_slot() == *best_tip_global_slot
+        }) {
+            let t = redux::Instant::now();
+            let run_res = self.run(
+                timeout,
+                |_, _, _| RunDecision::ContinueExec,
+                |_, _, _, action| {
+                    matches!(action.action().kind(), ActionKind::TransitionFrontierSynced)
+                },
+            )
+            .await;
+
+            if run_res.is_err() {
+                // return the nodes that are not synced
+                let unsynced: Vec<ClusterNodeId> = self.nodes_iter().filter(|(_, node)| {
+                    node.state().transition_frontier.best_tip().unwrap().global_slot() != *best_tip_global_slot
+                })
+                .map(|(node_id, _)| node_id)
+                .collect();
+                return unsynced;
+            }
+
+            timeout = timeout.checked_sub(t.elapsed()).unwrap_or_default();
+        }
+        Vec::new()
+    }
+
+    pub fn dump_node_states(&mut self) {
+        use time::format_description::well_known::Rfc3339;
+        use std::fs;
+
+        eprintln!("Dumping node states...");
+
+        let current_time = OffsetDateTime::now_utc();
+        let time_format = current_time.format(&Rfc3339).unwrap();
+        let directory_name = format!("test-run-{time_format}-states");
+
+        fs::create_dir_all(&directory_name).unwrap();
+
+        self.nodes_iter().for_each(|(node_id, _)| {
+            let state = self.node(node_id)
+                .unwrap()
+                .state();
+
+            let file_path = format!("{directory_name}/{node_id}-state.json");
+            let file = fs::File::create(file_path).unwrap();
+
+            serde_json::to_writer_pretty(&file, &state).unwrap();
+        });
+        eprintln!("Node states dumped");
+
+    }
+
     pub fn pending_events(
         &mut self,
         poll: bool,
@@ -463,6 +536,9 @@ impl<'a> ClusterRunner<'a> {
                     .unwrap();
             }
 
+            eprintln!();
+            eprintln!("[{log_tag}] Running cluster");
+
             // run
             let _ = self
                 .run(
@@ -471,12 +547,6 @@ impl<'a> ClusterRunner<'a> {
                     move |node_id, _, _, action| false,
                 )
                 .await;
-            if keep_synced {
-                // make sure every node is synced, longer timeout in case one node disconnects and it needs to resync
-                self.run_until_nodes_synced(Duration::from_secs(5 * 60), &nodes)
-                    .await
-                    .unwrap();
-            }
 
             let (state, _) = self.node_pending_events(producer_node, false).unwrap();
 
@@ -509,6 +579,44 @@ impl<'a> ClusterRunner<'a> {
             let current_time = OffsetDateTime::now_utc();
             eprintln!("[{log_tag}][{current_time}][{current_state_machine_time_formated}] Slot(best tip / current slot): {best_tip_slot} / {current_global_slot}");
 
+            if predicate(state, last_slot, produced_blocks) {
+                eprintln!("[{log_tag}] Condition met");
+                return produced_blocks;
+            }
+
+            if keep_synced {
+                eprintln!("[{log_tag}] Syncing nodes");
+
+                let unsynced = self.run_until_best_tip_slot(Duration::from_secs(10), best_tip_slot).await;
+
+                if unsynced.is_empty() {
+                    eprintln!("[{log_tag}] Nodes synced");
+                } else {
+                    // restart the nodes
+                    eprintln!("[{log_tag}] Nodes unsynced: {unsynced:?}");
+                    for node_id in unsynced {
+                        eprintln!("[{log_tag}] Restarting node {node_id}");
+                        if node_id == producer_node {
+                            unreachable!("[{log_tag}] The producer node is the basis for best tip comparison, this should not happen")
+                        }
+                        self.restart_rust_node(node_id);
+                        self.exec_step(ScenarioStep::ConnectNodes { dialer: node_id, listener: ListenerNode::Rust(producer_node) }).await.unwrap();
+                    }
+                    eprintln!("[{log_tag}] Trying to resync nodes");
+                    self.run_until_nodes_synced(Duration::from_secs(5 * 60), &self.nodes_iter().map(|(node_id, _)| node_id).collect::<Vec<_>>()).await.expect("Nodes not synced even after restart");
+                    eprintln!("[{log_tag}] Nodes synced");
+                }
+
+                // if self.run_until_best_tip_slot(Duration::from_secs(5 * 60), best_tip_slot).await.is_err() {
+                //     let (state, _) = self.node_pending_events(producer_node, false).unwrap();
+                //     // eprintln!("Producer state: {:?}", state.block_producer.producer_state());
+                //     self.dump_node_states();
+                //     panic!("Sync error");
+                // } else {
+                //     eprintln!("Nodes synced");
+                // }
+            }
+
             if best_tip_slot <= &0 {
                 let by_nanos = Duration::from_secs(3 * 60).as_nanos() as u64;
                 self.exec_step(ScenarioStep::AdvanceTime { by_nanos })
@@ -520,13 +628,6 @@ impl<'a> ClusterRunner<'a> {
                 produced_blocks += 1;
             } else {
                 continue;
-            }
-
-            let (state, _) = self.node_pending_events(producer_node, false).unwrap();
-
-            if predicate(state, last_slot, produced_blocks) {
-                eprintln!("[{log_tag}] Condition met");
-                return produced_blocks;
             }
 
             if let Some(won_slot) = next_won_slot {

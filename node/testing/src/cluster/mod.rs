@@ -52,6 +52,8 @@ use crate::{
     service::{NodeTestingService, PendingEventId},
 };
 
+use self::node_id::ClusterNodeIdGenerator;
+
 #[allow(dead_code)]
 fn openmina_path<P: AsRef<Path>>(path: P) -> Option<PathBuf> {
     std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".cache/openmina").join(path))
@@ -121,7 +123,8 @@ pub struct Cluster {
     scenario: ClusterScenarioRun,
     available_ports: Box<dyn Iterator<Item = u16> + Send>,
     account_sec_keys: BTreeMap<AccountPublicKey, AccountSecretKey>,
-    nodes: Vec<Node>,
+    nodes: BTreeMap<ClusterNodeId, Node>,
+    node_id_generator: ClusterNodeIdGenerator,
     ocaml_nodes: Vec<Option<OcamlNode>>,
     // TODO: remove option if this is viable in the future
     chain_id: Option<String>,
@@ -163,7 +166,8 @@ impl Cluster {
             },
             available_ports: Box::new(available_ports),
             account_sec_keys: Default::default(),
-            nodes: Vec::new(),
+            nodes: BTreeMap::new(),
+            node_id_generator: ClusterNodeIdGenerator::new(),
             ocaml_nodes: Vec::new(),
             chain_id: None,
             initial_time: None,
@@ -209,7 +213,7 @@ impl Cluster {
 
     pub fn add_rust_node(&mut self, testing_config: RustNodeTestingConfig) -> ClusterNodeId {
         let node_config = testing_config.clone();
-        let node_id = ClusterNodeId::new_unchecked(self.nodes.len());
+        let node_id = self.node_id_generator.new_id();
         let (shutdown_tx, shutdown_rx) = mpsc::channel(1);
         let secret_key = P2pSecretKey::from_bytes(match testing_config.peer_id {
             TestPeerId::Derived => {
@@ -400,8 +404,13 @@ impl Cluster {
         );
         let node = Node::new(node_config, store);
 
-        self.nodes.push(node);
+        self.nodes.insert(node_id, node);
         node_id
+    }
+
+    pub fn remove_rust_node(&mut self, node_id: ClusterNodeId) {
+        self.nodes.remove(&node_id);
+        self.node_id_generator.release_id(node_id);
     }
 
     pub fn add_ocaml_node(&mut self, testing_config: OcamlNodeTestingConfig) -> ClusterOcamlNodeId {
@@ -482,8 +491,7 @@ impl Cluster {
     pub fn nodes_iter(&self) -> impl Iterator<Item = (ClusterNodeId, &Node)> {
         self.nodes
             .iter()
-            .enumerate()
-            .map(|(i, node)| (ClusterNodeId::new_unchecked(i), node))
+            .map(|(i, node)| (*i, node))
     }
 
     pub fn ocaml_nodes_iter(&self) -> impl Iterator<Item = (ClusterOcamlNodeId, &OcamlNode)> {
@@ -495,7 +503,7 @@ impl Cluster {
     }
 
     pub fn node(&self, node_id: ClusterNodeId) -> Option<&Node> {
-        self.nodes.get(node_id.index())
+        self.nodes.get(&node_id)
     }
 
     pub fn node_by_peer_id(&self, peer_id: PeerId) -> Option<&Node> {
@@ -505,7 +513,7 @@ impl Cluster {
     }
 
     pub fn node_mut(&mut self, node_id: ClusterNodeId) -> Option<&mut Node> {
-        self.nodes.get_mut(node_id.index())
+        self.nodes.get_mut(&node_id)
     }
 
     pub fn ocaml_node(&self, node_id: ClusterOcamlNodeId) -> Option<&OcamlNode> {
@@ -530,10 +538,9 @@ impl Cluster {
             impl Iterator<Item = (PendingEventId, &Event)>,
         ),
     > {
-        self.nodes.iter_mut().enumerate().map(move |(i, node)| {
-            let node_id = ClusterNodeId::new_unchecked(i);
+        self.nodes.iter_mut().map(move |(node_id, node)| {
             let (state, pending_events) = node.pending_events_with_state(poll);
-            (node_id, state, pending_events)
+            (*node_id, state, pending_events)
         })
     }
 
@@ -544,13 +551,15 @@ impl Cluster {
     ) -> Result<(&State, impl Iterator<Item = (PendingEventId, &Event)>), anyhow::Error> {
         let node = self
             .nodes
-            .get_mut(node_id.index())
+            .get_mut(&node_id)
             .ok_or_else(|| anyhow::anyhow!("node {node_id:?} not found"))?;
         Ok(node.pending_events_with_state(poll))
     }
 
     pub async fn wait_for_pending_events(&mut self) {
-        let mut nodes = &mut self.nodes[..];
+        let mut nodes = self.nodes.values_mut().collect::<Vec<_>>();
+        let mut nodes = nodes.as_mut_slice();
+
         let mut futures = FuturesUnordered::new();
 
         while let Some((node, nodes_rest)) = nodes.split_first_mut() {
@@ -581,7 +590,7 @@ impl Cluster {
     ) -> anyhow::Result<PendingEventId> {
         let node = self
             .nodes
-            .get_mut(node_id.index())
+            .get_mut(&node_id)
             .ok_or_else(|| anyhow::anyhow!("node {node_id:?} not found"))?;
         let timeout = tokio::time::sleep(Duration::from_secs(60));
         tokio::select! {
@@ -599,7 +608,7 @@ impl Cluster {
         event_pattern: &str,
     ) -> anyhow::Result<bool> {
         let event_id = self.wait_for_pending_event(node_id, event_pattern).await?;
-        let node = self.nodes.get_mut(node_id.index()).unwrap();
+        let node = self.nodes.get_mut(&node_id).unwrap();
         Ok(node.take_event_and_dispatch(event_id))
     }
 
@@ -703,7 +712,7 @@ impl Cluster {
             }
             ScenarioStep::ManualEvent { node_id, event } => self
                 .nodes
-                .get_mut(node_id.index())
+                .get_mut(&node_id)
                 .ok_or_else(|| anyhow::anyhow!("node {node_id:?} not found"))?
                 .dispatch_event(*event),
             ScenarioStep::NonDeterministicEvent { node_id, event } => {
@@ -712,7 +721,7 @@ impl Cluster {
                     NonDeterministicEvent::P2pConnectionClosed(peer_id) => {
                         let node = self
                             .nodes
-                            .get_mut(node_id.index())
+                            .get_mut(&node_id)
                             .ok_or_else(|| anyhow::anyhow!("node {node_id:?} not found"))?;
                         node.p2p_disconnect(peer_id);
                         let event =
@@ -724,7 +733,7 @@ impl Cluster {
                     NonDeterministicEvent::P2pConnectionFinalized(peer_id, res) => {
                         let node = self
                             .nodes
-                            .get(node_id.index())
+                            .get(&node_id)
                             .ok_or_else(|| anyhow::anyhow!("node {node_id:?} not found"))?;
                         let res_is_ok = res.is_ok();
                         let event = Event::P2p(P2pEvent::Connection(
@@ -741,7 +750,7 @@ impl Cluster {
                                     let my_addr = node.dial_addr();
                                     let peer = self
                                         .nodes
-                                        .iter_mut()
+                                        .values_mut()
                                         .find(|node| node.peer_id() == peer_id)
                                         .ok_or_else(|| {
                                             anyhow::anyhow!(
@@ -793,7 +802,7 @@ impl Cluster {
                     NonDeterministicEvent::P2pDiscoveryAddRoute(id, ids) => {
                         let addrs = ids
                             .into_iter()
-                            .map(|id| node_addr_by_peer_id(&self, id))
+                            .map(|id| node_addr_by_peer_id(self, id))
                             .collect::<Result<Vec<_>, _>>()?;
                         P2pEvent::Discovery(P2pDiscoveryEvent::AddRoute(id, addrs)).into()
                     }
@@ -801,7 +810,7 @@ impl Cluster {
                 };
                 eprintln!("non_deterministic_event_dispatch({node_id:?}): {event}");
                 self.nodes
-                    .get_mut(node_id.index())
+                    .get_mut(&node_id)
                     .ok_or_else(|| anyhow::anyhow!("node {node_id:?} not found"))?
                     .dispatch_event(event)
             }
@@ -851,7 +860,7 @@ impl Cluster {
                     ListenerNode::Rust(listener) => {
                         let listener = self
                             .nodes
-                            .get(listener.index())
+                            .get(&listener)
                             .ok_or_else(|| anyhow::anyhow!("node {listener:?} not found"))?;
 
                         listener.dial_addr()
@@ -875,7 +884,7 @@ impl Cluster {
                 let rpc_id = RpcId::new_unchecked(usize::MAX, self.rpc_counter);
                 let dialer = self
                     .nodes
-                    .get_mut(dialer.index())
+                    .get_mut(&dialer)
                     .ok_or_else(|| anyhow::anyhow!("node {dialer:?} not found"))?;
 
                 let req = node::rpc::RpcRequest::P2pConnectionOutgoing(listener_addr);
@@ -884,13 +893,13 @@ impl Cluster {
             ScenarioStep::CheckTimeouts { node_id } => {
                 let node = self
                     .nodes
-                    .get_mut(node_id.index())
+                    .get_mut(&node_id)
                     .ok_or_else(|| anyhow::anyhow!("node {node_id:?} not found"))?;
                 node.check_timeouts();
                 true
             }
             ScenarioStep::AdvanceTime { by_nanos } => {
-                for node in &mut self.nodes {
+                for node in self.nodes.values_mut() {
                     node.advance_time(by_nanos)
                 }
                 true
@@ -898,7 +907,7 @@ impl Cluster {
             ScenarioStep::AdvanceNodeTime { node_id, by_nanos } => {
                 let node = self
                     .nodes
-                    .get_mut(node_id.index())
+                    .get_mut(&node_id)
                     .ok_or_else(|| anyhow::anyhow!("node {node_id:?} not found"))?;
                 node.advance_time(by_nanos);
                 true

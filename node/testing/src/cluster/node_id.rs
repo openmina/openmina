@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{fmt, collections::BTreeSet};
 
 use serde::{Deserialize, Serialize};
 
@@ -61,5 +61,37 @@ impl From<ClusterOcamlNodeId> for u64 {
 impl From<ClusterOcamlNodeId> for usize {
     fn from(value: ClusterOcamlNodeId) -> Self {
         value.0
+    }
+}
+
+pub struct ClusterNodeIdGenerator {
+    released_ids: Vec<ClusterNodeId>,
+    used_ids: BTreeSet<ClusterNodeId>,
+}
+
+impl ClusterNodeIdGenerator {
+    pub fn new() -> Self {
+        Self {
+            released_ids: Vec::new(),
+            used_ids: BTreeSet::new(),
+        }
+    }
+
+    pub fn new_id(&mut self) -> ClusterNodeId {
+        if let Some(node_id) = self.released_ids.pop() {
+            node_id
+        } else {
+            let node_id = ClusterNodeId::new_unchecked(self.used_ids.len());
+            self.used_ids.insert(node_id);
+            node_id
+        }
+    }
+
+    pub fn release_id(&mut self, node_id: ClusterNodeId) {
+        let removed = self.used_ids.remove(&node_id);
+
+        if removed {
+            self.released_ids.push(node_id)
+        }
     }
 }

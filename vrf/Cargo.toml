@@ -24,3 +24,6 @@ itertools = "0.12"
 sha2 = "0.10"
 bs58 = "0.4.0"
 rand = "0.8"
+
+[dev-dependencies]
+time = { version = "0.3", features = ["formatting"] }
