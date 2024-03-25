@@ -2,9 +2,6 @@ use std::collections::{BTreeMap, VecDeque};
 
 use std::sync::{Arc, Mutex};
 
-use node::p2p::service_impl::webrtc_with_libp2p::P2pServiceWebrtcWithLibp2p;
-use openmina_core::invariants::InvariantsState;
-
 use ledger::scan_state::scan_state::transaction_snark::{SokDigest, Statement};
 use libp2p::identity::Keypair;
 use mina_p2p_messages::v2::{LedgerProofProdStableV2, TransactionSnarkWorkTStableV2Proofs};
@@ -15,6 +12,7 @@ use redux::ActionMeta;
 use serde::Serialize;
 
 use node::core::channels::{mpsc, oneshot};
+use node::core::invariants::InvariantsState;
 use node::core::snark::{Snark, SnarkJobId};
 use node::event_source::Event;
 use node::ledger::LedgerCtx;
@@ -22,10 +20,11 @@ use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 #[cfg(feature = "p2p-libp2p")]
 use node::p2p::service_impl::libp2p::Libp2pService;
 use node::p2p::service_impl::webrtc::{Cmd, P2pServiceWebrtc, PeerState};
+use node::p2p::service_impl::webrtc_with_libp2p::P2pServiceWebrtcWithLibp2p;
 use node::p2p::service_impl::TaskSpawner;
 use node::p2p::{P2pCryptoService, PeerId};
 use node::rpc::{RpcP2pConnectionOutgoingResponse, RpcRequest};
-use node::service::{EventSourceService, Recorder};
+use node::service::{EventSourceService, Recorder, TransitionFrontierGenesisService};
 use node::snark::block_verify::{
     SnarkBlockVerifyError, SnarkBlockVerifyId, SnarkBlockVerifyService, VerifiableBlockWithHash,
 };
@@ -33,6 +32,7 @@ use node::snark::work_verify::{SnarkWorkVerifyError, SnarkWorkVerifyId, SnarkWor
 use node::snark::{SnarkEvent, VerifierIndex, VerifierSRS};
 use node::snark_pool::{JobState, SnarkPoolService};
 use node::stats::Stats;
+use node::transition_frontier::genesis::GenesisConfig;
 use node::ActionKind;
 
 use crate::block_producer::BlockProducerService;
@@ -238,7 +238,9 @@ impl SnarkBlockVerifyService for NodeService {
             return;
         }
         let tx = self.event_sender.clone();
-        rayon::spawn_fifo(move || {
+        eprintln!("rayon::spawn_fifo");
+        std::thread::spawn(move || {
+            eprintln!("verify({}) - start", block.hash_ref());
             let header = block.header_ref();
             let result = {
                 let verifier_srs = verifier_srs.lock().expect("Failed to lock the SRS");
@@ -252,6 +254,7 @@ impl SnarkBlockVerifyService for NodeService {
                     Ok(())
                 }
             };
+            eprintln!("verify({}) - end", block.hash_ref());
 
             let _ = tx.send(SnarkEvent::BlockVerify(req_id, result).into());
         });
@@ -315,6 +318,19 @@ impl SnarkPoolService for NodeService {
             .into_iter()
             .map(|job| job.id.clone())
             .collect()
+    }
+}
+
+impl TransitionFrontierGenesisService for NodeService {
+    fn load_genesis(&mut self, config: Arc<GenesisConfig>) {
+        let res = match config.load() {
+            Err(err) => Err(err.to_string()),
+            Ok((mask, data)) => {
+                self.ledger.insert_genesis_ledger(mask);
+                Ok(data)
+            }
+        };
+        let _ = self.event_sender.send(Event::GenesisLoad(res));
     }
 }
 

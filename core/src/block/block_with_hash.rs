@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use mina_p2p_messages::v2::{
     ConsensusProofOfStakeDataConsensusStateValueStableV2, LedgerHash,
     MinaBaseProtocolConstantsCheckedValueStableV1, MinaBaseStagedLedgerHashStableV1,
@@ -14,12 +12,9 @@ use mina_p2p_messages::v2::{
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
 
-pub use mina_p2p_messages::v2::MinaBlockBlockStableV2 as Block;
-pub use mina_p2p_messages::v2::MinaBlockHeaderStableV2 as BlockHeader;
-pub use mina_p2p_messages::v2::StateHash as BlockHash;
+use crate::constants::CONSTRAINT_CONSTANTS;
 
-pub type ArcBlock = Arc<Block>;
-pub type ArcBlockWithHash = BlockWithHash<Arc<Block>>;
+use super::{Block, BlockHash, BlockHeader};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BlockWithHash<T: AsRef<Block>> {
@@ -114,7 +109,11 @@ impl<T: AsRef<Block>> BlockWithHash<T> {
     }
 
     pub fn is_genesis(&self) -> bool {
-        self.height() == 1
+        self.height()
+            == CONSTRAINT_CONSTANTS
+                .fork
+                .as_ref()
+                .map_or(1, |fork| fork.previous_length + 1)
     }
 
     pub fn root_block_height(&self) -> u32 {

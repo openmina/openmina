@@ -243,9 +243,130 @@ base58check_of_binprot!(
     SIGNATURE
 );
 
+impl StateHash {
+    pub fn zero() -> Self {
+        DataHashLibStateHashStableV1(BigInt::zero()).into()
+    }
+}
+
+impl EpochSeed {
+    pub fn zero() -> Self {
+        MinaBaseEpochSeedStableV1(BigInt::zero()).into()
+    }
+}
+
+impl CoinbaseStackData {
+    pub fn zero() -> Self {
+        MinaBasePendingCoinbaseCoinbaseStackStableV1(BigInt::zero()).into()
+    }
+}
+
+impl CoinbaseStackHash {
+    pub fn zero() -> Self {
+        MinaBasePendingCoinbaseStackHashStableV1(BigInt::zero()).into()
+    }
+}
+
+impl StagedLedgerHashAuxHash {
+    pub fn zero() -> Self {
+        crate::string::ByteString::from(vec![0; 32]).into()
+    }
+}
+
+impl StagedLedgerHashPendingCoinbaseAux {
+    pub fn zero() -> Self {
+        crate::string::ByteString::from(vec![0; 32]).into()
+    }
+}
+
+impl ConsensusVrfOutputTruncatedStableV1 {
+    pub fn zero() -> Self {
+        Self(crate::string::ByteString::from(vec![0; 32]))
+    }
+}
+
+impl super::MinaBaseStagedLedgerHashNonSnarkStableV1 {
+    pub fn zero(genesis_ledger_hash: LedgerHash) -> Self {
+        Self {
+            ledger_hash: genesis_ledger_hash,
+            aux_hash: super::StagedLedgerHashAuxHash::zero(),
+            pending_coinbase_aux: super::StagedLedgerHashPendingCoinbaseAux::zero(),
+        }
+    }
+}
+
+impl super::MinaBaseStagedLedgerHashStableV1 {
+    pub fn zero(
+        genesis_ledger_hash: LedgerHash,
+        empty_pending_coinbase_hash: PendingCoinbaseHash,
+    ) -> Self {
+        Self {
+            non_snark: super::MinaBaseStagedLedgerHashNonSnarkStableV1::zero(genesis_ledger_hash),
+            pending_coinbase_hash: empty_pending_coinbase_hash,
+        }
+    }
+}
+
+impl super::MinaBasePendingCoinbaseUpdateStableV1 {
+    pub fn zero() -> Self {
+        Self {
+            action: super::MinaBasePendingCoinbaseUpdateActionStableV1::UpdateNone,
+            coinbase_amount: super::CurrencyAmountStableV1(0u64.into()),
+        }
+    }
+}
+
+impl super::MinaBasePendingCoinbaseStackVersionedStableV1 {
+    pub fn zero() -> Self {
+        Self {
+            data: CoinbaseStackData::zero(),
+            state: super::MinaBasePendingCoinbaseStateStackStableV1 {
+                init: CoinbaseStackHash::zero(),
+                curr: CoinbaseStackHash::zero(),
+            },
+        }
+    }
+}
+
+impl super::ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1 {
+    pub fn zero(genesis_ledger_hash: LedgerHash, total_currency: CurrencyAmountStableV1) -> Self {
+        Self {
+            ledger: super::MinaBaseEpochLedgerValueStableV1 {
+                hash: genesis_ledger_hash,
+                total_currency,
+            },
+            seed: EpochSeed::zero(),
+            start_checkpoint: StateHash::zero(),
+            lock_checkpoint: StateHash::zero(),
+            epoch_length: 1.into(),
+        }
+    }
+}
+
+impl super::ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1 {
+    pub fn zero(genesis_ledger_hash: LedgerHash, total_currency: CurrencyAmountStableV1) -> Self {
+        Self {
+            ledger: super::MinaBaseEpochLedgerValueStableV1 {
+                hash: genesis_ledger_hash,
+                total_currency,
+            },
+            seed: EpochSeed::zero(),
+            start_checkpoint: StateHash::zero(),
+            lock_checkpoint: StateHash::zero(),
+            epoch_length: 1.into(),
+        }
+    }
+}
+
 impl AsRef<[u8]> for LedgerHash {
     fn as_ref(&self) -> &[u8] {
         self.0.as_ref()
+    }
+}
+
+impl Default for TokenIdKeyHash {
+    fn default() -> Self {
+        MinaBaseAccountIdDigestStableV1(BigInt::one()).into()
     }
 }
 
@@ -794,6 +915,12 @@ impl super::MinaNumbersGlobalSlotSpanStableV1 {
 
 impl From<u32> for super::UnsignedExtendedUInt32StableV1 {
     fn from(value: u32) -> Self {
+        Self(value.into())
+    }
+}
+
+impl From<u64> for super::UnsignedExtendedUInt64Int64ForVersionTagsStableV1 {
+    fn from(value: u64) -> Self {
         Self(value.into())
     }
 }

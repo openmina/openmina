@@ -29,6 +29,7 @@ use crate::rpc::{RpcAction, RpcRequest};
 use crate::snark::block_verify::SnarkBlockVerifyAction;
 use crate::snark::work_verify::SnarkWorkVerifyAction;
 use crate::snark::SnarkEvent;
+use crate::transition_frontier::genesis::TransitionFrontierGenesisAction;
 use crate::{BlockProducerAction, ExternalSnarkWorkerAction, Service, Store};
 
 use super::{Event, EventSourceAction, EventSourceActionWithMeta, P2pConnectionEvent, P2pEvent};
@@ -361,9 +362,25 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                         "error while trying to produce block proof for block {block_hash} - {err}"
                     ),
                     Ok(proof) => {
-                        store.dispatch(BlockProducerAction::BlockProveSuccess { proof });
+                        if store
+                            .state()
+                            .transition_frontier
+                            .genesis
+                            .prove_pending_block_hash()
+                            .map_or(false, |hash| hash == block_hash)
+                        {
+                            store.dispatch(TransitionFrontierGenesisAction::ProveSuccess { proof });
+                        } else {
+                            store.dispatch(BlockProducerAction::BlockProveSuccess { proof });
+                        }
                     }
                 },
+            },
+            Event::GenesisLoad(res) => match res {
+                Err(err) => todo!("error while trying to load genesis config/ledger. - {err}"),
+                Ok(data) => {
+                    store.dispatch(TransitionFrontierGenesisAction::LedgerLoadSuccess { data });
+                }
             },
         },
         EventSourceAction::WaitTimeout => {

@@ -93,32 +93,6 @@ struct LedgerSyncState {
 }
 
 impl LedgerCtx {
-    pub fn load_genesis_ledger<P>(&mut self, path: P)
-    where
-        P: AsRef<Path>,
-    {
-        let bytes = std::fs::read(path).unwrap();
-        self.load_genesis_ledger_bytes(&bytes)
-    }
-
-    pub fn load_genesis_ledger_bytes(&mut self, mut bytes: &[u8]) {
-        // TODO: return error
-        let top_hash = Option::binprot_read(&mut bytes).unwrap();
-        let accounts = Vec::<Account>::binprot_read(&mut bytes).unwrap();
-
-        let mut mask = Mask::new_root(Database::create(35));
-        for account in accounts {
-            let account_id = account.id();
-            mask.get_or_create_account(account_id, account).unwrap();
-        }
-
-        let top_hash = top_hash.unwrap_or_else(|| {
-            v2::LedgerHash::from(v2::MinaBaseLedgerHash0StableV1(mask.merkle_root().into()))
-        });
-
-        self.snarked_ledgers.insert(top_hash, mask);
-    }
-
     pub fn new_with_additional_snarked_ledgers<P>(path: P) -> Self
     where
         P: AsRef<Path>,
@@ -151,6 +125,13 @@ impl LedgerCtx {
             additional_snarked_ledgers,
             ..Default::default()
         }
+    }
+
+    pub fn insert_genesis_ledger(&mut self, mut mask: Mask) {
+        let hash = merkle_root(&mut mask);
+        self.snarked_ledgers.insert(hash.clone(), mask.clone());
+        let staged_ledger = StagedLedger::create_exn(CONSTRAINT_CONSTANTS, mask).unwrap();
+        self.staged_ledgers.insert(hash.clone(), staged_ledger);
     }
 
     // TODO(tizoc): explain when `is_synced` is `true` and when it is `false`. Also use something else than a boolean.

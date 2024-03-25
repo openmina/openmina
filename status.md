@@ -15,9 +15,9 @@
 
 - [x] Consensus logic
 - [x] VRF evaluator
-- Block production logic 
+- Block production logic
   - [x] Without transactions and without proof
-  - [ ] Full block with proof
+  - [x] Full block with proof
   - [ ] Blocks with transactions. - Missing because we don't yet have the transaction pool logic.
 - Networking layer
     - [x] P2P layer in general along with serialization/deserialization of all messages
@@ -92,14 +92,14 @@
   - [x] Integrate with the block producer
   - [x] Handling epoch changes - starting new evaluation as soon as new epoch data is available
   - [ ] Retention logic - cleanup slot data that is in the past based on current global slot (Slight node impact - the won slot map grows indefinitely)
-- [ ] Testing 
+- [ ] Testing
   - [ ] Correctness test - Selecting the correct ledgers
     - [x] (Edge case) In genesis epoch
     - [ ] In other (higher) epochs
   - [x] Correctness test - Computation output comparison with mina cli
   - [x] Correctness test - Start a new VRF evaluation on epoch switch for the next available epoch
   - [ ] Correctness test - Retaining the slot data only for future blocks
-- [ ] Documentation 
+- [ ] Documentation
 
 ## Block Producer <a name="block-producer"></a>
 
@@ -112,14 +112,14 @@
   - [x] Ledger diff creation
   - [x] Integrate with transition frontier
   - [x] New epoch seed calculation
-  - [x] Staking epoch ledger selection 
-  - [ ] Proof generation 
+  - [x] Staking epoch ledger selection
+  - [x] Proof generation
 - [ ] Testing
 - [ ] Documentation
 
 ## Ledger <a name="ledger"></a>
 
-- [x] Ledger/Mask implementation 
+- [x] Ledger/Mask implementation
 - [x] Staged Ledger implementation
    - [x] Scan state
    - [x] Pending coinbase collection
@@ -166,9 +166,9 @@
   - [x] Implement Kademlia FIND_NODE (client/server).
   - [x] Implement Kademlia Bootstrap process.
   - [ ] Update Kademlia routing table according to Identify protocol messages.
-  
 
-### RPC 
+
+### RPC
 
 - [x] Perform outgoing RPC requests.
 - [ ] Handle incoming RPC requests.
@@ -215,7 +215,7 @@
 
 ### Pages
 
-- [x] Nodes - Overview 
+- [x] Nodes - Overview
 - [x] Nodes - Live
 - [x] Nodes - Bootstrap
 - [x] State - Actions
@@ -277,7 +277,7 @@
 
 - [x] [Why we are developing Open Mina](https://github.com/openmina/openmina/blob/main/docs/why-openmina.md)
 - [ ] Consensus logic - not documented yet
-- Block production logic 
+- Block production logic
   - [ ] [Internal transition](https://github.com/JanSlobodnik/pre-publishing/blob/main/block-production.md) - in progress
   - [ ] External transition - not documented yet
   - [ ] [VRF function](https://github.com/openmina/openmina/blob/feat/block_producer/vrf_evaluator/vrf/README.md) - in progress
@@ -336,7 +336,7 @@ Handle state transitions and can dispatch actions to other models.
    - [x] Echo client (PNET).
    - [x] Echo server (PNET).
    - [x] Simple PNET client: connects to berkeleynet and does a simple multistream negotiation.
- 
+
 ### Tests
 
 - Echo network
@@ -344,4 +344,4 @@ Handle state transitions and can dispatch actions to other models.
   - [x] State machine with a network composed of 5 clients and 1  erver instance.
   - [x] State machine with a network composed of 50 clients and 1  erver instance.
 - [x] Echo network PNET (same tests as echo network but over the PNET transport).
-- [x] Berkeley PNET test: runs the simple PNET client model. 
+- [x] Berkeley PNET test: runs the simple PNET client model.

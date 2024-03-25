@@ -145,6 +145,10 @@ impl BlockProducerState {
         self.0.as_mut().map_or(default, fun)
     }
 
+    pub fn is_enabled(&self) -> bool {
+        self.0.is_some()
+    }
+
     pub fn config(&self) -> Option<&BlockProducerConfig> {
         self.with(None, |this| Some(&this.config))
     }

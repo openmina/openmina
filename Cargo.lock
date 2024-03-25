@@ -4146,6 +4146,7 @@ version = "0.2.0"
 dependencies = [
  "binprot",
  "binprot_derive",
+ "lazy_static",
  "mina-hasher",
  "mina-p2p-messages",
  "multihash 0.18.1",
@@ -4188,7 +4189,6 @@ dependencies = [
  "mina-tree",
  "nix 0.26.4",
  "node",
- "openmina-core",
  "rand 0.8.5",
  "rayon",
  "redux",

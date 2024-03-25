@@ -468,7 +468,7 @@ impl<'a> ClusterRunner<'a> {
                 .run(
                     step_duration,
                     |_, _, _| RunDecision::ContinueExec,
-                    move |node_id, _, _, action| false,
+                    move |_, _, _, _| false,
                 )
                 .await;
             if keep_synced {

@@ -17,6 +17,7 @@ use crate::p2p::network::{
 use crate::p2p::P2pAction;
 use crate::snark::work_verify::SnarkWorkVerifyAction;
 use crate::snark::SnarkAction;
+use crate::transition_frontier::genesis::TransitionFrontierGenesisAction;
 use crate::transition_frontier::sync::TransitionFrontierSyncAction;
 use crate::transition_frontier::TransitionFrontierAction;
 use crate::{Action, ActionWithMetaRef, BlockProducerAction, Service, Store};
@@ -1033,6 +1034,40 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
             _ => {}
         },
         Action::TransitionFrontier(a) => match a {
+            TransitionFrontierAction::Genesis(a) => match a {
+                TransitionFrontierGenesisAction::ProvePending => {
+                    openmina_core::log::info!(
+                        meta.time();
+                        kind = kind.to_string(),
+                        summary = format!("Proving genesis block"),
+                    );
+                }
+                TransitionFrontierGenesisAction::ProveSuccess { .. } => {
+                    openmina_core::log::info!(
+                        meta.time();
+                        kind = kind.to_string(),
+                        summary = format!("Genesis block proved"),
+                    );
+                }
+                _ => {}
+            },
+            TransitionFrontierAction::GenesisInject => {
+                let Some(genesis) = store
+                    .state()
+                    .transition_frontier
+                    .genesis
+                    .block_with_real_or_dummy_proof()
+                else {
+                    return;
+                };
+                openmina_core::log::info!(
+                    meta.time();
+                    kind = kind.to_string(),
+                    summary = format!("Transition frontier reconstructed genesis ledger({}) and block({})", genesis.snarked_ledger_hash(), genesis.hash()),
+                    genesis_block_hash = genesis.hash().to_string(),
+                    genesis_ledger_hash = genesis.snarked_ledger_hash().to_string(),
+                );
+            }
             TransitionFrontierAction::Sync(action) => match action {
                 TransitionFrontierSyncAction::Init {
                     best_tip,
@@ -1104,7 +1139,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     kind = kind.to_string(),
                 ),
             },
-            TransitionFrontierAction::Synced(_) => openmina_core::log::info!(
+            TransitionFrontierAction::Synced { .. } => openmina_core::log::info!(
                 meta.time();
                 node_id = node_id,
                 kind = kind.to_string(),

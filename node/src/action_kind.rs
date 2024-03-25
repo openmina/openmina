@@ -76,11 +76,12 @@ use crate::snark::work_verify::SnarkWorkVerifyAction;
 use crate::snark::SnarkAction;
 use crate::snark_pool::candidate::SnarkPoolCandidateAction;
 use crate::snark_pool::SnarkPoolAction;
+use crate::transition_frontier::genesis::TransitionFrontierGenesisAction;
 use crate::transition_frontier::sync::ledger::snarked::TransitionFrontierSyncLedgerSnarkedAction;
 use crate::transition_frontier::sync::ledger::staged::TransitionFrontierSyncLedgerStagedAction;
 use crate::transition_frontier::sync::ledger::TransitionFrontierSyncLedgerAction;
 use crate::transition_frontier::sync::TransitionFrontierSyncAction;
-use crate::transition_frontier::{TransitionFrontierAction, TransitionFrontierSyncedAction};
+use crate::transition_frontier::TransitionFrontierAction;
 use crate::watched_accounts::WatchedAccountsAction;
 use crate::{Action, ActionKindGet, CheckTimeoutsAction};
 
@@ -346,6 +347,15 @@ pub enum ActionKind {
     SnarkWorkVerifyInit,
     SnarkWorkVerifyPending,
     SnarkWorkVerifySuccess,
+    TransitionFrontierGenesisInject,
+    TransitionFrontierSynced,
+    TransitionFrontierGenesisLedgerLoadInit,
+    TransitionFrontierGenesisLedgerLoadPending,
+    TransitionFrontierGenesisLedgerLoadSuccess,
+    TransitionFrontierGenesisProduce,
+    TransitionFrontierGenesisProveInit,
+    TransitionFrontierGenesisProvePending,
+    TransitionFrontierGenesisProveSuccess,
     TransitionFrontierSyncBestTipUpdate,
     TransitionFrontierSyncBlocksFetchSuccess,
     TransitionFrontierSyncBlocksNextApplyInit,
@@ -392,7 +402,6 @@ pub enum ActionKind {
     TransitionFrontierSyncLedgerStagedReconstructPending,
     TransitionFrontierSyncLedgerStagedReconstructSuccess,
     TransitionFrontierSyncLedgerStagedSuccess,
-    TransitionFrontierSynced,
     WatchedAccountsAdd,
     WatchedAccountsBlockLedgerQueryInit,
     WatchedAccountsBlockLedgerQueryPending,
@@ -406,7 +415,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 313;
+    pub const COUNT: u16 = 321;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -492,8 +501,10 @@ impl ActionKindGet for ConsensusAction {
 impl ActionKindGet for TransitionFrontierAction {
     fn kind(&self) -> ActionKind {
         match self {
+            Self::Genesis(a) => a.kind(),
             Self::Sync(a) => a.kind(),
-            Self::Synced(a) => a.kind(),
+            Self::GenesisInject => ActionKind::TransitionFrontierGenesisInject,
+            Self::Synced { .. } => ActionKind::TransitionFrontierSynced,
         }
     }
 }
@@ -741,6 +752,22 @@ impl ActionKindGet for SnarkWorkVerifyAction {
     }
 }
 
+impl ActionKindGet for TransitionFrontierGenesisAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::LedgerLoadInit => ActionKind::TransitionFrontierGenesisLedgerLoadInit,
+            Self::LedgerLoadPending => ActionKind::TransitionFrontierGenesisLedgerLoadPending,
+            Self::LedgerLoadSuccess { .. } => {
+                ActionKind::TransitionFrontierGenesisLedgerLoadSuccess
+            }
+            Self::Produce => ActionKind::TransitionFrontierGenesisProduce,
+            Self::ProveInit => ActionKind::TransitionFrontierGenesisProveInit,
+            Self::ProvePending => ActionKind::TransitionFrontierGenesisProvePending,
+            Self::ProveSuccess { .. } => ActionKind::TransitionFrontierGenesisProveSuccess,
+        }
+    }
+}
+
 impl ActionKindGet for TransitionFrontierSyncAction {
     fn kind(&self) -> ActionKind {
         match self {
@@ -784,12 +811,6 @@ impl ActionKindGet for TransitionFrontierSyncAction {
             }
             Self::BlocksSuccess => ActionKind::TransitionFrontierSyncBlocksSuccess,
         }
-    }
-}
-
-impl ActionKindGet for TransitionFrontierSyncedAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::TransitionFrontierSynced
     }
 }
 

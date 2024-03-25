@@ -1,10 +1,12 @@
 use serde::{Deserialize, Serialize};
 
-use crate::block_producer::BlockProducerEvent;
-use crate::external_snark_worker::ExternalSnarkWorkerEvent;
+pub use crate::block_producer::BlockProducerEvent;
+pub use crate::external_snark_worker::ExternalSnarkWorkerEvent;
 pub use crate::p2p::{P2pConnectionEvent, P2pEvent};
 pub use crate::rpc::{RpcId, RpcRequest};
 pub use crate::snark::SnarkEvent;
+
+use crate::transition_frontier::genesis::GenesisConfigLoaded;
 
 #[derive(derive_more::From, Serialize, Deserialize, Debug, Clone)]
 pub enum Event {
@@ -13,6 +15,8 @@ pub enum Event {
     Rpc(RpcId, RpcRequest),
     ExternalSnarkWorker(ExternalSnarkWorkerEvent),
     BlockProducerEvent(BlockProducerEvent),
+
+    GenesisLoad(Result<GenesisConfigLoaded, String>),
 }
 
 impl std::fmt::Display for Event {
@@ -66,6 +70,17 @@ impl std::fmt::Display for Event {
                 }
             }
             Self::BlockProducerEvent(event) => event.fmt(f),
+            Self::GenesisLoad(res) => {
+                write!(f, "GenesisLoad, ")?;
+                match res {
+                    Err(_) => {
+                        write!(f, "Err")
+                    }
+                    Ok(data) => {
+                        write!(f, "Ok, {}", data.ledger_hash)
+                    }
+                }
+            }
         }
     }
 }

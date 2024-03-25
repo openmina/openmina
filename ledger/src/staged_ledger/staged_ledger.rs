@@ -433,7 +433,7 @@ impl StagedLedger {
         constraint_constants: ConstraintConstants,
         ledger: Mask,
     ) -> Result<Self, String> {
-        let pending_coinbase_depth = constraint_constants.pending_coinbase_depth as usize;
+        let pending_coinbase_depth = constraint_constants.pending_coinbase_depth;
 
         Ok(Self {
             scan_state: ScanState::empty(&constraint_constants),
@@ -1147,7 +1147,7 @@ impl StagedLedger {
         };
 
         Self::update_pending_coinbase_collection(
-            constraint_constants.pending_coinbase_depth as usize,
+            constraint_constants.pending_coinbase_depth,
             &mut self.pending_coinbase_collection,
             stack_update,
             is_new_stack,

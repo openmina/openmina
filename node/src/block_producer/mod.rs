@@ -21,17 +21,7 @@ mod block_producer_service;
 pub use block_producer_service::*;
 
 use ledger::AccountIndex;
-use mina_p2p_messages::{
-    list::List,
-    v2::{
-        BlockTimeTimeStableV1, ConsensusGlobalSlotStableV1, ConsensusVrfOutputTruncatedStableV1,
-        LedgerHash, MinaBaseProofStableV2, MinaBlockBlockStableV2, MinaBlockHeaderStableV2,
-        MinaNumbersGlobalSlotSinceGenesisMStableV1, MinaNumbersGlobalSlotSinceHardForkMStableV1,
-        MinaStateProtocolStateValueStableV2, NonZeroCurvePoint, ProtocolVersionStableV2,
-        StagedLedgerDiffBodyStableV1, StateBodyHash, StateHash,
-        UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
-    },
-};
+use mina_p2p_messages::{list::List, v2};
 use mina_signer::CompressedPubKey;
 use openmina_core::block::ArcBlockWithHash;
 use serde::{Deserialize, Serialize};
@@ -44,20 +34,20 @@ use self::vrf_evaluator::VrfWonSlotWithHash;
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct BlockProducerWonSlot {
     pub slot_time: redux::Timestamp,
-    pub delegator: (NonZeroCurvePoint, AccountIndex),
-    pub global_slot: ConsensusGlobalSlotStableV1,
+    pub delegator: (v2::NonZeroCurvePoint, AccountIndex),
+    pub global_slot: v2::ConsensusGlobalSlotStableV1,
     pub vrf_output: VrfOutput,
     // Staking ledger which was used during vrf evaluation.
-    pub staking_ledger_hash: LedgerHash,
+    pub staking_ledger_hash: v2::LedgerHash,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BlockWithoutProof {
-    pub protocol_state: MinaStateProtocolStateValueStableV2,
-    pub delta_block_chain_proof: (StateHash, List<StateBodyHash>),
-    pub current_protocol_version: ProtocolVersionStableV2,
-    pub proposed_protocol_version_opt: Option<ProtocolVersionStableV2>,
-    pub body: StagedLedgerDiffBodyStableV1,
+    pub protocol_state: v2::MinaStateProtocolStateValueStableV2,
+    pub delta_block_chain_proof: (v2::StateHash, List<v2::StateBodyHash>),
+    pub current_protocol_version: v2::ProtocolVersionStableV2,
+    pub proposed_protocol_version_opt: Option<v2::ProtocolVersionStableV2>,
+    pub body: v2::StagedLedgerDiffBodyStableV1,
 }
 
 impl BlockProducerWonSlot {
@@ -76,8 +66,8 @@ impl BlockProducerWonSlot {
             CompressedPubKey::from_address(&won_slot.winner_account).unwrap(),
         );
         let delegator = (winner_pub_key.into(), won_slot.account_index.clone());
-        let global_slot = ConsensusGlobalSlotStableV1 {
-            slot_number: MinaNumbersGlobalSlotSinceHardForkMStableV1::SinceHardFork(
+        let global_slot = v2::ConsensusGlobalSlotStableV1 {
+            slot_number: v2::MinaNumbersGlobalSlotSinceHardForkMStableV1::SinceHardFork(
                 won_slot.global_slot.into(),
             ),
             slots_per_epoch: 7140.into(), // TODO
@@ -105,14 +95,16 @@ impl BlockProducerWonSlot {
     pub fn global_slot_since_genesis(
         &self,
         slot_diff: u32,
-    ) -> MinaNumbersGlobalSlotSinceGenesisMStableV1 {
+    ) -> v2::MinaNumbersGlobalSlotSinceGenesisMStableV1 {
         let slot = self.global_slot() + slot_diff;
-        MinaNumbersGlobalSlotSinceGenesisMStableV1::SinceGenesis(slot.into())
+        v2::MinaNumbersGlobalSlotSinceGenesisMStableV1::SinceGenesis(slot.into())
     }
 
-    pub fn timestamp(&self) -> BlockTimeTimeStableV1 {
+    pub fn timestamp(&self) -> v2::BlockTimeTimeStableV1 {
         let ms = u64::from(self.slot_time) / 1_000_000;
-        BlockTimeTimeStableV1(UnsignedExtendedUInt64Int64ForVersionTagsStableV1(ms.into()))
+        v2::BlockTimeTimeStableV1(v2::UnsignedExtendedUInt64Int64ForVersionTagsStableV1(
+            ms.into(),
+        ))
     }
 
     pub fn next_slot_time(&self) -> redux::Timestamp {
@@ -123,9 +115,9 @@ impl BlockProducerWonSlot {
 impl PartialOrd for BlockProducerWonSlot {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.global_slot().cmp(&other.global_slot()).then_with(|| {
-            ConsensusVrfOutputTruncatedStableV1::from(&self.vrf_output)
+            v2::ConsensusVrfOutputTruncatedStableV1::from(&self.vrf_output)
                 .blake2b()
-                .cmp(&ConsensusVrfOutputTruncatedStableV1::from(&other.vrf_output).blake2b())
+                .cmp(&v2::ConsensusVrfOutputTruncatedStableV1::from(&other.vrf_output).blake2b())
         }))
     }
 }
@@ -140,7 +132,7 @@ impl PartialOrd<ArcBlockWithHash> for BlockProducerWonSlot {
     fn partial_cmp(&self, other: &ArcBlockWithHash) -> Option<std::cmp::Ordering> {
         // TODO(binier): this assumes short range fork
         Some(self.global_slot().cmp(&other.global_slot()).then_with(|| {
-            ConsensusVrfOutputTruncatedStableV1::from(&self.vrf_output)
+            v2::ConsensusVrfOutputTruncatedStableV1::from(&self.vrf_output)
                 .blake2b()
                 .cmp(
                     &other
@@ -155,13 +147,13 @@ impl PartialOrd<ArcBlockWithHash> for BlockProducerWonSlot {
     }
 }
 
-pub fn to_epoch_and_slot(global_slot: &ConsensusGlobalSlotStableV1) -> (u32, u32) {
+pub fn to_epoch_and_slot(global_slot: &v2::ConsensusGlobalSlotStableV1) -> (u32, u32) {
     let epoch = global_slot.slot_number.as_u32() / global_slot.slots_per_epoch.as_u32();
     let slot = global_slot.slot_number.as_u32() % global_slot.slots_per_epoch.as_u32();
     (epoch, slot)
 }
 
-pub fn next_epoch_first_slot(global_slot: &ConsensusGlobalSlotStableV1) -> u32 {
+pub fn next_epoch_first_slot(global_slot: &v2::ConsensusGlobalSlotStableV1) -> u32 {
     let (epoch, _) = to_epoch_and_slot(global_slot);
     (epoch + 1) * global_slot.slots_per_epoch.as_u32()
 }
@@ -177,11 +169,11 @@ pub fn next_epoch_first_slot(global_slot: &ConsensusGlobalSlotStableV1) -> u32 {
 impl BlockWithoutProof {
     pub fn with_hash_and_proof(
         self,
-        hash: StateHash,
-        proof: MinaBaseProofStableV2,
+        hash: v2::StateHash,
+        proof: v2::MinaBaseProofStableV2,
     ) -> ArcBlockWithHash {
-        let block = MinaBlockBlockStableV2 {
-            header: MinaBlockHeaderStableV2 {
+        let block = v2::MinaBlockBlockStableV2 {
+            header: v2::MinaBlockHeaderStableV2 {
                 protocol_state: self.protocol_state,
                 protocol_state_proof: proof,
                 delta_block_chain_proof: self.delta_block_chain_proof,
@@ -196,4 +188,13 @@ impl BlockWithoutProof {
             hash,
         }
     }
+}
+
+pub fn calc_epoch_seed(
+    prev_epoch_seed: &v2::EpochSeed,
+    vrf_hash: mina_hasher::Fp,
+) -> v2::EpochSeed {
+    let old_seed = prev_epoch_seed.to_fp().unwrap();
+    let new_seed = ledger::hash_with_kimchi("MinaEpochSeed", &[old_seed, vrf_hash]);
+    v2::MinaBaseEpochSeedStableV1(new_seed.into()).into()
 }

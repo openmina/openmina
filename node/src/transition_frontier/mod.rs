@@ -1,3 +1,4 @@
+pub mod genesis;
 pub mod sync;
 
 mod transition_frontier_config;

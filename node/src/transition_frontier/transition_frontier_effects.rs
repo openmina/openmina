@@ -8,6 +8,7 @@ use crate::snark_pool::{SnarkPoolAction, SnarkWork};
 use crate::stats::sync::SyncingLedger;
 use crate::Store;
 
+use super::genesis::TransitionFrontierGenesisAction;
 use super::sync::ledger::snarked::TransitionFrontierSyncLedgerSnarkedAction;
 use super::sync::ledger::staged::TransitionFrontierSyncLedgerStagedAction;
 use super::sync::ledger::{
@@ -16,9 +17,7 @@ use super::sync::ledger::{
     transition_frontier_sync_ledger_staged_success_effects, TransitionFrontierSyncLedgerAction,
 };
 use super::sync::{TransitionFrontierSyncAction, TransitionFrontierSyncState};
-use super::{
-    TransitionFrontierAction, TransitionFrontierActionWithMeta, TransitionFrontierSyncedAction,
-};
+use super::{TransitionFrontierAction, TransitionFrontierActionWithMeta};
 
 pub fn transition_frontier_effects<S: crate::Service>(
     store: &mut Store<S>,
@@ -27,6 +26,19 @@ pub fn transition_frontier_effects<S: crate::Service>(
     let (action, meta) = action.split();
 
     match action {
+        TransitionFrontierAction::Genesis(a) => {
+            match &a {
+                TransitionFrontierGenesisAction::Produce
+                | TransitionFrontierGenesisAction::ProveSuccess { .. } => {
+                    store.dispatch(TransitionFrontierAction::GenesisInject);
+                }
+                _ => {}
+            }
+            a.effects(&meta, store);
+        }
+        TransitionFrontierAction::GenesisInject => {
+            synced_effects(&meta, store);
+        }
         TransitionFrontierAction::Sync(a) => {
             match a {
                 TransitionFrontierSyncAction::Init {
@@ -270,7 +282,7 @@ pub fn transition_frontier_effects<S: crate::Service>(
                     );
                     let needed_protocol_states = res.needed_protocol_states;
                     let jobs = res.available_jobs;
-                    store.dispatch(TransitionFrontierSyncedAction {
+                    store.dispatch(TransitionFrontierAction::Synced {
                         needed_protocol_states,
                     });
                     store.dispatch(SnarkPoolAction::JobsUpdate {
@@ -284,27 +296,34 @@ pub fn transition_frontier_effects<S: crate::Service>(
             }
             a.effects(&meta, store);
         }
-        TransitionFrontierAction::Synced(_) => {
-            let Some(best_tip) = store.state.get().transition_frontier.best_tip() else {
-                return;
-            };
-            if let Some(stats) = store.service.stats() {
-                stats.new_best_tip(meta.time(), best_tip);
-            }
-
-            // publish new best tip.
-            let best_tip = best_tip.clone();
-            for peer_id in store.state().p2p.ready_peers() {
-                store.dispatch(P2pChannelsBestTipAction::ResponseSend {
-                    peer_id,
-                    best_tip: best_tip.clone(),
-                });
-            }
-
-            store.dispatch(ConsensusAction::Prune);
-            store.dispatch(BlockProducerAction::BestTipUpdate { best_tip });
+        TransitionFrontierAction::Synced { .. } => {
+            synced_effects(&meta, store);
         }
     }
+}
+
+fn synced_effects<S: crate::Service>(
+    meta: &redux::ActionMeta,
+    store: &mut redux::Store<crate::State, S, crate::Action>,
+) {
+    let Some(best_tip) = store.state.get().transition_frontier.best_tip() else {
+        return;
+    };
+    if let Some(stats) = store.service.stats() {
+        stats.new_best_tip(meta.time(), best_tip);
+    }
+
+    // publish new best tip.
+    let best_tip = best_tip.clone();
+    for peer_id in store.state().p2p.ready_peers() {
+        store.dispatch(P2pChannelsBestTipAction::ResponseSend {
+            peer_id,
+            best_tip: best_tip.clone(),
+        });
+    }
+
+    store.dispatch(ConsensusAction::Prune);
+    store.dispatch(BlockProducerAction::BestTipUpdate { best_tip });
 }
 
 // Handling of the actions related to the synchronization of a target ledger

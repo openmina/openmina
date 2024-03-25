@@ -5,21 +5,19 @@ use std::time::Duration;
 use std::{collections::BTreeMap, ffi::OsStr, sync::Arc};
 
 use ledger::dummy::dummy_transaction_proof;
-use ledger::proofs::gates::get_provers;
-use ledger::proofs::generate_block_proof;
 use ledger::proofs::transaction::ProofError;
 use ledger::scan_state::scan_state::transaction_snark::SokMessage;
 use ledger::Mask;
 use mina_p2p_messages::string::ByteString;
 use mina_p2p_messages::v2::{
-    CurrencyFeeStableV1, LedgerHash, LedgerProofProdStableV2,
+    CurrencyFeeStableV1, LedgerHash, LedgerProofProdStableV2, MinaBaseProofStableV2,
     MinaStateSnarkedLedgerStateWithSokStableV2, NonZeroCurvePoint,
     ProverExtendBlockchainInputStableV2, SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0Single,
     StateHash, TransactionSnarkStableV2, TransactionSnarkWorkTStableV2Proofs,
 };
-use node::account::AccountPublicKey;
+use node::account::{AccountPublicKey, AccountSecretKey};
 use node::block_producer::vrf_evaluator::VrfEvaluatorInput;
-use node::block_producer::{BlockProducerEvent, Keypair};
+use node::block_producer::BlockProducerEvent;
 use node::core::channels::mpsc;
 use node::core::requests::{PendingRequests, RequestId};
 use node::core::snark::{Snark, SnarkJobId};
@@ -29,7 +27,9 @@ use node::p2p::service_impl::libp2p::Libp2pService;
 use node::p2p::service_impl::webrtc_with_libp2p::P2pServiceWebrtcWithLibp2p;
 use node::p2p::P2pCryptoService;
 use node::recorder::Recorder;
-use node::service::{BlockProducerService, BlockProducerVrfEvaluatorService};
+use node::service::{
+    BlockProducerService, BlockProducerVrfEvaluatorService, TransitionFrontierGenesisService,
+};
 use node::snark::block_verify::{
     SnarkBlockVerifyId, SnarkBlockVerifyService, VerifiableBlockWithHash,
 };
@@ -37,6 +37,7 @@ use node::snark::work_verify::{SnarkWorkVerifyId, SnarkWorkVerifyService};
 use node::snark::{SnarkEvent, VerifierIndex, VerifierSRS};
 use node::snark_pool::{JobState, SnarkPoolService};
 use node::stats::Stats;
+use node::transition_frontier::genesis::GenesisConfig;
 use node::{
     event_source::Event,
     external_snark_worker::{ExternalSnarkWorkerService, SnarkWorkSpec},
@@ -257,6 +258,12 @@ impl node::event_source::EventSourceService for NodeTestingService {
     }
 }
 
+impl TransitionFrontierGenesisService for NodeTestingService {
+    fn load_genesis(&mut self, config: Arc<GenesisConfig>) {
+        TransitionFrontierGenesisService::load_genesis(&mut self.real, config);
+    }
+}
+
 impl P2pServiceWebrtc for NodeTestingService {
     type Event = Event;
 
@@ -401,8 +408,13 @@ impl BlockProducerVrfEvaluatorService for NodeTestingService {
     }
 }
 
+use std::cell::RefCell;
+thread_local! {
+    static GENESIS_PROOF: RefCell<Option<(StateHash, Box<MinaBaseProofStableV2>)>> = RefCell::new(None);
+}
+
 impl BlockProducerService for NodeTestingService {
-    fn keypair(&mut self) -> Option<Keypair> {
+    fn keypair(&mut self) -> Option<AccountSecretKey> {
         BlockProducerService::keypair(&mut self.real)
     }
 
@@ -417,32 +429,42 @@ impl BlockProducerService for NodeTestingService {
                 let _ = self.real.event_sender.send(dummy_proof_event(block_hash));
             }
             ProofKind::ConstraintsChecked => {
-                use ledger::proofs::block::BlockParams;
-                let tx = self.real.event_sender.clone();
-                let provers = get_provers();
-                let res = generate_block_proof(BlockParams {
-                    input: &*input,
-                    block_step_prover: &provers.block_step_prover,
-                    block_wrap_prover: &provers.block_wrap_prover,
-                    tx_wrap_prover: &provers.tx_wrap_prover,
-                    only_verify_constraints: true,
-                    expected_step_proof: None,
-                    ocaml_wrap_witness: None,
-                });
-                match res {
+                match openmina_node_native::block_producer::prove(&*input, true) {
                     Err(ProofError::ConstraintsOk) => {
-                        let dummy_proof = (*ledger::dummy::dummy_blockchain_proof()).clone();
-                        let _ = tx.send(
-                            BlockProducerEvent::BlockProve(block_hash, Ok(dummy_proof.into()))
-                                .into(),
-                        );
+                        let _ = self.real.event_sender.send(dummy_proof_event(block_hash));
                     }
-                    Err(err) => eprintln!("unexpected block proof generation error: {err:?}"),
+                    Err(err) => panic!("unexpected block proof generation error: {err:?}"),
                     Ok(_) => unreachable!(),
                 }
             }
             ProofKind::Full => {
-                BlockProducerService::prove(self, block_hash, input);
+                // TODO(binier): handle if block is genesis based on fork constants.
+                let is_genesis = input
+                    .next_state
+                    .body
+                    .consensus_state
+                    .blockchain_length
+                    .as_u32()
+                    == 1;
+                let res = GENESIS_PROOF.with_borrow_mut(|cached_genesis| {
+                    if let Some((_, proof)) = cached_genesis
+                        .as_ref()
+                        .filter(|(hash, _)| is_genesis && hash == &block_hash)
+                    {
+                        Ok(proof.clone())
+                    } else {
+                        openmina_node_native::block_producer::prove(&*input, false)
+                            .map_err(|err| format!("{err:?}"))
+                    }
+                });
+                if let Some(proof) = res.as_ref().ok().filter(|_| is_genesis) {
+                    GENESIS_PROOF
+                        .with_borrow_mut(|data| *data = Some((block_hash.clone(), proof.clone())));
+                }
+                let _ = self
+                    .real
+                    .event_sender
+                    .send(BlockProducerEvent::BlockProve(block_hash, res).into());
             }
         }
     }
