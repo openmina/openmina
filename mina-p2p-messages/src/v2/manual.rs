@@ -1,7 +1,9 @@
 use binprot::{BinProtRead, BinProtWrite};
 use binprot_derive::{BinProtRead, BinProtWrite};
+use blake2::Digest;
 use derive_more::Deref;
 use serde::{de::Visitor, ser::SerializeTuple, Deserialize, Serialize, Serializer};
+use sha2::Sha256;
 
 use crate::{
     b58::Base58CheckOfBinProt, b58::Base58CheckOfBytes, bigint::BigInt, string::ByteString,
@@ -380,7 +382,7 @@ mod tests {
         vrf_truncated_output,
         ConsensusVrfOutputTruncatedStableV1,
         "48H9Qk4D6RzS9kAJQX9HCDjiJ5qLiopxgxaS6xbDCWNaKQMQ9Y4C",
-        "261520dfd73283866632d9dbfda15421eacd02800957caad91f3a9ab4cc5ccfb298e03b08ae205"
+        "20dfd73283866632d9dbfda15421eacd02800957caad91f3a9ab4cc5ccfb298e03"
     );
 
     b58t!(
@@ -504,7 +506,15 @@ impl Serialize for ConsensusVrfOutputTruncatedStableV1 {
         S: serde::Serializer,
     {
         if serializer.is_human_readable() {
-            bs58::encode(&self.0).into_string().serialize(serializer)
+            let mut output_bytes = Vec::new();
+            let prefix = vec![0x15, 0x20];
+            output_bytes.extend(prefix);
+            output_bytes.extend(self.0.iter());
+            let checksum = Sha256::digest(&Sha256::digest(&output_bytes[..])[..]);
+            output_bytes.extend(&checksum[..4]);
+            bs58::encode(&output_bytes)
+                .into_string()
+                .serialize(serializer)
         } else {
             serializer.serialize_newtype_struct("ConsensusVrfOutputTruncatedStableV1", &self.0)
         }
@@ -520,7 +530,7 @@ impl<'de> Deserialize<'de> for ConsensusVrfOutputTruncatedStableV1 {
             let base58 = String::deserialize(deserializer)?;
             bs58::decode(base58)
                 .into_vec()
-                .map(ByteString::from)
+                .map(|vec| ByteString::from(vec[2..vec.len() - 4].to_vec()))
                 .map_err(|e| serde::de::Error::custom(format!("Error deserializing vrf: {e}")))
         } else {
             Deserialize::deserialize(deserializer)

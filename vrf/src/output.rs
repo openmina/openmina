@@ -113,7 +113,7 @@ impl std::fmt::Display for VrfOutput {
 
 impl From<&VrfOutput> for ConsensusVrfOutputTruncatedStableV1 {
     fn from(value: &VrfOutput) -> Self {
-        let bytes = value.truncated_with_prefix_and_checksum();
+        let bytes = value.truncated().to_bytes();
         Self(bytes.into())
     }
 }
