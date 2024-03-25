@@ -106,6 +106,14 @@ impl HashesMatrix {
         self.nhashes += 1;
     }
 
+    /// Do not use directly. Used to forcefully reconstructing the hashes
+    /// matrix from raw data.
+    pub fn set_raw_index(&mut self, idx: u64, hash: Fp) {
+        let old = self.matrix.insert(idx, hash);
+        assert!(old.is_none());
+        self.nhashes += 1;
+    }
+
     pub fn remove(&mut self, addr: &Address) {
         let linear = addr.to_linear_index();
         self.remove_at_index(linear);
@@ -192,6 +200,16 @@ impl HashesMatrix {
             empty_hashes: std::mem::take(empty_hashes),
             ledger_depth: *ledger_depth,
             nhashes: *nhashes,
+        }
+    }
+
+    pub fn get_raw_inner_hashes(&self) -> Vec<(u64, Fp)> {
+        self.matrix.clone().into_iter().collect()
+    }
+
+    pub fn set_raw_inner_hashes(&mut self, hashes: Vec<(u64, Fp)>) {
+        for (idx, hash) in hashes {
+            self.set_raw_index(idx, hash);
         }
     }
 }

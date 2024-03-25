@@ -268,6 +268,17 @@ impl Mask {
         self.with(|this| this.validate_inner_hashes())
     }
 
+    /// Returns a vector of tuples of (index, hash) of all the hashes contained
+    /// in this mask.
+    pub fn get_raw_inner_hashes(&self) -> Vec<(u64, Fp)> {
+        self.with(|this| this.get_raw_inner_hashes())
+    }
+
+    /// Sets the contents of this mask's hash matrix using raw data.
+    pub fn set_raw_inner_hashes(&self, hashes: Vec<(u64, Fp)>) {
+        self.with(|this| this.set_raw_inner_hashes(hashes))
+    }
+
     /// For tests only, check if the address is in the mask, without checking parent
     #[cfg(test)]
     fn test_is_in_mask(&self, addr: &Address) -> bool {
