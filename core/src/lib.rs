@@ -5,6 +5,7 @@ pub mod requests;
 pub mod channels;
 
 pub mod constants;
+pub mod dummy;
 
 pub mod block;
 pub mod snark;

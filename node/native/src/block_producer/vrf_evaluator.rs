@@ -1,16 +1,16 @@
 use mina_signer::Keypair;
 use node::{
+    block_producer::BlockProducerVrfEvaluatorEvent,
     block_producer::{
         vrf_evaluator::{VrfEvaluationOutputWithHash, VrfEvaluatorInput},
         BlockProducerEvent,
     },
+    core::channels::mpsc::{UnboundedReceiver, UnboundedSender},
     event_source::Event,
 };
-use openmina_core::channels::mpsc::{UnboundedReceiver, UnboundedSender};
 use vrf::{VrfEvaluationInput, VrfEvaluationOutput};
 
 use crate::NodeService;
-use node::block_producer::BlockProducerVrfEvaluatorEvent;
 
 pub fn vrf_evaluator(
     event_sender: UnboundedSender<Event>,

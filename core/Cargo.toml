@@ -5,6 +5,7 @@ edition = "2021"
 license = "Apache-2.0"
 
 [dependencies]
+lazy_static = "1.4.0"
 serde = { version = "1.0.147", features = ["rc"] }
 slab = { version = "0.4.7", features = ["serde"] }
 tracing = { version = "0.1", features = ["std"] }

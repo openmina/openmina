@@ -1,27 +1,26 @@
 use ledger::scan_state::currency::{Amount, Signed};
 use mina_p2p_messages::{
-    bigint::BigInt,
     list::List,
     v2::{
         ConsensusProofOfStakeDataConsensusStateValueStableV2,
         ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1,
         ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1,
-        ConsensusVrfOutputTruncatedStableV1, DataHashLibStateHashStableV1, LedgerProofProdStableV2,
-        MinaBaseEpochLedgerValueStableV1, MinaBaseEpochSeedStableV1,
-        MinaStateBlockchainStateValueStableV2,
+        ConsensusVrfOutputTruncatedStableV1, LedgerProofProdStableV2,
+        MinaBaseEpochLedgerValueStableV1, MinaStateBlockchainStateValueStableV2,
         MinaStateBlockchainStateValueStableV2LedgerProofStatement,
         MinaStateProtocolStateBodyValueStableV2, MinaStateProtocolStateValueStableV2,
         StagedLedgerDiffBodyStableV1, StateBodyHash, StateHash, UnsignedExtendedUInt32StableV1,
     },
 };
 use openmina_core::block::ArcBlockWithHash;
-use openmina_core::constants::{
+use openmina_core::consensus::{
     global_sub_window, grace_period_end, in_same_checkpoint_window, in_seed_update_range,
-    relative_sub_window, CONSTRAINT_CONSTANTS,
+    relative_sub_window,
 };
+use openmina_core::constants::CONSTRAINT_CONSTANTS;
 
 use super::{
-    to_epoch_and_slot, BlockProducerAction, BlockProducerActionWithMetaRef,
+    calc_epoch_seed, to_epoch_and_slot, BlockProducerAction, BlockProducerActionWithMetaRef,
     BlockProducerCurrentState, BlockProducerEnabled, BlockProducerState, BlockWithoutProof,
 };
 
@@ -192,7 +191,7 @@ impl BlockProducerEnabled {
                         Amount::from(pred_consensus_state.total_currency.clone())
                             .add_signed_flagged(supply_increase);
                     if overflowed {
-                        todo!("error");
+                        todo!("total_currency overflowed");
                     }
                     amount
                 };
@@ -216,7 +215,7 @@ impl BlockProducerEnabled {
                                 ledger: next_staking_ledger,
                                 start_checkpoint: pred_block.hash().clone(),
                                 // comment from Mina repo: (* TODO: We need to make sure issue #2328 is properly addressed. *)
-                                lock_checkpoint: empty_state_hash(),
+                                lock_checkpoint: StateHash::zero(),
                                 epoch_length: UnsignedExtendedUInt32StableV1(1.into()),
                             };
                         let epoch_count = UnsignedExtendedUInt32StableV1(
@@ -237,11 +236,8 @@ impl BlockProducerEnabled {
                     };
 
                     let next_data = if in_seed_update_range(next_slot, pred_block.constants()) {
-                        let old_seed = next_data.seed.to_fp().unwrap();
-                        let new_seed =
-                            ledger::hash_with_kimchi("MinaEpochSeed", &[old_seed, vrf_hash]);
                         ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1 {
-                            seed: MinaBaseEpochSeedStableV1(new_seed.into()).into(),
+                            seed: calc_epoch_seed(&next_data.seed, vrf_hash),
                             lock_checkpoint: pred_block.hash().clone(),
                             ..next_data
                         }
@@ -534,8 +530,4 @@ fn ledger_proof_statement_from_emitted_proof(
             sok_digest: (),
         },
     }
-}
-
-fn empty_state_hash() -> StateHash {
-    DataHashLibStateHashStableV1(BigInt::zero()).into()
 }

@@ -1,8 +1,6 @@
-use mina_p2p_messages::bigint::BigInt;
 use mina_p2p_messages::v2::{
     BlockchainSnarkBlockchainStableV2, ConsensusStakeProofStableV2,
     MinaStateSnarkTransitionValueStableV2, ProverExtendBlockchainInputStableV2,
-    SignatureLibPrivateKeyStableV1,
 };
 
 use crate::transition_frontier::sync::TransitionFrontierSyncAction;
@@ -162,13 +160,6 @@ pub fn block_producer_effects<S: crate::Service>(
                     .hash
                     .clone();
 
-                let keypair = service.keypair()?;
-                // TODO(binier): cleaner way
-                let producer_private_key = {
-                    let mut bytes = hex::decode(keypair.to_hex()).unwrap();
-                    bytes.reverse();
-                    SignatureLibPrivateKeyStableV1(BigInt::new(bytes.try_into().unwrap()))
-                };
                 let producer_public_key = block
                     .protocol_state
                     .body
@@ -210,7 +201,7 @@ pub fn block_producer_effects<S: crate::Service>(
                                 won_slot.delegator.0.clone(),
                             )
                             .unwrap(),
-                        producer_private_key,
+                        producer_private_key: service.keypair()?.into(),
                         producer_public_key,
                     },
                     pending_coinbase: pending_coinbase_witness.clone(),

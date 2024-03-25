@@ -10,6 +10,7 @@ use crate::rpc::rpc_effects;
 use crate::snark::snark_effects;
 use crate::snark_pool::candidate::SnarkPoolCandidateAction;
 use crate::snark_pool::{snark_pool_effects, SnarkPoolAction};
+use crate::transition_frontier::genesis::TransitionFrontierGenesisAction;
 use crate::transition_frontier::sync::TransitionFrontierSyncAction;
 use crate::transition_frontier::transition_frontier_effects;
 use crate::watched_accounts::watched_accounts_effects;
@@ -34,7 +35,8 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
         // Following action gets dispatched very often, so ideally this
         // effect execution should be as light as possible.
         Action::CheckTimeouts(_) => {
-            // TODO(binier): create init action and dispatch this there.
+            // TODO(binier): create init action and dispatch these there.
+            store.dispatch(TransitionFrontierGenesisAction::LedgerLoadInit);
             store.dispatch(ExternalSnarkWorkerAction::Start);
 
             p2p_timeout_effects(store, &meta);

@@ -282,7 +282,7 @@ impl node::rpc::RpcService for NodeService {
 }
 
 impl node::core::invariants::InvariantService for NodeService {
-    fn invariants_state(&mut self) -> &mut openmina_core::invariants::InvariantsState {
+    fn invariants_state(&mut self) -> &mut node::core::invariants::InvariantsState {
         &mut self.invariants_state
     }
 }

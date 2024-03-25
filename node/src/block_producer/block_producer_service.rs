@@ -6,12 +6,13 @@ use mina_p2p_messages::v2::{
     MinaBaseSparseLedgerBaseStableV2, MinaBaseStagedLedgerHashStableV1, NonZeroCurvePoint,
     ProverExtendBlockchainInputStableV2, StagedLedgerDiffDiffStableV2, StateHash,
 };
-pub use mina_signer::Keypair;
 use openmina_core::{
     block::ArcBlockWithHash,
     snark::{Snark, SnarkJobId},
 };
 use serde::{Deserialize, Serialize};
+
+use crate::account::AccountSecretKey;
 
 use super::BlockProducerWonSlot;
 
@@ -45,7 +46,7 @@ pub trait BlockProducerLedgerService: redux::Service {
 }
 
 pub trait BlockProducerService: BlockProducerLedgerService {
-    fn keypair(&mut self) -> Option<Keypair>;
+    fn keypair(&mut self) -> Option<AccountSecretKey>;
 
     fn prove(&mut self, block_hash: StateHash, input: Box<ProverExtendBlockchainInputStableV2>);
 }

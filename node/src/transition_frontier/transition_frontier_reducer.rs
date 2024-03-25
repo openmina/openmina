@@ -7,11 +7,22 @@ impl TransitionFrontierState {
     pub fn reducer(&mut self, action: TransitionFrontierActionWithMetaRef<'_>) {
         let (action, meta) = action.split();
         match action {
-            TransitionFrontierAction::Sync(a) => {
-                self.sync
-                    .reducer(meta.with_action(a), &self.config, &self.best_chain);
+            TransitionFrontierAction::Genesis(a) => self.genesis.reducer(meta.with_action(a)),
+            TransitionFrontierAction::GenesisInject => {
+                let Some(genesis) = self.genesis.block_with_real_or_dummy_proof() else {
+                    return;
+                };
+                self.best_chain = vec![genesis];
+                if !self.sync.is_pending() {
+                    self.sync = TransitionFrontierSyncState::Synced { time: meta.time() };
+                }
             }
-            TransitionFrontierAction::Synced(a) => {
+            TransitionFrontierAction::Sync(a) => {
+                self.sync.reducer(meta.with_action(a), &self.best_chain);
+            }
+            TransitionFrontierAction::Synced {
+                needed_protocol_states: needed_protocol_state_hashes,
+            } => {
                 let TransitionFrontierSyncState::BlocksSuccess {
                     chain,
                     needed_protocol_states,
@@ -20,7 +31,7 @@ impl TransitionFrontierState {
                 else {
                     return;
                 };
-                let mut needed_protocol_state_hashes = a.needed_protocol_states.clone();
+                let mut needed_protocol_state_hashes = needed_protocol_state_hashes.clone();
                 let new_chain = std::mem::take(chain);
 
                 self.needed_protocol_states

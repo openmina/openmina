@@ -2,6 +2,15 @@ use binprot_derive::BinProtWrite;
 use mina_hasher::Fp;
 use mina_p2p_messages::{bigint, number, v2};
 
+pub const GENESIS_PRODUCER_SK: &'static str =
+    "EKFKgDtU3rcuFTVSEpmpXSkukjmX4cKefYREi6Sdsk7E7wsT7KRw";
+
+pub const PROTOCOL_VERSION: v2::ProtocolVersionStableV2 = v2::ProtocolVersionStableV2 {
+    transaction: number::Number(2),
+    network: number::Number(0),
+    patch: number::Number(0),
+};
+
 // TODO(tizoc): this should be configurable at compile time
 pub const CONSTRAINT_CONSTANTS: ConstraintConstants = ConstraintConstants {
     sub_windows_per_window: 11,
@@ -30,7 +39,7 @@ pub struct ConstraintConstants {
     pub work_delay: u64,
     pub block_window_duration_ms: u64,
     pub transaction_capacity_log_2: u64,
-    pub pending_coinbase_depth: u64,
+    pub pending_coinbase_depth: usize,
     pub coinbase_amount: u64,
     pub supercharged_coinbase_factor: u64,
     pub account_creation_fee: u64,
@@ -75,7 +84,7 @@ impl From<&ConstraintConstants> for ConstraintConstantsUnversioned {
             work_delay: constraints.work_delay.into(),
             block_window_duration_ms: constraints.block_window_duration_ms.into(),
             transaction_capacity_log_2: constraints.transaction_capacity_log_2.into(),
-            pending_coinbase_depth: constraints.pending_coinbase_depth.into(),
+            pending_coinbase_depth: (constraints.pending_coinbase_depth as u64).into(),
             coinbase_amount: constraints.coinbase_amount.into(),
             supercharged_coinbase_factor: constraints.supercharged_coinbase_factor.into(),
             account_creation_fee: constraints.account_creation_fee.into(),
@@ -91,24 +100,8 @@ impl binprot::BinProtWrite for ConstraintConstants {
     }
 }
 
-pub fn in_seed_update_range(
-    slot: u32,
-    constants: &v2::MinaBaseProtocolConstantsCheckedValueStableV1,
-) -> bool {
-    let third_epoch = constants.slots_per_epoch.as_u32() / 3;
-    assert_eq!(constants.slots_per_epoch.as_u32(), third_epoch * 3);
-    slot < third_epoch * 2
-}
-
-pub fn in_same_checkpoint_window(
-    slot1: &v2::ConsensusGlobalSlotStableV1,
-    slot2: &v2::ConsensusGlobalSlotStableV1,
-) -> bool {
-    checkpoint_window(slot1) == checkpoint_window(slot2)
-}
-
-pub fn checkpoint_window(slot: &v2::ConsensusGlobalSlotStableV1) -> u32 {
-    slot.slot_number.as_u32() / checkpoint_window_size_in_slots()
+pub fn slots_per_window(constants: &v2::MinaBaseProtocolConstantsCheckedValueStableV1) -> u32 {
+    constants.slots_per_sub_window.as_u32() * (CONSTRAINT_CONSTANTS.sub_windows_per_window as u32)
 }
 
 fn days_to_ms(days: u64) -> u64 {
@@ -134,15 +127,4 @@ pub fn grace_period_end(constants: &v2::MinaBaseProtocolConstantsCheckedValueSta
         None => slots,
         Some(fork) => slots + fork.previous_global_slot,
     }
-}
-
-pub fn global_sub_window(
-    slot: &v2::ConsensusGlobalSlotStableV1,
-    constants: &v2::MinaBaseProtocolConstantsCheckedValueStableV1,
-) -> u32 {
-    slot.slot_number.as_u32() / constants.slots_per_sub_window.as_u32()
-}
-
-pub fn relative_sub_window(global_sub_window: u32) -> u32 {
-    global_sub_window % CONSTRAINT_CONSTANTS.sub_windows_per_window as u32
 }

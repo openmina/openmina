@@ -9,12 +9,12 @@ use warp::{
     Filter, Rejection, Reply,
 };
 
+use node::core::snark::SnarkJobId;
 use node::rpc::{
     ActionStatsQuery, RpcMessageProgressResponse, RpcPeerInfo, RpcRequest,
     RpcScanStateSummaryGetQuery, RpcScanStateSummaryGetResponse, RpcSnarkPoolJobGetResponse,
     RpcSnarkerWorkersResponse, RpcStateGetError, SyncStatsQuery,
 };
-use openmina_core::snark::SnarkJobId;
 
 use super::rpc::{
     RpcActionStatsGetResponse, RpcSnarkPoolGetResponse, RpcSnarkerJobCommitResponse,

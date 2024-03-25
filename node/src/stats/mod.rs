@@ -35,7 +35,7 @@ impl Stats {
             id: 0,
             time: Timestamp::ZERO,
             block_level: 1,
-            // TODO(binier): use configured genesis hash.
+            // TODO(binier): use correct genesis hash.
             block_hash: "3NKeMoncuHab5ScarV5ViyF16cJPT4taWNSaTLS64Dp67wuXigPZ"
                 .parse()
                 .unwrap(),

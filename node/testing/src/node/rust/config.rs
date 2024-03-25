@@ -1,5 +1,6 @@
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
+use node::transition_frontier::genesis::GenesisConfig;
 use node::{account::AccountSecretKey, p2p::P2pTimeouts, BlockProducerConfig, SnarkerConfig};
 use openmina_core::CHAIN_ID;
 use serde::{Deserialize, Serialize};
@@ -21,6 +22,7 @@ pub enum TestPeerId {
 pub struct RustNodeTestingConfig {
     pub chain_id: String,
     pub initial_time: redux::Timestamp,
+    pub genesis: Arc<GenesisConfig>,
     pub max_peers: usize,
     pub ask_initial_peers_interval: Duration,
     pub initial_peers: Vec<ListenerNode>,
@@ -42,6 +44,7 @@ impl RustNodeTestingConfig {
         Self {
             chain_id: CHAIN_ID.to_owned(),
             initial_time: redux::Timestamp::ZERO,
+            genesis: node::BERKELEY_CONFIG.clone(),
             max_peers: 100,
             ask_initial_peers_interval: Duration::from_secs(10),
             initial_peers: Vec::new(),

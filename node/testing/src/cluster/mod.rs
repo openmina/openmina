@@ -2,8 +2,6 @@ mod config;
 pub use config::{ClusterConfig, ProofKind};
 
 mod p2p_task_spawner;
-use openmina_core::log::system_time;
-use openmina_core::warn;
 pub use p2p_task_spawner::P2pTaskSpawner;
 
 mod node_id;
@@ -19,7 +17,9 @@ use std::{collections::VecDeque, sync::Arc};
 use libp2p::futures::{stream::FuturesUnordered, StreamExt};
 use libp2p::identity::Keypair;
 use node::core::channels::mpsc;
+use node::core::log::system_time;
 use node::core::requests::RpcId;
+use node::core::warn;
 use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 use node::p2p::service_impl::{
     webrtc::P2pServiceCtx, webrtc_with_libp2p::P2pServiceWebrtcWithLibp2p,
@@ -116,6 +116,13 @@ lazy_static::lazy_static! {
     static ref WORK_VERIFIER_INDEX: Arc<VerifierIndex> = get_verifier_index(VerifierKind::Transaction).into();
 }
 
+lazy_static::lazy_static! {
+    static ref DETERMINISTIC_ACCOUNT_SEC_KEYS: BTreeMap<AccountPublicKey, AccountSecretKey> = (0..1000)
+        .map(|i| AccountSecretKey::deterministic(i))
+        .map(|sec_key| (sec_key.public_key(), sec_key))
+        .collect();
+}
+
 pub struct Cluster {
     pub config: ClusterConfig,
     scenario: ClusterScenarioRun,
@@ -188,7 +195,9 @@ impl Cluster {
     }
 
     pub fn get_account_sec_key(&self, pub_key: &AccountPublicKey) -> Option<&AccountSecretKey> {
-        self.account_sec_keys.get(pub_key)
+        self.account_sec_keys
+            .get(pub_key)
+            .or_else(|| DETERMINISTIC_ACCOUNT_SEC_KEYS.get(pub_key))
     }
 
     pub fn set_chain_id(&mut self, chain_id: String) {
@@ -286,7 +295,7 @@ impl Cluster {
                 chain_id: openmina_core::CHAIN_ID.to_owned(),
                 peer_discovery: true,
             },
-            transition_frontier: TransitionFrontierConfig::default(),
+            transition_frontier: TransitionFrontierConfig::new(testing_config.genesis),
             block_producer: block_producer_config,
         };
 
@@ -329,10 +338,8 @@ impl Cluster {
             })
             .unwrap();
 
-        let mut ledger = LedgerCtx::default();
-        ledger.load_genesis_ledger_bytes(include_bytes!(
-            "../../../../genesis_ledgers/berkeley_genesis_ledger.bin"
-        ));
+        let ledger = LedgerCtx::default();
+
         let mut real_service = NodeService {
             rng: StdRng::seed_from_u64(0),
             event_sender,

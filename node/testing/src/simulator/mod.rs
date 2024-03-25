@@ -11,10 +11,7 @@ use rand::{Rng, SeedableRng};
 
 use crate::{
     cluster::{ClusterNodeId, ClusterOcamlNodeId},
-    node::{
-        Node, OcamlNodeTestingConfig, OcamlStep, RustNodeBlockProducerTestingConfig,
-        RustNodeTestingConfig,
-    },
+    node::{Node, RustNodeBlockProducerTestingConfig, RustNodeTestingConfig},
     scenario::{ListenerNode, ScenarioStep},
     scenarios::{ClusterRunner, RunDecision},
 };
@@ -25,9 +22,9 @@ pub struct Simulator {
 }
 
 impl Simulator {
-    pub fn new(config: SimulatorConfig) -> Self {
+    pub fn new(initial_time: redux::Timestamp, config: SimulatorConfig) -> Self {
         Self {
-            initial_time: redux::Timestamp::global_now(),
+            initial_time,
             config,
         }
     }
@@ -43,18 +40,16 @@ impl Simulator {
             .map(|(_, node)| node.config().chain_id.clone())
         {
             chain_id
+        } else if let Some(node) = runner.ocaml_node(ClusterOcamlNodeId::new_unchecked(0)) {
+            node.chain_id_async().await.unwrap()
         } else {
-            runner
-                .ocaml_node(ClusterOcamlNodeId::new_unchecked(0))
-                .unwrap()
-                .chain_id_async()
-                .await
-                .unwrap()
+            "<chain_id_calc_logic_not_implemented>".to_owned()
         };
 
         RustNodeTestingConfig {
             chain_id,
             initial_time: self.initial_time(),
+            genesis: self.config.genesis.clone(),
             max_peers: 1000,
             ask_initial_peers_interval: Duration::from_secs(60),
             initial_peers: Vec::new(),
@@ -75,10 +70,14 @@ impl Simulator {
         while !runner.nodes_iter().all(|(_, node)| is_synced(node.state())) {
             runner
                 .run(
-                    Duration::from_secs(20),
+                    Duration::from_secs(60),
                     |_, _, _| RunDecision::ContinueExec,
                     move |_, _, _, action| {
-                        matches!(action.action().kind(), ActionKind::TransitionFrontierSynced)
+                        matches!(
+                            action.action().kind(),
+                            ActionKind::TransitionFrontierGenesisInject
+                                | ActionKind::TransitionFrontierSynced
+                        )
                     },
                 )
                 .await
@@ -88,54 +87,14 @@ impl Simulator {
     }
 
     async fn set_up_seed_nodes(&mut self, runner: &mut ClusterRunner<'_>) {
-        let genesis_ms = u64::from(self.initial_time()) / 1_000_000;
-        let genesis_dt = chrono::DateTime::from_timestamp_millis(genesis_ms as i64).unwrap();
-        let genesis_timestamp = genesis_dt.format("%Y-%m-%dT%H:%M:%SZ").to_string();
-
-        let ocaml_node_config = OcamlNodeTestingConfig {
-            initial_peers: Vec::new(),
-            daemon_json: runner
-                .daemon_json_gen(&genesis_timestamp, self.config.daemon_json.clone()),
-            block_producer: None,
-        };
-
-        let ocaml_node = runner.add_ocaml_node(ocaml_node_config.clone());
-
-        eprintln!("waiting for ocaml node readiness");
-        runner
-            .exec_step(ScenarioStep::Ocaml {
-                node_id: ocaml_node,
-                step: OcamlStep::WaitReady {
-                    timeout: Duration::from_secs(5 * 60),
-                },
-            })
-            .await
-            .unwrap();
-
         eprintln!("setting up rust seed nodes: {}", self.config.seed_nodes);
         let seed_config = self.seed_config_async(runner).await;
 
         for _ in 0..(self.config.seed_nodes) {
-            let rust_node = runner.add_rust_node(seed_config.clone());
-
-            runner
-                .exec_step(ScenarioStep::ConnectNodes {
-                    dialer: rust_node,
-                    listener: ListenerNode::Ocaml(ocaml_node),
-                })
-                .await
-                .unwrap();
+            runner.add_rust_node(seed_config.clone());
         }
 
         self.wait_for_all_nodes_synced(runner).await;
-
-        runner
-            .exec_step(ScenarioStep::Ocaml {
-                node_id: ocaml_node,
-                step: OcamlStep::KillAndRemove,
-            })
-            .await
-            .unwrap();
     }
 
     fn seed_nodes_iter<'a>(

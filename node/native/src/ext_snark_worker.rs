@@ -94,7 +94,7 @@ where
     let mut len_buf = [0; size_of::<u64>()];
     r.read_exact(&mut len_buf).await?;
     let len = u64::from_le_bytes(len_buf);
-    openmina_core::log::debug!(openmina_core::log::system_time(); "reading {len} bytes...");
+    node::core::log::debug!(node::core::log::system_time(); "reading {len} bytes...");
 
     let mut buf = Vec::with_capacity(len as usize);
     let mut r = r.take(len);
@@ -102,7 +102,7 @@ where
 
     let mut read = buf.as_slice();
     let result = T::binprot_read(&mut read)?;
-    openmina_core::log::debug!(openmina_core::log::system_time(); "succesfully read {len} bytes");
+    node::core::log::debug!(node::core::log::system_time(); "succesfully read {len} bytes");
     Ok(result)
 }
 
@@ -154,7 +154,7 @@ impl ExternalSnarkWorkerRequest {
 }
 
 async fn stderr_reader<R: AsyncRead + Unpin>(r: R) -> Result<(), SnarkerError> {
-    use openmina_core::log::inner::*;
+    use node::core::log::inner::*;
     #[derive(Debug, serde::Deserialize)]
     struct SnarkerMessage {
         //timestamp: String,
@@ -165,24 +165,24 @@ async fn stderr_reader<R: AsyncRead + Unpin>(r: R) -> Result<(), SnarkerError> {
     let mut buf_reader = BufReader::new(r);
     let mut line = String::new();
     while buf_reader.read_line(&mut line).await? > 0 {
-        let t = openmina_core::log::system_time();
+        let t = node::core::log::system_time();
         match serde_json::from_str::<SnarkerMessage>(&line) {
             Ok(entry) => match entry.level.parse() {
                 Ok(Level::INFO) => {
-                    openmina_core::log::info!(t; source = "external snark worker", message = entry.message)
+                    node::core::log::info!(t; source = "external snark worker", message = entry.message)
                 }
                 Ok(Level::WARN) => {
-                    openmina_core::log::warn!(t; source = "external snark worker", message = entry.message)
+                    node::core::log::warn!(t; source = "external snark worker", message = entry.message)
                 }
                 Ok(Level::ERROR) => {
-                    openmina_core::log::error!(t; source = "external snark worker", message = entry.message)
+                    node::core::log::error!(t; source = "external snark worker", message = entry.message)
                 }
                 _ => {
-                    openmina_core::log::warn!(t; source = "external snark worker", message = entry.message)
+                    node::core::log::warn!(t; source = "external snark worker", message = entry.message)
                 }
             },
             Err(_) => {
-                openmina_core::log::warn!(t; source = "external snark worker", unformatted_message = line);
+                node::core::log::warn!(t; source = "external snark worker", unformatted_message = line);
             }
         }
         line.clear();

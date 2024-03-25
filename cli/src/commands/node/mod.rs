@@ -185,7 +185,7 @@ impl Node {
                 chain_id: CHAIN_ID.to_owned(),
                 peer_discovery: true,
             },
-            transition_frontier: TransitionFrontierConfig::default(),
+            transition_frontier: TransitionFrontierConfig::new(node::BERKELEY_CONFIG.clone()),
             block_producer: None,
         };
         let (event_sender, event_receiver) = mpsc::unbounded_channel();
@@ -223,14 +223,11 @@ impl Node {
 
         let record = self.record;
 
-        let mut ledger = if let Some(path) = &self.additional_ledgers_path {
+        let ledger = if let Some(path) = &self.additional_ledgers_path {
             LedgerCtx::new_with_additional_snarked_ledgers(path)
         } else {
             LedgerCtx::default()
         };
-        ledger.load_genesis_ledger_bytes(include_bytes!(
-            "../../../../genesis_ledgers/berkeley_genesis_ledger.bin"
-        ));
 
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
