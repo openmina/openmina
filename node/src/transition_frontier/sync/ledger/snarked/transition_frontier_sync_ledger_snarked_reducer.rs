@@ -239,6 +239,7 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                 address,
                 hashes,
                 previous_hashes,
+                ..
             } => {
                 let Self::Pending {
                     queue,

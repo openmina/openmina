@@ -202,7 +202,7 @@ impl TransitionFrontierSyncLedgerSnarkedState {
             } if *num_accounts > 0 => {
                 // TODO(tizoc): this approximation is very rough, could be improved.
                 // Also we count elements to be fetched and not request to be made which
-                // would be more accurate (accounts are feched in groups of 64, hashes of 2).
+                // would be more accurate (accounts are fetched in groups of 64, hashes of 2).
                 let tree_height = tree_height_for_num_accounts(*num_accounts);
                 let fill_ratio = (*num_accounts as f64) / 2f64.powf(tree_height as f64);
                 let num_hashes_estimate = 2u64.pow((tree_height - ACCOUNT_SUBTREE_HEIGHT) as u32);
