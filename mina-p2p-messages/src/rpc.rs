@@ -286,6 +286,7 @@ pub struct JSONifyPayloadRegistry {
 
 impl JSONifyPayloadRegistry {
     #[deprecated = "Use `[v1]` or `[v2]` methods instead."]
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self::v1()
     }

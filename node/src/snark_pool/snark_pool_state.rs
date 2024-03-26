@@ -221,6 +221,12 @@ impl SnarkPoolState {
     }
 }
 
+impl Default for SnarkPoolState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl fmt::Debug for SnarkPoolState {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("JobCommitments")

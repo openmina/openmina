@@ -53,3 +53,9 @@ impl RpcState {
         }
     }
 }
+
+impl Default for RpcState {
+    fn default() -> Self {
+        Self::new()
+    }
+}

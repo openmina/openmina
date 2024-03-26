@@ -1640,6 +1640,16 @@ pub mod poseidon {
         nabsorb: usize,
         _constants: PhantomData<C>,
     }
+    
+    impl<F, C> Default for Sponge<F, C>
+    where
+        F: FieldWitness,
+        C: SpongeConstants,
+    {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
 
     impl<F, C> Sponge<F, C>
     where

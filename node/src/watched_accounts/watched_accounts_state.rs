@@ -187,3 +187,9 @@ impl WatchedAccountsState {
         self.iter().map(|v| v.0.clone()).collect()
     }
 }
+
+impl Default for WatchedAccountsState {
+    fn default() -> Self {
+        Self::new()
+    }
+}

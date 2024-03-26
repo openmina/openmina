@@ -52,6 +52,12 @@ impl RpcService {
     }
 }
 
+impl Default for RpcService {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl NodeService {
     /// Channel for sending the rpc request to state machine.
     #[allow(dead_code)]

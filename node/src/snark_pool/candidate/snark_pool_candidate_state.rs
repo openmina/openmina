@@ -324,6 +324,12 @@ impl SnarkPoolCandidatesState {
     }
 }
 
+impl Default for SnarkPoolCandidatesState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SnarkPoolCandidateState {
     pub fn fee(&self) -> u64 {
         match self {

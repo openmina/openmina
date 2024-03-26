@@ -187,6 +187,12 @@ impl ConsensusState {
     }
 }
 
+impl Default for ConsensusState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[derive(Serialize, Debug, Clone, Copy)]
 pub struct BlockRef<'a> {
     pub hash: &'a StateHash,
