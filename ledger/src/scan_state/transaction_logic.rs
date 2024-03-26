@@ -3196,7 +3196,7 @@ pub mod zkapp_command {
         this: TokenId,
     }
 
-    pub const ACCOUNT_UPDATE_CONS_HASH_PARAM: &'static str = "MinaAcctUpdateCons";
+    pub const ACCOUNT_UPDATE_CONS_HASH_PARAM: &str = "MinaAcctUpdateCons";
 
     impl<AccUpdate: Clone> CallForest<AccUpdate> {
         pub fn new() -> Self {

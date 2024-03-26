@@ -2,7 +2,7 @@ use binprot_derive::BinProtWrite;
 use mina_hasher::Fp;
 use mina_p2p_messages::{bigint, number, v2};
 
-pub const GENESIS_PRODUCER_SK: &'static str =
+pub const GENESIS_PRODUCER_SK: &str =
     "EKFKgDtU3rcuFTVSEpmpXSkukjmX4cKefYREi6Sdsk7E7wsT7KRw";
 
 pub const PROTOCOL_VERSION: v2::ProtocolVersionStableV2 = v2::ProtocolVersionStableV2 {

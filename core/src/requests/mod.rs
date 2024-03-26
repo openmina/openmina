@@ -144,7 +144,7 @@ where
         use serde::de::{self, MapAccess, SeqAccess, Visitor};
         struct RequestsVisitor<IdType, Request>(std::marker::PhantomData<(IdType, Request)>);
 
-        const FIELDS: &'static [&'static str] = &["list", "counter", "last_added_req_id"];
+        const FIELDS: &[&str] = &["list", "counter", "last_added_req_id"];
 
         impl<'de, IdType, Request> Visitor<'de> for RequestsVisitor<IdType, Request>
         where

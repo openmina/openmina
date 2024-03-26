@@ -380,7 +380,7 @@ impl<'a> ClusterRunner<'a> {
             // get all block producers except an extra account added
             // by ocaml node. Looks like the block producer of the
             // genesis block.
-            const GENESIS_PRODUCER: &'static str =
+            const GENESIS_PRODUCER: &str =
                 "B62qiy32p8kAKnny8ZFwoMhYpBppM1DWVCqAPBYNcXnsAHhnfAAuXgg";
             LedgerService::ctx(node.service())
                 .producers_with_delegates(staking_ledger_hash, |pub_key| {
