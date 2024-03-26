@@ -1,3 +1,5 @@
+#![allow(clippy::large_enum_variant)]
+
 use clap::Parser;
 
 use openmina_node_testing::cluster::{Cluster, ClusterConfig};

@@ -84,12 +84,12 @@ pub struct PeerState {
 pub(super) enum Error {
     #[cfg(not(target_arch = "wasm32"))]
     #[error("{0}")]
-    RTCError(::webrtc::Error),
+    RTC(::webrtc::Error),
     #[cfg(target_arch = "wasm32")]
     #[error("js error: {0:?}")]
     RTCJsError(String),
     #[error("signaling error: {0}")]
-    SignalingError(RTCSignalingError),
+    Signaling(RTCSignalingError),
     #[error("unexpected cmd received")]
     UnexpectedCmd,
     #[from(ignore)]

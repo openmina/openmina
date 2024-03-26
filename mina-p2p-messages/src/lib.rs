@@ -1,3 +1,4 @@
+#![allow(clippy::large_enum_variant)]
 pub mod array;
 ///! Mina wire types, represented in Rust.
 ///!

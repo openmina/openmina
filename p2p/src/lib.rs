@@ -1,3 +1,5 @@
+#![allow(clippy::large_enum_variant)]
+
 ///#![feature(trivial_bounds)]
 pub mod channels;
 pub mod connection;

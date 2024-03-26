@@ -33,11 +33,11 @@ pub struct RTCChannel(Arc<RTCDataChannel>, bool);
 #[derive(thiserror::Error, derive_more::From, Debug)]
 pub enum RTCSignalingError {
     #[error("serialization failed: {0}")]
-    SerializeError(serde_json::Error),
+    Serialize(serde_json::Error),
     #[error("http request failed: {0}")]
-    HyperError(hyper::Error),
+    Hyper(hyper::Error),
     #[error("http request failed: {0}")]
-    HttpError(hyper::http::Error),
+    Http(hyper::http::Error),
 }
 
 impl RTCConnection {

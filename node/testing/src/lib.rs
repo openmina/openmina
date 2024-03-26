@@ -1,3 +1,5 @@
+#![allow(clippy::large_enum_variant)]
+
 mod exit_with_error;
 
 use std::sync::Arc;

@@ -121,10 +121,10 @@ pub type StreamId = u32;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum YamuxFrameParseError {
-    UnknownVersion(u8),
-    UnknownFlags(u16),
-    UnknownType(u8),
-    UnknownErrorCode(u32),
+    Version(u8),
+    Flags(u16),
+    Type(u8),
+    ErrorCode(u32),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

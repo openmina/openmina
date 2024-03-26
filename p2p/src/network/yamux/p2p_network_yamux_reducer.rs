@@ -35,13 +35,13 @@ impl P2pNetworkYamuxState {
                         let _version = match buf[0] {
                             0 => 0,
                             unknown => {
-                                self.set_err(YamuxFrameParseError::UnknownVersion(unknown));
+                                self.set_err(YamuxFrameParseError::Version(unknown));
                                 break;
                             }
                         };
                         let flags = u16::from_be_bytes(buf[2..4].try_into().expect("cannot fail"));
                         let Some(flags) = YamuxFlags::from_bits(flags) else {
-                            self.set_err(YamuxFrameParseError::UnknownFlags(flags));
+                            self.set_err(YamuxFrameParseError::Flags(flags));
                             break;
                         };
                         let stream_id =
@@ -93,7 +93,7 @@ impl P2pNetworkYamuxState {
                                     1 => Err(YamuxSessionError::Protocol),
                                     2 => Err(YamuxSessionError::Internal),
                                     unknown => {
-                                        self.set_err(YamuxFrameParseError::UnknownErrorCode(
+                                        self.set_err(YamuxFrameParseError::ErrorCode(
                                             unknown,
                                         ));
                                         break;
@@ -109,7 +109,7 @@ impl P2pNetworkYamuxState {
                                 continue;
                             }
                             unknown => {
-                                self.set_err(YamuxFrameParseError::UnknownType(unknown));
+                                self.set_err(YamuxFrameParseError::Type(unknown));
                                 break;
                             }
                         }

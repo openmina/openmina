@@ -1,3 +1,5 @@
+#![allow(clippy::large_enum_variant)]
+
 pub use openmina_core as core;
 
 #[macro_use]
