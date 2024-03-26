@@ -27,7 +27,7 @@ const LOCALHOST: Ipv4Addr = Ipv4Addr::new(127, 0, 0, 1);
 pub struct IncomingFindNode;
 
 impl IncomingFindNode {
-    pub async fn run<'cluster>(self, runner: ClusterRunner<'cluster>) {
+    pub async fn run(self, runner: ClusterRunner<'_>) {
         let mut driver = Driver::new(runner);
         let (node1, peer_id1) = driver.add_rust_node(
             RustNodeTestingConfig::berkeley_default().initial_peers(
@@ -119,7 +119,7 @@ impl IncomingFindNode {
 pub struct KademliaBootstrap;
 
 impl KademliaBootstrap {
-    pub async fn run<'cluster>(self, runner: ClusterRunner<'cluster>) {
+    pub async fn run(self, runner: ClusterRunner<'_>) {
         const NUM: u8 = 10;
         let identity_key =
             Keypair::ed25519_from_bytes([0xba; 32]).expect("secret key bytes must be valid");

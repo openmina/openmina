@@ -41,7 +41,7 @@ impl BigInt {
         F::read(&mut slice).expect("Conversion BigInt to Field failed")
     }
 
-    pub fn iter_bytes<'a>(&'a self) -> impl 'a + DoubleEndedIterator<Item = u8> {
+    pub fn iter_bytes(&self) -> impl '_ + DoubleEndedIterator<Item = u8> {
         self.0.iter().cloned()
     }
 }

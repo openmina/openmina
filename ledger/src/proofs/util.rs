@@ -63,7 +63,7 @@ where
 }
 
 /// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/pickles/wrap_verifier.ml#L16
-pub fn challenge_polynomial<'a, F: FieldWitness>(chals: &'a [F]) -> impl Fn(F) -> F + 'a {
+pub fn challenge_polynomial<F: FieldWitness>(chals: &[F]) -> impl Fn(F) -> F + '_ {
     |pt: F| {
         let k = chals.len();
         let pow_two_pows = {
@@ -86,9 +86,9 @@ pub fn challenge_polynomial<'a, F: FieldWitness>(chals: &'a [F]) -> impl Fn(F) -
 }
 
 /// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/pickles/wrap_verifier.ml#L16
-pub fn challenge_polynomial_checked<'a, F: FieldWitness>(
-    chals: &'a [F],
-) -> impl Fn(F, &mut Witness<F>) -> F + 'a {
+pub fn challenge_polynomial_checked<F: FieldWitness>(
+    chals: &[F],
+) -> impl Fn(F, &mut Witness<F>) -> F + '_ {
     |pt: F, w: &mut Witness<F>| {
         let k = chals.len();
         let pow_two_pows = {

@@ -127,10 +127,10 @@ impl SnarkPoolState {
             });
     }
 
-    pub fn range<'a, R>(
-        &'a self,
+    pub fn range<R>(
+        &self,
         range: R,
-    ) -> impl 'a + DoubleEndedIterator<Item = (u64, &'a JobState)>
+    ) -> impl DoubleEndedIterator<Item = (u64, &JobState)>
     where
         R: RangeBounds<u64>,
     {
@@ -176,7 +176,7 @@ impl SnarkPoolState {
             .map(|(id, _)| id)
     }
 
-    pub fn available_jobs_iter<'a>(&'a self) -> impl 'a + Iterator<Item = &'a JobState> {
+    pub fn available_jobs_iter(&self) -> impl Iterator<Item = &JobState> {
         self.list
             .iter()
             .map(|(_, job)| job)
@@ -196,7 +196,7 @@ impl SnarkPoolState {
             })
     }
 
-    pub fn completed_snarks_iter<'a>(&'a self) -> impl 'a + Iterator<Item = &'a Snark> {
+    pub fn completed_snarks_iter(&self) -> impl Iterator<Item = &Snark> {
         self.list
             .iter()
             .filter_map(|(_, job)| job.snark.as_ref())

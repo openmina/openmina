@@ -14,7 +14,7 @@ use crate::{
 pub struct AcceptIncomingConnection;
 
 impl AcceptIncomingConnection {
-    pub async fn run<'cluster>(self, runner: ClusterRunner<'cluster>) {
+    pub async fn run(self, runner: ClusterRunner<'_>) {
         let mut driver = Driver::new(runner);
 
         let (node_ut, _) = driver.add_rust_node(RustNodeTestingConfig::berkeley_default());
@@ -56,7 +56,7 @@ impl AcceptIncomingConnection {
 pub struct AcceptMultipleIncomingConnections;
 
 impl AcceptMultipleIncomingConnections {
-    pub async fn run<'cluster>(self, runner: ClusterRunner<'cluster>) {
+    pub async fn run(self, runner: ClusterRunner<'_>) {
         const MAX: u8 = 16;
 
         let mut driver = Driver::new(runner);
@@ -104,7 +104,7 @@ impl AcceptMultipleIncomingConnections {
 pub struct DoesNotAcceptConnectionFromSelf;
 
 impl DoesNotAcceptConnectionFromSelf {
-    pub async fn run<'cluster>(self, runner: ClusterRunner<'cluster>) {
+    pub async fn run(self, runner: ClusterRunner<'_>) {
         let mut driver = Driver::new(runner);
         let (node_ut, node_ut_peer_id) =
             driver.add_rust_node(RustNodeTestingConfig::berkeley_default());

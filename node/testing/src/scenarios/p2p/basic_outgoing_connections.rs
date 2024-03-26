@@ -34,7 +34,7 @@ fn custom_listener(peer_id: PeerId, port: u16) -> ListenerNode {
 pub struct MakeOutgoingConnection;
 
 impl MakeOutgoingConnection {
-    pub async fn run<'cluster>(self, runner: ClusterRunner<'cluster>) {
+    pub async fn run(self, runner: ClusterRunner<'_>) {
         let mut driver = Driver::new(runner);
 
         let (node1, _) = driver.add_rust_node(RustNodeTestingConfig::berkeley_default());
@@ -76,7 +76,7 @@ impl MakeOutgoingConnection {
 pub struct MakeMultipleOutgoingConnections;
 
 impl MakeMultipleOutgoingConnections {
-    pub async fn run<'cluster>(self, runner: ClusterRunner<'cluster>) {
+    pub async fn run(self, runner: ClusterRunner<'_>) {
         const MAX: u8 = 32;
 
         let mut driver = Driver::new(runner);
@@ -126,7 +126,7 @@ impl MakeMultipleOutgoingConnections {
 pub struct DontConnectToNodeWithSameId;
 
 impl DontConnectToNodeWithSameId {
-    pub async fn run<'cluster>(self, runner: ClusterRunner<'cluster>) {
+    pub async fn run(self, runner: ClusterRunner<'_>) {
         let mut driver = Driver::new(runner);
 
         let bytes: [u8; 32] = rand::random();
@@ -167,7 +167,7 @@ impl DontConnectToNodeWithSameId {
 pub struct DontConnectToSelfInitialPeer;
 
 impl DontConnectToSelfInitialPeer {
-    pub async fn run<'cluster>(self, runner: ClusterRunner<'cluster>) {
+    pub async fn run(self, runner: ClusterRunner<'_>) {
         let mut driver = Driver::new(runner);
 
         let bytes = [0xfe; 32];
@@ -205,7 +205,7 @@ impl DontConnectToSelfInitialPeer {
 pub struct DontConnectToInitialPeerWithSameId;
 
 impl DontConnectToInitialPeerWithSameId {
-    pub async fn run<'cluster>(self, runner: ClusterRunner<'cluster>) {
+    pub async fn run(self, runner: ClusterRunner<'_>) {
         let mut driver = Driver::new(runner);
 
         let bytes: [u8; 32] = rand::random();
@@ -241,7 +241,7 @@ impl DontConnectToInitialPeerWithSameId {
 pub struct ConnectToInitialPeers;
 
 impl ConnectToInitialPeers {
-    pub async fn run<'cluster>(self, runner: ClusterRunner<'cluster>) {
+    pub async fn run(self, runner: ClusterRunner<'_>) {
         const MAX: u8 = 32;
 
         let mut driver = Driver::new(runner);
@@ -295,7 +295,7 @@ impl ConnectToInitialPeers {
 pub struct ConnectToInitialPeersBecomeReady;
 
 impl ConnectToInitialPeersBecomeReady {
-    pub async fn run<'cluster>(self, runner: ClusterRunner<'cluster>) {
+    pub async fn run(self, runner: ClusterRunner<'_>) {
         const MAX: u8 = 32;
 
         let mut driver = Driver::new(runner);
@@ -350,7 +350,7 @@ impl ConnectToInitialPeersBecomeReady {
 pub struct ConnectToUnavailableInitialPeers;
 
 impl ConnectToUnavailableInitialPeers {
-    pub async fn run<'cluster>(self, runner: ClusterRunner<'cluster>) {
+    pub async fn run(self, runner: ClusterRunner<'_>) {
         const MAX: u16 = 2;
         const RETRIES: u8 = 3;
 

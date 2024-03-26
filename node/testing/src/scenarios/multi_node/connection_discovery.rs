@@ -23,7 +23,7 @@ use crate::{
 pub struct RustNodeAsSeed;
 
 impl RustNodeAsSeed {
-    pub async fn run<'a>(self, mut runner: ClusterRunner<'a>) {
+    pub async fn run(self, mut runner: ClusterRunner<'_>) {
         let rust_node_id = runner.add_rust_node(RustNodeTestingConfig::berkeley_default());
         let rust_node_dial_addr = runner.node(rust_node_id).unwrap().dial_addr();
 
@@ -120,7 +120,7 @@ impl RustNodeAsSeed {
 pub struct OCamlToRust;
 
 impl OCamlToRust {
-    pub async fn run<'a>(self, mut runner: ClusterRunner<'a>) {
+    pub async fn run(self, mut runner: ClusterRunner<'_>) {
         let rust_node_id = runner.add_rust_node(RustNodeTestingConfig::berkeley_default());
         let rust_node_dial_addr = runner.node(rust_node_id).unwrap().dial_addr();
 
@@ -181,7 +181,7 @@ impl OCamlToRust {
 pub struct RustToOCaml;
 
 impl RustToOCaml {
-    pub async fn run<'a>(self, mut runner: ClusterRunner<'a>) {
+    pub async fn run(self, mut runner: ClusterRunner<'_>) {
         let rust_node_id = runner.add_rust_node(RustNodeTestingConfig::berkeley_default());
 
         let ocaml_seed_config = OcamlNodeTestingConfig {
@@ -258,7 +258,7 @@ impl RustToOCaml {
 pub struct OCamlToRustViaSeed;
 
 impl OCamlToRustViaSeed {
-    pub async fn run<'a>(self, mut runner: ClusterRunner<'a>) {
+    pub async fn run(self, mut runner: ClusterRunner<'_>) {
         let rust_node_id = runner.add_rust_node(RustNodeTestingConfig::berkeley_default());
 
         let ocaml_seed_config = OcamlNodeTestingConfig {
@@ -364,7 +364,7 @@ impl OCamlToRustViaSeed {
 pub struct RustToOCamlViaSeed;
 
 impl RustToOCamlViaSeed {
-    pub async fn run<'a>(self, mut runner: ClusterRunner<'a>) {
+    pub async fn run(self, mut runner: ClusterRunner<'_>) {
         let rust_node_id = runner.add_rust_node(RustNodeTestingConfig::berkeley_default());
 
         let ocaml_seed_config = OcamlNodeTestingConfig {

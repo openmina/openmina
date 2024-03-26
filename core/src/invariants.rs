@@ -8,7 +8,7 @@ pub trait InvariantService: redux::Service {
 pub struct InvariantsState(Vec<Box<dyn 'static + Send + Any>>);
 
 impl InvariantsState {
-    pub fn get<'a, T: 'static + Send + Default>(&'a mut self, i: usize) -> &'a mut T {
+    pub fn get<T: 'static + Send + Default>(&mut self, i: usize) -> &mut T {
         self.0.resize_with(i + 1, || Box::new(()));
         let v = self.0.get_mut(i).unwrap();
         if v.is::<T>() {

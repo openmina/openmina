@@ -23,7 +23,7 @@ fn has_active_peer(p2p_state: &P2pState, peer_id: &PeerId) -> bool {
 pub struct SimultaneousConnections;
 
 impl SimultaneousConnections {
-    pub async fn run<'cluster>(self, runner: ClusterRunner<'cluster>) {
+    pub async fn run(self, runner: ClusterRunner<'_>) {
         let mut driver = Driver::new(runner);
 
         let testing_config = RustNodeTestingConfig::berkeley_default().with_timeouts(P2pTimeouts {
@@ -91,7 +91,7 @@ impl SimultaneousConnections {
 pub struct AllNodesConnectionsAreSymmetric;
 
 impl AllNodesConnectionsAreSymmetric {
-    pub async fn run<'cluster>(self, runner: ClusterRunner<'cluster>) {
+    pub async fn run(self, runner: ClusterRunner<'_>) {
         const MAX: u16 = 32;
 
         let mut driver = Driver::new(runner);
@@ -154,7 +154,7 @@ impl AllNodesConnectionsAreSymmetric {
 pub struct SeedConnectionsAreSymmetric;
 
 impl SeedConnectionsAreSymmetric {
-    pub async fn run<'cluster>(self, runner: ClusterRunner<'cluster>) {
+    pub async fn run(self, runner: ClusterRunner<'_>) {
         const MAX: u16 = 32;
 
         let mut driver = Driver::new(runner);
@@ -198,7 +198,7 @@ impl SeedConnectionsAreSymmetric {
 pub struct MaxNumberOfPeers;
 
 impl MaxNumberOfPeers {
-    pub async fn run<'cluster>(self, runner: ClusterRunner<'cluster>) {
+    pub async fn run(self, runner: ClusterRunner<'_>) {
         const TOTAL: u16 = 512;
         const MAX: u16 = 32;
 
@@ -296,7 +296,7 @@ impl MaxNumberOfPeers {
 pub struct MaxNumberOfPeersIs1;
 
 impl MaxNumberOfPeersIs1 {
-    pub async fn run<'cluster>(self, runner: ClusterRunner<'cluster>) {
+    pub async fn run(self, runner: ClusterRunner<'_>) {
         const CONNECTED_TIME_SEC: u64 = 10;
         let mut driver = Driver::new(runner);
 
@@ -342,7 +342,7 @@ impl MaxNumberOfPeersIs1 {
 pub struct ConnectionStability;
 
 impl ConnectionStability {
-    pub async fn run<'cluster>(self, runner: ClusterRunner<'cluster>) {
+    pub async fn run(self, runner: ClusterRunner<'_>) {
         const CONNECTED_TIME_SEC: u64 = 1 * 60;
         let mut driver = Driver::new(runner);
 
