@@ -145,7 +145,7 @@ fn consensus_state(
     let is_genesis = if negative_one { 0 } else { 1 };
     let (blockchain_length, global_slot_since_genesis) = match CONSTRAINT_CONSTANTS.fork.as_ref() {
         None => (is_genesis, 0),
-        Some(fork) => (fork.previous_length + is_genesis, fork.previous_global_slot),
+        Some(fork) => (fork.previous_length + is_genesis, fork.genesis_slot),
     };
 
     v2::ConsensusProofOfStakeDataConsensusStateValueStableV2 {
