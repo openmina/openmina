@@ -569,41 +569,6 @@ impl PlonkVerificationKeyEvals<Fp> {
     }
 
     /// For debugging
-    fn to_string(&self) -> String {
-        let Self {
-            sigma,
-            coefficients,
-            generic,
-            psm,
-            complete_add,
-            mul,
-            emul,
-            endomul_scalar,
-        } = self;
-
-        let mut string = String::with_capacity(1_000);
-
-        use crate::util::FpExt;
-
-        let mut inner_to_s = |c: &InnerCurve<Fp>| {
-            let GroupAffine::<Fp> { x, y, .. } = c.to_affine();
-            string.push_str(&format!("{}\n", x.to_decimal()));
-            string.push_str(&format!("{}\n", y.to_decimal()));
-        };
-
-        sigma.iter().for_each(&mut inner_to_s);
-        coefficients.iter().for_each(&mut inner_to_s);
-        inner_to_s(generic);
-        inner_to_s(psm);
-        inner_to_s(complete_add);
-        inner_to_s(mul);
-        inner_to_s(emul);
-        inner_to_s(endomul_scalar);
-
-        string.trim().to_string()
-    }
-
-    /// For debugging
     fn from_string(s: &str) -> Self {
         let mut s = s.lines();
 
@@ -664,6 +629,43 @@ impl PlonkVerificationKeyEvals<Fp> {
             emul: InnerCurve::rand(),
             endomul_scalar: InnerCurve::rand(),
         }
+    }
+}
+
+/// For debugging
+impl std::fmt::Display for PlonkVerificationKeyEvals<Fp> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let Self {
+            sigma,
+            coefficients,
+            generic,
+            psm,
+            complete_add,
+            mul,
+            emul,
+            endomul_scalar,
+        } = self;
+
+        let mut string = String::with_capacity(1_000);
+
+        use crate::util::FpExt;
+
+        let mut inner_to_s = |c: &InnerCurve<Fp>| {
+            let GroupAffine::<Fp> { x, y, .. } = c.to_affine();
+            string.push_str(&format!("{}\n", x.to_decimal()));
+            string.push_str(&format!("{}\n", y.to_decimal()));
+        };
+
+        sigma.iter().for_each(&mut inner_to_s);
+        coefficients.iter().for_each(&mut inner_to_s);
+        inner_to_s(generic);
+        inner_to_s(psm);
+        inner_to_s(complete_add);
+        inner_to_s(mul);
+        inner_to_s(emul);
+        inner_to_s(endomul_scalar);
+
+        write!(f, "{}", string.trim().to_string())
     }
 }
 

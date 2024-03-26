@@ -171,7 +171,7 @@ impl<'de> Deserialize<'de> for BigInt {
                         Some(v) => hex::decode(v).map_err(|_| {
                             serde::de::Error::custom(format!("failed to decode hex str: {v}"))
                         }),
-                        None => Err(serde::de::Error::custom(format!("mising 0x prefix"))),
+                        None => Err(serde::de::Error::custom("mising 0x prefix".to_string())),
                     }
                 }
 
@@ -183,14 +183,14 @@ impl<'de> Deserialize<'de> for BigInt {
                         Some(v) => hex::decode(v).map_err(|_| {
                             serde::de::Error::custom(format!("failed to decode hex str: {v}"))
                         }),
-                        None => Err(serde::de::Error::custom(format!("mising 0x prefix"))),
+                        None => Err(serde::de::Error::custom("mising 0x prefix".to_string())),
                     }
                 }
             }
             let mut v = deserializer.deserialize_str(V)?;
             v.reverse();
             v.try_into()
-                .map_err(|_| serde::de::Error::custom(format!("failed to convert vec to array")))
+                .map_err(|_| serde::de::Error::custom("failed to convert vec to array".to_string()))
         } else {
             struct V;
             impl<'de> serde::de::Visitor<'de> for V {

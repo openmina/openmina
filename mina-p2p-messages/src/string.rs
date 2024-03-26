@@ -99,7 +99,7 @@ impl<'de> Deserialize<'de> for ByteString {
                 E: serde::de::Error,
             {
                 hex::decode(v)
-                    .map_err(|_| serde::de::Error::custom(format!("failed to decode hex str")))
+                    .map_err(|_| serde::de::Error::custom("failed to decode hex str".to_string()))
             }
         }
         deserializer.deserialize_str(V).map(Self)

@@ -197,7 +197,7 @@ impl LedgerCtx {
             .ok_or_else(|| {
                 format!(
                     "push_snarked_ledger: could not find old root snarked ledger: {}",
-                    old_root_snarked_ledger_hash.to_string(),
+                    old_root_snarked_ledger_hash,
                 )
             })?;
         let mut mt = root_snarked_ledger.make_child();
@@ -245,7 +245,7 @@ impl LedgerCtx {
             } else {
                 Err(format!(
                     "Failed to find protocol state for state hash: {}",
-                    state_hash.to_string()
+                    state_hash
                 ))
             }
         };
@@ -255,7 +255,7 @@ impl LedgerCtx {
             .ok_or_else(|| {
                 format!(
                     "Failed to find staged ledger with hash: {}",
-                    new_root_staged_ledger_hash.to_string()
+                    new_root_staged_ledger_hash
                 )
             })?
             .scan_state();
@@ -276,8 +276,8 @@ impl LedgerCtx {
         if expected_hash != &obtained_hash {
             return Err(format!(
                 "Expected to obtain snarked root ledger hash {} but got {}",
-                expected_hash.to_string(),
-                obtained_hash.to_string()
+                expected_hash,
+                obtained_hash
             ));
         }
 
