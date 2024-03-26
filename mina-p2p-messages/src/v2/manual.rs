@@ -890,6 +890,7 @@ pub struct TokenFeeExcess {
     pub amount: SignedAmount,
 }
 
+#[allow(clippy::derivable_impls)]
 impl Default for NonZeroCurvePointUncompressedStableV1 {
     fn default() -> Self {
         Self {

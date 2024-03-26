@@ -202,8 +202,8 @@ impl From<super::RTCConfigIceServer> for RTCIceServer {
         };
         RTCIceServer {
             urls: value.urls,
-            username: value.username.unwrap_or(String::new()),
-            credential: value.credential.unwrap_or(String::new()),
+            username: value.username.unwrap_or_default(),
+            credential: value.credential.unwrap_or_default(),
             credential_type,
         }
     }

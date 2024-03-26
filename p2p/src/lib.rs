@@ -1,5 +1,7 @@
 #![allow(clippy::large_enum_variant)]
 #![allow(clippy::type_complexity)]
+// TODO(akoptelov): We should resolve this lint
+#![allow(clippy::suspicious_arithmetic_impl)]
 
 ///#![feature(trivial_bounds)]
 pub mod channels;
