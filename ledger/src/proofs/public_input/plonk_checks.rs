@@ -577,10 +577,7 @@ mod scalars {
     fn is_const<F: FieldWitness>(e: &Expr<ConstantExpr<F>>) -> bool {
         use ConstantExpr::*;
         match e {
-            Expr::Constant(c) => match c {
-                EndoCoefficient | Literal(_) | Mds { .. } => true,
-                _ => false,
-            },
+            Expr::Constant(c) => matches!(c, EndoCoefficient | Literal(_) | Mds { .. }),
             Expr::BinOp(_, x, y) => is_const(x) && is_const(y),
             Expr::Pow(x, _) => is_const(x),
             _ => false,
