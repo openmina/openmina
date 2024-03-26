@@ -93,9 +93,7 @@ impl P2pNetworkYamuxState {
                                     1 => Err(YamuxSessionError::Protocol),
                                     2 => Err(YamuxSessionError::Internal),
                                     unknown => {
-                                        self.set_err(YamuxFrameParseError::ErrorCode(
-                                            unknown,
-                                        ));
+                                        self.set_err(YamuxFrameParseError::ErrorCode(unknown));
                                         break;
                                     }
                                 };

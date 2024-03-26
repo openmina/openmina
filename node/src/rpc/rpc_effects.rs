@@ -34,10 +34,9 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
 
     match action {
         RpcAction::GlobalStateGet { rpc_id, filter } => {
-            let _ = store.service.respond_state_get(
-                rpc_id,
-                (store.state.get(), filter.as_deref()),
-            );
+            let _ = store
+                .service
+                .respond_state_get(rpc_id, (store.state.get(), filter.as_deref()));
         }
         RpcAction::ActionStatsGet { rpc_id, query } => match query {
             ActionStatsQuery::SinceStart => {
@@ -302,12 +301,14 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                 };
 
                 let mut scan_state = service.scan_state_summary(block.staged_ledger_hash().clone());
-                scan_state.iter_mut().flatten().for_each(|job| if let RpcScanStateSummaryScanStateJob::Todo {
+                scan_state.iter_mut().flatten().for_each(|job| {
+                    if let RpcScanStateSummaryScanStateJob::Todo {
                         job_id,
                         bundle_job_id,
                         job: kind,
                         seq_no,
-                    } = job {
+                    } = job
+                    {
                         let Some(data) = snark_pool.get(bundle_job_id) else {
                             return;
                         };
@@ -330,6 +331,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                             commitment,
                             snark,
                         };
+                    }
                 });
                 Some(RpcScanStateSummary {
                     block: block_summary,

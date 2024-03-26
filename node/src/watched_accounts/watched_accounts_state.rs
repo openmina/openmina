@@ -177,9 +177,7 @@ impl WatchedAccountsState {
         self.list.insert(key, value);
     }
 
-    pub fn iter(
-        &self,
-    ) -> impl Iterator<Item = (&NonZeroCurvePoint, &WatchedAccountState)> {
+    pub fn iter(&self) -> impl Iterator<Item = (&NonZeroCurvePoint, &WatchedAccountState)> {
         self.list.iter()
     }
 

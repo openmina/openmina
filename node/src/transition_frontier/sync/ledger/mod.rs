@@ -75,7 +75,9 @@ impl SyncLedgerTarget {
     /// In such case, we will reconstruct next_epoch_ledger anyways,
     /// once transition frontier's root will be first slot in the bew epoch.
     pub fn next_epoch(best_tip: &ArcBlockWithHash, root_block: &ArcBlockWithHash) -> Option<Self> {
-        if best_tip.next_epoch_ledger_hash() != root_block.next_epoch_ledger_hash() || best_tip.next_epoch_ledger_hash() == best_tip.genesis_ledger_hash() {
+        if best_tip.next_epoch_ledger_hash() != root_block.next_epoch_ledger_hash()
+            || best_tip.next_epoch_ledger_hash() == best_tip.genesis_ledger_hash()
+        {
             return None;
         }
         Some(Self {

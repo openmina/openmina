@@ -89,7 +89,7 @@ mod tests {
         r.read_to_end(&mut buf).unwrap();
 
         let mut read = buf.as_slice();
-        
+
         T::binprot_read(&mut read).unwrap()
     }
 

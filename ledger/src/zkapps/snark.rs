@@ -1009,13 +1009,8 @@ impl AccountInterface for SnarkAccount {
             invalid_timing = Some(b.neg());
         };
         let account = self.get();
-        let (_min_balance, timing) = check_timing(
-            account,
-            None,
-            *txn_global_slot,
-            timed_balance_check,
-            w,
-        );
+        let (_min_balance, timing) =
+            check_timing(account, None, *txn_global_slot, timed_balance_check, w);
         (invalid_timing.unwrap().var(), timing)
     }
     fn make_zkapp(&mut self) {

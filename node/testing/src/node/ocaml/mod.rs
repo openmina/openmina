@@ -138,12 +138,16 @@ impl OcamlNode {
 
         let prefix = format!("[localhost:{}] ", config.libp2p_port);
         let prefix2 = prefix.clone();
-        std::thread::spawn(move || {
-            if Self::read_stream(stdout, std::io::stdout(), &prefix).is_err() {}
-        });
-        std::thread::spawn(move || {
-            if Self::read_stream(stderr, std::io::stderr(), &prefix2).is_err() {}
-        });
+        std::thread::spawn(
+            move || {
+                if Self::read_stream(stdout, std::io::stdout(), &prefix).is_err() {}
+            },
+        );
+        std::thread::spawn(
+            move || {
+                if Self::read_stream(stderr, std::io::stderr(), &prefix2).is_err() {}
+            },
+        );
 
         Ok(Self {
             child,
@@ -384,7 +388,9 @@ impl OcamlNode {
         let probe = tokio::task::spawn(async move {
             loop {
                 interval.tick().await;
-                if (tokio::net::TcpStream::connect(("127.0.0.1", port)).await).is_ok() { return }
+                if (tokio::net::TcpStream::connect(("127.0.0.1", port)).await).is_ok() {
+                    return;
+                }
             }
         });
         tokio::select! {

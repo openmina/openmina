@@ -1474,10 +1474,7 @@ pub mod step_verifier {
                 multiscale_known(&ts, w).neg()
             }
             ForStepKind::SideLoaded(which) => {
-                let domains = [0, 1, 2]
-                    .into_iter()
-                    .map(wrap_domains)
-                    .collect();
+                let domains = [0, 1, 2].into_iter().map(wrap_domains).collect();
                 public_input_commitment_dynamic(which, srs, domains, public_input, w)
             }
         };

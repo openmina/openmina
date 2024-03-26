@@ -84,54 +84,86 @@ impl redux::EnablingCondition<P2pState> for P2pConnectionIncomingAction {
             P2pConnectionIncomingAction::Init { opts, .. } => {
                 state.incoming_accept(opts.peer_id, &opts.offer).is_ok()
             }
-            P2pConnectionIncomingAction::AnswerSdpCreatePending { peer_id } => state
-                .peers
-                .get(peer_id)
-                .map_or(false, |peer| matches!(&peer.status, P2pPeerStatus::Connecting(P2pConnectionState::Incoming(
-                        P2pConnectionIncomingState::Init { .. },
-                    )))),
-            P2pConnectionIncomingAction::AnswerSdpCreateError { peer_id, .. } => state
-                .peers
-                .get(peer_id)
-                .map_or(false, |peer| matches!(&peer.status, P2pPeerStatus::Connecting(P2pConnectionState::Incoming(
-                        P2pConnectionIncomingState::AnswerSdpCreatePending { .. },
-                    )))),
-            P2pConnectionIncomingAction::AnswerSdpCreateSuccess { peer_id, .. } => state
-                .peers
-                .get(peer_id)
-                .map_or(false, |peer| matches!(&peer.status, P2pPeerStatus::Connecting(P2pConnectionState::Incoming(
-                        P2pConnectionIncomingState::AnswerSdpCreatePending { .. },
-                    )))),
-            P2pConnectionIncomingAction::AnswerReady { peer_id, .. } => state
-                .peers
-                .get(peer_id)
-                .map_or(false, |peer| matches!(&peer.status, P2pPeerStatus::Connecting(P2pConnectionState::Incoming(
-                        P2pConnectionIncomingState::AnswerSdpCreateSuccess { .. },
-                    )))),
-            P2pConnectionIncomingAction::AnswerSendSuccess { peer_id } => state
-                .peers
-                .get(peer_id)
-                .map_or(false, |peer| matches!(&peer.status, P2pPeerStatus::Connecting(P2pConnectionState::Incoming(
-                        P2pConnectionIncomingState::AnswerReady { .. },
-                    )))),
-            P2pConnectionIncomingAction::FinalizePending { peer_id } => state
-                .peers
-                .get(peer_id)
-                .map_or(false, |peer| matches!(&peer.status, P2pPeerStatus::Connecting(P2pConnectionState::Incoming(
-                        P2pConnectionIncomingState::AnswerSendSuccess { .. },
-                    )))),
-            P2pConnectionIncomingAction::FinalizeError { peer_id, .. } => state
-                .peers
-                .get(peer_id)
-                .map_or(false, |peer| matches!(&peer.status, P2pPeerStatus::Connecting(P2pConnectionState::Incoming(
-                        P2pConnectionIncomingState::FinalizePending { .. },
-                    )))),
-            P2pConnectionIncomingAction::FinalizeSuccess { peer_id } => state
-                .peers
-                .get(peer_id)
-                .map_or(false, |peer| matches!(&peer.status, P2pPeerStatus::Connecting(P2pConnectionState::Incoming(
-                        P2pConnectionIncomingState::FinalizePending { .. },
-                    )))),
+            P2pConnectionIncomingAction::AnswerSdpCreatePending { peer_id } => {
+                state.peers.get(peer_id).map_or(false, |peer| {
+                    matches!(
+                        &peer.status,
+                        P2pPeerStatus::Connecting(P2pConnectionState::Incoming(
+                            P2pConnectionIncomingState::Init { .. },
+                        ))
+                    )
+                })
+            }
+            P2pConnectionIncomingAction::AnswerSdpCreateError { peer_id, .. } => {
+                state.peers.get(peer_id).map_or(false, |peer| {
+                    matches!(
+                        &peer.status,
+                        P2pPeerStatus::Connecting(P2pConnectionState::Incoming(
+                            P2pConnectionIncomingState::AnswerSdpCreatePending { .. },
+                        ))
+                    )
+                })
+            }
+            P2pConnectionIncomingAction::AnswerSdpCreateSuccess { peer_id, .. } => {
+                state.peers.get(peer_id).map_or(false, |peer| {
+                    matches!(
+                        &peer.status,
+                        P2pPeerStatus::Connecting(P2pConnectionState::Incoming(
+                            P2pConnectionIncomingState::AnswerSdpCreatePending { .. },
+                        ))
+                    )
+                })
+            }
+            P2pConnectionIncomingAction::AnswerReady { peer_id, .. } => {
+                state.peers.get(peer_id).map_or(false, |peer| {
+                    matches!(
+                        &peer.status,
+                        P2pPeerStatus::Connecting(P2pConnectionState::Incoming(
+                            P2pConnectionIncomingState::AnswerSdpCreateSuccess { .. },
+                        ))
+                    )
+                })
+            }
+            P2pConnectionIncomingAction::AnswerSendSuccess { peer_id } => {
+                state.peers.get(peer_id).map_or(false, |peer| {
+                    matches!(
+                        &peer.status,
+                        P2pPeerStatus::Connecting(P2pConnectionState::Incoming(
+                            P2pConnectionIncomingState::AnswerReady { .. },
+                        ))
+                    )
+                })
+            }
+            P2pConnectionIncomingAction::FinalizePending { peer_id } => {
+                state.peers.get(peer_id).map_or(false, |peer| {
+                    matches!(
+                        &peer.status,
+                        P2pPeerStatus::Connecting(P2pConnectionState::Incoming(
+                            P2pConnectionIncomingState::AnswerSendSuccess { .. },
+                        ))
+                    )
+                })
+            }
+            P2pConnectionIncomingAction::FinalizeError { peer_id, .. } => {
+                state.peers.get(peer_id).map_or(false, |peer| {
+                    matches!(
+                        &peer.status,
+                        P2pPeerStatus::Connecting(P2pConnectionState::Incoming(
+                            P2pConnectionIncomingState::FinalizePending { .. },
+                        ))
+                    )
+                })
+            }
+            P2pConnectionIncomingAction::FinalizeSuccess { peer_id } => {
+                state.peers.get(peer_id).map_or(false, |peer| {
+                    matches!(
+                        &peer.status,
+                        P2pPeerStatus::Connecting(P2pConnectionState::Incoming(
+                            P2pConnectionIncomingState::FinalizePending { .. },
+                        ))
+                    )
+                })
+            }
             P2pConnectionIncomingAction::Timeout { peer_id } => state
                 .peers
                 .get(peer_id)
@@ -153,12 +185,14 @@ impl redux::EnablingCondition<P2pState> for P2pConnectionIncomingAction {
                     _ => false,
                 }),
             P2pConnectionIncomingAction::Success { peer_id } => {
-                state
-                    .peers
-                    .get(peer_id)
-                    .map_or(false, |peer| matches!(&peer.status, P2pPeerStatus::Connecting(P2pConnectionState::Incoming(
+                state.peers.get(peer_id).map_or(false, |peer| {
+                    matches!(
+                        &peer.status,
+                        P2pPeerStatus::Connecting(P2pConnectionState::Incoming(
                             P2pConnectionIncomingState::FinalizeSuccess { .. },
-                        ))))
+                        ))
+                    )
+                })
             }
 
             P2pConnectionIncomingAction::Libp2pReceived { peer_id } => {

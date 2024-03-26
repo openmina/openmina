@@ -456,9 +456,10 @@ impl MaskImpl {
                 hashes.invalidate_hashes(account_index);
 
                 let own_account = match id_to_addr
-                .get(&account_id)
-                .and_then(|addr| owning_account.get(&addr.to_index()))
-                .cloned() {
+                    .get(&account_id)
+                    .and_then(|addr| owning_account.get(&addr.to_index()))
+                    .cloned()
+                {
                     Some(own) => own,
                     None => return,
                 };

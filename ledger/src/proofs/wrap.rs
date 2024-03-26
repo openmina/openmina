@@ -373,8 +373,7 @@ fn deferred_values(params: DeferredValuesParams) -> DeferredValuesAndHints {
         let challenge_poly = challenge_polynomial(&chals);
         let b = challenge_poly(zeta) + (r * challenge_poly(zetaw));
 
-        let prechals = oracle
-            .opening_prechallenges.to_vec();
+        let prechals = oracle.opening_prechallenges.to_vec();
         (prechals, b)
     };
 

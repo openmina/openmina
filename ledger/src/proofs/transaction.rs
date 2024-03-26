@@ -1640,7 +1640,7 @@ pub mod poseidon {
         nabsorb: usize,
         _constants: PhantomData<C>,
     }
-    
+
     impl<F, C> Default for Sponge<F, C>
     where
         F: FieldWitness,
@@ -2846,11 +2846,8 @@ pub mod transaction_snark {
 
         let pending_coinbase_init: pending_coinbase::Stack = pending_coinbase_init.into();
 
-        let pending_coinbase_stack_with_state = pending_coinbase_init.checked_push_state(
-            state_body_hash,
-            current_global_slot,
-            w,
-        );
+        let pending_coinbase_stack_with_state =
+            pending_coinbase_init.checked_push_state(state_body_hash, current_global_slot, w);
 
         let computed_pending_coinbase_stack_after = {
             let coinbase = Coinbase {

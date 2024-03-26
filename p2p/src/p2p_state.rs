@@ -165,9 +165,7 @@ impl P2pState {
         self.kademlia
             .known_peers
             .values()
-            .filter(|v| {
-                !self.ready_peers_iter().any(|(id, _)| (*id).eq(v.peer_id()))
-            })
+            .filter(|v| !self.ready_peers_iter().any(|(id, _)| (*id).eq(v.peer_id())))
             .cloned()
             .collect()
     }

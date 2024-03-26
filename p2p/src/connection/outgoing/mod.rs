@@ -315,9 +315,7 @@ impl From<&P2pConnectionOutgoingInitLibp2pOpts> for multiaddr::Multiaddr {
                 Host::Ipv6(v) => Protocol::Ip6(*v),
             })
             .with(Protocol::Tcp(value.port))
-            .with(Protocol::P2p(
-                libp2p_identity::PeerId::from(value.peer_id),
-            ))
+            .with(Protocol::P2p(libp2p_identity::PeerId::from(value.peer_id)))
     }
 }
 

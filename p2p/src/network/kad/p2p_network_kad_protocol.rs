@@ -87,9 +87,7 @@ pub(super) fn peer_id_try_from_bytes(
 
 impl<'a> From<&PeerId> for Cow<'a, [u8]> {
     fn from(value: &PeerId) -> Self {
-        libp2p_identity::PeerId::from(*value)
-            .to_bytes()
-            .into()
+        libp2p_identity::PeerId::from(*value).to_bytes().into()
     }
 }
 

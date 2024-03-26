@@ -154,10 +154,7 @@ impl OCamlToRust {
 
         // wait for identify message
         let identify = driver
-            .wait_for(
-                Duration::from_secs(5 * 60),
-                identify_event(ocaml_peer_id),
-            )
+            .wait_for(Duration::from_secs(5 * 60), identify_event(ocaml_peer_id))
             .await
             .unwrap()
             .expect("expected connected event");

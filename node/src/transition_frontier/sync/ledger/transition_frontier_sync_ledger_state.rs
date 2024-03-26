@@ -41,7 +41,11 @@ impl TransitionFrontierSyncLedgerState {
     }
 
     pub fn is_snarked_ledger_synced(&self) -> bool {
-        !matches!(self, Self::Init { .. } | Self::Snarked(TransitionFrontierSyncLedgerSnarkedState::Pending { .. }))
+        !matches!(
+            self,
+            Self::Init { .. }
+                | Self::Snarked(TransitionFrontierSyncLedgerSnarkedState::Pending { .. })
+        )
     }
 
     // TODO(binier): maybe avoid extra cloning.

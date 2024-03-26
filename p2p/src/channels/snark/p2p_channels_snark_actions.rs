@@ -88,20 +88,28 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsSnarkAction {
             P2pChannelsSnarkAction::RequestSend { peer_id, .. } => state
                 .get_ready_peer(peer_id)
                 .map_or(false, |p| match &p.channels.snark {
-                    P2pChannelsSnarkState::Ready { local, .. } => matches!(local, SnarkPropagationState::WaitingForRequest { .. } | SnarkPropagationState::Responded { .. }),
+                    P2pChannelsSnarkState::Ready { local, .. } => matches!(
+                        local,
+                        SnarkPropagationState::WaitingForRequest { .. }
+                            | SnarkPropagationState::Responded { .. }
+                    ),
                     _ => false,
                 }),
-            P2pChannelsSnarkAction::PromiseReceived { peer_id, promised_count } =>
-                state.get_ready_peer(peer_id).map_or(false, |p| {
-                    matches!(&p.channels.snark, P2pChannelsSnarkState::Ready {
+            P2pChannelsSnarkAction::PromiseReceived {
+                peer_id,
+                promised_count,
+            } => state.get_ready_peer(peer_id).map_or(false, |p| {
+                matches!(&p.channels.snark, P2pChannelsSnarkState::Ready {
                             local: SnarkPropagationState::Requested { requested_limit, .. },
                             ..
                         } if *promised_count > 0 && promised_count <= requested_limit)
-                }),
+            }),
             P2pChannelsSnarkAction::Received { peer_id, .. } => state
                 .get_ready_peer(peer_id)
                 .map_or(false, |p| match &p.channels.snark {
-                    P2pChannelsSnarkState::Ready { local, .. } => matches!(local, SnarkPropagationState::Responding { .. }),
+                    P2pChannelsSnarkState::Ready { local, .. } => {
+                        matches!(local, SnarkPropagationState::Responding { .. })
+                    }
                     _ => false,
                 }),
             P2pChannelsSnarkAction::RequestReceived { peer_id, limit } => {
@@ -109,7 +117,11 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsSnarkAction {
                     && state
                         .get_ready_peer(peer_id)
                         .map_or(false, |p| match &p.channels.snark {
-                            P2pChannelsSnarkState::Ready { remote, .. } => matches!(remote, SnarkPropagationState::WaitingForRequest { .. } | SnarkPropagationState::Responded { .. }),
+                            P2pChannelsSnarkState::Ready { remote, .. } => matches!(
+                                remote,
+                                SnarkPropagationState::WaitingForRequest { .. }
+                                    | SnarkPropagationState::Responded { .. }
+                            ),
                             _ => false,
                         })
             }

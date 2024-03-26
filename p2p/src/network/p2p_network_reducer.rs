@@ -70,9 +70,9 @@ impl P2pNetworkState {
         match action {
             P2pNetworkAction::Scheduler(a) => self.scheduler.reducer(peers, meta.with_action(a)),
             P2pNetworkAction::Pnet(a) => {
-                if let Some(cn) = self.scheduler
-                    .connections
-                    .get_mut(&a.addr()) { cn.pnet.reducer(meta.with_action(a)) }
+                if let Some(cn) = self.scheduler.connections.get_mut(&a.addr()) {
+                    cn.pnet.reducer(meta.with_action(a))
+                }
             }
             P2pNetworkAction::Select(a) => {
                 if let Some(cn) = self.scheduler.connections.get_mut(&a.addr()) {
@@ -82,8 +82,9 @@ impl P2pNetworkState {
                             cn.select_mux.reducer(meta.with_action(a))
                         }
                         SelectKind::Stream(_, stream_id) => {
-                            if let Some(stream) = cn.streams
-                                .get_mut(&stream_id) { stream.select.reducer(meta.with_action(a)) }
+                            if let Some(stream) = cn.streams.get_mut(&stream_id) {
+                                stream.select.reducer(meta.with_action(a))
+                            }
                         }
                     }
                 }

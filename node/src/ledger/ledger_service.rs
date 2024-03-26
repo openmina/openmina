@@ -276,8 +276,7 @@ impl LedgerCtx {
         if expected_hash != &obtained_hash {
             return Err(format!(
                 "Expected to obtain snarked root ledger hash {} but got {}",
-                expected_hash,
-                obtained_hash
+                expected_hash, obtained_hash
             ));
         }
 
@@ -298,9 +297,7 @@ impl LedgerCtx {
         let mut accounts = Vec::new();
 
         mask.iter(|account| {
-            if filter(&account.public_key)
-                || account.delegate.as_ref().map_or(false, &mut filter)
-            {
+            if filter(&account.public_key) || account.delegate.as_ref().map_or(false, &mut filter) {
                 accounts.push((
                     account.id(),
                     account.delegate.clone(),

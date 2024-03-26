@@ -149,8 +149,7 @@ impl P2pNetworkRpcAction {
                                 rpc::GetTransitionChainV2::NAME,
                                 rpc::GetTransitionChainV2::VERSION,
                             ) => {
-                                let Ok(hashes) = parse_q::<rpc::GetTransitionChainV2>(bytes)
-                                else {
+                                let Ok(hashes) = parse_q::<rpc::GetTransitionChainV2>(bytes) else {
                                     // TODO: close the stream
                                     panic!();
                                 };

@@ -114,12 +114,7 @@ impl P2pNetworkKadState {
         peer_id: &PeerId,
         stream_id: &StreamId,
     ) -> Result<&mut P2pNetworkKadStreamState, &P2pNetworkKadStreamState> {
-        match self
-            .streams
-            .entry(*peer_id)
-            .or_default()
-            .entry(*stream_id)
-        {
+        match self.streams.entry(*peer_id).or_default().entry(*stream_id) {
             std::collections::btree_map::Entry::Vacant(e) => Ok(e.insert(Default::default())),
             std::collections::btree_map::Entry::Occupied(e) => Err(e.into_mut()),
         }

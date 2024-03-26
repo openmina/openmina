@@ -157,7 +157,9 @@ impl<T: AsRef<Block>> BlockWithHash<T> {
             }
         }
         if let Some(v) = diff.1.as_ref() {
-            if let StagedLedgerDiffDiffPreDiffWithAtMostOneCoinbaseStableV2Coinbase::One(coinbase) = &v.coinbase {
+            if let StagedLedgerDiffDiffPreDiffWithAtMostOneCoinbaseStableV2Coinbase::One(coinbase) =
+                &v.coinbase
+            {
                 coinbases.push(coinbase.as_ref());
             }
         }

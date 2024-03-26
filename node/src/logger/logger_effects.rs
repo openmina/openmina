@@ -664,15 +664,17 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     },
                     _ => {}
                 },
-                P2pNetworkAction::Pnet(action) => if let P2pNetworkPnetAction::SetupNonce(action) = action {
-                    openmina_core::log::info!(
-                        meta.time();
-                        node_id = node_id,
-                        kind = kind.to_string(),
-                        addr = action.addr.to_string(),
-                        incoming = action.incoming,
-                    )
-                },
+                P2pNetworkAction::Pnet(action) => {
+                    if let P2pNetworkPnetAction::SetupNonce(action) = action {
+                        openmina_core::log::info!(
+                            meta.time();
+                            node_id = node_id,
+                            kind = kind.to_string(),
+                            addr = action.addr.to_string(),
+                            incoming = action.incoming,
+                        )
+                    }
+                }
                 P2pNetworkAction::Select(action) => match action {
                     P2pNetworkSelectAction::Init(action) => match action.kind {
                         SelectKind::Authentication => {

@@ -72,9 +72,7 @@ pub fn initialize(max_log_level: Level) {
         //.with_timer(ReduxTimer)
         ;
     if max_log_level != Level::TRACE {
-        let subscriber = builder
-            .fmt_fields(TracingFieldFormatter)
-            .finish();
+        let subscriber = builder.fmt_fields(TracingFieldFormatter).finish();
         tracing::subscriber::set_global_default(subscriber)
     } else {
         let subscriber = builder.finish();

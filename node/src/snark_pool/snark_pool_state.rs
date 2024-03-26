@@ -127,10 +127,7 @@ impl SnarkPoolState {
             });
     }
 
-    pub fn range<R>(
-        &self,
-        range: R,
-    ) -> impl DoubleEndedIterator<Item = (u64, &JobState)>
+    pub fn range<R>(&self, range: R) -> impl DoubleEndedIterator<Item = (u64, &JobState)>
     where
         R: RangeBounds<u64>,
     {
@@ -177,8 +174,7 @@ impl SnarkPoolState {
     }
 
     pub fn available_jobs_iter(&self) -> impl Iterator<Item = &JobState> {
-        self.list.values()
-            .filter(|job| job.is_available())
+        self.list.values().filter(|job| job.is_available())
     }
 
     pub fn available_jobs_with_highest_priority(&self, n: usize) -> Vec<&JobState> {
