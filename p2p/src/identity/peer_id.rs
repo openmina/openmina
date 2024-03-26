@@ -141,7 +141,7 @@ impl From<PeerId> for libp2p_identity::PeerId {
     fn from(value: PeerId) -> Self {
         let key = libp2p_identity::ed25519::PublicKey::try_from_bytes(&value.to_bytes()).unwrap();
         #[allow(deprecated)]
-        let key = libp2p_identity::PublicKey::try_from(key).unwrap();
+        let key = libp2p_identity::PublicKey::from(key);
         key.to_peer_id()
     }
 }

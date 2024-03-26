@@ -484,7 +484,7 @@ impl<T: LedgerService> TransitionFrontierService for T {
         let mut staged_ledger = self
             .ctx_mut()
             .staged_ledger_mut(pred_block.staged_ledger_hash())
-            .ok_or_else(|| "parent staged ledger missing")?
+            .ok_or("parent staged ledger missing")?
             .clone();
 
         let global_slot = block.global_slot_since_genesis();
@@ -766,7 +766,7 @@ impl<T: LedgerService> BlockProducerLedgerService for T {
         let mut staged_ledger = self
             .ctx_mut()
             .staged_ledger_mut(pred_block.staged_ledger_hash())
-            .ok_or_else(|| "parent staged ledger missing")?
+            .ok_or("parent staged ledger missing")?
             .clone();
 
         // calculate merkle root hash, otherwise `MinaBasePendingCoinbaseStableV2::from` fails.

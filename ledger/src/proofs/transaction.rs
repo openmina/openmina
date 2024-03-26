@@ -3835,8 +3835,8 @@ pub fn make_prover_index<C: ProofConstants, F: FieldWitness>(
     let prev_challenges = C::PREVIOUS_CHALLENGES;
 
     let cs = ConstraintSystem::<F>::create(gates)
-        .public(public as usize)
-        .prev_challenges(prev_challenges as usize)
+        .public(public)
+        .prev_challenges(prev_challenges)
         .build()
         .unwrap();
 

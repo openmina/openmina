@@ -633,7 +633,7 @@ pub mod step_verifier {
             })
         };
 
-        let srs_length_log2 = COMMON_MAX_DEGREE_STEP_LOG2 as u64;
+        let srs_length_log2 = COMMON_MAX_DEGREE_STEP_LOG2;
         let env = make_scalars_env_checked(
             MakeScalarsEnvParams {
                 minimal: &plonk_mininal,

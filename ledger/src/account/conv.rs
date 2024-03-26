@@ -501,8 +501,8 @@ impl From<&MinaBaseAccountBinableArgStableV2> for Account {
                 let s: String = (&acc.token_symbol).try_into().unwrap();
                 TokenSymbol::from(s)
             },
-            balance: Balance::from_u64(acc.balance.0 .0 .0 .0 as u64),
-            nonce: Nonce::from_u32(acc.nonce.0 .0 as u32),
+            balance: Balance::from_u64(acc.balance.0 .0 .0 .0),
+            nonce: Nonce::from_u32(acc.nonce.0 .0),
             receipt_chain_hash: ReceiptChainHash((&acc.receipt_chain_hash.0).into()),
             delegate: acc.delegate.as_ref().map(|d| d.inner().into()),
             voting_for: VotingFor(acc.voting_for.0.to_field()),
