@@ -96,6 +96,7 @@ pub enum TransitionFrontierSyncLedgerSnarkedAction {
         address: LedgerAddress,
         hashes: (LedgerHash, LedgerHash),
         previous_hashes: (LedgerHash, LedgerHash),
+        sender: PeerId,
     },
     ChildHashesRejected {
         address: LedgerAddress,
@@ -239,21 +240,17 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerSnar
                         .and_then(|s| s.attempts.get(peer_id))
                         .map_or(false, |s| matches!(s, PeerRpcState::Pending { .. }))
                 }),
-            TransitionFrontierSyncLedgerSnarkedAction::NumAccountsReceived { sender, .. } => state
-                .transition_frontier
-                .sync
-                .ledger()
-                .and_then(|s| s.snarked()?.num_accounts_pending())
-                .and_then(|s| s.attempts.get(sender))
-                .map_or(false, |s| s.is_success()),
-            TransitionFrontierSyncLedgerSnarkedAction::NumAccountsAccepted { sender, .. } => state
-                .transition_frontier
-                .sync
-                .ledger()
-                .and_then(|s| s.snarked()?.num_accounts_pending())
-                .and_then(|s| s.attempts.get(sender))
-                .map_or(false, |s| s.is_success()),
-            TransitionFrontierSyncLedgerSnarkedAction::NumAccountsRejected { .. } => true, // TODO(sync): implement
+            TransitionFrontierSyncLedgerSnarkedAction::NumAccountsReceived { sender, .. }
+            | TransitionFrontierSyncLedgerSnarkedAction::NumAccountsAccepted { sender, .. }
+            | TransitionFrontierSyncLedgerSnarkedAction::NumAccountsRejected { sender, .. } => {
+                state
+                    .transition_frontier
+                    .sync
+                    .ledger()
+                    .and_then(|s| s.snarked()?.num_accounts_pending())
+                    .and_then(|s| s.attempts.get(sender))
+                    .map_or(false, |s| s.is_success())
+            }
 
             // hashes and contents
             TransitionFrontierSyncLedgerSnarkedAction::PeerQueryAddressInit {
@@ -357,14 +354,23 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerSnar
                     .ledger()
                     .and_then(|s| s.snarked())
                     .map_or(false, |s| {
-                        // TODO(binier): check if expected response
-                        // kind is correct.
+                        // TODO(binier): check if expected response kind is correct.
                         s.peer_address_query_get(peer_id, *rpc_id)
                             .and_then(|(_, s)| s.attempts.get(peer_id))
                             .map_or(false, |s| matches!(s, PeerRpcState::Pending { .. }))
                     })
             }
             TransitionFrontierSyncLedgerSnarkedAction::ChildHashesReceived {
+                address,
+                sender,
+                ..
+            }
+            | TransitionFrontierSyncLedgerSnarkedAction::ChildHashesAccepted {
+                address,
+                sender,
+                ..
+            }
+            | TransitionFrontierSyncLedgerSnarkedAction::ChildHashesRejected {
                 address,
                 sender,
                 ..
@@ -378,22 +384,14 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerSnar
                         .and_then(|s| s.attempts.get(sender))
                         .map_or(false, |s| s.is_success())
             }
-            TransitionFrontierSyncLedgerSnarkedAction::ChildHashesAccepted { address, .. } => {
-                // The hashes have been received, and during the check the pending value must
-                // be present because the expected hash is there
-                address.length() < LEDGER_DEPTH - ACCOUNT_SUBTREE_HEIGHT
-                    && state
-                        .transition_frontier
-                        .sync
-                        .ledger()
-                        .and_then(|s| Some(s.snarked()?.fetch_pending()?.contains_key(address)))
-                        .unwrap_or(false)
-            }
-            TransitionFrontierSyncLedgerSnarkedAction::ChildHashesRejected { .. } => true, // TODO(sync): implement
             TransitionFrontierSyncLedgerSnarkedAction::ChildAccountsReceived {
                 address,
                 sender,
                 ..
+            }
+            | TransitionFrontierSyncLedgerSnarkedAction::ChildAccountsRejected {
+                address,
+                sender,
             } => state
                 .transition_frontier
                 .sync
@@ -413,10 +411,8 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerSnar
                         .ledger()
                         .and_then(|s| s.snarked()?.fetch_pending()?.get(address))
                         .and_then(|s| s.attempts.get(sender))
-                        // TODO(tizoc): check if expected response kind is correct.
                         .map_or(false, |s| s.is_success())
             }
-            TransitionFrontierSyncLedgerSnarkedAction::ChildAccountsRejected { .. } => true, // TODO(sync): implement
             TransitionFrontierSyncLedgerSnarkedAction::Success => state
                 .transition_frontier
                 .sync
