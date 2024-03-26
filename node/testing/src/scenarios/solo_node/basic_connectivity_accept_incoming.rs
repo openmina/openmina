@@ -65,11 +65,8 @@ impl SoloNodeBasicConnectivityAcceptIncoming {
                 .pending_events(true)
                 .flat_map(|(node_id, _, events)| {
                     events.map(move |(_, event)| {
-                        match event {
-                            Event::P2p(P2pEvent::Discovery(event)) => {
-                                eprintln!("event: {event}");
-                            }
-                            _ => {}
+                        if let Event::P2p(P2pEvent::Discovery(event)) = event {
+                            eprintln!("event: {event}");
                         }
                         ScenarioStep::Event {
                             node_id,

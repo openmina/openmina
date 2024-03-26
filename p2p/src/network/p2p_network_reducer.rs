@@ -95,22 +95,16 @@ impl P2pNetworkState {
                 self.scheduler
                     .connections
                     .get_mut(&a.addr())
-                    .map(|cn| match &mut cn.auth {
-                        Some(P2pNetworkAuthState::Noise(state)) => {
-                            state.reducer(meta.with_action(a))
-                        }
-                        _ => {}
+                    .map(|cn| if let Some(P2pNetworkAuthState::Noise(state)) = &mut cn.auth {
+                        state.reducer(meta.with_action(a))
                     });
             }
             P2pNetworkAction::Yamux(a) => {
                 self.scheduler
                     .connections
                     .get_mut(&a.addr())
-                    .map(|cn| match &mut cn.mux {
-                        Some(P2pNetworkConnectionMuxState::Yamux(state)) => {
-                            state.reducer(&mut cn.streams, meta.with_action(a))
-                        }
-                        _ => {}
+                    .map(|cn| if let Some(P2pNetworkConnectionMuxState::Yamux(state)) = &mut cn.mux {
+                        state.reducer(&mut cn.streams, meta.with_action(a))
                     });
             }
             P2pNetworkAction::Kad(a) => {

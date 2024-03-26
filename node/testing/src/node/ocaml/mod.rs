@@ -382,10 +382,7 @@ impl OcamlNode {
         let probe = tokio::task::spawn(async move {
             loop {
                 interval.tick().await;
-                match tokio::net::TcpStream::connect(("127.0.0.1", port)).await {
-                    Ok(_) => return,
-                    Err(_) => {}
-                }
+                if (tokio::net::TcpStream::connect(("127.0.0.1", port)).await).is_ok() { return }
             }
         });
         tokio::select! {

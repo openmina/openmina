@@ -156,14 +156,10 @@ impl<T: AsRef<Block>> BlockWithHash<T> {
                 }
             }
         }
-        match diff.1.as_ref() {
-            Some(v) => match &v.coinbase {
-                StagedLedgerDiffDiffPreDiffWithAtMostOneCoinbaseStableV2Coinbase::Zero => {}
-                StagedLedgerDiffDiffPreDiffWithAtMostOneCoinbaseStableV2Coinbase::One(v) => {
-                    coinbases.push(v.as_ref());
-                }
-            },
-            _ => {}
+        if let Some(v) = diff.1.as_ref() {
+            if let StagedLedgerDiffDiffPreDiffWithAtMostOneCoinbaseStableV2Coinbase::One(coinbase) = &v.coinbase {
+                coinbases.push(coinbase.as_ref());
+            }
         }
         coinbases.into_iter().flatten()
     }

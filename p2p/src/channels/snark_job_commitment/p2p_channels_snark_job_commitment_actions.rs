@@ -96,15 +96,10 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsSnarkJobCommitmentAction 
                 peer_id,
                 promised_count,
             } => state.get_ready_peer(peer_id).map_or(false, |p| {
-                match &p.channels.snark_job_commitment {
-                    P2pChannelsSnarkJobCommitmentState::Ready { local, .. } => match local {
-                        SnarkJobCommitmentPropagationState::Requested {
-                            requested_limit, ..
-                        } => *promised_count > 0 && promised_count <= requested_limit,
-                        _ => false,
-                    },
-                    _ => false,
-                }
+                matches!(&p.channels.snark_job_commitment, P2pChannelsSnarkJobCommitmentState::Ready {
+                        local: SnarkJobCommitmentPropagationState::Requested { requested_limit, .. },
+                        ..
+                    } if *promised_count > 0 && promised_count <= requested_limit)
             }),
             P2pChannelsSnarkJobCommitmentAction::Received { peer_id, .. } => state
                 .get_ready_peer(peer_id)

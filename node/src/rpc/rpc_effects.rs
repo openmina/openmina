@@ -302,13 +302,12 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                 };
 
                 let mut scan_state = service.scan_state_summary(block.staged_ledger_hash().clone());
-                scan_state.iter_mut().flatten().for_each(|job| match job {
-                    RpcScanStateSummaryScanStateJob::Todo {
+                scan_state.iter_mut().flatten().for_each(|job| if let RpcScanStateSummaryScanStateJob::Todo {
                         job_id,
                         bundle_job_id,
                         job: kind,
                         seq_no,
-                    } => {
+                    } = job {
                         let Some(data) = snark_pool.get(bundle_job_id) else {
                             return;
                         };
@@ -331,8 +330,6 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                             commitment,
                             snark,
                         };
-                    }
-                    _ => {}
                 });
                 Some(RpcScanStateSummary {
                     block: block_summary,
