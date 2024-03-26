@@ -1150,7 +1150,7 @@ pub mod step_verifier {
         let pow2pow = |x: InnerCurve<Fp>, n: usize| (0..n).fold(x, |acc, _| acc.clone() + acc);
 
         let (constant_part, non_constant_part): (Vec<_>, Vec<_>) =
-            ts.into_iter().partition_map(|(t, g)| {
+            ts.iter().partition_map(|(t, g)| {
                 use itertools::Either::{Left, Right};
                 use CircuitVar::Constant;
                 use Packed::{Field, PackedBits};

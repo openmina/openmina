@@ -67,7 +67,7 @@ impl<'a, T> IntoIterator for &'a List<T> {
     type IntoIter = <&'a Backend<T> as IntoIterator>::IntoIter;
 
     fn into_iter(self) -> Self::IntoIter {
-        (&self.0).into_iter()
+        (&self.0).iter()
     }
 }
 

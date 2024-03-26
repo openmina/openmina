@@ -98,7 +98,7 @@ impl Invariants {
         INVARIANTS_BY_ACTION_KIND
             .get(action_kind as usize)
             .unwrap()
-            .into_iter()
+            .iter()
             .map(|invariant| (*invariant, invariant.check(store, action)))
     }
 

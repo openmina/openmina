@@ -263,7 +263,7 @@ pub fn proof_evaluation_to_list_opt<F: FieldWitness>(
     ];
 
     list.extend(optional_gates.into_iter().map(to_opt));
-    list.extend(lookup_sorted.into_iter().map(to_opt));
+    list.extend(lookup_sorted.iter().map(to_opt));
 
     list.extend(
         [

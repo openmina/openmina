@@ -49,7 +49,7 @@ impl<'a, T, const N: u64> IntoIterator for &'a ArrayN<T, N> {
     type IntoIter = <&'a Vec<T> as IntoIterator>::IntoIter;
 
     fn into_iter(self) -> Self::IntoIter {
-        (&self.0).into_iter()
+        (&self.0).iter()
     }
 }
 

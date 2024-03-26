@@ -121,7 +121,7 @@ fn addr_to_str(
 ) -> String {
     let addr = byte_string
         .as_ref()
-        .into_iter()
+        .iter()
         .copied()
         .flat_map(|byte| {
             (0..8)

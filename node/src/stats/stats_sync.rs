@@ -301,7 +301,7 @@ impl SyncStats {
         };
 
         snapshot.blocks = states
-            .into_iter()
+            .iter()
             .rev()
             // .take_while(|s| {
             //     !s.is_apply_success() || s.block().map_or(false, |b| b.height() == root_height)
