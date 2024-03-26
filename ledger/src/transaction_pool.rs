@@ -130,7 +130,7 @@ const REPLACE_FEE: Fee = Fee::of_nanomina_int_exn(1);
 
 type ValidCommandWithHash = WithHash<valid::UserCommand, BlakeHash>;
 
-mod diff {
+pub mod diff {
     use super::*;
 
     #[derive(Debug, Clone)]
@@ -441,7 +441,7 @@ struct SenderState {
     state: Option<(VecDeque<ValidCommandWithHash>, Amount)>,
 }
 
-enum RevalidateKind<'a> {
+pub enum RevalidateKind<'a> {
     EntirePool,
     Subset(&'a HashSet<AccountId>),
 }
@@ -1260,7 +1260,7 @@ impl<T> Envelope<T> {
 }
 
 #[derive(Debug)]
-enum ApplyDecision {
+pub enum ApplyDecision {
     Accept,
     Reject,
 }
@@ -1281,6 +1281,40 @@ pub struct TransactionPool {
 }
 
 impl TransactionPool {
+    pub fn on_new_best_tip(&mut self, new_best_tip: Mask) {
+        let validation_ledger = new_best_tip;
+        self.best_tip_ledger.replace(validation_ledger.clone());
+
+        let dropped =
+            self.pool.revalidate(
+                RevalidateKind::EntirePool,
+                |sender_id| match validation_ledger.location_of_account(sender_id) {
+                    None => Account::empty(),
+                    Some(addr) => *validation_ledger
+                        .get(addr)
+                        .expect("Location without account"),
+                },
+            );
+
+        let dropped_locally_generated = dropped
+            .iter()
+            .filter(|cmd| {
+                let dropped_commited = self.locally_generated_committed.remove(cmd).is_some();
+                let dropped_uncommited = self.locally_generated_uncommitted.remove(cmd).is_some();
+                // Nothing should be in both tables.
+                assert!(!(dropped_commited && dropped_uncommited));
+                dropped_commited || dropped_uncommited
+            })
+            .collect::<Vec<_>>();
+
+        if !dropped_locally_generated.is_empty() {
+            eprintln!(
+                "Dropped locally generated commands $cmds from pool when transition frontier was recreated. {:?}",
+                dropped_locally_generated
+            )
+        }
+    }
+
     fn has_sufficient_fee(&self, pool_max_size: usize, cmd: &valid::UserCommand) -> bool {
         match self.pool.min_fee() {
             None => true,
@@ -1306,7 +1340,11 @@ impl TransactionPool {
         list
     }
 
-    fn handle_transition_frontier_diff(&mut self, diff: diff::BestTipDiff, best_tip_ledger: Mask) {
+    pub fn handle_transition_frontier_diff(
+        &mut self,
+        diff: &diff::BestTipDiff,
+        best_tip_ledger: Mask,
+    ) {
         let diff::BestTipDiff {
             new_commands,
             removed_commands,
@@ -1318,12 +1356,11 @@ impl TransactionPool {
 
         let pool_max_size = self.config.pool_max_size;
 
-        self.verification_key_table.increment_list(&new_commands);
-        self.verification_key_table
-            .decrement_list(&removed_commands);
+        self.verification_key_table.increment_list(new_commands);
+        self.verification_key_table.decrement_list(removed_commands);
 
         let mut dropped_backtrack = Vec::with_capacity(256);
-        for cmd in &removed_commands {
+        for cmd in removed_commands {
             let cmd = transaction_hash::hash_command(cmd.data.clone());
 
             if let Some(time_added) = self.locally_generated_committed.remove(&cmd) {
@@ -1349,7 +1386,7 @@ impl TransactionPool {
         let dropped_commands = {
             let accounts_to_check = new_commands
                 .iter()
-                .chain(&removed_commands)
+                .chain(removed_commands)
                 .flat_map(|cmd| cmd.data.forget_check().accounts_referenced())
                 .collect::<HashSet<_>>();
 
@@ -1454,7 +1491,8 @@ impl TransactionPool {
 
     fn apply(
         &mut self,
-        diff: Envelope<diff::DiffVerified>,
+        diff: &diff::DiffVerified,
+        is_sender_local: bool,
     ) -> Result<
         (
             ApplyDecision,
@@ -1463,8 +1501,6 @@ impl TransactionPool {
         ),
         String,
     > {
-        let is_sender_local = diff.is_sender_local();
-
         let ledger = self.best_tip_ledger.as_ref().ok_or_else(|| {
             "Got transaction pool diff when transitin frontier is unavailable, ignoring."
                 .to_string()
@@ -1472,7 +1508,7 @@ impl TransactionPool {
 
         let fee_payer = |cmd: &ValidCommandWithHash| cmd.data.fee_payer();
 
-        let fee_payer_account_ids: HashSet<_> = diff.data().list.iter().map(fee_payer).collect();
+        let fee_payer_account_ids: HashSet<_> = diff.list.iter().map(fee_payer).collect();
         let fee_payer_accounts = preload_accounts(ledger, &fee_payer_account_ids);
 
         let check_command = |pool: &IndexedPool, cmd: &ValidCommandWithHash| {
@@ -1495,7 +1531,6 @@ impl TransactionPool {
         };
 
         let add_results = diff
-            .data()
             .list
             .iter()
             .map(|cmd| {
@@ -1608,6 +1643,30 @@ impl TransactionPool {
             ApplyDecision::Accept
         };
 
+        Ok((decision, accepted, rejected))
+    }
+
+    pub fn unsafe_apply(
+        &mut self,
+        diff: &diff::DiffVerified,
+        is_sender_local: bool,
+    ) -> Result<
+        (
+            ApplyDecision,
+            Vec<UserCommand>,
+            Vec<(UserCommand, diff::Error)>,
+        ),
+        String,
+    > {
+        let (decision, accepted, rejected) = self.apply(diff, is_sender_local)?;
+        let accepted = accepted
+            .into_iter()
+            .map(|cmd| cmd.data.forget_check())
+            .collect::<Vec<_>>();
+        let rejected = rejected
+            .into_iter()
+            .map(|(cmd, e)| (cmd.data.forget_check(), e))
+            .collect::<Vec<_>>();
         Ok((decision, accepted, rejected))
     }
 
