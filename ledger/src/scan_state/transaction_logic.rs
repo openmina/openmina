@@ -5083,7 +5083,7 @@ pub mod local_state {
         }
 
         pub fn add_check(&self, failure: TransactionFailure, b: bool) -> Self {
-            let failure_status_tbl = if let false = b {
+            let failure_status_tbl = if !b {
                 let mut failure_status_tbl = self.failure_status_tbl.clone();
                 failure_status_tbl[0].insert(0, failure);
                 failure_status_tbl

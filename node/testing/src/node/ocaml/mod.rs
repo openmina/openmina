@@ -139,10 +139,10 @@ impl OcamlNode {
         let prefix = format!("[localhost:{}] ", config.libp2p_port);
         let prefix2 = prefix.clone();
         std::thread::spawn(move || {
-            if let Err(_) = Self::read_stream(stdout, std::io::stdout(), &prefix) {}
+            if Self::read_stream(stdout, std::io::stdout(), &prefix).is_err() {}
         });
         std::thread::spawn(move || {
-            if let Err(_) = Self::read_stream(stderr, std::io::stderr(), &prefix2) {}
+            if Self::read_stream(stderr, std::io::stderr(), &prefix2).is_err() {}
         });
 
         Ok(Self {

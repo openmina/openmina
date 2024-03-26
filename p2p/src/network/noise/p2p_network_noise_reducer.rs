@@ -137,8 +137,7 @@ impl P2pNetworkNoiseState {
                                 let data = &mut chunk[2..];
                                 let (data, tag) = data.split_at_mut(data.len() - 16);
                                 let tag = GenericArray::from_slice(&*tag);
-                                if let Err(_) =
-                                    aead.decrypt_in_place_detached(&nonce, &[], data, tag)
+                                if aead.decrypt_in_place_detached(&nonce, &[], data, tag).is_err()
                                 {
                                     *state = P2pNetworkNoiseStateInner::Error(dbg!(
                                         NoiseError::FirstMacMismatch

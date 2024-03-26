@@ -75,13 +75,13 @@ fn parse_account(mut a: serde_json::Value) -> anyhow::Result<Account> {
         } = serde_json::from_value(timing.clone())?;
 
         if !initial_minimum_balance.contains('.') {
-            initial_minimum_balance.extend(".000000000".chars());
+            initial_minimum_balance.push_str(".000000000");
         }
         if !cliff_amount.contains('.') {
-            cliff_amount.extend(".000000000".chars());
+            cliff_amount.push_str(".000000000");
         }
         if !vesting_increment.contains('.') {
-            vesting_increment.extend(".000000000".chars());
+            vesting_increment.push_str(".000000000");
         }
 
         account.timing = Timing::Timed {

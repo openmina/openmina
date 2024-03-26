@@ -455,7 +455,7 @@ async fn peer_loop(
                         let done_tx_clone = done_tx.clone();
                         let internal_cmd_sender = internal_cmd_sender_clone.clone();
                         chan.on_error(move |err| {
-                            if let Err(_) = done_tx_clone.try_send(Err(err.into())) {
+                            if done_tx_clone.try_send(Err(err.into())).is_err() {
                                 let _ =
                                     internal_cmd_sender.send(PeerCmdInternal::ChannelClosed(id));
                             }
@@ -465,7 +465,7 @@ async fn peer_loop(
                         let done_tx_clone = done_tx.clone();
                         let internal_cmd_sender = internal_cmd_sender_clone.clone();
                         chan.on_close(move || {
-                            if let Err(_) = done_tx_clone.try_send(Err(Error::ChannelClosed)) {
+                            if done_tx_clone.try_send(Err(Error::ChannelClosed)).is_err() {
                                 let _ =
                                     internal_cmd_sender.send(PeerCmdInternal::ChannelClosed(id));
                             }
