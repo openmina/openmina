@@ -110,7 +110,7 @@ impl P2pNetworkSchedulerAction {
                         };
                         store.dispatch(P2pNetworkSchedulerYamuxDidInitAction {
                             addr: a.addr,
-                            peer_id: peer_id,
+                            peer_id,
                         });
                     }
                     Some(Protocol::Stream(kind)) => {
