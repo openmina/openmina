@@ -49,13 +49,12 @@ impl SoloNodeBootstrap {
             {
                 let steps = runner
                     .pending_events(true)
-                    .map(|(node_id, _, events)| {
+                    .flat_map(|(node_id, _, events)| {
                         events.map(move |(_, event)| ScenarioStep::Event {
                             node_id,
                             event: event.to_string(),
                         })
                     })
-                    .flatten()
                     .collect::<Vec<_>>();
 
                 for step in steps {

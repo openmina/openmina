@@ -232,8 +232,7 @@ impl P2pNetworkRpcAction {
 
                                         let response = response
                                             .ok()
-                                            .map(|x| x.0.ok())
-                                            .flatten()
+                                            .and_then(|x| x.0.ok())
                                             .map(P2pRpcResponse::LedgerQuery);
 
                                         store.dispatch(P2pChannelsRpcAction::ResponseReceived {
