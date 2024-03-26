@@ -145,7 +145,7 @@ impl BinProtWrite for TransactionSnarkScanStateStableV2ScanStateTreesA {
                     value,
                     sub_tree,
                 } => {
-                    if &depth.0 != &curr_depth {
+                    if depth.0 != curr_depth {
                         return Err(std::io::Error::new(
                             std::io::ErrorKind::InvalidInput,
                             format!(
@@ -590,7 +590,7 @@ impl<'de> Deserialize<'de> for PicklesProofProofsVerified2ReprStableV2StatementF
                 A: serde::de::SeqAccess<'de>,
             {
                 match seq.next_element::<String>()? {
-                    Some(v) if &v == SHIFTED_VALUE => {}
+                    Some(v) if v == SHIFTED_VALUE => {}
                     Some(v) => {
                         return Err(serde::de::Error::custom(format!(
                             "expecting `{SHIFTED_VALUE}`, got `{v}`"

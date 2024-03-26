@@ -52,7 +52,7 @@ pub fn match_addr_with_port_and_peer_id(
                 }),
         } => &peer_id == pid && port == *p,
         P2pConnectionOutgoingInitOpts::LibP2P(libp2p_opts) => {
-            &libp2p_opts.peer_id == &peer_id && libp2p_opts.port == port
+            libp2p_opts.peer_id == peer_id && libp2p_opts.port == port
         }
         _ => false,
     }

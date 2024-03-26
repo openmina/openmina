@@ -86,7 +86,7 @@ impl Add<&P2pNetworkKadDist> for &P2pNetworkKadKey {
     type Output = P2pNetworkKadKey;
 
     fn add(self, rhs: &P2pNetworkKadDist) -> Self::Output {
-        P2pNetworkKadKey(&self.0 ^ &rhs.0)
+        P2pNetworkKadKey(self.0 ^ rhs.0)
     }
 }
 
@@ -102,7 +102,7 @@ impl Sub<&P2pNetworkKadKey> for &P2pNetworkKadKey {
     type Output = P2pNetworkKadDist;
 
     fn sub(self, rhs: &P2pNetworkKadKey) -> Self::Output {
-        P2pNetworkKadDist(&self.0 ^ &rhs.0)
+        P2pNetworkKadDist(self.0 ^ rhs.0)
     }
 }
 
@@ -110,7 +110,7 @@ impl Sub<P2pNetworkKadKey> for &P2pNetworkKadKey {
     type Output = P2pNetworkKadDist;
 
     fn sub(self, rhs: P2pNetworkKadKey) -> Self::Output {
-        P2pNetworkKadDist(&self.0 ^ rhs.0)
+        P2pNetworkKadDist(self.0 ^ rhs.0)
     }
 }
 
@@ -118,7 +118,7 @@ impl Sub<&P2pNetworkKadKey> for P2pNetworkKadKey {
     type Output = P2pNetworkKadDist;
 
     fn sub(self, rhs: &P2pNetworkKadKey) -> Self::Output {
-        P2pNetworkKadDist(self.0 ^ &rhs.0)
+        P2pNetworkKadDist(self.0 ^ rhs.0)
     }
 }
 
@@ -126,7 +126,7 @@ impl Shr<usize> for &P2pNetworkKadKey {
     type Output = P2pNetworkKadKey;
 
     fn shr(self, rhs: usize) -> Self::Output {
-        P2pNetworkKadKey(&self.0 >> rhs)
+        P2pNetworkKadKey(self.0 >> rhs)
     }
 }
 
@@ -261,7 +261,7 @@ impl<const K: usize> P2pNetworkKadRoutingTable<K> {
             let Some((mut bucket1, mut bucket2)) = self
                 .buckets
                 .pop()
-                .map(|b| b.split(|e| &(&self.this_key - &e.key) >= &split_dist))
+                .map(|b| b.split(|e| (&self.this_key - &e.key) >= split_dist))
             else {
                 debug_assert!(false, "should be unreachable");
                 return Err(P2pNetworkKadRoutingTableInsertError);
@@ -430,7 +430,7 @@ impl<'a, const K: usize> Iterator for ClosestPeers<'a, K> {
         // TODO: items from other buckets might need sorting
         loop {
             if let Some(item) = self.bucket_iterator.next() {
-                if &item.key == self.key || &item.key == &self.table.this_key {
+                if &item.key == self.key || item.key == self.table.this_key {
                     continue;
                 }
                 return Some(item);
@@ -471,15 +471,15 @@ impl<const K: usize> P2pNetworkKadBucket<K> {
     /// there is a free slot, or the entry with this peer_id already there and
     /// only needs to be updated.
     fn can_insert(&self, entry: &P2pNetworkKadEntry) -> bool {
-        self.len() < K || self.0.iter().any(|e| &e.key == &entry.key)
+        self.len() < K || self.0.iter().any(|e| e.key == entry.key)
     }
 
     /// Inserts an entry into the bucket. Returns true if a new entry is added,
     /// false if an existing one is updated.
     fn insert(&mut self, entry: P2pNetworkKadEntry) -> bool {
-        if let Some(pos) = self.0.iter().position(|e| &e.key == &entry.key) {
+        if let Some(pos) = self.0.iter().position(|e| e.key == entry.key) {
             let e = &mut self.0[pos];
-            debug_assert!(&e.peer_id == &entry.peer_id);
+            debug_assert!(e.peer_id == entry.peer_id);
             for addr in entry.addrs {
                 if !e.addrs.contains(&addr) {
                     e.addrs.push(addr);

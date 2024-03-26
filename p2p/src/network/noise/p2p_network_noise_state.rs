@@ -413,7 +413,7 @@ mod wrapper {
         type Output = [u8; 32];
 
         fn mul(self, rhs: &'b Pk) -> Self::Output {
-            (&self.0 * &rhs.0).0
+            (self.0 * rhs.0).0
         }
     }
 

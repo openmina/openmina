@@ -78,7 +78,7 @@ impl RustNodeAsSeed {
             println!("{}", serde_json::to_string_pretty(&node0_peers).unwrap());
             node0_has_node1 = get_peers_iter(&node0_peers)
                 .unwrap()
-                .any(|peer| peer.unwrap().2 == &ocaml_peer_id1.to_string());
+                .any(|peer| peer.unwrap().2 == ocaml_peer_id1.to_string());
 
             let node1_peers = driver
                 .inner()
@@ -89,7 +89,7 @@ impl RustNodeAsSeed {
             println!("{}", serde_json::to_string_pretty(&node1_peers).unwrap());
             node1_has_node0 = get_peers_iter(&node1_peers)
                 .unwrap()
-                .any(|peer| peer.unwrap().2 == &ocaml_peer_id0.to_string());
+                .any(|peer| peer.unwrap().2 == ocaml_peer_id0.to_string());
 
             tokio::time::sleep(Duration::from_secs(10)).await;
         }

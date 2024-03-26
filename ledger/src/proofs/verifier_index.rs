@@ -60,7 +60,7 @@ fn read_index(path: &Path, digest: &[u8]) -> anyhow::Result<VerifierIndex<Pallas
     let mut d = [0; 32];
     // source digest
     file.read_exact(&mut d).context("reading source digest")?;
-    if &d != digest {
+    if d != digest {
         anyhow::bail!("source digest verification failed");
     }
 
@@ -73,7 +73,7 @@ fn read_index(path: &Path, digest: &[u8]) -> anyhow::Result<VerifierIndex<Pallas
     let mut hasher = Sha256::new();
     hasher.update(&buf);
     let digest = hasher.finalize();
-    if &d != digest.as_slice() {
+    if d != digest.as_slice() {
         anyhow::bail!("verifier index digest verification failed");
     }
     Ok(verifier_index_from_bytes(&buf))
