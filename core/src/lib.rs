@@ -1,3 +1,5 @@
+#![allow(clippy::too_many_arguments)]
+
 pub mod invariants;
 pub mod log;
 pub mod requests;

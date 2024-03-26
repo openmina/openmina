@@ -56,6 +56,8 @@ struct Cli {
     input: Option<PathBuf>,
 }
 
+// TODO: I'm not sure whether changing the acronyms breaks anything, check
+#[allow(clippy::upper_case_acronyms)]
 #[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
 enum FileFormat {
     BinProt,

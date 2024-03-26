@@ -9,6 +9,8 @@ struct Context(super::RpcSender);
 
 impl juniper::Context for Context {}
 
+// TODO: I'm not sure whether changing the acronyms breaks anything, check
+#[allow(clippy::upper_case_acronyms)]
 #[derive(Clone, Copy, Debug, GraphQLEnum)]
 enum SyncStatus {
     CONNECTING,

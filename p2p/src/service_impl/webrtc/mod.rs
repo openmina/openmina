@@ -80,6 +80,8 @@ pub struct PeerState {
     cmd_sender: mpsc::UnboundedSender<PeerCmd>,
 }
 
+// TODO: I'm not sure whether changing the acronyms breaks anything, check
+#[allow(clippy::upper_case_acronyms)]
 #[derive(thiserror::Error, derive_more::From, Debug)]
 pub(super) enum Error {
     #[cfg(not(target_arch = "wasm32"))]

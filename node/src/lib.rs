@@ -1,4 +1,6 @@
 #![allow(clippy::large_enum_variant)]
+#![allow(clippy::too_many_arguments)]
+#![allow(clippy::type_complexity)]
 
 pub use openmina_core as core;
 
