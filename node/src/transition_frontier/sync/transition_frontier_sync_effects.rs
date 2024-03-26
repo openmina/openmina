@@ -59,6 +59,8 @@ impl TransitionFrontierSyncAction {
             TransitionFrontierSyncAction::LedgerStakingPending => {
                 store.dispatch(TransitionFrontierSyncLedgerAction::Init);
             }
+            // TODO(binier): This looks unnecessary complicated
+            #[allow(clippy::if_same_then_else)]
             TransitionFrontierSyncAction::LedgerStakingSuccess => {
                 if store.dispatch(TransitionFrontierSyncAction::LedgerNextEpochPending) {
                 } else if store.dispatch(TransitionFrontierSyncAction::LedgerRootPending) {

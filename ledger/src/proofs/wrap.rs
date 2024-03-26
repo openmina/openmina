@@ -2204,7 +2204,7 @@ pub mod wrap_verifier {
         sponge.absorb((CircuitVar::Constant(Boolean::True), index_digest));
 
         for (b, v) in &sg_old {
-            absorb_curve(b, *v, &mut sponge);
+            absorb_curve(b, v, &mut sponge);
         }
 
         let x_hat = {

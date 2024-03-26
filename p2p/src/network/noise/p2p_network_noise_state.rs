@@ -199,7 +199,7 @@ impl P2pNetworkNoiseStateInitiator {
         let mut chunk = vec![0; 2];
         chunk.extend_from_slice(&i_spk_bytes);
         chunk.extend_from_slice(&tag);
-        chunk.extend_from_slice(&*payload);
+        chunk.extend_from_slice(&payload);
         chunk.extend_from_slice(&payload_tag);
         let l = (chunk.len() - 2) as u16;
         chunk[..2].clone_from_slice(&l.to_be_bytes());
@@ -288,7 +288,7 @@ impl P2pNetworkNoiseStateResponder {
         }
         let payload_tag = noise.encrypt::<0>(&mut payload);
 
-        buffer.extend_from_slice(&*payload);
+        buffer.extend_from_slice(&payload);
         buffer.extend_from_slice(&payload_tag);
         let l = (buffer.len() - 2) as u16;
         buffer[..2].clone_from_slice(&l.to_be_bytes());

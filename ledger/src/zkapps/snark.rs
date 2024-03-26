@@ -225,7 +225,7 @@ impl ZkappHandler for SnarkHandler {
         };
         account_update.body.preconditions.account.checked_zcheck(
             new_account.as_boolean(),
-            &*account.data,
+            &account.data,
             check,
             w,
         );

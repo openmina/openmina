@@ -429,7 +429,7 @@ impl BlockProducerService for NodeTestingService {
                 let _ = self.real.event_sender.send(dummy_proof_event(block_hash));
             }
             ProofKind::ConstraintsChecked => {
-                match openmina_node_native::block_producer::prove(&*input, true) {
+                match openmina_node_native::block_producer::prove(&input, true) {
                     Err(ProofError::ConstraintsOk) => {
                         let _ = self.real.event_sender.send(dummy_proof_event(block_hash));
                     }
@@ -453,7 +453,7 @@ impl BlockProducerService for NodeTestingService {
                     {
                         Ok(proof.clone())
                     } else {
-                        openmina_node_native::block_producer::prove(&*input, false)
+                        openmina_node_native::block_producer::prove(&input, false)
                             .map_err(|err| format!("{err:?}"))
                     }
                 });

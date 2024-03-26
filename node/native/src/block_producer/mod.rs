@@ -86,7 +86,7 @@ impl node::service::BlockProducerService for crate::NodeService {
 
         let tx = self.event_sender.clone();
         std::thread::spawn(move || {
-            let res = prove(&*input, false).map_err(|err| format!("{err:?}"));
+            let res = prove(&input, false).map_err(|err| format!("{err:?}"));
             let _ = tx.send(BlockProducerEvent::BlockProve(block_hash, res).into());
         });
     }
