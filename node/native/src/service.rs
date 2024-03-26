@@ -289,7 +289,7 @@ impl SnarkWorkVerifyService for NodeService {
                             [Some(conv(v1)), Some(conv(v2))]
                         }
                     })
-                    .filter_map(|v| v)
+                    .flatten()
                     .collect::<Vec<_>>();
                 let verifier_srs = verifier_srs.lock().expect("Failed to lock SRS");
                 if !ledger::proofs::verification::verify_transaction(

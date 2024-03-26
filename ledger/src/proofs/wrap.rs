@@ -1365,7 +1365,7 @@ pub mod pcs_batch {
 }
 
 pub mod wrap_verifier {
-    use std::{convert::identity, ops::Neg, sync::Arc};
+    use std::{ops::Neg, sync::Arc};
 
     use itertools::Itertools;
     use kimchi::prover_index::ProverIndex;
@@ -2271,7 +2271,7 @@ pub mod wrap_verifier {
 
             let init = constant_part
                 .into_iter()
-                .filter_map(identity)
+                .flatten()
                 .fold(correction, |acc, (x, y)| w.add_fast(acc, make_group(x, y)));
 
             terms

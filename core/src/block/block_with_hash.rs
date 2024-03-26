@@ -165,7 +165,7 @@ impl<T: AsRef<Block>> BlockWithHash<T> {
             },
             _ => {}
         }
-        coinbases.into_iter().filter_map(|v| v)
+        coinbases.into_iter().flatten()
     }
 
     pub fn completed_works_iter<'a>(

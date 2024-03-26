@@ -488,7 +488,7 @@ impl TransitionFrontierRootSnarkedLedgerUpdates {
 
                     Some(Some((snarked_ledger_hash, update)))
                 })
-                .filter_map(|v| v),
+                .flatten(),
         );
     }
 }

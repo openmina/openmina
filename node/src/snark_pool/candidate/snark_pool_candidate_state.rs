@@ -136,7 +136,7 @@ impl SnarkPoolCandidatesState {
                 *last_ord = Some(ord);
                 Some(Some((peer_id, job_id.clone())))
             })
-            .filter_map(|v| v)
+            .flatten()
             .collect()
     }
 
