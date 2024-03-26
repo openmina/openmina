@@ -4920,7 +4920,7 @@ pub mod local_state {
             inputs.append_field(self.caller.0);
             inputs.append_field(self.caller_caller.0);
 
-            let field = match self.calls.0.get(0) {
+            let field = match self.calls.0.first() {
                 None => Fp::zero(),
                 Some(call) => call.stack_hash,
             };

@@ -251,6 +251,8 @@ impl OcamlNode {
             .map_err(Into::into)
     }
 
+    // TODO(binier)
+    #[allow(clippy::suspicious_open_options)]
     fn generate_libp2p_keypair(config: &OcamlNodeConfig, dir: &Path) -> anyhow::Result<String> {
         use std::{fs::OpenOptions, io::Write, os::unix::fs::OpenOptionsExt};
 

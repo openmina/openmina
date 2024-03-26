@@ -108,7 +108,7 @@ mod test {
 
     fn bytes_to_info(mut bytes: &[u8]) -> Info {
         let info = Info::binprot_read(&mut bytes).unwrap();
-        assert!(bytes.len() == 0);
+        assert!(bytes.is_empty());
         info
     }
 

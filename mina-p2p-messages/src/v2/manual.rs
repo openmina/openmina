@@ -87,7 +87,7 @@ impl BinProtRead for TransactionSnarkScanStateStableV2ScanStateTreesA {
                     }
                     let mut tree = Self::Leaf(data);
                     while let Some(value) = values.pop() {
-                        depth = depth - 1;
+                        depth -= 1;
                         tree = Self::Node {
                             depth: depth.into(),
                             value,
@@ -534,7 +534,7 @@ mod tests {
         let v = serde_json::from_str::<NonZeroCurvePoint>(b58)
             .unwrap()
             .into_inner();
-        assert_eq!(v.is_odd, false);
+        assert!(!v.is_odd);
         assert_eq!(
             &hex::encode(&v.x),
             "3c2b5b48c22dc8b8c9d2c9d76a2ceaaf02beabb364301726c3f8e989653af513"

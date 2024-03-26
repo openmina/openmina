@@ -14,7 +14,7 @@ use crate::{
 use super::{P2pNetworkKadBootstrapAction, P2pNetworkKadBootstrapState};
 
 fn prepare_next_request(
-    addrs: &Vec<Multiaddr>,
+    addrs: &[Multiaddr],
     time: Timestamp,
     filter_addrs: bool,
 ) -> Option<P2pNetworkKadBoostrapRequestState> {
@@ -32,9 +32,7 @@ fn prepare_next_request(
                 }
         });
 
-    let Some(addr) = addrs.next() else {
-        return None;
-    };
+    let addr = addrs.next()?;
     let addrs_to_use = addrs.collect();
     Some(P2pNetworkKadBoostrapRequestState {
         addr,

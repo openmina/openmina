@@ -14,7 +14,7 @@ impl InvariantsState {
         if v.is::<T>() {
             v.downcast_mut().unwrap()
         } else {
-            *v = Box::new(T::default());
+            *v = Box::<T>::default();
             v.downcast_mut().unwrap()
         }
     }

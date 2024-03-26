@@ -236,15 +236,15 @@ fn consume<F: FieldWitness>(params: ConsumeParams<F>, w: &mut Witness<F>) -> [F;
     // Note: It's Boolean.Array.any here, not sure if there is a difference
     let empty_input = CircuitVar::any(&fst_input, w).map(Boolean::neg);
 
-    let should_permute = match by_pairs.remainder() {
-        &[] => {
+    let should_permute = match *by_pairs.remainder() {
+        [] => {
             if needs_final_permute_if_empty {
                 empty_input.or(&pos, w)
             } else {
                 pos
             }
         }
-        &[(b, x)] => {
+        [(b, x)] => {
             let p = pos;
             pos = p.lxor(&b, w);
 

@@ -177,9 +177,7 @@ impl SnarkPoolState {
     }
 
     pub fn available_jobs_iter(&self) -> impl Iterator<Item = &JobState> {
-        self.list
-            .iter()
-            .map(|(_, job)| job)
+        self.list.values()
             .filter(|job| job.is_available())
     }
 

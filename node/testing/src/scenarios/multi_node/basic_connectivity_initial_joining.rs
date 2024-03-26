@@ -233,6 +233,6 @@ impl MultiNodeBasicConnectivityInitialJoining {
             println!("{node_id:?} - p2p state: {:#?}", &node.state().p2p);
         }
 
-        assert!(false);
+        unreachable!();
     }
 }

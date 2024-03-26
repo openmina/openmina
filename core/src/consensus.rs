@@ -85,6 +85,9 @@ pub fn relative_min_window_density(b1: &MinaConsensusState, b2: &MinaConsensusSt
 
         // Ring-shift
         let mut i = relative_sub_window_from_global_slot(global_slot(b1));
+        // TODO(binier): is this correct?
+        // lint: this loops only once with `_` being `0..=shift_count`
+        #[allow(clippy::single_element_loop)]
         for _ in [0..=shift_count] {
             i = (i + 1) % SUB_WINDOWS_PER_WINDOW;
             projected_window[i as usize] = 0;

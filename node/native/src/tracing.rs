@@ -73,7 +73,7 @@ pub fn initialize(max_log_level: Level) {
         ;
     if max_log_level != Level::TRACE {
         let subscriber = builder
-            .fmt_fields(TracingFieldFormatter::default())
+            .fmt_fields(TracingFieldFormatter)
             .finish();
         tracing::subscriber::set_global_default(subscriber)
     } else {

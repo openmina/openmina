@@ -56,7 +56,7 @@ where
                     }
                     let mut tree = Self::Leaf(data);
                     while let Some(value) = values.pop() {
-                        depth = depth - 1;
+                        depth -= 1;
                         tree = Self::Node {
                             depth,
                             value,

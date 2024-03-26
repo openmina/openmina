@@ -1544,7 +1544,7 @@ pub mod step_verifier {
                             .flat_map(|w| w.unshifted.iter().cloned().map(cvar)),
                     )
                     .chain(wrap_verification_key.coefficients)
-                    .chain(sigma_comm_init.iter().map(|v| v).cloned());
+                    .chain(sigma_comm_init.iter().cloned());
                 sg_old.chain(rest).collect::<Vec<_>>()
             };
 

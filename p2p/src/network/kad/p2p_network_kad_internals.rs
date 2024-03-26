@@ -463,6 +463,10 @@ impl<const K: usize> P2pNetworkKadBucket<K> {
         self.0.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
     pub fn iter(&self) -> std::slice::Iter<'_, P2pNetworkKadEntry> {
         self.0.iter()
     }
@@ -555,7 +559,7 @@ mod tests {
         let peer_id = peer_id_rand();
         P2pNetworkKadEntry {
             key,
-            peer_id: peer_id.into(),
+            peer_id,
             addrs: vec![],
             connection: super::ConnectionType::Connected,
         }

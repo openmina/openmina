@@ -30,7 +30,7 @@ pub mod bw19 {
                 loop {
                     match f(v) {
                         Some(x) => return x,
-                        None => v = v + one,
+                        None => v += one,
                     }
                 }
             }

@@ -14,7 +14,7 @@ fn main() {
         .spawn()
         .expect("cannot run debugger");
     thread::sleep(Duration::from_secs(2));
-    let mut test = Command::new(env::args().skip(1).next().unwrap())
+    let mut test = Command::new(env::args().nth(1).unwrap())
         .args(env::args().skip(2))
         .envs(env::vars())
         .stderr(Stdio::inherit())

@@ -374,10 +374,7 @@ fn deferred_values(params: DeferredValuesParams) -> DeferredValuesAndHints {
         let b = challenge_poly(zeta) + (r * challenge_poly(zetaw));
 
         let prechals = oracle
-            .opening_prechallenges
-            .iter()
-            .copied()
-            .collect::<Vec<_>>();
+            .opening_prechallenges.to_vec();
         (prechals, b)
     };
 
