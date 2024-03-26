@@ -189,23 +189,27 @@ impl P2pNetworkRpcAction {
                             mut bytes: &[u8],
                             time: redux::Timestamp,
                         ) -> Option<Result<M::Response, RpcError>> {
-                            match <ResponsePayload<M::Response> as BinProtRead>::binprot_read(&mut bytes)
-                                .map(|x| x.0.map(|NeedsLength(x)| x))
-                                 {
-                                    Ok(v) => Some(v),
-                                    Err(e) => {
-                                        warn!(time; "response {} {}", M::NAME, e);
-                                        None
-                                    },
-                                 }
+                            match <ResponsePayload<M::Response> as BinProtRead>::binprot_read(
+                                &mut bytes,
+                            )
+                            .map(|x| x.0.map(|NeedsLength(x)| x))
+                            {
+                                Ok(v) => Some(v),
+                                Err(e) => {
+                                    warn!(time; "response {} {}", M::NAME, e);
+                                    None
+                                }
+                            }
                         }
 
                         if let Some((_, (tag, version))) = &state.pending {
                             if let Ok(tag) = std::str::from_utf8(tag.as_ref()) {
                                 match (tag, *version) {
                                     (rpc::GetBestTipV2::NAME, rpc::GetBestTipV2::VERSION) => {
-                                        let Some(response) = parse_r::<rpc::GetBestTipV2>(&bytes, meta.time()) else {
-                                            return
+                                        let Some(response) =
+                                            parse_r::<rpc::GetBestTipV2>(&bytes, meta.time())
+                                        else {
+                                            return;
                                         };
                                         let response = response
                                             .ok()
@@ -226,7 +230,10 @@ impl P2pNetworkRpcAction {
                                         rpc::AnswerSyncLedgerQueryV2::NAME,
                                         rpc::AnswerSyncLedgerQueryV2::VERSION,
                                     ) => {
-                                        let Some(response) = parse_r::<rpc::AnswerSyncLedgerQueryV2>(&bytes, meta.time()) else {
+                                        let Some(response) = parse_r::<rpc::AnswerSyncLedgerQueryV2>(
+                                            &bytes,
+                                            meta.time(),
+                                        ) else {
                                             return;
                                         };
 
@@ -246,7 +253,11 @@ impl P2pNetworkRpcAction {
                                         rpc::GetStagedLedgerAuxAndPendingCoinbasesAtHashV2::NAME,
                                         rpc::GetStagedLedgerAuxAndPendingCoinbasesAtHashV2::VERSION,
                                     ) => {
-                                        let Some(response) = parse_r::<rpc::GetStagedLedgerAuxAndPendingCoinbasesAtHashV2>(&bytes, meta.time()) else {
+                                        let Some(response) = parse_r::<
+                                            rpc::GetStagedLedgerAuxAndPendingCoinbasesAtHashV2,
+                                        >(
+                                            &bytes, meta.time()
+                                        ) else {
                                             return;
                                         };
                                         let response = response
@@ -275,7 +286,8 @@ impl P2pNetworkRpcAction {
                                         rpc::GetTransitionChainV2::VERSION,
                                     ) => {
                                         type Method = rpc::GetTransitionChainV2;
-                                        let Some(response) = parse_r::<Method>(&bytes, meta.time()) else {
+                                        let Some(response) = parse_r::<Method>(&bytes, meta.time())
+                                        else {
                                             return;
                                         };
                                         let response = response.ok().flatten().unwrap_or_default();
@@ -307,7 +319,8 @@ impl P2pNetworkRpcAction {
                                         rpc::GetSomeInitialPeersV1ForV2::VERSION,
                                     ) => {
                                         type Method = rpc::GetSomeInitialPeersV1ForV2;
-                                        let Some(response) = parse_r::<Method>(&bytes, meta.time()) else {
+                                        let Some(response) = parse_r::<Method>(&bytes, meta.time())
+                                        else {
                                             // TODO: close the stream
                                             panic!();
                                         };

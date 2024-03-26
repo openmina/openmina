@@ -61,11 +61,7 @@ impl P2pNetworkSelectAction {
                         }
                         _ => {}
                     };
-                    store.dispatch(P2pNetworkSelectAction::OutgoingTokens {
-                        addr,
-                        kind,
-                        tokens,
-                    });
+                    store.dispatch(P2pNetworkSelectAction::OutgoingTokens { addr, kind, tokens });
                 }
             }
             Self::IncomingData {

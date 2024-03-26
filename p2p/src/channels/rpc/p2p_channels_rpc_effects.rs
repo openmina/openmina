@@ -4,8 +4,9 @@ use redux::ActionMeta;
 
 use crate::{
     channels::{ChannelId, MsgId, P2pChannelsService},
+    is_old_libp2p,
     peer::P2pPeerAction,
-    P2pNetworkRpcAction, is_old_libp2p,
+    P2pNetworkRpcAction,
 };
 
 use super::{P2pChannelsRpcAction, P2pRpcResponse, RpcChannelMsg};

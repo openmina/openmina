@@ -100,7 +100,6 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                                 error: p2p::P2pNetworkConnectionError::RemoteClosed,
                             });
                         }
-
                     }
                 },
                 P2pEvent::Listen(e) => match e {
