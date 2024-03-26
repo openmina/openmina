@@ -1555,7 +1555,7 @@ pub mod wrap_verifier {
             (sg_evals1, sg_evals2)
         };
 
-        let _sponge_state = {
+        {
             let challenge_digest = {
                 let mut sponge = Sponge::<Fq>::new();
                 old_bulletproof_challenges.iter().for_each(|v| {

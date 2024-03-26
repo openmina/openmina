@@ -1224,7 +1224,7 @@ pub mod consensus {
 
         let slot_diff = next_global_slot.diff_slots(&prev_global_slot, w);
 
-        let _ = {
+        {
             let global_slot_increased = prev_global_slot.less_than(&next_global_slot, w);
             let is_genesis = field::equal(
                 CheckedSlot::zero().to_field(),

@@ -536,7 +536,7 @@ pub mod step_verifier {
             (sg_evals1, sg_evals2)
         };
 
-        let _sponge_state = {
+        {
             let challenge_digest = {
                 let ntrim_front = 2 - max_proof_verified;
 
