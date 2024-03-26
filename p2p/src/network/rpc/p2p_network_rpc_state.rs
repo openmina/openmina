@@ -16,12 +16,14 @@ use crate::Data;
 
 use super::super::*;
 
+#[serde_with::serde_as]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pNetworkRpcState {
     pub addr: SocketAddr,
     pub stream_id: StreamId,
     pub last_id: i64,
     pub pending: Option<(i64, (CharString, i32))>,
+    #[serde_as(as = "Vec<(_, _)>")]
     pub total_stats: BTreeMap<(CharString, i32), usize>,
     pub is_incoming: bool,
     pub buffer: Vec<u8>,

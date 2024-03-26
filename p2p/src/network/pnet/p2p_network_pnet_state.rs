@@ -3,8 +3,10 @@ use zeroize::Zeroize;
 
 use salsa_simple::XSalsa20;
 
+#[serde_with::serde_as]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pNetworkPnetState {
+    #[serde_as(as = "serde_with::hex::Hex")]
     pub shared_secret: [u8; 32],
 
     pub incoming: Half,

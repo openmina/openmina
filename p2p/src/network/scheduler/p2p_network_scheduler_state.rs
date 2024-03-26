@@ -11,10 +11,12 @@ use super::super::*;
 
 pub type StreamState<T> = BTreeMap<PeerId, BTreeMap<StreamId, T>>;
 
+#[serde_with::serde_as]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pNetworkSchedulerState {
     pub interfaces: BTreeSet<IpAddr>,
     pub listeners: BTreeSet<SocketAddr>,
+    #[serde_as(as = "serde_with::hex::Hex")]
     pub pnet_key: [u8; 32],
     pub connections: BTreeMap<SocketAddr, P2pNetworkConnectionState>,
     pub broadcast_state: (),
