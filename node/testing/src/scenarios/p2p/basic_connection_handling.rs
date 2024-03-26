@@ -270,7 +270,7 @@ impl MaxNumberOfPeers {
         //     assert!(count <= MAX.into(), "max number of peers exceeded: {count}");
         // }
 
-        driver.run(Duration::from_secs(1 * 60)).await.unwrap();
+        driver.run(Duration::from_secs(60)).await.unwrap();
 
         // check that the number of ready peers does not exceed the maximal allowed number
         let state = driver.inner().node(node_ut).unwrap().state();
@@ -343,7 +343,7 @@ pub struct ConnectionStability;
 
 impl ConnectionStability {
     pub async fn run(self, runner: ClusterRunner<'_>) {
-        const CONNECTED_TIME_SEC: u64 = 1 * 60;
+        const CONNECTED_TIME_SEC: u64 = 60;
         let mut driver = Driver::new(runner);
 
         let (node1, _) =

@@ -62,7 +62,7 @@ impl RustNodeAsSeed {
                 &state.p2p.peers.get(&ocaml_peer).unwrap().status,
                 P2pPeerStatus::Ready(ready) if ready.is_incoming
             ));
-            duration = Duration::from_secs(1 * 60);
+            duration = Duration::from_secs(60);
         }
 
         let timeout = Instant::now() + Duration::from_secs(60);
@@ -388,7 +388,7 @@ impl RustToOCamlViaSeed {
         let ocaml_peer_id = runner.ocaml_node(ocaml_node).unwrap().peer_id();
 
         let wait_step = OcamlStep::WaitReady {
-            timeout: Duration::from_secs(1 * 60),
+            timeout: Duration::from_secs(60),
         };
         runner
             .exec_step(ScenarioStep::Ocaml {

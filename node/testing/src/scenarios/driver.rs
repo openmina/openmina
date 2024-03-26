@@ -550,7 +550,7 @@ pub async fn wait_for_connection_established<'cluster, F: PeerPredicate>(
 // }
 
 /// Creates `num` Rust nodes in the cluster
-pub fn add_rust_nodes1<'cluster, N, T>(
+pub fn add_rust_nodes1<N, T>(
     driver: &mut Driver,
     num: N,
     config: RustNodeTestingConfig,
@@ -564,7 +564,7 @@ where
         .collect()
 }
 
-pub fn add_rust_nodes<'cluster, N, NodeIds, PeerIds>(
+pub fn add_rust_nodes<N, NodeIds, PeerIds>(
     driver: &mut Driver,
     num: N,
     config: RustNodeTestingConfig,
@@ -580,7 +580,7 @@ where
 }
 
 /// Creates `num` Rust nodes in the cluster
-pub fn add_rust_nodes_with<'cluster, N, NodeIds, Items, Item, F>(
+pub fn add_rust_nodes_with<N, NodeIds, Items, Item, F>(
     driver: &mut Driver,
     num: N,
     config: RustNodeTestingConfig,

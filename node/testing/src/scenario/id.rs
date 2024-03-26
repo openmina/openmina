@@ -31,10 +31,10 @@ impl FromStr for ScenarioId {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         for c in s.chars() {
-            if ('A'..'Z').contains(&c) {
+            if c.is_ascii_uppercase() {
                 return Err(ScenarioIdParseError::ContainsUpperCaseCharacters);
             }
-            if ('a'..'z').contains(&c) || ('0'..'9').contains(&c) || c == '-' || c == '_' {
+            if c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-' || c == '_' {
                 continue;
             }
             return Err(ScenarioIdParseError::AcceptedPatternMismatch);
