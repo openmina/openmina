@@ -456,7 +456,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                 .respond_snarker_job_spec(rpc_id, input)
                 .is_err()
             {
-                return;
+                // TODO: log?
             }
         }
         RpcAction::SnarkerWorkersGet { rpc_id } => {
@@ -466,7 +466,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                 .respond_snarker_workers(rpc_id, vec![the_only.into()])
                 .is_err()
             {
-                return;
+                // TODO: log?
             }
         }
         RpcAction::HealthCheck { rpc_id } => {

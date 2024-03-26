@@ -141,9 +141,9 @@ impl P2pNetworkKadStreamState {
                 Ok(())
             }
             _ => {
-                return Err(format!(
+                Err(format!(
                     "kademlia state {self:?} is incorrect for action {action:?}"
-                ));
+                ))
             }
         }
     }

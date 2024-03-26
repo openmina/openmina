@@ -201,7 +201,6 @@ mod group {
             match (zkapp_commands, stmtss) {
                 ([] | [[]], [ _ ]) => {
                     // eprintln!("GROUP 1");
-                    return;
                 },
                 ([[ AccountUpdate { authorization: a1, .. } ]], [[ before, after ]]) => {
                     // eprintln!("GROUP 2");

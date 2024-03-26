@@ -595,7 +595,7 @@ impl Cluster {
             opt = node.wait_for_event(event_pattern) => opt.ok_or_else(|| anyhow::anyhow!("wait_for_event: None")),
             _ = timeout => {
                 let pending_events = node.pending_events(false).map(|(_, event)| event.to_string()).collect::<Vec<_>>();
-                return Err(anyhow::anyhow!("waiting for event timed out! node {node_id:?}, event: \"{event_pattern}\"\n{pending_events:?}"));
+                Err(anyhow::anyhow!("waiting for event timed out! node {node_id:?}, event: \"{event_pattern}\"\n{pending_events:?}"))
             }
         }
     }

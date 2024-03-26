@@ -241,7 +241,7 @@ impl TransitionFrontierSyncState {
                         );
                     }
                 }
-                _ => return,
+                _ => (),
             },
             TransitionFrontierSyncAction::LedgerStakingPending => {
                 if let Self::Init {

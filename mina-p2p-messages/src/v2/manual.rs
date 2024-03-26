@@ -602,7 +602,7 @@ impl<'de> Deserialize<'de> for PicklesProofProofsVerified2ReprStableV2StatementF
                     Some(v) => {
                         Ok(PicklesProofProofsVerified2ReprStableV2StatementFp::ShiftedValue(v))
                     }
-                    None => return Err(serde::de::Error::custom("expecting a value")),
+                    None => Err(serde::de::Error::custom("expecting a value")),
                 }
             }
         }

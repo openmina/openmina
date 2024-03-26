@@ -136,9 +136,9 @@ pub fn short_range_fork_take(
     }
 
     if candidate_hash > tip_hash {
-        return (true, StateHash);
+        (true, StateHash)
     } else {
-        return (false, StateHash);
+        (false, StateHash)
     }
 }
 
@@ -176,9 +176,9 @@ pub fn long_range_fork_take(
     }
 
     if candidate_hash > tip_hash {
-        return (true, StateHash);
+        (true, StateHash)
     } else {
-        return (false, StateHash);
+        (false, StateHash)
     }
 }
 

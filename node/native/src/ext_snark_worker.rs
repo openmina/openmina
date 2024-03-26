@@ -343,11 +343,8 @@ impl ExternalSnarkWorkerFacade {
                                 } else {
                                     send_event!(event_sender, ExternalSnarkWorkerEvent::Killed);
                                 }
-                                return;
                             }
-                            _ = child.wait() => {
-                                return
-                            }
+                            _ = child.wait() => {}
                         };
                     }
                 });
