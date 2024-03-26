@@ -165,7 +165,7 @@ pub async fn run(port: u16, rpc_sender: super::RpcSender) {
             .then(move |query: ActionQueryParams| {
                 let rpc_sender_clone = rpc_sender_clone.clone();
                 async move {
-                    let id_filter = query.id.as_ref().map(|s| s.as_str());
+                    let id_filter = query.id.as_deref();
                     let result: RpcActionStatsGetResponse = rpc_sender_clone
                         .oneshot_request(RpcRequest::ActionStatsGet(match id_filter {
                             None => ActionStatsQuery::SinceStart,
@@ -358,7 +358,7 @@ pub async fn run(port: u16, rpc_sender: super::RpcSender) {
                             },
                             |resp| match resp {
                                 RpcSnarkerJobSpecResponse::Ok(spec)
-                                    if accept.as_ref().map(String::as_str)
+                                    if accept.as_deref()
                                         == Some("application/octet-stream") =>
                                 {
                                     JsonOrBinary::binary(spec)

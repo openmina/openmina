@@ -665,7 +665,7 @@ impl std::fmt::Display for PlonkVerificationKeyEvals<Fp> {
         inner_to_s(emul);
         inner_to_s(endomul_scalar);
 
-        write!(f, "{}", string.trim().to_string())
+        write!(f, "{}", string.trim())
     }
 }
 

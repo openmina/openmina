@@ -254,28 +254,26 @@ impl<const K: usize> P2pNetworkKadRoutingTable<K> {
             } else {
                 Err(P2pNetworkKadRoutingTableInsertError)
             }
+        } else if self.buckets[max_index].can_insert(&entry) {
+            Ok(self.buckets[max_index].insert(entry))
         } else {
-            if self.buckets[max_index].can_insert(&entry) {
-                Ok(self.buckets[max_index].insert(entry))
-            } else {
-                let split_dist = (max_index + 1).into();
-                let Some((mut bucket1, mut bucket2)) = self
-                    .buckets
-                    .pop()
-                    .map(|b| b.split(|e| &(&self.this_key - &e.key) >= &split_dist))
-                else {
-                    debug_assert!(false, "should be unreachable");
-                    return Err(P2pNetworkKadRoutingTableInsertError);
-                };
+            let split_dist = (max_index + 1).into();
+            let Some((mut bucket1, mut bucket2)) = self
+                .buckets
+                .pop()
+                .map(|b| b.split(|e| &(&self.this_key - &e.key) >= &split_dist))
+            else {
+                debug_assert!(false, "should be unreachable");
+                return Err(P2pNetworkKadRoutingTableInsertError);
+            };
 
-                if max_index == index {
-                    bucket1.insert(entry);
-                } else {
-                    bucket2.insert(entry);
-                };
-                self.buckets.extend([bucket1, bucket2]);
-                Ok(true)
-            }
+            if max_index == index {
+                bucket1.insert(entry);
+            } else {
+                bucket2.insert(entry);
+            };
+            self.buckets.extend([bucket1, bucket2]);
+            Ok(true)
         }
     }
 

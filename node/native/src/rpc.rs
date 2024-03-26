@@ -113,10 +113,10 @@ macro_rules! state_field_filter {
 /// assert_eq!(filter, None);
 /// ```
 fn strip_root_field<'a>(filter: &'a str, field: &str) -> Option<&'a str> {
-    let strip_root = |f: &'a str| f.strip_prefix("$");
+    let strip_root = |f: &'a str| f.strip_prefix('$');
     let field_char = |c: char| c.is_alphabetic() || c == '_';
     let strip_dot_field = |f: &'a str| {
-        f.strip_prefix(".").and_then(|f| {
+        f.strip_prefix('.').and_then(|f| {
             f.strip_prefix(field)
                 .and_then(|f| (!f.starts_with(field_char)).then_some(f))
         })

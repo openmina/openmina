@@ -181,14 +181,12 @@ impl P2pNetworkNoiseAction {
                         data: Data(vec![].into_boxed_slice()),
                     });
                 }
-            } else {
-                if let Some((peer_id, incoming)) = handshake_done {
-                    store.dispatch(P2pNetworkNoiseHandshakeDoneAction {
-                        addr: self.addr(),
-                        peer_id,
-                        incoming,
-                    });
-                }
+            } else if let Some((peer_id, incoming)) = handshake_done {
+                store.dispatch(P2pNetworkNoiseHandshakeDoneAction {
+                    addr: self.addr(),
+                    peer_id,
+                    incoming,
+                });
             }
         }
     }
