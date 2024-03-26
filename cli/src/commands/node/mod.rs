@@ -184,7 +184,7 @@ impl Node {
                 initial_peers: self.peers,
                 max_peers: 100,
                 ask_initial_peers_interval: Duration::from_secs(3600),
-                enabled_channels: ChannelId::iter_all().collect(),
+                enabled_channels: ChannelId::for_libp2p().collect(),
                 timeouts: P2pTimeouts::default(),
                 chain_id: CHAIN_ID.to_owned(),
                 peer_discovery: !self.no_peers_discovery,

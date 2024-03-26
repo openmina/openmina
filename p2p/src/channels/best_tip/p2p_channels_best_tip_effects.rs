@@ -2,13 +2,15 @@ use redux::ActionMeta;
 
 use crate::{
     channels::{ChannelId, MsgId, P2pChannelsService},
+    is_old_libp2p,
     peer::P2pPeerAction,
+    P2pNetworkYamuxAction,
 };
 
 use super::{BestTipPropagationChannelMsg, P2pChannelsBestTipAction};
 
 impl P2pChannelsBestTipAction {
-    pub fn effects<Store, S>(self, _: &ActionMeta, store: &mut Store)
+    pub fn effects<Store, S>(self, meta: &ActionMeta, store: &mut Store)
     where
         Store: crate::P2pStore<S>,
         Store::Service: P2pChannelsService,

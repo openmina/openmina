@@ -5,7 +5,7 @@ use redux::ActionMeta;
 use crate::{
     channels::{ChannelId, MsgId, P2pChannelsService},
     peer::P2pPeerAction,
-    P2pNetworkRpcAction,
+    P2pNetworkRpcAction, is_old_libp2p,
 };
 
 use super::{P2pChannelsRpcAction, P2pRpcResponse, RpcChannelMsg};
@@ -18,7 +18,11 @@ impl P2pChannelsRpcAction {
     {
         match self {
             P2pChannelsRpcAction::Init { peer_id } => {
-                store.service().channel_open(peer_id, ChannelId::Rpc);
+                if is_old_libp2p() {
+                    store.service().channel_open(peer_id, ChannelId::Rpc);
+                } else {
+                    // TODO(akoptelov): open a new stream, if we decide not to forcibly do that on connection established
+                }
                 store.dispatch(P2pChannelsRpcAction::Pending { peer_id });
             }
             P2pChannelsRpcAction::RequestSend {

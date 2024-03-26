@@ -1,25 +1,16 @@
 use binprot::BinProtRead;
 use mina_p2p_messages::rpc_kernel::MessageHeader;
 
-use crate::channels::rpc::P2pChannelsRpcState;
-
 use super::*;
 
 impl P2pNetworkRpcState {
-    pub fn reducer(
-        &mut self,
-        rpc_state: &mut P2pChannelsRpcState,
-        action: redux::ActionWithMeta<&P2pNetworkRpcAction>,
-    ) {
+    pub fn reducer(&mut self, action: redux::ActionWithMeta<&P2pNetworkRpcAction>) {
         if self.error.is_some() {
             return;
         }
         match action.action() {
             P2pNetworkRpcAction::Init { incoming, .. } => {
                 self.is_incoming = *incoming;
-                *rpc_state = P2pChannelsRpcState::Pending {
-                    time: action.time(),
-                };
             }
             P2pNetworkRpcAction::IncomingData { data, .. } => {
                 self.buffer.extend_from_slice(&data);

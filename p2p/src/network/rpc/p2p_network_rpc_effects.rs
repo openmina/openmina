@@ -58,8 +58,6 @@ impl P2pNetworkRpcAction {
                         stream_id,
                         message,
                     });
-
-                    store.dispatch(P2pChannelsRpcAction::Ready { peer_id });
                 }
             }
             Self::IncomingMessage {
@@ -72,22 +70,7 @@ impl P2pNetworkRpcAction {
                 match &message {
                     RpcMessage::Handshake => {
                         if !state.is_incoming {
-                            // let mut v = vec![];
-
-                            // type Payload =
-                            //     QueryPayload<<rpc::VersionedRpcMenuV1 as RpcMethod>::Query>;
-                            // <Payload as BinProtWrite>::binprot_write(&NeedsLength(()), &mut v)
-                            //     .unwrap_or_default();
-
-                            // store.dispatch(P2pNetworkRpcAction::OutgoingQuery {
-                            //     peer_id: peer_id,
-                            //     query: QueryHeader {
-                            //         tag: rpc::VersionedRpcMenuV1::NAME.into(),
-                            //         version: rpc::VersionedRpcMenuV1::VERSION,
-                            //         id: state.last_id,
-                            //     },
-                            //     data: v.into(),
-                            // });
+                            store.dispatch(P2pChannelsRpcAction::Ready { peer_id });
                         }
                     }
                     RpcMessage::Heartbeat => {

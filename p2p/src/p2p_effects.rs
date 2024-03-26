@@ -33,12 +33,9 @@ where
         },
     );
 
-    #[cfg(feature = "p2p-libp2p")]
-    {
-        let state = store.state();
-        for (peer_id, id) in state.peer_rpc_timeouts(meta.time()) {
-            store.dispatch(crate::channels::rpc::P2pChannelsRpcAction::Timeout { peer_id, id });
-        }
+    let state = store.state();
+    for (peer_id, id) in state.peer_rpc_timeouts(meta.time()) {
+        store.dispatch(crate::channels::rpc::P2pChannelsRpcAction::Timeout { peer_id, id });
     }
 }
 

@@ -53,7 +53,7 @@ impl Default for P2pTimeouts {
         Self {
             incoming_connection_timeout: Some(Duration::from_secs(30)),
             outgoing_connection_timeout: Some(Duration::from_secs(10)),
-            reconnect_timeout: Some(Duration::from_secs(30)),
+            reconnect_timeout: Some(Duration::from_secs(10)),
             best_tip_with_proof: Some(Duration::from_secs(10)),
             ledger_query: Some(Duration::from_secs(2)),
             staged_ledger_aux_and_pending_coinbases_at_block: Some(Duration::from_secs(120)),

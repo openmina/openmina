@@ -5,7 +5,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::{PeerId, disconnection::P2pDisconnectionReason};
+use crate::{disconnection::P2pDisconnectionReason, PeerId};
 
 use super::super::*;
 
@@ -28,6 +28,12 @@ pub struct P2pNetworkSchedulerState {
 impl P2pNetworkSchedulerState {
     pub fn discovery_state(&self) -> Option<&P2pNetworkKadState> {
         self.discovery_state.as_ref()
+    }
+
+    pub fn find_peer(&self, peer_id: &PeerId) -> Option<(&SocketAddr, &P2pNetworkConnectionState)> {
+        self.connections
+            .iter()
+            .find(|(_, conn_state)| conn_state.peer_id() == Some(peer_id))
     }
 }
 
@@ -63,8 +69,6 @@ pub enum P2pNetworkConnectionError {
     #[error("remote peer closed connection")]
     RemoteClosed,
 }
-
-
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum P2pNetworkAuthState {
