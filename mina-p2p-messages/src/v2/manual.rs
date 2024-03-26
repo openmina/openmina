@@ -796,6 +796,13 @@ impl<'de> Deserialize<'de> for SgnStableV1 {
                     Ok(v)
                 }
 
+                fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+                where
+                    E: serde::de::Error,
+                {
+                    Ok(v.to_string())
+                }
+
                 fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
                 where
                     A: serde::de::SeqAccess<'de>,

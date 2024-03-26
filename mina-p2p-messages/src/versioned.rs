@@ -85,7 +85,7 @@ where
             }
         }
 
-        const FIELDS: &'static [&'static str] = &["version", "t"];
+        const FIELDS: &[&str] = &["version", "t"];
         deserializer
             .deserialize_struct(
                 "MakeVersioned",

@@ -270,7 +270,6 @@ impl<'cluster> Driver<'cluster> {
                     node_id,
                     event: event.to_string(),
                 };
-                let node_id = node_id;
                 self.runner.exec_step(step).await?;
                 let state = self.runner.node(node_id).unwrap().state();
                 if f(node_id, &event, state) {
@@ -298,7 +297,6 @@ impl<'cluster> Driver<'cluster> {
                     node_id,
                     event: event.to_string(),
                 };
-                let node_id = node_id;
                 self.runner.exec_step(step).await?;
                 let _state = self.runner.node(node_id).unwrap().state();
                 // println!("{node_id} state: {state:#?}, state = state.p2p");
@@ -788,7 +786,6 @@ pub async fn trace_steps_state<T: Debug, F: Fn(&State) -> T>(
                 node_id,
                 event: event.to_string(),
             };
-            let node_id = node_id;
             runner.exec_step(step).await?;
             let state = runner.node(node_id).unwrap().state();
             let t = f(state);

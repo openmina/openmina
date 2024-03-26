@@ -198,7 +198,7 @@ fn debugger_to_wire() {
             println!("{tag}:{ver}");
             File::create(path)
                 .and_then(|mut f| {
-                    f.write(&encoded[..1])?;
+                    f.write_all(&encoded[..1])?;
                     f.write_all(p)?;
                     Ok(f)
                 })
