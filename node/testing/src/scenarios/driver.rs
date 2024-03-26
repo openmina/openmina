@@ -560,7 +560,6 @@ where
     T: FromIterator<(ClusterNodeId, PeerId)>,
 {
     (0..num.into())
-        .into_iter()
         .map(|_| driver.add_rust_node(config.clone()))
         .collect()
 }
@@ -576,7 +575,6 @@ where
     PeerIds: Default + Extend<PeerId>,
 {
     (0..num.into())
-        .into_iter()
         .map(|_| driver.add_rust_node(config.clone()))
         .unzip()
 }
@@ -595,7 +593,6 @@ where
     F: FnMut(&State) -> Item,
 {
     (0..num.into())
-        .into_iter()
         .map(|_| driver.add_rust_node_with(config.clone(), &mut f))
         .unzip()
 }

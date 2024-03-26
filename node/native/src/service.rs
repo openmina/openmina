@@ -199,7 +199,7 @@ impl P2pServiceWebrtcWithLibp2p for NodeService {
 
         self.libp2p()
             .cmd_sender()
-            .send(Cmd::FindNode(peer_id.into()))
+            .send(Cmd::FindNode(peer_id))
             .unwrap_or_default();
     }
 

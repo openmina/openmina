@@ -186,14 +186,14 @@ impl P2pConnectionOutgoingInitOpts {
                     host: format!("http://{}", info.host).as_bytes().into(),
                     libp2p_port: (info.port as u64).into(),
                     peer_id: v2::NetworkPeerPeerIdStableV1(
-                        PeerId::from(*peer_id).to_string().into_bytes().into(),
+                        (*peer_id).to_string().into_bytes().into(),
                     ),
                 }),
                 SignalingMethod::Https(info) => Some(v2::NetworkPeerPeerStableV1 {
                     host: format!("https://{}", info.host).as_bytes().into(),
                     libp2p_port: (info.port as u64).into(),
                     peer_id: v2::NetworkPeerPeerIdStableV1(
-                        PeerId::from(*peer_id).to_string().into_bytes().into(),
+                        (*peer_id).to_string().into_bytes().into(),
                     ),
                 }),
             },
@@ -316,7 +316,7 @@ impl From<&P2pConnectionOutgoingInitLibp2pOpts> for multiaddr::Multiaddr {
             })
             .with(Protocol::Tcp(value.port))
             .with(Protocol::P2p(
-                libp2p_identity::PeerId::from(value.peer_id).into(),
+                libp2p_identity::PeerId::from(value.peer_id),
             ))
     }
 }

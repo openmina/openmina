@@ -361,7 +361,7 @@ impl Cluster {
             invariants_state: Default::default(),
         };
         if let Some(producer_key) = block_producer_sec_key {
-            real_service.block_producer_start(producer_key.into());
+            real_service.block_producer_start(producer_key);
         }
         let mut service = NodeTestingService::new(real_service, node_id, shutdown_rx);
         service.set_proof_kind(self.config.proof_kind());
@@ -804,7 +804,7 @@ impl Cluster {
                             .collect::<Result<Vec<_>, _>>()?;
                         P2pEvent::Discovery(P2pDiscoveryEvent::AddRoute(id, addrs)).into()
                     }
-                    NonDeterministicEvent::RpcReadonly(id, req) => Event::Rpc(id, req).into(),
+                    NonDeterministicEvent::RpcReadonly(id, req) => Event::Rpc(id, req),
                 };
                 eprintln!("non_deterministic_event_dispatch({node_id:?}): {event}");
                 self.nodes

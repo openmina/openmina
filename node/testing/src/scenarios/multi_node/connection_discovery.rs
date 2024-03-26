@@ -156,7 +156,7 @@ impl OCamlToRust {
         let identify = driver
             .wait_for(
                 Duration::from_secs(5 * 60),
-                identify_event(ocaml_peer_id.clone().into()),
+                identify_event(ocaml_peer_id.clone()),
             )
             .await
             .unwrap()
@@ -169,7 +169,7 @@ impl OCamlToRust {
                 .p2p
                 .kademlia
                 .routes
-                .get(&ocaml_peer_id.clone().into())
+                .get(&ocaml_peer_id.clone())
                 .map_or(false, |l| !l.is_empty()),
             "kademlia should know ocaml node's addresses"
         );
@@ -226,14 +226,14 @@ impl RustToOCaml {
         let state = driver.exec_even_step(connected).await.unwrap().unwrap();
         // check that now there is an outgoing connection to the ocaml peer
         assert!(matches!(
-            &state.p2p.peers.get(&seed_peer_id.clone().into()).unwrap().status,
+            &state.p2p.peers.get(&seed_peer_id.clone()).unwrap().status,
             P2pPeerStatus::Ready(ready) if !ready.is_incoming
         ));
 
         // wait for kademlia to add the ocaml peer
         let kad_add_rounte = driver.wait_for(Duration::from_secs(1), |_, event, _| {
             matches!(event, Event::P2p(P2pEvent::Discovery(P2pDiscoveryEvent::AddRoute(peer, addresses)))
-                     if peer == &seed_peer_id && addresses.iter().any(match_addr_with_port_and_peer_id(8302, seed_peer_id.clone().into()))
+                     if peer == &seed_peer_id && addresses.iter().any(match_addr_with_port_and_peer_id(8302, seed_peer_id.clone()))
             )
         }).await.unwrap().expect("expected add route event");
         let state = driver
@@ -246,7 +246,7 @@ impl RustToOCaml {
                 .p2p
                 .kademlia
                 .routes
-                .get(&seed_peer_id.clone().into())
+                .get(&seed_peer_id.clone())
                 .map_or(false, |l| !l.is_empty()),
             "kademlia should know ocaml node's addresses"
         );
@@ -304,7 +304,7 @@ impl OCamlToRustViaSeed {
 
         let state = driver.exec_even_step(connected).await.unwrap().unwrap();
         assert!(matches!(
-            &state.p2p.peers.get(&seed_peer_id.clone().into()).unwrap().status,
+            &state.p2p.peers.get(&seed_peer_id.clone()).unwrap().status,
             P2pPeerStatus::Ready(ready) if !ready.is_incoming
         ));
 
@@ -331,7 +331,7 @@ impl OCamlToRustViaSeed {
                 .state()
                 .p2p
                 .peers
-                .get(&seed_peer_id.clone().into())
+                .get(&seed_peer_id.clone())
                 .unwrap()
                 .status,
             P2pPeerStatus::Disconnected { .. }
@@ -426,7 +426,7 @@ impl RustToOCamlViaSeed {
 
         let state = driver.exec_even_step(connected).await.unwrap().unwrap();
         assert!(matches!(
-            &state.p2p.peers.get(&seed_peer_id.clone().into()).unwrap().status,
+            &state.p2p.peers.get(&seed_peer_id.clone()).unwrap().status,
             P2pPeerStatus::Ready(ready) if !ready.is_incoming
         ));
 

@@ -105,7 +105,6 @@ impl AllNodesConnectionsAreSymmetric {
         let (seed_id, _) = driver.add_rust_node(testing_config.clone());
 
         let peers: Vec<_> = (0..MAX)
-            .into_iter()
             .map(|_| {
                 driver.add_rust_node(testing_config.clone().initial_peers(vec![seed_id.into()]))
             })
@@ -164,7 +163,6 @@ impl SeedConnectionsAreSymmetric {
             driver.add_rust_node(RustNodeTestingConfig::berkeley_default());
 
         let peers: Vec<_> = (0..MAX)
-            .into_iter()
             .map(|_| {
                 driver.add_rust_node(
                     RustNodeTestingConfig::berkeley_default().initial_peers(vec![node_ut.into()]),

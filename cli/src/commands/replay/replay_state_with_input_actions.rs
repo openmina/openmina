@@ -47,7 +47,7 @@ impl ReplayStateWithInputActions {
             // index/srs doesn't match deserialized one.
             state.snark.block_verify.verifier_index =
                 node::snark::get_verifier_index(VerifierKind::Blockchain).into();
-            state.snark.block_verify.verifier_srs = node::snark::get_srs().into();
+            state.snark.block_verify.verifier_srs = node::snark::get_srs();
             state
         };
 

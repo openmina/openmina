@@ -557,7 +557,7 @@ mod tests {
         let peer_id = peer_id_rand();
         P2pNetworkKadEntry {
             key,
-            peer_id: peer_id.into(),
+            peer_id: peer_id,
             addrs: vec![],
             connection: super::ConnectionType::Connected,
         }

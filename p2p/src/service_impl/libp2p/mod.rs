@@ -335,7 +335,7 @@ impl Libp2pService {
     async fn handle_cmd<E: From<P2pEvent>>(swarm: &mut Swarm<Behaviour<E>>, cmd: Cmd) {
         match cmd {
             Cmd::Dial(peer_id, addrs) => {
-                let opts = DialOpts::peer_id(peer_id.into()).addresses(addrs).build();
+                let opts = DialOpts::peer_id(peer_id).addresses(addrs).build();
                 if let Err(e) = swarm.dial(opts) {
                     let peer_id = crate::PeerId::from(peer_id);
                     openmina_core::log::error!(
@@ -853,7 +853,7 @@ impl Libp2pService {
                             .add_address(&peer_id, maddr.clone());
 
                         let mut maddr = maddr.clone();
-                        maddr.push(libp2p::multiaddr::Protocol::P2p(peer_id.into()));
+                        maddr.push(libp2p::multiaddr::Protocol::P2p(peer_id));
                         let _ = swarm
                             .behaviour_mut()
                             .event_source_sender

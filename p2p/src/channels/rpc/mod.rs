@@ -125,7 +125,6 @@ fn addr_to_str(
         .copied()
         .flat_map(|byte| {
             (0..8)
-                .into_iter()
                 .map(move |b| byte & (1 << (7 - b)) != 0)
                 .map(|b| if b { '1' } else { '0' })
         })

@@ -332,7 +332,7 @@ impl ExternalSnarkWorkerFacade {
                         let event_sender_clone = event_sender.clone();
                         tokio::spawn(async move {
                             if let Err(err) = stderr_reader(child_stderr).await {
-                                send_event!(event_sender_clone, SnarkerError::from(err).into());
+                                send_event!(event_sender_clone, err.into());
                             }
                         });
 

@@ -357,7 +357,6 @@ impl ConnectToUnavailableInitialPeers {
         let mut driver = Driver::new(runner);
 
         let (initial_peers, ports): (Vec<_>, Vec<_>) = (0..MAX)
-            .into_iter()
             .map(|i| {
                 let port = 11200 + i;
                 let peer_id = SecretKey::rand().public_key().peer_id();

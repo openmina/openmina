@@ -826,7 +826,7 @@ pub mod step_verifier {
 
         let both = challenge_polynomial_commitments
             .zip(old_bulletproof_challenges)
-            .map(|(c, o)| c.into_iter().chain(o.into_iter()))
+            .map(|(c, o)| c.into_iter().chain(o))
             .flatten();
 
         let sponge = Box::new(sponge);
