@@ -87,6 +87,10 @@ pub struct Node {
 
     #[arg(long, default_value = "none")]
     pub additional_ledgers_path: Option<PathBuf>,
+
+    /// Do not use peers discovery.
+    #[arg(long)]
+    pub no_peers_discovery: bool,
 }
 
 fn default_peers() -> Vec<P2pConnectionOutgoingInitOpts> {
@@ -96,9 +100,9 @@ fn default_peers() -> Vec<P2pConnectionOutgoingInitOpts> {
         // "/dns4/seed-1.berkeley.o1test.net/tcp/10000/p2p/12D3KooWAdgYL6hv18M3iDBdaK1dRygPivSfAfBNDzie6YqydVbs",
         // "/dns4/seed-2.berkeley.o1test.net/tcp/10001/p2p/12D3KooWLjs54xHzVmMmGYb7W5RVibqbwD1co7M2ZMfPgPm7iAag",
         // "/dns4/seed-3.berkeley.o1test.net/tcp/10002/p2p/12D3KooWEiGVAFC7curXWXiGZyMWnZK9h8BKr88U8D5PKV3dXciv",
-        "/ip4/34.170.114.52/tcp/10000/p2p/12D3KooWAdgYL6hv18M3iDBdaK1dRygPivSfAfBNDzie6YqydVbs",
+        "/ip4/34.170.114.52/tcp/10001/p2p/12D3KooWAdgYL6hv18M3iDBdaK1dRygPivSfAfBNDzie6YqydVbs",
         "/ip4/34.135.63.47/tcp/10001/p2p/12D3KooWLjs54xHzVmMmGYb7W5RVibqbwD1co7M2ZMfPgPm7iAag",
-        "/ip4/34.170.114.52/tcp/10002/p2p/12D3KooWEiGVAFC7curXWXiGZyMWnZK9h8BKr88U8D5PKV3dXciv",
+        "/ip4/34.170.114.52/tcp/10001/p2p/12D3KooWEiGVAFC7curXWXiGZyMWnZK9h8BKr88U8D5PKV3dXciv",
         //
         // "/dns4/webrtc2.webnode.openmina.com/tcp/443/p2p/12D3KooWFpqySZDHx7k5FMjdwmrU3TLhDbdADECCautBcEGtG4fr",
         // "/dns4/webrtc2.webnode.openmina.com/tcp/4431/p2p/12D3KooWJBeXosFxdBwe2mbKRjgRG69ERaUTpS9qo9NRkoE8kBpj",
@@ -183,7 +187,7 @@ impl Node {
                 enabled_channels: ChannelId::iter_all().collect(),
                 timeouts: P2pTimeouts::default(),
                 chain_id: CHAIN_ID.to_owned(),
-                peer_discovery: true,
+                peer_discovery: !self.no_peers_discovery,
             },
             transition_frontier: TransitionFrontierConfig::new(node::BERKELEY_CONFIG.clone()),
             block_producer: None,
