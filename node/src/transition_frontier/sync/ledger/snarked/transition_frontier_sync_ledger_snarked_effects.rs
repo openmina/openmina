@@ -344,6 +344,7 @@ impl TransitionFrontierSyncLedgerSnarkedAction {
                         address: address.clone(),
                         hashes: (left_hash.clone(), right_hash.clone()),
                         previous_hashes: (previous_left_hash, previous_right_hash),
+                        sender: *sender,
                     },
                 );
             }
