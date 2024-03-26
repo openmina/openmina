@@ -156,14 +156,20 @@ impl LedgerCtx {
 
         let origin = self
             .snarked_ledgers
-            .get_mut(&origin_snarked_ledger_hash)
+            .get(&origin_snarked_ledger_hash)
+            .or_else(|| {
+                // If it doesn't exist in completed ledgers, it may be
+                // an in-progress ledger from a previous attempt that we can reuse
+                self.sync.snarked_ledgers.get(&origin_snarked_ledger_hash)
+            })
             .ok_or(format!(
                 "Tried to copy from non-existing snarked ledger with hash: {}",
                 origin_snarked_ledger_hash.to_string()
             ))?;
 
         let target = origin.copy();
-        self.snarked_ledgers
+        self.sync
+            .snarked_ledgers
             .insert(target_snarked_ledger_hash, target);
 
         Ok(true)
@@ -176,6 +182,7 @@ impl LedgerCtx {
         let origin = self
             .snarked_ledgers
             .get_mut(&snarked_ledger_hash)
+            .or_else(|| self.sync.snarked_ledgers.get_mut(&snarked_ledger_hash))
             .ok_or(format!(
                 "Cannot hash non-existing snarked ledger: {}",
                 snarked_ledger_hash.to_string()
