@@ -6,6 +6,7 @@ use mina_p2p_messages::{
     rpc_kernel::{Error as RpcError, NeedsLength, QueryPayload, ResponsePayload, RpcMethod},
     v2,
 };
+use openmina_core::warn;
 
 use crate::{
     channels::rpc::{
@@ -19,7 +20,7 @@ use crate::{
 use super::*;
 
 impl P2pNetworkRpcAction {
-    pub fn effects<Store, S>(self, _: &redux::ActionMeta, store: &mut Store)
+    pub fn effects<Store, S>(self, meta: &redux::ActionMeta, store: &mut Store)
     where
         Store: crate::P2pStore<S>,
     {
@@ -202,22 +203,26 @@ impl P2pNetworkRpcAction {
                     }
                     RpcMessage::Response { header, bytes } => {
                         fn parse_r<M: RpcMethod>(
-                            bytes: &[u8],
-                        ) -> Result<Result<M::Response, RpcError>, String> {
-                            let mut bytes = bytes;
-                            <ResponsePayload<M::Response> as BinProtRead>::binprot_read(&mut bytes)
+                            mut bytes: &[u8],
+                            time: redux::Timestamp,
+                        ) -> Option<Result<M::Response, RpcError>> {
+                            match <ResponsePayload<M::Response> as BinProtRead>::binprot_read(&mut bytes)
                                 .map(|x| x.0.map(|NeedsLength(x)| x))
-                                .map_err(|err| format!("response {} {}", M::NAME, err))
+                                 {
+                                    Ok(v) => Some(v),
+                                    Err(e) => {
+                                        warn!(time; "response {} {}", M::NAME, e);
+                                        None
+                                    },
+                                 }
                         }
 
                         if let Some((_, (tag, version))) = &state.pending {
                             if let Ok(tag) = std::str::from_utf8(tag.as_ref()) {
                                 match (tag, *version) {
                                     (rpc::GetBestTipV2::NAME, rpc::GetBestTipV2::VERSION) => {
-                                        let Ok(response) = parse_r::<rpc::GetBestTipV2>(&bytes)
-                                        else {
-                                            // TODO: close the stream
-                                            panic!();
+                                        let Some(response) = parse_r::<rpc::GetBestTipV2>(&bytes, meta.time()) else {
+                                            return
                                         };
                                         let response = response
                                             .ok()
@@ -238,11 +243,8 @@ impl P2pNetworkRpcAction {
                                         rpc::AnswerSyncLedgerQueryV2::NAME,
                                         rpc::AnswerSyncLedgerQueryV2::VERSION,
                                     ) => {
-                                        let Ok(response) =
-                                            parse_r::<rpc::AnswerSyncLedgerQueryV2>(&bytes)
-                                        else {
-                                            // TODO: close the stream
-                                            panic!();
+                                        let Some(response) = parse_r::<rpc::AnswerSyncLedgerQueryV2>(&bytes, meta.time()) else {
+                                            return;
                                         };
 
                                         let response = response
@@ -261,13 +263,9 @@ impl P2pNetworkRpcAction {
                                         rpc::GetStagedLedgerAuxAndPendingCoinbasesAtHashV2::NAME,
                                         rpc::GetStagedLedgerAuxAndPendingCoinbasesAtHashV2::VERSION,
                                     ) => {
-                                        type Method =
-                                            rpc::GetStagedLedgerAuxAndPendingCoinbasesAtHashV2;
-                                        let Ok(response) = parse_r::<Method>(&bytes) else {
-                                            // TODO: close the stream
-                                            panic!();
+                                        let Some(response) = parse_r::<rpc::GetStagedLedgerAuxAndPendingCoinbasesAtHashV2>(&bytes, meta.time()) else {
+                                            return;
                                         };
-
                                         let response = response
                                         .ok()
                                         .flatten()
@@ -294,9 +292,8 @@ impl P2pNetworkRpcAction {
                                         rpc::GetTransitionChainV2::VERSION,
                                     ) => {
                                         type Method = rpc::GetTransitionChainV2;
-                                        let Ok(response) = parse_r::<Method>(&bytes) else {
-                                            // TODO: close the stream
-                                            panic!();
+                                        let Some(response) = parse_r::<Method>(&bytes, meta.time()) else {
+                                            return;
                                         };
                                         let response = response.ok().flatten().unwrap_or_default();
 
@@ -327,7 +324,7 @@ impl P2pNetworkRpcAction {
                                         rpc::GetSomeInitialPeersV1ForV2::VERSION,
                                     ) => {
                                         type Method = rpc::GetSomeInitialPeersV1ForV2;
-                                        let Ok(response) = parse_r::<Method>(&bytes) else {
+                                        let Some(response) = parse_r::<Method>(&bytes, meta.time()) else {
                                             // TODO: close the stream
                                             panic!();
                                         };

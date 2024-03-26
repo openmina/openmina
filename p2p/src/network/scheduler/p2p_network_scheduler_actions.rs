@@ -2,12 +2,15 @@ use std::net::{IpAddr, SocketAddr};
 
 use serde::{Deserialize, Serialize};
 
-use super::super::{
-    select::{token, SelectKind},
-    Data,
+use super::{
+    super::{
+        select::{token, SelectKind},
+        Data,
+    },
+    p2p_network_scheduler_state::{P2pNetworkConnectionCloseReason, P2pNetworkConnectionError},
 };
 
-use crate::{P2pState, PeerId};
+use crate::{disconnection::P2pDisconnectionReason, P2pState, PeerId};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum P2pNetworkSchedulerAction {
@@ -50,6 +53,30 @@ pub enum P2pNetworkSchedulerAction {
         addr: SocketAddr,
         peer_id: PeerId,
     },
+
+    /// Action that initiate the specified peer disconnection.
+    Disconnect {
+        /// Connection address.
+        addr: SocketAddr,
+        /// Reason why disconneciton is triggered.
+        reason: P2pDisconnectionReason,
+    },
+
+    /// Fatal connection error.
+    Error {
+        /// Connection address.
+        addr: SocketAddr,
+        /// Reason why disconneciton is triggered.
+        error: P2pNetworkConnectionError,
+    },
+
+    /// Action that signals that the peer is disconnected.
+    Disconnected {
+        /// Connection address.
+        addr: SocketAddr,
+        /// Reason why the peer disconnected.
+        reason: P2pNetworkConnectionCloseReason,
+    },
 }
 
 impl From<P2pNetworkSchedulerAction> for crate::P2pAction {
@@ -59,7 +86,7 @@ impl From<P2pNetworkSchedulerAction> for crate::P2pAction {
 }
 
 impl redux::EnablingCondition<P2pState> for P2pNetworkSchedulerAction {
-    fn is_enabled(&self, _state: &P2pState, _time: redux::Timestamp) -> bool {
+    fn is_enabled(&self, state: &P2pState, _time: redux::Timestamp) -> bool {
         #[allow(unused_variables)]
         match self {
             P2pNetworkSchedulerAction::InterfaceDetected { ip } => true,
@@ -77,6 +104,21 @@ impl redux::EnablingCondition<P2pState> for P2pNetworkSchedulerAction {
             } => true,
             P2pNetworkSchedulerAction::SelectError { addr, kind, error } => true,
             P2pNetworkSchedulerAction::YamuxDidInit { addr, peer_id } => true,
+            P2pNetworkSchedulerAction::Disconnect { addr, .. }
+            | P2pNetworkSchedulerAction::Error { addr, .. } => state
+                .network
+                .scheduler
+                .connections
+                .get(addr)
+                .map_or(false, |conn_state| conn_state.closed.is_none()),
+            P2pNetworkSchedulerAction::Disconnected { addr, reason } => state
+                .network
+                .scheduler
+                .connections
+                .get(addr)
+                .map_or(false, |conn_state| {
+                    conn_state.closed.as_ref() == Some(reason)
+                }),
         }
     }
 }

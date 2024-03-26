@@ -26,6 +26,18 @@ pub struct P2pNetworkNoiseState {
     pub handshake_optimized: bool,
 }
 
+impl P2pNetworkNoiseState {
+    pub fn peer_id(&self) -> Option<&PeerId> {
+        self.inner.as_ref().and_then(|inner| {
+            if let P2pNetworkNoiseStateInner::Done { remote_peer_id, .. } = inner {
+                Some(remote_peer_id)
+            } else {
+                None
+            }
+        })
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum P2pNetworkNoiseStateInner {
     Initiator(P2pNetworkNoiseStateInitiator),

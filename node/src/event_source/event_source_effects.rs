@@ -88,7 +88,20 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                         });
                     }
                     MioEvent::OutgoingDataDidSend(_, _result) => {}
-                    _ => {}
+                    MioEvent::ConnectionDidClose(addr, result) => {
+                        if let Err(e) = result {
+                            store.dispatch(P2pNetworkSchedulerAction::Error {
+                                addr,
+                                error: p2p::P2pNetworkConnectionError::MioError(e),
+                            });
+                        } else {
+                            store.dispatch(P2pNetworkSchedulerAction::Error {
+                                addr,
+                                error: p2p::P2pNetworkConnectionError::RemoteClosed,
+                            });
+                        }
+
+                    }
                 },
                 P2pEvent::Listen(e) => match e {
                     P2pListenEvent::NewListenAddr { listener_id, addr } => {

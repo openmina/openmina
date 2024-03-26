@@ -39,6 +39,7 @@ impl P2pNetworkSchedulerState {
                         select_mux: P2pNetworkSelectState::default(),
                         mux: None,
                         streams: BTreeMap::default(),
+                        closed: None,
                     },
                 );
             }
@@ -55,6 +56,7 @@ impl P2pNetworkSchedulerState {
                         ),
                         mux: None,
                         streams: BTreeMap::default(),
+                        closed: None,
                     },
                 );
             }
@@ -76,18 +78,18 @@ impl P2pNetworkSchedulerState {
                 };
                 match kind {
                     SelectKind::Multiplexing(peer_id) => {
-                        let enabled_channels = Some(ChannelId::Rpc).into_iter().collect();
-                        let state = P2pPeerState {
-                            is_libp2p: true,
-                            dial_opts: None,
-                            status: P2pPeerStatus::Ready(P2pPeerStatusReady {
-                                is_incoming: *incoming,
-                                connected_since: meta.time(),
-                                channels: P2pChannelsState::new(&enabled_channels),
-                                best_tip: None,
-                            }),
-                        };
-                        peers.insert(*peer_id, state);
+                        // let enabled_channels = Some(ChannelId::Rpc).into_iter().collect();
+                        // let state = P2pPeerState {
+                        //     is_libp2p: true,
+                        //     dial_opts: None,
+                        //     status: P2pPeerStatus::Ready(P2pPeerStatusReady {
+                        //         is_incoming: *incoming,
+                        //         connected_since: meta.time(),
+                        //         channels: P2pChannelsState::new(&enabled_channels),
+                        //         best_tip: None,
+                        //     }),
+                        // };
+                        // peers.insert(*peer_id, state);
                     }
                     _ => {}
                 }
@@ -152,6 +154,44 @@ impl P2pNetworkSchedulerState {
                 if let Some(cn) = self.connections.get_mut(addr) {
                     if let Some(P2pNetworkConnectionMuxState::Yamux(yamux)) = &mut cn.mux {
                         yamux.init = true;
+                    }
+                }
+            }
+            P2pNetworkSchedulerAction::Disconnect { addr, reason } => {
+                let Some(conn_state) = self.connections.get_mut(addr) else {
+                    error!(meta.time(); "P2pNetworkSchedulerAction::Disconnect: connection {addr} does not exist");
+                    return;
+                };
+                if conn_state.closed.is_some() {
+                    error!(meta.time(); "P2pNetworkSchedulerAction::Disconnect: {addr} already disconnected");
+                    return;
+                }
+                conn_state.closed = Some(reason.clone().into());
+            }
+            P2pNetworkSchedulerAction::Error { addr, error } => {
+                let Some(conn_state) = self.connections.get_mut(addr) else {
+                    error!(meta.time(); "P2pNetworkSchedulerAction::Disconnect: connection {addr} does not exist");
+                    return;
+                };
+                if conn_state.closed.is_some() {
+                    error!(meta.time(); "P2pNetworkSchedulerAction::Disconnect: {addr} already disconnected");
+                    return;
+                }
+                conn_state.closed = Some(error.clone().into());
+            }
+            P2pNetworkSchedulerAction::Disconnected { addr, .. } => {
+                let Some(cn) = self.connections.get_mut(addr) else {
+                    error!(meta.time(); "P2pNetworkSchedulerAction::Disconnected: connection {addr} does not exist");
+                    return;
+                };
+                if cn.closed.is_none() {
+                    error!(meta.time(); "P2pNetworkSchedulerAction::Disconnect: {addr} is not disconnecting");
+                    return;
+                }
+                cn.streams.clear();
+                if let Some(peer_id) = cn.peer_id() {
+                    if let Some(discovery_state) = self.discovery_state.as_mut() {
+                        discovery_state.streams.remove(peer_id);
                     }
                 }
             }

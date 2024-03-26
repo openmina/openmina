@@ -1,3 +1,5 @@
+use p2p::P2pNetworkConnectionCloseReason;
+
 use crate::block_producer::vrf_evaluator::BlockProducerVrfEvaluatorAction;
 use crate::p2p::channels::best_tip::P2pChannelsBestTipAction;
 use crate::p2p::channels::rpc::P2pChannelsRpcAction;
@@ -632,7 +634,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                         error,
                     } => match select_kind {
                         SelectKind::Authentication => {
-                            openmina_core::log::error!(
+                            openmina_core::log::warn!(
                                 meta.time();
                                 node_id = node_id,
                                 kind = kind.to_string(),
@@ -641,7 +643,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                             )
                         }
                         SelectKind::MultiplexingNoPeerId => {
-                            openmina_core::log::error!(
+                            openmina_core::log::warn!(
                                 meta.time();
                                 node_id = node_id,
                                 kind = kind.to_string(),
@@ -650,7 +652,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                             )
                         }
                         SelectKind::Multiplexing(peer_id) => {
-                            openmina_core::log::error!(
+                            openmina_core::log::warn!(
                                 meta.time();
                                 node_id = node_id,
                                 kind = kind.to_string(),
@@ -660,7 +662,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                             )
                         }
                         SelectKind::Stream(peer_id, stream_id) => {
-                            openmina_core::log::error!(
+                            openmina_core::log::warn!(
                                 meta.time();
                                 node_id = node_id,
                                 kind = kind.to_string(),
@@ -668,6 +670,48 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                                 summary = format!("failed select stream on addr {}: {}", addr, error),
                                 peer_id = peer_id.to_string(),
                                 stream_id = stream_id,
+                            )
+                        }
+                    },
+                    P2pNetworkSchedulerAction::Disconnect { addr, reason } => {
+                        openmina_core::log::warn!(
+                            meta.time();
+                            node_id = node_id,
+                            kind = kind.to_string(),
+                            summary = format!("disconnecting peer {addr}: {reason}"),
+                            addr = openmina_core::log::inner::field::display(addr),
+                            reason = openmina_core::log::inner::field::display(reason),
+                        )
+                    }
+                    P2pNetworkSchedulerAction::Error { addr, error } => {
+                        openmina_core::log::warn!(
+                            meta.time();
+                            node_id = node_id,
+                            kind = kind.to_string(),
+                            summary = format!("disconnecting peer {addr}: {error}"),
+                            addr = openmina_core::log::inner::field::display(addr),
+                            error = openmina_core::log::inner::field::display(error),
+                        )
+                    }
+                    P2pNetworkSchedulerAction::Disconnected { addr, reason } => match reason {
+                        P2pNetworkConnectionCloseReason::Disconnect(reason) => {
+                            openmina_core::log::warn!(
+                                meta.time();
+                                node_id = node_id,
+                                kind = kind.to_string(),
+                                summary = format!("disconnected peer {addr}: {reason}"),
+                                addr = openmina_core::log::inner::field::display(addr),
+                                reason = openmina_core::log::inner::field::display(reason),
+                            )
+                        }
+                        P2pNetworkConnectionCloseReason::Error(error) => {
+                            openmina_core::log::warn!(
+                                meta.time();
+                                node_id = node_id,
+                                kind = kind.to_string(),
+                                summary = format!("disconnected peer {addr}: {error}"),
+                                addr = openmina_core::log::inner::field::display(addr),
+                                error = openmina_core::log::inner::field::display(error),
                             )
                         }
                     },

@@ -5,7 +5,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::PeerId;
+use crate::{PeerId, disconnection::P2pDisconnectionReason};
 
 use super::super::*;
 
@@ -40,11 +40,43 @@ pub struct P2pNetworkConnectionState {
     pub select_mux: P2pNetworkSelectState,
     pub mux: Option<P2pNetworkConnectionMuxState>,
     pub streams: BTreeMap<StreamId, P2pNetworkStreamState>,
+    pub closed: Option<P2pNetworkConnectionCloseReason>,
 }
+
+impl P2pNetworkConnectionState {
+    pub fn peer_id(&self) -> Option<&PeerId> {
+        self.auth.as_ref().and_then(P2pNetworkAuthState::peer_id)
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, derive_more::From)]
+pub enum P2pNetworkConnectionCloseReason {
+    Disconnect(P2pDisconnectionReason),
+    Error(P2pNetworkConnectionError),
+}
+
+/// P2p connection error.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error, Serialize, Deserialize)]
+pub enum P2pNetworkConnectionError {
+    #[error("mio error: {0}")]
+    MioError(String),
+    #[error("remote peer closed connection")]
+    RemoteClosed,
+}
+
+
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum P2pNetworkAuthState {
     Noise(P2pNetworkNoiseState),
+}
+
+impl P2pNetworkAuthState {
+    fn peer_id(&self) -> Option<&PeerId> {
+        match self {
+            P2pNetworkAuthState::Noise(v) => v.peer_id(),
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

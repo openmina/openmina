@@ -50,7 +50,7 @@ pub enum MioEvent {
     /// We sent some data to the remote peer.
     OutgoingDataDidSend(SocketAddr, Result<(), String>),
 
-    // The remote peer is disconnected gracefully or with an error.
+    /// The remote peer is disconnected gracefully or with an error.
     ConnectionDidClose(SocketAddr, Result<(), String>),
 }
 

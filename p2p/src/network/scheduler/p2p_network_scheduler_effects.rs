@@ -5,12 +5,13 @@ use redux::ActionMeta;
 
 use crate::{
     connection::{incoming::P2pConnectionIncomingAction, outgoing::P2pConnectionOutgoingAction},
+    disconnection::P2pDisconnectionAction,
     request::{P2pNetworkKadRequestState, P2pNetworkKadRequestStatus},
     token::{RpcAlgorithm, StreamKind},
     MioCmd, P2pCryptoService, P2pMioService,
 };
 
-use super::{super::*, *};
+use super::{super::*, p2p_network_scheduler_state::P2pNetworkConnectionCloseReason, *};
 
 impl P2pNetworkSchedulerAction {
     pub fn effects<Store, S>(self, meta: &ActionMeta, store: &mut Store)
@@ -219,6 +220,44 @@ impl P2pNetworkSchedulerAction {
                         store.dispatch(P2pConnectionIncomingAction::FinalizeSuccess { peer_id });
                     } else {
                         store.dispatch(P2pConnectionOutgoingAction::FinalizeSuccess { peer_id });
+                    }
+                }
+            }
+            Self::Disconnect { addr, .. } => {
+                if let Some(conn_state) = store.state().network.scheduler.connections.get(&addr) {
+                    if let Some(reason) = conn_state.closed.clone() {
+                        store.service().send_mio_cmd(MioCmd::Disconnect(addr));
+                        store.dispatch(Self::Disconnected { addr, reason });
+                    }
+                }
+            }
+            Self::Error { addr, .. } => {
+                if let Some(conn_state) = store.state().network.scheduler.connections.get(&addr) {
+                    if let Some(reason) = conn_state.closed.clone() {
+                        store.dispatch(Self::Disconnected { addr, reason });
+                    }
+                }
+            }
+            Self::Disconnected { addr, reason: _ } => {
+                if let Some(conn_state) = store.state().network.scheduler.connections.get(&addr) {
+                    if let Some(peer_id) = conn_state.peer_id().cloned() {
+                        store.dispatch(P2pDisconnectionAction::Finish { peer_id });
+                    //     match (reason, conn_state.incoming) {
+                    //         (P2pNetworkConnectionCloseReason::Disconnect(_), _) => {
+                    //         }
+                    //         (P2pNetworkConnectionCloseReason::Error(e), true) => {
+                    //             store.dispatch(P2pConnectionIncomingAction::FinalizeError {
+                    //                 peer_id,
+                    //                 error: e.to_string(),
+                    //             });
+                    //         }
+                    //         (P2pNetworkConnectionCloseReason::Error(e), false) => {
+                    //             store.dispatch(P2pConnectionOutgoingAction::FinalizeError {
+                    //                 peer_id,
+                    //                 error: e.to_string(),
+                    //             });
+                    //         }
+                    //     }
                     }
                 }
             }
