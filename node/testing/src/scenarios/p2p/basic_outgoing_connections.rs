@@ -252,8 +252,7 @@ impl ConnectToInitialPeers {
             RustNodeTestingConfig::berkeley_default(),
             |state| {
                 let config = &state.p2p.config;
-                let peer_id = config.identity_pub_key.peer_id();
-                peer_id
+                config.identity_pub_key.peer_id()
             },
         );
 

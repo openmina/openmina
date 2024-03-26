@@ -155,8 +155,7 @@ impl MultiNodeBasicConnectivityPeerDiscovery {
                     .iter()
                     .filter(|(id, n)| n.is_libp2p && id == &peer_id)
                     .filter_map(|(_, n)| n.status.as_ready())
-                    .find(|n| n.is_incoming)
-                    .is_some()
+                    .any(|n| n.is_incoming)
                 {
                     eprintln!("the additional OCaml node connected to Openmina node");
                     eprintln!("success");

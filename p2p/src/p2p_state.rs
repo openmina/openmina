@@ -166,9 +166,7 @@ impl P2pState {
             .known_peers
             .values()
             .filter(|v| {
-                self.ready_peers_iter()
-                    .find(|(id, _)| (*id).eq(v.peer_id()))
-                    .is_none()
+                !self.ready_peers_iter().any(|(id, _)| (*id).eq(v.peer_id()))
             })
             .cloned()
             .collect()
