@@ -111,6 +111,8 @@ impl LedgerCtx {
             v2::LedgerHash::from(v2::MinaBaseLedgerHash0StableV1(mask.merkle_root().into()))
         });
 
+        let _force = mask.merkle_root();
+
         self.snarked_ledgers.insert(top_hash, mask);
     }
 
