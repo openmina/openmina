@@ -221,7 +221,7 @@ mod tests {
         // dbg!(&good[0]);
 
         let n = 10.min(good.len());
-        for index in 0..n {
+        for (index, _) in good.iter().enumerate().take(n) {
             let value = good[index].clone();
             let value = ExternalSnarkWorkerRequest::PerformJob(value);
 

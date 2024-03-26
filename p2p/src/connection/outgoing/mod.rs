@@ -298,7 +298,7 @@ impl<'de> Deserialize<'de> for P2pConnectionOutgoingInitOpts {
         D: serde::Deserializer<'de>,
     {
         let s: String = Deserialize::deserialize(deserializer)?;
-        Ok(s.parse().map_err(|err| serde::de::Error::custom(err))?)
+        s.parse().map_err(serde::de::Error::custom)
     }
 }
 

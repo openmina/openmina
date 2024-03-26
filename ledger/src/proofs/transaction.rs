@@ -591,8 +591,8 @@ impl PlonkVerificationKeyEvals<Fp> {
             string.push_str(&format!("{}\n", y.to_decimal()));
         };
 
-        sigma.iter().for_each(|c| inner_to_s(c));
-        coefficients.iter().for_each(|c| inner_to_s(c));
+        sigma.iter().for_each(&mut inner_to_s);
+        coefficients.iter().for_each(&mut inner_to_s);
         inner_to_s(generic);
         inner_to_s(psm);
         inner_to_s(complete_add);
@@ -686,8 +686,8 @@ impl crate::ToInputs for PlonkVerificationKeyEvals<Fp> {
             inputs.append(&y);
         };
 
-        sigma.iter().for_each(|c| to_input(c));
-        coefficients.iter().for_each(|c| to_input(c));
+        sigma.iter().for_each(&mut to_input);
+        coefficients.iter().for_each(&mut to_input);
         to_input(generic);
         to_input(psm);
         to_input(complete_add);

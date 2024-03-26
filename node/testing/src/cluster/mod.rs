@@ -118,7 +118,7 @@ lazy_static::lazy_static! {
 
 lazy_static::lazy_static! {
     static ref DETERMINISTIC_ACCOUNT_SEC_KEYS: BTreeMap<AccountPublicKey, AccountSecretKey> = (0..1000)
-        .map(|i| AccountSecretKey::deterministic(i))
+        .map(AccountSecretKey::deterministic)
         .map(|sec_key| (sec_key.public_key(), sec_key))
         .collect();
 }

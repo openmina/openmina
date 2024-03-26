@@ -822,7 +822,7 @@ pub mod step_verifier {
         let app_state = app_state
             .to_field_elements_owned()
             .into_iter()
-            .map(|v| MaybeOpt::NotOpt(v));
+            .map(MaybeOpt::NotOpt);
 
         let both = challenge_polynomial_commitments
             .zip(old_bulletproof_challenges)
@@ -1350,7 +1350,7 @@ pub mod step_verifier {
             xi,
             &without_degree_bound
                 .into_iter()
-                .map(|v| Point::Finite(v))
+                .map(Point::Finite)
                 .collect::<Vec<_>>(),
             &[],
             w,
@@ -1477,7 +1477,7 @@ pub mod step_verifier {
             ForStepKind::SideLoaded(which) => {
                 let domains = [0, 1, 2]
                     .into_iter()
-                    .map(|proofs_verified| wrap_domains(proofs_verified))
+                    .map(wrap_domains)
                     .collect();
                 public_input_commitment_dynamic(which, srs, domains, public_input, w)
             }
@@ -1524,7 +1524,7 @@ pub mod step_verifier {
             const WRAP_HACK_PADDED_LENGTH: usize = 2;
             const NUM_COMMITMENTS_WITHOUT_DEGREE_BOUND: usize = 45;
 
-            let cvar = |v| CircuitVar::Var(v);
+            let cvar = CircuitVar::Var;
 
             let without_degree_bound = {
                 let sg_old = sg_old.iter().copied().map(cvar);

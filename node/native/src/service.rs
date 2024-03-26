@@ -97,7 +97,7 @@ impl redux::TimeService for NodeService {
         self.replayer
             .as_ref()
             .map(|v| v.next_monotonic_time())
-            .unwrap_or_else(|| redux::Instant::now())
+            .unwrap_or_else(redux::Instant::now)
     }
 }
 

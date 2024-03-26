@@ -113,7 +113,7 @@ impl<'de> serde::Deserialize<'de> for AccountSecretKey {
         D: serde::Deserializer<'de>,
     {
         let b58: String = Deserialize::deserialize(deserializer)?;
-        Ok(b58.parse().map_err(|err| serde::de::Error::custom(err))?)
+        b58.parse().map_err(serde::de::Error::custom)
     }
 }
 

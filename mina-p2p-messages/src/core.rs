@@ -56,7 +56,7 @@ impl TryFrom<SexpString> for Info {
     type Error = InfoFromSexpError;
 
     fn try_from(value: SexpString) -> Result<Self, Self::Error> {
-        let parsed = rsexp::from_slice(&value.0).map_err(|e| InfoFromSexpError(e))?;
+        let parsed = rsexp::from_slice(&value.0).map_err(InfoFromSexpError)?;
         Ok(Info(parsed))
     }
 }

@@ -123,7 +123,7 @@ where
     T: 'a,
     F: Fn(&T) -> U,
 {
-    value.each_ref().map(|value| fun(value))
+    value.each_ref().map(fun)
 }
 
 impl From<&MinaBaseVerificationKeyWireStableV1> for VerificationKey {

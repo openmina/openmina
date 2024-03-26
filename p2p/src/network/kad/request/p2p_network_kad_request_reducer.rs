@@ -27,7 +27,7 @@ impl P2pNetworkKadRequestState {
                 let message = super::super::Message::from(&find_node);
                 self.status = quick_protobuf::serialize_into_vec(&message).map_or_else(
                     |e| S::Error(format!("error serializing message: {e}")),
-                    |b| S::Request(b),
+                    S::Request,
                 );
             }
             A::RequestSent { .. } => self.status = S::WaitingForReply,

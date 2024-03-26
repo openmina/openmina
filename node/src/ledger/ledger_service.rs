@@ -299,7 +299,7 @@ impl LedgerCtx {
 
         mask.iter(|account| {
             if filter(&account.public_key)
-                || account.delegate.as_ref().map_or(false, |key| filter(key))
+                || account.delegate.as_ref().map_or(false, &mut filter)
             {
                 accounts.push((
                     account.id(),

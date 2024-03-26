@@ -191,7 +191,7 @@ impl Libp2pService {
         let mut gossipsub: Gossipsub =
             Gossipsub::new(message_authenticity, gossipsub_config).unwrap();
         topics_iter
-            .map(|v| IdentTopic::new(v))
+            .map(IdentTopic::new)
             .for_each(|topic| assert!(gossipsub.subscribe(&topic).unwrap()));
 
         let identify = identify::Behaviour::new(identify::Config::new(

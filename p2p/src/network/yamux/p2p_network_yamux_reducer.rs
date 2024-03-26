@@ -143,7 +143,7 @@ impl P2pNetworkYamuxState {
                         YamuxFrameInner::WindowUpdate { difference } => {
                             self.streams
                                 .entry(frame.stream_id)
-                                .or_insert_with(|| YamuxStreamState::incoming())
+                                .or_insert_with(YamuxStreamState::incoming)
                                 .update_window(false, difference);
                         }
                         YamuxFrameInner::Ping { .. } => {}

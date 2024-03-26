@@ -267,7 +267,7 @@ async fn peer_start(args: PeerAddArgs) {
         };
         answer_fut.await.and_then(|v| Ok(v.try_into()?))
     } else {
-        pc.answer_create().await.map_err(|e| Error::from(e))
+        pc.answer_create().await.map_err(Error::from)
     };
     let Ok(answer) = answer else {
         return;

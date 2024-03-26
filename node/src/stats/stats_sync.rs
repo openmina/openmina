@@ -206,12 +206,12 @@ impl SyncStats {
         let ledgers = self
             .snapshots
             .back()
-            .map_or_else(|| Default::default(), |snapshot| snapshot.ledgers.clone());
+            .map_or_else(Default::default, |snapshot| snapshot.ledgers.clone());
 
         let mut resyncs = self
             .snapshots
             .back()
-            .map_or_else(|| Default::default(), |snapshot| snapshot.resyncs.clone());
+            .map_or_else(Default::default, |snapshot| snapshot.resyncs.clone());
 
         if let Some(prev_snapshot) = self.snapshots.back() {
             if prev_snapshot.synced.is_none() {

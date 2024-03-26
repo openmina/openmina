@@ -646,7 +646,7 @@ pub async fn wait_for_connection_event<'cluster, F>(
 where
     F: ConnectionPredicate,
 {
-    Ok(driver
+    driver
         .run_until(duration, |node_id, event: &_, state: &_| {
             let Some((peer_id, result)) = as_connection_finalized_event(event) else {
                 return false;
@@ -674,7 +674,7 @@ where
             );
             f.matches(node_id, addr, result)
         })
-        .await?)
+        .await
 }
 
 #[cfg(not(feature = "p2p-libp2p"))]

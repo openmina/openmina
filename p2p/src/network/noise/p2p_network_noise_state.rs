@@ -229,7 +229,6 @@ impl P2pNetworkNoiseStateInitiator {
         let mut r_spk_bytes =
             <[u8; 32]>::try_from(&msg[32..64]).expect("cannot fail, checked above");
         let tag = &msg[64..80];
-        let r_spk;
 
         noise.mix_hash(r_epk.0.as_bytes());
         noise.mix_secret(&*i_esk * &r_epk);
@@ -237,7 +236,7 @@ impl P2pNetworkNoiseStateInitiator {
             .decrypt::<0>(&mut r_spk_bytes, tag)
             .map_err(|_| FirstMacMismatch)?;
 
-        r_spk = Pk::from_bytes(r_spk_bytes);
+        let r_spk = Pk::from_bytes(r_spk_bytes);
         noise.mix_secret(&*i_esk * &r_spk);
 
         let (msg, tag) = msg.split_at_mut(len - 16);

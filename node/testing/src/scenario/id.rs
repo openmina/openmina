@@ -50,6 +50,6 @@ impl<'de> Deserialize<'de> for ScenarioId {
     {
         let s: &str = Deserialize::deserialize(deserializer)?;
 
-        Self::from_str(s).map_err(|err| serde::de::Error::custom(err))
+        Self::from_str(s).map_err(serde::de::Error::custom)
     }
 }
