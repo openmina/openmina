@@ -327,7 +327,7 @@ mod helpers {
             return serializer.serialize_str(&hex::encode(v));
         }
 
-        serializer.serialize_bytes(&*v)
+        serializer.serialize_bytes(v)
     }
 
     pub fn de_bytes<'de, const N: usize, D>(deserializer: D) -> Result<[u8; N], D::Error>

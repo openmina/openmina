@@ -62,7 +62,7 @@ pub fn prove(
     let provers = get_provers();
 
     let res = generate_block_proof(BlockParams {
-        input: &*input,
+        input: input,
         block_step_prover: &provers.block_step_prover,
         block_wrap_prover: &provers.block_wrap_prover,
         tx_wrap_prover: &provers.tx_wrap_prover,

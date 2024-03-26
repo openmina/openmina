@@ -140,7 +140,7 @@ impl ConsensusState {
 
     pub fn best_tip(&self) -> Option<BlockRef<'_>> {
         self.best_tip.as_ref().and_then(|hash| {
-            let block = &*self.blocks.get(hash)?;
+            let block = self.blocks.get(hash)?;
             Some(BlockRef {
                 hash,
                 header: &block.block.header,
@@ -152,7 +152,7 @@ impl ConsensusState {
 
     pub fn previous_best_tip(&self) -> Option<BlockRef<'_>> {
         self.best_tip.as_ref().and_then(|hash| {
-            let block = &*self.blocks.get(hash)?;
+            let block = self.blocks.get(hash)?;
             let prev_hash = block.status.compared_with()?;
             let prev = self.blocks.get(prev_hash)?;
             Some(BlockRef {

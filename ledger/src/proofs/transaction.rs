@@ -755,7 +755,7 @@ impl<F: FieldWitness> Check<F> for mina_signer::Signature {
 
 impl<F: FieldWitness, T: Check<F>> Check<F> for MyCow<'_, T> {
     fn check(&self, w: &mut Witness<F>) {
-        let this: &T = &*self;
+        let this: &T = self;
         this.check(w);
     }
 }

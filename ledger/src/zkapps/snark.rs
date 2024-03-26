@@ -955,7 +955,7 @@ impl AccountInterface for SnarkAccount {
     }
     fn get(&self) -> &crate::Account {
         let Self { data, .. } = self;
-        &*data
+        data
     }
     fn get_mut(&mut self) -> &mut crate::Account {
         let Self { data, .. } = self;

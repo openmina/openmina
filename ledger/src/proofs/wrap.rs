@@ -2791,7 +2791,7 @@ fn wrap_main(params: WrapMainParams, w: &mut Witness<Fq>) {
             unfinalized_proofs
                 .iter()
                 .zip(&old_bp_chals)
-                .zip(&*evals)
+                .zip(evals)
                 .zip(&wrap_domains)
                 .map(
                     |(((unfinalized, old_bulletproof_challenges), evals), wrap_domain)| {

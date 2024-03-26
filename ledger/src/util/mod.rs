@@ -164,7 +164,7 @@ where
     T: ToFieldElements<F>,
 {
     fn to_field_elements(&self, fields: &mut Vec<F>) {
-        let this: &T = &*self;
+        let this: &T = self;
         this.to_field_elements(fields);
     }
 }

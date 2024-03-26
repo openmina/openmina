@@ -158,7 +158,7 @@ impl P2pNetworkNoiseAction {
                         .data
                         .iter()
                         .fold(vec![], |mut v, item| {
-                            v.extend_from_slice(&*item);
+                            v.extend_from_slice(item);
                             v
                         })
                         .into(),

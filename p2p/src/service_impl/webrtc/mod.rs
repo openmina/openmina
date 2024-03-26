@@ -585,7 +585,7 @@ async fn peer_loop(
                     let event_sender = event_sender.clone();
 
                     chan.on_message(move |data| {
-                        let mut data = &*data;
+                        let mut data = data;
                         while !data.is_empty() {
                             let res = match process_msg(chan_id, &mut buf, &mut len, &mut data) {
                                 Ok(None) => continue,

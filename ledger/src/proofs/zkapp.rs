@@ -1252,7 +1252,7 @@ fn first_account_update<'a>(witness: &'a ZkappCommandSegmentWitness) -> Option<&
 
 fn account_update_proof(p: &AccountUpdate) -> Option<&v2::PicklesProofProofsVerifiedMaxStableV2> {
     match &p.authorization {
-        Control::Proof(proof) => Some(&*proof),
+        Control::Proof(proof) => Some(proof),
         Control::Signature(_) | Control::NoneGiven => None,
     }
 }
