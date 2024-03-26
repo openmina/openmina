@@ -102,7 +102,7 @@ impl SnarkPoolState {
 
     pub fn remove_commitment(&mut self, id: &SnarkJobId) -> Option<JobCommitment> {
         let index = self.by_ledger_hash_index.get(id)?;
-        self.list.get_mut(&index)?.commitment.take()
+        self.list.get_mut(index)?.commitment.take()
     }
 
     pub fn retain<F>(&mut self, mut get_new_job_order: F)

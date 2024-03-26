@@ -88,7 +88,7 @@ impl P2pNetworkKadBootstrapState {
                 peer_id,
                 closest_peers,
             } => {
-                let Some(req) = self.requests.remove(&peer_id) else {
+                let Some(req) = self.requests.remove(peer_id) else {
                     return Err(format!("cannot find reques for peer {peer_id}"));
                 };
                 self.successful_requests += 1;
@@ -121,7 +121,7 @@ impl P2pNetworkKadBootstrapState {
                 Ok(())
             }
             A::RequestError { peer_id, error } => {
-                let Some(req) = self.requests.remove(&peer_id) else {
+                let Some(req) = self.requests.remove(peer_id) else {
                     return Err(format!("cannot find reques for peer {peer_id}"));
                 };
                 let address = P2pConnectionOutgoingInitOpts::LibP2P((*peer_id, req.addr).into());

@@ -53,7 +53,7 @@ pub fn is_short_range_fork(a: &MinaConsensusState, b: &MinaConsensusState) -> bo
         a_prev_lock_checkpoint == b_prev_lock_checkpoint
     } else {
         // Check for previous epoch case using both orientations
-        check(&a, &b) || check(&b, &a)
+        check(a, b) || check(b, a)
     }
 }
 
@@ -121,7 +121,7 @@ pub fn short_range_fork_take(
 
     let tip_height = &tip_cs.blockchain_length;
     let candidate_height = &candidate_cs.blockchain_length;
-    match candidate_height.cmp(&tip_height) {
+    match candidate_height.cmp(tip_height) {
         Greater => return (true, ChainLength),
         Less => return (false, ChainLength),
         Equal => {}
@@ -161,7 +161,7 @@ pub fn long_range_fork_take(
 
     let tip_height = &tip_cs.blockchain_length;
     let candidate_height = &candidate_cs.blockchain_length;
-    match candidate_height.cmp(&tip_height) {
+    match candidate_height.cmp(tip_height) {
         Greater => return (true, ChainLength),
         Less => return (false, ChainLength),
         Equal => {}

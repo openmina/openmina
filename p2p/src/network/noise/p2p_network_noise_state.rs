@@ -89,7 +89,7 @@ impl NoiseState {
     pub fn mix_hash(&mut self, data: &[u8]) {
         self.hash = DataSized(
             Sha256::default()
-                .chain(&self.hash.0)
+                .chain(self.hash.0)
                 .chain(data)
                 .finalize_fixed()
                 .into(),
@@ -110,7 +110,7 @@ impl NoiseState {
         nonce[4..].clone_from_slice(&NONCE.to_le_bytes());
 
         let hash = Sha256::default()
-            .chain(&self.hash.0)
+            .chain(self.hash.0)
             .chain(&*data)
             .chain(tag)
             .finalize_fixed();
@@ -129,7 +129,7 @@ impl NoiseState {
             .encrypt_in_place_detached(&nonce, &self.hash.0, data)
             .unwrap();
         let hash = Sha256::default()
-            .chain(&self.hash.0)
+            .chain(self.hash.0)
             .chain(&*data)
             .chain(tag)
             .finalize_fixed();
@@ -358,14 +358,14 @@ impl P2pNetworkNoiseStateResponder {
                 let (remote_payload, payload_tag) = msg.split_at_mut(len - 16);
 
                 noise
-                    .decrypt::<1>(&mut i_spk_bytes, &tag)
+                    .decrypt::<1>(&mut i_spk_bytes, tag)
                     .map_err(|()| FirstMacMismatch)?;
                 let i_spk = Pk::from_bytes(i_spk_bytes);
                 noise.mix_secret(&*r_esk * &i_spk);
                 r_esk.zeroize();
 
                 noise
-                    .decrypt::<0>(remote_payload, &payload_tag)
+                    .decrypt::<0>(remote_payload, payload_tag)
                     .map_err(|_| SecondMacMismatch)?;
                 let (recv_key, send_key) = noise.finish();
 

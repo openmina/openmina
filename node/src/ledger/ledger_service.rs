@@ -147,9 +147,9 @@ impl LedgerCtx {
 
     /// Returns a mutable reference to the [StagedLedger] with the specified `hash` if it exists or `None` otherwise.
     fn staged_ledger_mut(&mut self, hash: &LedgerHash) -> Option<&mut StagedLedger> {
-        match self.staged_ledgers.get_mut(&hash) {
+        match self.staged_ledgers.get_mut(hash) {
             Some(v) => Some(v),
-            None => self.sync.staged_ledger_mut(&hash),
+            None => self.sync.staged_ledger_mut(hash),
         }
     }
 
@@ -346,7 +346,7 @@ impl LedgerSyncState {
     }
 
     fn staged_ledger_mut(&mut self, hash: &LedgerHash) -> Option<&mut StagedLedger> {
-        self.staged_ledgers.get_mut(&hash)
+        self.staged_ledgers.get_mut(hash)
     }
 }
 
@@ -483,7 +483,7 @@ impl<T: LedgerService> TransitionFrontierService for T {
         );
         let mut staged_ledger = self
             .ctx_mut()
-            .staged_ledger_mut(&pred_block.staged_ledger_hash())
+            .staged_ledger_mut(pred_block.staged_ledger_hash())
             .ok_or_else(|| "parent staged ledger missing")?
             .clone();
 
@@ -522,7 +522,7 @@ impl<T: LedgerService> TransitionFrontierService for T {
         if &ledger_hashes != expected_ledger_hashes {
             let staged_ledger = self
                 .ctx_mut()
-                .staged_ledger_mut(&pred_block.staged_ledger_hash())
+                .staged_ledger_mut(pred_block.staged_ledger_hash())
                 .unwrap(); // We already know the ledger exists, see the same call a few lines above
 
             match dump_application_to_file(staged_ledger, block.clone(), pred_block) {
@@ -765,7 +765,7 @@ impl<T: LedgerService> BlockProducerLedgerService for T {
     ) -> Result<StagedLedgerDiffCreateOutput, String> {
         let mut staged_ledger = self
             .ctx_mut()
-            .staged_ledger_mut(&pred_block.staged_ledger_hash())
+            .staged_ledger_mut(pred_block.staged_ledger_hash())
             .ok_or_else(|| "parent staged ledger missing")?
             .clone();
 

@@ -15,7 +15,7 @@ fn jsonify_rpc_menu() {
     let mut p = data.as_slice();
     let response =
         Message::<<VersionedRpcMenuV1 as RpcMethod>::Response>::binprot_read(&mut p).unwrap();
-    let response_json = serde_json::to_value(&response).unwrap();
+    let response_json = serde_json::to_value(response).unwrap();
     let expected_json = serde_json::json!(
         {
             "Response": {

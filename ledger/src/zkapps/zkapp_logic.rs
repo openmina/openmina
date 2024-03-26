@@ -677,14 +677,14 @@ where
         let balance_change = &account_update_balance_change;
         let neg_creation_fee = { Z::SignedAmount::of_unsigned(account_creation_fee).negate() };
         let (balance_change_for_creation, creation_overflow) =
-            Z::SignedAmount::add_flagged(&balance_change, &neg_creation_fee, w);
+            Z::SignedAmount::add_flagged(balance_change, &neg_creation_fee, w);
         let pay_creation_fee = Z::Bool::and(account_is_new, implicit_account_creation_fee, w);
         let creation_overflow = Z::Bool::and(pay_creation_fee, creation_overflow, w);
         let balance_change = Z::SignedAmount::on_if(
             pay_creation_fee,
             SignedAmountBranchParam {
                 on_true: &balance_change_for_creation,
-                on_false: &balance_change,
+                on_false: balance_change,
             },
             w,
         );

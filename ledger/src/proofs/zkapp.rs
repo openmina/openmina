@@ -473,7 +473,7 @@ pub fn zkapp_command_witnesses_exn(
                         &state_view,
                         fee_excess,
                         supply_increase,
-                        &second_pass_ledger,
+                        second_pass_ledger,
                         zkapp_command,
                     )
                     .unwrap();

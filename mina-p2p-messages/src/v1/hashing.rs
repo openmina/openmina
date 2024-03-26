@@ -195,7 +195,7 @@ impl generated::MinaBaseStagedLedgerHashNonSnarkStableV1VersionedV1 {
         let ledger_hash_bytes: Vec<u8> = self.ledger_hash.inner().0 .0.iter_bytes().rev().collect();
         hasher.update(&ledger_hash_bytes);
         hasher.update(self.aux_hash.inner().0.as_ref());
-        hasher.update(&self.pending_coinbase_aux.inner().0.as_ref());
+        hasher.update(self.pending_coinbase_aux.inner().0.as_ref());
         hasher.finalize().to_vec()
     }
 }
@@ -265,7 +265,7 @@ impl Hashable for generated::ConsensusVrfOutputTruncatedStableV1VersionedV1 {
         let data = self.0.as_ref();
         let roi = ROInput::new();
         if data.len() <= 31 {
-            roi.append_bytes(&data)
+            roi.append_bytes(data)
         } else {
             let roi = roi.append_bytes(&data[..31]);
             if data.len() > 31 {

@@ -149,7 +149,7 @@ impl SnarkPoolCandidatesState {
     ) {
         if let Some(state) = self
             .by_peer
-            .get_mut(&peer_id)
+            .get_mut(peer_id)
             .and_then(|jobs| jobs.get_mut(job_id))
         {
             if let SnarkPoolCandidateState::InfoReceived { info, .. } = state {

@@ -162,7 +162,7 @@ impl<'a> ClusterRunner<'a> {
         match &step {
             ScenarioStep::Event { node_id, event } => {
                 let node_id = *node_id;
-                let event_id = self.cluster.wait_for_pending_event(node_id, &event).await?;
+                let event_id = self.cluster.wait_for_pending_event(node_id, event).await?;
                 let node = self.cluster.node(node_id).unwrap();
                 let event_ref = node.get_pending_event(event_id).unwrap();
                 if let Some(event) = NonDeterministicEvent::new(event_ref) {

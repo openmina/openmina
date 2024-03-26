@@ -536,7 +536,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                 .network
                 .scheduler
                 .discovery_state()
-                .and_then(|discovery_state| (&discovery_state.bootstrap_stats()).cloned());
+                .and_then(|discovery_state| (discovery_state.bootstrap_stats()).cloned());
             respond_or_log!(
                 store
                     .service()

@@ -205,7 +205,7 @@ pub fn create_oracle<F: FieldWitness>(
 
     type EFrSponge<F> = DefaultFrSponge<F, PlonkSpongeConstantsKimchi>;
     let oracles_result = proof
-        .oracles::<F::FqSponge, EFrSponge<F>>(&verifier_index, &p_comm, public)
+        .oracles::<F::FqSponge, EFrSponge<F>>(verifier_index, &p_comm, public)
         .unwrap();
 
     let OraclesResult {
@@ -303,7 +303,7 @@ fn deferred_values(params: DeferredValuesParams) -> DeferredValuesAndHints {
     let step_vk = prover_index.verifier_index();
     let log_size_of_group = step_vk.domain.log_size_of_group;
 
-    let oracle = create_oracle(&step_vk, &proof, public_input);
+    let oracle = create_oracle(&step_vk, proof, public_input);
     let x_hat = [oracle.p_eval.0, oracle.p_eval.1];
 
     let alpha = oracle.alpha();
@@ -762,7 +762,7 @@ pub fn wrap<C: ProofConstants + ForWrapData>(
             prev_challenges: prev,
             only_verify_constraints: false,
         },
-        &w,
+        w,
     )?;
 
     Ok(WrapProof {
@@ -993,7 +993,7 @@ pub mod pseudo {
             .iter()
             .map(|d| domain_generator(*d))
             .collect::<Vec<_>>();
-        mask(&which, &xs)
+        mask(which, &xs)
     }
 
     pub fn shifts(
@@ -2204,7 +2204,7 @@ pub mod wrap_verifier {
         sponge.absorb((CircuitVar::Constant(Boolean::True), index_digest));
 
         for (b, v) in &sg_old {
-            absorb_curve(&b, *v, &mut sponge);
+            absorb_curve(b, *v, &mut sponge);
         }
 
         let x_hat = {

@@ -559,12 +559,12 @@ impl PlonkVerificationKeyEvals<Fp> {
         CircuitPlonkVerificationKeyEvals::<Fp> {
             sigma: sigma.each_ref().map(cvar),
             coefficients: coefficients.each_ref().map(cvar),
-            generic: cvar(&generic),
-            psm: cvar(&psm),
-            complete_add: cvar(&complete_add),
-            mul: cvar(&mul),
-            emul: cvar(&emul),
-            endomul_scalar: cvar(&endomul_scalar),
+            generic: cvar(generic),
+            psm: cvar(psm),
+            complete_add: cvar(complete_add),
+            mul: cvar(mul),
+            emul: cvar(emul),
+            endomul_scalar: cvar(endomul_scalar),
         }
     }
 
@@ -2856,13 +2856,13 @@ pub mod transaction_snark {
         };
 
         let _correct_coinbase_target_stack =
-            computed_pending_coinbase_stack_after.equal_var(&pending_coinbase_after, w);
+            computed_pending_coinbase_stack_after.equal_var(pending_coinbase_after, w);
 
         let _valid_init_state = {
-            let equal_source = pending_coinbase_init.equal_var(&pending_coinbase_stack_before, w);
+            let equal_source = pending_coinbase_init.equal_var(pending_coinbase_stack_before, w);
 
             let equal_source_with_state =
-                pending_coinbase_stack_with_state.equal_var(&pending_coinbase_stack_before, w);
+                pending_coinbase_stack_with_state.equal_var(pending_coinbase_stack_before, w);
 
             equal_source.or(&equal_source_with_state, w)
         };
@@ -3921,7 +3921,7 @@ pub(super) fn create_proof<C: ProofConstants, F: FieldWitness>(
         &group_map,
         computed_witness,
         &[],
-        &prover_index,
+        prover_index,
         prev_challenges,
         None,
         &mut rng,
@@ -4389,8 +4389,8 @@ mod tests {
                 statement: &statement,
                 tx_witness: &tx_witness,
                 message: &message,
-                tx_step_prover: &tx_step_prover,
-                tx_wrap_prover: &tx_wrap_prover,
+                tx_step_prover: tx_step_prover,
+                tx_wrap_prover: tx_wrap_prover,
                 only_verify_constraints: false,
                 expected_step_proof: None,
                 ocaml_wrap_witness: None,
@@ -4504,8 +4504,8 @@ mod tests {
                 statement: (&*statement).into(),
                 proofs: &proofs,
                 message: &message,
-                step_prover: &merge_step_prover,
-                wrap_prover: &tx_wrap_prover,
+                step_prover: merge_step_prover,
+                wrap_prover: tx_wrap_prover,
                 only_verify_constraints: false,
                 expected_step_proof: None,
                 // expected_step_proof: Some(
@@ -4559,11 +4559,11 @@ mod tests {
             statement: &statement,
             tx_witness: &tx_witness,
             message: &message,
-            step_opt_signed_opt_signed_prover: &zkapp_step_opt_signed_opt_signed_prover,
-            step_opt_signed_prover: &zkapp_step_opt_signed_prover,
-            step_proof_prover: &zkapp_step_proof_prover,
-            merge_step_prover: &merge_step_prover,
-            tx_wrap_prover: &tx_wrap_prover,
+            step_opt_signed_opt_signed_prover: zkapp_step_opt_signed_opt_signed_prover,
+            step_opt_signed_prover: zkapp_step_opt_signed_prover,
+            step_proof_prover: zkapp_step_proof_prover,
+            merge_step_prover: merge_step_prover,
+            tx_wrap_prover: tx_wrap_prover,
             opt_signed_path: None,
             // opt_signed_path: Some("zkapp_opt_signed"),
             proved_path: None,
@@ -4625,11 +4625,11 @@ mod tests {
             statement: &statement,
             tx_witness: &tx_witness,
             message: &message,
-            step_opt_signed_opt_signed_prover: &zkapp_step_opt_signed_opt_signed_prover,
-            step_opt_signed_prover: &zkapp_step_opt_signed_prover,
-            step_proof_prover: &zkapp_step_proof_prover,
-            merge_step_prover: &merge_step_prover,
-            tx_wrap_prover: &tx_wrap_prover,
+            step_opt_signed_opt_signed_prover: zkapp_step_opt_signed_opt_signed_prover,
+            step_opt_signed_prover: zkapp_step_opt_signed_prover,
+            step_proof_prover: zkapp_step_proof_prover,
+            merge_step_prover: merge_step_prover,
+            tx_wrap_prover: tx_wrap_prover,
             opt_signed_path: None,
             proved_path: None,
             // opt_signed_path: Some("zkapp_proof"),
@@ -4678,9 +4678,9 @@ mod tests {
         let WrapProof { proof, .. } = generate_block_proof(
             BlockParams {
                 input: &blockchain_input,
-                block_step_prover: &block_step_prover,
-                block_wrap_prover: &block_wrap_prover,
-                tx_wrap_prover: &tx_wrap_prover,
+                block_step_prover: block_step_prover,
+                block_wrap_prover: block_wrap_prover,
+                tx_wrap_prover: tx_wrap_prover,
                 only_verify_constraints: false,
                 expected_step_proof: None,
                 ocaml_wrap_witness: None,
@@ -4743,11 +4743,11 @@ mod tests {
                 statement: &statement,
                 tx_witness: &tx_witness,
                 message: &message,
-                step_opt_signed_opt_signed_prover: &zkapp_step_opt_signed_opt_signed_prover,
-                step_opt_signed_prover: &zkapp_step_opt_signed_prover,
-                step_proof_prover: &zkapp_step_proof_prover,
-                merge_step_prover: &merge_step_prover,
-                tx_wrap_prover: &tx_wrap_prover,
+                step_opt_signed_opt_signed_prover: zkapp_step_opt_signed_opt_signed_prover,
+                step_opt_signed_prover: zkapp_step_opt_signed_prover,
+                step_proof_prover: zkapp_step_proof_prover,
+                merge_step_prover: merge_step_prover,
+                tx_wrap_prover: tx_wrap_prover,
                 opt_signed_path,
                 proved_path,
             })
@@ -4777,9 +4777,9 @@ mod tests {
             let WrapProof { proof, .. } = generate_block_proof(
                 BlockParams {
                     input: &blockchain_input,
-                    block_step_prover: &block_step_prover,
-                    block_wrap_prover: &block_wrap_prover,
-                    tx_wrap_prover: &tx_wrap_prover,
+                    block_step_prover: block_step_prover,
+                    block_wrap_prover: block_wrap_prover,
+                    tx_wrap_prover: tx_wrap_prover,
                     only_verify_constraints: false,
                     expected_step_proof: None,
                     ocaml_wrap_witness: None,
@@ -4814,8 +4814,8 @@ mod tests {
                     statement: (&*statement).into(),
                     proofs: &proofs,
                     message: &message,
-                    step_prover: &merge_step_prover,
-                    wrap_prover: &tx_wrap_prover,
+                    step_prover: merge_step_prover,
+                    wrap_prover: tx_wrap_prover,
                     only_verify_constraints: false,
                     expected_step_proof: None,
                     ocaml_wrap_witness: None,
@@ -4879,8 +4879,8 @@ mod tests {
                     statement: &statement,
                     tx_witness: &tx_witness,
                     message: &message,
-                    tx_step_prover: &tx_step_prover,
-                    tx_wrap_prover: &tx_wrap_prover,
+                    tx_step_prover: tx_step_prover,
+                    tx_wrap_prover: tx_wrap_prover,
                     only_verify_constraints: false,
                     expected_step_proof: None,
                     ocaml_wrap_witness: None,

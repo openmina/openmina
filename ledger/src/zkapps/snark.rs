@@ -651,7 +651,7 @@ impl GlobalSlotSinceGenesisInterface for SnarkGlobalSlot {
     type Bool = SnarkBool;
 
     fn equal(&self, other: &Self, w: &mut Self::W) -> Self::Bool {
-        <Self as CheckedNat<_, 32>>::equal(&self, other, w).var()
+        <Self as CheckedNat<_, 32>>::equal(self, other, w).var()
     }
 }
 

@@ -210,7 +210,7 @@ fn fake_kad_peer(
     println!("======== peer_id: {peer_id}");
     println!(
         "======== peer_id bytes: {}",
-        hex::encode(&peer_id.clone().to_bytes())
+        hex::encode(peer_id.clone().to_bytes())
     );
     let kad_config = {
         let mut c = libp2p::kad::Config::default();

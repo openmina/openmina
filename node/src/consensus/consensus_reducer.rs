@@ -83,7 +83,7 @@ impl ConsensusState {
                                 let (take, why) = short_range_fork_take(
                                     tip_cs,
                                     candidate_cs,
-                                    &tip.hash,
+                                    tip.hash,
                                     candidate_hash,
                                 );
                                 if take {

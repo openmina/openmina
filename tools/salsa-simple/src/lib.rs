@@ -168,7 +168,7 @@ impl<const R: usize> XSalsaCore<R> {
         for mut block in blocks {
             let mut t = [0; 64];
             self.gen_ks_block(&mut t);
-            block.xor_in2out(&GenericArray::from_slice(&t));
+            block.xor_in2out(GenericArray::from_slice(&t));
         }
     }
 }

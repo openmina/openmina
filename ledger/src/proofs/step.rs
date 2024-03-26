@@ -2401,10 +2401,10 @@ impl Check<Fp> for PerProofWitness {
         } = wrap_proof;
 
         for poly in w_comm {
-            (&poly.unshifted).check(w);
+            (poly.unshifted).check(w);
         }
-        (&z_comm.unshifted).check(w);
-        (&t_comm.unshifted).check(w);
+        (z_comm.unshifted).check(w);
+        (t_comm.unshifted).check(w);
         lr.check(w);
 
         let shift = |f: Fq| <Fq as FieldWitness>::Shifting::of_field(f);

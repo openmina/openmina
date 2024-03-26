@@ -105,7 +105,7 @@ fn main() -> anyhow::Result<()> {
     let Args { input, url, output } = Args::from_args();
 
     let value = if let Some(input) = input {
-        let ledger_file = File::open(&input)?;
+        let ledger_file = File::open(input)?;
         serde_json::from_reader::<_, serde_json::Value>(ledger_file)?
     } else if let Some(url) = url {
         reqwest::blocking::get(url)?.json()?
@@ -157,7 +157,7 @@ fn main() -> anyhow::Result<()> {
     let top_hash = v2::LedgerHash::from(v2::MinaBaseLedgerHash0StableV1(root.into()));
     println!("{top_hash}");
 
-    let mut output = File::create(&output)?;
+    let mut output = File::create(output)?;
     Some(top_hash).binprot_write(&mut output)?;
     accounts.binprot_write(&mut output)?;
 

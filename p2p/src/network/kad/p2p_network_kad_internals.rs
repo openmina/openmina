@@ -46,7 +46,7 @@ mod u256_serde {
     {
         if deserializer.is_human_readable() {
             let s = String::deserialize(deserializer)?;
-            let bytes = hex::decode(&s)
+            let bytes = hex::decode(s)
                 .map_err(decode_error)?
                 .as_slice()
                 .try_into()
@@ -75,7 +75,7 @@ impl Debug for P2pNetworkKadKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if f.alternate() {
             let bytes = self.0.to_be_bytes();
-            f.write_str(&hex::encode(&bytes))
+            f.write_str(&hex::encode(bytes))
         } else {
             f.debug_tuple("P2pNetworkKadKey").field(&self.0).finish()
         }
@@ -132,7 +132,7 @@ impl Shr<usize> for &P2pNetworkKadKey {
 
 impl From<PeerId> for P2pNetworkKadKey {
     fn from(value: PeerId) -> Self {
-        let digest = Sha256::digest(&value.to_bytes());
+        let digest = Sha256::digest(value.to_bytes());
         P2pNetworkKadKey(<U256 as ArrayEncoding>::from_be_byte_array(digest))
     }
 }
@@ -145,7 +145,7 @@ impl Debug for P2pNetworkKadDist {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if f.alternate() {
             let bytes = self.0.to_be_bytes();
-            f.write_str(&hex::encode(&bytes))
+            f.write_str(&hex::encode(bytes))
         } else {
             f.debug_tuple("P2pNetworkKadDist").field(&self.0).finish()
         }
@@ -557,7 +557,7 @@ mod tests {
         let peer_id = peer_id_rand();
         P2pNetworkKadEntry {
             key,
-            peer_id: peer_id,
+            peer_id: peer_id.into(),
             addrs: vec![],
             connection: super::ConnectionType::Connected,
         }
@@ -672,8 +672,8 @@ mod tests {
             .min_by_key(|e| entry.dist(e))
             .unwrap();
 
-        let max = entry.dist(&max_closest_dist);
-        let min = entry.dist(&min_non_closest_dist);
+        let max = entry.dist(max_closest_dist);
+        let min = entry.dist(min_non_closest_dist);
         println!(
             "farthest {:#?} is closer than the closest {:#?}",
             max_closest_dist.key, min_non_closest_dist.key
@@ -707,8 +707,8 @@ mod tests {
                 .min_by_key(|e| entry.dist(e))
                 .unwrap();
 
-            let max = entry.dist(&max_closest_dist);
-            let min = entry.dist(&min_non_closest_dist);
+            let max = entry.dist(max_closest_dist);
+            let min = entry.dist(min_non_closest_dist);
             println!(
                 "farthest {:#?} is closer than the closest {:#?}",
                 max_closest_dist.key, min_non_closest_dist.key

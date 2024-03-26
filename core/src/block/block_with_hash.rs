@@ -198,7 +198,7 @@ impl<T: AsRef<BlockHeader>> BlockHeaderWithHash<T> {
     }
 
     pub fn header(&self) -> &BlockHeader {
-        &self.header.as_ref()
+        self.header.as_ref()
     }
 
     pub fn consensus_state(&self) -> &ConsensusProofOfStakeDataConsensusStateValueStableV2 {

@@ -56,7 +56,7 @@ impl RTCConnection {
     pub async fn channel_create(&self, config: RTCChannelConfig) -> Result<RTCChannel> {
         self.0
             .create_data_channel(
-                &config.label,
+                config.label,
                 Some(RTCDataChannelInit {
                     ordered: Some(true),
                     max_packet_life_time: None,

@@ -605,15 +605,15 @@ mod scalars {
                 let p = *p;
                 let v = eval(x, ctx);
 
-                if is_const(&x) {
+                if is_const(x) {
                     pow_const(v, p)
                 } else {
                     pow(v, p, ctx.w)
                 }
             }
             BinOp(Op2::Mul, x, y) => {
-                let is_x_const = is_const(&x);
-                let is_y_const = is_const(&y);
+                let is_x_const = is_const(x);
+                let is_y_const = is_const(y);
                 let y = eval(y, ctx);
                 let x = eval(x, ctx);
                 if is_x_const || is_y_const {
@@ -623,7 +623,7 @@ mod scalars {
                 }
             }
             Square(x) => {
-                let is_x_const = is_const(&x);
+                let is_x_const = is_const(x);
                 let x = eval(x, ctx);
                 if is_x_const {
                     x * x
@@ -728,7 +728,7 @@ mod scalars {
         for (id, (cache, expr)) in &cached_exprs.expr {
             let mut old_cache = std::mem::take(&mut ctx.cache);
             eval_cache::<F>(cache, ctx);
-            old_cache.insert(*id, eval::<F>(&expr, ctx));
+            old_cache.insert(*id, eval::<F>(expr, ctx));
             ctx.cache = old_cache;
         }
     }
@@ -823,7 +823,7 @@ mod scalars {
 
         let term = match gate {
             Some(gate) => index_terms.get(&Column::Index(gate)).unwrap(),
-            None => &constant_term,
+            None => constant_term,
         };
 
         // We evaluate the cached expressions first

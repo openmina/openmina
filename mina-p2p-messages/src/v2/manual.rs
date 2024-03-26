@@ -531,7 +531,7 @@ mod tests {
     fn non_zero_curve_point() {
         let b58 = r#""B62qkUHaJUHERZuCHQhXCQ8xsGBqyYSgjQsKnKN5HhSJecakuJ4pYyk""#;
 
-        let v = serde_json::from_str::<NonZeroCurvePoint>(&b58)
+        let v = serde_json::from_str::<NonZeroCurvePoint>(b58)
             .unwrap()
             .into_inner();
         assert_eq!(v.is_odd, false);

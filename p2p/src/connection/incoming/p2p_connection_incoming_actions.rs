@@ -189,7 +189,7 @@ impl redux::EnablingCondition<P2pState> for P2pConnectionIncomingAction {
             }
 
             P2pConnectionIncomingAction::Libp2pReceived { peer_id } => {
-                state.peers.get(&peer_id).map_or(true, |peer| {
+                state.peers.get(peer_id).map_or(true, |peer| {
                     matches!(&peer.status, P2pPeerStatus::Disconnected { .. })
                 })
             }

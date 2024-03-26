@@ -87,7 +87,7 @@ fn write_index(path: &Path, index: &VerifierIndex<Pallas>, digest: &[u8]) -> any
         anyhow::bail!("cannot get parent for {path:?}");
     };
     std::fs::create_dir_all(parent).context("creating cache file parent directory")?;
-    let mut file = File::create(&path).context("creating cache file")?;
+    let mut file = File::create(path).context("creating cache file")?;
     file.write_all(digest).context("storing source digest")?;
     file.write_all(&hasher.finalize())
         .context("storing verifier index digest")?;

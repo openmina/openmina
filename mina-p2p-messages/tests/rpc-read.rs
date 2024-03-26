@@ -132,7 +132,7 @@ fn make_rpc_v2() {
     }
     let mut mapping: BTreeMap<i64, T> = BTreeMap::new();
     utils::for_all("rpc-v2", |_, encoded| {
-        utils::stream_read_with::<MessageHeader, _>(&encoded, |header, slice| match header {
+        utils::stream_read_with::<MessageHeader, _>(encoded, |header, slice| match header {
             Ok(MessageHeader::Heartbeat) => {}
             Ok(MessageHeader::Query(q)) => {
                 let t = mapping.entry(q.id).or_default();
