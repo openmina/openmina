@@ -203,7 +203,7 @@ fn dyn_effects(store: &mut Store<NodeService>, action: &ActionWithMeta) {
 }
 
 thread_local! {
-    static DYN_EFFECTS_LIB: RefCell<Option<DynEffectsLib>> = RefCell::new(None);
+    static DYN_EFFECTS_LIB: RefCell<Option<DynEffectsLib>> = const { RefCell::new(None) };
 }
 
 struct DynEffectsLib {
