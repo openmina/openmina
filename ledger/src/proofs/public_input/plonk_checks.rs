@@ -711,7 +711,7 @@ mod scalars {
             Cache(id, e) => {
                 let mut cached = Cached::default();
                 extract_caches(e, &mut cached);
-                cache.expr.insert(id.clone(), (Box::new(cached), e.clone()));
+                cache.expr.insert(*id, (Box::new(cached), e.clone()));
             }
             IfFeature(_feature, e1, e2) => {
                 if false {

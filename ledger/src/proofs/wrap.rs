@@ -1908,7 +1908,7 @@ pub mod wrap_verifier {
             pub fn finite(&self) -> CircuitVar<Boolean> {
                 match self {
                     Point::Finite(_) => CircuitVar::Constant(Boolean::True),
-                    Point::MaybeFinite(b, _) => b.clone(),
+                    Point::MaybeFinite(b, _) => *b,
                 }
             }
 
@@ -1921,8 +1921,8 @@ pub mod wrap_verifier {
 
             pub fn underlying(&self) -> CircuitVar<GroupAffine<F>> {
                 match self {
-                    Point::Finite(p) => p.clone(),
-                    Point::MaybeFinite(_, p) => p.clone(),
+                    Point::Finite(p) => *p,
+                    Point::MaybeFinite(_, p) => *p,
                 }
             }
         }
@@ -2311,7 +2311,7 @@ pub mod wrap_verifier {
         for w in w_comm.iter().flat_map(|w| &w.unshifted) {
             absorb_curve(
                 &CircuitVar::Constant(Boolean::True),
-                &InnerCurve::of_affine(w.clone()),
+                &InnerCurve::of_affine(*w),
                 &mut sponge,
             );
         }
@@ -2323,7 +2323,7 @@ pub mod wrap_verifier {
         for z in z_comm.unshifted.iter() {
             absorb_curve(
                 &CircuitVar::Constant(Boolean::True),
-                &InnerCurve::of_affine(z.clone()),
+                &InnerCurve::of_affine(*z),
                 &mut sponge,
             );
         }
@@ -2334,7 +2334,7 @@ pub mod wrap_verifier {
         for t in t_comm.unshifted.iter() {
             absorb_curve(
                 &CircuitVar::Constant(Boolean::True),
-                &InnerCurve::of_affine(t.clone()),
+                &InnerCurve::of_affine(*t),
                 &mut sponge,
             );
         }
@@ -2440,7 +2440,7 @@ impl Check<Fq> for poly_commitment::evaluation_proof::OpeningProof<Vesta> {
             sg,
         } = self;
 
-        let to_curve = |c: &Vesta| InnerCurve::<Fq>::of_affine(c.clone());
+        let to_curve = |c: &Vesta| InnerCurve::<Fq>::of_affine(*c);
         let shift = |f: Fp| <Fp as FieldWitness>::Shifting::of_field(f);
 
         lr.iter().for_each(|(a, b)| {
@@ -2538,7 +2538,7 @@ impl Check<Fq> for kimchi::proof::ProverCommitments<Vesta> {
                 shifted: _,
             } = poly;
             for affine in unshifted {
-                InnerCurve::of_affine(affine.clone()).check(w);
+                InnerCurve::of_affine(*affine).check(w);
             }
         };
 

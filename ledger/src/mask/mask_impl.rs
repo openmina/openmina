@@ -392,7 +392,7 @@ impl MaskImpl {
                 };
 
                 for (index, account) in accounts {
-                    let addr = Address::from_index(index.clone(), depth);
+                    let addr = Address::from_index(index, depth);
                     parent.set_impl(addr, Box::new(account), Some(self_uuid.clone()));
                 }
 
@@ -439,7 +439,7 @@ impl MaskImpl {
         assert!(self.is_attached());
 
         for child in self.childs().values() {
-            child.parent_set_notify(account_index.clone(), account)
+            child.parent_set_notify(account_index, account)
         }
 
         match self {
@@ -812,7 +812,7 @@ impl MaskImpl {
 
                 for addr in addrs.iter().rev() {
                     let account_index = addr.to_index();
-                    hashes.invalidate_hashes(account_index.clone());
+                    hashes.invalidate_hashes(account_index);
 
                     let account = owning_account.remove(&account_index).unwrap();
                     token_to_account.remove(&account.token_id).unwrap();
@@ -845,7 +845,7 @@ impl MaskImpl {
             if Some(uuid) == child_to_ignore.as_ref() {
                 continue;
             }
-            child.parent_set_notify(account_index.clone(), &account)
+            child.parent_set_notify(account_index, &account)
         }
 
         match self {
@@ -867,7 +867,7 @@ impl MaskImpl {
                 let account_id = account.id();
                 let token_id = account.token_id.clone();
 
-                owning_account.insert(account_index.clone(), *account);
+                owning_account.insert(account_index, *account);
                 id_to_addr.insert(account_id.clone(), addr.clone());
                 token_to_account.insert(token_id, account_id);
 
@@ -937,7 +937,7 @@ impl MaskImpl {
         for index in 0..(2u64.pow(tree_depth as u32)) {
             let index = AccountIndex(index);
             match self
-                .get_account_hash(index.clone())
+                .get_account_hash(index)
                 .filter(|hash| hash != &empty_account_hash)
             {
                 None => break,
@@ -1200,7 +1200,7 @@ impl BaseLedger for MaskImpl {
                 id_to_addr.insert(account_id.clone(), location.clone());
                 *last_location = Some(location.clone());
                 token_to_account.insert(token_id, account_id);
-                owning_account.insert(account_index.clone(), account);
+                owning_account.insert(account_index, account);
 
                 self.invalidate_hashes(account_index);
 
@@ -1434,7 +1434,7 @@ impl BaseLedger for MaskImpl {
 
         self.recurse_on_childs(&mut |child| {
             for index in &indexes {
-                child.invalidate_hashes(index.clone());
+                child.invalidate_hashes(*index);
             }
         });
     }

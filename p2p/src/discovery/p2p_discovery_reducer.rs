@@ -34,7 +34,7 @@ impl P2pKademliaState {
                             self.routes
                                 .get(peer_id)
                                 .and_then(|r| r.first())
-                                .map(|opts| (opts.peer_id().clone(), opts.clone()))
+                                .map(|opts| (*opts.peer_id(), opts.clone()))
                         })
                         .flatten(),
                 );

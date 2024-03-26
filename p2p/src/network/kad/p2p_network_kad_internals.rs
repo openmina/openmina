@@ -66,7 +66,7 @@ pub struct P2pNetworkKadKey(#[serde(with = "u256_serde")] U256);
 impl From<&PeerId> for P2pNetworkKadKey {
     fn from(value: &PeerId) -> Self {
         P2pNetworkKadKey(U256::from_be_byte_array(Sha256::digest(
-            libp2p_identity::PeerId::from(value.clone()).to_bytes(),
+            libp2p_identity::PeerId::from(*value).to_bytes(),
         )))
     }
 }
@@ -343,7 +343,7 @@ pub struct P2pNetworkKadEntry {
 
 impl P2pNetworkKadEntry {
     pub fn new(peer_id: PeerId, addrs: Vec<Multiaddr>) -> Self {
-        let key = peer_id.clone().into();
+        let key = peer_id.into();
         P2pNetworkKadEntry {
             key,
             peer_id,
@@ -370,7 +370,7 @@ impl TryFrom<super::mod_Message::Peer<'_>> for P2pNetworkKadEntry {
 
     fn try_from(value: super::mod_Message::Peer) -> Result<Self, Self::Error> {
         let peer_id = super::peer_id_try_from_bytes(value.id)?;
-        let key = peer_id.clone().into();
+        let key = peer_id.into();
         let addrs = value
             .addrs
             .into_iter()
@@ -564,7 +564,7 @@ mod tests {
     }
 
     fn entry_with_peer_id(peer_id: PeerId) -> P2pNetworkKadEntry {
-        let key = peer_id.clone().into();
+        let key = peer_id.into();
         P2pNetworkKadEntry {
             key,
             peer_id,

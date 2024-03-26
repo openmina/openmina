@@ -23,7 +23,7 @@ impl super::P2pNetworkKadState {
             P2pNetworkKadAction::Request(
                 action @ super::request::P2pNetworkKadRequestAction::New { addr, peer_id, key },
             ) => self
-                .create_request(*addr, peer_id.clone(), key.clone())
+                .create_request(*addr, *peer_id, *key)
                 .map_err(|_request| format!("kademlia request to {addr} is already in progress"))
                 .and_then(|request| request.reducer(meta.with_action(action))),
             P2pNetworkKadAction::Request(super::request::P2pNetworkKadRequestAction::Prune {
@@ -75,14 +75,14 @@ impl super::P2pNetworkKadState {
                         Ok(false) => P2pNetworkKadLatestRequestPeerKind::Existing,
                         Err(_) => P2pNetworkKadLatestRequestPeerKind::Discarded,
                     };
-                    latest_request_peers.push((entry.peer_id.clone(), kind));
+                    latest_request_peers.push((entry.peer_id, kind));
                 }
                 self.latest_request_peers = latest_request_peers.into();
                 Ok(())
             }
             (_, StartBootstrap { key }) => {
                 self.status = Bootstrapping(super::bootstrap::P2pNetworkKadBootstrapState::new(
-                    key.clone(),
+                    *key,
                 ));
                 Ok(())
             }

@@ -34,7 +34,7 @@ impl ConsensusState {
                 if let Some(block) = self.blocks.get_mut(hash) {
                     block.status = ConsensusBlockStatus::SnarkVerifyPending {
                         time: meta.time(),
-                        req_id: req_id.clone(),
+                        req_id: *req_id,
                     };
                 }
             }

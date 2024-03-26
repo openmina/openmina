@@ -116,7 +116,7 @@ impl P2pNetworkKadState {
     ) -> Result<&mut P2pNetworkKadStreamState, &P2pNetworkKadStreamState> {
         match self
             .streams
-            .entry(peer_id.clone())
+            .entry(*peer_id)
             .or_default()
             .entry(*stream_id)
         {

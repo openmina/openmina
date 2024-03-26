@@ -263,7 +263,7 @@ fn update_action_state<Z: ZkappApplication>(
     last_action_slot: Z::GlobalSlotSinceGenesis,
     w: &mut Z::WitnessGenerator,
 ) -> ([Fp; 5], <Z as ZkappApplication>::GlobalSlotSinceGenesis) {
-    let [s1, s2, s3, s4, s5] = action_state.clone();
+    let [s1, s2, s3, s4, s5] = *action_state;
     let is_empty = Z::Actions::is_empty(actions, w);
     let s1_updated = Z::Actions::push_events(s1, actions, w);
     let s1_new = w.exists_no_check(match is_empty.as_boolean() {
@@ -899,7 +899,7 @@ where
                         w,
                     )
                 });
-                let on_false = Z::Branch::make(w, |_| original_auth.clone());
+                let on_false = Z::Branch::make(w, |_| *original_auth);
                 w.on_if(
                     older_than_current_version,
                     BranchParam { on_true, on_false },

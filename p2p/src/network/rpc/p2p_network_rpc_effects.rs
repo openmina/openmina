@@ -98,7 +98,7 @@ impl P2pNetworkRpcAction {
                                     panic!();
                                 };
                                 store.dispatch(P2pChannelsRpcAction::RequestReceived {
-                                    peer_id: a.peer_id.clone(),
+                                    peer_id: a.peer_id,
                                     id: header.id as u32,
                                     request: P2pRpcRequest::BestTipWithProof,
                                 });
@@ -118,7 +118,7 @@ impl P2pNetworkRpcAction {
                                     v2::LedgerHash::from(v2::MinaBaseLedgerHash0StableV1(hash));
 
                                 store.dispatch(P2pChannelsRpcAction::RequestReceived {
-                                    peer_id: a.peer_id.clone(),
+                                    peer_id: a.peer_id,
                                     id: header.id as u32,
                                     request: P2pRpcRequest::LedgerQuery(hash, query),
                                 });
@@ -140,7 +140,7 @@ impl P2pNetworkRpcAction {
                                     P2pRpcRequest::StagedLedgerAuxAndPendingCoinbasesAtBlock(hash);
 
                                 store.dispatch(P2pChannelsRpcAction::RequestReceived {
-                                    peer_id: a.peer_id.clone(),
+                                    peer_id: a.peer_id,
                                     id: header.id as u32,
                                     request,
                                 });
@@ -160,7 +160,7 @@ impl P2pNetworkRpcAction {
                                         v2::StateHash::from(v2::DataHashLibStateHashStableV1(hash));
 
                                     store.dispatch(P2pChannelsRpcAction::RequestReceived {
-                                        peer_id: a.peer_id.clone(),
+                                        peer_id: a.peer_id,
                                         id: header.id as u32,
                                         request: P2pRpcRequest::Block(hash),
                                     });
@@ -177,7 +177,7 @@ impl P2pNetworkRpcAction {
                                 };
 
                                 store.dispatch(P2pChannelsRpcAction::RequestReceived {
-                                    peer_id: a.peer_id.clone(),
+                                    peer_id: a.peer_id,
                                     id: header.id as u32,
                                     request: P2pRpcRequest::InitialPeers,
                                 });

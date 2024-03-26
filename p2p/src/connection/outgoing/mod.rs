@@ -56,7 +56,7 @@ mod libp2p_opts {
     impl super::P2pConnectionOutgoingInitLibp2pOpts {
         fn to_peer_id_multiaddr(&self) -> (PeerId, Multiaddr) {
             (
-                self.peer_id.clone(),
+                self.peer_id,
                 Multiaddr::from_iter([(&self.host).into(), multiaddr::Protocol::Tcp(self.port)]),
             )
         }

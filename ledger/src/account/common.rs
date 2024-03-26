@@ -278,7 +278,7 @@ impl AuthRequired {
 
         match self {
             Impossible | Proof => Signature,
-            x => x.clone(),
+            x => *x,
         }
     }
 }

@@ -481,13 +481,13 @@ pub fn to_absorption_sequence_opt<F: FieldWitness>(
     } = evals;
 
     let mut list = vec![
-        Opt::Some(z.clone()),
-        Opt::Some(generic_selector.clone()),
-        Opt::Some(poseidon_selector.clone()),
-        Opt::Some(complete_add_selector.clone()),
-        Opt::Some(mul_selector.clone()),
-        Opt::Some(emul_selector.clone()),
-        Opt::Some(endomul_scalar_selector.clone()),
+        Opt::Some(*z),
+        Opt::Some(*generic_selector),
+        Opt::Some(*poseidon_selector),
+        Opt::Some(*complete_add_selector),
+        Opt::Some(*mul_selector),
+        Opt::Some(*emul_selector),
+        Opt::Some(*endomul_scalar_selector),
     ];
 
     list.extend(w.iter().copied().map(Opt::Some));
@@ -511,14 +511,14 @@ pub fn to_absorption_sequence_opt<F: FieldWitness>(
 
     list.extend(
         [
-            range_check0_selector.clone(),
-            range_check1_selector.clone(),
-            foreign_field_add_selector.clone(),
-            foreign_field_mul_selector.clone(),
-            xor_selector.clone(),
-            rot_selector.clone(),
-            lookup_aggregation.clone(),
-            lookup_table.clone(),
+            *range_check0_selector,
+            *range_check1_selector,
+            *foreign_field_add_selector,
+            *foreign_field_mul_selector,
+            *xor_selector,
+            *rot_selector,
+            *lookup_aggregation,
+            *lookup_table,
         ]
         .iter()
         .map(to_opt),

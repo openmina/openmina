@@ -137,7 +137,7 @@ impl Serialize for BigInt {
     {
         if serializer.is_human_readable() {
             // TODO get rid of copying
-            let mut rev = self.0.as_ref().clone();
+            let mut rev = *self.0.as_ref();
             rev[..].reverse();
             let mut hex = [0_u8; 32 * 2 + 2];
             hex[..2].copy_from_slice(b"0x");
@@ -303,7 +303,7 @@ mod tests {
 
         for bigint in bigints {
             let json = serde_json::to_string(&bigint).unwrap();
-            let mut v = bigint.0.as_ref().clone();
+            let mut v = *bigint.0.as_ref();
             v.reverse();
             let json_exp = format!(r#""0x{}""#, hex::encode(v));
             assert_eq!(json, json_exp);

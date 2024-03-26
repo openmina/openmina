@@ -439,7 +439,7 @@ impl TransitionFrontierSyncState {
                 let Some(attempts) = block_state.fetch_pending_attempts_mut() else {
                     return;
                 };
-                attempts.insert(peer_id.clone(), PeerRpcState::Init { time: meta.time() });
+                attempts.insert(*peer_id, PeerRpcState::Init { time: meta.time() });
             }
             TransitionFrontierSyncAction::BlocksPeerQueryRetry { hash, peer_id } => {
                 let Some(block_state) = self.block_state_mut(hash) else {
@@ -448,7 +448,7 @@ impl TransitionFrontierSyncState {
                 let Some(attempts) = block_state.fetch_pending_attempts_mut() else {
                     return;
                 };
-                attempts.insert(peer_id.clone(), PeerRpcState::Init { time: meta.time() });
+                attempts.insert(*peer_id, PeerRpcState::Init { time: meta.time() });
             }
             TransitionFrontierSyncAction::BlocksPeerQueryPending {
                 hash,

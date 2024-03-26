@@ -135,7 +135,7 @@ impl SoloNodeBasicConnectivityInitialJoining {
                     // TODO: fix debugger returns timeout
                     let connections = debugger
                         .connections()
-                        .filter_map(|id| Some((id, connections.get(&id)?.clone())))
+                        .filter_map(|id| Some((id, *connections.get(&id)?)))
                         .collect::<HashMap<_, _>>();
                     let incoming = connections.iter().filter(|(_, (_, _, _, i))| *i).count();
                     let outgoing = connections.len() - incoming;

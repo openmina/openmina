@@ -93,7 +93,7 @@ impl P2pState {
                     let dial_opts = addresses.first().cloned();
                     if dial_opts.is_some() {
                         self.peers.insert(
-                            peer_id.clone(),
+                            *peer_id,
                             P2pPeerState {
                                 is_libp2p: true,
                                 dial_opts,

@@ -667,7 +667,7 @@ impl BaseLedger for DatabaseImpl<V2> {
     fn set(&mut self, addr: Address, account: Box<Account>) {
         let index = addr.to_index();
 
-        self.hashes_matrix.invalidate_hashes(index.clone());
+        self.hashes_matrix.invalidate_hashes(index);
 
         let index: usize = index.0 as usize;
 

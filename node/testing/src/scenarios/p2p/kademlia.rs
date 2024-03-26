@@ -80,7 +80,7 @@ impl IncomingFindNode {
             fake_peer
                 .behaviour_mut()
                 .kademlia
-                .add_address(&peer_id1.clone().into(), addr);
+                .add_address(&peer_id1.into(), addr);
             loop {
                 let next = fake_peer.next().await.unwrap();
                 println!("<<< {next:?}");
@@ -143,7 +143,7 @@ impl KademliaBootstrap {
             driver.add_rust_node(RustNodeTestingConfig::berkeley_default().initial_peers(
                 FromIterator::from_iter([ListenerNode::Custom(
                     P2pConnectionOutgoingInitOpts::LibP2P(P2pConnectionOutgoingInitLibp2pOpts {
-                        peer_id: peer_id.clone().into(),
+                        peer_id: peer_id.into(),
                         host: Host::Ipv4(LOCALHOST),
                         port: 13000,
                     }),
@@ -210,7 +210,7 @@ fn fake_kad_peer(
     println!("======== peer_id: {peer_id}");
     println!(
         "======== peer_id bytes: {}",
-        hex::encode(peer_id.clone().to_bytes())
+        hex::encode(peer_id.to_bytes())
     );
     let kad_config = {
         let mut c = libp2p::kad::Config::default();

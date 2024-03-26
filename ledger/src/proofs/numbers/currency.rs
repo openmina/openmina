@@ -408,7 +408,7 @@ impl<F: FieldWitness> CheckedBalance<F> {
         d: CheckedSigned<F, CheckedAmount<F>>,
         w: &mut Witness<F>,
     ) -> Self {
-        let d = CheckedSigned::<F, Self>::create(Self(d.magnitude.0), d.sgn, d.value.get().clone());
+        let d = CheckedSigned::<F, Self>::create(Self(d.magnitude.0), d.sgn, d.value.get());
         self.add_signed(d, w)
     }
 
@@ -435,7 +435,7 @@ impl<F: FieldWitness> CheckedBalance<F> {
         let amount = CheckedSigned::<F, Self>::create(
             Self(amount.magnitude.0),
             amount.sgn,
-            amount.value.get().clone(),
+            amount.value.get(),
         );
         self.add_signed_flagged(amount, w)
     }

@@ -56,7 +56,7 @@ impl P2pNetworkKademliaStreamAction {
                     addr,
                     peer_id,
                     stream_id,
-                    key: key.clone(),
+                    key: *key,
                 });
                 store.dispatch(A::WaitOutgoing {
                     addr,

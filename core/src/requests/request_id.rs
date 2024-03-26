@@ -137,13 +137,7 @@ impl<T: RequestIdType> fmt::Debug for RequestId<T> {
 }
 
 impl<T> Clone for RequestId<T> {
-    fn clone(&self) -> Self {
-        Self {
-            locator: self.locator,
-            counter: self.counter,
-            _phantom_request_type: self._phantom_request_type.clone(),
-        }
-    }
+    fn clone(&self) -> Self { *self }
 }
 
 impl<T> Copy for RequestId<T> {}

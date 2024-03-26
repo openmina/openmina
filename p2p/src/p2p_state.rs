@@ -107,7 +107,7 @@ impl P2pState {
             .iter()
             .map(|peer| {
                 (
-                    peer.peer_id().clone(),
+                    *peer.peer_id(),
                     P2pPeerState {
                         dial_opts: Some(peer.clone()),
                         is_libp2p: peer.is_libp2p(),

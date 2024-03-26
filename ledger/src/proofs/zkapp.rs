@@ -152,7 +152,7 @@ mod group {
                 global: global_after.clone(),
                 local: local_after.clone(),
             },
-            connecting_ledger: connecting_ledger.clone(),
+            connecting_ledger: *connecting_ledger,
         }
     }
 
@@ -1034,7 +1034,7 @@ fn zkapp_main(
             pending_coinbase_stack_init,
             pending_coinbase_stack_before: statement.source.pending_coinbase_stack.clone(),
             pending_coinbase_stack_after: statement.target.pending_coinbase_stack.clone(),
-            block_global_slot: block_global_slot.clone(),
+            block_global_slot,
             state_body,
         },
         w,
@@ -1053,7 +1053,7 @@ fn zkapp_main(
             fee_excess: CheckedSigned::zero(),
             supply_increase: CheckedSigned::zero(),
             protocol_state: protocol_state_body_view(state_body),
-            block_global_slot: block_global_slot.clone(),
+            block_global_slot,
         };
 
         let l = zkapp_logic::LocalState::<ZkappSnark> {

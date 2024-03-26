@@ -175,7 +175,7 @@ impl DontConnectToSelfInitialPeer {
         let peer_id = SecretKey::from_bytes(bytes).public_key().peer_id();
         let self_opts =
             P2pConnectionOutgoingInitOpts::LibP2P(P2pConnectionOutgoingInitLibp2pOpts {
-                peer_id: peer_id.clone(),
+                peer_id: peer_id,
                 host: node::p2p::webrtc::Host::Ipv4([127, 0, 0, 1].into()),
                 port,
             });

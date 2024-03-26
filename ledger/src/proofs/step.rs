@@ -869,12 +869,12 @@ pub mod step_verifier {
         let chunks_needed = chunks_needed(s_div_2_bits);
         let actual_bits_used = chunks_needed * OPS_BITS_PER_CHUNK;
 
-        let g_value = g.value().clone();
+        let g_value = g.value();
         let shifted = F::Shifting::of_raw(s_div_2);
         let h = match actual_bits_used {
-            255 => scale_fast_unpack::<F, F, 255>(g_value, shifted, w).0,
-            130 => scale_fast_unpack::<F, F, 130>(g_value, shifted, w).0,
-            10 => scale_fast_unpack::<F, F, 10>(g_value, shifted, w).0,
+            255 => scale_fast_unpack::<F, F, 255>(*g_value, shifted, w).0,
+            130 => scale_fast_unpack::<F, F, 130>(*g_value, shifted, w).0,
+            10 => scale_fast_unpack::<F, F, 10>(*g_value, shifted, w).0,
             n => todo!("{:?} param_num_bits={:?}", n, num_bits),
         };
 
@@ -908,12 +908,12 @@ pub mod step_verifier {
         let chunks_needed = chunks_needed(s_div_2_bits);
         let actual_bits_used = chunks_needed * OPS_BITS_PER_CHUNK;
 
-        let g_value = g.value().clone();
+        let g_value = g.value();
         let shifted = F::Shifting::of_raw(s_div_2);
         let h = match actual_bits_used {
-            255 => scale_fast_unpack::<F, F, 255>(g_value, shifted, w).0,
-            130 => scale_fast_unpack::<F, F, 130>(g_value, shifted, w).0,
-            10 => scale_fast_unpack::<F, F, 10>(g_value, shifted, w).0,
+            255 => scale_fast_unpack::<F, F, 255>(*g_value, shifted, w).0,
+            130 => scale_fast_unpack::<F, F, 130>(*g_value, shifted, w).0,
+            10 => scale_fast_unpack::<F, F, 10>(*g_value, shifted, w).0,
             n => todo!("{:?} param_num_bits={:?}", n, num_bits),
         };
 
@@ -2192,7 +2192,7 @@ fn expand_proof(params: ExpandProofParams) -> ExpandedProof {
 
     let challenge_polynomial_commitment = match must_verify.value() {
         Boolean::False => wrap_compute_sg(&new_bulletproof_challenges),
-        Boolean::True => proof.proof.sg.clone(),
+        Boolean::True => proof.proof.sg,
     };
 
     let witness = PerProofWitness {
@@ -2675,7 +2675,7 @@ pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
             dlog_plonk_index: &dlog_plonk_index,
             challenge_polynomial_commitments: prevs
                 .iter()
-                .map(|v| InnerCurve::of_affine(v.wrap_proof.proof.sg.clone()))
+                .map(|v| InnerCurve::of_affine(v.wrap_proof.proof.sg))
                 .collect(),
             old_bulletproof_challenges: bulletproof_challenges,
         };
@@ -2734,7 +2734,7 @@ pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
 
     let challenge_polynomial_commitments = expanded_proofs
         .iter()
-        .map(|v| InnerCurve::of_affine(v.sg.clone()))
+        .map(|v| InnerCurve::of_affine(v.sg))
         .collect();
 
     let (old_bulletproof_challenges, messages_for_next_wrap_proof): (Vec<_>, Vec<_>) = proofs

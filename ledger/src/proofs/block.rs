@@ -657,7 +657,7 @@ mod vrf {
         let account = {
             let mut ledger: SparseLedger = (&prover_state.ledger).into();
 
-            let staker_addr = message.delegator.clone();
+            let staker_addr = message.delegator;
             let staker_addr =
                 Address::from_index(staker_addr, CONSTRAINT_CONSTANTS.ledger_depth as usize);
 
@@ -935,7 +935,7 @@ pub mod consensus {
         ) -> Self {
             Self {
                 slot_number,
-                slots_per_epoch: constants.slots_per_epoch.clone(),
+                slots_per_epoch: constants.slots_per_epoch,
             }
         }
 
@@ -1099,7 +1099,7 @@ pub mod consensus {
 
                 let density = Length::from_u32(*density).to_checked::<Fp>();
 
-                let on_true = density.clone();
+                let on_true = density;
                 let on_false = {
                     let cond = overlapping_window.and(&within_range.neg(), w);
                     w.exists_no_check(match cond {
@@ -1136,7 +1136,7 @@ pub mod consensus {
             let prev_min_window_density = Length::from_u32(prev_min_window_density).to_checked();
 
             let cond = same_sub_window.or(&in_grace_period, w);
-            let on_true = prev_min_window_density.clone();
+            let on_true = prev_min_window_density;
             let on_false = current_window_density.min(&prev_min_window_density, w);
 
             w.exists_no_check(match cond {
@@ -1160,7 +1160,7 @@ pub mod consensus {
 
                 w.exists_no_check(match is_next_sub_window {
                     Boolean::True => on_true,
-                    Boolean::False => density.clone(),
+                    Boolean::False => *density,
                 })
             })
             .collect::<Vec<_>>();
@@ -1254,7 +1254,7 @@ pub mod consensus {
             })
         };
 
-        let next_slot_number = next_global_slot.slot_number.clone();
+        let next_slot_number = next_global_slot.slot_number;
 
         let block_stake_winner = {
             let delegator_pk: CompressedPubKey = (&prover_state.delegator_pk).into();

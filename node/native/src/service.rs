@@ -210,7 +210,7 @@ impl P2pServiceWebrtcWithLibp2p for NodeService {
             .into_iter()
             .filter_map(|opts| {
                 Some((
-                    opts.peer_id().clone().into(),
+                    (*opts.peer_id()).into(),
                     match opts {
                         P2pConnectionOutgoingInitOpts::LibP2P(opts) => opts.to_maddr(),
                         _ => return None,

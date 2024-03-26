@@ -340,7 +340,7 @@ impl Libp2pService {
                     let peer_id = crate::PeerId::from(peer_id);
                     openmina_core::log::error!(
                         openmina_core::log::system_time();
-                        node_id = crate::PeerId::from(swarm.local_peer_id().clone()).to_string(),
+                        node_id = crate::PeerId::from(*swarm.local_peer_id()).to_string(),
                         summary = format!("Cmd::Dial(...)"),
                         peer_id = peer_id.to_string(),
                         error = e.to_string()
@@ -658,7 +658,7 @@ impl Libp2pService {
                 let peer_id = peer_id.as_ref().map_or("<unknown>", String::as_str);
                 openmina_core::log::info!(
                     openmina_core::log::system_time();
-                    node_id = crate::PeerId::from(swarm.local_peer_id().clone()).to_string(),
+                    node_id = crate::PeerId::from(*swarm.local_peer_id()).to_string(),
                     kind = "libp2p::Dialing",
                     summary = format!("peer_id: {peer_id}"),
                     peer_id = peer_id,
@@ -669,7 +669,7 @@ impl Libp2pService {
                 let peer_id: crate::PeerId = peer_id.into();
                 openmina_core::log::info!(
                     openmina_core::log::system_time();
-                    node_id = crate::PeerId::from(swarm.local_peer_id().clone()).to_string(),
+                    node_id = crate::PeerId::from(*swarm.local_peer_id()).to_string(),
                     kind = "libp2p::ConnectionEstablished",
                     summary = format!("peer_id: {}", peer_id),
                     peer_id = peer_id.to_string(),

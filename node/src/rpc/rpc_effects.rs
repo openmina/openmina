@@ -178,7 +178,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                         }
                     };
                     RpcPeerInfo {
-                        peer_id: peer_id.clone(),
+                        peer_id: *peer_id,
                         connection_status,
                         address: state.dial_opts.as_ref().map(|opts| opts.to_string()),
                         best_tip: best_tip.map(|bt| bt.hash.clone()),

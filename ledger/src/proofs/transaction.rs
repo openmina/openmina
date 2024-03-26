@@ -476,7 +476,7 @@ pub mod plonk_curve_ops {
         }
 
         let bits_lsb = {
-            let mut bits_msb = bits_msb.clone();
+            let mut bits_msb = bits_msb;
             bits_msb.reverse();
             bits_msb
         };
@@ -2688,7 +2688,7 @@ pub mod transaction_snark {
         };
 
         w.exists_no_check(match before_cliff {
-            Boolean::True => initial_minimum_balance.clone(),
+            Boolean::True => *initial_minimum_balance,
             Boolean::False => else_value,
         })
     }
@@ -2818,7 +2818,7 @@ pub mod transaction_snark {
 
         let current_global_slot = global_slot;
         let user_command_failure =
-            user_command_failure::compute_as_prover(current_global_slot.clone(), tx, &ledger, w);
+            user_command_failure::compute_as_prover(current_global_slot, tx, &ledger, w);
 
         let user_command_fails = Boolean::any(&user_command_failure.to_list(), w);
         let fee = payload.common.fee.to_checked();
@@ -2836,7 +2836,7 @@ pub mod transaction_snark {
 
         let pending_coinbase_stack_with_state = pending_coinbase_init.checked_push_state(
             state_body_hash,
-            current_global_slot.clone(),
+            current_global_slot,
             w,
         );
 
@@ -3001,7 +3001,7 @@ pub mod transaction_snark {
                     let account_creation_fee = {
                         // We don't use `exists_no_check` here because both are constants
                         let magnitude = if should_pay_to_create.as_bool() {
-                            account_creation_amount.clone()
+                            account_creation_amount
                         } else {
                             CheckedAmount::zero()
                         };
@@ -3026,10 +3026,10 @@ pub mod transaction_snark {
                     burned_tokens = amt;
                 }
 
-                let txn_global_slot = current_global_slot.clone();
+                let txn_global_slot = current_global_slot;
                 let timing = {
                     let txn_amount = w.exists_no_check(match amount.sgn {
-                        Sgn::Neg => amount.magnitude.clone(),
+                        Sgn::Neg => amount.magnitude,
                         Sgn::Pos => CheckedAmount::zero(),
                     });
 
@@ -3201,7 +3201,7 @@ pub mod transaction_snark {
                         };
 
                         let account_creation_fee_neg =
-                            CheckedSigned::of_unsigned(account_creation_fee.clone()).negate();
+                            CheckedSigned::of_unsigned(account_creation_fee).negate();
 
                         account_creation_fee_neg.set_value(); // We set it because it's a Constant
                         new_account_fees.set_value(); // We set it because it's a Constant
@@ -3479,7 +3479,7 @@ pub mod transaction_snark {
             let else_value = {
                 let amount_fee = CheckedAmount::of_fee(&payload.common.fee.to_checked());
 
-                let user_command_excess = CheckedSigned::of_unsigned(amount_fee.clone());
+                let user_command_excess = CheckedSigned::of_unsigned(amount_fee);
 
                 let (fee_transfer_excess, fee_transfer_excess_overflowed) = {
                     let (magnitude, overflow) =
@@ -3496,7 +3496,7 @@ pub mod transaction_snark {
                     Boolean::True => fee_transfer_excess,
                     Boolean::False => user_command_excess,
                 };
-                w.exists_no_check(value.magnitude.clone());
+                w.exists_no_check(value.magnitude);
                 value
             };
 
@@ -3511,8 +3511,8 @@ pub mod transaction_snark {
                 Boolean::True => CheckedSigned::of_unsigned(payload.body.amount.to_checked()),
                 Boolean::False => CheckedSigned::of_unsigned(CheckedAmount::zero()),
             };
-            w.exists_no_check(expected_supply_increase.magnitude.clone());
-            w.exists_no_check(expected_supply_increase.magnitude.clone());
+            w.exists_no_check(expected_supply_increase.magnitude);
+            w.exists_no_check(expected_supply_increase.magnitude);
 
             let (amt0, _overflow0) = expected_supply_increase
                 .add_flagged(&CheckedSigned::of_unsigned(burned_tokens).negate(), w);

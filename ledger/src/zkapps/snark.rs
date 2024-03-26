@@ -631,7 +631,7 @@ impl GlobalStateInterface for GlobalStateForProof {
         self.supply_increase = supply_increase;
     }
     fn block_global_slot(&self) -> Self::GlobalSlotSinceGenesis {
-        self.block_global_slot.clone()
+        self.block_global_slot
     }
 }
 
@@ -1012,7 +1012,7 @@ impl AccountInterface for SnarkAccount {
         let (_min_balance, timing) = check_timing(
             account,
             None,
-            txn_global_slot.clone(),
+            *txn_global_slot,
             timed_balance_check,
             w,
         );
@@ -1336,7 +1336,7 @@ fn verification_key_perm_fallback_to_signature_with_older_version(
     } = encode_auth(auth);
 
     let on_true = SnarkBranch::make(w, |_| AuthRequired::Signature);
-    let on_false = SnarkBranch::make(w, |_| auth.clone());
+    let on_false = SnarkBranch::make(w, |_| *auth);
 
     w.on_if(
         signature_sufficient.neg(),
