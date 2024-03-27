@@ -1,3 +1,4 @@
+use openmina_core::block::ArcBlockWithHash;
 use p2p::channels::rpc::P2pChannelsRpcAction;
 use redux::ActionMeta;
 
@@ -8,8 +9,8 @@ use crate::Store;
 
 use super::ledger::snarked::TransitionFrontierSyncLedgerSnarkedAction;
 use super::ledger::staged::TransitionFrontierSyncLedgerStagedAction;
-use super::ledger::TransitionFrontierSyncLedgerAction;
-use super::TransitionFrontierSyncAction;
+use super::ledger::{SyncLedgerTarget, TransitionFrontierSyncLedgerAction};
+use super::{TransitionFrontierSyncAction, TransitionFrontierSyncState};
 
 impl TransitionFrontierSyncAction {
     pub fn effects<S: redux::Service>(&self, _: &ActionMeta, store: &mut Store<S>)
@@ -43,7 +44,11 @@ impl TransitionFrontierSyncAction {
                     store.dispatch(TransitionFrontierSyncAction::LedgerRootPending);
                 }
             }
-            TransitionFrontierSyncAction::BestTipUpdate { .. } => {
+            TransitionFrontierSyncAction::BestTipUpdate { best_tip, .. } => {
+                // TODO(tizoc): this is currently required because how how complicated the BestTipUpdate reducer is,
+                // once that is simplified this should be handled in separate actions.
+                maybe_copy_ledgers_for_sync(store, best_tip);
+
                 // if root snarked ledger changed.
                 store.dispatch(TransitionFrontierSyncLedgerAction::Init);
                 // if root snarked ledger stayed same but root block changed
@@ -57,6 +62,14 @@ impl TransitionFrontierSyncAction {
 
                 // TODO(binier): cleanup ledgers
             }
+            // TODO(tizoc): this action is never called with the current implementation,
+            // either remove it or figure out how to recover it as a reaction to
+            // `BestTipUpdate` above. Currently this logic is handled by 
+            // `maybe_copy_ledgers_for_sync` at the end of this file.
+            // Same kind of applies to `LedgerNextEpochPending` and `LedgerRootPending`
+            // in some cases, but issue is mostly about `LedgerStakingPending` because
+            // it is the one most likely to be affected by the first `BestTipUpdate`
+            // action processed by the state machine.
             TransitionFrontierSyncAction::LedgerStakingPending => {
                 // The staking ledger is equal to the genesis ledger with changes on top, so
                 // we use it as a base to save work during synchronization.
@@ -64,11 +77,13 @@ impl TransitionFrontierSyncAction {
                 let target = super::ledger::SyncLedgerTarget::staking_epoch(best_tip);
                 let origin = best_tip.genesis_ledger_hash().clone();
                 let target = target.snarked_ledger_hash;
+
                 // TODO: for the async ledger this should be handled in intermediary action
                 store
                     .service()
-                    .copy_snarked_ledger_contents(origin, target, false)
+                    .copy_snarked_ledger_contents_for_sync(origin, target, false)
                     .unwrap();
+
                 store.dispatch(TransitionFrontierSyncLedgerAction::Init);
             }
             TransitionFrontierSyncAction::LedgerStakingSuccess => {
@@ -93,7 +108,7 @@ impl TransitionFrontierSyncAction {
                 // TODO: for the async ledger this should be handled in intermediary action
                 store
                     .service()
-                    .copy_snarked_ledger_contents(origin, target, false)
+                    .copy_snarked_ledger_contents_for_sync(origin, target, false)
                     .unwrap();
 
                 store.dispatch(TransitionFrontierSyncLedgerAction::Init);
@@ -117,7 +132,7 @@ impl TransitionFrontierSyncAction {
                 // TODO: for the async ledger this should be handled in intermediary action
                 store
                     .service()
-                    .copy_snarked_ledger_contents(origin, target, false)
+                    .copy_snarked_ledger_contents_for_sync(origin, target, false)
                     .unwrap();
                 store.dispatch(TransitionFrontierSyncLedgerAction::Init);
             }
@@ -260,4 +275,49 @@ impl TransitionFrontierSyncAction {
             TransitionFrontierSyncAction::Ledger(_) => {}
         }
     }
+}
+
+/// For snarked ledger sync targets, copy the previous snarked ledger if required
+fn maybe_copy_ledgers_for_sync<S>(store: &mut Store<S>, best_tip: &ArcBlockWithHash)
+where
+    S: TransitionFrontierService + TransitionFrontierSyncLedgerSnarkedService,
+{
+    let sync = &store.state().transition_frontier.sync;
+
+    let (target, origin) = match sync {
+        TransitionFrontierSyncState::StakingLedgerPending(_) => (
+            SyncLedgerTarget::staking_epoch(best_tip).snarked_ledger_hash,
+            best_tip.genesis_ledger_hash().clone(),
+        ),
+        TransitionFrontierSyncState::NextEpochLedgerPending(_) => {
+            let root_block = sync.root_block().unwrap();
+            let Some(next_epoch_sync) =
+                SyncLedgerTarget::next_epoch(best_tip, root_block)
+            else {
+                return;
+            };
+
+            (
+                next_epoch_sync.snarked_ledger_hash,
+                SyncLedgerTarget::staking_epoch(best_tip).snarked_ledger_hash,
+            )
+        }
+        TransitionFrontierSyncState::RootLedgerPending(_) => {
+            let root_block = sync.root_block().unwrap();
+            let next_epoch_sync = super::ledger::SyncLedgerTarget::next_epoch(best_tip, root_block)
+                .unwrap_or_else(|| super::ledger::SyncLedgerTarget::staking_epoch(best_tip));
+            let origin = next_epoch_sync.snarked_ledger_hash;
+            let target = root_block.snarked_ledger_hash().clone();
+
+            (target, origin)
+        }
+        _ => {
+            return;
+        }
+    };
+
+    store
+        .service()
+        .copy_snarked_ledger_contents_for_sync(origin, target, false)
+        .unwrap();
 }
