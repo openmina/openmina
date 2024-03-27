@@ -140,7 +140,14 @@ impl LedgerCtx {
             .or_else(|| self.sync.mask(hash))
     }
 
-    fn copy_snarked_ledger_contents(
+    /// Returns the mask for a snarked ledger being synchronized or an error if it is not present
+    pub fn pending_sync_snarked_ledger_mask(&self, hash: &LedgerHash) -> Result<Mask, String> {
+        self.sync.pending_sync_snarked_ledger_mask(hash)
+    }
+
+    /// Copies the contents of an existing snarked ledger into the target
+    /// hash under the pending sync snarked ledgers state.
+    fn copy_snarked_ledger_contents_for_sync(
         &mut self,
         origin_snarked_ledger_hash: LedgerHash,
         target_snarked_ledger_hash: LedgerHash,
@@ -172,6 +179,7 @@ impl LedgerCtx {
         self.sync
             .snarked_ledgers
             .insert(target_snarked_ledger_hash, target);
+
 
         Ok(true)
     }
@@ -386,6 +394,13 @@ impl LedgerSyncState {
             .or_else(|| Some((self.staged_ledgers.get(hash)?.ledger(), true)))
     }
 
+    fn pending_sync_snarked_ledger_mask(&self, hash: &LedgerHash) -> Result<Mask, String> {
+        self.snarked_ledgers
+            .get(hash)
+            .cloned()
+            .ok_or_else(|| format!("Missing sync snarked ledger {}", hash.to_string()))
+    }
+
     /// Returns a [Mask] instance for the snarked ledger with [hash]. If it doesn't
     /// exist a new instance is created.
     fn snarked_ledger_mut(&mut self, hash: LedgerHash) -> &mut Mask {
@@ -417,13 +432,13 @@ impl<T: LedgerService> TransitionFrontierSyncLedgerSnarkedService for T {
         Ok(())
     }
 
-    fn copy_snarked_ledger_contents(
+    fn copy_snarked_ledger_contents_for_sync(
         &mut self,
         origin_snarked_ledger_hash: LedgerHash,
         target_snarked_ledger_hash: LedgerHash,
         overwrite: bool,
     ) -> Result<bool, String> {
-        self.ctx_mut().copy_snarked_ledger_contents(
+        self.ctx_mut().copy_snarked_ledger_contents_for_sync(
             origin_snarked_ledger_hash,
             target_snarked_ledger_hash,
             overwrite,
@@ -435,7 +450,9 @@ impl<T: LedgerService> TransitionFrontierSyncLedgerSnarkedService for T {
         snarked_ledger_hash: LedgerHash,
         parent: &LedgerAddress,
     ) -> Result<(LedgerHash, LedgerHash), String> {
-        let mask = self.ctx_mut().sync.snarked_ledger_mut(snarked_ledger_hash);
+        let mut mask = self
+            .ctx_mut()
+            .pending_sync_snarked_ledger_mask(&snarked_ledger_hash)?;
         let left_hash = LedgerHash::from_fp(mask.get_inner_hash_at_addr(parent.child_left())?);
         let right_hash = LedgerHash::from_fp(mask.get_inner_hash_at_addr(parent.child_right())?);
 
@@ -448,7 +465,9 @@ impl<T: LedgerService> TransitionFrontierSyncLedgerSnarkedService for T {
         parent: &LedgerAddress,
         accounts: Vec<MinaBaseAccountBinableArgStableV2>,
     ) -> Result<LedgerHash, String> {
-        let mask = self.ctx_mut().sync.snarked_ledger_mut(snarked_ledger_hash);
+        let mut mask = self
+            .ctx_mut()
+            .pending_sync_snarked_ledger_mask(&snarked_ledger_hash)?;
         let accounts: Vec<_> = accounts
             .into_iter()
             .map(|account| Box::new((&account).into()))

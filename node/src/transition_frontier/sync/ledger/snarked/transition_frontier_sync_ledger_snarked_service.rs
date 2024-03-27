@@ -13,7 +13,7 @@ pub trait TransitionFrontierSyncLedgerSnarkedService: redux::Service {
     /// Creates a new copy of the ledger stored under the `origin` hash
     /// and stores it under the `target` hash. If `overwrite` is false,
     /// only copy the ledger if the target doesn't exist already.
-    fn copy_snarked_ledger_contents(
+    fn copy_snarked_ledger_contents_for_sync(
         &mut self,
         origin: LedgerHash,
         target: LedgerHash,
