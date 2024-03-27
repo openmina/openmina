@@ -17,8 +17,13 @@ static SYNC_PENDING_EMPTY: BTreeMap<LedgerAddress, LedgerAddressQueryPending> = 
 #[serde_with::serde_as]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum TransitionFrontierSyncLedgerSnarkedState {
+    NumAccountsPending {
+        time: Timestamp,
+        target: SyncLedgerTarget,
+        pending_num_accounts: LedgerNumAccountsQueryPending,
+    },
     /// Doing BFS to sync snarked ledger tree.
-    Pending {
+    MerkleTreeSyncPending {
         time: Timestamp,
         target: SyncLedgerTarget,
         /// Number of accounts in this ledger (as claimed by the Num_accounts query result)
@@ -28,12 +33,10 @@ pub enum TransitionFrontierSyncLedgerSnarkedState {
         /// Number of hashes received and accepted so far
         num_hashes_accepted: u64,
         /// Queue of addresses to query and the expected contents hash
-        queue: VecDeque<LedgerQueryQueued>,
+        queue: VecDeque<LedgerAddressQuery>,
         /// Pending ongoing address queries and their attempts
         #[serde_as(as = "Vec<(_, _)>")]
         pending_addresses: BTreeMap<LedgerAddress, LedgerAddressQueryPending>,
-        /// Pending num account query attempts
-        pending_num_accounts: Option<LedgerNumAccountsQueryPending>,
     },
     Success {
         time: Timestamp,
@@ -42,12 +45,9 @@ pub enum TransitionFrontierSyncLedgerSnarkedState {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum LedgerQueryQueued {
-    NumAccounts,
-    Address {
-        address: LedgerAddress,
-        expected_hash: LedgerHash,
-    },
+pub struct LedgerAddressQuery {
+    pub address: LedgerAddress,
+    pub expected_hash: LedgerHash,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -57,9 +57,8 @@ pub struct LedgerAddressQueryPending {
     pub attempts: BTreeMap<PeerId, PeerRpcState>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Default, Debug, Clone)]
 pub struct LedgerNumAccountsQueryPending {
-    pub time: Timestamp,
     pub attempts: BTreeMap<PeerId, PeerRpcState>,
 }
 
@@ -115,21 +114,25 @@ impl PeerRpcState {
 
 impl TransitionFrontierSyncLedgerSnarkedState {
     pub fn pending(time: Timestamp, target: SyncLedgerTarget) -> Self {
-        Self::Pending {
+        Self::NumAccountsPending {
             time,
             target,
-            num_accounts: 0,
-            num_accounts_accepted: 0,
-            num_hashes_accepted: 0,
-            queue: vec![LedgerQueryQueued::NumAccounts].into(),
-            pending_addresses: Default::default(),
             pending_num_accounts: Default::default(),
+        }
+    }
+
+    pub fn is_pending(&self) -> bool {
+        match self {
+            Self::NumAccountsPending { .. } => true,
+            Self::MerkleTreeSyncPending { .. } => true,
+            Self::Success { .. } => false,
         }
     }
 
     pub fn target(&self) -> &SyncLedgerTarget {
         match self {
-            Self::Pending { target, .. } => target,
+            Self::NumAccountsPending { target, .. } => target,
+            Self::MerkleTreeSyncPending { target, .. } => target,
             Self::Success { target, .. } => target,
         }
     }
@@ -140,26 +143,24 @@ impl TransitionFrontierSyncLedgerSnarkedState {
 
     pub fn is_num_accounts_query_next(&self) -> bool {
         match self {
-            Self::Pending { queue, .. } => queue
-                .front()
-                .map_or(false, |q| matches!(q, LedgerQueryQueued::NumAccounts)),
+            Self::NumAccountsPending { .. } => true,
             _ => false,
         }
     }
 
     pub fn num_accounts_pending(&self) -> Option<&LedgerNumAccountsQueryPending> {
         match self {
-            Self::Pending {
+            Self::NumAccountsPending {
                 pending_num_accounts,
                 ..
-            } => pending_num_accounts.as_ref(),
+            } => Some(pending_num_accounts),
             _ => None,
         }
     }
 
     pub fn fetch_pending(&self) -> Option<&BTreeMap<LedgerAddress, LedgerAddressQueryPending>> {
         match self {
-            Self::Pending {
+            Self::MerkleTreeSyncPending {
                 pending_addresses, ..
             } => Some(pending_addresses),
             _ => None,
@@ -168,7 +169,7 @@ impl TransitionFrontierSyncLedgerSnarkedState {
 
     pub fn sync_address_retry_iter(&self) -> impl '_ + Iterator<Item = LedgerAddress> {
         let pending = match self {
-            Self::Pending {
+            Self::MerkleTreeSyncPending {
                 pending_addresses, ..
             } => pending_addresses,
             _ => &SYNC_PENDING_EMPTY,
@@ -181,8 +182,8 @@ impl TransitionFrontierSyncLedgerSnarkedState {
 
     pub fn sync_address_next(&self) -> Option<(LedgerAddress, LedgerHash)> {
         match self {
-            Self::Pending { queue, .. } => match queue.front().map(|a| a.clone()) {
-                Some(LedgerQueryQueued::Address {
+            Self::MerkleTreeSyncPending { queue, .. } => match queue.front().map(|a| a.clone()) {
+                Some(LedgerAddressQuery {
                     address,
                     expected_hash,
                 }) => Some((address, expected_hash)),
@@ -194,12 +195,13 @@ impl TransitionFrontierSyncLedgerSnarkedState {
 
     pub fn estimation(&self) -> Option<LedgerSyncProgress> {
         match self {
-            TransitionFrontierSyncLedgerSnarkedState::Pending {
+            TransitionFrontierSyncLedgerSnarkedState::NumAccountsPending { .. } => None,
+            TransitionFrontierSyncLedgerSnarkedState::MerkleTreeSyncPending {
                 num_accounts,
                 num_accounts_accepted,
                 num_hashes_accepted,
                 ..
-            } if *num_accounts > 0 => {
+            } => {
                 // TODO(tizoc): this approximation is very rough, could be improved.
                 // Also we count elements to be fetched and not request to be made which
                 // would be more accurate (accounts are fetched in groups of 64, hashes of 2).
@@ -221,7 +223,6 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                     estimation: 1,
                 })
             }
-            _ => None,
         }
     }
 
@@ -231,14 +232,14 @@ impl TransitionFrontierSyncLedgerSnarkedState {
         rpc_id: P2pRpcId,
     ) -> Option<&LedgerNumAccountsQueryPending> {
         match self {
-            Self::Pending {
-                pending_num_accounts: Some(pending),
+            Self::NumAccountsPending {
+                pending_num_accounts,
                 ..
             } => {
                 let expected_rpc_id = rpc_id;
-                pending.attempts.get(peer_id).and_then(|s| {
+                pending_num_accounts.attempts.get(peer_id).and_then(|s| {
                     if s.rpc_id()? == expected_rpc_id {
-                        Some(pending)
+                        Some(pending_num_accounts)
                     } else {
                         None
                     }
@@ -254,13 +255,12 @@ impl TransitionFrontierSyncLedgerSnarkedState {
         rpc_id: P2pRpcId,
     ) -> Option<&mut PeerRpcState> {
         match self {
-            Self::Pending {
+            Self::NumAccountsPending {
                 pending_num_accounts,
                 ..
             } => {
                 let expected_rpc_id = rpc_id;
                 pending_num_accounts
-                    .as_mut()?
                     .attempts
                     .get_mut(peer_id)
                     .filter(|s| match s {
@@ -280,7 +280,7 @@ impl TransitionFrontierSyncLedgerSnarkedState {
         rpc_id: P2pRpcId,
     ) -> Option<(&LedgerAddress, &LedgerAddressQueryPending)> {
         match self {
-            Self::Pending {
+            Self::MerkleTreeSyncPending {
                 pending_addresses, ..
             } => {
                 let expected_rpc_id = rpc_id;
@@ -300,7 +300,7 @@ impl TransitionFrontierSyncLedgerSnarkedState {
         rpc_id: P2pRpcId,
     ) -> Option<&mut PeerRpcState> {
         match self {
-            Self::Pending {
+            Self::MerkleTreeSyncPending {
                 pending_addresses: pending,
                 ..
             } => {
@@ -323,7 +323,7 @@ impl TransitionFrontierSyncLedgerSnarkedState {
         peer_id: &'a PeerId,
     ) -> impl 'a + Iterator<Item = P2pRpcId> {
         let pending = match self {
-            Self::Pending {
+            Self::MerkleTreeSyncPending {
                 pending_addresses, ..
             } => pending_addresses,
             _ => &SYNC_PENDING_EMPTY,
@@ -338,10 +338,10 @@ impl TransitionFrontierSyncLedgerSnarkedState {
 
     pub fn peer_num_accounts_rpc_id(&self, peer_id: &PeerId) -> Option<P2pRpcId> {
         let pending = match self {
-            Self::Pending {
+            Self::NumAccountsPending {
                 pending_num_accounts,
                 ..
-            } => pending_num_accounts.as_ref(),
+            } => Some(pending_num_accounts),
             _ => None,
         };
 

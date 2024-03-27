@@ -1,12 +1,10 @@
-use crate::{
-    ledger::{ledger_empty_hash_at_depth, tree_height_for_num_accounts, LEDGER_DEPTH},
-    transition_frontier::sync::ledger::snarked::{
-        LedgerNumAccountsQueryPending, LedgerQueryQueued,
-    },
-};
+use std::iter;
+
+use crate::ledger::{ledger_empty_hash_at_depth, tree_height_for_num_accounts, LEDGER_DEPTH};
 
 use super::{
-    LedgerAddressQueryPending, PeerRpcState, TransitionFrontierSyncLedgerSnarkedAction,
+    LedgerAddressQuery, LedgerAddressQueryPending, PeerRpcState,
+    TransitionFrontierSyncLedgerSnarkedAction,
     TransitionFrontierSyncLedgerSnarkedActionWithMetaRef, TransitionFrontierSyncLedgerSnarkedState,
 };
 
@@ -20,38 +18,29 @@ impl TransitionFrontierSyncLedgerSnarkedState {
             TransitionFrontierSyncLedgerSnarkedAction::PeersQuery => {}
 
             TransitionFrontierSyncLedgerSnarkedAction::PeerQueryNumAccountsInit { peer_id } => {
-                if let Self::Pending {
-                    queue,
+                if let Self::NumAccountsPending {
                     pending_num_accounts,
                     ..
                 } = self
                 {
-                    let next = queue.pop_front();
-                    debug_assert!(matches!(next, Some(LedgerQueryQueued::NumAccounts)));
-
-                    *pending_num_accounts = Some(LedgerNumAccountsQueryPending {
-                        time: meta.time(),
-                        attempts: std::iter::once((
-                            *peer_id,
-                            PeerRpcState::Init { time: meta.time() },
-                        ))
-                        .collect(),
-                    });
+                    pending_num_accounts
+                        .attempts
+                        .insert(*peer_id, PeerRpcState::Init { time: meta.time() });
                 }
             }
             TransitionFrontierSyncLedgerSnarkedAction::PeerQueryNumAccountsPending {
                 peer_id,
                 rpc_id,
             } => {
-                let Self::Pending {
-                    pending_num_accounts: Some(pending),
+                let Self::NumAccountsPending {
+                    pending_num_accounts,
                     ..
                 } = self
                 else {
                     return;
                 };
 
-                let Some(rpc_state) = pending.attempts.get_mut(peer_id) else {
+                let Some(rpc_state) = pending_num_accounts.attempts.get_mut(peer_id) else {
                     return;
                 };
 
@@ -61,12 +50,12 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                 };
             }
             TransitionFrontierSyncLedgerSnarkedAction::PeerQueryNumAccountsRetry { peer_id } => {
-                if let Self::Pending {
-                    pending_num_accounts: Some(pending),
+                if let Self::NumAccountsPending {
+                    pending_num_accounts,
                     ..
                 } = self
                 {
-                    pending
+                    pending_num_accounts
                         .attempts
                         .insert(*peer_id, PeerRpcState::Init { time: meta.time() });
                 }
@@ -103,34 +92,32 @@ impl TransitionFrontierSyncLedgerSnarkedState {
             }
             TransitionFrontierSyncLedgerSnarkedAction::NumAccountsReceived { .. } => {}
             TransitionFrontierSyncLedgerSnarkedAction::NumAccountsAccepted {
-                num_accounts: accepted_num_accounts,
+                num_accounts,
                 contents_hash,
                 ..
             } => {
-                let Self::Pending {
-                    pending_num_accounts,
-                    num_accounts,
-                    num_accounts_accepted,
-                    num_hashes_accepted,
-                    queue,
-                    ..
-                } = self
-                else {
+                let Self::NumAccountsPending { target, .. } = self else {
                     return;
                 };
 
-                *num_accounts = *accepted_num_accounts;
-                *num_accounts_accepted = 0;
-                *num_hashes_accepted = 0;
-                *pending_num_accounts = None;
-
                 // We know at which node to begin querying, so we skip all the intermediary depths
-                queue.push_back(LedgerQueryQueued::Address {
+
+                let first_query = LedgerAddressQuery {
                     address: ledger::Address::first(
                         LEDGER_DEPTH - tree_height_for_num_accounts(*num_accounts),
                     ),
                     expected_hash: contents_hash.clone(),
-                });
+                };
+
+                *self = Self::MerkleTreeSyncPending {
+                    time: meta.time(),
+                    target: target.clone(),
+                    num_accounts: *num_accounts,
+                    num_accounts_accepted: 0,
+                    num_hashes_accepted: 0,
+                    queue: iter::once(first_query).collect(),
+                    pending_addresses: Default::default(),
+                };
             }
             TransitionFrontierSyncLedgerSnarkedAction::NumAccountsRejected { .. } => {
                 // TODO(tizoc): should this be reflected in the state somehow?
@@ -141,7 +128,7 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                 expected_hash,
                 peer_id,
             } => {
-                if let Self::Pending {
+                if let Self::MerkleTreeSyncPending {
                     queue,
                     pending_addresses: pending,
                     ..
@@ -168,7 +155,7 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                 address,
                 peer_id,
             } => {
-                if let Self::Pending {
+                if let Self::MerkleTreeSyncPending {
                     pending_addresses: pending,
                     ..
                 } = self
@@ -185,7 +172,7 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                 peer_id,
                 rpc_id,
             } => {
-                let Self::Pending {
+                let Self::MerkleTreeSyncPending {
                     pending_addresses: pending,
                     ..
                 } = self
@@ -241,7 +228,7 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                 previous_hashes,
                 ..
             } => {
-                let Self::Pending {
+                let Self::MerkleTreeSyncPending {
                     queue,
                     pending_addresses: pending,
                     num_hashes_accepted,
@@ -267,13 +254,13 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                 *num_hashes_accepted += (*left != empty) as u64 + (*right != empty) as u64;
 
                 if left != previous_left {
-                    queue.push_back(LedgerQueryQueued::Address {
+                    queue.push_back(LedgerAddressQuery {
                         address: address.child_left(),
                         expected_hash: left.clone(),
                     });
                 }
                 if right != previous_right {
-                    queue.push_back(LedgerQueryQueued::Address {
+                    queue.push_back(LedgerAddressQuery {
                         address: address.child_right(),
                         expected_hash: right.clone(),
                     });
@@ -288,7 +275,7 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                 count,
                 ..
             } => {
-                let Self::Pending {
+                let Self::MerkleTreeSyncPending {
                     pending_addresses: pending,
                     num_accounts_accepted,
                     ..
@@ -304,7 +291,7 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                 // TODO(tizoc): should this be reflected in the state somehow?
             }
             TransitionFrontierSyncLedgerSnarkedAction::Success => {
-                let Self::Pending { target, .. } = self else {
+                let Self::MerkleTreeSyncPending { target, .. } = self else {
                     return;
                 };
                 *self = Self::Success {
