@@ -7,7 +7,7 @@ use crate::p2p::PeerId;
 use crate::transition_frontier::sync::ledger::TransitionFrontierSyncLedgerState;
 
 use super::{
-    LedgerQueryQueued, PeerLedgerQueryError, PeerLedgerQueryResponse, PeerRpcState,
+    LedgerAddressQuery, PeerLedgerQueryError, PeerLedgerQueryResponse, PeerRpcState,
     TransitionFrontierSyncLedgerSnarkedState,
 };
 
@@ -152,28 +152,23 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerSnar
             }
 
             // num accounts
-            TransitionFrontierSyncLedgerSnarkedAction::PeerQueryNumAccountsInit { peer_id } => {
-                None.or_else(|| {
+            TransitionFrontierSyncLedgerSnarkedAction::PeerQueryNumAccountsInit { peer_id } => None
+                .or_else(|| {
                     let target_best_tip = state.transition_frontier.sync.best_tip()?;
                     let ledger = state.transition_frontier.sync.ledger()?.snarked()?;
                     let target = ledger.target();
 
-                    // True if the next queued query is NumAccounts
-                    let check_num_accounts = match ledger {
-                        TransitionFrontierSyncLedgerSnarkedState::Pending {
-                            pending_num_accounts: None,
-                            ..
-                        } => ledger.is_num_accounts_query_next(),
-                        _ => false,
-                    };
+                    let check_num_accounts = matches!(
+                        ledger,
+                        TransitionFrontierSyncLedgerSnarkedState::NumAccountsPending { .. }
+                    );
 
                     let peer = state.p2p.get_ready_peer(peer_id)?;
                     let check_peer_available = check_peer_available(peer, target, target_best_tip);
 
                     Some(check_num_accounts && check_peer_available)
                 })
-                .unwrap_or(false)
-            }
+                .unwrap_or(false),
             TransitionFrontierSyncLedgerSnarkedAction::PeerQueryNumAccountsPending {
                 peer_id,
                 ..
@@ -195,14 +190,10 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerSnar
                     let ledger = state.transition_frontier.sync.ledger()?.snarked()?;
                     let target = ledger.target();
 
-                    // True if the next queued query is NumAccounts
-                    let check_num_accounts = match ledger {
-                        TransitionFrontierSyncLedgerSnarkedState::Pending {
-                            pending_num_accounts: Some(_),
-                            ..
-                        } => ledger.is_num_accounts_query_next(),
-                        _ => false,
-                    };
+                    let check_num_accounts = matches!(
+                        ledger,
+                        TransitionFrontierSyncLedgerSnarkedState::NumAccountsPending { .. }
+                    );
 
                     let peer = state.p2p.get_ready_peer(peer_id)?;
                     let check_peer_available = check_peer_available(peer, target, target_best_tip);
@@ -266,20 +257,17 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerSnar
                     // This is true if there is a next address that needs to be queried
                     // from a peer and it matches the one requested by this action.
                     let check_next_addr = match ledger {
-                        TransitionFrontierSyncLedgerSnarkedState::Pending {
+                        TransitionFrontierSyncLedgerSnarkedState::MerkleTreeSyncPending {
                             queue,
                             pending_addresses: pending,
                             ..
                         } => queue.front().map_or(false, |query| {
-                            if let LedgerQueryQueued::Address {
+                            let LedgerAddressQuery {
                                 address: next_addr, ..
-                            } = query
-                            {
-                                next_addr == address
-                                    && (next_addr.to_index().0 != 0 || pending.is_empty())
-                            } else {
-                                false
-                            }
+                            } = query;
+
+                            next_addr == address
+                                && (next_addr.to_index().0 != 0 || pending.is_empty())
                         }),
                         _ => false,
                     };
@@ -419,7 +407,7 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerSnar
                 .ledger()
                 .and_then(|s| s.snarked())
                 .map_or(false, |s| match s {
-                    TransitionFrontierSyncLedgerSnarkedState::Pending {
+                    TransitionFrontierSyncLedgerSnarkedState::MerkleTreeSyncPending {
                         queue,
                         pending_addresses: pending,
                         ..
