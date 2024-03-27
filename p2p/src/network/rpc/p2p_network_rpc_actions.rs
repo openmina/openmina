@@ -26,6 +26,10 @@ pub enum P2pNetworkRpcAction {
         stream_id: StreamId,
         message: RpcMessage,
     },
+    PrunePending {
+        peer_id: PeerId,
+        stream_id: StreamId,
+    },
     OutgoingQuery {
         peer_id: PeerId,
         query: QueryHeader,
@@ -57,6 +61,7 @@ impl P2pNetworkRpcAction {
             Self::Init { stream_id, .. } => RpcStreamId::Exact(*stream_id),
             Self::IncomingData { stream_id, .. } => RpcStreamId::Exact(*stream_id),
             Self::IncomingMessage { stream_id, .. } => RpcStreamId::Exact(*stream_id),
+            Self::PrunePending { stream_id, .. } => RpcStreamId::Exact(*stream_id),
             Self::OutgoingQuery { .. } => RpcStreamId::AnyOutgoing,
             Self::OutgoingResponse { .. } => RpcStreamId::AnyOutgoing,
             Self::OutgoingData { stream_id, .. } => RpcStreamId::Exact(*stream_id),
@@ -68,6 +73,7 @@ impl P2pNetworkRpcAction {
             Self::Init { peer_id, .. } => peer_id,
             Self::IncomingData { peer_id, .. } => peer_id,
             Self::IncomingMessage { peer_id, .. } => peer_id,
+            Self::PrunePending { peer_id, .. } => peer_id,
             Self::OutgoingQuery { peer_id, .. } => peer_id,
             Self::OutgoingResponse { peer_id, .. } => peer_id,
             Self::OutgoingData { peer_id, .. } => peer_id,
@@ -102,6 +108,7 @@ impl redux::EnablingCondition<P2pState> for P2pNetworkRpcAction {
                 stream_id,
                 message,
             } => true,
+            P2pNetworkRpcAction::PrunePending { peer_id, stream_id } => true,
             P2pNetworkRpcAction::OutgoingQuery {
                 peer_id,
                 query,

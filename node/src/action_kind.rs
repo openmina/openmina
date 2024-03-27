@@ -243,6 +243,7 @@ pub enum ActionKind {
     P2pNetworkRpcOutgoingData,
     P2pNetworkRpcOutgoingQuery,
     P2pNetworkRpcOutgoingResponse,
+    P2pNetworkRpcPrunePending,
     P2pNetworkSchedulerDisconnect,
     P2pNetworkSchedulerDisconnected,
     P2pNetworkSchedulerError,
@@ -391,7 +392,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 324;
+    pub const COUNT: u16 = 325;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -1072,6 +1073,7 @@ impl ActionKindGet for P2pNetworkRpcAction {
             Self::Init { .. } => ActionKind::P2pNetworkRpcInit,
             Self::IncomingData { .. } => ActionKind::P2pNetworkRpcIncomingData,
             Self::IncomingMessage { .. } => ActionKind::P2pNetworkRpcIncomingMessage,
+            Self::PrunePending { .. } => ActionKind::P2pNetworkRpcPrunePending,
             Self::OutgoingQuery { .. } => ActionKind::P2pNetworkRpcOutgoingQuery,
             Self::OutgoingResponse { .. } => ActionKind::P2pNetworkRpcOutgoingResponse,
             Self::OutgoingData { .. } => ActionKind::P2pNetworkRpcOutgoingData,

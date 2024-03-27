@@ -6,7 +6,7 @@ use mina_p2p_messages::{
     rpc_kernel::{Error as RpcError, NeedsLength, QueryPayload, ResponsePayload, RpcMethod},
     v2,
 };
-use openmina_core::warn;
+use openmina_core::{error, warn};
 
 use crate::{
     channels::rpc::{
@@ -185,6 +185,20 @@ impl P2pNetworkRpcAction {
                         }
                     }
                     RpcMessage::Response { header, bytes } => {
+                        let (tag, version) = {
+                            let Some((id, tv)) = state.pending.clone() else {
+                                error!(meta.time(); "no query");
+                                return;
+                            };
+                            if id != header.id {
+                                error!(meta.time(); "invalid response id");
+                                return;
+                            };
+                            tv
+                        };
+                        // unset pending
+                        store.dispatch(P2pNetworkRpcAction::PrunePending { peer_id, stream_id });
+
                         fn parse_r<M: RpcMethod>(
                             mut bytes: &[u8],
                             time: redux::Timestamp,
@@ -202,65 +216,64 @@ impl P2pNetworkRpcAction {
                             }
                         }
 
-                        if let Some((_, (tag, version))) = &state.pending {
-                            if let Ok(tag) = std::str::from_utf8(tag.as_ref()) {
-                                match (tag, *version) {
-                                    (rpc::GetBestTipV2::NAME, rpc::GetBestTipV2::VERSION) => {
-                                        let Some(response) =
-                                            parse_r::<rpc::GetBestTipV2>(&bytes, meta.time())
-                                        else {
-                                            return;
-                                        };
-                                        let response = response
-                                            .ok()
-                                            .flatten()
-                                            .map(|resp| BestTipWithProof {
-                                                best_tip: resp.data.into(),
-                                                proof: (resp.proof.0, resp.proof.1.into()),
-                                            })
-                                            .map(P2pRpcResponse::BestTipWithProof);
+                        if let Ok(tag) = std::str::from_utf8(tag.as_ref()) {
+                            match (tag, version) {
+                                (rpc::GetBestTipV2::NAME, rpc::GetBestTipV2::VERSION) => {
+                                    let Some(response) =
+                                        parse_r::<rpc::GetBestTipV2>(&bytes, meta.time())
+                                    else {
+                                        return;
+                                    };
+                                    let response = response
+                                        .ok()
+                                        .flatten()
+                                        .map(|resp| BestTipWithProof {
+                                            best_tip: resp.data.into(),
+                                            proof: (resp.proof.0, resp.proof.1.into()),
+                                        })
+                                        .map(P2pRpcResponse::BestTipWithProof);
 
-                                        store.dispatch(P2pChannelsRpcAction::ResponseReceived {
-                                            peer_id,
-                                            id: header.id as _,
-                                            response,
-                                        });
-                                    }
-                                    (
-                                        rpc::AnswerSyncLedgerQueryV2::NAME,
-                                        rpc::AnswerSyncLedgerQueryV2::VERSION,
-                                    ) => {
-                                        let Some(response) = parse_r::<rpc::AnswerSyncLedgerQueryV2>(
-                                            &bytes,
-                                            meta.time(),
-                                        ) else {
-                                            return;
-                                        };
+                                    store.dispatch(P2pChannelsRpcAction::ResponseReceived {
+                                        peer_id,
+                                        id: header.id as _,
+                                        response,
+                                    });
+                                }
+                                (
+                                    rpc::AnswerSyncLedgerQueryV2::NAME,
+                                    rpc::AnswerSyncLedgerQueryV2::VERSION,
+                                ) => {
+                                    let Some(response) = parse_r::<rpc::AnswerSyncLedgerQueryV2>(
+                                        &bytes,
+                                        meta.time(),
+                                    ) else {
+                                        return;
+                                    };
 
-                                        let response = response
-                                            .ok()
-                                            .map(|x| x.0.ok())
-                                            .flatten()
-                                            .map(P2pRpcResponse::LedgerQuery);
+                                    let response = response
+                                        .ok()
+                                        .map(|x| x.0.ok())
+                                        .flatten()
+                                        .map(P2pRpcResponse::LedgerQuery);
 
-                                        store.dispatch(P2pChannelsRpcAction::ResponseReceived {
-                                            peer_id,
-                                            id: header.id as _,
-                                            response,
-                                        });
-                                    }
-                                    (
-                                        rpc::GetStagedLedgerAuxAndPendingCoinbasesAtHashV2::NAME,
-                                        rpc::GetStagedLedgerAuxAndPendingCoinbasesAtHashV2::VERSION,
-                                    ) => {
-                                        let Some(response) = parse_r::<
-                                            rpc::GetStagedLedgerAuxAndPendingCoinbasesAtHashV2,
-                                        >(
-                                            &bytes, meta.time()
-                                        ) else {
-                                            return;
-                                        };
-                                        let response = response
+                                    store.dispatch(P2pChannelsRpcAction::ResponseReceived {
+                                        peer_id,
+                                        id: header.id as _,
+                                        response,
+                                    });
+                                }
+                                (
+                                    rpc::GetStagedLedgerAuxAndPendingCoinbasesAtHashV2::NAME,
+                                    rpc::GetStagedLedgerAuxAndPendingCoinbasesAtHashV2::VERSION,
+                                ) => {
+                                    let Some(response) = parse_r::<
+                                        rpc::GetStagedLedgerAuxAndPendingCoinbasesAtHashV2,
+                                    >(
+                                        &bytes, meta.time()
+                                    ) else {
+                                        return;
+                                    };
+                                    let response = response
                                         .ok()
                                         .flatten()
                                         .map(|(scan_state, hash, pending_coinbase, needed_blocks)| {
@@ -275,79 +288,75 @@ impl P2pNetworkRpcAction {
                                         })
                                         .map(P2pRpcResponse::StagedLedgerAuxAndPendingCoinbasesAtBlock);
 
+                                    store.dispatch(P2pChannelsRpcAction::ResponseReceived {
+                                        peer_id,
+                                        id: header.id as _,
+                                        response,
+                                    });
+                                }
+                                (
+                                    rpc::GetTransitionChainV2::NAME,
+                                    rpc::GetTransitionChainV2::VERSION,
+                                ) => {
+                                    type Method = rpc::GetTransitionChainV2;
+                                    let Some(response) = parse_r::<Method>(&bytes, meta.time())
+                                    else {
+                                        return;
+                                    };
+                                    let response = response.ok().flatten().unwrap_or_default();
+
+                                    if response.is_empty() {
                                         store.dispatch(P2pChannelsRpcAction::ResponseReceived {
                                             peer_id,
                                             id: header.id as _,
-                                            response,
+                                            response: None,
+                                        });
+                                    } else {
+                                        for block in response {
+                                            let response =
+                                                Some(P2pRpcResponse::Block(Arc::new(block)));
+                                            store.dispatch(
+                                                P2pChannelsRpcAction::ResponseReceived {
+                                                    peer_id,
+                                                    id: header.id as _,
+                                                    response,
+                                                },
+                                            );
+                                        }
+                                    }
+                                }
+                                (
+                                    rpc::GetSomeInitialPeersV1ForV2::NAME,
+                                    rpc::GetSomeInitialPeersV1ForV2::VERSION,
+                                ) => {
+                                    type Method = rpc::GetSomeInitialPeersV1ForV2;
+                                    let Some(response) = parse_r::<Method>(&bytes, meta.time())
+                                    else {
+                                        // TODO: close the stream
+                                        panic!();
+                                    };
+                                    let Ok(response) = response else { return };
+                                    if response.is_empty() {
+                                        store.dispatch(P2pChannelsRpcAction::ResponseReceived {
+                                            peer_id,
+                                            id: header.id as _,
+                                            response: None,
+                                        });
+                                    } else {
+                                        let peers = response
+                                            .into_iter()
+                                            .filter_map(
+                                                P2pConnectionOutgoingInitOpts::try_from_mina_rpc,
+                                            )
+                                            .collect();
+                                        store.dispatch(P2pChannelsRpcAction::ResponseReceived {
+                                            peer_id,
+                                            id: header.id as _,
+                                            response: Some(P2pRpcResponse::InitialPeers(peers)),
                                         });
                                     }
-                                    (
-                                        rpc::GetTransitionChainV2::NAME,
-                                        rpc::GetTransitionChainV2::VERSION,
-                                    ) => {
-                                        type Method = rpc::GetTransitionChainV2;
-                                        let Some(response) = parse_r::<Method>(&bytes, meta.time())
-                                        else {
-                                            return;
-                                        };
-                                        let response = response.ok().flatten().unwrap_or_default();
-
-                                        if response.is_empty() {
-                                            store.dispatch(
-                                                P2pChannelsRpcAction::ResponseReceived {
-                                                    peer_id,
-                                                    id: header.id as _,
-                                                    response: None,
-                                                },
-                                            );
-                                        } else {
-                                            for block in response {
-                                                let response =
-                                                    Some(P2pRpcResponse::Block(Arc::new(block)));
-                                                store.dispatch(
-                                                    P2pChannelsRpcAction::ResponseReceived {
-                                                        peer_id,
-                                                        id: header.id as _,
-                                                        response,
-                                                    },
-                                                );
-                                            }
-                                        }
-                                    }
-                                    (
-                                        rpc::GetSomeInitialPeersV1ForV2::NAME,
-                                        rpc::GetSomeInitialPeersV1ForV2::VERSION,
-                                    ) => {
-                                        type Method = rpc::GetSomeInitialPeersV1ForV2;
-                                        let Some(response) = parse_r::<Method>(&bytes, meta.time())
-                                        else {
-                                            // TODO: close the stream
-                                            panic!();
-                                        };
-                                        let Ok(response) = response else { return };
-                                        if response.is_empty() {
-                                            store.dispatch(
-                                                P2pChannelsRpcAction::ResponseReceived {
-                                                    peer_id,
-                                                    id: header.id as _,
-                                                    response: None,
-                                                },
-                                            );
-                                        } else {
-                                            let peers = response.into_iter().filter_map(P2pConnectionOutgoingInitOpts::try_from_mina_rpc).collect();
-                                            store.dispatch(
-                                                P2pChannelsRpcAction::ResponseReceived {
-                                                    peer_id,
-                                                    id: header.id as _,
-                                                    response: Some(P2pRpcResponse::InitialPeers(
-                                                        peers,
-                                                    )),
-                                                },
-                                            );
-                                        }
-                                    }
-                                    _ => {}
                                 }
+                                _ => {}
                             }
                         }
                         // TODO: dispatch further action
@@ -363,6 +372,7 @@ impl P2pNetworkRpcAction {
                     });
                 }
             }
+            Self::PrunePending { .. } => {}
             Self::OutgoingQuery {
                 peer_id,
                 query,

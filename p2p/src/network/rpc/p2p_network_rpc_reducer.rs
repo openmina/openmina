@@ -15,6 +15,7 @@ impl P2pNetworkRpcState {
             P2pNetworkRpcAction::IncomingData { data, .. } => {
                 self.buffer.extend_from_slice(&data);
                 let mut offset = 0;
+                // TODO(akoptelov): there shouldn't be the case where we have multiple incoming messages at once (or at least other than heartbeat)
                 loop {
                     let buf = &self.buffer[offset..];
                     if let Some(len_bytes) = buf.get(..8).and_then(|s| s.try_into().ok()) {
@@ -55,14 +56,20 @@ impl P2pNetworkRpcState {
                 }
             }
             P2pNetworkRpcAction::IncomingMessage { message, .. } => {
-                if matches!(&message, RpcMessage::Response { .. }) {
-                    if let Some((_, req)) = &self.pending {
+                if let RpcMessage::Response { header, .. } = message {
+                    if let Some((id, req)) = &self.pending {
                         *self.total_stats.entry(req.clone()).or_default() += 1;
+                        if id != &header.id {
+                            openmina_core::error!(action.time(); "receiving response with wrong id: {}", header.id);
+                        }
                     } else {
-                        // suspicious, received some response without request
+                        openmina_core::error!(action.time(); "receiving response without query");
                     }
                 }
                 self.incoming.pop_front();
+            }
+            P2pNetworkRpcAction::PrunePending { .. } => {
+                self.pending = None;
             }
             P2pNetworkRpcAction::OutgoingQuery { query, .. } => {
                 self.last_id = query.id;
