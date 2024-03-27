@@ -13,6 +13,7 @@ pub use crate::rpc::RpcService;
 pub use crate::snark::block_verify::SnarkBlockVerifyService;
 pub use crate::snark::work_verify::SnarkWorkVerifyService;
 pub use crate::snark_pool::SnarkPoolService;
+use crate::transaction_pool::TransactionPoolLedgerService;
 pub use crate::transition_frontier::genesis::TransitionFrontierGenesisService;
 pub use crate::transition_frontier::sync::ledger::snarked::TransitionFrontierSyncLedgerSnarkedService;
 use p2p::P2pNetworkService;
@@ -32,6 +33,7 @@ pub trait Service:
     + P2pCryptoService
     + P2pNetworkService
     + LedgerService
+    + TransactionPoolLedgerService
     + TransitionFrontierGenesisService
     + TransitionFrontierSyncLedgerSnarkedService
     + SnarkPoolService

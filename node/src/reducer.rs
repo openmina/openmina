@@ -27,6 +27,9 @@ pub fn reducer(state: &mut State, action: &ActionWithMeta) {
         Action::SnarkPool(a) => {
             state.snark_pool.reducer(meta.with_action(a));
         }
+        Action::TransactionPool(a) => {
+            state.transaction_pool.reducer(meta.with_action(a));
+        }
         Action::BlockProducer(a) => {
             state
                 .block_producer

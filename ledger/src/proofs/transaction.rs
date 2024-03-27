@@ -497,6 +497,25 @@ pub struct PlonkVerificationKeyEvals<F: FieldWitness> {
     pub endomul_scalar: InnerCurve<F>,
 }
 
+impl<'de> serde::Deserialize<'de> for PlonkVerificationKeyEvals<Fp> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        v2::MinaBaseVerificationKeyWireStableV1WrapIndex::deserialize(deserializer).map(Self::from)
+    }
+}
+
+impl serde::Serialize for PlonkVerificationKeyEvals<Fp> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let v: v2::MinaBaseVerificationKeyWireStableV1WrapIndex = self.into();
+        v.serialize(serializer)
+    }
+}
+
 // Here cvars are not used correctly, but it's just temporary
 #[derive(Clone, Debug)]
 pub struct CircuitPlonkVerificationKeyEvals<F: FieldWitness> {

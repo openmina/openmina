@@ -11,6 +11,7 @@ pub use crate::p2p::P2pState;
 pub use crate::rpc::RpcState;
 pub use crate::snark::SnarkState;
 pub use crate::snark_pool::SnarkPoolState;
+use crate::transaction_pool::TransactionPoolState;
 pub use crate::transition_frontier::TransitionFrontierState;
 pub use crate::watched_accounts::WatchedAccountsState;
 use crate::ActionWithMeta;
@@ -27,6 +28,7 @@ pub struct State {
     pub transition_frontier: TransitionFrontierState,
     pub snark_pool: SnarkPoolState,
     pub external_snark_worker: ExternalSnarkWorkers,
+    pub transaction_pool: TransactionPoolState,
     pub block_producer: BlockProducerState,
     pub rpc: RpcState,
 
@@ -50,6 +52,7 @@ impl State {
             external_snark_worker: ExternalSnarkWorkers::new(now),
             block_producer: BlockProducerState::new(now, config.block_producer),
             rpc: RpcState::new(),
+            transaction_pool: TransactionPoolState::new(),
 
             watched_accounts: WatchedAccountsState::new(),
 

@@ -54,6 +54,7 @@ use crate::snark::work_verify::SnarkWorkVerifyAction;
 use crate::snark::SnarkAction;
 use crate::snark_pool::candidate::SnarkPoolCandidateAction;
 use crate::snark_pool::SnarkPoolAction;
+use crate::transaction_pool::TransactionPoolAction;
 use crate::transition_frontier::genesis::TransitionFrontierGenesisAction;
 use crate::transition_frontier::sync::ledger::snarked::TransitionFrontierSyncLedgerSnarkedAction;
 use crate::transition_frontier::sync::ledger::staged::TransitionFrontierSyncLedgerStagedAction;
@@ -344,6 +345,11 @@ pub enum ActionKind {
     SnarkWorkVerifyInit,
     SnarkWorkVerifyPending,
     SnarkWorkVerifySuccess,
+    TransactionPoolApplyTransitionFrontierDiff,
+    TransactionPoolApplyVerifiedDiff,
+    TransactionPoolBestTipChanged,
+    TransactionPoolBestTipChangedWithAccounts,
+    TransactionPoolRebroadcast,
     TransitionFrontierGenesisInject,
     TransitionFrontierSynced,
     TransitionFrontierGenesisLedgerLoadInit,
@@ -430,7 +436,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 358;
+    pub const COUNT: u16 = 363;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -450,6 +456,7 @@ impl ActionKindGet for Action {
             Self::Consensus(a) => a.kind(),
             Self::TransitionFrontier(a) => a.kind(),
             Self::SnarkPool(a) => a.kind(),
+            Self::TransactionPool(a) => a.kind(),
             Self::ExternalSnarkWorker(a) => a.kind(),
             Self::BlockProducer(a) => a.kind(),
             Self::Rpc(a) => a.kind(),
@@ -547,6 +554,22 @@ impl ActionKindGet for SnarkPoolAction {
             Self::P2pSend { .. } => ActionKind::SnarkPoolP2pSend,
             Self::CheckTimeouts => ActionKind::SnarkPoolCheckTimeouts,
             Self::JobCommitmentTimeout { .. } => ActionKind::SnarkPoolJobCommitmentTimeout,
+        }
+    }
+}
+
+impl ActionKindGet for TransactionPoolAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::BestTipChanged { .. } => ActionKind::TransactionPoolBestTipChanged,
+            Self::BestTipChangedWithAccounts { .. } => {
+                ActionKind::TransactionPoolBestTipChangedWithAccounts
+            }
+            Self::ApplyVerifiedDiff { .. } => ActionKind::TransactionPoolApplyVerifiedDiff,
+            Self::ApplyTransitionFrontierDiff { .. } => {
+                ActionKind::TransactionPoolApplyTransitionFrontierDiff
+            }
+            Self::Rebroadcast => ActionKind::TransactionPoolRebroadcast,
         }
     }
 }

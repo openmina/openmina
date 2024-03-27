@@ -2,7 +2,10 @@ use std::{fmt::Write, io::Cursor, str::FromStr};
 
 use ark_ff::{BigInteger256, One, UniformRand, Zero};
 use mina_hasher::Fp;
-use mina_p2p_messages::binprot::{BinProtRead, BinProtWrite};
+use mina_p2p_messages::{
+    binprot::{BinProtRead, BinProtWrite},
+    v2,
+};
 use mina_signer::CompressedPubKey;
 use rand::{prelude::ThreadRng, seq::SliceRandom, Rng};
 use serde::{Deserialize, Serialize};
@@ -386,7 +389,7 @@ impl ToFieldElements<Fp> for ProofVerified {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct VerificationKey {
     pub max_proofs_verified: ProofVerified,
     pub actual_wrap_domain_size: ProofVerified,
@@ -862,7 +865,9 @@ impl From<AccountIdOrderable> for AccountId {
     }
 }
 
-#[derive(Clone, Eq)]
+#[derive(Clone, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
+#[serde(into = "v2::MinaBaseAccountIdStableV2")]
+#[serde(from = "v2::MinaBaseAccountIdStableV2")]
 pub struct AccountId {
     pub public_key: CompressedPubKey,
     pub token_id: TokenId,
@@ -1099,7 +1104,9 @@ pub struct PermsConst {
 }
 
 // https://github.com/MinaProtocol/mina/blob/1765ba6bdfd7c454e5ae836c49979fa076de1bea/src/lib/mina_base/account.ml#L368
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(into = "v2::MinaBaseAccountBinableArgStableV2")]
+#[serde(from = "v2::MinaBaseAccountBinableArgStableV2")]
 pub struct Account {
     pub public_key: CompressedPubKey, // Public_key.Compressed.t
     pub token_id: TokenId,            // Token_id.t
