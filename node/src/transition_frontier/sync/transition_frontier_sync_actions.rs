@@ -116,7 +116,13 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncAction {
                     .best_tip()
                     .or(state.transition_frontier.best_tip())
                     .map_or(false, |tip| {
-                        consensus_take(tip.consensus_state(), best_tip.consensus_state(), tip.hash(), best_tip.hash())
+                        if tip.is_genesis() && best_tip.height() > tip.height() {
+                            // TODO(binier): once genesis blocks are same, uncomment below.
+                            // tip.hash() == &best_tip.header().protocol_state.body.genesis_state_hash
+                            true
+                        } else {
+                            consensus_take(tip.consensus_state(), best_tip.consensus_state(), tip.hash(), best_tip.hash())
+                        }
                     })
                 // Don't sync to best tip if we are in the middle of producing
                 // a block unless that best tip candidate is better consensus-wise
