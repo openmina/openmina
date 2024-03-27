@@ -180,7 +180,6 @@ impl LedgerCtx {
             .snarked_ledgers
             .insert(target_snarked_ledger_hash, target);
 
-
         Ok(true)
     }
 
