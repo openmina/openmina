@@ -5,12 +5,12 @@ use super::p2p_network_noise_state::{
 };
 
 impl P2pNetworkNoiseAction {
-    pub fn effects<Store, S>(&self, _meta: &redux::ActionMeta, store: &mut Store)
+    pub fn effects<Store, S>(self, _meta: &redux::ActionMeta, store: &mut Store)
     where
         Store: crate::P2pStore<S>,
     {
         let state = store.state();
-        let Some(state) = state.network.scheduler.connections.get(&self.addr()) else {
+        let Some(state) = state.network.scheduler.connections.get(self.addr()) else {
             return;
         };
         let Some(P2pNetworkAuthState::Noise(state)) = &state.auth else {
@@ -38,8 +38,8 @@ impl P2pNetworkNoiseAction {
             ..
         }) = &state.inner
         {
-            if ((matches!(self, Self::IncomingChunk(..)) && *incoming)
-                || (matches!(self, Self::OutgoingChunk(..)) && !*incoming))
+            if ((matches!(self, Self::IncomingChunk { .. }) && *incoming)
+                || (matches!(self, Self::OutgoingChunk { .. }) && !*incoming))
                 && *send_nonce == 0
                 && *recv_nonce == 0
             {
@@ -61,24 +61,34 @@ impl P2pNetworkNoiseAction {
             ))
         );
 
-        if let Self::HandshakeDone(a) = self {
-            store.dispatch(P2pNetworkSelectInitAction {
-                addr: a.addr,
-                kind: SelectKind::Multiplexing(a.peer_id.clone()),
-                incoming: a.incoming,
+        if let Self::HandshakeDone {
+            addr,
+            peer_id,
+            incoming,
+        } = self
+        {
+            store.dispatch(P2pNetworkSelectAction::Init {
+                addr,
+                kind: SelectKind::Multiplexing(peer_id.clone()),
+                incoming,
                 send_handshake: true,
             });
             return;
         }
 
-        if let Self::DecryptedData(a) = self {
-            let kind = match &a.peer_id.or(remote_peer_id) {
+        if let Self::DecryptedData {
+            addr,
+            peer_id,
+            data,
+        } = self
+        {
+            let kind = match &peer_id.or(remote_peer_id) {
                 Some(peer_id) => SelectKind::Multiplexing(peer_id.clone()),
                 None => SelectKind::MultiplexingNoPeerId,
             };
             if handshake_optimized && middle_initiator {
-                store.dispatch(P2pNetworkSelectInitAction {
-                    addr: self.addr(),
+                store.dispatch(P2pNetworkSelectAction::Init {
+                    addr,
                     kind,
                     // it is not a mistake, if we are initiator of noise, the select will be incoming
                     // because noise is
@@ -90,41 +100,35 @@ impl P2pNetworkNoiseAction {
                     send_handshake: false,
                 });
             }
-            store.dispatch(P2pNetworkSelectIncomingDataAction {
-                addr: self.addr(),
+            store.dispatch(P2pNetworkSelectAction::IncomingData {
+                addr,
                 kind,
-                data: a.data.clone(),
+                data: data.clone(),
                 fin: false,
             });
             return;
         }
 
         match self {
-            Self::Init(_) | Self::OutgoingData(_) => {
+            Self::Init { addr, .. } | Self::OutgoingData { addr, .. } => {
                 if let Some(data) = outgoing {
-                    store.dispatch(P2pNetworkNoiseOutgoingChunkAction {
-                        addr: self.addr(),
-                        data,
-                    });
+                    store.dispatch(P2pNetworkNoiseAction::OutgoingChunk { addr, data });
                 }
             }
-            Self::IncomingData(_) => {
+            Self::IncomingData { addr, .. } => {
                 if let Some(data) = incoming {
-                    store.dispatch(P2pNetworkNoiseIncomingChunkAction {
-                        addr: self.addr(),
-                        data,
-                    });
+                    store.dispatch(P2pNetworkNoiseAction::IncomingChunk { addr, data });
                 }
             }
-            Self::IncomingChunk(_) => {
+            Self::IncomingChunk { addr, .. } => {
                 if handshake_optimized && middle_responder {
                     let kind = match &remote_peer_id {
                         Some(peer_id) => SelectKind::Multiplexing(peer_id.clone()),
                         None => SelectKind::MultiplexingNoPeerId,
                     };
 
-                    store.dispatch(P2pNetworkSelectInitAction {
-                        addr: self.addr(),
+                    store.dispatch(P2pNetworkSelectAction::Init {
+                        addr,
                         kind,
                         incoming: false,
                         send_handshake: false,
@@ -132,30 +136,30 @@ impl P2pNetworkNoiseAction {
                 }
 
                 if let Some(data) = outgoing {
-                    store.dispatch(P2pNetworkNoiseOutgoingChunkAction {
-                        addr: self.addr(),
-                        data,
-                    });
+                    store.dispatch(P2pNetworkNoiseAction::OutgoingChunk { addr, data });
                 }
                 if let Some(data) = decrypted {
-                    store.dispatch(P2pNetworkNoiseDecryptedDataAction {
-                        addr: self.addr(),
+                    store.dispatch(P2pNetworkNoiseAction::DecryptedData {
+                        addr,
                         peer_id: remote_peer_id,
                         data,
                     });
                 }
                 if let Some(data) = incoming {
-                    store.dispatch(P2pNetworkNoiseIncomingChunkAction {
-                        addr: self.addr(),
-                        data,
+                    store.dispatch(P2pNetworkNoiseAction::IncomingChunk { addr, data });
+                }
+
+                if !handshake_optimized && (middle_initiator || middle_responder) {
+                    store.dispatch(P2pNetworkNoiseAction::OutgoingData {
+                        addr,
+                        data: Data(vec![].into_boxed_slice()),
                     });
                 }
             }
-            Self::OutgoingChunk(a) => {
-                store.dispatch(P2pNetworkPnetOutgoingDataAction {
-                    addr: a.addr,
-                    data: a
-                        .data
+            Self::OutgoingChunk { addr, data } => {
+                store.dispatch(P2pNetworkPnetAction::OutgoingData {
+                    addr,
+                    data: data
                         .iter()
                         .fold(vec![], |mut v, item| {
                             v.extend_from_slice(&*item);
@@ -164,32 +168,17 @@ impl P2pNetworkNoiseAction {
                         .into(),
                 });
                 if let Some(data) = outgoing {
-                    store.dispatch(P2pNetworkNoiseOutgoingChunkAction {
-                        addr: self.addr(),
-                        data,
-                    });
+                    store.dispatch(P2pNetworkNoiseAction::OutgoingChunk { addr, data });
                 }
-            }
-            _ => {}
-        }
-
-        if !handshake_optimized {
-            if middle_initiator || middle_responder {
-                if matches!(self, Self::IncomingChunk(..)) {
-                    store.dispatch(P2pNetworkNoiseOutgoingDataAction {
-                        addr: self.addr(),
-                        data: Data(vec![].into_boxed_slice()),
-                    });
-                }
-            } else {
                 if let Some((peer_id, incoming)) = handshake_done {
-                    store.dispatch(P2pNetworkNoiseHandshakeDoneAction {
-                        addr: self.addr(),
+                    store.dispatch(P2pNetworkNoiseAction::HandshakeDone {
+                        addr,
                         peer_id,
                         incoming,
                     });
                 }
             }
+            _ => {}
         }
     }
 }

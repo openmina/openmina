@@ -8,10 +8,32 @@ use super::{super::*, *};
 
 #[derive(derive_more::From, Serialize, Deserialize, Debug, Clone)]
 pub enum P2pNetworkSelectAction {
-    Init(P2pNetworkSelectInitAction),
-    IncomingData(P2pNetworkSelectIncomingDataAction),
-    IncomingToken(P2pNetworkSelectIncomingTokenAction),
-    OutgoingTokens(P2pNetworkSelectOutgoingTokensAction),
+    /// Multistream Select protocol is running multiple times:
+    /// When Pnet protocol is done for newly established TCP connection. We don't have `peer_id` yet.
+    /// When Noise protocol is done and we have a `peer_id`.
+    /// For each yamux stream opened, we have a `peer_id` and `stream_id` at this point.
+    Init {
+        addr: SocketAddr,
+        kind: SelectKind,
+        incoming: bool,
+        send_handshake: bool,
+    },
+    IncomingData {
+        addr: SocketAddr,
+        kind: SelectKind,
+        data: Data,
+        fin: bool,
+    },
+    IncomingToken {
+        addr: SocketAddr,
+        kind: SelectKind,
+        token: token::Token,
+    },
+    OutgoingTokens {
+        addr: SocketAddr,
+        kind: SelectKind,
+        tokens: Vec<token::Token>,
+    },
 }
 
 #[derive(Default, Serialize, Deserialize, Debug, Clone, Copy)]
@@ -44,114 +66,37 @@ impl SelectKind {
 }
 
 impl P2pNetworkSelectAction {
-    pub fn addr(&self) -> SocketAddr {
+    pub fn addr(&self) -> &SocketAddr {
         match self {
-            Self::Init(v) => v.addr,
-            Self::IncomingData(v) => v.addr,
-            Self::IncomingToken(v) => v.addr,
-            Self::OutgoingTokens(v) => v.addr,
+            Self::Init { addr, .. } => addr,
+            Self::IncomingData { addr, .. } => addr,
+            Self::IncomingToken { addr, .. } => addr,
+            Self::OutgoingTokens { addr, .. } => addr,
         }
     }
 
-    pub fn id(&self) -> SelectKind {
+    pub fn id(&self) -> &SelectKind {
         match self {
-            Self::Init(v) => v.kind,
-            Self::IncomingData(v) => v.kind,
-            Self::IncomingToken(v) => v.kind,
-            Self::OutgoingTokens(v) => v.kind,
+            Self::Init { kind, .. } => kind,
+            Self::IncomingData { kind, .. } => kind,
+            Self::IncomingToken { kind, .. } => kind,
+            Self::OutgoingTokens { kind, .. } => kind,
         }
     }
 }
 
-/// Multistream Select protocol is running multiple times:
-/// When Pnet protocol is done for newly established TCP connection. We don't have `peer_id` yet.
-/// When Noise protocol is done and we have a `peer_id`.
-/// For each yamux stream opened, we have a `peer_id` and `stream_id` at this point.
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct P2pNetworkSelectInitAction {
-    pub addr: SocketAddr,
-    pub kind: SelectKind,
-    pub incoming: bool,
-    pub send_handshake: bool,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct P2pNetworkSelectIncomingDataAction {
-    pub addr: SocketAddr,
-    pub kind: SelectKind,
-    pub data: Data,
-    pub fin: bool,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct P2pNetworkSelectIncomingTokenAction {
-    pub addr: SocketAddr,
-    pub kind: SelectKind,
-    pub token: token::Token,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct P2pNetworkSelectOutgoingTokensAction {
-    pub addr: SocketAddr,
-    pub kind: SelectKind,
-    pub tokens: Vec<token::Token>,
-}
-
-impl From<P2pNetworkSelectInitAction> for crate::P2pAction {
-    fn from(a: P2pNetworkSelectInitAction) -> Self {
-        Self::Network(P2pNetworkAction::Select(a.into()))
+impl From<P2pNetworkSelectAction> for crate::P2pAction {
+    fn from(a: P2pNetworkSelectAction) -> Self {
+        Self::Network(a.into())
     }
 }
-
-impl From<P2pNetworkSelectIncomingDataAction> for crate::P2pAction {
-    fn from(a: P2pNetworkSelectIncomingDataAction) -> Self {
-        Self::Network(P2pNetworkAction::Select(a.into()))
-    }
-}
-
-impl From<P2pNetworkSelectIncomingTokenAction> for crate::P2pAction {
-    fn from(a: P2pNetworkSelectIncomingTokenAction) -> Self {
-        Self::Network(P2pNetworkAction::Select(a.into()))
-    }
-}
-
-impl From<P2pNetworkSelectOutgoingTokensAction> for crate::P2pAction {
-    fn from(a: P2pNetworkSelectOutgoingTokensAction) -> Self {
-        Self::Network(P2pNetworkAction::Select(a.into()))
-    }
-}
-
 impl redux::EnablingCondition<P2pState> for P2pNetworkSelectAction {
-    fn is_enabled(&self, state: &P2pState, time: redux::Timestamp) -> bool {
+    fn is_enabled(&self, _state: &P2pState, _time: redux::Timestamp) -> bool {
         match self {
-            Self::Init(v) => v.is_enabled(state, time),
-            Self::IncomingData(v) => v.is_enabled(state, time),
-            Self::IncomingToken(v) => v.is_enabled(state, time),
-            Self::OutgoingTokens(v) => v.is_enabled(state, time),
+            Self::Init { .. } => true,
+            Self::IncomingData { .. } => true,
+            Self::IncomingToken { .. } => true,
+            Self::OutgoingTokens { .. } => true,
         }
-    }
-}
-
-impl redux::EnablingCondition<P2pState> for P2pNetworkSelectInitAction {
-    fn is_enabled(&self, _state: &P2pState, _time: redux::Timestamp) -> bool {
-        true
-    }
-}
-
-impl redux::EnablingCondition<P2pState> for P2pNetworkSelectIncomingDataAction {
-    fn is_enabled(&self, _state: &P2pState, _time: redux::Timestamp) -> bool {
-        true
-    }
-}
-
-impl redux::EnablingCondition<P2pState> for P2pNetworkSelectIncomingTokenAction {
-    fn is_enabled(&self, _state: &P2pState, _time: redux::Timestamp) -> bool {
-        true
-    }
-}
-
-impl redux::EnablingCondition<P2pState> for P2pNetworkSelectOutgoingTokensAction {
-    fn is_enabled(&self, _state: &P2pState, _time: redux::Timestamp) -> bool {
-        true
     }
 }

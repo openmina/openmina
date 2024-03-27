@@ -1,6 +1,6 @@
 use std::{collections::BTreeMap, net::SocketAddr};
 
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Token {
     Waker,
     Listener(SocketAddr),

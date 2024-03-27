@@ -26,8 +26,8 @@ impl P2pNetworkYamuxState {
         }
 
         match action.action() {
-            P2pNetworkYamuxAction::IncomingData(a) => {
-                self.buffer.extend_from_slice(&a.data);
+            P2pNetworkYamuxAction::IncomingData { data, .. } => {
+                self.buffer.extend_from_slice(&data);
                 let mut offset = 0;
                 loop {
                     let buf = &self.buffer[offset..];
@@ -120,8 +120,8 @@ impl P2pNetworkYamuxState {
 
                 self.buffer = self.buffer[offset..].to_vec();
             }
-            P2pNetworkYamuxAction::OutgoingData(_) => {}
-            P2pNetworkYamuxAction::IncomingFrame(_) => {
+            P2pNetworkYamuxAction::OutgoingData { .. } => {}
+            P2pNetworkYamuxAction::IncomingFrame { .. } => {
                 if let Some(frame) = self.incoming.pop_front() {
                     if frame.flags.contains(YamuxFlags::SYN) {
                         self.streams
@@ -151,9 +151,7 @@ impl P2pNetworkYamuxState {
                     }
                 }
             }
-            P2pNetworkYamuxAction::OutgoingFrame(a) => {
-                let frame = &a.frame;
-
+            P2pNetworkYamuxAction::OutgoingFrame { frame, .. } => {
                 let Some(stream) = self.streams.get_mut(&frame.stream_id) else {
                     return;
                 };
@@ -182,11 +180,14 @@ impl P2pNetworkYamuxState {
                     }
                 }
             }
-            P2pNetworkYamuxAction::PingStream(_) => {}
-            P2pNetworkYamuxAction::OpenStream(a) => {
-                self.streams
-                    .insert(a.stream_id, YamuxStreamState::default());
-                streams.insert(a.stream_id, P2pNetworkStreamState::new(a.stream_kind));
+            P2pNetworkYamuxAction::PingStream { .. } => {}
+            P2pNetworkYamuxAction::OpenStream {
+                stream_id,
+                stream_kind,
+                ..
+            } => {
+                self.streams.insert(*stream_id, YamuxStreamState::default());
+                streams.insert(*stream_id, P2pNetworkStreamState::new(*stream_kind));
             }
         }
     }

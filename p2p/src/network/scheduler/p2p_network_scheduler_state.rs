@@ -5,16 +5,18 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::PeerId;
+use crate::{disconnection::P2pDisconnectionReason, PeerId};
 
 use super::super::*;
 
 pub type StreamState<T> = BTreeMap<PeerId, BTreeMap<StreamId, T>>;
 
+#[serde_with::serde_as]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pNetworkSchedulerState {
     pub interfaces: BTreeSet<IpAddr>,
     pub listeners: BTreeSet<SocketAddr>,
+    #[serde_as(as = "serde_with::hex::Hex")]
     pub pnet_key: [u8; 32],
     pub connections: BTreeMap<SocketAddr, P2pNetworkConnectionState>,
     pub broadcast_state: (),
@@ -27,6 +29,12 @@ impl P2pNetworkSchedulerState {
     pub fn discovery_state(&self) -> Option<&P2pNetworkKadState> {
         self.discovery_state.as_ref()
     }
+
+    pub fn find_peer(&self, peer_id: &PeerId) -> Option<(&SocketAddr, &P2pNetworkConnectionState)> {
+        self.connections
+            .iter()
+            .find(|(_, conn_state)| conn_state.peer_id() == Some(peer_id))
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -38,11 +46,41 @@ pub struct P2pNetworkConnectionState {
     pub select_mux: P2pNetworkSelectState,
     pub mux: Option<P2pNetworkConnectionMuxState>,
     pub streams: BTreeMap<StreamId, P2pNetworkStreamState>,
+    pub closed: Option<P2pNetworkConnectionCloseReason>,
+}
+
+impl P2pNetworkConnectionState {
+    pub fn peer_id(&self) -> Option<&PeerId> {
+        self.auth.as_ref().and_then(P2pNetworkAuthState::peer_id)
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, derive_more::From)]
+pub enum P2pNetworkConnectionCloseReason {
+    Disconnect(P2pDisconnectionReason),
+    Error(P2pNetworkConnectionError),
+}
+
+/// P2p connection error.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error, Serialize, Deserialize)]
+pub enum P2pNetworkConnectionError {
+    #[error("mio error: {0}")]
+    MioError(String),
+    #[error("remote peer closed connection")]
+    RemoteClosed,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum P2pNetworkAuthState {
     Noise(P2pNetworkNoiseState),
+}
+
+impl P2pNetworkAuthState {
+    fn peer_id(&self) -> Option<&PeerId> {
+        match self {
+            P2pNetworkAuthState::Noise(v) => v.peer_id(),
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

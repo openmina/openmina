@@ -8,7 +8,7 @@ use crate::{
 use super::{BestTipPropagationChannelMsg, P2pChannelsBestTipAction};
 
 impl P2pChannelsBestTipAction {
-    pub fn effects<Store, S>(self, _: &ActionMeta, store: &mut Store)
+    pub fn effects<Store, S>(self, _meta: &ActionMeta, store: &mut Store)
     where
         Store: crate::P2pStore<S>,
         Store::Service: P2pChannelsService,

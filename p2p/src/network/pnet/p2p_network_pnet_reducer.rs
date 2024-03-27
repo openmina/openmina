@@ -36,14 +36,14 @@ impl Half {
 impl P2pNetworkPnetState {
     pub fn reducer(&mut self, action: redux::ActionWithMeta<&P2pNetworkPnetAction>) {
         match action.action() {
-            P2pNetworkPnetAction::IncomingData(a) => {
-                self.incoming.reduce(&self.shared_secret, &a.data);
+            P2pNetworkPnetAction::IncomingData { data, .. } => {
+                self.incoming.reduce(&self.shared_secret, data);
             }
-            P2pNetworkPnetAction::OutgoingData(a) => {
-                self.outgoing.reduce(&self.shared_secret, &a.data)
+            P2pNetworkPnetAction::OutgoingData { data, .. } => {
+                self.outgoing.reduce(&self.shared_secret, data)
             }
-            P2pNetworkPnetAction::SetupNonce(a) => {
-                self.outgoing.reduce(&self.shared_secret, &a.nonce)
+            P2pNetworkPnetAction::SetupNonce { nonce, .. } => {
+                self.outgoing.reduce(&self.shared_secret, nonce)
             }
         }
     }

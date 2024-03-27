@@ -8,6 +8,7 @@ use super::incoming::{P2pConnectionIncomingInitOpts, P2pConnectionIncomingState}
 use super::outgoing::{P2pConnectionOutgoingInitOpts, P2pConnectionOutgoingState};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(tag = "direction")]
 pub enum P2pConnectionState {
     Outgoing(P2pConnectionOutgoingState),
     Incoming(P2pConnectionIncomingState),
@@ -75,6 +76,13 @@ impl P2pConnectionState {
             Self::Incoming(P2pConnectionIncomingState::Success { .. }) => true,
             Self::Incoming(P2pConnectionIncomingState::Libp2pReceived { .. }) => true,
             Self::Incoming(_) => false,
+        }
+    }
+
+    pub fn time(&self) -> redux::Timestamp {
+        match self {
+            P2pConnectionState::Outgoing(o) => o.time(),
+            P2pConnectionState::Incoming(i) => i.time(),
         }
     }
 }

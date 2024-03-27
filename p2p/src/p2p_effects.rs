@@ -3,8 +3,7 @@ use redux::{ActionMeta, ActionWithMeta};
 use crate::{
     channels::{P2pChannelsAction, P2pChannelsService},
     connection::{
-        incoming::P2pConnectionIncomingState, outgoing::P2pConnectionOutgoingAction,
-        P2pConnectionAction, P2pConnectionService, P2pConnectionState,
+        outgoing::P2pConnectionOutgoingAction, P2pConnectionAction, P2pConnectionService,
     },
     disconnection::P2pDisconnectionService,
     discovery::P2pDiscoveryAction,
@@ -18,7 +17,7 @@ where
     p2p_connection_timeouts(store, &meta);
     store.dispatch(P2pConnectionOutgoingAction::RandomInit);
 
-    p2p_try_reconnect_disconnected_peers(store);
+    p2p_try_reconnect_disconnected_peers(store, meta.time());
 
     store.dispatch(P2pDiscoveryAction::KademliaBootstrap);
     store.dispatch(P2pDiscoveryAction::KademliaInit);
@@ -33,12 +32,9 @@ where
         },
     );
 
-    #[cfg(feature = "p2p-libp2p")]
-    {
-        let state = store.state();
-        for (peer_id, id) in state.peer_rpc_timeouts(meta.time()) {
-            store.dispatch(crate::channels::rpc::P2pChannelsRpcAction::Timeout { peer_id, id });
-        }
+    let state = store.state();
+    for (peer_id, id) in state.peer_rpc_timeouts(meta.time()) {
+        store.dispatch(crate::channels::rpc::P2pChannelsRpcAction::Timeout { peer_id, id });
     }
 }
 
@@ -71,20 +67,24 @@ where
     }
 }
 
-fn p2p_try_reconnect_disconnected_peers<Store, S>(store: &mut Store)
+fn p2p_try_reconnect_disconnected_peers<Store, S>(store: &mut Store, now: redux::Timestamp)
 where
     Store: P2pStore<S>,
 {
+    if store.state().already_has_min_peers() {
+        return;
+    }
+    let timeouts = &store.state().config.timeouts;
     let reconnect_actions: Vec<_> = store
         .state()
         .peers
         .iter()
-        .filter_map(|(_, p)| match p.status {
-            crate::P2pPeerStatus::Connecting(P2pConnectionState::Incoming(
-                P2pConnectionIncomingState::Error { .. },
-            ))
-            | crate::P2pPeerStatus::Disconnected { .. } => p.dial_opts.clone(),
-            _ => None,
+        .filter_map(|(_, p)| {
+            if p.can_reconnect(now, timeouts) {
+                p.dial_opts.clone()
+            } else {
+                None
+            }
         })
         .map(|opts| P2pConnectionOutgoingAction::Reconnect { opts, rpc_id: None })
         .collect();

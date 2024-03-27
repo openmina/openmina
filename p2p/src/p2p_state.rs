@@ -8,9 +8,10 @@ use openmina_core::requests::RpcId;
 
 use crate::channels::rpc::P2pRpcId;
 use crate::channels::{ChannelId, P2pChannelsState};
-use crate::connection::outgoing::P2pConnectionOutgoingInitOpts;
+use crate::connection::incoming::P2pConnectionIncomingState;
+use crate::connection::outgoing::{P2pConnectionOutgoingInitOpts, P2pConnectionOutgoingState};
 use crate::network::P2pNetworkState;
-use crate::PeerId;
+use crate::{P2pTimeouts, PeerId};
 
 use super::connection::P2pConnectionState;
 use super::P2pConfig;
@@ -313,9 +314,29 @@ impl P2pPeerState {
             _ => None,
         }
     }
+
+    /// Returns true if the peer can be reconnected, that is:
+    /// - it has available dial options
+    /// - it is never been connected yet or enough time is passed since its connection failure or disconnection.
+    pub fn can_reconnect(&self, now: Timestamp, timeouts: &P2pTimeouts) -> bool {
+        self.dial_opts.is_some()
+            && match &self.status {
+                P2pPeerStatus::Connecting(P2pConnectionState::Incoming(
+                    P2pConnectionIncomingState::Error { time, .. },
+                )) => now.checked_sub(*time) >= timeouts.incoming_error_reconnect_timeout,
+                P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(
+                    P2pConnectionOutgoingState::Error { time, .. },
+                )) => now.checked_sub(*time) >= timeouts.outgoing_error_reconnect_timeout,
+                P2pPeerStatus::Disconnected { time } => {
+                    *time == Timestamp::ZERO || now.checked_sub(*time) >= timeouts.reconnect_timeout
+                }
+                _ => false,
+            }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(tag = "state")]
 pub enum P2pPeerStatus {
     Connecting(P2pConnectionState),
     Disconnected { time: redux::Timestamp },
