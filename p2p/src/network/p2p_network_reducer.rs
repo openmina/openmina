@@ -1,9 +1,7 @@
-use std::collections::BTreeMap;
-
 use multiaddr::Multiaddr;
 use openmina_core::error;
 
-use crate::{P2pPeerState, P2pPeerStatus, PeerId};
+use crate::PeerId;
 
 use super::*;
 
@@ -61,14 +59,10 @@ impl P2pNetworkState {
 }
 
 impl P2pNetworkState {
-    pub fn reducer(
-        &mut self,
-        peers: &mut BTreeMap<PeerId, P2pPeerState>,
-        action: redux::ActionWithMeta<&P2pNetworkAction>,
-    ) {
+    pub fn reducer(&mut self, action: redux::ActionWithMeta<&P2pNetworkAction>) {
         let (action, meta) = action.split();
         match action {
-            P2pNetworkAction::Scheduler(a) => self.scheduler.reducer(peers, meta.with_action(&a)),
+            P2pNetworkAction::Scheduler(a) => self.scheduler.reducer(meta.with_action(&a)),
             P2pNetworkAction::Pnet(a) => {
                 self.scheduler
                     .connections
@@ -94,7 +88,7 @@ impl P2pNetworkState {
             P2pNetworkAction::Noise(a) => {
                 self.scheduler
                     .connections
-                    .get_mut(&a.addr())
+                    .get_mut(a.addr())
                     .map(|cn| match &mut cn.auth {
                         Some(P2pNetworkAuthState::Noise(state)) => {
                             state.reducer(meta.with_action(&a))
@@ -127,11 +121,7 @@ impl P2pNetworkState {
             }
             P2pNetworkAction::Rpc(a) => {
                 if let Some(state) = self.find_rpc_state_mut(a) {
-                    if let Some(peer_state) = peers.get_mut(&a.peer_id()) {
-                        if let P2pPeerStatus::Ready(status) = &mut peer_state.status {
-                            state.reducer(&mut status.channels.rpc, meta.with_action(&a))
-                        }
-                    }
+                    state.reducer(meta.with_action(&a))
                 }
             }
         }

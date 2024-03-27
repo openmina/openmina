@@ -38,3 +38,7 @@ impl<S, T: SubStore<S, P2pState, SubAction = P2pAction>> P2pStore<S> for T {}
 
 pub use libp2p_identity;
 pub use multiaddr;
+
+const fn is_old_libp2p() -> bool {
+    cfg!(feature = "p2p-libp2p")
+}

@@ -179,7 +179,7 @@ impl<T: P2pServiceWebrtcWithLibp2p> P2pChannelsService for T {
             }
             #[cfg(not(feature = "p2p-libp2p"))]
             {
-                todo!("unimplemented");
+                openmina_core::error!(openmina_core::log::system_time(); "sending to channel {:?} is not supported", msg.channel_id());
             }
         }
     }

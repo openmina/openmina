@@ -79,6 +79,10 @@ impl ChannelId {
     pub fn iter_all() -> impl Iterator<Item = ChannelId> {
         <Self as strum::IntoEnumIterator>::iter()
     }
+
+    pub fn for_libp2p() -> impl Iterator<Item = ChannelId> {
+        [Self::Rpc].into_iter()
+    }
 }
 
 impl std::fmt::Display for ChannelId {

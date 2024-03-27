@@ -35,9 +35,7 @@ pub enum MioEvent {
     InterfaceExpired(IpAddr),
 
     /// The remote peer is trying to connect to us.
-    IncomingConnectionIsReady {
-        listener: SocketAddr,
-    },
+    IncomingConnectionIsReady { listener: SocketAddr },
     /// We accepted the connection from the remote peer.
     IncomingConnectionDidAccept(Option<SocketAddr>, Result<(), String>),
     /// The remote peer is trying to send us some data.
@@ -50,7 +48,7 @@ pub enum MioEvent {
     /// We sent some data to the remote peer.
     OutgoingDataDidSend(SocketAddr, Result<(), String>),
 
-    // The remote peer is disconnected gracefully or with an error.
+    /// The remote peer is disconnected gracefully or with an error.
     ConnectionDidClose(SocketAddr, Result<(), String>),
 }
 

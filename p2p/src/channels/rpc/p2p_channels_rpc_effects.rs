@@ -4,8 +4,9 @@ use redux::ActionMeta;
 
 use crate::{
     channels::{ChannelId, MsgId, P2pChannelsService},
+    is_old_libp2p,
     peer::P2pPeerAction,
-    P2pNetworkRpcOutgoingQueryAction, P2pNetworkRpcOutgoingResponseAction,
+    P2pNetworkRpcAction,
 };
 
 use super::{P2pChannelsRpcAction, P2pRpcResponse, RpcChannelMsg};
@@ -18,7 +19,11 @@ impl P2pChannelsRpcAction {
     {
         match self {
             P2pChannelsRpcAction::Init { peer_id } => {
-                store.service().channel_open(peer_id, ChannelId::Rpc);
+                if is_old_libp2p() {
+                    store.service().channel_open(peer_id, ChannelId::Rpc);
+                } else {
+                    // TODO(akoptelov): open a new stream, if we decide not to forcibly do that on connection established
+                }
                 store.dispatch(P2pChannelsRpcAction::Pending { peer_id });
             }
             P2pChannelsRpcAction::RequestSend {
@@ -33,7 +38,7 @@ impl P2pChannelsRpcAction {
                         .channel_send(peer_id, MsgId::first(), msg.into());
                 } else {
                     if let Some((query, data)) = super::internal_request_into_libp2p(request, id) {
-                        store.dispatch(P2pNetworkRpcOutgoingQueryAction {
+                        store.dispatch(P2pNetworkRpcAction::OutgoingQuery {
                             peer_id,
                             query,
                             data,
@@ -65,7 +70,7 @@ impl P2pChannelsRpcAction {
                     if let Some((response, data)) =
                         super::internal_response_into_libp2p(response, id)
                     {
-                        store.dispatch(P2pNetworkRpcOutgoingResponseAction {
+                        store.dispatch(P2pNetworkRpcAction::OutgoingResponse {
                             peer_id,
                             response,
                             data,

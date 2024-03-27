@@ -89,26 +89,26 @@ impl P2pState {
                 peer.channels.reducer(meta.with_action(action));
             }
             P2pAction::Discovery(action) => {
+                // TODO(akoptelov): use a separate action to add peer
                 if let P2pDiscoveryAction::KademliaAddRoute { peer_id, addresses } = action {
                     let dial_opts = addresses.first().cloned();
-                    if dial_opts.is_some() {
-                        self.peers.insert(
-                            peer_id.clone(),
-                            P2pPeerState {
+                    if let Some(dial_opts) = dial_opts {
+                        self.peers
+                            .entry(*peer_id)
+                            .or_insert_with(|| P2pPeerState {
                                 is_libp2p: true,
-                                dial_opts,
+                                dial_opts: None,
                                 status: P2pPeerStatus::Disconnected {
                                     time: Timestamp::ZERO,
                                 },
-                            },
-                        );
+                            })
+                            .dial_opts
+                            .get_or_insert(dial_opts);
                     }
                 }
                 self.kademlia.reducer(meta.with_action(action));
             }
-            P2pAction::Network(action) => self
-                .network
-                .reducer(&mut self.peers, meta.with_action(action)),
+            P2pAction::Network(action) => self.network.reducer(meta.with_action(action)),
         }
     }
 }

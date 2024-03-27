@@ -9,9 +9,31 @@ impl P2pDisconnectionAction {
         Store::Service: P2pDisconnectionService,
     {
         match self {
-            P2pDisconnectionAction::Init { peer_id, .. } => {
-                store.service().disconnect(*peer_id);
-                store.dispatch(P2pDisconnectionAction::Finish { peer_id: *peer_id });
+            P2pDisconnectionAction::Init {
+                peer_id,
+                reason: _reason,
+            } => {
+                #[cfg(feature = "p2p-libp2p")]
+                {
+                    store.service().disconnect(*peer_id);
+                    store.dispatch(P2pDisconnectionAction::Finish { peer_id: *peer_id });
+                }
+                #[cfg(not(feature = "p2p-libp2p"))]
+                {
+                    if let Some((addr, _)) = store
+                        .state()
+                        .network
+                        .scheduler
+                        .connections
+                        .iter()
+                        .find(|(_, conn_state)| conn_state.peer_id() == Some(peer_id))
+                    {
+                        store.dispatch(crate::P2pNetworkSchedulerAction::Disconnect {
+                            addr: *addr,
+                            reason: _reason.clone(),
+                        });
+                    }
+                }
             }
             P2pDisconnectionAction::Finish { .. } => {}
         }

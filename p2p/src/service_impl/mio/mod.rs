@@ -169,6 +169,29 @@ where
                     let Some(mut connection) = self.connections.remove(&addr) else {
                         continue 'events;
                     };
+                    if event.is_error() {
+                        match connection.stream.take_error() {
+                            Ok(Some(e)) => {
+                                self.send(MioEvent::ConnectionDidClose(addr, Err(e.to_string())));
+                            }
+                            Ok(None) => {
+                                openmina_core::error!(
+                                    openmina_core::log::system_time();
+                                    summary = "mio error event without actual error",
+                                    addr = openmina_core::log::inner::field::display(addr),
+                                );
+                            }
+                            Err(e) => {
+                                openmina_core::error!(
+                                    openmina_core::log::system_time();
+                                    summary = "error getting mio error",
+                                    error = openmina_core::log::inner::field::display(e),
+                                    addr = openmina_core::log::inner::field::display(addr),
+                                );
+                            }
+                        }
+                        continue 'events;
+                    }
                     if event.is_readable() {
                         if !connection.incoming_ready {
                             connection.incoming_ready = true;

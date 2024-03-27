@@ -10,14 +10,20 @@ use super::p2p_network_noise_state::{
 impl P2pNetworkNoiseState {
     pub fn reducer(&mut self, action: redux::ActionWithMeta<&P2pNetworkNoiseAction>) {
         match action.action() {
-            P2pNetworkNoiseAction::Init(a) => {
-                let esk = Sk::from(a.ephemeral_sk.clone());
+            P2pNetworkNoiseAction::Init {
+                incoming,
+                ephemeral_sk,
+                static_sk,
+                signature,
+                ..
+            } => {
+                let esk = Sk::from(ephemeral_sk.clone());
                 let epk = esk.pk();
-                let ssk = Sk::from(a.static_sk.clone());
+                let ssk = Sk::from(static_sk.clone());
                 let spk = ssk.pk();
-                let payload = a.signature.clone();
+                let payload = signature.clone();
 
-                self.inner = if a.incoming {
+                self.inner = if *incoming {
                     // Luckily the name is 32 bytes long, if it were longer you would have to take a sha2_256 hash of it.
                     let mut noise = NoiseState::new(*b"Noise_XX_25519_ChaChaPoly_SHA256");
                     noise.mix_hash(b"");
@@ -55,8 +61,8 @@ impl P2pNetworkNoiseState {
                     ))
                 }
             }
-            P2pNetworkNoiseAction::IncomingData(a) => {
-                self.buffer.extend_from_slice(&a.data);
+            P2pNetworkNoiseAction::IncomingData { data, .. } => {
+                self.buffer.extend_from_slice(&data);
                 let mut offset = 0;
                 loop {
                     let buf = &self.buffer[offset..];
@@ -74,7 +80,7 @@ impl P2pNetworkNoiseState {
                 }
                 self.buffer = self.buffer[offset..].to_vec();
             }
-            P2pNetworkNoiseAction::IncomingChunk(_) => {
+            P2pNetworkNoiseAction::IncomingChunk { .. } => {
                 let Some(state) = &mut self.inner else {
                     return;
                 };
@@ -152,14 +158,14 @@ impl P2pNetworkNoiseState {
                     }
                 }
             }
-            P2pNetworkNoiseAction::OutgoingChunk(_) => {
+            P2pNetworkNoiseAction::OutgoingChunk { .. } => {
                 self.outgoing_chunks.pop_front();
             }
-            P2pNetworkNoiseAction::OutgoingData(a) => {
+            P2pNetworkNoiseAction::OutgoingData { data, .. } => {
                 let Some(state) = &mut self.inner else {
                     return;
                 };
-                if a.data.is_empty() && self.handshake_optimized {
+                if data.is_empty() && self.handshake_optimized {
                     return;
                 }
                 match state {
@@ -170,8 +176,7 @@ impl P2pNetworkNoiseState {
                     } => {
                         let aead = ChaCha20Poly1305::new(&send_key.0.into());
                         let chunk_max_size = u16::MAX as usize - 19;
-                        let chunks = a
-                            .data
+                        let chunks = data
                             .chunks(chunk_max_size)
                             .map(|data| {
                                 let mut chunk = Vec::with_capacity(18 + data.len());
@@ -197,7 +202,7 @@ impl P2pNetworkNoiseState {
                     }
                     P2pNetworkNoiseStateInner::Initiator(i) => {
                         if let (Some((chunk, (send_key, recv_key))), Some(remote_pk)) =
-                            (i.generate(&a.data), i.remote_pk.clone())
+                            (i.generate(data), i.remote_pk.clone())
                         {
                             self.outgoing_chunks.push_back(vec![chunk.into()]);
                             let remote_peer_id = remote_pk.peer_id();
@@ -213,7 +218,7 @@ impl P2pNetworkNoiseState {
                         }
                     }
                     P2pNetworkNoiseStateInner::Responder(r) => {
-                        if let Some(chunk) = r.generate(&a.data) {
+                        if let Some(chunk) = r.generate(data) {
                             self.outgoing_chunks.push_back(vec![chunk.into()]);
                         }
                     }
@@ -221,10 +226,10 @@ impl P2pNetworkNoiseState {
                     _ => {}
                 }
             }
-            P2pNetworkNoiseAction::DecryptedData(_) => {
+            P2pNetworkNoiseAction::DecryptedData { .. } => {
                 self.decrypted_chunks.pop_front();
             }
-            P2pNetworkNoiseAction::HandshakeDone(_) => {}
+            P2pNetworkNoiseAction::HandshakeDone { .. } => {}
         }
     }
 }

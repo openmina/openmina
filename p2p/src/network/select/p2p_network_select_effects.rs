@@ -1,9 +1,7 @@
-use crate::P2pNetworkPnetOutgoingDataAction;
-
 use super::{super::*, p2p_network_select_state::P2pNetworkSelectStateInner, *};
 
 impl P2pNetworkSelectAction {
-    pub fn effects<Store, S>(&self, meta: &redux::ActionMeta, store: &mut Store)
+    pub fn effects<Store, S>(self, meta: &redux::ActionMeta, store: &mut Store)
     where
         Store: crate::P2pStore<S>,
     {
@@ -26,10 +24,11 @@ impl P2pNetworkSelectAction {
                 None => return,
             },
         };
+        let (addr, kind) = (*self.addr(), *self.id());
         if let P2pNetworkSelectStateInner::Error(error) = &state.inner {
-            store.dispatch(P2pNetworkSchedulerSelectErrorAction {
-                addr: self.addr(),
-                kind: self.id(),
+            store.dispatch(P2pNetworkSchedulerAction::SelectError {
+                addr,
+                kind,
                 error: error.clone(),
             });
             return;
@@ -41,10 +40,15 @@ impl P2pNetworkSelectAction {
         };
         let incoming = matches!(&state.inner, P2pNetworkSelectStateInner::Responder { .. });
         match self {
-            Self::Init(a) => {
+            Self::Init {
+                addr,
+                kind,
+                send_handshake,
+                ..
+            } => {
                 if state.negotiated.is_none() {
                     let mut tokens = vec![];
-                    if a.send_handshake {
+                    if send_handshake {
                         tokens.push(Token::Handshake);
                     }
                     match &state.inner {
@@ -57,45 +61,46 @@ impl P2pNetworkSelectAction {
                         }
                         _ => {}
                     };
-                    store.dispatch(P2pNetworkSelectOutgoingTokensAction {
-                        addr: a.addr,
-                        kind: a.kind,
-                        tokens,
-                    });
+                    store.dispatch(P2pNetworkSelectAction::OutgoingTokens { addr, kind, tokens });
                 }
             }
-            Self::IncomingData(a) => {
+            Self::IncomingData {
+                addr,
+                kind: select_kind,
+                data,
+                fin,
+            } => {
                 if let Some(Some(negotiated)) = &state.negotiated {
                     match negotiated {
                         Protocol::Auth(AuthKind::Noise) => {
-                            store.dispatch(P2pNetworkNoiseIncomingDataAction {
-                                addr: a.addr,
-                                data: a.data.clone(),
+                            store.dispatch(P2pNetworkNoiseAction::IncomingData {
+                                addr,
+                                data: data.clone(),
                             });
                         }
                         Protocol::Mux(MuxKind::Yamux1_0_0 | MuxKind::YamuxNoNewLine1_0_0) => {
-                            store.dispatch(P2pNetworkYamuxIncomingDataAction {
-                                addr: a.addr,
-                                data: a.data.clone(),
+                            store.dispatch(P2pNetworkYamuxAction::IncomingData {
+                                addr,
+                                data: data.clone(),
                             });
                         }
-                        Protocol::Stream(kind) => match a.kind {
+                        Protocol::Stream(kind) => match select_kind {
                             SelectKind::Stream(peer_id, stream_id) => {
                                 match kind {
                                     StreamKind::Discovery(DiscoveryAlgorithm::Kademlia1_0_0) => {
-                                        if !a.fin {
+                                        if !fin {
                                             store.dispatch(
                                                 P2pNetworkKademliaStreamAction::IncomingData {
-                                                    addr: a.addr,
+                                                    addr,
                                                     peer_id,
                                                     stream_id,
-                                                    data: a.data.clone(),
+                                                    data: data.clone(),
                                                 },
                                             );
                                         } else {
                                             store.dispatch(
                                                 P2pNetworkKademliaStreamAction::RemoteClose {
-                                                    addr: a.addr,
+                                                    addr,
                                                     peer_id,
                                                     stream_id,
                                                 },
@@ -107,62 +112,58 @@ impl P2pNetworkSelectAction {
                                         unimplemented!()
                                     }
                                     StreamKind::Rpc(RpcAlgorithm::Rpc0_0_1) => {
-                                        store.dispatch(P2pNetworkRpcIncomingDataAction {
-                                            addr: a.addr,
+                                        store.dispatch(P2pNetworkRpcAction::IncomingData {
+                                            addr,
                                             peer_id,
                                             stream_id,
-                                            data: a.data.clone(),
+                                            data: data.clone(),
                                         });
                                     }
                                 }
                             }
                             _ => {
-                                openmina_core::error!(meta.time(); "invalid select protocol kind: {:?}", a.kind);
+                                openmina_core::error!(meta.time(); "invalid select protocol kind: {:?}", kind);
                             }
                         },
                     }
                 } else {
                     let tokens = state.tokens.clone();
                     for token in tokens {
-                        store.dispatch(P2pNetworkSelectIncomingTokenAction {
-                            addr: a.addr,
-                            kind: a.kind,
-                            token,
-                        });
+                        store.dispatch(P2pNetworkSelectAction::IncomingToken { addr, kind, token });
                     }
                 }
             }
-            Self::IncomingToken(a) => {
+            Self::IncomingToken { addr, kind, .. } => {
                 if let Some(token) = &state.to_send {
-                    store.dispatch(P2pNetworkSelectOutgoingTokensAction {
-                        addr: a.addr,
-                        kind: a.kind,
+                    store.dispatch(P2pNetworkSelectAction::OutgoingTokens {
+                        addr,
+                        kind,
                         tokens: vec![token.clone()],
                     });
                 }
             }
-            Self::OutgoingTokens(a) => {
+            Self::OutgoingTokens { addr, kind, tokens } => {
                 let mut data = vec![];
-                for token in &a.tokens {
+                for token in &tokens {
                     data.extend_from_slice(token.name())
                 }
-                match &a.kind {
+                match &kind {
                     SelectKind::Authentication => {
-                        store.dispatch(P2pNetworkPnetOutgoingDataAction {
-                            addr: a.addr,
+                        store.dispatch(P2pNetworkPnetAction::OutgoingData {
+                            addr,
                             data: data.into(),
                         });
                     }
                     SelectKind::Multiplexing(_) | SelectKind::MultiplexingNoPeerId => {
-                        store.dispatch(P2pNetworkNoiseOutgoingDataAction {
-                            addr: a.addr,
+                        store.dispatch(P2pNetworkNoiseAction::OutgoingData {
+                            addr,
                             data: data.into(),
                         });
                     }
                     SelectKind::Stream(_, stream_id) => {
-                        for token in &a.tokens {
-                            store.dispatch(P2pNetworkYamuxOutgoingDataAction {
-                                addr: a.addr,
+                        for token in &tokens {
+                            store.dispatch(P2pNetworkYamuxAction::OutgoingData {
+                                addr,
                                 stream_id: *stream_id,
                                 data: token.name().to_vec().into(),
                                 fin: matches!(token, &token::Token::Na),
@@ -173,9 +174,9 @@ impl P2pNetworkSelectAction {
             }
         }
         if let Some(protocol) = report {
-            store.dispatch(P2pNetworkSchedulerSelectDoneAction {
-                addr: self.addr(),
-                kind: self.id(),
+            store.dispatch(P2pNetworkSchedulerAction::SelectDone {
+                addr,
+                kind,
                 protocol,
                 incoming,
             });

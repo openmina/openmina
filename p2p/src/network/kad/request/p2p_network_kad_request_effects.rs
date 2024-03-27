@@ -12,7 +12,7 @@ use crate::{
     },
     discovery::P2pDiscoveryAction,
     socket_addr_try_from_multiaddr, P2pNetworkConnectionMuxState, P2pNetworkKadBootstrapAction,
-    P2pNetworkYamuxOpenStreamAction, P2pPeerState, P2pPeerStatus,
+    P2pNetworkYamuxAction, P2pPeerState, P2pPeerStatus,
 };
 
 use super::{super::stream::P2pNetworkKademliaStreamAction, P2pNetworkKadRequestAction};
@@ -79,7 +79,7 @@ impl P2pNetworkKadRequestAction {
                     },
                 ) {
                     // multiplexing is ready, open a stream
-                    store.dispatch(P2pNetworkYamuxOpenStreamAction {
+                    store.dispatch(P2pNetworkYamuxAction::OpenStream {
                         addr,
                         stream_id,
                         stream_kind: crate::token::StreamKind::Discovery(
@@ -111,7 +111,7 @@ impl P2pNetworkKadRequestAction {
                             .next_stream_id(!incoming)
                             .ok_or_else(|| format!("cannot get next stream for {addr}"))
                     })?;
-                store.dispatch(P2pNetworkYamuxOpenStreamAction {
+                store.dispatch(P2pNetworkYamuxAction::OpenStream {
                     addr,
                     stream_id,
                     stream_kind: crate::token::StreamKind::Discovery(

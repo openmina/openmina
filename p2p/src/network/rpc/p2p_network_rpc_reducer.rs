@@ -1,29 +1,21 @@
 use binprot::BinProtRead;
 use mina_p2p_messages::rpc_kernel::MessageHeader;
 
-use crate::channels::rpc::P2pChannelsRpcState;
-
 use super::*;
 
 impl P2pNetworkRpcState {
-    pub fn reducer(
-        &mut self,
-        rpc_state: &mut P2pChannelsRpcState,
-        action: redux::ActionWithMeta<&P2pNetworkRpcAction>,
-    ) {
+    pub fn reducer(&mut self, action: redux::ActionWithMeta<&P2pNetworkRpcAction>) {
         if self.error.is_some() {
             return;
         }
         match action.action() {
-            P2pNetworkRpcAction::Init(a) => {
-                self.is_incoming = a.incoming;
-                *rpc_state = P2pChannelsRpcState::Pending {
-                    time: action.time(),
-                };
+            P2pNetworkRpcAction::Init { incoming, .. } => {
+                self.is_incoming = *incoming;
             }
-            P2pNetworkRpcAction::IncomingData(a) => {
-                self.buffer.extend_from_slice(&a.data);
+            P2pNetworkRpcAction::IncomingData { data, .. } => {
+                self.buffer.extend_from_slice(&data);
                 let mut offset = 0;
+                // TODO(akoptelov): there shouldn't be the case where we have multiple incoming messages at once (or at least other than heartbeat)
                 loop {
                     let buf = &self.buffer[offset..];
                     if let Some(len_bytes) = buf.get(..8).and_then(|s| s.try_into().ok()) {
@@ -63,20 +55,26 @@ impl P2pNetworkRpcState {
                     self.buffer = self.buffer[offset..].to_vec();
                 }
             }
-            P2pNetworkRpcAction::IncomingMessage(a) => {
-                if matches!(&a.message, RpcMessage::Response { .. }) {
-                    if let Some((_, req)) = &self.pending {
+            P2pNetworkRpcAction::IncomingMessage { message, .. } => {
+                if let RpcMessage::Response { header, .. } = message {
+                    if let Some((id, req)) = &self.pending {
                         *self.total_stats.entry(req.clone()).or_default() += 1;
+                        if id != &header.id {
+                            openmina_core::error!(action.time(); "receiving response with wrong id: {}", header.id);
+                        }
                     } else {
-                        // suspicious, received some response without request
+                        openmina_core::error!(action.time(); "receiving response without query");
                     }
                 }
                 self.incoming.pop_front();
             }
-            P2pNetworkRpcAction::OutgoingQuery(a) => {
-                self.last_id = a.query.id;
+            P2pNetworkRpcAction::PrunePending { .. } => {
+                self.pending = None;
+            }
+            P2pNetworkRpcAction::OutgoingQuery { query, .. } => {
+                self.last_id = query.id;
                 // TODO: remove when query is done
-                self.pending = Some((a.query.id, (a.query.tag.clone(), a.query.version)));
+                self.pending = Some((query.id, (query.tag.clone(), query.version)));
             }
             _ => {}
         }
