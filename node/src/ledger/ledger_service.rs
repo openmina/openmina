@@ -148,6 +148,7 @@ impl LedgerCtx {
     ) -> Result<bool, String> {
         if !overwrite
             && self
+                .sync
                 .snarked_ledgers
                 .contains_key(&target_snarked_ledger_hash)
         {
