@@ -1,8 +1,9 @@
 use crate::scan_state::currency::Magnitude;
 
 use super::currency::Fee;
+use serde::{Deserialize, Serialize};
 
-#[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Hash)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Hash, Serialize, Deserialize)]
 pub struct FeeRate {
     q: fraction::Fraction,
 }

@@ -1,12 +1,13 @@
+use serde::{Deserialize, Serialize};
 use std::{
     borrow::Borrow,
-    collections::{hash_map::Entry, BTreeSet, HashMap, HashSet, VecDeque},
-    rc::Rc,
+    collections::{hash_map::Entry, BTreeMap, BTreeSet, HashMap, HashSet, VecDeque},
+    sync::Arc,
 };
 
 use itertools::Itertools;
 use mina_hasher::Fp;
-use mina_p2p_messages::v2;
+use mina_p2p_messages::{bigint::BigInt, v2};
 use openmina_core::constants::{ForkConstants, CONSTRAINT_CONSTANTS};
 
 use crate::{
@@ -32,6 +33,7 @@ mod consensus {
 
     use super::*;
 
+    #[derive(Clone, Debug, Serialize, Deserialize)]
     pub struct Constants {
         k: Length,
         delta: Length,
@@ -170,6 +172,7 @@ pub mod diff {
         pub list: Vec<UserCommand>,
     }
 
+    #[derive(Serialize, Deserialize, Debug, Clone)]
     pub struct DiffVerified {
         pub list: Vec<ValidCommandWithHash>,
     }
@@ -178,6 +181,7 @@ pub mod diff {
         list: Vec<(UserCommand, Error)>,
     }
 
+    #[derive(Serialize, Deserialize, Debug, Clone)]
     pub struct BestTipDiff {
         pub new_commands: Vec<WithStatus<valid::UserCommand>>,
         pub removed_commands: Vec<WithStatus<valid::UserCommand>>,
@@ -199,6 +203,7 @@ fn preload_accounts(
         .collect()
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
 struct Config {
     trust_system: (),
     pool_max_size: usize,
@@ -207,7 +212,102 @@ struct Config {
 
 pub type VerificationKeyWire = WithHash<VerificationKey>;
 
-#[derive(Default)]
+/// Used to be able to de/serialize our `TransactionPool` in the state machine
+#[derive(Serialize, Deserialize)]
+struct VkRefcountTableBigInts {
+    verification_keys: Vec<(BigInt, (usize, WithHash<VerificationKey, BigInt>))>,
+    account_id_to_vks: Vec<(AccountId, Vec<(BigInt, usize)>)>,
+    vk_to_account_ids: Vec<(BigInt, Vec<(AccountId, usize)>)>,
+}
+impl From<VkRefcountTable> for VkRefcountTableBigInts {
+    fn from(value: VkRefcountTable) -> Self {
+        let VkRefcountTable {
+            verification_keys,
+            account_id_to_vks,
+            vk_to_account_ids,
+        } = value;
+        Self {
+            verification_keys: verification_keys
+                .into_iter()
+                .map(|(hash, (count, vk))| {
+                    assert_eq!(hash, vk.hash);
+                    let hash: BigInt = hash.into();
+                    (
+                        hash.clone(),
+                        (
+                            count,
+                            WithHash {
+                                data: vk.data,
+                                hash,
+                            },
+                        ),
+                    )
+                })
+                .collect(),
+            account_id_to_vks: account_id_to_vks
+                .into_iter()
+                .map(|(id, map)| {
+                    (
+                        id,
+                        map.into_iter()
+                            .map(|(hash, count)| (hash.into(), count))
+                            .collect(),
+                    )
+                })
+                .collect(),
+            vk_to_account_ids: vk_to_account_ids
+                .into_iter()
+                .map(|(hash, map)| (hash.into(), map.into_iter().collect()))
+                .collect(),
+        }
+    }
+}
+impl From<VkRefcountTableBigInts> for VkRefcountTable {
+    fn from(value: VkRefcountTableBigInts) -> Self {
+        let VkRefcountTableBigInts {
+            verification_keys,
+            account_id_to_vks,
+            vk_to_account_ids,
+        } = value;
+        Self {
+            verification_keys: verification_keys
+                .into_iter()
+                .map(|(hash, (count, vk))| {
+                    assert_eq!(hash, vk.hash);
+                    let hash: Fp = hash.to_field();
+                    (
+                        hash,
+                        (
+                            count,
+                            WithHash {
+                                data: vk.data,
+                                hash,
+                            },
+                        ),
+                    )
+                })
+                .collect(),
+            account_id_to_vks: account_id_to_vks
+                .into_iter()
+                .map(|(id, map)| {
+                    let map = map
+                        .into_iter()
+                        .map(|(bigint, count)| (bigint.to_field::<Fp>(), count))
+                        .collect();
+                    (id, map)
+                })
+                .collect(),
+            vk_to_account_ids: vk_to_account_ids
+                .into_iter()
+                .map(|(hash, map)| (hash.to_field(), map.into_iter().collect()))
+                .collect(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(into = "VkRefcountTableBigInts")]
+#[serde(from = "VkRefcountTableBigInts")]
 struct VkRefcountTable {
     verification_keys: HashMap<Fp, (usize, VerificationKeyWire)>,
     account_id_to_vks: HashMap<AccountId, HashMap<Fp, usize>>,
@@ -340,7 +440,7 @@ impl VkRefcountTable {
     }
 }
 
-#[derive(PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 enum Batch {
     Of(usize),
 }
@@ -387,6 +487,7 @@ impl From<CommandError> for diff::Error {
     }
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
 struct IndexedPoolConfig {
     consensus_constants: consensus::Constants,
     slot_tx_end: Option<Slot>,
@@ -402,6 +503,7 @@ struct IndexedPoolConfig {
 //   [@@deriving sexp_of, equal, compare]
 // end
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
 struct IndexedPool {
     /// Transactions valid against the current ledger, indexed by fee per
     /// weight unit.
@@ -1184,7 +1286,7 @@ fn currency_consumed(cmd: &UserCommand) -> Option<Amount> {
     fee_amount.checked_add(&amount)
 }
 
-type BlakeHash = Rc<[u8; 32]>;
+type BlakeHash = Arc<[u8; 32]>;
 
 mod transaction_hash {
     use blake2::{
@@ -1232,12 +1334,12 @@ mod transaction_hash {
         let mut hasher = Blake2bVar::new(32).expect("Invalid Blake2bVar output size");
         hasher.update(&buffer);
 
-        let hash: Rc<[u8; 32]> = {
+        let hash: Arc<[u8; 32]> = {
             let mut buffer = [0; 32];
             hasher
                 .finalize_variable(&mut buffer)
                 .expect("Invalid buffer size"); // Never occur
-            Rc::from(buffer)
+            Arc::from(buffer)
         };
 
         WithHash { data: cmd, hash }
@@ -1265,36 +1367,88 @@ pub enum ApplyDecision {
     Reject,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct Time {
+    nanoseconds_since_unix_epoch: u64,
+}
+
+impl Time {
+    fn now() -> Self {
+        const NANOS_PER_SECOND: u64 = 1000000000;
+
+        let mut tp = libc::timeval {
+            tv_sec: 0,
+            tv_usec: 0,
+        };
+
+        let result = unsafe {
+            // Use same syscall than OCaml:
+            // https://github.com/janestreet/time_now/blob/d7e3801d2f120b6723c28429de0dd63b669d47b8/src/time_now_stubs.c#L30
+            libc::gettimeofday(&mut tp, std::ptr::null_mut())
+        };
+        if result == -1 {
+            return Self {
+                nanoseconds_since_unix_epoch: 0,
+            };
+        }
+
+        Self {
+            nanoseconds_since_unix_epoch: NANOS_PER_SECOND
+                .wrapping_mul(tp.tv_sec as u64)
+                .wrapping_add((tp.tv_usec as u64).wrapping_mul(1000)),
+        }
+    }
+}
+
 const MAX_PER_15_SECONDS: usize = 10;
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TransactionPool {
     pool: IndexedPool,
-    locally_generated_uncommitted: HashMap<ValidCommandWithHash, (std::time::Instant, Batch)>,
-    locally_generated_committed: HashMap<ValidCommandWithHash, (std::time::Instant, Batch)>,
+    locally_generated_uncommitted: HashMap<ValidCommandWithHash, (Time, Batch)>,
+    locally_generated_committed: HashMap<ValidCommandWithHash, (Time, Batch)>,
     current_batch: usize,
     remaining_in_batch: usize,
     config: Config,
     batcher: (),
     best_tip_diff_relay: Option<()>,
+    #[serde(skip)]
     best_tip_ledger: Option<Mask>,
     verification_key_table: VkRefcountTable,
 }
 
 impl TransactionPool {
-    pub fn on_new_best_tip(&mut self, new_best_tip: Mask) {
-        let validation_ledger = new_best_tip;
-        self.best_tip_ledger.replace(validation_ledger.clone());
+    pub fn new() -> Self {
+        Self {
+            pool: todo!(),
+            locally_generated_uncommitted: todo!(),
+            locally_generated_committed: todo!(),
+            current_batch: todo!(),
+            remaining_in_batch: todo!(),
+            config: todo!(),
+            batcher: todo!(),
+            best_tip_diff_relay: todo!(),
+            best_tip_ledger: todo!(),
+            verification_key_table: todo!(),
+        }
+    }
 
-        let dropped =
-            self.pool.revalidate(
-                RevalidateKind::EntirePool,
-                |sender_id| match validation_ledger.location_of_account(sender_id) {
-                    None => Account::empty(),
-                    Some(addr) => *validation_ledger
-                        .get(addr)
-                        .expect("Location without account"),
-                },
-            );
+    pub fn get_accounts_to_revalidate_on_new_best_tip(&self) -> BTreeSet<AccountId> {
+        self.pool.all_by_sender.keys().cloned().collect()
+    }
+
+    pub fn on_new_best_tip(&mut self, accounts: &BTreeMap<AccountId, Account>) {
+        // let validation_ledger = new_best_tip;
+        // self.best_tip_ledger.replace(validation_ledger.clone());
+
+        let dropped = self
+            .pool
+            .revalidate(RevalidateKind::EntirePool, |sender_id| {
+                accounts
+                    .get(sender_id)
+                    .cloned()
+                    .unwrap_or_else(Account::empty)
+            });
 
         let dropped_locally_generated = dropped
             .iter()
@@ -1674,7 +1828,7 @@ impl TransactionPool {
         match self.locally_generated_uncommitted.entry(cmd.clone()) {
             Entry::Occupied(mut entry) => {
                 let (time, _batch_num) = entry.get_mut();
-                *time = std::time::Instant::now();
+                *time = Time::now();
             }
             Entry::Vacant(entry) => {
                 let batch_num = if self.remaining_in_batch > 0 {
@@ -1685,7 +1839,7 @@ impl TransactionPool {
                     self.current_batch = self.current_batch + 1;
                     self.current_batch
                 };
-                entry.insert((std::time::Instant::now(), Batch::Of(batch_num)));
+                entry.insert((Time::now(), Batch::Of(batch_num)));
             }
         }
     }
@@ -1781,7 +1935,7 @@ impl TransactionPool {
 
     fn get_rebroadcastable<F>(&mut self, has_timed_out: F) -> Vec<Vec<UserCommand>>
     where
-        F: Fn(&std::time::Instant) -> bool,
+        F: Fn(&Time) -> bool,
     {
         let log = |has_timed_out: bool, s: &str, cmd: &ValidCommandWithHash| -> bool {
             if has_timed_out {

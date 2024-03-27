@@ -44,7 +44,7 @@ use super::{
 };
 
 /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/transaction_status.ml#L9
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum TransactionFailure {
     Predicate,
     SourceNotPresent,
@@ -170,7 +170,7 @@ impl ToString for TransactionFailure {
 }
 
 /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/transaction_status.ml#L452
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum TransactionStatus {
     Applied,
     Failed(Vec<Vec<TransactionFailure>>),
@@ -186,7 +186,7 @@ impl TransactionStatus {
 }
 
 /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/with_status.ml#L6
-#[derive(Debug, Clone, PartialEq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq)]
 pub struct WithStatus<T> {
     pub data: T,
     pub status: TransactionStatus,
@@ -260,7 +260,11 @@ pub mod valid {
 
     pub type SignedCommand = super::signed_command::SignedCommand;
 
-    #[derive(Clone, Debug, PartialEq)]
+    use serde::{Deserialize, Serialize};
+
+    #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+    #[serde(into = "MinaBaseUserCommandStableV2")]
+    #[serde(from = "MinaBaseUserCommandStableV2")]
     pub enum UserCommand {
         SignedCommand(Box<SignedCommand>),
         ZkAppCommand(Box<super::zkapp_command::valid::ZkAppCommand>),
@@ -1299,7 +1303,7 @@ pub mod zkapp_command {
         }
     }
 
-    #[derive(Debug, Clone)]
+    #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
     pub struct WithHash<T, H = Fp> {
         pub data: T,
         pub hash: H,
