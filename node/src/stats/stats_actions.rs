@@ -108,7 +108,7 @@ impl<'de> Deserialize<'de> for ActionStatsSnapshot {
         let list = (0..ActionKind::COUNT)
             .map(|i| {
                 let kind = i.try_into().unwrap();
-                m.remove(&kind).unwrap_or(ActionStatsForRanges::default())
+                m.remove(&kind).unwrap_or_default()
             })
             .collect();
         Ok(Self(list))

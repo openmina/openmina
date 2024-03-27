@@ -64,22 +64,19 @@ impl P2pNetworkSchedulerState {
                 let Some(connection) = self.connections.get_mut(&a.addr) else {
                     return;
                 };
-                match &a.kind {
-                    SelectKind::Multiplexing(peer_id) => {
-                        let enabled_channels = Some(ChannelId::Rpc).into_iter().collect();
-                        let state = P2pPeerState {
-                            is_libp2p: true,
-                            dial_opts: None,
-                            status: P2pPeerStatus::Ready(P2pPeerStatusReady {
-                                is_incoming: a.incoming,
-                                connected_since: meta.time(),
-                                channels: P2pChannelsState::new(&enabled_channels),
-                                best_tip: None,
-                            }),
-                        };
-                        peers.insert(*peer_id, state);
-                    }
-                    _ => {}
+                if let SelectKind::Multiplexing(peer_id) = &a.kind {
+                    let enabled_channels = Some(ChannelId::Rpc).into_iter().collect();
+                    let state = P2pPeerState {
+                        is_libp2p: true,
+                        dial_opts: None,
+                        status: P2pPeerStatus::Ready(P2pPeerStatusReady {
+                            is_incoming: a.incoming,
+                            connected_since: meta.time(),
+                            channels: P2pChannelsState::new(&enabled_channels),
+                            best_tip: None,
+                        }),
+                    };
+                    peers.insert(*peer_id, state);
                 }
                 match &a.protocol {
                     Some(token::Protocol::Auth(token::AuthKind::Noise)) => {

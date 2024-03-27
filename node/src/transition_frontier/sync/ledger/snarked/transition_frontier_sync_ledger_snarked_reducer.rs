@@ -124,7 +124,7 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                     return;
                 };
                 let addr = address;
-                pending.remove(&addr);
+                pending.remove(addr);
                 let (left, right) = hashes;
 
                 let empty_hash = ledger_empty_hash_at_depth(addr.length() + 1);

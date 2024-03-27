@@ -91,13 +91,10 @@ impl MultiNodeBasicConnectivityPeerDiscovery {
 
             let steps = runner
                 .pending_events(true)
-                .map(|(node_id, _, events)| {
+                .flat_map(|(node_id, _, events)| {
                     events.map(move |(_, event)| {
-                        match event {
-                            Event::P2p(P2pEvent::Discovery(event)) => {
-                                eprintln!("event: {event}");
-                            }
-                            _ => {}
+                        if let Event::P2p(P2pEvent::Discovery(event)) = event {
+                            eprintln!("event: {event}");
                         }
                         ScenarioStep::Event {
                             node_id,
@@ -105,7 +102,6 @@ impl MultiNodeBasicConnectivityPeerDiscovery {
                         }
                     })
                 })
-                .flatten()
                 .collect::<Vec<_>>();
 
             for step in steps {
@@ -156,8 +152,7 @@ impl MultiNodeBasicConnectivityPeerDiscovery {
                     .iter()
                     .filter(|(id, n)| n.is_libp2p && id == &peer_id)
                     .filter_map(|(_, n)| n.status.as_ready())
-                    .find(|n| n.is_incoming)
-                    .is_some()
+                    .any(|n| n.is_incoming)
                 {
                     eprintln!("the additional OCaml node connected to Openmina node");
                     eprintln!("success");

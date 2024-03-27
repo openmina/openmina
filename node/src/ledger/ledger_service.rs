@@ -147,9 +147,9 @@ impl LedgerCtx {
 
     /// Returns a mutable reference to the [StagedLedger] with the specified `hash` if it exists or `None` otherwise.
     fn staged_ledger_mut(&mut self, hash: &LedgerHash) -> Option<&mut StagedLedger> {
-        match self.staged_ledgers.get_mut(&hash) {
+        match self.staged_ledgers.get_mut(hash) {
             Some(v) => Some(v),
-            None => self.sync.staged_ledger_mut(&hash),
+            None => self.sync.staged_ledger_mut(hash),
         }
     }
 
@@ -197,7 +197,7 @@ impl LedgerCtx {
             .ok_or_else(|| {
                 format!(
                     "push_snarked_ledger: could not find old root snarked ledger: {}",
-                    old_root_snarked_ledger_hash.to_string(),
+                    old_root_snarked_ledger_hash,
                 )
             })?;
         let mut mt = root_snarked_ledger.make_child();
@@ -245,7 +245,7 @@ impl LedgerCtx {
             } else {
                 Err(format!(
                     "Failed to find protocol state for state hash: {}",
-                    state_hash.to_string()
+                    state_hash
                 ))
             }
         };
@@ -255,7 +255,7 @@ impl LedgerCtx {
             .ok_or_else(|| {
                 format!(
                     "Failed to find staged ledger with hash: {}",
-                    new_root_staged_ledger_hash.to_string()
+                    new_root_staged_ledger_hash
                 )
             })?
             .scan_state();
@@ -276,8 +276,7 @@ impl LedgerCtx {
         if expected_hash != &obtained_hash {
             return Err(format!(
                 "Expected to obtain snarked root ledger hash {} but got {}",
-                expected_hash.to_string(),
-                obtained_hash.to_string()
+                expected_hash, obtained_hash
             ));
         }
 
@@ -298,9 +297,7 @@ impl LedgerCtx {
         let mut accounts = Vec::new();
 
         mask.iter(|account| {
-            if filter(&account.public_key)
-                || account.delegate.as_ref().map_or(false, |key| filter(key))
-            {
+            if filter(&account.public_key) || account.delegate.as_ref().map_or(false, &mut filter) {
                 accounts.push((
                     account.id(),
                     account.delegate.clone(),
@@ -346,7 +343,7 @@ impl LedgerSyncState {
     }
 
     fn staged_ledger_mut(&mut self, hash: &LedgerHash) -> Option<&mut StagedLedger> {
-        self.staged_ledgers.get_mut(&hash)
+        self.staged_ledgers.get_mut(hash)
     }
 }
 
@@ -483,8 +480,8 @@ impl<T: LedgerService> TransitionFrontierService for T {
         );
         let mut staged_ledger = self
             .ctx_mut()
-            .staged_ledger_mut(&pred_block.staged_ledger_hash())
-            .ok_or_else(|| "parent staged ledger missing")?
+            .staged_ledger_mut(pred_block.staged_ledger_hash())
+            .ok_or("parent staged ledger missing")?
             .clone();
 
         let global_slot = block.global_slot_since_genesis();
@@ -522,7 +519,7 @@ impl<T: LedgerService> TransitionFrontierService for T {
         if &ledger_hashes != expected_ledger_hashes {
             let staged_ledger = self
                 .ctx_mut()
-                .staged_ledger_mut(&pred_block.staged_ledger_hash())
+                .staged_ledger_mut(pred_block.staged_ledger_hash())
                 .unwrap(); // We already know the ledger exists, see the same call a few lines above
 
             match dump_application_to_file(staged_ledger, block.clone(), pred_block) {
@@ -765,8 +762,8 @@ impl<T: LedgerService> BlockProducerLedgerService for T {
     ) -> Result<StagedLedgerDiffCreateOutput, String> {
         let mut staged_ledger = self
             .ctx_mut()
-            .staged_ledger_mut(&pred_block.staged_ledger_hash())
-            .ok_or_else(|| "parent staged ledger missing")?
+            .staged_ledger_mut(pred_block.staged_ledger_hash())
+            .ok_or("parent staged ledger missing")?
             .clone();
 
         // calculate merkle root hash, otherwise `MinaBasePendingCoinbaseStableV2::from` fails.

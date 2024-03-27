@@ -384,7 +384,7 @@ impl EpochData {
 impl From<ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1> for EpochData {
     fn from(value: ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1) -> Self {
         Self {
-            seed: value.seed.into(),
+            seed: value.seed,
             ledger: value.ledger.hash,
             delegator_table: Default::default(),
             total_currency: value.ledger.total_currency.as_u64(),
@@ -395,7 +395,7 @@ impl From<ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1> 
 impl From<ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1> for EpochData {
     fn from(value: ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1) -> Self {
         Self {
-            seed: value.seed.into(),
+            seed: value.seed,
             ledger: value.ledger.hash,
             delegator_table: Default::default(),
             total_currency: value.ledger.total_currency.as_u64(),

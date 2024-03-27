@@ -14,7 +14,7 @@ use crate::{
 use super::{P2pNetworkKadBootstrapAction, P2pNetworkKadBootstrapState};
 
 fn prepare_next_request(
-    addrs: &Vec<Multiaddr>,
+    addrs: &[Multiaddr],
     time: Timestamp,
     filter_addrs: bool,
 ) -> Option<P2pNetworkKadBoostrapRequestState> {
@@ -32,9 +32,7 @@ fn prepare_next_request(
                 }
         });
 
-    let Some(addr) = addrs.next() else {
-        return None;
-    };
+    let addr = addrs.next()?;
     let addrs_to_use = addrs.collect();
     Some(P2pNetworkKadBoostrapRequestState {
         addr,
@@ -88,7 +86,7 @@ impl P2pNetworkKadBootstrapState {
                 peer_id,
                 closest_peers,
             } => {
-                let Some(req) = self.requests.remove(&peer_id) else {
+                let Some(req) = self.requests.remove(peer_id) else {
                     return Err(format!("cannot find reques for peer {peer_id}"));
                 };
                 self.successful_requests += 1;
@@ -121,7 +119,7 @@ impl P2pNetworkKadBootstrapState {
                 Ok(())
             }
             A::RequestError { peer_id, error } => {
-                let Some(req) = self.requests.remove(&peer_id) else {
+                let Some(req) = self.requests.remove(peer_id) else {
                     return Err(format!("cannot find reques for peer {peer_id}"));
                 };
                 let address = P2pConnectionOutgoingInitOpts::LibP2P((*peer_id, req.addr).into());

@@ -71,7 +71,7 @@ where
     for<'a> &'a T: Into<SnarkCmp<'a>>,
 {
     fn eq(&self, other: &T) -> bool {
-        Into::<SnarkCmp<'_>>::into(&*self) == Into::<SnarkCmp<'_>>::into(other)
+        Into::<SnarkCmp<'_>>::into(self) == Into::<SnarkCmp<'_>>::into(other)
     }
 }
 

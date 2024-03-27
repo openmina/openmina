@@ -102,7 +102,7 @@ impl SnarkPoolState {
 
     pub fn remove_commitment(&mut self, id: &SnarkJobId) -> Option<JobCommitment> {
         let index = self.by_ledger_hash_index.get(id)?;
-        self.list.get_mut(&index)?.commitment.take()
+        self.list.get_mut(index)?.commitment.take()
     }
 
     pub fn retain<F>(&mut self, mut get_new_job_order: F)
@@ -127,10 +127,7 @@ impl SnarkPoolState {
             });
     }
 
-    pub fn range<'a, R>(
-        &'a self,
-        range: R,
-    ) -> impl 'a + DoubleEndedIterator<Item = (u64, &'a JobState)>
+    pub fn range<R>(&self, range: R) -> impl DoubleEndedIterator<Item = (u64, &JobState)>
     where
         R: RangeBounds<u64>,
     {
@@ -176,11 +173,8 @@ impl SnarkPoolState {
             .map(|(id, _)| id)
     }
 
-    pub fn available_jobs_iter<'a>(&'a self) -> impl 'a + Iterator<Item = &'a JobState> {
-        self.list
-            .iter()
-            .map(|(_, job)| job)
-            .filter(|job| job.is_available())
+    pub fn available_jobs_iter(&self) -> impl Iterator<Item = &JobState> {
+        self.list.values().filter(|job| job.is_available())
     }
 
     pub fn available_jobs_with_highest_priority(&self, n: usize) -> Vec<&JobState> {
@@ -196,7 +190,7 @@ impl SnarkPoolState {
             })
     }
 
-    pub fn completed_snarks_iter<'a>(&'a self) -> impl 'a + Iterator<Item = &'a Snark> {
+    pub fn completed_snarks_iter(&self) -> impl Iterator<Item = &Snark> {
         self.list
             .iter()
             .filter_map(|(_, job)| job.snark.as_ref())
@@ -218,6 +212,12 @@ impl SnarkPoolState {
                 },
             }
         });
+    }
+}
+
+impl Default for SnarkPoolState {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

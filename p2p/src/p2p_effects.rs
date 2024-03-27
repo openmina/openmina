@@ -15,7 +15,7 @@ pub fn p2p_timeout_effects<Store, S>(store: &mut Store, meta: &ActionMeta)
 where
     Store: P2pStore<S>,
 {
-    p2p_connection_timeouts(store, &meta);
+    p2p_connection_timeouts(store, meta);
     store.dispatch(P2pConnectionOutgoingAction::RandomInit);
 
     p2p_try_reconnect_disconnected_peers(store);
@@ -24,7 +24,7 @@ where
     store.dispatch(P2pDiscoveryAction::KademliaInit);
 
     #[cfg(feature = "p2p-webrtc")]
-    p2p_discovery_request(store, &meta);
+    p2p_discovery_request(store, meta);
 
     #[cfg(not(feature = "p2p-libp2p"))]
     store.dispatch(

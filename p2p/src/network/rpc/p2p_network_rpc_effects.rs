@@ -93,12 +93,12 @@ impl P2pNetworkRpcAction {
 
                         match (header.tag.to_string_lossy().as_str(), header.version) {
                             (rpc::GetBestTipV2::NAME, rpc::GetBestTipV2::VERSION) => {
-                                let Ok(()) = parse_q::<rpc::GetBestTipV2>(&bytes) else {
+                                let Ok(()) = parse_q::<rpc::GetBestTipV2>(bytes) else {
                                     // TODO: close the stream
                                     panic!();
                                 };
                                 store.dispatch(P2pChannelsRpcAction::RequestReceived {
-                                    peer_id: a.peer_id.clone(),
+                                    peer_id: a.peer_id,
                                     id: header.id as u32,
                                     request: P2pRpcRequest::BestTipWithProof,
                                 });
@@ -108,7 +108,7 @@ impl P2pNetworkRpcAction {
                                 rpc::AnswerSyncLedgerQueryV2::VERSION,
                             ) => {
                                 let Ok((hash, query)) =
-                                    parse_q::<rpc::AnswerSyncLedgerQueryV2>(&bytes)
+                                    parse_q::<rpc::AnswerSyncLedgerQueryV2>(bytes)
                                 else {
                                     // TODO: close the stream
                                     panic!();
@@ -118,7 +118,7 @@ impl P2pNetworkRpcAction {
                                     v2::LedgerHash::from(v2::MinaBaseLedgerHash0StableV1(hash));
 
                                 store.dispatch(P2pChannelsRpcAction::RequestReceived {
-                                    peer_id: a.peer_id.clone(),
+                                    peer_id: a.peer_id,
                                     id: header.id as u32,
                                     request: P2pRpcRequest::LedgerQuery(hash, query),
                                 });
@@ -129,7 +129,7 @@ impl P2pNetworkRpcAction {
                             ) => {
                                 let Ok(hash) = parse_q::<
                                     rpc::GetStagedLedgerAuxAndPendingCoinbasesAtHashV2,
-                                >(&bytes) else {
+                                >(bytes) else {
                                     // TODO: close the stream
                                     panic!();
                                 };
@@ -140,7 +140,7 @@ impl P2pNetworkRpcAction {
                                     P2pRpcRequest::StagedLedgerAuxAndPendingCoinbasesAtBlock(hash);
 
                                 store.dispatch(P2pChannelsRpcAction::RequestReceived {
-                                    peer_id: a.peer_id.clone(),
+                                    peer_id: a.peer_id,
                                     id: header.id as u32,
                                     request,
                                 });
@@ -149,8 +149,7 @@ impl P2pNetworkRpcAction {
                                 rpc::GetTransitionChainV2::NAME,
                                 rpc::GetTransitionChainV2::VERSION,
                             ) => {
-                                let Ok(hashes) = parse_q::<rpc::GetTransitionChainV2>(&bytes)
-                                else {
+                                let Ok(hashes) = parse_q::<rpc::GetTransitionChainV2>(bytes) else {
                                     // TODO: close the stream
                                     panic!();
                                 };
@@ -160,7 +159,7 @@ impl P2pNetworkRpcAction {
                                         v2::StateHash::from(v2::DataHashLibStateHashStableV1(hash));
 
                                     store.dispatch(P2pChannelsRpcAction::RequestReceived {
-                                        peer_id: a.peer_id.clone(),
+                                        peer_id: a.peer_id,
                                         id: header.id as u32,
                                         request: P2pRpcRequest::Block(hash),
                                     });
@@ -170,14 +169,14 @@ impl P2pNetworkRpcAction {
                                 rpc::GetSomeInitialPeersV1ForV2::NAME,
                                 rpc::GetSomeInitialPeersV1ForV2::VERSION,
                             ) => {
-                                let Ok(()) = parse_q::<rpc::GetSomeInitialPeersV1ForV2>(&bytes)
+                                let Ok(()) = parse_q::<rpc::GetSomeInitialPeersV1ForV2>(bytes)
                                 else {
                                     // TODO: close the stream
                                     panic!();
                                 };
 
                                 store.dispatch(P2pChannelsRpcAction::RequestReceived {
-                                    peer_id: a.peer_id.clone(),
+                                    peer_id: a.peer_id,
                                     id: header.id as u32,
                                     request: P2pRpcRequest::InitialPeers,
                                 });
@@ -199,7 +198,7 @@ impl P2pNetworkRpcAction {
                             if let Ok(tag) = std::str::from_utf8(tag.as_ref()) {
                                 match (tag, *version) {
                                     (rpc::GetBestTipV2::NAME, rpc::GetBestTipV2::VERSION) => {
-                                        let Ok(response) = parse_r::<rpc::GetBestTipV2>(&bytes)
+                                        let Ok(response) = parse_r::<rpc::GetBestTipV2>(bytes)
                                         else {
                                             // TODO: close the stream
                                             panic!();
@@ -224,7 +223,7 @@ impl P2pNetworkRpcAction {
                                         rpc::AnswerSyncLedgerQueryV2::VERSION,
                                     ) => {
                                         let Ok(response) =
-                                            parse_r::<rpc::AnswerSyncLedgerQueryV2>(&bytes)
+                                            parse_r::<rpc::AnswerSyncLedgerQueryV2>(bytes)
                                         else {
                                             // TODO: close the stream
                                             panic!();
@@ -232,8 +231,7 @@ impl P2pNetworkRpcAction {
 
                                         let response = response
                                             .ok()
-                                            .map(|x| x.0.ok())
-                                            .flatten()
+                                            .and_then(|x| x.0.ok())
                                             .map(P2pRpcResponse::LedgerQuery);
 
                                         store.dispatch(P2pChannelsRpcAction::ResponseReceived {
@@ -248,7 +246,7 @@ impl P2pNetworkRpcAction {
                                     ) => {
                                         type Method =
                                             rpc::GetStagedLedgerAuxAndPendingCoinbasesAtHashV2;
-                                        let Ok(response) = parse_r::<Method>(&bytes) else {
+                                        let Ok(response) = parse_r::<Method>(bytes) else {
                                             // TODO: close the stream
                                             panic!();
                                         };
@@ -279,7 +277,7 @@ impl P2pNetworkRpcAction {
                                         rpc::GetTransitionChainV2::VERSION,
                                     ) => {
                                         type Method = rpc::GetTransitionChainV2;
-                                        let Ok(response) = parse_r::<Method>(&bytes) else {
+                                        let Ok(response) = parse_r::<Method>(bytes) else {
                                             // TODO: close the stream
                                             panic!();
                                         };
@@ -312,7 +310,7 @@ impl P2pNetworkRpcAction {
                                         rpc::GetSomeInitialPeersV1ForV2::VERSION,
                                     ) => {
                                         type Method = rpc::GetSomeInitialPeersV1ForV2;
-                                        let Ok(response) = parse_r::<Method>(&bytes) else {
+                                        let Ok(response) = parse_r::<Method>(bytes) else {
                                             // TODO: close the stream
                                             panic!();
                                         };

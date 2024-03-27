@@ -111,7 +111,7 @@ mod tests {
     #[test]
     fn json() {
         let ch = super::Char(16);
-        let json = serde_json::to_value(&ch).unwrap();
+        let json = serde_json::to_value(ch).unwrap();
         assert_eq!(json.as_str().unwrap(), "\u{0010}");
         assert_eq!(
             serde_json::from_value::<super::Char>(json).unwrap(),

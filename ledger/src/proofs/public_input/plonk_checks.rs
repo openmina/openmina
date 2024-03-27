@@ -577,10 +577,7 @@ mod scalars {
     fn is_const<F: FieldWitness>(e: &Expr<ConstantExpr<F>>) -> bool {
         use ConstantExpr::*;
         match e {
-            Expr::Constant(c) => match c {
-                EndoCoefficient | Literal(_) | Mds { .. } => true,
-                _ => false,
-            },
+            Expr::Constant(c) => matches!(c, EndoCoefficient | Literal(_) | Mds { .. }),
             Expr::BinOp(_, x, y) => is_const(x) && is_const(y),
             Expr::Pow(x, _) => is_const(x),
             _ => false,
@@ -605,15 +602,15 @@ mod scalars {
                 let p = *p;
                 let v = eval(x, ctx);
 
-                if is_const(&x) {
+                if is_const(x) {
                     pow_const(v, p)
                 } else {
                     pow(v, p, ctx.w)
                 }
             }
             BinOp(Op2::Mul, x, y) => {
-                let is_x_const = is_const(&x);
-                let is_y_const = is_const(&y);
+                let is_x_const = is_const(x);
+                let is_y_const = is_const(y);
                 let y = eval(y, ctx);
                 let x = eval(x, ctx);
                 if is_x_const || is_y_const {
@@ -623,7 +620,7 @@ mod scalars {
                 }
             }
             Square(x) => {
-                let is_x_const = is_const(&x);
+                let is_x_const = is_const(x);
                 let x = eval(x, ctx);
                 if is_x_const {
                     x * x
@@ -711,7 +708,7 @@ mod scalars {
             Cache(id, e) => {
                 let mut cached = Cached::default();
                 extract_caches(e, &mut cached);
-                cache.expr.insert(id.clone(), (Box::new(cached), e.clone()));
+                cache.expr.insert(*id, (Box::new(cached), e.clone()));
             }
             IfFeature(_feature, e1, e2) => {
                 if false {
@@ -728,7 +725,7 @@ mod scalars {
         for (id, (cache, expr)) in &cached_exprs.expr {
             let mut old_cache = std::mem::take(&mut ctx.cache);
             eval_cache::<F>(cache, ctx);
-            old_cache.insert(*id, eval::<F>(&expr, ctx));
+            old_cache.insert(*id, eval::<F>(expr, ctx));
             ctx.cache = old_cache;
         }
     }
@@ -823,7 +820,7 @@ mod scalars {
 
         let term = match gate {
             Some(gate) => index_terms.get(&Column::Index(gate)).unwrap(),
-            None => &constant_term,
+            None => constant_term,
         };
 
         // We evaluate the cached expressions first

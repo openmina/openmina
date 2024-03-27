@@ -49,7 +49,7 @@ mod data {
         where
             S: serde::Serializer,
         {
-            hex::encode(&self.0).serialize(serializer)
+            hex::encode(self.0).serialize(serializer)
         }
     }
 
@@ -70,7 +70,7 @@ mod data {
 
     impl<const N: usize> fmt::Display for DataSized<N> {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            write!(f, "{}", hex::encode(&self.0))
+            write!(f, "{}", hex::encode(self.0))
         }
     }
 

@@ -118,9 +118,9 @@ impl<'de> serde::Deserialize<'de> for TransactionHash {
     {
         if deserializer.is_human_readable() {
             let b58: String = Deserialize::deserialize(deserializer)?;
-            Ok(b58.parse().map_err(|err| serde::de::Error::custom(err))?)
+            Ok(b58.parse().map_err(serde::de::Error::custom)?)
         } else {
-            Vec::deserialize(deserializer).map(|v| Self(v))
+            Vec::deserialize(deserializer).map(Self)
         }
     }
 }

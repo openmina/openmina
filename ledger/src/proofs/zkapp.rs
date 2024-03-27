@@ -152,7 +152,7 @@ mod group {
                 global: global_after.clone(),
                 local: local_after.clone(),
             },
-            connecting_ledger: connecting_ledger.clone(),
+            connecting_ledger: *connecting_ledger,
         }
     }
 
@@ -201,7 +201,6 @@ mod group {
             match (zkapp_commands, stmtss) {
                 ([] | [[]], [ _ ]) => {
                     // eprintln!("GROUP 1");
-                    return;
                 },
                 ([[ AccountUpdate { authorization: a1, .. } ]], [[ before, after ]]) => {
                     // eprintln!("GROUP 2");
@@ -473,7 +472,7 @@ pub fn zkapp_command_witnesses_exn(
                         &state_view,
                         fee_excess,
                         supply_increase,
-                        &second_pass_ledger,
+                        second_pass_ledger,
                         zkapp_command,
                     )
                     .unwrap();
@@ -1035,7 +1034,7 @@ fn zkapp_main(
             pending_coinbase_stack_init,
             pending_coinbase_stack_before: statement.source.pending_coinbase_stack.clone(),
             pending_coinbase_stack_after: statement.target.pending_coinbase_stack.clone(),
-            block_global_slot: block_global_slot.clone(),
+            block_global_slot,
             state_body,
         },
         w,
@@ -1054,7 +1053,7 @@ fn zkapp_main(
             fee_excess: CheckedSigned::zero(),
             supply_increase: CheckedSigned::zero(),
             protocol_state: protocol_state_body_view(state_body),
-            block_global_slot: block_global_slot.clone(),
+            block_global_slot,
         };
 
         let l = zkapp_logic::LocalState::<ZkappSnark> {
@@ -1253,7 +1252,7 @@ fn first_account_update<'a>(witness: &'a ZkappCommandSegmentWitness) -> Option<&
 
 fn account_update_proof(p: &AccountUpdate) -> Option<&v2::PicklesProofProofsVerifiedMaxStableV2> {
     match &p.authorization {
-        Control::Proof(proof) => Some(&*proof),
+        Control::Proof(proof) => Some(proof),
         Control::Signature(_) | Control::NoneGiven => None,
     }
 }

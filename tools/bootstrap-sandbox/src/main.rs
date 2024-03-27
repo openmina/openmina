@@ -83,8 +83,7 @@ async fn main() {
                 "{}",
                 bs58::encode(&bytes).with_check_version(0x80).into_string()
             );
-            let sk = SecretKey::try_from_bytes(&mut bytes).unwrap();
-            sk
+            SecretKey::try_from_bytes(&mut bytes).unwrap()
         });
 
     let local_key: libp2p::identity::Keypair = mina_transport::ed25519::Keypair::from(sk).into();

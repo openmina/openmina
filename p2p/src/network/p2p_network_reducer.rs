@@ -68,50 +68,40 @@ impl P2pNetworkState {
     ) {
         let (action, meta) = action.split();
         match action {
-            P2pNetworkAction::Scheduler(a) => self.scheduler.reducer(peers, meta.with_action(&a)),
+            P2pNetworkAction::Scheduler(a) => self.scheduler.reducer(peers, meta.with_action(a)),
             P2pNetworkAction::Pnet(a) => {
-                self.scheduler
-                    .connections
-                    .get_mut(&a.addr())
-                    .map(|cn| cn.pnet.reducer(meta.with_action(&a)));
+                if let Some(cn) = self.scheduler.connections.get_mut(&a.addr()) {
+                    cn.pnet.reducer(meta.with_action(a))
+                }
             }
             P2pNetworkAction::Select(a) => {
-                self.scheduler
-                    .connections
-                    .get_mut(&a.addr())
-                    .map(|cn| match a.id() {
-                        SelectKind::Authentication => cn.select_auth.reducer(meta.with_action(&a)),
+                if let Some(cn) = self.scheduler.connections.get_mut(&a.addr()) {
+                    match a.id() {
+                        SelectKind::Authentication => cn.select_auth.reducer(meta.with_action(a)),
                         SelectKind::Multiplexing(_) | SelectKind::MultiplexingNoPeerId => {
-                            cn.select_mux.reducer(meta.with_action(&a))
+                            cn.select_mux.reducer(meta.with_action(a))
                         }
                         SelectKind::Stream(_, stream_id) => {
-                            cn.streams
-                                .get_mut(&stream_id)
-                                .map(|stream| stream.select.reducer(meta.with_action(&a)));
+                            if let Some(stream) = cn.streams.get_mut(&stream_id) {
+                                stream.select.reducer(meta.with_action(a))
+                            }
                         }
-                    });
+                    }
+                }
             }
             P2pNetworkAction::Noise(a) => {
-                self.scheduler
-                    .connections
-                    .get_mut(&a.addr())
-                    .map(|cn| match &mut cn.auth {
-                        Some(P2pNetworkAuthState::Noise(state)) => {
-                            state.reducer(meta.with_action(&a))
-                        }
-                        _ => {}
-                    });
+                if let Some(cn) = self.scheduler.connections.get_mut(&a.addr()) {
+                    if let Some(P2pNetworkAuthState::Noise(state)) = &mut cn.auth {
+                        state.reducer(meta.with_action(a))
+                    }
+                }
             }
             P2pNetworkAction::Yamux(a) => {
-                self.scheduler
-                    .connections
-                    .get_mut(&a.addr())
-                    .map(|cn| match &mut cn.mux {
-                        Some(P2pNetworkConnectionMuxState::Yamux(state)) => {
-                            state.reducer(&mut cn.streams, meta.with_action(&a))
-                        }
-                        _ => {}
-                    });
+                if let Some(cn) = self.scheduler.connections.get_mut(&a.addr()) {
+                    if let Some(P2pNetworkConnectionMuxState::Yamux(state)) = &mut cn.mux {
+                        state.reducer(&mut cn.streams, meta.with_action(a))
+                    }
+                }
             }
             P2pNetworkAction::Kad(a) => {
                 let Some(state) = &mut self.scheduler.discovery_state else {
@@ -120,7 +110,7 @@ impl P2pNetworkState {
                 };
                 let time = meta.time();
                 // println!("======= kad reducer for {state:?}");
-                if let Err(err) = state.reducer(meta.with_action(&a)) {
+                if let Err(err) = state.reducer(meta.with_action(a)) {
                     error!(time; "{err}");
                 }
                 // println!("======= kad reducer result {state:?}");
@@ -129,7 +119,7 @@ impl P2pNetworkState {
                 if let Some(state) = self.find_rpc_state_mut(a) {
                     if let Some(peer_state) = peers.get_mut(&a.peer_id()) {
                         if let P2pPeerStatus::Ready(status) = &mut peer_state.status {
-                            state.reducer(&mut status.channels.rpc, meta.with_action(&a))
+                            state.reducer(&mut status.channels.rpc, meta.with_action(a))
                         }
                     }
                 }

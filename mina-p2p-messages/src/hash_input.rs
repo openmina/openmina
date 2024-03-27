@@ -77,7 +77,7 @@ where
     T: ToInput,
 {
     fn to_input(&self, inputs: &mut Inputs) {
-        self.deref().into_iter().for_each(|v| v.to_input(inputs));
+        self.deref().iter().for_each(|v| v.to_input(inputs));
     }
 }
 

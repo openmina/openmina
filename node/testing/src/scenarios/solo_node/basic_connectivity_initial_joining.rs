@@ -68,13 +68,10 @@ impl SoloNodeBasicConnectivityInitialJoining {
 
             let steps = runner
                 .pending_events(true)
-                .map(|(node_id, _, events)| {
+                .flat_map(|(node_id, _, events)| {
                     events.map(move |(_, event)| {
-                        match event {
-                            Event::P2p(P2pEvent::Discovery(event)) => {
-                                eprintln!("event: {event}");
-                            }
-                            _ => {}
+                        if let Event::P2p(P2pEvent::Discovery(event)) = event {
+                            eprintln!("event: {event}");
                         }
                         ScenarioStep::Event {
                             node_id,
@@ -82,7 +79,6 @@ impl SoloNodeBasicConnectivityInitialJoining {
                         }
                     })
                 })
-                .flatten()
                 .collect::<Vec<_>>();
 
             for step in steps {
@@ -135,7 +131,7 @@ impl SoloNodeBasicConnectivityInitialJoining {
                     // TODO: fix debugger returns timeout
                     let connections = debugger
                         .connections()
-                        .filter_map(|id| Some((id, connections.get(&id)?.clone())))
+                        .filter_map(|id| Some((id, *connections.get(&id)?)))
                         .collect::<HashMap<_, _>>();
                     let incoming = connections.iter().filter(|(_, (_, _, _, i))| *i).count();
                     let outgoing = connections.len() - incoming;

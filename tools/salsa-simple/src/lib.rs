@@ -168,7 +168,7 @@ impl<const R: usize> XSalsaCore<R> {
         for mut block in blocks {
             let mut t = [0; 64];
             self.gen_ks_block(&mut t);
-            block.xor_in2out(&GenericArray::from_slice(&t));
+            block.xor_in2out(GenericArray::from_slice(&t));
         }
     }
 }
@@ -327,7 +327,7 @@ mod helpers {
             return serializer.serialize_str(&hex::encode(v));
         }
 
-        serializer.serialize_bytes(&*v)
+        serializer.serialize_bytes(v)
     }
 
     pub fn de_bytes<'de, const N: usize, D>(deserializer: D) -> Result<[u8; N], D::Error>

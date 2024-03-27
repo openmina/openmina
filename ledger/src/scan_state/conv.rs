@@ -2497,7 +2497,7 @@ impl From<&MinaBasePendingCoinbaseStableV2> for PendingCoinbase {
                     let stack_id: pending_coinbase::StackId = stack_id.into();
                     let stack_index = crate::AccountIndex::from(stack_index.as_u64() as usize);
 
-                    let addr = Address::from_index(stack_index.clone(), depth);
+                    let addr = Address::from_index(stack_index, depth);
 
                     our_index.insert(stack_id, addr);
                     // index_list.push_back(stack_id);

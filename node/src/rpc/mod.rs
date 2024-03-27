@@ -416,8 +416,8 @@ pub mod discovery {
     impl From<(&P2pNetworkKadEntry, &P2pNetworkKadKey)> for RpcEntry {
         fn from((value, this_key): (&P2pNetworkKadEntry, &P2pNetworkKadKey)) -> Self {
             RpcEntry {
-                peer_id: value.peer_id.clone(),
-                libp2p: value.peer_id.clone().into(),
+                peer_id: value.peer_id,
+                libp2p: value.peer_id.into(),
                 key: value.key.clone(),
                 dist: this_key - &value.key,
                 addrs: value.addrs.clone(),

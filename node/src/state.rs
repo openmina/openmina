@@ -78,7 +78,7 @@ impl State {
         let best_tip = self.transition_frontier.best_tip()?;
         let best_tip_ms = u64::from(best_tip.timestamp()) / 1_000_000;
         let now_ms = u64::from(self.time()) / 1_000_000;
-        let ms = now_ms.saturating_sub(best_tip_ms) as u64;
+        let ms = now_ms.saturating_sub(best_tip_ms);
         let slots = ms / CONSTRAINT_CONSTANTS.block_window_duration_ms;
 
         Some(best_tip.global_slot() + (slots as u32))

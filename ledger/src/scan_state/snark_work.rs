@@ -89,8 +89,8 @@ mod tests {
         r.read_to_end(&mut buf).unwrap();
 
         let mut read = buf.as_slice();
-        let result = T::binprot_read(&mut read).unwrap();
-        result
+
+        T::binprot_read(&mut read).unwrap()
     }
 
     fn read_input<R: std::io::Read>(mut r: R) {
@@ -221,7 +221,7 @@ mod tests {
         // dbg!(&good[0]);
 
         let n = 10.min(good.len());
-        for index in 0..n {
+        for (index, _) in good.iter().enumerate().take(n) {
             let value = good[index].clone();
             let value = ExternalSnarkWorkerRequest::PerformJob(value);
 

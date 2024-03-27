@@ -63,7 +63,7 @@ where
 }
 
 /// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/pickles/wrap_verifier.ml#L16
-pub fn challenge_polynomial<'a, F: FieldWitness>(chals: &'a [F]) -> impl Fn(F) -> F + 'a {
+pub fn challenge_polynomial<F: FieldWitness>(chals: &[F]) -> impl Fn(F) -> F + '_ {
     |pt: F| {
         let k = chals.len();
         let pow_two_pows = {
@@ -86,9 +86,9 @@ pub fn challenge_polynomial<'a, F: FieldWitness>(chals: &'a [F]) -> impl Fn(F) -
 }
 
 /// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/pickles/wrap_verifier.ml#L16
-pub fn challenge_polynomial_checked<'a, F: FieldWitness>(
-    chals: &'a [F],
-) -> impl Fn(F, &mut Witness<F>) -> F + 'a {
+pub fn challenge_polynomial_checked<F: FieldWitness>(
+    chals: &[F],
+) -> impl Fn(F, &mut Witness<F>) -> F + '_ {
     |pt: F, w: &mut Witness<F>| {
         let k = chals.len();
         let pow_two_pows = {
@@ -263,7 +263,7 @@ pub fn proof_evaluation_to_list_opt<F: FieldWitness>(
     ];
 
     list.extend(optional_gates.into_iter().map(to_opt));
-    list.extend(lookup_sorted.into_iter().map(to_opt));
+    list.extend(lookup_sorted.iter().map(to_opt));
 
     list.extend(
         [
@@ -481,13 +481,13 @@ pub fn to_absorption_sequence_opt<F: FieldWitness>(
     } = evals;
 
     let mut list = vec![
-        Opt::Some(z.clone()),
-        Opt::Some(generic_selector.clone()),
-        Opt::Some(poseidon_selector.clone()),
-        Opt::Some(complete_add_selector.clone()),
-        Opt::Some(mul_selector.clone()),
-        Opt::Some(emul_selector.clone()),
-        Opt::Some(endomul_scalar_selector.clone()),
+        Opt::Some(*z),
+        Opt::Some(*generic_selector),
+        Opt::Some(*poseidon_selector),
+        Opt::Some(*complete_add_selector),
+        Opt::Some(*mul_selector),
+        Opt::Some(*emul_selector),
+        Opt::Some(*endomul_scalar_selector),
     ];
 
     list.extend(w.iter().copied().map(Opt::Some));
@@ -511,14 +511,14 @@ pub fn to_absorption_sequence_opt<F: FieldWitness>(
 
     list.extend(
         [
-            range_check0_selector.clone(),
-            range_check1_selector.clone(),
-            foreign_field_add_selector.clone(),
-            foreign_field_mul_selector.clone(),
-            xor_selector.clone(),
-            rot_selector.clone(),
-            lookup_aggregation.clone(),
-            lookup_table.clone(),
+            *range_check0_selector,
+            *range_check1_selector,
+            *foreign_field_add_selector,
+            *foreign_field_mul_selector,
+            *xor_selector,
+            *rot_selector,
+            *lookup_aggregation,
+            *lookup_table,
         ]
         .iter()
         .map(to_opt),

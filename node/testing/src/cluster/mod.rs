@@ -118,7 +118,7 @@ lazy_static::lazy_static! {
 
 lazy_static::lazy_static! {
     static ref DETERMINISTIC_ACCOUNT_SEC_KEYS: BTreeMap<AccountPublicKey, AccountSecretKey> = (0..1000)
-        .map(|i| AccountSecretKey::deterministic(i))
+        .map(AccountSecretKey::deterministic)
         .map(|sec_key| (sec_key.public_key(), sec_key))
         .collect();
 }
@@ -361,7 +361,7 @@ impl Cluster {
             invariants_state: Default::default(),
         };
         if let Some(producer_key) = block_producer_sec_key {
-            real_service.block_producer_start(producer_key.into());
+            real_service.block_producer_start(producer_key);
         }
         let mut service = NodeTestingService::new(real_service, node_id, shutdown_rx);
         service.set_proof_kind(self.config.proof_kind());
@@ -592,10 +592,10 @@ impl Cluster {
             .ok_or_else(|| anyhow::anyhow!("node {node_id:?} not found"))?;
         let timeout = tokio::time::sleep(Duration::from_secs(60));
         tokio::select! {
-            opt = node.wait_for_event(&event_pattern) => opt.ok_or_else(|| anyhow::anyhow!("wait_for_event: None")),
+            opt = node.wait_for_event(event_pattern) => opt.ok_or_else(|| anyhow::anyhow!("wait_for_event: None")),
             _ = timeout => {
                 let pending_events = node.pending_events(false).map(|(_, event)| event.to_string()).collect::<Vec<_>>();
-                return Err(anyhow::anyhow!("waiting for event timed out! node {node_id:?}, event: \"{event_pattern}\"\n{pending_events:?}"));
+                Err(anyhow::anyhow!("waiting for event timed out! node {node_id:?}, event: \"{event_pattern}\"\n{pending_events:?}"))
             }
         }
     }
@@ -800,11 +800,11 @@ impl Cluster {
                     NonDeterministicEvent::P2pDiscoveryAddRoute(id, ids) => {
                         let addrs = ids
                             .into_iter()
-                            .map(|id| node_addr_by_peer_id(&self, id))
+                            .map(|id| node_addr_by_peer_id(self, id))
                             .collect::<Result<Vec<_>, _>>()?;
                         P2pEvent::Discovery(P2pDiscoveryEvent::AddRoute(id, addrs)).into()
                     }
-                    NonDeterministicEvent::RpcReadonly(id, req) => Event::Rpc(id, req).into(),
+                    NonDeterministicEvent::RpcReadonly(id, req) => Event::Rpc(id, req),
                 };
                 eprintln!("non_deterministic_event_dispatch({node_id:?}): {event}");
                 self.nodes

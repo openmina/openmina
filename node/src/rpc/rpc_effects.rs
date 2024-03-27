@@ -34,10 +34,9 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
 
     match action {
         RpcAction::GlobalStateGet { rpc_id, filter } => {
-            let _ = store.service.respond_state_get(
-                rpc_id,
-                (store.state.get(), filter.as_ref().map(String::as_str)),
-            );
+            let _ = store
+                .service
+                .respond_state_get(rpc_id, (store.state.get(), filter.as_deref()));
         }
         RpcAction::ActionStatsGet { rpc_id, query } => match query {
             ActionStatsQuery::SinceStart => {
@@ -178,7 +177,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                         }
                     };
                     RpcPeerInfo {
-                        peer_id: peer_id.clone(),
+                        peer_id: *peer_id,
                         connection_status,
                         address: state.dial_opts.as_ref().map(|opts| opts.to_string()),
                         best_tip: best_tip.map(|bt| bt.hash.clone()),
@@ -214,7 +213,6 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
             store.dispatch(RpcAction::Finish { rpc_id });
         }
         RpcAction::P2pConnectionIncomingInit { rpc_id, opts } => {
-            let rpc_id = rpc_id;
             match store.state().p2p.incoming_accept(opts.peer_id, &opts.offer) {
                 Ok(_) => {
                     store.dispatch(P2pConnectionIncomingAction::Init {
@@ -303,13 +301,14 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                 };
 
                 let mut scan_state = service.scan_state_summary(block.staged_ledger_hash().clone());
-                scan_state.iter_mut().flatten().for_each(|job| match job {
-                    RpcScanStateSummaryScanStateJob::Todo {
+                scan_state.iter_mut().flatten().for_each(|job| {
+                    if let RpcScanStateSummaryScanStateJob::Todo {
                         job_id,
                         bundle_job_id,
                         job: kind,
                         seq_no,
-                    } => {
+                    } = job
+                    {
                         let Some(data) = snark_pool.get(bundle_job_id) else {
                             return;
                         };
@@ -333,7 +332,6 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                             snark,
                         };
                     }
-                    _ => {}
                 });
                 Some(RpcScanStateSummary {
                     block: block_summary,
@@ -420,7 +418,6 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
             store.dispatch(SnarkPoolAction::CommitmentCreate { job_id });
         }
         RpcAction::SnarkerJobSpec { rpc_id, job_id } => {
-            let job_id = job_id;
             let Some(job) = store.state().snark_pool.get(&job_id) else {
                 if store
                     .service()
@@ -458,7 +455,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                 .respond_snarker_job_spec(rpc_id, input)
                 .is_err()
             {
-                return;
+                // TODO: log?
             }
         }
         RpcAction::SnarkerWorkersGet { rpc_id } => {
@@ -468,7 +465,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                 .respond_snarker_workers(rpc_id, vec![the_only.into()])
                 .is_err()
             {
-                return;
+                // TODO: log?
             }
         }
         RpcAction::HealthCheck { rpc_id } => {
@@ -538,7 +535,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                 .network
                 .scheduler
                 .discovery_state()
-                .and_then(|discovery_state| (&discovery_state.bootstrap_stats()).cloned());
+                .and_then(|discovery_state| (discovery_state.bootstrap_stats()).cloned());
             respond_or_log!(
                 store
                     .service()

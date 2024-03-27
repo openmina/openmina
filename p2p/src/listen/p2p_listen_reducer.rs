@@ -15,8 +15,8 @@ impl P2pListenersState {
                 }
             }
             super::P2pListenAction::Expired { listener_id, addr } => {
-                if let Some(P2pListenerState::Open { addrs, .. }) = self.0.get_mut(&listener_id) {
-                    addrs.remove(&addr);
+                if let Some(P2pListenerState::Open { addrs, .. }) = self.0.get_mut(listener_id) {
+                    addrs.remove(addr);
                 }
             }
             super::P2pListenAction::Error { listener_id, error } => {

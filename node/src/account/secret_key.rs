@@ -88,7 +88,7 @@ impl fmt::Display for AccountSecretKey {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         // TODO: implement to_bytes for Keypair, and remove this ugly workaround
         let hex = self.0.to_hex();
-        let mut bytes = hex::decode(&hex).expect("to_hex should return hex string");
+        let mut bytes = hex::decode(hex).expect("to_hex should return hex string");
         bytes.reverse();
         bytes.insert(0, 1);
         let s = bs58::encode(&bytes)
@@ -113,7 +113,7 @@ impl<'de> serde::Deserialize<'de> for AccountSecretKey {
         D: serde::Deserializer<'de>,
     {
         let b58: String = Deserialize::deserialize(deserializer)?;
-        Ok(b58.parse().map_err(|err| serde::de::Error::custom(err))?)
+        b58.parse().map_err(serde::de::Error::custom)
     }
 }
 

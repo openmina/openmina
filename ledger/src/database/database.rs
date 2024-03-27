@@ -1003,7 +1003,7 @@ mod tests_ocaml {
             let index = rand::thread_rng().gen_range(0..NACCOUNTS);
             let index = AccountIndex(index as u64);
 
-            db.set_at_index(index.clone(), account.clone()).unwrap();
+            db.set_at_index(index, account.clone()).unwrap();
             let at_index = db.get_at_index(index).unwrap();
             assert_eq!(account, at_index);
         }

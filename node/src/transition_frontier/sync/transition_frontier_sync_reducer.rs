@@ -241,7 +241,7 @@ impl TransitionFrontierSyncState {
                         );
                     }
                 }
-                _ => return,
+                _ => (),
             },
             TransitionFrontierSyncAction::LedgerStakingPending => {
                 if let Self::Init {
@@ -439,7 +439,7 @@ impl TransitionFrontierSyncState {
                 let Some(attempts) = block_state.fetch_pending_attempts_mut() else {
                     return;
                 };
-                attempts.insert(peer_id.clone(), PeerRpcState::Init { time: meta.time() });
+                attempts.insert(*peer_id, PeerRpcState::Init { time: meta.time() });
             }
             TransitionFrontierSyncAction::BlocksPeerQueryRetry { hash, peer_id } => {
                 let Some(block_state) = self.block_state_mut(hash) else {
@@ -448,7 +448,7 @@ impl TransitionFrontierSyncState {
                 let Some(attempts) = block_state.fetch_pending_attempts_mut() else {
                     return;
                 };
-                attempts.insert(peer_id.clone(), PeerRpcState::Init { time: meta.time() });
+                attempts.insert(*peer_id, PeerRpcState::Init { time: meta.time() });
             }
             TransitionFrontierSyncAction::BlocksPeerQueryPending {
                 hash,
@@ -588,7 +588,7 @@ fn next_required_ledger_to_sync(
     old_root: &ArcBlockWithHash,
     new_best_tip: &ArcBlockWithHash,
     new_root: &ArcBlockWithHash,
-    new_blocks_inbetween: &Vec<StateHash>,
+    new_blocks_inbetween: &[StateHash],
 ) -> TransitionFrontierSyncState {
     let next_epoch_target = SyncLedgerTarget::next_epoch(new_best_tip, new_root);
 
@@ -637,7 +637,7 @@ fn next_required_ledger_to_sync(
         time,
         best_tip: new_best_tip.clone(),
         root_block: new_root.clone(),
-        blocks_inbetween: new_blocks_inbetween.clone(),
+        blocks_inbetween: new_blocks_inbetween.to_vec(),
         ledger,
     };
     match kind {

@@ -86,7 +86,7 @@ fn with_merged_statement(
             let ledger_stmt2 = Statement::<()>::from(&ledger_proof2.statement);
             let merged_stmt = ledger_stmt1
                 .merge(&ledger_stmt2)
-                .map_err(|err| SnarkWorkSpecError::MergeStatementError(err))?;
+                .map_err(SnarkWorkSpecError::MergeStatementError)?;
             Ok(
                 SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0Single::Merge(Box::new((
                     (&merged_stmt).into(),

@@ -102,7 +102,7 @@ impl Debugger {
         let host = self.host;
         let res = self
             .client
-            .get(&format!("http://{host}:{port}/connection/{id}"))
+            .get(format!("http://{host}:{port}/connection/{id}"))
             .send()?
             .text()?;
         serde_json::from_str(&res).map_err(From::from)
@@ -113,7 +113,7 @@ impl Debugger {
         let host = self.host;
         let res = self
             .client
-            .get(&format!("http://{host}:{port}/connections?{params}"))
+            .get(format!("http://{host}:{port}/connections?{params}"))
             .send()?
             .text()?;
         serde_json::from_str(&res).map_err(From::from)
@@ -123,7 +123,7 @@ impl Debugger {
         let port = self.port;
         let host = self.host;
         self.client
-            .get(&format!("http://{host}:{port}/message_bin/{id}"))
+            .get(format!("http://{host}:{port}/message_bin/{id}"))
             .send()?
             .bytes()
             .map(|x| x.to_vec())
@@ -135,7 +135,7 @@ impl Debugger {
         let host = self.host;
         let res = self
             .client
-            .get(&format!("http://{host}:{port}/messages?{params}"))
+            .get(format!("http://{host}:{port}/messages?{params}"))
             .send()?
             .text()?;
         serde_json::from_str(&res).map_err(From::from)

@@ -85,7 +85,7 @@ where
             }
         }
 
-        const FIELDS: &'static [&'static str] = &["version", "t"];
+        const FIELDS: &[&str] = &["version", "t"];
         deserializer
             .deserialize_struct(
                 "MakeVersioned",
@@ -172,7 +172,7 @@ mod tests {
         T: BinProtWrite,
     {
         let mut buf = Vec::new();
-        let _ = t.binprot_write(&mut buf)?;
+        t.binprot_write(&mut buf)?;
         Ok(buf)
     }
 

@@ -134,7 +134,7 @@ impl TransitionFrontierSyncLedgerStagedState {
         let attempts = self.fetch_attempts();
         iter.filter(move |(peer_id, _)| {
             attempts.map_or(false, |attempts| {
-                !attempts.contains_key(&peer_id)
+                !attempts.contains_key(peer_id)
                     && (attempts.is_empty() || attempts.iter().all(|(_, s)| s.is_error()))
             })
         })

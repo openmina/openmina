@@ -136,7 +136,7 @@ impl SnarkPoolCandidatesState {
                 *last_ord = Some(ord);
                 Some(Some((peer_id, job_id.clone())))
             })
-            .filter_map(|v| v)
+            .flatten()
             .collect()
     }
 
@@ -149,7 +149,7 @@ impl SnarkPoolCandidatesState {
     ) {
         if let Some(state) = self
             .by_peer
-            .get_mut(&peer_id)
+            .get_mut(peer_id)
             .and_then(|jobs| jobs.get_mut(job_id))
         {
             if let SnarkPoolCandidateState::InfoReceived { info, .. } = state {
@@ -321,6 +321,12 @@ impl SnarkPoolCandidatesState {
             });
             !peers.is_empty()
         })
+    }
+}
+
+impl Default for SnarkPoolCandidatesState {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

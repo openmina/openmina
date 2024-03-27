@@ -162,7 +162,7 @@ impl<'a> ClusterRunner<'a> {
         match &step {
             ScenarioStep::Event { node_id, event } => {
                 let node_id = *node_id;
-                let event_id = self.cluster.wait_for_pending_event(node_id, &event).await?;
+                let event_id = self.cluster.wait_for_pending_event(node_id, event).await?;
                 let node = self.cluster.node(node_id).unwrap();
                 let event_ref = node.get_pending_event(event_id).unwrap();
                 if let Some(event) = NonDeterministicEvent::new(event_ref) {
@@ -380,7 +380,7 @@ impl<'a> ClusterRunner<'a> {
             // get all block producers except an extra account added
             // by ocaml node. Looks like the block producer of the
             // genesis block.
-            const GENESIS_PRODUCER: &'static str =
+            const GENESIS_PRODUCER: &str =
                 "B62qiy32p8kAKnny8ZFwoMhYpBppM1DWVCqAPBYNcXnsAHhnfAAuXgg";
             LedgerService::ctx(node.service())
                 .producers_with_delegates(staking_ledger_hash, |pub_key| {

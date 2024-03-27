@@ -2433,8 +2433,8 @@ impl TransactionsOrdered<Arc<TransactionWithWitness>> {
         let complete_and_incomplete_transactions = |txs: Vec<Arc<TransactionWithWitness>>| -> Option<
             TransactionsOrdered<Arc<TransactionWithWitness>>,
         > {
-            let target_first_pass_ledger = txs.get(0)?.statement.source.first_pass_ledger;
-            let first_state_hash = txs.get(0)?.state_hash.0;
+            let target_first_pass_ledger = txs.first()?.statement.source.first_pass_ledger;
+            let first_state_hash = txs.first()?.state_hash.0;
 
             let first_pass_txns = Vec::with_capacity(txns_per_tree_len);
             let second_pass_txns = Vec::with_capacity(txns_per_tree_len);

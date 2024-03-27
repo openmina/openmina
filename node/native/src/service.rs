@@ -97,7 +97,7 @@ impl redux::TimeService for NodeService {
         self.replayer
             .as_ref()
             .map(|v| v.next_monotonic_time())
-            .unwrap_or_else(|| redux::Instant::now())
+            .unwrap_or_else(redux::Instant::now)
     }
 }
 
@@ -199,7 +199,7 @@ impl P2pServiceWebrtcWithLibp2p for NodeService {
 
         self.libp2p()
             .cmd_sender()
-            .send(Cmd::FindNode(peer_id.into()))
+            .send(Cmd::FindNode(peer_id))
             .unwrap_or_default();
     }
 
@@ -210,7 +210,7 @@ impl P2pServiceWebrtcWithLibp2p for NodeService {
             .into_iter()
             .filter_map(|opts| {
                 Some((
-                    opts.peer_id().clone().into(),
+                    (*opts.peer_id()).into(),
                     match opts {
                         P2pConnectionOutgoingInitOpts::LibP2P(opts) => opts.to_maddr(),
                         _ => return None,
@@ -289,7 +289,7 @@ impl SnarkWorkVerifyService for NodeService {
                             [Some(conv(v1)), Some(conv(v2))]
                         }
                     })
-                    .filter_map(|v| v)
+                    .flatten()
                     .collect::<Vec<_>>();
                 let verifier_srs = verifier_srs.lock().expect("Failed to lock SRS");
                 if !ledger::proofs::verification::verify_transaction(

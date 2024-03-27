@@ -60,7 +60,7 @@ impl TransitionFrontierSyncLedgerState {
                             *self = Self::Staged(s);
                         }
                         Self::Staged(state) => state.reducer(meta.with_action(action)),
-                        _ => return,
+                        _ => (),
                     }
                 }
             }

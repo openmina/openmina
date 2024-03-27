@@ -156,16 +156,14 @@ impl<T: AsRef<Block>> BlockWithHash<T> {
                 }
             }
         }
-        match diff.1.as_ref() {
-            Some(v) => match &v.coinbase {
-                StagedLedgerDiffDiffPreDiffWithAtMostOneCoinbaseStableV2Coinbase::Zero => {}
-                StagedLedgerDiffDiffPreDiffWithAtMostOneCoinbaseStableV2Coinbase::One(v) => {
-                    coinbases.push(v.as_ref());
-                }
-            },
-            _ => {}
+        if let Some(v) = diff.1.as_ref() {
+            if let StagedLedgerDiffDiffPreDiffWithAtMostOneCoinbaseStableV2Coinbase::One(coinbase) =
+                &v.coinbase
+            {
+                coinbases.push(coinbase.as_ref());
+            }
         }
-        coinbases.into_iter().filter_map(|v| v)
+        coinbases.into_iter().flatten()
     }
 
     pub fn completed_works_iter<'a>(
@@ -198,7 +196,7 @@ impl<T: AsRef<BlockHeader>> BlockHeaderWithHash<T> {
     }
 
     pub fn header(&self) -> &BlockHeader {
-        &self.header.as_ref()
+        self.header.as_ref()
     }
 
     pub fn consensus_state(&self) -> &ConsensusProofOfStakeDataConsensusStateValueStableV2 {

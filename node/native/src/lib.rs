@@ -1,3 +1,5 @@
+#![allow(clippy::large_enum_variant)]
+
 pub mod block_producer;
 pub mod ext_snark_worker;
 pub mod graphql;

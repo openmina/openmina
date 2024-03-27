@@ -110,7 +110,7 @@ impl P2pNetworkSchedulerAction {
                         };
                         store.dispatch(P2pNetworkSchedulerYamuxDidInitAction {
                             addr: a.addr,
-                            peer_id: peer_id.clone(),
+                            peer_id,
                         });
                     }
                     Some(Protocol::Stream(kind)) => {
@@ -172,7 +172,7 @@ impl P2pNetworkSchedulerAction {
                                     if let Some(P2pNetworkKadRequestState {
                                         status: P2pNetworkKadRequestStatus::WaitingForKadStream(id),
                                         ..
-                                    }) = discovery_state.request(&peer_id)
+                                    }) = discovery_state.request(peer_id)
                                     {
                                         if id == stream_id {
                                             store.dispatch(P2pNetworkKadRequestAction::Error {

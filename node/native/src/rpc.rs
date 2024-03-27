@@ -52,6 +52,12 @@ impl RpcService {
     }
 }
 
+impl Default for RpcService {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl NodeService {
     /// Channel for sending the rpc request to state machine.
     #[allow(dead_code)]
@@ -113,10 +119,10 @@ macro_rules! state_field_filter {
 /// assert_eq!(filter, None);
 /// ```
 fn strip_root_field<'a>(filter: &'a str, field: &str) -> Option<&'a str> {
-    let strip_root = |f: &'a str| f.strip_prefix("$");
+    let strip_root = |f: &'a str| f.strip_prefix('$');
     let field_char = |c: char| c.is_alphabetic() || c == '_';
     let strip_dot_field = |f: &'a str| {
-        f.strip_prefix(".").and_then(|f| {
+        f.strip_prefix('.').and_then(|f| {
             f.strip_prefix(field)
                 .and_then(|f| (!f.starts_with(field_char)).then_some(f))
         })
@@ -127,27 +133,6 @@ fn strip_root_field<'a>(filter: &'a str, field: &str) -> Option<&'a str> {
             .and_then(|f| f.strip_prefix("']"))
     };
     strip_root(filter).and_then(|f| strip_dot_field(f).or_else(|| strip_index_field(f)))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::strip_root_field;
-
-    #[test]
-    fn strip_root_field_test() {
-        for (filter, expected) in [
-            ("$.field", Some("")),
-            ("$['field']", Some("")),
-            ("$.field.another", Some(".another")),
-            ("$['field'].another", Some(".another")),
-            ("$.another", None),
-            ("$.field_1", None),
-            ("$.fields", None),
-        ] {
-            let actual = strip_root_field(filter, "field");
-            assert_eq!(actual, expected)
-        }
-    }
 }
 
 fn optimize_filtered_state(
@@ -284,5 +269,26 @@ impl node::rpc::RpcService for NodeService {
 impl node::core::invariants::InvariantService for NodeService {
     fn invariants_state(&mut self) -> &mut node::core::invariants::InvariantsState {
         &mut self.invariants_state
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::strip_root_field;
+
+    #[test]
+    fn strip_root_field_test() {
+        for (filter, expected) in [
+            ("$.field", Some("")),
+            ("$['field']", Some("")),
+            ("$.field.another", Some(".another")),
+            ("$['field'].another", Some(".another")),
+            ("$.another", None),
+            ("$.field_1", None),
+            ("$.fields", None),
+        ] {
+            let actual = strip_root_field(filter, "field");
+            assert_eq!(actual, expected)
+        }
     }
 }

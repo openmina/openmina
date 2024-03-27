@@ -87,7 +87,7 @@ impl BinProtRead for TransactionSnarkScanStateStableV2ScanStateTreesA {
                     }
                     let mut tree = Self::Leaf(data);
                     while let Some(value) = values.pop() {
-                        depth = depth - 1;
+                        depth -= 1;
                         tree = Self::Node {
                             depth: depth.into(),
                             value,
@@ -145,7 +145,7 @@ impl BinProtWrite for TransactionSnarkScanStateStableV2ScanStateTreesA {
                     value,
                     sub_tree,
                 } => {
-                    if &depth.0 != &curr_depth {
+                    if depth.0 != curr_depth {
                         return Err(std::io::Error::new(
                             std::io::ErrorKind::InvalidInput,
                             format!(
@@ -531,10 +531,10 @@ mod tests {
     fn non_zero_curve_point() {
         let b58 = r#""B62qkUHaJUHERZuCHQhXCQ8xsGBqyYSgjQsKnKN5HhSJecakuJ4pYyk""#;
 
-        let v = serde_json::from_str::<NonZeroCurvePoint>(&b58)
+        let v = serde_json::from_str::<NonZeroCurvePoint>(b58)
             .unwrap()
             .into_inner();
-        assert_eq!(v.is_odd, false);
+        assert!(!v.is_odd);
         assert_eq!(
             &hex::encode(&v.x),
             "3c2b5b48c22dc8b8c9d2c9d76a2ceaaf02beabb364301726c3f8e989653af513"
@@ -590,7 +590,7 @@ impl<'de> Deserialize<'de> for PicklesProofProofsVerified2ReprStableV2StatementF
                 A: serde::de::SeqAccess<'de>,
             {
                 match seq.next_element::<String>()? {
-                    Some(v) if &v == SHIFTED_VALUE => {}
+                    Some(v) if v == SHIFTED_VALUE => {}
                     Some(v) => {
                         return Err(serde::de::Error::custom(format!(
                             "expecting `{SHIFTED_VALUE}`, got `{v}`"
@@ -602,7 +602,7 @@ impl<'de> Deserialize<'de> for PicklesProofProofsVerified2ReprStableV2StatementF
                     Some(v) => {
                         Ok(PicklesProofProofsVerified2ReprStableV2StatementFp::ShiftedValue(v))
                     }
-                    None => return Err(serde::de::Error::custom("expecting a value")),
+                    None => Err(serde::de::Error::custom("expecting a value")),
                 }
             }
         }
@@ -796,6 +796,13 @@ impl<'de> Deserialize<'de> for SgnStableV1 {
                     Ok(v)
                 }
 
+                fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+                where
+                    E: serde::de::Error,
+                {
+                    Ok(v.to_string())
+                }
+
                 fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
                 where
                     A: serde::de::SeqAccess<'de>,
@@ -883,6 +890,7 @@ pub struct TokenFeeExcess {
     pub amount: SignedAmount,
 }
 
+#[allow(clippy::derivable_impls)]
 impl Default for NonZeroCurvePointUncompressedStableV1 {
     fn default() -> Self {
         Self {

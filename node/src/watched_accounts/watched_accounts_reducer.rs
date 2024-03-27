@@ -84,7 +84,7 @@ impl WatchedAccountsState {
                                 .consensus_state
                                 .blockchain_length
                                 .0
-                                 .0 as u32,
+                                 .0,
                             hash: block.hash.clone(),
                             pred_hash: block
                                 .block

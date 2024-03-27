@@ -65,7 +65,7 @@ impl BlockProducerWonSlot {
         let winner_pub_key = AccountPublicKey::from(
             CompressedPubKey::from_address(&won_slot.winner_account).unwrap(),
         );
-        let delegator = (winner_pub_key.into(), won_slot.account_index.clone());
+        let delegator = (winner_pub_key.into(), won_slot.account_index);
         let global_slot = v2::ConsensusGlobalSlotStableV1 {
             slot_number: v2::MinaNumbersGlobalSlotSinceHardForkMStableV1::SinceHardFork(
                 won_slot.global_slot.into(),

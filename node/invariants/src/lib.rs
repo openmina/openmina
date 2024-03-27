@@ -74,7 +74,7 @@ lazy_static::lazy_static! {
     /// List of invariants that need to be triggered if we see a given `ActionKind`.
     static ref INVARIANTS_BY_ACTION_KIND: Vec<Vec<Invariants>> = {
         let mut by_action_kind = Vec::new();
-        by_action_kind.resize_with(ActionKind::COUNT as usize, || Vec::new());
+        by_action_kind.resize_with(ActionKind::COUNT as usize, Vec::new);
         for invariant in Invariants::iter() {
             for action_kind in invariant.triggers() {
                 let v = by_action_kind.get_mut(*action_kind as usize).unwrap();
@@ -98,7 +98,7 @@ impl Invariants {
         INVARIANTS_BY_ACTION_KIND
             .get(action_kind as usize)
             .unwrap()
-            .into_iter()
+            .iter()
             .map(|invariant| (*invariant, invariant.check(store, action)))
     }
 

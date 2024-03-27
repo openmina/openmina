@@ -23,7 +23,7 @@ use crate::{
 pub struct RustNodeAsSeed;
 
 impl RustNodeAsSeed {
-    pub async fn run<'a>(self, mut runner: ClusterRunner<'a>) {
+    pub async fn run(self, mut runner: ClusterRunner<'_>) {
         let rust_node_id = runner.add_rust_node(RustNodeTestingConfig::berkeley_default());
         let rust_node_dial_addr = runner.node(rust_node_id).unwrap().dial_addr();
 
@@ -54,7 +54,7 @@ impl RustNodeAsSeed {
                 .expect("expected connected event");
             let (ocaml_peer, _) = as_connection_finalized_event(&connected.1).unwrap();
             peers.retain(|peer| peer != ocaml_peer);
-            let ocaml_peer = ocaml_peer.clone();
+            let ocaml_peer = *ocaml_peer;
             // execute it
             let state = driver.exec_even_step(connected).await.unwrap().unwrap();
             // check that now there is an outgoing connection to the ocaml peer
@@ -62,7 +62,7 @@ impl RustNodeAsSeed {
                 &state.p2p.peers.get(&ocaml_peer).unwrap().status,
                 P2pPeerStatus::Ready(ready) if ready.is_incoming
             ));
-            duration = Duration::from_secs(1 * 60);
+            duration = Duration::from_secs(60);
         }
 
         let timeout = Instant::now() + Duration::from_secs(60);
@@ -78,7 +78,7 @@ impl RustNodeAsSeed {
             println!("{}", serde_json::to_string_pretty(&node0_peers).unwrap());
             node0_has_node1 = get_peers_iter(&node0_peers)
                 .unwrap()
-                .any(|peer| peer.unwrap().2 == &ocaml_peer_id1.to_string());
+                .any(|peer| peer.unwrap().2 == ocaml_peer_id1.to_string());
 
             let node1_peers = driver
                 .inner()
@@ -89,7 +89,7 @@ impl RustNodeAsSeed {
             println!("{}", serde_json::to_string_pretty(&node1_peers).unwrap());
             node1_has_node0 = get_peers_iter(&node1_peers)
                 .unwrap()
-                .any(|peer| peer.unwrap().2 == &ocaml_peer_id0.to_string());
+                .any(|peer| peer.unwrap().2 == ocaml_peer_id0.to_string());
 
             tokio::time::sleep(Duration::from_secs(10)).await;
         }
@@ -120,7 +120,7 @@ impl RustNodeAsSeed {
 pub struct OCamlToRust;
 
 impl OCamlToRust {
-    pub async fn run<'a>(self, mut runner: ClusterRunner<'a>) {
+    pub async fn run(self, mut runner: ClusterRunner<'_>) {
         let rust_node_id = runner.add_rust_node(RustNodeTestingConfig::berkeley_default());
         let rust_node_dial_addr = runner.node(rust_node_id).unwrap().dial_addr();
 
@@ -154,10 +154,7 @@ impl OCamlToRust {
 
         // wait for identify message
         let identify = driver
-            .wait_for(
-                Duration::from_secs(5 * 60),
-                identify_event(ocaml_peer_id.clone().into()),
-            )
+            .wait_for(Duration::from_secs(5 * 60), identify_event(ocaml_peer_id))
             .await
             .unwrap()
             .expect("expected connected event");
@@ -169,7 +166,7 @@ impl OCamlToRust {
                 .p2p
                 .kademlia
                 .routes
-                .get(&ocaml_peer_id.clone().into())
+                .get(&ocaml_peer_id.clone())
                 .map_or(false, |l| !l.is_empty()),
             "kademlia should know ocaml node's addresses"
         );
@@ -181,7 +178,7 @@ impl OCamlToRust {
 pub struct RustToOCaml;
 
 impl RustToOCaml {
-    pub async fn run<'a>(self, mut runner: ClusterRunner<'a>) {
+    pub async fn run(self, mut runner: ClusterRunner<'_>) {
         let rust_node_id = runner.add_rust_node(RustNodeTestingConfig::berkeley_default());
 
         let ocaml_seed_config = OcamlNodeTestingConfig {
@@ -226,14 +223,14 @@ impl RustToOCaml {
         let state = driver.exec_even_step(connected).await.unwrap().unwrap();
         // check that now there is an outgoing connection to the ocaml peer
         assert!(matches!(
-            &state.p2p.peers.get(&seed_peer_id.clone().into()).unwrap().status,
+            &state.p2p.peers.get(&seed_peer_id.clone()).unwrap().status,
             P2pPeerStatus::Ready(ready) if !ready.is_incoming
         ));
 
         // wait for kademlia to add the ocaml peer
         let kad_add_rounte = driver.wait_for(Duration::from_secs(1), |_, event, _| {
             matches!(event, Event::P2p(P2pEvent::Discovery(P2pDiscoveryEvent::AddRoute(peer, addresses)))
-                     if peer == &seed_peer_id && addresses.iter().any(match_addr_with_port_and_peer_id(8302, seed_peer_id.clone().into()))
+                     if peer == &seed_peer_id && addresses.iter().any(match_addr_with_port_and_peer_id(8302, seed_peer_id))
             )
         }).await.unwrap().expect("expected add route event");
         let state = driver
@@ -246,7 +243,7 @@ impl RustToOCaml {
                 .p2p
                 .kademlia
                 .routes
-                .get(&seed_peer_id.clone().into())
+                .get(&seed_peer_id.clone())
                 .map_or(false, |l| !l.is_empty()),
             "kademlia should know ocaml node's addresses"
         );
@@ -258,7 +255,7 @@ impl RustToOCaml {
 pub struct OCamlToRustViaSeed;
 
 impl OCamlToRustViaSeed {
-    pub async fn run<'a>(self, mut runner: ClusterRunner<'a>) {
+    pub async fn run(self, mut runner: ClusterRunner<'_>) {
         let rust_node_id = runner.add_rust_node(RustNodeTestingConfig::berkeley_default());
 
         let ocaml_seed_config = OcamlNodeTestingConfig {
@@ -304,7 +301,7 @@ impl OCamlToRustViaSeed {
 
         let state = driver.exec_even_step(connected).await.unwrap().unwrap();
         assert!(matches!(
-            &state.p2p.peers.get(&seed_peer_id.clone().into()).unwrap().status,
+            &state.p2p.peers.get(&seed_peer_id.clone()).unwrap().status,
             P2pPeerStatus::Ready(ready) if !ready.is_incoming
         ));
 
@@ -318,7 +315,7 @@ impl OCamlToRustViaSeed {
             .exec_step(ScenarioStep::ManualEvent {
                 node_id: rust_node_id,
                 event: Box::new(Event::P2p(node::p2p::P2pEvent::Connection(
-                    P2pConnectionEvent::Closed(seed_peer_id.clone()),
+                    P2pConnectionEvent::Closed(seed_peer_id),
                 ))),
             })
             .await
@@ -331,7 +328,7 @@ impl OCamlToRustViaSeed {
                 .state()
                 .p2p
                 .peers
-                .get(&seed_peer_id.clone().into())
+                .get(&seed_peer_id.clone())
                 .unwrap()
                 .status,
             P2pPeerStatus::Disconnected { .. }
@@ -364,7 +361,7 @@ impl OCamlToRustViaSeed {
 pub struct RustToOCamlViaSeed;
 
 impl RustToOCamlViaSeed {
-    pub async fn run<'a>(self, mut runner: ClusterRunner<'a>) {
+    pub async fn run(self, mut runner: ClusterRunner<'_>) {
         let rust_node_id = runner.add_rust_node(RustNodeTestingConfig::berkeley_default());
 
         let ocaml_seed_config = OcamlNodeTestingConfig {
@@ -388,7 +385,7 @@ impl RustToOCamlViaSeed {
         let ocaml_peer_id = runner.ocaml_node(ocaml_node).unwrap().peer_id();
 
         let wait_step = OcamlStep::WaitReady {
-            timeout: Duration::from_secs(1 * 60),
+            timeout: Duration::from_secs(60),
         };
         runner
             .exec_step(ScenarioStep::Ocaml {
@@ -426,7 +423,7 @@ impl RustToOCamlViaSeed {
 
         let state = driver.exec_even_step(connected).await.unwrap().unwrap();
         assert!(matches!(
-            &state.p2p.peers.get(&seed_peer_id.clone().into()).unwrap().status,
+            &state.p2p.peers.get(&seed_peer_id.clone()).unwrap().status,
             P2pPeerStatus::Ready(ready) if !ready.is_incoming
         ));
 
@@ -449,7 +446,7 @@ impl RustToOCamlViaSeed {
                                     steps.push(ScenarioStep::ManualEvent {
                                         node_id,
                                         event: Box::new(Event::P2p(P2pEvent::Connection(
-                                            P2pConnectionEvent::Closed(peer.clone()),
+                                            P2pConnectionEvent::Closed(*peer),
                                         ))),
                                     });
                                 } else {

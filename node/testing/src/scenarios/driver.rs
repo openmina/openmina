@@ -52,7 +52,7 @@ pub fn match_addr_with_port_and_peer_id(
                 }),
         } => &peer_id == pid && port == *p,
         P2pConnectionOutgoingInitOpts::LibP2P(libp2p_opts) => {
-            &libp2p_opts.peer_id == &peer_id && libp2p_opts.port == port
+            libp2p_opts.peer_id == peer_id && libp2p_opts.port == port
         }
         _ => false,
     }
@@ -270,7 +270,6 @@ impl<'cluster> Driver<'cluster> {
                     node_id,
                     event: event.to_string(),
                 };
-                let node_id = node_id;
                 self.runner.exec_step(step).await?;
                 let state = self.runner.node(node_id).unwrap().state();
                 if f(node_id, &event, state) {
@@ -298,7 +297,6 @@ impl<'cluster> Driver<'cluster> {
                     node_id,
                     event: event.to_string(),
                 };
-                let node_id = node_id;
                 self.runner.exec_step(step).await?;
                 let _state = self.runner.node(node_id).unwrap().state();
                 // println!("{node_id} state: {state:#?}, state = state.p2p");
@@ -552,22 +550,17 @@ pub async fn wait_for_connection_established<'cluster, F: PeerPredicate>(
 // }
 
 /// Creates `num` Rust nodes in the cluster
-pub fn add_rust_nodes1<'cluster, N, T>(
-    driver: &mut Driver,
-    num: N,
-    config: RustNodeTestingConfig,
-) -> T
+pub fn add_rust_nodes1<N, T>(driver: &mut Driver, num: N, config: RustNodeTestingConfig) -> T
 where
     N: Into<u16>,
     T: FromIterator<(ClusterNodeId, PeerId)>,
 {
     (0..num.into())
-        .into_iter()
         .map(|_| driver.add_rust_node(config.clone()))
         .collect()
 }
 
-pub fn add_rust_nodes<'cluster, N, NodeIds, PeerIds>(
+pub fn add_rust_nodes<N, NodeIds, PeerIds>(
     driver: &mut Driver,
     num: N,
     config: RustNodeTestingConfig,
@@ -578,13 +571,12 @@ where
     PeerIds: Default + Extend<PeerId>,
 {
     (0..num.into())
-        .into_iter()
         .map(|_| driver.add_rust_node(config.clone()))
         .unzip()
 }
 
 /// Creates `num` Rust nodes in the cluster
-pub fn add_rust_nodes_with<'cluster, N, NodeIds, Items, Item, F>(
+pub fn add_rust_nodes_with<N, NodeIds, Items, Item, F>(
     driver: &mut Driver,
     num: N,
     config: RustNodeTestingConfig,
@@ -597,7 +589,6 @@ where
     F: FnMut(&State) -> Item,
 {
     (0..num.into())
-        .into_iter()
         .map(|_| driver.add_rust_node_with(config.clone(), &mut f))
         .unzip()
 }
@@ -651,7 +642,7 @@ pub async fn wait_for_connection_event<'cluster, F>(
 where
     F: ConnectionPredicate,
 {
-    Ok(driver
+    driver
         .run_until(duration, |node_id, event: &_, state: &_| {
             let Some((peer_id, result)) = as_connection_finalized_event(event) else {
                 return false;
@@ -679,7 +670,7 @@ where
             );
             f.matches(node_id, addr, result)
         })
-        .await?)
+        .await
 }
 
 #[cfg(not(feature = "p2p-libp2p"))]
@@ -788,7 +779,6 @@ pub async fn trace_steps_state<T: Debug, F: Fn(&State) -> T>(
                 node_id,
                 event: event.to_string(),
             };
-            let node_id = node_id;
             runner.exec_step(step).await?;
             let state = runner.node(node_id).unwrap().state();
             let t = f(state);

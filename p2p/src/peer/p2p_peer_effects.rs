@@ -14,7 +14,6 @@ impl P2pPeerAction {
     {
         match self {
             P2pPeerAction::Ready { peer_id, .. } => {
-                let peer_id = peer_id;
                 // Dispatches can be done without a loop, but inside we do
                 // exhaustive matching so that we don't miss any channels.
                 for id in ChannelId::iter_all() {

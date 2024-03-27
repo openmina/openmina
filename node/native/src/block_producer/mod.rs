@@ -62,7 +62,7 @@ pub fn prove(
     let provers = get_provers();
 
     let res = generate_block_proof(BlockParams {
-        input: &*input,
+        input,
         block_step_prover: &provers.block_step_prover,
         block_wrap_prover: &provers.block_wrap_prover,
         tx_wrap_prover: &provers.tx_wrap_prover,
@@ -86,7 +86,7 @@ impl node::service::BlockProducerService for crate::NodeService {
 
         let tx = self.event_sender.clone();
         std::thread::spawn(move || {
-            let res = prove(&*input, false).map_err(|err| format!("{err:?}"));
+            let res = prove(&input, false).map_err(|err| format!("{err:?}"));
             let _ = tx.send(BlockProducerEvent::BlockProve(block_hash, res).into());
         });
     }

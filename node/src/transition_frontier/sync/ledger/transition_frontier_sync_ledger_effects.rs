@@ -13,6 +13,8 @@ pub fn transition_frontier_sync_ledger_init_effects<S: redux::Service>(
     store.dispatch(TransitionFrontierSyncLedgerSnarkedAction::Pending);
 }
 
+// TODO(binier): This looks unnecessary complicated
+#[allow(clippy::if_same_then_else)]
 pub fn transition_frontier_sync_ledger_snarked_success_effects<S: redux::Service>(
     _: &ActionMeta,
     store: &mut Store<S>,

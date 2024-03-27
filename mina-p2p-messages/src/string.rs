@@ -99,7 +99,7 @@ impl<'de> Deserialize<'de> for ByteString {
                 E: serde::de::Error,
             {
                 hex::decode(v)
-                    .map_err(|_| serde::de::Error::custom(format!("failed to decode hex str")))
+                    .map_err(|_| serde::de::Error::custom("failed to decode hex str".to_string()))
             }
         }
         deserializer.deserialize_str(V).map(Self)
@@ -126,8 +126,8 @@ impl binprot::BinProtWrite for ByteString {
         if self.0.len() > MINA_STRING_MAX_LENGTH {
             return Err(MinaStringTooLong::as_io_err(self.0.len()));
         }
-        let _ = Nat0(self.0.len() as u64).binprot_write(w)?;
-        let _ = w.write_all(&self.0)?;
+        Nat0(self.0.len() as u64).binprot_write(w)?;
+        w.write_all(&self.0)?;
         Ok(())
     }
 }
@@ -258,8 +258,8 @@ impl binprot::BinProtWrite for CharString {
         if self.0.len() > MINA_STRING_MAX_LENGTH {
             return Err(MinaStringTooLong::as_io_err(self.0.len()));
         }
-        let _ = Nat0(self.0.len() as u64).binprot_write(w)?;
-        let _ = w.write_all(&self.0)?;
+        Nat0(self.0.len() as u64).binprot_write(w)?;
+        w.write_all(&self.0)?;
         Ok(())
     }
 }

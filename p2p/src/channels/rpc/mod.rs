@@ -121,11 +121,10 @@ fn addr_to_str(
 ) -> String {
     let addr = byte_string
         .as_ref()
-        .into_iter()
+        .iter()
         .copied()
         .flat_map(|byte| {
             (0..8)
-                .into_iter()
                 .map(move |b| byte & (1 << (7 - b)) != 0)
                 .map(|b| if b { '1' } else { '0' })
         })

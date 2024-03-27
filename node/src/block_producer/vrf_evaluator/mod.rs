@@ -56,7 +56,7 @@ pub struct VrfEvaluationOutputWithHash {
 
 impl std::fmt::Display for VrfEvaluationOutputWithHash {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} ", self.staking_ledger_hash.to_string())?;
+        write!(f, "{} ", self.staking_ledger_hash)?;
         match &self.evaluation_result {
             VrfEvaluationOutput::SlotWon(won_slot) => {
                 write!(f, "SlotWon {}", won_slot.global_slot)

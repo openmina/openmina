@@ -45,7 +45,7 @@ mod binprot_impl {
 
     impl BinProtWrite for Host {
         fn binprot_write<W: std::io::Write>(&self, w: &mut W) -> std::io::Result<()> {
-            Ok(match self {
+            match self {
                 Self::Domain(v) => {
                     HostKind::Domain.binprot_write(w)?;
                     v.binprot_write(w)?
@@ -62,7 +62,8 @@ mod binprot_impl {
                         b.binprot_write(w)?;
                     }
                 }
-            })
+            };
+            Ok(())
         }
     }
 
@@ -81,16 +82,16 @@ mod binprot_impl {
                 }
                 HostKind::Ipv4 => {
                     let mut octets = [0; 4];
-                    for i in 0..octets.len() {
-                        octets[i] = u8::binprot_read(r)?;
+                    for octet in &mut octets {
+                        *octet = u8::binprot_read(r)?;
                     }
 
                     Host::Ipv4(octets.into())
                 }
                 HostKind::Ipv6 => {
                     let mut segments = [0; 8];
-                    for i in 0..segments.len() {
-                        segments[i] = u16::binprot_read(r)?;
+                    for segment in &mut segments {
+                        *segment = u16::binprot_read(r)?;
                     }
 
                     Host::Ipv6(segments.into())

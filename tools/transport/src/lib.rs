@@ -161,7 +161,7 @@ where
             tcp::tokio::Transport::new(tcp::Config::default().nodelay(true))
                 .and_then(move |socket, _| pnet.handshake(socket))
                 .upgrade(upgrade::Version::V1)
-                .authenticate(noise::Config::new(&local_key).expect("libp2p-noise static keypair"))
+                .authenticate(noise::Config::new(local_key).expect("libp2p-noise static keypair"))
                 .multiplex(yamux)
                 .timeout(std::time::Duration::from_secs(20))
                 .boxed()

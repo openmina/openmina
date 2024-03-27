@@ -3196,7 +3196,7 @@ pub mod zkapp_command {
         this: TokenId,
     }
 
-    pub const ACCOUNT_UPDATE_CONS_HASH_PARAM: &'static str = "MinaAcctUpdateCons";
+    pub const ACCOUNT_UPDATE_CONS_HASH_PARAM: &str = "MinaAcctUpdateCons";
 
     impl<AccUpdate: Clone> CallForest<AccUpdate> {
         pub fn new() -> Self {
@@ -4920,7 +4920,7 @@ pub mod local_state {
             inputs.append_field(self.caller.0);
             inputs.append_field(self.caller_caller.0);
 
-            let field = match self.calls.0.get(0) {
+            let field = match self.calls.0.first() {
                 None => Fp::zero(),
                 Some(call) => call.stack_hash,
             };
@@ -5083,7 +5083,7 @@ pub mod local_state {
         }
 
         pub fn add_check(&self, failure: TransactionFailure, b: bool) -> Self {
-            let failure_status_tbl = if let false = b {
+            let failure_status_tbl = if !b {
                 let mut failure_status_tbl = self.failure_status_tbl.clone();
                 failure_status_tbl[0].insert(0, failure);
                 failure_status_tbl
@@ -7518,7 +7518,7 @@ pub fn account_min_balance_at_slot(
 
                 let num_periods =
                     (global_slot.as_u32() - cliff_time.as_u32()) / vesting_period.as_u32();
-                let num_periods: u64 = num_periods.try_into().unwrap();
+                let num_periods: u64 = num_periods.into();
 
                 let vesting_decrement = {
                     let vesting_increment = vesting_increment.as_u64();
