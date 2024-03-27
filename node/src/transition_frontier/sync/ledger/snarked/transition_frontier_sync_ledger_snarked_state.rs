@@ -27,11 +27,11 @@ pub enum TransitionFrontierSyncLedgerSnarkedState {
         time: Timestamp,
         target: SyncLedgerTarget,
         /// Number of accounts in this ledger (as claimed by the Num_accounts query result)
-        num_accounts: u64,
+        total_accounts_expected: u64,
         /// Number of accounts received and accepted so far
-        num_accounts_accepted: u64,
+        synced_accounts_count: u64,
         /// Number of hashes received and accepted so far
-        num_hashes_accepted: u64,
+        synced_hashes_count: u64,
         /// Queue of addresses to query and the expected contents hash
         queue: VecDeque<LedgerAddressQuery>,
         /// Pending ongoing address queries and their attempts
@@ -197,20 +197,20 @@ impl TransitionFrontierSyncLedgerSnarkedState {
         match self {
             TransitionFrontierSyncLedgerSnarkedState::NumAccountsPending { .. } => None,
             TransitionFrontierSyncLedgerSnarkedState::MerkleTreeSyncPending {
-                num_accounts,
-                num_accounts_accepted,
-                num_hashes_accepted,
+                total_accounts_expected,
+                synced_accounts_count,
+                synced_hashes_count,
                 ..
             } => {
                 // TODO(tizoc): this approximation is very rough, could be improved.
                 // Also we count elements to be fetched and not request to be made which
                 // would be more accurate (accounts are fetched in groups of 64, hashes of 2).
-                let tree_height = tree_height_for_num_accounts(*num_accounts);
-                let fill_ratio = (*num_accounts as f64) / 2f64.powf(tree_height as f64);
+                let tree_height = tree_height_for_num_accounts(*total_accounts_expected);
+                let fill_ratio = (*total_accounts_expected as f64) / 2f64.powf(tree_height as f64);
                 let num_hashes_estimate = 2u64.pow((tree_height - ACCOUNT_SUBTREE_HEIGHT) as u32);
                 let num_hashes_estimate = (num_hashes_estimate as f64 * fill_ratio).ceil() as u64;
-                let fetched = *num_accounts_accepted + num_hashes_accepted;
-                let estimation = fetched.max(*num_accounts + num_hashes_estimate);
+                let fetched = *synced_accounts_count + synced_hashes_count;
+                let estimation = fetched.max(*total_accounts_expected + num_hashes_estimate);
 
                 Some(LedgerSyncProgress {
                     fetched,
