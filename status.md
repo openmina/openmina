@@ -50,10 +50,8 @@
        - [x] Snarked ledgers (staking and next epoch ledgers + transition frontier root)
          - [x] Handling of peer disconnections, timeouts or cases when the peer doesn't have the data
          - [x] Detecting ledger hash mismatches for the downloaded chunk
-         - [ ] Handling ledger hash mismatches gracefully, without crashing the node
-         - [ ] Optimized snarked ledgers synchronization (reusing previous ledgers when constructing the next during (re)synchronization)
-           - Not done right now, each synchronization starts from scratch.
-           - Tested this on a server (very quick sync) and locally (slower) and both were  able to sync up to berkeleynet (it took a while locally). On mainnet, with a much  bigger ledger we may not be able to sync up in time without this optimization.
+         - [x] Handling ledger hash mismatches gracefully, without crashing the node
+         - [x] Optimized snarked ledgers synchronization (reusing previous ledgers when constructing the next during (re)synchronization)
        - [x] Staged ledgers (transition frontier root)
          - [x] Handling of peer disconnections, timeouts or cases when the peer doesn't have the data
          - [x] Detection and handling of validation errors
