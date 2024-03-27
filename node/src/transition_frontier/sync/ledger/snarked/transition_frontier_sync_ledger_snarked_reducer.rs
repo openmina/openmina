@@ -112,9 +112,9 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                 *self = Self::MerkleTreeSyncPending {
                     time: meta.time(),
                     target: target.clone(),
-                    num_accounts: *num_accounts,
-                    num_accounts_accepted: 0,
-                    num_hashes_accepted: 0,
+                    total_accounts_expected: *num_accounts,
+                    synced_accounts_count: 0,
+                    synced_hashes_count: 0,
                     queue: iter::once(first_query).collect(),
                     pending_addresses: Default::default(),
                 };
@@ -231,7 +231,7 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                 let Self::MerkleTreeSyncPending {
                     queue,
                     pending_addresses: pending,
-                    num_hashes_accepted,
+                    synced_hashes_count: num_hashes_accepted,
                     ..
                 } = self
                 else {
@@ -277,14 +277,14 @@ impl TransitionFrontierSyncLedgerSnarkedState {
             } => {
                 let Self::MerkleTreeSyncPending {
                     pending_addresses: pending,
-                    num_accounts_accepted,
+                    synced_accounts_count,
                     ..
                 } = self
                 else {
                     return;
                 };
 
-                *num_accounts_accepted += count;
+                *synced_accounts_count += count;
                 pending.remove(address);
             }
             TransitionFrontierSyncLedgerSnarkedAction::ChildAccountsRejected { .. } => {
