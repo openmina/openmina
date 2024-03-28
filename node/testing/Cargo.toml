@@ -56,7 +56,7 @@ chrono = "0.4.34"
 hex = "0.4.3"
 
 [features]
-default = ["scenario-generators", "p2p-libp2p"]
+default = ["scenario-generators"]
 scenario-generators = ["documented"]
 p2p-webrtc = ["openmina-node-native/p2p-webrtc"]
 p2p-libp2p = ["openmina-node-native/p2p-libp2p"]
