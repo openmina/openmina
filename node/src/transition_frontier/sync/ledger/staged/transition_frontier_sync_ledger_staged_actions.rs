@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use mina_p2p_messages::v2;
+use mina_p2p_messages::v2::{self, LedgerHash};
 use serde::{Deserialize, Serialize};
 
 use crate::p2p::channels::rpc::{P2pRpcId, StagedLedgerAuxAndPendingCoinbases};
@@ -51,7 +51,9 @@ pub enum TransitionFrontierSyncLedgerStagedAction {
     ReconstructError {
         error: String,
     },
-    ReconstructSuccess,
+    ReconstructSuccess {
+        ledger_hash: LedgerHash,
+    },
     Success,
 }
 
@@ -190,7 +192,7 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerStag
                         TransitionFrontierSyncLedgerStagedState::ReconstructPending { .. }
                     )
                 }),
-            TransitionFrontierSyncLedgerStagedAction::ReconstructSuccess => state
+            TransitionFrontierSyncLedgerStagedAction::ReconstructSuccess { .. } => state
                 .transition_frontier
                 .sync
                 .ledger()
