@@ -22,6 +22,14 @@ pub enum TransitionFrontierSyncLedgerSnarkedState {
         target: SyncLedgerTarget,
         pending_num_accounts: LedgerNumAccountsQueryPending,
     },
+    NumAccountsSuccess {
+        time: Timestamp,
+        target: SyncLedgerTarget,
+        /// NumAccounts value accepted from peer
+        num_accounts: u64,
+        /// Hash of the subtree containing all accounts
+        contents_hash: LedgerHash,
+    },
     /// Doing BFS to sync snarked ledger tree.
     MerkleTreeSyncPending {
         time: Timestamp,
@@ -37,6 +45,10 @@ pub enum TransitionFrontierSyncLedgerSnarkedState {
         /// Pending ongoing address queries and their attempts
         #[serde_as(as = "Vec<(_, _)>")]
         pending_addresses: BTreeMap<LedgerAddress, LedgerAddressQueryPending>,
+    },
+    MerkleTreeSyncSuccess {
+        time: Timestamp,
+        target: SyncLedgerTarget,
     },
     Success {
         time: Timestamp,
@@ -123,17 +135,21 @@ impl TransitionFrontierSyncLedgerSnarkedState {
 
     pub fn is_pending(&self) -> bool {
         match self {
-            Self::NumAccountsPending { .. } => true,
-            Self::MerkleTreeSyncPending { .. } => true,
+            Self::NumAccountsPending { .. }
+            | Self::MerkleTreeSyncPending { .. }
+            | Self::NumAccountsSuccess { .. }
+            | Self::MerkleTreeSyncSuccess { .. } => true,
             Self::Success { .. } => false,
         }
     }
 
     pub fn target(&self) -> &SyncLedgerTarget {
         match self {
-            Self::NumAccountsPending { target, .. } => target,
-            Self::MerkleTreeSyncPending { target, .. } => target,
-            Self::Success { target, .. } => target,
+            Self::NumAccountsPending { target, .. }
+            | Self::MerkleTreeSyncPending { target, .. }
+            | Self::NumAccountsSuccess { target, .. }
+            | Self::MerkleTreeSyncSuccess { target, .. }
+            | Self::Success { target, .. } => target,
         }
     }
 
@@ -195,8 +211,8 @@ impl TransitionFrontierSyncLedgerSnarkedState {
 
     pub fn estimation(&self) -> Option<LedgerSyncProgress> {
         match self {
-            TransitionFrontierSyncLedgerSnarkedState::NumAccountsPending { .. } => None,
-            TransitionFrontierSyncLedgerSnarkedState::MerkleTreeSyncPending {
+            Self::NumAccountsPending { .. } | Self::NumAccountsSuccess { .. } => None,
+            Self::MerkleTreeSyncPending {
                 total_accounts_expected,
                 synced_accounts_count,
                 synced_hashes_count,
@@ -217,7 +233,7 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                     estimation,
                 })
             }
-            TransitionFrontierSyncLedgerSnarkedState::Success { .. } => {
+            Self::MerkleTreeSyncSuccess { .. } | Self::Success { .. } => {
                 return Some(LedgerSyncProgress {
                     fetched: 1,
                     estimation: 1,

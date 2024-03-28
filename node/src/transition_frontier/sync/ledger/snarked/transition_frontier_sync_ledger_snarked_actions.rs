@@ -61,6 +61,12 @@ pub enum TransitionFrontierSyncLedgerSnarkedAction {
         num_accounts: u64,
         sender: PeerId,
     },
+    NumAccountsSuccess {
+        num_accounts: u64,
+        contents_hash: LedgerHash,
+    },
+
+    MerkleTreeSyncPending,
 
     // For child hashes and content queries
     PeerQueryAddressInit {
@@ -117,6 +123,8 @@ pub enum TransitionFrontierSyncLedgerSnarkedAction {
         address: LedgerAddress,
         sender: PeerId,
     },
+
+    MerkleTreeSyncSuccess,
     Success,
 }
 
@@ -242,6 +250,13 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerSnar
                     .and_then(|s| s.attempts.get(sender))
                     .map_or(false, |s| s.is_success())
             }
+            // TODO(tizoc): implement
+            TransitionFrontierSyncLedgerSnarkedAction::NumAccountsSuccess { .. } => true,
+
+            // TODO(tizoc): implement
+            TransitionFrontierSyncLedgerSnarkedAction::MerkleTreeSyncPending => true,
+            // TODO(tizoc): implement
+            TransitionFrontierSyncLedgerSnarkedAction::MerkleTreeSyncSuccess => true,
 
             // hashes and contents
             TransitionFrontierSyncLedgerSnarkedAction::PeerQueryAddressInit {

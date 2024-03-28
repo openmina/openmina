@@ -235,14 +235,34 @@ impl TransitionFrontierSyncLedgerSnarkedAction {
                     );
                 }
             }
-            TransitionFrontierSyncLedgerSnarkedAction::NumAccountsAccepted { .. } => {
-                if !store.dispatch(TransitionFrontierSyncLedgerSnarkedAction::PeersQuery) {
-                    store.dispatch(TransitionFrontierSyncLedgerSnarkedAction::Success);
-                }
+            TransitionFrontierSyncLedgerSnarkedAction::NumAccountsAccepted {
+                num_accounts,
+                contents_hash,
+                ..
+            } => {
+                store.dispatch(
+                    TransitionFrontierSyncLedgerSnarkedAction::NumAccountsSuccess {
+                        num_accounts: *num_accounts,
+                        contents_hash: contents_hash.clone(),
+                    },
+                );
             }
             TransitionFrontierSyncLedgerSnarkedAction::NumAccountsRejected { .. } => {
                 // TODO(tizoc): we do nothing here, but the peer must be punished somehow
                 store.dispatch(TransitionFrontierSyncLedgerSnarkedAction::PeersQuery);
+            }
+            TransitionFrontierSyncLedgerSnarkedAction::NumAccountsSuccess { .. } => {
+                store.dispatch(TransitionFrontierSyncLedgerSnarkedAction::MerkleTreeSyncPending);
+            }
+
+            TransitionFrontierSyncLedgerSnarkedAction::MerkleTreeSyncPending => {
+                if !store.dispatch(TransitionFrontierSyncLedgerSnarkedAction::PeersQuery) {
+                    store
+                        .dispatch(TransitionFrontierSyncLedgerSnarkedAction::MerkleTreeSyncSuccess);
+                }
+            }
+            TransitionFrontierSyncLedgerSnarkedAction::MerkleTreeSyncSuccess => {
+                store.dispatch(TransitionFrontierSyncLedgerSnarkedAction::Success);
             }
 
             TransitionFrontierSyncLedgerSnarkedAction::PeerQueryAddressInit {

@@ -361,9 +361,12 @@ pub enum ActionKind {
     TransitionFrontierSyncLedgerSnarkedChildHashesAccepted,
     TransitionFrontierSyncLedgerSnarkedChildHashesReceived,
     TransitionFrontierSyncLedgerSnarkedChildHashesRejected,
+    TransitionFrontierSyncLedgerSnarkedMerkleTreeSyncPending,
+    TransitionFrontierSyncLedgerSnarkedMerkleTreeSyncSuccess,
     TransitionFrontierSyncLedgerSnarkedNumAccountsAccepted,
     TransitionFrontierSyncLedgerSnarkedNumAccountsReceived,
     TransitionFrontierSyncLedgerSnarkedNumAccountsRejected,
+    TransitionFrontierSyncLedgerSnarkedNumAccountsSuccess,
     TransitionFrontierSyncLedgerSnarkedPeerQueryAddressError,
     TransitionFrontierSyncLedgerSnarkedPeerQueryAddressInit,
     TransitionFrontierSyncLedgerSnarkedPeerQueryAddressPending,
@@ -404,7 +407,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 337;
+    pub const COUNT: u16 = 340;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -1191,6 +1194,12 @@ impl ActionKindGet for TransitionFrontierSyncLedgerSnarkedAction {
             Self::NumAccountsRejected { .. } => {
                 ActionKind::TransitionFrontierSyncLedgerSnarkedNumAccountsRejected
             }
+            Self::NumAccountsSuccess { .. } => {
+                ActionKind::TransitionFrontierSyncLedgerSnarkedNumAccountsSuccess
+            }
+            Self::MerkleTreeSyncPending => {
+                ActionKind::TransitionFrontierSyncLedgerSnarkedMerkleTreeSyncPending
+            }
             Self::PeerQueryAddressInit { .. } => {
                 ActionKind::TransitionFrontierSyncLedgerSnarkedPeerQueryAddressInit
             }
@@ -1223,6 +1232,9 @@ impl ActionKindGet for TransitionFrontierSyncLedgerSnarkedAction {
             }
             Self::ChildAccountsRejected { .. } => {
                 ActionKind::TransitionFrontierSyncLedgerSnarkedChildAccountsRejected
+            }
+            Self::MerkleTreeSyncSuccess => {
+                ActionKind::TransitionFrontierSyncLedgerSnarkedMerkleTreeSyncSuccess
             }
             Self::Success => ActionKind::TransitionFrontierSyncLedgerSnarkedSuccess,
         }

@@ -91,17 +91,40 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                 };
             }
             TransitionFrontierSyncLedgerSnarkedAction::NumAccountsReceived { .. } => {}
-            TransitionFrontierSyncLedgerSnarkedAction::NumAccountsAccepted {
+            TransitionFrontierSyncLedgerSnarkedAction::NumAccountsAccepted { .. } => {}
+            TransitionFrontierSyncLedgerSnarkedAction::NumAccountsRejected { .. } => {
+                // TODO(tizoc): should this be reflected in the state somehow?
+            }
+            TransitionFrontierSyncLedgerSnarkedAction::NumAccountsSuccess {
                 num_accounts,
                 contents_hash,
-                ..
             } => {
                 let Self::NumAccountsPending { target, .. } = self else {
                     return;
                 };
 
-                // We know at which node to begin querying, so we skip all the intermediary depths
+                let target = target.clone();
 
+                *self = Self::NumAccountsSuccess {
+                    time: meta.time(),
+                    target,
+                    num_accounts: *num_accounts,
+                    contents_hash: contents_hash.clone(),
+                };
+            }
+
+            TransitionFrontierSyncLedgerSnarkedAction::MerkleTreeSyncPending => {
+                let Self::NumAccountsSuccess {
+                    target,
+                    num_accounts,
+                    contents_hash,
+                    ..
+                } = self
+                else {
+                    return;
+                };
+
+                // We know at which node to begin querying, so we skip all the intermediary depths
                 let first_query = LedgerAddressQuery {
                     address: ledger::Address::first(
                         LEDGER_DEPTH - tree_height_for_num_accounts(*num_accounts),
@@ -119,8 +142,14 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                     pending_addresses: Default::default(),
                 };
             }
-            TransitionFrontierSyncLedgerSnarkedAction::NumAccountsRejected { .. } => {
-                // TODO(tizoc): should this be reflected in the state somehow?
+            TransitionFrontierSyncLedgerSnarkedAction::MerkleTreeSyncSuccess => {
+                let Self::MerkleTreeSyncPending { target, .. } = self else {
+                    return;
+                };
+                *self = Self::MerkleTreeSyncSuccess {
+                    time: meta.time(),
+                    target: target.clone(),
+                };
             }
 
             TransitionFrontierSyncLedgerSnarkedAction::PeerQueryAddressInit {
