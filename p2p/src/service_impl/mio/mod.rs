@@ -202,7 +202,7 @@ where
                     if event.is_writable() {
                         if !connection.connected {
                             // make network debugger happy
-                            let _ = dbg!(connection.stream.take_error());
+                            let _ = connection.stream.take_error();
                             match connection.stream.peer_addr() {
                                 Ok(new_addr) => {
                                     connection.connected = true;
