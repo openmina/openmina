@@ -76,20 +76,21 @@ impl P2pNetworkSchedulerAction {
 
                 match protocol {
                     Some(Protocol::Auth(AuthKind::Noise)) => {
-                        use curve25519_dalek::{constants::ED25519_BASEPOINT_TABLE as G, Scalar};
+                        let ephemeral_sk = Sk::from_random(store.service().ephemeral_sk());
+                        let ephemeral_pk = ephemeral_sk.pk();
 
-                        let ephemeral_sk = store.service().ephemeral_sk().into();
-                        let static_sk = store.service().static_sk();
-                        let static_sk = Scalar::from_bytes_mod_order(static_sk);
-                        let signature = store
-                            .service()
-                            .sign_key((G * &static_sk).to_montgomery().as_bytes())
-                            .into();
+                        let static_sk = Sk::from_random(store.service().static_sk());
+                        let static_pk = static_sk.pk();
+
+                        let signature = store.service().sign_key(static_pk.0.as_bytes()).into();
+
                         store.dispatch(P2pNetworkNoiseAction::Init {
                             addr,
                             incoming,
                             ephemeral_sk,
-                            static_sk: static_sk.to_bytes().into(),
+                            ephemeral_pk,
+                            static_pk,
+                            static_sk,
                             signature,
                         });
                     }

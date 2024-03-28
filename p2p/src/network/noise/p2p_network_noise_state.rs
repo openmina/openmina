@@ -420,8 +420,6 @@ mod wrapper {
     use serde::{Deserialize, Serialize};
     use zeroize::Zeroize;
 
-    use crate::DataSized;
-
     impl<'a, 'b> Mul<&'b Pk> for &'a Sk {
         type Output = [u8; 32];
 
@@ -468,15 +466,16 @@ mod wrapper {
     pub struct Sk(pub Scalar);
 
     impl Sk {
+        pub fn from_random(mut bytes: [u8; 32]) -> Self {
+            bytes[0] &= 248;
+            bytes[31] |= 64;
+            #[allow(deprecated)]
+            Self(Scalar::from_bits(bytes))
+        }
+
         pub fn pk(&self) -> Pk {
             let t = curve25519_dalek::constants::ED25519_BASEPOINT_TABLE;
             Pk((t * &self.0).to_montgomery())
-        }
-    }
-
-    impl From<DataSized<32>> for Sk {
-        fn from(value: DataSized<32>) -> Self {
-            Sk(Scalar::from_bytes_mod_order(value.0))
         }
     }
 
@@ -503,10 +502,11 @@ mod wrapper {
             use serde::de::Error;
 
             let str = <&'de str>::deserialize(deserializer)?;
+            #[allow(deprecated)]
             hex::decode(str)
                 .map_err(Error::custom)
                 .and_then(|b| b.try_into().map_err(|_| Error::custom("wrong length")))
-                .map(Scalar::from_bytes_mod_order)
+                .map(Scalar::from_bits)
                 .map(Self)
         }
     }

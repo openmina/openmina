@@ -201,6 +201,8 @@ where
                     let mut rereg = false;
                     if event.is_writable() {
                         if !connection.connected {
+                            // make network debugger happy
+                            let _ = connection.stream.take_error();
                             match connection.stream.peer_addr() {
                                 Ok(new_addr) => {
                                     connection.connected = true;
