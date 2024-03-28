@@ -85,8 +85,8 @@ pub async fn run(mut swarm: libp2p::Swarm<Behaviour>, path_main: &Path, height: 
                     bytes,
                 } => {
                     let mut bytes = bytes.as_slice();
-                    let tag = std::str::from_utf8(tag.as_ref()).unwrap();
-                    log::info!("handling {tag}, {}", version);
+                    log::info!("handling {}, {}", tag.to_string_lossy(), version);
+                    let tag = tag.as_ref();
                     match (tag, version) {
                         (GetBestTipV2::NAME, GetBestTipV2::VERSION) => {
                             swarm
@@ -210,7 +210,10 @@ pub async fn run(mut swarm: libp2p::Swarm<Behaviour>, path_main: &Path, height: 
                                 .unwrap();
                         }
                         (name, version) => {
-                            log::warn!("TODO: unhandled {name}, {version}");
+                            log::warn!(
+                                "TODO: unhandled {}, {version}",
+                                String::from_utf8_lossy(name)
+                            );
                         }
                     }
                 }
