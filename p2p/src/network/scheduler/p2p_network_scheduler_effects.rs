@@ -110,10 +110,10 @@ impl P2pNetworkSchedulerAction {
                         };
                         match kind {
                             StreamKind::Status(_) => {
-                                //unimplemented!()
+                                unimplemented!()
                             }
                             StreamKind::Bitswap(_) => {
-                                //unimplemented!()
+                                unimplemented!()
                             }
                             StreamKind::Identify(IdentifyAlgorithm::Identify1_0_0) => {
                                 store.dispatch(P2pNetworkIdentifyStreamAction::New {
@@ -124,13 +124,13 @@ impl P2pNetworkSchedulerAction {
                                 });
                             }
                             StreamKind::Identify(IdentifyAlgorithm::IdentifyPush1_0_0) => {
-                                //unimplemented!()
+                                unimplemented!()
                             }
                             StreamKind::Ping(PingAlgorithm::Ping1_0_0) => {
-                                //unimplemented!()
+                                unimplemented!()
                             }
                             StreamKind::Broadcast(_) => {
-                                //unimplemented!()
+                                unimplemented!()
                             }
                             StreamKind::Discovery(DiscoveryAlgorithm::Kademlia1_0_0) => {
                                 if let Some(discovery_state) =

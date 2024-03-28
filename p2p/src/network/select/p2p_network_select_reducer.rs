@@ -127,14 +127,18 @@ impl P2pNetworkSelectState {
                                     token::StreamKind::Rpc(_)
                                     | token::StreamKind::Discovery(_)
                                     //| token::StreamKind::Broadcast(_)
-                                    | token::StreamKind::Identify(_)
+                                    | token::StreamKind::Identify(token::IdentifyAlgorithm::Identify1_0_0)
+                                ) => token::Token::Protocol(protocol),
+                                token::Protocol::Stream(
+                                    token::StreamKind::Identify(token::IdentifyAlgorithm::IdentifyPush1_0_0)
                                     | token::StreamKind::Ping(_)
                                     | token::StreamKind::Bitswap(_)
                                     | token::StreamKind::Status(_)
-                                ) => token::Token::Protocol(protocol),
-                                token::Protocol::Stream(token::StreamKind::Broadcast(_)) => {
+                                    | token::StreamKind::Broadcast(_)
+                                ) => {
                                     token::Token::Na
                                 }
+                                
                             };
                             let negotiated = if let token::Token::Protocol(p) = &reply {
                                 Some(*p)
