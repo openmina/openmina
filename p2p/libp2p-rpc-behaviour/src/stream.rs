@@ -6,6 +6,7 @@ use std::{
 };
 
 use libp2p::{core::upgrade::ReadyUpgrade, swarm::handler::InboundUpgradeSend, StreamProtocol};
+use mina_p2p_messages::rpc_kernel::RpcTag;
 
 use super::{
     behaviour::{Event, StreamId},
@@ -38,7 +39,7 @@ impl Stream {
         }
     }
 
-    pub fn new_incoming(menu: Arc<BTreeSet<(&'static str, i32)>>) -> Self {
+    pub fn new_incoming(menu: Arc<BTreeSet<(RpcTag, u32)>>) -> Self {
         Stream {
             opening_state: None,
             inner_state: state::Inner::new(menu, false),

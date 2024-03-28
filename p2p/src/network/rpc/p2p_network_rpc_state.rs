@@ -10,9 +10,10 @@ use serde::{Deserialize, Serialize};
 use mina_p2p_messages::{
     rpc_kernel::{MessageHeader, QueryHeader, ResponseHeader},
     string::CharString,
+    versioned::Ver,
 };
 
-use crate::Data;
+use crate::{channels::rpc::P2pRpcId, Data};
 
 use super::super::*;
 
@@ -21,10 +22,10 @@ use super::super::*;
 pub struct P2pNetworkRpcState {
     pub addr: SocketAddr,
     pub stream_id: StreamId,
-    pub last_id: i64,
-    pub pending: Option<(i64, (CharString, i32))>,
+    pub last_id: P2pRpcId,
+    pub pending: Option<(P2pRpcId, (CharString, Ver))>,
     #[serde_as(as = "Vec<(_, _)>")]
-    pub total_stats: BTreeMap<(CharString, i32), usize>,
+    pub total_stats: BTreeMap<(CharString, Ver), usize>,
     pub is_incoming: bool,
     pub buffer: Vec<u8>,
     pub incoming: VecDeque<RpcMessage>,
@@ -55,7 +56,7 @@ pub enum RpcMessage {
     Response { header: ResponseHeader, bytes: Data },
 }
 
-const HANDSHAKE_ID: i64 = i64::from_le_bytes(*b"RPC\x00\x00\x00\x00\x00");
+const HANDSHAKE_ID: P2pRpcId = P2pRpcId::from_le_bytes(*b"RPC\x00\x00\x00\x00\x00");
 
 impl RpcMessage {
     pub fn into_bytes(self) -> Vec<u8> {

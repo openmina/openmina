@@ -423,6 +423,10 @@ impl TransitionFrontierSyncState {
                         }
                     }
                 }));
+                chain.push(TransitionFrontierSyncBlockState::FetchSuccess {
+                    time: meta.time(),
+                    block: best_tip,
+                });
 
                 *self = Self::BlocksPending {
                     time: meta.time(),
@@ -474,10 +478,12 @@ impl TransitionFrontierSyncState {
                 let Self::BlocksPending { chain, .. } = self else {
                     return;
                 };
-                let Some(peer_state) = chain
-                    .iter_mut()
-                    .find_map(|b| b.fetch_pending_from_peer_mut(peer_id))
-                else {
+                let Some(peer_state) = chain.iter_mut().find_map(|b| {
+                    b.fetch_pending_from_peer_mut(peer_id)
+                        .filter(|peer_rpc_state| {
+                            matches!(peer_rpc_state, PeerRpcState::Pending { .. })
+                        })
+                }) else {
                     return;
                 };
                 *peer_state = PeerRpcState::Error {

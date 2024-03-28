@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 
 use libp2p::{gossipsub, identify, swarm::NetworkBehaviour, PeerId};
+use mina_p2p_messages::rpc_kernel::RpcTag;
 use openmina_core::channels::mpsc;
 
 use crate::P2pEvent;
@@ -23,11 +24,11 @@ pub struct Behaviour<E: 'static + From<P2pEvent>> {
     // TODO(vlad9486): move maps inside `RpcBehaviour`
     // map msg_id into (tag, version)
     #[behaviour(ignore)]
-    pub ongoing: BTreeMap<(PeerId, u32), (String, i32)>,
+    pub ongoing: BTreeMap<(PeerId, u64), (RpcTag, u32)>,
     // map from (peer, msg_id) into (stream_id, tag, version)
     //
     #[behaviour(ignore)]
-    pub ongoing_incoming: BTreeMap<(PeerId, u32), (StreamId, String, i32)>,
+    pub ongoing_incoming: BTreeMap<(PeerId, u64), (StreamId, String, u32)>,
 }
 
 #[allow(clippy::large_enum_variant)]

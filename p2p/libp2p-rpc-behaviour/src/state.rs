@@ -8,7 +8,10 @@ use std::{
 
 use libp2p::futures::{AsyncRead, AsyncWrite};
 
-use mina_p2p_messages::binprot::{self, BinProtRead, BinProtWrite};
+use mina_p2p_messages::{
+    binprot::{self, BinProtRead, BinProtWrite},
+    rpc_kernel::RpcTag,
+};
 
 use mina_p2p_messages::{
     rpc::VersionedRpcMenuV1,
@@ -28,20 +31,20 @@ pub enum Received {
         header: ResponseHeader,
         bytes: Vec<u8>,
     },
-    Menu(Vec<(String, i32)>),
+    Menu(Vec<(String, u32)>),
     HandshakeDone,
     // SentConfirmation(i64),
 }
 
 pub struct Inner {
-    menu: Arc<BTreeSet<(&'static str, i32)>>,
+    menu: Arc<BTreeSet<(RpcTag, u32)>>,
     command_queue: VecDeque<(usize, Vec<u8>)>,
     buffer: Buffer,
     ask_menu: bool,
 }
 
 impl Inner {
-    pub fn new(menu: Arc<BTreeSet<(&'static str, i32)>>, ask_menu: bool) -> Self {
+    pub fn new(menu: Arc<BTreeSet<(RpcTag, u32)>>, ask_menu: bool) -> Self {
         Inner {
             menu,
             command_queue: {
@@ -176,7 +179,7 @@ impl Inner {
     where
         T: AsyncRead + Unpin,
     {
-        let h_id = i64::from_le_bytes(*b"RPC\x00\x00\x00\x00\x00");
+        let h_id = u64::from_le_bytes(*b"RPC\x00\x00\x00\x00\x00");
         while let Some(v) = self.buffer.try_cut() {
             // TODO: proper error type
             let (header, bytes) = v.map_err(|err| io::Error::new(io::ErrorKind::Other, err))?;
@@ -206,7 +209,7 @@ impl Inner {
                     return Poll::Ready(Ok(Received::Response { header, bytes }))
                 }
                 MessageHeader::Query(QueryHeader { tag, version, id })
-                    if std::str::from_utf8(tag.as_ref()) == Ok(VersionedRpcMenuV1::NAME)
+                    if &tag == VersionedRpcMenuV1::NAME
                         && version == VersionedRpcMenuV1::VERSION =>
                 {
                     let msg = Message::<<VersionedRpcMenuV1 as RpcMethod>::Response>::Response(

@@ -8,7 +8,7 @@ use std::{
 use binprot::BinProtRead;
 use mina_p2p_messages::{
     rpc,
-    rpc_kernel::{Message, MessageHeader, RpcMethod, Tag},
+    rpc_kernel::{BinprotTag, Message, MessageHeader, RpcMethod},
     utils::get_sized_slice,
     versioned::Ver,
 };
@@ -130,7 +130,7 @@ fn make_rpc_v2() {
         query: Option<Vec<u8>>,
         response: Option<Vec<u8>>,
     }
-    let mut mapping: BTreeMap<i64, T> = BTreeMap::new();
+    let mut mapping: BTreeMap<u64, T> = BTreeMap::new();
     utils::for_all("rpc-v2", |_, encoded| {
         utils::stream_read_with::<MessageHeader, _>(&encoded, |header, slice| match header {
             Ok(MessageHeader::Heartbeat) => {}
@@ -193,7 +193,7 @@ fn debugger_to_wire() {
     ] {
         for_all_with_path(&PathBuf::from(d).join("response"), |encoded, path| {
             let mut p = &encoded[1..];
-            let tag = Tag::binprot_read(&mut p).unwrap().to_string_lossy();
+            let tag = BinprotTag::binprot_read(&mut p).unwrap().to_string_lossy();
             let ver = Ver::binprot_read(&mut p).unwrap();
             println!("{tag}:{ver}");
             File::create(path)

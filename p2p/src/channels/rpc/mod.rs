@@ -14,8 +14,8 @@ use binprot_derive::{BinProtRead, BinProtWrite};
 use mina_p2p_messages::{
     rpc,
     rpc_kernel::{
-        NeedsLength, QueryHeader, QueryPayload, ResponseHeader, ResponsePayload, RpcMethod,
-        RpcResult,
+        NeedsLength, QueryHeader, QueryID, QueryPayload, ResponseHeader, ResponsePayload,
+        RpcMethod, RpcResult,
     },
     v2::{
         LedgerHash, MerkleAddressBinableArgStableV1, MinaBasePendingCoinbaseStableV2,
@@ -32,7 +32,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{connection::outgoing::P2pConnectionOutgoingInitOpts, Data, P2pTimeouts};
 
-pub type P2pRpcId = u32;
+pub type P2pRpcId = QueryID;
 
 #[derive(BinProtWrite, BinProtRead, Serialize, Deserialize, Debug, Clone)]
 pub enum RpcChannelMsg {

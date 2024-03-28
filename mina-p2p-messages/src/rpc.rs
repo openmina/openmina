@@ -21,7 +21,8 @@ macro_rules! mina_rpc {
         #[derive(Debug)]
         pub struct $name;
         impl crate::rpc_kernel::RpcMethod for $name {
-            const NAME: &'static str = $tag;
+            const NAME: crate::rpc_kernel::RpcTag = $tag.as_bytes();
+            const NAME_STR: &'static str = $tag;
             const VERSION: crate::versioned::Ver = $version;
             type Query = $query;
             type Response = $response;
@@ -281,7 +282,7 @@ mina_rpc!(GetEpochLedgerV2, "get_epoch_ledger", 2, LedgerHashV1, RpcResult<MinaB
 /// let json = jsonifier.read_query(&mut d).unwrap();
 /// ```
 pub struct JSONifyPayloadRegistry {
-    table: BTreeMap<(&'static str, Ver), Box<dyn JSONinifyPayloadReader>>,
+    table: BTreeMap<(&'static [u8], Ver), Box<dyn JSONinifyPayloadReader>>,
 }
 
 impl JSONifyPayloadRegistry {
@@ -334,7 +335,7 @@ impl JSONifyPayloadRegistry {
 
     pub fn get<'a, 'b: 'a>(
         &'a self,
-        name: &'b str,
+        name: &'b [u8],
         version: Ver,
     ) -> Option<&'a dyn JSONinifyPayloadReader> {
         self.table.get(&(name, version)).map(Box::as_ref)
@@ -372,7 +373,7 @@ mod tests {
             ("get_node_status", 2),
             ("get_epoch_ledger", 1),
         ] {
-            assert!(r.get(name, version).is_some());
+            assert!(r.get(name.as_bytes(), version).is_some());
         }
     }
 
@@ -394,7 +395,7 @@ mod tests {
             ("get_node_status", 2),
             ("get_epoch_ledger", 2),
         ] {
-            assert!(r.get(name, version).is_some());
+            assert!(r.get(name.as_bytes(), version).is_some());
         }
     }
 
@@ -405,7 +406,7 @@ mod tests {
             hex::decode("220101e7dd9b0d45abb2e4dec2c5d22e1f1bd8ae5133047914209a0229e90a62ecfb0e")
                 .unwrap();
         let mut ptr = payload.as_slice();
-        let jsonify = r.get("get_transition_chain", 1).unwrap();
+        let jsonify = r.get(b"get_transition_chain", 1).unwrap();
         let json = jsonify.read_query(&mut ptr).unwrap();
         let expected = serde_json::json!([
             "0x0efbec620ae929029a201479043351aed81b1f2ed2c5c2dee4b2ab450d9bdde7"
