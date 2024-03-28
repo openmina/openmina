@@ -14,6 +14,7 @@ use libp2p::{
     },
     StreamProtocol,
 };
+use mina_p2p_messages::rpc_kernel::RpcTag;
 
 use super::{
     behaviour::{Event, StreamId},
@@ -27,7 +28,7 @@ pub enum Command {
 }
 
 pub struct Handler {
-    menu: Arc<BTreeSet<(&'static str, i32)>>,
+    menu: Arc<BTreeSet<(RpcTag, u32)>>,
     streams: BTreeMap<StreamId, Stream>,
     last_outgoing_id: VecDeque<u32>,
     last_incoming_id: u32,
@@ -40,7 +41,7 @@ pub struct Handler {
 impl Handler {
     const PROTOCOL_NAME: &'static str = "coda/rpcs/0.0.1";
 
-    pub fn new(menu: Arc<BTreeSet<(&'static str, i32)>>) -> Self {
+    pub fn new(menu: Arc<BTreeSet<(RpcTag, u32)>>) -> Self {
         Handler {
             menu,
             streams: BTreeMap::default(),

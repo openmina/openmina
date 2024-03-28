@@ -12,7 +12,7 @@ pub struct Client {
     swarm: Swarm<Behaviour>,
     peer: Option<PeerId>,
     stream: Option<StreamId>,
-    id: i64,
+    id: u64,
 }
 
 #[derive(Debug, Error)]
