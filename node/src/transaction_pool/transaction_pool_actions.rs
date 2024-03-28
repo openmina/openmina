@@ -16,13 +16,23 @@ pub enum TransactionPoolAction {
         accounts: BTreeMap<AccountId, Account>,
     },
     ApplyVerifiedDiff {
+        best_tip_hash: LedgerHash,
+        diff: DiffVerified,
+        /// Diff was crearted locally, or remote ?
+        is_sender_local: bool,
+    },
+    ApplyVerifiedDiffWithAccounts {
         diff: DiffVerified,
         is_sender_local: bool,
+        accounts: BTreeMap<AccountId, Account>,
     },
     ApplyTransitionFrontierDiff {
         best_tip_hash: LedgerHash,
-        // best_tip: Mask,
         diff: BestTipDiff,
+    },
+    ApplyTransitionFrontierDiffWithAccounts {
+        diff: BestTipDiff,
+        accounts: BTreeMap<AccountId, Account>,
     },
     // Rebroadcast locally generated pool items every 10 minutes. Do so for 50
     // minutes - at most 5 rebroadcasts - before giving up.

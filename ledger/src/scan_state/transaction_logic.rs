@@ -4541,6 +4541,24 @@ impl UserCommand {
             .collect()
     }
 
+    pub fn load_vks_from_ledger_accounts(
+        accounts: &BTreeMap<AccountId, Account>,
+    ) -> HashMap<AccountId, VerificationKeyWire> {
+        accounts
+            .iter()
+            .filter_map(|(_, account)| {
+                let zkapp = account.zkapp.as_ref()?;
+                let vk = zkapp.verification_key.clone()?;
+
+                // TODO: The account should contains the `WithHash<VerificationKey>`
+                let hash = vk.hash();
+                let vk = WithHash { data: vk, hash };
+
+                Some((account.id(), vk))
+            })
+            .collect()
+    }
+
     pub fn to_all_verifiable<S, F>(
         ts: Vec<MaybeWithStatus<UserCommand>>,
         load_vk_cache: F,

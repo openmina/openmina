@@ -191,7 +191,7 @@ pub mod diff {
 
 fn preload_accounts(
     ledger: &Mask,
-    account_ids: &HashSet<AccountId>,
+    account_ids: &BTreeSet<AccountId>,
 ) -> HashMap<AccountId, Account> {
     account_ids
         .iter()
@@ -545,7 +545,7 @@ struct SenderState {
 
 pub enum RevalidateKind<'a> {
     EntirePool,
-    Subset(&'a HashSet<AccountId>),
+    Subset(&'a BTreeMap<AccountId, Account>),
 }
 
 impl IndexedPool {
@@ -1184,7 +1184,7 @@ impl IndexedPool {
     {
         let requires_revalidation = |account_id: &AccountId| match kind {
             RevalidateKind::EntirePool => true,
-            RevalidateKind::Subset(set) => set.contains(account_id),
+            RevalidateKind::Subset(set) => set.contains_key(account_id),
         };
 
         let mut dropped = Vec::new();
@@ -1412,8 +1412,6 @@ pub struct TransactionPool {
     config: Config,
     batcher: (),
     best_tip_diff_relay: Option<()>,
-    #[serde(skip)]
-    best_tip_ledger: Option<Mask>,
     verification_key_table: VkRefcountTable,
 }
 
@@ -1428,7 +1426,6 @@ impl TransactionPool {
             config: todo!(),
             batcher: todo!(),
             best_tip_diff_relay: todo!(),
-            best_tip_ledger: todo!(),
             verification_key_table: todo!(),
         }
     }
@@ -1438,9 +1435,6 @@ impl TransactionPool {
     }
 
     pub fn on_new_best_tip(&mut self, accounts: &BTreeMap<AccountId, Account>) {
-        // let validation_ledger = new_best_tip;
-        // self.best_tip_ledger.replace(validation_ledger.clone());
-
         let dropped = self
             .pool
             .revalidate(RevalidateKind::EntirePool, |sender_id| {
@@ -1494,10 +1488,32 @@ impl TransactionPool {
         list
     }
 
+    pub fn get_accounts_to_handle_transition_diff(
+        &self,
+        diff: &diff::BestTipDiff,
+    ) -> BTreeSet<AccountId> {
+        let diff::BestTipDiff {
+            new_commands,
+            removed_commands,
+            reorg_best_tip: _,
+        } = diff;
+
+        new_commands
+            .iter()
+            .chain(removed_commands)
+            .flat_map(|cmd| cmd.data.forget_check().accounts_referenced())
+            .chain(
+                self.locally_generated_uncommitted
+                    .keys()
+                    .map(|cmd| cmd.data.fee_payer()),
+            )
+            .collect::<BTreeSet<_>>()
+    }
+
     pub fn handle_transition_frontier_diff(
         &mut self,
         diff: &diff::BestTipDiff,
-        best_tip_ledger: Mask,
+        accounts: &BTreeMap<AccountId, Account>,
     ) {
         let diff::BestTipDiff {
             new_commands,
@@ -1506,7 +1522,6 @@ impl TransactionPool {
         } = diff;
 
         let global_slot = self.pool.global_slot_since_genesis();
-        self.best_tip_ledger = Some(best_tip_ledger.clone());
 
         let pool_max_size = self.config.pool_max_size;
 
@@ -1538,20 +1553,14 @@ impl TransactionPool {
             .collect::<Vec<_>>();
 
         let dropped_commands = {
-            let accounts_to_check = new_commands
-                .iter()
-                .chain(removed_commands)
-                .flat_map(|cmd| cmd.data.forget_check().accounts_referenced())
-                .collect::<HashSet<_>>();
-
-            let existing_account_states_by_id =
-                preload_accounts(&best_tip_ledger, &accounts_to_check);
+            let accounts_to_check = accounts;
+            let existing_account_states_by_id = accounts;
 
             let get_account = |id: &AccountId| {
                 match existing_account_states_by_id.get(id) {
                     Some(account) => account.clone(),
                     None => {
-                        if accounts_to_check.contains(id) {
+                        if accounts_to_check.contains_key(id) {
                             Account::empty()
                         } else {
                             // OCaml panic too, with same message
@@ -1565,7 +1574,7 @@ impl TransactionPool {
             };
 
             self.pool
-                .revalidate(RevalidateKind::Subset(&accounts_to_check), get_account)
+                .revalidate(RevalidateKind::Subset(accounts_to_check), get_account)
         };
 
         let (committed_commands, dropped_commit_conflicts): (Vec<_>, Vec<_>) = {
@@ -1610,10 +1619,7 @@ impl TransactionPool {
                     remove_cmd(self)
                 } else {
                     let unchecked = &cmd.data;
-                    match best_tip_ledger
-                        .location_of_account(&unchecked.fee_payer())
-                        .and_then(|addr| best_tip_ledger.get(addr))
-                    {
+                    match accounts.get(&unchecked.fee_payer()) {
                         Some(account) => {
                             match self.pool.add_from_gossip_exn(
                                 cmd,
@@ -1643,9 +1649,15 @@ impl TransactionPool {
         }
     }
 
+    pub fn get_accounts_to_apply_diff(&self, diff: &diff::DiffVerified) -> BTreeSet<AccountId> {
+        let fee_payer = |cmd: &ValidCommandWithHash| cmd.data.fee_payer();
+        diff.list.iter().map(fee_payer).collect()
+    }
+
     fn apply(
         &mut self,
         diff: &diff::DiffVerified,
+        accounts: &BTreeMap<AccountId, Account>,
         is_sender_local: bool,
     ) -> Result<
         (
@@ -1655,15 +1667,8 @@ impl TransactionPool {
         ),
         String,
     > {
-        let ledger = self.best_tip_ledger.as_ref().ok_or_else(|| {
-            "Got transaction pool diff when transitin frontier is unavailable, ignoring."
-                .to_string()
-        })?;
-
         let fee_payer = |cmd: &ValidCommandWithHash| cmd.data.fee_payer();
-
-        let fee_payer_account_ids: HashSet<_> = diff.list.iter().map(fee_payer).collect();
-        let fee_payer_accounts = preload_accounts(ledger, &fee_payer_account_ids);
+        let fee_payer_accounts = accounts;
 
         let check_command = |pool: &IndexedPool, cmd: &ValidCommandWithHash| {
             if pool.member(cmd) {
@@ -1803,6 +1808,7 @@ impl TransactionPool {
     pub fn unsafe_apply(
         &mut self,
         diff: &diff::DiffVerified,
+        accounts: &BTreeMap<AccountId, Account>,
         is_sender_local: bool,
     ) -> Result<
         (
@@ -1812,7 +1818,7 @@ impl TransactionPool {
         ),
         String,
     > {
-        let (decision, accepted, rejected) = self.apply(diff, is_sender_local)?;
+        let (decision, accepted, rejected) = self.apply(diff, accounts, is_sender_local)?;
         let accepted = accepted
             .into_iter()
             .map(|cmd| cmd.data.forget_check())
@@ -1844,7 +1850,11 @@ impl TransactionPool {
         }
     }
 
-    fn verify(&self, diff: Envelope<diff::Diff>) -> Result<Vec<valid::UserCommand>, String> {
+    fn verify(
+        &self,
+        diff: Envelope<diff::Diff>,
+        accounts: BTreeMap<AccountId, Account>,
+    ) -> Result<Vec<valid::UserCommand>, String> {
         let well_formedness_errors: HashSet<_> = diff
             .data()
             .list
@@ -1861,10 +1871,6 @@ impl TransactionPool {
                 well_formedness_errors
             ));
         }
-
-        let ledger = self.best_tip_ledger.as_ref().ok_or_else(|| {
-            "We don't have a transition frontier at the moment, so we're unable to verify any transactions."
-        })?;
 
         let cs = diff
             .data()
@@ -1885,7 +1891,7 @@ impl TransactionPool {
                 })
                 .collect();
 
-            let ledger_vks = UserCommand::load_vks_from_ledger(account_ids, ledger);
+            let ledger_vks = UserCommand::load_vks_from_ledger_accounts(&accounts);
             let ledger_vks: HashMap<_, _> = ledger_vks
                 .into_iter()
                 .map(|(id, vk)| {

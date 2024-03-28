@@ -326,7 +326,9 @@ pub enum ActionKind {
     SnarkWorkVerifyPending,
     SnarkWorkVerifySuccess,
     TransactionPoolApplyTransitionFrontierDiff,
+    TransactionPoolApplyTransitionFrontierDiffWithAccounts,
     TransactionPoolApplyVerifiedDiff,
+    TransactionPoolApplyVerifiedDiffWithAccounts,
     TransactionPoolBestTipChanged,
     TransactionPoolBestTipChangedWithAccounts,
     TransactionPoolRebroadcast,
@@ -398,7 +400,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 330;
+    pub const COUNT: u16 = 332;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -518,8 +520,14 @@ impl ActionKindGet for TransactionPoolAction {
                 ActionKind::TransactionPoolBestTipChangedWithAccounts
             }
             Self::ApplyVerifiedDiff { .. } => ActionKind::TransactionPoolApplyVerifiedDiff,
+            Self::ApplyVerifiedDiffWithAccounts { .. } => {
+                ActionKind::TransactionPoolApplyVerifiedDiffWithAccounts
+            }
             Self::ApplyTransitionFrontierDiff { .. } => {
                 ActionKind::TransactionPoolApplyTransitionFrontierDiff
+            }
+            Self::ApplyTransitionFrontierDiffWithAccounts { .. } => {
+                ActionKind::TransactionPoolApplyTransitionFrontierDiffWithAccounts
             }
             Self::Rebroadcast => ActionKind::TransactionPoolRebroadcast,
         }
