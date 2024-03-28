@@ -1,7 +1,7 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
     path::Path,
-    sync::Arc,
+    sync::{Arc, Mutex},
 };
 
 use ledger::{
@@ -79,12 +79,16 @@ pub struct LedgerCtx {
     additional_snarked_ledgers: BTreeMap<LedgerHash, Mask>,
     staged_ledgers: BTreeMap<LedgerHash, StagedLedger>,
     sync: LedgerSyncState,
+    // TODO(tizoc): temporary workaround for blocking staged ledger reconstruct, remove later
+    event_sender:
+        Option<openmina_core::channels::mpsc::UnboundedSender<crate::event_source::Event>>,
 }
 
 #[derive(Default)]
 struct LedgerSyncState {
     snarked_ledgers: BTreeMap<LedgerHash, Mask>,
     staged_ledgers: BTreeMap<LedgerHash, StagedLedger>,
+    staged_ledger_just_reconstructed: Arc<Mutex<Option<StagedLedger>>>,
 }
 
 impl LedgerCtx {
@@ -120,6 +124,15 @@ impl LedgerCtx {
             additional_snarked_ledgers,
             ..Default::default()
         }
+    }
+
+    // TODO(tizoc): Only used for the current workaround to make staged ledger
+    // reconstruction async, can be removed when the ledger services are made async
+    pub fn set_event_sender(
+        &mut self,
+        event_sender: openmina_core::channels::mpsc::UnboundedSender<crate::event_source::Event>,
+    ) {
+        self.event_sender = Some(event_sender);
     }
 
     pub fn insert_genesis_ledger(&mut self, mut mask: Mask) {
@@ -482,11 +495,36 @@ impl<T: LedgerService> TransitionFrontierSyncLedgerSnarkedService for T {
 }
 
 impl<T: LedgerService> TransitionFrontierSyncLedgerStagedService for T {
+    // TODO(tizoc): Only used for the current workaround to make staged ledger
+    // reconstruction async, can be removed when the ledger services are made async
+    fn staged_ledger_reconstruct_result_store(&mut self, staged_ledger_hash: LedgerHash) {
+        let staged_ledger = std::mem::take(
+            &mut *self
+                .ctx_mut()
+                .sync
+                .staged_ledger_just_reconstructed
+                .lock()
+                .unwrap(),
+        )
+        .unwrap();
+
+        openmina_core::debug!(openmina_core::log::system_time();
+            kind = "LedgerService::staged_ledger_reconstruct_result_store",
+            summary = "Storing just reconstructed staged ledger",
+            staged_ledger_hash = staged_ledger_hash.to_string(),
+        );
+
+        self.ctx_mut()
+            .sync
+            .staged_ledgers
+            .insert(staged_ledger_hash, staged_ledger);
+    }
+
     fn staged_ledger_reconstruct(
         &mut self,
         snarked_ledger_hash: LedgerHash,
         parts: Option<Arc<StagedLedgerAuxAndPendingCoinbasesValid>>,
-    ) -> Result<(), String> {
+    ) {
         let staged_ledger_hash = parts
             .as_ref()
             .map(|p| p.staged_ledger_hash.clone())
@@ -497,34 +535,51 @@ impl<T: LedgerService> TransitionFrontierSyncLedgerStagedService for T {
             .snarked_ledger_mut(snarked_ledger_hash.clone());
         let mask = snarked_ledger.copy();
 
-        let staged_ledger = if let Some(parts) = parts {
-            let states = parts
-                .needed_blocks
-                .iter()
-                .map(|state| (state.hash().to_fp().unwrap(), state.clone()))
-                .collect::<BTreeMap<_, _>>();
+        let event_sender = self
+            .ctx_mut()
+            .event_sender
+            .clone()
+            .expect("Must set an event sender in the ledger context");
 
-            StagedLedger::of_scan_state_pending_coinbases_and_snarked_ledger(
-                (),
-                &CONSTRAINT_CONSTANTS,
-                Verifier,
-                (&parts.scan_state).into(),
-                mask,
-                LocalState::empty(),
-                parts.staged_ledger_hash.0.to_field(),
-                (&parts.pending_coinbase).into(),
-                |key| states.get(&key).cloned().unwrap(),
-            )?
-        } else {
-            StagedLedger::create_exn(CONSTRAINT_CONSTANTS.clone(), mask)?
-        };
+        let staged_ledger_just_reconstructed =
+            self.ctx_mut().sync.staged_ledger_just_reconstructed.clone();
 
-        self.ctx_mut()
-            .sync
-            .staged_ledgers
-            .insert(staged_ledger_hash, staged_ledger);
+        // TODO(tizoc): Workaround to make staged ledger
+        // reconstruction async, can be removed when the ledger services are made async
+        std::thread::spawn(move || {
+            let result = if let Some(parts) = parts {
+                let states = parts
+                    .needed_blocks
+                    .iter()
+                    .map(|state| (state.hash().to_fp().unwrap(), state.clone()))
+                    .collect::<BTreeMap<_, _>>();
 
-        Ok(())
+                StagedLedger::of_scan_state_pending_coinbases_and_snarked_ledger(
+                    (),
+                    &CONSTRAINT_CONSTANTS,
+                    Verifier,
+                    (&parts.scan_state).into(),
+                    mask,
+                    LocalState::empty(),
+                    parts.staged_ledger_hash.0.to_field(),
+                    (&parts.pending_coinbase).into(),
+                    |key| states.get(&key).cloned().unwrap(),
+                )
+            } else {
+                StagedLedger::create_exn(CONSTRAINT_CONSTANTS.clone(), mask)
+            };
+
+            let event = match result {
+                Ok(staged_ledger) => {
+                    let result = &mut *staged_ledger_just_reconstructed.lock().unwrap();
+                    *result = Some(staged_ledger);
+                    crate::event_source::Event::LedgerStagingReconstruct(Ok(staged_ledger_hash))
+                }
+                Err(error) => crate::event_source::Event::LedgerStagingReconstruct(Err(error)),
+            };
+
+            event_sender.send(event).unwrap();
+        });
     }
 }
 
@@ -534,7 +589,7 @@ impl<T: LedgerService> TransitionFrontierService for T {
         block: ArcBlockWithHash,
         pred_block: ArcBlockWithHash,
     ) -> Result<(), String> {
-        openmina_core::debug!(openmina_core::log::system_time();
+        openmina_core::info!(openmina_core::log::system_time();
             kind = "LedgerService::block_apply",
             summary = format!("{}, {} <- {}", block.height(), block.hash(), block.pred_hash()),
             snarked_ledger_hash = block.snarked_ledger_hash().to_string(),
@@ -543,7 +598,12 @@ impl<T: LedgerService> TransitionFrontierService for T {
         let mut staged_ledger = self
             .ctx_mut()
             .staged_ledger_mut(&pred_block.staged_ledger_hash())
-            .ok_or_else(|| "parent staged ledger missing")?
+            .ok_or_else(|| {
+                format!(
+                    "parent staged ledger missing: {}",
+                    pred_block.staged_ledger_hash()
+                )
+            })?
             .clone();
 
         let global_slot = block.global_slot_since_genesis();
@@ -825,7 +885,12 @@ impl<T: LedgerService> BlockProducerLedgerService for T {
         let mut staged_ledger = self
             .ctx_mut()
             .staged_ledger_mut(&pred_block.staged_ledger_hash())
-            .ok_or_else(|| "parent staged ledger missing")?
+            .ok_or_else(|| {
+                format!(
+                    "parent staged ledger missing: {}",
+                    pred_block.staged_ledger_hash()
+                )
+            })?
             .clone();
 
         // calculate merkle root hash, otherwise `MinaBasePendingCoinbaseStableV2::from` fails.
