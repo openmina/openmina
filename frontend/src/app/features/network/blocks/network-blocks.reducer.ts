@@ -27,7 +27,7 @@ const initialState: NetworkBlocksState = {
   activeFilters: [],
 };
 
-export function reducer(state: NetworkBlocksState = initialState, action: NetworkBlocksActions): NetworkBlocksState {
+export function networkBlocksReducer(state: NetworkBlocksState = initialState, action: NetworkBlocksActions): NetworkBlocksState {
 
   switch (action.type) {
 

@@ -1,8 +1,10 @@
 import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
 import { selectNetworkNodeDhtBootstrapStats } from '@network/node-dht/network-node-dht.state';
-import { NetworkNodeDhtBootstrapStats } from '@shared/types/network/node-dht/network-node-dht-bootstrap-stats.type';
 import { NetworkNodeDhtSetActiveBootstrapRequest } from '@network/node-dht/network-node-dht.actions';
+import {
+  NetworkBootstrapStatsRequest,
+} from '@shared/types/network/bootstrap-stats/network-bootstrap-stats-request.type';
 
 @Component({
   selector: 'mina-network-node-dht-bootstrap-stats',
@@ -12,14 +14,16 @@ import { NetworkNodeDhtSetActiveBootstrapRequest } from '@network/node-dht/netwo
 })
 export class NetworkNodeDhtBootstrapStatsComponent extends StoreDispatcher implements OnInit {
 
-  bootstrapStats: NetworkNodeDhtBootstrapStats[] = [];
+  bootstrapStats: NetworkBootstrapStatsRequest[] = [];
+
+  readonly trackStats = (_: number, stat: NetworkBootstrapStatsRequest) => stat.type;
 
   ngOnInit(): void {
     this.listenToBootstrapStats();
   }
 
   private listenToBootstrapStats(): void {
-    this.select(selectNetworkNodeDhtBootstrapStats, (stats: NetworkNodeDhtBootstrapStats[]) => {
+    this.select(selectNetworkNodeDhtBootstrapStats, (stats: NetworkBootstrapStatsRequest[]) => {
       this.bootstrapStats = stats;
       this.detect();
     });

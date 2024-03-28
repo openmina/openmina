@@ -15,9 +15,14 @@ import { LoadingSpinnerComponent } from '@shared/loading-spinner/loading-spinner
 import { CopyComponent } from '@openmina/shared';
 import { DashboardNetworkComponent } from './dashboard-network/dashboard-network.component';
 import { DashboardLedgerComponent } from './dashboard-ledger/dashboard-ledger.component';
-import { DashboardTransitionFrontierComponent } from './dashboard-transition-frontier/dashboard-transition-frontier.component';
+import {
+  DashboardTransitionFrontierComponent,
+} from './dashboard-transition-frontier/dashboard-transition-frontier.component';
 import { DashboardBlocksSyncComponent } from './dashboard-blocks-sync/dashboard-blocks-sync.component';
 import { DashboardErrorsComponent } from './dashboard-errors/dashboard-errors.component';
+import {
+  DashboardPeersMinimalTableComponent,
+} from './dashboard-peers-minimal-table/dashboard-peers-minimal-table.component';
 
 
 @NgModule({
@@ -34,6 +39,7 @@ import { DashboardErrorsComponent } from './dashboard-errors/dashboard-errors.co
     DashboardTransitionFrontierComponent,
     DashboardBlocksSyncComponent,
     DashboardErrorsComponent,
+    DashboardPeersMinimalTableComponent,
   ],
   imports: [
     SharedModule,

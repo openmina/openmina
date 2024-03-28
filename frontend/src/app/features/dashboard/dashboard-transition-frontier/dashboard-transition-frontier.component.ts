@@ -9,6 +9,7 @@ import { filter } from 'rxjs';
   templateUrl: './dashboard-transition-frontier.component.html',
   styleUrls: ['./dashboard-transition-frontier.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { class: 'flex-column flex-1' },
 })
 export class DashboardTransitionFrontierComponent extends StoreDispatcher implements OnInit {
 

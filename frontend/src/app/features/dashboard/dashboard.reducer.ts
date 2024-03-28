@@ -16,7 +16,7 @@ const initialState: DashboardState = {
     disconnected: 0,
   },
   peersSort: {
-    sortBy: 'timestamp',
+    sortBy: 'requests',
     sortDirection: SortDirection.DSC,
   },
   nodes: [],
@@ -38,16 +38,20 @@ const initialState: DashboardState = {
 export function dashboardReducer(state: DashboardState = initialState, action: DashboardActions): DashboardState {
   switch (action.type) {
 
-    // case DASHBOARD_PEERS_SORT: {
-    //   return {
-    //     ...state,
-    //     peersSort: action.payload,
-    //     peers: sortPeers(state.peers, action.payload),
-    //   };
-    // }
+    case DASHBOARD_PEERS_SORT: {
+      return {
+        ...state,
+        peersSort: action.payload,
+        peers: sortPeers(state.peers, action.payload),
+      };
+    }
 
     case DASHBOARD_GET_DATA_SUCCESS: {
-      const peers = sortPeers(action.payload.peers, state.peersSort);
+      let peers = action.payload.peers.map(peer => ({
+        ...peer,
+        requests: action.payload.rpcStats.peerResponses.find(r => r.peerId === peer.peerId)?.requestsMade || 0,
+      }));
+      peers = sortPeers(peers, state.peersSort);
       return {
         ...state,
         peers,

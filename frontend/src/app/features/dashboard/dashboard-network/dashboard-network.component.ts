@@ -17,7 +17,7 @@ export class DashboardNetworkComponent extends StoreDispatcher implements OnInit
     connected: 0,
     disconnected: 0,
     connecting: 0,
-  }
+  };
 
   ngOnInit(): void {
     this.listenToPeersChanges();

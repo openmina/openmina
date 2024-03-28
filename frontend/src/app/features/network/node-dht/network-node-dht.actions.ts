@@ -1,7 +1,9 @@
 import { FeatureAction } from '@openmina/shared';
 import { NetworkNodeDhtPeer } from '@shared/types/network/node-dht/network-node-dht.type';
-import { NetworkNodeDhtBootstrapStats } from '@shared/types/network/node-dht/network-node-dht-bootstrap-stats.type';
 import { NetworkNodeDhtBucket } from '@shared/types/network/node-dht/network-node-dht-bucket.type';
+import {
+  NetworkBootstrapStatsRequest,
+} from '@shared/types/network/bootstrap-stats/network-bootstrap-stats-request.type';
 
 enum NetworkNodeDhtActionTypes {
   NETWORK_NODE_DHT_INIT = 'NETWORK_NODE_DHT_INIT',
@@ -13,6 +15,7 @@ enum NetworkNodeDhtActionTypes {
   NETWORK_NODE_DHT_GET_PEERS_SUCCESS = 'NETWORK_NODE_DHT_GET_PEERS_SUCCESS',
   NETWORK_NODE_DHT_SET_ACTIVE_PEER = 'NETWORK_NODE_DHT_SET_ACTIVE_PEER',
   NETWORK_NODE_DHT_TOGGLE_SIDE_PANEL = 'NETWORK_NODE_DHT_TOGGLE_SIDE_PANEL',
+  NETWORK_NODE_DHT_SIDE_PANEL_RESIZE = 'NETWORK_NODE_DHT_SIDE_PANEL_RESIZE',
 }
 
 export const NETWORK_NODE_DHT_INIT = NetworkNodeDhtActionTypes.NETWORK_NODE_DHT_INIT;
@@ -24,6 +27,7 @@ export const NETWORK_NODE_DHT_GET_PEERS = NetworkNodeDhtActionTypes.NETWORK_NODE
 export const NETWORK_NODE_DHT_GET_PEERS_SUCCESS = NetworkNodeDhtActionTypes.NETWORK_NODE_DHT_GET_PEERS_SUCCESS;
 export const NETWORK_NODE_DHT_SET_ACTIVE_PEER = NetworkNodeDhtActionTypes.NETWORK_NODE_DHT_SET_ACTIVE_PEER;
 export const NETWORK_NODE_DHT_TOGGLE_SIDE_PANEL = NetworkNodeDhtActionTypes.NETWORK_NODE_DHT_TOGGLE_SIDE_PANEL;
+export const NETWORK_NODE_DHT_SIDE_PANEL_RESIZE = NetworkNodeDhtActionTypes.NETWORK_NODE_DHT_SIDE_PANEL_RESIZE;
 
 export interface NetworkNodeDhtAction extends FeatureAction<NetworkNodeDhtActionTypes> {
   readonly type: NetworkNodeDhtActionTypes;
@@ -44,7 +48,7 @@ export class NetworkNodeDhtGetBootstrapStats implements NetworkNodeDhtAction {
 export class NetworkNodeDhtGetBootstrapStatsSuccess implements NetworkNodeDhtAction {
   readonly type = NETWORK_NODE_DHT_GET_BOOTSTRAP_STATS_SUCCESS;
 
-  constructor(public payload: NetworkNodeDhtBootstrapStats[]) { }
+  constructor(public payload: NetworkBootstrapStatsRequest[]) { }
 }
 
 export class NetworkNodeDhtSetActiveBootstrapRequest implements NetworkNodeDhtAction {
@@ -73,6 +77,12 @@ export class NetworkNodeDhtToggleSidePanel implements NetworkNodeDhtAction {
   readonly type = NETWORK_NODE_DHT_TOGGLE_SIDE_PANEL;
 }
 
+export class NetworkNodeDhtSidePanelResize implements NetworkNodeDhtAction {
+  readonly type = NETWORK_NODE_DHT_SIDE_PANEL_RESIZE;
+
+  constructor(public payload: number) { }
+}
+
 export type NetworkNodeDhtActions =
   | NetworkNodeDhtInit
   | NetworkNodeDhtClose
@@ -83,4 +93,5 @@ export type NetworkNodeDhtActions =
   | NetworkNodeDhtGetPeersSuccess
   | NetworkNodeDhtSetActivePeer
   | NetworkNodeDhtToggleSidePanel
+  | NetworkNodeDhtSidePanelResize
   ;

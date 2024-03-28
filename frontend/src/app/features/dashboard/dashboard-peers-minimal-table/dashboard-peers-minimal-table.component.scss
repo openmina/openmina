@@ -1,0 +1,33 @@
+@import 'openmina';
+
+.mina-icon {
+  font-variation-settings: 'FILL' 1, 'wght' 400 !important;
+}
+
+.Connected {
+  color: $success-primary;
+}
+
+.Connecting {
+  color: $base-primary;
+}
+
+:host ::ng-deep cdk-virtual-scroll-viewport {
+  overflow-y: auto !important;
+}
+
+.fx-row-vert-cent {
+  mina-loading-spinner,
+  .mina-icon {
+    width: 26px;
+  }
+
+  mina-loading-spinner {
+    margin-left: -5px;
+    margin-right: 5px;
+  }
+
+  .mina-icon {
+    padding-left: 2px;
+  }
+}

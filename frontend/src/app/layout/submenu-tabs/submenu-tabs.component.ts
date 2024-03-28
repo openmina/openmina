@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, OnInit, ViewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, EventEmitter, OnInit, Output, ViewChild } from '@angular/core';
 import { getMergedRoute, HorizontalMenuComponent, MergedRoute, removeParamsFromURL } from '@openmina/shared';
 import { selectActiveNode, selectAppMenu } from '@app/app.state';
 import { untilDestroyed } from '@ngneat/until-destroy';
@@ -29,6 +29,7 @@ export class SubmenuTabsComponent extends StoreDispatcher implements OnInit {
   activeNodeName: string;
 
   @ViewChild(HorizontalMenuComponent) private horizontalMenuComponent: HorizontalMenuComponent;
+  @Output() subMenusLength = new EventEmitter<number>();
 
   ngOnInit(): void {
     this.listenToRouteChange();
@@ -62,6 +63,7 @@ export class SubmenuTabsComponent extends StoreDispatcher implements OnInit {
     } else {
       this.subMenus = this.getSubMenusMap(CONFIG.globalConfig?.features[feature]) || [];
     }
+    this.subMenusLength.emit(this.subMenus.length);
   }
 
   private getSubMenusMap(features: string[]): SubMenu[] {

@@ -53,7 +53,7 @@ mat-sidenav-content {
   color: inherit;
   background-color: $base-surface;
 
-  @media (max-width: 768px) {
+  @media (max-width: 699px) {
     background-color: $base-background;
   }
 }
@@ -66,6 +66,10 @@ mat-sidenav-content {
     $toolbar: 56px;
     $subMenus: 56px;
     height: calc(100% - #{$toolbar} - #{$subMenus});
+  }
+
+  &.no-submenus {
+    height: calc(100% - #{$toolbar});
   }
 }
 

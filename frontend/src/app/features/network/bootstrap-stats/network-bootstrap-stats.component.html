@@ -1,0 +1,15 @@
+<mina-horizontal-resizable-container [leftTemplate]="left"
+                                     [rightTemplate]="right"
+                                     [show]="openSidePanel"
+                                     [minWidth]="320"
+                                     [maxWidthElement]="el.nativeElement"
+                                     localStorageKey="network-bootstrap-stats-spw">
+</mina-horizontal-resizable-container>
+
+<ng-template #left>
+  <mina-network-bootstrap-stats-table></mina-network-bootstrap-stats-table>
+</ng-template>
+
+<ng-template #right>
+  <mina-network-bootstrap-stats-side-panel></mina-network-bootstrap-stats-side-panel>
+</ng-template>

@@ -8,7 +8,7 @@ export const environment: Readonly<MinaEnv> = {
       dashboard: [],
       nodes: ['overview', 'live', 'bootstrap'],
       state: ['actions'],
-      network: ['messages', 'connections', 'blocks', 'topology', 'node-dht', 'graph-overview'],
+      network: ['messages', 'connections', 'blocks', 'topology', 'node-dht', 'graph-overview', 'bootstrap-stats'],
       snarks: ['scan-state' /*'work-pool'*/],
       // 'testing-tool': ['scenarios'],
     },

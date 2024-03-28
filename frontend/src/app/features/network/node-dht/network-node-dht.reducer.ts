@@ -2,13 +2,13 @@ import { NetworkNodeDhtState } from '@network/node-dht/network-node-dht.state';
 import {
   NETWORK_NODE_DHT_CLOSE,
   NETWORK_NODE_DHT_GET_BOOTSTRAP_STATS_SUCCESS,
-  NETWORK_NODE_DHT_GET_PEERS_SUCCESS, NETWORK_NODE_DHT_SET_ACTIVE_BOOTSTRAP_REQUEST,
+  NETWORK_NODE_DHT_GET_PEERS_SUCCESS,
+  NETWORK_NODE_DHT_SET_ACTIVE_BOOTSTRAP_REQUEST,
   NETWORK_NODE_DHT_SET_ACTIVE_PEER,
+  NETWORK_NODE_DHT_SIDE_PANEL_RESIZE,
   NETWORK_NODE_DHT_TOGGLE_SIDE_PANEL,
   NetworkNodeDhtActions,
 } from '@network/node-dht/network-node-dht.actions';
-import { NetworkNodeDhtPeer } from '@shared/types/network/node-dht/network-node-dht.type';
-import { NetworkNodeDhtBucket } from '@shared/types/network/node-dht/network-node-dht-bucket.type';
 
 const initialState: NetworkNodeDhtState = {
   peers: [],
@@ -18,6 +18,7 @@ const initialState: NetworkNodeDhtState = {
   boostrapStats: undefined,
   activeBootstrapRequest: undefined,
   buckets: [],
+  sidePanelWidth: -1,
 };
 
 export function networkDhtReducer(state: NetworkNodeDhtState = initialState, action: NetworkNodeDhtActions): NetworkNodeDhtState {
@@ -60,6 +61,13 @@ export function networkDhtReducer(state: NetworkNodeDhtState = initialState, act
       return {
         ...state,
         activeBootstrapRequest: action.payload,
+      };
+    }
+
+    case NETWORK_NODE_DHT_SIDE_PANEL_RESIZE: {
+      return {
+        ...state,
+        sidePanelWidth: action.payload,
       };
     }
 

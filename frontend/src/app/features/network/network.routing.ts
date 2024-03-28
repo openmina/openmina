@@ -34,6 +34,16 @@ const routes: Routes = [
         title: NETWORK_TITLE,
       },
       {
+        path: 'graph-overview',
+        loadChildren: () => import('./dht-graph/dht-graph.module').then(m => m.DhtGraphModule),
+        title: NETWORK_TITLE,
+      },
+      {
+        path: 'bootstrap-stats',
+        loadChildren: () => import('./bootstrap-stats/network-bootstrap-stats.module').then(m => m.NetworkBootstrapStatsModule),
+        title: NETWORK_TITLE,
+      },
+      {
         path: '**',
         redirectTo: 'messages',
         pathMatch: 'full',

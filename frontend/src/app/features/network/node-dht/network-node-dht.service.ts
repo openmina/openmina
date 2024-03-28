@@ -1,9 +1,14 @@
 import { Injectable } from '@angular/core';
 import { RustService } from '@core/services/rust.service';
 import { map, Observable } from 'rxjs';
-import { NetworkNodeDhtPeer } from '@shared/types/network/node-dht/network-node-dht.type';
-import { NetworkNodeDhtBootstrapStats } from '@shared/types/network/node-dht/network-node-dht-bootstrap-stats.type';
+import {
+  NetworkNodeDhtPeer,
+  NetworkNodeDhtPeerConnectionType,
+} from '@shared/types/network/node-dht/network-node-dht.type';
 import { NetworkNodeDhtBucket } from '@shared/types/network/node-dht/network-node-dht-bucket.type';
+import {
+  NetworkBootstrapStatsRequest,
+} from '@shared/types/network/bootstrap-stats/network-bootstrap-stats-request.type';
 
 @Injectable({
   providedIn: 'root',
@@ -18,9 +23,9 @@ export class NetworkNodeDhtService {
     );
   }
 
-  getDhtBootstrapStats(): Observable<NetworkNodeDhtBootstrapStats[]> {
-    return this.rust.get('/discovery/bootstrap_stats').pipe(
-      map((response: any) => this.mapBootstrapStats(response)),
+  getDhtBootstrapStats(): Observable<NetworkBootstrapStatsRequest[]> {
+    return this.rust.get<DhtBootstrapStatsResponse>('/discovery/bootstrap_stats').pipe(
+      map((response: DhtBootstrapStatsResponse) => this.mapBootstrapStats(response)),
     );
   }
 
@@ -34,6 +39,7 @@ export class NetworkNodeDhtService {
         const nodes = bucket.entries.map(entry => {
           const binaryDistance = this.hexToBinary(entry.dist);
           return {
+            connection: this.convertConnectionType(entry.connection),
             peerId: entry.peer_id,
             addressesLength: entry.addrs.length,
             addrs: entry.addrs,
@@ -41,8 +47,8 @@ export class NetworkNodeDhtService {
             hexDistance: entry.dist,
             libp2p: entry.libp2p,
             binaryDistance,
-            xorDistance: entry.key === response.this_key ? '-' : this.getNumberOfZerosUntilFirst1(binaryDistance),
             bucketIndex: response.buckets.indexOf(bucket),
+            xorDistance: entry.key === response.this_key ? '-' : this.getNumberOfZerosUntilFirst1(binaryDistance),
             bucketMaxHex: bucket.max_dist,
           } as NetworkNodeDhtPeer;
         });
@@ -75,28 +81,42 @@ export class NetworkNodeDhtService {
     return leadingZeros;
   }
 
-  private mapBootstrapStats(response: any): NetworkNodeDhtBootstrapStats[] {
-    return Object.keys(response.requests).map(key => ({
-      status: key,
-      data: response.requests[key],
-    }));
+  private mapBootstrapStats(response: DhtBootstrapStatsResponse): NetworkBootstrapStatsRequest[] {
+    return response.requests;
+  }
+
+  private convertConnectionType(connection: ConnectionType): NetworkNodeDhtPeerConnectionType {
+    const connectionString = connection.replace(/([A-Z])/g, ' $1').trim();
+    return connectionString as NetworkNodeDhtPeerConnectionType;
   }
 }
 
-export interface DhtPeersResponse {
+interface DhtPeersResponse {
   this_key: string;
   buckets: Bucket[];
 }
 
-export interface Bucket {
+interface Bucket {
   max_dist: string;
   entries: Entry[];
 }
 
-export interface Entry {
+interface Entry {
   peer_id: string;
   libp2p: string;
   key: string;
   dist: string;
   addrs: string[];
+  connection: ConnectionType;
+}
+
+enum ConnectionType {
+  CannotConnect = 'CannotConnect',
+  Connected = 'Connected',
+  NotConnected = 'NotConnected',
+  CanConnect = 'CanConnect',
+}
+
+interface DhtBootstrapStatsResponse {
+  requests: NetworkBootstrapStatsRequest[];
 }

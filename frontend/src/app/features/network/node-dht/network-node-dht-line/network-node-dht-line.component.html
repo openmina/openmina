@@ -1,18 +1,26 @@
 <div class="base-div flex-column w-100 p-relative" [style.padding-right.px]="openSidePanel ? 0 : '50'">
-  <div class="lh-xl h-xl f-600">Peers Distances</div>
+  <div class="lh-xl h-xl f-600">{{ points.length }} Peers in {{ bucketPoints.length }} Buckets</div>
   <div class="list p-relative w-100 flex-row" #line>
-    <div *ngFor="let bucket of buckets; let i=index; trackBy: trackBuckets"
-         class="bucket h-100"
-         [tooltip]="'Bucket ' + i"
-         [style.width.%]="i === 0 ? bucket.left : bucket.left - buckets[i-1].left"
-         [style.left.px]="i === 0 ? i : buckets[i-1].left">
-      <div class="mid-line p-absolute w-100"></div>
+    <div *ngFor="let bucket of bucketPoints; let i=index; trackBy: trackBuckets"
+         class="bucket h-100 p-absolute"
+         [style.width.%]="i === 0 ? bucket.left : bucket.left - bucketPoints[i-1].left"
+         [style.left.%]="i === 0 ? i : bucketPoints[i-1].left">
+      <div class="fx-row-vert-cent pl-5">
+        <div>Bucket {{ i }}</div>
+        <div class="tertiary ml-8 mr-5">Peers</div>
+        <div>{{ buckets[i].peers }}</div>
+        <div class="tertiary ml-8">Max. Capacity 20</div>
+      </div>
+      <div class="line-bg p-absolute w-100">
+        <div class="mid-line p-absolute w-100"></div>
+      </div>
     </div>
     <div *ngFor="let point of points; trackBy: trackPoints"
          class="point"
+         (click)="selectPeer(point)"
+         [ngClass]="point.connection"
          [class.active]="activePeer?.peerId === point.peerId"
          [class.origin]="point.isOrigin"
-         [tooltip]="point.peerId"
          [style.left.px]="point.left"></div>
   </div>
 

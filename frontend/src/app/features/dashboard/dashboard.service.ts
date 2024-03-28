@@ -24,6 +24,7 @@ export class DashboardService {
           height: peer.best_tip_height,
           status: peer.connection_status,
           address: peer.address,
+          requests: 0,
         } as DashboardPeer)),
       ),
     );

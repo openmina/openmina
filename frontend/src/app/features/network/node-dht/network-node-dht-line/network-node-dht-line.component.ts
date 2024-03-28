@@ -1,11 +1,17 @@
-import { AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, OnInit, ViewChild } from '@angular/core';
+import { AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, ViewChild } from '@angular/core';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
-import { NetworkNodeDhtState, selectNetworkNodeDhtActivePeer } from '@network/node-dht/network-node-dht.state';
-import { selectNetworkNodeDhtState } from '@network/network.state';
-import { filter, fromEvent, skip } from 'rxjs';
-import { NetworkNodeDhtToggleSidePanel } from '@network/node-dht/network-node-dht.actions';
+import {
+  selectNetworkNodeDhtActivePeer,
+  selectNetworkNodeDhtKeyPeersBucketsOpenSidePanel,
+} from '@network/node-dht/network-node-dht.state';
+import { debounceTime, filter, fromEvent, skip, tap } from 'rxjs';
+import { NetworkNodeDhtSetActivePeer, NetworkNodeDhtToggleSidePanel } from '@network/node-dht/network-node-dht.actions';
 import { NetworkNodeDhtBucket } from '@shared/types/network/node-dht/network-node-dht-bucket.type';
-import { NetworkNodeDhtPeer } from '@shared/types/network/node-dht/network-node-dht.type';
+import {
+  NetworkNodeDhtPeer,
+  NetworkNodeDhtPeerConnectionType,
+} from '@shared/types/network/node-dht/network-node-dht.type';
+import { untilDestroyed } from '@ngneat/until-destroy';
 
 interface DhtPoint {
   left: number;
@@ -13,6 +19,8 @@ interface DhtPoint {
   distance?: number;
   isOrigin?: boolean;
   peerId?: string;
+  originalLeft?: number;
+  connection?: NetworkNodeDhtPeerConnectionType;
 }
 
 @Component({
@@ -26,36 +34,45 @@ export class NetworkNodeDhtLineComponent extends StoreDispatcher implements Afte
 
   activePeer: NetworkNodeDhtPeer;
   points: DhtPoint[] = [];
-  buckets: DhtPoint[] = [];
+  bucketPoints: DhtPoint[] = [];
   openSidePanel: boolean;
 
-  private state: NetworkNodeDhtState;
+  buckets: NetworkNodeDhtBucket[];
+  private thisKey: string;
+  private peers: NetworkNodeDhtPeer[] = [];
+  private lastKnownWidth: number;
 
-  readonly trackPoints = (_: number, point: DhtPoint) => point.left;
-  readonly trackBuckets = (_: number, bucket: DhtPoint) => bucket.left;
+  readonly trackPoints = (index: number) => index;
+  readonly trackBuckets = (index: number) => index;
 
   @ViewChild('line') private line: ElementRef<HTMLDivElement>;
-  @ViewChild('base') private base: ElementRef<HTMLDivElement>;
-
-  constructor(private el: ElementRef) { super(); }
 
   ngAfterViewInit(): void {
     this.listenToNodeDhtPeers();
     this.listenToActiveNodeDhtPeer();
+    this.listenToElWidthChange();
+  }
 
-    //not working
-    fromEvent(this.line.nativeElement, 'resize')
-      .subscribe(() => {
-        console.log('resize');
-        this.calculateInitial(this.state);
+  private listenToElWidthChange(): void {
+    this.lastKnownWidth = this.line.nativeElement.offsetWidth;
+    const widthChange = 'width-change';
+    const resizeObserver = new ResizeObserver((entries: ResizeObserverEntry[]) => {
+      for (const entry of entries) {
+        const widthChangeEvent = new CustomEvent(widthChange);
+        entry.target.dispatchEvent(widthChangeEvent);
+      }
+    });
+    resizeObserver.observe(this.line.nativeElement);
+
+    fromEvent(this.line.nativeElement, widthChange).pipe(
+      filter(() => !!this.thisKey),
+      filter(() => this.lastKnownWidth !== this.line.nativeElement.offsetWidth),
+      tap(() => {
+        this.calculateLeftBasedOnParentContainer();
         this.detect();
-      });
-
-    // console.log(this.base.nativeElement.offsetWidth);
-    // setTimeout(() => {
-    //   console.log(this.base.nativeElement.offsetWidth);
-    //
-    // }, 4000);
+      }),
+      untilDestroyed(this),
+    ).subscribe();
   }
 
   toggleSidePanel(): void {
@@ -63,93 +80,56 @@ export class NetworkNodeDhtLineComponent extends StoreDispatcher implements Afte
   }
 
   private listenToNodeDhtPeers(): void {
-    this.select(selectNetworkNodeDhtState, (state: NetworkNodeDhtState) => {
-      this.state = state;
-      if (state.thisKey) {
-        this.calculateInitial(state);
+    this.select(selectNetworkNodeDhtKeyPeersBucketsOpenSidePanel, ([key, peers, buckets, openSidePanel]: [string, NetworkNodeDhtPeer[], NetworkNodeDhtBucket[], boolean]) => {
+      this.openSidePanel = openSidePanel;
+      this.thisKey = key;
+      if (
+        this.thisKey
+        && (this.peers.length === 0 || this.peers.some((p, i) => p.hexDistance !== peers[i].hexDistance))
+      ) {
+        this.peers = peers;
+        this.buckets = buckets;
+        this.calculate();
       }
-      // this.calculate(state);
-      // console.log(this.points);
-      this.openSidePanel = state.openSidePanel;
       this.detect();
-    });
+    }, filter(data => !!data[0]));
   }
 
-  private calculateInitial(state: NetworkNodeDhtState) {
-
-    this.points = [];
-    this.buckets = [];
-    const max_keyspace_hex = 'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';
-    const max_keyspace_int = BigInt('0x' + max_keyspace_hex);
-
-    const buckets = Array.from(new Set(state.peers.map(peer => peer.bucketIndex)));
-    for (const bucket of buckets.reverse()) {
-      const bucket_peers = state.peers.filter(peer => peer.bucketIndex === bucket);
-      const this_bucket_key_int = BigInt('0x' + bucket_peers[0].bucketMaxHex);
-      const max_dist_int = Number(this_bucket_key_int) / Number(max_keyspace_int);
-      const left_percent = (Number(this_bucket_key_int) / Number(max_keyspace_int)) * 100;
-      this.buckets.push({
-        left: left_percent,
-        distance: max_dist_int,
-        isBucket: true,
-        peerId: '',
-      });
-    }
-
-    for (const peer of state.peers) {
-      const dist_int = BigInt('0x' + peer.hexDistance);
-      const dist_normalized = (Number(dist_int) / Number(max_keyspace_int));
-      this.points.push({
-        left: dist_normalized * 100,
-        distance: dist_normalized,
-        isBucket: false,
-        isOrigin: peer.key === state.thisKey,
-        peerId: peer.peerId,
-      });
-    }
-
+  private calculateLeftBasedOnParentContainer(): void {
     const max = this.line.nativeElement.offsetWidth - 16;
-    this.points = this.points.map(point => {
-      return {
-        ...point,
-        left: (point.left / 100) * max,
-      };
-    });
-    // this.buckets = this.buckets.map(bucket => {
-    //   return {
-    //     ...bucket,
-    //     left: (bucket.left / 100) * max,
-    //   };
-    // });
+    this.points.forEach(point => point.left = (point.originalLeft / 100) * max);
   }
 
-  private calculate(state: NetworkNodeDhtState) {
+  private calculate(): void {
     this.points = [];
-    this.buckets = [];
-    const max_keyspace_hex = this.getMaxOfHex(state.buckets);
+    this.bucketPoints = [];
+    const max_keyspace_hex = this.getMaxOfHex(this.buckets);
     const max_keyspace_int = BigInt('0x' + max_keyspace_hex);
 
-    const buckets = state.buckets;
+    const buckets = this.buckets;
     for (const bucket of buckets.slice().reverse()) {
       const this_bucket_key_int = BigInt('0x' + bucket.bucketMaxHex);
       const left_percent = (Number(this_bucket_key_int) / Number(max_keyspace_int)) * 100;
-      this.buckets.push({
+      this.bucketPoints.push({
         left: left_percent,
         isBucket: true,
         peerId: '',
       });
     }
 
-    for (const peer of state.peers) {
+    for (const peer of this.peers) {
       const dist_int = BigInt('0x' + peer.hexDistance);
       const dist_normalized = (Number(dist_int) / Number(max_keyspace_int));
       this.points.push({
-        left: dist_normalized * 100,
+        left: null,
+        connection: peer.connection,
+        originalLeft: dist_normalized * 100,
         isBucket: false,
-        isOrigin: peer.key === state.thisKey,
+        isOrigin: peer.key === this.thisKey,
         peerId: peer.peerId,
       });
     }
+    this.calculateLeftBasedOnParentContainer();
   }
 
   private getMaxOfHex(buckets: NetworkNodeDhtBucket[]): string {
@@ -161,5 +141,9 @@ export class NetworkNodeDhtLineComponent extends StoreDispatcher implements Afte
       this.activePeer = peer;
       this.detect();
     }, skip(1));
+  }
+
+  selectPeer(point: DhtPoint): void {
+    this.dispatch(NetworkNodeDhtSetActivePeer, this.peers.find(p => p.peerId === point.peerId));
   }
 }

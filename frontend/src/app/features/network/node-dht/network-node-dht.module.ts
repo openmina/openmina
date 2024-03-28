@@ -3,21 +3,28 @@ import { NgModule } from '@angular/core';
 import { SharedModule } from '@shared/shared.module';
 import { NetworkNodeDhtComponent } from '@network/node-dht/network-node-dht.component';
 import {
+  CopyComponent,
   HorizontalResizableContainerComponent,
   MinaJsonViewerComponent,
-  MinaSidePanelStepperComponent
+  MinaSidePanelStepperComponent,
 } from '@openmina/shared';
 import {
-  NetworkNodeDhtSidePanelComponent
+  NetworkNodeDhtSidePanelComponent,
 } from '@network/node-dht/network-node-dht-side-panel/network-node-dht-side-panel.component';
 import { NetworkNodeDhtRouting } from '@network/node-dht/network-node-dht.routing';
 import { EffectsModule } from '@ngrx/effects';
 import { NetworkNodeDhtEffects } from '@network/node-dht/network-node-dht.effects';
 import { NetworkNodeDhtLineComponent } from './network-node-dht-line/network-node-dht-line.component';
 import { NetworkNodeDhtTableComponent } from './network-node-dht-table/network-node-dht-table.component';
-import { NetworkNodeDhtPeerDetailsComponent } from './network-node-dht-peer-details/network-node-dht-peer-details.component';
-import { NetworkNodeDhtBootstrapStatsComponent } from './network-node-dht-bootstrap-stats/network-node-dht-bootstrap-stats.component';
-import { NetworkNodeDhtBootstrapDetailsComponent } from './network-node-dht-bootstrap-details/network-node-dht-bootstrap-details.component';
+import {
+  NetworkNodeDhtPeerDetailsComponent,
+} from './network-node-dht-peer-details/network-node-dht-peer-details.component';
+import {
+  NetworkNodeDhtBootstrapStatsComponent,
+} from './network-node-dht-bootstrap-stats/network-node-dht-bootstrap-stats.component';
+import {
+  NetworkNodeDhtBootstrapDetailsComponent,
+} from './network-node-dht-bootstrap-details/network-node-dht-bootstrap-details.component';
 
 
 @NgModule({
@@ -36,7 +43,8 @@ import { NetworkNodeDhtBootstrapDetailsComponent } from './network-node-dht-boot
     HorizontalResizableContainerComponent,
     MinaJsonViewerComponent,
     EffectsModule.forFeature(NetworkNodeDhtEffects),
-    MinaSidePanelStepperComponent
+    MinaSidePanelStepperComponent,
+    CopyComponent,
   ],
 })
 export class NetworkNodeDhtModule {}
