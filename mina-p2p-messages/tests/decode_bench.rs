@@ -80,7 +80,7 @@ fn read_rpc_tag_version<R: Read>(read: &mut R) -> Result<(CharString, Ver), binp
 
 fn read_rpc_response_untyped<R: Read>(
     tag: &mina_p2p_messages::string::CharString,
-    version: &i32,
+    version: &u32,
     read: &mut R,
 ) -> anyhow::Result<()> {
     match (tag, version) {

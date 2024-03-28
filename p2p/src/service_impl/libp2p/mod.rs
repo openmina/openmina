@@ -427,45 +427,43 @@ impl Libp2pService {
             RpcChannelMsg::Request(id, req) => {
                 let stream_id = StreamId::Outgoing(0);
                 let key = (peer_id, id);
-                let id = id as i64;
 
                 match req {
                     P2pRpcRequest::BestTipWithProof => {
                         type T = GetBestTipV2;
-                        b.ongoing.insert(key, (T::NAME.to_string(), T::VERSION));
+                        b.ongoing.insert(key, (T::NAME, T::VERSION));
                         b.rpc.query::<T>(peer_id, stream_id, id, ())?;
                     }
                     P2pRpcRequest::LedgerQuery(hash, query) => {
                         type T = AnswerSyncLedgerQueryV2;
-                        b.ongoing.insert(key, (T::NAME.to_string(), T::VERSION));
+                        b.ongoing.insert(key, (T::NAME, T::VERSION));
                         let query = (hash.0.clone(), query);
                         b.rpc.query::<T>(peer_id, stream_id, id, query)?;
                     }
                     P2pRpcRequest::StagedLedgerAuxAndPendingCoinbasesAtBlock(hash) => {
                         type T = GetStagedLedgerAuxAndPendingCoinbasesAtHashV2;
-                        b.ongoing.insert(key, (T::NAME.to_string(), T::VERSION));
+                        b.ongoing.insert(key, (T::NAME, T::VERSION));
                         let query = hash.0.clone();
                         b.rpc.query::<T>(peer_id, stream_id, id, query)?;
                     }
                     P2pRpcRequest::Block(hash) => {
                         type T = GetTransitionChainV2;
-                        b.ongoing.insert(key, (T::NAME.to_string(), T::VERSION));
+                        b.ongoing.insert(key, (T::NAME, T::VERSION));
                         let query = vec![hash.0.clone()];
                         b.rpc.query::<T>(peer_id, stream_id, id, query)?;
                     }
                     P2pRpcRequest::Snark(_) => {}
                     P2pRpcRequest::InitialPeers => {
                         type T = GetSomeInitialPeersV1ForV2;
-                        b.ongoing.insert(key, (T::NAME.to_string(), T::VERSION));
+                        b.ongoing.insert(key, (T::NAME, T::VERSION));
                         b.rpc.query::<T>(peer_id, stream_id, id, ())?;
                     }
                 };
             }
             RpcChannelMsg::Response(id, resp) => {
                 if let Some((stream_id, tag, version)) = b.ongoing_incoming.remove(&(peer_id, id)) {
-                    let id = id as i64;
                     match resp {
-                        None => match (tag.as_str(), version) {
+                        None => match (tag.as_bytes(), version) {
                             (GetBestTipV2::NAME, GetBestTipV2::VERSION) => {
                                 type T = GetBestTipV2;
                                 b.rpc.respond::<T>(peer_id, stream_id, id, Ok(None))?
@@ -505,7 +503,7 @@ impl Libp2pService {
                             _ => {}
                         },
                         Some(P2pRpcResponse::BestTipWithProof(msg)) => {
-                            if tag == GetAncestryV2::NAME {
+                            if tag.as_bytes() == GetAncestryV2::NAME {
                                 type T = GetAncestryV2;
                                 let v = msg.proof.0.iter().map(|x| x.0.clone()).collect();
                                 let r = Ok(Some(ProofCarryingDataWithHashV1 {
@@ -928,7 +926,7 @@ impl Libp2pService {
                     let mut bytes = bytes.as_slice();
                     <QueryPayload<M::Query> as BinProtRead>::binprot_read(&mut bytes)
                         .map(|NeedsLength(x)| x)
-                        .map_err(|err| format!("request {} {}", M::NAME, err))
+                        .map_err(|err| format!("request {} {}", M::NAME_STR, err))
                 }
 
                 fn parse_r<M: RpcMethod>(
@@ -937,7 +935,7 @@ impl Libp2pService {
                     let mut bytes = bytes.as_slice();
                     <ResponsePayload<M::Response> as BinProtRead>::binprot_read(&mut bytes)
                         .map(|x| x.0.map(|NeedsLength(x)| x))
-                        .map_err(|err| format!("response {} {}", M::NAME, err))
+                        .map_err(|err| format!("response {} {}", M::NAME_STR, err))
                 }
 
                 match received {
@@ -957,7 +955,7 @@ impl Libp2pService {
                         let send =
                             |request: P2pRpcRequest| send(RpcChannelMsg::Request(id as _, request));
 
-                        match (tag.as_str(), version) {
+                        match (tag.as_bytes(), version) {
                             (GetBestTipV2::NAME, GetBestTipV2::VERSION) => {
                                 send(P2pRpcRequest::BestTipWithProof)
                             }
@@ -1046,7 +1044,7 @@ impl Libp2pService {
                             return;
                         };
 
-                        match (tag.as_str(), version) {
+                        match (tag, version) {
                             (GetBestTipV2::NAME, GetBestTipV2::VERSION) => {
                                 match parse_r::<GetBestTipV2>(bytes) {
                                     Ok(response) => {

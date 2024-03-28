@@ -7,8 +7,13 @@ use serde::{Deserialize, Serialize};
 
 use crate::versioned::Ver;
 
-pub type Tag = super::string::CharString;
-pub type QueryID = i64;
+/// Binprot representation of the RPC method tag.
+pub type BinprotTag = super::string::CharString;
+/// Internal representation of the RPC method tag.
+pub type RpcTag = &'static [u8];
+/// RPC method version.
+pub type RpcVersion = Ver;
+pub type QueryID = u64;
 pub type Sexp = (); // TODO
 
 #[derive(
@@ -126,7 +131,7 @@ pub enum Error {
     Connection_closed,
     Write_error,  //(Sexp),
     Uncaught_exn, //(Sexp),
-    Unimplemented_rpc(Tag, Ver),
+    Unimplemented_rpc(BinprotTag, Ver),
     Unknown_query_id(QueryID),
 }
 
@@ -152,7 +157,7 @@ pub type QueryPayload<T> = NeedsLength<T>;
 /// ```
 #[derive(Clone, Debug, Serialize, Deserialize, BinProtRead, BinProtWrite, PartialEq, Eq)]
 pub struct Query<T> {
-    pub tag: Tag,
+    pub tag: BinprotTag,
     pub version: Ver,
     pub id: QueryID,
     pub data: QueryPayload<T>,
@@ -186,7 +191,7 @@ pub struct Response<T> {
 /// RPC tag and version.
 #[derive(Clone, Debug, Serialize, Deserialize, BinProtRead, BinProtWrite, PartialEq, Eq)]
 pub struct DebuggerResponse<T> {
-    pub tag: Tag,
+    pub tag: BinprotTag,
     pub version: Ver,
     pub id: QueryID,
     pub data: ResponsePayload<T>,
@@ -240,8 +245,8 @@ impl<T> From<DebuggerMessage<T>> for Message<T> {
 
 #[derive(Clone, Debug, Serialize, Deserialize, BinProtRead, BinProtWrite, PartialEq, Eq)]
 pub struct QueryHeader {
-    pub tag: Tag,
-    pub version: i32,
+    pub tag: BinprotTag,
+    pub version: Ver,
     pub id: QueryID,
 }
 
@@ -258,7 +263,8 @@ pub enum MessageHeader {
 }
 
 pub trait RpcMethod {
-    const NAME: &'static str;
+    const NAME: RpcTag;
+    const NAME_STR: &'static str;
     const VERSION: Ver;
     type Query: BinProtRead + BinProtWrite;
     type Response: BinProtRead + BinProtWrite;
@@ -414,7 +420,8 @@ impl<T, FQ, FR> RpcMethod for (T, FQ, FR)
 where
     T: RpcMethod,
 {
-    const NAME: &'static str = T::NAME;
+    const NAME: RpcTag = T::NAME;
+    const NAME_STR: &'static str = T::NAME_STR;
     const VERSION: Ver = T::VERSION;
     type Query = T::Query;
     type Response = T::Response;
@@ -447,7 +454,7 @@ mod tests {
     use binprot_derive::BinProtRead;
 
     use crate::{
-        rpc_kernel::{NeedsLength, RpcResult, Tag},
+        rpc_kernel::{BinprotTag, NeedsLength, RpcResult},
         utils::FromBinProtStream,
         versioned::Ver,
     };
@@ -540,7 +547,7 @@ mod tests {
 
         #[derive(Debug, BinProtRead, PartialEq)]
         struct RpcTagVersion {
-            tag: Tag,
+            tag: BinprotTag,
             version: Ver,
         }
 

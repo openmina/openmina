@@ -3,7 +3,7 @@ use std::{fmt::Debug, marker::PhantomData};
 use serde::{ser::SerializeStruct, Deserialize, Serialize};
 
 /// `Bin_prot` uses integer to represent type version.
-pub type Ver = i32;
+pub type Ver = u32;
 
 /// Wrapper for a type that adds explicit version information.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -234,7 +234,7 @@ mod tests {
 
     #[test]
     fn binprot_version_num_write() {
-        fn versioned<const V: i32>() -> Versioned<(), V> {
+        fn versioned<const V: u32>() -> Versioned<(), V> {
             Versioned(())
         }
         assert_eq!(&binprot_write(&versioned::<0>()).unwrap(), b"\x00\x00");

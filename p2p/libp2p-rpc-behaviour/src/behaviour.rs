@@ -14,9 +14,13 @@ use libp2p::{
     Multiaddr, PeerId,
 };
 
-use mina_p2p_messages::binprot::{self, BinProtWrite};
 use mina_p2p_messages::rpc_kernel::{
     Error, Message, NeedsLength, Query, Response, RpcMethod, RpcResult,
+};
+use mina_p2p_messages::{
+    binprot::{self, BinProtWrite},
+    rpc_kernel::RpcTag,
+    versioned::Ver,
 };
 
 use super::{
@@ -26,7 +30,7 @@ use super::{
 
 #[derive(Default)]
 pub struct BehaviourBuilder {
-    menu: BTreeSet<(&'static str, i32)>,
+    menu: BTreeSet<(RpcTag, Ver)>,
 }
 
 impl BehaviourBuilder {
@@ -48,7 +52,7 @@ impl BehaviourBuilder {
 
 #[derive(Default)]
 pub struct Behaviour {
-    menu: Arc<BTreeSet<(&'static str, i32)>>,
+    menu: Arc<BTreeSet<(RpcTag, Ver)>>,
     peers: BTreeMap<PeerId, ConnectionId>,
     queue: VecDeque<ToSwarm<(PeerId, Event), Command>>,
     pending: BTreeMap<PeerId, VecDeque<Command>>,
@@ -93,7 +97,7 @@ impl Behaviour {
         &mut self,
         peer_id: PeerId,
         stream_id: StreamId,
-        id: i64,
+        id: u64,
         response: Result<M::Response, Error>,
     ) -> Result<(), binprot::Error>
     where
@@ -115,7 +119,7 @@ impl Behaviour {
         &mut self,
         peer_id: PeerId,
         stream_id: StreamId,
-        id: i64,
+        id: u64,
         query: M::Query,
     ) -> Result<(), binprot::Error>
     where

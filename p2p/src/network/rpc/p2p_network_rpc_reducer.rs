@@ -26,7 +26,7 @@ impl P2pNetworkRpcState {
                             let msg = match MessageHeader::binprot_read(&mut slice) {
                                 Ok(MessageHeader::Heartbeat) => RpcMessage::Heartbeat,
                                 Ok(MessageHeader::Response(h))
-                                    if h.id == i64::from_le_bytes(*b"RPC\x00\x00\x00\x00\x00") =>
+                                    if h.id == u64::from_le_bytes(*b"RPC\x00\x00\x00\x00\x00") =>
                                 {
                                     RpcMessage::Handshake
                                 }
