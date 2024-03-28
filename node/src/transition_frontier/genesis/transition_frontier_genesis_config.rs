@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 
 use ledger::{scan_state::currency::Balance, BaseLedger};
+use mina_hasher::Fp;
 use mina_p2p_messages::{binprot::BinProtRead, v2};
 use openmina_core::constants::CONSTRAINT_CONSTANTS;
 use serde::{Deserialize, Serialize};
@@ -100,9 +101,14 @@ impl GenesisConfig {
             Self::AccountsBinProt { bytes, constants } => {
                 let mut bytes = bytes.as_ref();
                 let expected_hash = Option::<v2::LedgerHash>::binprot_read(&mut bytes)?;
+                let hashes = Vec::<(u64, v2::LedgerHash)>::binprot_read(&mut bytes)?
+                    .into_iter()
+                    .map(|(idx, hash)| (idx, hash.0.to_field()))
+                    .collect();
                 let accounts = Vec::<ledger::Account>::binprot_read(&mut bytes)?;
 
-                let (mut mask, total_currency) = Self::build_ledger_from_accounts(accounts);
+                let (mut mask, total_currency) =
+                    Self::build_ledger_from_accounts_and_hashes(accounts, hashes);
                 let ledger_hash = ledger_hash(&mut mask);
                 if let Some(expected_hash) = expected_hash.filter(|h| h != &ledger_hash) {
                     anyhow::bail!("ledger hash mismatch after building the mask! expected: '{expected_hash}', got '{ledger_hash}'");
@@ -169,7 +175,21 @@ impl GenesisConfig {
                     mask.get_or_create_account(account_id, account).unwrap();
                     (mask, total_currency)
                 });
+
         (mask, v2::CurrencyAmountStableV1(total_currency.into()))
+    }
+
+    fn build_ledger_from_accounts_and_hashes(
+        accounts: impl IntoIterator<Item = ledger::Account>,
+        hashes: Vec<(u64, Fp)>,
+    ) -> (ledger::Mask, v2::CurrencyAmountStableV1) {
+        let (mask, total_currency) = Self::build_ledger_from_accounts(accounts);
+
+        // Must happen after the accounts have been set to avoid
+        // cache invalidations.
+        mask.set_raw_inner_hashes(hashes);
+
+        (mask, total_currency)
     }
 }
 
