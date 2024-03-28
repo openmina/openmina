@@ -10,6 +10,18 @@ spec:
     - port: 80
       protocol: TCP
 ---
+apiVersion: v1
+kind: Service
+metadata:
+  name: node-service
+spec:
+  type: NodePort
+  selector:
+    app: debugger
+  ports:
+    - port: 10000
+      protocol: TCP
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -30,7 +42,7 @@ spec:
       containers:
         - name: bpf-debugger
           imagePullPolicy: Always
-          image: openmina/mina-network-debugger:bc481a39
+          image: openmina/mina-network-debugger:f267f777
           securityContext:
             privileged: true
           command: ["sh", "-ce", "bpf-recorder"]
@@ -63,8 +75,8 @@ spec:
               PATH=$PATH:~/.cargo/bin && rustup update 1.77
               git clone https://github.com/openmina/openmina
               cd openmina
-              git fetch && git checkout feat/tests-with-debugger
-              PATH=$PATH:~/.cargo/bin && cargo +1.77 build --release --bin openmina
+              git fetch && git checkout feat/tweak-for-debugger
+              PATH=$PATH:~/.cargo/bin && cargo +1.77 build --release --bin openmina -p cli --no-default-features
               cp target/release/openmina /usr/local/bin/openmina
               openmina node -p 10000 --libp2p-port 8302
           ports:
@@ -76,7 +88,7 @@ spec:
               protocol: TCP
           env:
             - name: BPF_ALIAS
-              value: "/coda/0.0.1/3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e-0.0.0.0"
+              value: "/coda/0.0.1/fd7d111973bf5a9e3e87384f560fdead2f272589ca00b6d9e357fca9839631da-0.0.0.0"
           resources:
             requests:
               memory: 16G

@@ -2,15 +2,19 @@ use std::net::SocketAddr;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{Data, DataSized, P2pNetworkAction, P2pState, PeerId};
+use crate::{Data, P2pNetworkAction, P2pState, PeerId};
+
+use super::p2p_network_noise_state::{Pk, Sk};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum P2pNetworkNoiseAction {
     Init {
         addr: SocketAddr,
         incoming: bool,
-        ephemeral_sk: DataSized<32>,
-        static_sk: DataSized<32>,
+        ephemeral_sk: Sk,
+        ephemeral_pk: Pk,
+        static_sk: Sk,
+        static_pk: Pk,
         signature: Data,
     },
     /// remote peer sends the data to the noise
