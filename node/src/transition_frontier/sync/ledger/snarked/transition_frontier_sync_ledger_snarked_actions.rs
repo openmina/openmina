@@ -250,13 +250,35 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerSnar
                     .and_then(|s| s.attempts.get(sender))
                     .map_or(false, |s| s.is_success())
             }
-            // TODO(tizoc): implement
-            TransitionFrontierSyncLedgerSnarkedAction::NumAccountsSuccess { .. } => true,
+            TransitionFrontierSyncLedgerSnarkedAction::NumAccountsSuccess { .. } => state
+                .transition_frontier
+                .sync
+                .ledger()
+                .and_then(|s| s.snarked()?.num_accounts_pending())
+                .is_some(),
 
-            // TODO(tizoc): implement
-            TransitionFrontierSyncLedgerSnarkedAction::MerkleTreeSyncPending => true,
-            // TODO(tizoc): implement
-            TransitionFrontierSyncLedgerSnarkedAction::MerkleTreeSyncSuccess => true,
+            TransitionFrontierSyncLedgerSnarkedAction::MerkleTreeSyncPending => state
+                .transition_frontier
+                .sync
+                .ledger()
+                .and_then(|s| s.snarked())
+                .map_or(false, |s| {
+                    matches!(
+                        s,
+                        TransitionFrontierSyncLedgerSnarkedState::NumAccountsSuccess { .. }
+                    )
+                }),
+            TransitionFrontierSyncLedgerSnarkedAction::MerkleTreeSyncSuccess => state
+                .transition_frontier
+                .sync
+                .ledger()
+                .and_then(|s| s.snarked())
+                .map_or(false, |s| {
+                    matches!(
+                        s,
+                        TransitionFrontierSyncLedgerSnarkedState::MerkleTreeSyncPending { .. }
+                    )
+                }),
 
             // hashes and contents
             TransitionFrontierSyncLedgerSnarkedAction::PeerQueryAddressInit {
