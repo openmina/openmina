@@ -2,7 +2,10 @@ import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 import { MinaTableRustWrapper } from '@shared/base-classes/mina-table-rust-wrapper.class';
 import { TableColumnList } from '@openmina/shared';
 import { Router } from '@angular/router';
-import { NetworkNodeDhtPeer } from '@shared/types/network/node-dht/network-node-dht.type';
+import {
+  NetworkNodeDhtPeer,
+  NetworkNodeDhtPeerConnectionType,
+} from '@shared/types/network/node-dht/network-node-dht.type';
 import { selectNetworkNodeDhtActivePeer, selectNetworkNodeDhtPeers } from '@network/node-dht/network-node-dht.state';
 import { NetworkNodeDhtSetActivePeer } from '@network/node-dht/network-node-dht.actions';
 
@@ -17,12 +20,13 @@ import { NetworkNodeDhtSetActivePeer } from '@network/node-dht/network-node-dht.
 export class NetworkNodeDhtTableComponent extends MinaTableRustWrapper<NetworkNodeDhtPeer> implements OnInit {
 
   protected readonly tableHeads: TableColumnList<NetworkNodeDhtPeer> = [
+    { name: 'connection' },
     { name: 'peerId' },
-    { name: 'addresses' },
+    { name: 'addr. count' },
     { name: 'HEX distance' },
     { name: 'binary distance' },
-    { name: 'XOR distance' },
-    { name: 'bucket index' },
+    { name: 'Zero prefixes' },
+    { name: 'bucket' },
   ];
 
   rows: NetworkNodeDhtPeer[] = [];
@@ -37,7 +41,7 @@ export class NetworkNodeDhtTableComponent extends MinaTableRustWrapper<NetworkNo
   }
 
   protected override setupTable(): void {
-    this.table.gridTemplateColumns = [140, 110, 130, 160, 120, 110];
+    this.table.gridTemplateColumns = [140, 140, 110, 130, 160, 120, 110];
     this.table.propertyForActiveCheck = 'peerId';
   }
 
@@ -60,4 +64,6 @@ export class NetworkNodeDhtTableComponent extends MinaTableRustWrapper<NetworkNo
   protected override onRowClick(row: NetworkNodeDhtPeer): void {
     this.dispatch(NetworkNodeDhtSetActivePeer, row);
   }
+
+  protected readonly NetworkNodeDhtPeerConnectionType = NetworkNodeDhtPeerConnectionType;
 }

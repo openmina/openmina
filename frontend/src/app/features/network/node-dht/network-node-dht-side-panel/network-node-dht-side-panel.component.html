@@ -3,10 +3,11 @@
 
 <ng-template #step1>
   <div class="fx-row-vert-cent flex-between h-xl lh-xl pl-12 pr-12">
-    <div class="f-600 secondary">FIND_NODE</div>
+    <div class="f-600 primary">FIND_NODE</div>
     <ng-container *ngTemplateOutlet="toggle"></ng-container>
   </div>
-  <mina-network-node-dht-bootstrap-stats class="flex-column h-minus-xl"></mina-network-node-dht-bootstrap-stats>
+  <mina-network-node-dht-bootstrap-stats
+    class="flex-column h-minus-xl overflow-y-auto"></mina-network-node-dht-bootstrap-stats>
 </ng-template>
 
 <ng-template #step2>

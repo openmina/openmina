@@ -3,8 +3,8 @@
   <ng-container *ngTemplateOutlet="icon"></ng-container>
   Network
 </div>
-<div class="flex-column h-minus-xl">
-  <div class="fx-row-vert-cent">
+<div class="flex-column h-minus-xl bg-surface border-rad-6">
+  <div class="fx-row-vert-cent border-bottom">
     <mina-card label="Connected"
                [value]="stats.connected"
                color="var(--success-primary)"
@@ -19,6 +19,9 @@
                labelColor="var(--base-tertiary)"
                [hint]="'Peer' + (stats.disconnected !== 1 ? 's' : '')"
                [value]="stats.disconnected"></mina-card>
+  </div>
+  <div class="w-100 flex-column flex-1 d-none-md">
+    <mina-dashboard-peers-minimal-table></mina-dashboard-peers-minimal-table>
   </div>
 </div>
 

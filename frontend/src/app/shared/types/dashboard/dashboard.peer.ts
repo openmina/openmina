@@ -9,6 +9,7 @@ export interface DashboardPeer {
   bestTipTimestamp: number;
   bestTipDatetime: string;
   height: number;
+  requests: number;
 }
 
 export enum DashboardPeerStatus {

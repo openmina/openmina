@@ -5,7 +5,8 @@
     <mina-copy [display]="row.peerId | truncateMid" [value]="row.peerId"></mina-copy>
   </span>
   <span class="fx-row-vert-cent text-capitalize" [ngClass]="row.status">
-    <mina-loading-spinner *ngIf="row.status === DashboardPeerStatus.CONNECTING; else circle" class="loading mr-10"></mina-loading-spinner>
+    <mina-loading-spinner *ngIf="row.status === DashboardPeerStatus.CONNECTING; else circle"
+                          class="loading mr-10"></mina-loading-spinner>
     <ng-template #circle><span class="mina-icon icon-200 mr-10 f-big">circle</span></ng-template>
     {{ row.status }}
   </span>

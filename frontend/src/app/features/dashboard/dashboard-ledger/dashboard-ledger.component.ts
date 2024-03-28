@@ -5,13 +5,13 @@ import {
   OnInit,
   TemplateRef,
   ViewChild,
-  ViewContainerRef
+  ViewContainerRef,
 } from '@angular/core';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
-import { selectDashboardNodes, selectDashboardNodesAndRpcStats } from '@dashboard/dashboard.state';
+import { selectDashboardNodesAndRpcStats } from '@dashboard/dashboard.state';
 import {
   NodesOverviewLedger,
-  NodesOverviewLedgerStepState
+  NodesOverviewLedgerStepState,
 } from '@shared/types/nodes/dashboard/nodes-overview-ledger.type';
 import { filter } from 'rxjs';
 import { NodesOverviewNode } from '@shared/types/nodes/dashboard/nodes-overview-node.type';
@@ -78,7 +78,7 @@ export class DashboardLedgerComponent extends StoreDispatcher implements OnInit,
       },
       synced: null,
       totalTime: null,
-    }
+    },
   };
   progress: string;
   configMap: LedgerConfigMap = {

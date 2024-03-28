@@ -1,3 +1,34 @@
-<div *ngFor="let request of bootstrapStats" (click)="setActiveBootstrapRequest(request)">
-  <div>{{ request.status }}</div>
+<div class="fx-row-vert-cent flex-between bg-container-hover pl-12 pr-12 pointer"
+     *ngFor="let request of bootstrapStats; trackBy: trackStats" (click)="setActiveBootstrapRequest(request)">
+  <div class="fx-row-vert-cent f-600 h-md"
+       [ngClass]="{
+        'warn-primary': request.type === 'Failed',
+        'tertiary': request.type === 'Ongoing',
+        'success-primary': request.type === 'Successful'
+      }">
+    <ng-container *ngTemplateOutlet="icon; context: { type: request.type }"></ng-container>
+    <div class="ml-5">{{ request.type }}</div>
+  </div>
+  <div>
+    <span class="mina-icon icon-200 tertiary">chevron_right</span>
+  </div>
 </div>
+
+
+<ng-template #icon let-type="type">
+  <ng-container [ngSwitch]="type">
+    <ng-container *ngSwitchCase="'Failed'">
+      <div class="fx-col-full-cent warn-primary">
+        <span class="mina-icon icon-200">error</span>
+      </div>
+    </ng-container>
+    <ng-container *ngSwitchCase="'Ongoing'">
+      <span class="loading-icon mina-icon icon-200 tertiary">progress_activity</span>
+    </ng-container>
+    <ng-container *ngSwitchCase="'Successful'">
+      <div class="fx-col-full-cent success-primary">
+        <span class="mina-icon icon-200">task_alt</span>
+      </div>
+    </ng-container>
+  </ng-container>
+</ng-template>

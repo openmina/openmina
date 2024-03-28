@@ -1,10 +1,23 @@
 <ng-container #minaTable></ng-container>
 
 <ng-template #rowTemplate let-row="row">
-  <span>{{ row.peerId | truncateMid }}</span>
+  <span [class.success-primary]="row.connection === NetworkNodeDhtPeerConnectionType.Connected"
+        [class.warn-primary]="row.connection === NetworkNodeDhtPeerConnectionType.CannotConnect"
+        [class.origin]="row.xorDistance === '-'"
+        class="fx-row-vert-cent">
+    <span class="circle mr-10" [ngClass]="row.connection"></span>
+    {{ row.xorDistance === '-' ? 'Origin' : row.connection }}
+  </span>
+  <span>
+    <mina-copy [value]="row.peerId" [display]="row.peerId | truncateMid"></mina-copy>
+  </span>
   <span class="secondary">{{ row.addressesLength }}</span>
-  <span>{{ row.hexDistance | truncateMid }}</span>
-  <span class="monospace">{{ row.binaryDistance | truncateMid: 10: 0 }}</span>
+  <span>
+    <mina-copy [value]="row.hexDistance" [display]="row.hexDistance | truncateMid"></mina-copy>
+  </span>
+  <span class="monospace">
+    <mina-copy [value]="row.binaryDistance" [display]="row.binaryDistance | truncateMid: 10: 0"></mina-copy>
+  </span>
   <span class="secondary">{{ row.xorDistance }}</span>
   <span class="secondary">{{ row.bucketIndex }}</span>
 </ng-template>

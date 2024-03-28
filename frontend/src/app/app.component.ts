@@ -5,12 +5,7 @@ import { Store } from '@ngrx/store';
 import { MinaState } from '@app/app.setup';
 import { BreakpointObserver, BreakpointState } from '@angular/cdk/layout';
 import { selectAppMenu } from '@app/app.state';
-import {
-  APP_TOGGLE_MENU_OPENING,
-  APP_TOGGLE_MOBILE,
-  AppToggleMenuOpening,
-  AppToggleMobile
-} from '@app/app.actions';
+import { APP_TOGGLE_MENU_OPENING, APP_TOGGLE_MOBILE, AppToggleMenuOpening, AppToggleMobile } from '@app/app.actions';
 import { Observable } from 'rxjs';
 
 @Component({
@@ -23,6 +18,7 @@ import { Observable } from 'rxjs';
 export class AppComponent extends ManualDetection implements OnInit {
 
   menu$: Observable<AppMenu> = this.store.select(selectAppMenu);
+  subMenusLength: number = 0;
 
   constructor(private store: Store<MinaState>,
               private breakpointObserver: BreakpointObserver) {
@@ -46,5 +42,9 @@ export class AppComponent extends ManualDetection implements OnInit {
 
   toggleMenu(): void {
     this.store.dispatch<AppToggleMenuOpening>({ type: APP_TOGGLE_MENU_OPENING });
+  }
+
+  onSubmenusLengthChange(length: number): void {
+    this.subMenusLength = length;
   }
 }

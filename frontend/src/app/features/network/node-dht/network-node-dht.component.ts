@@ -1,8 +1,9 @@
-import { ChangeDetectionStrategy, Component, ElementRef, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, OnDestroy, OnInit } from '@angular/core';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
 import { tap, timer } from 'rxjs';
 import { untilDestroyed } from '@ngneat/until-destroy';
 import {
+  NetworkNodeDhtClose,
   NetworkNodeDhtGetBootstrapStats,
   NetworkNodeDhtGetPeers,
   NetworkNodeDhtInit,
@@ -15,7 +16,7 @@ import { selectNetworkNodeDhtOpenSidePanel } from '@network/node-dht/network-nod
   styleUrls: ['./network-node-dht.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class NetworkNodeDhtComponent extends StoreDispatcher implements OnInit {
+export class NetworkNodeDhtComponent extends StoreDispatcher implements OnInit, OnDestroy {
 
   openSidePanel: boolean;
 
@@ -47,5 +48,10 @@ export class NetworkNodeDhtComponent extends StoreDispatcher implements OnInit {
         this.detect();
       }
     });
+  }
+
+  override ngOnDestroy(): void {
+    super.ngOnDestroy();
+    this.dispatch(NetworkNodeDhtClose);
   }
 }

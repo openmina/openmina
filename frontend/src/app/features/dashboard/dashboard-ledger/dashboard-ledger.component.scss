@@ -13,9 +13,9 @@
     top: 1px;
     left: -50px;
     width: 50px;
-    background: radial-gradient($success-primary, $success-primary, transparent);
+    background: radial-gradient($success-primary, $success-primary, $success-primary, $success-primary, transparent, transparent);
     border-radius: 20px;
-    animation: move 10s linear infinite;
+    animation: move 9s linear infinite;
   }
 
   .progress {
@@ -30,7 +30,7 @@
   0% {
     left: -50px;
   }
-  20% {
+  10% {
     left: -50px;
   }
   80% {

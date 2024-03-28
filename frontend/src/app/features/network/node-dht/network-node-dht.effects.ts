@@ -17,8 +17,10 @@ import {
 } from '@network/node-dht/network-node-dht.actions';
 import { NetworkNodeDhtService } from '@network/node-dht/network-node-dht.service';
 import { NetworkNodeDhtPeer } from '@shared/types/network/node-dht/network-node-dht.type';
-import { NetworkNodeDhtBootstrapStats } from '@shared/types/network/node-dht/network-node-dht-bootstrap-stats.type';
 import { NetworkNodeDhtBucket } from '@shared/types/network/node-dht/network-node-dht-bucket.type';
+import {
+  NetworkBootstrapStatsRequest,
+} from '@shared/types/network/bootstrap-stats/network-bootstrap-stats-request.type';
 
 @Injectable({
   providedIn: 'root',
@@ -67,7 +69,7 @@ export class NetworkNodeDhtEffects extends MinaRustBaseEffect<NetworkNodeDhtActi
       filter(() => !this.pendingRequest2),
       tap(() => this.pendingRequest2 = true),
       switchMap(() => this.nodeDhtService.getDhtBootstrapStats()),
-      map((payload: NetworkNodeDhtBootstrapStats[]) => ({
+      map((payload: NetworkBootstrapStatsRequest[]) => ({
         type: NETWORK_NODE_DHT_GET_BOOTSTRAP_STATS_SUCCESS,
         payload,
       })),

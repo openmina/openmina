@@ -4,9 +4,18 @@ export interface NetworkNodeDhtPeer {
   addressesLength: number;
   addrs: string[];
   libp2p: string;
+  connection: NetworkNodeDhtPeerConnectionType;
   hexDistance: string;
   binaryDistance: string;
   xorDistance: string;
-  bucketIndex: number;
   bucketMaxHex: string;
+  bucketIndex: number;
+  id?: number;
+}
+
+export enum NetworkNodeDhtPeerConnectionType {
+  NotConnected = 'Not Connected',
+  Connected = 'Connected',
+  CanConnect = 'Can Connect',
+  CannotConnect = 'Cannot Connect',
 }

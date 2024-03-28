@@ -1,0 +1,36 @@
+<ng-container #minaTable></ng-container>
+
+<ng-template #rowTemplate let-row="row">
+  <span>{{ row.start | readableDate }}</span>
+  <span class="fx-row-vert-cent f-600"
+        [ngClass]="{
+          'warn-primary': row.type === 'Failed',
+          'tertiary': row.type === 'Ongoing',
+          'success-primary': row.type === 'Successful'
+        }">
+    <ng-container *ngTemplateOutlet="icon; context: { type: row.type }"></ng-container>
+    <span class="ml-5">{{ row.type }}{{ row.error ? (' - ' + row.error) : '' }}</span>
+  </span>
+  <span class="secondary">{{ row.duration | secDuration: config }}</span>
+  <span>
+    <mina-copy [value]="row.peerId" [display]="row.peerId | truncateMid"></mina-copy>
+  </span>
+  <span [tooltip]="row.address" [maxWidth]="1000">
+    <mina-copy [value]="row.address" [display]="row.address | truncateMid: 25"></mina-copy>
+  </span>
+  <span [class.secondary]="row.existingPeers > 0">{{ row.existingPeers }}</span>
+  <span [class.secondary]="row.newPeers > 0">{{ row.newPeers }}</span>
+</ng-template>
+
+
+<ng-template #icon let-type="type">
+  <ng-container [ngSwitch]="type">
+    <div *ngSwitchCase="'Failed'" class="fx-col-full-cent warn-primary">
+      <span class="mina-icon icon-200">error</span>
+    </div>
+    <mina-loading-spinner *ngSwitchCase="'Ongoing'"></mina-loading-spinner>
+    <div *ngSwitchCase="'Successful'" class="fx-col-full-cent success-primary">
+      <span class="mina-icon icon-200">task_alt</span>
+    </div>
+  </ng-container>
+</ng-template>

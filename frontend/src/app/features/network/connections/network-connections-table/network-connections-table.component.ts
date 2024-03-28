@@ -2,7 +2,10 @@ import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { Routes } from '@shared/enums/routes.enum';
 import { NetworkConnection } from '@shared/types/network/connections/network-connection.type';
-import { selectNetworkConnections, selectNetworkConnectionsActiveConnection } from '@network/connections/network-connections.state';
+import {
+  selectNetworkConnections,
+  selectNetworkConnectionsActiveConnection,
+} from '@network/connections/network-connections.state';
 import { NetworkConnectionsSelectConnection } from '@network/connections/network-connections.actions';
 import { getMergedRoute, MergedRoute, TableColumnList } from '@openmina/shared';
 import { filter, take } from 'rxjs';
@@ -75,12 +78,8 @@ export class NetworkConnectionsTableComponent extends MinaTableRustWrapper<Netwo
   protected override onRowClick(row: NetworkConnection): void {
     if (row.connectionId !== this.activeRow?.connectionId) {
       this.router.navigate([Routes.NETWORK, Routes.CONNECTIONS, row.connectionId], { queryParamsHandling: 'merge' });
-      this.setActiveRow(row);
+      this.dispatch(NetworkConnectionsSelectConnection, row);
     }
-  }
-
-  private setActiveRow(row: NetworkConnection): void {
-    this.dispatch(NetworkConnectionsSelectConnection, row);
   }
 
   private scrollToElement(): void {

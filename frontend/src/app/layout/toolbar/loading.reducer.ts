@@ -11,12 +11,12 @@ import {
 import {
   NODES_OVERVIEW_CLOSE,
   NODES_OVERVIEW_GET_NODES_SUCCESS,
-  NODES_OVERVIEW_INIT
+  NODES_OVERVIEW_INIT,
 } from '@nodes/overview/nodes-overview.actions';
 import {
   NODES_BOOTSTRAP_CLOSE,
   NODES_BOOTSTRAP_GET_NODES_SUCCESS,
-  NODES_BOOTSTRAP_INIT
+  NODES_BOOTSTRAP_INIT,
 } from '@nodes/bootstrap/nodes-bootstrap.actions';
 import { NODES_LIVE_CLOSE, NODES_LIVE_GET_NODES_SUCCESS, NODES_LIVE_INIT } from '@nodes/live/nodes-live.actions';
 import {
@@ -31,13 +31,18 @@ import { DASHBOARD_CLOSE, DASHBOARD_GET_DATA_SUCCESS, DASHBOARD_INIT } from '@da
 import {
   MEMORY_RESOURCES_CLOSE,
   MEMORY_RESOURCES_GET,
-  MEMORY_RESOURCES_GET_SUCCESS
+  MEMORY_RESOURCES_GET_SUCCESS,
 } from '@resources/memory/memory-resources.actions';
 import {
   NETWORK_NODE_DHT_CLOSE,
   NETWORK_NODE_DHT_GET_PEERS_SUCCESS,
-  NETWORK_NODE_DHT_INIT
+  NETWORK_NODE_DHT_INIT,
 } from '@network/node-dht/network-node-dht.actions';
+import {
+  NETWORK_BOOTSTRAP_STATS_CLOSE,
+  NETWORK_BOOTSTRAP_STATS_GET_BOOTSTRAP_STATS_SUCCESS,
+  NETWORK_BOOTSTRAP_STATS_INIT,
+} from '@network/bootstrap-stats/network-bootstrap-stats.actions';
 
 export type LoadingState = string[];
 
@@ -65,6 +70,7 @@ export function loadingReducer(state: LoadingState = initialState, action: Featu
     case MEMORY_RESOURCES_GET:
 
     case NETWORK_NODE_DHT_INIT:
+    case NETWORK_BOOTSTRAP_STATS_INIT:
       return add(state, action);
 
     /* ------------ REMOVE ------------ */
@@ -117,6 +123,11 @@ export function loadingReducer(state: LoadingState = initialState, action: Featu
       return remove(state, NETWORK_NODE_DHT_INIT);
     case NETWORK_NODE_DHT_CLOSE:
       return remove(state, [NETWORK_NODE_DHT_INIT]);
+
+    case NETWORK_BOOTSTRAP_STATS_GET_BOOTSTRAP_STATS_SUCCESS:
+      return remove(state, NETWORK_BOOTSTRAP_STATS_INIT);
+    case NETWORK_BOOTSTRAP_STATS_CLOSE:
+      return remove(state, [NETWORK_BOOTSTRAP_STATS_INIT]);
 
     default:
       return state;

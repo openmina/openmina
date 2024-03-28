@@ -2,7 +2,7 @@
   <div class="h-xl lh-xl fx-row-vert-cent flex-between f-600 pl-12 pr-12 p-relative">
     <div [class.success-primary]="ledgers.root.synced">Ledgers</div>
     <div class="tertiary f-400">{{ progress }}</div>
-    <div *ngIf="totalProgress >= 1" [style.width.%]="totalProgress"
+    <div *ngIf="stakingProgress > 0" [style.width.%]="totalProgress"
          class="progress-bar p-absolute">
       <div class="highlight p-absolute" *ngIf="totalProgress < 100"></div>
       <div class="progress p-absolute w-100"></div>
@@ -24,14 +24,14 @@
         <div class="flex-row flex-between h-lg lh-lg"
              (mouseenter)="show($event, ledgers.stakingEpoch.snarked.fetchHashesStart, ledgers.stakingEpoch.snarked.fetchHashesEnd)"
              (mouseleave)="hide()">
-          <span class="step">Snarked - Fetch hashes</span>
-          <span>{{ ledgers.stakingEpoch.snarked.fetchHashesDuration | secDuration: configMap.stakingEpoch }}</span>
+          <div class="step">Snarked - Fetch hashes</div>
+          <div>{{ ledgers.stakingEpoch.snarked.fetchHashesDuration | secDuration: configMap.stakingEpoch }}</div>
         </div>
         <div class="flex-row flex-between h-lg lh-lg"
              (mouseenter)="show($event, ledgers.stakingEpoch.snarked.fetchAccountsStart, ledgers.stakingEpoch.snarked.fetchAccountsEnd)"
              (mouseleave)="hide()">
-          <span class="step">Snarked - Fetch accounts</span>
-          <span>{{ ledgers.stakingEpoch.snarked.fetchAccountsDuration | secDuration: configMap.stakingEpoch }}</span>
+          <div class="step">Snarked - Fetch accounts</div>
+          <div>{{ ledgers.stakingEpoch.snarked.fetchAccountsDuration | secDuration: configMap.stakingEpoch }}</div>
         </div>
       </div>
     </div>
@@ -50,14 +50,16 @@
         <div class="flex-row flex-between h-lg lh-lg"
              (mouseenter)="show($event, ledgers.nextEpoch.snarked.fetchHashesStart, ledgers.nextEpoch.snarked.fetchHashesEnd)"
              (mouseleave)="hide()">
-          <span class="step">Snarked - Fetch hashes</span>
-          <span>{{ ledgers.nextEpoch.snarked.fetchHashesDuration | secDuration: configMap.nextEpoch }}</span>
+          <div class="step">
+            <span class="truncate w-100">Snarked - Fetch hashes</span>
+          </div>
+          <div>{{ ledgers.nextEpoch.snarked.fetchHashesDuration | secDuration: configMap.nextEpoch }}</div>
         </div>
         <div class="flex-row flex-between h-lg lh-lg"
              (mouseenter)="show($event, ledgers.nextEpoch.snarked.fetchAccountsStart, ledgers.nextEpoch.snarked.fetchAccountsEnd)"
              (mouseleave)="hide()">
-          <span class="step">Snarked - Fetch accounts</span>
-          <span>{{ ledgers.nextEpoch.snarked.fetchAccountsDuration | secDuration: configMap.nextEpoch }}</span>
+          <div class="step">Snarked - Fetch accounts</div>
+          <div>{{ ledgers.nextEpoch.snarked.fetchAccountsDuration | secDuration: configMap.nextEpoch }}</div>
         </div>
       </div>
     </div>
@@ -76,26 +78,26 @@
         <div class="flex-row flex-between h-lg lh-lg"
              (mouseenter)="show($event, ledgers.root.snarked.fetchHashesStart, ledgers.root.snarked.fetchHashesEnd)"
              (mouseleave)="hide()">
-          <span class="step">Snarked - Fetch hashes</span>
-          <span>{{ ledgers.root.snarked.fetchHashesDuration | secDuration: configMap.root }}</span>
+          <div class="step">Snarked - Fetch hashes</div>
+          <div>{{ ledgers.root.snarked.fetchHashesDuration | secDuration: configMap.root }}</div>
         </div>
         <div class="flex-row flex-between h-lg lh-lg"
              (mouseenter)="show($event, ledgers.root.snarked.fetchAccountsStart, ledgers.root.snarked.fetchAccountsEnd)"
              (mouseleave)="hide()">
-          <span class="step">Snarked - Fetch accounts</span>
-          <span>{{ ledgers.root.snarked.fetchAccountsDuration | secDuration: configMap.root }}</span>
+          <div class="step">Snarked - Fetch accounts</div>
+          <div>{{ ledgers.root.snarked.fetchAccountsDuration | secDuration: configMap.root }}</div>
         </div>
         <div class="flex-row flex-between h-lg lh-lg"
              (mouseenter)="show($event, ledgers.root.staged.fetchPartsStart, ledgers.root.staged.fetchPartsEnd)"
              (mouseleave)="hide()">
-          <span class="step">Staged - Fetch parts</span>
-          <span>{{ ledgers.root.staged.fetchPartsDuration | secDuration: configMap.root }}</span>
+          <div class="step">Staged - Fetch parts</div>
+          <div>{{ ledgers.root.staged.fetchPartsDuration | secDuration: configMap.root }}</div>
         </div>
         <div class="flex-row flex-between h-lg lh-lg"
              (mouseenter)="show($event, ledgers.root.staged.reconstructStart, ledgers.root.staged.reconstructEnd)"
              (mouseleave)="hide()">
-          <span class="step">Staged - Reconstruct</span>
-          <span>{{ ledgers.root.staged.reconstructDuration | secDuration: configMap.root }}</span>
+          <div class="step">Staged - Reconstruct</div>
+          <div>{{ ledgers.root.staged.reconstructDuration | secDuration: configMap.root }}</div>
         </div>
       </div>
     </div>
