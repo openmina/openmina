@@ -424,6 +424,11 @@ impl TransitionFrontierSyncState {
                     }
                 }));
 
+                chain.push(TransitionFrontierSyncBlockState::FetchSuccess {
+                    time: meta.time(),
+                    block: best_tip,
+                });
+
                 *self = Self::BlocksPending {
                     time: meta.time(),
                     chain,
