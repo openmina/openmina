@@ -201,6 +201,25 @@ where
                     let mut rereg = false;
                     if event.is_writable() {
                         if !connection.connected {
+                            // make network debugger happy
+                            {
+                                use std::os::unix::io::AsRawFd;
+                                let mut buf = [0u8; 4];
+                                let mut len = 4_u32;
+                                #[cfg(unix)]
+                                unsafe {
+                                    let r = libc::getsockopt(
+                                        connection.stream.as_raw_fd(),
+                                        1,
+                                        4,
+                                        buf.as_mut_ptr().cast(),
+                                        &mut len,
+                                    );
+                                    dbg!(len);
+                                    dbg!(r);
+                                    dbg!(hex::encode(buf));
+                                };
+                            }
                             match connection.stream.peer_addr() {
                                 Ok(new_addr) => {
                                     connection.connected = true;
