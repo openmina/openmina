@@ -1278,7 +1278,7 @@ impl ActionKindGet for TransitionFrontierSyncLedgerStagedAction {
             Self::ReconstructError { .. } => {
                 ActionKind::TransitionFrontierSyncLedgerStagedReconstructError
             }
-            Self::ReconstructSuccess => {
+            Self::ReconstructSuccess { .. } => {
                 ActionKind::TransitionFrontierSyncLedgerStagedReconstructSuccess
             }
             Self::Success => ActionKind::TransitionFrontierSyncLedgerStagedSuccess,

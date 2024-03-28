@@ -25,6 +25,7 @@ use crate::snark::block_verify::SnarkBlockVerifyAction;
 use crate::snark::work_verify::SnarkWorkVerifyAction;
 use crate::snark::SnarkEvent;
 use crate::transition_frontier::genesis::TransitionFrontierGenesisAction;
+use crate::transition_frontier::sync::ledger::staged::TransitionFrontierSyncLedgerStagedAction;
 use crate::{BlockProducerAction, ExternalSnarkWorkerAction, Service, Store};
 
 use super::{Event, EventSourceAction, EventSourceActionWithMeta, P2pConnectionEvent, P2pEvent};
@@ -388,6 +389,21 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                     }
                 },
             },
+            Event::LedgerStagingReconstruct(res) => match res {
+                Err(error) => {
+                    store.dispatch(TransitionFrontierSyncLedgerStagedAction::ReconstructError {
+                        error,
+                    });
+                }
+                Ok(ledger_hash) => {
+                    store.dispatch(
+                        TransitionFrontierSyncLedgerStagedAction::ReconstructSuccess {
+                            ledger_hash,
+                        },
+                    );
+                }
+            },
+
             Event::GenesisLoad(res) => match res {
                 Err(err) => todo!("error while trying to load genesis config/ledger. - {err}"),
                 Ok(data) => {
