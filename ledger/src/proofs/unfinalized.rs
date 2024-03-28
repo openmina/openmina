@@ -449,9 +449,6 @@ impl Check<Fp> for Unfinalized {
 
 #[cfg(test)]
 mod tests {
-
-    use mina_hasher::Fp;
-
     use super::*;
 
     #[test]

@@ -1,7 +1,4 @@
-use mina_p2p_messages::binprot::{
-    self,
-    macros::{BinProtRead, BinProtWrite},
-};
+use mina_p2p_messages::binprot::macros::{BinProtRead, BinProtWrite};
 use mina_p2p_messages::v2::{CurrencyFeeStableV1, NonZeroCurvePoint};
 use serde::{Deserialize, Serialize};
 

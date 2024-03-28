@@ -129,8 +129,6 @@ mod tests {
 
     use mina_signer::CompressedPubKey;
 
-    use crate::AccountId;
-
     use super::*;
 
     #[test]

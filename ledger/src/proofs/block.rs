@@ -549,16 +549,12 @@ mod vrf {
         checked_verify_merkle_path,
         proofs::{
             field::GroupAffine,
-            numbers::nat::{CheckedNat, CheckedSlot},
             transaction::{
                 decompress_var, field_to_bits, legacy_input::to_bits, scale_known,
                 scale_non_constant, InnerCurve,
             },
         },
-        scan_state::{
-            currency::{Amount, Balance},
-            transaction_logic::protocol_state::EpochLedger,
-        },
+        scan_state::currency::{Amount, Balance},
         sparse_ledger::SparseLedger,
         AccountIndex, Address,
     };
@@ -760,13 +756,13 @@ pub mod consensus {
         proofs::{
             numbers::{
                 currency::CheckedCurrency,
-                nat::{CheckedN, CheckedN32, CheckedNat, CheckedSlot, CheckedSlotSpan},
+                nat::{CheckedN, CheckedN32, CheckedSlotSpan},
             },
             transaction::{compress_var, create_shifted_inner_curve, CompressedPubKeyVar},
         },
         scan_state::{
             currency::{Amount, Length},
-            transaction_logic::protocol_state::{EpochData, EpochLedger},
+            transaction_logic::protocol_state::EpochData,
         },
         Account,
     };

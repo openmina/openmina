@@ -44,7 +44,6 @@ use openmina_core::snark::{Snark, SnarkJobId};
 use mina_signer::CompressedPubKey;
 use openmina_core::block::ArcBlockWithHash;
 
-use crate::block_producer::vrf_evaluator::BlockProducerVrfEvaluatorLedgerService;
 use crate::block_producer::{
     BlockProducerLedgerService, BlockProducerWonSlot, StagedLedgerDiffCreateOutput,
 };
@@ -55,6 +54,10 @@ use crate::transition_frontier::sync::{
 };
 use crate::transition_frontier::TransitionFrontierService;
 use crate::{account::AccountPublicKey, block_producer::vrf_evaluator::DelegatorTable};
+use crate::{
+    block_producer::vrf_evaluator::BlockProducerVrfEvaluatorLedgerService,
+    transaction_pool::TransactionPoolLedgerService,
+};
 use crate::{
     p2p::channels::rpc::StagedLedgerAuxAndPendingCoinbases, transition_frontier::CommitResult,
 };
@@ -353,6 +356,15 @@ impl LedgerSyncState {
 pub trait LedgerService: redux::Service {
     fn ctx(&self) -> &LedgerCtx;
     fn ctx_mut(&mut self) -> &mut LedgerCtx;
+}
+
+impl<T: LedgerService> TransactionPoolLedgerService for T {
+    fn get_mask(&self, ledger_hash: &LedgerHash) -> Result<Mask, String> {
+        self.ctx()
+            .mask(&ledger_hash)
+            .map(|(mask, _)| mask)
+            .ok_or_else(|| "Mask not found".to_string())
+    }
 }
 
 impl<T: LedgerService> TransitionFrontierSyncLedgerSnarkedService for T {

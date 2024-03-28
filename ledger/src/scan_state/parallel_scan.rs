@@ -2595,7 +2595,6 @@ mod tests {
         sync::{
             atomic::{AtomicBool, Ordering::Relaxed},
             mpsc::{sync_channel, Receiver, SyncSender},
-            Arc,
         },
     };
 
