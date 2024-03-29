@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use mina_p2p_messages::rpc_kernel::QueryHeader;
 use mina_p2p_messages::v2::MinaBaseTransactionStatusStableV2;
 
 use crate::external_snark_worker::available_job_to_snark_worker_spec;
@@ -83,7 +84,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                 .iter()
                 .filter_map(|(peer_id, streams)| {
                     let (_, rpc_state) = streams.first_key_value()?;
-                    let (_, (name, _)) = rpc_state.pending.clone()?;
+                    let QueryHeader { tag: name, .. } = rpc_state.pending.clone()?;
                     let name = name.to_string();
                     let buffer = &rpc_state.buffer;
                     let current_request = if buffer.len() < 8 {

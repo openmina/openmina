@@ -1,5 +1,5 @@
 use binprot::BinProtRead;
-use mina_p2p_messages::rpc_kernel::MessageHeader;
+use mina_p2p_messages::rpc_kernel::{MessageHeader, QueryHeader};
 
 use super::*;
 
@@ -57,8 +57,11 @@ impl P2pNetworkRpcState {
             }
             P2pNetworkRpcAction::IncomingMessage { message, .. } => {
                 if let RpcMessage::Response { header, .. } = message {
-                    if let Some((id, req)) = &self.pending {
-                        *self.total_stats.entry(req.clone()).or_default() += 1;
+                    if let Some(QueryHeader { id, tag, version }) = &self.pending {
+                        *self
+                            .total_stats
+                            .entry((tag.clone(), version.clone()))
+                            .or_default() += 1;
                         if id != &header.id {
                             openmina_core::error!(action.time(); "receiving response with wrong id: {}", header.id);
                         }
@@ -73,8 +76,7 @@ impl P2pNetworkRpcState {
             }
             P2pNetworkRpcAction::OutgoingQuery { query, .. } => {
                 self.last_id = query.id;
-                // TODO: remove when query is done
-                self.pending = Some((query.id, (query.tag.clone(), query.version)));
+                self.pending = Some(query.clone());
             }
             _ => {}
         }
