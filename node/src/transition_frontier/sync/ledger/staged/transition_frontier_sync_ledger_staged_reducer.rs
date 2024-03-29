@@ -139,7 +139,7 @@ impl TransitionFrontierSyncLedgerStagedState {
                     error: error.clone(),
                 };
             }
-            TransitionFrontierSyncLedgerStagedAction::ReconstructSuccess => {
+            TransitionFrontierSyncLedgerStagedAction::ReconstructSuccess { .. } => {
                 let Self::ReconstructPending { target, parts, .. } = self else {
                     return;
                 };
