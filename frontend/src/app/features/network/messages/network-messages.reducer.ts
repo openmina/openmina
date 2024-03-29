@@ -40,7 +40,7 @@ const initialState: NetworkMessagesState = {
   activeTab: 1,
 };
 
-export function reducer(state: NetworkMessagesState = initialState, action: NetworkMessagesActions): NetworkMessagesState {
+export function networkMessagesReducer(state: NetworkMessagesState = initialState, action: NetworkMessagesActions): NetworkMessagesState {
   switch (action.type) {
 
     case NETWORK_GET_MESSAGES: {

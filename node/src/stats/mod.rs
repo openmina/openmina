@@ -15,6 +15,7 @@ use std::collections::VecDeque;
 use openmina_core::block::{ArcBlockWithHash, Block, BlockWithHash};
 use redux::{ActionMeta, ActionWithMeta, Timestamp};
 
+use crate::transition_frontier::sync::ledger::staged::PeerStagedLedgerPartsFetchError;
 use crate::transition_frontier::sync::ledger::SyncLedgerTargetKind;
 use crate::transition_frontier::sync::TransitionFrontierSyncBlockState;
 use crate::ActionKind;
@@ -34,7 +35,7 @@ impl Stats {
             id: 0,
             time: Timestamp::ZERO,
             block_level: 1,
-            // TODO(binier): use configured genesis hash.
+            // TODO(binier): use correct genesis hash.
             block_hash: "3NKeMoncuHab5ScarV5ViyF16cJPT4taWNSaTLS64Dp67wuXigPZ"
                 .parse()
                 .unwrap(),
@@ -52,8 +53,13 @@ impl Stats {
         }
     }
 
-    pub fn new_sync_target(&mut self, time: Timestamp, best_tip: &ArcBlockWithHash) -> &mut Self {
-        self.sync_stats.new_target(time, best_tip);
+    pub fn new_sync_target(
+        &mut self,
+        time: Timestamp,
+        best_tip: &ArcBlockWithHash,
+        root_block: &ArcBlockWithHash,
+    ) -> &mut Self {
+        self.sync_stats.new_target(time, best_tip, root_block);
         self
     }
 
@@ -117,6 +123,15 @@ impl Stats {
             .collect_stats(Some(1))
             .first()
             .and_then(|stats| stats.synced)
+    }
+
+    pub fn staging_ledger_fetch_failure(
+        &mut self,
+        error: &PeerStagedLedgerPartsFetchError,
+        time: Timestamp,
+    ) {
+        self.sync_stats
+            .staging_ledger_fetch_failure(format!("{error:?}"), time)
     }
 }
 

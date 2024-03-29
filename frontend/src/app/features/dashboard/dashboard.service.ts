@@ -3,6 +3,7 @@ import { map, Observable } from 'rxjs';
 import { DashboardPeer, DashboardPeerStatus } from '@shared/types/dashboard/dashboard.peer';
 import { RustService } from '@core/services/rust.service';
 import { ONE_MILLION, toReadableDate } from '@openmina/shared';
+import { DashboardPeerRpcResponses, DashboardRpcStats } from '@shared/types/dashboard/dashboard-rpc-stats.type';
 
 @Injectable({ providedIn: 'root' })
 export class DashboardService {
@@ -23,9 +24,32 @@ export class DashboardService {
           height: peer.best_tip_height,
           status: peer.connection_status,
           address: peer.address,
+          requests: 0,
         } as DashboardPeer)),
       ),
     );
+  }
+
+  getRpcCalls(): Observable<DashboardRpcStats> {
+    return this.rust.get<MessageProgressResponse>('/state/message-progress').pipe(
+      map((response: MessageProgressResponse) => this.mapMessageProgressResponse(response)),
+    );
+  }
+
+  private mapMessageProgressResponse(response: MessageProgressResponse): DashboardRpcStats {
+    const peerResponses = Object.keys(response.messages_stats).map(peerId => ({
+      peerId,
+      requestsMade: Object
+        .keys(response.messages_stats[peerId].responses)
+        .reduce((sum: number, curr: string) => sum + response.messages_stats[peerId].responses[curr], 0),
+    } as DashboardPeerRpcResponses));
+
+    return {
+      peerResponses,
+      stakingLedger: response.staking_ledger_sync,
+      nextLedger: response.next_epoch_ledger_sync,
+      rootLedger: response.root_ledger_sync,
+    };
   }
 }
 
@@ -38,4 +62,25 @@ interface PeersResponse {
   best_tip_timestamp: number;
   connection_status: DashboardPeerStatus;
   address: string | null;
+}
+
+export interface MessageProgressResponse {
+  messages_stats: MessagesStats;
+  staking_ledger_sync: Estimation;
+  next_epoch_ledger_sync: Estimation;
+  root_ledger_sync: Estimation;
+}
+
+export interface MessagesStats {
+  [peerId: string]: {
+    current_request: unknown;
+    responses: {
+      [rpcName: string]: number;
+    }
+  };
+}
+
+export interface Estimation {
+  fetched: number;
+  estimation: number;
 }

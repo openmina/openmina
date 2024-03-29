@@ -30,6 +30,17 @@ use crate::p2p::connection::P2pConnectionAction;
 use crate::p2p::disconnection::P2pDisconnectionAction;
 use crate::p2p::discovery::P2pDiscoveryAction;
 use crate::p2p::listen::P2pListenAction;
+use crate::p2p::network::kad::bootstrap::P2pNetworkKadBootstrapAction;
+use crate::p2p::network::kad::request::P2pNetworkKadRequestAction;
+use crate::p2p::network::kad::stream::P2pNetworkKademliaStreamAction;
+use crate::p2p::network::kad::{P2pNetworkKadAction, P2pNetworkKademliaAction};
+use crate::p2p::network::noise::P2pNetworkNoiseAction;
+use crate::p2p::network::pnet::P2pNetworkPnetAction;
+use crate::p2p::network::rpc::P2pNetworkRpcAction;
+use crate::p2p::network::scheduler::P2pNetworkSchedulerAction;
+use crate::p2p::network::select::P2pNetworkSelectAction;
+use crate::p2p::network::yamux::P2pNetworkYamuxAction;
+use crate::p2p::network::P2pNetworkAction;
 use crate::p2p::peer::P2pPeerAction;
 use crate::p2p::P2pAction;
 use crate::rpc::RpcAction;
@@ -38,11 +49,12 @@ use crate::snark::work_verify::SnarkWorkVerifyAction;
 use crate::snark::SnarkAction;
 use crate::snark_pool::candidate::SnarkPoolCandidateAction;
 use crate::snark_pool::SnarkPoolAction;
+use crate::transition_frontier::genesis::TransitionFrontierGenesisAction;
 use crate::transition_frontier::sync::ledger::snarked::TransitionFrontierSyncLedgerSnarkedAction;
 use crate::transition_frontier::sync::ledger::staged::TransitionFrontierSyncLedgerStagedAction;
 use crate::transition_frontier::sync::ledger::TransitionFrontierSyncLedgerAction;
 use crate::transition_frontier::sync::TransitionFrontierSyncAction;
-use crate::transition_frontier::{TransitionFrontierAction, TransitionFrontierSyncedAction};
+use crate::transition_frontier::TransitionFrontierAction;
 use crate::watched_accounts::WatchedAccountsAction;
 use crate::{Action, ActionKindGet, CheckTimeoutsAction};
 
@@ -57,6 +69,9 @@ pub enum ActionKind {
     BlockProducerBlockInject,
     BlockProducerBlockInjected,
     BlockProducerBlockProduced,
+    BlockProducerBlockProveInit,
+    BlockProducerBlockProvePending,
+    BlockProducerBlockProveSuccess,
     BlockProducerBlockUnprovenBuild,
     BlockProducerStagedLedgerDiffCreateInit,
     BlockProducerStagedLedgerDiffCreatePending,
@@ -66,11 +81,22 @@ pub enum ActionKind {
     BlockProducerWonSlotProduceInit,
     BlockProducerWonSlotSearch,
     BlockProducerWonSlotWait,
-    BlockProducerVrfEvaluatorEpochDataUpdate,
-    BlockProducerVrfEvaluatorEvaluateVrf,
-    BlockProducerVrfEvaluatorEvaluationSuccess,
-    BlockProducerVrfEvaluatorUpdateProducerAndDelegates,
-    BlockProducerVrfEvaluatorUpdateProducerAndDelegatesSuccess,
+    BlockProducerVrfEvaluatorBeginDelegatorTableConstruction,
+    BlockProducerVrfEvaluatorBeginEpochEvaluation,
+    BlockProducerVrfEvaluatorCheckEpochBounds,
+    BlockProducerVrfEvaluatorCheckEpochEvaluability,
+    BlockProducerVrfEvaluatorCleanupOldSlots,
+    BlockProducerVrfEvaluatorContinueEpochEvaluation,
+    BlockProducerVrfEvaluatorEvaluateSlot,
+    BlockProducerVrfEvaluatorFinalizeDelegatorTableConstruction,
+    BlockProducerVrfEvaluatorFinalizeEvaluatorInitialization,
+    BlockProducerVrfEvaluatorFinishEpochEvaluation,
+    BlockProducerVrfEvaluatorInitializeEpochEvaluation,
+    BlockProducerVrfEvaluatorInitializeEvaluator,
+    BlockProducerVrfEvaluatorProcessSlotEvaluationSuccess,
+    BlockProducerVrfEvaluatorRecordLastBlockHeightInEpoch,
+    BlockProducerVrfEvaluatorSelectInitialSlot,
+    BlockProducerVrfEvaluatorWaitForNextEvaluation,
     CheckTimeouts,
     ConsensusBestTipUpdate,
     ConsensusBlockChainProofUpdate,
@@ -175,12 +201,81 @@ pub enum ActionKind {
     P2pListenError,
     P2pListenExpired,
     P2pListenNew,
+    P2pNetworkKadBootstrapCreateRequests,
+    P2pNetworkKadBootstrapRequestDone,
+    P2pNetworkKadBootstrapRequestError,
+    P2pNetworkKadRequestError,
+    P2pNetworkKadRequestMuxReady,
+    P2pNetworkKadRequestNew,
+    P2pNetworkKadRequestPeerIsConnecting,
+    P2pNetworkKadRequestPrune,
+    P2pNetworkKadRequestReplyReceived,
+    P2pNetworkKadRequestRequestSent,
+    P2pNetworkKadRequestStreamIsCreating,
+    P2pNetworkKadRequestStreamReady,
+    P2pNetworkKademliaAnswerFindNodeRequest,
+    P2pNetworkKademliaBootstrapFinished,
+    P2pNetworkKademliaStartBootstrap,
+    P2pNetworkKademliaUpdateFindNodeRequest,
+    P2pNetworkKademliaStreamClose,
+    P2pNetworkKademliaStreamIncomingData,
+    P2pNetworkKademliaStreamNew,
+    P2pNetworkKademliaStreamOutgoingDataReady,
+    P2pNetworkKademliaStreamPrune,
+    P2pNetworkKademliaStreamRemoteClose,
+    P2pNetworkKademliaStreamSendReply,
+    P2pNetworkKademliaStreamSendRequest,
+    P2pNetworkKademliaStreamWaitIncoming,
+    P2pNetworkKademliaStreamWaitOutgoing,
+    P2pNetworkNoiseDecryptedData,
+    P2pNetworkNoiseHandshakeDone,
+    P2pNetworkNoiseIncomingChunk,
+    P2pNetworkNoiseIncomingData,
+    P2pNetworkNoiseInit,
+    P2pNetworkNoiseOutgoingChunk,
+    P2pNetworkNoiseOutgoingData,
+    P2pNetworkPnetIncomingData,
+    P2pNetworkPnetOutgoingData,
+    P2pNetworkPnetSetupNonce,
+    P2pNetworkRpcIncomingData,
+    P2pNetworkRpcIncomingMessage,
+    P2pNetworkRpcInit,
+    P2pNetworkRpcOutgoingData,
+    P2pNetworkRpcOutgoingQuery,
+    P2pNetworkRpcOutgoingResponse,
+    P2pNetworkRpcPrunePending,
+    P2pNetworkSchedulerDisconnect,
+    P2pNetworkSchedulerDisconnected,
+    P2pNetworkSchedulerError,
+    P2pNetworkSchedulerIncomingConnectionIsReady,
+    P2pNetworkSchedulerIncomingDataDidReceive,
+    P2pNetworkSchedulerIncomingDataIsReady,
+    P2pNetworkSchedulerIncomingDidAccept,
+    P2pNetworkSchedulerInterfaceDetected,
+    P2pNetworkSchedulerInterfaceExpired,
+    P2pNetworkSchedulerOutgoingDidConnect,
+    P2pNetworkSchedulerSelectDone,
+    P2pNetworkSchedulerSelectError,
+    P2pNetworkSchedulerYamuxDidInit,
+    P2pNetworkSelectIncomingData,
+    P2pNetworkSelectIncomingToken,
+    P2pNetworkSelectInit,
+    P2pNetworkSelectOutgoingTokens,
+    P2pNetworkYamuxIncomingData,
+    P2pNetworkYamuxIncomingFrame,
+    P2pNetworkYamuxOpenStream,
+    P2pNetworkYamuxOutgoingData,
+    P2pNetworkYamuxOutgoingFrame,
+    P2pNetworkYamuxPingStream,
     P2pPeerBestTipUpdate,
     P2pPeerReady,
     RpcActionStatsGet,
+    RpcDiscoveryBoostrapStats,
+    RpcDiscoveryRoutingTable,
     RpcFinish,
     RpcGlobalStateGet,
     RpcHealthCheck,
+    RpcMessageProgressGet,
     RpcP2pConnectionIncomingError,
     RpcP2pConnectionIncomingInit,
     RpcP2pConnectionIncomingPending,
@@ -229,6 +324,15 @@ pub enum ActionKind {
     SnarkWorkVerifyInit,
     SnarkWorkVerifyPending,
     SnarkWorkVerifySuccess,
+    TransitionFrontierGenesisInject,
+    TransitionFrontierSynced,
+    TransitionFrontierGenesisLedgerLoadInit,
+    TransitionFrontierGenesisLedgerLoadPending,
+    TransitionFrontierGenesisLedgerLoadSuccess,
+    TransitionFrontierGenesisProduce,
+    TransitionFrontierGenesisProveInit,
+    TransitionFrontierGenesisProvePending,
+    TransitionFrontierGenesisProveSuccess,
     TransitionFrontierSyncBestTipUpdate,
     TransitionFrontierSyncBlocksFetchSuccess,
     TransitionFrontierSyncBlocksNextApplyInit,
@@ -251,13 +355,28 @@ pub enum ActionKind {
     TransitionFrontierSyncLedgerStakingSuccess,
     TransitionFrontierSyncLedgerInit,
     TransitionFrontierSyncLedgerSuccess,
+    TransitionFrontierSyncLedgerSnarkedChildAccountsAccepted,
     TransitionFrontierSyncLedgerSnarkedChildAccountsReceived,
+    TransitionFrontierSyncLedgerSnarkedChildAccountsRejected,
+    TransitionFrontierSyncLedgerSnarkedChildHashesAccepted,
     TransitionFrontierSyncLedgerSnarkedChildHashesReceived,
-    TransitionFrontierSyncLedgerSnarkedPeerQueryError,
-    TransitionFrontierSyncLedgerSnarkedPeerQueryInit,
-    TransitionFrontierSyncLedgerSnarkedPeerQueryPending,
-    TransitionFrontierSyncLedgerSnarkedPeerQueryRetry,
-    TransitionFrontierSyncLedgerSnarkedPeerQuerySuccess,
+    TransitionFrontierSyncLedgerSnarkedChildHashesRejected,
+    TransitionFrontierSyncLedgerSnarkedMerkleTreeSyncPending,
+    TransitionFrontierSyncLedgerSnarkedMerkleTreeSyncSuccess,
+    TransitionFrontierSyncLedgerSnarkedNumAccountsAccepted,
+    TransitionFrontierSyncLedgerSnarkedNumAccountsReceived,
+    TransitionFrontierSyncLedgerSnarkedNumAccountsRejected,
+    TransitionFrontierSyncLedgerSnarkedNumAccountsSuccess,
+    TransitionFrontierSyncLedgerSnarkedPeerQueryAddressError,
+    TransitionFrontierSyncLedgerSnarkedPeerQueryAddressInit,
+    TransitionFrontierSyncLedgerSnarkedPeerQueryAddressPending,
+    TransitionFrontierSyncLedgerSnarkedPeerQueryAddressRetry,
+    TransitionFrontierSyncLedgerSnarkedPeerQueryAddressSuccess,
+    TransitionFrontierSyncLedgerSnarkedPeerQueryNumAccountsError,
+    TransitionFrontierSyncLedgerSnarkedPeerQueryNumAccountsInit,
+    TransitionFrontierSyncLedgerSnarkedPeerQueryNumAccountsPending,
+    TransitionFrontierSyncLedgerSnarkedPeerQueryNumAccountsRetry,
+    TransitionFrontierSyncLedgerSnarkedPeerQueryNumAccountsSuccess,
     TransitionFrontierSyncLedgerSnarkedPeersQuery,
     TransitionFrontierSyncLedgerSnarkedPending,
     TransitionFrontierSyncLedgerSnarkedSuccess,
@@ -275,7 +394,6 @@ pub enum ActionKind {
     TransitionFrontierSyncLedgerStagedReconstructPending,
     TransitionFrontierSyncLedgerStagedReconstructSuccess,
     TransitionFrontierSyncLedgerStagedSuccess,
-    TransitionFrontierSynced,
     WatchedAccountsAdd,
     WatchedAccountsBlockLedgerQueryInit,
     WatchedAccountsBlockLedgerQueryPending,
@@ -289,7 +407,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 234;
+    pub const COUNT: u16 = 340;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -342,6 +460,7 @@ impl ActionKindGet for P2pAction {
             Self::Discovery(a) => a.kind(),
             Self::Channels(a) => a.kind(),
             Self::Peer(a) => a.kind(),
+            Self::Network(a) => a.kind(),
         }
     }
 }
@@ -374,8 +493,10 @@ impl ActionKindGet for ConsensusAction {
 impl ActionKindGet for TransitionFrontierAction {
     fn kind(&self) -> ActionKind {
         match self {
+            Self::Genesis(a) => a.kind(),
             Self::Sync(a) => a.kind(),
-            Self::Synced(a) => a.kind(),
+            Self::GenesisInject => ActionKind::TransitionFrontierGenesisInject,
+            Self::Synced { .. } => ActionKind::TransitionFrontierSynced,
         }
     }
 }
@@ -435,6 +556,9 @@ impl ActionKindGet for BlockProducerAction {
                 ActionKind::BlockProducerStagedLedgerDiffCreateSuccess
             }
             Self::BlockUnprovenBuild => ActionKind::BlockProducerBlockUnprovenBuild,
+            Self::BlockProveInit => ActionKind::BlockProducerBlockProveInit,
+            Self::BlockProvePending => ActionKind::BlockProducerBlockProvePending,
+            Self::BlockProveSuccess { .. } => ActionKind::BlockProducerBlockProveSuccess,
             Self::BlockProduced => ActionKind::BlockProducerBlockProduced,
             Self::BlockInject => ActionKind::BlockProducerBlockInject,
             Self::BlockInjected => ActionKind::BlockProducerBlockInjected,
@@ -448,6 +572,7 @@ impl ActionKindGet for RpcAction {
             Self::GlobalStateGet { .. } => ActionKind::RpcGlobalStateGet,
             Self::ActionStatsGet { .. } => ActionKind::RpcActionStatsGet,
             Self::SyncStatsGet { .. } => ActionKind::RpcSyncStatsGet,
+            Self::MessageProgressGet { .. } => ActionKind::RpcMessageProgressGet,
             Self::PeersGet { .. } => ActionKind::RpcPeersGet,
             Self::P2pConnectionOutgoingInit { .. } => ActionKind::RpcP2pConnectionOutgoingInit,
             Self::P2pConnectionOutgoingPending { .. } => {
@@ -477,6 +602,8 @@ impl ActionKindGet for RpcAction {
             Self::SnarkerWorkersGet { .. } => ActionKind::RpcSnarkerWorkersGet,
             Self::HealthCheck { .. } => ActionKind::RpcHealthCheck,
             Self::ReadinessCheck { .. } => ActionKind::RpcReadinessCheck,
+            Self::DiscoveryRoutingTable { .. } => ActionKind::RpcDiscoveryRoutingTable,
+            Self::DiscoveryBoostrapStats { .. } => ActionKind::RpcDiscoveryBoostrapStats,
             Self::Finish { .. } => ActionKind::RpcFinish,
         }
     }
@@ -579,6 +706,20 @@ impl ActionKindGet for P2pPeerAction {
     }
 }
 
+impl ActionKindGet for P2pNetworkAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::Scheduler(a) => a.kind(),
+            Self::Pnet(a) => a.kind(),
+            Self::Select(a) => a.kind(),
+            Self::Noise(a) => a.kind(),
+            Self::Yamux(a) => a.kind(),
+            Self::Kad(a) => a.kind(),
+            Self::Rpc(a) => a.kind(),
+        }
+    }
+}
+
 impl ActionKindGet for SnarkBlockVerifyAction {
     fn kind(&self) -> ActionKind {
         match self {
@@ -599,6 +740,22 @@ impl ActionKindGet for SnarkWorkVerifyAction {
             Self::Error { .. } => ActionKind::SnarkWorkVerifyError,
             Self::Success { .. } => ActionKind::SnarkWorkVerifySuccess,
             Self::Finish { .. } => ActionKind::SnarkWorkVerifyFinish,
+        }
+    }
+}
+
+impl ActionKindGet for TransitionFrontierGenesisAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::LedgerLoadInit => ActionKind::TransitionFrontierGenesisLedgerLoadInit,
+            Self::LedgerLoadPending => ActionKind::TransitionFrontierGenesisLedgerLoadPending,
+            Self::LedgerLoadSuccess { .. } => {
+                ActionKind::TransitionFrontierGenesisLedgerLoadSuccess
+            }
+            Self::Produce => ActionKind::TransitionFrontierGenesisProduce,
+            Self::ProveInit => ActionKind::TransitionFrontierGenesisProveInit,
+            Self::ProvePending => ActionKind::TransitionFrontierGenesisProvePending,
+            Self::ProveSuccess { .. } => ActionKind::TransitionFrontierGenesisProveSuccess,
         }
     }
 }
@@ -649,12 +806,6 @@ impl ActionKindGet for TransitionFrontierSyncAction {
     }
 }
 
-impl ActionKindGet for TransitionFrontierSyncedAction {
-    fn kind(&self) -> ActionKind {
-        ActionKind::TransitionFrontierSynced
-    }
-}
-
 impl ActionKindGet for SnarkPoolCandidateAction {
     fn kind(&self) -> ActionKind {
         match self {
@@ -675,17 +826,48 @@ impl ActionKindGet for SnarkPoolCandidateAction {
 impl ActionKindGet for BlockProducerVrfEvaluatorAction {
     fn kind(&self) -> ActionKind {
         match self {
-            Self::EpochDataUpdate { .. } => ActionKind::BlockProducerVrfEvaluatorEpochDataUpdate,
-            Self::EvaluateVrf { .. } => ActionKind::BlockProducerVrfEvaluatorEvaluateVrf,
-            Self::EvaluationSuccess { .. } => {
-                ActionKind::BlockProducerVrfEvaluatorEvaluationSuccess
+            Self::EvaluateSlot { .. } => ActionKind::BlockProducerVrfEvaluatorEvaluateSlot,
+            Self::ProcessSlotEvaluationSuccess { .. } => {
+                ActionKind::BlockProducerVrfEvaluatorProcessSlotEvaluationSuccess
             }
-            Self::UpdateProducerAndDelegates { .. } => {
-                ActionKind::BlockProducerVrfEvaluatorUpdateProducerAndDelegates
+            Self::InitializeEvaluator { .. } => {
+                ActionKind::BlockProducerVrfEvaluatorInitializeEvaluator
             }
-            Self::UpdateProducerAndDelegatesSuccess { .. } => {
-                ActionKind::BlockProducerVrfEvaluatorUpdateProducerAndDelegatesSuccess
+            Self::FinalizeEvaluatorInitialization { .. } => {
+                ActionKind::BlockProducerVrfEvaluatorFinalizeEvaluatorInitialization
             }
+            Self::CheckEpochEvaluability { .. } => {
+                ActionKind::BlockProducerVrfEvaluatorCheckEpochEvaluability
+            }
+            Self::InitializeEpochEvaluation { .. } => {
+                ActionKind::BlockProducerVrfEvaluatorInitializeEpochEvaluation
+            }
+            Self::BeginDelegatorTableConstruction { .. } => {
+                ActionKind::BlockProducerVrfEvaluatorBeginDelegatorTableConstruction
+            }
+            Self::FinalizeDelegatorTableConstruction { .. } => {
+                ActionKind::BlockProducerVrfEvaluatorFinalizeDelegatorTableConstruction
+            }
+            Self::SelectInitialSlot { .. } => {
+                ActionKind::BlockProducerVrfEvaluatorSelectInitialSlot
+            }
+            Self::BeginEpochEvaluation { .. } => {
+                ActionKind::BlockProducerVrfEvaluatorBeginEpochEvaluation
+            }
+            Self::RecordLastBlockHeightInEpoch { .. } => {
+                ActionKind::BlockProducerVrfEvaluatorRecordLastBlockHeightInEpoch
+            }
+            Self::ContinueEpochEvaluation { .. } => {
+                ActionKind::BlockProducerVrfEvaluatorContinueEpochEvaluation
+            }
+            Self::FinishEpochEvaluation { .. } => {
+                ActionKind::BlockProducerVrfEvaluatorFinishEpochEvaluation
+            }
+            Self::WaitForNextEvaluation { .. } => {
+                ActionKind::BlockProducerVrfEvaluatorWaitForNextEvaluation
+            }
+            Self::CheckEpochBounds { .. } => ActionKind::BlockProducerVrfEvaluatorCheckEpochBounds,
+            Self::CleanupOldSlots { .. } => ActionKind::BlockProducerVrfEvaluatorCleanupOldSlots,
         }
     }
 }
@@ -817,6 +999,103 @@ impl ActionKindGet for P2pChannelsRpcAction {
     }
 }
 
+impl ActionKindGet for P2pNetworkSchedulerAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::InterfaceDetected { .. } => ActionKind::P2pNetworkSchedulerInterfaceDetected,
+            Self::InterfaceExpired { .. } => ActionKind::P2pNetworkSchedulerInterfaceExpired,
+            Self::IncomingConnectionIsReady { .. } => {
+                ActionKind::P2pNetworkSchedulerIncomingConnectionIsReady
+            }
+            Self::IncomingDidAccept { .. } => ActionKind::P2pNetworkSchedulerIncomingDidAccept,
+            Self::OutgoingDidConnect { .. } => ActionKind::P2pNetworkSchedulerOutgoingDidConnect,
+            Self::IncomingDataIsReady { .. } => ActionKind::P2pNetworkSchedulerIncomingDataIsReady,
+            Self::IncomingDataDidReceive { .. } => {
+                ActionKind::P2pNetworkSchedulerIncomingDataDidReceive
+            }
+            Self::SelectDone { .. } => ActionKind::P2pNetworkSchedulerSelectDone,
+            Self::SelectError { .. } => ActionKind::P2pNetworkSchedulerSelectError,
+            Self::YamuxDidInit { .. } => ActionKind::P2pNetworkSchedulerYamuxDidInit,
+            Self::Disconnect { .. } => ActionKind::P2pNetworkSchedulerDisconnect,
+            Self::Error { .. } => ActionKind::P2pNetworkSchedulerError,
+            Self::Disconnected { .. } => ActionKind::P2pNetworkSchedulerDisconnected,
+        }
+    }
+}
+
+impl ActionKindGet for P2pNetworkPnetAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::IncomingData { .. } => ActionKind::P2pNetworkPnetIncomingData,
+            Self::OutgoingData { .. } => ActionKind::P2pNetworkPnetOutgoingData,
+            Self::SetupNonce { .. } => ActionKind::P2pNetworkPnetSetupNonce,
+        }
+    }
+}
+
+impl ActionKindGet for P2pNetworkSelectAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::Init { .. } => ActionKind::P2pNetworkSelectInit,
+            Self::IncomingData { .. } => ActionKind::P2pNetworkSelectIncomingData,
+            Self::IncomingToken { .. } => ActionKind::P2pNetworkSelectIncomingToken,
+            Self::OutgoingTokens { .. } => ActionKind::P2pNetworkSelectOutgoingTokens,
+        }
+    }
+}
+
+impl ActionKindGet for P2pNetworkNoiseAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::Init { .. } => ActionKind::P2pNetworkNoiseInit,
+            Self::IncomingData { .. } => ActionKind::P2pNetworkNoiseIncomingData,
+            Self::IncomingChunk { .. } => ActionKind::P2pNetworkNoiseIncomingChunk,
+            Self::OutgoingChunk { .. } => ActionKind::P2pNetworkNoiseOutgoingChunk,
+            Self::OutgoingData { .. } => ActionKind::P2pNetworkNoiseOutgoingData,
+            Self::DecryptedData { .. } => ActionKind::P2pNetworkNoiseDecryptedData,
+            Self::HandshakeDone { .. } => ActionKind::P2pNetworkNoiseHandshakeDone,
+        }
+    }
+}
+
+impl ActionKindGet for P2pNetworkYamuxAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::IncomingData { .. } => ActionKind::P2pNetworkYamuxIncomingData,
+            Self::OutgoingData { .. } => ActionKind::P2pNetworkYamuxOutgoingData,
+            Self::IncomingFrame { .. } => ActionKind::P2pNetworkYamuxIncomingFrame,
+            Self::OutgoingFrame { .. } => ActionKind::P2pNetworkYamuxOutgoingFrame,
+            Self::PingStream { .. } => ActionKind::P2pNetworkYamuxPingStream,
+            Self::OpenStream { .. } => ActionKind::P2pNetworkYamuxOpenStream,
+        }
+    }
+}
+
+impl ActionKindGet for P2pNetworkKadAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::System(a) => a.kind(),
+            Self::Bootstrap(a) => a.kind(),
+            Self::Request(a) => a.kind(),
+            Self::Stream(a) => a.kind(),
+        }
+    }
+}
+
+impl ActionKindGet for P2pNetworkRpcAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::Init { .. } => ActionKind::P2pNetworkRpcInit,
+            Self::IncomingData { .. } => ActionKind::P2pNetworkRpcIncomingData,
+            Self::IncomingMessage { .. } => ActionKind::P2pNetworkRpcIncomingMessage,
+            Self::PrunePending { .. } => ActionKind::P2pNetworkRpcPrunePending,
+            Self::OutgoingQuery { .. } => ActionKind::P2pNetworkRpcOutgoingQuery,
+            Self::OutgoingResponse { .. } => ActionKind::P2pNetworkRpcOutgoingResponse,
+            Self::OutgoingData { .. } => ActionKind::P2pNetworkRpcOutgoingData,
+        }
+    }
+}
+
 impl ActionKindGet for TransitionFrontierSyncLedgerAction {
     fn kind(&self) -> ActionKind {
         match self {
@@ -828,31 +1107,134 @@ impl ActionKindGet for TransitionFrontierSyncLedgerAction {
     }
 }
 
+impl ActionKindGet for P2pNetworkKademliaAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::AnswerFindNodeRequest { .. } => {
+                ActionKind::P2pNetworkKademliaAnswerFindNodeRequest
+            }
+            Self::UpdateFindNodeRequest { .. } => {
+                ActionKind::P2pNetworkKademliaUpdateFindNodeRequest
+            }
+            Self::StartBootstrap { .. } => ActionKind::P2pNetworkKademliaStartBootstrap,
+            Self::BootstrapFinished { .. } => ActionKind::P2pNetworkKademliaBootstrapFinished,
+        }
+    }
+}
+
+impl ActionKindGet for P2pNetworkKadBootstrapAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::CreateRequests => ActionKind::P2pNetworkKadBootstrapCreateRequests,
+            Self::RequestDone { .. } => ActionKind::P2pNetworkKadBootstrapRequestDone,
+            Self::RequestError { .. } => ActionKind::P2pNetworkKadBootstrapRequestError,
+        }
+    }
+}
+
+impl ActionKindGet for P2pNetworkKadRequestAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::New { .. } => ActionKind::P2pNetworkKadRequestNew,
+            Self::PeerIsConnecting { .. } => ActionKind::P2pNetworkKadRequestPeerIsConnecting,
+            Self::MuxReady { .. } => ActionKind::P2pNetworkKadRequestMuxReady,
+            Self::StreamIsCreating { .. } => ActionKind::P2pNetworkKadRequestStreamIsCreating,
+            Self::StreamReady { .. } => ActionKind::P2pNetworkKadRequestStreamReady,
+            Self::RequestSent { .. } => ActionKind::P2pNetworkKadRequestRequestSent,
+            Self::ReplyReceived { .. } => ActionKind::P2pNetworkKadRequestReplyReceived,
+            Self::Prune { .. } => ActionKind::P2pNetworkKadRequestPrune,
+            Self::Error { .. } => ActionKind::P2pNetworkKadRequestError,
+        }
+    }
+}
+
+impl ActionKindGet for P2pNetworkKademliaStreamAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::New { .. } => ActionKind::P2pNetworkKademliaStreamNew,
+            Self::IncomingData { .. } => ActionKind::P2pNetworkKademliaStreamIncomingData,
+            Self::WaitOutgoing { .. } => ActionKind::P2pNetworkKademliaStreamWaitOutgoing,
+            Self::SendRequest { .. } => ActionKind::P2pNetworkKademliaStreamSendRequest,
+            Self::SendReply { .. } => ActionKind::P2pNetworkKademliaStreamSendReply,
+            Self::OutgoingDataReady { .. } => ActionKind::P2pNetworkKademliaStreamOutgoingDataReady,
+            Self::WaitIncoming { .. } => ActionKind::P2pNetworkKademliaStreamWaitIncoming,
+            Self::Close { .. } => ActionKind::P2pNetworkKademliaStreamClose,
+            Self::RemoteClose { .. } => ActionKind::P2pNetworkKademliaStreamRemoteClose,
+            Self::Prune { .. } => ActionKind::P2pNetworkKademliaStreamPrune,
+        }
+    }
+}
+
 impl ActionKindGet for TransitionFrontierSyncLedgerSnarkedAction {
     fn kind(&self) -> ActionKind {
         match self {
             Self::Pending => ActionKind::TransitionFrontierSyncLedgerSnarkedPending,
             Self::PeersQuery => ActionKind::TransitionFrontierSyncLedgerSnarkedPeersQuery,
-            Self::PeerQueryInit { .. } => {
-                ActionKind::TransitionFrontierSyncLedgerSnarkedPeerQueryInit
+            Self::PeerQueryNumAccountsInit { .. } => {
+                ActionKind::TransitionFrontierSyncLedgerSnarkedPeerQueryNumAccountsInit
             }
-            Self::PeerQueryPending { .. } => {
-                ActionKind::TransitionFrontierSyncLedgerSnarkedPeerQueryPending
+            Self::PeerQueryNumAccountsPending { .. } => {
+                ActionKind::TransitionFrontierSyncLedgerSnarkedPeerQueryNumAccountsPending
             }
-            Self::PeerQueryRetry { .. } => {
-                ActionKind::TransitionFrontierSyncLedgerSnarkedPeerQueryRetry
+            Self::PeerQueryNumAccountsRetry { .. } => {
+                ActionKind::TransitionFrontierSyncLedgerSnarkedPeerQueryNumAccountsRetry
             }
-            Self::PeerQueryError { .. } => {
-                ActionKind::TransitionFrontierSyncLedgerSnarkedPeerQueryError
+            Self::PeerQueryNumAccountsError { .. } => {
+                ActionKind::TransitionFrontierSyncLedgerSnarkedPeerQueryNumAccountsError
             }
-            Self::PeerQuerySuccess { .. } => {
-                ActionKind::TransitionFrontierSyncLedgerSnarkedPeerQuerySuccess
+            Self::PeerQueryNumAccountsSuccess { .. } => {
+                ActionKind::TransitionFrontierSyncLedgerSnarkedPeerQueryNumAccountsSuccess
+            }
+            Self::NumAccountsReceived { .. } => {
+                ActionKind::TransitionFrontierSyncLedgerSnarkedNumAccountsReceived
+            }
+            Self::NumAccountsAccepted { .. } => {
+                ActionKind::TransitionFrontierSyncLedgerSnarkedNumAccountsAccepted
+            }
+            Self::NumAccountsRejected { .. } => {
+                ActionKind::TransitionFrontierSyncLedgerSnarkedNumAccountsRejected
+            }
+            Self::NumAccountsSuccess { .. } => {
+                ActionKind::TransitionFrontierSyncLedgerSnarkedNumAccountsSuccess
+            }
+            Self::MerkleTreeSyncPending => {
+                ActionKind::TransitionFrontierSyncLedgerSnarkedMerkleTreeSyncPending
+            }
+            Self::PeerQueryAddressInit { .. } => {
+                ActionKind::TransitionFrontierSyncLedgerSnarkedPeerQueryAddressInit
+            }
+            Self::PeerQueryAddressPending { .. } => {
+                ActionKind::TransitionFrontierSyncLedgerSnarkedPeerQueryAddressPending
+            }
+            Self::PeerQueryAddressRetry { .. } => {
+                ActionKind::TransitionFrontierSyncLedgerSnarkedPeerQueryAddressRetry
+            }
+            Self::PeerQueryAddressError { .. } => {
+                ActionKind::TransitionFrontierSyncLedgerSnarkedPeerQueryAddressError
+            }
+            Self::PeerQueryAddressSuccess { .. } => {
+                ActionKind::TransitionFrontierSyncLedgerSnarkedPeerQueryAddressSuccess
             }
             Self::ChildHashesReceived { .. } => {
                 ActionKind::TransitionFrontierSyncLedgerSnarkedChildHashesReceived
             }
+            Self::ChildHashesAccepted { .. } => {
+                ActionKind::TransitionFrontierSyncLedgerSnarkedChildHashesAccepted
+            }
+            Self::ChildHashesRejected { .. } => {
+                ActionKind::TransitionFrontierSyncLedgerSnarkedChildHashesRejected
+            }
             Self::ChildAccountsReceived { .. } => {
                 ActionKind::TransitionFrontierSyncLedgerSnarkedChildAccountsReceived
+            }
+            Self::ChildAccountsAccepted { .. } => {
+                ActionKind::TransitionFrontierSyncLedgerSnarkedChildAccountsAccepted
+            }
+            Self::ChildAccountsRejected { .. } => {
+                ActionKind::TransitionFrontierSyncLedgerSnarkedChildAccountsRejected
+            }
+            Self::MerkleTreeSyncSuccess => {
+                ActionKind::TransitionFrontierSyncLedgerSnarkedMerkleTreeSyncSuccess
             }
             Self::Success => ActionKind::TransitionFrontierSyncLedgerSnarkedSuccess,
         }
@@ -896,7 +1278,7 @@ impl ActionKindGet for TransitionFrontierSyncLedgerStagedAction {
             Self::ReconstructError { .. } => {
                 ActionKind::TransitionFrontierSyncLedgerStagedReconstructError
             }
-            Self::ReconstructSuccess => {
+            Self::ReconstructSuccess { .. } => {
                 ActionKind::TransitionFrontierSyncLedgerStagedReconstructSuccess
             }
             Self::Success => ActionKind::TransitionFrontierSyncLedgerStagedSuccess,

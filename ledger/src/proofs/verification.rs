@@ -1,4 +1,4 @@
-use std::{array, rc::Rc};
+use std::rc::Rc;
 
 use ark_poly::{EvaluationDomain, Radix2EvaluationDomain};
 use poly_commitment::srs::SRS;
@@ -181,10 +181,10 @@ pub fn prev_evals_from_p2p<F: FieldWitness>(
     let of_opt = |v: &Option<(_, _)>| v.as_ref().map(of);
 
     ProofEvaluations {
-        w: array::from_fn(|i| of(&w[i])),
+        w: w.each_ref().map(of),
         z: of(z),
-        s: array::from_fn(|i| of(&s[i])),
-        coefficients: array::from_fn(|i| of(&coefficients[i])),
+        s: s.each_ref().map(of),
+        coefficients: coefficients.each_ref().map(of),
         generic_selector: of(generic_selector),
         poseidon_selector: of(poseidon_selector),
         complete_add_selector: of(complete_add_selector),
@@ -199,7 +199,7 @@ pub fn prev_evals_from_p2p<F: FieldWitness>(
         rot_selector: of_opt(rot_selector),
         lookup_aggregation: of_opt(lookup_aggregation),
         lookup_table: of_opt(lookup_table),
-        lookup_sorted: array::from_fn(|i| of_opt(&lookup_sorted[i])),
+        lookup_sorted: lookup_sorted.each_ref().map(of_opt),
         runtime_lookup_table: of_opt(runtime_lookup_table),
         runtime_lookup_table_selector: of_opt(runtime_lookup_table_selector),
         xor_lookup_selector: of_opt(xor_lookup_selector),
@@ -248,10 +248,10 @@ pub fn prev_evals_to_p2p(
     let of_opt = |v: &Option<[Fp; 2]>| v.as_ref().map(of);
 
     PicklesProofProofsVerified2ReprStableV2PrevEvalsEvalsEvals {
-        w: PaddedSeq(array::from_fn(|i| of(&w[i]))),
+        w: PaddedSeq(w.each_ref().map(of)),
         z: of(z),
-        s: PaddedSeq(array::from_fn(|i| of(&s[i]))),
-        coefficients: PaddedSeq(array::from_fn(|i| of(&coefficients[i]))),
+        s: PaddedSeq(s.each_ref().map(of)),
+        coefficients: PaddedSeq(coefficients.each_ref().map(of)),
         generic_selector: of(generic_selector),
         poseidon_selector: of(poseidon_selector),
         complete_add_selector: of(complete_add_selector),
@@ -266,7 +266,7 @@ pub fn prev_evals_to_p2p(
         rot_selector: of_opt(rot_selector),
         lookup_aggregation: of_opt(lookup_aggregation),
         lookup_table: of_opt(lookup_table),
-        lookup_sorted: PaddedSeq(array::from_fn(|i| of_opt(&lookup_sorted[i]))),
+        lookup_sorted: PaddedSeq(lookup_sorted.each_ref().map(of_opt)),
         runtime_lookup_table: of_opt(runtime_lookup_table),
         runtime_lookup_table_selector: of_opt(runtime_lookup_table_selector),
         xor_lookup_selector: of_opt(xor_lookup_selector),
@@ -391,7 +391,7 @@ where
     AppState: ToFieldElements<Fp>,
 {
     let digest = sponge_digest_before_evaluations;
-    let sponge_digest_before_evaluations: [u64; 4] = array::from_fn(|i| digest[i].as_u64());
+    let sponge_digest_before_evaluations: [u64; 4] = digest.each_ref().map(|v| v.as_u64());
 
     PreparedStatement {
         proof_state: ProofState {
@@ -554,7 +554,7 @@ fn compute_deferred_values(proof: &PicklesProofProofsVerified2ReprStableV2) -> D
         .iter()
         .map(|chal| {
             let prechallenge = &chal.prechallenge.inner;
-            let prechallenge: [u64; 2] = array::from_fn(|k| prechallenge[k].as_u64());
+            let prechallenge: [u64; 2] = prechallenge.each_ref().map(|v| v.as_u64());
             u64_to_field(&prechallenge)
         })
         .collect();

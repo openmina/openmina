@@ -79,7 +79,7 @@ impl P2pConnectionIncomingAction {
 }
 
 impl redux::EnablingCondition<P2pState> for P2pConnectionIncomingAction {
-    fn is_enabled(&self, state: &P2pState) -> bool {
+    fn is_enabled(&self, state: &P2pState, time: redux::Timestamp) -> bool {
         match self {
             P2pConnectionIncomingAction::Init { opts, .. } => {
                 state.incoming_accept(opts.peer_id, &opts.offer).is_ok()
@@ -160,7 +160,7 @@ impl redux::EnablingCondition<P2pState> for P2pConnectionIncomingAction {
                 .peers
                 .get(peer_id)
                 .and_then(|peer| peer.status.as_connecting()?.as_incoming())
-                .is_some(),
+                .map_or(false, |s| s.is_timed_out(time, &state.config.timeouts)),
             P2pConnectionIncomingAction::Error { peer_id, error } => state
                 .peers
                 .get(peer_id)

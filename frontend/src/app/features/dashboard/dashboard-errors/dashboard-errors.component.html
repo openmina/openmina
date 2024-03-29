@@ -1,0 +1,19 @@
+<div class="bg-surface border-rad-6 mb-10" *ngIf="resyncs.length">
+  <div class="acc-header border-rad-6 pl-12 pr-12 pointer h-xl fx-row-vert-cent flex-between bg-container-hover"
+       (click)="open = !open">
+    <div class="warn-primary f-600">{{ resyncs.length }} Failed attempts</div>
+    <span class="mina-icon icon-200">unfold_{{ open ? 'less' : 'more' }}</span>
+  </div>
+  <div class="errors-list pl-12 pr-12 overflow-auto flex-column" [class.open]="open"
+       [style.height.px]="resyncs.length * 28">
+    <div class="resync fx-row-vert-cent flex-between"
+         [class.mb-8]="i === resyncs.length - 1"
+         *ngFor="let item of resyncs; let i=index; trackBy: trackResyncs">
+      <div class="fx-row-vert-cent">
+        <div class="warn-primary mr-5">{{ item.kind }}</div>
+        <div class="secondary">{{ item.description }}</div>
+      </div>
+      <div class="tertiary">{{ item.timeAgo }}</div>
+    </div>
+  </div>
+</div>

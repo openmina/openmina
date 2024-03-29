@@ -6,7 +6,6 @@ pub use watched_accounts_actions::*;
 
 mod watched_accounts_reducer;
 
-
 mod watched_accounts_effects;
 pub use watched_accounts_effects::*;
 

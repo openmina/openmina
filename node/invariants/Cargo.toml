@@ -1,6 +1,6 @@
 [package]
 name = "openmina-node-invariants"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 license = "Apache-2.0"
 
@@ -15,5 +15,5 @@ strum = "0.24.1"
 strum_macros = "0.24.3"
 serde = "1.0.147"
 serde_json = { version = "1.0.82", features = ["unbounded_depth", "arbitrary_precision"] }
-redux = { git = "https://github.com/openmina/redux-rs.git", branch="feat/global-time", features = ["serde"] }
+redux = { workspace = true }
 node = { path = "../" }

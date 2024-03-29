@@ -29,6 +29,7 @@ use mina_p2p_messages::{
         MinaBasePendingCoinbaseMerkleTreeVersionedStableV2Tree, MinaBasePendingCoinbaseStableV2,
         MinaBasePendingCoinbaseStackHashStableV1, MinaBasePendingCoinbaseStackIdStableV1,
         MinaBasePendingCoinbaseStackVersionedStableV1, MinaBasePendingCoinbaseStateStackStableV1,
+        MinaBasePendingCoinbaseUpdateActionStableV1, MinaBasePendingCoinbaseUpdateStableV1,
         MinaBaseReceiptChainHashStableV1, MinaBaseSignatureStableV1,
         MinaBaseSignedCommandMemoStableV1, MinaBaseSignedCommandPayloadBodyStableV2,
         MinaBaseSignedCommandPayloadCommonStableV2, MinaBaseSignedCommandPayloadStableV2,
@@ -1108,7 +1109,7 @@ impl From<&MinaBaseAccountUpdateTStableV1> for AccountUpdate {
                 public_key: value.body.public_key.clone().into_inner().into(),
                 token_id: value.body.token_id.clone().into_inner().into(),
                 update: zkapp_command::Update {
-                    app_state: std::array::from_fn(|i| match &value.body.update.app_state[i] {
+                    app_state: value.body.update.app_state.each_ref().map(|s| match s {
                         AppState::Set(bigint) => SetOrKeep::Set(bigint.to_field()),
                         AppState::Keep => SetOrKeep::Keep,
                     }),
@@ -1282,7 +1283,7 @@ impl From<&AccountUpdate> for MinaBaseAccountUpdateTStableV1 {
                 public_key: (&value.body.public_key).into(),
                 token_id: (&value.body.token_id).into(),
                 update: MinaBaseAccountUpdateUpdateStableV1 {
-                    app_state: PaddedSeq(std::array::from_fn(|i| match &value.body.update.app_state[i] {
+                    app_state: PaddedSeq(value.body.update.app_state.each_ref().map(|s| match s {
                         SetOrKeep::Set(bigint) => AppState::Set(bigint.into()),
                         SetOrKeep::Keep => AppState::Keep,
                     })),
@@ -1686,37 +1687,42 @@ impl From<&Registers> for MinaStateBlockchainStateValueStableV2LedgerProofStatem
             first_pass_ledger: MinaBaseLedgerHash0StableV1(value.first_pass_ledger.into()).into(),
             second_pass_ledger: MinaBaseLedgerHash0StableV1(value.second_pass_ledger.into()).into(),
             pending_coinbase_stack: (&value.pending_coinbase_stack).into(),
-            local_state: MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1 {
-                stack_frame: MinaBaseStackFrameStableV1(value.local_state.stack_frame.into()),
-                call_stack: MinaBaseCallStackDigestStableV1(value.local_state.call_stack.into()),
-                transaction_commitment: value.local_state.transaction_commitment.into(),
-                full_transaction_commitment: value.local_state.full_transaction_commitment.into(),
-                excess: SignedAmount {
-                    magnitude: (&value.local_state.excess.magnitude).into(),
-                    sgn: (&value.local_state.excess.sgn).into(),
-                },
-                supply_increase: SignedAmount {
-                    magnitude: (&value.local_state.supply_increase.magnitude).into(),
-                    sgn: (&value.local_state.supply_increase.sgn).into(),
-                },
-                ledger: {
-                    let hash = MinaBaseLedgerHash0StableV1(value.local_state.ledger.into());
-                    hash.into()
-                },
-                success: value.local_state.success,
-                account_update_index: UnsignedExtendedUInt32StableV1(
-                    value.local_state.account_update_index.as_u32().into(),
-                ),
-                failure_status_tbl: MinaBaseTransactionStatusFailureCollectionStableV1(
-                    value
-                        .local_state
-                        .failure_status_tbl
-                        .iter()
-                        .map(|s| s.iter().map(|s| s.into()).collect())
-                        .collect(),
-                ),
-                will_succeed: value.local_state.will_succeed,
+            local_state: (&value.local_state).into(),
+        }
+    }
+}
+
+impl From<&LocalState> for MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1 {
+    fn from(value: &LocalState) -> Self {
+        Self {
+            stack_frame: MinaBaseStackFrameStableV1(value.stack_frame.into()),
+            call_stack: MinaBaseCallStackDigestStableV1(value.call_stack.into()),
+            transaction_commitment: value.transaction_commitment.into(),
+            full_transaction_commitment: value.full_transaction_commitment.into(),
+            excess: SignedAmount {
+                magnitude: (&value.excess.magnitude).into(),
+                sgn: (&value.excess.sgn).into(),
             },
+            supply_increase: SignedAmount {
+                magnitude: (&value.supply_increase.magnitude).into(),
+                sgn: (&value.supply_increase.sgn).into(),
+            },
+            ledger: {
+                let hash = MinaBaseLedgerHash0StableV1(value.ledger.into());
+                hash.into()
+            },
+            success: value.success,
+            account_update_index: UnsignedExtendedUInt32StableV1(
+                value.account_update_index.as_u32().into(),
+            ),
+            failure_status_tbl: MinaBaseTransactionStatusFailureCollectionStableV1(
+                value
+                    .failure_status_tbl
+                    .iter()
+                    .map(|s| s.iter().map(|s| s.into()).collect())
+                    .collect(),
+            ),
+            will_succeed: value.will_succeed,
         }
     }
 }
@@ -2509,6 +2515,29 @@ impl From<&MinaBasePendingCoinbaseStableV2> for PendingCoinbase {
             },
             pos_list: pos_list.iter().rev().map(Into::into).collect(),
             new_pos: new_pos.into(),
+        }
+    }
+}
+
+impl From<&super::pending_coinbase::update::Update> for MinaBasePendingCoinbaseUpdateStableV1 {
+    fn from(value: &super::pending_coinbase::update::Update) -> Self {
+        Self {
+            action: (&value.action).into(),
+            coinbase_amount: (&value.coinbase_amount).into(),
+        }
+    }
+}
+
+impl From<&super::pending_coinbase::update::Action>
+    for MinaBasePendingCoinbaseUpdateActionStableV1
+{
+    fn from(value: &super::pending_coinbase::update::Action) -> Self {
+        use super::pending_coinbase::update::Action;
+        match value {
+            Action::None => Self::UpdateNone,
+            Action::One => Self::UpdateOne,
+            Action::TwoCoinbaseInFirst => Self::UpdateTwoCoinbaseInFirst,
+            Action::TwoCoinbaseInSecond => Self::UpdateTwoCoinbaseInSecond,
         }
     }
 }

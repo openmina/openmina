@@ -228,7 +228,7 @@ impl<F: FieldWitness> CheckedLength<F> {
 macro_rules! impl_nat {
     ($({$name:tt, $unchecked:tt}),*) => ($(
 
-        #[derive(Clone, Debug)]
+        #[derive(Copy, Clone, Debug)]
         pub struct $name<F: FieldWitness>(F);
 
         impl<F: FieldWitness> CheckedNat<F, 32> for $name::<F> {

@@ -20,7 +20,11 @@ pub trait P2pConnectionService: redux::Service {
 
     fn http_signaling_request(&mut self, url: String, offer: webrtc::Offer);
 
+    // TODO: move methods below to a separate trait.
+
+    #[cfg(feature = "p2p-libp2p")]
     fn start_discovery(&mut self, peers: Vec<P2pConnectionOutgoingInitOpts>);
 
+    #[cfg(feature = "p2p-libp2p")]
     fn find_random_peer(&mut self);
 }

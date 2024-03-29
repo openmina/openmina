@@ -13,20 +13,23 @@ import { CopyComponent, HorizontalMenuComponent, HorizontalResizableContainerCom
 
 
 @NgModule({
-  declarations: [
-    NodesOverviewComponent,
-    NodesOverviewTableComponent,
-    NodesOverviewSidePanelComponent,
-    NodesOverviewToolbarComponent,
-    NodesOverviewLedgersComponent,
-  ],
-  imports: [
-    SharedModule,
-    NodesOverviewRouting,
-    HorizontalResizableContainerComponent,
-    EffectsModule.forFeature(NodesOverviewEffects),
-    HorizontalMenuComponent,
-    CopyComponent,
-  ],
+	declarations: [
+		NodesOverviewComponent,
+		NodesOverviewTableComponent,
+		NodesOverviewSidePanelComponent,
+		NodesOverviewToolbarComponent,
+		NodesOverviewLedgersComponent,
+	],
+	imports: [
+		SharedModule,
+		NodesOverviewRouting,
+		HorizontalResizableContainerComponent,
+		EffectsModule.forFeature(NodesOverviewEffects),
+		HorizontalMenuComponent,
+		CopyComponent,
+	],
+	exports: [
+		NodesOverviewLedgersComponent,
+	],
 })
 export class NodesOverviewModule {}

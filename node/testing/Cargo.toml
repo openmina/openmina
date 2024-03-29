@@ -1,6 +1,6 @@
 [package]
 name = "openmina-node-testing"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 license = "Apache-2.0"
 
@@ -18,6 +18,7 @@ derive_more = "0.99.17"
 serde = "1.0.147"
 serde_json = { version = "1.0.82", features = ["unbounded_depth", "arbitrary_precision"] }
 thiserror = "1.0.37"
+serde_cbor = "0.11.2"
 anyhow = "1.0.70"
 bincode = "1.3.3"
 rand = "0.8"
@@ -30,11 +31,15 @@ strum = "0.24.1"
 strum_macros = "0.24.3"
 tracing-log = "0.2.0"
 documented = { version = "0.1", optional = true }
-redux = { git = "https://github.com/openmina/redux-rs.git", branch="feat/global-time", features = ["serde"] }
+redux = { workspace = true }
 ledger = { workspace = true }
 mina-p2p-messages = { workspace = true }
-libp2p = { workspace = true, features = ["macros", "serde", "tcp", "dns", "tokio", "yamux", "pnet", "noise", "gossipsub"] }
+libp2p = { workspace = true, features = ["macros", "serde", "tcp", "dns", "tokio", "yamux", "pnet", "noise", "gossipsub", "identify", "kad"] }
+multiaddr = { version = "0.18.1" }
 vrf = { workspace = true }
+time = { version = "0.3", features = ["formatting"] }
+tracing = { version = "0.1", features = ["std"] }
+multihash = "0.18.1"
 
 nix = { version = "0.27.1", features = ["process", "signal"] }
 ctrlc = "3.4.2"
@@ -47,8 +52,11 @@ openmina-core = { path = "../../core" }
 node = { path = "../../node" }
 openmina-node-invariants = { path = "../../node/invariants" }
 openmina-node-native = { path = "../../node/native" }
+chrono = "0.4.34"
+hex = "0.4.3"
 
 [features]
 default = ["scenario-generators"]
 scenario-generators = ["documented"]
 p2p-webrtc = ["openmina-node-native/p2p-webrtc"]
+p2p-libp2p = ["openmina-node-native/p2p-libp2p"]

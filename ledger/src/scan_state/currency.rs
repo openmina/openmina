@@ -264,6 +264,11 @@ impl Balance {
         Amount(self.0)
     }
 
+    /// Passed amount gets multiplied by 1 billion to convert to nanomina.
+    pub fn from_mina(amount: u64) -> Option<Self> {
+        amount.checked_mul(1_000_000_000).map(Self::from_u64)
+    }
+
     pub fn of_nanomina_int_exn(int: u64) -> Self {
         Self::from_u64(int)
     }

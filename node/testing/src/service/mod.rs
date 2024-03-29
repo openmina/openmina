@@ -5,23 +5,31 @@ use std::time::Duration;
 use std::{collections::BTreeMap, ffi::OsStr, sync::Arc};
 
 use ledger::dummy::dummy_transaction_proof;
+use ledger::proofs::transaction::ProofError;
 use ledger::scan_state::scan_state::transaction_snark::SokMessage;
 use ledger::Mask;
 use mina_p2p_messages::string::ByteString;
 use mina_p2p_messages::v2::{
-    CurrencyFeeStableV1, LedgerHash, LedgerProofProdStableV2,
+    CurrencyFeeStableV1, LedgerHash, LedgerProofProdStableV2, MinaBaseProofStableV2,
     MinaStateSnarkedLedgerStateWithSokStableV2, NonZeroCurvePoint,
-    SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0Single, TransactionSnarkStableV2,
-    TransactionSnarkWorkTStableV2Proofs,
+    ProverExtendBlockchainInputStableV2, SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0Single,
+    StateHash, TransactionSnarkStableV2, TransactionSnarkWorkTStableV2Proofs,
 };
-use node::account::AccountPublicKey;
+use node::account::{AccountPublicKey, AccountSecretKey};
 use node::block_producer::vrf_evaluator::VrfEvaluatorInput;
+use node::block_producer::BlockProducerEvent;
 use node::core::channels::mpsc;
 use node::core::requests::{PendingRequests, RequestId};
 use node::core::snark::{Snark, SnarkJobId};
 use node::external_snark_worker::ExternalSnarkWorkerEvent;
+#[cfg(feature = "p2p-libp2p")]
+use node::p2p::service_impl::libp2p::Libp2pService;
+use node::p2p::service_impl::webrtc_with_libp2p::P2pServiceWebrtcWithLibp2p;
+use node::p2p::P2pCryptoService;
 use node::recorder::Recorder;
-use node::service::BlockProducerVrfEvaluatorService;
+use node::service::{
+    BlockProducerService, BlockProducerVrfEvaluatorService, TransitionFrontierGenesisService,
+};
 use node::snark::block_verify::{
     SnarkBlockVerifyId, SnarkBlockVerifyService, VerifiableBlockWithHash,
 };
@@ -29,25 +37,22 @@ use node::snark::work_verify::{SnarkWorkVerifyId, SnarkWorkVerifyService};
 use node::snark::{SnarkEvent, VerifierIndex, VerifierSRS};
 use node::snark_pool::{JobState, SnarkPoolService};
 use node::stats::Stats;
+use node::transition_frontier::genesis::GenesisConfig;
 use node::{
     event_source::Event,
     external_snark_worker::{ExternalSnarkWorkerService, SnarkWorkSpec},
     ledger::LedgerCtx,
     p2p::{
         connection::outgoing::P2pConnectionOutgoingInitOpts,
-        service_impl::{
-            libp2p::Libp2pService,
-            webrtc::{Cmd, P2pServiceWebrtc, PeerState},
-            webrtc_with_libp2p::P2pServiceWebrtcWithLibp2p,
-        },
-        webrtc, P2pEvent, PeerId,
+        service_impl::webrtc::{Cmd, P2pServiceWebrtc, PeerState},
+        webrtc, PeerId,
     },
 };
 use node::{ActionWithMeta, State};
 use openmina_node_native::NodeService;
 use redux::Instant;
 
-use crate::cluster::ClusterNodeId;
+use crate::cluster::{ClusterNodeId, ProofKind};
 use crate::node::NonDeterministicEvent;
 
 pub type DynEffects = Box<dyn FnMut(&State, &NodeTestingService, &ActionWithMeta) + Send>;
@@ -66,6 +71,7 @@ pub struct NodeTestingService {
     id: ClusterNodeId,
     /// Use webrtc p2p between Rust nodes.
     rust_to_rust_use_webrtc: bool,
+    proof_kind: ProofKind,
     /// We are replaying this node so disable some non-deterministic services.
     is_replay: bool,
     monotonic_time: Instant,
@@ -84,6 +90,7 @@ impl NodeTestingService {
             real,
             id,
             rust_to_rust_use_webrtc: false,
+            proof_kind: ProofKind::default(),
             is_replay: false,
             monotonic_time: Instant::now(),
             pending_events: PendingRequests::new(),
@@ -104,6 +111,15 @@ impl NodeTestingService {
     pub fn set_rust_to_rust_use_webrtc(&mut self) -> &mut Self {
         assert!(cfg!(feature = "p2p-webrtc"));
         self.rust_to_rust_use_webrtc = true;
+        self
+    }
+
+    pub fn proof_kind(&self) -> ProofKind {
+        self.proof_kind
+    }
+
+    pub fn set_proof_kind(&mut self, kind: ProofKind) -> &mut Self {
+        self.proof_kind = kind;
         self
     }
 
@@ -135,18 +151,20 @@ impl NodeTestingService {
         self.snarker_sok_digest = Some(digest);
     }
 
-    pub fn pending_events(&mut self) -> impl Iterator<Item = (PendingEventId, &Event)> {
+    pub fn pending_events(&mut self, poll: bool) -> impl Iterator<Item = (PendingEventId, &Event)> {
         while let Ok(req) = self.real.rpc.req_receiver().try_recv() {
             self.real.process_rpc_request(req);
         }
-        while let Some(event) = self.real.event_receiver.try_next() {
-            // Drop non-deterministic events during replay. We
-            // have those recorded as `ScenarioStep::NonDeterministicEvent`.
-            if self.is_replay && NonDeterministicEvent::should_drop_event(&event) {
-                eprintln!("dropping non-deterministic event: {event:?}");
-                continue;
+        if poll {
+            while let Some(event) = self.real.event_receiver.try_next() {
+                // Drop non-deterministic events during replay. We
+                // have those recorded as `ScenarioStep::NonDeterministicEvent`.
+                if self.is_replay && NonDeterministicEvent::should_drop_event(&event) {
+                    eprintln!("dropping non-deterministic event: {event:?}");
+                    continue;
+                }
+                self.pending_events.add(event);
             }
-            self.pending_events.add(event);
         }
         self.pending_events.iter()
     }
@@ -200,6 +218,24 @@ impl node::Service for NodeTestingService {
     }
 }
 
+impl P2pCryptoService for NodeTestingService {
+    fn generate_random_nonce(&mut self) -> [u8; 24] {
+        self.real.generate_random_nonce()
+    }
+
+    fn ephemeral_sk(&mut self) -> [u8; 32] {
+        self.real.ephemeral_sk()
+    }
+
+    fn static_sk(&mut self) -> [u8; 32] {
+        self.real.static_sk()
+    }
+
+    fn sign_key(&mut self, key: &[u8; 32]) -> Vec<u8> {
+        self.real.sign_key(key)
+    }
+}
+
 impl node::ledger::LedgerService for NodeTestingService {
     fn ctx(&self) -> &LedgerCtx {
         &self.real.ledger
@@ -222,7 +258,15 @@ impl node::event_source::EventSourceService for NodeTestingService {
     }
 }
 
+impl TransitionFrontierGenesisService for NodeTestingService {
+    fn load_genesis(&mut self, config: Arc<GenesisConfig>) {
+        TransitionFrontierGenesisService::load_genesis(&mut self.real, config);
+    }
+}
+
 impl P2pServiceWebrtc for NodeTestingService {
+    type Event = Event;
+
     fn random_pick(
         &mut self,
         list: &[P2pConnectionOutgoingInitOpts],
@@ -230,8 +274,8 @@ impl P2pServiceWebrtc for NodeTestingService {
         self.real.random_pick(list)
     }
 
-    fn event_sender(&mut self) -> &mut mpsc::UnboundedSender<P2pEvent> {
-        &mut self.real.p2p_event_sender
+    fn event_sender(&mut self) -> &mut mpsc::UnboundedSender<Event> {
+        &mut self.real.event_sender
     }
 
     fn cmd_sender(&mut self) -> &mut mpsc::UnboundedSender<Cmd> {
@@ -252,10 +296,12 @@ impl P2pServiceWebrtc for NodeTestingService {
 }
 
 impl P2pServiceWebrtcWithLibp2p for NodeTestingService {
+    #[cfg(feature = "p2p-libp2p")]
     fn libp2p(&mut self) -> &mut Libp2pService {
         &mut self.real.libp2p
     }
 
+    #[cfg(feature = "p2p-libp2p")]
     fn find_random_peer(&mut self) {
         use node::p2p::identity::SecretKey as P2pSecretKey;
         use node::p2p::service_impl::libp2p::Cmd;
@@ -280,11 +326,17 @@ impl P2pServiceWebrtcWithLibp2p for NodeTestingService {
             .unwrap_or_default();
     }
 
+    #[cfg(feature = "p2p-libp2p")]
     fn start_discovery(&mut self, peers: Vec<P2pConnectionOutgoingInitOpts>) {
         if self.is_replay {
             return;
         }
         self.real.start_discovery(peers)
+    }
+
+    #[cfg(not(feature = "p2p-libp2p"))]
+    fn mio(&mut self) -> &mut node::p2p::service_impl::mio::MioService {
+        self.real.mio()
     }
 }
 
@@ -296,18 +348,21 @@ impl SnarkBlockVerifyService for NodeTestingService {
         verifier_srs: Arc<Mutex<VerifierSRS>>,
         block: VerifiableBlockWithHash,
     ) {
-        let _ = (verifier_index, verifier_srs, block);
-        let _ = self
-            .real
-            .event_sender
-            .send(SnarkEvent::BlockVerify(req_id, Ok(())).into());
-        // SnarkBlockVerifyService::verify_init(
-        //     &mut self.real,
-        //     req_id,
-        //     verifier_index,
-        //     verifier_srs,
-        //     block,
-        // )
+        match self.proof_kind() {
+            ProofKind::Dummy | ProofKind::ConstraintsChecked => {
+                let _ = self
+                    .real
+                    .event_sender
+                    .send(SnarkEvent::BlockVerify(req_id, Ok(())).into());
+            }
+            ProofKind::Full => SnarkBlockVerifyService::verify_init(
+                &mut self.real,
+                req_id,
+                verifier_index,
+                verifier_srs,
+                block,
+            ),
+        }
     }
 }
 
@@ -319,18 +374,21 @@ impl SnarkWorkVerifyService for NodeTestingService {
         verifier_srs: Arc<Mutex<VerifierSRS>>,
         work: Vec<Snark>,
     ) {
-        let _ = (verifier_index, verifier_srs, work);
-        let _ = self
-            .real
-            .event_sender
-            .send(SnarkEvent::WorkVerify(req_id, Ok(())).into());
-        // SnarkWorkVerifyService::verify_init(
-        //     &mut self.real,
-        //     req_id,
-        //     verifier_index,
-        //     verifier_srs,
-        //     work,
-        // )
+        match self.proof_kind() {
+            ProofKind::Dummy | ProofKind::ConstraintsChecked => {
+                let _ = self
+                    .real
+                    .event_sender
+                    .send(SnarkEvent::WorkVerify(req_id, Ok(())).into());
+            }
+            ProofKind::Full => SnarkWorkVerifyService::verify_init(
+                &mut self.real,
+                req_id,
+                verifier_index,
+                verifier_srs,
+                work,
+            ),
+        }
     }
 }
 
@@ -347,6 +405,68 @@ impl SnarkPoolService for NodeTestingService {
 impl BlockProducerVrfEvaluatorService for NodeTestingService {
     fn evaluate(&mut self, data: VrfEvaluatorInput) {
         BlockProducerVrfEvaluatorService::evaluate(&mut self.real, data)
+    }
+}
+
+use std::cell::RefCell;
+thread_local! {
+    static GENESIS_PROOF: RefCell<Option<(StateHash, Box<MinaBaseProofStableV2>)>> = RefCell::new(None);
+}
+
+impl BlockProducerService for NodeTestingService {
+    fn keypair(&mut self) -> Option<AccountSecretKey> {
+        BlockProducerService::keypair(&mut self.real)
+    }
+
+    fn prove(&mut self, block_hash: StateHash, input: Box<ProverExtendBlockchainInputStableV2>) {
+        fn dummy_proof_event(block_hash: StateHash) -> Event {
+            let dummy_proof = (*ledger::dummy::dummy_blockchain_proof()).clone();
+            BlockProducerEvent::BlockProve(block_hash, Ok(dummy_proof.into())).into()
+        }
+
+        match self.proof_kind() {
+            ProofKind::Dummy => {
+                let _ = self.real.event_sender.send(dummy_proof_event(block_hash));
+            }
+            ProofKind::ConstraintsChecked => {
+                match openmina_node_native::block_producer::prove(&*input, true) {
+                    Err(ProofError::ConstraintsOk) => {
+                        let _ = self.real.event_sender.send(dummy_proof_event(block_hash));
+                    }
+                    Err(err) => panic!("unexpected block proof generation error: {err:?}"),
+                    Ok(_) => unreachable!(),
+                }
+            }
+            ProofKind::Full => {
+                // TODO(binier): handle if block is genesis based on fork constants.
+                let is_genesis = input
+                    .next_state
+                    .body
+                    .consensus_state
+                    .blockchain_length
+                    .as_u32()
+                    == 1;
+                let res = GENESIS_PROOF.with_borrow_mut(|cached_genesis| {
+                    if let Some((_, proof)) = cached_genesis
+                        .as_ref()
+                        .filter(|(hash, _)| is_genesis && hash == &block_hash)
+                    {
+                        Ok(proof.clone())
+                    } else {
+                        openmina_node_native::block_producer::prove(&*input, false)
+                            .map_err(|err| format!("{err:?}"))
+                    }
+                });
+                if let Some(proof) = res.as_ref().ok().filter(|_| is_genesis) {
+                    GENESIS_PROOF
+                        .with_borrow_mut(|data| *data = Some((block_hash.clone(), proof.clone())));
+                }
+                let _ = self
+                    .real
+                    .event_sender
+                    .send(BlockProducerEvent::BlockProve(block_hash, res).into());
+            }
+        }
     }
 }
 

@@ -21,7 +21,7 @@ pub enum TransitionFrontierSyncLedgerAction {
 }
 
 impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerAction {
-    fn is_enabled(&self, state: &crate::State) -> bool {
+    fn is_enabled(&self, state: &crate::State, _time: redux::Timestamp) -> bool {
         match self {
             TransitionFrontierSyncLedgerAction::Init => {
                 state.transition_frontier.sync.ledger().map_or(false, |s| {

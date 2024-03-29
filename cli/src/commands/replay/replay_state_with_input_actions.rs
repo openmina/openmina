@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 
+use libp2p_identity::Keypair;
 use node::core::channels::mpsc;
-use node::p2p::service_impl::libp2p::Libp2pService;
 use node::recorder::{Recorder, StateWithInputActionsReader};
 use node::snark::VerifierKind;
 use node::{ActionWithMeta, BuildEnv, Store};
@@ -54,15 +54,18 @@ impl ReplayStateWithInputActions {
         let service = NodeService {
             rng: StdRng::seed_from_u64(initial_state.rng_seed),
             event_sender: mpsc::unbounded_channel().0,
-            p2p_event_sender: mpsc::unbounded_channel().0,
             event_receiver: mpsc::unbounded_channel().1.into(),
             cmd_sender: mpsc::unbounded_channel().0,
             ledger: Default::default(),
             peers: Default::default(),
-            libp2p: Libp2pService::mocked().0,
+            #[cfg(feature = "p2p-libp2p")]
+            libp2p: node::p2p::service_impl::libp2p::Libp2pService::mocked().0,
+            #[cfg(not(feature = "p2p-libp2p"))]
+            mio: node::p2p::service_impl::mio::MioService::mocked(),
             block_producer: None,
-            snark_worker_sender: None,
+            keypair: Keypair::generate_ed25519(),
             rpc: RpcService::new(),
+            snark_worker_sender: None,
             stats: Default::default(),
             recorder: Recorder::None,
             replayer: Some(ReplayerState {

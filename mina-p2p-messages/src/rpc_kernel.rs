@@ -7,8 +7,13 @@ use serde::{Deserialize, Serialize};
 
 use crate::versioned::Ver;
 
-pub type Tag = super::string::CharString;
-pub type QueryID = i64;
+/// Binprot representation of the RPC method tag.
+pub type BinprotTag = super::string::CharString;
+/// Internal representation of the RPC method tag.
+pub type RpcTag = &'static [u8];
+/// RPC method version.
+pub type RpcVersion = Ver;
+pub type QueryID = u64;
 pub type Sexp = (); // TODO
 
 #[derive(
@@ -120,13 +125,21 @@ where
 /// end
 /// ```
 #[allow(non_camel_case_types)]
-#[derive(Clone, Debug, Serialize, Deserialize, BinProtRead, BinProtWrite, PartialEq, Eq)]
+#[derive(
+    Clone, Debug, Serialize, Deserialize, BinProtRead, BinProtWrite, PartialEq, Eq, thiserror::Error,
+)]
 pub enum Error {
+    #[error("binprot expection")]
     Bin_io_exn, //(Sexp),
+    #[error("connection closed")]
     Connection_closed,
-    Write_error,  //(Sexp),
+    #[error("write error")]
+    Write_error, //(Sexp),
+    #[error("uncaught exception")]
     Uncaught_exn, //(Sexp),
-    Unimplemented_rpc(Tag, Ver),
+    #[error("unimplemented method {}:{}", .0.to_string(), .1)]
+    Unimplemented_rpc(BinprotTag, Ver),
+    #[error("unknown query id: {0}")]
     Unknown_query_id(QueryID),
 }
 
@@ -152,7 +165,7 @@ pub type QueryPayload<T> = NeedsLength<T>;
 /// ```
 #[derive(Clone, Debug, Serialize, Deserialize, BinProtRead, BinProtWrite, PartialEq, Eq)]
 pub struct Query<T> {
-    pub tag: Tag,
+    pub tag: BinprotTag,
     pub version: Ver,
     pub id: QueryID,
     pub data: QueryPayload<T>,
@@ -186,7 +199,7 @@ pub struct Response<T> {
 /// RPC tag and version.
 #[derive(Clone, Debug, Serialize, Deserialize, BinProtRead, BinProtWrite, PartialEq, Eq)]
 pub struct DebuggerResponse<T> {
-    pub tag: Tag,
+    pub tag: BinprotTag,
     pub version: Ver,
     pub id: QueryID,
     pub data: ResponsePayload<T>,
@@ -240,8 +253,8 @@ impl<T> From<DebuggerMessage<T>> for Message<T> {
 
 #[derive(Clone, Debug, Serialize, Deserialize, BinProtRead, BinProtWrite, PartialEq, Eq)]
 pub struct QueryHeader {
-    pub tag: Tag,
-    pub version: i32,
+    pub tag: BinprotTag,
+    pub version: Ver,
     pub id: QueryID,
 }
 
@@ -258,10 +271,15 @@ pub enum MessageHeader {
 }
 
 pub trait RpcMethod {
-    const NAME: &'static str;
+    const NAME: RpcTag;
+    const NAME_STR: &'static str;
     const VERSION: Ver;
     type Query: BinProtRead + BinProtWrite;
     type Response: BinProtRead + BinProtWrite;
+
+    fn rpc_id() -> String {
+        format!("{}:{}", Self::NAME_STR, Self::VERSION)
+    }
 }
 
 /// Reads binable (bin_prot-encoded) value from a stream, handles it and returns
@@ -277,12 +295,32 @@ pub trait BinableDecoder {
 /// bin_prot encoded data, following the message header. It simply decodes data
 /// wrapped in auxiliary types and returns unwrapped data.
 pub trait PayloadBinprotReader: RpcMethod {
-    fn query_payload<R>(r: &mut R) -> Result<Self::Query, binprot::Error>
+    fn query_payload<R>(r: &mut R) -> Result<Self::Query, RpcQueryReadError>
     where
         R: Read;
-    fn response_payload<R>(r: &mut R) -> Result<Result<Self::Response, Error>, binprot::Error>
+    fn response_payload<R>(r: &mut R) -> Result<Self::Response, RpcResponseReadError>
     where
         R: Read;
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum RpcQueryReadError {
+    #[error("rpc query {rpc_id}: failed to decode binprot: {error}")]
+    Binprot {
+        rpc_id: String,
+        error: binprot::Error,
+    },
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum RpcResponseReadError {
+    #[error("rpc response {rpc_id}: failed to decode binprot: {error}")]
+    Binprot {
+        rpc_id: String,
+        error: binprot::Error,
+    },
+    #[error("rpc response {rpc_id}: peer failed to respond: {error}")]
+    Failure { rpc_id: String, error: self::Error },
 }
 
 impl<T> PayloadBinprotReader for T
@@ -291,19 +329,32 @@ where
     T::Query: BinProtRead,
     T::Response: BinProtRead,
 {
-    fn query_payload<R>(r: &mut R) -> Result<Self::Query, binprot::Error>
+    fn query_payload<R>(r: &mut R) -> Result<Self::Query, RpcQueryReadError>
     where
         R: Read,
     {
-        QueryPayload::<Self::Query>::binprot_read(r).map(|NeedsLength(v)| v)
+        QueryPayload::<Self::Query>::binprot_read(r)
+            .map(|NeedsLength(v)| v)
+            .map_err(|error| RpcQueryReadError::Binprot {
+                rpc_id: T::rpc_id(),
+                error,
+            })
     }
 
-    fn response_payload<R>(r: &mut R) -> Result<Result<Self::Response, Error>, binprot::Error>
+    fn response_payload<R>(r: &mut R) -> Result<Self::Response, RpcResponseReadError>
     where
         R: Read,
     {
-        ResponsePayload::<Self::Response>::binprot_read(r)
+        Ok(ResponsePayload::<Self::Response>::binprot_read(r)
             .map(|v| Result::from(v).map(NeedsLength::into_inner))
+            .map_err(|error| RpcResponseReadError::Binprot {
+                rpc_id: T::rpc_id(),
+                error,
+            })?
+            .map_err(|error| RpcResponseReadError::Failure {
+                rpc_id: T::rpc_id(),
+                error,
+            })?)
     }
 }
 
@@ -414,7 +465,8 @@ impl<T, FQ, FR> RpcMethod for (T, FQ, FR)
 where
     T: RpcMethod,
 {
-    const NAME: &'static str = T::NAME;
+    const NAME: RpcTag = T::NAME;
+    const NAME_STR: &'static str = T::NAME_STR;
     const VERSION: Ver = T::VERSION;
     type Query = T::Query;
     type Response = T::Response;
@@ -447,7 +499,7 @@ mod tests {
     use binprot_derive::BinProtRead;
 
     use crate::{
-        rpc_kernel::{NeedsLength, RpcResult, Tag},
+        rpc_kernel::{BinprotTag, NeedsLength, RpcResult},
         utils::FromBinProtStream,
         versioned::Ver,
     };
@@ -540,7 +592,7 @@ mod tests {
 
         #[derive(Debug, BinProtRead, PartialEq)]
         struct RpcTagVersion {
-            tag: Tag,
+            tag: BinprotTag,
             version: Ver,
         }
 

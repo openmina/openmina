@@ -11,8 +11,8 @@ use crate::{
         MinaBaseAccountBinableArgStableV2, MinaBaseAccountTimingStableV2,
         MinaBasePermissionsAuthRequiredStableV2, MinaBasePermissionsStableV2,
         MinaBaseVerificationKeyWireStableV1, MinaBaseVerificationKeyWireStableV1WrapIndex,
-        MinaBaseZkappAccountStableV2,
-        MinaNumbersGlobalSlotSinceGenesisMStableV1, PicklesBaseProofsVerifiedStableV1,
+        MinaBaseZkappAccountStableV2, MinaNumbersGlobalSlotSinceGenesisMStableV1,
+        PicklesBaseProofsVerifiedStableV1,
     },
 };
 
@@ -93,20 +93,20 @@ impl ToInput for MinaBasePermissionsStableV2 {
         } = self;
         to_input_fields!(
             inputs,
-                edit_state,
-                access,
-                send,
-                receive,
-                set_delegate,
-                set_permissions,
-                set_verification_key.0,
-                set_verification_key.1,
-                set_zkapp_uri,
-                edit_action_state,
-                set_token_symbol,
-                increment_nonce,
-                set_voting_for,
-                set_timing
+            edit_state,
+            access,
+            send,
+            receive,
+            set_delegate,
+            set_permissions,
+            set_verification_key.0,
+            set_verification_key.1,
+            set_zkapp_uri,
+            edit_action_state,
+            set_token_symbol,
+            increment_nonce,
+            set_voting_for,
+            set_timing
         );
     }
 }

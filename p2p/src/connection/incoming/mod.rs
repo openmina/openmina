@@ -6,9 +6,7 @@ pub use p2p_connection_incoming_actions::*;
 
 mod p2p_connection_incoming_reducer;
 
-
 mod p2p_connection_incoming_effects;
-
 
 use serde::{Deserialize, Serialize};
 
@@ -57,7 +55,7 @@ impl P2pState {
             return Err(RejectionReason::AlreadyConnected);
         }
 
-        if self.already_has_max_peers() {
+        if self.already_has_too_many_peers() {
             return Err(RejectionReason::PeerCapacityFull);
         }
 
@@ -69,7 +67,7 @@ impl P2pState {
             return Err(RejectionReason::ConnectingToSelf);
         }
 
-        if self.already_has_max_peers() {
+        if self.already_has_too_many_peers() {
             return Err(RejectionReason::PeerCapacityFull);
         }
 

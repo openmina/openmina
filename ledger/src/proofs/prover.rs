@@ -1,4 +1,4 @@
-use std::{array, borrow::Cow, str::FromStr};
+use std::{borrow::Cow, str::FromStr};
 
 use kimchi::{
     poly_commitment::PolyComm,
@@ -46,10 +46,8 @@ pub fn make_padded_proof_from_p2p(
         shifted: None,
     };
 
-    let w_comm: [PolyComm<Pallas>; 15] =
-        array::from_fn(|i| make_poly(&proof.commitments.w_comm[i]));
+    let w_comm: [PolyComm<Pallas>; 15] = proof.commitments.w_comm.each_ref().map(make_poly);
     let z_comm: PolyComm<Pallas> = make_poly(&proof.commitments.z_comm);
-    // let t_comm: [PolyComm<Pallas>; 7] = array::from_fn(|i| make_poly(&proof.commitments.t_comm[i]));
     let t_comm: PolyComm<Pallas> = {
         let unshifted = proof.commitments.t_comm.iter().map(of_coord).collect();
         PolyComm {
@@ -84,12 +82,12 @@ pub fn make_padded_proof_from_p2p(
     };
 
     let evals: ProofEvaluations<PointEvaluations<Vec<Fq>>> = ProofEvaluations {
-        w: array::from_fn(|i| to_pt_eval(&evals.w[i])),
+        w: evals.w.each_ref().map(to_pt_eval),
         z: to_pt_eval(&evals.z),
-        s: array::from_fn(|i| to_pt_eval(&evals.s[i])),
+        s: evals.s.each_ref().map(to_pt_eval),
         generic_selector: to_pt_eval(&evals.generic_selector),
         poseidon_selector: to_pt_eval(&evals.poseidon_selector),
-        coefficients: array::from_fn(|i| to_pt_eval(&evals.coefficients[i])),
+        coefficients: evals.coefficients.each_ref().map(to_pt_eval),
         complete_add_selector: to_pt_eval(&evals.complete_add_selector),
         mul_selector: to_pt_eval(&evals.mul_selector),
         emul_selector: to_pt_eval(&evals.emul_selector),

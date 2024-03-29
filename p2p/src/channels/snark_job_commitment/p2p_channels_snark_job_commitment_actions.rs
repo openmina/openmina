@@ -60,7 +60,7 @@ impl P2pChannelsSnarkJobCommitmentAction {
 }
 
 impl redux::EnablingCondition<P2pState> for P2pChannelsSnarkJobCommitmentAction {
-    fn is_enabled(&self, state: &P2pState) -> bool {
+    fn is_enabled(&self, state: &P2pState, _time: redux::Timestamp) -> bool {
         match self {
             P2pChannelsSnarkJobCommitmentAction::Init { peer_id } => {
                 state.get_ready_peer(peer_id).map_or(false, |p| {

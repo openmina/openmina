@@ -1,0 +1,76 @@
+@import 'openmina';
+
+.base-div {
+  padding-right: 0;
+  transition: 300ms;
+}
+
+.list {
+  height: 40px;
+}
+
+.point {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border-radius: 16px;
+  background-color: $base-secondary;
+  bottom: 0;
+  cursor: pointer;
+
+  &.Connected:not(.Not) {
+    background-color: $success-primary;
+    z-index: 1;
+  }
+
+  &.Cannot.Connect {
+    background-color: $warn-primary;
+    z-index: 2;
+  }
+
+  &.origin {
+    background-color: $base-surface !important;
+    border: 2px solid $special-selected-alt-1-primary;
+
+    &:hover {
+      background-color: $special-selected-alt-1-primary;
+    }
+  }
+
+  &:hover.Not.Connected,
+  &:hover.Can.Connect {
+    background-color: $base-primary;
+  }
+
+  &.active {
+    background-color: $selected-primary !important;
+    z-index: 3;
+  }
+}
+
+.bucket {
+  border-radius: 0;
+  border-right: 1.5px dashed $base-tertiary2;
+
+  .line-bg {
+    bottom: 0;
+    background-color: $base-container;
+    height: 16px;
+
+    .mid-line {
+      background-color: $base-tertiary2;
+      height: 1px;
+      top: 50%;
+      transform: translateY(-50%);
+    }
+  }
+
+  &:first-child {
+    border-left: 1.5px dashed $base-tertiary2;
+
+    .line-bg {
+      border-top-left-radius: 16px;
+      border-bottom-left-radius: 16px;
+    }
+  }
+}

@@ -5,7 +5,18 @@ use serde::{Deserialize, Serialize};
 
 /// Mina array bounded to specific length. Note that the length is only checked
 /// when performing binprot operations.
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, derive_more::From, derive_more::Into)]
+#[derive(
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Serialize,
+    Deserialize,
+    derive_more::From,
+    derive_more::Into,
+)]
 pub struct ArrayN<T, const N: u64>(Vec<T>);
 
 impl<T, const N: u64> AsRef<[T]> for ArrayN<T, N> {
@@ -41,7 +52,6 @@ impl<'a, T, const N: u64> IntoIterator for &'a ArrayN<T, N> {
         (&self.0).into_iter()
     }
 }
-
 
 impl<T, const N: u64> FromIterator<T> for ArrayN<T, N> {
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {

@@ -11,9 +11,6 @@ impl P2pConnectionIncomingAction {
     where
         Store: crate::P2pStore<S>,
         Store::Service: P2pConnectionService,
-        P2pDisconnectionAction: redux::EnablingCondition<S>,
-        P2pPeerAction: redux::EnablingCondition<S>,
-        P2pConnectionIncomingAction: redux::EnablingCondition<S>,
     {
         match self {
             P2pConnectionIncomingAction::Init { opts, .. } => {

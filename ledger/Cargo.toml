@@ -1,6 +1,6 @@
 [package]
 name = "mina-tree"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 license = "Apache-2.0"
 
@@ -69,6 +69,7 @@ blake2 = "0.10"
 crc32fast = "1"
 chrono = "0.4"
 serde_with = "3.6.1"
+anyhow = "1.0.75"
 
 [target.'cfg(target_family = "wasm")'.dependencies]
 getrandom = { version = "0.2", features = ["js"] }
@@ -80,8 +81,6 @@ zstd = { version = "0.12", optional = true }
 # ocaml-interop = { path = "/home/sebastien/github/ocaml-interop", optional = true }
 ocaml-interop = { git = "https://github.com/sebastiencs/ocaml-interop.git", branch = "closure-values", optional = true }
 # ocaml-interop = { git = "https://github.com/tizoc/ocaml-interop.git", branch = "closure-values", optional = true }
-
-[dev-dependencies]
 
 [target.'cfg(target_family = "wasm")'.dev-dependencies]
 wasm-bindgen-test = "0.3.0"

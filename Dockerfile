@@ -1,7 +1,7 @@
 ARG MINA_SNARK_WORKER_TAG=0.0.9
 
 FROM rust:buster AS build
-RUN rustup default 1.75 && rustup component add rustfmt
+RUN rustup default 1.77 && rustup component add rustfmt
 WORKDIR /openmina
 COPY . .
 RUN cargo build --release --package=cli --bin=openmina

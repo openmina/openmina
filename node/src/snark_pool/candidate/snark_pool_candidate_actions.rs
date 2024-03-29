@@ -53,7 +53,7 @@ pub enum SnarkPoolCandidateAction {
 }
 
 impl redux::EnablingCondition<crate::State> for SnarkPoolCandidateAction {
-    fn is_enabled(&self, state: &crate::State) -> bool {
+    fn is_enabled(&self, state: &crate::State, _time: redux::Timestamp) -> bool {
         match self {
             SnarkPoolCandidateAction::InfoReceived { peer_id, info } => {
                 state.snark_pool.contains(&info.job_id)

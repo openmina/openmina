@@ -1,7 +1,10 @@
 use mina_p2p_messages::v2::{
-    ConsensusProofOfStakeDataConsensusStateValueStableV2 as MinaConsensusState, StateHash,
+    self, ConsensusProofOfStakeDataConsensusStateValueStableV2 as MinaConsensusState, StateHash,
 };
 use serde::{Deserialize, Serialize};
+
+use crate::constants::CONSTRAINT_CONSTANTS;
+pub use crate::constants::{checkpoint_window_size_in_slots, grace_period_end, slots_per_window};
 
 // TODO get constants from elsewhere
 const GRACE_PERIOD_END: u32 = 1440;
@@ -81,7 +84,7 @@ pub fn relative_min_window_density(b1: &MinaConsensusState, b2: &MinaConsensusSt
             .collect::<Vec<_>>();
 
         // Ring-shift
-        let mut i = relative_sub_window(global_slot(b1));
+        let mut i = relative_sub_window_from_global_slot(global_slot(b1));
         for _ in [0..=shift_count] {
             i = (i + 1) % SUB_WINDOWS_PER_WINDOW;
             projected_window[i as usize] = 0;
@@ -99,7 +102,7 @@ fn density(projected_window: Vec<u32>) -> u32 {
     projected_window.iter().sum()
 }
 
-fn relative_sub_window(global_slot: u32) -> u32 {
+fn relative_sub_window_from_global_slot(global_slot: u32) -> u32 {
     (global_slot / SLOTS_PER_SUB_WINDOW) % SUB_WINDOWS_PER_WINDOW
 }
 
@@ -192,6 +195,37 @@ pub fn consensus_take(
     }
 }
 
+pub fn in_seed_update_range(
+    slot: u32,
+    constants: &v2::MinaBaseProtocolConstantsCheckedValueStableV1,
+) -> bool {
+    let third_epoch = constants.slots_per_epoch.as_u32() / 3;
+    assert_eq!(constants.slots_per_epoch.as_u32(), third_epoch * 3);
+    slot < third_epoch * 2
+}
+
+pub fn in_same_checkpoint_window(
+    slot1: &v2::ConsensusGlobalSlotStableV1,
+    slot2: &v2::ConsensusGlobalSlotStableV1,
+) -> bool {
+    checkpoint_window(slot1) == checkpoint_window(slot2)
+}
+
+pub fn checkpoint_window(slot: &v2::ConsensusGlobalSlotStableV1) -> u32 {
+    slot.slot_number.as_u32() / checkpoint_window_size_in_slots()
+}
+
+pub fn global_sub_window(
+    slot: &v2::ConsensusGlobalSlotStableV1,
+    constants: &v2::MinaBaseProtocolConstantsCheckedValueStableV1,
+) -> u32 {
+    slot.slot_number.as_u32() / constants.slots_per_sub_window.as_u32()
+}
+
+pub fn relative_sub_window(global_sub_window: u32) -> u32 {
+    global_sub_window % CONSTRAINT_CONSTANTS.sub_windows_per_window as u32
+}
+
 #[cfg(test)]
 mod tests {
     use super::{long_range_fork_take, short_range_fork_take};
@@ -200,8 +234,7 @@ mod tests {
     macro_rules! fork_file {
         ($prefix:expr, $tip:expr, $cnd:expr, $suffix:expr) => {
             concat!(
-                env!("CARGO_MANIFEST_DIR"),
-                "/../tests/files/forks/",
+                "../../tests/files/forks/",
                 $prefix,
                 "-",
                 $tip,

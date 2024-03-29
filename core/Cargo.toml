@@ -1,16 +1,21 @@
 [package]
 name = "openmina-core"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 license = "Apache-2.0"
 
 [dependencies]
+lazy_static = "1.4.0"
 serde = { version = "1.0.147", features = ["rc"] }
 slab = { version = "0.4.7", features = ["serde"] }
 tracing = { version = "0.1", features = ["std"] }
 sha2 = "0.10.6"
-redux = { git = "https://github.com/openmina/redux-rs.git", branch="feat/global-time", features = ["serde"] }
+binprot = { git = "https://github.com/openmina/binprot-rs", rev = "3f29b25" }
+binprot_derive = { git = "https://github.com/openmina/binprot-rs", rev = "3f29b25" }
+redux = { workspace = true }
 tokio = { version = "1.26", features = ["sync"] }
+time = { version = "0.3", features = ["formatting"] }
+multihash = { version = "0.18.1", features = ["blake2b"] }
 
 mina-hasher = { workspace = true }
 mina-p2p-messages = { workspace = true }

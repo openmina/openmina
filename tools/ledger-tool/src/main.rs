@@ -154,11 +154,19 @@ fn main() -> anyhow::Result<()> {
     }
 
     let root = mask.merkle_root();
-    let top_hash = v2::LedgerHash::from(v2::MinaBaseLedgerHash0StableV1(root.into()));
+    let top_hash = v2::LedgerHash::from_fp(root);
     println!("{top_hash}");
+
+    let mut hashes = vec![];
+
+    for (idx, hash) in mask.get_raw_inner_hashes() {
+        let hash = v2::LedgerHash::from_fp(hash);
+        hashes.push((idx, hash));
+    }
 
     let mut output = File::create(&output)?;
     Some(top_hash).binprot_write(&mut output)?;
+    hashes.binprot_write(&mut output)?;
     accounts.binprot_write(&mut output)?;
 
     Ok(())

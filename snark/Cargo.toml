@@ -1,6 +1,6 @@
 [package]
 name = "snark"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 license = "Apache-2.0"
 
@@ -22,7 +22,7 @@ ark-ec = { git = "https://github.com/openmina/algebra", branch = "openmina", fea
 ark-poly = { git = "https://github.com/openmina/algebra", branch = "openmina", features = [ "parallel" ] }
 once_cell = "1.10"
 hex = "0.4"
-redux = { git = "https://github.com/openmina/redux-rs.git", branch="feat/global-time", features = ["serde"] }
+redux = { workspace = true }
 ledger = { workspace = true }
 mina-p2p-messages = { workspace = true }
 sha2 = "0.10"

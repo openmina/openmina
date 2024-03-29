@@ -9,11 +9,11 @@ pub type P2pListenActionWithMetaRef<'a> = redux::ActionWithMeta<&'a P2pListenAct
 pub enum P2pListenAction {
     New {
         listener_id: P2pListenerId,
-        addr: libp2p::Multiaddr,
+        addr: multiaddr::Multiaddr,
     },
     Expired {
         listener_id: P2pListenerId,
-        addr: libp2p::Multiaddr,
+        addr: multiaddr::Multiaddr,
     },
     Error {
         listener_id: P2pListenerId,

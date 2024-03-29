@@ -1,0 +1,40 @@
+@import 'openmina';
+
+mina-dashboard-errors {
+  display: block;
+  width: 100%;
+  max-width: calc(410px + 640px + 10px);
+}
+
+.tracing-container {
+  gap: 8px;
+
+  mina-dashboard-ledger {
+    width: 100%;
+    max-width: 410px;
+    min-width: 250px;
+  }
+
+  mina-dashboard-blocks-sync {
+    width: 100%;
+    max-width: 640px;
+  }
+
+  @media (max-width: 1374px) {
+    display: flex;
+    flex-direction: column;
+  }
+}
+
+.loading-icon {
+  animation: spin 2s linear infinite;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}

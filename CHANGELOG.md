@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2024-03-29
+
+### Changes
+
+- **Rust Toolchain**: Updated the minimum required Rust toolchain to version 1.77.
+- **Networking**:
+  - **Libp2p Replacement**: Transitioned from libp2p to a custom internal networking implementation. The transition will be finalized in the next release, completely removing the libp2p dependency.
+    - **Gossipsub**: Pending support. Current version of the node performs initial bootstrapping but cannot stay synchronized with network broadcasts.
+    - **Kademlia**: Partial implementation includes bootstrapping and FIND_NODE server/client functionalities.
+    - **Identify Protocol**: Absent in this release, rendering the node unusable as a seed node.
+- **Frontend**:
+  - **Mobile Compatibility**: Enhanced support for mobile platforms, improving user experience across various devices.
+
+### Fixes
+
+- **Staged Ledger**: Resolved an issue where the ledger reconstruct step would block the state machine.
+- **Node Communication**: Fixed a bug where nodes did not respond to ledger queries from bootstrapping peers, enhancing network cooperation.
+- **Frontend**:
+  - **Test Stability**: Addressed and fixed previously failing tests.
+- **Backend**:
+  - **HTTP RPC**: Corrected an error triggered when querying the `/state` endpoint.
+
+### Additions
+
+- **Bootstrap Efficiency**:
+  - **Ledger Synchronization**: Optimized the snarked ledger synchronization process during bootstrap, significantly reducing the time required.
+  - **Genesis Ledger Loading**: Enhanced the loading mechanism for the genesis ledger, achieving much faster startup times.
+- **Frontend Enhancements**:
+  - Network Node DHT view.
+  - Network Bootstrap Stats for real-time monitoring of network bootstrap statistics.
+  - Main Dashboard view.
+- **Backend Improvements**:
+  - **JsonPath Support**: Enhanced the `/state` HTTP RPC endpoint with JsonPath support, offering more flexible state querying capabilities.
+
 ## [0.2.0] - 2024-02-29
 
 ### Changed
@@ -52,7 +86,8 @@ First public release.
 - Alpha version of the node which can connect and syncup to the berkeleynet network, and keep applying new blocks to maintain consensus state and ledger up to date.
 - Web-based frontend for the node.
 
-[unreleased]: https://github.com/openmina/openmina/compare/v0.2.0...develop
+[Unreleased]: https://github.com/openmina/openmina/compare/v0.3.0...develop
+[0.3.0]: https://github.com/openmina/openmina/releases/tag/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/openmina/openmina/releases/tag/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/openmina/openmina/releases/tag/v0.0.1...v0.1.0
 [0.0.1]: https://github.com/openmina/openmina/releases/tag/v0.0.1

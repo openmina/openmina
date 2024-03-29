@@ -5,6 +5,7 @@ pub mod connection;
 pub mod disconnection;
 pub mod discovery;
 pub mod listen;
+pub mod network;
 pub mod peer;
 
 mod p2p_effects;
@@ -31,7 +32,7 @@ where
 
     fn dispatch<A>(&mut self, action: A) -> bool
     where
-        A: Into<P2pAction> + redux::EnablingCondition<crate::State>,
+        A: Into<P2pAction> + redux::EnablingCondition<P2pState>,
     {
         crate::Store::sub_dispatch(self, action)
     }
@@ -56,6 +57,9 @@ impl_into_global_action!(connection::incoming::P2pConnectionIncomingAction);
 impl_into_global_action!(disconnection::P2pDisconnectionAction);
 
 impl_into_global_action!(discovery::P2pDiscoveryAction);
+
+impl_into_global_action!(network::P2pNetworkSchedulerAction);
+impl_into_global_action!(network::kad::P2pNetworkKademliaAction);
 
 impl_into_global_action!(channels::P2pChannelsMessageReceivedAction);
 

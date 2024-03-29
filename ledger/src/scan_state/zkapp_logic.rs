@@ -1,12 +1,12 @@
 use ark_ff::Zero;
 use mina_hasher::Fp;
 use mina_signer::CompressedPubKey;
+use openmina_core::constants::ConstraintConstants;
 
 use crate::{
     check_permission, hash_with_kimchi,
     scan_state::{
         currency::{Amount, Index, Magnitude, Sgn, Signed, Slot},
-        scan_state::ConstraintConstants,
         transaction_logic::{
             account_check_timing, cons_zkapp_command_commitment, get_account, is_timed,
             local_state::{CallStack, LocalStateEnv, StackFrame},
@@ -574,7 +574,7 @@ where
         ..a
     };
 
-    let account_creation_fee = Amount::of_fee(&constraint_constants.account_creation_fee);
+    let account_creation_fee = Amount::from_u64(constraint_constants.account_creation_fee);
     let implicit_account_creation_fee = account_update.implicit_account_creation_fee();
 
     // Check the token for implicit account creation fee payment.
@@ -615,10 +615,9 @@ where
         // println!("[rust] failed1 {}", failed1);
         let local_state = local_state.add_check(TransactionFailure::Overflow, !failed1);
         let local_state = {
-            let account_creation_fee = constraint_constants.account_creation_fee;
             let (excess_minus_creation_fee, excess_update_failed) =
                 local_state.excess.add_flagged(Signed::<Amount> {
-                    magnitude: Amount::of_fee(&account_creation_fee),
+                    magnitude: Amount::from_u64(constraint_constants.account_creation_fee),
                     sgn: Sgn::Neg,
                 });
             let local_state = local_state.add_check(

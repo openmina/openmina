@@ -1,0 +1,39 @@
+<div class="flex-column bg-surface w-100 border-rad-6">
+  <div class="h-xl lh-xl fx-row-vert-cent flex-between f-600 pl-12 pr-12 p-relative">
+    <div [class.success-primary]="fetchedPercentage === '100%' && appliedPercentage === 100">
+      Last 290 blocks
+    </div>
+    <div class="f-400 tertiary">{{ syncProgress }}</div>
+    <div *ngIf="appliedPercentage" [style.width.%]="appliedPercentage"
+         class="progress-bar p-absolute">
+      <div class="highlight p-absolute" *ngIf="appliedPercentage < 100"></div>
+      <div class="progress p-absolute w-100"></div>
+    </div>
+  </div>
+  <div class="flex-row flex-wrap align-center f-base">
+    <mina-card label="Fetched blocks"
+               [color]="fetchedPercentage === '100%' ? 'var(--success-primary)' : 'var(--base-primary)'"
+               [value]="fetchedPercentage"
+               [hint]="(fetched || 0) + '/290 blocks'"></mina-card>
+    <mina-card label="Applied blocks"
+               [color]="appliedPercentage === 100 ? 'var(--success-primary)' : 'var(--base-primary)'"
+               [value]="appliedPercentage !== undefined ? appliedPercentage + '%' : '-'"
+               [hint]="(applied || 0) + '/290 blocks'"></mina-card>
+    <mina-card label="Root"
+               labelColor="var(--base-tertiary)"
+               color="var(--base-tertiary)"
+               [value]="root"
+               [hint]="rootText"></mina-card>
+    <mina-card label="Target (Best Tip)"
+               labelColor="var(--base-tertiary)"
+               color="var(--base-tertiary)"
+               [value]="bestTipBlock"
+               [hint]="bestTipBlockSyncedText"></mina-card>
+    <mina-card label="Max Observed"
+               labelColor="var(--base-tertiary)"
+               color="var(--base-tertiary)"
+               icon="info"
+               [tooltipText]="'This is the highest observed block within the peer network.'"
+               [value]="targetBlock || '-'" [hint]="targetBlock ? 'Now' : 'Waiting peers'"></mina-card>
+  </div>
+</div>

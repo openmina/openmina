@@ -1,8 +1,10 @@
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
 pub mod libp2p;
+#[cfg(all(not(target_arch = "wasm32"), not(feature = "p2p-libp2p")))]
+pub mod mio;
 #[cfg(feature = "p2p-webrtc")]
 pub mod webrtc;
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32")))]
 pub mod webrtc_with_libp2p;
 
 use std::future::Future;
@@ -39,12 +41,14 @@ pub mod webrtc {
 
     #[allow(unused_variables)]
     pub trait P2pServiceWebrtc: redux::Service {
+        type Event: From<P2pEvent> + Send + Sync + 'static;
+
         fn random_pick(
             &mut self,
             list: &[P2pConnectionOutgoingInitOpts],
         ) -> P2pConnectionOutgoingInitOpts;
 
-        fn event_sender(&mut self) -> &mut mpsc::UnboundedSender<P2pEvent>;
+        fn event_sender(&mut self) -> &mut mpsc::UnboundedSender<Self::Event>;
 
         fn cmd_sender(&mut self) -> &mut mpsc::UnboundedSender<Cmd>;
 

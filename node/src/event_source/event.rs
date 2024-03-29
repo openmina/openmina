@@ -1,10 +1,13 @@
+use mina_p2p_messages::v2::LedgerHash;
 use serde::{Deserialize, Serialize};
 
-use crate::block_producer::BlockProducerEvent;
-use crate::external_snark_worker::ExternalSnarkWorkerEvent;
+pub use crate::block_producer::BlockProducerEvent;
+pub use crate::external_snark_worker::ExternalSnarkWorkerEvent;
 pub use crate::p2p::{P2pConnectionEvent, P2pEvent};
 pub use crate::rpc::{RpcId, RpcRequest};
 pub use crate::snark::SnarkEvent;
+
+use crate::transition_frontier::genesis::GenesisConfigLoaded;
 
 #[derive(derive_more::From, Serialize, Deserialize, Debug, Clone)]
 pub enum Event {
@@ -13,6 +16,10 @@ pub enum Event {
     Rpc(RpcId, RpcRequest),
     ExternalSnarkWorker(ExternalSnarkWorkerEvent),
     BlockProducerEvent(BlockProducerEvent),
+
+    LedgerStagingReconstruct(Result<LedgerHash, String>),
+
+    GenesisLoad(Result<GenesisConfigLoaded, String>),
 }
 
 impl std::fmt::Display for Event {
@@ -23,10 +30,11 @@ impl std::fmt::Display for Event {
             Self::Rpc(id, req) => {
                 write!(f, "Rpc, {id}, ")?;
                 match req {
-                    RpcRequest::StateGet => write!(f, "StateGet"),
+                    RpcRequest::StateGet(filter) => write!(f, "StateGet, {filter:?}"),
                     RpcRequest::ActionStatsGet(query) => write!(f, "ActionStatsGet, {query:?}"),
                     RpcRequest::SyncStatsGet(query) => write!(f, "SyncStatsGet, {query:?}"),
                     RpcRequest::PeersGet => write!(f, "PeersGet"),
+                    RpcRequest::MessageProgressGet => write!(f, "MessageProgressGet"),
                     RpcRequest::P2pConnectionOutgoing(opts) => {
                         write!(f, "P2pConnectionOutgoing, {opts}")
                     }
@@ -48,6 +56,8 @@ impl std::fmt::Display for Event {
                     RpcRequest::SnarkerWorkers => write!(f, "SnarkerWorkers"),
                     RpcRequest::HealthCheck => write!(f, "HealthCheck"),
                     RpcRequest::ReadinessCheck => write!(f, "ReadinessCheck"),
+                    RpcRequest::DiscoveryRoutingTable => write!(f, "DiscoveryRoutingTable"),
+                    RpcRequest::DiscoveryBoostrapStats => write!(f, "DiscoveryBoostrapStats"),
                 }
             }
             Self::ExternalSnarkWorker(event) => {
@@ -63,6 +73,28 @@ impl std::fmt::Display for Event {
                 }
             }
             Self::BlockProducerEvent(event) => event.fmt(f),
+            Self::LedgerStagingReconstruct(res) => {
+                write!(f, "LedgerStagingReconstruct, ")?;
+                match res {
+                    Err(_) => {
+                        write!(f, "Err")
+                    }
+                    Ok(hash) => {
+                        write!(f, "Ok, {}", hash)
+                    }
+                }
+            }
+            Self::GenesisLoad(res) => {
+                write!(f, "GenesisLoad, ")?;
+                match res {
+                    Err(_) => {
+                        write!(f, "Err")
+                    }
+                    Ok(data) => {
+                        write!(f, "Ok, {}", data.ledger_hash)
+                    }
+                }
+            }
         }
     }
 }

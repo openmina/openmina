@@ -8,6 +8,7 @@ export const environment: Readonly<MinaEnv> = {
       dashboard: [],
       nodes: ['overview', 'live', 'bootstrap'],
       state: ['actions'],
+      network: ['node-dht', 'graph-overview', 'bootstrap-stats'],
       snarks: ['scan-state'],
     },
   },
@@ -15,7 +16,7 @@ export const environment: Readonly<MinaEnv> = {
     {
       name: 'Local rust node',
       url: 'http://127.0.0.1:3000',
-    }
+    },
   ],
 };
 

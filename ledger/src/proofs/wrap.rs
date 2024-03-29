@@ -1400,8 +1400,8 @@ pub mod wrap_verifier {
         };
 
         let plonk_index = PlonkVerificationKeyEvals {
-            sigma: std::array::from_fn(|i| to_curve(&vk.sigma_comm[i])),
-            coefficients: std::array::from_fn(|i| to_curve(&vk.coefficients_comm[i])),
+            sigma: vk.sigma_comm.each_ref().map(to_curve),
+            coefficients: vk.coefficients_comm.each_ref().map(to_curve),
             generic: to_curve(&vk.generic_comm),
             psm: to_curve(&vk.psm_comm),
             complete_add: to_curve(&vk.complete_add_comm),

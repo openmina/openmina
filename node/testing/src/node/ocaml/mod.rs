@@ -44,7 +44,7 @@ impl OcamlNode {
         let config_dir = dir.join(".config");
         let daemon_json_path = config_dir.join("daemon.json");
 
-        std::fs::create_dir_all(&config_dir)
+        Self::make_dir_rec(&config_dir)
             .map_err(|err| anyhow::anyhow!("failed to create config dir: {err}"))?;
 
         let peer_id = match Self::read_peer_id(dir) {
@@ -77,7 +77,31 @@ impl OcamlNode {
             }
         }
 
-        let mut cmd = config.cmd([("MINA_LIBP2P_PASS", "")]);
+        let block_producer = match config.block_producer.as_ref() {
+            None => None,
+            Some(sec_key) => {
+                let sec_key_bs58 = sec_key.to_string();
+                let key_path = config_dir.join("block_producer_key");
+                let mut cmd = config.cmd([
+                    ("CODA_PRIVKEY", sec_key_bs58.as_str()),
+                    ("MINA_PRIVKEY_PASS", ""),
+                ]);
+                cmd.arg("advanced")
+                    .arg("wrap-key")
+                    .arg("--privkey-path")
+                    .arg(&key_path);
+                if !cmd
+                    .status()
+                    .map_err(|err| anyhow::anyhow!("block producer key wrap failed: {err}"))?
+                    .success()
+                {
+                    anyhow::bail!("block producer key wrap failed! Unknown error");
+                }
+                Some(key_path)
+            }
+        };
+
+        let mut cmd = config.cmd([("MINA_LIBP2P_PASS", ""), ("MINA_PRIVKEY_PASS", "")]);
 
         cmd.arg("daemon");
         cmd.arg("--config-dir").arg(&config_dir);
@@ -93,6 +117,9 @@ impl OcamlNode {
         }
         if is_seed {
             cmd.arg("--seed");
+        }
+        if let Some(key_path) = block_producer {
+            cmd.arg("--block-producer-key").arg(key_path);
         }
 
         cmd.stdout(std::process::Stdio::piped())
@@ -215,20 +242,22 @@ impl OcamlNode {
         )
     }
 
+    fn make_dir_rec(path: &Path) -> anyhow::Result<()> {
+        use std::os::unix::fs::DirBuilderExt;
+        std::fs::DirBuilder::new()
+            .recursive(true)
+            .mode(0o700)
+            .create(path)
+            .map_err(Into::into)
+    }
+
     fn generate_libp2p_keypair(config: &OcamlNodeConfig, dir: &Path) -> anyhow::Result<String> {
-        use std::{
-            fs::OpenOptions,
-            io::Write,
-            os::unix::fs::{DirBuilderExt, OpenOptionsExt},
-        };
+        use std::{fs::OpenOptions, io::Write, os::unix::fs::OpenOptionsExt};
 
         let (peer_id, key) = Self::LIBP2P_KEYS[config.libp2p_keypair_i];
         let privkey_path = Self::privkey_path(dir);
         let privkey_parent_dir = privkey_path.as_path().parent().unwrap();
-        std::fs::DirBuilder::new()
-            .recursive(true)
-            .mode(0o700)
-            .create(privkey_parent_dir)?;
+        Self::make_dir_rec(privkey_parent_dir)?;
 
         let mut file = OpenOptions::new()
             .create(true)
@@ -267,6 +296,17 @@ impl OcamlNode {
             .ok_or_else(|| anyhow::anyhow!("empty chain_id response"))
     }
 
+    /// Queries graphql to get chain_id.
+    pub async fn chain_id_async(&self) -> anyhow::Result<String> {
+        let res = self
+            .grapql_query_async("query { daemonStatus { chainId } }")
+            .await?;
+        res["data"]["daemonStatus"]["chainId"]
+            .as_str()
+            .map(|s| s.to_owned())
+            .ok_or_else(|| anyhow::anyhow!("empty chain_id response"))
+    }
+
     /// Queries graphql to check if ocaml node is synced,
     /// returning it's best tip hash if yes.
     pub fn synced_best_tip(&self) -> anyhow::Result<Option<StateHash>> {
@@ -279,10 +319,43 @@ impl OcamlNode {
         }
     }
 
+    /// Queries graphql to check if ocaml node is synced,
+    /// returning it's best tip hash if yes.
+    pub async fn synced_best_tip_async(&self) -> anyhow::Result<Option<StateHash>> {
+        let mut res = self
+            .grapql_query_async("query { daemonStatus { syncStatus, stateHash } }")
+            .await?;
+        let data = &mut res["data"]["daemonStatus"];
+        if data["syncStatus"].as_str() == Some("SYNCED") {
+            Ok(Some(serde_json::from_value(data["stateHash"].take())?))
+        } else {
+            Ok(None)
+        }
+    }
+
     fn graphql_addr(&self) -> String {
         format!("http://127.0.0.1:{}/graphql", self.graphql_port)
     }
 
+    // TODO(binier): shouldn't be publically accessible.
+    //
+    // Only `exec` function should be exposed and instead of this, we
+    // should have a step to query graphql and assert response as a part
+    // of that step.
+    pub async fn grapql_query_async(&self, query: &str) -> anyhow::Result<serde_json::Value> {
+        let client = reqwest::Client::new();
+        let response = client
+            .post(self.graphql_addr())
+            .json(&{
+                serde_json::json!({
+                    "query": query
+                })
+            })
+            .send()
+            .await?;
+
+        Ok(response.json().await?)
+    }
     // TODO(binier): shouldn't be publically accessible.
     //
     // Only `exec` function should be exposed and instead of this, we
@@ -326,7 +399,11 @@ impl OcamlNode {
         tokio::time::timeout(timeout, async {
             loop {
                 interval.tick().await;
-                if self.synced_best_tip().map_or(false, |tip| tip.is_some()) {
+                if self
+                    .synced_best_tip_async()
+                    .await
+                    .map_or(false, |tip| tip.is_some())
+                {
                     return;
                 }
             }
@@ -373,6 +450,7 @@ fn run_ocaml() {
         client_port: 8301,
         initial_peers: Vec::new(),
         daemon_json: DaemonJson::Custom("/var/lib/coda/berkeley.json".to_owned()),
+        block_producer: None,
     })
     .unwrap();
     let stdout = node.child.stdout.take().unwrap();

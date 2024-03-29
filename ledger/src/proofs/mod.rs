@@ -2,6 +2,7 @@ pub mod accumulator_check;
 pub mod block;
 pub mod caching;
 pub mod constants;
+mod conv;
 pub mod field;
 pub mod gates;
 pub mod group_map;

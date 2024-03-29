@@ -15,6 +15,7 @@ pub type RpcActionWithMetaRef<'a> = redux::ActionWithMeta<&'a RpcAction>;
 pub enum RpcAction {
     GlobalStateGet {
         rpc_id: RpcId,
+        filter: Option<String>,
     },
 
     // Stats
@@ -25,6 +26,9 @@ pub enum RpcAction {
     SyncStatsGet {
         rpc_id: RpcId,
         query: SyncStatsQuery,
+    },
+    MessageProgressGet {
+        rpc_id: RpcId,
     },
 
     PeersGet {
@@ -101,17 +105,25 @@ pub enum RpcAction {
         rpc_id: RpcId,
     },
 
+    DiscoveryRoutingTable {
+        rpc_id: RpcId,
+    },
+    DiscoveryBoostrapStats {
+        rpc_id: RpcId,
+    },
+
     Finish {
         rpc_id: RpcId,
     },
 }
 
 impl redux::EnablingCondition<crate::State> for RpcAction {
-    fn is_enabled(&self, state: &crate::State) -> bool {
+    fn is_enabled(&self, state: &crate::State, _time: redux::Timestamp) -> bool {
         match self {
             RpcAction::GlobalStateGet { .. } => true,
             RpcAction::ActionStatsGet { .. } => true,
             RpcAction::SyncStatsGet { .. } => true,
+            RpcAction::MessageProgressGet { .. } => true,
             RpcAction::PeersGet { .. } => true,
             RpcAction::P2pConnectionOutgoingInit { rpc_id, .. } => {
                 !state.rpc.requests.contains_key(rpc_id)
@@ -163,6 +175,8 @@ impl redux::EnablingCondition<crate::State> for RpcAction {
             RpcAction::SnarkerWorkersGet { .. } => true,
             RpcAction::HealthCheck { .. } => true,
             RpcAction::ReadinessCheck { .. } => true,
+            RpcAction::DiscoveryRoutingTable { .. } => true,
+            RpcAction::DiscoveryBoostrapStats { .. } => true,
             RpcAction::Finish { rpc_id } => state
                 .rpc
                 .requests

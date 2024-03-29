@@ -12,9 +12,13 @@
                        [style.margin-left.px]="menu.isMobile ? 0 : (menu.collapsed ? 44 : 160)">
     <mina-toolbar></mina-toolbar>
     <div class="mina-content"
+         [class.no-submenus]="subMenusLength < 2"
          [class.mobile]="menu.isMobile">
       <router-outlet></router-outlet>
     </div>
-    <mina-submenu-tabs *ngIf="menu.isMobile" class="mobile-menu border-top"></mina-submenu-tabs>
+    <mina-submenu-tabs *ngIf="menu.isMobile"
+                       [class.d-none]="subMenusLength < 2"
+                       class="mobile-menu border-top"
+                       (subMenusLength)="onSubmenusLengthChange($event)"></mina-submenu-tabs>
   </mat-sidenav-content>
 </mat-sidenav-container>

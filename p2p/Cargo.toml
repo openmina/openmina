@@ -1,13 +1,14 @@
 [package]
 name = "p2p"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 license = "Apache-2.0"
 
 [dependencies]
 thiserror = "1.0.37"
-serde = "1.0.147"
-serde_json = "1.0.94"
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_with = { workspace = true }
 strum = "0.24.1"
 strum_macros = "0.24.3"
 derive_more = "0.99.17"
@@ -26,18 +27,41 @@ ecies-ed25519 = "0.5.1"
 ed25519-dalek = { version = "2.0.0-rc.2", features = ["serde"] }
 faster-stun = { version = "1.0.1" }
 reqwest = { version = "0.11.22" }
+unsigned-varint = { version = "0.8.0" }
+hex = { version = "0.4.3" }
+bitflags = { version = "2.4.1", features = ["serde"] }
+# crypto
+zeroize = { version = "1.7" }
+hkdf = { version = "0.12.4" }
+blake2 = { version = "0.10.6" }
+chacha20poly1305 = { version = "0.10.1" }
+curve25519-dalek = { version = "4.1", features = ["legacy_compatibility"] }
 
-redux = { git = "https://github.com/openmina/redux-rs.git", branch="feat/global-time", features = ["serde"] }
+redux = { workspace = true }
 mina-p2p-messages = { workspace = true }
 
+salsa-simple = { path = "../tools/salsa-simple" }
 openmina-core = { path = "../core" }
+quick-protobuf = "0.8.1"
+crypto-bigint = { version = "0.5.5", features = ["generic-array", "serde", "alloc"] }
+
+[dev-dependencies]
+crypto-bigint = { version = "0.5.5", features = ["rand_core"] }
+warp = "0.3.6"
+tokio = { version = "1.26", features = ["macros", "rt-multi-thread"] }
+clap = { version = "4.5.2", features = ["derive", "env"] }
+
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 tokio = { version = "1.26", features = ["rt"] }
 webrtc = { git = "https://github.com/openmina/webrtc.git", branch = "openmina-13c490c3", optional = true }
 hyper = { version = "0.14.25", features = ["client", "http1", "tcp"] }
-libp2p = { workspace = true, features = ["macros", "serde", "tcp", "dns", "tokio", "yamux", "pnet", "noise", "gossipsub", "identify", "kad"] }
-libp2p-rpc-behaviour = { path = "libp2p-rpc-behaviour" }
+libp2p = { workspace = true, features = ["macros", "serde", "tcp", "dns", "tokio", "yamux", "pnet", "noise", "gossipsub", "identify", "kad"], optional = true }
+libp2p-rpc-behaviour = { path = "libp2p-rpc-behaviour", optional = true }
+libp2p-identity = { version = "=0.2.7", features = ["ed25519", "rand", "serde"] }
+multiaddr = { version = "0.18.1" }
+mio = { version = "0.8.11", features = ["os-poll"] }
+libc = { version = "0.2.151" }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = "0.2"
@@ -50,3 +74,4 @@ tokio = { version = "1.26", features = ["macros"] }
 
 [features]
 p2p-webrtc = ["webrtc"]
+p2p-libp2p = ["libp2p", "libp2p-rpc-behaviour"]

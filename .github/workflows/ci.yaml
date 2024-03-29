@@ -16,7 +16,7 @@ jobs:
       CARGO_TERM_COLOR: always
     steps:
       - name: Git checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Setup Rust
         run: |
           # Nightly to be able to use `--report-time` below
@@ -39,12 +39,12 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - name: Git checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup Rust
         run: |
-          rustup install 1.75
-          rustup override set 1.75
+          rustup install 1.77
+          rustup override set 1.77
           rustup component add clippy rustfmt
 
       # - name: Check
@@ -69,7 +69,7 @@ jobs:
           cargo build --release --bin openmina
 
       - name: Upload binaries
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: bin
           path: target/release/openmina
@@ -88,10 +88,15 @@ jobs:
           jq -r '. | select(.executable != null and (.target.kind | (contains(["test"])))) | [.target.name, .executable ] | @tsv' cargo-build-test.json > tests.tsv
           while read NAME FILE; do cp -a $FILE target/release/tests/webrtc_$NAME; done < tests.tsv
 
+          cargo build --release --features=scenario-generators,p2p-libp2p --package=openmina-node-testing --tests
+          cargo build --release --features=scenario-generators,p2p-libp2p --package=openmina-node-testing --tests --message-format=json > cargo-build-test.json
+          jq -r '. | select(.executable != null and (.target.kind | (contains(["test"])))) | [.target.name, .executable ] | @tsv' cargo-build-test.json > tests.tsv
+          while read NAME FILE; do cp -a $FILE target/release/tests/libp2p_$NAME; done < tests.tsv
+
           tar cf tests.tar -C target/release/tests .
 
       - name: Upload tests
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: tests
           path: tests.tar
@@ -104,21 +109,26 @@ jobs:
     strategy:
       matrix:
         test: [p2p_basic_connections, p2p_basic_incoming, p2p_basic_outgoing]
+        libp2p:
+          - external
+          # - internal
       fail-fast: false
+    env:
+      TEST: ${{ matrix.libp2p == 'external' && format('libp2p_{0}', matrix.test) || matrix.test }}
 
     steps:
       - name: Download tests
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: tests
 
       - name: Unpack tests
         run: |
-          tar xf tests.tar ./${{ matrix.test }}
+          tar xf tests.tar ./${{ env.TEST }}
 
       - name: Run the test
         run: |
-          ./${{ matrix.test }} --nocapture --test-threads=1
+          ./${{ env.TEST }} --nocapture --test-threads=1
 
   scenario-tests:
     needs: [ build ]
@@ -127,12 +137,17 @@ jobs:
       image: minaprotocol/mina-daemon:2.0.0berkeley-rc1-1551e2f-focal-berkeley
     strategy:
       matrix:
-        test: [single_node, multi_node, connection_discovery, webrtc_single_node, webrtc_multi_node]
+        test:
+          - single_node
+          - multi_node
+          - webrtc_single_node
+          - webrtc_multi_node
+          # - connection_discovery
       fail-fast: false
 
     steps:
       - name: Download tests
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: tests
 

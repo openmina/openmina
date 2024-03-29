@@ -1,4 +1,4 @@
-use ledger::proofs::transaction::transaction_snark::CONSTRAINT_CONSTANTS;
+use openmina_core::constants::CONSTRAINT_CONSTANTS;
 use redux::{ActionMeta, Timestamp};
 use serde::{Deserialize, Serialize};
 
@@ -82,5 +82,19 @@ impl State {
         let slots = ms / CONSTRAINT_CONSTANTS.block_window_duration_ms;
 
         Some(best_tip.global_slot() + (slots as u32))
+    }
+
+    pub fn current_epoch(&self) -> Option<u32> {
+        let best_tip = self.transition_frontier.best_tip()?;
+        Some(
+            best_tip
+                .block
+                .header
+                .protocol_state
+                .body
+                .consensus_state
+                .epoch_count
+                .as_u32(),
+        )
     }
 }

@@ -3,8 +3,6 @@ use std::collections::{BTreeMap, VecDeque};
 use mina_p2p_messages::v2::StateHash;
 use openmina_core::block::ArcBlockWithHash;
 
-use crate::TransitionFrontierConfig;
-
 use super::{
     ledger::{
         snarked::TransitionFrontierSyncLedgerSnarkedState, SyncLedgerTarget, SyncLedgerTargetKind,
@@ -19,7 +17,6 @@ impl TransitionFrontierSyncState {
     pub fn reducer(
         &mut self,
         action: TransitionFrontierSyncActionWithMetaRef<'_>,
-        config: &TransitionFrontierConfig,
         best_chain: &[ArcBlockWithHash],
     ) {
         let (action, meta) = action.split();
@@ -396,12 +393,11 @@ impl TransitionFrontierSyncState {
                 };
                 let (best_tip, root_block) = (best_tip.clone(), root_block.clone());
                 let blocks_inbetween = std::mem::take(blocks_inbetween);
-                let root_block_height = root_block.height();
 
                 let mut applied_blocks: BTreeMap<_, _> =
                     best_chain.iter().map(|b| (&b.hash, b)).collect();
 
-                let mut chain = Vec::with_capacity(config.k());
+                let mut chain = Vec::with_capacity(best_tip.constants().k.as_u32() as usize);
 
                 // TODO(binier): maybe time should be when we originally
                 // applied this block? Same for below.
@@ -427,16 +423,10 @@ impl TransitionFrontierSyncState {
                         }
                     }
                 }));
-
-                // TODO(binier): can only happen if best_tip is genesis.
-                // TMP until we don't have genesis reconstruction logic
-                // without relying on peers for it.
-                if root_block_height != best_tip.height() {
-                    chain.push(TransitionFrontierSyncBlockState::FetchSuccess {
-                        time: meta.time(),
-                        block: best_tip,
-                    });
-                }
+                chain.push(TransitionFrontierSyncBlockState::FetchSuccess {
+                    time: meta.time(),
+                    block: best_tip,
+                });
 
                 *self = Self::BlocksPending {
                     time: meta.time(),
@@ -488,10 +478,12 @@ impl TransitionFrontierSyncState {
                 let Self::BlocksPending { chain, .. } = self else {
                     return;
                 };
-                let Some(peer_state) = chain
-                    .iter_mut()
-                    .find_map(|b| b.fetch_pending_from_peer_mut(peer_id))
-                else {
+                let Some(peer_state) = chain.iter_mut().find_map(|b| {
+                    b.fetch_pending_from_peer_mut(peer_id)
+                        .filter(|peer_rpc_state| {
+                            matches!(peer_rpc_state, PeerRpcState::Pending { .. })
+                        })
+                }) else {
                     return;
                 };
                 *peer_state = PeerRpcState::Error {
@@ -563,10 +555,17 @@ impl TransitionFrontierSyncState {
                 else {
                     return;
                 };
+                let Some(k) = chain
+                    .last()
+                    .and_then(|v| v.block())
+                    .map(|b| b.constants().k.as_u32() as usize)
+                else {
+                    return;
+                };
                 let chain = std::mem::take(chain)
                     .into_iter()
                     .rev()
-                    .take(config.k() + 1)
+                    .take(k + 1)
                     .rev()
                     .filter_map(|v| v.take_block())
                     .collect();

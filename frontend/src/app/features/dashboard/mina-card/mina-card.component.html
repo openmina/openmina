@@ -1,5 +1,5 @@
-<div class="fx-row-vert-cent">
-  <span [style.color]="color">{{ label }}</span>
+<div class="fx-row-vert-cent h-xs">
+  <span [style.color]="labelColor">{{ label }}</span>
   <span class="mina-icon tertiary icon-200 f-20"
         [tooltip]="tooltipText"
         [tooltipDisabled]="!tooltipText"
@@ -7,4 +7,4 @@
 </div>
 <div class="value f-600 text-capitalize"
      [style.color]="color">{{ value ?? '-' }}</div>
-<div class="tertiary">{{ hint }}</div>
+<div [style.color]="hintColor">{{ hint }}</div>

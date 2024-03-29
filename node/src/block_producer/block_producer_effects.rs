@@ -1,8 +1,16 @@
+use mina_p2p_messages::v2::{
+    BlockchainSnarkBlockchainStableV2, ConsensusStakeProofStableV2,
+    MinaStateSnarkTransitionValueStableV2, ProverExtendBlockchainInputStableV2,
+};
+
 use crate::transition_frontier::sync::TransitionFrontierSyncAction;
 use crate::Store;
 
 use super::vrf_evaluator::BlockProducerVrfEvaluatorAction;
-use super::{BlockProducerAction, BlockProducerActionWithMeta};
+use super::{
+    next_epoch_first_slot, to_epoch_and_slot, BlockProducerAction, BlockProducerActionWithMeta,
+    BlockProducerCurrentState,
+};
 
 pub fn block_producer_effects<S: crate::Service>(
     store: &mut Store<S>,
@@ -11,41 +19,52 @@ pub fn block_producer_effects<S: crate::Service>(
     let (action, meta) = action.split();
 
     match action {
-        BlockProducerAction::VrfEvaluator(ref a) => {
+        BlockProducerAction::VrfEvaluator(a) => {
             // TODO: does the order matter? can this clone be avoided?
-            a.clone().effects(&meta, store);
-            match a {
-                BlockProducerVrfEvaluatorAction::EvaluationSuccess { vrf_output, .. } => {
-                    let has_won_slot = matches!(vrf_output, vrf::VrfEvaluationOutput::SlotWon(_));
-                    if has_won_slot {
-                        store.dispatch(BlockProducerAction::WonSlotSearch);
-                    }
+            let has_won_slot = match &a {
+                BlockProducerVrfEvaluatorAction::ProcessSlotEvaluationSuccess {
+                    vrf_output,
+                    ..
+                } => {
+                    matches!(vrf_output, vrf::VrfEvaluationOutput::SlotWon(_))
                 }
-                _ => {}
+                _ => false,
+            };
+            a.effects(&meta, store);
+            if has_won_slot {
+                store.dispatch(BlockProducerAction::WonSlotSearch);
             }
         }
         BlockProducerAction::BestTipUpdate { best_tip } => {
-            let best_tip_staking_ledger = best_tip.staking_epoch_ledger_hash();
-            let protocol_state = &best_tip.block.header.protocol_state.body;
+            let global_slot = best_tip
+                .consensus_state()
+                .curr_global_slot_since_hard_fork
+                .clone();
 
-            let vrf_evaluator_current_epoch_ledger = store
-                .state()
-                .block_producer
-                .vrf_evaluator()
-                .and_then(|vrf_evaluator| {
-                    vrf_evaluator
-                        .current_epoch_data
-                        .as_ref()
-                        .map(|epoch_data| &epoch_data.ledger)
-                });
+            let (epoch, slot) = to_epoch_and_slot(&global_slot);
+            let next_epoch_first_slot = next_epoch_first_slot(&global_slot);
 
-            if vrf_evaluator_current_epoch_ledger != Some(best_tip_staking_ledger) {
-                store.dispatch(BlockProducerVrfEvaluatorAction::EpochDataUpdate {
-                    new_epoch_number: protocol_state.consensus_state.epoch_count.as_u32(),
-                    epoch_data: protocol_state.consensus_state.staking_epoch_data.clone(),
-                    next_epoch_data: protocol_state.consensus_state.next_epoch_data.clone(),
-                });
-            }
+            store.dispatch(BlockProducerVrfEvaluatorAction::InitializeEvaluator {
+                best_tip: best_tip.clone(),
+            });
+
+            store.dispatch(
+                BlockProducerVrfEvaluatorAction::RecordLastBlockHeightInEpoch {
+                    epoch_number: epoch,
+                    last_block_height: best_tip.height(),
+                },
+            );
+
+            store.dispatch(BlockProducerVrfEvaluatorAction::CheckEpochEvaluability {
+                current_epoch_number: epoch,
+                current_best_tip_height: best_tip.height(),
+                current_best_tip_slot: slot,
+                current_best_tip_global_slot: best_tip.global_slot(),
+                next_epoch_first_slot,
+                staking_epoch_data: best_tip.consensus_state().staking_epoch_data.clone(),
+                next_epoch_data: best_tip.consensus_state().next_epoch_data.clone(),
+                transition_frontier_size: best_tip.constants().k.as_u32(),
+            });
 
             if let Some(reason) = store
                 .state()
@@ -69,6 +88,7 @@ pub fn block_producer_effects<S: crate::Service>(
                 store.dispatch(BlockProducerAction::WonSlotProduceInit);
             }
         }
+        BlockProducerAction::WonSlotWait => {}
         BlockProducerAction::WonSlotProduceInit => {
             store.dispatch(BlockProducerAction::StagedLedgerDiffCreateInit);
         }
@@ -89,7 +109,7 @@ pub fn block_producer_effects<S: crate::Service>(
                 .map(|snark| (snark.job_id(), snark.clone()))
                 .collect();
             // TODO(binier)
-            let supercharge_coinbase = false;
+            let supercharge_coinbase = true;
 
             // TODO(binier): error handling
             let output = store
@@ -104,17 +124,97 @@ pub fn block_producer_effects<S: crate::Service>(
                 .unwrap();
 
             store.dispatch(BlockProducerAction::StagedLedgerDiffCreatePending);
-            store.dispatch(BlockProducerAction::StagedLedgerDiffCreateSuccess {
-                diff: output.diff,
-                diff_hash: output.diff_hash,
-                staged_ledger_hash: output.staged_ledger_hash,
-                emitted_ledger_proof: output.emitted_ledger_proof,
-            });
+            store.dispatch(BlockProducerAction::StagedLedgerDiffCreateSuccess { output });
         }
+        BlockProducerAction::StagedLedgerDiffCreatePending => {}
         BlockProducerAction::StagedLedgerDiffCreateSuccess { .. } => {
             store.dispatch(BlockProducerAction::BlockUnprovenBuild);
         }
         BlockProducerAction::BlockUnprovenBuild => {
+            store.dispatch(BlockProducerAction::BlockProveInit);
+        }
+        BlockProducerAction::BlockProveInit => {
+            let service = &mut store.service;
+            let Some((block_hash, input)) = store.state.get().block_producer.with(None, |bp| {
+                let BlockProducerCurrentState::BlockUnprovenBuilt {
+                    won_slot,
+                    chain,
+                    emitted_ledger_proof,
+                    pending_coinbase_update,
+                    pending_coinbase_witness,
+                    block,
+                    block_hash,
+                    ..
+                } = &bp.current
+                else {
+                    return None;
+                };
+
+                let pred_block = chain.last()?;
+                let staking_epoch_ledger = block
+                    .protocol_state
+                    .body
+                    .consensus_state
+                    .staking_epoch_data
+                    .ledger
+                    .hash
+                    .clone();
+
+                let producer_public_key = block
+                    .protocol_state
+                    .body
+                    .consensus_state
+                    .block_creator
+                    .clone();
+
+                let input = Box::new(ProverExtendBlockchainInputStableV2 {
+                    chain: BlockchainSnarkBlockchainStableV2 {
+                        state: pred_block.block.header.protocol_state.clone(),
+                        proof: pred_block.block.header.protocol_state_proof.clone(),
+                    },
+                    next_state: block.protocol_state.clone(),
+                    block: MinaStateSnarkTransitionValueStableV2 {
+                        blockchain_state: block.protocol_state.body.blockchain_state.clone(),
+                        consensus_transition: block
+                            .protocol_state
+                            .body
+                            .consensus_state
+                            .curr_global_slot_since_hard_fork
+                            .slot_number
+                            .clone(),
+                        pending_coinbase_update: pending_coinbase_update.clone(),
+                    },
+                    ledger_proof: emitted_ledger_proof.as_ref().map(|proof| (**proof).clone()),
+                    prover_state: ConsensusStakeProofStableV2 {
+                        delegator: won_slot.delegator.1.into(),
+                        delegator_pk: won_slot.delegator.0.clone(),
+                        coinbase_receiver_pk: block
+                            .protocol_state
+                            .body
+                            .consensus_state
+                            .coinbase_receiver
+                            .clone(),
+                        ledger: service
+                            .stake_proof_sparse_ledger(
+                                staking_epoch_ledger,
+                                producer_public_key.clone(),
+                                won_slot.delegator.0.clone(),
+                            )
+                            .unwrap(),
+                        producer_private_key: service.keypair()?.into(),
+                        producer_public_key,
+                    },
+                    pending_coinbase: pending_coinbase_witness.clone(),
+                });
+                Some((block_hash.clone(), input))
+            }) else {
+                return;
+            };
+            service.prove(block_hash, input);
+            store.dispatch(BlockProducerAction::BlockProvePending);
+        }
+        BlockProducerAction::BlockProvePending => {}
+        BlockProducerAction::BlockProveSuccess { .. } => {
             store.dispatch(BlockProducerAction::BlockProduced);
         }
         BlockProducerAction::BlockProduced => {
@@ -145,7 +245,5 @@ pub fn block_producer_effects<S: crate::Service>(
         BlockProducerAction::WonSlotDiscard { .. } => {
             store.dispatch(BlockProducerAction::WonSlotSearch);
         }
-        BlockProducerAction::StagedLedgerDiffCreatePending => {}
-        BlockProducerAction::WonSlotWait => {}
     }
 }

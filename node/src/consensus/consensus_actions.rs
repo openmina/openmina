@@ -44,10 +44,14 @@ pub enum ConsensusAction {
 }
 
 impl redux::EnablingCondition<crate::State> for ConsensusAction {
-    fn is_enabled(&self, state: &crate::State) -> bool {
+    fn is_enabled(&self, state: &crate::State, _time: redux::Timestamp) -> bool {
         match self {
-            ConsensusAction::BlockReceived { hash, .. } => {
-                !state.consensus.blocks.contains_key(hash)
+            ConsensusAction::BlockReceived { hash, block, .. } => {
+                let block = ArcBlockWithHash {
+                    hash: hash.clone(),
+                    block: block.clone()
+                };
+                !block.is_genesis() && !state.consensus.blocks.contains_key(hash)
             },
             ConsensusAction::BlockChainProofUpdate { hash, .. } => {
                 (state.consensus.best_tip.as_ref() == Some(hash)

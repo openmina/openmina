@@ -1,0 +1,36 @@
+@import 'openmina';
+
+.circle {
+  width: 10px;
+  height: 10px;
+  border-radius: 12px;
+  background-color: $base-tertiary;
+
+  &.Connected:not(.Not) {
+    background-color: $success-primary;
+  }
+
+  &.Cannot.Connect {
+    background-color: $warn-primary;
+  }
+}
+
+.origin {
+  color: $special-selected-alt-1-primary !important;
+
+  .circle {
+    background-color: $base-surface !important;
+    border: 2px solid $special-selected-alt-1-primary;
+  }
+}
+
+:host ::ng-deep mina-table .row.active {
+  .circle {
+    background-color: $selected-primary !important;
+  }
+
+  .origin .circle {
+    border: 2px solid $selected-primary;
+    background-color: initial !important;
+  }
+}

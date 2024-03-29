@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 
 @Component({
-  selector: 'app-nodes',
+  selector: 'mina-nodes',
   templateUrl: './nodes.component.html',
   styleUrls: ['./nodes.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush

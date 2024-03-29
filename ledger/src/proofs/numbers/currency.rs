@@ -395,11 +395,11 @@ pub trait CheckedCurrency<F: FieldWitness>:
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct CheckedAmount<F: FieldWitness>(F);
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct CheckedFee<F: FieldWitness>(F);
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct CheckedBalance<F: FieldWitness>(F);
 
 impl<F: FieldWitness> CheckedBalance<F> {

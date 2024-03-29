@@ -32,6 +32,7 @@ impl MultiNodeBasicConnectivityPeerDiscovery {
         let ocaml_seed_config = OcamlNodeTestingConfig {
             initial_peers: Vec::new(),
             daemon_json: DaemonJson::Custom("/var/lib/coda/berkeley.json".to_owned()),
+            block_producer: None,
         };
 
         let seed_a = runner.add_ocaml_node(ocaml_seed_config.clone());
@@ -89,7 +90,7 @@ impl MultiNodeBasicConnectivityPeerDiscovery {
             tokio::time::sleep(STEP_DELAY).await;
 
             let steps = runner
-                .pending_events()
+                .pending_events(true)
                 .map(|(node_id, _, events)| {
                     events.map(move |(_, event)| {
                         match event {

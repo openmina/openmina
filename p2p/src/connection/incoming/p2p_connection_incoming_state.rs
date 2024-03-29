@@ -1,11 +1,9 @@
-use std::time::Duration;
-
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
 
 use openmina_core::requests::RpcId;
 
-use crate::webrtc;
+use crate::{webrtc, P2pTimeouts};
 
 use super::IncomingSignalingMethod;
 
@@ -106,11 +104,12 @@ impl P2pConnectionIncomingState {
         }
     }
 
-    pub fn is_timed_out(&self, now: Timestamp) -> bool {
+    pub fn is_timed_out(&self, now: Timestamp, timeouts: &P2pTimeouts) -> bool {
         !matches!(self, Self::Error { .. })
             && now
                 .checked_sub(self.time())
-                .map_or(false, |dur| dur >= Duration::from_secs(30))
+                .and_then(|dur| timeouts.incoming_connection_timeout.map(|to| dur >= to))
+                .unwrap_or(false)
     }
 }
 

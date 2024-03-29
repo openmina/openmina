@@ -1,7 +1,7 @@
 mod block_producer_vrf_evaluator_state;
 use crate::account::AccountPublicKey;
 use ledger::AccountIndex;
-use mina_p2p_messages::v2::LedgerHash;
+use mina_p2p_messages::v2::{EpochSeed, LedgerHash};
 use std::collections::BTreeMap;
 use std::sync::Arc;
 use vrf::{VrfEvaluationOutput, VrfWonSlot};
@@ -16,9 +16,7 @@ pub use block_producer_vrf_evaluator_actions::*;
 
 mod block_producer_vrf_evaluator_reducer;
 
-
 mod block_producer_vrf_evaluator_effects;
-
 
 mod block_producer_vrf_evaluator_service;
 pub use block_producer_vrf_evaluator_service::*;
@@ -28,7 +26,7 @@ pub type DelegatorTable = BTreeMap<AccountIndex, (AccountPublicKey, u64)>;
 
 #[derive(Debug, Deserialize, Clone, Serialize)]
 pub struct VrfEvaluatorInput {
-    pub epoch_seed: String,
+    pub epoch_seed: EpochSeed,
     pub delegator_table: Arc<DelegatorTable>,
     pub global_slot: u32,
     pub total_currency: u64,
@@ -81,7 +79,7 @@ impl VrfEvaluationOutputWithHash {
 
 impl VrfEvaluatorInput {
     pub fn new(
-        epoch_seed: String,
+        epoch_seed: EpochSeed,
         delegator_table: Arc<DelegatorTable>,
         global_slot: u32,
         total_currency: u64,

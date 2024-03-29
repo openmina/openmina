@@ -9,37 +9,60 @@ use crate::{
     P2pChannelEvent, P2pEvent, PeerId,
 };
 
-use super::{libp2p::Libp2pService, webrtc::P2pServiceWebrtc, TaskSpawner};
+#[cfg(not(feature = "p2p-libp2p"))]
+use super::mio::MioService;
+#[cfg(not(feature = "p2p-libp2p"))]
+use crate::P2pMioService;
+
+use super::{webrtc::P2pServiceWebrtc, TaskSpawner};
 
 pub struct P2pServiceCtx {
     pub webrtc: super::webrtc::P2pServiceCtx,
-    pub libp2p: Libp2pService,
+    #[cfg(feature = "p2p-libp2p")]
+    pub libp2p: super::libp2p::Libp2pService,
+    #[cfg(not(feature = "p2p-libp2p"))]
+    pub mio: MioService,
 }
 
 pub trait P2pServiceWebrtcWithLibp2p: P2pServiceWebrtc {
-    fn libp2p(&mut self) -> &mut Libp2pService;
+    #[cfg(feature = "p2p-libp2p")]
+    fn libp2p(&mut self) -> &mut super::libp2p::Libp2pService;
 
-    fn init<S: TaskSpawner>(
-        libp2p_port: Option<u16>,
+    #[cfg(not(feature = "p2p-libp2p"))]
+    fn mio(&mut self) -> &mut MioService;
+
+    fn init<E: From<P2pEvent> + Send + 'static, S: TaskSpawner>(
+        _libp2p_port: Option<u16>,
         secret_key: SecretKey,
-        chain_id: String,
-        event_source_sender: mpsc::UnboundedSender<P2pEvent>,
+        _chain_id: String,
+        event_source_sender: mpsc::UnboundedSender<E>,
         spawner: S,
     ) -> P2pServiceCtx {
         P2pServiceCtx {
-            webrtc: <Self as P2pServiceWebrtc>::init(secret_key.clone(), spawner.clone()),
-            libp2p: Libp2pService::run(
-                libp2p_port,
-                secret_key,
-                chain_id,
+            #[cfg(feature = "p2p-libp2p")]
+            libp2p: super::libp2p::Libp2pService::run::<E, S>(
+                _libp2p_port,
+                secret_key.clone(),
+                _chain_id,
                 event_source_sender,
-                spawner,
+                spawner.clone(),
             ),
+            webrtc: <Self as P2pServiceWebrtc>::init(secret_key, spawner),
+            #[cfg(not(feature = "p2p-libp2p"))]
+            mio: MioService::run({
+                move |mio_event| {
+                    event_source_sender
+                        .send(P2pEvent::MioEvent(mio_event).into())
+                        .unwrap_or_default()
+                }
+            }),
         }
     }
 
+    #[cfg(feature = "p2p-libp2p")]
     fn find_random_peer(&mut self);
 
+    #[cfg(feature = "p2p-libp2p")]
     fn start_discovery(&mut self, peers: Vec<P2pConnectionOutgoingInitOpts>);
 }
 
@@ -56,9 +79,27 @@ impl<T: P2pServiceWebrtcWithLibp2p> P2pConnectionService for T {
             P2pConnectionOutgoingInitOpts::WebRTC { peer_id, .. } => {
                 P2pServiceWebrtc::outgoing_init(self, peer_id);
             }
+            #[cfg(feature = "p2p-libp2p")]
             P2pConnectionOutgoingInitOpts::LibP2P(opts) => {
                 let cmd = super::libp2p::Cmd::Dial(opts.peer_id.into(), vec![opts.to_maddr()]);
                 let _ = self.libp2p().cmd_sender().send(cmd);
+            }
+            #[cfg(not(feature = "p2p-libp2p"))]
+            P2pConnectionOutgoingInitOpts::LibP2P(opts) => {
+                use crate::webrtc::Host;
+                let addr = match opts.host {
+                    Host::Ipv4(ip4) => ip4.into(),
+                    Host::Ipv6(ip6) => ip6.into(),
+                    host => {
+                        openmina_core::error!(openmina_core::log::system_time(); "unsupported host for internal libp2p: {host}");
+                        return;
+                    }
+                };
+                let _ = self
+                    .mio()
+                    .send_mio_cmd(crate::MioCmd::Connect(std::net::SocketAddr::new(
+                        addr, opts.port,
+                    )));
             }
         }
     }
@@ -75,10 +116,12 @@ impl<T: P2pServiceWebrtcWithLibp2p> P2pConnectionService for T {
         P2pServiceWebrtc::http_signaling_request(self, url, offer)
     }
 
+    #[cfg(feature = "p2p-libp2p")]
     fn start_discovery(&mut self, peers: Vec<P2pConnectionOutgoingInitOpts>) {
         P2pServiceWebrtcWithLibp2p::start_discovery(self, peers)
     }
 
+    #[cfg(feature = "p2p-libp2p")]
     fn find_random_peer(&mut self) {
         P2pServiceWebrtcWithLibp2p::find_random_peer(self);
     }
@@ -90,11 +133,19 @@ impl<T: P2pServiceWebrtcWithLibp2p> P2pDisconnectionService for T {
         // cause `peer_loop` to end.
         let is_libp2p_peer = self.peers().remove(&peer_id).is_none();
         if is_libp2p_peer {
-            use super::libp2p::Cmd;
-            let _ = self
-                .libp2p()
-                .cmd_sender()
-                .send(Cmd::Disconnect(peer_id.into()));
+            #[cfg(not(feature = "p2p-libp2p"))]
+            {
+                // TODO(akoptelov): pass dial_opt here to get IP address
+                // self.mio().send_mio_cmd(MioCmd::Disconnect())
+            }
+            #[cfg(feature = "p2p-libp2p")]
+            {
+                use super::libp2p::Cmd;
+                let _ = self
+                    .libp2p()
+                    .cmd_sender()
+                    .send(Cmd::Disconnect(peer_id.into()));
+            }
         }
     }
 }
@@ -108,11 +159,9 @@ impl<T: P2pServiceWebrtcWithLibp2p> P2pChannelsService for T {
                 false => Err("channel not supported".to_owned()),
                 true => Ok(()),
             };
-            let _ = self
-                .event_sender()
-                .send(P2pEvent::Channel(P2pChannelEvent::Opened(
-                    peer_id, id, result,
-                )));
+            self.event_sender()
+                .send(P2pEvent::Channel(P2pChannelEvent::Opened(peer_id, id, result)).into())
+                .unwrap_or_default();
         }
     }
 
@@ -120,19 +169,44 @@ impl<T: P2pServiceWebrtcWithLibp2p> P2pChannelsService for T {
         if self.peers().contains_key(&peer_id) {
             P2pServiceWebrtc::channel_send(self, peer_id, msg_id, msg)
         } else {
+            #[cfg(feature = "p2p-libp2p")]
+            {
+                use super::libp2p::Cmd;
+                let _ = self
+                    .libp2p()
+                    .cmd_sender()
+                    .send(Cmd::SendMessage(peer_id.into(), msg));
+            }
+            #[cfg(not(feature = "p2p-libp2p"))]
+            {
+                openmina_core::error!(openmina_core::log::system_time(); "sending to channel {:?} is not supported", msg.channel_id());
+            }
+        }
+    }
+
+    fn libp2p_broadcast_snark(&mut self, _snark: Snark, _nonce: u32) {
+        #[cfg(feature = "p2p-libp2p")]
+        {
             use super::libp2p::Cmd;
             let _ = self
                 .libp2p()
                 .cmd_sender()
-                .send(Cmd::SendMessage(peer_id.into(), msg));
+                .send(Cmd::SnarkBroadcast(_snark, _nonce));
+        }
+        #[cfg(not(feature = "p2p-libp2p"))]
+        {
+            todo!("unimplemented");
         }
     }
+}
 
-    fn libp2p_broadcast_snark(&mut self, snark: Snark, nonce: u32) {
-        use super::libp2p::Cmd;
-        let _ = self
-            .libp2p()
-            .cmd_sender()
-            .send(Cmd::SnarkBroadcast(snark, nonce));
+impl<T: P2pServiceWebrtcWithLibp2p> crate::P2pMioService for T {
+    #[cfg(not(feature = "p2p-libp2p"))]
+    fn send_mio_cmd(&mut self, cmd: crate::MioCmd) {
+        self.mio().send_mio_cmd(cmd)
+    }
+    #[cfg(feature = "p2p-libp2p")]
+    fn send_mio_cmd(&mut self, _cmd: crate::MioCmd) {
+        unimplemented!("mio is not supproted")
     }
 }

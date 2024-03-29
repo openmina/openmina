@@ -6,7 +6,6 @@ use crate::{array::ArrayN16, list::List, pseq::PaddedSeq};
 
 use super::manual::*;
 
-
 /// **OCaml name**: `Mina_block__Block.Stable.V2`
 ///
 /// Gid: `1102`

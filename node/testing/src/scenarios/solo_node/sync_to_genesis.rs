@@ -27,6 +27,7 @@ impl SoloNodeSyncToGenesis {
         let ocaml_node_config = OcamlNodeTestingConfig {
             initial_peers: Vec::new(),
             daemon_json: runner.daemon_json_gen_with_counts("2023-12-25T09:00:00Z", 2, 2),
+            block_producer: None,
         };
 
         let ocaml_node = runner.add_ocaml_node(ocaml_node_config);
@@ -42,16 +43,24 @@ impl SoloNodeSyncToGenesis {
             .await
             .unwrap();
 
-        let chain_id = runner.ocaml_node(ocaml_node).unwrap().chain_id().unwrap();
+        let chain_id = runner
+            .ocaml_node(ocaml_node)
+            .unwrap()
+            .chain_id_async()
+            .await
+            .unwrap();
         let rust_node = runner.add_rust_node(RustNodeTestingConfig {
             chain_id,
             initial_time,
+            genesis: node::BERKELEY_CONFIG.clone(),
             max_peers: 100,
             ask_initial_peers_interval: Duration::from_secs(60 * 60),
             initial_peers: Vec::new(),
             peer_id: Default::default(),
             snark_worker: None,
             block_producer: None,
+            timeouts: Default::default(),
+            libp2p_port: None,
         });
 
         runner

@@ -13,6 +13,16 @@ import { EffectsModule } from '@ngrx/effects';
 import { DashboardEffects } from '@dashboard/dashboard.effects';
 import { LoadingSpinnerComponent } from '@shared/loading-spinner/loading-spinner.component';
 import { CopyComponent } from '@openmina/shared';
+import { DashboardNetworkComponent } from './dashboard-network/dashboard-network.component';
+import { DashboardLedgerComponent } from './dashboard-ledger/dashboard-ledger.component';
+import {
+  DashboardTransitionFrontierComponent,
+} from './dashboard-transition-frontier/dashboard-transition-frontier.component';
+import { DashboardBlocksSyncComponent } from './dashboard-blocks-sync/dashboard-blocks-sync.component';
+import { DashboardErrorsComponent } from './dashboard-errors/dashboard-errors.component';
+import {
+  DashboardPeersMinimalTableComponent,
+} from './dashboard-peers-minimal-table/dashboard-peers-minimal-table.component';
 
 
 @NgModule({
@@ -24,13 +34,19 @@ import { CopyComponent } from '@openmina/shared';
     DashboardPeersTableComponent,
     DashboardBlockHeightComponent,
     DashboardReceivedComponent,
+    DashboardNetworkComponent,
+    DashboardLedgerComponent,
+    DashboardTransitionFrontierComponent,
+    DashboardBlocksSyncComponent,
+    DashboardErrorsComponent,
+    DashboardPeersMinimalTableComponent,
   ],
-	imports: [
-		SharedModule,
-		DashboardRouting,
-		EffectsModule.forFeature(DashboardEffects),
-		LoadingSpinnerComponent,
-		CopyComponent,
-	],
+  imports: [
+    SharedModule,
+    DashboardRouting,
+    EffectsModule.forFeature(DashboardEffects),
+    LoadingSpinnerComponent,
+    CopyComponent,
+  ],
 })
 export class DashboardModule {}

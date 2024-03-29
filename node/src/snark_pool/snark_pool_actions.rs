@@ -42,9 +42,9 @@ pub enum SnarkPoolAction {
 }
 
 impl redux::EnablingCondition<crate::State> for SnarkPoolAction {
-    fn is_enabled(&self, state: &crate::State) -> bool {
+    fn is_enabled(&self, state: &crate::State, time: redux::Timestamp) -> bool {
         match self {
-            SnarkPoolAction::Candidate(action) => action.is_enabled(state),
+            SnarkPoolAction::Candidate(action) => action.is_enabled(state, time),
             SnarkPoolAction::AutoCreateCommitment => state
                 .config
                 .snarker
@@ -98,13 +98,12 @@ impl redux::EnablingCondition<crate::State> for SnarkPoolAction {
                         last_index,
                     ) || check(p.channels.snark.next_send_index_and_limit(), last_index)
                 }),
-            SnarkPoolAction::CheckTimeouts => state
-                .time()
+            SnarkPoolAction::CheckTimeouts => time
                 .checked_sub(state.snark_pool.last_check_timeouts)
                 .map_or(false, |dur| dur.as_secs() >= 5),
-            SnarkPoolAction::JobCommitmentTimeout { job_id } => state
-                .snark_pool
-                .is_commitment_timed_out(job_id, state.time()),
+            SnarkPoolAction::JobCommitmentTimeout { job_id } => {
+                state.snark_pool.is_commitment_timed_out(job_id, time)
+            }
             SnarkPoolAction::JobsUpdate { .. } => true,
             SnarkPoolAction::P2pSendAll => true,
         }

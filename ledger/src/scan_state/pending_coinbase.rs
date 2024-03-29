@@ -24,6 +24,7 @@ use ark_ff::Zero;
 use mina_hasher::Fp;
 use mina_p2p_messages::v2;
 use mina_signer::CompressedPubKey;
+use openmina_core::constants::CONSTRAINT_CONSTANTS;
 use sha2::{Digest, Sha256};
 
 use crate::{
@@ -34,7 +35,7 @@ use crate::{
             currency::{CheckedAmount, CheckedCurrency},
             nat::{CheckedNat, CheckedSlot},
         },
-        transaction::transaction_snark::{checked_hash, CONSTRAINT_CONSTANTS},
+        transaction::transaction_snark::checked_hash,
         witness::Witness,
     },
     staged_ledger::hash::PendingCoinbaseAux,
@@ -746,12 +747,12 @@ impl PendingCoinbase {
                              w: &mut Witness<Fp>| {
             let stack = update_state_stack(stack, pending_coinbase_witness, w);
             let total_coinbase_amount = {
-                let coinbase_amount = CONSTRAINT_CONSTANTS.coinbase_amount.to_checked::<Fp>();
-                let superchaged_coinbase = CONSTRAINT_CONSTANTS
-                    .coinbase_amount
+                let coinbase_amount = Amount::from_u64(CONSTRAINT_CONSTANTS.coinbase_amount);
+                let superchaged_coinbase = coinbase_amount
                     .scale(CONSTRAINT_CONSTANTS.supercharged_coinbase_factor)
                     .unwrap()
                     .to_checked::<Fp>();
+                let coinbase_amount = coinbase_amount.to_checked::<Fp>();
 
                 match supercharge_coinbase {
                     Boolean::True => superchaged_coinbase,
@@ -921,12 +922,12 @@ impl PendingCoinbaseWitness {
     }
 
     fn set_oldest_coinbase_stack(&mut self, idx: Address, stack: Stack) {
-        let depth = CONSTRAINT_CONSTANTS.pending_coinbase_depth as usize;
+        let depth = CONSTRAINT_CONSTANTS.pending_coinbase_depth;
         self.pending_coinbase.set_stack(depth, idx, stack, false);
     }
 
     fn find_index_of_newest_stacks(&self) -> (Address, Address) {
-        let depth = CONSTRAINT_CONSTANTS.pending_coinbase_depth as usize;
+        let depth = CONSTRAINT_CONSTANTS.pending_coinbase_depth;
 
         let index1 = {
             let stack_id = self.pending_coinbase.latest_stack_id(self.is_new_stack);
@@ -957,7 +958,7 @@ impl PendingCoinbaseWitness {
     }
 
     fn set_coinbase_stack(&mut self, idx: Address, stack: Stack) {
-        let depth = CONSTRAINT_CONSTANTS.pending_coinbase_depth as usize;
+        let depth = CONSTRAINT_CONSTANTS.pending_coinbase_depth;
         self.pending_coinbase
             .set_stack(depth, idx, stack, self.is_new_stack);
     }

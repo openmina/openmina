@@ -9,6 +9,7 @@ impl RpcState {
             RpcAction::GlobalStateGet { .. } => {}
             RpcAction::ActionStatsGet { .. } => {}
             RpcAction::SyncStatsGet { .. } => {}
+            RpcAction::MessageProgressGet { .. } => {}
             RpcAction::PeersGet { .. } => {}
             RpcAction::P2pConnectionOutgoingInit { rpc_id, opts } => {
                 let rpc_state = RpcRequestState {
@@ -76,6 +77,8 @@ impl RpcState {
             RpcAction::SnarkerWorkersGet { .. } => {}
             RpcAction::HealthCheck { .. } => {}
             RpcAction::ReadinessCheck { .. } => {}
+            RpcAction::DiscoveryRoutingTable { .. } => {}
+            RpcAction::DiscoveryBoostrapStats { .. } => {}
             RpcAction::Finish { rpc_id } => {
                 self.requests.remove(rpc_id);
             }

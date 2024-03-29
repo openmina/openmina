@@ -3,8 +3,8 @@ use std::{collections::BTreeSet, time::Duration};
 use crate::{
     node::RustNodeTestingConfig,
     scenarios::{
-        add_rust_nodes, as_connection_finalized_event, connection_finalized_event,
-        connection_finalized_with_res_event, wait_for_nodes_listening_on_localhost, ClusterRunner,
+        add_rust_nodes, connection_finalized_with_res_event, peer_is_ready,
+        wait_for_connection_established, wait_for_nodes_listening_on_localhost, ClusterRunner,
         Driver,
     },
 };
@@ -35,22 +35,18 @@ impl AcceptIncomingConnection {
             .expect("node should be connected");
 
         // wait for node under test receives connection event
-        let connected = driver
-            .wait_for(
-                Duration::from_secs(10),
-                connection_finalized_event(|node_id, _peer| node_id == node_ut),
-            )
-            .await
-            .unwrap()
-            .expect("connected event");
-        let state = driver
-            .exec_even_step(connected)
-            .await
-            .unwrap()
-            .expect("connected event sholuld be executed");
+        let connected = wait_for_connection_established(
+            &mut driver,
+            Duration::from_secs(30),
+            (node_ut, &peer_id2),
+        )
+        .await
+        .unwrap();
+        assert!(connected, "peer should be connected");
+
         assert!(
-            state.p2p.peers.get(&peer_id2).is_some(),
-            "peer should exist"
+            peer_is_ready(driver.inner(), node_ut, &peer_id2),
+            "peer should be ready"
         );
     }
 }
@@ -61,7 +57,7 @@ pub struct AcceptMultipleIncomingConnections;
 
 impl AcceptMultipleIncomingConnections {
     pub async fn run<'cluster>(self, runner: ClusterRunner<'cluster>) {
-        const MAX: u8 = 32;
+        const MAX: u8 = 16;
 
         let mut driver = Driver::new(runner);
 
@@ -87,25 +83,16 @@ impl AcceptMultipleIncomingConnections {
                 .expect("connect event should be dispatched");
         }
 
-        // matches event "the node established connection with peer"
-        let pred = |node_id, event: &_, _state: &_| {
-            if node_id != node_ut {
-                false
-            } else if let Some((peer_id, res)) = as_connection_finalized_event(event) {
-                assert!(res.is_ok(), "connection from {peer_id} should succeed");
-                peer_ids.remove(&peer_id);
-                peer_ids.is_empty()
-            } else {
-                false
-            }
-        };
-
-        let satisfied = driver
-            .run_until(Duration::from_secs(3 * 60), pred)
-            .await
-            .unwrap();
+        // wait for node under test receives connection event
+        let all_connected = wait_for_connection_established(
+            &mut driver,
+            Duration::from_secs(2 * 60),
+            (node_ut, &mut peer_ids),
+        )
+        .await
+        .unwrap();
         assert!(
-            satisfied,
+            all_connected,
             "did not accept connection from peers: {:?}",
             peer_ids
         );

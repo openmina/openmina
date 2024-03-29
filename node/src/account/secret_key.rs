@@ -1,7 +1,9 @@
 use serde::{Deserialize, Serialize};
 use std::{fmt, str::FromStr};
 
+use mina_p2p_messages::{bigint::BigInt, v2::SignatureLibPrivateKeyStableV1};
 use mina_signer::{keypair::KeypairError, Keypair};
+use openmina_core::constants::GENESIS_PRODUCER_SK;
 
 use super::AccountPublicKey;
 
@@ -14,8 +16,23 @@ impl std::fmt::Debug for AccountSecretKey {
     }
 }
 
+lazy_static::lazy_static! {
+    // TODO(binier): better way.
+    static ref GENERATED_DETERMINISTIC: Vec<AccountSecretKey> = (0..1000)
+        .map(|_| AccountSecretKey::rand())
+        .collect();
+}
+
 impl AccountSecretKey {
     const BASE58_CHECK_VERSION: u8 = 90;
+
+    pub fn genesis_producer() -> Self {
+        Self::from_str(GENESIS_PRODUCER_SK).unwrap()
+    }
+
+    pub fn deterministic(i: u64) -> Self {
+        GENERATED_DETERMINISTIC[i as usize].clone()
+    }
 
     pub fn rand() -> Self {
         let mut rng = rand::thread_rng();
@@ -26,6 +43,13 @@ impl AccountSecretKey {
         Ok(Self(Keypair::from_bytes(bytes)?))
     }
 
+    pub fn to_bytes(&self) -> [u8; 32] {
+        // TODO(binier): refactor
+        let mut bytes = hex::decode(self.0.to_hex()).unwrap();
+        bytes.reverse();
+        bytes.try_into().unwrap()
+    }
+
     pub fn public_key(&self) -> AccountPublicKey {
         self.0.public.clone().into()
     }
@@ -34,6 +58,12 @@ impl AccountSecretKey {
 impl From<AccountSecretKey> for Keypair {
     fn from(value: AccountSecretKey) -> Self {
         value.0
+    }
+}
+
+impl From<AccountSecretKey> for SignatureLibPrivateKeyStableV1 {
+    fn from(value: AccountSecretKey) -> Self {
+        Self(BigInt::new(value.to_bytes().into()))
     }
 }
 

@@ -6,12 +6,15 @@ use mina_p2p_messages::v2::{
 use openmina_core::block::ArcBlockWithHash;
 use serde::{Deserialize, Serialize};
 
+use super::genesis::TransitionFrontierGenesisState;
 use super::sync::TransitionFrontierSyncState;
 use super::TransitionFrontierConfig;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TransitionFrontierState {
     pub config: TransitionFrontierConfig,
+    /// Genesis block generation/proving state
+    pub genesis: TransitionFrontierGenesisState,
     /// Current best known chain, from root of the transition frontier to best tip
     pub best_chain: Vec<ArcBlockWithHash>,
     /// Needed protocol states for applying transactions in the root
@@ -23,11 +26,10 @@ pub struct TransitionFrontierState {
 
 impl TransitionFrontierState {
     pub fn new(config: TransitionFrontierConfig) -> Self {
-        let k = config.protocol_constants.k.0.as_u32() as usize;
         Self {
             config,
-            // TODO(binier): add genesis_block as initial best_tip.
-            best_chain: Vec::with_capacity(k),
+            genesis: TransitionFrontierGenesisState::Idle,
+            best_chain: Vec::with_capacity(290),
             needed_protocol_states: Default::default(),
             sync: TransitionFrontierSyncState::Idle,
         }

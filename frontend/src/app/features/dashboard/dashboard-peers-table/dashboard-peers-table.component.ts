@@ -37,7 +37,7 @@ export class DashboardPeersTableComponent extends MinaTableRustWrapper<Dashboard
     this.table.minWidth = 1160;
     this.table.sortClz = DashboardPeersSort;
     this.table.sortSelector = selectDashboardPeersSort;
-    this.table.trackByFn = (index: number, row: DashboardPeer) => row.peerId + row.status + row.bestTip + row.timestamp;
+    this.table.trackByFn = (_: number, row: DashboardPeer) => row.peerId + row.status + row.bestTip + row.timestamp;
   }
 
   private listenToPeersChanges(): void {

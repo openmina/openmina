@@ -8,8 +8,8 @@ use mina_p2p_messages::{
     binprot,
     pseq::PaddedSeq,
     v2::{
-        MinaBaseAccountBinableArgStableV2, MinaBaseAccountIdDigestStableV1,
-        MinaBaseAccountIdStableV2, MinaBaseAccountTimingStableV2,
+        self, MinaBaseAccountBinableArgStableV2, MinaBaseAccountIdDigestStableV1,
+        MinaBaseAccountIdStableV2, MinaBaseAccountIndexStableV1, MinaBaseAccountTimingStableV2,
         MinaBasePermissionsAuthRequiredStableV2, MinaBasePermissionsStableV2,
         MinaBaseVerificationKeyWireStableV1, MinaBaseVerificationKeyWireStableV1WrapIndex,
         NonZeroCurvePointUncompressedStableV1, PicklesBaseProofsVerifiedStableV1, TokenIdKeyHash,
@@ -22,8 +22,8 @@ use crate::{
         transaction::{make_group, InnerCurve, PlonkVerificationKeyEvals},
     },
     scan_state::currency::{Amount, Balance, Nonce, Slot, SlotSpan, TxnVersion},
-    Permissions, ProofVerified, ReceiptChainHash, SetVerificationKey, Timing, TokenSymbol,
-    VerificationKey, VotingFor, ZkAppAccount,
+    AccountIndex, Permissions, ProofVerified, ReceiptChainHash, SetVerificationKey, Timing,
+    TokenSymbol, VerificationKey, VotingFor, ZkAppAccount,
 };
 
 use super::{Account, AccountId, AuthRequired, TokenId};
@@ -115,7 +115,7 @@ where
     T: 'a,
     U: From<&'a T>,
 {
-    std::array::from_fn(|i| U::from(&value[i]))
+    value.each_ref().map(|value| U::from(value))
 }
 
 pub fn array_into_with<'a, T, U, F, const N: usize>(value: &'a [T; N], fun: F) -> [U; N]
@@ -123,7 +123,7 @@ where
     T: 'a,
     F: Fn(&T) -> U,
 {
-    std::array::from_fn(|i| fun(&value[i]))
+    value.each_ref().map(|value| fun(value))
 }
 
 impl From<&MinaBaseVerificationKeyWireStableV1> for VerificationKey {
@@ -509,19 +509,33 @@ impl From<&MinaBaseAccountBinableArgStableV2> for Account {
             timing: (&acc.timing).into(),
             permissions: (&acc.permissions).into(),
             zkapp: acc.zkapp.as_ref().map(|zkapp| {
-                let app_state = std::array::from_fn(|i| zkapp.app_state[i].to_field());
+                let v2::MinaBaseZkappAccountStableV2 {
+                    app_state,
+                    verification_key,
+                    zkapp_version,
+                    action_state,
+                    last_action_slot,
+                    proved_state,
+                    zkapp_uri,
+                } = zkapp;
 
                 ZkAppAccount {
-                    app_state,
-                    verification_key: zkapp.verification_key.as_ref().map(Into::into),
-                    zkapp_version: zkapp.zkapp_version.as_u32(),
-                    action_state: std::array::from_fn(|i| zkapp.action_state[i].to_field()),
-                    last_action_slot: Slot::from_u32(zkapp.last_action_slot.as_u32()),
-                    proved_state: zkapp.proved_state,
-                    zkapp_uri: (&zkapp.zkapp_uri).try_into().unwrap(),
+                    app_state: app_state.each_ref().map(|s| s.to_field()),
+                    verification_key: verification_key.as_ref().map(Into::into),
+                    zkapp_version: zkapp_version.as_u32(),
+                    action_state: action_state.each_ref().map(|s| s.to_field()),
+                    last_action_slot: Slot::from_u32(last_action_slot.as_u32()),
+                    proved_state: *proved_state,
+                    zkapp_uri: zkapp_uri.try_into().unwrap(),
                 }
             }),
         }
+    }
+}
+
+impl From<AccountIndex> for MinaBaseAccountIndexStableV1 {
+    fn from(value: AccountIndex) -> Self {
+        Self(value.as_u64().into())
     }
 }
 

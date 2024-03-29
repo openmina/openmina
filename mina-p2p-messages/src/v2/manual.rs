@@ -1,7 +1,9 @@
 use binprot::{BinProtRead, BinProtWrite};
 use binprot_derive::{BinProtRead, BinProtWrite};
+use blake2::Digest;
 use derive_more::Deref;
 use serde::{de::Visitor, ser::SerializeTuple, Deserialize, Serialize, Serializer};
+use sha2::Sha256;
 
 use crate::{
     b58::Base58CheckOfBinProt, b58::Base58CheckOfBytes, bigint::BigInt, string::ByteString,
@@ -241,9 +243,130 @@ base58check_of_binprot!(
     SIGNATURE
 );
 
+impl StateHash {
+    pub fn zero() -> Self {
+        DataHashLibStateHashStableV1(BigInt::zero()).into()
+    }
+}
+
+impl EpochSeed {
+    pub fn zero() -> Self {
+        MinaBaseEpochSeedStableV1(BigInt::zero()).into()
+    }
+}
+
+impl CoinbaseStackData {
+    pub fn zero() -> Self {
+        MinaBasePendingCoinbaseCoinbaseStackStableV1(BigInt::zero()).into()
+    }
+}
+
+impl CoinbaseStackHash {
+    pub fn zero() -> Self {
+        MinaBasePendingCoinbaseStackHashStableV1(BigInt::zero()).into()
+    }
+}
+
+impl StagedLedgerHashAuxHash {
+    pub fn zero() -> Self {
+        crate::string::ByteString::from(vec![0; 32]).into()
+    }
+}
+
+impl StagedLedgerHashPendingCoinbaseAux {
+    pub fn zero() -> Self {
+        crate::string::ByteString::from(vec![0; 32]).into()
+    }
+}
+
+impl ConsensusVrfOutputTruncatedStableV1 {
+    pub fn zero() -> Self {
+        Self(crate::string::ByteString::from(vec![0; 32]))
+    }
+}
+
+impl super::MinaBaseStagedLedgerHashNonSnarkStableV1 {
+    pub fn zero(genesis_ledger_hash: LedgerHash) -> Self {
+        Self {
+            ledger_hash: genesis_ledger_hash,
+            aux_hash: super::StagedLedgerHashAuxHash::zero(),
+            pending_coinbase_aux: super::StagedLedgerHashPendingCoinbaseAux::zero(),
+        }
+    }
+}
+
+impl super::MinaBaseStagedLedgerHashStableV1 {
+    pub fn zero(
+        genesis_ledger_hash: LedgerHash,
+        empty_pending_coinbase_hash: PendingCoinbaseHash,
+    ) -> Self {
+        Self {
+            non_snark: super::MinaBaseStagedLedgerHashNonSnarkStableV1::zero(genesis_ledger_hash),
+            pending_coinbase_hash: empty_pending_coinbase_hash,
+        }
+    }
+}
+
+impl super::MinaBasePendingCoinbaseUpdateStableV1 {
+    pub fn zero() -> Self {
+        Self {
+            action: super::MinaBasePendingCoinbaseUpdateActionStableV1::UpdateNone,
+            coinbase_amount: super::CurrencyAmountStableV1(0u64.into()),
+        }
+    }
+}
+
+impl super::MinaBasePendingCoinbaseStackVersionedStableV1 {
+    pub fn zero() -> Self {
+        Self {
+            data: CoinbaseStackData::zero(),
+            state: super::MinaBasePendingCoinbaseStateStackStableV1 {
+                init: CoinbaseStackHash::zero(),
+                curr: CoinbaseStackHash::zero(),
+            },
+        }
+    }
+}
+
+impl super::ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1 {
+    pub fn zero(genesis_ledger_hash: LedgerHash, total_currency: CurrencyAmountStableV1) -> Self {
+        Self {
+            ledger: super::MinaBaseEpochLedgerValueStableV1 {
+                hash: genesis_ledger_hash,
+                total_currency,
+            },
+            seed: EpochSeed::zero(),
+            start_checkpoint: StateHash::zero(),
+            lock_checkpoint: StateHash::zero(),
+            epoch_length: 1.into(),
+        }
+    }
+}
+
+impl super::ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1 {
+    pub fn zero(genesis_ledger_hash: LedgerHash, total_currency: CurrencyAmountStableV1) -> Self {
+        Self {
+            ledger: super::MinaBaseEpochLedgerValueStableV1 {
+                hash: genesis_ledger_hash,
+                total_currency,
+            },
+            seed: EpochSeed::zero(),
+            start_checkpoint: StateHash::zero(),
+            lock_checkpoint: StateHash::zero(),
+            epoch_length: 1.into(),
+        }
+    }
+}
+
 impl AsRef<[u8]> for LedgerHash {
     fn as_ref(&self) -> &[u8] {
         self.0.as_ref()
+    }
+}
+
+impl Default for TokenIdKeyHash {
+    fn default() -> Self {
+        MinaBaseAccountIdDigestStableV1(BigInt::one()).into()
     }
 }
 
@@ -379,8 +502,8 @@ mod tests {
     b58t!(
         vrf_truncated_output,
         ConsensusVrfOutputTruncatedStableV1,
-        "a5iclEJ9uqh_etVYuaL4MRWJ--1DFGsqp8CrDzNOGwM=",
-        "206b989c94427dbaa87f7ad558b9a2f8311589fbed43146b2aa7c0ab0f334e1b03"
+        "48H9Qk4D6RzS9kAJQX9HCDjiJ5qLiopxgxaS6xbDCWNaKQMQ9Y4C",
+        "20dfd73283866632d9dbfda15421eacd02800957caad91f3a9ab4cc5ccfb298e03"
     );
 
     b58t!(
@@ -504,8 +627,15 @@ impl Serialize for ConsensusVrfOutputTruncatedStableV1 {
         S: serde::Serializer,
     {
         if serializer.is_human_readable() {
-            let base64 = base64::encode_config(&self.0, base64::URL_SAFE);
-            base64.serialize(serializer)
+            let mut output_bytes = Vec::new();
+            let prefix = vec![0x15, 0x20];
+            output_bytes.extend(prefix);
+            output_bytes.extend(self.0.iter());
+            let checksum = Sha256::digest(&Sha256::digest(&output_bytes[..])[..]);
+            output_bytes.extend(&checksum[..4]);
+            bs58::encode(&output_bytes)
+                .into_string()
+                .serialize(serializer)
         } else {
             serializer.serialize_newtype_struct("ConsensusVrfOutputTruncatedStableV1", &self.0)
         }
@@ -518,9 +648,10 @@ impl<'de> Deserialize<'de> for ConsensusVrfOutputTruncatedStableV1 {
         D: serde::Deserializer<'de>,
     {
         if deserializer.is_human_readable() {
-            let base64 = String::deserialize(deserializer)?;
-            base64::decode_config(&base64, base64::URL_SAFE)
-                .map(ByteString::from)
+            let base58 = String::deserialize(deserializer)?;
+            bs58::decode(base58)
+                .into_vec()
+                .map(|vec| ByteString::from(vec[2..vec.len() - 4].to_vec()))
                 .map_err(|e| serde::de::Error::custom(format!("Error deserializing vrf: {e}")))
         } else {
             Deserialize::deserialize(deserializer)
@@ -784,6 +915,12 @@ impl super::MinaNumbersGlobalSlotSpanStableV1 {
 
 impl From<u32> for super::UnsignedExtendedUInt32StableV1 {
     fn from(value: u32) -> Self {
+        Self(value.into())
+    }
+}
+
+impl From<u64> for super::UnsignedExtendedUInt64Int64ForVersionTagsStableV1 {
+    fn from(value: u64) -> Self {
         Self(value.into())
     }
 }

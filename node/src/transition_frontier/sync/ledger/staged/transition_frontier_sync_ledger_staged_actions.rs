@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use mina_p2p_messages::v2::{self, LedgerHash};
 use serde::{Deserialize, Serialize};
 
 use crate::p2p::channels::rpc::{P2pRpcId, StagedLedgerAuxAndPendingCoinbases};
@@ -50,12 +51,14 @@ pub enum TransitionFrontierSyncLedgerStagedAction {
     ReconstructError {
         error: String,
     },
-    ReconstructSuccess,
+    ReconstructSuccess {
+        ledger_hash: LedgerHash,
+    },
     Success,
 }
 
 impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerStagedAction {
-    fn is_enabled(&self, state: &crate::State) -> bool {
+    fn is_enabled(&self, state: &crate::State, _time: redux::Timestamp) -> bool {
         match self {
             TransitionFrontierSyncLedgerStagedAction::PartsFetchPending => state
                 .transition_frontier
@@ -147,10 +150,10 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerStag
                 })
                 .map_or(false, |target| {
                     let hashes = &target.staged.hashes;
-                    let empty_hash = &[0; 32];
                     target.snarked_ledger_hash == hashes.non_snark.ledger_hash
-                        && hashes.non_snark.aux_hash.as_ref() == empty_hash
-                        && hashes.non_snark.pending_coinbase_aux.as_ref() == empty_hash
+                        && hashes.non_snark.aux_hash == v2::StagedLedgerHashAuxHash::zero()
+                        && hashes.non_snark.pending_coinbase_aux
+                            == v2::StagedLedgerHashPendingCoinbaseAux::zero()
                     // TODO(binier): `pending_coinbase_hash` isn't empty hash.
                     // Do we need to check it?
                 }),
@@ -189,7 +192,7 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerStag
                         TransitionFrontierSyncLedgerStagedState::ReconstructPending { .. }
                     )
                 }),
-            TransitionFrontierSyncLedgerStagedAction::ReconstructSuccess => state
+            TransitionFrontierSyncLedgerStagedAction::ReconstructSuccess { .. } => state
                 .transition_frontier
                 .sync
                 .ledger()

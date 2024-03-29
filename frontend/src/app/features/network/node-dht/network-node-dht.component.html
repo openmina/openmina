@@ -1,0 +1,18 @@
+<mina-horizontal-resizable-container [leftTemplate]="left"
+                                     [rightTemplate]="right"
+                                     [show]="openSidePanel"
+                                     [minWidth]="320"
+                                     [maxWidthElement]="el.nativeElement"
+                                     localStorageKey="network-dht-side-panel-width">
+</mina-horizontal-resizable-container>
+
+<ng-template #left>
+  <div class="flex-column h-100">
+    <mina-network-node-dht-line></mina-network-node-dht-line>
+    <mina-network-node-dht-table></mina-network-node-dht-table>
+  </div>
+</ng-template>
+
+<ng-template #right>
+  <mina-network-node-dht-side-panel></mina-network-node-dht-side-panel>
+</ng-template>

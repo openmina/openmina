@@ -523,18 +523,17 @@ impl CircuitPlonkVerificationKeyEvals<Fp> {
             endomul_scalar,
         } = self;
 
-        use std::array;
-        let c = |c: &GroupAffine<Fp>| InnerCurve::<Fp>::of_affine(*c);
+        let c = |c: &CircuitVar<GroupAffine<Fp>>| InnerCurve::<Fp>::of_affine(*c.value());
 
         PlonkVerificationKeyEvals::<Fp> {
-            sigma: array::from_fn(|i| c(sigma[i].value())),
-            coefficients: array::from_fn(|i| c(coefficients[i].value())),
-            generic: c(generic.value()),
-            psm: c(psm.value()),
-            complete_add: c(&complete_add.value()),
-            mul: c(&mul.value()),
-            emul: c(&emul.value()),
-            endomul_scalar: c(&endomul_scalar.value()),
+            sigma: sigma.each_ref().map(c),
+            coefficients: coefficients.each_ref().map(c),
+            generic: c(generic),
+            psm: c(psm),
+            complete_add: c(complete_add),
+            mul: c(mul),
+            emul: c(emul),
+            endomul_scalar: c(endomul_scalar),
         }
     }
 }
@@ -555,12 +554,11 @@ impl PlonkVerificationKeyEvals<Fp> {
             endomul_scalar,
         } = self;
 
-        use std::array;
         let cvar = |c: &InnerCurve<Fp>| cvar(c.to_affine());
 
         CircuitPlonkVerificationKeyEvals::<Fp> {
-            sigma: array::from_fn(|i| cvar(&sigma[i])),
-            coefficients: array::from_fn(|i| cvar(&coefficients[i])),
+            sigma: sigma.each_ref().map(cvar),
+            coefficients: coefficients.each_ref().map(cvar),
             generic: cvar(&generic),
             psm: cvar(&psm),
             complete_add: cvar(&complete_add),
@@ -2206,26 +2204,12 @@ pub mod transaction_snark {
 
     use crate::scan_state::{
         currency,
-        scan_state::ConstraintConstants,
         transaction_logic::transaction_union_payload::{TransactionUnion, TransactionUnionPayload},
     };
     use mina_signer::Signature;
+    use openmina_core::constants::CONSTRAINT_CONSTANTS;
 
     use super::{legacy_input::LegacyInput, *};
-
-    // TODO: De-deplicates this constant in the repo
-    pub const CONSTRAINT_CONSTANTS: ConstraintConstants = ConstraintConstants {
-        sub_windows_per_window: 11,
-        ledger_depth: 35,
-        work_delay: 2,
-        block_window_duration_ms: 180000,
-        transaction_capacity_log_2: 7,
-        pending_coinbase_depth: 5,
-        coinbase_amount: currency::Amount::from_u64(720000000000),
-        supercharged_coinbase_factor: 1,
-        account_creation_fee: currency::Fee::from_u64(1000000000),
-        fork: None,
-    };
 
     mod user_command_failure {
         use crate::scan_state::{
@@ -2431,7 +2415,7 @@ pub mod transaction_snark {
 
                     let amount_insufficient_to_create = {
                         let creation_amount =
-                            currency::Amount::of_fee(&CONSTRAINT_CONSTANTS.account_creation_fee);
+                            currency::Amount::from_u64(CONSTRAINT_CONSTANTS.account_creation_fee);
                         receiver_needs_creating
                             && payload.body.amount.checked_sub(&creation_amount).is_none()
                     };
@@ -2897,7 +2881,7 @@ pub mod transaction_snark {
         };
 
         let account_creation_amount =
-            currency::Amount::of_fee(&CONSTRAINT_CONSTANTS.account_creation_fee).to_checked();
+            currency::Amount::from_u64(CONSTRAINT_CONSTANTS.account_creation_fee).to_checked();
         let is_zero_fee = fee.equal(&CheckedFee::zero(), w);
 
         let is_coinbase_or_fee_transfer = is_user_command.neg();
@@ -4776,14 +4760,19 @@ mod tests {
         }
 
         // Block proof
-        {
-            let data = std::fs::read(base_dir.join("block_input-2775525-0.bin")).unwrap();
+        for (filename, fps_filename) in [
+            ("block_input-2775525-0.bin", Some("block_fps.txt")),
+            ("block_prove_inputs_7.bin", None),
+        ] {
+            let data = std::fs::read(base_dir.join(filename)).unwrap();
 
             let blockchain_input: v2::ProverExtendBlockchainInputStableV2 =
                 read_binprot(&mut data.as_slice());
 
             let mut witnesses: Witness<Fp> = Witness::new::<StepBlockProof>();
-            witnesses.ocaml_aux = read_witnesses("block_fps.txt").unwrap();
+            if let Some(filename) = fps_filename {
+                witnesses.ocaml_aux = read_witnesses(filename).unwrap();
+            };
 
             let WrapProof { proof, .. } = generate_block_proof(
                 BlockParams {

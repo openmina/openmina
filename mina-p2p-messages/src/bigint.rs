@@ -12,6 +12,10 @@ impl std::fmt::Debug for BigInt {
 }
 
 impl BigInt {
+    pub fn new(inner: Box<[u8; 32]>) -> Self {
+        Self(inner)
+    }
+
     #[cfg(feature = "hashing")]
     pub fn zero() -> Self {
         mina_curves::pasta::Fp::from(0u64).into()

@@ -27,7 +27,7 @@ where
 
     fn dispatch<A>(&mut self, action: A) -> bool
     where
-        A: Into<SnarkAction> + redux::EnablingCondition<crate::State>,
+        A: Into<SnarkAction> + redux::EnablingCondition<SnarkState>,
     {
         crate::Store::sub_dispatch(self, action)
     }

@@ -972,6 +972,26 @@ impl MaskImpl {
         Ok(())
     }
 
+    pub fn get_raw_inner_hashes(&self) -> Vec<(u64, Fp)> {
+        match self {
+            Root { database, .. } => {
+                database.with(|this| this.hashes_matrix.get_raw_inner_hashes())
+            }
+            Attached { hashes, .. } => hashes.clone().get_raw_inner_hashes(),
+            Unattached { hashes, .. } => hashes.clone().get_raw_inner_hashes(),
+        }
+    }
+
+    pub fn set_raw_inner_hashes(&self, raw_hashes: Vec<(u64, Fp)>) {
+        match self {
+            Root { database, .. } => {
+                database.with(|this| this.hashes_matrix.set_raw_inner_hashes(raw_hashes))
+            }
+            Attached { hashes, .. } => hashes.clone().set_raw_inner_hashes(raw_hashes),
+            Unattached { hashes, .. } => hashes.clone().set_raw_inner_hashes(raw_hashes),
+        }
+    }
+
     /// For tests only, check if the address is in the mask, without checking parent
     #[cfg(test)]
     pub fn test_is_in_mask(&self, addr: &Address) -> bool {

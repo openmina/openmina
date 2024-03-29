@@ -46,7 +46,7 @@
       {{ node.appliedBlocks }}
     </div>
     <div class="h-xl lh-xl pl-12 border-top f-600 secondary">Transition Frontier</div>
-    <div class="squares flex-row flex-wrap pl-12 pr-12 pb-12">
+    <div class="squares flex-row flex-wrap pl-12 pr-12 pb-12 border-bottom">
       <div *ngFor="let block of node.blocks"
            [tooltip]="block.height + ' - ' + block.status + (block.isBestTip ? ' (Best Tip)' : '')"
            [showDelay]="300"

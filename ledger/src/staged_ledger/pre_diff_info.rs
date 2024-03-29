@@ -2,11 +2,12 @@ use std::collections::BTreeMap;
 
 use itertools::{Either, Itertools};
 use mina_signer::CompressedPubKey;
+use openmina_core::constants::ConstraintConstants;
 
 use crate::{
     scan_state::{
         currency::{Amount, Fee, Magnitude, Slot},
-        scan_state::{group_list, transaction_snark::work, ConstraintConstants},
+        scan_state::{group_list, transaction_snark::work},
         transaction_logic::{
             protocol_state::ProtocolStateView, transaction_applied::TransactionApplied, valid,
             Coinbase, CoinbaseFeeTransfer, FeeTransfer, GenericCommand, GenericTransaction,
@@ -137,21 +138,19 @@ fn create_coinbase(
             x,
         ))?],
         CoinbaseParts::Two(None) => two_parts(
-            Amount::of_fee(&constraint_constants.account_creation_fee),
+            Amount::from_u64(constraint_constants.account_creation_fee),
             None,
             None,
         )?,
         CoinbaseParts::Two(Some((ft1, ft2))) => {
-            let fee = constraint_constants
-                .account_creation_fee
-                .checked_add(&ft1.fee)
-                .ok_or_else(|| {
-                    PreDiffError::CoinbaseError(format!(
-                        "Overflow when trying to add account_creation_fee \
+            let account_creation_fee = Fee::from_u64(constraint_constants.account_creation_fee);
+            let fee = account_creation_fee.checked_add(&ft1.fee).ok_or_else(|| {
+                PreDiffError::CoinbaseError(format!(
+                    "Overflow when trying to add account_creation_fee \
                      {:?} to a fee transfer {:?}",
-                        constraint_constants.account_creation_fee, ft1.fee,
-                    ))
-                })?;
+                    account_creation_fee, ft1.fee,
+                ))
+            })?;
 
             two_parts(Amount::of_fee(&fee), Some(ft1), ft2)?
         }

@@ -1,11 +1,11 @@
 use mina_hasher::Fp;
 use mina_signer::CompressedPubKey;
+use openmina_core::constants::CONSTRAINT_CONSTANTS;
 
 use crate::scan_state::transaction_logic::zkapp_command::{Actions, SetOrKeep};
 use crate::{
-    proofs::transaction::transaction_snark::CONSTRAINT_CONSTANTS,
     scan_state::{
-        currency::{Magnitude, SlotSpan},
+        currency::{Fee, Magnitude, SlotSpan},
         transaction_logic::{
             protocol_state::GlobalStateSkeleton, zkapp_command::CheckAuthorizationResult,
             TransactionFailure,
@@ -657,7 +657,7 @@ where
         ((), ())
     };
     let account_creation_fee =
-        Z::Amount::of_constant_fee(CONSTRAINT_CONSTANTS.account_creation_fee);
+        Z::Amount::of_constant_fee(Fee::from_u64(CONSTRAINT_CONSTANTS.account_creation_fee));
     let implicit_account_creation_fee = account_update.implicit_account_creation_fee();
     Z::LocalState::add_check(
         local_state,
@@ -710,7 +710,7 @@ where
             Z::Balance::add_signed_amount_flagged(&a.balance(), actual_balance_change.clone(), w);
         Z::LocalState::add_check(local_state, TransactionFailure::Overflow, failed1.neg(), w);
         let account_creation_fee =
-            Z::Amount::of_constant_fee(CONSTRAINT_CONSTANTS.account_creation_fee);
+            Z::Amount::of_constant_fee(Fee::from_u64(CONSTRAINT_CONSTANTS.account_creation_fee));
         let _local_state = {
             let (excess_minus_creation_fee, excess_update_failed) = Z::SignedAmount::add_flagged(
                 &local_state.excess,
@@ -816,13 +816,11 @@ where
     let (_a, _local_state) = {
         let app_state = &account_update.body().update.app_state;
         let keeping_app_state = {
-            let is_all_keep: [_; 8] = std::array::from_fn(|i| Z::SetOrKeep::is_keep(&app_state[i]));
-            assert_eq!(is_all_keep.len(), app_state.len()); // TODO: Use `array::each_ref` when stable
+            let is_all_keep: [_; 8] = app_state.each_ref().map(Z::SetOrKeep::is_keep);
             Z::Bool::all(&is_all_keep, w)
         };
         let changing_entire_app_state = {
-            let is_all_set: [_; 8] = std::array::from_fn(|i| Z::SetOrKeep::is_set(&app_state[i]));
-            assert_eq!(is_all_set.len(), app_state.len()); // TODO: Use `array::each_ref` when stable
+            let is_all_set: [_; 8] = app_state.each_ref().map(Z::SetOrKeep::is_set);
             Z::Bool::all(&is_all_set, w)
         };
         let proved_state = {

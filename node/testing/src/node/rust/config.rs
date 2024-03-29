@@ -1,6 +1,8 @@
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
-use node::{account::AccountSecretKey, BlockProducerConfig, SnarkerConfig};
+use node::transition_frontier::genesis::GenesisConfig;
+use node::{account::AccountSecretKey, p2p::P2pTimeouts, BlockProducerConfig, SnarkerConfig};
+use openmina_core::CHAIN_ID;
 use serde::{Deserialize, Serialize};
 
 use crate::scenario::ListenerNode;
@@ -20,12 +22,15 @@ pub enum TestPeerId {
 pub struct RustNodeTestingConfig {
     pub chain_id: String,
     pub initial_time: redux::Timestamp,
+    pub genesis: Arc<GenesisConfig>,
     pub max_peers: usize,
     pub ask_initial_peers_interval: Duration,
     pub initial_peers: Vec<ListenerNode>,
     pub peer_id: TestPeerId,
     pub snark_worker: Option<SnarkerConfig>,
     pub block_producer: Option<RustNodeBlockProducerTestingConfig>,
+    pub timeouts: P2pTimeouts,
+    pub libp2p_port: Option<u16>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -37,14 +42,17 @@ pub struct RustNodeBlockProducerTestingConfig {
 impl RustNodeTestingConfig {
     pub fn berkeley_default() -> Self {
         Self {
-            chain_id: "3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e".to_owned(),
+            chain_id: CHAIN_ID.to_owned(),
             initial_time: redux::Timestamp::ZERO,
+            genesis: node::BERKELEY_CONFIG.clone(),
             max_peers: 100,
             ask_initial_peers_interval: Duration::from_secs(10),
             initial_peers: Vec::new(),
             peer_id: TestPeerId::default(),
             block_producer: None,
             snark_worker: None,
+            timeouts: P2pTimeouts::default(),
+            libp2p_port: None,
         }
     }
 
@@ -70,6 +78,16 @@ impl RustNodeTestingConfig {
 
     pub fn with_peer_id(mut self, bytes: [u8; 32]) -> Self {
         self.peer_id = TestPeerId::Bytes(bytes);
+        self
+    }
+
+    pub fn with_timeouts(mut self, timeouts: P2pTimeouts) -> Self {
+        self.timeouts = timeouts;
+        self
+    }
+
+    pub fn with_libp2p_port(mut self, libp2p_port: u16) -> Self {
+        self.libp2p_port = Some(libp2p_port);
         self
     }
 }

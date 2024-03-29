@@ -1,0 +1,31 @@
+[package]
+name = "openmina-bootstrap-sandbox"
+version = "0.3.0"
+edition = "2021"
+
+[dependencies]
+env_logger = { version = "0.11.2" }
+structopt = { version = "0.3.26" }
+log = { version = "0.4.17" }
+serde = { version = "1.0" }
+serde_json = { version = "1.0", features = ["preserve_order"] }
+thiserror = { version = "1.0" }
+
+bs58 = { version = "0.5.0", features = ["check"] }
+rand = { version = "0.8.5" }
+base64 = { version = "0.21.7" }
+
+reqwest = { version = "0.11.24", features = ["blocking"] }
+
+tokio = { version = "1.36", features = ["macros", "rt-multi-thread"] }
+
+binprot = { git = "https://github.com/openmina/binprot-rs", rev = "3f29b25" }
+ledger = { path = "../../ledger", package = "mina-tree" }
+libp2p-rpc-behaviour = { path = "../../p2p/libp2p-rpc-behaviour" }
+mina-transport = { path = "../transport" }
+openmina-core = { path = "../../core" }
+
+libp2p = { workspace = true }
+mina-p2p-messages = { workspace = true }
+mina-signer = { workspace = true }
+mina-curves = { workspace = true }

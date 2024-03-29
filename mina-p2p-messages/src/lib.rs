@@ -1,3 +1,4 @@
+pub mod array;
 ///! Mina wire types, represented in Rust.
 ///!
 ///! This crate contains gossip network messages and RPCs.
@@ -7,13 +8,12 @@ pub mod common;
 pub mod core;
 pub mod gossip;
 pub mod keys;
+pub mod list;
 pub mod number;
 pub mod phantom;
 pub mod rpc;
 pub mod rpc_kernel;
 pub mod string;
-pub mod list;
-pub mod array;
 pub mod utils;
 #[macro_use]
 pub mod versioned;

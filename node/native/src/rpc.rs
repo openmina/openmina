@@ -1,4 +1,7 @@
-use node::rpc::{RpcHealthCheckResponse, RpcPeersGetResponse, RpcReadinessCheckResponse};
+use node::rpc::{
+    RpcDiscoveryBoostrapStatsResponse, RpcDiscoveryRoutingTableResponse, RpcHealthCheckResponse,
+    RpcMessageProgressResponse, RpcPeersGetResponse, RpcReadinessCheckResponse, RpcStateGetError,
+};
 use serde::{Deserialize, Serialize};
 
 use node::core::channels::{mpsc, oneshot};
@@ -80,20 +83,136 @@ macro_rules! rpc_service_impl {
     };
 }
 
+macro_rules! state_field_filter {
+    ($state:expr, $($part:ident)|*, $filter:expr ) => {
+        $(
+            if let Some(filter) = strip_root_field($filter, stringify!($part)) {
+                (serde_json::to_value(&$state.$part)?, format!("${filter}"))
+            } else
+        )*
+        {
+            (serde_json::to_value($state)?, $filter.to_string())
+        }
+    };
+}
+
+/// Strips topmost field name `field` from the jsonpath expression `filter`,
+/// returning modified filter. If the `filter` does not start with the specified
+/// field, returns [None].
+///
+/// ```ignore
+/// use openmina_node_native::rpc::strip_root_field;
+///
+/// let filter = strip_root_field("$.field", "field");
+/// assert_eq!(filter, Some(""));
+///
+/// let filter = strip_root_field("$.field.another", "field");
+/// assert_eq!(filter, Some(".another"));
+///
+/// let filter = strip_root_field("$.field_other", "field");
+/// assert_eq!(filter, None);
+/// ```
+fn strip_root_field<'a>(filter: &'a str, field: &str) -> Option<&'a str> {
+    let strip_root = |f: &'a str| f.strip_prefix("$");
+    let field_char = |c: char| c.is_alphabetic() || c == '_';
+    let strip_dot_field = |f: &'a str| {
+        f.strip_prefix(".").and_then(|f| {
+            f.strip_prefix(field)
+                .and_then(|f| (!f.starts_with(field_char)).then_some(f))
+        })
+    };
+    let strip_index_field = |f: &'a str| {
+        f.strip_prefix("['")
+            .and_then(|f| f.strip_prefix(field))
+            .and_then(|f| f.strip_prefix("']"))
+    };
+    strip_root(filter).and_then(|f| strip_dot_field(f).or_else(|| strip_index_field(f)))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::strip_root_field;
+
+    #[test]
+    fn strip_root_field_test() {
+        for (filter, expected) in [
+            ("$.field", Some("")),
+            ("$['field']", Some("")),
+            ("$.field.another", Some(".another")),
+            ("$['field'].another", Some(".another")),
+            ("$.another", None),
+            ("$.field_1", None),
+            ("$.fields", None),
+        ] {
+            let actual = strip_root_field(filter, "field");
+            assert_eq!(actual, expected)
+        }
+    }
+}
+
+fn optimize_filtered_state(
+    state: &State,
+    filter: &str,
+) -> Result<(serde_json::Value, String), serde_json::Error> {
+    let (value, filter) = state_field_filter!(
+        state,
+        config
+            | p2p
+            | snark
+            | consensus
+            | transition_frontier
+            | snark_pool
+            | external_snark_worker
+            | block_producer
+            | rpc
+            | watched_accounts,
+        filter
+    );
+    Ok((value, filter))
+}
+
 impl node::rpc::RpcService for NodeService {
-    fn respond_state_get(&mut self, rpc_id: RpcId, response: &State) -> Result<(), RespondError> {
+    fn respond_state_get(
+        &mut self,
+        rpc_id: RpcId,
+        (state, filter): (&State, Option<&str>),
+    ) -> Result<(), RespondError> {
         let entry = self.rpc.pending.remove(rpc_id);
         let chan = entry.ok_or(RespondError::UnknownRpcId)?;
         let chan = chan
             .downcast::<oneshot::Sender<RpcStateGetResponse>>()
             .or(Err(RespondError::UnexpectedResponseType))?;
-        chan.send(Box::new(response.clone()))
+        let response = if let Some(filter) = filter {
+            let (json_state, filter) = optimize_filtered_state(state, filter)?;
+            match filter.parse::<jsonpath_rust::JsonPathInst>() {
+                Ok(filter) => {
+                    let values = filter
+                        .find_slice(&json_state, Default::default())
+                        .into_iter()
+                        .map(|p| (*p).clone())
+                        .collect::<Vec<_>>();
+                    Ok(if values.len() == 1 {
+                        values[0].clone()
+                    } else {
+                        serde_json::Value::Array(values)
+                    })
+                }
+                Err(err) => Err(RpcStateGetError::FilterError(err)),
+            }
+        } else {
+            Ok(serde_json::to_value(state)?)
+        };
+        chan.send(response)
             .or(Err(RespondError::RespondingFailed))?;
         Ok(())
     }
 
     rpc_service_impl!(respond_sync_stats_get, RpcSyncStatsGetResponse);
     rpc_service_impl!(respond_action_stats_get, RpcActionStatsGetResponse);
+    rpc_service_impl!(
+        respond_message_progress_stats_get,
+        RpcMessageProgressResponse
+    );
     rpc_service_impl!(respond_peers_get, RpcPeersGetResponse);
     rpc_service_impl!(
         respond_p2p_connection_outgoing,
@@ -152,10 +271,18 @@ impl node::rpc::RpcService for NodeService {
     );
     rpc_service_impl!(respond_health_check, RpcHealthCheckResponse);
     rpc_service_impl!(respond_readiness_check, RpcReadinessCheckResponse);
+    rpc_service_impl!(
+        respond_discovery_routing_table,
+        RpcDiscoveryRoutingTableResponse
+    );
+    rpc_service_impl!(
+        respond_discovery_bootstrap_stats,
+        RpcDiscoveryBoostrapStatsResponse
+    );
 }
 
 impl node::core::invariants::InvariantService for NodeService {
-    fn invariants_state(&mut self) -> &mut openmina_core::invariants::InvariantsState {
+    fn invariants_state(&mut self) -> &mut node::core::invariants::InvariantsState {
         &mut self.invariants_state
     }
 }

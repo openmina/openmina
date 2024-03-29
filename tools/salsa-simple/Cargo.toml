@@ -1,0 +1,19 @@
+[package]
+name = "salsa-simple"
+version = "0.3.0"
+edition = "2021"
+
+[dev-dependencies]
+salsa20 = { version = "0.10.2" }
+rand = { version = "0.8.5" }
+serde_json = { version = "1.0" }
+
+[dependencies]
+inout = { version = "0.1" }
+generic-array = { version = "0.14.7" }
+serde = { version = "1.0", features = ["derive"], optional = true }
+hex = { version = "0.4.3", optional = true }
+zeroize = { version = "1.7" }
+
+[features]
+default = ["serde", "hex"]

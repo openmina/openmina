@@ -17,12 +17,17 @@ use serde::{Deserialize, Serialize};
 
 use crate::webrtc;
 
-#[derive(Serialize, Deserialize, Eq, PartialEq, Debug, Clone)]
+#[derive(Serialize, Deserialize, Eq, PartialEq, Debug, Clone, thiserror::Error)]
 pub enum RejectionReason {
+    #[error("peer_id does not match peer's public key")]
     PeerIdAndPublicKeyMismatch,
+    #[error("target peer_id is not local node's peer_id")]
     TargetPeerIdNotMe,
+    #[error("too many peers")]
     PeerCapacityFull,
+    #[error("peer already connected")]
     AlreadyConnected,
+    #[error("self connection detected")]
     ConnectingToSelf,
 }
 

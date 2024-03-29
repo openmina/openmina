@@ -1,16 +1,16 @@
 use mina_signer::Keypair;
 use node::{
+    block_producer::BlockProducerVrfEvaluatorEvent,
     block_producer::{
         vrf_evaluator::{VrfEvaluationOutputWithHash, VrfEvaluatorInput},
         BlockProducerEvent,
     },
+    core::channels::mpsc::{UnboundedReceiver, UnboundedSender},
     event_source::Event,
 };
-use openmina_core::channels::mpsc::{UnboundedReceiver, UnboundedSender};
 use vrf::{VrfEvaluationInput, VrfEvaluationOutput};
 
 use crate::NodeService;
-use node::block_producer::BlockProducerVrfEvaluatorEvent;
 
 pub fn vrf_evaluator(
     event_sender: UnboundedSender<Event>,
@@ -20,14 +20,14 @@ pub fn vrf_evaluator(
     while let Some(vrf_evaluator_input) = vrf_evaluation_receiver.blocking_recv() {
         let mut vrf_result = VrfEvaluationOutput::SlotLost(vrf_evaluator_input.global_slot);
 
-        for (index, account) in vrf_evaluator_input.delegator_table.iter() {
+        for (index, (pub_key, stake)) in vrf_evaluator_input.delegator_table.iter() {
             let vrf_input = VrfEvaluationInput::new(
                 keypair.clone(),
                 vrf_evaluator_input.epoch_seed.clone(),
-                account.0.to_string(),
+                pub_key.to_string(),
                 vrf_evaluator_input.global_slot,
                 index.clone(),
-                account.1.into(),
+                (*stake).into(),
                 vrf_evaluator_input.total_currency.into(),
             );
             vrf_result = vrf::evaluate_vrf(vrf_input).unwrap();

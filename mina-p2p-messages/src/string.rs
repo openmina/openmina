@@ -349,6 +349,5 @@ mod tests {
         let mut inp = input(MINA_STRING_MAX_LENGTH + 1);
         let res = CharString::binprot_read(&mut inp);
         assert!(res.is_err());
-
     }
 }

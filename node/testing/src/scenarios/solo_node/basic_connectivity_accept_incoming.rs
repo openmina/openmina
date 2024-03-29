@@ -62,7 +62,7 @@ impl SoloNodeBasicConnectivityAcceptIncoming {
             tokio::time::sleep(STEP_DELAY).await;
 
             let steps = runner
-                .pending_events()
+                .pending_events(true)
                 .map(|(node_id, _, events)| {
                     events.map(move |(_, event)| {
                         match event {
@@ -117,6 +117,7 @@ impl SoloNodeBasicConnectivityAcceptIncoming {
                     let node_id = runner.add_ocaml_node(OcamlNodeTestingConfig {
                         initial_peers: vec![node_addr.clone()],
                         daemon_json: DaemonJson::Custom("/var/lib/coda/berkeley.json".to_owned()),
+                        block_producer: None,
                     });
                     let node = runner.ocaml_node(node_id).unwrap();
                     eprintln!("launching OCaml node {}", node.dial_addr());

@@ -17,8 +17,8 @@ impl<'a> From<&'a VerifierIndex<Pallas>> for PlonkVerificationKeyEvals<Fp> {
         let to_curve = |v: &PolyComm<Pallas>| InnerCurve::of_affine(v.unshifted[0]);
 
         Self {
-            sigma: std::array::from_fn(|i| to_curve(&verifier_index.sigma_comm[i])),
-            coefficients: std::array::from_fn(|i| to_curve(&verifier_index.coefficients_comm[i])),
+            sigma: verifier_index.sigma_comm.each_ref().map(to_curve),
+            coefficients: verifier_index.coefficients_comm.each_ref().map(to_curve),
             generic: to_curve(&verifier_index.generic_comm),
             psm: to_curve(&verifier_index.psm_comm),
             complete_add: to_curve(&verifier_index.complete_add_comm),

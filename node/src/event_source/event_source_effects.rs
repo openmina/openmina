@@ -4,6 +4,7 @@ use p2p::P2pListenEvent;
 
 use crate::action::CheckTimeoutsAction;
 use crate::block_producer::vrf_evaluator::BlockProducerVrfEvaluatorAction;
+use crate::block_producer::{BlockProducerEvent, BlockProducerVrfEvaluatorEvent};
 use crate::external_snark_worker::ExternalSnarkWorkerEvent;
 use crate::p2p::channels::best_tip::P2pChannelsBestTipAction;
 use crate::p2p::channels::rpc::P2pChannelsRpcAction;
@@ -14,12 +15,18 @@ use crate::p2p::connection::outgoing::P2pConnectionOutgoingAction;
 use crate::p2p::connection::{P2pConnectionErrorResponse, P2pConnectionResponse};
 use crate::p2p::disconnection::{P2pDisconnectionAction, P2pDisconnectionReason};
 use crate::p2p::discovery::P2pDiscoveryAction;
+#[cfg(all(not(target_arch = "wasm32"), not(feature = "p2p-libp2p")))]
+use crate::p2p::network::P2pNetworkSchedulerAction;
+#[cfg(all(not(target_arch = "wasm32"), not(feature = "p2p-libp2p")))]
+use crate::p2p::MioEvent;
 use crate::p2p::P2pChannelEvent;
 use crate::rpc::{RpcAction, RpcRequest};
 use crate::snark::block_verify::SnarkBlockVerifyAction;
 use crate::snark::work_verify::SnarkWorkVerifyAction;
 use crate::snark::SnarkEvent;
-use crate::{ExternalSnarkWorkerAction, Service, Store};
+use crate::transition_frontier::genesis::TransitionFrontierGenesisAction;
+use crate::transition_frontier::sync::ledger::staged::TransitionFrontierSyncLedgerStagedAction;
+use crate::{BlockProducerAction, ExternalSnarkWorkerAction, Service, Store};
 
 use super::{Event, EventSourceAction, EventSourceActionWithMeta, P2pConnectionEvent, P2pEvent};
 
@@ -47,6 +54,55 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
         // "Translate" event into the corresponding action and dispatch it.
         EventSourceAction::NewEvent { event } => match event {
             Event::P2p(e) => match e {
+                #[cfg(all(not(target_arch = "wasm32"), not(feature = "p2p-libp2p")))]
+                P2pEvent::MioEvent(e) => match e {
+                    MioEvent::InterfaceDetected(ip) => {
+                        store.dispatch(P2pNetworkSchedulerAction::InterfaceDetected { ip });
+                    }
+                    MioEvent::InterfaceExpired(ip) => {
+                        store.dispatch(P2pNetworkSchedulerAction::InterfaceExpired { ip });
+                    }
+                    MioEvent::IncomingConnectionIsReady { listener } => {
+                        store.dispatch(P2pNetworkSchedulerAction::IncomingConnectionIsReady {
+                            listener,
+                        });
+                    }
+                    MioEvent::IncomingConnectionDidAccept(addr, result) => {
+                        store.dispatch(P2pNetworkSchedulerAction::IncomingDidAccept {
+                            addr,
+                            result,
+                        });
+                    }
+                    MioEvent::OutgoingConnectionDidConnect(addr, result) => {
+                        store.dispatch(P2pNetworkSchedulerAction::OutgoingDidConnect {
+                            addr,
+                            result,
+                        });
+                    }
+                    MioEvent::IncomingDataIsReady(addr) => {
+                        store.dispatch(P2pNetworkSchedulerAction::IncomingDataIsReady { addr });
+                    }
+                    MioEvent::IncomingDataDidReceive(addr, result) => {
+                        store.dispatch(P2pNetworkSchedulerAction::IncomingDataDidReceive {
+                            addr,
+                            result: result.map(From::from),
+                        });
+                    }
+                    MioEvent::OutgoingDataDidSend(_, _result) => {}
+                    MioEvent::ConnectionDidClose(addr, result) => {
+                        if let Err(e) = result {
+                            store.dispatch(P2pNetworkSchedulerAction::Error {
+                                addr,
+                                error: p2p::P2pNetworkConnectionError::MioError(e),
+                            });
+                        } else {
+                            store.dispatch(P2pNetworkSchedulerAction::Error {
+                                addr,
+                                error: p2p::P2pNetworkConnectionError::RemoteClosed,
+                            });
+                        }
+                    }
+                },
                 P2pEvent::Listen(e) => match e {
                     P2pListenEvent::NewListenAddr { listener_id, addr } => {
                         store.dispatch(P2pListenAction::New { listener_id, addr });
@@ -190,7 +246,7 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                         store.dispatch(P2pDisconnectionAction::Init { peer_id, reason });
                     }
                 },
-                #[cfg(not(target_arch = "wasm32"))]
+                #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
                 P2pEvent::Libp2pIdentify(..) => {}
                 P2pEvent::Discovery(p2p::P2pDiscoveryEvent::Ready) => {}
                 P2pEvent::Discovery(p2p::P2pDiscoveryEvent::DidFindPeers(peers)) => {
@@ -222,8 +278,8 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                 },
             },
             Event::Rpc(rpc_id, e) => match e {
-                RpcRequest::StateGet => {
-                    store.dispatch(RpcAction::GlobalStateGet { rpc_id });
+                RpcRequest::StateGet(filter) => {
+                    store.dispatch(RpcAction::GlobalStateGet { rpc_id, filter });
                 }
                 RpcRequest::ActionStatsGet(query) => {
                     store.dispatch(RpcAction::ActionStatsGet { rpc_id, query });
@@ -233,6 +289,9 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                 }
                 RpcRequest::PeersGet => {
                     store.dispatch(RpcAction::PeersGet { rpc_id });
+                }
+                RpcRequest::MessageProgressGet => {
+                    store.dispatch(RpcAction::MessageProgressGet { rpc_id });
                 }
                 RpcRequest::P2pConnectionOutgoing(opts) => {
                     store.dispatch(RpcAction::P2pConnectionOutgoingInit { rpc_id, opts });
@@ -270,6 +329,12 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                 RpcRequest::ReadinessCheck => {
                     store.dispatch(RpcAction::ReadinessCheck { rpc_id });
                 }
+                RpcRequest::DiscoveryRoutingTable => {
+                    store.dispatch(RpcAction::DiscoveryRoutingTable { rpc_id });
+                }
+                RpcRequest::DiscoveryBoostrapStats => {
+                    store.dispatch(RpcAction::DiscoveryBoostrapStats { rpc_id });
+                }
             },
             Event::ExternalSnarkWorker(e) => match e {
                 ExternalSnarkWorkerEvent::Started => {
@@ -295,16 +360,55 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                 }
             },
             Event::BlockProducerEvent(e) => match e {
-                crate::block_producer::BlockProducerEvent::VrfEvaluator(vrf_e) => match vrf_e {
-                    crate::block_producer::BlockProducerVrfEvaluatorEvent::Evaluated(
-                        vrf_output_with_hash,
-                    ) => {
-                        store.dispatch(BlockProducerVrfEvaluatorAction::EvaluationSuccess {
-                            vrf_output: vrf_output_with_hash.evaluation_result,
-                            staking_ledger_hash: vrf_output_with_hash.staking_ledger_hash,
-                        });
+                BlockProducerEvent::VrfEvaluator(vrf_e) => match vrf_e {
+                    BlockProducerVrfEvaluatorEvent::Evaluated(vrf_output_with_hash) => {
+                        store.dispatch(
+                            BlockProducerVrfEvaluatorAction::ProcessSlotEvaluationSuccess {
+                                vrf_output: vrf_output_with_hash.evaluation_result,
+                                staking_ledger_hash: vrf_output_with_hash.staking_ledger_hash,
+                            },
+                        );
                     }
                 },
+                BlockProducerEvent::BlockProve(block_hash, res) => match res {
+                    Err(err) => todo!(
+                        "error while trying to produce block proof for block {block_hash} - {err}"
+                    ),
+                    Ok(proof) => {
+                        if store
+                            .state()
+                            .transition_frontier
+                            .genesis
+                            .prove_pending_block_hash()
+                            .map_or(false, |hash| hash == block_hash)
+                        {
+                            store.dispatch(TransitionFrontierGenesisAction::ProveSuccess { proof });
+                        } else {
+                            store.dispatch(BlockProducerAction::BlockProveSuccess { proof });
+                        }
+                    }
+                },
+            },
+            Event::LedgerStagingReconstruct(res) => match res {
+                Err(error) => {
+                    store.dispatch(TransitionFrontierSyncLedgerStagedAction::ReconstructError {
+                        error,
+                    });
+                }
+                Ok(ledger_hash) => {
+                    store.dispatch(
+                        TransitionFrontierSyncLedgerStagedAction::ReconstructSuccess {
+                            ledger_hash,
+                        },
+                    );
+                }
+            },
+
+            Event::GenesisLoad(res) => match res {
+                Err(err) => todo!("error while trying to load genesis config/ledger. - {err}"),
+                Ok(data) => {
+                    store.dispatch(TransitionFrontierGenesisAction::LedgerLoadSuccess { data });
+                }
             },
         },
         EventSourceAction::WaitTimeout => {
