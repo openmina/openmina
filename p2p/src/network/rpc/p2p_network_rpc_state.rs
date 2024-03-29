@@ -23,7 +23,7 @@ pub struct P2pNetworkRpcState {
     pub addr: SocketAddr,
     pub stream_id: StreamId,
     pub last_id: P2pRpcId,
-    pub pending: Option<(P2pRpcId, (CharString, Ver))>,
+    pub pending: Option<QueryHeader>,
     #[serde_as(as = "Vec<(_, _)>")]
     pub total_stats: BTreeMap<(CharString, Ver), usize>,
     pub is_incoming: bool,
