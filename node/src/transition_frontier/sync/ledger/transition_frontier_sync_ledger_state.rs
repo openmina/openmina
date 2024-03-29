@@ -43,7 +43,7 @@ impl TransitionFrontierSyncLedgerState {
     pub fn is_snarked_ledger_synced(&self) -> bool {
         match self {
             Self::Init { .. } => false,
-            Self::Snarked(TransitionFrontierSyncLedgerSnarkedState::Pending { .. }) => false,
+            Self::Snarked(s) if s.is_pending() => false,
             _ => true,
         }
     }
@@ -67,7 +67,10 @@ impl TransitionFrontierSyncLedgerState {
 
     pub fn update_target(&mut self, time: Timestamp, new_target: SyncLedgerTarget) {
         match self {
-            Self::Snarked(TransitionFrontierSyncLedgerSnarkedState::Pending { target, .. }) => {
+            Self::Snarked(
+                TransitionFrontierSyncLedgerSnarkedState::NumAccountsPending { target, .. }
+                | TransitionFrontierSyncLedgerSnarkedState::MerkleTreeSyncPending { target, .. },
+            ) => {
                 if target.snarked_ledger_hash == new_target.snarked_ledger_hash {
                     *target = new_target;
                 } else {
