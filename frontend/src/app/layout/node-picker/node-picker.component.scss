@@ -1,40 +1,44 @@
 @import 'openmina';
 
 :host {
-	max-height: 60vh;
+  max-height: 50vh;
 }
 
 .node-picker {
-	.add-node {
-		right: 12px;
-		top: 10px;
-		width: 22px;
-		height: 22px;
+  .add-node {
+    right: 12px;
+    top: 10px;
+    width: 22px;
+    height: 22px;
 
-		&:hover {
-			background-color: $base-container;
-		}
-	}
+    &:hover {
+      background-color: $base-container;
+    }
+  }
 
-	.node {
-		.mina-icon {
-			width: 20px;
-		}
+  .node {
+    .mina-icon {
+      width: 20px;
+    }
 
-		.names {
-			width: calc(100% - 20px);
+    .names {
+      width: calc(100% - 20px);
 
-			> span {
-				height: 50%;
+      > span {
+        height: 50%;
 
-				&:first-child {
-					padding-bottom: 3px;
-				}
-			}
-		}
-	}
+        &:first-child {
+          padding-bottom: 3px;
+        }
+      }
+    }
+  }
 }
 
 .node:focus {
-	outline: 2px solid $selected-primary;
+  outline: 2px solid $selected-primary;
+}
+
+.mina-icon {
+  font-variation-settings: 'FILL' 0, 'wght' 400 !important;
 }

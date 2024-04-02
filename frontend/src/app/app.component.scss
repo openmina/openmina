@@ -66,10 +66,10 @@ mat-sidenav-content {
     $toolbar: 56px;
     $subMenus: 56px;
     height: calc(100% - #{$toolbar} - #{$subMenus});
-  }
 
-  &.no-submenus {
-    height: calc(100% - #{$toolbar});
+    &.no-submenus {
+      height: calc(100% - #{$toolbar});
+    }
   }
 }
 

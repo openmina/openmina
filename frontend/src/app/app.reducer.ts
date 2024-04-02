@@ -1,7 +1,7 @@
 import {
   APP_ADD_NODE,
   APP_CHANGE_ACTIVE_NODE,
-  APP_CHANGE_MENU_COLLAPSING,
+  APP_CHANGE_MENU_COLLAPSING, APP_DELETE_NODE,
   APP_INIT,
   APP_INIT_SUCCESS,
   APP_TOGGLE_MENU_OPENING,
@@ -9,7 +9,6 @@ import {
 } from '@app/app.actions';
 import { AppState } from '@app/app.state';
 import { MinaNode } from '@shared/types/core/environment/mina-env.type';
-
 
 const initialState: AppState = {
   menu: {
@@ -78,22 +77,22 @@ export function appReducer(state: AppState = initialState, action: any): AppStat
     }
 
     case APP_ADD_NODE: {
-      const newNode: MinaNode = {
-        features: {//todo: add this
-          // overview: ['nodes', 'topology'],
-          // explorer: ['blocks', 'transactions', 'snark-pool', 'scan-state', 'snark-traces'],
-          // resources: ['system'],
-          // network: ['messages', 'connections', 'blocks', 'blocks-ipc'],
-          // tracing: ['overview', 'blocks'],
-          // benchmarks: ['wallets'],
-          // 'web-node': ['wallet', 'peers', 'logs', 'state'],
-        },
-        url: action.payload,
-        name: action.payload.split('/')[action.payload.split('/').length - 1] || ('custom-node' + ++state.nodes.filter(n => n.name.includes('custom-node')).length),
-      };
+      const customNodes = localStorage.getItem('custom_nodes') ? JSON.parse(localStorage.getItem('custom_nodes')) : [];
+      localStorage.setItem('custom_nodes', JSON.stringify([action.payload, ...customNodes]));
       return {
         ...state,
-        nodes: [newNode, ...state.nodes],
+        nodes: [action.payload, ...state.nodes],
+      };
+    }
+
+    case APP_DELETE_NODE: {
+      const customNodes = localStorage.getItem('custom_nodes') ? JSON.parse(localStorage.getItem('custom_nodes')) : [];
+      localStorage.setItem('custom_nodes', JSON.stringify(customNodes.filter((node: MinaNode) => node.name !== action.payload.name)));
+      const nodes = state.nodes.filter(node => node.name !== action.payload.name);
+      return {
+        ...state,
+        nodes,
+        activeNode: state.activeNode?.name === action.payload.name ? nodes[0] : state.activeNode,
       };
     }
 

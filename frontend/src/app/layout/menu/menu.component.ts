@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, Inject, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 import { Store } from '@ngrx/store';
 import { MinaState } from '@app/app.setup';
 import { selectActiveNode, selectAppMenu } from '@app/app.state';
@@ -8,16 +8,15 @@ import {
   APP_CHANGE_MENU_COLLAPSING,
   APP_TOGGLE_MENU_OPENING,
   AppChangeMenuCollapsing,
-  AppToggleMenuOpening
+  AppToggleMenuOpening,
 } from '@app/app.actions';
 import {
   ManualDetection,
   removeParamsFromURL,
   ThemeSwitcherService,
   ThemeType,
-  TooltipPosition
+  TooltipPosition,
 } from '@openmina/shared';
-import { DOCUMENT } from '@angular/common';
 import { MinaNode } from '@shared/types/core/environment/mina-env.type';
 import { filter, map, tap } from 'rxjs';
 import { CONFIG, getAvailableFeatures } from '@shared/constants/config';
@@ -58,8 +57,7 @@ export class MenuComponent extends ManualDetection implements OnInit {
   activeNode: MinaNode;
   activeRoute: string;
 
-  constructor(@Inject(DOCUMENT) private readonly document: Document,
-              private router: Router,
+  constructor(private router: Router,
               private store: Store<MinaState>,
               private themeService: ThemeSwitcherService) { super(); }
 

@@ -4,8 +4,8 @@ import {
   selectNetworkNodeDhtActivePeer,
   selectNetworkNodeDhtKeyPeersBucketsOpenSidePanel,
 } from '@network/node-dht/network-node-dht.state';
-import { debounceTime, filter, fromEvent, skip, tap } from 'rxjs';
-import { NetworkNodeDhtSetActivePeer, NetworkNodeDhtToggleSidePanel } from '@network/node-dht/network-node-dht.actions';
+import { filter, fromEvent, skip, tap } from 'rxjs';
+import { NetworkNodeDhtSetActivePeer } from '@network/node-dht/network-node-dht.actions';
 import { NetworkNodeDhtBucket } from '@shared/types/network/node-dht/network-node-dht-bucket.type';
 import {
   NetworkNodeDhtPeer,
@@ -36,8 +36,8 @@ export class NetworkNodeDhtLineComponent extends StoreDispatcher implements Afte
   points: DhtPoint[] = [];
   bucketPoints: DhtPoint[] = [];
   openSidePanel: boolean;
-
   buckets: NetworkNodeDhtBucket[];
+
   private thisKey: string;
   private peers: NetworkNodeDhtPeer[] = [];
   private lastKnownWidth: number;
@@ -73,10 +73,6 @@ export class NetworkNodeDhtLineComponent extends StoreDispatcher implements Afte
       }),
       untilDestroyed(this),
     ).subscribe();
-  }
-
-  toggleSidePanel(): void {
-    this.dispatch(NetworkNodeDhtToggleSidePanel);
   }
 
   private listenToNodeDhtPeers(): void {

@@ -1,13 +1,4 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  ComponentRef,
-  ElementRef,
-  Input,
-  NgZone,
-  OnInit,
-  ViewChild
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, ComponentRef, ElementRef, Input, OnInit, ViewChild } from '@angular/core';
 import { selectActiveNode, selectAppMenu, selectNodes } from '@app/app.state';
 import { filter, take } from 'rxjs';
 import { Store } from '@ngrx/store';
@@ -18,6 +9,7 @@ import { MinaNode } from '@shared/types/core/environment/mina-env.type';
 import { ComponentPortal } from '@angular/cdk/portal';
 import { Overlay, OverlayRef } from '@angular/cdk/overlay';
 import { NodePickerComponent } from '@app/layout/node-picker/node-picker.component';
+import { NewNodeComponent } from '@app/layout/new-node/new-node.component';
 
 @Component({
   selector: 'mina-server-status',
@@ -38,9 +30,9 @@ export class ServerStatusComponent extends ManualDetection implements OnInit {
   private nodes: MinaNode[] = [];
   private overlayRef: OverlayRef;
   private nodePickerComponent: ComponentRef<NodePickerComponent>;
+  private newNodeComponent: ComponentRef<NewNodeComponent>;
 
-  constructor(private zone: NgZone,
-              private overlay: Overlay,
+  constructor(private overlay: Overlay,
               private store: Store<MinaState>) { super(); }
 
   ngOnInit(): void {
@@ -106,12 +98,41 @@ export class ServerStatusComponent extends ManualDetection implements OnInit {
     this.nodePickerComponent.instance.nodes = this.nodes;
     this.nodePickerComponent.instance.filteredNodes = this.nodes;
     this.nodePickerComponent.instance.activeNode = this.activeNode;
-    this.nodePickerComponent.instance.closeEmitter.pipe(take(1)).subscribe(() => this.detachOverlay());
+    this.nodePickerComponent.instance.closeEmitter.pipe(take(1)).subscribe((addNewNode: boolean) => {
+      this.detachOverlay();
+      if (addNewNode) {
+        this.openAddNewNodeOverlay();
+      }
+    });
   }
 
   detachOverlay(): void {
     if (this.overlayRef?.hasAttached()) {
       this.overlayRef.detach();
     }
+  }
+
+  private openAddNewNodeOverlay(): void {
+    if (this.overlayRef?.hasAttached()) {
+      this.overlayRef.detach();
+      return;
+    }
+
+    this.overlayRef = this.overlay.create({
+      hasBackdrop: true,
+      width: '100%',
+      maxWidth: '900px',
+      height: '100%',
+      maxHeight: '650px',
+      scrollStrategy: this.overlay.scrollStrategies.block(),
+      positionStrategy: this.overlay.position()
+        .global()
+        .centerHorizontally()
+        .centerVertically(),
+    });
+
+    const portal = new ComponentPortal(NewNodeComponent);
+    this.newNodeComponent = this.overlayRef.attach<NewNodeComponent>(portal);
+    this.newNodeComponent.instance.closeEmitter.pipe(take(1)).subscribe(() => this.detachOverlay());
   }
 }

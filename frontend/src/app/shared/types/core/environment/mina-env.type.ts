@@ -13,18 +13,17 @@ export interface MinaNode {
   memoryProfiler?: string;
   debugger?: string;
   features?: FeaturesConfig;
+  isCustom?: boolean;
 }
 
-export type FeaturesConfig = {
-  [key in FeatureType]?: string[];
-};
+export type FeaturesConfig = Partial<{
+  'dashboard': string[];
+  'nodes': string[];
+  'state': string[];
+  'network': string[];
+  'snarks': string[];
+  'resources': string[];
+  'testing-tool': string[];
+}>;
 
-export type FeatureType =
-  | 'dashboard'
-  | 'nodes'
-  | 'network'
-  | 'resources'
-  | 'state'
-  | 'snarks'
-  | 'testing-tool'
-  ;
+export type FeatureType = keyof FeaturesConfig;

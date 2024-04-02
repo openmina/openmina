@@ -14,10 +14,8 @@ import {
   NetworkBootstrapStatsSetActiveBootstrapRequest,
   NetworkBootstrapStatsSort,
 } from '@network/bootstrap-stats/network-bootstrap-stats.actions';
-import { NodesOverviewSetActiveNode } from '@nodes/overview/nodes-overview.actions';
 import { Routes } from '@shared/enums/routes.enum';
 import { Router } from '@angular/router';
-import { DashboardPeerStatus } from '@shared/types/dashboard/dashboard.peer';
 
 @Component({
   selector: 'mina-network-bootstrap-stats-table',
@@ -103,6 +101,4 @@ export class NetworkBootstrapStatsTableComponent extends MinaTableRustWrapper<Ne
   private setActiveRow(row: NetworkBootstrapStatsRequest): void {
     this.dispatch(NetworkBootstrapStatsSetActiveBootstrapRequest, row);
   }
-
-  protected readonly DashboardPeerStatus = DashboardPeerStatus;
 }

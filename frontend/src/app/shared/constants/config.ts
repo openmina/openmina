@@ -31,3 +31,8 @@ export function isFeatureEnabled(config: MinaNode, feature: FeatureType): boolea
 export function getFeaturesConfig(config: MinaNode): FeaturesConfig {
   return config?.features || CONFIG.globalConfig?.features;
 }
+
+export function isSubFeatureEnabled(config: MinaNode, feature: FeatureType, subFeature: string): boolean {
+  const features = getFeaturesConfig(config);
+  return hasValue(features[feature]) && features[feature].includes(subFeature);
+}

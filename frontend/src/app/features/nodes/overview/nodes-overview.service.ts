@@ -5,7 +5,7 @@ import { NodesOverviewNode, NodesOverviewNodeKindType } from '@shared/types/node
 import { hasValue, ONE_BILLION, ONE_MILLION, toReadableDate } from '@openmina/shared';
 import {
   NodesOverviewBlock,
-  NodesOverviewNodeBlockStatus
+  NodesOverviewNodeBlockStatus,
 } from '@shared/types/nodes/dashboard/nodes-overview-block.type';
 import {
   NodesOverviewLedger,
@@ -26,8 +26,7 @@ export class NodesOverviewService {
   constructor(private http: HttpClient) {
   }
 
-  getNodes(): Observable<NodesOverviewNode[]> {
-    const nodes = CONFIG.configs;
+  getNodes(nodes: MinaNode[]): Observable<NodesOverviewNode[]> {
     return forkJoin(
       nodes.map((node: MinaNode) => {
         return this.getNodeTips({ url: node.url, name: node.name }, '?limit=1');
