@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 import { MinaTableRustWrapper } from '@shared/base-classes/mina-table-rust-wrapper.class';
-import { TableColumnList } from '@openmina/shared';
+import { getMergedRoute, MergedRoute, TableColumnList } from '@openmina/shared';
 import { Router } from '@angular/router';
 import {
   NetworkNodeDhtPeer,
@@ -8,6 +8,14 @@ import {
 } from '@shared/types/network/node-dht/network-node-dht.type';
 import { selectNetworkNodeDhtActivePeer, selectNetworkNodeDhtPeers } from '@network/node-dht/network-node-dht.state';
 import { NetworkNodeDhtSetActivePeer } from '@network/node-dht/network-node-dht.actions';
+import { filter, take } from 'rxjs';
+import {
+  NetworkBootstrapStatsRequest,
+} from '@shared/types/network/bootstrap-stats/network-bootstrap-stats-request.type';
+import {
+  NetworkBootstrapStatsSetActiveBootstrapRequest,
+} from '@network/bootstrap-stats/network-bootstrap-stats.actions';
+import { Routes } from '@shared/enums/routes.enum';
 
 
 @Component({
@@ -19,6 +27,7 @@ import { NetworkNodeDhtSetActivePeer } from '@network/node-dht/network-node-dht.
 })
 export class NetworkNodeDhtTableComponent extends MinaTableRustWrapper<NetworkNodeDhtPeer> implements OnInit {
 
+  protected readonly NetworkNodeDhtPeerConnectionType = NetworkNodeDhtPeerConnectionType;
   protected readonly tableHeads: TableColumnList<NetworkNodeDhtPeer> = [
     { name: 'connection' },
     { name: 'peerId' },
@@ -32,10 +41,13 @@ export class NetworkNodeDhtTableComponent extends MinaTableRustWrapper<NetworkNo
   rows: NetworkNodeDhtPeer[] = [];
   activeRow: NetworkNodeDhtPeer;
 
+  private idFromRoute: string;
+
   constructor(private router: Router) { super(); }
 
   override async ngOnInit(): Promise<void> {
     await super.ngOnInit();
+    this.listenToRouteChange();
     this.listenToNetworkConnectionsChanges();
     this.listenToActiveRowChange();
   }
@@ -45,12 +57,21 @@ export class NetworkNodeDhtTableComponent extends MinaTableRustWrapper<NetworkNo
     this.table.propertyForActiveCheck = 'peerId';
   }
 
+  private listenToRouteChange(): void {
+    this.select(getMergedRoute, (route: MergedRoute) => {
+      if (route.params['id'] && this.table.rows.length === 0) {
+        this.idFromRoute = route.params['id'];
+      }
+    }, take(1));
+  }
+
   private listenToNetworkConnectionsChanges(): void {
     this.select(selectNetworkNodeDhtPeers, (rows: NetworkNodeDhtPeer[]) => {
       this.rows = rows;
       this.table.rows = rows;
       this.table.detect();
-    });
+      this.scrollToElement();
+    }, filter(rows => rows.length > 0));
   }
 
   private listenToActiveRowChange(): void {
@@ -61,9 +82,22 @@ export class NetworkNodeDhtTableComponent extends MinaTableRustWrapper<NetworkNo
     });
   }
 
-  protected override onRowClick(row: NetworkNodeDhtPeer): void {
-    this.dispatch(NetworkNodeDhtSetActivePeer, row);
+  private scrollToElement(): void {
+    if (this.idFromRoute) {
+      this.table.scrollToElement(request => request.peerId === this.idFromRoute);
+      this.setActiveRow(this.table.rows.find(request => request.peerId === this.idFromRoute));
+      delete this.idFromRoute;
+    }
   }
 
-  protected readonly NetworkNodeDhtPeerConnectionType = NetworkNodeDhtPeerConnectionType;
+  protected override onRowClick(row: NetworkNodeDhtPeer): void {
+    if (this.table.activeRow?.peerId !== row?.peerId) {
+      this.setActiveRow(row);
+      this.router.navigate([Routes.NETWORK, Routes.NODE_DHT, row.peerId], { queryParamsHandling: 'merge' });
+    }
+  }
+
+  private setActiveRow(row: NetworkNodeDhtPeer): void {
+    this.dispatch(NetworkNodeDhtSetActivePeer, row);
+  }
 }

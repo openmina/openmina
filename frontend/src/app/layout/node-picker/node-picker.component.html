@@ -5,12 +5,12 @@
     <input #searchNode type="text" placeholder="Search"
            class="flex-row border-rad-4 h-md m-5 mina-input pl-8 secondary w-100">
     <div *ngIf="searchInput?.nativeElement.value"
-         class="add-node border-rad-4 secondary primary-hover pointer p-absolute flex-row align-center flex-center"
-         (click)="addNode($event)">
+         class="add-node border-rad-4 secondary primary-hover pointer p-absolute flex-row align-center flex-center">
       <span class="mina-icon icon-200 f-22">add</span>
     </div>
   </div>
-  <div class="p-5 flex-column border-top overflow-auto">
+  <div class="p-5 flex-column border-top overflow-auto flex-1"
+       *ngIf="filteredNodes.length">
     <div class="node h-xl pl-12 pr-12 flex-row flex-between border-rad-4 pointer"
          *ngFor="let node of filteredNodes; let i=index"
          (click)="selectNode(node)"
@@ -21,7 +21,7 @@
             }"
          [tabindex]="0"
          [tooltip]="node.url"
-         [showDelay]="500"
+         [showDelay]="300"
          (keydown.space)="selectNode(node)"
          (keydown.enter)="selectNode(node)">
       <span class="mina-icon icon-200 f-20 divider"
@@ -32,6 +32,19 @@
         <span class="truncate w-100"
               [ngClass]="activeNode === node ? 'selected-secondary' : 'tertiary'">{{ node.url }}</span>
       </div>
+      <div class="h-100 fx-row-vert-cent" *ngIf="node.isCustom">
+        <div class="h-md pr-5 fx-row-full-cent bg-container-hover primary-hover warn-primary"
+             [tooltip]="'Delete from local storage'"
+             [showDelay]="400"
+             (click)="deleteCustomNode(node)">
+          <span class="mina-icon icon-200">delete</span>
+        </div>
+      </div>
     </div>
+  </div>
+  <div class="fx-row-vert-cent pointer bg-container-hover border-top h-xl f-600"
+       (click)="addNode($event)">
+    <span class="mina-icon icon-400 f-22 mr-10 ml-10 secondary">add_circle</span>
+    <div>New node</div>
   </div>
 </div>

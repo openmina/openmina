@@ -9,7 +9,7 @@ import {
   HorizontalMenuComponent,
   NgrxRouterStoreModule,
   OpenminaEagerSharedModule,
-  THEME_PROVIDER
+  THEME_PROVIDER,
 } from '@openmina/shared';
 import { CommonModule, registerLocaleData } from '@angular/common';
 import localeFr from '@angular/common/locales/fr';
@@ -29,6 +29,8 @@ import { EffectsModule } from '@ngrx/effects';
 import { AppEffects } from '@app/app.effects';
 import { StoreDevtoolsModule } from '@ngrx/store-devtools';
 import { HttpClientModule } from '@angular/common/http';
+import { NewNodeComponent } from './layout/new-node/new-node.component';
+import { ReactiveFormsModule } from '@angular/forms';
 
 registerLocaleData(localeFr, 'fr');
 registerLocaleData(localeEn, 'en');
@@ -53,6 +55,7 @@ export class AppGlobalErrorhandler implements ErrorHandler {
     ServerStatusComponent,
     SubmenuTabsComponent,
     NodePickerComponent,
+    NewNodeComponent,
   ],
   imports: [
     CommonModule,
@@ -75,12 +78,13 @@ export class AppGlobalErrorhandler implements ErrorHandler {
     MatSidenavModule,
     OpenminaEagerSharedModule,
     HorizontalMenuComponent,
+    ReactiveFormsModule,
   ],
   providers: [
     THEME_PROVIDER,
     { provide: ErrorHandler, useClass: AppGlobalErrorhandler, deps: [GlobalErrorHandlerService] },
     { provide: LOCALE_ID, useValue: 'en' },
   ],
-  bootstrap: [AppComponent]
+  bootstrap: [AppComponent],
 })
 export class AppModule {}

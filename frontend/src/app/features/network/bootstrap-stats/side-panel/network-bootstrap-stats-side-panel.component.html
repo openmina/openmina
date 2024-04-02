@@ -4,41 +4,55 @@
         (click)="closeSidePanel()">close
   </span>
 </div>
-<div class="h-minus-xl flex-column">
-  <div class="h-lg tab-group pl-12 pb-10 pr-10">
-    <button class="tab mr-10" [class.selected]="activeTab === 1"
-            (click)="selectTab(1)">Closest Peers
-    </button>
-    <button class="tab" [class.selected]="activeTab === 2"
-            (click)="selectTab(2)">JSON
-    </button>
-  </div>
+<div class="h-minus-xl pb-10">
   <div class="h-minus-lg flex-column">
-    <ng-container [ngSwitch]="activeTab">
-      <ng-container *ngSwitchCase="1">
-        <div *ngFor="let peer of request?.closestPeers"
-             class="fx-row-vert-cent h-md flex-between pl-12 pr-12">
-          <div class="tertiary">
-            <mina-copy [display]="peer[0] | truncateMid" [value]="peer[0]" [hidden]="true"></mina-copy>
+    <div class="h-lg tab-group pl-12 pb-10 pr-10">
+      <button class="tab mr-10" [class.selected]="activeTab === 1"
+              (click)="selectTab(1)">Closest Peers
+      </button>
+      <button class="tab" [class.selected]="activeTab === 2"
+              (click)="selectTab(2)">JSON
+      </button>
+    </div>
+    <div class="h-minus-lg flex-column">
+      <ng-container [ngSwitch]="activeTab">
+        <ng-container *ngSwitchCase="1">
+          <div class="flex-column overflow-y-scroll">
+            <div *ngFor="let peer of request?.closestPeers"
+                 class="fx-row-vert-cent h-md lh-md flex-between pl-12 pr-12">
+              <div class="tertiary">
+                <mina-copy [display]="peer[0] | truncateMid" [value]="peer[0]" [hidden]="true"></mina-copy>
+              </div>
+              <div>{{ peer[1] }}</div>
+            </div>
+            <div *ngIf="request?.closestPeers?.length === 0" class="tertiary f-600 pl-12">
+              No peers found
+            </div>
           </div>
-          <div>{{ peer[1] }}</div>
-        </div>
-        <div *ngIf="request?.closestPeers?.length === 0" class="tertiary f-600 pl-12">
-          No peers found
-        </div>
+        </ng-container>
+        <ng-container *ngSwitchCase="2">
+          <div class="h-lg flex-row pl-12">
+            <button class="btn-primary mr-8" (click)="expandEntireJSON()">Expand All</button>
+            <button class="btn-primary mr-8" (click)="collapseEntireJSON()">Collapse All</button>
+            <button class="btn-primary mr-8" [copyToClipboard]="jsonString">Copy</button>
+            <button class="btn-primary" (click)="downloadJson()">Save</button>
+          </div>
+          <div class="flex-column h-minus-lg overflow-y-scroll">
+            <mina-json-viewer [expanded]="false" [json]="request || {}"
+                              [expandTracking]="expandingTracking"></mina-json-viewer>
+          </div>
+        </ng-container>
       </ng-container>
-      <ng-container *ngSwitchCase="2">
-        <div class="h-lg flex-row pl-12">
-          <button class="btn-primary mr-8" (click)="expandEntireJSON()">Expand All</button>
-          <button class="btn-primary mr-8" (click)="collapseEntireJSON()">Collapse All</button>
-          <button class="btn-primary mr-8" [copyToClipboard]="jsonString">Copy</button>
-          <button class="btn-primary" (click)="downloadJson()">Save</button>
-        </div>
-        <div class="flex-column h-minus-lg overflow-y-scroll">
-          <mina-json-viewer [expanded]="false" [json]="request || {}"
-                            [expandTracking]="expandingTracking"></mina-json-viewer>
-        </div>
-      </ng-container>
-    </ng-container>
+    </div>
+  </div>
+  <div class="ml-10 mr-10 mb-10 h-lg">
+    <button class="btn-primary w-100 h-lg"
+            *ngIf="hasNodeDhtEnabled"
+            (click)="goToNodeDht()">
+      <span class="fx-row-full-cent">
+        See peer in Node's DHT
+        <span class="mina-icon icon-300 f-18 ml-5">north_east</span>
+      </span>
+    </button>
   </div>
 </div>

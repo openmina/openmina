@@ -4,11 +4,11 @@ import { tap, timer } from 'rxjs';
 import { untilDestroyed } from '@ngneat/until-destroy';
 import {
   NetworkNodeDhtClose,
-  NetworkNodeDhtGetBootstrapStats,
   NetworkNodeDhtGetPeers,
   NetworkNodeDhtInit,
 } from '@network/node-dht/network-node-dht.actions';
-import { selectNetworkNodeDhtOpenSidePanel } from '@network/node-dht/network-node-dht.state';
+import { selectNetworkNodeDhtActivePeer } from '@network/node-dht/network-node-dht.state';
+import { NetworkNodeDhtPeer } from '@shared/types/network/node-dht/network-node-dht.type';
 
 @Component({
   selector: 'mina-network-node-dht',
@@ -32,18 +32,17 @@ export class NetworkNodeDhtComponent extends StoreDispatcher implements OnInit, 
     timer(3000, 3000)
       .pipe(
         tap(() => this.dispatch(NetworkNodeDhtGetPeers)),
-        tap(() => this.dispatch(NetworkNodeDhtGetBootstrapStats)),
         untilDestroyed(this),
       )
       .subscribe();
   }
 
   private listenToSidePanelChange(): void {
-    this.select(selectNetworkNodeDhtOpenSidePanel, open => {
-      if (open && !this.openSidePanel) {
+    this.select(selectNetworkNodeDhtActivePeer, (activePeer: NetworkNodeDhtPeer) => {
+      if (activePeer && !this.openSidePanel) {
         this.openSidePanel = true;
         this.detect();
-      } else if (!open && this.openSidePanel) {
+      } else if (!activePeer && this.openSidePanel) {
         this.openSidePanel = false;
         this.detect();
       }

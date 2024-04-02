@@ -1,11 +1,14 @@
-import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, ViewChild } from '@angular/core';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
 import { NetworkNodeDhtPeer } from '@shared/types/network/node-dht/network-node-dht.type';
-import {
-  selectNetworkNodeDhtActiveBootstrapRequest,
-  selectNetworkNodeDhtActivePeer,
-} from '@network/node-dht/network-node-dht.state';
-import { NetworkNodeDhtSetActivePeer, NetworkNodeDhtToggleSidePanel } from '@network/node-dht/network-node-dht.actions';
+import { selectNetworkNodeDhtActivePeer } from '@network/node-dht/network-node-dht.state';
+import { NetworkNodeDhtSetActivePeer } from '@network/node-dht/network-node-dht.actions';
+import { downloadJson, ExpandTracking, MinaJsonViewerComponent } from '@openmina/shared';
+import { delay, mergeMap, of } from 'rxjs';
+import { Routes } from '@shared/enums/routes.enum';
+import { Router } from '@angular/router';
+import { selectActiveNode } from '@app/app.state';
+import { isSubFeatureEnabled } from '@shared/constants/config';
 
 @Component({
   selector: 'mina-network-node-dht-side-panel',
@@ -17,45 +20,51 @@ import { NetworkNodeDhtSetActivePeer, NetworkNodeDhtToggleSidePanel } from '@net
 export class NetworkNodeDhtSidePanelComponent extends StoreDispatcher implements OnInit {
 
   activePeer: NetworkNodeDhtPeer;
-  activeStep: number = 0;
+  expandingTracking: ExpandTracking = {};
+  jsonString: string;
+  hasBootstrapStatsEnabled: boolean;
+
+  @ViewChild(MinaJsonViewerComponent) private minaJsonViewer: MinaJsonViewerComponent;
+
+  constructor(private router: Router) { super(); }
 
   ngOnInit(): void {
     this.listenToActiveNode();
-    this.listenToActiveBoostrapRequest();
+    this.listenToActivePeer();
+  }
+
+  private listenToActivePeer(): void {
+    this.select(selectNetworkNodeDhtActivePeer, (peer: NetworkNodeDhtPeer) => {
+      this.activePeer = peer;
+      this.jsonString = JSON.stringify(peer);
+      this.detect();
+    });
   }
 
   private listenToActiveNode(): void {
-    this.select(selectNetworkNodeDhtActivePeer, (peer: NetworkNodeDhtPeer) => {
-      this.activePeer = peer;
-      if (this.activePeer) {
-        this.activeStep = 1;
-      } else {
-        this.activeStep = 0;
-      }
-      this.detect();
+    this.select(selectActiveNode, (node) => {
+      this.hasBootstrapStatsEnabled = isSubFeatureEnabled(node, 'network', 'bootstrap-stats');
     });
   }
 
-  private listenToActiveBoostrapRequest(): void {
-    this.select(selectNetworkNodeDhtActiveBootstrapRequest, (request: any) => {
-      if (request) {
-        this.activeStep = 2;
-      } else {
-        this.activeStep = 0;
-      }
-      this.detect();
-    });
+  downloadJson(): void {
+    downloadJson(this.jsonString, 'dht-peer.json');
   }
 
-  removeActivePeer(): void {
-    this.dispatch(NetworkNodeDhtSetActivePeer);
+  expandEntireJSON(): void {
+    this.expandingTracking = this.minaJsonViewer.toggleAll(true);
   }
 
-  toggleSidePanel(): void {
-    this.dispatch(NetworkNodeDhtToggleSidePanel);
+  collapseEntireJSON(): void {
+    this.expandingTracking = this.minaJsonViewer.toggleAll(false);
   }
 
-  backToStep0(): void {
-    this.activeStep = 0;
+  closeSidePanel(): void {
+    this.dispatch(NetworkNodeDhtSetActivePeer, undefined);
+    this.router.navigate([Routes.NETWORK, Routes.NODE_DHT], { queryParamsHandling: 'merge' });
+  }
+
+  goToBootstrapStats(): void {
+    this.router.navigate([Routes.NETWORK, Routes.BOOTSTRAP_STATS, this.activePeer.peerId], { queryParamsHandling: 'merge' });
   }
 }

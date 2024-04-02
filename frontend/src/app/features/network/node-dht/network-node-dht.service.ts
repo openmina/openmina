@@ -6,9 +6,6 @@ import {
   NetworkNodeDhtPeerConnectionType,
 } from '@shared/types/network/node-dht/network-node-dht.type';
 import { NetworkNodeDhtBucket } from '@shared/types/network/node-dht/network-node-dht-bucket.type';
-import {
-  NetworkBootstrapStatsRequest,
-} from '@shared/types/network/bootstrap-stats/network-bootstrap-stats-request.type';
 
 @Injectable({
   providedIn: 'root',
@@ -23,37 +20,40 @@ export class NetworkNodeDhtService {
     );
   }
 
-  getDhtBootstrapStats(): Observable<NetworkBootstrapStatsRequest[]> {
-    return this.rust.get<DhtBootstrapStatsResponse>('/discovery/bootstrap_stats').pipe(
-      map((response: DhtBootstrapStatsResponse) => this.mapBootstrapStats(response)),
-    );
-  }
-
   private mapDhtPeers(response: DhtPeersResponse): {
     peers: NetworkNodeDhtPeer[],
     thisKey: string,
     buckets: NetworkNodeDhtBucket[]
   } {
+    const peers = response.buckets.reduce((acc, bucket) => {
+      const nodes = bucket.entries.map(entry => {
+        const binaryDistance = this.hexToBinary(entry.dist);
+        return {
+          connection: this.convertConnectionType(entry.connection),
+          peerId: entry.peer_id,
+          addressesLength: entry.addrs.length,
+          addrs: entry.addrs,
+          key: entry.key,
+          hexDistance: entry.dist,
+          libp2p: entry.libp2p,
+          binaryDistance,
+          bucketIndex: response.buckets.indexOf(bucket),
+          xorDistance: entry.key === response.this_key ? '-' : this.getNumberOfZerosUntilFirst1(binaryDistance),
+          bucketMaxHex: bucket.max_dist,
+        } as NetworkNodeDhtPeer;
+      });
+      return acc.concat(nodes);
+    }, []);
+
+    // placing origin peer at the beginning of the list
+    const indexOfOriginPeer = peers.findIndex(peer => peer.key === response.this_key);
+    if (indexOfOriginPeer > 0) {
+      const originPeer = peers.splice(indexOfOriginPeer, 1)[0];
+      peers.unshift(originPeer);
+    }
+
     return {
-      peers: response.buckets.reduce((acc, bucket) => {
-        const nodes = bucket.entries.map(entry => {
-          const binaryDistance = this.hexToBinary(entry.dist);
-          return {
-            connection: this.convertConnectionType(entry.connection),
-            peerId: entry.peer_id,
-            addressesLength: entry.addrs.length,
-            addrs: entry.addrs,
-            key: entry.key,
-            hexDistance: entry.dist,
-            libp2p: entry.libp2p,
-            binaryDistance,
-            bucketIndex: response.buckets.indexOf(bucket),
-            xorDistance: entry.key === response.this_key ? '-' : this.getNumberOfZerosUntilFirst1(binaryDistance),
-            bucketMaxHex: bucket.max_dist,
-          } as NetworkNodeDhtPeer;
-        });
-        return acc.concat(nodes);
-      }, []),
+      peers,
       thisKey: response.this_key,
       buckets: response.buckets.map(bucket => ({
         peers: bucket.entries.length,
@@ -79,10 +79,6 @@ export class NetworkNodeDhtService {
       }
     }
     return leadingZeros;
-  }
-
-  private mapBootstrapStats(response: DhtBootstrapStatsResponse): NetworkBootstrapStatsRequest[] {
-    return response.requests;
   }
 
   private convertConnectionType(connection: ConnectionType): NetworkNodeDhtPeerConnectionType {
@@ -115,8 +111,4 @@ enum ConnectionType {
   Connected = 'Connected',
   NotConnected = 'NotConnected',
   CanConnect = 'CanConnect',
-}
-
-interface DhtBootstrapStatsResponse {
-  requests: NetworkBootstrapStatsRequest[];
 }
