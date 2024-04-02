@@ -54,7 +54,7 @@ impl P2pNetworkKademliaAction {
 
                 debug!(meta.time(); "found {} peers", closer_peers.len());
                 let message = P2pNetworkKademliaRpcReply::FindNode { closer_peers };
-                store.dispatch(P2pNetworkKademliaStreamAction::SendReply {
+                store.dispatch(P2pNetworkKademliaStreamAction::SendResponse {
                     addr,
                     peer_id,
                     stream_id,
@@ -66,13 +66,17 @@ impl P2pNetworkKademliaAction {
                 UpdateFindNodeRequest {
                     addr: _,
                     peer_id,
-                    stream_id: _,
+                    stream_id,
                     closest_peers,
                 },
                 _,
             ) => {
                 let data = closest_peers.clone();
-                store.dispatch(P2pNetworkKadRequestAction::ReplyReceived { peer_id, data });
+                store.dispatch(P2pNetworkKadRequestAction::ReplyReceived {
+                    peer_id,
+                    stream_id,
+                    data,
+                });
                 Ok(())
             }
             (StartBootstrap { .. }, _) => {

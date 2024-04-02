@@ -2,73 +2,64 @@ use serde::{Deserialize, Serialize};
 
 use crate::{P2pNetworkKademliaRpcReply, P2pNetworkKademliaRpcRequest};
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
-pub enum P2pNetworkKadStreamKind {
-    Incoming,
-    Outgoing,
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum P2pNetworkKadStreamState {
+    Incoming(P2pNetworkKadIncomingStreamState),
+    Outgoing(P2pNetworkKadOutgoingStreamState),
 }
 
-impl From<bool> for P2pNetworkKadStreamKind {
-    fn from(incoming: bool) -> Self {
+impl P2pNetworkKadStreamState {
+    pub fn new(incoming: bool) -> Self {
         if incoming {
-            P2pNetworkKadStreamKind::Incoming
+            P2pNetworkKadStreamState::Incoming(Default::default())
         } else {
-            P2pNetworkKadStreamKind::Outgoing
+            P2pNetworkKadStreamState::Outgoing(Default::default())
         }
     }
 }
 
+/// Incoming Kademlia stream is used by a remote peer to perform a Kademlia request.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-pub enum P2pNetworkKadStreamState {
+pub enum P2pNetworkKadIncomingStreamState {
     #[default]
     Default,
     /// Waiting for the incoming request.
-    WaitingIncoming {
-        kind: P2pNetworkKadStreamKind,
-        expect_data: bool,
-        expect_close: bool,
-    },
+    WaitingForRequest { expect_close: bool },
     /// A portion of data from the stream is received.
-    IncomingPartialData {
-        kind: P2pNetworkKadStreamKind,
-        len: usize,
-        data: Vec<u8>,
-    },
+    PartialRequestReceived { len: usize, data: Vec<u8> },
     /// Request from the stream is received.
-    IncomingRequest { data: P2pNetworkKademliaRpcRequest },
-    /// Request from the stream is received.
-    IncomingReply { data: P2pNetworkKademliaRpcReply },
+    RequestIsReady { data: P2pNetworkKademliaRpcRequest },
     /// Waiting for an outgoing data, or for finalization of the stream (iff `expect_fin` is `true`)
-    WaitingOutgoing {
-        kind: P2pNetworkKadStreamKind,
-        expect_close: bool,
-    },
+    WaitingForReply,
     /// Response bytes for the remote request is ready to be written into the stream.
-    OutgoingBytes {
-        kind: P2pNetworkKadStreamKind,
-        bytes: Vec<u8>,
-    },
+    ResponseBytesAreReady { bytes: Vec<u8> },
+    /// Remote peer half-closed the stream.
+    Closing,
     /// The stream is closed.
     Closed,
     /// Error handling the stream.
     /// TODO: use enum for errors.
     Error(String),
 }
-
-impl P2pNetworkKadStreamState {
-    pub fn new() -> Self {
-        P2pNetworkKadStreamState::Default
-    }
-}
-
-impl From<P2pNetworkKademliaRpcRequest> for P2pNetworkKadStreamState {
-    fn from(data: P2pNetworkKademliaRpcRequest) -> Self {
-        P2pNetworkKadStreamState::IncomingRequest { data }
-    }
-}
-
-impl From<P2pNetworkKademliaRpcReply> for P2pNetworkKadStreamState {
-    fn from(data: P2pNetworkKademliaRpcReply) -> Self {
-        P2pNetworkKadStreamState::IncomingReply { data }
-    }
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub enum P2pNetworkKadOutgoingStreamState {
+    #[default]
+    Default,
+    /// Waiting for an outgoing data, or for finalization of the stream (iff `expect_close` is `true`)
+    WaitingForRequest { expect_close: bool },
+    /// Response bytes for the remote request are ready to be written into the stream.
+    RequestBytesAreReady { bytes: Vec<u8> },
+    /// Waiting for the incoming reply.
+    WaitingForReply,
+    /// A portion of data from the stream is received.
+    PartialReplyReceived { len: usize, data: Vec<u8> },
+    /// Response from the stream is received.
+    ResponseIsReady { data: P2pNetworkKademliaRpcReply },
+    /// Closing the stream.
+    Closing,
+    /// The stream is closed.
+    Closed,
+    /// Error handling the stream.
+    /// TODO: use enum for errors.
+    Error(String),
 }

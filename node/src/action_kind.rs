@@ -223,8 +223,8 @@ pub enum ActionKind {
     P2pNetworkKademliaStreamOutgoingDataReady,
     P2pNetworkKademliaStreamPrune,
     P2pNetworkKademliaStreamRemoteClose,
-    P2pNetworkKademliaStreamSendReply,
     P2pNetworkKademliaStreamSendRequest,
+    P2pNetworkKademliaStreamSendResponse,
     P2pNetworkKademliaStreamWaitIncoming,
     P2pNetworkKademliaStreamWaitOutgoing,
     P2pNetworkNoiseDecryptedData,
@@ -1153,13 +1153,13 @@ impl ActionKindGet for P2pNetworkKademliaStreamAction {
         match self {
             Self::New { .. } => ActionKind::P2pNetworkKademliaStreamNew,
             Self::IncomingData { .. } => ActionKind::P2pNetworkKademliaStreamIncomingData,
+            Self::RemoteClose { .. } => ActionKind::P2pNetworkKademliaStreamRemoteClose,
+            Self::WaitIncoming { .. } => ActionKind::P2pNetworkKademliaStreamWaitIncoming,
             Self::WaitOutgoing { .. } => ActionKind::P2pNetworkKademliaStreamWaitOutgoing,
             Self::SendRequest { .. } => ActionKind::P2pNetworkKademliaStreamSendRequest,
-            Self::SendReply { .. } => ActionKind::P2pNetworkKademliaStreamSendReply,
+            Self::SendResponse { .. } => ActionKind::P2pNetworkKademliaStreamSendResponse,
             Self::OutgoingDataReady { .. } => ActionKind::P2pNetworkKademliaStreamOutgoingDataReady,
-            Self::WaitIncoming { .. } => ActionKind::P2pNetworkKademliaStreamWaitIncoming,
             Self::Close { .. } => ActionKind::P2pNetworkKademliaStreamClose,
-            Self::RemoteClose { .. } => ActionKind::P2pNetworkKademliaStreamRemoteClose,
             Self::Prune { .. } => ActionKind::P2pNetworkKademliaStreamPrune,
         }
     }
