@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use ledger::{transaction_pool::ApplyDecision, Account, AccountId, BaseLedger, Mask};
+use ledger::{scan_state::transaction_logic::UserCommand, transaction_pool::{diff, ApplyDecision}, Account, AccountId, BaseLedger, Mask};
 use mina_p2p_messages::v2::LedgerHash;
 
 use crate::{Service, Store};
@@ -24,6 +24,10 @@ impl TransactionPoolState {
         }
     }
 
+    fn rebroadcast(&self, accepted: Vec<UserCommand>, rejected: Vec<(UserCommand, diff::Error)>) {
+        // TODO
+    }
+
     pub fn reducer(&mut self, action: TransactionPoolActionWithMetaRef<'_>) {
         use TransactionPoolAction::*;
 
@@ -43,9 +47,9 @@ impl TransactionPoolState {
                 is_sender_local,
                 accounts,
             } => match self.pool.unsafe_apply(diff, &accounts, *is_sender_local) {
-                Ok((ApplyDecision::Accept, accepted, rejected)) => todo!(),
+                Ok((ApplyDecision::Accept, accepted, rejected)) => self.rebroadcast(accepted, rejected),
                 Ok((ApplyDecision::Reject, accepted, rejected)) => todo!(),
-                Err(_) => todo!(),
+                Err(_e) => eprintln!("unsafe_apply: {:?}", e),
             },
             ApplyTransitionFrontierDiff {
                 best_tip_hash: _,
@@ -54,12 +58,12 @@ impl TransactionPoolState {
             ApplyTransitionFrontierDiffWithAccounts { diff, accounts } => {
                 self.pool.handle_transition_frontier_diff(diff, &accounts);
             }
-            Rebroadcast => todo!(),
+            Rebroadcast => {},
         }
     }
 }
 
-fn load_accounts_from_best_tip_ledger<S: Service>(
+fn load_accounts_from_ledger<S: Service>(
     store: &mut Store<S>,
     best_tip_hash: &LedgerHash,
     account_ids: BTreeSet<AccountId>,
@@ -91,7 +95,7 @@ pub fn transaction_pool_effects<S: Service>(
             let state = &store.state().transaction_pool;
             let account_ids = state.pool.get_accounts_to_revalidate_on_new_best_tip();
 
-            let accounts = load_accounts_from_best_tip_ledger(store, &best_tip_hash, account_ids);
+            let accounts = load_accounts_from_ledger(store, &best_tip_hash, account_ids);
 
             store.dispatch(TransactionPoolAction::BestTipChangedWithAccounts { accounts });
         }
@@ -104,7 +108,7 @@ pub fn transaction_pool_effects<S: Service>(
             let state = &store.state().transaction_pool;
             let account_ids = state.pool.get_accounts_to_apply_diff(&diff);
 
-            let accounts = load_accounts_from_best_tip_ledger(store, &best_tip_hash, account_ids);
+            let accounts = load_accounts_from_ledger(store, &best_tip_hash, account_ids);
 
             store.dispatch(TransactionPoolAction::ApplyVerifiedDiffWithAccounts {
                 diff,
@@ -124,7 +128,7 @@ pub fn transaction_pool_effects<S: Service>(
             let state = &store.state().transaction_pool;
             let account_ids = state.pool.get_accounts_to_handle_transition_diff(&diff);
 
-            let accounts = load_accounts_from_best_tip_ledger(store, &best_tip_hash, account_ids);
+            let accounts = load_accounts_from_ledger(store, &best_tip_hash, account_ids);
 
             store.dispatch(
                 TransactionPoolAction::ApplyTransitionFrontierDiffWithAccounts { diff, accounts },

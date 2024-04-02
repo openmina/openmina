@@ -1264,6 +1264,61 @@ impl IndexedPool {
 
         dropped
     }
+
+    /// Returns a sequence of commands in the pool in descending fee order
+    fn transactions(&mut self) -> Vec<ValidCommandWithHash> {
+        let mut txns = Vec::with_capacity(self.applicable_by_fee.len());
+        loop {
+            if self.applicable_by_fee.is_empty() {
+                assert!(self.all_by_sender.is_empty());
+                return txns;
+            }
+
+            let (fee, mut set) = self
+                .applicable_by_fee
+                .iter()
+                .max_by_key(|(rate, _)| *rate)
+                .map(|(rate, set)| (rate.clone(), set.clone()))
+                .unwrap();
+
+            // TODO: Check if OCaml compare using `hash` (order)
+            let txn = set.iter().min_by_key(|b| &*b.hash).cloned().unwrap();
+
+            {
+                set.remove(&txn);
+                if set.is_empty() {
+                    self.applicable_by_fee.remove(&fee);
+                } else {
+                    self.applicable_by_fee.insert(fee, set);
+                }
+            }
+
+            let sender = txn.data.forget_check().fee_payer();
+
+            let (sender_queue, _amount) = self.all_by_sender.get_mut(&sender).unwrap();
+            let head_txn = sender_queue.pop_front().unwrap();
+
+            if txn.hash == head_txn.hash {
+                match sender_queue.front().cloned() {
+                    None => {
+                        self.all_by_sender.remove(&sender);
+                    }
+                    Some(next_txn) => {
+                        let fee = next_txn.data.forget_check().fee_per_wu();
+                        self.applicable_by_fee
+                            .entry(fee)
+                            .or_default()
+                            .insert(next_txn);
+                    }
+                }
+            } else {
+                eprintln!("Sender queue is malformed");
+                self.all_by_sender.remove(&sender);
+            }
+
+            txns.push(txn);
+        }
+    }
 }
 
 fn currency_consumed(cmd: &UserCommand) -> Option<Amount> {
@@ -1428,6 +1483,10 @@ impl TransactionPool {
             best_tip_diff_relay: todo!(),
             verification_key_table: todo!(),
         }
+    }
+
+    pub fn transactions(&mut self) -> Vec<ValidCommandWithHash> {
+        self.pool.transactions()
     }
 
     pub fn get_accounts_to_revalidate_on_new_best_tip(&self) -> BTreeSet<AccountId> {
