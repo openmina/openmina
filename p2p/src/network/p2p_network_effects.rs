@@ -16,7 +16,7 @@ impl P2pNetworkAction {
             Self::Yamux(v) => v.effects(meta, store),
             Self::Kad(v) => match v.effects(meta, store) {
                 Ok(_) => {}
-                Err(e) => error!(meta.time(); "error dispatching Kademlia stream action: {e}"),
+                Err(e) => error!(meta.time(); "error dispatching Kademlia action: {e}"),
             },
             Self::Rpc(v) => v.effects(meta, store),
         }

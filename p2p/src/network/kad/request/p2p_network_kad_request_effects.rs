@@ -26,6 +26,9 @@ impl P2pNetworkKadRequestAction {
         let discovery_state = scheduler
             .discovery_state()
             .ok_or_else(|| String::from("discovery is not configured"))?;
+        if let A::Prune { .. } = &self {
+            return Ok(());
+        }
         let peer_id = self.peer_id();
         let Some(request_state) = discovery_state.request(peer_id) else {
             return Err(format!("no request for {peer_id}"));
@@ -137,7 +140,12 @@ impl P2pNetworkKadRequestAction {
                 store.dispatch(A::RequestSent { peer_id });
             }
             A::RequestSent { .. } => {}
-            A::ReplyReceived { data, peer_id } => {
+            A::ReplyReceived {
+                data,
+                peer_id,
+                stream_id,
+            } => {
+                let addr = request_state.addr;
                 let bootstrap_request = discovery_state
                     .bootstrap_state()
                     .and_then(|bootstrap_state| bootstrap_state.request(&peer_id))
@@ -170,6 +178,12 @@ impl P2pNetworkKadRequestAction {
                         .collect();
                     store.dispatch(P2pDiscoveryAction::KademliaAddRoute { peer_id, addresses });
                 }
+                store.dispatch(P2pNetworkKademliaStreamAction::Close {
+                    addr,
+                    peer_id,
+                    stream_id,
+                });
+                store.dispatch(P2pNetworkKadRequestAction::Prune { peer_id });
             }
             A::Error { peer_id, error } => {
                 warn!(meta.time(); "error requesting FIND_NODE: {error}");
@@ -180,6 +194,7 @@ impl P2pNetworkKadRequestAction {
                 if bootstrap_request {
                     store.dispatch(P2pNetworkKadBootstrapAction::RequestError { peer_id, error });
                 }
+                store.dispatch(P2pNetworkKadRequestAction::Prune { peer_id });
             }
             A::Prune { .. } => {}
         }

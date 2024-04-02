@@ -39,13 +39,14 @@ impl super::P2pNetworkKadState {
                 .ok_or_else(|| format!("kademlia request for {} is not found", action.peer_id()))
                 .and_then(|request| request.reducer(meta.with_action(action))),
 
-            P2pNetworkKadAction::Stream(action @ P2pNetworkKademliaStreamAction::New { .. }) => {
-                self.create_kad_stream_state(action.peer_id(), action.stream_id())
-                    .map_err(|stream| {
-                        format!("kademlia stream already exists for action {action:?}: {stream:?}")
-                    })
-                    .and_then(|stream| stream.reducer(meta.with_action(action)))
-            }
+            P2pNetworkKadAction::Stream(
+                action @ P2pNetworkKademliaStreamAction::New { incoming, .. },
+            ) => self
+                .create_kad_stream_state(*incoming, action.peer_id(), action.stream_id())
+                .map_err(|stream| {
+                    format!("kademlia stream already exists for action {action:?}: {stream:?}")
+                })
+                .and_then(|stream| stream.reducer(meta.with_action(action))),
             P2pNetworkKadAction::Stream(action @ P2pNetworkKademliaStreamAction::Prune { .. }) => {
                 self.remove_kad_stream_state(action.peer_id(), action.stream_id())
                     .then_some(())

@@ -5,7 +5,7 @@ use crate::{Data, P2pNetworkKademliaAction, P2pNetworkYamuxAction};
 
 use super::{
     super::{P2pNetworkKademliaRpcReply, P2pNetworkKademliaRpcRequest},
-    P2pNetworkKadStreamKind, P2pNetworkKademliaStreamAction,
+    P2pNetworkKademliaStreamAction,
 };
 
 impl P2pNetworkKademliaStreamAction {
@@ -13,7 +13,9 @@ impl P2pNetworkKademliaStreamAction {
     where
         Store: crate::P2pStore<S>,
     {
-        use super::P2pNetworkKadStreamState as S;
+        use super::P2pNetworkKadIncomingStreamState as I;
+        use super::P2pNetworkKadOutgoingStreamState as O;
+        use super::P2pNetworkKadStreamState as D;
         use P2pNetworkKademliaStreamAction as A;
 
         if let A::Prune { .. } = self {
@@ -29,17 +31,11 @@ impl P2pNetworkKademliaStreamAction {
             .ok_or_else(|| String::from("peer discovery not configured"))?
             .find_kad_stream_state(self.peer_id(), self.stream_id())
             .ok_or_else(|| format!("stream not found for action {self:?}"))?;
+
         match (self, state) {
             (
                 A::New { .. },
-                S::WaitingOutgoing {
-                    kind: P2pNetworkKadStreamKind::Outgoing,
-                    ..
-                }
-                | S::WaitingIncoming {
-                    kind: P2pNetworkKadStreamKind::Incoming,
-                    ..
-                },
+                D::Outgoing(O::WaitingForRequest { .. }) | D::Incoming(I::WaitingForRequest { .. }),
             ) => Ok(()),
             (
                 A::IncomingData {
@@ -48,9 +44,9 @@ impl P2pNetworkKademliaStreamAction {
                     stream_id,
                     ..
                 },
-                S::IncomingRequest {
+                D::Incoming(I::RequestIsReady {
                     data: P2pNetworkKademliaRpcRequest::FindNode { key },
-                },
+                }),
             ) => {
                 store.dispatch(P2pNetworkKademliaAction::AnswerFindNodeRequest {
                     addr,
@@ -72,24 +68,28 @@ impl P2pNetworkKademliaStreamAction {
                     stream_id,
                     ..
                 },
-                S::IncomingReply {
+                D::Outgoing(O::ResponseIsReady {
                     data: P2pNetworkKademliaRpcReply::FindNode { closer_peers },
-                },
+                }),
             ) => {
-                store.dispatch(P2pNetworkKademliaAction::UpdateFindNodeRequest {
-                    addr,
-                    peer_id,
-                    stream_id,
-                    closest_peers: closer_peers.clone(),
-                });
+                let closest_peers = closer_peers.clone();
                 store.dispatch(A::WaitOutgoing {
                     addr,
                     peer_id,
                     stream_id,
                 });
+                store.dispatch(P2pNetworkKademliaAction::UpdateFindNodeRequest {
+                    addr,
+                    peer_id,
+                    stream_id,
+                    closest_peers,
+                });
                 Ok(())
             }
-            (A::WaitOutgoing { .. }, S::WaitingOutgoing { .. }) => Ok(()),
+            (
+                A::WaitOutgoing { .. },
+                D::Incoming(I::WaitingForReply { .. }) | D::Outgoing(O::WaitingForRequest { .. }),
+            ) => Ok(()),
             (
                 A::SendRequest {
                     addr,
@@ -97,13 +97,14 @@ impl P2pNetworkKademliaStreamAction {
                     stream_id,
                     ..
                 }
-                | A::SendReply {
+                | A::SendResponse {
                     addr,
                     peer_id,
                     stream_id,
                     ..
                 },
-                S::OutgoingBytes { bytes, .. },
+                D::Incoming(I::ResponseBytesAreReady { bytes })
+                | D::Outgoing(O::RequestBytesAreReady { bytes }),
             ) => {
                 // send data to the network
                 store.dispatch(P2pNetworkYamuxAction::OutgoingData {
@@ -119,13 +120,17 @@ impl P2pNetworkKademliaStreamAction {
                 });
                 Ok(())
             }
-            (A::WaitIncoming { .. }, S::WaitingIncoming { .. }) => Ok(()),
+            (
+                A::WaitIncoming { .. },
+                D::Incoming(I::WaitingForRequest { .. }) | D::Outgoing(O::WaitingForReply),
+            ) => Ok(()),
             (
                 A::Close {
                     addr, stream_id, ..
                 },
-                S::OutgoingBytes { .. },
-            ) => {
+                D::Incoming(I::ResponseBytesAreReady { bytes })
+                | D::Outgoing(O::RequestBytesAreReady { bytes }),
+            ) if bytes.len() == 0 => {
                 // send FIN to the network
                 store.dispatch(P2pNetworkYamuxAction::OutgoingData {
                     addr,
@@ -141,11 +146,8 @@ impl P2pNetworkKademliaStreamAction {
                     peer_id,
                     stream_id,
                 },
-                S::WaitingIncoming {
-                    kind: P2pNetworkKadStreamKind::Incoming,
-                    ..
-                },
-            ) => {
+                D::Incoming(I::WaitingForRequest { expect_close }),
+            ) if *expect_close => {
                 // send FIN to the network
                 store.dispatch(P2pNetworkYamuxAction::OutgoingData {
                     addr,
@@ -166,10 +168,7 @@ impl P2pNetworkKademliaStreamAction {
                     peer_id,
                     stream_id,
                 },
-                S::WaitingIncoming {
-                    kind: P2pNetworkKadStreamKind::Outgoing,
-                    ..
-                },
+                D::Outgoing(O::Closing),
             ) => {
                 store.dispatch(A::Prune {
                     addr,
@@ -178,7 +177,7 @@ impl P2pNetworkKademliaStreamAction {
                 });
                 Ok(())
             }
-            (action, S::Error(err)) => {
+            (action, D::Incoming(I::Error(err)) | D::Outgoing(O::Error(err))) => {
                 warn!(meta.time(); summary = "error handling kademlia action", error = err, action = format!("{action:?}"));
                 Ok(())
             }

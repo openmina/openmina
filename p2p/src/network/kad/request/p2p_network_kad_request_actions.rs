@@ -33,6 +33,7 @@ pub enum P2pNetworkKadRequestAction {
     },
     ReplyReceived {
         peer_id: PeerId,
+        stream_id: StreamId,
         data: Vec<P2pNetworkKadEntry>,
     },
     Prune {
