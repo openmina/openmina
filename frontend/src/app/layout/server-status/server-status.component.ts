@@ -10,6 +10,7 @@ import { ComponentPortal } from '@angular/cdk/portal';
 import { Overlay, OverlayRef } from '@angular/cdk/overlay';
 import { NodePickerComponent } from '@app/layout/node-picker/node-picker.component';
 import { NewNodeComponent } from '@app/layout/new-node/new-node.component';
+import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
 
 @Component({
   selector: 'mina-server-status',
@@ -18,7 +19,7 @@ import { NewNodeComponent } from '@app/layout/new-node/new-node.component';
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex-row align-center' },
 })
-export class ServerStatusComponent extends ManualDetection implements OnInit {
+export class ServerStatusComponent extends StoreDispatcher implements OnInit {
 
   @Input() switchForbidden: boolean;
 
@@ -32,8 +33,7 @@ export class ServerStatusComponent extends ManualDetection implements OnInit {
   private nodePickerComponent: ComponentRef<NodePickerComponent>;
   private newNodeComponent: ComponentRef<NewNodeComponent>;
 
-  constructor(private overlay: Overlay,
-              private store: Store<MinaState>) { super(); }
+  constructor(private overlay: Overlay) { super(); }
 
   ngOnInit(): void {
     this.listenToMenuChange();
@@ -41,31 +41,25 @@ export class ServerStatusComponent extends ManualDetection implements OnInit {
   }
 
   private listenToMenuChange(): void {
-    this.store.select(selectAppMenu)
-      .pipe(filter(menu => menu.isMobile !== this.isMobile))
-      .subscribe((menu: AppMenu) => {
-        this.isMobile = menu.isMobile;
-        this.detect();
-      });
+    this.select(selectAppMenu, (menu: AppMenu) => {
+      this.isMobile = menu.isMobile;
+      this.detect();
+    }, filter(menu => menu.isMobile !== this.isMobile));
   }
 
   private listenToNodeChanges(): void {
-    this.store.select(selectNodes)
-      .pipe(filter(nodes => nodes.length > 0))
-      .subscribe((nodes: MinaNode[]) => {
-        this.nodes = nodes;
-        if (this.overlayRef?.hasAttached()) {
-          this.detachOverlay();
-          this.openNodePicker();
-        }
-        this.detect();
-      });
-    this.store.select(selectActiveNode)
-      .pipe(filter(Boolean))
-      .subscribe((activeNode: MinaNode) => {
-        this.activeNode = activeNode;
-        this.detect();
-      });
+    this.select(selectNodes, (nodes: MinaNode[]) => {
+      this.nodes = nodes;
+      if (this.overlayRef?.hasAttached()) {
+        this.detachOverlay();
+        this.openNodePicker();
+      }
+      this.detect();
+    }, filter(nodes => nodes.length > 0));
+    this.select(selectActiveNode, (activeNode: MinaNode) => {
+      this.activeNode = activeNode;
+      this.detect();
+    }, filter(Boolean));
   }
 
   openNodePicker(event?: MouseEvent): void {

@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
 import { selectDashboardNodes } from '@dashboard/dashboard.state';
-import { NodesOverviewNode } from '@shared/types/nodes/dashboard/nodes-overview-node.type';
+import { NodesOverviewNode, NodesOverviewNodeKindType } from '@shared/types/nodes/dashboard/nodes-overview-node.type';
 import { filter } from 'rxjs';
 
 @Component({
@@ -21,7 +21,7 @@ export class DashboardTransitionFrontierComponent extends StoreDispatcher implem
 
   private listenToNodesChanges(): void {
     this.select(selectDashboardNodes, (nodes: NodesOverviewNode[]) => {
-      this.loading = !nodes[0].ledgers.root.synced;
+      this.loading = nodes[0].kind !== NodesOverviewNodeKindType.SYNCED;
       this.detect();
     }, filter(n => n.length > 0));
   }

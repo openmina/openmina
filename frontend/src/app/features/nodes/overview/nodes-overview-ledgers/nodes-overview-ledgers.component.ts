@@ -1,5 +1,14 @@
-import { ChangeDetectionStrategy, Component, Input, OnChanges, OnDestroy, TemplateRef, ViewChild, ViewContainerRef } from '@angular/core';
-import { NodesOverviewLedger, NodesOverviewLedgerStepSnarked, NodesOverviewStagedLedgerStep } from '@shared/types/nodes/dashboard/nodes-overview-ledger.type';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  Input,
+  OnChanges,
+  OnDestroy,
+  TemplateRef,
+  ViewChild,
+  ViewContainerRef,
+} from '@angular/core';
+import { NodesOverviewLedger } from '@shared/types/nodes/dashboard/nodes-overview-ledger.type';
 import { SecDurationConfig } from '@openmina/shared';
 import { Overlay, OverlayRef } from '@angular/cdk/overlay';
 import { TemplatePortal } from '@angular/cdk/portal';
