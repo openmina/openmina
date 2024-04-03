@@ -1,6 +1,8 @@
 use std::collections::BTreeSet;
 
 use mina_p2p_messages::v2::StateHash;
+use openmina_core::action_info;
+use openmina_core::log::ActionEvent;
 use serde::{Deserialize, Serialize};
 
 use super::genesis::TransitionFrontierGenesisAction;
@@ -47,6 +49,26 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierAction {
                 state.transition_frontier.sync,
                 TransitionFrontierSyncState::BlocksSuccess { .. }
             ),
+        }
+    }
+}
+
+impl ActionEvent for TransitionFrontierAction {
+    fn action_event<T>(&self, context: &T)
+    where
+        T: openmina_core::log::EventContext,
+    {
+        match self {
+            TransitionFrontierAction::Genesis(action) => action.action_event(context),
+            TransitionFrontierAction::GenesisInject => action_info!(
+                context,
+                summary = "Transition frontier reconstructed genesis ledger and block",
+                // TODO: fetch more fields from the state
+            ),
+            TransitionFrontierAction::Sync(action) => action.action_event(context),
+            TransitionFrontierAction::Synced { .. } => {
+                action_info!(context, summary = "Transition frontier synced")
+            }
         }
     }
 }

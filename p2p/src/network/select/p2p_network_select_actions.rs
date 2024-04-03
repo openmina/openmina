@@ -1,5 +1,6 @@
 use std::net::SocketAddr;
 
+use openmina_core::{action_debug, action_trace, log::ActionEvent};
 use serde::{Deserialize, Serialize};
 
 use crate::{Data, P2pState, PeerId};
@@ -97,6 +98,52 @@ impl redux::EnablingCondition<P2pState> for P2pNetworkSelectAction {
             Self::IncomingData { .. } => true,
             Self::IncomingToken { .. } => true,
             Self::OutgoingTokens { .. } => true,
+        }
+    }
+}
+
+impl ActionEvent for P2pNetworkSelectAction {
+    fn action_event<T>(&self, context: &T)
+    where
+        T: openmina_core::log::EventContext,
+    {
+        match self {
+            P2pNetworkSelectAction::Init {
+                addr,
+                kind,
+                incoming,
+                send_handshake,
+            } => action_debug!(
+                context,
+                addr = display(addr),
+                select_kind = debug(kind),
+                incoming,
+                send_handshake
+            ),
+            P2pNetworkSelectAction::IncomingData {
+                addr,
+                kind,
+                data,
+                fin,
+            } => action_trace!(
+                context,
+                addr = display(addr),
+                select_kind = debug(kind),
+                data = debug(data),
+                fin
+            ),
+            P2pNetworkSelectAction::IncomingToken { addr, kind, token } => action_debug!(
+                context,
+                addr = display(addr),
+                select_kind = debug(kind),
+                token = debug(token)
+            ),
+            P2pNetworkSelectAction::OutgoingTokens { addr, kind, tokens } => action_debug!(
+                context,
+                addr = display(addr),
+                select_kind = debug(kind),
+                tokens = debug(tokens)
+            ),
         }
     }
 }

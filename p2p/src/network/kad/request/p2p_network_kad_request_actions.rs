@@ -1,5 +1,6 @@
 use std::net::SocketAddr;
 
+use openmina_core::{action_debug, action_trace, log::ActionEvent};
 use redux::EnablingCondition;
 use serde::{Deserialize, Serialize};
 
@@ -78,5 +79,59 @@ impl EnablingCondition<P2pState> for P2pNetworkKadRequestAction {
 impl From<P2pNetworkKadRequestAction> for P2pAction {
     fn from(value: P2pNetworkKadRequestAction) -> Self {
         P2pAction::Network(super::super::P2pNetworkKadAction::Request(value).into())
+    }
+}
+
+impl ActionEvent for P2pNetworkKadRequestAction {
+    fn action_event<T>(&self, context: &T)
+    where
+        T: openmina_core::log::EventContext,
+    {
+        match self {
+            P2pNetworkKadRequestAction::New { peer_id, addr, key } => action_debug!(
+                context,
+                peer_id = display(peer_id),
+                addr = display(addr),
+                key = display(key)
+            ),
+            P2pNetworkKadRequestAction::PeerIsConnecting { peer_id } => {
+                action_debug!(context, peer_id = display(peer_id))
+            }
+            P2pNetworkKadRequestAction::MuxReady { peer_id, addr } => {
+                action_debug!(context, peer_id = display(peer_id), addr = display(addr))
+            }
+            P2pNetworkKadRequestAction::StreamIsCreating { peer_id, stream_id } => {
+                action_debug!(context, peer_id = display(peer_id), stream_id)
+            }
+            P2pNetworkKadRequestAction::StreamReady {
+                peer_id,
+                stream_id,
+                addr,
+            } => action_debug!(
+                context,
+                peer_id = display(peer_id),
+                stream_id,
+                addr = display(addr)
+            ),
+            P2pNetworkKadRequestAction::RequestSent { peer_id } => {
+                action_debug!(context, peer_id = display(peer_id))
+            }
+            P2pNetworkKadRequestAction::ReplyReceived {
+                peer_id,
+                stream_id,
+                data,
+            } => action_debug!(
+                context,
+                peer_id = display(peer_id),
+                stream_id,
+                data = debug(data)
+            ),
+            P2pNetworkKadRequestAction::Prune { peer_id } => {
+                action_trace!(context, peer_id = display(peer_id))
+            }
+            P2pNetworkKadRequestAction::Error { peer_id, error } => {
+                action_debug!(context, peer_id = display(peer_id), error = display(error))
+            }
+        }
     }
 }

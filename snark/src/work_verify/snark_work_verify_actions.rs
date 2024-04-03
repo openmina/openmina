@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use openmina_core::snark::Snark;
+use openmina_core::{action_info, action_trace, action_warn, log::ActionEvent, snark::Snark};
 
 use super::{SnarkWorkVerifyError, SnarkWorkVerifyId};
 
@@ -55,6 +55,35 @@ impl redux::EnablingCondition<crate::SnarkState> for SnarkWorkVerifyAction {
                 .jobs
                 .get(*req_id)
                 .map_or(false, |v| v.is_finished()),
+        }
+    }
+}
+
+impl ActionEvent for SnarkWorkVerifyAction {
+    fn action_event<T>(&self, context: &T)
+    where
+        T: openmina_core::log::EventContext,
+    {
+        match self {
+            SnarkWorkVerifyAction::Init { req_id, batch, .. } => action_info!(
+                context,
+                req_id = display(req_id),
+                trace_batch =
+                    serde_json::to_string(&batch.iter().map(|v| v.job_id()).collect::<Vec<_>>())
+                        .ok()
+            ),
+            SnarkWorkVerifyAction::Pending { req_id } => {
+                action_trace!(context, req_id = display(req_id))
+            }
+            SnarkWorkVerifyAction::Error { req_id, error } => {
+                action_warn!(context, req_id = display(req_id), error = display(error))
+            }
+            SnarkWorkVerifyAction::Success { req_id } => {
+                action_info!(context, req_id = display(req_id))
+            }
+            SnarkWorkVerifyAction::Finish { req_id } => {
+                action_trace!(context, req_id = display(req_id))
+            }
         }
     }
 }

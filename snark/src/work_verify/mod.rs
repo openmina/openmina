@@ -22,8 +22,10 @@ impl openmina_core::requests::RequestIdType for SnarkWorkVerifyIdType {
 
 pub type SnarkWorkVerifyId = openmina_core::requests::RequestId<SnarkWorkVerifyIdType>;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, thiserror::Error)]
 pub enum SnarkWorkVerifyError {
+    #[error("verification failed")]
     VerificationFailed,
+    #[error("validator thread crashed")]
     ValidatorThreadCrashed,
 }

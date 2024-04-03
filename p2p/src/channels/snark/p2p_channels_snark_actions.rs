@@ -1,5 +1,5 @@
 use crate::{channels::P2pChannelsAction, P2pState, PeerId};
-use openmina_core::snark::Snark;
+use openmina_core::{action_debug, action_trace, log::ActionEvent, snark::Snark};
 use serde::{Deserialize, Serialize};
 
 use super::{P2pChannelsSnarkState, SnarkInfo, SnarkPropagationState};
@@ -177,5 +177,70 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsSnarkAction {
 impl From<P2pChannelsSnarkAction> for crate::P2pAction {
     fn from(action: P2pChannelsSnarkAction) -> Self {
         Self::Channels(P2pChannelsAction::Snark(action))
+    }
+}
+
+impl ActionEvent for P2pChannelsSnarkAction {
+    fn action_event<T>(&self, context: &T)
+    where
+        T: openmina_core::log::EventContext,
+    {
+        match self {
+            P2pChannelsSnarkAction::Init { peer_id } => {
+                action_debug!(context, peer_id = display(peer_id))
+            }
+            P2pChannelsSnarkAction::Pending { peer_id } => {
+                action_trace!(context, peer_id = display(peer_id))
+            }
+            P2pChannelsSnarkAction::Ready { peer_id } => {
+                action_debug!(context, peer_id = display(peer_id))
+            }
+            P2pChannelsSnarkAction::RequestSend { peer_id, limit } => {
+                action_trace!(context, peer_id = display(peer_id), limit)
+            }
+            P2pChannelsSnarkAction::PromiseReceived {
+                peer_id,
+                promised_count,
+            } => action_trace!(context, peer_id = display(peer_id), promised_count),
+            P2pChannelsSnarkAction::Received { peer_id, snark } => action_trace!(
+                context,
+                peer_id = display(peer_id),
+                snark.job_id = display(&snark.job_id),
+                snark.fee = debug(&snark.fee),
+                snark.prover = display(&snark.prover),
+            ),
+            P2pChannelsSnarkAction::RequestReceived { peer_id, limit } => {
+                action_trace!(context, peer_id = display(peer_id), limit)
+            }
+            P2pChannelsSnarkAction::ResponseSend {
+                peer_id,
+                snarks,
+                first_index,
+                last_index,
+            } => action_trace!(
+                context,
+                peer_id = display(peer_id),
+                snarks = debug(snarks),
+                first_index,
+                last_index
+            ),
+            P2pChannelsSnarkAction::Libp2pReceived {
+                peer_id,
+                snark,
+                nonce,
+            } => action_trace!(
+                context,
+                peer_id = display(peer_id),
+                snark.snarker = display(&snark.snarker),
+                snark.fee = debug(&snark.fee),
+                nonce
+            ),
+            P2pChannelsSnarkAction::Libp2pBroadcast { snark, nonce } => action_trace!(
+                context,
+                snark.snarker = display(&snark.snarker),
+                snark.fee = debug(&snark.fee),
+                nonce
+            ),
+        }
     }
 }

@@ -1,5 +1,6 @@
 use std::net::{IpAddr, SocketAddr};
 
+use openmina_core::{action_debug, action_info, action_warn, log::ActionEvent};
 use serde::{Deserialize, Serialize};
 
 use super::{
@@ -119,6 +120,82 @@ impl redux::EnablingCondition<P2pState> for P2pNetworkSchedulerAction {
                 .map_or(false, |conn_state| {
                     conn_state.closed.as_ref() == Some(reason)
                 }),
+        }
+    }
+}
+
+impl ActionEvent for P2pNetworkSchedulerAction {
+    fn action_event<T>(&self, context: &T)
+    where
+        T: openmina_core::log::EventContext,
+    {
+        match self {
+            P2pNetworkSchedulerAction::InterfaceDetected { ip } => {
+                action_debug!(context, ip = display(ip))
+            }
+            P2pNetworkSchedulerAction::InterfaceExpired { ip } => {
+                action_debug!(context, ip = display(ip))
+            }
+            P2pNetworkSchedulerAction::IncomingConnectionIsReady { listener } => {
+                action_debug!(context, listener = display(listener))
+            }
+            P2pNetworkSchedulerAction::IncomingDidAccept {
+                addr,
+                result: Ok(_),
+            } => action_debug!(context, addr = debug(addr)),
+            P2pNetworkSchedulerAction::IncomingDidAccept {
+                addr,
+                result: Err(error),
+            } => action_debug!(context, addr = debug(addr), error = display(error)),
+            P2pNetworkSchedulerAction::OutgoingDidConnect {
+                addr,
+                result: Ok(_),
+            } => action_debug!(context, addr = display(addr)),
+            P2pNetworkSchedulerAction::OutgoingDidConnect {
+                addr,
+                result: Err(error),
+            } => action_debug!(context, addr = display(addr), error = display(error)),
+            P2pNetworkSchedulerAction::IncomingDataIsReady { addr } => {
+                action_debug!(context, addr = display(addr))
+            }
+            P2pNetworkSchedulerAction::IncomingDataDidReceive {
+                addr,
+                result: Ok(data),
+            } => action_debug!(context, addr = display(addr), data = debug(data)),
+            P2pNetworkSchedulerAction::IncomingDataDidReceive {
+                addr,
+                result: Err(error),
+            } => action_debug!(context, addr = display(addr), error = display(error)),
+            P2pNetworkSchedulerAction::SelectDone {
+                addr,
+                kind,
+                protocol,
+                incoming,
+            } => action_debug!(
+                context,
+                addr = display(addr),
+                select_kind = debug(kind),
+                protocol = debug(protocol),
+                incoming = incoming
+            ),
+            P2pNetworkSchedulerAction::SelectError { addr, kind, error } => action_warn!(
+                context,
+                addr = display(addr),
+                select_kind = debug(kind),
+                error = display(error)
+            ),
+            P2pNetworkSchedulerAction::YamuxDidInit { addr, peer_id } => {
+                action_debug!(context, addr = display(addr), peer_id = display(peer_id))
+            }
+            P2pNetworkSchedulerAction::Disconnect { addr, reason } => {
+                action_info!(context, addr = display(addr), reason = display(reason))
+            }
+            P2pNetworkSchedulerAction::Error { addr, error } => {
+                action_warn!(context, addr = display(addr), error = display(error))
+            }
+            P2pNetworkSchedulerAction::Disconnected { addr, reason } => {
+                action_info!(context, addr = display(addr), reason = display(reason))
+            }
         }
     }
 }

@@ -1,4 +1,4 @@
-use openmina_core::block::ArcBlockWithHash;
+use openmina_core::{action_debug, block::ArcBlockWithHash, log::ActionEvent};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -128,5 +128,40 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsBestTipAction {
 impl From<P2pChannelsBestTipAction> for crate::P2pAction {
     fn from(action: P2pChannelsBestTipAction) -> Self {
         Self::Channels(P2pChannelsAction::BestTip(action))
+    }
+}
+
+impl ActionEvent for P2pChannelsBestTipAction {
+    fn action_event<T>(&self, context: &T)
+    where
+        T: openmina_core::log::EventContext,
+    {
+        match self {
+            P2pChannelsBestTipAction::Init { peer_id } => {
+                action_debug!(context, peer_id = display(peer_id))
+            }
+            P2pChannelsBestTipAction::Pending { peer_id } => {
+                action_debug!(context, peer_id = display(peer_id))
+            }
+            P2pChannelsBestTipAction::Ready { peer_id } => {
+                action_debug!(context, peer_id = display(peer_id))
+            }
+            P2pChannelsBestTipAction::RequestSend { peer_id } => {
+                action_debug!(context, peer_id = display(peer_id))
+            }
+            P2pChannelsBestTipAction::Received { peer_id, best_tip } => action_debug!(
+                context,
+                peer_id = display(peer_id),
+                best_tip = display(&best_tip.hash)
+            ),
+            P2pChannelsBestTipAction::RequestReceived { peer_id } => {
+                action_debug!(context, peer_id = display(peer_id))
+            }
+            P2pChannelsBestTipAction::ResponseSend { peer_id, best_tip } => action_debug!(
+                context,
+                peer_id = display(peer_id),
+                best_tip = display(&best_tip.hash)
+            ),
+        }
     }
 }

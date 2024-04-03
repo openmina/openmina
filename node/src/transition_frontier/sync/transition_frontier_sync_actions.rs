@@ -1,6 +1,8 @@
 use mina_p2p_messages::v2::StateHash;
 use openmina_core::block::ArcBlockWithHash;
 use openmina_core::consensus::consensus_take;
+use openmina_core::log::ActionEvent;
+use openmina_core::{action_debug, action_info};
 use serde::{Deserialize, Serialize};
 
 use crate::p2p::channels::rpc::P2pRpcId;
@@ -310,5 +312,49 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncAction {
 impl From<TransitionFrontierSyncAction> for crate::Action {
     fn from(value: TransitionFrontierSyncAction) -> Self {
         Self::TransitionFrontier(TransitionFrontierAction::Sync(value))
+    }
+}
+
+impl ActionEvent for TransitionFrontierSyncAction {
+    fn action_event<T>(&self, context: &T)
+    where
+        T: openmina_core::log::EventContext,
+    {
+        match self {
+            TransitionFrontierSyncAction::Init {
+                best_tip,
+                root_block,
+                ..
+            } => action_info!(
+                context,
+                block_hash = display(&best_tip.hash),
+                root_block_hash = display(&root_block.hash),
+                summary = "Transition frontier sync init"
+            ),
+            TransitionFrontierSyncAction::BestTipUpdate { .. } => {
+                action_info!(context, summary = "New best tip received")
+            }
+            TransitionFrontierSyncAction::LedgerStakingPending => {
+                action_info!(context, summary = "Staking ledger sync pending")
+            }
+            TransitionFrontierSyncAction::LedgerStakingSuccess => {
+                action_info!(context, summary = "Staking ledger sync success")
+            }
+            TransitionFrontierSyncAction::LedgerNextEpochPending => {
+                action_info!(context, summary = "Next epoch ledger sync pending")
+            }
+            TransitionFrontierSyncAction::LedgerNextEpochSuccess => {
+                action_info!(context, summary = "Next epoch ledger sync success")
+            }
+            TransitionFrontierSyncAction::LedgerRootPending => action_info!(
+                context,
+                summary = "Transition frontier root ledger sync pending"
+            ),
+            TransitionFrontierSyncAction::LedgerRootSuccess => action_info!(
+                context,
+                summary = "Transition frontier root ledger sync success"
+            ),
+            _ => action_debug!(context),
+        }
     }
 }

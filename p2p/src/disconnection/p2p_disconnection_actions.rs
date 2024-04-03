@@ -1,3 +1,4 @@
+use openmina_core::{action_info, log::ActionEvent};
 use serde::{Deserialize, Serialize};
 
 use super::P2pDisconnectionReason;
@@ -24,6 +25,24 @@ impl redux::EnablingCondition<P2pState> for P2pDisconnectionAction {
                 state.peers.get(peer_id).map_or(false, |peer| {
                     !matches!(peer.status, P2pPeerStatus::Disconnected { .. })
                 })
+            }
+        }
+    }
+}
+
+impl ActionEvent for P2pDisconnectionAction {
+    fn action_event<T>(&self, context: &T)
+    where
+        T: openmina_core::log::EventContext,
+    {
+        match self {
+            P2pDisconnectionAction::Init { peer_id, reason } => action_info!(
+                context,
+                peer_id = display(peer_id),
+                reason = display(reason)
+            ),
+            P2pDisconnectionAction::Finish { peer_id } => {
+                action_info!(context, peer_id = display(peer_id))
             }
         }
     }

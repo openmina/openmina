@@ -1,4 +1,5 @@
 use mina_p2p_messages::v2;
+use openmina_core::{action_info, action_trace, log::ActionEvent};
 use serde::{Deserialize, Serialize};
 
 use super::{GenesisConfigLoaded, TransitionFrontierGenesisState};
@@ -65,5 +66,22 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierGenesisAction 
 impl From<TransitionFrontierGenesisAction> for crate::Action {
     fn from(value: TransitionFrontierGenesisAction) -> Self {
         crate::transition_frontier::TransitionFrontierAction::Genesis(value).into()
+    }
+}
+
+impl ActionEvent for TransitionFrontierGenesisAction {
+    fn action_event<T>(&self, context: &T)
+    where
+        T: openmina_core::log::EventContext,
+    {
+        match self {
+            TransitionFrontierGenesisAction::ProvePending => {
+                action_info!(context, summary = "Genesis block proved")
+            }
+            TransitionFrontierGenesisAction::ProveSuccess { .. } => {
+                action_info!(context, summary = "Genesis block proved")
+            }
+            _ => action_trace!(context),
+        }
     }
 }

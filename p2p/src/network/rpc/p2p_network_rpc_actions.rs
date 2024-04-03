@@ -1,6 +1,7 @@
 use std::net::SocketAddr;
 
 use mina_p2p_messages::rpc_kernel::{QueryHeader, ResponseHeader};
+use openmina_core::{action_debug, action_trace, log::ActionEvent};
 use serde::{Deserialize, Serialize};
 
 use super::{super::*, *};
@@ -126,6 +127,114 @@ impl redux::EnablingCondition<P2pState> for P2pNetworkRpcAction {
                 data,
                 fin,
             } => true,
+        }
+    }
+}
+
+impl ActionEvent for P2pNetworkRpcAction {
+    fn action_event<T>(&self, context: &T)
+    where
+        T: openmina_core::log::EventContext,
+    {
+        match self {
+            P2pNetworkRpcAction::Init {
+                addr,
+                peer_id,
+                stream_id,
+                incoming,
+            } => action_debug!(
+                context,
+                addr = display(addr),
+                peer_id = display(peer_id),
+                stream_id,
+                incoming
+            ),
+            P2pNetworkRpcAction::IncomingData {
+                addr,
+                peer_id,
+                stream_id,
+                data,
+            } => action_trace!(
+                context,
+                addr = display(addr),
+                peer_id = display(peer_id),
+                stream_id,
+                data = debug(data)
+            ),
+            P2pNetworkRpcAction::IncomingMessage {
+                addr,
+                peer_id,
+                stream_id,
+                message,
+            } => match message {
+                RpcMessage::Handshake => action_trace!(
+                    context,
+                    addr = display(addr),
+                    peer_id = display(peer_id),
+                    stream_id,
+                    message_kind = "handshake"
+                ),
+                RpcMessage::Heartbeat => action_trace!(
+                    context,
+                    addr = display(addr),
+                    peer_id = display(peer_id),
+                    stream_id,
+                    message_kind = "heartbeat"
+                ),
+                RpcMessage::Query { header, .. } => action_debug!(
+                    context,
+                    addr = display(addr),
+                    peer_id = display(peer_id),
+                    stream_id,
+                    message_kind = "query",
+                    message_header = debug(header)
+                ),
+                RpcMessage::Response { header, .. } => action_debug!(
+                    context,
+                    addr = display(addr),
+                    peer_id = display(peer_id),
+                    stream_id,
+                    message_kind = "response",
+                    message_header = debug(header)
+                ),
+            },
+            P2pNetworkRpcAction::PrunePending { peer_id, stream_id } => {
+                action_trace!(context, peer_id = display(peer_id), stream_id)
+            }
+            P2pNetworkRpcAction::OutgoingQuery {
+                peer_id,
+                query,
+                data,
+            } => action_debug!(
+                context,
+                peer_id = display(peer_id),
+                query = debug(query),
+                data = debug(data)
+            ),
+            P2pNetworkRpcAction::OutgoingResponse {
+                peer_id,
+                response,
+                data,
+            } => action_debug!(
+                context,
+                peer_id = display(peer_id),
+                response = debug(response),
+                data = debug(data)
+            ),
+            P2pNetworkRpcAction::OutgoingData {
+                addr,
+                peer_id,
+                stream_id,
+                data,
+                fin,
+            } => action_debug!(
+                context,
+                addr = display(addr),
+                peer_id = display(peer_id),
+                stream_id,
+                data = debug(data),
+                fin
+            ),
         }
     }
 }

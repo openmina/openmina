@@ -1,3 +1,4 @@
+use openmina_core::{action_debug, action_info, action_warn, log::ActionEvent};
 use serde::{Deserialize, Serialize};
 
 use crate::{connection::outgoing::P2pConnectionOutgoingInitOpts, P2pState, PeerId};
@@ -43,6 +44,37 @@ impl redux::EnablingCondition<P2pState> for P2pDiscoveryAction {
             Self::KademliaAddRoute { .. } => true,
             Self::KademliaSuccess { .. } => true,
             Self::KademliaFailure { .. } => true,
+        }
+    }
+}
+
+impl ActionEvent for P2pDiscoveryAction {
+    fn action_event<T>(&self, context: &T)
+    where
+        T: openmina_core::log::EventContext,
+    {
+        match self {
+            P2pDiscoveryAction::Init { peer_id } => {
+                action_debug!(context, peer_id = display(peer_id))
+            }
+            P2pDiscoveryAction::Success { peer_id, peers } => {
+                action_debug!(context, peer_id = display(peer_id), peers = debug(peers))
+            }
+            P2pDiscoveryAction::KademliaBootstrap => action_debug!(context),
+            P2pDiscoveryAction::KademliaInit => action_debug!(context),
+            P2pDiscoveryAction::KademliaAddRoute { peer_id, addresses } => {
+                action_debug!(
+                    context,
+                    peer_id = display(peer_id),
+                    addresses = debug(addresses)
+                )
+            }
+            P2pDiscoveryAction::KademliaSuccess { peers } => {
+                action_info!(context, peers = debug(peers))
+            }
+            P2pDiscoveryAction::KademliaFailure { description } => {
+                action_warn!(context, description)
+            }
         }
     }
 }

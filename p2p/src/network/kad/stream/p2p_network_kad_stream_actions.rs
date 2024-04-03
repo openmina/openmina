@@ -1,5 +1,6 @@
 use std::net::SocketAddr;
 
+use openmina_core::{action_debug, action_trace, log::ActionEvent};
 use redux::EnablingCondition;
 use serde::{Deserialize, Serialize};
 
@@ -117,5 +118,123 @@ impl EnablingCondition<P2pState> for P2pNetworkKademliaStreamAction {
 impl From<P2pNetworkKademliaStreamAction> for P2pAction {
     fn from(value: P2pNetworkKademliaStreamAction) -> Self {
         P2pAction::Network(super::super::P2pNetworkKadAction::Stream(value).into())
+    }
+}
+
+impl ActionEvent for P2pNetworkKademliaStreamAction {
+    fn action_event<T>(&self, context: &T)
+    where
+        T: openmina_core::log::EventContext,
+    {
+        match self {
+            P2pNetworkKademliaStreamAction::New {
+                addr,
+                peer_id,
+                stream_id,
+                incoming,
+            } => action_debug!(
+                context,
+                addr = display(addr),
+                peer_id = display(peer_id),
+                stream_id,
+                incoming
+            ),
+            P2pNetworkKademliaStreamAction::IncomingData {
+                addr,
+                peer_id,
+                stream_id,
+                data,
+            } => action_debug!(
+                context,
+                addr = display(addr),
+                peer_id = display(peer_id),
+                stream_id,
+                data = debug(data)
+            ),
+            P2pNetworkKademliaStreamAction::RemoteClose {
+                addr,
+                peer_id,
+                stream_id,
+            } => action_debug!(
+                context,
+                addr = display(addr),
+                peer_id = display(peer_id),
+                stream_id
+            ),
+            P2pNetworkKademliaStreamAction::WaitIncoming {
+                addr,
+                peer_id,
+                stream_id,
+            } => action_debug!(
+                context,
+                addr = display(addr),
+                peer_id = display(peer_id),
+                stream_id
+            ),
+            P2pNetworkKademliaStreamAction::WaitOutgoing {
+                addr,
+                peer_id,
+                stream_id,
+            } => action_debug!(
+                context,
+                addr = display(addr),
+                peer_id = display(peer_id),
+                stream_id
+            ),
+            P2pNetworkKademliaStreamAction::SendRequest {
+                addr,
+                peer_id,
+                stream_id,
+                data,
+            } => action_debug!(
+                context,
+                addr = display(addr),
+                peer_id = display(peer_id),
+                stream_id,
+                data = debug(data)
+            ),
+            P2pNetworkKademliaStreamAction::SendResponse {
+                addr,
+                peer_id,
+                stream_id,
+                data,
+            } => action_debug!(
+                context,
+                addr = display(addr),
+                peer_id = display(peer_id),
+                stream_id,
+                data = debug(data)
+            ),
+            P2pNetworkKademliaStreamAction::OutgoingDataReady {
+                addr,
+                peer_id,
+                stream_id,
+            } => action_debug!(
+                context,
+                addr = display(addr),
+                peer_id = display(peer_id),
+                stream_id
+            ),
+            P2pNetworkKademliaStreamAction::Close {
+                addr,
+                peer_id,
+                stream_id,
+            } => action_debug!(
+                context,
+                addr = display(addr),
+                peer_id = display(peer_id),
+                stream_id
+            ),
+            P2pNetworkKademliaStreamAction::Prune {
+                addr,
+                peer_id,
+                stream_id,
+            } => action_trace!(
+                context,
+                addr = display(addr),
+                peer_id = display(peer_id),
+                stream_id
+            ),
+        }
     }
 }

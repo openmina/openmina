@@ -1,3 +1,4 @@
+use openmina_core::{action_debug, action_trace, log::ActionEvent};
 use serde::{Deserialize, Serialize};
 
 use crate::{P2pState, PeerId};
@@ -175,5 +176,54 @@ use crate::channels::P2pChannelsAction;
 impl From<P2pChannelsSnarkJobCommitmentAction> for crate::P2pAction {
     fn from(action: P2pChannelsSnarkJobCommitmentAction) -> Self {
         Self::Channels(P2pChannelsAction::SnarkJobCommitment(action))
+    }
+}
+
+impl ActionEvent for P2pChannelsSnarkJobCommitmentAction {
+    fn action_event<T>(&self, context: &T)
+    where
+        T: openmina_core::log::EventContext,
+    {
+        match self {
+            P2pChannelsSnarkJobCommitmentAction::Init { peer_id } => {
+                action_debug!(context, peer_id = display(peer_id))
+            }
+            P2pChannelsSnarkJobCommitmentAction::Pending { peer_id } => {
+                action_trace!(context, peer_id = display(peer_id))
+            }
+            P2pChannelsSnarkJobCommitmentAction::Ready { peer_id } => {
+                action_debug!(context, peer_id = display(peer_id))
+            }
+            P2pChannelsSnarkJobCommitmentAction::RequestSend { peer_id, limit } => {
+                action_trace!(context, peer_id = display(peer_id), limit)
+            }
+            P2pChannelsSnarkJobCommitmentAction::PromiseReceived {
+                peer_id,
+                promised_count,
+            } => action_trace!(context, peer_id = display(peer_id), promised_count),
+            P2pChannelsSnarkJobCommitmentAction::Received {
+                peer_id,
+                commitment,
+            } => action_trace!(
+                context,
+                peer_id = display(peer_id),
+                commitment = debug(commitment)
+            ),
+            P2pChannelsSnarkJobCommitmentAction::RequestReceived { peer_id, limit } => {
+                action_trace!(context, peer_id = display(peer_id), limit)
+            }
+            P2pChannelsSnarkJobCommitmentAction::ResponseSend {
+                peer_id,
+                commitments,
+                first_index,
+                last_index,
+            } => action_trace!(
+                context,
+                peer_id = display(peer_id),
+                commitments = debug(commitments),
+                first_index,
+                last_index
+            ),
+        }
     }
 }

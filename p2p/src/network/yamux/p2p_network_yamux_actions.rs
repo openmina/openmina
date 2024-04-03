@@ -1,5 +1,6 @@
 use std::net::SocketAddr;
 
+use openmina_core::{action_debug, action_trace, log::ActionEvent};
 use serde::{Deserialize, Serialize};
 
 use super::p2p_network_yamux_state::{StreamId, YamuxFrame, YamuxPing};
@@ -74,6 +75,50 @@ impl redux::EnablingCondition<P2pState> for P2pNetworkYamuxAction {
                 stream_id,
                 stream_kind,
             } => true,
+        }
+    }
+}
+
+impl ActionEvent for P2pNetworkYamuxAction {
+    fn action_event<T>(&self, context: &T)
+    where
+        T: openmina_core::log::EventContext,
+    {
+        match self {
+            P2pNetworkYamuxAction::IncomingData { addr, data } => {
+                action_debug!(context, addr = debug(addr), data = debug(data))
+            }
+            P2pNetworkYamuxAction::OutgoingData {
+                addr,
+                stream_id,
+                data,
+                fin,
+            } => action_debug!(
+                context,
+                addr = display(addr),
+                stream_id,
+                data = debug(data),
+                fin
+            ),
+            P2pNetworkYamuxAction::IncomingFrame { addr, frame } => {
+                action_trace!(context, addr = display(addr), frame = debug(frame))
+            }
+            P2pNetworkYamuxAction::OutgoingFrame { addr, frame } => {
+                action_trace!(context, addr = display(addr), frame = debug(frame))
+            }
+            P2pNetworkYamuxAction::PingStream { addr, ping } => {
+                action_debug!(context, addr = display(addr), ping = debug(ping))
+            }
+            P2pNetworkYamuxAction::OpenStream {
+                addr,
+                stream_id,
+                stream_kind,
+            } => action_debug!(
+                context,
+                addr = display(addr),
+                stream_id,
+                stream_kind = debug(stream_kind)
+            ),
         }
     }
 }

@@ -5,9 +5,13 @@ use mina_p2p_messages::v2::{
     ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1,
     ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1, LedgerHash,
 };
+use openmina_core::action_info;
+use openmina_core::action_trace;
 use openmina_core::block::ArcBlockWithHash;
+use openmina_core::log::ActionEvent;
 use serde::{Deserialize, Serialize};
 use vrf::VrfEvaluationOutput;
+use vrf::VrfWonSlot;
 
 use super::{EpochData, VrfEvaluatorInput};
 
@@ -215,5 +219,150 @@ impl redux::EnablingCondition<crate::State> for BlockProducerVrfEvaluatorAction 
 impl From<BlockProducerVrfEvaluatorAction> for crate::Action {
     fn from(value: BlockProducerVrfEvaluatorAction) -> Self {
         Self::BlockProducer(crate::BlockProducerAction::VrfEvaluator(value))
+    }
+}
+
+impl ActionEvent for BlockProducerVrfEvaluatorAction {
+    fn action_event<T>(&self, context: &T)
+    where
+        T: openmina_core::log::EventContext,
+    {
+        match self {
+            BlockProducerVrfEvaluatorAction::EvaluateSlot { vrf_input } => action_info!(
+                context,
+                summary = "Vrf Evaluation requested",
+                input = debug(vrf_input)
+            ),
+            BlockProducerVrfEvaluatorAction::ProcessSlotEvaluationSuccess {
+                vrf_output, ..
+            } => match vrf_output {
+                VrfEvaluationOutput::SlotWon(VrfWonSlot {
+                    global_slot,
+                    vrf_output,
+                    ..
+                }) => action_info!(
+                    context,
+                    summary = "Slot evaluation result - won slot",
+                    global_slot,
+                    vrf_output = display(vrf_output)
+                ),
+                VrfEvaluationOutput::SlotLost(_) => {
+                    action_info!(context, summary = "Slot evaluation result - lost slot")
+                }
+            },
+            BlockProducerVrfEvaluatorAction::InitializeEvaluator { .. } => {
+                action_trace!(context)
+            }
+            BlockProducerVrfEvaluatorAction::FinalizeEvaluatorInitialization { .. } => {
+                action_info!(context, summary = "Vrf evaluator initilaized")
+            }
+            BlockProducerVrfEvaluatorAction::CheckEpochEvaluability {
+                current_epoch_number,
+                current_best_tip_slot,
+                current_best_tip_global_slot,
+                ..
+            } => action_info!(
+                context,
+                summary = "Checking possible Vrf evaluations",
+                current_epoch_number,
+                current_best_tip_slot,
+                current_best_tip_global_slot
+            ),
+            BlockProducerVrfEvaluatorAction::InitializeEpochEvaluation {
+                current_epoch_number,
+                current_best_tip_slot,
+                current_best_tip_global_slot,
+                ..
+            } => action_info!(
+                context,
+                summary = "Constructing delegator table", /* TODO: check the name*/
+                current_epoch_number,
+                current_best_tip_slot,
+                current_best_tip_global_slot
+            ),
+            BlockProducerVrfEvaluatorAction::BeginDelegatorTableConstruction {
+                current_epoch_number,
+                current_best_tip_slot,
+                current_best_tip_global_slot,
+                ..
+            } => action_info!(
+                context,
+                summary = "Constructing delegator table",
+                current_epoch_number,
+                current_best_tip_slot,
+                current_best_tip_global_slot
+            ),
+            BlockProducerVrfEvaluatorAction::FinalizeDelegatorTableConstruction {
+                current_epoch_number,
+                current_best_tip_slot,
+                current_best_tip_global_slot,
+                ..
+            } => action_info!(
+                context,
+                summary = "Delegator table constructed",
+                current_epoch_number,
+                current_best_tip_slot,
+                current_best_tip_global_slot
+            ),
+            BlockProducerVrfEvaluatorAction::SelectInitialSlot {
+                current_global_slot,
+                current_best_tip_height,
+                ..
+            } => action_info!(
+                context,
+                summary = "Selecting starting slot",
+                current_global_slot,
+                current_best_tip_height
+            ),
+            BlockProducerVrfEvaluatorAction::BeginEpochEvaluation {
+                current_epoch_number,
+                current_best_tip_slot,
+                current_best_tip_global_slot,
+                ..
+            } => action_info!(
+                context,
+                summary = "Starting epoch evaluation",
+                current_epoch_number,
+                current_best_tip_slot,
+                current_best_tip_global_slot
+            ),
+            BlockProducerVrfEvaluatorAction::RecordLastBlockHeightInEpoch {
+                epoch_number,
+                last_block_height,
+            } => action_info!(
+                context,
+                summary = "Saving last block height in epoch",
+                epoch_number,
+                last_block_height
+            ),
+            BlockProducerVrfEvaluatorAction::ContinueEpochEvaluation { .. } => {
+                action_trace!(context)
+            }
+            BlockProducerVrfEvaluatorAction::FinishEpochEvaluation {
+                epoch_number,
+                latest_evaluated_global_slot,
+            } => action_info!(
+                context,
+                summary = "Epoch evaluation finished",
+                epoch_number,
+                latest_evaluated_global_slot
+            ),
+            BlockProducerVrfEvaluatorAction::WaitForNextEvaluation {
+                current_epoch_number,
+                current_best_tip_height,
+                ..
+            } => action_info!(
+                context,
+                summary = "Waiting for epoch to evaluate",
+                current_epoch_number,
+                current_best_tip_height
+            ),
+            BlockProducerVrfEvaluatorAction::CheckEpochBounds { .. } => {
+                action_trace!(context, summary = "Checking epoch bounds")
+            }
+            BlockProducerVrfEvaluatorAction::CleanupOldSlots { .. } => {
+                action_trace!(context, summary = "Cleaning up old won slots")
+            }
+        }
     }
 }

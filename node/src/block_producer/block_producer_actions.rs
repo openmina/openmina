@@ -1,5 +1,7 @@
 use mina_p2p_messages::v2::MinaBaseProofStableV2;
 use openmina_core::block::ArcBlockWithHash;
+use openmina_core::log::ActionEvent;
+use openmina_core::{action_info, action_trace};
 use serde::{Deserialize, Serialize};
 
 use super::vrf_evaluator::BlockProducerVrfEvaluatorAction;
@@ -143,6 +145,34 @@ impl redux::EnablingCondition<crate::State> for BlockProducerAction {
                 });
                 Some(reason) == current_reason.as_ref()
             }
+        }
+    }
+}
+
+impl ActionEvent for BlockProducerAction {
+    fn action_event<T>(&self, context: &T)
+    where
+        T: openmina_core::log::EventContext,
+    {
+        match self {
+            BlockProducerAction::VrfEvaluator(action) => action.action_event(context),
+            BlockProducerAction::WonSlot {
+                won_slot:
+                    BlockProducerWonSlot {
+                        slot_time,
+                        global_slot,
+                        ..
+                    },
+            } => action_info!(
+                context,
+                summary = "Won slot",
+                slot = global_slot.slot_number.as_u32(),
+                slot_time = openmina_core::log::to_rfc_3339(*slot_time)
+                    .unwrap_or_else(|_| "<error>".to_owned()),
+                current_time = openmina_core::log::to_rfc_3339(context.timestamp())
+                    .unwrap_or_else(|_| "<error>".to_owned()),
+            ),
+            _ => action_trace!(context),
         }
     }
 }

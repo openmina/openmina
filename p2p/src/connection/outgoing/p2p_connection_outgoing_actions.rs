@@ -1,3 +1,5 @@
+use openmina_core::log::ActionEvent;
+use openmina_core::{action_debug, action_info, action_warn};
 use serde::{Deserialize, Serialize};
 
 use openmina_core::requests::RpcId;
@@ -280,5 +282,64 @@ use super::P2pConnectionOutgoingState;
 impl From<P2pConnectionOutgoingAction> for crate::P2pAction {
     fn from(a: P2pConnectionOutgoingAction) -> Self {
         Self::Connection(P2pConnectionAction::Outgoing(a))
+    }
+}
+
+impl ActionEvent for P2pConnectionOutgoingAction {
+    fn action_event<T>(&self, context: &T)
+    where
+        T: openmina_core::log::EventContext,
+    {
+        match self {
+            P2pConnectionOutgoingAction::RandomInit => action_debug!(context),
+            P2pConnectionOutgoingAction::Init { opts, rpc_id: _ } => {
+                action_debug!(context, opts = display(opts))
+            }
+            P2pConnectionOutgoingAction::Reconnect { opts, rpc_id: _ } => {
+                action_debug!(context, opts = display(opts))
+            }
+            P2pConnectionOutgoingAction::OfferSdpCreatePending { peer_id } => {
+                action_debug!(context, peer_id = display(peer_id))
+            }
+            P2pConnectionOutgoingAction::OfferSdpCreateError { peer_id, error } => {
+                action_warn!(context, peer_id = display(peer_id), error)
+            }
+            P2pConnectionOutgoingAction::OfferSdpCreateSuccess { peer_id, sdp } => {
+                action_debug!(context, peer_id = display(peer_id), sdp)
+            }
+            P2pConnectionOutgoingAction::OfferReady { peer_id, offer } => {
+                action_debug!(context, peer_id = display(peer_id), offer = debug(offer))
+            }
+            P2pConnectionOutgoingAction::OfferSendSuccess { peer_id } => {
+                action_debug!(context, peer_id = display(peer_id))
+            }
+            P2pConnectionOutgoingAction::AnswerRecvPending { peer_id } => {
+                action_debug!(context, peer_id = display(peer_id))
+            }
+            P2pConnectionOutgoingAction::AnswerRecvError { peer_id, error } => {
+                action_warn!(context, peer_id = display(peer_id), error = display(error))
+            }
+            P2pConnectionOutgoingAction::AnswerRecvSuccess { peer_id, answer } => {
+                action_debug!(context, peer_id = display(peer_id), answer = debug(answer))
+            }
+            P2pConnectionOutgoingAction::FinalizePending { peer_id } => {
+                action_debug!(context, peer_id = display(peer_id))
+            }
+            P2pConnectionOutgoingAction::FinalizeError { peer_id, error } => {
+                action_warn!(context, peer_id = display(peer_id), error)
+            }
+            P2pConnectionOutgoingAction::FinalizeSuccess { peer_id } => {
+                action_debug!(context, peer_id = display(peer_id))
+            }
+            P2pConnectionOutgoingAction::Timeout { peer_id } => {
+                action_debug!(context, peer_id = display(peer_id))
+            }
+            P2pConnectionOutgoingAction::Error { peer_id, error } => {
+                action_debug!(context, peer_id = display(peer_id), error = display(error))
+            }
+            P2pConnectionOutgoingAction::Success { peer_id } => {
+                action_info!(context, peer_id = display(peer_id))
+            }
+        }
     }
 }

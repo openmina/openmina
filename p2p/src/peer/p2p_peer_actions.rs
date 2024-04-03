@@ -1,4 +1,4 @@
-use openmina_core::block::ArcBlockWithHash;
+use openmina_core::{action_info, block::ArcBlockWithHash, log::ActionEvent};
 use serde::{Deserialize, Serialize};
 
 use crate::{P2pState, PeerId};
@@ -39,6 +39,28 @@ impl redux::EnablingCondition<P2pState> for P2pPeerAction {
                 // best tip.
                 state.get_ready_peer(peer_id).is_some()
             }
+        }
+    }
+}
+
+impl ActionEvent for P2pPeerAction {
+    fn action_event<T>(&self, context: &T)
+    where
+        T: openmina_core::log::EventContext,
+    {
+        match self {
+            P2pPeerAction::Ready { peer_id, incoming } => action_info!(
+                context,
+                summary = "Peer is ready",
+                peer_id = display(peer_id),
+                incoming,
+            ),
+            P2pPeerAction::BestTipUpdate { peer_id, best_tip } => action_info!(
+                context,
+                summary = "Best tip updated",
+                peer_id = display(peer_id),
+                best_tip = display(&best_tip.hash),
+            ),
         }
     }
 }
