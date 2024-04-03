@@ -106,7 +106,7 @@ export class NewNodeComponent extends StoreDispatcher implements OnInit {
       ],
     },
   ];
-  closeEmitter: EventEmitter<void> = new EventEmitter<void>();
+  readonly closeEmitter: EventEmitter<void> = new EventEmitter<void>();
   readonly placeholder: string = nodeNames[Math.floor(Math.random() * nodeNames.length)];
   readonly placeholder2: string = servers[Math.floor(Math.random() * servers.length)];
   readonly placeholder3: string = servers[Math.floor(Math.random() * servers.length)];
@@ -171,7 +171,7 @@ export class NewNodeComponent extends StoreDispatcher implements OnInit {
         const featureType = feature.name.toLowerCase().replace(' ', '-') as FeatureType;
         featuresConfig[featureType] = feature.subFeatures
           .filter(f => f.checked)
-          .map((subFeature) => subFeature.name.toLowerCase().replace(' ', '-'));
+          .map((subFeature: SubFeature) => subFeature.name.toLowerCase().replace(' ', '-'));
       });
 
     const payload: MinaNode = {
