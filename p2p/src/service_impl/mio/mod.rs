@@ -92,6 +92,7 @@ impl MioService {
             tokens,
             listeners: BTreeMap::default(),
             connections: BTreeMap::default(),
+            cx: BTreeMap::default(),
         };
 
         thread::spawn(move || {
@@ -121,6 +122,61 @@ struct MioServiceInner<F> {
     tokens: TokenRegistry,
     listeners: BTreeMap<SocketAddr, Listener>,
     connections: BTreeMap<SocketAddr, Connection>,
+
+    cx: BTreeMap<SocketAddr, Cx>,
+}
+
+struct Cx {
+    cipher: salsa_simple::XSalsa20,
+    total: usize,
+    buffer: Vec<u8>,
+    incoming_chunks: VecDeque<Vec<u8>>,
+}
+
+impl Cx {
+    fn new(cipher: salsa_simple::XSalsa20) -> Self {
+        Cx {
+            cipher,
+            total: 0,
+            buffer: vec![],
+            incoming_chunks: VecDeque::default(),
+        }
+    }
+
+    fn observe(&mut self, data: &[u8]) {
+        let mut data = data.to_vec();
+        self.cipher.apply_keystream(&mut data);
+
+        let new = self.total + data.len();
+        if self.total >= 32 {
+            self.observe_chunk(data);
+        }
+        self.total = new;
+    }
+
+    fn observe_chunk(&mut self, data: Vec<u8>) {
+        self.buffer.extend_from_slice(&data);
+        let mut offset = 0;
+        loop {
+            let buf = &self.buffer[offset..];
+            if buf.len() >= 2 {
+                let len = u16::from_be_bytes(buf[..2].try_into().expect("cannot fail"));
+                let full_len = 2 + len as usize;
+                if buf.len() >= full_len {
+                    self.incoming_chunks.push_back(buf[..full_len].to_vec());
+                    offset += full_len;
+
+                    continue;
+                }
+            }
+            break;
+        }
+        self.buffer = self.buffer[offset..].to_vec();
+
+        while let Some(chunk) = self.incoming_chunks.pop_front() {
+            dbg!(chunk.len(), hex::encode(&chunk[..12.min(chunk.len())]));
+        }
+    }
 }
 
 struct Listener {
@@ -400,6 +456,37 @@ where
                     match connection.stream.read(&mut buf) {
                         Ok(0) => self.send(MioEvent::ConnectionDidClose(addr, Ok(()))),
                         Ok(read) => {
+                            let mut first = false;
+                            let cx = self.cx.entry(addr).or_insert_with(|| {
+                                assert!(read >= 24);
+
+                                first = true;
+
+                                let pnet_key = {
+                                    use blake2::{
+                                        digest::{
+                                            generic_array::GenericArray, Update, VariableOutput,
+                                        },
+                                        Blake2bVar,
+                                    };
+
+                                    let mut key = GenericArray::default();
+                                    Blake2bVar::new(32)
+                                        .expect("valid constant")
+                                        .chain(b"/coda/0.0.1/")
+                                        .chain(b"fd7d111973bf5a9e3e87384f560fdead2f272589ca00b6d9e357fca9839631da")
+                                        .finalize_variable(&mut key)
+                                        .expect("good buffer size");
+                                    key.into()
+                                };
+
+                                let cipher = salsa_simple::XSalsa20::new(pnet_key, buf[..24].try_into().unwrap());
+                                Cx::new(cipher)
+                            });
+                            if !first {
+                                cx.observe(&buf[..read])
+                            }
+
                             self.send(MioEvent::IncomingDataDidReceive(
                                 addr,
                                 Ok(buf[..read].to_vec().into()),

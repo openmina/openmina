@@ -72,7 +72,12 @@ impl Command {
             Self::ScenariosGenerate(cmd) => {
                 #[cfg(feature = "scenario-generators")]
                 {
-                    let config = ClusterConfig::new(None).map_err(|err| {
+                    let config = ClusterConfig::new(Some(
+                        openmina_node_testing::node::OcamlNodeExecutable::Installed(
+                            String::default(),
+                        ),
+                    ))
+                    .map_err(|err| {
                         anyhow::anyhow!("failed to create cluster configuration: {err}")
                     })?;
                     let config = if cmd.use_debugger {

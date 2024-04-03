@@ -132,6 +132,9 @@ impl P2pNetworkNoiseState {
                             recv_nonce,
                             ..
                         } => {
+                            dbg!(*recv_nonce);
+                            dbg!(chunk.len(), hex::encode(&chunk[..12.min(chunk.len())]));
+
                             let aead = ChaCha20Poly1305::new(&recv_key.0.into());
                             let mut chunk = chunk;
                             let mut nonce = GenericArray::default();

@@ -4,6 +4,7 @@ use node::{
     p2p::connection::outgoing::P2pConnectionOutgoingInitOpts,
     transition_frontier::sync::TransitionFrontierSyncState,
 };
+use redux::SystemTime;
 use tokio::time::Instant;
 
 use crate::{
@@ -40,61 +41,28 @@ impl SoloNodeBootstrap {
         );
         eprintln!("launch Openmina node with default configuration, id: {node_id}");
 
-        let mut timeout = TIMEOUT;
-        let mut last_time = Instant::now();
-        loop {
-            if runner
-                .wait_for_pending_events_with_timeout(Duration::from_secs(1))
-                .await
-            {
-                let steps = runner
-                    .pending_events(true)
-                    .map(|(node_id, _, events)| {
-                        events.map(move |(_, event)| ScenarioStep::Event {
-                            node_id,
-                            event: event.to_string(),
-                        })
-                    })
-                    .flatten()
-                    .collect::<Vec<_>>();
+        runner
+            .run(
+                TIMEOUT,
+                |_, _, _| crate::scenarios::RunDecision::ContinueExec,
+                |this_node_id, state, _, _| {
+                    if let Synced { time } = &state.transition_frontier.sync {
+                        eprintln!(
+                            "node: {this_node_id}, is synced at {:?}",
+                            SystemTime::from(*time)
+                        );
 
-                for step in steps {
-                    runner.exec_step(step).await.unwrap();
-                }
-            } else {
-                runner
-                    .exec_step(ScenarioStep::CheckTimeouts { node_id })
-                    .await
-                    .unwrap();
-            }
+                        if let Some(head) = state.transition_frontier.best_chain.first() {
+                            if !head.is_genesis() {
+                                return true;
+                            }
+                        }
+                    }
 
-            let new = Instant::now();
-            let elapsed = new - last_time;
-            last_time = new;
-
-            match timeout.checked_sub(elapsed) {
-                Some(new_timeout) => timeout = new_timeout,
-                None => panic!("timeout"),
-            }
-
-            runner
-                .exec_step(ScenarioStep::AdvanceNodeTime {
-                    node_id,
-                    by_nanos: elapsed.as_nanos() as _,
-                })
-                .await
-                .unwrap();
-
-            let this = runner.node(node_id).unwrap();
-            let state = &this.state().transition_frontier.sync;
-            if let Synced { time } = &state {
-                eprintln!(
-                    "node: {node_id}, is synced at {time:?}, total elapsed {:?}",
-                    TIMEOUT - timeout
-                );
-
-                break;
-            }
-        }
+                    false
+                },
+            )
+            .await
+            .unwrap();
     }
 }
