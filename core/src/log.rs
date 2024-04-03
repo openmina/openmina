@@ -127,9 +127,9 @@ macro_rules! action_trace {
 
 pub trait EventContext {
     fn timestamp(&self) -> redux::Timestamp;
-    fn time(&self) -> String;
-    fn node_id(&self) -> String;
-    fn kind(&self) -> String;
+    fn time(&self) -> &'_ dyn Value;
+    fn node_id(&self) -> &'_ dyn Value;
+    fn kind(&self) -> &'_ dyn Value;
 }
 
 pub trait ActionEvent {
@@ -137,5 +137,7 @@ pub trait ActionEvent {
     where
         T: EventContext;
 }
+
+use tracing::Value;
 
 pub use crate::{debug, error, info, trace, warn};

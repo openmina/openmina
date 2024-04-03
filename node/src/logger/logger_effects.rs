@@ -1,3 +1,5 @@
+use openmina_core::log::inner::field::{display, DisplayValue};
+use openmina_core::log::inner::Value;
 use openmina_core::log::{time_to_str, ActionEvent, EventContext};
 use p2p::PeerId;
 
@@ -10,8 +12,20 @@ use crate::{Action, ActionKind, ActionWithMetaRef, Service, Store};
 
 struct ActionLoggerContext {
     time: redux::Timestamp,
-    node_id: PeerId,
-    kind: ActionKind,
+    time_str: String,
+    node_id: DisplayValue<PeerId>,
+    kind: DisplayValue<ActionKind>,
+}
+
+impl ActionLoggerContext {
+    fn new(time: redux::Timestamp, node_id: PeerId, kind: ActionKind) -> Self {
+        ActionLoggerContext {
+            time,
+            time_str: time_to_str(time),
+            node_id: display(node_id),
+            kind: display(kind),
+        }
+    }
 }
 
 impl EventContext for ActionLoggerContext {
@@ -19,26 +33,22 @@ impl EventContext for ActionLoggerContext {
         self.time
     }
 
-    fn time(&self) -> String {
-        time_to_str(self.time)
+    fn time(&self) -> &'_ dyn Value {
+        &self.time_str
     }
 
-    fn node_id(&self) -> String {
-        self.node_id.to_string()
+    fn node_id(&self) -> &'_ dyn Value {
+        &self.node_id
     }
 
-    fn kind(&self) -> String {
-        self.kind.to_string()
+    fn kind(&self) -> &'_ dyn Value {
+        &self.kind
     }
 }
 
 pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_>) {
     let (action, meta) = action.split();
-    let context = ActionLoggerContext {
-        time: meta.time(),
-        node_id: store.state().p2p.my_id(),
-        kind: action.kind(),
-    };
+    let context = ActionLoggerContext::new(meta.time(), store.state().p2p.my_id(), action.kind());
 
     match action {
         Action::P2p(action) => match action {
