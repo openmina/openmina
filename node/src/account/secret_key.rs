@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::{fmt, str::FromStr};
 
 use mina_p2p_messages::{bigint::BigInt, v2::SignatureLibPrivateKeyStableV1};
-use mina_signer::{keypair::KeypairError, Keypair, CompressedPubKey};
+use mina_signer::{keypair::KeypairError, CompressedPubKey, Keypair};
 use openmina_core::constants::GENESIS_PRODUCER_SK;
 
 use super::AccountPublicKey;
