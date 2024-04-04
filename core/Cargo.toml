@@ -16,6 +16,7 @@ redux = { workspace = true }
 tokio = { version = "1.26", features = ["sync"] }
 time = { version = "0.3", features = ["formatting"] }
 multihash = { version = "0.18.1", features = ["blake2b"] }
+openmina-macros = { path = "../macros" }
 
 mina-hasher = { workspace = true }
 mina-p2p-messages = { workspace = true }

@@ -1,20 +1,21 @@
-use openmina_core::{action_debug, log::ActionEvent};
+use openmina_core::ActionEvent;
 use redux::EnablingCondition;
 use serde::{Deserialize, Serialize};
 
 use crate::{P2pAction, P2pNetworkKadAction, P2pNetworkKadLatestRequestPeers, P2pState, PeerId};
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, ActionEvent)]
+#[action_event(fields(display(peer_id), debug(closest_peers), error))]
 pub enum P2pNetworkKadBootstrapAction {
+    /// Create `FIND_NODE` request.
     CreateRequests,
+    /// `FIND_NODE` request successful.
     RequestDone {
         peer_id: PeerId,
         closest_peers: P2pNetworkKadLatestRequestPeers,
     },
-    RequestError {
-        peer_id: PeerId,
-        error: String,
-    },
+    /// `FIND_NODE` request failed.
+    RequestError { peer_id: PeerId, error: String },
 }
 
 impl EnablingCondition<P2pState> for P2pNetworkKadBootstrapAction {
@@ -47,24 +48,24 @@ impl From<P2pNetworkKadBootstrapAction> for P2pAction {
     }
 }
 
-impl ActionEvent for P2pNetworkKadBootstrapAction {
-    fn action_event<T>(&self, context: &T)
-    where
-        T: openmina_core::log::EventContext,
-    {
-        match self {
-            P2pNetworkKadBootstrapAction::CreateRequests => action_debug!(context),
-            P2pNetworkKadBootstrapAction::RequestDone {
-                peer_id,
-                closest_peers,
-            } => action_debug!(
-                context,
-                peer_id = display(peer_id),
-                closest_peers = debug(closest_peers)
-            ),
-            P2pNetworkKadBootstrapAction::RequestError { peer_id, error } => {
-                action_debug!(context, peer_id = display(peer_id), error = display(error))
-            }
-        }
-    }
-}
+// impl ActionEvent for P2pNetworkKadBootstrapAction {
+//     fn action_event<T>(&self, context: &T)
+//     where
+//         T: openmina_core::log::EventContext,
+//     {
+//         match self {
+//             P2pNetworkKadBootstrapAction::CreateRequests => action_debug!(context),
+//             P2pNetworkKadBootstrapAction::RequestDone {
+//                 peer_id,
+//                 closest_peers,
+//             } => action_debug!(
+//                 context,
+//                 peer_id = display(peer_id),
+//                 closest_peers = debug(closest_peers)
+//             ),
+//             P2pNetworkKadBootstrapAction::RequestError { peer_id, error } => {
+//                 action_debug!(context, peer_id = display(peer_id), error = display(error))
+//             }
+//         }
+//     }
+// }

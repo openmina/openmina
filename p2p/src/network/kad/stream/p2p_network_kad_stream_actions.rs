@@ -1,6 +1,6 @@
 use std::net::SocketAddr;
 
-use openmina_core::{action_debug, action_trace, log::ActionEvent};
+use openmina_core::ActionEvent;
 use redux::EnablingCondition;
 use serde::{Deserialize, Serialize};
 
@@ -10,7 +10,8 @@ use crate::{
 };
 
 /// Kademlia stream related actions.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ActionEvent)]
+#[action_event(fields(display(addr), display(peer_id), stream_id, incoming, debug(data)))]
 pub enum P2pNetworkKademliaStreamAction {
     /// Creates a new stream state.
     New {
@@ -76,6 +77,7 @@ pub enum P2pNetworkKademliaStreamAction {
     },
 
     /// Removes the closed stream from the state.
+    #[action_event(level = trace)]
     Prune {
         addr: SocketAddr,
         peer_id: PeerId,
@@ -121,120 +123,120 @@ impl From<P2pNetworkKademliaStreamAction> for P2pAction {
     }
 }
 
-impl ActionEvent for P2pNetworkKademliaStreamAction {
-    fn action_event<T>(&self, context: &T)
-    where
-        T: openmina_core::log::EventContext,
-    {
-        match self {
-            P2pNetworkKademliaStreamAction::New {
-                addr,
-                peer_id,
-                stream_id,
-                incoming,
-            } => action_debug!(
-                context,
-                addr = display(addr),
-                peer_id = display(peer_id),
-                stream_id,
-                incoming
-            ),
-            P2pNetworkKademliaStreamAction::IncomingData {
-                addr,
-                peer_id,
-                stream_id,
-                data,
-            } => action_debug!(
-                context,
-                addr = display(addr),
-                peer_id = display(peer_id),
-                stream_id,
-                data = debug(data)
-            ),
-            P2pNetworkKademliaStreamAction::RemoteClose {
-                addr,
-                peer_id,
-                stream_id,
-            } => action_debug!(
-                context,
-                addr = display(addr),
-                peer_id = display(peer_id),
-                stream_id
-            ),
-            P2pNetworkKademliaStreamAction::WaitIncoming {
-                addr,
-                peer_id,
-                stream_id,
-            } => action_debug!(
-                context,
-                addr = display(addr),
-                peer_id = display(peer_id),
-                stream_id
-            ),
-            P2pNetworkKademliaStreamAction::WaitOutgoing {
-                addr,
-                peer_id,
-                stream_id,
-            } => action_debug!(
-                context,
-                addr = display(addr),
-                peer_id = display(peer_id),
-                stream_id
-            ),
-            P2pNetworkKademliaStreamAction::SendRequest {
-                addr,
-                peer_id,
-                stream_id,
-                data,
-            } => action_debug!(
-                context,
-                addr = display(addr),
-                peer_id = display(peer_id),
-                stream_id,
-                data = debug(data)
-            ),
-            P2pNetworkKademliaStreamAction::SendResponse {
-                addr,
-                peer_id,
-                stream_id,
-                data,
-            } => action_debug!(
-                context,
-                addr = display(addr),
-                peer_id = display(peer_id),
-                stream_id,
-                data = debug(data)
-            ),
-            P2pNetworkKademliaStreamAction::OutgoingDataReady {
-                addr,
-                peer_id,
-                stream_id,
-            } => action_debug!(
-                context,
-                addr = display(addr),
-                peer_id = display(peer_id),
-                stream_id
-            ),
-            P2pNetworkKademliaStreamAction::Close {
-                addr,
-                peer_id,
-                stream_id,
-            } => action_debug!(
-                context,
-                addr = display(addr),
-                peer_id = display(peer_id),
-                stream_id
-            ),
-            P2pNetworkKademliaStreamAction::Prune {
-                addr,
-                peer_id,
-                stream_id,
-            } => action_trace!(
-                context,
-                addr = display(addr),
-                peer_id = display(peer_id),
-                stream_id
-            ),
-        }
-    }
-}
+// impl ActionEvent for P2pNetworkKademliaStreamAction {
+//     fn action_event<T>(&self, context: &T)
+//     where
+//         T: openmina_core::log::EventContext,
+//     {
+//         match self {
+//             P2pNetworkKademliaStreamAction::New {
+//                 addr,
+//                 peer_id,
+//                 stream_id,
+//                 incoming,
+//             } => action_debug!(
+//                 context,
+//                 addr = display(addr),
+//                 peer_id = display(peer_id),
+//                 stream_id,
+//                 incoming
+//             ),
+//             P2pNetworkKademliaStreamAction::IncomingData {
+//                 addr,
+//                 peer_id,
+//                 stream_id,
+//                 data,
+//             } => action_debug!(
+//                 context,
+//                 addr = display(addr),
+//                 peer_id = display(peer_id),
+//                 stream_id,
+//                 data = debug(data)
+//             ),
+//             P2pNetworkKademliaStreamAction::RemoteClose {
+//                 addr,
+//                 peer_id,
+//                 stream_id,
+//             } => action_debug!(
+//                 context,
+//                 addr = display(addr),
+//                 peer_id = display(peer_id),
+//                 stream_id
+//             ),
+//             P2pNetworkKademliaStreamAction::WaitIncoming {
+//                 addr,
+//                 peer_id,
+//                 stream_id,
+//             } => action_debug!(
+//                 context,
+//                 addr = display(addr),
+//                 peer_id = display(peer_id),
+//                 stream_id
+//             ),
+//             P2pNetworkKademliaStreamAction::WaitOutgoing {
+//                 addr,
+//                 peer_id,
+//                 stream_id,
+//             } => action_debug!(
+//                 context,
+//                 addr = display(addr),
+//                 peer_id = display(peer_id),
+//                 stream_id
+//             ),
+//             P2pNetworkKademliaStreamAction::SendRequest {
+//                 addr,
+//                 peer_id,
+//                 stream_id,
+//                 data,
+//             } => action_debug!(
+//                 context,
+//                 addr = display(addr),
+//                 peer_id = display(peer_id),
+//                 stream_id,
+//                 data = debug(data)
+//             ),
+//             P2pNetworkKademliaStreamAction::SendResponse {
+//                 addr,
+//                 peer_id,
+//                 stream_id,
+//                 data,
+//             } => action_debug!(
+//                 context,
+//                 addr = display(addr),
+//                 peer_id = display(peer_id),
+//                 stream_id,
+//                 data = debug(data)
+//             ),
+//             P2pNetworkKademliaStreamAction::OutgoingDataReady {
+//                 addr,
+//                 peer_id,
+//                 stream_id,
+//             } => action_debug!(
+//                 context,
+//                 addr = display(addr),
+//                 peer_id = display(peer_id),
+//                 stream_id
+//             ),
+//             P2pNetworkKademliaStreamAction::Close {
+//                 addr,
+//                 peer_id,
+//                 stream_id,
+//             } => action_debug!(
+//                 context,
+//                 addr = display(addr),
+//                 peer_id = display(peer_id),
+//                 stream_id
+//             ),
+//             P2pNetworkKademliaStreamAction::Prune {
+//                 addr,
+//                 peer_id,
+//                 stream_id,
+//             } => action_trace!(
+//                 context,
+//                 addr = display(addr),
+//                 peer_id = display(peer_id),
+//                 stream_id
+//             ),
+//         }
+//     }
+// }

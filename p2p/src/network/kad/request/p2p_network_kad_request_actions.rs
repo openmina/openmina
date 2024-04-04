@@ -1,12 +1,13 @@
 use std::net::SocketAddr;
 
-use openmina_core::{action_debug, action_trace, log::ActionEvent};
+use openmina_core::ActionEvent;
 use redux::EnablingCondition;
 use serde::{Deserialize, Serialize};
 
 use crate::{P2pAction, P2pNetworkKadEntry, P2pState, PeerId, StreamId};
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, ActionEvent)]
+#[action_event(fields(display(peer_id), display(addr), display(key), stream_id, error))]
 pub enum P2pNetworkKadRequestAction {
     New {
         peer_id: PeerId,
@@ -37,6 +38,7 @@ pub enum P2pNetworkKadRequestAction {
         stream_id: StreamId,
         data: Vec<P2pNetworkKadEntry>,
     },
+    #[action_event(level = trace)]
     Prune {
         peer_id: PeerId,
     },
@@ -82,56 +84,56 @@ impl From<P2pNetworkKadRequestAction> for P2pAction {
     }
 }
 
-impl ActionEvent for P2pNetworkKadRequestAction {
-    fn action_event<T>(&self, context: &T)
-    where
-        T: openmina_core::log::EventContext,
-    {
-        match self {
-            P2pNetworkKadRequestAction::New { peer_id, addr, key } => action_debug!(
-                context,
-                peer_id = display(peer_id),
-                addr = display(addr),
-                key = display(key)
-            ),
-            P2pNetworkKadRequestAction::PeerIsConnecting { peer_id } => {
-                action_debug!(context, peer_id = display(peer_id))
-            }
-            P2pNetworkKadRequestAction::MuxReady { peer_id, addr } => {
-                action_debug!(context, peer_id = display(peer_id), addr = display(addr))
-            }
-            P2pNetworkKadRequestAction::StreamIsCreating { peer_id, stream_id } => {
-                action_debug!(context, peer_id = display(peer_id), stream_id)
-            }
-            P2pNetworkKadRequestAction::StreamReady {
-                peer_id,
-                stream_id,
-                addr,
-            } => action_debug!(
-                context,
-                peer_id = display(peer_id),
-                stream_id,
-                addr = display(addr)
-            ),
-            P2pNetworkKadRequestAction::RequestSent { peer_id } => {
-                action_debug!(context, peer_id = display(peer_id))
-            }
-            P2pNetworkKadRequestAction::ReplyReceived {
-                peer_id,
-                stream_id,
-                data,
-            } => action_debug!(
-                context,
-                peer_id = display(peer_id),
-                stream_id,
-                data = debug(data)
-            ),
-            P2pNetworkKadRequestAction::Prune { peer_id } => {
-                action_trace!(context, peer_id = display(peer_id))
-            }
-            P2pNetworkKadRequestAction::Error { peer_id, error } => {
-                action_debug!(context, peer_id = display(peer_id), error = display(error))
-            }
-        }
-    }
-}
+// impl ActionEvent for P2pNetworkKadRequestAction {
+//     fn action_event<T>(&self, context: &T)
+//     where
+//         T: openmina_core::log::EventContext,
+//     {
+//         match self {
+//             P2pNetworkKadRequestAction::New { peer_id, addr, key } => action_debug!(
+//                 context,
+//                 peer_id = display(peer_id),
+//                 addr = display(addr),
+//                 key = display(key)
+//             ),
+//             P2pNetworkKadRequestAction::PeerIsConnecting { peer_id } => {
+//                 action_debug!(context, peer_id = display(peer_id))
+//             }
+//             P2pNetworkKadRequestAction::MuxReady { peer_id, addr } => {
+//                 action_debug!(context, peer_id = display(peer_id), addr = display(addr))
+//             }
+//             P2pNetworkKadRequestAction::StreamIsCreating { peer_id, stream_id } => {
+//                 action_debug!(context, peer_id = display(peer_id), stream_id)
+//             }
+//             P2pNetworkKadRequestAction::StreamReady {
+//                 peer_id,
+//                 stream_id,
+//                 addr,
+//             } => action_debug!(
+//                 context,
+//                 peer_id = display(peer_id),
+//                 stream_id,
+//                 addr = display(addr)
+//             ),
+//             P2pNetworkKadRequestAction::RequestSent { peer_id } => {
+//                 action_debug!(context, peer_id = display(peer_id))
+//             }
+//             P2pNetworkKadRequestAction::ReplyReceived {
+//                 peer_id,
+//                 stream_id,
+//                 data,
+//             } => action_debug!(
+//                 context,
+//                 peer_id = display(peer_id),
+//                 stream_id,
+//                 data = debug(data)
+//             ),
+//             P2pNetworkKadRequestAction::Prune { peer_id } => {
+//                 action_trace!(context, peer_id = display(peer_id))
+//             }
+//             P2pNetworkKadRequestAction::Error { peer_id, error } => {
+//                 action_debug!(context, peer_id = display(peer_id), error = display(error))
+//             }
+//         }
+//     }
+// }

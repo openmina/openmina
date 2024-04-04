@@ -1,6 +1,6 @@
 use std::net::SocketAddr;
 
-use openmina_core::{action_debug, action_info, log::ActionEvent};
+use openmina_core::ActionEvent;
 use redux::EnablingCondition;
 use serde::{Deserialize, Serialize};
 
@@ -12,7 +12,7 @@ use crate::{
 use super::bootstrap::P2pNetworkKadBootstrapAction;
 
 /// Kademlia actions.
-#[derive(Debug, Clone, Serialize, Deserialize, derive_more::From)]
+#[derive(Debug, Clone, Serialize, Deserialize, derive_more::From, ActionEvent)]
 pub enum P2pNetworkKadAction {
     System(P2pNetworkKademliaAction),
     Bootstrap(P2pNetworkKadBootstrapAction),
@@ -38,8 +38,17 @@ impl From<P2pNetworkKadAction> for P2pAction {
 }
 
 /// Kademlia system actions
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ActionEvent)]
+#[action_event(fields(
+    display(addr),
+    display(peer_id),
+    stream_id,
+    display(key),
+    debug(closest_peers)
+))]
 pub enum P2pNetworkKademliaAction {
+    /// Answer `FIND_NODE` request.
+    ///
     /// Answers peer's `FIND_NODE` request by querying routing table for closest nodes.
     AnswerFindNodeRequest {
         addr: SocketAddr,
@@ -47,6 +56,8 @@ pub enum P2pNetworkKademliaAction {
         stream_id: StreamId,
         key: PeerId,
     },
+    /// Udate result of scheduled outgoing `FIND_NODE`.
+    ///
     /// Udates result of scheduled outgoing `FIND_NODE` request to a peer.
     UpdateFindNodeRequest {
         addr: SocketAddr,
@@ -54,9 +65,11 @@ pub enum P2pNetworkKademliaAction {
         stream_id: StreamId,
         closest_peers: Vec<P2pNetworkKadEntry>,
     },
-    /// Performs local node's Kademlia bootstrap.
+    /// Perform local node's Kademlia bootstrap.
+    #[action_event(level = info)]
     StartBootstrap { key: PeerId },
     /// Bootstrap is finished.
+    #[action_event(level = info)]
     BootstrapFinished,
 }
 
@@ -96,54 +109,40 @@ impl From<P2pNetworkKademliaAction> for P2pAction {
     }
 }
 
-impl ActionEvent for P2pNetworkKadAction {
-    fn action_event<T>(&self, context: &T)
-    where
-        T: openmina_core::log::EventContext,
-    {
-        match self {
-            P2pNetworkKadAction::System(action) => action.action_event(context),
-            P2pNetworkKadAction::Bootstrap(action) => action.action_event(context),
-            P2pNetworkKadAction::Request(action) => action.action_event(context),
-            P2pNetworkKadAction::Stream(action) => action.action_event(context),
-        }
-    }
-}
-
-impl ActionEvent for P2pNetworkKademliaAction {
-    fn action_event<T>(&self, context: &T)
-    where
-        T: openmina_core::log::EventContext,
-    {
-        match self {
-            P2pNetworkKademliaAction::AnswerFindNodeRequest {
-                addr,
-                peer_id,
-                stream_id,
-                key,
-            } => action_debug!(
-                context,
-                addr = display(addr),
-                peer_id = display(peer_id),
-                stream_id,
-                key = display(key)
-            ),
-            P2pNetworkKademliaAction::UpdateFindNodeRequest {
-                addr,
-                peer_id,
-                stream_id,
-                closest_peers,
-            } => action_debug!(
-                context,
-                addr = display(addr),
-                peer_id = display(peer_id),
-                stream_id,
-                closest_peers = debug(closest_peers)
-            ),
-            P2pNetworkKademliaAction::StartBootstrap { key } => {
-                action_info!(context, key = display(key))
-            }
-            P2pNetworkKademliaAction::BootstrapFinished => action_debug!(context),
-        }
-    }
-}
+// impl ActionEvent for P2pNetworkKademliaAction {
+//     fn action_event<T>(&self, context: &T)
+//     where
+//         T: openmina_core::log::EventContext,
+//     {
+//         match self {
+//             P2pNetworkKademliaAction::AnswerFindNodeRequest {
+//                 addr,
+//                 peer_id,
+//                 stream_id,
+//                 key,
+//             } => action_debug!(
+//                 context,
+//                 addr = display(addr),
+//                 peer_id = display(peer_id),
+//                 stream_id,
+//                 key = display(key)
+//             ),
+//             P2pNetworkKademliaAction::UpdateFindNodeRequest {
+//                 addr,
+//                 peer_id,
+//                 stream_id,
+//                 closest_peers,
+//             } => action_debug!(
+//                 context,
+//                 addr = display(addr),
+//                 peer_id = display(peer_id),
+//                 stream_id,
+//                 closest_peers = debug(closest_peers)
+//             ),
+//             P2pNetworkKademliaAction::StartBootstrap { key } => {
+//                 action_info!(context, key = display(key))
+//             }
+//             P2pNetworkKademliaAction::BootstrapFinished => action_debug!(context),
+//         }
+//     }
+// }
