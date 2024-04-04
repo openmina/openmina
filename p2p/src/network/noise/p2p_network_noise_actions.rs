@@ -1,13 +1,14 @@
 use std::net::SocketAddr;
 
-use openmina_core::{action_trace, log::ActionEvent};
+use openmina_core::ActionEvent;
 use serde::{Deserialize, Serialize};
 
 use crate::{Data, P2pNetworkAction, P2pState, PeerId};
 
 use super::p2p_network_noise_state::{Pk, Sk};
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
+#[action_event(level = trace, fields(display(addr), incoming, debug(data), display(peer_id)))]
 pub enum P2pNetworkNoiseAction {
     Init {
         addr: SocketAddr,
@@ -37,6 +38,7 @@ pub enum P2pNetworkNoiseAction {
         data: Data,
     },
     // the remote peer sends the data to internals thru noise
+    #[action_event(fields(display(addr), debug(data), debug(peer_id)))]
     DecryptedData {
         addr: SocketAddr,
         peer_id: Option<PeerId>,
@@ -79,51 +81,6 @@ impl redux::EnablingCondition<P2pState> for P2pNetworkNoiseAction {
             Self::OutgoingData { .. } => true,
             Self::DecryptedData { .. } => true,
             Self::HandshakeDone { .. } => true,
-        }
-    }
-}
-
-impl ActionEvent for P2pNetworkNoiseAction {
-    fn action_event<T>(&self, context: &T)
-    where
-        T: openmina_core::log::EventContext,
-    {
-        match self {
-            P2pNetworkNoiseAction::Init { addr, incoming, .. } => {
-                action_trace!(context, addr = display(addr), incoming)
-            }
-            P2pNetworkNoiseAction::IncomingData { addr, data } => {
-                action_trace!(context, addr = display(addr), data = debug(data))
-            }
-            P2pNetworkNoiseAction::IncomingChunk { addr, data } => {
-                action_trace!(context, addr = display(addr), data = debug(data))
-            }
-            P2pNetworkNoiseAction::OutgoingChunk { addr, data } => {
-                action_trace!(context, addr = display(addr), data = debug(data))
-            }
-            P2pNetworkNoiseAction::OutgoingData { addr, data } => {
-                action_trace!(context, addr = display(addr), data = debug(data))
-            }
-            P2pNetworkNoiseAction::DecryptedData {
-                addr,
-                peer_id,
-                data,
-            } => action_trace!(
-                context,
-                addr = display(addr),
-                peer_id = debug(peer_id),
-                data = debug(data)
-            ),
-            P2pNetworkNoiseAction::HandshakeDone {
-                addr,
-                peer_id,
-                incoming,
-            } => action_trace!(
-                context,
-                addr = display(addr),
-                peer_id = display(peer_id),
-                incoming
-            ),
         }
     }
 }

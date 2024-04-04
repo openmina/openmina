@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use openmina_core::{action_debug, log::ActionEvent, snark::SnarkJobId};
+use openmina_core::{snark::SnarkJobId, ActionEvent};
 use redux::{EnablingCondition, Timestamp};
 use serde::{Deserialize, Serialize};
 
@@ -11,7 +11,8 @@ use super::{
     SnarkWorkResult,
 };
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ActionEvent)]
+#[action_event(fields(display(job_id), display(error)))]
 pub enum ExternalSnarkWorkerAction {
     Start,
     Started,
@@ -131,35 +132,6 @@ impl EnablingCondition<State> for ExternalSnarkWorkerAction {
                 )
             }
             ExternalSnarkWorkerAction::Error { .. } => true,
-        }
-    }
-}
-
-impl ActionEvent for ExternalSnarkWorkerAction {
-    fn action_event<T>(&self, context: &T)
-    where
-        T: openmina_core::log::EventContext,
-    {
-        match self {
-            ExternalSnarkWorkerAction::Start
-            | ExternalSnarkWorkerAction::Started
-            | ExternalSnarkWorkerAction::Kill
-            | ExternalSnarkWorkerAction::Killed
-            | ExternalSnarkWorkerAction::WorkCancelled
-            | ExternalSnarkWorkerAction::PruneWork => action_debug!(context),
-            ExternalSnarkWorkerAction::SubmitWork { job_id, .. } => {
-                action_debug!(context, job_id = display(job_id))
-            }
-            ExternalSnarkWorkerAction::WorkResult { .. } => action_debug!(context),
-            ExternalSnarkWorkerAction::CancelWork => todo!(),
-            ExternalSnarkWorkerAction::WorkError { error } => {
-                action_debug!(context, error = display(error))
-            }
-            ExternalSnarkWorkerAction::Error { error, .. } => {
-                action_debug!(context, error = display(error))
-            }
-            ExternalSnarkWorkerAction::StartTimeout { .. } => action_debug!(context),
-            ExternalSnarkWorkerAction::WorkTimeout { .. } => action_debug!(context),
         }
     }
 }

@@ -1,4 +1,4 @@
-use openmina_core::{action_debug, block::ArcBlockWithHash, log::ActionEvent};
+use openmina_core::{block::ArcBlockWithHash, ActionEvent};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -11,27 +11,34 @@ use super::BestTipPropagationState;
 pub type P2pChannelsBestTipActionWithMetaRef<'a> =
     redux::ActionWithMeta<&'a P2pChannelsBestTipAction>;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ActionEvent)]
+#[action_event(fields(display(peer_id), best_tip = display(&best_tip.hash)))]
 pub enum P2pChannelsBestTipAction {
+    /// Initialize best tip channel.
     Init {
         peer_id: PeerId,
     },
     Pending {
         peer_id: PeerId,
     },
+    /// Best tip channel is ready.
     Ready {
         peer_id: PeerId,
     },
+    /// Send best tip request.
     RequestSend {
         peer_id: PeerId,
     },
+    /// Best tip response is received.
     Received {
         peer_id: PeerId,
         best_tip: ArcBlockWithHash,
     },
+    /// Best tip request is received.
     RequestReceived {
         peer_id: PeerId,
     },
+    /// Best tip response is sent.
     ResponseSend {
         peer_id: PeerId,
         best_tip: ArcBlockWithHash,
@@ -128,40 +135,5 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsBestTipAction {
 impl From<P2pChannelsBestTipAction> for crate::P2pAction {
     fn from(action: P2pChannelsBestTipAction) -> Self {
         Self::Channels(P2pChannelsAction::BestTip(action))
-    }
-}
-
-impl ActionEvent for P2pChannelsBestTipAction {
-    fn action_event<T>(&self, context: &T)
-    where
-        T: openmina_core::log::EventContext,
-    {
-        match self {
-            P2pChannelsBestTipAction::Init { peer_id } => {
-                action_debug!(context, peer_id = display(peer_id))
-            }
-            P2pChannelsBestTipAction::Pending { peer_id } => {
-                action_debug!(context, peer_id = display(peer_id))
-            }
-            P2pChannelsBestTipAction::Ready { peer_id } => {
-                action_debug!(context, peer_id = display(peer_id))
-            }
-            P2pChannelsBestTipAction::RequestSend { peer_id } => {
-                action_debug!(context, peer_id = display(peer_id))
-            }
-            P2pChannelsBestTipAction::Received { peer_id, best_tip } => action_debug!(
-                context,
-                peer_id = display(peer_id),
-                best_tip = display(&best_tip.hash)
-            ),
-            P2pChannelsBestTipAction::RequestReceived { peer_id } => {
-                action_debug!(context, peer_id = display(peer_id))
-            }
-            P2pChannelsBestTipAction::ResponseSend { peer_id, best_tip } => action_debug!(
-                context,
-                peer_id = display(peer_id),
-                best_tip = display(&best_tip.hash)
-            ),
-        }
     }
 }

@@ -1,8 +1,7 @@
 use std::collections::BTreeSet;
 
 use mina_p2p_messages::v2::StateHash;
-use openmina_core::action_info;
-use openmina_core::log::ActionEvent;
+use openmina_core::ActionEvent;
 use serde::{Deserialize, Serialize};
 
 use super::genesis::TransitionFrontierGenesisAction;
@@ -12,17 +11,21 @@ pub type TransitionFrontierActionWithMeta = redux::ActionWithMeta<TransitionFron
 pub type TransitionFrontierActionWithMetaRef<'a> =
     redux::ActionWithMeta<&'a TransitionFrontierAction>;
 
-#[derive(derive_more::From, Serialize, Deserialize, Debug, Clone)]
+#[derive(derive_more::From, Serialize, Deserialize, Debug, Clone, ActionEvent)]
 pub enum TransitionFrontierAction {
     Genesis(TransitionFrontierGenesisAction),
-    /// Inject genesis block into the transition frontier, unless we already
-    /// have a better block there.
+    /// Inject genesis block into the transition frontier.
+    ///
+    /// Unless we already have a better block there.
     ///
     /// If this node is block producer, we produce proof for the genesis
     /// block, otherwise we don't need it so we use dummy proof instead.
+    #[action_event(level = info)]
     GenesisInject,
 
     Sync(TransitionFrontierSyncAction),
+    /// Transition frontier synced.
+    #[action_event(level = info)]
     Synced {
         /// Required protocol states for root block.
         needed_protocol_states: BTreeSet<StateHash>,
@@ -49,26 +52,6 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierAction {
                 state.transition_frontier.sync,
                 TransitionFrontierSyncState::BlocksSuccess { .. }
             ),
-        }
-    }
-}
-
-impl ActionEvent for TransitionFrontierAction {
-    fn action_event<T>(&self, context: &T)
-    where
-        T: openmina_core::log::EventContext,
-    {
-        match self {
-            TransitionFrontierAction::Genesis(action) => action.action_event(context),
-            TransitionFrontierAction::GenesisInject => action_info!(
-                context,
-                summary = "Transition frontier reconstructed genesis ledger and block",
-                // TODO: fetch more fields from the state
-            ),
-            TransitionFrontierAction::Sync(action) => action.action_event(context),
-            TransitionFrontierAction::Synced { .. } => {
-                action_info!(context, summary = "Transition frontier synced")
-            }
         }
     }
 }

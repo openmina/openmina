@@ -1,13 +1,14 @@
 use std::net::SocketAddr;
 
 use mina_p2p_messages::rpc_kernel::{QueryHeader, ResponseHeader};
-use openmina_core::{action_debug, action_trace, log::ActionEvent};
+use openmina_core::{action_debug, action_trace, ActionEvent};
 use serde::{Deserialize, Serialize};
 
 use super::{super::*, *};
 use crate::{P2pState, PeerId};
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
+#[action_event(fields(display(addr), display(peer_id), incoming, stream_id, debug(data), fin))]
 pub enum P2pNetworkRpcAction {
     Init {
         addr: SocketAddr,
@@ -15,12 +16,14 @@ pub enum P2pNetworkRpcAction {
         stream_id: StreamId,
         incoming: bool,
     },
+    #[action_event(level = trace)]
     IncomingData {
         addr: SocketAddr,
         peer_id: PeerId,
         stream_id: StreamId,
         data: Data,
     },
+    #[action_event(expr(log_message(context, message, addr, peer_id, stream_id)))]
     IncomingMessage {
         addr: SocketAddr,
         peer_id: PeerId,
@@ -131,110 +134,45 @@ impl redux::EnablingCondition<P2pState> for P2pNetworkRpcAction {
     }
 }
 
-impl ActionEvent for P2pNetworkRpcAction {
-    fn action_event<T>(&self, context: &T)
-    where
-        T: openmina_core::log::EventContext,
-    {
-        match self {
-            P2pNetworkRpcAction::Init {
-                addr,
-                peer_id,
-                stream_id,
-                incoming,
-            } => action_debug!(
-                context,
-                addr = display(addr),
-                peer_id = display(peer_id),
-                stream_id,
-                incoming
-            ),
-            P2pNetworkRpcAction::IncomingData {
-                addr,
-                peer_id,
-                stream_id,
-                data,
-            } => action_trace!(
-                context,
-                addr = display(addr),
-                peer_id = display(peer_id),
-                stream_id,
-                data = debug(data)
-            ),
-            P2pNetworkRpcAction::IncomingMessage {
-                addr,
-                peer_id,
-                stream_id,
-                message,
-            } => match message {
-                RpcMessage::Handshake => action_trace!(
-                    context,
-                    addr = display(addr),
-                    peer_id = display(peer_id),
-                    stream_id,
-                    message_kind = "handshake"
-                ),
-                RpcMessage::Heartbeat => action_trace!(
-                    context,
-                    addr = display(addr),
-                    peer_id = display(peer_id),
-                    stream_id,
-                    message_kind = "heartbeat"
-                ),
-                RpcMessage::Query { header, .. } => action_debug!(
-                    context,
-                    addr = display(addr),
-                    peer_id = display(peer_id),
-                    stream_id,
-                    message_kind = "query",
-                    message_header = debug(header)
-                ),
-                RpcMessage::Response { header, .. } => action_debug!(
-                    context,
-                    addr = display(addr),
-                    peer_id = display(peer_id),
-                    stream_id,
-                    message_kind = "response",
-                    message_header = debug(header)
-                ),
-            },
-            P2pNetworkRpcAction::PrunePending { peer_id, stream_id } => {
-                action_trace!(context, peer_id = display(peer_id), stream_id)
-            }
-            P2pNetworkRpcAction::OutgoingQuery {
-                peer_id,
-                query,
-                data,
-            } => action_debug!(
-                context,
-                peer_id = display(peer_id),
-                query = debug(query),
-                data = debug(data)
-            ),
-            P2pNetworkRpcAction::OutgoingResponse {
-                peer_id,
-                response,
-                data,
-            } => action_debug!(
-                context,
-                peer_id = display(peer_id),
-                response = debug(response),
-                data = debug(data)
-            ),
-            P2pNetworkRpcAction::OutgoingData {
-                addr,
-                peer_id,
-                stream_id,
-                data,
-                fin,
-            } => action_debug!(
-                context,
-                addr = display(addr),
-                peer_id = display(peer_id),
-                stream_id,
-                data = debug(data),
-                fin
-            ),
-        }
+fn log_message<T>(
+    context: &T,
+    message: &RpcMessage,
+    addr: &SocketAddr,
+    peer_id: &PeerId,
+    stream_id: &u32,
+) where
+    T: openmina_core::log::EventContext,
+{
+    match message {
+        RpcMessage::Handshake => action_trace!(
+            context,
+            addr = display(addr),
+            peer_id = display(peer_id),
+            stream_id,
+            message_kind = "handshake"
+        ),
+        RpcMessage::Heartbeat => action_trace!(
+            context,
+            addr = display(addr),
+            peer_id = display(peer_id),
+            stream_id,
+            message_kind = "heartbeat"
+        ),
+        RpcMessage::Query { header, .. } => action_debug!(
+            context,
+            addr = display(addr),
+            peer_id = display(peer_id),
+            stream_id,
+            message_kind = "query",
+            message_header = debug(header)
+        ),
+        RpcMessage::Response { header, .. } => action_debug!(
+            context,
+            addr = display(addr),
+            peer_id = display(peer_id),
+            stream_id,
+            message_kind = "response",
+            message_header = debug(header)
+        ),
     }
 }

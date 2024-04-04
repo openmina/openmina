@@ -47,25 +47,3 @@ impl From<P2pNetworkKadBootstrapAction> for P2pAction {
         P2pNetworkKadAction::Bootstrap(value).into()
     }
 }
-
-// impl ActionEvent for P2pNetworkKadBootstrapAction {
-//     fn action_event<T>(&self, context: &T)
-//     where
-//         T: openmina_core::log::EventContext,
-//     {
-//         match self {
-//             P2pNetworkKadBootstrapAction::CreateRequests => action_debug!(context),
-//             P2pNetworkKadBootstrapAction::RequestDone {
-//                 peer_id,
-//                 closest_peers,
-//             } => action_debug!(
-//                 context,
-//                 peer_id = display(peer_id),
-//                 closest_peers = debug(closest_peers)
-//             ),
-//             P2pNetworkKadBootstrapAction::RequestError { peer_id, error } => {
-//                 action_debug!(context, peer_id = display(peer_id), error = display(error))
-//             }
-//         }
-//     }
-// }

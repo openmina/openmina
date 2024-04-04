@@ -1,4 +1,4 @@
-use openmina_core::{action_debug, action_trace, log::ActionEvent};
+use openmina_core::ActionEvent;
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
 
@@ -10,7 +10,8 @@ pub type P2pChannelsRpcActionWithMetaRef<'a> = redux::ActionWithMeta<&'a P2pChan
 
 pub const MAX_P2P_RPC_REMOTE_CONCURRENT_REQUESTS: usize = 5;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
+#[action_event(fields(display(peer_id)))]
 pub enum P2pChannelsRpcAction {
     Init {
         peer_id: PeerId,
@@ -169,67 +170,5 @@ use crate::channels::P2pChannelsAction;
 impl From<P2pChannelsRpcAction> for crate::P2pAction {
     fn from(a: P2pChannelsRpcAction) -> Self {
         Self::Channels(P2pChannelsAction::Rpc(a))
-    }
-}
-
-impl ActionEvent for P2pChannelsRpcAction {
-    fn action_event<T>(&self, context: &T)
-    where
-        T: openmina_core::log::EventContext,
-    {
-        match self {
-            P2pChannelsRpcAction::Init { peer_id } => {
-                action_debug!(context, peer_id = display(peer_id))
-            }
-            P2pChannelsRpcAction::Pending { peer_id } => {
-                action_trace!(context, peer_id = display(peer_id))
-            }
-            P2pChannelsRpcAction::Ready { peer_id } => {
-                action_debug!(context, peer_id = display(peer_id))
-            }
-            P2pChannelsRpcAction::RequestSend {
-                peer_id,
-                id,
-                request,
-            } => action_debug!(
-                context,
-                peer_id = display(peer_id),
-                id,
-                request = debug(request)
-            ),
-            P2pChannelsRpcAction::Timeout { peer_id, id } => {
-                action_debug!(context, peer_id = display(peer_id), id)
-            }
-            P2pChannelsRpcAction::ResponseReceived {
-                peer_id,
-                id,
-                response,
-            } => action_debug!(
-                context,
-                peer_id = display(peer_id),
-                id,
-                response = debug(response)
-            ),
-            P2pChannelsRpcAction::RequestReceived {
-                peer_id,
-                id,
-                request,
-            } => action_debug!(
-                context,
-                peer_id = display(peer_id),
-                id,
-                request = debug(request)
-            ),
-            P2pChannelsRpcAction::ResponseSend {
-                peer_id,
-                id,
-                response,
-            } => action_debug!(
-                context,
-                peer_id = display(peer_id),
-                id,
-                response = debug(response)
-            ),
-        }
     }
 }

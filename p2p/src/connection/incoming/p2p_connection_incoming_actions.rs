@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use openmina_core::{action_debug, action_info, action_warn, log::ActionEvent, requests::RpcId};
+use openmina_core::{requests::RpcId, ActionEvent};
 
 use crate::{webrtc, P2pAction, P2pState, PeerId};
 
@@ -9,12 +9,15 @@ use super::P2pConnectionIncomingInitOpts;
 pub type P2pConnectionIncomingActionWithMetaRef<'a> =
     redux::ActionWithMeta<&'a P2pConnectionIncomingAction>;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
+#[action_event(fields(debug(opts), display(peer_id), display(error)))]
 pub enum P2pConnectionIncomingAction {
+    /// Incoming connection is initialized.
     Init {
         opts: P2pConnectionIncomingInitOpts,
         rpc_id: Option<RpcId>,
     },
+    #[action_event(level = trace)]
     AnswerSdpCreatePending {
         peer_id: PeerId,
     },
@@ -33,26 +36,35 @@ pub enum P2pConnectionIncomingAction {
     AnswerSendSuccess {
         peer_id: PeerId,
     },
+    /// Pending incoming connection finalization.
+    #[action_event(level = trace)]
     FinalizePending {
         peer_id: PeerId,
     },
+    /// Error finalizing incoming connection.
     FinalizeError {
         peer_id: PeerId,
         error: String,
     },
+    /// Incoming connection finalized.
     FinalizeSuccess {
         peer_id: PeerId,
     },
+    /// Timeout establishing incoming connection.
     Timeout {
         peer_id: PeerId,
     },
+    /// Error establishing incoming connection.
     Error {
         peer_id: PeerId,
         error: P2pConnectionIncomingError,
     },
+    /// Incoming connection is succesful.
+    #[action_event(level = info)]
     Success {
         peer_id: PeerId,
     },
+    /// Incoming libp2p connection is succesful.
     Libp2pReceived {
         peer_id: PeerId,
     },
@@ -207,54 +219,5 @@ use super::{P2pConnectionIncomingError, P2pConnectionIncomingState};
 impl From<P2pConnectionIncomingAction> for P2pAction {
     fn from(a: P2pConnectionIncomingAction) -> Self {
         Self::Connection(P2pConnectionAction::Incoming(a))
-    }
-}
-
-impl ActionEvent for P2pConnectionIncomingAction {
-    fn action_event<T>(&self, context: &T)
-    where
-        T: openmina_core::log::EventContext,
-    {
-        match self {
-            P2pConnectionIncomingAction::Init { opts, .. } => {
-                action_debug!(context, opts = debug(opts))
-            }
-            P2pConnectionIncomingAction::AnswerSdpCreatePending { peer_id } => {
-                action_debug!(context, peer_id = display(peer_id))
-            }
-            P2pConnectionIncomingAction::AnswerSdpCreateError { peer_id, error } => {
-                action_debug!(context, peer_id = display(peer_id), error)
-            }
-            P2pConnectionIncomingAction::AnswerSdpCreateSuccess { peer_id, sdp } => {
-                action_debug!(context, peer_id = display(peer_id), sdp)
-            }
-            P2pConnectionIncomingAction::AnswerReady { peer_id, answer } => {
-                action_debug!(context, peer_id = display(peer_id), answer = debug(answer))
-            }
-            P2pConnectionIncomingAction::AnswerSendSuccess { peer_id } => {
-                action_debug!(context, peer_id = display(peer_id))
-            }
-            P2pConnectionIncomingAction::FinalizePending { peer_id } => {
-                action_debug!(context, peer_id = display(peer_id))
-            }
-            P2pConnectionIncomingAction::FinalizeError { peer_id, error } => {
-                action_debug!(context, peer_id = display(peer_id), error)
-            }
-            P2pConnectionIncomingAction::FinalizeSuccess { peer_id } => {
-                action_debug!(context, peer_id = display(peer_id))
-            }
-            P2pConnectionIncomingAction::Timeout { peer_id } => {
-                action_debug!(context, peer_id = display(peer_id))
-            }
-            P2pConnectionIncomingAction::Error { peer_id, error } => {
-                action_warn!(context, peer_id = display(peer_id), error = display(error))
-            }
-            P2pConnectionIncomingAction::Success { peer_id } => {
-                action_info!(context, peer_id = display(peer_id))
-            }
-            P2pConnectionIncomingAction::Libp2pReceived { peer_id } => {
-                action_debug!(context, peer_id = display(peer_id))
-            }
-        }
     }
 }

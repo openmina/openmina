@@ -1,14 +1,17 @@
 use std::net::SocketAddr;
 
-use openmina_core::{action_debug, action_trace, log::ActionEvent};
+use openmina_core::ActionEvent;
 use serde::{Deserialize, Serialize};
 
 use crate::{Data, P2pState, PeerId};
 
 use super::{super::*, *};
 
-#[derive(derive_more::From, Serialize, Deserialize, Debug, Clone)]
+#[derive(derive_more::From, Serialize, Deserialize, Debug, Clone, ActionEvent)]
+#[action_event(fields(display(addr), select_kind = debug(kind), debug(data), send_handshake, fin, debug(token), debug(tokens)))]
 pub enum P2pNetworkSelectAction {
+    /// Initialize protocol selection.
+    ///
     /// Multistream Select protocol is running multiple times:
     /// When Pnet protocol is done for newly established TCP connection. We don't have `peer_id` yet.
     /// When Noise protocol is done and we have a `peer_id`.
@@ -19,6 +22,7 @@ pub enum P2pNetworkSelectAction {
         incoming: bool,
         send_handshake: bool,
     },
+    #[action_event(level = trace)]
     IncomingData {
         addr: SocketAddr,
         kind: SelectKind,
@@ -98,52 +102,6 @@ impl redux::EnablingCondition<P2pState> for P2pNetworkSelectAction {
             Self::IncomingData { .. } => true,
             Self::IncomingToken { .. } => true,
             Self::OutgoingTokens { .. } => true,
-        }
-    }
-}
-
-impl ActionEvent for P2pNetworkSelectAction {
-    fn action_event<T>(&self, context: &T)
-    where
-        T: openmina_core::log::EventContext,
-    {
-        match self {
-            P2pNetworkSelectAction::Init {
-                addr,
-                kind,
-                incoming,
-                send_handshake,
-            } => action_debug!(
-                context,
-                addr = display(addr),
-                select_kind = debug(kind),
-                incoming,
-                send_handshake
-            ),
-            P2pNetworkSelectAction::IncomingData {
-                addr,
-                kind,
-                data,
-                fin,
-            } => action_trace!(
-                context,
-                addr = display(addr),
-                select_kind = debug(kind),
-                data = debug(data),
-                fin
-            ),
-            P2pNetworkSelectAction::IncomingToken { addr, kind, token } => action_debug!(
-                context,
-                addr = display(addr),
-                select_kind = debug(kind),
-                token = debug(token)
-            ),
-            P2pNetworkSelectAction::OutgoingTokens { addr, kind, tokens } => action_debug!(
-                context,
-                addr = display(addr),
-                select_kind = debug(kind),
-                tokens = debug(tokens)
-            ),
         }
     }
 }

@@ -1,5 +1,5 @@
 use mina_p2p_messages::v2;
-use openmina_core::{action_info, action_trace, log::ActionEvent};
+use openmina_core::ActionEvent;
 use serde::{Deserialize, Serialize};
 
 use super::{GenesisConfigLoaded, TransitionFrontierGenesisState};
@@ -9,7 +9,8 @@ pub type TransitionFrontierGenesisActionWithMeta =
 pub type TransitionFrontierGenesisActionWithMetaRef<'a> =
     redux::ActionWithMeta<&'a TransitionFrontierGenesisAction>;
 
-#[derive(derive_more::From, Serialize, Deserialize, Debug, Clone)]
+#[derive(derive_more::From, Serialize, Deserialize, Debug, Clone, ActionEvent)]
+#[action_event(level = trace)]
 pub enum TransitionFrontierGenesisAction {
     LedgerLoadInit,
     LedgerLoadPending,
@@ -18,7 +19,11 @@ pub enum TransitionFrontierGenesisAction {
     },
     Produce,
     ProveInit,
+    /// Proving genesis block.
+    #[action_event(level = info)]
     ProvePending,
+    /// Genesis block proved.
+    #[action_event(level = info)]
     ProveSuccess {
         proof: Box<v2::MinaBaseProofStableV2>,
     },
@@ -66,22 +71,5 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierGenesisAction 
 impl From<TransitionFrontierGenesisAction> for crate::Action {
     fn from(value: TransitionFrontierGenesisAction) -> Self {
         crate::transition_frontier::TransitionFrontierAction::Genesis(value).into()
-    }
-}
-
-impl ActionEvent for TransitionFrontierGenesisAction {
-    fn action_event<T>(&self, context: &T)
-    where
-        T: openmina_core::log::EventContext,
-    {
-        match self {
-            TransitionFrontierGenesisAction::ProvePending => {
-                action_info!(context, summary = "Genesis block proved")
-            }
-            TransitionFrontierGenesisAction::ProveSuccess { .. } => {
-                action_info!(context, summary = "Genesis block proved")
-            }
-            _ => action_trace!(context),
-        }
     }
 }
