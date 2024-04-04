@@ -39,6 +39,10 @@ impl TransitionFrontierState {
         self.best_chain.last()
     }
 
+    pub fn root(&self) -> Option<&ArcBlockWithHash> {
+        self.best_chain.first()
+    }
+
     /// Looks up state body by state hash.
     pub fn get_state_body(
         &self,
