@@ -47,7 +47,7 @@ export class NetworkBootstrapStatsSidePanelComponent extends StoreDispatcher imp
       }
       if (!this.request.finish) {
         delete this.request.finish;
-        delete this.request.duration;
+        delete this.request.durationInSecs;
       }
       this.jsonString = JSON.stringify(request);
       this.detect();

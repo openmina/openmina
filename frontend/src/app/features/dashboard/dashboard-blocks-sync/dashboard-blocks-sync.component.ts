@@ -80,9 +80,9 @@ export class DashboardBlocksSyncComponent extends StoreDispatcher implements OnI
     if (!timestamp) {
       return 'Pending';
     }
-    timestamp = timestamp / ONE_MILLION;
-    const millisecondsAgo = Date.now() - timestamp * 60 * 1000;
-    const minutesAgo = Math.floor(millisecondsAgo / 60000);
+    timestamp = Math.ceil(timestamp / ONE_MILLION);
+    const millisecondsAgo = Date.now() - timestamp;
+    const minutesAgo = Math.floor(millisecondsAgo / 1000 / 60);
     const hoursAgo = Math.floor(minutesAgo / 60);
     const daysAgo = Math.floor(hoursAgo / 24);
 

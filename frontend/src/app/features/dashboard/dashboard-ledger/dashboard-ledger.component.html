@@ -1,6 +1,6 @@
 <div class="flex-column w-100 bg-surface border-rad-6">
   <div class="h-xl lh-xl fx-row-vert-cent flex-between f-600 pl-12 pr-12 p-relative">
-    <div [class.success-primary]="ledgers.rootStaged.state === NodesOverviewLedgerStepState.SUCCESS">Ledgers</div>
+    <div>Ledgers</div>
     <div class="tertiary f-400">{{ progress }}</div>
     <div *ngIf="stakingProgress > 0" [style.width.%]="totalProgress"
          class="progress-bar p-absolute">

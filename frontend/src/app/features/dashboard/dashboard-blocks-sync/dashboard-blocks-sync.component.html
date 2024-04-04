@@ -1,8 +1,6 @@
 <div class="flex-column bg-surface w-100 border-rad-6">
   <div class="h-xl lh-xl fx-row-vert-cent flex-between f-600 pl-12 pr-12 p-relative">
-    <div [class.success-primary]="fetchedPercentage === '100%' && appliedPercentage === 100">
-      Last 290 blocks
-    </div>
+    <div>Last 290 blocks</div>
     <div class="f-400 tertiary">{{ syncProgress }}</div>
     <div *ngIf="appliedPercentage" [style.width.%]="appliedPercentage"
          class="progress-bar p-absolute">
