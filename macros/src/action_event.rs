@@ -190,21 +190,10 @@ fn action_event_attrs(attrs: &Vec<Attribute>) -> Result<ActionEventAttrs> {
                                     }
                                     // field = expr
                                     Meta::NameValue(name_value) => {
-                                        let field = name_value.path.require_ident()?;
+                                        let event_field = name_value.path.require_ident()?;
                                         let expr = &name_value.value;
-                                        match expr {
-                                            Expr::Path(ExprPath { path, .. }) => {
-                                                if let Ok(other_field) = path.require_ident() {
-                                                    // field = other_field
-                                                    return Ok((
-                                                        Some(other_field.clone()),
-                                                        quote!(#field = #other_field),
-                                                    ));
-                                                }
-                                            }
-                                            _ => {}
-                                        }
-                                        Ok((None, quote!(#field = #expr)))
+                                        let maybe_field = get_field_name(expr);
+                                        Ok((maybe_field.cloned(), quote!(#event_field = #expr)))
                                     }
                                     // debug(field)
                                     // display(field)
@@ -234,6 +223,23 @@ fn action_event_attrs(attrs: &Vec<Attribute>) -> Result<ActionEventAttrs> {
             })?;
             Ok(attrs)
         })
+}
+
+fn get_field_name(expr: &Expr) -> Option<&Ident> {
+    match expr {
+        Expr::Path(path) => path.path.require_ident().ok(),
+        Expr::Field(field) => get_field_name(&field.base),
+        Expr::Reference(reference) => get_field_name(&reference.expr),
+        Expr::Unary(ExprUnary { expr, .. }) => get_field_name(expr),
+        Expr::Call(call) => match call.func.as_ref() {
+            Expr::Path(path) if path.path.is_ident("display") || path.path.is_ident("debug") => {
+                call.args.first().and_then(|arg| get_field_name(arg))
+            }
+            Expr::Field(field) => get_field_name(&field.base),
+            _ => None,
+        },
+        _ => None,
+    }
 }
 
 fn summary_field(attrs: &Vec<Attribute>) -> Result<Option<TokenStream>> {
@@ -373,6 +379,10 @@ pub enum Action {
     Field { f1: bool },
     #[action_event(fields(f = f1))]
     FieldWithName { f1: bool },
+    #[action_event(fields(f = f.subfield))]
+    FieldExpr { f: WithSubfield },
+    #[action_event(fields(f = display(f.subfield)))]
+    FieldDisplayExpr { f: WithSubfield },
     #[action_event(fields(debug(f1)))]
     DebugField { f1: bool },
     #[action_event(fields(display(f1)))]
@@ -390,8 +400,41 @@ impl openmina_core::ActionEvent for Action {
             Action::NoFields { f1 } => openmina_core::action_debug!(context),
             Action::Field { f1 } => openmina_core::action_debug!(context, f1 = f1),
             Action::FieldWithName { f1 } => openmina_core::action_debug!(context, f = f1),
+            Action::FieldExpr { f } => openmina_core::action_debug!(context, f = f.subfield),
+            Action::FieldDisplayExpr { f } => openmina_core::action_debug!(context, f = display(f.subfield)),
             Action::DebugField { f1 } => openmina_core::action_debug!(context, f1 = debug(f1)),
             Action::DisplayField { f1 } => openmina_core::action_debug!(context, f1 = display(f1)),
+        }
+    }
+}
+"#;
+        test(input, expected)
+    }
+
+    #[test]
+    fn test_filtered_fields() -> anyhow::Result<()> {
+        let input = r#"
+#[derive(openmina_core::ActionEvent)]
+#[action_event(fields(f1, f2 = f2.sub, f3 = display(f3.sub), f4 = foo()))]
+pub enum Action {
+    Unit,
+    AllFields { f1: bool, f2: WithSub, f3: WithSub },
+    OnlyF1 { f1: bool },
+    WithF3 { f1: bool, f3: WithSub },
+}
+"#;
+        let expected = r#"
+impl openmina_core::ActionEvent for Action {
+    fn action_event<T>(&self, context: &T)
+    where
+        T: openmina_core::log::EventContext,
+    {
+        #[allow(unused_variables)]
+        match self {
+            Action::Unit => openmina_core::action_debug!(context),
+            Action::AllFields { f1, f2, f3 } => openmina_core::action_debug!(context, f1 = f1, f2 = f2.sub, f3 = display(f3.sub), f4 = foo()),
+            Action::OnlyF1 { f1 } => openmina_core::action_debug!(context, f1 = f1, f4 = foo()),
+            Action::WithF3 { f1, f3 } => openmina_core::action_debug!(context, f1 = f1, f3 = display(f3.sub), f4 = foo()),
         }
     }
 }
