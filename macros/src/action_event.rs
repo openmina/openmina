@@ -56,6 +56,7 @@ enum FieldsSpec {
 struct ActionEventAttrs {
     level: Option<Level>,
     fields: Option<FieldsSpec>,
+    expr: Option<Expr>,
 }
 
 pub fn expand(input: DeriveInput) -> Result<TokenStream> {
@@ -92,6 +93,11 @@ pub fn expand(input: DeriveInput) -> Result<TokenStream> {
                 }
                 Fields::Named(fields_named) => {
                     let field_names = fields_named.named.iter().map(|named| &named.ident);
+                    if let Some(expr) = variant_attrs.expr {
+                        return Ok(quote! {
+                            #type_name :: #variant_name { #(#field_names),* } => #expr,
+                        });
+                    }
                     args.extend(summary_field(&v.attrs)?);
                     args.extend(fields(&variant_attrs.fields, &input_attrs.fields, fields_named)?);
                     let level = level(&variant_attrs.level, &v.ident, &input_attrs.level);
@@ -100,6 +106,11 @@ pub fn expand(input: DeriveInput) -> Result<TokenStream> {
                     })
                 }
                 Fields::Unit => {
+                    if let Some(expr) = variant_attrs.expr {
+                        return Ok(quote! {
+                            #type_name :: #variant_name => #expr,
+                        });
+                    }
                     args.extend(summary_field(&v.attrs)?);
                     let level = level(&variant_attrs.level, &v.ident, &input_attrs.level);
                     Ok(quote! {
@@ -173,6 +184,10 @@ fn action_event_attrs(attrs: &Vec<Attribute>) -> Result<ActionEventAttrs> {
                     // #[level = ...]
                     Meta::NameValue(name_value) if name_value.path.is_ident("level") => {
                         let _ = attrs.level.insert(name_value.value.try_into()?);
+                    }
+                    // #[expr(...)]
+                    Meta::List(list) if list.path.is_ident("expr") => {
+                        let _ = attrs.expr.insert(list.parse_args::<Expr>()?);
                     }
                     // #[fields(...)]
                     Meta::List(list) if list.path.is_ident("fields") => {
@@ -435,6 +450,34 @@ impl openmina_core::ActionEvent for Action {
             Action::AllFields { f1, f2, f3 } => openmina_core::action_debug!(context, f1 = f1, f2 = f2.sub, f3 = display(f3.sub), f4 = foo()),
             Action::OnlyF1 { f1 } => openmina_core::action_debug!(context, f1 = f1, f4 = foo()),
             Action::WithF3 { f1, f3 } => openmina_core::action_debug!(context, f1 = f1, f3 = display(f3.sub), f4 = foo()),
+        }
+    }
+}
+"#;
+        test(input, expected)
+    }
+
+    #[test]
+    fn test_call() -> anyhow::Result<()> {
+        let input = r#"
+#[derive(openmina_core::ActionEvent)]
+pub enum Action {
+    #[action_event(expr(foo(context)))]
+    Unit,
+    #[action_event(expr(foo(context, f1)))]
+    Named { f1: bool },
+}
+"#;
+        let expected = r#"
+impl openmina_core::ActionEvent for Action {
+    fn action_event<T>(&self, context: &T)
+    where
+        T: openmina_core::log::EventContext,
+    {
+        #[allow(unused_variables)]
+        match self {
+            Action::Unit => foo(context),
+            Action::Named { f1 } => foo(context, f1),
         }
     }
 }

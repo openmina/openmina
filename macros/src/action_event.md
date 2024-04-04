@@ -151,3 +151,34 @@ impl openmina_core::ActionEvent for Action {
     }
 }
 ```
+
+### Logging using custom expression.
+
+When an action needs some custom logic to log (e.g. different logging basing on
+a field's enum variant), logging can be delegated to a function implementing
+that logic.
+
+```
+#[derive(openmina_core::ActionEvent)]
+pub enum Action {
+    #[action_event(expr(foo(context)))]
+    Unit,
+    #[action_event(expr(bar(context, f1)))]
+    Named { f1: bool },
+}
+```
+
+```
+impl openmina_core::ActionEvent for Action {
+    fn action_event<T>(&self, context: &T)
+    where
+        T: openmina_core::log::EventContext,
+    {
+        #[allow(unused_variables)]
+        match self {
+            Action::Unit => foo(context),
+            Action::Named { f1 } => bar(context, f1),
+        }
+    }
+}
+```
