@@ -17,7 +17,7 @@ steps:
       DOCKER_BUILDKIT: "0"
     commands:
       - COMMIT_SHORT_SHA=$(echo $DRONE_COMMIT_SHA | cut -c 1-7)
-      - docker build --no-cache -t directcuteo/rust-fe:$COMMIT_SHORT_SHA -f Dockerfile .
+      - docker build --no-cache -t openmina/frontend:$COMMIT_SHORT_SHA -f Dockerfile .
     volumes:
       - name: docker_sock
         path: /var/run/docker.sock
@@ -28,7 +28,7 @@ steps:
     image: docker:latest
     commands:
       - echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin
-      - docker push directcuteo/rust-fe:${DRONE_COMMIT_SHA:0:7}
+      - docker push openmina/frontend:${DRONE_COMMIT_SHA:0:7}
     volumes:
       - name: docker_sock
         path: /var/run/docker.sock

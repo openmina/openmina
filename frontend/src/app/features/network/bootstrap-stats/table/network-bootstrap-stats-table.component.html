@@ -1,7 +1,7 @@
 <ng-container #minaTable></ng-container>
 
 <ng-template #rowTemplate let-row="row">
-  <span>{{ row.start | readableDate }}</span>
+  <span>{{ row.finish | readableDate }}</span>
   <span class="fx-row-vert-cent f-600"
         [ngClass]="{
           'warn-primary': row.type === 'Failed',

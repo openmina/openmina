@@ -10,7 +10,7 @@
     "watch": "ng build --watch --configuration development",
     "tests": "npx cypress open --config baseUrl=http://localhost:4200",
     "tests:headless": "npx cypress run --headless --config baseUrl=http://localhost:4200",
-    "docker": "npm run build:prod && docker buildx build --platform linux/amd64 -t directcuteo/rust-fe:latest . && docker push directcuteo/rust-fe:latest"
+    "docker": "npm run build:prod && docker buildx build --platform linux/amd64 -t openmina/frontend:latest . && docker push openmina/frontend:latest"
   },
   "private": true,
   "dependencies": {
@@ -28,7 +28,7 @@
     "@ngrx/effects": "^16.2.0",
     "@ngrx/router-store": "^16.2.0",
     "@ngrx/store": "^16.2.0",
-    "@openmina/shared": "^0.68.0",
+    "@openmina/shared": "^0.71.0",
     "d3": "^7.8.4",
     "eigen": "^0.2.2",
     "mathjs": "^12.3.0",

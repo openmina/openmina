@@ -24,6 +24,7 @@ export type FeaturesConfig = Partial<{
   'snarks': string[];
   'resources': string[];
   'testing-tool': string[];
+  'block-production': string[];
 }>;
 
 export type FeatureType = keyof FeaturesConfig;
