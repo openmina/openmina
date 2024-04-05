@@ -490,30 +490,44 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
             );
         }
         RpcAction::ReadinessCheck { rpc_id } => {
-            let synced = store
-                .service()
-                .stats()
-                .and_then(|stats| stats.get_sync_time())
-                .ok_or_else(|| String::from("Not synced"))
-                .and_then(|t| {
-                    meta.time().checked_sub(t).ok_or_else(|| {
-                        format!("Cannot get duration between {t:?} and {:?}", meta.time())
-                    })
-                })
-                .and_then(|dur| {
-                    const THRESH: Duration = Duration::from_secs(60 * 3 * 10);
-                    if dur <= THRESH {
-                        Ok(())
-                    } else {
-                        Err(format!(
-                            "Synced {:?} ago, which is more than the threshold {:?}",
-                            dur, THRESH
-                        ))
-                    }
-                });
-            openmina_core::log::debug!(meta.time(); summary = "readiness check", result = format!("{synced:?}"));
+            const THRESH: Duration = Duration::from_secs(60 * 3 * 10);
+            let synced = match store.state().transition_frontier.sync {
+                TransitionFrontierSyncState::Synced { time }
+                    if meta.time().checked_sub(time) <= Some(THRESH) =>
+                {
+                    Ok(())
+                }
+                TransitionFrontierSyncState::Synced { time } => Err(format!(
+                    "Synced {:?} ago, which is more than the threshold {:?}",
+                    meta.time().checked_sub(time),
+                    THRESH
+                )),
+                _ => Err(format!("not synced")),
+            };
+            // let synced = store
+            //     .service()
+            //     .stats()
+            //     .and_then(|stats| stats.get_sync_time())
+            //     .ok_or_else(|| String::from("Not synced"))
+            //     .and_then(|t| {
+            //         meta.time().checked_sub(t).ok_or_else(|| {
+            //             format!("Cannot get duration between {t:?} and {:?}", meta.time())
+            //         })
+            //     })
+            //     .and_then(|dur| {
+            //         const THRESH: Duration = Duration::from_secs(60 * 3 * 10);
+            //         if dur <= THRESH {
+            //             Ok(())
+            //         } else {
+            //             Err(format!(
+            //                 "Synced {:?} ago, which is more than the threshold {:?}",
+            //                 dur, THRESH
+            //             ))
+            //         }
+            //     });
+            // openmina_core::log::debug!(meta.time(); summary = "readiness check", result = format!("{synced:?}"));
             respond_or_log!(
-                store.service().respond_health_check(rpc_id, synced),
+                store.service().respond_readiness_check(rpc_id, synced),
                 meta.time()
             );
         }
