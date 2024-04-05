@@ -1,10 +1,12 @@
 use std::net::SocketAddr;
 
+use openmina_core::ActionEvent;
 use serde::{Deserialize, Serialize};
 
 use crate::{Data, P2pState};
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
+#[action_event(fields(display(addr), debug(data), incoming), level = trace)]
 pub enum P2pNetworkPnetAction {
     IncomingData {
         addr: SocketAddr,
@@ -14,6 +16,7 @@ pub enum P2pNetworkPnetAction {
         addr: SocketAddr,
         data: Data,
     },
+    #[action_event(level = debug)]
     SetupNonce {
         addr: SocketAddr,
         nonce: Data,

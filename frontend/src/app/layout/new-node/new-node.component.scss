@@ -1,0 +1,41 @@
+@import 'openmina';
+
+:host {
+  width: 100%;
+  height: 100%;
+  padding: 30px;
+}
+
+.mina-input {
+  height: 40px;
+  border-radius: 6px;
+}
+
+.feature {
+  color: $base-tertiary;
+
+  .fx-row-full-cent {
+    width: 16px;
+    height: 16px;
+    border: 2px solid $base-divider;
+    border-radius: 6px;
+  }
+
+  .mina-icon {
+    display: none;
+    font-variation-settings: 'FILL' 0, 'wght' 400 !important;
+  }
+
+  &.checked {
+    color: $base-primary;
+
+    .mina-icon {
+      display: block;
+    }
+
+    .fx-row-full-cent {
+      background-color: $selected-container;
+      border: none;
+    }
+  }
+}

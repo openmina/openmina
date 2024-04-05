@@ -1,4 +1,4 @@
-<div class="base-div flex-column w-100 p-relative" [style.padding-right.px]="openSidePanel ? 0 : '50'">
+<div class="base-div flex-column w-100">
   <div class="lh-xl h-xl f-600">{{ points.length }} Peers in {{ bucketPoints.length }} Buckets</div>
   <div class="list p-relative w-100 flex-row" #line>
     <div *ngFor="let bucket of bucketPoints; let i=index; trackBy: trackBuckets"
@@ -9,7 +9,7 @@
         <div>Bucket {{ i }}</div>
         <div class="tertiary ml-8 mr-5">Peers</div>
         <div>{{ buckets[i].peers }}</div>
-        <div class="tertiary ml-8">Max. Capacity 20</div>
+        <div class="d-none-sm tertiary ml-8">Max. Capacity 20</div>
       </div>
       <div class="line-bg p-absolute w-100">
         <div class="mid-line p-absolute w-100"></div>
@@ -23,12 +23,4 @@
          [class.origin]="point.isOrigin"
          [style.left.px]="point.left"></div>
   </div>
-
-  <span class="fx-row-vert-cent h-100 p-absolute" style="top:0;right:0">
-    <button *ngIf="!openSidePanel"
-            class="h-sm w-sm fx-row-full-cent btn-selected p-0 mr-10"
-            (click)="toggleSidePanel()">
-      <span class="mina-icon f-20">view_sidebar</span>
-    </button>
-  </span>
 </div>

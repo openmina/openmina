@@ -1,13 +1,13 @@
-import {ChangeDetectionStrategy, Component, OnInit} from '@angular/core';
-import {StoreDispatcher} from '@shared/base-classes/store-dispatcher.class';
-import {selectDashboardNodes} from '@dashboard/dashboard.state';
-import {NodesOverviewNode} from '@shared/types/nodes/dashboard/nodes-overview-node.type';
-import {ONE_MILLION} from '@openmina/shared';
-import {filter} from 'rxjs';
+import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
+import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
+import { selectDashboardNodes } from '@dashboard/dashboard.state';
+import { NodesOverviewNode } from '@shared/types/nodes/dashboard/nodes-overview-node.type';
+import { ONE_MILLION } from '@openmina/shared';
+import { filter } from 'rxjs';
 import {
   NodesOverviewResync,
   NodesOverviewResyncKindType,
-  NodesOverviewResyncUI
+  NodesOverviewResyncUI,
 } from '@shared/types/nodes/dashboard/nodes-overview-resync.type';
 
 const descriptionMap = {
@@ -54,12 +54,9 @@ export class DashboardErrorsComponent extends StoreDispatcher implements OnInit 
   }
 
   private calculateProgressTime(timestamp: number): string {
-    timestamp = timestamp / ONE_MILLION;
-    const timestampDate = new Date(timestamp);
-    const timezoneOffset = 0;// timestampDate.getTimezoneOffset();
-
-    const millisecondsAgo = Date.now() - timestamp - timezoneOffset * 60 * 1000;
-    const minutesAgo = Math.floor(millisecondsAgo / 60000);
+    timestamp = Math.ceil(timestamp / ONE_MILLION);
+    const millisecondsAgo = Date.now() - timestamp;
+    const minutesAgo = Math.floor(millisecondsAgo / 1000 / 60);
     const hoursAgo = Math.floor(minutesAgo / 60);
     const daysAgo = Math.floor(hoursAgo / 24);
 

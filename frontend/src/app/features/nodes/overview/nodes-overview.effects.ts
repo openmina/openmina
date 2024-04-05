@@ -44,7 +44,7 @@ export class NodesOverviewEffects extends MinaRustBaseEffect<NodesOverviewAction
       switchMap(({ action, state }) =>
         action.type === NODES_OVERVIEW_CLOSE
           ? EMPTY
-          : this.nodesOverviewService.getNodes(),
+          : this.nodesOverviewService.getNodes(state.app.nodes),
       ),
       map((payload: NodesOverviewNode[]) => ({ type: NODES_OVERVIEW_GET_NODES_SUCCESS, payload })),
       catchErrorAndRepeat(MinaErrorType.GENERIC, NODES_OVERVIEW_GET_NODES_SUCCESS, []),

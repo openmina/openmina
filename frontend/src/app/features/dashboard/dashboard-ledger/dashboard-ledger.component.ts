@@ -11,11 +11,13 @@ import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
 import { selectDashboardNodesAndRpcStats } from '@dashboard/dashboard.state';
 import {
   NodesOverviewLedger,
+  NodesOverviewLedgerEpochStep,
   NodesOverviewLedgerStepState,
+  NodesOverviewRootStagedLedgerStep,
 } from '@shared/types/nodes/dashboard/nodes-overview-ledger.type';
 import { filter } from 'rxjs';
 import { NodesOverviewNode } from '@shared/types/nodes/dashboard/nodes-overview-node.type';
-import { ONE_MILLION, SecDurationConfig } from '@openmina/shared';
+import { ONE_BILLION, ONE_MILLION, ONE_THOUSAND, SecDurationConfig } from '@openmina/shared';
 import { Overlay, OverlayRef } from '@angular/cdk/overlay';
 import { TemplatePortal } from '@angular/cdk/portal';
 import { DashboardRpcStats } from '@shared/types/dashboard/dashboard-rpc-stats.type';
@@ -23,7 +25,38 @@ import { DashboardRpcStats } from '@shared/types/dashboard/dashboard-rpc-stats.t
 type LedgerConfigMap = {
   stakingEpoch: SecDurationConfig,
   nextEpoch: SecDurationConfig,
-  root: SecDurationConfig,
+  rootSnarked: SecDurationConfig,
+  rootStaged: SecDurationConfig,
+};
+
+const initialSnarked: NodesOverviewLedgerEpochStep = {
+  state: NodesOverviewLedgerStepState.PENDING,
+  snarked: {
+    fetchHashesStart: 0,
+    fetchHashesEnd: 0,
+    fetchAccountsStart: 0,
+    fetchAccountsEnd: 0,
+    fetchHashesDuration: null,
+    fetchAccountsDuration: null,
+    fetchHashesPassedTime: null,
+    fetchAccountsPassedTime: null,
+  },
+  totalTime: null,
+};
+
+const initialStaged: NodesOverviewRootStagedLedgerStep = {
+  state: NodesOverviewLedgerStepState.PENDING,
+  staged: {
+    fetchPartsStart: 0,
+    fetchPartsEnd: 0,
+    reconstructStart: 0,
+    reconstructEnd: 0,
+    fetchPartsDuration: null,
+    reconstructDuration: null,
+    fetchPassedTime: null,
+    reconstructPassedTime: null,
+  },
+  totalTime: null,
 };
 
 @Component({
@@ -34,61 +67,25 @@ type LedgerConfigMap = {
 })
 export class DashboardLedgerComponent extends StoreDispatcher implements OnInit, OnDestroy {
 
+  protected readonly NodesOverviewLedgerStepState = NodesOverviewLedgerStepState;
+
   ledgers: NodesOverviewLedger = {
-    stakingEpoch: {
-      state: NodesOverviewLedgerStepState.PENDING,
-      snarked: {
-        fetchHashesStart: 0,
-        fetchHashesEnd: 0,
-        fetchAccountsStart: 0,
-        fetchAccountsEnd: 0,
-        fetchHashesDuration: null,
-        fetchAccountsDuration: null,
-      },
-      totalTime: null,
-    },
-    nextEpoch: {
-      state: NodesOverviewLedgerStepState.PENDING,
-      snarked: {
-        fetchHashesStart: 0,
-        fetchHashesEnd: 0,
-        fetchAccountsStart: 0,
-        fetchAccountsEnd: 0,
-        fetchHashesDuration: null,
-        fetchAccountsDuration: null,
-      }, totalTime: null,
-    },
-    root: {
-      state: NodesOverviewLedgerStepState.PENDING,
-      snarked: {
-        fetchHashesStart: 0,
-        fetchHashesEnd: 0,
-        fetchAccountsStart: 0,
-        fetchAccountsEnd: 0,
-        fetchHashesDuration: null,
-        fetchAccountsDuration: null,
-      },
-      staged: {
-        fetchPartsStart: 0,
-        fetchPartsEnd: 0,
-        reconstructStart: 0,
-        reconstructEnd: 0,
-        fetchPartsDuration: null,
-        reconstructDuration: null,
-      },
-      synced: null,
-      totalTime: null,
-    },
+    stakingEpoch: initialSnarked,
+    nextEpoch: initialSnarked,
+    rootSnarked: initialSnarked,
+    rootStaged: initialStaged,
   };
   progress: string;
   configMap: LedgerConfigMap = {
     stakingEpoch: this.emptyConfig,
     nextEpoch: this.emptyConfig,
-    root: this.emptyConfig,
+    rootSnarked: this.emptyConfig,
+    rootStaged: this.emptyConfig,
   };
   stakingProgress: number = 0;
   nextProgress: number = 0;
-  rootProgress: number = 0;
+  rootSnarkedProgress: number = 0;
+  rootStagedProgress: number = 0;
   totalProgress: number;
 
   @ViewChild('tooltipRef') private tooltipRef: TemplateRef<{ start: number, end: number }>;
@@ -113,12 +110,14 @@ export class DashboardLedgerComponent extends StoreDispatcher implements OnInit,
       this.configMap = {
         stakingEpoch: getConfig(this.ledgers.stakingEpoch.state),
         nextEpoch: getConfig(this.ledgers.nextEpoch.state),
-        root: getConfig(this.ledgers.root.state),
+        rootSnarked: getConfig(this.ledgers.rootSnarked.state),
+        rootStaged: getConfig(this.ledgers.rootStaged.state),
       };
       this.setProgressTime();
       this.stakingProgress = rpcStats.stakingLedger?.fetched / rpcStats.stakingLedger?.estimation * 100 || 0;
       this.nextProgress = rpcStats.nextLedger?.fetched / rpcStats.nextLedger?.estimation * 100 || 0;
-      this.rootProgress = rpcStats.rootLedger?.fetched / rpcStats.rootLedger?.estimation * 100 || 0;
+      this.rootSnarkedProgress = rpcStats.rootLedger?.fetched / rpcStats.rootLedger?.estimation * 100 || 0;
+      this.rootStagedProgress = this.ledgers.rootStaged.staged.fetchPartsEnd ? 50 : 0;
 
       if (this.ledgers.stakingEpoch.state === NodesOverviewLedgerStepState.SUCCESS) {
         this.stakingProgress = 100;
@@ -126,10 +125,13 @@ export class DashboardLedgerComponent extends StoreDispatcher implements OnInit,
       if (this.ledgers.nextEpoch.state === NodesOverviewLedgerStepState.SUCCESS) {
         this.nextProgress = 100;
       }
-      if (this.ledgers.root.state === NodesOverviewLedgerStepState.SUCCESS) {
-        this.rootProgress = 100;
+      if (this.ledgers.rootSnarked.state === NodesOverviewLedgerStepState.SUCCESS) {
+        this.rootSnarkedProgress = 100;
       }
-      this.totalProgress = (this.stakingProgress + this.nextProgress + this.rootProgress) / 3;
+      if (this.ledgers.rootStaged.state === NodesOverviewLedgerStepState.SUCCESS) {
+        this.rootStagedProgress = 100;
+      }
+      this.totalProgress = (this.stakingProgress + this.nextProgress + this.rootSnarkedProgress + this.rootStagedProgress) / 4;
       this.detect();
     }, filter(n => n[0].length > 0));
   }
@@ -193,20 +195,17 @@ export class DashboardLedgerComponent extends StoreDispatcher implements OnInit,
     if (!this.ledgers.stakingEpoch.snarked.fetchHashesStart) {
       return;
     }
-    if (this.ledgers.root.state === NodesOverviewLedgerStepState.SUCCESS) {
-      this.progress = this.calculateProgressTime(this.ledgers.root.synced, 'finished');
+    if (this.ledgers.rootStaged.state === NodesOverviewLedgerStepState.SUCCESS) {
+      this.progress = this.calculateProgressTime(this.ledgers.rootStaged.staged.reconstructEnd, 'finished');
     } else {
       this.progress = this.calculateProgressTime(this.ledgers.stakingEpoch.snarked.fetchHashesStart, 'started');
     }
   }
 
   private calculateProgressTime(timestamp: number, action: string): string {
-    timestamp = timestamp / ONE_MILLION;
-    // const timestampDate = new Date(timestamp);
-    const timezoneOffset = 0;//timestampDate.getTimezoneOffset();
-
-    const millisecondsAgo = Date.now() - timestamp - timezoneOffset * 60 * 1000;
-    const minutesAgo = Math.floor(millisecondsAgo / 60000);
+    timestamp = Math.ceil(timestamp / ONE_MILLION);
+    const millisecondsAgo = Date.now() - timestamp;
+    const minutesAgo = Math.floor(millisecondsAgo / 1000 / 60);
     const hoursAgo = Math.floor(minutesAgo / 60);
     const daysAgo = Math.floor(hoursAgo / 24);
 

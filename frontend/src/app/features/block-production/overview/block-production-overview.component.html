@@ -1,0 +1,14 @@
+<mina-horizontal-resizable-container [leftTemplate]="left"
+                                     [rightTemplate]="right"
+                                     [show]="false"
+                                     [minWidth]="360"
+                                     [maxWidthElement]="el.nativeElement"
+                                     localStorageKey="bp-overview-spw">
+</mina-horizontal-resizable-container>
+
+<ng-template #left>
+  <mina-block-production-slots></mina-block-production-slots>
+</ng-template>
+
+<ng-template #right>
+</ng-template>

@@ -62,7 +62,7 @@ export class DashboardBlocksSyncComponent extends StoreDispatcher implements OnI
       this.root = lastItem(blocks).height;
       this.rootText = this.calculateProgressTime(lastItem(blocks).applyEnd);
       if (blocks[0].status === NodesOverviewNodeBlockStatus.APPLIED) {
-        this.bestTipBlockSyncedText = SYNCED + ' ' + this.bestTipBlockSyncedText;
+        this.bestTipBlockSyncedText = SYNCED + ' ' + this.bestTipBlockSyncedText.slice(7);
       }
     } else {
       this.root = null;
@@ -80,12 +80,9 @@ export class DashboardBlocksSyncComponent extends StoreDispatcher implements OnI
     if (!timestamp) {
       return 'Pending';
     }
-    timestamp = timestamp / ONE_MILLION;
-    // const timestampDate = new Date(timestamp);
-    const timezoneOffset = 0; //timestampDate.getTimezoneOffset();
-
-    const millisecondsAgo = Date.now() - timestamp - timezoneOffset * 60 * 1000;
-    const minutesAgo = Math.floor(millisecondsAgo / 60000);
+    timestamp = Math.ceil(timestamp / ONE_MILLION);
+    const millisecondsAgo = Date.now() - timestamp;
+    const minutesAgo = Math.floor(millisecondsAgo / 1000 / 60);
     const hoursAgo = Math.floor(minutesAgo / 60);
     const daysAgo = Math.floor(hoursAgo / 24);
 

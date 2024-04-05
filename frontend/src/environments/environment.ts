@@ -2,7 +2,7 @@ import { MinaEnv } from '@shared/types/core/environment/mina-env.type';
 
 export const environment: Readonly<MinaEnv> = {
   production: false,
-  identifier: 'local',
+  identifier: 'Development FE',
   globalConfig: {
     features: {
       dashboard: [],
@@ -10,6 +10,7 @@ export const environment: Readonly<MinaEnv> = {
       state: ['actions'],
       network: ['messages', 'connections', 'blocks', 'topology', 'node-dht', 'graph-overview', 'bootstrap-stats'],
       snarks: ['scan-state' /*'work-pool'*/],
+      'block-production': ['overview'],
       // 'testing-tool': ['scenarios'],
     },
   },

@@ -1,3 +1,4 @@
+use openmina_core::ActionEvent;
 use serde::{Deserialize, Serialize};
 
 use crate::transition_frontier::sync::TransitionFrontierSyncAction;
@@ -12,7 +13,7 @@ pub type TransitionFrontierSyncLedgerActionWithMeta =
 pub type TransitionFrontierSyncLedgerActionWithMetaRef<'a> =
     redux::ActionWithMeta<&'a TransitionFrontierSyncLedgerAction>;
 
-#[derive(derive_more::From, Serialize, Deserialize, Debug, Clone)]
+#[derive(derive_more::From, Serialize, Deserialize, Debug, Clone, ActionEvent)]
 pub enum TransitionFrontierSyncLedgerAction {
     Init,
     Snarked(TransitionFrontierSyncLedgerSnarkedAction),

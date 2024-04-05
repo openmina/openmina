@@ -11,6 +11,7 @@ export const NODES_TITLE: string = APP_TITLE + ' - Nodes';
 export const STATE_TITLE: string = APP_TITLE + ' - State';
 export const SNARKS_TITLE: string = APP_TITLE + ' - Snarks';
 export const TESTING_TOOL_TITLE: string = APP_TITLE + ' - Testing Tool';
+export const BLOCK_PRODUCTION_TITLE: string = APP_TITLE + ' - Block Production';
 
 
 const routes: Routes = [
@@ -49,6 +50,11 @@ const routes: Routes = [
     path: 'testing-tool',
     loadChildren: () => import('@testing-tool/testing-tool.module').then(m => m.TestingToolModule),
     title: TESTING_TOOL_TITLE,
+  },
+  {
+    path: 'block-production',
+    loadChildren: () => import('./features/block-production/block-production.module').then(m => m.BlockProductionModule),
+    title: BLOCK_PRODUCTION_TITLE,
   },
   {
     path: '**',

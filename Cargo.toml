@@ -3,6 +3,7 @@ cargo-features = ["named-profiles"]
 [workspace]
 members = [
     "core",
+    "macros",
     "ledger",
     "snark",
     "p2p",

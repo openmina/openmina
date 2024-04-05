@@ -43,9 +43,11 @@ impl RejectionReason {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, thiserror::Error)]
 pub enum P2pConnectionErrorResponse {
+    #[error("connection rejected: {0}")]
     Rejected(RejectionReason),
+    #[error("internal error")]
     InternalError,
 }
 

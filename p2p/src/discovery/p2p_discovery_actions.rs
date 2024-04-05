@@ -1,3 +1,4 @@
+use openmina_core::ActionEvent;
 use serde::{Deserialize, Serialize};
 
 use crate::{connection::outgoing::P2pConnectionOutgoingInitOpts, P2pState, PeerId};
@@ -6,7 +7,8 @@ use crate::{connection::outgoing::P2pConnectionOutgoingInitOpts, P2pState, PeerI
 
 pub type P2pDiscoveryActionWithMetaRef<'a> = redux::ActionWithMeta<&'a P2pDiscoveryAction>;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
+#[action_event(fields(display(peer_id), debug(peers), debug(addresses), description))]
 pub enum P2pDiscoveryAction {
     Init {
         peer_id: PeerId,

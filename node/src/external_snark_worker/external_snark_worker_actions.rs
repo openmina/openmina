@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use openmina_core::snark::SnarkJobId;
+use openmina_core::{snark::SnarkJobId, ActionEvent};
 use redux::{EnablingCondition, Timestamp};
 use serde::{Deserialize, Serialize};
 
@@ -11,7 +11,8 @@ use super::{
     SnarkWorkResult,
 };
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ActionEvent)]
+#[action_event(fields(display(job_id), display(error)))]
 pub enum ExternalSnarkWorkerAction {
     Start,
     Started,

@@ -1,6 +1,7 @@
 use mina_p2p_messages::v2::StateHash;
 use openmina_core::block::ArcBlockWithHash;
 use openmina_core::consensus::consensus_take;
+use openmina_core::ActionEvent;
 use serde::{Deserialize, Serialize};
 
 use crate::p2p::channels::rpc::P2pRpcId;
@@ -17,31 +18,42 @@ pub type TransitionFrontierSyncActionWithMeta = redux::ActionWithMeta<Transition
 pub type TransitionFrontierSyncActionWithMetaRef<'a> =
     redux::ActionWithMeta<&'a TransitionFrontierSyncAction>;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
 pub enum TransitionFrontierSyncAction {
     /// Set transition frontier target to new best tip (for still unsynced frontiers)
+    #[action_event(level = info, fields(
+        block_hash = display(&best_tip.hash),
+        root_block_hash = display(&root_block.hash),
+    ))]
     Init {
         best_tip: ArcBlockWithHash,
         root_block: ArcBlockWithHash,
         blocks_inbetween: Vec<StateHash>,
     },
     /// Set sync target to a new best tip (for already synced frontiers)
+    #[action_event(level = info)]
     BestTipUpdate {
         best_tip: ArcBlockWithHash,
         root_block: ArcBlockWithHash,
         blocks_inbetween: Vec<StateHash>,
     },
     /// Staking Ledger sync is pending
+    #[action_event(level = info)]
     LedgerStakingPending,
     /// Staking Ledger sync was successful
+    #[action_event(level = info)]
     LedgerStakingSuccess,
     /// Next Epoch Ledger sync is pending
+    #[action_event(level = info)]
     LedgerNextEpochPending,
     /// Next Epoch Ledger sync was successful
+    #[action_event(level = info)]
     LedgerNextEpochSuccess,
     /// Transition frontier Root Ledger sync is pending
+    #[action_event(level = info)]
     LedgerRootPending,
     /// Transition frontier Root Ledger sync was successful
+    #[action_event(level = info)]
     LedgerRootSuccess,
     BlocksPending,
     BlocksPeersQuery,

@@ -50,14 +50,15 @@
 #COPY nginx.conf .
 #RUN cat nginx.conf
 
-
 FROM node:18 AS BUILD_IMAGE
+ARG BUILD_CONFIGURATION=production
 WORKDIR /app
-COPY dist/ ./dist/
-COPY nginx.conf .
-#RUN npm install
-#RUN node_modules/.bin/ng build --configuration production
-#RUN npm prune --production
+COPY . .
+RUN npm install
+RUN node_modules/.bin/ng build --configuration ${BUILD_CONFIGURATION}
+RUN npm prune --production
+RUN [ -f nginx.${BUILD_CONFIGURATION}.conf ] && cp nginx.${BUILD_CONFIGURATION}.conf nginx.conf
+
 FROM nginx:alpine
 RUN pwd
 RUN ls -l

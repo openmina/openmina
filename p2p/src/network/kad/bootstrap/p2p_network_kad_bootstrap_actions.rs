@@ -1,19 +1,21 @@
+use openmina_core::ActionEvent;
 use redux::EnablingCondition;
 use serde::{Deserialize, Serialize};
 
 use crate::{P2pAction, P2pNetworkKadAction, P2pNetworkKadLatestRequestPeers, P2pState, PeerId};
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, ActionEvent)]
+#[action_event(fields(display(peer_id), debug(closest_peers), error))]
 pub enum P2pNetworkKadBootstrapAction {
+    /// Create `FIND_NODE` request.
     CreateRequests,
+    /// `FIND_NODE` request successful.
     RequestDone {
         peer_id: PeerId,
         closest_peers: P2pNetworkKadLatestRequestPeers,
     },
-    RequestError {
-        peer_id: PeerId,
-        error: String,
-    },
+    /// `FIND_NODE` request failed.
+    RequestError { peer_id: PeerId, error: String },
 }
 
 impl EnablingCondition<P2pState> for P2pNetworkKadBootstrapAction {

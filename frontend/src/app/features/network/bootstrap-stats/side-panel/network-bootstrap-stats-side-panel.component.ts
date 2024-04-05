@@ -1,13 +1,6 @@
 import { ChangeDetectionStrategy, Component, OnInit, ViewChild } from '@angular/core';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
-import { NetworkNodeDhtPeer } from '@shared/types/network/node-dht/network-node-dht.type';
-import {
-  selectNetworkNodeDhtActiveBootstrapRequest,
-  selectNetworkNodeDhtActivePeer,
-} from '@network/node-dht/network-node-dht.state';
-import { NetworkNodeDhtSetActivePeer, NetworkNodeDhtToggleSidePanel } from '@network/node-dht/network-node-dht.actions';
-import { ExpandTracking, MinaJsonViewerComponent, downloadJson } from '@openmina/shared';
-import { delay, mergeMap, of } from 'rxjs';
+import { downloadJson, ExpandTracking, MinaJsonViewerComponent } from '@openmina/shared';
 import {
   NetworkBootstrapStatsRequest,
 } from '@shared/types/network/bootstrap-stats/network-bootstrap-stats-request.type';
@@ -19,6 +12,8 @@ import {
 } from '@network/bootstrap-stats/network-bootstrap-stats.actions';
 import { Routes } from '@shared/enums/routes.enum';
 import { Router } from '@angular/router';
+import { selectActiveNode } from '@app/app.state';
+import { isSubFeatureEnabled } from '@shared/constants/config';
 
 @Component({
   selector: 'mina-network-bootstrap-stats-side-panel',
@@ -33,6 +28,7 @@ export class NetworkBootstrapStatsSidePanelComponent extends StoreDispatcher imp
   expandingTracking: ExpandTracking = {};
   jsonString: string;
   activeTab: number = 1;
+  hasNodeDhtEnabled: boolean;
 
   @ViewChild(MinaJsonViewerComponent) private minaJsonViewer: MinaJsonViewerComponent;
 
@@ -40,9 +36,10 @@ export class NetworkBootstrapStatsSidePanelComponent extends StoreDispatcher imp
 
   ngOnInit(): void {
     this.listenToActiveNode();
+    this.listenToActiveRequest();
   }
 
-  private listenToActiveNode(): void {
+  private listenToActiveRequest(): void {
     this.select(selectNetworkBootstrapStatsActiveBootstrapRequest, (request: NetworkBootstrapStatsRequest) => {
       this.request = { ...request };
       if (!this.request.error) {
@@ -50,10 +47,16 @@ export class NetworkBootstrapStatsSidePanelComponent extends StoreDispatcher imp
       }
       if (!this.request.finish) {
         delete this.request.finish;
-        delete this.request.duration;
+        delete this.request.durationInSecs;
       }
       this.jsonString = JSON.stringify(request);
       this.detect();
+    });
+  }
+
+  private listenToActiveNode(): void {
+    this.select(selectActiveNode, (node) => {
+      this.hasNodeDhtEnabled = isSubFeatureEnabled(node, 'network', 'bootstrap-stats');
     });
   }
 
@@ -76,5 +79,9 @@ export class NetworkBootstrapStatsSidePanelComponent extends StoreDispatcher imp
 
   selectTab(number: number): void {
     this.activeTab = number;
+  }
+
+  goToNodeDht(): void {
+    this.router.navigate([Routes.NETWORK, Routes.NODE_DHT, this.request.peerId], { queryParamsHandling: 'merge' });
   }
 }

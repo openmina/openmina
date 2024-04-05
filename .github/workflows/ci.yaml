@@ -47,18 +47,6 @@ jobs:
           rustup override set 1.77
           rustup component add clippy rustfmt
 
-      # - name: Check
-      #   uses: actions-rs/cargo@v1
-      #   with:
-      #     command: check
-
-      # - name: Clippy
-      #   uses: actions-rs/cargo@v1
-      #   with:
-      #     command: clippy
-      #   # don't fail the job until clippy is fixed
-      #   continue-on-error: true
-
       - name: Setup Rust Cache
         uses: Swatinem/rust-cache@v2
         with:
@@ -74,9 +62,26 @@ jobs:
           name: bin
           path: target/release/openmina
 
+  build-tests:
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Git checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        run: |
+          rustup install 1.77
+          rustup override set 1.77
+          rustup component add clippy rustfmt
+
+      - name: Setup Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: "ver-0"
+
       - name: Build tests
         run: |
-          mkdir target/release/tests
+          mkdir -p target/release/tests
 
           cargo build --release --features=scenario-generators --package=openmina-node-testing --tests
           cargo build --release --features=scenario-generators --package=openmina-node-testing --tests --message-format=json > cargo-build-test.json
@@ -102,7 +107,7 @@ jobs:
           path: tests.tar
 
   p2p-tests:
-    needs: [ build ]
+    needs: [ build-tests ]
     runs-on: ubuntu-20.04
     container:
       image: minaprotocol/mina-daemon:2.0.0berkeley-rc1-1551e2f-focal-berkeley
@@ -131,7 +136,7 @@ jobs:
           ./${{ env.TEST }} --nocapture --test-threads=1
 
   scenario-tests:
-    needs: [ build ]
+    needs: [ build-tests ]
     runs-on: ubuntu-20.04
     container:
       image: minaprotocol/mina-daemon:2.0.0berkeley-rc1-1551e2f-focal-berkeley
@@ -158,3 +163,56 @@ jobs:
       - name: Run the test
         run: |
           ./${{ matrix.test }} --nocapture --test-threads=1
+
+
+  bootstrap-test:
+    needs: [ build ]
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Download binary
+        uses: actions/download-artifact@v4
+        with:
+          name: bin
+
+      - name: Prepare peers list
+        run: |
+          cat > peers.txt <<EOF
+          /ip4/135.181.217.23/tcp/31881/p2p/12D3KooWL7TyJx6TZZVKqPKkjNXXovu4y7aRQaWEx3eaiY45Lqw8
+          /ip4/135.181.217.23/tcp/30386/p2p/12D3KooWQywRHUxh4bjvPSDKbrY8GeUzeGgHxKbesrJYpgqvaicS
+          /ip4/135.181.217.23/tcp/32272/p2p/12D3KooWA4Mcr2Kn6ivtqFxWcFdLxGW2gqdDVwS86kToUCYst2rj
+          /ip4/135.181.217.23/tcp/32218/p2p/12D3KooWKWRfqG8QdkpAVY3xUzxndPBgj5WR6fxBNAJKSzek3URZ
+          /ip4/135.181.217.23/tcp/30798/p2p/12D3KooWJXiYRpj1dCLPv2PMLyNTuWSgzavyKXyaVsmBRhnBVCNM
+          /ip4/135.181.217.23/tcp/31631/p2p/12D3KooWNeaaS6wpPSa41qkxQWaeauDR51WCNnLUyd5CcjBBiNTq
+          /ip4/135.181.217.23/tcp/30196/p2p/12D3KooWDdJEVxdrthmuBiEL2Yi6nnryo4UYxz1f98TiykyFBx7H
+          /ip4/135.181.217.23/tcp/30790/p2p/12D3KooWN8wmWdivGuUG7fTkV34hihgC6RnrfygzbZCuaQceaiak
+          /ip4/135.181.217.23/tcp/30070/p2p/12D3KooWNi6nauXV3bMtwkc3wqA7V79Um92muVJ5pKvC11wVo2xk
+          EOF
+          echo "::group::Peers for bottstrapping"
+          cat peers.txt
+          echo "::endgroup::"
+
+      - name: Bootstrap node
+        run: |
+          set -eu
+          chmod +x ./openmina
+          ./openmina node --no-peers-discovery --peers $(cat peers.txt) |& tee run.log &
+          PID=$!
+          TIME=10
+          SLEEP=10
+          ATTEMPTS=$((TIME * 60 / SLEEP))
+          while ! curl -fs localhost:3000/readyz; do
+              ATTEMPTS=$((ATTEMPTS-1))
+              if [ "${ATTEMPTS}" -eq 0 ]; then
+                  echo "::error::Cannot bootsrtap within $TIME minutes"
+                  exit 1
+              fi
+              sleep $SLEEP
+          done
+          echo "::notice::The node is bootstrapped"
+
+      - name: Upload run.log
+        uses: actions/upload-artifact@v4
+        with:
+          name: bootstrap-log
+          path: run.log
+        if: ${{ failure() }}

@@ -1,13 +1,4 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  ComponentRef,
-  ElementRef,
-  Input,
-  NgZone,
-  OnInit,
-  ViewChild
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, ComponentRef, ElementRef, Input, OnInit, ViewChild } from '@angular/core';
 import { selectActiveNode, selectAppMenu, selectNodes } from '@app/app.state';
 import { filter, take } from 'rxjs';
 import { Store } from '@ngrx/store';
@@ -18,6 +9,8 @@ import { MinaNode } from '@shared/types/core/environment/mina-env.type';
 import { ComponentPortal } from '@angular/cdk/portal';
 import { Overlay, OverlayRef } from '@angular/cdk/overlay';
 import { NodePickerComponent } from '@app/layout/node-picker/node-picker.component';
+import { NewNodeComponent } from '@app/layout/new-node/new-node.component';
+import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
 
 @Component({
   selector: 'mina-server-status',
@@ -26,7 +19,7 @@ import { NodePickerComponent } from '@app/layout/node-picker/node-picker.compone
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex-row align-center' },
 })
-export class ServerStatusComponent extends ManualDetection implements OnInit {
+export class ServerStatusComponent extends StoreDispatcher implements OnInit {
 
   @Input() switchForbidden: boolean;
 
@@ -38,10 +31,9 @@ export class ServerStatusComponent extends ManualDetection implements OnInit {
   private nodes: MinaNode[] = [];
   private overlayRef: OverlayRef;
   private nodePickerComponent: ComponentRef<NodePickerComponent>;
+  private newNodeComponent: ComponentRef<NewNodeComponent>;
 
-  constructor(private zone: NgZone,
-              private overlay: Overlay,
-              private store: Store<MinaState>) { super(); }
+  constructor(private overlay: Overlay) { super(); }
 
   ngOnInit(): void {
     this.listenToMenuChange();
@@ -49,31 +41,25 @@ export class ServerStatusComponent extends ManualDetection implements OnInit {
   }
 
   private listenToMenuChange(): void {
-    this.store.select(selectAppMenu)
-      .pipe(filter(menu => menu.isMobile !== this.isMobile))
-      .subscribe((menu: AppMenu) => {
-        this.isMobile = menu.isMobile;
-        this.detect();
-      });
+    this.select(selectAppMenu, (menu: AppMenu) => {
+      this.isMobile = menu.isMobile;
+      this.detect();
+    }, filter(menu => menu.isMobile !== this.isMobile));
   }
 
   private listenToNodeChanges(): void {
-    this.store.select(selectNodes)
-      .pipe(filter(nodes => nodes.length > 0))
-      .subscribe((nodes: MinaNode[]) => {
-        this.nodes = nodes;
-        if (this.overlayRef?.hasAttached()) {
-          this.detachOverlay();
-          this.openNodePicker();
-        }
-        this.detect();
-      });
-    this.store.select(selectActiveNode)
-      .pipe(filter(Boolean))
-      .subscribe((activeNode: MinaNode) => {
-        this.activeNode = activeNode;
-        this.detect();
-      });
+    this.select(selectNodes, (nodes: MinaNode[]) => {
+      this.nodes = nodes;
+      if (this.overlayRef?.hasAttached()) {
+        this.detachOverlay();
+        this.openNodePicker();
+      }
+      this.detect();
+    }, filter(nodes => nodes.length > 0));
+    this.select(selectActiveNode, (activeNode: MinaNode) => {
+      this.activeNode = activeNode;
+      this.detect();
+    }, filter(Boolean));
   }
 
   openNodePicker(event?: MouseEvent): void {
@@ -106,12 +92,41 @@ export class ServerStatusComponent extends ManualDetection implements OnInit {
     this.nodePickerComponent.instance.nodes = this.nodes;
     this.nodePickerComponent.instance.filteredNodes = this.nodes;
     this.nodePickerComponent.instance.activeNode = this.activeNode;
-    this.nodePickerComponent.instance.closeEmitter.pipe(take(1)).subscribe(() => this.detachOverlay());
+    this.nodePickerComponent.instance.closeEmitter.pipe(take(1)).subscribe((addNewNode: boolean) => {
+      this.detachOverlay();
+      if (addNewNode) {
+        this.openAddNewNodeOverlay();
+      }
+    });
   }
 
   detachOverlay(): void {
     if (this.overlayRef?.hasAttached()) {
       this.overlayRef.detach();
     }
+  }
+
+  private openAddNewNodeOverlay(): void {
+    if (this.overlayRef?.hasAttached()) {
+      this.overlayRef.detach();
+      return;
+    }
+
+    this.overlayRef = this.overlay.create({
+      hasBackdrop: true,
+      width: '100%',
+      maxWidth: '900px',
+      height: '100%',
+      maxHeight: '650px',
+      scrollStrategy: this.overlay.scrollStrategies.block(),
+      positionStrategy: this.overlay.position()
+        .global()
+        .centerHorizontally()
+        .centerVertically(),
+    });
+
+    const portal = new ComponentPortal(NewNodeComponent);
+    this.newNodeComponent = this.overlayRef.attach<NewNodeComponent>(portal);
+    this.newNodeComponent.instance.closeEmitter.pipe(take(1)).subscribe(() => this.detachOverlay());
   }
 }

@@ -4,6 +4,12 @@ import { hasValue } from '@openmina/shared';
 
 export const CONFIG: Readonly<MinaEnv> = {
   ...environment,
+  configs: environment.configs.map((config) => ({
+    ...config,
+    url: getURL(config.url),
+    memoryProfiler: getURL(config.memoryProfiler),
+    debugger: getURL(config.debugger),
+  })),
 };
 
 (window as any).config = CONFIG;
@@ -30,4 +36,21 @@ export function isFeatureEnabled(config: MinaNode, feature: FeatureType): boolea
 
 export function getFeaturesConfig(config: MinaNode): FeaturesConfig {
   return config?.features || CONFIG.globalConfig?.features;
+}
+
+export function isSubFeatureEnabled(config: MinaNode, feature: FeatureType, subFeature: string): boolean {
+  const features = getFeaturesConfig(config);
+  return hasValue(features[feature]) && features[feature].includes(subFeature);
+}
+
+
+export function getURL(pathOrUrl: string): string {
+  if (pathOrUrl) {
+    let href = new URL(pathOrUrl, origin).href;
+    if (href.endsWith('/')) {
+      href = href.slice(0, -1);
+    }
+    return href;
+  }
+  return pathOrUrl;
 }

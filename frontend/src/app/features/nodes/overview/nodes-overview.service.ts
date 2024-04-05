@@ -2,19 +2,16 @@ import { Injectable } from '@angular/core';
 import { catchError, forkJoin, map, Observable, of } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
 import { NodesOverviewNode, NodesOverviewNodeKindType } from '@shared/types/nodes/dashboard/nodes-overview-node.type';
-import { hasValue, ONE_BILLION, ONE_MILLION, toReadableDate } from '@openmina/shared';
+import { hasValue, ONE_BILLION, ONE_MILLION, ONE_THOUSAND, toReadableDate } from '@openmina/shared';
 import {
   NodesOverviewBlock,
-  NodesOverviewNodeBlockStatus
+  NodesOverviewNodeBlockStatus,
 } from '@shared/types/nodes/dashboard/nodes-overview-block.type';
 import {
   NodesOverviewLedger,
   NodesOverviewLedgerEpochStep,
   NodesOverviewLedgerStepState,
-  NodesOverviewRootLedgerStep,
-  NodesOverviewStagedLedgerStep,
 } from '@shared/types/nodes/dashboard/nodes-overview-ledger.type';
-import { CONFIG } from '@shared/constants/config';
 import { MinaNode } from '@shared/types/core/environment/mina-env.type';
 import { NodesOverviewResync } from '@shared/types/nodes/dashboard/nodes-overview-resync.type';
 
@@ -26,8 +23,7 @@ export class NodesOverviewService {
   constructor(private http: HttpClient) {
   }
 
-  getNodes(): Observable<NodesOverviewNode[]> {
-    const nodes = CONFIG.configs;
+  getNodes(nodes: MinaNode[]): Observable<NodesOverviewNode[]> {
     return forkJoin(
       nodes.map((node: MinaNode) => {
         return this.getNodeTips({ url: node.url, name: node.name }, '?limit=1');
@@ -81,7 +77,7 @@ export class NodesOverviewService {
                 missingBlocks: node.blocks.filter((block: any) => block.status === NodesOverviewNodeBlockStatus.MISSING).length,
                 fetchedBlocks: node.blocks.filter((block: any) => block.status === NodesOverviewNodeBlockStatus.FETCHED).length,
                 fetchingBlocks: node.blocks.filter((block: any) => block.status === NodesOverviewNodeBlockStatus.FETCHING).length,
-                ledgers: this.getLedgers(node.ledgers, node.synced),
+                ledgers: this.getLedgers(node.ledgers),
                 resyncs: this.getResyncs(node.resyncs),
                 blocks,
               } as NodesOverviewNode;
@@ -101,7 +97,7 @@ export class NodesOverviewService {
             missingBlocks: 0,
             fetchedBlocks: 0,
             fetchingBlocks: 0,
-            ledgers: this.getLedgers({}, null),
+            ledgers: this.getLedgers({}),
             resyncs: [],
             blocks: [],
           }]);
@@ -109,28 +105,30 @@ export class NodesOverviewService {
       );
   }
 
-  private getLedgers(ledgers: any, synced: number): NodesOverviewLedger {
+  private getLedgers(ledgers: any): NodesOverviewLedger {
     const ledger = {} as NodesOverviewLedger;
 
-    const epochLedger = this.getLedgerStep(ledgers.root);
+    const epochLedger = this.getSnarkedLedgerStep(ledgers.root);
     if (!ledgers.root) {
-      ledger.root = {
-        ...epochLedger,
+      ledger.rootSnarked = epochLedger;
+      ledger.rootStaged = {
+        state: NodesOverviewLedgerStepState.PENDING,
         staged: {
           fetchPartsStart: null,
           fetchPartsEnd: null,
+          fetchPartsDuration: null,
+          fetchPassedTime: null,
           reconstructStart: null,
           reconstructEnd: null,
-          fetchPartsDuration: null,
           reconstructDuration: null,
-        } as NodesOverviewStagedLedgerStep,
-      } as NodesOverviewRootLedgerStep;
+          reconstructPassedTime: null,
+        },
+        totalTime: null,
+      };
     } else {
-      ledger.root = {
-        ...epochLedger,
-        state: this.noneOfStepsCompleted(ledgers.root) && !ledgers.root.staged.fetch_parts_start && !ledgers.root.staged.reconstruct_start
-          ? NodesOverviewLedgerStepState.PENDING
-          : NodesOverviewLedgerStepState.LOADING,
+      ledger.rootSnarked = epochLedger;
+      ledger.rootStaged = {
+        state: !ledgers.root.staged.fetch_parts_start && !ledgers.root.staged.reconstruct_start ? NodesOverviewLedgerStepState.PENDING : NodesOverviewLedgerStepState.LOADING,
         staged: {
           fetchPartsStart: ledgers.root.staged.fetch_parts_start,
           fetchPartsEnd: ledgers.root.staged.fetch_parts_end,
@@ -138,23 +136,28 @@ export class NodesOverviewService {
           reconstructEnd: ledgers.root.staged.reconstruct_end,
           fetchPartsDuration: this.getDuration(ledgers.root.staged.fetch_parts_start, ledgers.root.staged.fetch_parts_end),
           reconstructDuration: this.getDuration(ledgers.root.staged.reconstruct_start, ledgers.root.staged.reconstruct_end),
+          fetchPassedTime: this.getPassed(ledgers.root.staged.fetch_parts_start),
+          reconstructPassedTime: this.getPassed(ledgers.root.staged.reconstruct_start),
         },
-        synced: null,
+        totalTime: null,
       };
-      if (synced) {
-        ledger.root.synced = synced;
-        ledger.root.state = NodesOverviewLedgerStepState.SUCCESS;
-        ledger.root.totalTime = epochLedger.snarked.fetchHashesDuration + epochLedger.snarked.fetchAccountsDuration + ledger.root.staged.fetchPartsDuration + ledger.root.staged.reconstructDuration;
+      if (ledger.rootStaged.state !== NodesOverviewLedgerStepState.PENDING) {
+        ledger.rootSnarked.state = NodesOverviewLedgerStepState.SUCCESS;
+        ledger.rootSnarked.totalTime = ledger.rootSnarked.snarked.fetchHashesDuration + ledger.rootSnarked.snarked.fetchAccountsDuration;
+      }
+      if (ledger.rootStaged.staged.reconstructEnd) {
+        ledger.rootStaged.state = NodesOverviewLedgerStepState.SUCCESS;
+        ledger.rootStaged.totalTime = ledger.rootStaged.staged.fetchPartsDuration + ledger.rootStaged.staged.reconstructDuration;
       }
     }
 
-    ledger.nextEpoch = this.getLedgerStep(ledgers.next_epoch);
-    if (ledger.root.state !== NodesOverviewLedgerStepState.PENDING) {
+    ledger.nextEpoch = this.getSnarkedLedgerStep(ledgers.next_epoch);
+    if (ledger.rootSnarked.state !== NodesOverviewLedgerStepState.PENDING) {
       ledger.nextEpoch.state = NodesOverviewLedgerStepState.SUCCESS;
       ledger.nextEpoch.totalTime = ledger.nextEpoch.snarked.fetchHashesDuration + ledger.nextEpoch.snarked.fetchAccountsDuration;
     }
 
-    ledger.stakingEpoch = this.getLedgerStep(ledgers.staking_epoch);
+    ledger.stakingEpoch = this.getSnarkedLedgerStep(ledgers.staking_epoch);
     if (ledger.nextEpoch.state !== NodesOverviewLedgerStepState.PENDING) {
       ledger.stakingEpoch.state = NodesOverviewLedgerStepState.SUCCESS;
       ledger.stakingEpoch.totalTime = ledger.stakingEpoch.snarked.fetchHashesDuration + ledger.stakingEpoch.snarked.fetchAccountsDuration;
@@ -163,17 +166,19 @@ export class NodesOverviewService {
     return ledger;
   }
 
-  private getLedgerStep(step: any): NodesOverviewLedgerEpochStep {
+  private getSnarkedLedgerStep(step: any): NodesOverviewLedgerEpochStep {
     if (!step) {
       return {
         state: NodesOverviewLedgerStepState.PENDING,
         snarked: {
           fetchHashesStart: null,
           fetchHashesEnd: null,
+          fetchHashesDuration: null,
+          fetchHashesPassedTime: null,
           fetchAccountsStart: null,
           fetchAccountsEnd: null,
-          fetchHashesDuration: null,
           fetchAccountsDuration: null,
+          fetchAccountsPassedTime: null,
         },
       } as NodesOverviewLedgerEpochStep;
     }
@@ -186,6 +191,8 @@ export class NodesOverviewService {
         fetchAccountsEnd: step.snarked.fetch_accounts_end,
         fetchHashesDuration: this.getDuration(step.snarked.fetch_hashes_start, step.snarked.fetch_hashes_end),
         fetchAccountsDuration: this.getDuration(step.snarked.fetch_accounts_start, step.snarked.fetch_accounts_end),
+        fetchHashesPassedTime: this.getPassed(step.snarked.fetch_hashes_start),
+        fetchAccountsPassedTime: this.getPassed(step.snarked.fetch_accounts_start),
       },
     } as NodesOverviewLedgerEpochStep;
   };
@@ -197,8 +204,11 @@ export class NodesOverviewService {
     return Math.ceil((end - start) / ONE_BILLION);
   }
 
-  private hasAllStepsCompleted(step: any): boolean {
-    return !!(step.snarked.fetch_hashes_end && step.snarked.fetch_accounts_end);
+  private getPassed(start: number): number | null {
+    if (!start) {
+      return null;
+    }
+    return Math.ceil((Date.now() / ONE_THOUSAND) - (start / ONE_BILLION));
   }
 
   private noneOfStepsCompleted(step: any): boolean {

@@ -7,9 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2024-04-05
+
+### Changed
+
+- Internal improvements to the actions logging mechanism.
+
+### Fixed
+
+- Corrected sync stats for accounts fetching during ledger sync.
+- Pruning of kademlia streams and requests.
+
+### Added
+
+- Docker images tagged for each new release.
+- Bootstrap process testing on CI.
+
 ## [0.3.0] - 2024-03-29
 
-### Changes
+### Changed
 
 - **Rust Toolchain**: Updated the minimum required Rust toolchain to version 1.77.
 - **Networking**:
@@ -20,7 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Frontend**:
   - **Mobile Compatibility**: Enhanced support for mobile platforms, improving user experience across various devices.
 
-### Fixes
+### Fixed
 
 - **Staged Ledger**: Resolved an issue where the ledger reconstruct step would block the state machine.
 - **Node Communication**: Fixed a bug where nodes did not respond to ledger queries from bootstrapping peers, enhancing network cooperation.
@@ -29,7 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Backend**:
   - **HTTP RPC**: Corrected an error triggered when querying the `/state` endpoint.
 
-### Additions
+### Added
 
 - **Bootstrap Efficiency**:
   - **Ledger Synchronization**: Optimized the snarked ledger synchronization process during bootstrap, significantly reducing the time required.
@@ -86,7 +102,8 @@ First public release.
 - Alpha version of the node which can connect and syncup to the berkeleynet network, and keep applying new blocks to maintain consensus state and ledger up to date.
 - Web-based frontend for the node.
 
-[Unreleased]: https://github.com/openmina/openmina/compare/v0.3.0...develop
+[Unreleased]: https://github.com/openmina/openmina/compare/v0.3.1...develop
+[0.3.1]: https://github.com/openmina/openmina/releases/tag/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/openmina/openmina/releases/tag/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/openmina/openmina/releases/tag/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/openmina/openmina/releases/tag/v0.0.1...v0.1.0

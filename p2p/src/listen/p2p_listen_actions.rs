@@ -1,3 +1,4 @@
+use openmina_core::ActionEvent;
 use redux::EnablingCondition;
 use serde::{Deserialize, Serialize};
 
@@ -5,7 +6,8 @@ use crate::{P2pListenerId, P2pState};
 
 pub type P2pListenActionWithMetaRef<'a> = redux::ActionWithMeta<&'a P2pListenAction>;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
+#[action_event(fields(display(listener_id), display(addr), error))]
 pub enum P2pListenAction {
     New {
         listener_id: P2pListenerId,

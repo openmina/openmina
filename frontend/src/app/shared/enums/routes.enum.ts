@@ -34,4 +34,5 @@ export enum Routes {
   WORK_POOL = 'work-pool',
   SNARKS = 'snarks',
   TESTING_TOOL = 'testing-tool',
+  NODE_DHT = 'node-dht',
 }

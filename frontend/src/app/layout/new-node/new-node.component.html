@@ -1,0 +1,57 @@
+<div class="h-md f-600 f-big mb-10">Adding a new node
+  <div class="tertiary f-small mt-5 f-400">The nodes added manually will persist in your browser's local storage.</div>
+</div>
+<form [formGroup]="formGroup" #fg class="flex-column flex-1 overflow-y-auto transparent-scrollbar-track">
+  <div class="mt-16 mb-10 tertiary">Give it a name</div>
+  <div>
+    <input type="text" class="mina-input h-lg w-100 pl-5" formControlName="name" [placeholder]="'e. g. ' + placeholder"
+           [class.input-error]="formGroup.get('name').touched && formGroup.get('name').errors && formGroup.get('name').errors['required']"/>
+  </div>
+  <div class="mt-16 pt-10 mb-10 tertiary">URL of your node</div>
+  <div>
+    <input type="text" class="mina-input h-lg w-100 pl-5" formControlName="url" [placeholder]="'e. g. ' + placeholder2"
+           [class.input-error]="formGroup.get('url').touched && formGroup.get('url').errors && formGroup.get('url').errors['required']"/>
+  </div>
+  <div class="mt-16 pt-10 mb-10 tertiary">Attach a debugger to your node <i>(Optional)</i></div>
+  <div>
+    <input type="text" class="mina-input h-lg w-100 pl-5" formControlName="debugger"
+           [placeholder]="'e. g. ' + placeholder3"/>
+  </div>
+  <div class="mt-16 pt-10 mb-10 tertiary">Attach a memory profiler to your node <i>(Optional)</i></div>
+  <div>
+    <input type="text" class="mina-input h-lg w-100 pl-5" formControlName="memProfiler"
+           [placeholder]="'e. g. ' + placeholder4"/>
+  </div>
+  <div class="mt-16 pt-10 mb-10 tertiary">Confirm which features your node is ready to provide.</div>
+
+  <div class="flex-column align-start f-600">
+    <div *ngFor="let feature of features"
+         class="flex-column align-start">
+      <div [class.checked]="feature.checked"
+           (click)="onFeatureCheck(feature)"
+           class="feature fx-row-vert-cent mr-10 h-md lh-md pointer">
+        <div class="fx-row-full-cent mr-5">
+          <span class="mina-icon f-20">check_small</span>
+        </div>
+        <div>{{ feature.name }}</div>
+      </div>
+      <div *ngIf="feature.subFeatures.length"
+           class="flex-row flex-wrap ml-16 pl-12">
+        <div class="fx-row-vert-cent mr-10 feature pointer h-md lh-md"
+             [class.checked]="sub.checked"
+             (click)="onSubFeatureCheck(sub, feature)"
+             *ngFor="let sub of feature.subFeatures">
+          <div class="fx-row-full-cent mr-5">
+            <span class="mina-icon f-20">check_small</span>
+          </div>
+          <div class="text-capitalize">{{ sub.name }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</form>
+
+<div class="fx-row-vert-cent flex-end mt-5">
+  <button class="btn-secondary mr-10 f-big h-lg pl-12 pr-12" (click)="close()">Cancel</button>
+  <button class="btn-selected f-big h-lg pl-12 pr-12" (click)="addNode()">Confirm</button>
+</div>

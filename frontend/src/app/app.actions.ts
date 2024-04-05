@@ -1,10 +1,11 @@
 import { FeatureAction } from '@openmina/shared';
-import { MinaNode } from '@shared/types/core/environment/mina-env.type';
+import { FeaturesConfig, MinaNode } from '@shared/types/core/environment/mina-env.type';
 
 enum AppActionTypes {
   APP_INIT = 'APP_INIT',
   APP_INIT_SUCCESS = 'APP_INIT_SUCCESS',
   APP_CHANGE_ACTIVE_NODE = 'APP_CHANGE_ACTIVE_NODE',
+  APP_DELETE_NODE = 'APP_DELETE_NODE',
   APP_ADD_NODE = 'APP_ADD_NODE',
   APP_CHANGE_MENU_COLLAPSING = 'APP_CHANGE_MENU_COLLAPSING',
   APP_CHANGE_SUB_MENUS = 'APP_CHANGE_SUB_MENUS',
@@ -15,6 +16,7 @@ enum AppActionTypes {
 export const APP_INIT = AppActionTypes.APP_INIT;
 export const APP_INIT_SUCCESS = AppActionTypes.APP_INIT_SUCCESS;
 export const APP_CHANGE_ACTIVE_NODE = AppActionTypes.APP_CHANGE_ACTIVE_NODE;
+export const APP_DELETE_NODE = AppActionTypes.APP_DELETE_NODE;
 export const APP_ADD_NODE = AppActionTypes.APP_ADD_NODE;
 export const APP_CHANGE_MENU_COLLAPSING = AppActionTypes.APP_CHANGE_MENU_COLLAPSING;
 export const APP_CHANGE_SUB_MENUS = AppActionTypes.APP_CHANGE_SUB_MENUS;
@@ -41,10 +43,16 @@ export class AppChangeActiveNode implements AppAction {
   constructor(public payload: MinaNode) { }
 }
 
+export class AppDeleteNode implements AppAction {
+  readonly type = APP_DELETE_NODE;
+
+  constructor(public payload: MinaNode) { }
+}
+
 export class AppAddNode implements AppAction {
   readonly type = APP_ADD_NODE;
 
-  constructor(public payload: string) { }
+  constructor(public payload: MinaNode) { }
 }
 
 export class AppChangeMenuCollapsing implements AppAction {
@@ -74,6 +82,7 @@ export type AppActions =
   | AppInitSuccess
   | AppAddNode
   | AppChangeActiveNode
+  | AppDeleteNode
   | AppChangeMenuCollapsing
   | AppChangeSubMenus
   | AppToggleMobile

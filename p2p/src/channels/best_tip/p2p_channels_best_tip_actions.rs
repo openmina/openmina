@@ -1,4 +1,4 @@
-use openmina_core::block::ArcBlockWithHash;
+use openmina_core::{block::ArcBlockWithHash, ActionEvent};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -11,27 +11,34 @@ use super::BestTipPropagationState;
 pub type P2pChannelsBestTipActionWithMetaRef<'a> =
     redux::ActionWithMeta<&'a P2pChannelsBestTipAction>;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ActionEvent)]
+#[action_event(fields(display(peer_id), best_tip = display(&best_tip.hash)))]
 pub enum P2pChannelsBestTipAction {
+    /// Initialize best tip channel.
     Init {
         peer_id: PeerId,
     },
     Pending {
         peer_id: PeerId,
     },
+    /// Best tip channel is ready.
     Ready {
         peer_id: PeerId,
     },
+    /// Send best tip request.
     RequestSend {
         peer_id: PeerId,
     },
+    /// Best tip response is received.
     Received {
         peer_id: PeerId,
         best_tip: ArcBlockWithHash,
     },
+    /// Best tip request is received.
     RequestReceived {
         peer_id: PeerId,
     },
+    /// Best tip response is sent.
     ResponseSend {
         peer_id: PeerId,
         best_tip: ArcBlockWithHash,

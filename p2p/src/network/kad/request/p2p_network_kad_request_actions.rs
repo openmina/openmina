@@ -1,11 +1,13 @@
 use std::net::SocketAddr;
 
+use openmina_core::ActionEvent;
 use redux::EnablingCondition;
 use serde::{Deserialize, Serialize};
 
 use crate::{P2pAction, P2pNetworkKadEntry, P2pState, PeerId, StreamId};
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, ActionEvent)]
+#[action_event(fields(display(peer_id), display(addr), display(key), stream_id, error))]
 pub enum P2pNetworkKadRequestAction {
     New {
         peer_id: PeerId,
@@ -33,8 +35,10 @@ pub enum P2pNetworkKadRequestAction {
     },
     ReplyReceived {
         peer_id: PeerId,
+        stream_id: StreamId,
         data: Vec<P2pNetworkKadEntry>,
     },
+    #[action_event(level = trace)]
     Prune {
         peer_id: PeerId,
     },

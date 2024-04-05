@@ -113,9 +113,12 @@ impl P2pConnectionIncomingState {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, thiserror::Error)]
 pub enum P2pConnectionIncomingError {
+    #[error("error creating SDP: {0}")]
     SdpCreateError(String),
+    #[error("finalization error: {0}")]
     FinalizeError(String),
+    #[error("timeout error")]
     Timeout,
 }

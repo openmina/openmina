@@ -9,7 +9,9 @@ use crate::stats::sync::SyncingLedger;
 use crate::Store;
 
 use super::genesis::TransitionFrontierGenesisAction;
-use super::sync::ledger::snarked::TransitionFrontierSyncLedgerSnarkedAction;
+use super::sync::ledger::snarked::{
+    TransitionFrontierSyncLedgerSnarkedAction, ACCOUNT_SUBTREE_HEIGHT,
+};
 use super::sync::ledger::staged::TransitionFrontierSyncLedgerStagedAction;
 use super::sync::ledger::{
     transition_frontier_sync_ledger_init_effects,
@@ -354,7 +356,7 @@ fn handle_transition_frontier_sync_ledger_action<S: crate::Service>(
                             .sync
                             .ledger_target_kind()
                         {
-                            if address.length() < LEDGER_DEPTH - 1 {
+                            if address.length() < LEDGER_DEPTH - ACCOUNT_SUBTREE_HEIGHT {
                                 stats.syncing_ledger(
                                     kind,
                                     SyncingLedger::FetchHashes { start, end },

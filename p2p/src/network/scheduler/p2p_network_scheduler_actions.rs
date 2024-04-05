@@ -1,5 +1,6 @@
 use std::net::{IpAddr, SocketAddr};
 
+use openmina_core::ActionEvent;
 use serde::{Deserialize, Serialize};
 
 use super::{
@@ -12,7 +13,8 @@ use super::{
 
 use crate::{disconnection::P2pDisconnectionReason, P2pState, PeerId};
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
+#[action_event(fields(display(ip), display(listener), display(addr), debug(result), select_kind = debug(kind)))]
 pub enum P2pNetworkSchedulerAction {
     InterfaceDetected {
         ip: IpAddr,
@@ -23,6 +25,7 @@ pub enum P2pNetworkSchedulerAction {
     IncomingConnectionIsReady {
         listener: SocketAddr,
     },
+    #[action_event(fields(debug(addr), debug(result)))]
     IncomingDidAccept {
         addr: Option<SocketAddr>,
         result: Result<(), String>,

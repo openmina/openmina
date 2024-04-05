@@ -5,7 +5,7 @@ import {
   NetworkBootstrapPeerType,
   NetworkBootstrapStatsRequest,
 } from '@shared/types/network/bootstrap-stats/network-bootstrap-stats-request.type';
-import { ONE_MILLION } from '@openmina/shared';
+import { ONE_BILLION } from '@openmina/shared';
 
 @Injectable({
   providedIn: 'root',
@@ -21,12 +21,13 @@ export class NetworkBootstrapStatsService {
   }
 
   private mapBootstrapStats(response: BootstrapStatsResponse): NetworkBootstrapStatsRequest[] {
+    console.log(response.requests[0].finish, response.requests[0].start);
     return response.requests.map((request: BootstrapStatsRequest) => ({
       type: request.type,
       address: request.address,
       start: request.start,
       finish: request.finish,
-      duration: request.finish ? (request.finish - request.start) / ONE_MILLION : undefined,
+      durationInSecs: request.finish ? Math.ceil((request.finish - request.start) / ONE_BILLION) : undefined,
       peerId: request.peer_id,
       error: request.error,
       existingPeers: request.closest_peers?.filter(([, type]: [string, NetworkBootstrapPeerType]) => type === NetworkBootstrapPeerType.EXISTING).length || 0,

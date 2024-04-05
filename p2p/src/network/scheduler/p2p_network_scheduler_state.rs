@@ -55,10 +55,12 @@ impl P2pNetworkConnectionState {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, derive_more::From)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum P2pNetworkConnectionCloseReason {
-    Disconnect(P2pDisconnectionReason),
-    Error(P2pNetworkConnectionError),
+    #[error("peer is disconnected: {0}")]
+    Disconnect(#[from] P2pDisconnectionReason),
+    #[error("connection error: {0}")]
+    Error(#[from] P2pNetworkConnectionError),
 }
 
 /// P2p connection error.

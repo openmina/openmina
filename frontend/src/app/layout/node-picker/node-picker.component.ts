@@ -1,7 +1,7 @@
 import { AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, EventEmitter, ViewChild } from '@angular/core';
 import { MinaNode } from '@shared/types/core/environment/mina-env.type';
 import { debounceTime, distinctUntilChanged, filter, fromEvent, map } from 'rxjs';
-import { AppAddNode, AppChangeActiveNode } from '@app/app.actions';
+import { AppChangeActiveNode, AppDeleteNode } from '@app/app.actions';
 import { untilDestroyed } from '@ngneat/until-destroy';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
 
@@ -18,7 +18,7 @@ export class NodePickerComponent extends StoreDispatcher implements AfterViewIni
   nodes: MinaNode[] = [];
 
   filteredNodes: MinaNode[] = [];
-  closeEmitter: EventEmitter<void> = new EventEmitter<void>();
+  closeEmitter: EventEmitter<boolean> = new EventEmitter<boolean>();
   parentInitialWidth: number = 0;
 
   @ViewChild('searchNode') searchInput: ElementRef<HTMLInputElement>;
@@ -55,7 +55,7 @@ export class NodePickerComponent extends StoreDispatcher implements AfterViewIni
   }
 
   selectNode(node: MinaNode): void {
-    this.closeEmitter.emit();
+    this.closeEmitter.emit(false);
     if (node !== this.activeNode) {
       this.dispatch(AppChangeActiveNode, node);
     }
@@ -63,9 +63,11 @@ export class NodePickerComponent extends StoreDispatcher implements AfterViewIni
 
   addNode(event: MouseEvent): void {
     event.stopImmediatePropagation();
-    const value = this.searchInput.nativeElement.value.trim();
-    const payload = value[value.length - 1] === '/' ? value.slice(0, -1) : value;
-    this.dispatch(AppAddNode, payload);
     this.searchInput.nativeElement.value = '';
+    this.closeEmitter.emit(true);
+  }
+
+  deleteCustomNode(node: MinaNode): void {
+    this.dispatch(AppDeleteNode, node);
   }
 }

@@ -1,11 +1,13 @@
 use std::net::SocketAddr;
 
+use openmina_core::ActionEvent;
 use serde::{Deserialize, Serialize};
 
 use super::p2p_network_yamux_state::{StreamId, YamuxFrame, YamuxPing};
 use crate::{token, Data, P2pState};
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
+#[action_event(fields(display(addr), stream_id, debug(data), fin, debug(stream_kind)))]
 pub enum P2pNetworkYamuxAction {
     IncomingData {
         addr: SocketAddr,
@@ -17,10 +19,12 @@ pub enum P2pNetworkYamuxAction {
         data: Data,
         fin: bool,
     },
+    #[action_event(level = trace)]
     IncomingFrame {
         addr: SocketAddr,
         frame: YamuxFrame,
     },
+    #[action_event(level = trace)]
     OutgoingFrame {
         addr: SocketAddr,
         frame: YamuxFrame,

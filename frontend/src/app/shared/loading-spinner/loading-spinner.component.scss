@@ -12,9 +12,8 @@
   display: block;
   width: 16px;
   height: 16px;
-  border: 1px solid $base-tertiary;
   border-radius: 50%;
-  border-top-color: transparent;
+  border-top-color: transparent !important;
   animation: spin 2s linear infinite;
 }
 
