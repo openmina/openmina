@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
 
 @Component({
   selector: 'mina-loading-spinner',
@@ -8,4 +8,10 @@ import { ChangeDetectionStrategy, Component } from '@angular/core';
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class LoadingSpinnerComponent {
+  /**
+   * The color using CSS var.
+   *
+   * Default is var(--base-primary)
+   */
+  @Input() color: string = 'var(--base-primary)';
 }

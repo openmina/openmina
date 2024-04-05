@@ -11,7 +11,7 @@
     <ng-container *ngTemplateOutlet="icon; context: { type: row.type }"></ng-container>
     <span class="ml-5">{{ row.type }}{{ row.error ? (' - ' + row.error) : '' }}</span>
   </span>
-  <span class="secondary">{{ row.duration | secDuration: config }}</span>
+  <span class="secondary">{{ row.durationInSecs | secDuration: config }}</span>
   <span>
     <mina-copy [value]="row.peerId" [display]="row.peerId | truncateMid"></mina-copy>
   </span>

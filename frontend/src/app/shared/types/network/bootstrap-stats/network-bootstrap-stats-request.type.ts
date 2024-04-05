@@ -3,7 +3,7 @@ export interface NetworkBootstrapStatsRequest {
   address: string;
   start: number;
   finish: number;
-  duration: number;
+  durationInSecs: number;
   peerId: string;
   existingPeers: number;
   newPeers: number;

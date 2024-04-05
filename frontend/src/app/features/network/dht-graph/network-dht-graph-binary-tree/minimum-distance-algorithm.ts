@@ -1,15 +1,15 @@
 import { NetworkNodeDhtPeer } from '@shared/types/network/node-dht/network-node-dht.type';
-import { TreeNode } from '@network/dht-graph/network-dht-graph-binary-tree/network-dht-graph-binary-tree.component';
+import { DhtGraphNode } from '@network/dht-graph/network-dht-graph-binary-tree/network-dht-graph-binary-tree.component';
 
 export class MinimumDistanceAlgorithm {
   static peers: NetworkNodeDhtPeer[];
 
-  static createBinaryTree(peers: NetworkNodeDhtPeer[]): TreeNode {
+  static createBinaryTree(peers: NetworkNodeDhtPeer[]): DhtGraphNode {
     if (peers.length === 0) {
       return null;
     }
-    const root: TreeNode = {
-      binaryDistance: peers[0].binaryDistance,
+    const root: DhtGraphNode = {
+      peer: peers[0],
       children: [],
     };
     for (let i = 1; i < peers.length; i++) {
@@ -18,7 +18,7 @@ export class MinimumDistanceAlgorithm {
     return this.cleanUpTree(root);
   }
 
-  private static insertPeer(node: TreeNode, peer: NetworkNodeDhtPeer, parentOfNode: TreeNode, level: number = 0): void {
+  private static insertPeer(node: DhtGraphNode, peer: NetworkNodeDhtPeer, parentOfNode: DhtGraphNode, level: number = 0): void {
     if (level > peer.binaryDistance.length) {
       return;
     }
@@ -29,24 +29,24 @@ export class MinimumDistanceAlgorithm {
         peer.binaryDistance[level - 1] === '1'
         && parentOfNode.children[0]
         && parentOfNode.children[0].children.length === 0
-        && parentOfNode.children[0].binaryDistance !== '-'
+        && parentOfNode.children[0].peer.binaryDistance !== '-'
         && node.children.length === 0
-        && parentOfNode.children[0].binaryDistance.slice(0, level - 1) === peer.binaryDistance.slice(0, level - 1)
+        && parentOfNode.children[0].peer.binaryDistance.slice(0, level - 1) === peer.binaryDistance.slice(0, level - 1)
         && this.peers.slice(this.peers.indexOf(peer) + 1).every(p => p.binaryDistance.slice(0, level - 1) !== peer.binaryDistance.slice(0, level - 1))
       ) {
-        node.binaryDistance = peer.binaryDistance;
+        node.peer = peer;
         node.children = [];
         return;
       }
-      node.children[direction] = { binaryDistance: peer.binaryDistance, children: [] };
+      node.children[direction] = { peer, children: [] };
       node.children[1 - direction] = node.children[1 - direction] || {
-        binaryDistance: '-',
+        peer: { binaryDistance: '-' } as NetworkNodeDhtPeer,
         children: [],
       };
-    } else if (node.children[direction].binaryDistance !== '-') {
-      const existingNodePeer = this.peers.find(p => p.binaryDistance === node.children[direction].binaryDistance);
+    } else if (node.children[direction].peer.binaryDistance !== '-') {
+      const existingNodePeer = this.peers.find(p => p.binaryDistance === node.children[direction].peer.binaryDistance);
       node.children[direction] = {
-        binaryDistance: '-',
+        peer: { binaryDistance: '-' } as NetworkNodeDhtPeer,
         children: [],
       };
       this.insertPeer(node.children[direction], existingNodePeer, node, level + 1);
@@ -61,12 +61,12 @@ export class MinimumDistanceAlgorithm {
    * it's sibling is binaryDistance: '-' and its parent's binaryDistance is '-' then
    * we set the parent's binaryDistance to the node's binaryDistance and remove all children underneath it
    */
-  private static cleanUpTree(node: TreeNode): TreeNode {
+  private static cleanUpTree(node: DhtGraphNode): DhtGraphNode {
     if (node.children.length === 0) {
       return node;
     }
-    if (node.children[0].binaryDistance === '-' && node.children[1].binaryDistance !== '-') {
-      node.binaryDistance = node.children[1].binaryDistance;
+    if (node.children[0].peer.binaryDistance === '-' && node.children[1].peer.binaryDistance !== '-') {
+      node.peer = node.children[1].peer;
       node.children = [];
       return node;
     }

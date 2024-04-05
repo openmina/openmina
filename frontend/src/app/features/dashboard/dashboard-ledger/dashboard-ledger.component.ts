@@ -17,7 +17,7 @@ import {
 } from '@shared/types/nodes/dashboard/nodes-overview-ledger.type';
 import { filter } from 'rxjs';
 import { NodesOverviewNode } from '@shared/types/nodes/dashboard/nodes-overview-node.type';
-import { ONE_MILLION, SecDurationConfig } from '@openmina/shared';
+import { ONE_BILLION, ONE_MILLION, ONE_THOUSAND, SecDurationConfig } from '@openmina/shared';
 import { Overlay, OverlayRef } from '@angular/cdk/overlay';
 import { TemplatePortal } from '@angular/cdk/portal';
 import { DashboardRpcStats } from '@shared/types/dashboard/dashboard-rpc-stats.type';
@@ -203,9 +203,9 @@ export class DashboardLedgerComponent extends StoreDispatcher implements OnInit,
   }
 
   private calculateProgressTime(timestamp: number, action: string): string {
-    timestamp = timestamp / ONE_MILLION;
-    const millisecondsAgo = Date.now() - timestamp * 60 * 1000;
-    const minutesAgo = Math.floor(millisecondsAgo / 60000);
+    timestamp = Math.ceil(timestamp / ONE_MILLION);
+    const millisecondsAgo = Date.now() - timestamp;
+    const minutesAgo = Math.floor(millisecondsAgo / 1000 / 60);
     const hoursAgo = Math.floor(minutesAgo / 60);
     const daysAgo = Math.floor(hoursAgo / 24);
 
