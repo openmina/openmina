@@ -32,7 +32,7 @@ export class NetworkBootstrapStatsTableComponent extends MinaTableRustWrapper<Ne
     undefinedAlternative: '-',
   };
   protected readonly tableHeads: TableColumnList<NetworkBootstrapStatsRequest> = [
-    { name: 'datetime', sort: 'start' },
+    { name: 'datetime', sort: 'finish' },
     { name: 'result', sort: 'type' },
     { name: 'duration', sort: 'durationInSecs' },
     { name: 'peerId' },

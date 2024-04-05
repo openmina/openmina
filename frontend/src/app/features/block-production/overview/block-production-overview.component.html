@@ -1,15 +1,14 @@
 <mina-horizontal-resizable-container [leftTemplate]="left"
                                      [rightTemplate]="right"
-                                     [show]="openSidePanel"
+                                     [show]="false"
                                      [minWidth]="360"
                                      [maxWidthElement]="el.nativeElement"
-                                     localStorageKey="nb-bootstrap-spw">
+                                     localStorageKey="bp-overview-spw">
 </mina-horizontal-resizable-container>
 
 <ng-template #left>
-  <mina-nodes-bootstrap-table></mina-nodes-bootstrap-table>
+  <mina-block-production-slots></mina-block-production-slots>
 </ng-template>
 
 <ng-template #right>
-  <mina-nodes-bootstrap-side-panel></mina-nodes-bootstrap-side-panel>
 </ng-template>
