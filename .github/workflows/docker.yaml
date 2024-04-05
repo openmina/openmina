@@ -3,6 +3,7 @@ on:
   workflow_dispatch: {}
   push:
     branches: [ main, develop ]
+    tags: [ "*" ]
     paths-ignore:
       # - ".github/**"
       - ".drone.yml"
@@ -10,10 +11,8 @@ on:
       - "*.md"
       - "docs/**"
 
-
-
 jobs:
-  docker-build:
+  build-openmina-node-image:
     runs-on: ubuntu-latest
     steps:
       - name: Git checkout
@@ -39,11 +38,55 @@ jobs:
           tags: |
             type=ref,event=branch
             type=sha,format=short
+            type=semver,pattern={{version}},event=tag
+            type=ref,event=tag
+            type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
           context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  build-openmina-frontend-image:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Git checkout
+        uses: actions/checkout@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          # list of Docker images to use as base name for tags
+          images: |
+            openmina/frontend
+          # generate Docker tags based on the following events/attributes
+          tags: |
+            type=ref,event=branch
+            type=sha,format=short
+            type=semver,pattern={{version}},event=tag
+            type=ref,event=tag
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          build-args: |
+            BUILD_CONFIGURATION=compose
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           cache-from: type=gha
