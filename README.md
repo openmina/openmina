@@ -45,6 +45,8 @@ docker compose up
 
 Then visit http://localhost:8070 in your browser.
 
+By default, `docker compose up` will use the latest node and frontend images available (tagged with `latest`), but specific versions can be selected by using the `OPENMINA_TAG` and `OPENMINA_FRONTEND_TAG` variables.
+
 ## How to launch (without docker compose):
 
 This installation guide has been tested on Debian and Ubuntu and should work on most distributions of Linux.
