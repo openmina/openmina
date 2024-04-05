@@ -296,7 +296,7 @@ mod tests {
     #[test]
     fn test_delegate() -> anyhow::Result<()> {
         let input = r#"
-#[derive(openmina_macros::ActionEvent)]
+#[derive(openmina_core::ActionEvent)]
 pub enum SuperAction {
     Sub1(SubAction1),
     Sub2(SubAction2),
@@ -322,7 +322,7 @@ impl openmina_core::ActionEvent for SuperAction {
     #[test]
     fn test_unit() -> anyhow::Result<()> {
         let input = r#"
-#[derive(openmina_macros::ActionEvent)]
+#[derive(openmina_core::ActionEvent)]
 pub enum Action {
     Unit,
     /// documentation
@@ -355,7 +355,7 @@ impl openmina_core::ActionEvent for Action {
     #[test]
     fn test_level() -> anyhow::Result<()> {
         let input = r#"
-#[derive(openmina_macros::ActionEvent)]
+#[derive(openmina_core::ActionEvent)]
 #[action_event(level = trace)]
 pub enum Action {
     ActionDefaultLevel,
