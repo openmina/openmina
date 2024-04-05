@@ -1,6 +1,5 @@
 use std::net::SocketAddr;
 
-use openmina_core::warn;
 use redux::ActionMeta;
 
 use crate::{
@@ -18,7 +17,7 @@ use crate::{
 use super::{super::stream::P2pNetworkKademliaStreamAction, P2pNetworkKadRequestAction};
 
 impl P2pNetworkKadRequestAction {
-    pub fn effects<Store, S>(self, meta: &ActionMeta, store: &mut Store) -> Result<(), String>
+    pub fn effects<Store, S>(self, _meta: &ActionMeta, store: &mut Store) -> Result<(), String>
     where
         Store: crate::P2pStore<S>,
     {
@@ -186,7 +185,6 @@ impl P2pNetworkKadRequestAction {
                 store.dispatch(P2pNetworkKadRequestAction::Prune { peer_id });
             }
             A::Error { peer_id, error } => {
-                warn!(meta.time(); "error requesting FIND_NODE: {error}");
                 let bootstrap_request = discovery_state
                     .bootstrap_state()
                     .and_then(|bootstrap_state| bootstrap_state.request(&peer_id))

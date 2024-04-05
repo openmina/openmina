@@ -5,9 +5,12 @@ use mina_p2p_messages::v2::{
     ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1,
     ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1, LedgerHash,
 };
+use openmina_core::action_info;
 use openmina_core::block::ArcBlockWithHash;
+use openmina_core::ActionEvent;
 use serde::{Deserialize, Serialize};
 use vrf::VrfEvaluationOutput;
+use vrf::VrfWonSlot;
 
 use super::{EpochData, VrfEvaluatorInput};
 
@@ -16,21 +19,26 @@ pub type BlockProducerVrfEvaluatorActionWithMeta =
 pub type BlockProducerVrfEvaluatorActionWithMetaRef<'a> =
     redux::ActionWithMeta<&'a BlockProducerVrfEvaluatorAction>;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
+#[action_event(level = info)]
 pub enum BlockProducerVrfEvaluatorAction {
-    EvaluateSlot {
-        vrf_input: VrfEvaluatorInput,
-    },
+    /// Vrf Evaluation requested.
+    #[action_event(fields(debug(vrp_input)))]
+    EvaluateSlot { vrf_input: VrfEvaluatorInput },
+    /// Evaluation successful.
+    #[action_event(expr(log_vrf_output(context, vrf_output)))]
     ProcessSlotEvaluationSuccess {
         vrf_output: VrfEvaluationOutput,
         staking_ledger_hash: LedgerHash,
     },
-    InitializeEvaluator {
-        best_tip: ArcBlockWithHash,
-    },
+    #[action_event(level = trace)]
+    InitializeEvaluator { best_tip: ArcBlockWithHash },
+    /// Checking possible Vrf evaluations.
     FinalizeEvaluatorInitialization {
         previous_epoch_and_height: Option<(u32, u32)>,
     },
+    /// Checking possible Vrf evaluations.
+    #[action_event(level = info, fields(current_epoch_number, current_best_tip_slot, current_best_tip_global_slot))]
     CheckEpochEvaluability {
         current_epoch_number: u32,
         current_best_tip_height: u32,
@@ -41,6 +49,8 @@ pub enum BlockProducerVrfEvaluatorAction {
         next_epoch_data: ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1,
         transition_frontier_size: u32,
     },
+    /// Initalize epoch vrf evaluation.
+    #[action_event(level = info, fields(current_epoch_number, current_best_tip_slot, current_best_tip_global_slot))]
     InitializeEpochEvaluation {
         current_epoch_number: u32,
         current_best_tip_slot: u32,
@@ -51,6 +61,8 @@ pub enum BlockProducerVrfEvaluatorAction {
         producer: AccountPublicKey,
         transition_frontier_size: u32,
     },
+    /// Constructing delegator table.
+    #[action_event(level = info, fields(current_epoch_number, current_best_tip_slot, current_best_tip_global_slot))]
     BeginDelegatorTableConstruction {
         staking_epoch_data: EpochData,
         producer: AccountPublicKey,
@@ -61,6 +73,8 @@ pub enum BlockProducerVrfEvaluatorAction {
         next_epoch_first_slot: u32,
         transition_frontier_size: u32,
     },
+    /// Delegator table constructed.
+    #[action_event(level = info, fields(current_epoch_number, current_best_tip_slot, current_best_tip_global_slot))]
     FinalizeDelegatorTableConstruction {
         staking_epoch_data: EpochData,
         producer: AccountPublicKey,
@@ -71,6 +85,8 @@ pub enum BlockProducerVrfEvaluatorAction {
         next_epoch_first_slot: u32,
         transition_frontier_size: u32,
     },
+    /// Selecting starting slot.
+    #[action_event(level = info, fields(current_global_slot, current_best_tip_height))]
     SelectInitialSlot {
         current_global_slot: u32,
         current_best_tip_height: u32,
@@ -80,6 +96,8 @@ pub enum BlockProducerVrfEvaluatorAction {
         staking_epoch_data: EpochData,
         next_epoch_first_slot: u32,
     },
+    /// Starting epoch evaluation.
+    #[action_event(level = info, fields(current_epoch_number, current_best_tip_slot, current_best_tip_global_slot))]
     BeginEpochEvaluation {
         current_best_tip_height: u32,
         current_best_tip_slot: u32,
@@ -88,18 +106,25 @@ pub enum BlockProducerVrfEvaluatorAction {
         staking_epoch_data: EpochData,
         latest_evaluated_global_slot: u32,
     },
+    /// Saving last block height in epoch.
+    #[action_event(level = info, fields(epoch_number, last_block_height))]
     RecordLastBlockHeightInEpoch {
         epoch_number: u32,
         last_block_height: u32,
     },
+    #[action_event(level = trace)]
     ContinueEpochEvaluation {
         latest_evaluated_global_slot: u32,
         epoch_number: u32,
     },
+    /// Epoch evaluation finished.
+    #[action_event(level = info, fields(epoch_number, latest_evaluated_global_slot))]
     FinishEpochEvaluation {
         epoch_number: u32,
         latest_evaluated_global_slot: u32,
     },
+    /// Waiting for epoch to evaluate.
+    #[action_event(level = info, fields(current_epoch_number, current_best_tip_height))]
     WaitForNextEvaluation {
         current_epoch_number: u32,
         current_best_tip_height: u32,
@@ -108,13 +133,15 @@ pub enum BlockProducerVrfEvaluatorAction {
         last_epoch_block_height: Option<u32>,
         transition_frontier_size: u32,
     },
+    /// Checking epoch bounds.
+    #[action_event(level = trace)]
     CheckEpochBounds {
         epoch_number: u32,
         latest_evaluated_global_slot: u32,
     },
-    CleanupOldSlots {
-        current_epoch_number: u32,
-    },
+    /// Cleaning up old won slots.
+    #[action_event(level = trace)]
+    CleanupOldSlots { current_epoch_number: u32 },
 }
 
 impl redux::EnablingCondition<crate::State> for BlockProducerVrfEvaluatorAction {
@@ -215,5 +242,26 @@ impl redux::EnablingCondition<crate::State> for BlockProducerVrfEvaluatorAction 
 impl From<BlockProducerVrfEvaluatorAction> for crate::Action {
     fn from(value: BlockProducerVrfEvaluatorAction) -> Self {
         Self::BlockProducer(crate::BlockProducerAction::VrfEvaluator(value))
+    }
+}
+
+fn log_vrf_output<T>(context: &T, vrf_output: &VrfEvaluationOutput)
+where
+    T: openmina_core::log::EventContext,
+{
+    match vrf_output {
+        VrfEvaluationOutput::SlotWon(VrfWonSlot {
+            global_slot,
+            vrf_output,
+            ..
+        }) => action_info!(
+            context,
+            summary = "Slot evaluation result - won slot",
+            global_slot,
+            vrf_output = display(vrf_output)
+        ),
+        VrfEvaluationOutput::SlotLost(_) => {
+            action_info!(context, summary = "Slot evaluation result - lost slot")
+        }
     }
 }

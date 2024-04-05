@@ -1,6 +1,7 @@
 use std::collections::BTreeSet;
 
 use mina_p2p_messages::v2::StateHash;
+use openmina_core::ActionEvent;
 use serde::{Deserialize, Serialize};
 
 use super::genesis::TransitionFrontierGenesisAction;
@@ -10,17 +11,21 @@ pub type TransitionFrontierActionWithMeta = redux::ActionWithMeta<TransitionFron
 pub type TransitionFrontierActionWithMetaRef<'a> =
     redux::ActionWithMeta<&'a TransitionFrontierAction>;
 
-#[derive(derive_more::From, Serialize, Deserialize, Debug, Clone)]
+#[derive(derive_more::From, Serialize, Deserialize, Debug, Clone, ActionEvent)]
 pub enum TransitionFrontierAction {
     Genesis(TransitionFrontierGenesisAction),
-    /// Inject genesis block into the transition frontier, unless we already
-    /// have a better block there.
+    /// Inject genesis block into the transition frontier.
+    ///
+    /// Unless we already have a better block there.
     ///
     /// If this node is block producer, we produce proof for the genesis
     /// block, otherwise we don't need it so we use dummy proof instead.
+    #[action_event(level = info)]
     GenesisInject,
 
     Sync(TransitionFrontierSyncAction),
+    /// Transition frontier synced.
+    #[action_event(level = info)]
     Synced {
         /// Required protocol states for root block.
         needed_protocol_states: BTreeSet<StateHash>,

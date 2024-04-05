@@ -73,4 +73,71 @@ macro_rules! error {
     };
 }
 
+pub const ACTION_TRACE_TARGET: &str = "openmina_core::log::action";
+
+#[macro_export]
+macro_rules! action_event {
+    ($level:expr, $context:expr, $($tts:tt)*) => {
+        $crate::log::inner::event!(target: { $crate::log::ACTION_TRACE_TARGET }, $level, time = $context.time(), kind = $context.kind(), node_id = $context.node_id(), $($tts)*)
+    };
+    ($level:expr, $context:expr) => {
+        $crate::log::inner::event!(target: { $crate::log::ACTION_TRACE_TARGET }, $level, time = $context.time(), kind = $context.kind(), node_id = $context.node_id())
+    };
+ }
+
+#[macro_export]
+macro_rules! action_warn {
+    ($context:expr, $($tts:tt)*) => {
+        $crate::action_event!($crate::log::inner::Level::WARN, $context, $($tts)*)
+    };
+    ($context:expr) => {
+        $crate::action_event!($crate::log::inner::Level::WARN, $context)
+    };
+}
+
+#[macro_export]
+macro_rules! action_info {
+    ($context:expr, $($tts:tt)*) => {
+        $crate::action_event!($crate::log::inner::Level::INFO, $context, $($tts)*)
+    };
+    ($context:expr) => {
+        $crate::action_event!($crate::log::inner::Level::INFO, $context)
+    };
+}
+
+#[macro_export]
+macro_rules! action_debug {
+    ($context:expr, $($tts:tt)*) => {
+        $crate::action_event!($crate::log::inner::Level::DEBUG, $context, $($tts)*)
+    };
+    ($context:expr) => {
+        $crate::action_event!($crate::log::inner::Level::DEBUG, $context)
+    };
+}
+
+#[macro_export]
+macro_rules! action_trace {
+    ($context:expr, $($tts:tt)*) => {
+        $crate::action_event!($crate::log::inner::Level::TRACE, $context, $($tts)*)
+    };
+    ($context:expr) => {
+        $crate::action_event!($crate::log::inner::Level::TRACE, $context)
+    };
+}
+
+pub trait EventContext {
+    fn timestamp(&self) -> redux::Timestamp;
+    fn time(&self) -> &'_ dyn Value;
+    fn node_id(&self) -> &'_ dyn Value;
+    fn kind(&self) -> &'_ dyn Value;
+}
+
+pub trait ActionEvent {
+    fn action_event<T>(&self, context: &T)
+    where
+        T: EventContext;
+}
+
+use tracing::Value;
+
 pub use crate::{debug, error, info, trace, warn};

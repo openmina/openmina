@@ -1,3 +1,4 @@
+use openmina_core::ActionEvent;
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
 
@@ -9,7 +10,8 @@ pub type P2pChannelsRpcActionWithMetaRef<'a> = redux::ActionWithMeta<&'a P2pChan
 
 pub const MAX_P2P_RPC_REMOTE_CONCURRENT_REQUESTS: usize = 5;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
+#[action_event(fields(display(peer_id)))]
 pub enum P2pChannelsRpcAction {
     Init {
         peer_id: PeerId,

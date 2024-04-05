@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use mina_p2p_messages::v2::{self, LedgerHash};
+use openmina_core::ActionEvent;
 use serde::{Deserialize, Serialize};
 
 use crate::p2p::channels::rpc::{P2pRpcId, StagedLedgerAuxAndPendingCoinbases};
@@ -17,7 +18,8 @@ pub type TransitionFrontierSyncLedgerStagedActionWithMeta =
 pub type TransitionFrontierSyncLedgerStagedActionWithMetaRef<'a> =
     redux::ActionWithMeta<&'a TransitionFrontierSyncLedgerStagedAction>;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
+#[action_event(level = trace)]
 pub enum TransitionFrontierSyncLedgerStagedAction {
     PartsFetchPending,
     PartsPeerFetchInit,

@@ -1,12 +1,14 @@
 use std::net::SocketAddr;
 
 use mina_p2p_messages::rpc_kernel::{QueryHeader, ResponseHeader};
+use openmina_core::{action_debug, action_trace, ActionEvent};
 use serde::{Deserialize, Serialize};
 
 use super::{super::*, *};
 use crate::{P2pState, PeerId};
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
+#[action_event(fields(display(addr), display(peer_id), incoming, stream_id, debug(data), fin))]
 pub enum P2pNetworkRpcAction {
     Init {
         addr: SocketAddr,
@@ -14,12 +16,14 @@ pub enum P2pNetworkRpcAction {
         stream_id: StreamId,
         incoming: bool,
     },
+    #[action_event(level = trace)]
     IncomingData {
         addr: SocketAddr,
         peer_id: PeerId,
         stream_id: StreamId,
         data: Data,
     },
+    #[action_event(expr(log_message(context, message, addr, peer_id, stream_id)))]
     IncomingMessage {
         addr: SocketAddr,
         peer_id: PeerId,
@@ -127,5 +131,48 @@ impl redux::EnablingCondition<P2pState> for P2pNetworkRpcAction {
                 fin,
             } => true,
         }
+    }
+}
+
+fn log_message<T>(
+    context: &T,
+    message: &RpcMessage,
+    addr: &SocketAddr,
+    peer_id: &PeerId,
+    stream_id: &u32,
+) where
+    T: openmina_core::log::EventContext,
+{
+    match message {
+        RpcMessage::Handshake => action_trace!(
+            context,
+            addr = display(addr),
+            peer_id = display(peer_id),
+            stream_id,
+            message_kind = "handshake"
+        ),
+        RpcMessage::Heartbeat => action_trace!(
+            context,
+            addr = display(addr),
+            peer_id = display(peer_id),
+            stream_id,
+            message_kind = "heartbeat"
+        ),
+        RpcMessage::Query { header, .. } => action_debug!(
+            context,
+            addr = display(addr),
+            peer_id = display(peer_id),
+            stream_id,
+            message_kind = "query",
+            message_header = debug(header)
+        ),
+        RpcMessage::Response { header, .. } => action_debug!(
+            context,
+            addr = display(addr),
+            peer_id = display(peer_id),
+            stream_id,
+            message_kind = "response",
+            message_header = debug(header)
+        ),
     }
 }

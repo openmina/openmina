@@ -10,9 +10,7 @@ use super::SnarkJobId;
 
 #[derive(BinProtWrite, BinProtRead, Serialize, Deserialize, Debug, Clone)]
 pub struct SnarkJobCommitment {
-    /// Timestamp in milliseconds.
-    /// TODO(binier): have to use i64, because binprot doesn't support u64.
-    timestamp: i64,
+    timestamp: u64,
     pub job_id: SnarkJobId,
     pub fee: CurrencyFeeStableV1,
     pub snarker: NonZeroCurvePoint,
@@ -27,7 +25,7 @@ impl SnarkJobCommitment {
         snarker: NonZeroCurvePoint,
     ) -> Self {
         Self {
-            timestamp: timestamp as i64,
+            timestamp,
             job_id,
             fee,
             snarker,

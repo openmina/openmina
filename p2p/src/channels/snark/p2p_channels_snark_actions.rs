@@ -1,12 +1,13 @@
 use crate::{channels::P2pChannelsAction, P2pState, PeerId};
-use openmina_core::snark::Snark;
+use openmina_core::{snark::Snark, ActionEvent};
 use serde::{Deserialize, Serialize};
 
 use super::{P2pChannelsSnarkState, SnarkInfo, SnarkPropagationState};
 
 pub type P2pChannelsSnarkActionWithMetaRef<'a> = redux::ActionWithMeta<&'a P2pChannelsSnarkAction>;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
+#[action_event(fields(display(peer_id)))]
 pub enum P2pChannelsSnarkAction {
     Init {
         peer_id: PeerId,

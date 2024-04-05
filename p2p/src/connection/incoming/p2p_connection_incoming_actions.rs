@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use openmina_core::requests::RpcId;
+use openmina_core::{requests::RpcId, ActionEvent};
 
 use crate::{webrtc, P2pAction, P2pState, PeerId};
 
@@ -9,12 +9,15 @@ use super::P2pConnectionIncomingInitOpts;
 pub type P2pConnectionIncomingActionWithMetaRef<'a> =
     redux::ActionWithMeta<&'a P2pConnectionIncomingAction>;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
+#[action_event(fields(debug(opts), display(peer_id), display(error)))]
 pub enum P2pConnectionIncomingAction {
+    /// Incoming connection is initialized.
     Init {
         opts: P2pConnectionIncomingInitOpts,
         rpc_id: Option<RpcId>,
     },
+    #[action_event(level = trace)]
     AnswerSdpCreatePending {
         peer_id: PeerId,
     },
@@ -33,26 +36,35 @@ pub enum P2pConnectionIncomingAction {
     AnswerSendSuccess {
         peer_id: PeerId,
     },
+    /// Pending incoming connection finalization.
+    #[action_event(level = trace)]
     FinalizePending {
         peer_id: PeerId,
     },
+    /// Error finalizing incoming connection.
     FinalizeError {
         peer_id: PeerId,
         error: String,
     },
+    /// Incoming connection finalized.
     FinalizeSuccess {
         peer_id: PeerId,
     },
+    /// Timeout establishing incoming connection.
     Timeout {
         peer_id: PeerId,
     },
+    /// Error establishing incoming connection.
     Error {
         peer_id: PeerId,
         error: P2pConnectionIncomingError,
     },
+    /// Incoming connection is succesful.
+    #[action_event(level = info)]
     Success {
         peer_id: PeerId,
     },
+    /// Incoming libp2p connection is succesful.
     Libp2pReceived {
         peer_id: PeerId,
     },

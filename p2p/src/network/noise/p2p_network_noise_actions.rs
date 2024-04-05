@@ -1,12 +1,14 @@
 use std::net::SocketAddr;
 
+use openmina_core::ActionEvent;
 use serde::{Deserialize, Serialize};
 
 use crate::{Data, P2pNetworkAction, P2pState, PeerId};
 
 use super::p2p_network_noise_state::{Pk, Sk};
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
+#[action_event(level = trace, fields(display(addr), incoming, debug(data), display(peer_id)))]
 pub enum P2pNetworkNoiseAction {
     Init {
         addr: SocketAddr,
@@ -36,6 +38,7 @@ pub enum P2pNetworkNoiseAction {
         data: Data,
     },
     // the remote peer sends the data to internals thru noise
+    #[action_event(fields(display(addr), debug(data), debug(peer_id)))]
     DecryptedData {
         addr: SocketAddr,
         peer_id: Option<PeerId>,

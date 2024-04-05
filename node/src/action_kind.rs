@@ -1117,7 +1117,7 @@ impl ActionKindGet for P2pNetworkKademliaAction {
                 ActionKind::P2pNetworkKademliaUpdateFindNodeRequest
             }
             Self::StartBootstrap { .. } => ActionKind::P2pNetworkKademliaStartBootstrap,
-            Self::BootstrapFinished { .. } => ActionKind::P2pNetworkKademliaBootstrapFinished,
+            Self::BootstrapFinished => ActionKind::P2pNetworkKademliaBootstrapFinished,
         }
     }
 }

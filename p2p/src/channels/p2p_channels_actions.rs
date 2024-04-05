@@ -1,3 +1,4 @@
+use openmina_core::log::ActionEvent;
 use serde::{Deserialize, Serialize};
 
 use crate::{P2pState, PeerId};
@@ -48,5 +49,13 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsMessageReceivedAction {
 impl From<P2pChannelsMessageReceivedAction> for crate::P2pAction {
     fn from(a: P2pChannelsMessageReceivedAction) -> Self {
         Self::Channels(P2pChannelsAction::MessageReceived(a))
+    }
+}
+
+impl ActionEvent for P2pChannelsMessageReceivedAction {
+    fn action_event<T>(&self, _context: &T)
+    where
+        T: openmina_core::log::EventContext,
+    {
     }
 }

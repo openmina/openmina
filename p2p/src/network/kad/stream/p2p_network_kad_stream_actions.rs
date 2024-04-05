@@ -1,5 +1,6 @@
 use std::net::SocketAddr;
 
+use openmina_core::ActionEvent;
 use redux::EnablingCondition;
 use serde::{Deserialize, Serialize};
 
@@ -9,7 +10,8 @@ use crate::{
 };
 
 /// Kademlia stream related actions.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ActionEvent)]
+#[action_event(fields(display(addr), display(peer_id), stream_id, incoming, debug(data)))]
 pub enum P2pNetworkKademliaStreamAction {
     /// Creates a new stream state.
     New {
@@ -75,6 +77,7 @@ pub enum P2pNetworkKademliaStreamAction {
     },
 
     /// Removes the closed stream from the state.
+    #[action_event(level = trace)]
     Prune {
         addr: SocketAddr,
         peer_id: PeerId,

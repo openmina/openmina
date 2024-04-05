@@ -1,4 +1,5 @@
 use mina_p2p_messages::v2;
+use openmina_core::ActionEvent;
 use serde::{Deserialize, Serialize};
 
 use super::{GenesisConfigLoaded, TransitionFrontierGenesisState};
@@ -8,7 +9,8 @@ pub type TransitionFrontierGenesisActionWithMeta =
 pub type TransitionFrontierGenesisActionWithMetaRef<'a> =
     redux::ActionWithMeta<&'a TransitionFrontierGenesisAction>;
 
-#[derive(derive_more::From, Serialize, Deserialize, Debug, Clone)]
+#[derive(derive_more::From, Serialize, Deserialize, Debug, Clone, ActionEvent)]
+#[action_event(level = trace)]
 pub enum TransitionFrontierGenesisAction {
     LedgerLoadInit,
     LedgerLoadPending,
@@ -17,7 +19,11 @@ pub enum TransitionFrontierGenesisAction {
     },
     Produce,
     ProveInit,
+    /// Proving genesis block.
+    #[action_event(level = info)]
     ProvePending,
+    /// Genesis block proved.
+    #[action_event(level = info)]
     ProveSuccess {
         proof: Box<v2::MinaBaseProofStableV2>,
     },

@@ -1,14 +1,16 @@
 use serde::{Deserialize, Serialize};
 
-use openmina_core::snark::Snark;
+use openmina_core::{snark::Snark, ActionEvent};
 
 use super::{SnarkWorkVerifyError, SnarkWorkVerifyId};
 
 pub type SnarkWorkVerifyActionWithMeta = redux::ActionWithMeta<SnarkWorkVerifyAction>;
 pub type SnarkWorkVerifyActionWithMetaRef<'a> = redux::ActionWithMeta<&'a SnarkWorkVerifyAction>;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
+#[action_event(level = trace, fields(display(req_id), display(error)))]
 pub enum SnarkWorkVerifyAction {
+    #[action_event(level = info)]
     Init {
         req_id: SnarkWorkVerifyId,
         batch: Vec<Snark>,
@@ -21,6 +23,7 @@ pub enum SnarkWorkVerifyAction {
         req_id: SnarkWorkVerifyId,
         error: SnarkWorkVerifyError,
     },
+    #[action_event(level = info)]
     Success {
         req_id: SnarkWorkVerifyId,
     },

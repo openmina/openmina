@@ -1,4 +1,5 @@
 use mina_p2p_messages::v2::{LedgerHash, MinaBaseAccountBinableArgStableV2};
+use openmina_core::ActionEvent;
 use serde::{Deserialize, Serialize};
 
 use crate::ledger::{LedgerAddress, LEDGER_DEPTH};
@@ -21,7 +22,8 @@ pub type TransitionFrontierSyncLedgerSnarkedActionWithMeta =
 pub type TransitionFrontierSyncLedgerSnarkedActionWithMetaRef<'a> =
     redux::ActionWithMeta<&'a TransitionFrontierSyncLedgerSnarkedAction>;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
+#[action_event(level = trace)]
 pub enum TransitionFrontierSyncLedgerSnarkedAction {
     Pending,
     PeersQuery,

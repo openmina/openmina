@@ -1,3 +1,4 @@
+use openmina_core::ActionEvent;
 use serde::{Deserialize, Serialize};
 
 use crate::{P2pState, PeerId};
@@ -9,7 +10,8 @@ use super::{
 pub type P2pChannelsSnarkJobCommitmentActionWithMetaRef<'a> =
     redux::ActionWithMeta<&'a P2pChannelsSnarkJobCommitmentAction>;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ActionEvent)]
+#[action_event(fields(display(peer_id)))]
 pub enum P2pChannelsSnarkJobCommitmentAction {
     Init {
         peer_id: PeerId,

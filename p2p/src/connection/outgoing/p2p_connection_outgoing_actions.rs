@@ -1,3 +1,4 @@
+use openmina_core::ActionEvent;
 use serde::{Deserialize, Serialize};
 
 use openmina_core::requests::RpcId;
@@ -10,17 +11,25 @@ use super::{P2pConnectionOutgoingError, P2pConnectionOutgoingInitOpts};
 pub type P2pConnectionOutgoingActionWithMetaRef<'a> =
     redux::ActionWithMeta<&'a P2pConnectionOutgoingAction>;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
+#[action_event(fields(display(opts), display(peer_id), display(error)))]
 pub enum P2pConnectionOutgoingAction {
+    /// Initialize connection to a random peer.
+    #[action_event(level = trace)]
     RandomInit,
+    /// Initialize connection to a new peer.
+    #[action_event(level = info)]
     Init {
         opts: P2pConnectionOutgoingInitOpts,
         rpc_id: Option<RpcId>,
     },
+    /// Reconnect to an existing peer.
+    #[action_event(level = info)]
     Reconnect {
         opts: P2pConnectionOutgoingInitOpts,
         rpc_id: Option<RpcId>,
     },
+    #[action_event(level = trace)]
     OfferSdpCreatePending {
         peer_id: PeerId,
     },
@@ -39,6 +48,7 @@ pub enum P2pConnectionOutgoingAction {
     OfferSendSuccess {
         peer_id: PeerId,
     },
+    #[action_event(level = trace)]
     AnswerRecvPending {
         peer_id: PeerId,
     },
@@ -50,23 +60,31 @@ pub enum P2pConnectionOutgoingAction {
         peer_id: PeerId,
         answer: webrtc::Answer,
     },
+    #[action_event(level = trace)]
     FinalizePending {
         peer_id: PeerId,
     },
+    /// Error finalizing outgoing connection.
     FinalizeError {
         peer_id: PeerId,
         error: String,
     },
+    /// Outgoing connection succsessfully finalized.
+    #[action_event(level = info)]
     FinalizeSuccess {
         peer_id: PeerId,
     },
+    /// Timeout establishing connection to a peer.
     Timeout {
         peer_id: PeerId,
     },
+    /// Error connecting to a peer.
     Error {
         peer_id: PeerId,
         error: P2pConnectionOutgoingError,
     },
+    /// Outgoing connection is successful.
+    #[action_event(level = info)]
     Success {
         peer_id: PeerId,
     },

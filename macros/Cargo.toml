@@ -1,0 +1,20 @@
+[package]
+name = "openmina-macros"
+version = "0.0.1"
+edition = "2021"
+license = "Apache-2.0"
+authors = [ "Alexander Koptelov <alexandre.koptelov@gmail.com>" ]
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-macro2 = "1.0.79"
+quote = "1.0.35"
+syn = "2.0.53"
+
+[dev-dependencies]
+openmina-core = { path = "../core" }
+tracing = "0.1.40"
+rust-format = { version = "0.3", features = ["token_stream"] }
+anyhow = "1.0.81"
