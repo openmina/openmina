@@ -609,7 +609,7 @@ fn next_required_ledger_to_sync(
         )
         .into();
         (SyncLedgerTargetKind::StakingEpoch, ledger)
-    } else if old_best_tip.staking_epoch_ledger_hash() != new_best_tip.staking_epoch_ledger_hash()
+    } else if old_best_tip.next_epoch_ledger_hash() != new_best_tip.next_epoch_ledger_hash()
         && cur_best_tip.map_or(true, |cur| {
             cur.staking_epoch_ledger_hash() != new_best_tip.staking_epoch_ledger_hash()
         })
