@@ -1,0 +1,110 @@
+<div class="h-xl fx-row-vert-cent flex-between pl-12 pr-12">
+  <span class="secondary f-600">Summary</span>
+</div>
+<div class="h-minus-xl pb-10 flex-column">
+  <div class="h-lg tab-group pl-12 pb-10 pr-12">
+    <button class="tab mr-10" [class.selected]="activeTab === 1"
+            (click)="selectTab(1)">Epoch {{ activeEpoch?.epochNumber }}
+    </button>
+    <button class="tab" [class.selected]="activeTab === 2"
+            (click)="selectTab(2)">All Time
+    </button>
+  </div>
+  <div class="h-minus-lg flex-column pl-12 overflow-auto">
+    <ng-container [ngSwitch]="activeTab">
+      <ng-container *ngSwitchCase="1" [ngTemplateOutlet]="sidePanelData"
+                    [ngTemplateOutletContext]="{ data: singleEpochStats }">
+      </ng-container>
+      <ng-container *ngSwitchCase="2" [ngTemplateOutlet]="sidePanelData"
+                    [ngTemplateOutletContext]="{ data: allTimeStats }">
+      </ng-container>
+    </ng-container>
+  </div>
+</div>
+
+<ng-template #sidePanelData let-d="data">
+  <div *ngIf="d" class="flex-column pr-12">
+    <div class="f-600 mt-16">Blocks</div>
+    <div class="bar w-100 border-rad-6 flex-row overflow-hidden mt-16 mb-16">
+      <div [style.width.%]="d.canonical * 100 / d.totalSlots"></div>
+      <div [style.width.%]="d.orphaned * 100 / d.totalSlots"></div>
+      <div [style.width.%]="d.missed * 100 / d.totalSlots"></div>
+      <div [style.width.%]="d.futureRights * 100 / d.totalSlots"></div>
+    </div>
+    <div class="fx-row-vert-cent flex-between tertiary">
+      <div class="fx-row-vert-cent h-lg">
+        <span class="success-primary mina-icon icon-200 f-big mr-5">circle</span>
+        <span>Canonical</span>
+      </div>
+      <span class="primary">{{ d.canonical }}</span>
+    </div>
+    <div class="fx-row-vert-cent flex-between tertiary">
+      <div class="fx-row-vert-cent h-lg">
+        <span class="special-alt-1-primary mina-icon icon-200 f-big mr-5">circle</span>
+        <span>Orphaned</span>
+      </div>
+      <span class="primary">{{ d.orphaned }}</span>
+    </div>
+    <div class="fx-row-vert-cent flex-between tertiary">
+      <div class="fx-row-vert-cent h-lg">
+        <span class="warn-primary mina-icon icon-200 f-big mr-5">circle</span>
+        <span>Missed</span>
+      </div>
+      <span class="primary">{{ d.missed }}</span>
+    </div>
+    <div class="fx-row-vert-cent flex-between tertiary">
+      <div class="fx-row-vert-cent h-lg">
+        <span class="mina-icon icon-200 f-big mr-5">circle</span>
+        <span>To be produced</span>
+      </div>
+      <span class="primary">{{ d.futureRights }}</span>
+    </div>
+  </div>
+  <div class="f-600 mt-16 border-top h-lg lh-lg">Rewards</div>
+  <div class="fx-row-vert-cent h-lg lh-lg flex-between pr-12">
+    <div class="secondary">Expected</div>
+    <div *ngIf="d.expectedRewards !== undefined">
+      {{ d.expectedRewards }} <span class="tertiary">Mina</span>
+    </div>
+  </div>
+  <div class="fx-row-vert-cent h-lg lh-lg flex-between pr-12">
+    <div class="secondary">Earned</div>
+    <div *ngIf="d.earnedRewards !== undefined">
+      {{ d.earnedRewards }} <span class="tertiary">Mina</span>
+    </div>
+  </div>
+  <ng-container *ngIf="activeTab === 1">
+    <div class="f-600 mt-16 border-top h-lg lh-lg">Balance</div>
+    <div class="fx-row-vert-cent h-lg lh-lg flex-between pr-12">
+      <div class="secondary">Producer</div>
+      <div *ngIf="extras.balanceProducer !== undefined">
+        {{ extras.balanceProducer }} <span class="tertiary">Mina</span>
+      </div>
+    </div>
+    <div class="fx-row-vert-cent h-lg lh-lg flex-between pr-12">
+      <div class="secondary">Delegated</div>
+      <div *ngIf="extras.balanceDelegated !== undefined">
+        {{ extras.balanceDelegated }} <span class="tertiary">Mina</span>
+      </div>
+    </div>
+    <div class="fx-row-vert-cent h-lg lh-lg flex-between pr-12">
+      <div class="secondary">Staked</div>
+      <div *ngIf="extras.balanceStaked !== undefined">
+        {{ extras.balanceStaked }} <span class="tertiary">Mina</span>
+      </div>
+    </div>
+    <div class="f-600 mt-16 border-top h-lg lh-lg">Epoch</div>
+    <div class="fx-row-vert-cent h-lg lh-lg flex-between pr-12">
+      <div class="secondary">Epoch Started</div>
+      <div>{{ extras.epochStarted }}</div>
+    </div>
+    <div class="fx-row-vert-cent h-lg lh-lg flex-between pr-12">
+      <div class="secondary">Epoch Finished</div>
+      <div>{{ extras.epochEnds }}</div>
+    </div>
+    <div class="fx-row-vert-cent h-lg lh-lg flex-between pr-12">
+      <div class="secondary">% Slots Used</div>
+      <div>{{ extras.slotsUsed }}</div>
+    </div>
+  </ng-container>
+</ng-template>

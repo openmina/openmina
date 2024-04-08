@@ -97,8 +97,8 @@ export class MenuComponent extends ManualDetection implements OnInit {
   private listenToActiveNodeChange(): void {
     this.store.select(selectActiveNode)
       .pipe(
-        untilDestroyed(this),
         filter(node => !!node),
+        untilDestroyed(this),
       )
       .subscribe((node: MinaNode) => {
         this.activeNode = node;
@@ -108,7 +108,7 @@ export class MenuComponent extends ManualDetection implements OnInit {
   }
 
   private get allowedMenuItems(): MenuItem[] {
-    const features = getAvailableFeatures(this.activeNode || {} as any);
+    const features = getAvailableFeatures(this.activeNode || { features: {} } as any);
     return MENU_ITEMS.filter((opt: MenuItem) => features.find(f => f === opt.name.toLowerCase().split(' ').join('-')));
   }
 

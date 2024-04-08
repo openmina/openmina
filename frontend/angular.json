@@ -82,6 +82,15 @@
               ],
               "outputHashing": "all"
             },
+            "producer": {
+              "fileReplacements": [
+                {
+                  "replace": "src/environments/environment.ts",
+                  "with": "src/environments/environment.producer.ts"
+                }
+              ],
+              "outputHashing": "all"
+            },
             "compose": {
               "fileReplacements": [
                 {

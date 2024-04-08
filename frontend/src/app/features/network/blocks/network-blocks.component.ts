@@ -1,5 +1,10 @@
 import { AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, OnDestroy, OnInit } from '@angular/core';
-import { NetworkBlocksClose, NetworkBlocksGetEarliestBlock, NetworkBlocksInit, NetworkBlocksSetActiveBlock } from '@network/blocks/network-blocks.actions';
+import {
+  NetworkBlocksClose,
+  NetworkBlocksGetEarliestBlock,
+  NetworkBlocksInit,
+  NetworkBlocksSetActiveBlock,
+} from '@network/blocks/network-blocks.actions';
 import { filter, take } from 'rxjs';
 import { selectNetworkBlocksSidePanelOpen } from '@network/blocks/network-blocks.state';
 import { getMergedRoute, MergedRoute } from '@openmina/shared';

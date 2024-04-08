@@ -10,7 +10,7 @@ import { CONFIG } from '@shared/constants/config';
 import { MinaNode } from '@shared/types/core/environment/mina-env.type';
 
 @Injectable({
-  providedIn: 'root'
+  providedIn: 'root',
 })
 export class ScanStateService {
 
@@ -36,7 +36,7 @@ export class ScanStateService {
                   name: node.name,
                   url: node.url,
                   local: node.url === this.rust.URL,
-                  leafs: []
+                  leafs: [],
                 })),
                 catchError(err => {
                   let message = err.message;
@@ -52,8 +52,8 @@ export class ScanStateService {
                     error: message,
                   });
                 }),
-              )
-          )
+              ),
+          ),
         ).pipe(
           tap((snarkers: ScanStateWorkingSnarker[]) => this.snarkers = snarkers),
           map(() => response),
@@ -101,7 +101,7 @@ export class ScanStateService {
       completedWorks: response.block.completed_works,
       transactions: response.block.transactions,
       workingSnarkers: this.snarkers,
-      trees
+      trees,
     };
   }
 }

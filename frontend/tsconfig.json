@@ -68,9 +68,9 @@
       "@resources/*": [
         "src/app/features/resources/*"
       ],
-      "@block-production": [
+      "@block-production/*": [
         "src/app/features/block-production/*"
-      ],
+      ]
     }
   },
   "angularCompilerOptions": {

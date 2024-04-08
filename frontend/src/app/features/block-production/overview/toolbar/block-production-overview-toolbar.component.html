@@ -1,0 +1,73 @@
+<mina-horizontal-menu [template]="items" [clz]="'pr-12'"></mina-horizontal-menu>
+<ng-template #items>
+  <div class="fx-row-vert-cent flex-between w-100">
+    <div class="fx-row-vert-cent">
+      <div class="secondary">Epoch</div>
+      <mina-pagination
+        [activePage]="activeEpoch?.epochNumber"
+        [prevPageDisabled]="activeEpoch?.epochNumber === 0"
+        [nextPageDisabled]="activeEpoch?.isLastEpoch"
+        [lastPageDisabled]="activeEpoch?.isLastEpoch"
+        [hasLastPage]="true"
+        (nextPageChange)="changeActiveEpoch($event)"
+        (prevPageChange)="changeActiveEpoch($event)"
+        (lastPageChange)="changeActiveEpoch(undefined)"
+        prevPageTooltip="Previous Epoch"
+        nextPageTooltip="Next Epoch"
+        lastPageTooltip="Last Epoch"
+      ></mina-pagination>
+
+      <ng-container *ngIf="filters">
+        <div class="h-sm fx-row-vert-cent pl-5 pr-5 border-rad-6 pointer mr-5"
+             [ngClass]="filters.canonical ? 'bg-success-container success-primary' : 'bg-container tertiary'"
+             (click)="changeFilter('canonical', !filters.canonical)">
+          <span class="mr-5">{{ totalCanonical }}</span>
+          Canonical Blocks
+        </div>
+
+        <div
+          class="h-sm fx-row-vert-cent pl-5 pr-5 border-rad-6 pointer mr-5"
+          [ngClass]="filters.orphaned ? 'bg-special-selected-alt-1-container special-alt-1-primary' : 'bg-container tertiary'"
+          (click)="changeFilter('orphaned', !filters.orphaned)">
+          <span class="mr-5">{{ totalOrphaned }}</span>
+          Orphaned Blocks
+        </div>
+
+        <div
+          class="h-sm fx-row-vert-cent pl-5 pr-5 border-rad-6 pointer mr-5"
+          [ngClass]="filters.missed ? 'bg-warn-container warn-primary' : 'bg-container tertiary'"
+          (click)="changeFilter('missed', !filters.missed)">
+          <span class="mr-5">{{ totalMissed }}</span>
+          Missed Blocks
+        </div>
+
+        <div
+          class="h-sm fx-row-vert-cent pl-5 pr-5 border-rad-6 pointer"
+          [ngClass]="filters.future ? 'bg-container primary' : 'bg-container tertiary'"
+          (click)="changeFilter('future', !filters.future)">
+          <span class="mr-5">{{ totalFuture }}</span>
+          Future Rights
+        </div>
+      </ng-container>
+    </div>
+
+    <div #dropdown
+         (click)="openDropdown(dropdown); $event.stopPropagation()"
+         class="shrink-0 h-sm lh-sm ml-10 border-rad-6 bg-container fx-row-vert-cent pl-10 pr-5 pointer f-600">
+      <div class="primary text-capitalize">{{ scale }} Scale</div>
+      <span class="mina-icon icon-200">arrow_drop_down</span>
+    </div>
+  </div>
+</ng-template>
+
+<ng-template #scaleDropdown>
+  <div class="flex-column popup-box-shadow-weak bg-surface-top border border-rad-6 pointer w-100 secondary"
+       (clickOutside)="detach()">
+    <div class="h-md lh-md bg-container-hover pl-10 pr-10 primary-hover"
+         (click)="changeScale('linear')">Linear
+    </div>
+    <div class="h-md lh-md bg-container-hover pl-10 pr-10 primary-hover"
+         (click)="changeScale('adaptive')">Adaptive
+    </div>
+  </div>
+</ng-template>

@@ -1,8 +1,6 @@
 @import 'openmina';
 
 :host {
-  width: 24px;
-  height: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -10,8 +8,6 @@
 
 .loading {
   display: block;
-  width: 16px;
-  height: 16px;
   border-radius: 50%;
   border-top-color: transparent !important;
   animation: spin 2s linear infinite;

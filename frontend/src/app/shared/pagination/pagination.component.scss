@@ -1,0 +1,16 @@
+@import 'openmina';
+
+.pagination-group {
+  button {
+    background-color: transparent;
+    color: $selected-primary;
+
+    &:hover {
+      background-color: $selected-container;
+    }
+  }
+}
+
+span {
+  user-select: none;
+}

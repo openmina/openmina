@@ -1,6 +1,6 @@
 import { Store } from '@ngrx/store';
 import { MinaState } from '@app/app.setup';
-import { checkSorting, Sort, stateSliceAsPromise } from '../../support/commands';
+import { stateSliceAsPromise } from '../../support/commands';
 import { DashboardState } from '@dashboard/dashboard.state';
 
 const condition = (state: DashboardState): boolean => state && state.peers?.length > 1;

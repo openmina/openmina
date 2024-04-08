@@ -5,7 +5,11 @@ import {
   selectNetworkBlocksAllFilters,
   selectNetworkBlocksEarliestBlock,
 } from '@network/blocks/network-blocks.state';
-import { NetworkBlocksSetActiveBlock, NetworkBlocksToggleFilter, NetworkBlocksToggleSidePanel } from '@network/blocks/network-blocks.actions';
+import {
+  NetworkBlocksSetActiveBlock,
+  NetworkBlocksToggleFilter,
+  NetworkBlocksToggleSidePanel,
+} from '@network/blocks/network-blocks.actions';
 import { filter } from 'rxjs';
 import { Routes } from '@shared/enums/routes.enum';
 import { Router } from '@angular/router';
