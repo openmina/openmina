@@ -11,20 +11,16 @@ use node::{
     p2p::{
         connection::outgoing::P2pConnectionOutgoingInitOpts,
         webrtc::{Host, HttpSignalingInfo, SignalingMethod},
-        P2pConnectionEvent, P2pEvent, P2pListenEvent, P2pListenerId, P2pPeerState, P2pPeerStatus,
-        P2pState, PeerId,
+        P2pConnectionEvent, P2pEvent, P2pListenEvent, P2pListenerId, P2pNetworkConnectionMuxState,
+        P2pNetworkConnectionState, P2pNetworkYamuxState, P2pPeerState, P2pPeerStatus, P2pState,
+        PeerId,
     },
     State,
 };
 
-#[cfg(feature = "p2p-libp2p")]
 use node::p2p::connection::outgoing::P2pConnectionOutgoingInitLibp2pOpts;
 
-#[cfg(not(feature = "p2p-libp2p"))]
-use node::p2p::{
-    MioEvent, P2pNetworkAuthState, P2pNetworkNoiseState, P2pNetworkNoiseStateInner,
-    P2pNetworkSelectState,
-};
+use node::p2p::{MioEvent, P2pNetworkAuthState, P2pNetworkNoiseState, P2pNetworkNoiseStateInner};
 
 use crate::{cluster::ClusterNodeId, node::RustNodeTestingConfig, scenario::ScenarioStep};
 
@@ -96,14 +92,17 @@ pub fn connection_finalized_event(
     }
 }
 
-pub fn connection_finalized_with_res_event(
-    pred: impl Fn(ClusterNodeId, &PeerId, &Result<(), String>) -> bool,
-) -> impl Fn(ClusterNodeId, &Event, &State) -> bool {
-    move |node_id, event, _| {
-        matches!(
-            event,
-            Event::P2p(P2pEvent::Connection(P2pConnectionEvent::Finalized(peer, res))) if pred(node_id, peer, res)
-        )
+fn peer_has_addr(peer: &P2pPeerState, addr: SocketAddr) -> bool {
+    match (&peer.dial_opts, addr) {
+        (
+            Some(P2pConnectionOutgoingInitOpts::LibP2P(P2pConnectionOutgoingInitLibp2pOpts {
+                host: Host::Ipv4(host),
+                port,
+                ..
+            })),
+            SocketAddr::V4(addr),
+        ) => addr.ip() == host && addr.port() == *port,
+        _ => false,
     }
 }
 
@@ -111,15 +110,6 @@ pub fn as_listen_new_addr_event(event: &Event) -> Option<(&Multiaddr, &P2pListen
     if let Event::P2p(P2pEvent::Listen(P2pListenEvent::NewListenAddr { listener_id, addr })) = event
     {
         Some((addr, listener_id))
-    } else {
-        None
-    }
-}
-
-#[cfg(feature = "p2p-libp2p")]
-pub fn as_connection_finalized_event(event: &Event) -> Option<(&PeerId, &Result<(), String>)> {
-    if let Event::P2p(P2pEvent::Connection(P2pConnectionEvent::Finalized(peer, res))) = event {
-        Some((peer, res))
     } else {
         None
     }
@@ -136,7 +126,6 @@ pub fn identify_event(peer_id: PeerId) -> impl Fn(ClusterNodeId, &Event, &State)
     }
 }
 
-#[cfg(not(feature = "p2p-libp2p"))]
 pub fn as_event_mio_interface_detected(event: &Event) -> Option<&std::net::IpAddr> {
     if let Event::P2p(P2pEvent::MioEvent(MioEvent::InterfaceDetected(ip_addr))) = event {
         Some(ip_addr)
@@ -145,7 +134,15 @@ pub fn as_event_mio_interface_detected(event: &Event) -> Option<&std::net::IpAdd
     }
 }
 
-#[cfg(not(feature = "p2p-libp2p"))]
+pub fn as_event_mio_error(event: &Event) -> Option<SocketAddr> {
+    match event {
+        Event::P2p(P2pEvent::MioEvent(MioEvent::ConnectionDidClose(addr, res))) if res.is_err() => {
+            Some(*addr)
+        }
+        _ => None,
+    }
+}
+
 pub fn as_event_mio_data_send_receive(event: &Event) -> Option<SocketAddr> {
     match event {
         Event::P2p(P2pEvent::MioEvent(
@@ -155,7 +152,6 @@ pub fn as_event_mio_data_send_receive(event: &Event) -> Option<SocketAddr> {
     }
 }
 
-#[cfg(not(feature = "p2p-libp2p"))]
 pub fn as_event_mio_outgoing_connection(
     event: &Event,
 ) -> Option<(SocketAddr, &Result<(), String>)> {
@@ -310,6 +306,15 @@ impl<'cluster> Driver<'cluster> {
     pub async fn run(&mut self, duration: Duration) -> anyhow::Result<()> {
         let finish = std::time::Instant::now() + duration;
         while std::time::Instant::now() < finish {
+            while let Some((node_id, event)) = self.next_event() {
+                let step = ScenarioStep::Event {
+                    node_id,
+                    event: event.to_string(),
+                };
+                let node_id = node_id;
+                self.runner.exec_step(step).await?;
+                let _state = self.runner.node(node_id).unwrap().state();
+            }
             self.idle(Duration::from_millis(100)).await?;
         }
         Ok(())
@@ -399,33 +404,6 @@ impl<'cluster> Driver<'cluster> {
 }
 
 /// Runs the cluster until each of the `nodes` is listening on the localhost interface.
-#[cfg(feature = "p2p-libp2p")]
-pub async fn wait_for_nodes_listening_on_localhost<'cluster>(
-    driver: &mut Driver<'cluster>,
-    duration: Duration,
-    nodes: impl IntoIterator<Item = ClusterNodeId>,
-) -> anyhow::Result<bool> {
-    let mut nodes = std::collections::BTreeSet::from_iter(nodes); // TODO: filter out nodes that already listening
-
-    // predicate matching event "listening on localhost interface"
-    let ip4_localhost = libp2p::multiaddr::Protocol::Ip4("127.0.0.1".parse().unwrap());
-    let pred = |node_id, event: &_, _state: &_| {
-        if let Some((addr, _)) = as_listen_new_addr_event(event) {
-            if Some(&ip4_localhost) == addr.iter().next().as_ref() {
-                nodes.remove(&node_id);
-            }
-            nodes.is_empty()
-        } else {
-            false
-        }
-    };
-
-    // wait for all peers to listen
-    driver.run_until(duration, pred).await
-}
-
-/// Runs the cluster until each of the `nodes` is listening on the localhost interface.
-#[cfg(not(feature = "p2p-libp2p"))]
 pub async fn wait_for_nodes_listening_on_localhost<'cluster>(
     driver: &mut Driver<'cluster>,
     duration: Duration,
@@ -482,8 +460,31 @@ impl PeerPredicate for (ClusterNodeId, &mut BTreeSet<PeerId>) {
     }
 }
 
+/// Returns connection peer_id iff the connection is finalized, i.e. multiplexing protocol is
+/// negotiated.
+fn is_network_connection_finalized(conn_state: &P2pNetworkConnectionState) -> Option<&PeerId> {
+    if let P2pNetworkConnectionState {
+        auth:
+            Some(P2pNetworkAuthState::Noise(P2pNetworkNoiseState {
+                inner: Some(P2pNetworkNoiseStateInner::Done { remote_peer_id, .. }),
+                ..
+            })),
+        mux:
+            Some(P2pNetworkConnectionMuxState::Yamux(P2pNetworkYamuxState {
+                terminated: None,
+                init: true,
+                ..
+            })),
+        ..
+    } = conn_state
+    {
+        Some(remote_peer_id)
+    } else {
+        None
+    }
+}
+
 /// Runst the cluster until the node is connected to the node that satisfies the predicate.
-#[cfg(not(feature = "p2p-libp2p"))]
 pub async fn wait_for_connection_established<'cluster, F: PeerPredicate>(
     driver: &mut Driver<'cluster>,
     duration: Duration,
@@ -494,46 +495,11 @@ pub async fn wait_for_connection_established<'cluster, F: PeerPredicate>(
             let Some(conn_state) = state.p2p.network.scheduler.connections.get(&addr) else {
                 return false;
             };
-            let Some(P2pNetworkAuthState::Noise(P2pNetworkNoiseState {
-                inner:
-                    Some(P2pNetworkNoiseStateInner::Done {
-                        remote_peer_id: peer_id,
-                        ..
-                    }),
-                ..
-            })) = &conn_state.auth
-            else {
-                return false;
-            };
-            let P2pNetworkSelectState {
-                negotiated: Some(Some(_)),
-                ..
-            } = conn_state.select_mux
-            else {
-                return false;
-            };
-            if f.matches(node_id, peer_id) {
-                true
+            if let Some(peer_id) = is_network_connection_finalized(conn_state) {
+                f.matches(node_id, peer_id)
             } else {
                 false
             }
-        } else {
-            false
-        }
-    };
-    driver.exec_steps_until(duration, pred).await
-}
-
-/// Runst the cluster until the node is connected to the node that satisfies the predicate.
-#[cfg(feature = "p2p-libp2p")]
-pub async fn wait_for_connection_established<'cluster, F: PeerPredicate>(
-    driver: &mut Driver<'cluster>,
-    duration: Duration,
-    mut f: F,
-) -> anyhow::Result<bool> {
-    let pred = |node_id, event: &_, _state: &State| {
-        if let Some((peer_id, Ok(_))) = as_connection_finalized_event(event) {
-            f.matches(node_id, peer_id)
         } else {
             false
         }
@@ -623,26 +589,65 @@ pub trait ConnectionPredicate {
     fn matches(
         &mut self,
         node_id: ClusterNodeId,
-        peer_addr: SocketAddr,
-        result: &Result<(), String>,
+        peer_id: &PeerId,
+        peer_status: &P2pPeerStatus,
     ) -> bool;
+}
+
+pub enum ConnectionPredicates {
+    /// Connection with peer is finalized, either successfully or with error.
+    PeerFinalized(PeerId),
+    PeerIsReady(PeerId),
+    PeerWithErrorStatus(PeerId),
+}
+
+impl ConnectionPredicate for (ClusterNodeId, ConnectionPredicates) {
+    fn matches(
+        &mut self,
+        node_id: ClusterNodeId,
+        peer_id: &PeerId,
+        peer_status: &P2pPeerStatus,
+    ) -> bool {
+        node_id == self.0
+            && match &self.1 {
+                ConnectionPredicates::PeerFinalized(pid) => {
+                    peer_id == pid
+                        && match peer_status {
+                            P2pPeerStatus::Connecting(c) => c.is_error(),
+                            P2pPeerStatus::Disconnected { .. } => true,
+                            P2pPeerStatus::Ready(_) => true,
+                        }
+                }
+                ConnectionPredicates::PeerIsReady(pid) => {
+                    peer_id == pid && peer_status.as_ready().is_some()
+                }
+                ConnectionPredicates::PeerWithErrorStatus(pid) => {
+                    peer_id == pid && peer_status.is_error()
+                }
+            }
+    }
+}
+
+impl ConnectionPredicates {
+    pub fn peer_with_error_status(peer_id: PeerId) -> Self {
+        ConnectionPredicates::PeerWithErrorStatus(peer_id)
+    }
 }
 
 impl<F> ConnectionPredicate for F
 where
-    F: FnMut(ClusterNodeId, SocketAddr, &Result<(), String>) -> bool,
+    F: FnMut(ClusterNodeId, &PeerId, &P2pPeerStatus) -> bool,
 {
     fn matches(
         &mut self,
         node_id: ClusterNodeId,
-        peer_addr: SocketAddr,
-        result: &Result<(), String>,
+        peer_id: &PeerId,
+        peer_status: &P2pPeerStatus,
     ) -> bool {
-        self(node_id, peer_addr, result)
+        self(node_id, peer_id, peer_status)
     }
 }
 
-#[cfg(feature = "p2p-libp2p")]
 pub async fn wait_for_connection_event<'cluster, F>(
     driver: &mut Driver<'cluster>,
     duration: Duration,
@@ -651,39 +656,39 @@ pub async fn wait_for_connection_event<'cluster, F>(
 where
     F: ConnectionPredicate,
 {
-    Ok(driver
-        .run_until(duration, |node_id, event: &_, state: &_| {
-            let Some((peer_id, result)) = as_connection_finalized_event(event) else {
-                return false;
-            };
-            let Some(P2pPeerState {
-                dial_opts:
-                    Some(P2pConnectionOutgoingInitOpts::LibP2P(P2pConnectionOutgoingInitLibp2pOpts {
-                        host,
-                        port,
-                        ..
-                    })),
-                ..
-            }) = state.p2p.peers.get(peer_id)
-            else {
-                return false;
-            };
-
-            let addr = SocketAddr::new(
-                match host {
-                    Host::Ipv4(ip4) => (*ip4).into(),
-                    Host::Ipv6(ip6) => (*ip6).into(),
-                    Host::Domain(_) => unreachable!(),
-                },
-                *port,
-            );
-            f.matches(node_id, addr, result)
-        })
-        .await?)
+    let pred = |node_id, event: &_, state: &State| {
+        as_event_mio_data_send_receive(event)
+            .and_then(|addr| {
+                state
+                    .p2p
+                    .peers
+                    .iter()
+                    .find(|(_, peer)| peer_has_addr(peer, addr))
+                    .or_else(|| {
+                        state
+                            .p2p
+                            .network
+                            .scheduler
+                            .connections
+                            .get(&addr)
+                            .and_then(|conn_state| conn_state.peer_id())
+                            .and_then(|peer_id| {
+                                state
+                                    .p2p
+                                    .peers
+                                    .get(peer_id)
+                                    .map(|peer_state| (peer_id, peer_state))
+                            })
+                    })
+            })
+            .map_or(false, |(peer_id, peer)| {
+                f.matches(node_id, peer_id, &peer.status)
+            })
+    };
+    Ok(driver.exec_steps_until(duration, pred).await?)
 }
 
-#[cfg(not(feature = "p2p-libp2p"))]
-pub async fn wait_for_connection_event<'cluster, F>(
+pub async fn wait_for_connection_error<'cluster, F>(
     driver: &mut Driver<'cluster>,
     duration: Duration,
     mut f: F,
@@ -691,15 +696,20 @@ pub async fn wait_for_connection_event<'cluster, F>(
 where
     F: ConnectionPredicate,
 {
-    Ok(driver
-        .exec_steps_until(duration, |node_id, event: &_, _: &_| {
-            if let Some((addr, result)) = as_event_mio_outgoing_connection(event) {
-                f.matches(node_id, addr, result)
-            } else {
-                false
-            }
-        })
-        .await?)
+    let pred = |node_id, event: &_, state: &State| {
+        as_event_mio_error(event)
+            .and_then(|addr| {
+                state
+                    .p2p
+                    .peers
+                    .iter()
+                    .find(|(_, peer)| peer_has_addr(peer, addr))
+            })
+            .map_or(false, |(peer_id, peer)| {
+                f.matches(node_id, peer_id, &peer.status)
+            })
+    };
+    Ok(driver.exec_steps_until(duration, pred).await?)
 }
 
 pub fn get_peer_state<'a>(

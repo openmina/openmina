@@ -2,15 +2,15 @@ use std::time::Duration;
 
 use node::{
     event_source::Event,
-    p2p::{P2pConnectionEvent, P2pEvent, P2pPeerStatus, P2pState, P2pTimeouts, PeerId},
+    p2p::{P2pConnectionEvent, P2pEvent, P2pState, P2pTimeouts, PeerId},
 };
 
 use crate::{
     node::RustNodeTestingConfig,
     scenarios::{
         add_rust_nodes1, connect_rust_nodes, get_peer_state, peer_is_ready, run_until_no_events,
-        wait_for_connection_established, wait_for_nodes_listening_on_localhost, ClusterRunner,
-        Driver,
+        wait_for_connection_event, wait_for_nodes_listening_on_localhost, ClusterRunner,
+        ConnectionPredicates, Driver,
     },
 };
 
@@ -161,13 +161,14 @@ impl SeedConnectionsAreSymmetric {
         let mut driver = Driver::new(runner);
 
         let (node_ut, node_ut_peer_id) =
-            driver.add_rust_node(RustNodeTestingConfig::berkeley_default());
+            driver.add_rust_node(RustNodeTestingConfig::berkeley_default_no_rpc_timeouts());
 
         let peers: Vec<_> = (0..MAX)
             .into_iter()
             .map(|_| {
                 driver.add_rust_node(
-                    RustNodeTestingConfig::berkeley_default().initial_peers(vec![node_ut.into()]),
+                    RustNodeTestingConfig::berkeley_default_no_rpc_timeouts()
+                        .initial_peers(vec![node_ut.into()]),
                 )
             })
             .collect();
@@ -197,23 +198,25 @@ impl SeedConnectionsAreSymmetric {
 
 /// A Rust node's incoming connections should be limited.
 #[derive(documented::Documented, Default, Clone, Copy)]
-pub struct MaxNumberOfPeers;
+pub struct MaxNumberOfPeersIncoming;
 
-impl MaxNumberOfPeers {
+impl MaxNumberOfPeersIncoming {
     pub async fn run<'cluster>(self, runner: ClusterRunner<'cluster>) {
-        const TOTAL: u16 = 512;
-        const MAX: u16 = 32;
+        const TOTAL: u16 = 32;
+        const MAX: u16 = 16;
 
         let mut driver = Driver::new(runner);
 
-        let (node_ut, nut_peer_id) =
-            driver.add_rust_node(RustNodeTestingConfig::berkeley_default().max_peers(MAX.into()));
-
-        let peers: Vec<_> = add_rust_nodes1(
-            &mut driver,
-            TOTAL,
-            RustNodeTestingConfig::berkeley_default(),
+        let (node_ut, nut_peer_id) = driver.add_rust_node(
+            RustNodeTestingConfig::berkeley_default_no_rpc_timeouts().max_peers(MAX.into()),
         );
+
+        let config = RustNodeTestingConfig::berkeley_default().with_timeouts(P2pTimeouts {
+            // don't reconnect to the node under test
+            reconnect_timeout: None,
+            ..P2pTimeouts::without_rpc()
+        });
+        let peers: Vec<_> = add_rust_nodes1(&mut driver, TOTAL, config);
 
         // wait for all peers to listen
         let satisfied = wait_for_nodes_listening_on_localhost(
@@ -227,52 +230,21 @@ impl MaxNumberOfPeers {
 
         println!("connecting nodes....");
 
-        for (peer, peer_id) in &peers {
+        for (peer, _peer_id) in &peers {
             connect_rust_nodes(driver.inner_mut(), *peer, node_ut).await;
-            let connected = wait_for_connection_established(
+            let connected = wait_for_connection_event(
                 &mut driver,
-                Duration::from_secs(10),
-                (node_ut, peer_id),
+                Duration::from_secs(60),
+                (*peer, ConnectionPredicates::PeerFinalized(nut_peer_id)),
             )
             .await
             .unwrap();
             assert!(connected, "node {peer} is not connected");
         }
 
-        // let mut connected = 0_i32;
-
-        // while let Some(exceeded) = driver
-        //     .wait_for(Duration::from_secs(2 * 60), |node_id, event, _| {
-        //         if node_id != node_ut {
-        //             return false;
-        //         }
-        //         let Event::P2p(P2pEvent::Connection(conn_event)) = event else {
-        //             return false;
-        //         };
-        //         match conn_event {
-        //             node::p2p::P2pConnectionEvent::Finalized(_, Ok(())) => {
-        //                 connected += 1;
-        //             }
-        //             node::p2p::P2pConnectionEvent::Closed(_) => {
-        //                 connected -= 1;
-        //             }
-        //             _ => {}
-        //         }
-        //         return connected > MAX.into();
-        //     })
-        //     .await
-        //     .unwrap()
-        // {
-        //     let state = driver
-        //         .exec_even_step(exceeded)
-        //         .await
-        //         .unwrap()
-        //         .expect("connect message should be dispatched");
-        //     let count = state.p2p.ready_peers_iter().count();
-        //     assert!(count <= MAX.into(), "max number of peers exceeded: {count}");
-        // }
-
-        driver.run(Duration::from_secs(1 * 60)).await.unwrap();
+        println!("running cluster...");
+        driver.run(Duration::from_secs(60)).await.unwrap();
+        println!("checking assertions...");
 
         // check that the number of ready peers does not exceed the maximal allowed number
         let state = driver.inner().node(node_ut).unwrap().state();
@@ -280,15 +252,23 @@ impl MaxNumberOfPeers {
         assert!(count <= MAX.into(), "max number of peers exceeded: {count}");
 
         // check that the number of nodes with the node as their peer does not exceed the maximal allowed number
-        let peers_connected = peers
-            .into_iter()
-            .filter_map(|(peer, _)| driver.inner().node(peer))
-            .filter_map(|peer| peer.state().p2p.peers.get(&nut_peer_id))
-            .filter(|state| matches!(state.status, P2pPeerStatus::Ready(..)))
-            .count();
+        let peers_connected = || {
+            peers
+                .iter()
+                .filter_map(|(peer, _)| driver.inner().node(*peer))
+                .filter(|peer| {
+                    peer.state()
+                        .p2p
+                        .peers
+                        .get(&nut_peer_id)
+                        .and_then(|peer| peer.status.as_ready())
+                        .is_some()
+                })
+        };
         assert!(
-            peers_connected <= MAX.into(),
-            "peers connections to the node exceed the max number of connections: {peers_connected}"
+            peers_connected().count() <= MAX.into(),
+            "peers connections to the node exceed the max number of connections: {}",
+            peers_connected().count()
         );
     }
 }

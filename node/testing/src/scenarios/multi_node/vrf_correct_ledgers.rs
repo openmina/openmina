@@ -105,7 +105,7 @@ impl MultiNodeVrfGetCorrectLedgers {
             ),
         ];
 
-        let expected_delegator_table: BTreeMap<AccountIndex, (AccountPublicKey, u64)> =
+        let _expected_delegator_table: BTreeMap<AccountIndex, (AccountPublicKey, u64)> =
             expected_delegator_table_data.into_iter().collect();
 
         runner
@@ -126,7 +126,7 @@ impl MultiNodeVrfGetCorrectLedgers {
             .await
             .expect("Timeout - waiting for VRF evaluator to update producer and delegates");
 
-        let (state, _) = runner.node_pending_events(producer_node, false).unwrap();
+        let (_state, _) = runner.node_pending_events(producer_node, false).unwrap();
 
         // check if our producer and delegators are detected correctly from the epoch ledgers
         // let epoch_data = state

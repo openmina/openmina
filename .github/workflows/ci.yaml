@@ -43,14 +43,13 @@ jobs:
 
       - name: Setup Rust
         run: |
-          rustup install 1.77
-          rustup override set 1.77
-          rustup component add clippy rustfmt
+          rustup default 1.77
+          rustup component add rustfmt
 
       - name: Setup Rust Cache
         uses: Swatinem/rust-cache@v2
         with:
-          prefix-key: "ver-0"
+          prefix-key: "v0"
 
       - name: Release build
         run: |
@@ -70,14 +69,13 @@ jobs:
 
       - name: Setup Rust
         run: |
-          rustup install 1.77
-          rustup override set 1.77
-          rustup component add clippy rustfmt
+          rustup default 1.77
+          rustup component add rustfmt
 
       - name: Setup Rust Cache
         uses: Swatinem/rust-cache@v2
         with:
-          prefix-key: "ver-0"
+          prefix-key: "v0"
 
       - name: Build tests
         run: |
@@ -88,23 +86,42 @@ jobs:
           jq -r '. | select(.executable != null and (.target.kind | (contains(["test"])))) | [.target.name, .executable ] | @tsv' cargo-build-test.json > tests.tsv
           while read NAME FILE; do cp -a $FILE target/release/tests/$NAME; done < tests.tsv
 
+      - name: Upload tests
+        uses: actions/upload-artifact@v4
+        with:
+          name: tests
+          path: target/release/tests
+
+  build-tests-webrtc:
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Git checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        run: |
+          rustup default 1.77
+          rustup component add rustfmt
+
+      - name: Setup Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: "v0"
+
+      - name: Build tests
+        run: |
+          mkdir -p target/release/tests
+
           cargo build --release --features=scenario-generators,p2p-webrtc --package=openmina-node-testing --tests
           cargo build --release --features=scenario-generators,p2p-webrtc --package=openmina-node-testing --tests --message-format=json > cargo-build-test.json
           jq -r '. | select(.executable != null and (.target.kind | (contains(["test"])))) | [.target.name, .executable ] | @tsv' cargo-build-test.json > tests.tsv
           while read NAME FILE; do cp -a $FILE target/release/tests/webrtc_$NAME; done < tests.tsv
 
-          cargo build --release --features=scenario-generators,p2p-libp2p --package=openmina-node-testing --tests
-          cargo build --release --features=scenario-generators,p2p-libp2p --package=openmina-node-testing --tests --message-format=json > cargo-build-test.json
-          jq -r '. | select(.executable != null and (.target.kind | (contains(["test"])))) | [.target.name, .executable ] | @tsv' cargo-build-test.json > tests.tsv
-          while read NAME FILE; do cp -a $FILE target/release/tests/libp2p_$NAME; done < tests.tsv
-
-          tar cf tests.tar -C target/release/tests .
-
       - name: Upload tests
         uses: actions/upload-artifact@v4
         with:
-          name: tests
-          path: tests.tar
+          name: tests-webrct
+          path: target/release/tests
 
   p2p-tests:
     needs: [ build-tests ]
@@ -114,29 +131,20 @@ jobs:
     strategy:
       matrix:
         test: [p2p_basic_connections, p2p_basic_incoming, p2p_basic_outgoing]
-        libp2p:
-          - external
-          # - internal
       fail-fast: false
-    env:
-      TEST: ${{ matrix.libp2p == 'external' && format('libp2p_{0}', matrix.test) || matrix.test }}
 
     steps:
       - name: Download tests
         uses: actions/download-artifact@v4
         with:
           name: tests
-
-      - name: Unpack tests
-        run: |
-          tar xf tests.tar ./${{ env.TEST }}
-
       - name: Run the test
         run: |
-          ./${{ env.TEST }} --nocapture --test-threads=1
+          chmod +x ./${{ matrix.test }}
+          ./${{ matrix.test }} --test-threads=1
 
   scenario-tests:
-    needs: [ build-tests ]
+    needs: [ build-tests, build-tests-webrtc ]
     runs-on: ubuntu-20.04
     container:
       image: minaprotocol/mina-daemon:2.0.0berkeley-rc1-1551e2f-focal-berkeley
@@ -154,15 +162,13 @@ jobs:
       - name: Download tests
         uses: actions/download-artifact@v4
         with:
-          name: tests
-
-      - name: Unpack tests
-        run: |
-          tar xf tests.tar ./${{ matrix.test }}
+          pattern: tests*
+          merge-multiple: true
 
       - name: Run the test
         run: |
-          ./${{ matrix.test }} --nocapture --test-threads=1
+          chmod +x ./${{ matrix.test }}
+          ./${{ matrix.test }} --test-threads=1
 
 
   bootstrap-test:

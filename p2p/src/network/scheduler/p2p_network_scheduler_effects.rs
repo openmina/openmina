@@ -204,7 +204,7 @@ impl P2pNetworkSchedulerAction {
                         store.dispatch(P2pNetworkKadRequestAction::MuxReady { peer_id, addr });
                     }
                     if incoming {
-                        store.dispatch(P2pConnectionIncomingAction::FinalizeSuccess { peer_id });
+                        store.dispatch(P2pConnectionIncomingAction::Libp2pReceived { peer_id });
                     } else {
                         store.dispatch(P2pConnectionOutgoingAction::FinalizeSuccess { peer_id });
                     }

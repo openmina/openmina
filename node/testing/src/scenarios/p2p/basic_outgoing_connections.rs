@@ -1,13 +1,12 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
-    net::SocketAddr,
     time::Duration,
 };
 
 use node::p2p::{
     connection::outgoing::{P2pConnectionOutgoingInitLibp2pOpts, P2pConnectionOutgoingInitOpts},
     identity::SecretKey,
-    PeerId,
+    P2pPeerStatus, P2pTimeouts, PeerId,
 };
 
 use crate::{
@@ -15,8 +14,9 @@ use crate::{
     node::RustNodeTestingConfig,
     scenario::ListenerNode,
     scenarios::{
-        add_rust_nodes, add_rust_nodes_with, peer_is_ready, wait_for_connection_established,
-        wait_for_connection_event, wait_for_nodes_listening_on_localhost, ClusterRunner, Driver,
+        add_rust_nodes, add_rust_nodes_with, peer_is_ready, wait_for_connection_error,
+        wait_for_connection_established, wait_for_nodes_listening_on_localhost, ClusterRunner,
+        Driver,
     },
 };
 
@@ -81,9 +81,12 @@ impl MakeMultipleOutgoingConnections {
 
         let mut driver = Driver::new(runner);
 
-        let (node_ut, _) = driver.add_rust_node(RustNodeTestingConfig::berkeley_default());
+        let config =
+            RustNodeTestingConfig::berkeley_default().with_timeouts(P2pTimeouts::without_rpc());
+
+        let (node_ut, _) = driver.add_rust_node(config.clone());
         let (peers, mut peer_ids): (Vec<ClusterNodeId>, BTreeSet<PeerId>) =
-            add_rust_nodes(&mut driver, MAX, RustNodeTestingConfig::berkeley_default());
+            add_rust_nodes(&mut driver, MAX, config.clone());
 
         // wait for all peers to listen
         let satisfied = wait_for_nodes_listening_on_localhost(
@@ -356,7 +359,7 @@ impl ConnectToUnavailableInitialPeers {
 
         let mut driver = Driver::new(runner);
 
-        let (initial_peers, ports): (Vec<_>, Vec<_>) = (0..MAX)
+        let (initial_peers, peer_ids): (Vec<_>, Vec<_>) = (0..MAX)
             .into_iter()
             .map(|i| {
                 let port = 11200 + i;
@@ -369,39 +372,42 @@ impl ConnectToUnavailableInitialPeers {
                     }
                     .into(),
                 );
-                (addr, port)
+                (addr, peer_id)
             })
             .unzip();
 
-        let (node_ut, _) = driver
-            .add_rust_node(RustNodeTestingConfig::berkeley_default().initial_peers(initial_peers));
+        let (node_ut, _) = driver.add_rust_node(
+            RustNodeTestingConfig::berkeley_default()
+                .initial_peers(initial_peers)
+                .with_timeouts(P2pTimeouts {
+                    outgoing_error_reconnect_timeout: Some(Duration::from_secs(3)),
+                    ..Default::default()
+                }),
+        );
 
-        let mut peer_retries = BTreeMap::from_iter(ports.into_iter().map(|port| (port, 0_u8)));
+        let mut peer_retries = BTreeMap::from_iter(peer_ids.into_iter().map(|port| (port, 0_u8)));
 
-        let satisfied = wait_for_connection_event(
+        let satisfied = wait_for_connection_error(
             &mut driver,
             Duration::from_secs(3 * 60),
-            |node_id: ClusterNodeId, peer_addr: SocketAddr, result: &Result<_, _>| {
-                println!("{peer_addr}: {result:?}");
+            |node_id: ClusterNodeId, peer_id: &PeerId, peer_status: &P2pPeerStatus| {
                 if node_id != node_ut {
                     return false;
                 }
                 assert!(
-                    result.is_err(),
-                    "connection to {peer_addr} shouldn't succeed"
+                    peer_status.is_error(),
+                    "connection to {peer_id} shouldn't succeed"
                 );
-                let retries = peer_retries.get_mut(&peer_addr.port()).unwrap();
+                let retries = peer_retries.get_mut(peer_id).unwrap();
                 *retries += 1;
                 if *retries >= RETRIES {
-                    peer_retries.remove(&peer_addr.port());
+                    peer_retries.remove(peer_id);
                 }
                 peer_retries.is_empty()
             },
         )
         .await
         .unwrap();
-
-        println!("{:#?}", driver.inner().node(node_ut).unwrap().state().p2p);
 
         assert!(
             satisfied,
