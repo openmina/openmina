@@ -1,7 +1,6 @@
 use std::ffi::OsString;
 
 use std::path::PathBuf;
-use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -70,9 +69,11 @@ pub struct Node {
     #[arg(long, env)]
     pub run_snarker: Option<AccountPublicKey>,
 
-    /// Enable block producer with this key
+    /// Enable block producer with this key file
+    ///
+    /// MINA_PRIVKEY_PASS must be set to decrypt the keyfile
     #[arg(long, env)]
-    pub producer_key: Option<String>,
+    pub producer_key: Option<PathBuf>,
     /// Snark fee, in Mina
     #[arg(long, env, default_value_t = 1_000_000)]
     pub snarker_fee: u64,
@@ -140,9 +141,9 @@ impl Node {
         });
         let pub_key = secret_key.public_key();
 
-        let block_producer = self.producer_key.clone().map(|producer_key| {
-            // TODO(adonagy): for production, do not pass the secret key directly from the cli
-            let keypair = AccountSecretKey::from_str(&producer_key).unwrap();
+        let block_producer = self.producer_key.clone().map(|producer_key_path| {
+            let keypair = AccountSecretKey::from_encrypted_file(producer_key_path)
+                .expect("Failed to decrypt secret key file");
             let compressed_pub_key = keypair.public_key_compressed();
             (
                 BlockProducerConfig {

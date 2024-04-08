@@ -216,7 +216,7 @@ impl EncryptedSecretKey {
 
     pub fn try_decrypt(&self) -> Result<AccountSecretKey, EncryptionError> {
         // prepare inputs to cipher
-        let password = std::env::var("MINA_PRIVKEY_PASS")
+        let password = env::var("MINA_PRIVKEY_PASS")
             .map_err(|_| EncryptionError::PasswordEnvVarMissing)?;
         let password = password.as_bytes();
         let pwsalt = self.pwsalt.try_decode(Self::ENCRYPTION_DATA_VERSION_BYTE)?;
@@ -251,7 +251,7 @@ impl EncryptedSecretKey {
         // add the prefix byt to the key
         let mut key_prefixed = vec![Self::SECRET_KEY_PREFIX_BYTE];
         key_prefixed.extend(key);
-        let password = std::env::var("MINA_PRIVKEY_PASS")
+        let password = env::var("MINA_PRIVKEY_PASS")
             .map_err(|_| EncryptionError::PasswordEnvVarMissing)?;
 
         let salt = SaltString::generate(&mut OsRng);
