@@ -6,13 +6,14 @@ use std::time::Duration;
 
 use libp2p_identity::Keypair;
 use mina_p2p_messages::v2::{
-    CurrencyFeeStableV1, UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
+    CurrencyFeeStableV1, NonZeroCurvePoint, NonZeroCurvePointUncompressedStableV1,
+    UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
 };
 use rand::prelude::*;
 
 use tokio::select;
 
-use node::account::AccountPublicKey;
+use node::account::{AccountPublicKey, AccountSecretKey};
 use node::core::channels::mpsc;
 use node::core::log::inner::Level;
 use node::event_source::EventSourceAction;
@@ -26,8 +27,8 @@ use node::service::{Recorder, Service};
 use node::snark::{get_srs, get_verifier_index, VerifierKind};
 use node::stats::Stats;
 use node::{
-    BuildEnv, Config, GlobalConfig, LedgerConfig, SnarkConfig, SnarkerConfig, SnarkerStrategy,
-    State, TransitionFrontierConfig,
+    BlockProducerConfig, BuildEnv, Config, GlobalConfig, LedgerConfig, SnarkConfig, SnarkerConfig,
+    SnarkerStrategy, State, TransitionFrontierConfig,
 };
 
 use openmina_node_native::rpc::RpcService;
@@ -68,9 +69,11 @@ pub struct Node {
     #[arg(long, env)]
     pub run_snarker: Option<AccountPublicKey>,
 
-    // /// Enable block producer with this key
-    // #[arg(long, env)]
-    // pub producer_key: Option<String>,
+    /// Enable block producer with this key file
+    ///
+    /// MINA_PRIVKEY_PASS must be set to decrypt the keyfile
+    #[arg(long, env)]
+    pub producer_key: Option<PathBuf>,
     /// Snark fee, in Mina
     #[arg(long, env, default_value_t = 1_000_000)]
     pub snarker_fee: u64,
@@ -138,20 +141,22 @@ impl Node {
         });
         let pub_key = secret_key.public_key();
 
-        // let block_producer: Option<BlockProducerConfig> =
-        //     self.producer_key.clone().map(|producer_key| {
-        //         let compressed_pub_key = keypair_from_bs58_string(&producer_key)
-        //             .public
-        //             .into_compressed();
-        //         BlockProducerConfig {
-        //             pub_key: NonZeroCurvePoint::from(NonZeroCurvePointUncompressedStableV1 {
-        //                 x: compressed_pub_key.x.into(),
-        //                 is_odd: compressed_pub_key.is_odd,
-        //             }),
-        //             custom_coinbase_receiver: None,
-        //             proposed_protocol_version: None,
-        //         }
-        //     });
+        let block_producer = self.producer_key.clone().map(|producer_key_path| {
+            let keypair = AccountSecretKey::from_encrypted_file(producer_key_path)
+                .expect("Failed to decrypt secret key file");
+            let compressed_pub_key = keypair.public_key_compressed();
+            (
+                BlockProducerConfig {
+                    pub_key: NonZeroCurvePoint::from(NonZeroCurvePointUncompressedStableV1 {
+                        x: compressed_pub_key.x.into(),
+                        is_odd: compressed_pub_key.is_odd,
+                    }),
+                    custom_coinbase_receiver: None,
+                    proposed_protocol_version: None,
+                },
+                keypair,
+            )
+        });
 
         let work_dir = shellexpand::full(&self.work_dir).unwrap().into_owned();
         let rng_seed = rng.next_u64();
@@ -190,7 +195,7 @@ impl Node {
                 peer_discovery: !self.no_peers_discovery,
             },
             transition_frontier: TransitionFrontierConfig::new(node::BERKELEY_CONFIG.clone()),
-            block_producer: None,
+            block_producer: block_producer.clone().map(|(config, _)| config),
         };
         let (event_sender, event_receiver) = mpsc::unbounded_channel();
 
@@ -244,7 +249,7 @@ impl Node {
             .unwrap();
 
         runtime.block_on(async move {
-            let service = NodeService {
+            let mut service = NodeService {
                 rng: StdRng::seed_from_u64(rng_seed),
                 event_sender,
                 event_receiver: event_receiver.into(),
@@ -268,6 +273,11 @@ impl Node {
                 replayer: None,
                 invariants_state: Default::default(),
             };
+
+            if let Some((_, keypair)) = block_producer {
+                service.block_producer_start(keypair.into());
+            }
+
             let state = State::new(config);
             let mut node = ::node::Node::new(state, service, None);
 

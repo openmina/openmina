@@ -72,6 +72,7 @@ impl BlockProducerVrfEvaluatorAction {
                             &best_tip.consensus_state().curr_global_slot_since_hard_fork,
                         );
                         let last_height = if slot < k {
+                            // TODO(adonagy): error handling
                             store
                                 .state()
                                 .transition_frontier
@@ -82,13 +83,8 @@ impl BlockProducerVrfEvaluatorAction {
                                 .unwrap()
                                 .height()
                         } else {
-                            store
-                                .state()
-                                .transition_frontier
-                                .sync
-                                .root_block()
-                                .unwrap()
-                                .height()
+                            // TODO(adonagy): error handling
+                            store.state().transition_frontier.root().unwrap().height()
                         };
                         store.dispatch(
                             BlockProducerVrfEvaluatorAction::FinalizeEvaluatorInitialization {
