@@ -145,7 +145,6 @@ impl<'de> serde::Deserialize<'de> for AccountSecretKey {
     }
 }
 
-// TODO(adonagy):
 #[derive(Serialize, Deserialize, Debug)]
 struct Base58String(String);
 
