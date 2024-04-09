@@ -40,6 +40,7 @@ pub struct SyncLedgerTargetWithStaged {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct SyncStagedLedgerTarget {
     pub block_hash: StateHash,
+    pub staged_ledger_hash: LedgerHash,
     pub hashes: MinaBaseStagedLedgerHashStableV1,
 }
 
@@ -51,6 +52,7 @@ impl SyncLedgerTarget {
             snarked_ledger_hash: root_block.snarked_ledger_hash().clone(),
             staged: Some(SyncStagedLedgerTarget {
                 block_hash: root_block.hash().clone(),
+                staged_ledger_hash: root_block.staged_ledger_hash().clone(),
                 hashes: root_block.staged_ledger_hashes().clone(),
             }),
         }
