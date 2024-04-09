@@ -43,6 +43,9 @@ impl P2pNetworkSchedulerAction {
                     incoming: true,
                 });
             }
+            Self::OutgoingConnect { addr } => {
+                store.service().send_mio_cmd(MioCmd::Connect(addr));
+            }
             Self::OutgoingDidConnect { addr, result } => {
                 if result.is_ok() {
                     let nonce = store.service().generate_random_nonce();
@@ -224,6 +227,8 @@ impl P2pNetworkSchedulerAction {
             }
             Self::Disconnected { addr, reason } => {
                 if let Some(conn_state) = store.state().network.scheduler.connections.get(&addr) {
+                    let incoming = conn_state.incoming;
+                    store.dispatch(P2pNetworkSchedulerAction::Prune { addr });
                     match store.state().peer_with_connection(addr) {
                         Some((peer_id, peer_state)) => {
                             // TODO: connection state type should tell if it is finalized
@@ -247,7 +252,7 @@ impl P2pNetworkSchedulerAction {
                                 }
                                 crate::P2pPeerStatus::Disconnected { .. } => {
                                     // sanity check, should be incoming connection
-                                    if !conn_state.incoming {
+                                    if !incoming {
                                         error!(meta.time(); "disconnected peer connection for address {addr}");
                                     } else {
                                         // TODO: introduce action for incoming connection finalization without peer_id
@@ -260,7 +265,7 @@ impl P2pNetworkSchedulerAction {
                         }
                         None => {
                             // sanity check, should be incoming connection
-                            if !conn_state.incoming {
+                            if !incoming {
                                 error!(meta.time(); "non-existing peer connection for address {addr}");
                             } else {
                                 // TODO: introduce action for incoming connection finalization without peer_id
@@ -269,6 +274,7 @@ impl P2pNetworkSchedulerAction {
                     }
                 }
             }
+            Self::Prune { .. } => {}
         }
     }
 }

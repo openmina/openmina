@@ -30,6 +30,11 @@ pub enum P2pNetworkSchedulerAction {
         addr: Option<SocketAddr>,
         result: Result<(), String>,
     },
+    /// Initialize outgoing connection.
+    OutgoingConnect {
+        addr: SocketAddr,
+    },
+    /// Outgoint TCP stream is established.
     OutgoingDidConnect {
         addr: SocketAddr,
         result: Result<(), String>,
@@ -73,12 +78,20 @@ pub enum P2pNetworkSchedulerAction {
         error: P2pNetworkConnectionError,
     },
 
+    /// Remote address is disconnected.
+    ///
     /// Action that signals that the peer is disconnected.
     Disconnected {
         /// Connection address.
         addr: SocketAddr,
         /// Reason why the peer disconnected.
         reason: P2pNetworkConnectionCloseReason,
+    },
+
+    /// Prune connection.
+    Prune {
+        /// Connection address.
+        addr: SocketAddr,
     },
 }
 
@@ -95,8 +108,20 @@ impl redux::EnablingCondition<P2pState> for P2pNetworkSchedulerAction {
             P2pNetworkSchedulerAction::InterfaceDetected { ip } => true,
             P2pNetworkSchedulerAction::InterfaceExpired { ip } => true,
             P2pNetworkSchedulerAction::IncomingConnectionIsReady { listener } => true,
-            P2pNetworkSchedulerAction::IncomingDidAccept { addr, result } => true,
-            P2pNetworkSchedulerAction::OutgoingDidConnect { addr, result } => true,
+            P2pNetworkSchedulerAction::IncomingDidAccept { addr, result } => {
+                addr.as_ref().map_or(false, |addr| {
+                    state.network.scheduler.connections.get(addr).is_none()
+                })
+            }
+            P2pNetworkSchedulerAction::OutgoingConnect { addr } => {
+                state.network.scheduler.connections.get(addr).is_none()
+            }
+            P2pNetworkSchedulerAction::OutgoingDidConnect { addr, result } => state
+                .network
+                .scheduler
+                .connections
+                .get(addr)
+                .map_or(false, |conn_state| !conn_state.incoming),
             P2pNetworkSchedulerAction::IncomingDataIsReady { addr } => true,
             P2pNetworkSchedulerAction::IncomingDataDidReceive { addr, result } => true,
             P2pNetworkSchedulerAction::SelectDone {
@@ -122,6 +147,13 @@ impl redux::EnablingCondition<P2pState> for P2pNetworkSchedulerAction {
                 .map_or(false, |conn_state| {
                     conn_state.closed.as_ref() == Some(reason)
                 }),
+            // TODO: introduce state for closed connection
+            P2pNetworkSchedulerAction::Prune { addr } => state
+                .network
+                .scheduler
+                .connections
+                .get(addr)
+                .map_or(false, |conn_state| conn_state.closed.is_some()),
         }
     }
 }

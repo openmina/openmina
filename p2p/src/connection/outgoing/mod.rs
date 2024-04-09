@@ -47,7 +47,7 @@ pub struct P2pConnectionOutgoingInitLibp2pOpts {
 
 #[cfg(not(target_arch = "wasm32"))]
 mod libp2p_opts {
-    use std::net::SocketAddr;
+    use std::net::{IpAddr, SocketAddr};
 
     use multiaddr::Multiaddr;
 
@@ -99,6 +99,30 @@ mod libp2p_opts {
                 peer_id,
                 host,
                 port,
+            }
+        }
+    }
+
+    #[derive(Debug, thiserror::Error)]
+    pub enum P2pConnectionOutgoingInitLibp2pOptsTryToSocketAddrError {
+        #[error("name unresolved: {0}")]
+        Unresolved(String),
+    }
+
+    impl TryFrom<&super::P2pConnectionOutgoingInitLibp2pOpts> for SocketAddr {
+        type Error = P2pConnectionOutgoingInitLibp2pOptsTryToSocketAddrError;
+
+        fn try_from(
+            value: &super::P2pConnectionOutgoingInitLibp2pOpts,
+        ) -> Result<Self, Self::Error> {
+            match &value.host {
+                Host::Domain(name) => Err(
+                    P2pConnectionOutgoingInitLibp2pOptsTryToSocketAddrError::Unresolved(
+                        name.clone(),
+                    ),
+                ),
+                Host::Ipv4(ip) => Ok(SocketAddr::new(IpAddr::V4(*ip), value.port)),
+                Host::Ipv6(ip) => Ok(SocketAddr::new(IpAddr::V6(*ip), value.port)),
             }
         }
     }
