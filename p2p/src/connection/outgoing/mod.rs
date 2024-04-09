@@ -66,6 +66,15 @@ mod libp2p_opts {
                 Multiaddr::from_iter([(&self.host).into(), multiaddr::Protocol::Tcp(self.port)]),
             )
         }
+
+        pub fn matches_socket_addr(&self, addr: SocketAddr) -> bool {
+            self.port == addr.port()
+                && match (&self.host, addr) {
+                    (Host::Ipv4(ip), SocketAddr::V4(addr)) => ip == addr.ip(),
+                    (Host::Ipv6(ip), SocketAddr::V6(addr)) => ip == addr.ip(),
+                    _ => false,
+                }
+        }
     }
 
     impl From<&super::P2pConnectionOutgoingInitLibp2pOpts> for (PeerId, Multiaddr) {

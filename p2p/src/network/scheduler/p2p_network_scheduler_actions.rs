@@ -14,7 +14,7 @@ use super::{
 use crate::{disconnection::P2pDisconnectionReason, P2pState, PeerId};
 
 #[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
-#[action_event(fields(display(ip), display(listener), display(addr), debug(result), select_kind = debug(kind)))]
+#[action_event(fields(display(ip), display(listener), display(addr), debug(result), select_kind = debug(kind), display(error)))]
 pub enum P2pNetworkSchedulerAction {
     InterfaceDetected {
         ip: IpAddr,

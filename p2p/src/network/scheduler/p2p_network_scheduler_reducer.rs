@@ -69,10 +69,9 @@ impl P2pNetworkSchedulerState {
                 };
                 match protocol {
                     Some(token::Protocol::Auth(token::AuthKind::Noise)) => {
-                        connection.auth = Some(P2pNetworkAuthState::Noise(P2pNetworkNoiseState {
-                            handshake_optimized: true,
-                            ..Default::default()
-                        }));
+                        connection.auth = Some(P2pNetworkAuthState::Noise(
+                            P2pNetworkNoiseState::new(self.local_pk.clone(), true),
+                        ));
                     }
                     Some(token::Protocol::Mux(
                         token::MuxKind::Yamux1_0_0 | token::MuxKind::YamuxNoNewLine1_0_0,

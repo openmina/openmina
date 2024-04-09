@@ -15,8 +15,9 @@ use crate::{identity::PublicKey, PeerId};
 
 use super::super::*;
 
-#[derive(Default, Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pNetworkNoiseState {
+    pub local_pk: PublicKey,
     pub buffer: Vec<u8>,
     pub incoming_chunks: VecDeque<Vec<u8>>,
     pub outgoing_chunks: VecDeque<Vec<Data>>,
@@ -35,6 +36,20 @@ impl P2pNetworkNoiseState {
                 None
             }
         })
+    }
+}
+
+impl P2pNetworkNoiseState {
+    pub fn new(local_pk: PublicKey, handshake_optimized: bool) -> Self {
+        P2pNetworkNoiseState {
+            local_pk,
+            buffer: Default::default(),
+            incoming_chunks: Default::default(),
+            outgoing_chunks: Default::default(),
+            decrypted_chunks: Default::default(),
+            inner: Default::default(),
+            handshake_optimized,
+        }
     }
 }
 
@@ -163,7 +178,7 @@ impl NoiseState {
     }
 }
 
-#[derive(Debug, Error, Serialize, Deserialize, Clone)]
+#[derive(Debug, Error, Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub enum NoiseError {
     #[error("chunk too short")]
     ChunkTooShort,
@@ -175,6 +190,8 @@ pub enum NoiseError {
     BadPublicKey,
     #[error("invalid signature")]
     InvalidSignature,
+    #[error("remote and local public keys are same")]
+    SelfConnection,
 }
 
 pub struct ResponderOutput {

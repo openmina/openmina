@@ -50,6 +50,11 @@ impl P2pNetworkNoiseAction {
         } else {
             None
         };
+        let handshake_error = if let Some(P2pNetworkNoiseStateInner::Error(error)) = &state.inner {
+            Some(error)
+        } else {
+            None
+        };
         let handshake_optimized = state.handshake_optimized;
         let middle_initiator =
             matches!(&state.inner, Some(P2pNetworkNoiseStateInner::Initiator(..)))
@@ -121,6 +126,14 @@ impl P2pNetworkNoiseAction {
                 }
             }
             Self::IncomingChunk { addr, .. } => {
+                if let Some(error) = handshake_error {
+                    store.dispatch(P2pNetworkSchedulerAction::Error {
+                        addr,
+                        error: error.clone().into(),
+                    });
+                    return;
+                }
+
                 if handshake_optimized && middle_responder {
                     let kind = match &remote_peer_id {
                         Some(peer_id) => SelectKind::Multiplexing(peer_id.clone()),

@@ -87,6 +87,11 @@ impl P2pNetworkNoiseState {
                 if let Some(mut chunk) = self.incoming_chunks.pop_front() {
                     match state {
                         P2pNetworkNoiseStateInner::Initiator(i) => match i.consume(&mut chunk) {
+                            Ok(_) if i.remote_pk.as_ref() == Some(&self.local_pk) => {
+                                *state = P2pNetworkNoiseStateInner::Error(dbg!(
+                                    NoiseError::SelfConnection
+                                ));
+                            }
                             Ok(remote_payload) => {
                                 self.handshake_optimized = remote_payload.is_some();
                                 if let Some(remote_payload) = remote_payload {
@@ -98,6 +103,13 @@ impl P2pNetworkNoiseState {
                         },
                         P2pNetworkNoiseStateInner::Responder(o) => match o.consume(&mut chunk) {
                             Ok(None) => {}
+                            Ok(Some((ResponderOutput { remote_pk, .. }, _)))
+                                if &remote_pk == &self.local_pk =>
+                            {
+                                *state = P2pNetworkNoiseStateInner::Error(dbg!(
+                                    NoiseError::SelfConnection
+                                ));
+                            }
                             Ok(Some((
                                 ResponderOutput {
                                     send_key,

@@ -5,7 +5,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::{disconnection::P2pDisconnectionReason, PeerId};
+use crate::{disconnection::P2pDisconnectionReason, identity::PublicKey, PeerId};
 
 use super::super::*;
 
@@ -16,6 +16,7 @@ pub type StreamState<T> = BTreeMap<PeerId, BTreeMap<StreamId, T>>;
 pub struct P2pNetworkSchedulerState {
     pub interfaces: BTreeSet<IpAddr>,
     pub listeners: BTreeSet<SocketAddr>,
+    pub local_pk: PublicKey,
     #[serde_as(as = "serde_with::hex::Hex")]
     pub pnet_key: [u8; 32],
     pub connections: BTreeMap<SocketAddr, P2pNetworkConnectionState>,
@@ -68,6 +69,8 @@ pub enum P2pNetworkConnectionCloseReason {
 pub enum P2pNetworkConnectionError {
     #[error("mio error: {0}")]
     MioError(String),
+    #[error("noise handshake error: {0}")]
+    Noise(#[from] NoiseError),
     #[error("remote peer closed connection")]
     RemoteClosed,
 }

@@ -1,18 +1,19 @@
 use multiaddr::Multiaddr;
 use openmina_core::error;
 
-use crate::PeerId;
+use crate::{identity::PublicKey, PeerId};
 
 use super::*;
 
 impl P2pNetworkState {
     pub fn new(
-        peer_id: PeerId,
+        identity: PublicKey,
         addrs: Vec<Multiaddr>,
         known_peers: Vec<(PeerId, Multiaddr)>,
         chain_id: &str,
         discovery: bool,
     ) -> Self {
+        let peer_id = identity.peer_id();
         let pnet_key = {
             use blake2::{
                 digest::{generic_array::GenericArray, Update, VariableOutput},
@@ -47,6 +48,7 @@ impl P2pNetworkState {
             scheduler: P2pNetworkSchedulerState {
                 interfaces: Default::default(),
                 listeners: Default::default(),
+                local_pk: identity,
                 pnet_key,
                 connections: Default::default(),
                 broadcast_state: Default::default(),
