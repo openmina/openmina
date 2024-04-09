@@ -194,16 +194,21 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerStag
                         TransitionFrontierSyncLedgerStagedState::ReconstructPending { .. }
                     )
                 }),
-            TransitionFrontierSyncLedgerStagedAction::ReconstructSuccess { .. } => state
+            TransitionFrontierSyncLedgerStagedAction::ReconstructSuccess { ledger_hash } => state
                 .transition_frontier
                 .sync
                 .ledger()
                 .and_then(|s| s.staged())
                 .map_or(false, |s| {
+                    // Assumption here is that if the hash doesn't match, it is because the reconstruct
+                    // is stale (best tip changed while reconstruction was happening). The staging
+                    // ledger reconstruction logic itself will already validate that the resulting
+                    // reconstructed ledger matches the expected hash.
+                    let expected_hash = &s.target().staged.staged_ledger_hash;
                     matches!(
                         s,
                         TransitionFrontierSyncLedgerStagedState::ReconstructPending { .. }
-                    )
+                    ) && expected_hash == ledger_hash
                 }),
             TransitionFrontierSyncLedgerStagedAction::Success => state
                 .transition_frontier
