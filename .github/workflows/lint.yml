@@ -1,4 +1,4 @@
-name: rustfmt
+name: lint
 
 on:
   push:
@@ -6,17 +6,23 @@ on:
   pull_request:
 
 jobs:
-  rustfmt:
-    name: Rustfmt
+  lint:
+    name: Lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: 1.77
+          components: rustfmt, clippy
           default: true
-      - run: rustup component add rustfmt
       - uses: actions-rs/cargo@v1
+        name: rustfmt
         with:
           command: fmt
           args: --all -- --check
+      - uses: actions-rs/clippy-check@v1
+        name: clippy
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: --all-targets -- -A clippy::too_many_arguments -A clippy::doc_markdown
