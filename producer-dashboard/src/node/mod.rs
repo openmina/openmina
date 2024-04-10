@@ -6,6 +6,8 @@ use std::str::FromStr;
 
 use crate::StakingToolError;
 
+use self::best_chain::Variables;
+
 type PublicKey = String;
 type StateHash = String;
 type FeeTransferType = String;
@@ -43,6 +45,32 @@ impl<'de> Deserialize<'de> for StringNumber {
             .map(StringNumber)
             .map_err(serde::de::Error::custom)
     }
+}
+
+#[derive(GraphQLQuery)]
+#[graphql(
+    schema_path = "src/graphql/schema.json",
+    query_path = "src/graphql/genesis_timestamp.graphql",
+    response_derives = "Debug, Clone"
+)]
+struct GenesisTimestamp;
+
+pub async fn get_genesis_timestmap() -> Result<String, StakingToolError> {
+    let client = Client::builder()
+        .user_agent("graphql-rust/0.10.0")
+        .build()
+        .unwrap();
+
+    let variables = genesis_timestamp::Variables {};
+
+    let response_body =
+        post_graphql::<GenesisTimestamp, _>(&client, "http://adonagy.com:5000/graphql", variables)
+            .await
+            .unwrap();
+    let response_data: genesis_timestamp::ResponseData = response_body
+        .data
+        .ok_or(StakingToolError::EmptyGraphqlResponse)?;
+    Ok(response_data.genesis_constants.genesis_timestamp)
 }
 
 #[derive(GraphQLQuery)]

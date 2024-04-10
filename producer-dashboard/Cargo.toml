@@ -18,3 +18,6 @@ num-bigint = "0.4"
 thiserror = "1.0.44"
 num-traits = "0.2"
 serde_json = { version = "1.0.83" }
+vrf = { workspace = true }
+time = {version = "0.3", features = ["formatting", "parsing"]}
+clap = { version = "4.5", features = ["derive"]}

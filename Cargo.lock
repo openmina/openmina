@@ -4547,6 +4547,7 @@ dependencies = [
 name = "openmina-producer-dashboard"
 version = "0.3.0"
 dependencies = [
+ "clap 4.5.2",
  "graphql_client",
  "num-bigint",
  "num-traits",
@@ -4554,7 +4555,9 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
+ "time",
  "tokio",
+ "vrf",
  "warp",
 ]
 
