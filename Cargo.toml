@@ -27,6 +27,7 @@ members = [
     "tools/hash-tool",
     "tools/ledger-tool",
     "tools/salsa-simple",
+    "producer-dashboard",
 ]
 
 resolver = "2"

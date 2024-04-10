@@ -1,0 +1,20 @@
+[package]
+name = "openmina-producer-dashboard"
+version = "0.3.0"
+edition = "2021"
+license = "Apache-2.0"
+
+[[bin]]
+name = "openmina-producer-dashboard"
+path = "src/main.rs"
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+warp = "0.3"
+graphql_client = { version = "0.14", features = ["reqwest"]}
+reqwest = { version = "0.11", features = ["json"] }
+serde = { version = "1.0", features = ["derive"] }
+num-bigint = "0.4"
+thiserror = "1.0.44"
+num-traits = "0.2"
+serde_json = { version = "1.0.83" }

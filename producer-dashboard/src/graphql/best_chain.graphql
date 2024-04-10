@@ -1,0 +1,48 @@
+query BestChain($max_length: Int!) {
+  bestChain(maxLength: $max_length) {
+    creatorAccount {
+      publicKey
+      index
+      delegateAccount {
+        publicKey
+        index
+      }
+    }
+    commandTransactionCount
+    stateHash
+    transactions {
+      userCommands {
+        __typename
+        fee
+        kind
+        amount
+      }
+      coinbase
+      feeTransfer {
+        fee
+        recipient
+        type
+      }
+      coinbaseReceiverAccount {
+        publicKey
+      }
+    }
+    protocolState {
+      consensusState {
+        blockHeight
+        blockCreator
+        blockStakeWinner
+        epoch
+        epochCount
+        stakingEpochData {
+          epochLength
+          seed
+        }
+        nextEpochData {
+          epochLength
+          seed
+        }
+      }
+    }
+  }
+}
