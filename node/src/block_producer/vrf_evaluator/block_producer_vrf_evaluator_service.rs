@@ -1,6 +1,6 @@
 use mina_p2p_messages::v2::LedgerHash;
 
-use crate::account::AccountPublicKey;
+use openmina_node_account::AccountPublicKey;
 
 use super::{DelegatorTable, VrfEvaluatorInput};
 

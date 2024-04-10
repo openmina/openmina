@@ -1,8 +1,9 @@
 use std::{sync::Arc, time::Duration};
 
 use node::transition_frontier::genesis::GenesisConfig;
-use node::{account::AccountSecretKey, p2p::P2pTimeouts, BlockProducerConfig, SnarkerConfig};
+use node::{p2p::P2pTimeouts, BlockProducerConfig, SnarkerConfig};
 use openmina_core::CHAIN_ID;
+use openmina_node_account::AccountSecretKey;
 use serde::{Deserialize, Serialize};
 
 use crate::scenario::ListenerNode;

@@ -28,6 +28,7 @@ getrandom = "0.2.11"
 jsonpath-rust = "0.5.0"
 
 node = { path = "../../node", features = ["replay"] }
+openmina-node-account = { path = "../account"}
 
 [features]
 p2p-webrtc = ["node/p2p-webrtc"]

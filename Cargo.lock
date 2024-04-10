@@ -1043,6 +1043,7 @@ dependencies = [
  "node",
  "num_cpus",
  "openmina-core",
+ "openmina-node-account",
  "openmina-node-native",
  "rand 0.8.5",
  "rayon",
@@ -3844,13 +3845,8 @@ name = "node"
 version = "0.3.1"
 dependencies = [
  "anyhow",
- "argon2",
- "base64 0.22.0",
  "bincode",
- "bs58 0.4.0",
- "crypto_secretbox",
  "derive_more",
- "hex",
  "lazy_static",
  "mina-hasher",
  "mina-p2p-messages",
@@ -3858,8 +3854,8 @@ dependencies = [
  "mina-tree",
  "num_enum 0.5.11",
  "openmina-core",
+ "openmina-node-account",
  "p2p",
- "rand 0.8.5",
  "redux",
  "regex",
  "rust-format",
@@ -4211,6 +4207,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "openmina-node-account"
+version = "0.3.1"
+dependencies = [
+ "anyhow",
+ "argon2",
+ "base64 0.22.0",
+ "bincode",
+ "bs58 0.4.0",
+ "crypto_secretbox",
+ "hex",
+ "lazy_static",
+ "mina-hasher",
+ "mina-p2p-messages",
+ "mina-signer",
+ "openmina-core",
+ "rand 0.8.5",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "openmina-node-invariants"
 version = "0.3.1"
 dependencies = [
@@ -4239,6 +4257,7 @@ dependencies = [
  "mina-tree",
  "nix 0.26.4",
  "node",
+ "openmina-node-account",
  "rand 0.8.5",
  "rayon",
  "redux",
@@ -4276,6 +4295,7 @@ dependencies = [
  "node",
  "num_cpus",
  "openmina-core",
+ "openmina-node-account",
  "openmina-node-invariants",
  "openmina-node-native",
  "rand 0.8.5",

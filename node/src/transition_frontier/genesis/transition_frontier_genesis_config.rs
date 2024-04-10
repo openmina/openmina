@@ -4,9 +4,10 @@ use ledger::{scan_state::currency::Balance, BaseLedger};
 use mina_hasher::Fp;
 use mina_p2p_messages::{binprot::BinProtRead, v2};
 use openmina_core::constants::CONSTRAINT_CONSTANTS;
+use openmina_node_account::AccountSecretKey;
 use serde::{Deserialize, Serialize};
 
-use crate::{account::AccountSecretKey, ProtocolConstants};
+use crate::ProtocolConstants;
 
 pub use GenesisConfig as TransitionFrontierGenesisConfig;
 

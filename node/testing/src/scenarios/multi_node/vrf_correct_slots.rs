@@ -1,7 +1,6 @@
 use std::{collections::BTreeMap, str::FromStr, time::Duration};
 
 use node::{
-    account::AccountSecretKey,
     block_producer::{
         vrf_evaluator::VrfEvaluationOutputWithHash, BlockProducerEvent,
         BlockProducerVrfEvaluatorEvent,
@@ -10,6 +9,7 @@ use node::{
     p2p::P2pTimeouts,
     BlockProducerConfig,
 };
+use openmina_node_account::AccountSecretKey;
 use vrf::VrfEvaluationOutput;
 
 use crate::{

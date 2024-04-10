@@ -43,8 +43,10 @@ use openmina_core::snark::{Snark, SnarkJobId};
 
 use mina_signer::CompressedPubKey;
 use openmina_core::block::ArcBlockWithHash;
+use openmina_node_account::AccountPublicKey;
 
 use crate::block_producer::vrf_evaluator::BlockProducerVrfEvaluatorLedgerService;
+use crate::block_producer::vrf_evaluator::DelegatorTable;
 use crate::block_producer::{
     BlockProducerLedgerService, BlockProducerWonSlot, StagedLedgerDiffCreateOutput,
 };
@@ -54,7 +56,6 @@ use crate::transition_frontier::sync::{
     TransitionFrontierRootSnarkedLedgerUpdates,
 };
 use crate::transition_frontier::TransitionFrontierService;
-use crate::{account::AccountPublicKey, block_producer::vrf_evaluator::DelegatorTable};
 use crate::{
     p2p::channels::rpc::StagedLedgerAuxAndPendingCoinbases, transition_frontier::CommitResult,
 };

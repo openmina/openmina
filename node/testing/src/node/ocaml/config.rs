@@ -4,8 +4,8 @@ use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::str::FromStr;
 
-use node::account::AccountSecretKey;
 use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
+use openmina_node_account::AccountSecretKey;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
