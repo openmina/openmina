@@ -1,7 +1,7 @@
 mod block_producer_vrf_evaluator_state;
-use crate::account::AccountPublicKey;
 use ledger::AccountIndex;
 use mina_p2p_messages::v2::{EpochSeed, LedgerHash};
+use openmina_node_account::AccountPublicKey;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 use vrf::{VrfEvaluationOutput, VrfWonSlot};

@@ -2,6 +2,7 @@ mod config;
 pub use config::{ClusterConfig, ProofKind};
 
 mod p2p_task_spawner;
+use openmina_node_account::{AccountPublicKey, AccountSecretKey};
 pub use p2p_task_spawner::P2pTaskSpawner;
 
 mod node_id;
@@ -27,7 +28,6 @@ use node::p2p::service_impl::{
 use node::p2p::{P2pConnectionEvent, P2pDiscoveryEvent, P2pEvent, PeerId};
 use node::snark::{VerifierIndex, VerifierSRS};
 use node::{
-    account::{AccountPublicKey, AccountSecretKey},
     event_source::Event,
     ledger::LedgerCtx,
     p2p::{channels::ChannelId, identity::SecretKey as P2pSecretKey},

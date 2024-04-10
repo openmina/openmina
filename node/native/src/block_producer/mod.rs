@@ -7,10 +7,10 @@ use mina_p2p_messages::v2::{
     MinaBaseProofStableV2, ProverExtendBlockchainInputStableV2, StateHash,
 };
 use node::{
-    account::AccountSecretKey,
     block_producer::{vrf_evaluator::VrfEvaluatorInput, BlockProducerEvent},
     core::channels::mpsc,
 };
+use openmina_node_account::AccountSecretKey;
 
 use crate::NodeService;
 

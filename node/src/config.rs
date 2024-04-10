@@ -4,7 +4,6 @@ use std::str::FromStr;
 use mina_p2p_messages::v2::CurrencyFeeStableV1;
 use serde::{Deserialize, Serialize};
 
-use crate::account::AccountPublicKey;
 pub use crate::block_producer::BlockProducerConfig;
 pub use crate::ledger::LedgerConfig;
 pub use crate::p2p::P2pConfig;
@@ -12,6 +11,7 @@ pub use crate::snark::SnarkConfig;
 pub use crate::snark_pool::SnarkPoolConfig;
 pub use crate::transition_frontier::TransitionFrontierConfig;
 pub use mina_p2p_messages::v2::MinaBaseProtocolConstantsCheckedValueStableV1 as ProtocolConstants;
+use openmina_node_account::AccountPublicKey;
 
 // TODO(binier): maybe make sure config is immutable.
 

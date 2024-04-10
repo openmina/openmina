@@ -4,8 +4,9 @@ use openmina_core::{
     block::{genesis::genesis_and_negative_one_protocol_states, BlockWithHash},
     constants::PROTOCOL_VERSION,
 };
+use openmina_node_account::AccountSecretKey;
 
-use crate::{account::AccountSecretKey, block_producer::calc_epoch_seed};
+use crate::block_producer::calc_epoch_seed;
 
 use super::{
     empty_block_body, empty_block_body_hash, empty_pending_coinbase_hash,

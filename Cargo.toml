@@ -9,6 +9,7 @@ members = [
     "p2p",
     "p2p/libp2p-rpc-behaviour",
     "node",
+    "node/account",
     "node/native",
     "node/invariants",
     "node/testing",

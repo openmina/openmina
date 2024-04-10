@@ -1,11 +1,8 @@
 use std::{collections::BTreeMap, str::FromStr, time::Duration};
 
 use ledger::AccountIndex;
-use node::{
-    account::{AccountPublicKey, AccountSecretKey},
-    p2p::P2pTimeouts,
-    ActionKind, BlockProducerConfig,
-};
+use node::{p2p::P2pTimeouts, ActionKind, BlockProducerConfig};
+use openmina_node_account::{AccountPublicKey, AccountSecretKey};
 
 use crate::{
     node::{RustNodeBlockProducerTestingConfig, RustNodeTestingConfig},

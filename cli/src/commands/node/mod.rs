@@ -9,11 +9,11 @@ use mina_p2p_messages::v2::{
     CurrencyFeeStableV1, NonZeroCurvePoint, NonZeroCurvePointUncompressedStableV1,
     UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
 };
+use openmina_node_account::{AccountPublicKey, AccountSecretKey};
 use rand::prelude::*;
 
 use tokio::select;
 
-use node::account::{AccountPublicKey, AccountSecretKey};
 use node::core::channels::mpsc;
 use node::core::log::inner::Level;
 use node::event_source::EventSourceAction;

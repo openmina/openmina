@@ -1,10 +1,9 @@
 use ledger::dummy::dummy_blockchain_proof;
 use mina_p2p_messages::v2;
+use openmina_node_account::AccountSecretKey;
 use redux::ActionMeta;
 
-use crate::{
-    account::AccountSecretKey, transition_frontier::genesis::empty_pending_coinbase, Store,
-};
+use crate::{transition_frontier::genesis::empty_pending_coinbase, Store};
 
 use super::{
     TransitionFrontierGenesisAction, TransitionFrontierGenesisService,

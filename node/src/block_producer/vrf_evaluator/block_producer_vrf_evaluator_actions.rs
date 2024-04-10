@@ -1,4 +1,3 @@
-use crate::account::AccountPublicKey;
 use crate::block_producer::vrf_evaluator::BlockProducerVrfEvaluatorStatus;
 use crate::block_producer::vrf_evaluator::EpochContext;
 use mina_p2p_messages::v2::{
@@ -8,6 +7,7 @@ use mina_p2p_messages::v2::{
 use openmina_core::action_info;
 use openmina_core::block::ArcBlockWithHash;
 use openmina_core::ActionEvent;
+use openmina_node_account::AccountPublicKey;
 use serde::{Deserialize, Serialize};
 use vrf::VrfEvaluationOutput;
 use vrf::VrfWonSlot;

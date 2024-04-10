@@ -27,6 +27,7 @@ clap = { version = "4.3", features = [ "derive", "env" ] }
 
 openmina-core = { path = "../core" }
 node = { path = "../node", features = ["replay"] }
+openmina-node-account = { path = "../node/account"}
 openmina-node-native = { path = "../node/native" }
 bytes = "1.4.0"
 tracing = "0.1.37"

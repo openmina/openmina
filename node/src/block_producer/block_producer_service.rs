@@ -12,7 +12,7 @@ use openmina_core::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::account::AccountSecretKey;
+use openmina_node_account::AccountSecretKey;
 
 use super::BlockProducerWonSlot;
 

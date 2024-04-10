@@ -1,5 +1,6 @@
 use libp2p_identity::PeerId;
-use node::{account::AccountSecretKey, p2p::identity::SecretKey};
+use node::p2p::identity::SecretKey;
+use openmina_node_account::AccountSecretKey;
 
 use crate::CommandError;
 
