@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::user_command_verify::SnarkUserCommandVerifyAction;
+
 use super::block_verify::SnarkBlockVerifyAction;
 use super::work_verify::SnarkWorkVerifyAction;
 
@@ -10,4 +12,5 @@ pub type SnarkActionWithMetaRef<'a> = redux::ActionWithMeta<&'a SnarkAction>;
 pub enum SnarkAction {
     BlockVerify(SnarkBlockVerifyAction),
     WorkVerify(SnarkWorkVerifyAction),
+    UserCommandVerify(SnarkUserCommandVerifyAction),
 }

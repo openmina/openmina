@@ -1,7 +1,15 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    sync::{Arc, Mutex},
+};
 
-use ledger::{scan_state::transaction_logic::UserCommand, transaction_pool::{diff, ApplyDecision}, Account, AccountId, BaseLedger, Mask};
+use ledger::{
+    scan_state::transaction_logic::{verifiable, UserCommand, WithStatus},
+    transaction_pool::{diff, ApplyDecision},
+    Account, AccountId, BaseLedger, Mask,
+};
 use mina_p2p_messages::v2::LedgerHash;
+use snark::{VerifierIndex, VerifierSRS};
 
 use crate::{Service, Store};
 
@@ -47,9 +55,11 @@ impl TransactionPoolState {
                 is_sender_local,
                 accounts,
             } => match self.pool.unsafe_apply(diff, &accounts, *is_sender_local) {
-                Ok((ApplyDecision::Accept, accepted, rejected)) => self.rebroadcast(accepted, rejected),
+                Ok((ApplyDecision::Accept, accepted, rejected)) => {
+                    self.rebroadcast(accepted, rejected)
+                }
                 Ok((ApplyDecision::Reject, accepted, rejected)) => todo!(),
-                Err(_e) => eprintln!("unsafe_apply: {:?}", e),
+                Err(e) => eprintln!("unsafe_apply error: {:?}", e),
             },
             ApplyTransitionFrontierDiff {
                 best_tip_hash: _,
@@ -58,7 +68,7 @@ impl TransactionPoolState {
             ApplyTransitionFrontierDiffWithAccounts { diff, accounts } => {
                 self.pool.handle_transition_frontier_diff(diff, &accounts);
             }
-            Rebroadcast => {},
+            Rebroadcast => {}
         }
     }
 }
@@ -144,4 +154,13 @@ pub fn transaction_pool_effects<S: Service>(
 
 pub trait TransactionPoolLedgerService: redux::Service {
     fn get_mask(&self, ledger_hash: &LedgerHash) -> Result<Mask, String>;
+}
+
+pub trait VerifyUserCommandsService: redux::Service {
+    fn verify_init(
+        &mut self,
+        commands: Vec<WithStatus<verifiable::UserCommand>>,
+        verifier_index: Arc<VerifierIndex>,
+        verifier_srs: Arc<Mutex<VerifierSRS>>,
+    );
 }

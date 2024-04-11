@@ -1909,7 +1909,7 @@ impl TransactionPool {
         }
     }
 
-    fn verify(
+    pub fn verify(
         &self,
         diff: Envelope<diff::Diff>,
         accounts: BTreeMap<AccountId, Account>,

@@ -3,11 +3,18 @@ use std::collections::{BTreeMap, VecDeque};
 use std::sync::{Arc, Mutex};
 
 use ledger::scan_state::scan_state::transaction_snark::{SokDigest, Statement};
-use libp2p_identity::Keypair;
-use mina_p2p_messages::v2::{LedgerProofProdStableV2, TransactionSnarkWorkTStableV2Proofs};
-#[cfg(feature = "p2p-libp2p")]
+use ledger::scan_state::transaction_logic::{verifiable, UserCommand, WithStatus};
+use ledger::verifier::Verifier;
+use libp2p::identity::Keypair;
+use mina_p2p_messages::v2::{
+    LedgerHash, LedgerProofProdStableV2, MinaBaseAccountBinableArgStableV2,
+    MinaBaseSparseLedgerBaseStableV2, MinaLedgerSyncLedgerAnswerStableV2,
+    MinaLedgerSyncLedgerQueryStableV1, MinaStateProtocolStateValueStableV2, NonZeroCurvePoint,
+    StateHash, TransactionSnarkWorkTStableV2Proofs,
+};
 use node::p2p::service_impl::mio::MioService;
-use node::p2p::service_impl::services::NativeP2pNetworkService;
+use openmina_core::block::ArcBlockWithHash;
+use node::transaction_pool::VerifyUserCommandsService;
 use rand::prelude::*;
 use redux::ActionMeta;
 use serde::Serialize;
@@ -223,6 +230,34 @@ impl SnarkBlockVerifyService for NodeService {
             eprintln!("verify({}) - end", block.hash_ref());
 
             let _ = tx.send(SnarkEvent::BlockVerify(req_id, result).into());
+        });
+    }
+}
+
+impl VerifyUserCommandsService for NodeService {
+    fn verify_init(
+        &mut self,
+        commands: Vec<WithStatus<verifiable::UserCommand>>,
+        verifier_index: Arc<VerifierIndex>,
+        verifier_srs: Arc<Mutex<VerifierSRS>>,
+    ) {
+        if self.replayer.is_some() {
+            return;
+        }
+        let tx = self.event_sender.clone();
+        rayon::spawn_fifo(move || {
+            let verifieds: Vec<_> = Verifier
+                .verify_commands(commands, None)
+                .into_iter()
+                .map(|cmd| {
+                    // TODO: Handle invalids
+                    match cmd {
+                        ledger::verifier::VerifyCommandsResult::Valid(cmd) => Ok(cmd),
+                        e => Err(format!("invalid tx: {:?}", e)),
+                    }
+                })
+                .collect();
+            // let _ = tx.send(SnarkEvent::WorkVerify(req_id, result).into());
         });
     }
 }

@@ -50,6 +50,7 @@ use crate::p2p::peer::P2pPeerAction;
 use crate::p2p::P2pAction;
 use crate::rpc::RpcAction;
 use crate::snark::block_verify::SnarkBlockVerifyAction;
+use crate::snark::user_command_verify::SnarkUserCommandVerifyAction;
 use crate::snark::work_verify::SnarkWorkVerifyAction;
 use crate::snark::SnarkAction;
 use crate::snark_pool::candidate::SnarkPoolCandidateAction;
@@ -340,6 +341,11 @@ pub enum ActionKind {
     SnarkPoolCandidateWorkVerifyNext,
     SnarkPoolCandidateWorkVerifyPending,
     SnarkPoolCandidateWorkVerifySuccess,
+    SnarkUserCommandVerifyError,
+    SnarkUserCommandVerifyFinish,
+    SnarkUserCommandVerifyInit,
+    SnarkUserCommandVerifyPending,
+    SnarkUserCommandVerifySuccess,
     SnarkWorkVerifyError,
     SnarkWorkVerifyFinish,
     SnarkWorkVerifyInit,
@@ -512,6 +518,7 @@ impl ActionKindGet for SnarkAction {
         match self {
             Self::BlockVerify(a) => a.kind(),
             Self::WorkVerify(a) => a.kind(),
+            Self::UserCommandVerify(a) => a.kind(),
         }
     }
 }
@@ -826,6 +833,18 @@ impl ActionKindGet for SnarkWorkVerifyAction {
             Self::Error { .. } => ActionKind::SnarkWorkVerifyError,
             Self::Success { .. } => ActionKind::SnarkWorkVerifySuccess,
             Self::Finish { .. } => ActionKind::SnarkWorkVerifyFinish,
+        }
+    }
+}
+
+impl ActionKindGet for SnarkUserCommandVerifyAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::Init { .. } => ActionKind::SnarkUserCommandVerifyInit,
+            Self::Pending { .. } => ActionKind::SnarkUserCommandVerifyPending,
+            Self::Error { .. } => ActionKind::SnarkUserCommandVerifyError,
+            Self::Success { .. } => ActionKind::SnarkUserCommandVerifySuccess,
+            Self::Finish { .. } => ActionKind::SnarkUserCommandVerifyFinish,
         }
     }
 }

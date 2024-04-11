@@ -10,6 +10,7 @@ pub use ledger::proofs::verifier_index::{get_verifier_index, VerifierKind};
 pub use merkle_path::calc_merkle_root_hash;
 
 pub mod block_verify;
+pub mod user_command_verify;
 pub mod work_verify;
 
 mod snark_event;

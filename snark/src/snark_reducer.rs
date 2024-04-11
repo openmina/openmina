@@ -6,6 +6,9 @@ impl SnarkState {
         match action {
             SnarkAction::BlockVerify(a) => self.block_verify.reducer(meta.with_action(a)),
             SnarkAction::WorkVerify(a) => self.work_verify.reducer(meta.with_action(a)),
+            SnarkAction::UserCommandVerify(a) => {
+                self.user_command_verify.reducer(meta.with_action(a))
+            }
         }
     }
 }
