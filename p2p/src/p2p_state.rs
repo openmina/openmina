@@ -11,7 +11,7 @@ use crate::channels::{ChannelId, P2pChannelsState};
 use crate::connection::incoming::P2pConnectionIncomingState;
 use crate::connection::outgoing::{P2pConnectionOutgoingInitOpts, P2pConnectionOutgoingState};
 use crate::network::P2pNetworkState;
-use crate::{P2pTimeouts, PeerId};
+use crate::{is_time_passed, P2pTimeouts, PeerId};
 
 use super::connection::P2pConnectionState;
 use super::P2pConfig;
@@ -273,8 +273,8 @@ impl P2pState {
     }
 
     /// The peers capacity is exceeded.
-    pub fn already_has_too_many_peers(&self) -> bool {
-        self.connected_or_connecting_peers_count() > self.config.max_peers
+    pub fn already_has_max_ready_peers(&self) -> bool {
+        self.ready_peers_iter().count() >= self.config.max_peers
     }
 
     pub fn already_knows_max_peers(&self) -> bool {
@@ -338,12 +338,13 @@ impl P2pPeerState {
             && match &self.status {
                 P2pPeerStatus::Connecting(P2pConnectionState::Incoming(
                     P2pConnectionIncomingState::Error { time, .. },
-                )) => now.checked_sub(*time) >= timeouts.incoming_error_reconnect_timeout,
+                )) => is_time_passed(now, *time, timeouts.incoming_error_reconnect_timeout),
                 P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(
                     P2pConnectionOutgoingState::Error { time, .. },
-                )) => now.checked_sub(*time) >= timeouts.outgoing_error_reconnect_timeout,
+                )) => is_time_passed(now, *time, timeouts.outgoing_error_reconnect_timeout),
                 P2pPeerStatus::Disconnected { time } => {
-                    *time == Timestamp::ZERO || now.checked_sub(*time) >= timeouts.reconnect_timeout
+                    *time == Timestamp::ZERO
+                        || is_time_passed(now, *time, timeouts.reconnect_timeout)
                 }
                 _ => false,
             }

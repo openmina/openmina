@@ -42,3 +42,13 @@ pub use multiaddr;
 const fn is_old_libp2p() -> bool {
     cfg!(feature = "p2p-libp2p")
 }
+
+/// Returns true if duration value is configured, and, given the time is `now`,
+/// that duration is passed since `then`.
+fn is_time_passed(
+    now: redux::Timestamp,
+    then: redux::Timestamp,
+    duration: Option<std::time::Duration>,
+) -> bool {
+    duration.map_or(false, |d| now.checked_sub(then) >= Some(d))
+}

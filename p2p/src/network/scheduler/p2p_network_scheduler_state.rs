@@ -64,6 +64,14 @@ pub enum P2pNetworkConnectionCloseReason {
     Error(#[from] P2pNetworkConnectionError),
 }
 
+impl P2pNetworkConnectionCloseReason {
+    /// Returns true if the reason for disconnection is the statemachine
+    /// behaviour, not external error.
+    pub fn is_disconnected(&self) -> bool {
+        matches!(self, P2pNetworkConnectionCloseReason::Disconnect(_))
+    }
+}
+
 /// P2p connection error.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error, Serialize, Deserialize)]
 pub enum P2pNetworkConnectionError {

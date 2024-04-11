@@ -229,6 +229,10 @@ impl P2pNetworkSchedulerAction {
                 if let Some(conn_state) = store.state().network.scheduler.connections.get(&addr) {
                     let incoming = conn_state.incoming;
                     store.dispatch(P2pNetworkSchedulerAction::Prune { addr });
+                    if reason.is_disconnected() {
+                        // statemachine behaviour should continue with this, i.e. dispatch P2pDisconnectionAction::Finish
+                        return;
+                    }
                     match store.state().peer_with_connection(addr) {
                         Some((peer_id, peer_state)) => {
                             // TODO: connection state type should tell if it is finalized
