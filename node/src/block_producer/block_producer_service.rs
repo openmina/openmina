@@ -29,7 +29,7 @@ pub struct StagedLedgerDiffCreateOutput {
 
 pub trait BlockProducerLedgerService: redux::Service {
     fn staged_ledger_diff_create(
-        &mut self,
+        &self,
         pred_block: &ArcBlockWithHash,
         won_slot: &BlockProducerWonSlot,
         coinbase_receiver: &NonZeroCurvePoint,
@@ -38,7 +38,7 @@ pub trait BlockProducerLedgerService: redux::Service {
     ) -> Result<StagedLedgerDiffCreateOutput, String>;
 
     fn stake_proof_sparse_ledger(
-        &mut self,
+        &self,
         staking_ledger: LedgerHash,
         producer: NonZeroCurvePoint,
         delegator: NonZeroCurvePoint,

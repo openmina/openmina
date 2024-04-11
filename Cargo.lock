@@ -4258,6 +4258,7 @@ dependencies = [
  "mina-tree",
  "nix 0.26.4",
  "node",
+ "openmina-core",
  "openmina-node-account",
  "rand 0.8.5",
  "rayon",

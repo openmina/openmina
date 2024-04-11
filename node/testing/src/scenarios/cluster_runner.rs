@@ -378,7 +378,7 @@ impl<'a> ClusterRunner<'a> {
             // genesis block.
             const GENESIS_PRODUCER: &'static str =
                 "B62qiy32p8kAKnny8ZFwoMhYpBppM1DWVCqAPBYNcXnsAHhnfAAuXgg";
-            LedgerService::ctx(node.service())
+            LedgerService::ledger_manager(node.service())
                 .producers_with_delegates(staking_ledger_hash, |pub_key| {
                     pub_key.into_address() != GENESIS_PRODUCER
                 })
@@ -409,7 +409,7 @@ impl<'a> ClusterRunner<'a> {
         let Some(mask) = self.node(node_id).and_then(|node| {
             let best_tip = node.state().transition_frontier.best_tip()?;
             let ledger_hash = best_tip.staged_ledger_hash();
-            let (mask, _) = LedgerService::ctx(node.service()).mask(ledger_hash)?;
+            let (mask, _) = LedgerService::ledger_manager(node.service()).get_mask(ledger_hash)?;
             Some(mask)
         }) else {
             return Box::new(std::iter::empty());

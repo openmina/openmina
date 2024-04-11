@@ -11,7 +11,7 @@ pub trait BlockProducerVrfEvaluatorService: redux::Service {
 
 pub trait BlockProducerVrfEvaluatorLedgerService: redux::Service {
     fn get_producer_and_delegates(
-        &mut self,
+        &self,
         ledger_hash: LedgerHash,
         producer: AccountPublicKey,
     ) -> DelegatorTable;

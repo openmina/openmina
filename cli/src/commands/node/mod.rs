@@ -17,7 +17,7 @@ use tokio::select;
 use node::core::channels::mpsc;
 use node::core::log::inner::Level;
 use node::event_source::EventSourceAction;
-use node::ledger::LedgerCtx;
+use node::ledger::{LedgerCtx, LedgerManager};
 use node::p2p::channels::ChannelId;
 use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 use node::p2p::identity::SecretKey;
@@ -242,6 +242,8 @@ impl Node {
         // reconstruction async, can be removed when the ledger services are made async
         ledger.set_event_sender(event_sender.clone());
 
+        let ledger_manager = LedgerManager::spawn(ledger);
+
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .thread_stack_size(64 * 1024 * 1024)
@@ -254,7 +256,7 @@ impl Node {
                 event_sender,
                 event_receiver: event_receiver.into(),
                 cmd_sender: p2p_service_ctx.webrtc.cmd_sender,
-                ledger,
+                ledger_manager,
                 peers: p2p_service_ctx.webrtc.peers,
                 #[cfg(feature = "p2p-libp2p")]
                 libp2p: p2p_service_ctx.libp2p,

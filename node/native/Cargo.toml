@@ -26,6 +26,7 @@ nix = { version = "0.26.2", features = ["signal"] }
 vrf = { workspace = true }
 getrandom = "0.2.11"
 jsonpath-rust = "0.5.0"
+openmina-core = { path = "../../core" }
 
 node = { path = "../../node", features = ["replay"] }
 openmina-node-account = { path = "../account"}

@@ -22,12 +22,12 @@ pub struct CommitResult {
 
 pub trait TransitionFrontierService: redux::Service {
     fn block_apply(
-        &mut self,
+        &self,
         block: ArcBlockWithHash,
         pred_block: ArcBlockWithHash,
     ) -> Result<(), String>;
     fn commit(
-        &mut self,
+        &self,
         ledgers_to_keep: BTreeSet<LedgerHash>,
         root_snarked_ledger_updates: TransitionFrontierRootSnarkedLedgerUpdates,
         needed_protocol_states: BTreeMap<StateHash, MinaStateProtocolStateValueStableV2>,
@@ -35,12 +35,12 @@ pub trait TransitionFrontierService: redux::Service {
         new_best_tip: &ArcBlockWithHash,
     ) -> CommitResult;
     fn answer_ledger_query(
-        &mut self,
+        &self,
         ledger_hash: LedgerHash,
         query: MinaLedgerSyncLedgerQueryStableV1,
     ) -> Option<MinaLedgerSyncLedgerAnswerStableV2>;
     fn staged_ledger_aux_and_pending_coinbase(
-        &mut self,
+        &self,
         ledger_hash: LedgerHash,
         protocol_states: BTreeMap<StateHash, MinaStateProtocolStateValueStableV2>,
     ) -> Option<Arc<StagedLedgerAuxAndPendingCoinbases>>;
