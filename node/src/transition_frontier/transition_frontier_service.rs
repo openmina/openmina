@@ -14,7 +14,7 @@ use crate::p2p::channels::rpc::StagedLedgerAuxAndPendingCoinbases;
 
 use super::sync::TransitionFrontierRootSnarkedLedgerUpdates;
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct CommitResult {
     pub available_jobs: Vec<OneOrTwo<AvailableJobMessage>>,
     pub needed_protocol_states: BTreeSet<StateHash>,
