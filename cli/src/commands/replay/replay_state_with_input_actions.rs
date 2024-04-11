@@ -2,6 +2,7 @@ use std::cell::RefCell;
 
 use libp2p_identity::Keypair;
 use node::core::channels::mpsc;
+use node::ledger::LedgerManager;
 use node::recorder::{Recorder, StateWithInputActionsReader};
 use node::snark::VerifierKind;
 use node::{ActionWithMeta, BuildEnv, Store};
@@ -56,7 +57,7 @@ impl ReplayStateWithInputActions {
             event_sender: mpsc::unbounded_channel().0,
             event_receiver: mpsc::unbounded_channel().1.into(),
             cmd_sender: mpsc::unbounded_channel().0,
-            ledger: Default::default(),
+            ledger_manager: LedgerManager::spawn(Default::default()),
             peers: Default::default(),
             #[cfg(feature = "p2p-libp2p")]
             libp2p: node::p2p::service_impl::libp2p::Libp2pService::mocked().0,

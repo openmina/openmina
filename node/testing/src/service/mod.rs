@@ -40,7 +40,6 @@ use node::transition_frontier::genesis::GenesisConfig;
 use node::{
     event_source::Event,
     external_snark_worker::{ExternalSnarkWorkerService, SnarkWorkSpec},
-    ledger::LedgerCtx,
     p2p::{
         connection::outgoing::P2pConnectionOutgoingInitOpts,
         service_impl::webrtc::{Cmd, P2pServiceWebrtc, PeerState},
@@ -202,7 +201,10 @@ impl NodeTestingService {
     }
 
     pub fn ledger(&self, ledger_hash: &LedgerHash) -> Option<Mask> {
-        self.real.ledger.mask(ledger_hash).map(|(mask, _)| mask)
+        self.real
+            .ledger_manager
+            .get_mask(ledger_hash)
+            .map(|(mask, _)| mask)
     }
 }
 
@@ -237,12 +239,8 @@ impl P2pCryptoService for NodeTestingService {
 }
 
 impl node::ledger::LedgerService for NodeTestingService {
-    fn ctx(&self) -> &LedgerCtx {
-        &self.real.ledger
-    }
-
-    fn ctx_mut(&mut self) -> &mut LedgerCtx {
-        &mut self.real.ledger
+    fn ledger_manager(&self) -> &node::ledger::LedgerManager {
+        &self.real.ledger_manager
     }
 }
 

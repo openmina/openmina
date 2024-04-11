@@ -27,6 +27,7 @@ openmina-core = { path = "../core" }
 snark = { path = "../snark" }
 p2p = { path = "../p2p" }
 openmina-node-account = { path = "./account" }
+tokio = { version = "1.26.0" }
 
 [build-dependencies]
 regex = "1"

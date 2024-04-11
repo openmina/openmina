@@ -29,7 +29,7 @@ use node::p2p::{P2pConnectionEvent, P2pDiscoveryEvent, P2pEvent, PeerId};
 use node::snark::{VerifierIndex, VerifierSRS};
 use node::{
     event_source::Event,
-    ledger::LedgerCtx,
+    ledger::{LedgerCtx, LedgerManager},
     p2p::{channels::ChannelId, identity::SecretKey as P2pSecretKey},
     service::Recorder,
     snark::{get_srs, get_verifier_index, VerifierKind},
@@ -345,7 +345,7 @@ impl Cluster {
             event_sender,
             event_receiver: event_receiver.into(),
             cmd_sender,
-            ledger,
+            ledger_manager: LedgerManager::spawn(ledger),
             peers,
             #[cfg(feature = "p2p-libp2p")]
             libp2p: p2p_service_ctx.libp2p,
