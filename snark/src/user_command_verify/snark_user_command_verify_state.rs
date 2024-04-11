@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use ledger::scan_state::transaction_logic::verifiable;
+use ledger::scan_state::transaction_logic::{verifiable, WithStatus};
 use serde::{Deserialize, Serialize};
 
 use openmina_core::requests::PendingRequests;
@@ -46,7 +46,7 @@ pub enum SnarkUserCommandVerifyStatus {
     Init {
         time: redux::Timestamp,
         #[serde(skip)] // TODO
-        commands: Vec<verifiable::UserCommand>,
+        commands: Vec<WithStatus<verifiable::UserCommand>>,
         // TODO(binier): move p2p/src/identity to shared crate and use
         // `PeerId` here.
         sender: String,
@@ -54,20 +54,20 @@ pub enum SnarkUserCommandVerifyStatus {
     Pending {
         time: redux::Timestamp,
         #[serde(skip)] // TODO
-        commands: Vec<verifiable::UserCommand>,
+        commands: Vec<WithStatus<verifiable::UserCommand>>,
         sender: String,
     },
     Error {
         time: redux::Timestamp,
         #[serde(skip)] // TODO
-        commands: Vec<verifiable::UserCommand>,
+        commands: Vec<WithStatus<verifiable::UserCommand>>,
         sender: String,
         error: SnarkUserCommandVerifyError,
     },
     Success {
         time: redux::Timestamp,
         #[serde(skip)] // TODO
-        commands: Vec<verifiable::UserCommand>,
+        commands: Vec<WithStatus<verifiable::UserCommand>>,
         sender: String,
     },
 }
@@ -85,7 +85,7 @@ impl SnarkUserCommandVerifyStatus {
         matches!(self, Self::Error { .. } | Self::Success { .. })
     }
 
-    pub fn commands(&self) -> &[verifiable::UserCommand] {
+    pub fn commands(&self) -> &[WithStatus<verifiable::UserCommand>] {
         match self {
             Self::Init { commands, .. } => commands,
             Self::Pending { commands, .. } => commands,

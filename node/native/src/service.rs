@@ -14,6 +14,7 @@ use mina_p2p_messages::v2::{
 };
 use node::p2p::service_impl::mio::MioService;
 use openmina_core::block::ArcBlockWithHash;
+use node::snark::user_command_verify::{SnarkUserCommandVerifyId, SnarkUserCommandVerifyService};
 use node::transaction_pool::VerifyUserCommandsService;
 use rand::prelude::*;
 use redux::ActionMeta;
@@ -234,9 +235,10 @@ impl SnarkBlockVerifyService for NodeService {
     }
 }
 
-impl VerifyUserCommandsService for NodeService {
+impl SnarkUserCommandVerifyService for NodeService {
     fn verify_init(
         &mut self,
+        req_id: SnarkUserCommandVerifyId,
         commands: Vec<WithStatus<verifiable::UserCommand>>,
         verifier_index: Arc<VerifierIndex>,
         verifier_srs: Arc<Mutex<VerifierSRS>>,
@@ -257,7 +259,7 @@ impl VerifyUserCommandsService for NodeService {
                     }
                 })
                 .collect();
-            // let _ = tx.send(SnarkEvent::WorkVerify(req_id, result).into());
+            let _ = tx.send(SnarkEvent::UserCommandVerify(req_id, verifieds).into());
         });
     }
 }

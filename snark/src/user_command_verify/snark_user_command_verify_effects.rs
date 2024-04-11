@@ -17,7 +17,7 @@ impl SnarkUserCommandVerifyAction {
                 let verifier_srs = store.state().work_verify.verifier_srs.clone();
                 store
                     .service()
-                    .verify_init(req_id, verifier_index, verifier_srs, commands);
+                    .verify_init(req_id, commands, verifier_index, verifier_srs);
                 store.dispatch(SnarkUserCommandVerifyAction::Pending { req_id });
             }
             SnarkUserCommandVerifyAction::Error { req_id, .. } => {

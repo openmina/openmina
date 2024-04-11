@@ -59,5 +59,8 @@ pub fn snark_effects<S: Service>(store: &mut Store<S>, action: SnarkActionWithMe
             }
             a.effects(&meta, store);
         }
+        SnarkAction::UserCommandVerify(a) => {
+            a.effects(&meta, store);
+        }
     }
 }

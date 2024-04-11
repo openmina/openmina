@@ -1,8 +1,9 @@
+use ledger::scan_state::transaction_logic::valid;
 use serde::{Deserialize, Serialize};
 
 use super::block_verify::{SnarkBlockVerifyError, SnarkBlockVerifyId};
 use super::work_verify::{SnarkWorkVerifyError, SnarkWorkVerifyId};
-use crate::user_command_verify::{SnarkUserCommandVerifyError, SnarkUserCommandVerifyId};
+use crate::user_command_verify::SnarkUserCommandVerifyId;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum SnarkEvent {
@@ -10,7 +11,7 @@ pub enum SnarkEvent {
     WorkVerify(SnarkWorkVerifyId, Result<(), SnarkWorkVerifyError>),
     UserCommandVerify(
         SnarkUserCommandVerifyId,
-        Result<(), SnarkUserCommandVerifyError>,
+        Vec<Result<valid::UserCommand, String>>,
     ),
 }
 
@@ -32,7 +33,13 @@ impl std::fmt::Display for SnarkEvent {
                 write!(f, "WorkVerify, {id}, {}", res_kind(res))
             }
             Self::UserCommandVerify(id, res) => {
-                write!(f, "UserCommandVerify, {id}, {}", res_kind(res))
+                let n_failed = res.iter().filter(|res| res.is_err()).count();
+                let n_success = res.len() - n_failed;
+                write!(
+                    f,
+                    "UserCommandVerify, {id}, n_success={} n_failed={}",
+                    n_success, n_failed
+                )
             }
         }
     }

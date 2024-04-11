@@ -1,3 +1,8 @@
+use p2p::channels::snark::P2pChannelsSnarkAction;
+use p2p::listen::P2pListenAction;
+use p2p::P2pListenEvent;
+use snark::user_command_verify::{SnarkUserCommandVerifyAction, SnarkUserCommandVerifyError};
+
 use crate::action::CheckTimeoutsAction;
 use crate::block_producer::vrf_evaluator::BlockProducerVrfEvaluatorAction;
 use crate::block_producer::{BlockProducerEvent, BlockProducerVrfEvaluatorEvent};
@@ -262,6 +267,16 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                         store.dispatch(SnarkWorkVerifyAction::Success { req_id });
                     }
                 },
+                SnarkEvent::UserCommandVerify(req_id, result) => {
+                    if result.iter().any(|res| res.is_err()) {
+                        store.dispatch(SnarkUserCommandVerifyAction::Error {
+                            req_id,
+                            error: SnarkUserCommandVerifyError::VerificationFailed,
+                        });
+                    } else {
+                        store.dispatch(SnarkUserCommandVerifyAction::Success { req_id });
+                    }
+                }
             },
             Event::Rpc(rpc_id, e) => match e {
                 RpcRequest::StateGet(filter) => {

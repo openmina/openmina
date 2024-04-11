@@ -9,7 +9,7 @@ use ledger::{
     Account, AccountId, BaseLedger, Mask,
 };
 use mina_p2p_messages::v2::LedgerHash;
-use snark::{VerifierIndex, VerifierSRS};
+use snark::{user_command_verify::SnarkUserCommandVerifyId, VerifierIndex, VerifierSRS};
 
 use crate::{Service, Store};
 
@@ -159,6 +159,7 @@ pub trait TransactionPoolLedgerService: redux::Service {
 pub trait VerifyUserCommandsService: redux::Service {
     fn verify_init(
         &mut self,
+        req_id: SnarkUserCommandVerifyId,
         commands: Vec<WithStatus<verifiable::UserCommand>>,
         verifier_index: Arc<VerifierIndex>,
         verifier_srs: Arc<Mutex<VerifierSRS>>,

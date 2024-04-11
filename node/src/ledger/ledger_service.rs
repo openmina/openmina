@@ -49,6 +49,9 @@ use crate::p2p::channels::rpc::StagedLedgerAuxAndPendingCoinbases;
 use crate::rpc::{
     RpcScanStateSummaryBlockTransaction, RpcScanStateSummaryScanStateJob,
     RpcScanStateSummaryScanStateJobKind, RpcSnarkPoolJobSnarkWorkDone,
+use crate::block_producer::vrf_evaluator::DelegatorTable;
+use crate::block_producer::{
+    BlockProducerLedgerService, BlockProducerWonSlot, StagedLedgerDiffCreateOutput,
 };
 use crate::transition_frontier::sync::{
     ledger::staged::StagedLedgerAuxAndPendingCoinbasesValid,

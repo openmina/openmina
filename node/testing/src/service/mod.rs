@@ -8,6 +8,7 @@ use std::{collections::BTreeMap, ffi::OsStr, sync::Arc};
 use ledger::dummy::dummy_transaction_proof;
 use ledger::proofs::transaction::ProofError;
 use ledger::scan_state::scan_state::transaction_snark::SokMessage;
+use ledger::scan_state::transaction_logic::{verifiable, WithStatus};
 use ledger::Mask;
 use mina_p2p_messages::string::ByteString;
 use mina_p2p_messages::v2::{
@@ -31,6 +32,7 @@ use node::service::{
 use node::snark::block_verify::{
     SnarkBlockVerifyId, SnarkBlockVerifyService, VerifiableBlockWithHash,
 };
+use node::snark::user_command_verify::{SnarkUserCommandVerifyId, SnarkUserCommandVerifyService};
 use node::snark::work_verify::{SnarkWorkVerifyId, SnarkWorkVerifyService};
 use node::snark::{SnarkEvent, VerifierIndex, VerifierSRS};
 use node::snark_pool::{JobState, SnarkPoolService};
@@ -388,6 +390,24 @@ impl SnarkBlockVerifyService for NodeTestingService {
                 block,
             ),
         }
+    }
+}
+
+impl SnarkUserCommandVerifyService for NodeTestingService {
+    fn verify_init(
+        &mut self,
+        req_id: SnarkUserCommandVerifyId,
+        commands: Vec<WithStatus<verifiable::UserCommand>>,
+        verifier_index: Arc<VerifierIndex>,
+        verifier_srs: Arc<Mutex<VerifierSRS>>,
+    ) {
+        SnarkUserCommandVerifyService::verify_init(
+            &mut self.real,
+            req_id,
+            commands,
+            verifier_index,
+            verifier_srs,
+        )
     }
 }
 
