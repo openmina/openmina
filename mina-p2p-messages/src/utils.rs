@@ -109,7 +109,7 @@ impl<'de> Deserialize<'de> for Greedy {
         D: serde::Deserializer<'de>,
     {
         let hex = String::deserialize(deserializer)?;
-        Ok(Self(hex::decode(&hex).unwrap()))
+        Ok(Self(hex::decode(hex).unwrap()))
     }
 }
 

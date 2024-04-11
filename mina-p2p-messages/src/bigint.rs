@@ -41,7 +41,7 @@ impl BigInt {
         F::read(&mut slice).expect("Conversion BigInt to Field failed")
     }
 
-    pub fn iter_bytes<'a>(&'a self) -> impl 'a + DoubleEndedIterator<Item = u8> {
+    pub fn iter_bytes(&self) -> impl '_ + DoubleEndedIterator<Item = u8> {
         self.0.iter().cloned()
     }
 }
@@ -137,7 +137,7 @@ impl Serialize for BigInt {
     {
         if serializer.is_human_readable() {
             // TODO get rid of copying
-            let mut rev = self.0.as_ref().clone();
+            let mut rev = *self.0.as_ref();
             rev[..].reverse();
             let mut hex = [0_u8; 32 * 2 + 2];
             hex[..2].copy_from_slice(b"0x");
@@ -171,7 +171,7 @@ impl<'de> Deserialize<'de> for BigInt {
                         Some(v) => hex::decode(v).map_err(|_| {
                             serde::de::Error::custom(format!("failed to decode hex str: {v}"))
                         }),
-                        None => Err(serde::de::Error::custom(format!("mising 0x prefix"))),
+                        None => Err(serde::de::Error::custom("mising 0x prefix".to_string())),
                     }
                 }
 
@@ -183,14 +183,14 @@ impl<'de> Deserialize<'de> for BigInt {
                         Some(v) => hex::decode(v).map_err(|_| {
                             serde::de::Error::custom(format!("failed to decode hex str: {v}"))
                         }),
-                        None => Err(serde::de::Error::custom(format!("mising 0x prefix"))),
+                        None => Err(serde::de::Error::custom("mising 0x prefix".to_string())),
                     }
                 }
             }
             let mut v = deserializer.deserialize_str(V)?;
             v.reverse();
             v.try_into()
-                .map_err(|_| serde::de::Error::custom(format!("failed to convert vec to array")))
+                .map_err(|_| serde::de::Error::custom("failed to convert vec to array".to_string()))
         } else {
             struct V;
             impl<'de> serde::de::Visitor<'de> for V {
@@ -303,7 +303,7 @@ mod tests {
 
         for bigint in bigints {
             let json = serde_json::to_string(&bigint).unwrap();
-            let mut v = bigint.0.as_ref().clone();
+            let mut v = *bigint.0.as_ref();
             v.reverse();
             let json_exp = format!(r#""0x{}""#, hex::encode(v));
             assert_eq!(json, json_exp);

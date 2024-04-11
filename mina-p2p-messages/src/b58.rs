@@ -219,7 +219,7 @@ where
     {
         if deserializer.is_human_readable() {
             let b58: String = Deserialize::deserialize(deserializer)?;
-            Ok(b58.parse().map_err(|err| serde::de::Error::custom(err))?)
+            Ok(b58.parse().map_err(serde::de::Error::custom)?)
         } else {
             T::deserialize(deserializer).map(|v| Self(v, Default::default()))
         }
