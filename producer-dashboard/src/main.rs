@@ -1,17 +1,20 @@
-// use ledger::Ledger;
+use ledger::Ledger;
+use openmina_node_account::AccountSecretKey;
 
 use std::collections::BTreeMap;
+use tokio::sync::mpsc;
 
 use clap::Parser;
 
-use crate::epoch::EpochStorage;
+use crate::{epoch::EpochStorage, evaluator::{EpochInit, Evaluator}};
 
+mod config;
+mod epoch;
+mod evaluator;
 mod ledger;
 mod node;
-mod storage;
-mod epoch;
 mod rpc;
-mod config;
+mod storage;
 
 #[derive(Debug, thiserror::Error)]
 pub enum StakingToolError {
@@ -27,13 +30,13 @@ pub enum StakingToolError {
 async fn main() {
     // node::get_best_chain().await
 
-    // // DEBUG loading ledger
-    // let ledger = Ledger::load_from_file("producer-dashboard/staking-epoch-ledger.json".into()).unwrap();
+    // TODO(adonagy): periodically dump from the node
+    // let ledger =
+    //     Ledger::load_from_file("producer-dashboard/staking-epoch-ledger.json".into()).unwrap();
     // let stuff = ledger.gather_producer_and_delegates("B62qmM4HnDHDwVXqBdCcXQJ9U2zAPNkhqmo8SNWAxKWoEok7GzQEkTv");
     // println!("Prod + del count: {}", stuff.len())
 
     let config = config::Config::parse();
-
 
     let best_tip = node::get_best_tip().await.unwrap();
 
@@ -46,6 +49,27 @@ async fn main() {
     );
 
     let epoch_storage = EpochStorage::default();
+
+    let key = AccountSecretKey::from_encrypted_file(config.private_key_path).expect("failed to decrypt secret key file");
+    let t_epoch_storage = epoch_storage.clone();
+    let (sender, receiver) = mpsc::unbounded_channel::<EpochInit>();
+    
+    let evaluator_handle = Evaluator::spawn_new(key, t_epoch_storage, receiver);
+
+    // DEBUG
+    {
+        let seed = best_tip.consensus_state().staking_epoch_data.seed.clone();
+        let (current_epoch_bounds, _) = best_tip.epoch_bounds();
+        let epoch_init = EpochInit::new(
+            best_tip.consensus_state().epoch.parse().unwrap(),
+            "staking-epoch-ledger.json".into(),
+            seed,
+            current_epoch_bounds
+        );
+
+        sender.send(epoch_init).unwrap();
+    }
+
 
     let t_epoch_storage = epoch_storage.clone();
     let rpc_handle = rpc::spawn_rpc_server(3000, t_epoch_storage);
@@ -65,5 +89,6 @@ async fn main() {
     }
 
     drop(rpc_handle);
+    drop(evaluator_handle);
     println!("Shutdown successfull");
 }

@@ -4549,8 +4549,10 @@ version = "0.3.0"
 dependencies = [
  "clap 4.5.2",
  "graphql_client",
+ "mina-p2p-messages",
  "num-bigint",
  "num-traits",
+ "openmina-node-account",
  "reqwest",
  "serde",
  "serde_json",

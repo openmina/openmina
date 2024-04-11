@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use vrf::VrfWonSlot;
 
 use crate::storage::locked_btreemap::LockedBTreeMap;

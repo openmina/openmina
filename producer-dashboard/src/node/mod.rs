@@ -17,6 +17,8 @@ type Fee = StringNumber;
 type Epoch = String;
 type Length = String;
 type EpochSeed = String;
+type Slot = String;
+type Globalslot = String;
 
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
@@ -87,6 +89,20 @@ pub struct BestTip(best_chain::BestChainBestChain);
 impl BestTip {
     pub fn consensus_state(&self) -> &best_chain::BestChainBestChainProtocolStateConsensusState {
         &self.0.protocol_state.consensus_state
+    }
+
+    pub fn epoch_bounds(&self) -> ((u32, u32), (u32, u32)) {
+        // TODO(adonagy): get the data from the node + unwrap
+        const SLOTS_PER_EPOCH: u32 = 7140;
+        let current_epoch = self.consensus_state().epoch.parse::<u32>().unwrap();
+        let current_start = self.consensus_state().slot_since_genesis.parse::<u32>().unwrap();
+        let current_end = current_epoch * SLOTS_PER_EPOCH + SLOTS_PER_EPOCH - 1;
+        
+        let next_epoch = current_epoch + 1;
+        let next_start = next_epoch * SLOTS_PER_EPOCH;
+        let next_end = next_start + SLOTS_PER_EPOCH - 1;
+
+        ((current_start, current_end), (next_start, next_end))
     }
 }
 

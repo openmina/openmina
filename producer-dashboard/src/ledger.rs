@@ -9,7 +9,7 @@ use crate::StakingToolError;
 
 // TODO(adonagy): remove dead_code
 #[allow(dead_code)]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MinaBalanceStringNumber(BigInt);
 
 impl<'de> Deserialize<'de> for MinaBalanceStringNumber {
@@ -82,11 +82,17 @@ impl Serialize for MinaBalanceStringNumber {
     }
 }
 
+impl From<MinaBalanceStringNumber> for BigInt {
+    fn from(value: MinaBalanceStringNumber) -> Self {
+        value.0
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct LedgerEntry {
-    pk: String,
-    balance: MinaBalanceStringNumber,
-    delegate: Option<String>,
+    pub pk: String,
+    pub balance: MinaBalanceStringNumber,
+    pub delegate: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
