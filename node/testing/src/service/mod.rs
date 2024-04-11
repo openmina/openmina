@@ -1,5 +1,6 @@
 mod rpc_service;
 
+use std::collections::VecDeque;
 use std::sync::Mutex;
 use std::time::Duration;
 use std::{collections::BTreeMap, ffi::OsStr, sync::Arc};
@@ -19,7 +20,6 @@ use node::account::{AccountPublicKey, AccountSecretKey};
 use node::block_producer::vrf_evaluator::VrfEvaluatorInput;
 use node::block_producer::BlockProducerEvent;
 use node::core::channels::mpsc;
-use node::core::requests::{PendingRequests, RequestId};
 use node::core::snark::{Snark, SnarkJobId};
 use node::external_snark_worker::ExternalSnarkWorkerEvent;
 #[cfg(feature = "p2p-libp2p")]
@@ -64,7 +64,60 @@ impl openmina_core::requests::RequestIdType for PendingEventIdType {
         "PendingEventId"
     }
 }
-pub type PendingEventId = RequestId<PendingEventIdType>;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, Default)]
+pub struct PendingEventId(usize);
+
+struct PendingEvents {
+    events: VecDeque<(PendingEventId, Event)>,
+    next_id: PendingEventId,
+}
+
+impl PendingEventId {
+    fn copy_inc(&mut self) -> Self {
+        let copy = *self;
+        let _ = self.0.wrapping_add(1);
+        copy
+    }
+}
+
+impl PendingEvents {
+    fn new() -> Self {
+        PendingEvents {
+            events: VecDeque::new(),
+            next_id: Default::default(),
+        }
+    }
+
+    fn add(&mut self, event: Event) -> PendingEventId {
+        let id = self.next_id.copy_inc();
+        self.events.push_back((id, event));
+        id
+    }
+
+    fn get(&self, id: PendingEventId) -> Option<&Event> {
+        self.events
+            .iter()
+            .find_map(|(_id, event)| (*_id == id).then_some(event))
+    }
+
+    fn remove(&mut self, id: PendingEventId) -> Option<Event> {
+        if let Some(i) = self
+            .events
+            .iter()
+            .enumerate()
+            .find_map(|(i, (_id, _))| (*_id == id).then_some(i))
+        {
+            self.events.remove(i).map(|(_, event)| event)
+        } else {
+            None
+        }
+    }
+
+    fn iter(&self) -> impl Iterator<Item = (PendingEventId, &Event)> {
+        self.events.iter().map(|(id, event)| (*id, event))
+    }
+}
 
 pub struct NodeTestingService {
     real: NodeService,
@@ -76,7 +129,8 @@ pub struct NodeTestingService {
     is_replay: bool,
     monotonic_time: Instant,
     /// Events sent by the real service not yet received by state machine.
-    pending_events: PendingRequests<PendingEventIdType, Event>,
+    pending_events: PendingEvents,
+    //pending_events: PendingRequests<PendingEventIdType, Event>,
     dyn_effects: Option<DynEffects>,
 
     snarker_sok_digest: Option<ByteString>,
@@ -93,7 +147,7 @@ impl NodeTestingService {
             proof_kind: ProofKind::default(),
             is_replay: false,
             monotonic_time: Instant::now(),
-            pending_events: PendingRequests::new(),
+            pending_events: PendingEvents::new(),
             dyn_effects: None,
             snarker_sok_digest: None,
             _shutdown,
