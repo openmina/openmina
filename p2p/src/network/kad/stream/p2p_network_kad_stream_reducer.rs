@@ -19,7 +19,7 @@ impl P2pNetworkKadIncomingStreamState {
         let (action, _meta) = action.split();
 
         match (&self, action) {
-            (S::Default, A::New { incoming, .. }) if *incoming == true => {
+            (S::Default, A::New { incoming, .. }) if *incoming => {
                 *self = S::WaitingForRequest {
                     expect_close: false,
                 };
@@ -73,11 +73,9 @@ impl P2pNetworkKadIncomingStreamState {
                 *self = S::Closing;
                 Ok(())
             }
-            _ => {
-                return Err(format!(
-                    "kademlia incoming stream state {self:?} is incorrect for action {action:?}",
-                ));
-            }
+            _ => Err(format!(
+                "kademlia incoming stream state {self:?} is incorrect for action {action:?}",
+            )),
         }
     }
 
@@ -178,11 +176,9 @@ impl P2pNetworkKadOutgoingStreamState {
                 *self = S::Closed;
                 Ok(())
             }
-            _ => {
-                return Err(format!(
-                    "kademlia outgoing stream state {self:?} is incorrect for action {action:?}",
-                ));
-            }
+            _ => Err(format!(
+                "kademlia outgoing stream state {self:?} is incorrect for action {action:?}",
+            )),
         }
     }
 

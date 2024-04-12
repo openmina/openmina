@@ -36,14 +36,13 @@ impl P2pChannelsRpcAction {
                     store
                         .service()
                         .channel_send(peer_id, MsgId::first(), msg.into());
-                } else {
-                    if let Some((query, data)) = super::internal_request_into_libp2p(request, id) {
-                        store.dispatch(P2pNetworkRpcAction::OutgoingQuery {
-                            peer_id,
-                            query,
-                            data,
-                        });
-                    }
+                } else if let Some((query, data)) = super::internal_request_into_libp2p(request, id)
+                {
+                    store.dispatch(P2pNetworkRpcAction::OutgoingQuery {
+                        peer_id,
+                        query,
+                        data,
+                    });
                 }
             }
             P2pChannelsRpcAction::ResponseReceived {

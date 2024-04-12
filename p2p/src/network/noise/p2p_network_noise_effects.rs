@@ -21,9 +21,7 @@ impl P2pNetworkNoiseAction {
         let outgoing = state.outgoing_chunks.front().cloned();
         let decrypted = state.decrypted_chunks.front().cloned();
         let remote_peer_id = match &state.inner {
-            Some(P2pNetworkNoiseStateInner::Done { remote_peer_id, .. }) => {
-                Some(remote_peer_id.clone())
-            }
+            Some(P2pNetworkNoiseStateInner::Done { remote_peer_id, .. }) => Some(*remote_peer_id),
             Some(P2pNetworkNoiseStateInner::Initiator(P2pNetworkNoiseStateInitiator {
                 remote_pk: Some(pk),
                 ..
@@ -43,7 +41,7 @@ impl P2pNetworkNoiseAction {
                 && *send_nonce == 0
                 && *recv_nonce == 0
             {
-                Some((remote_peer_id.clone(), *incoming))
+                Some((*remote_peer_id, *incoming))
             } else {
                 None
             }
@@ -74,7 +72,7 @@ impl P2pNetworkNoiseAction {
         {
             store.dispatch(P2pNetworkSelectAction::Init {
                 addr,
-                kind: SelectKind::Multiplexing(peer_id.clone()),
+                kind: SelectKind::Multiplexing(peer_id),
                 incoming,
                 send_handshake: true,
             });
@@ -88,7 +86,7 @@ impl P2pNetworkNoiseAction {
         } = self
         {
             let kind = match &peer_id.or(remote_peer_id) {
-                Some(peer_id) => SelectKind::Multiplexing(peer_id.clone()),
+                Some(peer_id) => SelectKind::Multiplexing(*peer_id),
                 None => SelectKind::MultiplexingNoPeerId,
             };
             if handshake_optimized && middle_initiator {
@@ -136,7 +134,7 @@ impl P2pNetworkNoiseAction {
 
                 if handshake_optimized && middle_responder {
                     let kind = match &remote_peer_id {
-                        Some(peer_id) => SelectKind::Multiplexing(peer_id.clone()),
+                        Some(peer_id) => SelectKind::Multiplexing(*peer_id),
                         None => SelectKind::MultiplexingNoPeerId,
                     };
 
@@ -175,7 +173,7 @@ impl P2pNetworkNoiseAction {
                     data: data
                         .iter()
                         .fold(vec![], |mut v, item| {
-                            v.extend_from_slice(&*item);
+                            v.extend_from_slice(item);
                             v
                         })
                         .into(),

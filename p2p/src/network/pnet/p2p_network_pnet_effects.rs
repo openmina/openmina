@@ -10,7 +10,7 @@ impl P2pNetworkPnetAction {
     {
         let (state, service) = store.state_and_service();
         let connections = &state.network.scheduler.connections;
-        let Some(state) = connections.get(&self.addr()) else {
+        let Some(state) = connections.get(self.addr()) else {
             return;
         };
         let state = &state.pnet;

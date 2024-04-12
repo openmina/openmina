@@ -128,8 +128,7 @@ impl P2pNetworkKadRequestAction {
                 stream_id,
                 addr,
             } => {
-                let data =
-                    crate::P2pNetworkKademliaRpcRequest::find_node(request_state.key.clone());
+                let data = crate::P2pNetworkKademliaRpcRequest::find_node(request_state.key);
                 store.dispatch(P2pNetworkKademliaStreamAction::SendRequest {
                     addr,
                     peer_id,
@@ -165,7 +164,7 @@ impl P2pNetworkKadRequestAction {
                 };
                 for entry in data {
                     let peer_id = entry.peer_id;
-                    let to_opts = |addr| (peer_id.clone(), addr).into();
+                    let to_opts = |addr| (peer_id, addr).into();
                     let addresses = entry
                         .addrs
                         .iter()

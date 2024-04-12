@@ -52,7 +52,7 @@ impl P2pNetworkKademliaStreamAction {
                     addr,
                     peer_id,
                     stream_id,
-                    key: key.clone(),
+                    key: *key,
                 });
                 store.dispatch(A::WaitOutgoing {
                     addr,
@@ -130,7 +130,7 @@ impl P2pNetworkKademliaStreamAction {
                 },
                 D::Incoming(I::ResponseBytesAreReady { bytes })
                 | D::Outgoing(O::RequestBytesAreReady { bytes }),
-            ) if bytes.len() == 0 => {
+            ) if bytes.is_empty() => {
                 // send FIN to the network
                 store.dispatch(P2pNetworkYamuxAction::OutgoingData {
                     addr,

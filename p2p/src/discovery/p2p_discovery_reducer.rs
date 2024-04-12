@@ -26,18 +26,13 @@ impl P2pKademliaState {
                 // TODO(vlad9486): handle failure, decrement the counter
                 self.outgoing_requests -= 1;
                 let len = self.known_peers.len();
-                self.known_peers.extend(
-                    peers
-                        .iter()
-                        .map(|peer_id| {
-                            // TODO(vlad9486): use all
-                            self.routes
-                                .get(peer_id)
-                                .and_then(|r| r.first())
-                                .map(|opts| (opts.peer_id().clone(), opts.clone()))
-                        })
-                        .flatten(),
-                );
+                self.known_peers.extend(peers.iter().filter_map(|peer_id| {
+                    // TODO(vlad9486): use all
+                    self.routes
+                        .get(peer_id)
+                        .and_then(|r| r.first())
+                        .map(|opts| (*opts.peer_id(), opts.clone()))
+                }));
                 if self.known_peers.len() == len {
                     // this response doesn't yield new peers
                     self.saturated = Some(meta.time());

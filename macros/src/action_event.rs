@@ -172,7 +172,7 @@ fn filter_fields(field_spec: &FieldsSpec, fields: &FieldsNamed) -> Result<Vec<To
     }
 }
 
-fn action_event_attrs(attrs: &Vec<Attribute>) -> Result<ActionEventAttrs> {
+fn action_event_attrs(attrs: &[Attribute]) -> Result<ActionEventAttrs> {
     attrs
         .iter()
         .filter(|attr| attr.path().is_ident("action_event"))
@@ -257,7 +257,7 @@ fn get_field_name(expr: &Expr) -> Option<&Ident> {
     }
 }
 
-fn summary_field(attrs: &Vec<Attribute>) -> Result<Option<TokenStream>> {
+fn summary_field(attrs: &[Attribute]) -> Result<Option<TokenStream>> {
     let Some(doc_attr) = attrs.iter().find(|attr| attr.path().is_ident("doc")) else {
         return Ok(None);
     };

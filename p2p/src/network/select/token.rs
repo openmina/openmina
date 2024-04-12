@@ -145,6 +145,8 @@ pub struct State {
     buffer: Vec<u8>,
 }
 
+pub struct ParseTokenError;
+
 impl State {
     pub fn put(&mut self, data: &[u8]) {
         self.buffer.extend_from_slice(data);
@@ -152,17 +154,17 @@ impl State {
 
     /// return protocol name followed by the rest of unparsed data
     /// use `State::consume` after return some parsed token
-    pub fn parse_token(&mut self) -> Result<Option<Token>, ()> {
+    pub fn parse_token(&mut self) -> Result<Option<Token>, ParseTokenError> {
         use unsigned_varint::decode::{self, Error::*};
 
         let (len, rem) = match decode::usize(&self.buffer) {
             Ok(v) => v,
             Err(Insufficient) => return Ok(None),
-            Err(_) => return Err(()),
+            Err(_) => return Err(ParseTokenError),
         };
         let len_length = self.buffer.len() - rem.len();
         if len_length > MAX_TOKEN_LENGTH {
-            return Err(());
+            return Err(ParseTokenError);
         }
 
         if self.buffer.len() < len_length + len {

@@ -161,8 +161,8 @@ impl P2pNetworkSchedulerState {
                 }
                 cn.streams.clear();
                 if let Some(peer_id) = cn.peer_id() {
-                    self.rpc_incoming_streams.remove(&peer_id);
-                    self.rpc_outgoing_streams.remove(&peer_id);
+                    self.rpc_incoming_streams.remove(peer_id);
+                    self.rpc_outgoing_streams.remove(peer_id);
                     if let Some(discovery_state) = self.discovery_state.as_mut() {
                         discovery_state.streams.remove(peer_id);
                     }

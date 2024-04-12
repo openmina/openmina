@@ -191,7 +191,7 @@ impl Libp2pService {
         let mut gossipsub: Gossipsub =
             Gossipsub::new(message_authenticity, gossipsub_config).unwrap();
         topics_iter
-            .map(|v| IdentTopic::new(v))
+            .map(IdentTopic::new)
             .for_each(|topic| assert!(gossipsub.subscribe(&topic).unwrap()));
 
         let identify = identify::Behaviour::new(identify::Config::new(
@@ -335,12 +335,12 @@ impl Libp2pService {
     async fn handle_cmd<E: From<P2pEvent>>(swarm: &mut Swarm<Behaviour<E>>, cmd: Cmd) {
         match cmd {
             Cmd::Dial(peer_id, addrs) => {
-                let opts = DialOpts::peer_id(peer_id.into()).addresses(addrs).build();
+                let opts = DialOpts::peer_id(peer_id).addresses(addrs).build();
                 if let Err(e) = swarm.dial(opts) {
                     let peer_id = crate::PeerId::from(peer_id);
                     openmina_core::log::error!(
                         openmina_core::log::system_time();
-                        node_id = crate::PeerId::from(swarm.local_peer_id().clone()).to_string(),
+                        node_id = crate::PeerId::from(*swarm.local_peer_id()).to_string(),
                         summary = format!("Cmd::Dial(...)"),
                         peer_id = peer_id.to_string(),
                         error = e.to_string()
@@ -656,7 +656,7 @@ impl Libp2pService {
                 let peer_id = peer_id.as_ref().map_or("<unknown>", String::as_str);
                 openmina_core::log::info!(
                     openmina_core::log::system_time();
-                    node_id = crate::PeerId::from(swarm.local_peer_id().clone()).to_string(),
+                    node_id = crate::PeerId::from(*swarm.local_peer_id()).to_string(),
                     kind = "libp2p::Dialing",
                     summary = format!("peer_id: {peer_id}"),
                     peer_id = peer_id,
@@ -667,7 +667,7 @@ impl Libp2pService {
                 let peer_id: crate::PeerId = peer_id.into();
                 openmina_core::log::info!(
                     openmina_core::log::system_time();
-                    node_id = crate::PeerId::from(swarm.local_peer_id().clone()).to_string(),
+                    node_id = crate::PeerId::from(*swarm.local_peer_id()).to_string(),
                     kind = "libp2p::ConnectionEstablished",
                     summary = format!("peer_id: {}", peer_id),
                     peer_id = peer_id.to_string(),
@@ -851,7 +851,7 @@ impl Libp2pService {
                             .add_address(&peer_id, maddr.clone());
 
                         let mut maddr = maddr.clone();
-                        maddr.push(libp2p::multiaddr::Protocol::P2p(peer_id.into()));
+                        maddr.push(libp2p::multiaddr::Protocol::P2p(peer_id));
                         let _ = swarm
                             .behaviour_mut()
                             .event_source_sender
@@ -1066,8 +1066,7 @@ impl Libp2pService {
                                     Ok(response) => {
                                         let response = response
                                             .ok()
-                                            .map(|x| x.0.ok())
-                                            .flatten()
+                                            .and_then(|x| x.0.ok())
                                             .map(P2pRpcResponse::LedgerQuery);
                                         send(response)
                                     }

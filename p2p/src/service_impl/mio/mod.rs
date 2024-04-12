@@ -50,7 +50,9 @@ impl redux::Service for MioService {}
 impl P2pMioService for MioService {
     fn send_mio_cmd(&mut self, cmd: MioCmd) {
         self.cmd_sender.send(cmd).unwrap_or_default();
-        self.waker.as_ref().map(|w| w.wake().unwrap_or_default());
+        if let Some(w) = self.waker.as_ref() {
+            w.wake().unwrap_or_default()
+        }
     }
 }
 
@@ -157,11 +159,9 @@ where
                         continue 'events;
                     };
 
-                    if event.is_readable() {
-                        if !listener.incomind_ready {
-                            self.send(MioEvent::IncomingConnectionIsReady { listener: addr });
-                            listener.incomind_ready = true;
-                        }
+                    if event.is_readable() && !listener.incomind_ready {
+                        self.send(MioEvent::IncomingConnectionIsReady { listener: addr });
+                        listener.incomind_ready = true;
                     }
                     self.listeners.insert(addr, listener);
                 }
@@ -192,11 +192,9 @@ where
                         }
                         continue 'events;
                     }
-                    if event.is_readable() {
-                        if !connection.incoming_ready {
-                            connection.incoming_ready = true;
-                            self.send(MioEvent::IncomingDataIsReady(addr));
-                        }
+                    if event.is_readable() && !connection.incoming_ready {
+                        connection.incoming_ready = true;
+                        self.send(MioEvent::IncomingDataIsReady(addr));
                     }
                     let mut rereg = false;
                     if event.is_writable() {

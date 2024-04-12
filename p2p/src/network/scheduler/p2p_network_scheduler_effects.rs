@@ -169,7 +169,7 @@ impl P2pNetworkSchedulerAction {
                                     if let Some(P2pNetworkKadRequestState {
                                         status: P2pNetworkKadRequestStatus::WaitingForKadStream(id),
                                         ..
-                                    }) = discovery_state.request(&peer_id)
+                                    }) = discovery_state.request(peer_id)
                                     {
                                         if id == stream_id {
                                             store.dispatch(P2pNetworkKadRequestAction::Error {

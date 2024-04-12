@@ -95,8 +95,7 @@ impl<T: P2pServiceWebrtcWithLibp2p> P2pConnectionService for T {
                         return;
                     }
                 };
-                let _ = self
-                    .mio()
+                self.mio()
                     .send_mio_cmd(crate::MioCmd::Connect(std::net::SocketAddr::new(
                         addr, opts.port,
                     )));
