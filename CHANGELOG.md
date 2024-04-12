@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fix incorrect condition when deciding which snarked ledgers need to be synchronize during bootstrap which would result in a failure when bootstrapping the node during the second epoch.
 - Correctly handle the situation in which the best tip changes during staged ledger reconstruction, causing the reconstruct to produce a stale result.
+- Fixed various edge cases in p2p layer (error propagation, disconnection, self-connection).
 
 ## [0.3.1] - 2024-04-05
 
