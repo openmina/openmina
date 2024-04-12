@@ -1,5 +1,7 @@
 use chacha20poly1305::{aead::generic_array::GenericArray, AeadInPlace, ChaCha20Poly1305, KeyInit};
 
+use self::p2p_network_noise_state::ResponderConsumeOutput;
+
 use super::*;
 
 use super::p2p_network_noise_state::{
@@ -103,22 +105,24 @@ impl P2pNetworkNoiseState {
                         },
                         P2pNetworkNoiseStateInner::Responder(o) => match o.consume(&mut chunk) {
                             Ok(None) => {}
-                            Ok(Some((ResponderOutput { remote_pk, .. }, _)))
-                                if remote_pk == self.local_pk =>
-                            {
+                            Ok(Some(ResponderConsumeOutput {
+                                output: ResponderOutput { remote_pk, .. },
+                                ..
+                            })) if remote_pk == self.local_pk => {
                                 *state = P2pNetworkNoiseStateInner::Error(dbg!(
                                     NoiseError::SelfConnection
                                 ));
                             }
-                            Ok(Some((
-                                ResponderOutput {
-                                    send_key,
-                                    recv_key,
-                                    remote_pk,
-                                    ..
-                                },
-                                remote_payload,
-                            ))) => {
+                            Ok(Some(ResponderConsumeOutput {
+                                output:
+                                    ResponderOutput {
+                                        send_key,
+                                        recv_key,
+                                        remote_pk,
+                                        ..
+                                    },
+                                payload: remote_payload,
+                            })) => {
                                 let remote_peer_id = remote_pk.peer_id();
                                 *state = P2pNetworkNoiseStateInner::Done {
                                     incoming: true,

@@ -296,6 +296,11 @@ impl P2pNetworkNoiseStateInitiator {
     }
 }
 
+pub struct ResponderConsumeOutput<'a> {
+    pub output: ResponderOutput,
+    pub payload: Option<&'a mut [u8]>,
+}
+
 impl P2pNetworkNoiseStateResponder {
     pub fn generate(&mut self, data: &[u8]) -> Option<Vec<u8>> {
         let Self::Init {
@@ -334,7 +339,7 @@ impl P2pNetworkNoiseStateResponder {
     pub fn consume<'a>(
         &'_ mut self,
         chunk: &'a mut [u8],
-    ) -> Result<Option<(ResponderOutput, Option<&'a mut [u8]>)>, NoiseError> {
+    ) -> Result<Option<ResponderConsumeOutput<'a>>, NoiseError> {
         use self::NoiseError::*;
 
         match self {
@@ -414,14 +419,14 @@ impl P2pNetworkNoiseStateResponder {
                         None
                     };
 
-                    Ok(Some((
-                        ResponderOutput {
+                    Ok(Some(ResponderConsumeOutput {
+                        output: ResponderOutput {
                             send_key,
                             recv_key,
                             remote_pk,
                         },
-                        remote_payload,
-                    )))
+                        payload: remote_payload,
+                    }))
                 }
             }
         }
