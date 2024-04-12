@@ -13,7 +13,7 @@ impl P2pNetworkRpcState {
                 self.is_incoming = *incoming;
             }
             P2pNetworkRpcAction::IncomingData { data, .. } => {
-                self.buffer.extend_from_slice(&data);
+                self.buffer.extend_from_slice(data);
                 let mut offset = 0;
                 // TODO(akoptelov): there shouldn't be the case where we have multiple incoming messages at once (or at least other than heartbeat)
                 loop {
@@ -60,7 +60,7 @@ impl P2pNetworkRpcState {
                     if let Some(QueryHeader { id, tag, version }) = &self.pending {
                         *self
                             .total_stats
-                            .entry((tag.clone(), version.clone()))
+                            .entry((tag.clone(), *version))
                             .or_default() += 1;
                         if id != &header.id {
                             openmina_core::error!(action.time(); "receiving response with wrong id: {}", header.id);

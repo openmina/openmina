@@ -152,12 +152,12 @@ impl P2pConnectionOutgoingAction {
                 });
             }
             P2pConnectionOutgoingAction::Error { peer_id, error } => {
-                if let Some(_) = store
+                if store
                     .state()
                     .network
                     .scheduler
                     .discovery_state()
-                    .and_then(|discovery_state| discovery_state.request(&peer_id))
+                    .and_then(|discovery_state| discovery_state.request(&peer_id)).is_some()
                 {
                     store.dispatch(P2pNetworkKadRequestAction::Error {
                         peer_id,

@@ -12,14 +12,14 @@ impl P2pNetworkSelectAction {
             .network
             .scheduler
             .connections
-            .get(&self.addr())
+            .get(self.addr())
         else {
             return;
         };
         let state = match self.id() {
             SelectKind::Authentication => &state.select_auth,
             SelectKind::Multiplexing(_) | SelectKind::MultiplexingNoPeerId => &state.select_mux,
-            SelectKind::Stream(_, stream_id) => match state.streams.get(&stream_id) {
+            SelectKind::Stream(_, stream_id) => match state.streams.get(stream_id) {
                 Some(v) => &v.select,
                 None => return,
             },

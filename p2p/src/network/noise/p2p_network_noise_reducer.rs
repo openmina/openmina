@@ -4,7 +4,7 @@ use super::*;
 
 use super::p2p_network_noise_state::{
     NoiseError, NoiseState, P2pNetworkNoiseState, P2pNetworkNoiseStateInitiator,
-    P2pNetworkNoiseStateInner, P2pNetworkNoiseStateResponder, ResponderOutput, Sk,
+    P2pNetworkNoiseStateInner, P2pNetworkNoiseStateResponder, ResponderOutput,
 };
 
 impl P2pNetworkNoiseState {
@@ -17,9 +17,9 @@ impl P2pNetworkNoiseState {
                 signature,
                 ..
             } => {
-                let esk = Sk::from(ephemeral_sk.clone());
+                let esk = ephemeral_sk.clone();
                 let epk = esk.pk();
-                let ssk = Sk::from(static_sk.clone());
+                let ssk = static_sk.clone();
                 let spk = ssk.pk();
                 let payload = signature.clone();
 
@@ -62,7 +62,7 @@ impl P2pNetworkNoiseState {
                 }
             }
             P2pNetworkNoiseAction::IncomingData { data, .. } => {
-                self.buffer.extend_from_slice(&data);
+                self.buffer.extend_from_slice(data);
                 let mut offset = 0;
                 loop {
                     let buf = &self.buffer[offset..];
@@ -155,8 +155,7 @@ impl P2pNetworkNoiseState {
                                 let data = &mut chunk[2..];
                                 let (data, tag) = data.split_at_mut(data.len() - 16);
                                 let tag = GenericArray::from_slice(&*tag);
-                                if let Err(_) =
-                                    aead.decrypt_in_place_detached(&nonce, &[], data, tag)
+                                if aead.decrypt_in_place_detached(&nonce, &[], data, tag).is_err()
                                 {
                                     *state = P2pNetworkNoiseStateInner::Error(dbg!(
                                         NoiseError::FirstMacMismatch

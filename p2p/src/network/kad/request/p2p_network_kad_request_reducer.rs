@@ -22,12 +22,12 @@ impl P2pNetworkKadRequestState {
             }
             A::StreamReady { .. } => {
                 let find_node = P2pNetworkKademliaRpcRequest::FindNode {
-                    key: self.key.clone(),
+                    key: self.key,
                 };
                 let message = super::super::Message::from(&find_node);
                 self.status = quick_protobuf::serialize_into_vec(&message).map_or_else(
                     |e| S::Error(format!("error serializing message: {e}")),
-                    |b| S::Request(b),
+                    S::Request,
                 );
             }
             A::RequestSent { .. } => self.status = S::WaitingForReply,

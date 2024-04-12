@@ -116,7 +116,7 @@ impl NoiseState {
     pub fn mix_hash(&mut self, data: &[u8]) {
         self.hash = DataSized(
             Sha256::default()
-                .chain(&self.hash.0)
+                .chain(self.hash.0)
                 .chain(data)
                 .finalize_fixed()
                 .into(),
@@ -137,7 +137,7 @@ impl NoiseState {
         nonce[4..].clone_from_slice(&NONCE.to_le_bytes());
 
         let hash = Sha256::default()
-            .chain(&self.hash.0)
+            .chain(self.hash.0)
             .chain(&*data)
             .chain(tag)
             .finalize_fixed();
@@ -156,7 +156,7 @@ impl NoiseState {
             .encrypt_in_place_detached(&nonce, &self.hash.0, data)
             .unwrap();
         let hash = Sha256::default()
-            .chain(&self.hash.0)
+            .chain(self.hash.0)
             .chain(&*data)
             .chain(tag)
             .finalize_fixed();
@@ -228,7 +228,7 @@ impl P2pNetworkNoiseStateInitiator {
         let mut chunk = vec![0; 2];
         chunk.extend_from_slice(&i_spk_bytes);
         chunk.extend_from_slice(&tag);
-        chunk.extend_from_slice(&*payload);
+        chunk.extend_from_slice(&payload);
         chunk.extend_from_slice(&payload_tag);
         let l = (chunk.len() - 2) as u16;
         chunk[..2].clone_from_slice(&l.to_be_bytes());
@@ -258,7 +258,7 @@ impl P2pNetworkNoiseStateInitiator {
         let mut r_spk_bytes =
             <[u8; 32]>::try_from(&msg[32..64]).expect("cannot fail, checked above");
         let tag = &msg[64..80];
-        let r_spk;
+        
 
         noise.mix_hash(r_epk.0.as_bytes());
         noise.mix_secret(&*i_esk * &r_epk);
@@ -266,7 +266,7 @@ impl P2pNetworkNoiseStateInitiator {
             .decrypt::<0>(&mut r_spk_bytes, tag)
             .map_err(|_| FirstMacMismatch)?;
 
-        r_spk = Pk::from_bytes(r_spk_bytes);
+        let r_spk = Pk::from_bytes(r_spk_bytes);
         noise.mix_secret(&*i_esk * &r_spk);
 
         let (msg, tag) = msg.split_at_mut(len - 16);
@@ -318,7 +318,7 @@ impl P2pNetworkNoiseStateResponder {
         }
         let payload_tag = noise.encrypt::<0>(&mut payload);
 
-        buffer.extend_from_slice(&*payload);
+        buffer.extend_from_slice(&payload);
         buffer.extend_from_slice(&payload_tag);
         let l = (buffer.len() - 2) as u16;
         buffer[..2].clone_from_slice(&l.to_be_bytes());
@@ -387,14 +387,14 @@ impl P2pNetworkNoiseStateResponder {
                 let (remote_payload, payload_tag) = msg.split_at_mut(len - 16);
 
                 noise
-                    .decrypt::<1>(&mut i_spk_bytes, &tag)
+                    .decrypt::<1>(&mut i_spk_bytes, tag)
                     .map_err(|()| FirstMacMismatch)?;
                 let i_spk = Pk::from_bytes(i_spk_bytes);
                 noise.mix_secret(&*r_esk * &i_spk);
                 r_esk.zeroize();
 
                 noise
-                    .decrypt::<0>(remote_payload, &payload_tag)
+                    .decrypt::<0>(remote_payload, payload_tag)
                     .map_err(|_| SecondMacMismatch)?;
                 let (recv_key, send_key) = noise.finish();
 

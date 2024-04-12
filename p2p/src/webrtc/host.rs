@@ -45,7 +45,7 @@ mod binprot_impl {
 
     impl BinProtWrite for Host {
         fn binprot_write<W: std::io::Write>(&self, w: &mut W) -> std::io::Result<()> {
-            Ok(match self {
+            match self {
                 Self::Domain(v) => {
                     HostKind::Domain.binprot_write(w)?;
                     v.binprot_write(w)?
@@ -62,7 +62,8 @@ mod binprot_impl {
                         b.binprot_write(w)?;
                     }
                 }
-            })
+            };
+            Ok(())
         }
     }
 

@@ -29,14 +29,13 @@ impl P2pKademliaState {
                 self.known_peers.extend(
                     peers
                         .iter()
-                        .map(|peer_id| {
+                        .filter_map(|peer_id| {
                             // TODO(vlad9486): use all
                             self.routes
                                 .get(peer_id)
                                 .and_then(|r| r.first())
-                                .map(|opts| (opts.peer_id().clone(), opts.clone()))
-                        })
-                        .flatten(),
+                                .map(|opts| (*opts.peer_id(), opts.clone()))
+                        }),
                 );
                 if self.known_peers.len() == len {
                     // this response doesn't yield new peers

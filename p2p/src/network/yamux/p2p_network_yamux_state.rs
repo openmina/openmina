@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use super::super::*;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Default)]
 pub struct P2pNetworkYamuxState {
     pub buffer: Vec<u8>,
     pub incoming: VecDeque<YamuxFrame>,
@@ -67,17 +68,7 @@ impl YamuxStreamState {
     }
 }
 
-impl Default for P2pNetworkYamuxState {
-    fn default() -> Self {
-        P2pNetworkYamuxState {
-            buffer: Vec::default(),
-            incoming: VecDeque::default(),
-            streams: BTreeMap::default(),
-            terminated: None,
-            init: false,
-        }
-    }
-}
+
 
 bitflags::bitflags! {
     #[derive(Serialize, Deserialize, Debug, Clone)]

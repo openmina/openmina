@@ -14,7 +14,7 @@ pub fn p2p_timeout_effects<Store, S>(store: &mut Store, meta: &ActionMeta)
 where
     Store: P2pStore<S>,
 {
-    p2p_connection_timeouts(store, &meta);
+    p2p_connection_timeouts(store, meta);
     store.dispatch(P2pConnectionOutgoingAction::RandomInit);
 
     p2p_try_reconnect_disconnected_peers(store, meta.time());
