@@ -97,7 +97,7 @@ mod utils;
 fn collect_incoming_rpcs() {
     let mut queries = BTreeMap::new();
     utils::for_all("v2/rpc/catchup-messages/out", |path, mut bytes| {
-        let modified = fs::metadata(&path).unwrap().modified().unwrap();
+        let modified = fs::metadata(path).unwrap().modified().unwrap();
         while !bytes.is_empty() {
             if let Some(b) =
                 bytes.strip_prefix(b"\x07\x00\x00\x00\x00\x00\x00\x00\x02\xfd\x52\x50\x43\x00\x01")
@@ -115,7 +115,7 @@ fn collect_incoming_rpcs() {
 
     let mut pairs = Vec::new();
     utils::for_all("v2/rpc/catchup-messages/in", |path, mut bytes| {
-        let modified = fs::metadata(&path).unwrap().modified().unwrap();
+        let modified = fs::metadata(path).unwrap().modified().unwrap();
         while !bytes.is_empty() {
             if let Some(b) =
                 bytes.strip_prefix(b"\x07\x00\x00\x00\x00\x00\x00\x00\x02\xfd\x52\x50\x43\x00\x01")

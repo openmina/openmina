@@ -1,4 +1,4 @@
-///! Mina RPC methods
+//! Mina RPC methods
 use std::collections::BTreeMap;
 
 use binprot::{BinProtRead, BinProtWrite};
@@ -283,6 +283,12 @@ mina_rpc!(GetEpochLedgerV2, "get_epoch_ledger", 2, LedgerHashV1, RpcResult<MinaB
 /// ```
 pub struct JSONifyPayloadRegistry {
     table: BTreeMap<(&'static [u8], Ver), Box<dyn JSONinifyPayloadReader>>,
+}
+
+impl Default for JSONifyPayloadRegistry {
+    fn default() -> Self {
+        Self::v2()
+    }
 }
 
 impl JSONifyPayloadRegistry {

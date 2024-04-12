@@ -479,7 +479,7 @@ impl Libp2pService {
                                     peer_id,
                                     stream_id,
                                     id,
-                                    Ok(RpcResult(Err(Info::from_str("not implemented")))),
+                                    Ok(RpcResult(Err(Info::new("not implemented")))),
                                 )?
                             }
                             (

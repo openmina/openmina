@@ -16,9 +16,9 @@ struct BarV1(u8);
 fn vec() {
     let bytes = b"\x01\x01\x01\x7f";
     let mut r = &bytes[..];
-    let foo: Foo = BinProtRead::binprot_read(&mut r).unwrap();
+    let foo_instance: Foo = BinProtRead::binprot_read(&mut r).unwrap();
     assert_eq!(
-        foo,
+        foo_instance,
         Versioned::from(FooV1(vec![Versioned::from(BarV1(0x7f))]))
     );
 }

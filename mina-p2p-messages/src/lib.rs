@@ -1,7 +1,8 @@
+//! Mina wire types, represented in Rust.
+//!
+//! This crate contains gossip network messages and RPCs.
+
 pub mod array;
-///! Mina wire types, represented in Rust.
-///!
-///! This crate contains gossip network messages and RPCs.
 pub mod bigint;
 pub mod char;
 pub mod common;
@@ -22,7 +23,9 @@ pub mod hash;
 #[cfg(feature = "hashing")]
 mod hash_input;
 pub mod pseq;
+#[allow(clippy::all)]
 pub mod v1;
+#[allow(clippy::all)]
 pub mod v2;
 
 pub use gossip::GossipNetMessageV1;

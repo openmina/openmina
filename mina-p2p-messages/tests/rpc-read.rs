@@ -132,7 +132,7 @@ fn make_rpc_v2() {
     }
     let mut mapping: BTreeMap<u64, T> = BTreeMap::new();
     utils::for_all("rpc-v2", |_, encoded| {
-        utils::stream_read_with::<MessageHeader, _>(&encoded, |header, slice| match header {
+        utils::stream_read_with::<MessageHeader, _>(encoded, |header, slice| match header {
             Ok(MessageHeader::Heartbeat) => {}
             Ok(MessageHeader::Query(q)) => {
                 let t = mapping.entry(q.id).or_default();
@@ -198,7 +198,7 @@ fn debugger_to_wire() {
             println!("{tag}:{ver}");
             File::create(path)
                 .and_then(|mut f| {
-                    f.write(&encoded[..1])?;
+                    f.write_all(&encoded[..1])?;
                     f.write_all(p)?;
                     Ok(f)
                 })
