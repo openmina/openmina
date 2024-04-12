@@ -6,8 +6,6 @@ use std::str::FromStr;
 
 use crate::StakingToolError;
 
-use self::best_chain::Variables;
-
 type PublicKey = String;
 type StateHash = String;
 type FeeTransferType = String;
@@ -95,7 +93,7 @@ impl BestTip {
         // TODO(adonagy): get the data from the node + unwrap
         const SLOTS_PER_EPOCH: u32 = 7140;
         let current_epoch = self.consensus_state().epoch.parse::<u32>().unwrap();
-        let current_start = self.consensus_state().slot_since_genesis.parse::<u32>().unwrap();
+        let current_start = current_epoch * SLOTS_PER_EPOCH;
         let current_end = current_epoch * SLOTS_PER_EPOCH + SLOTS_PER_EPOCH - 1;
         
         let next_epoch = current_epoch + 1;

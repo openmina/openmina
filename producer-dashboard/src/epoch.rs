@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 use vrf::VrfWonSlot;
 
-use crate::storage::locked_btreemap::LockedBTreeMap;
+use crate::{storage::locked_btreemap::LockedBTreeMap, archive::Block};
 
 pub type EpochStorage = LockedBTreeMap<u32, EpochData>;
 
@@ -11,7 +11,7 @@ pub type EpochStorage = LockedBTreeMap<u32, EpochData>;
 pub struct EpochData {
     epoch_number: u32,
     won_slots: BTreeMap<u32, VrfWonSlot>,
-    blocks: BTreeMap<u32, BlockData>,
+    blocks: BTreeMap<u32, Block>,
     won_slots_count: usize,
     canonical_blocks: usize,
     orphaned_blocks: usize,
@@ -38,14 +38,6 @@ impl EpochData {
 pub struct EpochSlice {
     part: usize,
     epoch_data: EpochData,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BlockData {
-    status: BlockStatus,
-    state_hash: String,
-    producer: String,
-    winner: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

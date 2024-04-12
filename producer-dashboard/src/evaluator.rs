@@ -34,6 +34,7 @@ impl Evaluator {
         })
     }
 
+    // TODO(adonagy): can be paralellized on slots
     async fn run(&mut self) {
         if let Some(init) = self.receiver.recv().await {
             let (start, end) = init.bounds;
@@ -70,7 +71,7 @@ impl Evaluator {
                 }
             }
             let epoch_data = EpochData::new(init.epoch_number, won_slots);
-            self.storage.insert(init.epoch_number, epoch_data);
+            let _ = self.storage.insert(init.epoch_number, epoch_data);
         }
     }
 }

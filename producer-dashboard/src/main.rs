@@ -15,6 +15,7 @@ mod ledger;
 mod node;
 mod rpc;
 mod storage;
+mod archive;
 
 #[derive(Debug, thiserror::Error)]
 pub enum StakingToolError {

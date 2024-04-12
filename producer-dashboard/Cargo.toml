@@ -23,3 +23,5 @@ openmina-node-account = { path = "../node/account" }
 mina-p2p-messages = { workspace = true }
 time = {version = "0.3", features = ["formatting", "parsing"]}
 clap = { version = "4.5", features = ["derive"]}
+sqlx = { version = "0.7", features = [ "runtime-tokio", "postgres", "json"] }
+dotenvy = "0.15"
