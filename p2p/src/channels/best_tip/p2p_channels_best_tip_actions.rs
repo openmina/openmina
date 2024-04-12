@@ -83,11 +83,11 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsBestTipAction {
             P2pChannelsBestTipAction::RequestSend { peer_id } => state
                 .get_ready_peer(peer_id)
                 .map_or(false, |p| match &p.channels.best_tip {
-                    P2pChannelsBestTipState::Ready { local, .. } => match local {
-                        BestTipPropagationState::WaitingForRequest { .. } => true,
-                        BestTipPropagationState::Responded { .. } => true,
-                        _ => false,
-                    },
+                    P2pChannelsBestTipState::Ready { local, .. } => matches!(
+                        local,
+                        BestTipPropagationState::WaitingForRequest { .. }
+                            | BestTipPropagationState::Responded { .. },
+                    ),
                     _ => false,
                 }),
             P2pChannelsBestTipAction::Received { peer_id, .. } => {
@@ -96,21 +96,20 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsBestTipAction {
                 state
                     .get_ready_peer(peer_id)
                     .map_or(false, |p| match &p.channels.best_tip {
-                        P2pChannelsBestTipState::Ready { local, .. } => match local {
-                            BestTipPropagationState::Requested { .. } => true,
-                            _ => false,
-                        },
+                        P2pChannelsBestTipState::Ready { local, .. } => {
+                            matches!(local, BestTipPropagationState::Requested { .. })
+                        }
                         _ => false,
                     })
             }
             P2pChannelsBestTipAction::RequestReceived { peer_id } => state
                 .get_ready_peer(peer_id)
                 .map_or(false, |p| match &p.channels.best_tip {
-                    P2pChannelsBestTipState::Ready { remote, .. } => match remote {
-                        BestTipPropagationState::WaitingForRequest { .. } => true,
-                        BestTipPropagationState::Responded { .. } => true,
-                        _ => false,
-                    },
+                    P2pChannelsBestTipState::Ready { remote, .. } => matches!(
+                        remote,
+                        BestTipPropagationState::WaitingForRequest { .. }
+                            | BestTipPropagationState::Responded { .. }
+                    ),
                     _ => false,
                 }),
             P2pChannelsBestTipAction::ResponseSend { peer_id, best_tip } => state

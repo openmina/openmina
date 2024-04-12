@@ -311,8 +311,7 @@ impl P2pNetworkRpcAction {
                         // unset pending
                         store.dispatch(P2pNetworkRpcAction::PrunePending { peer_id, stream_id });
 
-                        if let Err(e) = rpc_response_effects(peer_id, &query_header, bytes, store)
-                        {
+                        if let Err(e) = rpc_response_effects(peer_id, &query_header, bytes, store) {
                             store.dispatch(P2pDisconnectionAction::Init {
                                 peer_id,
                                 reason: P2pDisconnectionReason::P2pChannelReceiveFailed(

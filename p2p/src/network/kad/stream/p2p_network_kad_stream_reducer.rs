@@ -73,11 +73,9 @@ impl P2pNetworkKadIncomingStreamState {
                 *self = S::Closing;
                 Ok(())
             }
-            _ => {
-                Err(format!(
-                    "kademlia incoming stream state {self:?} is incorrect for action {action:?}",
-                ))
-            }
+            _ => Err(format!(
+                "kademlia incoming stream state {self:?} is incorrect for action {action:?}",
+            )),
         }
     }
 
@@ -178,11 +176,9 @@ impl P2pNetworkKadOutgoingStreamState {
                 *self = S::Closed;
                 Ok(())
             }
-            _ => {
-                Err(format!(
-                    "kademlia outgoing stream state {self:?} is incorrect for action {action:?}",
-                ))
-            }
+            _ => Err(format!(
+                "kademlia outgoing stream state {self:?} is incorrect for action {action:?}",
+            )),
         }
     }
 

@@ -104,7 +104,7 @@ impl P2pNetworkNoiseState {
                         P2pNetworkNoiseStateInner::Responder(o) => match o.consume(&mut chunk) {
                             Ok(None) => {}
                             Ok(Some((ResponderOutput { remote_pk, .. }, _)))
-                                if &remote_pk == &self.local_pk =>
+                                if remote_pk == self.local_pk =>
                             {
                                 *state = P2pNetworkNoiseStateInner::Error(dbg!(
                                     NoiseError::SelfConnection
@@ -155,7 +155,9 @@ impl P2pNetworkNoiseState {
                                 let data = &mut chunk[2..];
                                 let (data, tag) = data.split_at_mut(data.len() - 16);
                                 let tag = GenericArray::from_slice(&*tag);
-                                if aead.decrypt_in_place_detached(&nonce, &[], data, tag).is_err()
+                                if aead
+                                    .decrypt_in_place_detached(&nonce, &[], data, tag)
+                                    .is_err()
                                 {
                                     *state = P2pNetworkNoiseStateInner::Error(dbg!(
                                         NoiseError::FirstMacMismatch

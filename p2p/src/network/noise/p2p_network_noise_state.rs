@@ -258,7 +258,6 @@ impl P2pNetworkNoiseStateInitiator {
         let mut r_spk_bytes =
             <[u8; 32]>::try_from(&msg[32..64]).expect("cannot fail, checked above");
         let tag = &msg[64..80];
-        
 
         noise.mix_hash(r_epk.0.as_bytes());
         noise.mix_secret(&*i_esk * &r_epk);
@@ -441,7 +440,7 @@ mod wrapper {
         type Output = [u8; 32];
 
         fn mul(self, rhs: &'b Pk) -> Self::Output {
-            (&self.0 * &rhs.0).0
+            (self.0 * rhs.0).0
         }
     }
 

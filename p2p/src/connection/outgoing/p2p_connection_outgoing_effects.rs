@@ -157,7 +157,8 @@ impl P2pConnectionOutgoingAction {
                     .network
                     .scheduler
                     .discovery_state()
-                    .and_then(|discovery_state| discovery_state.request(&peer_id)).is_some()
+                    .and_then(|discovery_state| discovery_state.request(&peer_id))
+                    .is_some()
                 {
                     store.dispatch(P2pNetworkKadRequestAction::Error {
                         peer_id,

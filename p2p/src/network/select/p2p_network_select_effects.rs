@@ -7,13 +7,7 @@ impl P2pNetworkSelectAction {
     {
         use self::token::*;
 
-        let Some(state) = store
-            .state()
-            .network
-            .scheduler
-            .connections
-            .get(self.addr())
-        else {
+        let Some(state) = store.state().network.scheduler.connections.get(self.addr()) else {
             return;
         };
         let state = match self.id() {

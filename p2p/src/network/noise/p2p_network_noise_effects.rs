@@ -21,9 +21,7 @@ impl P2pNetworkNoiseAction {
         let outgoing = state.outgoing_chunks.front().cloned();
         let decrypted = state.decrypted_chunks.front().cloned();
         let remote_peer_id = match &state.inner {
-            Some(P2pNetworkNoiseStateInner::Done { remote_peer_id, .. }) => {
-                Some(*remote_peer_id)
-            }
+            Some(P2pNetworkNoiseStateInner::Done { remote_peer_id, .. }) => Some(*remote_peer_id),
             Some(P2pNetworkNoiseStateInner::Initiator(P2pNetworkNoiseStateInitiator {
                 remote_pk: Some(pk),
                 ..

@@ -23,7 +23,7 @@ where
     store.dispatch(P2pDiscoveryAction::KademliaInit);
 
     #[cfg(feature = "p2p-webrtc")]
-    p2p_discovery_request(store, &meta);
+    p2p_discovery_request(store, meta);
 
     #[cfg(not(feature = "p2p-libp2p"))]
     store.dispatch(

@@ -82,16 +82,16 @@ mod binprot_impl {
                 }
                 HostKind::Ipv4 => {
                     let mut octets = [0; 4];
-                    for i in 0..octets.len() {
-                        octets[i] = u8::binprot_read(r)?;
+                    for octet in &mut octets {
+                        *octet = u8::binprot_read(r)?;
                     }
 
                     Host::Ipv4(octets.into())
                 }
                 HostKind::Ipv6 => {
                     let mut segments = [0; 8];
-                    for i in 0..segments.len() {
-                        segments[i] = u16::binprot_read(r)?;
+                    for segment in &mut segments {
+                        *segment = u16::binprot_read(r)?;
                     }
 
                     Host::Ipv6(segments.into())

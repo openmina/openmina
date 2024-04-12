@@ -50,7 +50,9 @@ impl redux::Service for MioService {}
 impl P2pMioService for MioService {
     fn send_mio_cmd(&mut self, cmd: MioCmd) {
         self.cmd_sender.send(cmd).unwrap_or_default();
-        if let Some(w) = self.waker.as_ref() { w.wake().unwrap_or_default() }
+        if let Some(w) = self.waker.as_ref() {
+            w.wake().unwrap_or_default()
+        }
     }
 }
 

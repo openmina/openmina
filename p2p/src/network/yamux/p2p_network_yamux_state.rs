@@ -4,8 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use super::super::*;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[derive(Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct P2pNetworkYamuxState {
     pub buffer: Vec<u8>,
     pub incoming: VecDeque<YamuxFrame>,
@@ -68,8 +67,6 @@ impl YamuxStreamState {
     }
 }
 
-
-
 bitflags::bitflags! {
     #[derive(Serialize, Deserialize, Debug, Clone)]
     pub struct YamuxFlags: u16 {
@@ -112,10 +109,14 @@ pub type StreamId = u32;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum YamuxFrameParseError {
-    UnknownVersion(u8),
-    UnknownFlags(u16),
-    UnknownType(u8),
-    UnknownErrorCode(u32),
+    /// Unknown version.
+    Version(u8),
+    /// Unknown flags.
+    Flags(u16),
+    /// Unknown type.
+    Type(u8),
+    /// Unknown error code.
+    ErrorCode(u32),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
