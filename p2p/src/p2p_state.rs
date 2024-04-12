@@ -11,7 +11,7 @@ use crate::channels::{ChannelId, P2pChannelsState};
 use crate::connection::incoming::P2pConnectionIncomingState;
 use crate::connection::outgoing::{P2pConnectionOutgoingInitOpts, P2pConnectionOutgoingState};
 use crate::network::P2pNetworkState;
-use crate::{P2pTimeouts, PeerId};
+use crate::{is_time_passed, P2pTimeouts, PeerId};
 
 use super::connection::P2pConnectionState;
 use super::P2pConfig;
@@ -121,7 +121,7 @@ impl P2pState {
             .collect();
 
         let network = P2pNetworkState::new(
-            config.identity_pub_key.peer_id(),
+            config.identity_pub_key.clone(),
             addrs,
             known_peers,
             &config.chain_id,
@@ -273,8 +273,8 @@ impl P2pState {
     }
 
     /// The peers capacity is exceeded.
-    pub fn already_has_too_many_peers(&self) -> bool {
-        self.connected_or_connecting_peers_count() > self.config.max_peers
+    pub fn already_has_max_ready_peers(&self) -> bool {
+        self.ready_peers_iter().count() >= self.config.max_peers
     }
 
     pub fn already_knows_max_peers(&self) -> bool {
@@ -293,6 +293,21 @@ impl P2pState {
     /// Minimal number of peers that the node should connect
     pub fn min_peers(&self) -> usize {
         (self.config.max_peers / 2).max(3)
+    }
+
+    /// Peer with libp2p connection identified by `conn_id`.
+    pub fn peer_with_connection(
+        &self,
+        conn_id: std::net::SocketAddr,
+    ) -> Option<(&PeerId, &P2pPeerState)> {
+        self.peers
+            .iter()
+            .find(|(_, peer_state)| match &peer_state.dial_opts {
+                Some(P2pConnectionOutgoingInitOpts::LibP2P(libp2p_opts)) => {
+                    libp2p_opts.matches_socket_addr(conn_id)
+                }
+                _ => false,
+            })
     }
 }
 
@@ -323,12 +338,13 @@ impl P2pPeerState {
             && match &self.status {
                 P2pPeerStatus::Connecting(P2pConnectionState::Incoming(
                     P2pConnectionIncomingState::Error { time, .. },
-                )) => now.checked_sub(*time) >= timeouts.incoming_error_reconnect_timeout,
+                )) => is_time_passed(now, *time, timeouts.incoming_error_reconnect_timeout),
                 P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(
                     P2pConnectionOutgoingState::Error { time, .. },
-                )) => now.checked_sub(*time) >= timeouts.outgoing_error_reconnect_timeout,
+                )) => is_time_passed(now, *time, timeouts.outgoing_error_reconnect_timeout),
                 P2pPeerStatus::Disconnected { time } => {
-                    *time == Timestamp::ZERO || now.checked_sub(*time) >= timeouts.reconnect_timeout
+                    *time == Timestamp::ZERO
+                        || is_time_passed(now, *time, timeouts.reconnect_timeout)
                 }
                 _ => false,
             }
@@ -381,6 +397,10 @@ impl P2pPeerStatus {
             Self::Ready(v) => Some(v),
             _ => None,
         }
+    }
+
+    pub fn is_error(&self) -> bool {
+        matches!(self, P2pPeerStatus::Connecting(s) if s.is_error())
     }
 }
 

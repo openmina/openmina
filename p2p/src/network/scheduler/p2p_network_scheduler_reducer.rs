@@ -19,7 +19,6 @@ impl P2pNetworkSchedulerState {
                 let Some(addr) = addr else {
                     return;
                 };
-
                 self.connections.insert(
                     *addr,
                     P2pNetworkConnectionState {
@@ -34,7 +33,7 @@ impl P2pNetworkSchedulerState {
                     },
                 );
             }
-            P2pNetworkSchedulerAction::OutgoingDidConnect { addr, .. } => {
+            P2pNetworkSchedulerAction::OutgoingConnect { addr } => {
                 self.connections.insert(
                     *addr,
                     P2pNetworkConnectionState {
@@ -50,6 +49,9 @@ impl P2pNetworkSchedulerState {
                         closed: None,
                     },
                 );
+            }
+            P2pNetworkSchedulerAction::OutgoingDidConnect { .. } => {
+                // TODO: change to connected
             }
             P2pNetworkSchedulerAction::IncomingDataIsReady { .. } => {}
             P2pNetworkSchedulerAction::IncomingDataDidReceive { result, addr, .. } => {
@@ -69,10 +71,9 @@ impl P2pNetworkSchedulerState {
                 };
                 match protocol {
                     Some(token::Protocol::Auth(token::AuthKind::Noise)) => {
-                        connection.auth = Some(P2pNetworkAuthState::Noise(P2pNetworkNoiseState {
-                            handshake_optimized: true,
-                            ..Default::default()
-                        }));
+                        connection.auth = Some(P2pNetworkAuthState::Noise(
+                            P2pNetworkNoiseState::new(self.local_pk.clone(), true),
+                        ));
                     }
                     Some(token::Protocol::Mux(
                         token::MuxKind::Yamux1_0_0 | token::MuxKind::YamuxNoNewLine1_0_0,
@@ -170,6 +171,9 @@ impl P2pNetworkSchedulerState {
                         discovery_state.streams.remove(peer_id);
                     }
                 }
+            }
+            P2pNetworkSchedulerAction::Prune { addr } => {
+                let _ = self.connections.remove(addr);
             }
         }
     }

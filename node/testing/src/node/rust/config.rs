@@ -57,6 +57,22 @@ impl RustNodeTestingConfig {
         }
     }
 
+    pub fn berkeley_default_no_rpc_timeouts() -> Self {
+        Self {
+            chain_id: CHAIN_ID.to_owned(),
+            initial_time: redux::Timestamp::ZERO,
+            genesis: node::BERKELEY_CONFIG.clone(),
+            max_peers: 100,
+            ask_initial_peers_interval: Duration::from_secs(10),
+            initial_peers: Vec::new(),
+            peer_id: TestPeerId::default(),
+            block_producer: None,
+            snark_worker: None,
+            timeouts: P2pTimeouts::without_rpc(),
+            libp2p_port: None,
+        }
+    }
+
     pub fn max_peers(mut self, n: usize) -> Self {
         self.max_peers = n;
         self

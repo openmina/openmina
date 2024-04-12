@@ -253,7 +253,9 @@ pub enum ActionKind {
     P2pNetworkSchedulerIncomingDidAccept,
     P2pNetworkSchedulerInterfaceDetected,
     P2pNetworkSchedulerInterfaceExpired,
+    P2pNetworkSchedulerOutgoingConnect,
     P2pNetworkSchedulerOutgoingDidConnect,
+    P2pNetworkSchedulerPrune,
     P2pNetworkSchedulerSelectDone,
     P2pNetworkSchedulerSelectError,
     P2pNetworkSchedulerYamuxDidInit,
@@ -407,7 +409,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 340;
+    pub const COUNT: u16 = 342;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -1008,6 +1010,7 @@ impl ActionKindGet for P2pNetworkSchedulerAction {
                 ActionKind::P2pNetworkSchedulerIncomingConnectionIsReady
             }
             Self::IncomingDidAccept { .. } => ActionKind::P2pNetworkSchedulerIncomingDidAccept,
+            Self::OutgoingConnect { .. } => ActionKind::P2pNetworkSchedulerOutgoingConnect,
             Self::OutgoingDidConnect { .. } => ActionKind::P2pNetworkSchedulerOutgoingDidConnect,
             Self::IncomingDataIsReady { .. } => ActionKind::P2pNetworkSchedulerIncomingDataIsReady,
             Self::IncomingDataDidReceive { .. } => {
@@ -1019,6 +1022,7 @@ impl ActionKindGet for P2pNetworkSchedulerAction {
             Self::Disconnect { .. } => ActionKind::P2pNetworkSchedulerDisconnect,
             Self::Error { .. } => ActionKind::P2pNetworkSchedulerError,
             Self::Disconnected { .. } => ActionKind::P2pNetworkSchedulerDisconnected,
+            Self::Prune { .. } => ActionKind::P2pNetworkSchedulerPrune,
         }
     }
 }

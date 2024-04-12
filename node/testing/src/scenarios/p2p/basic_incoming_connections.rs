@@ -3,9 +3,8 @@ use std::{collections::BTreeSet, time::Duration};
 use crate::{
     node::RustNodeTestingConfig,
     scenarios::{
-        add_rust_nodes, connection_finalized_with_res_event, peer_is_ready,
-        wait_for_connection_established, wait_for_nodes_listening_on_localhost, ClusterRunner,
-        Driver,
+        add_rust_nodes, peer_is_ready, wait_for_connection_established, wait_for_connection_event,
+        wait_for_nodes_listening_on_localhost, ClusterRunner, ConnectionPredicates, Driver,
     },
 };
 
@@ -46,7 +45,15 @@ impl AcceptIncomingConnection {
 
         assert!(
             peer_is_ready(driver.inner(), node_ut, &peer_id2),
-            "peer should be ready"
+            "peer should be ready, but it is \n{:#?}",
+            driver
+                .inner()
+                .node(node_ut)
+                .unwrap()
+                .state()
+                .p2p
+                .peers
+                .get(&peer_id2)
         );
     }
 }
@@ -125,25 +132,16 @@ impl DoesNotAcceptConnectionFromSelf {
             .expect("connect event should be dispatched"); // should it?
 
         // wait for node under test receives connection event
-        let connected = driver
-            .wait_for(
-                Duration::from_secs(10),
-                connection_finalized_with_res_event(|node_id, peer, res| {
-                    node_id == node_ut && peer == &node_ut_peer_id && res.is_err()
-                }),
-            )
-            .await
-            .unwrap()
-            .expect("connected event");
-
-        let state = driver
-            .exec_even_step(connected)
-            .await
-            .unwrap()
-            .expect("connected event sholuld be executed");
-        assert!(
-            state.p2p.get_ready_peer(&node_ut_peer_id).is_none(),
-            "self-peer should not be ready"
-        );
+        let reached = wait_for_connection_event(
+            &mut driver,
+            Duration::from_secs(10),
+            (
+                node_ut,
+                ConnectionPredicates::peer_with_error_status(node_ut_peer_id),
+            ),
+        )
+        .await
+        .expect("connected event");
+        assert!(reached, "expecting connection event that result error");
     }
 }

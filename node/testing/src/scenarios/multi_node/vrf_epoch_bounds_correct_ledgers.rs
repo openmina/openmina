@@ -22,7 +22,7 @@ const GLOBAL_TIMEOUT: Duration = Duration::from_secs(60 * 60);
 const STEP_DURATION: Duration = Duration::from_millis(500);
 
 const SECOND_EPOCH_LAST_SLOT: u32 = 14_279;
-const THIRD_EPOCH_LAST_SLOT: u32 = 21_419;
+const _THIRD_EPOCH_LAST_SLOT: u32 = 21_419;
 
 const KEEP_SYNCED: bool = true;
 

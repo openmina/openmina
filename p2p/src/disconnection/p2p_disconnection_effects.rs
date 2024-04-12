@@ -32,6 +32,7 @@ impl P2pDisconnectionAction {
                             addr: *addr,
                             reason: _reason.clone(),
                         });
+                        store.dispatch(P2pDisconnectionAction::Finish { peer_id: *peer_id });
                     }
                 }
             }

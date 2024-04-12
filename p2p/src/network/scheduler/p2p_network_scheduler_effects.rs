@@ -43,6 +43,9 @@ impl P2pNetworkSchedulerAction {
                     incoming: true,
                 });
             }
+            Self::OutgoingConnect { addr } => {
+                store.service().send_mio_cmd(MioCmd::Connect(addr));
+            }
             Self::OutgoingDidConnect { addr, result } => {
                 if result.is_ok() {
                     let nonce = store.service().generate_random_nonce();
@@ -201,7 +204,7 @@ impl P2pNetworkSchedulerAction {
                         store.dispatch(P2pNetworkKadRequestAction::MuxReady { peer_id, addr });
                     }
                     if incoming {
-                        store.dispatch(P2pConnectionIncomingAction::FinalizeSuccess { peer_id });
+                        store.dispatch(P2pConnectionIncomingAction::Libp2pReceived { peer_id });
                     } else {
                         store.dispatch(P2pConnectionOutgoingAction::FinalizeSuccess { peer_id });
                     }
@@ -222,14 +225,60 @@ impl P2pNetworkSchedulerAction {
                     }
                 }
             }
-            Self::Disconnected { addr, reason: _ } => {
+            Self::Disconnected { addr, reason } => {
                 if let Some(conn_state) = store.state().network.scheduler.connections.get(&addr) {
-                    // TODO(akoptelov): handle cases where connection is not yet established
-                    if let Some(peer_id) = conn_state.peer_id().cloned() {
-                        store.dispatch(P2pDisconnectionAction::Finish { peer_id });
+                    let incoming = conn_state.incoming;
+                    store.dispatch(P2pNetworkSchedulerAction::Prune { addr });
+                    if reason.is_disconnected() {
+                        // statemachine behaviour should continue with this, i.e. dispatch P2pDisconnectionAction::Finish
+                        return;
+                    }
+                    match store.state().peer_with_connection(addr) {
+                        Some((peer_id, peer_state)) => {
+                            // TODO: connection state type should tell if it is finalized
+                            let peer_id = *peer_id;
+                            match &peer_state.status {
+                                crate::P2pPeerStatus::Connecting(
+                                    crate::connection::P2pConnectionState::Incoming(_),
+                                ) => {
+                                    store.dispatch(P2pConnectionIncomingAction::FinalizeError {
+                                        peer_id,
+                                        error: reason.to_string(),
+                                    });
+                                }
+                                crate::P2pPeerStatus::Connecting(
+                                    crate::connection::P2pConnectionState::Outgoing(_),
+                                ) => {
+                                    store.dispatch(P2pConnectionOutgoingAction::FinalizeError {
+                                        peer_id,
+                                        error: reason.to_string(),
+                                    });
+                                }
+                                crate::P2pPeerStatus::Disconnected { .. } => {
+                                    // sanity check, should be incoming connection
+                                    if !incoming {
+                                        error!(meta.time(); "disconnected peer connection for address {addr}");
+                                    } else {
+                                        // TODO: introduce action for incoming connection finalization without peer_id
+                                    }
+                                }
+                                crate::P2pPeerStatus::Ready(_) => {
+                                    store.dispatch(P2pDisconnectionAction::Finish { peer_id });
+                                }
+                            }
+                        }
+                        None => {
+                            // sanity check, should be incoming connection
+                            if !incoming {
+                                error!(meta.time(); "non-existing peer connection for address {addr}");
+                            } else {
+                                // TODO: introduce action for incoming connection finalization without peer_id
+                            }
+                        }
                     }
                 }
             }
+            Self::Prune { .. } => {}
         }
     }
 }
