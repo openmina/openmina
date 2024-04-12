@@ -434,76 +434,7 @@ impl LedgerCtx {
         Some(producers)
     }
 
-impl LedgerSyncState {
-    fn mask(&self, hash: &LedgerHash) -> Option<(Mask, bool)> {
-        self.snarked_ledgers
-            .get(hash)
-            .cloned()
-            .map(|mask| (mask, false))
-            .or_else(|| Some((self.staged_ledgers.get(hash)?.ledger(), true)))
-    }
-
-    fn pending_sync_snarked_ledger_mask(&self, hash: &LedgerHash) -> Result<Mask, String> {
-        self.snarked_ledgers
-            .get(hash)
-            .cloned()
-            .ok_or_else(|| format!("Missing sync snarked ledger {}", hash.to_string()))
-    }
-
-    /// Returns a [Mask] instance for the snarked ledger with [hash]. If it doesn't
-    /// exist a new instance is created.
-    fn snarked_ledger_mut(&mut self, hash: LedgerHash) -> &mut Mask {
-        self.snarked_ledgers.entry(hash.clone()).or_insert_with(|| {
-            let mut ledger = Mask::create(LEDGER_DEPTH);
-            ledger.set_cached_hash_unchecked(&LedgerAddress::root(), hash.0.to_field());
-            ledger
-        })
-    }
-
-    fn staged_ledger_mut(&mut self, hash: &LedgerHash) -> Option<&mut StagedLedger> {
-        self.staged_ledgers.get_mut(&hash)
-    }
-}
-
-pub trait LedgerService: redux::Service {
-    fn ctx(&self) -> &LedgerCtx;
-    fn ctx_mut(&mut self) -> &mut LedgerCtx;
-}
-
-impl<T: LedgerService> TransactionPoolLedgerService for T {
-    fn get_mask(&self, ledger_hash: &LedgerHash) -> Result<Mask, String> {
-        self.ctx()
-            .mask(&ledger_hash)
-            .map(|(mask, _)| mask)
-            .ok_or_else(|| "Mask not found".to_string())
-    }
-}
-
-impl<T: LedgerService> TransitionFrontierSyncLedgerSnarkedService for T {
-    fn compute_snarked_ledger_hashes(
-        &mut self,
-        snarked_ledger_hash: &LedgerHash,
-    ) -> Result<(), String> {
-        self.ctx_mut()
-            .compute_snarked_ledger_hashes(snarked_ledger_hash)?;
-
-        Ok(())
-    }
-
-    fn copy_snarked_ledger_contents_for_sync(
-        &mut self,
-        origin_snarked_ledger_hash: LedgerHash,
-        target_snarked_ledger_hash: LedgerHash,
-        overwrite: bool,
-    ) -> Result<bool, String> {
-        self.ctx_mut().copy_snarked_ledger_contents_for_sync(
-            origin_snarked_ledger_hash,
-            target_snarked_ledger_hash,
-            overwrite,
-        )
-    }
-
-    fn child_hashes_get(
+    pub fn child_hashes_get(
         &mut self,
         snarked_ledger_hash: LedgerHash,
         parent: &LedgerAddress,

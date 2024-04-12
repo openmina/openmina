@@ -13,9 +13,9 @@ use mina_p2p_messages::v2::{
     StateHash, TransactionSnarkWorkTStableV2Proofs,
 };
 use node::p2p::service_impl::mio::MioService;
-use openmina_core::block::ArcBlockWithHash;
 use node::snark::user_command_verify::{SnarkUserCommandVerifyId, SnarkUserCommandVerifyService};
-use node::transaction_pool::VerifyUserCommandsService;
+use node::transaction_pool::{TransactionPoolLedgerService, VerifyUserCommandsService};
+use openmina_core::block::ArcBlockWithHash;
 use rand::prelude::*;
 use redux::ActionMeta;
 use serde::Serialize;
@@ -232,6 +232,15 @@ impl SnarkBlockVerifyService for NodeService {
 
             let _ = tx.send(SnarkEvent::BlockVerify(req_id, result).into());
         });
+    }
+}
+
+impl TransactionPoolLedgerService for NodeService {
+    fn get_mask(&self, ledger_hash: &LedgerHash) -> Result<ledger::Mask, String> {
+        self.ledger_manager
+            .get_mask(&ledger_hash)
+            .map(|(mask, _)| mask)
+            .ok_or_else(|| "Mask not found".to_string())
     }
 }
 

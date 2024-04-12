@@ -1402,7 +1402,7 @@ mod transaction_hash {
 }
 
 // TODO: Remove this
-struct Envelope<T> {
+pub struct Envelope<T> {
     pub data: T,
 }
 

@@ -10,7 +10,17 @@ use super::write::{LedgerWriteRequest, LedgerWriteResponse};
 use super::LedgerService;
 use crate::account::AccountPublicKey;
 use crate::ledger::LedgerAddress;
-use crate::transition_frontier::sync::ledger::snarked::TransitionFrontierSyncLedgerSnarkedService;
+use crate::p2p::channels::rpc::StagedLedgerAuxAndPendingCoinbases;
+use crate::rpc::{RpcLedgerService, RpcScanStateSummaryScanStateJob};
+use crate::transaction_pool::TransactionPoolLedgerService;
+use crate::transition_frontier::sync::{
+    ledger::snarked::TransitionFrontierSyncLedgerSnarkedService,
+    ledger::staged::{
+        StagedLedgerAuxAndPendingCoinbasesValid, TransitionFrontierSyncLedgerStagedService,
+    },
+    TransitionFrontierRootSnarkedLedgerUpdates,
+};
+use crate::transition_frontier::{CommitResult, TransitionFrontierService};
 use ledger::Mask;
 use mina_signer::CompressedPubKey;
 
@@ -375,6 +385,14 @@ impl LedgerCaller {
 
 fn format_response_error(method: &str, res: LedgerResponse) -> String {
     format!("LedgerManager::{method}: unexpected response: {res:?}")
+}
+
+impl TransactionPoolLedgerService for LedgerManager {
+    fn get_mask(&self, ledger_hash: &LedgerHash) -> Result<Mask, String> {
+        self.get_mask(&ledger_hash)
+            .map(|(mask, _)| mask)
+            .ok_or_else(|| "Mask not found".to_string())
+    }
 }
 
 impl<T: LedgerService> TransitionFrontierSyncLedgerSnarkedService for T {
