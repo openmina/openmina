@@ -54,11 +54,7 @@ impl P2pNetworkSchedulerState {
                 // TODO: change to connected
             }
             P2pNetworkSchedulerAction::IncomingDataIsReady { .. } => {}
-            P2pNetworkSchedulerAction::IncomingDataDidReceive { result, addr, .. } => {
-                if result.is_err() {
-                    self.connections.remove(addr);
-                }
-            }
+            P2pNetworkSchedulerAction::IncomingDataDidReceive { .. } => {}
             P2pNetworkSchedulerAction::SelectDone {
                 addr,
                 kind,

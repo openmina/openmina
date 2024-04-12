@@ -138,9 +138,13 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: tests
-      - name: Run the test
+
+      - name: Setup permissions
         run: |
           chmod +x ./${{ matrix.test }}
+
+      - name: Run the test
+        run: |
           ./${{ matrix.test }} --test-threads=1
 
   scenario-tests:
@@ -165,9 +169,12 @@ jobs:
           pattern: tests*
           merge-multiple: true
 
-      - name: Run the test
+      - name: Setup permissions
         run: |
           chmod +x ./${{ matrix.test }}
+
+      - name: Run the test
+        run: |
           ./${{ matrix.test }} --test-threads=1
 
 
