@@ -73,7 +73,7 @@ pub struct PeerAddArgs {
 
 pub enum PeerConnectionKind {
     Outgoing,
-    Incoming(webrtc::Offer),
+    Incoming(Box<webrtc::Offer>),
 }
 
 pub struct PeerState {
@@ -219,7 +219,7 @@ async fn peer_start(args: PeerAddArgs) {
             .await?;
 
         let offer = match kind {
-            PeerConnectionKind::Incoming(offer) => offer.try_into()?,
+            PeerConnectionKind::Incoming(offer) => (*offer).try_into()?,
             PeerConnectionKind::Outgoing => pc.offer_create().await?,
         };
 
@@ -677,7 +677,7 @@ pub trait P2pServiceWebrtc: redux::Service {
             Arc::new(move |p2p_event: P2pEvent| event_sender.send(p2p_event.into()).ok());
         let _ = self.cmd_sender().send(Cmd::PeerAdd(PeerAddArgs {
             peer_id,
-            kind: PeerConnectionKind::Incoming(offer),
+            kind: PeerConnectionKind::Incoming(Box::new(offer)),
             event_sender,
             cmd_receiver: peer_cmd_receiver,
         }));

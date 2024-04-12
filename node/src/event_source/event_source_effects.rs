@@ -150,7 +150,7 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                         P2pConnectionResponse::Accepted(answer) => {
                             store.dispatch(P2pConnectionOutgoingAction::AnswerRecvSuccess {
                                 peer_id,
-                                answer,
+                                answer: *answer,
                             });
                         }
                         P2pConnectionResponse::Rejected(reason) => {

@@ -53,7 +53,7 @@ pub enum P2pConnectionErrorResponse {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum P2pConnectionResponse {
-    Accepted(webrtc::Answer),
+    Accepted(Box<webrtc::Answer>),
     Rejected(RejectionReason),
     InternalError,
 }

@@ -70,7 +70,7 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
                         if let Some(rpc_id) = p2p.peer_connection_rpc_id(peer_id) {
                             store.dispatch(RpcAction::P2pConnectionIncomingRespond {
                                 rpc_id,
-                                response: P2pConnectionResponse::Accepted(answer.clone()),
+                                response: P2pConnectionResponse::Accepted(Box::new(answer.clone())),
                             });
                             store.dispatch(P2pConnectionIncomingAction::AnswerSendSuccess {
                                 peer_id: *peer_id,
