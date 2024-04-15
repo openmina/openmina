@@ -3,7 +3,7 @@ pub mod handlers;
 
 use tokio::task::JoinHandle;
 
-use crate::epoch::EpochStorage;
+use crate::evaluator::epoch::EpochStorage;
 
 pub fn spawn_rpc_server(port: u16, storage: EpochStorage) -> JoinHandle<()> {
     tokio::spawn(async move {

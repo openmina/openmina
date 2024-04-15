@@ -1,7 +1,7 @@
 use reqwest::StatusCode;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 
-use crate::{node, StakingToolError, epoch::EpochStorage};
+use crate::{evaluator::epoch::EpochStorage, node, StakingToolError};
 
 pub async fn get_genesis_timestamp() -> Result<impl warp::Reply, warp::reject::Rejection> {
     // TODO(adonagy): we need this only once, no need to query the node every time...
@@ -19,13 +19,15 @@ pub async fn get_genesis_timestamp() -> Result<impl warp::Reply, warp::reject::R
     }
 }
 
-pub async fn get_latest_epoch_data(storage: EpochStorage) -> Result<impl warp::Reply, warp::reject::Rejection> {
-
+pub async fn get_latest_epoch_data(
+    storage: EpochStorage,
+) -> Result<impl warp::Reply, warp::reject::Rejection> {
     match storage.get_latest_value() {
-        Ok(Some(latest)) => {
-            Ok(warp::reply::with_status(warp::reply::json(&vec![latest]), StatusCode::OK))
-        },
+        Ok(Some(latest)) => Ok(warp::reply::with_status(
+            warp::reply::json(&vec![latest]),
+            StatusCode::OK,
+        )),
         // TODO(adonagy)
-        _ => Err(warp::reject())
+        _ => Err(warp::reject()),
     }
 }

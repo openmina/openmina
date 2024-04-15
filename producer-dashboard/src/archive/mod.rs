@@ -1,7 +1,6 @@
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 
-
 #[derive(Debug, Clone)]
 pub struct ArchiveConnector {
     pool: PgPool,
@@ -10,7 +9,9 @@ pub struct ArchiveConnector {
 impl ArchiveConnector {
     pub async fn connect() -> Self {
         // TODO(adonagy): unwrap
-        let pool = PgPool::connect(&dotenvy::var("DATABASE_URL").unwrap()).await.unwrap();
+        let pool = PgPool::connect(&dotenvy::var("DATABASE_URL").unwrap())
+            .await
+            .unwrap();
 
         Self { pool }
     }
@@ -38,7 +39,7 @@ impl ArchiveConnector {
                     public_keys pk_winner ON b.block_winner_id = pk_winner.id
                 WHERE 
                     pk_creator.value = $1"#,
-             producer_pk
+            producer_pk
         )
         .fetch_all(&self.pool)
         .await
@@ -74,9 +75,15 @@ mod test {
     async fn test() {
         let db = ArchiveConnector::connect().await;
 
-        let blocks = db.get_producer_blocks("B62qkPpK6z4ktWjxcmFzM4cFWjWLzrjNh6USjUMiYGcF3YAVbdo2p4H").await.unwrap();
+        let blocks = db
+            .get_producer_blocks("B62qkPpK6z4ktWjxcmFzM4cFWjWLzrjNh6USjUMiYGcF3YAVbdo2p4H")
+            .await
+            .unwrap();
 
-        let canonical = blocks.iter().filter(|block| block.chain_status == ChainStatus::Pending).collect::<Vec<_>>();
+        let canonical = blocks
+            .iter()
+            .filter(|block| block.chain_status == ChainStatus::Pending)
+            .collect::<Vec<_>>();
 
         println!("Canonical blocks: {}", canonical.len());
     }

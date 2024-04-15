@@ -24,7 +24,9 @@ fn genesis_timestamp() -> impl Filter<Extract = (impl warp::Reply,), Error = war
         .and_then(get_genesis_timestamp)
 }
 
-fn latest_epoch_data(storage: EpochStorage) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+fn latest_epoch_data(
+    storage: EpochStorage,
+) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("epoch" / "latest")
         .and(warp::get())
         .and(with_storage(storage))

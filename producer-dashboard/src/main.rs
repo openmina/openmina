@@ -1,21 +1,22 @@
-use ledger::Ledger;
+use node::NodeData;
 use openmina_node_account::AccountSecretKey;
 
-use std::collections::BTreeMap;
-use tokio::sync::mpsc;
+use std::{collections::BTreeMap, sync::Arc};
+use tokio::sync::{mpsc, RwLock};
 
 use clap::Parser;
 
-use crate::{epoch::EpochStorage, evaluator::{EpochInit, Evaluator}};
+use crate::{
+    evaluator::epoch::EpochStorage,
+    evaluator::{EpochInit, Evaluator},
+};
 
+mod archive;
 mod config;
-mod epoch;
-mod evaluator;
-mod ledger;
+pub mod evaluator;
 mod node;
 mod rpc;
 mod storage;
-mod archive;
 
 #[derive(Debug, thiserror::Error)]
 pub enum StakingToolError {
@@ -26,6 +27,8 @@ pub enum StakingToolError {
     #[error(transparent)]
     Serde(#[from] serde_json::Error),
 }
+
+pub type NodeStatus = Arc<RwLock<NodeData>>;
 
 #[tokio::main]
 async fn main() {
@@ -51,10 +54,11 @@ async fn main() {
 
     let epoch_storage = EpochStorage::default();
 
-    let key = AccountSecretKey::from_encrypted_file(config.private_key_path).expect("failed to decrypt secret key file");
+    let key = AccountSecretKey::from_encrypted_file(config.private_key_path)
+        .expect("failed to decrypt secret key file");
     let t_epoch_storage = epoch_storage.clone();
     let (sender, receiver) = mpsc::unbounded_channel::<EpochInit>();
-    
+
     let evaluator_handle = Evaluator::spawn_new(key, t_epoch_storage, receiver);
 
     // DEBUG
@@ -65,12 +69,11 @@ async fn main() {
             best_tip.consensus_state().epoch.parse().unwrap(),
             "staking-epoch-ledger.json".into(),
             seed,
-            current_epoch_bounds
+            current_epoch_bounds,
         );
 
         sender.send(epoch_init).unwrap();
     }
-
 
     let t_epoch_storage = epoch_storage.clone();
     let rpc_handle = rpc::spawn_rpc_server(3000, t_epoch_storage);
