@@ -121,6 +121,9 @@ impl P2pState {
             P2pAction::Network(action) => self
                 .network
                 .reducer(&mut self.peers, meta.with_action(action)),
+            P2pAction::Floodsub(action) => match action {
+                crate::floodsub::P2pFloodsubAction::NewOutboundStream { .. } => {}
+            },
         }
     }
 }

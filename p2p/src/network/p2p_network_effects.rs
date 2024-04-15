@@ -18,6 +18,10 @@ impl P2pNetworkAction {
                 Ok(_) => {}
                 Err(e) => error!(meta.time(); "error dispatching Identify stream action: {e}"),
             },
+            Self::Floodsub(v) => match v.effects(meta, store) {
+                Ok(_) => {}
+                Err(e) => error!(meta.time(); "error dispatching Floodsub stream action: {e}"),
+            },
             Self::Kad(v) => match v.effects(meta, store) {
                 Ok(_) => {}
                 Err(e) => error!(meta.time(); "error dispatching Kademlia action: {e}"),

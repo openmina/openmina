@@ -79,6 +79,17 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                     );
                 }
             },
+            P2pAction::Floodsub(action) => match action {
+                p2p::floodsub::P2pFloodsubAction::NewOutboundStream { peer_id, .. } => {
+                    openmina_core::log::debug!(
+                        meta.time();
+                        node_id = node_id,
+                        kind = kind.to_string(),
+                        summary = format!("peer_id: {peer_id}"),
+                        peer_id = peer_id.to_string()
+                    );
+                }
+            },
             P2pAction::Channels(action) => match action {
                 P2pChannelsAction::MessageReceived(action) => action.action_event(&context),
                 P2pChannelsAction::BestTip(action) => action.action_event(&context),

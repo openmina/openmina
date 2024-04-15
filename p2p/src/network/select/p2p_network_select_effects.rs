@@ -155,7 +155,70 @@ impl P2pNetworkSelectAction {
                                         });
                                     }
                                 }
-                            }
+                                StreamKind::Identify(IdentifyAlgorithm::Identify1_0_0) => {
+                                    if !fin {
+                                        store.dispatch(
+                                            P2pNetworkIdentifyStreamAction::IncomingData {
+                                                addr,
+                                                peer_id,
+                                                stream_id,
+                                                data: data.clone(),
+                                            },
+                                        );
+                                    } else {
+                                        store.dispatch(
+                                            P2pNetworkIdentifyStreamAction::RemoteClose {
+                                                addr,
+                                                peer_id,
+                                                stream_id,
+                                            },
+                                        );
+                                    }
+                                }
+                                StreamKind::Identify(IdentifyAlgorithm::IdentifyPush1_0_0) => {
+                                    unimplemented!()
+                                }
+                                StreamKind::Broadcast(BroadcastAlgorithm::Meshsub1_1_0) => {
+                                    if !fin {
+                                        store.dispatch(
+                                            P2pNetworkFloodsubStreamAction::IncomingData {
+                                                addr,
+                                                peer_id,
+                                                stream_id,
+                                                data: data.clone(),
+                                            },
+                                        );
+                                    } else {
+                                        store.dispatch(
+                                            P2pNetworkFloodsubStreamAction::RemoteClose {
+                                                addr,
+                                                peer_id,
+                                                stream_id,
+                                            },
+                                        );
+                                    }
+                                }
+                                StreamKind::Broadcast(_) => {
+                                    unimplemented!()
+                                }
+                                StreamKind::Ping(PingAlgorithm::Ping1_0_0) => {
+                                    unimplemented!()
+                                }
+                                StreamKind::Bitswap(_) => {
+                                    unimplemented!()
+                                }
+                                StreamKind::Status(_) => {
+                                    unimplemented!()
+                                }
+                                StreamKind::Rpc(RpcAlgorithm::Rpc0_0_1) => {
+                                    store.dispatch(P2pNetworkRpcAction::IncomingData {
+                                        addr,
+                                        peer_id,
+                                        stream_id,
+                                        data: data.clone(),
+                                    });
+                                }
+                            },
                             _ => {
                                 openmina_core::error!(meta.time(); "invalid select protocol kind: {:?}", kind);
                             }

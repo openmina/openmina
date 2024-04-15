@@ -144,6 +144,7 @@ where
         P2pAction::Disconnection(action) => action.effects(&meta, store),
         P2pAction::Discovery(action) => action.effects(&meta, store),
         P2pAction::Identify(action) => action.effects(&meta, store),
+        P2pAction::Floodsub(action) => action.effects(&meta, store),
         P2pAction::Channels(action) => match action {
             P2pChannelsAction::MessageReceived(action) => action.effects(&meta, store),
             P2pChannelsAction::BestTip(action) => action.effects(&meta, store),

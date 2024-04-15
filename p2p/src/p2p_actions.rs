@@ -6,6 +6,7 @@ use super::disconnection::P2pDisconnectionAction;
 use super::discovery::P2pDiscoveryAction;
 use super::network::P2pNetworkAction;
 use super::peer::P2pPeerAction;
+use crate::floodsub::P2pFloodsubAction;
 use crate::identify::P2pIdentifyAction;
 use crate::listen::P2pListenAction;
 
@@ -19,6 +20,7 @@ pub enum P2pAction {
     Disconnection(P2pDisconnectionAction),
     Discovery(P2pDiscoveryAction),
     Identify(P2pIdentifyAction),
+    Floodsub(P2pFloodsubAction),
     Channels(P2pChannelsAction),
     Peer(P2pPeerAction),
     Network(P2pNetworkAction),

@@ -53,6 +53,7 @@ impl P2pNetworkState {
                 connections: Default::default(),
                 broadcast_state: Default::default(),
                 identify_state: Default::default(),
+                floodsub_state: Default::default(),
                 discovery_state,
                 rpc_incoming_streams: Default::default(),
                 rpc_outgoing_streams: Default::default(),
@@ -121,6 +122,14 @@ impl P2pNetworkState {
                     error!(time; "{err}");
                 }
                 // println!("======= identify reducer result {state:?}");
+            }
+            P2pNetworkAction::Floodsub(a) => {
+                let time = meta.time();
+                // println!("======= floodsub reducer for {state:?}");
+                if let Err(err) = self.scheduler.floodsub_state.reducer(meta.with_action(&a)) {
+                    error!(time; "{err}");
+                }
+                // println!("======= floodsub reducer result {state:?}");
             }
             P2pNetworkAction::Kad(a) => {
                 let Some(state) = &mut self.scheduler.discovery_state else {

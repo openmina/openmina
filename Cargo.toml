@@ -12,19 +12,19 @@ members = [
     "node/account",
     "node/native",
     "node/invariants",
-    "node/testing",
+    #"node/testing",
     "cli",
     "cli/replay_dynamic_effects",
     "vrf",
 
     "mina-p2p-messages",
-    "ledger",
+    #"ledger",
 
-    "tools/transport",
-    "tools/bootstrap-sandbox",
-    "tools/hash-tool",
-    "tools/ledger-tool",
-    "tools/salsa-simple",
+    #"tools/transport",
+    #"tools/bootstrap-sandbox",
+    #"tools/hash-tool",
+    #"tools/ledger-tool",
+    #"tools/salsa-simple",
 ]
 
 resolver = "2"

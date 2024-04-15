@@ -28,6 +28,8 @@ pub use self::yamux::*;
 
 pub mod identify;
 
+pub mod floodsub;
+
 pub mod kad;
 pub use self::kad::*;
 

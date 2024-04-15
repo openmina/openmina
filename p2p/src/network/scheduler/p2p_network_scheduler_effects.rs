@@ -6,11 +6,9 @@ use redux::ActionMeta;
 use crate::{
     connection::{incoming::P2pConnectionIncomingAction, outgoing::P2pConnectionOutgoingAction},
     disconnection::P2pDisconnectionAction,
-    identify::P2pIdentifyAction,
-    network::identify::P2pNetworkIdentifyStreamAction,
-    request::{P2pNetworkKadRequestState, P2pNetworkKadRequestStatus},
-    token::{RpcAlgorithm, StreamKind},
-    MioCmd, P2pCryptoService, P2pMioService,
+    floodsub::P2pFloodsubAction,
+    network::floodsub::P2pNetworkFloodsubStreamAction,
+    identify::P2pIdentifyAction, network::identify::P2pNetworkIdentifyStreamAction, request::{P2pNetworkKadRequestState, P2pNetworkKadRequestStatus}, token::{RpcAlgorithm, StreamKind}
 };
 
 use super::{super::*, *};
@@ -129,6 +127,14 @@ impl P2pNetworkSchedulerAction {
                             StreamKind::Ping(PingAlgorithm::Ping1_0_0) => {
                                 unimplemented!()
                             }
+                            StreamKind::Broadcast(BroadcastAlgorithm::Meshsub1_1_0) => {
+                                store.dispatch(P2pNetworkFloodsubStreamAction::New {
+                                    addr,
+                                    peer_id,
+                                    stream_id,
+                                    incoming,
+                                });
+                            }
                             StreamKind::Broadcast(_) => {
                                 unimplemented!()
                             }
@@ -215,6 +221,10 @@ impl P2pNetworkSchedulerAction {
 
                     // TODO: open RPC and Kad connections only after identify reports support for it?
                     store.dispatch(P2pIdentifyAction::NewRequest { peer_id, addr });
+
+                    // TODO: dispatch only after peer reported supporting it in Identify
+                    store.dispatch(P2pFloodsubAction::NewOutboundStream { peer_id, addr });
+
 
                     // Kademlia: if the connection is initiated by Kademlia request, notify that it is ready.
                     if store

@@ -123,22 +123,30 @@ impl P2pNetworkSelectState {
                                         token::MuxKind::YamuxNoNewLine1_0_0,
                                     ))
                                 }
+                                token::Protocol::Stream(token::StreamKind::Broadcast(protocol)) => {
+                                    println!("!!!!!!!!!!!! negotiate floodsub for {:?}", protocol);
+                                    token::Token::Protocol(token::Protocol::Stream(
+                                        token::StreamKind::Broadcast(
+                                            //token::BroadcastAlgorithm::Floodsub1_0_0,
+                                            token::BroadcastAlgorithm::Meshsub1_1_0,
+                                        ),
+                                    ))
+                                }
                                 token::Protocol::Stream(
                                     token::StreamKind::Rpc(_)
                                     | token::StreamKind::Discovery(_)
-                                    //| token::StreamKind::Broadcast(_)
-                                    | token::StreamKind::Identify(token::IdentifyAlgorithm::Identify1_0_0)
+                                    | token::StreamKind::Identify(
+                                        token::IdentifyAlgorithm::Identify1_0_0,
+                                    ),
                                 ) => token::Token::Protocol(protocol),
                                 token::Protocol::Stream(
-                                    token::StreamKind::Identify(token::IdentifyAlgorithm::IdentifyPush1_0_0)
+                                    token::StreamKind::Identify(
+                                        token::IdentifyAlgorithm::IdentifyPush1_0_0,
+                                    )
                                     | token::StreamKind::Ping(_)
                                     | token::StreamKind::Bitswap(_)
-                                    | token::StreamKind::Status(_)
-                                    | token::StreamKind::Broadcast(_)
-                                ) => {
-                                    token::Token::Na
-                                }
-                                
+                                    | token::StreamKind::Status(_),
+                                ) => token::Token::Na,
                             };
                             let negotiated = if let token::Token::Protocol(p) = &reply {
                                 Some(*p)

@@ -3,7 +3,7 @@ use std::net::SocketAddr;
 use openmina_core::ActionEvent;
 use serde::{Deserialize, Serialize};
 
-use crate::{Data, P2pState, PeerId};
+use crate::{P2pState, PeerId};
 
 use super::{super::*, *};
 

@@ -3,11 +3,12 @@ pub mod channels;
 pub mod connection;
 pub mod disconnection;
 pub mod discovery;
-pub mod listen;
-pub mod peer;
 pub mod identify;
 pub mod identity;
+pub mod listen;
+pub mod peer;
 pub use identity::PeerId;
+pub mod floodsub;
 
 pub mod webrtc;
 

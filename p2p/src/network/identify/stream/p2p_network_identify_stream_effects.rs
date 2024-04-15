@@ -62,7 +62,7 @@ impl P2pNetworkIdentifyStreamAction {
                         observed_addr: None,
                         protocols: vec![
                             token::StreamKind::Discovery(token::DiscoveryAlgorithm::Kademlia1_0_0),
-                            //token::StreamKind::Broadcast(token::BroadcastAlgorithm::Floodsub1_0_0),
+                            token::StreamKind::Broadcast(token::BroadcastAlgorithm::Meshsub1_1_0),
                             token::StreamKind::Identify(token::IdentifyAlgorithm::Identify1_0_0),
                             //token::StreamKind::Identify(
                             //    token::IdentifyAlgorithm::IdentifyPush1_0_0,
