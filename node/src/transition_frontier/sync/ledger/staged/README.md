@@ -20,7 +20,7 @@ StagedPartsPeerFetchInit>StagedPartsPeerFetchInit]
 P2P-- peer available -->StagedPartsPeerFetchInit
 StagedPartsPeerFetchInit-- "call" rpc -->P2P
 StagedPartsPeerFetchInit-->StagedPartsPeerFetchPending
-P2P-. rpc timed out, peer disconnected, etc... -.->StagedPartsPeerFetchError
+P2P-. rpc timed out, peer disconnected, etc -.->StagedPartsPeerFetchError
 StagedPartsPeerFetchError-. retry from another peer -.->StagedPartsPeerFetchInit
 P2P-- rpc response -->StagedPartsPeerFetchSuccess
 StagedPartsPeerFetchSuccess-.->StagedPartsPeerInvalid
