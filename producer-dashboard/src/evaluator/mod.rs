@@ -11,14 +11,14 @@ use vrf::{VrfEvaluationInput, VrfEvaluationOutput, VrfWonSlot};
 
 use crate::{
     evaluator::epoch::{EpochData, EpochStorage},
-    node::epoch_ledgers::Ledger,
+    node::epoch_ledgers::Ledger, storage::db_sled::Database,
 };
 
 pub mod epoch;
 
 pub struct Evaluator {
     key: AccountSecretKey,
-    storage: EpochStorage,
+    db: Database,
     receiver: UnboundedReceiver<EpochInit>,
     // ledgers_dir ?
 }
@@ -26,13 +26,13 @@ pub struct Evaluator {
 impl Evaluator {
     pub fn spawn_new(
         key: AccountSecretKey,
-        storage: EpochStorage,
+        db: Database,
         receiver: UnboundedReceiver<EpochInit>,
     ) -> JoinHandle<()> {
         tokio::spawn(async move {
             Self {
                 key,
-                storage,
+                db,
                 receiver,
             }
             .run()
@@ -45,18 +45,14 @@ impl Evaluator {
         if let Some(init) = self.receiver.recv().await {
             let (start, end) = init.bounds;
             println!("Evaluating slots: {start} - {end}");
-            println!("PWD: {}", std::env::current_dir().unwrap().display());
-            let ledger = Ledger::load_from_file(init.ledger_path).unwrap();
-            let total_currency = ledger.total_currency();
+            let total_currency = init.ledger.total_currency();
 
             let pub_key = self.key.public_key().to_string();
 
             let delegates =
-                ledger.gather_producer_and_delegates(&self.key.public_key().to_string());
+                init.ledger.gather_producer_and_delegates(&self.key.public_key().to_string());
 
             let epoch_seed = EpochSeed::from_str(&init.seed).unwrap();
-
-            let mut won_slots: BTreeMap<u32, VrfWonSlot> = BTreeMap::new();
 
             for global_slot in start..end {
                 for (index, delegate) in &delegates {
@@ -73,13 +69,15 @@ impl Evaluator {
                     if let Ok(VrfEvaluationOutput::SlotWon(won_slot)) = vrf::evaluate_vrf(vrf_input)
                     {
                         println!("Won slot: {global_slot}");
-                        won_slots.insert(won_slot.global_slot, won_slot);
+
+                        // TODO(adonagy): handle error
+                        let _ = self.db.store_slot(global_slot, &won_slot.into());
                         break;
                     }
                 }
             }
-            let epoch_data = EpochData::new(init.epoch_number, won_slots);
-            let _ = self.storage.insert(init.epoch_number, epoch_data);
+            // let epoch_data = EpochData::new(init.epoch_number, won_slots);
+            // let _ = self.storage.insert(init.epoch_number, epoch_data);
         }
     }
 }
@@ -87,16 +85,16 @@ impl Evaluator {
 #[derive(Debug, Clone)]
 pub struct EpochInit {
     epoch_number: u32,
-    ledger_path: PathBuf,
+    ledger: Ledger,
     seed: String,
     bounds: (u32, u32),
 }
 
 impl EpochInit {
-    pub fn new(epoch_number: u32, ledger_path: PathBuf, seed: String, bounds: (u32, u32)) -> Self {
+    pub fn new(epoch_number: u32, ledger: Ledger, seed: String, bounds: (u32, u32)) -> Self {
         Self {
             epoch_number,
-            ledger_path,
+            ledger,
             seed,
             bounds,
         }

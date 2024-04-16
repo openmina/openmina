@@ -26,16 +26,29 @@ type Globalslot = String;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NodeData {
     best_tip: Option<BestTip>,
-    best_chain: Vec<String>,
-    transition_frontier_root_global_slot: u32,
-    transition_frontier_best_tip_global_slot: u32,
+    best_chain: Vec<(u32, String)>,
     sync_status: SyncStatus,
     dumped_ledgers: BTreeSet<u32>,
+}
+
+impl Default for NodeData {
+    fn default() -> Self {
+        Self {
+            best_tip: Default::default(),
+            best_chain: Default::default(),
+            sync_status: SyncStatus::OFFLINE,
+            dumped_ledgers: Default::default(),
+        }
+    }
 }
 
 impl NodeData {
     // TODO(adonagy): Hydrate from db
     // pub fn new()
+
+    pub fn transition_frontier_root(&self) -> Option<u32> {
+        self.best_chain.first().map(|v| v.0)
+    }
 }
 
 #[allow(dead_code)]
@@ -163,6 +176,10 @@ impl BestTip {
 
         ((current_start, current_end), (next_start, next_end))
     }
+
+    pub fn height(&self) -> u32 {
+        self.consensus_state().block_height.parse().unwrap()
+    }
 }
 
 impl From<best_chain::BestChainBestChain> for BestTip {
@@ -178,7 +195,7 @@ impl From<BestTip> for best_chain::BestChainBestChain {
 }
 
 #[allow(dead_code)]
-pub async fn get_best_chain() -> Result<Vec<String>, StakingToolError> {
+pub async fn get_best_chain() -> Result<Vec<(u32, String)>, StakingToolError> {
     let client = Client::builder()
         .user_agent("graphql-rust/0.10.0")
         .build()
@@ -197,7 +214,20 @@ pub async fn get_best_chain() -> Result<Vec<String>, StakingToolError> {
     response_data
         .best_chain
         .ok_or(StakingToolError::EmptyGraphqlResponse)
-        .map(|v| v.iter().map(|bc| bc.state_hash.clone()).collect())
+        .map(|v| {
+            v.iter()
+                .map(|bc| {
+                    (
+                        bc.protocol_state
+                            .consensus_state
+                            .slot_since_genesis
+                            .parse()
+                            .unwrap(),
+                        bc.state_hash.clone(),
+                    )
+                })
+                .collect()
+        })
 }
 
 pub async fn get_best_tip() -> Result<BestTip, StakingToolError> {

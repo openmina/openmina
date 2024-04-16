@@ -8,7 +8,7 @@ use clap::Parser;
 
 use crate::{
     evaluator::epoch::EpochStorage,
-    evaluator::{EpochInit, Evaluator},
+    evaluator::{EpochInit, Evaluator}, storage::db_sled::Database, node::watchdog::spawn_watchdog, archive::watchdog::ArchiveWatchdog,
 };
 
 mod archive;
@@ -42,38 +42,21 @@ async fn main() {
 
     let config = config::Config::parse();
 
-    let best_tip = node::get_best_tip().await.unwrap();
-
-    println!(
-        "Block Height: {}, Epoch: {}, Epoch length(current): {}, Epoch length(next): {}",
-        best_tip.consensus_state().block_height,
-        best_tip.consensus_state().epoch,
-        best_tip.consensus_state().staking_epoch_data.epoch_length,
-        best_tip.consensus_state().next_epoch_data.epoch_length,
-    );
+    // TODO(adonagy): from config
+    let db = Database::open("/tmp/producer-dashboard".into()).expect("Failed to open Database");
 
     let epoch_storage = EpochStorage::default();
 
     let key = AccountSecretKey::from_encrypted_file(config.private_key_path)
         .expect("failed to decrypt secret key file");
-    let t_epoch_storage = epoch_storage.clone();
     let (sender, receiver) = mpsc::unbounded_channel::<EpochInit>();
 
-    let evaluator_handle = Evaluator::spawn_new(key, t_epoch_storage, receiver);
 
-    // DEBUG
-    {
-        let seed = best_tip.consensus_state().staking_epoch_data.seed.clone();
-        let (current_epoch_bounds, _) = best_tip.epoch_bounds();
-        let epoch_init = EpochInit::new(
-            best_tip.consensus_state().epoch.parse().unwrap(),
-            "staking-epoch-ledger.json".into(),
-            seed,
-            current_epoch_bounds,
-        );
 
-        sender.send(epoch_init).unwrap();
-    }
+    let evaluator_handle = Evaluator::spawn_new(key.clone(), db.clone(), receiver);
+    let node_status = NodeStatus::default();
+    let node_watchdog = spawn_watchdog(node_status, db.clone(), sender);
+    let archive_watchdog = ArchiveWatchdog::spawn_new(db.clone(), key.public_key().to_string());
 
     let t_epoch_storage = epoch_storage.clone();
     let rpc_handle = rpc::spawn_rpc_server(3000, t_epoch_storage);
@@ -92,7 +75,9 @@ async fn main() {
         }
     }
 
+    drop(archive_watchdog);
     drop(rpc_handle);
+    drop(node_watchdog);
     drop(evaluator_handle);
     println!("Shutdown successfull");
 }
