@@ -4,30 +4,37 @@ use tokio::{sync::mpsc::UnboundedSender, task::JoinHandle};
 use crate::evaluator::EpochInit;
 use crate::{node::epoch_ledgers::Ledger, storage::db_sled::Database, NodeStatus};
 
-use super::{daemon_status::SyncStatus, get_best_chain, get_best_tip, DaemonStatus};
+use super::Node;
+use super::{daemon_status::SyncStatus, DaemonStatus};
 
 // TODO(adonagy): move to struct
 pub fn spawn_watchdog(
+    node: Node,
     status: NodeStatus,
     db: Database,
     sender: UnboundedSender<EpochInit>,
 ) -> JoinHandle<()> {
-    tokio::spawn(async move { watch(status, db, sender).await })
+    tokio::spawn(async move { watch(node, status, db, sender).await })
 }
 
-async fn watch(status: NodeStatus, db: Database, sender: UnboundedSender<EpochInit>) {
+async fn watch(node: Node, status: NodeStatus, db: Database, sender: UnboundedSender<EpochInit>) {
     // TODO(adonagy): From config
     let mut interval = tokio::time::interval(Duration::from_secs(5));
+
+    // TODO(adonagy): do not ignore this error
+    if node.wait_for_graphql().await.is_err() {
+        return;
+    }
 
     loop {
         interval.tick().await;
 
-        let sync_status = DaemonStatus::sync_status().await;
+        let sync_status = node.sync_status().await;
 
         if matches!(sync_status, SyncStatus::SYNCED) {
             // TODO(adonagy): Probably won't need 2 calls
-            let best_tip = get_best_tip().await.unwrap();
-            let best_chain = get_best_chain().await.unwrap();
+            let best_tip = node.get_best_tip().await.unwrap();
+            let best_chain = node.get_best_chain().await.unwrap();
             {
                 let mut status: tokio::sync::RwLockWriteGuard<'_, super::NodeData> =
                     status.write().await;
@@ -40,7 +47,7 @@ async fn watch(status: NodeStatus, db: Database, sender: UnboundedSender<EpochIn
 
             if !dumped_ledgers.contains(&current_epoch) {
                 println!("Dumping staking ledger for epoch {current_epoch}");
-                let ledger = Ledger::get_from_node(current_epoch);
+                let ledger = Node::get_staking_ledger(current_epoch);
                 let seed = best_tip.consensus_state().staking_epoch_data.seed.clone();
                 // TODO(adonagy): handle error
                 let _ = db.store_ledger(current_epoch, &ledger);

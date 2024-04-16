@@ -17,4 +17,11 @@ pub struct Config {
     /// MINA_PRIVKEY_PASS environmental variable must be set!
     #[arg(short, long)]
     pub private_key_path: PathBuf,
+
+    /// Path to the database
+    #[arg(short, long, default_value = "/tmp/producer-dashboard")]
+    pub database_path: PathBuf,
+
+    #[arg(short, long)]
+    pub node_url: String,
 }

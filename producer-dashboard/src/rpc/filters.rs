@@ -1,11 +1,11 @@
 use warp::Filter;
 
-use crate::EpochStorage;
+use crate::storage::db_sled::Database;
 
 use super::handlers::{get_genesis_timestamp, get_latest_epoch_data};
 
 pub fn filters(
-    storage: EpochStorage,
+    storage: Database,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     let cors = warp::cors()
         .allow_any_origin()
@@ -25,7 +25,7 @@ fn genesis_timestamp() -> impl Filter<Extract = (impl warp::Reply,), Error = war
 }
 
 fn latest_epoch_data(
-    storage: EpochStorage,
+    storage: Database,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("epoch" / "latest")
         .and(warp::get())
@@ -34,7 +34,7 @@ fn latest_epoch_data(
 }
 
 fn with_storage(
-    storage: EpochStorage,
-) -> impl Filter<Extract = (EpochStorage,), Error = std::convert::Infallible> + Clone {
+    storage: Database,
+) -> impl Filter<Extract = (Database,), Error = std::convert::Infallible> + Clone {
     warp::any().map(move || storage.clone())
 }

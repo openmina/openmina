@@ -2,7 +2,7 @@ use node::NodeData;
 use openmina_node_account::AccountSecretKey;
 
 use std::{collections::BTreeMap, sync::Arc};
-use tokio::sync::{mpsc, RwLock};
+use tokio::sync::{mpsc, RwLock, oneshot::error};
 
 use clap::Parser;
 
@@ -10,7 +10,7 @@ use crate::{
     archive::watchdog::ArchiveWatchdog,
     evaluator::epoch::EpochStorage,
     evaluator::{EpochInit, Evaluator},
-    node::watchdog::spawn_watchdog,
+    node::{watchdog::spawn_watchdog, Node},
     storage::db_sled::Database,
 };
 
@@ -29,6 +29,8 @@ pub enum StakingToolError {
     Io(#[from] std::io::Error),
     #[error(transparent)]
     Serde(#[from] serde_json::Error),
+    #[error("Node offline")]
+    NodeOffline,
 }
 
 pub type NodeStatus = Arc<RwLock<NodeData>>;
@@ -46,7 +48,7 @@ async fn main() {
     let config = config::Config::parse();
 
     // TODO(adonagy): from config
-    let db = Database::open("/tmp/producer-dashboard".into()).expect("Failed to open Database");
+    let db = Database::open(config.database_path).expect("Failed to open Database");
 
     let epoch_storage = EpochStorage::default();
 
@@ -56,11 +58,11 @@ async fn main() {
 
     let evaluator_handle = Evaluator::spawn_new(key.clone(), db.clone(), receiver);
     let node_status = NodeStatus::default();
-    let node_watchdog = spawn_watchdog(node_status, db.clone(), sender);
+    let node = Node::new(config.node_url);
+    let node_watchdog = spawn_watchdog(node, node_status, db.clone(), sender);
     let archive_watchdog = ArchiveWatchdog::spawn_new(db.clone(), key.public_key().to_string());
 
-    let t_epoch_storage = epoch_storage.clone();
-    let rpc_handle = rpc::spawn_rpc_server(3000, t_epoch_storage);
+    let rpc_handle = rpc::spawn_rpc_server(3000, db.clone());
 
     let mut signal_stream =
         tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())

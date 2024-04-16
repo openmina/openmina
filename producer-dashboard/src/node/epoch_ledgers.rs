@@ -8,8 +8,6 @@ use std::str::FromStr;
 
 use crate::StakingToolError;
 
-use super::dump_current_staking_ledger;
-
 // TODO(adonagy): remove dead_code
 #[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq)]
@@ -105,11 +103,12 @@ pub struct Ledger {
 
 #[allow(dead_code)]
 impl Ledger {
-    pub fn get_from_node(epoch_number: u32) -> Self {
-        let raw = dump_current_staking_ledger(epoch_number);
-        let inner = serde_json::from_slice(raw.as_ref()).unwrap();
-        Self { inner }
+    pub fn new(inner: Vec<LedgerEntry>) -> Self {
+        Self {
+            inner
+        }
     }
+
 
     pub fn load_from_file(path: PathBuf) -> Result<Self, StakingToolError> {
         let f = std::fs::File::open(path)?;
@@ -137,27 +136,3 @@ impl Ledger {
         self.inner.iter().map(|entry| &entry.balance.0).sum()
     }
 }
-
-// {
-//     "pk": "B62qiy32p8kAKnny8ZFwoMhYpBppM1DWVCqAPBYNcXnsAHhnfAAuXgg",
-//     "balance": "0.000001",
-//     "delegate": "B62qiy32p8kAKnny8ZFwoMhYpBppM1DWVCqAPBYNcXnsAHhnfAAuXgg",
-//     "token": "wSHV2S4qX9jFsLjQo8r1BsMLH2ZRKsZx6EJd1sbozGPieEC4Jf",
-//     "receipt_chain_hash":
-//       "2n1hGCgg3jCKQJzVBgfujGqyV6D9riKgq27zhXqYgTRVZM5kqfkm",
-//     "voting_for": "3NK2tkzqqK5spR2sZ7tujjqPksL45M3UUrcA4WhCkeiPtnugyE2x",
-//     "permissions": {
-//       "edit_state": "signature",
-//       "send": "signature",
-//       "set_delegate": "signature",
-//       "set_permissions": "signature",
-//       "set_verification_key": { "auth": "signature", "txn_version": "2" },
-//       "set_zkapp_uri": "signature",
-//       "edit_action_state": "signature",
-//       "set_token_symbol": "signature",
-//       "increment_nonce": "signature",
-//       "set_voting_for": "signature",
-//       "set_timing": "signature"
-//     },
-//     "token_symbol": ""
-//   },

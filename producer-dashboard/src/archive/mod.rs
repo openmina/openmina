@@ -11,7 +11,13 @@ pub struct ArchiveConnector {
 impl ArchiveConnector {
     pub async fn connect() -> Self {
         // TODO(adonagy): unwrap
-        let pool = PgPool::connect(&dotenvy::var("DATABASE_URL").unwrap())
+        let db_url = if let Ok(url) = dotenvy::var("DATABASE_URL") {
+            url
+        } else {
+            std::env::var("DATABASE_URL").expect("No db url found, check env var DATABASE_URL")
+        };
+
+        let pool = PgPool::connect(&db_url)
             .await
             .unwrap();
 
