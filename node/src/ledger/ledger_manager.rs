@@ -33,6 +33,9 @@ use ledger::Mask;
 use mina_signer::CompressedPubKey;
 use openmina_node_account::AccountPublicKey;
 
+use crate::event_source::Event;
+use crate::ledger::LedgerEvent;
+
 /// The type enumerating different requests that can be made to the
 /// service. Each specific constructor has a specific response
 /// constructor associated with it. Unfortunately, this relationship
@@ -104,9 +107,6 @@ enum LedgerRequest {
         snarked_ledger_hash: LedgerHash,
         parts: Option<Arc<StagedLedgerAuxAndPendingCoinbasesValid>>,
     }, // expected response: Success
-    StagedLedgerReconstructResultStore {
-        staged_ledger_hash: LedgerHash,
-    }, // expected response: Success
     StakeProofSparseLedger {
         staking_ledger: LedgerHash,
         producer: NonZeroCurvePoint,
@@ -114,8 +114,13 @@ enum LedgerRequest {
     }, // expected response: SparseLedgerBase
 }
 
+/// This type represents LedgerManager's responses to synchronous request.
+/// Each variant corresponds to a specific request type, but unfortunately,
+/// this relationship can't be expressed in the Rust type system at the moment.
+/// For this reason this type is kept private and its variants are converted to
+/// different types by their respective request handlers.
 #[derive(Debug)]
-pub enum LedgerResponse {
+enum LedgerResponse {
     ChildHashes(LedgerHash, LedgerHash),
     CommitResult(CommitResult),
     LedgerAuxAndCoinbaseResult(Option<Arc<StagedLedgerAuxAndPendingCoinbases>>),
@@ -134,7 +139,11 @@ pub enum LedgerResponse {
 }
 
 impl LedgerRequest {
-    fn handle(self, ledger_ctx: &mut LedgerCtx) -> Result<LedgerResponse, String> {
+    fn handle(
+        self,
+        ledger_ctx: &mut LedgerCtx,
+        event_sender: &mpsc::UnboundedSender<Event>,
+    ) -> Result<LedgerResponse, String> {
         match self {
             LedgerRequest::AccountsSet {
                 snarked_ledger_hash,
@@ -240,11 +249,15 @@ impl LedgerRequest {
                 snarked_ledger_hash,
                 parts,
             } => {
-                ledger_ctx.staged_ledger_reconstruct(snarked_ledger_hash, parts);
-                Ok(LedgerResponse::Success)
-            }
-            LedgerRequest::StagedLedgerReconstructResultStore { staged_ledger_hash } => {
-                ledger_ctx.staged_ledger_reconstruct_result_store(staged_ledger_hash);
+                let result = ledger_ctx
+                    .staged_ledger_reconstruct(snarked_ledger_hash, parts)
+                    .map(LedgerEvent::LedgerReconstructSuccess)
+                    .map_err(LedgerEvent::LedgerReconstructError);
+                let event = Event::LedgerEvent(match result {
+                    Ok(event) => event,
+                    Err(event) => event,
+                });
+                event_sender.send(event).expect("ledger event send failed");
                 Ok(LedgerResponse::Success)
             }
             LedgerRequest::StakeProofSparseLedger {
@@ -270,13 +283,16 @@ pub struct LedgerManager {
 }
 
 impl LedgerManager {
-    pub fn spawn(mut ledger_ctx: LedgerCtx) -> LedgerManager {
+    pub fn spawn(
+        mut ledger_ctx: LedgerCtx,
+        event_sender: mpsc::UnboundedSender<Event>,
+    ) -> LedgerManager {
         let (sender, mut receiver) = mpsc::unbounded_channel();
         let runtime = thread::spawn(move || {
             loop {
                 match receiver.blocking_recv() {
                     Some(LedgerRequestWithChan { request, responder }) => responder
-                        .send(request.handle(&mut ledger_ctx))
+                        .send(request.handle(&mut ledger_ctx, &event_sender))
                         .unwrap_or(()),
                     None => {
                         break;
@@ -316,6 +332,7 @@ impl LedgerManager {
             _ => panic!("get_mask failed"),
         }
     }
+
     pub fn producers_with_delegates(
         &self,
         ledger_hash: &LedgerHash,
@@ -428,23 +445,6 @@ impl TransitionFrontierSyncLedgerSnarkedService for LedgerManager {
 }
 
 impl TransitionFrontierSyncLedgerStagedService for LedgerManager {
-    // TODO(tizoc): Only used for the current workaround to make staged ledger
-    // reconstruction async, can be removed when the ledger services are made async
-    fn staged_ledger_reconstruct_result_store(&self, staged_ledger_hash: LedgerHash) {
-        self.call(LedgerRequest::StagedLedgerReconstructResultStore { staged_ledger_hash })
-            .and_then(|res| {
-                if let LedgerResponse::Success = res {
-                    Ok(())
-                } else {
-                    Err(format_response_error(
-                        "staged_ledger_reconstruct_result_store",
-                        res,
-                    ))
-                }
-            })
-            .expect("LedgerManager::staged_ledger_reconstruct_result_store: failed")
-    }
-
     fn staged_ledger_reconstruct(
         &self,
         snarked_ledger_hash: LedgerHash,

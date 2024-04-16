@@ -1,7 +1,7 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
     path::Path,
-    sync::{Arc, Mutex},
+    sync::Arc
 };
 
 use super::ledger_manager::LedgerManager;
@@ -90,7 +90,6 @@ pub struct LedgerCtx {
 struct LedgerSyncState {
     snarked_ledgers: BTreeMap<LedgerHash, Mask>,
     staged_ledgers: BTreeMap<LedgerHash, StagedLedger>,
-    staged_ledger_just_reconstructed: Arc<Mutex<Option<StagedLedger>>>,
 }
 
 impl LedgerCtx {
@@ -430,29 +429,11 @@ impl LedgerCtx {
         Ok(computed_hash)
     }
 
-    // TODO(tizoc): Only used for the current workaround to make staged ledger
-    // reconstruction async, can be removed when the ledger services are made async
-    pub fn staged_ledger_reconstruct_result_store(&mut self, staged_ledger_hash: LedgerHash) {
-        let staged_ledger =
-            std::mem::take(&mut *self.sync.staged_ledger_just_reconstructed.lock().unwrap())
-                .unwrap();
-
-        openmina_core::debug!(openmina_core::log::system_time();
-            kind = "LedgerService::staged_ledger_reconstruct_result_store",
-            summary = "Storing just reconstructed staged ledger",
-            staged_ledger_hash = staged_ledger_hash.to_string(),
-        );
-
-        self.sync
-            .staged_ledgers
-            .insert(staged_ledger_hash, staged_ledger);
-    }
-
     pub fn staged_ledger_reconstruct(
         &mut self,
         snarked_ledger_hash: LedgerHash,
         parts: Option<Arc<StagedLedgerAuxAndPendingCoinbasesValid>>,
-    ) {
+    ) -> Result<LedgerHash, String> {
         let staged_ledger_hash = parts
             .as_ref()
             .map(|p| p.staged_ledger_hash.clone())
@@ -460,49 +441,37 @@ impl LedgerCtx {
         let snarked_ledger = self.sync.snarked_ledger_mut(snarked_ledger_hash.clone());
         let mask = snarked_ledger.copy();
 
-        let event_sender = self
-            .event_sender
-            .clone()
-            .expect("Must set an event sender in the ledger context");
+        let result = if let Some(parts) = parts {
+            let states = parts
+                .needed_blocks
+                .iter()
+                .map(|state| (state.hash().to_fp().unwrap(), state.clone()))
+                .collect::<BTreeMap<_, _>>();
 
-        let staged_ledger_just_reconstructed = self.sync.staged_ledger_just_reconstructed.clone();
+            StagedLedger::of_scan_state_pending_coinbases_and_snarked_ledger(
+                (),
+                &CONSTRAINT_CONSTANTS,
+                Verifier,
+                (&parts.scan_state).into(),
+                mask,
+                LocalState::empty(),
+                parts.staged_ledger_hash.0.to_field(),
+                (&parts.pending_coinbase).into(),
+                |key| states.get(&key).cloned().unwrap(),
+            )
+        } else {
+            StagedLedger::create_exn(CONSTRAINT_CONSTANTS.clone(), mask)
+        };
 
-        // TODO(tizoc): Workaround to make staged ledger
-        // reconstruction async, can be removed when the ledger services are made async
-        std::thread::spawn(move || {
-            let result = if let Some(parts) = parts {
-                let states = parts
-                    .needed_blocks
-                    .iter()
-                    .map(|state| (state.hash().to_fp().unwrap(), state.clone()))
-                    .collect::<BTreeMap<_, _>>();
-
-                StagedLedger::of_scan_state_pending_coinbases_and_snarked_ledger(
-                    (),
-                    &CONSTRAINT_CONSTANTS,
-                    Verifier,
-                    (&parts.scan_state).into(),
-                    mask,
-                    LocalState::empty(),
-                    parts.staged_ledger_hash.0.to_field(),
-                    (&parts.pending_coinbase).into(),
-                    |key| states.get(&key).cloned().unwrap(),
-                )
-            } else {
-                StagedLedger::create_exn(CONSTRAINT_CONSTANTS.clone(), mask)
-            };
-
-            let event = match result {
-                Ok(staged_ledger) => {
-                    let result = &mut *staged_ledger_just_reconstructed.lock().unwrap();
-                    *result = Some(staged_ledger);
-                    crate::event_source::Event::LedgerStagingReconstruct(Ok(staged_ledger_hash))
-                }
-                Err(error) => crate::event_source::Event::LedgerStagingReconstruct(Err(error)),
-            };
-
-            event_sender.send(event).unwrap();
-        });
+        match result {
+            Ok(staged_ledger) => {
+                self.sync
+                    .staged_ledgers
+                    .insert(staged_ledger_hash.clone(), staged_ledger);
+                Ok(staged_ledger_hash)
+            }
+            Err(error) => Err(error),
+        }
     }
 
     pub fn block_apply(
@@ -1122,13 +1091,6 @@ impl<T: LedgerService> TransitionFrontierSyncLedgerSnarkedService for T {
 }
 
 impl<T: LedgerService> TransitionFrontierSyncLedgerStagedService for T {
-    // TODO(tizoc): Only used for the current workaround to make staged ledger
-    // reconstruction async, can be removed when the ledger services are made async
-    fn staged_ledger_reconstruct_result_store(&self, staged_ledger_hash: LedgerHash) {
-        self.ledger_manager()
-            .staged_ledger_reconstruct_result_store(staged_ledger_hash)
-    }
-
     fn staged_ledger_reconstruct(
         &self,
         snarked_ledger_hash: LedgerHash,

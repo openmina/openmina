@@ -1,8 +1,8 @@
-use mina_p2p_messages::v2::LedgerHash;
 use serde::{Deserialize, Serialize};
 
 pub use crate::block_producer::BlockProducerEvent;
 pub use crate::external_snark_worker::ExternalSnarkWorkerEvent;
+pub use crate::ledger::LedgerEvent;
 pub use crate::p2p::{P2pConnectionEvent, P2pEvent};
 pub use crate::rpc::{RpcId, RpcRequest};
 pub use crate::snark::SnarkEvent;
@@ -17,9 +17,8 @@ pub enum Event {
     ExternalSnarkWorker(ExternalSnarkWorkerEvent),
     BlockProducerEvent(BlockProducerEvent),
 
-    LedgerStagingReconstruct(Result<LedgerHash, String>),
-
     GenesisLoad(Result<GenesisConfigLoaded, String>),
+    LedgerEvent(LedgerEvent),
 }
 
 impl std::fmt::Display for Event {
@@ -73,17 +72,6 @@ impl std::fmt::Display for Event {
                 }
             }
             Self::BlockProducerEvent(event) => event.fmt(f),
-            Self::LedgerStagingReconstruct(res) => {
-                write!(f, "LedgerStagingReconstruct, ")?;
-                match res {
-                    Err(_) => {
-                        write!(f, "Err")
-                    }
-                    Ok(hash) => {
-                        write!(f, "Ok, {}", hash)
-                    }
-                }
-            }
             Self::GenesisLoad(res) => {
                 write!(f, "GenesisLoad, ")?;
                 match res {
@@ -95,6 +83,7 @@ impl std::fmt::Display for Event {
                     }
                 }
             }
+            Self::LedgerEvent(event) => event.fmt(f),
         }
     }
 }

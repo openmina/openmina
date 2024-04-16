@@ -232,17 +232,13 @@ impl Node {
 
         let record = self.record;
 
-        let mut ledger = if let Some(path) = &self.additional_ledgers_path {
+        let ledger = if let Some(path) = &self.additional_ledgers_path {
             LedgerCtx::new_with_additional_snarked_ledgers(path)
         } else {
             LedgerCtx::default()
         };
 
-        // TODO(tizoc): Only used for the current workaround to make staged ledger
-        // reconstruction async, can be removed when the ledger services are made async
-        ledger.set_event_sender(event_sender.clone());
-
-        let ledger_manager = LedgerManager::spawn(ledger);
+        let ledger_manager = LedgerManager::spawn(ledger, event_sender.clone());
 
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()

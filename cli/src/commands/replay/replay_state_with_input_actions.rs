@@ -52,12 +52,15 @@ impl ReplayStateWithInputActions {
             state
         };
 
+        // A fake event channel, no one listens to.
+        let event_sender = mpsc::unbounded_channel().0;
+
         let service = NodeService {
             rng: StdRng::seed_from_u64(initial_state.rng_seed),
             event_sender: mpsc::unbounded_channel().0,
             event_receiver: mpsc::unbounded_channel().1.into(),
             cmd_sender: mpsc::unbounded_channel().0,
-            ledger_manager: LedgerManager::spawn(Default::default()),
+            ledger_manager: LedgerManager::spawn(Default::default(), event_sender),
             peers: Default::default(),
             #[cfg(feature = "p2p-libp2p")]
             mio: node::p2p::service_impl::mio::MioService::mocked(),

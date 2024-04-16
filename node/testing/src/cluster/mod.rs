@@ -337,14 +337,16 @@ impl Cluster {
             })
             .unwrap();
 
+        // A fake event channel no one listens to.
+        let event_sender = mpsc::unbounded_channel().0;
         let ledger = LedgerCtx::default();
 
         let mut real_service = NodeService {
             rng: StdRng::seed_from_u64(0),
-            event_sender,
+            event_sender: event_sender.clone(),
             event_receiver: event_receiver.into(),
             cmd_sender,
-            ledger_manager: LedgerManager::spawn(ledger),
+            ledger_manager: LedgerManager::spawn(ledger, event_sender),
             peers,
             #[cfg(feature = "p2p-libp2p")]
             mio: p2p_service_ctx.mio,

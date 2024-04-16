@@ -93,13 +93,7 @@ impl TransitionFrontierSyncLedgerStagedAction {
                     .service
                     .staged_ledger_reconstruct(snarked_ledger_hash, parts);
             }
-            TransitionFrontierSyncLedgerStagedAction::ReconstructSuccess { ledger_hash } => {
-                // TODO: Only used for the current workaround to make staged ledger
-                // reconstruction async, can be removed when the ledger services are made async
-                store
-                    .service
-                    .staged_ledger_reconstruct_result_store(ledger_hash);
-
+            TransitionFrontierSyncLedgerStagedAction::ReconstructSuccess { ledger_hash: _ } => {
                 store.dispatch(TransitionFrontierSyncLedgerStagedAction::Success);
             }
             _ => {}

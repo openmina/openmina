@@ -25,8 +25,7 @@ use node::core::channels::{mpsc, oneshot};
 use node::core::invariants::InvariantsState;
 use node::core::snark::{Snark, SnarkJobId};
 use node::event_source::Event;
-use node::ledger::ledger_manager::LedgerManager;
-use node::ledger::LedgerAddress;
+use node::ledger::{LedgerAddress, LedgerManager};
 use node::p2p::channels::rpc::StagedLedgerAuxAndPendingCoinbases;
 use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 use node::p2p::service_impl::webrtc::{Cmd, P2pServiceWebrtc, PeerState};
@@ -146,13 +145,6 @@ impl TransitionFrontierSyncLedgerSnarkedService for NodeService {
 }
 
 impl TransitionFrontierSyncLedgerStagedService for NodeService {
-    // TODO(tizoc): Only used for the current workaround to make staged ledger
-    // reconstruction async, can be removed when the ledger services are made async
-    fn staged_ledger_reconstruct_result_store(&self, staged_ledger_hash: LedgerHash) {
-        self.ledger_manager
-            .staged_ledger_reconstruct_result_store(staged_ledger_hash)
-    }
-
     fn staged_ledger_reconstruct(
         &self,
         snarked_ledger_hash: LedgerHash,
