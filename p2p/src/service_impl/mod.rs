@@ -1,6 +1,4 @@
 #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
-pub mod libp2p;
-#[cfg(all(not(target_arch = "wasm32"), not(feature = "p2p-libp2p")))]
 pub mod mio;
 #[cfg(feature = "p2p-webrtc")]
 pub mod webrtc;

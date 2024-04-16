@@ -259,8 +259,6 @@ impl Node {
                 ledger_manager,
                 peers: p2p_service_ctx.webrtc.peers,
                 #[cfg(feature = "p2p-libp2p")]
-                libp2p: p2p_service_ctx.libp2p,
-                #[cfg(not(feature = "p2p-libp2p"))]
                 mio: p2p_service_ctx.mio,
                 block_producer: None,
                 keypair,

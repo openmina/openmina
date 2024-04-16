@@ -1,10 +1,9 @@
+#![allow(warnings)]
+
 use std::time::Duration;
 
 use libp2p::Multiaddr;
-use node::{
-    event_source::Event,
-    p2p::{connection::outgoing::P2pConnectionOutgoingInitOpts, P2pEvent, PeerId},
-};
+use node::p2p::{connection::outgoing::P2pConnectionOutgoingInitOpts, PeerId};
 use rand::Rng;
 
 use crate::{
@@ -64,17 +63,9 @@ impl SoloNodeBasicConnectivityAcceptIncoming {
             let steps = runner
                 .pending_events(true)
                 .map(|(node_id, _, events)| {
-                    events.map(move |(_, event)| {
-                        match event {
-                            Event::P2p(P2pEvent::Discovery(event)) => {
-                                eprintln!("event: {event}");
-                            }
-                            _ => {}
-                        }
-                        ScenarioStep::Event {
-                            node_id,
-                            event: event.to_string(),
-                        }
+                    events.map(move |(_, event)| ScenarioStep::Event {
+                        node_id,
+                        event: event.to_string(),
                     })
                 })
                 .flatten()
@@ -99,7 +90,7 @@ impl SoloNodeBasicConnectivityAcceptIncoming {
 
             let node = runner.node(node_id).expect("must exist");
             let ready_peers = node.state().p2p.ready_peers_iter().count();
-            let known_peers = node.state().p2p.kademlia.known_peers.len();
+            let known_peers: usize = todo!();
 
             println!("step: {step}");
             println!("known peers: {known_peers}");

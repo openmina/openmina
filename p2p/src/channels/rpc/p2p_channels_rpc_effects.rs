@@ -2,15 +2,11 @@ use openmina_core::block::BlockWithHash;
 
 use redux::ActionMeta;
 
-use crate::{
-    channels::{ChannelId, MsgId, P2pChannelsService},
-    is_old_libp2p,
-    peer::P2pPeerAction,
-    P2pNetworkRpcAction,
-};
+use crate::{channels::P2pChannelsService, peer::P2pPeerAction, P2pNetworkRpcAction};
 
-use super::{P2pChannelsRpcAction, P2pRpcResponse, RpcChannelMsg};
+use super::{P2pChannelsRpcAction, P2pRpcResponse};
 
+// TODO: support for webrtc peers
 impl P2pChannelsRpcAction {
     pub fn effects<Store, S>(self, _: &ActionMeta, store: &mut Store)
     where
@@ -19,11 +15,8 @@ impl P2pChannelsRpcAction {
     {
         match self {
             P2pChannelsRpcAction::Init { peer_id } => {
-                if is_old_libp2p() {
-                    store.service().channel_open(peer_id, ChannelId::Rpc);
-                } else {
-                    // TODO(akoptelov): open a new stream, if we decide not to forcibly do that on connection established
-                }
+                // TODO: webrtc init?
+                // TODO(akoptelov): open a new stream, if we decide not to forcibly do that on connection established
                 store.dispatch(P2pChannelsRpcAction::Pending { peer_id });
             }
             P2pChannelsRpcAction::RequestSend {
@@ -31,13 +24,7 @@ impl P2pChannelsRpcAction {
                 id,
                 request,
             } => {
-                if cfg!(feature = "p2p-libp2p") {
-                    let msg = RpcChannelMsg::Request(id, request);
-                    store
-                        .service()
-                        .channel_send(peer_id, MsgId::first(), msg.into());
-                } else if let Some((query, data)) = super::internal_request_into_libp2p(request, id)
-                {
+                if let Some((query, data)) = super::internal_request_into_libp2p(request, id) {
                     store.dispatch(P2pNetworkRpcAction::OutgoingQuery {
                         peer_id,
                         query,
@@ -60,12 +47,7 @@ impl P2pChannelsRpcAction {
                 id,
                 response,
             } => {
-                if cfg!(feature = "p2p-libp2p") {
-                    let msg = RpcChannelMsg::Response(id, response);
-                    store
-                        .service()
-                        .channel_send(peer_id, MsgId::first(), msg.into());
-                } else if let Some(response) = response {
+                if let Some(response) = response {
                     if let Some((response, data)) =
                         super::internal_response_into_libp2p(response, id)
                     {

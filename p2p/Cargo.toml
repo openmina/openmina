@@ -57,8 +57,6 @@ clap = { version = "4.5.2", features = ["derive", "env"] }
 tokio = { version = "1.26", features = ["rt"] }
 webrtc = { git = "https://github.com/openmina/webrtc.git", branch = "openmina-13c490c3", optional = true }
 hyper = { version = "0.14.25", features = ["client", "http1", "tcp"] }
-libp2p = { workspace = true, features = ["macros", "serde", "tcp", "dns", "tokio", "yamux", "pnet", "noise", "gossipsub", "identify", "kad"], optional = true }
-libp2p-rpc-behaviour = { path = "libp2p-rpc-behaviour", optional = true }
 libp2p-identity = { version = "=0.2.7", features = ["ed25519", "rand", "serde"] }
 multiaddr = { version = "0.18.1" }
 mio = { version = "0.8.11", features = ["os-poll"] }
@@ -74,5 +72,6 @@ web-sys = { version = "0.3", features = ["RtcPeerConnection", "RtcConfiguration"
 tokio = { version = "1.26", features = ["macros"] }
 
 [features]
+default = [ "p2p-libp2p" ]
 p2p-webrtc = ["webrtc"]
-p2p-libp2p = ["libp2p", "libp2p-rpc-behaviour"]
+p2p-libp2p = []

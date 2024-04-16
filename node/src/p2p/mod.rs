@@ -4,7 +4,6 @@ pub mod channels;
 pub mod connection;
 pub mod disconnection;
 pub mod discovery;
-pub mod listen;
 pub mod network;
 pub mod peer;
 
@@ -47,8 +46,6 @@ macro_rules! impl_into_global_action {
         }
     };
 }
-
-impl_into_global_action!(listen::P2pListenAction);
 
 impl_into_global_action!(connection::outgoing::P2pConnectionOutgoingAction);
 

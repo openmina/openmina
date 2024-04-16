@@ -35,6 +35,7 @@ rust-format = "0.3"
 vergen = { version = "8.2.4", features = ["build", "cargo", "git", "gitcl", "rustc"] }
 
 [features]
+default = ["p2p-libp2p"]
 replay = []
 p2p-webrtc = ["p2p/p2p-webrtc"]
 p2p-libp2p = ["p2p/p2p-libp2p"]

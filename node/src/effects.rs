@@ -18,9 +18,6 @@ use crate::{Action, ActionWithMeta, ExternalSnarkWorkerAction, Service, Store};
 
 use crate::p2p::channels::rpc::{P2pChannelsRpcAction, P2pRpcRequest};
 
-#[cfg(feature = "p2p-libp2p")]
-use crate::p2p::channels::rpc::P2pRpcKind;
-
 pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
     store.service.recorder().action(&action);
 
@@ -49,9 +46,6 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
 
             store.dispatch(SnarkPoolCandidateAction::WorkFetchAll);
             store.dispatch(SnarkPoolCandidateAction::WorkVerifyNext);
-
-            #[cfg(feature = "p2p-webrtc")]
-            p2p_discovery_request(store, &meta);
 
             // TODO(binier): remove once ledger communication is async.
             store.dispatch(TransitionFrontierSyncAction::BlocksNextApplyInit);
@@ -111,40 +105,8 @@ fn p2p_request_best_tip_if_needed<S: Service>(store: &mut Store<S>) {
 }
 use mina_p2p_messages::v2::StateHash;
 
-#[cfg(feature = "p2p-libp2p")]
-fn request_best_tip<S: Service>(store: &mut Store<S>, consensus_best_tip_hash: Option<StateHash>) {
-    if !store
-        .state()
-        .p2p
-        .ready_peers_iter()
-        .filter_map(|(_, s)| s.channels.rpc.pending_local_rpc_kind())
-        .any(|kind| matches!(kind, P2pRpcKind::BestTipWithProof))
-    {
-        // TODO(binier): choose randomly.
-        if let Some((peer_id, id)) = store
-            .state()
-            .p2p
-            .ready_peers_iter()
-            .filter(|(_, p)| p.channels.rpc.can_send_request())
-            .filter(|(_, p)| {
-                p.best_tip
-                    .as_ref()
-                    .map_or(true, |b| Some(b.hash()) == consensus_best_tip_hash.as_ref())
-            })
-            .map(|(peer_id, p)| (*peer_id, p.channels.rpc.next_local_rpc_id()))
-            .last()
-        {
-            store.dispatch(P2pChannelsRpcAction::RequestSend {
-                peer_id,
-                id,
-                request: P2pRpcRequest::BestTipWithProof,
-            });
-        }
-    }
-}
-
-#[cfg(not(feature = "p2p-libp2p"))]
 fn request_best_tip<S: Service>(store: &mut Store<S>, _consensus_best_tip_hash: Option<StateHash>) {
+    // TODO: choose peer that has this channel capability
     if let Some((peer_id, streams)) = store
         .state()
         .p2p
@@ -187,44 +149,5 @@ fn p2p_request_snarks_if_needed<S: Service>(store: &mut Store<S>) {
 
     for (peer_id, limit) in snark_reqs {
         store.dispatch(P2pChannelsSnarkAction::RequestSend { peer_id, limit });
-    }
-}
-
-/// Iterate all connected peers and check the time of the last response to the peer discovery request.
-/// If the elapsed time is large enough, send another discovery request.
-#[cfg(feature = "p2p-webrtc")]
-fn p2p_discovery_request<S: Service>(store: &mut Store<S>, meta: &redux::ActionMeta) {
-    use crate::p2p::discovery::P2pDiscoveryAction;
-
-    let peer_ids = store
-        .state()
-        .p2p
-        .ready_peers_iter()
-        .filter_map(|(peer_id, _)| {
-            let Some(t) = store
-                .state()
-                .p2p
-                .kademlia
-                .peer_timestamp
-                .get(peer_id)
-                .cloned()
-            else {
-                return Some(*peer_id);
-            };
-            let elapsed = meta
-                .time_as_nanos()
-                .checked_sub(t.into())
-                .unwrap_or_default();
-            let minimal_interval = store.state().p2p.config.ask_initial_peers_interval;
-            if elapsed < minimal_interval.as_nanos() as u64 {
-                None
-            } else {
-                Some(*peer_id)
-            }
-        })
-        .collect::<Vec<_>>();
-
-    for peer_id in peer_ids {
-        store.dispatch(P2pDiscoveryAction::Init { peer_id });
     }
 }

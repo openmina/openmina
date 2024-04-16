@@ -6,7 +6,7 @@ use crate::connection::{P2pConnectionErrorResponse, P2pConnectionState};
 use crate::peer::P2pPeerAction;
 use crate::webrtc::Host;
 use crate::{connection::P2pConnectionService, webrtc};
-use crate::{is_old_libp2p, P2pNetworkKadRequestAction, P2pNetworkSchedulerAction, P2pPeerStatus};
+use crate::{P2pNetworkKadRequestAction, P2pNetworkSchedulerAction, P2pPeerStatus};
 
 use super::libp2p_opts::P2pConnectionOutgoingInitLibp2pOptsTryToSocketAddrError;
 use super::{
@@ -22,44 +22,28 @@ impl P2pConnectionOutgoingAction {
     {
         match self {
             P2pConnectionOutgoingAction::RandomInit => {
-                #[cfg(feature = "p2p-libp2p")]
-                {
-                    let peers = store.state().initial_unused_peers();
-                    let picked_peer = store.service().random_pick(&peers);
-                    store.dispatch(P2pConnectionOutgoingAction::Init {
-                        opts: picked_peer,
-                        rpc_id: None,
-                    });
-                }
-                #[cfg(not(feature = "p2p-libp2p"))]
-                {
-                    let peers = store.state().disconnected_peers().collect::<Vec<_>>();
-                    let picked_peer = store.service().random_pick(&peers);
-                    store.dispatch(P2pConnectionOutgoingAction::Reconnect {
-                        opts: picked_peer,
-                        rpc_id: None,
-                    });
-                }
+                let peers = store.state().disconnected_peers().collect::<Vec<_>>();
+                let picked_peer = store.service().random_pick(&peers);
+                store.dispatch(P2pConnectionOutgoingAction::Reconnect {
+                    opts: picked_peer,
+                    rpc_id: None,
+                });
             }
             P2pConnectionOutgoingAction::Init { opts, .. }
             | P2pConnectionOutgoingAction::Reconnect { opts, .. } => {
                 let peer_id = *opts.peer_id();
                 if let P2pConnectionOutgoingInitOpts::LibP2P(libp2p_opts) = &opts {
-                    if is_old_libp2p() {
-                        store.service().outgoing_init(opts.clone());
-                    } else {
-                        match SocketAddr::try_from(libp2p_opts) {
-                            Ok(addr) => {
-                                store.dispatch(P2pNetworkSchedulerAction::OutgoingConnect { addr });
-                            }
-                            Err(
-                                P2pConnectionOutgoingInitLibp2pOptsTryToSocketAddrError::Unresolved(
-                                    _name,
-                                ),
-                            ) => {
-                                // TODO: initiate name resolution
-                                openmina_core::warn!(meta.time(); "name resolution needed to connect to {}", opts);
-                            }
+                    match SocketAddr::try_from(libp2p_opts) {
+                        Ok(addr) => {
+                            store.dispatch(P2pNetworkSchedulerAction::OutgoingConnect { addr });
+                        }
+                        Err(
+                            P2pConnectionOutgoingInitLibp2pOptsTryToSocketAddrError::Unresolved(
+                                _name,
+                            ),
+                        ) => {
+                            // TODO: initiate name resolution
+                            openmina_core::warn!(meta.time(); "name resolution needed to connect to {}", opts);
                         }
                     }
                     store.dispatch(P2pConnectionOutgoingAction::FinalizePending { peer_id });

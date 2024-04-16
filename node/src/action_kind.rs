@@ -29,7 +29,6 @@ use crate::p2p::connection::outgoing::P2pConnectionOutgoingAction;
 use crate::p2p::connection::P2pConnectionAction;
 use crate::p2p::disconnection::P2pDisconnectionAction;
 use crate::p2p::discovery::P2pDiscoveryAction;
-use crate::p2p::listen::P2pListenAction;
 use crate::p2p::network::kad::bootstrap::P2pNetworkKadBootstrapAction;
 use crate::p2p::network::kad::request::P2pNetworkKadRequestAction;
 use crate::p2p::network::kad::stream::P2pNetworkKademliaStreamAction;
@@ -191,16 +190,7 @@ pub enum ActionKind {
     P2pDisconnectionFinish,
     P2pDisconnectionInit,
     P2pDiscoveryInit,
-    P2pDiscoveryKademliaAddRoute,
-    P2pDiscoveryKademliaBootstrap,
-    P2pDiscoveryKademliaFailure,
-    P2pDiscoveryKademliaInit,
-    P2pDiscoveryKademliaSuccess,
     P2pDiscoverySuccess,
-    P2pListenClosed,
-    P2pListenError,
-    P2pListenExpired,
-    P2pListenNew,
     P2pNetworkKadBootstrapCreateRequests,
     P2pNetworkKadBootstrapRequestDone,
     P2pNetworkKadBootstrapRequestError,
@@ -270,6 +260,7 @@ pub enum ActionKind {
     P2pNetworkYamuxOutgoingFrame,
     P2pNetworkYamuxPingStream,
     P2pPeerBestTipUpdate,
+    P2pPeerDiscovered,
     P2pPeerReady,
     RpcActionStatsGet,
     RpcDiscoveryBoostrapStats,
@@ -409,7 +400,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 342;
+    pub const COUNT: u16 = 334;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -456,7 +447,6 @@ impl ActionKindGet for EventSourceAction {
 impl ActionKindGet for P2pAction {
     fn kind(&self) -> ActionKind {
         match self {
-            Self::Listen(a) => a.kind(),
             Self::Connection(a) => a.kind(),
             Self::Disconnection(a) => a.kind(),
             Self::Discovery(a) => a.kind(),
@@ -644,17 +634,6 @@ impl ActionKindGet for WatchedAccountsAction {
     }
 }
 
-impl ActionKindGet for P2pListenAction {
-    fn kind(&self) -> ActionKind {
-        match self {
-            Self::New { .. } => ActionKind::P2pListenNew,
-            Self::Expired { .. } => ActionKind::P2pListenExpired,
-            Self::Error { .. } => ActionKind::P2pListenError,
-            Self::Closed { .. } => ActionKind::P2pListenClosed,
-        }
-    }
-}
-
 impl ActionKindGet for P2pConnectionAction {
     fn kind(&self) -> ActionKind {
         match self {
@@ -678,11 +657,6 @@ impl ActionKindGet for P2pDiscoveryAction {
         match self {
             Self::Init { .. } => ActionKind::P2pDiscoveryInit,
             Self::Success { .. } => ActionKind::P2pDiscoverySuccess,
-            Self::KademliaBootstrap => ActionKind::P2pDiscoveryKademliaBootstrap,
-            Self::KademliaInit => ActionKind::P2pDiscoveryKademliaInit,
-            Self::KademliaAddRoute { .. } => ActionKind::P2pDiscoveryKademliaAddRoute,
-            Self::KademliaSuccess { .. } => ActionKind::P2pDiscoveryKademliaSuccess,
-            Self::KademliaFailure { .. } => ActionKind::P2pDiscoveryKademliaFailure,
         }
     }
 }
@@ -702,6 +676,7 @@ impl ActionKindGet for P2pChannelsAction {
 impl ActionKindGet for P2pPeerAction {
     fn kind(&self) -> ActionKind {
         match self {
+            Self::Discovered { .. } => ActionKind::P2pPeerDiscovered,
             Self::Ready { .. } => ActionKind::P2pPeerReady,
             Self::BestTipUpdate { .. } => ActionKind::P2pPeerBestTipUpdate,
         }

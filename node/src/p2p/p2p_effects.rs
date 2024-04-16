@@ -35,9 +35,6 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
     let (action, meta) = action.split();
 
     match action {
-        P2pAction::Listen(action) => {
-            action.effects(&meta, store);
-        }
         P2pAction::Connection(action) => match action {
             P2pConnectionAction::Outgoing(action) => {
                 match action {
@@ -556,7 +553,7 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
             }
         },
         P2pAction::Peer(action) => match action {
-            P2pPeerAction::Ready { .. } => {
+            P2pPeerAction::Discovered { .. } | P2pPeerAction::Ready { .. } => {
                 action.effects(&meta, store);
             }
             P2pPeerAction::BestTipUpdate { best_tip, .. } => {

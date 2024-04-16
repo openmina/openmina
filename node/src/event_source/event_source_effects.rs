@@ -1,25 +1,19 @@
-use p2p::channels::snark::P2pChannelsSnarkAction;
-use p2p::listen::P2pListenAction;
-use p2p::P2pListenEvent;
-
 use crate::action::CheckTimeoutsAction;
 use crate::block_producer::vrf_evaluator::BlockProducerVrfEvaluatorAction;
 use crate::block_producer::{BlockProducerEvent, BlockProducerVrfEvaluatorEvent};
 use crate::external_snark_worker::ExternalSnarkWorkerEvent;
 use crate::p2p::channels::best_tip::P2pChannelsBestTipAction;
 use crate::p2p::channels::rpc::P2pChannelsRpcAction;
+use crate::p2p::channels::snark::P2pChannelsSnarkAction;
 use crate::p2p::channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentAction;
 use crate::p2p::channels::{ChannelId, P2pChannelsMessageReceivedAction};
 use crate::p2p::connection::incoming::P2pConnectionIncomingAction;
 use crate::p2p::connection::outgoing::P2pConnectionOutgoingAction;
 use crate::p2p::connection::{P2pConnectionErrorResponse, P2pConnectionResponse};
 use crate::p2p::disconnection::{P2pDisconnectionAction, P2pDisconnectionReason};
-use crate::p2p::discovery::P2pDiscoveryAction;
-#[cfg(all(not(target_arch = "wasm32"), not(feature = "p2p-libp2p")))]
-use crate::p2p::network::P2pNetworkSchedulerAction;
-#[cfg(all(not(target_arch = "wasm32"), not(feature = "p2p-libp2p")))]
-use crate::p2p::MioEvent;
 use crate::p2p::P2pChannelEvent;
+#[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
+use crate::p2p::{MioEvent, P2pNetworkSchedulerAction};
 use crate::rpc::{RpcAction, RpcRequest};
 use crate::snark::block_verify::SnarkBlockVerifyAction;
 use crate::snark::work_verify::SnarkWorkVerifyAction;
@@ -54,7 +48,7 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
         // "Translate" event into the corresponding action and dispatch it.
         EventSourceAction::NewEvent { event } => match event {
             Event::P2p(e) => match e {
-                #[cfg(all(not(target_arch = "wasm32"), not(feature = "p2p-libp2p")))]
+                #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
                 P2pEvent::MioEvent(e) => match e {
                     MioEvent::InterfaceDetected(ip) => {
                         store.dispatch(P2pNetworkSchedulerAction::InterfaceDetected { ip });
@@ -101,20 +95,6 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                                 error: p2p::P2pNetworkConnectionError::RemoteClosed,
                             });
                         }
-                    }
-                },
-                P2pEvent::Listen(e) => match e {
-                    P2pListenEvent::NewListenAddr { listener_id, addr } => {
-                        store.dispatch(P2pListenAction::New { listener_id, addr });
-                    }
-                    P2pListenEvent::ExpiredListenAddr { listener_id, addr } => {
-                        store.dispatch(P2pListenAction::Expired { listener_id, addr });
-                    }
-                    P2pListenEvent::ListenerError { listener_id, error } => {
-                        store.dispatch(P2pListenAction::Error { listener_id, error });
-                    }
-                    P2pListenEvent::ListenerClosed { listener_id, error } => {
-                        store.dispatch(P2pListenAction::Closed { listener_id, error });
                     }
                 },
                 P2pEvent::Connection(e) => match e {
@@ -246,18 +226,6 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                         store.dispatch(P2pDisconnectionAction::Init { peer_id, reason });
                     }
                 },
-                #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
-                P2pEvent::Libp2pIdentify(..) => {}
-                P2pEvent::Discovery(p2p::P2pDiscoveryEvent::Ready) => {}
-                P2pEvent::Discovery(p2p::P2pDiscoveryEvent::DidFindPeers(peers)) => {
-                    store.dispatch(P2pDiscoveryAction::KademliaSuccess { peers });
-                }
-                P2pEvent::Discovery(p2p::P2pDiscoveryEvent::DidFindPeersError(description)) => {
-                    store.dispatch(P2pDiscoveryAction::KademliaFailure { description });
-                }
-                P2pEvent::Discovery(p2p::P2pDiscoveryEvent::AddRoute(peer_id, addresses)) => {
-                    store.dispatch(P2pDiscoveryAction::KademliaAddRoute { peer_id, addresses });
-                }
             },
             Event::Snark(event) => match event {
                 SnarkEvent::BlockVerify(req_id, result) => match result {

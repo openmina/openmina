@@ -6,8 +6,8 @@ use crate::{
         outgoing::P2pConnectionOutgoingAction, P2pConnectionAction, P2pConnectionService,
     },
     disconnection::P2pDisconnectionService,
-    discovery::P2pDiscoveryAction,
-    P2pAction, P2pCryptoService, P2pMioService, P2pStore,
+    is_time_passed, P2pAction, P2pCryptoService, P2pMioService, P2pNetworkKadStatus,
+    P2pNetworkKademliaAction, P2pStore,
 };
 
 pub fn p2p_timeout_effects<Store, S>(store: &mut Store, meta: &ActionMeta)
@@ -19,18 +19,7 @@ where
 
     p2p_try_reconnect_disconnected_peers(store, meta.time());
 
-    store.dispatch(P2pDiscoveryAction::KademliaBootstrap);
-    store.dispatch(P2pDiscoveryAction::KademliaInit);
-
-    #[cfg(feature = "p2p-webrtc")]
-    p2p_discovery_request(store, meta);
-
-    #[cfg(not(feature = "p2p-libp2p"))]
-    store.dispatch(
-        crate::network::kad::P2pNetworkKademliaAction::StartBootstrap {
-            key: store.state().config.identity_pub_key.peer_id(),
-        },
-    );
+    p2p_discovery(store, meta);
 
     let state = store.state();
     for (peer_id, id) in state.peer_rpc_timeouts(meta.time()) {
@@ -93,35 +82,34 @@ where
     }
 }
 
-/// Iterate all connected peers and check the time of the last response to the peer discovery request.
-/// If the elapsed time is large enough, send another discovery request.
-#[cfg(feature = "p2p-webrtc")]
-fn p2p_discovery_request<Store, S>(store: &mut Store, meta: &redux::ActionMeta)
+fn p2p_discovery<Store, S>(store: &mut Store, meta: &redux::ActionMeta)
 where
     Store: P2pStore<S>,
 {
-    let peer_ids = store
-        .state()
-        .ready_peers_iter()
-        .filter_map(|(peer_id, _)| {
-            let Some(t) = store.state().kademlia.peer_timestamp.get(peer_id).cloned() else {
-                return Some(*peer_id);
-            };
-            let elapsed = meta
-                .time_as_nanos()
-                .checked_sub(t.into())
-                .unwrap_or_default();
-            let minimal_interval = store.state().config.ask_initial_peers_interval;
-            if elapsed < minimal_interval.as_nanos() as u64 {
-                None
-            } else {
-                Some(*peer_id)
-            }
-        })
-        .collect::<Vec<_>>();
+    let now = meta.time();
+    let state = store.state();
+    let config = &state.config;
+    if !config.peer_discovery {
+        return;
+    }
+    // ask initial peers
+    if let Some(_d) = config.timeouts.initial_peers {
+        // TODO: use RPC to ask initial peers
+    }
 
-    for peer_id in peer_ids {
-        store.dispatch(P2pDiscoveryAction::Init { peer_id });
+    if let Some(discovery_state) = state.network.scheduler.discovery_state() {
+        let bootstrap_kademlia = match &discovery_state.status {
+            P2pNetworkKadStatus::Init => true,
+            P2pNetworkKadStatus::Bootstrapping(_) => false,
+            P2pNetworkKadStatus::Bootstrapped { time, .. } => {
+                is_time_passed(now, *time, config.timeouts.kademlia_bootstrap)
+            }
+        };
+        if bootstrap_kademlia {
+            store.dispatch(P2pNetworkKademliaAction::StartBootstrap {
+                key: config.identity_pub_key.peer_id(),
+            });
+        }
     }
 }
 
@@ -136,7 +124,6 @@ where
 {
     let (action, meta) = action.split();
     match action {
-        P2pAction::Listen(action) => action.effects(&meta, store),
         P2pAction::Connection(action) => match action {
             P2pConnectionAction::Outgoing(action) => action.effects(&meta, store),
             P2pConnectionAction::Incoming(action) => action.effects(&meta, store),
