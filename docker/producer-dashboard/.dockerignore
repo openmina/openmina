@@ -7,3 +7,4 @@ cli/bin
 cli/tests
 !cli/bin/snark-worker
 .env
+producer-dashboard/docker
