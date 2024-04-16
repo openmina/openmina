@@ -1,5 +1,5 @@
-use tokio::{task::JoinHandle, sync::mpsc::UnboundedSender};
 use tokio::time::Duration;
+use tokio::{sync::mpsc::UnboundedSender, task::JoinHandle};
 
 use crate::evaluator::EpochInit;
 use crate::{node::epoch_ledgers::Ledger, storage::db_sled::Database, NodeStatus};
@@ -7,7 +7,11 @@ use crate::{node::epoch_ledgers::Ledger, storage::db_sled::Database, NodeStatus}
 use super::{daemon_status::SyncStatus, get_best_chain, get_best_tip, DaemonStatus};
 
 // TODO(adonagy): move to struct
-pub fn spawn_watchdog(status: NodeStatus, db: Database, sender: UnboundedSender<EpochInit>) -> JoinHandle<()> {
+pub fn spawn_watchdog(
+    status: NodeStatus,
+    db: Database,
+    sender: UnboundedSender<EpochInit>,
+) -> JoinHandle<()> {
     tokio::spawn(async move { watch(status, db, sender).await })
 }
 
@@ -40,16 +44,14 @@ async fn watch(status: NodeStatus, db: Database, sender: UnboundedSender<EpochIn
                 let seed = best_tip.consensus_state().staking_epoch_data.seed.clone();
                 // TODO(adonagy): handle error
                 let _ = db.store_ledger(current_epoch, &ledger);
-                let _ = db.store_seed(
-                    current_epoch,
-                    seed.clone(),
-                );
+                let _ = db.store_seed(current_epoch, seed.clone());
 
                 let mut status = status.write().await;
 
                 status.dumped_ledgers.insert(current_epoch);
 
-                let epoch_init = EpochInit::new(current_epoch, ledger, seed, best_tip.epoch_bounds().0);
+                let epoch_init =
+                    EpochInit::new(current_epoch, ledger, seed, best_tip.epoch_bounds().0);
                 // TODO(adonagy): handle error
                 let _ = sender.send(epoch_init);
             }

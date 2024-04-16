@@ -7,8 +7,11 @@ use tokio::sync::{mpsc, RwLock};
 use clap::Parser;
 
 use crate::{
+    archive::watchdog::ArchiveWatchdog,
     evaluator::epoch::EpochStorage,
-    evaluator::{EpochInit, Evaluator}, storage::db_sled::Database, node::watchdog::spawn_watchdog, archive::watchdog::ArchiveWatchdog,
+    evaluator::{EpochInit, Evaluator},
+    node::watchdog::spawn_watchdog,
+    storage::db_sled::Database,
 };
 
 mod archive;
@@ -50,8 +53,6 @@ async fn main() {
     let key = AccountSecretKey::from_encrypted_file(config.private_key_path)
         .expect("failed to decrypt secret key file");
     let (sender, receiver) = mpsc::unbounded_channel::<EpochInit>();
-
-
 
     let evaluator_handle = Evaluator::spawn_new(key.clone(), db.clone(), receiver);
     let node_status = NodeStatus::default();

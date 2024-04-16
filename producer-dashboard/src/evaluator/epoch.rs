@@ -3,7 +3,10 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 use vrf::VrfWonSlot;
 
-use crate::{archive::{Block, ChainStatus}, storage::locked_btreemap::LockedBTreeMap};
+use crate::{
+    archive::{Block, ChainStatus},
+    storage::locked_btreemap::LockedBTreeMap,
+};
 
 pub type EpochStorage = LockedBTreeMap<u32, EpochData>;
 
@@ -63,7 +66,10 @@ impl From<ChainStatus> for BlockStatus {
 
 impl BlockStatus {
     pub fn in_transition_frontier(&self) -> bool {
-        matches!(self, BlockStatus::CanonicalPending | BlockStatus::OrphanedPending)
+        matches!(
+            self,
+            BlockStatus::CanonicalPending | BlockStatus::OrphanedPending
+        )
     }
 }
 
@@ -132,7 +138,7 @@ impl From<Block> for SlotBlockUpdate {
         Self {
             height: value.height as u32,
             state_hash: value.state_hash,
-            block_status: value.chain_status.into()
+            block_status: value.chain_status.into(),
         }
     }
 }
@@ -145,7 +151,9 @@ impl From<&Block> for SlotBlockUpdate {
 
 impl SlotData {
     pub fn new(global_slot: u32, block: Option<SlotBlockUpdate>) -> Self {
-        let block_status = block.clone().map_or(BlockStatus::Future, |block| block.block_status);
+        let block_status = block
+            .clone()
+            .map_or(BlockStatus::Future, |block| block.block_status);
         let state_hash = block.clone().map(|block| block.state_hash);
         let height = block.map(|block| block.height);
         let global_slot: GlobalSlot = global_slot.into();
@@ -155,7 +163,7 @@ impl SlotData {
             global_slot,
             block_status,
             state_hash,
-            height
+            height,
         }
     }
 

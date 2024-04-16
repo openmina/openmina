@@ -1,7 +1,10 @@
 use sled::{Db, Tree};
 use std::path::PathBuf;
 
-use crate::{node::epoch_ledgers::Ledger, evaluator::epoch::{SlotData, BlockStatus, SlotBlockUpdate}};
+use crate::{
+    evaluator::epoch::{BlockStatus, SlotBlockUpdate, SlotData},
+    node::epoch_ledgers::Ledger,
+};
 
 #[derive(Clone)]
 pub struct Database {
@@ -63,8 +66,12 @@ impl Database {
         K: AsRef<[u8]>,
         F: FnMut(T) -> T,
     {
-        let existing_bytes = tree.get(key.as_ref())?
-            .ok_or_else(|| sled::Error::Io(std::io::Error::new(std::io::ErrorKind::NotFound, "Key not found")))?;
+        let existing_bytes = tree.get(key.as_ref())?.ok_or_else(|| {
+            sled::Error::Io(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                "Key not found",
+            ))
+        })?;
 
         // Deserialize the current value
         let current_item: T = deserialize_bincode(&existing_bytes)?;
@@ -100,18 +107,30 @@ impl Database {
         self.store(&self.current_epoch, slot.to_be_bytes(), slot_data)
     }
 
-    pub fn update_slot_status(&self, slot: u32, block_status: BlockStatus) -> Result<(), sled::Error> {
-        self.update(&self.current_epoch, slot.to_be_bytes(), |mut slot_entry: SlotData| {
-            slot_entry.update_block_status(block_status.clone());
-            slot_entry
-        })
+    pub fn update_slot_status(
+        &self,
+        slot: u32,
+        block_status: BlockStatus,
+    ) -> Result<(), sled::Error> {
+        self.update(
+            &self.current_epoch,
+            slot.to_be_bytes(),
+            |mut slot_entry: SlotData| {
+                slot_entry.update_block_status(block_status.clone());
+                slot_entry
+            },
+        )
     }
 
     pub fn update_slot_block(&self, slot: u32, block: SlotBlockUpdate) -> Result<(), sled::Error> {
-        self.update(&self.current_epoch, slot.to_be_bytes(), |mut slot_entry: SlotData| {
-            slot_entry.add_block(block.clone());
-            slot_entry
-        })
+        self.update(
+            &self.current_epoch,
+            slot.to_be_bytes(),
+            |mut slot_entry: SlotData| {
+                slot_entry.add_block(block.clone());
+                slot_entry
+            },
+        )
     }
 
     pub fn has_slot(&self, slot: u32) -> Result<bool, sled::Error> {

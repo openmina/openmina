@@ -11,7 +11,8 @@ use vrf::{VrfEvaluationInput, VrfEvaluationOutput, VrfWonSlot};
 
 use crate::{
     evaluator::epoch::{EpochData, EpochStorage},
-    node::epoch_ledgers::Ledger, storage::db_sled::Database,
+    node::epoch_ledgers::Ledger,
+    storage::db_sled::Database,
 };
 
 pub mod epoch;
@@ -29,15 +30,7 @@ impl Evaluator {
         db: Database,
         receiver: UnboundedReceiver<EpochInit>,
     ) -> JoinHandle<()> {
-        tokio::spawn(async move {
-            Self {
-                key,
-                db,
-                receiver,
-            }
-            .run()
-            .await
-        })
+        tokio::spawn(async move { Self { key, db, receiver }.run().await })
     }
 
     // TODO(adonagy): can be paralellized on slots
@@ -49,8 +42,9 @@ impl Evaluator {
 
             let pub_key = self.key.public_key().to_string();
 
-            let delegates =
-                init.ledger.gather_producer_and_delegates(&self.key.public_key().to_string());
+            let delegates = init
+                .ledger
+                .gather_producer_and_delegates(&self.key.public_key().to_string());
 
             let epoch_seed = EpochSeed::from_str(&init.seed).unwrap();
 

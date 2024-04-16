@@ -45,7 +45,11 @@ impl ArchiveConnector {
         .await
     }
 
-    pub async fn get_producer_block_at_slot(&self, producer_pk: &str, global_slot: i64) -> Result<Block, sqlx::Error> {
+    pub async fn get_producer_block_at_slot(
+        &self,
+        producer_pk: &str,
+        global_slot: i64,
+    ) -> Result<Block, sqlx::Error> {
         sqlx::query_as!(
             Block,
             r#"SELECT 
