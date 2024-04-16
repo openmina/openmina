@@ -1,7 +1,7 @@
 use ledger::scan_state::transaction_logic::{verifiable, WithStatus};
 use serde::{Deserialize, Serialize};
 
-use openmina_core::{snark::Snark, ActionEvent};
+use openmina_core::ActionEvent;
 
 use super::{SnarkUserCommandVerifyError, SnarkUserCommandVerifyId};
 
@@ -15,7 +15,6 @@ pub enum SnarkUserCommandVerifyAction {
     #[action_event(level = info)]
     Init {
         req_id: SnarkUserCommandVerifyId,
-        #[serde(skip)] // TODO
         commands: Vec<WithStatus<verifiable::UserCommand>>,
         sender: String,
     },

@@ -677,7 +677,7 @@ impl Memo {
 }
 
 pub mod signed_command {
-
+    use mina_p2p_messages::v2::MinaBaseSignedCommandStableV2;
     use mina_signer::Signature;
 
     use crate::decompress_pk;
@@ -774,7 +774,9 @@ pub mod signed_command {
         }
     }
 
-    #[derive(Debug, Clone, PartialEq)]
+    #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+    #[serde(into = "MinaBaseSignedCommandStableV2")]
+    #[serde(from = "MinaBaseSignedCommandStableV2")]
     pub struct SignedCommand {
         pub payload: SignedCommandPayload,
         pub signer: CompressedPubKey, // TODO: This should be a `mina_signer::PubKey`
@@ -880,7 +882,7 @@ pub mod zkapp_command {
     use std::sync::Arc;
 
     use ark_ff::UniformRand;
-    use mina_p2p_messages::v2::MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA;
+    use mina_p2p_messages::v2::{self, MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA};
     use mina_signer::Signature;
     use rand::{seq::SliceRandom, Rng};
 
@@ -3505,26 +3507,11 @@ pub mod zkapp_command {
         }
     }
 
-    impl CallForest<AccountUpdate> {
-        pub fn cons(
-            &self,
-            calls: Option<CallForest<AccountUpdate>>,
-            account_update: AccountUpdate,
-        ) -> Self {
-            let account_update_digest = account_update.digest();
-
-            let tree = Tree::<AccountUpdate> {
-                account_update,
-                account_update_digest,
-                calls: calls.unwrap_or_else(|| CallForest(Vec::new())),
-            };
-            self.cons_tree(tree)
-        }
-
+    impl<AccUpdate: Clone> CallForest<AccUpdate> {
         /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_command.ml#L583
         pub fn accumulate_hashes<F>(&mut self, hash_account_update: &F)
         where
-            F: Fn(&AccountUpdate) -> Fp,
+            F: Fn(&AccUpdate) -> Fp,
         {
             /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/zkapp_command.ml#L293
             fn cons(hash: Fp, h_tl: Fp) -> Fp {
@@ -3548,7 +3535,7 @@ pub mod zkapp_command {
                 let elem = &mut self.0[index];
                 let WithStackHash {
                     elt:
-                        Tree::<AccountUpdate> {
+                        Tree::<AccUpdate> {
                             account_update,
                             account_update_digest,
                             calls,
@@ -3565,6 +3552,23 @@ pub mod zkapp_command {
 
                 self.0[index].stack_hash = cons(node_hash, hash);
             }
+        }
+    }
+
+    impl CallForest<AccountUpdate> {
+        pub fn cons(
+            &self,
+            calls: Option<CallForest<AccountUpdate>>,
+            account_update: AccountUpdate,
+        ) -> Self {
+            let account_update_digest = account_update.digest();
+
+            let tree = Tree::<AccountUpdate> {
+                account_update,
+                account_update_digest,
+                calls: calls.unwrap_or_else(|| CallForest(Vec::new())),
+            };
+            self.cons_tree(tree)
         }
 
         pub fn accumulate_hashes_predicated(&mut self) {
@@ -3587,6 +3591,26 @@ pub mod zkapp_command {
         ) {
             // self.remove_callers(wired);
         }
+    }
+
+    impl CallForest<(AccountUpdate, Option<WithHash<VerificationKey>>)> {
+        // Don't implement `{from,to}_wire` because the binprot types contain the hashes
+
+        // /// https://github.com/MinaProtocol/mina/blob/2ff0292b637684ce0372e7b8e23ec85404dc5091/src/lib/mina_base/zkapp_command.ml#L830
+        // pub fn of_wire(
+        //     &mut self,
+        //     _wired: &[v2::MinaBaseZkappCommandVerifiableStableV1AccountUpdatesA],
+        // ) {
+        //     self.accumulate_hashes(&|(account_update, _vk_opt)| account_update.digest());
+        // }
+
+        // /// https://github.com/MinaProtocol/mina/blob/2ff0292b637684ce0372e7b8e23ec85404dc5091/src/lib/mina_base/zkapp_command.ml#L840
+        // pub fn to_wire(
+        //     &self,
+        //     _wired: &mut [MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA],
+        // ) {
+        //     // self.remove_callers(wired);
+        // }
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ee6e004ba8c6a0541056076aab22ea162f7eb3a/src/lib/mina_base/account_update.ml#L1081
@@ -3868,9 +3892,13 @@ pub mod zkapp_command {
     }
 
     pub mod verifiable {
+        use mina_p2p_messages::v2::MinaBaseZkappCommandVerifiableStableV1;
+
         use super::*;
 
-        #[derive(Debug, Clone)]
+        #[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
+        #[serde(from = "MinaBaseZkappCommandVerifiableStableV1")]
+        #[serde(into = "MinaBaseZkappCommandVerifiableStableV1")]
         pub struct ZkAppCommand {
             pub fee_payer: FeePayer,
             pub account_updates: CallForest<(AccountUpdate, Option<WithHash<VerificationKey>>)>,
@@ -4311,7 +4339,7 @@ pub mod verifiable {
 
     use super::*;
 
-    #[derive(Clone, Debug)]
+    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
     pub enum UserCommand {
         SignedCommand(Box<signed_command::SignedCommand>),
         ZkAppCommand(Box<zkapp_command::verifiable::ZkAppCommand>),

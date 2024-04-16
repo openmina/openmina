@@ -45,7 +45,6 @@ impl std::fmt::Debug for SnarkUserCommandVerifyState {
 pub enum SnarkUserCommandVerifyStatus {
     Init {
         time: redux::Timestamp,
-        #[serde(skip)] // TODO
         commands: Vec<WithStatus<verifiable::UserCommand>>,
         // TODO(binier): move p2p/src/identity to shared crate and use
         // `PeerId` here.
@@ -53,20 +52,17 @@ pub enum SnarkUserCommandVerifyStatus {
     },
     Pending {
         time: redux::Timestamp,
-        #[serde(skip)] // TODO
         commands: Vec<WithStatus<verifiable::UserCommand>>,
         sender: String,
     },
     Error {
         time: redux::Timestamp,
-        #[serde(skip)] // TODO
         commands: Vec<WithStatus<verifiable::UserCommand>>,
         sender: String,
         error: SnarkUserCommandVerifyError,
     },
     Success {
         time: redux::Timestamp,
-        #[serde(skip)] // TODO
         commands: Vec<WithStatus<verifiable::UserCommand>>,
         sender: String,
     },
