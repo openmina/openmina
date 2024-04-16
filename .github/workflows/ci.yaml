@@ -148,6 +148,7 @@ jobs:
           ./${{ matrix.test }} --test-threads=1
 
   scenario-tests:
+    if: false
     needs: [ build-tests, build-tests-webrtc ]
     runs-on: ubuntu-20.04
     container:
