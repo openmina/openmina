@@ -2185,21 +2185,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "half"
-version = "1.8.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1b43ede17f21864e81be2fa654110bf1e793774238d86ef8555c37e6519c0403"
-
-[[package]]
-name = "hash-tool"
-version = "0.3.1"
-dependencies = [
- "bs58 0.5.0",
- "hex",
- "structopt",
-]
-
-[[package]]
 name = "hashbrown"
 version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2725,21 +2710,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 
 [[package]]
-name = "ledger-tool"
-version = "0.3.1"
- "anyhow",
- "mina-curves",
- "mina-p2p-messages",
- "mina-signer",
- "mina-tree",
- "reqwest",
- "serde",
- "serde_json",
- "structopt",
-]
-
-[[package]]
 name = "libc"
+version = "0.2.151"
+source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "302d7ab3130588088d277783b1e2d2e10c9e9e4a16dd9050e6ec93fb3e7048f4"
 
 [[package]]
@@ -3371,17 +3344,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "mina-transport"
-version = "0.3.1"
-dependencies = [
- "blake2",
- "hex",
- "libp2p",
- "log",
- "pin-project-lite",
-]
-
-[[package]]
 name = "mina-tree"
 version = "0.3.1"
 dependencies = [
@@ -3979,32 +3941,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "624a8340c38c1b80fd549087862da4ba43e08858af025b236e509b6649fc13d5"
 
 [[package]]
-name = "openmina-bootstrap-sandbox"
-version = "0.3.1"
-dependencies = [
- "base64 0.21.7",
- "binprot",
- "bs58 0.5.0",
- "env_logger",
- "libp2p",
- "libp2p-rpc-behaviour",
- "log",
- "mina-curves",
- "mina-p2p-messages",
- "mina-signer",
- "mina-transport",
- "mina-tree",
- "openmina-core",
- "rand 0.8.5",
- "reqwest",
- "serde",
- "serde_json",
- "structopt",
- "thiserror",
- "tokio",
-]
-
-[[package]]
 name = "openmina-core"
 version = "0.3.1"
 dependencies = [
@@ -4101,52 +4037,6 @@ dependencies = [
  "tracing-subscriber",
  "vrf",
  "warp",
-]
-
-[[package]]
-name = "openmina-node-testing"
-version = "0.3.1"
-dependencies = [
- "anyhow",
- "axum",
- "bincode",
- "chrono",
- "clap 4.5.2",
- "console",
- "ctrlc",
- "derive_more",
- "documented",
- "hex",
- "lazy_static",
- "libp2p",
- "mina-p2p-messages",
- "mina-tree",
- "multiaddr",
- "multihash 0.18.1",
- "nix 0.27.1",
- "node",
- "num_cpus",
- "openmina-core",
- "openmina-node-account",
- "openmina-node-invariants",
- "openmina-node-native",
- "rand 0.8.5",
- "rayon",
- "redux",
- "reqwest",
- "serde",
- "serde_cbor",
- "serde_json",
- "strum",
- "strum_macros",
- "temp-dir",
- "thiserror",
- "time",
- "tokio",
- "tower-http",
- "tracing",
- "tracing-log 0.2.0",
- "vrf",
 ]
 
 [[package]]

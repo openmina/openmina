@@ -124,12 +124,8 @@ impl P2pNetworkSelectState {
                                     ))
                                 }
                                 token::Protocol::Stream(token::StreamKind::Broadcast(protocol)) => {
-                                    println!("!!!!!!!!!!!! negotiate floodsub for {:?}", protocol);
                                     token::Token::Protocol(token::Protocol::Stream(
-                                        token::StreamKind::Broadcast(
-                                            //token::BroadcastAlgorithm::Floodsub1_0_0,
-                                            token::BroadcastAlgorithm::Meshsub1_1_0,
-                                        ),
+                                        token::StreamKind::Broadcast(protocol),
                                     ))
                                 }
                                 token::Protocol::Stream(

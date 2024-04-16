@@ -59,37 +59,8 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
             },
             P2pAction::Disconnection(action) => action.action_event(&context),
             P2pAction::Discovery(action) => action.action_event(&context),
-            P2pAction::Identify(action) => match action {
-                p2p::identify::P2pIdentifyAction::NewRequest { peer_id, .. } => {
-                    openmina_core::log::debug!(
-                        meta.time();
-                        node_id = context.node_id,
-                        kind = context.kind.to_string(),
-                        summary = format!("peer_id: {peer_id}"),
-                        peer_id = peer_id.to_string()
-                    );
-                }
-                p2p::identify::P2pIdentifyAction::UpdatePeerInformation { peer_id, info } => {
-                    openmina_core::log::info!(
-                        meta.time();
-                        node_id = context.node_id,
-                        kind = context.kind.to_string(),
-                        summary = format!("peer_id: {peer_id} info: {:?}", info),
-                        peer_id = peer_id.to_string()
-                    );
-                }
-            },
-            P2pAction::Floodsub(action) => match action {
-                p2p::floodsub::P2pFloodsubAction::NewOutboundStream { peer_id, .. } => {
-                    openmina_core::log::debug!(
-                        meta.time();
-                        node_id = node_id,
-                        kind = kind.to_string(),
-                        summary = format!("peer_id: {peer_id}"),
-                        peer_id = peer_id.to_string()
-                    );
-                }
-            },
+            P2pAction::Identify(action) => action.action_event(&context),
+            P2pAction::Floodsub(action) => action.action_event(&context),
             P2pAction::Channels(action) => match action {
                 P2pChannelsAction::MessageReceived(action) => action.action_event(&context),
                 P2pChannelsAction::BestTip(action) => action.action_event(&context),
@@ -107,6 +78,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                 P2pNetworkAction::Rpc(action) => action.action_event(&context),
                 P2pNetworkAction::Kad(action) => action.action_event(&context),
                 P2pNetworkAction::Identify(action) => action.action_event(&context),
+                P2pNetworkAction::Floodsub(action) => action.action_event(&context),
             },
         },
         Action::ExternalSnarkWorker(action) => action.action_event(&context),

@@ -36,7 +36,7 @@ impl P2pNetworkFloodsubStreamAction {
                 incoming: false, ..
             } => {
                 if let S::SendSubscriptions = state {
-                    println!(">>>> should send subcriptsions");
+                    println!("=== TODO: should send subscriptions");
                     Ok(()) // TODO
                 } else {
                     unreachable!()

@@ -2,10 +2,12 @@ use crate::{
     network::floodsub::stream::P2pNetworkFloodsubStreamAction, P2pAction, P2pNetworkAction,
     P2pState,
 };
+use openmina_core::ActionEvent;
 use redux::EnablingCondition;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize, derive_more::From)]
+#[derive(Debug, Clone, Serialize, Deserialize, derive_more::From, ActionEvent)]
+
 pub enum P2pNetworkFloodsubAction {
     Stream(P2pNetworkFloodsubStreamAction),
 }

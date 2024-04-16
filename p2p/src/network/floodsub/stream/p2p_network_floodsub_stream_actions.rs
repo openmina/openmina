@@ -1,10 +1,11 @@
 use crate::{Data, P2pAction, P2pState, PeerId, StreamId};
+use openmina_core::ActionEvent;
 use redux::EnablingCondition;
 use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
 
 /// Floodsub stream related actions.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ActionEvent)]
 pub enum P2pNetworkFloodsubStreamAction {
     /// Creates a new stream state.
     New {

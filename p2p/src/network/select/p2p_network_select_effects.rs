@@ -1,6 +1,6 @@
-use crate::{network::identify::P2pNetworkIdentifyStreamAction, P2pNetworkPnetAction};
-
 use super::{super::*, p2p_network_select_state::P2pNetworkSelectStateInner, *};
+use crate::network::floodsub::P2pNetworkFloodsubStreamAction;
+use crate::{network::identify::P2pNetworkIdentifyStreamAction, P2pNetworkPnetAction};
 
 impl P2pNetworkSelectAction {
     pub fn effects<Store, S>(self, meta: &redux::ActionMeta, store: &mut Store)
@@ -131,7 +131,27 @@ impl P2pNetworkSelectAction {
                                         }
                                     }
                                     StreamKind::Identify(IdentifyAlgorithm::IdentifyPush1_0_0) => {
-                                        unimplemented!()
+                                        //unimplemented!()
+                                    }
+                                    StreamKind::Broadcast(BroadcastAlgorithm::Meshsub1_1_0) => {
+                                        if !fin {
+                                            store.dispatch(
+                                                P2pNetworkFloodsubStreamAction::IncomingData {
+                                                    addr,
+                                                    peer_id,
+                                                    stream_id,
+                                                    data: data.clone(),
+                                                },
+                                            );
+                                        } else {
+                                            store.dispatch(
+                                                P2pNetworkFloodsubStreamAction::RemoteClose {
+                                                    addr,
+                                                    peer_id,
+                                                    stream_id,
+                                                },
+                                            );
+                                        }
                                     }
                                     StreamKind::Broadcast(_) => {
                                         // send to meshsub handler
@@ -155,70 +175,7 @@ impl P2pNetworkSelectAction {
                                         });
                                     }
                                 }
-                                StreamKind::Identify(IdentifyAlgorithm::Identify1_0_0) => {
-                                    if !fin {
-                                        store.dispatch(
-                                            P2pNetworkIdentifyStreamAction::IncomingData {
-                                                addr,
-                                                peer_id,
-                                                stream_id,
-                                                data: data.clone(),
-                                            },
-                                        );
-                                    } else {
-                                        store.dispatch(
-                                            P2pNetworkIdentifyStreamAction::RemoteClose {
-                                                addr,
-                                                peer_id,
-                                                stream_id,
-                                            },
-                                        );
-                                    }
-                                }
-                                StreamKind::Identify(IdentifyAlgorithm::IdentifyPush1_0_0) => {
-                                    unimplemented!()
-                                }
-                                StreamKind::Broadcast(BroadcastAlgorithm::Meshsub1_1_0) => {
-                                    if !fin {
-                                        store.dispatch(
-                                            P2pNetworkFloodsubStreamAction::IncomingData {
-                                                addr,
-                                                peer_id,
-                                                stream_id,
-                                                data: data.clone(),
-                                            },
-                                        );
-                                    } else {
-                                        store.dispatch(
-                                            P2pNetworkFloodsubStreamAction::RemoteClose {
-                                                addr,
-                                                peer_id,
-                                                stream_id,
-                                            },
-                                        );
-                                    }
-                                }
-                                StreamKind::Broadcast(_) => {
-                                    unimplemented!()
-                                }
-                                StreamKind::Ping(PingAlgorithm::Ping1_0_0) => {
-                                    unimplemented!()
-                                }
-                                StreamKind::Bitswap(_) => {
-                                    unimplemented!()
-                                }
-                                StreamKind::Status(_) => {
-                                    unimplemented!()
-                                }
-                                StreamKind::Rpc(RpcAlgorithm::Rpc0_0_1) => {
-                                    store.dispatch(P2pNetworkRpcAction::IncomingData {
-                                        addr,
-                                        peer_id,
-                                        stream_id,
-                                        data: data.clone(),
-                                    });
-                                }
-                            },
+                            }
                             _ => {
                                 openmina_core::error!(meta.time(); "invalid select protocol kind: {:?}", kind);
                             }

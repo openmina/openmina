@@ -1,8 +1,11 @@
 use crate::{network::identify::P2pNetworkIdentify, P2pState, PeerId};
+use openmina_core::ActionEvent;
 use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
+#[action_event(fields(display(peer_id), debug(addr), debug(info)))]
+
 pub enum P2pIdentifyAction {
     /// Open a new yamux stream to the remote peer to request its identity
     NewRequest { peer_id: PeerId, addr: SocketAddr },

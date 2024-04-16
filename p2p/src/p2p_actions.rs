@@ -14,6 +14,7 @@ pub type P2pActionWithMeta = redux::ActionWithMeta<P2pAction>;
 pub type P2pActionWithMetaRef<'a> = redux::ActionWithMeta<&'a P2pAction>;
 
 #[derive(Serialize, Deserialize, Debug, Clone, derive_more::From)]
+
 pub enum P2pAction {
     Listen(P2pListenAction),
     Connection(P2pConnectionAction),

@@ -426,7 +426,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 347;
+    pub const COUNT: u16 = 353;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -1112,6 +1112,14 @@ impl ActionKindGet for P2pNetworkYamuxAction {
 }
 
 impl ActionKindGet for P2pNetworkIdentifyAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::Stream(a) => a.kind(),
+        }
+    }
+}
+
+impl ActionKindGet for P2pNetworkFloodsubAction {
     fn kind(&self) -> ActionKind {
         match self {
             Self::Stream(a) => a.kind(),
