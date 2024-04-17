@@ -268,7 +268,6 @@ impl P2pNetworkRpcAction {
                 stream_id,
                 message,
             } => {
-                // TODO: process
                 match &message {
                     RpcMessage::Handshake => {
                         if !state.is_incoming {
