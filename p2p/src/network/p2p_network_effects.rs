@@ -22,6 +22,7 @@ impl P2pNetworkAction {
                 Ok(_) => {}
                 Err(e) => error!(meta.time(); "error dispatching Kademlia action: {e}"),
             },
+            Self::Pubsub(v) => v.effects(meta, store),
             Self::Rpc(v) => v.effects(meta, store),
         }
     }

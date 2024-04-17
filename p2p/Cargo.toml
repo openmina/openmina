@@ -46,6 +46,11 @@ openmina-macros = { path = "../macros" }
 quick-protobuf = "0.8.1"
 crypto-bigint = { version = "0.5.5", features = ["generic-array", "serde", "alloc"] }
 
+prost = { version = "0.12.4" }
+
+[build-dependencies]
+prost-build = { version = "0.12.4" }
+
 [dev-dependencies]
 crypto-bigint = { version = "0.5.5", features = ["rand_core"] }
 warp = "0.3.6"

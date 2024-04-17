@@ -128,8 +128,10 @@ impl P2pNetworkSelectAction {
                                         //unimplemented!()
                                     }
                                     StreamKind::Broadcast(_) => {
-                                        // send to meshsub handler
-                                        //unimplemented!()
+                                        store.dispatch(P2pNetworkPubsubAction::IncomingData {
+                                            addr,
+                                            data,
+                                        });
                                     }
                                     StreamKind::Ping(PingAlgorithm::Ping1_0_0) => {
                                         //unimplemented!()

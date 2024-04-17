@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 
-use super::{identify::*, kad::*, noise::*, pnet::*, rpc::*, scheduler::*, select::*, yamux::*};
+use super::{
+    identify::*, kad::*, noise::*, pnet::*, pubsub::*, rpc::*, scheduler::*, select::*, yamux::*,
+};
 
 use crate::P2pState;
 
@@ -13,6 +15,7 @@ pub enum P2pNetworkAction {
     Yamux(P2pNetworkYamuxAction),
     Identify(P2pNetworkIdentifyAction),
     Kad(P2pNetworkKadAction),
+    Pubsub(P2pNetworkPubsubAction),
     Rpc(P2pNetworkRpcAction),
 }
 
@@ -26,6 +29,7 @@ impl redux::EnablingCondition<P2pState> for P2pNetworkAction {
             Self::Yamux(v) => v.is_enabled(state, time),
             Self::Identify(v) => v.is_enabled(state, time),
             Self::Kad(v) => v.is_enabled(state, time),
+            Self::Pubsub(v) => v.is_enabled(state, time),
             Self::Rpc(v) => v.is_enabled(state, time),
         }
     }
