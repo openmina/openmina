@@ -20,7 +20,7 @@ pub struct P2pNetworkSchedulerState {
     #[serde_as(as = "serde_with::hex::Hex")]
     pub pnet_key: [u8; 32],
     pub connections: BTreeMap<SocketAddr, P2pNetworkConnectionState>,
-    pub broadcast_state: (),
+    pub broadcast_state: P2pNetworkPubsubState,
     pub identify_state: identify::P2pNetworkIdentifyState,
     pub discovery_state: Option<P2pNetworkKadState>,
     pub rpc_incoming_streams: StreamState<P2pNetworkRpcState>,

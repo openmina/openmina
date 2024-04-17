@@ -41,6 +41,7 @@ use crate::p2p::network::kad::stream::P2pNetworkKademliaStreamAction;
 use crate::p2p::network::kad::{P2pNetworkKadAction, P2pNetworkKademliaAction};
 use crate::p2p::network::noise::P2pNetworkNoiseAction;
 use crate::p2p::network::pnet::P2pNetworkPnetAction;
+use crate::p2p::network::pubsub::P2pNetworkPubsubAction;
 use crate::p2p::network::rpc::P2pNetworkRpcAction;
 use crate::p2p::network::scheduler::P2pNetworkSchedulerAction;
 use crate::p2p::network::select::P2pNetworkSelectAction;
@@ -249,6 +250,8 @@ pub enum ActionKind {
     P2pNetworkPnetIncomingData,
     P2pNetworkPnetOutgoingData,
     P2pNetworkPnetSetupNonce,
+    P2pNetworkPubsubNewStream,
+    P2pNetworkPubsubIncomingData,
     P2pNetworkRpcIncomingData,
     P2pNetworkRpcIncomingMessage,
     P2pNetworkRpcInit,
@@ -748,6 +751,7 @@ impl ActionKindGet for P2pNetworkAction {
             Self::Yamux(a) => a.kind(),
             Self::Identify(a) => a.kind(),
             Self::Kad(a) => a.kind(),
+            Self::Pubsub(a) => a.kind(),
             Self::Rpc(a) => a.kind(),
         }
     }
@@ -1149,6 +1153,15 @@ impl ActionKindGet for P2pNetworkKadAction {
             Self::Bootstrap(a) => a.kind(),
             Self::Request(a) => a.kind(),
             Self::Stream(a) => a.kind(),
+        }
+    }
+}
+
+impl ActionKindGet for P2pNetworkPubsubAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::NewStream { .. } => ActionKind::P2pNetworkPubsubNewStream,
+            Self::IncomingData { .. } => ActionKind::P2pNetworkPubsubIncomingData,
         }
     }
 }
