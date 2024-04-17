@@ -13,6 +13,9 @@ impl P2pPeerAction {
         Store: crate::P2pStore<S>,
     {
         match self {
+            P2pPeerAction::Discovered { .. } => {
+                // TODO
+            }
             P2pPeerAction::Ready { peer_id, .. } => {
                 // Dispatches can be done without a loop, but inside we do
                 // exhaustive matching so that we don't miss any channels.

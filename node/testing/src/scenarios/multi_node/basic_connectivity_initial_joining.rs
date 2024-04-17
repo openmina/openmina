@@ -1,3 +1,5 @@
+#![allow(warnings)]
+
 use std::{
     collections::{BTreeMap, HashMap},
     time::Duration,
@@ -72,9 +74,6 @@ impl MultiNodeBasicConnectivityInitialJoining {
                     .1
                     .map(|(_, event)| {
                         match event {
-                            Event::P2p(P2pEvent::Discovery(event)) => {
-                                eprintln!("event: {event}");
-                            }
                             Event::P2p(P2pEvent::Connection(P2pConnectionEvent::Finalized(
                                 peer_id,
                                 result,
@@ -156,7 +155,7 @@ impl MultiNodeBasicConnectivityInitialJoining {
 
                     let p2p = &node.state().p2p;
                     let ready_peers = p2p.ready_peers_iter().count();
-                    let known_peers = p2p.kademlia.known_peers.len();
+                    let known_peers: usize = todo!();
                     let state_machine_peers = if cfg!(feature = "p2p-webrtc") {
                         ready_peers
                     } else {

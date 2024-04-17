@@ -82,33 +82,13 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsRpcAction {
                 })
             },
             P2pChannelsRpcAction::RequestSend { peer_id, id, request } => {
-                if !cfg!(feature = "p2p-libp2p") {
-                    return if !request.kind().supported_by_libp2p() {
-                        false
-                    } else if let Some(streams) = state
-                        .network
-                        .scheduler
-                        .rpc_outgoing_streams
-                        .get(peer_id)
-                    {
-                        !streams.is_empty()
-                    } else {
-                        false
-                    };
-                }
-
                 state.peers.get(peer_id)
                     .filter(|p| !p.is_libp2p() || request.kind().supported_by_libp2p())
                     .and_then(|p| p.status.as_ready())
-                    .map_or(false, |p| match &p.channels.rpc {
-                        P2pChannelsRpcState::Ready { local, next_local_rpc_id, .. } => {
-                            next_local_rpc_id == id && matches!(
-                                local,
-                                P2pRpcLocalState::WaitingForRequest { .. } | P2pRpcLocalState::Responded { .. }
-                            )
-                        },
-                        _ => false,
-                    })
+                    .map_or(false, |p| matches!(
+                        &p.channels.rpc,
+                        P2pChannelsRpcState::Ready { local: P2pRpcLocalState::WaitingForRequest { .. } | P2pRpcLocalState::Responded { .. }, next_local_rpc_id, .. } if next_local_rpc_id == id
+                    ))
             },
             P2pChannelsRpcAction::Timeout { peer_id, id } => {
                 state.get_ready_peer(peer_id).map_or(false, |p| matches!(&p.channels.rpc, P2pChannelsRpcState::Ready { local: P2pRpcLocalState::Requested { id: rpc_id, .. }, .. } if rpc_id == id))

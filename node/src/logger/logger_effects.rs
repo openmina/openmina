@@ -52,7 +52,6 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
 
     match action {
         Action::P2p(action) => match action {
-            P2pAction::Listen(action) => action.action_event(&context),
             P2pAction::Connection(action) => match action {
                 P2pConnectionAction::Outgoing(action) => action.action_event(&context),
                 P2pConnectionAction::Incoming(action) => action.action_event(&context),

@@ -215,7 +215,6 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
             store.dispatch(RpcAction::Finish { rpc_id });
         }
         RpcAction::P2pConnectionIncomingInit { rpc_id, opts } => {
-            let rpc_id = rpc_id;
             match store.state().p2p.incoming_accept(opts.peer_id, &opts.offer) {
                 Ok(_) => {
                     store.dispatch(P2pConnectionIncomingAction::Init {
@@ -421,7 +420,6 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
             store.dispatch(SnarkPoolAction::CommitmentCreate { job_id });
         }
         RpcAction::SnarkerJobSpec { rpc_id, job_id } => {
-            let job_id = job_id;
             let Some(job) = store.state().snark_pool.get(&job_id) else {
                 if store
                     .service()

@@ -29,38 +29,6 @@ impl P2pDiscoveryAction {
                 });
             }
             P2pDiscoveryAction::Success { .. } => {}
-            P2pDiscoveryAction::KademliaBootstrap => {
-                #[cfg(feature = "p2p-libp2p")]
-                {
-                    // seed node doesn't have initial peers
-                    // it will rely on incoming peers
-                    let initial_peers = if !store.state().config.initial_peers.is_empty() {
-                        store.state().config.initial_peers.clone()
-                    } else if !store.state().kademlia.routes.is_empty() {
-                        store
-                            .state()
-                            .kademlia
-                            .routes
-                            .values()
-                            .flatten()
-                            .cloned()
-                            .collect()
-                    } else {
-                        vec![]
-                    };
-
-                    if !initial_peers.is_empty() {
-                        store.service().start_discovery(initial_peers);
-                    }
-                }
-            }
-            P2pDiscoveryAction::KademliaInit => {
-                #[cfg(feature = "p2p-libp2p")]
-                store.service().find_random_peer();
-            }
-            P2pDiscoveryAction::KademliaAddRoute { .. } => {}
-            P2pDiscoveryAction::KademliaSuccess { .. } => {}
-            P2pDiscoveryAction::KademliaFailure { .. } => {}
         }
     }
 }

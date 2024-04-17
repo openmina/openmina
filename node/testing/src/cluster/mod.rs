@@ -21,11 +21,10 @@ use node::core::channels::mpsc;
 use node::core::log::system_time;
 use node::core::requests::RpcId;
 use node::core::warn;
-use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 use node::p2p::service_impl::{
     webrtc::P2pServiceCtx, webrtc_with_libp2p::P2pServiceWebrtcWithLibp2p,
 };
-use node::p2p::{P2pConnectionEvent, P2pDiscoveryEvent, P2pEvent, PeerId};
+use node::p2p::{P2pConnectionEvent, P2pEvent, PeerId};
 use node::snark::{VerifierIndex, VerifierSRS};
 use node::{
     event_source::Event,
@@ -348,8 +347,6 @@ impl Cluster {
             ledger_manager: LedgerManager::spawn(ledger),
             peers,
             #[cfg(feature = "p2p-libp2p")]
-            libp2p: p2p_service_ctx.libp2p,
-            #[cfg(not(feature = "p2p-libp2p"))]
             mio: p2p_service_ctx.mio,
             block_producer: None,
             keypair,
@@ -689,21 +686,6 @@ impl Cluster {
     }
 
     pub async fn exec_step(&mut self, step: ScenarioStep) -> anyhow::Result<bool> {
-        fn node_addr_by_peer_id(
-            cluster: &Cluster,
-            peer_id: PeerId,
-        ) -> anyhow::Result<P2pConnectionOutgoingInitOpts> {
-            cluster
-                .node_by_peer_id(peer_id)
-                .map(|node| node.dial_addr())
-                .or_else(|| {
-                    cluster
-                        .ocaml_node_by_peer_id(peer_id)
-                        .map(|node| node.dial_addr())
-                })
-                .ok_or_else(|| anyhow::anyhow!("node with peer_id: '{peer_id}' not found"))
-        }
-
         Ok(match step {
             ScenarioStep::Event { node_id, event } => {
                 return self.wait_for_event_and_dispatch(node_id, &event).await;
@@ -715,7 +697,6 @@ impl Cluster {
                 .dispatch_event(*event),
             ScenarioStep::NonDeterministicEvent { node_id, event } => {
                 let event = match *event {
-                    NonDeterministicEvent::P2pListen => return Ok(true),
                     NonDeterministicEvent::P2pConnectionClosed(peer_id) => {
                         let node = self
                             .nodes
@@ -741,33 +722,6 @@ impl Cluster {
                         if res_is_ok {
                             let is_peer_connected =
                                 node.state().p2p.get_ready_peer(&peer_id).is_some();
-                            // deduce if kad initiated this conn.
-                            #[cfg(feature = "p2p-libp2p")]
-                            {
-                                if !node.state().p2p.is_peer_connected_or_connecting(&peer_id) {
-                                    let my_addr = node.dial_addr();
-                                    let peer = self
-                                        .nodes
-                                        .iter_mut()
-                                        .find(|node| node.peer_id() == peer_id)
-                                        .ok_or_else(|| {
-                                            anyhow::anyhow!(
-                                                "node with peer_id: '{peer_id}' not found"
-                                            )
-                                        })?;
-
-                                    if !peer.state().p2p.is_peer_connecting(my_addr.peer_id()) {
-                                        // kad initiated this connection so replay that.
-                                        eprintln!(
-                                            "p2p_kad_outgoing_init({:?}) -> {:?} - {}",
-                                            peer.node_id(),
-                                            node_id,
-                                            my_addr
-                                        );
-                                        peer.p2p_kad_outgoing_init(my_addr);
-                                    }
-                                }
-                            }
                             if is_peer_connected {
                                 // we are already connected, so skip the extra event.
                                 return Ok(true);
@@ -779,30 +733,6 @@ impl Cluster {
                         } else {
                             event
                         }
-                    }
-                    #[cfg(feature = "p2p-libp2p")]
-                    NonDeterministicEvent::P2pLibp2pIdentify(peer_id) => {
-                        let addr = match node_addr_by_peer_id(self, peer_id)? {
-                            P2pConnectionOutgoingInitOpts::LibP2P(v) => (&v).into(),
-                            _ => unreachable!(),
-                        };
-                        P2pEvent::Libp2pIdentify(peer_id, addr).into()
-                    }
-                    NonDeterministicEvent::P2pDiscoveryReady => {
-                        P2pEvent::Discovery(P2pDiscoveryEvent::Ready).into()
-                    }
-                    NonDeterministicEvent::P2pDiscoveryDidFindPeers(ids) => {
-                        P2pEvent::Discovery(P2pDiscoveryEvent::DidFindPeers(ids)).into()
-                    }
-                    NonDeterministicEvent::P2pDiscoveryDidFindPeersError(err) => {
-                        P2pEvent::Discovery(P2pDiscoveryEvent::DidFindPeersError(err)).into()
-                    }
-                    NonDeterministicEvent::P2pDiscoveryAddRoute(id, ids) => {
-                        let addrs = ids
-                            .into_iter()
-                            .map(|id| node_addr_by_peer_id(&self, id))
-                            .collect::<Result<Vec<_>, _>>()?;
-                        P2pEvent::Discovery(P2pDiscoveryEvent::AddRoute(id, addrs)).into()
                     }
                     NonDeterministicEvent::RpcReadonly(id, req) => Event::Rpc(id, req).into(),
                 };

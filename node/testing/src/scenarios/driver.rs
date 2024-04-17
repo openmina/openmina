@@ -5,15 +5,13 @@ use std::{
     time::{Duration, Instant},
 };
 
-use libp2p::Multiaddr;
 use node::{
     event_source::Event,
     p2p::{
         connection::outgoing::P2pConnectionOutgoingInitOpts,
         webrtc::{Host, HttpSignalingInfo, SignalingMethod},
-        P2pConnectionEvent, P2pEvent, P2pListenEvent, P2pListenerId, P2pNetworkConnectionMuxState,
-        P2pNetworkConnectionState, P2pNetworkYamuxState, P2pPeerState, P2pPeerStatus, P2pState,
-        PeerId,
+        P2pConnectionEvent, P2pEvent, P2pNetworkConnectionMuxState, P2pNetworkConnectionState,
+        P2pNetworkYamuxState, P2pPeerState, P2pPeerStatus, P2pState, PeerId,
     },
     State,
 };
@@ -103,26 +101,6 @@ fn peer_has_addr(peer: &P2pPeerState, addr: SocketAddr) -> bool {
             SocketAddr::V4(addr),
         ) => addr.ip() == host && addr.port() == *port,
         _ => false,
-    }
-}
-
-pub fn as_listen_new_addr_event(event: &Event) -> Option<(&Multiaddr, &P2pListenerId)> {
-    if let Event::P2p(P2pEvent::Listen(P2pListenEvent::NewListenAddr { listener_id, addr })) = event
-    {
-        Some((addr, listener_id))
-    } else {
-        None
-    }
-}
-
-pub fn identify_event(peer_id: PeerId) -> impl Fn(ClusterNodeId, &Event, &State) -> bool {
-    move |_, event, _| match event {
-        #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
-        Event::P2p(P2pEvent::Libp2pIdentify(peer, _)) if peer == &peer_id => true,
-        _ => {
-            let _ = peer_id;
-            false
-        }
     }
 }
 
@@ -266,7 +244,6 @@ impl<'cluster> Driver<'cluster> {
                     node_id,
                     event: event.to_string(),
                 };
-                let node_id = node_id;
                 self.runner.exec_step(step).await?;
                 let state = self.runner.node(node_id).unwrap().state();
                 if f(node_id, &event, state) {
@@ -294,7 +271,6 @@ impl<'cluster> Driver<'cluster> {
                     node_id,
                     event: event.to_string(),
                 };
-                let node_id = node_id;
                 self.runner.exec_step(step).await?;
                 let _state = self.runner.node(node_id).unwrap().state();
                 // println!("{node_id} state: {state:#?}, state = state.p2p");
@@ -311,7 +287,6 @@ impl<'cluster> Driver<'cluster> {
                     node_id,
                     event: event.to_string(),
                 };
-                let node_id = node_id;
                 self.runner.exec_step(step).await?;
                 let _state = self.runner.node(node_id).unwrap().state();
             }
@@ -798,7 +773,6 @@ pub async fn trace_steps_state<T: Debug, F: Fn(&State) -> T>(
                 node_id,
                 event: event.to_string(),
             };
-            let node_id = node_id;
             runner.exec_step(step).await?;
             let state = runner.node(node_id).unwrap().state();
             let t = f(state);

@@ -24,6 +24,7 @@ pub enum P2pConnectionOutgoingAction {
         rpc_id: Option<RpcId>,
     },
     /// Reconnect to an existing peer.
+    // TODO: rename `Init` and `Reconnect` to `New` and `Connect` or something
     #[action_event(level = info)]
     Reconnect {
         opts: P2pConnectionOutgoingInitOpts,
@@ -117,29 +118,14 @@ impl redux::EnablingCondition<P2pState> for P2pConnectionOutgoingAction {
     fn is_enabled(&self, state: &P2pState, time: redux::Timestamp) -> bool {
         match self {
             P2pConnectionOutgoingAction::RandomInit => {
-                #[cfg(feature = "p2p-libp2p")]
-                {
-                    !state.already_has_min_peers() && !state.initial_unused_peers().is_empty()
-                }
-                #[cfg(not(feature = "p2p-libp2p"))]
-                {
-                    !state.already_has_min_peers() && state.disconnected_peers().next().is_some()
-                }
+                !state.already_has_min_peers() && state.disconnected_peers().next().is_some()
             }
             P2pConnectionOutgoingAction::Init { opts, .. } => {
-                #[cfg(feature = "p2p-libp2p")]
-                {
-                    !state.already_has_min_peers() && !state.peers.contains_key(opts.peer_id())
-                }
-                #[cfg(not(feature = "p2p-libp2p"))]
-                {
-                    state
-                        .peers
-                        .get(opts.peer_id())
-                        .map_or(true, |peer| !peer.status.is_connected_or_connecting())
-                }
-                // TODO: merge with this --V
-                // !state.already_has_min_peers() && !state.peers.contains_key(opts.peer_id())
+                !state.already_has_min_peers() &&
+                state
+                    .peers
+                    .get(opts.peer_id())
+                    .map_or(true, |peer| !peer.status.is_connected_or_connecting())
             }
             P2pConnectionOutgoingAction::Reconnect { opts, .. } => {
                 !state.already_has_min_peers()
