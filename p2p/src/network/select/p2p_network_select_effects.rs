@@ -129,7 +129,7 @@ impl P2pNetworkSelectAction {
                                     }
                                     StreamKind::Broadcast(_) => {
                                         store.dispatch(P2pNetworkPubsubAction::IncomingData {
-                                            addr,
+                                            peer_id,
                                             data,
                                         });
                                     }
