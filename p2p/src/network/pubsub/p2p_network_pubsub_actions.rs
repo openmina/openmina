@@ -1,14 +1,18 @@
 use openmina_core::ActionEvent;
 
+use std::net::SocketAddr;
+
 use serde::{Deserialize, Serialize};
 
-use crate::{token::BroadcastAlgorithm, Data, P2pState, PeerId};
+use crate::{token::BroadcastAlgorithm, Data, P2pState, PeerId, StreamId};
 
 #[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
 pub enum P2pNetworkPubsubAction {
     NewStream {
         incoming: bool,
         peer_id: PeerId,
+        addr: SocketAddr,
+        stream_id: StreamId,
         protocol: BroadcastAlgorithm,
     },
     IncomingData {
@@ -18,6 +22,10 @@ pub enum P2pNetworkPubsubAction {
     Broadcast {
         data: Data,
         topic: String,
+    },
+    OutgoingData {
+        data: Data,
+        peer_id: PeerId,
     },
 }
 
