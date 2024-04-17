@@ -31,6 +31,9 @@ pub mod identify;
 pub mod kad;
 pub use self::kad::*;
 
+pub mod pubsub;
+pub use self::pubsub::*;
+
 pub mod rpc;
 pub use self::rpc::*;
 
