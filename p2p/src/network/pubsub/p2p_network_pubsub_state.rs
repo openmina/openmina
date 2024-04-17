@@ -27,7 +27,7 @@ pub struct P2pNetworkPubsubClientState {
     pub protocol: BroadcastAlgorithm,
     pub addr: SocketAddr,
     pub outgoing_stream_id: Option<StreamId>,
-    pub topics: BTreeSet<String>,
     pub message: pb::Rpc,
     pub buffer: Vec<u8>,
+    pub topics: BTreeSet<String>,
 }
