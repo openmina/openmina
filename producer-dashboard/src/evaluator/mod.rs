@@ -10,8 +10,8 @@ use tokio::task::JoinHandle;
 use vrf::{VrfEvaluationInput, VrfEvaluationOutput, VrfWonSlot};
 
 use crate::{
-    evaluator::epoch::{EpochData, EpochStorage},
-    node::epoch_ledgers::Ledger,
+    evaluator::epoch::{EpochSummary, EpochStorage, SlotData},
+    node::{calc_slot_timestamp, epoch_ledgers::Ledger},
     storage::db_sled::Database,
 };
 
@@ -60,18 +60,18 @@ impl Evaluator {
                         total_currency.clone(),
                     );
 
-                    if let Ok(VrfEvaluationOutput::SlotWon(won_slot)) = vrf::evaluate_vrf(vrf_input)
+                    if let Ok(VrfEvaluationOutput::SlotWon(_)) = vrf::evaluate_vrf(vrf_input)
                     {
                         println!("Won slot: {global_slot}");
 
+                        let timestamp = calc_slot_timestamp(init.genesis_timestamp, global_slot);
+
                         // TODO(adonagy): handle error
-                        let _ = self.db.store_slot(global_slot, &won_slot.into());
+                        let _ = self.db.store_slot(global_slot, &SlotData::new(global_slot, timestamp, None));
                         break;
                     }
                 }
             }
-            // let epoch_data = EpochData::new(init.epoch_number, won_slots);
-            // let _ = self.storage.insert(init.epoch_number, epoch_data);
         }
     }
 }
@@ -82,15 +82,17 @@ pub struct EpochInit {
     ledger: Ledger,
     seed: String,
     bounds: (u32, u32),
+    genesis_timestamp: i64,
 }
 
 impl EpochInit {
-    pub fn new(epoch_number: u32, ledger: Ledger, seed: String, bounds: (u32, u32)) -> Self {
+    pub fn new(epoch_number: u32, ledger: Ledger, seed: String, bounds: (u32, u32), genesis_timestamp: i64) -> Self {
         Self {
             epoch_number,
             ledger,
             seed,
             bounds,
+            genesis_timestamp,
         }
     }
 }

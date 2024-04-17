@@ -1,36 +1,103 @@
 use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
-use vrf::VrfWonSlot;
+use vrf::{VrfEvaluationOutput, VrfWonSlot};
 
 use crate::{
     archive::{Block, ChainStatus},
     storage::locked_btreemap::LockedBTreeMap,
 };
 
-pub type EpochStorage = LockedBTreeMap<u32, EpochData>;
+pub type EpochStorage = LockedBTreeMap<u32, EpochSummary>;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EpochData {
+pub struct EpochSlots {
     epoch_number: u32,
-    won_slots: BTreeMap<u32, VrfWonSlot>,
-    blocks: BTreeMap<u32, Block>,
-    won_slots_count: usize,
+    inner: Vec<SlotData>
+}
+
+impl EpochSlots {
+    pub fn new(epoch_number: u32, inner: Vec<SlotData>) -> Self {
+        Self { epoch_number, inner }
+    }
+
+    // pub fn partition(&self) -> Vec<EpochSummary> {
+    //     let chunk_size = (self.inner.len() + 4) / 5;
+        
+    //     self.inner.chun
+    // }
+
+    pub fn summary(&self) -> EpochSummary{
+        let mut won_slots = 0;
+        let mut canonical_blocks = 0;
+        let mut orphaned_blocks = 0;
+        let mut missed_blocks = 0;
+
+        // You might want to define how rewards are calculated; placeholder values here:
+        let mut earned_rewards = 0;
+
+        for slot in self.inner.iter() {
+            match slot.block_status {
+                BlockStatus::Canonical => {
+                    won_slots += 1;
+                    canonical_blocks += 1;
+                    earned_rewards += 720;
+                },
+                BlockStatus::CanonicalPending => {
+                    won_slots += 1;
+                },
+                BlockStatus::Missed => {
+                    won_slots += 1;
+                    missed_blocks += 1;
+                },
+                BlockStatus::Orphaned | BlockStatus::OrphanedPending => {
+                    won_slots += 1;
+                    orphaned_blocks += 1;
+                },
+                BlockStatus::Future => {
+                    won_slots += 1;
+                }
+                BlockStatus::Pending | BlockStatus::Lost => {
+                    // Handle other statuses if necessary
+                },
+            }
+        }
+
+        let expected_rewards = (won_slots as u32) * 720;
+
+        EpochSummary {
+            epoch_number: self.epoch_number,
+            won_slots,
+            canonical_blocks,
+            orphaned_blocks,
+            missed_blocks,
+            expected_rewards,
+            earned_rewards,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EpochSummary {
+    epoch_number: u32,
+    won_slots: usize,
     canonical_blocks: usize,
     orphaned_blocks: usize,
     missed_blocks: usize,
+    expected_rewards: u32,
+    earned_rewards: u32,
 }
 
-impl EpochData {
-    pub fn new(epoch_number: u32, won_slots: BTreeMap<u32, VrfWonSlot>) -> Self {
+impl EpochSummary {
+    pub fn new(epoch_number: u32) -> Self {
         Self {
             epoch_number,
-            won_slots_count: won_slots.len(),
-            won_slots,
-            blocks: BTreeMap::new(),
+            won_slots: 0,
             canonical_blocks: 0,
             orphaned_blocks: 0,
             missed_blocks: 0,
+            expected_rewards: 0,
+            earned_rewards: 0,
         }
     }
     pub fn partition(&self) {
@@ -40,7 +107,7 @@ impl EpochData {
 
 pub struct EpochSlice {
     part: usize,
-    epoch_data: EpochData,
+    epoch_data: EpochSummary,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -52,6 +119,7 @@ pub enum BlockStatus {
     OrphanedPending,
     Pending,
     Future,
+    Lost,
 }
 
 impl From<ChainStatus> for BlockStatus {
@@ -73,48 +141,50 @@ impl BlockStatus {
     }
 }
 
+// TODO: better naming
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Slot(u32);
+pub struct RawSlot(u32);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GlobalSlot(u32);
+pub struct RawGlobalSlot(u32);
 
-impl From<GlobalSlot> for Slot {
-    fn from(value: GlobalSlot) -> Self {
+impl From<RawGlobalSlot> for RawSlot {
+    fn from(value: RawGlobalSlot) -> Self {
         // Calculate the zero-based index in the current epoch
         let zero_based_slot = (value.0 - 1) % 7140;
         // Convert it back to one-based by adding 1
-        Slot(zero_based_slot + 1)
+        RawSlot(zero_based_slot + 1)
     }
 }
 
-impl From<u32> for Slot {
+impl From<u32> for RawSlot {
     fn from(value: u32) -> Self {
-        Slot(value)
+        RawSlot(value)
     }
 }
 
-impl From<u32> for GlobalSlot {
+impl From<u32> for RawGlobalSlot {
     fn from(value: u32) -> Self {
-        GlobalSlot(value)
+        RawGlobalSlot(value)
     }
 }
 
 // TODO(adonagy): move to its own module
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SlotData {
-    slot: Slot,
-    global_slot: GlobalSlot,
+    slot: RawSlot,
+    global_slot: RawGlobalSlot,
     block_status: BlockStatus,
+    timestamp: i64,
     state_hash: Option<String>,
     height: Option<u32>,
 }
 
-impl From<VrfWonSlot> for SlotData {
-    fn from(value: VrfWonSlot) -> Self {
-        Self::new(value.global_slot, None)
-    }
-}
+// impl From<VrfWonSlot> for SlotData {
+//     fn from(value: VrfWonSlot) -> Self {
+//         Self::new(value.global_slot, None)
+//     }
+// }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SlotBlockUpdate {
@@ -150,13 +220,13 @@ impl From<&Block> for SlotBlockUpdate {
 }
 
 impl SlotData {
-    pub fn new(global_slot: u32, block: Option<SlotBlockUpdate>) -> Self {
+    pub fn new(global_slot: u32, timestamp: i64, block: Option<SlotBlockUpdate>) -> Self {
         let block_status = block
             .clone()
             .map_or(BlockStatus::Future, |block| block.block_status);
         let state_hash = block.clone().map(|block| block.state_hash);
         let height = block.map(|block| block.height);
-        let global_slot: GlobalSlot = global_slot.into();
+        let global_slot: RawGlobalSlot = global_slot.into();
 
         Self {
             slot: global_slot.clone().into(),
@@ -164,6 +234,7 @@ impl SlotData {
             block_status,
             state_hash,
             height,
+            timestamp
         }
     }
 

@@ -4,7 +4,7 @@ use tokio::{sync::mpsc::UnboundedSender, task::JoinHandle};
 use crate::evaluator::EpochInit;
 use crate::{node::epoch_ledgers::Ledger, storage::db_sled::Database, NodeStatus};
 
-use super::Node;
+use super::{genesis_timestamp, Node};
 use super::{daemon_status::SyncStatus, DaemonStatus};
 
 // TODO(adonagy): move to struct
@@ -23,11 +23,21 @@ async fn watch(node: Node, status: NodeStatus, db: Database, sender: UnboundedSe
 
     // TODO(adonagy): do not ignore this error
     if node.wait_for_graphql().await.is_err() {
+        println!("[dbg] Error: returning");
         return;
+    }
+
+    let genesis_timestamp = node.get_genesis_timestmap().await.unwrap();
+
+    {
+        let mut node_status = status.write().await;
+        node_status.genesis_timestamp = genesis_timestamp;
     }
 
     loop {
         interval.tick().await;
+
+        println!("[node-watchdog] Tick");
 
         let sync_status = node.sync_status().await;
 
@@ -58,7 +68,7 @@ async fn watch(node: Node, status: NodeStatus, db: Database, sender: UnboundedSe
                 status.dumped_ledgers.insert(current_epoch);
 
                 let epoch_init =
-                    EpochInit::new(current_epoch, ledger, seed, best_tip.epoch_bounds().0);
+                    EpochInit::new(current_epoch, ledger, seed, best_tip.epoch_bounds().0, genesis_timestamp);
                 // TODO(adonagy): handle error
                 let _ = sender.send(epoch_init);
             }

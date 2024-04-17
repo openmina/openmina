@@ -28,6 +28,8 @@ impl ArchiveWatchdog {
         loop {
             interval.tick().await;
 
+            println!("[archive-watchdog] Tick");
+
             // get blocks
             let blocks = match self
                 .archive_connector
@@ -55,6 +57,7 @@ impl ArchiveWatchdog {
                             .unwrap();
                     }
                 } else if self.db.has_slot(slot).unwrap_or_default() {
+                    println!("[archive] saw produced block: {}", block.state_hash);
                     self.db.store_block(block.state_hash.clone(), slot).unwrap();
                     self.db.update_slot_block(slot, block.into()).unwrap();
                 }

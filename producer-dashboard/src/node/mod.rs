@@ -3,8 +3,9 @@ use graphql_client::{reqwest::post_graphql, GraphQLQuery};
 use num_bigint::BigInt;
 use serde::{Deserialize, Deserializer, Serialize};
 use std::{collections::BTreeSet, path::PathBuf, process::Command, str::FromStr};
+use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 
-use crate::StakingToolError;
+use crate::{evaluator::epoch::{RawGlobalSlot, RawSlot}, StakingToolError};
 
 pub mod epoch_ledgers;
 pub mod watchdog;
@@ -22,6 +23,10 @@ type Length = String;
 type EpochSeed = String;
 type Slot = String;
 type Globalslot = String;
+
+pub fn calc_slot_timestamp(genesis_timestamp: i64, global_slot: u32) -> i64 {
+    genesis_timestamp + ((global_slot as i64) * 60 * 3)
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Node {
@@ -47,7 +52,8 @@ impl Node {
         while tokio::time::Instant::now() - start_time < timeout_duration {
             match client.get(&self.url).send().await {
                 Ok(response) => {
-                    if response.status().is_success() {
+                    println!("[wait_for_graphql] Response status: {}", response.status());
+                    if response.status().is_client_error() {
                         return Ok(()); // URL is reachable and returns a successful status
                     }
                 },
@@ -83,7 +89,7 @@ impl Node {
         response_data.daemon_status.sync_status
     }
 
-    pub async fn get_genesis_timestmap(&self) -> Result<String, StakingToolError> {
+    pub async fn get_genesis_timestmap(&self) -> Result<i64, StakingToolError> {
         let client = Client::builder()
             .user_agent("graphql-rust/0.10.0")
             .build()
@@ -98,7 +104,10 @@ impl Node {
         let response_data: genesis_timestamp::ResponseData = response_body
             .data
             .ok_or(StakingToolError::EmptyGraphqlResponse)?;
-        Ok(response_data.genesis_constants.genesis_timestamp)
+
+        let timestamp_formatted = response_data.genesis_constants.genesis_timestamp;
+        let datetime = OffsetDateTime::parse(&timestamp_formatted, &Rfc3339).unwrap();
+        Ok(datetime.unix_timestamp())
     }
 
     #[allow(dead_code)]
@@ -165,7 +174,7 @@ impl Node {
         // }
     
         let output = Command::new("mina")
-            .args(["ledger", "export", "staking-epoch-ledger"])
+            .args(["ledger", "export", "--daemon-port", "mina:8301", "staking-epoch-ledger"])
             .output()
             .expect("Failed to execute command");
     
@@ -196,6 +205,8 @@ pub struct NodeData {
     best_chain: Vec<(u32, String)>,
     sync_status: SyncStatus,
     dumped_ledgers: BTreeSet<u32>,
+    // TODO: make sure it's available, make it an option
+    genesis_timestamp: i64,
 }
 
 impl Default for NodeData {
@@ -205,6 +216,7 @@ impl Default for NodeData {
             best_chain: Default::default(),
             sync_status: SyncStatus::OFFLINE,
             dumped_ledgers: Default::default(),
+            genesis_timestamp: 0,
         }
     }
 }
@@ -215,6 +227,37 @@ impl NodeData {
 
     pub fn transition_frontier_root(&self) -> Option<u32> {
         self.best_chain.first().map(|v| v.0)
+    }
+
+    pub fn best_tip(&self) -> BestTip {
+        // TODO
+        self.best_tip.clone().unwrap()
+    }
+
+    pub fn current_slot(&self) -> CurrentSlot {
+        let now = OffsetDateTime::now_utc().unix_timestamp();
+
+        let elapsed = now - self.genesis_timestamp;
+
+        let slot = (elapsed / (3 * 60)) as u32;
+        CurrentSlot::new(slot)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CurrentSlot {
+    slot: RawSlot,
+    global_slot: RawGlobalSlot,
+}
+
+impl CurrentSlot {
+    pub fn new(global_slot: u32) -> Self {
+        let global_slot: RawGlobalSlot = global_slot.into();
+
+        Self {
+            global_slot: global_slot.clone(),
+            slot: global_slot.into(),
+        }
     }
 }
 
@@ -305,6 +348,10 @@ impl BestTip {
 
     pub fn height(&self) -> u32 {
         self.consensus_state().block_height.parse().unwrap()
+    }
+
+    pub fn epoch(&self) -> u32 {
+        self.consensus_state().epoch.parse().unwrap()
     }
 }
 

@@ -23,6 +23,7 @@ if ! PGPASSWORD=$PASSWORD psql -h $HOST -U $USER -lqt | cut -d \| -f 1 | grep -q
   cd /init-db
   # PGPASSWORD=$PASSWORD psql -h $HOST -U $USER -d $DB < create_schema.sql
   # TODO
+  cd /dumps
   PGPASSWORD=$PASSWORD psql -h $HOST -U $USER -d $DB < dump.sql
   exit 1
 else

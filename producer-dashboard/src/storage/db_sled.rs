@@ -9,8 +9,7 @@ use crate::{
 #[derive(Clone)]
 pub struct Database {
     db: Db,
-    current_epoch: Tree,
-    historical_epochs: Tree,
+    epoch_data: Tree,
     seeds: Tree,
     epoch_ledgers: Tree,
     produced_blocks: Tree,
@@ -21,15 +20,13 @@ impl Database {
         let db = sled::open(path)?;
         let seeds = db.open_tree("seeds")?;
         let current_epoch = db.open_tree("current_epoch")?;
-        let historical_epochs = db.open_tree("historical_epochs")?;
         let epoch_ledgers = db.open_tree("epoch_ledgers")?;
         let produced_blocks = db.open_tree("produced_blocks")?;
 
         Ok(Self {
             db,
-            current_epoch,
+            epoch_data: current_epoch,
             seeds,
-            historical_epochs,
             epoch_ledgers,
             produced_blocks,
         })
@@ -104,7 +101,7 @@ impl Database {
     }
 
     pub fn store_slot(&self, slot: u32, slot_data: &SlotData) -> Result<(), sled::Error> {
-        self.store(&self.current_epoch, slot.to_be_bytes(), slot_data)
+        self.store(&self.epoch_data, slot.to_be_bytes(), slot_data)
     }
 
     pub fn update_slot_status(
@@ -113,7 +110,7 @@ impl Database {
         block_status: BlockStatus,
     ) -> Result<(), sled::Error> {
         self.update(
-            &self.current_epoch,
+            &self.epoch_data,
             slot.to_be_bytes(),
             |mut slot_entry: SlotData| {
                 slot_entry.update_block_status(block_status.clone());
@@ -124,7 +121,7 @@ impl Database {
 
     pub fn update_slot_block(&self, slot: u32, block: SlotBlockUpdate) -> Result<(), sled::Error> {
         self.update(
-            &self.current_epoch,
+            &self.epoch_data,
             slot.to_be_bytes(),
             |mut slot_entry: SlotData| {
                 slot_entry.add_block(block.clone());
@@ -134,16 +131,28 @@ impl Database {
     }
 
     pub fn has_slot(&self, slot: u32) -> Result<bool, sled::Error> {
-        self.current_epoch.contains_key(slot.to_be_bytes())
+        self.epoch_data.contains_key(slot.to_be_bytes())
     }
 
     pub fn store_block(&self, state_hash: String, slot: u32) -> Result<(), sled::Error> {
         self.store(&self.produced_blocks, state_hash.as_bytes(), &slot)
     }
 
-    // pub fn get_block(&self, state_hash: String) -> Result<Option<String>, sled::Error> {
-    //     self.retrieve(&self.produced_blocks, state_hash.as_bytes())
-    // }
+    pub fn get_slots_for_epoch(&self, epoch: u32) -> Result<Vec<SlotData>, sled::Error> {
+        let start_slot = epoch * 7140;
+        let end_slot = start_slot + 7140;
+    
+        // Convert slot numbers to byte arrays for the range query
+        let start_key = start_slot.to_be_bytes();
+        let end_key = end_slot.to_be_bytes();
+    
+        self.epoch_data.range(start_key..end_key)
+            .map(|entry_result| {
+                let (_key, value) = entry_result?;
+                deserialize_bincode(&value)
+            })
+            .collect()
+    }
 
     pub fn seen_block(&self, state_hash: String) -> Result<bool, sled::Error> {
         self.produced_blocks.contains_key(state_hash.as_bytes())

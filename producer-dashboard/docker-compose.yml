@@ -4,6 +4,7 @@ services:
     container_name: init-db
     volumes:
       - './docker/init-db:/init-db'
+      - ./docker/dumps:/dumps
     depends_on:
       - postgres
     env_file:
@@ -29,7 +30,7 @@ services:
     env_file:
       - .env
     volumes:
-      - './docker/archive-data:/var/lib/postgresql/data'
+      - '/tmp/archive-data:/var/lib/postgresql/data'
 
   archive:
     container_name: archive
@@ -39,7 +40,7 @@ services:
       mina-archive run --postgres-uri
       postgres://postgres:${POSTGRES_PASSWORD}@postgres:${PG_PORT}/${PG_DB} --server-port 3086
     volumes:
-      - './docker/archive-data:/data'
+      - '/tmp/archive-data:/data'
     depends_on:
       - postgres
 
@@ -52,11 +53,11 @@ services:
       - 5000:5000
     restart: always
     environment:
-      - CODA_CLIENT_TRUSTLIST=10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
+      - MINA_CLIENT_TRUSTLIST=10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
     volumes:
       - ./docker/.mina-env:/entrypoint.d/mina-env:ro
       - ./docker/keys:/keys:ro
-      - ./docker/.mina-config:/root/.mina-config
+      - /tmp/.mina-config:/root/.mina-config
     command: daemon
 
   producer-dashboard:
@@ -71,4 +72,6 @@ services:
     depends_on:
       - mina
       - postgres
+    ports:
+      - 3000:3000
     command: ["--private-key-path", "/keys/devnet-key-73", "--node-url", "http://mina:5000/graphql"]

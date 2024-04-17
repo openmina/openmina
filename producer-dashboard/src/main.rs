@@ -47,22 +47,28 @@ async fn main() {
 
     let config = config::Config::parse();
 
-    // TODO(adonagy): from config
     let db = Database::open(config.database_path).expect("Failed to open Database");
+    println!("[main] DB opened");
 
     let epoch_storage = EpochStorage::default();
 
     let key = AccountSecretKey::from_encrypted_file(config.private_key_path)
         .expect("failed to decrypt secret key file");
+    println!("[main] Producer key loaded");
+
     let (sender, receiver) = mpsc::unbounded_channel::<EpochInit>();
 
     let evaluator_handle = Evaluator::spawn_new(key.clone(), db.clone(), receiver);
+    println!("[main] Evaluator created");
     let node_status = NodeStatus::default();
     let node = Node::new(config.node_url);
-    let node_watchdog = spawn_watchdog(node, node_status, db.clone(), sender);
+    let node_watchdog = spawn_watchdog(node, node_status.clone(), db.clone(), sender);
+    println!("[main] Node watchdog created");
     let archive_watchdog = ArchiveWatchdog::spawn_new(db.clone(), key.public_key().to_string());
+    println!("[main] Archive watchdog created");
 
-    let rpc_handle = rpc::spawn_rpc_server(3000, db.clone());
+    let rpc_handle = rpc::spawn_rpc_server(3000, db.clone(), node_status.clone());
+    println!("[main] RPC server created");
 
     let mut signal_stream =
         tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
