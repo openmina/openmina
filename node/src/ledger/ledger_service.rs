@@ -1,7 +1,7 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
     path::Path,
-    sync::Arc
+    sync::Arc,
 };
 
 use super::ledger_manager::LedgerManager;

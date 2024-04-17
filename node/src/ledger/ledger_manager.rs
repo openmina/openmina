@@ -250,7 +250,7 @@ impl LedgerRequest {
                 parts,
             } => {
                 let result = ledger_ctx
-                    .staged_ledger_reconstruct(snarked_ledger_hash, parts)
+                    .staged_ledger_reconstruct(snarked_ledger_hash.clone(), parts)
                     .map(LedgerEvent::LedgerReconstructSuccess)
                     .map_err(LedgerEvent::LedgerReconstructError);
                 let event = Event::LedgerEvent(match result {
@@ -258,6 +258,7 @@ impl LedgerRequest {
                     Err(event) => event,
                 });
                 event_sender.send(event).expect("ledger event send failed");
+
                 Ok(LedgerResponse::Success)
             }
             LedgerRequest::StakeProofSparseLedger {
@@ -274,7 +275,7 @@ impl LedgerRequest {
 
 struct LedgerRequestWithChan {
     request: LedgerRequest,
-    responder: Sender<Result<LedgerResponse, String>>,
+    responder: Option<Sender<Result<LedgerResponse, String>>>,
 }
 
 pub struct LedgerManager {
@@ -291,9 +292,12 @@ impl LedgerManager {
         let runtime = thread::spawn(move || {
             loop {
                 match receiver.blocking_recv() {
-                    Some(LedgerRequestWithChan { request, responder }) => responder
-                        .send(request.handle(&mut ledger_ctx, &event_sender))
-                        .unwrap_or(()),
+                    Some(LedgerRequestWithChan { request, responder }) => {
+                        let result = request.handle(&mut ledger_ctx, &event_sender);
+                        if let Some(r) = responder {
+                            r.send(result).unwrap_or(())
+                        }
+                    }
                     None => {
                         break;
                     }
@@ -307,10 +311,22 @@ impl LedgerManager {
         }
     }
 
+    fn request(&self, request: LedgerRequest) -> Result<(), String> {
+        self.sender
+            .send(LedgerRequestWithChan {
+                request,
+                responder: None,
+            })
+            .map_err(|e| format!("LedgerManager request failed: {:?}", e))
+    }
+
     fn call(&self, request: LedgerRequest) -> Result<LedgerResponse, String> {
         let (responder, receiver) = channel();
         self.sender
-            .send(LedgerRequestWithChan { request, responder })
+            .send(LedgerRequestWithChan {
+                request,
+                responder: Some(responder),
+            })
             .unwrap();
         result_join(receiver.recv())
     }
@@ -450,18 +466,11 @@ impl TransitionFrontierSyncLedgerStagedService for LedgerManager {
         snarked_ledger_hash: LedgerHash,
         parts: Option<Arc<StagedLedgerAuxAndPendingCoinbasesValid>>,
     ) {
-        self.call(LedgerRequest::StagedLedgerReconstruct {
+        self.request(LedgerRequest::StagedLedgerReconstruct {
             snarked_ledger_hash,
             parts,
         })
-        .and_then(|res| {
-            if let LedgerResponse::Success = res {
-                Ok(())
-            } else {
-                Err(format_response_error("staged_ledger_reconstruct", res))
-            }
-        })
-        .expect("LedgerManager::staged_ledger_reconstruct: failed")
+        .expect("LedgerManager::staged_ledger_reconstruct: sending request failed")
     }
 }
 
