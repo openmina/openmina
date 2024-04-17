@@ -148,7 +148,7 @@ impl P2pNetworkSchedulerAction {
                             StreamKind::Broadcast(protocol) => {
                                 store.dispatch(P2pNetworkPubsubAction::NewStream {
                                     incoming,
-                                    addr,
+                                    peer_id,
                                     protocol,
                                 });
                             }
