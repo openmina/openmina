@@ -1,0 +1,93 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: debugger-service
+spec:
+  type: NodePort
+  selector:
+    app: debugger
+  ports:
+    - port: 80
+      protocol: TCP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: debugger
+  name: debugger
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: debugger
+  template:
+    metadata:
+      labels:
+        app: debugger
+    spec:
+      runtimeClassName: kata-qemu
+      containers:
+        - name: bpf-debugger
+          imagePullPolicy: Always
+          image: openmina/mina-network-debugger:f267f777
+          securityContext:
+            privileged: true
+          command: ["sh", "-ce", "bpf-recorder"]
+          env:
+            - name: RUST_LOG
+              value: "info"
+            - name: SERVER_PORT
+              value: "80"
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          volumeMounts:
+            - mountPath: /sys/kernel/debug
+              name: sys-kernel-debug
+            - mountPath: /proc
+              name: proc
+        - name: mina-daemon
+          image: minaprotocol/mina-daemon:2.0.0berkeley-rc1-1551e2f-bullseye-berkeley
+          command:
+          command: ["sh", "-c"]
+          args:
+            - |
+              sleep 10
+              curl https://raw.githubusercontent.com/MinaProtocol/mina/1551e2f/genesis_ledgers/berkeley.json -o /berkeley.json
+              mkdir -p /key
+              chmod 700 /key
+              mina libp2p generate-keypair --privkey-path /key/privkey
+              # mina advanced generate-keypair --privkey-path /key/snark-producer.key
+              # --run-snark-worker "$(cat /key/snark-producer.key.pub)"
+              mina daemon --external-port 8302 --config-file /berkeley.json --libp2p-keypair /key/privkey --peer-list-url https://storage.googleapis.com/seed-lists/berkeley_seeds.txt --insecure-rest-server --file-log-level Debug -log-level Info
+          ports:
+            - name: external-ip
+              containerPort: 8302
+              protocol: TCP
+            - name: graphql
+              containerPort: 3085
+              protocol: TCP
+          env:
+            - name: BPF_ALIAS
+              value: "auto-0.0.0.0"
+            - name: MINA_LIBP2P_PASS
+              value: ""
+            - name: MINA_PRIVKEY_PASS
+              value: ""
+            - name: VERBOSE
+              value: "1"
+          resources:
+            requests:
+              memory: 16G
+            limits:
+              memory: 32G
+      volumes:
+        - name: sys-kernel-debug
+          hostPath:
+            path: /sys/kernel/debug
+        - name: proc
+          hostPath:
+            path: /proc
+---
