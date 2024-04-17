@@ -69,6 +69,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                 P2pNetworkAction::Yamux(action) => action.action_event(&context),
                 P2pNetworkAction::Rpc(action) => action.action_event(&context),
                 P2pNetworkAction::Kad(action) => action.action_event(&context),
+                P2pNetworkAction::Pubsub(action) => action.action_event(&context),
                 P2pNetworkAction::Identify(action) => action.action_event(&context),
             },
         },

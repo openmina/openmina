@@ -164,8 +164,12 @@ impl P2pNetworkSchedulerAction {
                             StreamKind::Ping(PingAlgorithm::Ping1_0_0) => {
                                 //unimplemented!()
                             }
-                            StreamKind::Broadcast(_) => {
-                                //unimplemented!()
+                            StreamKind::Broadcast(protocol) => {
+                                store.dispatch(P2pNetworkPubsubAction::NewStream {
+                                    incoming,
+                                    peer_id,
+                                    protocol,
+                                });
                             }
                             StreamKind::Discovery(DiscoveryAlgorithm::Kademlia1_0_0) => {
                                 if let Some(discovery_state) =
