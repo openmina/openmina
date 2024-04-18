@@ -1,40 +1,56 @@
 use crate::P2pNetworkYamuxAction;
 
-use super::P2pNetworkPubsubAction;
+use super::{pb, P2pNetworkPubsubAction};
+
+fn message_is_empty(msg: &pb::Rpc) -> bool {
+    msg.subscriptions.is_empty() && msg.publish.is_empty() && msg.control.is_none()
+}
 
 impl P2pNetworkPubsubAction {
     pub fn effects<Store, S>(self, _meta: &redux::ActionMeta, store: &mut Store)
     where
         Store: crate::P2pStore<S>,
     {
-        match self {
+        let state = &store.state().network.scheduler.broadcast_state;
+        match dbg!(self) {
             Self::NewStream {
-                incoming,
-                peer_id,
-                protocol,
-                ..
+                peer_id, incoming, ..
             } => {
-                dbg!((peer_id, protocol.name_str(), incoming));
+                if !incoming {
+                    let msg = pb::Rpc {
+                        subscriptions: vec![pb::rpc::SubOpts {
+                            subscribe: Some(true),
+                            topic_id: Some("coda/consensus-messages/0.0.1".to_owned()),
+                        }],
+                        publish: vec![],
+                        control: None,
+                    };
+                    store.dispatch(Self::OutgoingMessage { msg, peer_id });
+                }
             }
-            Self::IncomingData { peer_id, data } => {
-                dbg!((peer_id, data));
-            }
-            Self::Broadcast { data, topic } => {
-                let peers = store
-                    .state()
-                    .network
-                    .scheduler
-                    .broadcast_state
+            Self::IncomingData { .. } | Self::Broadcast { .. } => {
+                let broadcast = state
                     .clients
                     .iter()
-                    .filter(|(_, state)| state.topics.contains(&topic))
-                    .map(|(v, _)| *v)
+                    .filter(|(_, state)| !message_is_empty(&state.message))
+                    .map(|(peer_id, state)| Self::OutgoingMessage {
+                        msg: state.message.clone(),
+                        peer_id: *peer_id,
+                    })
                     .collect::<Vec<_>>();
-                for peer_id in peers {
-                    store.dispatch(Self::OutgoingData {
-                        data: data.clone(),
-                        peer_id,
-                    });
+                for action in broadcast {
+                    store.dispatch(action);
+                }
+            }
+            Self::OutgoingMessage { msg, peer_id } => {
+                if !message_is_empty(&msg) {
+                    let mut data = vec![];
+                    if prost::Message::encode_length_delimited(&msg, &mut data).is_ok() {
+                        store.dispatch(Self::OutgoingData {
+                            data: data.clone().into(),
+                            peer_id,
+                        });
+                    }
                 }
             }
             Self::OutgoingData { data, peer_id } => {

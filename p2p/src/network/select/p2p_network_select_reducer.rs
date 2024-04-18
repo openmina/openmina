@@ -27,6 +27,7 @@ impl P2pNetworkSelectState {
                 _ => {}
             },
             P2pNetworkSelectAction::IncomingData { data, .. } => {
+                self.remaining = None;
                 if self.negotiated.is_none() {
                     self.recv.put(data);
                     loop {
@@ -37,12 +38,24 @@ impl P2pNetworkSelectState {
                                 break;
                             }
                             Ok(None) => break,
-                            Ok(Some(token)) => self.tokens.push_back(token),
+                            Ok(Some(token)) => {
+                                let done = matches!(
+                                    token,
+                                    token::Token::Protocol(..) | token::Token::UnknownProtocol(..)
+                                );
+                                self.tokens.push_back(token);
+                                if done {
+                                    break;
+                                }
+                            }
                         }
+                    }
+                    if !self.recv.buffer.is_empty() {
+                        self.remaining = Some(std::mem::take(&mut self.recv.buffer).into());
                     }
                 }
             }
-            P2pNetworkSelectAction::IncomingToken { .. } => {
+            P2pNetworkSelectAction::IncomingToken { kind, .. } => {
                 let Some(token) = self.tokens.pop_front() else {
                     return;
                 };
@@ -148,7 +161,7 @@ impl P2pNetworkSelectState {
                                 if let Ok(str) = std::str::from_utf8(&name[1..]) {
                                     let str = str.trim_end_matches('\n');
                                     if !KNOWN_UNKNOWN_PROTOCOLS.iter().any(|s| (*s).eq(str)) {
-                                        openmina_core::error!(_meta.time(); "unknown protocol: {str}");
+                                        openmina_core::error!(_meta.time(); "unknown protocol: {str}, {kind:?}");
                                     }
                                 }
                             }
