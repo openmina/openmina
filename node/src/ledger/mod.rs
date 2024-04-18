@@ -4,13 +4,13 @@ pub use ledger_config::*;
 
 mod ledger_service;
 pub use ledger_service::LedgerService;
-mod ledger_event;
 mod ledger_manager;
+mod ledger_messages;
 
 pub use ledger::AccountIndex as LedgerAccountIndex;
 pub use ledger::Address as LedgerAddress;
-pub use ledger_event::LedgerEvent;
 pub use ledger_manager::LedgerManager;
+pub use ledger_messages::LedgerEvent;
 
 use mina_p2p_messages::v2::LedgerHash;
 

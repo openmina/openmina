@@ -5,8 +5,8 @@ use std::{
     thread,
 };
 
-use super::ledger_event::LedgerEvent;
 use super::ledger_manager::LedgerManager;
+use super::ledger_messages::{LedgerEvent, LedgerRequest, LedgerResponse};
 use ledger::{
     scan_state::{
         currency::Slot,
@@ -1066,6 +1066,130 @@ impl LedgerCtx {
             .into_iter()
             .map(|(index, pub_key, balance)| (index, (pub_key, balance)))
             .collect()
+    }
+
+    pub fn handle_request(&mut self, request: LedgerRequest) -> Result<LedgerResponse, String> {
+        match request {
+            LedgerRequest::AccountsSet {
+                snarked_ledger_hash,
+                parent,
+                accounts,
+            } => self
+                .accounts_set(snarked_ledger_hash, &parent, accounts)
+                .map(LedgerResponse::LedgerHash),
+            LedgerRequest::BlockApply { block, pred_block } => self
+                .block_apply(block, pred_block)
+                .map(|()| LedgerResponse::Success),
+            LedgerRequest::ChildHashesGet {
+                snarked_ledger_hash,
+                parent,
+            } => self
+                .child_hashes_get(snarked_ledger_hash, &parent)
+                .map(|(left, right)| LedgerResponse::ChildHashes(left, right)),
+            LedgerRequest::Commit {
+                ledgers_to_keep,
+                root_snarked_ledger_updates,
+                needed_protocol_states,
+                new_root,
+                new_best_tip,
+            } => {
+                let res = self.commit(
+                    ledgers_to_keep,
+                    root_snarked_ledger_updates,
+                    needed_protocol_states,
+                    &new_root,
+                    &new_best_tip,
+                );
+                Ok(LedgerResponse::CommitResult(res))
+            }
+            LedgerRequest::ComputeSnarkedLedgerHashes {
+                snarked_ledger_hash,
+            } => self
+                .compute_snarked_ledger_hashes(&snarked_ledger_hash)
+                .map(|()| LedgerResponse::Success),
+            LedgerRequest::CopySnarkedLedgerContentsForSync {
+                origin_snarked_ledger_hash,
+                target_snarked_ledger_hash,
+                overwrite,
+            } => self
+                .copy_snarked_ledger_contents_for_sync(
+                    origin_snarked_ledger_hash,
+                    target_snarked_ledger_hash,
+                    overwrite,
+                )
+                .map(LedgerResponse::SnarkedLedgerContentsCopied),
+            LedgerRequest::GetMask { ledger_hash } => {
+                Ok(LedgerResponse::LedgerMask(self.mask(&ledger_hash)))
+            }
+            LedgerRequest::GetProducerAndDelegates {
+                ledger_hash,
+                producer,
+            } => {
+                let res = self.get_producer_and_delegates(ledger_hash, producer);
+                Ok(LedgerResponse::ProducerAndDelegates(res))
+            }
+            LedgerRequest::GetProducersWithDelegates {
+                ledger_hash,
+                filter,
+            } => {
+                let res = self.producers_with_delegates(&ledger_hash, filter);
+                Ok(LedgerResponse::ProducersWithDelegatesMap(res))
+            }
+            LedgerRequest::GetScanStateSummary { ledger_hash } => {
+                let res = self.scan_state_summary(ledger_hash);
+                Ok(LedgerResponse::ScanStateSummary(res))
+            }
+            LedgerRequest::InsertGenesisLedger { mask } => {
+                self.insert_genesis_ledger(mask);
+                Ok(LedgerResponse::Success)
+            }
+            LedgerRequest::LedgerQuery { ledger_hash, query } => {
+                let res = self.answer_ledger_query(ledger_hash, query);
+                Ok(LedgerResponse::LedgerQueryResult(res))
+            }
+            LedgerRequest::StagedLedgerAuxAndPendingCoinbase {
+                ledger_hash,
+                protocol_states,
+            } => {
+                let res = self.staged_ledger_aux_and_pending_coinbase(ledger_hash, protocol_states);
+                Ok(LedgerResponse::LedgerAuxAndCoinbaseResult(res))
+            }
+            LedgerRequest::StagedLedgerDiffCreate {
+                pred_block,
+                won_slot,
+                coinbase_receiver,
+                completed_snarks,
+                supercharge_coinbase,
+            } => self
+                .staged_ledger_diff_create(
+                    &pred_block,
+                    &won_slot,
+                    &coinbase_receiver,
+                    completed_snarks,
+                    supercharge_coinbase,
+                )
+                .map(LedgerResponse::StagedLedgerDiff),
+            LedgerRequest::StagedLedgerReconstruct {
+                snarked_ledger_hash,
+                parts,
+            } => {
+                self.spawn_staged_ledger_reconstruction(snarked_ledger_hash.clone(), parts);
+                openmina_core::info!(
+                    openmina_core::log::system_time();
+                    kind = "LedgerManager::LedgerRequest::handle",
+                    summary = format!("Spawned staged ledger reconstruction for {}.", snarked_ledger_hash)
+                );
+                Ok(LedgerResponse::Success)
+            }
+            LedgerRequest::StakeProofSparseLedger {
+                staking_ledger,
+                producer,
+                delegator,
+            } => {
+                let res = self.stake_proof_sparse_ledger(staking_ledger, producer, delegator);
+                Ok(LedgerResponse::SparseLedgerBase(res))
+            }
+        }
     }
 }
 
