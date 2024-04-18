@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::Data;
+
 const MAX_TOKEN_LENGTH: usize = 256;
 
 /// Possible valid token of multistream-select protocol
@@ -9,7 +11,7 @@ pub enum Token {
     Na,
     SimultaneousConnect,
     Protocol(Protocol),
-    UnknownProtocol(Vec<u8>),
+    UnknownProtocol(Data),
 }
 
 impl Token {
@@ -321,7 +323,7 @@ impl RpcAlgorithm {
 
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
 pub struct State {
-    buffer: Vec<u8>,
+    pub buffer: Vec<u8>,
 }
 
 pub struct ParseTokenError;
@@ -354,7 +356,9 @@ impl State {
         let token = Token::ALL
             .iter()
             .find(|t| t.name() == &self.buffer[..(len_length + len)]);
-        let name = self.buffer.drain(..(len_length + len)).collect();
-        Ok(Some(token.cloned().unwrap_or(Token::UnknownProtocol(name))))
+        let name = self.buffer.drain(..(len_length + len)).collect::<Vec<_>>();
+        Ok(Some(token.cloned().unwrap_or(Token::UnknownProtocol(
+            Data(name.into_boxed_slice()),
+        ))))
     }
 }

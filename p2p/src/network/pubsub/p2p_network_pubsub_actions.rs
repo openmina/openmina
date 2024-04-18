@@ -6,6 +6,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{token::BroadcastAlgorithm, Data, P2pState, PeerId, StreamId};
 
+use super::pb;
+
 #[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
 pub enum P2pNetworkPubsubAction {
     NewStream {
@@ -17,11 +19,18 @@ pub enum P2pNetworkPubsubAction {
     },
     IncomingData {
         peer_id: PeerId,
+        addr: SocketAddr,
+        stream_id: StreamId,
         data: Data,
     },
     Broadcast {
         data: Data,
         topic: String,
+        key: Option<Data>,
+    },
+    OutgoingMessage {
+        msg: pb::Rpc,
+        peer_id: PeerId,
     },
     OutgoingData {
         data: Data,
