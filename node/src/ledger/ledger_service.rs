@@ -5,6 +5,7 @@ use std::{
 };
 
 use super::ledger_manager::LedgerManager;
+use super::ledger_event::LedgerEvent;
 use ledger::{
     scan_state::{
         currency::Slot,
@@ -41,6 +42,7 @@ use mina_p2p_messages::{
 };
 use openmina_core::constants::CONSTRAINT_CONSTANTS;
 use openmina_core::snark::{Snark, SnarkJobId};
+use openmina_core::channels::mpsc::UnboundedSender;
 
 use mina_signer::CompressedPubKey;
 use openmina_core::block::ArcBlockWithHash;
@@ -58,6 +60,7 @@ use crate::transition_frontier::sync::{
 };
 use crate::transition_frontier::TransitionFrontierService;
 use crate::{
+    event_source::Event,
     p2p::channels::rpc::StagedLedgerAuxAndPendingCoinbases, transition_frontier::CommitResult,
 };
 use crate::{
@@ -74,16 +77,13 @@ fn merkle_root(mask: &mut Mask) -> LedgerHash {
     MinaBaseLedgerHash0StableV1(mask.merkle_root().into()).into()
 }
 
-#[derive(Default)]
 pub struct LedgerCtx {
     snarked_ledgers: BTreeMap<LedgerHash, Mask>,
     /// Additional snarked ledgers specified at startup (loaded from disk)
     additional_snarked_ledgers: BTreeMap<LedgerHash, Mask>,
     staged_ledgers: BTreeMap<LedgerHash, StagedLedger>,
     sync: LedgerSyncState,
-    // TODO(tizoc): temporary workaround for blocking staged ledger reconstruct, remove later
-    event_sender:
-        Option<openmina_core::channels::mpsc::UnboundedSender<crate::event_source::Event>>,
+    event_sender: Option<UnboundedSender<Event>>,
 }
 
 #[derive(Default)]
@@ -93,18 +93,37 @@ struct LedgerSyncState {
 }
 
 impl LedgerCtx {
-    pub fn new_with_additional_snarked_ledgers<P>(path: P) -> Self
+    pub fn new<P>(
+        event_sender: Option<UnboundedSender<Event>>,
+        additional_snarked_ledgers_path: Option<P>,
+    ) -> Self
+    where
+        P: AsRef<Path>
+    {
+        let additional_snarked_ledgers =
+            additional_snarked_ledgers_path
+            .map(|path| Self::load_additional_snarked_ledgers(path))
+            .unwrap_or(Default::default());
+        LedgerCtx {
+            event_sender,
+            additional_snarked_ledgers,
+            staged_ledgers: Default::default(),
+            snarked_ledgers: Default::default(),
+            sync: LedgerSyncState::default()
+        }
+    }
+
+    fn load_additional_snarked_ledgers<P>(path: P) -> BTreeMap<LedgerHash, Mask>
     where
         P: AsRef<Path>,
     {
         use std::fs;
 
         let Ok(dir) = fs::read_dir(path) else {
-            return Self::default();
+            return Default::default();
         };
 
-        let additional_snarked_ledgers = dir
-            .filter_map(|entry| {
+        dir.filter_map(|entry| {
                 let entry = entry.ok()?;
                 let hash = entry.file_name().to_str()?.parse().ok()?;
                 let mut file = fs::File::open(entry.path()).ok()?;
@@ -119,21 +138,13 @@ impl LedgerCtx {
                 }
                 Some((hash, mask))
             })
-            .collect();
-
-        LedgerCtx {
-            additional_snarked_ledgers,
-            ..Default::default()
-        }
+            .collect()
     }
 
-    // TODO(tizoc): Only used for the current workaround to make staged ledger
-    // reconstruction async, can be removed when the ledger services are made async
-    pub fn set_event_sender(
-        &mut self,
-        event_sender: openmina_core::channels::mpsc::UnboundedSender<crate::event_source::Event>,
-    ) {
-        self.event_sender = Some(event_sender);
+    pub fn emit_event(&self, event: LedgerEvent) {
+        if let Some(event_sender) = &self.event_sender {
+            event_sender.send(Event::LedgerEvent(event)).expect("Failed to send event");
+        }
     }
 
     pub fn insert_genesis_ledger(&mut self, mut mask: Mask) {

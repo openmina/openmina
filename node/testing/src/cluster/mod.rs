@@ -28,7 +28,7 @@ use node::p2p::{P2pConnectionEvent, P2pEvent, PeerId};
 use node::snark::{VerifierIndex, VerifierSRS};
 use node::{
     event_source::Event,
-    ledger::{LedgerCtx, LedgerManager},
+    ledger::LedgerManager,
     p2p::{channels::ChannelId, identity::SecretKey as P2pSecretKey},
     service::Recorder,
     snark::{get_srs, get_verifier_index, VerifierKind},
@@ -337,16 +337,12 @@ impl Cluster {
             })
             .unwrap();
 
-        // A fake event channel no one listens to.
-        let event_sender = mpsc::unbounded_channel().0;
-        let ledger = LedgerCtx::default();
-
         let mut real_service = NodeService {
             rng: StdRng::seed_from_u64(0),
             event_sender: event_sender.clone(),
             event_receiver: event_receiver.into(),
             cmd_sender,
-            ledger_manager: LedgerManager::spawn(ledger, event_sender),
+            ledger_manager: LedgerManager::spawn::<PathBuf>(None, None),
             peers,
             #[cfg(feature = "p2p-libp2p")]
             mio: p2p_service_ctx.mio,

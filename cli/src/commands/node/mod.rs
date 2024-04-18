@@ -17,7 +17,7 @@ use tokio::select;
 use node::core::channels::mpsc;
 use node::core::log::inner::Level;
 use node::event_source::EventSourceAction;
-use node::ledger::{LedgerCtx, LedgerManager};
+use node::ledger::LedgerManager;
 use node::p2p::channels::ChannelId;
 use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 use node::p2p::identity::SecretKey;
@@ -232,13 +232,10 @@ impl Node {
 
         let record = self.record;
 
-        let ledger = if let Some(path) = &self.additional_ledgers_path {
-            LedgerCtx::new_with_additional_snarked_ledgers(path)
-        } else {
-            LedgerCtx::default()
-        };
-
-        let ledger_manager = LedgerManager::spawn(ledger, event_sender.clone());
+        let ledger_manager = LedgerManager::spawn(
+            self.additional_ledgers_path,
+            Some(event_sender.clone())
+        );
 
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()

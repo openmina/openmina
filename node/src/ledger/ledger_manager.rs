@@ -7,6 +7,7 @@ use openmina_core::block::ArcBlockWithHash;
 use openmina_core::channels::mpsc;
 use openmina_core::snark::{Snark, SnarkJobId};
 use std::collections::{BTreeMap, BTreeSet};
+use std::path::Path;
 use std::sync::mpsc::{channel, RecvError, Sender};
 use std::sync::Arc;
 use std::thread;
@@ -142,7 +143,6 @@ impl LedgerRequest {
     fn handle(
         self,
         ledger_ctx: &mut LedgerCtx,
-        event_sender: &mpsc::UnboundedSender<Event>,
     ) -> Result<LedgerResponse, String> {
         match self {
             LedgerRequest::AccountsSet {
@@ -249,15 +249,13 @@ impl LedgerRequest {
                 snarked_ledger_hash,
                 parts,
             } => {
-                let result = ledger_ctx
-                    .staged_ledger_reconstruct(snarked_ledger_hash.clone(), parts)
-                    .map(LedgerEvent::LedgerReconstructSuccess)
-                    .map_err(LedgerEvent::LedgerReconstructError);
-                let event = Event::LedgerEvent(match result {
-                    Ok(event) => event,
-                    Err(event) => event,
-                });
-                event_sender.send(event).expect("ledger event send failed");
+                let result = ledger_ctx.staged_ledger_reconstruct(snarked_ledger_hash.clone(), parts);
+                match result {
+                    Ok(ledger_hash) =>
+                        ledger_ctx.emit_event(LedgerEvent::LedgerReconstructSuccess(ledger_hash)),
+                    Err(e) =>
+                        ledger_ctx.emit_event(LedgerEvent::LedgerReconstructError(e)),
+                }
 
                 Ok(LedgerResponse::Success)
             }
@@ -284,16 +282,20 @@ pub struct LedgerManager {
 }
 
 impl LedgerManager {
-    pub fn spawn(
-        mut ledger_ctx: LedgerCtx,
-        event_sender: mpsc::UnboundedSender<Event>,
-    ) -> LedgerManager {
+    pub fn spawn<P>(
+        additional_snarked_ledger_path: Option<P>,
+        event_sender: Option<mpsc::UnboundedSender<Event>>,
+    ) -> LedgerManager
+    where
+        P: AsRef<Path>
+    {
+        let mut ledger_ctx = LedgerCtx::new(event_sender, additional_snarked_ledger_path);
         let (sender, mut receiver) = mpsc::unbounded_channel();
         let runtime = thread::spawn(move || {
             loop {
                 match receiver.blocking_recv() {
                     Some(LedgerRequestWithChan { request, responder }) => {
-                        let result = request.handle(&mut ledger_ctx, &event_sender);
+                        let result = request.handle(&mut ledger_ctx);
                         if let Some(r) = responder {
                             r.send(result).unwrap_or(())
                         }

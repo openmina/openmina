@@ -3,7 +3,7 @@ use ledger::TreeVersion;
 pub use ledger_config::*;
 
 mod ledger_service;
-pub use ledger_service::*;
+pub use ledger_service::LedgerService;
 mod ledger_event;
 mod ledger_manager;
 
