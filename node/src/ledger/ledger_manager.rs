@@ -11,6 +11,7 @@ use std::path::Path;
 use std::sync::mpsc::{channel, RecvError, Sender};
 use std::sync::Arc;
 use std::thread;
+use std::time;
 
 use super::ledger_service::LedgerCtx;
 use crate::block_producer::vrf_evaluator::{
@@ -35,7 +36,6 @@ use mina_signer::CompressedPubKey;
 use openmina_node_account::AccountPublicKey;
 
 use crate::event_source::Event;
-use crate::ledger::LedgerEvent;
 
 /// The type enumerating different requests that can be made to the
 /// service. Each specific constructor has a specific response
@@ -140,10 +140,7 @@ enum LedgerResponse {
 }
 
 impl LedgerRequest {
-    fn handle(
-        self,
-        ledger_ctx: &mut LedgerCtx,
-    ) -> Result<LedgerResponse, String> {
+    fn handle(self, ledger_ctx: &mut LedgerCtx) -> Result<LedgerResponse, String> {
         match self {
             LedgerRequest::AccountsSet {
                 snarked_ledger_hash,
@@ -249,14 +246,12 @@ impl LedgerRequest {
                 snarked_ledger_hash,
                 parts,
             } => {
-                let result = ledger_ctx.staged_ledger_reconstruct(snarked_ledger_hash.clone(), parts);
-                match result {
-                    Ok(ledger_hash) =>
-                        ledger_ctx.emit_event(LedgerEvent::LedgerReconstructSuccess(ledger_hash)),
-                    Err(e) =>
-                        ledger_ctx.emit_event(LedgerEvent::LedgerReconstructError(e)),
-                }
-
+                ledger_ctx.spawn_staged_ledger_reconstruction(snarked_ledger_hash.clone(), parts);
+                openmina_core::info!(
+                    openmina_core::log::system_time();
+                    kind = "LedgerManager::LedgerRequest::handle",
+                    summary = format!("Spawned staged ledger reconstruction for {}.", snarked_ledger_hash)
+                );
                 Ok(LedgerResponse::Success)
             }
             LedgerRequest::StakeProofSparseLedger {
@@ -287,12 +282,18 @@ impl LedgerManager {
         event_sender: Option<mpsc::UnboundedSender<Event>>,
     ) -> LedgerManager
     where
-        P: AsRef<Path>
+        P: AsRef<Path>,
     {
-        let mut ledger_ctx = LedgerCtx::new(event_sender, additional_snarked_ledger_path);
         let (sender, mut receiver) = mpsc::unbounded_channel();
+        let mut ledger_ctx = LedgerCtx::new(event_sender, additional_snarked_ledger_path);
         let runtime = thread::spawn(move || {
             loop {
+                openmina_core::info!(
+                    openmina_core::log::system_time();
+                    kind = "LedgerManager::loop",
+                    summary = format!("Another loop pass.")
+                );
+                ledger_ctx.staged_ledger_reconstructions_finalize();
                 match receiver.blocking_recv() {
                     Some(LedgerRequestWithChan { request, responder }) => {
                         let result = request.handle(&mut ledger_ctx);
@@ -301,6 +302,15 @@ impl LedgerManager {
                         }
                     }
                     None => {
+                        // We still don't want to block on any
+                        // particular thread here, because we want to
+                        // handle finished reconstructions (and fire
+                        // appropriate events) as soon as they're
+                        // ready.
+                        while ledger_ctx.pending_ledger_reconstructions() > 0 {
+                            thread::sleep(time::Duration::from_millis(100));
+                            ledger_ctx.staged_ledger_reconstructions_finalize()
+                        }
                         break;
                     }
                 }

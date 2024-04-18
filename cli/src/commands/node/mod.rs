@@ -232,10 +232,8 @@ impl Node {
 
         let record = self.record;
 
-        let ledger_manager = LedgerManager::spawn(
-            self.additional_ledgers_path,
-            Some(event_sender.clone())
-        );
+        let ledger_manager =
+            LedgerManager::spawn(self.additional_ledgers_path, Some(event_sender.clone()));
 
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()

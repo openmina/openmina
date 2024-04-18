@@ -2,10 +2,11 @@ use std::{
     collections::{BTreeMap, BTreeSet},
     path::Path,
     sync::Arc,
+    thread,
 };
 
-use super::ledger_manager::LedgerManager;
 use super::ledger_event::LedgerEvent;
+use super::ledger_manager::LedgerManager;
 use ledger::{
     scan_state::{
         currency::Slot,
@@ -40,9 +41,9 @@ use mina_p2p_messages::{
         StateHash,
     },
 };
+use openmina_core::channels::mpsc::UnboundedSender;
 use openmina_core::constants::CONSTRAINT_CONSTANTS;
 use openmina_core::snark::{Snark, SnarkJobId};
-use openmina_core::channels::mpsc::UnboundedSender;
 
 use mina_signer::CompressedPubKey;
 use openmina_core::block::ArcBlockWithHash;
@@ -60,8 +61,8 @@ use crate::transition_frontier::sync::{
 };
 use crate::transition_frontier::TransitionFrontierService;
 use crate::{
-    event_source::Event,
-    p2p::channels::rpc::StagedLedgerAuxAndPendingCoinbases, transition_frontier::CommitResult,
+    event_source::Event, p2p::channels::rpc::StagedLedgerAuxAndPendingCoinbases,
+    transition_frontier::CommitResult,
 };
 use crate::{
     rpc::{
@@ -84,6 +85,12 @@ pub struct LedgerCtx {
     staged_ledgers: BTreeMap<LedgerHash, StagedLedger>,
     sync: LedgerSyncState,
     event_sender: Option<UnboundedSender<Event>>,
+    reconstructions_in_progress: Vec<ReconstructionInProgress>,
+}
+
+struct ReconstructionInProgress {
+    ledger_hash: LedgerHash,
+    thread_handle: thread::JoinHandle<Result<StagedLedger, String>>,
 }
 
 #[derive(Default)]
@@ -98,10 +105,9 @@ impl LedgerCtx {
         additional_snarked_ledgers_path: Option<P>,
     ) -> Self
     where
-        P: AsRef<Path>
+        P: AsRef<Path>,
     {
-        let additional_snarked_ledgers =
-            additional_snarked_ledgers_path
+        let additional_snarked_ledgers = additional_snarked_ledgers_path
             .map(|path| Self::load_additional_snarked_ledgers(path))
             .unwrap_or(Default::default());
         LedgerCtx {
@@ -109,7 +115,8 @@ impl LedgerCtx {
             additional_snarked_ledgers,
             staged_ledgers: Default::default(),
             snarked_ledgers: Default::default(),
-            sync: LedgerSyncState::default()
+            sync: LedgerSyncState::default(),
+            reconstructions_in_progress: Vec::with_capacity(10),
         }
     }
 
@@ -124,26 +131,28 @@ impl LedgerCtx {
         };
 
         dir.filter_map(|entry| {
-                let entry = entry.ok()?;
-                let hash = entry.file_name().to_str()?.parse().ok()?;
-                let mut file = fs::File::open(entry.path()).ok()?;
+            let entry = entry.ok()?;
+            let hash = entry.file_name().to_str()?.parse().ok()?;
+            let mut file = fs::File::open(entry.path()).ok()?;
 
-                let _ = Option::<LedgerHash>::binprot_read(&mut file).ok()?;
+            let _ = Option::<LedgerHash>::binprot_read(&mut file).ok()?;
 
-                let accounts = Vec::<Account>::binprot_read(&mut file).ok()?;
-                let mut mask = Mask::new_root(Database::create(35));
-                for account in accounts {
-                    let account_id = account.id();
-                    mask.get_or_create_account(account_id, account).unwrap();
-                }
-                Some((hash, mask))
-            })
-            .collect()
+            let accounts = Vec::<Account>::binprot_read(&mut file).ok()?;
+            let mut mask = Mask::new_root(Database::create(35));
+            for account in accounts {
+                let account_id = account.id();
+                mask.get_or_create_account(account_id, account).unwrap();
+            }
+            Some((hash, mask))
+        })
+        .collect()
     }
 
-    pub fn emit_event(&self, event: LedgerEvent) {
+    fn emit_event(&self, event: LedgerEvent) {
         if let Some(event_sender) = &self.event_sender {
-            event_sender.send(Event::LedgerEvent(event)).expect("Failed to send event");
+            event_sender
+                .send(Event::LedgerEvent(event))
+                .expect("Failed to send event");
         }
     }
 
@@ -440,11 +449,15 @@ impl LedgerCtx {
         Ok(computed_hash)
     }
 
-    pub fn staged_ledger_reconstruct(
+    pub fn pending_ledger_reconstructions(&self) -> usize {
+        self.reconstructions_in_progress.len()
+    }
+
+    pub fn spawn_staged_ledger_reconstruction(
         &mut self,
         snarked_ledger_hash: LedgerHash,
         parts: Option<Arc<StagedLedgerAuxAndPendingCoinbasesValid>>,
-    ) -> Result<LedgerHash, String> {
+    ) {
         let staged_ledger_hash = parts
             .as_ref()
             .map(|p| p.staged_ledger_hash.clone())
@@ -452,36 +465,70 @@ impl LedgerCtx {
         let snarked_ledger = self.sync.snarked_ledger_mut(snarked_ledger_hash.clone());
         let mask = snarked_ledger.copy();
 
-        let result = if let Some(parts) = parts {
-            let states = parts
-                .needed_blocks
-                .iter()
-                .map(|state| (state.hash().to_fp().unwrap(), state.clone()))
-                .collect::<BTreeMap<_, _>>();
+        let thread_handle = thread::spawn(|| {
+            if let Some(parts) = parts {
+                let states = parts
+                    .needed_blocks
+                    .iter()
+                    .map(|state| (state.hash().to_fp().unwrap(), state.clone()))
+                    .collect::<BTreeMap<_, _>>();
 
-            StagedLedger::of_scan_state_pending_coinbases_and_snarked_ledger(
-                (),
-                &CONSTRAINT_CONSTANTS,
-                Verifier,
-                (&parts.scan_state).into(),
-                mask,
-                LocalState::empty(),
-                parts.staged_ledger_hash.0.to_field(),
-                (&parts.pending_coinbase).into(),
-                |key| states.get(&key).cloned().unwrap(),
-            )
-        } else {
-            StagedLedger::create_exn(CONSTRAINT_CONSTANTS.clone(), mask)
-        };
-
-        match result {
-            Ok(staged_ledger) => {
-                self.sync
-                    .staged_ledgers
-                    .insert(staged_ledger_hash.clone(), staged_ledger);
-                Ok(staged_ledger_hash)
+                StagedLedger::of_scan_state_pending_coinbases_and_snarked_ledger(
+                    (),
+                    &CONSTRAINT_CONSTANTS,
+                    Verifier,
+                    (&parts.scan_state).into(),
+                    mask,
+                    LocalState::empty(),
+                    parts.staged_ledger_hash.0.to_field(),
+                    (&parts.pending_coinbase).into(),
+                    |key| states.get(&key).cloned().unwrap(),
+                )
+            } else {
+                StagedLedger::create_exn(CONSTRAINT_CONSTANTS.clone(), mask)
             }
-            Err(error) => Err(error),
+        });
+        openmina_core::info!(openmina_core::log::system_time();
+            kind = "LedgerService::spawn_staged_ledger_reconstruction",
+            summary = format!("Spawned staged ledger reconstruction for {}.", snarked_ledger_hash)
+        );
+        self.reconstructions_in_progress
+            .push(ReconstructionInProgress {
+                ledger_hash: staged_ledger_hash,
+                thread_handle,
+            })
+    }
+
+    pub fn staged_ledger_reconstructions_finalize(&mut self) {
+        let mut index = 0;
+        while index < self.reconstructions_in_progress.len() {
+            if self.reconstructions_in_progress[index]
+                .thread_handle
+                .is_finished()
+            {
+                let reconstruction = self.reconstructions_in_progress.swap_remove(index);
+                let result = reconstruction.thread_handle.join();
+                openmina_core::info!(
+                    openmina_core::log::system_time();
+                    kind = "LedgerService::staged_ledger_reconstructions_finalize",
+                    summary = format!("Joined staged ledger reconstruction for {}.", reconstruction.ledger_hash)
+                );
+
+                match result {
+                    Ok(Ok(staged_ledger)) => {
+                        self.sync
+                            .staged_ledgers
+                            .insert(reconstruction.ledger_hash.clone(), staged_ledger);
+                        self.emit_event(LedgerEvent::LedgerReconstructSuccess(
+                            reconstruction.ledger_hash.clone(),
+                        ))
+                    }
+                    Ok(Err(e)) => self.emit_event(LedgerEvent::LedgerReconstructError(e)),
+                    Err(_) => panic!("Ledger reconstruction thread panicked!"),
+                }
+            } else {
+                index += 1
+            }
         }
     }
 
