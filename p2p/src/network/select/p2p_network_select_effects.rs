@@ -66,6 +66,7 @@ impl P2pNetworkSelectAction {
                 data,
                 fin,
             } => {
+                let remaining = state.remaining.clone();
                 if let Some(Some(negotiated)) = &state.negotiated {
                     match negotiated {
                         Protocol::Auth(AuthKind::Noise) => {
@@ -130,6 +131,8 @@ impl P2pNetworkSelectAction {
                                     StreamKind::Broadcast(_) => {
                                         store.dispatch(P2pNetworkPubsubAction::IncomingData {
                                             peer_id,
+                                            addr,
+                                            stream_id,
                                             data,
                                         });
                                     }
@@ -162,6 +165,15 @@ impl P2pNetworkSelectAction {
                     for token in tokens {
                         store.dispatch(P2pNetworkSelectAction::IncomingToken { addr, kind, token });
                     }
+                }
+
+                if let Some(data) = remaining {
+                    store.dispatch(P2pNetworkSelectAction::IncomingData {
+                        addr,
+                        kind,
+                        data,
+                        fin: false,
+                    });
                 }
             }
             Self::IncomingToken { addr, kind, .. } => {

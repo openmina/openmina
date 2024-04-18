@@ -1,6 +1,6 @@
 syntax = "proto2";
 
-package gossipsub.pb;
+package gossipsub;
 
 message RPC {
 	repeated SubOpts subscriptions = 1;

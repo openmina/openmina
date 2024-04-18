@@ -236,8 +236,13 @@ impl P2pNetworkSchedulerAction {
                     let stream_id = if incoming { 2 } else { 1 };
                     store.dispatch(P2pNetworkYamuxAction::OpenStream {
                         addr,
-                        stream_id,
+                        stream_id: stream_id,
                         stream_kind: StreamKind::Rpc(RpcAlgorithm::Rpc0_0_1),
+                    });
+                    store.dispatch(P2pNetworkYamuxAction::OpenStream {
+                        addr,
+                        stream_id: stream_id + 2,
+                        stream_kind: StreamKind::Broadcast(token::BroadcastAlgorithm::Meshsub1_1_0),
                     });
 
                     // TODO: open RPC and Kad connections only after identify reports support for it?

@@ -1,5 +1,5 @@
 mod pb {
-    include!(concat!(env!("OUT_DIR"), "/gossipsub.pb.rs"));
+    include!(concat!(env!("OUT_DIR"), "/gossipsub.rs"));
 }
 
 mod p2p_network_pubsub_actions;

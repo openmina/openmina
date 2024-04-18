@@ -7,9 +7,12 @@ use serde::{Deserialize, Serialize};
 
 use crate::{token::BroadcastAlgorithm, PeerId, StreamId};
 
+use super::pb;
+
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
 pub struct P2pNetworkPubsubState {
     pub clients: BTreeMap<PeerId, P2pNetworkPubsubClientState>,
+    pub servers: BTreeMap<PeerId, ()>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -18,4 +21,5 @@ pub struct P2pNetworkPubsubClientState {
     pub addr: SocketAddr,
     pub stream_id: StreamId,
     pub topics: BTreeSet<String>,
+    pub message: pb::Rpc,
 }
