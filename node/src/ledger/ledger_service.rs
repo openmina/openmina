@@ -6,7 +6,7 @@ use std::{
 };
 
 use super::ledger_manager::LedgerManager;
-use super::ledger_messages::{LedgerEvent, LedgerRequest, LedgerResponse};
+use super::ledger_messages::{LedgerEvent, LedgerRequest, LedgerRequestWithChan, LedgerResponse};
 use ledger::{
     scan_state::{
         currency::Slot,
@@ -85,12 +85,8 @@ pub struct LedgerCtx {
     staged_ledgers: BTreeMap<LedgerHash, StagedLedger>,
     sync: LedgerSyncState,
     event_sender: Option<UnboundedSender<Event>>,
-    reconstructions_in_progress: Vec<ReconstructionInProgress>,
-}
-
-struct ReconstructionInProgress {
-    ledger_hash: LedgerHash,
-    thread_handle: thread::JoinHandle<Result<StagedLedger, String>>,
+    self_notify: UnboundedSender<LedgerRequestWithChan>,
+    reconstructions_in_progress: BTreeMap<LedgerHash, thread::JoinHandle<Result<StagedLedger, String>>>
 }
 
 #[derive(Default)]
@@ -102,6 +98,7 @@ struct LedgerSyncState {
 impl LedgerCtx {
     pub fn new<P>(
         event_sender: Option<UnboundedSender<Event>>,
+        self_notify: UnboundedSender<LedgerRequestWithChan>,
         additional_snarked_ledgers_path: Option<P>,
     ) -> Self
     where
@@ -112,11 +109,12 @@ impl LedgerCtx {
             .unwrap_or(Default::default());
         LedgerCtx {
             event_sender,
+            self_notify,
             additional_snarked_ledgers,
             staged_ledgers: Default::default(),
             snarked_ledgers: Default::default(),
             sync: LedgerSyncState::default(),
-            reconstructions_in_progress: Vec::with_capacity(10),
+            reconstructions_in_progress: BTreeMap::new(),
         }
     }
 
@@ -464,8 +462,11 @@ impl LedgerCtx {
             .unwrap_or_else(|| snarked_ledger_hash.clone());
         let snarked_ledger = self.sync.snarked_ledger_mut(snarked_ledger_hash.clone());
         let mask = snarked_ledger.copy();
+        let notify = self.self_notify.clone();
+        let ledger_hash = staged_ledger_hash.clone();
 
-        let thread_handle = thread::spawn(|| {
+        let thread_handle = thread::spawn(move || {
+            let staged_ledger =
             if let Some(parts) = parts {
                 let states = parts
                     .needed_blocks
@@ -486,48 +487,37 @@ impl LedgerCtx {
                 )
             } else {
                 StagedLedger::create_exn(CONSTRAINT_CONSTANTS.clone(), mask)
-            }
+            };
+            let request = LedgerRequest::StagedLedgerReconstructionFinalize {
+                ledger_hash
+            };
+            notify.send(LedgerRequestWithChan { request, responder: None })
+                .expect("Failed to notify about finished ledger reconstruction.");
+            staged_ledger
         });
-        openmina_core::info!(openmina_core::log::system_time();
-            kind = "LedgerService::spawn_staged_ledger_reconstruction",
-            summary = format!("Spawned staged ledger reconstruction for {}.", snarked_ledger_hash)
-        );
-        self.reconstructions_in_progress
-            .push(ReconstructionInProgress {
-                ledger_hash: staged_ledger_hash,
-                thread_handle,
-            })
+        match self.reconstructions_in_progress.insert(staged_ledger_hash.clone(), thread_handle) {
+            None => (),
+            Some(_) => panic!("Reconstruction for ledger {} already in progress!",
+                              staged_ledger_hash
+            )
+        }
     }
 
-    pub fn staged_ledger_reconstructions_finalize(&mut self) {
-        let mut index = 0;
-        while index < self.reconstructions_in_progress.len() {
-            if self.reconstructions_in_progress[index]
-                .thread_handle
-                .is_finished()
-            {
-                let reconstruction = self.reconstructions_in_progress.swap_remove(index);
-                let result = reconstruction.thread_handle.join();
-                openmina_core::info!(
-                    openmina_core::log::system_time();
-                    kind = "LedgerService::staged_ledger_reconstructions_finalize",
-                    summary = format!("Joined staged ledger reconstruction for {}.", reconstruction.ledger_hash)
-                );
+    pub fn staged_ledger_reconstructions_finalize(&mut self, ledger_hash: LedgerHash) {
+        if let Some(reconstruction) = self.reconstructions_in_progress.remove(&ledger_hash) {
+            let result = reconstruction.join();
 
-                match result {
-                    Ok(Ok(staged_ledger)) => {
-                        self.sync
-                            .staged_ledgers
-                            .insert(reconstruction.ledger_hash.clone(), staged_ledger);
-                        self.emit_event(LedgerEvent::LedgerReconstructSuccess(
-                            reconstruction.ledger_hash.clone(),
-                        ))
-                    }
-                    Ok(Err(e)) => self.emit_event(LedgerEvent::LedgerReconstructError(e)),
-                    Err(_) => panic!("Ledger reconstruction thread panicked!"),
+            match result {
+                Ok(Ok(staged_ledger)) => {
+                    self.sync
+                        .staged_ledgers
+                        .insert(ledger_hash.clone(), staged_ledger);
+                    self.emit_event(LedgerEvent::LedgerReconstructSuccess(
+                        ledger_hash.clone(),
+                    ))
                 }
-            } else {
-                index += 1
+                Ok(Err(e)) => self.emit_event(LedgerEvent::LedgerReconstructError(e)),
+                Err(_) => panic!("Ledger reconstruction thread panicked!"),
             }
         }
     }
@@ -1169,18 +1159,17 @@ impl LedgerCtx {
                     supercharge_coinbase,
                 )
                 .map(LedgerResponse::StagedLedgerDiff),
-            LedgerRequest::StagedLedgerReconstruct {
+            LedgerRequest::StagedLedgerReconstructionSpawn {
                 snarked_ledger_hash,
                 parts,
             } => {
                 self.spawn_staged_ledger_reconstruction(snarked_ledger_hash.clone(), parts);
-                openmina_core::info!(
-                    openmina_core::log::system_time();
-                    kind = "LedgerManager::LedgerRequest::handle",
-                    summary = format!("Spawned staged ledger reconstruction for {}.", snarked_ledger_hash)
-                );
                 Ok(LedgerResponse::Success)
-            }
+            },
+            LedgerRequest::StagedLedgerReconstructionFinalize { ledger_hash } => {
+                self.staged_ledger_reconstructions_finalize(ledger_hash);
+                Ok(LedgerResponse::Success)
+            },
             LedgerRequest::StakeProofSparseLedger {
                 staking_ledger,
                 producer,

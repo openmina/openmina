@@ -8,12 +8,11 @@ use openmina_core::channels::mpsc;
 use openmina_core::snark::{Snark, SnarkJobId};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
-use std::sync::mpsc::{channel, RecvError, Sender};
+use std::sync::mpsc::{channel, RecvError};
 use std::sync::Arc;
 use std::thread;
-use std::time;
 
-use super::ledger_messages::{LedgerRequest, LedgerResponse};
+use super::ledger_messages::{LedgerRequest, LedgerRequestWithChan, LedgerResponse};
 use super::ledger_service::LedgerCtx;
 use crate::block_producer::vrf_evaluator::{
     BlockProducerVrfEvaluatorLedgerService, DelegatorTable,
@@ -38,11 +37,6 @@ use openmina_node_account::AccountPublicKey;
 
 use crate::event_source::Event;
 
-struct LedgerRequestWithChan {
-    request: LedgerRequest,
-    responder: Option<Sender<Result<LedgerResponse, String>>>,
-}
-
 pub struct LedgerManager {
     sender: mpsc::UnboundedSender<LedgerRequestWithChan>,
     join_handle: thread::JoinHandle<LedgerCtx>,
@@ -57,15 +51,13 @@ impl LedgerManager {
         P: AsRef<Path>,
     {
         let (sender, mut receiver) = mpsc::unbounded_channel();
-        let mut ledger_ctx = LedgerCtx::new(event_sender, additional_snarked_ledger_path);
+        let mut ledger_ctx = LedgerCtx::new(
+            event_sender,
+            sender.clone(),
+            additional_snarked_ledger_path
+        );
         let runtime = thread::spawn(move || {
             loop {
-                openmina_core::info!(
-                    openmina_core::log::system_time();
-                    kind = "LedgerManager::loop",
-                    summary = format!("Another loop pass.")
-                );
-                ledger_ctx.staged_ledger_reconstructions_finalize();
                 match receiver.blocking_recv() {
                     Some(LedgerRequestWithChan { request, responder }) => {
                         let result = ledger_ctx.handle_request(request);
@@ -74,15 +66,6 @@ impl LedgerManager {
                         }
                     }
                     None => {
-                        // We still don't want to block on any
-                        // particular thread here, because we want to
-                        // handle finished reconstructions (and fire
-                        // appropriate events) as soon as they're
-                        // ready.
-                        while ledger_ctx.pending_ledger_reconstructions() > 0 {
-                            thread::sleep(time::Duration::from_millis(100));
-                            ledger_ctx.staged_ledger_reconstructions_finalize()
-                        }
                         break;
                     }
                 }
@@ -250,7 +233,7 @@ impl TransitionFrontierSyncLedgerStagedService for LedgerManager {
         snarked_ledger_hash: LedgerHash,
         parts: Option<Arc<StagedLedgerAuxAndPendingCoinbasesValid>>,
     ) {
-        self.request(LedgerRequest::StagedLedgerReconstruct {
+        self.request(LedgerRequest::StagedLedgerReconstructionSpawn {
             snarked_ledger_hash,
             parts,
         })

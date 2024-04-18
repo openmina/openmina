@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, BTreeSet},
     fmt,
-    sync::Arc,
+    sync::{mpsc::Sender, Arc},
 };
 
 use crate::{
@@ -123,9 +123,12 @@ pub enum LedgerRequest {
         completed_snarks: BTreeMap<SnarkJobId, Snark>,
         supercharge_coinbase: bool,
     }, // expected response: StagedLedgerDiff
-    StagedLedgerReconstruct {
+    StagedLedgerReconstructionSpawn {
         snarked_ledger_hash: LedgerHash,
         parts: Option<Arc<StagedLedgerAuxAndPendingCoinbasesValid>>,
+    }, // expected response: Success
+    StagedLedgerReconstructionFinalize {
+        ledger_hash: LedgerHash
     }, // expected response: Success
     StakeProofSparseLedger {
         staking_ledger: LedgerHash,
@@ -156,4 +159,9 @@ pub enum LedgerResponse {
     SparseLedgerBase(Option<MinaBaseSparseLedgerBaseStableV2>),
     StagedLedgerDiff(StagedLedgerDiffCreateOutput),
     Success, // operation was performed and result stored; nothing to return.
+}
+
+pub struct LedgerRequestWithChan {
+    pub request: LedgerRequest,
+    pub responder: Option<Sender<Result<LedgerResponse, String>>>,
 }
