@@ -10,7 +10,7 @@ use tokio::task::JoinHandle;
 use vrf::{VrfEvaluationInput, VrfEvaluationOutput, VrfWonSlot};
 
 use crate::{
-    evaluator::epoch::{EpochSummary, EpochStorage, SlotData},
+    evaluator::epoch::{EpochStorage, EpochSummary, SlotData},
     node::{calc_slot_timestamp, epoch_ledgers::Ledger},
     storage::db_sled::Database,
 };
@@ -48,7 +48,12 @@ impl Evaluator {
 
             let epoch_seed = EpochSeed::from_str(&init.seed).unwrap();
 
-            for global_slot in start..end {
+            for global_slot in start..=end {
+                // initially set to lost, the winning will overwrite it
+                let timestamp = calc_slot_timestamp(init.genesis_timestamp, global_slot);
+                let _ = self
+                    .db
+                    .store_slot(global_slot, &SlotData::new_lost(global_slot, timestamp));
                 for (index, delegate) in &delegates {
                     let vrf_input = VrfEvaluationInput::new(
                         self.key.clone().into(),
@@ -60,14 +65,13 @@ impl Evaluator {
                         total_currency.clone(),
                     );
 
-                    if let Ok(VrfEvaluationOutput::SlotWon(_)) = vrf::evaluate_vrf(vrf_input)
-                    {
+                    if let Ok(VrfEvaluationOutput::SlotWon(_)) = vrf::evaluate_vrf(vrf_input) {
                         println!("Won slot: {global_slot}");
 
-                        let timestamp = calc_slot_timestamp(init.genesis_timestamp, global_slot);
-
                         // TODO(adonagy): handle error
-                        let _ = self.db.store_slot(global_slot, &SlotData::new(global_slot, timestamp, None));
+                        let _ = self
+                            .db
+                            .store_slot(global_slot, &SlotData::new(global_slot, timestamp, None));
                         break;
                     }
                 }
@@ -86,7 +90,13 @@ pub struct EpochInit {
 }
 
 impl EpochInit {
-    pub fn new(epoch_number: u32, ledger: Ledger, seed: String, bounds: (u32, u32), genesis_timestamp: i64) -> Self {
+    pub fn new(
+        epoch_number: u32,
+        ledger: Ledger,
+        seed: String,
+        bounds: (u32, u32),
+        genesis_timestamp: i64,
+    ) -> Self {
         Self {
             epoch_number,
             ledger,

@@ -17,9 +17,7 @@ impl ArchiveConnector {
             std::env::var("DATABASE_URL").expect("No db url found, check env var DATABASE_URL")
         };
 
-        let pool = PgPool::connect(&db_url)
-            .await
-            .unwrap();
+        let pool = PgPool::connect(&db_url).await.unwrap();
 
         Self { pool }
     }
@@ -51,11 +49,11 @@ impl ArchiveConnector {
         .await
     }
 
-    pub async fn get_producer_block_at_slot(
+    pub async fn get_blocks_in_slot_range(
         &self,
-        producer_pk: &str,
-        global_slot: i64,
-    ) -> Result<Block, sqlx::Error> {
+        start_slot: i64,
+        finish_slot: i64,
+    ) -> Result<Vec<Block>, sqlx::Error> {
         sqlx::query_as!(
             Block,
             r#"SELECT 
@@ -75,12 +73,11 @@ impl ArchiveConnector {
                 JOIN 
                     public_keys pk_winner ON b.block_winner_id = pk_winner.id
                 WHERE 
-                    pk_creator.value = $1
-                    AND b.global_slot_since_hard_fork = $2"#,
-            producer_pk,
-            global_slot
+                    b.global_slot_since_hard_fork BETWEEN $1 AND $2"#,
+            start_slot,
+            finish_slot
         )
-        .fetch_one(&self.pool)
+        .fetch_all(&self.pool)
         .await
     }
 }
@@ -100,10 +97,16 @@ pub struct Block {
     pub height: i64,
     timestamp: String,
     pub chain_status: ChainStatus,
-    creator_key: String,
+    pub creator_key: String,
     winner_key: String,
     global_slot_since_hard_fork: i64,
     global_slot_since_genesis: i64,
+}
+
+impl Block {
+    pub fn global_slot(&self) -> u32 {
+        self.global_slot_since_hard_fork as u32
+    }
 }
 
 #[cfg(test)]

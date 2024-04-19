@@ -2,7 +2,10 @@ use warp::Filter;
 
 use crate::{storage::db_sled::Database, NodeStatus};
 
-use super::handlers::{get_current_slot, get_genesis_timestamp, get_latest_epoch_data, get_latest_epoch_data_summary, get_node_status};
+use super::handlers::{
+    get_current_slot, get_genesis_timestamp, get_latest_epoch_data, get_latest_epoch_data_summary,
+    get_node_status,
+};
 
 pub fn filters(
     storage: Database,
@@ -28,16 +31,18 @@ fn genesis_timestamp() -> impl Filter<Extract = (impl warp::Reply,), Error = war
         .and_then(get_genesis_timestamp)
 }
 
-fn node(node_status: NodeStatus) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone
-{
+fn node(
+    node_status: NodeStatus,
+) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("node")
         .and(warp::get())
         .and(with_node_status(node_status))
         .and_then(get_node_status)
 }
 
-fn current_slot(node_status: NodeStatus) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone
-{
+fn current_slot(
+    node_status: NodeStatus,
+) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("node" / "current_slot")
         .and(warp::get())
         .and(with_node_status(node_status))

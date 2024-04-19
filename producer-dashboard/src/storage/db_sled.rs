@@ -1,8 +1,10 @@
+use num_traits::ToBytes;
 use sled::{Db, Tree};
 use std::path::PathBuf;
 
 use crate::{
-    evaluator::epoch::{BlockStatus, SlotBlockUpdate, SlotData},
+    archive::Block,
+    evaluator::epoch::{SlotBlockUpdate, SlotData, SlotStatus},
     node::epoch_ledgers::Ledger,
 };
 
@@ -12,7 +14,8 @@ pub struct Database {
     epoch_data: Tree,
     seeds: Tree,
     epoch_ledgers: Tree,
-    produced_blocks: Tree,
+    blocks: Tree,
+    produced_blocks_by_slot: Tree,
 }
 
 impl Database {
@@ -21,14 +24,16 @@ impl Database {
         let seeds = db.open_tree("seeds")?;
         let current_epoch = db.open_tree("current_epoch")?;
         let epoch_ledgers = db.open_tree("epoch_ledgers")?;
-        let produced_blocks = db.open_tree("produced_blocks")?;
+        let blocks = db.open_tree("produced_blocks")?;
+        let produced_blocks_by_slot = db.open_tree("produced_blocks_by_slot")?;
 
         Ok(Self {
             db,
             epoch_data: current_epoch,
             seeds,
             epoch_ledgers,
-            produced_blocks,
+            blocks,
+            produced_blocks_by_slot,
         })
     }
 
@@ -107,7 +112,7 @@ impl Database {
     pub fn update_slot_status(
         &self,
         slot: u32,
-        block_status: BlockStatus,
+        block_status: SlotStatus,
     ) -> Result<(), sled::Error> {
         self.update(
             &self.epoch_data,
@@ -119,12 +124,26 @@ impl Database {
         )
     }
 
-    pub fn update_slot_block(&self, slot: u32, block: SlotBlockUpdate) -> Result<(), sled::Error> {
+    pub fn update_slot_block(
+        &self,
+        slot: u32,
+        block: SlotBlockUpdate,
+        // TODO: simplify
+        produced: bool,
+        in_future: bool,
+    ) -> Result<(), sled::Error> {
         self.update(
             &self.epoch_data,
             slot.to_be_bytes(),
             |mut slot_entry: SlotData| {
                 slot_entry.add_block(block.clone());
+                if !produced {
+                    if in_future {
+                        slot_entry.update_block_status(SlotStatus::ForeignToBeProduced);
+                    } else {
+                        slot_entry.update_block_status(SlotStatus::Foreign);
+                    }
+                }
                 slot_entry
             },
         )
@@ -134,19 +153,43 @@ impl Database {
         self.epoch_data.contains_key(slot.to_be_bytes())
     }
 
-    pub fn store_block(&self, state_hash: String, slot: u32) -> Result<(), sled::Error> {
-        self.store(&self.produced_blocks, state_hash.as_bytes(), &slot)
+    pub fn store_block(&self, block: Block) -> Result<(), sled::Error> {
+        self.store(&self.blocks, block.state_hash.as_bytes(), &block)?;
+        self.store(
+            &self.produced_blocks_by_slot,
+            block.global_slot().to_be_bytes(),
+            &block,
+        )
+    }
+
+    pub fn get_blocks_in_range(
+        &self,
+        start_slot: u32,
+        end_slot: u32,
+    ) -> Result<Vec<Block>, sled::Error> {
+        let start_key = start_slot.to_be_bytes();
+        let end_key = end_slot.to_be_bytes();
+
+        self.blocks
+            .range(start_key..end_key)
+            .map(|entry_result| {
+                let (_key, value) = entry_result?;
+                bincode::deserialize(&value)
+                    .map_err(|e| sled::Error::Io(std::io::Error::new(std::io::ErrorKind::Other, e)))
+            })
+            .collect()
     }
 
     pub fn get_slots_for_epoch(&self, epoch: u32) -> Result<Vec<SlotData>, sled::Error> {
         let start_slot = epoch * 7140;
         let end_slot = start_slot + 7140;
-    
+
         // Convert slot numbers to byte arrays for the range query
         let start_key = start_slot.to_be_bytes();
         let end_key = end_slot.to_be_bytes();
-    
-        self.epoch_data.range(start_key..end_key)
+
+        self.epoch_data
+            .range(start_key..end_key)
             .map(|entry_result| {
                 let (_key, value) = entry_result?;
                 deserialize_bincode(&value)
@@ -155,7 +198,32 @@ impl Database {
     }
 
     pub fn seen_block(&self, state_hash: String) -> Result<bool, sled::Error> {
-        self.produced_blocks.contains_key(state_hash.as_bytes())
+        self.blocks.contains_key(state_hash.as_bytes())
+    }
+
+    pub fn seen_slot(&self, slot: u32) -> Result<bool, sled::Error> {
+        self.produced_blocks_by_slot
+            .contains_key(slot.to_be_bytes())
+    }
+
+    pub fn set_current_slot(&self, old: u32, new: u32) -> Result<(), sled::Error> {
+        self.update(
+            &self.epoch_data,
+            old.to_be_bytes(),
+            |mut slot_entry: SlotData| {
+                slot_entry.unset_as_current();
+                slot_entry
+            },
+        )?;
+
+        self.update(
+            &self.epoch_data,
+            new.to_be_bytes(),
+            |mut slot_entry: SlotData| {
+                slot_entry.set_as_current();
+                slot_entry
+            },
+        )
     }
 }
 

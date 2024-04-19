@@ -5,12 +5,18 @@ use serde::{Deserialize, Deserializer, Serialize};
 use std::{collections::BTreeSet, path::PathBuf, process::Command, str::FromStr};
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 
-use crate::{evaluator::epoch::{RawGlobalSlot, RawSlot}, StakingToolError};
+use crate::{
+    evaluator::epoch::{RawGlobalSlot, RawSlot},
+    StakingToolError,
+};
 
 pub mod epoch_ledgers;
 pub mod watchdog;
 
-use self::{daemon_status::SyncStatus, epoch_ledgers::{LedgerEntry, Ledger}};
+use self::{
+    daemon_status::SyncStatus,
+    epoch_ledgers::{Ledger, LedgerEntry},
+};
 
 type PublicKey = String;
 type StateHash = String;
@@ -35,9 +41,7 @@ pub struct Node {
 
 impl Node {
     pub fn new(url: String) -> Self {
-        Self {
-            url
-        }
+        Self { url }
     }
 
     pub async fn wait_for_graphql(&self) -> Result<(), StakingToolError> {
@@ -56,7 +60,7 @@ impl Node {
                     if response.status().is_client_error() {
                         return Ok(()); // URL is reachable and returns a successful status
                     }
-                },
+                }
                 Err(_) => {
                     println!("Waiting for node...");
                 }
@@ -76,10 +80,9 @@ impl Node {
 
         let variables = daemon_status::Variables {};
 
-        let response_body =
-            post_graphql::<DaemonStatus, _>(&client, &self.url, variables)
-                .await
-                .unwrap();
+        let response_body = post_graphql::<DaemonStatus, _>(&client, &self.url, variables)
+            .await
+            .unwrap();
 
         let response_data: daemon_status::ResponseData = response_body
             .data
@@ -94,13 +97,12 @@ impl Node {
             .user_agent("graphql-rust/0.10.0")
             .build()
             .unwrap();
-    
+
         let variables = genesis_timestamp::Variables {};
-    
-        let response_body =
-            post_graphql::<GenesisTimestamp, _>(&client, &self.url, variables)
-                .await
-                .unwrap();
+
+        let response_body = post_graphql::<GenesisTimestamp, _>(&client, &self.url, variables)
+            .await
+            .unwrap();
         let response_data: genesis_timestamp::ResponseData = response_body
             .data
             .ok_or(StakingToolError::EmptyGraphqlResponse)?;
@@ -118,10 +120,9 @@ impl Node {
             .unwrap();
 
         let variables = best_chain::Variables { max_length: 290 };
-        let response_body =
-            post_graphql::<BestChain, _>(&client, &self.url, variables)
-                .await
-                .unwrap();
+        let response_body = post_graphql::<BestChain, _>(&client, &self.url, variables)
+            .await
+            .unwrap();
 
         let response_data: best_chain::ResponseData = response_body
             .data
@@ -151,42 +152,47 @@ impl Node {
             .user_agent("graphql-rust/0.10.0")
             .build()
             .unwrap();
-    
+
         let variables = best_chain::Variables { max_length: 1 };
-        let response_body =
-            post_graphql::<BestChain, _>(&client, &self.url, variables)
-                .await
-                .unwrap();
-    
+        let response_body = post_graphql::<BestChain, _>(&client, &self.url, variables)
+            .await
+            .unwrap();
+
         let response_data: best_chain::ResponseData = response_body
             .data
             .ok_or(StakingToolError::EmptyGraphqlResponse)?;
-    
+
         response_data
             .best_chain
             .map(|res| res.first().cloned().unwrap().into())
             .ok_or(StakingToolError::EmptyGraphqlResponse)
     }
-    
+
     fn dump_current_staking_ledger() -> impl AsRef<[u8]> {
         // if !ledger_dir.exists() {
         //     fs::create_dir_all(ledger_dir.clone()).unwrap();
         // }
-    
+
         let output = Command::new("mina")
-            .args(["ledger", "export", "--daemon-port", "mina:8301", "staking-epoch-ledger"])
+            .args([
+                "ledger",
+                "export",
+                "--daemon-port",
+                "mina:8301",
+                "staking-epoch-ledger",
+            ])
             .output()
             .expect("Failed to execute command");
-    
+
         if !output.status.success() {
             let error_message = String::from_utf8_lossy(&output.stderr);
             panic!("Command execution failed with error: {}", error_message);
         }
-    
+
         output.stdout
-    
+
         // let mut file = fs::File::create(format!("{}/{current_epoch_number}-staking-ledger", ledger_dir.display())).unwrap();
-    
+
         // file.write_all(&output.stdout).unwrap();
     }
 
@@ -195,9 +201,7 @@ impl Node {
         let inner = serde_json::from_slice(raw.as_ref()).unwrap();
         Ledger::new(inner)
     }
-
 }
-
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NodeData {
@@ -229,9 +233,9 @@ impl NodeData {
         self.best_chain.first().map(|v| v.0)
     }
 
-    pub fn best_tip(&self) -> BestTip {
+    pub fn best_tip(&self) -> Option<BestTip> {
         // TODO
-        self.best_tip.clone().unwrap()
+        self.best_tip.clone()
     }
 
     pub fn current_slot(&self) -> CurrentSlot {
@@ -241,6 +245,10 @@ impl NodeData {
 
         let slot = (elapsed / (3 * 60)) as u32;
         CurrentSlot::new(slot)
+    }
+
+    pub fn best_chain(&self) -> &[(u32, String)] {
+        self.best_chain.as_slice()
     }
 }
 
@@ -258,6 +266,10 @@ impl CurrentSlot {
             global_slot: global_slot.clone(),
             slot: global_slot.into(),
         }
+    }
+
+    pub fn global_slot(&self) -> RawGlobalSlot {
+        self.global_slot.clone()
     }
 }
 

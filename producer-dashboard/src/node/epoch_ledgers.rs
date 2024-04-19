@@ -104,11 +104,8 @@ pub struct Ledger {
 #[allow(dead_code)]
 impl Ledger {
     pub fn new(inner: Vec<LedgerEntry>) -> Self {
-        Self {
-            inner
-        }
+        Self { inner }
     }
-
 
     pub fn load_from_file(path: PathBuf) -> Result<Self, StakingToolError> {
         let f = std::fs::File::open(path)?;

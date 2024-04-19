@@ -1,7 +1,12 @@
 use reqwest::StatusCode;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 
-use crate::{evaluator::epoch::{EpochSlots, EpochStorage}, node::{self, NodeData}, storage::db_sled::Database, NodeStatus, StakingToolError};
+use crate::{
+    evaluator::epoch::{EpochSlots, EpochStorage},
+    node::{self, NodeData},
+    storage::db_sled::Database,
+    NodeStatus, StakingToolError,
+};
 
 pub async fn get_genesis_timestamp() -> Result<impl warp::Reply, warp::reject::Rejection> {
     // TODO(adonagy): we need this only once, no need to query the node every time...
@@ -21,7 +26,9 @@ pub async fn get_genesis_timestamp() -> Result<impl warp::Reply, warp::reject::R
     Ok(warp::reply())
 }
 
-pub async fn get_node_status(node_status: NodeStatus) -> Result<impl warp::Reply, warp::reject::Rejection> {
+pub async fn get_node_status(
+    node_status: NodeStatus,
+) -> Result<impl warp::Reply, warp::reject::Rejection> {
     let node_status: NodeData = node_status.read().await.clone();
 
     Ok(warp::reply::with_status(
@@ -30,7 +37,9 @@ pub async fn get_node_status(node_status: NodeStatus) -> Result<impl warp::Reply
     ))
 }
 
-pub async fn get_current_slot(node_status: NodeStatus) -> Result<impl warp::Reply, warp::reject::Rejection> {
+pub async fn get_current_slot(
+    node_status: NodeStatus,
+) -> Result<impl warp::Reply, warp::reject::Rejection> {
     let current_slot = node_status.read().await.current_slot();
 
     Ok(warp::reply::with_status(
@@ -45,7 +54,7 @@ pub async fn get_latest_epoch_data(
 ) -> Result<impl warp::Reply, warp::reject::Rejection> {
     let node_status = node_status.read().await;
 
-    let current_epoch = node_status.best_tip().epoch();
+    let current_epoch = node_status.best_tip().unwrap().epoch();
 
     match storage.get_slots_for_epoch(current_epoch) {
         Ok(latest) => Ok(warp::reply::with_status(
@@ -63,18 +72,17 @@ pub async fn get_latest_epoch_data_summary(
 ) -> Result<impl warp::Reply, warp::reject::Rejection> {
     let node_status = node_status.read().await;
 
-    let current_epoch = node_status.best_tip().epoch();
+    let current_epoch = node_status.best_tip().unwrap().epoch();
 
     match storage.get_slots_for_epoch(current_epoch) {
         Ok(latest) => {
-
-            let summary = EpochSlots::new(current_epoch, latest).summary();
+            let summary = EpochSlots::new(latest).merged_summary();
 
             Ok(warp::reply::with_status(
                 warp::reply::json(&summary),
                 StatusCode::OK,
             ))
-        },
+        }
         // TODO(adonagy)
         _ => Err(warp::reject()),
     }

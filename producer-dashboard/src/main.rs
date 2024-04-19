@@ -2,7 +2,7 @@ use node::NodeData;
 use openmina_node_account::AccountSecretKey;
 
 use std::{collections::BTreeMap, sync::Arc};
-use tokio::sync::{mpsc, RwLock, oneshot::error};
+use tokio::sync::{mpsc, oneshot::error, RwLock};
 
 use clap::Parser;
 
@@ -62,9 +62,19 @@ async fn main() {
     println!("[main] Evaluator created");
     let node_status = NodeStatus::default();
     let node = Node::new(config.node_url);
-    let node_watchdog = spawn_watchdog(node, node_status.clone(), db.clone(), sender);
+    let node_watchdog = spawn_watchdog(
+        node,
+        node_status.clone(),
+        db.clone(),
+        sender,
+        key.public_key().to_string(),
+    );
     println!("[main] Node watchdog created");
-    let archive_watchdog = ArchiveWatchdog::spawn_new(db.clone(), key.public_key().to_string());
+    let archive_watchdog = ArchiveWatchdog::spawn_new(
+        db.clone(),
+        key.public_key().to_string(),
+        node_status.clone(),
+    );
     println!("[main] Archive watchdog created");
 
     let rpc_handle = rpc::spawn_rpc_server(3000, db.clone(), node_status.clone());
