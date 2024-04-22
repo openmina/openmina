@@ -22,6 +22,13 @@ pub enum P2pNetworkSchedulerAction {
     InterfaceExpired {
         ip: IpAddr,
     },
+    ListenerReady {
+        listener: SocketAddr,
+    },
+    ListenerError {
+        listener: SocketAddr,
+        error: String,
+    },
     IncomingConnectionIsReady {
         listener: SocketAddr,
     },
@@ -107,6 +114,8 @@ impl redux::EnablingCondition<P2pState> for P2pNetworkSchedulerAction {
         match self {
             P2pNetworkSchedulerAction::InterfaceDetected { ip } => true,
             P2pNetworkSchedulerAction::InterfaceExpired { ip } => true,
+            P2pNetworkSchedulerAction::ListenerReady { listener } => true,
+            P2pNetworkSchedulerAction::ListenerError { listener, error } => true,
             P2pNetworkSchedulerAction::IncomingConnectionIsReady { listener } => true,
             P2pNetworkSchedulerAction::IncomingDidAccept { addr, result } => {
                 addr.as_ref().map_or(false, |addr| {

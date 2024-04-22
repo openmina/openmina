@@ -56,6 +56,12 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                     MioEvent::InterfaceExpired(ip) => {
                         store.dispatch(P2pNetworkSchedulerAction::InterfaceExpired { ip });
                     }
+                    MioEvent::ListenerReady { listener } => {
+                        store.dispatch(P2pNetworkSchedulerAction::ListenerReady { listener });
+                    }
+                    MioEvent::ListenerError { listener, error } => {
+                        store.dispatch(P2pNetworkSchedulerAction::ListenerError { listener, error });
+                    }
                     MioEvent::IncomingConnectionIsReady { listener } => {
                         store.dispatch(P2pNetworkSchedulerAction::IncomingConnectionIsReady {
                             listener,

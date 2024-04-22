@@ -259,6 +259,8 @@ pub enum ActionKind {
     P2pNetworkSchedulerIncomingDidAccept,
     P2pNetworkSchedulerInterfaceDetected,
     P2pNetworkSchedulerInterfaceExpired,
+    P2pNetworkSchedulerListenerError,
+    P2pNetworkSchedulerListenerReady,
     P2pNetworkSchedulerOutgoingConnect,
     P2pNetworkSchedulerOutgoingDidConnect,
     P2pNetworkSchedulerPrune,
@@ -416,7 +418,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 346;
+    pub const COUNT: u16 = 348;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -1009,6 +1011,8 @@ impl ActionKindGet for P2pNetworkSchedulerAction {
         match self {
             Self::InterfaceDetected { .. } => ActionKind::P2pNetworkSchedulerInterfaceDetected,
             Self::InterfaceExpired { .. } => ActionKind::P2pNetworkSchedulerInterfaceExpired,
+            Self::ListenerReady { .. } => ActionKind::P2pNetworkSchedulerListenerReady,
+            Self::ListenerError { .. } => ActionKind::P2pNetworkSchedulerListenerError,
             Self::IncomingConnectionIsReady { .. } => {
                 ActionKind::P2pNetworkSchedulerIncomingConnectionIsReady
             }

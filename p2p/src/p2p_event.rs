@@ -31,6 +31,11 @@ pub enum MioEvent {
     /// The interface is not available anymore.
     InterfaceExpired(IpAddr),
 
+    /// Started listening on a local port.
+    ListenerReady { listener: SocketAddr },
+    /// Error listening on a local port
+    ListenerError { listener: SocketAddr, error: String },
+
     /// The remote peer is trying to connect to us.
     IncomingConnectionIsReady { listener: SocketAddr },
     /// We accepted the connection from the remote peer.
@@ -218,6 +223,8 @@ impl fmt::Display for MioEvent {
         match self {
             Self::InterfaceDetected(ip) => write!(f, "InterfaceDetected, {ip}"),
             Self::InterfaceExpired(ip) => write!(f, "InterfaceExpired, {ip}"),
+            Self::ListenerReady { listener } => write!(f, "ListenerReady, {listener}"),
+            Self::ListenerError { listener, error } => write!(f, "ListenerError, {listener}, {error}"),
             Self::IncomingConnectionIsReady { listener } => {
                 write!(f, "IncomingConnectionIsReady, {listener}")
             }
