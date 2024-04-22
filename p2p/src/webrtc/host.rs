@@ -1,11 +1,13 @@
 use std::{
-    net::{Ipv4Addr, Ipv6Addr},
+    net::{IpAddr, Ipv4Addr, Ipv6Addr},
     str::FromStr,
 };
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug, Ord, PartialOrd, Eq, PartialEq, Clone)]
+#[derive(
+    Serialize, Deserialize, Debug, Ord, PartialOrd, Eq, PartialEq, Clone, derive_more::From,
+)]
 pub enum Host {
     /// A DNS domain name, as '.' dot-separated labels.
     /// Non-ASCII labels are encoded in punycode per IDNA if this is the host of
@@ -137,6 +139,15 @@ impl<'a> From<&'a Host> for url::Host<&'a str> {
             Host::Domain(v) => url::Host::Domain(v),
             Host::Ipv4(v) => url::Host::Ipv4(*v),
             Host::Ipv6(v) => url::Host::Ipv6(*v),
+        }
+    }
+}
+
+impl From<IpAddr> for Host {
+    fn from(value: IpAddr) -> Self {
+        match value {
+            IpAddr::V4(v4) => Host::Ipv4(v4),
+            IpAddr::V6(v6) => Host::Ipv6(v6),
         }
     }
 }

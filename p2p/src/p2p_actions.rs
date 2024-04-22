@@ -1,3 +1,4 @@
+use openmina_macros::ActionEvent;
 use serde::{Deserialize, Serialize};
 
 use super::channels::P2pChannelsAction;
@@ -11,7 +12,7 @@ use crate::identify::P2pIdentifyAction;
 pub type P2pActionWithMeta = redux::ActionWithMeta<P2pAction>;
 pub type P2pActionWithMetaRef<'a> = redux::ActionWithMeta<&'a P2pAction>;
 
-#[derive(Serialize, Deserialize, Debug, Clone, derive_more::From)]
+#[derive(Serialize, Deserialize, Debug, Clone, derive_more::From, ActionEvent)]
 #[allow(clippy::large_enum_variant)]
 pub enum P2pAction {
     Connection(P2pConnectionAction),
