@@ -46,6 +46,18 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsMessageReceivedAction {
     }
 }
 
+impl redux::EnablingCondition<P2pState> for P2pChannelsAction {
+    fn is_enabled(&self, state: &P2pState, time: redux::Timestamp) -> bool {
+        match self {
+            P2pChannelsAction::MessageReceived(action) => action.is_enabled(state, time),
+            P2pChannelsAction::BestTip(action) => action.is_enabled(state, time),
+            P2pChannelsAction::Snark(action) => action.is_enabled(state, time),
+            P2pChannelsAction::SnarkJobCommitment(action) => action.is_enabled(state, time),
+            P2pChannelsAction::Rpc(action) => action.is_enabled(state, time),
+        }
+    }
+}
+
 impl From<P2pChannelsMessageReceivedAction> for crate::P2pAction {
     fn from(a: P2pChannelsMessageReceivedAction) -> Self {
         Self::Channels(P2pChannelsAction::MessageReceived(a))

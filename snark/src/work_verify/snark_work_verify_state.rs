@@ -54,17 +54,21 @@ pub enum SnarkWorkVerifyStatus {
         time: redux::Timestamp,
         batch: Vec<Snark>,
         sender: String,
+        verify_success_cb: redux::Callback,
+        verify_error_cb: redux::Callback,
     },
     Error {
         time: redux::Timestamp,
         batch: Vec<Snark>,
         sender: String,
         error: SnarkWorkVerifyError,
+        verify_error_cb: redux::Callback,
     },
     Success {
         time: redux::Timestamp,
         batch: Vec<Snark>,
         sender: String,
+        verify_success_cb: redux::Callback,
     },
 }
 

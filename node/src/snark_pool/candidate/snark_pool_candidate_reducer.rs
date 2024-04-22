@@ -32,7 +32,9 @@ impl SnarkPoolCandidatesState {
             SnarkPoolCandidateAction::WorkVerifyError { peer_id, verify_id } => {
                 self.verify_result(meta.time(), peer_id, *verify_id, Err(()));
             }
-            SnarkPoolCandidateAction::WorkVerifySuccess { peer_id, verify_id } => {
+            SnarkPoolCandidateAction::WorkVerifySuccess {
+                peer_id, verify_id, ..
+            } => {
                 self.verify_result(meta.time(), peer_id, *verify_id, Ok(()));
             }
             SnarkPoolCandidateAction::PeerPrune { peer_id } => {

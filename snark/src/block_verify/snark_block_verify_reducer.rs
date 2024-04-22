@@ -13,13 +13,17 @@ impl SnarkBlockVerifyState {
                     block: block.clone(),
                 });
             }
-            SnarkBlockVerifyAction::Pending { req_id, .. } => {
+            SnarkBlockVerifyAction::Pending {
+                req_id,
+                verify_success_cb,
+            } => {
                 if let Some(req) = self.jobs.get_mut(*req_id) {
                     *req = match req {
                         SnarkBlockVerifyStatus::Init { block, .. } => {
                             SnarkBlockVerifyStatus::Pending {
                                 time: meta.time(),
                                 block: block.clone(),
+                                verify_success_cb: verify_success_cb.clone(),
                             }
                         }
                         _ => return,
@@ -43,12 +47,15 @@ impl SnarkBlockVerifyState {
             SnarkBlockVerifyAction::Success { req_id, .. } => {
                 if let Some(req) = self.jobs.get_mut(*req_id) {
                     *req = match req {
-                        SnarkBlockVerifyStatus::Pending { block, .. } => {
-                            SnarkBlockVerifyStatus::Success {
-                                time: meta.time(),
-                                block: block.clone(),
-                            }
-                        }
+                        SnarkBlockVerifyStatus::Pending {
+                            block,
+                            time,
+                            verify_success_cb,
+                        } => SnarkBlockVerifyStatus::Success {
+                            time: meta.time(),
+                            block: block.clone(),
+                            verify_success_cb: verify_success_cb.clone(),
+                        },
                         _ => return,
                     };
                 }

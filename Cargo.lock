@@ -5121,7 +5121,7 @@ dependencies = [
 [[package]]
 name = "redux"
 version = "0.1.0"
-source = "git+https://github.com/openmina/redux-rs.git?branch=feat/enabling-condition-with-time#9826c5223104acdd547c36c27966a4be89b34b17"
+source = "git+https://github.com/openmina/redux-rs?branch=feat/callbacks#e5236402a385f1ff0ab7bbe862b01969a8e81e9e"
 dependencies = [
  "enum_dispatch",
  "serde",

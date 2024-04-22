@@ -14,7 +14,11 @@ impl SnarkWorkVerifyState {
                     sender: sender.clone(),
                 });
             }
-            SnarkWorkVerifyAction::Pending { req_id } => {
+            SnarkWorkVerifyAction::Pending {
+                req_id,
+                verify_success_cb,
+                verify_error_cb,
+            } => {
                 if let Some(req) = self.jobs.get_mut(*req_id) {
                     *req = match req {
                         SnarkWorkVerifyStatus::Init { batch, sender, .. } => {
@@ -22,6 +26,8 @@ impl SnarkWorkVerifyState {
                                 time: meta.time(),
                                 batch: std::mem::take(batch),
                                 sender: std::mem::take(sender),
+                                verify_success_cb: verify_success_cb.clone(),
+                                verify_error_cb: verify_error_cb.clone(),
                             }
                         }
                         _ => return,
@@ -31,14 +37,18 @@ impl SnarkWorkVerifyState {
             SnarkWorkVerifyAction::Error { req_id, error } => {
                 if let Some(req) = self.jobs.get_mut(*req_id) {
                     *req = match req {
-                        SnarkWorkVerifyStatus::Pending { batch, sender, .. } => {
-                            SnarkWorkVerifyStatus::Error {
-                                time: meta.time(),
-                                batch: std::mem::take(batch),
-                                sender: std::mem::take(sender),
-                                error: error.clone(),
-                            }
-                        }
+                        SnarkWorkVerifyStatus::Pending {
+                            batch,
+                            sender,
+                            verify_error_cb,
+                            ..
+                        } => SnarkWorkVerifyStatus::Error {
+                            time: meta.time(),
+                            batch: std::mem::take(batch),
+                            sender: std::mem::take(sender),
+                            error: error.clone(),
+                            verify_error_cb: verify_error_cb.clone(),
+                        },
                         _ => return,
                     };
                 }
@@ -46,13 +56,17 @@ impl SnarkWorkVerifyState {
             SnarkWorkVerifyAction::Success { req_id } => {
                 if let Some(req) = self.jobs.get_mut(*req_id) {
                     *req = match req {
-                        SnarkWorkVerifyStatus::Pending { batch, sender, .. } => {
-                            SnarkWorkVerifyStatus::Success {
-                                time: meta.time(),
-                                batch: std::mem::take(batch),
-                                sender: std::mem::take(sender),
-                            }
-                        }
+                        SnarkWorkVerifyStatus::Pending {
+                            batch,
+                            sender,
+                            verify_success_cb,
+                            ..
+                        } => SnarkWorkVerifyStatus::Success {
+                            time: meta.time(),
+                            batch: std::mem::take(batch),
+                            sender: std::mem::take(sender),
+                            verify_success_cb: verify_success_cb.clone(),
+                        },
                         _ => return,
                     };
                 }

@@ -51,6 +51,7 @@ pub enum SnarkBlockVerifyStatus {
     Pending {
         time: redux::Timestamp,
         block: VerifiableBlockWithHash,
+        verify_success_cb: redux::Callback,
     },
     Error {
         time: redux::Timestamp,
@@ -60,6 +61,7 @@ pub enum SnarkBlockVerifyStatus {
     Success {
         time: redux::Timestamp,
         block: VerifiableBlockWithHash,
+        verify_success_cb: redux::Callback,
     },
 }
 

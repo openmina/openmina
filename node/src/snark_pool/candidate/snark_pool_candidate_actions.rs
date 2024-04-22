@@ -46,6 +46,7 @@ pub enum SnarkPoolCandidateAction {
     WorkVerifySuccess {
         peer_id: PeerId,
         verify_id: SnarkWorkVerifyId,
+        batch: Vec<Snark>
     },
     PeerPrune {
         peer_id: PeerId,

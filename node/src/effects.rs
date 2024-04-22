@@ -1,4 +1,5 @@
 use p2p::p2p_timeout_effects;
+use snark::SnarkAction;
 
 use crate::block_producer::{block_producer_effects, BlockProducerAction};
 use crate::consensus::consensus_effects;
@@ -7,7 +8,6 @@ use crate::external_snark_worker::external_snark_worker_effects;
 use crate::logger::logger_effects;
 use crate::p2p::node_p2p_effects;
 use crate::rpc::rpc_effects;
-use crate::snark::snark_effects;
 use crate::snark_pool::candidate::SnarkPoolCandidateAction;
 use crate::snark_pool::{snark_pool_effects, SnarkPoolAction};
 use crate::transition_frontier::genesis::TransitionFrontierGenesisAction;
@@ -58,9 +58,8 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
         Action::EventSource(action) => {
             event_source_effects(store, meta.with_action(action));
         }
-        Action::Snark(action) => {
-            snark_effects(store, meta.with_action(action));
-        }
+        Action::Snark(SnarkAction::BlockVerify(action)) => action.effects(&meta, store),
+        Action::Snark(SnarkAction::WorkVerify(action)) => action.effects(&meta, store),
         Action::Consensus(action) => {
             consensus_effects(store, meta.with_action(action));
         }

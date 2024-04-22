@@ -1,12 +1,9 @@
-use std::collections::BTreeMap;
-
-use snark::work_verify::SnarkWorkVerifyAction;
-
+use super::{SnarkPoolCandidateAction, SnarkPoolCandidateActionWithMeta};
 use crate::p2p::channels::rpc::{P2pChannelsRpcAction, P2pRpcRequest};
 use crate::p2p::disconnection::{P2pDisconnectionAction, P2pDisconnectionReason};
-use crate::Store;
-
-use super::{SnarkPoolCandidateAction, SnarkPoolCandidateActionWithMeta};
+use crate::{Action, SnarkPoolAction, Store};
+use snark::work_verify::SnarkWorkVerifyAction;
+use std::collections::BTreeMap;
 
 pub fn snark_pool_candidate_effects<S: redux::Service>(
     store: &mut Store<S>,
@@ -75,6 +72,23 @@ pub fn snark_pool_candidate_effects<S: redux::Service>(
                 req_id,
                 batch,
                 sender,
+                verify_success_cb: redux::Callback::new(|args| {
+                    let (peer_id, verify_id, batch) = *args.downcast().expect("correct arguments");
+                    Box::<Action>::new(
+                        SnarkPoolCandidateAction::WorkVerifySuccess {
+                            peer_id,
+                            verify_id,
+                            batch,
+                        }
+                        .into(),
+                    )
+                }),
+                verify_error_cb: redux::Callback::new(|args| {
+                    let (peer_id, verify_id) = *args.downcast().expect("correct arguments");
+                    Box::<Action>::new(
+                        SnarkPoolCandidateAction::WorkVerifyError { peer_id, verify_id }.into(),
+                    )
+                }),
             });
             store.dispatch(SnarkPoolCandidateAction::WorkVerifyPending {
                 peer_id,
@@ -90,12 +104,13 @@ pub fn snark_pool_candidate_effects<S: redux::Service>(
                 reason: P2pDisconnectionReason::SnarkPoolVerifyError,
             });
         }
-        SnarkPoolCandidateAction::WorkVerifySuccess { .. } => {
-            // action for adding verified snarks to snark pool is called
-            // in snark/work_verify effects. That is by design as we might
-            // remove work pending verification if we receive better snark
-            // from same peer. But since we have already started verification,
-            // we might as well use it's result.
+        SnarkPoolCandidateAction::WorkVerifySuccess { peer_id, batch, .. } => {
+            for snark in batch {
+                store.dispatch(SnarkPoolAction::WorkAdd {
+                    snark,
+                    sender: peer_id,
+                });
+            }
         }
         SnarkPoolCandidateAction::PeerPrune { .. } => {}
     }

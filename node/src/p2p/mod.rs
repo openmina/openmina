@@ -35,6 +35,13 @@ where
     {
         crate::Store::sub_dispatch(self, action)
     }
+
+    fn dispatch_callback<T>(&mut self, callback: redux::Callback, args: T) -> bool
+    where
+        T: 'static,
+    {
+        crate::Store::dispatch_callback(self, callback, args)
+    }
 }
 
 macro_rules! impl_into_global_action {

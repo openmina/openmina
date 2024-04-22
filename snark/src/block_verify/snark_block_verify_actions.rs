@@ -10,9 +10,11 @@ pub enum SnarkBlockVerifyAction {
     Init {
         req_id: SnarkBlockVerifyId,
         block: VerifiableBlockWithHash,
+        verify_success_cb: redux::Callback,
     },
     Pending {
         req_id: SnarkBlockVerifyId,
+        verify_success_cb: redux::Callback,
     },
     Error {
         req_id: SnarkBlockVerifyId,
@@ -32,7 +34,7 @@ impl redux::EnablingCondition<crate::SnarkState> for SnarkBlockVerifyAction {
             SnarkBlockVerifyAction::Init { req_id, .. } => {
                 state.block_verify.jobs.next_req_id() == *req_id
             }
-            SnarkBlockVerifyAction::Pending { req_id } => state
+            SnarkBlockVerifyAction::Pending { req_id, .. } => state
                 .block_verify
                 .jobs
                 .get(*req_id)

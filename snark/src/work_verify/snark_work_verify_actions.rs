@@ -15,9 +15,13 @@ pub enum SnarkWorkVerifyAction {
         req_id: SnarkWorkVerifyId,
         batch: Vec<Snark>,
         sender: String,
+        verify_success_cb: redux::Callback,
+        verify_error_cb: redux::Callback,
     },
     Pending {
         req_id: SnarkWorkVerifyId,
+        verify_success_cb: redux::Callback,
+        verify_error_cb: redux::Callback,
     },
     Error {
         req_id: SnarkWorkVerifyId,
@@ -38,7 +42,7 @@ impl redux::EnablingCondition<crate::SnarkState> for SnarkWorkVerifyAction {
             SnarkWorkVerifyAction::Init { req_id, batch, .. } => {
                 !batch.is_empty() && state.work_verify.jobs.next_req_id() == *req_id
             }
-            SnarkWorkVerifyAction::Pending { req_id } => state
+            SnarkWorkVerifyAction::Pending { req_id, .. } => state
                 .work_verify
                 .jobs
                 .get(*req_id)
