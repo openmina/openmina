@@ -35,6 +35,27 @@ jobs:
           cd ledger
           cargo test --release -- -Z unstable-options --report-time
 
+  p2p-tests:
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Git checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        run: |
+          rustup default 1.77
+          rustup component add rustfmt
+
+      - name: Setup Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: "v0"
+
+      - name: Test p2p crate
+        run: |
+          cargo test -p p2p --tests
+
+
   build:
     runs-on: ubuntu-20.04
     steps:
@@ -123,7 +144,7 @@ jobs:
           name: tests-webrct
           path: target/release/tests
 
-  p2p-tests:
+  p2p-scenario-tests:
     needs: [ build-tests ]
     runs-on: ubuntu-20.04
     container:

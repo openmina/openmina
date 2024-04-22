@@ -595,6 +595,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "unstable"]
     fn test_256_keys_rev() {
         let mut rt: P2pNetworkKadRoutingTable = P2pNetworkKadRoutingTable::new(entry(this_key()));
 

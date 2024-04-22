@@ -1,10 +1,11 @@
+use openmina_core::ActionEvent;
 use serde::{Deserialize, Serialize};
 
 use super::{kad::*, noise::*, pnet::*, rpc::*, scheduler::*, select::*, yamux::*};
 
 use crate::P2pState;
 
-#[derive(derive_more::From, Serialize, Deserialize, Debug, Clone)]
+#[derive(derive_more::From, Serialize, Deserialize, Debug, Clone, ActionEvent)]
 pub enum P2pNetworkAction {
     Scheduler(P2pNetworkSchedulerAction),
     Pnet(P2pNetworkPnetAction),
