@@ -1,11 +1,11 @@
+use serde::Deserialize;
 use warp::Filter;
 
 use crate::{storage::db_sled::Database, NodeStatus};
 
-use super::handlers::{
-    get_current_slot, get_genesis_timestamp, get_latest_epoch_data, get_latest_epoch_data_summary,
-    get_node_status,
-};
+use super::{handlers::{
+    get_current_slot, get_epoch_data, get_epoch_data_summary, get_genesis_timestamp, get_latest_epoch_data, get_latest_epoch_data_summary, get_node_status
+}, PaginationParams};
 
 pub fn filters(
     storage: Database,
@@ -20,6 +20,8 @@ pub fn filters(
         .or(latest_epoch_data(storage.clone(), node_status.clone()))
         .or(node(node_status.clone()))
         .or(current_slot(node_status.clone()))
+        .or(epoch_summary(storage.clone()))
+        .or(epoch_data(storage.clone()))
         .or(latest_epoch_summary(storage, node_status))
         .with(cors)
 }
@@ -60,15 +62,34 @@ fn latest_epoch_data(
         .and_then(get_latest_epoch_data)
 }
 
+fn epoch_data(
+    storage: Database,
+) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+    warp::path!("epoch" / u32)
+        .and(warp::get())
+        .and(with_storage(storage))
+        .and_then(get_epoch_data)
+}
+
 fn latest_epoch_summary(
     storage: Database,
     node_status: NodeStatus,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
-    warp::path!("epoch" / "latest" / "summary")
+    warp::path!("epoch" / "summary" / "latest")
         .and(warp::get())
         .and(with_storage(storage))
         .and(with_node_status(node_status))
         .and_then(get_latest_epoch_data_summary)
+}
+
+fn epoch_summary(
+    storage: Database,
+) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+    warp::path!("epoch" / "summary" / u32)
+        .and(warp::get())
+        .and(warp::query::<PaginationParams>())
+        .and(with_storage(storage))
+        .and_then(get_epoch_data_summary)
 }
 
 fn with_storage(

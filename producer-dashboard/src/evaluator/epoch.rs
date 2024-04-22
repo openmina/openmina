@@ -18,7 +18,8 @@ pub struct EpochSlots {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MergedSummary {
-    summary: EpochSummary,
+    epoch_number: u32,
+    summary: Option<EpochSummary>,
     sub_windows: Vec<EpochSummary>,
 }
 
@@ -30,10 +31,21 @@ impl EpochSlots {
         }
     }
 
-    pub fn merged_summary(&self) -> MergedSummary {
-        MergedSummary {
-            summary: self.summary(),
-            sub_windows: self.sub_windows(),
+    pub fn merged_summary(&self, epoch_number: u32) -> MergedSummary {
+
+        if self.inner.is_empty() {
+            MergedSummary {
+                epoch_number,
+                summary: None,
+                sub_windows: vec![],
+            }
+        } else {
+            let summary = self.summary();
+            MergedSummary {
+                epoch_number,
+                summary: Some(summary),
+                sub_windows: self.sub_windows(),
+            }
         }
     }
 
@@ -53,7 +65,6 @@ impl EpochSlots {
         let mut missed_blocks = 0;
         let mut future_rights = 0;
 
-        // You might want to define how rewards are calculated; placeholder values here:
         let mut earned_rewards = 0;
 
         for slot in self.inner.iter() {
@@ -208,6 +219,10 @@ impl From<u32> for RawGlobalSlot {
 impl RawGlobalSlot {
     pub fn to_u32(&self) -> u32 {
         self.0
+    }
+
+    pub fn epoch(&self) -> u32 {
+        self.0 / 7140
     }
 }
 

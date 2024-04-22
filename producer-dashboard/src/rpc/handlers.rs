@@ -8,6 +8,8 @@ use crate::{
     NodeStatus, StakingToolError,
 };
 
+use super::PaginationParams;
+
 pub async fn get_genesis_timestamp() -> Result<impl warp::Reply, warp::reject::Rejection> {
     // TODO(adonagy): we need this only once, no need to query the node every time...
     // match node::get_genesis_timestmap().await {
@@ -66,17 +68,31 @@ pub async fn get_latest_epoch_data(
     }
 }
 
+pub async fn get_epoch_data(
+    epoch: u32,
+    storage: Database,
+) -> Result<impl warp::Reply, warp::reject::Rejection> {
+    match storage.get_slots_for_epoch(epoch) {
+        Ok(slots) => Ok(warp::reply::with_status(
+            warp::reply::json(&slots),
+            StatusCode::OK,
+        )),
+        // TODO(adonagy)
+        _ => Err(warp::reject()),
+    }
+}
+
 pub async fn get_latest_epoch_data_summary(
     storage: Database,
     node_status: NodeStatus,
 ) -> Result<impl warp::Reply, warp::reject::Rejection> {
-    let node_status = node_status.read().await;
+    let node_status: tokio::sync::RwLockReadGuard<'_, NodeData> = node_status.read().await;
 
     let current_epoch = node_status.best_tip().unwrap().epoch();
 
     match storage.get_slots_for_epoch(current_epoch) {
         Ok(latest) => {
-            let summary = EpochSlots::new(latest).merged_summary();
+            let summary = EpochSlots::new(latest).merged_summary(current_epoch);
 
             Ok(warp::reply::with_status(
                 warp::reply::json(&summary),
@@ -86,4 +102,27 @@ pub async fn get_latest_epoch_data_summary(
         // TODO(adonagy)
         _ => Err(warp::reject()),
     }
+}
+
+pub async fn get_epoch_data_summary(
+    requested_epoch: u32,
+    pagination: PaginationParams,
+    storage: Database,
+) -> Result<impl warp::Reply, warp::reject::Rejection> {
+    let range = (0..=requested_epoch).rev();
+    let limit = pagination.limit.unwrap_or(1);
+
+    let mut res = Vec::new();
+
+    for epoch in range.take(limit) {
+        println!("{epoch}");
+        match storage.get_slots_for_epoch(epoch) {
+            Ok(slots) => {
+                res.push(EpochSlots::new(slots).merged_summary(epoch))
+            }
+            _ => continue
+        }
+    }
+
+    Ok(warp::reply::with_status(warp::reply::json(&res), StatusCode::OK))
 }
