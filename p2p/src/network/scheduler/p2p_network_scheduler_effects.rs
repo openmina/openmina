@@ -28,6 +28,13 @@ impl P2pNetworkSchedulerAction {
                 }
             }
             Self::InterfaceExpired { .. } => {}
+            P2pNetworkSchedulerAction::ListenerReady { listener: _ } => {}
+            P2pNetworkSchedulerAction::ListenerError {
+                listener: _,
+                error: _,
+            } => {
+                // TODO: handle this error?
+            }
             Self::IncomingConnectionIsReady { listener, .. } => {
                 store.service().send_mio_cmd(MioCmd::Accept(listener));
             }

@@ -14,6 +14,12 @@ impl P2pNetworkSchedulerState {
             P2pNetworkSchedulerAction::InterfaceExpired { ip, .. } => {
                 self.interfaces.remove(ip);
             }
+            P2pNetworkSchedulerAction::ListenerReady { listener } => {
+                self.listeners.insert(*listener);
+            }
+            P2pNetworkSchedulerAction::ListenerError { listener, error: _ } => {
+                self.listeners.remove(listener);
+            }
             P2pNetworkSchedulerAction::IncomingConnectionIsReady { .. } => {}
             P2pNetworkSchedulerAction::IncomingDidAccept { addr, .. } => {
                 let Some(addr) = addr else {

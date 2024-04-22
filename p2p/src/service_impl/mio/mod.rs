@@ -284,7 +284,11 @@ where
                         self.tokens.register(Token::Listener(addr)),
                         mio::Interest::READABLE,
                     ) {
-                        MioError::Listen(addr, err).report()
+                        self.send(MioEvent::ListenerError {
+                            listener: addr,
+                            error: err.to_string(),
+                        });
+                        MioError::Listen(addr, err).report();
                     } else {
                         self.listeners.insert(
                             addr,
@@ -293,9 +297,16 @@ where
                                 incomind_ready: false,
                             },
                         );
+                        self.send(MioEvent::ListenerReady { listener: addr });
                     }
                 }
-                Err(err) => MioError::Listen(addr, err).report(),
+                Err(err) => {
+                    self.send(MioEvent::ListenerError {
+                        listener: addr,
+                        error: err.to_string(),
+                    });
+                    MioError::Listen(addr, err).report();
+                }
             },
             Accept(listener_addr) => {
                 if let Some(mut listener) = self.listeners.remove(&listener_addr) {
