@@ -23,7 +23,7 @@ impl TransitionFrontierState {
             TransitionFrontierAction::Synced {
                 needed_protocol_states: needed_protocol_state_hashes,
             } => {
-                let TransitionFrontierSyncState::BlocksSuccess {
+                let TransitionFrontierSyncState::CommitSuccess {
                     chain,
                     needed_protocol_states,
                     ..

@@ -29,7 +29,6 @@ jsonpath-rust = "0.5.0"
 openmina-core = { path = "../../core" }
 
 node = { path = "../../node", features = ["replay"] }
-openmina-node-account = { path = "../account"}
 
 [features]
 default = ["p2p-libp2p"]

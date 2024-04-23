@@ -2,9 +2,9 @@ use openmina_core::block::ArcBlockWithHash;
 use p2p::channels::rpc::P2pChannelsRpcAction;
 use redux::ActionMeta;
 
+use crate::ledger::write::{LedgerWriteAction, LedgerWriteRequest};
 use crate::p2p::channels::rpc::P2pRpcRequest;
 use crate::service::TransitionFrontierSyncLedgerSnarkedService;
-use crate::transition_frontier::TransitionFrontierService;
 use crate::Store;
 
 use super::ledger::snarked::TransitionFrontierSyncLedgerSnarkedAction;
@@ -15,7 +15,7 @@ use super::{TransitionFrontierSyncAction, TransitionFrontierSyncState};
 impl TransitionFrontierSyncAction {
     pub fn effects<S: redux::Service>(&self, _: &ActionMeta, store: &mut Store<S>)
     where
-        S: TransitionFrontierService + TransitionFrontierSyncLedgerSnarkedService,
+        S: TransitionFrontierSyncLedgerSnarkedService,
     {
         match self {
             TransitionFrontierSyncAction::Init { best_tip, .. } => {
@@ -204,8 +204,7 @@ impl TransitionFrontierSyncAction {
             }
             TransitionFrontierSyncAction::BlocksFetchSuccess { .. } => {
                 let _ = store;
-                // TODO(binier): uncomment once ledger communication is async.
-                // store.dispatch(TransitionFrontierSyncBlocksNextApplyInitAction {});
+                store.dispatch(TransitionFrontierSyncAction::BlocksNextApplyInit {});
             }
             TransitionFrontierSyncAction::BlocksNextApplyInit => {
                 let Some((block, pred_block)) = store
@@ -219,21 +218,93 @@ impl TransitionFrontierSyncAction {
                 };
                 let hash = block.hash.clone();
 
-                store.dispatch(TransitionFrontierSyncAction::BlocksNextApplyPending {
-                    hash: hash.clone(),
-                });
-                store.service.block_apply(block, pred_block).unwrap();
-
-                store.dispatch(TransitionFrontierSyncAction::BlocksNextApplySuccess { hash });
+                if store.dispatch(LedgerWriteAction::Init {
+                    request: LedgerWriteRequest::BlockApply { block, pred_block },
+                }) {
+                    store.dispatch(TransitionFrontierSyncAction::BlocksNextApplyPending {
+                        hash: hash.clone(),
+                    });
+                }
             }
             TransitionFrontierSyncAction::BlocksNextApplyPending { .. } => {}
             TransitionFrontierSyncAction::BlocksNextApplySuccess { .. } => {
-                // TODO(binier): uncomment once ledger communication is async.
-                // if !store.dispatch(TransitionFrontierSyncAction::BlockNextApplyInit) {
-                store.dispatch(TransitionFrontierSyncAction::BlocksSuccess);
-                // }
+                if !store.dispatch(TransitionFrontierSyncAction::BlocksNextApplyInit) {
+                    store.dispatch(TransitionFrontierSyncAction::BlocksSuccess);
+                }
             }
             TransitionFrontierSyncAction::BlocksSuccess => {}
+            // Bootstrap/Catchup is practically complete at this point.
+            // This effect is where the finalization part needs to be
+            // executed, which is mostly to grab some data that we need
+            // from previous chain, before it's discarded after dispatching
+            // `TransitionFrontierSyncedAction`.
+            TransitionFrontierSyncAction::CommitInit => {
+                let transition_frontier = &store.state.get().transition_frontier;
+                let TransitionFrontierSyncState::BlocksSuccess {
+                    chain,
+                    root_snarked_ledger_updates,
+                    needed_protocol_states,
+                    ..
+                } = &transition_frontier.sync
+                else {
+                    return;
+                };
+                let Some(new_root) = chain.first() else {
+                    return;
+                };
+                let Some(new_best_tip) = chain.last() else {
+                    return;
+                };
+                let ledgers_to_keep = chain
+                    .iter()
+                    .flat_map(|b| {
+                        [
+                            b.snarked_ledger_hash(),
+                            b.staged_ledger_hash(),
+                            b.staking_epoch_ledger_hash(),
+                            b.next_epoch_ledger_hash(),
+                        ]
+                    })
+                    .cloned()
+                    .collect();
+                let mut root_snarked_ledger_updates = root_snarked_ledger_updates.clone();
+                if transition_frontier
+                    .best_chain
+                    .iter()
+                    .any(|b| b.hash() == new_root.hash())
+                {
+                    root_snarked_ledger_updates
+                        .extend_with_needed(new_root, &transition_frontier.best_chain);
+                }
+
+                let needed_protocol_states = if root_snarked_ledger_updates.is_empty() {
+                    // We don't need protocol states unless we need to
+                    // recreate some snarked ledgers during `commit`.
+                    Default::default()
+                } else {
+                    needed_protocol_states
+                        .iter()
+                        .chain(&transition_frontier.needed_protocol_states)
+                        .map(|(k, v)| (k.clone(), v.clone()))
+                        .collect()
+                };
+
+                if store.dispatch(LedgerWriteAction::Init {
+                    request: LedgerWriteRequest::Commit {
+                        ledgers_to_keep,
+                        root_snarked_ledger_updates,
+                        needed_protocol_states,
+                        new_root: new_root.clone(),
+                        new_best_tip: new_best_tip.clone(),
+                    },
+                }) {
+                    store.dispatch(TransitionFrontierSyncAction::CommitPending);
+                }
+            }
+            TransitionFrontierSyncAction::CommitPending => {}
+            TransitionFrontierSyncAction::CommitSuccess { .. } => {
+                unreachable!("handled in parent effects to avoid cloning")
+            }
             TransitionFrontierSyncAction::Ledger(_) => {}
         }
     }
@@ -252,7 +323,7 @@ fn maybe_copy_ledgers_for_sync<S>(
     best_tip: &ArcBlockWithHash,
 ) -> Result<bool, String>
 where
-    S: TransitionFrontierService + TransitionFrontierSyncLedgerSnarkedService,
+    S: TransitionFrontierSyncLedgerSnarkedService,
 {
     let sync = &store.state().transition_frontier.sync;
 
@@ -278,7 +349,7 @@ fn prepare_staking_epoch_ledger_for_sync<S>(
     best_tip: &ArcBlockWithHash,
 ) -> Result<bool, String>
 where
-    S: TransitionFrontierService + TransitionFrontierSyncLedgerSnarkedService,
+    S: TransitionFrontierSyncLedgerSnarkedService,
 {
     let target = SyncLedgerTarget::staking_epoch(best_tip).snarked_ledger_hash;
     let origin = best_tip.genesis_ledger_hash().clone();
@@ -295,7 +366,7 @@ fn prepare_next_epoch_ledger_for_sync<S>(
     best_tip: &ArcBlockWithHash,
 ) -> Result<bool, String>
 where
-    S: TransitionFrontierService + TransitionFrontierSyncLedgerSnarkedService,
+    S: TransitionFrontierSyncLedgerSnarkedService,
 {
     let sync = &store.state().transition_frontier.sync;
     let root_block = sync.root_block().unwrap();
@@ -317,7 +388,7 @@ fn prepare_transition_frontier_root_ledger_for_sync<S>(
     best_tip: &ArcBlockWithHash,
 ) -> Result<bool, String>
 where
-    S: TransitionFrontierService + TransitionFrontierSyncLedgerSnarkedService,
+    S: TransitionFrontierSyncLedgerSnarkedService,
 {
     let sync = &store.state().transition_frontier.sync;
     let root_block = sync.root_block().unwrap();

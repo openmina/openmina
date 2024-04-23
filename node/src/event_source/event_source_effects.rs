@@ -2,6 +2,8 @@ use crate::action::CheckTimeoutsAction;
 use crate::block_producer::vrf_evaluator::BlockProducerVrfEvaluatorAction;
 use crate::block_producer::{BlockProducerEvent, BlockProducerVrfEvaluatorEvent};
 use crate::external_snark_worker::ExternalSnarkWorkerEvent;
+use crate::ledger::read::LedgerReadAction;
+use crate::ledger::write::LedgerWriteAction;
 use crate::p2p::channels::best_tip::P2pChannelsBestTipAction;
 use crate::p2p::channels::rpc::P2pChannelsRpcAction;
 use crate::p2p::channels::snark::P2pChannelsSnarkAction;
@@ -19,10 +21,11 @@ use crate::snark::block_verify::SnarkBlockVerifyAction;
 use crate::snark::work_verify::SnarkWorkVerifyAction;
 use crate::snark::SnarkEvent;
 use crate::transition_frontier::genesis::TransitionFrontierGenesisAction;
-use crate::transition_frontier::sync::ledger::staged::TransitionFrontierSyncLedgerStagedAction;
 use crate::{BlockProducerAction, ExternalSnarkWorkerAction, Service, Store};
 
-use super::{Event, EventSourceAction, EventSourceActionWithMeta, P2pConnectionEvent, P2pEvent};
+use super::{
+    Event, EventSourceAction, EventSourceActionWithMeta, LedgerEvent, P2pConnectionEvent, P2pEvent,
+};
 
 pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourceActionWithMeta) {
     let (action, meta) = action.split();
@@ -227,6 +230,14 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                     }
                 },
             },
+            Event::Ledger(event) => match event {
+                LedgerEvent::Write(response) => {
+                    store.dispatch(LedgerWriteAction::Success { response });
+                }
+                LedgerEvent::Read(id, response) => {
+                    store.dispatch(LedgerReadAction::Success { id, response });
+                }
+            },
             Event::Snark(event) => match event {
                 SnarkEvent::BlockVerify(req_id, result) => match result {
                     Err(error) => {
@@ -271,7 +282,7 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                     });
                 }
                 RpcRequest::ScanStateSummaryGet(query) => {
-                    store.dispatch(RpcAction::ScanStateSummaryGet { rpc_id, query });
+                    store.dispatch(RpcAction::ScanStateSummaryGetInit { rpc_id, query });
                 }
                 RpcRequest::SnarkPoolGet => {
                     store.dispatch(RpcAction::SnarkPoolAvailableJobsGet { rpc_id });
@@ -357,21 +368,6 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                     }
                 },
             },
-            Event::LedgerStagingReconstruct(res) => match res {
-                Err(error) => {
-                    store.dispatch(TransitionFrontierSyncLedgerStagedAction::ReconstructError {
-                        error,
-                    });
-                }
-                Ok(ledger_hash) => {
-                    store.dispatch(
-                        TransitionFrontierSyncLedgerStagedAction::ReconstructSuccess {
-                            ledger_hash,
-                        },
-                    );
-                }
-            },
-
             Event::GenesisLoad(res) => match res {
                 Err(err) => todo!("error while trying to load genesis config/ledger. - {err}"),
                 Ok(data) => {

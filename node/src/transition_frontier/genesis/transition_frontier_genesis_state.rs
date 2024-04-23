@@ -19,11 +19,13 @@ pub enum TransitionFrontierGenesisState {
         time: redux::Timestamp,
         negative_one: v2::MinaStateProtocolStateValueStableV2,
         genesis: v2::MinaStateProtocolStateValueStableV2,
+        genesis_producer_stake_proof: v2::MinaBaseSparseLedgerBaseStableV2,
     },
     ProvePending {
         time: redux::Timestamp,
         negative_one: v2::MinaStateProtocolStateValueStableV2,
         genesis: v2::MinaStateProtocolStateValueStableV2,
+        genesis_producer_stake_proof: v2::MinaBaseSparseLedgerBaseStableV2,
     },
     ProveSuccess {
         time: redux::Timestamp,

@@ -1,10 +1,10 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
     path::Path,
-    sync::{Arc, Mutex},
+    sync::Arc,
 };
 
-use super::ledger_manager::LedgerManager;
+use super::ledger_manager::{LedgerManager, LedgerRequest};
 use ledger::{
     scan_state::{
         currency::Slot,
@@ -29,11 +29,9 @@ use mina_hasher::Fp;
 use mina_p2p_messages::{
     binprot::BinProtRead,
     v2::{
-        self, DataHashLibStateHashStableV1, LedgerHash, MinaBaseAccountBinableArgStableV2,
-        MinaBaseLedgerHash0StableV1, MinaBasePendingCoinbaseStableV2,
-        MinaBasePendingCoinbaseWitnessStableV2, MinaBaseSokMessageStableV1,
-        MinaBaseStagedLedgerHashStableV1, MinaLedgerSyncLedgerAnswerStableV2,
-        MinaLedgerSyncLedgerQueryStableV1,
+        self, DataHashLibStateHashStableV1, LedgerHash, MinaBaseLedgerHash0StableV1,
+        MinaBasePendingCoinbaseStableV2, MinaBasePendingCoinbaseWitnessStableV2,
+        MinaBaseSokMessageStableV1, MinaBaseStagedLedgerHashStableV1,
         MinaStateBlockchainStateValueStableV2LedgerProofStatement,
         MinaStateProtocolStateValueStableV2, MinaTransactionTransactionStableV2, NonZeroCurvePoint,
         StateHash,
@@ -44,31 +42,29 @@ use openmina_core::snark::{Snark, SnarkJobId};
 
 use mina_signer::CompressedPubKey;
 use openmina_core::block::ArcBlockWithHash;
-use openmina_node_account::AccountPublicKey;
 
-use crate::block_producer::vrf_evaluator::BlockProducerVrfEvaluatorLedgerService;
-use crate::block_producer::vrf_evaluator::DelegatorTable;
-use crate::block_producer::{
-    BlockProducerLedgerService, BlockProducerWonSlot, StagedLedgerDiffCreateOutput,
+use crate::account::AccountPublicKey;
+use crate::block_producer::StagedLedgerDiffCreateOutput;
+use crate::p2p::channels::rpc::StagedLedgerAuxAndPendingCoinbases;
+use crate::rpc::{
+    RpcScanStateSummaryBlockTransaction, RpcScanStateSummaryScanStateJob,
+    RpcScanStateSummaryScanStateJobKind, RpcSnarkPoolJobSnarkWorkDone,
 };
-use crate::transition_frontier::sync::ledger::staged::TransitionFrontierSyncLedgerStagedService;
 use crate::transition_frontier::sync::{
     ledger::staged::StagedLedgerAuxAndPendingCoinbasesValid,
     TransitionFrontierRootSnarkedLedgerUpdates,
 };
-use crate::transition_frontier::TransitionFrontierService;
-use crate::{
-    p2p::channels::rpc::StagedLedgerAuxAndPendingCoinbases, transition_frontier::CommitResult,
-};
-use crate::{
-    rpc::{
-        RpcLedgerService, RpcScanStateSummaryBlockTransaction, RpcScanStateSummaryScanStateJob,
-        RpcScanStateSummaryScanStateJobKind, RpcSnarkPoolJobSnarkWorkDone,
-    },
-    transition_frontier::sync::ledger::snarked::TransitionFrontierSyncLedgerSnarkedService,
-};
 
-use super::{ledger_empty_hash_at_depth, LedgerAddress, LEDGER_DEPTH};
+use super::write::CommitResult;
+
+use super::{
+    ledger_empty_hash_at_depth, read::LedgerReadResponse, write::LedgerWriteResponse,
+    LedgerAddress, LedgerEvent, LEDGER_DEPTH,
+};
+use super::{
+    read::{LedgerReadId, LedgerReadRequest},
+    write::LedgerWriteRequest,
+};
 
 fn merkle_root(mask: &mut Mask) -> LedgerHash {
     MinaBaseLedgerHash0StableV1(mask.merkle_root().into()).into()
@@ -81,7 +77,6 @@ pub struct LedgerCtx {
     additional_snarked_ledgers: BTreeMap<LedgerHash, Mask>,
     staged_ledgers: BTreeMap<LedgerHash, StagedLedger>,
     sync: LedgerSyncState,
-    // TODO(tizoc): temporary workaround for blocking staged ledger reconstruct, remove later
     event_sender:
         Option<openmina_core::channels::mpsc::UnboundedSender<crate::event_source::Event>>,
 }
@@ -90,7 +85,6 @@ pub struct LedgerCtx {
 struct LedgerSyncState {
     snarked_ledgers: BTreeMap<LedgerHash, Mask>,
     staged_ledgers: BTreeMap<LedgerHash, StagedLedger>,
-    staged_ledger_just_reconstructed: Arc<Mutex<Option<StagedLedger>>>,
 }
 
 impl LedgerCtx {
@@ -137,11 +131,30 @@ impl LedgerCtx {
         self.event_sender = Some(event_sender);
     }
 
+    pub(super) fn send_event(&self, event: LedgerEvent) {
+        if let Some(tx) = self.event_sender.as_ref() {
+            let _ = tx.send(event.into());
+        }
+    }
+
+    pub(super) fn send_write_response(&self, resp: LedgerWriteResponse) {
+        self.send_event(LedgerEvent::Write(resp.into()))
+    }
+
+    pub(super) fn send_read_response(&self, id: LedgerReadId, resp: LedgerReadResponse) {
+        self.send_event(LedgerEvent::Read(id, resp.into()))
+    }
+
     pub fn insert_genesis_ledger(&mut self, mut mask: Mask) {
         let hash = merkle_root(&mut mask);
         self.snarked_ledgers.insert(hash.clone(), mask.clone());
         let staged_ledger = StagedLedger::create_exn(CONSTRAINT_CONSTANTS, mask).unwrap();
         self.staged_ledgers.insert(hash.clone(), staged_ledger);
+    }
+
+    pub fn staged_ledger_reconstruct_result_store(&mut self, ledger: StagedLedger) {
+        let hash = merkle_root(&mut ledger.ledger().clone());
+        self.staged_ledgers.insert(hash, ledger);
     }
 
     // TODO(tizoc): explain when `is_synced` is `true` and when it is `false`. Also use something else than a boolean.
@@ -153,6 +166,11 @@ impl LedgerCtx {
             .map(|mask| (mask, true))
             .or_else(|| Some((self.staged_ledgers.get(hash)?.ledger(), true)))
             .or_else(|| self.sync.mask(hash))
+            .or_else(|| {
+                self.additional_snarked_ledgers
+                    .get(hash)
+                    .map(|l| (l.clone(), true))
+            })
     }
 
     /// Returns the mask for a snarked ledger being synchronized or an error if it is not present
@@ -414,7 +432,7 @@ impl LedgerCtx {
         &mut self,
         snarked_ledger_hash: LedgerHash,
         parent: &LedgerAddress,
-        accounts: Vec<MinaBaseAccountBinableArgStableV2>,
+        accounts: Vec<v2::MinaBaseAccountBinableArgStableV2>,
     ) -> Result<LedgerHash, String> {
         let mut mask = self.pending_sync_snarked_ledger_mask(&snarked_ledger_hash)?;
         let accounts: Vec<_> = accounts
@@ -430,29 +448,14 @@ impl LedgerCtx {
         Ok(computed_hash)
     }
 
-    // TODO(tizoc): Only used for the current workaround to make staged ledger
-    // reconstruction async, can be removed when the ledger services are made async
-    pub fn staged_ledger_reconstruct_result_store(&mut self, staged_ledger_hash: LedgerHash) {
-        let staged_ledger =
-            std::mem::take(&mut *self.sync.staged_ledger_just_reconstructed.lock().unwrap())
-                .unwrap();
-
-        openmina_core::debug!(openmina_core::log::system_time();
-            kind = "LedgerService::staged_ledger_reconstruct_result_store",
-            summary = "Storing just reconstructed staged ledger",
-            staged_ledger_hash = staged_ledger_hash.to_string(),
-        );
-
-        self.sync
-            .staged_ledgers
-            .insert(staged_ledger_hash, staged_ledger);
-    }
-
-    pub fn staged_ledger_reconstruct(
+    pub fn staged_ledger_reconstruct<F>(
         &mut self,
         snarked_ledger_hash: LedgerHash,
         parts: Option<Arc<StagedLedgerAuxAndPendingCoinbasesValid>>,
-    ) {
+        callback: F,
+    ) where
+        F: 'static + FnOnce(v2::LedgerHash, Result<StagedLedger, String>) + Send,
+    {
         let staged_ledger_hash = parts
             .as_ref()
             .map(|p| p.staged_ledger_hash.clone())
@@ -460,15 +463,6 @@ impl LedgerCtx {
         let snarked_ledger = self.sync.snarked_ledger_mut(snarked_ledger_hash.clone());
         let mask = snarked_ledger.copy();
 
-        let event_sender = self
-            .event_sender
-            .clone()
-            .expect("Must set an event sender in the ledger context");
-
-        let staged_ledger_just_reconstructed = self.sync.staged_ledger_just_reconstructed.clone();
-
-        // TODO(tizoc): Workaround to make staged ledger
-        // reconstruction async, can be removed when the ledger services are made async
         std::thread::spawn(move || {
             let result = if let Some(parts) = parts {
                 let states = parts
@@ -491,17 +485,7 @@ impl LedgerCtx {
             } else {
                 StagedLedger::create_exn(CONSTRAINT_CONSTANTS.clone(), mask)
             };
-
-            let event = match result {
-                Ok(staged_ledger) => {
-                    let result = &mut *staged_ledger_just_reconstructed.lock().unwrap();
-                    *result = Some(staged_ledger);
-                    crate::event_source::Event::LedgerStagingReconstruct(Ok(staged_ledger_hash))
-                }
-                Err(error) => crate::event_source::Event::LedgerStagingReconstruct(Err(error)),
-            };
-
-            event_sender.send(event).unwrap();
+            callback(staged_ledger_hash, result);
         });
     }
 
@@ -711,54 +695,54 @@ impl LedgerCtx {
         }
     }
 
-    pub fn answer_ledger_query(
+    pub fn get_num_accounts(
         &mut self,
-        ledger_hash: LedgerHash,
-        query: MinaLedgerSyncLedgerQueryStableV1,
-    ) -> Option<MinaLedgerSyncLedgerAnswerStableV2> {
-        let (mask, is_synced) = self
+        ledger_hash: v2::LedgerHash,
+    ) -> Option<(u64, v2::LedgerHash)> {
+        let (mask, _) = self
             .mask(&ledger_hash)
-            .filter(|(_, is_synced)| *is_synced)
-            .or_else(|| {
-                self.additional_snarked_ledgers
-                    .get(&ledger_hash)
-                    .map(|l| (l.clone(), true))
-            })?;
+            .filter(|(_, is_synced)| *is_synced)?;
+        // fix(binier): incorrect ledger hash, must be a hash of a populated subtree.
+        Some((mask.num_accounts() as u64, ledger_hash))
+    }
 
-        Some(match query {
-            MinaLedgerSyncLedgerQueryStableV1::WhatChildHashes(addr) => {
-                let addr = LedgerAddress::from(addr);
-                let get_hash = |addr: LedgerAddress| {
-                    let depth = addr.length();
-                    mask.get_hash(addr)
-                        .map(|fp| MinaBaseLedgerHash0StableV1(fp.into()).into())
-                        .or_else(|| {
-                            if is_synced {
-                                Some(ledger_empty_hash_at_depth(depth))
-                            } else {
-                                None
-                            }
-                        })
-                };
-                let (left, right) = (addr.child_left(), addr.child_right());
-                let (left, right) = (get_hash(left)?, get_hash(right)?);
-                MinaLedgerSyncLedgerAnswerStableV2::ChildHashesAre(left, right)
-            }
-            MinaLedgerSyncLedgerQueryStableV1::WhatContents(addr) => {
-                let addr = LedgerAddress::from(addr);
-                // TODO(binier): SEC maybe we need to check addr depth?
-                let accounts = mask
-                    .get_all_accounts_rooted_at(addr)?
-                    .into_iter()
-                    .map(|(_, account)| (&*account).into())
-                    .collect();
-                MinaLedgerSyncLedgerAnswerStableV2::ContentsAre(accounts)
-            }
-            MinaLedgerSyncLedgerQueryStableV1::NumAccounts => {
-                let num = (mask.num_accounts() as u64).into();
-                MinaLedgerSyncLedgerAnswerStableV2::NumAccounts(num, ledger_hash)
-            }
-        })
+    pub fn get_child_hashes(
+        &mut self,
+        ledger_hash: v2::LedgerHash,
+        addr: LedgerAddress,
+    ) -> Option<(v2::LedgerHash, v2::LedgerHash)> {
+        let (mask, is_synced) = self.mask(&ledger_hash)?;
+        let get_hash = |addr: LedgerAddress| {
+            let depth = addr.length();
+            mask.get_hash(addr)
+                .map(|fp| MinaBaseLedgerHash0StableV1(fp.into()).into())
+                .or_else(|| {
+                    if is_synced {
+                        Some(ledger_empty_hash_at_depth(depth))
+                    } else {
+                        None
+                    }
+                })
+        };
+        let (left, right) = (addr.child_left(), addr.child_right());
+        Some((get_hash(left)?, get_hash(right)?))
+    }
+
+    pub fn get_child_accounts(
+        &mut self,
+        ledger_hash: v2::LedgerHash,
+        addr: LedgerAddress,
+    ) -> Option<Vec<v2::MinaBaseAccountBinableArgStableV2>> {
+        let (mask, _) = self
+            .mask(&ledger_hash)
+            .filter(|(_, is_synced)| *is_synced)?;
+        // TODO(binier): SEC maybe we need to check addr depth?
+        let accounts = mask
+            .get_all_accounts_rooted_at(addr)?
+            .into_iter()
+            .map(|(_, account)| (&*account).into())
+            .collect();
+        Some(accounts)
     }
 
     pub fn staged_ledger_aux_and_pending_coinbase(
@@ -788,9 +772,11 @@ impl LedgerCtx {
 
     pub fn staged_ledger_diff_create(
         &mut self,
-        pred_block: &ArcBlockWithHash,
-        won_slot: &BlockProducerWonSlot,
-        coinbase_receiver: &NonZeroCurvePoint,
+        pred_block: ArcBlockWithHash,
+        global_slot_since_genesis: v2::MinaNumbersGlobalSlotSinceGenesisMStableV1,
+        producer: NonZeroCurvePoint,
+        delegator: NonZeroCurvePoint,
+        coinbase_receiver: NonZeroCurvePoint,
         completed_snarks: BTreeMap<SnarkJobId, Snark>,
         supercharge_coinbase: bool,
     ) -> Result<StagedLedgerDiffCreateOutput, String> {
@@ -810,8 +796,6 @@ impl LedgerCtx {
             MinaBasePendingCoinbaseStableV2::from(staged_ledger.pending_coinbase_collection());
 
         let protocol_state_view = protocol_state_view(&pred_block.header().protocol_state);
-        let global_slot_since_genesis =
-            won_slot.global_slot_since_genesis(pred_block.global_slot_diff());
 
         // TODO(binier): include `invalid_txns` in output.
         let (pre_diff, _invalid_txns) = staged_ledger
@@ -819,7 +803,7 @@ impl LedgerCtx {
                 &CONSTRAINT_CONSTANTS,
                 (&global_slot_since_genesis).into(),
                 Some(true),
-                coinbase_receiver.into(),
+                (&coinbase_receiver).into(),
                 (),
                 &protocol_state_view,
                 // TODO(binier): once we have transaction pool, pass
@@ -847,7 +831,7 @@ impl LedgerCtx {
                 (),
                 &protocol_state_view,
                 (pred_block.hash().0.to_field(), pred_body_hash.0.to_field()),
-                coinbase_receiver.into(),
+                (&coinbase_receiver).into(),
                 supercharge_coinbase,
             )
             .map_err(|err| format!("{err:?}"))?;
@@ -867,23 +851,28 @@ impl LedgerCtx {
                 pending_coinbases: pending_coinbase_witness,
                 is_new_stack: res.pending_coinbase_update.0,
             },
+            stake_proof_sparse_ledger: self.stake_proof_sparse_ledger(
+                pred_block.staking_epoch_ledger_hash(),
+                &producer,
+                &delegator,
+            ),
         })
     }
 
     pub fn stake_proof_sparse_ledger(
         &mut self,
-        staking_ledger: LedgerHash,
-        producer: NonZeroCurvePoint,
-        delegator: NonZeroCurvePoint,
-    ) -> Option<v2::MinaBaseSparseLedgerBaseStableV2> {
-        let mask = self.snarked_ledgers.get(&staking_ledger)?;
-        let producer_id = ledger::AccountId::new((&producer).into(), ledger::TokenId::default());
-        let delegator_id = ledger::AccountId::new((&delegator).into(), ledger::TokenId::default());
+        staking_ledger: &LedgerHash,
+        producer: &NonZeroCurvePoint,
+        delegator: &NonZeroCurvePoint,
+    ) -> v2::MinaBaseSparseLedgerBaseStableV2 {
+        let mask = self.snarked_ledgers.get(staking_ledger).unwrap();
+        let producer_id = ledger::AccountId::new(producer.into(), ledger::TokenId::default());
+        let delegator_id = ledger::AccountId::new(delegator.into(), ledger::TokenId::default());
         let sparse_ledger = ledger::sparse_ledger::SparseLedger::of_ledger_subset_exn(
             mask.clone(),
             &[producer_id, delegator_id],
         );
-        Some((&sparse_ledger).into())
+        (&sparse_ledger).into()
     }
 
     pub fn scan_state_summary(
@@ -1019,27 +1008,6 @@ impl LedgerCtx {
             })
             .collect()
     }
-
-    pub fn get_producer_and_delegates(
-        &mut self,
-        ledger_hash: LedgerHash,
-        producer: AccountPublicKey,
-    ) -> DelegatorTable {
-        // TODO(adonagy): Error handling
-        let delegate_table = self
-            .producers_with_delegates(&ledger_hash, |pub_key| {
-                AccountPublicKey::from(pub_key.clone()) == producer
-            })
-            .unwrap()
-            .into_values()
-            .next()
-            .unwrap();
-
-        delegate_table
-            .into_iter()
-            .map(|(index, pub_key, balance)| (index, (pub_key, balance)))
-            .collect()
-    }
 }
 
 impl LedgerSyncState {
@@ -1075,161 +1043,13 @@ impl LedgerSyncState {
 
 pub trait LedgerService: redux::Service {
     fn ledger_manager(&self) -> &LedgerManager;
-}
 
-impl<T: LedgerService> TransitionFrontierSyncLedgerSnarkedService for T {
-    fn compute_snarked_ledger_hashes(
-        &self,
-        snarked_ledger_hash: &LedgerHash,
-    ) -> Result<(), String> {
-        self.ledger_manager()
-            .compute_snarked_ledger_hashes(snarked_ledger_hash)?;
-
-        Ok(())
+    fn write_init(&mut self, request: LedgerWriteRequest) {
+        self.ledger_manager().call(LedgerRequest::Write(request));
     }
 
-    fn copy_snarked_ledger_contents_for_sync(
-        &self,
-        origin_snarked_ledger_hash: LedgerHash,
-        target_snarked_ledger_hash: LedgerHash,
-        overwrite: bool,
-    ) -> Result<bool, String> {
-        self.ledger_manager().copy_snarked_ledger_contents_for_sync(
-            origin_snarked_ledger_hash,
-            target_snarked_ledger_hash,
-            overwrite,
-        )
-    }
-
-    fn child_hashes_get(
-        &self,
-        snarked_ledger_hash: LedgerHash,
-        parent: &LedgerAddress,
-    ) -> Result<(LedgerHash, LedgerHash), String> {
-        self.ledger_manager()
-            .child_hashes_get(snarked_ledger_hash, parent)
-    }
-
-    fn accounts_set(
-        &self,
-        snarked_ledger_hash: LedgerHash,
-        parent: &LedgerAddress,
-        accounts: Vec<MinaBaseAccountBinableArgStableV2>,
-    ) -> Result<LedgerHash, String> {
-        self.ledger_manager()
-            .accounts_set(snarked_ledger_hash, parent, accounts)
-    }
-}
-
-impl<T: LedgerService> TransitionFrontierSyncLedgerStagedService for T {
-    // TODO(tizoc): Only used for the current workaround to make staged ledger
-    // reconstruction async, can be removed when the ledger services are made async
-    fn staged_ledger_reconstruct_result_store(&self, staged_ledger_hash: LedgerHash) {
-        self.ledger_manager()
-            .staged_ledger_reconstruct_result_store(staged_ledger_hash)
-    }
-
-    fn staged_ledger_reconstruct(
-        &self,
-        snarked_ledger_hash: LedgerHash,
-        parts: Option<Arc<StagedLedgerAuxAndPendingCoinbasesValid>>,
-    ) {
-        self.ledger_manager()
-            .staged_ledger_reconstruct(snarked_ledger_hash, parts)
-    }
-}
-
-impl<T: LedgerService> TransitionFrontierService for T {
-    fn block_apply(
-        &self,
-        block: ArcBlockWithHash,
-        pred_block: ArcBlockWithHash,
-    ) -> Result<(), String> {
-        self.ledger_manager().block_apply(block, pred_block)
-    }
-
-    fn commit(
-        &self,
-        ledgers_to_keep: BTreeSet<LedgerHash>,
-        root_snarked_ledger_updates: TransitionFrontierRootSnarkedLedgerUpdates,
-        needed_protocol_states: BTreeMap<StateHash, MinaStateProtocolStateValueStableV2>,
-        new_root: &ArcBlockWithHash,
-        new_best_tip: &ArcBlockWithHash,
-    ) -> CommitResult {
-        self.ledger_manager().commit(
-            ledgers_to_keep,
-            root_snarked_ledger_updates,
-            needed_protocol_states,
-            new_root,
-            new_best_tip,
-        )
-    }
-
-    fn answer_ledger_query(
-        &self,
-        ledger_hash: LedgerHash,
-        query: MinaLedgerSyncLedgerQueryStableV1,
-    ) -> Option<MinaLedgerSyncLedgerAnswerStableV2> {
-        self.ledger_manager()
-            .answer_ledger_query(ledger_hash, query)
-    }
-
-    fn staged_ledger_aux_and_pending_coinbase(
-        &self,
-        ledger_hash: LedgerHash,
-        protocol_states: BTreeMap<StateHash, MinaStateProtocolStateValueStableV2>,
-    ) -> Option<Arc<StagedLedgerAuxAndPendingCoinbases>> {
-        self.ledger_manager()
-            .staged_ledger_aux_and_pending_coinbase(ledger_hash, protocol_states)
-    }
-}
-
-impl<T: LedgerService> BlockProducerLedgerService for T {
-    fn staged_ledger_diff_create(
-        &self,
-        pred_block: &ArcBlockWithHash,
-        won_slot: &BlockProducerWonSlot,
-        coinbase_receiver: &NonZeroCurvePoint,
-        completed_snarks: BTreeMap<SnarkJobId, Snark>,
-        supercharge_coinbase: bool,
-    ) -> Result<StagedLedgerDiffCreateOutput, String> {
-        self.ledger_manager().staged_ledger_diff_create(
-            pred_block,
-            won_slot,
-            coinbase_receiver,
-            completed_snarks,
-            supercharge_coinbase,
-        )
-    }
-
-    fn stake_proof_sparse_ledger(
-        &self,
-        staking_ledger: LedgerHash,
-        producer: NonZeroCurvePoint,
-        delegator: NonZeroCurvePoint,
-    ) -> Option<v2::MinaBaseSparseLedgerBaseStableV2> {
-        self.ledger_manager()
-            .stake_proof_sparse_ledger(staking_ledger, producer, delegator)
-    }
-}
-
-impl<T: LedgerService> RpcLedgerService for T {
-    fn scan_state_summary(
-        &self,
-        staged_ledger_hash: LedgerHash,
-    ) -> Vec<Vec<RpcScanStateSummaryScanStateJob>> {
-        self.ledger_manager().scan_state_summary(staged_ledger_hash)
-    }
-}
-
-impl<T: LedgerService> BlockProducerVrfEvaluatorLedgerService for T {
-    fn get_producer_and_delegates(
-        &self,
-        ledger_hash: LedgerHash,
-        producer: AccountPublicKey,
-    ) -> DelegatorTable {
-        self.ledger_manager()
-            .get_producer_and_delegates(ledger_hash, producer)
+    fn read_init(&mut self, id: LedgerReadId, request: LedgerReadRequest) {
+        self.ledger_manager().call(LedgerRequest::Read(id, request));
     }
 }
 

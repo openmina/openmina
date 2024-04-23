@@ -1,4 +1,3 @@
-use mina_p2p_messages::v2::LedgerHash;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -9,9 +8,8 @@ use super::{
     RpcActionStatsGetResponse, RpcDiscoveryBoostrapStatsResponse, RpcDiscoveryRoutingTableResponse,
     RpcHealthCheckResponse, RpcId, RpcMessageProgressResponse, RpcP2pConnectionOutgoingResponse,
     RpcPeersGetResponse, RpcReadinessCheckResponse, RpcScanStateSummaryGetResponse,
-    RpcScanStateSummaryScanStateJob, RpcSnarkPoolGetResponse, RpcSnarkPoolJobGetResponse,
-    RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse, RpcSnarkerWorkersResponse,
-    RpcSyncStatsGetResponse,
+    RpcSnarkPoolGetResponse, RpcSnarkPoolJobGetResponse, RpcSnarkerJobCommitResponse,
+    RpcSnarkerJobSpecResponse, RpcSnarkerWorkersResponse, RpcSyncStatsGetResponse,
 };
 
 #[derive(Error, Serialize, Deserialize, Debug, Clone)]
@@ -38,14 +36,7 @@ macro_rules! from_error {
 
 from_error!(serde_json::Error);
 
-pub trait RpcLedgerService: redux::Service {
-    fn scan_state_summary(
-        &self,
-        staged_ledger_hash: LedgerHash,
-    ) -> Vec<Vec<RpcScanStateSummaryScanStateJob>>;
-}
-
-pub trait RpcService: RpcLedgerService {
+pub trait RpcService {
     fn respond_state_get(
         &mut self,
         rpc_id: RpcId,

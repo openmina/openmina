@@ -193,64 +193,22 @@ pub fn transition_frontier_effects<S: crate::Service>(
                         }
                     }
                 }
-                // Bootstrap/Catchup is practically complete at this point.
-                // This effect is where the finalization part needs to be
-                // executed, which is mostly to grab some data that we need
-                // from previous chain, before it's discarded after dispatching
-                // `TransitionFrontierSyncedAction`.
                 TransitionFrontierSyncAction::BlocksSuccess => {
+                    store.dispatch(TransitionFrontierSyncAction::CommitInit);
+                }
+                TransitionFrontierSyncAction::CommitInit => {}
+                TransitionFrontierSyncAction::CommitPending => {}
+                TransitionFrontierSyncAction::CommitSuccess { result } => {
+                    let own_peer_id = store.state().p2p.my_id();
                     let transition_frontier = &store.state.get().transition_frontier;
-                    let sync = &transition_frontier.sync;
-                    let TransitionFrontierSyncState::BlocksSuccess {
-                        chain,
-                        root_snarked_ledger_updates,
-                        needed_protocol_states,
-                        ..
-                    } = sync
+                    let TransitionFrontierSyncState::CommitSuccess { chain, .. } =
+                        &transition_frontier.sync
                     else {
-                        return;
-                    };
-                    let Some(root_block) = chain.first() else {
                         return;
                     };
                     let Some(best_tip) = chain.last() else {
                         return;
                     };
-                    let ledgers_to_keep = chain
-                        .iter()
-                        .flat_map(|b| {
-                            [
-                                b.snarked_ledger_hash(),
-                                b.staged_ledger_hash(),
-                                b.staking_epoch_ledger_hash(),
-                                b.next_epoch_ledger_hash(),
-                            ]
-                        })
-                        .cloned()
-                        .collect();
-                    let mut root_snarked_ledger_updates = root_snarked_ledger_updates.clone();
-                    if transition_frontier
-                        .best_chain
-                        .iter()
-                        .any(|b| b.hash() == root_block.hash())
-                    {
-                        root_snarked_ledger_updates
-                            .extend_with_needed(root_block, &transition_frontier.best_chain);
-                    }
-
-                    let needed_protocol_states = if root_snarked_ledger_updates.is_empty() {
-                        // We don't need protocol states unless we need to
-                        // recreate some snarked ledgers during `commit`.
-                        Default::default()
-                    } else {
-                        needed_protocol_states
-                            .iter()
-                            .chain(&transition_frontier.needed_protocol_states)
-                            .map(|(k, v)| (k.clone(), v.clone()))
-                            .collect()
-                    };
-
-                    let own_peer_id = store.state().p2p.my_id();
                     let orphaned_snarks = transition_frontier
                         .best_chain
                         .iter()
@@ -274,22 +232,14 @@ pub fn transition_frontier_effects<S: crate::Service>(
                         })
                         .collect();
 
-                    let res = store.service.commit(
-                        ledgers_to_keep,
-                        root_snarked_ledger_updates,
-                        needed_protocol_states,
-                        root_block,
-                        best_tip,
-                    );
-                    let needed_protocol_states = res.needed_protocol_states;
-                    let jobs = res.available_jobs;
                     store.dispatch(TransitionFrontierAction::Synced {
-                        needed_protocol_states,
+                        needed_protocol_states: result.needed_protocol_states,
                     });
                     store.dispatch(SnarkPoolAction::JobsUpdate {
-                        jobs,
+                        jobs: result.available_jobs,
                         orphaned_snarks,
                     });
+                    return;
                 }
                 TransitionFrontierSyncAction::Ledger(ref a) => {
                     handle_transition_frontier_sync_ledger_action(a.clone(), &meta, store)

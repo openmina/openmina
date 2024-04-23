@@ -108,13 +108,13 @@ pub struct RpcPeerInfo {
     pub time: u64,
 }
 
-#[derive(Serialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RpcScanStateSummary {
     pub block: RpcScanStateSummaryBlock,
     pub scan_state: Vec<Vec<RpcScanStateSummaryScanStateJob>>,
 }
 
-#[derive(Serialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RpcScanStateSummaryBlock {
     pub hash: StateHash,
     pub height: u32,
@@ -123,7 +123,7 @@ pub struct RpcScanStateSummaryBlock {
     pub completed_works: Vec<SnarkJobId>,
 }
 
-#[derive(Serialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RpcScanStateSummaryBlockTransaction {
     /// None if hashing fails.
     pub hash: Option<TransactionHash>,
@@ -131,7 +131,7 @@ pub struct RpcScanStateSummaryBlockTransaction {
     pub status: MinaBaseTransactionStatusStableV2,
 }
 
-#[derive(Serialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum RpcScanStateSummaryBlockTransactionKind {
     Payment,
     StakeDelegation,
@@ -140,7 +140,7 @@ pub enum RpcScanStateSummaryBlockTransactionKind {
     Coinbase,
 }
 
-#[derive(Serialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "status")]
 pub enum RpcScanStateSummaryScanStateJob {
     Empty,
@@ -167,14 +167,14 @@ pub enum RpcScanStateSummaryScanStateJob {
     },
 }
 
-#[derive(Serialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "kind")]
 pub enum RpcScanStateSummaryScanStateJobKind {
     Base(RpcScanStateSummaryBlockTransaction),
     Merge,
 }
 
-#[derive(Serialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum RpcScanStateSummaryScanStateJobStatus {
     Todo,
     Done,
@@ -197,7 +197,7 @@ pub struct RpcSnarkPoolJobFull {
     pub snark: Option<RpcSnarkPoolJobSnarkWork>,
 }
 
-#[derive(Serialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RpcSnarkPoolJobSnarkWork {
     pub snarker: NonZeroCurvePoint,
     pub fee: CurrencyFeeStableV1,
@@ -205,7 +205,7 @@ pub struct RpcSnarkPoolJobSnarkWork {
     pub sender: PeerId,
 }
 
-#[derive(Serialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RpcSnarkPoolJobSnarkWorkDone {
     pub snarker: NonZeroCurvePoint,
     pub fee: CurrencyFeeStableV1,

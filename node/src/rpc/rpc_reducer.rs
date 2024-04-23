@@ -1,5 +1,6 @@
 use super::{
-    RpcAction, RpcActionWithMetaRef, RpcRequest, RpcRequestState, RpcRequestStatus, RpcState,
+    RpcAction, RpcActionWithMetaRef, RpcRequest, RpcRequestExtraData, RpcRequestState,
+    RpcRequestStatus, RpcState,
 };
 
 impl RpcState {
@@ -15,6 +16,7 @@ impl RpcState {
                 let rpc_state = RpcRequestState {
                     req: RpcRequest::P2pConnectionOutgoing(opts.clone()),
                     status: RpcRequestStatus::Init { time: meta.time() },
+                    data: Default::default(),
                 };
                 self.requests.insert(*rpc_id, rpc_state);
             }
@@ -43,6 +45,7 @@ impl RpcState {
                 let rpc_state = RpcRequestState {
                     req: RpcRequest::P2pConnectionIncoming(opts.clone()),
                     status: RpcRequestStatus::Init { time: meta.time() },
+                    data: Default::default(),
                 };
                 self.requests.insert(*rpc_id, rpc_state);
             }
@@ -68,7 +71,28 @@ impl RpcState {
                 };
                 rpc.status = RpcRequestStatus::Success { time: meta.time() };
             }
-            RpcAction::ScanStateSummaryGet { .. } => {}
+            RpcAction::ScanStateSummaryGetInit { rpc_id, query } => {
+                let rpc_state = RpcRequestState {
+                    req: RpcRequest::ScanStateSummaryGet(query.clone()),
+                    status: RpcRequestStatus::Init { time: meta.time() },
+                    data: Default::default(),
+                };
+                self.requests.insert(*rpc_id, rpc_state);
+            }
+            RpcAction::ScanStateSummaryLedgerGetInit { .. } => {}
+            RpcAction::ScanStateSummaryGetPending { rpc_id, block } => {
+                let Some(rpc) = self.requests.get_mut(rpc_id) else {
+                    return;
+                };
+                rpc.status = RpcRequestStatus::Pending { time: meta.time() };
+                rpc.data = RpcRequestExtraData::FullBlockOpt(block.clone());
+            }
+            RpcAction::ScanStateSummaryGetSuccess { rpc_id, .. } => {
+                let Some(rpc) = self.requests.get_mut(rpc_id) else {
+                    return;
+                };
+                rpc.status = RpcRequestStatus::Success { time: meta.time() };
+            }
             RpcAction::SnarkPoolAvailableJobsGet { .. } => {}
             RpcAction::SnarkPoolJobGet { .. } => {}
             RpcAction::SnarkerConfigGet { .. } => {}

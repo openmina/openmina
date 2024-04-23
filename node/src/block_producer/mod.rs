@@ -27,7 +27,7 @@ use openmina_core::block::ArcBlockWithHash;
 use serde::{Deserialize, Serialize};
 use vrf::output::VrfOutput;
 
-use openmina_node_account::AccountPublicKey;
+use crate::account::AccountPublicKey;
 
 use self::vrf_evaluator::VrfWonSlotWithHash;
 

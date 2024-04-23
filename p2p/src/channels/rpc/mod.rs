@@ -85,7 +85,7 @@ impl P2pRpcKind {
     }
 }
 
-#[derive(BinProtWrite, BinProtRead, Serialize, Deserialize, Debug, Clone)]
+#[derive(BinProtWrite, BinProtRead, Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub enum P2pRpcRequest {
     BestTipWithProof,
     LedgerQuery(LedgerHash, MinaLedgerSyncLedgerQueryStableV1),

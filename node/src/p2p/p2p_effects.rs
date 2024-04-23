@@ -461,58 +461,13 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
                                     response,
                                 });
                             }
-                            P2pRpcRequest::LedgerQuery(ledger_hash, query) => {
-                                let response = store
-                                    .service
-                                    .answer_ledger_query(ledger_hash, query)
-                                    .map(P2pRpcResponse::LedgerQuery);
-
-                                store.dispatch(P2pChannelsRpcAction::ResponseSend {
-                                    peer_id,
-                                    id,
-                                    response,
-                                });
+                            P2pRpcRequest::LedgerQuery(..) => {
+                                // async ledger request will be triggered
+                                // by `LedgerReadAction::FindTodos`.
                             }
-                            P2pRpcRequest::StagedLedgerAuxAndPendingCoinbasesAtBlock(
-                                block_hash,
-                            ) => {
-                                let transition_frontier = &store.state.get().transition_frontier;
-                                let best_chain = &transition_frontier.best_chain;
-
-                                let response = best_chain
-                                    .iter()
-                                    .find(|b| b.hash == block_hash)
-                                    .map(|b| b.staged_ledger_hash().clone())
-                                    .and_then(|ledger_hash| {
-                                        let protocol_states = transition_frontier
-                                            .needed_protocol_states
-                                            .iter()
-                                            .map(|(hash, b)| (hash.clone(), b.clone()))
-                                            .chain(
-                                                best_chain
-                                                    .iter()
-                                                    .take_while(|b| b.hash() != &block_hash)
-                                                    .map(|b| {
-                                                        (
-                                                            b.hash().clone(),
-                                                            b.header().protocol_state.clone(),
-                                                        )
-                                                    }),
-                                            )
-                                            .collect();
-
-                                        store.service.staged_ledger_aux_and_pending_coinbase(
-                                            ledger_hash,
-                                            protocol_states,
-                                        )
-                                    })
-                                    .map(P2pRpcResponse::StagedLedgerAuxAndPendingCoinbasesAtBlock);
-
-                                store.dispatch(P2pChannelsRpcAction::ResponseSend {
-                                    peer_id,
-                                    id,
-                                    response,
-                                });
+                            P2pRpcRequest::StagedLedgerAuxAndPendingCoinbasesAtBlock(..) => {
+                                // async ledger request will be triggered
+                                // by `LedgerReadAction::FindTodos`.
                             }
                             P2pRpcRequest::Snark(job_id) => {
                                 let job = store.state().snark_pool.get(&job_id);
@@ -548,6 +503,7 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
                     P2pChannelsRpcAction::Init { .. } => {}
                     P2pChannelsRpcAction::Pending { .. } => {}
                     P2pChannelsRpcAction::RequestSend { .. } => {}
+                    P2pChannelsRpcAction::ResponsePending { .. } => {}
                     P2pChannelsRpcAction::ResponseSend { .. } => {}
                 }
             }

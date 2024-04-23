@@ -6,6 +6,7 @@ pub use crate::block_producer::BlockProducerState;
 use crate::config::GlobalConfig;
 pub use crate::consensus::ConsensusState;
 use crate::external_snark_worker::ExternalSnarkWorkers;
+pub use crate::ledger::LedgerState;
 pub use crate::p2p::P2pState;
 pub use crate::rpc::RpcState;
 pub use crate::snark::SnarkState;
@@ -20,6 +21,7 @@ pub struct State {
     pub config: GlobalConfig,
 
     pub p2p: P2pState,
+    pub ledger: LedgerState,
     pub snark: SnarkState,
     pub consensus: ConsensusState,
     pub transition_frontier: TransitionFrontierState,
@@ -40,6 +42,7 @@ impl State {
         let now = Timestamp::global_now();
         Self {
             p2p: P2pState::new(config.p2p),
+            ledger: LedgerState::new(config.ledger),
             snark_pool: SnarkPoolState::new(),
             snark: SnarkState::new(config.snark),
             consensus: ConsensusState::new(),

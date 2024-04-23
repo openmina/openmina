@@ -1,37 +1,18 @@
-use mina_p2p_messages::v2::{
-    LedgerHash, MinaBaseAccountBinableArgStableV2, MinaBaseSparseLedgerBaseStableV2,
-    MinaLedgerSyncLedgerAnswerStableV2, MinaLedgerSyncLedgerQueryStableV1,
-    MinaStateProtocolStateValueStableV2, NonZeroCurvePoint, StateHash,
-};
-use openmina_core::block::ArcBlockWithHash;
+use ledger::staged_ledger::staged_ledger::StagedLedger;
+use mina_p2p_messages::v2::{LedgerHash, MinaBaseAccountBinableArgStableV2};
 use openmina_core::channels::mpsc;
-use openmina_core::snark::{Snark, SnarkJobId};
-use std::collections::{BTreeMap, BTreeSet};
-use std::sync::mpsc::{channel, RecvError, Sender};
-use std::sync::Arc;
+use std::collections::BTreeMap;
 use std::thread;
 
 use super::ledger_service::LedgerCtx;
-use crate::block_producer::vrf_evaluator::{
-    BlockProducerVrfEvaluatorLedgerService, DelegatorTable,
-};
-use crate::block_producer::{
-    BlockProducerLedgerService, BlockProducerWonSlot, StagedLedgerDiffCreateOutput,
-};
+use super::read::{LedgerReadId, LedgerReadRequest, LedgerReadResponse};
+use super::write::{LedgerWriteRequest, LedgerWriteResponse};
+use super::LedgerService;
+use crate::account::AccountPublicKey;
 use crate::ledger::LedgerAddress;
-use crate::p2p::channels::rpc::StagedLedgerAuxAndPendingCoinbases;
-use crate::rpc::{RpcLedgerService, RpcScanStateSummaryScanStateJob};
-use crate::transition_frontier::sync::{
-    ledger::snarked::TransitionFrontierSyncLedgerSnarkedService,
-    ledger::staged::{
-        StagedLedgerAuxAndPendingCoinbasesValid, TransitionFrontierSyncLedgerStagedService,
-    },
-    TransitionFrontierRootSnarkedLedgerUpdates,
-};
-use crate::transition_frontier::{CommitResult, TransitionFrontierService};
+use crate::transition_frontier::sync::ledger::snarked::TransitionFrontierSyncLedgerSnarkedService;
 use ledger::Mask;
 use mina_signer::CompressedPubKey;
-use openmina_node_account::AccountPublicKey;
 
 /// The type enumerating different requests that can be made to the
 /// service. Each specific constructor has a specific response
@@ -39,27 +20,18 @@ use openmina_node_account::AccountPublicKey;
 /// can't be expressed in the Rust type system at the moment. For this
 /// reason this type is private while functions wrapping the whole call
 /// to the service are exposed as the service's methods.
-enum LedgerRequest {
+pub(super) enum LedgerRequest {
+    Write(LedgerWriteRequest),
+    Read(LedgerReadId, LedgerReadRequest),
     AccountsSet {
         snarked_ledger_hash: LedgerHash,
         parent: LedgerAddress,
         accounts: Vec<MinaBaseAccountBinableArgStableV2>,
     }, // expected response: LedgerHash
-    BlockApply {
-        block: ArcBlockWithHash,
-        pred_block: ArcBlockWithHash,
-    }, // expected response: Success
     ChildHashesGet {
         snarked_ledger_hash: LedgerHash,
         parent: LedgerAddress,
     }, // expected response: ChildHashes
-    Commit {
-        ledgers_to_keep: BTreeSet<LedgerHash>,
-        root_snarked_ledger_updates: TransitionFrontierRootSnarkedLedgerUpdates,
-        needed_protocol_states: BTreeMap<StateHash, MinaStateProtocolStateValueStableV2>,
-        new_root: ArcBlockWithHash,
-        new_best_tip: ArcBlockWithHash,
-    }, // expected response: CommitResult
     ComputeSnarkedLedgerHashes {
         snarked_ledger_hash: LedgerHash,
     }, // expected response: Success
@@ -68,10 +40,6 @@ enum LedgerRequest {
         target_snarked_ledger_hash: LedgerHash,
         overwrite: bool,
     }, // expected response: SnarkedLedgerContentsCopied
-    GetProducerAndDelegates {
-        ledger_hash: LedgerHash,
-        producer: AccountPublicKey,
-    }, // expected response: ProducerAndDelegates
     GetProducersWithDelegates {
         ledger_hash: LedgerHash,
         filter: fn(&CompressedPubKey) -> bool,
@@ -79,181 +47,207 @@ enum LedgerRequest {
     GetMask {
         ledger_hash: LedgerHash,
     }, // expected response: LedgerMask
-    GetScanStateSummary {
-        ledger_hash: LedgerHash,
-    }, // expected response: ScanStateSummary
     InsertGenesisLedger {
         mask: Mask,
-    }, // expected response: Success
-    LedgerQuery {
-        ledger_hash: LedgerHash,
-        query: MinaLedgerSyncLedgerQueryStableV1,
-    }, // expected response: LedgerQueryResult
-    StagedLedgerAuxAndPendingCoinbase {
-        ledger_hash: LedgerHash,
-        protocol_states: BTreeMap<StateHash, MinaStateProtocolStateValueStableV2>,
-    }, // expected response: LedgerAuxAndCoinbaseResult
-    StagedLedgerDiffCreate {
-        pred_block: ArcBlockWithHash,
-        won_slot: BlockProducerWonSlot,
-        coinbase_receiver: NonZeroCurvePoint,
-        completed_snarks: BTreeMap<SnarkJobId, Snark>,
-        supercharge_coinbase: bool,
-    }, // expected response: StagedLedgerDiff
-    StagedLedgerReconstruct {
-        snarked_ledger_hash: LedgerHash,
-        parts: Option<Arc<StagedLedgerAuxAndPendingCoinbasesValid>>,
-    }, // expected response: Success
-    StagedLedgerReconstructResultStore {
+    },
+    StagedLedgerReconstructResult {
         staged_ledger_hash: LedgerHash,
-    }, // expected response: Success
-    StakeProofSparseLedger {
-        staking_ledger: LedgerHash,
-        producer: NonZeroCurvePoint,
-        delegator: NonZeroCurvePoint,
-    }, // expected response: SparseLedgerBase
+        result: Result<StagedLedger, String>,
+    },
 }
 
 #[derive(Debug)]
 pub enum LedgerResponse {
-    ChildHashes(LedgerHash, LedgerHash),
-    CommitResult(CommitResult),
-    LedgerAuxAndCoinbaseResult(Option<Arc<StagedLedgerAuxAndPendingCoinbases>>),
-    LedgerHash(LedgerHash),
+    Write(LedgerWriteResponse),
+    Read(LedgerReadId, LedgerReadResponse),
+    ChildHashes(Option<(LedgerHash, LedgerHash)>),
+    AccountsSet(Result<LedgerHash, String>),
     LedgerMask(Option<(Mask, bool)>),
-    LedgerQueryResult(Option<MinaLedgerSyncLedgerAnswerStableV2>),
-    ProducerAndDelegates(DelegatorTable),
     ProducersWithDelegatesMap(
         Option<BTreeMap<AccountPublicKey, Vec<(ledger::AccountIndex, AccountPublicKey, u64)>>>,
     ),
-    ScanStateSummary(Vec<Vec<RpcScanStateSummaryScanStateJob>>),
-    SnarkedLedgerContentsCopied(bool),
-    SparseLedgerBase(Option<MinaBaseSparseLedgerBaseStableV2>),
-    StagedLedgerDiff(StagedLedgerDiffCreateOutput),
+    SnarkedLedgerContentsCopied(Result<bool, String>),
     Success, // operation was performed and result stored; nothing to return.
 }
 
 impl LedgerRequest {
-    fn handle(self, ledger_ctx: &mut LedgerCtx) -> Result<LedgerResponse, String> {
+    fn handle(self, ledger_ctx: &mut LedgerCtx, caller: &LedgerCaller) -> LedgerResponse {
         match self {
+            Self::Write(request) => LedgerResponse::Write(match request {
+                LedgerWriteRequest::StagedLedgerReconstruct {
+                    snarked_ledger_hash,
+                    parts,
+                } => {
+                    let caller = caller.clone();
+                    let cb = move |staged_ledger_hash, result| {
+                        caller.call(LedgerRequest::StagedLedgerReconstructResult {
+                            staged_ledger_hash,
+                            result,
+                        })
+                    };
+                    ledger_ctx.staged_ledger_reconstruct(snarked_ledger_hash, parts, cb);
+                    return LedgerResponse::Success;
+                }
+                LedgerWriteRequest::StagedLedgerDiffCreate {
+                    pred_block,
+                    global_slot_since_genesis: global_slot,
+                    producer,
+                    delegator,
+                    coinbase_receiver,
+                    completed_snarks,
+                    supercharge_coinbase,
+                } => {
+                    let pred_block_hash = pred_block.hash().clone();
+                    let global_slot_since_genesis = global_slot.clone();
+                    let result = ledger_ctx.staged_ledger_diff_create(
+                        pred_block,
+                        global_slot,
+                        producer,
+                        delegator,
+                        coinbase_receiver,
+                        completed_snarks,
+                        supercharge_coinbase,
+                    );
+                    LedgerWriteResponse::StagedLedgerDiffCreate {
+                        pred_block_hash,
+                        global_slot_since_genesis,
+                        result: result.map(Into::into),
+                    }
+                }
+                LedgerWriteRequest::BlockApply { block, pred_block } => {
+                    let block_hash = block.hash().clone();
+                    let result = ledger_ctx.block_apply(block, pred_block);
+                    LedgerWriteResponse::BlockApply { block_hash, result }
+                }
+                LedgerWriteRequest::Commit {
+                    ledgers_to_keep,
+                    root_snarked_ledger_updates,
+                    needed_protocol_states,
+                    new_root,
+                    new_best_tip,
+                } => {
+                    let best_tip_hash = new_best_tip.hash().clone();
+                    let result = ledger_ctx.commit(
+                        ledgers_to_keep,
+                        root_snarked_ledger_updates,
+                        needed_protocol_states,
+                        &new_root,
+                        &new_best_tip,
+                    );
+                    LedgerWriteResponse::Commit {
+                        best_tip_hash,
+                        result,
+                    }
+                }
+            }),
+            Self::Read(id, request) => LedgerResponse::Read(
+                id,
+                match request {
+                    LedgerReadRequest::DelegatorTable(ledger_hash, producer) => {
+                        let res = ledger_ctx
+                            .producers_with_delegates(&ledger_hash, |pub_key| {
+                                AccountPublicKey::from(pub_key.clone()) == producer
+                            })
+                            .and_then(|list| list.into_iter().next())
+                            .map(|(_, table)| {
+                                table
+                                    .into_iter()
+                                    .map(|(index, pub_key, balance)| (index, (pub_key, balance)))
+                                    .collect()
+                            });
+
+                        LedgerReadResponse::DelegatorTable(res)
+                    }
+                    LedgerReadRequest::GetNumAccounts(ledger_hash) => {
+                        let res = ledger_ctx.get_num_accounts(ledger_hash);
+                        LedgerReadResponse::GetNumAccounts(res)
+                    }
+                    LedgerReadRequest::GetChildHashesAtAddr(ledger_hash, addr) => {
+                        let res = ledger_ctx.get_child_hashes(ledger_hash, addr);
+                        LedgerReadResponse::GetChildHashesAtAddr(res)
+                    }
+                    LedgerReadRequest::GetChildAccountsAtAddr(ledger_hash, addr) => {
+                        let res = ledger_ctx.get_child_accounts(ledger_hash, addr);
+                        LedgerReadResponse::GetChildAccountsAtAddr(res)
+                    }
+                    LedgerReadRequest::GetStagedLedgerAuxAndPendingCoinbases(data) => {
+                        let res = ledger_ctx.staged_ledger_aux_and_pending_coinbase(
+                            data.ledger_hash,
+                            data.protocol_states,
+                        );
+                        LedgerReadResponse::GetStagedLedgerAuxAndPendingCoinbases(res)
+                    }
+                    LedgerReadRequest::ScanStateSummary(ledger_hash) => {
+                        let res = ledger_ctx.scan_state_summary(ledger_hash);
+                        LedgerReadResponse::ScanStateSummary(res)
+                    }
+                },
+            ),
             LedgerRequest::AccountsSet {
                 snarked_ledger_hash,
                 parent,
                 accounts,
-            } => ledger_ctx
-                .accounts_set(snarked_ledger_hash, &parent, accounts)
-                .map(LedgerResponse::LedgerHash),
-            LedgerRequest::BlockApply { block, pred_block } => ledger_ctx
-                .block_apply(block, pred_block)
-                .map(|()| LedgerResponse::Success),
+            } => LedgerResponse::AccountsSet(ledger_ctx.accounts_set(
+                snarked_ledger_hash,
+                &parent,
+                accounts,
+            )),
             LedgerRequest::ChildHashesGet {
                 snarked_ledger_hash,
                 parent,
-            } => ledger_ctx
-                .child_hashes_get(snarked_ledger_hash, &parent)
-                .map(|(left, right)| LedgerResponse::ChildHashes(left, right)),
-            LedgerRequest::Commit {
-                ledgers_to_keep,
-                root_snarked_ledger_updates,
-                needed_protocol_states,
-                new_root,
-                new_best_tip,
             } => {
-                let res = ledger_ctx.commit(
-                    ledgers_to_keep,
-                    root_snarked_ledger_updates,
-                    needed_protocol_states,
-                    &new_root,
-                    &new_best_tip,
-                );
-                Ok(LedgerResponse::CommitResult(res))
+                let res = ledger_ctx.get_child_hashes(snarked_ledger_hash, parent);
+                LedgerResponse::ChildHashes(res)
             }
             LedgerRequest::ComputeSnarkedLedgerHashes {
                 snarked_ledger_hash,
-            } => ledger_ctx
-                .compute_snarked_ledger_hashes(&snarked_ledger_hash)
-                .map(|()| LedgerResponse::Success),
+            } => {
+                ledger_ctx
+                    .compute_snarked_ledger_hashes(&snarked_ledger_hash)
+                    .unwrap();
+                LedgerResponse::Success
+            }
             LedgerRequest::CopySnarkedLedgerContentsForSync {
                 origin_snarked_ledger_hash,
                 target_snarked_ledger_hash,
                 overwrite,
-            } => ledger_ctx
-                .copy_snarked_ledger_contents_for_sync(
+            } => {
+                let res = ledger_ctx.copy_snarked_ledger_contents_for_sync(
                     origin_snarked_ledger_hash,
                     target_snarked_ledger_hash,
                     overwrite,
-                )
-                .map(LedgerResponse::SnarkedLedgerContentsCopied),
-            LedgerRequest::GetMask { ledger_hash } => {
-                Ok(LedgerResponse::LedgerMask(ledger_ctx.mask(&ledger_hash)))
+                );
+                LedgerResponse::SnarkedLedgerContentsCopied(res)
             }
-            LedgerRequest::GetProducerAndDelegates {
-                ledger_hash,
-                producer,
-            } => {
-                let res = ledger_ctx.get_producer_and_delegates(ledger_hash, producer);
-                Ok(LedgerResponse::ProducerAndDelegates(res))
+            LedgerRequest::GetMask { ledger_hash } => {
+                LedgerResponse::LedgerMask(ledger_ctx.mask(&ledger_hash))
             }
             LedgerRequest::GetProducersWithDelegates {
                 ledger_hash,
                 filter,
             } => {
                 let res = ledger_ctx.producers_with_delegates(&ledger_hash, filter);
-                Ok(LedgerResponse::ProducersWithDelegatesMap(res))
-            }
-            LedgerRequest::GetScanStateSummary { ledger_hash } => {
-                let res = ledger_ctx.scan_state_summary(ledger_hash);
-                Ok(LedgerResponse::ScanStateSummary(res))
+                LedgerResponse::ProducersWithDelegatesMap(res)
             }
             LedgerRequest::InsertGenesisLedger { mask } => {
                 ledger_ctx.insert_genesis_ledger(mask);
-                Ok(LedgerResponse::Success)
+                LedgerResponse::Success
             }
-            LedgerRequest::LedgerQuery { ledger_hash, query } => {
-                let res = ledger_ctx.answer_ledger_query(ledger_hash, query);
-                Ok(LedgerResponse::LedgerQueryResult(res))
-            }
-            LedgerRequest::StagedLedgerAuxAndPendingCoinbase {
-                ledger_hash,
-                protocol_states,
+            LedgerRequest::StagedLedgerReconstructResult {
+                staged_ledger_hash,
+                result,
             } => {
-                let res =
-                    ledger_ctx.staged_ledger_aux_and_pending_coinbase(ledger_hash, protocol_states);
-                Ok(LedgerResponse::LedgerAuxAndCoinbaseResult(res))
-            }
-            LedgerRequest::StagedLedgerDiffCreate {
-                pred_block,
-                won_slot,
-                coinbase_receiver,
-                completed_snarks,
-                supercharge_coinbase,
-            } => ledger_ctx
-                .staged_ledger_diff_create(
-                    &pred_block,
-                    &won_slot,
-                    &coinbase_receiver,
-                    completed_snarks,
-                    supercharge_coinbase,
-                )
-                .map(LedgerResponse::StagedLedgerDiff),
-            LedgerRequest::StagedLedgerReconstruct {
-                snarked_ledger_hash,
-                parts,
-            } => {
-                ledger_ctx.staged_ledger_reconstruct(snarked_ledger_hash, parts);
-                Ok(LedgerResponse::Success)
-            }
-            LedgerRequest::StagedLedgerReconstructResultStore { staged_ledger_hash } => {
-                ledger_ctx.staged_ledger_reconstruct_result_store(staged_ledger_hash);
-                Ok(LedgerResponse::Success)
-            }
-            LedgerRequest::StakeProofSparseLedger {
-                staking_ledger,
-                producer,
-                delegator,
-            } => {
-                let res = ledger_ctx.stake_proof_sparse_ledger(staking_ledger, producer, delegator);
-                Ok(LedgerResponse::SparseLedgerBase(res))
+                let result = match result {
+                    Err(err) => Err(err),
+                    Ok(ledger) => {
+                        ledger_ctx.staged_ledger_reconstruct_result_store(ledger);
+                        Ok(())
+                    }
+                };
+                LedgerResponse::Write(LedgerWriteResponse::StagedLedgerReconstruct {
+                    staged_ledger_hash,
+                    result,
+                })
             }
         }
     }
@@ -261,42 +255,65 @@ impl LedgerRequest {
 
 struct LedgerRequestWithChan {
     request: LedgerRequest,
-    responder: Sender<Result<LedgerResponse, String>>,
+    responder: Option<std::sync::mpsc::SyncSender<LedgerResponse>>,
 }
 
 pub struct LedgerManager {
-    sender: mpsc::UnboundedSender<LedgerRequestWithChan>,
+    caller: LedgerCaller,
     join_handle: thread::JoinHandle<LedgerCtx>,
 }
+
+#[derive(Clone)]
+pub(super) struct LedgerCaller(mpsc::UnboundedSender<LedgerRequestWithChan>);
 
 impl LedgerManager {
     pub fn spawn(mut ledger_ctx: LedgerCtx) -> LedgerManager {
         let (sender, mut receiver) = mpsc::unbounded_channel();
-        let runtime = thread::spawn(move || {
-            loop {
-                match receiver.blocking_recv() {
-                    Some(LedgerRequestWithChan { request, responder }) => responder
-                        .send(request.handle(&mut ledger_ctx))
-                        .unwrap_or(()),
-                    None => {
-                        break;
+        let caller = LedgerCaller(sender);
+        let ledger_caller = caller.clone();
+
+        let join_handle = thread::spawn(move || {
+            while let Some(LedgerRequestWithChan { request, responder }) = receiver.blocking_recv()
+            {
+                let response = request.handle(&mut ledger_ctx, &ledger_caller);
+                match (response, responder) {
+                    (LedgerResponse::Write(resp), None) => {
+                        ledger_ctx.send_write_response(resp);
                     }
+                    (LedgerResponse::Write(resp), Some(responder)) => {
+                        ledger_ctx.send_write_response(resp.clone());
+                        let _ = responder.send(LedgerResponse::Write(resp));
+                    }
+                    (LedgerResponse::Read(id, resp), None) => {
+                        ledger_ctx.send_read_response(id, resp);
+                    }
+                    (LedgerResponse::Read(id, resp), Some(responder)) => {
+                        ledger_ctx.send_read_response(id, resp.clone());
+                        let _ = responder.send(LedgerResponse::Read(id, resp));
+                    }
+                    (resp, Some(responder)) => {
+                        let _ = responder.send(resp);
+                    }
+                    (_, None) => {}
                 }
             }
             ledger_ctx
         });
         LedgerManager {
-            sender,
-            join_handle: runtime,
+            caller,
+            join_handle,
         }
     }
 
-    fn call(&self, request: LedgerRequest) -> Result<LedgerResponse, String> {
-        let (responder, receiver) = channel();
-        self.sender
-            .send(LedgerRequestWithChan { request, responder })
-            .unwrap();
-        result_join(receiver.recv())
+    pub(super) fn call(&self, request: LedgerRequest) {
+        self.caller.call(request)
+    }
+
+    fn call_sync(
+        &self,
+        request: LedgerRequest,
+    ) -> Result<LedgerResponse, std::sync::mpsc::RecvError> {
+        self.caller.call_sync(request)
     }
 
     pub async fn wait_for_stop(self) -> std::thread::Result<LedgerCtx> {
@@ -304,12 +321,11 @@ impl LedgerManager {
     }
 
     pub fn insert_genesis_ledger(&self, mask: Mask) {
-        self.call(LedgerRequest::InsertGenesisLedger { mask })
-            .unwrap();
+        self.call(LedgerRequest::InsertGenesisLedger { mask });
     }
 
     pub fn get_mask(&self, ledger_hash: &LedgerHash) -> Option<(Mask, bool)> {
-        match self.call(LedgerRequest::GetMask {
+        match self.call_sync(LedgerRequest::GetMask {
             ledger_hash: ledger_hash.clone(),
         }) {
             Ok(LedgerResponse::LedgerMask(mask)) => mask,
@@ -322,7 +338,7 @@ impl LedgerManager {
         filter: fn(&CompressedPubKey) -> bool,
     ) -> Option<BTreeMap<AccountPublicKey, Vec<(ledger::AccountIndex, AccountPublicKey, u64)>>>
     {
-        match self.call(LedgerRequest::GetProducersWithDelegates {
+        match self.call_sync(LedgerRequest::GetProducersWithDelegates {
             ledger_hash: ledger_hash.clone(),
             filter,
         }) {
@@ -332,11 +348,28 @@ impl LedgerManager {
     }
 }
 
-fn result_join<T>(r: Result<Result<T, String>, RecvError>) -> Result<T, String> {
-    match r {
-        Ok(Ok(v)) => Ok(v),
-        Ok(Err(e)) => Err(e),
-        Err(e) => Err(e.to_string()),
+impl LedgerCaller {
+    pub fn call(&self, request: LedgerRequest) {
+        self.0
+            .send(LedgerRequestWithChan {
+                request,
+                responder: None,
+            })
+            .unwrap();
+    }
+
+    fn call_sync(
+        &self,
+        request: LedgerRequest,
+    ) -> Result<LedgerResponse, std::sync::mpsc::RecvError> {
+        let (responder, receiver) = std::sync::mpsc::sync_channel(0);
+        self.0
+            .send(LedgerRequestWithChan {
+                request,
+                responder: Some(responder),
+            })
+            .unwrap();
+        receiver.recv()
     }
 }
 
@@ -344,25 +377,23 @@ fn format_response_error(method: &str, res: LedgerResponse) -> String {
     format!("LedgerManager::{method}: unexpected response: {res:?}")
 }
 
-impl redux::TimeService for LedgerManager {}
-
-impl redux::Service for LedgerManager {}
-
-impl TransitionFrontierSyncLedgerSnarkedService for LedgerManager {
+impl<T: LedgerService> TransitionFrontierSyncLedgerSnarkedService for T {
     fn compute_snarked_ledger_hashes(
         &self,
         snarked_ledger_hash: &LedgerHash,
     ) -> Result<(), String> {
-        self.call(LedgerRequest::ComputeSnarkedLedgerHashes {
-            snarked_ledger_hash: snarked_ledger_hash.clone(),
-        })
-        .and_then(|res| {
-            if let LedgerResponse::Success = res {
-                Ok(())
-            } else {
-                Err(format_response_error("compute_snarked_ledger_hashes", res))
-            }
-        })
+        self.ledger_manager()
+            .call_sync(LedgerRequest::ComputeSnarkedLedgerHashes {
+                snarked_ledger_hash: snarked_ledger_hash.clone(),
+            })
+            .map_err(|_| "compute_snarked_ledger_hashes responder dropped".to_owned())
+            .and_then(|res| {
+                if let LedgerResponse::Success = res {
+                    Ok(())
+                } else {
+                    Err(format_response_error("compute_snarked_ledger_hashes", res))
+                }
+            })
     }
 
     fn copy_snarked_ledger_contents_for_sync(
@@ -371,21 +402,23 @@ impl TransitionFrontierSyncLedgerSnarkedService for LedgerManager {
         target_snarked_ledger_hash: LedgerHash,
         overwrite: bool,
     ) -> Result<bool, String> {
-        self.call(LedgerRequest::CopySnarkedLedgerContentsForSync {
-            origin_snarked_ledger_hash,
-            target_snarked_ledger_hash,
-            overwrite,
-        })
-        .and_then(|res| {
-            if let LedgerResponse::SnarkedLedgerContentsCopied(copied) = res {
-                Ok(copied)
-            } else {
-                Err(format_response_error(
-                    "copy_snarked_ledger_contents_for_sync",
-                    res,
-                ))
-            }
-        })
+        self.ledger_manager()
+            .call_sync(LedgerRequest::CopySnarkedLedgerContentsForSync {
+                origin_snarked_ledger_hash,
+                target_snarked_ledger_hash,
+                overwrite,
+            })
+            .map_err(|_| "copy_snarked_ledger_contents_for_sync responder dropped".to_owned())
+            .and_then(|res| {
+                if let LedgerResponse::SnarkedLedgerContentsCopied(copied) = res {
+                    copied
+                } else {
+                    Err(format_response_error(
+                        "copy_snarked_ledger_contents_for_sync",
+                        res,
+                    ))
+                }
+            })
     }
 
     fn child_hashes_get(
@@ -393,17 +426,19 @@ impl TransitionFrontierSyncLedgerSnarkedService for LedgerManager {
         snarked_ledger_hash: LedgerHash,
         parent: &LedgerAddress,
     ) -> Result<(LedgerHash, LedgerHash), String> {
-        self.call(LedgerRequest::ChildHashesGet {
-            snarked_ledger_hash,
-            parent: parent.clone(),
-        })
-        .and_then(|res| {
-            if let LedgerResponse::ChildHashes(left, right) = res {
-                Ok((left, right))
-            } else {
-                Err(format_response_error("child_hashes_get", res))
-            }
-        })
+        self.ledger_manager()
+            .call_sync(LedgerRequest::ChildHashesGet {
+                snarked_ledger_hash,
+                parent: parent.clone(),
+            })
+            .map_err(|_| "child_hashes_get responder dropped".to_owned())
+            .and_then(|res| {
+                if let LedgerResponse::ChildHashes(Some(res)) = res {
+                    Ok(res)
+                } else {
+                    Err(format_response_error("child_hashes_get", res))
+                }
+            })
     }
 
     fn accounts_set(
@@ -412,220 +447,19 @@ impl TransitionFrontierSyncLedgerSnarkedService for LedgerManager {
         parent: &LedgerAddress,
         accounts: Vec<MinaBaseAccountBinableArgStableV2>,
     ) -> Result<LedgerHash, String> {
-        self.call(LedgerRequest::AccountsSet {
-            snarked_ledger_hash,
-            parent: parent.clone(),
-            accounts,
-        })
-        .and_then(|res| {
-            if let LedgerResponse::LedgerHash(hash) = res {
-                Ok(hash)
-            } else {
-                Err(format_response_error("accounts_set", res))
-            }
-        })
-    }
-}
-
-impl TransitionFrontierSyncLedgerStagedService for LedgerManager {
-    // TODO(tizoc): Only used for the current workaround to make staged ledger
-    // reconstruction async, can be removed when the ledger services are made async
-    fn staged_ledger_reconstruct_result_store(&self, staged_ledger_hash: LedgerHash) {
-        self.call(LedgerRequest::StagedLedgerReconstructResultStore { staged_ledger_hash })
+        self.ledger_manager()
+            .call_sync(LedgerRequest::AccountsSet {
+                snarked_ledger_hash,
+                parent: parent.clone(),
+                accounts,
+            })
+            .map_err(|_| "accounts_set responder dropped".to_owned())
             .and_then(|res| {
-                if let LedgerResponse::Success = res {
-                    Ok(())
+                if let LedgerResponse::AccountsSet(res) = res {
+                    res
                 } else {
-                    Err(format_response_error(
-                        "staged_ledger_reconstruct_result_store",
-                        res,
-                    ))
+                    Err(format_response_error("accounts_set", res))
                 }
             })
-            .expect("LedgerManager::staged_ledger_reconstruct_result_store: failed")
-    }
-
-    fn staged_ledger_reconstruct(
-        &self,
-        snarked_ledger_hash: LedgerHash,
-        parts: Option<Arc<StagedLedgerAuxAndPendingCoinbasesValid>>,
-    ) {
-        self.call(LedgerRequest::StagedLedgerReconstruct {
-            snarked_ledger_hash,
-            parts,
-        })
-        .and_then(|res| {
-            if let LedgerResponse::Success = res {
-                Ok(())
-            } else {
-                Err(format_response_error("staged_ledger_reconstruct", res))
-            }
-        })
-        .expect("LedgerManager::staged_ledger_reconstruct: failed")
-    }
-}
-
-impl TransitionFrontierService for LedgerManager {
-    fn block_apply(
-        &self,
-        block: ArcBlockWithHash,
-        pred_block: ArcBlockWithHash,
-    ) -> Result<(), String> {
-        self.call(LedgerRequest::BlockApply { block, pred_block })
-            .and_then(|res| {
-                if let LedgerResponse::Success = res {
-                    Ok(())
-                } else {
-                    Err(format_response_error("block_apply", res))
-                }
-            })
-    }
-
-    fn commit(
-        &self,
-        ledgers_to_keep: BTreeSet<LedgerHash>,
-        root_snarked_ledger_updates: TransitionFrontierRootSnarkedLedgerUpdates,
-        needed_protocol_states: BTreeMap<StateHash, MinaStateProtocolStateValueStableV2>,
-        new_root: &ArcBlockWithHash,
-        new_best_tip: &ArcBlockWithHash,
-    ) -> CommitResult {
-        self.call(LedgerRequest::Commit {
-            ledgers_to_keep,
-            root_snarked_ledger_updates,
-            needed_protocol_states,
-            new_root: new_root.clone(),
-            new_best_tip: new_best_tip.clone(),
-        })
-        .and_then(|res| {
-            if let LedgerResponse::CommitResult(result) = res {
-                Ok(result)
-            } else {
-                Err(format_response_error("commit", res))
-            }
-        })
-        .expect("LedgerManager::commit: unexpected error")
-    }
-
-    fn answer_ledger_query(
-        &self,
-        ledger_hash: LedgerHash,
-        query: MinaLedgerSyncLedgerQueryStableV1,
-    ) -> Option<MinaLedgerSyncLedgerAnswerStableV2> {
-        self.call(LedgerRequest::LedgerQuery { ledger_hash, query })
-            .and_then(|res| {
-                if let LedgerResponse::LedgerQueryResult(answer) = res {
-                    Ok(answer)
-                } else {
-                    Err(format_response_error("ledger_query", res))
-                }
-            })
-            .expect("LedgerManager::ledger_query: unexpected error")
-    }
-
-    fn staged_ledger_aux_and_pending_coinbase(
-        &self,
-        ledger_hash: LedgerHash,
-        protocol_states: BTreeMap<StateHash, MinaStateProtocolStateValueStableV2>,
-    ) -> Option<Arc<StagedLedgerAuxAndPendingCoinbases>> {
-        self.call(LedgerRequest::StagedLedgerAuxAndPendingCoinbase {
-            ledger_hash,
-            protocol_states,
-        })
-        .and_then(|res| {
-            if let LedgerResponse::LedgerAuxAndCoinbaseResult(result) = res {
-                Ok(result)
-            } else {
-                Err(format_response_error(
-                    "staged_ledger_aux_and_pending_coinbase",
-                    res,
-                ))
-            }
-        })
-        .expect("LedgerManager::staged_ledger_aux_and_pending_coinbase: unexpected error")
-    }
-}
-
-impl BlockProducerLedgerService for LedgerManager {
-    fn staged_ledger_diff_create(
-        &self,
-        pred_block: &ArcBlockWithHash,
-        won_slot: &BlockProducerWonSlot,
-        coinbase_receiver: &NonZeroCurvePoint,
-        completed_snarks: BTreeMap<SnarkJobId, Snark>,
-        supercharge_coinbase: bool,
-    ) -> Result<StagedLedgerDiffCreateOutput, String> {
-        self.call(LedgerRequest::StagedLedgerDiffCreate {
-            pred_block: pred_block.clone(),
-            won_slot: won_slot.clone(),
-            coinbase_receiver: coinbase_receiver.clone(),
-            completed_snarks,
-            supercharge_coinbase,
-        })
-        .and_then(|res| {
-            if let LedgerResponse::StagedLedgerDiff(result) = res {
-                Ok(result)
-            } else {
-                Err(format_response_error("staged_ledger_diff_create", res))
-            }
-        })
-    }
-
-    fn stake_proof_sparse_ledger(
-        &self,
-        staking_ledger: LedgerHash,
-        producer: NonZeroCurvePoint,
-        delegator: NonZeroCurvePoint,
-    ) -> Option<MinaBaseSparseLedgerBaseStableV2> {
-        self.call(LedgerRequest::StakeProofSparseLedger {
-            staking_ledger,
-            producer,
-            delegator,
-        })
-        .and_then(|res| {
-            if let LedgerResponse::SparseLedgerBase(result) = res {
-                Ok(result)
-            } else {
-                Err(format_response_error("stake_proof_sparse_ledger", res))
-            }
-        })
-        .expect("LedgerManager::stake_proof_sparse_ledger: unexpected error")
-    }
-}
-
-impl RpcLedgerService for LedgerManager {
-    fn scan_state_summary(
-        &self,
-        ledger_hash: LedgerHash,
-    ) -> Vec<Vec<RpcScanStateSummaryScanStateJob>> {
-        self.call(LedgerRequest::GetScanStateSummary { ledger_hash })
-            .and_then(|res| {
-                if let LedgerResponse::ScanStateSummary(summary) = res {
-                    Ok(summary)
-                } else {
-                    Err(format_response_error("scan_state_summary", res))
-                }
-            })
-            .expect("LedgerManager::scan_state_summary: unexpected error")
-    }
-}
-
-impl BlockProducerVrfEvaluatorLedgerService for LedgerManager {
-    fn get_producer_and_delegates(
-        &self,
-        ledger_hash: LedgerHash,
-        producer: AccountPublicKey,
-    ) -> DelegatorTable {
-        self.call(LedgerRequest::GetProducerAndDelegates {
-            ledger_hash,
-            producer,
-        })
-        .and_then(|res| {
-            if let LedgerResponse::ProducerAndDelegates(table) = res {
-                Ok(table)
-            } else {
-                Err(format_response_error("get_producer_and_delegates", res))
-            }
-        })
-        .expect("LedgerManager::get_producer_and_delegates: unexpected error")
     }
 }

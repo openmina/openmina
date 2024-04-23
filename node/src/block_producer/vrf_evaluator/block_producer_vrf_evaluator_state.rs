@@ -1,14 +1,11 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use mina_p2p_messages::v2::{
-    ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1,
-    ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1, EpochSeed, LedgerHash,
-};
+use mina_p2p_messages::v2;
 use openmina_core::block::ArcBlockWithHash;
 use serde::{Deserialize, Serialize};
 
-use crate::block_producer::BlockProducerWonSlot;
+use crate::{account::AccountPublicKey, block_producer::BlockProducerWonSlot};
 
 use super::{DelegatorTable, VrfEvaluatorInput, VrfWonSlotWithHash};
 
@@ -360,18 +357,30 @@ impl BlockProducerVrfEvaluatorState {
         self.won_slots
             .retain(|global_slot, _| cutoff_slot < *global_slot);
     }
+
+    /// If we need to construct delegator table, get it's inputs.
+    pub fn vrf_delegator_table_inputs(&self) -> Option<(&v2::LedgerHash, &AccountPublicKey)> {
+        match &self.status {
+            BlockProducerVrfEvaluatorStatus::EpochDelegatorTablePending {
+                staking_epoch_ledger_hash,
+                producer,
+                ..
+            } => Some((staking_epoch_ledger_hash, producer)),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct EpochData {
-    pub seed: EpochSeed,
-    pub ledger: LedgerHash,
+    pub seed: v2::EpochSeed,
+    pub ledger: v2::LedgerHash,
     pub delegator_table: Arc<DelegatorTable>,
     pub total_currency: u64,
 }
 
 impl EpochData {
-    pub fn new(seed: EpochSeed, ledger: LedgerHash, total_currency: u64) -> Self {
+    pub fn new(seed: v2::EpochSeed, ledger: v2::LedgerHash, total_currency: u64) -> Self {
         Self {
             seed,
             ledger,
@@ -381,8 +390,10 @@ impl EpochData {
     }
 }
 
-impl From<ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1> for EpochData {
-    fn from(value: ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1) -> Self {
+impl From<v2::ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1> for EpochData {
+    fn from(
+        value: v2::ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1,
+    ) -> Self {
         Self {
             seed: value.seed.into(),
             ledger: value.ledger.hash,
@@ -392,8 +403,8 @@ impl From<ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1> 
     }
 }
 
-impl From<ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1> for EpochData {
-    fn from(value: ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1) -> Self {
+impl From<v2::ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1> for EpochData {
+    fn from(value: v2::ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1) -> Self {
         Self {
             seed: value.seed.into(),
             ledger: value.ledger.hash,
@@ -424,18 +435,42 @@ pub enum BlockProducerVrfEvaluatorStatus {
         current_epoch_number: u32,
         is_current_epoch_evaluated: bool,
         is_next_epoch_evaluated: bool,
+
+        current_best_tip_slot: u32,
+        current_best_tip_height: u32,
+        current_best_tip_global_slot: u32,
+        next_epoch_first_slot: u32,
+        staking_epoch_data: EpochData,
+        producer: AccountPublicKey,
+        transition_frontier_size: u32,
     },
     /// Waiting for delegator table building
     EpochDelegatorTablePending {
         time: redux::Timestamp,
         epoch_number: u32,
-        staking_epoch_ledger_hash: LedgerHash,
+        staking_epoch_ledger_hash: v2::LedgerHash,
+
+        current_best_tip_slot: u32,
+        current_best_tip_height: u32,
+        current_best_tip_global_slot: u32,
+        next_epoch_first_slot: u32,
+        staking_epoch_data: EpochData,
+        producer: AccountPublicKey,
+        transition_frontier_size: u32,
     },
     /// Delegator table built successfully
     EpochDelegatorTableSuccess {
         time: redux::Timestamp,
         epoch_number: u32,
-        staking_epoch_ledger_hash: LedgerHash,
+        staking_epoch_ledger_hash: v2::LedgerHash,
+
+        current_best_tip_slot: u32,
+        current_best_tip_height: u32,
+        current_best_tip_global_slot: u32,
+        next_epoch_first_slot: u32,
+        staking_epoch_data: EpochData,
+        producer: AccountPublicKey,
+        transition_frontier_size: u32,
     },
     InitialSlotSelection {
         time: redux::Timestamp,
@@ -485,8 +520,9 @@ pub enum BlockProducerVrfEvaluatorStatus {
         current_best_tip_height: u32,
         last_evaluated_epoch: Option<u32>,
         last_epoch_block_height: Option<u32>,
-        staking_epoch_data: ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1,
-        next_epoch_data: ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1,
+        staking_epoch_data:
+            v2::ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1,
+        next_epoch_data: v2::ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1,
     },
     EpochBoundsCheck {
         time: redux::Timestamp,

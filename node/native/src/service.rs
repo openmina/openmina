@@ -1,41 +1,28 @@
-use std::collections::{BTreeMap, BTreeSet, VecDeque};
+use std::collections::{BTreeMap, VecDeque};
 
 use std::sync::{Arc, Mutex};
 
 use ledger::scan_state::scan_state::transaction_snark::{SokDigest, Statement};
 use libp2p_identity::Keypair;
-use mina_p2p_messages::v2::{
-    LedgerHash, LedgerProofProdStableV2, MinaBaseAccountBinableArgStableV2,
-    MinaBaseSparseLedgerBaseStableV2, MinaLedgerSyncLedgerAnswerStableV2,
-    MinaLedgerSyncLedgerQueryStableV1, MinaStateProtocolStateValueStableV2, NonZeroCurvePoint,
-    StateHash, TransactionSnarkWorkTStableV2Proofs,
-};
+use mina_p2p_messages::v2::{LedgerProofProdStableV2, TransactionSnarkWorkTStableV2Proofs};
 #[cfg(feature = "p2p-libp2p")]
 use node::p2p::service_impl::mio::MioService;
-use openmina_core::block::ArcBlockWithHash;
 use rand::prelude::*;
 use redux::ActionMeta;
 use serde::Serialize;
 
-use node::block_producer::vrf_evaluator::{BlockProducerVrfEvaluatorLedgerService, DelegatorTable};
-use node::block_producer::{
-    BlockProducerLedgerService, BlockProducerWonSlot, StagedLedgerDiffCreateOutput,
-};
 use node::core::channels::{mpsc, oneshot};
 use node::core::invariants::InvariantsState;
 use node::core::snark::{Snark, SnarkJobId};
 use node::event_source::Event;
 use node::ledger::ledger_manager::LedgerManager;
-use node::ledger::LedgerAddress;
-use node::p2p::channels::rpc::StagedLedgerAuxAndPendingCoinbases;
+use node::ledger::LedgerService;
 use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 use node::p2p::service_impl::webrtc::{Cmd, P2pServiceWebrtc, PeerState};
 use node::p2p::service_impl::webrtc_with_libp2p::P2pServiceWebrtcWithLibp2p;
 use node::p2p::service_impl::TaskSpawner;
 use node::p2p::{P2pCryptoService, PeerId};
-use node::rpc::{
-    RpcLedgerService, RpcP2pConnectionOutgoingResponse, RpcRequest, RpcScanStateSummaryScanStateJob,
-};
+use node::rpc::{RpcP2pConnectionOutgoingResponse, RpcRequest};
 use node::service::{EventSourceService, Recorder, TransitionFrontierGenesisService};
 use node::snark::block_verify::{
     SnarkBlockVerifyError, SnarkBlockVerifyId, SnarkBlockVerifyService, VerifiableBlockWithHash,
@@ -45,18 +32,7 @@ use node::snark::{SnarkEvent, VerifierIndex, VerifierSRS};
 use node::snark_pool::{JobState, SnarkPoolService};
 use node::stats::Stats;
 use node::transition_frontier::genesis::GenesisConfig;
-use node::transition_frontier::sync::{
-    ledger::{
-        snarked::TransitionFrontierSyncLedgerSnarkedService,
-        staged::{
-            StagedLedgerAuxAndPendingCoinbasesValid, TransitionFrontierSyncLedgerStagedService,
-        },
-    },
-    TransitionFrontierRootSnarkedLedgerUpdates,
-};
-use node::transition_frontier::{CommitResult, TransitionFrontierService};
 use node::ActionKind;
-use openmina_node_account::AccountPublicKey;
 
 use crate::block_producer::BlockProducerService;
 use crate::ext_snark_worker;
@@ -103,156 +79,9 @@ impl ReplayerState {
     }
 }
 
-impl TransitionFrontierSyncLedgerSnarkedService for NodeService {
-    fn compute_snarked_ledger_hashes(
-        &self,
-        snarked_ledger_hash: &LedgerHash,
-    ) -> Result<(), String> {
-        self.ledger_manager
-            .compute_snarked_ledger_hashes(snarked_ledger_hash)
-    }
-
-    fn copy_snarked_ledger_contents_for_sync(
-        &self,
-        origin_snarked_ledger_hash: LedgerHash,
-        target_snarked_ledger_hash: LedgerHash,
-        overwrite: bool,
-    ) -> Result<bool, String> {
-        self.ledger_manager.copy_snarked_ledger_contents_for_sync(
-            origin_snarked_ledger_hash,
-            target_snarked_ledger_hash,
-            overwrite,
-        )
-    }
-
-    fn child_hashes_get(
-        &self,
-        snarked_ledger_hash: LedgerHash,
-        parent: &LedgerAddress,
-    ) -> Result<(LedgerHash, LedgerHash), String> {
-        self.ledger_manager
-            .child_hashes_get(snarked_ledger_hash, parent)
-    }
-
-    fn accounts_set(
-        &self,
-        snarked_ledger_hash: LedgerHash,
-        parent: &LedgerAddress,
-        accounts: Vec<MinaBaseAccountBinableArgStableV2>,
-    ) -> Result<LedgerHash, String> {
-        self.ledger_manager
-            .accounts_set(snarked_ledger_hash, parent, accounts)
-    }
-}
-
-impl TransitionFrontierSyncLedgerStagedService for NodeService {
-    // TODO(tizoc): Only used for the current workaround to make staged ledger
-    // reconstruction async, can be removed when the ledger services are made async
-    fn staged_ledger_reconstruct_result_store(&self, staged_ledger_hash: LedgerHash) {
-        self.ledger_manager
-            .staged_ledger_reconstruct_result_store(staged_ledger_hash)
-    }
-
-    fn staged_ledger_reconstruct(
-        &self,
-        snarked_ledger_hash: LedgerHash,
-        parts: Option<Arc<StagedLedgerAuxAndPendingCoinbasesValid>>,
-    ) {
-        self.ledger_manager
-            .staged_ledger_reconstruct(snarked_ledger_hash, parts)
-    }
-}
-
-impl TransitionFrontierService for NodeService {
-    fn block_apply(
-        &self,
-        block: ArcBlockWithHash,
-        pred_block: ArcBlockWithHash,
-    ) -> Result<(), String> {
-        self.ledger_manager.block_apply(block, pred_block)
-    }
-
-    fn commit(
-        &self,
-        ledgers_to_keep: BTreeSet<LedgerHash>,
-        root_snarked_ledger_updates: TransitionFrontierRootSnarkedLedgerUpdates,
-        needed_protocol_states: BTreeMap<StateHash, MinaStateProtocolStateValueStableV2>,
-        new_root: &ArcBlockWithHash,
-        new_best_tip: &ArcBlockWithHash,
-    ) -> CommitResult {
-        self.ledger_manager.commit(
-            ledgers_to_keep,
-            root_snarked_ledger_updates,
-            needed_protocol_states,
-            new_root,
-            new_best_tip,
-        )
-    }
-
-    fn answer_ledger_query(
-        &self,
-        ledger_hash: LedgerHash,
-        query: MinaLedgerSyncLedgerQueryStableV1,
-    ) -> Option<MinaLedgerSyncLedgerAnswerStableV2> {
-        self.ledger_manager.answer_ledger_query(ledger_hash, query)
-    }
-
-    fn staged_ledger_aux_and_pending_coinbase(
-        &self,
-        ledger_hash: LedgerHash,
-        protocol_states: BTreeMap<StateHash, MinaStateProtocolStateValueStableV2>,
-    ) -> Option<Arc<StagedLedgerAuxAndPendingCoinbases>> {
-        self.ledger_manager
-            .staged_ledger_aux_and_pending_coinbase(ledger_hash, protocol_states)
-    }
-}
-
-impl BlockProducerLedgerService for NodeService {
-    fn staged_ledger_diff_create(
-        &self,
-        pred_block: &ArcBlockWithHash,
-        won_slot: &BlockProducerWonSlot,
-        coinbase_receiver: &NonZeroCurvePoint,
-        completed_snarks: BTreeMap<SnarkJobId, Snark>,
-        supercharge_coinbase: bool,
-    ) -> Result<StagedLedgerDiffCreateOutput, String> {
-        self.ledger_manager.staged_ledger_diff_create(
-            pred_block,
-            won_slot,
-            coinbase_receiver,
-            completed_snarks,
-            supercharge_coinbase,
-        )
-    }
-
-    fn stake_proof_sparse_ledger(
-        &self,
-        staking_ledger: LedgerHash,
-        producer: NonZeroCurvePoint,
-        delegator: NonZeroCurvePoint,
-    ) -> Option<MinaBaseSparseLedgerBaseStableV2> {
-        self.ledger_manager
-            .stake_proof_sparse_ledger(staking_ledger, producer, delegator)
-    }
-}
-
-impl RpcLedgerService for NodeService {
-    fn scan_state_summary(
-        &self,
-        ledger_hash: LedgerHash,
-    ) -> Vec<Vec<RpcScanStateSummaryScanStateJob>> {
-        self.ledger_manager.scan_state_summary(ledger_hash)
-    }
-}
-
-impl BlockProducerVrfEvaluatorLedgerService for NodeService {
-    fn get_producer_and_delegates(
-        &self,
-        ledger_hash: LedgerHash,
-        producer: AccountPublicKey,
-    ) -> DelegatorTable {
-        self.ledger_manager
-            .get_producer_and_delegates(ledger_hash, producer)
+impl LedgerService for NodeService {
+    fn ledger_manager(&self) -> &LedgerManager {
+        &self.ledger_manager
     }
 }
 

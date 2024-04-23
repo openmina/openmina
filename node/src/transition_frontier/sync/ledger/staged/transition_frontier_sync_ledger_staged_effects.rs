@@ -1,15 +1,13 @@
 use redux::ActionMeta;
 
+use crate::ledger::write::{LedgerWriteAction, LedgerWriteRequest};
 use crate::p2p::channels::rpc::{P2pChannelsRpcAction, P2pRpcRequest};
 use crate::Store;
 
-use super::{TransitionFrontierSyncLedgerStagedAction, TransitionFrontierSyncLedgerStagedService};
+use super::TransitionFrontierSyncLedgerStagedAction;
 
 impl TransitionFrontierSyncLedgerStagedAction {
-    pub fn effects<S: redux::Service>(self, _: &ActionMeta, store: &mut Store<S>)
-    where
-        S: TransitionFrontierSyncLedgerStagedService,
-    {
+    pub fn effects<S: redux::Service>(self, _: &ActionMeta, store: &mut Store<S>) {
         match self {
             TransitionFrontierSyncLedgerStagedAction::PartsFetchPending => {
                 store.dispatch(TransitionFrontierSyncLedgerStagedAction::PartsPeerFetchInit);
@@ -87,19 +85,16 @@ impl TransitionFrontierSyncLedgerStagedAction {
                 let snarked_ledger_hash = target.snarked_ledger_hash.clone();
                 let parts = parts.cloned();
 
-                store.dispatch(TransitionFrontierSyncLedgerStagedAction::ReconstructPending);
-
-                store
-                    .service
-                    .staged_ledger_reconstruct(snarked_ledger_hash, parts);
+                if store.dispatch(LedgerWriteAction::Init {
+                    request: LedgerWriteRequest::StagedLedgerReconstruct {
+                        snarked_ledger_hash,
+                        parts,
+                    },
+                }) {
+                    store.dispatch(TransitionFrontierSyncLedgerStagedAction::ReconstructPending);
+                }
             }
-            TransitionFrontierSyncLedgerStagedAction::ReconstructSuccess { ledger_hash } => {
-                // TODO: Only used for the current workaround to make staged ledger
-                // reconstruction async, can be removed when the ledger services are made async
-                store
-                    .service
-                    .staged_ledger_reconstruct_result_store(ledger_hash);
-
+            TransitionFrontierSyncLedgerStagedAction::ReconstructSuccess { .. } => {
                 store.dispatch(TransitionFrontierSyncLedgerStagedAction::Success);
             }
             _ => {}
