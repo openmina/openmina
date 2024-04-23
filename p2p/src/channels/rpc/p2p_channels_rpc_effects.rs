@@ -62,7 +62,8 @@ impl P2pChannelsRpcAction {
             P2pChannelsRpcAction::Pending { .. }
             | P2pChannelsRpcAction::Ready { .. }
             | P2pChannelsRpcAction::Timeout { .. }
-            | P2pChannelsRpcAction::RequestReceived { .. } => {}
+            | P2pChannelsRpcAction::RequestReceived { .. }
+            | P2pChannelsRpcAction::ResponsePending { .. } => {}
         }
     }
 }

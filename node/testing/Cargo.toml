@@ -52,7 +52,6 @@ openmina-core = { path = "../../core" }
 node = { path = "../../node" }
 openmina-node-invariants = { path = "../../node/invariants" }
 openmina-node-native = { path = "../../node/native" }
-openmina-node-account = { path = "../../node/account" }
 chrono = "0.4.34"
 hex = "0.4.3"
 

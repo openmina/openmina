@@ -5,8 +5,8 @@ use std::{
 };
 
 use ledger::BaseLedger;
+use node::account::{AccountPublicKey, AccountSecretKey};
 use node::{event_source::Event, ledger::LedgerService, ActionKind, ActionWithMeta, State};
-use openmina_node_account::{AccountPublicKey, AccountSecretKey};
 use time::OffsetDateTime;
 
 use crate::{

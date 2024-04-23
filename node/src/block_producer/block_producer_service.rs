@@ -1,20 +1,12 @@
-use std::collections::BTreeMap;
-
 use mina_p2p_messages::v2::{
-    ConsensusBodyReferenceStableV1, LedgerHash, LedgerProofProdStableV2,
-    MinaBasePendingCoinbaseUpdateStableV1, MinaBasePendingCoinbaseWitnessStableV2,
-    MinaBaseSparseLedgerBaseStableV2, MinaBaseStagedLedgerHashStableV1, NonZeroCurvePoint,
-    ProverExtendBlockchainInputStableV2, StagedLedgerDiffDiffStableV2, StateHash,
-};
-use openmina_core::{
-    block::ArcBlockWithHash,
-    snark::{Snark, SnarkJobId},
+    ConsensusBodyReferenceStableV1, LedgerProofProdStableV2, MinaBasePendingCoinbaseUpdateStableV1,
+    MinaBasePendingCoinbaseWitnessStableV2, MinaBaseSparseLedgerBaseStableV2,
+    MinaBaseStagedLedgerHashStableV1, ProverExtendBlockchainInputStableV2,
+    StagedLedgerDiffDiffStableV2, StateHash,
 };
 use serde::{Deserialize, Serialize};
 
-use openmina_node_account::AccountSecretKey;
-
-use super::BlockProducerWonSlot;
+use crate::account::AccountSecretKey;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct StagedLedgerDiffCreateOutput {
@@ -25,27 +17,10 @@ pub struct StagedLedgerDiffCreateOutput {
     pub emitted_ledger_proof: Option<Box<LedgerProofProdStableV2>>,
     pub pending_coinbase_update: MinaBasePendingCoinbaseUpdateStableV1,
     pub pending_coinbase_witness: MinaBasePendingCoinbaseWitnessStableV2,
+    pub stake_proof_sparse_ledger: MinaBaseSparseLedgerBaseStableV2,
 }
 
-pub trait BlockProducerLedgerService: redux::Service {
-    fn staged_ledger_diff_create(
-        &self,
-        pred_block: &ArcBlockWithHash,
-        won_slot: &BlockProducerWonSlot,
-        coinbase_receiver: &NonZeroCurvePoint,
-        completed_snarks: BTreeMap<SnarkJobId, Snark>,
-        supercharge_coinbase: bool,
-    ) -> Result<StagedLedgerDiffCreateOutput, String>;
-
-    fn stake_proof_sparse_ledger(
-        &self,
-        staking_ledger: LedgerHash,
-        producer: NonZeroCurvePoint,
-        delegator: NonZeroCurvePoint,
-    ) -> Option<MinaBaseSparseLedgerBaseStableV2>;
-}
-
-pub trait BlockProducerService: BlockProducerLedgerService {
+pub trait BlockProducerService {
     fn keypair(&mut self) -> Option<AccountSecretKey>;
 
     fn prove(&mut self, block_hash: StateHash, input: Box<ProverExtendBlockchainInputStableV2>);

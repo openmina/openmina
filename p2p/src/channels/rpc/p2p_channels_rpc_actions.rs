@@ -41,6 +41,13 @@ pub enum P2pChannelsRpcAction {
         id: P2pRpcId,
         request: P2pRpcRequest,
     },
+    /// Response for the request sent by peer is pending. Dispatched when
+    /// we need data from an async component, like ledger, for constructing
+    /// the response.
+    ResponsePending {
+        peer_id: PeerId,
+        id: P2pRpcId,
+    },
     ResponseSend {
         peer_id: PeerId,
         id: P2pRpcId,
@@ -58,6 +65,7 @@ impl P2pChannelsRpcAction {
             | Self::Timeout { peer_id, .. }
             | Self::ResponseReceived { peer_id, .. }
             | Self::RequestReceived { peer_id, .. }
+            | Self::ResponsePending { peer_id, .. }
             | Self::ResponseSend { peer_id, .. } => peer_id,
         }
     }
@@ -110,6 +118,14 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsRpcAction {
                     P2pChannelsRpcState::Ready { remote, .. } => {
                         remote.pending_requests.len() < MAX_P2P_RPC_REMOTE_CONCURRENT_REQUESTS &&
                         remote.pending_requests.iter().all(|v| v.id != *id)
+                    },
+                    _ => false,
+                })
+            },
+            P2pChannelsRpcAction::ResponsePending { peer_id, id } => {
+                state.get_ready_peer(peer_id).map_or(false, |p| match &p.channels.rpc {
+                    P2pChannelsRpcState::Ready { remote, .. } => {
+                        remote.pending_requests.iter().any(|v| v.id == *id && !v.is_pending)
                     },
                     _ => false,
                 })

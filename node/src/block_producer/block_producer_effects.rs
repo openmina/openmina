@@ -3,6 +3,7 @@ use mina_p2p_messages::v2::{
     MinaStateSnarkTransitionValueStableV2, ProverExtendBlockchainInputStableV2,
 };
 
+use crate::ledger::write::{LedgerWriteAction, LedgerWriteRequest};
 use crate::transition_frontier::sync::TransitionFrontierSyncAction;
 use crate::Store;
 
@@ -94,11 +95,16 @@ pub fn block_producer_effects<S: crate::Service>(
         }
         BlockProducerAction::StagedLedgerDiffCreateInit => {
             let state = store.state.get();
-            let Some((won_slot, pred_block, coinbase_receiver)) = None.or_else(|| {
+            let Some((won_slot, pred_block, producer, coinbase_receiver)) = None.or_else(|| {
                 let pred_block = state.block_producer.current_parent_chain()?.last()?;
                 let won_slot = state.block_producer.current_won_slot()?;
-                let coinbase_receiver = state.block_producer.config()?.coinbase_receiver();
-                Some((won_slot, pred_block, coinbase_receiver))
+                let config = state.block_producer.config()?;
+                Some((
+                    won_slot,
+                    pred_block,
+                    &config.pub_key,
+                    config.coinbase_receiver(),
+                ))
             }) else {
                 return;
             };
@@ -111,20 +117,20 @@ pub fn block_producer_effects<S: crate::Service>(
             // TODO(binier)
             let supercharge_coinbase = true;
 
-            // TODO(binier): error handling
-            let output = store
-                .service
-                .staged_ledger_diff_create(
-                    pred_block,
-                    won_slot,
-                    coinbase_receiver,
+            if store.dispatch(LedgerWriteAction::Init {
+                request: LedgerWriteRequest::StagedLedgerDiffCreate {
+                    pred_block: pred_block.clone(),
+                    global_slot_since_genesis: won_slot
+                        .global_slot_since_genesis(pred_block.global_slot_diff()),
+                    producer: producer.clone(),
+                    delegator: won_slot.delegator.0.clone(),
+                    coinbase_receiver: coinbase_receiver.clone(),
                     completed_snarks,
                     supercharge_coinbase,
-                )
-                .unwrap();
-
-            store.dispatch(BlockProducerAction::StagedLedgerDiffCreatePending);
-            store.dispatch(BlockProducerAction::StagedLedgerDiffCreateSuccess { output });
+                },
+            }) {
+                store.dispatch(BlockProducerAction::StagedLedgerDiffCreatePending);
+            }
         }
         BlockProducerAction::StagedLedgerDiffCreatePending => {}
         BlockProducerAction::StagedLedgerDiffCreateSuccess { .. } => {
@@ -142,6 +148,7 @@ pub fn block_producer_effects<S: crate::Service>(
                     emitted_ledger_proof,
                     pending_coinbase_update,
                     pending_coinbase_witness,
+                    stake_proof_sparse_ledger,
                     block,
                     block_hash,
                     ..
@@ -151,14 +158,6 @@ pub fn block_producer_effects<S: crate::Service>(
                 };
 
                 let pred_block = chain.last()?;
-                let staking_epoch_ledger = block
-                    .protocol_state
-                    .body
-                    .consensus_state
-                    .staking_epoch_data
-                    .ledger
-                    .hash
-                    .clone();
 
                 let producer_public_key = block
                     .protocol_state
@@ -194,13 +193,7 @@ pub fn block_producer_effects<S: crate::Service>(
                             .consensus_state
                             .coinbase_receiver
                             .clone(),
-                        ledger: service
-                            .stake_proof_sparse_ledger(
-                                staking_epoch_ledger,
-                                producer_public_key.clone(),
-                                won_slot.delegator.0.clone(),
-                            )
-                            .unwrap(),
+                        ledger: stake_proof_sparse_ledger.clone(),
                         producer_private_key: service.keypair()?.into(),
                         producer_public_key,
                     },

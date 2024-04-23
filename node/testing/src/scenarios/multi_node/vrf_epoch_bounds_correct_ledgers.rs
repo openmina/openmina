@@ -4,12 +4,12 @@ use ledger::AccountIndex;
 use mina_p2p_messages::v2::{
     CurrencyFeeStableV1, UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
 };
+use node::account::AccountSecretKey;
 use node::{
     block_producer::vrf_evaluator::{BlockProducerVrfEvaluatorStatus, EpochContext},
     p2p::P2pTimeouts,
     ActionKind, BlockProducerConfig, SnarkerConfig, SnarkerStrategy,
 };
-use openmina_node_account::AccountSecretKey;
 
 use crate::{
     node::{RustNodeBlockProducerTestingConfig, RustNodeTestingConfig},

@@ -2,7 +2,7 @@ mod config;
 pub use config::{ClusterConfig, ProofKind};
 
 mod p2p_task_spawner;
-use openmina_node_account::{AccountPublicKey, AccountSecretKey};
+use node::account::{AccountPublicKey, AccountSecretKey};
 pub use p2p_task_spawner::P2pTaskSpawner;
 
 mod node_id;
@@ -337,7 +337,11 @@ impl Cluster {
             })
             .unwrap();
 
-        let ledger = LedgerCtx::default();
+        let mut ledger = LedgerCtx::default();
+
+        // TODO(tizoc): Only used for the current workaround to make staged ledger
+        // reconstruction async, can be removed when the ledger services are made async
+        ledger.set_event_sender(event_sender.clone());
 
         let mut real_service = NodeService {
             rng: StdRng::seed_from_u64(0),

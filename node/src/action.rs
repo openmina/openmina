@@ -7,6 +7,7 @@ pub use crate::block_producer::BlockProducerAction;
 pub use crate::consensus::ConsensusAction;
 pub use crate::event_source::EventSourceAction;
 pub use crate::external_snark_worker::ExternalSnarkWorkerAction;
+pub use crate::ledger::LedgerAction;
 pub use crate::p2p::P2pAction;
 pub use crate::rpc::RpcAction;
 pub use crate::snark::SnarkAction;
@@ -24,6 +25,7 @@ pub enum Action {
     EventSource(EventSourceAction),
 
     P2p(P2pAction),
+    Ledger(LedgerAction),
     Snark(SnarkAction),
     Consensus(ConsensusAction),
     TransitionFrontier(TransitionFrontierAction),

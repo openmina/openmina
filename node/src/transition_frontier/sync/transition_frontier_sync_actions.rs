@@ -4,6 +4,7 @@ use openmina_core::consensus::consensus_take;
 use openmina_core::ActionEvent;
 use serde::{Deserialize, Serialize};
 
+use crate::ledger::write::CommitResult;
 use crate::p2p::channels::rpc::P2pRpcId;
 use crate::p2p::PeerId;
 use crate::transition_frontier::sync::TransitionFrontierSyncLedgerPending;
@@ -91,6 +92,11 @@ pub enum TransitionFrontierSyncAction {
         hash: StateHash,
     },
     BlocksSuccess,
+    CommitInit,
+    CommitPending,
+    CommitSuccess {
+        result: CommitResult,
+    },
     /// Synchronization to a target ledger
     Ledger(TransitionFrontierSyncLedgerAction),
 }
@@ -112,6 +118,7 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncAction {
             }
             TransitionFrontierSyncAction::BestTipUpdate { best_tip, .. } => {
                 (state.transition_frontier.sync.is_pending() || state.transition_frontier.sync.is_synced())
+                    && !matches!(&state.transition_frontier.sync, TransitionFrontierSyncState::CommitPending { .. } | TransitionFrontierSyncState::CommitSuccess { .. })
                 && state
                     .transition_frontier
                     .best_tip()
@@ -314,6 +321,18 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncAction {
                 }
                 _ => false,
             },
+            TransitionFrontierSyncAction::CommitInit => matches!(
+                state.transition_frontier.sync,
+                TransitionFrontierSyncState::BlocksSuccess { .. },
+            ),
+            TransitionFrontierSyncAction::CommitPending => matches!(
+                state.transition_frontier.sync,
+                TransitionFrontierSyncState::BlocksSuccess { .. },
+            ),
+            TransitionFrontierSyncAction::CommitSuccess { .. } => matches!(
+                state.transition_frontier.sync,
+                TransitionFrontierSyncState::CommitPending { .. },
+            ),
             TransitionFrontierSyncAction::Ledger(action) => action.is_enabled(state, time),
         }
     }

@@ -1,3 +1,4 @@
+use openmina_core::block::ArcBlockWithHash;
 use openmina_core::snark::SnarkJobId;
 use serde::{Deserialize, Serialize};
 
@@ -6,7 +7,10 @@ use crate::p2p::connection::incoming::P2pConnectionIncomingInitOpts;
 use crate::p2p::connection::outgoing::{P2pConnectionOutgoingError, P2pConnectionOutgoingInitOpts};
 use crate::p2p::connection::P2pConnectionResponse;
 
-use super::{ActionStatsQuery, RpcId, RpcScanStateSummaryGetQuery, SyncStatsQuery};
+use super::{
+    ActionStatsQuery, RpcId, RpcScanStateSummaryGetQuery, RpcScanStateSummaryScanStateJob,
+    SyncStatsQuery,
+};
 
 pub type RpcActionWithMeta = redux::ActionWithMeta<RpcAction>;
 pub type RpcActionWithMetaRef<'a> = redux::ActionWithMeta<&'a RpcAction>;
@@ -69,9 +73,20 @@ pub enum RpcAction {
         rpc_id: RpcId,
     },
 
-    ScanStateSummaryGet {
+    ScanStateSummaryGetInit {
         rpc_id: RpcId,
         query: RpcScanStateSummaryGetQuery,
+    },
+    ScanStateSummaryLedgerGetInit {
+        rpc_id: RpcId,
+    },
+    ScanStateSummaryGetPending {
+        rpc_id: RpcId,
+        block: Option<ArcBlockWithHash>,
+    },
+    ScanStateSummaryGetSuccess {
+        rpc_id: RpcId,
+        scan_state: Vec<Vec<RpcScanStateSummaryScanStateJob>>,
     },
 
     SnarkPoolAvailableJobsGet {
@@ -166,7 +181,22 @@ impl redux::EnablingCondition<crate::State> for RpcAction {
                 .requests
                 .get(rpc_id)
                 .map_or(false, |v| v.status.is_pending()),
-            RpcAction::ScanStateSummaryGet { .. } => true,
+            RpcAction::ScanStateSummaryGetInit { .. } => true,
+            RpcAction::ScanStateSummaryLedgerGetInit { rpc_id, .. } => state
+                .rpc
+                .requests
+                .get(rpc_id)
+                .map_or(false, |v| v.status.is_init()),
+            RpcAction::ScanStateSummaryGetPending { rpc_id, .. } => state
+                .rpc
+                .requests
+                .get(rpc_id)
+                .map_or(false, |v| v.status.is_init()),
+            RpcAction::ScanStateSummaryGetSuccess { rpc_id, .. } => state
+                .rpc
+                .requests
+                .get(rpc_id)
+                .map_or(false, |v| v.status.is_pending()),
             RpcAction::SnarkPoolAvailableJobsGet { .. } => true,
             RpcAction::SnarkPoolJobGet { .. } => true,
             RpcAction::SnarkerConfigGet { .. } => true,

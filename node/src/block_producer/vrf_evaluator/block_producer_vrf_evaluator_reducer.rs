@@ -89,6 +89,13 @@ impl BlockProducerVrfEvaluatorState {
             }
             BlockProducerVrfEvaluatorAction::InitializeEpochEvaluation {
                 current_epoch_number,
+                current_best_tip_slot,
+                current_best_tip_height,
+                current_best_tip_global_slot,
+                next_epoch_first_slot,
+                staking_epoch_data,
+                producer,
+                transition_frontier_size,
                 ..
             } => {
                 self.status = BlockProducerVrfEvaluatorStatus::ReadyToEvaluate {
@@ -96,28 +103,75 @@ impl BlockProducerVrfEvaluatorState {
                     current_epoch_number: *current_epoch_number,
                     is_current_epoch_evaluated: self.is_epoch_evaluated(*current_epoch_number),
                     is_next_epoch_evaluated: self.is_epoch_evaluated(current_epoch_number + 1),
+                    current_best_tip_slot: *current_best_tip_slot,
+                    current_best_tip_height: *current_best_tip_height,
+                    current_best_tip_global_slot: *current_best_tip_global_slot,
+                    next_epoch_first_slot: *next_epoch_first_slot,
+                    staking_epoch_data: staking_epoch_data.clone(),
+                    producer: producer.clone(),
+                    transition_frontier_size: *transition_frontier_size,
                 }
             }
-            BlockProducerVrfEvaluatorAction::BeginDelegatorTableConstruction {
-                current_epoch_number,
-                staking_epoch_data,
-                ..
-            } => {
+            BlockProducerVrfEvaluatorAction::BeginDelegatorTableConstruction => {
+                let BlockProducerVrfEvaluatorStatus::ReadyToEvaluate {
+                    current_epoch_number,
+                    current_best_tip_slot,
+                    current_best_tip_height,
+                    current_best_tip_global_slot,
+                    next_epoch_first_slot,
+                    staking_epoch_data,
+                    producer,
+                    transition_frontier_size,
+                    ..
+                } = &self.status
+                else {
+                    return;
+                };
                 self.status = BlockProducerVrfEvaluatorStatus::EpochDelegatorTablePending {
                     time: meta.time(),
                     epoch_number: *current_epoch_number,
                     staking_epoch_ledger_hash: staking_epoch_data.ledger.clone(),
+                    current_best_tip_slot: *current_best_tip_slot,
+                    current_best_tip_height: *current_best_tip_height,
+                    current_best_tip_global_slot: *current_best_tip_global_slot,
+                    next_epoch_first_slot: *next_epoch_first_slot,
+                    staking_epoch_data: staking_epoch_data.clone(),
+                    producer: producer.clone(),
+                    transition_frontier_size: *transition_frontier_size,
                 }
             }
             BlockProducerVrfEvaluatorAction::FinalizeDelegatorTableConstruction {
-                current_epoch_number,
-                staking_epoch_data,
-                ..
+                delegator_table,
             } => {
+                let BlockProducerVrfEvaluatorStatus::EpochDelegatorTablePending {
+                    epoch_number,
+                    current_best_tip_slot,
+                    current_best_tip_height,
+                    current_best_tip_global_slot,
+                    next_epoch_first_slot,
+                    staking_epoch_data,
+                    producer,
+                    transition_frontier_size,
+                    ..
+                } = &self.status
+                else {
+                    return;
+                };
+
+                let mut staking_epoch_data = staking_epoch_data.clone();
+                staking_epoch_data.delegator_table = delegator_table.clone();
+
                 self.status = BlockProducerVrfEvaluatorStatus::EpochDelegatorTableSuccess {
                     time: meta.time(),
-                    epoch_number: *current_epoch_number,
+                    epoch_number: *epoch_number,
                     staking_epoch_ledger_hash: staking_epoch_data.ledger.clone(),
+                    current_best_tip_slot: *current_best_tip_slot,
+                    current_best_tip_height: *current_best_tip_height,
+                    current_best_tip_global_slot: *current_best_tip_global_slot,
+                    next_epoch_first_slot: *next_epoch_first_slot,
+                    staking_epoch_data: staking_epoch_data.clone(),
+                    producer: producer.clone(),
+                    transition_frontier_size: *transition_frontier_size,
                 }
             }
             BlockProducerVrfEvaluatorAction::BeginEpochEvaluation {

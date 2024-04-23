@@ -1,10 +1,8 @@
-use mina_p2p_messages::v2::{
-    ConsensusBodyReferenceStableV1, LedgerProofProdStableV2, MinaBasePendingCoinbaseUpdateStableV1,
-    MinaBasePendingCoinbaseWitnessStableV2, MinaBaseProofStableV2,
-    MinaBaseStagedLedgerHashStableV1, NonZeroCurvePoint, StagedLedgerDiffDiffStableV2, StateHash,
-};
+use mina_p2p_messages::v2;
 use openmina_core::{block::ArcBlockWithHash, consensus::consensus_take};
 use serde::{Deserialize, Serialize};
+
+use crate::account::AccountPublicKey;
 
 use super::{
     vrf_evaluator::BlockProducerVrfEvaluatorState, BlockProducerConfig, BlockProducerWonSlot,
@@ -58,35 +56,38 @@ pub enum BlockProducerCurrentState {
         won_slot: BlockProducerWonSlot,
         /// Chain that we are extending.
         chain: Vec<ArcBlockWithHash>,
-        diff: StagedLedgerDiffDiffStableV2,
+        diff: v2::StagedLedgerDiffDiffStableV2,
         /// `protocol_state.blockchain_state.body_reference`
-        diff_hash: ConsensusBodyReferenceStableV1,
-        staged_ledger_hash: MinaBaseStagedLedgerHashStableV1,
-        emitted_ledger_proof: Option<Box<LedgerProofProdStableV2>>,
-        pending_coinbase_update: MinaBasePendingCoinbaseUpdateStableV1,
-        pending_coinbase_witness: MinaBasePendingCoinbaseWitnessStableV2,
+        diff_hash: v2::ConsensusBodyReferenceStableV1,
+        staged_ledger_hash: v2::MinaBaseStagedLedgerHashStableV1,
+        emitted_ledger_proof: Option<Box<v2::LedgerProofProdStableV2>>,
+        pending_coinbase_update: v2::MinaBasePendingCoinbaseUpdateStableV1,
+        pending_coinbase_witness: v2::MinaBasePendingCoinbaseWitnessStableV2,
+        stake_proof_sparse_ledger: v2::MinaBaseSparseLedgerBaseStableV2,
     },
     BlockUnprovenBuilt {
         time: redux::Timestamp,
         won_slot: BlockProducerWonSlot,
         /// Chain that we are extending.
         chain: Vec<ArcBlockWithHash>,
-        emitted_ledger_proof: Option<Box<LedgerProofProdStableV2>>,
-        pending_coinbase_update: MinaBasePendingCoinbaseUpdateStableV1,
-        pending_coinbase_witness: MinaBasePendingCoinbaseWitnessStableV2,
+        emitted_ledger_proof: Option<Box<v2::LedgerProofProdStableV2>>,
+        pending_coinbase_update: v2::MinaBasePendingCoinbaseUpdateStableV1,
+        pending_coinbase_witness: v2::MinaBasePendingCoinbaseWitnessStableV2,
+        stake_proof_sparse_ledger: v2::MinaBaseSparseLedgerBaseStableV2,
         block: BlockWithoutProof,
-        block_hash: StateHash,
+        block_hash: v2::StateHash,
     },
     BlockProvePending {
         time: redux::Timestamp,
         won_slot: BlockProducerWonSlot,
         /// Chain that we are extending.
         chain: Vec<ArcBlockWithHash>,
-        emitted_ledger_proof: Option<Box<LedgerProofProdStableV2>>,
-        pending_coinbase_update: MinaBasePendingCoinbaseUpdateStableV1,
-        pending_coinbase_witness: MinaBasePendingCoinbaseWitnessStableV2,
+        emitted_ledger_proof: Option<Box<v2::LedgerProofProdStableV2>>,
+        pending_coinbase_update: v2::MinaBasePendingCoinbaseUpdateStableV1,
+        pending_coinbase_witness: v2::MinaBasePendingCoinbaseWitnessStableV2,
+        stake_proof_sparse_ledger: v2::MinaBaseSparseLedgerBaseStableV2,
         block: BlockWithoutProof,
-        block_hash: StateHash,
+        block_hash: v2::StateHash,
     },
     BlockProveSuccess {
         time: redux::Timestamp,
@@ -94,8 +95,8 @@ pub enum BlockProducerCurrentState {
         /// Chain that we are extending.
         chain: Vec<ArcBlockWithHash>,
         block: BlockWithoutProof,
-        block_hash: StateHash,
-        proof: Box<MinaBaseProofStableV2>,
+        block_hash: v2::StateHash,
+        proof: Box<v2::MinaBaseProofStableV2>,
     },
     Produced {
         time: redux::Timestamp,
@@ -153,7 +154,7 @@ impl BlockProducerState {
         self.with(None, |this| Some(&this.config))
     }
 
-    pub fn is_me(&self, producer: &NonZeroCurvePoint) -> bool {
+    pub fn is_me(&self, producer: &v2::NonZeroCurvePoint) -> bool {
         self.with(false, |this| producer == &this.config.pub_key)
     }
 
@@ -190,6 +191,11 @@ impl BlockProducerState {
         &self,
     ) -> Option<(&BlockProducerVrfEvaluatorState, &BlockProducerConfig)> {
         self.with(None, |this| Some((&this.vrf_evaluator, &this.config)))
+    }
+
+    /// If we need to construct delegator table, get it's inputs.
+    pub fn vrf_delegator_table_inputs(&self) -> Option<(&v2::LedgerHash, &AccountPublicKey)> {
+        self.vrf_evaluator()?.vrf_delegator_table_inputs()
     }
 }
 

@@ -16,6 +16,7 @@ use mina_p2p_messages::v2::{
     ProverExtendBlockchainInputStableV2, SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0Single,
     StateHash, TransactionSnarkStableV2, TransactionSnarkWorkTStableV2Proofs,
 };
+use node::account::{AccountPublicKey, AccountSecretKey};
 use node::block_producer::vrf_evaluator::VrfEvaluatorInput;
 use node::block_producer::BlockProducerEvent;
 use node::core::channels::mpsc;
@@ -45,7 +46,6 @@ use node::{
     },
 };
 use node::{ActionWithMeta, State};
-use openmina_node_account::{AccountPublicKey, AccountSecretKey};
 use openmina_node_native::NodeService;
 use redux::Instant;
 

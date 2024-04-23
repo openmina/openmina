@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 use serde::{Deserialize, Serialize};
 
 use crate::P2pTimeouts;
@@ -43,14 +45,21 @@ pub enum P2pRpcLocalState {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pRpcRemoteState {
-    pub pending_requests: Vec<P2pRpcRemotePendingRequestState>,
+    pub pending_requests: VecDeque<P2pRpcRemotePendingRequestState>,
+    pub last_responded: redux::Timestamp,
 }
+
+static EMPTY_REMOTE_REQUESTS: VecDeque<P2pRpcRemotePendingRequestState> = VecDeque::new();
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pRpcRemotePendingRequestState {
     pub time: redux::Timestamp,
     pub id: P2pRpcId,
     pub request: P2pRpcRequest,
+    /// If a given rpc request requires a response from some async component,
+    /// e.g. ledger, then this field will be set to `true` once request
+    /// to that async component is initiated.
+    pub is_pending: bool,
 }
 
 impl P2pChannelsRpcState {
@@ -133,6 +142,32 @@ impl P2pChannelsRpcState {
                 ..
             } => Some((*id, request)),
             _ => None,
+        }
+    }
+
+    fn remote_requests(&self) -> impl Iterator<Item = &P2pRpcRemotePendingRequestState> {
+        match self {
+            Self::Ready { remote, .. } => remote.pending_requests.iter(),
+            _ => EMPTY_REMOTE_REQUESTS.iter(),
+        }
+    }
+
+    pub fn remote_todo_requests_iter(
+        &self,
+    ) -> impl Iterator<Item = &P2pRpcRemotePendingRequestState> {
+        self.remote_requests().filter(|req| !req.is_pending)
+    }
+
+    pub fn remote_pending_requests_iter(
+        &self,
+    ) -> impl Iterator<Item = &P2pRpcRemotePendingRequestState> {
+        self.remote_requests().filter(|req| req.is_pending)
+    }
+
+    pub fn remote_last_responded(&self) -> redux::Timestamp {
+        match self {
+            Self::Ready { remote, .. } => remote.last_responded,
+            _ => redux::Timestamp::ZERO,
         }
     }
 }

@@ -1,3 +1,6 @@
+use std::sync::Arc;
+
+use crate::account::AccountPublicKey;
 use crate::block_producer::vrf_evaluator::BlockProducerVrfEvaluatorStatus;
 use crate::block_producer::vrf_evaluator::EpochContext;
 use mina_p2p_messages::v2::{
@@ -7,11 +10,11 @@ use mina_p2p_messages::v2::{
 use openmina_core::action_info;
 use openmina_core::block::ArcBlockWithHash;
 use openmina_core::ActionEvent;
-use openmina_node_account::AccountPublicKey;
 use serde::{Deserialize, Serialize};
 use vrf::VrfEvaluationOutput;
 use vrf::VrfWonSlot;
 
+use super::DelegatorTable;
 use super::{EpochData, VrfEvaluatorInput};
 
 pub type BlockProducerVrfEvaluatorActionWithMeta =
@@ -62,28 +65,12 @@ pub enum BlockProducerVrfEvaluatorAction {
         transition_frontier_size: u32,
     },
     /// Constructing delegator table.
-    #[action_event(level = info, fields(current_epoch_number, current_best_tip_slot, current_best_tip_global_slot))]
-    BeginDelegatorTableConstruction {
-        staking_epoch_data: EpochData,
-        producer: AccountPublicKey,
-        current_epoch_number: u32,
-        current_best_tip_height: u32,
-        current_best_tip_slot: u32,
-        current_best_tip_global_slot: u32,
-        next_epoch_first_slot: u32,
-        transition_frontier_size: u32,
-    },
+    #[action_event(level = info)]
+    BeginDelegatorTableConstruction,
     /// Delegator table constructed.
-    #[action_event(level = info, fields(current_epoch_number, current_best_tip_slot, current_best_tip_global_slot))]
+    #[action_event(level = info)]
     FinalizeDelegatorTableConstruction {
-        staking_epoch_data: EpochData,
-        producer: AccountPublicKey,
-        current_epoch_number: u32,
-        current_best_tip_height: u32,
-        current_best_tip_slot: u32,
-        current_best_tip_global_slot: u32,
-        next_epoch_first_slot: u32,
-        transition_frontier_size: u32,
+        delegator_table: Arc<DelegatorTable>,
     },
     /// Selecting starting slot.
     #[action_event(level = info, fields(current_global_slot, current_best_tip_height))]
@@ -189,9 +176,10 @@ impl redux::EnablingCondition<crate::State> for BlockProducerVrfEvaluatorAction 
                         )
                 })
             }
-            BlockProducerVrfEvaluatorAction::BeginDelegatorTableConstruction { .. } => {
+            BlockProducerVrfEvaluatorAction::BeginDelegatorTableConstruction => {
                 state.block_producer.with(false, |this| {
                     this.vrf_evaluator.can_construct_delegator_table()
+                        && state.ledger.read.is_total_cost_under_limit()
                 })
             }
             BlockProducerVrfEvaluatorAction::FinalizeDelegatorTableConstruction { .. } => {

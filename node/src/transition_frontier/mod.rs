@@ -14,6 +14,3 @@ mod transition_frontier_reducer;
 
 mod transition_frontier_effects;
 pub use transition_frontier_effects::*;
-
-mod transition_frontier_service;
-pub use transition_frontier_service::*;

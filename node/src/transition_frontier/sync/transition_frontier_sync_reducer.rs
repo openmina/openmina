@@ -191,6 +191,8 @@ impl TransitionFrontierSyncState {
                         );
                     }
                 }
+                Self::CommitPending { .. } => {}
+                Self::CommitSuccess { .. } => {}
                 Self::Synced { time, .. } => {
                     let applied_blocks: BTreeMap<_, _> =
                         best_chain.iter().map(|b| (&b.hash, b)).collect();
@@ -576,6 +578,39 @@ impl TransitionFrontierSyncState {
                     root_snarked_ledger_updates: std::mem::take(root_snarked_ledger_updates),
                     needed_protocol_states: std::mem::take(needed_protocol_states),
                 };
+            }
+            TransitionFrontierSyncAction::CommitInit => {}
+            TransitionFrontierSyncAction::CommitPending => {
+                if let Self::BlocksSuccess {
+                    chain,
+                    root_snarked_ledger_updates,
+                    needed_protocol_states,
+                    ..
+                } = self
+                {
+                    *self = Self::CommitPending {
+                        time: meta.time(),
+                        chain: std::mem::take(chain),
+                        root_snarked_ledger_updates: std::mem::take(root_snarked_ledger_updates),
+                        needed_protocol_states: std::mem::take(needed_protocol_states),
+                    };
+                }
+            }
+            TransitionFrontierSyncAction::CommitSuccess { .. } => {
+                if let Self::CommitPending {
+                    chain,
+                    root_snarked_ledger_updates,
+                    needed_protocol_states,
+                    ..
+                } = self
+                {
+                    *self = Self::CommitSuccess {
+                        time: meta.time(),
+                        chain: std::mem::take(chain),
+                        root_snarked_ledger_updates: std::mem::take(root_snarked_ledger_updates),
+                        needed_protocol_states: std::mem::take(needed_protocol_states),
+                    };
+                }
             }
             TransitionFrontierSyncAction::Ledger(a) => {
                 if let Some(ledger) = self.ledger_mut() {

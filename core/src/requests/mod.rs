@@ -92,10 +92,29 @@ where
     }
 
     #[inline]
-    pub fn remove(&mut self, id: RequestId<IdType>) -> Option<Request> {
+    fn remove_pending(&mut self, id: RequestId<IdType>) -> Option<PendingRequest<Request>> {
         self.get(id)?;
-        let removed_req = self.list.remove(id.locator()).request;
-        Some(removed_req)
+        self.list.try_remove(id.locator())
+    }
+
+    #[inline]
+    pub fn remove(&mut self, id: RequestId<IdType>) -> Option<Request> {
+        self.remove_pending(id).map(|req| req.request)
+    }
+
+    #[inline]
+    pub fn update<F>(&mut self, id: RequestId<IdType>, update: F) -> bool
+    where
+        F: FnOnce(Request) -> Request,
+    {
+        if let Some(mut req) = self.remove_pending(id) {
+            req.request = update(req.request);
+            let new_locator = self.list.insert(req);
+            assert_eq!(id.locator(), new_locator, "when adding element to the slab right after removal, index should be the same as the index of the removed element");
+            true
+        } else {
+            false
+        }
     }
 
     pub fn iter(&self) -> impl Iterator<Item = (RequestId<IdType>, &Request)> {

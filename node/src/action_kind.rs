@@ -19,6 +19,9 @@ use crate::block_producer::BlockProducerAction;
 use crate::consensus::ConsensusAction;
 use crate::event_source::EventSourceAction;
 use crate::external_snark_worker::ExternalSnarkWorkerAction;
+use crate::ledger::read::LedgerReadAction;
+use crate::ledger::write::LedgerWriteAction;
+use crate::ledger::LedgerAction;
 use crate::p2p::channels::best_tip::P2pChannelsBestTipAction;
 use crate::p2p::channels::rpc::P2pChannelsRpcAction;
 use crate::p2p::channels::snark::P2pChannelsSnarkAction;
@@ -123,6 +126,14 @@ pub enum ActionKind {
     ExternalSnarkWorkerWorkError,
     ExternalSnarkWorkerWorkResult,
     ExternalSnarkWorkerWorkTimeout,
+    LedgerReadFindTodos,
+    LedgerReadInit,
+    LedgerReadPending,
+    LedgerReadPrune,
+    LedgerReadSuccess,
+    LedgerWriteInit,
+    LedgerWritePending,
+    LedgerWriteSuccess,
     P2pChannelsBestTipInit,
     P2pChannelsBestTipPending,
     P2pChannelsBestTipReady,
@@ -136,6 +147,7 @@ pub enum ActionKind {
     P2pChannelsRpcReady,
     P2pChannelsRpcRequestReceived,
     P2pChannelsRpcRequestSend,
+    P2pChannelsRpcResponsePending,
     P2pChannelsRpcResponseReceived,
     P2pChannelsRpcResponseSend,
     P2pChannelsRpcTimeout,
@@ -280,7 +292,10 @@ pub enum ActionKind {
     RpcP2pConnectionOutgoingSuccess,
     RpcPeersGet,
     RpcReadinessCheck,
-    RpcScanStateSummaryGet,
+    RpcScanStateSummaryGetInit,
+    RpcScanStateSummaryGetPending,
+    RpcScanStateSummaryGetSuccess,
+    RpcScanStateSummaryLedgerGetInit,
     RpcSnarkPoolAvailableJobsGet,
     RpcSnarkPoolJobGet,
     RpcSnarkerConfigGet,
@@ -339,6 +354,9 @@ pub enum ActionKind {
     TransitionFrontierSyncBlocksPeersQuery,
     TransitionFrontierSyncBlocksPending,
     TransitionFrontierSyncBlocksSuccess,
+    TransitionFrontierSyncCommitInit,
+    TransitionFrontierSyncCommitPending,
+    TransitionFrontierSyncCommitSuccess,
     TransitionFrontierSyncInit,
     TransitionFrontierSyncLedgerNextEpochPending,
     TransitionFrontierSyncLedgerNextEpochSuccess,
@@ -400,7 +418,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 334;
+    pub const COUNT: u16 = 349;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -415,6 +433,7 @@ impl ActionKindGet for Action {
             Self::CheckTimeouts(a) => a.kind(),
             Self::EventSource(a) => a.kind(),
             Self::P2p(a) => a.kind(),
+            Self::Ledger(a) => a.kind(),
             Self::Snark(a) => a.kind(),
             Self::Consensus(a) => a.kind(),
             Self::TransitionFrontier(a) => a.kind(),
@@ -453,6 +472,15 @@ impl ActionKindGet for P2pAction {
             Self::Channels(a) => a.kind(),
             Self::Peer(a) => a.kind(),
             Self::Network(a) => a.kind(),
+        }
+    }
+}
+
+impl ActionKindGet for LedgerAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::Write(a) => a.kind(),
+            Self::Read(a) => a.kind(),
         }
     }
 }
@@ -585,7 +613,12 @@ impl ActionKindGet for RpcAction {
             Self::P2pConnectionIncomingSuccess { .. } => {
                 ActionKind::RpcP2pConnectionIncomingSuccess
             }
-            Self::ScanStateSummaryGet { .. } => ActionKind::RpcScanStateSummaryGet,
+            Self::ScanStateSummaryGetInit { .. } => ActionKind::RpcScanStateSummaryGetInit,
+            Self::ScanStateSummaryLedgerGetInit { .. } => {
+                ActionKind::RpcScanStateSummaryLedgerGetInit
+            }
+            Self::ScanStateSummaryGetPending { .. } => ActionKind::RpcScanStateSummaryGetPending,
+            Self::ScanStateSummaryGetSuccess { .. } => ActionKind::RpcScanStateSummaryGetSuccess,
             Self::SnarkPoolAvailableJobsGet { .. } => ActionKind::RpcSnarkPoolAvailableJobsGet,
             Self::SnarkPoolJobGet { .. } => ActionKind::RpcSnarkPoolJobGet,
             Self::SnarkerConfigGet { .. } => ActionKind::RpcSnarkerConfigGet,
@@ -697,6 +730,28 @@ impl ActionKindGet for P2pNetworkAction {
     }
 }
 
+impl ActionKindGet for LedgerWriteAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::Init { .. } => ActionKind::LedgerWriteInit,
+            Self::Pending => ActionKind::LedgerWritePending,
+            Self::Success { .. } => ActionKind::LedgerWriteSuccess,
+        }
+    }
+}
+
+impl ActionKindGet for LedgerReadAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::FindTodos => ActionKind::LedgerReadFindTodos,
+            Self::Init { .. } => ActionKind::LedgerReadInit,
+            Self::Pending { .. } => ActionKind::LedgerReadPending,
+            Self::Success { .. } => ActionKind::LedgerReadSuccess,
+            Self::Prune { .. } => ActionKind::LedgerReadPrune,
+        }
+    }
+}
+
 impl ActionKindGet for SnarkBlockVerifyAction {
     fn kind(&self) -> ActionKind {
         match self {
@@ -779,6 +834,9 @@ impl ActionKindGet for TransitionFrontierSyncAction {
                 ActionKind::TransitionFrontierSyncBlocksNextApplySuccess
             }
             Self::BlocksSuccess => ActionKind::TransitionFrontierSyncBlocksSuccess,
+            Self::CommitInit => ActionKind::TransitionFrontierSyncCommitInit,
+            Self::CommitPending => ActionKind::TransitionFrontierSyncCommitPending,
+            Self::CommitSuccess { .. } => ActionKind::TransitionFrontierSyncCommitSuccess,
         }
     }
 }
@@ -819,7 +877,7 @@ impl ActionKindGet for BlockProducerVrfEvaluatorAction {
             Self::InitializeEpochEvaluation { .. } => {
                 ActionKind::BlockProducerVrfEvaluatorInitializeEpochEvaluation
             }
-            Self::BeginDelegatorTableConstruction { .. } => {
+            Self::BeginDelegatorTableConstruction => {
                 ActionKind::BlockProducerVrfEvaluatorBeginDelegatorTableConstruction
             }
             Self::FinalizeDelegatorTableConstruction { .. } => {
@@ -971,6 +1029,7 @@ impl ActionKindGet for P2pChannelsRpcAction {
             Self::Timeout { .. } => ActionKind::P2pChannelsRpcTimeout,
             Self::ResponseReceived { .. } => ActionKind::P2pChannelsRpcResponseReceived,
             Self::RequestReceived { .. } => ActionKind::P2pChannelsRpcRequestReceived,
+            Self::ResponsePending { .. } => ActionKind::P2pChannelsRpcResponsePending,
             Self::ResponseSend { .. } => ActionKind::P2pChannelsRpcResponseSend,
         }
     }
