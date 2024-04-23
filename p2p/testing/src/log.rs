@@ -14,7 +14,7 @@ fn initialize_logging() {
                 None
             }
         })
-        .unwrap_or(Level::INFO);
+        .unwrap_or(Level::DEBUG);
     let builder = tracing_subscriber::FmtSubscriber::builder()
         .with_max_level(level)
         .with_ansi(std::io::IsTerminal::is_terminal(&std::io::stdout()))
