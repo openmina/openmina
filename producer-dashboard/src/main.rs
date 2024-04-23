@@ -77,7 +77,12 @@ async fn main() {
     );
     println!("[main] Archive watchdog created");
 
-    let rpc_handle = rpc::spawn_rpc_server(3000, db.clone(), node_status.clone());
+    let rpc_handle = rpc::spawn_rpc_server(
+        3000,
+        db.clone(),
+        node_status.clone(),
+        key.public_key().to_string(),
+    );
     println!("[main] RPC server created");
 
     let mut signal_stream =

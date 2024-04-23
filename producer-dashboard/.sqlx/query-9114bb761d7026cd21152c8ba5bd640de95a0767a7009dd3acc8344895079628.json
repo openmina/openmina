@@ -1,0 +1,89 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH RECURSIVE chain AS (\n                (SELECT * FROM blocks WHERE state_hash = $1)\n              \n                UNION ALL\n              \n                SELECT b.* FROM blocks b\n                INNER JOIN chain\n                ON b.id = chain.parent_id AND chain.id <> chain.parent_id\n              )\n              \n              SELECT \n                c.id AS \"id!\", \n                c.state_hash AS \"state_hash!\", \n                c.height AS \"height!\", \n                c.timestamp AS \"timestamp!\", \n                c.chain_status AS \"chain_status!: ChainStatus\",\n                pk_creator.value AS \"creator_key\",\n                pk_winner.value AS \"winner_key\",\n                c.global_slot_since_genesis AS \"global_slot_since_genesis!\",\n                c.global_slot_since_hard_fork AS \"global_slot_since_hard_fork!\",\n                c.parent_id\n              FROM \n                chain c\n              JOIN \n                public_keys pk_creator ON c.creator_id = pk_creator.id\n              JOIN \n                public_keys pk_winner ON c.block_winner_id = pk_winner.id\n              WHERE \n                c.global_slot_since_hard_fork BETWEEN $2 AND $3\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id!",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 1,
+        "name": "state_hash!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "height!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 3,
+        "name": "timestamp!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "chain_status!: ChainStatus",
+        "type_info": {
+          "Custom": {
+            "name": "chain_status_type",
+            "kind": {
+              "Enum": [
+                "canonical",
+                "orphaned",
+                "pending"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "creator_key",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "winner_key",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 7,
+        "name": "global_slot_since_genesis!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 8,
+        "name": "global_slot_since_hard_fork!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 9,
+        "name": "parent_id",
+        "type_info": "Int4"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      false,
+      false,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "9114bb761d7026cd21152c8ba5bd640de95a0767a7009dd3acc8344895079628"
+}

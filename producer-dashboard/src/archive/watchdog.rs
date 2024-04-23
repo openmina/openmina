@@ -49,6 +49,25 @@ impl ArchiveWatchdog {
 
             if let Some(best_tip) = node_status.best_tip() {
                 let (start, end) = best_tip.epoch_bounds().0;
+
+                let cannonical_chain = match self
+                    .archive_connector
+                    .clone()
+                    .get_canonical_chain(start.into(), end.into(), best_tip.state_hash())
+                    .await
+                {
+                    Ok(blocks) => blocks,
+                    Err(e) => {
+                        eprintln!("{e}");
+                        continue;
+                    }
+                };
+
+
+                let (canonical_pending, canonical): (Vec<Block>, Vec<Block>) = cannonical_chain
+                    .into_iter()
+                    .partition(|block| block.height >= (best_tip.height() - 290) as i64);
+
                 // get blocks
                 let blocks = match self
                     .archive_connector
@@ -74,26 +93,43 @@ impl ArchiveWatchdog {
                         .ok()
                         .unwrap_or_default()
                     {
-                        if !matches!(block.chain_status, ChainStatus::Pending) {
+                        // if !matches!(block.chain_status, ChainStatus::Pending) {
+                        //     self.db
+                        //         .update_slot_status(slot, block.chain_status.clone().into())
+                        //         .unwrap();
+                        // } else {
+                        //     let best_chain = node_status.best_chain();
+                        //     if best_chain.contains(&(slot, block.state_hash.clone())) {
+                        //         self.db
+                        //             .update_slot_status(slot, SlotStatus::CanonicalPending)
+                        //             .unwrap();
+                        //     } else {
+                        //         self.db
+                        //             .update_slot_status(slot, SlotStatus::OrphanedPending)
+                        //             .unwrap();
+                        //     }
+                        // }
+                        if canonical.contains(block) {
                             self.db
-                                .update_slot_status(slot, block.chain_status.clone().into())
+                                .update_slot_status(slot, SlotStatus::Canonical)
                                 .unwrap();
+                        } else if canonical_pending.contains(block) {
+                            self.db
+                                .update_slot_status(slot, SlotStatus::CanonicalPending)
+                                .unwrap();
+                        } else if block.height >= (best_tip.height() - 290) as i64 {
+                            self.db
+                            .update_slot_status(slot, SlotStatus::OrphanedPending)
+                            .unwrap();
                         } else {
-                            let best_chain = node_status.best_chain();
-                            if best_chain.contains(&(slot, block.state_hash.clone())) {
-                                self.db
-                                    .update_slot_status(slot, SlotStatus::CanonicalPending)
-                                    .unwrap();
-                            } else {
-                                self.db
-                                    .update_slot_status(slot, SlotStatus::OrphanedPending)
-                                    .unwrap();
-                            }
+                            self.db
+                            .update_slot_status(slot, SlotStatus::Orphaned)
+                            .unwrap();
                         }
+
                     } else if self.db.has_slot(slot).unwrap_or_default() {
                         println!("[archive] saw produced block: {}", block.state_hash);
                         self.db.store_block(block.clone()).unwrap();
-                        // TODO: access transition frontier here
                         self.db
                             .update_slot_block(slot, block.into(), true, false)
                             .unwrap();

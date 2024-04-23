@@ -365,6 +365,10 @@ impl BestTip {
     pub fn epoch(&self) -> u32 {
         self.consensus_state().epoch.parse().unwrap()
     }
+
+    pub fn state_hash(&self) -> String {
+        self.0.state_hash.clone()
+    }
 }
 
 impl From<best_chain::BestChainBestChain> for BestTip {

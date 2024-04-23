@@ -89,6 +89,12 @@ impl From<MinaBalanceStringNumber> for BigInt {
     }
 }
 
+impl From<&MinaBalanceStringNumber> for BigInt {
+    fn from(value: &MinaBalanceStringNumber) -> Self {
+        value.0.clone()
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct LedgerEntry {
     pub pk: String,
@@ -99,6 +105,23 @@ pub struct LedgerEntry {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Ledger {
     inner: Vec<LedgerEntry>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+pub struct Balances {
+    #[serde(serialize_with = "serialize_bigint_as_string")]
+    balance_producer: BigInt,
+    #[serde(serialize_with = "serialize_bigint_as_string")]
+    balance_delegated: BigInt,
+    #[serde(serialize_with = "serialize_bigint_as_string")]
+    balance_staked: BigInt,
+}
+
+fn serialize_bigint_as_string<S>(num: &BigInt, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    serializer.serialize_str(&num.to_string())
 }
 
 #[allow(dead_code)]
@@ -131,5 +154,21 @@ impl Ledger {
 
     pub fn total_currency(&self) -> BigInt {
         self.inner.iter().map(|entry| &entry.balance.0).sum()
+    }
+
+    pub fn producer_balances(&self, producer: &str) -> Balances {
+        let mut balances = Balances::default();
+
+        for entry in &self.inner {
+            if entry.pk == producer {
+                balances.balance_producer = entry.balance.clone().into();
+            } else if let Some(delegate) = &entry.delegate {
+                if delegate == producer {
+                    balances.balance_delegated += &entry.balance.clone().into();
+                }
+            }
+        }
+        balances.balance_staked = &balances.balance_delegated + &balances.balance_producer;
+        balances
     }
 }

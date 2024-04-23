@@ -3,8 +3,8 @@ use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 
 use crate::{
     evaluator::epoch::{EpochSlots, EpochStorage},
-    node::{self, NodeData},
-    storage::db_sled::Database,
+    node::{self, epoch_ledgers::Balances, NodeData},
+    storage::{self, db_sled::Database},
     NodeStatus, StakingToolError,
 };
 
@@ -85,14 +85,21 @@ pub async fn get_epoch_data(
 pub async fn get_latest_epoch_data_summary(
     storage: Database,
     node_status: NodeStatus,
+    producer_pk: String,
 ) -> Result<impl warp::Reply, warp::reject::Rejection> {
     let node_status: tokio::sync::RwLockReadGuard<'_, NodeData> = node_status.read().await;
 
     let current_epoch = node_status.best_tip().unwrap().epoch();
 
+    let balances = storage
+        .get_ledger(current_epoch)
+        .unwrap()
+        .unwrap()
+        .producer_balances(&producer_pk);
+
     match storage.get_slots_for_epoch(current_epoch) {
         Ok(latest) => {
-            let summary = EpochSlots::new(latest).merged_summary(current_epoch);
+            let summary = EpochSlots::new(latest).merged_summary(current_epoch, balances);
 
             Ok(warp::reply::with_status(
                 warp::reply::json(&summary),
@@ -108,6 +115,7 @@ pub async fn get_epoch_data_summary(
     requested_epoch: u32,
     pagination: PaginationParams,
     storage: Database,
+    producer_pk: String,
 ) -> Result<impl warp::Reply, warp::reject::Rejection> {
     let range = (0..=requested_epoch).rev();
     let limit = pagination.limit.unwrap_or(1);
@@ -118,11 +126,19 @@ pub async fn get_epoch_data_summary(
         println!("{epoch}");
         match storage.get_slots_for_epoch(epoch) {
             Ok(slots) => {
-                res.push(EpochSlots::new(slots).merged_summary(epoch))
+                let balances = match storage.get_ledger(epoch) {
+                    Ok(Some(ledger)) => ledger.producer_balances(&producer_pk),
+                    _ => Balances::default(),
+                };
+                // let balances = storage.get_ledger(epoch).unwrap().unwrap().producer_balances(&producer_pk);
+                res.push(EpochSlots::new(slots).merged_summary(epoch, balances))
             }
-            _ => continue
+            _ => continue,
         }
     }
 
-    Ok(warp::reply::with_status(warp::reply::json(&res), StatusCode::OK))
+    Ok(warp::reply::with_status(
+        warp::reply::json(&res),
+        StatusCode::OK,
+    ))
 }

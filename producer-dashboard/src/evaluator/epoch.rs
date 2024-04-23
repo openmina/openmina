@@ -5,6 +5,7 @@ use vrf::{VrfEvaluationOutput, VrfWonSlot};
 
 use crate::{
     archive::{Block, ChainStatus},
+    node::epoch_ledgers::Balances,
     storage::locked_btreemap::LockedBTreeMap,
 };
 
@@ -21,6 +22,8 @@ pub struct MergedSummary {
     epoch_number: u32,
     summary: Option<EpochSummary>,
     sub_windows: Vec<EpochSummary>,
+    #[serde(flatten)]
+    balances: Balances,
 }
 
 impl EpochSlots {
@@ -31,13 +34,13 @@ impl EpochSlots {
         }
     }
 
-    pub fn merged_summary(&self, epoch_number: u32) -> MergedSummary {
-
+    pub fn merged_summary(&self, epoch_number: u32, balances: Balances) -> MergedSummary {
         if self.inner.is_empty() {
             MergedSummary {
                 epoch_number,
                 summary: None,
                 sub_windows: vec![],
+                balances: Balances::default(),
             }
         } else {
             let summary = self.summary();
@@ -45,6 +48,7 @@ impl EpochSlots {
                 epoch_number,
                 summary: Some(summary),
                 sub_windows: self.sub_windows(),
+                balances,
             }
         }
     }
