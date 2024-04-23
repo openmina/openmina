@@ -1,4 +1,4 @@
-use std::net::SocketAddr;
+use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6};
 
 use super::P2pNetworkIdentifyStreamAction;
 use crate::{
@@ -6,9 +6,35 @@ use crate::{
     network::identify::{Identify, P2pNetworkIdentify},
     token, Data, P2pNetworkYamuxAction,
 };
+use multiaddr::{multiaddr, Multiaddr};
 use openmina_core::warn;
-use quick_protobuf::{MessageWrite, Writer};
+use quick_protobuf::serialize_into_vec;
 use redux::ActionMeta;
+
+fn get_addrs(addr: &SocketAddr) -> Vec<Multiaddr> {
+    match addr {
+        SocketAddr::V4(addr) => get_ipv4_addrs(addr),
+        SocketAddr::V6(addr) => get_ipv6_addrs(addr),
+    }
+}
+
+fn get_ipv6_addrs(addr: &SocketAddrV6) -> Vec<Multiaddr> {
+    let port = addr.port();
+    if addr.ip().is_unspecified() {
+        vec![multiaddr!(Ip6(Ipv6Addr::LOCALHOST), Tcp(port))]
+    } else {
+        vec![multiaddr!(Ip6(*addr.ip()), Tcp(port))]
+    }
+}
+
+fn get_ipv4_addrs(addr: &SocketAddrV4) -> Vec<Multiaddr> {
+    let port = addr.port();
+    if addr.ip().is_unspecified() {
+        vec![multiaddr!(Ip4(Ipv4Addr::LOCALHOST), Tcp(port))]
+    } else {
+        vec![multiaddr!(Ip4(*addr.ip()), Tcp(port))]
+    }
+}
 
 impl P2pNetworkIdentifyStreamAction {
     pub fn effects<Store, S>(self, meta: &ActionMeta, store: &mut Store) -> Result<(), String>
@@ -40,13 +66,12 @@ impl P2pNetworkIdentifyStreamAction {
             } => {
                 if let S::SendIdentify = state {
                     let listen_addrs = store
-                        .state().network.scheduler
+                        .state()
+                        .network
+                        .scheduler
                         .listeners
                         .iter()
-                        .map(|addr| match addr {
-                            SocketAddr::V4(addr) => multiaddr::multiaddr!(Ip4(*addr.ip()), Tcp(addr.port())),
-                            SocketAddr::V6(addr) => multiaddr::multiaddr!(Ip6(*addr.ip()), Tcp(addr.port())),
-                        })
+                        .flat_map(get_addrs)
                         .collect();
                     let public_key = Some(store.state().config.identity_pub_key.clone());
 
@@ -79,19 +104,15 @@ impl P2pNetworkIdentifyStreamAction {
 
                     //println!("{:?}", identify_msg);
 
-                    let mut out = Vec::new();
-                    let mut writer = Writer::new(&mut out);
                     let identify_msg_proto: Identify = (&identify_msg).into();
 
-                    if let Err(err) = identify_msg_proto.write_message(&mut writer) {
-                        warn!(meta.time(); summary = "error serializing Identify message", error = err.to_string(), action = format!("{self:?}"));
-                        return Ok(());
-                    }
+                    let bytes = serialize_into_vec(&identify_msg_proto)
+                        .map_err(|e| format!("error seializing identify message: {e}"))?;
 
                     store.dispatch(P2pNetworkYamuxAction::OutgoingData {
                         addr,
                         stream_id,
-                        data: Data(out.into_boxed_slice()),
+                        data: Data(bytes.into_boxed_slice()),
                         fin: false,
                     });
 

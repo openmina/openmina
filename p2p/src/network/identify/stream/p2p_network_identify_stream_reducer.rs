@@ -82,7 +82,10 @@ impl P2pNetworkIdentifyStreamState {
                 _ => unreachable!(),
             },
             S::IdentifyReceived { .. } => Ok(()),
-            S::Error(_) => todo!(),
+            S::Error(_) => {
+                // TODO
+                Ok(())
+            }
         }
     }
 
