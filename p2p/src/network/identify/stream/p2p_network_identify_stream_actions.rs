@@ -6,6 +6,7 @@ use std::net::SocketAddr;
 
 /// Identify stream related actions.
 #[derive(Debug, Clone, Serialize, Deserialize, ActionEvent)]
+#[action_event(fields(display(addr), display(peer_id), display(stream_id), incoming, debug(data)))]
 pub enum P2pNetworkIdentifyStreamAction {
     /// Creates a new stream state.
     New {

@@ -109,7 +109,7 @@ impl P2pNetworkIdentifyStreamState {
             }
         };
 
-        *self = data.into();
+        *self = dbg!(data).into();
         Ok(())
     }
 }
