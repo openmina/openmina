@@ -6,7 +6,7 @@ use std::{
 };
 
 use derive_builder::UninitializedFieldError;
-use futures::StreamExt;
+use futures::{Stream, StreamExt};
 use libp2p::Multiaddr;
 use p2p::{
     connection::outgoing::{
@@ -26,6 +26,7 @@ use crate::{
     redux::{log_action, Action},
     rust_node::{RustNode, RustNodeConfig, RustNodeId},
     service::ClusterService,
+    stream::{ClusterStreamExt, MapErrors, TakeDuring},
     test_node::TestNode,
 };
 
@@ -54,6 +55,9 @@ pub struct Cluster {
     last_idle_instant: Instant,
     idle_interval: tokio::time::Interval,
     next_poll: NextPoll,
+
+    is_error: fn(&ClusterEvent) -> bool,
+    total_duration: Duration,
 }
 
 pub struct ClusterBuilder {
@@ -61,6 +65,8 @@ pub struct ClusterBuilder {
     ports: Option<Range<u16>>,
     ip: IpAddr,
     idle_duration: Duration,
+    is_error: fn(&ClusterEvent) -> bool,
+    total_duration: Duration,
 }
 
 impl Default for ClusterBuilder {
@@ -70,6 +76,8 @@ impl Default for ClusterBuilder {
             ports: None,
             ip: Ipv4Addr::LOCALHOST.into(),
             idle_duration: Duration::from_millis(100),
+            is_error: |_| false,
+            total_duration: Duration::from_secs(60),
         }
     }
 }
@@ -99,6 +107,16 @@ impl ClusterBuilder {
         self
     }
 
+    pub fn is_error(mut self, f: fn(&ClusterEvent) -> bool) -> Self {
+        self.is_error = f;
+        self
+    }
+
+    pub fn total_duration(mut self, duration: Duration) -> Self {
+        self.total_duration = duration;
+        self
+    }
+
     pub async fn start(self) -> Result<Cluster> {
         *crate::log::LOG;
 
@@ -109,12 +127,16 @@ impl ClusterBuilder {
         let ip = self.ip;
         let mut idle_interval = tokio::time::interval(self.idle_duration);
         let last_idle_instant = idle_interval.tick().await.into_std();
+        let is_error = self.is_error;
+        let total_duration = self.total_duration;
         openmina_core::info!(openmina_core::log::system_time(); "starting the cluster");
         let next_poll = Default::default();
         Ok(Cluster {
             chain_id,
             ports,
             ip,
+            is_error,
+            total_duration,
             rust_nodes: Default::default(),
             libp2p_nodes: Default::default(),
             last_idle_instant,
@@ -450,5 +472,24 @@ impl ::futures::stream::Stream for Cluster {
 impl TimestampSource for Cluster {
     fn timestamp(&self) -> Instant {
         self.last_idle_instant
+    }
+}
+
+impl TimestampSource for &mut Cluster {
+    fn timestamp(&self) -> Instant {
+        self.last_idle_instant
+    }
+}
+
+impl Cluster {
+    pub fn stream(&mut self) -> TakeDuring<&mut Cluster> {
+        let duration = self.total_duration;
+        self.take_during(duration)
+    }
+
+    pub fn try_stream(&mut self) -> MapErrors<TakeDuring<&mut Cluster>, ClusterEvent> {
+        let is_error = self.is_error;
+        let duration = self.total_duration;
+        self.take_during(duration).map_errors(is_error)
     }
 }

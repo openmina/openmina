@@ -23,10 +23,9 @@ pub trait ClusterStreamExt: Stream {
     }
 
     /// Maps events to ``Result`, according to the `is_error` output.
-    fn map_errors<F>(self, is_error: F) -> MapErrors<Self, F>
+    fn map_errors(self, is_error: fn(&Self::Item) -> bool) -> MapErrors<Self, Self::Item>
     where
         Self: Sized,
-        F: FnMut(&Self::Item) -> bool,
     {
         MapErrors {
             stream: self,
@@ -120,17 +119,16 @@ where
 cluster_stream_impls!(TakeDuring<S>);
 
 pin_project! {
-    pub struct MapErrors<S, F> {
+    pub struct MapErrors<S, T> {
         #[pin]
         stream: S,
-        is_error: F,
+        is_error: fn(&T) -> bool,
     }
 }
 
-impl<S, F> Stream for MapErrors<S, F>
+impl<S, T> Stream for MapErrors<S, T>
 where
-    S: Stream,
-    F: FnMut(&S::Item) -> bool,
+    S: Stream<Item = T>,
 {
     type Item = Result<S::Item, S::Item>;
 
@@ -151,4 +149,5 @@ where
     }
 }
 
-cluster_stream_impls!(MapErrors<S, F>);
+cluster_stream_impls!(MapErrors<S, T>);
+

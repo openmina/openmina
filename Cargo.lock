@@ -4474,6 +4474,7 @@ dependencies = [
  "multihash 0.18.1",
  "openmina-core",
  "openmina-macros",
+ "p2p-testing",
  "prost",
  "prost-build",
  "quick-protobuf",
@@ -4499,6 +4500,28 @@ dependencies = [
  "web-sys",
  "webrtc",
  "zeroize",
+]
+
+[[package]]
+name = "p2p-testing"
+version = "0.1.0"
+dependencies = [
+ "derive-getters",
+ "derive_builder 0.20.0",
+ "derive_more",
+ "futures",
+ "getrandom 0.2.14",
+ "lazy_static",
+ "libp2p",
+ "openmina-core",
+ "p2p",
+ "pin-project-lite",
+ "rand 0.8.5",
+ "redux",
+ "thiserror",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -6255,28 +6278,6 @@ dependencies = [
  "redox_syscall 0.3.5",
  "rustix 0.38.20",
  "windows-sys 0.48.0",
-]
-
-[[package]]
-name = "testing"
-version = "0.1.0"
-dependencies = [
- "derive-getters",
- "derive_builder 0.20.0",
- "derive_more",
- "futures",
- "getrandom 0.2.14",
- "lazy_static",
- "libp2p",
- "openmina-core",
- "p2p",
- "pin-project-lite",
- "rand 0.8.5",
- "redux",
- "thiserror",
- "tokio",
- "tracing",
- "tracing-subscriber",
 ]
 
 [[package]]
