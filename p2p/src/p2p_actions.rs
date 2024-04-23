@@ -35,3 +35,9 @@ impl redux::EnablingCondition<P2pState> for P2pAction {
         }
     }
 }
+
+impl From<redux::AnyAction> for P2pAction {
+    fn from(action: redux::AnyAction) -> Self {
+        *action.0.downcast::<Self>().expect("Downcast failed")
+    }
+}

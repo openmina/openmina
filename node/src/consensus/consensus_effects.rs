@@ -1,7 +1,9 @@
+use openmina_core::block::BlockHash;
+
+use crate::snark::block_verify::SnarkBlockVerifyAction;
 use crate::transition_frontier::sync::TransitionFrontierSyncAction;
 use crate::watched_accounts::WatchedAccountsAction;
 use crate::Store;
-use crate::{snark::block_verify::SnarkBlockVerifyAction, Action};
 
 use super::{ConsensusAction, ConsensusActionWithMeta};
 
@@ -14,9 +16,8 @@ pub fn consensus_effects<S: crate::Service>(store: &mut Store<S>, action: Consen
             store.dispatch(SnarkBlockVerifyAction::Init {
                 req_id,
                 block: (hash.clone(), block).into(),
-                verify_success_cb: redux::Callback::new(|args| {
-                    let hash = *args.downcast().expect("correct arguments");
-                    Box::<Action>::new(ConsensusAction::BlockSnarkVerifySuccess { hash }.into())
+                verify_success_cb: redux::callback!(|hash: BlockHash| {
+                    ConsensusAction::BlockSnarkVerifySuccess { hash }
                 }),
             });
             store.dispatch(ConsensusAction::BlockSnarkVerifyPending { req_id, hash });

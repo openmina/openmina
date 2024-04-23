@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 
-use openmina_core::{snark::Snark, ActionEvent};
+use openmina_core::{requests::RequestId, snark::Snark, ActionEvent};
 
-use super::{SnarkWorkVerifyError, SnarkWorkVerifyId};
+use super::{SnarkWorkVerifyError, SnarkWorkVerifyId, SnarkWorkVerifyIdType};
 
 pub type SnarkWorkVerifyActionWithMeta = redux::ActionWithMeta<SnarkWorkVerifyAction>;
 pub type SnarkWorkVerifyActionWithMetaRef<'a> = redux::ActionWithMeta<&'a SnarkWorkVerifyAction>;
@@ -15,13 +15,13 @@ pub enum SnarkWorkVerifyAction {
         req_id: SnarkWorkVerifyId,
         batch: Vec<Snark>,
         sender: String,
-        verify_success_cb: redux::Callback,
-        verify_error_cb: redux::Callback,
+        verify_success_cb: redux::Callback<(String, RequestId<SnarkWorkVerifyIdType>, Vec<Snark>)>,
+        verify_error_cb: redux::Callback<(String, RequestId<SnarkWorkVerifyIdType>)>,
     },
     Pending {
         req_id: SnarkWorkVerifyId,
-        verify_success_cb: redux::Callback,
-        verify_error_cb: redux::Callback,
+        verify_success_cb: redux::Callback<(String, RequestId<SnarkWorkVerifyIdType>, Vec<Snark>)>,
+        verify_error_cb: redux::Callback<(String, RequestId<SnarkWorkVerifyIdType>)>,
     },
     Error {
         req_id: SnarkWorkVerifyId,

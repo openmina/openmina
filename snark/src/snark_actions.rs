@@ -20,3 +20,9 @@ impl redux::EnablingCondition<crate::SnarkState> for SnarkAction {
         }
     }
 }
+
+impl From<redux::AnyAction> for SnarkAction {
+    fn from(action: redux::AnyAction) -> Self {
+        *action.0.downcast::<Self>().expect("Downcast failed")
+    }
+}

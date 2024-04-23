@@ -29,9 +29,10 @@ where
         crate::Store::sub_dispatch(self, action)
     }
 
-    fn dispatch_callback<T>(&mut self, callback: redux::Callback, args: T) -> bool
+    fn dispatch_callback<T>(&mut self, callback: redux::Callback<T>, args: T) -> bool
     where
         T: 'static,
+        SnarkAction: From<redux::AnyAction> + redux::EnablingCondition<SnarkState>,
     {
         crate::Store::dispatch_callback(self, callback, args)
     }

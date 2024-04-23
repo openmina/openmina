@@ -2,7 +2,7 @@ use std::sync::{Arc, Mutex};
 
 use serde::{Deserialize, Serialize};
 
-use openmina_core::requests::PendingRequests;
+use openmina_core::requests::{PendingRequests, RequestId};
 use openmina_core::snark::Snark;
 
 use crate::{VerifierIndex, VerifierSRS};
@@ -54,21 +54,21 @@ pub enum SnarkWorkVerifyStatus {
         time: redux::Timestamp,
         batch: Vec<Snark>,
         sender: String,
-        verify_success_cb: redux::Callback,
-        verify_error_cb: redux::Callback,
+        verify_success_cb: redux::Callback<(String, RequestId<SnarkWorkVerifyIdType>, Vec<Snark>)>,
+        verify_error_cb: redux::Callback<(String, RequestId<SnarkWorkVerifyIdType>)>,
     },
     Error {
         time: redux::Timestamp,
         batch: Vec<Snark>,
         sender: String,
         error: SnarkWorkVerifyError,
-        verify_error_cb: redux::Callback,
+        verify_error_cb: redux::Callback<(String, RequestId<SnarkWorkVerifyIdType>)>,
     },
     Success {
         time: redux::Timestamp,
         batch: Vec<Snark>,
         sender: String,
-        verify_success_cb: redux::Callback,
+        verify_success_cb: redux::Callback<(String, RequestId<SnarkWorkVerifyIdType>, Vec<Snark>)>,
     },
 }
 

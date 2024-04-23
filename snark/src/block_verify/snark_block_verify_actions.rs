@@ -1,3 +1,4 @@
+use openmina_core::block::BlockHash;
 use serde::{Deserialize, Serialize};
 
 use super::{SnarkBlockVerifyError, SnarkBlockVerifyId, VerifiableBlockWithHash};
@@ -10,11 +11,11 @@ pub enum SnarkBlockVerifyAction {
     Init {
         req_id: SnarkBlockVerifyId,
         block: VerifiableBlockWithHash,
-        verify_success_cb: redux::Callback,
+        verify_success_cb: redux::Callback<BlockHash>,
     },
     Pending {
         req_id: SnarkBlockVerifyId,
-        verify_success_cb: redux::Callback,
+        verify_success_cb: redux::Callback<BlockHash>,
     },
     Error {
         req_id: SnarkBlockVerifyId,

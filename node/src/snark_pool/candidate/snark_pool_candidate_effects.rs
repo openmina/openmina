@@ -2,7 +2,10 @@ use super::{SnarkPoolCandidateAction, SnarkPoolCandidateActionWithMeta};
 use crate::p2p::channels::rpc::{P2pChannelsRpcAction, P2pRpcRequest};
 use crate::p2p::disconnection::{P2pDisconnectionAction, P2pDisconnectionReason};
 use crate::{Action, SnarkPoolAction, Store};
-use snark::work_verify::SnarkWorkVerifyAction;
+use openmina_core::requests::RequestId;
+use openmina_core::snark::Snark;
+use p2p::PeerId;
+use snark::work_verify::{SnarkWorkVerifyAction, SnarkWorkVerifyIdType};
 use std::collections::BTreeMap;
 
 pub fn snark_pool_candidate_effects<S: redux::Service>(
@@ -72,23 +75,18 @@ pub fn snark_pool_candidate_effects<S: redux::Service>(
                 req_id,
                 batch,
                 sender,
-                verify_success_cb: redux::Callback::new(|args| {
-                    let (peer_id, verify_id, batch) = *args.downcast().expect("correct arguments");
-                    Box::<Action>::new(
+                verify_success_cb: redux::callback!(
+                    |(sender: String, verify_id: RequestId<SnarkWorkVerifyIdType>, batch: Vec<Snark>)| {
                         SnarkPoolCandidateAction::WorkVerifySuccess {
-                            peer_id,
+                            peer_id: sender.parse().unwrap(),
                             verify_id,
                             batch,
                         }
-                        .into(),
-                    )
                 }),
-                verify_error_cb: redux::Callback::new(|args| {
-                    let (peer_id, verify_id) = *args.downcast().expect("correct arguments");
-                    Box::<Action>::new(
-                        SnarkPoolCandidateAction::WorkVerifyError { peer_id, verify_id }.into(),
-                    )
-                }),
+                verify_error_cb: redux::callback!(
+                    |(sender: String, verify_id: RequestId<SnarkWorkVerifyIdType>)| {
+                        SnarkPoolCandidateAction::WorkVerifyError { peer_id: sender.parse().unwrap(), verify_id }
+                })
             });
             store.dispatch(SnarkPoolCandidateAction::WorkVerifyPending {
                 peer_id,

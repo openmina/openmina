@@ -66,3 +66,9 @@ impl redux::EnablingCondition<crate::State> for Action {
         }
     }
 }
+
+impl From<redux::AnyAction> for Action {
+    fn from(action: redux::AnyAction) -> Self {
+        *action.0.downcast::<Self>().expect("Downcast failed")
+    }
+}
