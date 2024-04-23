@@ -22,7 +22,7 @@ impl ArchiveConnector {
         Self { pool }
     }
 
-    pub async fn get_producer_blocks(&self, producer_pk: &str) -> Result<Vec<Block>, sqlx::Error> {
+    pub async fn _get_producer_blocks(&self, producer_pk: &str) -> Result<Vec<Block>, sqlx::Error> {
         sqlx::query_as!(
             Block,
             r#"SELECT 
@@ -167,7 +167,7 @@ mod test {
         let db = ArchiveConnector::connect().await;
 
         let blocks = db
-            .get_producer_blocks("B62qkPpK6z4ktWjxcmFzM4cFWjWLzrjNh6USjUMiYGcF3YAVbdo2p4H")
+            ._get_producer_blocks("B62qkPpK6z4ktWjxcmFzM4cFWjWLzrjNh6USjUMiYGcF3YAVbdo2p4H")
             .await
             .unwrap();
 

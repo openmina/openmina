@@ -1,14 +1,13 @@
 use node::NodeData;
 use openmina_node_account::AccountSecretKey;
 
-use std::{collections::BTreeMap, sync::Arc};
-use tokio::sync::{mpsc, oneshot::error, RwLock};
+use std::sync::Arc;
+use tokio::sync::{mpsc, RwLock};
 
 use clap::Parser;
 
 use crate::{
     archive::watchdog::ArchiveWatchdog,
-    evaluator::epoch::EpochStorage,
     evaluator::{EpochInit, Evaluator},
     node::{watchdog::spawn_watchdog, Node},
     storage::db_sled::Database,
@@ -37,20 +36,10 @@ pub type NodeStatus = Arc<RwLock<NodeData>>;
 
 #[tokio::main]
 async fn main() {
-    // node::get_best_chain().await
-
-    // TODO(adonagy): periodically dump from the node
-    // let ledger =
-    //     Ledger::load_from_file("producer-dashboard/staking-epoch-ledger.json".into()).unwrap();
-    // let stuff = ledger.gather_producer_and_delegates("B62qmM4HnDHDwVXqBdCcXQJ9U2zAPNkhqmo8SNWAxKWoEok7GzQEkTv");
-    // println!("Prod + del count: {}", stuff.len())
-
     let config = config::Config::parse();
 
     let db = Database::open(config.database_path).expect("Failed to open Database");
     println!("[main] DB opened");
-
-    let epoch_storage = EpochStorage::default();
 
     let key = AccountSecretKey::from_encrypted_file(config.private_key_path)
         .expect("failed to decrypt secret key file");

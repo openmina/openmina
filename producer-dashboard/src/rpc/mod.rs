@@ -4,7 +4,7 @@ pub mod handlers;
 use serde::Deserialize;
 use tokio::task::JoinHandle;
 
-use crate::{evaluator::epoch::EpochStorage, storage::db_sled::Database, NodeStatus};
+use crate::{storage::db_sled::Database, NodeStatus};
 
 pub fn spawn_rpc_server(
     port: u16,
@@ -21,5 +21,5 @@ pub fn spawn_rpc_server(
 
 #[derive(Deserialize)]
 pub struct PaginationParams {
-    limit: Option<usize>, // Optional limit parameter
+    limit: Option<usize>,
 }

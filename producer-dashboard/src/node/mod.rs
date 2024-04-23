@@ -2,7 +2,7 @@ use ::reqwest::Client;
 use graphql_client::{reqwest::post_graphql, GraphQLQuery};
 use num_bigint::BigInt;
 use serde::{Deserialize, Deserializer, Serialize};
-use std::{collections::BTreeSet, path::PathBuf, process::Command, str::FromStr};
+use std::{collections::BTreeSet, process::Command, str::FromStr};
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 
 use crate::{
@@ -13,10 +13,7 @@ use crate::{
 pub mod epoch_ledgers;
 pub mod watchdog;
 
-use self::{
-    daemon_status::SyncStatus,
-    epoch_ledgers::{Ledger, LedgerEntry},
-};
+use self::{daemon_status::SyncStatus, epoch_ledgers::Ledger};
 
 type PublicKey = String;
 type StateHash = String;
@@ -169,10 +166,6 @@ impl Node {
     }
 
     fn dump_current_staking_ledger() -> impl AsRef<[u8]> {
-        // if !ledger_dir.exists() {
-        //     fs::create_dir_all(ledger_dir.clone()).unwrap();
-        // }
-
         let output = Command::new("mina")
             .args([
                 "ledger",
@@ -190,13 +183,9 @@ impl Node {
         }
 
         output.stdout
-
-        // let mut file = fs::File::create(format!("{}/{current_epoch_number}-staking-ledger", ledger_dir.display())).unwrap();
-
-        // file.write_all(&output.stdout).unwrap();
     }
 
-    pub fn get_staking_ledger(epoch_number: u32) -> Ledger {
+    pub fn get_staking_ledger(_epoch_number: u32) -> Ledger {
         let raw = Self::dump_current_staking_ledger();
         let inner = serde_json::from_slice(raw.as_ref()).unwrap();
         Ledger::new(inner)

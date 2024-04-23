@@ -1,4 +1,3 @@
-use serde::Deserialize;
 use warp::Filter;
 
 use crate::{storage::db_sled::Database, NodeStatus};

@@ -1,6 +1,6 @@
 use crate::{archive::Block, evaluator::epoch::SlotStatus, storage::db_sled::Database, NodeStatus};
 
-use super::{ArchiveConnector, ChainStatus};
+use super::ArchiveConnector;
 use tokio::{task::JoinHandle, time::Duration};
 
 pub struct ArchiveWatchdog {
@@ -63,7 +63,6 @@ impl ArchiveWatchdog {
                     }
                 };
 
-
                 let (canonical_pending, canonical): (Vec<Block>, Vec<Block>) = cannonical_chain
                     .into_iter()
                     .partition(|block| block.height >= (best_tip.height() - 290) as i64);
@@ -93,22 +92,6 @@ impl ArchiveWatchdog {
                         .ok()
                         .unwrap_or_default()
                     {
-                        // if !matches!(block.chain_status, ChainStatus::Pending) {
-                        //     self.db
-                        //         .update_slot_status(slot, block.chain_status.clone().into())
-                        //         .unwrap();
-                        // } else {
-                        //     let best_chain = node_status.best_chain();
-                        //     if best_chain.contains(&(slot, block.state_hash.clone())) {
-                        //         self.db
-                        //             .update_slot_status(slot, SlotStatus::CanonicalPending)
-                        //             .unwrap();
-                        //     } else {
-                        //         self.db
-                        //             .update_slot_status(slot, SlotStatus::OrphanedPending)
-                        //             .unwrap();
-                        //     }
-                        // }
                         if canonical.contains(block) {
                             self.db
                                 .update_slot_status(slot, SlotStatus::Canonical)
@@ -119,14 +102,13 @@ impl ArchiveWatchdog {
                                 .unwrap();
                         } else if block.height >= (best_tip.height() - 290) as i64 {
                             self.db
-                            .update_slot_status(slot, SlotStatus::OrphanedPending)
-                            .unwrap();
+                                .update_slot_status(slot, SlotStatus::OrphanedPending)
+                                .unwrap();
                         } else {
                             self.db
-                            .update_slot_status(slot, SlotStatus::Orphaned)
-                            .unwrap();
+                                .update_slot_status(slot, SlotStatus::Orphaned)
+                                .unwrap();
                         }
-
                     } else if self.db.has_slot(slot).unwrap_or_default() {
                         println!("[archive] saw produced block: {}", block.state_hash);
                         self.db.store_block(block.clone()).unwrap();

@@ -1,12 +1,11 @@
 use tokio::time::Duration;
 use tokio::{sync::mpsc::UnboundedSender, task::JoinHandle};
 
-use crate::evaluator::epoch::SlotStatus;
 use crate::evaluator::EpochInit;
-use crate::{node::epoch_ledgers::Ledger, storage::db_sled::Database, NodeStatus};
+use crate::{storage::db_sled::Database, NodeStatus};
 
-use super::{daemon_status::SyncStatus, DaemonStatus};
-use super::{genesis_timestamp, Node};
+use super::daemon_status::SyncStatus;
+use super::Node;
 
 // TODO(adonagy): move to struct
 pub fn spawn_watchdog(
@@ -24,7 +23,7 @@ async fn watch(
     status: NodeStatus,
     db: Database,
     sender: UnboundedSender<EpochInit>,
-    producer_pk: String,
+    _producer_pk: String,
 ) {
     // TODO(adonagy): From config
     let mut interval = tokio::time::interval(Duration::from_secs(5));
@@ -62,51 +61,6 @@ async fn watch(
             }
             let dumped_ledgers = status.read().await.dumped_ledgers.clone();
             let current_epoch: u32 = best_tip.consensus_state().epoch.parse().unwrap();
-            let current_slot = status.read().await.current_slot();
-
-            // update the current slot
-
-            // map blocks from the TF
-            // db.get_blocks_in_range(best_chain.first().unwrap().0, best_chain.last().unwrap().0)
-            //     .unwrap()
-            //     .iter()
-            //     .for_each(|block| {
-            //         // TODO(adonagy): DEBUG THIS
-            //         let global_slot = block.global_slot();
-
-            //         if block.creator_key == producer_pk {
-            //             if best_chain.contains(&(global_slot, block.state_hash.clone())) {
-            //                 db.update_slot_status(global_slot, SlotStatus::CanonicalPending)
-            //                     .unwrap();
-            //             } else {
-            //                 db.update_slot_status(global_slot, SlotStatus::OrphanedPending)
-            //                     .unwrap();
-            //             }
-            //         }
-            //     });
-
-            // db.get_slots_for_epoch(best_tip.epoch())
-            //     .unwrap()
-            //     .iter()
-            //     .for_each(|slot_data| {
-            //         if matches!(slot_data.block_status(), SlotStatus::ForeignToBeProduced)
-            //             && slot_data.global_slot() < current_slot.global_slot
-            //         {
-            //             if slot_data.has_block() {
-            //                 db.update_slot_status(
-            //                     slot_data.global_slot().to_u32(),
-            //                     SlotStatus::Foreign,
-            //                 )
-            //                 .unwrap();
-            //             } else {
-            //                 db.update_slot_status(
-            //                     slot_data.global_slot().to_u32(),
-            //                     SlotStatus::Empty,
-            //                 )
-            //                 .unwrap();
-            //             }
-            //         }
-            //     });
 
             if !dumped_ledgers.contains(&current_epoch) {
                 println!("Dumping staking ledger for epoch {current_epoch}");

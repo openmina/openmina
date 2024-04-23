@@ -1,11 +1,10 @@
 use reqwest::StatusCode;
-use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 
 use crate::{
-    evaluator::epoch::{EpochSlots, EpochStorage},
-    node::{self, epoch_ledgers::Balances, NodeData},
-    storage::{self, db_sled::Database},
-    NodeStatus, StakingToolError,
+    evaluator::epoch::EpochSlots,
+    node::{epoch_ledgers::Balances, NodeData},
+    storage::db_sled::Database,
+    NodeStatus,
 };
 
 use super::PaginationParams;
@@ -130,7 +129,6 @@ pub async fn get_epoch_data_summary(
                     Ok(Some(ledger)) => ledger.producer_balances(&producer_pk),
                     _ => Balances::default(),
                 };
-                // let balances = storage.get_ledger(epoch).unwrap().unwrap().producer_balances(&producer_pk);
                 res.push(EpochSlots::new(slots).merged_summary(epoch, balances))
             }
             _ => continue,

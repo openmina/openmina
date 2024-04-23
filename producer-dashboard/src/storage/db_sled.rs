@@ -1,4 +1,3 @@
-use num_traits::ToBytes;
 use sled::{Db, Tree};
 use std::path::PathBuf;
 
@@ -10,7 +9,7 @@ use crate::{
 
 #[derive(Clone)]
 pub struct Database {
-    db: Db,
+    _db: Db,
     epoch_data: Tree,
     seeds: Tree,
     epoch_ledgers: Tree,
@@ -28,7 +27,7 @@ impl Database {
         let produced_blocks_by_slot = db.open_tree("produced_blocks_by_slot")?;
 
         Ok(Self {
-            db,
+            _db: db,
             epoch_data: current_epoch,
             seeds,
             epoch_ledgers,

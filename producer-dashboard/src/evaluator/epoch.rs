@@ -1,19 +1,12 @@
-use std::collections::BTreeMap;
-
 use serde::{Deserialize, Serialize};
-use vrf::{VrfEvaluationOutput, VrfWonSlot};
 
 use crate::{
     archive::{Block, ChainStatus},
     node::epoch_ledgers::Balances,
-    storage::locked_btreemap::LockedBTreeMap,
 };
-
-pub type EpochStorage = LockedBTreeMap<u32, EpochSummary>;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EpochSlots {
-    // epoch_number: u32,
     inner: Vec<SlotData>,
 }
 
@@ -28,10 +21,7 @@ pub struct MergedSummary {
 
 impl EpochSlots {
     pub fn new(inner: Vec<SlotData>) -> Self {
-        Self {
-            // epoch_number,
-            inner,
-        }
+        Self { inner }
     }
 
     pub fn merged_summary(&self, epoch_number: u32, balances: Balances) -> MergedSummary {
@@ -135,32 +125,6 @@ pub struct EpochSummary {
     earned_rewards: u32,
 }
 
-// impl EpochSummary {
-//     pub fn new(epoch_number: u32) -> Self {
-//         Self {
-//             // epoch_number,
-//             max: 0,
-//             won_slots: 0,
-//             canonical: 0,
-//             orphaned: 0,
-//             missed: 0,
-//             expected_rewards: 0,
-//             earned_rewards: 0,
-//             future_rights: 0,
-//             slot_start: 0,
-//             slot_end: 0,
-//         }
-//     }
-//     pub fn partition(&self) {
-//         todo!()
-//     }
-// }
-
-pub struct EpochSlice {
-    part: usize,
-    epoch_data: EpochSummary,
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum SlotStatus {
     Canonical,
@@ -241,12 +205,6 @@ pub struct SlotData {
     height: Option<u32>,
     is_current_slot: bool,
 }
-
-// impl From<VrfWonSlot> for SlotData {
-//     fn from(value: VrfWonSlot) -> Self {
-//         Self::new(value.global_slot, None)
-//     }
-// }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SlotBlockUpdate {
