@@ -218,10 +218,15 @@ impl P2pNetworkSchedulerAction {
             }
             Self::YamuxDidInit { peer_id, addr } => {
                 if let Some(cn) = store.state().network.scheduler.connections.get(&addr) {
+                    let incoming = cn.incoming;
+                    if incoming {
+                        store.dispatch(P2pConnectionIncomingAction::Libp2pReceived { peer_id });
+                    } else {
+                        store.dispatch(P2pConnectionOutgoingAction::FinalizeSuccess { peer_id });
+                    }
                     // for each negotiated yamux conenction open a new outgoing RPC stream
                     // TODO(akoptelov,vlad): should we do that? shouldn't upper layer decide when to open RPC streams?
                     // Also rpc streams are short-living -- they only persist for a single request-response (?)
-                    let incoming = cn.incoming;
                     let stream_id = if incoming { 2 } else { 1 };
                     store.dispatch(P2pNetworkYamuxAction::OpenStream {
                         addr,
@@ -241,11 +246,6 @@ impl P2pNetworkSchedulerAction {
                         .map_or(false, |state| state.request(&peer_id).is_some())
                     {
                         store.dispatch(P2pNetworkKadRequestAction::MuxReady { peer_id, addr });
-                    }
-                    if incoming {
-                        store.dispatch(P2pConnectionIncomingAction::Libp2pReceived { peer_id });
-                    } else {
-                        store.dispatch(P2pConnectionOutgoingAction::FinalizeSuccess { peer_id });
                     }
                 }
             }

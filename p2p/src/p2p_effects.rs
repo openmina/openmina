@@ -7,7 +7,7 @@ use crate::{
     },
     disconnection::P2pDisconnectionService,
     is_time_passed, P2pAction, P2pCryptoService, P2pMioService, P2pNetworkKadStatus,
-    P2pNetworkKademliaAction, P2pStore,
+    P2pNetworkKademliaAction, P2pNetworkService, P2pStore,
 };
 
 pub fn p2p_timeout_effects<Store, S>(store: &mut Store, meta: &ActionMeta)
@@ -120,7 +120,8 @@ where
         + P2pDisconnectionService
         + P2pChannelsService
         + P2pMioService
-        + P2pCryptoService,
+        + P2pCryptoService
+        + P2pNetworkService,
 {
     let (action, meta) = action.split();
     match action {

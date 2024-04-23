@@ -1,9 +1,10 @@
-use std::time::Instant;
+use std::{net::IpAddr, time::Instant};
 
 use p2p::{
     identity::SecretKey,
     service_impl::{
-        mio::MioService, webrtc::P2pServiceWebrtc, webrtc_with_libp2p::P2pServiceWebrtcWithLibp2p,
+        mio::MioService, services::NativeP2pNetworkService, webrtc::P2pServiceWebrtc,
+        webrtc_with_libp2p::P2pServiceWebrtcWithLibp2p,
     },
     P2pCryptoService, P2pEvent,
 };
@@ -23,6 +24,7 @@ pub struct ClusterService {
     keypair: libp2p::identity::Keypair,
 
     rust_node_event: Option<RustNodeEvent>,
+    network_service: NativeP2pNetworkService,
 }
 
 impl ClusterService {
@@ -53,6 +55,7 @@ impl ClusterService {
             keypair,
 
             rust_node_event: None,
+            network_service: Default::default(),
         }
     }
 
@@ -128,6 +131,16 @@ impl P2pCryptoService for ClusterService {
         payload.extend_from_slice(b"\x12\x40");
         payload.extend_from_slice(&sig);
         payload
+    }
+}
+
+impl p2p::P2pNetworkService for ClusterService {
+    fn resolve_name(&mut self, host: &str) -> Result<Vec<IpAddr>, p2p::P2pNetworkServiceError> {
+        self.network_service.resolve_name(host)
+    }
+
+    fn detect_local_ip(&mut self) -> Result<Vec<IpAddr>, p2p::P2pNetworkServiceError> {
+        self.network_service.detect_local_ip()
     }
 }
 

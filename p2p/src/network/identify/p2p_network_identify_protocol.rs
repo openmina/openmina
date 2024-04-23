@@ -102,9 +102,7 @@ impl<'a> From<&'a P2pNetworkIdentify> for super::Identify<'a> {
     }
 }
 
-pub fn parse_public_key<'a>(
-    key_bytes: &Cow<'a, [u8]>,
-) -> Result<PublicKey, P2pNetworkIdentifyFromMessageError> {
+pub fn parse_public_key(key_bytes: &[u8]) -> Result<PublicKey, P2pNetworkIdentifyFromMessageError> {
     let mut reader = BytesReader::from_bytes(key_bytes);
 
     keys_proto::PublicKey::from_reader(&mut reader, key_bytes).map_or_else(
@@ -125,10 +123,8 @@ pub fn parse_public_key<'a>(
                     )),
                 ))?;
 
-                PublicKey::from_bytes(bytes).or_else(|err| {
-                    Err(P2pNetworkIdentifyFromMessageError::ErrorParsingPubKey(
-                        err.to_string(),
-                    ))
+                PublicKey::from_bytes(bytes).map_err(|err| {
+                    P2pNetworkIdentifyFromMessageError::ErrorParsingPubKey(err.to_string())
                 })
             }
             _ => Err(P2pNetworkIdentifyFromMessageError::UnsupportedPubKeyType(
@@ -138,9 +134,7 @@ pub fn parse_public_key<'a>(
     )
 }
 
-pub fn parse_protocol<'a>(
-    name: &Cow<'a, str>,
-) -> Result<StreamKind, P2pNetworkIdentifyFromMessageError> {
+pub fn parse_protocol(name: &str) -> Result<StreamKind, P2pNetworkIdentifyFromMessageError> {
     // buffer content should match one of tokens
     for tok in token::Token::ALL.iter() {
         if let token::Token::Protocol(token::Protocol::Stream(a)) = tok {

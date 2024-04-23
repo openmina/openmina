@@ -20,6 +20,5 @@ mod p2p_network_identify_reducer;
 mod p2p_network_identify_effects;
 //pub use self::p2p_network_identify_effects::*;
 
-
 mod keys_proto;
 pub use self::keys_proto::*;

@@ -23,7 +23,7 @@ use node::core::channels::mpsc;
 use node::core::snark::{Snark, SnarkJobId};
 use node::external_snark_worker::ExternalSnarkWorkerEvent;
 use node::p2p::service_impl::webrtc_with_libp2p::P2pServiceWebrtcWithLibp2p;
-use node::p2p::P2pCryptoService;
+use node::p2p::{P2pCryptoService, P2pNetworkService, P2pNetworkServiceError};
 use node::recorder::Recorder;
 use node::service::{
     BlockProducerService, BlockProducerVrfEvaluatorService, TransitionFrontierGenesisService,
@@ -287,6 +287,19 @@ impl P2pCryptoService for NodeTestingService {
 
     fn sign_key(&mut self, key: &[u8; 32]) -> Vec<u8> {
         self.real.sign_key(key)
+    }
+}
+
+impl P2pNetworkService for NodeTestingService {
+    fn resolve_name(
+        &mut self,
+        host: &str,
+    ) -> Result<Vec<std::net::IpAddr>, P2pNetworkServiceError> {
+        self.real.resolve_name(host)
+    }
+
+    fn detect_local_ip(&mut self) -> Result<Vec<std::net::IpAddr>, P2pNetworkServiceError> {
+        self.real.detect_local_ip()
     }
 }
 

@@ -1,4 +1,4 @@
-use std::net::SocketAddr;
+use std::net::{IpAddr, SocketAddr};
 
 /// The state machine sends commands to the service.
 pub enum MioCmd {
@@ -31,4 +31,21 @@ pub trait P2pCryptoService: redux::Service {
     fn static_sk(&mut self) -> [u8; 32];
 
     fn sign_key(&mut self, key: &[u8; 32]) -> Vec<u8>;
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum P2pNetworkServiceError {
+    #[error("error resolving host: {0}")]
+    Resolve(String),
+    #[error("error looking up local ip: {0}")]
+    LocalIp(String),
+}
+
+pub trait P2pNetworkService {
+    /// Resolves DNS name.
+    // TODO: make it asyncronous.
+    fn resolve_name(&mut self, host: &str) -> Result<Vec<IpAddr>, P2pNetworkServiceError>;
+
+    /// Detects local IP addresses matching the mask.
+    fn detect_local_ip(&mut self) -> Result<Vec<IpAddr>, P2pNetworkServiceError>;
 }

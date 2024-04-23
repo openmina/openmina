@@ -61,6 +61,7 @@ impl ReplayStateWithInputActions {
             peers: Default::default(),
             #[cfg(feature = "p2p-libp2p")]
             mio: node::p2p::service_impl::mio::MioService::mocked(),
+            network: Default::default(),
             block_producer: None,
             keypair: Keypair::generate_ed25519(),
             rpc: RpcService::new(),

@@ -18,6 +18,7 @@ impl From<bool> for P2pNetworkIdentifyStreamKind {
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[allow(clippy::large_enum_variant)]
 pub enum P2pNetworkIdentifyStreamState {
     #[default]
     Default,

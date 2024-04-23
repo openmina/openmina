@@ -15,6 +15,7 @@ pub use crate::snark::work_verify::SnarkWorkVerifyService;
 pub use crate::snark_pool::SnarkPoolService;
 pub use crate::transition_frontier::genesis::TransitionFrontierGenesisService;
 pub use crate::transition_frontier::sync::ledger::snarked::TransitionFrontierSyncLedgerSnarkedService;
+use p2p::P2pNetworkService;
 pub use redux::TimeService;
 
 use crate::stats::Stats;
@@ -29,6 +30,7 @@ pub trait Service:
     + P2pChannelsService
     + P2pMioService
     + P2pCryptoService
+    + P2pNetworkService
     + LedgerService
     + TransitionFrontierGenesisService
     + TransitionFrontierSyncLedgerSnarkedService

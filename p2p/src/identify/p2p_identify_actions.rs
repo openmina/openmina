@@ -5,6 +5,7 @@ use std::net::SocketAddr;
 
 #[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
 #[action_event(fields(display(peer_id), display(addr), debug(info)))]
+#[allow(clippy::large_enum_variant)]
 pub enum P2pIdentifyAction {
     /// Open a new yamux stream to the remote peer to request its identity
     NewRequest { peer_id: PeerId, addr: SocketAddr },

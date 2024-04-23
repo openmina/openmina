@@ -6,7 +6,7 @@ impl P2pNetworkAction {
     pub fn effects<Store, S>(self, meta: &redux::ActionMeta, store: &mut Store)
     where
         Store: crate::P2pStore<S>,
-        Store::Service: P2pMioService + P2pCryptoService,
+        Store::Service: P2pMioService + P2pCryptoService + P2pNetworkService,
     {
         match self {
             Self::Scheduler(v) => v.effects(meta, store),

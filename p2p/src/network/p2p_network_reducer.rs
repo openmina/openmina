@@ -103,7 +103,7 @@ impl P2pNetworkState {
             P2pNetworkAction::Identify(a) => {
                 let time = meta.time();
                 // println!("======= identify reducer for {state:?}");
-                if let Err(err) = self.scheduler.identify_state.reducer(meta.with_action(&a)) {
+                if let Err(err) = self.scheduler.identify_state.reducer(meta.with_action(a)) {
                     error!(time; "{err}");
                 }
                 // println!("======= identify reducer result {state:?}");
