@@ -174,7 +174,7 @@ impl DontConnectToSelfInitialPeer {
         let mut driver = Driver::new(runner);
 
         let bytes = [0xfe; 32];
-        let port = 12001;
+        let port = 13001;
         let peer_id = SecretKey::from_bytes(bytes).public_key().peer_id();
         let self_opts =
             P2pConnectionOutgoingInitOpts::LibP2P(P2pConnectionOutgoingInitLibp2pOpts {
