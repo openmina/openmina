@@ -15,6 +15,7 @@ pub struct Database {
     epoch_ledgers: Tree,
     blocks: Tree,
     produced_blocks_by_slot: Tree,
+    _summaries: Tree,
 }
 
 impl Database {
@@ -25,6 +26,7 @@ impl Database {
         let epoch_ledgers = db.open_tree("epoch_ledgers")?;
         let blocks = db.open_tree("produced_blocks")?;
         let produced_blocks_by_slot = db.open_tree("produced_blocks_by_slot")?;
+        let summaries = db.open_tree("sumaries")?;
 
         Ok(Self {
             _db: db,
@@ -33,6 +35,7 @@ impl Database {
             epoch_ledgers,
             blocks,
             produced_blocks_by_slot,
+            _summaries: summaries,
         })
     }
 
@@ -191,6 +194,16 @@ impl Database {
             .range(start_key..end_key)
             .map(|entry_result| {
                 let (_key, value) = entry_result?;
+                deserialize_bincode(&value)
+            })
+            .collect()
+    }
+
+    pub fn get_all_slots(&self) -> Result<Vec<SlotData>, sled::Error> {
+        self.epoch_data
+            .into_iter()
+            .map(|entry_result| {
+                let (_, value) = entry_result?;
                 deserialize_bincode(&value)
             })
             .collect()

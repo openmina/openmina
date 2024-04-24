@@ -4,8 +4,9 @@ use crate::{storage::db_sled::Database, NodeStatus};
 
 use super::{
     handlers::{
-        get_current_slot, get_epoch_data, get_epoch_data_summary, get_genesis_timestamp,
-        get_latest_epoch_data, get_latest_epoch_data_summary, get_node_status,
+        get_all_time_summary, get_current_slot, get_epoch_data, get_epoch_data_summary,
+        get_genesis_timestamp, get_latest_epoch_data, get_latest_epoch_data_summary,
+        get_node_status,
     },
     PaginationParams,
 };
@@ -26,6 +27,7 @@ pub fn filters(
         .or(current_slot(node_status.clone()))
         .or(epoch_summary(storage.clone(), producer_pk.clone()))
         .or(epoch_data(storage.clone()))
+        .or(all_time_summary(storage.clone()))
         .or(latest_epoch_summary(storage, node_status, producer_pk))
         .with(cors)
 }
@@ -98,6 +100,15 @@ fn epoch_summary(
         .and(with_storage(storage))
         .and(with_producer_pk(producer_pk))
         .and_then(get_epoch_data_summary)
+}
+
+fn all_time_summary(
+    storage: Database,
+) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+    warp::path!("summary")
+        .and(warp::get())
+        .and(with_storage(storage))
+        .and_then(get_all_time_summary)
 }
 
 fn with_storage(

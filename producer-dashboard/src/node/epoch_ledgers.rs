@@ -1,4 +1,7 @@
-use std::path::PathBuf;
+use std::{
+    ops::{Add, AddAssign},
+    path::PathBuf,
+};
 
 use num_bigint::BigInt;
 use num_traits::identities::Zero;
@@ -11,9 +14,9 @@ use crate::StakingToolError;
 // TODO(adonagy): remove dead_code
 #[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq)]
-pub struct MinaBalanceStringNumber(BigInt);
+pub struct MinaLedgerDumpBalanceStringNumber(BigInt);
 
-impl<'de> Deserialize<'de> for MinaBalanceStringNumber {
+impl<'de> Deserialize<'de> for MinaLedgerDumpBalanceStringNumber {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
@@ -40,12 +43,12 @@ impl<'de> Deserialize<'de> for MinaBalanceStringNumber {
         }
 
         BigInt::from_str(&normalized)
-            .map(MinaBalanceStringNumber)
+            .map(MinaLedgerDumpBalanceStringNumber)
             .map_err(serde::de::Error::custom)
     }
 }
 
-impl Serialize for MinaBalanceStringNumber {
+impl Serialize for MinaLedgerDumpBalanceStringNumber {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -83,22 +86,80 @@ impl Serialize for MinaBalanceStringNumber {
     }
 }
 
-impl From<MinaBalanceStringNumber> for BigInt {
-    fn from(value: MinaBalanceStringNumber) -> Self {
+impl From<MinaLedgerDumpBalanceStringNumber> for BigInt {
+    fn from(value: MinaLedgerDumpBalanceStringNumber) -> Self {
         value.0
     }
 }
 
-impl From<&MinaBalanceStringNumber> for BigInt {
-    fn from(value: &MinaBalanceStringNumber) -> Self {
+impl From<&MinaLedgerDumpBalanceStringNumber> for BigInt {
+    fn from(value: &MinaLedgerDumpBalanceStringNumber) -> Self {
         value.0.clone()
+    }
+}
+
+impl From<MinaLedgerDumpBalanceStringNumber> for NanoMina {
+    fn from(value: MinaLedgerDumpBalanceStringNumber) -> Self {
+        NanoMina(value.0)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct NanoMina(BigInt);
+
+impl Serialize for NanoMina {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&self.0.to_string())
+    }
+}
+
+impl<'de> Deserialize<'de> for NanoMina {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+
+        BigInt::from_str(&s)
+            .map(NanoMina)
+            .map_err(serde::de::Error::custom)
+    }
+}
+
+impl AddAssign for NanoMina {
+    fn add_assign(&mut self, rhs: Self) {
+        *self = Self(self.0.clone() + rhs.0)
+    }
+}
+
+impl Add for NanoMina {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Self(self.0 + rhs.0)
+    }
+}
+
+// impl From<usize> for NanoMina {
+//     fn from(value: usize) -> Self {
+//         Self(BigInt::from_usize(value).unwrap())
+//     }
+// }
+
+impl NanoMina {
+    pub fn new(value: BigInt) -> Self {
+        let nano_factor: BigInt = 1_000_000_000.into();
+        Self(value * nano_factor)
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct LedgerEntry {
     pub pk: String,
-    pub balance: MinaBalanceStringNumber,
+    pub balance: MinaLedgerDumpBalanceStringNumber,
     pub delegate: Option<String>,
 }
 
@@ -109,19 +170,9 @@ pub struct Ledger {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
 pub struct Balances {
-    #[serde(serialize_with = "serialize_bigint_as_string")]
-    balance_producer: BigInt,
-    #[serde(serialize_with = "serialize_bigint_as_string")]
-    balance_delegated: BigInt,
-    #[serde(serialize_with = "serialize_bigint_as_string")]
-    balance_staked: BigInt,
-}
-
-fn serialize_bigint_as_string<S>(num: &BigInt, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    serializer.serialize_str(&num.to_string())
+    balance_producer: NanoMina,
+    balance_delegated: NanoMina,
+    balance_staked: NanoMina,
 }
 
 #[allow(dead_code)]
@@ -164,11 +215,12 @@ impl Ledger {
                 balances.balance_producer = entry.balance.clone().into();
             } else if let Some(delegate) = &entry.delegate {
                 if delegate == producer {
-                    balances.balance_delegated += &entry.balance.clone().into();
+                    balances.balance_delegated += entry.balance.clone().into();
                 }
             }
         }
-        balances.balance_staked = &balances.balance_delegated + &balances.balance_producer;
+        balances.balance_staked =
+            balances.balance_delegated.clone() + balances.balance_producer.clone();
         balances
     }
 }

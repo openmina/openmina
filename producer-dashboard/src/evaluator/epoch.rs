@@ -1,8 +1,10 @@
+use std::ops::AddAssign;
+
 use serde::{Deserialize, Serialize};
 
 use crate::{
     archive::{Block, ChainStatus},
-    node::epoch_ledgers::Balances,
+    node::epoch_ledgers::{Balances, NanoMina},
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -17,6 +19,12 @@ pub struct MergedSummary {
     sub_windows: Vec<EpochSummary>,
     #[serde(flatten)]
     balances: Balances,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AllTimeSummary {
+    #[serde(flatten)]
+    slot_summary: SlotSummary,
 }
 
 impl EpochSlots {
@@ -52,33 +60,26 @@ impl EpochSlots {
             .collect()
     }
 
-    pub fn summary(&self) -> EpochSummary {
-        let mut won_slots = 0;
-        let mut canonical_blocks = 0;
-        let mut orphaned_blocks = 0;
-        let mut missed_blocks = 0;
-        let mut future_rights = 0;
-
-        let mut earned_rewards = 0;
-
+    pub fn slot_summary(&self) -> SlotSummary {
+        let mut slot_summary = SlotSummary::default();
         for slot in self.inner.iter() {
             match slot.block_status {
                 SlotStatus::Canonical | SlotStatus::CanonicalPending => {
-                    won_slots += 1;
-                    canonical_blocks += 1;
-                    earned_rewards += 720;
+                    slot_summary.won_slots += 1;
+                    slot_summary.canonical += 1;
+                    slot_summary.earned_rewards += NanoMina::new(720.into());
                 }
                 SlotStatus::Missed => {
-                    won_slots += 1;
-                    missed_blocks += 1;
+                    slot_summary.won_slots += 1;
+                    slot_summary.missed += 1;
                 }
                 SlotStatus::Orphaned | SlotStatus::OrphanedPending => {
-                    won_slots += 1;
-                    orphaned_blocks += 1;
+                    slot_summary.won_slots += 1;
+                    slot_summary.orphaned += 1;
                 }
                 SlotStatus::ToBeProduced => {
-                    won_slots += 1;
-                    future_rights += 1;
+                    slot_summary.won_slots += 1;
+                    slot_summary.future_rights += 1;
                 }
                 SlotStatus::Pending
                 | SlotStatus::Lost
@@ -89,21 +90,19 @@ impl EpochSlots {
                 }
             }
         }
+        slot_summary.expected_rewards = NanoMina::new((slot_summary.won_slots * 720).into());
+        slot_summary
+    }
+
+    fn summary(&self) -> EpochSummary {
+        let slot_summary = self.slot_summary();
 
         let slot_start = self.inner.first().unwrap().global_slot.to_u32();
         let slot_end = self.inner.last().unwrap().global_slot.to_u32();
-        let expected_rewards = (won_slots as u32) * 720;
 
         EpochSummary {
-            // epoch_number: self.epoch_number,
-            max: won_slots,
-            won_slots,
-            canonical: canonical_blocks,
-            orphaned: orphaned_blocks,
-            missed: missed_blocks,
-            expected_rewards,
-            earned_rewards,
-            future_rights,
+            max: slot_summary.won_slots,
+            slot_summary,
             slot_start,
             slot_end,
         }
@@ -112,17 +111,36 @@ impl EpochSlots {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EpochSummary {
-    // epoch_number: u32,
     max: usize,
+    #[serde(flatten)]
+    slot_summary: SlotSummary,
+    slot_start: u32,
+    slot_end: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+pub struct SlotSummary {
     won_slots: usize,
     canonical: usize,
     orphaned: usize,
     missed: usize,
     future_rights: usize,
-    slot_start: u32,
-    slot_end: u32,
-    expected_rewards: u32,
-    earned_rewards: u32,
+    expected_rewards: NanoMina,
+    earned_rewards: NanoMina,
+}
+
+impl AddAssign for SlotSummary {
+    fn add_assign(&mut self, rhs: Self) {
+        *self = Self {
+            won_slots: self.won_slots + rhs.won_slots,
+            canonical: self.canonical + rhs.canonical,
+            orphaned: self.orphaned + rhs.orphaned,
+            missed: self.missed + rhs.missed,
+            future_rights: self.future_rights + rhs.future_rights,
+            expected_rewards: self.expected_rewards.clone() + rhs.expected_rewards,
+            earned_rewards: self.earned_rewards.clone() + rhs.earned_rewards,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

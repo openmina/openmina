@@ -140,3 +140,18 @@ pub async fn get_epoch_data_summary(
         StatusCode::OK,
     ))
 }
+
+pub async fn get_all_time_summary(
+    storage: Database,
+) -> Result<impl warp::Reply, warp::reject::Rejection> {
+    match storage.get_all_slots() {
+        Ok(slots) => {
+            let res = EpochSlots::new(slots).slot_summary();
+            Ok(warp::reply::with_status(
+                warp::reply::json(&res),
+                StatusCode::OK,
+            ))
+        }
+        _ => Err(warp::reject()),
+    }
+}
