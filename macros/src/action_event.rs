@@ -98,6 +98,7 @@ pub fn expand(input: DeriveInput) -> Result<TokenStream> {
                             #type_name :: #variant_name { #(#field_names),* } => #expr,
                         });
                     }
+                    args.push(kind_field(type_name, &v.ident)?);
                     args.extend(summary_field(&v.attrs)?);
                     args.extend(fields(&variant_attrs.fields, &input_attrs.fields, fields_named)?);
                     let level = level(&variant_attrs.level, &v.ident, &input_attrs.level);
@@ -111,6 +112,7 @@ pub fn expand(input: DeriveInput) -> Result<TokenStream> {
                             #type_name :: #variant_name => #expr,
                         });
                     }
+                    args.push(kind_field(type_name, &v.ident)?);
                     args.extend(summary_field(&v.attrs)?);
                     let level = level(&variant_attrs.level, &v.ident, &input_attrs.level);
                     Ok(quote! {
@@ -255,6 +257,14 @@ fn get_field_name(expr: &Expr) -> Option<&Ident> {
         },
         _ => None,
     }
+}
+
+fn kind_field(enum_name: &Ident, variant_name: &Ident) -> Result<TokenStream> {
+    let enum_name = enum_name.to_string();
+    let first = enum_name.strip_suffix("Action").unwrap_or(&enum_name);
+    let second = variant_name.to_string();
+    let kind = format!("{first}{second}");
+    Ok(quote!(kind = #kind))
 }
 
 fn summary_field(attrs: &[Attribute]) -> Result<Option<TokenStream>> {

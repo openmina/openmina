@@ -10,7 +10,7 @@ use super::{
 
 pub type P2pChannelsActionWithMetaRef<'a> = redux::ActionWithMeta<&'a P2pChannelsAction>;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, openmina_core::ActionEvent)]
 pub enum P2pChannelsAction {
     MessageReceived(P2pChannelsMessageReceivedAction),
 
