@@ -16,7 +16,7 @@ services:
     image: postgres
     container_name: db-dumper
     volumes:
-      - './dumps:/dumps'
+      - './docker/dumps:/dumps'
     env_file:
       - .env
     entrypoint: "/bin/bash"
