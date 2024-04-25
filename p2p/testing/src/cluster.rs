@@ -291,7 +291,7 @@ impl Cluster {
         Ok(node_id)
     }
 
-    pub fn connect<T>(&mut self, id: RustNodeId, other: T)
+    pub fn connect<T>(&mut self, id: RustNodeId, other: T) -> Result<()>
     where
         T: Into<Listener>,
     {
@@ -306,9 +306,14 @@ impl Cluster {
                 self.rust_node_mut(id)
                     .dispatch_action(P2pConnectionOutgoingAction::Init { opts, rpc_id: None });
             }
-            Listener::Multiaddr(_) => todo!(),
+            Listener::Multiaddr(maddr) => {
+                let opts = maddr.try_into().map_err(|e| Error::AddrParse(e))?;
+                self.rust_node_mut(id)
+                    .dispatch_action(P2pConnectionOutgoingAction::Init { opts, rpc_id: None });
+            }
             Listener::SocketPeerId(_, _) => todo!(),
         }
+        Ok(())
     }
 
     pub fn rust_node(&self, id: RustNodeId) -> &RustNode {

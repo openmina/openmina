@@ -3,9 +3,9 @@ pub mod channels;
 pub mod connection;
 pub mod disconnection;
 pub mod discovery;
-pub mod peer;
-
+pub mod identify;
 pub mod identity;
+pub mod peer;
 pub use identity::PeerId;
 
 pub mod webrtc;

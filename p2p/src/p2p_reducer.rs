@@ -23,6 +23,7 @@ impl P2pState {
                         is_libp2p: opts.is_libp2p(),
                         dial_opts: Some(opts.clone()),
                         status: P2pPeerStatus::Connecting(P2pConnectionState::outgoing_init(opts)),
+                        identify: None,
                     }),
                     P2pConnectionAction::Incoming(P2pConnectionIncomingAction::Init {
                         opts,
@@ -44,6 +45,7 @@ impl P2pState {
                             })
                         },
                         status: P2pPeerStatus::Connecting(P2pConnectionState::incoming_init(opts)),
+                        identify: None,
                     }),
                     P2pConnectionAction::Incoming(
                         P2pConnectionIncomingAction::Libp2pReceived { .. },
@@ -53,6 +55,7 @@ impl P2pState {
                             dial_opts: None,
                             // correct status later set in the child reducer.
                             status: P2pPeerStatus::Disconnected { time: meta.time() },
+                            identify: None,
                         })
                     }
                     _ => match self.peers.get_mut(peer_id) {
@@ -86,6 +89,16 @@ impl P2pState {
             P2pAction::Discovery(action) => {
                 p2p_discovery_reducer(self, meta.with_action(action));
             }
+            P2pAction::Identify(action) => match action {
+                crate::identify::P2pIdentifyAction::NewRequest { .. } => {}
+                crate::identify::P2pIdentifyAction::UpdatePeerInformation { peer_id, info } => {
+                    if let Some(peer) = self.peers.get_mut(peer_id) {
+                        peer.identify = Some(info.clone());
+                    } else {
+                        unreachable!()
+                    }
+                }
+            },
             P2pAction::Network(action) => self.network.reducer(meta.with_action(action)),
         }
     }

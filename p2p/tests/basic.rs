@@ -35,7 +35,7 @@ async fn accept_connection() {
             .expect("unexpected error");
         assert!(listener_is_ready, "listener should be ready");
 
-        cluster.connect(node, listener);
+        cluster.connect(node, listener).expect("no errors");
 
         let connected = cluster
             .try_stream()

@@ -52,6 +52,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
             },
             P2pAction::Disconnection(action) => action.action_event(&context),
             P2pAction::Discovery(action) => action.action_event(&context),
+            P2pAction::Identify(action) => action.action_event(&context),
             P2pAction::Channels(action) => match action {
                 P2pChannelsAction::MessageReceived(action) => action.action_event(&context),
                 P2pChannelsAction::BestTip(action) => action.action_event(&context),
@@ -68,6 +69,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                 P2pNetworkAction::Yamux(action) => action.action_event(&context),
                 P2pNetworkAction::Rpc(action) => action.action_event(&context),
                 P2pNetworkAction::Kad(action) => action.action_event(&context),
+                P2pNetworkAction::Identify(action) => action.action_event(&context),
             },
         },
         Action::ExternalSnarkWorker(action) => action.action_event(&context),

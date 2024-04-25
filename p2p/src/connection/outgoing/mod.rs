@@ -362,6 +362,15 @@ impl TryFrom<&multiaddr::Multiaddr> for P2pConnectionOutgoingInitOpts {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
+impl TryFrom<multiaddr::Multiaddr> for P2pConnectionOutgoingInitOpts {
+    type Error = P2pConnectionOutgoingInitOptsParseError;
+
+    fn try_from(value: multiaddr::Multiaddr) -> Result<Self, Self::Error> {
+        Ok(Self::LibP2P((&value).try_into()?))
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
 impl TryFrom<&multiaddr::Multiaddr> for P2pConnectionOutgoingInitLibp2pOpts {
     type Error = P2pConnectionOutgoingInitOptsParseError;
 

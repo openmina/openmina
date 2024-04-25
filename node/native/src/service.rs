@@ -7,6 +7,7 @@ use libp2p_identity::Keypair;
 use mina_p2p_messages::v2::{LedgerProofProdStableV2, TransactionSnarkWorkTStableV2Proofs};
 #[cfg(feature = "p2p-libp2p")]
 use node::p2p::service_impl::mio::MioService;
+use node::p2p::service_impl::services::NativeP2pNetworkService;
 use rand::prelude::*;
 use redux::ActionMeta;
 use serde::Serialize;
@@ -21,7 +22,7 @@ use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 use node::p2p::service_impl::webrtc::{Cmd, P2pServiceWebrtc, PeerState};
 use node::p2p::service_impl::webrtc_with_libp2p::P2pServiceWebrtcWithLibp2p;
 use node::p2p::service_impl::TaskSpawner;
-use node::p2p::{P2pCryptoService, PeerId};
+use node::p2p::{P2pCryptoService, P2pNetworkService, P2pNetworkServiceError, PeerId};
 use node::rpc::{RpcP2pConnectionOutgoingResponse, RpcRequest};
 use node::service::{EventSourceService, Recorder, TransitionFrontierGenesisService};
 use node::snark::block_verify::{
@@ -49,6 +50,7 @@ pub struct NodeService {
     pub peers: BTreeMap<PeerId, PeerState>,
     #[cfg(feature = "p2p-libp2p")]
     pub mio: MioService,
+    pub network: NativeP2pNetworkService,
     pub block_producer: Option<BlockProducerService>,
     pub keypair: Keypair,
     pub snark_worker_sender: Option<ext_snark_worker::ExternalSnarkWorkerFacade>,
@@ -138,6 +140,19 @@ impl P2pCryptoService for NodeService {
         payload.extend_from_slice(b"\x12\x40");
         payload.extend_from_slice(&sig);
         payload
+    }
+}
+
+impl P2pNetworkService for NodeService {
+    fn resolve_name(
+        &mut self,
+        host: &str,
+    ) -> Result<Vec<std::net::IpAddr>, P2pNetworkServiceError> {
+        self.network.resolve_name(host)
+    }
+
+    fn detect_local_ip(&mut self) -> Result<Vec<std::net::IpAddr>, P2pNetworkServiceError> {
+        self.network.detect_local_ip()
     }
 }
 

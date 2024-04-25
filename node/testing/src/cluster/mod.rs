@@ -352,6 +352,7 @@ impl Cluster {
             peers,
             #[cfg(feature = "p2p-libp2p")]
             mio: p2p_service_ctx.mio,
+            network: Default::default(),
             block_producer: None,
             keypair,
             snark_worker_sender: None,

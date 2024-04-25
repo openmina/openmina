@@ -112,6 +112,14 @@ pub fn as_event_mio_interface_detected(event: &Event) -> Option<&std::net::IpAdd
     }
 }
 
+pub fn as_event_mio_listener_ready(event: &Event) -> Option<&std::net::SocketAddr> {
+    if let Event::P2p(P2pEvent::MioEvent(MioEvent::ListenerReady { listener })) = event {
+        Some(listener)
+    } else {
+        None
+    }
+}
+
 pub fn as_event_mio_error(event: &Event) -> Option<SocketAddr> {
     match event {
         Event::P2p(P2pEvent::MioEvent(MioEvent::ConnectionDidClose(addr, res))) if res.is_err() => {
@@ -389,7 +397,7 @@ pub async fn wait_for_nodes_listening_on_localhost<'cluster>(
     // predicate matching event "listening on localhost interface"
     let _ip4_localhost = libp2p::multiaddr::Protocol::Ip4("127.0.0.1".parse().unwrap());
     let pred = |node_id, event: &_, _state: &_| {
-        if let Some(_addr) = as_event_mio_interface_detected(event) {
+        if let Some(_addr) = as_event_mio_listener_ready(event) {
             nodes.remove(&node_id);
             nodes.is_empty()
         } else {
