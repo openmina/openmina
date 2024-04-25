@@ -23,6 +23,7 @@ members = [
 
     "tools/transport",
     "tools/bootstrap-sandbox",
+    "tools/gossipsub-sandbox",
     "tools/hash-tool",
     "tools/ledger-tool",
     "tools/salsa-simple",
