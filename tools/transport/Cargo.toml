@@ -9,4 +9,4 @@ log = { version = "0.4.17" }
 hex = { version = "0.4.3" }
 pin-project-lite = { version = "0.2.10" }
 
-libp2p = { workspace = true, features = ["tokio", "noise", "pnet", "tcp", "yamux", "dns"] }
+libp2p = { workspace = true, features = ["tokio", "noise", "pnet", "tcp", "yamux", "dns", "gossipsub"] }
