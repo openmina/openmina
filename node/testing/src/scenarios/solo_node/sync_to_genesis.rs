@@ -3,7 +3,7 @@ use std::time::Duration;
 use crate::{
     node::{OcamlNodeTestingConfig, OcamlStep, RustNodeTestingConfig},
     scenario::{ListenerNode, ScenarioStep},
-    scenarios::cluster_runner::{ClusterRunner, RunDecision},
+    scenarios::{ClusterRunner, RunCfg},
 };
 
 /// Set up single Rust node and sync to custom genesis block/ledger.
@@ -74,13 +74,11 @@ impl SoloNodeSyncToGenesis {
         eprintln!("waiting for rust node to sync up from ocaml node");
         runner
             .run(
-                Duration::from_secs(60),
-                |_, _, _| RunDecision::ContinueExec,
-                move |node_id, state, _, _| {
+                RunCfg::default().action_handler(move |node_id, state, _, _| {
                     node_id == rust_node
                         && state.transition_frontier.sync.is_synced()
                         && state.transition_frontier.best_tip().is_some()
-                },
+                }),
             )
             .await
             .expect("error while waiting to sync genesis block from ocaml");

@@ -7,7 +7,7 @@ use node::{p2p::P2pTimeouts, ActionKind, BlockProducerConfig};
 use crate::{
     node::{RustNodeBlockProducerTestingConfig, RustNodeTestingConfig},
     scenario::{ListenerNode, ScenarioStep},
-    scenarios::cluster_runner::{ClusterRunner, RunDecision},
+    scenarios::{ClusterRunner, RunCfg},
 };
 
 /// Set up single Rust node and connect to an ocaml node with custom ledger and check if the node
@@ -107,18 +107,18 @@ impl MultiNodeVrfGetCorrectLedgers {
 
         runner
             .run(
-                Duration::from_secs(400),
-                |_, _, _| RunDecision::ContinueExec,
-                move |node_id, _, _, action| {
-                    if node_id == producer_node {
-                        matches!(
-                            action.action().kind(),
-                            ActionKind::BlockProducerVrfEvaluatorBeginEpochEvaluation
-                        )
-                    } else {
-                        false
-                    }
-                },
+                RunCfg::default()
+                    .timeout(Duration::from_secs(400))
+                    .action_handler(move |node_id, _, _, action| {
+                        if node_id == producer_node {
+                            matches!(
+                                action.action().kind(),
+                                ActionKind::BlockProducerVrfEvaluatorBeginEpochEvaluation
+                            )
+                        } else {
+                            false
+                        }
+                    }),
             )
             .await
             .expect("Timeout - waiting for VRF evaluator to update producer and delegates");

@@ -25,6 +25,15 @@ pub struct ClusterRunner<'a> {
     add_step: Box<dyn 'a + FnMut(&ScenarioStep)>,
 }
 
+pub struct RunCfg<
+    EH: FnMut(ClusterNodeId, &State, &Event) -> RunDecision,
+    AH: 'static + Send + FnMut(ClusterNodeId, &State, &NodeTestingService, &ActionWithMeta) -> bool,
+> {
+    timeout: Duration,
+    handle_event: EH,
+    exit_if_action: AH,
+}
+
 #[derive(Debug, Clone, Copy)]
 pub enum RunDecision {
     /// Skip current event without executing it and stop the loop.
@@ -192,23 +201,15 @@ impl<'a> ClusterRunner<'a> {
             .unwrap()
     }
 
-    // TODO(binier): better names for `handle_event`, `
-    /// Execute cluster in the infinite loop, until `handle_event`,
-    /// `handle_action` or `timeout` causes it to end.
-    ///
-    /// - `timeout` represents timeout for the whole function. It must
-    ///   finish before timeout is triggered. For it to finish either
-    ///   `handle_event` or `handle_action` must cause infinite loop to end.
-    /// - `handle_event` function control execution of events based on
-    ///   decision that it will return. It might exec event, skip it,
-    ///   and/or stop this infinite loop all together.
-    /// - `handle_action` function can react to actions triggered in the
-    ///   cluster in order to stop the loop.
+    /// Execute cluster in the infinite loop, based on conditions specified
+    /// in the `RunCfg`.
     pub async fn run<EH, AH>(
         &mut self,
-        timeout: Duration,
-        mut handle_event: EH,
-        mut exit_if_action: AH,
+        RunCfg {
+            timeout,
+            mut handle_event,
+            mut exit_if_action,
+        }: RunCfg<EH, AH>,
     ) -> anyhow::Result<()>
     where
         EH: FnMut(ClusterNodeId, &State, &Event) -> RunDecision,
@@ -313,11 +314,11 @@ impl<'a> ClusterRunner<'a> {
         {
             let t = redux::Instant::now();
             self.run(
-                timeout,
-                |_, _, _| RunDecision::ContinueExec,
-                |_, _, _, action| {
-                    matches!(action.action().kind(), ActionKind::TransitionFrontierSynced)
-                },
+                RunCfg::default()
+                    .timeout(timeout)
+                    .action_handler(|_, _, _, action| {
+                        matches!(action.action().kind(), ActionKind::TransitionFrontierSynced)
+                    }),
             )
             .await?;
             timeout = timeout.checked_sub(t.elapsed()).unwrap_or_default();
@@ -460,13 +461,7 @@ impl<'a> ClusterRunner<'a> {
             }
 
             // run
-            let _ = self
-                .run(
-                    step_duration,
-                    |_, _, _| RunDecision::ContinueExec,
-                    move |_, _, _, _| false,
-                )
-                .await;
+            let _ = self.run(RunCfg::default().timeout(step_duration)).await;
             if keep_synced {
                 // make sure every node is synced, longer timeout in case one node disconnects and it needs to resync
                 self.run_until_nodes_synced(Duration::from_secs(5 * 60), &nodes)
@@ -580,6 +575,68 @@ impl<'a> ClusterRunner<'a> {
             },
         )
         .await
+    }
+}
+
+impl Default
+    for RunCfg<
+        fn(ClusterNodeId, &State, &Event) -> RunDecision,
+        fn(ClusterNodeId, &State, &NodeTestingService, &ActionWithMeta) -> bool,
+    >
+{
+    fn default() -> Self {
+        Self {
+            timeout: Duration::from_secs(60),
+            handle_event: |_, _, _| RunDecision::ContinueExec,
+            exit_if_action: |_, _, _, _| false,
+        }
+    }
+}
+
+impl<EH, AH> RunCfg<EH, AH>
+where
+    EH: FnMut(ClusterNodeId, &State, &Event) -> RunDecision,
+    AH: 'static + Send + FnMut(ClusterNodeId, &State, &NodeTestingService, &ActionWithMeta) -> bool,
+{
+    /// Set `timeout` for the whole `run` function.
+    ///
+    /// `run` function will time out, unless `event_handler` or `action_handler`
+    /// causes it to end before the timeout duration elapses.
+    ///
+    /// Default: 60s
+    pub fn timeout(mut self, dur: Duration) -> Self {
+        self.timeout = dur;
+        self
+    }
+
+    /// Set function control execution of events based on decision that
+    /// it will return. It might exec event, skip it, and/or end the
+    /// execution of the `run` function.
+    pub fn event_handler<NewEh>(self, handler: NewEh) -> RunCfg<NewEh, AH>
+    where
+        NewEh: FnMut(ClusterNodeId, &State, &Event) -> RunDecision,
+    {
+        RunCfg {
+            timeout: self.timeout,
+            handle_event: handler,
+            exit_if_action: self.exit_if_action,
+        }
+    }
+
+    /// Set function using which `run` function can be stopped based on
+    /// the passed predicate. It can also be used to gather some data
+    /// based on actions to be used in tests.
+    pub fn action_handler<NewAH>(self, handler: NewAH) -> RunCfg<EH, NewAH>
+    where
+        NewAH: 'static
+            + Send
+            + FnMut(ClusterNodeId, &State, &NodeTestingService, &ActionWithMeta) -> bool,
+    {
+        RunCfg {
+            timeout: self.timeout,
+            handle_event: self.handle_event,
+            exit_if_action: handler,
+        }
     }
 }
 

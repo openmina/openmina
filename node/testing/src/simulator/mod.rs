@@ -13,7 +13,7 @@ use crate::{
     cluster::{ClusterNodeId, ClusterOcamlNodeId},
     node::{Node, RustNodeBlockProducerTestingConfig, RustNodeTestingConfig},
     scenario::{ListenerNode, ScenarioStep},
-    scenarios::{ClusterRunner, RunDecision},
+    scenarios::{ClusterRunner, RunCfg},
 };
 
 pub struct Simulator {
@@ -69,17 +69,13 @@ impl Simulator {
         };
         while !runner.nodes_iter().all(|(_, node)| is_synced(node.state())) {
             runner
-                .run(
-                    Duration::from_secs(60),
-                    |_, _, _| RunDecision::ContinueExec,
-                    move |_, _, _, action| {
-                        matches!(
-                            action.action().kind(),
-                            ActionKind::TransitionFrontierGenesisInject
-                                | ActionKind::TransitionFrontierSynced
-                        )
-                    },
-                )
+                .run(RunCfg::default().action_handler(move |_, _, _, action| {
+                    matches!(
+                        action.action().kind(),
+                        ActionKind::TransitionFrontierGenesisInject
+                            | ActionKind::TransitionFrontierSynced
+                    )
+                }))
                 .await
                 .expect("error while waiting to sync genesis block from ocaml");
         }
@@ -231,13 +227,7 @@ impl Simulator {
         while !timeout.is_zero() {
             let t = redux::Instant::now();
             tokio::task::yield_now().await;
-            let _ = runner
-                .run(
-                    Duration::ZERO,
-                    |_, _, _| RunDecision::ContinueExec,
-                    |_, _, _, _| false,
-                )
-                .await;
+            let _ = runner.run(RunCfg::default().timeout(Duration::ZERO)).await;
 
             for (node_id, node) in runner.nodes_iter() {
                 let Some(best_tip) = node.state().transition_frontier.best_tip() else {
