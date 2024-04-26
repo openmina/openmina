@@ -30,14 +30,14 @@ use crate::{
     test_node::TestNode,
 };
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub enum PeerIdConfig {
     #[default]
     Derived,
     Bytes([u8; 32]),
 }
 
-#[derive(Debug, derive_more::From)]
+#[derive(Debug, Clone, derive_more::From)]
 pub enum Listener {
     Rust(RustNodeId),
     Libp2p(Libp2pNodeId),
@@ -232,10 +232,10 @@ impl Cluster {
             identity_pub_key: secret_key.public_key(),
             initial_peers,
             ask_initial_peers_interval: Duration::from_secs(5),
-            enabled_channels: Default::default(),
+            enabled_channels: p2p::channels::ChannelId::for_libp2p().collect(),
             max_peers: 100,
             chain_id: self.chain_id.clone(),
-            peer_discovery: true,
+            peer_discovery: config.discovery,
             timeouts: config.timeouts,
         };
 

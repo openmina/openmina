@@ -1,4 +1,7 @@
-use std::future::{ready, Ready};
+use std::{
+    collections::{BTreeSet, HashSet},
+    future::{ready, Ready},
+};
 
 use p2p::PeerId;
 
@@ -17,6 +20,43 @@ pub fn listener_is_ready(id: RustNodeId) -> impl FnMut(ClusterEvent) -> Ready<bo
     move |event| {
         ready(
             matches!(event.rust(), Some((event_id, RustNodeEvent::ListenerReady { .. })) if *event_id == id),
+        )
+    }
+}
+
+/// Predicate returning true for a cluster event corresponging to the specified node started listening.
+pub fn listeners_are_ready<I>(ids: I) -> impl FnMut(ClusterEvent) -> Ready<bool>
+where
+    I: IntoIterator<Item = RustNodeId>,
+{
+    let mut ids: HashSet<RustNodeId> = HashSet::from_iter(ids.into_iter());
+    move |event| {
+        ready(
+            if let Some((event_id, RustNodeEvent::ListenerReady { .. })) = event.rust() {
+                ids.remove(event_id) && ids.is_empty()
+            } else {
+                false
+            },
+        )
+    }
+}
+
+pub fn nodes_peers_are_ready<I>(nodes_peers: I) -> impl FnMut(ClusterEvent) -> Ready<bool>
+where
+    I: IntoIterator<Item = (RustNodeId, PeerId)>,
+{
+    let mut nodes_peers = BTreeSet::from_iter(nodes_peers.into_iter());
+    move |event| {
+        ready(
+            if let ClusterEvent::Rust {
+                id,
+                event: RustNodeEvent::PeerConnected { peer_id, .. },
+            } = event
+            {
+                nodes_peers.remove(&(id, peer_id)) && nodes_peers.is_empty()
+            } else {
+                false
+            },
         )
     }
 }
@@ -61,5 +101,36 @@ pub fn default_errors(event: &ClusterEvent) -> bool {
             _ => false,
         },
         _ => false,
+    }
+}
+
+/// For an event for a rust node _id_, that `f` maps to `Some(v)`,
+/// removes the pair `(id, v)` from the `nodes_items`, returning `true` if it
+/// runs out.
+pub fn all_nodes_with_value<T, I, F>(
+    nodes_items: I,
+    mut f: F,
+) -> impl FnMut(ClusterEvent) -> Ready<bool>
+where
+    T: PartialEq + Eq,
+    I: IntoIterator<Item = (RustNodeId, T)>,
+    F: FnMut(RustNodeEvent) -> Option<T>,
+{
+    let mut nodes_items = Vec::from_iter(nodes_items.into_iter());
+    move |event| {
+        ready(if let ClusterEvent::Rust { id, event } = event {
+            f(event)
+                .and_then(|v| {
+                    nodes_items
+                        .iter()
+                        .position(|(_id, _v)| _id == &id && _v == &v)
+                })
+                .map_or(false, |i| {
+                    nodes_items.swap_remove(i);
+                    nodes_items.is_empty()
+                })
+        } else {
+            false
+        })
     }
 }

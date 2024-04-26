@@ -57,7 +57,6 @@ impl P2pNetworkRpcState {
             }
             P2pNetworkRpcAction::IncomingMessage { message, .. } => {
                 if let RpcMessage::Response { header, .. } = message {
-                    println!("=== {:#?}", self.pending);
                     if let Some(QueryHeader { id, tag, version }) = &self.pending {
                         *self.total_stats.entry((tag.clone(), *version)).or_default() += 1;
                         if id != &header.id {

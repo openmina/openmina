@@ -9,5 +9,6 @@ pub mod cluster;
 pub mod predicates;
 pub mod service;
 pub mod stream;
+pub mod utils;
 
 pub use futures;

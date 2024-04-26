@@ -13,14 +13,15 @@ use crate::{
     test_node::TestNode,
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct RustNodeId(pub(super) usize);
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct RustNodeConfig {
     pub peer_id: PeerIdConfig,
     pub initial_peers: Vec<Listener>,
     pub timeouts: P2pTimeouts,
+    pub discovery: bool,
 }
 
 impl RustNodeConfig {
@@ -41,6 +42,11 @@ impl RustNodeConfig {
         self.timeouts = timeouts;
         self
     }
+
+    pub fn with_discovery(mut self, discovery: bool) -> Self {
+        self.discovery = discovery;
+        self
+    }
 }
 
 pub struct RustNode {
@@ -56,7 +62,7 @@ impl RustNode {
         }
     }
 
-    pub(super) fn dispatch_action<A>(&mut self, action: A) -> bool
+    pub fn dispatch_action<A>(&mut self, action: A) -> bool
     where
         A: Into<P2pAction> + EnablingCondition<P2pState>,
     {
