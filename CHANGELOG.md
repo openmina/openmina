@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Correctly handle the situation in which the best tip changes during staged ledger reconstruction, causing the reconstruct to produce a stale result.
 - Fixed various edge cases in p2p layer (error propagation, disconnection, self-connection).
 
+### Added
+- Added support for `identify` protocol.
+
 ### Removed
 
 - Removed rust-libp2p based code, in favor of our own libp2p implementation.
