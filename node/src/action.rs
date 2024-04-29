@@ -51,9 +51,35 @@ pub struct CheckTimeoutsAction {}
 
 impl redux::EnablingCondition<crate::State> for CheckTimeoutsAction {}
 
-#[cfg(feature = "replay")]
+//#[cfg(feature = "replay")]
+//impl redux::EnablingCondition<crate::State> for Action {
+//    fn is_enabled(&self, _: &crate::State, _time: redux::Timestamp) -> bool {
+//        true
+//    }
+//}
+
 impl redux::EnablingCondition<crate::State> for Action {
-    fn is_enabled(&self, _state: &crate::State, _time: redux::Timestamp) -> bool {
-        true
+    fn is_enabled(&self, state: &crate::State, time: redux::Timestamp) -> bool {
+        match self {
+            Action::CheckTimeouts(a) => a.is_enabled(state, time),
+            Action::EventSource(a) => a.is_enabled(state, time),
+            Action::P2p(a) => a.is_enabled(&state.p2p, time),
+            Action::Ledger(a) => a.is_enabled(state, time),
+            Action::Snark(a) => a.is_enabled(&state.snark, time),
+            Action::Consensus(a) => a.is_enabled(state, time),
+            Action::TransitionFrontier(a) => a.is_enabled(state, time),
+            Action::SnarkPool(a) => a.is_enabled(state, time),
+            Action::SnarkPoolEffect(a) => a.is_enabled(state, time),
+            Action::ExternalSnarkWorker(a) => a.is_enabled(state, time),
+            Action::BlockProducer(a) => a.is_enabled(state, time),
+            Action::Rpc(a) => a.is_enabled(state, time),
+            Action::WatchedAccounts(a) => a.is_enabled(state, time),
+        }
+    }
+}
+
+impl From<redux::AnyAction> for Action {
+    fn from(action: redux::AnyAction) -> Self {
+        *action.0.downcast::<Self>().expect("Downcast failed")
     }
 }
