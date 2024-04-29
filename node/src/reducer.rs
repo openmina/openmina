@@ -1,4 +1,4 @@
-use openmina_core::error;
+use openmina_core::{error, Substate};
 use p2p::{P2pAction, P2pInitializeAction};
 
 use crate::{Action, ActionWithMeta, EventSourceAction, P2p, State};
@@ -6,8 +6,7 @@ use crate::{Action, ActionWithMeta, EventSourceAction, P2p, State};
 pub fn reducer(
     state: &mut State,
     action: &ActionWithMeta,
-    global_state: &State,
-    dispatcher: &mut redux::ActionQueue<Action, State>,
+    dispatcher: &mut redux::Dispatcher<Action, State>,
 ) {
     let meta = action.meta().clone();
     match action.action() {
@@ -17,22 +16,34 @@ pub fn reducer(
         },
         Action::EventSource(_) => {}
 
-        Action::P2p(a) => state.p2p.reduce(meta.with_action(a)),
+        Action::P2p(a) => {
+            p2p::P2pState::reducer(Substate::new(state, dispatcher), meta.with_action(a));
+        }
         Action::Ledger(a) => {
             state.ledger.reducer(meta.with_action(a));
         }
         Action::Snark(a) => {
-            state.snark.reducer(meta.with_action(a));
+            snark::SnarkState::reducer(Substate::new(state, dispatcher), meta.with_action(a));
         }
         Action::Consensus(a) => {
-            state.consensus.reducer(meta.with_action(a));
+            crate::consensus::ConsensusState::reducer(
+                Substate::new(state, dispatcher),
+                meta.with_action(a),
+            );
         }
         Action::TransitionFrontier(a) => {
-            state.transition_frontier.reducer(meta.with_action(a));
+            crate::transition_frontier::TransitionFrontierState::reducer(
+                Substate::new(state, dispatcher),
+                meta.with_action(a),
+            );
         }
         Action::SnarkPool(a) => {
-            state.snark_pool.reducer(meta.with_action(a));
+            crate::snark_pool::SnarkPoolState::reducer(
+                Substate::new(state, dispatcher),
+                meta.with_action(a),
+            );
         }
+        Action::SnarkPoolEffect(_) => {}
         Action::BlockProducer(a) => {
             state
                 .block_producer
@@ -45,7 +56,10 @@ pub fn reducer(
             state.rpc.reducer(meta.with_action(a));
         }
         Action::WatchedAccounts(a) => {
-            state.watched_accounts.reducer(meta.with_action(a));
+            crate::watched_accounts::WatchedAccountsState::reducer(
+                Substate::new(state, dispatcher),
+                meta.with_action(a),
+            );
         }
     }
 

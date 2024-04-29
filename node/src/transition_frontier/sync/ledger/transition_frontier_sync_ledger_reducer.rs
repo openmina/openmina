@@ -29,41 +29,38 @@ impl TransitionFrontierSyncLedgerState {
                     state.reducer(meta.with_action(action));
                 }
             }
-            TransitionFrontierSyncLedgerAction::Staged(action) => {
-                if let TransitionFrontierSyncLedgerStagedAction::PartsFetchPending = action {
-                    let Self::Snarked(TransitionFrontierSyncLedgerSnarkedState::Success {
-                        target,
-                        ..
-                    }) = self
-                    else {
-                        return;
-                    };
-                    let s = TransitionFrontierSyncLedgerStagedState::pending(
-                        meta.time(),
-                        target.clone().with_staged().unwrap(),
-                    );
-                    *self = Self::Staged(s);
-                } else {
-                    match self {
-                        Self::Snarked(TransitionFrontierSyncLedgerSnarkedState::Success {
-                            target,
-                            ..
-                        }) if matches!(
-                            action,
-                            TransitionFrontierSyncLedgerStagedAction::ReconstructEmpty
-                        ) =>
-                        {
-                            let s = TransitionFrontierSyncLedgerStagedState::ReconstructEmpty {
-                                time: meta.time(),
-                                target: target.clone().with_staged().unwrap(),
-                            };
-                            *self = Self::Staged(s);
-                        }
-                        Self::Staged(state) => state.reducer(meta.with_action(action)),
-                        _ => return,
-                    }
-                }
+            TransitionFrontierSyncLedgerAction::Staged(
+                TransitionFrontierSyncLedgerStagedAction::PartsFetchPending,
+            ) => {
+                let Self::Snarked(TransitionFrontierSyncLedgerSnarkedState::Success {
+                    target, ..
+                }) = self
+                else {
+                    return;
+                };
+                let s = TransitionFrontierSyncLedgerStagedState::pending(
+                    meta.time(),
+                    target.clone().with_staged().unwrap(),
+                );
+                *self = Self::Staged(s);
             }
+            TransitionFrontierSyncLedgerAction::Staged(action) => match self {
+                Self::Snarked(TransitionFrontierSyncLedgerSnarkedState::Success {
+                    target, ..
+                }) if matches!(
+                    action,
+                    TransitionFrontierSyncLedgerStagedAction::ReconstructEmpty
+                ) =>
+                {
+                    let s = TransitionFrontierSyncLedgerStagedState::ReconstructEmpty {
+                        time: meta.time(),
+                        target: target.clone().with_staged().unwrap(),
+                    };
+                    *self = Self::Staged(s);
+                }
+                Self::Staged(state) => state.reducer(meta.with_action(action)),
+                _ => return,
+            },
             TransitionFrontierSyncLedgerAction::Success => {
                 match self {
                     Self::Staged(TransitionFrontierSyncLedgerStagedState::Success {

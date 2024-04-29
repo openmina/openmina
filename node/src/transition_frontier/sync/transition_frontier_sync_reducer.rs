@@ -15,18 +15,19 @@ use super::{
 
 impl TransitionFrontierSyncState {
     pub fn reducer(
-        &mut self,
+        mut state: crate::Substate<Self>,
         action: TransitionFrontierSyncActionWithMetaRef<'_>,
         best_chain: &[ArcBlockWithHash],
     ) {
         let (action, meta) = action.split();
+        let state_mut = &mut *state;
         match action {
             TransitionFrontierSyncAction::Init {
                 best_tip,
                 root_block,
                 blocks_inbetween,
             } => {
-                *self = Self::Init {
+                *state = Self::Init {
                     time: meta.time(),
                     best_tip: best_tip.clone(),
                     root_block: root_block.clone(),
@@ -38,46 +39,48 @@ impl TransitionFrontierSyncState {
                 best_tip,
                 root_block,
                 blocks_inbetween,
-            } => match self {
-                Self::StakingLedgerPending(state)
-                | Self::NextEpochLedgerPending(state)
-                | Self::RootLedgerPending(state) => {
-                    state.time = meta.time();
-                    state.root_block = root_block.clone();
-                    state.blocks_inbetween = blocks_inbetween.clone();
-                    let old_best_tip = std::mem::replace(&mut state.best_tip, best_tip.clone());
+            } => match state_mut {
+                Self::StakingLedgerPending(substate)
+                | Self::NextEpochLedgerPending(substate)
+                | Self::RootLedgerPending(substate) => {
+                    substate.time = meta.time();
+                    substate.root_block = root_block.clone();
+                    substate.blocks_inbetween = blocks_inbetween.clone();
+                    let old_best_tip = std::mem::replace(&mut substate.best_tip, best_tip.clone());
 
                     let staking_epoch_target = SyncLedgerTarget::staking_epoch(best_tip);
                     let next_epoch_target = SyncLedgerTarget::next_epoch(best_tip, root_block);
 
-                    let new_target = if let Self::StakingLedgerPending(state) = self {
-                        state
+                    let new_target = if let Self::StakingLedgerPending(substate) = state_mut {
+                        substate
                             .ledger
                             .update_target(meta.time(), staking_epoch_target);
                         None
-                    } else if let Self::NextEpochLedgerPending(state) = self {
+                    } else if let Self::NextEpochLedgerPending(substate) = state_mut {
                         if old_best_tip.staking_epoch_ledger_hash()
                             != old_best_tip.staking_epoch_ledger_hash()
                         {
-                            Some((state, staking_epoch_target))
+                            Some((substate, staking_epoch_target))
                         } else {
                             if let Some(next_epoch_target) = next_epoch_target {
-                                state.ledger.update_target(meta.time(), next_epoch_target);
+                                substate
+                                    .ledger
+                                    .update_target(meta.time(), next_epoch_target);
                             }
                             None
                         }
-                    } else if let Self::RootLedgerPending(state) = self {
+                    } else if let Self::RootLedgerPending(substate) = state_mut {
                         if old_best_tip.staking_epoch_ledger_hash()
                             != old_best_tip.staking_epoch_ledger_hash()
                         {
-                            Some((state, staking_epoch_target))
+                            Some((substate, staking_epoch_target))
                         } else if let Some(next_epoch_target) = next_epoch_target.filter(|_| {
                             old_best_tip.next_epoch_ledger_hash()
                                 != best_tip.next_epoch_ledger_hash()
                         }) {
-                            Some((state, next_epoch_target))
+                            Some((substate, next_epoch_target))
                         } else {
-                            state
+                            substate
                                 .ledger
                                 .update_target(meta.time(), SyncLedgerTarget::root(root_block));
                             None
@@ -86,21 +89,21 @@ impl TransitionFrontierSyncState {
                         return;
                     };
 
-                    let Some((state, new_target)) = new_target else {
+                    let Some((substate, new_target)) = new_target else {
                         return;
                     };
                     let new_target_kind = new_target.kind;
-                    state.ledger =
+                    substate.ledger =
                         TransitionFrontierSyncLedgerSnarkedState::pending(meta.time(), new_target)
                             .into();
-                    *self = match new_target_kind {
+                    *state = match new_target_kind {
                         SyncLedgerTargetKind::StakingEpoch => {
-                            Self::StakingLedgerPending(state.clone())
+                            Self::StakingLedgerPending(substate.clone())
                         }
                         SyncLedgerTargetKind::NextEpoch => {
-                            Self::NextEpochLedgerPending(state.clone())
+                            Self::NextEpochLedgerPending(substate.clone())
                         }
-                        SyncLedgerTargetKind::Root => Self::RootLedgerPending(state.clone()),
+                        SyncLedgerTargetKind::Root => Self::RootLedgerPending(substate.clone()),
                     };
                 }
                 Self::BlocksPending {
@@ -179,7 +182,7 @@ impl TransitionFrontierSyncState {
                     } else {
                         let cur_best_root = best_chain.first();
                         let cur_best_tip = best_chain.last();
-                        *self = next_required_ledger_to_sync(
+                        *state = next_required_ledger_to_sync(
                             meta.time(),
                             cur_best_tip,
                             cur_best_root,
@@ -224,14 +227,14 @@ impl TransitionFrontierSyncState {
                                 },
                             })
                             .collect::<Vec<_>>();
-                        *self = Self::BlocksPending {
+                        *state = Self::BlocksPending {
                             time: meta.time(),
                             chain,
                             root_snarked_ledger_updates: Default::default(),
                             needed_protocol_states: Default::default(),
                         };
                     } else {
-                        *self = next_required_ledger_to_sync(
+                        *state = next_required_ledger_to_sync(
                             meta.time(),
                             None,
                             None,
@@ -251,9 +254,9 @@ impl TransitionFrontierSyncState {
                     root_block,
                     blocks_inbetween,
                     ..
-                } = self
+                } = state_mut
                 {
-                    *self = Self::StakingLedgerPending(TransitionFrontierSyncLedgerPending {
+                    *state = Self::StakingLedgerPending(TransitionFrontierSyncLedgerPending {
                         time: meta.time(),
                         best_tip: best_tip.clone(),
                         root_block: root_block.clone(),
@@ -266,25 +269,25 @@ impl TransitionFrontierSyncState {
                 }
             }
             TransitionFrontierSyncAction::LedgerStakingSuccess => {
-                if let Self::StakingLedgerPending(state) = self {
+                if let Self::StakingLedgerPending(substate) = state_mut {
                     let TransitionFrontierSyncLedgerState::Success {
                         needed_protocol_states,
                         ..
-                    } = &mut state.ledger
+                    } = &mut substate.ledger
                     else {
                         return;
                     };
-                    *self = Self::StakingLedgerSuccess {
+                    *state = Self::StakingLedgerSuccess {
                         time: meta.time(),
-                        best_tip: state.best_tip.clone(),
-                        root_block: state.root_block.clone(),
-                        blocks_inbetween: std::mem::take(&mut state.blocks_inbetween),
+                        best_tip: substate.best_tip.clone(),
+                        root_block: substate.root_block.clone(),
+                        blocks_inbetween: std::mem::take(&mut substate.blocks_inbetween),
                         needed_protocol_states: std::mem::take(needed_protocol_states),
                     };
                 }
             }
             TransitionFrontierSyncAction::LedgerNextEpochPending => {
-                let (best_tip, root_block, blocks_inbetween) = match self {
+                let (best_tip, root_block, blocks_inbetween) = match state_mut {
                     Self::Init {
                         best_tip,
                         root_block,
@@ -302,7 +305,7 @@ impl TransitionFrontierSyncState {
                 let Some(target) = SyncLedgerTarget::next_epoch(best_tip, root_block) else {
                     return;
                 };
-                *self = Self::NextEpochLedgerPending(TransitionFrontierSyncLedgerPending {
+                *state = Self::NextEpochLedgerPending(TransitionFrontierSyncLedgerPending {
                     time: meta.time(),
                     best_tip: best_tip.clone(),
                     root_block: root_block.clone(),
@@ -314,25 +317,25 @@ impl TransitionFrontierSyncState {
                 });
             }
             TransitionFrontierSyncAction::LedgerNextEpochSuccess => {
-                if let Self::NextEpochLedgerPending(state) = self {
+                if let Self::NextEpochLedgerPending(substate) = state_mut {
                     let TransitionFrontierSyncLedgerState::Success {
                         needed_protocol_states,
                         ..
-                    } = &mut state.ledger
+                    } = &mut substate.ledger
                     else {
                         return;
                     };
-                    *self = Self::NextEpochLedgerSuccess {
+                    *state = Self::NextEpochLedgerSuccess {
                         time: meta.time(),
-                        best_tip: state.best_tip.clone(),
-                        root_block: state.root_block.clone(),
-                        blocks_inbetween: std::mem::take(&mut state.blocks_inbetween),
+                        best_tip: substate.best_tip.clone(),
+                        root_block: substate.root_block.clone(),
+                        blocks_inbetween: std::mem::take(&mut substate.blocks_inbetween),
                         needed_protocol_states: std::mem::take(needed_protocol_states),
                     };
                 }
             }
             TransitionFrontierSyncAction::LedgerRootPending => {
-                let (best_tip, root_block, blocks_inbetween) = match self {
+                let (best_tip, root_block, blocks_inbetween) = match state_mut {
                     Self::Init {
                         best_tip,
                         root_block,
@@ -353,7 +356,7 @@ impl TransitionFrontierSyncState {
                     } => (best_tip, root_block, blocks_inbetween),
                     _ => return,
                 };
-                *self = Self::RootLedgerPending(TransitionFrontierSyncLedgerPending {
+                *state = Self::RootLedgerPending(TransitionFrontierSyncLedgerPending {
                     time: meta.time(),
                     best_tip: best_tip.clone(),
                     root_block: root_block.clone(),
@@ -365,19 +368,19 @@ impl TransitionFrontierSyncState {
                 });
             }
             TransitionFrontierSyncAction::LedgerRootSuccess => {
-                if let Self::RootLedgerPending(state) = self {
+                if let Self::RootLedgerPending(substate) = state_mut {
                     let TransitionFrontierSyncLedgerState::Success {
                         needed_protocol_states,
                         ..
-                    } = &mut state.ledger
+                    } = &mut substate.ledger
                     else {
                         return;
                     };
-                    *self = Self::RootLedgerSuccess {
+                    *state = Self::RootLedgerSuccess {
                         time: meta.time(),
-                        best_tip: state.best_tip.clone(),
-                        root_block: state.root_block.clone(),
-                        blocks_inbetween: std::mem::take(&mut state.blocks_inbetween),
+                        best_tip: substate.best_tip.clone(),
+                        root_block: substate.root_block.clone(),
+                        blocks_inbetween: std::mem::take(&mut substate.blocks_inbetween),
                         needed_protocol_states: std::mem::take(needed_protocol_states),
                     };
                 }
@@ -389,7 +392,7 @@ impl TransitionFrontierSyncState {
                     blocks_inbetween,
                     needed_protocol_states,
                     ..
-                } = self
+                } = state_mut
                 else {
                     return;
                 };
@@ -430,7 +433,7 @@ impl TransitionFrontierSyncState {
                     block: best_tip,
                 });
 
-                *self = Self::BlocksPending {
+                *state = Self::BlocksPending {
                     time: meta.time(),
                     chain,
                     root_snarked_ledger_updates: Default::default(),
@@ -439,7 +442,7 @@ impl TransitionFrontierSyncState {
             }
             TransitionFrontierSyncAction::BlocksPeersQuery => {}
             TransitionFrontierSyncAction::BlocksPeerQueryInit { hash, peer_id } => {
-                let Some(block_state) = self.block_state_mut(hash) else {
+                let Some(block_state) = state.block_state_mut(hash) else {
                     return;
                 };
                 let Some(attempts) = block_state.fetch_pending_attempts_mut() else {
@@ -448,7 +451,7 @@ impl TransitionFrontierSyncState {
                 attempts.insert(peer_id.clone(), PeerRpcState::Init { time: meta.time() });
             }
             TransitionFrontierSyncAction::BlocksPeerQueryRetry { hash, peer_id } => {
-                let Some(block_state) = self.block_state_mut(hash) else {
+                let Some(block_state) = state.block_state_mut(hash) else {
                     return;
                 };
                 let Some(attempts) = block_state.fetch_pending_attempts_mut() else {
@@ -461,7 +464,7 @@ impl TransitionFrontierSyncState {
                 peer_id,
                 rpc_id,
             } => {
-                let Some(block_state) = self.block_state_mut(hash) else {
+                let Some(block_state) = state.block_state_mut(hash) else {
                     return;
                 };
                 let Some(peer_state) = block_state.fetch_pending_from_peer_mut(peer_id) else {
@@ -477,7 +480,7 @@ impl TransitionFrontierSyncState {
                 rpc_id,
                 error,
             } => {
-                let Self::BlocksPending { chain, .. } = self else {
+                let Self::BlocksPending { chain, .. } = state_mut else {
                     return;
                 };
                 let Some(peer_state) = chain.iter_mut().find_map(|b| {
@@ -497,7 +500,7 @@ impl TransitionFrontierSyncState {
             TransitionFrontierSyncAction::BlocksPeerQuerySuccess {
                 peer_id, response, ..
             } => {
-                let Some(block_state) = self.block_state_mut(&response.hash) else {
+                let Some(block_state) = state.block_state_mut(&response.hash) else {
                     return;
                 };
                 let Some(peer_state) = block_state.fetch_pending_from_peer_mut(peer_id) else {
@@ -509,7 +512,7 @@ impl TransitionFrontierSyncState {
                 };
             }
             TransitionFrontierSyncAction::BlocksFetchSuccess { hash } => {
-                let Some(block_state) = self.block_state_mut(hash) else {
+                let Some(block_state) = state.block_state_mut(hash) else {
                     return;
                 };
                 let Some(block) = block_state.fetch_pending_fetched_block() else {
@@ -522,7 +525,7 @@ impl TransitionFrontierSyncState {
             }
             TransitionFrontierSyncAction::BlocksNextApplyInit => {}
             TransitionFrontierSyncAction::BlocksNextApplyPending { hash } => {
-                let Some(block_state) = self.block_state_mut(hash) else {
+                let Some(block_state) = state.block_state_mut(hash) else {
                     return;
                 };
                 let Some(block) = block_state.block() else {
@@ -535,7 +538,7 @@ impl TransitionFrontierSyncState {
                 };
             }
             TransitionFrontierSyncAction::BlocksNextApplySuccess { hash } => {
-                let Some(block_state) = self.block_state_mut(hash) else {
+                let Some(block_state) = state.block_state_mut(hash) else {
                     return;
                 };
                 let Some(block) = block_state.block() else {
@@ -553,7 +556,7 @@ impl TransitionFrontierSyncState {
                     root_snarked_ledger_updates,
                     needed_protocol_states,
                     ..
-                } = self
+                } = state_mut
                 else {
                     return;
                 };
@@ -572,7 +575,7 @@ impl TransitionFrontierSyncState {
                     .filter_map(|v| v.take_block())
                     .collect();
 
-                *self = Self::BlocksSuccess {
+                *state = Self::BlocksSuccess {
                     time: meta.time(),
                     chain,
                     root_snarked_ledger_updates: std::mem::take(root_snarked_ledger_updates),
@@ -586,9 +589,9 @@ impl TransitionFrontierSyncState {
                     root_snarked_ledger_updates,
                     needed_protocol_states,
                     ..
-                } = self
+                } = state_mut
                 {
-                    *self = Self::CommitPending {
+                    *state = Self::CommitPending {
                         time: meta.time(),
                         chain: std::mem::take(chain),
                         root_snarked_ledger_updates: std::mem::take(root_snarked_ledger_updates),
@@ -602,9 +605,9 @@ impl TransitionFrontierSyncState {
                     root_snarked_ledger_updates,
                     needed_protocol_states,
                     ..
-                } = self
+                } = state_mut
                 {
-                    *self = Self::CommitSuccess {
+                    *state = Self::CommitSuccess {
                         time: meta.time(),
                         chain: std::mem::take(chain),
                         root_snarked_ledger_updates: std::mem::take(root_snarked_ledger_updates),
@@ -613,7 +616,7 @@ impl TransitionFrontierSyncState {
                 }
             }
             TransitionFrontierSyncAction::Ledger(a) => {
-                if let Some(ledger) = self.ledger_mut() {
+                if let Some(ledger) = state.ledger_mut() {
                     ledger.reducer(meta.with_action(a));
                 }
             }
@@ -674,7 +677,7 @@ fn next_required_ledger_to_sync(
         (SyncLedgerTargetKind::Root, ledger)
     };
 
-    let state = TransitionFrontierSyncLedgerPending {
+    let substate = TransitionFrontierSyncLedgerPending {
         time,
         best_tip: new_best_tip.clone(),
         root_block: new_root.clone(),
@@ -683,11 +686,11 @@ fn next_required_ledger_to_sync(
     };
     match kind {
         SyncLedgerTargetKind::StakingEpoch => {
-            TransitionFrontierSyncState::StakingLedgerPending(state)
+            TransitionFrontierSyncState::StakingLedgerPending(substate)
         }
         SyncLedgerTargetKind::NextEpoch => {
-            TransitionFrontierSyncState::NextEpochLedgerPending(state)
+            TransitionFrontierSyncState::NextEpochLedgerPending(substate)
         }
-        SyncLedgerTargetKind::Root => TransitionFrontierSyncState::RootLedgerPending(state),
+        SyncLedgerTargetKind::Root => TransitionFrontierSyncState::RootLedgerPending(substate),
     }
 }

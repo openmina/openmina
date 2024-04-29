@@ -50,6 +50,14 @@ where
     {
         crate::Store::sub_dispatch(self, action)
     }
+
+    fn dispatch_callback<T>(&mut self, callback: redux::Callback<T>, args: T) -> bool
+    where
+        T: 'static,
+        P2pAction: From<redux::AnyAction> + redux::EnablingCondition<P2pState>,
+    {
+        crate::Store::dispatch_callback(self, callback, args)
+    }
 }
 
 impl EnablingCondition<State> for P2pInitializeAction {

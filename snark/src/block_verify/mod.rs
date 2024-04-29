@@ -5,32 +5,16 @@ mod snark_block_verify_actions;
 pub use snark_block_verify_actions::*;
 
 mod snark_block_verify_reducer;
+pub use snark_block_verify_reducer::reducer;
 
-mod snark_block_verify_effects;
-
-mod snark_block_verify_service;
-pub use snark_block_verify_service::*;
+pub use crate::block_verify_effectful::{
+    SnarkBlockVerifyError, SnarkBlockVerifyId, SnarkBlockVerifyIdType,
+};
 
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 use openmina_core::block::{Block, BlockHash, BlockHeader, BlockHeaderWithHash, BlockWithHash};
-
-pub struct SnarkBlockVerifyIdType;
-impl openmina_core::requests::RequestIdType for SnarkBlockVerifyIdType {
-    fn request_id_type() -> &'static str {
-        "SnarkBlockVerifyId"
-    }
-}
-
-pub type SnarkBlockVerifyId = openmina_core::requests::RequestId<SnarkBlockVerifyIdType>;
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum SnarkBlockVerifyError {
-    AccumulatorCheckFailed,
-    VerificationFailed,
-    ValidatorThreadCrashed,
-}
 
 #[derive(derive_more::From, Serialize, Deserialize, Debug, Clone)]
 pub enum VerifiableBlockWithHash {

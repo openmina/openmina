@@ -1,7 +1,5 @@
 use ledger::dummy::dummy_blockchain_proof;
 use mina_p2p_messages::v2;
-use openmina_core::error;
-use p2p::P2pInitializeAction;
 use redux::ActionMeta;
 
 use crate::account::AccountSecretKey;
@@ -24,31 +22,8 @@ impl TransitionFrontierGenesisAction {
                 store.dispatch(TransitionFrontierGenesisAction::LedgerLoadPending);
             }
             TransitionFrontierGenesisAction::LedgerLoadPending => {}
-            TransitionFrontierGenesisAction::LedgerLoadSuccess { .. } => {
-                store.dispatch(TransitionFrontierGenesisAction::Produce);
-            }
-            TransitionFrontierGenesisAction::Produce => {
-                if store.state().p2p.ready().is_none() {
-                    let TransitionFrontierGenesisState::Produced { genesis, .. } =
-                        &store.state().transition_frontier.genesis
-                    else {
-                        error!(meta.time(); "incorrect state: {:?}", store.state().transition_frontier.genesis);
-                        return;
-                    };
-                    use openmina_core::{constants, ChainId};
-                    let genesis_state_hash = genesis.hash();
-                    let chain_id = ChainId::compute(
-                        constants::CONSTRAINT_SYSTEM_DIGESTS.as_slice(),
-                        &genesis_state_hash,
-                        &genesis.body.constants,
-                        constants::PROTOCOL_TRANSACTION_VERSION,
-                        constants::PROTOCOL_NETWORK_VERSION,
-                        &v2::UnsignedExtendedUInt32StableV1::from(constants::TX_POOL_MAX_SIZE),
-                    );
-                    store.dispatch(P2pInitializeAction::Initialize { chain_id });
-                }
-                store.dispatch(TransitionFrontierGenesisAction::ProveInit);
-            }
+            TransitionFrontierGenesisAction::LedgerLoadSuccess { .. } => {}
+            TransitionFrontierGenesisAction::Produce => {}
             TransitionFrontierGenesisAction::ProveInit => {
                 let TransitionFrontierGenesisState::Produced {
                     negative_one,
