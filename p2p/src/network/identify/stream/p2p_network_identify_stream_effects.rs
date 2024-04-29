@@ -2,11 +2,10 @@ use std::net::SocketAddr;
 
 use multiaddr::Multiaddr;
 use openmina_core::{error, log::system_time, warn};
-use quick_protobuf::{MessageWrite, Writer};
 use redux::ActionMeta;
 
 use super::{
-    super::{Identify, P2pNetworkIdentify},
+    super::{pb, P2pNetworkIdentify},
     P2pNetworkIdentifyStreamAction,
 };
 use crate::{identify::P2pIdentifyAction, token, Data, P2pNetworkService, P2pNetworkYamuxAction};
@@ -91,7 +90,7 @@ impl P2pNetworkIdentifyStreamAction {
                         observed_addr: None,
                         protocols: vec![
                             token::StreamKind::Discovery(token::DiscoveryAlgorithm::Kademlia1_0_0),
-                            //token::StreamKind::Broadcast(token::BroadcastAlgorithm::Floodsub1_0_0),
+                            token::StreamKind::Broadcast(token::BroadcastAlgorithm::Meshsub1_1_0),
                             token::StreamKind::Identify(token::IdentifyAlgorithm::Identify1_0_0),
                             //token::StreamKind::Identify(
                             //    token::IdentifyAlgorithm::IdentifyPush1_0_0,
@@ -111,10 +110,11 @@ impl P2pNetworkIdentifyStreamAction {
                     //println!("{:?}", identify_msg);
 
                     let mut out = Vec::new();
-                    let mut writer = Writer::new(&mut out);
-                    let identify_msg_proto: Identify = (&identify_msg).into();
+                    let identify_msg_proto: pb::Identify = (&identify_msg).into();
 
-                    if let Err(err) = identify_msg_proto.write_message(&mut writer) {
+                    if let Err(err) =
+                        prost::Message::encode_length_delimited(&identify_msg_proto, &mut out)
+                    {
                         warn!(meta.time(); summary = "error serializing Identify message", error = err.to_string(), action = format!("{self:?}"));
                         return Ok(());
                     }
