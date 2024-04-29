@@ -1,7 +1,8 @@
 use super::{
     P2pNetworkIdentifyStreamAction, P2pNetworkIdentifyStreamKind, P2pNetworkIdentifyStreamState,
 };
-use crate::network::identify::{Identify, P2pNetworkIdentify};
+use crate::network::identify::{pb::Identify, P2pNetworkIdentify};
+use prost::Message;
 use quick_protobuf::BytesReader;
 use redux::ActionWithMeta;
 
@@ -90,9 +91,7 @@ impl P2pNetworkIdentifyStreamState {
     }
 
     fn handle_incoming_identify_message(&mut self, len: usize, data: &[u8]) -> Result<(), String> {
-        let mut reader = BytesReader::from_bytes(data);
-
-        let message = match reader.read_message_by_len::<Identify>(data, len) {
+        let message = match Identify::decode(&data[..len]) {
             Ok(v) => v,
             Err(e) => {
                 *self = P2pNetworkIdentifyStreamState::Error(format!(
