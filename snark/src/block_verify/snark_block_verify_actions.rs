@@ -12,8 +12,7 @@ pub enum SnarkBlockVerifyAction {
         req_id: SnarkBlockVerifyId,
         block: VerifiableBlockWithHash,
         on_success: redux::Callback<BlockHash>,
-        // TODO:
-        // on_error: redux::Callback<SnarkBlockVerifyError>,
+        on_error: redux::Callback<(BlockHash, SnarkBlockVerifyError)>,
     },
     Pending {
         req_id: SnarkBlockVerifyId,

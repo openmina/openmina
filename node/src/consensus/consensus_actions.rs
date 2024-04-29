@@ -3,6 +3,7 @@ use std::sync::Arc;
 use mina_p2p_messages::v2::{MinaBlockBlockStableV2, StateHash};
 use openmina_core::block::ArcBlockWithHash;
 use serde::{Deserialize, Serialize};
+use snark::block_verify::SnarkBlockVerifyError;
 
 use crate::consensus::ConsensusBlockStatus;
 use crate::snark::block_verify::SnarkBlockVerifyId;
@@ -27,6 +28,10 @@ pub enum ConsensusAction {
     },
     BlockSnarkVerifySuccess {
         hash: StateHash,
+    },
+    BlockSnarkVerifyError {
+        hash: StateHash,
+        error: SnarkBlockVerifyError,
     },
     DetectForkRange {
         hash: StateHash,
@@ -71,6 +76,13 @@ impl redux::EnablingCondition<crate::State> for ConsensusAction {
                     && state.snark.block_verify.jobs.contains(*req_id)
             },
             ConsensusAction::BlockSnarkVerifySuccess { hash } => {
+                state
+                    .consensus
+                    .blocks
+                    .get(hash)
+                    .map_or(false, |block| block.status.is_snark_verify_pending())
+            },
+            ConsensusAction::BlockSnarkVerifyError { hash, .. } => {
                 state
                     .consensus
                     .blocks

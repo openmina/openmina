@@ -2,7 +2,7 @@ use openmina_core::{
     block::BlockHash,
     consensus::{is_short_range_fork, long_range_fork_take, short_range_fork_take},
 };
-use snark::block_verify::SnarkBlockVerifyAction;
+use snark::block_verify::{SnarkBlockVerifyAction, SnarkBlockVerifyError};
 
 use crate::{
     transition_frontier::sync::TransitionFrontierSyncAction, Action, State, WatchedAccountsAction,
@@ -39,6 +39,9 @@ impl ConsensusState {
                     block: (hash.clone(), block.clone()).into(),
                     on_success: redux::callback!(|hash: BlockHash| -> crate::Action {
                         ConsensusAction::BlockSnarkVerifySuccess { hash }
+                    }),
+                    on_error: redux::callback!(|(hash: BlockHash, error: SnarkBlockVerifyError)| -> crate::Action {
+                        ConsensusAction::BlockSnarkVerifyError { hash, error }
                     }),
                 });
                 dispatcher.push(ConsensusAction::BlockSnarkVerifyPending {
@@ -77,6 +80,9 @@ impl ConsensusState {
                 let hash = hash.clone();
                 let dispatcher = state.into_dispatcher();
                 dispatcher.push(ConsensusAction::DetectForkRange { hash });
+            }
+            ConsensusAction::BlockSnarkVerifyError { .. } => {
+                // TODO: handle block verification error.
             }
             ConsensusAction::DetectForkRange { hash } => {
                 let candidate_hash = hash;
