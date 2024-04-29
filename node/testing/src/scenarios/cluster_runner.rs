@@ -7,6 +7,7 @@ use std::{
 use ledger::BaseLedger;
 use node::account::{AccountPublicKey, AccountSecretKey};
 use node::{event_source::Event, ledger::LedgerService, ActionKind, ActionWithMeta, State};
+use rand::{rngs::StdRng, Rng, SeedableRng};
 use time::OffsetDateTime;
 
 use crate::{
@@ -23,6 +24,7 @@ use crate::{
 pub struct ClusterRunner<'a> {
     cluster: &'a mut Cluster,
     add_step: Box<dyn 'a + FnMut(&ScenarioStep)>,
+    rng: StdRng,
 }
 
 pub struct RunCfg<
@@ -32,6 +34,7 @@ pub struct RunCfg<
     timeout: Duration,
     handle_event: EH,
     exit_if_action: AH,
+    advance_time: Option<std::ops::RangeInclusive<u64>>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -56,6 +59,7 @@ impl<'a> ClusterRunner<'a> {
         Self {
             cluster,
             add_step: Box::new(add_step),
+            rng: StdRng::seed_from_u64(0),
         }
     }
 
@@ -207,6 +211,7 @@ impl<'a> ClusterRunner<'a> {
         &mut self,
         RunCfg {
             timeout,
+            advance_time,
             mut handle_event,
             mut exit_if_action,
         }: RunCfg<EH, AH>,
@@ -269,8 +274,16 @@ impl<'a> ClusterRunner<'a> {
                     }
                 }
 
-                let all_nodes = self.nodes_iter().map(|(id, _)| id).collect::<Vec<_>>();
+                if let Some(time) = advance_time.as_ref() {
+                    let (start, end) = time.clone().into_inner();
+                    let (start, end) = (start * 1_000_000, end * 1_000_000);
+                    let by_nanos = self.rng.gen_range(start..end);
+                    self.exec_step(ScenarioStep::AdvanceTime { by_nanos })
+                        .await
+                        .unwrap();
+                }
 
+                let all_nodes = self.nodes_iter().map(|(id, _)| id).collect::<Vec<_>>();
                 for node_id in all_nodes {
                     dyn_effects_data.inner().node_id = Some(node_id);
                     dyn_effects = self
@@ -285,7 +298,12 @@ impl<'a> ClusterRunner<'a> {
                     }
                 }
 
-                self.wait_for_pending_events().await;
+                if advance_time.is_some() {
+                    self.wait_for_pending_events_with_timeout(Duration::from_millis(100))
+                        .await;
+                } else {
+                    self.wait_for_pending_events().await;
+                }
             }
         })
         .await
@@ -587,6 +605,7 @@ impl Default
     fn default() -> Self {
         Self {
             timeout: Duration::from_secs(60),
+            advance_time: None,
             handle_event: |_, _, _| RunDecision::ContinueExec,
             exit_if_action: |_, _, _, _| false,
         }
@@ -609,6 +628,15 @@ where
         self
     }
 
+    /// Set the range of time in milliseconds, with which time will be
+    /// advanced during `run` function execution.
+    ///
+    /// By default `run` function won't advance time.
+    pub fn advance_time(mut self, range: std::ops::RangeInclusive<u64>) -> Self {
+        self.advance_time = Some(range);
+        self
+    }
+
     /// Set function control execution of events based on decision that
     /// it will return. It might exec event, skip it, and/or end the
     /// execution of the `run` function.
@@ -618,6 +646,7 @@ where
     {
         RunCfg {
             timeout: self.timeout,
+            advance_time: self.advance_time,
             handle_event: handler,
             exit_if_action: self.exit_if_action,
         }
@@ -634,6 +663,7 @@ where
     {
         RunCfg {
             timeout: self.timeout,
+            advance_time: self.advance_time,
             handle_event: self.handle_event,
             exit_if_action: handler,
         }
