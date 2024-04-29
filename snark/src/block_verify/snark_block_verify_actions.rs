@@ -1,3 +1,4 @@
+use openmina_core::{block::BlockHash, SubstateAccess};
 use serde::{Deserialize, Serialize};
 
 use super::{SnarkBlockVerifyError, SnarkBlockVerifyId, VerifiableBlockWithHash};
@@ -10,6 +11,9 @@ pub enum SnarkBlockVerifyAction {
     Init {
         req_id: SnarkBlockVerifyId,
         block: VerifiableBlockWithHash,
+        on_success: redux::Callback<BlockHash>,
+        // TODO:
+        // on_error: redux::Callback<SnarkBlockVerifyError>,
     },
     Pending {
         req_id: SnarkBlockVerifyId,
@@ -53,5 +57,14 @@ impl redux::EnablingCondition<crate::SnarkState> for SnarkBlockVerifyAction {
                 .get(*req_id)
                 .map_or(false, |v| v.is_finished()),
         }
+    }
+}
+
+impl<T> redux::EnablingCondition<T> for SnarkBlockVerifyAction
+where
+    T: SubstateAccess<crate::SnarkState>,
+{
+    fn is_enabled(&self, state: &T, _time: redux::Timestamp) -> bool {
+        self.is_enabled(state.substate(), _time)
     }
 }

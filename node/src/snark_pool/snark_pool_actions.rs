@@ -20,6 +20,9 @@ pub enum SnarkPoolAction {
         orphaned_snarks: Vec<SnarkWork>,
     },
     AutoCreateCommitment,
+    CommitmentCreateMany {
+        job_ids: Vec<SnarkJobId>,
+    },
     CommitmentCreate {
         job_id: SnarkJobId,
     },
@@ -50,6 +53,7 @@ impl redux::EnablingCondition<crate::State> for SnarkPoolAction {
                 .snarker
                 .as_ref()
                 .map_or(false, |v| v.auto_commit),
+            SnarkPoolAction::CommitmentCreateMany { .. } => state.config.snarker.is_some(),
             SnarkPoolAction::CommitmentCreate { job_id } => {
                 state.config.snarker.is_some() && state.snark_pool.should_create_commitment(job_id)
             }
@@ -107,5 +111,24 @@ impl redux::EnablingCondition<crate::State> for SnarkPoolAction {
             SnarkPoolAction::JobsUpdate { .. } => true,
             SnarkPoolAction::P2pSendAll => true,
         }
+    }
+}
+
+// Effectful actions
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum SnarkPoolEffectfulAction {
+    SnarkPoolJobsRandomChoose {
+        choices: Vec<SnarkJobId>,
+        count: usize,
+        on_result: redux::Callback<Vec<SnarkJobId>>,
+    },
+}
+
+pub type SnarkPoolEffectfulActionWithMeta = redux::ActionWithMeta<SnarkPoolEffectfulAction>;
+
+impl redux::EnablingCondition<crate::State> for SnarkPoolEffectfulAction {
+    fn is_enabled(&self, _state: &crate::State, _time: redux::Timestamp) -> bool {
+        true
     }
 }
