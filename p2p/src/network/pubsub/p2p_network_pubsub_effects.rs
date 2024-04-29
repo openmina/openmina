@@ -12,7 +12,7 @@ impl P2pNetworkPubsubAction {
         Store: crate::P2pStore<S>,
     {
         let state = &store.state().network.scheduler.broadcast_state;
-        match dbg!(self) {
+        match self {
             Self::NewStream {
                 peer_id, incoming, ..
             } => {
@@ -24,6 +24,19 @@ impl P2pNetworkPubsubAction {
                         }],
                         publish: vec![],
                         control: None,
+                    };
+                    store.dispatch(Self::OutgoingMessage { msg, peer_id });
+                    let msg = pb::Rpc {
+                        subscriptions: vec![],
+                        publish: vec![],
+                        control: Some(pb::ControlMessage {
+                            ihave: vec![],
+                            iwant: vec![],
+                            graft: vec![pb::ControlGraft {
+                                topic_id: Some("coda/consensus-messages/0.0.1".to_owned()),
+                            }],
+                            prune: vec![],
+                        }),
                     };
                     store.dispatch(Self::OutgoingMessage { msg, peer_id });
                 }
