@@ -226,6 +226,7 @@ impl P2pNetworkRpcAction {
         Store: crate::P2pStore<S>,
     {
         let Some(state) = store.state().network.find_rpc_state(&self) else {
+            error!(meta.time(); "cannot find stream for response: {self:?}");
             return;
         };
 
@@ -355,10 +356,17 @@ impl P2pNetworkRpcAction {
                 response,
                 data,
             } => {
+                if !matches!(state.pending, Some(QueryHeader { id, .. }) if id == response.id) {
+                    openmina_core::error!(meta.time(); "pending query does not match the response");
+                    return;
+                }
+                let stream_id = state.stream_id;
+                let addr = state.addr;
+                store.dispatch(P2pNetworkRpcAction::PrunePending { peer_id, stream_id });
                 store.dispatch(P2pNetworkRpcAction::OutgoingData {
-                    addr: state.addr,
+                    addr,
                     peer_id,
-                    stream_id: state.stream_id,
+                    stream_id,
                     data: RpcMessage::Response {
                         header: response,
                         bytes: data,
