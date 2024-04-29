@@ -110,6 +110,7 @@ pub enum ActionKind {
     ConsensusBestTipUpdate,
     ConsensusBlockChainProofUpdate,
     ConsensusBlockReceived,
+    ConsensusBlockSnarkVerifyError,
     ConsensusBlockSnarkVerifyPending,
     ConsensusBlockSnarkVerifySuccess,
     ConsensusDetectForkRange,
@@ -453,7 +454,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 378;
+    pub const COUNT: u16 = 379;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -541,6 +542,7 @@ impl ActionKindGet for ConsensusAction {
             Self::BlockChainProofUpdate { .. } => ActionKind::ConsensusBlockChainProofUpdate,
             Self::BlockSnarkVerifyPending { .. } => ActionKind::ConsensusBlockSnarkVerifyPending,
             Self::BlockSnarkVerifySuccess { .. } => ActionKind::ConsensusBlockSnarkVerifySuccess,
+            Self::BlockSnarkVerifyError { .. } => ActionKind::ConsensusBlockSnarkVerifyError,
             Self::DetectForkRange { .. } => ActionKind::ConsensusDetectForkRange,
             Self::ShortRangeForkResolve { .. } => ActionKind::ConsensusShortRangeForkResolve,
             Self::LongRangeForkResolve { .. } => ActionKind::ConsensusLongRangeForkResolve,
