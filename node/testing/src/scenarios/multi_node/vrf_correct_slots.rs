@@ -15,7 +15,7 @@ use vrf::VrfEvaluationOutput;
 use crate::{
     node::{OcamlVrfOutput, RustNodeBlockProducerTestingConfig, RustNodeTestingConfig},
     scenario::{ListenerNode, ScenarioStep},
-    scenarios::cluster_runner::{ClusterRunner, RunDecision},
+    scenarios::cluster_runner::{ClusterRunner, RunCfg, RunDecision},
 };
 
 /// Set up single Rust node and connect to an ocaml node with custom ledger and check if the node
@@ -81,21 +81,21 @@ impl MultiNodeVrfGetCorrectSlots {
 
         runner
             .run(
-                Duration::from_secs(400),
-                |node_id, _, event| {
-                    if node_id == producer_node {
-                        if let Some(output) = capture_vrf_event(event) {
-                            if output.evaluation_result.global_slot() >= 7140 {
-                                return RunDecision::StopExec;
-                            }
-                            let ocaml_output =
-                                outputs.get_won_slot(output.evaluation_result.global_slot());
-                            compare_vrf(output, ocaml_output)
-                        };
-                    }
-                    RunDecision::ContinueExec
-                },
-                |_, _, _, _| false,
+                RunCfg::default()
+                    .timeout(Duration::from_secs(400))
+                    .event_handler(|node_id, _, event| {
+                        if node_id == producer_node {
+                            if let Some(output) = capture_vrf_event(event) {
+                                if output.evaluation_result.global_slot() >= 7140 {
+                                    return RunDecision::StopExec;
+                                }
+                                let ocaml_output =
+                                    outputs.get_won_slot(output.evaluation_result.global_slot());
+                                compare_vrf(output, ocaml_output)
+                            };
+                        }
+                        RunDecision::ContinueExec
+                    }),
             )
             .await
             .expect("Timeout - waiting for VRF evaluator to update producer and delegates");

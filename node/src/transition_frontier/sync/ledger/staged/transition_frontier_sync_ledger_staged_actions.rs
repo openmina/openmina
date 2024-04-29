@@ -204,7 +204,7 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerStag
                     // is stale (best tip changed while reconstruction was happening). The staging
                     // ledger reconstruction logic itself will already validate that the resulting
                     // reconstructed ledger matches the expected hash.
-                    let expected_hash = &s.target().staged.staged_ledger_hash;
+                    let expected_hash = &s.target().staged.hashes.non_snark.ledger_hash;
                     matches!(
                         s,
                         TransitionFrontierSyncLedgerStagedState::ReconstructPending { .. }

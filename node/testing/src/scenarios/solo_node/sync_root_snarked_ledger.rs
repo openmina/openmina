@@ -18,7 +18,7 @@ use crate::{
     cluster::ClusterNodeId,
     node::RustNodeTestingConfig,
     scenario::{ListenerNode, ScenarioStep},
-    scenarios::{cluster_runner::ClusterRunner, RunDecision},
+    scenarios::{ClusterRunner, RunCfg, RunDecision},
 };
 
 /// Set up single Rust node and sync up root snarked ledger.
@@ -63,24 +63,25 @@ impl SoloNodeSyncRootSnarkedLedger {
         // responses for now, as we want to control their order.
         runner
             .run(
-                Duration::from_secs(10),
-                |_, state, event| {
-                    if self.event_ledger_query_addr(state, event).is_some() {
-                        // skip/hide ledger query events.
-                        return RunDecision::Skip;
-                    }
-                    RunDecision::ContinueExec
-                },
-                |_, state, _, _| {
-                    let connected_peer_count = state
-                        .p2p
-                        .ready_peers_iter()
-                        .filter(|(_, p)| p.channels.rpc.is_ready())
-                        .count();
+                RunCfg::default()
+                    .timeout(Duration::from_secs(10))
+                    .event_handler(|_, state, event| {
+                        if self.event_ledger_query_addr(state, event).is_some() {
+                            // skip/hide ledger query events.
+                            return RunDecision::Skip;
+                        }
+                        RunDecision::ContinueExec
+                    })
+                    .action_handler(|_, state, _, _| {
+                        let connected_peer_count = state
+                            .p2p
+                            .ready_peers_iter()
+                            .filter(|(_, p)| p.channels.rpc.is_ready())
+                            .count();
 
-                    // exit if both peers ready.
-                    connected_peer_count >= 2
-                },
+                        // exit if both peers ready.
+                        connected_peer_count >= 2
+                    }),
             )
             .await
             .expect("waiting for 2 replayer peers to be connected timed out");
@@ -92,13 +93,12 @@ impl SoloNodeSyncRootSnarkedLedger {
         eprintln!("exec ledger query responses until we are deep enough for there to be more than 1 hash in the same height");
         runner
             .run(
-                Duration::from_secs(10),
-                |_, _, _| RunDecision::ContinueExec,
-                // |_, _, _| RunDecision::ContinueExec,
-                move |_, state, _, action| {
-                    matches!(action.action().kind(), ActionKind::CheckTimeouts)
-                        && self.fetch_pending_count(state) >= 2
-                },
+                RunCfg::default()
+                    .timeout(Duration::from_secs(10))
+                    .action_handler(move |_, state, _, action| {
+                        matches!(action.action().kind(), ActionKind::CheckTimeouts)
+                            && self.fetch_pending_count(state) >= 2
+                    }),
             )
             .await
             .expect("time out");
@@ -123,16 +123,16 @@ impl SoloNodeSyncRootSnarkedLedger {
     async fn receive_single_hash(self, runner: &mut ClusterRunner<'_>, node_id: ClusterNodeId) {
         runner
             .run(
-                Duration::from_secs(5),
-                |cur_node_id, state, event| {
-                    if cur_node_id == node_id
-                        && self.event_ledger_query_addr(state, event).is_some()
-                    {
-                        return RunDecision::StopExec;
-                    }
-                    RunDecision::Skip
-                },
-                |_, _, _, _| false,
+                RunCfg::default()
+                    .timeout(Duration::from_secs(5))
+                    .event_handler(|cur_node_id, state, event| {
+                        if cur_node_id == node_id
+                            && self.event_ledger_query_addr(state, event).is_some()
+                        {
+                            return RunDecision::StopExec;
+                        }
+                        RunDecision::Skip
+                    }),
             )
             .await
             .expect("timeout");
@@ -154,17 +154,18 @@ impl SoloNodeSyncRootSnarkedLedger {
     ) {
         runner
             .run(
-                Duration::from_secs(10),
-                |_, state, event| {
-                    if self.is_event_first_ledger_query(state, event) {
-                        return RunDecision::Skip;
-                    }
-                    RunDecision::ContinueExec
-                },
-                move |_, state, _, action| {
-                    matches!(action.action().kind(), ActionKind::CheckTimeouts)
-                        && self.fetch_pending_count(state) == 1
-                },
+                RunCfg::default()
+                    .timeout(Duration::from_secs(10))
+                    .event_handler(|_, state, event| {
+                        if self.is_event_first_ledger_query(state, event) {
+                            return RunDecision::Skip;
+                        }
+                        RunDecision::ContinueExec
+                    })
+                    .action_handler(move |_, state, _, action| {
+                        matches!(action.action().kind(), ActionKind::CheckTimeouts)
+                            && self.fetch_pending_count(state) == 1
+                    }),
             )
             .await
             .expect("timeout");
@@ -188,30 +189,31 @@ impl SoloNodeSyncRootSnarkedLedger {
         while self.fetch_pending_count(runner.node(node_id).unwrap().state()) > 1 {
             runner
                 .run(
-                    Duration::from_secs(10),
-                    |_, state, event| {
-                        let Some(addr) = self.event_ledger_query_addr(state, event) else {
-                            return RunDecision::Skip;
-                        };
-                        match biggest_addr.as_mut() {
-                            None => {
-                                biggest_addr = Some(addr);
-                                RunDecision::Skip
-                            }
-                            Some(biggest_addr) => match addr.cmp(biggest_addr) {
-                                Ordering::Less => RunDecision::ContinueExec,
-                                Ordering::Equal => RunDecision::Skip,
-                                Ordering::Greater => {
-                                    *biggest_addr = addr;
-                                    RunDecision::Stop
+                    RunCfg::default()
+                        .timeout(Duration::from_secs(10))
+                        .event_handler(|_, state, event| {
+                            let Some(addr) = self.event_ledger_query_addr(state, event) else {
+                                return RunDecision::Skip;
+                            };
+                            match biggest_addr.as_mut() {
+                                None => {
+                                    biggest_addr = Some(addr);
+                                    RunDecision::Skip
                                 }
-                            },
-                        }
-                    },
-                    move |_, state, _, action| {
-                        matches!(action.action().kind(), ActionKind::CheckTimeouts)
-                            && self.fetch_pending_count(state) == 1
-                    },
+                                Some(biggest_addr) => match addr.cmp(biggest_addr) {
+                                    Ordering::Less => RunDecision::ContinueExec,
+                                    Ordering::Equal => RunDecision::Skip,
+                                    Ordering::Greater => {
+                                        *biggest_addr = addr;
+                                        RunDecision::Stop
+                                    }
+                                },
+                            }
+                        })
+                        .action_handler(move |_, state, _, action| {
+                            matches!(action.action().kind(), ActionKind::CheckTimeouts)
+                                && self.fetch_pending_count(state) == 1
+                        }),
                 )
                 .await
                 .expect("timeout");

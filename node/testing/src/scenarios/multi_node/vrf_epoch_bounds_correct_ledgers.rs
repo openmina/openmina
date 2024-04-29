@@ -14,7 +14,7 @@ use node::{
 use crate::{
     node::{RustNodeBlockProducerTestingConfig, RustNodeTestingConfig},
     scenario::{ListenerNode, ScenarioStep},
-    scenarios::{cluster_runner::ClusterRunner, RunDecision},
+    scenarios::{ClusterRunner, RunCfg},
 };
 
 const GLOBAL_TIMEOUT: Duration = Duration::from_secs(60 * 60);
@@ -116,18 +116,18 @@ impl MultiNodeVrfEpochBoundsCorrectLedger {
 
         runner
             .run(
-                Duration::from_secs(5),
-                |_, _, _| RunDecision::ContinueExec,
-                move |node_id, _, _, action| {
-                    if node_id == producer_node {
-                        matches!(
-                            action.action().kind(),
-                            ActionKind::BlockProducerVrfEvaluatorBeginEpochEvaluation
-                        )
-                    } else {
-                        false
-                    }
-                },
+                RunCfg::default()
+                    .timeout(Duration::from_secs(5))
+                    .action_handler(move |node_id, _, _, action| {
+                        if node_id == producer_node {
+                            matches!(
+                                action.action().kind(),
+                                ActionKind::BlockProducerVrfEvaluatorBeginEpochEvaluation
+                            )
+                        } else {
+                            false
+                        }
+                    }),
             )
             .await
             .unwrap();
