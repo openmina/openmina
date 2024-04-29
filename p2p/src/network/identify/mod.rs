@@ -1,9 +1,10 @@
+mod pb {
+    include!(concat!(env!("OUT_DIR"), "/identify.rs"));
+}
+
 pub mod stream;
 
 pub use self::stream::P2pNetworkIdentifyStreamAction;
-
-mod p2p_network_identify_message;
-pub use self::p2p_network_identify_message::*;
 
 mod p2p_network_identify_protocol;
 pub use self::p2p_network_identify_protocol::*;
