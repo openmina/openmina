@@ -19,3 +19,12 @@ impl P2pConnectionAction {
         }
     }
 }
+
+impl redux::EnablingCondition<crate::P2pState> for P2pConnectionAction {
+    fn is_enabled(&self, state: &crate::P2pState, time: redux::Timestamp) -> bool {
+        match self {
+            P2pConnectionAction::Outgoing(a) => a.is_enabled(state, time),
+            P2pConnectionAction::Incoming(a) => a.is_enabled(state, time),
+        }
+    }
+}
