@@ -3,7 +3,9 @@ use mina_p2p_messages::v2;
 use openmina_core::{
     block::{genesis::genesis_and_negative_one_protocol_states, BlockWithHash},
     constants::PROTOCOL_VERSION,
+    error,
 };
+use p2p::P2pInitializeAction;
 
 use crate::account::AccountSecretKey;
 use crate::block_producer::calc_epoch_seed;
@@ -15,21 +17,29 @@ use super::{
 };
 
 impl TransitionFrontierGenesisState {
-    pub fn reducer(&mut self, action: TransitionFrontierGenesisActionWithMetaRef<'_>) {
+    pub fn reducer(
+        mut state: crate::Substate<Self>,
+        action: TransitionFrontierGenesisActionWithMetaRef<'_>,
+    ) {
         let (action, meta) = action.split();
+        let state_ref = &*state;
         match action {
             TransitionFrontierGenesisAction::LedgerLoadInit => {}
             TransitionFrontierGenesisAction::LedgerLoadPending => {
-                *self = Self::LedgerLoadPending { time: meta.time() };
+                *state = Self::LedgerLoadPending { time: meta.time() };
             }
             TransitionFrontierGenesisAction::LedgerLoadSuccess { data } => {
-                *self = Self::LedgerLoadSuccess {
+                *state = Self::LedgerLoadSuccess {
                     time: meta.time(),
                     data: data.clone(),
                 };
+
+                // Dispatch
+                let dispatcher = state.into_dispatcher();
+                dispatcher.push(TransitionFrontierGenesisAction::Produce);
             }
             TransitionFrontierGenesisAction::Produce => {
-                let TransitionFrontierGenesisState::LedgerLoadSuccess { data, .. } = self else {
+                let Self::LedgerLoadSuccess { data, .. } = state_ref else {
                     return;
                 };
 
@@ -47,25 +57,48 @@ impl TransitionFrontierGenesisState {
                     genesis_vrf.into(),
                     calc_epoch_seed(&v2::EpochSeed::zero(), genesis_vrf_hash),
                 );
-                *self = Self::Produced {
+                *state = Self::Produced {
                     time: meta.time(),
                     negative_one,
                     genesis,
                     genesis_producer_stake_proof: data.genesis_producer_stake_proof.clone(),
                 };
+
+                // Dispatch
+                let (dispatcher, global_state) = state.into_dispatcher_and_state();
+                if global_state.p2p.ready().is_none() {
+                    let TransitionFrontierGenesisState::Produced { genesis, .. } =
+                        &global_state.transition_frontier.genesis
+                    else {
+                        error!(meta.time(); "incorrect state: {:?}", global_state.transition_frontier.genesis);
+                        return;
+                    };
+                    use openmina_core::{constants, ChainId};
+                    let genesis_state_hash = genesis.hash();
+                    let chain_id = ChainId::compute(
+                        constants::CONSTRAINT_SYSTEM_DIGESTS.as_slice(),
+                        &genesis_state_hash,
+                        &genesis.body.constants,
+                        constants::PROTOCOL_TRANSACTION_VERSION,
+                        constants::PROTOCOL_NETWORK_VERSION,
+                        &v2::UnsignedExtendedUInt32StableV1::from(constants::TX_POOL_MAX_SIZE),
+                    );
+                    dispatcher.push(P2pInitializeAction::Initialize { chain_id });
+                }
+                dispatcher.push(TransitionFrontierGenesisAction::ProveInit);
             }
             TransitionFrontierGenesisAction::ProveInit => {}
             TransitionFrontierGenesisAction::ProvePending => {
-                let TransitionFrontierGenesisState::Produced {
+                let Self::Produced {
                     negative_one,
                     genesis,
                     genesis_producer_stake_proof,
                     ..
-                } = self
+                } = state_ref
                 else {
                     return;
                 };
-                *self = Self::ProvePending {
+                *state = Self::ProvePending {
                     time: meta.time(),
                     negative_one: negative_one.clone(),
                     genesis: genesis.clone(),
@@ -73,10 +106,10 @@ impl TransitionFrontierGenesisState {
                 };
             }
             TransitionFrontierGenesisAction::ProveSuccess { proof } => {
-                let TransitionFrontierGenesisState::ProvePending { genesis, .. } = self else {
+                let Self::ProvePending { genesis, .. } = state_ref else {
                     return;
                 };
-                *self = Self::ProveSuccess {
+                *state = Self::ProveSuccess {
                     time: meta.time(),
                     genesis: BlockWithHash::new(
                         v2::MinaBlockBlockStableV2 {

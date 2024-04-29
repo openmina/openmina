@@ -30,7 +30,7 @@ use node::snark::block_verify::{
 };
 use node::snark::work_verify::{SnarkWorkVerifyError, SnarkWorkVerifyId, SnarkWorkVerifyService};
 use node::snark::{SnarkEvent, VerifierIndex, VerifierSRS};
-use node::snark_pool::{JobState, SnarkPoolService};
+use node::snark_pool::SnarkPoolService;
 use node::stats::Stats;
 use node::transition_frontier::genesis::GenesisConfig;
 use node::ActionKind;
@@ -288,12 +288,12 @@ impl SnarkWorkVerifyService for NodeService {
 impl SnarkPoolService for NodeService {
     fn random_choose<'a>(
         &mut self,
-        iter: impl Iterator<Item = &'a JobState>,
+        iter: impl Iterator<Item = &'a SnarkJobId>,
         n: usize,
     ) -> Vec<SnarkJobId> {
         iter.choose_multiple(&mut self.rng, n)
             .into_iter()
-            .map(|job| job.id.clone())
+            .map(|job_id| job_id.clone())
             .collect()
     }
 }

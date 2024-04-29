@@ -12,6 +12,7 @@ pub use crate::p2p::P2pAction;
 pub use crate::rpc::RpcAction;
 pub use crate::snark::SnarkAction;
 pub use crate::snark_pool::SnarkPoolAction;
+pub use crate::snark_pool::SnarkPoolEffectfulAction;
 pub use crate::transition_frontier::TransitionFrontierAction;
 pub use crate::watched_accounts::WatchedAccountsAction;
 
@@ -30,6 +31,7 @@ pub enum Action {
     Consensus(ConsensusAction),
     TransitionFrontier(TransitionFrontierAction),
     SnarkPool(SnarkPoolAction),
+    SnarkPoolEffect(SnarkPoolEffectfulAction),
     ExternalSnarkWorker(ExternalSnarkWorkerAction),
     BlockProducer(BlockProducerAction),
     Rpc(RpcAction),

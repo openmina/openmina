@@ -51,10 +51,12 @@ use crate::p2p::peer::P2pPeerAction;
 use crate::p2p::{P2pAction, P2pInitializeAction};
 use crate::rpc::RpcAction;
 use crate::snark::block_verify::SnarkBlockVerifyAction;
+use crate::snark::block_verify_effectful::SnarkBlockVerifyEffectfulAction;
 use crate::snark::work_verify::SnarkWorkVerifyAction;
+use crate::snark::work_verify_effectful::SnarkWorkVerifyEffectfulAction;
 use crate::snark::SnarkAction;
 use crate::snark_pool::candidate::SnarkPoolCandidateAction;
-use crate::snark_pool::SnarkPoolAction;
+use crate::snark_pool::{SnarkPoolAction, SnarkPoolEffectfulAction};
 use crate::transition_frontier::genesis::TransitionFrontierGenesisAction;
 use crate::transition_frontier::sync::ledger::snarked::TransitionFrontierSyncLedgerSnarkedAction;
 use crate::transition_frontier::sync::ledger::staged::TransitionFrontierSyncLedgerStagedAction;
@@ -337,10 +339,12 @@ pub enum ActionKind {
     SnarkBlockVerifyInit,
     SnarkBlockVerifyPending,
     SnarkBlockVerifySuccess,
+    SnarkBlockVerifyEffectfulInit,
     SnarkPoolAutoCreateCommitment,
     SnarkPoolCheckTimeouts,
     SnarkPoolCommitmentAdd,
     SnarkPoolCommitmentCreate,
+    SnarkPoolCommitmentCreateMany,
     SnarkPoolJobCommitmentTimeout,
     SnarkPoolJobsUpdate,
     SnarkPoolP2pSend,
@@ -356,11 +360,13 @@ pub enum ActionKind {
     SnarkPoolCandidateWorkVerifyNext,
     SnarkPoolCandidateWorkVerifyPending,
     SnarkPoolCandidateWorkVerifySuccess,
+    SnarkPoolEffectfulSnarkPoolJobsRandomChoose,
     SnarkWorkVerifyError,
     SnarkWorkVerifyFinish,
     SnarkWorkVerifyInit,
     SnarkWorkVerifyPending,
     SnarkWorkVerifySuccess,
+    SnarkWorkVerifyEffectfulInit,
     TransitionFrontierGenesisInject,
     TransitionFrontierSynced,
     TransitionFrontierGenesisLedgerLoadInit,
@@ -447,7 +453,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 374;
+    pub const COUNT: u16 = 378;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -467,6 +473,7 @@ impl ActionKindGet for Action {
             Self::Consensus(a) => a.kind(),
             Self::TransitionFrontier(a) => a.kind(),
             Self::SnarkPool(a) => a.kind(),
+            Self::SnarkPoolEffect(a) => a.kind(),
             Self::ExternalSnarkWorker(a) => a.kind(),
             Self::BlockProducer(a) => a.kind(),
             Self::Rpc(a) => a.kind(),
@@ -520,7 +527,9 @@ impl ActionKindGet for SnarkAction {
     fn kind(&self) -> ActionKind {
         match self {
             Self::BlockVerify(a) => a.kind(),
+            Self::BlockVerifyEffect(a) => a.kind(),
             Self::WorkVerify(a) => a.kind(),
+            Self::WorkVerifyEffect(a) => a.kind(),
         }
     }
 }
@@ -558,6 +567,7 @@ impl ActionKindGet for SnarkPoolAction {
             Self::Candidate(a) => a.kind(),
             Self::JobsUpdate { .. } => ActionKind::SnarkPoolJobsUpdate,
             Self::AutoCreateCommitment => ActionKind::SnarkPoolAutoCreateCommitment,
+            Self::CommitmentCreateMany { .. } => ActionKind::SnarkPoolCommitmentCreateMany,
             Self::CommitmentCreate { .. } => ActionKind::SnarkPoolCommitmentCreate,
             Self::CommitmentAdd { .. } => ActionKind::SnarkPoolCommitmentAdd,
             Self::WorkAdd { .. } => ActionKind::SnarkPoolWorkAdd,
@@ -565,6 +575,16 @@ impl ActionKindGet for SnarkPoolAction {
             Self::P2pSend { .. } => ActionKind::SnarkPoolP2pSend,
             Self::CheckTimeouts => ActionKind::SnarkPoolCheckTimeouts,
             Self::JobCommitmentTimeout { .. } => ActionKind::SnarkPoolJobCommitmentTimeout,
+        }
+    }
+}
+
+impl ActionKindGet for SnarkPoolEffectfulAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::SnarkPoolJobsRandomChoose { .. } => {
+                ActionKind::SnarkPoolEffectfulSnarkPoolJobsRandomChoose
+            }
         }
     }
 }
@@ -816,6 +836,14 @@ impl ActionKindGet for SnarkBlockVerifyAction {
     }
 }
 
+impl ActionKindGet for SnarkBlockVerifyEffectfulAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::Init { .. } => ActionKind::SnarkBlockVerifyEffectfulInit,
+        }
+    }
+}
+
 impl ActionKindGet for SnarkWorkVerifyAction {
     fn kind(&self) -> ActionKind {
         match self {
@@ -824,6 +852,14 @@ impl ActionKindGet for SnarkWorkVerifyAction {
             Self::Error { .. } => ActionKind::SnarkWorkVerifyError,
             Self::Success { .. } => ActionKind::SnarkWorkVerifySuccess,
             Self::Finish { .. } => ActionKind::SnarkWorkVerifyFinish,
+        }
+    }
+}
+
+impl ActionKindGet for SnarkWorkVerifyEffectfulAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::Init { .. } => ActionKind::SnarkWorkVerifyEffectfulInit,
         }
     }
 }
