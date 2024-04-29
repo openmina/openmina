@@ -1,3 +1,4 @@
+use openmina_core::SubstateAccess;
 use serde::{Deserialize, Serialize};
 
 use openmina_core::{snark::Snark, ActionEvent};
@@ -15,6 +16,8 @@ pub enum SnarkWorkVerifyAction {
         req_id: SnarkWorkVerifyId,
         batch: Vec<Snark>,
         sender: String,
+        on_success: redux::Callback<(SnarkWorkVerifyId, String, Vec<Snark>)>,
+        on_error: redux::Callback<(SnarkWorkVerifyId, String)>,
     },
     Pending {
         req_id: SnarkWorkVerifyId,
@@ -59,5 +62,14 @@ impl redux::EnablingCondition<crate::SnarkState> for SnarkWorkVerifyAction {
                 .get(*req_id)
                 .map_or(false, |v| v.is_finished()),
         }
+    }
+}
+
+impl<T> redux::EnablingCondition<T> for SnarkWorkVerifyAction
+where
+    T: SubstateAccess<crate::SnarkState>,
+{
+    fn is_enabled(&self, state: &T, _time: redux::Timestamp) -> bool {
+        self.is_enabled(state.substate(), _time)
     }
 }

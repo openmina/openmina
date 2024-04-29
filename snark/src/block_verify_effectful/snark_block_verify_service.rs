@@ -1,8 +1,8 @@
 use std::sync::{Arc, Mutex};
 
-use crate::{VerifierIndex, VerifierSRS};
+use crate::{block_verify::VerifiableBlockWithHash, VerifierIndex, VerifierSRS};
 
-use super::{SnarkBlockVerifyId, VerifiableBlockWithHash};
+use super::SnarkBlockVerifyId;
 
 pub trait SnarkBlockVerifyService: redux::Service {
     fn verify_init(
