@@ -1,7 +1,6 @@
 import { FeatureAction, TableSort } from '@openmina/shared';
 import { NetworkBlock } from '@shared/types/network/blocks/network-block.type';
 import { MinaNode } from '@shared/types/core/environment/mina-env.type';
-// import { NodeStatus } from '@shared/types/app/node-status.type';
 
 enum NetworkBlocksActionTypes {
   NETWORK_BLOCKS_INIT = 'NETWORK_BLOCKS_INIT',

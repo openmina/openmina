@@ -10,6 +10,18 @@ const routes: Routes = [
     path: '',
     component: BlockProductionOverviewComponent,
     title: BLOCK_PRODUCTION_TITLE,
+    children: [
+      {
+        path: ':epoch',
+        component: BlockProductionOverviewComponent,
+        title: BLOCK_PRODUCTION_TITLE,
+      },
+    ],
+  },
+  {
+    path: '**',
+    pathMatch: 'full',
+    redirectTo: '',
   },
 ];
 

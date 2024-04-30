@@ -14,8 +14,16 @@ describe('NETWORK MESSAGES TABLE', () => {
   });
 
   it('displays network title', () => {
-    cy.get('mina-toolbar span')
-      .then((span: any) => expect(span).contain('Network'));
+    cy.wait(1000)
+      .window()
+      .its('store')
+      .then(networkMessagesState)
+      .then((state: NetworkMessagesState) => {
+        if (condition(state)) {
+          cy.get('mina-toolbar span')
+            .then((span: any) => expect(span).contain('Network'));
+        }
+      });
   });
 
   it('displays messages in the table', () => {

@@ -53,7 +53,7 @@ const routes: Routes = [
   },
   {
     path: 'block-production',
-    loadChildren: () => import('./features/block-production/block-production.module').then(m => m.BlockProductionModule),
+    loadChildren: () => import('@block-production/block-production.module').then(m => m.BlockProductionModule),
     title: BLOCK_PRODUCTION_TITLE,
   },
   {

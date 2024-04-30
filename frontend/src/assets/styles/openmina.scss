@@ -1120,6 +1120,17 @@ $z-index-bigger-than-cdk-overlay: 1001;
   box-shadow: 0 4px 4px rgba(0, 0, 0, 0.25);
 }
 
+@keyframes tooltip-no-animation {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(0, 0);
+  }
+}
+
 @keyframes tooltip-slide-top {
   0% {
     opacity: 0;
@@ -1338,6 +1349,18 @@ span.mina-icon {
 
 .bg-tertiary2-hover:hover {
   background-color: $base-tertiary2;
+}
+
+.bg-special-selected-alt-1-container {
+  background-color: $special-selected-alt-1-container;
+}
+
+.bg-special-selected-alt-2-container {
+  background-color: $special-selected-alt-2-container;
+}
+
+.bg-special-selected-alt-3-container {
+  background-color: $special-selected-alt-3-container;
 }
 
 

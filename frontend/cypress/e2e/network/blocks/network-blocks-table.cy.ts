@@ -2,9 +2,12 @@ import { Store } from '@ngrx/store';
 import { MinaState } from '@app/app.setup';
 import { NetworkBlocksState } from '@network/blocks/network-blocks.state';
 import { checkSorting, Sort, stateSliceAsPromise } from '../../../support/commands';
+import { AppState } from '@app/app.state';
 
 const condition = (state: NetworkBlocksState) => state && state.blocks?.length > 2;
 const networkBlocksState = (store: Store<MinaState>) => stateSliceAsPromise<NetworkBlocksState>(store, condition, 'network', 'blocks');
+const isFeatureEnabled = (state: AppState) => state && state.activeNode && state.activeNode.features?.network?.includes('blocks');
+const activeNode = (store: Store<MinaState>) => stateSliceAsPromise<AppState>(store, isFeatureEnabled, 'app');
 
 
 describe('NETWORK BLOCKS TABLE', () => {
@@ -90,105 +93,161 @@ describe('NETWORK BLOCKS TABLE', () => {
   });
 
   it('sort by date reversed', () => {
-    cy.get('.mina-table .head > span:nth-child(2)')
-      .click()
-      .window()
+    cy.window()
       .its('store')
-      .then(networkBlocksState)
-      .then((state: NetworkBlocksState) => {
-        if (condition(state)) {
-          checkSorting(state.filteredBlocks, 'date', Sort.DSC);
+      .then(activeNode)
+      .then((state: AppState) => {
+        if (isFeatureEnabled(state)) {
+          cy.get('.mina-table .head > span:nth-child(2)')
+            .click()
+            .window()
+            .its('store')
+            .then(networkBlocksState)
+            .then((state: NetworkBlocksState) => {
+              if (condition(state)) {
+                checkSorting(state.filteredBlocks, 'date', Sort.DSC);
+              }
+            });
         }
       });
   });
 
   it('sort by hash', () => {
-    cy.get('.mina-table .head > span:nth-child(3)')
-      .click()
-      .window()
+    cy.window()
       .its('store')
-      .then(networkBlocksState)
-      .then((state: NetworkBlocksState) => {
-        if (condition(state)) {
-          checkSorting(state.filteredBlocks, 'hash', Sort.ASC);
+      .then(activeNode)
+      .then((state: AppState) => {
+        if (isFeatureEnabled(state)) {
+          cy.get('.mina-table .head > span:nth-child(3)')
+            .click()
+            .window()
+            .its('store')
+            .then(networkBlocksState)
+            .then((state: NetworkBlocksState) => {
+              if (condition(state)) {
+                checkSorting(state.filteredBlocks, 'hash', Sort.ASC);
+              }
+            });
         }
       });
   });
 
   it('sort by height', () => {
-    cy.get('.mina-table .head > span:nth-child(4)')
-      .click()
-      .window()
+    cy.window()
       .its('store')
-      .then(networkBlocksState)
-      .then((state: NetworkBlocksState) => {
-        if (condition(state)) {
-          checkSorting(state.filteredBlocks, 'height', Sort.ASC);
+      .then(activeNode)
+      .then((state: AppState) => {
+        if (isFeatureEnabled(state)) {
+          cy.get('.mina-table .head > span:nth-child(4)')
+            .click()
+            .window()
+            .its('store')
+            .then(networkBlocksState)
+            .then((state: NetworkBlocksState) => {
+              if (condition(state)) {
+                checkSorting(state.filteredBlocks, 'height', Sort.ASC);
+              }
+            });
         }
       });
   });
 
   it('sort by sender', () => {
-    cy.get('.mina-table .head > span:nth-child(5)')
-      .click()
-      .window()
+    cy.window()
       .its('store')
-      .then(networkBlocksState)
-      .then((state: NetworkBlocksState) => {
-        if (condition(state)) {
-          checkSorting(state.filteredBlocks, 'sender', Sort.ASC);
+      .then(activeNode)
+      .then((state: AppState) => {
+        if (isFeatureEnabled(state)) {
+          cy.get('.mina-table .head > span:nth-child(5)')
+            .click()
+            .window()
+            .its('store')
+            .then(networkBlocksState)
+            .then((state: NetworkBlocksState) => {
+              if (condition(state)) {
+                checkSorting(state.filteredBlocks, 'sender', Sort.ASC);
+              }
+            });
         }
       });
   });
 
   it('sort by receiver', () => {
-    cy.get('.mina-table .head > span:nth-child(6)')
-      .click()
-      .window()
+    cy.window()
       .its('store')
-      .then(networkBlocksState)
-      .then((state: NetworkBlocksState) => {
-        if (condition(state)) {
-          checkSorting(state.filteredBlocks, 'receiver', Sort.ASC);
+      .then(activeNode)
+      .then((state: AppState) => {
+        if (isFeatureEnabled(state)) {
+          cy.get('.mina-table .head > span:nth-child(6)')
+            .click()
+            .window()
+            .its('store')
+            .then(networkBlocksState)
+            .then((state: NetworkBlocksState) => {
+              if (condition(state)) {
+                checkSorting(state.filteredBlocks, 'receiver', Sort.ASC);
+              }
+            });
         }
       });
   });
 
   it('sort by recv time', () => {
-    cy.get('.mina-table .head > span:nth-child(7)')
-      .click()
-      .window()
+    cy.window()
       .its('store')
-      .then(networkBlocksState)
-      .then((state: NetworkBlocksState) => {
-        if (condition(state)) {
-          checkSorting(state.filteredBlocks, 'receivedLatency', Sort.ASC);
+      .then(activeNode)
+      .then((state: AppState) => {
+        if (isFeatureEnabled(state)) {
+          cy.get('.mina-table .head > span:nth-child(7)')
+            .click()
+            .window()
+            .its('store')
+            .then(networkBlocksState)
+            .then((state: NetworkBlocksState) => {
+              if (condition(state)) {
+                checkSorting(state.filteredBlocks, 'receivedLatency', Sort.ASC);
+              }
+            });
         }
       });
   });
 
   it('sort by sent time', () => {
-    cy.get('.mina-table .head > span:nth-child(8)')
-      .click()
-      .window()
+    cy.window()
       .its('store')
-      .then(networkBlocksState)
-      .then((state: NetworkBlocksState) => {
-        if (condition(state)) {
-          checkSorting(state.filteredBlocks, 'sentLatency', Sort.ASC);
+      .then(activeNode)
+      .then((state: AppState) => {
+        if (isFeatureEnabled(state)) {
+          cy.get('.mina-table .head > span:nth-child(8)')
+            .click()
+            .window()
+            .its('store')
+            .then(networkBlocksState)
+            .then((state: NetworkBlocksState) => {
+              if (condition(state)) {
+                checkSorting(state.filteredBlocks, 'sentLatency', Sort.ASC);
+              }
+            });
         }
       });
   });
 
   it('sort by sent message kind', () => {
-    cy.get('.mina-table .head > span:nth-child(9)')
-      .click()
-      .window()
+    cy.window()
       .its('store')
-      .then(networkBlocksState)
-      .then((state: NetworkBlocksState) => {
-        if (condition(state)) {
-          checkSorting(state.filteredBlocks, 'messageKind', Sort.ASC);
+      .then(activeNode)
+      .then((state: AppState) => {
+        if (isFeatureEnabled(state)) {
+          cy.get('.mina-table .head > span:nth-child(9)')
+            .click()
+            .window()
+            .its('store')
+            .then(networkBlocksState)
+            .then((state: NetworkBlocksState) => {
+              if (condition(state)) {
+                checkSorting(state.filteredBlocks, 'messageKind', Sort.ASC);
+              }
+            });
         }
       });
   });

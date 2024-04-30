@@ -68,6 +68,7 @@ export class NetworkNodeDhtLineComponent extends StoreDispatcher implements Afte
       filter(() => !!this.thisKey),
       filter(() => this.lastKnownWidth !== this.line.nativeElement.offsetWidth),
       tap(() => {
+        this.lastKnownWidth = this.line.nativeElement.offsetWidth;
         this.calculateLeftBasedOnParentContainer();
         this.detect();
       }),

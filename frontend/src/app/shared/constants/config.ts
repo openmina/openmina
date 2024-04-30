@@ -43,7 +43,6 @@ export function isSubFeatureEnabled(config: MinaNode, feature: FeatureType, subF
   return hasValue(features[feature]) && features[feature].includes(subFeature);
 }
 
-
 export function getURL(pathOrUrl: string): string {
   if (pathOrUrl) {
     let href = new URL(pathOrUrl, origin).href;

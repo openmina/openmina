@@ -35,4 +35,5 @@ export enum Routes {
   SNARKS = 'snarks',
   TESTING_TOOL = 'testing-tool',
   NODE_DHT = 'node-dht',
+  BLOCK_PRODUCTION = 'block-production',
 }

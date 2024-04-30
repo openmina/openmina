@@ -32,9 +32,12 @@ import { TestingToolState } from '@testing-tool/testing-tool.state';
 import { ResourcesAction, resourcesReducer } from '@resources/resources.reducer';
 import { ResourcesState } from '@resources/resources.state';
 
+import { BlockProductionAction, blockProductionReducer } from '@block-production/block-production.reducer';
+import { BlockProductionState } from '@block-production/block-production.state';
 
 export interface MinaState {
   app: AppState;
+  blockProduction: BlockProductionState;
   dashboard: DashboardState;
   error: ErrorPreviewState;
   loading: LoadingState;
@@ -48,6 +51,7 @@ export interface MinaState {
 
 type MinaAction =
   & AppAction
+  & BlockProductionAction
   & ErrorPreviewAction
   & DashboardAction
   & NetworkAction
@@ -62,6 +66,7 @@ export const reducers: ActionReducerMap<MinaState, MinaAction> = {
   app: appReducer,
   error: errorReducer,
   loading: loadingReducer,
+  blockProduction: blockProductionReducer,
   dashboard: dashboardReducer,
   network: networkReducer,
   nodes: nodesReducer,

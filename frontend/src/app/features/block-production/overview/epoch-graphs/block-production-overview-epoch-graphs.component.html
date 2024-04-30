@@ -1,0 +1,40 @@
+<div class="epoch flex-column flex-end"
+     [class.active-epoch]="activeEpoch?.epochNumber === epoch.epochNumber"
+     *ngFor="let epoch of epochs; let i=index">
+  <div class="title tertiary ml-5 mt-5"><span *ngIf="i === 0" class="secondary">Epoch </span>{{ epoch.epochNumber }}
+  </div>
+
+  <div class="flex-column flex-grow">
+    <div class="positive flex-row align-end">
+      <div
+        [style.height.%]="getHeight(!w.canonical && !w.orphaned && !w.missed ? w.futureRights : w.canonical)"
+        [class.future]="!w.canonical && !w.orphaned && !w.missed"
+        [tooltip]="'<div class=\'tertiary\'>Slots ' + w.interval[0] + ' - ' + w.interval[1] + '</div>' + '<div>' + w.canonical + ' blocks produced</div>'"
+        [html]="true"
+        [noAnimation]="true"
+        *ngFor="let w of epoch.windows"></div>
+    </div>
+    <div class="negative flex-row">
+      <div class="flex-column h-100 bar"
+           *ngFor="let w of epoch.windows">
+        <div [style.height.%]="getHeight(w.orphaned)"
+             [tooltip]="'<div class=\'tertiary\'>Slots ' + w.interval[0] + ' - ' + w.interval[1] + '</div>' + '<div>' + w.orphaned + ' blocks orphaned</div>'"
+             [html]="true"
+             [noAnimation]="true"></div>
+        <div [style.height.%]="getHeight(w.missed)"
+             [tooltip]="'<div class=\'tertiary\'>Slots ' + w.interval[0] + ' - ' + w.interval[1] + '</div>' + '<div>' + w.missed + ' blocks missed</div>'"
+             [html]="true"
+             [noAnimation]="true"></div>
+      </div>
+    </div>
+  </div>
+  <div class="overlay p-absolute h-100"
+       *ngIf="epoch.windows.length > 0"
+       [class.border-remove]="
+         epoch.windows[epoch.windows.length - 1].canonical !== 0
+         || epoch.windows[epoch.windows.length - 1].orphaned !== 0
+         || epoch.windows[epoch.windows.length - 1].missed !== 0
+       "
+       [style.width]="'calc(100% / ' + 15 / epoch.finishedWindows + ')'"
+       [class.bg-selected-container]="activeEpoch?.epochNumber === epoch.epochNumber"></div>
+</div>

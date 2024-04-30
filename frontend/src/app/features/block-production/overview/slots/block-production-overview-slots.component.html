@@ -1,0 +1,13 @@
+<div class="h-lg lh-lg f-600 secondary"
+     *ngIf="slots?.length">
+  Slots {{ slots[0].globalSlot }} - {{ slots[slots.length - 1].globalSlot }}
+</div>
+<div class="h-minus-lg w-100 overflow-y-scroll d-flex"
+     #graph></div>
+<div *ngIf="!slots" class="p-absolute w-100 h-100 fx-row-full-cent">
+  <mina-loading-spinner [size]="24" [borderWidth]="2"></mina-loading-spinner>
+</div>
+
+<div class="p-fixed tertiary p-5 border-rad-4 border bg-surface-top popup-box-shadow-weak z-1"
+     style="display: none; min-width:150px"
+     #tooltip></div>
