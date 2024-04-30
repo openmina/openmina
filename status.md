@@ -76,7 +76,7 @@
         - [x] Transaction proof verification (same as above)
         - [x] Zkapp proof verification (same as above)
 - [ ] Client API (currently the node has a very partial support, not planned at the moment)
-- [ ] Archive node (not planned at the moment)
+- [ ] Support for the archive node sidecar process (sending updates through RPC calls).
 
 ## VRF Evaluator <a name="vrf-evaluator"></a>
 
@@ -157,6 +157,10 @@
 
 - [ ] Create connection scheduler to limit work for each peer
 - [ ] Handle reconnection and exponential backoff.
+
+## Identify
+
+- [x] Identify protocol implementation
 
 ### Peer discovery
 
