@@ -1,8 +1,8 @@
-use crate::block_producer::vrf_evaluator::BlockProducerVrfEvaluatorLedgerService;
 pub use crate::block_producer::vrf_evaluator::BlockProducerVrfEvaluatorService;
 pub use crate::block_producer::BlockProducerService;
 pub use crate::event_source::EventSourceService;
 use crate::external_snark_worker::ExternalSnarkWorkerService;
+pub use crate::ledger::LedgerService;
 pub use crate::p2p::channels::P2pChannelsService;
 pub use crate::p2p::connection::P2pConnectionService;
 pub use crate::p2p::disconnection::P2pDisconnectionService;
@@ -15,8 +15,7 @@ pub use crate::snark::work_verify::SnarkWorkVerifyService;
 pub use crate::snark_pool::SnarkPoolService;
 pub use crate::transition_frontier::genesis::TransitionFrontierGenesisService;
 pub use crate::transition_frontier::sync::ledger::snarked::TransitionFrontierSyncLedgerSnarkedService;
-pub use crate::transition_frontier::sync::ledger::staged::TransitionFrontierSyncLedgerStagedService;
-pub use crate::transition_frontier::TransitionFrontierService;
+use p2p::P2pNetworkService;
 pub use redux::TimeService;
 
 use crate::stats::Stats;
@@ -31,14 +30,13 @@ pub trait Service:
     + P2pChannelsService
     + P2pMioService
     + P2pCryptoService
+    + P2pNetworkService
+    + LedgerService
     + TransitionFrontierGenesisService
     + TransitionFrontierSyncLedgerSnarkedService
-    + TransitionFrontierSyncLedgerStagedService
-    + TransitionFrontierService
     + SnarkPoolService
     + BlockProducerVrfEvaluatorService
     + BlockProducerService
-    + BlockProducerVrfEvaluatorLedgerService
     + ExternalSnarkWorkerService
     + RpcService
 {

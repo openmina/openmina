@@ -1,0 +1,35 @@
+<button *ngIf="hasFirstPage"
+        class="btn-secondary h-sm w-sm ml-10 mr-5 fx-row-full-cent"
+        [class.disabled]="firstPageDisabled"
+        [tooltip]="firstPageTooltip"
+        [showDelay]="500"
+        (click)="firstPageChange.emit()">
+  <span class="mina-icon f-18">first_page</span>
+</button>
+<div class="pagination-group fx-row-vert-cent bg-selected-container ml-10 border-rad-4">
+  <button class="h-sm w-sm fx-row-full-cent mr-5"
+          [class.disabled]="prevPageDisabled"
+          [tooltip]="prevPageTooltip"
+          [showDelay]="500"
+          (click)="prevPageChange.emit(activePage - 1)">
+    <span class="mina-icon f-18">navigate_before</span>
+  </button>
+  <div class="selected-primary f-600 flex-row flex-center"
+       [style.min-width.px]="computedMinWidth"
+       [innerHTML]="activePageText ?? activePage"></div>
+  <button class="h-sm w-sm fx-row-full-cent ml-5"
+          [class.disabled]="nextPageDisabled"
+          [tooltip]="nextPageTooltip"
+          [showDelay]="500"
+          (click)="nextPageChange.emit(activePage + 1)">
+    <span class="mina-icon f-18">navigate_next</span>
+  </button>
+</div>
+<button *ngIf="hasLastPage"
+        class="btn-secondary h-sm w-sm mr-10 ml-5 fx-row-full-cent"
+        [class.disabled]="lastPageDisabled"
+        [tooltip]="lastPageTooltip"
+        [showDelay]="500"
+        (click)="lastPageChange.emit()">
+  <span class="mina-icon f-18">last_page</span>
+</button>

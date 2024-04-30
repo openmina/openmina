@@ -26,6 +26,8 @@ pub use self::noise::*;
 pub mod yamux;
 pub use self::yamux::*;
 
+pub mod identify;
+
 pub mod kad;
 pub use self::kad::*;
 
@@ -49,7 +51,7 @@ mod data {
         where
             S: serde::Serializer,
         {
-            hex::encode(&self.0).serialize(serializer)
+            hex::encode(self.0).serialize(serializer)
         }
     }
 
@@ -70,7 +72,7 @@ mod data {
 
     impl<const N: usize> fmt::Display for DataSized<N> {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            write!(f, "{}", hex::encode(&self.0))
+            write!(f, "{}", hex::encode(self.0))
         }
     }
 
@@ -110,7 +112,7 @@ mod data {
 
     impl fmt::Display for Data {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            write!(f, "{}", hex::encode(&self.0))
+            write!(f, "{} (len {})", hex::encode(&self.0), self.0.len())
         }
     }
 
@@ -119,9 +121,10 @@ mod data {
             let s = if self.len() > 32 {
                 let l = self.len();
                 format!(
-                    "{}...omitted...{}",
+                    "{}...omitted...{} (len {})",
                     hex::encode(&self.0[..12]),
-                    hex::encode(&self.0[(l - 12)..])
+                    hex::encode(&self.0[(l - 12)..]),
+                    l
                 )
             } else {
                 self.to_string()

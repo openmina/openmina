@@ -1,4 +1,4 @@
-///! Partial implementation of Janestreet `core_rpc_kernel`.
+//! Partial implementation of Janestreet `core_rpc_kernel`.
 use std::io::Read;
 
 use binprot::{BinProtRead, BinProtWrite};
@@ -345,7 +345,7 @@ where
     where
         R: Read,
     {
-        Ok(ResponsePayload::<Self::Response>::binprot_read(r)
+        ResponsePayload::<Self::Response>::binprot_read(r)
             .map(|v| Result::from(v).map(NeedsLength::into_inner))
             .map_err(|error| RpcResponseReadError::Binprot {
                 rpc_id: T::rpc_id(),
@@ -354,7 +354,7 @@ where
             .map_err(|error| RpcResponseReadError::Failure {
                 rpc_id: T::rpc_id(),
                 error,
-            })?)
+            })
     }
 }
 

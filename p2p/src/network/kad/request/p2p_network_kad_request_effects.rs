@@ -9,7 +9,7 @@ use crate::{
         },
         P2pConnectionState,
     },
-    discovery::P2pDiscoveryAction,
+    peer::P2pPeerAction,
     socket_addr_try_from_multiaddr, P2pNetworkConnectionMuxState, P2pNetworkKadBootstrapAction,
     P2pNetworkYamuxAction, P2pPeerState, P2pPeerStatus,
 };
@@ -128,8 +128,7 @@ impl P2pNetworkKadRequestAction {
                 stream_id,
                 addr,
             } => {
-                let data =
-                    crate::P2pNetworkKademliaRpcRequest::find_node(request_state.key.clone());
+                let data = crate::P2pNetworkKademliaRpcRequest::find_node(request_state.key);
                 store.dispatch(P2pNetworkKademliaStreamAction::SendRequest {
                     addr,
                     peer_id,
@@ -165,17 +164,20 @@ impl P2pNetworkKadRequestAction {
                 };
                 for entry in data {
                     let peer_id = entry.peer_id;
-                    let to_opts = |addr| (peer_id.clone(), addr).into();
-                    let addresses = entry
+                    let to_opts = |addr| (peer_id, addr).into();
+                    let mut addresses = entry
                         .addrs
                         .iter()
                         .map(socket_addr_try_from_multiaddr)
                         .filter_map(Result::ok)
                         .filter(external_addr)
                         .map(to_opts)
-                        .map(P2pConnectionOutgoingInitOpts::LibP2P)
-                        .collect();
-                    store.dispatch(P2pDiscoveryAction::KademliaAddRoute { peer_id, addresses });
+                        .map(P2pConnectionOutgoingInitOpts::LibP2P);
+                    // TODO: use all addresses
+                    store.dispatch(P2pPeerAction::Discovered {
+                        peer_id,
+                        dial_opts: addresses.next(),
+                    });
                 }
                 store.dispatch(P2pNetworkKademliaStreamAction::Close {
                     addr,

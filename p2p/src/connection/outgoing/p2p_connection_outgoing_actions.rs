@@ -24,6 +24,7 @@ pub enum P2pConnectionOutgoingAction {
         rpc_id: Option<RpcId>,
     },
     /// Reconnect to an existing peer.
+    // TODO: rename `Init` and `Reconnect` to `New` and `Connect` or something
     #[action_event(level = info)]
     Reconnect {
         opts: P2pConnectionOutgoingInitOpts,
@@ -117,29 +118,14 @@ impl redux::EnablingCondition<P2pState> for P2pConnectionOutgoingAction {
     fn is_enabled(&self, state: &P2pState, time: redux::Timestamp) -> bool {
         match self {
             P2pConnectionOutgoingAction::RandomInit => {
-                #[cfg(feature = "p2p-libp2p")]
-                {
-                    !state.already_has_min_peers() && !state.initial_unused_peers().is_empty()
-                }
-                #[cfg(not(feature = "p2p-libp2p"))]
-                {
-                    !state.already_has_min_peers() && state.disconnected_peers().next().is_some()
-                }
+                !state.already_has_min_peers() && state.disconnected_peers().next().is_some()
             }
             P2pConnectionOutgoingAction::Init { opts, .. } => {
-                #[cfg(feature = "p2p-libp2p")]
-                {
-                    !state.already_has_min_peers() && !state.peers.contains_key(opts.peer_id())
-                }
-                #[cfg(not(feature = "p2p-libp2p"))]
-                {
-                    state
-                        .peers
-                        .get(opts.peer_id())
-                        .map_or(true, |peer| !peer.status.is_connected_or_connecting())
-                }
-                // TODO: merge with this --V
-                // !state.already_has_min_peers() && !state.peers.contains_key(opts.peer_id())
+                !state.already_has_min_peers() &&
+                state
+                    .peers
+                    .get(opts.peer_id())
+                    .map_or(true, |peer| !peer.status.is_connected_or_connecting())
             }
             P2pConnectionOutgoingAction::Reconnect { opts, .. } => {
                 !state.already_has_min_peers()
@@ -150,104 +136,71 @@ impl redux::EnablingCondition<P2pState> for P2pConnectionOutgoingAction {
             P2pConnectionOutgoingAction::OfferSdpCreatePending { peer_id } => state
                 .peers
                 .get(peer_id)
-                .map_or(false, |peer| match &peer.status {
-                    P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(
+                .map_or(false, |peer| matches!(&peer.status, P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(
                         P2pConnectionOutgoingState::Init { .. },
-                    )) => true,
-                    _ => false,
-                }),
+                    )))),
             P2pConnectionOutgoingAction::OfferSdpCreateError { peer_id, .. } => state
                 .peers
                 .get(peer_id)
-                .map_or(false, |peer| match &peer.status {
-                    P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(
+                .map_or(false, |peer| matches!(&peer.status, P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(
                         P2pConnectionOutgoingState::OfferSdpCreatePending { .. },
-                    )) => true,
-                    _ => false,
-                }),
+                    )))),
             P2pConnectionOutgoingAction::OfferSdpCreateSuccess { peer_id, .. } => state
                 .peers
                 .get(peer_id)
-                .map_or(false, |peer| match &peer.status {
-                    P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(
+                .map_or(false, |peer| matches!(&peer.status, P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(
                         P2pConnectionOutgoingState::OfferSdpCreatePending { .. },
-                    )) => true,
-                    _ => false,
-                }),
+                    )))),
             P2pConnectionOutgoingAction::OfferReady { peer_id, .. } => state
                 .peers
                 .get(peer_id)
-                .map_or(false, |peer| match &peer.status {
-                    P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(
+                .map_or(false, |peer| matches!(&peer.status, P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(
                         P2pConnectionOutgoingState::OfferSdpCreateSuccess { .. },
-                    )) => true,
-                    _ => false,
-                }),
+                    )))),
             P2pConnectionOutgoingAction::OfferSendSuccess { peer_id } => state
                 .peers
                 .get(peer_id)
-                .map_or(false, |peer| match &peer.status {
-                    P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(
+                .map_or(false, |peer| matches!(&peer.status, P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(
                         P2pConnectionOutgoingState::OfferReady { .. },
-                    )) => true,
-                    _ => false,
-                }),
+                    )))),
             P2pConnectionOutgoingAction::AnswerRecvPending { peer_id } => state
                 .peers
                 .get(peer_id)
-                .map_or(false, |peer| match &peer.status {
-                    P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(
+                .map_or(false, |peer| matches!(&peer.status, P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(
                         P2pConnectionOutgoingState::OfferSendSuccess { .. },
-                    )) => true,
-                    _ => false,
-                }),
+                    )))),
             P2pConnectionOutgoingAction::AnswerRecvError { peer_id, .. } => state
                 .peers
                 .get(peer_id)
-                .map_or(false, |peer| match &peer.status {
-                    P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(
+                .map_or(false, |peer| matches!(&peer.status, P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(
                         P2pConnectionOutgoingState::AnswerRecvPending { .. },
-                    )) => true,
-                    _ => false,
-                }),
+                    )))),
             P2pConnectionOutgoingAction::AnswerRecvSuccess { peer_id, .. } => state
                 .peers
                 .get(peer_id)
-                .map_or(false, |peer| match &peer.status {
-                    P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(
+                .map_or(false, |peer| matches!(&peer.status, P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(
                         P2pConnectionOutgoingState::AnswerRecvPending { .. },
-                    )) => true,
-                    _ => false,
-                }),
+                    )))),
             P2pConnectionOutgoingAction::FinalizePending { peer_id } => state
                 .peers
                 .get(peer_id)
-                .map_or(false, |peer| match &peer.status {
-                    P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(v)) => match v {
+                .map_or(false, |peer| matches!(&peer.status, P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(v)) if match v {
                         P2pConnectionOutgoingState::Init { opts, .. } => opts.is_libp2p(),
                         P2pConnectionOutgoingState::AnswerRecvSuccess { .. } => true,
                         _ => false,
-                    },
-                    _ => false,
-                }),
+                    })),
             P2pConnectionOutgoingAction::FinalizeError { peer_id, .. } => state
                 .peers
                 .get(peer_id)
-                .map_or(false, |peer| match &peer.status {
-                    P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(
+                .map_or(false, |peer| matches!(&peer.status, P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(
                         P2pConnectionOutgoingState::FinalizePending { .. },
-                    )) => true,
-                    _ => false,
-                }),
+                    )))),
             P2pConnectionOutgoingAction::FinalizeSuccess { peer_id } => state
                 .peers
                 .get(peer_id)
-                .map_or(false, |peer| match &peer.status {
-                    P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(
+                .map_or(false, |peer| matches!(&peer.status, P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(
                         P2pConnectionOutgoingState::FinalizePending { .. },
-                    )) => true,
-                    _ => false,
-                }),
+                    )))),
             P2pConnectionOutgoingAction::Timeout { peer_id } => state
                 .peers
                 .get(peer_id)
@@ -276,12 +229,9 @@ impl redux::EnablingCondition<P2pState> for P2pConnectionOutgoingAction {
                 state
                     .peers
                     .get(peer_id)
-                    .map_or(false, |peer| match &peer.status {
-                        P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(
+                    .map_or(false, |peer| matches!(&peer.status, P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(
                             P2pConnectionOutgoingState::FinalizeSuccess { .. },
-                        )) => true,
-                        _ => false,
-                    })
+                        ))))
             }
         }
     }

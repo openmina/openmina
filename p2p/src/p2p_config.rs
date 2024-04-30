@@ -48,6 +48,7 @@ pub struct P2pTimeouts {
     pub block: Option<Duration>,
     pub snark: Option<Duration>,
     pub initial_peers: Option<Duration>,
+    pub kademlia_bootstrap: Option<Duration>,
 }
 
 impl Default for P2pTimeouts {
@@ -64,6 +65,20 @@ impl Default for P2pTimeouts {
             block: Some(Duration::from_secs(5)),
             snark: Some(Duration::from_secs(5)),
             initial_peers: Some(Duration::from_secs(5)),
+            kademlia_bootstrap: Some(Duration::from_secs(60)),
+        }
+    }
+}
+
+impl P2pTimeouts {
+    pub fn without_rpc() -> Self {
+        Self {
+            best_tip_with_proof: None,
+            ledger_query: None,
+            staged_ledger_aux_and_pending_coinbases_at_block: None,
+            block: None,
+            snark: None,
+            ..Default::default()
         }
     }
 }

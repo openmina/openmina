@@ -1,0 +1,101 @@
+@import 'openmina';
+
+:host {
+  height: 100px;
+}
+
+.epoch {
+  border-left: 1px dashed $base-tertiary;
+  padding-left: 5px;
+  padding-right: 4px;
+  height: 100px;
+  position: relative;
+  width: calc(100% / 7);
+
+  .positive {
+    height: 50%;
+
+    div {
+      width: calc((100% - 15px) / 15);
+      background-color: $success-tertiary;
+      margin-right: 1px;
+      transition: height 200ms ease-in;
+
+      &:hover {
+        background-color: $success-primary;
+      }
+
+      &.future {
+        background-color: $base-tertiary;
+
+        &:hover {
+          background-color: $base-primary;
+        }
+      }
+    }
+  }
+
+  .negative {
+    height: 50%;
+
+    .bar {
+      width: calc((100% - 15px) / 15);
+      margin-right: 1px;
+
+      div {
+        width: 100%;
+        transition: height 200ms ease-in;
+
+        &:first-child {
+          background-color: $special-selected-alt-1-tertiary;
+
+          &:hover {
+            background-color: $special-selected-alt-1-primary;
+          }
+        }
+
+        &:last-child {
+          margin-top: 1px;
+          background-color: $warn-tertiary;
+
+          &:hover {
+            background-color: $warn-primary;
+          }
+        }
+      }
+    }
+  }
+
+  .overlay {
+    top: 0;
+    left: 0;
+    z-index: -1;
+    border-right: 2px solid $base-primary;
+  }
+
+  &:hover .overlay:not(.bg-selected-container) {
+    background-color: $base-container;
+  }
+
+  &.active-epoch {
+    .title {
+      color: $selected-primary !important;
+    }
+
+    .positive div:not(.future) {
+      background-color: $success-primary;
+    }
+
+    .negative .bar div:first-child {
+      background-color: $special-selected-alt-1-primary;
+    }
+
+    .negative .bar div:last-child {
+      background-color: $warn-primary;
+    }
+
+    .overlay {
+      border-right: 2px solid $selected-primary;
+    }
+  }
+}

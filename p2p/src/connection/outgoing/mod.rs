@@ -47,7 +47,7 @@ pub struct P2pConnectionOutgoingInitLibp2pOpts {
 
 #[cfg(not(target_arch = "wasm32"))]
 mod libp2p_opts {
-    use std::net::SocketAddr;
+    use std::net::{IpAddr, SocketAddr};
 
     use multiaddr::Multiaddr;
 
@@ -56,7 +56,7 @@ mod libp2p_opts {
     impl super::P2pConnectionOutgoingInitLibp2pOpts {
         fn to_peer_id_multiaddr(&self) -> (PeerId, Multiaddr) {
             (
-                self.peer_id.clone(),
+                self.peer_id,
                 Multiaddr::from_iter([(&self.host).into(), multiaddr::Protocol::Tcp(self.port)]),
             )
         }
@@ -65,6 +65,15 @@ mod libp2p_opts {
                 self.peer_id,
                 Multiaddr::from_iter([(&self.host).into(), multiaddr::Protocol::Tcp(self.port)]),
             )
+        }
+
+        pub fn matches_socket_addr(&self, addr: SocketAddr) -> bool {
+            self.port == addr.port()
+                && match (&self.host, addr) {
+                    (Host::Ipv4(ip), SocketAddr::V4(addr)) => ip == addr.ip(),
+                    (Host::Ipv6(ip), SocketAddr::V6(addr)) => ip == addr.ip(),
+                    _ => false,
+                }
         }
     }
 
@@ -90,6 +99,30 @@ mod libp2p_opts {
                 peer_id,
                 host,
                 port,
+            }
+        }
+    }
+
+    #[derive(Debug, thiserror::Error)]
+    pub enum P2pConnectionOutgoingInitLibp2pOptsTryToSocketAddrError {
+        #[error("name unresolved: {0}")]
+        Unresolved(String),
+    }
+
+    impl TryFrom<&super::P2pConnectionOutgoingInitLibp2pOpts> for SocketAddr {
+        type Error = P2pConnectionOutgoingInitLibp2pOptsTryToSocketAddrError;
+
+        fn try_from(
+            value: &super::P2pConnectionOutgoingInitLibp2pOpts,
+        ) -> Result<Self, Self::Error> {
+            match &value.host {
+                Host::Domain(name) => Err(
+                    P2pConnectionOutgoingInitLibp2pOptsTryToSocketAddrError::Unresolved(
+                        name.clone(),
+                    ),
+                ),
+                Host::Ipv4(ip) => Ok(SocketAddr::new(IpAddr::V4(*ip), value.port)),
+                Host::Ipv6(ip) => Ok(SocketAddr::new(IpAddr::V6(*ip), value.port)),
             }
         }
     }
@@ -186,14 +219,14 @@ impl P2pConnectionOutgoingInitOpts {
                     host: format!("http://{}", info.host).as_bytes().into(),
                     libp2p_port: (info.port as u64).into(),
                     peer_id: v2::NetworkPeerPeerIdStableV1(
-                        PeerId::from(*peer_id).to_string().into_bytes().into(),
+                        (*peer_id).to_string().into_bytes().into(),
                     ),
                 }),
                 SignalingMethod::Https(info) => Some(v2::NetworkPeerPeerStableV1 {
                     host: format!("https://{}", info.host).as_bytes().into(),
                     libp2p_port: (info.port as u64).into(),
                     peer_id: v2::NetworkPeerPeerIdStableV1(
-                        PeerId::from(*peer_id).to_string().into_bytes().into(),
+                        (*peer_id).to_string().into_bytes().into(),
                     ),
                 }),
             },
@@ -298,7 +331,7 @@ impl<'de> Deserialize<'de> for P2pConnectionOutgoingInitOpts {
         D: serde::Deserializer<'de>,
     {
         let s: String = Deserialize::deserialize(deserializer)?;
-        Ok(s.parse().map_err(|err| serde::de::Error::custom(err))?)
+        s.parse().map_err(serde::de::Error::custom)
     }
 }
 
@@ -315,9 +348,7 @@ impl From<&P2pConnectionOutgoingInitLibp2pOpts> for multiaddr::Multiaddr {
                 Host::Ipv6(v) => Protocol::Ip6(*v),
             })
             .with(Protocol::Tcp(value.port))
-            .with(Protocol::P2p(
-                libp2p_identity::PeerId::from(value.peer_id).into(),
-            ))
+            .with(Protocol::P2p(libp2p_identity::PeerId::from(value.peer_id)))
     }
 }
 
@@ -327,6 +358,15 @@ impl TryFrom<&multiaddr::Multiaddr> for P2pConnectionOutgoingInitOpts {
 
     fn try_from(value: &multiaddr::Multiaddr) -> Result<Self, Self::Error> {
         Ok(Self::LibP2P(value.try_into()?))
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl TryFrom<multiaddr::Multiaddr> for P2pConnectionOutgoingInitOpts {
+    type Error = P2pConnectionOutgoingInitOptsParseError;
+
+    fn try_from(value: multiaddr::Multiaddr) -> Result<Self, Self::Error> {
+        Ok(Self::LibP2P((&value).try_into()?))
     }
 }
 

@@ -46,7 +46,7 @@ mod u256_serde {
     {
         if deserializer.is_human_readable() {
             let s = String::deserialize(deserializer)?;
-            let bytes = hex::decode(&s)
+            let bytes = hex::decode(s)
                 .map_err(decode_error)?
                 .as_slice()
                 .try_into()
@@ -66,7 +66,7 @@ pub struct P2pNetworkKadKey(#[serde(with = "u256_serde")] U256);
 impl From<&PeerId> for P2pNetworkKadKey {
     fn from(value: &PeerId) -> Self {
         P2pNetworkKadKey(U256::from_be_byte_array(Sha256::digest(
-            libp2p_identity::PeerId::from(value.clone()).to_bytes(),
+            libp2p_identity::PeerId::from(*value).to_bytes(),
         )))
     }
 }
@@ -75,7 +75,7 @@ impl Debug for P2pNetworkKadKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if f.alternate() {
             let bytes = self.0.to_be_bytes();
-            f.write_str(&hex::encode(&bytes))
+            f.write_str(&hex::encode(bytes))
         } else {
             f.debug_tuple("P2pNetworkKadKey").field(&self.0).finish()
         }
@@ -85,14 +85,16 @@ impl Debug for P2pNetworkKadKey {
 impl Add<&P2pNetworkKadDist> for &P2pNetworkKadKey {
     type Output = P2pNetworkKadKey;
 
+    #[allow(clippy::suspicious_arithmetic_impl)]
     fn add(self, rhs: &P2pNetworkKadDist) -> Self::Output {
-        P2pNetworkKadKey(&self.0 ^ &rhs.0)
+        P2pNetworkKadKey(self.0 ^ rhs.0)
     }
 }
 
 impl Sub for P2pNetworkKadKey {
     type Output = P2pNetworkKadDist;
 
+    #[allow(clippy::suspicious_arithmetic_impl)]
     fn sub(self, rhs: Self) -> Self::Output {
         P2pNetworkKadDist(self.0 ^ rhs.0)
     }
@@ -101,24 +103,27 @@ impl Sub for P2pNetworkKadKey {
 impl Sub<&P2pNetworkKadKey> for &P2pNetworkKadKey {
     type Output = P2pNetworkKadDist;
 
+    #[allow(clippy::suspicious_arithmetic_impl)]
     fn sub(self, rhs: &P2pNetworkKadKey) -> Self::Output {
-        P2pNetworkKadDist(&self.0 ^ &rhs.0)
+        P2pNetworkKadDist(self.0 ^ rhs.0)
     }
 }
 
 impl Sub<P2pNetworkKadKey> for &P2pNetworkKadKey {
     type Output = P2pNetworkKadDist;
 
+    #[allow(clippy::suspicious_arithmetic_impl)]
     fn sub(self, rhs: P2pNetworkKadKey) -> Self::Output {
-        P2pNetworkKadDist(&self.0 ^ rhs.0)
+        P2pNetworkKadDist(self.0 ^ rhs.0)
     }
 }
 
 impl Sub<&P2pNetworkKadKey> for P2pNetworkKadKey {
     type Output = P2pNetworkKadDist;
 
+    #[allow(clippy::suspicious_arithmetic_impl)]
     fn sub(self, rhs: &P2pNetworkKadKey) -> Self::Output {
-        P2pNetworkKadDist(self.0 ^ &rhs.0)
+        P2pNetworkKadDist(self.0 ^ rhs.0)
     }
 }
 
@@ -126,13 +131,13 @@ impl Shr<usize> for &P2pNetworkKadKey {
     type Output = P2pNetworkKadKey;
 
     fn shr(self, rhs: usize) -> Self::Output {
-        P2pNetworkKadKey(&self.0 >> rhs)
+        P2pNetworkKadKey(self.0 >> rhs)
     }
 }
 
 impl From<PeerId> for P2pNetworkKadKey {
     fn from(value: PeerId) -> Self {
-        let digest = Sha256::digest(&value.to_bytes());
+        let digest = Sha256::digest(value.to_bytes());
         P2pNetworkKadKey(<U256 as ArrayEncoding>::from_be_byte_array(digest))
     }
 }
@@ -145,7 +150,7 @@ impl Debug for P2pNetworkKadDist {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if f.alternate() {
             let bytes = self.0.to_be_bytes();
-            f.write_str(&hex::encode(&bytes))
+            f.write_str(&hex::encode(bytes))
         } else {
             f.debug_tuple("P2pNetworkKadDist").field(&self.0).finish()
         }
@@ -246,37 +251,42 @@ impl<const K: usize> P2pNetworkKadRoutingTable<K> {
         // index of the closest k-bucket that can contain this node.
         let index = dist.to_index();
 
-        let max_index = self.buckets.len() - 1;
-        if index < max_index {
-            // bucket cannot be split
-            if self.buckets[index].can_insert(&entry) {
-                Ok(self.buckets[index].insert(entry))
+        let mut max_index = self.buckets.len() - 1;
+        loop {
+            if index < max_index {
+                // bucket cannot be split
+                if self.buckets[index].can_insert(&entry) {
+                    break Ok(self.buckets[index].insert(entry));
+                } else {
+                    break Err(P2pNetworkKadRoutingTableInsertError);
+                }
+            } else if self.buckets[max_index].can_insert(&entry) {
+                break Ok(self.buckets[max_index].insert(entry));
             } else {
-                Err(P2pNetworkKadRoutingTableInsertError)
-            }
-        } else {
-            if self.buckets[max_index].can_insert(&entry) {
-                Ok(self.buckets[max_index].insert(entry))
-            } else {
-                let split_dist = (max_index + 1).into();
-                let Some((mut bucket1, mut bucket2)) = self
+                max_index += 1;
+                let split_dist = max_index.into();
+                let Some((bucket1, bucket2)) = self
                     .buckets
                     .pop()
-                    .map(|b| b.split(|e| &(&self.this_key - &e.key) >= &split_dist))
+                    .map(|b| b.split(|e| (&self.this_key - &e.key) >= split_dist))
                 else {
                     debug_assert!(false, "should be unreachable");
                     return Err(P2pNetworkKadRoutingTableInsertError);
                 };
-
-                if max_index == index {
-                    bucket1.insert(entry);
-                } else {
-                    bucket2.insert(entry);
-                };
                 self.buckets.extend([bucket1, bucket2]);
-                Ok(true)
             }
         }
+    }
+
+    /// Looks up a Kademlia entry with the specified `key`.
+    pub fn look_up(&self, key: &P2pNetworkKadKey) -> Option<&P2pNetworkKadEntry> {
+        // distance to this node
+        let dist = &self.this_key - key;
+
+        // index of the closest k-bucket that can contain this node.
+        let index = dist.to_index().min(self.buckets.len() - 1);
+
+        self.buckets[index].iter().find(|e| &e.key == key)
     }
 
     /// FIND_NODE backend. Returns iterator of nodes closest to the specified
@@ -313,9 +323,11 @@ impl<const K: usize> P2pNetworkKadRoutingTable<K> {
                 if let Some(prev_dist) = &prev_dist {
                     assert!(
                         &(&self.this_key - &entry.key) > prev_dist,
-                        "distance too small: {:#?}\nrouting table:\n{:+#?}",
+                        "distance too small: {:#?}\nrouting table:\n{:+#?}\ndist: {:#?}\nprev_dist: {:#?}",
                         entry.key,
-                        self
+                        self,
+                        &self.this_key - &entry.key,
+                        prev_dist,
                     );
                 }
             }
@@ -343,7 +355,7 @@ pub struct P2pNetworkKadEntry {
 
 impl P2pNetworkKadEntry {
     pub fn new(peer_id: PeerId, addrs: Vec<Multiaddr>) -> Self {
-        let key = peer_id.clone().into();
+        let key = peer_id.into();
         P2pNetworkKadEntry {
             key,
             peer_id,
@@ -370,7 +382,7 @@ impl TryFrom<super::mod_Message::Peer<'_>> for P2pNetworkKadEntry {
 
     fn try_from(value: super::mod_Message::Peer) -> Result<Self, Self::Error> {
         let peer_id = super::peer_id_try_from_bytes(value.id)?;
-        let key = peer_id.clone().into();
+        let key = peer_id.into();
         let addrs = value
             .addrs
             .into_iter()
@@ -402,26 +414,54 @@ impl<'a> From<&'a P2pNetworkKadEntry> for super::mod_Message::Peer<'a> {
 
 pub struct ClosestPeers<'a, const K: usize> {
     table: &'a P2pNetworkKadRoutingTable<K>,
-    start_index: usize,
+    index_iter: std::vec::IntoIter<usize>,
     bucket_index: usize,
-    bucket_iterator: std::slice::Iter<'a, P2pNetworkKadEntry>,
+    bucket_iterator: std::vec::IntoIter<&'a P2pNetworkKadEntry>,
     key: &'a P2pNetworkKadKey,
 }
 
 impl<'a, const K: usize> ClosestPeers<'a, K> {
     fn new(table: &'a P2pNetworkKadRoutingTable<K>, key: &'a P2pNetworkKadKey) -> Self {
-        let start_index = (&table.this_key - key)
-            .to_index()
-            .min(table.buckets.len() - 1);
-        let bucket_index = start_index;
-        let bucket_iterator = table.buckets[start_index].iter();
+        let dist = &table.this_key - key;
+        let mut index_iter = Self::bucket_index_iterator(dist, table.buckets.len());
+        let bucket_index = index_iter
+            .next()
+            .expect("implementation should ensure there is at least one bucket");
+        let bucket_iterator =
+            Self::get_bucket_iter(&table.buckets[bucket_index], key, &table.this_key);
+        // println!(">>> first bucket {}", bucket_index);
         ClosestPeers {
             table,
-            start_index,
+            index_iter,
             bucket_index,
             bucket_iterator,
             key,
         }
+    }
+
+    fn bucket_index_iterator(
+        dist: P2pNetworkKadDist,
+        buckets_len: usize,
+    ) -> std::vec::IntoIter<usize> {
+        let (mut ones, zeroes) =
+            (0..buckets_len).partition::<Vec<_>, _>(|index| dist.0.bit_vartime(255 - *index));
+        ones.extend(zeroes.into_iter().rev());
+        let it: std::vec::IntoIter<usize> = ones.into_iter();
+        it
+    }
+
+    fn get_bucket_iter(
+        bucket: &'a P2pNetworkKadBucket<K>,
+        key: &P2pNetworkKadKey,
+        this_key: &P2pNetworkKadKey,
+    ) -> std::vec::IntoIter<&'a P2pNetworkKadEntry> {
+        let mut vec = Vec::from_iter(
+            bucket
+                .into_iter()
+                .filter(|e| &e.key != key && &e.key != this_key),
+        );
+        vec.sort_by_cached_key(|entry| key - &entry.key);
+        vec.into_iter()
     }
 }
 
@@ -429,31 +469,17 @@ impl<'a, const K: usize> Iterator for ClosestPeers<'a, K> {
     type Item = &'a P2pNetworkKadEntry;
 
     fn next(&mut self) -> Option<Self::Item> {
-        // TODO: items from other buckets might need sorting
-        loop {
+        Some(loop {
             if let Some(item) = self.bucket_iterator.next() {
-                if &item.key == self.key || &item.key == &self.table.this_key {
-                    continue;
-                }
-                return Some(item);
+                break item;
             }
-            self.bucket_index = if self.bucket_index >= self.start_index {
-                if self.bucket_index + 1 >= self.table.buckets.len() {
-                    if self.start_index > 0 {
-                        self.start_index - 1
-                    } else {
-                        return None;
-                    }
-                } else {
-                    self.bucket_index + 1
-                }
-            } else if self.bucket_index > 0 {
-                self.bucket_index - 1
-            } else {
-                return None;
-            };
-            self.bucket_iterator = self.table.buckets[self.bucket_index].iter();
-        }
+            self.bucket_index = self.index_iter.next()?;
+            self.bucket_iterator = Self::get_bucket_iter(
+                &self.table.buckets[self.bucket_index],
+                &self.key,
+                &self.table.this_key,
+            );
+        })
     }
 }
 
@@ -465,6 +491,10 @@ impl<const K: usize> P2pNetworkKadBucket<K> {
         self.0.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
     pub fn iter(&self) -> std::slice::Iter<'_, P2pNetworkKadEntry> {
         self.0.iter()
     }
@@ -473,15 +503,15 @@ impl<const K: usize> P2pNetworkKadBucket<K> {
     /// there is a free slot, or the entry with this peer_id already there and
     /// only needs to be updated.
     fn can_insert(&self, entry: &P2pNetworkKadEntry) -> bool {
-        self.len() < K || self.0.iter().any(|e| &e.key == &entry.key)
+        self.len() < K || self.0.iter().any(|e| e.key == entry.key)
     }
 
     /// Inserts an entry into the bucket. Returns true if a new entry is added,
     /// false if an existing one is updated.
     fn insert(&mut self, entry: P2pNetworkKadEntry) -> bool {
-        if let Some(pos) = self.0.iter().position(|e| &e.key == &entry.key) {
+        if let Some(pos) = self.0.iter().position(|e| e.key == entry.key) {
             let e = &mut self.0[pos];
-            debug_assert!(&e.peer_id == &entry.peer_id);
+            debug_assert!(e.peer_id == entry.peer_id);
             for addr in entry.addrs {
                 if !e.addrs.contains(&addr) {
                     e.addrs.push(addr);
@@ -489,7 +519,7 @@ impl<const K: usize> P2pNetworkKadBucket<K> {
             }
             false
         } else {
-            debug_assert!(self.0.len() < K);
+            debug_assert!(self.len() < K);
             self.0.push(entry);
             true
         }
@@ -524,12 +554,21 @@ impl<const K: usize> Extend<P2pNetworkKadEntry> for P2pNetworkKadBucket<K> {
     }
 }
 
+impl<'a, const K: usize> IntoIterator for &'a P2pNetworkKadBucket<K> {
+    type Item = &'a P2pNetworkKadEntry;
+
+    type IntoIter = std::slice::Iter<'a, P2pNetworkKadEntry>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.as_slice().into_iter()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeSet;
 
     use crypto_bigint::{Random, U256};
-    //use libp2p_identity::PeerId;
 
     use crate::PeerId;
 
@@ -557,14 +596,14 @@ mod tests {
         let peer_id = peer_id_rand();
         P2pNetworkKadEntry {
             key,
-            peer_id: peer_id.into(),
+            peer_id,
             addrs: vec![],
             connection: super::ConnectionType::Connected,
         }
     }
 
     fn entry_with_peer_id(peer_id: PeerId) -> P2pNetworkKadEntry {
-        let key = peer_id.clone().into();
+        let key = peer_id.into();
         P2pNetworkKadEntry {
             key,
             peer_id,
@@ -639,7 +678,7 @@ mod tests {
     }
 
     #[test]
-    fn test_closest_peers_zero() {
+    fn test_find_node_zero() {
         let this_entry = entry_with_peer_id(peer_id_rand());
         let mut rt: P2pNetworkKadRoutingTable = P2pNetworkKadRoutingTable::new(this_entry.clone());
         for _ in 0..(256 * 32) {
@@ -672,8 +711,8 @@ mod tests {
             .min_by_key(|e| entry.dist(e))
             .unwrap();
 
-        let max = entry.dist(&max_closest_dist);
-        let min = entry.dist(&min_non_closest_dist);
+        let max = entry.dist(max_closest_dist);
+        let min = entry.dist(min_non_closest_dist);
         println!(
             "farthest {:#?} is closer than the closest {:#?}",
             max_closest_dist.key, min_non_closest_dist.key
@@ -682,7 +721,7 @@ mod tests {
     }
 
     #[test]
-    fn test_closest_peers_rand() {
+    fn test_find_node_rand() {
         let mut rt: P2pNetworkKadRoutingTable = P2pNetworkKadRoutingTable::new(entry(this_key()));
         for _ in 0..(256 * 32) {
             let peer_id = peer_id_rand();
@@ -691,7 +730,7 @@ mod tests {
             rt.assert_k_buckets();
         }
 
-        for _ in 0..128 {
+        for _ in 0..(1024 * 16) {
             let peer_id = peer_id_rand();
             let entry = entry_with_peer_id(peer_id);
 
@@ -703,17 +742,51 @@ mod tests {
                 .buckets
                 .iter()
                 .flat_map(|e| e.iter())
+                .filter(|e| e.key != entry.key && e.key != rt.this_key)
                 .filter(|e| !closest.contains(*e))
                 .min_by_key(|e| entry.dist(e))
                 .unwrap();
 
-            let max = entry.dist(&max_closest_dist);
-            let min = entry.dist(&min_non_closest_dist);
-            println!(
-                "farthest {:#?} is closer than the closest {:#?}",
-                max_closest_dist.key, min_non_closest_dist.key
-            );
-            assert!(min > max);
+            let max = entry.dist(max_closest_dist);
+            let min = entry.dist(min_non_closest_dist);
+            if max > min {
+                println!(
+                    "farthest {:#?} should be closer than the closest {:#?}",
+                    max_closest_dist.key, min_non_closest_dist.key
+                );
+                panic!("min is {min:#?}\nmax is {max:#?}");
+            }
+        }
+    }
+
+    /// Tests that `find_node` returns entries in order of increasing distance.
+    #[test]
+    fn test_closest_peers_rand() {
+        let mut rt: P2pNetworkKadRoutingTable = P2pNetworkKadRoutingTable::new(entry(this_key()));
+        for _ in 0..(256 * 32) {
+            let peer_id = peer_id_rand();
+            let entry = entry_with_peer_id(peer_id);
+            let _ = rt.insert(entry);
+            rt.assert_k_buckets();
+        }
+
+        for _ in 0..(16 * 1024) {
+            let peer_id = peer_id_rand();
+            let entry = entry_with_peer_id(peer_id);
+
+            let mut prev = None;
+            for e in rt.find_node(&entry.key) {
+                let dist = entry.dist(e);
+                if let Some((prev, prev_dist)) = prev {
+                    if dist <= prev_dist {
+                        panic!(
+                            "incorrect order\n{:#?}\nshould go before\n{:#?}",
+                            e.key, prev
+                        );
+                    }
+                }
+                prev = Some((e.clone(), dist));
+            }
         }
     }
 }

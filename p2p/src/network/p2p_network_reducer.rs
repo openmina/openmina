@@ -1,18 +1,19 @@
 use multiaddr::Multiaddr;
 use openmina_core::error;
 
-use crate::PeerId;
+use crate::{identity::PublicKey, PeerId};
 
 use super::*;
 
 impl P2pNetworkState {
     pub fn new(
-        peer_id: PeerId,
+        identity: PublicKey,
         addrs: Vec<Multiaddr>,
         known_peers: Vec<(PeerId, Multiaddr)>,
         chain_id: &str,
         discovery: bool,
     ) -> Self {
+        let peer_id = identity.peer_id();
         let pnet_key = {
             use blake2::{
                 digest::{generic_array::GenericArray, Update, VariableOutput},
@@ -47,9 +48,11 @@ impl P2pNetworkState {
             scheduler: P2pNetworkSchedulerState {
                 interfaces: Default::default(),
                 listeners: Default::default(),
+                local_pk: identity,
                 pnet_key,
                 connections: Default::default(),
                 broadcast_state: Default::default(),
+                identify_state: Default::default(),
                 discovery_state,
                 rpc_incoming_streams: Default::default(),
                 rpc_outgoing_streams: Default::default(),
@@ -62,50 +65,48 @@ impl P2pNetworkState {
     pub fn reducer(&mut self, action: redux::ActionWithMeta<&P2pNetworkAction>) {
         let (action, meta) = action.split();
         match action {
-            P2pNetworkAction::Scheduler(a) => self.scheduler.reducer(meta.with_action(&a)),
+            P2pNetworkAction::Scheduler(a) => self.scheduler.reducer(meta.with_action(a)),
             P2pNetworkAction::Pnet(a) => {
-                self.scheduler
-                    .connections
-                    .get_mut(&a.addr())
-                    .map(|cn| cn.pnet.reducer(meta.with_action(&a)));
+                if let Some(cn) = self.scheduler.connections.get_mut(a.addr()) {
+                    cn.pnet.reducer(meta.with_action(a))
+                }
             }
             P2pNetworkAction::Select(a) => {
-                self.scheduler
-                    .connections
-                    .get_mut(&a.addr())
-                    .map(|cn| match a.id() {
-                        SelectKind::Authentication => cn.select_auth.reducer(meta.with_action(&a)),
+                if let Some(cn) = self.scheduler.connections.get_mut(a.addr()) {
+                    match a.id() {
+                        SelectKind::Authentication => cn.select_auth.reducer(meta.with_action(a)),
                         SelectKind::Multiplexing(_) | SelectKind::MultiplexingNoPeerId => {
-                            cn.select_mux.reducer(meta.with_action(&a))
+                            cn.select_mux.reducer(meta.with_action(a))
                         }
                         SelectKind::Stream(_, stream_id) => {
-                            cn.streams
-                                .get_mut(&stream_id)
-                                .map(|stream| stream.select.reducer(meta.with_action(&a)));
+                            if let Some(stream) = cn.streams.get_mut(stream_id) {
+                                stream.select.reducer(meta.with_action(a))
+                            }
                         }
-                    });
+                    }
+                }
             }
             P2pNetworkAction::Noise(a) => {
-                self.scheduler
-                    .connections
-                    .get_mut(a.addr())
-                    .map(|cn| match &mut cn.auth {
-                        Some(P2pNetworkAuthState::Noise(state)) => {
-                            state.reducer(meta.with_action(&a))
-                        }
-                        _ => {}
-                    });
+                if let Some(cn) = self.scheduler.connections.get_mut(a.addr()) {
+                    if let Some(P2pNetworkAuthState::Noise(state)) = &mut cn.auth {
+                        state.reducer(meta.with_action(a))
+                    }
+                }
             }
             P2pNetworkAction::Yamux(a) => {
-                self.scheduler
-                    .connections
-                    .get_mut(&a.addr())
-                    .map(|cn| match &mut cn.mux {
-                        Some(P2pNetworkConnectionMuxState::Yamux(state)) => {
-                            state.reducer(&mut cn.streams, meta.with_action(&a))
-                        }
-                        _ => {}
-                    });
+                if let Some(cn) = self.scheduler.connections.get_mut(a.addr()) {
+                    if let Some(P2pNetworkConnectionMuxState::Yamux(state)) = &mut cn.mux {
+                        state.reducer(&mut cn.streams, meta.with_action(a))
+                    }
+                }
+            }
+            P2pNetworkAction::Identify(a) => {
+                let time = meta.time();
+                // println!("======= identify reducer for {state:?}");
+                if let Err(err) = self.scheduler.identify_state.reducer(meta.with_action(a)) {
+                    error!(time; "{err}");
+                }
+                // println!("======= identify reducer result {state:?}");
             }
             P2pNetworkAction::Kad(a) => {
                 let Some(state) = &mut self.scheduler.discovery_state else {
@@ -114,14 +115,14 @@ impl P2pNetworkState {
                 };
                 let time = meta.time();
                 // println!("======= kad reducer for {state:?}");
-                if let Err(err) = state.reducer(meta.with_action(&a)) {
+                if let Err(err) = state.reducer(meta.with_action(a)) {
                     error!(time; "{err}");
                 }
                 // println!("======= kad reducer result {state:?}");
             }
             P2pNetworkAction::Rpc(a) => {
                 if let Some(state) = self.find_rpc_state_mut(a) {
-                    state.reducer(meta.with_action(&a))
+                    state.reducer(meta.with_action(a))
                 }
             }
         }
@@ -132,22 +133,22 @@ impl P2pNetworkState {
             RpcStreamId::Exact(stream_id) => self
                 .scheduler
                 .rpc_incoming_streams
-                .get(&a.peer_id())
+                .get(a.peer_id())
                 .and_then(|cn| cn.get(&stream_id))
                 .or_else(|| {
                     self.scheduler
                         .rpc_outgoing_streams
-                        .get(&a.peer_id())
+                        .get(a.peer_id())
                         .and_then(|cn| cn.get(&stream_id))
                 }),
             RpcStreamId::AnyIncoming => self
                 .scheduler
                 .rpc_incoming_streams
-                .get(&a.peer_id())
+                .get(a.peer_id())
                 .and_then(|stream| stream.first_key_value())
                 .map(|(_k, v)| v),
             RpcStreamId::AnyOutgoing => {
-                if let Some(streams) = self.scheduler.rpc_outgoing_streams.get(&a.peer_id()) {
+                if let Some(streams) = self.scheduler.rpc_outgoing_streams.get(a.peer_id()) {
                     if let Some((k, _)) = streams.first_key_value() {
                         return Some(streams.get(k).expect("checked above"));
                     }
@@ -166,16 +167,16 @@ impl P2pNetworkState {
             RpcStreamId::Exact(stream_id) => self
                 .scheduler
                 .rpc_incoming_streams
-                .get_mut(&a.peer_id())
+                .get_mut(a.peer_id())
                 .and_then(|cn| cn.get_mut(&stream_id))
                 .or_else(|| {
                     self.scheduler
                         .rpc_outgoing_streams
-                        .get_mut(&a.peer_id())
+                        .get_mut(a.peer_id())
                         .and_then(|cn| cn.get_mut(&stream_id))
                 }),
             RpcStreamId::AnyIncoming => {
-                if let Some(streams) = self.scheduler.rpc_incoming_streams.get_mut(&a.peer_id()) {
+                if let Some(streams) = self.scheduler.rpc_incoming_streams.get_mut(a.peer_id()) {
                     if let Some((k, _)) = streams.first_key_value() {
                         let k = *k;
                         return Some(streams.get_mut(&k).expect("checked above"));
@@ -185,7 +186,7 @@ impl P2pNetworkState {
                 None
             }
             RpcStreamId::AnyOutgoing => {
-                if let Some(streams) = self.scheduler.rpc_outgoing_streams.get_mut(&a.peer_id()) {
+                if let Some(streams) = self.scheduler.rpc_outgoing_streams.get_mut(a.peer_id()) {
                     if let Some((k, _)) = streams.first_key_value() {
                         let k = *k;
                         return Some(streams.get_mut(&k).expect("checked above"));

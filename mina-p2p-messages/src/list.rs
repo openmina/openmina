@@ -28,9 +28,9 @@ impl<T> List<T> {
         List(Backend::new())
     }
 
-    pub fn iter(&self) -> <&Backend<T> as IntoIterator>::IntoIter {
-        (self).into_iter()
-    }
+    // pub fn iter(&self) -> <&Backend<T> as IntoIterator>::IntoIter {
+    //     (self).into_iter()
+    // }
 
     pub fn push_front(&mut self, element: T) {
         self.0.push_front(element)
@@ -67,7 +67,7 @@ impl<'a, T> IntoIterator for &'a List<T> {
     type IntoIter = <&'a Backend<T> as IntoIterator>::IntoIter;
 
     fn into_iter(self) -> Self::IntoIter {
-        (&self.0).into_iter()
+        self.0.iter()
     }
 }
 

@@ -122,7 +122,7 @@ where
                 E: serde::de::Error,
             {
                 v.parse().map_err(|_| {
-                    serde::de::Error::custom(format!("failed to parse string as number"))
+                    serde::de::Error::custom("failed to parse string as number".to_string())
                 })
             }
 
@@ -131,7 +131,7 @@ where
                 E: serde::de::Error,
             {
                 v.parse().map_err(|_| {
-                    serde::de::Error::custom(format!("failed to parse string as number"))
+                    serde::de::Error::custom("failed to parse string as number".to_string())
                 })
             }
 
@@ -140,7 +140,7 @@ where
                 E: serde::de::Error,
             {
                 v.parse().map_err(|_| {
-                    serde::de::Error::custom(format!("failed to parse string as number"))
+                    serde::de::Error::custom("failed to parse string as number".to_string())
                 })
             }
         }

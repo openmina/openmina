@@ -22,10 +22,11 @@ pub use effects::effects;
 pub mod service;
 pub use service::Service;
 
+pub mod account;
+
 pub mod recorder;
 pub mod stats;
 
-pub mod account;
 pub mod block_producer;
 pub mod consensus;
 pub mod event_source;

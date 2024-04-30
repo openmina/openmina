@@ -39,13 +39,11 @@ scenario_test!(
     ConnectToInitialPeers
 );
 scenario_test!(
-    #[ignore = ""]
     connect_to_offline_initial_peers,
     ConnectToUnavailableInitialPeers,
     ConnectToUnavailableInitialPeers
 );
 scenario_test!(
-    #[ignore = ""]
     connect_to_all_initial_peers_become_ready,
     ConnectToInitialPeersBecomeReady,
     ConnectToInitialPeersBecomeReady

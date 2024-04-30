@@ -50,7 +50,9 @@ impl redux::Service for MioService {}
 impl P2pMioService for MioService {
     fn send_mio_cmd(&mut self, cmd: MioCmd) {
         self.cmd_sender.send(cmd).unwrap_or_default();
-        self.waker.as_ref().map(|w| w.wake().unwrap_or_default());
+        if let Some(w) = self.waker.as_ref() {
+            w.wake().unwrap_or_default()
+        }
     }
 }
 
@@ -157,11 +159,9 @@ where
                         continue 'events;
                     };
 
-                    if event.is_readable() {
-                        if !listener.incomind_ready {
-                            self.send(MioEvent::IncomingConnectionIsReady { listener: addr });
-                            listener.incomind_ready = true;
-                        }
+                    if event.is_readable() && !listener.incomind_ready {
+                        self.send(MioEvent::IncomingConnectionIsReady { listener: addr });
+                        listener.incomind_ready = true;
                     }
                     self.listeners.insert(addr, listener);
                 }
@@ -192,11 +192,9 @@ where
                         }
                         continue 'events;
                     }
-                    if event.is_readable() {
-                        if !connection.incoming_ready {
-                            connection.incoming_ready = true;
-                            self.send(MioEvent::IncomingDataIsReady(addr));
-                        }
+                    if event.is_readable() && !connection.incoming_ready {
+                        connection.incoming_ready = true;
+                        self.send(MioEvent::IncomingDataIsReady(addr));
                     }
                     let mut rereg = false;
                     if event.is_writable() {
@@ -286,7 +284,11 @@ where
                         self.tokens.register(Token::Listener(addr)),
                         mio::Interest::READABLE,
                     ) {
-                        MioError::Listen(addr, err).report()
+                        self.send(MioEvent::ListenerError {
+                            listener: addr,
+                            error: err.to_string(),
+                        });
+                        MioError::Listen(addr, err).report();
                     } else {
                         self.listeners.insert(
                             addr,
@@ -295,9 +297,16 @@ where
                                 incomind_ready: false,
                             },
                         );
+                        self.send(MioEvent::ListenerReady { listener: addr });
                     }
                 }
-                Err(err) => MioError::Listen(addr, err).report(),
+                Err(err) => {
+                    self.send(MioEvent::ListenerError {
+                        listener: addr,
+                        error: err.to_string(),
+                    });
+                    MioError::Listen(addr, err).report();
+                }
             },
             Accept(listener_addr) => {
                 if let Some(mut listener) = self.listeners.remove(&listener_addr) {

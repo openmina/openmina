@@ -73,7 +73,7 @@ pub struct PeerAddArgs {
 
 pub enum PeerConnectionKind {
     Outgoing,
-    Incoming(webrtc::Offer),
+    Incoming(Box<webrtc::Offer>),
 }
 
 pub struct PeerState {
@@ -84,12 +84,12 @@ pub struct PeerState {
 pub(super) enum Error {
     #[cfg(not(target_arch = "wasm32"))]
     #[error("{0}")]
-    RTCError(::webrtc::Error),
+    Rtc(::webrtc::Error),
     #[cfg(target_arch = "wasm32")]
     #[error("js error: {0:?}")]
-    RTCJsError(String),
+    RtcJs(String),
     #[error("signaling error: {0}")]
-    SignalingError(RTCSignalingError),
+    Signaling(RTCSignalingError),
     #[error("unexpected cmd received")]
     UnexpectedCmd,
     #[from(ignore)]
@@ -100,7 +100,7 @@ pub(super) enum Error {
 #[cfg(target_arch = "wasm32")]
 impl From<wasm_bindgen::JsValue> for Error {
     fn from(value: wasm_bindgen::JsValue) -> Self {
-        Error::RTCJsError(format!("{value:?}"))
+        Error::RtcJs(format!("{value:?}"))
     }
 }
 
@@ -219,7 +219,7 @@ async fn peer_start(args: PeerAddArgs) {
             .await?;
 
         let offer = match kind {
-            PeerConnectionKind::Incoming(offer) => offer.try_into()?,
+            PeerConnectionKind::Incoming(offer) => (*offer).try_into()?,
             PeerConnectionKind::Outgoing => pc.offer_create().await?,
         };
 
@@ -267,7 +267,7 @@ async fn peer_start(args: PeerAddArgs) {
         };
         answer_fut.await.and_then(|v| Ok(v.try_into()?))
     } else {
-        pc.answer_create().await.map_err(|e| Error::from(e))
+        pc.answer_create().await.map_err(Error::from)
     };
     let Ok(answer) = answer else {
         return;
@@ -455,7 +455,7 @@ async fn peer_loop(
                         let done_tx_clone = done_tx.clone();
                         let internal_cmd_sender = internal_cmd_sender_clone.clone();
                         chan.on_error(move |err| {
-                            if let Err(_) = done_tx_clone.try_send(Err(err.into())) {
+                            if done_tx_clone.try_send(Err(err.into())).is_err() {
                                 let _ =
                                     internal_cmd_sender.send(PeerCmdInternal::ChannelClosed(id));
                             }
@@ -465,7 +465,7 @@ async fn peer_loop(
                         let done_tx_clone = done_tx.clone();
                         let internal_cmd_sender = internal_cmd_sender_clone.clone();
                         chan.on_close(move || {
-                            if let Err(_) = done_tx_clone.try_send(Err(Error::ChannelClosed)) {
+                            if done_tx_clone.try_send(Err(Error::ChannelClosed)).is_err() {
                                 let _ =
                                     internal_cmd_sender.send(PeerCmdInternal::ChannelClosed(id));
                             }
@@ -584,8 +584,7 @@ async fn peer_loop(
                     let mut buf = vec![];
                     let event_sender = event_sender.clone();
 
-                    chan.on_message(move |data| {
-                        let mut data = &*data;
+                    chan.on_message(move |mut data| {
                         while !data.is_empty() {
                             let res = match process_msg(chan_id, &mut buf, &mut len, &mut data) {
                                 Ok(None) => continue,
@@ -678,7 +677,7 @@ pub trait P2pServiceWebrtc: redux::Service {
             Arc::new(move |p2p_event: P2pEvent| event_sender.send(p2p_event.into()).ok());
         let _ = self.cmd_sender().send(Cmd::PeerAdd(PeerAddArgs {
             peer_id,
-            kind: PeerConnectionKind::Incoming(offer),
+            kind: PeerConnectionKind::Incoming(Box::new(offer)),
             event_sender,
             cmd_receiver: peer_cmd_receiver,
         }));

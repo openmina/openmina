@@ -8,7 +8,7 @@ impl P2pNetworkYamuxAction {
         Store: crate::P2pStore<S>,
     {
         let state = store.state();
-        let Some(state) = state.network.scheduler.connections.get(&self.addr()) else {
+        let Some(state) = state.network.scheduler.connections.get(self.addr()) else {
             return;
         };
         let peer_id = match &state.auth {

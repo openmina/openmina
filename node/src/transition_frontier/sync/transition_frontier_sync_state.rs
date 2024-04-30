@@ -63,6 +63,18 @@ pub enum TransitionFrontierSyncState {
         root_snarked_ledger_updates: TransitionFrontierRootSnarkedLedgerUpdates,
         needed_protocol_states: BTreeMap<StateHash, MinaStateProtocolStateValueStableV2>,
     },
+    CommitPending {
+        time: Timestamp,
+        chain: Vec<ArcBlockWithHash>,
+        root_snarked_ledger_updates: TransitionFrontierRootSnarkedLedgerUpdates,
+        needed_protocol_states: BTreeMap<StateHash, MinaStateProtocolStateValueStableV2>,
+    },
+    CommitSuccess {
+        time: Timestamp,
+        chain: Vec<ArcBlockWithHash>,
+        root_snarked_ledger_updates: TransitionFrontierRootSnarkedLedgerUpdates,
+        needed_protocol_states: BTreeMap<StateHash, MinaStateProtocolStateValueStableV2>,
+    },
     Synced {
         time: Timestamp,
     },
@@ -156,6 +168,8 @@ impl TransitionFrontierSyncState {
             Self::RootLedgerSuccess { root_block, .. } => Some(root_block),
             Self::BlocksPending { chain, .. } => chain.first().and_then(|b| b.block()),
             Self::BlocksSuccess { chain, .. } => chain.first(),
+            Self::CommitPending { chain, .. } => chain.first(),
+            Self::CommitSuccess { chain, .. } => chain.first(),
             Self::Synced { .. } => None,
         }
     }
@@ -172,6 +186,8 @@ impl TransitionFrontierSyncState {
             Self::RootLedgerSuccess { best_tip, .. } => Some(best_tip),
             Self::BlocksPending { chain, .. } => chain.last().and_then(|b| b.block()),
             Self::BlocksSuccess { chain, .. } => chain.last(),
+            Self::CommitPending { chain, .. } => chain.last(),
+            Self::CommitSuccess { chain, .. } => chain.last(),
             Self::Synced { .. } => None,
         }
     }

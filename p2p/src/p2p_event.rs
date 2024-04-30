@@ -1,6 +1,6 @@
 use std::fmt;
 
-#[cfg(all(not(target_arch = "wasm32"), not(feature = "p2p-libp2p")))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
 use std::net::{IpAddr, SocketAddr};
 
 use derive_more::From;
@@ -9,30 +9,32 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     channels::{ChannelId, ChannelMsg, MsgId},
-    connection::{outgoing::P2pConnectionOutgoingInitOpts, P2pConnectionResponse},
-    P2pListenerId, PeerId,
+    connection::P2pConnectionResponse,
+    PeerId,
 };
 
 #[derive(Serialize, Deserialize, From, Debug, Clone)]
+#[allow(clippy::large_enum_variant)]
 pub enum P2pEvent {
     Connection(P2pConnectionEvent),
-    Listen(P2pListenEvent),
     Channel(P2pChannelEvent),
     #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
-    Libp2pIdentify(PeerId, libp2p::Multiaddr),
-    Discovery(P2pDiscoveryEvent),
-    #[cfg(all(not(target_arch = "wasm32"), not(feature = "p2p-libp2p")))]
     MioEvent(MioEvent),
 }
 
 /// The mio service reports events.
-#[cfg(all(not(target_arch = "wasm32"), not(feature = "p2p-libp2p")))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum MioEvent {
     /// A new network interface was detected on the machine.
     InterfaceDetected(IpAddr),
     /// The interface is not available anymore.
     InterfaceExpired(IpAddr),
+
+    /// Started listening on a local port.
+    ListenerReady { listener: SocketAddr },
+    /// Error listening on a local port
+    ListenerError { listener: SocketAddr, error: String },
 
     /// The remote peer is trying to connect to us.
     IncomingConnectionIsReady { listener: SocketAddr },
@@ -61,26 +63,6 @@ pub enum P2pConnectionEvent {
     Closed(PeerId),
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum P2pListenEvent {
-    NewListenAddr {
-        listener_id: P2pListenerId,
-        addr: multiaddr::Multiaddr,
-    },
-    ExpiredListenAddr {
-        listener_id: P2pListenerId,
-        addr: multiaddr::Multiaddr,
-    },
-    ListenerError {
-        listener_id: P2pListenerId,
-        error: String,
-    },
-    ListenerClosed {
-        listener_id: P2pListenerId,
-        error: Option<String>,
-    },
-}
-
 #[derive(Serialize, Deserialize, From, Debug, Clone)]
 pub enum P2pChannelEvent {
     Opened(PeerId, ChannelId, Result<(), String>),
@@ -88,14 +70,6 @@ pub enum P2pChannelEvent {
     Received(PeerId, Result<ChannelMsg, String>),
     Libp2pSnarkReceived(PeerId, Snark, u32),
     Closed(PeerId, ChannelId),
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum P2pDiscoveryEvent {
-    Ready,
-    DidFindPeers(Vec<PeerId>),
-    DidFindPeersError(String),
-    AddRoute(PeerId, Vec<P2pConnectionOutgoingInitOpts>),
 }
 
 fn res_kind<T, E>(res: &Result<T, E>) -> &'static str {
@@ -110,50 +84,9 @@ impl fmt::Display for P2pEvent {
         write!(f, "P2p, ")?;
         match self {
             Self::Connection(v) => v.fmt(f),
-            Self::Listen(v) => v.fmt(f),
             Self::Channel(v) => v.fmt(f),
             #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
-            Self::Libp2pIdentify(peer_id, _) => {
-                write!(f, "Libp2pIdentify, {peer_id}")
-            }
-            Self::Discovery(v) => v.fmt(f),
-            #[cfg(all(not(target_arch = "wasm32"), not(feature = "p2p-libp2p")))]
             Self::MioEvent(v) => v.fmt(f),
-        }
-    }
-}
-
-fn maddr_ip(addr: &multiaddr::Multiaddr) -> String {
-    use multiaddr::Protocol;
-    addr.iter()
-        .find_map(|p| match p {
-            Protocol::Ip4(_)
-            | Protocol::Ip6(_)
-            | Protocol::Dns(_)
-            | Protocol::Dns4(_)
-            | Protocol::Dns6(_) => Some(p.to_string()),
-            _ => None,
-        })
-        .unwrap_or(String::new())
-}
-
-impl fmt::Display for P2pListenEvent {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Listen, ")?;
-        match self {
-            P2pListenEvent::NewListenAddr { addr, .. } => {
-                write!(f, "NewListenAddr, {}", maddr_ip(addr))
-            }
-            P2pListenEvent::ExpiredListenAddr { addr, .. } => {
-                write!(f, "ExpiredListenAddr, {}", maddr_ip(addr))
-            }
-            P2pListenEvent::ListenerError { error, .. } => {
-                write!(f, "ListenerError, {error}")
-            }
-            P2pListenEvent::ListenerClosed {
-                error: Some(error), ..
-            } => write!(f, "ListenerClosed, {error}"),
-            P2pListenEvent::ListenerClosed { error: None, .. } => write!(f, "ListenerClosed"),
         }
     }
 }
@@ -284,40 +217,16 @@ impl fmt::Display for P2pChannelEvent {
     }
 }
 
-impl fmt::Display for P2pDiscoveryEvent {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Ready => write!(f, "DiscoveryReady"),
-            Self::DidFindPeers(peers) => write!(
-                f,
-                "DidFindPeers: {}",
-                peers
-                    .iter()
-                    .map(|x| x.to_string())
-                    .collect::<Vec<_>>()
-                    .join(",")
-            ),
-            Self::DidFindPeersError(description) => {
-                write!(f, "DidFindPeersError: {description}",)
-            }
-            Self::AddRoute(peer_id, opts) => write!(
-                f,
-                "AddRoute, peer_id: {peer_id}, {}",
-                opts.iter()
-                    .map(|x| x.peer_id().to_string())
-                    .collect::<Vec<_>>()
-                    .join(",")
-            ),
-        }
-    }
-}
-
-#[cfg(all(not(target_arch = "wasm32"), not(feature = "p2p-libp2p")))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
 impl fmt::Display for MioEvent {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::InterfaceDetected(ip) => write!(f, "InterfaceDetected, {ip}"),
             Self::InterfaceExpired(ip) => write!(f, "InterfaceExpired, {ip}"),
+            Self::ListenerReady { listener } => write!(f, "ListenerReady, {listener}"),
+            Self::ListenerError { listener, error } => {
+                write!(f, "ListenerError, {listener}, {error}")
+            }
             Self::IncomingConnectionIsReady { listener } => {
                 write!(f, "IncomingConnectionIsReady, {listener}")
             }

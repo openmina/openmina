@@ -1,12 +1,13 @@
-use std::sync::Arc;
-
 use redux::ActionMeta;
 
 use crate::block_producer::to_epoch_and_slot;
+use crate::ledger::read::LedgerReadAction;
+use crate::ledger::read::LedgerReadRequest;
 use crate::Service;
 use crate::Store;
 
 use super::BlockProducerVrfEvaluatorAction;
+use super::BlockProducerVrfEvaluatorStatus;
 use super::SlotPositionInEpoch;
 
 impl BlockProducerVrfEvaluatorAction {
@@ -72,6 +73,7 @@ impl BlockProducerVrfEvaluatorAction {
                             &best_tip.consensus_state().curr_global_slot_since_hard_fork,
                         );
                         let last_height = if slot < k {
+                            // TODO(adonagy): error handling
                             store
                                 .state()
                                 .transition_frontier
@@ -82,13 +84,8 @@ impl BlockProducerVrfEvaluatorAction {
                                 .unwrap()
                                 .height()
                         } else {
-                            store
-                                .state()
-                                .transition_frontier
-                                .sync
-                                .root_block()
-                                .unwrap()
-                                .height()
+                            // TODO(adonagy): error handling
+                            store.state().transition_frontier.root().unwrap().height()
                         };
                         store.dispatch(
                             BlockProducerVrfEvaluatorAction::FinalizeEvaluatorInitialization {
@@ -143,83 +140,54 @@ impl BlockProducerVrfEvaluatorAction {
                     });
                 }
             }
-            BlockProducerVrfEvaluatorAction::InitializeEpochEvaluation {
-                staking_epoch_data,
-                producer,
-                current_epoch_number,
-                current_best_tip_height,
-                current_best_tip_global_slot,
-                current_best_tip_slot,
-                transition_frontier_size,
-                next_epoch_first_slot,
-            } => {
-                store.dispatch(
-                    BlockProducerVrfEvaluatorAction::BeginDelegatorTableConstruction {
-                        staking_epoch_data,
-                        producer,
-                        current_best_tip_height,
-                        current_best_tip_global_slot,
-                        current_best_tip_slot,
-                        current_epoch_number,
-                        transition_frontier_size,
-                        next_epoch_first_slot,
-                    },
-                );
+            BlockProducerVrfEvaluatorAction::InitializeEpochEvaluation { .. } => {
+                store.dispatch(BlockProducerVrfEvaluatorAction::BeginDelegatorTableConstruction);
             }
-            BlockProducerVrfEvaluatorAction::BeginDelegatorTableConstruction {
-                staking_epoch_data,
-                producer,
-                current_epoch_number,
-                current_best_tip_height,
-                current_best_tip_slot,
-                current_best_tip_global_slot,
-                next_epoch_first_slot,
-                transition_frontier_size,
-            } => {
-                let delegator_table = store.service().get_producer_and_delegates(
-                    staking_epoch_data.ledger.clone(),
-                    producer.clone(),
-                );
-                let mut epoch_data = staking_epoch_data.clone();
-                epoch_data.delegator_table = Arc::new(delegator_table);
-
-                store.dispatch(
-                    BlockProducerVrfEvaluatorAction::FinalizeDelegatorTableConstruction {
-                        staking_epoch_data: epoch_data,
-                        producer,
-                        current_epoch_number,
-                        current_best_tip_height,
-                        current_best_tip_slot,
-                        current_best_tip_global_slot,
-                        next_epoch_first_slot,
-                        transition_frontier_size,
-                    },
-                );
-            }
-            BlockProducerVrfEvaluatorAction::FinalizeDelegatorTableConstruction {
-                current_best_tip_height,
-                current_best_tip_global_slot,
-                current_best_tip_slot,
-                current_epoch_number,
-                staking_epoch_data,
-                next_epoch_first_slot,
-                ..
-            } => {
-                let current_global_slot =
-                    if let Some(current_global_slot) = store.state().cur_global_slot() {
-                        current_global_slot
-                    } else {
-                        // error here!
-                        return;
+            BlockProducerVrfEvaluatorAction::BeginDelegatorTableConstruction => {
+                let (staking_ledger_hash, producer) =
+                    match store.state().block_producer.vrf_delegator_table_inputs() {
+                        Some((v1, v2)) => (v1.clone(), v2.clone()),
+                        None => return,
                     };
+                if store.dispatch(LedgerReadAction::Init {
+                    request: LedgerReadRequest::DelegatorTable(staking_ledger_hash, producer),
+                }) {
+                    // TODO(binier): have pending action.
+                } else {
+                    unreachable!()
+                }
+            }
+            BlockProducerVrfEvaluatorAction::FinalizeDelegatorTableConstruction { .. } => {
+                let Some((
+                    current_global_slot,
+                    BlockProducerVrfEvaluatorStatus::EpochDelegatorTableSuccess {
+                        epoch_number,
+                        current_best_tip_slot,
+                        current_best_tip_height,
+                        current_best_tip_global_slot,
+                        next_epoch_first_slot,
+                        staking_epoch_data,
+                        ..
+                    },
+                )) = None.or_else(|| {
+                    let cur_global_slot = store.state().cur_global_slot()?;
+                    let status = &store.state().block_producer.vrf_evaluator()?.status;
+
+                    Some((cur_global_slot, status))
+                })
+                else {
+                    // error here!
+                    return;
+                };
+
                 store.dispatch(BlockProducerVrfEvaluatorAction::SelectInitialSlot {
                     current_global_slot,
-                    current_best_tip_height,
-                    current_best_tip_global_slot,
-                    current_best_tip_slot,
-                    current_epoch_number,
-                    staking_epoch_data,
-                    next_epoch_first_slot,
+                    current_epoch_number: *epoch_number,
+                    current_best_tip_slot: *current_best_tip_slot,
+                    current_best_tip_height: *current_best_tip_height,
+                    current_best_tip_global_slot: *current_best_tip_global_slot,
+                    next_epoch_first_slot: *next_epoch_first_slot,
+                    staking_epoch_data: staking_epoch_data.clone(),
                 });
             }
             BlockProducerVrfEvaluatorAction::BeginEpochEvaluation {

@@ -1,10 +1,12 @@
 use chacha20poly1305::{aead::generic_array::GenericArray, AeadInPlace, ChaCha20Poly1305, KeyInit};
 
+use self::p2p_network_noise_state::ResponderConsumeOutput;
+
 use super::*;
 
 use super::p2p_network_noise_state::{
     NoiseError, NoiseState, P2pNetworkNoiseState, P2pNetworkNoiseStateInitiator,
-    P2pNetworkNoiseStateInner, P2pNetworkNoiseStateResponder, ResponderOutput, Sk,
+    P2pNetworkNoiseStateInner, P2pNetworkNoiseStateResponder, ResponderOutput,
 };
 
 impl P2pNetworkNoiseState {
@@ -17,9 +19,9 @@ impl P2pNetworkNoiseState {
                 signature,
                 ..
             } => {
-                let esk = Sk::from(ephemeral_sk.clone());
+                let esk = ephemeral_sk.clone();
                 let epk = esk.pk();
-                let ssk = Sk::from(static_sk.clone());
+                let ssk = static_sk.clone();
                 let spk = ssk.pk();
                 let payload = signature.clone();
 
@@ -62,7 +64,7 @@ impl P2pNetworkNoiseState {
                 }
             }
             P2pNetworkNoiseAction::IncomingData { data, .. } => {
-                self.buffer.extend_from_slice(&data);
+                self.buffer.extend_from_slice(data);
                 let mut offset = 0;
                 loop {
                     let buf = &self.buffer[offset..];
@@ -87,6 +89,11 @@ impl P2pNetworkNoiseState {
                 if let Some(mut chunk) = self.incoming_chunks.pop_front() {
                     match state {
                         P2pNetworkNoiseStateInner::Initiator(i) => match i.consume(&mut chunk) {
+                            Ok(_) if i.remote_pk.as_ref() == Some(&self.local_pk) => {
+                                *state = P2pNetworkNoiseStateInner::Error(dbg!(
+                                    NoiseError::SelfConnection
+                                ));
+                            }
                             Ok(remote_payload) => {
                                 self.handshake_optimized = remote_payload.is_some();
                                 if let Some(remote_payload) = remote_payload {
@@ -98,15 +105,24 @@ impl P2pNetworkNoiseState {
                         },
                         P2pNetworkNoiseStateInner::Responder(o) => match o.consume(&mut chunk) {
                             Ok(None) => {}
-                            Ok(Some((
-                                ResponderOutput {
-                                    send_key,
-                                    recv_key,
-                                    remote_pk,
-                                    ..
-                                },
-                                remote_payload,
-                            ))) => {
+                            Ok(Some(ResponderConsumeOutput {
+                                output: ResponderOutput { remote_pk, .. },
+                                ..
+                            })) if remote_pk == self.local_pk => {
+                                *state = P2pNetworkNoiseStateInner::Error(dbg!(
+                                    NoiseError::SelfConnection
+                                ));
+                            }
+                            Ok(Some(ResponderConsumeOutput {
+                                output:
+                                    ResponderOutput {
+                                        send_key,
+                                        recv_key,
+                                        remote_pk,
+                                        ..
+                                    },
+                                payload: remote_payload,
+                            })) => {
                                 let remote_peer_id = remote_pk.peer_id();
                                 *state = P2pNetworkNoiseStateInner::Done {
                                     incoming: true,
@@ -143,8 +159,9 @@ impl P2pNetworkNoiseState {
                                 let data = &mut chunk[2..];
                                 let (data, tag) = data.split_at_mut(data.len() - 16);
                                 let tag = GenericArray::from_slice(&*tag);
-                                if let Err(_) =
-                                    aead.decrypt_in_place_detached(&nonce, &[], data, tag)
+                                if aead
+                                    .decrypt_in_place_detached(&nonce, &[], data, tag)
+                                    .is_err()
                                 {
                                     *state = P2pNetworkNoiseStateInner::Error(dbg!(
                                         NoiseError::FirstMacMismatch

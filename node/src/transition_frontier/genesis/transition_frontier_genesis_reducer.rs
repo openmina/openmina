@@ -5,7 +5,8 @@ use openmina_core::{
     constants::PROTOCOL_VERSION,
 };
 
-use crate::{account::AccountSecretKey, block_producer::calc_epoch_seed};
+use crate::account::AccountSecretKey;
+use crate::block_producer::calc_epoch_seed;
 
 use super::{
     empty_block_body, empty_block_body_hash, empty_pending_coinbase_hash,
@@ -50,6 +51,7 @@ impl TransitionFrontierGenesisState {
                     time: meta.time(),
                     negative_one,
                     genesis,
+                    genesis_producer_stake_proof: data.genesis_producer_stake_proof.clone(),
                 };
             }
             TransitionFrontierGenesisAction::ProveInit => {}
@@ -57,6 +59,7 @@ impl TransitionFrontierGenesisState {
                 let TransitionFrontierGenesisState::Produced {
                     negative_one,
                     genesis,
+                    genesis_producer_stake_proof,
                     ..
                 } = self
                 else {
@@ -66,6 +69,7 @@ impl TransitionFrontierGenesisState {
                     time: meta.time(),
                     negative_one: negative_one.clone(),
                     genesis: genesis.clone(),
+                    genesis_producer_stake_proof: genesis_producer_stake_proof.clone(),
                 };
             }
             TransitionFrontierGenesisAction::ProveSuccess { proof } => {

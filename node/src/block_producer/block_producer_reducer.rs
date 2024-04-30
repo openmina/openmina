@@ -130,6 +130,7 @@ impl BlockProducerEnabled {
                     emitted_ledger_proof: output.emitted_ledger_proof.clone(),
                     pending_coinbase_update: output.pending_coinbase_update.clone(),
                     pending_coinbase_witness: output.pending_coinbase_witness.clone(),
+                    stake_proof_sparse_ledger: output.stake_proof_sparse_ledger.clone(),
                 };
             }
             BlockProducerAction::BlockUnprovenBuild => {
@@ -142,6 +143,7 @@ impl BlockProducerEnabled {
                     emitted_ledger_proof,
                     pending_coinbase_update,
                     pending_coinbase_witness,
+                    stake_proof_sparse_ledger,
                     ..
                 } = std::mem::take(&mut self.current)
                 else {
@@ -415,6 +417,7 @@ impl BlockProducerEnabled {
                     emitted_ledger_proof,
                     pending_coinbase_update,
                     pending_coinbase_witness,
+                    stake_proof_sparse_ledger,
                     block,
                     block_hash: hash,
                 }
@@ -427,6 +430,7 @@ impl BlockProducerEnabled {
                     emitted_ledger_proof,
                     pending_coinbase_update,
                     pending_coinbase_witness,
+                    stake_proof_sparse_ledger,
                     block,
                     block_hash,
                     ..
@@ -439,6 +443,7 @@ impl BlockProducerEnabled {
                         emitted_ledger_proof,
                         pending_coinbase_update,
                         pending_coinbase_witness,
+                        stake_proof_sparse_ledger,
                         block,
                         block_hash,
                     };

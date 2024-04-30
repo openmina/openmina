@@ -33,11 +33,11 @@ pub struct RTCChannel(Arc<RTCDataChannel>, bool);
 #[derive(thiserror::Error, derive_more::From, Debug)]
 pub enum RTCSignalingError {
     #[error("serialization failed: {0}")]
-    SerializeError(serde_json::Error),
+    Serialize(serde_json::Error),
     #[error("http request failed: {0}")]
-    HyperError(hyper::Error),
+    Hyper(hyper::Error),
     #[error("http request failed: {0}")]
-    HttpError(hyper::http::Error),
+    Http(hyper::http::Error),
 }
 
 impl RTCConnection {
@@ -56,7 +56,7 @@ impl RTCConnection {
     pub async fn channel_create(&self, config: RTCChannelConfig) -> Result<RTCChannel> {
         self.0
             .create_data_channel(
-                &config.label,
+                config.label,
                 Some(RTCDataChannelInit {
                     ordered: Some(true),
                     max_packet_life_time: None,
@@ -202,8 +202,8 @@ impl From<super::RTCConfigIceServer> for RTCIceServer {
         };
         RTCIceServer {
             urls: value.urls,
-            username: value.username.unwrap_or(String::new()),
-            credential: value.credential.unwrap_or(String::new()),
+            username: value.username.unwrap_or_default(),
+            credential: value.credential.unwrap_or_default(),
             credential_type,
         }
     }

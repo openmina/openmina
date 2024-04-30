@@ -15,8 +15,9 @@ use crate::{identity::PublicKey, PeerId};
 
 use super::super::*;
 
-#[derive(Default, Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pNetworkNoiseState {
+    pub local_pk: PublicKey,
     pub buffer: Vec<u8>,
     pub incoming_chunks: VecDeque<Vec<u8>>,
     pub outgoing_chunks: VecDeque<Vec<Data>>,
@@ -35,6 +36,20 @@ impl P2pNetworkNoiseState {
                 None
             }
         })
+    }
+}
+
+impl P2pNetworkNoiseState {
+    pub fn new(local_pk: PublicKey, handshake_optimized: bool) -> Self {
+        P2pNetworkNoiseState {
+            local_pk,
+            buffer: Default::default(),
+            incoming_chunks: Default::default(),
+            outgoing_chunks: Default::default(),
+            decrypted_chunks: Default::default(),
+            inner: Default::default(),
+            handshake_optimized,
+        }
     }
 }
 
@@ -101,7 +116,7 @@ impl NoiseState {
     pub fn mix_hash(&mut self, data: &[u8]) {
         self.hash = DataSized(
             Sha256::default()
-                .chain(&self.hash.0)
+                .chain(self.hash.0)
                 .chain(data)
                 .finalize_fixed()
                 .into(),
@@ -122,7 +137,7 @@ impl NoiseState {
         nonce[4..].clone_from_slice(&NONCE.to_le_bytes());
 
         let hash = Sha256::default()
-            .chain(&self.hash.0)
+            .chain(self.hash.0)
             .chain(&*data)
             .chain(tag)
             .finalize_fixed();
@@ -141,7 +156,7 @@ impl NoiseState {
             .encrypt_in_place_detached(&nonce, &self.hash.0, data)
             .unwrap();
         let hash = Sha256::default()
-            .chain(&self.hash.0)
+            .chain(self.hash.0)
             .chain(&*data)
             .chain(tag)
             .finalize_fixed();
@@ -163,7 +178,7 @@ impl NoiseState {
     }
 }
 
-#[derive(Debug, Error, Serialize, Deserialize, Clone)]
+#[derive(Debug, Error, Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub enum NoiseError {
     #[error("chunk too short")]
     ChunkTooShort,
@@ -175,6 +190,8 @@ pub enum NoiseError {
     BadPublicKey,
     #[error("invalid signature")]
     InvalidSignature,
+    #[error("remote and local public keys are same")]
+    SelfConnection,
 }
 
 pub struct ResponderOutput {
@@ -211,7 +228,7 @@ impl P2pNetworkNoiseStateInitiator {
         let mut chunk = vec![0; 2];
         chunk.extend_from_slice(&i_spk_bytes);
         chunk.extend_from_slice(&tag);
-        chunk.extend_from_slice(&*payload);
+        chunk.extend_from_slice(&payload);
         chunk.extend_from_slice(&payload_tag);
         let l = (chunk.len() - 2) as u16;
         chunk[..2].clone_from_slice(&l.to_be_bytes());
@@ -241,7 +258,6 @@ impl P2pNetworkNoiseStateInitiator {
         let mut r_spk_bytes =
             <[u8; 32]>::try_from(&msg[32..64]).expect("cannot fail, checked above");
         let tag = &msg[64..80];
-        let r_spk;
 
         noise.mix_hash(r_epk.0.as_bytes());
         noise.mix_secret(&*i_esk * &r_epk);
@@ -249,7 +265,7 @@ impl P2pNetworkNoiseStateInitiator {
             .decrypt::<0>(&mut r_spk_bytes, tag)
             .map_err(|_| FirstMacMismatch)?;
 
-        r_spk = Pk::from_bytes(r_spk_bytes);
+        let r_spk = Pk::from_bytes(r_spk_bytes);
         noise.mix_secret(&*i_esk * &r_spk);
 
         let (msg, tag) = msg.split_at_mut(len - 16);
@@ -280,6 +296,11 @@ impl P2pNetworkNoiseStateInitiator {
     }
 }
 
+pub struct ResponderConsumeOutput<'a> {
+    pub output: ResponderOutput,
+    pub payload: Option<&'a mut [u8]>,
+}
+
 impl P2pNetworkNoiseStateResponder {
     pub fn generate(&mut self, data: &[u8]) -> Option<Vec<u8>> {
         let Self::Init {
@@ -301,7 +322,7 @@ impl P2pNetworkNoiseStateResponder {
         }
         let payload_tag = noise.encrypt::<0>(&mut payload);
 
-        buffer.extend_from_slice(&*payload);
+        buffer.extend_from_slice(&payload);
         buffer.extend_from_slice(&payload_tag);
         let l = (buffer.len() - 2) as u16;
         buffer[..2].clone_from_slice(&l.to_be_bytes());
@@ -318,7 +339,7 @@ impl P2pNetworkNoiseStateResponder {
     pub fn consume<'a>(
         &'_ mut self,
         chunk: &'a mut [u8],
-    ) -> Result<Option<(ResponderOutput, Option<&'a mut [u8]>)>, NoiseError> {
+    ) -> Result<Option<ResponderConsumeOutput<'a>>, NoiseError> {
         use self::NoiseError::*;
 
         match self {
@@ -370,14 +391,14 @@ impl P2pNetworkNoiseStateResponder {
                 let (remote_payload, payload_tag) = msg.split_at_mut(len - 16);
 
                 noise
-                    .decrypt::<1>(&mut i_spk_bytes, &tag)
+                    .decrypt::<1>(&mut i_spk_bytes, tag)
                     .map_err(|()| FirstMacMismatch)?;
                 let i_spk = Pk::from_bytes(i_spk_bytes);
                 noise.mix_secret(&*r_esk * &i_spk);
                 r_esk.zeroize();
 
                 noise
-                    .decrypt::<0>(remote_payload, &payload_tag)
+                    .decrypt::<0>(remote_payload, payload_tag)
                     .map_err(|_| SecondMacMismatch)?;
                 let (recv_key, send_key) = noise.finish();
 
@@ -398,14 +419,14 @@ impl P2pNetworkNoiseStateResponder {
                         None
                     };
 
-                    Ok(Some((
-                        ResponderOutput {
+                    Ok(Some(ResponderConsumeOutput {
+                        output: ResponderOutput {
                             send_key,
                             recv_key,
                             remote_pk,
                         },
-                        remote_payload,
-                    )))
+                        payload: remote_payload,
+                    }))
                 }
             }
         }
@@ -424,7 +445,7 @@ mod wrapper {
         type Output = [u8; 32];
 
         fn mul(self, rhs: &'b Pk) -> Self::Output {
-            (&self.0 * &rhs.0).0
+            (self.0 * rhs.0).0
         }
     }
 

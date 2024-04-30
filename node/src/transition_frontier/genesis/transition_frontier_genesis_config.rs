@@ -1,12 +1,13 @@
 use std::borrow::Cow;
 
+use crate::account::AccountSecretKey;
 use ledger::{scan_state::currency::Balance, BaseLedger};
 use mina_hasher::Fp;
 use mina_p2p_messages::{binprot::BinProtRead, v2};
 use openmina_core::constants::CONSTRAINT_CONSTANTS;
 use serde::{Deserialize, Serialize};
 
-use crate::{account::AccountSecretKey, ProtocolConstants};
+use crate::ProtocolConstants;
 
 pub use GenesisConfig as TransitionFrontierGenesisConfig;
 
@@ -33,6 +34,7 @@ pub struct GenesisConfigLoaded {
     pub constants: ProtocolConstants,
     pub ledger_hash: v2::LedgerHash,
     pub total_currency: v2::CurrencyAmountStableV1,
+    pub genesis_producer_stake_proof: v2::MinaBaseSparseLedgerBaseStableV2,
 }
 
 fn bp_num_delegators(i: usize) -> usize {
@@ -80,6 +82,7 @@ impl GenesisConfig {
                     constants: constants.clone(),
                     ledger_hash: ledger_hash(&mut mask),
                     total_currency,
+                    genesis_producer_stake_proof: genesis_producer_stake_proof(&mask),
                 };
                 (mask, load_result)
             }
@@ -95,6 +98,7 @@ impl GenesisConfig {
                     constants: constants.clone(),
                     ledger_hash: ledger_hash(&mut mask),
                     total_currency,
+                    genesis_producer_stake_proof: genesis_producer_stake_proof(&mask),
                 };
                 (mask, load_result)
             }
@@ -122,6 +126,7 @@ impl GenesisConfig {
                     constants: constants.clone(),
                     ledger_hash,
                     total_currency,
+                    genesis_producer_stake_proof: genesis_producer_stake_proof(&mask),
                 };
                 (mask, load_result)
             }
@@ -208,4 +213,12 @@ fn genesis_account_iter() -> impl Iterator<Item = ledger::Account> {
         let account_id = ledger::AccountId::new(pub_key.into(), Default::default());
         ledger::Account::create_with(account_id, Balance::from_u64(0))
     })
+}
+
+fn genesis_producer_stake_proof(mask: &ledger::Mask) -> v2::MinaBaseSparseLedgerBaseStableV2 {
+    let producer = AccountSecretKey::genesis_producer().public_key();
+    let producer_id = ledger::AccountId::new(producer.into(), ledger::TokenId::default());
+    let sparse_ledger =
+        ledger::sparse_ledger::SparseLedger::of_ledger_subset_exn(mask.clone(), &[producer_id]);
+    (&sparse_ledger).into()
 }

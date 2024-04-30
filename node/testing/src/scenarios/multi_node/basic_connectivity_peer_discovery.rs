@@ -1,7 +1,8 @@
+#![allow(warnings)]
+
 use std::time::Duration;
 
-use node::event_source::Event;
-use node::p2p::{P2pEvent, PeerId};
+use node::p2p::PeerId;
 
 use crate::cluster::ClusterOcamlNodeId;
 use crate::node::{DaemonJson, OcamlNodeTestingConfig, OcamlStep};
@@ -92,17 +93,9 @@ impl MultiNodeBasicConnectivityPeerDiscovery {
             let steps = runner
                 .pending_events(true)
                 .map(|(node_id, _, events)| {
-                    events.map(move |(_, event)| {
-                        match event {
-                            Event::P2p(P2pEvent::Discovery(event)) => {
-                                eprintln!("event: {event}");
-                            }
-                            _ => {}
-                        }
-                        ScenarioStep::Event {
-                            node_id,
-                            event: event.to_string(),
-                        }
+                    events.map(move |(_, event)| ScenarioStep::Event {
+                        node_id,
+                        event: event.to_string(),
                     })
                 })
                 .flatten()
@@ -127,7 +120,7 @@ impl MultiNodeBasicConnectivityPeerDiscovery {
 
             let this = runner.node(node_id).unwrap();
             // finish discovering
-            if this.state().p2p.kademlia.saturated.is_some() {
+            if todo!() {
                 // the node must find all already running OCaml nodes
                 // assert_eq!(this.state().p2p.peers.len(), TOTAL_OCAML_NODES as usize);
                 if additional_ocaml_node.is_none() {

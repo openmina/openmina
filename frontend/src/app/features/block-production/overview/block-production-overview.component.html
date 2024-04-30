@@ -1,14 +1,19 @@
 <mina-horizontal-resizable-container [leftTemplate]="left"
                                      [rightTemplate]="right"
-                                     [show]="false"
+                                     [show]="showSidePanel"
                                      [minWidth]="360"
                                      [maxWidthElement]="el.nativeElement"
                                      localStorageKey="bp-overview-spw">
 </mina-horizontal-resizable-container>
 
 <ng-template #left>
-  <mina-block-production-slots></mina-block-production-slots>
+  <mina-block-production-overview-toolbar></mina-block-production-overview-toolbar>
+  <div class="h-minus-xl flex-column">
+    <mina-block-production-overview-epoch-graphs></mina-block-production-overview-epoch-graphs>
+    <mina-block-production-overview-slots></mina-block-production-overview-slots>
+  </div>
 </ng-template>
 
 <ng-template #right>
+  <mina-block-production-overview-side-panel></mina-block-production-overview-side-panel>
 </ng-template>

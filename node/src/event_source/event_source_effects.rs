@@ -1,34 +1,31 @@
-use p2p::channels::snark::P2pChannelsSnarkAction;
-use p2p::listen::P2pListenAction;
-use p2p::P2pListenEvent;
-
 use crate::action::CheckTimeoutsAction;
 use crate::block_producer::vrf_evaluator::BlockProducerVrfEvaluatorAction;
 use crate::block_producer::{BlockProducerEvent, BlockProducerVrfEvaluatorEvent};
 use crate::external_snark_worker::ExternalSnarkWorkerEvent;
+use crate::ledger::read::LedgerReadAction;
+use crate::ledger::write::LedgerWriteAction;
 use crate::p2p::channels::best_tip::P2pChannelsBestTipAction;
 use crate::p2p::channels::rpc::P2pChannelsRpcAction;
+use crate::p2p::channels::snark::P2pChannelsSnarkAction;
 use crate::p2p::channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentAction;
 use crate::p2p::channels::{ChannelId, P2pChannelsMessageReceivedAction};
 use crate::p2p::connection::incoming::P2pConnectionIncomingAction;
 use crate::p2p::connection::outgoing::P2pConnectionOutgoingAction;
 use crate::p2p::connection::{P2pConnectionErrorResponse, P2pConnectionResponse};
 use crate::p2p::disconnection::{P2pDisconnectionAction, P2pDisconnectionReason};
-use crate::p2p::discovery::P2pDiscoveryAction;
-#[cfg(all(not(target_arch = "wasm32"), not(feature = "p2p-libp2p")))]
-use crate::p2p::network::P2pNetworkSchedulerAction;
-#[cfg(all(not(target_arch = "wasm32"), not(feature = "p2p-libp2p")))]
-use crate::p2p::MioEvent;
 use crate::p2p::P2pChannelEvent;
+#[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
+use crate::p2p::{MioEvent, P2pNetworkSchedulerAction};
 use crate::rpc::{RpcAction, RpcRequest};
 use crate::snark::block_verify::SnarkBlockVerifyAction;
 use crate::snark::work_verify::SnarkWorkVerifyAction;
 use crate::snark::SnarkEvent;
 use crate::transition_frontier::genesis::TransitionFrontierGenesisAction;
-use crate::transition_frontier::sync::ledger::staged::TransitionFrontierSyncLedgerStagedAction;
 use crate::{BlockProducerAction, ExternalSnarkWorkerAction, Service, Store};
 
-use super::{Event, EventSourceAction, EventSourceActionWithMeta, P2pConnectionEvent, P2pEvent};
+use super::{
+    Event, EventSourceAction, EventSourceActionWithMeta, LedgerEvent, P2pConnectionEvent, P2pEvent,
+};
 
 pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourceActionWithMeta) {
     let (action, meta) = action.split();
@@ -54,13 +51,20 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
         // "Translate" event into the corresponding action and dispatch it.
         EventSourceAction::NewEvent { event } => match event {
             Event::P2p(e) => match e {
-                #[cfg(all(not(target_arch = "wasm32"), not(feature = "p2p-libp2p")))]
+                #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
                 P2pEvent::MioEvent(e) => match e {
                     MioEvent::InterfaceDetected(ip) => {
                         store.dispatch(P2pNetworkSchedulerAction::InterfaceDetected { ip });
                     }
                     MioEvent::InterfaceExpired(ip) => {
                         store.dispatch(P2pNetworkSchedulerAction::InterfaceExpired { ip });
+                    }
+                    MioEvent::ListenerReady { listener } => {
+                        store.dispatch(P2pNetworkSchedulerAction::ListenerReady { listener });
+                    }
+                    MioEvent::ListenerError { listener, error } => {
+                        store
+                            .dispatch(P2pNetworkSchedulerAction::ListenerError { listener, error });
                     }
                     MioEvent::IncomingConnectionIsReady { listener } => {
                         store.dispatch(P2pNetworkSchedulerAction::IncomingConnectionIsReady {
@@ -103,20 +107,6 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                         }
                     }
                 },
-                P2pEvent::Listen(e) => match e {
-                    P2pListenEvent::NewListenAddr { listener_id, addr } => {
-                        store.dispatch(P2pListenAction::New { listener_id, addr });
-                    }
-                    P2pListenEvent::ExpiredListenAddr { listener_id, addr } => {
-                        store.dispatch(P2pListenAction::Expired { listener_id, addr });
-                    }
-                    P2pListenEvent::ListenerError { listener_id, error } => {
-                        store.dispatch(P2pListenAction::Error { listener_id, error });
-                    }
-                    P2pListenEvent::ListenerClosed { listener_id, error } => {
-                        store.dispatch(P2pListenAction::Closed { listener_id, error });
-                    }
-                },
                 P2pEvent::Connection(e) => match e {
                     P2pConnectionEvent::OfferSdpReady(peer_id, res) => match res {
                         Err(error) => {
@@ -150,7 +140,7 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                         P2pConnectionResponse::Accepted(answer) => {
                             store.dispatch(P2pConnectionOutgoingAction::AnswerRecvSuccess {
                                 peer_id,
-                                answer,
+                                answer: *answer,
                             });
                         }
                         P2pConnectionResponse::Rejected(reason) => {
@@ -246,17 +236,13 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                         store.dispatch(P2pDisconnectionAction::Init { peer_id, reason });
                     }
                 },
-                #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
-                P2pEvent::Libp2pIdentify(..) => {}
-                P2pEvent::Discovery(p2p::P2pDiscoveryEvent::Ready) => {}
-                P2pEvent::Discovery(p2p::P2pDiscoveryEvent::DidFindPeers(peers)) => {
-                    store.dispatch(P2pDiscoveryAction::KademliaSuccess { peers });
+            },
+            Event::Ledger(event) => match event {
+                LedgerEvent::Write(response) => {
+                    store.dispatch(LedgerWriteAction::Success { response });
                 }
-                P2pEvent::Discovery(p2p::P2pDiscoveryEvent::DidFindPeersError(description)) => {
-                    store.dispatch(P2pDiscoveryAction::KademliaFailure { description });
-                }
-                P2pEvent::Discovery(p2p::P2pDiscoveryEvent::AddRoute(peer_id, addresses)) => {
-                    store.dispatch(P2pDiscoveryAction::KademliaAddRoute { peer_id, addresses });
+                LedgerEvent::Read(id, response) => {
+                    store.dispatch(LedgerReadAction::Success { id, response });
                 }
             },
             Event::Snark(event) => match event {
@@ -303,7 +289,7 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                     });
                 }
                 RpcRequest::ScanStateSummaryGet(query) => {
-                    store.dispatch(RpcAction::ScanStateSummaryGet { rpc_id, query });
+                    store.dispatch(RpcAction::ScanStateSummaryGetInit { rpc_id, query });
                 }
                 RpcRequest::SnarkPoolGet => {
                     store.dispatch(RpcAction::SnarkPoolAvailableJobsGet { rpc_id });
@@ -389,21 +375,6 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                     }
                 },
             },
-            Event::LedgerStagingReconstruct(res) => match res {
-                Err(error) => {
-                    store.dispatch(TransitionFrontierSyncLedgerStagedAction::ReconstructError {
-                        error,
-                    });
-                }
-                Ok(ledger_hash) => {
-                    store.dispatch(
-                        TransitionFrontierSyncLedgerStagedAction::ReconstructSuccess {
-                            ledger_hash,
-                        },
-                    );
-                }
-            },
-
             Event::GenesisLoad(res) => match res {
                 Err(err) => todo!("error while trying to load genesis config/ledger. - {err}"),
                 Ok(data) => {

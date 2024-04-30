@@ -6,7 +6,7 @@ impl P2pNetworkAction {
     pub fn effects<Store, S>(self, meta: &redux::ActionMeta, store: &mut Store)
     where
         Store: crate::P2pStore<S>,
-        Store::Service: P2pMioService + P2pCryptoService,
+        Store::Service: P2pMioService + P2pCryptoService + P2pNetworkService,
     {
         match self {
             Self::Scheduler(v) => v.effects(meta, store),
@@ -14,6 +14,10 @@ impl P2pNetworkAction {
             Self::Select(v) => v.effects(meta, store),
             Self::Noise(v) => v.effects(meta, store),
             Self::Yamux(v) => v.effects(meta, store),
+            Self::Identify(v) => match v.effects(meta, store) {
+                Ok(_) => {}
+                Err(e) => error!(meta.time(); "error dispatching Identify stream action: {e}"),
+            },
             Self::Kad(v) => match v.effects(meta, store) {
                 Ok(_) => {}
                 Err(e) => error!(meta.time(); "error dispatching Kademlia action: {e}"),

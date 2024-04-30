@@ -1,5 +1,6 @@
 mod rpc_service;
 
+use std::collections::VecDeque;
 use std::sync::Mutex;
 use std::time::Duration;
 use std::{collections::BTreeMap, ffi::OsStr, sync::Arc};
@@ -19,13 +20,10 @@ use node::account::{AccountPublicKey, AccountSecretKey};
 use node::block_producer::vrf_evaluator::VrfEvaluatorInput;
 use node::block_producer::BlockProducerEvent;
 use node::core::channels::mpsc;
-use node::core::requests::{PendingRequests, RequestId};
 use node::core::snark::{Snark, SnarkJobId};
 use node::external_snark_worker::ExternalSnarkWorkerEvent;
-#[cfg(feature = "p2p-libp2p")]
-use node::p2p::service_impl::libp2p::Libp2pService;
 use node::p2p::service_impl::webrtc_with_libp2p::P2pServiceWebrtcWithLibp2p;
-use node::p2p::P2pCryptoService;
+use node::p2p::{P2pCryptoService, P2pNetworkService, P2pNetworkServiceError};
 use node::recorder::Recorder;
 use node::service::{
     BlockProducerService, BlockProducerVrfEvaluatorService, TransitionFrontierGenesisService,
@@ -41,7 +39,6 @@ use node::transition_frontier::genesis::GenesisConfig;
 use node::{
     event_source::Event,
     external_snark_worker::{ExternalSnarkWorkerService, SnarkWorkSpec},
-    ledger::LedgerCtx,
     p2p::{
         connection::outgoing::P2pConnectionOutgoingInitOpts,
         service_impl::webrtc::{Cmd, P2pServiceWebrtc, PeerState},
@@ -64,7 +61,60 @@ impl openmina_core::requests::RequestIdType for PendingEventIdType {
         "PendingEventId"
     }
 }
-pub type PendingEventId = RequestId<PendingEventIdType>;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize, Default)]
+pub struct PendingEventId(usize);
+
+struct PendingEvents {
+    events: VecDeque<(PendingEventId, Event)>,
+    next_id: PendingEventId,
+}
+
+impl PendingEventId {
+    fn copy_inc(&mut self) -> Self {
+        let copy = *self;
+        let _ = self.0.wrapping_add(1);
+        copy
+    }
+}
+
+impl PendingEvents {
+    fn new() -> Self {
+        PendingEvents {
+            events: VecDeque::new(),
+            next_id: Default::default(),
+        }
+    }
+
+    fn add(&mut self, event: Event) -> PendingEventId {
+        let id = self.next_id.copy_inc();
+        self.events.push_back((id, event));
+        id
+    }
+
+    fn get(&self, id: PendingEventId) -> Option<&Event> {
+        self.events
+            .iter()
+            .find_map(|(_id, event)| (*_id == id).then_some(event))
+    }
+
+    fn remove(&mut self, id: PendingEventId) -> Option<Event> {
+        if let Some(i) = self
+            .events
+            .iter()
+            .enumerate()
+            .find_map(|(i, (_id, _))| (*_id == id).then_some(i))
+        {
+            self.events.remove(i).map(|(_, event)| event)
+        } else {
+            None
+        }
+    }
+
+    fn iter(&self) -> impl Iterator<Item = (PendingEventId, &Event)> {
+        self.events.iter().map(|(id, event)| (*id, event))
+    }
+}
 
 pub struct NodeTestingService {
     real: NodeService,
@@ -76,7 +126,8 @@ pub struct NodeTestingService {
     is_replay: bool,
     monotonic_time: Instant,
     /// Events sent by the real service not yet received by state machine.
-    pending_events: PendingRequests<PendingEventIdType, Event>,
+    pending_events: PendingEvents,
+    //pending_events: PendingRequests<PendingEventIdType, Event>,
     dyn_effects: Option<DynEffects>,
 
     snarker_sok_digest: Option<ByteString>,
@@ -93,7 +144,7 @@ impl NodeTestingService {
             proof_kind: ProofKind::default(),
             is_replay: false,
             monotonic_time: Instant::now(),
-            pending_events: PendingRequests::new(),
+            pending_events: PendingEvents::new(),
             dyn_effects: None,
             snarker_sok_digest: None,
             _shutdown,
@@ -202,7 +253,10 @@ impl NodeTestingService {
     }
 
     pub fn ledger(&self, ledger_hash: &LedgerHash) -> Option<Mask> {
-        self.real.ledger.mask(ledger_hash).map(|(mask, _)| mask)
+        self.real
+            .ledger_manager
+            .get_mask(ledger_hash)
+            .map(|(mask, _)| mask)
     }
 }
 
@@ -236,13 +290,22 @@ impl P2pCryptoService for NodeTestingService {
     }
 }
 
-impl node::ledger::LedgerService for NodeTestingService {
-    fn ctx(&self) -> &LedgerCtx {
-        &self.real.ledger
+impl P2pNetworkService for NodeTestingService {
+    fn resolve_name(
+        &mut self,
+        host: &str,
+    ) -> Result<Vec<std::net::IpAddr>, P2pNetworkServiceError> {
+        self.real.resolve_name(host)
     }
 
-    fn ctx_mut(&mut self) -> &mut LedgerCtx {
-        &mut self.real.ledger
+    fn detect_local_ip(&mut self) -> Result<Vec<std::net::IpAddr>, P2pNetworkServiceError> {
+        self.real.detect_local_ip()
+    }
+}
+
+impl node::ledger::LedgerService for NodeTestingService {
+    fn ledger_manager(&self) -> &node::ledger::LedgerManager {
+        &self.real.ledger_manager
     }
 }
 
@@ -297,44 +360,6 @@ impl P2pServiceWebrtc for NodeTestingService {
 
 impl P2pServiceWebrtcWithLibp2p for NodeTestingService {
     #[cfg(feature = "p2p-libp2p")]
-    fn libp2p(&mut self) -> &mut Libp2pService {
-        &mut self.real.libp2p
-    }
-
-    #[cfg(feature = "p2p-libp2p")]
-    fn find_random_peer(&mut self) {
-        use node::p2p::identity::SecretKey as P2pSecretKey;
-        use node::p2p::service_impl::libp2p::Cmd;
-
-        if self.is_replay {
-            return;
-        }
-
-        let secret_key = P2pSecretKey::from_bytes({
-            let mut bytes = [1; 32];
-            let bytes_len = bytes.len();
-            let i_bytes = self.id.index().to_be_bytes();
-            let i = bytes_len - i_bytes.len();
-            bytes[i..bytes_len].copy_from_slice(&i_bytes);
-            bytes
-        });
-        let peer_id = secret_key.public_key().peer_id();
-
-        self.libp2p()
-            .cmd_sender()
-            .send(Cmd::FindNode(peer_id.into()))
-            .unwrap_or_default();
-    }
-
-    #[cfg(feature = "p2p-libp2p")]
-    fn start_discovery(&mut self, peers: Vec<P2pConnectionOutgoingInitOpts>) {
-        if self.is_replay {
-            return;
-        }
-        self.real.start_discovery(peers)
-    }
-
-    #[cfg(not(feature = "p2p-libp2p"))]
     fn mio(&mut self) -> &mut node::p2p::service_impl::mio::MioService {
         self.real.mio()
     }

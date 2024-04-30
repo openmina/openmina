@@ -1,11 +1,4 @@
 mod block_producer_vrf_evaluator_state;
-use crate::account::AccountPublicKey;
-use ledger::AccountIndex;
-use mina_p2p_messages::v2::{EpochSeed, LedgerHash};
-use std::collections::BTreeMap;
-use std::sync::Arc;
-use vrf::{VrfEvaluationOutput, VrfWonSlot};
-
 pub use block_producer_vrf_evaluator_state::*;
 
 mod block_producer_vrf_evaluator_event;
@@ -20,7 +13,16 @@ mod block_producer_vrf_evaluator_effects;
 
 mod block_producer_vrf_evaluator_service;
 pub use block_producer_vrf_evaluator_service::*;
+
+use std::collections::BTreeMap;
+use std::sync::Arc;
+
+use ledger::AccountIndex;
+use mina_p2p_messages::v2::{EpochSeed, LedgerHash};
 use serde::{Deserialize, Serialize};
+use vrf::{VrfEvaluationOutput, VrfWonSlot};
+
+use crate::account::AccountPublicKey;
 
 pub type DelegatorTable = BTreeMap<AccountIndex, (AccountPublicKey, u64)>;
 

@@ -3,10 +3,11 @@ use std::collections::{BTreeMap, VecDeque};
 use std::sync::{Arc, Mutex};
 
 use ledger::scan_state::scan_state::transaction_snark::{SokDigest, Statement};
-use libp2p::identity::Keypair;
+use libp2p_identity::Keypair;
 use mina_p2p_messages::v2::{LedgerProofProdStableV2, TransactionSnarkWorkTStableV2Proofs};
-#[cfg(not(feature = "p2p-libp2p"))]
+#[cfg(feature = "p2p-libp2p")]
 use node::p2p::service_impl::mio::MioService;
+use node::p2p::service_impl::services::NativeP2pNetworkService;
 use rand::prelude::*;
 use redux::ActionMeta;
 use serde::Serialize;
@@ -15,14 +16,13 @@ use node::core::channels::{mpsc, oneshot};
 use node::core::invariants::InvariantsState;
 use node::core::snark::{Snark, SnarkJobId};
 use node::event_source::Event;
-use node::ledger::LedgerCtx;
+use node::ledger::ledger_manager::LedgerManager;
+use node::ledger::LedgerService;
 use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
-#[cfg(feature = "p2p-libp2p")]
-use node::p2p::service_impl::libp2p::Libp2pService;
 use node::p2p::service_impl::webrtc::{Cmd, P2pServiceWebrtc, PeerState};
 use node::p2p::service_impl::webrtc_with_libp2p::P2pServiceWebrtcWithLibp2p;
 use node::p2p::service_impl::TaskSpawner;
-use node::p2p::{P2pCryptoService, PeerId};
+use node::p2p::{P2pCryptoService, P2pNetworkService, P2pNetworkServiceError, PeerId};
 use node::rpc::{RpcP2pConnectionOutgoingResponse, RpcRequest};
 use node::service::{EventSourceService, Recorder, TransitionFrontierGenesisService};
 use node::snark::block_verify::{
@@ -46,12 +46,11 @@ pub struct NodeService {
     pub event_sender: mpsc::UnboundedSender<Event>,
     pub event_receiver: EventReceiver,
     pub cmd_sender: mpsc::UnboundedSender<Cmd>,
-    pub ledger: LedgerCtx,
+    pub ledger_manager: LedgerManager,
     pub peers: BTreeMap<PeerId, PeerState>,
     #[cfg(feature = "p2p-libp2p")]
-    pub libp2p: Libp2pService,
-    #[cfg(not(feature = "p2p-libp2p"))]
     pub mio: MioService,
+    pub network: NativeP2pNetworkService,
     pub block_producer: Option<BlockProducerService>,
     pub keypair: Keypair,
     pub snark_worker_sender: Option<ext_snark_worker::ExternalSnarkWorkerFacade>,
@@ -82,13 +81,9 @@ impl ReplayerState {
     }
 }
 
-impl node::ledger::LedgerService for NodeService {
-    fn ctx(&self) -> &LedgerCtx {
-        &self.ledger
-    }
-
-    fn ctx_mut(&mut self) -> &mut LedgerCtx {
-        &mut self.ledger
+impl LedgerService for NodeService {
+    fn ledger_manager(&self) -> &LedgerManager {
+        &self.ledger_manager
     }
 }
 
@@ -148,6 +143,19 @@ impl P2pCryptoService for NodeService {
     }
 }
 
+impl P2pNetworkService for NodeService {
+    fn resolve_name(
+        &mut self,
+        host: &str,
+    ) -> Result<Vec<std::net::IpAddr>, P2pNetworkServiceError> {
+        self.network.resolve_name(host)
+    }
+
+    fn detect_local_ip(&mut self) -> Result<Vec<std::net::IpAddr>, P2pNetworkServiceError> {
+        self.network.detect_local_ip()
+    }
+}
+
 impl EventSourceService for NodeService {
     fn next_event(&mut self) -> Option<Event> {
         self.event_receiver.try_next()
@@ -177,52 +185,10 @@ impl P2pServiceWebrtc for NodeService {
     }
 }
 
-#[cfg(not(feature = "p2p-libp2p"))]
+#[cfg(feature = "p2p-libp2p")]
 impl P2pServiceWebrtcWithLibp2p for NodeService {
     fn mio(&mut self) -> &mut MioService {
         &mut self.mio
-    }
-}
-
-#[cfg(feature = "p2p-libp2p")]
-impl P2pServiceWebrtcWithLibp2p for NodeService {
-    fn libp2p(&mut self) -> &mut Libp2pService {
-        &mut self.libp2p
-    }
-
-    fn find_random_peer(&mut self) {
-        use libp2p::identity::PeerId;
-        use node::p2p::service_impl::libp2p::Cmd;
-
-        // Generate some random peer_id
-        let peer_id = PeerId::random();
-
-        self.libp2p()
-            .cmd_sender()
-            .send(Cmd::FindNode(peer_id.into()))
-            .unwrap_or_default();
-    }
-
-    fn start_discovery(&mut self, peers: Vec<P2pConnectionOutgoingInitOpts>) {
-        use node::p2p::service_impl::libp2p::Cmd;
-
-        let peers = peers
-            .into_iter()
-            .filter_map(|opts| {
-                Some((
-                    opts.peer_id().clone().into(),
-                    match opts {
-                        P2pConnectionOutgoingInitOpts::LibP2P(opts) => opts.to_maddr(),
-                        _ => return None,
-                    },
-                ))
-            })
-            .collect();
-
-        self.libp2p()
-            .cmd_sender()
-            .send(Cmd::RunDiscovery(peers))
-            .unwrap_or_default()
     }
 }
 
@@ -326,7 +292,7 @@ impl TransitionFrontierGenesisService for NodeService {
         let res = match config.load() {
             Err(err) => Err(err.to_string()),
             Ok((mask, data)) => {
-                self.ledger.insert_genesis_ledger(mask);
+                self.ledger_manager.insert_genesis_ledger(mask);
                 Ok(data)
             }
         };

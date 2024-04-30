@@ -1,31 +1,49 @@
+pub mod read;
+pub mod write;
+
 mod ledger_config;
-use ledger::TreeVersion;
 pub use ledger_config::*;
+
+mod ledger_event;
+pub use ledger_event::*;
+
+mod ledger_actions;
+pub use ledger_actions::*;
+
+mod ledger_state;
+pub use ledger_state::*;
+
+mod ledger_reducer;
+
+mod ledger_effects;
+pub use ledger_effects::*;
 
 mod ledger_service;
 pub use ledger_service::*;
+pub mod ledger_manager;
 
 pub use ledger::AccountIndex as LedgerAccountIndex;
 pub use ledger::Address as LedgerAddress;
+pub use ledger_manager::LedgerManager;
 
-use mina_p2p_messages::v2::LedgerHash;
+use ledger::TreeVersion;
+use mina_p2p_messages::v2;
 
-pub const LEDGER_DEPTH: usize = 35;
+pub const LEDGER_DEPTH: usize = crate::core::constants::CONSTRAINT_CONSTANTS.ledger_depth as usize;
 
 lazy_static::lazy_static! {
     /// Array size needs to be changed when the tree's depth change
-    static ref LEDGER_HASH_EMPTIES: [LedgerHash; LEDGER_DEPTH + 1] = {
-        use mina_p2p_messages::v2::MinaBaseLedgerHash0StableV1;
+    static ref LEDGER_HASH_EMPTIES: [v2::LedgerHash; LEDGER_DEPTH + 1] = {
         use ledger::TreeVersion;
 
         std::array::from_fn(|i| {
             let hash = ledger::V2::empty_hash_at_height(LEDGER_DEPTH - i);
-            MinaBaseLedgerHash0StableV1(hash.into()).into()
+            v2::MinaBaseLedgerHash0StableV1(hash.into()).into()
         })
     };
 }
 
-pub fn ledger_empty_hash_at_depth(depth: usize) -> LedgerHash {
+pub fn ledger_empty_hash_at_depth(depth: usize) -> v2::LedgerHash {
     LEDGER_HASH_EMPTIES.get(depth).unwrap().clone()
 }
 
@@ -33,9 +51,9 @@ pub fn ledger_empty_hash_at_depth(depth: usize) -> LedgerHash {
 /// compute the hash of a tree of size `LEDGER_DEPTH` if all other nodes were
 /// empty.
 pub fn complete_height_tree_with_empties(
-    content_hash: &LedgerHash,
+    content_hash: &v2::LedgerHash,
     subtree_height: usize,
-) -> LedgerHash {
+) -> v2::LedgerHash {
     assert!(LEDGER_DEPTH >= subtree_height);
     let content_hash = content_hash.0.to_field();
 
@@ -45,7 +63,7 @@ pub fn complete_height_tree_with_empties(
         ledger::V2::hash_node(height, prev_hash, empty_right)
     });
 
-    LedgerHash::from_fp(computed_hash)
+    v2::LedgerHash::from_fp(computed_hash)
 }
 
 /// Returns the minimum tree height required for storing `num_accounts` accounts.
@@ -65,9 +83,9 @@ pub fn tree_height_for_num_accounts(num_accounts: u64) -> usize {
 ///
 /// NOTE: For out of range sizes, en empty tree hash is returned.
 pub fn complete_num_accounts_tree_with_empties(
-    contents_hash: &LedgerHash,
+    contents_hash: &v2::LedgerHash,
     num_accounts: u64,
-) -> LedgerHash {
+) -> v2::LedgerHash {
     // Note, we assume there is always at least one account
     if num_accounts == 0 {
         return ledger_empty_hash_at_depth(0);
@@ -99,7 +117,7 @@ mod tests {
     #[test]
     fn test_complete_with_empties() {
         let subtree_height = 14;
-        let expected_hash: LedgerHash = "jwxdRe86RJV99CZbxZzb4JoDwEnvNQbc6Ha8iPx7pr3FxYpjHBG"
+        let expected_hash: v2::LedgerHash = "jwxdRe86RJV99CZbxZzb4JoDwEnvNQbc6Ha8iPx7pr3FxYpjHBG"
             .parse()
             .unwrap();
         let contents_hash = "jwav4pBszibQqek634VUQEc5WZAbF3CnT7sMyhqXe3vucyXdjJs"
@@ -114,7 +132,7 @@ mod tests {
     #[test]
     fn test_complete_with_empties_with_num_accounts() {
         let subtree_height = 8517;
-        let expected_hash: LedgerHash = "jwxdRe86RJV99CZbxZzb4JoDwEnvNQbc6Ha8iPx7pr3FxYpjHBG"
+        let expected_hash: v2::LedgerHash = "jwxdRe86RJV99CZbxZzb4JoDwEnvNQbc6Ha8iPx7pr3FxYpjHBG"
             .parse()
             .unwrap();
         let contents_hash = "jwav4pBszibQqek634VUQEc5WZAbF3CnT7sMyhqXe3vucyXdjJs"

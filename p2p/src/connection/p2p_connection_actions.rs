@@ -1,10 +1,11 @@
+use openmina_core::ActionEvent;
 use serde::{Deserialize, Serialize};
 
 use super::{incoming::P2pConnectionIncomingAction, outgoing::P2pConnectionOutgoingAction};
 
 pub type P2pConnectionActionWithMetaRef<'a> = redux::ActionWithMeta<&'a P2pConnectionAction>;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
 pub enum P2pConnectionAction {
     Outgoing(P2pConnectionOutgoingAction),
     Incoming(P2pConnectionIncomingAction),

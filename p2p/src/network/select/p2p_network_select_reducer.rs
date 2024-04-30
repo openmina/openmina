@@ -1,4 +1,4 @@
-use self::p2p_network_select_state::P2pNetworkSelectStateInner;
+use self::{p2p_network_select_state::P2pNetworkSelectStateInner, token::ParseTokenError};
 
 use super::*;
 
@@ -31,7 +31,7 @@ impl P2pNetworkSelectState {
                     self.recv.put(data);
                     loop {
                         match self.recv.parse_token() {
-                            Err(()) => {
+                            Err(ParseTokenError) => {
                                 self.inner =
                                     P2pNetworkSelectStateInner::Error("parse_token".to_owned());
                                 break;
@@ -124,7 +124,13 @@ impl P2pNetworkSelectState {
                                     ))
                                 }
                                 token::Protocol::Stream(
-                                    token::StreamKind::Rpc(_) | token::StreamKind::Discovery(_),
+                                    token::StreamKind::Rpc(_)
+                                    | token::StreamKind::Discovery(_)
+                                    //| token::StreamKind::Broadcast(_)
+                                    | token::StreamKind::Identify(_)
+                                    | token::StreamKind::Ping(_)
+                                    | token::StreamKind::Bitswap(_)
+                                    | token::StreamKind::Status(_)
                                 ) => token::Token::Protocol(protocol),
                                 token::Protocol::Stream(token::StreamKind::Broadcast(_)) => {
                                     token::Token::Na

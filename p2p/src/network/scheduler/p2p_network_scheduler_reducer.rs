@@ -14,12 +14,17 @@ impl P2pNetworkSchedulerState {
             P2pNetworkSchedulerAction::InterfaceExpired { ip, .. } => {
                 self.interfaces.remove(ip);
             }
+            P2pNetworkSchedulerAction::ListenerReady { listener } => {
+                self.listeners.insert(*listener);
+            }
+            P2pNetworkSchedulerAction::ListenerError { listener, error: _ } => {
+                self.listeners.remove(listener);
+            }
             P2pNetworkSchedulerAction::IncomingConnectionIsReady { .. } => {}
             P2pNetworkSchedulerAction::IncomingDidAccept { addr, .. } => {
                 let Some(addr) = addr else {
                     return;
                 };
-
                 self.connections.insert(
                     *addr,
                     P2pNetworkConnectionState {
@@ -34,7 +39,7 @@ impl P2pNetworkSchedulerState {
                     },
                 );
             }
-            P2pNetworkSchedulerAction::OutgoingDidConnect { addr, .. } => {
+            P2pNetworkSchedulerAction::OutgoingConnect { addr } => {
                 self.connections.insert(
                     *addr,
                     P2pNetworkConnectionState {
@@ -51,12 +56,11 @@ impl P2pNetworkSchedulerState {
                     },
                 );
             }
-            P2pNetworkSchedulerAction::IncomingDataIsReady { .. } => {}
-            P2pNetworkSchedulerAction::IncomingDataDidReceive { result, addr, .. } => {
-                if result.is_err() {
-                    self.connections.remove(addr);
-                }
+            P2pNetworkSchedulerAction::OutgoingDidConnect { .. } => {
+                // TODO: change to connected
             }
+            P2pNetworkSchedulerAction::IncomingDataIsReady { .. } => {}
+            P2pNetworkSchedulerAction::IncomingDataDidReceive { .. } => {}
             P2pNetworkSchedulerAction::SelectDone {
                 addr,
                 kind,
@@ -69,10 +73,9 @@ impl P2pNetworkSchedulerState {
                 };
                 match protocol {
                     Some(token::Protocol::Auth(token::AuthKind::Noise)) => {
-                        connection.auth = Some(P2pNetworkAuthState::Noise(P2pNetworkNoiseState {
-                            handshake_optimized: true,
-                            ..Default::default()
-                        }));
+                        connection.auth = Some(P2pNetworkAuthState::Noise(
+                            P2pNetworkNoiseState::new(self.local_pk.clone(), true),
+                        ));
                     }
                     Some(token::Protocol::Mux(
                         token::MuxKind::Yamux1_0_0 | token::MuxKind::YamuxNoNewLine1_0_0,
@@ -109,7 +112,11 @@ impl P2pNetworkSchedulerState {
                                 }
                             }
                             token::StreamKind::Broadcast(_) => unimplemented!(),
+                            token::StreamKind::Identify(_) => {}
                             token::StreamKind::Discovery(_) => {}
+                            token::StreamKind::Ping(_) => {}
+                            token::StreamKind::Bitswap(_) => {}
+                            token::StreamKind::Status(_) => {}
                         }
                     }
                     None => {}
@@ -164,12 +171,15 @@ impl P2pNetworkSchedulerState {
                 }
                 cn.streams.clear();
                 if let Some(peer_id) = cn.peer_id() {
-                    self.rpc_incoming_streams.remove(&peer_id);
-                    self.rpc_outgoing_streams.remove(&peer_id);
+                    self.rpc_incoming_streams.remove(peer_id);
+                    self.rpc_outgoing_streams.remove(peer_id);
                     if let Some(discovery_state) = self.discovery_state.as_mut() {
                         discovery_state.streams.remove(peer_id);
                     }
                 }
+            }
+            P2pNetworkSchedulerAction::Prune { addr } => {
+                let _ = self.connections.remove(addr);
             }
         }
     }

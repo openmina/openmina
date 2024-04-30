@@ -15,7 +15,7 @@ pub struct HttpSignalingInfo {
 
 impl fmt::Display for HttpSignalingInfo {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "/{}/{}", self.host.to_string(), self.port)
+        write!(f, "/{}/{}", self.host, self.port)
     }
 }
 
@@ -64,6 +64,6 @@ impl<'de> serde::Deserialize<'de> for HttpSignalingInfo {
         D: serde::Deserializer<'de>,
     {
         let s: String = Deserialize::deserialize(deserializer)?;
-        Ok(s.parse().map_err(|err| serde::de::Error::custom(err))?)
+        s.parse().map_err(serde::de::Error::custom)
     }
 }

@@ -17,18 +17,6 @@ pub enum P2pDiscoveryAction {
         peer_id: PeerId,
         peers: Vec<P2pConnectionOutgoingInitOpts>,
     },
-    KademliaBootstrap,
-    KademliaInit,
-    KademliaAddRoute {
-        peer_id: PeerId,
-        addresses: Vec<P2pConnectionOutgoingInitOpts>,
-    },
-    KademliaSuccess {
-        peers: Vec<PeerId>,
-    },
-    KademliaFailure {
-        description: String,
-    },
 }
 
 impl redux::EnablingCondition<P2pState> for P2pDiscoveryAction {
@@ -36,15 +24,6 @@ impl redux::EnablingCondition<P2pState> for P2pDiscoveryAction {
         match self {
             Self::Init { peer_id } => state.get_ready_peer(peer_id).is_some(),
             Self::Success { .. } => true,
-            Self::KademliaBootstrap => !state.kademlia.is_ready && !state.kademlia.is_bootstrapping,
-            Self::KademliaInit => {
-                state.kademlia.is_ready
-                    && state.kademlia.outgoing_requests < 1
-                    && !state.already_knows_max_peers()
-            }
-            Self::KademliaAddRoute { .. } => true,
-            Self::KademliaSuccess { .. } => true,
-            Self::KademliaFailure { .. } => true,
         }
     }
 }

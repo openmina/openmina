@@ -41,6 +41,13 @@ pub enum P2pChannelsRpcAction {
         id: P2pRpcId,
         request: P2pRpcRequest,
     },
+    /// Response for the request sent by peer is pending. Dispatched when
+    /// we need data from an async component, like ledger, for constructing
+    /// the response.
+    ResponsePending {
+        peer_id: PeerId,
+        id: P2pRpcId,
+    },
     ResponseSend {
         peer_id: PeerId,
         id: P2pRpcId,
@@ -58,6 +65,7 @@ impl P2pChannelsRpcAction {
             | Self::Timeout { peer_id, .. }
             | Self::ResponseReceived { peer_id, .. }
             | Self::RequestReceived { peer_id, .. }
+            | Self::ResponsePending { peer_id, .. }
             | Self::ResponseSend { peer_id, .. } => peer_id,
         }
     }
@@ -82,33 +90,13 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsRpcAction {
                 })
             },
             P2pChannelsRpcAction::RequestSend { peer_id, id, request } => {
-                if !cfg!(feature = "p2p-libp2p") {
-                    return if !request.kind().supported_by_libp2p() {
-                        false
-                    } else if let Some(streams) = state
-                        .network
-                        .scheduler
-                        .rpc_outgoing_streams
-                        .get(peer_id)
-                    {
-                        !streams.is_empty()
-                    } else {
-                        false
-                    };
-                }
-
                 state.peers.get(peer_id)
                     .filter(|p| !p.is_libp2p() || request.kind().supported_by_libp2p())
                     .and_then(|p| p.status.as_ready())
-                    .map_or(false, |p| match &p.channels.rpc {
-                        P2pChannelsRpcState::Ready { local, next_local_rpc_id, .. } => {
-                            next_local_rpc_id == id && matches!(
-                                local,
-                                P2pRpcLocalState::WaitingForRequest { .. } | P2pRpcLocalState::Responded { .. }
-                            )
-                        },
-                        _ => false,
-                    })
+                    .map_or(false, |p| matches!(
+                        &p.channels.rpc,
+                        P2pChannelsRpcState::Ready { local: P2pRpcLocalState::WaitingForRequest { .. } | P2pRpcLocalState::Responded { .. }, next_local_rpc_id, .. } if next_local_rpc_id == id
+                    ))
             },
             P2pChannelsRpcAction::Timeout { peer_id, id } => {
                 state.get_ready_peer(peer_id).map_or(false, |p| matches!(&p.channels.rpc, P2pChannelsRpcState::Ready { local: P2pRpcLocalState::Requested { id: rpc_id, .. }, .. } if rpc_id == id))
@@ -130,6 +118,14 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsRpcAction {
                     P2pChannelsRpcState::Ready { remote, .. } => {
                         remote.pending_requests.len() < MAX_P2P_RPC_REMOTE_CONCURRENT_REQUESTS &&
                         remote.pending_requests.iter().all(|v| v.id != *id)
+                    },
+                    _ => false,
+                })
+            },
+            P2pChannelsRpcAction::ResponsePending { peer_id, id } => {
+                state.get_ready_peer(peer_id).map_or(false, |p| match &p.channels.rpc {
+                    P2pChannelsRpcState::Ready { remote, .. } => {
+                        remote.pending_requests.iter().any(|v| v.id == *id && !v.is_pending)
                     },
                     _ => false,
                 })

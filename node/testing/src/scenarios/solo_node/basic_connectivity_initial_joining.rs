@@ -1,11 +1,10 @@
+#![allow(warnings)]
+
 use std::{collections::HashMap, time::Duration};
 
 use libp2p::Multiaddr;
 
-use node::{
-    event_source::Event,
-    p2p::{connection::outgoing::P2pConnectionOutgoingInitOpts, P2pEvent},
-};
+use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 
 use crate::{
     node::RustNodeTestingConfig,
@@ -69,17 +68,9 @@ impl SoloNodeBasicConnectivityInitialJoining {
             let steps = runner
                 .pending_events(true)
                 .map(|(node_id, _, events)| {
-                    events.map(move |(_, event)| {
-                        match event {
-                            Event::P2p(P2pEvent::Discovery(event)) => {
-                                eprintln!("event: {event}");
-                            }
-                            _ => {}
-                        }
-                        ScenarioStep::Event {
-                            node_id,
-                            event: event.to_string(),
-                        }
+                    events.map(move |(_, event)| ScenarioStep::Event {
+                        node_id,
+                        event: event.to_string(),
                     })
                 })
                 .flatten()
@@ -104,7 +95,7 @@ impl SoloNodeBasicConnectivityInitialJoining {
 
             let node = runner.node(node_id).expect("must exist");
             let ready_peers = node.state().p2p.ready_peers_iter().count();
-            let known_peers = node.state().p2p.kademlia.known_peers.len();
+            let known_peers = todo!();
 
             println!("step: {step}");
             println!("known peers: {known_peers}");

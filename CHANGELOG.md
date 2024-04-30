@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2024-04-30
+
+### Fixed
+
+- Interactions with the ledger service are now async. This fixes situations in which expensive ledger operations could starve the state machine loop.
+- Ledger synchronization issue that happens when synchronizing the node during the second epoch.
+- Correctly handle the situation in which the best tip changes during staged ledger reconstruction, causing the reconstruct to produce a stale result.
+- Various edge cases in p2p layer (error propagation, disconnection, self-connection).
+
+### Added
+
+- Support for `identify` protocol.
+- P2P layer testing framework.
+- Frontend: Block production page.
+
+### Removed
+
+- Removed rust-libp2p based code, in favor of our own libp2p implementation.
+
 ## [0.3.1] - 2024-04-05
 
 ### Changed
@@ -102,7 +121,8 @@ First public release.
 - Alpha version of the node which can connect and syncup to the berkeleynet network, and keep applying new blocks to maintain consensus state and ledger up to date.
 - Web-based frontend for the node.
 
-[Unreleased]: https://github.com/openmina/openmina/compare/v0.3.1...develop
+[Unreleased]: https://github.com/openmina/openmina/compare/v0.4.0...develop
+[0.4.0]: https://github.com/openmina/openmina/releases/tag/v0.3.0...v0.4.0
 [0.3.1]: https://github.com/openmina/openmina/releases/tag/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/openmina/openmina/releases/tag/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/openmina/openmina/releases/tag/v0.1.0...v0.2.0

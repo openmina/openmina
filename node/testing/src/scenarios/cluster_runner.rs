@@ -5,12 +5,9 @@ use std::{
 };
 
 use ledger::BaseLedger;
-use node::{
-    account::{AccountPublicKey, AccountSecretKey},
-    event_source::Event,
-    ledger::LedgerService,
-    ActionKind, ActionWithMeta, State,
-};
+use node::account::{AccountPublicKey, AccountSecretKey};
+use node::{event_source::Event, ledger::LedgerService, ActionKind, ActionWithMeta, State};
+use rand::{rngs::StdRng, Rng, SeedableRng};
 use time::OffsetDateTime;
 
 use crate::{
@@ -27,6 +24,17 @@ use crate::{
 pub struct ClusterRunner<'a> {
     cluster: &'a mut Cluster,
     add_step: Box<dyn 'a + FnMut(&ScenarioStep)>,
+    rng: StdRng,
+}
+
+pub struct RunCfg<
+    EH: FnMut(ClusterNodeId, &State, &Event) -> RunDecision,
+    AH: 'static + Send + FnMut(ClusterNodeId, &State, &NodeTestingService, &ActionWithMeta) -> bool,
+> {
+    timeout: Duration,
+    handle_event: EH,
+    exit_if_action: AH,
+    advance_time: Option<std::ops::RangeInclusive<u64>>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -51,6 +59,7 @@ impl<'a> ClusterRunner<'a> {
         Self {
             cluster,
             add_step: Box::new(add_step),
+            rng: StdRng::seed_from_u64(0),
         }
     }
 
@@ -196,23 +205,16 @@ impl<'a> ClusterRunner<'a> {
             .unwrap()
     }
 
-    // TODO(binier): better names for `handle_event`, `
-    /// Execute cluster in the infinite loop, until `handle_event`,
-    /// `handle_action` or `timeout` causes it to end.
-    ///
-    /// - `timeout` represents timeout for the whole function. It must
-    ///   finish before timeout is triggered. For it to finish either
-    ///   `handle_event` or `handle_action` must cause infinite loop to end.
-    /// - `handle_event` function control execution of events based on
-    ///   decision that it will return. It might exec event, skip it,
-    ///   and/or stop this infinite loop all together.
-    /// - `handle_action` function can react to actions triggered in the
-    ///   cluster in order to stop the loop.
+    /// Execute cluster in the infinite loop, based on conditions specified
+    /// in the `RunCfg`.
     pub async fn run<EH, AH>(
         &mut self,
-        timeout: Duration,
-        mut handle_event: EH,
-        mut exit_if_action: AH,
+        RunCfg {
+            timeout,
+            advance_time,
+            mut handle_event,
+            mut exit_if_action,
+        }: RunCfg<EH, AH>,
     ) -> anyhow::Result<()>
     where
         EH: FnMut(ClusterNodeId, &State, &Event) -> RunDecision,
@@ -272,8 +274,16 @@ impl<'a> ClusterRunner<'a> {
                     }
                 }
 
-                let all_nodes = self.nodes_iter().map(|(id, _)| id).collect::<Vec<_>>();
+                if let Some(time) = advance_time.as_ref() {
+                    let (start, end) = time.clone().into_inner();
+                    let (start, end) = (start * 1_000_000, end * 1_000_000);
+                    let by_nanos = self.rng.gen_range(start..end);
+                    self.exec_step(ScenarioStep::AdvanceTime { by_nanos })
+                        .await
+                        .unwrap();
+                }
 
+                let all_nodes = self.nodes_iter().map(|(id, _)| id).collect::<Vec<_>>();
                 for node_id in all_nodes {
                     dyn_effects_data.inner().node_id = Some(node_id);
                     dyn_effects = self
@@ -288,7 +298,12 @@ impl<'a> ClusterRunner<'a> {
                     }
                 }
 
-                self.wait_for_pending_events().await;
+                if advance_time.is_some() {
+                    self.wait_for_pending_events_with_timeout(Duration::from_millis(100))
+                        .await;
+                } else {
+                    self.wait_for_pending_events().await;
+                }
             }
         })
         .await
@@ -317,11 +332,11 @@ impl<'a> ClusterRunner<'a> {
         {
             let t = redux::Instant::now();
             self.run(
-                timeout,
-                |_, _, _| RunDecision::ContinueExec,
-                |_, _, _, action| {
-                    matches!(action.action().kind(), ActionKind::TransitionFrontierSynced)
-                },
+                RunCfg::default()
+                    .timeout(timeout)
+                    .action_handler(|_, _, _, action| {
+                        matches!(action.action().kind(), ActionKind::TransitionFrontierSynced)
+                    }),
             )
             .await?;
             timeout = timeout.checked_sub(t.elapsed()).unwrap_or_default();
@@ -382,7 +397,7 @@ impl<'a> ClusterRunner<'a> {
             // genesis block.
             const GENESIS_PRODUCER: &'static str =
                 "B62qiy32p8kAKnny8ZFwoMhYpBppM1DWVCqAPBYNcXnsAHhnfAAuXgg";
-            LedgerService::ctx(node.service())
+            LedgerService::ledger_manager(node.service())
                 .producers_with_delegates(staking_ledger_hash, |pub_key| {
                     pub_key.into_address() != GENESIS_PRODUCER
                 })
@@ -413,7 +428,7 @@ impl<'a> ClusterRunner<'a> {
         let Some(mask) = self.node(node_id).and_then(|node| {
             let best_tip = node.state().transition_frontier.best_tip()?;
             let ledger_hash = best_tip.staged_ledger_hash();
-            let (mask, _) = LedgerService::ctx(node.service()).mask(ledger_hash)?;
+            let (mask, _) = LedgerService::ledger_manager(node.service()).get_mask(ledger_hash)?;
             Some(mask)
         }) else {
             return Box::new(std::iter::empty());
@@ -464,13 +479,7 @@ impl<'a> ClusterRunner<'a> {
             }
 
             // run
-            let _ = self
-                .run(
-                    step_duration,
-                    |_, _, _| RunDecision::ContinueExec,
-                    move |_, _, _, _| false,
-                )
-                .await;
+            let _ = self.run(RunCfg::default().timeout(step_duration)).await;
             if keep_synced {
                 // make sure every node is synced, longer timeout in case one node disconnects and it needs to resync
                 self.run_until_nodes_synced(Duration::from_secs(5 * 60), &nodes)
@@ -584,6 +593,80 @@ impl<'a> ClusterRunner<'a> {
             },
         )
         .await
+    }
+}
+
+impl Default
+    for RunCfg<
+        fn(ClusterNodeId, &State, &Event) -> RunDecision,
+        fn(ClusterNodeId, &State, &NodeTestingService, &ActionWithMeta) -> bool,
+    >
+{
+    fn default() -> Self {
+        Self {
+            timeout: Duration::from_secs(60),
+            advance_time: None,
+            handle_event: |_, _, _| RunDecision::ContinueExec,
+            exit_if_action: |_, _, _, _| false,
+        }
+    }
+}
+
+impl<EH, AH> RunCfg<EH, AH>
+where
+    EH: FnMut(ClusterNodeId, &State, &Event) -> RunDecision,
+    AH: 'static + Send + FnMut(ClusterNodeId, &State, &NodeTestingService, &ActionWithMeta) -> bool,
+{
+    /// Set `timeout` for the whole `run` function.
+    ///
+    /// `run` function will time out, unless `event_handler` or `action_handler`
+    /// causes it to end before the timeout duration elapses.
+    ///
+    /// Default: 60s
+    pub fn timeout(mut self, dur: Duration) -> Self {
+        self.timeout = dur;
+        self
+    }
+
+    /// Set the range of time in milliseconds, with which time will be
+    /// advanced during `run` function execution.
+    ///
+    /// By default `run` function won't advance time.
+    pub fn advance_time(mut self, range: std::ops::RangeInclusive<u64>) -> Self {
+        self.advance_time = Some(range);
+        self
+    }
+
+    /// Set function control execution of events based on decision that
+    /// it will return. It might exec event, skip it, and/or end the
+    /// execution of the `run` function.
+    pub fn event_handler<NewEh>(self, handler: NewEh) -> RunCfg<NewEh, AH>
+    where
+        NewEh: FnMut(ClusterNodeId, &State, &Event) -> RunDecision,
+    {
+        RunCfg {
+            timeout: self.timeout,
+            advance_time: self.advance_time,
+            handle_event: handler,
+            exit_if_action: self.exit_if_action,
+        }
+    }
+
+    /// Set function using which `run` function can be stopped based on
+    /// the passed predicate. It can also be used to gather some data
+    /// based on actions to be used in tests.
+    pub fn action_handler<NewAH>(self, handler: NewAH) -> RunCfg<EH, NewAH>
+    where
+        NewAH: 'static
+            + Send
+            + FnMut(ClusterNodeId, &State, &NodeTestingService, &ActionWithMeta) -> bool,
+    {
+        RunCfg {
+            timeout: self.timeout,
+            advance_time: self.advance_time,
+            handle_event: self.handle_event,
+            exit_if_action: handler,
+        }
     }
 }
 

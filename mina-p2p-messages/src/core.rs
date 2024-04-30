@@ -1,3 +1,5 @@
+//! Types from Janestreet's Core library.
+
 use std::net::IpAddr;
 
 use crate::{
@@ -6,8 +8,6 @@ use crate::{
 };
 use binprot_derive::{BinProtRead, BinProtWrite};
 use serde::{Deserialize, Serialize};
-
-///! Types from Janestreet's Core library.
 
 /// This type corresponds to `Bounded_types.Wrapped_error` OCaml type, but the
 /// structure is different. It only refrects the data that is passed over the
@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize};
 pub struct Info(rsexp::Sexp);
 
 impl Info {
-    pub fn from_str(msg: &str) -> Self {
+    pub fn new(msg: &str) -> Self {
         Info(rsexp::atom(msg.as_bytes()))
     }
 }
@@ -56,7 +56,7 @@ impl TryFrom<SexpString> for Info {
     type Error = InfoFromSexpError;
 
     fn try_from(value: SexpString) -> Result<Self, Self::Error> {
-        let parsed = rsexp::from_slice(&value.0).map_err(|e| InfoFromSexpError(e))?;
+        let parsed = rsexp::from_slice(&value.0).map_err(InfoFromSexpError)?;
         Ok(Info(parsed))
     }
 }
@@ -108,7 +108,7 @@ mod test {
 
     fn bytes_to_info(mut bytes: &[u8]) -> Info {
         let info = Info::binprot_read(&mut bytes).unwrap();
-        assert!(bytes.len() == 0);
+        assert!(bytes.is_empty());
         info
     }
 

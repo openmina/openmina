@@ -8,7 +8,7 @@ export const environment: Readonly<MinaEnv> = {
       dashboard: [],
       nodes: ['overview', 'live', 'bootstrap'],
       state: ['actions'],
-      network: ['messages', 'connections', 'blocks', 'topology', 'node-dht', 'graph-overview', 'bootstrap-stats'],
+      // network: ['messages', 'connections', 'blocks', 'topology', 'node-dht', 'graph-overview', 'bootstrap-stats'],
       snarks: ['scan-state' /*'work-pool'*/],
       'block-production': ['overview'],
       // 'testing-tool': ['scenarios'],
@@ -26,6 +26,10 @@ export const environment: Readonly<MinaEnv> = {
     //     resources: ['memory'],
     //   },
     // },
+    {
+      name: 'Producer',
+      url: 'http://65.109.105.40:3000',
+    },
     {
       name: 'Local rust node',
       url: 'http://127.0.0.1:3000',

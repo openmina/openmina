@@ -1,0 +1,16 @@
+@import 'openmina';
+
+:host {
+  min-height: 0;
+}
+
+.p-fixed {
+  gap: 4px;
+  flex-direction: column;
+}
+
+:host ::ng-deep rect {
+  width: 8px;
+  height: 8px;
+  transition: fill 200ms ease-out;
+}

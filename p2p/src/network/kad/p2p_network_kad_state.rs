@@ -115,12 +115,7 @@ impl P2pNetworkKadState {
         peer_id: &PeerId,
         stream_id: &StreamId,
     ) -> Result<&mut P2pNetworkKadStreamState, &P2pNetworkKadStreamState> {
-        match self
-            .streams
-            .entry(peer_id.clone())
-            .or_default()
-            .entry(*stream_id)
-        {
+        match self.streams.entry(*peer_id).or_default().entry(*stream_id) {
             std::collections::btree_map::Entry::Vacant(e) => {
                 Ok(e.insert(P2pNetworkKadStreamState::new(incoming)))
             }
@@ -147,19 +142,19 @@ impl P2pNetworkKadState {
 pub struct P2pNetworkKadLatestRequestPeers(Vec<(PeerId, P2pNetworkKadLatestRequestPeerKind)>);
 
 impl P2pNetworkKadLatestRequestPeers {
-    pub fn new(&self) -> impl Iterator<Item = &'_ PeerId> {
-        self.of_kind(P2pNetworkKadLatestRequestPeerKind::New)
+    pub fn get_new_peers(&self) -> impl Iterator<Item = &'_ PeerId> {
+        self.get_peers_of_kind(P2pNetworkKadLatestRequestPeerKind::New)
     }
 
-    pub fn existing(&self) -> impl Iterator<Item = &'_ PeerId> {
-        self.of_kind(P2pNetworkKadLatestRequestPeerKind::Existing)
+    pub fn get_existing_peers(&self) -> impl Iterator<Item = &'_ PeerId> {
+        self.get_peers_of_kind(P2pNetworkKadLatestRequestPeerKind::Existing)
     }
 
-    pub fn discarded(&self) -> impl Iterator<Item = &'_ PeerId> {
-        self.of_kind(P2pNetworkKadLatestRequestPeerKind::Discarded)
+    pub fn get_discarded_peers(&self) -> impl Iterator<Item = &'_ PeerId> {
+        self.get_peers_of_kind(P2pNetworkKadLatestRequestPeerKind::Discarded)
     }
 
-    fn of_kind(
+    fn get_peers_of_kind(
         &self,
         kind: P2pNetworkKadLatestRequestPeerKind,
     ) -> impl Iterator<Item = &'_ PeerId> {

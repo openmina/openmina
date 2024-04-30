@@ -51,7 +51,7 @@ where
     let id = *id;
     match (tag.as_ref(), *version) {
         (rpc::GetBestTipV2::NAME, rpc::GetBestTipV2::VERSION) => {
-            let _ = rpc::GetBestTipV2::query_payload(&mut bytes)?;
+            rpc::GetBestTipV2::query_payload(&mut bytes)?;
             store.dispatch(P2pChannelsRpcAction::RequestReceived {
                 peer_id,
                 id,
@@ -284,7 +284,7 @@ impl P2pNetworkRpcAction {
                         });
                     }
                     RpcMessage::Query { header, bytes } => {
-                        if let Err(e) = rpc_query_effects(peer_id, header, &bytes, store) {
+                        if let Err(e) = rpc_query_effects(peer_id, header, bytes, store) {
                             store.dispatch(P2pDisconnectionAction::Init {
                                 peer_id,
                                 reason: P2pDisconnectionReason::P2pChannelReceiveFailed(
@@ -311,8 +311,7 @@ impl P2pNetworkRpcAction {
                         // unset pending
                         store.dispatch(P2pNetworkRpcAction::PrunePending { peer_id, stream_id });
 
-                        if let Err(e) = rpc_response_effects(peer_id, &query_header, &bytes, store)
-                        {
+                        if let Err(e) = rpc_response_effects(peer_id, &query_header, bytes, store) {
                             store.dispatch(P2pDisconnectionAction::Init {
                                 peer_id,
                                 reason: P2pDisconnectionReason::P2pChannelReceiveFailed(

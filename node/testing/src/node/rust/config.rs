@@ -1,7 +1,8 @@
 use std::{sync::Arc, time::Duration};
 
+use node::account::AccountSecretKey;
 use node::transition_frontier::genesis::GenesisConfig;
-use node::{account::AccountSecretKey, p2p::P2pTimeouts, BlockProducerConfig, SnarkerConfig};
+use node::{p2p::P2pTimeouts, BlockProducerConfig, SnarkerConfig};
 use openmina_core::CHAIN_ID;
 use serde::{Deserialize, Serialize};
 
@@ -52,6 +53,22 @@ impl RustNodeTestingConfig {
             block_producer: None,
             snark_worker: None,
             timeouts: P2pTimeouts::default(),
+            libp2p_port: None,
+        }
+    }
+
+    pub fn berkeley_default_no_rpc_timeouts() -> Self {
+        Self {
+            chain_id: CHAIN_ID.to_owned(),
+            initial_time: redux::Timestamp::ZERO,
+            genesis: node::BERKELEY_CONFIG.clone(),
+            max_peers: 100,
+            ask_initial_peers_interval: Duration::from_secs(10),
+            initial_peers: Vec::new(),
+            peer_id: TestPeerId::default(),
+            block_producer: None,
+            snark_worker: None,
+            timeouts: P2pTimeouts::without_rpc(),
             libp2p_port: None,
         }
     }

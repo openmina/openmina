@@ -1,11 +1,13 @@
 use std::{
-    net::{Ipv4Addr, Ipv6Addr},
+    net::{IpAddr, Ipv4Addr, Ipv6Addr},
     str::FromStr,
 };
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug, Ord, PartialOrd, Eq, PartialEq, Clone)]
+#[derive(
+    Serialize, Deserialize, Debug, Ord, PartialOrd, Eq, PartialEq, Clone, derive_more::From,
+)]
 pub enum Host {
     /// A DNS domain name, as '.' dot-separated labels.
     /// Non-ASCII labels are encoded in punycode per IDNA if this is the host of
@@ -45,7 +47,7 @@ mod binprot_impl {
 
     impl BinProtWrite for Host {
         fn binprot_write<W: std::io::Write>(&self, w: &mut W) -> std::io::Result<()> {
-            Ok(match self {
+            match self {
                 Self::Domain(v) => {
                     HostKind::Domain.binprot_write(w)?;
                     v.binprot_write(w)?
@@ -62,7 +64,8 @@ mod binprot_impl {
                         b.binprot_write(w)?;
                     }
                 }
-            })
+            };
+            Ok(())
         }
     }
 
@@ -81,16 +84,16 @@ mod binprot_impl {
                 }
                 HostKind::Ipv4 => {
                     let mut octets = [0; 4];
-                    for i in 0..octets.len() {
-                        octets[i] = u8::binprot_read(r)?;
+                    for octet in &mut octets {
+                        *octet = u8::binprot_read(r)?;
                     }
 
                     Host::Ipv4(octets.into())
                 }
                 HostKind::Ipv6 => {
                     let mut segments = [0; 8];
-                    for i in 0..segments.len() {
-                        segments[i] = u16::binprot_read(r)?;
+                    for segment in &mut segments {
+                        *segment = u16::binprot_read(r)?;
                     }
 
                     Host::Ipv6(segments.into())
@@ -136,6 +139,15 @@ impl<'a> From<&'a Host> for url::Host<&'a str> {
             Host::Domain(v) => url::Host::Domain(v),
             Host::Ipv4(v) => url::Host::Ipv4(*v),
             Host::Ipv6(v) => url::Host::Ipv6(*v),
+        }
+    }
+}
+
+impl From<IpAddr> for Host {
+    fn from(value: IpAddr) -> Self {
+        match value {
+            IpAddr::V4(v4) => Host::Ipv4(v4),
+            IpAddr::V6(v6) => Host::Ipv6(v6),
         }
     }
 }

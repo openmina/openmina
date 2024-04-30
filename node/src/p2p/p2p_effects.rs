@@ -35,9 +35,6 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
     let (action, meta) = action.split();
 
     match action {
-        P2pAction::Listen(action) => {
-            action.effects(&meta, store);
-        }
         P2pAction::Connection(action) => match action {
             P2pConnectionAction::Outgoing(action) => {
                 match action {
@@ -70,7 +67,7 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
                         if let Some(rpc_id) = p2p.peer_connection_rpc_id(peer_id) {
                             store.dispatch(RpcAction::P2pConnectionIncomingRespond {
                                 rpc_id,
-                                response: P2pConnectionResponse::Accepted(answer.clone()),
+                                response: P2pConnectionResponse::Accepted(Box::new(answer.clone())),
                             });
                             store.dispatch(P2pConnectionIncomingAction::AnswerSendSuccess {
                                 peer_id: *peer_id,
@@ -192,6 +189,7 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
             }
         }
         P2pAction::Discovery(action) => action.effects(&meta, store),
+        P2pAction::Identify(action) => action.effects(&meta, store),
         P2pAction::Channels(action) => match action {
             P2pChannelsAction::MessageReceived(action) => {
                 action.effects(&meta, store);
@@ -464,58 +462,13 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
                                     response,
                                 });
                             }
-                            P2pRpcRequest::LedgerQuery(ledger_hash, query) => {
-                                let response = store
-                                    .service
-                                    .answer_ledger_query(ledger_hash, query)
-                                    .map(P2pRpcResponse::LedgerQuery);
-
-                                store.dispatch(P2pChannelsRpcAction::ResponseSend {
-                                    peer_id,
-                                    id,
-                                    response,
-                                });
+                            P2pRpcRequest::LedgerQuery(..) => {
+                                // async ledger request will be triggered
+                                // by `LedgerReadAction::FindTodos`.
                             }
-                            P2pRpcRequest::StagedLedgerAuxAndPendingCoinbasesAtBlock(
-                                block_hash,
-                            ) => {
-                                let transition_frontier = &store.state.get().transition_frontier;
-                                let best_chain = &transition_frontier.best_chain;
-
-                                let response = best_chain
-                                    .iter()
-                                    .find(|b| b.hash == block_hash)
-                                    .map(|b| b.staged_ledger_hash().clone())
-                                    .and_then(|ledger_hash| {
-                                        let protocol_states = transition_frontier
-                                            .needed_protocol_states
-                                            .iter()
-                                            .map(|(hash, b)| (hash.clone(), b.clone()))
-                                            .chain(
-                                                best_chain
-                                                    .iter()
-                                                    .take_while(|b| b.hash() != &block_hash)
-                                                    .map(|b| {
-                                                        (
-                                                            b.hash().clone(),
-                                                            b.header().protocol_state.clone(),
-                                                        )
-                                                    }),
-                                            )
-                                            .collect();
-
-                                        store.service.staged_ledger_aux_and_pending_coinbase(
-                                            ledger_hash,
-                                            protocol_states,
-                                        )
-                                    })
-                                    .map(P2pRpcResponse::StagedLedgerAuxAndPendingCoinbasesAtBlock);
-
-                                store.dispatch(P2pChannelsRpcAction::ResponseSend {
-                                    peer_id,
-                                    id,
-                                    response,
-                                });
+                            P2pRpcRequest::StagedLedgerAuxAndPendingCoinbasesAtBlock(..) => {
+                                // async ledger request will be triggered
+                                // by `LedgerReadAction::FindTodos`.
                             }
                             P2pRpcRequest::Snark(job_id) => {
                                 let job = store.state().snark_pool.get(&job_id);
@@ -551,12 +504,13 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
                     P2pChannelsRpcAction::Init { .. } => {}
                     P2pChannelsRpcAction::Pending { .. } => {}
                     P2pChannelsRpcAction::RequestSend { .. } => {}
+                    P2pChannelsRpcAction::ResponsePending { .. } => {}
                     P2pChannelsRpcAction::ResponseSend { .. } => {}
                 }
             }
         },
         P2pAction::Peer(action) => match action {
-            P2pPeerAction::Ready { .. } => {
+            P2pPeerAction::Discovered { .. } | P2pPeerAction::Ready { .. } => {
                 action.effects(&meta, store);
             }
             P2pPeerAction::BestTipUpdate { best_tip, .. } => {

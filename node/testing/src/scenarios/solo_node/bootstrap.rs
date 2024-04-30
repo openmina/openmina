@@ -61,12 +61,12 @@ impl SoloNodeBootstrap {
                 for step in steps {
                     runner.exec_step(step).await.unwrap();
                 }
-            } else {
-                runner
-                    .exec_step(ScenarioStep::CheckTimeouts { node_id })
-                    .await
-                    .unwrap();
             }
+
+            runner
+                .exec_step(ScenarioStep::CheckTimeouts { node_id })
+                .await
+                .unwrap();
 
             let new = Instant::now();
             let elapsed = new - last_time;
@@ -86,14 +86,17 @@ impl SoloNodeBootstrap {
                 .unwrap();
 
             let this = runner.node(node_id).unwrap();
-            let state = &this.state().transition_frontier.sync;
-            if let Synced { time } = &state {
-                eprintln!(
-                    "node: {node_id}, is synced at {time:?}, total elapsed {:?}",
-                    TIMEOUT - timeout
-                );
+            let best_chain = &this.state().transition_frontier.best_chain;
+            let sync_state = &this.state().transition_frontier.sync;
+            if let Synced { time } = &sync_state {
+                if best_chain.len() > 1 {
+                    eprintln!(
+                        "node: {node_id}, is synced at {time:?}, total elapsed {:?}",
+                        TIMEOUT - timeout
+                    );
 
-                break;
+                    break;
+                }
             }
         }
     }

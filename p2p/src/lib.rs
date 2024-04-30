@@ -3,10 +3,9 @@ pub mod channels;
 pub mod connection;
 pub mod disconnection;
 pub mod discovery;
-pub mod listen;
-pub mod peer;
-
+pub mod identify;
 pub mod identity;
+pub mod peer;
 pub use identity::PeerId;
 
 pub mod webrtc;
@@ -39,6 +38,12 @@ impl<S, T: SubStore<S, P2pState, SubAction = P2pAction>> P2pStore<S> for T {}
 pub use libp2p_identity;
 pub use multiaddr;
 
-const fn is_old_libp2p() -> bool {
-    cfg!(feature = "p2p-libp2p")
+/// Returns true if duration value is configured, and, given the time is `now`,
+/// that duration is passed since `then`.
+fn is_time_passed(
+    now: redux::Timestamp,
+    then: redux::Timestamp,
+    duration: Option<std::time::Duration>,
+) -> bool {
+    duration.map_or(false, |d| now.checked_sub(then) >= Some(d))
 }

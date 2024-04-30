@@ -10,8 +10,9 @@ use crate::channels::rpc::P2pRpcId;
 use crate::channels::{ChannelId, P2pChannelsState};
 use crate::connection::incoming::P2pConnectionIncomingState;
 use crate::connection::outgoing::{P2pConnectionOutgoingInitOpts, P2pConnectionOutgoingState};
+use crate::network::identify::P2pNetworkIdentify;
 use crate::network::P2pNetworkState;
-use crate::{P2pTimeouts, PeerId};
+use crate::{is_time_passed, P2pTimeouts, PeerId};
 
 use super::connection::P2pConnectionState;
 use super::P2pConfig;
@@ -21,70 +22,10 @@ pub struct P2pState {
     pub config: P2pConfig,
     pub network: P2pNetworkState,
     pub peers: BTreeMap<PeerId, P2pPeerState>,
-    pub kademlia: P2pKademliaState,
-    pub listeners: P2pListenersState,
-}
-
-#[derive(Default, Serialize, Deserialize, Debug, Clone)]
-pub struct P2pKademliaState {
-    pub is_ready: bool,
-    pub is_bootstrapping: bool,
-    pub outgoing_requests: usize,
-    pub routes: BTreeMap<PeerId, Vec<P2pConnectionOutgoingInitOpts>>,
-    pub known_peers: BTreeMap<PeerId, P2pConnectionOutgoingInitOpts>,
-    pub saturated: Option<redux::Timestamp>,
-    pub peer_timestamp: BTreeMap<PeerId, redux::Timestamp>,
-}
-
-#[derive(Default, Serialize, Deserialize, Debug, Clone)]
-pub struct P2pListenersState(pub BTreeMap<P2pListenerId, P2pListenerState>);
-
-#[derive(
-    Default,
-    Serialize,
-    Deserialize,
-    derive_more::From,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Debug,
-    Clone,
-    derive_more::Display,
-)]
-pub struct P2pListenerId(String);
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum P2pListenerState {
-    Open {
-        addrs: BTreeSet<multiaddr::Multiaddr>,
-        errors: Vec<String>,
-    },
-    Closed,
-    ClosedWithError(String),
-}
-
-impl Default for P2pListenerState {
-    fn default() -> Self {
-        P2pListenerState::Open {
-            addrs: BTreeSet::default(),
-            errors: Vec::new(),
-        }
-    }
 }
 
 impl P2pState {
     pub fn new(config: P2pConfig) -> Self {
-        let mut kademlia = P2pKademliaState::default();
-        if cfg!(feature = "p2p-webrtc") {
-            kademlia.known_peers.extend(
-                config
-                    .initial_peers
-                    .iter()
-                    .map(|opts| (*opts.peer_id(), opts.clone())),
-            );
-        }
-
         let addrs = config
             .libp2p_port
             .map(|port| multiaddr!(Ip4([127, 0, 0, 1]), Tcp((port))))
@@ -108,20 +49,21 @@ impl P2pState {
             .iter()
             .map(|peer| {
                 (
-                    peer.peer_id().clone(),
+                    *peer.peer_id(),
                     P2pPeerState {
                         dial_opts: Some(peer.clone()),
                         is_libp2p: peer.is_libp2p(),
                         status: P2pPeerStatus::Disconnected {
                             time: Timestamp::ZERO,
                         },
+                        identify: None,
                     },
                 )
             })
             .collect();
 
         let network = P2pNetworkState::new(
-            config.identity_pub_key.peer_id(),
+            config.identity_pub_key.clone(),
             addrs,
             known_peers,
             &config.chain_id,
@@ -130,9 +72,7 @@ impl P2pState {
         Self {
             config,
             network,
-            listeners: Default::default(),
             peers,
-            kademlia,
         }
     }
 
@@ -160,19 +100,6 @@ impl P2pState {
         self.peers
             .iter()
             .any(|(_, p)| p.status.as_ready().is_some())
-    }
-
-    pub fn initial_unused_peers(&self) -> Vec<P2pConnectionOutgoingInitOpts> {
-        self.kademlia
-            .known_peers
-            .values()
-            .filter(|v| {
-                self.ready_peers_iter()
-                    .find(|(id, _)| (*id).eq(v.peer_id()))
-                    .is_none()
-            })
-            .cloned()
-            .collect()
     }
 
     pub fn disconnected_peers(&self) -> impl '_ + Iterator<Item = P2pConnectionOutgoingInitOpts> {
@@ -273,26 +200,28 @@ impl P2pState {
     }
 
     /// The peers capacity is exceeded.
-    pub fn already_has_too_many_peers(&self) -> bool {
-        self.connected_or_connecting_peers_count() > self.config.max_peers
-    }
-
-    pub fn already_knows_max_peers(&self) -> bool {
-        self.kademlia.known_peers.len() >= self.config.max_peers * 2
-    }
-
-    pub fn enough_time_elapsed(&self, time: redux::Timestamp) -> bool {
-        let Some(last_used) = self.kademlia.saturated else {
-            return true;
-        };
-        time.checked_sub(last_used)
-            .map(|t| t > self.config.ask_initial_peers_interval)
-            .unwrap_or(false)
+    pub fn already_has_max_ready_peers(&self) -> bool {
+        self.ready_peers_iter().count() >= self.config.max_peers
     }
 
     /// Minimal number of peers that the node should connect
     pub fn min_peers(&self) -> usize {
         (self.config.max_peers / 2).max(3)
+    }
+
+    /// Peer with libp2p connection identified by `conn_id`.
+    pub fn peer_with_connection(
+        &self,
+        conn_id: std::net::SocketAddr,
+    ) -> Option<(&PeerId, &P2pPeerState)> {
+        self.peers
+            .iter()
+            .find(|(_, peer_state)| match &peer_state.dial_opts {
+                Some(P2pConnectionOutgoingInitOpts::LibP2P(libp2p_opts)) => {
+                    libp2p_opts.matches_socket_addr(conn_id)
+                }
+                _ => false,
+            })
     }
 }
 
@@ -301,6 +230,7 @@ pub struct P2pPeerState {
     pub is_libp2p: bool,
     pub dial_opts: Option<P2pConnectionOutgoingInitOpts>,
     pub status: P2pPeerStatus,
+    pub identify: Option<P2pNetworkIdentify>,
 }
 
 impl P2pPeerState {
@@ -323,12 +253,13 @@ impl P2pPeerState {
             && match &self.status {
                 P2pPeerStatus::Connecting(P2pConnectionState::Incoming(
                     P2pConnectionIncomingState::Error { time, .. },
-                )) => now.checked_sub(*time) >= timeouts.incoming_error_reconnect_timeout,
+                )) => is_time_passed(now, *time, timeouts.incoming_error_reconnect_timeout),
                 P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(
                     P2pConnectionOutgoingState::Error { time, .. },
-                )) => now.checked_sub(*time) >= timeouts.outgoing_error_reconnect_timeout,
+                )) => is_time_passed(now, *time, timeouts.outgoing_error_reconnect_timeout),
                 P2pPeerStatus::Disconnected { time } => {
-                    *time == Timestamp::ZERO || now.checked_sub(*time) >= timeouts.reconnect_timeout
+                    *time == Timestamp::ZERO
+                        || is_time_passed(now, *time, timeouts.reconnect_timeout)
                 }
                 _ => false,
             }
@@ -337,6 +268,7 @@ impl P2pPeerState {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "state")]
+#[allow(clippy::large_enum_variant)]
 pub enum P2pPeerStatus {
     Connecting(P2pConnectionState),
     Disconnected { time: redux::Timestamp },
@@ -381,6 +313,10 @@ impl P2pPeerStatus {
             Self::Ready(v) => Some(v),
             _ => None,
         }
+    }
+
+    pub fn is_error(&self) -> bool {
+        matches!(self, P2pPeerStatus::Connecting(s) if s.is_error())
     }
 }
 

@@ -4,8 +4,8 @@ use ledger::AccountIndex;
 use mina_p2p_messages::v2::{
     CurrencyFeeStableV1, UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
 };
+use node::account::AccountSecretKey;
 use node::{
-    account::AccountSecretKey,
     block_producer::vrf_evaluator::{BlockProducerVrfEvaluatorStatus, EpochContext},
     p2p::P2pTimeouts,
     ActionKind, BlockProducerConfig, SnarkerConfig, SnarkerStrategy,
@@ -14,7 +14,7 @@ use node::{
 use crate::{
     node::{RustNodeBlockProducerTestingConfig, RustNodeTestingConfig},
     scenario::{ListenerNode, ScenarioStep},
-    scenarios::{cluster_runner::ClusterRunner, RunDecision},
+    scenarios::{ClusterRunner, RunCfg},
 };
 
 const GLOBAL_TIMEOUT: Duration = Duration::from_secs(60 * 60);
@@ -22,7 +22,7 @@ const GLOBAL_TIMEOUT: Duration = Duration::from_secs(60 * 60);
 const STEP_DURATION: Duration = Duration::from_millis(500);
 
 const SECOND_EPOCH_LAST_SLOT: u32 = 14_279;
-const THIRD_EPOCH_LAST_SLOT: u32 = 21_419;
+const _THIRD_EPOCH_LAST_SLOT: u32 = 21_419;
 
 const KEEP_SYNCED: bool = true;
 
@@ -116,18 +116,18 @@ impl MultiNodeVrfEpochBoundsCorrectLedger {
 
         runner
             .run(
-                Duration::from_secs(5),
-                |_, _, _| RunDecision::ContinueExec,
-                move |node_id, _, _, action| {
-                    if node_id == producer_node {
-                        matches!(
-                            action.action().kind(),
-                            ActionKind::BlockProducerVrfEvaluatorBeginEpochEvaluation
-                        )
-                    } else {
-                        false
-                    }
-                },
+                RunCfg::default()
+                    .timeout(Duration::from_secs(5))
+                    .action_handler(move |node_id, _, _, action| {
+                        if node_id == producer_node {
+                            matches!(
+                                action.action().kind(),
+                                ActionKind::BlockProducerVrfEvaluatorBeginEpochEvaluation
+                            )
+                        } else {
+                            false
+                        }
+                    }),
             )
             .await
             .unwrap();

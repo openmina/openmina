@@ -1,16 +1,13 @@
 use std::{collections::BTreeMap, str::FromStr, time::Duration};
 
 use ledger::AccountIndex;
-use node::{
-    account::{AccountPublicKey, AccountSecretKey},
-    p2p::P2pTimeouts,
-    ActionKind, BlockProducerConfig,
-};
+use node::account::{AccountPublicKey, AccountSecretKey};
+use node::{p2p::P2pTimeouts, ActionKind, BlockProducerConfig};
 
 use crate::{
     node::{RustNodeBlockProducerTestingConfig, RustNodeTestingConfig},
     scenario::{ListenerNode, ScenarioStep},
-    scenarios::cluster_runner::{ClusterRunner, RunDecision},
+    scenarios::{ClusterRunner, RunCfg},
 };
 
 /// Set up single Rust node and connect to an ocaml node with custom ledger and check if the node
@@ -105,28 +102,28 @@ impl MultiNodeVrfGetCorrectLedgers {
             ),
         ];
 
-        let expected_delegator_table: BTreeMap<AccountIndex, (AccountPublicKey, u64)> =
+        let _expected_delegator_table: BTreeMap<AccountIndex, (AccountPublicKey, u64)> =
             expected_delegator_table_data.into_iter().collect();
 
         runner
             .run(
-                Duration::from_secs(400),
-                |_, _, _| RunDecision::ContinueExec,
-                move |node_id, _, _, action| {
-                    if node_id == producer_node {
-                        matches!(
-                            action.action().kind(),
-                            ActionKind::BlockProducerVrfEvaluatorBeginEpochEvaluation
-                        )
-                    } else {
-                        false
-                    }
-                },
+                RunCfg::default()
+                    .timeout(Duration::from_secs(400))
+                    .action_handler(move |node_id, _, _, action| {
+                        if node_id == producer_node {
+                            matches!(
+                                action.action().kind(),
+                                ActionKind::BlockProducerVrfEvaluatorBeginEpochEvaluation
+                            )
+                        } else {
+                            false
+                        }
+                    }),
             )
             .await
             .expect("Timeout - waiting for VRF evaluator to update producer and delegates");
 
-        let (state, _) = runner.node_pending_events(producer_node, false).unwrap();
+        let (_state, _) = runner.node_pending_events(producer_node, false).unwrap();
 
         // check if our producer and delegators are detected correctly from the epoch ledgers
         // let epoch_data = state

@@ -50,7 +50,7 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierAction {
             TransitionFrontierAction::Sync(a) => a.is_enabled(state, time),
             TransitionFrontierAction::Synced { .. } => matches!(
                 state.transition_frontier.sync,
-                TransitionFrontierSyncState::BlocksSuccess { .. }
+                TransitionFrontierSyncState::CommitSuccess { .. }
             ),
         }
     }
