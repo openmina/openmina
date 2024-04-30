@@ -77,12 +77,14 @@ impl P2pNetworkPubsubAction {
                 else {
                     return;
                 };
-                store.dispatch(P2pNetworkYamuxAction::OutgoingData {
-                    addr: state.addr,
-                    stream_id: state.stream_id,
-                    data,
-                    fin: false,
-                });
+                if let Some(stream_id) = state.outgoing_stream_id.as_ref().copied() {
+                    store.dispatch(P2pNetworkYamuxAction::OutgoingData {
+                        addr: state.addr,
+                        stream_id,
+                        data,
+                        fin: false,
+                    });
+                }
             }
         }
     }
