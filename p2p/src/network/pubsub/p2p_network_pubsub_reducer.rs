@@ -9,28 +9,53 @@ impl P2pNetworkPubsubState {
                 incoming: true,
                 peer_id,
                 addr,
-                stream_id,
                 protocol,
                 ..
-            } => drop(self.clients.insert(
-                *peer_id,
-                P2pNetworkPubsubClientState {
-                    protocol: *protocol,
-                    addr: *addr,
-                    stream_id: *stream_id,
-                    topics: BTreeSet::default(),
-                    message: pb::Rpc {
-                        subscriptions: vec![],
-                        publish: vec![],
-                        control: None,
-                    },
-                },
-            )),
+            } => {
+                let state =
+                    self.clients
+                        .entry(*peer_id)
+                        .or_insert_with(|| P2pNetworkPubsubClientState {
+                            protocol: *protocol,
+                            addr: *addr,
+                            outgoing_stream_id: None,
+                            topics: BTreeSet::default(),
+                            message: pb::Rpc {
+                                subscriptions: vec![],
+                                publish: vec![],
+                                control: None,
+                            },
+                        });
+                state.protocol = *protocol;
+                state.addr = *addr;
+            }
             P2pNetworkPubsubAction::NewStream {
                 incoming: false,
                 peer_id,
-                ..
-            } => drop(self.servers.insert(*peer_id, ())),
+                stream_id,
+                addr,
+                protocol,
+            } => {
+                let state =
+                    self.clients
+                        .entry(*peer_id)
+                        .or_insert_with(|| P2pNetworkPubsubClientState {
+                            protocol: *protocol,
+                            addr: *addr,
+                            outgoing_stream_id: Some(*stream_id),
+                            topics: BTreeSet::default(),
+                            message: pb::Rpc {
+                                subscriptions: vec![],
+                                publish: vec![],
+                                control: None,
+                            },
+                        });
+                state.outgoing_stream_id = Some(*stream_id);
+                state.protocol = *protocol;
+                state.addr = *addr;
+
+                self.servers.insert(*peer_id, ());
+            }
             P2pNetworkPubsubAction::IncomingData { peer_id, data, .. } => {
                 let Some(state) = self.clients.get_mut(peer_id) else {
                     return;
