@@ -12,3 +12,4 @@ pub mod stream;
 pub mod utils;
 
 pub use futures;
+pub use libp2p;

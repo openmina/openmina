@@ -24,4 +24,9 @@ fn initialize_logging() {
     let subscriber = builder.finish();
     tracing::subscriber::set_global_default(subscriber)
         .expect("global subscriber should be configurable");
+
+    if let Err(err) = tracing_log::LogTracer::init() {
+        eprintln!("cannot initialize log tracing bridge: {err}");
+    }
+
 }

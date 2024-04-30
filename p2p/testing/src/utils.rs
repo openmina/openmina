@@ -11,9 +11,11 @@ use std::time::Duration;
 use futures::{StreamExt, TryStreamExt};
 
 use crate::{
-    cluster::{Cluster, ClusterEvent, Error},
+    cluster::{Cluster, ClusterEvent, Error, NodeId},
     event::RustNodeEvent,
-    predicates::{all_nodes_with_value, listeners_are_ready, nodes_peers_are_ready},
+    predicates::{
+        all_listeners_are_ready, all_nodes_with_value, listeners_are_ready, nodes_peers_are_ready,
+    },
     rust_node::{RustNodeConfig, RustNodeId},
     stream::ClusterStreamExt,
 };
@@ -106,6 +108,23 @@ where
         .try_stream()
         .take_during(time)
         .try_any(listeners_are_ready(nodes))
+        .await
+}
+
+/// Tries to run the cluster for the specified period of `time`, returning early
+/// true if the specified `nodes` are ready to accept connections.
+pub async fn try_wait_for_all_nodes_to_listen<I>(
+    cluster: &mut Cluster,
+    nodes: I,
+    time: Duration,
+) -> Result<bool, ClusterEvent>
+where
+    I: IntoIterator<Item = NodeId>,
+{
+    cluster
+        .try_stream()
+        .take_during(time)
+        .try_any(all_listeners_are_ready(nodes))
         .await
 }
 

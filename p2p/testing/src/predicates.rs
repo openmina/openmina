@@ -3,9 +3,14 @@ use std::{
     future::{ready, Ready},
 };
 
+use libp2p::swarm::SwarmEvent;
 use p2p::PeerId;
 
-use crate::{cluster::ClusterEvent, event::RustNodeEvent, rust_node::RustNodeId};
+use crate::{
+    cluster::{ClusterEvent, NodeId},
+    event::RustNodeEvent,
+    rust_node::RustNodeId,
+};
 
 /// Wraps plain function over a cluster event into an async one.
 pub fn async_fn<T, F>(mut f: F) -> impl FnMut(&ClusterEvent) -> Ready<T>
@@ -47,6 +52,29 @@ where
             } else {
                 false
             },
+        )
+    }
+}
+
+/// Predicate returning true for a cluster event corresponging to the specified node started listening.
+pub fn all_listeners_are_ready<I>(ids: I) -> impl FnMut(ClusterEvent) -> Ready<bool>
+where
+    I: IntoIterator<Item = NodeId>,
+{
+    let mut ids: HashSet<NodeId> = HashSet::from_iter(ids.into_iter());
+    move |event| {
+        ready(
+            match event {
+                ClusterEvent::Rust {
+                    id,
+                    event: RustNodeEvent::ListenerReady { .. },
+                } => ids.remove(&NodeId::Rust(id)),
+                ClusterEvent::Libp2p {
+                    id,
+                    event: SwarmEvent::NewListenAddr { .. },
+                } => ids.remove(&NodeId::Libp2p(id)),
+                _ => false,
+            } && ids.is_empty(),
         )
     }
 }

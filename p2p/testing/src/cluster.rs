@@ -21,7 +21,7 @@ use tokio::sync::mpsc;
 
 use crate::{
     event::{event_mapper_effect, RustNodeEvent},
-    libp2p_node::{Libp2pEvent, Libp2pNode, Libp2pNodeId},
+    libp2p_node::{create_swarm, Libp2pEvent, Libp2pNode, Libp2pNodeConfig, Libp2pNodeId},
     redux::State,
     redux::{log_action, Action},
     rust_node::{RustNode, RustNodeConfig, RustNodeId},
@@ -43,6 +43,12 @@ pub enum Listener {
     Libp2p(Libp2pNodeId),
     Multiaddr(Multiaddr),
     SocketPeerId(SocketAddr, PeerId),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, derive_more::From)]
+pub enum NodeId {
+    Rust(RustNodeId),
+    Libp2p(Libp2pNodeId),
 }
 
 pub struct Cluster {
@@ -154,6 +160,8 @@ pub enum Error {
     AddrParse(#[from] P2pConnectionOutgoingInitOptsParseError),
     #[error(transparent)]
     UninitializedField(#[from] UninitializedFieldError),
+    #[error(transparent)]
+    Libp2p(#[from] Box<dyn std::error::Error>),
     #[error("Error occurred: {0}")]
     Other(String),
 }
@@ -206,19 +214,24 @@ impl Cluster {
         }
     }
 
-    fn rust_node_config(&mut self, config: RustNodeConfig) -> Result<(P2pConfig, SecretKey)> {
-        let bytes = match config.peer_id {
+    fn secret_key(config: PeerIdConfig, index: usize, fill_byte: u8) -> SecretKey {
+        let bytes = match config {
             PeerIdConfig::Derived => {
-                let mut bytes = [RUST_NODE_SIG_BYTE; 32];
+                let mut bytes = [fill_byte; 32];
                 let bytes_len = bytes.len();
-                let i_bytes = self.rust_nodes.len().to_be_bytes();
+                let i_bytes = index.to_be_bytes();
                 let i = bytes_len - i_bytes.len();
                 bytes[i..bytes_len].copy_from_slice(&i_bytes);
                 bytes
             }
             PeerIdConfig::Bytes(bytes) => bytes,
         };
-        let secret_key = SecretKey::from_bytes(bytes);
+        SecretKey::from_bytes(bytes)
+    }
+
+    fn rust_node_config(&mut self, config: RustNodeConfig) -> Result<(P2pConfig, SecretKey)> {
+        let secret_key =
+            Self::secret_key(config.peer_id, self.rust_nodes.len(), RUST_NODE_SIG_BYTE);
         let libp2p_port = self.next_port()?;
         let listen_port = self.next_port()?;
         let initial_peers = config
@@ -285,9 +298,14 @@ impl Cluster {
         Ok(node_id)
     }
 
-    pub fn add_libp2p_node(&mut self) -> Result<Libp2pNodeId> {
+    pub fn add_libp2p_node(&mut self, config: Libp2pNodeConfig) -> Result<Libp2pNodeId> {
         let node_id = Libp2pNodeId(self.libp2p_nodes.len());
-        self.libp2p_nodes.push(Libp2pNode {});
+        let secret_key = Self::secret_key(config.peer_id, node_id.0, LIBP2P_NODE_SIG_BYTE);
+        let libp2p_port = self.next_port()?;
+
+        let swarm = create_swarm(secret_key, libp2p_port, &self.chain_id)?;
+        self.libp2p_nodes.push(Libp2pNode::new(swarm));
+
         Ok(node_id)
     }
 
@@ -452,7 +470,8 @@ impl ::futures::stream::Stream for Cluster {
                     let rust_node = this.rust_node_mut(id);
                     rust_node.poll_next_unpin(cx).map(|event| {
                         event.map(|event| {
-                            rust_node.dispatch_event(event.clone());
+                            let dispatched = rust_node.dispatch_event(event.clone());
+                            println!("dispatched: {dispatched}, {event:?}");
                             ClusterEvent::Rust {
                                 id,
                                 event: rust_node
@@ -462,7 +481,12 @@ impl ::futures::stream::Stream for Cluster {
                         })
                     })
                 }
-                NextPoll::Libp2p(_) => todo!(),
+                NextPoll::Libp2p(id) => {
+                    let swarm = this.libp2p_node_mut(id).swarm_mut();
+                    swarm
+                        .poll_next_unpin(cx)
+                        .map(|event| event.map(|event| ClusterEvent::Libp2p { id, event }))
+                }
                 NextPoll::Idle => this
                     .poll_idle(cx)
                     .map(|instant| Some(ClusterEvent::Idle { instant })),
