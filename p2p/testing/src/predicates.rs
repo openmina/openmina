@@ -24,6 +24,16 @@ pub fn listener_is_ready(id: RustNodeId) -> impl FnMut(ClusterEvent) -> Ready<bo
     }
 }
 
+/// Predicate if kademlia has finished bootstrap
+pub fn kad_finished_bootstrap(id: RustNodeId) -> impl FnMut(ClusterEvent) -> Ready<bool> {
+    move |event| {
+        ready(matches!(
+            event.rust(),
+            Some((event_id, RustNodeEvent::KadBootstrapFinished)) if *event_id == id
+        ))
+    }
+}
+
 /// Predicate returning true for a cluster event corresponging to the specified node started listening.
 pub fn listeners_are_ready<I>(ids: I) -> impl FnMut(ClusterEvent) -> Ready<bool>
 where

@@ -48,16 +48,17 @@ impl P2pNetworkKademliaStreamAction {
                     data: P2pNetworkKademliaRpcRequest::FindNode { key },
                 }),
             ) => {
-                store.dispatch(P2pNetworkKademliaAction::AnswerFindNodeRequest {
-                    addr,
-                    peer_id,
-                    stream_id,
-                    key: *key,
-                });
+                let key = *key;
                 store.dispatch(A::WaitOutgoing {
                     addr,
                     peer_id,
                     stream_id,
+                });
+                store.dispatch(P2pNetworkKademliaAction::AnswerFindNodeRequest {
+                    addr,
+                    peer_id,
+                    stream_id,
+                    key,
                 });
                 Ok(())
             }
