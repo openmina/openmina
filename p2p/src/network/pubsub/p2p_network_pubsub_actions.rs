@@ -1,6 +1,7 @@
-use openmina_core::ActionEvent;
-
 use std::net::SocketAddr;
+
+use mina_p2p_messages::gossip::GossipNetMessageV2;
+use openmina_core::ActionEvent;
 
 use serde::{Deserialize, Serialize};
 
@@ -24,8 +25,7 @@ pub enum P2pNetworkPubsubAction {
         data: Data,
     },
     Broadcast {
-        data: Data,
-        topic: String,
+        message: GossipNetMessageV2,
     },
     Sign {
         seqno: u64,
