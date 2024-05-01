@@ -42,13 +42,15 @@ impl P2pNetworkPubsubAction {
                     store.dispatch(Self::OutgoingMessage { msg, peer_id });
                 }
             }
-            Self::Broadcast { data, topic } => {
-                let author = store.state().config.identity_pub_key.peer_id();
+            Self::Broadcast { message } => {
+                let mut buffer = vec![];
+                binprot::BinProtWrite::binprot_write(&message, &mut buffer).expect("msg");
+
                 store.dispatch(Self::Sign {
                     seqno: state.seq + store.state().config.initial_time.as_nanos() as u64,
-                    author,
-                    data,
-                    topic,
+                    author: store.state().config.identity_pub_key.peer_id(),
+                    data: buffer.into(),
+                    topic: TOPIC.to_owned(),
                 });
             }
             Self::Sign { .. } => {
