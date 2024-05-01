@@ -15,6 +15,7 @@ pub struct P2pNetworkPubsubState {
     pub servers: BTreeMap<PeerId, ()>,
     pub seq: u64,
     pub to_sign: VecDeque<pb::Message>,
+    pub seen: VecDeque<Vec<u8>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
