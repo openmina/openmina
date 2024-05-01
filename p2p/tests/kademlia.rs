@@ -20,11 +20,15 @@ async fn kademlia() {
         .expect("should build cluster");
 
     let node1 = cluster
-        .add_rust_node(RustNodeConfig::default())
+        .add_rust_node(RustNodeConfig {
+            discovery: true,
+            ..Default::default()
+        })
         .expect("node1");
 
     let config = RustNodeConfig {
         initial_peers: vec![Listener::Rust(node1)],
+        discovery: true,
         ..Default::default()
     };
 
@@ -59,6 +63,7 @@ async fn kademlia() {
     let node3 = cluster
         .add_rust_node(RustNodeConfig {
             initial_peers: vec![Listener::Rust(node2)],
+            discovery: true,
             ..Default::default()
         })
         .expect("Error creating node 3");
