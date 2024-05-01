@@ -131,8 +131,8 @@ impl P2pCryptoService for NodeService {
 
     fn sign_key(&mut self, key: &[u8; 32]) -> Vec<u8> {
         // TODO: make deterministic
-        let msg = &[b"noise-libp2p-static-key:", key.as_ref()].concat();
-        let sig = self.keypair.sign(msg).expect("unable to create signature");
+        let msg = [b"noise-libp2p-static-key:", key.as_slice()].concat();
+        let sig = self.keypair.sign(&msg).expect("unable to create signature");
 
         let mut payload = vec![];
         payload.extend_from_slice(b"\x0a\x24");
@@ -140,6 +140,11 @@ impl P2pCryptoService for NodeService {
         payload.extend_from_slice(b"\x12\x40");
         payload.extend_from_slice(&sig);
         payload
+    }
+
+    fn sign_publication(&mut self, publication: &[u8]) -> Vec<u8> {
+        let msg = [b"libp2p-pubsub:", publication].concat();
+        self.keypair.sign(&msg).expect("unable to create signature")
     }
 }
 

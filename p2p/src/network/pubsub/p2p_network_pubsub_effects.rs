@@ -1,6 +1,6 @@
-use crate::P2pNetworkYamuxAction;
+use crate::{P2pCryptoService, P2pNetworkYamuxAction};
 
-use super::{pb, P2pNetworkPubsubAction};
+use super::{pb, P2pNetworkPubsubAction, TOPIC};
 
 fn message_is_empty(msg: &pb::Rpc) -> bool {
     msg.subscriptions.is_empty() && msg.publish.is_empty() && msg.control.is_none()
@@ -10,6 +10,7 @@ impl P2pNetworkPubsubAction {
     pub fn effects<Store, S>(self, _meta: &redux::ActionMeta, store: &mut Store)
     where
         Store: crate::P2pStore<S>,
+        Store::Service: P2pCryptoService,
     {
         let state = &store.state().network.scheduler.broadcast_state;
         match self {
@@ -20,7 +21,7 @@ impl P2pNetworkPubsubAction {
                     let msg = pb::Rpc {
                         subscriptions: vec![pb::rpc::SubOpts {
                             subscribe: Some(true),
-                            topic_id: Some("coda/consensus-messages/0.0.1".to_owned()),
+                            topic_id: Some(TOPIC.to_owned()),
                         }],
                         publish: vec![],
                         control: None,
@@ -33,7 +34,7 @@ impl P2pNetworkPubsubAction {
                             ihave: vec![],
                             iwant: vec![],
                             graft: vec![pb::ControlGraft {
-                                topic_id: Some("coda/consensus-messages/0.0.1".to_owned()),
+                                topic_id: Some(TOPIC.to_owned()),
                             }],
                             prune: vec![],
                         }),
@@ -41,7 +42,24 @@ impl P2pNetworkPubsubAction {
                     store.dispatch(Self::OutgoingMessage { msg, peer_id });
                 }
             }
-            Self::IncomingData { .. } | Self::Broadcast { .. } => {
+            Self::Broadcast { data, topic } => {
+                let author = store.state().config.identity_pub_key.peer_id();
+                store.dispatch(Self::Sign {
+                    seqno: state.seq + store.state().config.initial_time.as_nanos() as u64,
+                    author,
+                    data,
+                    topic,
+                });
+            }
+            Self::Sign { .. } => {
+                if let Some(to_sign) = state.to_sign.front() {
+                    let mut publication = vec![];
+                    prost::Message::encode(to_sign, &mut publication).unwrap();
+                    let signature = store.service().sign_publication(&publication).into();
+                    store.dispatch(Self::BroadcastSigned { signature });
+                }
+            }
+            Self::IncomingData { .. } | Self::BroadcastSigned { .. } => {
                 let broadcast = state
                     .clients
                     .iter()

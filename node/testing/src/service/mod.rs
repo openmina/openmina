@@ -288,6 +288,10 @@ impl P2pCryptoService for NodeTestingService {
     fn sign_key(&mut self, key: &[u8; 32]) -> Vec<u8> {
         self.real.sign_key(key)
     }
+
+    fn sign_publication(&mut self, publication: &[u8]) -> Vec<u8> {
+        self.real.sign_publication(publication)
+    }
 }
 
 impl P2pNetworkService for NodeTestingService {
