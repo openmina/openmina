@@ -293,6 +293,7 @@ impl Cluster {
                 timeouts: testing_config.timeouts,
                 chain_id: openmina_core::CHAIN_ID.to_owned(),
                 peer_discovery: true,
+                initial_time: Duration::ZERO,
             },
             transition_frontier: TransitionFrontierConfig::new(testing_config.genesis),
             block_producer: block_producer_config,

@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::{BTreeMap, BTreeSet, VecDeque},
     net::SocketAddr,
 };
 
@@ -13,6 +13,8 @@ use super::pb;
 pub struct P2pNetworkPubsubState {
     pub clients: BTreeMap<PeerId, P2pNetworkPubsubClientState>,
     pub servers: BTreeMap<PeerId, ()>,
+    pub seq: u64,
+    pub to_sign: VecDeque<pb::Message>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
