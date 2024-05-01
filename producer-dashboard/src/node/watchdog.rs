@@ -59,10 +59,9 @@ async fn watch(
                 status.best_chain = best_chain.clone();
                 status.sync_status = sync_status.clone()
             }
-            let dumped_ledgers = status.read().await.dumped_ledgers.clone();
             let current_epoch: u32 = best_tip.consensus_state().epoch.parse().unwrap();
 
-            if !dumped_ledgers.contains(&current_epoch) {
+            if !db.has_ledger(&current_epoch).unwrap() {
                 println!("Dumping staking ledger for epoch {current_epoch}");
                 let ledger = Node::get_staking_ledger(current_epoch);
                 let seed = best_tip.consensus_state().staking_epoch_data.seed.clone();

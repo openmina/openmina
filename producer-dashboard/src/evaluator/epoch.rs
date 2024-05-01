@@ -60,9 +60,14 @@ impl EpochSlots {
             .collect()
     }
 
-    pub fn slot_summary(&self) -> SlotSummary {
+    pub fn slot_summary(&self) -> (SlotSummary, bool) {
         let mut slot_summary = SlotSummary::default();
+        let mut is_current = false;
         for slot in self.inner.iter() {
+            if slot.is_current_slot {
+                is_current = true;
+            }
+
             match slot.block_status {
                 SlotStatus::Canonical | SlotStatus::CanonicalPending => {
                     slot_summary.won_slots += 1;
@@ -91,11 +96,11 @@ impl EpochSlots {
             }
         }
         slot_summary.expected_rewards = NanoMina::new((slot_summary.won_slots * 720).into());
-        slot_summary
+        (slot_summary, is_current)
     }
 
     fn summary(&self) -> EpochSummary {
-        let slot_summary = self.slot_summary();
+        let (slot_summary, is_current) = self.slot_summary();
 
         let slot_start = self.inner.first().unwrap().global_slot.to_u32();
         let slot_end = self.inner.last().unwrap().global_slot.to_u32();
@@ -105,6 +110,7 @@ impl EpochSlots {
             slot_summary,
             slot_start,
             slot_end,
+            is_current,
         }
     }
 }
@@ -116,6 +122,7 @@ pub struct EpochSummary {
     slot_summary: SlotSummary,
     slot_start: u32,
     slot_end: u32,
+    is_current: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]

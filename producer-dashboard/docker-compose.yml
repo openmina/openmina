@@ -61,7 +61,7 @@ services:
     command: daemon
 
   producer-dashboard:
-    image: local:openmina-producer-dashboard
+    image: adrnagy/openmina-producer-dashboard:rc1
     container_name: dashboard-be
     env_file:
       - ./docker/.mina-env

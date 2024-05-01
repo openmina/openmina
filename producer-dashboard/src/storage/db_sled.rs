@@ -99,6 +99,10 @@ impl Database {
         self.retrieve(&self.epoch_ledgers, epoch.to_be_bytes())
     }
 
+    pub fn has_ledger(&self, epoch: &u32) -> Result<bool, sled::Error> {
+        self.epoch_ledgers.contains_key(epoch.to_be_bytes())
+    }
+
     pub fn store_seed(&self, epoch: u32, seed: String) -> Result<(), sled::Error> {
         self.store(&self.seeds, epoch.to_be_bytes(), &seed)
     }

@@ -146,7 +146,7 @@ pub async fn get_all_time_summary(
 ) -> Result<impl warp::Reply, warp::reject::Rejection> {
     match storage.get_all_slots() {
         Ok(slots) => {
-            let res = EpochSlots::new(slots).slot_summary();
+            let res = EpochSlots::new(slots).slot_summary().0;
             Ok(warp::reply::with_status(
                 warp::reply::json(&res),
                 StatusCode::OK,

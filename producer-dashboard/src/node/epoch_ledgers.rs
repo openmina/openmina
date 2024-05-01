@@ -160,6 +160,8 @@ impl NanoMina {
 pub struct LedgerEntry {
     pub pk: String,
     pub balance: MinaLedgerDumpBalanceStringNumber,
+    pub token: String,
+    pub token_symbol: String,
     pub delegate: Option<String>,
 }
 
@@ -204,7 +206,11 @@ impl Ledger {
     }
 
     pub fn total_currency(&self) -> BigInt {
-        self.inner.iter().map(|entry| &entry.balance.0).sum()
+        self.inner
+            .iter()
+            .filter(|entry| entry.token == "wSHV2S4qX9jFsLjQo8r1BsMLH2ZRKsZx6EJd1sbozGPieEC4Jf")
+            .map(|entry| &entry.balance.0)
+            .sum()
     }
 
     pub fn producer_balances(&self, producer: &str) -> Balances {
