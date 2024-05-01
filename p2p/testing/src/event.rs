@@ -1,6 +1,7 @@
 use std::net::{IpAddr, SocketAddr};
 
 use p2p::{
+    channels::{rpc::P2pChannelsRpcAction, P2pChannelsAction},
     connection::{incoming::P2pConnectionIncomingAction, outgoing::P2pConnectionOutgoingAction},
     disconnection::P2pDisconnectionAction,
     P2pAction, P2pEvent, PeerId,
@@ -30,6 +31,19 @@ pub enum RustNodeEvent {
     PeerDisconnected {
         peer_id: PeerId,
         reason: String,
+    },
+    RpcChannelReady {
+        peer_id: PeerId,
+    },
+    RpcChannelRequestReceived {
+        peer_id: PeerId,
+        id: p2p::channels::rpc::P2pRpcId,
+        request: p2p::channels::rpc::P2pRpcRequest,
+    },
+    RpcChannelResponseReceived {
+        peer_id: PeerId,
+        id: p2p::channels::rpc::P2pRpcId,
+        response: Option<p2p::channels::rpc::P2pRpcResponse>,
     },
     P2p {
         event: P2pEvent,
@@ -95,6 +109,46 @@ pub(super) fn event_mapper_effect(store: &mut super::redux::Store, action: P2pAc
                 reason: reason.to_string(),
             },
         ),
+
+        P2pAction::Channels(action) => match action {
+            P2pChannelsAction::Rpc(action) => match action {
+                P2pChannelsRpcAction::Ready { peer_id } => {
+                    store_event(store, RustNodeEvent::RpcChannelReady { peer_id })
+                }
+                P2pChannelsRpcAction::RequestReceived {
+                    peer_id,
+                    id,
+                    request,
+                } => {
+                    if matches!(store.service.peek_rust_node_event(), Some(RustNodeEvent::RpcChannelReady { peer_id: pid }) if pid == &peer_id )
+                    {
+                        store.service.rust_node_event();
+                    }
+                    store_event(
+                        store,
+                        RustNodeEvent::RpcChannelRequestReceived {
+                            peer_id,
+                            id,
+                            request,
+                        },
+                    )
+                }
+                P2pChannelsRpcAction::ResponseReceived {
+                    peer_id,
+                    id,
+                    response,
+                } => store_event(
+                    store,
+                    RustNodeEvent::RpcChannelResponseReceived {
+                        peer_id,
+                        id,
+                        response,
+                    },
+                ),
+                _ => {}
+            },
+            _ => {}
+        },
 
         P2pAction::Network(p2p::P2pNetworkAction::Scheduler(action)) => match action {
             p2p::P2pNetworkSchedulerAction::InterfaceDetected { ip } => {
