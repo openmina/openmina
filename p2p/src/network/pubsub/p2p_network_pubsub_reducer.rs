@@ -70,6 +70,19 @@ impl P2pNetworkPubsubState {
                             }
                         }
                         for message in v.publish {
+                            if let Some(signature) = &message.signature {
+                                // skip recently seen message
+                                if !self.seen.contains(signature) {
+                                    self.seen.push_back(signature.clone());
+                                    // keep only last 256 to avoid memory leak
+                                    if self.seen.len() > 256 {
+                                        self.seen.pop_front();
+                                    }
+                                } else {
+                                    continue;
+                                }
+                            }
+                            // TODO: verify signature
                             self.clients
                                 .iter_mut()
                                 .filter(|(c, state)| {
