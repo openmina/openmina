@@ -26,7 +26,15 @@ pub enum P2pNetworkPubsubAction {
     Broadcast {
         data: Data,
         topic: String,
-        key: Option<Data>,
+    },
+    Sign {
+        seqno: u64,
+        author: PeerId,
+        data: Data,
+        topic: String,
+    },
+    BroadcastSigned {
+        signature: Data,
     },
     OutgoingMessage {
         msg: pb::Rpc,

@@ -33,6 +33,9 @@ pub struct P2pConfig {
 
     /// Use peers discovery.
     pub peer_discovery: bool,
+
+    /// Unix time. Used as an initial nonce for pubsub.
+    pub initial_time: Duration,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -81,5 +84,4 @@ impl P2pTimeouts {
             ..Default::default()
         }
     }
-
 }

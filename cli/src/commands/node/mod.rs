@@ -13,6 +13,7 @@ use mina_p2p_messages::v2::{
 use node::transition_frontier::genesis::GenesisConfig;
 use rand::prelude::*;
 
+use redux::SystemTime;
 use tokio::select;
 
 use node::account::{AccountPublicKey, AccountSecretKey};
@@ -224,6 +225,9 @@ impl Node {
                 timeouts: P2pTimeouts::default(),
                 chain_id: CHAIN_ID.to_owned(),
                 peer_discovery: !self.no_peers_discovery,
+                initial_time: SystemTime::now()
+                    .duration_since(SystemTime::UNIX_EPOCH)
+                    .expect("linear time"),
             },
             transition_frontier,
             block_producer: block_producer.clone().map(|(config, _)| config),

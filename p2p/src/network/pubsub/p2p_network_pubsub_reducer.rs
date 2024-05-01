@@ -92,20 +92,33 @@ impl P2pNetworkPubsubState {
                     v.message.control = None;
                 }
             }
-            P2pNetworkPubsubAction::Broadcast { data, topic, key } => {
-                // TODO: set seqno and add signature
-                let message = pb::Message {
-                    from: None,
+            P2pNetworkPubsubAction::Broadcast { .. } => {}
+            P2pNetworkPubsubAction::Sign {
+                seqno,
+                author,
+                data,
+                topic,
+            } => {
+                self.seq += 1;
+
+                let libp2p_peer_id = libp2p_identity::PeerId::from(author.clone());
+                self.to_sign.push_back(pb::Message {
+                    from: Some(libp2p_peer_id.to_bytes()),
                     data: Some(data.0.clone().into_vec()),
-                    seqno: None,
+                    seqno: Some((*seqno).to_be_bytes().to_vec()),
                     topic: topic.clone(),
                     signature: None,
-                    key: key.as_ref().map(|v| v.0.clone().into_vec()),
-                };
-                self.clients
-                    .values_mut()
-                    .filter(|state| state.topics.contains(&message.topic))
-                    .for_each(|state| state.message.publish.push(message.clone()));
+                    key: None,
+                });
+            }
+            P2pNetworkPubsubAction::BroadcastSigned { signature } => {
+                if let Some(mut message) = self.to_sign.pop_front() {
+                    message.signature = Some(signature.clone().0.to_vec());
+                    self.clients
+                        .values_mut()
+                        .filter(|state| state.topics.contains(&message.topic))
+                        .for_each(|state| state.message.publish.push(message.clone()));
+                }
             }
             P2pNetworkPubsubAction::OutgoingData { .. } => {}
         }
