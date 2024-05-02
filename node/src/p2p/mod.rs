@@ -57,6 +57,7 @@ impl_into_global_action!(discovery::P2pDiscoveryAction);
 
 impl_into_global_action!(network::P2pNetworkSchedulerAction);
 impl_into_global_action!(network::kad::P2pNetworkKademliaAction);
+impl_into_global_action!(network::pubsub::P2pNetworkPubsubAction);
 
 impl_into_global_action!(channels::P2pChannelsMessageReceivedAction);
 
