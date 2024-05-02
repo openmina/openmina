@@ -63,6 +63,10 @@ impl ClusterService {
         self.time += duration
     }
 
+    pub(crate) fn peek_rust_node_event(&self) -> Option<&RustNodeEvent> {
+        self.rust_node_event.as_ref()
+    }
+
     pub(crate) fn rust_node_event(&mut self) -> Option<RustNodeEvent> {
         self.rust_node_event.take()
     }
@@ -146,7 +150,11 @@ impl p2p::P2pNetworkService for ClusterService {
 
 impl RustNodeEventStore for ClusterService {
     fn store_event(&mut self, event: RustNodeEvent) {
-        debug_assert!(self.rust_node_event.is_none());
+        assert!(
+            self.rust_node_event.is_none(),
+            "can't store event: {event:?}\nanother event: {:?}",
+            self.rust_node_event
+        );
         self.rust_node_event = Some(event);
     }
 }

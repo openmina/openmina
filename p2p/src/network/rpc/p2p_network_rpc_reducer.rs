@@ -65,7 +65,14 @@ impl P2pNetworkRpcState {
                     } else {
                         openmina_core::error!(action.time(); "receiving response without query");
                     }
+                } else if let RpcMessage::Query { header, .. } = message {
+                    if self.pending.is_none() {
+                        self.pending = Some(header.clone());
+                    } else {
+                        openmina_core::error!(action.time(); "receiving query while another query is pending");
+                    }
                 }
+
                 self.incoming.pop_front();
             }
             P2pNetworkRpcAction::PrunePending { .. } => {

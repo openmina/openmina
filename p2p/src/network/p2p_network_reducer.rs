@@ -141,6 +141,23 @@ impl P2pNetworkState {
                         .get(a.peer_id())
                         .and_then(|cn| cn.get(&stream_id))
                 }),
+            RpcStreamId::WithQuery(id) => self
+                .scheduler
+                .rpc_incoming_streams
+                .get(a.peer_id())
+                .and_then(|streams| {
+                    streams.iter().find_map(|(_, state)| {
+                        if state
+                            .pending
+                            .as_ref()
+                            .map_or(false, |query_header| query_header.id == id)
+                        {
+                            Some(state)
+                        } else {
+                            None
+                        }
+                    })
+                }),
             RpcStreamId::AnyIncoming => self
                 .scheduler
                 .rpc_incoming_streams
@@ -174,6 +191,23 @@ impl P2pNetworkState {
                         .rpc_outgoing_streams
                         .get_mut(a.peer_id())
                         .and_then(|cn| cn.get_mut(&stream_id))
+                }),
+            RpcStreamId::WithQuery(id) => self
+                .scheduler
+                .rpc_incoming_streams
+                .get_mut(a.peer_id())
+                .and_then(|streams| {
+                    streams.iter_mut().find_map(|(_, state)| {
+                        if state
+                            .pending
+                            .as_ref()
+                            .map_or(false, |query_header| query_header.id == id)
+                        {
+                            Some(state)
+                        } else {
+                            None
+                        }
+                    })
                 }),
             RpcStreamId::AnyIncoming => {
                 if let Some(streams) = self.scheduler.rpc_incoming_streams.get_mut(a.peer_id()) {
