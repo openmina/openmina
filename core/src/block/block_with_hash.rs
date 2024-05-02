@@ -109,11 +109,11 @@ impl<T: AsRef<Block>> BlockWithHash<T> {
     }
 
     pub fn is_genesis(&self) -> bool {
-        self.height()
-            == CONSTRAINT_CONSTANTS
+        self.height() == 1
+            || CONSTRAINT_CONSTANTS
                 .fork
                 .as_ref()
-                .map_or(1, |fork| fork.previous_length + 1)
+                .map_or(false, |fork| fork.previous_length + 1 == self.height())
     }
 
     pub fn root_block_height(&self) -> u32 {
