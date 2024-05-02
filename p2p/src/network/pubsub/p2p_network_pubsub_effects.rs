@@ -43,8 +43,10 @@ impl P2pNetworkPubsubAction {
                 }
             }
             Self::Broadcast { message } => {
-                let mut buffer = vec![];
+                let mut buffer = vec![0; 8];
                 binprot::BinProtWrite::binprot_write(&message, &mut buffer).expect("msg");
+                let len = buffer.len() - 8;
+                buffer[..8].clone_from_slice(&(len as u64).to_le_bytes());
 
                 store.dispatch(Self::Sign {
                     seqno: state.seq + store.state().config.initial_time.as_nanos() as u64,
