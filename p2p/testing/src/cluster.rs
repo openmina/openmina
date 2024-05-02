@@ -68,9 +68,25 @@ pub struct Cluster {
     total_duration: Duration,
 }
 
+enum PortsConfig {
+    Range(Range<u16>),
+    Len(u16),
+    ExactLen(u16),
+}
+
+impl PortsConfig {
+    async fn ports(self) -> Result<Range<u16>> {
+        match self {
+            PortsConfig::Range(range) => Ok(range),
+            PortsConfig::Len(len) => PORTS.take(len).await,
+            PortsConfig::ExactLen(len) => PORTS.take_exact(len).await,
+        }
+    }
+}
+
 pub struct ClusterBuilder {
     chain_id: String,
-    ports: Option<Range<u16>>,
+    ports: Option<PortsConfig>,
     ip: IpAddr,
     idle_duration: Duration,
     is_error: fn(&ClusterEvent) -> bool,
@@ -101,7 +117,17 @@ impl ClusterBuilder {
     }
 
     pub fn ports(mut self, ports: Range<u16>) -> Self {
-        self.ports = Some(ports);
+        self.ports = Some(PortsConfig::Range(ports));
+        self
+    }
+
+    pub fn ports_with_len(mut self, len: u16) -> Self {
+        self.ports = Some(PortsConfig::Len(len));
+        self
+    }
+
+    pub fn ports_with_exact_len(mut self, len: u16) -> Self {
+        self.ports = Some(PortsConfig::ExactLen(len));
         self
     }
 
@@ -131,7 +157,9 @@ impl ClusterBuilder {
         let chain_id = self.chain_id;
         let ports = self
             .ports
-            .ok_or_else(|| UninitializedFieldError::new("ports"))?;
+            .ok_or_else(|| UninitializedFieldError::new("ports"))?
+            .ports()
+            .await?;
         let ip = self.ip;
         let mut idle_interval = tokio::time::interval(self.idle_duration);
         let last_idle_instant = idle_interval.tick().await.into_std();
@@ -154,6 +182,83 @@ impl ClusterBuilder {
         })
     }
 }
+
+pub struct Ports {
+    start: tokio::sync::Mutex<u16>,
+    end: u16,
+}
+
+impl Ports {
+    pub fn new(range: Range<u16>) -> Self {
+        Ports {
+            start: range.start.into(),
+            end: range.end,
+        }
+    }
+
+    fn round(u: u16) -> u16 {
+        ((u + 99) / 100) * 100
+    }
+
+    pub async fn take(&self, len: u16) -> Result<Range<u16>> {
+        let mut start = self.start.lock().await;
+        let res = Self::round(*start)..Self::round(*start + len);
+        if res.end > self.end {
+            return Err(Error::NoMorePorts);
+        }
+        *start += res.end;
+        Ok(res)
+    }
+
+    pub async fn take_exact(&self, len: u16) -> Result<Range<u16>> {
+        let mut start = self.start.lock().await;
+        let res = *start..(*start + len);
+        if res.end > self.end {
+            return Err(Error::NoMorePorts);
+        }
+        *start += len;
+        Ok(res)
+    }
+}
+
+impl Default for Ports {
+    fn default() -> Self {
+        Self {
+            start: 10000.into(),
+            end: 20000,
+        }
+    }
+}
+
+/// Declares a shared storage for ports.
+///
+/// ```
+/// ports_store!(PORTS);
+///
+/// #[tokio::test]
+/// fn test1() {
+///     let cluster = ClusterBuilder::default()
+///         .ports(PORTS.take(20).await.expect("enough ports"))
+///         .start()
+///         .await;
+/// }
+///
+/// ```
+#[macro_export]
+macro_rules! ports_store {
+    ($name:ident, $range:expr) => {
+        $crate::lazy_static::lazy_static! {
+            static ref PORTS: crate::cluster::Ports = crate::cluster::Ports::new($range);
+        }
+    };
+    ($name:ident) => {
+        $crate::lazy_static::lazy_static! {
+            static ref PORTS: crate::cluster::Ports = crate::cluster::Ports::default();
+        }
+    };
+}
+
+ports_store!(PORTS);
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -466,7 +571,7 @@ impl Cluster {
         let rust_node = &mut self.rust_nodes[id.0];
         let res = if let Some(dur) = self.timeouts.remove(&id.0) {
             // trigger timeout action and return idle event
-             Poll::Ready(Some(rust_node.idle(dur)))
+            Poll::Ready(Some(rust_node.idle(dur)))
         } else {
             // poll next available event from the node
             rust_node.poll_next_unpin(cx)
