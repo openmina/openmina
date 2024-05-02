@@ -166,14 +166,24 @@ export class BlockProductionOverviewSlotsComponent extends StoreDispatcher imple
       .style('display', 'flex');
 
     const nodeRect = event.target.getBoundingClientRect();
-    const tooltipWidth = selection.node().getBoundingClientRect().width;
+    const tooltipBoundingClientRect = selection.node().getBoundingClientRect();
+    const tooltipWidth = tooltipBoundingClientRect.width;
+    const tooltipHeight = tooltipBoundingClientRect.height;
 
-    const chartLeft = this.svgHolder.nativeElement.getBoundingClientRect().left;
+    const svgHolderBoundingClientRect = this.svgHolder.nativeElement.getBoundingClientRect();
+    const chartLeft = svgHolderBoundingClientRect.left;
+    const chartBottom = svgHolderBoundingClientRect.bottom;
+
     let desiredLeft = Math.min(nodeRect.left + nodeRect.width / 2 - tooltipWidth / 2, chartLeft + this.width - tooltipWidth);
     desiredLeft = Math.max(desiredLeft, chartLeft);
+    let desiredTop = nodeRect.bottom + window.scrollY + 12;
+    if (desiredTop + tooltipHeight > chartBottom) {
+      desiredTop = nodeRect.top - tooltipHeight - 12;
+    }
+
     selection
       .style('left', `${desiredLeft}px`)
-      .style('top', `${nodeRect.bottom + window.scrollY + 12}px`);
+      .style('top', `${desiredTop}px`);
   }
 
   private changeSlotsColors(): void {
