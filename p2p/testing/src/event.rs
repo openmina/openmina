@@ -4,7 +4,9 @@ use p2p::{
     channels::{rpc::P2pChannelsRpcAction, P2pChannelsAction},
     connection::{incoming::P2pConnectionIncomingAction, outgoing::P2pConnectionOutgoingAction},
     disconnection::P2pDisconnectionAction,
+    identify::P2pIdentifyAction,
     P2pAction, P2pEvent, PeerId,
+    network::identify::P2pNetworkIdentify,
 };
 
 #[derive(Debug)]
@@ -45,10 +47,17 @@ pub enum RustNodeEvent {
         id: p2p::channels::rpc::P2pRpcId,
         response: Option<p2p::channels::rpc::P2pRpcResponse>,
     },
+    Identify {
+        peer_id: PeerId,
+        info: P2pNetworkIdentify,
+    },
+    KadBootstrapFinished,
+    /// Other non-specific p2p event.
     P2p {
         event: P2pEvent,
     },
-    KadBootstrapFinished,
+    /// Timeout event with no specific outcome.
+    Idle,
 }
 
 pub(super) trait RustNodeEventStore {
@@ -125,10 +134,10 @@ pub(super) fn event_mapper_effect(store: &mut super::redux::Store, action: P2pAc
                     id,
                     request,
                 } => {
-                    if matches!(store.service.peek_rust_node_event(), Some(RustNodeEvent::RpcChannelReady { peer_id: pid }) if pid == &peer_id )
-                    {
-                        store.service.rust_node_event();
-                    }
+                    // if matches!(store.service.peek_rust_node_event(), Some(RustNodeEvent::RpcChannelReady { peer_id: pid }) if pid == &peer_id )
+                    // {
+                    //     store.service.rust_node_event();
+                    // }
                     store_event(
                         store,
                         RustNodeEvent::RpcChannelRequestReceived {
@@ -154,6 +163,10 @@ pub(super) fn event_mapper_effect(store: &mut super::redux::Store, action: P2pAc
             },
             _ => {}
         },
+
+        P2pAction::Identify(P2pIdentifyAction::UpdatePeerInformation { peer_id, info }) => {
+            store_event(store, RustNodeEvent::Identify { peer_id, info })
+        }
 
         P2pAction::Network(p2p::P2pNetworkAction::Scheduler(action)) => match action {
             p2p::P2pNetworkSchedulerAction::InterfaceDetected { ip } => {

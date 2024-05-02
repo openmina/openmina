@@ -1,7 +1,8 @@
 use std::{
+    collections::BTreeMap,
     net::{IpAddr, Ipv4Addr, SocketAddr},
     ops::Range,
-    task::{Context, Poll},
+    task::{ready, Context, Poll},
     time::{Duration, Instant},
 };
 
@@ -61,6 +62,7 @@ pub struct Cluster {
     last_idle_instant: Instant,
     idle_interval: tokio::time::Interval,
     next_poll: NextPoll,
+    timeouts: BTreeMap<usize, Duration>,
 
     is_error: fn(&ClusterEvent) -> bool,
     total_duration: Duration,
@@ -148,6 +150,7 @@ impl ClusterBuilder {
             last_idle_instant,
             idle_interval,
             next_poll,
+            timeouts: Default::default(),
         })
     }
 }
@@ -355,7 +358,8 @@ impl Cluster {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
+#[error("error event: {:?}", self)]
 pub enum ClusterEvent {
     Rust {
         id: RustNodeId,
@@ -440,18 +444,42 @@ impl Cluster {
     }
 
     fn poll_idle(&mut self, cx: &mut Context<'_>) -> Poll<Instant> {
-        let poll = self
-            .idle_interval
-            .poll_tick(cx)
-            .map(|instant| instant.into_std());
-        if let Poll::Ready(inst) = poll {
-            let dur = inst - self.last_idle_instant;
-            for rust_node in &mut self.rust_nodes {
-                rust_node.idle(dur);
+        Poll::Ready({
+            let instant = ready!(self.idle_interval.poll_tick(cx)).into_std();
+            let dur = instant - self.last_idle_instant;
+            for i in 0..self.rust_nodes.len() {
+                self.timeouts
+                    .entry(i)
+                    .and_modify(|d| *d += dur)
+                    .or_insert(dur);
             }
-            self.last_idle_instant = inst;
+            self.last_idle_instant = instant;
+            instant
+        })
+    }
+
+    fn poll_rust_node(
+        &mut self,
+        id: RustNodeId,
+        cx: &mut Context<'_>,
+    ) -> Poll<Option<RustNodeEvent>> {
+        let rust_node = &mut self.rust_nodes[id.0];
+        if let Some(dur) = self.timeouts.remove(&id.0) {
+            // trigger timeout action and return idle event
+            Poll::Ready(Some(rust_node.idle(dur)))
+        } else {
+            // poll next available event from the node
+            rust_node.poll_next_unpin(cx)
         }
-        poll
+    }
+
+    fn poll_libp2p_node(
+        &mut self,
+        id: Libp2pNodeId,
+        cx: &mut Context<'_>,
+    ) -> Poll<Option<Libp2pEvent>> {
+        let libp2p_node = &mut self.libp2p_nodes[id.0];
+        Poll::Ready(ready!(libp2p_node.swarm_mut().poll_next_unpin(cx)))
     }
 }
 
@@ -466,27 +494,12 @@ impl ::futures::stream::Stream for Cluster {
         let np = this.next_poll;
         loop {
             let poll = match this.next_poll {
-                NextPoll::Rust(id) => {
-                    let rust_node = this.rust_node_mut(id);
-                    rust_node.poll_next_unpin(cx).map(|event| {
-                        event.map(|event| {
-                            let dispatched = rust_node.dispatch_event(event.clone());
-                            println!("dispatched: {dispatched}, {event:?}");
-                            ClusterEvent::Rust {
-                                id,
-                                event: rust_node
-                                    .rust_node_event()
-                                    .unwrap_or(RustNodeEvent::P2p { event }),
-                            }
-                        })
-                    })
-                }
-                NextPoll::Libp2p(id) => {
-                    let swarm = this.libp2p_node_mut(id).swarm_mut();
-                    swarm
-                        .poll_next_unpin(cx)
-                        .map(|event| event.map(|event| ClusterEvent::Libp2p { id, event }))
-                }
+                NextPoll::Rust(id) => this
+                    .poll_rust_node(id, cx)
+                    .map(|event| event.map(|event| ClusterEvent::Rust { id, event })),
+                NextPoll::Libp2p(id) => this
+                    .poll_libp2p_node(id, cx)
+                    .map(|event| event.map(|event| ClusterEvent::Libp2p { id, event })),
                 NextPoll::Idle => this
                     .poll_idle(cx)
                     .map(|instant| Some(ClusterEvent::Idle { instant })),

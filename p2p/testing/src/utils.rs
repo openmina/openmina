@@ -193,7 +193,7 @@ where
 /// See [`super::predicates::all_nodes_with_items`].
 pub async fn try_wait_for_all_nodes_with_value<T, I, F>(
     cluster: &mut Cluster,
-    nodes_peers: I,
+    nodes_values: I,
     time: Duration,
     f: F,
 ) -> Result<bool, ClusterEvent>
@@ -205,7 +205,7 @@ where
     cluster
         .try_stream()
         .take_during(time)
-        .try_any(all_nodes_with_value(nodes_peers, f))
+        .try_any(all_nodes_with_value(nodes_values, f))
         .await
 }
 

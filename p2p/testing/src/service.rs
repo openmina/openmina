@@ -1,4 +1,4 @@
-use std::{net::IpAddr, time::Instant};
+use std::{collections::VecDeque, net::IpAddr, time::Instant};
 
 use p2p::{
     identity::SecretKey,
@@ -23,7 +23,7 @@ pub struct ClusterService {
     time: Instant,
     keypair: libp2p::identity::Keypair,
 
-    rust_node_event: Option<RustNodeEvent>,
+    rust_node_events: VecDeque<RustNodeEvent>,
     network_service: NativeP2pNetworkService,
 }
 
@@ -54,7 +54,7 @@ impl ClusterService {
             time,
             keypair,
 
-            rust_node_event: None,
+            rust_node_events: Default::default(),
             network_service: Default::default(),
         }
     }
@@ -63,12 +63,8 @@ impl ClusterService {
         self.time += duration
     }
 
-    pub(crate) fn peek_rust_node_event(&self) -> Option<&RustNodeEvent> {
-        self.rust_node_event.as_ref()
-    }
-
     pub(crate) fn rust_node_event(&mut self) -> Option<RustNodeEvent> {
-        self.rust_node_event.take()
+        self.rust_node_events.pop_front()
     }
 }
 
@@ -150,11 +146,6 @@ impl p2p::P2pNetworkService for ClusterService {
 
 impl RustNodeEventStore for ClusterService {
     fn store_event(&mut self, event: RustNodeEvent) {
-        assert!(
-            self.rust_node_event.is_none(),
-            "can't store event: {event:?}\nanother event: {:?}",
-            self.rust_node_event
-        );
-        self.rust_node_event = Some(event);
+        self.rust_node_events.push_back(event);
     }
 }

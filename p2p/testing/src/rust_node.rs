@@ -1,4 +1,8 @@
-use std::{pin::Pin, time::Duration};
+use std::{
+    pin::Pin,
+    task::{ready, Context, Poll},
+    time::Duration,
+};
 
 use futures::Stream;
 use p2p::{P2pAction, P2pEvent, P2pState, P2pTimeouts, PeerId};
@@ -69,21 +73,34 @@ impl RustNode {
         SubStore::dispatch(&mut self.store, action)
     }
 
-    pub(super) fn idle(&mut self, duration: Duration) {
+    pub(super) fn idle(&mut self, duration: Duration) -> RustNodeEvent {
         self.store.service.advance_time(duration);
         self.store.dispatch(IdleAction);
+        self.store
+            .service
+            .rust_node_event()
+            .unwrap_or(RustNodeEvent::Idle)
     }
 
     pub fn state(&self) -> &P2pState {
         &self.store.state().0
     }
 
-    pub(crate) fn dispatch_event(&mut self, event: P2pEvent) -> bool {
-        super::redux::event_effect(&mut self.store, event)
+    fn next_stored_event(&mut self) -> Option<RustNodeEvent> {
+        self.store.service.rust_node_event()
     }
 
-    pub(crate) fn rust_node_event(&mut self) -> Option<RustNodeEvent> {
-        self.store.service.rust_node_event()
+    fn poll_event_receiver(&mut self, cx: &mut Context<'_>) -> Poll<Option<RustNodeEvent>> {
+        let event = ready!(Pin::new(&mut self.event_receiver).poll_recv(cx));
+        Poll::Ready(event.map(|event| {
+            self.dispatch_event(event.clone());
+            RustNodeEvent::P2p { event }
+        }))
+    }
+
+    pub(crate) fn dispatch_event(&mut self, event: P2pEvent) -> RustNodeEvent {
+        super::redux::event_effect(&mut self.store, event.clone());
+        RustNodeEvent::P2p { event }
     }
 }
 
@@ -101,12 +118,17 @@ impl TestNode for RustNode {
 }
 
 impl Stream for RustNode {
-    type Item = P2pEvent;
+    type Item = RustNodeEvent;
 
     fn poll_next(
         self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Option<Self::Item>> {
-        Pin::new(&mut self.get_mut().event_receiver).poll_recv(cx)
+        let this = self.get_mut();
+        if let Some(event) = this.next_stored_event() {
+            Poll::Ready(Some(event))
+        } else {
+            this.poll_event_receiver(cx)
+        }
     }
 }
