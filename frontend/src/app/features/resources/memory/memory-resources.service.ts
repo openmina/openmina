@@ -4,9 +4,7 @@ import { MemoryResource } from '@shared/types/resources/memory/memory-resource.t
 import { map, Observable } from 'rxjs';
 import { RustService } from '@core/services/rust.service';
 
-@Injectable({
-  providedIn: 'root',
-})
+@Injectable()
 export class MemoryResourcesService {
 
   private id: number = 0;

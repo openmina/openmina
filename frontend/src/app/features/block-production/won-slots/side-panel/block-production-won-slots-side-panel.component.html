@@ -1,0 +1,111 @@
+<div class="h-xl fx-row-vert-cent flex-between pl-12 pr-12 f-600 p-relative">
+  <span class="secondary">{{ title }}</span>
+  <div class="percentage success-primary">{{ percentage }}%</div>
+  <div *ngIf="percentage > 0" [style.width.%]="percentage"
+       class="progress-bar p-absolute">
+    <div class="highlight p-absolute" *ngIf="percentage < 100"></div>
+    <div class="progress p-absolute w-100"></div>
+  </div>
+</div>
+<div class="h-minus-xl pb-10 flex-column overflow-auto">
+  <div class="flex-column pl-12 pr-12 border-bottom">
+    <div class="fx-row-vert-cent flex-between h-lg">
+      <span class="tertiary">Global slot</span>
+      <span>{{ slot?.globalSlot }}</span>
+    </div>
+    <div class="fx-row-vert-cent flex-between h-lg">
+      <span class="tertiary">Slot {{ slotStartedAlready ? 'started' : 'scheduled' }}</span>
+      <span>{{ scheduled }}</span>
+    </div>
+    <div class="fx-row-vert-cent flex-between h-lg">
+      <span class="tertiary">Slot remaining time</span>
+      <span>{{ remainingTime || '-' }}</span>
+    </div>
+  </div>
+  <div class="flex-column pl-12 pr-12 border-bottom">
+    <div class="fx-row-vert-cent h-lg tertiary">{{ vrfText }}</div>
+    <div class="fx-row-vert-cent flex-between h-lg">
+      <div class="tertiary fx-row-vert-cent">
+        <span class="mina-icon mr-8" [class.success-primary]="vrf[0]">check_circle</span>
+        <span class="secondary">VRF Value</span>
+        <span class="tertiary">&nbsp;/ Threshold</span>
+      </div>
+      <div class="tertiary fx-row-vert-cent">
+        <span class="secondary">{{ vrf[0]?.toString().slice(0, 9) }}</span>
+        <span class="tertiary">&nbsp;/ {{ vrf[1]?.toString().slice(0, 9) }}</span>
+      </div>
+    </div>
+  </div>
+  <div class="flex-column pl-12 pr-12 border-bottom">
+    <div class="fx-row-vert-cent flex-between h-lg">
+      <span class="tertiary">Block Production Stages</span>
+      <span>{{ slot?.status ?? 'Waiting' }}</span>
+    </div>
+    <div class="step fx-row-vert-cent flex-between h-lg"
+         [class.incomplete]="slot?.times?.stagedLedgerDiffCreate === null">
+      <div class="fx-row-vert-cent">
+        <span class="mina-icon mr-8">check_circle</span>
+        <span>Created Staged Ledger Diff</span>
+      </div>
+      <div *ngIf="slot?.times?.stagedLedgerDiffCreate !== undefined; else waiting">
+        {{ slot?.times?.stagedLedgerDiffCreate | secDuration: config }}
+      </div>
+    </div>
+    <div class="step fx-row-vert-cent flex-between h-lg"
+         [class.incomplete]="slot?.times?.produced === null">
+      <div class="fx-row-vert-cent">
+        <span class="mina-icon mr-8">check_circle</span>
+        <span>Block Produced</span>
+      </div>
+      <div *ngIf="slot?.times?.produced !== undefined; else waiting">
+        {{ slot?.times?.produced | secDuration: config }}
+      </div>
+    </div>
+    <div class="step fx-row-vert-cent flex-between h-lg"
+         [class.incomplete]="slot?.times?.proofCreate === null">
+      <div class="fx-row-vert-cent">
+        <span class="mina-icon mr-8">check_circle</span>
+        <span>Proof Created</span>
+      </div>
+      <div *ngIf="slot?.times?.proofCreate !== undefined; else waiting">
+        {{ slot?.times?.proofCreate | secDuration: config }}
+      </div>
+    </div>
+    <div class="step fx-row-vert-cent flex-between h-lg"
+         [class.incomplete]="slot?.times?.blockApply === null">
+      <div class="fx-row-vert-cent">
+        <span class="mina-icon mr-8">check_circle</span>
+        <span>Applied Block</span>
+      </div>
+      <div *ngIf="slot?.times?.blockApply !== undefined; else waiting">
+        {{ slot?.times?.blockApply | secDuration: config }}
+      </div>
+    </div>
+    <div class="step fx-row-vert-cent flex-between h-lg"
+         *ngIf="slot?.times?.discarded">
+      <div class="fx-row-vert-cent">
+        <span class="mina-icon mr-8 aware-primary">dangerous</span>
+        <span>Block Discarded</span>
+      </div>
+      <div>{{ slot?.times?.discarded | readableDate }}</div>
+    </div>
+  </div>
+  <div class="flex-column pl-12 pr-12">
+    <div class="fx-row-vert-cent flex-between h-lg">
+      <span class="tertiary">Mina Explorer</span>
+      <button class="btn-primary"
+              (click)="viewInMinaExplorer()"
+              [disabled]="slot?.active || slot?.status">View in Explorer
+      </button>
+    </div>
+    <div class="fx-row-vert-cent flex-between h-lg">
+      <span class="tertiary">Network</span>
+      <div>Not observed</div>
+    </div>
+  </div>
+
+</div>
+
+<ng-template #waiting>
+  <span class="mina-icon tertiary f-18">more_horiz</span>
+</ng-template>

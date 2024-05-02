@@ -1,9 +1,7 @@
 import { ChangeDetectionStrategy, Component, ComponentRef, ElementRef, Input, OnInit, ViewChild } from '@angular/core';
-import { selectActiveNode, selectAppMenu, selectNodes } from '@app/app.state';
+import { AppSelectors } from '@app/app.state';
 import { filter, take } from 'rxjs';
-import { Store } from '@ngrx/store';
-import { MinaState } from '@app/app.setup';
-import { isMobile, ManualDetection } from '@openmina/shared';
+import { isMobile } from '@openmina/shared';
 import { AppMenu } from '@shared/types/app/app-menu.type';
 import { MinaNode } from '@shared/types/core/environment/mina-env.type';
 import { ComponentPortal } from '@angular/cdk/portal';
@@ -41,14 +39,14 @@ export class ServerStatusComponent extends StoreDispatcher implements OnInit {
   }
 
   private listenToMenuChange(): void {
-    this.select(selectAppMenu, (menu: AppMenu) => {
+    this.select(AppSelectors.menu, (menu: AppMenu) => {
       this.isMobile = menu.isMobile;
       this.detect();
     }, filter(menu => menu.isMobile !== this.isMobile));
   }
 
   private listenToNodeChanges(): void {
-    this.select(selectNodes, (nodes: MinaNode[]) => {
+    this.select(AppSelectors.nodes, (nodes: MinaNode[]) => {
       this.nodes = nodes;
       if (this.overlayRef?.hasAttached()) {
         this.detachOverlay();
@@ -56,7 +54,7 @@ export class ServerStatusComponent extends StoreDispatcher implements OnInit {
       }
       this.detect();
     }, filter(nodes => nodes.length > 0));
-    this.select(selectActiveNode, (activeNode: MinaNode) => {
+    this.select(AppSelectors.activeNode, (activeNode: MinaNode) => {
       this.activeNode = activeNode;
       this.detect();
     }, filter(Boolean));

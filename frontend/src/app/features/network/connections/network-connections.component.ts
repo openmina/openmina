@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, ElementRef, OnDestroy, OnInit } fro
 import { NetworkConnectionsClose, NetworkConnectionsInit } from '@network/connections/network-connections.actions';
 import { selectNetworkConnectionsActiveConnection } from '@network/connections/network-connections.state';
 import { NetworkConnection } from '@shared/types/network/connections/network-connection.type';
-import { selectActiveNode } from '@app/app.state';
+import { AppSelectors } from '@app/app.state';
 import { filter } from 'rxjs';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
 
@@ -25,7 +25,7 @@ export class NetworkConnectionsComponent extends StoreDispatcher implements OnIn
   }
 
   private listenToActiveNodeChange(): void {
-    this.select(selectActiveNode, () => {
+    this.select(AppSelectors.activeNode, () => {
       this.dispatch(NetworkConnectionsInit);
     }, filter(Boolean));
   }

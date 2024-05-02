@@ -7,8 +7,8 @@ import { downloadJson, ExpandTracking, MinaJsonViewerComponent } from '@openmina
 import { delay, mergeMap, of } from 'rxjs';
 import { Routes } from '@shared/enums/routes.enum';
 import { Router } from '@angular/router';
-import { selectActiveNode } from '@app/app.state';
 import { isSubFeatureEnabled } from '@shared/constants/config';
+import { AppSelectors } from '@app/app.state';
 
 @Component({
   selector: 'mina-network-node-dht-side-panel',
@@ -42,7 +42,7 @@ export class NetworkNodeDhtSidePanelComponent extends StoreDispatcher implements
   }
 
   private listenToActiveNode(): void {
-    this.select(selectActiveNode, (node) => {
+    this.select(AppSelectors.activeNode, (node) => {
       this.hasBootstrapStatsEnabled = isSubFeatureEnabled(node, 'network', 'bootstrap-stats');
     });
   }

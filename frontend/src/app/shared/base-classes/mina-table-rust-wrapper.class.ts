@@ -1,5 +1,5 @@
 import { Directive, OnInit } from '@angular/core';
-import { selectAppMenu } from '@app/app.state';
+import { AppSelectors } from '@app/app.state';
 import { AppMenu } from '@shared/types/app/app-menu.type';
 import { MinaTableWrapper } from '@openmina/shared';
 import { MinaState } from '@app/app.setup';
@@ -10,7 +10,7 @@ export abstract class MinaTableRustWrapper<T extends object> extends MinaTableWr
   override async ngOnInit(): Promise<void> {
     await super.ngOnInit();
 
-    this.select(selectAppMenu, (menu: AppMenu) => {
+    this.select(AppSelectors.menu, (menu: AppMenu) => {
       this.checkViewport(menu.isMobile);
     });
   }

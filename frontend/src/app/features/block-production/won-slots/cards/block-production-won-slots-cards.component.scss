@@ -1,0 +1,7 @@
+::ng-deep mina-card:last-child {
+  width: unset;
+
+  div:last-child {
+    white-space: nowrap;
+  }
+}

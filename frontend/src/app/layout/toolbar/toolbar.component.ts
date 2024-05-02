@@ -1,10 +1,10 @@
 import { ChangeDetectionStrategy, Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { ActivatedRoute, NavigationEnd, Router } from '@angular/router';
 import { filter, map } from 'rxjs';
-import { selectAppMenu } from '@app/app.state';
+import { AppSelectors } from '@app/app.state';
 import { getMergedRoute, TooltipService } from '@openmina/shared';
 import { AppMenu } from '@shared/types/app/app-menu.type';
-import { AppToggleMenuOpening } from '@app/app.actions';
+import { AppActions } from '@app/app.actions';
 import { selectLoadingStateLength } from '@app/layout/toolbar/loading.reducer';
 import { Routes } from '@shared/enums/routes.enum';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
@@ -50,7 +50,7 @@ export class ToolbarComponent extends StoreDispatcher implements OnInit {
   }
 
   private listenToMenuChange(): void {
-    this.select(selectAppMenu, (menu: AppMenu) => {
+    this.select(AppSelectors.menu, (menu: AppMenu) => {
       this.isMobile = menu.isMobile;
       this.detect();
     }, filter(menu => menu.isMobile !== this.isMobile));
@@ -82,7 +82,7 @@ export class ToolbarComponent extends StoreDispatcher implements OnInit {
   }
 
   toggleMenu(): void {
-    this.dispatch(AppToggleMenuOpening);
+    this.dispatch2(AppActions.toggleMenuOpening());
   }
 
   private listenToRouterChange(): void {

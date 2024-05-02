@@ -10,13 +10,18 @@ export interface AppState {
 }
 
 const select = <T>(selector: (state: AppState) => T): MinaSelector<T> => createSelector(
-  selectAppState,
+  (state: MinaState): AppState => state.app,
   selector,
 );
 
 type MinaSelector<T> = MemoizedSelector<MinaState, T>;
 
-export const selectAppState = (state: MinaState): AppState => state.app;
-export const selectAppMenu = select((state: AppState): AppMenu => state.menu);
-export const selectNodes: MinaSelector<MinaNode[]> = select(state => state.nodes);
-export const selectActiveNode: MinaSelector<MinaNode> = select(state => state.activeNode);
+export const menu = select((state: AppState): AppMenu => state.menu);
+export const nodes: MinaSelector<MinaNode[]> = select(state => state.nodes);
+export const activeNode: MinaSelector<MinaNode> = select(state => state.activeNode);
+
+export const AppSelectors = {
+  menu,
+  nodes,
+  activeNode,
+};

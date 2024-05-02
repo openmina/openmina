@@ -9,7 +9,7 @@
           'success-primary': row.type === 'Successful'
         }">
     <ng-container *ngTemplateOutlet="icon; context: { type: row.type }"></ng-container>
-    <span class="ml-5">{{ row.type }}{{ row.error ? (' - ' + row.error) : '' }}</span>
+    <span class="ml-5">{{ row.type }}{{ row.error ? (' - ' + row.error | truncateMid: 20: 0) : '' }}</span>
   </span>
   <span class="secondary">{{ row.durationInSecs | secDuration: config }}</span>
   <span>

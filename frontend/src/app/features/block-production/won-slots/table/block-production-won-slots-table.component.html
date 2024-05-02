@@ -1,0 +1,18 @@
+<ng-container #minaTable></ng-container>
+
+<ng-template #rowTemplate let-row="row">
+  <span class="fx-row-vert-cent text-capitalize" [ngClass]="row.message">
+    <mina-loading-spinner *ngIf="row.active; else circle"></mina-loading-spinner>
+    <ng-template #circle><span class="mina-icon icon-200 f-big">circle</span></ng-template>
+    {{ row.message }}
+  </span>
+  <span>{{ row.age }}</span>
+  <span>{{ row.height ?? '-' }}</span>
+  <span>{{ row.globalSlot }}</span>
+  <span
+    [tooltip]="row.payments + ' payments, ' + row.delegations + ' delegations, ' + row.zkapps + ' zkapps'"
+  >{{ row.transactionsTotal ?? '-' }}</span>
+  <span>{{ row.snarkFees ?? '-' }}</span>
+  <span>{{ row.coinbaseRewards ?? '-' }}</span>
+  <span>{{ row.txFeesRewards ?? '-' }}</span>
+</ng-template>

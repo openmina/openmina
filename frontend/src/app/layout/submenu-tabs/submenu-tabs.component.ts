@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, EventEmitter, OnInit, Output, ViewChild } from '@angular/core';
 import { getMergedRoute, HorizontalMenuComponent, MergedRoute, removeParamsFromURL } from '@openmina/shared';
-import { selectActiveNode, selectAppMenu } from '@app/app.state';
+import { AppSelectors } from '@app/app.state';
 import { untilDestroyed } from '@ngneat/until-destroy';
 import { combineLatest, debounceTime, filter } from 'rxjs';
 import { CONFIG, getAvailableFeatures } from '@shared/constants/config';
@@ -38,7 +38,7 @@ export class SubmenuTabsComponent extends StoreDispatcher implements OnInit {
 
   private listenToRouteChange(): void {
     combineLatest([
-      this.store.select(selectActiveNode),
+      this.store.select(AppSelectors.activeNode),
       this.store.select(getMergedRoute).pipe(filter(Boolean)),
     ])
       .pipe(
@@ -74,7 +74,7 @@ export class SubmenuTabsComponent extends StoreDispatcher implements OnInit {
   }
 
   private listenToMenuChange(): void {
-    this.select(selectAppMenu, (menu: AppMenu) => {
+    this.select(AppSelectors.menu, (menu: AppMenu) => {
       this.isMobile = menu.isMobile;
       this.detect();
     }, filter(menu => menu.isMobile !== this.isMobile));

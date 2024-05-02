@@ -1,0 +1,43 @@
+<mina-horizontal-menu [clz]="'pl-12 pr-12'"
+                      [template]="template"></mina-horizontal-menu>
+
+<ng-template #template>
+  <div class="tertiary f-600 mr-8">{{ totalWonSlots }} Won slots</div>
+
+  <ng-container *ngIf="filters">
+    <div class="h-sm fx-row-vert-cent pl-5 pr-5 border-rad-6 pointer mr-5 f-600"
+         [class.pointer-none]="totalCanonical === 0"
+         [ngClass]="(filters.accepted && totalCanonical !== 0) ? 'bg-success-container success-primary' : 'bg-container tertiary'"
+         (click)="changeFilter('accepted', !filters.accepted)">
+      <span class="mr-5">{{ totalCanonical }}</span>
+      Accepted
+    </div>
+
+    <div
+      class="h-sm fx-row-vert-cent pl-5 pr-5 border-rad-6 pointer mr-5 f-600"
+      [class.pointer-none]="totalOrphaned === 0"
+      [ngClass]="(filters.rejected && totalOrphaned !== 0) ? 'bg-special-selected-alt-1-container special-alt-1-primary' : 'bg-container tertiary'"
+      (click)="changeFilter('rejected', !filters.rejected)">
+      <span class="mr-5">{{ totalOrphaned }}</span>
+      Rejected
+    </div>
+
+    <div
+      class="h-sm fx-row-vert-cent pl-5 pr-5 border-rad-6 pointer mr-5 f-600"
+      [class.pointer-none]="totalMissed === 0"
+      [ngClass]="(filters.missed && totalMissed !== 0) ? 'bg-warn-container warn-primary' : 'bg-container tertiary'"
+      (click)="changeFilter('missed', !filters.missed)">
+      <span class="mr-5">{{ totalMissed }}</span>
+      Missed
+    </div>
+
+    <div
+      class="h-sm fx-row-vert-cent pl-5 pr-5 border-rad-6 pointer f-600"
+      [class.pointer-none]="totalFuture === 0"
+      [ngClass]="(filters.upcoming && totalFuture !== 0) ? 'bg-container primary' : 'bg-container tertiary'"
+      (click)="changeFilter('upcoming', !filters.upcoming)">
+      <span class="mr-5">{{ totalFuture }}</span>
+      Upcoming
+    </div>
+  </ng-container>
+</ng-template>

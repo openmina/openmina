@@ -1,13 +1,13 @@
 import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import {
-  NetworkMessagesTableComponent
+  NetworkMessagesTableComponent,
 } from '@network/messages/network-messages-table/network-messages-table.component';
 import { selectNetworkActiveRow } from '@network/messages/network-messages.state';
 import { NetworkMessage } from '@shared/types/network/messages/network-message.type';
 import { NetworkMessagesClose, NetworkMessagesInit } from '@network/messages/network-messages.actions';
-import { selectActiveNode } from '@app/app.state';
 import { filter } from 'rxjs';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
+import { AppSelectors } from '@app/app.state';
 
 @Component({
   selector: 'mina-network-messages',
@@ -28,7 +28,7 @@ export class NetworkMessagesComponent extends StoreDispatcher implements OnInit,
   }
 
   private listenToActiveNodeChange(): void {
-    this.select(selectActiveNode, () => {
+    this.select(AppSelectors.activeNode, () => {
       this.dispatch(NetworkMessagesInit);
     }, filter(Boolean));
   }

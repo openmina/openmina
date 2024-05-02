@@ -1,0 +1,37 @@
+<div class="h-xl f-600 tertiary fx-row-vert-cent pl-12">Epoch {{ epoch?.epochNumber }}</div>
+<div class="h-minus-xl">
+  <mina-horizontal-menu [template]="template"></mina-horizontal-menu>
+
+  <ng-template #template>
+    <div class="flex-row">
+      <mina-card label="Next Won Slot in"
+                 [value]="card1.nextWonSlot"
+                 [hint]="card1.slot ? 'Slot ' + card1.slot : '-'"
+                 class="mr-10"></mina-card>
+      <mina-card label="Won Slots"
+                 [value]="card2.wonSlots"
+                 [hint]="card2.slotsUsed + ' slots used'"
+                 labelColor="var(--base-tertiary)"
+                 color="var(--base-tertiary)"
+                 class="mr-10"></mina-card>
+      <mina-card label="Accepted Blocks"
+                 [value]="card3.acceptedBlocks"
+                 [hint]="'last ' + card3.lastBlockTime + ' ago'"
+                 labelColor="var(--base-tertiary)"
+                 color="var(--base-tertiary)"
+                 class="mr-10"></mina-card>
+      <mina-card label="Epoch Progress"
+                 [value]="card4.epochProgress"
+                 [hint]="'Ends in ' + card3.lastBlockTime"
+                 labelColor="var(--base-tertiary)"
+                 color="var(--base-tertiary)"
+                 class="mr-10"></mina-card>
+      <mina-card label="Total Rewards"
+                 [value]="card5.totalRewards"
+                 [hint]="'Coinbase and Transaction Fees'"
+                 labelColor="var(--base-tertiary)"
+                 color="var(--base-tertiary)"
+                 class="mr-10"></mina-card>
+    </div>
+  </ng-template>
+</div>

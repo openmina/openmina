@@ -19,9 +19,7 @@ import {
 import { MemoryResourcesService } from '@resources/memory/memory-resources.service';
 import { MemoryResource } from '@shared/types/resources/memory/memory-resource.type';
 
-@Injectable({
-  providedIn: 'root',
-})
+@Injectable()
 export class MemoryResourcesEffects extends MinaRustBaseEffect<MemoryResourcesActions> {
 
   readonly getResources$: Effect;
