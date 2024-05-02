@@ -464,13 +464,20 @@ impl Cluster {
         cx: &mut Context<'_>,
     ) -> Poll<Option<RustNodeEvent>> {
         let rust_node = &mut self.rust_nodes[id.0];
-        if let Some(dur) = self.timeouts.remove(&id.0) {
+        let res = if let Some(dur) = self.timeouts.remove(&id.0) {
             // trigger timeout action and return idle event
-            Poll::Ready(Some(rust_node.idle(dur)))
+             Poll::Ready(Some(rust_node.idle(dur)))
         } else {
             // poll next available event from the node
             rust_node.poll_next_unpin(cx)
+        };
+        if crate::log::ERROR.swap(false, std::sync::atomic::Ordering::Relaxed) {
+            if let Err(err) = self.dump_state(id.0) {
+                eprintln!("error dumping state: {err}");
+            }
+            panic!("error detected");
         }
+        res
     }
 
     fn poll_libp2p_node(
@@ -480,6 +487,14 @@ impl Cluster {
     ) -> Poll<Option<Libp2pEvent>> {
         let libp2p_node = &mut self.libp2p_nodes[id.0];
         Poll::Ready(ready!(libp2p_node.swarm_mut().poll_next_unpin(cx)))
+    }
+
+    fn dump_state(&self, i: usize) -> std::result::Result<(), Box<dyn std::error::Error>> {
+        let path = std::env::temp_dir().join(format!("p2p-test-node-{i}.json"));
+        eprintln!("saving state of node {i} to {:?}", path);
+        let file = std::fs::File::create(path)?;
+        serde_json::to_writer(file, self.rust_nodes[i].state())?;
+        Ok(())
     }
 }
 
