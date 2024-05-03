@@ -1,4 +1,11 @@
-use crate::{P2pCryptoService, P2pNetworkYamuxAction};
+use std::sync::Arc;
+
+use openmina_core::block::BlockWithHash;
+
+use crate::{
+    channels::snark::P2pChannelsSnarkAction, peer::P2pPeerAction, P2pCryptoService,
+    P2pNetworkYamuxAction,
+};
 
 use super::{pb, P2pNetworkPubsubAction, TOPIC};
 
@@ -63,18 +70,24 @@ impl P2pNetworkPubsubAction {
                     store.dispatch(Self::BroadcastSigned { signature });
                 }
             }
-            Self::IncomingData { .. } | Self::BroadcastSigned { .. } => {
-                let broadcast = state
-                    .clients
-                    .iter()
-                    .filter(|(_, state)| !message_is_empty(&state.message))
-                    .map(|(peer_id, state)| Self::OutgoingMessage {
-                        msg: state.message.clone(),
-                        peer_id: *peer_id,
-                    })
-                    .collect::<Vec<_>>();
-                for action in broadcast {
-                    store.dispatch(action);
+            Self::BroadcastSigned { .. } => broadcast(store),
+            Self::IncomingData { peer_id, .. } => {
+                let incoming_block = state.incoming_block.as_ref().cloned();
+                let incoming_snarks = state.incoming_snarks.clone();
+
+                broadcast(store);
+                if let Some(block) = incoming_block {
+                    store.dispatch(P2pPeerAction::BestTipUpdate {
+                        peer_id,
+                        best_tip: BlockWithHash::new(Arc::new(block)),
+                    });
+                }
+                for (snark, nonce) in incoming_snarks {
+                    store.dispatch(P2pChannelsSnarkAction::Libp2pReceived {
+                        peer_id,
+                        snark,
+                        nonce,
+                    });
                 }
             }
             Self::OutgoingMessage { msg, peer_id } => {
@@ -109,5 +122,24 @@ impl P2pNetworkPubsubAction {
                 }
             }
         }
+    }
+}
+
+pub fn broadcast<Store, S>(store: &mut Store)
+where
+    Store: crate::P2pStore<S>,
+{
+    let state = &store.state().network.scheduler.broadcast_state;
+    let broadcast = state
+        .clients
+        .iter()
+        .filter(|(_, state)| !message_is_empty(&state.message))
+        .map(|(peer_id, state)| P2pNetworkPubsubAction::OutgoingMessage {
+            msg: state.message.clone(),
+            peer_id: *peer_id,
+        })
+        .collect::<Vec<_>>();
+    for action in broadcast {
+        store.dispatch(action);
     }
 }

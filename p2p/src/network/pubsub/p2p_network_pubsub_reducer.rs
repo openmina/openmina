@@ -1,5 +1,8 @@
 use std::collections::BTreeSet;
 
+use binprot::BinProtRead;
+use mina_p2p_messages::{gossip, v2};
+
 use super::{pb, P2pNetworkPubsubAction, P2pNetworkPubsubClientState, P2pNetworkPubsubState};
 
 impl P2pNetworkPubsubState {
@@ -59,6 +62,7 @@ impl P2pNetworkPubsubState {
                 self.servers.insert(*peer_id, ());
             }
             P2pNetworkPubsubAction::IncomingData { peer_id, data, .. } => {
+                self.incoming_snarks.clear();
                 let Some(state) = self.clients.get_mut(peer_id) else {
                     return;
                 };
@@ -99,6 +103,33 @@ impl P2pNetworkPubsubState {
                                     **c != *peer_id && state.topics.contains(&message.topic)
                                 })
                                 .for_each(|(_, state)| state.message.publish.push(message.clone()));
+
+                            if let Some(data) = message.data {
+                                let mut slice = &data[8..];
+                                match gossip::GossipNetMessageV2::binprot_read(&mut slice) {
+                                    Ok(gossip::GossipNetMessageV2::NewState(block)) => {
+                                        self.incoming_block = Some(block);
+                                    }
+                                    Ok(gossip::GossipNetMessageV2::SnarkPoolDiff {
+                                        message,
+                                        nonce,
+                                    }) => {
+                                        if let v2::NetworkPoolSnarkPoolDiffVersionedStableV2::AddSolvedWork(x) = message {
+                                            // self.incoming_snarks.push((x.into(), nonce.as_u32()));
+                                            let _ = (x, nonce);
+                                            // TODO: convert
+                                        }
+                                    }
+                                    Ok(gossip::GossipNetMessageV2::TransactionPoolDiff {
+                                        ..
+                                    }) => {
+                                        //
+                                    }
+                                    Err(err) => {
+                                        dbg!(err);
+                                    }
+                                }
+                            }
                         }
                         // TODO: handle control messages
                     }
