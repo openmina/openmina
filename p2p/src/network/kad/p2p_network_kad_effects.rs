@@ -95,6 +95,7 @@ impl P2pNetworkKademliaAction {
                 Ok(())
             }
             (BootstrapFinished {}, _) => Ok(()),
+            (UpdateRoutingTable { .. }, _) => Ok(()),
         }
     }
 }

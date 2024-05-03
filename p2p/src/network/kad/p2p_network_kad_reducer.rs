@@ -1,5 +1,7 @@
 use redux::ActionWithMeta;
 
+use crate::P2pNetworkKadEntry;
+
 use super::{P2pNetworkKadAction, P2pNetworkKadLatestRequestPeerKind, P2pNetworkKadStatus};
 
 use super::stream::P2pNetworkKademliaStreamAction;
@@ -91,6 +93,12 @@ impl super::P2pNetworkKadState {
                     time: meta.time(),
                     stats: state.stats.clone(),
                 };
+                Ok(())
+            }
+            (_, UpdateRoutingTable { peer_id, addrs }) => {
+                let _ = self
+                    .routing_table
+                    .insert(P2pNetworkKadEntry::new(*peer_id, addrs.clone()));
                 Ok(())
             }
             (state, action) => Err(format!("invalid action {action:?} for state {state:?}")),

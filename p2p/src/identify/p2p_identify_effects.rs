@@ -1,5 +1,6 @@
 use crate::{
-    connection::P2pConnectionService, P2pNetworkConnectionMuxState, P2pNetworkYamuxAction, P2pStore,
+    connection::P2pConnectionService, P2pNetworkConnectionMuxState, P2pNetworkKademliaAction,
+    P2pNetworkYamuxAction, P2pStore,
 };
 use openmina_core::error;
 use redux::ActionMeta;
@@ -46,7 +47,12 @@ impl P2pIdentifyAction {
                     }
                 }
             }
-            P2pIdentifyAction::UpdatePeerInformation { .. } => {}
+            P2pIdentifyAction::UpdatePeerInformation { peer_id, info } => {
+                store.dispatch(P2pNetworkKademliaAction::UpdateRoutingTable {
+                    peer_id,
+                    addrs: info.listen_addrs,
+                });
+            }
         }
     }
 }
