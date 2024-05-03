@@ -25,6 +25,7 @@ impl P2pNetworkPubsubState {
                                 publish: vec![],
                                 control: None,
                             },
+                            buffer: vec![],
                         });
                 state.protocol = *protocol;
                 state.addr = *addr;
@@ -49,6 +50,7 @@ impl P2pNetworkPubsubState {
                                 publish: vec![],
                                 control: None,
                             },
+                            buffer: vec![],
                         });
                 state.outgoing_stream_id = Some(*stream_id);
                 state.protocol = *protocol;
@@ -60,8 +62,15 @@ impl P2pNetworkPubsubState {
                 let Some(state) = self.clients.get_mut(peer_id) else {
                     return;
                 };
-                match <pb::Rpc as prost::Message>::decode_length_delimited(&**data) {
+                let slice = if state.buffer.is_empty() {
+                    &**data
+                } else {
+                    state.buffer.extend_from_slice(&**data);
+                    &state.buffer
+                };
+                match <pb::Rpc as prost::Message>::decode_length_delimited(slice) {
                     Ok(v) => {
+                        state.buffer.clear();
                         for subscription in v.subscriptions {
                             if subscription.subscribe() {
                                 state.topics.insert(subscription.topic_id().to_owned());
@@ -94,6 +103,12 @@ impl P2pNetworkPubsubState {
                         // TODO: handle control messages
                     }
                     Err(err) => {
+                        // bad way to check the error, but `prost` doesn't provide better
+                        if err.to_string().contains("buffer underflow") {
+                            if state.buffer.is_empty() {
+                                state.buffer = data.to_vec();
+                            }
+                        }
                         dbg!(err);
                     }
                 }
