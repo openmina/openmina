@@ -8,7 +8,7 @@ use std::{
 
 use derive_builder::UninitializedFieldError;
 use futures::StreamExt;
-use libp2p::Multiaddr;
+use libp2p::{multiaddr::multiaddr, swarm::DialError, Multiaddr};
 use p2p::{
     connection::outgoing::{
         P2pConnectionOutgoingAction, P2pConnectionOutgoingInitLibp2pOpts,
@@ -268,8 +268,10 @@ pub enum Error {
     AddrParse(#[from] P2pConnectionOutgoingInitOptsParseError),
     #[error(transparent)]
     UninitializedField(#[from] UninitializedFieldError),
+    #[error("swarm creation error: {0}")]
+    Libp2pSwarm(String),
     #[error(transparent)]
-    Libp2p(#[from] Box<dyn std::error::Error>),
+    Libp2pDial(#[from] DialError),
     #[error("Error occurred: {0}")]
     Other(String),
 }
@@ -411,33 +413,59 @@ impl Cluster {
         let secret_key = Self::secret_key(config.peer_id, node_id.0, LIBP2P_NODE_SIG_BYTE);
         let libp2p_port = self.next_port()?;
 
-        let swarm = create_swarm(secret_key, libp2p_port, &self.chain_id)?;
+        let swarm = create_swarm(secret_key, libp2p_port, &self.chain_id).map_err(|err| Error::Libp2pSwarm(err.to_string()))?;
         self.libp2p_nodes.push(Libp2pNode::new(swarm));
 
         Ok(node_id)
     }
 
-    pub fn connect<T>(&mut self, id: RustNodeId, other: T) -> Result<()>
+    fn rust_dial_opts(&self, listener: Listener) -> Result<P2pConnectionOutgoingInitOpts> {
+        match listener {
+            Listener::Rust(id) => Ok(self.rust_node(id).rust_dial_opts(self.ip)),
+            Listener::Libp2p(id) => Ok(self.libp2p_node(id).rust_dial_opts(self.ip)),
+            Listener::Multiaddr(maddr) => Ok(maddr.try_into().map_err(|e| Error::AddrParse(e))?),
+            Listener::SocketPeerId(socket, peer_id) => Ok(P2pConnectionOutgoingInitOpts::LibP2P(
+                (peer_id, socket).into(),
+            )),
+        }
+    }
+
+    fn libp2p_dial_opts(&self, listener: Listener) -> Result<Multiaddr> {
+        match listener {
+            Listener::Rust(id) => Ok(self.rust_node(id).libp2p_dial_opts(self.ip)),
+            Listener::Libp2p(id) => Ok(self.libp2p_node(id).libp2p_dial_opts(self.ip)),
+            Listener::Multiaddr(maddr) => Ok(maddr),
+            Listener::SocketPeerId(socket, peer_id) => match socket {
+                SocketAddr::V4(ipv4) => {
+                    Ok(multiaddr!(Ip4(*ipv4.ip()), Tcp(ipv4.port()), P2p(peer_id)))
+                }
+                SocketAddr::V6(ipv6) => {
+                    Ok(multiaddr!(Ip6(*ipv6.ip()), Tcp(ipv6.port()), P2p(peer_id)))
+                }
+            },
+        }
+    }
+
+    pub fn connect<T, U>(&mut self, id: T, other: U) -> Result<()>
     where
-        T: Into<Listener>,
+        T: Into<NodeId>,
+        U: Into<Listener>,
     {
-        match other.into() {
-            Listener::Rust(node_id) => {
-                let opts = self.rust_node(node_id).dial_opts(self.ip);
+        match id.into() {
+            NodeId::Rust(id) => {
+                let dial_opts = self.rust_dial_opts(other.into())?;
                 self.rust_node_mut(id)
-                    .dispatch_action(P2pConnectionOutgoingAction::Init { opts, rpc_id: None });
+                    .dispatch_action(P2pConnectionOutgoingAction::Init {
+                        opts: dial_opts,
+                        rpc_id: None,
+                    });
             }
-            Listener::Libp2p(node_id) => {
-                let opts = self.libp2p_node(node_id).dial_opts(self.ip);
-                self.rust_node_mut(id)
-                    .dispatch_action(P2pConnectionOutgoingAction::Init { opts, rpc_id: None });
+            NodeId::Libp2p(id) => {
+                let dial_opts = self.libp2p_dial_opts(other.into())?;
+                self.libp2p_node_mut(id)
+                    .swarm_mut()
+                    .dial(dial_opts)?;
             }
-            Listener::Multiaddr(maddr) => {
-                let opts = maddr.try_into().map_err(|e| Error::AddrParse(e))?;
-                self.rust_node_mut(id)
-                    .dispatch_action(P2pConnectionOutgoingAction::Init { opts, rpc_id: None });
-            }
-            Listener::SocketPeerId(_, _) => todo!(),
         }
         Ok(())
     }
@@ -460,6 +488,13 @@ impl Cluster {
 
     pub fn timestamp(&self) -> Instant {
         self.last_idle_instant
+    }
+
+    pub fn peer_id<T>(&self, id: T) -> PeerId where T: Into<NodeId> {
+        match id.into() {
+            NodeId::Rust(id) => self.rust_node(id).peer_id(),
+            NodeId::Libp2p(id) => self.libp2p_node(id).peer_id(),
+        }
     }
 }
 

@@ -57,11 +57,12 @@ where
 }
 
 /// Predicate returning true for a cluster event corresponging to the specified node started listening.
-pub fn all_listeners_are_ready<I>(ids: I) -> impl FnMut(ClusterEvent) -> Ready<bool>
+pub fn all_listeners_are_ready<T, I>(ids: I) -> impl FnMut(ClusterEvent) -> Ready<bool>
 where
-    I: IntoIterator<Item = NodeId>,
+    I: IntoIterator<Item = T>,
+    T: Into<NodeId>,
 {
-    let mut ids: HashSet<NodeId> = HashSet::from_iter(ids.into_iter());
+    let mut ids: HashSet<NodeId> = HashSet::from_iter(ids.into_iter().map(Into::into));
     move |event| {
         ready(
             match event {
@@ -71,8 +72,11 @@ where
                 } => ids.remove(&NodeId::Rust(id)),
                 ClusterEvent::Libp2p {
                     id,
-                    event: SwarmEvent::NewListenAddr { .. },
-                } => ids.remove(&NodeId::Libp2p(id)),
+                    event: SwarmEvent::NewListenAddr { address, .. },
+                } => {
+                    println!("{id:?}: new listen addr: {address}");
+                    ids.remove(&NodeId::Libp2p(id))
+                },
                 _ => false,
             } && ids.is_empty(),
         )

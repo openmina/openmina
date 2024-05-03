@@ -113,13 +113,32 @@ where
 
 /// Tries to run the cluster for the specified period of `time`, returning early
 /// true if the specified `nodes` are ready to accept connections.
-pub async fn try_wait_for_all_nodes_to_listen<I>(
+pub async fn wait_for_all_nodes_to_listen<T, I>(
+    cluster: &mut Cluster,
+    nodes: I,
+    time: Duration,
+) -> bool
+where
+    I: IntoIterator<Item = T>,
+    T: Into<NodeId>,
+{
+    cluster
+        .stream()
+        .take_during(time)
+        .any(all_listeners_are_ready(nodes))
+        .await
+}
+
+/// Tries to run the cluster for the specified period of `time`, returning early
+/// true if the specified `nodes` are ready to accept connections.
+pub async fn try_wait_for_all_nodes_to_listen<T, I>(
     cluster: &mut Cluster,
     nodes: I,
     time: Duration,
 ) -> Result<bool, ClusterEvent>
 where
-    I: IntoIterator<Item = NodeId>,
+    I: IntoIterator<Item = T>,
+    T: Into<NodeId>,
 {
     cluster
         .try_stream()
@@ -208,6 +227,8 @@ where
         .try_any(all_nodes_with_value(nodes_values, f))
         .await
 }
+
+
 
 #[cfg(test)]
 mod tests {

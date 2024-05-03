@@ -38,9 +38,8 @@ impl ClusterService {
         let mio = {
             let event_sender = event_sender.clone();
             MioService::run(move |mio_event| {
-                event_sender
-                    .send(mio_event.into())
-                    .expect("cannot send mio event")
+                let _ = event_sender.send(mio_event.into());
+                //.expect("cannot send mio event")
             })
         };
         let keypair = libp2p::identity::Keypair::ed25519_from_bytes(secret_key.to_bytes())
