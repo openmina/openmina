@@ -3,6 +3,8 @@ use std::{
     net::SocketAddr,
 };
 
+use mina_p2p_messages::v2;
+use openmina_core::snark::Snark;
 use serde::{Deserialize, Serialize};
 
 use crate::{token::BroadcastAlgorithm, PeerId, StreamId};
@@ -16,6 +18,8 @@ pub struct P2pNetworkPubsubState {
     pub seq: u64,
     pub to_sign: VecDeque<pb::Message>,
     pub seen: VecDeque<Vec<u8>>,
+    pub incoming_block: Option<v2::MinaBlockBlockStableV2>,
+    pub incoming_snarks: Vec<(Snark, u32)>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
