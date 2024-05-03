@@ -105,6 +105,9 @@ impl P2pNetworkPubsubState {
                                 .for_each(|(_, state)| state.message.publish.push(message.clone()));
 
                             if let Some(data) = message.data {
+                                if data.len() <= 8 {
+                                    continue;
+                                }
                                 let mut slice = &data[8..];
                                 match gossip::GossipNetMessageV2::binprot_read(&mut slice) {
                                     Ok(gossip::GossipNetMessageV2::NewState(block)) => {
@@ -114,10 +117,8 @@ impl P2pNetworkPubsubState {
                                         message,
                                         nonce,
                                     }) => {
-                                        if let v2::NetworkPoolSnarkPoolDiffVersionedStableV2::AddSolvedWork(x) = message {
-                                            // self.incoming_snarks.push((x.into(), nonce.as_u32()));
-                                            let _ = (x, nonce);
-                                            // TODO: convert
+                                        if let v2::NetworkPoolSnarkPoolDiffVersionedStableV2::AddSolvedWork(work) = message {
+                                            self.incoming_snarks.push((work.1.into(), nonce.as_u32()));
                                         }
                                     }
                                     Ok(gossip::GossipNetMessageV2::TransactionPoolDiff {
