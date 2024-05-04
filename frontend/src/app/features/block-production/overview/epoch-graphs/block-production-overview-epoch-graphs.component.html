@@ -1,7 +1,8 @@
 <div class="epoch flex-column flex-end"
      [class.active-epoch]="activeEpoch?.epochNumber === epoch.epochNumber"
      *ngFor="let epoch of epochs; let i=index">
-  <div class="title tertiary ml-5 mt-5"><span *ngIf="i === 0" class="secondary">Epoch </span>{{ epoch.epochNumber }}
+  <div class="title tertiary ml-5 mt-5">
+    <span *ngIf="i === 0" class="secondary">Epoch </span>{{ epoch.epochNumber }}
   </div>
 
   <div class="flex-column flex-grow">
@@ -35,6 +36,6 @@
          || epoch.windows[epoch.windows.length - 1].orphaned !== 0
          || epoch.windows[epoch.windows.length - 1].missed !== 0
        "
-       [style.width]="'calc(100% / ' + 15 / epoch.finishedWindows + ')'"
+       [style.width]="'calc((100% - 9px) / ' + 15 / epoch.finishedWindows + ' + ' + (epoch.finishedWindows === 15 ? 9 : 5) + 'px)'"
        [class.bg-selected-container]="activeEpoch?.epochNumber === epoch.epochNumber"></div>
 </div>

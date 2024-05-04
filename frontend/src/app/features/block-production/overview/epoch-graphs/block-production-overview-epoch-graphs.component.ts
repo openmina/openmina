@@ -2,15 +2,13 @@ import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
 import {
   selectBlockProductionOverviewActiveEpoch,
-  selectBlockProductionOverviewEpochs, selectBlockProductionOverviewScale,
+  selectBlockProductionOverviewEpochs,
+  selectBlockProductionOverviewScale,
 } from '@block-production/overview/block-production-overview.state';
 import {
   BlockProductionOverviewEpoch,
 } from '@shared/types/block-production/overview/block-production-overview-epoch.type';
 import { filter } from 'rxjs';
-import {
-  BlockProductionOverviewWindow,
-} from '@shared/types/block-production/overview/block-production-overview-window.type';
 
 @Component({
   selector: 'mina-block-production-overview-epoch-graphs',

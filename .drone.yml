@@ -333,6 +333,13 @@ steps:
     depends_on:
       - prepare
 
+  - name: block-production-overview-epoch-graphs
+    image: cypress/included:13.3.2
+    commands:
+      - cd frontend && cypress run --config-file "cypress.config.js" --spec "cypress/e2e/block-production/overview/epoch-graphs.cy.ts"
+    depends_on:
+      - prepare
+
   - name: nodes-overview-table
     image: cypress/included:13.3.2
     commands:
@@ -460,6 +467,7 @@ steps:
         from_secret: docker_hub_password
     depends_on:
       - dashboard-peers
+      - block-production-overview-epoch-graphs
       - nodes-overview-table
       - nodes-overview-side-panel
       - nodes-live-blocks-map
