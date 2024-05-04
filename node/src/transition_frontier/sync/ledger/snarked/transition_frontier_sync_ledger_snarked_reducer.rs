@@ -1,32 +1,121 @@
 use std::iter;
 
-use crate::ledger::{ledger_empty_hash_at_depth, tree_height_for_num_accounts, LEDGER_DEPTH};
+use mina_p2p_messages::v2::MinaLedgerSyncLedgerQueryStableV1;
+use p2p::{
+    channels::rpc::{P2pChannelsRpcAction, P2pRpcRequest},
+    PeerId,
+};
+use redux::ActionMeta;
+
+use crate::{
+    ledger::{
+        ledger_empty_hash_at_depth, tree_height_for_num_accounts, LedgerAddress, LEDGER_DEPTH,
+    },
+    Action, State,
+};
 
 use super::{
-    LedgerAddressQuery, LedgerAddressQueryPending, PeerRpcState,
+    LedgerAddressQueryPending, PeerLedgerQueryResponse, PeerRpcState,
     TransitionFrontierSyncLedgerSnarkedAction,
     TransitionFrontierSyncLedgerSnarkedActionWithMetaRef, TransitionFrontierSyncLedgerSnarkedState,
+    ACCOUNT_SUBTREE_HEIGHT,
 };
 
 impl TransitionFrontierSyncLedgerSnarkedState {
-    pub fn reducer(&mut self, action: TransitionFrontierSyncLedgerSnarkedActionWithMetaRef<'_>) {
+    pub fn reducer(
+        mut state: crate::Substate<Self>,
+        action: TransitionFrontierSyncLedgerSnarkedActionWithMetaRef<'_>,
+    ) {
         let (action, meta) = action.split();
+        let state_mut = &mut *state;
         match action {
             TransitionFrontierSyncLedgerSnarkedAction::Pending => {
-                // handled in parent reducer.
+                // handled in parent reducer. TODO(refactor): should have a callback instead?
+
+                // Dispatch
+                let dispatcher = state.into_dispatcher();
+                dispatcher.push(TransitionFrontierSyncLedgerSnarkedAction::PeersQuery);
             }
-            TransitionFrontierSyncLedgerSnarkedAction::PeersQuery => {}
+            TransitionFrontierSyncLedgerSnarkedAction::PeersQuery => {
+                let mut retry_addresses: Vec<_> = state.sync_address_retry_iter().collect();
+                let mut addresses: Vec<_> = state.sync_address_query_iter().collect();
+
+                let (dispatcher, global_state) = state.into_dispatcher_and_state();
+
+                // TODO(binier): make sure they have the ledger we want to query.
+                let mut peer_ids = global_state
+                    .p2p
+                    .ready_peers_iter()
+                    .filter(|(_, p)| p.channels.rpc.can_send_request())
+                    .map(|(id, p)| (*id, p.connected_since))
+                    .collect::<Vec<_>>();
+                peer_ids.sort_by(|(_, t1), (_, t2)| t2.cmp(t1));
+
+                // If this dispatches, we can avoid even trying the following steps because we will
+                // not query address unless we have completed the Num_accounts request first.
+                if let Some((peer_id, _)) = peer_ids.first() {
+                    if dispatcher.push_if_enabled(
+                        TransitionFrontierSyncLedgerSnarkedAction::PeerQueryNumAccountsInit {
+                            peer_id: *peer_id,
+                        },
+                        global_state,
+                        meta.time(),
+                    ) || dispatcher.push_if_enabled(
+                        TransitionFrontierSyncLedgerSnarkedAction::PeerQueryNumAccountsRetry {
+                            peer_id: *peer_id,
+                        },
+                        global_state,
+                        meta.time(),
+                    ) {
+                        return;
+                    }
+                }
+
+                for (peer_id, _) in peer_ids {
+                    if let Some(address) = retry_addresses.last() {
+                        if dispatcher.push_if_enabled(
+                            TransitionFrontierSyncLedgerSnarkedAction::PeerQueryAddressRetry {
+                                peer_id,
+                                address: address.clone(),
+                            },
+                            global_state,
+                            meta.time(),
+                        ) {
+                            retry_addresses.pop();
+                            continue;
+                        }
+                    }
+
+                    match addresses.pop() {
+                        Some((address, expected_hash)) => {
+                            dispatcher.push(
+                                TransitionFrontierSyncLedgerSnarkedAction::PeerQueryAddressInit {
+                                    peer_id,
+                                    expected_hash,
+                                    address,
+                                },
+                            );
+                        }
+                        None if retry_addresses.is_empty() => break,
+                        None => {}
+                    }
+                }
+            }
 
             TransitionFrontierSyncLedgerSnarkedAction::PeerQueryNumAccountsInit { peer_id } => {
                 if let Self::NumAccountsPending {
                     pending_num_accounts,
                     ..
-                } = self
+                } = state_mut
                 {
                     pending_num_accounts
                         .attempts
                         .insert(*peer_id, PeerRpcState::Init { time: meta.time() });
                 }
+
+                // Dispatch
+                let (dispatcher, global_state) = state.into_dispatcher_and_state();
+                peer_query_num_accounts_init(dispatcher, global_state, meta, *peer_id)
             }
             TransitionFrontierSyncLedgerSnarkedAction::PeerQueryNumAccountsPending {
                 peer_id,
@@ -35,7 +124,7 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                 let Self::NumAccountsPending {
                     pending_num_accounts,
                     ..
-                } = self
+                } = state_mut
                 else {
                     return;
                 };
@@ -53,19 +142,24 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                 if let Self::NumAccountsPending {
                     pending_num_accounts,
                     ..
-                } = self
+                } = state_mut
                 {
                     pending_num_accounts
                         .attempts
                         .insert(*peer_id, PeerRpcState::Init { time: meta.time() });
                 }
+
+                // Dispatch
+                let (dispatcher, global_state) = state.into_dispatcher_and_state();
+                peer_query_num_accounts_init(dispatcher, global_state, meta, *peer_id)
             }
             TransitionFrontierSyncLedgerSnarkedAction::PeerQueryNumAccountsError {
                 peer_id,
                 rpc_id,
                 error,
             } => {
-                let Some(rpc_state) = self.peer_num_account_query_state_get_mut(peer_id, *rpc_id)
+                let Some(rpc_state) =
+                    state_mut.peer_num_account_query_state_get_mut(peer_id, *rpc_id)
                 else {
                     return;
                 };
@@ -75,13 +169,18 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                     rpc_id: *rpc_id,
                     error: error.clone(),
                 };
+
+                // Dispatch
+                let dispatcher = state.into_dispatcher();
+                dispatcher.push(TransitionFrontierSyncLedgerSnarkedAction::PeersQuery);
             }
             TransitionFrontierSyncLedgerSnarkedAction::PeerQueryNumAccountsSuccess {
                 peer_id,
                 rpc_id,
-                ..
+                response,
             } => {
-                let Some(rpc_state) = self.peer_num_account_query_state_get_mut(peer_id, *rpc_id)
+                let Some(rpc_state) =
+                    state_mut.peer_num_account_query_state_get_mut(peer_id, *rpc_id)
                 else {
                     return;
                 };
@@ -89,28 +188,108 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                     time: meta.time(),
                     rpc_id: *rpc_id,
                 };
+
+                // Dispatch
+                let dispatcher = state.into_dispatcher();
+
+                match response {
+                    PeerLedgerQueryResponse::NumAccounts(count, contents_hash) => {
+                        dispatcher.push(
+                            TransitionFrontierSyncLedgerSnarkedAction::NumAccountsReceived {
+                                num_accounts: *count,
+                                contents_hash: contents_hash.clone(),
+                                sender: *peer_id,
+                            },
+                        );
+                    }
+                    // TODO(tizoc): These shouldn't happen, log some warning or something
+                    PeerLedgerQueryResponse::ChildHashes(_, _) => {}
+                    PeerLedgerQueryResponse::ChildAccounts(_) => {}
+                }
             }
-            TransitionFrontierSyncLedgerSnarkedAction::NumAccountsReceived { .. } => {}
-            TransitionFrontierSyncLedgerSnarkedAction::NumAccountsAccepted { .. } => {}
+            TransitionFrontierSyncLedgerSnarkedAction::NumAccountsReceived {
+                num_accounts,
+                contents_hash,
+                sender,
+            } => {
+                let (dispatcher, global_state) = state.into_dispatcher_and_state();
+
+                let Some(snarked_ledger_hash) = None.or_else(|| {
+                    let snarked_ledger =
+                        global_state.transition_frontier.sync.ledger()?.snarked()?;
+                    Some(snarked_ledger.ledger_hash().clone())
+                }) else {
+                    return;
+                };
+
+                // Given the claimed number of accounts we can figure out the height of the subtree,
+                // and compute the root hash assuming all other nodes contain empty hashes.
+                // The result must match the snarked ledger hash for this response to be considered
+                // valid.
+                // NOTE: incorrect account numbers may be accepted (if they fall in the same range)
+                // because what is actually being validated is the content hash and tree height,
+                // not the actual number of accounts.
+                let actual_hash = crate::ledger::complete_num_accounts_tree_with_empties(
+                    contents_hash,
+                    *num_accounts,
+                );
+
+                if snarked_ledger_hash == actual_hash {
+                    dispatcher.push(
+                        TransitionFrontierSyncLedgerSnarkedAction::NumAccountsAccepted {
+                            num_accounts: *num_accounts,
+                            contents_hash: contents_hash.clone(),
+                            sender: *sender,
+                        },
+                    );
+                } else {
+                    dispatcher.push(
+                        TransitionFrontierSyncLedgerSnarkedAction::NumAccountsRejected {
+                            num_accounts: *num_accounts,
+                            sender: *sender,
+                        },
+                    );
+                }
+            }
+            TransitionFrontierSyncLedgerSnarkedAction::NumAccountsAccepted {
+                num_accounts,
+                contents_hash,
+                ..
+            } => {
+                let dispatcher = state.into_dispatcher();
+                dispatcher.push(
+                    TransitionFrontierSyncLedgerSnarkedAction::NumAccountsSuccess {
+                        num_accounts: *num_accounts,
+                        contents_hash: contents_hash.clone(),
+                    },
+                );
+            }
             TransitionFrontierSyncLedgerSnarkedAction::NumAccountsRejected { .. } => {
                 // TODO(tizoc): should this be reflected in the state somehow?
+                // TODO(tizoc): we do nothing here, but the peer must be punished somehow
+                let dispatcher = state.into_dispatcher();
+                dispatcher.push(TransitionFrontierSyncLedgerSnarkedAction::PeersQuery);
             }
             TransitionFrontierSyncLedgerSnarkedAction::NumAccountsSuccess {
                 num_accounts,
                 contents_hash,
             } => {
-                let Self::NumAccountsPending { target, .. } = self else {
+                let Self::NumAccountsPending { target, .. } = state_mut else {
                     return;
                 };
 
                 let target = target.clone();
 
-                *self = Self::NumAccountsSuccess {
+                *state_mut = Self::NumAccountsSuccess {
                     time: meta.time(),
                     target,
                     num_accounts: *num_accounts,
                     contents_hash: contents_hash.clone(),
                 };
+
+                // Dispatch
+                let dispatcher = state.into_dispatcher();
+                dispatcher.push(TransitionFrontierSyncLedgerSnarkedAction::MerkleTreeSyncPending);
             }
 
             TransitionFrontierSyncLedgerSnarkedAction::MerkleTreeSyncPending => {
@@ -119,20 +298,19 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                     num_accounts,
                     contents_hash,
                     ..
-                } = self
+                } = state_mut
                 else {
                     return;
                 };
 
                 // We know at which node to begin querying, so we skip all the intermediary depths
-                let first_query = LedgerAddressQuery {
-                    address: ledger::Address::first(
-                        LEDGER_DEPTH - tree_height_for_num_accounts(*num_accounts),
-                    ),
-                    expected_hash: contents_hash.clone(),
-                };
+                let first_node_address = ledger::Address::first(
+                    LEDGER_DEPTH - tree_height_for_num_accounts(*num_accounts),
+                );
+                let expected_hash = contents_hash.clone();
+                let first_query = (first_node_address, expected_hash);
 
-                *self = Self::MerkleTreeSyncPending {
+                *state_mut = Self::MerkleTreeSyncPending {
                     time: meta.time(),
                     target: target.clone(),
                     total_accounts_expected: *num_accounts,
@@ -141,15 +319,30 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                     queue: iter::once(first_query).collect(),
                     pending_addresses: Default::default(),
                 };
+
+                // Dispatch
+                let (dispatcher, global_state) = state.into_dispatcher_and_state();
+                if !dispatcher.push_if_enabled(
+                    TransitionFrontierSyncLedgerSnarkedAction::PeersQuery,
+                    global_state,
+                    meta.time(),
+                ) {
+                    dispatcher
+                        .push(TransitionFrontierSyncLedgerSnarkedAction::MerkleTreeSyncSuccess);
+                }
             }
             TransitionFrontierSyncLedgerSnarkedAction::MerkleTreeSyncSuccess => {
-                let Self::MerkleTreeSyncPending { target, .. } = self else {
+                let Self::MerkleTreeSyncPending { target, .. } = state_mut else {
                     return;
                 };
-                *self = Self::MerkleTreeSyncSuccess {
+                *state_mut = Self::MerkleTreeSyncSuccess {
                     time: meta.time(),
                     target: target.clone(),
                 };
+
+                // Dispatch
+                let dispatcher = state.into_dispatcher();
+                dispatcher.push(TransitionFrontierSyncLedgerSnarkedAction::Success);
             }
 
             TransitionFrontierSyncLedgerSnarkedAction::PeerQueryAddressInit {
@@ -159,14 +352,14 @@ impl TransitionFrontierSyncLedgerSnarkedState {
             } => {
                 if let Self::MerkleTreeSyncPending {
                     queue,
-                    pending_addresses: pending,
+                    pending_addresses,
                     ..
-                } = self
+                } = state_mut
                 {
-                    let _next = queue.pop_front();
-                    //debug_assert_eq!(next.as_ref().map(|p| &p.0), Some(address));
+                    let removed = queue.remove(address);
+                    debug_assert!(removed.is_some());
 
-                    pending.insert(
+                    pending_addresses.insert(
                         address.clone(),
                         LedgerAddressQueryPending {
                             time: meta.time(),
@@ -179,6 +372,10 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                         },
                     );
                 }
+
+                // Dispatch
+                let (dispatcher, global_state) = state.into_dispatcher_and_state();
+                peer_query_address_init(dispatcher, global_state, meta, *peer_id, address.clone());
             }
             TransitionFrontierSyncLedgerSnarkedAction::PeerQueryAddressRetry {
                 address,
@@ -187,7 +384,7 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                 if let Self::MerkleTreeSyncPending {
                     pending_addresses: pending,
                     ..
-                } = self
+                } = state_mut
                 {
                     if let Some(pending) = pending.get_mut(address) {
                         pending
@@ -195,6 +392,10 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                             .insert(*peer_id, PeerRpcState::Init { time: meta.time() });
                     }
                 }
+
+                // Dispatch
+                let (dispatcher, global_state) = state.into_dispatcher_and_state();
+                peer_query_address_init(dispatcher, global_state, meta, *peer_id, address.clone());
             }
             TransitionFrontierSyncLedgerSnarkedAction::PeerQueryAddressPending {
                 address,
@@ -204,7 +405,7 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                 let Self::MerkleTreeSyncPending {
                     pending_addresses: pending,
                     ..
-                } = self
+                } = state_mut
                 else {
                     return;
                 };
@@ -225,7 +426,7 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                 rpc_id,
                 error,
             } => {
-                let Some(rpc_state) = self.peer_address_query_state_get_mut(peer_id, *rpc_id)
+                let Some(rpc_state) = state_mut.peer_address_query_state_get_mut(peer_id, *rpc_id)
                 else {
                     return;
                 };
@@ -235,13 +436,17 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                     rpc_id: *rpc_id,
                     error: error.clone(),
                 };
+
+                // Dispatch
+                let dispatcher = state.into_dispatcher();
+                dispatcher.push(TransitionFrontierSyncLedgerSnarkedAction::PeersQuery);
             }
             TransitionFrontierSyncLedgerSnarkedAction::PeerQueryAddressSuccess {
                 peer_id,
                 rpc_id,
-                ..
+                response,
             } => {
-                let Some(rpc_state) = self.peer_address_query_state_get_mut(peer_id, *rpc_id)
+                let Some(rpc_state) = state_mut.peer_address_query_state_get_mut(peer_id, *rpc_id)
                 else {
                     return;
                 };
@@ -249,6 +454,39 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                     time: meta.time(),
                     rpc_id: *rpc_id,
                 };
+
+                // Dispatch
+                let (dispatcher, global_state) = state.into_dispatcher_and_state();
+                let ledger = global_state.transition_frontier.sync.ledger();
+                let Some(address) = ledger
+                    .and_then(|s| s.snarked()?.peer_address_query_get(peer_id, *rpc_id))
+                    .map(|(addr, _)| addr.clone())
+                else {
+                    return;
+                };
+
+                match response {
+                    PeerLedgerQueryResponse::ChildHashes(left, right) => {
+                        dispatcher.push(
+                            TransitionFrontierSyncLedgerSnarkedAction::ChildHashesReceived {
+                                address,
+                                hashes: (left.clone(), right.clone()),
+                                sender: *peer_id,
+                            },
+                        );
+                    }
+                    PeerLedgerQueryResponse::ChildAccounts(accounts) => {
+                        dispatcher.push(
+                            TransitionFrontierSyncLedgerSnarkedAction::ChildAccountsReceived {
+                                address,
+                                accounts: accounts.clone(),
+                                sender: *peer_id,
+                            },
+                        );
+                    }
+                    // TODO(tizoc): This shouldn't happen, log some warning or something
+                    PeerLedgerQueryResponse::NumAccounts(_, _) => {}
+                }
             }
             TransitionFrontierSyncLedgerSnarkedAction::ChildHashesReceived { .. } => {}
             TransitionFrontierSyncLedgerSnarkedAction::ChildHashesAccepted {
@@ -262,7 +500,7 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                     pending_addresses: pending,
                     synced_hashes_count: num_hashes_accepted,
                     ..
-                } = self
+                } = state_mut
                 else {
                     return;
                 };
@@ -283,20 +521,30 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                 *num_hashes_accepted += (*left != empty) as u64 + (*right != empty) as u64;
 
                 if left != previous_left {
-                    queue.push_back(LedgerAddressQuery {
-                        address: address.child_left(),
-                        expected_hash: left.clone(),
-                    });
+                    let previous = queue.insert(address.child_left(), left.clone());
+                    debug_assert!(previous.is_none());
                 }
                 if right != previous_right {
-                    queue.push_back(LedgerAddressQuery {
-                        address: address.child_right(),
-                        expected_hash: right.clone(),
-                    });
+                    let previous = queue.insert(address.child_right(), right.clone());
+                    debug_assert!(previous.is_none());
+                }
+
+                // Dispatch
+                let (dispatcher, global_state) = state.into_dispatcher_and_state();
+                if !dispatcher.push_if_enabled(
+                    TransitionFrontierSyncLedgerSnarkedAction::PeersQuery,
+                    global_state,
+                    meta.time(),
+                ) {
+                    dispatcher
+                        .push(TransitionFrontierSyncLedgerSnarkedAction::MerkleTreeSyncSuccess);
                 }
             }
             TransitionFrontierSyncLedgerSnarkedAction::ChildHashesRejected { .. } => {
                 // TODO(tizoc): should this be reflected in the state somehow?
+                // TODO(tizoc): we do nothing here, but the peer must be punished somehow
+                let dispatcher = state.into_dispatcher();
+                dispatcher.push(TransitionFrontierSyncLedgerSnarkedAction::PeersQuery);
             }
             TransitionFrontierSyncLedgerSnarkedAction::ChildAccountsReceived { .. } => {}
             TransitionFrontierSyncLedgerSnarkedAction::ChildAccountsAccepted {
@@ -308,26 +556,123 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                     pending_addresses: pending,
                     synced_accounts_count,
                     ..
-                } = self
+                } = state_mut
                 else {
                     return;
                 };
 
                 *synced_accounts_count += count;
                 pending.remove(address);
+
+                // Dispatch
+                let (dispatcher, global_state) = state.into_dispatcher_and_state();
+                if !dispatcher.push_if_enabled(
+                    TransitionFrontierSyncLedgerSnarkedAction::PeersQuery,
+                    global_state,
+                    meta.time(),
+                ) {
+                    dispatcher
+                        .push(TransitionFrontierSyncLedgerSnarkedAction::MerkleTreeSyncSuccess);
+                }
             }
             TransitionFrontierSyncLedgerSnarkedAction::ChildAccountsRejected { .. } => {
                 // TODO(tizoc): should this be reflected in the state somehow?
+                // TODO(tizoc): we do nothing here, but the peer must be punished somehow
+                let dispatcher = state.into_dispatcher();
+                dispatcher.push(TransitionFrontierSyncLedgerSnarkedAction::PeersQuery);
             }
             TransitionFrontierSyncLedgerSnarkedAction::Success => {
-                let Self::MerkleTreeSyncSuccess { target, .. } = self else {
+                let Self::MerkleTreeSyncSuccess { target, .. } = state_mut else {
                     return;
                 };
-                *self = Self::Success {
+                *state_mut = Self::Success {
                     time: meta.time(),
                     target: target.clone(),
                 };
             }
         }
+    }
+}
+
+fn peer_query_num_accounts_init(
+    dispatcher: &mut redux::Dispatcher<Action, State>,
+    state: &State,
+    meta: ActionMeta,
+    peer_id: PeerId,
+) {
+    let Some((ledger_hash, rpc_id)) = None.or_else(|| {
+        let ledger = state.transition_frontier.sync.ledger()?;
+        let ledger_hash = ledger.snarked()?.ledger_hash();
+
+        let p = state.p2p.get_ready_peer(&peer_id)?;
+        let rpc_id = p.channels.rpc.next_local_rpc_id();
+
+        Some((ledger_hash.clone(), rpc_id))
+    }) else {
+        return;
+    };
+
+    if dispatcher.push_if_enabled(
+        P2pChannelsRpcAction::RequestSend {
+            peer_id,
+            id: rpc_id,
+            request: P2pRpcRequest::LedgerQuery(
+                ledger_hash,
+                MinaLedgerSyncLedgerQueryStableV1::NumAccounts,
+            ),
+        },
+        state,
+        meta.time(),
+    ) {
+        dispatcher.push(
+            TransitionFrontierSyncLedgerSnarkedAction::PeerQueryNumAccountsPending {
+                peer_id,
+                rpc_id,
+            },
+        );
+    }
+}
+
+fn peer_query_address_init(
+    dispatcher: &mut redux::Dispatcher<Action, State>,
+    state: &State,
+    meta: ActionMeta,
+    peer_id: PeerId,
+    address: LedgerAddress,
+) {
+    let Some((ledger_hash, rpc_id)) = None.or_else(|| {
+        let ledger = state.transition_frontier.sync.ledger()?;
+        let ledger_hash = ledger.snarked()?.ledger_hash();
+
+        let p = state.p2p.get_ready_peer(&peer_id)?;
+        let rpc_id = p.channels.rpc.next_local_rpc_id();
+
+        Some((ledger_hash.clone(), rpc_id))
+    }) else {
+        return;
+    };
+
+    let query = if address.length() >= LEDGER_DEPTH - ACCOUNT_SUBTREE_HEIGHT {
+        MinaLedgerSyncLedgerQueryStableV1::WhatContents(address.clone().into())
+    } else {
+        MinaLedgerSyncLedgerQueryStableV1::WhatChildHashes(address.clone().into())
+    };
+
+    if dispatcher.push_if_enabled(
+        P2pChannelsRpcAction::RequestSend {
+            peer_id,
+            id: rpc_id,
+            request: P2pRpcRequest::LedgerQuery(ledger_hash, query),
+        },
+        state,
+        meta.time(),
+    ) {
+        dispatcher.push(
+            TransitionFrontierSyncLedgerSnarkedAction::PeerQueryAddressPending {
+                address,
+                peer_id,
+                rpc_id,
+            },
+        );
     }
 }

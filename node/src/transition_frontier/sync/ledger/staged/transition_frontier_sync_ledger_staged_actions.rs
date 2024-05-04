@@ -19,7 +19,7 @@ pub type TransitionFrontierSyncLedgerStagedActionWithMetaRef<'a> =
     redux::ActionWithMeta<&'a TransitionFrontierSyncLedgerStagedAction>;
 
 #[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
-#[action_event(level = trace)]
+#[action_event(level = info)]
 pub enum TransitionFrontierSyncLedgerStagedAction {
     PartsFetchPending,
     PartsPeerFetchInit,
@@ -50,6 +50,7 @@ pub enum TransitionFrontierSyncLedgerStagedAction {
     ReconstructEmpty,
     ReconstructInit,
     ReconstructPending,
+    #[action_event(level = warn, fields(error))]
     ReconstructError {
         error: String,
     },

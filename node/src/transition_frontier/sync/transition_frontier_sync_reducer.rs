@@ -616,8 +616,11 @@ impl TransitionFrontierSyncState {
                 }
             }
             TransitionFrontierSyncAction::Ledger(a) => {
-                if let Some(ledger) = state.ledger_mut() {
-                    ledger.reducer(meta.with_action(a));
+                if state.ledger_mut().is_some() {
+                    TransitionFrontierSyncLedgerState::reducer(
+                        crate::Substate::from_compatible_substate(state),
+                        meta.with_action(a),
+                    );
                 }
             }
         }

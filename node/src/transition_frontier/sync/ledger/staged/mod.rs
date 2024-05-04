@@ -6,8 +6,6 @@ pub use transition_frontier_sync_ledger_staged_actions::*;
 
 mod transition_frontier_sync_ledger_staged_reducer;
 
-mod transition_frontier_sync_ledger_staged_effects;
-
 mod transition_frontier_sync_ledger_staged_service;
 pub use transition_frontier_sync_ledger_staged_service::*;
 
