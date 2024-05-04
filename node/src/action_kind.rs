@@ -58,6 +58,7 @@ use crate::snark::SnarkAction;
 use crate::snark_pool::candidate::SnarkPoolCandidateAction;
 use crate::snark_pool::{SnarkPoolAction, SnarkPoolEffectfulAction};
 use crate::transition_frontier::genesis::TransitionFrontierGenesisAction;
+use crate::transition_frontier::genesis_effectful::TransitionFrontierGenesisEffectfulAction;
 use crate::transition_frontier::sync::ledger::snarked::TransitionFrontierSyncLedgerSnarkedAction;
 use crate::transition_frontier::sync::ledger::staged::TransitionFrontierSyncLedgerStagedAction;
 use crate::transition_frontier::sync::ledger::TransitionFrontierSyncLedgerAction;
@@ -375,6 +376,8 @@ pub enum ActionKind {
     TransitionFrontierGenesisProveInit,
     TransitionFrontierGenesisProvePending,
     TransitionFrontierGenesisProveSuccess,
+    TransitionFrontierGenesisEffectfulLedgerLoadInit,
+    TransitionFrontierGenesisEffectfulProveInit,
     TransitionFrontierSyncBestTipUpdate,
     TransitionFrontierSyncBlocksFetchSuccess,
     TransitionFrontierSyncBlocksNextApplyInit,
@@ -452,7 +455,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 377;
+    pub const COUNT: u16 = 379;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -554,6 +557,7 @@ impl ActionKindGet for TransitionFrontierAction {
     fn kind(&self) -> ActionKind {
         match self {
             Self::Genesis(a) => a.kind(),
+            Self::GenesisEffect(a) => a.kind(),
             Self::Sync(a) => a.kind(),
             Self::GenesisInject => ActionKind::TransitionFrontierGenesisInject,
             Self::Synced { .. } => ActionKind::TransitionFrontierSynced,
@@ -874,6 +878,17 @@ impl ActionKindGet for TransitionFrontierGenesisAction {
             Self::ProveInit => ActionKind::TransitionFrontierGenesisProveInit,
             Self::ProvePending => ActionKind::TransitionFrontierGenesisProvePending,
             Self::ProveSuccess { .. } => ActionKind::TransitionFrontierGenesisProveSuccess,
+        }
+    }
+}
+
+impl ActionKindGet for TransitionFrontierGenesisEffectfulAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::LedgerLoadInit { .. } => {
+                ActionKind::TransitionFrontierGenesisEffectfulLedgerLoadInit
+            }
+            Self::ProveInit { .. } => ActionKind::TransitionFrontierGenesisEffectfulProveInit,
         }
     }
 }

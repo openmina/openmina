@@ -365,6 +365,7 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                             .prove_pending_block_hash()
                             .map_or(false, |hash| hash == block_hash)
                         {
+                            // TODO(refactor): before this is dispatched, genesis inject must be dispatched
                             store.dispatch(TransitionFrontierGenesisAction::ProveSuccess { proof });
                         } else {
                             store.dispatch(BlockProducerAction::BlockProveSuccess { proof });

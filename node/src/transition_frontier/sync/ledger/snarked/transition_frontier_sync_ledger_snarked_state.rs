@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, VecDeque};
+use std::collections::BTreeMap;
 
 use mina_p2p_messages::v2::LedgerHash;
 use redux::Timestamp;
@@ -13,6 +13,7 @@ use crate::transition_frontier::sync::ledger::SyncLedgerTarget;
 use super::{PeerLedgerQueryError, ACCOUNT_SUBTREE_HEIGHT};
 
 static SYNC_PENDING_EMPTY: BTreeMap<LedgerAddress, LedgerAddressQueryPending> = BTreeMap::new();
+static SYNC_QUERY_EMPTY: BTreeMap<LedgerAddress, LedgerHash> = BTreeMap::new();
 
 #[serde_with::serde_as]
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -40,8 +41,9 @@ pub enum TransitionFrontierSyncLedgerSnarkedState {
         synced_accounts_count: u64,
         /// Number of hashes received and accepted so far
         synced_hashes_count: u64,
-        /// Queue of addresses to query and the expected contents hash
-        queue: VecDeque<LedgerAddressQuery>,
+        /// Pending addresses to query and the expected contents hash
+        #[serde_as(as = "Vec<(_, _)>")]
+        queue: BTreeMap<LedgerAddress, LedgerHash>,
         /// Pending ongoing address queries and their attempts
         #[serde_as(as = "Vec<(_, _)>")]
         pending_addresses: BTreeMap<LedgerAddress, LedgerAddressQueryPending>,
@@ -54,12 +56,6 @@ pub enum TransitionFrontierSyncLedgerSnarkedState {
         time: Timestamp,
         target: SyncLedgerTarget,
     },
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct LedgerAddressQuery {
-    pub address: LedgerAddress,
-    pub expected_hash: LedgerHash,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -183,6 +179,7 @@ impl TransitionFrontierSyncLedgerSnarkedState {
         }
     }
 
+    /// Addresses that were being queried already and need to be retried
     pub fn sync_address_retry_iter(&self) -> impl '_ + Iterator<Item = LedgerAddress> {
         let pending = match self {
             Self::MerkleTreeSyncPending {
@@ -196,16 +193,28 @@ impl TransitionFrontierSyncLedgerSnarkedState {
             .map(|(addr, _)| addr.clone())
     }
 
-    pub fn sync_address_next(&self) -> Option<(LedgerAddress, LedgerHash)> {
+    /// Addresses that need to be queried but are still not in process
+    pub fn sync_address_query_iter(
+        &self,
+    ) -> impl '_ + Iterator<Item = (LedgerAddress, LedgerHash)> {
+        let query = match self {
+            Self::MerkleTreeSyncPending { queue, .. } => queue,
+            _ => &SYNC_QUERY_EMPTY,
+        };
+
+        query
+            .iter()
+            .map(|(address, expected_hash)| (address.clone(), expected_hash.clone()))
+    }
+
+    pub fn contains_pending_address_queries(&self) -> bool {
         match self {
-            Self::MerkleTreeSyncPending { queue, .. } => match queue.front().map(|a| a.clone()) {
-                Some(LedgerAddressQuery {
-                    address,
-                    expected_hash,
-                }) => Some((address, expected_hash)),
-                _ => None,
-            },
-            _ => None,
+            Self::MerkleTreeSyncPending {
+                queue,
+                pending_addresses,
+                ..
+            } => !queue.is_empty() || !pending_addresses.is_empty(),
+            _ => false,
         }
     }
 

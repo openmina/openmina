@@ -5,6 +5,7 @@ use openmina_core::ActionEvent;
 use serde::{Deserialize, Serialize};
 
 use super::genesis::TransitionFrontierGenesisAction;
+use super::genesis_effectful::TransitionFrontierGenesisEffectfulAction;
 use super::sync::{TransitionFrontierSyncAction, TransitionFrontierSyncState};
 
 pub type TransitionFrontierActionWithMeta = redux::ActionWithMeta<TransitionFrontierAction>;
@@ -14,6 +15,7 @@ pub type TransitionFrontierActionWithMetaRef<'a> =
 #[derive(derive_more::From, Serialize, Deserialize, Debug, Clone, ActionEvent)]
 pub enum TransitionFrontierAction {
     Genesis(TransitionFrontierGenesisAction),
+    GenesisEffect(TransitionFrontierGenesisEffectfulAction),
     /// Inject genesis block into the transition frontier.
     ///
     /// Unless we already have a better block there.
@@ -36,6 +38,7 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierAction {
     fn is_enabled(&self, state: &crate::State, time: redux::Timestamp) -> bool {
         match self {
             TransitionFrontierAction::Genesis(a) => a.is_enabled(state, time),
+            TransitionFrontierAction::GenesisEffect(a) => a.is_enabled(state, time),
             TransitionFrontierAction::GenesisInject => {
                 if state.transition_frontier.best_tip().is_some() {
                     return false;

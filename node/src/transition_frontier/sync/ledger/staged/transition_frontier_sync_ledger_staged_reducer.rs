@@ -1,5 +1,8 @@
 use ledger::scan_state::protocol_state::MinaHash;
 use mina_p2p_messages::{list::List, v2};
+use p2p::channels::rpc::{P2pChannelsRpcAction, P2pRpcRequest};
+
+use crate::ledger::write::{LedgerWriteAction, LedgerWriteRequest};
 
 use super::{
     PeerStagedLedgerPartsFetchState, StagedLedgerAuxAndPendingCoinbasesValidated,
@@ -8,15 +11,60 @@ use super::{
 };
 
 impl TransitionFrontierSyncLedgerStagedState {
-    pub fn reducer(&mut self, action: TransitionFrontierSyncLedgerStagedActionWithMetaRef<'_>) {
+    pub fn reducer(
+        mut state: crate::Substate<Self>,
+        action: TransitionFrontierSyncLedgerStagedActionWithMetaRef<'_>,
+    ) {
         let (action, meta) = action.split();
+        let state_mut = &mut *state;
         match action {
             TransitionFrontierSyncLedgerStagedAction::PartsFetchPending => {
-                // handled in parent.
+                // handled in parent. TODO(refactor) check this
+                let dispatcher = state.into_dispatcher();
+                dispatcher.push(TransitionFrontierSyncLedgerStagedAction::PartsPeerFetchInit);
             }
-            TransitionFrontierSyncLedgerStagedAction::PartsPeerFetchInit => {}
+            TransitionFrontierSyncLedgerStagedAction::PartsPeerFetchInit => {
+                let (dispatcher, global_state) = state.into_dispatcher_and_state();
+                let Some(staged_ledger) =
+                    None.or_else(|| global_state.transition_frontier.sync.ledger()?.staged())
+                else {
+                    return;
+                };
+                let Some(p2p) = global_state.p2p.ready() else {
+                    return;
+                };
+                let block_hash = staged_ledger.target().staged.block_hash.clone();
+
+                let ready_peers = staged_ledger
+                    .filter_available_peers(p2p.ready_rpc_peers_iter())
+                    .collect::<Vec<_>>();
+
+                for (peer_id, rpc_id) in ready_peers {
+                    // TODO(binier): maybe
+                    // Enabling condition is true if the peer exists and is able to handle this request
+                    if dispatcher.push_if_enabled(
+                        P2pChannelsRpcAction::RequestSend {
+                            peer_id,
+                            id: rpc_id,
+                            request: P2pRpcRequest::StagedLedgerAuxAndPendingCoinbasesAtBlock(
+                                block_hash.clone(),
+                            ),
+                        },
+                        global_state,
+                        meta.time(),
+                    ) {
+                        dispatcher.push(
+                            TransitionFrontierSyncLedgerStagedAction::PartsPeerFetchPending {
+                                peer_id,
+                                rpc_id,
+                            },
+                        );
+                        break;
+                    }
+                }
+            }
             TransitionFrontierSyncLedgerStagedAction::PartsPeerFetchPending { peer_id, rpc_id } => {
-                let Self::PartsFetchPending { attempts, .. } = self else {
+                let Self::PartsFetchPending { attempts, .. } = state_mut else {
                     return;
                 };
                 attempts.insert(
@@ -32,7 +80,7 @@ impl TransitionFrontierSyncLedgerStagedState {
                 error,
                 ..
             } => {
-                let Self::PartsFetchPending { attempts, .. } = self else {
+                let Self::PartsFetchPending { attempts, .. } = state_mut else {
                     return;
                 };
                 let Some(attempt) = attempts.get_mut(peer_id) else {
@@ -46,6 +94,10 @@ impl TransitionFrontierSyncLedgerStagedState {
                     rpc_id: *rpc_id,
                     error: error.clone(),
                 };
+
+                // Dispatch
+                let dispatcher = state.into_dispatcher();
+                dispatcher.push(TransitionFrontierSyncLedgerStagedAction::PartsPeerFetchInit);
             }
             TransitionFrontierSyncLedgerStagedAction::PartsPeerFetchSuccess {
                 peer_id,
@@ -54,7 +106,7 @@ impl TransitionFrontierSyncLedgerStagedState {
             } => {
                 let Self::PartsFetchPending {
                     target, attempts, ..
-                } = self
+                } = state_mut
                 else {
                     return;
                 };
@@ -70,19 +122,32 @@ impl TransitionFrontierSyncLedgerStagedState {
                     time: meta.time(),
                     parts: validated,
                 };
+
+                // Dispatch
+                let (dispatcher, global_state) = state.into_dispatcher_and_state();
+                if !dispatcher.push_if_enabled(
+                    TransitionFrontierSyncLedgerStagedAction::PartsPeerValid { sender: *peer_id },
+                    global_state,
+                    meta.time(),
+                ) {
+                    dispatcher.push(TransitionFrontierSyncLedgerStagedAction::PartsPeerInvalid {
+                        sender: *peer_id,
+                        parts: parts.clone(),
+                    });
+                }
             }
             TransitionFrontierSyncLedgerStagedAction::PartsPeerInvalid { sender, .. }
             | TransitionFrontierSyncLedgerStagedAction::PartsPeerValid { sender, .. } => {
-                let Self::PartsFetchPending { attempts, .. } = self else {
+                let Self::PartsFetchPending { attempts, .. } = &mut *state else {
                     return;
                 };
                 let Some(attempt) = attempts.get_mut(sender) else {
                     return;
                 };
-
                 let PeerStagedLedgerPartsFetchState::Success { parts, .. } = attempt else {
                     return;
                 };
+
                 match parts {
                     StagedLedgerAuxAndPendingCoinbasesValidated::Invalid(_) => {
                         *attempt = PeerStagedLedgerPartsFetchState::Invalid { time: meta.time() };
@@ -94,11 +159,23 @@ impl TransitionFrontierSyncLedgerStagedState {
                         };
                     }
                 }
+
+                // Dispatch
+                let dispatcher = state.into_dispatcher();
+                if let TransitionFrontierSyncLedgerStagedAction::PartsPeerValid { .. } = action {
+                    dispatcher.push(
+                        TransitionFrontierSyncLedgerStagedAction::PartsFetchSuccess {
+                            sender: *sender,
+                        },
+                    );
+                } else {
+                    dispatcher.push(TransitionFrontierSyncLedgerStagedAction::PartsPeerFetchInit);
+                }
             }
             TransitionFrontierSyncLedgerStagedAction::PartsFetchSuccess { sender } => {
                 let Self::PartsFetchPending {
                     target, attempts, ..
-                } = self
+                } = state_mut
                 else {
                     return;
                 };
@@ -108,53 +185,88 @@ impl TransitionFrontierSyncLedgerStagedState {
                 let PeerStagedLedgerPartsFetchState::Valid { parts, .. } = attempt else {
                     return;
                 };
-                *self = Self::PartsFetchSuccess {
+                *state_mut = Self::PartsFetchSuccess {
                     time: meta.time(),
                     target: target.clone(),
                     parts: parts.clone(),
                 };
+
+                // Dispatch
+                let dispatcher = state.into_dispatcher();
+                dispatcher.push(TransitionFrontierSyncLedgerStagedAction::ReconstructInit);
             }
             TransitionFrontierSyncLedgerStagedAction::ReconstructEmpty => {
-                // handled in parent.
+                // handled in parent. TODO(refactor): check this
+                // Dispatch
+                let dispatcher = state.into_dispatcher();
+                dispatcher.push(TransitionFrontierSyncLedgerStagedAction::ReconstructInit);
             }
-            TransitionFrontierSyncLedgerStagedAction::ReconstructInit => {}
-            TransitionFrontierSyncLedgerStagedAction::ReconstructPending => {
-                let Some((target, parts)) = self.target_with_parts() else {
+            TransitionFrontierSyncLedgerStagedAction::ReconstructInit => {
+                let (dispatcher, global_state) = state.into_dispatcher_and_state();
+                let ledger_state = global_state.transition_frontier.sync.ledger();
+                let Some((target, parts)) =
+                    ledger_state.and_then(|s| s.staged()?.target_with_parts())
+                else {
                     return;
                 };
-                *self = Self::ReconstructPending {
+                let snarked_ledger_hash = target.snarked_ledger_hash.clone();
+                let parts = parts.cloned();
+
+                if dispatcher.push_if_enabled(
+                    LedgerWriteAction::Init {
+                        request: LedgerWriteRequest::StagedLedgerReconstruct {
+                            snarked_ledger_hash,
+                            parts,
+                        },
+                    },
+                    global_state,
+                    meta.time(),
+                ) {
+                    dispatcher.push(TransitionFrontierSyncLedgerStagedAction::ReconstructPending);
+                }
+            }
+            TransitionFrontierSyncLedgerStagedAction::ReconstructPending => {
+                let Some((target, parts)) = state_mut.target_with_parts() else {
+                    return;
+                };
+                *state_mut = Self::ReconstructPending {
                     time: meta.time(),
                     target: target.clone(),
                     parts: parts.cloned(),
                 }
             }
             TransitionFrontierSyncLedgerStagedAction::ReconstructError { error } => {
-                let Self::ReconstructPending { target, parts, .. } = self else {
+                let Self::ReconstructPending { target, parts, .. } = state_mut else {
                     return;
                 };
-                *self = Self::ReconstructError {
+                *state_mut = Self::ReconstructError {
                     time: meta.time(),
                     target: target.clone(),
                     parts: parts.clone(),
                     error: error.clone(),
                 };
+                panic!("Staged ledger reconstruct failure {error}");
             }
             TransitionFrontierSyncLedgerStagedAction::ReconstructSuccess { .. } => {
-                let Self::ReconstructPending { target, parts, .. } = self else {
+                let Self::ReconstructPending { target, parts, .. } = state_mut else {
                     return;
                 };
-                *self = Self::ReconstructSuccess {
+                *state_mut = Self::ReconstructSuccess {
                     time: meta.time(),
                     target: target.clone(),
                     parts: parts.clone(),
                 };
+
+                // Dispatch
+                let dispatcher = state.into_dispatcher();
+                dispatcher.push(TransitionFrontierSyncLedgerStagedAction::Success);
             }
             TransitionFrontierSyncLedgerStagedAction::Success => {
-                let Self::ReconstructSuccess { target, parts, .. } = self else {
+                let Self::ReconstructSuccess { target, parts, .. } = state_mut else {
                     return;
                 };
 
-                *self = Self::Success {
+                *state_mut = Self::Success {
                     time: meta.time(),
                     target: target.clone(),
                     needed_protocol_states: parts

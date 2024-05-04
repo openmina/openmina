@@ -33,7 +33,21 @@ impl TransitionFrontierSyncLedgerState {
         }
     }
 
+    pub fn snarked_mut(&mut self) -> Option<&mut TransitionFrontierSyncLedgerSnarkedState> {
+        match self {
+            Self::Snarked(v) => Some(v),
+            _ => None,
+        }
+    }
+
     pub fn staged(&self) -> Option<&TransitionFrontierSyncLedgerStagedState> {
+        match self {
+            Self::Staged(v) => Some(v),
+            _ => None,
+        }
+    }
+
+    pub fn staged_mut(&mut self) -> Option<&mut TransitionFrontierSyncLedgerStagedState> {
         match self {
             Self::Staged(v) => Some(v),
             _ => None,

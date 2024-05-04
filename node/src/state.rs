@@ -16,6 +16,9 @@ pub use crate::snark::SnarkState;
 pub use crate::snark_pool::candidate::SnarkPoolCandidatesState;
 pub use crate::snark_pool::SnarkPoolState;
 use crate::transition_frontier::genesis::TransitionFrontierGenesisState;
+use crate::transition_frontier::sync::ledger::snarked::TransitionFrontierSyncLedgerSnarkedState;
+use crate::transition_frontier::sync::ledger::staged::TransitionFrontierSyncLedgerStagedState;
+use crate::transition_frontier::sync::ledger::TransitionFrontierSyncLedgerState;
 use crate::transition_frontier::sync::TransitionFrontierSyncState;
 pub use crate::transition_frontier::TransitionFrontierState;
 pub use crate::watched_accounts::WatchedAccountsState;
@@ -65,6 +68,52 @@ impl_substate_access!(State, ExternalSnarkWorkers, external_snark_worker);
 impl_substate_access!(State, BlockProducerState, block_producer);
 impl_substate_access!(State, RpcState, rpc);
 impl_substate_access!(State, WatchedAccountsState, watched_accounts);
+
+impl openmina_core::SubstateAccess<TransitionFrontierSyncLedgerState> for State {
+    fn substate(&self) -> &TransitionFrontierSyncLedgerState {
+        self.transition_frontier.sync.ledger().unwrap()
+    }
+
+    fn substate_mut(&mut self) -> &mut TransitionFrontierSyncLedgerState {
+        self.transition_frontier.sync.ledger_mut().unwrap()
+    }
+}
+
+impl openmina_core::SubstateAccess<TransitionFrontierSyncLedgerSnarkedState> for State {
+    fn substate(&self) -> &TransitionFrontierSyncLedgerSnarkedState {
+        self.transition_frontier
+            .sync
+            .ledger()
+            .and_then(|ls| ls.snarked())
+            .unwrap()
+    }
+
+    fn substate_mut(&mut self) -> &mut TransitionFrontierSyncLedgerSnarkedState {
+        self.transition_frontier
+            .sync
+            .ledger_mut()
+            .and_then(|ls| ls.snarked_mut())
+            .unwrap()
+    }
+}
+
+impl openmina_core::SubstateAccess<TransitionFrontierSyncLedgerStagedState> for State {
+    fn substate(&self) -> &TransitionFrontierSyncLedgerStagedState {
+        self.transition_frontier
+            .sync
+            .ledger()
+            .and_then(|ls| ls.staged())
+            .unwrap()
+    }
+
+    fn substate_mut(&mut self) -> &mut TransitionFrontierSyncLedgerStagedState {
+        self.transition_frontier
+            .sync
+            .ledger_mut()
+            .and_then(|ls| ls.staged_mut())
+            .unwrap()
+    }
+}
 
 pub type Substate<'a, S> = openmina_core::Substate<'a, crate::Action, State, S>;
 
