@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::service::BlockProducerService;
 
-use super::GenesisConfig;
+use crate::GenesisConfig;
 
 pub trait TransitionFrontierGenesisService: BlockProducerService {
     /// Load genesis config and genesis ledger.

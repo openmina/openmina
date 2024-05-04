@@ -16,6 +16,7 @@ impl TransitionFrontierState {
                     meta.with_action(a),
                 )
             }
+            TransitionFrontierAction::GenesisEffect(_) => {}
             TransitionFrontierAction::GenesisInject => {
                 let Some(genesis) = state.genesis.block_with_real_or_dummy_proof() else {
                     return;
