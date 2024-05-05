@@ -1,5 +1,4 @@
 use openmina_core::channels::mpsc;
-use openmina_core::snark::Snark;
 
 use crate::{
     channels::{ChannelId, ChannelMsg, MsgId, P2pChannelsService},
@@ -125,13 +124,6 @@ impl<T: P2pServiceWebrtcWithLibp2p> P2pChannelsService for T {
             {
                 openmina_core::error!(openmina_core::log::system_time(); "sending to channel {:?} is not supported for libp2p", msg.channel_id());
             }
-        }
-    }
-
-    fn libp2p_broadcast_snark(&mut self, _snark: Snark, _nonce: u32) {
-        #[cfg(feature = "p2p-libp2p")]
-        {
-            openmina_core::error!(openmina_core::log::system_time(); "broadcasing snark is not implemented for libp2p");
         }
     }
 }

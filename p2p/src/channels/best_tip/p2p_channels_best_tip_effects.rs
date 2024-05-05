@@ -1,8 +1,10 @@
+use mina_p2p_messages::gossip::GossipNetMessageV2;
 use redux::ActionMeta;
 
 use crate::{
     channels::{ChannelId, MsgId, P2pChannelsService},
     peer::P2pPeerAction,
+    P2pNetworkPubsubAction,
 };
 
 use super::{BestTipPropagationChannelMsg, P2pChannelsBestTipAction};
@@ -38,15 +40,29 @@ impl P2pChannelsBestTipAction {
                     best_tip: best_tip.clone(),
                 });
                 store.dispatch(P2pChannelsBestTipAction::RequestSend { peer_id });
-                if store.state().is_libp2p_peer(&peer_id) {
-                    store.dispatch(P2pChannelsBestTipAction::RequestReceived { peer_id });
-                }
             }
             P2pChannelsBestTipAction::ResponseSend { peer_id, best_tip } => {
-                let msg = BestTipPropagationChannelMsg::BestTip(best_tip.block);
-                store
-                    .service()
-                    .channel_send(peer_id, MsgId::first(), msg.into());
+                if !store.state().is_libp2p_peer(&peer_id) {
+                    let msg = BestTipPropagationChannelMsg::BestTip(best_tip.block);
+                    store
+                        .service()
+                        .channel_send(peer_id, MsgId::first(), msg.into());
+                } else {
+                    let block = (*best_tip.block).clone();
+                    let message = GossipNetMessageV2::NewState(block);
+                    // TODO(vlad): `P2pChannelsBestTipAction::ResponseSend`
+                    // action is dispatched for each peer. So `P2pNetworkPubsubAction::Broadcast`
+                    // will be called many times causing many duplicate
+                    // broadcasts. Either in pubsub state machine, we
+                    // need to filter out duplicate messages, or better,
+                    // have a simple action to send pubsub message to a
+                    // specific peer instead of sending to everyone.
+                    // That way we can avoid duplicate state, since we
+                    // already store last sent best tip here and we make
+                    // sure we don't send same block to same peer again.
+                    store.dispatch(P2pNetworkPubsubAction::Broadcast { message });
+                    store.dispatch(P2pChannelsBestTipAction::RequestReceived { peer_id });
+                }
             }
             P2pChannelsBestTipAction::Pending { .. } => {}
             P2pChannelsBestTipAction::RequestReceived { .. } => {}
