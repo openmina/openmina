@@ -43,13 +43,7 @@ impl Simulator {
         } else if let Some(node) = runner.ocaml_node(ClusterOcamlNodeId::new_unchecked(0)) {
             node.chain_id_async().await.unwrap().into_bytes()
         } else {
-            runner
-                .ocaml_node(ClusterOcamlNodeId::new_unchecked(0))
-                .unwrap()
-                .chain_id_async()
-                .await
-                .unwrap()
-                .into_bytes()
+            "<unknown_chain_id>".into()
         };
 
         RustNodeTestingConfig {
