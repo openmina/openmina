@@ -1,13 +1,13 @@
 import { Injectable } from '@angular/core';
 import { BlockProductionModule } from '@app/features/block-production/block-production.module';
-import { delay, map, Observable, of } from 'rxjs';
+import { map, Observable } from 'rxjs';
 import {
   BlockProductionOverviewEpoch,
 } from '@shared/types/block-production/overview/block-production-overview-epoch.type';
 import {
   BlockProductionOverviewEpochDetails,
 } from '@shared/types/block-production/overview/block-production-overview-epoch-details.type';
-import { hasValue, lastItem, ONE_BILLION } from '@openmina/shared';
+import { hasValue, ONE_BILLION } from '@openmina/shared';
 import { RustService } from '@core/services/rust.service';
 import { BlockProductionSlot } from '@shared/types/block-production/overview/block-production-overview-slot.type';
 import {
@@ -21,8 +21,6 @@ import {
 export class BlockProductionOverviewService {
 
   constructor(private rust: RustService) { }
-
-  private epochs: BlockProductionOverviewEpoch[];
 
   getEpochDetails(epochNumber: number): Observable<BlockProductionOverviewEpochDetails> {
     return this.rust.get<BlockProductionDetailsResponse | BlockProductionDetailsResponse[]>(`/epoch/summary/${epochNumber ?? 'latest'}`).pipe(
@@ -84,7 +82,6 @@ export class BlockProductionOverviewService {
   }
 
   getSlots(epochNumber: number): Observable<BlockProductionSlot[]> {
-    // return of(this.getMockEpochDetails())
     return this.rust.get<SlotResponse[]>(`/epoch/${epochNumber ?? 'latest'}`).pipe(
       map((response: SlotResponse[]) => {
         const activeSlotIndex = response.findIndex(slot => slot.is_current_slot);

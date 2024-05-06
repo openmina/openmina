@@ -19,11 +19,12 @@ let epochSummaryResponse: BlockProductionEpochPaginationResponse[];
 
 describe('BLOCK PRODUCTION OVERVIEW EPOCH GRAPHS', () => {
   beforeEach(() => {
-    cy.intercept(/\/epoch\/summary\/\d+\?limit=\d+/, req => {
-      req.continue(res => {
-        epochSummaryResponse = res.body;
-      });
-    })
+    cy
+      .intercept(/\/epoch\/summary\/\d+\?limit=\d+/, req => {
+        req.continue(res => {
+          epochSummaryResponse = res.body;
+        });
+      })
       .as('epochSummary')
       .visit(Cypress.config().baseUrl + '/block-production/overview');
   });
