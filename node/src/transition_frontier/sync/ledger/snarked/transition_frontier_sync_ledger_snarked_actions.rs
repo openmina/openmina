@@ -275,11 +275,13 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerSnar
                 .sync
                 .ledger()
                 .and_then(|s| s.snarked())
-                .map_or(false, |s| {
-                    matches!(
-                        s,
-                        TransitionFrontierSyncLedgerSnarkedState::MerkleTreeSyncPending { .. }
-                    )
+                .map_or(false, |s| match s {
+                    TransitionFrontierSyncLedgerSnarkedState::MerkleTreeSyncPending {
+                        queue,
+                        pending_addresses: pending,
+                        ..
+                    } => queue.is_empty() && pending.is_empty(),
+                    _ => false,
                 }),
 
             // hashes and contents
@@ -445,13 +447,11 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerSnar
                 .sync
                 .ledger()
                 .and_then(|s| s.snarked())
-                .map_or(false, |s| match s {
-                    TransitionFrontierSyncLedgerSnarkedState::MerkleTreeSyncPending {
-                        queue,
-                        pending_addresses: pending,
-                        ..
-                    } => queue.is_empty() && pending.is_empty(),
-                    _ => false,
+                .map_or(false, |s| {
+                    matches!(
+                        s,
+                        TransitionFrontierSyncLedgerSnarkedState::MerkleTreeSyncSuccess { .. }
+                    )
                 }),
         }
     }
