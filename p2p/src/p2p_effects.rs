@@ -6,8 +6,8 @@ use crate::{
         outgoing::P2pConnectionOutgoingAction, P2pConnectionAction, P2pConnectionService,
     },
     disconnection::P2pDisconnectionService,
-    is_time_passed, P2pAction, P2pCryptoService, P2pMioService, P2pNetworkKadStatus,
-    P2pNetworkKademliaAction, P2pNetworkService, P2pStore,
+    is_time_passed, P2pAction, P2pCryptoService, P2pMioService, P2pNetworkKadKey,
+    P2pNetworkKadStatus, P2pNetworkKademliaAction, P2pNetworkService, P2pStore,
 };
 
 pub fn p2p_timeout_effects<Store, S>(store: &mut Store, meta: &ActionMeta)
@@ -98,17 +98,22 @@ where
     }
 
     if let Some(discovery_state) = state.network.scheduler.discovery_state() {
-        let bootstrap_kademlia = match &discovery_state.status {
-            P2pNetworkKadStatus::Init => true,
-            P2pNetworkKadStatus::Bootstrapping(_) => false,
-            P2pNetworkKadStatus::Bootstrapped { time, .. } => {
-                is_time_passed(now, *time, config.timeouts.kademlia_bootstrap)
+        let key = state.my_id();
+        if discovery_state
+            .routing_table
+            .closest_peers(&P2pNetworkKadKey::from(&key))
+            .any(|_| true)
+        {
+            let bootstrap_kademlia = match &discovery_state.status {
+                P2pNetworkKadStatus::Init => true,
+                P2pNetworkKadStatus::Bootstrapping(_) => false,
+                P2pNetworkKadStatus::Bootstrapped { time, .. } => {
+                    is_time_passed(now, *time, config.timeouts.kademlia_bootstrap)
+                }
+            };
+            if bootstrap_kademlia {
+                store.dispatch(P2pNetworkKademliaAction::StartBootstrap { key });
             }
-        };
-        if bootstrap_kademlia {
-            store.dispatch(P2pNetworkKademliaAction::StartBootstrap {
-                key: config.identity_pub_key.peer_id(),
-            });
         }
     }
 }
