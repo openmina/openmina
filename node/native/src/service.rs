@@ -3,19 +3,16 @@ use std::collections::{BTreeMap, VecDeque};
 use std::sync::{Arc, Mutex};
 
 use ledger::scan_state::scan_state::transaction_snark::{SokDigest, Statement};
-use ledger::scan_state::transaction_logic::{verifiable, UserCommand, WithStatus};
+use ledger::scan_state::transaction_logic::{verifiable, WithStatus};
 use ledger::verifier::Verifier;
-use libp2p::identity::Keypair;
+use libp2p_identity::Keypair;
 use mina_p2p_messages::v2::{
-    LedgerHash, LedgerProofProdStableV2, MinaBaseAccountBinableArgStableV2,
-    MinaBaseSparseLedgerBaseStableV2, MinaLedgerSyncLedgerAnswerStableV2,
-    MinaLedgerSyncLedgerQueryStableV1, MinaStateProtocolStateValueStableV2, NonZeroCurvePoint,
-    StateHash, TransactionSnarkWorkTStableV2Proofs,
+    LedgerHash, LedgerProofProdStableV2, TransactionSnarkWorkTStableV2Proofs,
 };
 use node::p2p::service_impl::mio::MioService;
+use node::p2p::service_impl::services::NativeP2pNetworkService;
 use node::snark::user_command_verify::{SnarkUserCommandVerifyId, SnarkUserCommandVerifyService};
-use node::transaction_pool::{TransactionPoolLedgerService, VerifyUserCommandsService};
-use openmina_core::block::ArcBlockWithHash;
+use node::transaction_pool::TransactionPoolLedgerService;
 use rand::prelude::*;
 use redux::ActionMeta;
 use serde::Serialize;
@@ -235,14 +232,14 @@ impl SnarkBlockVerifyService for NodeService {
     }
 }
 
-impl TransactionPoolLedgerService for NodeService {
-    fn get_mask(&self, ledger_hash: &LedgerHash) -> Result<ledger::Mask, String> {
-        self.ledger_manager
-            .get_mask(&ledger_hash)
-            .map(|(mask, _)| mask)
-            .ok_or_else(|| "Mask not found".to_string())
-    }
-}
+// impl TransactionPoolLedgerService for NodeService {
+//     fn get_mask(&self, ledger_hash: &LedgerHash) -> Result<ledger::Mask, String> {
+//         self.ledger_manager
+//             .get_mask(&ledger_hash)
+//             .map(|(mask, _)| mask)
+//             .ok_or_else(|| "Mask not found".to_string())
+//     }
+// }
 
 impl SnarkUserCommandVerifyService for NodeService {
     fn verify_init(

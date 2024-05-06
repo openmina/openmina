@@ -1,6 +1,4 @@
 use p2p::channels::snark::P2pChannelsSnarkAction;
-use p2p::listen::P2pListenAction;
-use p2p::P2pListenEvent;
 use snark::user_command_verify::{SnarkUserCommandVerifyAction, SnarkUserCommandVerifyError};
 
 use crate::action::CheckTimeoutsAction;
@@ -11,7 +9,6 @@ use crate::ledger::read::LedgerReadAction;
 use crate::ledger::write::LedgerWriteAction;
 use crate::p2p::channels::best_tip::P2pChannelsBestTipAction;
 use crate::p2p::channels::rpc::P2pChannelsRpcAction;
-use crate::p2p::channels::snark::P2pChannelsSnarkAction;
 use crate::p2p::channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentAction;
 use crate::p2p::channels::{ChannelId, P2pChannelsMessageReceivedAction};
 use crate::p2p::connection::incoming::P2pConnectionIncomingAction;

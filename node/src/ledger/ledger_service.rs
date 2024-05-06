@@ -44,33 +44,15 @@ use mina_signer::CompressedPubKey;
 use openmina_core::block::ArcBlockWithHash;
 
 use crate::account::AccountPublicKey;
-use crate::block_producer::StagedLedgerDiffCreateOutput;
 use crate::p2p::channels::rpc::StagedLedgerAuxAndPendingCoinbases;
 use crate::rpc::{
     RpcScanStateSummaryBlockTransaction, RpcScanStateSummaryScanStateJob,
     RpcScanStateSummaryScanStateJobKind, RpcSnarkPoolJobSnarkWorkDone,
-use crate::block_producer::vrf_evaluator::DelegatorTable;
-use crate::block_producer::{
-    BlockProducerLedgerService, BlockProducerWonSlot, StagedLedgerDiffCreateOutput,
 };
+use crate::block_producer::StagedLedgerDiffCreateOutput;
 use crate::transition_frontier::sync::{
     ledger::staged::StagedLedgerAuxAndPendingCoinbasesValid,
     TransitionFrontierRootSnarkedLedgerUpdates,
-};
-use crate::transition_frontier::TransitionFrontierService;
-use crate::{
-    block_producer::vrf_evaluator::BlockProducerVrfEvaluatorLedgerService,
-    transaction_pool::TransactionPoolLedgerService,
-};
-use crate::{
-    p2p::channels::rpc::StagedLedgerAuxAndPendingCoinbases, transition_frontier::CommitResult,
-};
-use crate::{
-    rpc::{
-        RpcLedgerService, RpcScanStateSummaryBlockTransaction, RpcScanStateSummaryScanStateJob,
-        RpcScanStateSummaryScanStateJobKind, RpcSnarkPoolJobSnarkWorkDone,
-    },
-    transition_frontier::sync::ledger::snarked::TransitionFrontierSyncLedgerSnarkedService,
 };
 
 use super::write::CommitResult;

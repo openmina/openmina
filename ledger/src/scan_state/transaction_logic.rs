@@ -882,7 +882,7 @@ pub mod zkapp_command {
     use std::sync::Arc;
 
     use ark_ff::UniformRand;
-    use mina_p2p_messages::v2::{self, MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA};
+    use mina_p2p_messages::v2::MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA;
     use mina_signer::Signature;
     use rand::{seq::SliceRandom, Rng};
 
