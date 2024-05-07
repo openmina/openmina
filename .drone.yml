@@ -340,6 +340,20 @@ steps:
     depends_on:
       - prepare
 
+  - name: block-production-overview-slots
+    image: cypress/included:13.3.2
+    commands:
+      - cd frontend && cypress run --config-file "cypress.config.js" --spec "cypress/e2e/block-production/overview/slots.cy.ts"
+    depends_on:
+      - prepare
+
+  - name: block-production-overview-side-panel
+    image: cypress/included:13.3.2
+    commands:
+      - cd frontend && cypress run --config-file "cypress.config.js" --spec "cypress/e2e/block-production/overview/side-panel.cy.ts"
+    depends_on:
+      - prepare
+
   - name: nodes-overview-table
     image: cypress/included:13.3.2
     commands:
@@ -468,6 +482,8 @@ steps:
     depends_on:
       - dashboard-peers
       - block-production-overview-epoch-graphs
+      - block-production-overview-slots
+      - block-production-overview-side-panel
       - nodes-overview-table
       - nodes-overview-side-panel
       - nodes-live-blocks-map
