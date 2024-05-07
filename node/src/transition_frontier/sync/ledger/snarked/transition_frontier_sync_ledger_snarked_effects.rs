@@ -370,7 +370,8 @@ impl TransitionFrontierSyncLedgerSnarkedAction {
             }
             TransitionFrontierSyncLedgerSnarkedAction::ChildHashesAccepted { .. } => {
                 if !store.dispatch(TransitionFrontierSyncLedgerSnarkedAction::PeersQuery) {
-                    store.dispatch(TransitionFrontierSyncLedgerSnarkedAction::Success);
+                    store
+                        .dispatch(TransitionFrontierSyncLedgerSnarkedAction::MerkleTreeSyncSuccess);
                 }
             }
             TransitionFrontierSyncLedgerSnarkedAction::ChildHashesRejected { .. } => {
@@ -435,7 +436,8 @@ impl TransitionFrontierSyncLedgerSnarkedAction {
             }
             TransitionFrontierSyncLedgerSnarkedAction::ChildAccountsAccepted { .. } => {
                 if !store.dispatch(TransitionFrontierSyncLedgerSnarkedAction::PeersQuery) {
-                    store.dispatch(TransitionFrontierSyncLedgerSnarkedAction::Success);
+                    store
+                        .dispatch(TransitionFrontierSyncLedgerSnarkedAction::MerkleTreeSyncSuccess);
                 }
             }
             TransitionFrontierSyncLedgerSnarkedAction::ChildAccountsRejected { .. } => {
