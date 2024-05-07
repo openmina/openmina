@@ -516,10 +516,7 @@ impl LedgerCtx {
 
         let consensus_state = &block.header().protocol_state.body.consensus_state;
         let coinbase_receiver: CompressedPubKey = (&consensus_state.coinbase_receiver).into();
-        let _supercharge_coinbase = consensus_state.supercharge_coinbase;
-
-        // FIXME: Using `supercharge_coinbase` (from block) above does not work
-        let supercharge_coinbase = false;
+        let supercharge_coinbase = consensus_state.supercharge_coinbase;
 
         let diff: Diff = (&block.block.body.staged_ledger_diff).into();
 
