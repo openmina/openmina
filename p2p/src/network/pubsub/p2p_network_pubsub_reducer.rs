@@ -111,7 +111,7 @@ impl P2pNetworkPubsubState {
                                 let mut slice = &data[8..];
                                 match gossip::GossipNetMessageV2::binprot_read(&mut slice) {
                                     Ok(gossip::GossipNetMessageV2::NewState(block)) => {
-                                        self.incoming_block = Some(block);
+                                        self.incoming_block = Some((*peer_id, block));
                                     }
                                     Ok(gossip::GossipNetMessageV2::SnarkPoolDiff {
                                         message,
