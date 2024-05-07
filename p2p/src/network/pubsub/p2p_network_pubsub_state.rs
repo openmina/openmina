@@ -18,7 +18,7 @@ pub struct P2pNetworkPubsubState {
     pub seq: u64,
     pub to_sign: VecDeque<pb::Message>,
     pub seen: VecDeque<Vec<u8>>,
-    pub incoming_block: Option<v2::MinaBlockBlockStableV2>,
+    pub incoming_block: Option<(PeerId, v2::MinaBlockBlockStableV2)>,
     pub incoming_snarks: Vec<(Snark, u32)>,
 }
 

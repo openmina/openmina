@@ -76,7 +76,7 @@ impl P2pNetworkPubsubAction {
                 let incoming_snarks = state.incoming_snarks.clone();
 
                 broadcast(store);
-                if let Some(block) = incoming_block {
+                if let Some((_, block)) = incoming_block {
                     let best_tip = BlockWithHash::new(Arc::new(block));
                     store.dispatch(P2pPeerAction::BestTipUpdate { peer_id, best_tip });
                 }

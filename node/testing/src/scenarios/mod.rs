@@ -31,6 +31,7 @@ use self::multi_node::vrf_correct_ledgers::MultiNodeVrfGetCorrectLedgers;
 use self::multi_node::vrf_correct_slots::MultiNodeVrfGetCorrectSlots;
 use self::multi_node::vrf_epoch_bounds_correct_ledgers::MultiNodeVrfEpochBoundsCorrectLedger;
 use self::multi_node::vrf_epoch_bounds_evaluation::MultiNodeVrfEpochBoundsEvaluation;
+use self::p2p::pubsub::P2pReceiveBlock;
 use self::simulation::small::SimulationSmall;
 use self::solo_node::sync_to_genesis::SoloNodeSyncToGenesis;
 use self::solo_node::sync_to_genesis_custom::SoloNodeSyncToGenesisCustom;
@@ -57,6 +58,7 @@ pub enum Scenarios {
     MultiNodeBasicConnectivityInitialJoining(MultiNodeBasicConnectivityInitialJoining),
     MultiNodeBasicConnectivityPeerDiscovery(MultiNodeBasicConnectivityPeerDiscovery),
     SimulationSmall(SimulationSmall),
+    P2pReceiveBlock(P2pReceiveBlock),
 }
 
 impl Scenarios {
@@ -81,6 +83,7 @@ impl Scenarios {
             Self::MultiNodeBasicConnectivityInitialJoining(_) => false,
             Self::MultiNodeBasicConnectivityPeerDiscovery(_) => cfg!(feature = "p2p-webrtc"),
             Self::SimulationSmall(_) => false,
+            Self::P2pReceiveBlock(_) => false,
         }
     }
 
@@ -110,6 +113,7 @@ impl Scenarios {
             Self::MultiNodeBasicConnectivityInitialJoining(_) => None,
             Self::MultiNodeBasicConnectivityPeerDiscovery(_) => None,
             Self::SimulationSmall(_) => None,
+            Self::P2pReceiveBlock(_) => None,
         }
     }
 
@@ -144,6 +148,7 @@ impl Scenarios {
                 MultiNodeBasicConnectivityPeerDiscovery::DOCS
             }
             Self::SimulationSmall(_) => SimulationSmall::DOCS,
+            Self::P2pReceiveBlock(_) => P2pReceiveBlock::DOCS,
         }
     }
 
@@ -175,6 +180,7 @@ impl Scenarios {
             Self::MultiNodeBasicConnectivityInitialJoining(v) => v.run(runner).await,
             Self::MultiNodeBasicConnectivityPeerDiscovery(v) => v.run(runner).await,
             Self::SimulationSmall(v) => v.run(runner).await,
+            Self::P2pReceiveBlock(v) => v.run(runner).await,
         }
     }
 
