@@ -29,7 +29,7 @@ describe('BLOCK PRODUCTION OVERVIEW EPOCH GRAPHS', () => {
       .visit(Cypress.config().baseUrl + '/block-production/overview');
   });
 
-  it('should have correct title', () => execute(() => {
+  it('have correct title', () => execute(() => {
     cy.window()
       .its('store')
       .then(getBPOverview)
@@ -41,7 +41,7 @@ describe('BLOCK PRODUCTION OVERVIEW EPOCH GRAPHS', () => {
       });
   }));
 
-  it('should have 7 epochs displayed', () => execute(() => {
+  it('have 7 epochs displayed', () => execute(() => {
     cy.window()
       .its('store')
       .then(getBPOverview)
@@ -53,7 +53,7 @@ describe('BLOCK PRODUCTION OVERVIEW EPOCH GRAPHS', () => {
       });
   }));
 
-  it('should have correct epochs numbers displayed', () => execute(() => {
+  it('have correct epochs numbers displayed', () => execute(() => {
     cy.window()
       .its('store')
       .then(getBPOverview)
@@ -71,7 +71,7 @@ describe('BLOCK PRODUCTION OVERVIEW EPOCH GRAPHS', () => {
       });
   }));
 
-  it('should have correct windows heights displayed', () => execute(() => {
+  it('have correct windows heights displayed', () => execute(() => {
     cy.window()
       .its('store')
       .then(getBPOverview)
@@ -121,7 +121,7 @@ describe('BLOCK PRODUCTION OVERVIEW EPOCH GRAPHS', () => {
       });
   }));
 
-  it('should show correct position of active window', () => execute(() => {
+  it('show correct position of active window', () => execute(() => {
     cy.window()
       .its('store')
       .then(getBPOverview)

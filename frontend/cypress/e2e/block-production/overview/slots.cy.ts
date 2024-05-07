@@ -31,7 +31,7 @@ describe('BLOCK PRODUCTION OVERVIEW SLOTS', () => {
       .visit(Cypress.config().baseUrl + '/block-production/overview');
   });
 
-  it('should show correct slots interval', () => execute(() => {
+  it('show correct slots interval', () => execute(() => {
     cy.window()
       .its('store')
       .then(getBPOverview)
@@ -45,7 +45,7 @@ describe('BLOCK PRODUCTION OVERVIEW SLOTS', () => {
       });
   }));
 
-  it('should show 7140 slots rectangles', () => execute(() => {
+  it('show 7140 slots rectangles', () => execute(() => {
     cy.window()
       .its('store')
       .then(getBPOverview)
@@ -57,7 +57,7 @@ describe('BLOCK PRODUCTION OVERVIEW SLOTS', () => {
       });
   }));
 
-  it('should show correct slots colors', () => execute(() => {
+  it('show correct slots colors', () => execute(() => {
     cy.window()
       .its('store')
       .then(getBPOverview)
