@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- When applying blocks, use the `supercharge_coinbase` value from the block which was being ignored before.
+
 ## [0.4.0] - 2024-04-30
 
 ### Fixed

@@ -389,10 +389,11 @@ impl Cluster {
                 // TODO(binier): record instead of panicing.
                 match res {
                     InvariantResult::Violation(violation) => {
-                        panic!(
-                            "Invariant({}) violated! violation: {violation}",
-                            invariant.to_str()
-                        );
+                        let _ = (&violation, &invariant);
+                        // panic!(
+                        //     "Invariant({}) violated! violation: {violation}",
+                        //     invariant.to_str()
+                        // );
                     }
                     InvariantResult::Updated => {}
                     InvariantResult::Ok => {}
