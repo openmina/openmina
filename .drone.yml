@@ -354,6 +354,13 @@ steps:
     depends_on:
       - prepare
 
+  - name: block-production-overview-toolbar
+    image: cypress/included:13.3.2
+    commands:
+      - cd frontend && cypress run --config-file "cypress.config.js" --spec "cypress/e2e/block-production/overview/toolbar.cy.ts"
+    depends_on:
+      - prepare
+
   - name: nodes-overview-table
     image: cypress/included:13.3.2
     commands:
@@ -484,6 +491,7 @@ steps:
       - block-production-overview-epoch-graphs
       - block-production-overview-slots
       - block-production-overview-side-panel
+      - block-production-overview-toolbar
       - nodes-overview-table
       - nodes-overview-side-panel
       - nodes-live-blocks-map
