@@ -361,6 +361,13 @@ steps:
     depends_on:
       - prepare
 
+  - name: block-production-overview-apis
+    image: cypress/included:13.3.2
+    commands:
+      - cd frontend && cypress run --config-file "cypress.config.js" --spec "cypress/e2e/block-production/overview/apis.cy.ts"
+    depends_on:
+      - prepare
+
   - name: nodes-overview-table
     image: cypress/included:13.3.2
     commands:
@@ -492,6 +499,7 @@ steps:
       - block-production-overview-slots
       - block-production-overview-side-panel
       - block-production-overview-toolbar
+      - block-production-overview-apis
       - nodes-overview-table
       - nodes-overview-side-panel
       - nodes-live-blocks-map

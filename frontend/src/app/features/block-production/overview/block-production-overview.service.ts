@@ -23,8 +23,8 @@ export class BlockProductionOverviewService {
   constructor(private rust: RustService) { }
 
   getEpochDetails(epochNumber: number): Observable<BlockProductionOverviewEpochDetails> {
-    return this.rust.get<BlockProductionDetailsResponse | BlockProductionDetailsResponse[]>(`/epoch/summary/${epochNumber ?? 'latest'}`).pipe(
-      map((response: BlockProductionDetailsResponse | BlockProductionDetailsResponse[]) => {
+    return this.rust.get<BlockProductionEpochPaginationResponse | BlockProductionEpochPaginationResponse[]>(`/epoch/summary/${epochNumber ?? 'latest'}`).pipe(
+      map((response: BlockProductionEpochPaginationResponse | BlockProductionEpochPaginationResponse[]) => {
         if (Array.isArray(response)) {
           response = response[0];
         }
@@ -152,26 +152,11 @@ export class BlockProductionOverviewService {
   }
 }
 
-export interface BlockProductionDetailsResponse {
+export interface BlockProductionEpochPaginationResponse {
   epoch_number: number;
   balance_delegated: string;
   balance_producer: string;
   balance_staked: string;
-  summary: {
-    won_slots: number;
-    canonical: number;
-    orphaned: number;
-    missed: number;
-    future_rights: number;
-    slot_start: number;
-    slot_end: number;
-    expected_rewards: string;
-    earned_rewards: string;
-  } | null;
-}
-
-export interface BlockProductionEpochPaginationResponse {
-  epoch_number: number;
   summary: {
     max: number;
     won_slots: number;

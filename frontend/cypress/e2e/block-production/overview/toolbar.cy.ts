@@ -3,10 +3,9 @@ import { MinaState } from '@app/app.setup';
 import { stateSliceAsPromise } from '../../../support/commands';
 import { BlockProductionOverviewState } from '@block-production/overview/block-production-overview.state';
 import {
-  BlockProductionDetailsResponse,
+  BlockProductionEpochPaginationResponse,
   SlotResponse,
 } from '@block-production/overview/block-production-overview.service';
-import { BlockProductionSlot } from '@shared/types/block-production/overview/block-production-overview-slot.type';
 
 const condition = (state: BlockProductionOverviewState): boolean => state && state.epochs?.length > 0;
 const getBPOverview = (store: Store<MinaState>): BlockProductionOverviewState => stateSliceAsPromise<BlockProductionOverviewState>(store, condition, 'blockProduction', 'overview');
@@ -21,7 +20,7 @@ const execute = (callback: () => void) => {
     });
 };
 let slotsResponse: SlotResponse[];
-let epochDetails: BlockProductionDetailsResponse;
+let epochDetails: BlockProductionEpochPaginationResponse;
 let activeSlotIndex: number;
 
 describe('BLOCK PRODUCTION OVERVIEW TOOLBAR', () => {

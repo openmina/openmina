@@ -2,7 +2,7 @@ import { Store } from '@ngrx/store';
 import { MinaState } from '@app/app.setup';
 import { stateSliceAsPromise } from '../../../support/commands';
 import { BlockProductionOverviewState } from '@block-production/overview/block-production-overview.state';
-import { BlockProductionDetailsResponse } from '@block-production/overview/block-production-overview.service';
+import { BlockProductionEpochPaginationResponse } from '@block-production/overview/block-production-overview.service';
 
 const condition = (state: BlockProductionOverviewState): boolean => state && state.epochs?.length > 0;
 const getBPOverview = (store: Store<MinaState>): BlockProductionOverviewState => stateSliceAsPromise<BlockProductionOverviewState>(store, condition, 'blockProduction', 'overview');
@@ -18,7 +18,7 @@ const execute = (callback: () => void) => {
       }
     });
 };
-let epochDetails: BlockProductionDetailsResponse;
+let epochDetails: BlockProductionEpochPaginationResponse;
 
 describe('BLOCK PRODUCTION OVERVIEW SIDE PANEL', () => {
   beforeEach(() => {
