@@ -379,21 +379,16 @@ impl BlockProducerEnabled {
                         consensus_state,
                     },
                 };
-                let body_hash = protocol_state.body.hash();
-                let hash = StateHash::from_hashes(&protocol_state.previous_state_hash, &body_hash);
 
-                // TODO(binier): test
                 let chain_proof_len = pred_block.constants().delta.as_u32() as usize;
                 let delta_block_chain_proof = match chain_proof_len {
-                    0 => (hash.clone(), List::new()),
+                    0 => (pred_block.hash().clone(), List::new()),
                     chain_proof_len => {
-                        let mut iter = chain.iter().rev().take(chain_proof_len).rev();
-                        let first_hash = iter
-                            .next()
-                            .map_or_else(|| hash.clone(), |b| b.hash().clone());
+                        // TODO(binier): test
+                        let mut iter = chain.iter().rev().take(chain_proof_len + 1).rev();
+                        let first_hash = iter.next().unwrap().hash().clone();
                         let body_hashes = iter
                             .map(|b| b.header().protocol_state.body.hash())
-                            .chain(std::iter::once(body_hash))
                             .map(StateBodyHash::from)
                             .collect();
                         (first_hash, body_hashes)
@@ -409,6 +404,7 @@ impl BlockProducerEnabled {
                         staged_ledger_diff: diff.clone(),
                     },
                 };
+                let block_hash = block.protocol_state.hash();
 
                 self.current = BlockProducerCurrentState::BlockUnprovenBuilt {
                     time: meta.time(),
@@ -419,7 +415,7 @@ impl BlockProducerEnabled {
                     pending_coinbase_witness,
                     stake_proof_sparse_ledger,
                     block,
-                    block_hash: hash,
+                    block_hash,
                 }
             }
             BlockProducerAction::BlockProveInit => {}
