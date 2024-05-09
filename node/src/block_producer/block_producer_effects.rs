@@ -45,6 +45,13 @@ pub fn block_producer_effects<S: crate::Service>(
             let (epoch, slot) = to_epoch_and_slot(&global_slot);
             let next_epoch_first_slot = next_epoch_first_slot(&global_slot);
 
+            let current_slot = store.state().cur_global_slot();
+
+            // TODO(adonagy): Still not the ideal solution
+            if best_tip.is_genesis() && current_slot > Some(10) {
+                return;
+            }
+
             store.dispatch(BlockProducerVrfEvaluatorAction::InitializeEvaluator {
                 best_tip: best_tip.clone(),
             });
@@ -225,10 +232,13 @@ pub fn block_producer_effects<S: crate::Service>(
             };
 
             if store.dispatch(TransitionFrontierSyncAction::BestTipUpdate {
-                best_tip,
+                best_tip: best_tip.clone(),
                 root_block,
                 blocks_inbetween,
             }) {
+                use mina_p2p_messages::gossip::GossipNetMessageV2;
+                let message = GossipNetMessageV2::NewState((*best_tip.clone().block).clone());
+                store.dispatch(p2p::P2pNetworkPubsubAction::Broadcast { message });
                 store.dispatch(BlockProducerAction::BlockInjected);
             }
         }
