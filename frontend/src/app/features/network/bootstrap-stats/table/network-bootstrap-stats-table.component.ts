@@ -33,7 +33,7 @@ export class NetworkBootstrapStatsTableComponent extends MinaTableRustWrapper<Ne
   };
   protected readonly tableHeads: TableColumnList<NetworkBootstrapStatsRequest> = [
     { name: 'datetime', sort: 'finish' },
-    { name: 'result', sort: 'type' },
+    { name: 'result', sort: 'typeErr' },
     { name: 'duration', sort: 'durationInSecs' },
     { name: 'peerId' },
     { name: 'address' },
@@ -52,8 +52,8 @@ export class NetworkBootstrapStatsTableComponent extends MinaTableRustWrapper<Ne
   }
 
   protected override setupTable(): void {
-    this.table.gridTemplateColumns = [165, 150, 100, 150, 250, 120, 100];
-    this.table.minWidth = 1035;
+    this.table.gridTemplateColumns = [165, 200, 100, 150, 250, 120, 100];
+    this.table.minWidth = 1085;
     this.table.sortClz = NetworkBootstrapStatsSort;
     this.table.sortSelector = selectNetworkBootstrapStatsSort;
     this.table.propertyForActiveCheck = 'peerId';
