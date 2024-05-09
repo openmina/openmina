@@ -8,10 +8,11 @@ export const environment: Readonly<MinaEnv> = {
       dashboard: [],
       nodes: ['overview', 'live', 'bootstrap'],
       state: ['actions'],
-      // network: ['messages', 'connections', 'blocks', 'topology', 'node-dht', 'graph-overview', 'bootstrap-stats'],
-      snarks: ['scan-state' /*'work-pool'*/],
+      network: ['messages', 'connections', 'blocks', 'topology', 'node-dht', 'graph-overview', 'bootstrap-stats'],
+      snarks: ['scan-state', 'work-pool'],
       'block-production': ['overview'],
-      // 'testing-tool': ['scenarios'],
+      'testing-tool': ['scenarios'],
+      resources: ['memory'],
     },
   },
   configs: [
@@ -29,10 +30,12 @@ export const environment: Readonly<MinaEnv> = {
     {
       name: 'Producer',
       url: 'http://65.109.105.40:3000',
+      memoryProfiler: 'http://1.k8.openmina.com:31164',
     },
     {
       name: 'Local rust node',
       url: 'http://127.0.0.1:3000',
+      memoryProfiler: 'http://1.k8.openmina.com:31164',
     },
     // {
     //   name: 'Node with mem profiler',
