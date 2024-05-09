@@ -68,7 +68,9 @@ fn transition_frontier_new_best_tip<S: crate::Service>(store: &mut Store<S>) {
             let old_best_tip = state.transition_frontier.best_tip()?;
             let mut iter = state.transition_frontier.best_chain.iter();
             if old_best_tip.hash() == pred_hash {
-                iter.next();
+                if old_best_tip.height() > old_best_tip.constants().k.as_u32() {
+                    iter.next();
+                }
                 let root_block = iter.next()?.clone();
                 let hashes = iter.map(|b| b.hash.clone()).collect();
                 Some((hashes, root_block))
