@@ -1,13 +1,17 @@
 use std::borrow::Cow;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::account::AccountSecretKey;
-use ledger::{scan_state::currency::Balance, BaseLedger};
+use ledger::{scan_state::currency::Balance, Account, BaseLedger};
 use mina_hasher::Fp;
 use mina_p2p_messages::{binprot::BinProtRead, v2};
 use openmina_core::constants::CONSTRAINT_CONSTANTS;
 use serde::{Deserialize, Serialize};
 
-use crate::ProtocolConstants;
+use crate::{
+    daemon_json::{self, AccountConfigError, DaemonJson},
+    ProtocolConstants,
+};
 
 pub use GenesisConfig as TransitionFrontierGenesisConfig;
 
@@ -26,7 +30,7 @@ pub enum GenesisConfig {
         bytes: Cow<'static, [u8]>,
         constants: ProtocolConstants,
     },
-    // TODO: add another variant for supporting loading from daemon.json
+    DaemonJson(DaemonJson),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -129,6 +133,38 @@ impl GenesisConfig {
                     genesis_producer_stake_proof: genesis_producer_stake_proof(&mask),
                 };
                 (mask, load_result)
+            }
+            Self::DaemonJson(config) => {
+                let genesis_timestamp = config
+                    .genesis
+                    .as_ref()
+                    .map(|g: &daemon_json::Genesis| g.genesis_state_timestamp().map(|t| t.0 .0 .0))
+                    .transpose()?
+                    .unwrap_or_else(|| {
+                        SystemTime::now()
+                            .duration_since(UNIX_EPOCH)
+                            .unwrap()
+                            .as_millis() as u64
+                    });
+                let constants = Self::default_constants(genesis_timestamp);
+                let ledger = config
+                    .ledger
+                    .as_ref()
+                    .ok_or(anyhow::anyhow!("No ledger in config"))?;
+                let accounts: Vec<Account> = ledger
+                    .accounts_with_genesis_winner()
+                    .iter()
+                    .map(daemon_json::Account::to_account)
+                    .collect::<Result<Vec<Account>, AccountConfigError>>()
+                    .map_err(anyhow::Error::from)?;
+                let (mut mask, total_currency) = Self::build_ledger_from_accounts(accounts);
+                let result = GenesisConfigLoaded {
+                    constants,
+                    ledger_hash: ledger_hash(&mut mask),
+                    total_currency,
+                    genesis_producer_stake_proof: genesis_producer_stake_proof(&mask),
+                };
+                (mask, result)
             }
         })
     }
