@@ -29,6 +29,7 @@ pub mod stats;
 
 pub mod block_producer;
 pub mod consensus;
+pub mod daemon_json;
 pub mod event_source;
 pub mod external_snark_worker;
 pub mod ledger;
