@@ -514,6 +514,7 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
                 action.effects(&meta, store);
             }
             P2pPeerAction::BestTipUpdate { best_tip, .. } => {
+                dbg!(&best_tip);
                 store.dispatch(ConsensusAction::BlockReceived {
                     hash: best_tip.hash,
                     block: best_tip.block,

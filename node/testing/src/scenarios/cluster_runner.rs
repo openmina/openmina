@@ -596,6 +596,39 @@ impl<'a> ClusterRunner<'a> {
     }
 }
 
+impl<'a> Drop for ClusterRunner<'a> {
+    fn drop(&mut self) {
+        eprintln!("dumping cluster data before shutdown");
+
+        for (id, node) in self.ocaml_nodes_iter() {
+            eprintln!("OcamlNode({id})");
+            let tip = node.synced_best_tip().expect("failed to get best tip from ocaml node");
+            eprintln!("best tip: {tip:?}");
+        }
+
+        for (id, node) in self.nodes_iter() {
+            eprintln!("Node({id})");
+            if let Some(tip) = node.state().transition_frontier.best_tip() {
+                eprintln!(
+                    "best tip: {}:{} - {}",
+                    tip.height(),
+                    tip.global_slot(),
+                    tip.hash()
+                );
+            }
+            eprintln!(
+                "is_synced: {}",
+                node.state().transition_frontier.sync.is_synced()
+            );
+            eprintln!(
+                "Node({id}) ready peers: {}",
+                node.state().p2p.ready_peers().len()
+            );
+            eprintln!("------");
+        }
+    }
+}
+
 impl Default
     for RunCfg<
         fn(ClusterNodeId, &State, &Event) -> RunDecision,

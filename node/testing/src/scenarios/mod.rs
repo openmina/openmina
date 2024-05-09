@@ -8,6 +8,7 @@
 //! Intermittent Connections: Nodes should be resilient to sporadic network dropouts and still maintain synchronization.
 //! Dynamic IP Handling: Nodes with frequently changing IP addresses should maintain stable connections.
 
+pub mod block_production;
 pub mod multi_node;
 pub mod simulation;
 pub mod solo_node;
@@ -24,6 +25,7 @@ use strum_macros::{EnumIter, EnumString, IntoStaticStr};
 use crate::cluster::{Cluster, ClusterConfig};
 use crate::scenario::{Scenario, ScenarioId, ScenarioStep};
 
+use self::block_production::basic::BlockProductionBasic;
 use self::multi_node::basic_connectivity_initial_joining::MultiNodeBasicConnectivityInitialJoining;
 use self::multi_node::basic_connectivity_peer_discovery::MultiNodeBasicConnectivityPeerDiscovery;
 use self::multi_node::sync_4_block_producers::MultiNodeSync4BlockProducers;
@@ -56,6 +58,9 @@ pub enum Scenarios {
     MultiNodeVrfEpochBoundsCorrectLedger(MultiNodeVrfEpochBoundsCorrectLedger),
     MultiNodeBasicConnectivityInitialJoining(MultiNodeBasicConnectivityInitialJoining),
     MultiNodeBasicConnectivityPeerDiscovery(MultiNodeBasicConnectivityPeerDiscovery),
+
+    BlockProductionBasic(BlockProductionBasic),
+
     SimulationSmall(SimulationSmall),
 }
 
@@ -80,6 +85,7 @@ impl Scenarios {
             Self::MultiNodeVrfEpochBoundsCorrectLedger(_) => false,
             Self::MultiNodeBasicConnectivityInitialJoining(_) => false,
             Self::MultiNodeBasicConnectivityPeerDiscovery(_) => cfg!(feature = "p2p-webrtc"),
+            Self::BlockProductionBasic(_) => false,
             Self::SimulationSmall(_) => false,
         }
     }
@@ -109,6 +115,7 @@ impl Scenarios {
             }
             Self::MultiNodeBasicConnectivityInitialJoining(_) => None,
             Self::MultiNodeBasicConnectivityPeerDiscovery(_) => None,
+            Self::BlockProductionBasic(_) => None,
             Self::SimulationSmall(_) => None,
         }
     }
@@ -143,6 +150,7 @@ impl Scenarios {
             Self::MultiNodeBasicConnectivityPeerDiscovery(_) => {
                 MultiNodeBasicConnectivityPeerDiscovery::DOCS
             }
+            Self::BlockProductionBasic(_) => BlockProductionBasic::DOCS,
             Self::SimulationSmall(_) => SimulationSmall::DOCS,
         }
     }
@@ -174,6 +182,7 @@ impl Scenarios {
             Self::MultiNodeVrfEpochBoundsCorrectLedger(v) => v.run(runner).await,
             Self::MultiNodeBasicConnectivityInitialJoining(v) => v.run(runner).await,
             Self::MultiNodeBasicConnectivityPeerDiscovery(v) => v.run(runner).await,
+            Self::BlockProductionBasic(v) => v.run(runner).await,
             Self::SimulationSmall(v) => v.run(runner).await,
         }
     }

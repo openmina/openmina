@@ -265,7 +265,7 @@ fn synced_effects<S: crate::Service>(
     }
 
     // publish new best tip.
-    let best_tip = best_tip.clone();
+    let best_tip = dbg!(best_tip).clone();
     for peer_id in store.state().p2p.ready_peers() {
         store.dispatch(P2pChannelsBestTipAction::ResponseSend {
             peer_id,

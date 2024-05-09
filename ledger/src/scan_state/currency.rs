@@ -269,6 +269,13 @@ impl Balance {
         amount.checked_mul(1_000_000_000).map(Self::from_u64)
     }
 
+    pub fn to_mina_str(&self) -> String {
+        let (whole, rem) = (self.0 / 1_000_000_000, self.0 % 1_000_000_000);
+        let rem = rem.to_string();
+        let additional_zeros = "0".repeat(9 - rem.len());
+        format!("{whole}.{additional_zeros}{rem}")
+    }
+
     pub fn of_nanomina_int_exn(int: u64) -> Self {
         Self::from_u64(int)
     }
