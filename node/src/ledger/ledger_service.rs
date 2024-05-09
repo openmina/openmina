@@ -44,12 +44,12 @@ use mina_signer::CompressedPubKey;
 use openmina_core::block::ArcBlockWithHash;
 
 use crate::account::AccountPublicKey;
+use crate::block_producer::StagedLedgerDiffCreateOutput;
 use crate::p2p::channels::rpc::StagedLedgerAuxAndPendingCoinbases;
 use crate::rpc::{
     RpcScanStateSummaryBlockTransaction, RpcScanStateSummaryScanStateJob,
     RpcScanStateSummaryScanStateJobKind, RpcSnarkPoolJobSnarkWorkDone,
 };
-use crate::block_producer::StagedLedgerDiffCreateOutput;
 use crate::transition_frontier::sync::{
     ledger::staged::StagedLedgerAuxAndPendingCoinbasesValid,
     TransitionFrontierRootSnarkedLedgerUpdates,

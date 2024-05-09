@@ -6,7 +6,7 @@ use std::{
 use ledger::{
     scan_state::transaction_logic::{verifiable, UserCommand, WithStatus},
     transaction_pool::{diff, ApplyDecision},
-    Account, AccountId, BaseLedger, Mask,
+    Account, AccountId, BaseLedger,
 };
 use mina_p2p_messages::v2::LedgerHash;
 use snark::{user_command_verify::SnarkUserCommandVerifyId, VerifierIndex, VerifierSRS};
@@ -32,14 +32,14 @@ impl TransactionPoolState {
         }
     }
 
-    fn rebroadcast(&self, accepted: Vec<UserCommand>, rejected: Vec<(UserCommand, diff::Error)>) {
+    fn rebroadcast(&self, _accepted: Vec<UserCommand>, _rejected: Vec<(UserCommand, diff::Error)>) {
         // TODO
     }
 
     pub fn reducer(&mut self, action: TransactionPoolActionWithMetaRef<'_>) {
         use TransactionPoolAction::*;
 
-        let (action, meta) = action.split();
+        let (action, _meta) = action.split();
         match action {
             BestTipChanged { best_tip_hash: _ } => {}
             BestTipChangedWithAccounts { accounts } => {
@@ -58,7 +58,9 @@ impl TransactionPoolState {
                 Ok((ApplyDecision::Accept, accepted, rejected)) => {
                     self.rebroadcast(accepted, rejected)
                 }
-                Ok((ApplyDecision::Reject, accepted, rejected)) => todo!(),
+                Ok((ApplyDecision::Reject, accepted, rejected)) => {
+                    self.rebroadcast(accepted, rejected)
+                }
                 Err(e) => eprintln!("unsafe_apply error: {:?}", e),
             },
             ApplyTransitionFrontierDiff {
@@ -78,7 +80,11 @@ fn load_accounts_from_ledger<S: Service>(
     best_tip_hash: &LedgerHash,
     account_ids: BTreeSet<AccountId>,
 ) -> BTreeMap<AccountId, Account> {
-    let best_tip_mask = store.service.get_mask(&best_tip_hash).unwrap(); // TODO Handle error
+    let (best_tip_mask, _) = store
+        .service
+        .ledger_manager()
+        .get_mask(&best_tip_hash)
+        .unwrap(); // TODO Handle error
 
     account_ids
         .into_iter()
@@ -148,12 +154,8 @@ pub fn transaction_pool_effects<S: Service>(
             diff: _,
             accounts: _,
         } => {}
-        TransactionPoolAction::Rebroadcast => todo!(),
+        TransactionPoolAction::Rebroadcast => {},
     }
-}
-
-pub trait TransactionPoolLedgerService: redux::Service {
-    fn get_mask(&self, ledger_hash: &LedgerHash) -> Result<Mask, String>;
 }
 
 pub trait VerifyUserCommandsService: redux::Service {
