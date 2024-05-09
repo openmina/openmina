@@ -74,7 +74,7 @@ impl P2pNetworkSchedulerState {
                 match protocol {
                     Some(token::Protocol::Auth(token::AuthKind::Noise)) => {
                         connection.auth = Some(P2pNetworkAuthState::Noise(
-                            P2pNetworkNoiseState::new(self.local_pk.clone(), true),
+                            P2pNetworkNoiseState::new(self.local_pk.clone(), false),
                         ));
                     }
                     Some(token::Protocol::Mux(
@@ -169,17 +169,16 @@ impl P2pNetworkSchedulerState {
                     error!(meta.time(); "P2pNetworkSchedulerAction::Disconnect: {addr} is not disconnecting");
                     return;
                 }
-                cn.streams.clear();
-                if let Some(peer_id) = cn.peer_id() {
-                    self.rpc_incoming_streams.remove(peer_id);
-                    self.rpc_outgoing_streams.remove(peer_id);
-                    if let Some(discovery_state) = self.discovery_state.as_mut() {
-                        discovery_state.streams.remove(peer_id);
-                    }
-                }
             }
             P2pNetworkSchedulerAction::Prune { addr } => {
                 let _ = self.connections.remove(addr);
+            }
+            P2pNetworkSchedulerAction::PruneStreams { peer_id } => {
+                self.rpc_incoming_streams.remove(peer_id);
+                self.rpc_outgoing_streams.remove(peer_id);
+                if let Some(discovery_state) = self.discovery_state.as_mut() {
+                    discovery_state.streams.remove(peer_id);
+                }
             }
         }
     }

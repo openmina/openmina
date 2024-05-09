@@ -147,8 +147,13 @@ impl P2pConnectionIncomingState {
                     };
                 }
             }
-            P2pConnectionIncomingAction::Libp2pReceived { .. } => {
+            P2pConnectionIncomingAction::FinalizePendingLibp2p { .. } => {
                 // handled in the parent reducer.
+            }
+            P2pConnectionIncomingAction::Libp2pReceived { .. } => {
+                if let Self::FinalizePendingLibp2p { time, .. } = self {
+                    *self = Self::Libp2pReceived { time: *time };
+                }
             }
         }
     }

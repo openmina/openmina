@@ -51,15 +51,6 @@ pub enum SelectKind {
 }
 
 impl SelectKind {
-    pub fn peer_id(&self) -> Option<PeerId> {
-        match self {
-            Self::Authentication => None,
-            Self::MultiplexingNoPeerId => None,
-            Self::Multiplexing(v) => Some(*v),
-            Self::Stream(v, _) => Some(*v),
-        }
-    }
-
     pub fn stream_id(&self) -> Option<StreamId> {
         match self {
             Self::Authentication => None,

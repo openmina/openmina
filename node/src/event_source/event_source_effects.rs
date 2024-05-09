@@ -172,9 +172,6 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                                 .dispatch(P2pConnectionOutgoingAction::FinalizeSuccess { peer_id })
                                 || store.dispatch(P2pConnectionIncomingAction::FinalizeSuccess {
                                     peer_id,
-                                })
-                                || store.dispatch(P2pConnectionIncomingAction::Libp2pReceived {
-                                    peer_id,
                                 });
                         }
                     },

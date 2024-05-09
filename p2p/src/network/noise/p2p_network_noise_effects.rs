@@ -1,3 +1,5 @@
+use crate::connection::incoming::{P2pConnectionIncomingAction, P2pConnectionIncomingState};
+
 use super::{super::*, *};
 
 use super::p2p_network_noise_state::{
@@ -130,6 +132,25 @@ impl P2pNetworkNoiseAction {
                         error: error.clone().into(),
                     });
                     return;
+                }
+
+                if let Some((peer_id, true)) = handshake_done {
+                    let addr = *self.addr();
+                    store.dispatch(P2pConnectionIncomingAction::FinalizePendingLibp2p {
+                        peer_id,
+                        addr,
+                    });
+                    // check that peer management decide to accept this connection
+                    let this_connection_is_kept = store
+                        .state()
+                        .peers
+                        .get(&peer_id)
+                        .and_then(|peer_state| peer_state.status.as_connecting())
+                        .and_then(|connecting| connecting.as_incoming())
+                        .map_or(false, |incoming| matches!(incoming, P2pConnectionIncomingState::FinalizePendingLibp2p { addr: a, .. } if a == &addr));
+                    if !this_connection_is_kept {
+                        return;
+                    }
                 }
 
                 if handshake_optimized && middle_responder {

@@ -4,13 +4,16 @@ use openmina_core::error;
 use redux::ActionMeta;
 
 use crate::{
-    connection::{incoming::P2pConnectionIncomingAction, outgoing::P2pConnectionOutgoingAction},
+    connection::{
+        incoming::P2pConnectionIncomingAction, outgoing::P2pConnectionOutgoingAction,
+        P2pConnectionState,
+    },
     disconnection::P2pDisconnectionAction,
     identify::P2pIdentifyAction,
     network::identify::P2pNetworkIdentifyStreamAction,
     request::{P2pNetworkKadRequestState, P2pNetworkKadRequestStatus},
     token::{RpcAlgorithm, StreamKind},
-    MioCmd, P2pCryptoService, P2pMioService,
+    MioCmd, P2pCryptoService, P2pMioService, P2pPeerStatus,
 };
 
 use super::{super::*, *};
@@ -55,8 +58,8 @@ impl P2pNetworkSchedulerAction {
             Self::OutgoingConnect { addr } => {
                 store.service().send_mio_cmd(MioCmd::Connect(addr));
             }
-            Self::OutgoingDidConnect { addr, result } => {
-                if result.is_ok() {
+            Self::OutgoingDidConnect { addr, result } => match result {
+                Ok(_) => {
                     let nonce = store.service().generate_random_nonce();
                     store.dispatch(P2pNetworkPnetAction::SetupNonce {
                         addr,
@@ -64,7 +67,23 @@ impl P2pNetworkSchedulerAction {
                         incoming: false,
                     });
                 }
-            }
+                Err(err) => {
+                    let Some((peer_id, peer_state)) = store.state().peer_with_connection(addr)
+                    else {
+                        error!(meta.time(); "outgoing connection to {addr} failed, but there is no peer for it");
+                        return;
+                    };
+                    if matches!(
+                        peer_state.status,
+                        P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(_))
+                    ) {
+                        store.dispatch(P2pConnectionOutgoingAction::FinalizeError {
+                            peer_id: *peer_id,
+                            error: err.to_string(),
+                        });
+                    }
+                }
+            },
             Self::IncomingDataIsReady { addr } => {
                 store
                     .service()
@@ -224,6 +243,7 @@ impl P2pNetworkSchedulerAction {
                     } else {
                         store.dispatch(P2pConnectionOutgoingAction::FinalizeSuccess { peer_id });
                     }
+
                     // for each negotiated yamux conenction open a new outgoing RPC stream
                     // TODO(akoptelov,vlad): should we do that? shouldn't upper layer decide when to open RPC streams?
                     // Also rpc streams are short-living -- they only persist for a single request-response (?)
@@ -274,8 +294,8 @@ impl P2pNetworkSchedulerAction {
                     }
                     match store.state().peer_with_connection(addr) {
                         Some((peer_id, peer_state)) => {
-                            // TODO: connection state type should tell if it is finalized
                             let peer_id = *peer_id;
+                            // TODO: connection state type should tell if it is finalized
                             match &peer_state.status {
                                 crate::P2pPeerStatus::Connecting(
                                     crate::connection::P2pConnectionState::Incoming(_),
@@ -305,11 +325,12 @@ impl P2pNetworkSchedulerAction {
                                     store.dispatch(P2pDisconnectionAction::Finish { peer_id });
                                 }
                             }
+                            store.dispatch(P2pNetworkSchedulerAction::PruneStreams { peer_id });
                         }
                         None => {
                             // sanity check, should be incoming connection
                             if !incoming {
-                                error!(meta.time(); "non-existing peer connection for address {addr}");
+                                // TODO: error!(meta.time(); "non-existing peer connection for address {addr}");
                             } else {
                                 // TODO: introduce action for incoming connection finalization without peer_id
                             }
@@ -317,7 +338,7 @@ impl P2pNetworkSchedulerAction {
                     }
                 }
             }
-            Self::Prune { .. } => {}
+            Self::Prune { .. } | Self::PruneStreams { .. } => {}
         }
     }
 }

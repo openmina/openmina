@@ -31,4 +31,7 @@ pub enum P2pDisconnectionReason {
 
     #[error("failed to verify snark pool diff")]
     SnarkPoolVerifyError,
+
+    #[error("duplicate connection")]
+    DuplicateConnection,
 }
