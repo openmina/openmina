@@ -100,7 +100,7 @@ fn blockchain_state(
     let stmt_registers = v2::MinaStateBlockchainStateValueStableV2LedgerProofStatementSource {
         first_pass_ledger: genesis_ledger_hash.clone(),
         second_pass_ledger: genesis_ledger_hash.clone(),
-        pending_coinbase_stack: v2::MinaBasePendingCoinbaseStackVersionedStableV1::zero(),
+        pending_coinbase_stack: v2::MinaBasePendingCoinbaseStackVersionedStableV1::empty(),
         local_state: empty_local_state,
     };
     let empty_fee_excess = v2::TokenFeeExcess {
