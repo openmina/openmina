@@ -3,6 +3,7 @@ pub use config::*;
 use mina_p2p_messages::v2::{
     CurrencyFeeStableV1, UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
 };
+use openmina_core::ChainId;
 
 use std::{collections::BTreeSet, time::Duration};
 
@@ -41,9 +42,9 @@ impl Simulator {
         {
             chain_id
         } else if let Some(node) = runner.ocaml_node(ClusterOcamlNodeId::new_unchecked(0)) {
-            node.chain_id_async().await.unwrap().into_bytes()
+            node.chain_id_async().await.unwrap()
         } else {
-            "<unknown_chain_id>".into()
+            ChainId::from_bytes("<unknown chain_id>".as_bytes())
         };
 
         RustNodeTestingConfig {

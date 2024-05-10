@@ -8,9 +8,10 @@ use std::time::Duration;
 use libp2p_identity::Keypair;
 use mina_p2p_messages::v2::{
     CurrencyFeeStableV1, NonZeroCurvePoint, NonZeroCurvePointUncompressedStableV1,
-    UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
+    UnsignedExtendedUInt32StableV1, UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
 };
 use node::transition_frontier::genesis::GenesisConfig;
+use openmina_core::{constants, ChainId};
 use rand::prelude::*;
 
 use redux::SystemTime;
@@ -37,10 +38,6 @@ use node::{
 
 use openmina_node_native::rpc::RpcService;
 use openmina_node_native::{http_server, tracing, NodeService, P2pTaskSpawner, RpcSender};
-
-// old:
-// 3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e
-const CHAIN_ID: &'static str = openmina_core::CHAIN_ID;
 
 /// Openmina node
 #[derive(Debug, clap::Args)]
@@ -189,10 +186,20 @@ impl Node {
         let rng_seed = rng.next_u64();
         let srs: Arc<_> = get_srs();
 
-        let transition_frontier = match conf {
-            Some(c) => TransitionFrontierConfig::new(Arc::new(GenesisConfig::DaemonJson(c))),
-            None => TransitionFrontierConfig::new(node::config::BERKELEY_CONFIG.clone()),
+        let genesis_config = match conf {
+            Some(c) => Arc::new(GenesisConfig::DaemonJson(c)),
+            None => node::config::BERKELEY_CONFIG.clone(),
         };
+        let transition_frontier = TransitionFrontierConfig::new(genesis_config.clone());
+        let protocol_constants = genesis_config.protocol_constants()?;
+        let chain_id = ChainId::compute(
+            constants::CONSTRAINT_SYSTEM_DIGESTS.as_slice(),
+            &constants::GENESIS_STATE_HASH,
+            &protocol_constants,
+            constants::PROTOCOL_TRANSACTION_VERSION,
+            constants::PROTOCOL_NETWORK_VERSION,
+            &UnsignedExtendedUInt32StableV1::from(constants::TX_POOL_MAX_SIZE),
+        );
         let config = Config {
             ledger: LedgerConfig {},
             snark: SnarkConfig {
@@ -223,7 +230,7 @@ impl Node {
                 ask_initial_peers_interval: Duration::from_secs(3600),
                 enabled_channels: ChannelId::for_libp2p().collect(),
                 timeouts: P2pTimeouts::default(),
-                chain_id: CHAIN_ID.to_owned(),
+                chain_id: chain_id.to_owned(),
                 peer_discovery: !self.no_peers_discovery,
                 initial_time: SystemTime::now()
                     .duration_since(SystemTime::UNIX_EPOCH)
@@ -245,7 +252,7 @@ impl Node {
         let p2p_service_ctx = <NodeService as P2pServiceWebrtcWithLibp2p>::init(
             Some(self.libp2p_port),
             secret_key.clone(),
-            CHAIN_ID.to_owned().into_bytes(),
+            chain_id.clone(),
             event_sender.clone(),
             P2pTaskSpawner {},
         );

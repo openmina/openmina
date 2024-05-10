@@ -9,6 +9,7 @@ use std::{
 use derive_builder::UninitializedFieldError;
 use futures::StreamExt;
 use libp2p::{multiaddr::multiaddr, swarm::DialError, Multiaddr};
+use openmina_core::{ChainId, BERKELEY_CHAIN_ID};
 use p2p::{
     connection::outgoing::{
         P2pConnectionOutgoingAction, P2pConnectionOutgoingInitLibp2pOpts,
@@ -53,7 +54,7 @@ pub enum NodeId {
 }
 
 pub struct Cluster {
-    chain_id: String,
+    chain_id: ChainId,
     ports: Range<u16>,
     ip: IpAddr,
 
@@ -85,7 +86,7 @@ impl PortsConfig {
 }
 
 pub struct ClusterBuilder {
-    chain_id: String,
+    chain_id: ChainId,
     ports: Option<PortsConfig>,
     ip: IpAddr,
     idle_duration: Duration,
@@ -96,7 +97,7 @@ pub struct ClusterBuilder {
 impl Default for ClusterBuilder {
     fn default() -> Self {
         ClusterBuilder {
-            chain_id: openmina_core::CHAIN_ID.to_string(),
+            chain_id: BERKELEY_CHAIN_ID,
             ports: None,
             ip: Ipv4Addr::LOCALHOST.into(),
             idle_duration: Duration::from_millis(100),
@@ -111,7 +112,7 @@ impl ClusterBuilder {
         ClusterBuilder::default()
     }
 
-    pub fn chain_id(mut self, chain_id: String) -> Self {
+    pub fn chain_id(mut self, chain_id: ChainId) -> Self {
         self.chain_id = chain_id;
         self
     }
@@ -414,8 +415,13 @@ impl Cluster {
         let secret_key = Self::secret_key(config.peer_id, node_id.0, LIBP2P_NODE_SIG_BYTE);
         let libp2p_port = self.next_port()?;
 
-        let swarm = create_swarm(secret_key, libp2p_port, config.port_reuse, &self.chain_id)
-            .map_err(|err| Error::Libp2pSwarm(err.to_string()))?;
+        let swarm = create_swarm(
+            secret_key,
+            libp2p_port,
+            config.port_reuse,
+            self.chain_id.clone(),
+        )
+        .map_err(|err| Error::Libp2pSwarm(err.to_string()))?;
         self.libp2p_nodes.push(Libp2pNode::new(swarm));
 
         Ok(node_id)

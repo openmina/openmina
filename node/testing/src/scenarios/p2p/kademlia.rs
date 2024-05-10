@@ -200,7 +200,9 @@ fn fake_kad_peer(
     identity_key: Keypair,
     port: Option<u16>,
 ) -> anyhow::Result<libp2p::Swarm<Behaviour>> {
-    let psk = PreSharedKey::new(openmina_core::preshared_key(openmina_core::CHAIN_ID));
+    let psk = PreSharedKey::new(openmina_core::preshared_key(
+        openmina_core::BERKELEY_CHAIN_ID,
+    ));
     let _identify = libp2p::identify::Behaviour::new(libp2p::identify::Config::new(
         "ipfs/0.1.0".to_string(),
         identity_key.public(),

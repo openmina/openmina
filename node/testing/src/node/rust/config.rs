@@ -4,7 +4,7 @@ use node::account::AccountSecretKey;
 use node::config::BERKELEY_CONFIG;
 use node::transition_frontier::genesis::GenesisConfig;
 use node::{p2p::P2pTimeouts, BlockProducerConfig, SnarkerConfig};
-use openmina_core::CHAIN_ID;
+use openmina_core::{ChainId, BERKELEY_CHAIN_ID};
 use serde::{Deserialize, Serialize};
 
 use crate::scenario::ListenerNode;
@@ -22,7 +22,7 @@ pub enum TestPeerId {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RustNodeTestingConfig {
-    pub chain_id: Vec<u8>,
+    pub chain_id: ChainId,
     pub initial_time: redux::Timestamp,
     pub genesis: Arc<GenesisConfig>,
     pub max_peers: usize,
@@ -44,7 +44,7 @@ pub struct RustNodeBlockProducerTestingConfig {
 impl RustNodeTestingConfig {
     pub fn berkeley_default() -> Self {
         Self {
-            chain_id: CHAIN_ID.to_owned().into_bytes(),
+            chain_id: BERKELEY_CHAIN_ID.to_owned(),
             initial_time: redux::Timestamp::ZERO,
             genesis: BERKELEY_CONFIG.clone(),
             max_peers: 100,
@@ -60,7 +60,7 @@ impl RustNodeTestingConfig {
 
     pub fn berkeley_default_no_rpc_timeouts() -> Self {
         Self {
-            chain_id: CHAIN_ID.as_bytes().to_owned(),
+            chain_id: BERKELEY_CHAIN_ID.to_owned(),
             initial_time: redux::Timestamp::ZERO,
             genesis: BERKELEY_CONFIG.clone(),
             max_peers: 100,
@@ -79,8 +79,8 @@ impl RustNodeTestingConfig {
         self
     }
 
-    pub fn chain_id(mut self, s: impl AsRef<[u8]>) -> Self {
-        self.chain_id = s.as_ref().to_owned();
+    pub fn chain_id(mut self, s: &ChainId) -> Self {
+        self.chain_id = s.clone();
         self
     }
 

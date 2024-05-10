@@ -1,6 +1,15 @@
+use lazy_static::lazy_static;
+use std::str::FromStr;
+
 use binprot_derive::BinProtWrite;
 use mina_hasher::Fp;
-use mina_p2p_messages::{bigint, number, v2};
+use mina_p2p_messages::{
+    bigint, number,
+    v2::{
+        self, BlockTimeTimeStableV1, MinaBaseProtocolConstantsCheckedValueStableV1, StateHash,
+        UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
+    },
+};
 
 pub const GENESIS_PRODUCER_SK: &'static str =
     "EKFKgDtU3rcuFTVSEpmpXSkukjmX4cKefYREi6Sdsk7E7wsT7KRw";
@@ -127,4 +136,44 @@ pub fn grace_period_end(constants: &v2::MinaBaseProtocolConstantsCheckedValueSta
         None => slots,
         Some(fork) => slots + fork.previous_global_slot,
     }
+}
+
+pub const DEFAULT_GENESIS_TIMESTAMP: u64 = 1706882461000000000;
+
+pub const PROTOCOL_TRANSACTION_VERSION: u8 = 2;
+pub const PROTOCOL_NETWORK_VERSION: u8 = 2;
+pub const TX_POOL_MAX_SIZE: u32 = 3000;
+
+pub const CONSTRAINT_SYSTEM_DIGESTS: [[u8; 16]; 3] = [
+    [
+        0xb8, 0x87, 0x9f, 0x67, 0x7f, 0x62, 0x2a, 0x1d, 0x86, 0x64, 0x80, 0x30, 0x70, 0x1f, 0x43,
+        0xe1,
+    ],
+    [
+        0xc2, 0xb8, 0x0e, 0x3b, 0x10, 0x21, 0xe7, 0x78, 0x1d, 0x76, 0x8c, 0xe0, 0x31, 0x7b, 0x3f,
+        0x9c,
+    ],
+    [
+        0x7c, 0xf1, 0x07, 0x1e, 0x7e, 0x55, 0xbe, 0x3f, 0x41, 0x93, 0xbb, 0xd8, 0xa6, 0x67, 0x91,
+        0x4e,
+    ],
+];
+
+// TODO: This should be computed from the genesis state, rather than hard-coded like this.
+lazy_static! {
+    pub static ref GENESIS_STATE_HASH: StateHash =
+        StateHash::from_str("3NK512ryRJvj1TUKGgPoGZeHSNbn37e9BbnpyeqHL9tvKLeD8yrY").unwrap();
+    pub static ref PROTOCOL_CONSTANTS: v2::MinaBaseProtocolConstantsCheckedValueStableV1 =
+        MinaBaseProtocolConstantsCheckedValueStableV1 {
+            k: 290.into(),
+            slots_per_epoch: 7140.into(),
+            slots_per_sub_window: 7.into(),
+            grace_period_slots: 2160.into(),
+            delta: 0.into(),
+            genesis_state_timestamp: BlockTimeTimeStableV1(
+                UnsignedExtendedUInt64Int64ForVersionTagsStableV1(
+                    (DEFAULT_GENESIS_TIMESTAMP as u64).into(),
+                ),
+            ),
+        };
 }
