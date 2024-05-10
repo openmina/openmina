@@ -65,6 +65,9 @@ impl redux::EnablingCondition<crate::State> for BlockProducerAction {
                     if !this.current.won_slot_should_search() {
                         return None;
                     }
+                    if is_syncing_to_produced_block(state) {
+                        return None;
+                    }
                     let best_tip = state.transition_frontier.best_tip()?;
                     let cur_global_slot = state.cur_global_slot()?;
                     let next = this.vrf_evaluator.next_won_slot(cur_global_slot, best_tip);
@@ -75,6 +78,9 @@ impl redux::EnablingCondition<crate::State> for BlockProducerAction {
                 let Some(best_tip) = state.transition_frontier.best_tip() else {
                     return false;
                 };
+                if is_syncing_to_produced_block(state) {
+                    return false;
+                }
 
                 this.current.won_slot_should_search()
                     && won_slot.global_slot() >= state.cur_global_slot().unwrap()
@@ -144,6 +150,7 @@ impl redux::EnablingCondition<crate::State> for BlockProducerAction {
             }),
             BlockProducerAction::BlockInject => state.block_producer.with(false, |this| {
                 matches!(this.current, BlockProducerCurrentState::Produced { .. })
+                    && !state.transition_frontier.sync.is_commit_pending()
             }),
             BlockProducerAction::BlockInjected => state.block_producer.with(false, |this| {
                 matches!(this.current, BlockProducerCurrentState::Produced { .. })
@@ -157,4 +164,12 @@ impl redux::EnablingCondition<crate::State> for BlockProducerAction {
             }
         }
     }
+}
+
+fn is_syncing_to_produced_block(state: &crate::State) -> bool {
+    state
+        .transition_frontier
+        .sync
+        .best_tip()
+        .map_or(false, |tip| state.block_producer.is_me(tip.producer()))
 }

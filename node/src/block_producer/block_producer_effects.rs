@@ -236,9 +236,6 @@ pub fn block_producer_effects<S: crate::Service>(
                 root_block,
                 blocks_inbetween,
             }) {
-                use mina_p2p_messages::gossip::GossipNetMessageV2;
-                let message = GossipNetMessageV2::NewState((*best_tip.clone().block).clone());
-                store.dispatch(p2p::P2pNetworkPubsubAction::Broadcast { message });
                 store.dispatch(BlockProducerAction::BlockInjected);
             }
         }
