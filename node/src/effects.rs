@@ -52,6 +52,7 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
             store.dispatch(ExternalSnarkWorkerAction::WorkTimeout { now: meta.time() });
 
             store.dispatch(BlockProducerAction::WonSlotProduceInit);
+            store.dispatch(BlockProducerAction::BlockInject);
             store.dispatch(LedgerReadAction::FindTodos);
         }
         Action::EventSource(action) => {
