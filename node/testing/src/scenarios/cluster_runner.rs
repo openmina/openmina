@@ -7,6 +7,7 @@ use std::{
 use ledger::BaseLedger;
 use node::account::{AccountPublicKey, AccountSecretKey};
 use node::{event_source::Event, ledger::LedgerService, ActionKind, ActionWithMeta, State};
+use openmina_core::ChainId;
 use rand::{rngs::StdRng, Rng, SeedableRng};
 use time::OffsetDateTime;
 
@@ -117,7 +118,7 @@ impl<'a> ClusterRunner<'a> {
         )
     }
 
-    pub fn get_chain_id(&self) -> Option<String> {
+    pub fn get_chain_id(&self) -> Option<ChainId> {
         self.cluster.get_chain_id()
     }
 
@@ -125,7 +126,7 @@ impl<'a> ClusterRunner<'a> {
         self.cluster.get_initial_time()
     }
 
-    pub fn set_chain_id(&mut self, chain_id: String) {
+    pub fn set_chain_id(&mut self, chain_id: ChainId) {
         self.cluster.set_chain_id(chain_id)
     }
 

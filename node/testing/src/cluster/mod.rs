@@ -3,6 +3,7 @@ pub use config::{ClusterConfig, ProofKind};
 
 mod p2p_task_spawner;
 use node::account::{AccountPublicKey, AccountSecretKey};
+use openmina_core::ChainId;
 pub use p2p_task_spawner::P2pTaskSpawner;
 
 mod node_id;
@@ -130,7 +131,7 @@ pub struct Cluster {
     nodes: Vec<Node>,
     ocaml_nodes: Vec<Option<OcamlNode>>,
     // TODO: remove option if this is viable in the future
-    chain_id: Option<String>,
+    chain_id: Option<ChainId>,
     initial_time: Option<redux::Timestamp>,
 
     rpc_counter: usize,
@@ -199,7 +200,7 @@ impl Cluster {
             .or_else(|| DETERMINISTIC_ACCOUNT_SEC_KEYS.get(pub_key))
     }
 
-    pub fn set_chain_id(&mut self, chain_id: String) {
+    pub fn set_chain_id(&mut self, chain_id: ChainId) {
         self.chain_id = Some(chain_id)
     }
 
@@ -207,7 +208,7 @@ impl Cluster {
         self.initial_time = Some(initial_time)
     }
 
-    pub fn get_chain_id(&self) -> Option<String> {
+    pub fn get_chain_id(&self) -> Option<ChainId> {
         self.chain_id.clone()
     }
 
@@ -291,7 +292,7 @@ impl Cluster {
                 ask_initial_peers_interval: testing_config.ask_initial_peers_interval,
                 enabled_channels: ChannelId::iter_all().collect(),
                 timeouts: testing_config.timeouts,
-                chain_id: String::from_utf8(testing_config.chain_id.clone()).expect("hex string"),
+                chain_id: testing_config.chain_id.clone(),
                 peer_discovery: true,
                 initial_time: Duration::ZERO,
             },

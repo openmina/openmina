@@ -11,6 +11,7 @@ use mina_p2p_messages::v2::{
     UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
 };
 use node::transition_frontier::genesis::GenesisConfig;
+use openmina_core::ChainId;
 use rand::prelude::*;
 
 use redux::SystemTime;
@@ -40,7 +41,7 @@ use openmina_node_native::{http_server, tracing, NodeService, P2pTaskSpawner, Rp
 
 // old:
 // 3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e
-const CHAIN_ID: &'static str = openmina_core::CHAIN_ID;
+const CHAIN_ID: ChainId = openmina_core::CHAIN_ID;
 
 /// Openmina node
 #[derive(Debug, clap::Args)]
@@ -245,7 +246,7 @@ impl Node {
         let p2p_service_ctx = <NodeService as P2pServiceWebrtcWithLibp2p>::init(
             Some(self.libp2p_port),
             secret_key.clone(),
-            CHAIN_ID.to_owned().into_bytes(),
+            CHAIN_ID.clone(),
             event_sender.clone(),
             P2pTaskSpawner {},
         );

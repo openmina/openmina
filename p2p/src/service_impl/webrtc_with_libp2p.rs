@@ -1,4 +1,5 @@
 use openmina_core::channels::mpsc;
+use openmina_core::ChainId;
 
 use crate::{
     channels::{ChannelId, ChannelMsg, MsgId, P2pChannelsService},
@@ -28,7 +29,7 @@ pub trait P2pServiceWebrtcWithLibp2p: P2pServiceWebrtc {
     fn init<E: From<P2pEvent> + Send + 'static, S: TaskSpawner>(
         _libp2p_port: Option<u16>,
         secret_key: SecretKey,
-        _chain_id: Vec<u8>,
+        _chain_id: ChainId,
         event_source_sender: mpsc::UnboundedSender<E>,
         spawner: S,
     ) -> P2pServiceCtx {

@@ -1,5 +1,5 @@
 use multiaddr::Multiaddr;
-use openmina_core::error;
+use openmina_core::{error, ChainId};
 
 use crate::{identity::PublicKey, PeerId};
 
@@ -10,7 +10,7 @@ impl P2pNetworkState {
         identity: PublicKey,
         addrs: Vec<Multiaddr>,
         known_peers: Vec<(PeerId, Multiaddr)>,
-        chain_id: &str,
+        chain_id: &ChainId,
         discovery: bool,
     ) -> Self {
         let peer_id = identity.peer_id();
@@ -24,7 +24,7 @@ impl P2pNetworkState {
             Blake2bVar::new(32)
                 .expect("valid constant")
                 .chain(b"/coda/0.0.1/")
-                .chain(chain_id)
+                .chain(chain_id.as_hex())
                 .finalize_variable(&mut key)
                 .expect("good buffer size");
             key.into()
