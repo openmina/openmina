@@ -27,8 +27,8 @@ use crate::{
             apply_transaction_first_pass, apply_transaction_second_pass, local_state::LocalState,
             protocol_state::ProtocolStateView,
             transaction_partially_applied::TransactionPartiallyApplied, valid,
-            zkapp_command::verifiable::find_vk_via_ledger, CoinbaseFeeTransfer, Transaction,
-            TransactionStatus, UserCommand, WithStatus,
+            zkapp_command::MaybeWithStatus, CoinbaseFeeTransfer, Transaction, TransactionStatus,
+            UserCommand, WithStatus,
         },
     },
     sparse_ledger::{self, SparseLedger},
@@ -1205,13 +1205,20 @@ impl StagedLedger {
         cs: Vec<WithStatus<UserCommand>>,
         skip_verification: Option<SkipVerification>,
     ) -> Result<Vec<valid::UserCommand>, VerifierError> {
-        use scan_state::transaction_logic::zkapp_command::last::Last;
+        use scan_state::transaction_logic::zkapp_command::from_applied_sequence::{
+            self, FromAppliedSequence,
+        };
 
-        let cs =
-            UserCommand::to_all_verifiable::<Last<_>, _>(cs, |expected_vk_hash, account_id| {
-                find_vk_via_ledger(ledger.clone(), expected_vk_hash, account_id)
-            })
-            .unwrap(); // TODO: No unwrap
+        let cs = cs
+            .into_iter()
+            .map(MaybeWithStatus::from)
+            .collect::<Vec<_>>();
+        let cs = UserCommand::to_all_verifiable::<FromAppliedSequence, _>(cs, |account_ids| {
+            let cache = UserCommand::load_vks_from_ledger(account_ids, &ledger);
+            from_applied_sequence::Cache::new(cache)
+        })
+        .unwrap(); // TODO: No unwrap
+        let cs = cs.into_iter().map(WithStatus::from).collect::<Vec<_>>();
 
         verifier
             .verify_commands(cs, skip_verification)
@@ -2031,7 +2038,7 @@ mod tests_ocaml {
                     self, Common, PaymentPayload, SignedCommand, SignedCommandPayload,
                 },
                 transaction_union_payload::TransactionUnionPayload,
-                zkapp_command::{self, SetOrKeep, WithHash},
+                zkapp_command::{self, verifiable::find_vk_via_ledger, SetOrKeep, WithHash},
                 Memo, TransactionFailure,
             },
         },

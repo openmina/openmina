@@ -184,8 +184,6 @@ mod summary {
 }
 
 mod detail {
-    use crate::staged_ledger::diff::AtMostTwo;
-
     use super::*;
 
     #[derive(Debug, Clone)]

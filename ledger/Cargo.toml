@@ -71,6 +71,7 @@ chrono = "0.4"
 serde_with = "3.6.1"
 anyhow = "1.0.75"
 thiserror = "1.0.60"
+fraction = { version = "=0.15.1", default-features = false, features = ["with-serde-support"] }
 
 [target.'cfg(target_family = "wasm")'.dependencies]
 getrandom = { version = "0.2", features = ["js"] }

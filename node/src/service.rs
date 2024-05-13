@@ -17,6 +17,7 @@ pub use crate::transition_frontier::genesis_effectful::TransitionFrontierGenesis
 pub use crate::transition_frontier::sync::ledger::snarked::TransitionFrontierSyncLedgerSnarkedService;
 use p2p::P2pNetworkService;
 pub use redux::TimeService;
+use snark::user_command_verify::SnarkUserCommandVerifyService;
 
 use crate::stats::Stats;
 
@@ -25,6 +26,7 @@ pub trait Service:
     + EventSourceService
     + SnarkBlockVerifyService
     + SnarkWorkVerifyService
+    + SnarkUserCommandVerifyService
     + P2pConnectionService
     + P2pDisconnectionService
     + P2pChannelsService

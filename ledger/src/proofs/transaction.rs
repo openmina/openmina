@@ -497,6 +497,25 @@ pub struct PlonkVerificationKeyEvals<F: FieldWitness> {
     pub endomul_scalar: InnerCurve<F>,
 }
 
+impl<'de> serde::Deserialize<'de> for PlonkVerificationKeyEvals<Fp> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        v2::MinaBaseVerificationKeyWireStableV1WrapIndex::deserialize(deserializer).map(Self::from)
+    }
+}
+
+impl serde::Serialize for PlonkVerificationKeyEvals<Fp> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let v: v2::MinaBaseVerificationKeyWireStableV1WrapIndex = self.into();
+        v.serialize(serializer)
+    }
+}
+
 // Here cvars are not used correctly, but it's just temporary
 #[derive(Clone, Debug)]
 pub struct CircuitPlonkVerificationKeyEvals<F: FieldWitness> {
@@ -1625,7 +1644,6 @@ pub mod legacy_input {
 pub mod poseidon {
     use std::marker::PhantomData;
 
-    use mina_poseidon::constants::PlonkSpongeConstantsKimchi;
     use mina_poseidon::constants::SpongeConstants;
     use mina_poseidon::poseidon::{ArithmeticSpongeParams, SpongeState};
 
@@ -2202,16 +2220,13 @@ pub mod transaction_snark {
             transaction::legacy_input::CheckedLegacyInput,
         },
         scan_state::{
-            currency::Sgn,
             fee_excess::CheckedFeeExcess,
-            pending_coinbase,
             transaction_logic::{checked_cons_signed_command_payload, Coinbase},
         },
         sparse_ledger::SparseLedger,
         AccountId, Inputs, PermissionTo, PermsConst, Timing, TimingAsRecordChecked, ToInputs,
     };
     use ark_ff::Zero;
-    use mina_signer::PubKey;
 
     use crate::scan_state::{
         currency,
@@ -4035,10 +4050,6 @@ pub(super) fn generate_tx_proof(
 
 #[cfg(test)]
 mod tests_with_wasm {
-    use std::str::FromStr;
-
-    use mina_hasher::Fp;
-
     #[cfg(target_family = "wasm")]
     use wasm_bindgen_test::wasm_bindgen_test as test;
 
@@ -4085,22 +4096,17 @@ mod tests_with_wasm {
 mod tests {
     use std::path::Path;
 
-    use mina_hasher::Fp;
     use mina_p2p_messages::binprot::{
         self,
         macros::{BinProtRead, BinProtWrite},
     };
 
-    use crate::{
-        proofs::{
-            block::{generate_block_proof, BlockParams},
-            constants::{StepBlockProof, StepMergeProof},
-            gates::{get_provers, Provers},
-            merge::{generate_merge_proof, MergeParams},
-            util::sha256_sum,
-            zkapp::{generate_zkapp_proof, LedgerProof, ZkappParams},
-        },
-        scan_state::scan_state::transaction_snark::SokMessage,
+    use crate::proofs::{
+        block::{generate_block_proof, BlockParams},
+        constants::{StepBlockProof, StepMergeProof},
+        gates::{get_provers, Provers},
+        merge::{generate_merge_proof, MergeParams},
+        zkapp::{generate_zkapp_proof, LedgerProof, ZkappParams},
     };
 
     use super::*;

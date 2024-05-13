@@ -12,6 +12,7 @@ use crate::rpc::rpc_effects;
 use crate::snark::snark_effects;
 use crate::snark_pool::candidate::SnarkPoolCandidateAction;
 use crate::snark_pool::{snark_pool_effects, SnarkPoolAction};
+use crate::transaction_pool::transaction_pool_effects;
 use crate::transition_frontier::genesis::TransitionFrontierGenesisAction;
 use crate::transition_frontier::transition_frontier_effects;
 use crate::{p2p_ready, Action, ActionWithMeta, ExternalSnarkWorkerAction, Service, Store};
@@ -64,6 +65,9 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
         }
         Action::Consensus(_) => {
             // Handled by reducer
+        }
+        Action::TransactionPool(action) => {
+            transaction_pool_effects(store, meta.with_action(action));
         }
         Action::TransitionFrontier(action) => {
             transition_frontier_effects(store, meta.with_action(action));
