@@ -11,6 +11,7 @@ pub use merkle_path::calc_merkle_root_hash;
 
 pub mod block_verify;
 pub mod block_verify_effectful;
+pub mod user_command_verify;
 pub mod work_verify;
 pub mod work_verify_effectful;
 
