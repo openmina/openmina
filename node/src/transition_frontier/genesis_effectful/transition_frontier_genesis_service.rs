@@ -1,8 +1,6 @@
 use std::sync::Arc;
 
-use crate::service::BlockProducerService;
-
-use crate::GenesisConfig;
+use crate::{service::BlockProducerService, transition_frontier::genesis::GenesisConfig};
 
 pub trait TransitionFrontierGenesisService: BlockProducerService {
     /// Load genesis config and genesis ledger.

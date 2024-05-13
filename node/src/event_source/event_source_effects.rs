@@ -1,3 +1,6 @@
+use p2p::channels::snark::P2pChannelsSnarkAction;
+use snark::user_command_verify::{SnarkUserCommandVerifyAction, SnarkUserCommandVerifyError};
+
 use crate::action::CheckTimeoutsAction;
 use crate::block_producer::vrf_evaluator::BlockProducerVrfEvaluatorAction;
 use crate::block_producer::{BlockProducerEvent, BlockProducerVrfEvaluatorEvent};
@@ -6,7 +9,6 @@ use crate::ledger::read::LedgerReadAction;
 use crate::ledger::write::LedgerWriteAction;
 use crate::p2p::channels::best_tip::P2pChannelsBestTipAction;
 use crate::p2p::channels::rpc::P2pChannelsRpcAction;
-use crate::p2p::channels::snark::P2pChannelsSnarkAction;
 use crate::p2p::channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentAction;
 use crate::p2p::channels::{ChannelId, P2pChannelsMessageReceivedAction};
 use crate::p2p::connection::incoming::P2pConnectionIncomingAction;
@@ -259,6 +261,16 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                         store.dispatch(SnarkWorkVerifyAction::Success { req_id });
                     }
                 },
+                SnarkEvent::UserCommandVerify(req_id, result) => {
+                    if result.iter().any(|res| res.is_err()) {
+                        store.dispatch(SnarkUserCommandVerifyAction::Error {
+                            req_id,
+                            error: SnarkUserCommandVerifyError::VerificationFailed,
+                        });
+                    } else {
+                        store.dispatch(SnarkUserCommandVerifyAction::Success { req_id });
+                    }
+                }
             },
             Event::Rpc(rpc_id, e) => match e {
                 RpcRequest::StateGet(filter) => {

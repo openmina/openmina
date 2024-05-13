@@ -37,6 +37,10 @@ impl SnarkState {
                 meta.with_action(a),
             ),
             SnarkAction::WorkVerifyEffect(_) => {}
+            SnarkAction::UserCommandVerify(a) => {
+                todo!()
+                // self.user_command_verify.reducer(meta.with_action(a)) // TODO
+            }
         }
     }
 }
