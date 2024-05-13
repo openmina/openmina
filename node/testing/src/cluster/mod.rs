@@ -291,7 +291,7 @@ impl Cluster {
                 ask_initial_peers_interval: testing_config.ask_initial_peers_interval,
                 enabled_channels: ChannelId::iter_all().collect(),
                 timeouts: testing_config.timeouts,
-                chain_id: openmina_core::CHAIN_ID.to_owned(),
+                chain_id: String::from_utf8(testing_config.chain_id.clone()).expect("hex string"),
                 peer_discovery: true,
                 initial_time: Duration::ZERO,
             },
