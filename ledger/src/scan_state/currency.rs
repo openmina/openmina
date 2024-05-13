@@ -274,6 +274,12 @@ impl Balance {
     }
 }
 
+impl Fee {
+    pub const fn of_nanomina_int_exn(int: u64) -> Self {
+        Self::from_u64(int)
+    }
+}
+
 impl Index {
     // TODO: Not sure if OCaml wraps around here
     pub fn incr(&self) -> Self {
@@ -298,9 +304,22 @@ impl Nonce {
             self.sub_flagged(&rhs.magnitude)
         }
     }
+
+    /// low <= self <= high
+    pub fn between(&self, low: &Self, high: &Self) -> bool {
+        low <= self && self <= high
+    }
 }
 
 impl BlockTime {
+    pub fn now() -> Self {
+        use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
+        let elapsed: Duration = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
+        let elapsed: u64 = elapsed.as_millis().try_into().unwrap();
+        Self(elapsed)
+    }
+
     pub fn add(&self, span: BlockTimeSpan) -> Self {
         Self(self.0.checked_add(span.0).unwrap())
     }
@@ -308,11 +327,29 @@ impl BlockTime {
     pub fn sub(&self, span: BlockTimeSpan) -> Self {
         Self(self.0.checked_sub(span.0).unwrap())
     }
+
+    pub fn diff(&self, other: Self) -> BlockTimeSpan {
+        BlockTimeSpan(self.0 - other.0)
+    }
+
+    pub fn to_span_since_epoch(&self) -> BlockTimeSpan {
+        let Self(ms) = self;
+        BlockTimeSpan(*ms)
+    }
+
+    pub fn of_span_since_epoch(span: BlockTimeSpan) -> Self {
+        let BlockTimeSpan(ms) = span;
+        Self(ms)
+    }
 }
 
 impl BlockTimeSpan {
     pub fn of_ms(ms: u64) -> Self {
         Self(ms)
+    }
+    pub fn to_ms(&self) -> u64 {
+        let Self(ms) = self;
+        *ms
     }
 }
 
@@ -320,6 +357,11 @@ impl Slot {
     // TODO: Not sure if OCaml wraps around here
     pub fn incr(&self) -> Self {
         Self(self.0.wrapping_add(1))
+    }
+
+    pub fn add(&self, other: SlotSpan) -> Self {
+        let SlotSpan(other) = other;
+        Self(self.0.checked_add(other).unwrap())
     }
 
     pub fn succ(&self) -> Self {
@@ -338,7 +380,7 @@ macro_rules! impl_number {
         $(impl_number!({$name64, u64, as_u64, from_u64, next_u64, append_u64},);)+
     };
     ($({ $name:ident, $inner:ty, $as_name:ident, $from_name:ident, $next_name:ident, $append_name:ident },)*) => ($(
-        #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+        #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Deserialize, serde::Serialize)]
         pub struct $name(pub(super) $inner);
 
         impl std::fmt::Debug for $name {
@@ -531,6 +573,6 @@ macro_rules! impl_number {
 }
 
 impl_number!(
-    32: { Length, Slot, Nonce, Index, SlotSpan, TxnVersion, },
+    32: { Length, Slot, Nonce, Index, SlotSpan, TxnVersion, Epoch, },
     64: { Amount, Balance, Fee, BlockTime, BlockTimeSpan, N, },
 );

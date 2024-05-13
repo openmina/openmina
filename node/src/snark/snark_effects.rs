@@ -14,5 +14,8 @@ pub fn snark_effects<S: Service>(store: &mut Store<S>, action: SnarkActionWithMe
         SnarkAction::WorkVerifyEffect(a) => {
             a.effects(&meta, store);
         }
+        SnarkAction::UserCommandVerify(a) => {
+            a.effects(&meta, store);
+        }
     }
 }

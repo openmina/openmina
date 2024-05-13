@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::block_verify_effectful::SnarkBlockVerifyEffectfulAction;
+use crate::user_command_verify::SnarkUserCommandVerifyAction;
 use crate::work_verify_effectful::SnarkWorkVerifyEffectfulAction;
 
 use super::block_verify::SnarkBlockVerifyAction;
@@ -15,6 +16,7 @@ pub enum SnarkAction {
     BlockVerifyEffect(SnarkBlockVerifyEffectfulAction),
     WorkVerify(SnarkWorkVerifyAction),
     WorkVerifyEffect(SnarkWorkVerifyEffectfulAction),
+    UserCommandVerify(SnarkUserCommandVerifyAction),
 }
 
 impl redux::EnablingCondition<crate::SnarkState> for SnarkAction {
@@ -24,6 +26,7 @@ impl redux::EnablingCondition<crate::SnarkState> for SnarkAction {
             SnarkAction::BlockVerifyEffect(a) => a.is_enabled(state, time),
             SnarkAction::WorkVerify(a) => a.is_enabled(state, time),
             SnarkAction::WorkVerifyEffect(a) => a.is_enabled(state, time),
+            SnarkAction::UserCommandVerify(a) => a.is_enabled(state, time),
         }
     }
 }

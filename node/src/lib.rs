@@ -40,6 +40,7 @@ pub mod p2p;
 pub mod rpc;
 pub mod snark;
 pub mod snark_pool;
+pub mod transaction_pool;
 pub mod transition_frontier;
 pub mod watched_accounts;
 
