@@ -966,7 +966,7 @@ impl PendingCoinbaseWitness {
 
 /// Keep it a bit generic, in case we need a merkle tree somewhere else
 pub mod merkle_tree {
-    use crate::{AccountIndex, Address, AddressIterator, Direction, HashesMatrix, MerklePath};
+    use crate::{AccountIndex, AddressIterator, Direction, HashesMatrix};
 
     use super::*;
 
@@ -1251,7 +1251,7 @@ pub mod merkle_tree {
 mod tests {
     use crate::FpExt;
 
-    use super::{merkle_tree::MiniMerkleTree, *};
+    use super::*;
 
     #[cfg(target_family = "wasm")]
     use wasm_bindgen_test::wasm_bindgen_test as test;

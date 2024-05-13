@@ -727,10 +727,7 @@ fn exchange_file_atomically(db_path: &Path, tmp_path: &Path) -> std::io::Result<
 #[cfg(test)]
 mod tests {
     use rand::{Fill, Rng};
-    use std::{
-        path::PathBuf,
-        sync::atomic::{AtomicUsize, Ordering::SeqCst},
-    };
+    use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 
     use super::*;
 

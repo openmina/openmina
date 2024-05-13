@@ -3,11 +3,13 @@ use std::collections::{BTreeMap, VecDeque};
 use std::sync::{Arc, Mutex};
 
 use ledger::scan_state::scan_state::transaction_snark::{SokDigest, Statement};
+use ledger::scan_state::transaction_logic::{verifiable, WithStatus};
+use ledger::verifier::Verifier;
 use libp2p_identity::Keypair;
 use mina_p2p_messages::v2::{LedgerProofProdStableV2, TransactionSnarkWorkTStableV2Proofs};
-#[cfg(feature = "p2p-libp2p")]
 use node::p2p::service_impl::mio::MioService;
 use node::p2p::service_impl::services::NativeP2pNetworkService;
+use node::snark::user_command_verify::{SnarkUserCommandVerifyId, SnarkUserCommandVerifyService};
 use rand::prelude::*;
 use redux::ActionMeta;
 use serde::Serialize;
@@ -234,6 +236,35 @@ impl SnarkBlockVerifyService for NodeService {
             eprintln!("verify({}) - end", block.hash_ref());
 
             let _ = tx.send(SnarkEvent::BlockVerify(req_id, result).into());
+        });
+    }
+}
+
+impl SnarkUserCommandVerifyService for NodeService {
+    fn verify_init(
+        &mut self,
+        req_id: SnarkUserCommandVerifyId,
+        commands: Vec<WithStatus<verifiable::UserCommand>>,
+        _verifier_index: Arc<VerifierIndex>,
+        _verifier_srs: Arc<Mutex<VerifierSRS>>,
+    ) {
+        if self.replayer.is_some() {
+            return;
+        }
+        let tx = self.event_sender.clone();
+        rayon::spawn_fifo(move || {
+            let verifieds: Vec<_> = Verifier
+                .verify_commands(commands, None)
+                .into_iter()
+                .map(|cmd| {
+                    // TODO: Handle invalids
+                    match cmd {
+                        ledger::verifier::VerifyCommandsResult::Valid(cmd) => Ok(cmd),
+                        e => Err(format!("invalid tx: {:?}", e)),
+                    }
+                })
+                .collect();
+            let _ = tx.send(SnarkEvent::UserCommandVerify(req_id, verifieds).into());
         });
     }
 }

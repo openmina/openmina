@@ -175,11 +175,10 @@ pub(super) fn generate_merge_proof(
 
     let (s1, s2) = merge_main(&statement_with_sok, proofs, w);
 
-    let proofs: [&v2::PicklesProofProofsVerified2ReprStableV2; 2] = {
+    let [p1, p2]: [&v2::PicklesProofProofsVerified2ReprStableV2; 2] = {
         let [p1, p2] = proofs;
         [&p1.0.proof, &p2.0.proof]
     };
-    let [p1, p2] = proofs;
 
     let prev_challenge_polynomial_commitments = extract_recursion_challenges(&[p1, p2]);
 

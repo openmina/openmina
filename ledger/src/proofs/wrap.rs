@@ -1361,7 +1361,7 @@ pub mod pcs_batch {
 }
 
 pub mod wrap_verifier {
-    use std::{ops::Neg, sync::Arc};
+    use std::{convert::identity, sync::Arc};
 
     use itertools::Itertools;
     use kimchi::prover_index::ProverIndex;
@@ -1370,10 +1370,7 @@ pub mod wrap_verifier {
     use crate::proofs::{
         public_input::plonk_checks::{self, ft_eval0_checked},
         step::Opt,
-        transaction::{
-            scalar_challenge::{self, to_field_checked},
-            InnerCurve,
-        },
+        transaction::scalar_challenge::{self, to_field_checked},
         unfinalized,
         util::{challenge_polynomial_checked, to_absorption_sequence_opt},
         verifier_index::wrap_domains,
@@ -1891,8 +1888,6 @@ pub mod wrap_verifier {
     }
 
     pub mod split_commitments {
-        use crate::proofs::transaction::scalar_challenge;
-
         use super::*;
 
         #[derive(Clone, Debug)]
