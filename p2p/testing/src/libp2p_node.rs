@@ -20,6 +20,7 @@ pub struct Libp2pNodeId(pub(super) usize);
 #[derive(Debug, Default, Clone)]
 pub struct Libp2pNodeConfig {
     pub peer_id: PeerIdConfig,
+    pub port_reuse: bool,
 }
 
 pub type Swarm = libp2p::Swarm<Libp2pBehaviour>;
@@ -91,6 +92,7 @@ pub struct Libp2pBehaviour {
 pub(crate) fn create_swarm(
     secret_key: p2p::identity::SecretKey,
     port: u16,
+    port_reuse: bool,
     chain_id: &str,
 ) -> Result<Swarm, Box<dyn Error>> {
     let identity_keys = libp2p::identity::Keypair::ed25519_from_bytes(secret_key.to_bytes())
@@ -178,7 +180,7 @@ pub(crate) fn create_swarm(
             let mut base_transport = libp2p::tcp::tokio::Transport::new(
                 libp2p::tcp::Config::default()
                     .nodelay(true)
-                    .port_reuse(true),
+                    .port_reuse(port_reuse),
             );
 
             base_transport

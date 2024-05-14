@@ -206,7 +206,7 @@ impl Ports {
         if res.end > self.end {
             return Err(Error::NoMorePorts);
         }
-        *start += res.end;
+        *start = res.end;
         Ok(res)
     }
 
@@ -283,7 +283,7 @@ const RUST_NODE_SIG_BYTE: u8 = 0xf0;
 const LIBP2P_NODE_SIG_BYTE: u8 = 0xf1;
 
 impl Cluster {
-    fn next_port(&mut self) -> Result<u16> {
+    pub fn next_port(&mut self) -> Result<u16> {
         self.ports.next().ok_or(Error::NoMorePorts)
     }
 
@@ -413,7 +413,8 @@ impl Cluster {
         let secret_key = Self::secret_key(config.peer_id, node_id.0, LIBP2P_NODE_SIG_BYTE);
         let libp2p_port = self.next_port()?;
 
-        let swarm = create_swarm(secret_key, libp2p_port, &self.chain_id).map_err(|err| Error::Libp2pSwarm(err.to_string()))?;
+        let swarm = create_swarm(secret_key, libp2p_port, config.port_reuse, &self.chain_id)
+            .map_err(|err| Error::Libp2pSwarm(err.to_string()))?;
         self.libp2p_nodes.push(Libp2pNode::new(swarm));
 
         Ok(node_id)
@@ -462,9 +463,7 @@ impl Cluster {
             }
             NodeId::Libp2p(id) => {
                 let dial_opts = self.libp2p_dial_opts(other.into())?;
-                self.libp2p_node_mut(id)
-                    .swarm_mut()
-                    .dial(dial_opts)?;
+                self.libp2p_node_mut(id).swarm_mut().dial(dial_opts)?;
             }
         }
         Ok(())
@@ -490,7 +489,10 @@ impl Cluster {
         self.last_idle_instant
     }
 
-    pub fn peer_id<T>(&self, id: T) -> PeerId where T: Into<NodeId> {
+    pub fn peer_id<T>(&self, id: T) -> PeerId
+    where
+        T: Into<NodeId>,
+    {
         match id.into() {
             NodeId::Rust(id) => self.rust_node(id).peer_id(),
             NodeId::Libp2p(id) => self.libp2p_node(id).peer_id(),
@@ -612,7 +614,7 @@ impl Cluster {
             rust_node.poll_next_unpin(cx)
         };
         if crate::log::ERROR.swap(false, std::sync::atomic::Ordering::Relaxed) {
-            if let Err(err) = self.dump_state(id.0) {
+            if let Err(err) = self.dump_state() {
                 eprintln!("error dumping state: {err}");
             }
             panic!("error detected");
@@ -629,11 +631,22 @@ impl Cluster {
         Poll::Ready(ready!(libp2p_node.swarm_mut().poll_next_unpin(cx)))
     }
 
-    fn dump_state(&self, i: usize) -> std::result::Result<(), Box<dyn std::error::Error>> {
-        let path = std::env::temp_dir().join(format!("p2p-test-node-{i}.json"));
-        eprintln!("saving state of node {i} to {:?}", path);
+    fn dump_state(&self) -> std::result::Result<(), Box<dyn std::error::Error>> {
+        let path = std::env::temp_dir().join(format!("p2p-test-node.json"));
+        eprintln!("saving state of rust nodes to {:?}", path);
         let file = std::fs::File::create(path)?;
-        serde_json::to_writer(file, self.rust_nodes[i].state())?;
+        let states = serde_json::Map::from_iter(
+            self.rust_nodes
+                .iter()
+                .map(|node| {
+                    Ok((
+                        node.peer_id().to_string(),
+                        serde_json::to_value(node.state())?,
+                    ))
+                })
+                .collect::<std::result::Result<Vec<_>, serde_json::Error>>()?,
+        );
+        serde_json::to_writer(file, &states)?;
         Ok(())
     }
 }

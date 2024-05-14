@@ -12,5 +12,5 @@ pub mod stream;
 pub mod utils;
 
 pub use futures;
-pub use libp2p;
 pub use lazy_static;
+pub use libp2p;

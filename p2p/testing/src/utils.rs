@@ -14,7 +14,8 @@ use crate::{
     cluster::{Cluster, ClusterEvent, Error, NodeId},
     event::RustNodeEvent,
     predicates::{
-        all_listeners_are_ready, all_nodes_with_value, listeners_are_ready, nodes_peers_are_ready,
+        all_listeners_are_ready, all_nodes_peers_are_ready, all_nodes_with_value,
+        listeners_are_ready, nodes_peers_are_ready,
     },
     rust_node::{RustNodeConfig, RustNodeId},
     stream::ClusterStreamExt,
@@ -30,11 +31,11 @@ pub fn rust_nodes(
 }
 
 /// Maps an array of Rust node ids to an array of corresponding peer ids.
-pub fn peer_ids<const N: usize>(
+pub fn peer_ids<T: Into<NodeId>, const N: usize>(
     cluster: &Cluster,
-    rust_nodes: [RustNodeId; N],
+    rust_nodes: [T; N],
 ) -> [p2p::PeerId; N] {
-    rust_nodes.map(|id| cluster.rust_node(id).state().my_id())
+    rust_nodes.map(|id| cluster.peer_id(id.into()))
 }
 
 /// Tries to create a Rust node for each configuration, returning an array of node ids, or an error.
@@ -183,6 +184,42 @@ where
         .await
 }
 
+/// Runs the cluster for specified period of `time`, returning `true` early if
+/// for each specified pair of node id and peer id there was a succesfull
+/// connection.
+pub async fn wait_for_all_nodes_to_connect<I>(
+    cluster: &mut Cluster,
+    nodes_peers: I,
+    time: Duration,
+) -> bool
+where
+    I: IntoIterator<Item = (NodeId, p2p::PeerId)>,
+{
+    cluster
+        .stream()
+        .take_during(time)
+        .any(all_nodes_peers_are_ready(nodes_peers))
+        .await
+}
+
+/// Tries to run the cluster for specified period of `time`, returning `true`
+/// early if for each specified pair of node id and peer id there was a
+/// succesfull connection.
+pub async fn try_wait_for_all_nodes_to_connect<I>(
+    cluster: &mut Cluster,
+    nodes_peers: I,
+    time: Duration,
+) -> Result<bool, ClusterEvent>
+where
+    I: IntoIterator<Item = (NodeId, p2p::PeerId)>,
+{
+    cluster
+        .try_stream()
+        .take_during(time)
+        .try_any(all_nodes_peers_are_ready(nodes_peers))
+        .await
+}
+
 /// Tries to wait for particular event to happen for all specified pairs of (node, peer_id).
 ///
 /// Function `f` extract peer_id from a Rust event.
@@ -227,8 +264,6 @@ where
         .try_any(all_nodes_with_value(nodes_values, f))
         .await
 }
-
-
 
 #[cfg(test)]
 mod tests {

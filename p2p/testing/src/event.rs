@@ -5,8 +5,9 @@ use p2p::{
     connection::{incoming::P2pConnectionIncomingAction, outgoing::P2pConnectionOutgoingAction},
     disconnection::P2pDisconnectionAction,
     identify::P2pIdentifyAction,
-    P2pAction, P2pEvent, PeerId,
     network::identify::P2pNetworkIdentify,
+    peer::P2pPeerAction,
+    P2pAction, P2pEvent, PeerId,
 };
 
 #[derive(Debug)]
@@ -67,15 +68,14 @@ pub(super) trait RustNodeEventStore {
 pub(super) fn event_mapper_effect(store: &mut super::redux::Store, action: P2pAction) {
     let store_event = |store: &mut super::redux::Store, event| store.service().store_event(event);
     match action {
+        P2pAction::Peer(action) => match action {
+            P2pPeerAction::Ready { peer_id, incoming } => {
+                store_event(store, RustNodeEvent::PeerConnected { peer_id, incoming })
+            }
+            _ => {}
+        },
         P2pAction::Connection(action) => match action {
             p2p::connection::P2pConnectionAction::Outgoing(action) => match action {
-                P2pConnectionOutgoingAction::Success { peer_id } => store_event(
-                    store,
-                    RustNodeEvent::PeerConnected {
-                        peer_id,
-                        incoming: false,
-                    },
-                ),
                 P2pConnectionOutgoingAction::Error { peer_id, error } => store_event(
                     store,
                     RustNodeEvent::PeerConnectionError {
@@ -87,20 +87,6 @@ pub(super) fn event_mapper_effect(store: &mut super::redux::Store, action: P2pAc
                 _ => {}
             },
             p2p::connection::P2pConnectionAction::Incoming(action) => match action {
-                P2pConnectionIncomingAction::Success { peer_id } => store_event(
-                    store,
-                    RustNodeEvent::PeerConnected {
-                        peer_id,
-                        incoming: true,
-                    },
-                ),
-                P2pConnectionIncomingAction::Libp2pReceived { peer_id } => store_event(
-                    store,
-                    RustNodeEvent::PeerConnected {
-                        peer_id,
-                        incoming: true,
-                    },
-                ),
                 P2pConnectionIncomingAction::Error { peer_id, error } => store_event(
                     store,
                     RustNodeEvent::PeerConnectionError {
@@ -112,6 +98,7 @@ pub(super) fn event_mapper_effect(store: &mut super::redux::Store, action: P2pAc
                 _ => {}
             },
         },
+
         P2pAction::Disconnection(P2pDisconnectionAction::Init { peer_id, reason }) => store_event(
             store,
             RustNodeEvent::PeerDisconnected {
