@@ -247,7 +247,7 @@ impl P2pNetworkSchedulerAction {
                     // for each negotiated yamux conenction open a new outgoing RPC stream
                     // TODO(akoptelov,vlad): should we do that? shouldn't upper layer decide when to open RPC streams?
                     // Also rpc streams are short-living -- they only persist for a single request-response (?)
-                    let stream_id = if incoming { 2 } else { 1 };
+                    let stream_id = YamuxStreamKind::Rpc.stream_id(incoming);
                     store.dispatch(P2pNetworkYamuxAction::OpenStream {
                         addr,
                         stream_id,

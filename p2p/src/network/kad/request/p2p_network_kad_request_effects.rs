@@ -3,15 +3,10 @@ use std::net::SocketAddr;
 use redux::ActionMeta;
 
 use crate::{
-    connection::{
-        outgoing::{
-            P2pConnectionOutgoingAction, P2pConnectionOutgoingInitOpts, P2pConnectionOutgoingState,
-        },
-        P2pConnectionState,
-    },
+    connection::outgoing::{P2pConnectionOutgoingAction, P2pConnectionOutgoingInitOpts},
     peer::P2pPeerAction,
     socket_addr_try_from_multiaddr, P2pNetworkConnectionMuxState, P2pNetworkKadBootstrapAction,
-    P2pNetworkYamuxAction, P2pPeerState, P2pPeerStatus,
+    P2pNetworkYamuxAction, P2pPeerState,
 };
 
 use super::{super::stream::P2pNetworkKademliaStreamAction, P2pNetworkKadRequestAction};
@@ -38,14 +33,8 @@ impl P2pNetworkKadRequestAction {
         match self {
             A::New { peer_id, addr, .. } => {
                 let peer_state = store.state().peers.get(&peer_id);
-                let not_connected = match peer_state {
-                    Some(P2pPeerState { status, .. }) if !status.is_connected_or_connecting() => {
-                        true
-                    }
-                    None => true,
-                    _ => false,
-                };
-                if not_connected {
+
+                let on_initialize_connection = |store: &mut Store| {
                     // initialize connection to the peer.
                     // when connection is establised and yamux layer is ready, we will continue with TODO
                     let opts = crate::connection::outgoing::P2pConnectionOutgoingInitOpts::LibP2P(
@@ -53,46 +42,61 @@ impl P2pNetworkKadRequestAction {
                     );
                     store.dispatch(P2pConnectionOutgoingAction::Init { opts, rpc_id: None });
                     store.dispatch(A::PeerIsConnecting { peer_id });
-                    return Ok(());
-                }
-
-                let Some(conn_state) = scheduler.connections.get(&addr) else {
-                    // no connection yet, check that the peer is in pending state
-                    if let Some(P2pPeerState {
-                        status:
-                            P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(
-                                P2pConnectionOutgoingState::FinalizePending { .. },
-                            )),
-                        ..
-                    }) = peer_state
-                    {
-                        store.dispatch(A::PeerIsConnecting { peer_id });
-                        return Ok(());
-                    } else {
-                        return Err(format!(
-                            "peer {peer_id} is not disconnected, but no connection state"
-                        ));
-                    }
+                    Ok(())
                 };
-                // TODO: check if the connection is terminated with error...
-                if let Some(stream_id) = conn_state.mux.as_ref().and_then(
-                    |P2pNetworkConnectionMuxState::Yamux(yamux)| {
-                        yamux.next_stream_id(!conn_state.incoming)
-                    },
-                ) {
-                    // multiplexing is ready, open a stream
-                    store.dispatch(P2pNetworkYamuxAction::OpenStream {
-                        addr,
-                        stream_id,
-                        stream_kind: crate::token::StreamKind::Discovery(
-                            crate::token::DiscoveryAlgorithm::Kademlia1_0_0,
-                        ),
-                    });
-                    store.dispatch(A::StreamIsCreating { peer_id, stream_id });
-                } else {
-                    // connection is in progress, so wait for multiplexing to be ready
+
+                let on_connection_in_progress = |store: &mut Store| {
                     store.dispatch(A::PeerIsConnecting { peer_id });
-                }
+                    Ok(())
+                };
+
+                let on_connection_established = |store: &mut Store| {
+                    let Some((_, conn_state)) = store.state().network.scheduler.find_peer(&peer_id)
+                    else {
+                        return Err(format!(
+                            "peer {peer_id} is connected, its network connection is {:?}",
+                            store
+                                .state()
+                                .network
+                                .scheduler
+                                .find_peer(&peer_id)
+                                .map(|(_, s)| s)
+                        ));
+                    };
+                    if let Some(stream_id) = conn_state.mux.as_ref().and_then(
+                        |P2pNetworkConnectionMuxState::Yamux(yamux)| {
+                            yamux.next_stream_id(
+                                crate::YamuxStreamKind::Kademlia,
+                                conn_state.incoming,
+                            )
+                        },
+                    ) {
+                        // multiplexing is ready, open a stream
+                        store.dispatch(P2pNetworkYamuxAction::OpenStream {
+                            addr,
+                            stream_id,
+                            stream_kind: crate::token::StreamKind::Discovery(
+                                crate::token::DiscoveryAlgorithm::Kademlia1_0_0,
+                            ),
+                        });
+                        store.dispatch(A::StreamIsCreating { peer_id, stream_id });
+                    } else {
+                        // connection is in progress, so wait for multiplexing to be ready
+                        store.dispatch(A::PeerIsConnecting { peer_id });
+                    }
+                    Ok(())
+                };
+
+                return match peer_state {
+                    None => on_initialize_connection(store),
+                    Some(P2pPeerState { status, .. }) if !status.is_connected_or_connecting() => {
+                        on_initialize_connection(store)
+                    }
+                    Some(P2pPeerState { status, .. }) if status.as_ready().is_none() => {
+                        on_connection_in_progress(store)
+                    }
+                    _ => on_connection_established(store),
+                };
             }
             A::PeerIsConnecting { .. } => {}
             A::MuxReady { peer_id, addr } => {
@@ -110,7 +114,7 @@ impl P2pNetworkKadRequestAction {
                     })
                     .and_then(|(P2pNetworkConnectionMuxState::Yamux(yamux), incoming)| {
                         yamux
-                            .next_stream_id(!incoming)
+                            .next_stream_id(crate::YamuxStreamKind::Kademlia, incoming)
                             .ok_or_else(|| format!("cannot get next stream for {addr}"))
                     })?;
                 store.dispatch(P2pNetworkYamuxAction::OpenStream {

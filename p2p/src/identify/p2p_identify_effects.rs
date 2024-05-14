@@ -28,7 +28,7 @@ impl P2pIdentifyAction {
                     })
                     .and_then(|(P2pNetworkConnectionMuxState::Yamux(yamux), incoming)| {
                         yamux
-                            .next_stream_id(!incoming)
+                            .next_stream_id(crate::YamuxStreamKind::Identify, incoming)
                             .ok_or_else(|| format!("cannot get next stream for {addr}"))
                     });
 
