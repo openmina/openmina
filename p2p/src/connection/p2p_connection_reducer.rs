@@ -85,16 +85,15 @@ pub fn p2p_connection_reducer(
                                 },
                             ))
                         }
-                        match state.dial_opts.as_ref() {
-                            Some(P2pConnectionOutgoingInitOpts::LibP2P(libp2p)) => {
-                                match libp2p.try_into() {
-                                    Ok(addr) if !close_duplicates.contains(&addr) => {
-                                        close_duplicates.push(addr)
-                                    }
-                                    _ => {}
+                        if let Some(P2pConnectionOutgoingInitOpts::LibP2P(libp2p)) =
+                            state.dial_opts.as_ref()
+                        {
+                            match libp2p.try_into() {
+                                Ok(addr) if !close_duplicates.contains(&addr) => {
+                                    close_duplicates.push(addr)
                                 }
+                                _ => {}
                             }
-                            _ => {}
                         };
                         Some(P2pConnectionIncomingState::FinalizePendingLibp2p {
                             addr: *addr,

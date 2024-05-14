@@ -167,7 +167,6 @@ impl P2pNetworkSchedulerState {
                 };
                 if cn.closed.is_none() {
                     error!(meta.time(); "P2pNetworkSchedulerAction::Disconnect: {addr} is not disconnecting");
-                    return;
                 }
             }
             P2pNetworkSchedulerAction::Prune { addr } => {

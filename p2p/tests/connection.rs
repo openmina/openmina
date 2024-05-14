@@ -179,7 +179,8 @@ async fn mutual_rust_to_rust_many() -> anyhow::Result<()> {
     let node_to_node = nodes.into_iter().flat_map(|node| {
         nodes
             .into_iter()
-            .filter_map(move |other_node| (node != other_node).then(|| (node, other_node)))
+            .filter(move |other_node| (&node != other_node))
+            .map(move |other_node| (node, other_node))
     });
 
     let listening = wait_for_all_nodes_to_listen(&mut cluster, nodes, Duration::from_secs(2)).await;
@@ -187,8 +188,7 @@ async fn mutual_rust_to_rust_many() -> anyhow::Result<()> {
 
     node_to_node
         .clone()
-        .map(|(n1, n2)| cluster.connect(n1, n2))
-        .collect::<Result<_, _>>()?;
+        .try_for_each(|(n1, n2)| cluster.connect(n1, n2))?;
     let node_to_peer = node_to_node
         .map(|(n1, n2)| (n1, cluster.peer_id(n2)))
         .collect::<Vec<_>>();
