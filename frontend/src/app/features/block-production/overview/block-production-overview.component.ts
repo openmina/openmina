@@ -1,9 +1,6 @@
 import { ChangeDetectionStrategy, Component, ElementRef, OnInit } from '@angular/core';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
-import {
-  BlockProductionOverviewGetEpochDetails,
-  BlockProductionOverviewGetRewardsStats,
-} from '@block-production/overview/block-production-overview.actions';
+import { BlockProductionOverviewActions } from '@block-production/overview/block-production-overview.actions';
 import { getMergedRoute, isDesktop, MergedRoute } from '@openmina/shared';
 import { debounceTime, filter, fromEvent, take } from 'rxjs';
 import { isNaN } from 'mathjs';
@@ -22,7 +19,7 @@ export class BlockProductionOverviewComponent extends StoreDispatcher implements
   constructor(protected el: ElementRef) { super(); }
 
   ngOnInit(): void {
-    this.dispatch(BlockProductionOverviewGetRewardsStats);
+    this.dispatch2(BlockProductionOverviewActions.getRewardsStats());
     this.listenToRoute();
     this.listenToResize();
   }
@@ -30,7 +27,7 @@ export class BlockProductionOverviewComponent extends StoreDispatcher implements
   private listenToRoute(): void {
     this.select(getMergedRoute, (route: MergedRoute) => {
       const epoch = Number(route.params['epoch']);
-      this.dispatch(BlockProductionOverviewGetEpochDetails, isNaN(epoch) ? undefined : epoch);
+      this.dispatch2(BlockProductionOverviewActions.getEpochDetails({ epochNumber: isNaN(epoch) ? undefined : epoch }));
     }, take(1));
   }
 

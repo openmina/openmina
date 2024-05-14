@@ -43,11 +43,7 @@ import {
   NETWORK_BOOTSTRAP_STATS_GET_BOOTSTRAP_STATS_SUCCESS,
   NETWORK_BOOTSTRAP_STATS_INIT,
 } from '@network/bootstrap-stats/network-bootstrap-stats.actions';
-import {
-  BLOCK_PRODUCTION_OVERVIEW_CLOSE,
-  BLOCK_PRODUCTION_OVERVIEW_GET_SLOTS,
-  BLOCK_PRODUCTION_OVERVIEW_GET_SLOTS_SUCCESS,
-} from '@block-production/overview/block-production-overview.actions';
+import { BLOCK_PRODUCTION_PREFIX } from '@block-production/block-production.actions';
 
 export type LoadingState = string[];
 
@@ -60,7 +56,7 @@ export function loadingReducer(state: LoadingState = initialState, action: Featu
 
     case DASHBOARD_INIT:
 
-    case BLOCK_PRODUCTION_OVERVIEW_GET_SLOTS:
+    case `[${BLOCK_PRODUCTION_PREFIX}] Overview Get Slots`:
 
     case STATE_ACTIONS_GET_EARLIEST_SLOT:
     case STATE_ACTIONS_GET_ACTIONS:
@@ -89,10 +85,10 @@ export function loadingReducer(state: LoadingState = initialState, action: Featu
     case DASHBOARD_CLOSE:
       return remove(state, [DASHBOARD_INIT]);
 
-    case BLOCK_PRODUCTION_OVERVIEW_GET_SLOTS_SUCCESS:
-      return remove(state, BLOCK_PRODUCTION_OVERVIEW_GET_SLOTS);
-    case BLOCK_PRODUCTION_OVERVIEW_CLOSE:
-      return remove(state, [BLOCK_PRODUCTION_OVERVIEW_GET_SLOTS]);
+    case `[${BLOCK_PRODUCTION_PREFIX}] Overview Get Slots Success`:
+      return remove(state, `[${BLOCK_PRODUCTION_PREFIX}] Overview Get Slots`);
+    case `[${BLOCK_PRODUCTION_PREFIX}] Overview Close`:
+      return remove(state, [`[${BLOCK_PRODUCTION_PREFIX}] Overview Close`]);
 
     case STATE_ACTIONS_GET_EARLIEST_SLOT_SUCCESS:
       return remove(state, STATE_ACTIONS_GET_EARLIEST_SLOT);

@@ -2,10 +2,7 @@ import { AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, NgZone, 
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
 import * as d3 from 'd3';
 import { BlockProductionSlot } from '@shared/types/block-production/overview/block-production-overview-slot.type';
-import {
-  selectBlockProductionOverviewActiveEpoch,
-  selectBlockProductionOverviewFilters,
-} from '@block-production/overview/block-production-overview.state';
+import { BlockProductionOverviewSelectors } from '@block-production/overview/block-production-overview.state';
 import {
   BlockProductionOverviewEpoch,
 } from '@shared/types/block-production/overview/block-production-overview-epoch.type';
@@ -55,7 +52,7 @@ export class BlockProductionOverviewSlotsComponent extends StoreDispatcher imple
   }
 
   private listenToEpochs(): void {
-    this.select(selectBlockProductionOverviewActiveEpoch, (epoch: BlockProductionOverviewEpoch) => {
+    this.select(BlockProductionOverviewSelectors.activeEpoch, (epoch: BlockProductionOverviewEpoch) => {
       this.slots = epoch.slots;
 
       const slotsRectExist = !this.slotsGroup
@@ -75,7 +72,7 @@ export class BlockProductionOverviewSlotsComponent extends StoreDispatcher imple
   }
 
   private listenToFilters(): void {
-    this.select(selectBlockProductionOverviewFilters, (filters: BlockProductionOverviewFilters) => {
+    this.select(BlockProductionOverviewSelectors.filters, (filters: BlockProductionOverviewFilters) => {
       this.filters = filters;
       if (this.slots?.length) {
         this.changeSlotsColors();

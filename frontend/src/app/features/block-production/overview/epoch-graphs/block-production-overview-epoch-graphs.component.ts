@@ -1,10 +1,6 @@
 import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
-import {
-  selectBlockProductionOverviewActiveEpoch,
-  selectBlockProductionOverviewEpochs,
-  selectBlockProductionOverviewScale,
-} from '@block-production/overview/block-production-overview.state';
+import { BlockProductionOverviewSelectors } from '@block-production/overview/block-production-overview.state';
 import {
   BlockProductionOverviewEpoch,
 } from '@shared/types/block-production/overview/block-production-overview-epoch.type';
@@ -24,22 +20,20 @@ export class BlockProductionOverviewEpochGraphsComponent extends StoreDispatcher
   private max: number;
   private scale: 'linear' | 'adaptive' = 'adaptive';
 
-  constructor() { super(); }
-
   ngOnInit(): void {
     this.listenToScale();
     this.listenToEpochs();
   }
 
   private listenToScale(): void {
-    this.select(selectBlockProductionOverviewScale, (scale: 'linear' | 'adaptive') => {
+    this.select(BlockProductionOverviewSelectors.scale, (scale: 'linear' | 'adaptive') => {
       this.scale = scale;
       this.detect();
     });
   }
 
   private listenToEpochs(): void {
-    this.select(selectBlockProductionOverviewEpochs, (epochs: BlockProductionOverviewEpoch[]) => {
+    this.select(BlockProductionOverviewSelectors.epochs, (epochs: BlockProductionOverviewEpoch[]) => {
       this.epochs = epochs;
       this.max = Math.max(...this.epochs.map(e => {
         return Math.max(
@@ -51,7 +45,7 @@ export class BlockProductionOverviewEpochGraphsComponent extends StoreDispatcher
       this.detect();
     }, filter(epochs => epochs.length > 0));
 
-    this.select(selectBlockProductionOverviewActiveEpoch, (activeEpoch: BlockProductionOverviewEpoch) => {
+    this.select(BlockProductionOverviewSelectors.activeEpoch, (activeEpoch: BlockProductionOverviewEpoch) => {
       this.activeEpoch = activeEpoch;
       this.detect();
     });

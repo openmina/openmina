@@ -1,19 +1,8 @@
 import { ActionReducer, combineReducers } from '@ngrx/store';
 import { blockProductionOverviewReducer } from '@block-production/overview/block-production-overview.reducer';
-import {
-  BlockProductionOverviewAction,
-  BlockProductionOverviewActions,
-} from '@block-production/overview/block-production-overview.actions';
 import { BlockProductionState } from '@block-production/block-production.state';
+import { BLOCK_PRODUCTION_OVERVIEW_KEY } from '@block-production/overview/block-production-overview.actions';
 
-export type BlockProductionActions =
-  & BlockProductionOverviewActions
-  ;
-
-export type BlockProductionAction =
-  & BlockProductionOverviewAction
-  ;
-
-export const blockProductionReducer: ActionReducer<BlockProductionState, BlockProductionActions> = combineReducers<BlockProductionState, BlockProductionActions>({
-  overview: blockProductionOverviewReducer,
+export const blockProductionReducer: ActionReducer<BlockProductionState, any> = combineReducers<BlockProductionState, any>({
+  [BLOCK_PRODUCTION_OVERVIEW_KEY]: blockProductionOverviewReducer,
 });

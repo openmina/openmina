@@ -1,15 +1,20 @@
 import { MinaState } from '@app/app.setup';
 import { createFeatureSelector, createSelector, MemoizedSelector } from '@ngrx/store';
-import { BlockProductionOverviewState } from '@block-production/overview/block-production-overview.state';
-
-export interface BlockProductionState {
-  overview: BlockProductionOverviewState;
-}
+import {
+  BlockProductionOverviewState,
+} from '@block-production/overview/block-production-overview.state';
+import { BLOCK_PRODUCTION_OVERVIEW_KEY } from '@block-production/overview/block-production-overview.actions';
 
 const select = <T>(selector: (state: BlockProductionState) => T): MemoizedSelector<MinaState, T> => createSelector(
-  selectBlockProductionState,
+  createFeatureSelector<BlockProductionState>('blockProduction'),
   selector,
 );
 
-export const selectBlockProductionState = createFeatureSelector<BlockProductionState>('blockProduction');
-export const selectBlockProductionOverviewState = select((state: BlockProductionState): BlockProductionOverviewState => state.overview);
+const overview = select((state: BlockProductionState): BlockProductionOverviewState => state.overview);
+export const BlockProductionSelectors = {
+  overview,
+};
+
+export interface BlockProductionState {
+  [BLOCK_PRODUCTION_OVERVIEW_KEY]: BlockProductionOverviewState;
+}
