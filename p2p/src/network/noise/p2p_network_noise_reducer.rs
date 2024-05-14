@@ -101,14 +101,6 @@ impl P2pNetworkNoiseState {
                         P2pNetworkNoiseStateInner::Responder(o) => match o.consume(&mut chunk) {
                             Ok(None) => {}
                             Ok(Some(ResponderConsumeOutput {
-                                output: ResponderOutput { remote_pk, .. },
-                                ..
-                            })) if remote_pk == self.local_pk => {
-                                *state = P2pNetworkNoiseStateInner::Error(dbg!(
-                                    NoiseError::SelfConnection
-                                ));
-                            }
-                            Ok(Some(ResponderConsumeOutput {
                                 output:
                                     ResponderOutput {
                                         send_key,

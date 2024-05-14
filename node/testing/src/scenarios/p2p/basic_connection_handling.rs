@@ -239,7 +239,7 @@ impl MaxNumberOfPeersIncoming {
             )
             .await
             .unwrap();
-            assert!(connected, "node {peer} is not connected");
+            assert!(connected, "connection to node {peer} is not finalized");
         }
 
         println!("running cluster...");

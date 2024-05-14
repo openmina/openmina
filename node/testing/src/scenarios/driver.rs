@@ -138,6 +138,17 @@ pub fn as_event_mio_data_send_receive(event: &Event) -> Option<SocketAddr> {
     }
 }
 
+pub fn as_event_mio_connection_event(event: &Event) -> Option<SocketAddr> {
+    match event {
+        Event::P2p(P2pEvent::MioEvent(
+            MioEvent::IncomingDataDidReceive(addr, _)
+            | MioEvent::OutgoingDataDidSend(addr, _)
+            | MioEvent::ConnectionDidClose(addr, _),
+        )) => Some(*addr),
+        _ => None,
+    }
+}
+
 pub fn as_event_mio_outgoing_connection(
     event: &Event,
 ) -> Option<(SocketAddr, &Result<(), String>)> {
@@ -582,6 +593,7 @@ pub enum ConnectionPredicates {
     PeerFinalized(PeerId),
     PeerIsReady(PeerId),
     PeerWithErrorStatus(PeerId),
+    PeerDisconnected(PeerId),
 }
 
 impl ConnectionPredicate for (ClusterNodeId, ConnectionPredicates) {
@@ -607,6 +619,9 @@ impl ConnectionPredicate for (ClusterNodeId, ConnectionPredicates) {
                 ConnectionPredicates::PeerWithErrorStatus(pid) => {
                     peer_id == pid && peer_status.is_error()
                 }
+                ConnectionPredicates::PeerDisconnected(pid) => {
+                    peer_id == pid && matches!(peer_status, P2pPeerStatus::Disconnected { .. })
+                }
             }
     }
 }
@@ -614,6 +629,10 @@ impl ConnectionPredicate for (ClusterNodeId, ConnectionPredicates) {
 impl ConnectionPredicates {
     pub fn peer_with_error_status(peer_id: PeerId) -> Self {
         ConnectionPredicates::PeerWithErrorStatus(peer_id)
+    }
+
+    pub fn peer_disconnected(peer_id: PeerId) -> Self {
+        ConnectionPredicates::PeerDisconnected(peer_id)
     }
 }
 
@@ -640,7 +659,7 @@ where
     F: ConnectionPredicate,
 {
     let pred = |node_id, event: &_, state: &State| {
-        as_event_mio_data_send_receive(event)
+        as_event_mio_connection_event(event)
             .and_then(|addr| {
                 state
                     .p2p

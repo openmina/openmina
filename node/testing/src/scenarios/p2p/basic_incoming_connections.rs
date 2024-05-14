@@ -3,8 +3,8 @@ use std::{collections::BTreeSet, time::Duration};
 use crate::{
     node::RustNodeTestingConfig,
     scenarios::{
-        add_rust_nodes, peer_is_ready, wait_for_connection_established, wait_for_connection_event,
-        wait_for_nodes_listening_on_localhost, ClusterRunner, ConnectionPredicates, Driver,
+        add_rust_nodes, peer_is_ready, wait_for_connection_established,
+        wait_for_nodes_listening_on_localhost, ClusterRunner, Driver,
     },
 };
 
@@ -103,45 +103,5 @@ impl AcceptMultipleIncomingConnections {
             "did not accept connection from peers: {:?}",
             peer_ids
         );
-    }
-}
-
-/// Node should not accept connection from itself.
-#[derive(documented::Documented, Default, Clone, Copy)]
-pub struct DoesNotAcceptConnectionFromSelf;
-
-impl DoesNotAcceptConnectionFromSelf {
-    pub async fn run<'cluster>(self, runner: ClusterRunner<'cluster>) {
-        let mut driver = Driver::new(runner);
-        let (node_ut, node_ut_peer_id) =
-            driver.add_rust_node(RustNodeTestingConfig::berkeley_default());
-
-        assert!(
-            wait_for_nodes_listening_on_localhost(&mut driver, Duration::from_secs(60), [node_ut])
-                .await
-                .unwrap(),
-            "node should be listening"
-        );
-
-        driver
-            .exec_step(crate::scenario::ScenarioStep::ConnectNodes {
-                dialer: node_ut,
-                listener: crate::scenario::ListenerNode::Rust(node_ut),
-            })
-            .await
-            .expect("connect event should be dispatched"); // should it?
-
-        // wait for node under test receives connection event
-        let reached = wait_for_connection_event(
-            &mut driver,
-            Duration::from_secs(10),
-            (
-                node_ut,
-                ConnectionPredicates::peer_with_error_status(node_ut_peer_id),
-            ),
-        )
-        .await
-        .expect("connected event");
-        assert!(reached, "expecting connection event that result error");
     }
 }

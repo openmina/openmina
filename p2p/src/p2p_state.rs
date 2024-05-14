@@ -32,9 +32,14 @@ impl P2pState {
             .into_iter()
             .collect();
 
-        let known_peers = config
+        let my_id = config.identity_pub_key.peer_id();
+        let initial_peers = config
             .initial_peers
             .iter()
+            .filter(|peer| peer.peer_id() != &my_id);
+
+        let known_peers = initial_peers
+            .clone()
             .filter_map(|peer| {
                 if let P2pConnectionOutgoingInitOpts::LibP2P(peer) = peer {
                     Some(peer.into())
@@ -44,9 +49,7 @@ impl P2pState {
             })
             .collect();
 
-        let peers = config
-            .initial_peers
-            .iter()
+        let peers = initial_peers
             .map(|peer| {
                 (
                     *peer.peer_id(),
