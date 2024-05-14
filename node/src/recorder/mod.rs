@@ -19,8 +19,7 @@ fn initial_state_path<P: AsRef<Path>>(path: P) -> PathBuf {
 }
 
 fn actions_path<P: AsRef<Path>>(path: P, file_index: usize) -> PathBuf {
-    path.as_ref()
-        .join(format!("actions_{}.cbor", file_index))
+    path.as_ref().join(format!("actions_{}.cbor", file_index))
 }
 
 #[derive(Serialize, Deserialize)]

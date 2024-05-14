@@ -85,6 +85,10 @@ impl LedgerService for NodeService {
     fn ledger_manager(&self) -> &LedgerManager {
         &self.ledger_manager
     }
+
+    fn force_sync_calls(&self) -> bool {
+        self.replayer.is_some()
+    }
 }
 
 impl redux::TimeService for NodeService {
