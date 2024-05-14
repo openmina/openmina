@@ -3354,6 +3354,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0717cef1bc8b636c6e1c1bbdefc09e6322da8a9321966e8928ef80d20f7f770f"
 
 [[package]]
+name = "linkme"
+version = "0.3.25"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bb2cfee0de9bd869589fb9a015e155946d1be5ff415cb844c2caccc6cc4b5db9"
+dependencies = [
+ "linkme-impl",
+]
+
+[[package]]
+name = "linkme-impl"
+version = "0.3.25"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "adf157a4dc5a29b7b464aa8fe7edeff30076e07e13646a1c3874f58477dc99f8"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.58",
+]
+
+[[package]]
 name = "linux-raw-sys"
 version = "0.3.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3602,7 +3622,6 @@ dependencies = [
  "ark-serialize",
  "backtrace",
  "base64 0.13.1",
- "bincode",
  "bitvec",
  "blake2",
  "bs58 0.4.0",
@@ -3631,6 +3650,7 @@ dependencies = [
  "rand_seeder",
  "rayon",
  "serde",
+ "serde_cbor",
  "serde_json",
  "serde_with 3.7.0",
  "sha2 0.10.8",
@@ -3923,9 +3943,9 @@ name = "node"
 version = "0.4.0"
 dependencies = [
  "anyhow",
- "bincode",
  "derive_more",
  "lazy_static",
+ "linkme",
  "mina-hasher",
  "mina-p2p-messages",
  "mina-signer",
@@ -3938,6 +3958,7 @@ dependencies = [
  "regex",
  "rust-format",
  "serde",
+ "serde_cbor",
  "serde_json",
  "serde_with 3.7.0",
  "snark",
@@ -4299,7 +4320,6 @@ dependencies = [
  "anyhow",
  "argon2",
  "base64 0.22.0",
- "bincode",
  "bs58 0.4.0",
  "crypto_secretbox",
  "hex",
@@ -4363,7 +4383,6 @@ version = "0.4.0"
 dependencies = [
  "anyhow",
  "axum",
- "bincode",
  "chrono",
  "clap 4.5.2",
  "console",
@@ -5969,6 +5988,7 @@ dependencies = [
  "derive_more",
  "hex",
  "kimchi",
+ "linkme",
  "mina-curves",
  "mina-hasher",
  "mina-p2p-messages",
