@@ -147,8 +147,8 @@ impl P2pNetworkKademliaStreamAction {
                     peer_id,
                     stream_id,
                 },
-                D::Incoming(I::WaitingForRequest { expect_close }),
-            ) if *expect_close => {
+                D::Incoming(I::Closing),
+            ) => {
                 // send FIN to the network
                 store.dispatch(P2pNetworkYamuxAction::OutgoingData {
                     addr,

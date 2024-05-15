@@ -1,3 +1,5 @@
+use std::net::SocketAddr;
+
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
 
@@ -68,6 +70,11 @@ pub enum P2pConnectionIncomingState {
         answer: webrtc::Answer,
         rpc_id: Option<RpcId>,
     },
+    FinalizePendingLibp2p {
+        addr: SocketAddr,
+        close_duplicates: Vec<SocketAddr>,
+        time: redux::Timestamp,
+    },
     Libp2pReceived {
         time: redux::Timestamp,
     },
@@ -85,6 +92,7 @@ impl P2pConnectionIncomingState {
             Self::FinalizeSuccess { time, .. } => *time,
             Self::Error { time, .. } => *time,
             Self::Success { time, .. } => *time,
+            Self::FinalizePendingLibp2p { time, .. } => *time,
             Self::Libp2pReceived { time } => *time,
         }
     }
@@ -100,7 +108,7 @@ impl P2pConnectionIncomingState {
             Self::FinalizeSuccess { rpc_id, .. } => *rpc_id,
             Self::Error { rpc_id, .. } => *rpc_id,
             Self::Success { rpc_id, .. } => *rpc_id,
-            Self::Libp2pReceived { .. } => None,
+            Self::FinalizePendingLibp2p { .. } | Self::Libp2pReceived { .. } => None,
         }
     }
 

@@ -1,5 +1,6 @@
 use std::net::SocketAddr;
 
+use multiaddr::Multiaddr;
 use openmina_core::ActionEvent;
 use redux::EnablingCondition;
 use serde::{Deserialize, Serialize};
@@ -44,7 +45,8 @@ impl From<P2pNetworkKadAction> for P2pAction {
     display(peer_id),
     stream_id,
     display(key),
-    debug(closest_peers)
+    debug(closest_peers),
+    debug(addrs)
 ))]
 pub enum P2pNetworkKademliaAction {
     /// Answer `FIND_NODE` request.
@@ -71,6 +73,13 @@ pub enum P2pNetworkKademliaAction {
     /// Bootstrap is finished.
     #[action_event(level = info)]
     BootstrapFinished,
+
+    /// Update routing table with peer addresses
+    #[action_event(level = info)]
+    UpdateRoutingTable {
+        peer_id: PeerId,
+        addrs: Vec<Multiaddr>,
+    },
 }
 
 impl EnablingCondition<P2pState> for P2pNetworkKademliaAction {
@@ -99,6 +108,7 @@ impl EnablingCondition<P2pState> for P2pNetworkKademliaAction {
                 // TODO: also can run bootstrap on timely basis.
                 matches!(state.status, super::P2pNetworkKadStatus::Bootstrapping(_))
             }
+            P2pNetworkKademliaAction::UpdateRoutingTable { .. } => true,
         }
     }
 }

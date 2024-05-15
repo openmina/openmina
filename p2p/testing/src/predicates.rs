@@ -3,14 +3,20 @@ use std::{
     future::{ready, Ready},
 };
 
+use libp2p::swarm::SwarmEvent;
 use p2p::PeerId;
 
-use crate::{cluster::ClusterEvent, event::RustNodeEvent, rust_node::RustNodeId};
+use crate::{
+    cluster::{ClusterEvent, NodeId},
+    event::RustNodeEvent,
+    libp2p_node::Libp2pEvent,
+    rust_node::RustNodeId,
+};
 
 /// Wraps plain function over a cluster event into an async one.
-pub fn async_fn<T, F>(mut f: F) -> impl FnMut(&ClusterEvent) -> Ready<T>
+pub fn async_fn<T, F>(mut f: F) -> impl FnMut(ClusterEvent) -> Ready<T>
 where
-    F: FnMut(&ClusterEvent) -> T,
+    F: FnMut(ClusterEvent) -> T,
 {
     move |event| ready(f(event))
 }
@@ -51,6 +57,33 @@ where
     }
 }
 
+/// Predicate returning true for a cluster event corresponging to the specified node started listening.
+pub fn all_listeners_are_ready<T, I>(ids: I) -> impl FnMut(ClusterEvent) -> Ready<bool>
+where
+    I: IntoIterator<Item = T>,
+    T: Into<NodeId>,
+{
+    let mut ids: HashSet<NodeId> = HashSet::from_iter(ids.into_iter().map(Into::into));
+    move |event| {
+        ready(
+            match event {
+                ClusterEvent::Rust {
+                    id,
+                    event: RustNodeEvent::ListenerReady { .. },
+                } => ids.remove(&NodeId::Rust(id)),
+                ClusterEvent::Libp2p {
+                    id,
+                    event: SwarmEvent::NewListenAddr { address, .. },
+                } => {
+                    println!("{id:?}: new listen addr: {address}");
+                    ids.remove(&NodeId::Libp2p(id))
+                }
+                _ => false,
+            } && ids.is_empty(),
+        )
+    }
+}
+
 pub fn nodes_peers_are_ready<I>(nodes_peers: I) -> impl FnMut(ClusterEvent) -> Ready<bool>
 where
     I: IntoIterator<Item = (RustNodeId, PeerId)>,
@@ -68,6 +101,29 @@ where
                 false
             },
         )
+    }
+}
+
+/// Returns a predicate over cluster events that returns `true` once it is
+/// called at least once for events that represent established connection
+/// between a node and a peer from the `nodes_peers`.
+pub fn all_nodes_peers_are_ready<I>(nodes_peers: I) -> impl FnMut(ClusterEvent) -> Ready<bool>
+where
+    I: IntoIterator<Item = (NodeId, PeerId)>,
+{
+    let mut nodes_peers = BTreeSet::from_iter(nodes_peers.into_iter());
+    move |event| {
+        ready(match event {
+            ClusterEvent::Rust {
+                id,
+                event: RustNodeEvent::PeerConnected { peer_id, .. },
+            } => nodes_peers.remove(&(id.into(), peer_id)) && nodes_peers.is_empty(),
+            ClusterEvent::Libp2p {
+                id,
+                event: Libp2pEvent::ConnectionEstablished { peer_id, .. },
+            } => nodes_peers.remove(&(id.into(), peer_id.into())) && nodes_peers.is_empty(),
+            _ => false,
+        })
     }
 }
 

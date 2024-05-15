@@ -11,7 +11,7 @@ use super::{
     p2p_network_scheduler_state::{P2pNetworkConnectionCloseReason, P2pNetworkConnectionError},
 };
 
-use crate::{disconnection::P2pDisconnectionReason, P2pState, PeerId};
+use crate::{disconnection::P2pDisconnectionReason, P2pPeerStatus, P2pState, PeerId};
 
 #[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
 #[action_event(fields(display(ip), display(listener), display(addr), debug(result), select_kind = debug(kind), display(error)))]
@@ -100,6 +100,10 @@ pub enum P2pNetworkSchedulerAction {
         /// Connection address.
         addr: SocketAddr,
     },
+    /// Prune streams.
+    PruneStreams {
+        peer_id: PeerId,
+    },
 }
 
 impl From<P2pNetworkSchedulerAction> for crate::P2pAction {
@@ -110,6 +114,7 @@ impl From<P2pNetworkSchedulerAction> for crate::P2pAction {
 
 impl redux::EnablingCondition<P2pState> for P2pNetworkSchedulerAction {
     fn is_enabled(&self, state: &P2pState, _time: redux::Timestamp) -> bool {
+        let conn = |addr| state.network.scheduler.connections.get(addr);
         #[allow(unused_variables)]
         match self {
             P2pNetworkSchedulerAction::InterfaceDetected { ip } => true,
@@ -131,8 +136,10 @@ impl redux::EnablingCondition<P2pState> for P2pNetworkSchedulerAction {
                 .connections
                 .get(addr)
                 .map_or(false, |conn_state| !conn_state.incoming),
-            P2pNetworkSchedulerAction::IncomingDataIsReady { addr } => true,
-            P2pNetworkSchedulerAction::IncomingDataDidReceive { addr, result } => true,
+            P2pNetworkSchedulerAction::IncomingDataIsReady { addr } => conn(addr).is_some(),
+            P2pNetworkSchedulerAction::IncomingDataDidReceive { addr, result } => {
+                conn(addr).is_some()
+            }
             P2pNetworkSchedulerAction::SelectDone {
                 addr,
                 kind,
@@ -163,6 +170,11 @@ impl redux::EnablingCondition<P2pState> for P2pNetworkSchedulerAction {
                 .connections
                 .get(addr)
                 .map_or(false, |conn_state| conn_state.closed.is_some()),
+            P2pNetworkSchedulerAction::PruneStreams { peer_id } => {
+                state.peers.get(peer_id).map_or(false, |peer_state| {
+                    matches!(peer_state.status, P2pPeerStatus::Disconnected { .. })
+                })
+            }
         }
     }
 }

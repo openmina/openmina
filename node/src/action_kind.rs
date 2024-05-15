@@ -180,6 +180,7 @@ pub enum ActionKind {
     P2pConnectionIncomingError,
     P2pConnectionIncomingFinalizeError,
     P2pConnectionIncomingFinalizePending,
+    P2pConnectionIncomingFinalizePendingLibp2p,
     P2pConnectionIncomingFinalizeSuccess,
     P2pConnectionIncomingInit,
     P2pConnectionIncomingLibp2pReceived,
@@ -229,6 +230,7 @@ pub enum ActionKind {
     P2pNetworkKademliaBootstrapFinished,
     P2pNetworkKademliaStartBootstrap,
     P2pNetworkKademliaUpdateFindNodeRequest,
+    P2pNetworkKademliaUpdateRoutingTable,
     P2pNetworkKademliaStreamClose,
     P2pNetworkKademliaStreamIncomingData,
     P2pNetworkKademliaStreamNew,
@@ -270,6 +272,7 @@ pub enum ActionKind {
     P2pNetworkSchedulerOutgoingConnect,
     P2pNetworkSchedulerOutgoingDidConnect,
     P2pNetworkSchedulerPrune,
+    P2pNetworkSchedulerPruneStreams,
     P2pNetworkSchedulerSelectDone,
     P2pNetworkSchedulerSelectError,
     P2pNetworkSchedulerYamuxDidInit,
@@ -430,7 +433,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 358;
+    pub const COUNT: u16 = 361;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -981,6 +984,9 @@ impl ActionKindGet for P2pConnectionIncomingAction {
             Self::Timeout { .. } => ActionKind::P2pConnectionIncomingTimeout,
             Self::Error { .. } => ActionKind::P2pConnectionIncomingError,
             Self::Success { .. } => ActionKind::P2pConnectionIncomingSuccess,
+            Self::FinalizePendingLibp2p { .. } => {
+                ActionKind::P2pConnectionIncomingFinalizePendingLibp2p
+            }
             Self::Libp2pReceived { .. } => ActionKind::P2pConnectionIncomingLibp2pReceived,
         }
     }
@@ -1082,6 +1088,7 @@ impl ActionKindGet for P2pNetworkSchedulerAction {
             Self::Error { .. } => ActionKind::P2pNetworkSchedulerError,
             Self::Disconnected { .. } => ActionKind::P2pNetworkSchedulerDisconnected,
             Self::Prune { .. } => ActionKind::P2pNetworkSchedulerPrune,
+            Self::PruneStreams { .. } => ActionKind::P2pNetworkSchedulerPruneStreams,
         }
     }
 }
@@ -1201,6 +1208,7 @@ impl ActionKindGet for P2pNetworkKademliaAction {
             }
             Self::StartBootstrap { .. } => ActionKind::P2pNetworkKademliaStartBootstrap,
             Self::BootstrapFinished => ActionKind::P2pNetworkKademliaBootstrapFinished,
+            Self::UpdateRoutingTable { .. } => ActionKind::P2pNetworkKademliaUpdateRoutingTable,
         }
     }
 }

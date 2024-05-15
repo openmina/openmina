@@ -4,6 +4,9 @@ use p2p::{
     channels::{rpc::P2pChannelsRpcAction, P2pChannelsAction},
     connection::{incoming::P2pConnectionIncomingAction, outgoing::P2pConnectionOutgoingAction},
     disconnection::P2pDisconnectionAction,
+    identify::P2pIdentifyAction,
+    network::identify::P2pNetworkIdentify,
+    peer::P2pPeerAction,
     P2pAction, P2pEvent, PeerId,
 };
 
@@ -45,10 +48,17 @@ pub enum RustNodeEvent {
         id: p2p::channels::rpc::P2pRpcId,
         response: Option<p2p::channels::rpc::P2pRpcResponse>,
     },
+    Identify {
+        peer_id: PeerId,
+        info: P2pNetworkIdentify,
+    },
+    KadBootstrapFinished,
+    /// Other non-specific p2p event.
     P2p {
         event: P2pEvent,
     },
-    KadBootstrapFinished,
+    /// Timeout event with no specific outcome.
+    Idle,
 }
 
 pub(super) trait RustNodeEventStore {
@@ -58,15 +68,14 @@ pub(super) trait RustNodeEventStore {
 pub(super) fn event_mapper_effect(store: &mut super::redux::Store, action: P2pAction) {
     let store_event = |store: &mut super::redux::Store, event| store.service().store_event(event);
     match action {
+        P2pAction::Peer(action) => match action {
+            P2pPeerAction::Ready { peer_id, incoming } => {
+                store_event(store, RustNodeEvent::PeerConnected { peer_id, incoming })
+            }
+            _ => {}
+        },
         P2pAction::Connection(action) => match action {
             p2p::connection::P2pConnectionAction::Outgoing(action) => match action {
-                P2pConnectionOutgoingAction::Success { peer_id } => store_event(
-                    store,
-                    RustNodeEvent::PeerConnected {
-                        peer_id,
-                        incoming: false,
-                    },
-                ),
                 P2pConnectionOutgoingAction::Error { peer_id, error } => store_event(
                     store,
                     RustNodeEvent::PeerConnectionError {
@@ -78,20 +87,6 @@ pub(super) fn event_mapper_effect(store: &mut super::redux::Store, action: P2pAc
                 _ => {}
             },
             p2p::connection::P2pConnectionAction::Incoming(action) => match action {
-                P2pConnectionIncomingAction::Success { peer_id } => store_event(
-                    store,
-                    RustNodeEvent::PeerConnected {
-                        peer_id,
-                        incoming: true,
-                    },
-                ),
-                P2pConnectionIncomingAction::Libp2pReceived { peer_id } => store_event(
-                    store,
-                    RustNodeEvent::PeerConnected {
-                        peer_id,
-                        incoming: true,
-                    },
-                ),
                 P2pConnectionIncomingAction::Error { peer_id, error } => store_event(
                     store,
                     RustNodeEvent::PeerConnectionError {
@@ -103,6 +98,7 @@ pub(super) fn event_mapper_effect(store: &mut super::redux::Store, action: P2pAc
                 _ => {}
             },
         },
+
         P2pAction::Disconnection(P2pDisconnectionAction::Init { peer_id, reason }) => store_event(
             store,
             RustNodeEvent::PeerDisconnected {
@@ -125,10 +121,10 @@ pub(super) fn event_mapper_effect(store: &mut super::redux::Store, action: P2pAc
                     id,
                     request,
                 } => {
-                    if matches!(store.service.peek_rust_node_event(), Some(RustNodeEvent::RpcChannelReady { peer_id: pid }) if pid == &peer_id )
-                    {
-                        store.service.rust_node_event();
-                    }
+                    // if matches!(store.service.peek_rust_node_event(), Some(RustNodeEvent::RpcChannelReady { peer_id: pid }) if pid == &peer_id )
+                    // {
+                    //     store.service.rust_node_event();
+                    // }
                     store_event(
                         store,
                         RustNodeEvent::RpcChannelRequestReceived {
@@ -154,6 +150,10 @@ pub(super) fn event_mapper_effect(store: &mut super::redux::Store, action: P2pAc
             },
             _ => {}
         },
+
+        P2pAction::Identify(P2pIdentifyAction::UpdatePeerInformation { peer_id, info }) => {
+            store_event(store, RustNodeEvent::Identify { peer_id, info })
+        }
 
         P2pAction::Network(p2p::P2pNetworkAction::Scheduler(action)) => match action {
             p2p::P2pNetworkSchedulerAction::InterfaceDetected { ip } => {

@@ -196,7 +196,7 @@ impl DontConnectToSelfInitialPeer {
         );
 
         let connected =
-            wait_for_connection_established(&mut driver, Duration::from_secs(3 * 60), node_ut)
+            wait_for_connection_established(&mut driver, Duration::from_secs(10), node_ut)
                 .await
                 .unwrap();
         assert!(!connected, "the node sholdn't try to connect to itself");

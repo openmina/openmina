@@ -1,3 +1,5 @@
+use std::net::SocketAddr;
+
 use serde::{Deserialize, Serialize};
 
 use openmina_core::{requests::RpcId, ActionEvent};
@@ -64,6 +66,11 @@ pub enum P2pConnectionIncomingAction {
     Success {
         peer_id: PeerId,
     },
+    /// Detected incoming connection from this peer.
+    FinalizePendingLibp2p {
+        peer_id: PeerId,
+        addr: SocketAddr,
+    },
     /// Incoming libp2p connection is succesful.
     Libp2pReceived {
         peer_id: PeerId,
@@ -85,6 +92,7 @@ impl P2pConnectionIncomingAction {
             | Self::Timeout { peer_id }
             | Self::Error { peer_id, .. }
             | Self::Success { peer_id }
+            | Self::FinalizePendingLibp2p { peer_id, .. }
             | Self::Libp2pReceived { peer_id } => Some(peer_id),
         }
     }
@@ -206,10 +214,15 @@ impl redux::EnablingCondition<P2pState> for P2pConnectionIncomingAction {
                     )
                 })
             }
-
-            P2pConnectionIncomingAction::Libp2pReceived { peer_id } => {
-                state.peers.get(peer_id).map_or(true, |peer| {
-                    matches!(&peer.status, P2pPeerStatus::Disconnected { .. })
+            P2pConnectionIncomingAction::FinalizePendingLibp2p { .. } => true,
+            P2pConnectionIncomingAction::Libp2pReceived { peer_id, .. } => {
+                state.peers.get(peer_id).map_or(false, |peer| {
+                    matches!(
+                        &peer.status,
+                        P2pPeerStatus::Connecting(P2pConnectionState::Incoming(
+                            P2pConnectionIncomingState::FinalizePendingLibp2p { .. },
+                        ))
+                    )
                 })
             }
         }

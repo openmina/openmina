@@ -8,8 +8,11 @@ edition = "2021"
 [dependencies]
 redux = { workspace = true }
 p2p = { path = ".." }
+mina-p2p-messages = { path = "../../mina-p2p-messages" }
+
 tokio = { version = "1.26.0", features = [ "sync", "macros" ] }
 libp2p = { workspace = true, features = ["macros", "serde", "tcp", "dns", "tokio", "yamux", "pnet", "noise", "gossipsub", "identify", "kad"] }
+libp2p-rpc-behaviour = { path = "../libp2p-rpc-behaviour" }
 futures = "0.3.30"
 rand = "0.8.5"
 derive_more = "0.99.17"
@@ -22,3 +25,5 @@ lazy_static = "1.4.0"
 tracing-subscriber = "0.3.18"
 tracing = "0.1.40"
 getrandom = "0.2.14"
+tracing-log = "0.2.0"
+serde_json.workspace = true

@@ -122,6 +122,7 @@ impl redux::EnablingCondition<P2pState> for P2pConnectionOutgoingAction {
             }
             P2pConnectionOutgoingAction::Init { opts, .. } => {
                 !state.already_has_min_peers() &&
+                &state.my_id() != opts.peer_id() &&
                 state
                     .peers
                     .get(opts.peer_id())

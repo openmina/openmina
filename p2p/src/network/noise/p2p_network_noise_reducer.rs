@@ -89,30 +89,17 @@ impl P2pNetworkNoiseState {
                 if let Some(mut chunk) = self.incoming_chunks.pop_front() {
                     match state {
                         P2pNetworkNoiseStateInner::Initiator(i) => match i.consume(&mut chunk) {
-                            Ok(_) if i.remote_pk.as_ref() == Some(&self.local_pk) => {
-                                *state = P2pNetworkNoiseStateInner::Error(dbg!(
-                                    NoiseError::SelfConnection
-                                ));
-                            }
-                            Ok(remote_payload) => {
-                                self.handshake_optimized = remote_payload.is_some();
-                                if let Some(remote_payload) = remote_payload {
-                                    self.decrypted_chunks
-                                        .push_back(remote_payload.to_vec().into());
-                                }
+                            Ok(_) => {
+                                // self.handshake_optimized = remote_payload.is_some();
+                                // if let Some(remote_payload) = remote_payload {
+                                //     self.decrypted_chunks
+                                //         .push_back(remote_payload.to_vec().into());
+                                // }
                             }
                             Err(err) => *state = P2pNetworkNoiseStateInner::Error(dbg!(err)),
                         },
                         P2pNetworkNoiseStateInner::Responder(o) => match o.consume(&mut chunk) {
                             Ok(None) => {}
-                            Ok(Some(ResponderConsumeOutput {
-                                output: ResponderOutput { remote_pk, .. },
-                                ..
-                            })) if remote_pk == self.local_pk => {
-                                *state = P2pNetworkNoiseStateInner::Error(dbg!(
-                                    NoiseError::SelfConnection
-                                ));
-                            }
                             Ok(Some(ResponderConsumeOutput {
                                 output:
                                     ResponderOutput {
@@ -121,7 +108,7 @@ impl P2pNetworkNoiseState {
                                         remote_pk,
                                         ..
                                     },
-                                payload: remote_payload,
+                                payload: _,
                             })) => {
                                 let remote_peer_id = remote_pk.peer_id();
                                 *state = P2pNetworkNoiseStateInner::Done {
@@ -133,11 +120,11 @@ impl P2pNetworkNoiseState {
                                     remote_pk,
                                     remote_peer_id,
                                 };
-                                self.handshake_optimized = remote_payload.is_some();
-                                if let Some(remote_payload) = remote_payload {
-                                    self.decrypted_chunks
-                                        .push_back(remote_payload.to_vec().into());
-                                }
+                                // self.handshake_optimized = remote_payload.is_some();
+                                // if let Some(remote_payload) = remote_payload {
+                                //     self.decrypted_chunks
+                                //         .push_back(remote_payload.to_vec().into());
+                                // }
                             }
                             Err(err) => {
                                 *state = P2pNetworkNoiseStateInner::Error(dbg!(err));

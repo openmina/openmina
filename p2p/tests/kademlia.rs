@@ -1,19 +1,24 @@
-use p2p::P2pNetworkKadBucket;
+use p2p::{identity::SecretKey, P2pNetworkKadBucket, PeerId};
 use p2p_testing::{
-    cluster::{Cluster, ClusterBuilder, Listener},
+    cluster::{Cluster, ClusterBuilder, ClusterEvent, Listener},
+    event::RustNodeEvent,
     futures::TryStreamExt,
     predicates::kad_finished_bootstrap,
     rust_node::{RustNodeConfig, RustNodeId},
     stream::ClusterStreamExt,
+    utils::{
+        peer_ids, try_wait_for_all_nodes_with_value, try_wait_for_nodes_to_connect,
+        try_wait_for_nodes_to_listen,
+    },
 };
-use std::time::Duration;
+use std::{future::ready, net::Ipv4Addr, time::Duration};
 
 #[tokio::test]
-async fn kademlia() {
+async fn kademlia_routing_table() {
     std::env::set_var("OPENMINA_DISCOVERY_FILTER_ADDR", "false");
 
     let mut cluster = ClusterBuilder::new()
-        .ports(11000..11200)
+        .ports_with_len(10)
         .idle_duration(Duration::from_millis(100))
         .start()
         .await
@@ -97,25 +102,22 @@ async fn kademlia() {
 }
 
 #[tokio::test]
-#[ignore]
-async fn kademlia_incoming() {
+async fn kademlia_incoming_routing_table() {
     std::env::set_var("OPENMINA_DISCOVERY_FILTER_ADDR", "false");
 
     let mut cluster = ClusterBuilder::new()
-        .ports(11000..11200)
+        .ports_with_len(10)
         .idle_duration(Duration::from_millis(100))
         .start()
         .await
         .expect("should build cluster");
 
-    let node1 = cluster
-        .add_rust_node(RustNodeConfig::default())
-        .expect("node1");
+    let node1 = cluster.add_rust_node(rust_config()).expect("node1");
 
     let node2 = cluster
         .add_rust_node(RustNodeConfig {
             initial_peers: vec![Listener::Rust(node1)],
-            ..Default::default()
+            ..rust_config()
         })
         .expect("node2");
 
@@ -173,4 +175,143 @@ fn get_kad_bucket(cluster: &Cluster, node: RustNodeId) -> &P2pNetworkKadBucket<2
         .buckets
         .first()
         .expect("Must have at least one bucket")
+}
+
+fn rust_config() -> RustNodeConfig {
+    RustNodeConfig::default().with_discovery(true)
+}
+
+#[tokio::test]
+async fn bootstrap_no_peers() -> anyhow::Result<()> {
+    let mut cluster = ClusterBuilder::new()
+        .ports_with_len(3)
+        .idle_duration(Duration::from_millis(100))
+        .start()
+        .await?;
+
+    // node will not initiate Kademlia bootstrap unless there is at least one peer in the table (possibly offline)
+    let random_peer = Listener::SocketPeerId(
+        (Ipv4Addr::LOCALHOST, cluster.next_port()?).into(),
+        SecretKey::rand().public_key().peer_id(),
+    );
+    let node = cluster.add_rust_node(rust_config().with_initial_peers([random_peer]))?;
+
+    let bootstrapped = cluster
+        .try_stream()
+        .take_during(Duration::from_secs(2))
+        .try_any(|event| {
+            ready(matches!(
+                event,
+                ClusterEvent::Rust {
+                    id,
+                    event: RustNodeEvent::KadBootstrapFinished,
+                }
+                if id == node
+            ))
+        })
+        .await?;
+
+    assert!(bootstrapped);
+
+    Ok(())
+}
+
+/// Tests simple discovery use-case.
+///
+/// A node should be able to discover and connect a node connected to the seed node.
+#[tokio::test]
+async fn discovery_seed_single_peer() -> anyhow::Result<()> {
+    let mut cluster = ClusterBuilder::new()
+        .ports_with_len(6)
+        .idle_duration(Duration::from_millis(100))
+        .start()
+        .await?;
+
+    let [seed, peer, node_ut] =
+        p2p_testing::utils::rust_nodes_from_config(&mut cluster, rust_config())?;
+    let peer_id = cluster.peer_id(peer);
+
+    assert!(
+        try_wait_for_nodes_to_listen(&mut cluster, [seed], Duration::from_secs(2)).await?,
+        "seed should listen"
+    );
+    cluster.connect(peer, seed)?;
+
+    // wait for all peers to be identified by the seed
+    wait_for_identify(&mut cluster, [(seed, peer_id)], Duration::from_secs(10)).await;
+
+    println!("========= connect node under test");
+    cluster.connect(node_ut, seed)?;
+
+    assert!(
+        try_wait_for_nodes_to_connect(&mut cluster, [(node_ut, peer_id)], Duration::from_secs(30))
+            .await?,
+        "peer should be connected"
+    );
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn discovery_seed_multiple_peers() -> anyhow::Result<()> {
+    const PEERS: usize = 10;
+    let mut cluster = ClusterBuilder::new()
+        .ports_with_len(PEERS as u16 * 2 + 4)
+        .idle_duration(Duration::from_millis(100))
+        .start()
+        .await?;
+
+    std::env::set_var("OPENMINA_DISCOVERY_FILTER_ADDR", false.to_string());
+
+    let [seed, nodes @ ..]: [_; PEERS + 1] =
+        p2p_testing::utils::rust_nodes_from_config(&mut cluster, rust_config())?;
+    let peer_ids = peer_ids(&cluster, nodes);
+
+    assert!(
+        try_wait_for_nodes_to_listen(&mut cluster, [seed], Duration::from_secs(2)).await?,
+        "should listen"
+    );
+    for node in nodes {
+        cluster.connect(node, seed)?;
+    }
+
+    // wait for all peers to be identified by the seed
+    wait_for_identify(
+        &mut cluster,
+        peer_ids.map(|peer_id| (seed, peer_id)),
+        Duration::from_secs(10),
+    )
+    .await;
+
+    println!("========= add new node");
+    let node = cluster.add_rust_node(rust_config())?;
+    cluster.connect(node, seed)?;
+
+    assert!(
+        try_wait_for_nodes_to_connect(
+            &mut cluster,
+            peer_ids.map(|peer_id| (node, peer_id)),
+            Duration::from_secs(10)
+        )
+        .await?,
+        "all peers should be connected"
+    );
+
+    Ok(())
+}
+
+async fn wait_for_identify<I>(cluster: &mut Cluster, nodes_peers: I, time: Duration)
+where
+    I: IntoIterator<Item = (RustNodeId, PeerId)>,
+{
+    let identified = try_wait_for_all_nodes_with_value(cluster, nodes_peers, time, |event| {
+        if let RustNodeEvent::Identify { peer_id, .. } = event {
+            Some(peer_id)
+        } else {
+            None
+        }
+    })
+    .await
+    .expect("no errors");
+    assert!(identified, "all peers should be identified");
 }

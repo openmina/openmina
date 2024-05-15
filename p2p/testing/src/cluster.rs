@@ -1,13 +1,14 @@
 use std::{
+    collections::BTreeMap,
     net::{IpAddr, Ipv4Addr, SocketAddr},
     ops::Range,
-    task::{Context, Poll},
+    task::{ready, Context, Poll},
     time::{Duration, Instant},
 };
 
 use derive_builder::UninitializedFieldError;
 use futures::StreamExt;
-use libp2p::Multiaddr;
+use libp2p::{multiaddr::multiaddr, swarm::DialError, Multiaddr};
 use p2p::{
     connection::outgoing::{
         P2pConnectionOutgoingAction, P2pConnectionOutgoingInitLibp2pOpts,
@@ -21,7 +22,7 @@ use tokio::sync::mpsc;
 
 use crate::{
     event::{event_mapper_effect, RustNodeEvent},
-    libp2p_node::{Libp2pEvent, Libp2pNode, Libp2pNodeId},
+    libp2p_node::{create_swarm, Libp2pEvent, Libp2pNode, Libp2pNodeConfig, Libp2pNodeId},
     redux::State,
     redux::{log_action, Action},
     rust_node::{RustNode, RustNodeConfig, RustNodeId},
@@ -45,6 +46,12 @@ pub enum Listener {
     SocketPeerId(SocketAddr, PeerId),
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, derive_more::From)]
+pub enum NodeId {
+    Rust(RustNodeId),
+    Libp2p(Libp2pNodeId),
+}
+
 pub struct Cluster {
     chain_id: String,
     ports: Range<u16>,
@@ -55,14 +62,31 @@ pub struct Cluster {
     last_idle_instant: Instant,
     idle_interval: tokio::time::Interval,
     next_poll: NextPoll,
+    timeouts: BTreeMap<usize, Duration>,
 
     is_error: fn(&ClusterEvent) -> bool,
     total_duration: Duration,
 }
 
+enum PortsConfig {
+    Range(Range<u16>),
+    Len(u16),
+    ExactLen(u16),
+}
+
+impl PortsConfig {
+    async fn ports(self) -> Result<Range<u16>> {
+        match self {
+            PortsConfig::Range(range) => Ok(range),
+            PortsConfig::Len(len) => PORTS.take(len).await,
+            PortsConfig::ExactLen(len) => PORTS.take_exact(len).await,
+        }
+    }
+}
+
 pub struct ClusterBuilder {
     chain_id: String,
-    ports: Option<Range<u16>>,
+    ports: Option<PortsConfig>,
     ip: IpAddr,
     idle_duration: Duration,
     is_error: fn(&ClusterEvent) -> bool,
@@ -93,7 +117,17 @@ impl ClusterBuilder {
     }
 
     pub fn ports(mut self, ports: Range<u16>) -> Self {
-        self.ports = Some(ports);
+        self.ports = Some(PortsConfig::Range(ports));
+        self
+    }
+
+    pub fn ports_with_len(mut self, len: u16) -> Self {
+        self.ports = Some(PortsConfig::Len(len));
+        self
+    }
+
+    pub fn ports_with_exact_len(mut self, len: u16) -> Self {
+        self.ports = Some(PortsConfig::ExactLen(len));
         self
     }
 
@@ -123,7 +157,9 @@ impl ClusterBuilder {
         let chain_id = self.chain_id;
         let ports = self
             .ports
-            .ok_or_else(|| UninitializedFieldError::new("ports"))?;
+            .ok_or_else(|| UninitializedFieldError::new("ports"))?
+            .ports()
+            .await?;
         let ip = self.ip;
         let mut idle_interval = tokio::time::interval(self.idle_duration);
         let last_idle_instant = idle_interval.tick().await.into_std();
@@ -142,9 +178,87 @@ impl ClusterBuilder {
             last_idle_instant,
             idle_interval,
             next_poll,
+            timeouts: Default::default(),
         })
     }
 }
+
+pub struct Ports {
+    start: tokio::sync::Mutex<u16>,
+    end: u16,
+}
+
+impl Ports {
+    pub fn new(range: Range<u16>) -> Self {
+        Ports {
+            start: range.start.into(),
+            end: range.end,
+        }
+    }
+
+    fn round(u: u16) -> u16 {
+        ((u + 99) / 100) * 100
+    }
+
+    pub async fn take(&self, len: u16) -> Result<Range<u16>> {
+        let mut start = self.start.lock().await;
+        let res = Self::round(*start)..Self::round(*start + len);
+        if res.end > self.end {
+            return Err(Error::NoMorePorts);
+        }
+        *start = res.end;
+        Ok(res)
+    }
+
+    pub async fn take_exact(&self, len: u16) -> Result<Range<u16>> {
+        let mut start = self.start.lock().await;
+        let res = *start..(*start + len);
+        if res.end > self.end {
+            return Err(Error::NoMorePorts);
+        }
+        *start += len;
+        Ok(res)
+    }
+}
+
+impl Default for Ports {
+    fn default() -> Self {
+        Self {
+            start: 10000.into(),
+            end: 20000,
+        }
+    }
+}
+
+/// Declares a shared storage for ports.
+///
+/// ```
+/// ports_store!(PORTS);
+///
+/// #[tokio::test]
+/// fn test1() {
+///     let cluster = ClusterBuilder::default()
+///         .ports(PORTS.take(20).await.expect("enough ports"))
+///         .start()
+///         .await;
+/// }
+///
+/// ```
+#[macro_export]
+macro_rules! ports_store {
+    ($name:ident, $range:expr) => {
+        $crate::lazy_static::lazy_static! {
+            static ref PORTS: crate::cluster::Ports = crate::cluster::Ports::new($range);
+        }
+    };
+    ($name:ident) => {
+        $crate::lazy_static::lazy_static! {
+            static ref PORTS: crate::cluster::Ports = crate::cluster::Ports::default();
+        }
+    };
+}
+
+ports_store!(PORTS);
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -154,6 +268,10 @@ pub enum Error {
     AddrParse(#[from] P2pConnectionOutgoingInitOptsParseError),
     #[error(transparent)]
     UninitializedField(#[from] UninitializedFieldError),
+    #[error("swarm creation error: {0}")]
+    Libp2pSwarm(String),
+    #[error(transparent)]
+    Libp2pDial(#[from] DialError),
     #[error("Error occurred: {0}")]
     Other(String),
 }
@@ -165,7 +283,7 @@ const RUST_NODE_SIG_BYTE: u8 = 0xf0;
 const LIBP2P_NODE_SIG_BYTE: u8 = 0xf1;
 
 impl Cluster {
-    fn next_port(&mut self) -> Result<u16> {
+    pub fn next_port(&mut self) -> Result<u16> {
         self.ports.next().ok_or(Error::NoMorePorts)
     }
 
@@ -206,19 +324,24 @@ impl Cluster {
         }
     }
 
-    fn rust_node_config(&mut self, config: RustNodeConfig) -> Result<(P2pConfig, SecretKey)> {
-        let bytes = match config.peer_id {
+    fn secret_key(config: PeerIdConfig, index: usize, fill_byte: u8) -> SecretKey {
+        let bytes = match config {
             PeerIdConfig::Derived => {
-                let mut bytes = [RUST_NODE_SIG_BYTE; 32];
+                let mut bytes = [fill_byte; 32];
                 let bytes_len = bytes.len();
-                let i_bytes = self.rust_nodes.len().to_be_bytes();
+                let i_bytes = index.to_be_bytes();
                 let i = bytes_len - i_bytes.len();
                 bytes[i..bytes_len].copy_from_slice(&i_bytes);
                 bytes
             }
             PeerIdConfig::Bytes(bytes) => bytes,
         };
-        let secret_key = SecretKey::from_bytes(bytes);
+        SecretKey::from_bytes(bytes)
+    }
+
+    fn rust_node_config(&mut self, config: RustNodeConfig) -> Result<(P2pConfig, SecretKey)> {
+        let secret_key =
+            Self::secret_key(config.peer_id, self.rust_nodes.len(), RUST_NODE_SIG_BYTE);
         let libp2p_port = self.next_port()?;
         let listen_port = self.next_port()?;
         let initial_peers = config
@@ -285,33 +408,63 @@ impl Cluster {
         Ok(node_id)
     }
 
-    pub fn add_libp2p_node(&mut self) -> Result<Libp2pNodeId> {
+    pub fn add_libp2p_node(&mut self, config: Libp2pNodeConfig) -> Result<Libp2pNodeId> {
         let node_id = Libp2pNodeId(self.libp2p_nodes.len());
-        self.libp2p_nodes.push(Libp2pNode {});
+        let secret_key = Self::secret_key(config.peer_id, node_id.0, LIBP2P_NODE_SIG_BYTE);
+        let libp2p_port = self.next_port()?;
+
+        let swarm = create_swarm(secret_key, libp2p_port, config.port_reuse, &self.chain_id)
+            .map_err(|err| Error::Libp2pSwarm(err.to_string()))?;
+        self.libp2p_nodes.push(Libp2pNode::new(swarm));
+
         Ok(node_id)
     }
 
-    pub fn connect<T>(&mut self, id: RustNodeId, other: T) -> Result<()>
+    fn rust_dial_opts(&self, listener: Listener) -> Result<P2pConnectionOutgoingInitOpts> {
+        match listener {
+            Listener::Rust(id) => Ok(self.rust_node(id).rust_dial_opts(self.ip)),
+            Listener::Libp2p(id) => Ok(self.libp2p_node(id).rust_dial_opts(self.ip)),
+            Listener::Multiaddr(maddr) => Ok(maddr.try_into().map_err(|e| Error::AddrParse(e))?),
+            Listener::SocketPeerId(socket, peer_id) => Ok(P2pConnectionOutgoingInitOpts::LibP2P(
+                (peer_id, socket).into(),
+            )),
+        }
+    }
+
+    fn libp2p_dial_opts(&self, listener: Listener) -> Result<Multiaddr> {
+        match listener {
+            Listener::Rust(id) => Ok(self.rust_node(id).libp2p_dial_opts(self.ip)),
+            Listener::Libp2p(id) => Ok(self.libp2p_node(id).libp2p_dial_opts(self.ip)),
+            Listener::Multiaddr(maddr) => Ok(maddr),
+            Listener::SocketPeerId(socket, peer_id) => match socket {
+                SocketAddr::V4(ipv4) => {
+                    Ok(multiaddr!(Ip4(*ipv4.ip()), Tcp(ipv4.port()), P2p(peer_id)))
+                }
+                SocketAddr::V6(ipv6) => {
+                    Ok(multiaddr!(Ip6(*ipv6.ip()), Tcp(ipv6.port()), P2p(peer_id)))
+                }
+            },
+        }
+    }
+
+    pub fn connect<T, U>(&mut self, id: T, other: U) -> Result<()>
     where
-        T: Into<Listener>,
+        T: Into<NodeId>,
+        U: Into<Listener>,
     {
-        match other.into() {
-            Listener::Rust(node_id) => {
-                let opts = self.rust_node(node_id).dial_opts(self.ip);
+        match id.into() {
+            NodeId::Rust(id) => {
+                let dial_opts = self.rust_dial_opts(other.into())?;
                 self.rust_node_mut(id)
-                    .dispatch_action(P2pConnectionOutgoingAction::Init { opts, rpc_id: None });
+                    .dispatch_action(P2pConnectionOutgoingAction::Init {
+                        opts: dial_opts,
+                        rpc_id: None,
+                    });
             }
-            Listener::Libp2p(node_id) => {
-                let opts = self.libp2p_node(node_id).dial_opts(self.ip);
-                self.rust_node_mut(id)
-                    .dispatch_action(P2pConnectionOutgoingAction::Init { opts, rpc_id: None });
+            NodeId::Libp2p(id) => {
+                let dial_opts = self.libp2p_dial_opts(other.into())?;
+                self.libp2p_node_mut(id).swarm_mut().dial(dial_opts)?;
             }
-            Listener::Multiaddr(maddr) => {
-                let opts = maddr.try_into().map_err(|e| Error::AddrParse(e))?;
-                self.rust_node_mut(id)
-                    .dispatch_action(P2pConnectionOutgoingAction::Init { opts, rpc_id: None });
-            }
-            Listener::SocketPeerId(_, _) => todo!(),
         }
         Ok(())
     }
@@ -335,9 +488,20 @@ impl Cluster {
     pub fn timestamp(&self) -> Instant {
         self.last_idle_instant
     }
+
+    pub fn peer_id<T>(&self, id: T) -> PeerId
+    where
+        T: Into<NodeId>,
+    {
+        match id.into() {
+            NodeId::Rust(id) => self.rust_node(id).peer_id(),
+            NodeId::Libp2p(id) => self.libp2p_node(id).peer_id(),
+        }
+    }
 }
 
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
+#[error("error event: {:?}", self)]
 pub enum ClusterEvent {
     Rust {
         id: RustNodeId,
@@ -422,18 +586,68 @@ impl Cluster {
     }
 
     fn poll_idle(&mut self, cx: &mut Context<'_>) -> Poll<Instant> {
-        let poll = self
-            .idle_interval
-            .poll_tick(cx)
-            .map(|instant| instant.into_std());
-        if let Poll::Ready(inst) = poll {
-            let dur = inst - self.last_idle_instant;
-            for rust_node in &mut self.rust_nodes {
-                rust_node.idle(dur);
+        Poll::Ready({
+            let instant = ready!(self.idle_interval.poll_tick(cx)).into_std();
+            let dur = instant - self.last_idle_instant;
+            for i in 0..self.rust_nodes.len() {
+                self.timeouts
+                    .entry(i)
+                    .and_modify(|d| *d += dur)
+                    .or_insert(dur);
             }
-            self.last_idle_instant = inst;
+            self.last_idle_instant = instant;
+            instant
+        })
+    }
+
+    fn poll_rust_node(
+        &mut self,
+        id: RustNodeId,
+        cx: &mut Context<'_>,
+    ) -> Poll<Option<RustNodeEvent>> {
+        let rust_node = &mut self.rust_nodes[id.0];
+        let res = if let Some(dur) = self.timeouts.remove(&id.0) {
+            // trigger timeout action and return idle event
+            Poll::Ready(Some(rust_node.idle(dur)))
+        } else {
+            // poll next available event from the node
+            rust_node.poll_next_unpin(cx)
+        };
+        if crate::log::ERROR.swap(false, std::sync::atomic::Ordering::Relaxed) {
+            if let Err(err) = self.dump_state() {
+                eprintln!("error dumping state: {err}");
+            }
+            panic!("error detected");
         }
-        poll
+        res
+    }
+
+    fn poll_libp2p_node(
+        &mut self,
+        id: Libp2pNodeId,
+        cx: &mut Context<'_>,
+    ) -> Poll<Option<Libp2pEvent>> {
+        let libp2p_node = &mut self.libp2p_nodes[id.0];
+        Poll::Ready(ready!(libp2p_node.swarm_mut().poll_next_unpin(cx)))
+    }
+
+    fn dump_state(&self) -> std::result::Result<(), Box<dyn std::error::Error>> {
+        let path = std::env::temp_dir().join(format!("p2p-test-node.json"));
+        eprintln!("saving state of rust nodes to {:?}", path);
+        let file = std::fs::File::create(path)?;
+        let states = serde_json::Map::from_iter(
+            self.rust_nodes
+                .iter()
+                .map(|node| {
+                    Ok((
+                        node.peer_id().to_string(),
+                        serde_json::to_value(node.state())?,
+                    ))
+                })
+                .collect::<std::result::Result<Vec<_>, serde_json::Error>>()?,
+        );
+        serde_json::to_writer(file, &states)?;
+        Ok(())
     }
 }
 
@@ -448,21 +662,12 @@ impl ::futures::stream::Stream for Cluster {
         let np = this.next_poll;
         loop {
             let poll = match this.next_poll {
-                NextPoll::Rust(id) => {
-                    let rust_node = this.rust_node_mut(id);
-                    rust_node.poll_next_unpin(cx).map(|event| {
-                        event.map(|event| {
-                            rust_node.dispatch_event(event.clone());
-                            ClusterEvent::Rust {
-                                id,
-                                event: rust_node
-                                    .rust_node_event()
-                                    .unwrap_or(RustNodeEvent::P2p { event }),
-                            }
-                        })
-                    })
-                }
-                NextPoll::Libp2p(_) => todo!(),
+                NextPoll::Rust(id) => this
+                    .poll_rust_node(id, cx)
+                    .map(|event| event.map(|event| ClusterEvent::Rust { id, event })),
+                NextPoll::Libp2p(id) => this
+                    .poll_libp2p_node(id, cx)
+                    .map(|event| event.map(|event| ClusterEvent::Libp2p { id, event })),
                 NextPoll::Idle => this
                     .poll_idle(cx)
                     .map(|instant| Some(ClusterEvent::Idle { instant })),

@@ -4560,14 +4560,18 @@ dependencies = [
  "getrandom 0.2.14",
  "lazy_static",
  "libp2p",
+ "libp2p-rpc-behaviour",
+ "mina-p2p-messages",
  "openmina-core",
  "p2p",
  "pin-project-lite",
  "rand 0.8.5",
  "redux",
+ "serde_json",
  "thiserror",
  "tokio",
  "tracing",
+ "tracing-log",
  "tracing-subscriber",
 ]
 
