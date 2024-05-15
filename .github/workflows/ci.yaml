@@ -190,7 +190,7 @@ jobs:
 
       - name: Run the test
         run: |
-          ./${{ matrix.test }} --test-threads=1
+          RUST_MIN_STACK=8388608 ./${{ matrix.test }} --test-threads=1
 
   scenario-tests:
     if: false
@@ -221,7 +221,7 @@ jobs:
 
       - name: Run the test
         run: |
-          ./${{ matrix.test }} --test-threads=1
+          RUST_MIN_STACK=8388608 ./${{ matrix.test }} --test-threads=1
 
 
   bootstrap-test:
