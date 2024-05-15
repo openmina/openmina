@@ -76,11 +76,11 @@ fn read_index(path: &Path, digest: &[u8]) -> anyhow::Result<VerifierIndex<Pallas
     if &d != digest.as_slice() {
         anyhow::bail!("verifier index digest verification failed");
     }
-    Ok(verifier_index_from_bytes(&buf))
+    Ok(verifier_index_from_bytes(&buf)?)
 }
 
 fn write_index(path: &Path, index: &VerifierIndex<Pallas>, digest: &[u8]) -> anyhow::Result<()> {
-    let bytes = verifier_index_to_bytes(index);
+    let bytes = verifier_index_to_bytes(index)?;
     let mut hasher = Sha256::new();
     hasher.update(&bytes);
     let Some(parent) = path.parent() else {

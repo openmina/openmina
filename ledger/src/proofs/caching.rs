@@ -412,14 +412,26 @@ impl From<&VerifierIndexCached> for VerifierIndex<Pallas> {
     }
 }
 
-pub fn verifier_index_to_bytes(verifier: &VerifierIndex<Pallas>) -> Vec<u8> {
+#[derive(Debug, thiserror::Error)]
+#[error("Error writing verifier index to bytes: {0}")]
+pub struct VerifierIndexToBytesError(#[from] serde_cbor::Error);
+
+pub fn verifier_index_to_bytes(
+    verifier: &VerifierIndex<Pallas>,
+) -> Result<Vec<u8>, VerifierIndexToBytesError> {
     let verifier: VerifierIndexCached = verifier.into();
-    serde_cbor::to_vec(&verifier).unwrap()
+    Ok(serde_cbor::to_vec(&verifier)?)
 }
 
-pub fn verifier_index_from_bytes(bytes: &[u8]) -> VerifierIndex<Pallas> {
-    let verifier: VerifierIndexCached = serde_cbor::from_slice(bytes).unwrap();
-    (&verifier).into()
+#[derive(Debug, thiserror::Error)]
+#[error("Error reading verifier index from bytes: {0}")]
+pub struct VerifierIndexFromBytesError(#[from] serde_cbor::Error);
+
+pub fn verifier_index_from_bytes(
+    bytes: &[u8],
+) -> Result<VerifierIndex<Pallas>, VerifierIndexFromBytesError> {
+    let verifier: VerifierIndexCached = serde_cbor::from_slice(bytes)?;
+    Ok((&verifier).into())
 }
 
 pub fn srs_to_bytes<'a, G>(srs: &'a SRS<G>) -> Vec<u8>

@@ -230,7 +230,7 @@ impl MaxNumberOfPeersIncoming {
 
         println!("connecting nodes....");
 
-        for (peer, peer_id) in &peers {
+        for (peer, _peer_id) in &peers {
             connect_rust_nodes(driver.inner_mut(), *peer, node_ut).await;
             let connected = wait_for_connection_event(
                 &mut driver,
