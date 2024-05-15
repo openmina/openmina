@@ -60,7 +60,7 @@ use crate::snark::work_verify_effectful::SnarkWorkVerifyEffectfulAction;
 use crate::snark::SnarkAction;
 use crate::snark_pool::candidate::SnarkPoolCandidateAction;
 use crate::snark_pool::{SnarkPoolAction, SnarkPoolEffectfulAction};
-use crate::transaction_pool::TransactionPoolAction;
+use crate::transaction_pool::{TransactionPoolAction, TransactionPoolEffectfulAction};
 use crate::transition_frontier::genesis::TransitionFrontierGenesisAction;
 use crate::transition_frontier::genesis_effectful::TransitionFrontierGenesisEffectfulAction;
 use crate::transition_frontier::sync::ledger::snarked::TransitionFrontierSyncLedgerSnarkedAction;
@@ -414,6 +414,7 @@ pub enum ActionKind {
     TransactionPoolBestTipChanged,
     TransactionPoolBestTipChangedWithAccounts,
     TransactionPoolRebroadcast,
+    TransactionPoolEffectfulFetchAccounts,
     TransitionFrontierGenesisInject,
     TransitionFrontierSynced,
     TransitionFrontierGenesisLedgerLoadInit,
@@ -524,6 +525,7 @@ impl ActionKindGet for Action {
             Self::SnarkPool(a) => a.kind(),
             Self::SnarkPoolEffect(a) => a.kind(),
             Self::TransactionPool(a) => a.kind(),
+            Self::TransactionPoolEffect(a) => a.kind(),
             Self::ExternalSnarkWorker(a) => a.kind(),
             Self::BlockProducer(a) => a.kind(),
             Self::Rpc(a) => a.kind(),
@@ -660,6 +662,14 @@ impl ActionKindGet for TransactionPoolAction {
                 ActionKind::TransactionPoolApplyTransitionFrontierDiffWithAccounts
             }
             Self::Rebroadcast => ActionKind::TransactionPoolRebroadcast,
+        }
+    }
+}
+
+impl ActionKindGet for TransactionPoolEffectfulAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::FetchAccounts { .. } => ActionKind::TransactionPoolEffectfulFetchAccounts,
         }
     }
 }
