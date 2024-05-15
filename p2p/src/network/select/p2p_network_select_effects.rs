@@ -66,6 +66,9 @@ impl P2pNetworkSelectAction {
                 data,
                 fin,
             } => {
+                if matches!(&state.inner, P2pNetworkSelectStateInner::Error(..)) {
+                    return;
+                }
                 let remaining = state.remaining.clone();
                 if let Some(Some(negotiated)) = &state.negotiated {
                     match negotiated {
