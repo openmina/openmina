@@ -1,9 +1,9 @@
 import { AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, EventEmitter, ViewChild } from '@angular/core';
 import { MinaNode } from '@shared/types/core/environment/mina-env.type';
 import { debounceTime, distinctUntilChanged, filter, fromEvent, map } from 'rxjs';
-import { AppChangeActiveNode, AppDeleteNode } from '@app/app.actions';
 import { untilDestroyed } from '@ngneat/until-destroy';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
+import { AppActions } from '@app/app.actions';
 
 @Component({
   selector: 'mina-node-picker',
@@ -57,7 +57,7 @@ export class NodePickerComponent extends StoreDispatcher implements AfterViewIni
   selectNode(node: MinaNode): void {
     this.closeEmitter.emit(false);
     if (node !== this.activeNode) {
-      this.dispatch(AppChangeActiveNode, node);
+      this.dispatch2(AppActions.changeActiveNode({ node }));
     }
   }
 
@@ -68,6 +68,6 @@ export class NodePickerComponent extends StoreDispatcher implements AfterViewIni
   }
 
   deleteCustomNode(node: MinaNode): void {
-    this.dispatch(AppDeleteNode, node);
+    this.dispatch2(AppActions.deleteNode({ node }));
   }
 }

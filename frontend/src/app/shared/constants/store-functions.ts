@@ -35,8 +35,8 @@ export const addError = (error: HttpErrorResponse | Error, type: MinaErrorType):
 
 export const addErrorObservable = (error: HttpErrorResponse | Error | any, type: MinaErrorType): Observable<ErrorAdd> => of(addError(error, type));
 
-export function createType<T extends string>(module: string, submodule: string, actionName: T): T {
-  return `[${module} ${submodule}] ${actionName}` as T;
+export function createType<T extends string>(module: string, submodule: string | null, actionName: T): T {
+  return `[${module}${submodule ? (' ' + submodule) : ''}] ${actionName}` as T;
 }
 
 export const selectActionAndState = <A>(store: Store<MinaState>, selector: Selector<MinaState, any>): OperatorFunction<A, {

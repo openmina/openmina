@@ -1,15 +1,10 @@
 import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 import { Store } from '@ngrx/store';
 import { MinaState } from '@app/app.setup';
-import { selectActiveNode, selectAppMenu } from '@app/app.state';
+import { AppSelectors } from '@app/app.state';
 import { UntilDestroy, untilDestroyed } from '@ngneat/until-destroy';
 import { AppMenu } from '@shared/types/app/app-menu.type';
-import {
-  APP_CHANGE_MENU_COLLAPSING,
-  APP_TOGGLE_MENU_OPENING,
-  AppChangeMenuCollapsing,
-  AppToggleMenuOpening,
-} from '@app/app.actions';
+import { AppActions } from '@app/app.actions';
 import {
   ManualDetection,
   removeParamsFromURL,
@@ -86,7 +81,7 @@ export class MenuComponent extends ManualDetection implements OnInit {
   }
 
   private listenToCollapsingMenu(): void {
-    this.store.select(selectAppMenu)
+    this.store.select(AppSelectors.menu)
       .pipe(untilDestroyed(this))
       .subscribe((menu: AppMenu) => {
         this.menu = menu;
@@ -95,7 +90,7 @@ export class MenuComponent extends ManualDetection implements OnInit {
   }
 
   private listenToActiveNodeChange(): void {
-    this.store.select(selectActiveNode)
+    this.store.select(AppSelectors.activeNode)
       .pipe(
         filter(node => !!node),
         untilDestroyed(this),
@@ -114,7 +109,7 @@ export class MenuComponent extends ManualDetection implements OnInit {
 
   showHideMenu(): void {
     if (this.menu.isMobile) {
-      this.store.dispatch<AppToggleMenuOpening>({ type: APP_TOGGLE_MENU_OPENING });
+      this.store.dispatch(AppActions.toggleMenuOpening());
     }
   }
 
@@ -127,6 +122,6 @@ export class MenuComponent extends ManualDetection implements OnInit {
   }
 
   collapseMenu(): void {
-    this.store.dispatch<AppChangeMenuCollapsing>({ type: APP_CHANGE_MENU_COLLAPSING, payload: !this.menu.collapsed });
+    this.store.dispatch(AppActions.changeMenuCollapsing({ isCollapsing: !this.menu.collapsed }));
   }
 }

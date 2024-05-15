@@ -13,9 +13,9 @@ import {
   selectScanStateHighlightSnarkPool,
   selectScanStateOpenSidePanel,
   selectScanStateSideBarResized,
-  selectScanStateTreeView
+  selectScanStateTreeView,
 } from '@snarks/scan-state/scan-state.state';
-import { selectAppMenu } from '@app/app.state';
+import { AppSelectors } from '@app/app.state';
 
 
 interface SSTree {
@@ -115,7 +115,7 @@ export class ScanStateTreeChartComponent extends StoreDispatcher implements OnIn
       .subscribe(() => this.redrawChart());
     this.select(selectScanStateSideBarResized, () => this.redrawChart(), filter(Boolean));
     this.select(selectScanStateOpenSidePanel, () => this.redrawChart(), delay(400), skip(1));
-    this.select(selectAppMenu, () => this.redrawChart(),
+    this.select(AppSelectors.menu, () => this.redrawChart(),
       delay(400),
       distinctUntilChanged(),
       skip(1),
@@ -285,7 +285,7 @@ export class ScanStateTreeChartComponent extends StoreDispatcher implements OnIn
         this.dispatch(ScanStateSetActiveLeaf, d.data.leaf);
         this.router.navigate([Routes.SNARKS, Routes.SCAN_STATE, this.blockHeight], {
           queryParamsHandling: 'merge',
-          queryParams: { jobId: d.data.leaf.bundle_job_id }
+          queryParams: { jobId: d.data.leaf.bundle_job_id },
         });
       })
       .classed('pulse-effect', (d: any) => this.hasPulseEffect(d));

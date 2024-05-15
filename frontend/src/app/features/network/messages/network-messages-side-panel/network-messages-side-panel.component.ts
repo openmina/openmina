@@ -6,16 +6,16 @@ import {
   selectNetworkActiveRow,
   selectNetworkConnection,
   selectNetworkFullMessage,
-  selectNetworkMessageHex
+  selectNetworkMessageHex,
 } from '@network/messages/network-messages.state';
 import { downloadJson, downloadJsonFromURL, ExpandTracking, MinaJsonViewerComponent } from '@openmina/shared';
 import { filter } from 'rxjs';
 import { Router } from '@angular/router';
 import { Routes } from '@shared/enums/routes.enum';
-import { selectActiveNode } from '@app/app.state';
 import { MinaNode } from '@shared/types/core/environment/mina-env.type';
 import { Clipboard } from '@angular/cdk/clipboard';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
+import { AppSelectors } from '@app/app.state';
 
 @Component({
   selector: 'mina-network-messages-side-panel',
@@ -53,7 +53,7 @@ export class NetworkMessagesSidePanelComponent extends StoreDispatcher implement
   }
 
   private listenToActiveNodeChange(): void {
-    this.select(selectActiveNode, (node: MinaNode) => {
+    this.select(AppSelectors.activeNode, (node: MinaNode) => {
       this.debuggerURL = node.debugger;
     }, filter(Boolean));
   }

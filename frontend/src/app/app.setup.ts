@@ -5,7 +5,7 @@ import { ErrorPreviewAction } from '@error-preview/error-preview.actions';
 import { ErrorPreviewState } from '@error-preview/error-preview.state';
 
 import { appReducer } from '@app/app.reducer';
-import { AppAction } from '@app/app.actions';
+import { APP_KEY } from '@app/app.actions';
 import { AppState } from '@app/app.state';
 
 import { loadingReducer, LoadingState } from '@app/layout/toolbar/loading.reducer';
@@ -37,7 +37,7 @@ import { BlockProductionState } from '@block-production/block-production.state';
 import { BLOCK_PRODUCTION_KEY } from '@block-production/block-production.actions';
 
 export interface MinaState {
-  app: AppState;
+  [APP_KEY]: AppState;
   [BLOCK_PRODUCTION_KEY]: BlockProductionState;
   dashboard: DashboardState;
   error: ErrorPreviewState;
@@ -51,7 +51,6 @@ export interface MinaState {
 }
 
 type MinaAction =
-  & AppAction
   & ErrorPreviewAction
   & DashboardAction
   & NetworkAction
@@ -63,7 +62,7 @@ type MinaAction =
   ;
 
 export const reducers: ActionReducerMap<MinaState, MinaAction> = {
-  app: appReducer,
+  [APP_KEY]: appReducer,
   error: errorReducer,
   loading: loadingReducer,
   [BLOCK_PRODUCTION_KEY]: blockProductionReducer,

@@ -12,7 +12,7 @@ import {
 } from '@network/bootstrap-stats/network-bootstrap-stats.actions';
 import { Routes } from '@shared/enums/routes.enum';
 import { Router } from '@angular/router';
-import { selectActiveNode } from '@app/app.state';
+import { AppSelectors } from '@app/app.state';
 import { isSubFeatureEnabled } from '@shared/constants/config';
 
 @Component({
@@ -55,7 +55,7 @@ export class NetworkBootstrapStatsSidePanelComponent extends StoreDispatcher imp
   }
 
   private listenToActiveNode(): void {
-    this.select(selectActiveNode, (node) => {
+    this.select(AppSelectors.activeNode, (node) => {
       this.hasNodeDhtEnabled = isSubFeatureEnabled(node, 'network', 'bootstrap-stats');
     });
   }

@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, ElementRef, OnDestroy, OnInit } from '@angular/core';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
-import { selectActiveNode } from '@app/app.state';
+import { AppSelectors } from '@app/app.state';
 import { skip, timer } from 'rxjs';
 import { untilDestroyed } from '@ngneat/until-destroy';
 import { NodesLiveClose, NodesLiveGetNodes, NodesLiveInit } from '@nodes/live/nodes-live.actions';
@@ -24,7 +24,7 @@ export class NodesLiveComponent extends StoreDispatcher implements OnInit, OnDes
   }
 
   private listenToNodeChange(): void {
-    this.select(selectActiveNode, () => {
+    this.select(AppSelectors.activeNode, () => {
       this.dispatch(NodesLiveInit);
       this.dispatch(NodesLiveGetNodes, { force: true });
     }, skip(1));

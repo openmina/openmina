@@ -1,6 +1,6 @@
 import { FeatureAction } from '@openmina/shared';
 import { MinaState } from '@app/app.setup';
-import { APP_INIT, APP_INIT_SUCCESS } from '@app/app.actions';
+import { APP_PREFIX } from '@app/app.actions';
 import {
   STATE_ACTIONS_CLOSE,
   STATE_ACTIONS_GET_ACTIONS,
@@ -52,7 +52,7 @@ const initialState: LoadingState = [];
 export function loadingReducer(state: LoadingState = initialState, action: FeatureAction<any>): LoadingState {
   switch (action.type) {
     /* ------------ ADD ------------ */
-    case APP_INIT:
+    case `[${APP_PREFIX}] Init`:
 
     case DASHBOARD_INIT:
 
@@ -77,8 +77,8 @@ export function loadingReducer(state: LoadingState = initialState, action: Featu
       return add(state, action);
 
     /* ------------ REMOVE ------------ */
-    case APP_INIT_SUCCESS:
-      return remove(state, APP_INIT);
+    case `[${APP_PREFIX}] Init Success`:
+      return remove(state, `[${APP_PREFIX}] Init`);
 
     case DASHBOARD_GET_DATA_SUCCESS:
       return remove(state, DASHBOARD_INIT);

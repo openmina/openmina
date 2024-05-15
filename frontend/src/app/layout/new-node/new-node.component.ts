@@ -10,7 +10,7 @@ import {
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { FeaturesConfig, FeatureType, MinaNode } from '@shared/types/core/environment/mina-env.type';
-import { AppAddNode } from '@app/app.actions';
+import { AppActions } from '@app/app.actions';
 
 const nodeNames: string[] = [
   'Crypto Hash',
@@ -174,7 +174,7 @@ export class NewNodeComponent extends StoreDispatcher implements OnInit {
           .map((subFeature: SubFeature) => subFeature.name.toLowerCase().replace(' ', '-'));
       });
 
-    const payload: MinaNode = {
+    const node: MinaNode = {
       name: this.formGroup.get('name').value,
       url: this.formGroup.get('url').value,
       memoryProfiler: this.formGroup.get('memProfiler').value,
@@ -183,7 +183,7 @@ export class NewNodeComponent extends StoreDispatcher implements OnInit {
       isCustom: true,
     };
 
-    this.dispatch(AppAddNode, payload);
+    this.dispatch2(AppActions.addNode({ node }));
     this.close();
   }
 

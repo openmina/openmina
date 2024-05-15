@@ -4,23 +4,23 @@ import {
   ScanStateClose,
   ScanStateGetBlock, ScanStateInit,
   ScanStateSetActiveJobId,
-  ScanStateSidebarResized
+  ScanStateSidebarResized,
 } from '@snarks/scan-state/scan-state.actions';
 import { getMergedRoute, MergedRoute } from '@openmina/shared';
-import { selectActiveNode } from '@app/app.state';
 import {
   selectScanStateActiveJobId,
   selectScanStateOpenSidePanel,
-  selectScanStateStream
+  selectScanStateStream,
 } from '@snarks/scan-state/scan-state.state';
 import { distinctUntilChanged, Subscription, take, timer } from 'rxjs';
 import { untilDestroyed } from '@ngneat/until-destroy';
+import { AppSelectors } from '@app/app.state';
 
 @Component({
   selector: 'mina-scan-state',
   templateUrl: './scan-state.component.html',
   styleUrls: ['./scan-state.component.scss'],
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ScanStateComponent extends StoreDispatcher implements OnInit, OnDestroy {
 
@@ -48,7 +48,7 @@ export class ScanStateComponent extends StoreDispatcher implements OnInit, OnDes
   }
 
   private getBlock(): void {
-    this.select(selectActiveNode, () => {
+    this.select(AppSelectors.activeNode, () => {
       this.dispatch(ScanStateGetBlock, this.nodeChanged ? {} : { heightOrHash: this.heightOrHash });
       this.nodeChanged = true;
     });

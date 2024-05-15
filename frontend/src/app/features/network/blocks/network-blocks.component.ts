@@ -9,7 +9,7 @@ import { filter, take } from 'rxjs';
 import { selectNetworkBlocksSidePanelOpen } from '@network/blocks/network-blocks.state';
 import { getMergedRoute, MergedRoute } from '@openmina/shared';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
-import { selectActiveNode } from '@app/app.state';
+import { AppSelectors } from '@app/app.state';
 
 @Component({
   selector: 'mina-network-blocks',
@@ -44,7 +44,7 @@ export class NetworkBlocksComponent extends StoreDispatcher implements OnInit, A
   }
 
   private listenToActiveBlockChangeFromNode(): void {
-    this.select(selectActiveNode, () => {
+    this.select(AppSelectors.activeNode, () => {
       this.dispatch(NetworkBlocksGetEarliestBlock);
     }, filter(Boolean));
   }
