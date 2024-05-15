@@ -13,6 +13,7 @@
 
 use num_enum::TryFromPrimitive;
 use serde::{Deserialize, Serialize};
+use strum_macros::VariantArray;
 
 use crate::block_producer::vrf_evaluator::BlockProducerVrfEvaluatorAction;
 use crate::block_producer::BlockProducerAction;
@@ -66,7 +67,17 @@ use crate::{Action, ActionKindGet, CheckTimeoutsAction};
 
 /// Unified kind enum for all action types
 #[derive(
-    Serialize, Deserialize, TryFromPrimitive, Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Copy,
+    Serialize,
+    Deserialize,
+    VariantArray,
+    TryFromPrimitive,
+    Debug,
+    Ord,
+    PartialOrd,
+    Eq,
+    PartialEq,
+    Clone,
+    Copy,
 )]
 #[repr(u16)]
 pub enum ActionKind {

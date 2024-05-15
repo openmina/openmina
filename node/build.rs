@@ -244,6 +244,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let use_deps = [
         "use serde::{Serialize, Deserialize};",
         "use num_enum::TryFromPrimitive;",
+        "use strum_macros::VariantArray;",
     ]
     .join("\n");
     let use_statements = use_statements
@@ -278,7 +279,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let action_kind_def = {
         let comment = "/// Unified kind enum for all action types";
         let der =
-            "#[derive(Serialize, Deserialize, TryFromPrimitive, Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Copy)]";
+            "#[derive(Serialize, Deserialize, VariantArray, TryFromPrimitive, Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Copy)]";
         let repr = "#[repr(u16)]";
         let impl_ = format!(
             "impl ActionKind {{\n    pub const COUNT: u16 = {};\n}}",
