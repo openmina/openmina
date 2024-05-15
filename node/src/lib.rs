@@ -88,3 +88,17 @@ where
         }
     }
 }
+
+// TODO: remove once we support daemon.json
+use crate::transition_frontier::genesis::GenesisConfig;
+use std::sync::Arc;
+lazy_static::lazy_static! {
+    pub static ref BERKELEY_CONFIG: Arc<GenesisConfig> = {
+        let bytes = include_bytes!("../../genesis_ledgers/berkeley_genesis_ledger.bin");
+        Arc::new(GenesisConfig::AccountsBinProt {
+            bytes: std::borrow::Cow::Borrowed(bytes),
+            // 2024-02-02T14:01:01Z
+            constants: GenesisConfig::default_constants(1706878861000),
+        })
+    };
+}
