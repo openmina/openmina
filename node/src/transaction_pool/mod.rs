@@ -1,160 +1,157 @@
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::BTreeMap,
     sync::{Arc, Mutex},
 };
 
 use ledger::{
     scan_state::transaction_logic::{verifiable, UserCommand, WithStatus},
     transaction_pool::{diff, ApplyDecision},
-    Account, AccountId, BaseLedger,
+    Account, AccountId,
 };
-use mina_p2p_messages::v2::LedgerHash;
+use redux::callback;
 use snark::{user_command_verify::SnarkUserCommandVerifyId, VerifierIndex, VerifierSRS};
-
-use crate::{Service, Store};
 
 pub mod transaction_pool_actions;
 
-pub use transaction_pool_actions::TransactionPoolAction;
+pub use transaction_pool_actions::{TransactionPoolAction, TransactionPoolEffectfulAction};
+
+type PendingId = u32;
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct TransactionPoolState {
     pool: ledger::transaction_pool::TransactionPool,
+    pending_actions: BTreeMap<PendingId, TransactionPoolAction>,
+    pending_id: PendingId,
 }
 
-type TransactionPoolActionWithMeta = redux::ActionWithMeta<TransactionPoolAction>;
 type TransactionPoolActionWithMetaRef<'a> = redux::ActionWithMeta<&'a TransactionPoolAction>;
 
 impl TransactionPoolState {
     pub fn new() -> Self {
         Self {
             pool: ledger::transaction_pool::TransactionPool::new(),
+            pending_actions: Default::default(),
+            pending_id: 0,
         }
+    }
+
+    fn next_pending_id(&mut self) -> PendingId {
+        let id = self.pending_id;
+        self.pending_id = self.pending_id.wrapping_add(1);
+        id
+    }
+
+    fn make_action_pending(&mut self, action: &TransactionPoolAction) -> PendingId {
+        let id = self.next_pending_id();
+        self.pending_actions.insert(id, action.clone());
+        id
     }
 
     fn rebroadcast(&self, _accepted: Vec<UserCommand>, _rejected: Vec<(UserCommand, diff::Error)>) {
         // TODO
     }
 
-    pub fn reducer(&mut self, action: TransactionPoolActionWithMetaRef<'_>) {
+    pub fn reducer(mut state: crate::Substate<Self>, action: TransactionPoolActionWithMetaRef<'_>) {
         use TransactionPoolAction::*;
 
         let (action, _meta) = action.split();
         match action {
-            BestTipChanged { best_tip_hash: _ } => {}
+            BestTipChanged { best_tip_hash } => {
+                let account_ids = state.pool.get_accounts_to_revalidate_on_new_best_tip();
+
+                let dispatcher = state.into_dispatcher();
+                dispatcher.push(TransactionPoolEffectfulAction::FetchAccounts {
+                    account_ids,
+                    ledger_hash: best_tip_hash.clone(),
+                    on_result: callback!(|(accounts: BTreeMap<AccountId, Account>, id: Option<PendingId>)|  -> crate::Action {
+                        TransactionPoolAction::BestTipChangedWithAccounts { accounts }
+                    }),
+                    pending_id: None,
+                });
+            }
             BestTipChangedWithAccounts { accounts } => {
-                self.pool.on_new_best_tip(accounts);
+                state.pool.on_new_best_tip(accounts);
             }
             ApplyVerifiedDiff {
-                best_tip_hash: _,
-                diff: _,
-                is_sender_local: _,
-            } => {}
-            ApplyVerifiedDiffWithAccounts {
+                best_tip_hash,
                 diff,
-                is_sender_local,
+                is_sender_local: _,
+            } => {
+                let account_ids = state.pool.get_accounts_to_apply_diff(&diff);
+                let pending_id = state.make_action_pending(action);
+
+                let dispatcher = state.into_dispatcher();
+                dispatcher.push(TransactionPoolEffectfulAction::FetchAccounts {
+                    account_ids,
+                    ledger_hash: best_tip_hash.clone(),
+                    on_result: callback!(|(accounts: BTreeMap<AccountId, Account>, id: Option<PendingId>)|  -> crate::Action {
+                        TransactionPoolAction::ApplyVerifiedDiffWithAccounts {
+                            accounts,
+                            pending_id: id.unwrap(),
+                        }
+                    }),
+                    pending_id: Some(pending_id),
+                });
+            }
+            ApplyVerifiedDiffWithAccounts {
                 accounts,
-            } => match self.pool.unsafe_apply(diff, &accounts, *is_sender_local) {
-                Ok((ApplyDecision::Accept, accepted, rejected)) => {
-                    self.rebroadcast(accepted, rejected)
+                pending_id,
+            } => {
+                let ApplyVerifiedDiff {
+                    best_tip_hash: _,
+                    diff,
+                    is_sender_local,
+                } = state.pending_actions.remove(pending_id).unwrap()
+                else {
+                    panic!()
+                };
+
+                match state.pool.unsafe_apply(&diff, &accounts, is_sender_local) {
+                    Ok((ApplyDecision::Accept, accepted, rejected)) => {
+                        state.rebroadcast(accepted, rejected)
+                    }
+                    Ok((ApplyDecision::Reject, accepted, rejected)) => {
+                        state.rebroadcast(accepted, rejected)
+                    }
+                    Err(e) => eprintln!("unsafe_apply error: {:?}", e),
                 }
-                Ok((ApplyDecision::Reject, accepted, rejected)) => {
-                    self.rebroadcast(accepted, rejected)
-                }
-                Err(e) => eprintln!("unsafe_apply error: {:?}", e),
-            },
+            }
             ApplyTransitionFrontierDiff {
-                best_tip_hash: _,
-                diff: _,
-            } => {}
-            ApplyTransitionFrontierDiffWithAccounts { diff, accounts } => {
-                self.pool.handle_transition_frontier_diff(diff, &accounts);
+                best_tip_hash,
+                diff,
+            } => {
+                let account_ids = state.pool.get_accounts_to_handle_transition_diff(&diff);
+                let pending_id = state.make_action_pending(action);
+
+                let dispatcher = state.into_dispatcher();
+                dispatcher.push(TransactionPoolEffectfulAction::FetchAccounts {
+                    account_ids,
+                    ledger_hash: best_tip_hash.clone(),
+                    on_result: callback!(|(accounts: BTreeMap<AccountId, Account>, id: Option<PendingId>)|  -> crate::Action {
+                        TransactionPoolAction::ApplyTransitionFrontierDiffWithAccounts {
+                            accounts,
+                            pending_id: id.unwrap(),
+                        }
+                    }),
+                    pending_id: Some(pending_id),
+                });
+            }
+            ApplyTransitionFrontierDiffWithAccounts {
+                accounts,
+                pending_id,
+            } => {
+                let ApplyTransitionFrontierDiff {
+                    best_tip_hash: _,
+                    diff,
+                } = state.pending_actions.remove(pending_id).unwrap()
+                else {
+                    panic!()
+                };
+
+                state.pool.handle_transition_frontier_diff(&diff, &accounts);
             }
             Rebroadcast => {}
         }
-    }
-}
-
-fn load_accounts_from_ledger<S: Service>(
-    store: &mut Store<S>,
-    best_tip_hash: &LedgerHash,
-    account_ids: BTreeSet<AccountId>,
-) -> BTreeMap<AccountId, Account> {
-    let (best_tip_mask, _) = store
-        .service
-        .ledger_manager()
-        .get_mask(&best_tip_hash)
-        .unwrap(); // TODO Handle error
-
-    account_ids
-        .into_iter()
-        .filter_map(|account_id| {
-            best_tip_mask
-                .location_of_account(&account_id)
-                .and_then(|addr| {
-                    best_tip_mask
-                        .get(addr)
-                        .map(|account| (account_id, *account))
-                })
-        })
-        .collect::<BTreeMap<_, _>>()
-}
-
-pub fn transaction_pool_effects<S: Service>(
-    store: &mut Store<S>,
-    action: TransactionPoolActionWithMeta,
-) {
-    let (action, _meta) = action.split();
-
-    match action {
-        TransactionPoolAction::BestTipChanged { best_tip_hash } => {
-            let state = &store.state().transaction_pool;
-            let account_ids = state.pool.get_accounts_to_revalidate_on_new_best_tip();
-
-            let accounts = load_accounts_from_ledger(store, &best_tip_hash, account_ids);
-
-            store.dispatch(TransactionPoolAction::BestTipChangedWithAccounts { accounts });
-        }
-        TransactionPoolAction::BestTipChangedWithAccounts { accounts: _ } => {}
-        TransactionPoolAction::ApplyVerifiedDiff {
-            best_tip_hash,
-            diff,
-            is_sender_local,
-        } => {
-            let state = &store.state().transaction_pool;
-            let account_ids = state.pool.get_accounts_to_apply_diff(&diff);
-
-            let accounts = load_accounts_from_ledger(store, &best_tip_hash, account_ids);
-
-            store.dispatch(TransactionPoolAction::ApplyVerifiedDiffWithAccounts {
-                diff,
-                is_sender_local,
-                accounts,
-            });
-        }
-        TransactionPoolAction::ApplyVerifiedDiffWithAccounts {
-            diff: _,
-            is_sender_local: _,
-            accounts: _,
-        } => {}
-        TransactionPoolAction::ApplyTransitionFrontierDiff {
-            best_tip_hash,
-            diff,
-        } => {
-            let state = &store.state().transaction_pool;
-            let account_ids = state.pool.get_accounts_to_handle_transition_diff(&diff);
-
-            let accounts = load_accounts_from_ledger(store, &best_tip_hash, account_ids);
-
-            store.dispatch(
-                TransactionPoolAction::ApplyTransitionFrontierDiffWithAccounts { diff, accounts },
-            );
-        }
-        TransactionPoolAction::ApplyTransitionFrontierDiffWithAccounts {
-            diff: _,
-            accounts: _,
-        } => {}
-        TransactionPoolAction::Rebroadcast => {}
     }
 }
 

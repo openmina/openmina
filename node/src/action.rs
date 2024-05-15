@@ -14,6 +14,7 @@ pub use crate::snark::SnarkAction;
 pub use crate::snark_pool::SnarkPoolAction;
 pub use crate::snark_pool::SnarkPoolEffectfulAction;
 pub use crate::transaction_pool::TransactionPoolAction;
+use crate::transaction_pool::TransactionPoolEffectfulAction;
 pub use crate::transition_frontier::TransitionFrontierAction;
 pub use crate::watched_accounts::WatchedAccountsAction;
 
@@ -38,6 +39,7 @@ pub enum Action {
     SnarkPool(SnarkPoolAction),
     SnarkPoolEffect(SnarkPoolEffectfulAction),
     TransactionPool(TransactionPoolAction),
+    TransactionPoolEffect(TransactionPoolEffectfulAction),
     ExternalSnarkWorker(ExternalSnarkWorkerAction),
     BlockProducer(BlockProducerAction),
     Rpc(RpcAction),
@@ -89,6 +91,7 @@ impl redux::EnablingCondition<crate::State> for Action {
             Action::Rpc(a) => a.is_enabled(state, time),
             Action::WatchedAccounts(a) => a.is_enabled(state, time),
             Action::TransactionPool(a) => a.is_enabled(state, time),
+            Action::TransactionPoolEffect(a) => a.is_enabled(state, time),
         }
     }
 }
