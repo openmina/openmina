@@ -2908,8 +2908,8 @@ dependencies = [
  "rmp-serde",
  "serde",
  "serde_with 1.14.0",
- "strum",
- "strum_macros",
+ "strum 0.24.1",
+ "strum_macros 0.24.3",
  "thiserror",
  "turshi",
 ]
@@ -3976,8 +3976,8 @@ dependencies = [
  "serde_json",
  "serde_with 3.7.0",
  "snark",
- "strum",
- "strum_macros",
+ "strum 0.26.2",
+ "strum_macros 0.26.2",
  "thiserror",
  "time",
  "tokio",
@@ -4372,8 +4372,8 @@ dependencies = [
  "redux",
  "serde",
  "serde_json",
- "strum",
- "strum_macros",
+ "strum 0.26.2",
+ "strum_macros 0.26.2",
 ]
 
 [[package]]
@@ -4437,8 +4437,8 @@ dependencies = [
  "serde",
  "serde_cbor",
  "serde_json",
- "strum",
- "strum_macros",
+ "strum 0.26.2",
+ "strum_macros 0.26.2",
  "temp-dir",
  "thiserror",
  "time",
@@ -4564,8 +4564,8 @@ dependencies = [
  "serde_with 3.7.0",
  "sha2 0.10.8",
  "smallvec",
- "strum",
- "strum_macros",
+ "strum 0.26.2",
+ "strum_macros 0.26.2",
  "thiserror",
  "tokio",
  "unsigned-varint 0.8.0",
@@ -5354,7 +5354,7 @@ dependencies = [
 [[package]]
 name = "redux"
 version = "0.1.0"
-source = "git+https://github.com/openmina/redux-rs.git?branch=feat/enabling-condition-with-time#9826c5223104acdd547c36c27966a4be89b34b17"
+source = "git+https://github.com/openmina/redux-rs.git?branch=feat/enabling-condition-with-time#b190ad1e59efba04477b65f26cea36867fc481ae"
 dependencies = [
  "enum_dispatch",
  "serde",
@@ -6113,7 +6113,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.10.8",
- "strum_macros",
+ "strum_macros 0.26.2",
  "thiserror",
  "wasm-bindgen-test",
 ]
@@ -6231,6 +6231,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "063e6045c0e62079840579a7e47a355ae92f60eb74daaf156fb1e84ba164e63f"
 
 [[package]]
+name = "strum"
+version = "0.26.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5d8cec3501a5194c432b2b7976db6b7d10ec95c253208b45f83f7136aa985e29"
+
+[[package]]
 name = "strum_macros"
 version = "0.24.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6241,6 +6247,19 @@ dependencies = [
  "quote",
  "rustversion",
  "syn 1.0.109",
+]
+
+[[package]]
+name = "strum_macros"
+version = "0.26.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c6cf59daf282c0a494ba14fd21610a0325f9f90ec9d1231dea26bcb1d696c946"
+dependencies = [
+ "heck 0.4.1",
+ "proc-macro2",
+ "quote",
+ "rustversion",
+ "syn 2.0.58",
 ]
 
 [[package]]

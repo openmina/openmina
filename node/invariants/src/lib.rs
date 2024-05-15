@@ -1,6 +1,9 @@
 mod invariant_result;
 pub use invariant_result::InvariantResult;
 
+pub mod no_recursion;
+use no_recursion::*;
+
 pub mod transition_frontier;
 use transition_frontier::*;
 
@@ -53,9 +56,9 @@ macro_rules! define_invariants_enum {
 
             pub fn check<S: InvariantService>(self, store: &mut Store<S>, action: &ActionWithMeta) -> InvariantResult {
                 let mut invariants_state = store.service.invariants_state().take();
-                let invariant_state = invariants_state.get(self.index());
                 let res = match self {
                     $(Self::$invariant(invariant) => {
+                        let invariant_state = invariants_state.get(self.index());
                         invariant.check(invariant_state, store, action)
                     })*
                 };
@@ -67,6 +70,7 @@ macro_rules! define_invariants_enum {
 }
 
 define_invariants_enum! {
+    NoRecursion,
     TransitionFrontierOnlySyncsToBetterBlocks,
 }
 

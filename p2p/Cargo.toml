@@ -9,8 +9,8 @@ thiserror = "1.0.37"
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_with = { workspace = true }
-strum = "0.24.1"
-strum_macros = "0.24.3"
+strum = "0.26"
+strum_macros = "0.26"
 derive_more = "0.99.17"
 rand = "0.8"
 bytes = "*"

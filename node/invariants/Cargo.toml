@@ -11,8 +11,8 @@ path = "src/lib.rs"
 [dependencies]
 lazy_static = "1.4.0"
 documented = { version = "0.1" }
-strum = "0.24.1"
-strum_macros = "0.24.3"
+strum = "0.26"
+strum_macros = "0.26"
 serde = "1.0.147"
 serde_json = { version = "1.0.82", features = ["unbounded_depth", "arbitrary_precision"] }
 redux = { workspace = true }
