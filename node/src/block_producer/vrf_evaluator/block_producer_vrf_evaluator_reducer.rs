@@ -264,6 +264,12 @@ impl BlockProducerVrfEvaluatorState {
             } => {
                 self.cleanup_old_won_slots(current_epoch_number);
             }
+            BlockProducerVrfEvaluatorAction::InterruptEpochEvaluation { reason } => {
+                self.status = BlockProducerVrfEvaluatorStatus::EpochEvaluationInterrupted {
+                    time: meta.time(),
+                    reason: reason.clone(),
+                };
+            }
         }
     }
 }

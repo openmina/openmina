@@ -99,6 +99,7 @@ pub enum ActionKind {
     BlockProducerVrfEvaluatorFinishEpochEvaluation,
     BlockProducerVrfEvaluatorInitializeEpochEvaluation,
     BlockProducerVrfEvaluatorInitializeEvaluator,
+    BlockProducerVrfEvaluatorInterruptEpochEvaluation,
     BlockProducerVrfEvaluatorProcessSlotEvaluationSuccess,
     BlockProducerVrfEvaluatorRecordLastBlockHeightInEpoch,
     BlockProducerVrfEvaluatorSelectInitialSlot,
@@ -438,7 +439,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 365;
+    pub const COUNT: u16 = 366;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -920,6 +921,9 @@ impl ActionKindGet for BlockProducerVrfEvaluatorAction {
             }
             Self::BeginEpochEvaluation { .. } => {
                 ActionKind::BlockProducerVrfEvaluatorBeginEpochEvaluation
+            }
+            Self::InterruptEpochEvaluation { .. } => {
+                ActionKind::BlockProducerVrfEvaluatorInterruptEpochEvaluation
             }
             Self::RecordLastBlockHeightInEpoch { .. } => {
                 ActionKind::BlockProducerVrfEvaluatorRecordLastBlockHeightInEpoch

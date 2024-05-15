@@ -96,8 +96,8 @@ lazy_static::lazy_static! {
         let bytes = include_bytes!("../../genesis_ledgers/berkeley_genesis_ledger.bin");
         Arc::new(GenesisConfig::AccountsBinProt {
             bytes: std::borrow::Cow::Borrowed(bytes),
-            // 2023-10-17T16:01:01Z
-            constants: GenesisConfig::default_constants(1697558461000),
+            // 2024-02-02T14:01:01Z
+            constants: GenesisConfig::default_constants(1706878861000),
         })
     };
 }

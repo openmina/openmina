@@ -81,23 +81,16 @@ impl State {
         let best_tip = self.transition_frontier.best_tip()?;
         let best_tip_ms = u64::from(best_tip.timestamp()) / 1_000_000;
         let now_ms = u64::from(self.time()) / 1_000_000;
-        let ms = now_ms.saturating_sub(best_tip_ms) as u64;
+        let ms = now_ms.saturating_sub(best_tip_ms);
         let slots = ms / CONSTRAINT_CONSTANTS.block_window_duration_ms;
 
         Some(best_tip.global_slot() + (slots as u32))
     }
 
     pub fn current_epoch(&self) -> Option<u32> {
-        let best_tip = self.transition_frontier.best_tip()?;
-        Some(
-            best_tip
-                .block
-                .header
-                .protocol_state
-                .body
-                .consensus_state
-                .epoch_count
-                .as_u32(),
-        )
+        // TODO: Should not be hardcoded
+        const SLOTS_PER_EPOCH: u32 = 7140;
+        let current_global_slot = self.cur_global_slot()?;
+        Some(current_global_slot / SLOTS_PER_EPOCH)
     }
 }
