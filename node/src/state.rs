@@ -56,6 +56,7 @@ impl_substate_access!(State, SnarkBlockVerifyState, snark.block_verify);
 impl_substate_access!(State, SnarkWorkVerifyState, snark.work_verify);
 impl_substate_access!(State, ConsensusState, consensus);
 impl_substate_access!(State, TransitionFrontierState, transition_frontier);
+impl_substate_access!(State, TransactionPoolState, transaction_pool);
 impl_substate_access!(
     State,
     TransitionFrontierGenesisState,
