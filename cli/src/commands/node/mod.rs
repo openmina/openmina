@@ -1,5 +1,6 @@
 use std::ffi::OsString;
 
+use std::fs::File;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
@@ -9,6 +10,7 @@ use mina_p2p_messages::v2::{
     CurrencyFeeStableV1, NonZeroCurvePoint, NonZeroCurvePointUncompressedStableV1,
     UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
 };
+use node::transition_frontier::genesis::GenesisConfig;
 use rand::prelude::*;
 
 use tokio::select;
@@ -16,6 +18,7 @@ use tokio::select;
 use node::account::{AccountPublicKey, AccountSecretKey};
 use node::core::channels::mpsc;
 use node::core::log::inner::Level;
+use node::daemon_json::DaemonJson;
 use node::event_source::EventSourceAction;
 use node::ledger::{LedgerCtx, LedgerManager};
 use node::p2p::channels::ChannelId;
@@ -94,6 +97,11 @@ pub struct Node {
     /// Do not use peers discovery.
     #[arg(long)]
     pub no_peers_discovery: bool,
+
+    /// Config JSON file to load at startup.
+    // TODO: make this argument required.
+    #[arg(short = 'c', long, env)]
+    pub config: Option<PathBuf>,
 }
 
 fn default_peers() -> Vec<P2pConnectionOutgoingInitOpts> {
@@ -158,9 +166,32 @@ impl Node {
             )
         });
 
+        let config_file = self.config.map(File::open).transpose().or_else(|e| {
+            openmina_core::log::error!(openmina_core::log::system_time();
+                    kind = "ConfigFileError",
+                    summary = "failed to open config file",
+                    error = format!("{e}"));
+            Err(e)
+        })?;
+        let conf: Option<DaemonJson> = config_file
+            .map(serde_json::from_reader)
+            .transpose()
+            .or_else(|e| {
+                openmina_core::log::error!(openmina_core::log::system_time();
+                    kind = "ConfigFileError",
+                    summary = "failed to parse config file",
+                    error = format!("{e}"));
+                Err(e)
+            })?;
+
         let work_dir = shellexpand::full(&self.work_dir).unwrap().into_owned();
         let rng_seed = rng.next_u64();
         let srs: Arc<_> = get_srs();
+
+        let transition_frontier = match conf {
+            Some(c) => TransitionFrontierConfig::new(Arc::new(GenesisConfig::DaemonJson(c))),
+            None => TransitionFrontierConfig::new(node::config::BERKELEY_CONFIG.clone()),
+        };
         let config = Config {
             ledger: LedgerConfig {},
             snark: SnarkConfig {
@@ -194,7 +225,7 @@ impl Node {
                 chain_id: CHAIN_ID.to_owned(),
                 peer_discovery: !self.no_peers_discovery,
             },
-            transition_frontier: TransitionFrontierConfig::new(node::BERKELEY_CONFIG.clone()),
+            transition_frontier,
             block_producer: block_producer.clone().map(|(config, _)| config),
         };
         let (event_sender, event_receiver) = mpsc::unbounded_channel();

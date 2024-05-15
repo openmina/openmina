@@ -60,12 +60,14 @@ impl Invariant for TransitionFrontierOnlySyncsToBetterBlocks {
         match (target_best_tip, best_tip) {
             (Some(target_best_tip), Some(best_tip)) => {
                 checked = true;
-                if !consensus_take(
-                    best_tip.consensus_state(),
-                    target_best_tip.consensus_state(),
-                    best_tip.hash(),
-                    target_best_tip.hash(),
-                ) {
+                if !best_tip.is_genesis()
+                    && !consensus_take(
+                        best_tip.consensus_state(),
+                        target_best_tip.consensus_state(),
+                        best_tip.hash(),
+                        target_best_tip.hash(),
+                    )
+                {
                     return InvariantResult::Violation(format!("best tip target not better than current best tip!\nprev({}): {}\nnew({}): {}",
                         best_tip.hash(),
                         serde_json::to_string(best_tip.consensus_state()).unwrap(),

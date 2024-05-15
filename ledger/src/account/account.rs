@@ -5,6 +5,7 @@ use mina_hasher::Fp;
 use mina_p2p_messages::binprot::{BinProtRead, BinProtWrite};
 use mina_signer::CompressedPubKey;
 use rand::{prelude::ThreadRng, seq::SliceRandom, Rng};
+use serde::{Deserialize, Serialize};
 
 use crate::{
     gen_compressed,
@@ -337,7 +338,7 @@ impl Permissions<AuthRequired> {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ProofVerified {
     N0,
     N1,
@@ -620,6 +621,12 @@ impl TryFrom<&mina_p2p_messages::string::ByteString> for ZkAppUri {
 impl From<&ZkAppUri> for mina_p2p_messages::string::ByteString {
     fn from(value: &ZkAppUri) -> Self {
         Self::from(value.0.as_bytes())
+    }
+}
+
+impl From<&str> for ZkAppUri {
+    fn from(value: &str) -> Self {
+        Self(value.to_string())
     }
 }
 

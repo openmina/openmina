@@ -1,6 +1,7 @@
 use std::{sync::Arc, time::Duration};
 
 use node::account::AccountSecretKey;
+use node::config::BERKELEY_CONFIG;
 use node::transition_frontier::genesis::GenesisConfig;
 use node::{p2p::P2pTimeouts, BlockProducerConfig, SnarkerConfig};
 use openmina_core::CHAIN_ID;
@@ -45,7 +46,7 @@ impl RustNodeTestingConfig {
         Self {
             chain_id: CHAIN_ID.to_owned(),
             initial_time: redux::Timestamp::ZERO,
-            genesis: node::BERKELEY_CONFIG.clone(),
+            genesis: BERKELEY_CONFIG.clone(),
             max_peers: 100,
             ask_initial_peers_interval: Duration::from_secs(10),
             initial_peers: Vec::new(),
@@ -61,7 +62,7 @@ impl RustNodeTestingConfig {
         Self {
             chain_id: CHAIN_ID.to_owned(),
             initial_time: redux::Timestamp::ZERO,
-            genesis: node::BERKELEY_CONFIG.clone(),
+            genesis: BERKELEY_CONFIG.clone(),
             max_peers: 100,
             ask_initial_peers_interval: Duration::from_secs(10),
             initial_peers: Vec::new(),

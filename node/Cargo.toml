@@ -13,21 +13,22 @@ strum_macros = "0.24.3"
 derive_more = "0.99.17"
 lazy_static = "1.4.0"
 thiserror = "1.0.37"
+time = { version = "0.3.36", features = ["parsing"] }
 anyhow = "1.0.70"
 num_enum = "0.5.7"
-bincode = "1.3.3"
 redux = { workspace = true }
 mina-hasher = { workspace = true }
 mina-signer = { workspace = true }
 ledger = { workspace = true }
 mina-p2p-messages = { workspace = true }
 vrf = { workspace = true }
-
+linkme = "0.3.22"
 openmina-core = { path = "../core" }
 snark = { path = "../snark" }
 p2p = { path = "../p2p" }
 openmina-node-account = { path = "./account" }
 tokio = { version = "1.26.0" }
+serde_cbor = "0.11.2"
 
 [build-dependencies]
 regex = "1"

@@ -413,17 +413,12 @@ impl From<&VerifierIndexCached> for VerifierIndex<Pallas> {
 }
 
 pub fn verifier_index_to_bytes(verifier: &VerifierIndex<Pallas>) -> Vec<u8> {
-    const NBYTES: usize = 5328359;
-
     let verifier: VerifierIndexCached = verifier.into();
-    let mut bytes = Vec::with_capacity(NBYTES);
-    bincode::serialize_into(&mut bytes, &verifier).unwrap();
-
-    bytes
+    serde_cbor::to_vec(&verifier).unwrap()
 }
 
 pub fn verifier_index_from_bytes(bytes: &[u8]) -> VerifierIndex<Pallas> {
-    let verifier: VerifierIndexCached = bincode::deserialize(bytes).unwrap();
+    let verifier: VerifierIndexCached = serde_cbor::from_slice(bytes).unwrap();
     (&verifier).into()
 }
 
@@ -434,13 +429,9 @@ where
     BigInt: From<&'a <G as AffineCurve>::ScalarField>,
     BigInt: From<&'a <G as AffineCurve>::BaseField>,
 {
-    const NBYTES: usize = 5308593;
-
     let srs: SRSCached = srs.into();
-    let mut bytes = Vec::with_capacity(NBYTES);
-    bincode::serialize_into(&mut bytes, &srs).unwrap();
 
-    bytes
+    serde_cbor::to_vec(&srs).unwrap()
 }
 
 pub fn srs_from_bytes<G>(bytes: &[u8]) -> SRS<G>
@@ -448,6 +439,6 @@ where
     G: CommitmentCurve,
     G: for<'a> From<&'a GroupAffineCached>,
 {
-    let srs: SRSCached = bincode::deserialize(bytes).unwrap();
+    let srs: SRSCached = serde_cbor::from_slice(bytes).unwrap();
     (&srs).into()
 }
