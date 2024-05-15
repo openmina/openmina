@@ -323,3 +323,13 @@ pub fn read_constraints_data<F: FieldWitness>(
 
     Some((internal_vars, rows_rev))
 }
+
+impl<F: FieldWitness> Prover<F> {
+    pub fn circuit_digest(&self) -> md5::Digest {
+        use o1_utils::hasher::CryptoDigest;
+
+        let circuit = kimchi::circuits::gate::Circuit::from(&self.index.cs);
+        let digest: [u8; 32] = circuit.digest();
+        md5::compute(digest)
+    }
+}

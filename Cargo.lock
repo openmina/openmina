@@ -3634,6 +3634,7 @@ dependencies = [
  "kimchi",
  "lazy_static",
  "libc",
+ "md5",
  "mina-curves",
  "mina-hasher",
  "mina-p2p-messages",
