@@ -456,37 +456,38 @@ impl LedgerCtx {
     ) where
         F: 'static + FnOnce(v2::LedgerHash, Result<StagedLedger, String>) + Send,
     {
-        let staged_ledger_hash = parts
-            .as_ref()
-            .map(|p| p.staged_ledger_hash.clone())
-            .unwrap_or_else(|| snarked_ledger_hash.clone());
-        let snarked_ledger = self.sync.snarked_ledger_mut(snarked_ledger_hash.clone());
-        let mask = snarked_ledger.copy();
+        let snarked_ledger = self
+            .sync
+            .snarked_ledger_mut(snarked_ledger_hash.clone())
+            .copy();
 
         std::thread::spawn(move || {
-            let result = if let Some(parts) = parts {
-                let states = parts
-                    .needed_blocks
-                    .iter()
-                    .map(|state| (state.hash().to_fp().unwrap(), state.clone()))
-                    .collect::<BTreeMap<_, _>>();
-
-                StagedLedger::of_scan_state_pending_coinbases_and_snarked_ledger(
-                    (),
-                    &CONSTRAINT_CONSTANTS,
-                    Verifier,
-                    (&parts.scan_state).into(),
-                    mask,
-                    LocalState::empty(),
-                    parts.staged_ledger_hash.0.to_field(),
-                    (&parts.pending_coinbase).into(),
-                    |key| states.get(&key).cloned().unwrap(),
-                )
-            } else {
-                StagedLedger::create_exn(CONSTRAINT_CONSTANTS.clone(), mask)
-            };
+            let (staged_ledger_hash, result) =
+                staged_ledger_reconstruct(snarked_ledger, snarked_ledger_hash, parts);
             callback(staged_ledger_hash, result);
         });
+    }
+
+    pub fn staged_ledger_reconstruct_sync(
+        &mut self,
+        snarked_ledger_hash: LedgerHash,
+        parts: Option<Arc<StagedLedgerAuxAndPendingCoinbasesValid>>,
+    ) -> (v2::LedgerHash, Result<(), String>) {
+        let snarked_ledger = self
+            .sync
+            .snarked_ledger_mut(snarked_ledger_hash.clone())
+            .copy();
+        let (staged_ledger_hash, result) =
+            staged_ledger_reconstruct(snarked_ledger, snarked_ledger_hash, parts);
+        let result = match result {
+            Err(err) => Err(err),
+            Ok(staged_ledger) => {
+                self.staged_ledger_reconstruct_result_store(staged_ledger);
+                Ok(())
+            }
+        };
+
+        (staged_ledger_hash, result)
     }
 
     pub fn block_apply(
@@ -497,7 +498,7 @@ impl LedgerCtx {
         openmina_core::info!(openmina_core::log::system_time();
             kind = "LedgerService::block_apply",
             summary = format!("{}, {} <- {}", block.height(), block.hash(), block.pred_hash()),
-            snarked_ledger_hash = block.snarked_ledger_hash().to_string(),
+            pred_staged_ledger_hash = pred_block.staged_ledger_hash().to_string(),
             staged_ledger_hash = block.staged_ledger_hash().to_string(),
         );
         let mut staged_ledger = self
@@ -1038,15 +1039,63 @@ impl LedgerSyncState {
     }
 }
 
+fn staged_ledger_reconstruct(
+    snarked_ledger: Mask,
+    snarked_ledger_hash: LedgerHash,
+    parts: Option<Arc<StagedLedgerAuxAndPendingCoinbasesValid>>,
+) -> (v2::LedgerHash, Result<StagedLedger, String>) {
+    let staged_ledger_hash = parts
+        .as_ref()
+        .map(|p| p.staged_ledger_hash.clone())
+        .unwrap_or_else(|| snarked_ledger_hash.clone());
+
+    let result = if let Some(parts) = parts {
+        let states = parts
+            .needed_blocks
+            .iter()
+            .map(|state| (state.hash().to_fp().unwrap(), state.clone()))
+            .collect::<BTreeMap<_, _>>();
+
+        StagedLedger::of_scan_state_pending_coinbases_and_snarked_ledger(
+            (),
+            &CONSTRAINT_CONSTANTS,
+            Verifier,
+            (&parts.scan_state).into(),
+            snarked_ledger,
+            LocalState::empty(),
+            parts.staged_ledger_hash.0.to_field(),
+            (&parts.pending_coinbase).into(),
+            |key| states.get(&key).cloned().unwrap(),
+        )
+    } else {
+        StagedLedger::create_exn(CONSTRAINT_CONSTANTS.clone(), snarked_ledger)
+    };
+
+    (staged_ledger_hash, result)
+}
+
 pub trait LedgerService: redux::Service {
     fn ledger_manager(&self) -> &LedgerManager;
+    fn force_sync_calls(&self) -> bool {
+        false
+    }
 
     fn write_init(&mut self, request: LedgerWriteRequest) {
-        self.ledger_manager().call(LedgerRequest::Write(request));
+        let request = LedgerRequest::Write(request);
+        if self.force_sync_calls() {
+            let _ = self.ledger_manager().call_sync(request);
+        } else {
+            self.ledger_manager().call(request);
+        }
     }
 
     fn read_init(&mut self, id: LedgerReadId, request: LedgerReadRequest) {
-        self.ledger_manager().call(LedgerRequest::Read(id, request));
+        let request = LedgerRequest::Read(id, request);
+        if self.force_sync_calls() {
+            let _ = self.ledger_manager().call_sync(request);
+        } else {
+            self.ledger_manager().call(request);
+        }
     }
 }
 

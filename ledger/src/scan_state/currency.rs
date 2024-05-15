@@ -448,6 +448,7 @@ macro_rules! impl_number {
                     let append = "000000000";
                     assert_eq!(append.len(), PRECISION);
 
+                    s.push_str(input);
                     s.push_str(append);
                 } else {
                     let (whole, decimal) = {

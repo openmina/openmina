@@ -1,5 +1,6 @@
 use std::ffi::OsString;
 use std::str::FromStr;
+use std::sync::Arc;
 
 use mina_p2p_messages::v2::CurrencyFeeStableV1;
 use serde::{Deserialize, Serialize};
@@ -10,6 +11,7 @@ pub use crate::ledger::LedgerConfig;
 pub use crate::p2p::P2pConfig;
 pub use crate::snark::SnarkConfig;
 pub use crate::snark_pool::SnarkPoolConfig;
+use crate::transition_frontier::genesis::GenesisConfig;
 pub use crate::transition_frontier::TransitionFrontierConfig;
 pub use mina_p2p_messages::v2::MinaBaseProtocolConstantsCheckedValueStableV1 as ProtocolConstants;
 
@@ -122,4 +124,16 @@ impl FromStr for SnarkerStrategy {
             other => return Err(SnarkerStrategyParseError(other.to_owned())),
         })
     }
+}
+
+// Load static berkeley genesis ledger for testing
+lazy_static::lazy_static! {
+    pub static ref BERKELEY_CONFIG: Arc<GenesisConfig> = {
+        let bytes = include_bytes!("../../genesis_ledgers/berkeley_genesis_ledger.bin");
+        Arc::new(GenesisConfig::AccountsBinProt {
+            bytes: std::borrow::Cow::Borrowed(bytes),
+            // 2023-10-17T16:01:01Z
+            constants: GenesisConfig::default_constants(1697558461000),
+        })
+    };
 }

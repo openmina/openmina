@@ -85,6 +85,10 @@ impl LedgerService for NodeService {
     fn ledger_manager(&self) -> &LedgerManager {
         &self.ledger_manager
     }
+
+    fn force_sync_calls(&self) -> bool {
+        self.replayer.is_some()
+    }
 }
 
 impl redux::TimeService for NodeService {
@@ -116,17 +120,19 @@ impl P2pCryptoService for NodeService {
     fn ephemeral_sk(&mut self) -> [u8; 32] {
         // TODO: make deterministic
         // TODO: make network debugger to use seed to derive the same key
-        let mut r = [0; 32];
-        getrandom::getrandom(&mut r).unwrap();
-        r
+        //let mut r = [0; 32];
+        //getrandom::getrandom(&mut r).unwrap();
+        //r
+        self.rng.gen()
     }
 
     fn static_sk(&mut self) -> [u8; 32] {
         // TODO: make deterministic
         // TODO: make network debugger to use seed to derive the same key
-        let mut r = [0; 32];
-        getrandom::getrandom(&mut r).unwrap();
-        r
+        //let mut r = [0; 32];
+        //getrandom::getrandom(&mut r).unwrap();
+        //r
+        self.rng.gen()
     }
 
     fn sign_key(&mut self, key: &[u8; 32]) -> Vec<u8> {

@@ -256,8 +256,11 @@ impl EpochSeed {
 }
 
 impl CoinbaseStackData {
-    pub fn zero() -> Self {
-        MinaBasePendingCoinbaseCoinbaseStackStableV1(BigInt::zero()).into()
+    pub fn empty() -> Self {
+        // In OCaml: https://github.com/MinaProtocol/mina/blob/68b49fdaafabed0f2cd400c4c69f91e81db681e7/src/lib/mina_base/pending_coinbase.ml#L186
+        // let empty = Random_oracle.salt "CoinbaseStack" |> Random_oracle.digest
+        let empty = super::hash_noinputs("CoinbaseStack");
+        MinaBasePendingCoinbaseCoinbaseStackStableV1(empty.into()).into()
     }
 }
 
@@ -317,9 +320,9 @@ impl super::MinaBasePendingCoinbaseUpdateStableV1 {
 }
 
 impl super::MinaBasePendingCoinbaseStackVersionedStableV1 {
-    pub fn zero() -> Self {
+    pub fn empty() -> Self {
         Self {
-            data: CoinbaseStackData::zero(),
+            data: CoinbaseStackData::empty(),
             state: super::MinaBasePendingCoinbaseStateStackStableV1 {
                 init: CoinbaseStackHash::zero(),
                 curr: CoinbaseStackHash::zero(),

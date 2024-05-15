@@ -71,22 +71,36 @@ pub enum LedgerResponse {
 }
 
 impl LedgerRequest {
-    fn handle(self, ledger_ctx: &mut LedgerCtx, caller: &LedgerCaller) -> LedgerResponse {
+    fn handle(
+        self,
+        ledger_ctx: &mut LedgerCtx,
+        caller: &LedgerCaller,
+        force_sync: bool,
+    ) -> LedgerResponse {
         match self {
             Self::Write(request) => LedgerResponse::Write(match request {
                 LedgerWriteRequest::StagedLedgerReconstruct {
                     snarked_ledger_hash,
                     parts,
                 } => {
-                    let caller = caller.clone();
-                    let cb = move |staged_ledger_hash, result| {
-                        caller.call(LedgerRequest::StagedLedgerReconstructResult {
+                    if !force_sync {
+                        let caller = caller.clone();
+                        let cb = move |staged_ledger_hash, result| {
+                            caller.call(LedgerRequest::StagedLedgerReconstructResult {
+                                staged_ledger_hash,
+                                result,
+                            })
+                        };
+                        ledger_ctx.staged_ledger_reconstruct(snarked_ledger_hash, parts, cb);
+                        return LedgerResponse::Success;
+                    } else {
+                        let (staged_ledger_hash, result) =
+                            ledger_ctx.staged_ledger_reconstruct_sync(snarked_ledger_hash, parts);
+                        LedgerWriteResponse::StagedLedgerReconstruct {
                             staged_ledger_hash,
                             result,
-                        })
-                    };
-                    ledger_ctx.staged_ledger_reconstruct(snarked_ledger_hash, parts, cb);
-                    return LedgerResponse::Success;
+                        }
+                    }
                 }
                 LedgerWriteRequest::StagedLedgerDiffCreate {
                     pred_block,
@@ -275,7 +289,7 @@ impl LedgerManager {
         let join_handle = thread::spawn(move || {
             while let Some(LedgerRequestWithChan { request, responder }) = receiver.blocking_recv()
             {
-                let response = request.handle(&mut ledger_ctx, &ledger_caller);
+                let response = request.handle(&mut ledger_ctx, &ledger_caller, responder.is_some());
                 match (response, responder) {
                     (LedgerResponse::Write(resp), None) => {
                         ledger_ctx.send_write_response(resp);
@@ -309,7 +323,7 @@ impl LedgerManager {
         self.caller.call(request)
     }
 
-    fn call_sync(
+    pub(super) fn call_sync(
         &self,
         request: LedgerRequest,
     ) -> Result<LedgerResponse, std::sync::mpsc::RecvError> {
