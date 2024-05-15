@@ -4300,6 +4300,7 @@ dependencies = [
  "binprot",
  "binprot_derive",
  "lazy_static",
+ "md5",
  "mina-hasher",
  "mina-p2p-messages",
  "multihash 0.18.1",
