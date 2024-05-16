@@ -54,6 +54,10 @@ impl Default for P2pNetworkKadState {
 }
 
 impl P2pNetworkKadState {
+    pub fn is_bootstrapped(&self) -> bool {
+        matches!(&self.status, P2pNetworkKadStatus::Bootstrapped { .. })
+    }
+
     pub fn bootstrap_state(&self) -> Option<&super::bootstrap::P2pNetworkKadBootstrapState> {
         if let P2pNetworkKadStatus::Bootstrapping(state) = &self.status {
             Some(state)

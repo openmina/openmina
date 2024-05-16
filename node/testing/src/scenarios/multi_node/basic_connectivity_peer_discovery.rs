@@ -120,7 +120,15 @@ impl MultiNodeBasicConnectivityPeerDiscovery {
 
             let this = runner.node(node_id).unwrap();
             // finish discovering
-            if todo!() {
+            if this
+                .state()
+                .p2p
+                .network
+                .scheduler
+                .discovery_state()
+                .unwrap()
+                .is_bootstrapped()
+            {
                 // the node must find all already running OCaml nodes
                 // assert_eq!(this.state().p2p.peers.len(), TOTAL_OCAML_NODES as usize);
                 if additional_ocaml_node.is_none() {
