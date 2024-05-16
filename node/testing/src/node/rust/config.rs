@@ -4,7 +4,7 @@ use node::account::AccountSecretKey;
 use node::config::BERKELEY_CONFIG;
 use node::transition_frontier::genesis::GenesisConfig;
 use node::{p2p::P2pTimeouts, BlockProducerConfig, SnarkerConfig};
-use openmina_core::{ChainId, CHAIN_ID};
+use openmina_core::{ChainId, BERKELEY_CHAIN_ID};
 use serde::{Deserialize, Serialize};
 
 use crate::scenario::ListenerNode;
@@ -44,7 +44,7 @@ pub struct RustNodeBlockProducerTestingConfig {
 impl RustNodeTestingConfig {
     pub fn berkeley_default() -> Self {
         Self {
-            chain_id: CHAIN_ID.to_owned(),
+            chain_id: BERKELEY_CHAIN_ID.to_owned(),
             initial_time: redux::Timestamp::ZERO,
             genesis: BERKELEY_CONFIG.clone(),
             max_peers: 100,
@@ -60,7 +60,7 @@ impl RustNodeTestingConfig {
 
     pub fn berkeley_default_no_rpc_timeouts() -> Self {
         Self {
-            chain_id: CHAIN_ID.to_owned(),
+            chain_id: BERKELEY_CHAIN_ID.to_owned(),
             initial_time: redux::Timestamp::ZERO,
             genesis: BERKELEY_CONFIG.clone(),
             max_peers: 100,

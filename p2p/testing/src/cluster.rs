@@ -9,7 +9,7 @@ use std::{
 use derive_builder::UninitializedFieldError;
 use futures::StreamExt;
 use libp2p::{multiaddr::multiaddr, swarm::DialError, Multiaddr};
-use openmina_core::{ChainId, CHAIN_ID};
+use openmina_core::{ChainId, BERKELEY_CHAIN_ID};
 use p2p::{
     connection::outgoing::{
         P2pConnectionOutgoingAction, P2pConnectionOutgoingInitLibp2pOpts,
@@ -97,7 +97,7 @@ pub struct ClusterBuilder {
 impl Default for ClusterBuilder {
     fn default() -> Self {
         ClusterBuilder {
-            chain_id: CHAIN_ID,
+            chain_id: BERKELEY_CHAIN_ID,
             ports: None,
             ip: Ipv4Addr::LOCALHOST.into(),
             idle_duration: Duration::from_millis(100),

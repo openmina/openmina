@@ -31,9 +31,10 @@ fn hash_genesis_constants(
     tx_pool_max_size: &UnsignedExtendedUInt32StableV1,
 ) -> [u8; 32] {
     let mut hasher = Blake2b256::default();
-    let genesis_timestamp =
-        OffsetDateTime::from_unix_timestamp(constants.genesis_state_timestamp.0 .0 .0 as i64)
-            .unwrap();
+    let genesis_timestamp = OffsetDateTime::from_unix_timestamp_nanos(
+        constants.genesis_state_timestamp.0 .0 .0 as i128,
+    )
+    .unwrap();
     let time_format =
         format_description!("[year]-[month]-[day] [hour]:[minute]:[second].[subsecond digits:6]Z");
     let input = format!(
@@ -130,7 +131,7 @@ impl Debug for ChainId {
     }
 }
 
-pub const CHAIN_ID: ChainId = ChainId([
+pub const BERKELEY_CHAIN_ID: ChainId = ChainId([
     0xfd, 0x7d, 0x11, 0x19, 0x73, 0xbf, 0x5a, 0x9e, 0x3e, 0x87, 0x38, 0x4f, 0x56, 0x0f, 0xde, 0xad,
     0x2f, 0x27, 0x25, 0x89, 0xca, 0x00, 0xb6, 0xd9, 0xe3, 0x57, 0xfc, 0xa9, 0x83, 0x96, 0x31, 0xda,
 ]);
@@ -149,7 +150,7 @@ mod test {
         // Compute the chain id for the Berkeley network and compare it the real one.
         let genesis_state_timestamp = OffsetDateTime::parse("2024-02-02T14:01:01Z", &Rfc3339)
             .unwrap()
-            .unix_timestamp();
+            .unix_timestamp_nanos();
         let genesis_constants = MinaBaseProtocolConstantsCheckedValueStableV1 {
             k: 290.into(),
             slots_per_epoch: 7140.into(),
@@ -164,19 +165,19 @@ mod test {
         };
         let chain_id = ChainId::compute(
             CONSTRAINT_SYSTEM_DIGESTS.as_slice(),
-            &genesis_state_hash(),
+            &GENESIS_STATE_HASH,
             &genesis_constants,
             PROTOCOL_TRANSACTION_VERSION,
             PROTOCOL_NETWORK_VERSION,
             &UnsignedExtendedUInt32StableV1::from(TX_POOL_MAX_SIZE),
         );
-        assert_eq!(chain_id, CHAIN_ID);
+        assert_eq!(chain_id, BERKELEY_CHAIN_ID);
     }
 
     #[test]
     fn test_chain_id_as_hex() {
         assert_eq!(
-            CHAIN_ID.as_hex(),
+            BERKELEY_CHAIN_ID.as_hex(),
             "fd7d111973bf5a9e3e87384f560fdead2f272589ca00b6d9e357fca9839631da"
         );
     }

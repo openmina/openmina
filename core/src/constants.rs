@@ -1,3 +1,4 @@
+use lazy_static::lazy_static;
 use std::str::FromStr;
 
 use binprot_derive::BinProtWrite;
@@ -134,6 +135,8 @@ pub fn grace_period_end(constants: &v2::MinaBaseProtocolConstantsCheckedValueSta
     }
 }
 
+pub const DEFAULT_GENESIS_TIMESTAMP: u64 = 1697558461000;
+
 pub const PROTOCOL_TRANSACTION_VERSION: u8 = 2;
 pub const PROTOCOL_NETWORK_VERSION: u8 = 2;
 pub const TX_POOL_MAX_SIZE: u32 = 3000;
@@ -154,6 +157,7 @@ pub const CONSTRAINT_SYSTEM_DIGESTS: [[u8; 16]; 3] = [
 ];
 
 // TODO: This should be computed from the genesis state, rather than hard-coded like this.
-pub fn genesis_state_hash() -> StateHash {
-    StateHash::from_str("3NK512ryRJvj1TUKGgPoGZeHSNbn37e9BbnpyeqHL9tvKLeD8yrY").unwrap()
+lazy_static! {
+    pub static ref GENESIS_STATE_HASH: StateHash =
+        StateHash::from_str("3NK512ryRJvj1TUKGgPoGZeHSNbn37e9BbnpyeqHL9tvKLeD8yrY").unwrap();
 }

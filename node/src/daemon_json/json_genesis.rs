@@ -16,7 +16,7 @@ impl Genesis {
     pub fn genesis_state_timestamp(&self) -> Result<BlockTimeTimeStableV1, time::error::Parse> {
         OffsetDateTime::parse(&self.genesis_state_timestamp, &Rfc3339).map(|dt| {
             BlockTimeTimeStableV1(UnsignedExtendedUInt64Int64ForVersionTagsStableV1(Number(
-                dt.unix_timestamp() as u64 * 1_000,
+                dt.unix_timestamp_nanos() as u64,
             )))
         })
     }

@@ -24,6 +24,7 @@ vrf = { workspace = true }
 
 console = "0.15.5"
 clap = { version = "4.3", features = [ "derive", "env" ] }
+time = { version = "0.3", features = ["formatting", "macros", "parsing"] }
 
 openmina-core = { path = "../core" }
 node = { path = "../node", features = ["replay"] }
