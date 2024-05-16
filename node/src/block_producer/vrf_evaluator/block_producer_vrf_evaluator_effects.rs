@@ -81,7 +81,9 @@ impl BlockProducerVrfEvaluatorAction {
                                 .best_chain
                                 .iter()
                                 .rev()
-                                .find(|b| b.consensus_state().epoch_count.as_u32() == previous_epoch)
+                                .find(|b| {
+                                    b.consensus_state().epoch_count.as_u32() == previous_epoch
+                                })
                                 .unwrap()
                                 .height()
                         } else {
@@ -237,8 +239,8 @@ impl BlockProducerVrfEvaluatorAction {
                     });
                 }
             }
-            BlockProducerVrfEvaluatorAction::CleanupOldSlots { .. } => {},
-            BlockProducerVrfEvaluatorAction::InterruptEpochEvaluation { .. } => {},
+            BlockProducerVrfEvaluatorAction::CleanupOldSlots { .. } => {}
+            BlockProducerVrfEvaluatorAction::InterruptEpochEvaluation { .. } => {}
         }
     }
 }

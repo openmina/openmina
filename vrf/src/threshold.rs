@@ -245,7 +245,8 @@ mod test {
         let initial_stake = BigInt::zero();
         let initial_step = BigInt::from_str("10000000000000000000").unwrap();
 
-        let first_non_zero_nanomina = first_non_zero(initial_stake, total_currency.clone(), initial_step);
+        let first_non_zero_nanomina =
+            first_non_zero(initial_stake, total_currency.clone(), initial_step);
 
         let last_zero = first_non_zero_nanomina.clone() - BigInt::one();
 

@@ -125,7 +125,11 @@ impl BlockProducerVrfEvaluatorState {
     }
 
     pub fn is_initialized(&self) -> bool {
-        !matches!(self.status, BlockProducerVrfEvaluatorStatus::Idle { .. } | BlockProducerVrfEvaluatorStatus::InitialisationPending { .. })
+        !matches!(
+            self.status,
+            BlockProducerVrfEvaluatorStatus::Idle { .. }
+                | BlockProducerVrfEvaluatorStatus::InitialisationPending { .. }
+        )
     }
 
     /// Determines if a given epoch number has already been evaluated.
@@ -553,7 +557,7 @@ pub enum InterruptReason {
 impl std::fmt::Display for InterruptReason {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::BestTipWithHigherEpoch => write!(f, "Received best tip with higher epoch")
+            Self::BestTipWithHigherEpoch => write!(f, "Received best tip with higher epoch"),
         }
     }
 }
