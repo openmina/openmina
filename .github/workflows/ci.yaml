@@ -62,7 +62,7 @@ jobs:
 
       - name: Test p2p crate
         run: |
-          cargo test -p p2p --tests
+          RUST_MIN_STACK=8388608 cargo test -p p2p --tests
 
 
   build:

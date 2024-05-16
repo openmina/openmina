@@ -64,7 +64,7 @@ Example:
 
 ``` sh
 # Either using "sudo" or as the "root" user
-sudo apt install curl git libssl-dev pkg-config
+sudo apt install curl git libssl-dev pkg-config protobuf-compiler
 ```
 
 **Steps (for Debian-based Linux distros):**
