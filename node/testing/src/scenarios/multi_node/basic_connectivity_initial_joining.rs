@@ -155,7 +155,15 @@ impl MultiNodeBasicConnectivityInitialJoining {
 
                     let p2p = &node.state().p2p;
                     let ready_peers = p2p.ready_peers_iter().count();
-                    let known_peers: usize = todo!();
+                    let my_id = p2p.my_id();
+                    let known_peers: usize = p2p
+                        .network
+                        .scheduler
+                        .discovery_state()
+                        .unwrap()
+                        .routing_table
+                        .closest_peers(&my_id.into())
+                        .count();
                     let state_machine_peers = if cfg!(feature = "p2p-webrtc") {
                         ready_peers
                     } else {
@@ -227,10 +235,10 @@ impl MultiNodeBasicConnectivityInitialJoining {
             );
         }
 
-        for node_id in nodes {
-            let node = runner.node(node_id).expect("node must exist");
-            println!("{node_id:?} - p2p state: {:#?}", &node.state().p2p);
-        }
+        // for node_id in nodes {
+        //     let node = runner.node(node_id).expect("node must exist");
+        //     println!("{node_id:?} - p2p state: {:#?}", &node.state().p2p);
+        // }
 
         assert!(false);
     }

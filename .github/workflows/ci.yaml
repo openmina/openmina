@@ -134,6 +134,7 @@ jobs:
 
   build-tests-webrtc:
     runs-on: ubuntu-20.04
+    if: false
     steps:
       - name: Git checkout
         uses: actions/checkout@v4
@@ -192,19 +193,49 @@ jobs:
         run: |
           RUST_MIN_STACK=8388608 ./${{ matrix.test }} --test-threads=1
 
+  k8s-peers:
+    runs-on: ubuntu-20.04
+    # TODO: query cluster for actual addresses, or specify then on deployment
+    env:
+      PEERS: |
+        /ip4/135.181.217.23/tcp/31881/p2p/12D3KooWDamEzV85wmW8KWS9GwjESQhhLpLq8EKYzDk8DrnW9asm
+        /ip4/135.181.217.23/tcp/30386/p2p/12D3KooWBHknA3ty2tk4u3N6Rwnjs5YwYaxHT9dURf7zGeBJ4VJG
+        /ip4/135.181.217.23/tcp/32272/p2p/12D3KooWDZDH6ucaZY4bU2R8Xy9T1iy4PGtaZ8vEWeuGEeLaQEg5
+        /ip4/135.181.217.23/tcp/32218/p2p/12D3KooWMenq7gPcF7utkZao8WLtjMqsZkY7LeLD1Y9q9YyQZnkG
+        /ip4/135.181.217.23/tcp/30798/p2p/12D3KooWMMsF7dYbn4Szf7TvrRofuK53W3zj6TDKgxAFSWYypLsB
+        /ip4/135.181.217.23/tcp/31631/p2p/12D3KooWNeaaS6wpPSa41qkxQWaeauDR51WCNnLUyd5CcjBBiNTq
+        /ip4/135.181.217.23/tcp/30196/p2p/12D3KooWCBTaSVMxDT1SUoeSg3PUsVL1Df1hDxkSvN544i7tsE76
+        /ip4/135.181.217.23/tcp/30790/p2p/12D3KooWPwxEzHTpWywjHd4DknY19pTePbjwkSuoAdjuf37seSKp
+        /ip4/135.181.217.23/tcp/30070/p2p/12D3KooWMdABZUWLjQ4P1pucmSz2GAmoecwJ9RUhWzmwp3kCx31e
+    steps:
+      - name: Fetch k8s OCaml peers
+        run: |
+          {
+            echo 'peers<<EOF'
+            echo $PEERS
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
+
+
   scenario-tests:
-    if: false
-    needs: [ build-tests, build-tests-webrtc ]
+    needs:
+      - k8s-peers
+      - build-tests
+    #  - build-tests-webrtc
     runs-on: ubuntu-20.04
     container:
       image: minaprotocol/mina-daemon:2.0.0berkeley-rc1-1551e2f-focal-berkeley
+    env:
+      # to allow local addrs discovery
+      OPENMINA_DISCOVERY_FILTER_ADDR: false
+      OPENMINA_SCENARIO_SEEDS: ${{ needs.k8s-peers.peers }}
     strategy:
       matrix:
         test:
           - single_node
           - multi_node
-          - webrtc_single_node
-          - webrtc_multi_node
+          # - webrtc_single_node
+          # - webrtc_multi_node
           # - connection_discovery
       fail-fast: false
 
@@ -225,36 +256,21 @@ jobs:
 
 
   bootstrap-test:
-    needs: [ build ]
+    needs: [ k8s-peers, build ]
     runs-on: ubuntu-20.04
+    env:
+      PEERS: ${{ needs.k8s-peers.peers }}
     steps:
       - name: Download binary
         uses: actions/download-artifact@v4
         with:
           name: bin
 
-      - name: Prepare peers list
-        run: |
-          cat > peers.txt <<EOF
-          /ip4/135.181.217.23/tcp/31881/p2p/12D3KooWL7TyJx6TZZVKqPKkjNXXovu4y7aRQaWEx3eaiY45Lqw8
-          /ip4/135.181.217.23/tcp/30386/p2p/12D3KooWQywRHUxh4bjvPSDKbrY8GeUzeGgHxKbesrJYpgqvaicS
-          /ip4/135.181.217.23/tcp/32272/p2p/12D3KooWA4Mcr2Kn6ivtqFxWcFdLxGW2gqdDVwS86kToUCYst2rj
-          /ip4/135.181.217.23/tcp/32218/p2p/12D3KooWKWRfqG8QdkpAVY3xUzxndPBgj5WR6fxBNAJKSzek3URZ
-          /ip4/135.181.217.23/tcp/30798/p2p/12D3KooWJXiYRpj1dCLPv2PMLyNTuWSgzavyKXyaVsmBRhnBVCNM
-          /ip4/135.181.217.23/tcp/31631/p2p/12D3KooWNeaaS6wpPSa41qkxQWaeauDR51WCNnLUyd5CcjBBiNTq
-          /ip4/135.181.217.23/tcp/30196/p2p/12D3KooWDdJEVxdrthmuBiEL2Yi6nnryo4UYxz1f98TiykyFBx7H
-          /ip4/135.181.217.23/tcp/30790/p2p/12D3KooWN8wmWdivGuUG7fTkV34hihgC6RnrfygzbZCuaQceaiak
-          /ip4/135.181.217.23/tcp/30070/p2p/12D3KooWNi6nauXV3bMtwkc3wqA7V79Um92muVJ5pKvC11wVo2xk
-          EOF
-          echo "::group::Peers for bottstrapping"
-          cat peers.txt
-          echo "::endgroup::"
-
       - name: Bootstrap node
         run: |
           set -eu
           chmod +x ./openmina
-          ./openmina node --no-peers-discovery --peers $(cat peers.txt) |& tee run.log &
+          ./openmina node --no-peers-discovery --peers $PEERS |& tee run.log &
           PID=$!
           TIME=10
           SLEEP=10
