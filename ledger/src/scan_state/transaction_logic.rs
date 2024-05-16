@@ -493,11 +493,11 @@ impl Coinbase {
 
         let mut ids = Vec::with_capacity(2);
 
-        ids.push((self.receiver(), access_status.clone()));
-
         if let Some(fee_transfer) = self.fee_transfer.as_ref() {
-            ids.push((fee_transfer.receiver(), access_status));
+            ids.push((fee_transfer.receiver(), access_status.clone()));
         };
+
+        ids.push((self.receiver(), access_status));
 
         ids
     }
