@@ -66,6 +66,10 @@ impl P2pNetworkSelectAction {
                 data,
                 fin,
             } => {
+                if matches!(&state.inner, P2pNetworkSelectStateInner::Error(..)) {
+                    return;
+                }
+                let remaining = state.remaining.clone();
                 if let Some(Some(negotiated)) = &state.negotiated {
                     match negotiated {
                         Protocol::Auth(AuthKind::Noise) => {
@@ -128,8 +132,12 @@ impl P2pNetworkSelectAction {
                                         //unimplemented!()
                                     }
                                     StreamKind::Broadcast(_) => {
-                                        // send to meshsub handler
-                                        //unimplemented!()
+                                        store.dispatch(P2pNetworkPubsubAction::IncomingData {
+                                            peer_id,
+                                            addr,
+                                            stream_id,
+                                            data,
+                                        });
                                     }
                                     StreamKind::Ping(PingAlgorithm::Ping1_0_0) => {
                                         //unimplemented!()
@@ -160,6 +168,15 @@ impl P2pNetworkSelectAction {
                     for token in tokens {
                         store.dispatch(P2pNetworkSelectAction::IncomingToken { addr, kind, token });
                     }
+                }
+
+                if let Some(data) = remaining {
+                    store.dispatch(P2pNetworkSelectAction::IncomingData {
+                        addr,
+                        kind,
+                        data,
+                        fin: false,
+                    });
                 }
             }
             Self::IncomingToken { addr, kind, .. } => {

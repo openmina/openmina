@@ -1,6 +1,10 @@
+use mina_p2p_messages::{gossip::GossipNetMessageV2, v2};
 use redux::ActionMeta;
 
-use crate::channels::{ChannelId, MsgId, P2pChannelsService};
+use crate::{
+    channels::{ChannelId, MsgId, P2pChannelsService},
+    P2pNetworkPubsubAction,
+};
 
 use super::{P2pChannelsSnarkAction, SnarkPropagationChannelMsg};
 
@@ -47,7 +51,11 @@ impl P2pChannelsSnarkAction {
                 }
             }
             P2pChannelsSnarkAction::Libp2pBroadcast { snark, nonce } => {
-                store.service().libp2p_broadcast_snark(snark, nonce);
+                let message = Box::new((snark.statement(), (&snark).into()));
+                let message = v2::NetworkPoolSnarkPoolDiffVersionedStableV2::AddSolvedWork(message);
+                let nonce = nonce.into();
+                let message = GossipNetMessageV2::SnarkPoolDiff { message, nonce };
+                store.dispatch(P2pNetworkPubsubAction::Broadcast { message });
             }
             P2pChannelsSnarkAction::Pending { .. } => {}
             P2pChannelsSnarkAction::PromiseReceived { .. } => {}

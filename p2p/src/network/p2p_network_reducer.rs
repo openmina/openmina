@@ -120,6 +120,9 @@ impl P2pNetworkState {
                 }
                 // println!("======= kad reducer result {state:?}");
             }
+            P2pNetworkAction::Pubsub(a) => {
+                self.scheduler.broadcast_state.reducer(meta.with_action(a))
+            }
             P2pNetworkAction::Rpc(a) => {
                 if let Some(state) = self.find_rpc_state_mut(a) {
                     state.reducer(meta.with_action(a))

@@ -7,7 +7,7 @@ use crate::ledger::write::{LedgerWriteAction, LedgerWriteRequest};
 use crate::transition_frontier::sync::TransitionFrontierSyncAction;
 use crate::Store;
 
-use super::vrf_evaluator::BlockProducerVrfEvaluatorAction;
+use super::vrf_evaluator::{BlockProducerVrfEvaluatorAction, InterruptReason};
 use super::{
     next_epoch_first_slot, to_epoch_and_slot, BlockProducerAction, BlockProducerActionWithMeta,
     BlockProducerCurrentState,
@@ -44,6 +44,11 @@ pub fn block_producer_effects<S: crate::Service>(
 
             let (epoch, slot) = to_epoch_and_slot(&global_slot);
             let next_epoch_first_slot = next_epoch_first_slot(&global_slot);
+
+            // if we receive a block with higher epoch than the current one, interrupt the evaluation
+            if store.state().current_epoch() < Some(epoch) {
+                store.dispatch(BlockProducerVrfEvaluatorAction::InterruptEpochEvaluation { reason: InterruptReason::BestTipWithHigherEpoch });
+            }
 
             store.dispatch(BlockProducerVrfEvaluatorAction::InitializeEvaluator {
                 best_tip: best_tip.clone(),
@@ -225,7 +230,7 @@ pub fn block_producer_effects<S: crate::Service>(
             };
 
             if store.dispatch(TransitionFrontierSyncAction::BestTipUpdate {
-                best_tip,
+                best_tip: best_tip.clone(),
                 root_block,
                 blocks_inbetween,
             }) {

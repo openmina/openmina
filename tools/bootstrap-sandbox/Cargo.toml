@@ -17,7 +17,7 @@ base64 = { version = "0.21.7" }
 
 reqwest = { version = "0.11.24", features = ["blocking"] }
 
-tokio = { version = "1.36", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1.37", features = ["macros", "rt-multi-thread"] }
 
 binprot = { git = "https://github.com/openmina/binprot-rs", rev = "3f29b25" }
 ledger = { path = "../../ledger", package = "mina-tree" }

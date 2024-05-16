@@ -151,6 +151,10 @@ impl TransitionFrontierSyncState {
         !matches!(self, Self::Idle | Self::Synced { .. })
     }
 
+    pub fn is_commit_pending(&self) -> bool {
+        matches!(self, Self::CommitPending { .. })
+    }
+
     /// If the synchronization process is complete
     pub fn is_synced(&self) -> bool {
         matches!(self, Self::Synced { .. })

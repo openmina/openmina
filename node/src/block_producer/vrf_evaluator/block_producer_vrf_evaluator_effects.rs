@@ -72,6 +72,7 @@ impl BlockProducerVrfEvaluatorAction {
                         let (epoch, slot) = to_epoch_and_slot(
                             &best_tip.consensus_state().curr_global_slot_since_hard_fork,
                         );
+                        let previous_epoch = epoch.saturating_sub(1);
                         let last_height = if slot < k {
                             // TODO(adonagy): error handling
                             store
@@ -80,7 +81,7 @@ impl BlockProducerVrfEvaluatorAction {
                                 .best_chain
                                 .iter()
                                 .rev()
-                                .find(|b| b.consensus_state().epoch_count.as_u32() == epoch - 1)
+                                .find(|b| b.consensus_state().epoch_count.as_u32() == previous_epoch)
                                 .unwrap()
                                 .height()
                         } else {
@@ -89,7 +90,7 @@ impl BlockProducerVrfEvaluatorAction {
                         };
                         store.dispatch(
                             BlockProducerVrfEvaluatorAction::FinalizeEvaluatorInitialization {
-                                previous_epoch_and_height: Some((epoch - 1, last_height)),
+                                previous_epoch_and_height: Some((previous_epoch, last_height)),
                             },
                         );
                     }
@@ -109,7 +110,7 @@ impl BlockProducerVrfEvaluatorAction {
 
                 if let Some((vrf_evaluator_state, config)) = vrf_evaluator_state {
                     let last_epoch_block_height: Option<u32> =
-                        vrf_evaluator_state.last_height(current_epoch_number - 1);
+                        vrf_evaluator_state.last_height(current_epoch_number.saturating_sub(1));
                     if let Some(epoch_data) = vrf_evaluator_state.epoch_context().get_epoch_data() {
                         store.dispatch(
                             BlockProducerVrfEvaluatorAction::InitializeEpochEvaluation {
@@ -236,7 +237,8 @@ impl BlockProducerVrfEvaluatorAction {
                     });
                 }
             }
-            BlockProducerVrfEvaluatorAction::CleanupOldSlots { .. } => {}
+            BlockProducerVrfEvaluatorAction::CleanupOldSlots { .. } => {},
+            BlockProducerVrfEvaluatorAction::InterruptEpochEvaluation { .. } => {},
         }
     }
 }

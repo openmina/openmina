@@ -55,18 +55,16 @@ steps:
   - name: build
     image: rust:1.77-bullseye
     commands:
-      - apt-get update && apt-get install -y libssl-dev libjemalloc-dev jq
+      - apt-get update && apt-get install -y libssl-dev libjemalloc-dev jq protobuf-compiler
       - rustup update 1.77 && rustup default 1.77
       - rustup component add rustfmt
       # just to be sure it builds without errors
       - cargo build
-      - cargo build --release --features p2p-libp2p --bin openmina
+      - cargo build --release --bin openmina
       # unit tests
-      - cargo test --features p2p-libp2p --release -p cli
+      - cargo test --release -p cli
       # build tester binaries
-      - cargo build --release --features scenario-generators --no-default-features -p openmina-node-testing && mv target/release/openmina-node-testing target/release/openmina-node-testing-mio
-      - cargo build --release --features scenario-generators,p2p-libp2p -p openmina-node-testing && mv target/release/openmina-node-testing target/release/openmina-node-testing-libp2p
-      - cargo build --release --features scenario-generators,p2p-libp2p,p2p-webrtc -p openmina-node-testing && mv target/release/openmina-node-testing target/release/openmina-node-testing-webrtc
+      - cargo build --release --features scenario-generators -p openmina-node-testing && mv target/release/openmina-node-testing target/release/openmina-node-testing-mio
       - cargo build --release --bin runner
 
   # o sole mio :)

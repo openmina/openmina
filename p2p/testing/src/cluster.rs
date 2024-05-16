@@ -360,6 +360,7 @@ impl Cluster {
             chain_id: self.chain_id.clone(),
             peer_discovery: config.discovery,
             timeouts: config.timeouts,
+            initial_time: Duration::ZERO,
         };
 
         Ok((config, secret_key))

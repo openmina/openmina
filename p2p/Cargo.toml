@@ -24,7 +24,7 @@ url = "2.3.1"
 multihash = "0.18.1"
 sha2 = "0.10.6"
 ecies-ed25519 = "0.5.1"
-ed25519-dalek = { version = "2.0.0-rc.2", features = ["serde"] }
+ed25519-dalek = { version = "2.1.1", features = ["serde"] }
 faster-stun = { version = "1.0.1" }
 reqwest = { version = "0.11.22" }
 unsigned-varint = { version = "0.8.0" }
@@ -45,6 +45,11 @@ openmina-core = { path = "../core" }
 openmina-macros = { path = "../macros" }
 quick-protobuf = "0.8.1"
 crypto-bigint = { version = "0.5.5", features = ["generic-array", "serde", "alloc"] }
+
+prost = { version = "0.12.4" }
+
+[build-dependencies]
+prost-build = { version = "0.12.4" }
 
 [dev-dependencies]
 crypto-bigint = { version = "0.5.5", features = ["rand_core"] }

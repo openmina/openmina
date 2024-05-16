@@ -6,7 +6,6 @@ use crate::{
 use multiaddr::Multiaddr;
 use quick_protobuf::{BytesReader, MessageRead, MessageWrite, Writer};
 use serde::{Deserialize, Serialize};
-use std::borrow::Cow;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct P2pNetworkIdentify {
@@ -26,37 +25,45 @@ pub enum P2pNetworkIdentifyFromMessageError {
     UnsupportedPubKeyType(String),
     #[error("error parsing public key: {0}")]
     ErrorParsingPubKey(String),
-    #[error(transparent)]
-    MultiaddrError(#[from] P2pNetworkIdentifyMultiaddrError),
+    #[error("{0}")]
+    MultiaddrError(String),
 }
 
-impl<'a> TryFrom<super::Identify<'a>> for P2pNetworkIdentify {
+impl<'a> TryFrom<super::pb::Identify> for P2pNetworkIdentify {
     type Error = P2pNetworkIdentifyFromMessageError;
 
-    fn try_from(value: super::Identify<'a>) -> Result<Self, Self::Error> {
-        let protocol_version = value.protocolVersion.map(|v| v.into());
-        let agent_version = value.agentVersion.map(|v| v.into());
+    fn try_from(value: super::pb::Identify) -> Result<Self, Self::Error> {
+        let protocol_version = value.protocol_version.map(|v| v.into());
+        let agent_version = value.agent_version.map(|v| v.into());
 
-        let public_key = match value.publicKey {
+        let public_key = match value.public_key {
             Some(pubkey) => Some(parse_public_key(&pubkey)?),
             None => None,
         };
 
         let mut listen_addrs = Vec::new();
 
-        for addr in value.listenAddrs.iter().cloned() {
-            listen_addrs.push(multiaddr_try_from_bytes(addr)?)
+        for addr in value.listen_addrs.iter().cloned() {
+            listen_addrs.push(
+                addr.try_into()
+                    .map_err(|err: multiaddr::Error| err.to_string())
+                    .map_err(P2pNetworkIdentifyFromMessageError::MultiaddrError)?,
+            )
         }
 
-        let observed_addr = match value.observedAddr {
-            Some(addr) => Some(multiaddr_try_from_bytes(addr)?),
+        let observed_addr = match value.observed_addr {
+            Some(addr) => Some(
+                addr.try_into()
+                    .map_err(|err: multiaddr::Error| err.to_string())
+                    .map_err(P2pNetworkIdentifyFromMessageError::MultiaddrError)?,
+            ),
             None => None,
         };
 
         let mut protocols = Vec::new();
 
         for proto in value.protocols.iter() {
-            protocols.push(parse_protocol(proto)?)
+            protocols.push(parse_protocol(&*proto)?)
         }
 
         Ok(Self {
@@ -70,12 +77,12 @@ impl<'a> TryFrom<super::Identify<'a>> for P2pNetworkIdentify {
     }
 }
 
-impl<'a> From<&'a P2pNetworkIdentify> for super::Identify<'a> {
+impl<'a> From<&'a P2pNetworkIdentify> for super::pb::Identify {
     fn from(value: &'a P2pNetworkIdentify) -> Self {
         Self {
-            protocolVersion: value.protocol_version.as_ref().map(|v| v.into()),
-            agentVersion: value.agent_version.as_ref().map(|v| v.into()),
-            publicKey: value.public_key.as_ref().map(|key| {
+            protocol_version: value.protocol_version.as_ref().map(|v| v.into()),
+            agent_version: value.agent_version.as_ref().map(|v| v.into()),
+            public_key: value.public_key.as_ref().map(|key| {
                 let key_bytes = key.to_bytes();
                 let pubkey = keys_proto::PublicKey {
                     Type: crate::network::identify::KeyType::Ed25519,
@@ -87,12 +94,12 @@ impl<'a> From<&'a P2pNetworkIdentify> for super::Identify<'a> {
                 pubkey.write_message(&mut writer).expect("encoding success");
                 buf.into()
             }),
-            listenAddrs: value
+            listen_addrs: value
                 .listen_addrs
                 .iter()
                 .map(|v| v.to_vec().into())
                 .collect(),
-            observedAddr: value.observed_addr.as_ref().map(|v| v.to_vec().into()),
+            observed_addr: value.observed_addr.as_ref().map(|v| v.to_vec().into()),
             protocols: value
                 .protocols
                 .iter()
@@ -152,12 +159,6 @@ pub fn parse_protocol(name: &str) -> Result<StreamKind, P2pNetworkIdentifyFromMe
 #[derive(Clone, Debug, Serialize, Deserialize, thiserror::Error)]
 #[error("error decoding Multiaddr from bytes: {0}")]
 pub struct P2pNetworkIdentifyMultiaddrError(String);
-
-pub(super) fn multiaddr_try_from_bytes(
-    bytes: Cow<'_, [u8]>,
-) -> Result<Multiaddr, P2pNetworkIdentifyMultiaddrError> {
-    Ok(bytes.into_owned().try_into()?)
-}
 
 impl From<multiaddr::Error> for P2pNetworkIdentifyMultiaddrError {
     fn from(value: multiaddr::Error) -> Self {

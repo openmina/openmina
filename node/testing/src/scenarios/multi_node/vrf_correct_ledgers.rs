@@ -35,7 +35,7 @@ impl MultiNodeVrfGetCorrectLedgers {
                 .unwrap();
 
         let producer_node = runner.add_rust_node(RustNodeTestingConfig {
-            chain_id,
+            chain_id: chain_id.into_bytes(),
             initial_time,
             genesis: node::config::BERKELEY_CONFIG.clone(),
             max_peers: 100,

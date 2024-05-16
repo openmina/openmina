@@ -17,6 +17,10 @@ jobs:
     steps:
       - name: Git checkout
         uses: actions/checkout@v4
+      - name: Setup build dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y protobuf-compiler
       - name: Setup Rust
         run: |
           # Nightly to be able to use `--report-time` below
@@ -41,6 +45,11 @@ jobs:
       - name: Git checkout
         uses: actions/checkout@v4
 
+      - name: Setup build dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y protobuf-compiler
+
       - name: Setup Rust
         run: |
           rustup default 1.77
@@ -53,7 +62,7 @@ jobs:
 
       - name: Test p2p crate
         run: |
-          cargo test -p p2p --tests
+          RUST_MIN_STACK=8388608 cargo test -p p2p --tests
 
 
   build:
@@ -61,6 +70,11 @@ jobs:
     steps:
       - name: Git checkout
         uses: actions/checkout@v4
+
+      - name: Setup build dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y protobuf-compiler
 
       - name: Setup Rust
         run: |
@@ -87,6 +101,11 @@ jobs:
     steps:
       - name: Git checkout
         uses: actions/checkout@v4
+
+      - name: Setup build dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y protobuf-compiler
 
       - name: Setup Rust
         run: |
@@ -118,6 +137,11 @@ jobs:
     steps:
       - name: Git checkout
         uses: actions/checkout@v4
+
+      - name: Setup build dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y protobuf-compiler
 
       - name: Setup Rust
         run: |
@@ -166,7 +190,7 @@ jobs:
 
       - name: Run the test
         run: |
-          ./${{ matrix.test }} --test-threads=1
+          RUST_MIN_STACK=8388608 ./${{ matrix.test }} --test-threads=1
 
   scenario-tests:
     if: false
@@ -197,7 +221,7 @@ jobs:
 
       - name: Run the test
         run: |
-          ./${{ matrix.test }} --test-threads=1
+          RUST_MIN_STACK=8388608 ./${{ matrix.test }} --test-threads=1
 
 
   bootstrap-test:

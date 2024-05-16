@@ -164,8 +164,14 @@ impl P2pNetworkSchedulerAction {
                             StreamKind::Ping(PingAlgorithm::Ping1_0_0) => {
                                 //unimplemented!()
                             }
-                            StreamKind::Broadcast(_) => {
-                                //unimplemented!()
+                            StreamKind::Broadcast(protocol) => {
+                                store.dispatch(P2pNetworkPubsubAction::NewStream {
+                                    incoming,
+                                    peer_id,
+                                    addr,
+                                    stream_id,
+                                    protocol,
+                                });
                             }
                             StreamKind::Discovery(DiscoveryAlgorithm::Kademlia1_0_0) => {
                                 if let Some(discovery_state) =
@@ -250,8 +256,13 @@ impl P2pNetworkSchedulerAction {
                     let stream_id = YamuxStreamKind::Rpc.stream_id(incoming);
                     store.dispatch(P2pNetworkYamuxAction::OpenStream {
                         addr,
-                        stream_id,
+                        stream_id: stream_id,
                         stream_kind: StreamKind::Rpc(RpcAlgorithm::Rpc0_0_1),
+                    });
+                    store.dispatch(P2pNetworkYamuxAction::OpenStream {
+                        addr,
+                        stream_id: stream_id + 2,
+                        stream_kind: StreamKind::Broadcast(token::BroadcastAlgorithm::Meshsub1_1_0),
                     });
 
                     // TODO: open RPC and Kad connections only after identify reports support for it?
