@@ -140,33 +140,14 @@ pub const BERKELEY_CHAIN_ID: ChainId = ChainId([
 mod test {
     use super::*;
     use crate::constants::*;
-    use mina_p2p_messages::v2::{
-        BlockTimeTimeStableV1, UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
-    };
-    use time::format_description::well_known::Rfc3339;
 
     #[test]
     fn test_berkeley_chain_id() {
         // Compute the chain id for the Berkeley network and compare it the real one.
-        let genesis_state_timestamp = OffsetDateTime::parse("2024-02-02T14:01:01Z", &Rfc3339)
-            .unwrap()
-            .unix_timestamp_nanos();
-        let genesis_constants = MinaBaseProtocolConstantsCheckedValueStableV1 {
-            k: 290.into(),
-            slots_per_epoch: 7140.into(),
-            slots_per_sub_window: 7.into(),
-            grace_period_slots: 2160.into(),
-            delta: 0.into(),
-            genesis_state_timestamp: BlockTimeTimeStableV1(
-                UnsignedExtendedUInt64Int64ForVersionTagsStableV1(
-                    (genesis_state_timestamp as u64).into(),
-                ),
-            ),
-        };
         let chain_id = ChainId::compute(
             CONSTRAINT_SYSTEM_DIGESTS.as_slice(),
             &GENESIS_STATE_HASH,
-            &genesis_constants,
+            &PROTOCOL_CONSTANTS,
             PROTOCOL_TRANSACTION_VERSION,
             PROTOCOL_NETWORK_VERSION,
             &UnsignedExtendedUInt32StableV1::from(TX_POOL_MAX_SIZE),
