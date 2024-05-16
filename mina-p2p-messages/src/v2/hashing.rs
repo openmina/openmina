@@ -465,7 +465,7 @@ impl ToInput for MinaBaseProtocolConstantsCheckedValueStableV1 {
             k,
             slots_per_epoch,
             slots_per_sub_window,
-            grace_period_slots: _,
+            grace_period_slots,
             delta,
             genesis_state_timestamp,
         } = self;
@@ -476,9 +476,7 @@ impl ToInput for MinaBaseProtocolConstantsCheckedValueStableV1 {
             delta,
             slots_per_epoch,
             slots_per_sub_window,
-            // TODO: 2.0.0berkeley_rc1 doesn't include this, but
-            // that is a bug that will be fixed later.
-            // grace_period_slots,
+            grace_period_slots,
             genesis_state_timestamp
         );
     }
