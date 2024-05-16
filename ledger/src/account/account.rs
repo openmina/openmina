@@ -34,7 +34,7 @@ use crate::{
 use super::common::*;
 
 /// Mina_numbers.Txn_version.current
-pub const TXN_VERSION_CURRENT: TxnVersion = TxnVersion::from_u32(2);
+pub const TXN_VERSION_CURRENT: TxnVersion = TxnVersion::from_u32(3);
 
 #[derive(Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TokenId(pub Fp);
