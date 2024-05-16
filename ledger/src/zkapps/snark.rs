@@ -1449,7 +1449,7 @@ impl ReceiptChainHashInterface for SnarkReceiptChainHash {
         inputs.append_field(element);
         inputs.append(&other);
 
-        ReceiptChainHash(checked_hash("MinaReceiptUC", &inputs.to_fields(), w))
+        ReceiptChainHash(checked_hash("CodaReceiptUC", &inputs.to_fields(), w))
     }
 }
 

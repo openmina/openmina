@@ -7274,7 +7274,7 @@ pub fn cons_signed_command_payload(
         }
 
         fn domain_string(_: Self::D) -> Option<String> {
-            Some("MinaReceiptUC".to_string())
+            Some("CodaReceiptUC".to_string())
         }
     }
 
@@ -7295,7 +7295,7 @@ pub fn checked_cons_signed_command_payload(
     let mut inputs = payload.to_checked_legacy_input_owned(w);
     inputs.append_field(last_receipt_chain_hash.0);
 
-    let receipt_chain_hash = checked_legacy_hash("MinaReceiptUC", inputs, w);
+    let receipt_chain_hash = checked_legacy_hash("CodaReceiptUC", inputs, w);
 
     ReceiptChainHash(receipt_chain_hash)
 }
@@ -7316,7 +7316,7 @@ pub fn cons_zkapp_command_commitment(
     inputs.append_field(x.0);
     inputs.append(receipt_hash);
 
-    ReceiptChainHash(hash_with_kimchi("MinaReceiptUC", &inputs.to_fields()))
+    ReceiptChainHash(hash_with_kimchi("CodaReceiptUC", &inputs.to_fields()))
 }
 
 fn validate_nonces(txn_nonce: Nonce, account_nonce: Nonce) -> Result<(), String> {
