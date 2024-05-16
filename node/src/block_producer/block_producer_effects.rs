@@ -47,7 +47,9 @@ pub fn block_producer_effects<S: crate::Service>(
 
             // if we receive a block with higher epoch than the current one, interrupt the evaluation
             if store.state().current_epoch() < Some(epoch) {
-                store.dispatch(BlockProducerVrfEvaluatorAction::InterruptEpochEvaluation { reason: InterruptReason::BestTipWithHigherEpoch });
+                store.dispatch(BlockProducerVrfEvaluatorAction::InterruptEpochEvaluation {
+                    reason: InterruptReason::BestTipWithHigherEpoch,
+                });
             }
 
             store.dispatch(BlockProducerVrfEvaluatorAction::InitializeEvaluator {
