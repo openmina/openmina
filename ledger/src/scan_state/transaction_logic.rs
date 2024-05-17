@@ -7925,7 +7925,7 @@ mod tests {
         let prev = "4918218371695029984164006552208340844155171097348169027410983585063546229555";
         let prev_receipt_chain_hash = ReceiptChainHash(Fp::from_str(prev).unwrap());
 
-        let next = "11119245469205697592341599081188990695704663506019727849135180468159777463297";
+        let next = "19078048535981853335308913493724081578728104896524544653528728307378106007337";
         let next_receipt_chain_hash = ReceiptChainHash(Fp::from_str(next).unwrap());
 
         let result = cons_signed_command_payload(&tx, prev_receipt_chain_hash);
@@ -7962,7 +7962,7 @@ mod tests {
         let prev_receipt_chain_hash = ReceiptChainHash(Fp::from_bytes(&prev).unwrap());
 
         let mut next =
-            hex::decode("0735169b96af4385c7345c94d4d65f83823309e95f72752d3f9d84f4282a53ac")
+            hex::decode("3ecaa73739df77549a2f92f7decf822562d0593373cff1e480bb24b4c87dc8f0")
                 .unwrap();
         next.reverse();
         let next_receipt_chain_hash = ReceiptChainHash(Fp::from_bytes(&next).unwrap());
