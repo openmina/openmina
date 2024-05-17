@@ -138,7 +138,7 @@ pub fn grace_period_end(constants: &v2::MinaBaseProtocolConstantsCheckedValueSta
     }
 }
 
-pub const DEFAULT_GENESIS_TIMESTAMP: u64 = 1706882461000000000;
+pub const DEFAULT_GENESIS_TIMESTAMP_MILLISECONDS: u64 = 1706882461000;
 
 pub const PROTOCOL_TRANSACTION_VERSION: u8 = 2;
 pub const PROTOCOL_NETWORK_VERSION: u8 = 2;
@@ -172,7 +172,7 @@ lazy_static! {
             delta: 0.into(),
             genesis_state_timestamp: BlockTimeTimeStableV1(
                 UnsignedExtendedUInt64Int64ForVersionTagsStableV1(
-                    (DEFAULT_GENESIS_TIMESTAMP as u64).into(),
+                    (DEFAULT_GENESIS_TIMESTAMP_MILLISECONDS as u64).into(),
                 ),
             ),
         };
