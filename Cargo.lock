@@ -1323,6 +1323,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ctor"
+version = "0.2.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "edb49164822f3ee45b17acd4a208cfc1251410cf0cad9a833234c9890774dd9f"
+dependencies = [
+ "quote",
+ "syn 2.0.58",
+]
+
+[[package]]
 name = "ctr"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4771,6 +4781,7 @@ dependencies = [
  "chacha20poly1305 0.10.1",
  "clap 4.5.2",
  "crypto-bigint",
+ "ctor",
  "curve25519-dalek 4.1.2",
  "derive_more",
  "ecies-ed25519",
@@ -4781,6 +4792,7 @@ dependencies = [
  "hkdf 0.12.4",
  "hyper",
  "js-sys",
+ "lazy_static",
  "libc",
  "libp2p-identity",
  "local-ip-address",
@@ -4795,6 +4807,7 @@ dependencies = [
  "prost-build",
  "quick-protobuf",
  "rand 0.8.5",
+ "rand_distr",
  "redux",
  "reqwest",
  "salsa-simple",
@@ -5502,6 +5515,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "rand_distr"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "32cb0b9bc82b0a0876c2dd994a7e7a2683d3e7390ca40e6886785ef0c7e3ee31"
+dependencies = [
+ "num-traits",
+ "rand 0.8.5",
+]
+
+[[package]]
 name = "rand_hc"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5614,7 +5637,7 @@ dependencies = [
 [[package]]
 name = "redux"
 version = "0.1.0"
-source = "git+https://github.com/openmina/redux-rs.git?branch=feat/enabling-condition-with-time#9826c5223104acdd547c36c27966a4be89b34b17"
+source = "git+https://github.com/openmina/redux-rs.git?branch=feat/enabling-condition-with-time#b190ad1e59efba04477b65f26cea36867fc481ae"
 dependencies = [
  "enum_dispatch",
  "serde",

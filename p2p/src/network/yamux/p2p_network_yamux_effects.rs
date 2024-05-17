@@ -1,3 +1,5 @@
+use crate::FUZZ;
+
 use super::p2p_network_yamux_state::{YamuxFrame, YamuxFrameInner};
 
 use super::{super::*, *};
@@ -83,10 +85,15 @@ impl P2pNetworkYamuxAction {
                 }
             }
             Self::OutgoingFrame { addr, frame } => {
-                store.dispatch(P2pNetworkNoiseAction::OutgoingData {
-                    addr,
-                    data: frame.clone().into_bytes().into(),
-                });
+                let mut data = frame.clone().into_bytes().into();
+
+                if let Ok(mut fuzzer) = FUZZ.lock() {
+                    fuzzer
+                        .as_mut()
+                        .map(|fuzzer| fuzzer.mutate_yamux_frame(&mut data));
+                }
+
+                store.dispatch(P2pNetworkNoiseAction::OutgoingData { addr, data });
             }
             Self::OutgoingData {
                 addr,

@@ -5,6 +5,9 @@ edition = "2021"
 license = "Apache-2.0"
 
 [dependencies]
+lazy_static = "1.4.0"
+ctor = "0.2.8"
+rand_distr = "0.4.3"
 thiserror = "1.0.37"
 serde = { workspace = true }
 serde_json = { workspace = true }

@@ -8,7 +8,7 @@ use crate::{
         incoming::P2pConnectionIncomingAction, outgoing::P2pConnectionOutgoingAction,
         P2pConnectionState,
     },
-    disconnection::P2pDisconnectionAction,
+    disconnection::{P2pDisconnectionAction, P2pDisconnectionReason},
     identify::P2pIdentifyAction,
     network::identify::P2pNetworkIdentifyStreamAction,
     request::{P2pNetworkKadRequestState, P2pNetworkKadRequestStatus},
@@ -340,11 +340,25 @@ impl P2pNetworkSchedulerAction {
 
                     store.dispatch(P2pNetworkSchedulerAction::Prune { addr });
 
+<<<<<<< HEAD
                     if reason.is_disconnected() {
                         // statemachine behaviour should continue with this, i.e. dispatch P2pDisconnectionAction::Finish
                         return;
                     }
 
+=======
+                    if !matches!(
+                        reason,
+                        P2pNetworkConnectionCloseReason::Disconnect(
+                            P2pDisconnectionReason::SelectError
+                        )
+                    ) && reason.is_disconnected()
+                    {
+                        // statemachine behaviour should continue with this, i.e. dispatch P2pDisconnectionAction::Finish
+                        return;
+                    }
+                    
+>>>>>>> 0379ead2 (wip: p2p fuzzer)
                     match peer_with_state {
                         Some((peer_id, peer_state)) => {
                             // TODO: connection state type should tell if it is finalized
@@ -388,6 +402,8 @@ impl P2pNetworkSchedulerAction {
                             }
                         }
                     }
+                } else {
+                    unreachable!();
                 }
             }
             Self::Prune { .. } | Self::PruneStreams { .. } => {}

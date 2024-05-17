@@ -1,4 +1,4 @@
-use crate::{network::identify::P2pNetworkIdentifyStreamAction, P2pNetworkPnetAction};
+use crate::{network::identify::P2pNetworkIdentifyStreamAction, P2pNetworkPnetAction, FUZZ};
 
 use super::{super::*, p2p_network_select_state::P2pNetworkSelectStateInner, *};
 
@@ -213,6 +213,15 @@ impl P2pNetworkSelectAction {
                 }
             }
             P2pNetworkSelectAction::IncomingToken { addr, kind, .. } => {
+                if let P2pNetworkSelectStateInner::Error(error) = &state.inner {
+                    store.dispatch(P2pNetworkSchedulerAction::SelectError {
+                        addr,
+                        kind,
+                        error: error.clone(),
+                    });
+                    return;
+                }
+
                 if let Some(token) = &state.to_send {
                     store.dispatch(P2pNetworkSelectAction::OutgoingTokens {
                         addr,
@@ -236,12 +245,36 @@ impl P2pNetworkSelectAction {
 
                 match &kind {
                     SelectKind::Authentication => {
+                        let mut data = data.into();
+
+                        if let Ok(mut fuzzer) = FUZZ.lock() {
+                            fuzzer
+                                .as_mut()
+                                .map(|fuzzer| fuzzer.mutate_select_authentication(&mut data));
+                        }
+
                         store.dispatch(P2pNetworkPnetAction::OutgoingData { addr, data });
                     }
                     SelectKind::Multiplexing(_) | SelectKind::MultiplexingNoPeerId => {
+                        let mut data = data.into();
+
+                        if let Ok(mut fuzzer) = FUZZ.lock() {
+                            fuzzer
+                                .as_mut()
+                                .map(|fuzzer| fuzzer.mutate_select_multiplexing(&mut data));
+                        }
+
                         store.dispatch(P2pNetworkNoiseAction::OutgoingData { addr, data });
                     }
                     SelectKind::Stream(_, stream_id) => {
+                        let mut data = data.clone();
+
+                        if let Ok(mut fuzzer) = FUZZ.lock() {
+                            fuzzer
+                                .as_mut()
+                                .map(|fuzzer| fuzzer.mutate_select_stream(&mut data));
+                        }
+
                         let flags = if tokens.is_empty() {
                             YamuxFlags::FIN
                         } else {
@@ -253,6 +286,7 @@ impl P2pNetworkSelectAction {
                             data,
                             flags,
                         });
+
                     }
                 }
             }

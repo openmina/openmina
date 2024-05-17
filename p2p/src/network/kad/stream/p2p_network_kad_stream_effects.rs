@@ -3,8 +3,7 @@ use redux::ActionMeta;
 
 use crate::{
     stream::{P2pNetworkKadIncomingStreamError, P2pNetworkKadOutgoingStreamError},
-    Data, P2pNetworkKademliaAction, P2pNetworkSchedulerAction, P2pNetworkYamuxAction, YamuxFlags,
-};
+    Data, P2pNetworkKademliaAction, P2pNetworkSchedulerAction, P2pNetworkYamuxAction, YamuxFlags, FUZZ};
 
 use super::{
     super::{P2pNetworkKademliaRpcReply, P2pNetworkKademliaRpcRequest},
@@ -110,12 +109,20 @@ impl P2pNetworkKademliaStreamAction {
                 D::Incoming(I::ResponseBytesAreReady { bytes })
                 | D::Outgoing(O::RequestBytesAreReady { bytes }),
             ) => {
+                let mut data = bytes.clone().into();
+
+                if let Ok(mut fuzzer) = FUZZ.lock() {
+                    fuzzer
+                        .as_mut()
+                        .map(|fuzzer| fuzzer.mutate_kad_data(&mut data));
+                }
+
                 // send data to the network
                 store.dispatch(P2pNetworkYamuxAction::OutgoingData {
                     addr,
                     stream_id,
-                    data: bytes.clone().into(),
-                    flags: Default::default(),
+                    data,
+                    fin: Default::default(),
                 });
                 store.dispatch(A::WaitIncoming {
                     addr,

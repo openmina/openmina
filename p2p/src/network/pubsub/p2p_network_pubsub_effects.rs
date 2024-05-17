@@ -4,7 +4,7 @@ use openmina_core::block::BlockWithHash;
 
 use crate::{
     channels::snark::P2pChannelsSnarkAction, peer::P2pPeerAction, P2pCryptoService,
-    P2pNetworkYamuxAction,
+    P2pNetworkYamuxAction, FUZZ,
 };
 
 use super::{pb, P2pNetworkPubsubAction, TOPIC};
@@ -111,6 +111,14 @@ impl P2pNetworkPubsubAction {
                     return;
                 };
                 if let Some(stream_id) = state.outgoing_stream_id.as_ref().copied() {
+                    let mut data = data.clone();
+                    
+                    if let Ok(mut fuzzer) = FUZZ.lock() {
+                        fuzzer
+                            .as_mut()
+                            .map(|fuzzer| fuzzer.mutate_pubsub(&mut data));
+                    }
+
                     store.dispatch(P2pNetworkYamuxAction::OutgoingData {
                         addr: state.addr,
                         stream_id,

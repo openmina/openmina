@@ -18,7 +18,7 @@ use crate::{
     },
     connection::outgoing::P2pConnectionOutgoingInitOpts,
     disconnection::{P2pDisconnectionAction, P2pDisconnectionReason},
-    P2pNetworkYamuxAction, PeerId,
+    P2pNetworkYamuxAction, PeerId, FUZZ,
 };
 
 use super::*;
@@ -381,6 +381,14 @@ impl P2pNetworkRpcAction {
                 data,
                 ..
             } => {
+                let mut data = data.clone();
+
+                if let Ok(mut fuzzer) = FUZZ.lock() {
+                    fuzzer
+                        .as_mut()
+                        .map(|fuzzer| fuzzer.mutate_rpc_data(&mut data));
+                }
+
                 store.dispatch(P2pNetworkYamuxAction::OutgoingData {
                     addr,
                     stream_id,

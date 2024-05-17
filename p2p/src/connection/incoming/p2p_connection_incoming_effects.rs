@@ -1,4 +1,4 @@
-use openmina_core::{debug, error, warn};
+use openmina_core::{debug, warn};
 use redux::ActionMeta;
 
 use crate::connection::RejectionReason;
@@ -78,7 +78,6 @@ impl P2pConnectionIncomingAction {
             }
             P2pConnectionIncomingAction::FinalizePendingLibp2p { peer_id, addr } => {
                 let Some(peer_state) = store.state().peers.get(&peer_id) else {
-                    error!(meta.time(); "no peer state for incoming connection from: {peer_id}");
                     return;
                 };
 

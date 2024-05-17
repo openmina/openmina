@@ -1,3 +1,5 @@
+use crate::FUZZ;
+
 use super::{super::*, *};
 
 use super::p2p_network_pnet_state::Half;
@@ -29,10 +31,15 @@ impl P2pNetworkPnetAction {
             },
             P2pNetworkPnetAction::OutgoingData { addr, .. } => match &state.outgoing {
                 Half::Done { to_send, .. } if !to_send.is_empty() => {
-                    service.send_mio_cmd(crate::MioCmd::Send(
-                        addr,
-                        to_send.clone().into_boxed_slice(),
-                    ));
+                    let mut to_send = to_send.clone();
+
+                    if let Ok(mut fuzzer) = FUZZ.lock() {
+                        fuzzer
+                            .as_mut()
+                            .map(|fuzzer| fuzzer.mutate_pnet(&mut to_send));
+                    }
+
+                    service.send_mio_cmd(crate::MioCmd::Send(addr, to_send.into_boxed_slice()));
                 }
                 _ => {}
             },

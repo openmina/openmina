@@ -120,7 +120,9 @@ impl P2pConnectionIncomingState {
                     };
                 }
             }
-            P2pConnectionIncomingAction::Timeout { .. } => {}
+            P2pConnectionIncomingAction::Timeout { .. } => {
+                
+            }
             P2pConnectionIncomingAction::Error { error, .. } => {
                 let rpc_id = self.rpc_id();
                 *self = Self::Error {

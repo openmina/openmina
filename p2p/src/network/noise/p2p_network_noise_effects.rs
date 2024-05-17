@@ -1,4 +1,5 @@
 use crate::connection::incoming::{P2pConnectionIncomingAction, P2pConnectionIncomingState};
+use crate::FUZZ;
 
 use super::{super::*, *};
 
@@ -190,16 +191,21 @@ impl P2pNetworkNoiseAction {
                 }
             }
             Self::OutgoingChunk { addr, data } => {
-                store.dispatch(P2pNetworkPnetAction::OutgoingData {
-                    addr,
-                    data: data
-                        .iter()
-                        .fold(vec![], |mut v, item| {
-                            v.extend_from_slice(item);
-                            v
-                        })
-                        .into(),
-                });
+                let mut data = data
+                    .iter()
+                    .fold(vec![], |mut v, item| {
+                        v.extend_from_slice(item);
+                        v
+                    })
+                    .into();
+
+                if let Ok(mut fuzzer) = FUZZ.lock() {
+                    fuzzer
+                        .as_mut()
+                        .map(|fuzzer| fuzzer.mutate_noise(&mut data));
+                }
+
+                store.dispatch(P2pNetworkPnetAction::OutgoingData { addr, data });
                 if let Some(data) = outgoing {
                     store.dispatch(P2pNetworkNoiseAction::OutgoingChunk { addr, data });
                 }

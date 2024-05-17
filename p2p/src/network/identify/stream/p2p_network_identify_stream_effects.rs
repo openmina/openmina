@@ -1,5 +1,11 @@
 use std::net::SocketAddr;
 
+use super::P2pNetworkIdentifyStreamAction;
+use crate::{
+    identify::P2pIdentifyAction,
+    network::identify::{pb, P2pNetworkIdentify},
+    token, Data, P2pNetworkService, P2pNetworkYamuxAction, FUZZ,
+};
 use multiaddr::Multiaddr;
 use openmina_core::{error, log::system_time, warn};
 use redux::ActionMeta;
@@ -127,11 +133,19 @@ impl P2pNetworkIdentifyStreamAction {
                         return Ok(());
                     }
 
+                    let mut data = Data(out.into_boxed_slice());
+
+                    if let Ok(mut fuzzer) = FUZZ.lock() {
+                        fuzzer
+                            .as_mut()
+                            .map(|fuzzer| fuzzer.mutate_identify_msg(&mut data));
+                    }
+
                     store.dispatch(P2pNetworkYamuxAction::OutgoingData {
                         addr,
                         stream_id,
-                        data: Data(out.into_boxed_slice()),
-                        flags: Default::default(),
+                        data,
+                        fin: Default::default(),
                     });
 
                     store.dispatch(P2pNetworkIdentifyStreamAction::Close {
