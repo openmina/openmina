@@ -27,7 +27,7 @@ fn hash_genesis_constants(
 ) -> [u8; 32] {
     let mut hasher = Blake2b256::default();
     let genesis_timestamp = OffsetDateTime::from_unix_timestamp_nanos(
-        constants.genesis_state_timestamp.0 .0 .0 as i128,
+        (constants.genesis_state_timestamp.0 .0 .0 * 1000000) as i128,
     )
     .unwrap();
     let time_format =

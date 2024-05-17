@@ -4,7 +4,7 @@ use crate::account::AccountSecretKey;
 use ledger::{scan_state::currency::Balance, Account, BaseLedger};
 use mina_hasher::Fp;
 use mina_p2p_messages::{binprot::BinProtRead, v2};
-use openmina_core::constants::{CONSTRAINT_CONSTANTS, DEFAULT_GENESIS_TIMESTAMP};
+use openmina_core::constants::{CONSTRAINT_CONSTANTS, DEFAULT_GENESIS_TIMESTAMP_MILLISECONDS};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -69,7 +69,7 @@ impl GenesisConfig {
                     .as_ref()
                     .map(|g: &daemon_json::Genesis| g.genesis_state_timestamp().map(|t| t.0 .0 .0))
                     .transpose()?
-                    .unwrap_or(DEFAULT_GENESIS_TIMESTAMP);
+                    .unwrap_or(DEFAULT_GENESIS_TIMESTAMP_MILLISECONDS);
                 Ok(Self::default_constants(genesis_timestamp))
             }
         }
