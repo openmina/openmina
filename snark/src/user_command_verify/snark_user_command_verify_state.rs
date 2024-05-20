@@ -41,7 +41,7 @@ impl std::fmt::Debug for SnarkUserCommandVerifyState {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum SnarkUserCommandVerifyStatus {
     Init {
         time: redux::Timestamp,
