@@ -368,9 +368,8 @@ pub enum ActionKind {
     SnarkPoolEffectfulSnarkPoolJobsRandomChoose,
     SnarkUserCommandVerifyError,
     SnarkUserCommandVerifyFinish,
+    SnarkUserCommandVerifyInit,
     SnarkUserCommandVerifyPending,
-    SnarkUserCommandVerifySnarkUserCommandVerifyId,
-    SnarkUserCommandVerifyString,
     SnarkUserCommandVerifySuccess,
     SnarkUserCommandVerifyEffectfulInit,
     SnarkWorkVerifyError,
@@ -475,7 +474,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 394;
+    pub const COUNT: u16 = 393;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -555,6 +554,7 @@ impl ActionKindGet for SnarkAction {
             Self::WorkVerify(a) => a.kind(),
             Self::WorkVerifyEffect(a) => a.kind(),
             Self::UserCommandVerify(a) => a.kind(),
+            Self::UserCommandVerifyEffect(a) => a.kind(),
         }
     }
 }
@@ -924,14 +924,19 @@ impl ActionKindGet for SnarkWorkVerifyEffectfulAction {
 impl ActionKindGet for SnarkUserCommandVerifyAction {
     fn kind(&self) -> ActionKind {
         match self {
-            Self::SnarkUserCommandVerifyId => {
-                ActionKind::SnarkUserCommandVerifySnarkUserCommandVerifyId
-            }
-            Self::String => ActionKind::SnarkUserCommandVerifyString,
+            Self::Init { .. } => ActionKind::SnarkUserCommandVerifyInit,
             Self::Pending { .. } => ActionKind::SnarkUserCommandVerifyPending,
             Self::Error { .. } => ActionKind::SnarkUserCommandVerifyError,
             Self::Success { .. } => ActionKind::SnarkUserCommandVerifySuccess,
             Self::Finish { .. } => ActionKind::SnarkUserCommandVerifyFinish,
+        }
+    }
+}
+
+impl ActionKindGet for SnarkUserCommandVerifyEffectfulAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::Init { .. } => ActionKind::SnarkUserCommandVerifyEffectfulInit,
         }
     }
 }
