@@ -286,6 +286,7 @@ pub enum ActionKind {
     P2pNetworkSchedulerSelectError,
     P2pNetworkSchedulerYamuxDidInit,
     P2pNetworkSelectIncomingData,
+    P2pNetworkSelectIncomingPayload,
     P2pNetworkSelectIncomingToken,
     P2pNetworkSelectInit,
     P2pNetworkSelectOutgoingTokens,
@@ -442,7 +443,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 369;
+    pub const COUNT: u16 = 370;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -1121,6 +1122,7 @@ impl ActionKindGet for P2pNetworkSelectAction {
         match self {
             Self::Init { .. } => ActionKind::P2pNetworkSelectInit,
             Self::IncomingData { .. } => ActionKind::P2pNetworkSelectIncomingData,
+            Self::IncomingPayload { .. } => ActionKind::P2pNetworkSelectIncomingPayload,
             Self::IncomingToken { .. } => ActionKind::P2pNetworkSelectIncomingToken,
             Self::OutgoingTokens { .. } => ActionKind::P2pNetworkSelectOutgoingTokens,
         }

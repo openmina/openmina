@@ -29,6 +29,12 @@ pub enum P2pNetworkSelectAction {
         data: Data,
         fin: bool,
     },
+    IncomingPayload {
+        addr: SocketAddr,
+        kind: SelectKind,
+        fin: bool,
+        data: Data,
+    },
     IncomingToken {
         addr: SocketAddr,
         kind: SelectKind,
@@ -66,6 +72,7 @@ impl P2pNetworkSelectAction {
         match self {
             Self::Init { addr, .. } => addr,
             Self::IncomingData { addr, .. } => addr,
+            Self::IncomingPayload { addr, .. } => addr,
             Self::IncomingToken { addr, .. } => addr,
             Self::OutgoingTokens { addr, .. } => addr,
         }
@@ -75,6 +82,7 @@ impl P2pNetworkSelectAction {
         match self {
             Self::Init { kind, .. } => kind,
             Self::IncomingData { kind, .. } => kind,
+            Self::IncomingPayload { kind, .. } => kind,
             Self::IncomingToken { kind, .. } => kind,
             Self::OutgoingTokens { kind, .. } => kind,
         }
@@ -91,6 +99,7 @@ impl redux::EnablingCondition<P2pState> for P2pNetworkSelectAction {
         match self {
             Self::Init { .. } => true,
             Self::IncomingData { .. } => true,
+            Self::IncomingPayload { .. } => true,
             Self::IncomingToken { .. } => true,
             Self::OutgoingTokens { .. } => true,
         }
