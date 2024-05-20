@@ -1,4 +1,5 @@
 use ledger::scan_state::transaction_logic::{verifiable, WithStatus};
+use openmina_core::SubstateAccess;
 use serde::{Deserialize, Serialize};
 
 use openmina_core::ActionEvent;
@@ -17,6 +18,12 @@ pub enum SnarkUserCommandVerifyAction {
         req_id: SnarkUserCommandVerifyId,
         commands: Vec<WithStatus<verifiable::UserCommand>>,
         sender: String,
+        on_success: redux::Callback<(
+            SnarkUserCommandVerifyId,
+            String,
+            Vec<WithStatus<verifiable::UserCommand>>,
+        )>,
+        on_error: redux::Callback<(SnarkUserCommandVerifyId, String)>,
     },
     Pending {
         req_id: SnarkUserCommandVerifyId,
@@ -61,5 +68,14 @@ impl redux::EnablingCondition<crate::SnarkState> for SnarkUserCommandVerifyActio
                 .get(*req_id)
                 .map_or(false, |v| v.is_finished()),
         }
+    }
+}
+
+impl<T> redux::EnablingCondition<T> for SnarkUserCommandVerifyAction
+where
+    T: SubstateAccess<crate::SnarkState>,
+{
+    fn is_enabled(&self, state: &T, _time: redux::Timestamp) -> bool {
+        self.is_enabled(state.substate(), _time)
     }
 }
