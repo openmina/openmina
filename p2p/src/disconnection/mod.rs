@@ -34,4 +34,7 @@ pub enum P2pDisconnectionReason {
 
     #[error("duplicate connection")]
     DuplicateConnection,
+
+    #[error("select error")]
+    SelectError,
 }

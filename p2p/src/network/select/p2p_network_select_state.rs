@@ -2,14 +2,11 @@ use std::collections::VecDeque;
 
 use serde::{Deserialize, Serialize};
 
-use crate::Data;
-
 use super::*;
 
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
 pub struct P2pNetworkSelectState {
     pub recv: token::State,
-    pub remaining: Option<Data>,
     pub tokens: VecDeque<token::Token>,
 
     pub negotiated: Option<Option<token::Protocol>>,
