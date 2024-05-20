@@ -55,6 +55,7 @@ use crate::rpc::RpcAction;
 use crate::snark::block_verify::SnarkBlockVerifyAction;
 use crate::snark::block_verify_effectful::SnarkBlockVerifyEffectfulAction;
 use crate::snark::user_command_verify::SnarkUserCommandVerifyAction;
+use crate::snark::user_command_verify_effectful::SnarkUserCommandVerifyEffectfulAction;
 use crate::snark::work_verify::SnarkWorkVerifyAction;
 use crate::snark::work_verify_effectful::SnarkWorkVerifyEffectfulAction;
 use crate::snark::SnarkAction;
@@ -398,9 +399,11 @@ pub enum ActionKind {
     SnarkPoolEffectfulSnarkPoolJobsRandomChoose,
     SnarkUserCommandVerifyError,
     SnarkUserCommandVerifyFinish,
-    SnarkUserCommandVerifyInit,
     SnarkUserCommandVerifyPending,
+    SnarkUserCommandVerifySnarkUserCommandVerifyId,
+    SnarkUserCommandVerifyString,
     SnarkUserCommandVerifySuccess,
+    SnarkUserCommandVerifyEffectfulInit,
     SnarkWorkVerifyError,
     SnarkWorkVerifyFinish,
     SnarkWorkVerifyInit,
@@ -953,7 +956,10 @@ impl ActionKindGet for SnarkWorkVerifyEffectfulAction {
 impl ActionKindGet for SnarkUserCommandVerifyAction {
     fn kind(&self) -> ActionKind {
         match self {
-            Self::Init { .. } => ActionKind::SnarkUserCommandVerifyInit,
+            Self::SnarkUserCommandVerifyId => {
+                ActionKind::SnarkUserCommandVerifySnarkUserCommandVerifyId
+            }
+            Self::String => ActionKind::SnarkUserCommandVerifyString,
             Self::Pending { .. } => ActionKind::SnarkUserCommandVerifyPending,
             Self::Error { .. } => ActionKind::SnarkUserCommandVerifyError,
             Self::Success { .. } => ActionKind::SnarkUserCommandVerifySuccess,
