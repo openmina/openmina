@@ -1,5 +1,5 @@
 use ledger::scan_state::transaction_logic::{verifiable, WithStatus};
-use openmina_core::SubstateAccess;
+use redux::Callback;
 use serde::{Deserialize, Serialize};
 
 use openmina_core::ActionEvent;
@@ -10,6 +10,13 @@ pub type SnarkUserCommandVerifyActionWithMeta = redux::ActionWithMeta<SnarkUserC
 pub type SnarkUserCommandVerifyActionWithMetaRef<'a> =
     redux::ActionWithMeta<&'a SnarkUserCommandVerifyAction>;
 
+// define this alias, or `build.rs` cannot parse the enum
+type OnSuccess = Callback<(
+  SnarkUserCommandVerifyId,
+  String,
+  Vec<WithStatus<verifiable::UserCommand>>,
+)>;
+
 #[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
 #[action_event(level = trace, fields(display(req_id), display(error)))]
 pub enum SnarkUserCommandVerifyAction {
@@ -18,12 +25,8 @@ pub enum SnarkUserCommandVerifyAction {
         req_id: SnarkUserCommandVerifyId,
         commands: Vec<WithStatus<verifiable::UserCommand>>,
         sender: String,
-        on_success: redux::Callback<(
-            SnarkUserCommandVerifyId,
-            String,
-            Vec<WithStatus<verifiable::UserCommand>>,
-        )>,
-        on_error: redux::Callback<(SnarkUserCommandVerifyId, String)>,
+        on_success: OnSuccess,
+        on_error: Callback<(SnarkUserCommandVerifyId, String)>,
     },
     Pending {
         req_id: SnarkUserCommandVerifyId,
@@ -68,14 +71,5 @@ impl redux::EnablingCondition<crate::SnarkState> for SnarkUserCommandVerifyActio
                 .get(*req_id)
                 .map_or(false, |v| v.is_finished()),
         }
-    }
-}
-
-impl<T> redux::EnablingCondition<T> for SnarkUserCommandVerifyAction
-where
-    T: SubstateAccess<crate::SnarkState>,
-{
-    fn is_enabled(&self, state: &T, _time: redux::Timestamp) -> bool {
-        self.is_enabled(state.substate(), _time)
     }
 }

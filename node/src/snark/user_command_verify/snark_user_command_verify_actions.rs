@@ -1,3 +1,5 @@
+use snark::user_command_verify_effectful::SnarkUserCommandVerifyEffectfulAction;
+
 use super::*;
 
 impl redux::EnablingCondition<crate::State> for SnarkUserCommandVerifyAction {
@@ -8,6 +10,12 @@ impl redux::EnablingCondition<crate::State> for SnarkUserCommandVerifyAction {
 
 impl From<SnarkUserCommandVerifyAction> for crate::Action {
     fn from(value: SnarkUserCommandVerifyAction) -> Self {
+        Self::Snark(value.into())
+    }
+}
+
+impl From<SnarkUserCommandVerifyEffectfulAction> for crate::Action {
+    fn from(value: SnarkUserCommandVerifyEffectfulAction) -> Self {
         Self::Snark(value.into())
     }
 }
