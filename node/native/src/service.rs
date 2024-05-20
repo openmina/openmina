@@ -9,7 +9,8 @@ use libp2p_identity::Keypair;
 use mina_p2p_messages::v2::{LedgerProofProdStableV2, TransactionSnarkWorkTStableV2Proofs};
 use node::p2p::service_impl::mio::MioService;
 use node::p2p::service_impl::services::NativeP2pNetworkService;
-use node::snark::user_command_verify::{SnarkUserCommandVerifyId, SnarkUserCommandVerifyService};
+use node::snark::user_command_verify::SnarkUserCommandVerifyId;
+use node::snark::user_command_verify_effectful::SnarkUserCommandVerifyService;
 use rand::prelude::*;
 use redux::ActionMeta;
 use serde::Serialize;
@@ -244,9 +245,9 @@ impl SnarkUserCommandVerifyService for NodeService {
     fn verify_init(
         &mut self,
         req_id: SnarkUserCommandVerifyId,
-        commands: Vec<WithStatus<verifiable::UserCommand>>,
         _verifier_index: Arc<VerifierIndex>,
         _verifier_srs: Arc<Mutex<VerifierSRS>>,
+        commands: Vec<WithStatus<verifiable::UserCommand>>,
     ) {
         if self.replayer.is_some() {
             return;

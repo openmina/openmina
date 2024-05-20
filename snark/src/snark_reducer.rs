@@ -46,6 +46,7 @@ impl SnarkState {
                 Substate::from_compatible_substate(state),
                 meta.with_action(a),
             ),
+            SnarkAction::UserCommandVerifyEffect(_) => {}
         }
     }
 }
