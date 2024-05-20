@@ -176,7 +176,7 @@ jobs:
       image: minaprotocol/mina-daemon:2.0.0berkeley-rc1-1551e2f-focal-berkeley
     strategy:
       matrix:
-        test: [p2p_basic_connections, p2p_basic_incoming, p2p_basic_outgoing]
+        test: [p2p_basic_connections, p2p_basic_incoming, p2p_basic_outgoing, p2p_pubsub]
       fail-fast: false
 
     steps:
