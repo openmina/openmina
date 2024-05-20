@@ -417,6 +417,7 @@ impl Cluster {
     pub fn add_ocaml_node(&mut self, testing_config: OcamlNodeTestingConfig) -> ClusterOcamlNodeId {
         let node_i = self.ocaml_nodes.len();
 
+        let executable = self.config.ocaml_node_executable();
         let mut next_port = || {
             self.available_ports.next().ok_or_else(|| {
                 anyhow::anyhow!(
@@ -428,7 +429,7 @@ impl Cluster {
 
         let temp_dir = temp_dir::TempDir::new().expect("failed to create tempdir");
         let node = OcamlNode::start(OcamlNodeConfig {
-            executable: self.config.ocaml_node_executable().clone(),
+            executable,
             dir: temp_dir,
             libp2p_keypair_i: self.ocaml_libp2p_keypair_i,
             libp2p_port: next_port().unwrap(),

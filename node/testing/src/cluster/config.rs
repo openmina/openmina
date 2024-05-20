@@ -9,7 +9,7 @@ pub struct ClusterConfig {
     proof_kind: ProofKind,
     is_replay: bool,
     use_debugger: bool,
-    ocaml_node_executable: OcamlNodeExecutable,
+    ocaml_node_executable: Option<OcamlNodeExecutable>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
@@ -35,10 +35,7 @@ impl ClusterConfig {
             proof_kind: ProofKind::default(),
             is_replay: false,
             use_debugger: false,
-            ocaml_node_executable: match ocaml_node_executable {
-                Some(v) => v,
-                None => OcamlNodeExecutable::find_working()?,
-            },
+            ocaml_node_executable,
         })
     }
 
@@ -80,11 +77,15 @@ impl ClusterConfig {
     }
 
     pub fn set_ocaml_node_executable(mut self, executable: OcamlNodeExecutable) -> Self {
-        self.ocaml_node_executable = executable;
+        self.ocaml_node_executable = Some(executable);
         self
     }
 
-    pub fn ocaml_node_executable(&self) -> &OcamlNodeExecutable {
-        &self.ocaml_node_executable
+    pub fn ocaml_node_executable(&mut self) -> OcamlNodeExecutable {
+        self.ocaml_node_executable
+            .get_or_insert_with(|| {
+                OcamlNodeExecutable::find_working().expect("cannot run OCaml node")
+            })
+            .clone()
     }
 }
