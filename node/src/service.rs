@@ -12,7 +12,7 @@ pub use crate::snark_pool::SnarkPoolService;
 pub use crate::transition_frontier::genesis_effectful::TransitionFrontierGenesisService;
 pub use crate::transition_frontier::sync::ledger::snarked::TransitionFrontierSyncLedgerSnarkedService;
 pub use redux::TimeService;
-use snark::user_command_verify::SnarkUserCommandVerifyService;
+use snark::user_command_verify_effectful::SnarkUserCommandVerifyService;
 
 use crate::stats::Stats;
 
@@ -21,7 +21,6 @@ pub trait Service:
     + EventSourceService
     + SnarkBlockVerifyService
     + SnarkWorkVerifyService
-    + SnarkUserCommandVerifyService
     + P2pConnectionService
     + P2pDisconnectionService
     + P2pChannelsService
@@ -32,6 +31,7 @@ pub trait Service:
     + TransitionFrontierGenesisService
     + TransitionFrontierSyncLedgerSnarkedService
     + SnarkPoolService
+    + SnarkUserCommandVerifyService
     + BlockProducerVrfEvaluatorService
     + BlockProducerService
     + ExternalSnarkWorkerService

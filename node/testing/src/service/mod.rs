@@ -32,7 +32,8 @@ use node::service::{
 use node::snark::block_verify::{
     SnarkBlockVerifyId, SnarkBlockVerifyService, VerifiableBlockWithHash,
 };
-use node::snark::user_command_verify::{SnarkUserCommandVerifyId, SnarkUserCommandVerifyService};
+use node::snark::user_command_verify::SnarkUserCommandVerifyId;
+use node::snark::user_command_verify_effectful::SnarkUserCommandVerifyService;
 use node::snark::work_verify::{SnarkWorkVerifyId, SnarkWorkVerifyService};
 use node::snark::{SnarkEvent, VerifierIndex, VerifierSRS};
 use node::snark_pool::SnarkPoolService;
@@ -389,16 +390,16 @@ impl SnarkUserCommandVerifyService for NodeTestingService {
     fn verify_init(
         &mut self,
         req_id: SnarkUserCommandVerifyId,
-        commands: Vec<WithStatus<verifiable::UserCommand>>,
         verifier_index: Arc<VerifierIndex>,
         verifier_srs: Arc<Mutex<VerifierSRS>>,
+        commands: Vec<WithStatus<verifiable::UserCommand>>,
     ) {
         SnarkUserCommandVerifyService::verify_init(
             &mut self.real,
             req_id,
-            commands,
             verifier_index,
             verifier_srs,
+            commands,
         )
     }
 }

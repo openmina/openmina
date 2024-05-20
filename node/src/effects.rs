@@ -71,6 +71,7 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
             action.effects(store);
         }
         Action::TransitionFrontier(action) => {
+
             transition_frontier_effects(store, meta.with_action(action));
         }
         Action::P2p(action) => {
