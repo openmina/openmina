@@ -7,8 +7,7 @@ pub use p2p_task_spawner::P2pTaskSpawner;
 mod node_id;
 pub use node_id::{ClusterNodeId, ClusterOcamlNodeId};
 
-use redux::Timestamp;
-use serde::de::DeserializeOwned;
+pub mod runner;
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -41,7 +40,7 @@ use node::{
 use openmina_node_invariants::{InvariantResult, Invariants};
 use openmina_node_native::{http_server, rpc::RpcService, NodeService, RpcSender};
 use rand::{rngs::StdRng, SeedableRng};
-use serde::Serialize;
+use serde::{de::DeserializeOwned, Serialize};
 
 use crate::node::{DaemonJson, NonDeterministicEvent, OcamlStep, TestPeerId};
 use crate::{
@@ -298,7 +297,7 @@ impl Cluster {
                 peer_discovery: true,
                 initial_time: testing_config
                     .initial_time
-                    .checked_sub(Timestamp::ZERO)
+                    .checked_sub(redux::Timestamp::ZERO)
                     .unwrap_or_default(),
             },
             transition_frontier: TransitionFrontierConfig::new(testing_config.genesis),

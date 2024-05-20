@@ -9,7 +9,7 @@ use node::{p2p::P2pTimeouts, BlockProducerConfig, SnarkerConfig, SnarkerStrategy
 use crate::{
     node::{RustNodeBlockProducerTestingConfig, RustNodeTestingConfig},
     scenario::{ListenerNode, ScenarioStep},
-    scenarios::cluster_runner::ClusterRunner,
+    scenarios::ClusterRunner,
 };
 
 const GLOBAL_TIMEOUT: Duration = Duration::from_secs(10 * 60);

@@ -10,9 +10,7 @@ use node::{
     p2p::{P2pConnectionEvent, P2pEvent},
 };
 
-use crate::{
-    node::RustNodeTestingConfig, scenario::ScenarioStep, scenarios::cluster_runner::ClusterRunner,
-};
+use crate::{node::RustNodeTestingConfig, scenario::ScenarioStep, scenarios::ClusterRunner};
 
 /// Global test that aims to be deterministic.
 /// Launch `TOTAL_PEERS` number of nodes with `MAX_PEERS_PER_NODE` is est as the maximum number of peers.

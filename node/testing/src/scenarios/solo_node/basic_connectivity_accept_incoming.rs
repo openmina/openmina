@@ -9,7 +9,7 @@ use rand::Rng;
 use crate::{
     node::{DaemonJson, OcamlNodeTestingConfig, RustNodeTestingConfig},
     scenario::{ListenerNode, ScenarioStep},
-    scenarios::cluster_runner::ClusterRunner,
+    scenarios::ClusterRunner,
 };
 
 /// Local test to ensure that the Openmina node can accept a connection from an existing OCaml node.

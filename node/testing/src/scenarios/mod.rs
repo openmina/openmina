@@ -14,10 +14,10 @@ pub mod solo_node;
 
 pub mod p2p;
 
-mod cluster_runner;
-pub use cluster_runner::*;
 mod driver;
 pub use driver::*;
+
+pub use crate::cluster::runner::*;
 
 use strum_macros::{EnumIter, EnumString, IntoStaticStr};
 
