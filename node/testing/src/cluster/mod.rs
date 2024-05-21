@@ -399,7 +399,16 @@ impl Cluster {
                 }
             }
 
-            node::effects(store, action)
+            fn run_fresh_stack<'env, F>(f: F) -> F::Output
+            where
+                F: FnOnce() + Send + 'env,
+            {
+                std::thread::scope::<'env>(|scope| {
+                    scope.spawn(f).join().unwrap_or_else(|e| panic!("{e:?}"))
+                })
+            }
+
+            run_fresh_stack(|| node::effects(store, action))
         }
         let store = node::Store::new(
             node::reducer,
