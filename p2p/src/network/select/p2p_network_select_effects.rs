@@ -251,6 +251,7 @@ impl P2pNetworkSelectAction {
                     }
                 }
             }
+            P2pNetworkSelectAction::Timeout { .. } => {}
         }
         if let Some(protocol) = report {
             store.dispatch(P2pNetworkSchedulerAction::SelectDone {

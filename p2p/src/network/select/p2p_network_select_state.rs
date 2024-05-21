@@ -1,11 +1,15 @@
 use std::collections::VecDeque;
 
+use redux::Timestamp;
 use serde::{Deserialize, Serialize};
+
+use crate::P2pTimeouts;
 
 use super::*;
 
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
 pub struct P2pNetworkSelectState {
+    pub time: Option<Timestamp>,
     pub recv: token::State,
     pub tokens: VecDeque<token::Token>,
 
@@ -41,6 +45,20 @@ impl P2pNetworkSelectState {
                 proposing: token::Protocol::Stream(kind),
             },
             ..Default::default()
+        }
+    }
+
+    pub fn is_timed_out(&self, now: Timestamp, timeouts: &P2pTimeouts) -> bool {
+        if self.negotiated.is_some() {
+            return false;
+        }
+
+        if let Some(time) = self.time {
+            now.checked_sub(time)
+                .and_then(|dur| timeouts.select.map(|to| dur >= to))
+                .unwrap_or(false)
+        } else {
+            false
         }
     }
 }
