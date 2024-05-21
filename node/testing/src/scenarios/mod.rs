@@ -70,20 +70,10 @@ impl Scenarios {
     fn skip(&self) -> bool {
         match self {
             Self::SoloNodeSyncToGenesis(_) => true,
-            Self::SoloNodeBootstrap(_) => false,
             Self::SoloNodeSyncToGenesisCustom(_) => true,
-            Self::SoloNodeSyncRootSnarkedLedger(_) => false,
-            Self::SoloNodeBasicConnectivityInitialJoining(_) => false,
             Self::SoloNodeBasicConnectivityAcceptIncoming(_) => cfg!(feature = "p2p-webrtc"),
-            Self::MultiNodeSync4BlockProducers(_) => false,
-            Self::MultiNodeVrfGetCorrectLedgers(_) => false,
-            Self::MultiNodeVrfGetCorrectSlots(_) => false,
-            Self::MultiNodeVrfEpochBoundsEvaluation(_) => false,
-            Self::MultiNodeVrfEpochBoundsCorrectLedger(_) => false,
-            Self::MultiNodeBasicConnectivityInitialJoining(_) => false,
             Self::MultiNodeBasicConnectivityPeerDiscovery(_) => cfg!(feature = "p2p-webrtc"),
-            Self::SimulationSmall(_) => false,
-            Self::P2pReceiveBlock(_) => false,
+            _ => false,
         }
     }
 
@@ -97,12 +87,6 @@ impl Scenarios {
 
     pub fn parent(self) -> Option<Self> {
         match self {
-            Self::SoloNodeSyncToGenesis(_) => None,
-            Self::SoloNodeBootstrap(_) => None,
-            Self::SoloNodeSyncToGenesisCustom(_) => None,
-            Self::SoloNodeSyncRootSnarkedLedger(_) => None,
-            Self::SoloNodeBasicConnectivityInitialJoining(_) => None,
-            Self::SoloNodeBasicConnectivityAcceptIncoming(_) => None,
             Self::MultiNodeSync4BlockProducers(_) => Some(SoloNodeSyncToGenesis.into()),
             Self::MultiNodeVrfGetCorrectLedgers(_) => Some(SoloNodeSyncToGenesisCustom.into()),
             Self::MultiNodeVrfGetCorrectSlots(_) => Some(SoloNodeSyncToGenesisCustom.into()),
@@ -110,10 +94,7 @@ impl Scenarios {
             Self::MultiNodeVrfEpochBoundsCorrectLedger(_) => {
                 Some(SoloNodeSyncToGenesisCustom.into())
             }
-            Self::MultiNodeBasicConnectivityInitialJoining(_) => None,
-            Self::MultiNodeBasicConnectivityPeerDiscovery(_) => None,
-            Self::SimulationSmall(_) => None,
-            Self::P2pReceiveBlock(_) => None,
+            _ => None,
         }
     }
 

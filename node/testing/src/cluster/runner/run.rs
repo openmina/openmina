@@ -19,7 +19,16 @@ pub struct RunCfg<
     timeout: Duration,
     handle_event: EH,
     exit_if_action: AH,
-    advance_time: Option<std::ops::RangeInclusive<u64>>,
+    advance_time: Option<RunCfgAdvanceTime>,
+}
+
+#[derive(derive_more::From)]
+pub enum RunCfgAdvanceTime {
+    /// Set the range of time in milliseconds, with which time will be
+    /// advanced during `run` function execution.
+    Rand(std::ops::RangeInclusive<u64>),
+    /// Advance time so that node's time matches the real time.
+    Real,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -106,10 +115,22 @@ impl<'a> super::ClusterRunner<'a> {
                     }
                 }
 
-                if let Some(time) = advance_time.as_ref() {
-                    let (start, end) = time.clone().into_inner();
-                    let (start, end) = (start * 1_000_000, end * 1_000_000);
-                    let by_nanos = self.rng.gen_range(start..end);
+                if let Some(advance_by) = advance_time.as_ref() {
+                    let by_nanos = match advance_by {
+                        RunCfgAdvanceTime::Rand(range) => {
+                            let (start, end) = range.clone().into_inner();
+                            let (start, end) = (start * 1_000_000, end * 1_000_000);
+                            self.rng.gen_range(start..end)
+                        }
+                        RunCfgAdvanceTime::Real => {
+                            let now = redux::Timestamp::global_now();
+                            let latest: &mut redux::Timestamp =
+                                self.latest_advance_time.get_or_insert(now);
+                            let latest = std::mem::replace(latest, now);
+                            now.checked_sub(latest)
+                                .map_or(0, |dur| dur.as_nanos() as u64)
+                        }
+                    };
                     self.exec_step(ScenarioStep::AdvanceTime { by_nanos })
                         .await
                         .unwrap();
@@ -180,12 +201,13 @@ where
         self
     }
 
-    /// Set the range of time in milliseconds, with which time will be
-    /// advanced during `run` function execution.
     ///
     /// By default `run` function won't advance time.
-    pub fn advance_time(mut self, range: std::ops::RangeInclusive<u64>) -> Self {
-        self.advance_time = Some(range);
+    pub fn advance_time<T>(mut self, by: T) -> Self
+    where
+        T: Into<RunCfgAdvanceTime>,
+    {
+        self.advance_time = Some(by.into());
         self
     }
 

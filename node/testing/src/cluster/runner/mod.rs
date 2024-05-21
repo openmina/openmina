@@ -24,6 +24,7 @@ pub struct ClusterRunner<'a> {
     cluster: &'a mut Cluster,
     add_step: Box<dyn 'a + FnMut(&ScenarioStep)>,
     rng: StdRng,
+    latest_advance_time: Option<redux::Timestamp>,
 }
 
 impl<'a> ClusterRunner<'a> {
@@ -35,6 +36,7 @@ impl<'a> ClusterRunner<'a> {
             cluster,
             add_step: Box::new(add_step),
             rng: StdRng::seed_from_u64(0),
+            latest_advance_time: None,
         }
     }
 
@@ -257,15 +259,12 @@ impl<'a> ClusterRunner<'a> {
             let node = self.node(node_id)?;
             let best_tip = node.state().transition_frontier.best_tip()?;
             let staking_ledger_hash = best_tip.staking_epoch_ledger_hash();
-            // get all block producers except an extra account added
-            // by ocaml node. Looks like the block producer of the
-            // genesis block.
-            const GENESIS_PRODUCER: &'static str =
-                "B62qiy32p8kAKnny8ZFwoMhYpBppM1DWVCqAPBYNcXnsAHhnfAAuXgg";
-            LedgerService::ledger_manager(node.service())
-                .producers_with_delegates(staking_ledger_hash, |pub_key| {
-                    pub_key.into_address() != GENESIS_PRODUCER
-                })
+            LedgerService::ledger_manager(node.service()).producers_with_delegates(
+                staking_ledger_hash,
+                move |pub_key| {
+                    pub_key != &AccountSecretKey::genesis_producer().public_key_compressed()
+                },
+            )
         }) else {
             return Default::default();
         };
