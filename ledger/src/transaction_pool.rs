@@ -1477,14 +1477,14 @@ impl TransactionPool {
     pub fn new() -> Self {
         Self {
             pool: todo!(),
-            locally_generated_uncommitted: todo!(),
-            locally_generated_committed: todo!(),
-            current_batch: todo!(),
-            remaining_in_batch: todo!(),
+            locally_generated_uncommitted: Default::default(),
+            locally_generated_committed: Default::default(),
+            current_batch: 0,
+            remaining_in_batch: 0,
             config: todo!(),
-            batcher: todo!(),
-            best_tip_diff_relay: todo!(),
-            verification_key_table: todo!(),
+            batcher: (),
+            best_tip_diff_relay: None,
+            verification_key_table: Default::default(),
         }
     }
 
