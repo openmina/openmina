@@ -60,6 +60,9 @@ impl TransitionFrontierSyncAction {
                 // if we already have a block ready to be applied.
                 store.dispatch(TransitionFrontierSyncAction::BlocksNextApplyInit);
 
+                let best_tip_hash = best_tip.staged_ledger_hash().clone();
+                store.dispatch(TransactionPoolAction::BestTipChanged { best_tip_hash });
+
                 // TODO(binier): cleanup ledgers
             }
             // TODO(tizoc): this action is never called with the current implementation,
