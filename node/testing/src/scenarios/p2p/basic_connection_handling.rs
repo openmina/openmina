@@ -126,12 +126,12 @@ impl AllNodesConnectionsAreSymmetric {
 
         // Check that for each peer, if it is in the node's peer list, then the node is in the peer's peer list
         for (peer1, peer_id1) in &peers {
-            let peer1_p2p_state = &driver.inner().node(*peer1).unwrap().state().p2p;
+            let peer1_p2p_state = &driver.inner().node(*peer1).unwrap().state().p2p.unwrap();
             for (peer2, peer_id2) in &peers {
                 if peer2 == peer1 {
                     continue;
                 }
-                let peer2_p2p_state = &driver.inner().node(*peer2).unwrap().state().p2p;
+                let peer2_p2p_state = &driver.inner().node(*peer2).unwrap().state().p2p.unwrap();
 
                 if has_active_peer(peer2_p2p_state, peer_id1) {
                     assert!(
@@ -259,8 +259,7 @@ impl MaxNumberOfPeersIncoming {
                 .filter(|peer| {
                     peer.state()
                         .p2p
-                        .peers
-                        .get(&nut_peer_id)
+                        .get_peer(&nut_peer_id)
                         .and_then(|peer| peer.status.as_ready())
                         .is_some()
                 })

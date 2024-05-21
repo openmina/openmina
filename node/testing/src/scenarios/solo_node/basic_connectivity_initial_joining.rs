@@ -68,9 +68,7 @@ impl SoloNodeBasicConnectivityInitialJoining {
                 .expect("must exist")
                 .state()
                 .p2p
-                .config
-                .identity_pub_key
-                .peer_id(),
+                .my_id(),
         );
         eprintln!("launch Openmina node, id: {node_id}, peer_id: {peer_id}");
 
@@ -111,13 +109,14 @@ impl SoloNodeBasicConnectivityInitialJoining {
             let known_peers: usize = node
                 .state()
                 .p2p
-                .network
-                .scheduler
-                .discovery_state()
-                .unwrap()
-                .routing_table
-                .closest_peers(&my_id.into())
-                .count();
+                .ready()
+                .and_then(|p2p| p2p.network.scheduler.discovery_state())
+                .map_or(0, |discovery_state| {
+                    discovery_state
+                        .routing_table
+                        .closest_peers(&my_id.into())
+                        .count()
+                });
 
             println!("step: {step}");
             println!("known peers: {known_peers}");

@@ -94,16 +94,8 @@ impl<'a> ClusterRunner<'a> {
         )
     }
 
-    pub fn get_chain_id(&self) -> Option<ChainId> {
-        self.cluster.get_chain_id()
-    }
-
     pub fn get_initial_time(&self) -> Option<redux::Timestamp> {
         self.cluster.get_initial_time()
-    }
-
-    pub fn set_chain_id(&mut self, chain_id: ChainId) {
-        self.cluster.set_chain_id(chain_id)
     }
 
     pub fn set_initial_time(&mut self, initial_time: redux::Timestamp) {

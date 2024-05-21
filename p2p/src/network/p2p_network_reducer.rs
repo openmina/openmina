@@ -14,22 +14,7 @@ impl P2pNetworkState {
         discovery: bool,
     ) -> Self {
         let peer_id = identity.peer_id();
-        let pnet_key = {
-            use blake2::{
-                digest::{generic_array::GenericArray, Update, VariableOutput},
-                Blake2bVar,
-            };
-
-            let mut key = GenericArray::default();
-            Blake2bVar::new(32)
-                .expect("valid constant")
-                .chain(b"/coda/0.0.1/")
-                .chain(chain_id.as_hex())
-                .finalize_variable(&mut key)
-                .expect("good buffer size");
-            key.into()
-        };
-
+        let pnet_key = chain_id.preshared_key();
         let discovery_state = discovery.then(|| {
             let mut routing_table =
                 P2pNetworkKadRoutingTable::new(P2pNetworkKadEntry::new(peer_id, addrs));

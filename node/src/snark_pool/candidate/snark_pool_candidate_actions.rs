@@ -63,7 +63,7 @@ impl redux::EnablingCondition<crate::State> for SnarkPoolCandidateAction {
                         .get(*peer_id, &info.job_id)
                         .map_or(true, |v| info > v)
             }
-            SnarkPoolCandidateAction::WorkFetchAll => true,
+            SnarkPoolCandidateAction::WorkFetchAll => state.p2p.ready().is_some(),
             SnarkPoolCandidateAction::WorkFetchInit { peer_id, job_id } => {
                 let is_peer_available = state
                     .p2p

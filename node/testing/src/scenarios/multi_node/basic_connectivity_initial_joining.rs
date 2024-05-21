@@ -57,14 +57,7 @@ impl MultiNodeBasicConnectivityInitialJoining {
             let mut steps = vec![];
             for node_id in &nodes {
                 let node_id = *node_id;
-                let this_id = runner
-                    .node(node_id)
-                    .unwrap()
-                    .state()
-                    .p2p
-                    .config
-                    .identity_pub_key
-                    .peer_id();
+                let this_id = runner.node(node_id).unwrap().state().p2p.my_id();
 
                 let node_steps = runner
                     .node_pending_events(node_id, true)
@@ -126,7 +119,8 @@ impl MultiNodeBasicConnectivityInitialJoining {
                 let ready_peers = p2p.ready_peers_iter().count();
 
                 // each node connected to some peers
-                conditions_met &= ready_peers >= node.state().p2p.min_peers();
+                conditions_met &=
+                    p2p.ready().is_some() && ready_peers >= node.state().p2p.unwrap().min_peers();
 
                 // maximum is not exceeded
                 let max_peers = if node_id == seed_node {
@@ -154,14 +148,18 @@ impl MultiNodeBasicConnectivityInitialJoining {
                     let p2p = &node.state().p2p;
                     let ready_peers = p2p.ready_peers_iter().count();
                     let my_id = p2p.my_id();
-                    let known_peers: usize = p2p
-                        .network
-                        .scheduler
-                        .discovery_state()
-                        .unwrap()
-                        .routing_table
-                        .closest_peers(&my_id.into())
-                        .count();
+
+                    let known_peers: usize = node
+                        .state()
+                        .p2p
+                        .ready()
+                        .and_then(|p2p| p2p.network.scheduler.discovery_state())
+                        .map_or(0, |discovery_state| {
+                            discovery_state
+                                .routing_table
+                                .closest_peers(&my_id.into())
+                                .count()
+                        });
                     let state_machine_peers = if cfg!(feature = "p2p-webrtc") {
                         ready_peers
                     } else {
@@ -169,10 +167,7 @@ impl MultiNodeBasicConnectivityInitialJoining {
                     };
                     total_connections_ready += ready_peers;
                     total_connections_known += state_machine_peers;
-                    eprintln!(
-                        "node {} has {ready_peers} peers",
-                        p2p.config.identity_pub_key.peer_id(),
-                    );
+                    eprintln!("node {} has {ready_peers} peers", p2p.my_id(),);
                 }
 
                 // TODO: calculate per peer
@@ -224,13 +219,10 @@ impl MultiNodeBasicConnectivityInitialJoining {
 
         for node_id in &nodes {
             let node = runner.node(*node_id).expect("node must exist");
-            let p2p: &node::p2p::P2pState = &node.state().p2p;
+            let p2p: &node::p2p::P2pState = &node.state().p2p.unwrap();
             let ready_peers = p2p.ready_peers_iter().count();
             // each node connected to some peers
-            println!(
-                "must hold {ready_peers} >= {}",
-                node.state().p2p.min_peers()
-            );
+            println!("must hold {ready_peers} >= {}", p2p.min_peers());
         }
 
         // for node_id in nodes {

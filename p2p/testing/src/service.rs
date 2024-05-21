@@ -37,7 +37,7 @@ impl ClusterService {
     ) -> Self {
         let mio = {
             let event_sender = event_sender.clone();
-            MioService::run(move |mio_event| {
+            MioService::new(move |mio_event| {
                 let _ = event_sender.send(mio_event.into());
                 //.expect("cannot send mio event")
             })

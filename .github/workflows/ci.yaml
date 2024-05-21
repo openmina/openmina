@@ -9,6 +9,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+env:
+  RUST_MIN_STACK: 10000000
+
 jobs:
   ledger-tests:
     runs-on: ubuntu-20.04
@@ -62,7 +65,7 @@ jobs:
 
       - name: Test p2p crate
         run: |
-          RUST_MIN_STACK=8388608 cargo test -p p2p --tests
+          cargo test -p p2p --tests
 
 
   build:
@@ -191,7 +194,7 @@ jobs:
 
       - name: Run the test
         run: |
-          RUST_MIN_STACK=8388608 ./${{ matrix.test }} --test-threads=1
+          ./${{ matrix.test }} --test-threads=1
 
   k8s-peers:
     runs-on: ubuntu-20.04
@@ -254,12 +257,14 @@ jobs:
 
       - name: Run the test
         run: |
-          RUST_MIN_STACK=8388608 ./${{ matrix.test }} --test-threads=1
+          ./${{ matrix.test }} --test-threads=1
 
 
   bootstrap-test:
     needs: [ k8s-peers, build ]
     runs-on: ubuntu-20.04
+    container:
+      image: minaprotocol/mina-daemon:2.0.0berkeley-rc1-1551e2f-focal-berkeley
     env:
       PEERS: ${{ needs.k8s-peers.outputs.peers }}
     steps:
@@ -272,7 +277,7 @@ jobs:
         run: |
           set -eu
           chmod +x ./openmina
-          ./openmina node --no-peers-discovery --peers $PEERS |& tee run.log &
+          ./openmina node --config /var/lib/coda/berkeley.json --no-peers-discovery --peers $PEERS 2>&1 | tee run.log &
           PID=$!
           TIME=10
           SLEEP=10

@@ -48,7 +48,7 @@ use crate::p2p::network::select::P2pNetworkSelectAction;
 use crate::p2p::network::yamux::P2pNetworkYamuxAction;
 use crate::p2p::network::P2pNetworkAction;
 use crate::p2p::peer::P2pPeerAction;
-use crate::p2p::P2pAction;
+use crate::p2p::{P2pAction, P2pInitializeAction};
 use crate::rpc::RpcAction;
 use crate::snark::block_verify::SnarkBlockVerifyAction;
 use crate::snark::work_verify::SnarkWorkVerifyAction;
@@ -211,6 +211,7 @@ pub enum ActionKind {
     P2pDiscoverySuccess,
     P2pIdentifyNewRequest,
     P2pIdentifyUpdatePeerInformation,
+    P2pInitializeInitialize,
     P2pNetworkIdentifyStreamClose,
     P2pNetworkIdentifyStreamIncomingData,
     P2pNetworkIdentifyStreamNew,
@@ -444,7 +445,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 371;
+    pub const COUNT: u16 = 372;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -492,6 +493,7 @@ impl ActionKindGet for EventSourceAction {
 impl ActionKindGet for P2pAction {
     fn kind(&self) -> ActionKind {
         match self {
+            Self::Initialization(a) => a.kind(),
             Self::Connection(a) => a.kind(),
             Self::Disconnection(a) => a.kind(),
             Self::Discovery(a) => a.kind(),
@@ -690,6 +692,14 @@ impl ActionKindGet for WatchedAccountsAction {
             Self::BlockLedgerQuerySuccess { .. } => {
                 ActionKind::WatchedAccountsBlockLedgerQuerySuccess
             }
+        }
+    }
+}
+
+impl ActionKindGet for P2pInitializeAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::Initialize { .. } => ActionKind::P2pInitializeInitialize,
         }
     }
 }

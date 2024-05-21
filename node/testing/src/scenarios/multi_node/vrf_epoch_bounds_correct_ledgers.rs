@@ -33,7 +33,6 @@ pub struct MultiNodeVrfEpochBoundsCorrectLedger;
 impl MultiNodeVrfEpochBoundsCorrectLedger {
     pub async fn run(self, mut runner: ClusterRunner<'_>) {
         let start = tokio::time::Instant::now();
-        let chain_id = runner.get_chain_id().unwrap();
         let initial_time = runner.get_initial_time().unwrap();
 
         let (initial_node, _) = runner.nodes_iter().last().unwrap();
@@ -49,7 +48,6 @@ impl MultiNodeVrfEpochBoundsCorrectLedger {
                 .unwrap();
 
         let rust_config = RustNodeTestingConfig {
-            chain_id,
             initial_time,
             genesis: node::config::BERKELEY_CONFIG.clone(),
             max_peers: 100,

@@ -15,7 +15,7 @@ pub mod consensus;
 mod chain_id;
 pub use chain_id::*;
 
-pub fn preshared_key(chain_id: ChainId) -> [u8; 32] {
+pub fn preshared_key(chain_id: &ChainId) -> [u8; 32] {
     use multihash::Hasher;
     let mut hasher = Blake2b256::default();
     hasher.update(b"/coda/0.0.1/");

@@ -4,7 +4,7 @@ use snark::work_verify::SnarkWorkVerifyAction;
 
 use crate::p2p::channels::rpc::{P2pChannelsRpcAction, P2pRpcRequest};
 use crate::p2p::disconnection::{P2pDisconnectionAction, P2pDisconnectionReason};
-use crate::Store;
+use crate::{p2p_ready, Store};
 
 use super::{SnarkPoolCandidateAction, SnarkPoolCandidateActionWithMeta};
 
@@ -12,12 +12,13 @@ pub fn snark_pool_candidate_effects<S: redux::Service>(
     store: &mut Store<S>,
     action: SnarkPoolCandidateActionWithMeta,
 ) {
-    let (action, _) = action.split();
+    let (action, meta) = action.split();
     match action {
         SnarkPoolCandidateAction::InfoReceived { .. } => {}
         SnarkPoolCandidateAction::WorkFetchAll => {
             let state = store.state();
-            let peers = state.p2p.ready_peers_iter().map(|(id, _)| *id);
+            let p2p = p2p_ready!(store.state().p2p, meta.time());
+            let peers = p2p.ready_peers_iter().map(|(id, _)| *id);
             let get_order = |job_id: &_| {
                 state
                     .snark_pool
@@ -35,7 +36,8 @@ pub fn snark_pool_candidate_effects<S: redux::Service>(
             }
         }
         SnarkPoolCandidateAction::WorkFetchInit { peer_id, job_id } => {
-            let Some(peer) = store.state().p2p.get_ready_peer(&peer_id) else {
+            let p2p = p2p_ready!(store.state().p2p, meta.time());
+            let Some(peer) = p2p.get_ready_peer(&peer_id) else {
                 return;
             };
             let rpc_id = peer.channels.rpc.next_local_rpc_id();

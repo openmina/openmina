@@ -1,6 +1,3 @@
-use openmina_core::channels::mpsc;
-use openmina_core::ChainId;
-
 use crate::{
     channels::{ChannelId, ChannelMsg, MsgId, P2pChannelsService},
     connection::{outgoing::P2pConnectionOutgoingInitOpts, P2pConnectionService},
@@ -26,23 +23,11 @@ pub trait P2pServiceWebrtcWithLibp2p: P2pServiceWebrtc {
     #[cfg(feature = "p2p-libp2p")]
     fn mio(&mut self) -> &mut MioService;
 
-    fn init<E: From<P2pEvent> + Send + 'static, S: TaskSpawner>(
-        _libp2p_port: Option<u16>,
-        secret_key: SecretKey,
-        _chain_id: ChainId,
-        event_source_sender: mpsc::UnboundedSender<E>,
-        spawner: S,
-    ) -> P2pServiceCtx {
+    fn init<S: TaskSpawner>(secret_key: SecretKey, spawner: S) -> P2pServiceCtx {
         P2pServiceCtx {
             webrtc: <Self as P2pServiceWebrtc>::init(secret_key, spawner),
             #[cfg(feature = "p2p-libp2p")]
-            mio: MioService::run({
-                move |mio_event| {
-                    event_source_sender
-                        .send(P2pEvent::MioEvent(mio_event).into())
-                        .unwrap_or_default()
-                }
-            }),
+            mio: MioService::default(),
         }
     }
 }
@@ -72,7 +57,7 @@ impl<T: P2pServiceWebrtcWithLibp2p> P2pConnectionService for T {
                     }
                 };
                 self.mio()
-                    .send_mio_cmd(crate::MioCmd::Connect(std::net::SocketAddr::new(
+                    .send_cmd(crate::MioCmd::Connect(std::net::SocketAddr::new(
                         addr, opts.port,
                     )));
             }
@@ -129,9 +114,22 @@ impl<T: P2pServiceWebrtcWithLibp2p> P2pChannelsService for T {
     }
 }
 
-impl<T: P2pServiceWebrtcWithLibp2p> crate::P2pMioService for T {
+impl<T> P2pMioService for T
+where
+    T: P2pServiceWebrtcWithLibp2p,
+{
+    #[cfg(feature = "p2p-libp2p")]
+    fn start_mio(&mut self) {
+        let event_sender = self.event_sender().clone();
+        self.mio().run(move |mio_event| {
+            event_sender
+                .send(P2pEvent::MioEvent(mio_event).into())
+                .unwrap_or_default()
+        });
+    }
+
     #[cfg(feature = "p2p-libp2p")]
     fn send_mio_cmd(&mut self, cmd: crate::MioCmd) {
-        self.mio().send_mio_cmd(cmd)
+        self.mio().send_cmd(cmd)
     }
 }

@@ -1,6 +1,5 @@
 use std::{collections::BTreeSet, time::Duration};
 
-use openmina_core::ChainId;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -28,9 +27,6 @@ pub struct P2pConfig {
     pub max_peers: usize,
 
     pub timeouts: P2pTimeouts,
-
-    /// Chain id
-    pub chain_id: ChainId,
 
     /// Use peers discovery.
     pub peer_discovery: bool,

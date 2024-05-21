@@ -145,7 +145,7 @@ impl OCamlToRust {
         let state = driver.exec_even_step(connected).await.unwrap().unwrap();
         // check that now there is an outgoing connection to the ocaml peer
         assert!(matches!(
-            &state.p2p.peers.get(&ocaml_peer_id).unwrap().status,
+            &state.p2p.get_peer(&ocaml_peer_id).unwrap().status,
             P2pPeerStatus::Ready(ready) if ready.is_incoming
         ));
 
@@ -214,7 +214,7 @@ impl RustToOCaml {
         let state = driver.exec_even_step(connected).await.unwrap().unwrap();
         // check that now there is an outgoing connection to the ocaml peer
         assert!(matches!(
-            &state.p2p.peers.get(&seed_peer_id.clone().into()).unwrap().status,
+            &state.p2p.get_peer(&seed_peer_id.clone().into()).unwrap().status,
             P2pPeerStatus::Ready(ready) if !ready.is_incoming
         ));
 
@@ -292,7 +292,7 @@ impl OCamlToRustViaSeed {
 
         let state = driver.exec_even_step(connected).await.unwrap().unwrap();
         assert!(matches!(
-            &state.p2p.peers.get(&seed_peer_id.clone().into()).unwrap().status,
+            &state.p2p.get_peer(&seed_peer_id.clone().into()).unwrap().status,
             P2pPeerStatus::Ready(ready) if !ready.is_incoming
         ));
 
@@ -318,8 +318,7 @@ impl OCamlToRustViaSeed {
                 .unwrap()
                 .state()
                 .p2p
-                .peers
-                .get(&seed_peer_id.clone().into())
+                .get_peer(&seed_peer_id.clone().into())
                 .unwrap()
                 .status,
             P2pPeerStatus::Disconnected { .. }
@@ -341,7 +340,7 @@ impl OCamlToRustViaSeed {
 
         let state = driver.exec_even_step(connected).await.unwrap().unwrap();
         assert!(matches!(
-            &state.p2p.peers.get(&ocaml_peer_id).unwrap().status,
+            &state.p2p.get_peer(&ocaml_peer_id).unwrap().status,
             P2pPeerStatus::Ready(ready) if ready.is_incoming
         ));
     }
@@ -414,7 +413,7 @@ impl RustToOCamlViaSeed {
 
         let state = driver.exec_even_step(connected).await.unwrap().unwrap();
         assert!(matches!(
-            &state.p2p.peers.get(&seed_peer_id.clone().into()).unwrap().status,
+            &state.p2p.get_peer(&seed_peer_id.clone().into()).unwrap().status,
             P2pPeerStatus::Ready(ready) if !ready.is_incoming
         ));
 
@@ -429,7 +428,7 @@ impl RustToOCamlViaSeed {
                             peer,
                             Ok(()),
                         ))) if peer == &ocaml_peer_id => {
-                            if let Some(peer_state) = &state.p2p.peers.get(peer) {
+                            if let Some(peer_state) = &state.p2p.get_peer(peer) {
                                 let status = &peer_state.status;
                                 if let P2pPeerStatus::Connecting(P2pConnectionState::Incoming(..)) =
                                     status

@@ -358,7 +358,6 @@ impl Cluster {
             ask_initial_peers_interval: Duration::from_secs(5),
             enabled_channels: p2p::channels::ChannelId::for_libp2p().collect(),
             max_peers: 100,
-            chain_id: self.chain_id.clone(),
             peer_discovery: config.discovery,
             timeouts: config.timeouts,
             initial_time: Duration::ZERO,
@@ -402,7 +401,7 @@ impl Cluster {
             },
             service,
             SystemTime::now(),
-            State(P2pState::new(config)),
+            State(P2pState::new(config, &self.chain_id)),
         );
 
         let node_id = RustNodeId(self.rust_nodes.len());
@@ -415,13 +414,8 @@ impl Cluster {
         let secret_key = Self::secret_key(config.peer_id, node_id.0, LIBP2P_NODE_SIG_BYTE);
         let libp2p_port = self.next_port()?;
 
-        let swarm = create_swarm(
-            secret_key,
-            libp2p_port,
-            config.port_reuse,
-            self.chain_id.clone(),
-        )
-        .map_err(|err| Error::Libp2pSwarm(err.to_string()))?;
+        let swarm = create_swarm(secret_key, libp2p_port, config.port_reuse, &self.chain_id)
+            .map_err(|err| Error::Libp2pSwarm(err.to_string()))?;
         self.libp2p_nodes.push(Libp2pNode::new(swarm));
 
         Ok(node_id)

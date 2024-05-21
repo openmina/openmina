@@ -57,12 +57,23 @@ impl ChainId {
             .reduce(|acc, el| acc + &el)
             .unwrap_or_else(|| String::new());
         let genesis_constants_hash = hash_genesis_constants(genesis_constants, tx_max_pool_size);
-            hasher.update(genesis_state_hash.to_string().as_bytes());
-            hasher.update(constraint_system_hash.to_string().as_bytes());
-            hasher.update(hex::encode(&genesis_constants_hash).as_bytes());
-            hasher.update(md5_hash(protocol_transaction_version).as_bytes());
-            hasher.update(md5_hash(protocol_network_version).as_bytes());
+        hasher.update(genesis_state_hash.to_string().as_bytes());
+        hasher.update(constraint_system_hash.to_string().as_bytes());
+        hasher.update(hex::encode(&genesis_constants_hash).as_bytes());
+        hasher.update(md5_hash(protocol_transaction_version).as_bytes());
+        hasher.update(md5_hash(protocol_network_version).as_bytes());
         ChainId(hasher.finalize().try_into().unwrap())
+    }
+
+    /// Computes shared key for libp2p Pnet protocol.
+    pub fn preshared_key(&self) -> [u8; 32] {
+        let mut hasher = Blake2b256::default();
+        hasher.update(b"/coda/0.0.1/");
+        hasher.update(self.to_hex().as_bytes());
+        let hash = hasher.finalize();
+        let mut psk_fixed: [u8; 32] = Default::default();
+        psk_fixed.copy_from_slice(hash.as_ref());
+        psk_fixed
     }
 
     pub fn to_hex(&self) -> String {

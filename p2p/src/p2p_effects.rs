@@ -210,6 +210,9 @@ where
 {
     let (action, meta) = action.split();
     match action {
+        P2pAction::Initialization(_) => {
+            // Noop
+        }
         P2pAction::Connection(action) => match action {
             P2pConnectionAction::Outgoing(action) => action.effects(&meta, store),
             P2pConnectionAction::Incoming(action) => action.effects(&meta, store),

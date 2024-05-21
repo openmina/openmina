@@ -8,10 +8,9 @@ use std::time::Duration;
 use libp2p_identity::Keypair;
 use mina_p2p_messages::v2::{
     CurrencyFeeStableV1, NonZeroCurvePoint, NonZeroCurvePointUncompressedStableV1,
-    UnsignedExtendedUInt32StableV1, UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
+    UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
 };
 use node::transition_frontier::genesis::GenesisConfig;
-use openmina_core::{constants, ChainId};
 use rand::prelude::*;
 
 use redux::SystemTime;
@@ -190,16 +189,7 @@ impl Node {
             Some(c) => Arc::new(GenesisConfig::DaemonJson(c)),
             None => node::config::BERKELEY_CONFIG.clone(),
         };
-        let transition_frontier = TransitionFrontierConfig::new(genesis_config.clone());
-        let protocol_constants = genesis_config.protocol_constants()?;
-        let chain_id = ChainId::compute(
-            constants::CONSTRAINT_SYSTEM_DIGESTS.as_slice(),
-            &constants::GENESIS_STATE_HASH,
-            &protocol_constants,
-            constants::PROTOCOL_TRANSACTION_VERSION,
-            constants::PROTOCOL_NETWORK_VERSION,
-            &UnsignedExtendedUInt32StableV1::from(constants::TX_POOL_MAX_SIZE),
-        );
+        let transition_frontier = TransitionFrontierConfig::new(genesis_config);
         let config = Config {
             ledger: LedgerConfig {},
             snark: SnarkConfig {
@@ -230,7 +220,6 @@ impl Node {
                 ask_initial_peers_interval: Duration::from_secs(3600),
                 enabled_channels: ChannelId::for_libp2p().collect(),
                 timeouts: P2pTimeouts::default(),
-                chain_id: chain_id.to_owned(),
                 peer_discovery: !self.no_peers_discovery,
                 initial_time: SystemTime::now()
                     .duration_since(SystemTime::UNIX_EPOCH)
@@ -250,10 +239,7 @@ impl Node {
         );
 
         let p2p_service_ctx = <NodeService as P2pServiceWebrtcWithLibp2p>::init(
-            Some(self.libp2p_port),
             secret_key.clone(),
-            chain_id.clone(),
-            event_sender.clone(),
             P2pTaskSpawner {},
         );
 

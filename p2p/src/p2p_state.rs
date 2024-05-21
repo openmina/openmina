@@ -1,5 +1,5 @@
 use multiaddr::multiaddr;
-use openmina_core::block::ArcBlockWithHash;
+use openmina_core::{block::ArcBlockWithHash, ChainId};
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -25,7 +25,7 @@ pub struct P2pState {
 }
 
 impl P2pState {
-    pub fn new(config: P2pConfig) -> Self {
+    pub fn new(config: P2pConfig, chain_id: &ChainId) -> Self {
         let addrs = config
             .libp2p_port
             .map(|port| multiaddr!(Ip4([127, 0, 0, 1]), Tcp((port))))
@@ -69,7 +69,7 @@ impl P2pState {
             config.identity_pub_key.clone(),
             addrs,
             known_peers,
-            &config.chain_id,
+            chain_id,
             config.peer_discovery,
         );
         Self {
