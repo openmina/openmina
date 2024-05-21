@@ -45,6 +45,10 @@ pub enum P2pNetworkSelectAction {
         kind: SelectKind,
         tokens: Vec<token::Token>,
     },
+    Timeout {
+        addr: SocketAddr,
+        kind: SelectKind,
+    },
 }
 
 #[derive(Default, Serialize, Deserialize, Debug, Clone, Copy)]
@@ -75,6 +79,7 @@ impl P2pNetworkSelectAction {
             Self::IncomingPayload { addr, .. } => addr,
             Self::IncomingToken { addr, .. } => addr,
             Self::OutgoingTokens { addr, .. } => addr,
+            Self::Timeout { addr, .. } => addr,
         }
     }
 
@@ -85,6 +90,7 @@ impl P2pNetworkSelectAction {
             Self::IncomingPayload { kind, .. } => kind,
             Self::IncomingToken { kind, .. } => kind,
             Self::OutgoingTokens { kind, .. } => kind,
+            Self::Timeout { kind, .. } => kind,
         }
     }
 }
@@ -102,6 +108,7 @@ impl redux::EnablingCondition<P2pState> for P2pNetworkSelectAction {
             Self::IncomingPayload { .. } => true,
             Self::IncomingToken { .. } => true,
             Self::OutgoingTokens { .. } => true,
+            Self::Timeout { .. } => true,
         }
     }
 }

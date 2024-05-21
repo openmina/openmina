@@ -242,7 +242,6 @@ impl P2pNetworkSchedulerAction {
                 // Close state is set by reducer for the non-stream case
                 if let Some(conn_state) = store.state().network.scheduler.connections.get(&addr) {
                     if let Some(reason) = conn_state.closed.clone() {
-                        println!(">>>>>> Select error disconnect {:?} {:?}", addr, reason);
                         store.service().send_mio_cmd(MioCmd::Disconnect(addr));
                         store.dispatch(Self::Disconnected { addr, reason });
                     }
