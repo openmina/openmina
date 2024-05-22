@@ -19,12 +19,13 @@ use super::super::*;
 pub struct P2pNetworkNoiseState {
     pub local_pk: PublicKey,
     pub buffer: Vec<u8>,
-    pub incoming_chunks: VecDeque<Vec<u8>>,
+    pub incoming_chunks: Vec<Data>,
     pub outgoing_chunks: VecDeque<Vec<Data>>,
     pub decrypted_chunks: VecDeque<Data>,
 
     pub inner: Option<P2pNetworkNoiseStateInner>,
     pub handshake_optimized: bool,
+    pub handshake_reported: bool,
 }
 
 impl P2pNetworkNoiseState {
@@ -49,6 +50,7 @@ impl P2pNetworkNoiseState {
             decrypted_chunks: Default::default(),
             inner: Default::default(),
             handshake_optimized,
+            handshake_reported: false,
         }
     }
 }

@@ -19,7 +19,7 @@ impl P2pNetworkNoiseAction {
             return;
         };
 
-        let incoming = state.incoming_chunks.front().cloned().map(Into::into);
+        let incoming = state.incoming_chunks.clone();
         let outgoing = state.outgoing_chunks.front().cloned();
         let decrypted = state.decrypted_chunks.front().cloned();
         let remote_peer_id = match &state.inner {
@@ -33,15 +33,12 @@ impl P2pNetworkNoiseAction {
         let handshake_done = if let Some(P2pNetworkNoiseStateInner::Done {
             remote_peer_id,
             incoming,
-            send_nonce,
-            recv_nonce,
             ..
         }) = &state.inner
         {
             if ((matches!(self, Self::IncomingChunk { .. }) && *incoming)
                 || (matches!(self, Self::OutgoingChunk { .. }) && !*incoming))
-                && *send_nonce == 0
-                && *recv_nonce == 0
+                && !state.handshake_reported
             {
                 Some((*remote_peer_id, *incoming))
             } else {
@@ -121,8 +118,11 @@ impl P2pNetworkNoiseAction {
                 }
             }
             Self::IncomingData { addr, .. } => {
-                if let Some(data) = incoming {
-                    store.dispatch(P2pNetworkNoiseAction::IncomingChunk { addr, data });
+                if !incoming.is_empty() {
+                    store.dispatch(P2pNetworkNoiseAction::IncomingChunk {
+                        addr,
+                        data: incoming,
+                    });
                 }
             }
             Self::IncomingChunk { addr, .. } => {
@@ -177,8 +177,11 @@ impl P2pNetworkNoiseAction {
                         data,
                     });
                 }
-                if let Some(data) = incoming {
-                    store.dispatch(P2pNetworkNoiseAction::IncomingChunk { addr, data });
+                if !incoming.is_empty() {
+                    store.dispatch(P2pNetworkNoiseAction::IncomingChunk {
+                        addr,
+                        data: incoming,
+                    });
                 }
 
                 if !handshake_optimized && (middle_initiator || middle_responder) {

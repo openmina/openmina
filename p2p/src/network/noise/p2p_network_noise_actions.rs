@@ -26,7 +26,7 @@ pub enum P2pNetworkNoiseAction {
     },
     IncomingChunk {
         addr: SocketAddr,
-        data: Data,
+        data: Vec<Data>,
     },
     OutgoingChunk {
         addr: SocketAddr,

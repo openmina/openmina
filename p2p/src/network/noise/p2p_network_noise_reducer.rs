@@ -72,7 +72,7 @@ impl P2pNetworkNoiseState {
                         let len = u16::from_be_bytes(buf[..2].try_into().expect("cannot fail"));
                         let full_len = 2 + len as usize;
                         if buf.len() >= full_len {
-                            self.incoming_chunks.push_back(buf[..full_len].to_vec());
+                            self.incoming_chunks.push(buf[..full_len].to_vec().into());
                             offset += full_len;
 
                             continue;
@@ -86,8 +86,8 @@ impl P2pNetworkNoiseState {
                 let Some(state) = &mut self.inner else {
                     return;
                 };
-                if let Some(mut chunk) = self.incoming_chunks.pop_front() {
-                    match state {
+                for mut chunk in dbg!(&mut self.incoming_chunks).drain(..) {
+                    match dbg!(&mut *state) {
                         P2pNetworkNoiseStateInner::Initiator(i) => match i.consume(&mut chunk) {
                             Ok(_) => {
                                 // self.handshake_optimized = remote_payload.is_some();
@@ -233,7 +233,9 @@ impl P2pNetworkNoiseState {
             P2pNetworkNoiseAction::DecryptedData { .. } => {
                 self.decrypted_chunks.pop_front();
             }
-            P2pNetworkNoiseAction::HandshakeDone { .. } => {}
+            P2pNetworkNoiseAction::HandshakeDone { .. } => {
+                self.handshake_reported = true;
+            }
         }
     }
 }
