@@ -903,7 +903,7 @@ fn basic_spec(s: &SegmentBasic) -> Box<[Spec]> {
 fn read_witnesses<F: FieldWitness>(path: &str) -> Vec<F> {
     let f = std::fs::read_to_string(
         std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("berkeley_rc1")
+            .join("3.0.0devnet")
             .join("witnesses")
             .join(path),
         // .join("zkapp_fps.txt"),
