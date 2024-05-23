@@ -24,11 +24,7 @@ pub mod hash;
 mod hash_input;
 pub mod pseq;
 #[allow(clippy::all)]
-pub mod v1;
-#[allow(clippy::all)]
 pub mod v2;
-
-pub use gossip::GossipNetMessageV1;
 
 pub use rpc::JSONifyPayloadRegistry;
 pub use rpc_kernel::JSONinifyPayloadReader;
