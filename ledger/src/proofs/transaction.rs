@@ -4190,6 +4190,9 @@ mod tests {
         let fee = crate::scan_state::currency::Fee::from_u64(1_000_000);
 
         for filename in entries {
+            if !filename.ends_with(".bin") {
+                continue;
+            }
             let bytes = std::fs::read(&filename).unwrap();
 
             let single: SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0Single =
