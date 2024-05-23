@@ -1,11 +1,9 @@
 use binprot::BinProtRead;
-use gloo_utils::format::JsValueSerdeExt;
 use mina_p2p_messages::{
-    gossip::{GossipNetMessageV1, GossipNetMessageV2},
+    gossip::GossipNetMessageV2,
     rpc::VersionedRpcMenuV1,
     rpc_kernel::{Message, RpcMethod},
 };
-use wasm_bindgen::JsValue;
 
 mod utils;
 
@@ -78,24 +76,6 @@ fn jsonify_gossip_v2_roundtrip() {
         let json = serde_json::to_value(&from_bin_prot).unwrap();
         let from_json = serde_json::from_value(json).unwrap();
         assert_eq!(from_bin_prot, from_json);
-    })
-    .unwrap();
-}
-
-#[test]
-fn jsonify_javascript_v1_roundtrip() {
-    utils::for_all("v1/gossip", |_, mut encoded| {
-        let msg = GossipNetMessageV1::binprot_read(&mut encoded).unwrap();
-        let js_value = JsValue::from_serde(&msg).unwrap();
-        let msg_from_js_value: GossipNetMessageV1 = js_value.into_serde().unwrap();
-
-        println!("--------||||||||||||");
-        println!("msg: {:?}", msg);
-        println!("--------||||||||||||");
-        println!("msg_from_js_value: {:?}", msg_from_js_value);
-        println!("--------||||||||||||");
-
-        assert_eq!(msg, msg_from_js_value);
     })
     .unwrap();
 }

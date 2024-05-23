@@ -133,7 +133,7 @@ impl binprot::BinProtWrite for ByteString {
 }
 
 /// Human-readable string.
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub struct CharString(Vec<u8>);
 
 impl std::fmt::Debug for CharString {

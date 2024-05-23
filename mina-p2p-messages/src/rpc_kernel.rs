@@ -499,6 +499,7 @@ mod tests {
     use binprot_derive::BinProtRead;
 
     use crate::{
+        list::List,
         rpc_kernel::{BinprotTag, NeedsLength, RpcResult},
         utils::FromBinProtStream,
         versioned::Ver,
@@ -596,7 +597,7 @@ mod tests {
             version: Ver,
         }
 
-        type QueryType = Vec<RpcTagVersion>;
+        type QueryType = List<RpcTagVersion>;
 
         test_message(
             concat!(
@@ -630,7 +631,7 @@ mod tests {
                         tag: tag.into(),
                         version: 1,
                     })
-                    .collect::<Vec<_>>(),
+                    .collect::<List<_>>(),
                 ))),
             }),
         );

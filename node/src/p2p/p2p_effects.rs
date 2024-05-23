@@ -409,7 +409,7 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
                             Some(P2pRpcResponse::InitialPeers(peers)) => {
                                 store.dispatch(P2pDiscoveryAction::Success {
                                     peer_id,
-                                    peers: peers.clone(),
+                                    peers: peers.iter().cloned().collect(),
                                 });
                             }
                         }

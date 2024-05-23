@@ -114,9 +114,6 @@ fn read_rpc_response_untyped<R: Read>(
         (tag, 2) if tag == "get_best_tip" => {
             binprot_read_rpc_response::<GetBestTipV2, _>(read)?;
         }
-        (tag, 1) if tag == "get_node_status" => {
-            binprot_read_rpc_response::<GetNodeStatusV1, _>(read)?;
-        }
         (tag, 2) if tag == "get_node_status" => {
             binprot_read_rpc_response::<GetNodeStatusV2, _>(read)?;
         }

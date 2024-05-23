@@ -10,8 +10,8 @@ license = "Apache-2.0"
 serde = { version = "1.0.142", features = ["derive"] }
 serde_json = { version = "1.0.83" }
 hex = "0.4.3"
-binprot = { git = "https://github.com/openmina/binprot-rs", rev = "3f29b25" }
-binprot_derive = { git = "https://github.com/openmina/binprot-rs", rev = "3f29b25" }
+binprot = { git = "https://github.com/openmina/binprot-rs", rev = "2b5a909" }
+binprot_derive = { git = "https://github.com/openmina/binprot-rs", rev = "2b5a909" }
 thiserror = "1.0.32"
 derive_more = "0.99.17"
 bs58 = { version = "0.4", features = ["check"] }

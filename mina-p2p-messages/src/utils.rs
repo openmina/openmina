@@ -20,7 +20,7 @@ pub fn decode_string<R>(r: &mut R) -> Result<String, binprot::Error>
 where
     R: Read,
 {
-    String::binprot_read(r)
+    binprot::SmallString1k::binprot_read(r).map(|s| s.0)
 }
 
 /// Decodes an integer from the slice containing `bin_prot` encoded bytes.

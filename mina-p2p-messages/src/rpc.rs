@@ -36,7 +36,7 @@ mina_rpc!(
     "__Versioned_rpc.Menu",
     1,
     (),
-    Vec<(CharString, Ver)>
+    List<(CharString, Ver)>
 );
 
 mina_rpc!(
@@ -44,14 +44,14 @@ mina_rpc!(
     "get_some_initial_peers",
     1,
     (),
-    Vec<v2::NetworkPeerPeerStableV1>
+    List<v2::NetworkPeerPeerStableV1>
 );
 
 pub type GetStagedLedgerAuxAndPendingCoinbasesAtHashV2Response = Option<(
     v2::TransactionSnarkScanStateStableV2,
     LedgerHashV1,
     v2::MinaBasePendingCoinbaseStableV2,
-    Vec<v2::MinaStateProtocolStateValueStableV2>,
+    List<v2::MinaStateProtocolStateValueStableV2>,
 )>;
 
 mina_rpc!(
@@ -74,11 +74,11 @@ mina_rpc!(
     GetTransitionChainV2,
     "get_transition_chain",
     2,
-    Vec<StateHashV1>,
-    Option<Vec<v2::MinaBlockBlockStableV2>>
+    List<StateHashV1>,
+    Option<List<v2::MinaBlockBlockStableV2>>
 );
 
-pub type GetTransitionChainProofV1ForV2Response = Option<(StateHashV1, Vec<StateBodyHashV1>)>;
+pub type GetTransitionChainProofV1ForV2Response = Option<(StateHashV1, List<StateBodyHashV1>)>;
 mina_rpc!(
     GetTransitionChainProofV1ForV2,
     "get_transition_chain_proof",
@@ -92,7 +92,7 @@ mina_rpc!(
     "Get_transition_knowledge",
     1,
     (),
-    Vec<StateHashV1Versioned>
+    List<StateHashV1Versioned>
 );
 
 mina_rpc!(
@@ -100,7 +100,7 @@ mina_rpc!(
     "Get_transition_knowledge",
     1,
     (),
-    Vec<StateHashV1>
+    List<StateHashV1>
 );
 
 // pub struct ConsensusDataConsensusStateValue;
@@ -124,7 +124,7 @@ pub type GetAncestryV2Query =
 pub type GetAncestryV2Response = Option<
     ProofCarryingDataWithHashV1<
         v2::MinaBlockBlockStableV2,
-        (Vec<StateBodyHashV1>, v2::MinaBlockBlockStableV2),
+        (List<StateBodyHashV1>, v2::MinaBlockBlockStableV2),
     >,
 >;
 mina_rpc!(
@@ -147,7 +147,7 @@ pub type GetBestTipV2Response = Option<
     ProofCarryingDataStableV1<
         v2::MinaBlockBlockStableV2,
         (
-            Vec<v2::MinaBaseStateBodyHashStableV1>,
+            List<v2::MinaBaseStateBodyHashStableV1>,
             v2::MinaBlockBlockStableV2,
         ),
     >,
@@ -204,6 +204,7 @@ impl JSONifyPayloadRegistry {
         let mut this = Self {
             table: BTreeMap::new(),
         };
+        this.insert(VersionedRpcMenuV1);
         this.insert(GetSomeInitialPeersV1ForV2);
         this.insert(GetStagedLedgerAuxAndPendingCoinbasesAtHashV2);
         this.insert(AnswerSyncLedgerQueryV2);
