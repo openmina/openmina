@@ -28,7 +28,7 @@ snark = { path = "../snark" }
 p2p = { path = "../p2p" }
 openmina-node-account = { path = "./account" }
 tokio = { version = "1.26.0" }
-serde_cbor = "0.11.2"
+ciborium = "0.2.2"
 
 [build-dependencies]
 regex = "1"

@@ -414,23 +414,26 @@ impl From<&VerifierIndexCached> for VerifierIndex<Pallas> {
 
 #[derive(Debug, thiserror::Error)]
 #[error("Error writing verifier index to bytes: {0}")]
-pub struct VerifierIndexToBytesError(#[from] serde_cbor::Error);
+pub struct VerifierIndexToBytesError(#[from] ciborium::ser::Error<std::io::Error>);
 
 pub fn verifier_index_to_bytes(
     verifier: &VerifierIndex<Pallas>,
 ) -> Result<Vec<u8>, VerifierIndexToBytesError> {
     let verifier: VerifierIndexCached = verifier.into();
-    Ok(serde_cbor::to_vec(&verifier)?)
+    let mut result = Vec::new();
+    ciborium::ser::into_writer(&verifier, &mut result)?;
+    Ok(result)
 }
 
 #[derive(Debug, thiserror::Error)]
 #[error("Error reading verifier index from bytes: {0}")]
-pub struct VerifierIndexFromBytesError(#[from] serde_cbor::Error);
+pub struct VerifierIndexFromBytesError(#[from] ciborium::de::Error<std::io::Error>);
 
 pub fn verifier_index_from_bytes(
     bytes: &[u8],
 ) -> Result<VerifierIndex<Pallas>, VerifierIndexFromBytesError> {
-    let verifier: VerifierIndexCached = serde_cbor::from_slice(bytes)?;
+    let mut cursor = std::io::Cursor::new(bytes);
+    let verifier: VerifierIndexCached = ciborium::de::from_reader(&mut cursor)?;
     Ok((&verifier).into())
 }
 
@@ -442,8 +445,9 @@ where
     BigInt: From<&'a <G as AffineCurve>::BaseField>,
 {
     let srs: SRSCached = srs.into();
-
-    serde_cbor::to_vec(&srs).unwrap()
+    let mut result = Vec::new();
+    ciborium::ser::into_writer(&srs, &mut result).unwrap();
+    result
 }
 
 pub fn srs_from_bytes<G>(bytes: &[u8]) -> SRS<G>
@@ -451,6 +455,7 @@ where
     G: CommitmentCurve,
     G: for<'a> From<&'a GroupAffineCached>,
 {
-    let srs: SRSCached = serde_cbor::from_slice(bytes).unwrap();
+    let mut cursor = std::io::Cursor::new(bytes);
+    let srs: SRSCached = ciborium::de::from_reader(&mut cursor).unwrap();
     (&srs).into()
 }
