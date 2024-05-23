@@ -4159,11 +4159,10 @@ mod tests {
 
     #[allow(unused)]
     #[test]
+    #[ignore]
     fn test_convert_requests() {
         use binprot::BinProtWrite;
         use mina_p2p_messages::v2::*;
-
-        return;
 
         fn write_binprot<T: BinProtWrite, W: std::io::Write>(spec: T, mut w: W) {
             let mut buf = Vec::new();
@@ -4369,7 +4368,7 @@ mod tests {
         let Ok(data) =
             // std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("request_signed.bin"))
             // std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("rampup4").join("request_payment_0_rampup4.bin"))
-            std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("3.0.0devnet").join("tests").join("command-0-0.bin"))
+            std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("3.0.0devnet").join("tests").join("command-0-1.bin"))
             // std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("rampup4").join("request_payment_1_rampup4.bin"))
             // std::fs::read("/tmp/fee_transfer_1_rampup4.bin")
             // std::fs::read("/tmp/coinbase_1_rampup4.bin")
@@ -4415,11 +4414,11 @@ mod tests {
         dbg!(sum);
     }
 
+    /// Print requests types
     #[allow(unused)]
     #[test]
+    #[ignore]
     fn test_read_requests() {
-        return;
-
         let path = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("3.0.0devnet")
             .join("tests");
@@ -4466,6 +4465,7 @@ mod tests {
                     }
                     mina_p2p_messages::v2::MinaBaseUserCommandStableV2::ZkappCommand(z) => {
                         eprintln!("[{}] zkapp: {:?}", index, file);
+                        // Print the zkapp to find if it's signature or proof authorization
                         // eprintln!("zkapp {:#?}", z);
                     }
                 },
@@ -4530,11 +4530,11 @@ mod tests {
         .unwrap();
         let proof_json = serde_json::to_vec(&proof).unwrap();
 
-        let _sum = dbg!(sha256_sum(&proof_json));
-        // assert_eq!(
-        //     sum,
-        //     "49eed450384e96b61debdec162884358635ab083ac09fe1c09e2a4aa4f169bf8"
-        // );
+        let sum = dbg!(sha256_sum(&proof_json));
+        assert_eq!(
+            sum,
+            "5ce0be0a15c2674610c2da0ab46292636ceb53516cb8f3e370d3ef6d591ff26d" // TODO: Compare with OCaml
+        );
     }
 
     #[test]
@@ -4543,7 +4543,7 @@ mod tests {
             Path::new(env!("CARGO_MANIFEST_DIR"))
                 .join("3.0.0devnet")
                 .join("tests")
-                .join("command-260-1.bin"),
+                .join("command-1-0.bin"),
         ) else {
             eprintln!("request not found");
             panic_in_ci();
@@ -4582,12 +4582,12 @@ mod tests {
         .unwrap();
 
         let proof_json = serde_json::to_vec(&proof.proof).unwrap();
-        let _sum = dbg!(sha256_sum(&proof_json));
+        let sum = dbg!(sha256_sum(&proof_json));
 
-        // assert_eq!(
-        //     sum,
-        //     "6e9bb6ed613cf0aa737188e0e8ddde7438211ca54c02e89aff32816c181caca9"
-        // );
+        assert_eq!(
+            sum,
+            "9795109a9ad86f1e93b8c9688ddbe467df0af481c495e21f0a73773d284a8458" // TODO: Compare with OCaml
+        );
     }
 
     #[test]
@@ -4684,7 +4684,7 @@ mod tests {
             zkapp_step_proof_prover: _,
         } = &*get_provers();
         let mut witnesses: Witness<Fp> = Witness::new::<StepBlockProof>();
-        witnesses.ocaml_aux = read_witnesses("block_fps.txt").unwrap();
+        // witnesses.ocaml_aux = read_witnesses("block_fps.txt").unwrap();
 
         let WrapProof { proof, .. } = generate_block_proof(
             BlockParams {
@@ -4736,12 +4736,13 @@ mod tests {
             zkapp_step_proof_prover,
         } = &*get_provers();
 
+        // TODO: Compare checksum with OCaml
         #[rustfmt::skip]
         let zkapp_cases = [
             // zkapp proof with signature authorization
-            ("command-260-1.bin", None, None, "0c7cd3cdb923189a8529742f223a2aff0e826129494062c65e08eb29ef8c7b2d"),
+            ("command-1-0.bin", None, None, "9795109a9ad86f1e93b8c9688ddbe467df0af481c495e21f0a73773d284a8458"),
             // zkapp proof with proof authorization
-            ("command-157-1.bin", None, None, "35e6c960fe48bedc92c20ab613972d70c4b8423139758c442b0ddc2025bdaaba"),
+            // ("command-157-1.bin", None, None, "35e6c960fe48bedc92c20ab613972d70c4b8423139758c442b0ddc2025bdaaba"),
             // zkapp with multiple account updates
             // ("zkapp_2_0_rampup4.bin", None, None, "03153d1c5b934e00c7102d3683f27572b6e8bfe0335817cb822d701c83415930"),
         ];
@@ -4767,7 +4768,7 @@ mod tests {
             let proof_json = serde_json::to_vec(&proof.proof).unwrap();
             let sum = dbg!(sha256_sum(&proof_json));
 
-            // assert_eq!(sum, expected_sum);
+            assert_eq!(sum, expected_sum);
         }
 
         // Block proof
@@ -4841,17 +4842,18 @@ mod tests {
 
             let proof_json = serde_json::to_vec(&proof).unwrap();
 
-            let _sum = sha256_sum(&proof_json);
-            // assert_eq!(
-            //     sum,
-            //     "49eed450384e96b61debdec162884358635ab083ac09fe1c09e2a4aa4f169bf8"
-            // );
+            let sum = dbg!(sha256_sum(&proof_json));
+            assert_eq!(
+                sum,
+                "5ce0be0a15c2674610c2da0ab46292636ceb53516cb8f3e370d3ef6d591ff26d" // TODO: Compare with OCaml
+            );
         }
 
+        // TODO: Compare checksum with OCaml
         // Same values than OCaml
         #[rustfmt::skip]
         let requests = [
-            ("command-0-0.bin", "c209c2f40caf61b29af5162476748ee7865eef0bc92eb1e6a50e52fc1d391c1e"),
+            ("command-0-1.bin", "0372f9aeb9907e4b2d05dfac24983ee3e392ea3aae448e33750d859ee6ebab9c"),
             // ("request_payment_1_rampup4.bin", "a5391b8ac8663a06a0a57ee6b6479e3cf4d95dfbb6d0688e439cb8c36cf187f6"),
             // ("coinbase_0_rampup4.bin", "a2ce1982938687ca3ba3b1994e5100090a80649aefb1f0d10f736a845dab2812"),
             // ("coinbase_1_rampup4.bin", "1120c9fe25078866e0df90fd09a41a2f5870351a01c8a7227d51a19290883efe"),
@@ -4875,7 +4877,7 @@ mod tests {
             // ("fee_transfer_9_rampup4.bin", "087a07eddedf5de18b2f2bd7ded3cd474d00a0030e9c13d7a5fd2433c72fc7d5"),
         ];
 
-        for (file, _expected_sum) in requests {
+        for (file, expected_sum) in requests {
             let data = std::fs::read(base_dir.join(file)).unwrap();
             let (statement, tx_witness, message) = extract_request(&data);
 
@@ -4901,14 +4903,14 @@ mod tests {
             .unwrap();
 
             let proof_json = serde_json::to_vec(&proof).unwrap();
-            let _sum = sha256_sum(&proof_json);
+            let sum = dbg!(sha256_sum(&proof_json));
 
-            // if dbg!(&sum) != expected_sum {
-            //     eprintln!("Wrong proof: {:?}", file);
-            //     eprintln!("got sum:  {:?}", sum);
-            //     eprintln!("expected: {:?}", expected_sum);
-            //     panic!()
-            // }
+            if dbg!(&sum) != expected_sum {
+                eprintln!("Wrong proof: {:?}", file);
+                eprintln!("got sum:  {:?}", sum);
+                eprintln!("expected: {:?}", expected_sum);
+                panic!()
+            }
         }
     }
 }

@@ -85,7 +85,7 @@ impl ProofConstants for StepTransactionProof {
     const PRIMARY_LEN: usize = 67;
     const AUX_LEN: usize = 94478;
     const PREVIOUS_CHALLENGES: usize = 0;
-    const ROWS: usize = 17805;
+    const ROWS: usize = 17806;
 }
 
 impl ProofConstants for WrapTransactionProof {
