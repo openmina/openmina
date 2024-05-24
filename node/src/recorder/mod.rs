@@ -29,12 +29,21 @@ pub struct RecordedInitialState<'a> {
 }
 
 impl<'a> RecordedInitialState<'a> {
-    pub fn write_to<W: Write>(&self, writer: &mut W) -> serde_cbor::Result<()> {
-        serde_cbor::to_writer(writer, self)
+    pub fn write_to<W: Write>(
+        &self,
+        writer: &mut W,
+    ) -> Result<(), ciborium::ser::Error<std::io::Error>> {
+        ciborium::ser::into_writer(self, writer)?;
+        Ok(())
     }
 
-    pub fn decode(encoded: &[u8]) -> serde_cbor::Result<Self> {
-        serde_cbor::from_slice(encoded)
+    pub fn decode(encoded: &[u8]) -> Result<Self, ciborium::de::Error<std::io::Error>>
+    where
+        Self: serde::de::DeserializeOwned,
+    {
+        let mut cursor = std::io::Cursor::new(encoded);
+        let decoded = ciborium::de::from_reader(&mut cursor)?;
+        Ok(decoded)
     }
 }
 
@@ -46,12 +55,19 @@ pub struct RecordedActionWithMeta<'a> {
 }
 
 impl<'a> RecordedActionWithMeta<'a> {
-    pub fn encode(&self) -> serde_cbor::Result<Vec<u8>> {
-        serde_cbor::to_vec(self)
+    pub fn encode(&self) -> Result<Vec<u8>, ciborium::ser::Error<std::io::Error>> {
+        let mut buffer = Vec::new();
+        ciborium::ser::into_writer(self, &mut buffer)?;
+        Ok(buffer)
     }
 
-    pub fn decode(encoded: &[u8]) -> serde_cbor::Result<Self> {
-        serde_cbor::from_slice(encoded)
+    pub fn decode(encoded: &[u8]) -> Result<Self, ciborium::de::Error<std::io::Error>>
+    where
+        Self: serde::de::DeserializeOwned,
+    {
+        let mut cursor = std::io::Cursor::new(encoded);
+        let decoded = ciborium::de::from_reader(&mut cursor)?;
+        Ok(decoded)
     }
 
     pub fn as_action_with_meta(self) -> Result<ActionWithMeta, Self> {

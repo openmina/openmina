@@ -80,6 +80,27 @@ impl P2pNetworkIdentifyStreamAction {
 
                     let public_key = Some(store.state().config.identity_pub_key.clone());
 
+                    let mut protocols = vec![
+                        // token::StreamKind::Broadcast(token::BroadcastAlgorithm::Floodsub1_0_0),
+                        token::StreamKind::Identify(token::IdentifyAlgorithm::Identify1_0_0),
+                        // token::StreamKind::Identify(
+                        //     token::IdentifyAlgorithm::IdentifyPush1_0_0,
+                        // ),
+                        // token::StreamKind::Broadcast(token::BroadcastAlgorithm::Meshsub1_0_0),
+                        token::StreamKind::Broadcast(token::BroadcastAlgorithm::Meshsub1_1_0),
+                        // token::StreamKind::Ping(token::PingAlgorithm::Ping1_0_0),
+                        // token::StreamKind::Bitswap(token::BitswapAlgorithm::MinaBitswap),
+                        // token::StreamKind::Bitswap(token::BitswapAlgorithm::MinaBitswap1_0_0),
+                        // token::StreamKind::Bitswap(token::BitswapAlgorithm::MinaBitswap1_1_0),
+                        // token::StreamKind::Bitswap(token::BitswapAlgorithm::MinaBitswap1_2_0),
+                        // token::StreamKind::Status(token::StatusAlgorithm::MinaNodeStatus),
+                        token::StreamKind::Rpc(token::RpcAlgorithm::Rpc0_0_1),
+                    ];
+                    if store.state().network.scheduler.discovery_state.is_some() {
+                        protocols.push(token::StreamKind::Discovery(
+                            token::DiscoveryAlgorithm::Kademlia1_0_0,
+                        ));
+                    }
                     let identify_msg = P2pNetworkIdentify {
                         protocol_version: Some("ipfs/0.1.0".to_string()),
                         // TODO: include build info from GlobalConfig (?)
@@ -88,23 +109,7 @@ impl P2pNetworkIdentifyStreamAction {
                         listen_addrs,
                         // TODO: other peers seem to report inaccurate information, should we implement this?
                         observed_addr: None,
-                        protocols: vec![
-                            token::StreamKind::Discovery(token::DiscoveryAlgorithm::Kademlia1_0_0),
-                            // token::StreamKind::Broadcast(token::BroadcastAlgorithm::Floodsub1_0_0),
-                            token::StreamKind::Identify(token::IdentifyAlgorithm::Identify1_0_0),
-                            // token::StreamKind::Identify(
-                            //     token::IdentifyAlgorithm::IdentifyPush1_0_0,
-                            // ),
-                            // token::StreamKind::Broadcast(token::BroadcastAlgorithm::Meshsub1_0_0),
-                            token::StreamKind::Broadcast(token::BroadcastAlgorithm::Meshsub1_1_0),
-                            // token::StreamKind::Ping(token::PingAlgorithm::Ping1_0_0),
-                            // token::StreamKind::Bitswap(token::BitswapAlgorithm::MinaBitswap),
-                            // token::StreamKind::Bitswap(token::BitswapAlgorithm::MinaBitswap1_0_0),
-                            // token::StreamKind::Bitswap(token::BitswapAlgorithm::MinaBitswap1_1_0),
-                            // token::StreamKind::Bitswap(token::BitswapAlgorithm::MinaBitswap1_2_0),
-                            // token::StreamKind::Status(token::StatusAlgorithm::MinaNodeStatus),
-                            token::StreamKind::Rpc(token::RpcAlgorithm::Rpc0_0_1),
-                        ],
+                        protocols,
                     };
 
                     //println!("{:?}", identify_msg);
