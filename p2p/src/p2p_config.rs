@@ -70,7 +70,7 @@ impl Default for P2pTimeouts {
             snark: Some(Duration::from_secs(5)),
             initial_peers: Some(Duration::from_secs(5)),
             kademlia_bootstrap: Some(Duration::from_secs(60)),
-            select: Some(Duration::from_secs(2)),
+            select: Some(Duration::from_secs(5)),
         }
     }
 }
