@@ -207,15 +207,17 @@ jobs:
         /ip4/135.181.217.23/tcp/30196/p2p/12D3KooWCBTaSVMxDT1SUoeSg3PUsVL1Df1hDxkSvN544i7tsE76
         /ip4/135.181.217.23/tcp/30790/p2p/12D3KooWPwxEzHTpWywjHd4DknY19pTePbjwkSuoAdjuf37seSKp
         /ip4/135.181.217.23/tcp/30070/p2p/12D3KooWMdABZUWLjQ4P1pucmSz2GAmoecwJ9RUhWzmwp3kCx31e
+    outputs:
+      peers: ${{ steps.peers.outputs.peers }}
     steps:
-      - name: Fetch k8s OCaml peers
+      - id: peers
+        name: Fetch k8s OCaml peers
         run: |
           {
             echo 'peers<<EOF'
             echo $PEERS
             echo EOF
           } >> "$GITHUB_OUTPUT"
-
 
   scenario-tests:
     needs:
@@ -228,7 +230,7 @@ jobs:
     env:
       # to allow local addrs discovery
       OPENMINA_DISCOVERY_FILTER_ADDR: false
-      OPENMINA_SCENARIO_SEEDS: ${{ needs.k8s-peers.peers }}
+      OPENMINA_SCENARIO_SEEDS: ${{ needs.k8s-peers.outputs.peers }}
     strategy:
       matrix:
         test:
@@ -259,7 +261,7 @@ jobs:
     needs: [ k8s-peers, build ]
     runs-on: ubuntu-20.04
     env:
-      PEERS: ${{ needs.k8s-peers.peers }}
+      PEERS: ${{ needs.k8s-peers.outputs.peers }}
     steps:
       - name: Download binary
         uses: actions/download-artifact@v4
@@ -275,7 +277,32 @@ jobs:
           TIME=10
           SLEEP=10
           ATTEMPTS=$((TIME * 60 / SLEEP))
-          while ! curl -fs localhost:3000/readyz; do
+
+          healthy() {
+            curl -fs -m 5 localhost:3000/healthz
+          }
+
+          ready() {
+            curl -fs -m 5 localhost:3000/readyz
+          }
+
+          ready3() {
+            ready && sleep 10 && ready && sleep 10 && ready
+          }
+
+          while ! healthy; do
+              echo "::notice::The node is not healthy yet"
+              ATTEMPTS=$((ATTEMPTS-1))
+              if [ "${ATTEMPTS}" -eq 0 ]; then
+                  echo "::error::Cannot bootsrtap within $TIME minutes"
+                  exit 1
+              fi
+              sleep $SLEEP
+          done
+          echo "::notice::The node is healthy"
+
+          while ! ready3; do
+              echo "::notice::The node is not bootstrapped yet"
               ATTEMPTS=$((ATTEMPTS-1))
               if [ "${ATTEMPTS}" -eq 0 ]; then
                   echo "::error::Cannot bootsrtap within $TIME minutes"
