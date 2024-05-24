@@ -37,7 +37,7 @@
         - [x] Advertising the node through kademlia so that OCaml nodes can see us
 - [ ] Trust system (to punish/ban peers): **not implemented (and no equivalent)**
 - Pools
-    - [ ] Transaction pool: **not implemented**
+    - [ ] Transaction pool: **in progress**
         - No pool is maintained, transactions received over the gossip network are not processed or re-broadcasted
     - SNARK pool
         - [x] SNARK Verification
@@ -45,6 +45,7 @@
         - [x] SNARK work production is implemented (through OCaml). Node can complete and broadcast SNARK work.
 - [x] Compatible ledger implementation
 - [x] Transition frontier
+- [x] Support for loading arbitrary genesis ledgers at startup
 - Bootstrap/Catchup process
     - [x] Ledger synchronization
        - [x] Snarked ledgers (staking and next epoch ledgers + transition frontier root)
@@ -77,6 +78,12 @@
         - [x] Zkapp proof verification (same as above)
 - [ ] Client API (currently the node has a very partial support, not planned at the moment)
 - [ ] Support for the archive node sidecar process (sending updates through RPC calls).
+- [x] Berkeleynet support
+- [ ] Devnet support
+  - [x] Raw data for gates used to produced files updated for devnet compatibility
+  - [x] Non-circuit logic updated for devnet compatibility
+  - [ ] Circuit logic updated for devnet compatibility (**partially implemented**)
+  - [x] Genesis ledger file loadable by openmina for connecting to devnet
 
 ## VRF Evaluator <a name="vrf-evaluator"></a>
 
@@ -124,6 +131,7 @@
    - [x] Transaction application
       - [x] Regular transaction (payment, delegation, coinbase, fee transfer)
       - [x] Zkapps
+- [x] Ledger interactions are asynchronous and cannot stall the state machine.
 - [x] Persistent database
    - https://github.com/MinaProtocol/mina/pull/13340
    - Drop-in replacement for RocksDB
@@ -182,7 +190,7 @@
 
 ### Testing
 
-- [ ] Fix bootstrap sandbox record/replay for the latest berkeley network.
+- [x] Fix bootstrap sandbox record/replay for the latest berkeley network.
 - [x] Fix network debugger for the latest berkeley network.
 - [x] Test that the Openmina node can bootstrap from the replayer tool.
 - [ ] Test that the OCaml node can bootstrap from the Openmina node.
