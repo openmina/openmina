@@ -4,14 +4,17 @@ use std::mem::size_of;
 use std::process::Stdio;
 use std::sync::Arc;
 
-use mina_p2p_messages::binprot::{
-    self,
-    macros::{BinProtRead, BinProtWrite},
-    BinProtRead, BinProtWrite,
-};
 use mina_p2p_messages::v2::{
     CurrencyFeeStableV1, NonZeroCurvePoint, SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponse,
     SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0, TransactionSnarkWorkTStableV2Proofs,
+};
+use mina_p2p_messages::{
+    binprot::{
+        self,
+        macros::{BinProtRead, BinProtWrite},
+        BinProtRead, BinProtWrite,
+    },
+    string::CharString,
 };
 
 use node::core::channels::{mpsc, oneshot};
@@ -128,7 +131,7 @@ pub enum ExternalSnarkWorkerResult {
     /// Positive response, `Some(snark)` when a snark is produced, and `None` when the job is cancelled.
     Ok(Option<TransactionSnarkWorkTStableV2Proofs>),
     /// Negative response, with description of the error occurred.
-    Err(String),
+    Err(CharString),
 }
 
 impl ExternalSnarkWorkerRequest {
@@ -301,7 +304,10 @@ impl ExternalSnarkWorkerFacade {
                                         ExternalSnarkWorkerResult::Err(err) => {
                                             send_event!(
                                                 event_sender_clone,
-                                                ExternalSnarkWorkerWorkError::Error(err).into()
+                                                ExternalSnarkWorkerWorkError::Error(
+                                                    err.to_string()
+                                                )
+                                                .into()
                                             );
                                         }
                                     },

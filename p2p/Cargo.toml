@@ -15,8 +15,8 @@ derive_more = "0.99.17"
 rand = "0.8"
 bytes = "*"
 bs58 = "0.4.0"
-binprot = { git = "https://github.com/openmina/binprot-rs", rev = "3f29b25" }
-binprot_derive = { git = "https://github.com/openmina/binprot-rs", rev = "3f29b25" }
+binprot = { git = "https://github.com/openmina/binprot-rs", rev = "2b5a909" }
+binprot_derive = { git = "https://github.com/openmina/binprot-rs", rev = "2b5a909" }
 anyhow = "1.0.70"
 smallvec = "1.10.0"
 cfg-if = "1.0.0"

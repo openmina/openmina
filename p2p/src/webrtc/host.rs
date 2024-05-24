@@ -37,6 +37,7 @@ mod binprot_impl {
     use super::*;
     use binprot::{BinProtRead, BinProtWrite};
     use binprot_derive::{BinProtRead, BinProtWrite};
+    use mina_p2p_messages::string::CharString;
 
     #[derive(BinProtWrite, BinProtRead)]
     enum HostKind {
@@ -50,6 +51,7 @@ mod binprot_impl {
             match self {
                 Self::Domain(v) => {
                     HostKind::Domain.binprot_write(w)?;
+                    let v = CharString::from(v.as_bytes());
                     v.binprot_write(w)?
                 }
                 Self::Ipv4(v) => {
@@ -79,7 +81,8 @@ mod binprot_impl {
             Ok(match kind {
                 HostKind::Domain => {
                     // TODO(binier): maybe limit length?
-                    Host::from_str(&String::binprot_read(r)?)
+                    let s = CharString::binprot_read(r)?;
+                    Host::from_str(&s.to_string_lossy())
                         .map_err(|err| binprot::Error::CustomError(err.into()))?
                 }
                 HostKind::Ipv4 => {

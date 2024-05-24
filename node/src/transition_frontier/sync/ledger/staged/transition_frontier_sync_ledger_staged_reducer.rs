@@ -1,5 +1,5 @@
 use ledger::scan_state::protocol_state::MinaHash;
-use mina_p2p_messages::v2;
+use mina_p2p_messages::{list::List, v2};
 
 use super::{
     PeerStagedLedgerPartsFetchState, StagedLedgerAuxAndPendingCoinbasesValidated,
@@ -159,8 +159,8 @@ impl TransitionFrontierSyncLedgerStagedState {
                     target: target.clone(),
                     needed_protocol_states: parts
                         .as_ref()
-                        .map(|parts| &parts.needed_blocks[..])
-                        .unwrap_or(&[])
+                        .map(|parts| &parts.needed_blocks)
+                        .unwrap_or(&List::new())
                         .iter()
                         .map(|block| (v2::StateHash::from_fp(MinaHash::hash(block)), block.clone()))
                         .collect(),

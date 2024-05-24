@@ -80,17 +80,17 @@ impl binprot::BinProtRead for InetAddrV1 {
     where
         Self: Sized,
     {
-        let s = String::binprot_read(r)?;
-        let ip_addr: IpAddr = s
-            .parse()
-            .map_err(|e| binprot::Error::CustomError(Box::new(e)))?;
+        let s = binprot::SmallString1k::binprot_read(r)?;
+        let ip_addr: IpAddr =
+            s.0.parse()
+                .map_err(|e| binprot::Error::CustomError(Box::new(e)))?;
         Ok(ip_addr.into())
     }
 }
 
 impl binprot::BinProtWrite for InetAddrV1 {
     fn binprot_write<W: std::io::Write>(&self, w: &mut W) -> std::io::Result<()> {
-        self.0.to_string().binprot_write(w)
+        binprot::SmallString1k::from(self.0.to_string()).binprot_write(w)
     }
 }
 
