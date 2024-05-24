@@ -326,6 +326,7 @@ pub struct State {
     pub buffer: Vec<u8>,
 }
 
+#[derive(Debug)]
 pub struct ParseTokenError;
 
 impl State {
@@ -344,6 +345,11 @@ impl State {
             Err(_) => return Err(ParseTokenError),
         };
         let len_length = self.buffer.len() - rem.len();
+
+        if len > MAX_TOKEN_LENGTH {
+            return Err(ParseTokenError);
+        }
+
         if len_length > MAX_TOKEN_LENGTH {
             return Err(ParseTokenError);
         }

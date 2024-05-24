@@ -36,7 +36,7 @@ impl P2pNetworkSelectAction {
         };
         let incoming = matches!(&state.inner, P2pNetworkSelectStateInner::Responder { .. });
         match self {
-            Self::Init {
+            P2pNetworkSelectAction::Init {
                 addr,
                 kind,
                 send_handshake,
@@ -60,16 +60,61 @@ impl P2pNetworkSelectAction {
                     store.dispatch(P2pNetworkSelectAction::OutgoingTokens { addr, kind, tokens });
                 }
             }
-            Self::IncomingData {
+            P2pNetworkSelectAction::IncomingData {
                 addr,
-                kind: select_kind,
-                data,
+                kind,
                 fin,
+                data,
             } => {
                 if matches!(&state.inner, P2pNetworkSelectStateInner::Error(..)) {
                     return;
                 }
-                let remaining = state.remaining.clone();
+
+                if state.negotiated.is_some() {
+                    store.dispatch(P2pNetworkSelectAction::IncomingPayload {
+                        addr,
+                        kind,
+                        fin,
+                        data: data.clone(),
+                    });
+                    return;
+                }
+
+                let payload_data = state.recv.buffer.clone();
+
+                let mut tokens_parsed = false;
+                let tokens = state.tokens.clone();
+
+                for token in tokens {
+                    if tokens_parsed == false {
+                        tokens_parsed = matches!(
+                            token,
+                            token::Token::Protocol(..) | token::Token::UnknownProtocol(..)
+                        );
+                    }
+
+                    store.dispatch(P2pNetworkSelectAction::IncomingToken { addr, kind, token });
+                }
+
+                if tokens_parsed && !payload_data.is_empty() {
+                    store.dispatch(P2pNetworkSelectAction::IncomingPayload {
+                        addr,
+                        kind,
+                        fin,
+                        data: payload_data.into(),
+                    });
+                }
+            }
+            P2pNetworkSelectAction::IncomingPayload {
+                addr,
+                kind: select_kind,
+                fin,
+                data,
+            } => {
+                if matches!(&state.inner, P2pNetworkSelectStateInner::Error(..)) {
+                    return;
+                }
+
                 if let Some(Some(negotiated)) = &state.negotiated {
                     match negotiated {
                         Protocol::Auth(AuthKind::Noise) => {
@@ -164,22 +209,10 @@ impl P2pNetworkSelectAction {
                         },
                     }
                 } else {
-                    let tokens = state.tokens.clone();
-                    for token in tokens {
-                        store.dispatch(P2pNetworkSelectAction::IncomingToken { addr, kind, token });
-                    }
-                }
-
-                if let Some(data) = remaining {
-                    store.dispatch(P2pNetworkSelectAction::IncomingData {
-                        addr,
-                        kind,
-                        data,
-                        fin: false,
-                    });
+                    unreachable!()
                 }
             }
-            Self::IncomingToken { addr, kind, .. } => {
+            P2pNetworkSelectAction::IncomingToken { addr, kind, .. } => {
                 if let Some(token) = &state.to_send {
                     store.dispatch(P2pNetworkSelectAction::OutgoingTokens {
                         addr,
@@ -188,7 +221,7 @@ impl P2pNetworkSelectAction {
                     });
                 }
             }
-            Self::OutgoingTokens { addr, kind, tokens } => {
+            P2pNetworkSelectAction::OutgoingTokens { addr, kind, tokens } => {
                 let mut data = vec![];
                 for token in &tokens {
                     data.extend_from_slice(token.name())
@@ -218,6 +251,7 @@ impl P2pNetworkSelectAction {
                     }
                 }
             }
+            P2pNetworkSelectAction::Timeout { .. } => {}
         }
         if let Some(protocol) = report {
             store.dispatch(P2pNetworkSchedulerAction::SelectDone {

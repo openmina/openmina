@@ -12,29 +12,35 @@ impl P2pNetworkSelectState {
             self.reported = true;
         }
 
-        let (action, _meta) = action.split();
+        let (action, meta) = action.split();
         match action {
             // hack for noise
-            P2pNetworkSelectAction::Init { incoming, .. } => match (&self.inner, incoming) {
-                (P2pNetworkSelectStateInner::Initiator { .. }, true) => {
-                    self.inner = P2pNetworkSelectStateInner::Responder
-                }
-                (P2pNetworkSelectStateInner::Responder, false) => {
-                    self.inner = P2pNetworkSelectStateInner::Initiator {
-                        proposing: token::Protocol::Mux(token::MuxKind::YamuxNoNewLine1_0_0),
+            P2pNetworkSelectAction::Init { incoming, .. } => {
+                self.time = Some(meta.time());
+
+                match (&self.inner, incoming) {
+                    (P2pNetworkSelectStateInner::Initiator { .. }, true) => {
+                        self.inner = P2pNetworkSelectStateInner::Responder
                     }
+                    (P2pNetworkSelectStateInner::Responder, false) => {
+                        self.inner = P2pNetworkSelectStateInner::Initiator {
+                            proposing: token::Protocol::Mux(token::MuxKind::YamuxNoNewLine1_0_0),
+                        }
+                    }
+                    _ => {}
                 }
-                _ => {}
-            },
+            }
             P2pNetworkSelectAction::IncomingData { data, .. } => {
-                self.remaining = None;
                 if self.negotiated.is_none() {
                     self.recv.put(data);
                     loop {
-                        match self.recv.parse_token() {
+                        let parse_result = self.recv.parse_token();
+
+                        match parse_result {
                             Err(ParseTokenError) => {
                                 self.inner =
                                     P2pNetworkSelectStateInner::Error("parse_token".to_owned());
+                                self.recv.buffer.clear();
                                 break;
                             }
                             Ok(None) => break,
@@ -44,17 +50,16 @@ impl P2pNetworkSelectState {
                                     token::Token::Protocol(..) | token::Token::UnknownProtocol(..)
                                 );
                                 self.tokens.push_back(token);
+
                                 if done {
                                     break;
                                 }
                             }
                         }
                     }
-                    if !self.recv.buffer.is_empty() {
-                        self.remaining = Some(std::mem::take(&mut self.recv.buffer).into());
-                    }
                 }
             }
+            P2pNetworkSelectAction::IncomingPayload { .. } => self.recv.buffer.clear(),
             P2pNetworkSelectAction::IncomingToken { kind, .. } => {
                 let Some(token) = self.tokens.pop_front() else {
                     return;
@@ -161,9 +166,27 @@ impl P2pNetworkSelectState {
                                 if let Ok(str) = std::str::from_utf8(&name[1..]) {
                                     let str = str.trim_end_matches('\n');
                                     if !KNOWN_UNKNOWN_PROTOCOLS.iter().any(|s| (*s).eq(str)) {
-                                        openmina_core::error!(_meta.time(); "unknown protocol: {str}, {kind:?}");
+                                        self.inner = P2pNetworkSelectStateInner::Error(format!(
+                                            "responder with unknown protocol {}",
+                                            str
+                                        ));
+
+                                        openmina_core::error!(meta.time(); "unknown protocol: {str}, {kind:?}");
                                     }
+                                } else {
+                                    self.inner = P2pNetworkSelectStateInner::Error(format!(
+                                        "responder with invalid protocol data {:?}",
+                                        name
+                                    ));
+
+                                    openmina_core::error!(meta.time(); "invalid protocol: {name:?}, {kind:?}");
                                 }
+                            } else {
+                                self.inner = P2pNetworkSelectStateInner::Error(
+                                    "responder with empty protocol".to_string(),
+                                );
+
+                                openmina_core::error!(meta.time(); "empty protocol: {kind:?}");
                             }
                             self.to_send = Some(token::Token::Na);
                             self.negotiated = Some(None);
@@ -172,6 +195,10 @@ impl P2pNetworkSelectState {
                 }
             }
             P2pNetworkSelectAction::OutgoingTokens { .. } => {}
+            P2pNetworkSelectAction::Timeout { .. } => {
+                self.inner = P2pNetworkSelectStateInner::Error("timeout".to_string());
+                openmina_core::warn!(meta.time(); "timeout");
+            }
         }
     }
 }

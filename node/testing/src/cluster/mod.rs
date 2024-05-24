@@ -2,11 +2,12 @@ mod config;
 pub use config::{ClusterConfig, ProofKind};
 
 mod p2p_task_spawner;
-use node::account::{AccountPublicKey, AccountSecretKey};
 pub use p2p_task_spawner::P2pTaskSpawner;
 
 mod node_id;
 pub use node_id::{ClusterNodeId, ClusterOcamlNodeId};
+
+use redux::Timestamp;
 use serde::de::DeserializeOwned;
 
 use std::collections::BTreeMap;
@@ -17,6 +18,8 @@ use std::{collections::VecDeque, sync::Arc};
 
 use libp2p::futures::{stream::FuturesUnordered, StreamExt};
 use libp2p::identity::Keypair;
+
+use node::account::{AccountPublicKey, AccountSecretKey};
 use node::core::channels::mpsc;
 use node::core::log::system_time;
 use node::core::requests::RpcId;
@@ -293,7 +296,10 @@ impl Cluster {
                 timeouts: testing_config.timeouts,
                 chain_id: String::from_utf8(testing_config.chain_id.clone()).expect("hex string"),
                 peer_discovery: true,
-                initial_time: Duration::ZERO,
+                initial_time: testing_config
+                    .initial_time
+                    .checked_sub(Timestamp::ZERO)
+                    .unwrap_or_default(),
             },
             transition_frontier: TransitionFrontierConfig::new(testing_config.genesis),
             block_producer: block_producer_config,

@@ -286,9 +286,11 @@ pub enum ActionKind {
     P2pNetworkSchedulerSelectError,
     P2pNetworkSchedulerYamuxDidInit,
     P2pNetworkSelectIncomingData,
+    P2pNetworkSelectIncomingPayload,
     P2pNetworkSelectIncomingToken,
     P2pNetworkSelectInit,
     P2pNetworkSelectOutgoingTokens,
+    P2pNetworkSelectTimeout,
     P2pNetworkYamuxIncomingData,
     P2pNetworkYamuxIncomingFrame,
     P2pNetworkYamuxOpenStream,
@@ -442,7 +444,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 369;
+    pub const COUNT: u16 = 371;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -1121,8 +1123,10 @@ impl ActionKindGet for P2pNetworkSelectAction {
         match self {
             Self::Init { .. } => ActionKind::P2pNetworkSelectInit,
             Self::IncomingData { .. } => ActionKind::P2pNetworkSelectIncomingData,
+            Self::IncomingPayload { .. } => ActionKind::P2pNetworkSelectIncomingPayload,
             Self::IncomingToken { .. } => ActionKind::P2pNetworkSelectIncomingToken,
             Self::OutgoingTokens { .. } => ActionKind::P2pNetworkSelectOutgoingTokens,
+            Self::Timeout { .. } => ActionKind::P2pNetworkSelectTimeout,
         }
     }
 }
