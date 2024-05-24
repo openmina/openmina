@@ -49,11 +49,31 @@ pub struct P2pNetworkConnectionState {
     pub mux: Option<P2pNetworkConnectionMuxState>,
     pub streams: BTreeMap<StreamId, P2pNetworkStreamState>,
     pub closed: Option<P2pNetworkConnectionCloseReason>,
+    // the number of bytes that peer allowed to send us before yamux is negotiated
+    pub limit: usize,
 }
 
 impl P2pNetworkConnectionState {
+    pub const INITIAL_LIMIT: usize = 1024;
+
     pub fn peer_id(&self) -> Option<&PeerId> {
         self.auth.as_ref().and_then(P2pNetworkAuthState::peer_id)
+    }
+
+    pub fn limit(&self) -> usize {
+        if let Some(mux) = &self.mux {
+            mux.limit()
+        } else {
+            self.limit
+        }
+    }
+
+    pub fn consume(&mut self, len: usize) {
+        if let Some(mux) = &mut self.mux {
+            mux.consume(len);
+        } else {
+            self.limit = self.limit.saturating_sub(len);
+        }
     }
 }
 
@@ -100,6 +120,20 @@ impl P2pNetworkAuthState {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum P2pNetworkConnectionMuxState {
     Yamux(P2pNetworkYamuxState),
+}
+
+impl P2pNetworkConnectionMuxState {
+    pub fn consume(&mut self, len: usize) {
+        match self {
+            Self::Yamux(state) => state.consume(len),
+        }
+    }
+
+    fn limit(&self) -> usize {
+        match self {
+            Self::Yamux(state) => state.limit(),
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

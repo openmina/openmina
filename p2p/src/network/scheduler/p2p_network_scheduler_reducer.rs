@@ -36,6 +36,7 @@ impl P2pNetworkSchedulerState {
                         mux: None,
                         streams: BTreeMap::default(),
                         closed: None,
+                        limit: P2pNetworkConnectionState::INITIAL_LIMIT,
                     },
                 );
             }
@@ -53,6 +54,7 @@ impl P2pNetworkSchedulerState {
                         mux: None,
                         streams: BTreeMap::default(),
                         closed: None,
+                        limit: P2pNetworkConnectionState::INITIAL_LIMIT,
                     },
                 );
             }
@@ -60,7 +62,15 @@ impl P2pNetworkSchedulerState {
                 // TODO: change to connected
             }
             P2pNetworkSchedulerAction::IncomingDataIsReady { .. } => {}
-            P2pNetworkSchedulerAction::IncomingDataDidReceive { .. } => {}
+            P2pNetworkSchedulerAction::IncomingDataDidReceive { result, addr } => {
+                let Some(state) = self.connections.get_mut(addr) else {
+                    return;
+                };
+
+                if let Ok(data) = result {
+                    state.consume(data.len());
+                }
+            }
             P2pNetworkSchedulerAction::SelectDone {
                 addr,
                 kind,

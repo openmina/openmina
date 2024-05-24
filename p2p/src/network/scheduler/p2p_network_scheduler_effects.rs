@@ -85,9 +85,16 @@ impl P2pNetworkSchedulerAction {
                 }
             },
             Self::IncomingDataIsReady { addr } => {
-                store
-                    .service()
-                    .send_mio_cmd(MioCmd::Recv(addr, vec![0; 0x8000].into_boxed_slice()));
+                let Some(state) = store.state().network.scheduler.connections.get(&addr) else {
+                    return;
+                };
+
+                let limit = state.limit();
+                if limit > 0 {
+                    store
+                        .service()
+                        .send_mio_cmd(MioCmd::Recv(addr, vec![0; limit].into_boxed_slice()));
+                }
             }
             Self::IncomingDataDidReceive { result, addr } => match result {
                 Ok(data) => {
