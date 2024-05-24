@@ -23,6 +23,16 @@ impl P2pNetworkYamuxState {
             None
         }
     }
+
+    // TODO:
+    pub fn consume(&mut self, len: usize) {
+        let _ = len;
+    }
+
+    // TODO:
+    pub fn limit(&self) -> usize {
+        0x2000
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
