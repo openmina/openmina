@@ -5,7 +5,7 @@ use redux::ActionMeta;
 use crate::ledger::write::{LedgerWriteAction, LedgerWriteRequest};
 use crate::p2p::channels::rpc::P2pRpcRequest;
 use crate::service::TransitionFrontierSyncLedgerSnarkedService;
-use crate::{p2p_ready, Store};
+use crate::{p2p_ready, Service, Store};
 
 use super::ledger::snarked::TransitionFrontierSyncLedgerSnarkedAction;
 use super::ledger::staged::TransitionFrontierSyncLedgerStagedAction;
@@ -15,7 +15,7 @@ use super::{TransitionFrontierSyncAction, TransitionFrontierSyncState};
 impl TransitionFrontierSyncAction {
     pub fn effects<S>(&self, meta: &ActionMeta, store: &mut Store<S>)
     where
-        S: redux::Service + TransitionFrontierSyncLedgerSnarkedService,
+        S: Service,
     {
         match self {
             TransitionFrontierSyncAction::Init { best_tip, .. } => {
@@ -215,6 +215,10 @@ impl TransitionFrontierSyncAction {
                 };
                 let hash = block.hash.clone();
 
+                if let Some(stats) = store.service.stats() {
+                    stats.block_producer().block_apply_start(meta.time(), &hash);
+                }
+
                 if store.dispatch(LedgerWriteAction::Init {
                     request: LedgerWriteRequest::BlockApply { block, pred_block },
                 }) {
@@ -224,7 +228,11 @@ impl TransitionFrontierSyncAction {
                 }
             }
             TransitionFrontierSyncAction::BlocksNextApplyPending { .. } => {}
-            TransitionFrontierSyncAction::BlocksNextApplySuccess { .. } => {
+            TransitionFrontierSyncAction::BlocksNextApplySuccess { hash } => {
+                if let Some(stats) = store.service.stats() {
+                    stats.block_producer().block_apply_end(meta.time(), &hash);
+                }
+
                 if !store.dispatch(TransitionFrontierSyncAction::BlocksNextApplyInit) {
                     store.dispatch(TransitionFrontierSyncAction::BlocksSuccess);
                 }

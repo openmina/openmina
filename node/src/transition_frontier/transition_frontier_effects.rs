@@ -257,11 +257,12 @@ fn synced_effects<S: crate::Service>(
     meta: &redux::ActionMeta,
     store: &mut redux::Store<crate::State, S, crate::Action>,
 ) {
-    let Some(best_tip) = store.state.get().transition_frontier.best_tip() else {
+    let best_chain = &store.state.get().transition_frontier.best_chain;
+    let Some(best_tip) = best_chain.last() else {
         return;
     };
     if let Some(stats) = store.service.stats() {
-        stats.new_best_tip(meta.time(), best_tip);
+        stats.new_best_chain(meta.time(), best_chain);
     }
 
     // publish new best tip.

@@ -10,7 +10,11 @@ pub mod sync {
 }
 use sync::{SyncStats, SyncStatsSnapshot, SyncingLedger};
 
-use std::collections::VecDeque;
+mod stats_block_producer;
+pub mod block_producer {
+    pub use super::stats_block_producer::*;
+}
+use block_producer::BlockProducerStats;
 
 use openmina_core::block::{ArcBlockWithHash, Block, BlockWithHash};
 use redux::{ActionMeta, ActionWithMeta, Timestamp};
@@ -26,31 +30,21 @@ pub struct Stats {
     last_action: ActionKindWithMeta,
     action_stats: ActionStats,
     sync_stats: SyncStats,
+    block_producer_stats: BlockProducerStats,
 }
 
 impl Stats {
     pub fn new() -> Self {
-        let mut action_stats_per_block = VecDeque::new();
-        action_stats_per_block.push_back(ActionStatsForBlock {
-            id: 0,
-            time: Timestamp::ZERO,
-            block_level: 1,
-            // TODO(binier): use correct genesis hash.
-            block_hash: "3NKeMoncuHab5ScarV5ViyF16cJPT4taWNSaTLS64Dp67wuXigPZ"
-                .parse()
-                .unwrap(),
-            cpu_idle: 0,
-            cpu_busy: 0,
-            stats: Default::default(),
-        });
         Self {
             last_action: ActionMeta::ZERO.with_action(ActionKind::None),
-            action_stats: ActionStats {
-                since_start: Default::default(),
-                per_block: action_stats_per_block,
-            },
+            action_stats: Default::default(),
             sync_stats: Default::default(),
+            block_producer_stats: Default::default(),
         }
+    }
+
+    pub fn block_producer(&mut self) -> &mut BlockProducerStats {
+        &mut self.block_producer_stats
     }
 
     pub fn new_sync_target(
@@ -85,13 +79,14 @@ impl Stats {
         self
     }
 
-    pub fn new_best_tip<T: AsRef<Block>>(
+    pub fn new_best_chain<T: AsRef<Block>>(
         &mut self,
         time: Timestamp,
-        block: &BlockWithHash<T>,
+        chain: &[BlockWithHash<T>],
     ) -> &mut Self {
+        let best_tip = chain.last().unwrap();
         self.action_stats
-            .new_best_tip(time, block.height(), block.hash.clone());
+            .new_best_tip(time, best_tip.height(), best_tip.hash().clone());
         self.sync_stats.synced(time);
         self
     }
