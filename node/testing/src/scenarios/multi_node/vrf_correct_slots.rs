@@ -15,7 +15,7 @@ use vrf::VrfEvaluationOutput;
 use crate::{
     node::{OcamlVrfOutput, RustNodeBlockProducerTestingConfig, RustNodeTestingConfig},
     scenario::{ListenerNode, ScenarioStep},
-    scenarios::cluster_runner::{ClusterRunner, RunCfg, RunDecision},
+    scenarios::{ClusterRunner, RunCfg, RunDecision},
 };
 
 /// Set up single Rust node and connect to an ocaml node with custom ledger and check if the node

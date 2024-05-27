@@ -9,7 +9,7 @@ use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 use crate::{
     node::RustNodeTestingConfig,
     scenario::{ListenerNode, ScenarioStep},
-    scenarios::cluster_runner::ClusterRunner,
+    scenarios::ClusterRunner,
 };
 
 /// Local test to ensure that the Openmina node can connect to an existing OCaml testnet.

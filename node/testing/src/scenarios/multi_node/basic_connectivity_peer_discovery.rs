@@ -6,7 +6,7 @@ use node::p2p::PeerId;
 
 use crate::cluster::ClusterOcamlNodeId;
 use crate::node::{DaemonJson, OcamlNodeTestingConfig, OcamlStep};
-use crate::scenarios::cluster_runner::ClusterRunner;
+use crate::scenarios::ClusterRunner;
 use crate::{node::RustNodeTestingConfig, scenario::ScenarioStep};
 
 /// Global test with OCaml nodes.
