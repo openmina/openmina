@@ -113,7 +113,7 @@ impl SparseLedgerImpl<AccountId, Account> {
     where
         F: Fn(Address, &Account),
     {
-        let addr = |index: &AccountIndex| Address::from_index(index.clone(), self.depth);
+        let addr = |index: &AccountIndex| Address::from_index(*index, self.depth);
 
         for (index, value) in &self.values {
             fun(addr(index), value);

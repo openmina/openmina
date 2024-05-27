@@ -358,8 +358,7 @@ pub async fn run(port: u16, rpc_sender: super::RpcSender) {
                             },
                             |resp| match resp {
                                 RpcSnarkerJobSpecResponse::Ok(spec)
-                                    if accept.as_deref()
-                                        == Some("application/octet-stream") =>
+                                    if accept.as_deref() == Some("application/octet-stream") =>
                                 {
                                     JsonOrBinary::binary(spec)
                                 }

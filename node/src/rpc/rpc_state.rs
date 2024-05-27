@@ -58,7 +58,7 @@ pub struct RpcState {
 
 impl RpcState {
     pub fn new() -> Self {
-        Self ::default()
+        Self::default()
     }
 
     pub fn scan_state_summary_rpc_ids(

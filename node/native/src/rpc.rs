@@ -31,7 +31,7 @@ pub struct RpcService {
     req_receiver: mpsc::Receiver<NodeRpcRequest>,
 }
 
-impl Default for RpcService{
+impl Default for RpcService {
     fn default() -> Self {
         Self::new()
     }
@@ -271,7 +271,6 @@ impl node::core::invariants::InvariantService for NodeService {
         &mut self.invariants_state
     }
 }
-
 
 #[cfg(test)]
 mod tests {

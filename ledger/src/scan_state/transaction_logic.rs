@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::fmt::Display;
 
 use ark_ff::Zero;
 use itertools::{FoldWhile, Itertools};
@@ -90,79 +91,69 @@ pub enum TransactionFailure {
     Cancelled,
 }
 
-impl ToString for TransactionFailure {
-    fn to_string(&self) -> String {
-        match self {
-            Self::Predicate => "Predicate".to_string(),
-            Self::SourceNotPresent => "Source_not_present".to_string(),
-            Self::ReceiverNotPresent => "Receiver_not_present".to_string(),
-            Self::AmountInsufficientToCreateAccount => {
-                "Amount_insufficient_to_create_account".to_string()
-            }
-            Self::CannotPayCreationFeeInToken => "Cannot_pay_creation_fee_in_token".to_string(),
-            Self::SourceInsufficientBalance => "Source_insufficient_balance".to_string(),
-            Self::SourceMinimumBalanceViolation => "Source_minimum_balance_violation".to_string(),
-            Self::ReceiverAlreadyExists => "Receiver_already_exists".to_string(),
-            Self::TokenOwnerNotCaller => "Token_owner_not_caller".to_string(),
-            Self::Overflow => "Overflow".to_string(),
-            Self::GlobalExcessOverflow => "Global_excess_overflow".to_string(),
-            Self::LocalExcessOverflow => "Local_excess_overflow".to_string(),
-            Self::LocalSupplyIncreaseOverflow => "Local_supply_increase_overflow".to_string(),
-            Self::GlobalSupplyIncreaseOverflow => "Global_supply_increase_overflow".to_string(),
-            Self::SignedCommandOnZkappAccount => "Signed_command_on_zkapp_account".to_string(),
-            Self::ZkappAccountNotPresent => "Zkapp_account_not_present".to_string(),
-            Self::UpdateNotPermittedBalance => "Update_not_permitted_balance".to_string(),
-            Self::UpdateNotPermittedAccess => "Update_not_permitted_access".to_string(),
-            Self::UpdateNotPermittedTiming => "Update_not_permitted_timing".to_string(),
-            Self::UpdateNotPermittedDelegate => "update_not_permitted_delegate".to_string(),
-            Self::UpdateNotPermittedAppState => "Update_not_permitted_app_state".to_string(),
-            Self::UpdateNotPermittedVerificationKey => {
-                "Update_not_permitted_verification_key".to_string()
-            }
-            Self::UpdateNotPermittedActionState => "Update_not_permitted_action_state".to_string(),
-            Self::UpdateNotPermittedZkappUri => "Update_not_permitted_zkapp_uri".to_string(),
-            Self::UpdateNotPermittedTokenSymbol => "Update_not_permitted_token_symbol".to_string(),
-            Self::UpdateNotPermittedPermissions => "Update_not_permitted_permissions".to_string(),
-            Self::UpdateNotPermittedNonce => "Update_not_permitted_nonce".to_string(),
-            Self::UpdateNotPermittedVotingFor => "Update_not_permitted_voting_for".to_string(),
-            Self::ZkappCommandReplayCheckFailed => "Zkapp_command_replay_check_failed".to_string(),
-            Self::FeePayerNonceMustIncrease => "Fee_payer_nonce_must_increase".to_string(),
-            Self::FeePayerMustBeSigned => "Fee_payer_must_be_signed".to_string(),
+impl Display for TransactionFailure {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let message = match self {
+            Self::Predicate => "Predicate",
+            Self::SourceNotPresent => "Source_not_present",
+            Self::ReceiverNotPresent => "Receiver_not_present",
+            Self::AmountInsufficientToCreateAccount => "Amount_insufficient_to_create_account",
+            Self::CannotPayCreationFeeInToken => "Cannot_pay_creation_fee_in_token",
+            Self::SourceInsufficientBalance => "Source_insufficient_balance",
+            Self::SourceMinimumBalanceViolation => "Source_minimum_balance_violation",
+            Self::ReceiverAlreadyExists => "Receiver_already_exists",
+            Self::TokenOwnerNotCaller => "Token_owner_not_caller",
+            Self::Overflow => "Overflow",
+            Self::GlobalExcessOverflow => "Global_excess_overflow",
+            Self::LocalExcessOverflow => "Local_excess_overflow",
+            Self::LocalSupplyIncreaseOverflow => "Local_supply_increase_overflow",
+            Self::GlobalSupplyIncreaseOverflow => "Global_supply_increase_overflow",
+            Self::SignedCommandOnZkappAccount => "Signed_command_on_zkapp_account",
+            Self::ZkappAccountNotPresent => "Zkapp_account_not_present",
+            Self::UpdateNotPermittedBalance => "Update_not_permitted_balance",
+            Self::UpdateNotPermittedAccess => "Update_not_permitted_access",
+            Self::UpdateNotPermittedTiming => "Update_not_permitted_timing",
+            Self::UpdateNotPermittedDelegate => "update_not_permitted_delegate",
+            Self::UpdateNotPermittedAppState => "Update_not_permitted_app_state",
+            Self::UpdateNotPermittedVerificationKey => "Update_not_permitted_verification_key",
+            Self::UpdateNotPermittedActionState => "Update_not_permitted_action_state",
+            Self::UpdateNotPermittedZkappUri => "Update_not_permitted_zkapp_uri",
+            Self::UpdateNotPermittedTokenSymbol => "Update_not_permitted_token_symbol",
+            Self::UpdateNotPermittedPermissions => "Update_not_permitted_permissions",
+            Self::UpdateNotPermittedNonce => "Update_not_permitted_nonce",
+            Self::UpdateNotPermittedVotingFor => "Update_not_permitted_voting_for",
+            Self::ZkappCommandReplayCheckFailed => "Zkapp_command_replay_check_failed",
+            Self::FeePayerNonceMustIncrease => "Fee_payer_nonce_must_increase",
+            Self::FeePayerMustBeSigned => "Fee_payer_must_be_signed",
             Self::AccountBalancePreconditionUnsatisfied => {
-                "Account_balance_precondition_unsatisfied".to_string()
+                "Account_balance_precondition_unsatisfied"
             }
-            Self::AccountNoncePreconditionUnsatisfied => {
-                "Account_nonce_precondition_unsatisfied".to_string()
-            }
+            Self::AccountNoncePreconditionUnsatisfied => "Account_nonce_precondition_unsatisfied",
             Self::AccountReceiptChainHashPreconditionUnsatisfied => {
-                "Account_receipt_chain_hash_precondition_unsatisfied".to_string()
+                "Account_receipt_chain_hash_precondition_unsatisfied"
             }
             Self::AccountDelegatePreconditionUnsatisfied => {
-                "Account_delegate_precondition_unsatisfied".to_string()
+                "Account_delegate_precondition_unsatisfied"
             }
             Self::AccountActionStatePreconditionUnsatisfied => {
-                "Account_action_state_precondition_unsatisfied".to_string()
+                "Account_action_state_precondition_unsatisfied"
             }
             Self::AccountAppStatePreconditionUnsatisfied(i) => {
-                format!("Account_app_state_{}_precondition_unsatisfied", i)
+                return write!(f, "Account_app_state_{}_precondition_unsatisfied", i);
             }
             Self::AccountProvedStatePreconditionUnsatisfied => {
-                "Account_proved_state_precondition_unsatisfied".to_string()
+                "Account_proved_state_precondition_unsatisfied"
             }
-            Self::AccountIsNewPreconditionUnsatisfied => {
-                "Account_is_new_precondition_unsatisfied".to_string()
-            }
-            Self::ProtocolStatePreconditionUnsatisfied => {
-                "Protocol_state_precondition_unsatisfied".to_string()
-            }
-            Self::IncorrectNonce => "Incorrect_nonce".to_string(),
-            Self::InvalidFeeExcess => "Invalid_fee_excess".to_string(),
-            Self::Cancelled => "Cancelled".to_string(),
-            Self::UnexpectedVerificationKeyHash => "Unexpected_verification_key_hash".to_string(),
-            Self::ValidWhilePreconditionUnsatisfied => {
-                "Valid_while_precondition_unsatisfied".to_string()
-            }
-        }
+            Self::AccountIsNewPreconditionUnsatisfied => "Account_is_new_precondition_unsatisfied",
+            Self::ProtocolStatePreconditionUnsatisfied => "Protocol_state_precondition_unsatisfied",
+            Self::IncorrectNonce => "Incorrect_nonce",
+            Self::InvalidFeeExcess => "Invalid_fee_excess",
+            Self::Cancelled => "Cancelled",
+            Self::UnexpectedVerificationKeyHash => "Unexpected_verification_key_hash",
+            Self::ValidWhilePreconditionUnsatisfied => "Valid_while_precondition_unsatisfied",
+        };
+
+        write!(f, "{}", message)
     }
 }
 
@@ -3196,7 +3187,7 @@ pub mod zkapp_command {
         this: TokenId,
     }
 
-    pub const ACCOUNT_UPDATE_CONS_HASH_PARAM: &'static str = "MinaAcctUpdateCons";
+    pub const ACCOUNT_UPDATE_CONS_HASH_PARAM: &str = "MinaAcctUpdateCons";
 
     impl<AccUpdate: Clone> CallForest<AccUpdate> {
         pub fn new() -> Self {
@@ -4529,8 +4520,8 @@ pub mod transaction_applied {
             // TODO: Make sure it's correct
             let total = [burned_tokens, account_creation_fees]
                 .into_iter()
-                .fold(Some(expected_supply_increase), |total, amt| {
-                    total?.add(&amt.negate())
+                .try_fold(expected_supply_increase, |total, amt| {
+                    total.add(&amt.negate())
                 });
 
             total.ok_or_else(|| "overflow".to_string())
@@ -4920,7 +4911,7 @@ pub mod local_state {
             inputs.append_field(self.caller.0);
             inputs.append_field(self.caller_caller.0);
 
-            let field = match self.calls.0.get(0) {
+            let field = match self.calls.0.first() {
                 None => Fp::zero(),
                 Some(call) => call.stack_hash,
             };
@@ -5083,7 +5074,7 @@ pub mod local_state {
         }
 
         pub fn add_check(&self, failure: TransactionFailure, b: bool) -> Self {
-            let failure_status_tbl = if let false = b {
+            let failure_status_tbl = if !b {
                 let mut failure_status_tbl = self.failure_status_tbl.clone();
                 failure_status_tbl[0].insert(0, failure);
                 failure_status_tbl
@@ -7518,7 +7509,7 @@ pub fn account_min_balance_at_slot(
 
                 let num_periods =
                     (global_slot.as_u32() - cliff_time.as_u32()) / vesting_period.as_u32();
-                let num_periods: u64 = num_periods.try_into().unwrap();
+                let num_periods: u64 = num_periods.into();
 
                 let vesting_decrement = {
                     let vesting_increment = vesting_increment.as_u64();

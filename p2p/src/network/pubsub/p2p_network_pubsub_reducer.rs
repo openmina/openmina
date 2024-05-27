@@ -137,9 +137,7 @@ impl P2pNetworkPubsubState {
                     Err(err) => {
                         // bad way to check the error, but `prost` doesn't provide better
                         if err.to_string().contains("buffer underflow") && state.buffer.is_empty() {
-
-                                state.buffer = data.to_vec();
-
+                            state.buffer = data.to_vec();
                         }
                         dbg!(err);
                     }

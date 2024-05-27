@@ -172,7 +172,12 @@ impl<T: AsRef<Block>> BlockWithHash<T> {
         let diff = self.staged_ledger_diff();
         let diff_0 = &diff.0;
         if let Some(_1) = diff.1.as_ref() {
-            Box::new(diff_0.completed_works.iter().chain(_1.completed_works.iter()))
+            Box::new(
+                diff_0
+                    .completed_works
+                    .iter()
+                    .chain(_1.completed_works.iter()),
+            )
         } else {
             Box::new(diff_0.completed_works.iter())
         }

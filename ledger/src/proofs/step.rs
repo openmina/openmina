@@ -536,7 +536,7 @@ pub mod step_verifier {
             (sg_evals1, sg_evals2)
         };
 
-        let _sponge_state = {
+        {
             let challenge_digest = {
                 let ntrim_front = 2 - max_proof_verified;
 
@@ -633,7 +633,7 @@ pub mod step_verifier {
             })
         };
 
-        let srs_length_log2 = COMMON_MAX_DEGREE_STEP_LOG2 as u64;
+        let srs_length_log2 = COMMON_MAX_DEGREE_STEP_LOG2;
         let env = make_scalars_env_checked(
             MakeScalarsEnvParams {
                 minimal: &plonk_mininal,
@@ -822,12 +822,11 @@ pub mod step_verifier {
         let app_state = app_state
             .to_field_elements_owned()
             .into_iter()
-            .map(|v| MaybeOpt::NotOpt(v));
+            .map(MaybeOpt::NotOpt);
 
         let both = challenge_polynomial_commitments
             .zip(old_bulletproof_challenges)
-            .map(|(c, o)| c.into_iter().chain(o.into_iter()))
-            .flatten();
+            .flat_map(|(c, o)| c.into_iter().chain(o));
 
         let sponge = Box::new(sponge);
         let res = app_state
@@ -869,7 +868,7 @@ pub mod step_verifier {
         let chunks_needed = chunks_needed(s_div_2_bits);
         let actual_bits_used = chunks_needed * OPS_BITS_PER_CHUNK;
 
-        let g_value = g.value().clone();
+        let g_value = *g.value();
         let shifted = F::Shifting::of_raw(s_div_2);
         let h = match actual_bits_used {
             255 => scale_fast_unpack::<F, F, 255>(g_value, shifted, w).0,
@@ -908,7 +907,7 @@ pub mod step_verifier {
         let chunks_needed = chunks_needed(s_div_2_bits);
         let actual_bits_used = chunks_needed * OPS_BITS_PER_CHUNK;
 
-        let g_value = g.value().clone();
+        let g_value = *g.value();
         let shifted = F::Shifting::of_raw(s_div_2);
         let h = match actual_bits_used {
             255 => scale_fast_unpack::<F, F, 255>(g_value, shifted, w).0,
@@ -1150,7 +1149,7 @@ pub mod step_verifier {
         let pow2pow = |x: InnerCurve<Fp>, n: usize| (0..n).fold(x, |acc, _| acc.clone() + acc);
 
         let (constant_part, non_constant_part): (Vec<_>, Vec<_>) =
-            ts.into_iter().partition_map(|(t, g)| {
+            ts.iter().partition_map(|(t, g)| {
                 use itertools::Either::{Left, Right};
                 use CircuitVar::Constant;
                 use Packed::{Field, PackedBits};
@@ -1350,7 +1349,7 @@ pub mod step_verifier {
             xi,
             &without_degree_bound
                 .into_iter()
-                .map(|v| Point::Finite(v))
+                .map(Point::Finite)
                 .collect::<Vec<_>>(),
             &[],
             w,
@@ -1475,10 +1474,7 @@ pub mod step_verifier {
                 multiscale_known(&ts, w).neg()
             }
             ForStepKind::SideLoaded(which) => {
-                let domains = [0, 1, 2]
-                    .into_iter()
-                    .map(|proofs_verified| wrap_domains(proofs_verified))
-                    .collect();
+                let domains = [0, 1, 2].into_iter().map(wrap_domains).collect();
                 public_input_commitment_dynamic(which, srs, domains, public_input, w)
             }
         };
@@ -1524,7 +1520,7 @@ pub mod step_verifier {
             const WRAP_HACK_PADDED_LENGTH: usize = 2;
             const NUM_COMMITMENTS_WITHOUT_DEGREE_BOUND: usize = 45;
 
-            let cvar = |v| CircuitVar::Var(v);
+            let cvar = CircuitVar::Var;
 
             let without_degree_bound = {
                 let sg_old = sg_old.iter().copied().map(cvar);
@@ -1545,7 +1541,7 @@ pub mod step_verifier {
                             .flat_map(|w| w.unshifted.iter().cloned().map(cvar)),
                     )
                     .chain(wrap_verification_key.coefficients)
-                    .chain(sigma_comm_init.iter().map(|v| v).cloned());
+                    .chain(sigma_comm_init.iter().cloned());
                 sg_old.chain(rest).collect::<Vec<_>>()
             };
 
@@ -2192,7 +2188,7 @@ fn expand_proof(params: ExpandProofParams) -> ExpandedProof {
 
     let challenge_polynomial_commitment = match must_verify.value() {
         Boolean::False => wrap_compute_sg(&new_bulletproof_challenges),
-        Boolean::True => proof.proof.sg.clone(),
+        Boolean::True => proof.proof.sg,
     };
 
     let witness = PerProofWitness {
@@ -2401,10 +2397,10 @@ impl Check<Fp> for PerProofWitness {
         } = wrap_proof;
 
         for poly in w_comm {
-            (&poly.unshifted).check(w);
+            poly.unshifted.check(w);
         }
-        (&z_comm.unshifted).check(w);
-        (&t_comm.unshifted).check(w);
+        z_comm.unshifted.check(w);
+        t_comm.unshifted.check(w);
         lr.check(w);
 
         let shift = |f: Fq| <Fq as FieldWitness>::Shifting::of_field(f);
@@ -2675,7 +2671,7 @@ pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
             dlog_plonk_index: &dlog_plonk_index,
             challenge_polynomial_commitments: prevs
                 .iter()
-                .map(|v| InnerCurve::of_affine(v.wrap_proof.proof.sg.clone()))
+                .map(|v| InnerCurve::of_affine(v.wrap_proof.proof.sg))
                 .collect(),
             old_bulletproof_challenges: bulletproof_challenges,
         };
@@ -2734,7 +2730,7 @@ pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
 
     let challenge_polynomial_commitments = expanded_proofs
         .iter()
-        .map(|v| InnerCurve::of_affine(v.sg.clone()))
+        .map(|v| InnerCurve::of_affine(v.sg))
         .collect();
 
     let (old_bulletproof_challenges, messages_for_next_wrap_proof): (Vec<_>, Vec<_>) = proofs

@@ -280,10 +280,7 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                     store.dispatch(RpcAction::P2pConnectionOutgoingInit { rpc_id, opts });
                 }
                 RpcRequest::P2pConnectionIncoming(opts) => {
-                    store.dispatch(RpcAction::P2pConnectionIncomingInit {
-                        rpc_id,
-                        opts,
-                    });
+                    store.dispatch(RpcAction::P2pConnectionIncomingInit { rpc_id, opts });
                 }
                 RpcRequest::ScanStateSummaryGet(query) => {
                     store.dispatch(RpcAction::ScanStateSummaryGetInit { rpc_id, query });

@@ -758,7 +758,7 @@ where
         let auth = if older_than_current_version {
             original_auth.verification_key_perm_fallback_to_signature_with_older_version()
         } else {
-            original_auth.clone()
+            *original_auth
         };
 
         let has_permission = controller_check(proof_verifies, signature_verifies, auth)?;

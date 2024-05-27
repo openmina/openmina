@@ -367,8 +367,7 @@ impl LedgerCtx {
         if expected_hash != &obtained_hash {
             return Err(format!(
                 "Expected to obtain snarked root ledger hash {} but got {}",
-                expected_hash,
-                obtained_hash
+                expected_hash, obtained_hash
             ));
         }
 

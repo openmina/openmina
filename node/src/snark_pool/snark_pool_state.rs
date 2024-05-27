@@ -53,7 +53,7 @@ pub enum JobSummary {
     Merge(usize),
 }
 
-impl Default for SnarkPoolState{
+impl Default for SnarkPoolState {
     fn default() -> Self {
         Self::new()
     }
@@ -180,9 +180,7 @@ impl SnarkPoolState {
     }
 
     pub fn available_jobs_iter(&self) -> impl '_ + Iterator<Item = &'_ JobState> {
-        self.list
-            .values()
-            .filter(|job| job.is_available())
+        self.list.values().filter(|job| job.is_available())
     }
 
     pub fn available_jobs_with_highest_priority(&self, n: usize) -> Vec<&JobState> {

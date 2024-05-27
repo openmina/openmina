@@ -83,7 +83,7 @@ impl ConsensusState {
                                 let (take, why) = short_range_fork_take(
                                     tip_cs,
                                     candidate_cs,
-tip.hash,
+                                    tip.hash,
                                     candidate_hash,
                                 );
                                 if take {
@@ -158,7 +158,7 @@ tip.hash,
                 // keep at most latest 32 candidate blocks.
                 let blocks_to_keep = (0..32)
                     .scan(best_tip_hash, |block_hash, _| {
-                        let block_state = blocks.remove(block_hash) ?;
+                        let block_state = blocks.remove(block_hash)?;
                         let block_hash = match block_state.status.compared_with() {
                             None => block_hash.clone(),
                             Some(compared_with) => {

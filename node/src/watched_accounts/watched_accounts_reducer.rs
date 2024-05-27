@@ -148,7 +148,7 @@ impl WatchedAccountsState {
                     } => WatchedAccountBlockState::LedgerAccountGetSuccess {
                         block: block.clone(),
                         transactions: std::mem::take(transactions),
-                        ledger_account:Box::new( ledger_account.clone()),
+                        ledger_account: Box::new(ledger_account.clone()),
                     },
                     _ => return,
                 };

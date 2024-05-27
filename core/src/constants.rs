@@ -171,7 +171,7 @@ lazy_static! {
             delta: 0.into(),
             genesis_state_timestamp: BlockTimeTimeStableV1(
                 UnsignedExtendedUInt64Int64ForVersionTagsStableV1(
-                    DEFAULT_GENESIS_TIMESTAMP_MILLISECONDS .into(),
+                    DEFAULT_GENESIS_TIMESTAMP_MILLISECONDS.into(),
                 ),
             ),
         };

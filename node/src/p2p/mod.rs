@@ -34,8 +34,7 @@ where
 
     fn state_and_service(&mut self) -> (&P2pState, &mut Self::Service) {
         (
-            self
-                .state
+            self.state
                 .get()
                 .p2p
                 .ready()

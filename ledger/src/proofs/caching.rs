@@ -333,7 +333,7 @@ impl From<&VerifierIndex<Pallas>> for VerifierIndexCached {
             w: (*w.get().unwrap()).into(),
             endo: endo.into(),
             lookup_index: lookup_index.clone(),
-            linearization: conv_linearization(&linearization),
+            linearization: conv_linearization(linearization),
         }
     }
 }
@@ -389,7 +389,7 @@ impl From<&VerifierIndexCached> for VerifierIndex<Pallas> {
             w: OnceCell::with_value(w.to_field()),
             endo: endo.to_field(),
             lookup_index: lookup_index.clone(),
-            linearization: conv_linearization(&linearization),
+            linearization: conv_linearization(linearization),
             powers_of_alpha: {
                 // `Alphas` contains private data, so we can't de/serialize it.
                 // Initializing an `Alphas` is cheap anyway (for block verification).

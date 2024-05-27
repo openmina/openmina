@@ -630,7 +630,7 @@ fn next_required_ledger_to_sync(
     old_root: &ArcBlockWithHash,
     new_best_tip: &ArcBlockWithHash,
     new_root: &ArcBlockWithHash,
-        new_blocks_inbetween: &[StateHash],
+    new_blocks_inbetween: &[StateHash],
 ) -> TransitionFrontierSyncState {
     let next_epoch_target = SyncLedgerTarget::next_epoch(new_best_tip, new_root);
 

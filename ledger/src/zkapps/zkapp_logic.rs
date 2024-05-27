@@ -263,7 +263,7 @@ fn update_action_state<Z: ZkappApplication>(
     last_action_slot: Z::GlobalSlotSinceGenesis,
     w: &mut Z::WitnessGenerator,
 ) -> ([Fp; 5], <Z as ZkappApplication>::GlobalSlotSinceGenesis) {
-    let [s1, s2, s3, s4, s5] = action_state.clone();
+    let [s1, s2, s3, s4, s5] = *action_state;
     let is_empty = Z::Actions::is_empty(actions, w);
     let s1_updated = Z::Actions::push_events(s1, actions, w);
     let s1_new = w.exists_no_check(match is_empty.as_boolean() {
@@ -421,7 +421,7 @@ where
             new_frame: remaining,
         } = get_next_account_update::<Z>(to_pop, call_stack, w);
 
-        let _local_state = {
+        {
             let default_token_or_token_owner_was_caller = {
                 let account_update_token_id = &account_update.body().token_id;
                 // We decompose this way because of OCaml evaluation order
@@ -489,7 +489,7 @@ where
         w,
     );
 
-    let _a = {
+    {
         let self_delegate = {
             let account_update_token_id = &account_update.body().token_id;
             let is_default_token =
@@ -536,7 +536,7 @@ where
         w,
     );
 
-    let _local_state = {
+    {
         let valid_while = &account_update.body().preconditions.valid_while;
         let valid_while_satisfied =
             Z::Handler::check_valid_while_precondition(valid_while, global_state, w);
@@ -589,7 +589,7 @@ where
         w,
     );
 
-    let _local_state = {
+    {
         let precondition_has_constant_nonce =
             account_update.account_precondition_nonce_is_constant(w);
         let increments_nonce_and_constrains_its_old_value = Z::Bool::and(
@@ -677,14 +677,14 @@ where
         let balance_change = &account_update_balance_change;
         let neg_creation_fee = { Z::SignedAmount::of_unsigned(account_creation_fee).negate() };
         let (balance_change_for_creation, creation_overflow) =
-            Z::SignedAmount::add_flagged(&balance_change, &neg_creation_fee, w);
+            Z::SignedAmount::add_flagged(balance_change, &neg_creation_fee, w);
         let pay_creation_fee = Z::Bool::and(account_is_new, implicit_account_creation_fee, w);
         let creation_overflow = Z::Bool::and(pay_creation_fee, creation_overflow, w);
         let balance_change = Z::SignedAmount::on_if(
             pay_creation_fee,
             SignedAmountBranchParam {
                 on_true: &balance_change_for_creation,
-                on_false: &balance_change,
+                on_false: balance_change,
             },
             w,
         );
@@ -711,7 +711,7 @@ where
         Z::LocalState::add_check(local_state, TransactionFailure::Overflow, failed1.neg(), w);
         let account_creation_fee =
             Z::Amount::of_constant_fee(Fee::from_u64(CONSTRAINT_CONSTANTS.account_creation_fee));
-        let _local_state = {
+        {
             let (excess_minus_creation_fee, excess_update_failed) = Z::SignedAmount::add_flagged(
                 &local_state.excess,
                 &Z::SignedAmount::of_unsigned(account_creation_fee.clone()).negate(),
@@ -734,7 +734,7 @@ where
             .clone();
         };
 
-        let _local_state = {
+        {
             let (supply_increase_minus_creation_fee, supply_increase_update_failed) =
                 Z::SignedAmount::add_flagged(
                     &local_state.supply_increase,
@@ -759,7 +759,7 @@ where
         };
 
         let is_receiver = actual_balance_change.is_non_neg();
-        let _local_state = {
+        {
             let controller = {
                 let on_true = Z::Branch::make(w, |_| a.get().permissions.receive);
                 let on_false = Z::Branch::make(w, |_| a.get().permissions.send);
@@ -799,7 +799,7 @@ where
     };
     Z::Account::make_zkapp(&mut a);
     // Check that the account can be accessed with the given authorization.
-    let _local_state = {
+    {
         let has_permission = {
             let access = &a.get().permissions.access;
             Z::Controller::check(proof_verifies, signature_verifies, access, &single_data, w)
@@ -899,7 +899,7 @@ where
                         w,
                     )
                 });
-                let on_false = Z::Branch::make(w, |_| original_auth.clone());
+                let on_false = Z::Branch::make(w, |_| *original_auth);
                 w.on_if(
                     older_than_current_version,
                     BranchParam { on_true, on_false },
@@ -1111,7 +1111,7 @@ where
     };
 
     // Update receipt chain hash
-    let _ = {
+    {
         let new_hash = {
             let old_hash = a.get().receipt_chain_hash.clone();
             let cond = Z::Bool::or(signature_verifies, proof_verifies, w);
@@ -1299,7 +1299,7 @@ where
         w,
     );
 
-    let _global_state = {
+    {
         let is_successful_last_party = Z::Bool::and(is_last_account_update, local_state.success, w);
         let global_state_supply_increase = global_state.supply_increase();
         let supply_increase = Z::SignedAmount::on_if(
@@ -1314,7 +1314,7 @@ where
         global_state.set_second_pass_ledger(is_successful_last_party, &local_state.ledger, w);
     };
 
-    let _local_state = {
+    {
         let will_succeed = w.exists_no_check(match is_last_account_update.as_boolean() {
             Boolean::True => Z::Bool::true_(),
             Boolean::False => local_state.will_succeed,

@@ -44,15 +44,13 @@ impl Genesis {
 
     pub fn grace_period_slots(&self) -> UnsignedExtendedUInt32StableV1 {
         self.grace_period_slots
-            .map(|grace_period_slots| {
-                UnsignedExtendedUInt32StableV1(Number(grace_period_slots))
-            })
+            .map(|grace_period_slots| UnsignedExtendedUInt32StableV1(Number(grace_period_slots)))
             .unwrap_or(PROTOCOL_CONSTANTS.grace_period_slots.clone())
     }
 
     pub fn delta(&self) -> UnsignedExtendedUInt32StableV1 {
         self.delta
-            .map(|delta| UnsignedExtendedUInt32StableV1(Number(delta )))
+            .map(|delta| UnsignedExtendedUInt32StableV1(Number(delta)))
             .unwrap_or(PROTOCOL_CONSTANTS.delta.clone())
     }
 

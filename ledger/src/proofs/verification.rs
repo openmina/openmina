@@ -118,7 +118,7 @@ fn validate_feature_flags(
         enable_if(lookup_table, lookups_per_row_2),
         lookup_sorted.iter().enumerate().fold(true, |acc, (i, x)| {
             let flag = match i {
-                0 | 1 | 2 => lookups_per_row_2,
+                0..=2 => lookups_per_row_2,
                 3 => lookups_per_row_3,
                 4 => lookups_per_row_4,
                 _ => panic!(),
@@ -133,7 +133,7 @@ fn validate_feature_flags(
         enable_if(foreign_field_mul_lookup_selector, f.foreign_field_mul),
     ]
     .iter()
-    .all(|b| *b == true)
+    .all(|b| *b)
 }
 
 pub fn prev_evals_from_p2p<F: FieldWitness>(

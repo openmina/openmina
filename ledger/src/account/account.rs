@@ -762,6 +762,7 @@ impl Ord for AccountId {
     }
 }
 
+#[allow(clippy::non_canonical_partial_ord_impl)]
 impl PartialOrd for AccountId {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         let self_pk: BigInteger256 = self.public_key.x.into();

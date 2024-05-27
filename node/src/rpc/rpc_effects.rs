@@ -36,10 +36,9 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
 
     match action {
         RpcAction::GlobalStateGet { rpc_id, filter } => {
-            let _ = store.service.respond_state_get(
-                rpc_id,
-                (store.state.get(), filter.as_deref()),
-            );
+            let _ = store
+                .service
+                .respond_state_get(rpc_id, (store.state.get(), filter.as_deref()));
         }
         RpcAction::ActionStatsGet { rpc_id, query } => match query {
             ActionStatsQuery::SinceStart => {
@@ -155,45 +154,40 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                 .respond_message_progress_stats_get(rpc_id, response);
         }
         RpcAction::PeersGet { rpc_id } => {
-            let peers = store.state().p2p.ready().map_or_else(
-                Vec::new,
-                |p2p| {
-                    p2p.peers
-                        .iter()
-                        .map(|(peer_id, state)| {
-                            let best_tip =
-                                state.status.as_ready().and_then(|r| r.best_tip.as_ref());
-                            let (connection_status, time) = match &state.status {
-                                p2p::P2pPeerStatus::Connecting(c) => match c {
-                                    p2p::connection::P2pConnectionState::Outgoing(o) => {
-                                        (PeerConnectionStatus::Connecting, o.time().into())
-                                    }
-                                    p2p::connection::P2pConnectionState::Incoming(i) => {
-                                        (PeerConnectionStatus::Connecting, i.time().into())
-                                    }
-                                },
-                                p2p::P2pPeerStatus::Disconnected { time } => {
-                                    (PeerConnectionStatus::Disconnected, (*time).into())
+            let peers = store.state().p2p.ready().map_or_else(Vec::new, |p2p| {
+                p2p.peers
+                    .iter()
+                    .map(|(peer_id, state)| {
+                        let best_tip = state.status.as_ready().and_then(|r| r.best_tip.as_ref());
+                        let (connection_status, time) = match &state.status {
+                            p2p::P2pPeerStatus::Connecting(c) => match c {
+                                p2p::connection::P2pConnectionState::Outgoing(o) => {
+                                    (PeerConnectionStatus::Connecting, o.time().into())
                                 }
-                                p2p::P2pPeerStatus::Ready(r) => {
-                                    (PeerConnectionStatus::Connected, r.connected_since.into())
+                                p2p::connection::P2pConnectionState::Incoming(i) => {
+                                    (PeerConnectionStatus::Connecting, i.time().into())
                                 }
-                            };
-                            RpcPeerInfo {
-                                peer_id: *peer_id,
-                                connection_status,
-                                address: state.dial_opts.as_ref().map(|opts| opts.to_string()),
-                                best_tip: best_tip.map(|bt| bt.hash.clone()),
-                                best_tip_height: best_tip.map(|bt| bt.height()),
-                                best_tip_global_slot: best_tip
-                                    .map(|bt| bt.global_slot_since_genesis()),
-                                best_tip_timestamp: best_tip.map(|bt| bt.timestamp().into()),
-                                time,
+                            },
+                            p2p::P2pPeerStatus::Disconnected { time } => {
+                                (PeerConnectionStatus::Disconnected, (*time).into())
                             }
-                        })
-                        .collect()
-                },
-            );
+                            p2p::P2pPeerStatus::Ready(r) => {
+                                (PeerConnectionStatus::Connected, r.connected_since.into())
+                            }
+                        };
+                        RpcPeerInfo {
+                            peer_id: *peer_id,
+                            connection_status,
+                            address: state.dial_opts.as_ref().map(|opts| opts.to_string()),
+                            best_tip: best_tip.map(|bt| bt.hash.clone()),
+                            best_tip_height: best_tip.map(|bt| bt.height()),
+                            best_tip_global_slot: best_tip.map(|bt| bt.global_slot_since_genesis()),
+                            best_tip_timestamp: best_tip.map(|bt| bt.timestamp().into()),
+                            time,
+                        }
+                    })
+                    .collect()
+            });
             respond_or_log!(
                 store.service().respond_peers_get(rpc_id, peers),
                 meta.time()

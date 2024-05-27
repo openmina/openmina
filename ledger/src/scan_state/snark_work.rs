@@ -89,8 +89,7 @@ mod tests {
         r.read_to_end(&mut buf).unwrap();
 
         let mut read = buf.as_slice();
-        let result = T::binprot_read(&mut read).unwrap();
-        result
+        T::binprot_read(&mut read).unwrap()
     }
 
     fn read_input<R: std::io::Read>(mut r: R) {

@@ -122,7 +122,7 @@ pub struct ConsensusState {
 
 impl ConsensusState {
     pub fn new() -> Self {
-        Self ::default()
+        Self::default()
     }
 
     pub fn best_tip_block_with_hash(&self) -> Option<BlockWithHash<Arc<MinaBlockBlockStableV2>>> {

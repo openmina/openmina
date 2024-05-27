@@ -2229,7 +2229,7 @@ where
 
         // update the latest emitted value
         if result_opt.is_some() {
-            self.acc = result_opt.clone();
+            self.acc.clone_from(&result_opt);
         };
 
         assert!(
