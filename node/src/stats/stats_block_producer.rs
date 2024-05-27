@@ -79,6 +79,10 @@ pub struct ProducedBlockTransactions {
 }
 
 impl BlockProducerStats {
+    pub fn collect_attempts(&self) -> Vec<BlockProductionAttempt> {
+        self.attempts.iter().cloned().collect()
+    }
+
     fn update<F>(&mut self, kind: &'static str, with: F)
     where
         F: FnOnce(&mut BlockProductionAttempt) -> bool,
@@ -108,13 +112,7 @@ impl BlockProducerStats {
             self.attempts.pop_front();
         }
         self.attempts.push_back(BlockProductionAttempt {
-            won_slot: BlockProductionAttemptWonSlot {
-                slot_time: won_slot.slot_time,
-                global_slot: won_slot.global_slot(),
-                epoch: won_slot.epoch(),
-                delegator: won_slot.delegator.clone(),
-                value_with_threshold: won_slot.value_with_threshold.clone(),
-            },
+            won_slot: won_slot.into(),
             block: None,
             times: BlockProductionTimes {
                 scheduled: time,
@@ -244,6 +242,18 @@ impl BlockProducerStats {
             attempt.times.discarded = Some(time);
             true
         });
+    }
+}
+
+impl From<&BlockProducerWonSlot> for BlockProductionAttemptWonSlot {
+    fn from(won_slot: &BlockProducerWonSlot) -> Self {
+        Self {
+            slot_time: won_slot.slot_time,
+            global_slot: won_slot.global_slot(),
+            epoch: won_slot.epoch(),
+            delegator: won_slot.delegator.clone(),
+            value_with_threshold: won_slot.value_with_threshold.clone(),
+        }
     }
 }
 

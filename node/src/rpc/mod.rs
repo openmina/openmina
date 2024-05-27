@@ -39,7 +39,7 @@ use crate::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 use crate::p2p::PeerId;
 use crate::snark_pool::{JobCommitment, JobSummary};
 use crate::stats::actions::{ActionStatsForBlock, ActionStatsSnapshot};
-use crate::stats::block_producer::BlockProducerStats;
+use crate::stats::block_producer::{BlockProductionAttempt, BlockProductionAttemptWonSlot};
 use crate::stats::sync::SyncStatsSnapshot;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -267,13 +267,19 @@ pub enum RpcStateGetError {
 pub type RpcStateGetResponse = Result<serde_json::Value, RpcStateGetError>;
 pub type RpcActionStatsGetResponse = Option<ActionStatsResponse>;
 pub type RpcSyncStatsGetResponse = Option<Vec<SyncStatsSnapshot>>;
-pub type RpcBlockProducerStatsGetResponse = Option<BlockProducerStats>;
+pub type RpcBlockProducerStatsGetResponse = Option<RpcBlockProducerStats>;
 pub type RpcPeersGetResponse = Vec<RpcPeerInfo>;
 pub type RpcP2pConnectionOutgoingResponse = Result<(), String>;
 pub type RpcScanStateSummaryGetResponse = Option<RpcScanStateSummary>;
 pub type RpcSnarkPoolGetResponse = Vec<RpcSnarkPoolJobSummary>;
 pub type RpcSnarkPoolJobGetResponse = Option<RpcSnarkPoolJobFull>;
 pub type RpcSnarkerConfigGetResponse = Option<RpcSnarkerConfig>;
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct RpcBlockProducerStats {
+    pub attempts: Vec<BlockProductionAttempt>,
+    pub future_won_slots: Vec<BlockProductionAttemptWonSlot>,
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RpcSnarkerConfig {

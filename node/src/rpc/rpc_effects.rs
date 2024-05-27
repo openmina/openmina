@@ -3,6 +3,7 @@ use std::time::Duration;
 use mina_p2p_messages::rpc_kernel::QueryHeader;
 use mina_p2p_messages::v2::MinaBaseTransactionStatusStableV2;
 
+use crate::block_producer::BlockProducerWonSlot;
 use crate::external_snark_worker::available_job_to_snark_worker_spec;
 use crate::ledger::read::{LedgerReadAction, LedgerReadRequest};
 use crate::p2p::connection::incoming::P2pConnectionIncomingAction;
@@ -16,11 +17,12 @@ use crate::{p2p_ready, Service, Store};
 
 use super::{
     ActionStatsQuery, ActionStatsResponse, CurrentMessageProgress, MessagesStats, RpcAction,
-    RpcActionWithMeta, RpcMessageProgressResponse, RpcRequest, RpcRequestExtraData,
-    RpcScanStateSummary, RpcScanStateSummaryBlock, RpcScanStateSummaryBlockTransaction,
-    RpcScanStateSummaryBlockTransactionKind, RpcScanStateSummaryGetQuery,
-    RpcScanStateSummaryScanStateJob, RpcSnarkPoolJobFull, RpcSnarkPoolJobSnarkWork,
-    RpcSnarkPoolJobSummary, RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse,
+    RpcActionWithMeta, RpcBlockProducerStats, RpcMessageProgressResponse, RpcRequest,
+    RpcRequestExtraData, RpcScanStateSummary, RpcScanStateSummaryBlock,
+    RpcScanStateSummaryBlockTransaction, RpcScanStateSummaryBlockTransactionKind,
+    RpcScanStateSummaryGetQuery, RpcScanStateSummaryScanStateJob, RpcSnarkPoolJobFull,
+    RpcSnarkPoolJobSnarkWork, RpcSnarkPoolJobSummary, RpcSnarkerJobCommitResponse,
+    RpcSnarkerJobSpecResponse,
 };
 
 macro_rules! respond_or_log {
@@ -74,7 +76,29 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
             let _ = store.service.respond_sync_stats_get(rpc_id, resp);
         }
         RpcAction::BlockProducerStatsGet { rpc_id } => {
-            let resp = store.service.stats().map(|s| s.block_producer().clone());
+            let resp = None.or_else(|| {
+                let state = store.state.get();
+                let best_tip = state.transition_frontier.best_tip()?;
+                let won_slots = &state.block_producer.vrf_evaluator()?.won_slots;
+
+                let stats = store.service.stats()?;
+                let attempts = stats.block_producer().collect_attempts();
+                let future_slot = attempts.last().map_or(0, |v| v.won_slot.global_slot + 1);
+
+                Some(RpcBlockProducerStats {
+                    attempts,
+                    future_won_slots: won_slots
+                        .range(future_slot..)
+                        .map(|(_, won_slot)| {
+                            let won_slot = BlockProducerWonSlot::from_vrf_won_slot(
+                                won_slot,
+                                best_tip.genesis_timestamp(),
+                            );
+                            (&won_slot).into()
+                        })
+                        .collect(),
+                })
+            });
             let _ = store.service.respond_block_producer_stats_get(rpc_id, resp);
         }
         RpcAction::MessageProgressGet { rpc_id } => {
