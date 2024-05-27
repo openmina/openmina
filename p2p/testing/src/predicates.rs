@@ -45,7 +45,7 @@ pub fn listeners_are_ready<I>(ids: I) -> impl FnMut(ClusterEvent) -> Ready<bool>
 where
     I: IntoIterator<Item = RustNodeId>,
 {
-    let mut ids: HashSet<RustNodeId> = HashSet::from_iter(ids.into_iter());
+    let mut ids: HashSet<RustNodeId> = HashSet::from_iter(ids);
     move |event| {
         ready(
             if let Some((event_id, RustNodeEvent::ListenerReady { .. })) = event.rust() {
@@ -88,7 +88,7 @@ pub fn nodes_peers_are_ready<I>(nodes_peers: I) -> impl FnMut(ClusterEvent) -> R
 where
     I: IntoIterator<Item = (RustNodeId, PeerId)>,
 {
-    let mut nodes_peers = BTreeSet::from_iter(nodes_peers.into_iter());
+    let mut nodes_peers = BTreeSet::from_iter(nodes_peers);
     move |event| {
         ready(
             if let ClusterEvent::Rust {
@@ -111,7 +111,7 @@ pub fn all_nodes_peers_are_ready<I>(nodes_peers: I) -> impl FnMut(ClusterEvent) 
 where
     I: IntoIterator<Item = (NodeId, PeerId)>,
 {
-    let mut nodes_peers = BTreeSet::from_iter(nodes_peers.into_iter());
+    let mut nodes_peers = BTreeSet::from_iter(nodes_peers);
     move |event| {
         ready(match event {
             ClusterEvent::Rust {
@@ -182,7 +182,7 @@ where
     I: IntoIterator<Item = (RustNodeId, T)>,
     F: FnMut(RustNodeEvent) -> Option<T>,
 {
-    let mut nodes_items = Vec::from_iter(nodes_items.into_iter());
+    let mut nodes_items = Vec::from_iter(nodes_items);
     move |event| {
         ready(if let ClusterEvent::Rust { id, event } = event {
             f(event)

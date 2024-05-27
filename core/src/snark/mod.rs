@@ -7,6 +7,7 @@ pub use snark_job_commitment::SnarkJobCommitment;
 mod snark_info;
 pub use snark_info::SnarkInfo;
 
+#[allow(clippy::module_inception)]
 mod snark;
 pub use snark::Snark;
 

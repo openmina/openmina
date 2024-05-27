@@ -12,4 +12,4 @@ mod p2p_network_pubsub_reducer;
 
 mod p2p_network_pubsub_effects;
 
-const TOPIC: &'static str = "coda/consensus-messages/0.0.1";
+const TOPIC: &str = "coda/consensus-messages/0.0.1";

@@ -158,10 +158,7 @@ impl TransitionFrontierSyncLedgerSnarkedState {
     }
 
     pub fn is_num_accounts_query_next(&self) -> bool {
-        match self {
-            Self::NumAccountsPending { .. } => true,
-            _ => false,
-        }
+        matches!(self, Self::NumAccountsPending { .. })
     }
 
     pub fn num_accounts_pending(&self) -> Option<&LedgerNumAccountsQueryPending> {
@@ -198,7 +195,7 @@ impl TransitionFrontierSyncLedgerSnarkedState {
 
     pub fn sync_address_next(&self) -> Option<(LedgerAddress, LedgerHash)> {
         match self {
-            Self::MerkleTreeSyncPending { queue, .. } => match queue.front().map(|a| a.clone()) {
+            Self::MerkleTreeSyncPending { queue, .. } => match queue.front().cloned() {
                 Some(LedgerAddressQuery {
                     address,
                     expected_hash,
@@ -233,12 +230,10 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                     estimation,
                 })
             }
-            Self::MerkleTreeSyncSuccess { .. } | Self::Success { .. } => {
-                return Some(LedgerSyncProgress {
-                    fetched: 1,
-                    estimation: 1,
-                })
-            }
+            Self::MerkleTreeSyncSuccess { .. } | Self::Success { .. } => Some(LedgerSyncProgress {
+                fetched: 1,
+                estimation: 1,
+            }),
         }
     }
 

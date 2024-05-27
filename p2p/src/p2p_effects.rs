@@ -181,12 +181,12 @@ where
         if discovery_state
             .routing_table
             .closest_peers(&P2pNetworkKadKey::from(&key))
-            .any(|_| true)
+            .any(|_| true) && discovery_state.status.can_bootstrap(now, &config.timeouts)
         {
-            if discovery_state.status.can_bootstrap(now, &config.timeouts) {
+        
                 store.dispatch(P2pNetworkKademliaAction::StartBootstrap { key });
             }
-        }
+        
     }
 }
 

@@ -220,10 +220,8 @@ mod tests {
         dbg!(good.len());
         // dbg!(&good[0]);
 
-        let n = 10.min(good.len());
-        for index in 0..n {
-            let value = good[index].clone();
-            let value = ExternalSnarkWorkerRequest::PerformJob(value);
+        for (index, value) in good.iter().enumerate().take(10) {
+            let value = ExternalSnarkWorkerRequest::PerformJob(value.clone());
 
             let mut file =
                 std::fs::File::create(format!("/tmp/zkapp_{}_rampup4.bin", index)).unwrap();

@@ -249,12 +249,12 @@ impl Default for Ports {
 macro_rules! ports_store {
     ($name:ident, $range:expr) => {
         $crate::lazy_static::lazy_static! {
-            static ref PORTS: crate::cluster::Ports = crate::cluster::Ports::new($range);
+            static ref PORTS: $crate::cluster::Ports = $crate::cluster::Ports::new($range);
         }
     };
     ($name:ident) => {
         $crate::lazy_static::lazy_static! {
-            static ref PORTS: crate::cluster::Ports = crate::cluster::Ports::default();
+            static ref PORTS: $crate::cluster::Ports = $crate::cluster::Ports::default();
         }
     };
 }
@@ -425,7 +425,7 @@ impl Cluster {
         match listener {
             Listener::Rust(id) => Ok(self.rust_node(id).rust_dial_opts(self.ip)),
             Listener::Libp2p(id) => Ok(self.libp2p_node(id).rust_dial_opts(self.ip)),
-            Listener::Multiaddr(maddr) => Ok(maddr.try_into().map_err(|e| Error::AddrParse(e))?),
+            Listener::Multiaddr(maddr) => Ok(maddr.try_into().map_err(Error::AddrParse)?),
             Listener::SocketPeerId(socket, peer_id) => Ok(P2pConnectionOutgoingInitOpts::LibP2P(
                 (peer_id, socket).into(),
             )),
@@ -633,7 +633,7 @@ impl Cluster {
     }
 
     fn dump_state(&self) -> std::result::Result<(), Box<dyn std::error::Error>> {
-        let path = std::env::temp_dir().join(format!("p2p-test-node.json"));
+        let path = std::env::temp_dir().join("p2p-test-node.json");
         eprintln!("saving state of rust nodes to {:?}", path);
         let file = std::fs::File::create(path)?;
         let states = serde_json::Map::from_iter(

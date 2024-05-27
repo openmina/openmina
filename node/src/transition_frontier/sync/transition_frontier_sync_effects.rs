@@ -13,9 +13,9 @@ use super::ledger::{SyncLedgerTarget, TransitionFrontierSyncLedgerAction};
 use super::{TransitionFrontierSyncAction, TransitionFrontierSyncState};
 
 impl TransitionFrontierSyncAction {
-    pub fn effects<S: redux::Service>(&self, meta: &ActionMeta, store: &mut Store<S>)
+    pub fn effects<S>(&self, meta: &ActionMeta, store: &mut Store<S>)
     where
-        S: TransitionFrontierSyncLedgerSnarkedService,
+        S: redux::Service + TransitionFrontierSyncLedgerSnarkedService,
     {
         match self {
             TransitionFrontierSyncAction::Init { best_tip, .. } => {

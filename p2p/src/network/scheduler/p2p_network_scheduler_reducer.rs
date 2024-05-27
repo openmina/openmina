@@ -142,14 +142,12 @@ impl P2pNetworkSchedulerState {
                     } else {
                         unreachable!()
                     }
+                } else if let Some(connection) = self.connections.get_mut(addr) {
+                    connection.closed = Some(P2pNetworkConnectionCloseReason::Disconnect(
+                        P2pDisconnectionReason::SelectError,
+                    ));
                 } else {
-                    if let Some(connection) = self.connections.get_mut(addr) {
-                        connection.closed = Some(P2pNetworkConnectionCloseReason::Disconnect(
-                            P2pDisconnectionReason::SelectError,
-                        ));
-                    } else {
-                        unreachable!()
-                    }
+                    unreachable!()
                 }
             }
             P2pNetworkSchedulerAction::YamuxDidInit { addr, .. } => {

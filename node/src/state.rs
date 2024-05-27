@@ -205,9 +205,7 @@ impl<'a> Iterator for ReadyPeersIter<'a> {
     type Item = (&'a PeerId, &'a P2pPeerStatusReady);
 
     fn next(&mut self) -> Option<Self::Item> {
-        let Some(iter) = self.0.as_mut() else {
-            return None;
-        };
+        let iter = self.0.as_mut()?;
         Some(loop {
             let (peer_id, state) = iter.next()?;
             if let Some(ready) = state.status.as_ready() {

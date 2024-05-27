@@ -61,7 +61,7 @@ pub fn snark_pool_candidate_effects<S: redux::Service>(
                 .range(..)
                 .map(|(_, v)| (v.order, &v.id))
                 .collect::<BTreeMap<_, _>>();
-            let job_ids_ordered_iter = job_id_orders.into_iter().map(|(_, id)| id);
+            let job_ids_ordered_iter = job_id_orders.into_values();
             let batch = state
                 .snark_pool
                 .candidates

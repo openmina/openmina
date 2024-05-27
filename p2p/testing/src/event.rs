@@ -50,7 +50,7 @@ pub enum RustNodeEvent {
     },
     Identify {
         peer_id: PeerId,
-        info: P2pNetworkIdentify,
+        info: Box<P2pNetworkIdentify>,
     },
     KadBootstrapFinished,
     /// Other non-specific p2p event.
@@ -68,35 +68,31 @@ pub(super) trait RustNodeEventStore {
 pub(super) fn event_mapper_effect(store: &mut super::redux::Store, action: P2pAction) {
     let store_event = |store: &mut super::redux::Store, event| store.service().store_event(event);
     match action {
-        P2pAction::Peer(action) => match action {
-            P2pPeerAction::Ready { peer_id, incoming } => {
-                store_event(store, RustNodeEvent::PeerConnected { peer_id, incoming })
-            }
-            _ => {}
-        },
+        P2pAction::Peer(P2pPeerAction::Ready { peer_id, incoming }) => {
+            store_event(store, RustNodeEvent::PeerConnected { peer_id, incoming })
+        }
         P2pAction::Connection(action) => match action {
-            p2p::connection::P2pConnectionAction::Outgoing(action) => match action {
-                P2pConnectionOutgoingAction::Error { peer_id, error } => store_event(
-                    store,
-                    RustNodeEvent::PeerConnectionError {
-                        peer_id: Some(peer_id),
-                        incoming: false,
-                        error: error.to_string(),
-                    },
-                ),
-                _ => {}
-            },
-            p2p::connection::P2pConnectionAction::Incoming(action) => match action {
-                P2pConnectionIncomingAction::Error { peer_id, error } => store_event(
-                    store,
-                    RustNodeEvent::PeerConnectionError {
-                        peer_id: Some(peer_id),
-                        incoming: true,
-                        error: error.to_string(),
-                    },
-                ),
-                _ => {}
-            },
+            p2p::connection::P2pConnectionAction::Outgoing(
+                P2pConnectionOutgoingAction::Error { peer_id, error },
+            ) => store_event(
+                store,
+                RustNodeEvent::PeerConnectionError {
+                    peer_id: Some(peer_id),
+                    incoming: false,
+                    error: error.to_string(),
+                },
+            ),
+            p2p::connection::P2pConnectionAction::Incoming(
+                P2pConnectionIncomingAction::Error { peer_id, error },
+            ) => store_event(
+                store,
+                RustNodeEvent::PeerConnectionError {
+                    peer_id: Some(peer_id),
+                    incoming: true,
+                    error: error.to_string(),
+                },
+            ),
+            _ => {}
         },
 
         P2pAction::Disconnection(P2pDisconnectionAction::Init { peer_id, reason }) => store_event(
@@ -111,48 +107,44 @@ pub(super) fn event_mapper_effect(store: &mut super::redux::Store, action: P2pAc
         ))) => {
             store_event(store, RustNodeEvent::KadBootstrapFinished);
         }
-        P2pAction::Channels(action) => match action {
-            P2pChannelsAction::Rpc(action) => match action {
-                P2pChannelsRpcAction::Ready { peer_id } => {
-                    store_event(store, RustNodeEvent::RpcChannelReady { peer_id })
-                }
-                P2pChannelsRpcAction::RequestReceived {
-                    peer_id,
-                    id,
-                    request,
-                } => {
-                    // if matches!(store.service.peek_rust_node_event(), Some(RustNodeEvent::RpcChannelReady { peer_id: pid }) if pid == &peer_id )
-                    // {
-                    //     store.service.rust_node_event();
-                    // }
-                    store_event(
-                        store,
-                        RustNodeEvent::RpcChannelRequestReceived {
-                            peer_id,
-                            id,
-                            request,
-                        },
-                    )
-                }
-                P2pChannelsRpcAction::ResponseReceived {
+        P2pAction::Channels(P2pChannelsAction::Rpc(action)) => match action {
+            P2pChannelsRpcAction::Ready { peer_id } => {
+                store_event(store, RustNodeEvent::RpcChannelReady { peer_id })
+            }
+            P2pChannelsRpcAction::RequestReceived {
+                peer_id,
+                id,
+                request,
+            } => {
+                // if matches!(store.service.peek_rust_node_event(), Some(RustNodeEvent::RpcChannelReady { peer_id: pid }) if pid == &peer_id )
+                // {
+                //     store.service.rust_node_event();
+                // }
+                store_event(
+                    store,
+                    RustNodeEvent::RpcChannelRequestReceived {
+                        peer_id,
+                        id,
+                        request,
+                    },
+                )
+            }
+            P2pChannelsRpcAction::ResponseReceived {
+                peer_id,
+                id,
+                response,
+            } => store_event(
+                store,
+                RustNodeEvent::RpcChannelResponseReceived {
                     peer_id,
                     id,
                     response,
-                } => store_event(
-                    store,
-                    RustNodeEvent::RpcChannelResponseReceived {
-                        peer_id,
-                        id,
-                        response,
-                    },
-                ),
-                _ => {}
-            },
+                },
+            ),
             _ => {}
         },
-
         P2pAction::Identify(P2pIdentifyAction::UpdatePeerInformation { peer_id, info }) => {
-            store_event(store, RustNodeEvent::Identify { peer_id, info })
+            store_event(store, RustNodeEvent::Identify { peer_id, info: Box::new(info) })
         }
 
         P2pAction::Network(p2p::P2pNetworkAction::Scheduler(action)) => match action {

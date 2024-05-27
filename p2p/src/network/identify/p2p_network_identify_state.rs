@@ -22,7 +22,7 @@ impl P2pNetworkIdentifyState {
     ) -> Result<&mut P2pNetworkIdentifyStreamState, &P2pNetworkIdentifyStreamState> {
         match self
             .streams
-            .entry(peer_id.clone())
+            .entry(*peer_id)
             .or_default()
             .entry(*stream_id)
         {

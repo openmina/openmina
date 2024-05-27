@@ -51,16 +51,14 @@ impl RpcRequestStatus {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct RpcState {
     pub requests: BTreeMap<RpcId, RpcRequestState>,
 }
 
 impl RpcState {
     pub fn new() -> Self {
-        Self {
-            requests: Default::default(),
-        }
+        Self ::default()
     }
 
     pub fn scan_state_summary_rpc_ids(

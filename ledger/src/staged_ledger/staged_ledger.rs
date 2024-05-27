@@ -4918,7 +4918,7 @@ mod tests_ocaml {
                             pre_diff.sort_by_key(|v| v.fee);
                             pre_diff
                         })
-                        .unwrap_or_else(Vec::new)
+                        .unwrap_or_default()
                 };
 
                 {

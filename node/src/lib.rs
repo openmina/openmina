@@ -1,3 +1,5 @@
+#![allow(clippy::if_same_then_else)]
+
 pub use openmina_core as core;
 
 #[macro_use]

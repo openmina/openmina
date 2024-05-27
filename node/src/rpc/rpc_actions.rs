@@ -16,6 +16,7 @@ pub type RpcActionWithMeta = redux::ActionWithMeta<RpcAction>;
 pub type RpcActionWithMetaRef<'a> = redux::ActionWithMeta<&'a RpcAction>;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[allow(clippy::large_enum_variant)]
 pub enum RpcAction {
     GlobalStateGet {
         rpc_id: RpcId,

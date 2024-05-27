@@ -123,7 +123,7 @@ impl OcamlNodeExecutable {
         "minaprotocol/mina-daemon:2.0.0berkeley-rc1-1551e2f-bullseye-berkeley";
     pub const DEFAULT_MINA_EXECUTABLE: &'static str = "mina";
 
-    fn docker_container_name<'a>(tmp_dir: &temp_dir::TempDir) -> String {
+    fn docker_container_name(tmp_dir: &temp_dir::TempDir) -> String {
         let path = tmp_dir.path().file_name().unwrap().to_str().unwrap();
         format!("openmina_testing_ocaml_{}", &path[1..])
     }

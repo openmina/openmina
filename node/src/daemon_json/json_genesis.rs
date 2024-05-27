@@ -24,20 +24,20 @@ pub struct Genesis {
 impl Genesis {
     pub fn k(&self) -> UnsignedExtendedUInt32StableV1 {
         self.k
-            .map(|k| UnsignedExtendedUInt32StableV1(Number(k as u32)))
+            .map(|k| UnsignedExtendedUInt32StableV1(Number(k)))
             .unwrap_or(PROTOCOL_CONSTANTS.k.clone())
     }
 
     pub fn slots_per_epoch(&self) -> UnsignedExtendedUInt32StableV1 {
         self.slots_per_epoch
-            .map(|slots_per_epoch| UnsignedExtendedUInt32StableV1(Number(slots_per_epoch as u32)))
+            .map(|slots_per_epoch| UnsignedExtendedUInt32StableV1(Number(slots_per_epoch)))
             .unwrap_or(PROTOCOL_CONSTANTS.slots_per_epoch.clone())
     }
 
     pub fn slots_per_sub_window(&self) -> UnsignedExtendedUInt32StableV1 {
         self.slots_per_sub_window
             .map(|slots_per_sub_window| {
-                UnsignedExtendedUInt32StableV1(Number(slots_per_sub_window as u32))
+                UnsignedExtendedUInt32StableV1(Number(slots_per_sub_window))
             })
             .unwrap_or(PROTOCOL_CONSTANTS.slots_per_sub_window.clone())
     }
@@ -45,14 +45,14 @@ impl Genesis {
     pub fn grace_period_slots(&self) -> UnsignedExtendedUInt32StableV1 {
         self.grace_period_slots
             .map(|grace_period_slots| {
-                UnsignedExtendedUInt32StableV1(Number(grace_period_slots as u32))
+                UnsignedExtendedUInt32StableV1(Number(grace_period_slots))
             })
             .unwrap_or(PROTOCOL_CONSTANTS.grace_period_slots.clone())
     }
 
     pub fn delta(&self) -> UnsignedExtendedUInt32StableV1 {
         self.delta
-            .map(|delta| UnsignedExtendedUInt32StableV1(Number(delta as u32)))
+            .map(|delta| UnsignedExtendedUInt32StableV1(Number(delta )))
             .unwrap_or(PROTOCOL_CONSTANTS.delta.clone())
     }
 

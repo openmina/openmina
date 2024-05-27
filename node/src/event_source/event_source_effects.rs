@@ -260,7 +260,7 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                     }
                 },
             },
-            Event::Rpc(rpc_id, e) => match e {
+            Event::Rpc(rpc_id, e) => match *e {
                 RpcRequest::StateGet(filter) => {
                     store.dispatch(RpcAction::GlobalStateGet { rpc_id, filter });
                 }
@@ -282,7 +282,7 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                 RpcRequest::P2pConnectionIncoming(opts) => {
                     store.dispatch(RpcAction::P2pConnectionIncomingInit {
                         rpc_id,
-                        opts: opts.clone(),
+                        opts,
                     });
                 }
                 RpcRequest::ScanStateSummaryGet(query) => {

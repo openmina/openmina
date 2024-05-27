@@ -16,7 +16,7 @@ fn md5_hash(data: u8) -> String {
     let mut hasher = md5::Context::new();
     hasher.consume(data.to_string().as_bytes());
     let hash: Md5 = *hasher.compute();
-    hex::encode(&hash)
+    hex::encode(hash)
 }
 
 type Md5 = [u8; 16];
@@ -53,13 +53,13 @@ impl ChainId {
         let mut hasher = Blake2b256::default();
         let constraint_system_hash = constraint_system_digests
             .iter()
-            .map(|md5| hex::encode(md5))
+            .map(hex::encode)
             .reduce(|acc, el| acc + &el)
-            .unwrap_or_else(|| String::new());
+            .unwrap_or_default();
         let genesis_constants_hash = hash_genesis_constants(genesis_constants, tx_max_pool_size);
         hasher.update(genesis_state_hash.to_string().as_bytes());
         hasher.update(constraint_system_hash.to_string().as_bytes());
-        hasher.update(hex::encode(&genesis_constants_hash).as_bytes());
+        hasher.update(hex::encode(genesis_constants_hash).as_bytes());
         hasher.update(md5_hash(protocol_transaction_version).as_bytes());
         hasher.update(md5_hash(protocol_network_version).as_bytes());
         ChainId(hasher.finalize().try_into().unwrap())
@@ -77,7 +77,7 @@ impl ChainId {
     }
 
     pub fn to_hex(&self) -> String {
-        hex::encode(&self.0)
+        hex::encode(self.0)
     }
 
     pub fn from_hex(s: &str) -> Result<ChainId, hex::FromHexError> {

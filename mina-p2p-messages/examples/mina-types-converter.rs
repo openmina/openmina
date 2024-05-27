@@ -57,6 +57,7 @@ struct Cli {
 }
 
 #[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
+#[allow(clippy::upper_case_acronyms)]
 enum FileFormat {
     BinProt,
     BinProtStream,

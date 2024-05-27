@@ -112,7 +112,7 @@ impl ConsensusBlockState {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct ConsensusState {
     pub blocks: BTreeMap<StateHash, ConsensusBlockState>,
     // TODO(binier): rename to best candidate. Best tip will be in transition_frontier state.
@@ -122,11 +122,7 @@ pub struct ConsensusState {
 
 impl ConsensusState {
     pub fn new() -> Self {
-        Self {
-            blocks: BTreeMap::new(),
-            best_tip: None,
-            best_tip_chain_proof: None,
-        }
+        Self ::default()
     }
 
     pub fn best_tip_block_with_hash(&self) -> Option<BlockWithHash<Arc<MinaBlockBlockStableV2>>> {
@@ -140,7 +136,7 @@ impl ConsensusState {
 
     pub fn best_tip(&self) -> Option<BlockRef<'_>> {
         self.best_tip.as_ref().and_then(|hash| {
-            let block = &*self.blocks.get(hash)?;
+            let block = self.blocks.get(hash)?;
             Some(BlockRef {
                 hash,
                 header: &block.block.header,
@@ -152,7 +148,7 @@ impl ConsensusState {
 
     pub fn previous_best_tip(&self) -> Option<BlockRef<'_>> {
         self.best_tip.as_ref().and_then(|hash| {
-            let block = &*self.blocks.get(hash)?;
+            let block = self.blocks.get(hash)?;
             let prev_hash = block.status.compared_with()?;
             let prev = self.blocks.get(prev_hash)?;
             Some(BlockRef {

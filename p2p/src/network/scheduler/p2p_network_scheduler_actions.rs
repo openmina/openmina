@@ -124,11 +124,11 @@ impl redux::EnablingCondition<P2pState> for P2pNetworkSchedulerAction {
             P2pNetworkSchedulerAction::IncomingConnectionIsReady { listener } => true,
             P2pNetworkSchedulerAction::IncomingDidAccept { addr, result } => {
                 addr.as_ref().map_or(false, |addr| {
-                    state.network.scheduler.connections.get(addr).is_none()
+                    !state.network.scheduler.connections.contains_key(addr)
                 })
             }
             P2pNetworkSchedulerAction::OutgoingConnect { addr } => {
-                state.network.scheduler.connections.get(addr).is_none()
+                !state.network.scheduler.connections.contains_key(addr)
             }
             P2pNetworkSchedulerAction::OutgoingDidConnect { addr, result } => state
                 .network

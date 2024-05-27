@@ -269,7 +269,7 @@ impl P2pNetworkSchedulerAction {
                     let stream_id = YamuxStreamKind::Rpc.stream_id(incoming);
                     store.dispatch(P2pNetworkYamuxAction::OpenStream {
                         addr,
-                        stream_id: stream_id,
+                        stream_id,
                         stream_kind: StreamKind::Rpc(RpcAlgorithm::Rpc0_0_1),
                     });
                     store.dispatch(P2pNetworkYamuxAction::OpenStream {

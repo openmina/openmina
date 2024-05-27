@@ -163,22 +163,22 @@ impl Node {
             )
         });
 
-        let config_file = self.config.map(File::open).transpose().or_else(|e| {
+        let config_file = self.config.map(File::open).transpose().map_err(|e| {
             openmina_core::log::error!(openmina_core::log::system_time();
                     kind = "ConfigFileError",
                     summary = "failed to open config file",
                     error = format!("{e}"));
-            Err(e)
+            e
         })?;
         let conf: Option<DaemonJson> = config_file
             .map(serde_json::from_reader)
             .transpose()
-            .or_else(|e| {
+            .map_err(|e| {
                 openmina_core::log::error!(openmina_core::log::system_time();
                     kind = "ConfigFileError",
                     summary = "failed to parse config file",
                     error = format!("{e}"));
-                Err(e)
+                e
             })?;
 
         let work_dir = shellexpand::full(&self.work_dir).unwrap().into_owned();
@@ -304,7 +304,7 @@ impl Node {
             };
 
             if let Some((_, keypair)) = block_producer {
-                service.block_producer_start(keypair.into());
+                service.block_producer_start(keypair);
             }
 
             let state = State::new(config);

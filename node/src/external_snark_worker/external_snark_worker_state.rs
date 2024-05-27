@@ -40,10 +40,7 @@ impl ExternalSnarkWorkers {
     }
 
     pub fn is_idle(&self) -> bool {
-        match self.0.state {
-            ExternalSnarkWorkerState::Idle => true,
-            _ => false,
-        }
+        matches!(self.0.state, ExternalSnarkWorkerState::Idle)
     }
 
     pub fn has_idle(&self) -> bool {

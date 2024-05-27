@@ -46,7 +46,7 @@ pub fn match_addr_with_port_and_peer_id(
                 }),
         } => &peer_id == pid && port == *p,
         P2pConnectionOutgoingInitOpts::LibP2P(libp2p_opts) => {
-            &libp2p_opts.peer_id == &peer_id && libp2p_opts.port == port
+            libp2p_opts.peer_id == peer_id && libp2p_opts.port == port
         }
         _ => false,
     }
@@ -515,22 +515,17 @@ pub async fn wait_for_connection_established<'cluster, F: PeerPredicate>(
 // }
 
 /// Creates `num` Rust nodes in the cluster
-pub fn add_rust_nodes1<'cluster, N, T>(
-    driver: &mut Driver,
-    num: N,
-    config: RustNodeTestingConfig,
-) -> T
+pub fn add_rust_nodes1<N, T>(driver: &mut Driver, num: N, config: RustNodeTestingConfig) -> T
 where
     N: Into<u16>,
     T: FromIterator<(ClusterNodeId, PeerId)>,
 {
     (0..num.into())
-        .into_iter()
         .map(|_| driver.add_rust_node(config.clone()))
         .collect()
 }
 
-pub fn add_rust_nodes<'cluster, N, NodeIds, PeerIds>(
+pub fn add_rust_nodes<N, NodeIds, PeerIds>(
     driver: &mut Driver,
     num: N,
     config: RustNodeTestingConfig,
@@ -541,13 +536,12 @@ where
     PeerIds: Default + Extend<PeerId>,
 {
     (0..num.into())
-        .into_iter()
         .map(|_| driver.add_rust_node(config.clone()))
         .unzip()
 }
 
 /// Creates `num` Rust nodes in the cluster
-pub fn add_rust_nodes_with<'cluster, N, NodeIds, Items, Item, F>(
+pub fn add_rust_nodes_with<N, NodeIds, Items, Item, F>(
     driver: &mut Driver,
     num: N,
     config: RustNodeTestingConfig,
@@ -560,7 +554,6 @@ where
     F: FnMut(&State) -> Item,
 {
     (0..num.into())
-        .into_iter()
         .map(|_| driver.add_rust_node_with(config.clone(), &mut f))
         .unzip()
 }
@@ -685,7 +678,7 @@ where
             f.matches(node_id, peer_id, &peer.status)
         })
     };
-    Ok(driver.exec_steps_until(duration, pred).await?)
+    driver.exec_steps_until(duration, pred).await
 }
 
 pub async fn wait_for_connection_error<'cluster, F>(
@@ -706,7 +699,7 @@ where
             f.matches(node_id, peer_id, &peer.status)
         })
     };
-    Ok(driver.exec_steps_until(duration, pred).await?)
+    driver.exec_steps_until(duration, pred).await
 }
 
 pub fn get_peer_state<'a>(
@@ -737,7 +730,7 @@ pub fn peer_is_ready(
 }
 
 pub fn get_p2p_state<'a>(cluster: &'a ClusterRunner<'a>, node_id: ClusterNodeId) -> &P2pState {
-    &cluster
+    cluster
         .node(node_id)
         .expect("node should exist")
         .state()

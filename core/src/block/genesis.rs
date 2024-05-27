@@ -2,6 +2,7 @@ use mina_p2p_messages::v2::{self, StateHash};
 
 use crate::constants::{slots_per_window, CONSTRAINT_CONSTANTS};
 
+#[allow(clippy::too_many_arguments)]
 pub fn genesis_and_negative_one_protocol_states(
     constants: v2::MinaBaseProtocolConstantsCheckedValueStableV1,
     genesis_ledger_hash: v2::LedgerHash,
@@ -53,6 +54,7 @@ pub fn genesis_and_negative_one_protocol_states(
     (negative_one, genesis)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn protocol_state(
     constants: v2::MinaBaseProtocolConstantsCheckedValueStableV1,
     genesis_ledger_hash: v2::LedgerHash,

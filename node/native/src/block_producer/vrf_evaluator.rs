@@ -26,7 +26,7 @@ pub fn vrf_evaluator(
                 vrf_evaluator_input.epoch_seed.clone(),
                 pub_key.to_string(),
                 vrf_evaluator_input.global_slot,
-                index.clone(),
+                *index,
                 (*stake).into(),
                 vrf_evaluator_input.total_currency.into(),
             );

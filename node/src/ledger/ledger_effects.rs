@@ -39,7 +39,7 @@ pub fn ledger_effects<S: LedgerService>(store: &mut Store<S>, action: LedgerActi
                     return;
                 }
                 let id = store.state().ledger.read.next_req_id();
-                store.service.read_init(id.clone(), request.clone());
+                store.service.read_init(id, request.clone());
                 store.dispatch(LedgerReadAction::Pending { id, request });
             }
             LedgerReadAction::Pending { .. } => {}
