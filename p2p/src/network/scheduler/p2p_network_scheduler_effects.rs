@@ -41,7 +41,11 @@ impl P2pNetworkSchedulerAction {
                 // TODO: handle this error?
             }
             Self::IncomingConnectionIsReady { listener, .. } => {
-                store.service().send_mio_cmd(MioCmd::Accept(listener));
+                if store.state().already_has_max_peers() {
+                    store.service().send_mio_cmd(MioCmd::Refuse(listener));
+                } else {
+                    store.service().send_mio_cmd(MioCmd::Accept(listener));
+                }
             }
             Self::IncomingDidAccept { addr, .. } => {
                 let Some(addr) = addr else {
