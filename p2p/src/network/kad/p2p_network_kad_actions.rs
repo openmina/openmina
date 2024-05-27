@@ -83,30 +83,36 @@ pub enum P2pNetworkKademliaAction {
 }
 
 impl EnablingCondition<P2pState> for P2pNetworkKademliaAction {
-    fn is_enabled(&self, state: &P2pState, _time: redux::Timestamp) -> bool {
-        let Some(state) = &state.network.scheduler.discovery_state else {
+    fn is_enabled(&self, state: &P2pState, time: redux::Timestamp) -> bool {
+        let Some(discovery_state) = &state.network.scheduler.discovery_state else {
             return false;
         };
         match self {
             P2pNetworkKademliaAction::AnswerFindNodeRequest {
                 peer_id, stream_id, ..
-            } => state.find_kad_stream_state(peer_id, stream_id).is_some(),
+            } => discovery_state
+                .find_kad_stream_state(peer_id, stream_id)
+                .is_some(),
             P2pNetworkKademliaAction::UpdateFindNodeRequest {
                 addr: _,
                 peer_id,
                 stream_id,
                 ..
             } => {
-                state.find_kad_stream_state(peer_id, stream_id).is_some()
-                    && state.request(peer_id).is_some()
+                discovery_state
+                    .find_kad_stream_state(peer_id, stream_id)
+                    .is_some()
+                    && discovery_state.request(peer_id).is_some()
             }
-            P2pNetworkKademliaAction::StartBootstrap { .. } => {
-                // TODO: also can run bootstrap on timely basis.
-                matches!(state.status, super::P2pNetworkKadStatus::Init)
-            }
+            P2pNetworkKademliaAction::StartBootstrap { .. } => discovery_state
+                .status
+                .can_bootstrap(time, &state.config.timeouts),
             P2pNetworkKademliaAction::BootstrapFinished { .. } => {
                 // TODO: also can run bootstrap on timely basis.
-                matches!(state.status, super::P2pNetworkKadStatus::Bootstrapping(_))
+                matches!(
+                    discovery_state.status,
+                    super::P2pNetworkKadStatus::Bootstrapping(_)
+                )
             }
             P2pNetworkKademliaAction::UpdateRoutingTable { .. } => true,
         }

@@ -49,6 +49,7 @@ pub struct P2pTimeouts {
     pub snark: Option<Duration>,
     pub initial_peers: Option<Duration>,
     pub kademlia_bootstrap: Option<Duration>,
+    pub kademlia_initial_bootstrap: Option<Duration>,
     pub select: Option<Duration>,
 }
 
@@ -67,6 +68,7 @@ impl Default for P2pTimeouts {
             snark: Some(Duration::from_secs(5)),
             initial_peers: Some(Duration::from_secs(5)),
             kademlia_bootstrap: Some(Duration::from_secs(60)),
+            kademlia_initial_bootstrap: Some(Duration::from_secs(5)),
             select: Some(Duration::from_secs(5)),
         }
     }
