@@ -5,6 +5,7 @@ use std::{
 
 use node::{event_source::Event, ActionWithMeta, State};
 use rand::Rng;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     cluster::ClusterNodeId,
@@ -22,7 +23,7 @@ pub struct RunCfg<
     advance_time: Option<RunCfgAdvanceTime>,
 }
 
-#[derive(derive_more::From)]
+#[derive(derive_more::From, Serialize, Deserialize, Debug, Clone)]
 pub enum RunCfgAdvanceTime {
     /// Set the range of time in milliseconds, with which time will be
     /// advanced during `run` function execution.
