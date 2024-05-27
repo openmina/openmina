@@ -276,7 +276,10 @@ pub fn block_producer_effects<S: crate::Service>(
         BlockProducerAction::BlockInjected => {
             store.dispatch(BlockProducerAction::WonSlotSearch);
         }
-        BlockProducerAction::WonSlotDiscard { .. } => {
+        BlockProducerAction::WonSlotDiscard { reason } => {
+            if let Some(stats) = store.service.stats() {
+                stats.block_producer().discarded(meta.time(), reason);
+            }
             store.dispatch(BlockProducerAction::WonSlotSearch);
         }
     }

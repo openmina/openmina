@@ -5,11 +5,12 @@ use crate::p2p::connection::P2pConnectionResponse;
 use crate::State;
 
 use super::{
-    RpcActionStatsGetResponse, RpcDiscoveryBoostrapStatsResponse, RpcDiscoveryRoutingTableResponse,
-    RpcHealthCheckResponse, RpcId, RpcMessageProgressResponse, RpcP2pConnectionOutgoingResponse,
-    RpcPeersGetResponse, RpcReadinessCheckResponse, RpcScanStateSummaryGetResponse,
-    RpcSnarkPoolGetResponse, RpcSnarkPoolJobGetResponse, RpcSnarkerJobCommitResponse,
-    RpcSnarkerJobSpecResponse, RpcSnarkerWorkersResponse, RpcSyncStatsGetResponse,
+    RpcActionStatsGetResponse, RpcBlockProducerStatsGetResponse, RpcDiscoveryBoostrapStatsResponse,
+    RpcDiscoveryRoutingTableResponse, RpcHealthCheckResponse, RpcId, RpcMessageProgressResponse,
+    RpcP2pConnectionOutgoingResponse, RpcPeersGetResponse, RpcReadinessCheckResponse,
+    RpcScanStateSummaryGetResponse, RpcSnarkPoolGetResponse, RpcSnarkPoolJobGetResponse,
+    RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse, RpcSnarkerWorkersResponse,
+    RpcSyncStatsGetResponse,
 };
 
 #[derive(Error, Serialize, Deserialize, Debug, Clone)]
@@ -51,6 +52,11 @@ pub trait RpcService {
         &mut self,
         rpc_id: RpcId,
         response: RpcSyncStatsGetResponse,
+    ) -> Result<(), RespondError>;
+    fn respond_block_producer_stats_get(
+        &mut self,
+        rpc_id: RpcId,
+        response: RpcBlockProducerStatsGetResponse,
     ) -> Result<(), RespondError>;
     fn respond_message_progress_stats_get(
         &mut self,

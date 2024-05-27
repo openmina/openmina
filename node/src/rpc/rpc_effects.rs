@@ -73,6 +73,10 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                 .map(|s| s.collect_sync_stats(query.limit));
             let _ = store.service.respond_sync_stats_get(rpc_id, resp);
         }
+        RpcAction::BlockProducerStatsGet { rpc_id } => {
+            let resp = store.service.stats().map(|s| s.block_producer().clone());
+            let _ = store.service.respond_block_producer_stats_get(rpc_id, resp);
+        }
         RpcAction::MessageProgressGet { rpc_id } => {
             // TODO: move to stats
             let p2p = p2p_ready!(store.state().p2p, meta.time());

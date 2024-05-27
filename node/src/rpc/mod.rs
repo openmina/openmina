@@ -39,6 +39,7 @@ use crate::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 use crate::p2p::PeerId;
 use crate::snark_pool::{JobCommitment, JobSummary};
 use crate::stats::actions::{ActionStatsForBlock, ActionStatsSnapshot};
+use crate::stats::block_producer::BlockProducerStats;
 use crate::stats::sync::SyncStatsSnapshot;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -47,6 +48,7 @@ pub enum RpcRequest {
     StateGet(Option<String>),
     ActionStatsGet(ActionStatsQuery),
     SyncStatsGet(SyncStatsQuery),
+    BlockProducerStatsGet,
     MessageProgressGet,
     PeersGet,
     P2pConnectionOutgoing(P2pConnectionOutgoingInitOpts),
@@ -265,6 +267,7 @@ pub enum RpcStateGetError {
 pub type RpcStateGetResponse = Result<serde_json::Value, RpcStateGetError>;
 pub type RpcActionStatsGetResponse = Option<ActionStatsResponse>;
 pub type RpcSyncStatsGetResponse = Option<Vec<SyncStatsSnapshot>>;
+pub type RpcBlockProducerStatsGetResponse = Option<BlockProducerStats>;
 pub type RpcPeersGetResponse = Vec<RpcPeerInfo>;
 pub type RpcP2pConnectionOutgoingResponse = Result<(), String>;
 pub type RpcScanStateSummaryGetResponse = Option<RpcScanStateSummary>;

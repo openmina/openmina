@@ -270,6 +270,9 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                 RpcRequest::SyncStatsGet(query) => {
                     store.dispatch(RpcAction::SyncStatsGet { rpc_id, query });
                 }
+                RpcRequest::BlockProducerStatsGet => {
+                    store.dispatch(RpcAction::BlockProducerStatsGet { rpc_id });
+                }
                 RpcRequest::PeersGet => {
                     store.dispatch(RpcAction::PeersGet { rpc_id });
                 }

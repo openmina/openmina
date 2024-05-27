@@ -10,6 +10,7 @@ impl RpcState {
             RpcAction::GlobalStateGet { .. } => {}
             RpcAction::ActionStatsGet { .. } => {}
             RpcAction::SyncStatsGet { .. } => {}
+            RpcAction::BlockProducerStatsGet { .. } => {}
             RpcAction::MessageProgressGet { .. } => {}
             RpcAction::PeersGet { .. } => {}
             RpcAction::P2pConnectionOutgoingInit { rpc_id, opts } => {

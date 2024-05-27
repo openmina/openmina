@@ -1,6 +1,7 @@
 use node::rpc::{
-    RpcDiscoveryBoostrapStatsResponse, RpcDiscoveryRoutingTableResponse, RpcHealthCheckResponse,
-    RpcMessageProgressResponse, RpcPeersGetResponse, RpcReadinessCheckResponse, RpcStateGetError,
+    RpcBlockProducerStatsGetResponse, RpcDiscoveryBoostrapStatsResponse,
+    RpcDiscoveryRoutingTableResponse, RpcHealthCheckResponse, RpcMessageProgressResponse,
+    RpcPeersGetResponse, RpcReadinessCheckResponse, RpcStateGetError,
 };
 use serde::{Deserialize, Serialize};
 
@@ -194,6 +195,10 @@ impl node::rpc::RpcService for NodeService {
 
     rpc_service_impl!(respond_sync_stats_get, RpcSyncStatsGetResponse);
     rpc_service_impl!(respond_action_stats_get, RpcActionStatsGetResponse);
+    rpc_service_impl!(
+        respond_block_producer_stats_get,
+        RpcBlockProducerStatsGetResponse
+    );
     rpc_service_impl!(
         respond_message_progress_stats_get,
         RpcMessageProgressResponse

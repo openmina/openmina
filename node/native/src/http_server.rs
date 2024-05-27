@@ -11,9 +11,9 @@ use warp::{
 
 use node::core::snark::SnarkJobId;
 use node::rpc::{
-    ActionStatsQuery, RpcMessageProgressResponse, RpcPeerInfo, RpcRequest,
-    RpcScanStateSummaryGetQuery, RpcScanStateSummaryGetResponse, RpcSnarkPoolJobGetResponse,
-    RpcSnarkerWorkersResponse, RpcStateGetError, SyncStatsQuery,
+    ActionStatsQuery, RpcBlockProducerStatsGetResponse, RpcMessageProgressResponse, RpcPeerInfo,
+    RpcRequest, RpcScanStateSummaryGetQuery, RpcScanStateSummaryGetResponse,
+    RpcSnarkPoolJobGetResponse, RpcSnarkerWorkersResponse, RpcStateGetError, SyncStatsQuery,
 };
 
 use super::rpc::{
@@ -214,7 +214,22 @@ pub async fn run(port: u16, rpc_sender: super::RpcSender) {
                 }
             });
 
-        action_stats.or(sync_stats)
+        let rpc_sender_clone = rpc_sender.clone();
+        let block_producer_stats = warp::path!("stats" / "block_producer")
+            .and(warp::get())
+            .then(move || {
+                let rpc_sender_clone = rpc_sender_clone.clone();
+                async move {
+                    let result: RpcBlockProducerStatsGetResponse = rpc_sender_clone
+                        .oneshot_request(RpcRequest::BlockProducerStatsGet)
+                        .await
+                        .flatten();
+
+                    with_json_reply(&result, StatusCode::OK)
+                }
+            });
+
+        action_stats.or(sync_stats).or(block_producer_stats)
     };
 
     let rpc_sender_clone = rpc_sender.clone();
