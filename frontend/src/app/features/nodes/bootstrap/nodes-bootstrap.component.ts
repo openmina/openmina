@@ -1,10 +1,14 @@
 import { ChangeDetectionStrategy, Component, ElementRef, OnDestroy, OnInit } from '@angular/core';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
-import { NodesBootstrapClose, NodesBootstrapGetNodes, NodesBootstrapInit } from '@nodes/bootstrap/nodes-bootstrap.actions';
+import {
+  NodesBootstrapClose,
+  NodesBootstrapGetNodes,
+  NodesBootstrapInit,
+} from '@nodes/bootstrap/nodes-bootstrap.actions';
 import { selectNodesBootstrapOpenSidePanel } from '@nodes/bootstrap/nodes-bootstrap.state';
 import { skip, timer } from 'rxjs';
 import { untilDestroyed } from '@ngneat/until-destroy';
-import { selectActiveNode } from '@app/app.state';
+import { AppSelectors } from '@app/app.state';
 
 @Component({
   selector: 'mina-nodes-bootstrap',
@@ -24,7 +28,7 @@ export class NodesBootstrapComponent extends StoreDispatcher implements OnInit, 
   }
 
   private listenToNodeChange(): void {
-    this.select(selectActiveNode, () => {
+    this.select(AppSelectors.activeNode, () => {
       this.dispatch(NodesBootstrapInit);
       this.dispatch(NodesBootstrapGetNodes, { force: true });
     }, skip(1));

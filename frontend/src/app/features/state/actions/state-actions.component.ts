@@ -3,7 +3,7 @@ import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
 import { StateActionsClose, StateActionsGetEarliestSlot } from '@state/actions/state-actions.actions';
 import { selectStateActionsOpenSidePanel } from '@state/actions/state-actions.state';
 import { Subscription, timer } from 'rxjs';
-import { selectActiveNode } from '@app/app.state';
+import { AppSelectors } from '@app/app.state';
 import { untilDestroyed } from '@ngneat/until-destroy';
 
 @Component({
@@ -35,7 +35,7 @@ export class StateActionsComponent extends StoreDispatcher implements OnInit, On
     let subscription: Subscription;
     let force: boolean = false;
 
-    this.select(selectActiveNode, () => {
+    this.select(AppSelectors.activeNode, () => {
       subscription?.unsubscribe();
       force = true;
       subscription = timer(0, 20000)

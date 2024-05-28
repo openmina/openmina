@@ -14,6 +14,10 @@ const routes: Routes = [
         loadChildren: () => import('./overview/block-production-overview.module').then(m => m.BlockProductionOverviewModule),
       },
       {
+        path: 'won-slots',
+        loadChildren: () => import('./won-slots/block-production-won-slots.module').then(m => m.BlockProductionWonSlotsModule),
+      },
+      {
         path: '',
         pathMatch: 'full',
         redirectTo: 'overview',

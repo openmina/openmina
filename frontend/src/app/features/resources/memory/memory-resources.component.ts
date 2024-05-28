@@ -1,7 +1,11 @@
 import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
-import { MemoryResourcesClose, MemoryResourcesGet, MemoryResourcesSetActiveResource } from '@resources/memory/memory-resources.actions';
-import { selectActiveNode } from '@app/app.state';
+import {
+  MemoryResourcesClose,
+  MemoryResourcesGet,
+  MemoryResourcesSetActiveResource,
+} from '@resources/memory/memory-resources.actions';
+import { AppSelectors } from '@app/app.state';
 import { filter } from 'rxjs';
 import { MemoryResourcesState } from '@resources/memory/memory-resources.state';
 import { MemoryResource } from '@shared/types/resources/memory/memory-resource.type';
@@ -28,7 +32,7 @@ export class MemoryResourcesComponent extends StoreDispatcher implements OnInit,
   }
 
   private listenToActiveNodeChange(): void {
-    this.select(selectActiveNode, () => {
+    this.select(AppSelectors.activeNode, () => {
       this.dispatch(MemoryResourcesGet);
     }, filter(Boolean));
   }

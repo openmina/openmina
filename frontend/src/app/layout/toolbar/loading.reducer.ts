@@ -1,6 +1,6 @@
 import { FeatureAction } from '@openmina/shared';
 import { MinaState } from '@app/app.setup';
-import { APP_INIT, APP_INIT_SUCCESS } from '@app/app.actions';
+import { APP_PREFIX } from '@app/app.actions';
 import {
   STATE_ACTIONS_CLOSE,
   STATE_ACTIONS_GET_ACTIONS,
@@ -43,11 +43,7 @@ import {
   NETWORK_BOOTSTRAP_STATS_GET_BOOTSTRAP_STATS_SUCCESS,
   NETWORK_BOOTSTRAP_STATS_INIT,
 } from '@network/bootstrap-stats/network-bootstrap-stats.actions';
-import {
-  BLOCK_PRODUCTION_OVERVIEW_CLOSE,
-  BLOCK_PRODUCTION_OVERVIEW_GET_SLOTS,
-  BLOCK_PRODUCTION_OVERVIEW_GET_SLOTS_SUCCESS,
-} from '@block-production/overview/block-production-overview.actions';
+import { BLOCK_PRODUCTION_PREFIX } from '@block-production/block-production.actions';
 
 export type LoadingState = string[];
 
@@ -56,11 +52,11 @@ const initialState: LoadingState = [];
 export function loadingReducer(state: LoadingState = initialState, action: FeatureAction<any>): LoadingState {
   switch (action.type) {
     /* ------------ ADD ------------ */
-    case APP_INIT:
+    case `[${APP_PREFIX}] Init`:
 
     case DASHBOARD_INIT:
 
-    case BLOCK_PRODUCTION_OVERVIEW_GET_SLOTS:
+    case `[${BLOCK_PRODUCTION_PREFIX}] Overview Get Slots`:
 
     case STATE_ACTIONS_GET_EARLIEST_SLOT:
     case STATE_ACTIONS_GET_ACTIONS:
@@ -81,18 +77,18 @@ export function loadingReducer(state: LoadingState = initialState, action: Featu
       return add(state, action);
 
     /* ------------ REMOVE ------------ */
-    case APP_INIT_SUCCESS:
-      return remove(state, APP_INIT);
+    case `[${APP_PREFIX}] Init Success`:
+      return remove(state, `[${APP_PREFIX}] Init`);
 
     case DASHBOARD_GET_DATA_SUCCESS:
       return remove(state, DASHBOARD_INIT);
     case DASHBOARD_CLOSE:
       return remove(state, [DASHBOARD_INIT]);
 
-    case BLOCK_PRODUCTION_OVERVIEW_GET_SLOTS_SUCCESS:
-      return remove(state, BLOCK_PRODUCTION_OVERVIEW_GET_SLOTS);
-    case BLOCK_PRODUCTION_OVERVIEW_CLOSE:
-      return remove(state, [BLOCK_PRODUCTION_OVERVIEW_GET_SLOTS]);
+    case `[${BLOCK_PRODUCTION_PREFIX}] Overview Get Slots Success`:
+      return remove(state, `[${BLOCK_PRODUCTION_PREFIX}] Overview Get Slots`);
+    case `[${BLOCK_PRODUCTION_PREFIX}] Overview Close`:
+      return remove(state, [`[${BLOCK_PRODUCTION_PREFIX}] Overview Close`]);
 
     case STATE_ACTIONS_GET_EARLIEST_SLOT_SUCCESS:
       return remove(state, STATE_ACTIONS_GET_EARLIEST_SLOT);

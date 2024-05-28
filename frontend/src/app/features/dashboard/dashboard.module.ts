@@ -4,7 +4,6 @@ import { DashboardRouting } from '@dashboard/dashboard.routing';
 import { DashboardPeersComponent } from '@dashboard/dashboard-peers/dashboard-peers.component';
 import { DashboardNodeComponent } from '@dashboard/dashboard-node/dashboard-node.component';
 import { DashboardComponent } from '@dashboard/dashboard.component';
-import { MinaCardComponent } from '@dashboard/mina-card/mina-card.component';
 import { SharedModule } from '@shared/shared.module';
 import { DashboardPeersTableComponent } from '@dashboard/dashboard-peers-table/dashboard-peers-table.component';
 import { DashboardBlockHeightComponent } from '@dashboard/dashboard-block-height/dashboard-block-height.component';
@@ -30,7 +29,6 @@ import {
     DashboardComponent,
     DashboardPeersComponent,
     DashboardNodeComponent,
-    MinaCardComponent,
     DashboardPeersTableComponent,
     DashboardBlockHeightComponent,
     DashboardReceivedComponent,

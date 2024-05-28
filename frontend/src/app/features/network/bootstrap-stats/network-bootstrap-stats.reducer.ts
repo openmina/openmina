@@ -53,5 +53,5 @@ export function networkBootstrapStatsReducer(state: NetworkBootstrapStatsState =
 }
 
 function sortRequests(requests: NetworkBootstrapStatsRequest[], tableSort: TableSort<NetworkBootstrapStatsRequest>): NetworkBootstrapStatsRequest[] {
-  return sort<NetworkBootstrapStatsRequest>(requests, tableSort, ['type', 'address', 'peerId']);
+  return sort<NetworkBootstrapStatsRequest>(requests, tableSort, ['typeErr', 'address', 'peerId']);
 }

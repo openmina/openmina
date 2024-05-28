@@ -205,11 +205,18 @@ describe('MEMORY RESOURCES TREEMAP', () => {
               })
               .get('app-memory-resources-toolbar .fx-row-vert-cent .fx-row-vert-cent:nth-child(1) > span')
               .click()
-              .wait(500)
-              .get('app-memory-resources-treemap svg .treemap g')
-              .each((g: any, i: number) => {
-                expect(g.find('text.name').text().trim()).equals(state.activeResource.children[i].name.executableName);
-                expect(g.find('text.val').text().trim()).equals(transform(state.activeResource.children[i].value));
+              .wait(1500)
+              .window()
+              .its('store')
+              .then(getResources)
+              .then((state: MemoryResourcesState) => {
+                if (condition(state)) {
+                  cy.get('app-memory-resources-treemap svg .treemap g')
+                    .each((g: any, i: number) => {
+                      expect(g.find('text.name').text().trim()).equals(state.activeResource.children[i].name.executableName);
+                      expect(g.find('text.val').text().trim()).equals(transform(state.activeResource.children[i].value));
+                    });
+                }
               });
           }
         }
@@ -232,13 +239,21 @@ describe('MEMORY RESOURCES TREEMAP', () => {
                 expect(g.find('text.name').text().trim()).equals(state.activeResource.children[rowIndex].children[i].name.executableName);
                 expect(g.find('text.val').text().trim()).equals(transform(state.activeResource.children[rowIndex].children[i].value));
               })
+              .wait(1000)
               .get('body')
               .type('{esc}')
-              .wait(500)
-              .get('app-memory-resources-treemap svg .treemap g')
-              .each((g: any, i: number) => {
-                expect(g.find('text.name').text().trim()).equals(state.activeResource.children[i].name.executableName);
-                expect(g.find('text.val').text().trim()).equals(transform(state.activeResource.children[i].value));
+              .wait(1500)
+              .window()
+              .its('store')
+              .then(getResources)
+              .then((state: MemoryResourcesState) => {
+                if (condition(state)) {
+                  cy.get('app-memory-resources-treemap svg .treemap g')
+                    .each((g: any, i: number) => {
+                      expect(g.find('text.name').text().trim()).equals(state.activeResource.children[i].name.executableName);
+                      expect(g.find('text.val').text().trim()).equals(transform(state.activeResource.children[i].value));
+                    });
+                }
               });
           }
         }

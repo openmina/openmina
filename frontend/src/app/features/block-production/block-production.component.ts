@@ -4,8 +4,7 @@ import { ChangeDetectionStrategy, Component } from '@angular/core';
   selector: 'mina-block-production',
   templateUrl: './block-production.component.html',
   styleUrls: ['./block-production.component.scss'],
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class BlockProductionComponent {
-
 }

@@ -1,15 +1,17 @@
 import { Injectable } from '@angular/core';
 import { BlockProductionModule } from '@app/features/block-production/block-production.module';
-import { delay, map, Observable, of } from 'rxjs';
+import { map, Observable } from 'rxjs';
 import {
   BlockProductionOverviewEpoch,
 } from '@shared/types/block-production/overview/block-production-overview-epoch.type';
 import {
   BlockProductionOverviewEpochDetails,
 } from '@shared/types/block-production/overview/block-production-overview-epoch-details.type';
-import { hasValue, lastItem, ONE_BILLION } from '@openmina/shared';
+import { hasValue, ONE_BILLION } from '@openmina/shared';
 import { RustService } from '@core/services/rust.service';
-import { BlockProductionSlot } from '@shared/types/block-production/overview/block-production-overview-slot.type';
+import {
+  BlockProductionOverviewSlot,
+} from '@shared/types/block-production/overview/block-production-overview-slot.type';
 import {
   BlockProductionOverviewAllStats,
 } from '@shared/types/block-production/overview/block-production-overview-all-stats.type';
@@ -22,11 +24,9 @@ export class BlockProductionOverviewService {
 
   constructor(private rust: RustService) { }
 
-  private epochs: BlockProductionOverviewEpoch[];// = this.mockAll();
-
-  getEpochDetails(epochNumber: number): Observable<BlockProductionOverviewEpochDetails> {
-    return this.rust.get<BlockProductionDetailsResponse | BlockProductionDetailsResponse[]>(`/epoch/summary/${epochNumber ?? 'latest'}`).pipe(
-      map((response: BlockProductionDetailsResponse | BlockProductionDetailsResponse[]) => {
+  getEpochDetails(epochNumber?: number): Observable<BlockProductionOverviewEpochDetails> {
+    return this.rust.get<BlockProductionEpochPaginationResponse | BlockProductionEpochPaginationResponse[]>(`/epoch/summary/${epochNumber ?? 'latest'}`).pipe(
+      map((response: BlockProductionEpochPaginationResponse | BlockProductionEpochPaginationResponse[]) => {
         if (Array.isArray(response)) {
           response = response[0];
         }
@@ -83,8 +83,7 @@ export class BlockProductionOverviewService {
     );
   }
 
-  getSlots(epochNumber: number): Observable<BlockProductionSlot[]> {
-    // return of(this.getMockEpochDetails())
+  getSlots(epochNumber?: number): Observable<BlockProductionOverviewSlot[]> {
     return this.rust.get<SlotResponse[]>(`/epoch/${epochNumber ?? 'latest'}`).pipe(
       map((response: SlotResponse[]) => {
         const activeSlotIndex = response.findIndex(slot => slot.is_current_slot);
@@ -100,7 +99,7 @@ export class BlockProductionOverviewService {
           futureRights: slot.block_status === BlockStatus.ToBeProduced,
           active: slot.is_current_slot,
           hash: slot.state_hash,
-        } as BlockProductionSlot));
+        } as BlockProductionOverviewSlot));
       }),
     );
   }
@@ -131,28 +130,6 @@ export class BlockProductionOverviewService {
         })),
       ),
     );
-    // return this.getEpochsPage(epochNumber, limit);
-  }
-
-  private getEpochsPage(epochNumber: number, limit: number): Observable<BlockProductionOverviewEpoch[]> {
-    if (!hasValue(epochNumber) || epochNumber > (lastItem(this.epochs).epochNumber)) {
-      epochNumber = lastItem(this.epochs).epochNumber;
-    }
-
-    const response: BlockProductionOverviewEpoch[] = [];
-    this.epochs.forEach((epoch, index) => {
-      if ((epoch.epochNumber > epochNumber - limit && epoch.epochNumber <= epochNumber)) {
-        response.push(epoch);
-      }
-    });
-
-    if (response.length < limit) {
-      const missing = limit - response.length;
-      this.epochs.slice(limit - missing, limit).forEach((epoch, index) => {
-        response.push(epoch);
-      });
-    }
-    return of(response).pipe(delay(300));
   }
 
   getRewardsAllTimeStats(): Observable<BlockProductionOverviewAllStats> {
@@ -175,109 +152,13 @@ export class BlockProductionOverviewService {
       })),
     );
   }
-
-  private getMockEpochDetails(): BlockProductionSlot[] {
-    // generate slots interval  6732–7300
-    // with random values
-    // globalSlot is the index starting from 6732
-    const slots = [];
-    for (let i = 6001; i <= 11000; i++) {
-      slots.push({
-        slot: 0,
-        globalSlot: i,
-        height: 0,
-        time: Date.now() - Math.floor(Math.random() * 14 * 24 * 60 * 60 * 1000),
-        finished: true,
-        canonical: Math.random() > 0.95,
-        orphaned: Math.random() > 0.95,
-        missed: Math.random() > 0.99,
-        futureRights: false,
-        active: i === 11000,
-        hash: '',
-      });
-    }
-    // rest push only slots where only futureRights can be true
-    for (let i = 11001; i <= 13140; i++) {
-      slots.push({
-        slot: 0,
-        globalSlot: i,
-        height: 0,
-        time: Math.floor(Math.random() * 100),
-        finished: false,
-        canonical: false,
-        orphaned: false,
-        missed: false,
-        futureRights: Math.random() > 0.98,
-        active: false,
-        hash: '',
-      });
-    }
-    return slots;
-  }
-
-  private mockAll(): BlockProductionOverviewEpoch[] {
-    const epochs: BlockProductionOverviewEpoch[] = [];
-    const totalEpochs = 20;
-    for (let i = 0; i < totalEpochs; i++) {
-      const epochStart = new Date().setTime(new Date().getTime() - (21420 * (totalEpochs - i)) * 1000 * 60);
-      const epochEnd = epochStart + 21420 * 60 * 1000;
-
-      let windows = [];
-      // each epoch is divided in 15 windows. one window has time 21420 minutes / 15. 21420 / 15 = 1428
-      // 7140 blocks divided by 15 = 476
-      for (let j = 0; j <= 14; j++) {
-        const windowStart = epochStart + 1428 * 60 * 1000 * (14 - j);
-        const windowEnd = windowStart + 1428 * 60 * 1000;
-        windows.push({
-          start: windowStart,
-          end: windowEnd,
-          canonical: Math.floor(Math.random() * 238),
-          orphaned: Math.floor(Math.random() * 238 / 2),
-          missed: Math.floor(Math.random() * 238 / 2),
-          futureRights: Math.floor(Math.random() * 238),
-          interval: [i * 7140 + j * 238, i * 7140 + j * 238 + 238],
-        });
-      }
-
-      epochs.push({
-        epochNumber: i,
-        windows,
-        finishedWindows: windows.filter(w => w.canonical || w.orphaned || w.missed).length,
-      } as BlockProductionOverviewEpoch);
-    }
-
-    epochs[epochs.length - 1].windows.slice(4).forEach(w => {
-      w.canonical = 0;
-      w.missed = 0;
-      w.orphaned = 0;
-    });
-    epochs[epochs.length - 1].finishedWindows = epochs[epochs.length - 1].windows.filter(w => w.canonical || w.orphaned || w.missed).length;
-    epochs.find(e => e.windows.some(w => w.canonical === 0 && w.missed === 0 && w.orphaned === 0)).isLastEpoch = true;
-
-    return epochs;
-  }
 }
 
-interface BlockProductionDetailsResponse {
+export interface BlockProductionEpochPaginationResponse {
   epoch_number: number;
   balance_delegated: string;
   balance_producer: string;
   balance_staked: string;
-  summary: {
-    won_slots: number;
-    canonical: number;
-    orphaned: number;
-    missed: number;
-    future_rights: number;
-    slot_start: number;
-    slot_end: number;
-    expected_rewards: string;
-    earned_rewards: string;
-  } | null;
-}
-
-interface BlockProductionEpochPaginationResponse {
-  epoch_number: number;
   summary: {
     max: number;
     won_slots: number;
@@ -306,7 +187,7 @@ interface BlockProductionEpochPaginationResponse {
   }[];
 }
 
-interface AllStatsResponse {
+export interface AllStatsResponse {
   won_slots: number;
   canonical: number;
   orphaned: number;
@@ -316,7 +197,7 @@ interface AllStatsResponse {
   earned_rewards: string;
 }
 
-interface SlotResponse {
+export interface SlotResponse {
   slot: number;
   global_slot: number;
   block_status: BlockStatus;
@@ -326,7 +207,7 @@ interface SlotResponse {
   is_current_slot: boolean;
 }
 
-enum BlockStatus {
+export enum BlockStatus {
   Empty = 'Empty',
   ToBeProduced = 'ToBeProduced',
   Orphaned = 'Orphaned',

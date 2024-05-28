@@ -1,11 +1,10 @@
 import { AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, NgZone, ViewChild } from '@angular/core';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
 import * as d3 from 'd3';
-import { BlockProductionSlot } from '@shared/types/block-production/overview/block-production-overview-slot.type';
 import {
-  selectBlockProductionOverviewActiveEpoch,
-  selectBlockProductionOverviewFilters,
-} from '@block-production/overview/block-production-overview.state';
+  BlockProductionOverviewSlot,
+} from '@shared/types/block-production/overview/block-production-overview-slot.type';
+import { BlockProductionOverviewSelectors } from '@block-production/overview/block-production-overview.state';
 import {
   BlockProductionOverviewEpoch,
 } from '@shared/types/block-production/overview/block-production-overview-epoch.type';
@@ -31,7 +30,7 @@ export class BlockProductionOverviewSlotsComponent extends StoreDispatcher imple
   @ViewChild('graph') private svgHolder: ElementRef<HTMLDivElement>;
   @ViewChild('tooltip') private tooltipRef: ElementRef<HTMLDivElement>;
 
-  slots: BlockProductionSlot[];
+  slots: BlockProductionOverviewSlot[];
 
   private tooltip: d3.Selection<HTMLDivElement, unknown, HTMLElement, undefined>;
   private svg: d3.Selection<SVGSVGElement, unknown, HTMLElement, undefined>;
@@ -55,17 +54,17 @@ export class BlockProductionOverviewSlotsComponent extends StoreDispatcher imple
   }
 
   private listenToEpochs(): void {
-    this.select(selectBlockProductionOverviewActiveEpoch, (epoch: BlockProductionOverviewEpoch) => {
+    this.select(BlockProductionOverviewSelectors.activeEpoch, (epoch: BlockProductionOverviewEpoch) => {
       this.slots = epoch.slots;
 
       const slotsRectExist = !this.slotsGroup
-        .selectAll<SVGRectElement, BlockProductionSlot>('rect')
+        .selectAll<SVGRectElement, BlockProductionOverviewSlot>('rect')
         .empty();
       if (slotsRectExist) {
         if (this.slots?.length) {
           this.changeSlotsColors();
         } else {
-          this.slotsGroup.selectAll<SVGRectElement, BlockProductionSlot>('rect').remove();
+          this.slotsGroup.selectAll<SVGRectElement, BlockProductionOverviewSlot>('rect').remove();
         }
       } else {
         this.initSlots();
@@ -75,7 +74,7 @@ export class BlockProductionOverviewSlotsComponent extends StoreDispatcher imple
   }
 
   private listenToFilters(): void {
-    this.select(selectBlockProductionOverviewFilters, (filters: BlockProductionOverviewFilters) => {
+    this.select(BlockProductionOverviewSelectors.filters, (filters: BlockProductionOverviewFilters) => {
       this.filters = filters;
       if (this.slots?.length) {
         this.changeSlotsColors();
@@ -108,7 +107,7 @@ export class BlockProductionOverviewSlotsComponent extends StoreDispatcher imple
     this.svg.attr('width', this.width);
     const slotsPerRow = this.slotsPerRow;
     this.slotsGroup
-      ?.selectAll<SVGRectElement, BlockProductionSlot>('rect')
+      ?.selectAll<SVGRectElement, BlockProductionOverviewSlot>('rect')
       .attr('x', this.setX(slotsPerRow))
       .attr('y', this.setY(slotsPerRow));
     this.svg.attr('height', this.slotsGroup.node().getBBox().height);
@@ -133,8 +132,8 @@ export class BlockProductionOverviewSlotsComponent extends StoreDispatcher imple
       .append('rect')
       .attr('x', this.setX(slotsPerRow))
       .attr('y', this.setY(slotsPerRow))
-      .attr('fill', (d: BlockProductionSlot) => this.getSlotColor(d))
-      .on('mouseover', (event: MouseEventWithTarget, d: BlockProductionSlot) => this.mouseOverHandle(event, d))
+      .attr('fill', (d: BlockProductionOverviewSlot) => this.getSlotColor(d))
+      .on('mouseover', (event: MouseEventWithTarget, d: BlockProductionOverviewSlot) => this.mouseOverHandle(event, d))
       .on('mouseout', (event: MouseEventWithTarget) => {
         d3.select(event.target).attr('stroke', undefined);
         this.hideTooltipTimeout = setTimeout(() => this.tooltip.style('display', 'none'), 100);
@@ -144,19 +143,19 @@ export class BlockProductionOverviewSlotsComponent extends StoreDispatcher imple
     this.svg.attr('height', this.slotsGroup.node().getBBox().height);
   }
 
-  private setY(slotsPerRow: number): (d: BlockProductionSlot, i: number) => number {
-    return (_: BlockProductionSlot, i: number) => Math.floor(i / slotsPerRow) * (this.slotHeight + this.slotMargin);
+  private setY(slotsPerRow: number): (d: BlockProductionOverviewSlot, i: number) => number {
+    return (_: BlockProductionOverviewSlot, i: number) => Math.floor(i / slotsPerRow) * (this.slotHeight + this.slotMargin);
   }
 
-  private setX(slotsPerRow: number): (d: BlockProductionSlot, i: number) => number {
-    return (_: BlockProductionSlot, i: number) => (i % slotsPerRow) * (this.slotWidth + this.slotMargin);
+  private setX(slotsPerRow: number): (d: BlockProductionOverviewSlot, i: number) => number {
+    return (_: BlockProductionOverviewSlot, i: number) => (i % slotsPerRow) * (this.slotWidth + this.slotMargin);
   }
 
   private get slotsPerRow(): number {
     return Math.floor(this.width / (this.slotWidth + this.slotMargin));
   }
 
-  private mouseOverHandle(event: MouseEventWithTarget, d: BlockProductionSlot): void {
+  private mouseOverHandle(event: MouseEventWithTarget, d: BlockProductionOverviewSlot): void {
     clearTimeout(this.hideTooltipTimeout);
     d3.select(event.target).attr('stroke', 'var(--selected-primary)');
     const selection = this.tooltip.html(`
@@ -166,24 +165,34 @@ export class BlockProductionOverviewSlotsComponent extends StoreDispatcher imple
       .style('display', 'flex');
 
     const nodeRect = event.target.getBoundingClientRect();
-    const tooltipWidth = selection.node().getBoundingClientRect().width;
+    const tooltipBoundingClientRect = selection.node().getBoundingClientRect();
+    const tooltipWidth = tooltipBoundingClientRect.width;
+    const tooltipHeight = tooltipBoundingClientRect.height;
 
-    const chartLeft = this.svgHolder.nativeElement.getBoundingClientRect().left;
+    const svgHolderBoundingClientRect = this.svgHolder.nativeElement.getBoundingClientRect();
+    const chartLeft = svgHolderBoundingClientRect.left;
+    const chartBottom = svgHolderBoundingClientRect.bottom;
+
     let desiredLeft = Math.min(nodeRect.left + nodeRect.width / 2 - tooltipWidth / 2, chartLeft + this.width - tooltipWidth);
     desiredLeft = Math.max(desiredLeft, chartLeft);
+    let desiredTop = nodeRect.bottom + window.scrollY + 12;
+    if (desiredTop + tooltipHeight > chartBottom) {
+      desiredTop = nodeRect.top - tooltipHeight - 12;
+    }
+
     selection
       .style('left', `${desiredLeft}px`)
-      .style('top', `${nodeRect.bottom + window.scrollY + 12}px`);
+      .style('top', `${desiredTop}px`);
   }
 
   private changeSlotsColors(): void {
     this.slotsGroup
-      ?.selectAll<SVGRectElement, BlockProductionSlot>('rect')
+      ?.selectAll<SVGRectElement, BlockProductionOverviewSlot>('rect')
       .data(this.slots)
-      .attr('fill', (d: BlockProductionSlot) => this.getSlotColor(d));
+      .attr('fill', (d: BlockProductionOverviewSlot) => this.getSlotColor(d));
   }
 
-  private getSlotColor(d: BlockProductionSlot): string {
+  private getSlotColor(d: BlockProductionOverviewSlot): string {
     const prefix = 'var(--';
     const suffix = ')';
     let color = 'base-container';
@@ -209,7 +218,7 @@ export class BlockProductionOverviewSlotsComponent extends StoreDispatcher imple
     return `${prefix}${color}${suffix}`;
   }
 
-  private getSlotText(d: BlockProductionSlot): string {
+  private getSlotText(d: BlockProductionOverviewSlot): string {
     let text = '';
     if (d.finished) {
       text = 'Slot not won';

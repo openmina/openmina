@@ -1,0 +1,18 @@
+:host {
+  height: 128px;
+  width: 128px;
+
+  @media (max-width: 700px) {
+    height: 140px;
+    width: 140px;
+  }
+}
+
+.mina-icon {
+  margin-left: 3px;
+}
+
+.value {
+  font-size: 24px;
+  letter-spacing: 0.15px;
+}

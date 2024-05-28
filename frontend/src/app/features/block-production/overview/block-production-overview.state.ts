@@ -3,7 +3,7 @@ import { MinaState } from '@app/app.setup';
 import {
   BlockProductionOverviewEpoch,
 } from '@shared/types/block-production/overview/block-production-overview-epoch.type';
-import { selectBlockProductionOverviewState } from '@block-production/block-production.state';
+import { BlockProductionSelectors } from '@block-production/block-production.state';
 import {
   BlockProductionOverviewFilters,
 } from '@shared/types/block-production/overview/block-production-overview-filters.type';
@@ -20,13 +20,22 @@ export interface BlockProductionOverviewState {
   scale: 'linear' | 'adaptive';
 }
 
+
 const select = <T>(selector: (state: BlockProductionOverviewState) => T): MemoizedSelector<MinaState, T> => createSelector(
-  selectBlockProductionOverviewState,
+  BlockProductionSelectors.overview,
   selector,
 );
 
-export const selectBlockProductionOverviewEpochs = select((state: BlockProductionOverviewState): BlockProductionOverviewEpoch[] => state.epochs);
-export const selectBlockProductionOverviewActiveEpoch = select((state: BlockProductionOverviewState): BlockProductionOverviewEpoch => state.activeEpoch);
-export const selectBlockProductionOverviewAllTimeStats = select((state: BlockProductionOverviewState): BlockProductionOverviewAllStats => state.allTimeStats);
-export const selectBlockProductionOverviewFilters = select((state: BlockProductionOverviewState): BlockProductionOverviewFilters => state.filters);
-export const selectBlockProductionOverviewScale = select((state: BlockProductionOverviewState): 'linear' | 'adaptive' => state.scale);
+const epochs = select((state: BlockProductionOverviewState): BlockProductionOverviewEpoch[] => state.epochs);
+const activeEpoch = select((state: BlockProductionOverviewState): BlockProductionOverviewEpoch => state.activeEpoch);
+const allTimeStats = select((state: BlockProductionOverviewState): BlockProductionOverviewAllStats => state.allTimeStats);
+const filters = select((state: BlockProductionOverviewState): BlockProductionOverviewFilters => state.filters);
+const scale = select((state: BlockProductionOverviewState): 'linear' | 'adaptive' => state.scale);
+
+export const BlockProductionOverviewSelectors = {
+  epochs,
+  activeEpoch,
+  allTimeStats,
+  filters,
+  scale,
+};
