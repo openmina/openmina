@@ -82,6 +82,16 @@
       </div>
     </div>
     <div class="step fx-row-vert-cent flex-between h-lg"
+         [class.incomplete]="slot?.times?.committed === null">
+      <div class="fx-row-vert-cent">
+        <span class="mina-icon mr-8">check_circle</span>
+        <span>Commited Block</span>
+      </div>
+      <div *ngIf="slot?.times?.committed !== undefined; else waiting">
+        {{ slot?.times?.committed | readableDate }}
+      </div>
+    </div>
+    <div class="step fx-row-vert-cent flex-between h-lg"
          *ngIf="slot?.times?.discarded">
       <div class="fx-row-vert-cent">
         <span class="mina-icon mr-8 aware-primary">dangerous</span>

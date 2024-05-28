@@ -92,13 +92,19 @@ export class BlockProductionWonSlotsSidePanelComponent extends StoreDispatcher i
 
   private parse(): void {
     if (this.slot && !this.stopTimer) {
-      const remainingTime = getTimeDiff(this.nextSlotStartingTime, { withSecs: true });
+      const remainingTime = getTimeDiff(this.nextSlotStartingTime - 270 * 1000, { withSecs: true });
       if (remainingTime.inFuture) {
         this.remainingTime = '-';
       }
       this.remainingTime = remainingTime.diff;
-      if (this.remainingTime === '0s') { // check this
-        this.dispatch2(BlockProductionWonSlotsActions.getSlots());
+      if (this.remainingTime === '0s') {
+        /* when we reached 0s, we need to fetch data again because this slot is over and the user should see that in the table */
+        this.stopTimer = true;
+        this.remainingTime = '-';
+        setTimeout(() => {
+
+          this.dispatch2(BlockProductionWonSlotsActions.getSlots());
+        }, 1000);
       }
       this.detect();
     } else {

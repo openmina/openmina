@@ -1,18 +1,16 @@
 import { Injectable } from '@angular/core';
 import { BlockProductionOverviewService } from '@block-production/overview/block-production-overview.service';
-import { map, Observable, of } from 'rxjs';
+import { map, Observable } from 'rxjs';
 import {
   BlockProductionWonSlotsDiscardReason,
   BlockProductionWonSlotsSlot,
+  BlockProductionWonSlotsStatus,
 } from '@shared/types/block-production/won-slots/block-production-won-slots-slot.type';
 import { BlockProductionModule } from '@block-production/block-production.module';
 import {
-  BlockProductionOverviewSlot,
-} from '@shared/types/block-production/overview/block-production-overview-slot.type';
-import {
   BlockProductionOverviewEpochDetails,
 } from '@shared/types/block-production/overview/block-production-overview-epoch-details.type';
-import { ONE_MILLION, nanOrElse } from '@openmina/shared';
+import { nanOrElse, ONE_MILLION } from '@openmina/shared';
 import { getTimeDiff } from '@shared/helpers/date.helper';
 import { HttpClient } from '@angular/common/http';
 
@@ -290,8 +288,8 @@ export class BlockProductionWonSlotsService {
       // })
       .pipe(
         map(({ attempts, future_won_slots }: WonSlotResponse) => {
-          const attemptsSlots = attempts.map((attempt: Attempt, index: number) => {
-            attempt.active = index === attempts.length - 1;
+          const attemptsSlots = attempts.map((attempt: Attempt) => {
+            attempt.active = attempt.status !== BlockProductionWonSlotsStatus.Discarded && attempt.status !== BlockProductionWonSlotsStatus.Committed;
             attempt.won_slot.slot_time = attempt.won_slot.slot_time / ONE_MILLION;
             return {
               message: this.getMessage(attempt),
@@ -325,6 +323,7 @@ export class BlockProductionWonSlotsService {
                 blockApply: !attempt.times.block_apply_end || !attempt.times.block_apply_start
                   ? null : (attempt.times.block_apply_end - attempt.times.block_apply_start) / ONE_MILLION,
                 discarded: attempt.times.discarded,
+                committed: attempt.times.committed,
               },
             } as BlockProductionWonSlotsSlot;
           });
@@ -384,7 +383,7 @@ interface Attempt {
   won_slot: WonSlot;
   block?: Block;
   times: Times;
-  status: string;
+  status: BlockProductionWonSlotsStatus;
   active?: boolean;
   discard_reason?: BlockProductionWonSlotsDiscardReason;
 }
@@ -422,4 +421,5 @@ interface Times {
   block_apply_start: number;
   block_apply_end: number;
   discarded: number;
+  committed: number;
 }
