@@ -1,5 +1,6 @@
 use mina_p2p_messages::v2::{MinaLedgerSyncLedgerAnswerStableV2, StateHash};
 use openmina_core::block::BlockWithHash;
+use p2p::P2pInitializeAction;
 
 use crate::consensus::ConsensusAction;
 use crate::rpc::RpcAction;
@@ -16,7 +17,7 @@ use crate::watched_accounts::{
     WatchedAccountLedgerInitialState, WatchedAccountsAction,
     WatchedAccountsLedgerInitialStateGetError,
 };
-use crate::{Service, Store};
+use crate::{p2p_ready, Service, Store};
 
 use super::channels::best_tip::P2pChannelsBestTipAction;
 use super::channels::rpc::{BestTipWithProof, P2pChannelsRpcAction, P2pRpcRequest, P2pRpcResponse};
@@ -35,6 +36,11 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
     let (action, meta) = action.split();
 
     match action {
+        P2pAction::Initialization(P2pInitializeAction::Initialize { .. }) => {
+            if store.state().p2p.ready().is_some() {
+                store.service().start_mio();
+            }
+        }
         P2pAction::Connection(action) => match action {
             P2pConnectionAction::Outgoing(action) => {
                 match action {
@@ -42,7 +48,7 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
                         ref peer_id,
                         ref error,
                     } => {
-                        let p2p = &store.state().p2p;
+                        let p2p = p2p_ready!(store.state().p2p, meta.time());
                         if let Some(rpc_id) = p2p.peer_connection_rpc_id(peer_id) {
                             store.dispatch(RpcAction::P2pConnectionOutgoingError {
                                 rpc_id,
@@ -51,7 +57,7 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
                         }
                     }
                     P2pConnectionOutgoingAction::Success { ref peer_id } => {
-                        let p2p = &store.state().p2p;
+                        let p2p = p2p_ready!(store.state().p2p, meta.time());
                         if let Some(rpc_id) = p2p.peer_connection_rpc_id(peer_id) {
                             store.dispatch(RpcAction::P2pConnectionOutgoingSuccess { rpc_id });
                         }
@@ -63,7 +69,7 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
             P2pConnectionAction::Incoming(action) => {
                 match &action {
                     P2pConnectionIncomingAction::AnswerReady { peer_id, answer } => {
-                        let p2p = &store.state().p2p;
+                        let p2p = p2p_ready!(store.state().p2p, meta.time());
                         if let Some(rpc_id) = p2p.peer_connection_rpc_id(peer_id) {
                             store.dispatch(RpcAction::P2pConnectionIncomingRespond {
                                 rpc_id,
@@ -75,7 +81,7 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
                         }
                     }
                     P2pConnectionIncomingAction::Error { peer_id, error } => {
-                        let p2p = &store.state().p2p;
+                        let p2p = p2p_ready!(store.state().p2p, meta.time());
                         if let Some(rpc_id) = p2p.peer_connection_rpc_id(peer_id) {
                             store.dispatch(RpcAction::P2pConnectionIncomingError {
                                 rpc_id,
@@ -84,7 +90,7 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
                         }
                     }
                     P2pConnectionIncomingAction::Success { peer_id } => {
-                        let p2p = &store.state().p2p;
+                        let p2p = p2p_ready!(store.state().p2p, meta.time());
                         if let Some(rpc_id) = p2p.peer_connection_rpc_id(peer_id) {
                             store.dispatch(RpcAction::P2pConnectionIncomingSuccess { rpc_id });
                         }
@@ -484,9 +490,8 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
                                 });
                             }
                             P2pRpcRequest::InitialPeers => {
-                                let peers = store
-                                    .state()
-                                    .p2p
+                                let p2p = p2p_ready!(store.state().p2p, meta.time());
+                                let peers = p2p
                                     .peers
                                     .iter()
                                     .filter_map(|(_, v)| v.dial_opts.clone())

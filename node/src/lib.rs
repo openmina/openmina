@@ -11,7 +11,7 @@ pub mod config;
 pub use config::*;
 
 mod state;
-pub use state::State;
+pub use state::{P2p, State};
 
 mod reducer;
 pub use reducer::reducer;

@@ -253,11 +253,7 @@ impl ConnectToInitialPeers {
             &mut driver,
             MAX,
             RustNodeTestingConfig::berkeley_default(),
-            |state| {
-                let config = &state.p2p.config;
-                let peer_id = config.identity_pub_key.peer_id();
-                peer_id
-            },
+            |state| state.p2p.my_id(),
         );
 
         // wait for all peers to listen
@@ -286,7 +282,14 @@ impl ConnectToInitialPeers {
         if !connected {
             println!(
                 "{:#?}",
-                driver.inner().node(node_ut).unwrap().state().p2p.peers
+                driver
+                    .inner()
+                    .node(node_ut)
+                    .unwrap()
+                    .state()
+                    .p2p
+                    .unwrap()
+                    .peers
             );
         }
         assert!(connected, "did not connect to peers: {:?}", peer_ids);
@@ -341,7 +344,14 @@ impl ConnectToInitialPeersBecomeReady {
         if !connected {
             println!(
                 "{:#?}",
-                driver.inner().node(node_ut).unwrap().state().p2p.peers
+                driver
+                    .inner()
+                    .node(node_ut)
+                    .unwrap()
+                    .state()
+                    .p2p
+                    .unwrap()
+                    .peers
             );
         }
         assert!(connected, "did not connect to peers: {:?}", peer_ids);

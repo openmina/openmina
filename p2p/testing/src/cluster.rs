@@ -9,6 +9,7 @@ use std::{
 use derive_builder::UninitializedFieldError;
 use futures::StreamExt;
 use libp2p::{multiaddr::multiaddr, swarm::DialError, Multiaddr};
+use openmina_core::{ChainId, BERKELEY_CHAIN_ID};
 use p2p::{
     connection::outgoing::{
         P2pConnectionOutgoingAction, P2pConnectionOutgoingInitLibp2pOpts,
@@ -53,7 +54,7 @@ pub enum NodeId {
 }
 
 pub struct Cluster {
-    chain_id: String,
+    chain_id: ChainId,
     ports: Range<u16>,
     ip: IpAddr,
 
@@ -85,7 +86,7 @@ impl PortsConfig {
 }
 
 pub struct ClusterBuilder {
-    chain_id: String,
+    chain_id: ChainId,
     ports: Option<PortsConfig>,
     ip: IpAddr,
     idle_duration: Duration,
@@ -96,7 +97,7 @@ pub struct ClusterBuilder {
 impl Default for ClusterBuilder {
     fn default() -> Self {
         ClusterBuilder {
-            chain_id: openmina_core::CHAIN_ID.to_string(),
+            chain_id: BERKELEY_CHAIN_ID,
             ports: None,
             ip: Ipv4Addr::LOCALHOST.into(),
             idle_duration: Duration::from_millis(100),
@@ -111,7 +112,7 @@ impl ClusterBuilder {
         ClusterBuilder::default()
     }
 
-    pub fn chain_id(mut self, chain_id: String) -> Self {
+    pub fn chain_id(mut self, chain_id: ChainId) -> Self {
         self.chain_id = chain_id;
         self
     }
@@ -357,7 +358,6 @@ impl Cluster {
             ask_initial_peers_interval: Duration::from_secs(5),
             enabled_channels: p2p::channels::ChannelId::for_libp2p().collect(),
             max_peers: 100,
-            chain_id: self.chain_id.clone(),
             peer_discovery: config.discovery,
             timeouts: config.timeouts,
             initial_time: Duration::ZERO,
@@ -401,7 +401,7 @@ impl Cluster {
             },
             service,
             SystemTime::now(),
-            State(P2pState::new(config)),
+            State(P2pState::new(config, &self.chain_id)),
         );
 
         let node_id = RustNodeId(self.rust_nodes.len());

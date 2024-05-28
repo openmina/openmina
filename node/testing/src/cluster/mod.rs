@@ -131,8 +131,6 @@ pub struct Cluster {
     account_sec_keys: BTreeMap<AccountPublicKey, AccountSecretKey>,
     nodes: Vec<Node>,
     ocaml_nodes: Vec<Option<OcamlNode>>,
-    // TODO: remove option if this is viable in the future
-    chain_id: Option<String>,
     initial_time: Option<redux::Timestamp>,
 
     rpc_counter: usize,
@@ -173,7 +171,6 @@ impl Cluster {
             account_sec_keys: Default::default(),
             nodes: Vec::new(),
             ocaml_nodes: Vec::new(),
-            chain_id: None,
             initial_time: None,
 
             rpc_counter: 0,
@@ -201,16 +198,8 @@ impl Cluster {
             .or_else(|| DETERMINISTIC_ACCOUNT_SEC_KEYS.get(pub_key))
     }
 
-    pub fn set_chain_id(&mut self, chain_id: String) {
-        self.chain_id = Some(chain_id)
-    }
-
     pub fn set_initial_time(&mut self, initial_time: redux::Timestamp) {
         self.initial_time = Some(initial_time)
-    }
-
-    pub fn get_chain_id(&self) -> Option<String> {
-        self.chain_id.clone()
     }
 
     pub fn get_initial_time(&self) -> Option<redux::Timestamp> {
@@ -293,7 +282,6 @@ impl Cluster {
                 ask_initial_peers_interval: testing_config.ask_initial_peers_interval,
                 enabled_channels: ChannelId::iter_all().collect(),
                 timeouts: testing_config.timeouts,
-                chain_id: String::from_utf8(testing_config.chain_id.clone()).expect("hex string"),
                 peer_discovery: true,
                 initial_time: testing_config
                     .initial_time
@@ -310,10 +298,7 @@ impl Cluster {
             .expect("secret key bytes must be valid");
 
         let p2p_service_ctx = <NodeService as P2pServiceWebrtcWithLibp2p>::init(
-            Some(libp2p_port),
             secret_key.clone(),
-            testing_config.chain_id,
-            event_sender.clone(),
             p2p_task_spawner::P2pTaskSpawner::new(shutdown_tx.clone()),
         );
 

@@ -486,7 +486,10 @@ pub async fn wait_for_connection_established<'cluster, F: PeerPredicate>(
 ) -> anyhow::Result<bool> {
     let pred = |node_id, event: &_, state: &State| {
         if let Some(addr) = as_event_mio_data_send_receive(event) {
-            let Some(conn_state) = state.p2p.network.scheduler.connections.get(&addr) else {
+            let Some(p2p) = state.p2p.ready() else {
+                return false;
+            };
+            let Some(conn_state) = p2p.network.scheduler.connections.get(&addr) else {
                 return false;
             };
             if let Some(peer_id) = is_network_connection_finalized(conn_state) {
@@ -659,33 +662,28 @@ where
     F: ConnectionPredicate,
 {
     let pred = |node_id, event: &_, state: &State| {
-        as_event_mio_connection_event(event)
-            .and_then(|addr| {
-                state
-                    .p2p
-                    .peers
-                    .iter()
-                    .find(|(_, peer)| peer_has_addr(peer, addr))
-                    .or_else(|| {
-                        state
-                            .p2p
-                            .network
-                            .scheduler
-                            .connections
-                            .get(&addr)
-                            .and_then(|conn_state| conn_state.peer_id())
-                            .and_then(|peer_id| {
-                                state
-                                    .p2p
-                                    .peers
-                                    .get(peer_id)
-                                    .map(|peer_state| (peer_id, peer_state))
-                            })
-                    })
-            })
-            .map_or(false, |(peer_id, peer)| {
-                f.matches(node_id, peer_id, &peer.status)
-            })
+        None.or_else(|| {
+            let addr = as_event_mio_connection_event(event)?;
+            let p2p = state.p2p.ready()?;
+            p2p.peers
+                .iter()
+                .find(|(_, peer)| peer_has_addr(peer, addr))
+                .or_else(|| {
+                    p2p.network
+                        .scheduler
+                        .connections
+                        .get(&addr)
+                        .and_then(|conn_state| conn_state.peer_id())
+                        .and_then(|peer_id| {
+                            p2p.peers
+                                .get(peer_id)
+                                .map(|peer_state| (peer_id, peer_state))
+                        })
+                })
+        })
+        .map_or(false, |(peer_id, peer)| {
+            f.matches(node_id, peer_id, &peer.status)
+        })
     };
     Ok(driver.exec_steps_until(duration, pred).await?)
 }
@@ -699,17 +697,14 @@ where
     F: ConnectionPredicate,
 {
     let pred = |node_id, event: &_, state: &State| {
-        as_event_mio_error(event)
-            .and_then(|addr| {
-                state
-                    .p2p
-                    .peers
-                    .iter()
-                    .find(|(_, peer)| peer_has_addr(peer, addr))
-            })
-            .map_or(false, |(peer_id, peer)| {
-                f.matches(node_id, peer_id, &peer.status)
-            })
+        None.or_else(|| {
+            let addr = as_event_mio_error(event)?;
+            let p2p = state.p2p.ready()?;
+            p2p.peers.iter().find(|(_, peer)| peer_has_addr(peer, addr))
+        })
+        .map_or(false, |(peer_id, peer)| {
+            f.matches(node_id, peer_id, &peer.status)
+        })
     };
     Ok(driver.exec_steps_until(duration, pred).await?)
 }
@@ -720,7 +715,7 @@ pub fn get_peer_state<'a>(
     peer_id: &PeerId,
 ) -> Option<&'a P2pPeerState> {
     let store = cluster.node(node_id).expect("node does not exist");
-    store.state().p2p.peers.get(peer_id)
+    store.state().p2p.get_peer(peer_id)
 }
 
 pub fn peer_exists(cluster: &ClusterRunner<'_>, node_id: ClusterNodeId, peer_id: &PeerId) -> bool {
@@ -747,19 +742,20 @@ pub fn get_p2p_state<'a>(cluster: &'a ClusterRunner<'a>, node_id: ClusterNodeId)
         .expect("node should exist")
         .state()
         .p2p
+        .unwrap()
 }
-pub fn get_peers<'a>(
-    cluster: &'a ClusterRunner<'a>,
-    node_id: ClusterNodeId,
-) -> impl Iterator<Item = (&'a PeerId, &'a P2pPeerState)> {
-    cluster
-        .node(node_id)
-        .expect("node should exist")
-        .state()
-        .p2p
-        .peers
-        .iter()
-}
+// pub fn get_peers<'a>(
+//     cluster: &'a ClusterRunner<'a>,
+//     node_id: ClusterNodeId,
+// ) -> impl Iterator<Item = (&'a PeerId, &'a P2pPeerState)> {
+//     cluster
+//         .node(node_id)
+//         .expect("node should exist")
+//         .state()
+//         .p2p
+//         .peers
+//         .iter()
+// }
 
 pub async fn connect_rust_nodes(
     cluster: &mut ClusterRunner<'_>,

@@ -6,6 +6,7 @@ use libp2p::{
     Transport,
 };
 use mina_p2p_messages::rpc_kernel::RpcTag;
+use openmina_core::ChainId;
 use p2p::PeerId;
 
 use libp2p_rpc_behaviour::StreamId;
@@ -74,9 +75,6 @@ pub struct Libp2pBehaviour {
     pub kademlia: kad::Behaviour<MemoryStore>,
 
     #[behaviour(ignore)]
-    pub chain_id: String,
-
-    #[behaviour(ignore)]
     port: u16,
 
     // TODO(vlad9486): move maps inside `RpcBehaviour`
@@ -93,12 +91,12 @@ pub(crate) fn create_swarm(
     secret_key: p2p::identity::SecretKey,
     port: u16,
     port_reuse: bool,
-    chain_id: &str,
+    chain_id: &ChainId,
 ) -> Result<Swarm, Box<dyn Error>> {
     let identity_keys = libp2p::identity::Keypair::ed25519_from_bytes(secret_key.to_bytes())
         .expect("secret key bytes must be valid");
 
-    let psk = libp2p::pnet::PreSharedKey::new(openmina_core::preshared_key(chain_id));
+    let psk = libp2p::pnet::PreSharedKey::new(chain_id.preshared_key());
     let identify = libp2p::identify::Behaviour::new(libp2p::identify::Config::new(
         "ipfs/0.1.0".to_string(),
         identity_keys.public(),
@@ -163,7 +161,6 @@ pub(crate) fn create_swarm(
         identify,
         kademlia,
         rpc,
-        chain_id: chain_id.to_string(),
         port,
         ongoing: Default::default(),
         ongoing_incoming: Default::default(),

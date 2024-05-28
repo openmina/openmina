@@ -14,7 +14,7 @@ use mio::net::{TcpListener, TcpStream};
 
 use thiserror::Error;
 
-use crate::{MioCmd, MioEvent, P2pMioService};
+use crate::{MioCmd, MioEvent};
 
 #[derive(Debug, Error)]
 enum MioError {
@@ -38,7 +38,15 @@ impl MioError {
     }
 }
 
-pub struct MioService {
+#[derive(Debug, Default)]
+pub enum MioService {
+    #[default]
+    Pending,
+    Ready(MioRunningService),
+}
+
+#[derive(Debug)]
+pub struct MioRunningService {
     cmd_sender: mpsc::Sender<MioCmd>,
     waker: Option<mio::Waker>,
 }
@@ -47,24 +55,54 @@ impl redux::TimeService for MioService {}
 
 impl redux::Service for MioService {}
 
-impl P2pMioService for MioService {
-    fn send_mio_cmd(&mut self, cmd: MioCmd) {
-        self.cmd_sender.send(cmd).unwrap_or_default();
-        if let Some(w) = self.waker.as_ref() {
+// impl P2pMioService for MioMainService {
+
+//     fn start(&mut self) {
+//         todo!()
+//     }
+// }
+
+impl MioService {
+    pub fn new<F>(event_sender: F) -> Self
+    where
+        F: 'static + Send + Sync + Fn(MioEvent),
+    {
+        MioService::Ready(MioRunningService::run(event_sender))
+    }
+
+    pub fn run<F>(&mut self, event_sender: F)
+    where
+        F: 'static + Send + Sync + Fn(MioEvent),
+    {
+        debug_assert!(matches!(self, MioService::Pending));
+        *self = MioService::Ready(MioRunningService::run(event_sender));
+    }
+
+    pub fn send_cmd(&mut self, cmd: MioCmd) {
+        let MioService::Ready(service) = self else {
+            debug_assert!(false, "mio service is not initialized");
+            return;
+        };
+        service.cmd_sender.send(cmd).unwrap_or_default();
+        if let Some(w) = service.waker.as_ref() {
             w.wake().unwrap_or_default()
         }
     }
+
+    pub fn mocked() -> Self {
+        MioService::Ready(MioRunningService::mocked())
+    }
 }
 
-impl MioService {
-    pub fn mocked() -> Self {
-        MioService {
+impl MioRunningService {
+    fn mocked() -> Self {
+        MioRunningService {
             cmd_sender: mpsc::channel().0,
             waker: None,
         }
     }
 
-    pub fn run<F>(event_sender: F) -> Self
+    fn run<F>(event_sender: F) -> Self
     where
         F: 'static + Send + Sync + Fn(MioEvent),
     {
@@ -109,7 +147,7 @@ impl MioService {
             }
         });
 
-        MioService {
+        MioRunningService {
             cmd_sender: tx,
             waker: Some(waker),
         }

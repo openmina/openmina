@@ -17,13 +17,17 @@ impl AcceptIncomingConnection {
         let mut driver = Driver::new(runner);
 
         let (node_ut, _) = driver.add_rust_node(RustNodeTestingConfig::berkeley_default());
+        let (node2, peer_id2) = driver.add_rust_node(RustNodeTestingConfig::berkeley_default());
         assert!(
-            wait_for_nodes_listening_on_localhost(&mut driver, Duration::from_secs(30), [node_ut])
-                .await
-                .unwrap(),
+            wait_for_nodes_listening_on_localhost(
+                &mut driver,
+                Duration::from_secs(30),
+                [node_ut, node2]
+            )
+            .await
+            .unwrap(),
             "node should be listening"
         );
-        let (node2, peer_id2) = driver.add_rust_node(RustNodeTestingConfig::berkeley_default());
 
         driver
             .exec_step(crate::scenario::ScenarioStep::ConnectNodes {
@@ -52,8 +56,7 @@ impl AcceptIncomingConnection {
                 .unwrap()
                 .state()
                 .p2p
-                .peers
-                .get(&peer_id2)
+                .get_peer(&peer_id2)
         );
     }
 }
@@ -69,15 +72,20 @@ impl AcceptMultipleIncomingConnections {
         let mut driver = Driver::new(runner);
 
         let (node_ut, _) = driver.add_rust_node(RustNodeTestingConfig::berkeley_default());
-        assert!(
-            wait_for_nodes_listening_on_localhost(&mut driver, Duration::from_secs(30), [node_ut])
-                .await
-                .unwrap(),
-            "node should be listening"
-        );
 
         let (peers, mut peer_ids): (Vec<_>, BTreeSet<_>) =
             add_rust_nodes(&mut driver, MAX, RustNodeTestingConfig::berkeley_default());
+
+        assert!(
+            wait_for_nodes_listening_on_localhost(
+                &mut driver,
+                Duration::from_secs(30),
+                peers.clone().into_iter().chain(std::iter::once(node_ut))
+            )
+            .await
+            .unwrap(),
+            "node should be listening"
+        );
 
         // connect peers to the node under test
         for peer in peers {

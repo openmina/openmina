@@ -12,7 +12,7 @@ use crate::rpc::{PeerConnectionStatus, RpcPeerInfo};
 use crate::snark_pool::SnarkPoolAction;
 use crate::transition_frontier::sync::ledger::TransitionFrontierSyncLedgerState;
 use crate::transition_frontier::sync::TransitionFrontierSyncState;
-use crate::{Service, Store};
+use crate::{p2p_ready, Service, Store};
 
 use super::{
     ActionStatsQuery, ActionStatsResponse, CurrentMessageProgress, MessagesStats, RpcAction,
@@ -76,9 +76,8 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
         }
         RpcAction::MessageProgressGet { rpc_id } => {
             // TODO: move to stats
-            let messages_stats = store
-                .state()
-                .p2p
+            let p2p = p2p_ready!(store.state().p2p, meta.time());
+            let messages_stats = p2p
                 .network
                 .scheduler
                 .rpc_outgoing_streams
@@ -156,41 +155,45 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                 .respond_message_progress_stats_get(rpc_id, response);
         }
         RpcAction::PeersGet { rpc_id } => {
-            let peers = store
-                .state()
-                .p2p
-                .peers
-                .iter()
-                .map(|(peer_id, state)| {
-                    let best_tip = state.status.as_ready().and_then(|r| r.best_tip.as_ref());
-                    let (connection_status, time) = match &state.status {
-                        p2p::P2pPeerStatus::Connecting(c) => match c {
-                            p2p::connection::P2pConnectionState::Outgoing(o) => {
-                                (PeerConnectionStatus::Connecting, o.time().into())
+            let peers = store.state().p2p.ready().map_or_else(
+                || Vec::new(),
+                |p2p| {
+                    p2p.peers
+                        .iter()
+                        .map(|(peer_id, state)| {
+                            let best_tip =
+                                state.status.as_ready().and_then(|r| r.best_tip.as_ref());
+                            let (connection_status, time) = match &state.status {
+                                p2p::P2pPeerStatus::Connecting(c) => match c {
+                                    p2p::connection::P2pConnectionState::Outgoing(o) => {
+                                        (PeerConnectionStatus::Connecting, o.time().into())
+                                    }
+                                    p2p::connection::P2pConnectionState::Incoming(i) => {
+                                        (PeerConnectionStatus::Connecting, i.time().into())
+                                    }
+                                },
+                                p2p::P2pPeerStatus::Disconnected { time } => {
+                                    (PeerConnectionStatus::Disconnected, (*time).into())
+                                }
+                                p2p::P2pPeerStatus::Ready(r) => {
+                                    (PeerConnectionStatus::Connected, r.connected_since.into())
+                                }
+                            };
+                            RpcPeerInfo {
+                                peer_id: peer_id.clone(),
+                                connection_status,
+                                address: state.dial_opts.as_ref().map(|opts| opts.to_string()),
+                                best_tip: best_tip.map(|bt| bt.hash.clone()),
+                                best_tip_height: best_tip.map(|bt| bt.height()),
+                                best_tip_global_slot: best_tip
+                                    .map(|bt| bt.global_slot_since_genesis()),
+                                best_tip_timestamp: best_tip.map(|bt| bt.timestamp().into()),
+                                time,
                             }
-                            p2p::connection::P2pConnectionState::Incoming(i) => {
-                                (PeerConnectionStatus::Connecting, i.time().into())
-                            }
-                        },
-                        p2p::P2pPeerStatus::Disconnected { time } => {
-                            (PeerConnectionStatus::Disconnected, (*time).into())
-                        }
-                        p2p::P2pPeerStatus::Ready(r) => {
-                            (PeerConnectionStatus::Connected, r.connected_since.into())
-                        }
-                    };
-                    RpcPeerInfo {
-                        peer_id: peer_id.clone(),
-                        connection_status,
-                        address: state.dial_opts.as_ref().map(|opts| opts.to_string()),
-                        best_tip: best_tip.map(|bt| bt.hash.clone()),
-                        best_tip_height: best_tip.map(|bt| bt.height()),
-                        best_tip_global_slot: best_tip.map(|bt| bt.global_slot_since_genesis()),
-                        best_tip_timestamp: best_tip.map(|bt| bt.timestamp().into()),
-                        time,
-                    }
-                })
-                .collect();
+                        })
+                        .collect()
+                },
+            );
             respond_or_log!(
                 store.service().respond_peers_get(rpc_id, peers),
                 meta.time()
@@ -216,7 +219,8 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
             store.dispatch(RpcAction::Finish { rpc_id });
         }
         RpcAction::P2pConnectionIncomingInit { rpc_id, opts } => {
-            match store.state().p2p.incoming_accept(opts.peer_id, &opts.offer) {
+            let p2p = p2p_ready!(store.state().p2p, meta.time());
+            match p2p.incoming_accept(opts.peer_id, &opts.offer) {
                 Ok(_) => {
                     store.dispatch(P2pConnectionIncomingAction::Init {
                         opts,
@@ -577,9 +581,8 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
             let response = store
                 .state()
                 .p2p
-                .network
-                .scheduler
-                .discovery_state()
+                .ready()
+                .and_then(|p2p| p2p.network.scheduler.discovery_state())
                 .map(|discovery_state| (&discovery_state.routing_table).into());
             respond_or_log!(
                 store
@@ -592,9 +595,8 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
             let response = store
                 .state()
                 .p2p
-                .network
-                .scheduler
-                .discovery_state()
+                .ready()
+                .and_then(|p2p| p2p.network.scheduler.discovery_state())
                 .and_then(|discovery_state| (&discovery_state.bootstrap_stats()).cloned());
             respond_or_log!(
                 store

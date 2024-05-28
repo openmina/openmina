@@ -5,6 +5,7 @@ use node::p2p::{
     connection::outgoing::{P2pConnectionOutgoingInitLibp2pOpts, P2pConnectionOutgoingInitOpts},
     PeerId,
 };
+use openmina_core::ChainId;
 
 use std::{
     path::{Path, PathBuf},
@@ -288,23 +289,23 @@ impl OcamlNode {
     }
 
     /// Queries graphql to get chain_id.
-    pub fn chain_id(&self) -> anyhow::Result<String> {
+    pub fn chain_id(&self) -> anyhow::Result<ChainId> {
         let res = self.grapql_query("query { daemonStatus { chainId } }")?;
-        res["data"]["daemonStatus"]["chainId"]
+        let chain_id = res["data"]["daemonStatus"]["chainId"]
             .as_str()
-            .map(|s| s.to_owned())
-            .ok_or_else(|| anyhow::anyhow!("empty chain_id response"))
+            .ok_or_else(|| anyhow::anyhow!("empty chain_id response"))?;
+        ChainId::from_hex(chain_id).map_err(|e| anyhow::anyhow!("invalid chain_id: {}", e))
     }
 
     /// Queries graphql to get chain_id.
-    pub async fn chain_id_async(&self) -> anyhow::Result<String> {
+    pub async fn chain_id_async(&self) -> anyhow::Result<ChainId> {
         let res = self
             .grapql_query_async("query { daemonStatus { chainId } }")
             .await?;
-        res["data"]["daemonStatus"]["chainId"]
+        let chain_id = res["data"]["daemonStatus"]["chainId"]
             .as_str()
-            .map(|s| s.to_owned())
-            .ok_or_else(|| anyhow::anyhow!("empty chain_id response"))
+            .ok_or_else(|| anyhow::anyhow!("empty chain_id response"))?;
+        ChainId::from_hex(chain_id).map_err(|e| anyhow::anyhow!("invalid chain_id: {}", e))
     }
 
     /// Queries graphql to check if ocaml node is synced,

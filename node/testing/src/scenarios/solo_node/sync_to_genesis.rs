@@ -43,15 +43,7 @@ impl SoloNodeSyncToGenesis {
             .await
             .unwrap();
 
-        let chain_id = runner
-            .ocaml_node(ocaml_node)
-            .unwrap()
-            .chain_id_async()
-            .await
-            .unwrap()
-            .into_bytes();
         let rust_node = runner.add_rust_node(RustNodeTestingConfig {
-            chain_id,
             initial_time,
             genesis: node::config::BERKELEY_CONFIG.clone(),
             max_peers: 100,

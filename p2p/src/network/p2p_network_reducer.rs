@@ -1,5 +1,5 @@
 use multiaddr::Multiaddr;
-use openmina_core::error;
+use openmina_core::{error, ChainId};
 
 use crate::{identity::PublicKey, PeerId};
 
@@ -10,26 +10,11 @@ impl P2pNetworkState {
         identity: PublicKey,
         addrs: Vec<Multiaddr>,
         known_peers: Vec<(PeerId, Multiaddr)>,
-        chain_id: &str,
+        chain_id: &ChainId,
         discovery: bool,
     ) -> Self {
         let peer_id = identity.peer_id();
-        let pnet_key = {
-            use blake2::{
-                digest::{generic_array::GenericArray, Update, VariableOutput},
-                Blake2bVar,
-            };
-
-            let mut key = GenericArray::default();
-            Blake2bVar::new(32)
-                .expect("valid constant")
-                .chain(b"/coda/0.0.1/")
-                .chain(chain_id)
-                .finalize_variable(&mut key)
-                .expect("good buffer size");
-            key.into()
-        };
-
+        let pnet_key = chain_id.preshared_key();
         let discovery_state = discovery.then(|| {
             let mut routing_table =
                 P2pNetworkKadRoutingTable::new(P2pNetworkKadEntry::new(peer_id, addrs));

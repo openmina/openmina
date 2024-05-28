@@ -58,6 +58,7 @@ impl SoloNodeBasicConnectivityAcceptIncoming {
         }
         let config = RustNodeTestingConfig::berkeley_default()
             .ask_initial_peers_interval(Duration::from_secs(3600))
+            .with_daemon_json("/var/lib/coda/berkeley.json")
             .max_peers(MAX_PEERS_PER_NODE)
             .initial_peers(initial_peers)
             .with_peer_id(rand::thread_rng().gen());
@@ -106,13 +107,14 @@ impl SoloNodeBasicConnectivityAcceptIncoming {
             let known_peers: usize = node
                 .state()
                 .p2p
-                .network
-                .scheduler
-                .discovery_state()
-                .unwrap()
-                .routing_table
-                .closest_peers(&my_id.into())
-                .count();
+                .ready()
+                .and_then(|p2p| p2p.network.scheduler.discovery_state())
+                .map_or(0, |discovery_state| {
+                    discovery_state
+                        .routing_table
+                        .closest_peers(&my_id.into())
+                        .count()
+                });
 
             println!("step: {step}");
             println!("known peers: {known_peers}");

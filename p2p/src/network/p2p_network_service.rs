@@ -21,6 +21,7 @@ pub enum MioCmd {
 }
 
 pub trait P2pMioService: redux::Service {
+    fn start_mio(&mut self);
     fn send_mio_cmd(&mut self, cmd: MioCmd);
 }
 

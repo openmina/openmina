@@ -1,11 +1,10 @@
 use std::borrow::Cow;
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::account::AccountSecretKey;
 use ledger::{scan_state::currency::Balance, Account, BaseLedger};
 use mina_hasher::Fp;
 use mina_p2p_messages::{binprot::BinProtRead, v2};
-use openmina_core::constants::CONSTRAINT_CONSTANTS;
+use openmina_core::constants::{CONSTRAINT_CONSTANTS, DEFAULT_GENESIS_TIMESTAMP_MILLISECONDS};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -56,6 +55,23 @@ impl GenesisConfig {
             genesis_state_timestamp: v2::BlockTimeTimeStableV1(
                 v2::UnsignedExtendedUInt64Int64ForVersionTagsStableV1(timestamp_ms.into()),
             ),
+        }
+    }
+
+    pub fn protocol_constants(&self) -> Result<ProtocolConstants, time::error::Parse> {
+        match self {
+            Self::Counts { constants, .. }
+            | Self::BalancesDelegateTable { constants, .. }
+            | Self::AccountsBinProt { constants, .. } => Ok(constants.clone()),
+            Self::DaemonJson(config) => {
+                let genesis_timestamp = config
+                    .genesis
+                    .as_ref()
+                    .map(|g: &daemon_json::Genesis| g.genesis_state_timestamp().map(|t| t.0 .0 .0))
+                    .transpose()?
+                    .unwrap_or(DEFAULT_GENESIS_TIMESTAMP_MILLISECONDS);
+                Ok(Self::default_constants(genesis_timestamp))
+            }
         }
     }
 
@@ -135,18 +151,7 @@ impl GenesisConfig {
                 (mask, load_result)
             }
             Self::DaemonJson(config) => {
-                let genesis_timestamp = config
-                    .genesis
-                    .as_ref()
-                    .map(|g: &daemon_json::Genesis| g.genesis_state_timestamp().map(|t| t.0 .0 .0))
-                    .transpose()?
-                    .unwrap_or_else(|| {
-                        SystemTime::now()
-                            .duration_since(UNIX_EPOCH)
-                            .unwrap()
-                            .as_millis() as u64
-                    });
-                let constants = Self::default_constants(genesis_timestamp);
+                let constants = self.protocol_constants()?;
                 let ledger = config
                     .ledger
                     .as_ref()

@@ -50,14 +50,14 @@ impl Node {
     pub fn dial_addr(&self) -> P2pConnectionOutgoingInitOpts {
         let peer_id = self.store.state().p2p.my_id();
         if self.service().rust_to_rust_use_webrtc() {
-            let port = self.store.state().p2p.config.listen_port;
+            let port = self.store.state().p2p.config().listen_port;
             let signaling = SignalingMethod::Http(([127, 0, 0, 1], port).into());
             P2pConnectionOutgoingInitOpts::WebRTC { peer_id, signaling }
         } else {
             let opts = P2pConnectionOutgoingInitLibp2pOpts {
                 peer_id,
                 host: node::p2p::webrtc::Host::Ipv4([127, 0, 0, 1].into()),
-                port: self.store.state().p2p.config.libp2p_port.unwrap(),
+                port: self.store.state().p2p.config().libp2p_port.unwrap(),
             };
             P2pConnectionOutgoingInitOpts::LibP2P(opts)
         }
@@ -72,7 +72,7 @@ impl Node {
     }
 
     pub fn peer_id(&self) -> PeerId {
-        self.state().p2p.config.identity_pub_key.peer_id()
+        self.state().p2p.my_id()
     }
 
     pub fn pending_events(&mut self, poll: bool) -> impl Iterator<Item = (PendingEventId, &Event)> {

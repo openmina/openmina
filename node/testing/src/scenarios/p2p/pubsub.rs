@@ -23,9 +23,7 @@ impl P2pReceiveBlock {
             .unwrap()
             .state()
             .p2p
-            .config
-            .identity_pub_key
-            .peer_id();
+            .my_id();
 
         let config = RustNodeTestingConfig::berkeley_default()
             // make sure it will not ask initial peers
@@ -37,9 +35,11 @@ impl P2pReceiveBlock {
         let mut driver = Driver::new(runner);
         driver
             .wait_for(Duration::from_secs(20 * 60), |node, _, state| {
+                let Some(p2p) = state.p2p.ready() else {
+                    return false;
+                };
                 node == receiver_openmina_node
-                    && state
-                        .p2p
+                    && p2p
                         .network
                         .scheduler
                         .broadcast_state

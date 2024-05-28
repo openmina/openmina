@@ -158,6 +158,7 @@ fn next_read_requests_init<S: redux::Service>(store: &mut Store<S>) {
     if !store.state().ledger.read.is_total_cost_under_limit() {
         return;
     }
+
     // fetching delegator table
     store.dispatch(BlockProducerVrfEvaluatorAction::BeginDelegatorTableConstruction);
 
@@ -178,7 +179,7 @@ fn next_read_requests_init<S: redux::Service>(store: &mut Store<S>) {
     peers.sort_by_key(|(_, last_responded)| *last_responded);
     for (peer_id, _) in peers {
         let Some((id, request)) = None.or_else(|| {
-            let peer = store.state().p2p.get_ready_peer(&peer_id)?;
+            let peer = store.state().p2p.ready()?.get_ready_peer(&peer_id)?;
             let mut reqs = peer.channels.rpc.remote_todo_requests_iter();
             reqs.find_map(|req| {
                 let ledger_request = match &req.request {
@@ -256,9 +257,10 @@ fn find_peers_with_ledger_rpc(
     state: &crate::State,
     req: &LedgerReadRequest,
 ) -> Vec<(PeerId, P2pRpcId)> {
-    state
-        .p2p
-        .ready_peers_iter()
+    let Some(p2p) = state.p2p.ready() else {
+        return Vec::new();
+    };
+    p2p.ready_peers_iter()
         .flat_map(|(peer_id, state)| {
             state
                 .channels

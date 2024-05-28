@@ -19,10 +19,13 @@ impl TransitionFrontierSyncLedgerStagedAction {
                 else {
                     return;
                 };
+                let Some(p2p) = state.p2p.ready() else {
+                    return;
+                };
                 let block_hash = staged_ledger.target().staged.block_hash.clone();
 
                 let ready_peers = staged_ledger
-                    .filter_available_peers(state.p2p.ready_rpc_peers_iter())
+                    .filter_available_peers(p2p.ready_rpc_peers_iter())
                     .collect::<Vec<_>>();
 
                 for (peer_id, rpc_id) in ready_peers {

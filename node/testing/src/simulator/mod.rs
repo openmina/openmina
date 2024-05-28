@@ -10,7 +10,7 @@ use node::{ActionKind, BlockProducerConfig, SnarkerConfig, SnarkerStrategy, Stat
 use rand::{Rng, SeedableRng};
 
 use crate::{
-    cluster::{ClusterNodeId, ClusterOcamlNodeId},
+    cluster::ClusterNodeId,
     node::{Node, RustNodeBlockProducerTestingConfig, RustNodeTestingConfig},
     scenario::{ListenerNode, ScenarioStep},
     scenarios::{ClusterRunner, RunCfg},
@@ -33,21 +33,8 @@ impl Simulator {
         self.initial_time
     }
 
-    async fn seed_config_async(&self, runner: &ClusterRunner<'_>) -> RustNodeTestingConfig {
-        let chain_id = if let Some(chain_id) = runner
-            .nodes_iter()
-            .next()
-            .map(|(_, node)| node.config().chain_id.clone())
-        {
-            chain_id
-        } else if let Some(node) = runner.ocaml_node(ClusterOcamlNodeId::new_unchecked(0)) {
-            node.chain_id_async().await.unwrap().into_bytes()
-        } else {
-            "<unknown_chain_id>".into()
-        };
-
+    async fn seed_config_async(&self, _runner: &ClusterRunner<'_>) -> RustNodeTestingConfig {
         RustNodeTestingConfig {
-            chain_id,
             initial_time: self.initial_time(),
             genesis: self.config.genesis.clone(),
             max_peers: 1000,
