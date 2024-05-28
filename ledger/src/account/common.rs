@@ -1,5 +1,6 @@
-use ark_ff::{UniformRand, Zero};
+use ark_ff::{PrimeField, UniformRand, Zero};
 use mina_hasher::Fp;
+use mina_p2p_messages::{b58, b58version};
 use o1_utils::{field_helpers::FieldHelpersError, FieldHelpers};
 use serde::{Deserialize, Serialize};
 
@@ -24,6 +25,19 @@ impl VotingFor {
     pub fn dummy() -> Self {
         Self(Fp::zero())
     }
+
+    pub fn from_base58(s: &str) -> Result<Self, FieldHelpersError> {
+        // TODO(tizoc): done in an ugly way, figure out the proper way and update this code
+        let decoded =
+            b58::decode(s, b58version::STATE_HASH).map_err(|_| FieldHelpersError::DecodeHex)?;
+        Ok(Self(Fp::from_be_bytes_mod_order(&decoded[1..])))
+    }
+}
+
+#[test]
+fn test_voting_for_b58decode() {
+    let source = "3NK2tkzqqK5spR2sZ7tujjqPksL45M3UUrcA4WhCkeiPtnugyE2x";
+    VotingFor::from_base58(source).unwrap();
 }
 
 impl ToFieldElements<Fp> for VotingFor {
@@ -62,9 +76,25 @@ impl ReceiptChainHash {
         Fp::from_hex(s).map(Self)
     }
 
+    pub fn from_base58(s: &str) -> Result<Self, FieldHelpersError> {
+        // TODO(tizoc): done in an ugly way, figure out the proper way and update this code
+        let decoded = b58::decode(s, b58version::RECEIPT_CHAIN_HASH)
+            .map_err(|_| FieldHelpersError::DecodeHex)?;
+        Ok(Self(Fp::from_be_bytes_mod_order(&decoded[1..])))
+    }
+
     pub fn gen() -> Self {
         Self(Fp::rand(&mut rand::thread_rng()))
     }
+}
+
+#[test]
+fn test_receipt_chain_b58decode() {
+    let source = "2mzbV7WevxLuchs2dAMY4vQBS6XttnCUF8Hvks4XNBQ5qiSGGBQe";
+    ReceiptChainHash::from_base58(source).unwrap();
+
+    let source = "2n2K1aziimdYu5QCf8mU4gducZCB5u5s78sGnp56zT2tig4ugVHD";
+    ReceiptChainHash::from_base58(source).unwrap();
 }
 
 impl Default for ReceiptChainHash {
@@ -192,6 +222,7 @@ impl Default for TokenPermissions {
 
 // https://github.com/MinaProtocol/mina/blob/develop/src/lib/mina_base/permissions.mli#L10
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum AuthRequired {
     None,
     Either,

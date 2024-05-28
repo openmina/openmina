@@ -72,6 +72,7 @@ pub struct Account {
     delegate: Option<String>,
     token_id: Option<String>,
     token_symbol: Option<String>,
+    #[serde(default, deserialize_with = "string_or_u32_option")]
     nonce: Option<u32>,
     receipt_chain_hash: Option<String>,
     voting_for: Option<String>,
@@ -164,8 +165,7 @@ impl Account {
         self.receipt_chain_hash
             .as_ref()
             .map_or(Ok(ReceiptChainHash::empty()), |hash| {
-                Fp::from_str(hash)
-                    .map(ReceiptChainHash)
+                ReceiptChainHash::from_base58(hash)
                     .map_err(|_| AccountConfigError::MalformedReceiptChainHash(hash.clone()))
             })
     }
@@ -174,8 +174,7 @@ impl Account {
         self.voting_for
             .as_ref()
             .map_or(Ok(VotingFor::dummy()), |hash| {
-                Fp::from_str(hash)
-                    .map(VotingFor)
+                VotingFor::from_base58(hash)
                     .map_err(|_| AccountConfigError::MalformedVotingFor(hash.clone()))
             })
     }
@@ -243,7 +242,39 @@ impl AccountTiming {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct SerVrfKeyPerm {
     auth: AuthRequired,
+    #[serde(deserialize_with = "string_or_u32")]
     txn_version: u32,
+}
+
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum StringOrU32 {
+    String(String),
+    U32(u32),
+}
+
+fn string_or_u32<'de, D>(deserializer: D) -> Result<u32, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    match StringOrU32::deserialize(deserializer)? {
+        StringOrU32::String(s) => s.parse::<u32>().map_err(serde::de::Error::custom),
+        StringOrU32::U32(u) => Ok(u),
+    }
+}
+
+fn string_or_u32_option<'de, D>(deserializer: D) -> Result<Option<u32>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let opt: Option<StringOrU32> = Option::deserialize(deserializer)?;
+    match opt {
+        Some(StringOrU32::String(s)) => {
+            s.parse::<u32>().map(Some).map_err(serde::de::Error::custom)
+        }
+        Some(StringOrU32::U32(u)) => Ok(Some(u)),
+        None => Ok(None),
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
