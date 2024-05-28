@@ -85,7 +85,39 @@ pub enum GenesisConfigError {
 }
 
 impl GenesisConfig {
-    pub fn load(&self) -> Result<(Vec<ledger::Mask>, GenesisConfigLoaded), GenesisConfigError> {
+    pub fn default_constants(timestamp_ms: u64) -> ProtocolConstants {
+        ProtocolConstants {
+            k: 290.into(),
+            slots_per_epoch: 7140.into(),
+            slots_per_sub_window: 7.into(),
+            grace_period_slots: 2160.into(),
+            delta: 0.into(),
+            genesis_state_timestamp: v2::BlockTimeTimeStableV1(
+                v2::UnsignedExtendedUInt64Int64ForVersionTagsStableV1(timestamp_ms.into()),
+            ),
+        }
+    }
+
+    // This is a stub for the moment until PR #420 is merged, which implements this for
+    // real. In case of conflict, delete this stub and put the real implementation here.
+    pub fn protocol_constants(&self) -> Result<ProtocolConstants, time::error::Parse> {
+        match self {
+            Self::Counts { constants, .. }
+            | Self::BalancesDelegateTable { constants, .. }
+            | Self::AccountsBinProt { constants, .. } => Ok(constants.clone()),
+            Self::DaemonJson(config) => {
+                let genesis_timestamp = config
+                    .genesis
+                    .as_ref()
+                    .map(|g: &daemon_json::Genesis| g.genesis_state_timestamp().map(|t| t.0 .0 .0))
+                    .transpose()?
+                    .unwrap_or(DEFAULT_GENESIS_TIMESTAMP_MILLISECONDS);
+                Ok(Self::default_constants(genesis_timestamp))
+            }
+        }
+    }
+
+    pub fn load(&self) -> anyhow::Result<(ledger::Mask, GenesisConfigLoaded)> {
         Ok(match self {
             Self::Counts {
                 whales,
