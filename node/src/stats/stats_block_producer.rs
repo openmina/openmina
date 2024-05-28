@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     block_producer::{BlockProducerWonSlot, BlockProducerWonSlotDiscardReason, BlockWithoutProof},
-    core::block::BlockHash,
+    core::block::{Block, BlockHash, BlockWithHash},
 };
 
 const MAX_HISTORY: usize = 2048;
@@ -60,6 +60,12 @@ pub enum BlockProductionStatus {
     BlockApplyPending,
     BlockApplySuccess,
     Committed,
+    Canonical {
+        last_observed_confirmations: u32,
+    },
+    Orphaned {
+        orphaned_by: BlockHash,
+    },
     Discarded {
         discard_reason: BlockProducerWonSlotDiscardReason,
     },
@@ -83,7 +89,7 @@ pub struct ProducedBlockTransactions {
 }
 
 impl BlockProducerStats {
-    fn latest_attempt_block_hash_matches(&self, hash: &v2::StateHash) -> bool {
+    fn latest_attempt_block_hash_matches(&self, hash: &BlockHash) -> bool {
         self.attempts
             .back()
             .and_then(|v| v.block.as_ref())
@@ -92,6 +98,46 @@ impl BlockProducerStats {
 
     pub fn collect_attempts(&self) -> Vec<BlockProductionAttempt> {
         self.attempts.iter().cloned().collect()
+    }
+
+    pub fn new_best_chain<T: AsRef<Block>>(
+        &mut self,
+        time: redux::Timestamp,
+        chain: &[BlockWithHash<T>],
+    ) {
+        let (best_tip, chain) = chain.split_last().unwrap();
+        let root_block = chain.first().unwrap_or(best_tip);
+
+        self.committed(time, best_tip.hash());
+
+        self.attempts
+            .iter_mut()
+            .rev()
+            .take_while(|v| v.won_slot.global_slot >= root_block.global_slot())
+            .for_each(|attempt| {
+                let Some(block) = attempt.block.as_ref() else {
+                    return;
+                };
+                let Some(i) = block.height.checked_sub(root_block.height()) else {
+                    return;
+                };
+
+                match chain.get(i as usize) {
+                    Some(b) if b.hash() == &block.hash => {
+                        attempt.status = BlockProductionStatus::Canonical {
+                            last_observed_confirmations: best_tip
+                                .height()
+                                .saturating_sub(block.height),
+                        };
+                    }
+                    Some(b) => {
+                        attempt.status = BlockProductionStatus::Orphaned {
+                            orphaned_by: b.hash().clone(),
+                        };
+                    }
+                    None => {}
+                }
+            });
     }
 
     fn update<F>(&mut self, kind: &'static str, with: F)
@@ -172,7 +218,7 @@ impl BlockProducerStats {
     pub fn produced(
         &mut self,
         time: redux::Timestamp,
-        block_hash: &v2::StateHash,
+        block_hash: &BlockHash,
         block: &BlockWithoutProof,
     ) {
         self.update("produced", move |attempt| match attempt.status {
@@ -208,7 +254,7 @@ impl BlockProducerStats {
         });
     }
 
-    pub fn block_apply_start(&mut self, time: redux::Timestamp, hash: &v2::StateHash) {
+    pub fn block_apply_start(&mut self, time: redux::Timestamp, hash: &BlockHash) {
         let is_our_block = self
             .attempts
             .back()
@@ -228,7 +274,7 @@ impl BlockProducerStats {
         });
     }
 
-    pub fn block_apply_end(&mut self, time: redux::Timestamp, hash: &v2::StateHash) {
+    pub fn block_apply_end(&mut self, time: redux::Timestamp, hash: &BlockHash) {
         if !self.latest_attempt_block_hash_matches(hash) {
             return;
         }
@@ -243,7 +289,7 @@ impl BlockProducerStats {
         });
     }
 
-    pub fn committed(&mut self, time: redux::Timestamp, hash: &v2::StateHash) {
+    pub fn committed(&mut self, time: redux::Timestamp, hash: &BlockHash) {
         if !self.latest_attempt_block_hash_matches(hash) {
             return;
         }
@@ -281,8 +327,8 @@ impl From<&BlockProducerWonSlot> for BlockProductionAttemptWonSlot {
     }
 }
 
-impl From<(&v2::StateHash, &BlockWithoutProof)> for ProducedBlock {
-    fn from((block_hash, block): (&v2::StateHash, &BlockWithoutProof)) -> Self {
+impl From<(&BlockHash, &BlockWithoutProof)> for ProducedBlock {
+    fn from((block_hash, block): (&BlockHash, &BlockWithoutProof)) -> Self {
         Self {
             hash: block_hash.clone(),
             height: block
