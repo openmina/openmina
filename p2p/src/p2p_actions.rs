@@ -34,6 +34,7 @@ pub enum P2pAction {
 #[action_event(level = info, fields(display(chain_id)))]
 pub enum P2pInitializeAction {
     /// Initializes p2p layer.
+    #[action_event(level = info)]
     Initialize { chain_id: openmina_core::ChainId },
 }
 
