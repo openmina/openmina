@@ -12,19 +12,23 @@ use super::{
 
 impl TransitionFrontierSyncLedgerStagedState {
     pub fn reducer(
-        mut state: crate::Substate<Self>,
+        mut state_context: crate::Substate<Self>,
         action: TransitionFrontierSyncLedgerStagedActionWithMetaRef<'_>,
     ) {
+        let Ok(state) = state_context.get_substate_mut() else {
+            // TODO: log or propagate
+            return;
+        };
         let (action, meta) = action.split();
-        let state_mut = &mut *state;
+
         match action {
             TransitionFrontierSyncLedgerStagedAction::PartsFetchPending => {
                 // handled in parent. TODO(refactor) check this
-                let dispatcher = state.into_dispatcher();
+                let dispatcher = state_context.into_dispatcher();
                 dispatcher.push(TransitionFrontierSyncLedgerStagedAction::PartsPeerFetchInit);
             }
             TransitionFrontierSyncLedgerStagedAction::PartsPeerFetchInit => {
-                let (dispatcher, global_state) = state.into_dispatcher_and_state();
+                let (dispatcher, global_state) = state_context.into_dispatcher_and_state();
                 let Some(staged_ledger) =
                     None.or_else(|| global_state.transition_frontier.sync.ledger()?.staged())
                 else {
@@ -64,7 +68,7 @@ impl TransitionFrontierSyncLedgerStagedState {
                 }
             }
             TransitionFrontierSyncLedgerStagedAction::PartsPeerFetchPending { peer_id, rpc_id } => {
-                let Self::PartsFetchPending { attempts, .. } = state_mut else {
+                let Self::PartsFetchPending { attempts, .. } = state else {
                     return;
                 };
                 attempts.insert(
@@ -80,7 +84,7 @@ impl TransitionFrontierSyncLedgerStagedState {
                 error,
                 ..
             } => {
-                let Self::PartsFetchPending { attempts, .. } = state_mut else {
+                let Self::PartsFetchPending { attempts, .. } = state else {
                     return;
                 };
                 let Some(attempt) = attempts.get_mut(peer_id) else {
@@ -96,7 +100,7 @@ impl TransitionFrontierSyncLedgerStagedState {
                 };
 
                 // Dispatch
-                let dispatcher = state.into_dispatcher();
+                let dispatcher = state_context.into_dispatcher();
                 dispatcher.push(TransitionFrontierSyncLedgerStagedAction::PartsPeerFetchInit);
             }
             TransitionFrontierSyncLedgerStagedAction::PartsPeerFetchSuccess {
@@ -106,7 +110,7 @@ impl TransitionFrontierSyncLedgerStagedState {
             } => {
                 let Self::PartsFetchPending {
                     target, attempts, ..
-                } = state_mut
+                } = state
                 else {
                     return;
                 };
@@ -124,7 +128,7 @@ impl TransitionFrontierSyncLedgerStagedState {
                 };
 
                 // Dispatch
-                let (dispatcher, global_state) = state.into_dispatcher_and_state();
+                let (dispatcher, global_state) = state_context.into_dispatcher_and_state();
                 if !dispatcher.push_if_enabled(
                     TransitionFrontierSyncLedgerStagedAction::PartsPeerValid { sender: *peer_id },
                     global_state,
@@ -161,7 +165,7 @@ impl TransitionFrontierSyncLedgerStagedState {
                 }
 
                 // Dispatch
-                let dispatcher = state.into_dispatcher();
+                let dispatcher = state_context.into_dispatcher();
                 if let TransitionFrontierSyncLedgerStagedAction::PartsPeerValid { .. } = action {
                     dispatcher.push(
                         TransitionFrontierSyncLedgerStagedAction::PartsFetchSuccess {
@@ -175,7 +179,7 @@ impl TransitionFrontierSyncLedgerStagedState {
             TransitionFrontierSyncLedgerStagedAction::PartsFetchSuccess { sender } => {
                 let Self::PartsFetchPending {
                     target, attempts, ..
-                } = state_mut
+                } = state
                 else {
                     return;
                 };
@@ -185,24 +189,24 @@ impl TransitionFrontierSyncLedgerStagedState {
                 let PeerStagedLedgerPartsFetchState::Valid { parts, .. } = attempt else {
                     return;
                 };
-                *state_mut = Self::PartsFetchSuccess {
+                *state = Self::PartsFetchSuccess {
                     time: meta.time(),
                     target: target.clone(),
                     parts: parts.clone(),
                 };
 
                 // Dispatch
-                let dispatcher = state.into_dispatcher();
+                let dispatcher = state_context.into_dispatcher();
                 dispatcher.push(TransitionFrontierSyncLedgerStagedAction::ReconstructInit);
             }
             TransitionFrontierSyncLedgerStagedAction::ReconstructEmpty => {
                 // handled in parent. TODO(refactor): check this
                 // Dispatch
-                let dispatcher = state.into_dispatcher();
+                let dispatcher = state_context.into_dispatcher();
                 dispatcher.push(TransitionFrontierSyncLedgerStagedAction::ReconstructInit);
             }
             TransitionFrontierSyncLedgerStagedAction::ReconstructInit => {
-                let (dispatcher, global_state) = state.into_dispatcher_and_state();
+                let (dispatcher, global_state) = state_context.into_dispatcher_and_state();
                 let ledger_state = global_state.transition_frontier.sync.ledger();
                 let Some((target, parts)) =
                     ledger_state.and_then(|s| s.staged()?.target_with_parts())
@@ -226,20 +230,20 @@ impl TransitionFrontierSyncLedgerStagedState {
                 }
             }
             TransitionFrontierSyncLedgerStagedAction::ReconstructPending => {
-                let Some((target, parts)) = state_mut.target_with_parts() else {
+                let Some((target, parts)) = state.target_with_parts() else {
                     return;
                 };
-                *state_mut = Self::ReconstructPending {
+                *state = Self::ReconstructPending {
                     time: meta.time(),
                     target: target.clone(),
                     parts: parts.cloned(),
                 }
             }
             TransitionFrontierSyncLedgerStagedAction::ReconstructError { error } => {
-                let Self::ReconstructPending { target, parts, .. } = state_mut else {
+                let Self::ReconstructPending { target, parts, .. } = state else {
                     return;
                 };
-                *state_mut = Self::ReconstructError {
+                *state = Self::ReconstructError {
                     time: meta.time(),
                     target: target.clone(),
                     parts: parts.clone(),
@@ -248,25 +252,25 @@ impl TransitionFrontierSyncLedgerStagedState {
                 panic!("Staged ledger reconstruct failure {error}");
             }
             TransitionFrontierSyncLedgerStagedAction::ReconstructSuccess { .. } => {
-                let Self::ReconstructPending { target, parts, .. } = state_mut else {
+                let Self::ReconstructPending { target, parts, .. } = state else {
                     return;
                 };
-                *state_mut = Self::ReconstructSuccess {
+                *state = Self::ReconstructSuccess {
                     time: meta.time(),
                     target: target.clone(),
                     parts: parts.clone(),
                 };
 
                 // Dispatch
-                let dispatcher = state.into_dispatcher();
+                let dispatcher = state_context.into_dispatcher();
                 dispatcher.push(TransitionFrontierSyncLedgerStagedAction::Success);
             }
             TransitionFrontierSyncLedgerStagedAction::Success => {
-                let Self::ReconstructSuccess { target, parts, .. } = state_mut else {
+                let Self::ReconstructSuccess { target, parts, .. } = state else {
                     return;
                 };
 
-                *state_mut = Self::Success {
+                *state = Self::Success {
                     time: meta.time(),
                     target: target.clone(),
                     needed_protocol_states: parts

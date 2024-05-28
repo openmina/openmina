@@ -5,14 +5,19 @@ use super::{
 
 impl TransitionFrontierState {
     pub fn reducer(
-        mut state: crate::Substate<Self>,
+        mut state_context: crate::Substate<Self>,
         action: TransitionFrontierActionWithMetaRef<'_>,
     ) {
+        let Ok(state) = state_context.get_substate_mut() else {
+            // TODO: log or propagate
+            return;
+        };
         let (action, meta) = action.split();
+
         match action {
             TransitionFrontierAction::Genesis(a) => {
                 super::genesis::TransitionFrontierGenesisState::reducer(
-                    openmina_core::Substate::from_compatible_substate(state),
+                    openmina_core::Substate::from_compatible_substate(state_context),
                     meta.with_action(a),
                 )
             }
@@ -29,7 +34,7 @@ impl TransitionFrontierState {
             TransitionFrontierAction::Sync(a) => {
                 let best_chain = state.best_chain.clone();
                 super::sync::TransitionFrontierSyncState::reducer(
-                    openmina_core::Substate::from_compatible_substate(state),
+                    openmina_core::Substate::from_compatible_substate(state_context),
                     meta.with_action(a),
                     &best_chain,
                 );

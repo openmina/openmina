@@ -69,7 +69,9 @@ impl<T> redux::EnablingCondition<T> for SnarkWorkVerifyAction
 where
     T: SubstateAccess<crate::SnarkState>,
 {
-    fn is_enabled(&self, state: &T, _time: redux::Timestamp) -> bool {
-        self.is_enabled(state.substate(), _time)
+    fn is_enabled(&self, state: &T, time: redux::Timestamp) -> bool {
+        state
+            .substate()
+            .map_or(false, |state| self.is_enabled(state, time))
     }
 }

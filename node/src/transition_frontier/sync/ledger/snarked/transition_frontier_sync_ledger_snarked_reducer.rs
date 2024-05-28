@@ -23,24 +23,28 @@ use super::{
 
 impl TransitionFrontierSyncLedgerSnarkedState {
     pub fn reducer(
-        mut state: crate::Substate<Self>,
+        mut state_context: crate::Substate<Self>,
         action: TransitionFrontierSyncLedgerSnarkedActionWithMetaRef<'_>,
     ) {
+        let Ok(state) = state_context.get_substate_mut() else {
+            // TODO: log or propagate
+            return;
+        };
         let (action, meta) = action.split();
-        let state_mut = &mut *state;
+
         match action {
             TransitionFrontierSyncLedgerSnarkedAction::Pending => {
                 // handled in parent reducer. TODO(refactor): should have a callback instead?
 
                 // Dispatch
-                let dispatcher = state.into_dispatcher();
+                let dispatcher = state_context.into_dispatcher();
                 dispatcher.push(TransitionFrontierSyncLedgerSnarkedAction::PeersQuery);
             }
             TransitionFrontierSyncLedgerSnarkedAction::PeersQuery => {
                 let mut retry_addresses: Vec<_> = state.sync_address_retry_iter().collect();
                 let mut addresses: Vec<_> = state.sync_address_query_iter().collect();
 
-                let (dispatcher, global_state) = state.into_dispatcher_and_state();
+                let (dispatcher, global_state) = state_context.into_dispatcher_and_state();
 
                 // TODO(binier): make sure they have the ledger we want to query.
                 let mut peer_ids = global_state
@@ -106,7 +110,7 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                 if let Self::NumAccountsPending {
                     pending_num_accounts,
                     ..
-                } = state_mut
+                } = state
                 {
                     pending_num_accounts
                         .attempts
@@ -114,7 +118,7 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                 }
 
                 // Dispatch
-                let (dispatcher, global_state) = state.into_dispatcher_and_state();
+                let (dispatcher, global_state) = state_context.into_dispatcher_and_state();
                 peer_query_num_accounts_init(dispatcher, global_state, meta, *peer_id)
             }
             TransitionFrontierSyncLedgerSnarkedAction::PeerQueryNumAccountsPending {
@@ -124,7 +128,7 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                 let Self::NumAccountsPending {
                     pending_num_accounts,
                     ..
-                } = state_mut
+                } = state
                 else {
                     return;
                 };
@@ -142,7 +146,7 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                 if let Self::NumAccountsPending {
                     pending_num_accounts,
                     ..
-                } = state_mut
+                } = state
                 {
                     pending_num_accounts
                         .attempts
@@ -150,7 +154,7 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                 }
 
                 // Dispatch
-                let (dispatcher, global_state) = state.into_dispatcher_and_state();
+                let (dispatcher, global_state) = state_context.into_dispatcher_and_state();
                 peer_query_num_accounts_init(dispatcher, global_state, meta, *peer_id)
             }
             TransitionFrontierSyncLedgerSnarkedAction::PeerQueryNumAccountsError {
@@ -158,8 +162,7 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                 rpc_id,
                 error,
             } => {
-                let Some(rpc_state) =
-                    state_mut.peer_num_account_query_state_get_mut(peer_id, *rpc_id)
+                let Some(rpc_state) = state.peer_num_account_query_state_get_mut(peer_id, *rpc_id)
                 else {
                     return;
                 };
@@ -171,7 +174,7 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                 };
 
                 // Dispatch
-                let dispatcher = state.into_dispatcher();
+                let dispatcher = state_context.into_dispatcher();
                 dispatcher.push(TransitionFrontierSyncLedgerSnarkedAction::PeersQuery);
             }
             TransitionFrontierSyncLedgerSnarkedAction::PeerQueryNumAccountsSuccess {
@@ -179,8 +182,7 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                 rpc_id,
                 response,
             } => {
-                let Some(rpc_state) =
-                    state_mut.peer_num_account_query_state_get_mut(peer_id, *rpc_id)
+                let Some(rpc_state) = state.peer_num_account_query_state_get_mut(peer_id, *rpc_id)
                 else {
                     return;
                 };
@@ -190,7 +192,7 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                 };
 
                 // Dispatch
-                let dispatcher = state.into_dispatcher();
+                let dispatcher = state_context.into_dispatcher();
 
                 match response {
                     PeerLedgerQueryResponse::NumAccounts(count, contents_hash) => {
@@ -212,7 +214,7 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                 contents_hash,
                 sender,
             } => {
-                let (dispatcher, global_state) = state.into_dispatcher_and_state();
+                let (dispatcher, global_state) = state_context.into_dispatcher_and_state();
 
                 let Some(snarked_ledger_hash) = None.or_else(|| {
                     let snarked_ledger =
@@ -256,7 +258,7 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                 contents_hash,
                 ..
             } => {
-                let dispatcher = state.into_dispatcher();
+                let dispatcher = state_context.into_dispatcher();
                 dispatcher.push(
                     TransitionFrontierSyncLedgerSnarkedAction::NumAccountsSuccess {
                         num_accounts: *num_accounts,
@@ -267,20 +269,20 @@ impl TransitionFrontierSyncLedgerSnarkedState {
             TransitionFrontierSyncLedgerSnarkedAction::NumAccountsRejected { .. } => {
                 // TODO(tizoc): should this be reflected in the state somehow?
                 // TODO(tizoc): we do nothing here, but the peer must be punished somehow
-                let dispatcher = state.into_dispatcher();
+                let dispatcher = state_context.into_dispatcher();
                 dispatcher.push(TransitionFrontierSyncLedgerSnarkedAction::PeersQuery);
             }
             TransitionFrontierSyncLedgerSnarkedAction::NumAccountsSuccess {
                 num_accounts,
                 contents_hash,
             } => {
-                let Self::NumAccountsPending { target, .. } = state_mut else {
+                let Self::NumAccountsPending { target, .. } = state else {
                     return;
                 };
 
                 let target = target.clone();
 
-                *state_mut = Self::NumAccountsSuccess {
+                *state = Self::NumAccountsSuccess {
                     time: meta.time(),
                     target,
                     num_accounts: *num_accounts,
@@ -288,7 +290,7 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                 };
 
                 // Dispatch
-                let dispatcher = state.into_dispatcher();
+                let dispatcher = state_context.into_dispatcher();
                 dispatcher.push(TransitionFrontierSyncLedgerSnarkedAction::MerkleTreeSyncPending);
             }
 
@@ -298,7 +300,7 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                     num_accounts,
                     contents_hash,
                     ..
-                } = state_mut
+                } = state
                 else {
                     return;
                 };
@@ -310,7 +312,7 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                 let expected_hash = contents_hash.clone();
                 let first_query = (first_node_address, expected_hash);
 
-                *state_mut = Self::MerkleTreeSyncPending {
+                *state = Self::MerkleTreeSyncPending {
                     time: meta.time(),
                     target: target.clone(),
                     total_accounts_expected: *num_accounts,
@@ -321,7 +323,7 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                 };
 
                 // Dispatch
-                let (dispatcher, global_state) = state.into_dispatcher_and_state();
+                let (dispatcher, global_state) = state_context.into_dispatcher_and_state();
                 if !dispatcher.push_if_enabled(
                     TransitionFrontierSyncLedgerSnarkedAction::PeersQuery,
                     global_state,
@@ -332,16 +334,16 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                 }
             }
             TransitionFrontierSyncLedgerSnarkedAction::MerkleTreeSyncSuccess => {
-                let Self::MerkleTreeSyncPending { target, .. } = state_mut else {
+                let Self::MerkleTreeSyncPending { target, .. } = state else {
                     return;
                 };
-                *state_mut = Self::MerkleTreeSyncSuccess {
+                *state = Self::MerkleTreeSyncSuccess {
                     time: meta.time(),
                     target: target.clone(),
                 };
 
                 // Dispatch
-                let dispatcher = state.into_dispatcher();
+                let dispatcher = state_context.into_dispatcher();
                 dispatcher.push(TransitionFrontierSyncLedgerSnarkedAction::Success);
             }
 
@@ -354,7 +356,7 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                     queue,
                     pending_addresses,
                     ..
-                } = state_mut
+                } = state
                 {
                     let removed = queue.remove(address);
                     debug_assert!(removed.is_some());
@@ -374,7 +376,7 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                 }
 
                 // Dispatch
-                let (dispatcher, global_state) = state.into_dispatcher_and_state();
+                let (dispatcher, global_state) = state_context.into_dispatcher_and_state();
                 peer_query_address_init(dispatcher, global_state, meta, *peer_id, address.clone());
             }
             TransitionFrontierSyncLedgerSnarkedAction::PeerQueryAddressRetry {
@@ -384,7 +386,7 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                 if let Self::MerkleTreeSyncPending {
                     pending_addresses: pending,
                     ..
-                } = state_mut
+                } = state
                 {
                     if let Some(pending) = pending.get_mut(address) {
                         pending
@@ -394,7 +396,7 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                 }
 
                 // Dispatch
-                let (dispatcher, global_state) = state.into_dispatcher_and_state();
+                let (dispatcher, global_state) = state_context.into_dispatcher_and_state();
                 peer_query_address_init(dispatcher, global_state, meta, *peer_id, address.clone());
             }
             TransitionFrontierSyncLedgerSnarkedAction::PeerQueryAddressPending {
@@ -405,7 +407,7 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                 let Self::MerkleTreeSyncPending {
                     pending_addresses: pending,
                     ..
-                } = state_mut
+                } = state
                 else {
                     return;
                 };
@@ -426,7 +428,7 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                 rpc_id,
                 error,
             } => {
-                let Some(rpc_state) = state_mut.peer_address_query_state_get_mut(peer_id, *rpc_id)
+                let Some(rpc_state) = state.peer_address_query_state_get_mut(peer_id, *rpc_id)
                 else {
                     return;
                 };
@@ -438,7 +440,7 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                 };
 
                 // Dispatch
-                let dispatcher = state.into_dispatcher();
+                let dispatcher = state_context.into_dispatcher();
                 dispatcher.push(TransitionFrontierSyncLedgerSnarkedAction::PeersQuery);
             }
             TransitionFrontierSyncLedgerSnarkedAction::PeerQueryAddressSuccess {
@@ -446,7 +448,7 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                 rpc_id,
                 response,
             } => {
-                let Some(rpc_state) = state_mut.peer_address_query_state_get_mut(peer_id, *rpc_id)
+                let Some(rpc_state) = state.peer_address_query_state_get_mut(peer_id, *rpc_id)
                 else {
                     return;
                 };
@@ -456,7 +458,7 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                 };
 
                 // Dispatch
-                let (dispatcher, global_state) = state.into_dispatcher_and_state();
+                let (dispatcher, global_state) = state_context.into_dispatcher_and_state();
                 let ledger = global_state.transition_frontier.sync.ledger();
                 let Some(address) = ledger
                     .and_then(|s| s.snarked()?.peer_address_query_get(peer_id, *rpc_id))
@@ -500,7 +502,7 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                     pending_addresses: pending,
                     synced_hashes_count: num_hashes_accepted,
                     ..
-                } = state_mut
+                } = state
                 else {
                     return;
                 };
@@ -530,7 +532,7 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                 }
 
                 // Dispatch
-                let (dispatcher, global_state) = state.into_dispatcher_and_state();
+                let (dispatcher, global_state) = state_context.into_dispatcher_and_state();
                 if !dispatcher.push_if_enabled(
                     TransitionFrontierSyncLedgerSnarkedAction::PeersQuery,
                     global_state,
@@ -543,7 +545,7 @@ impl TransitionFrontierSyncLedgerSnarkedState {
             TransitionFrontierSyncLedgerSnarkedAction::ChildHashesRejected { .. } => {
                 // TODO(tizoc): should this be reflected in the state somehow?
                 // TODO(tizoc): we do nothing here, but the peer must be punished somehow
-                let dispatcher = state.into_dispatcher();
+                let dispatcher = state_context.into_dispatcher();
                 dispatcher.push(TransitionFrontierSyncLedgerSnarkedAction::PeersQuery);
             }
             TransitionFrontierSyncLedgerSnarkedAction::ChildAccountsReceived { .. } => {}
@@ -556,7 +558,7 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                     pending_addresses: pending,
                     synced_accounts_count,
                     ..
-                } = state_mut
+                } = state
                 else {
                     return;
                 };
@@ -565,7 +567,7 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                 pending.remove(address);
 
                 // Dispatch
-                let (dispatcher, global_state) = state.into_dispatcher_and_state();
+                let (dispatcher, global_state) = state_context.into_dispatcher_and_state();
                 if !dispatcher.push_if_enabled(
                     TransitionFrontierSyncLedgerSnarkedAction::PeersQuery,
                     global_state,
@@ -578,14 +580,14 @@ impl TransitionFrontierSyncLedgerSnarkedState {
             TransitionFrontierSyncLedgerSnarkedAction::ChildAccountsRejected { .. } => {
                 // TODO(tizoc): should this be reflected in the state somehow?
                 // TODO(tizoc): we do nothing here, but the peer must be punished somehow
-                let dispatcher = state.into_dispatcher();
+                let dispatcher = state_context.into_dispatcher();
                 dispatcher.push(TransitionFrontierSyncLedgerSnarkedAction::PeersQuery);
             }
             TransitionFrontierSyncLedgerSnarkedAction::Success => {
-                let Self::MerkleTreeSyncSuccess { target, .. } = state_mut else {
+                let Self::MerkleTreeSyncSuccess { target, .. } = state else {
                     return;
                 };
-                *state_mut = Self::Success {
+                *state = Self::Success {
                     time: meta.time(),
                     target: target.clone(),
                 };

@@ -293,7 +293,7 @@ impl SnarkPoolService for NodeService {
     ) -> Vec<SnarkJobId> {
         iter.choose_multiple(&mut self.rng, n)
             .into_iter()
-            .map(|job_id| job_id.clone())
+            .cloned()
             .collect()
     }
 }

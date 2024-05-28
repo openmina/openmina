@@ -14,16 +14,21 @@ use super::{
 
 impl SnarkPoolCandidatesState {
     pub fn reducer(
-        mut state: crate::Substate<Self>,
+        mut state_context: crate::Substate<Self>,
         action: SnarkPoolCandidateActionWithMetaRef<'_>,
     ) {
+        let Ok(state) = state_context.get_substate_mut() else {
+            // TODO: log or propagate
+            return;
+        };
         let (action, meta) = action.split();
+
         match action {
             SnarkPoolCandidateAction::InfoReceived { peer_id, info } => {
                 state.info_received(meta.time(), *peer_id, info.clone());
             }
             SnarkPoolCandidateAction::WorkFetchAll => {
-                let (dispatcher, global_state) = state.into_dispatcher_and_state();
+                let (dispatcher, global_state) = state_context.into_dispatcher_and_state();
                 let p2p = p2p_ready!(global_state.p2p, meta.time());
                 let peers = p2p.ready_peers_iter().map(|(id, _)| *id);
                 let get_order = |job_id: &_| {
@@ -43,8 +48,8 @@ impl SnarkPoolCandidatesState {
                 }
             }
             SnarkPoolCandidateAction::WorkFetchInit { peer_id, job_id } => {
-                let (dispatcher, global_state) = state.into_dispatcher_and_state();
-                let peer_id = peer_id.clone();
+                let (dispatcher, global_state) = state_context.into_dispatcher_and_state();
+                let peer_id = *peer_id;
                 let job_id = job_id.clone();
                 let p2p = p2p_ready!(global_state.p2p, meta.time());
                 let Some(peer) = p2p.get_ready_peer(&peer_id) else {
@@ -73,14 +78,14 @@ impl SnarkPoolCandidatesState {
                 state.work_received(meta.time(), *peer_id, work.clone());
             }
             SnarkPoolCandidateAction::WorkVerifyNext => {
-                let (dispatcher, global_state) = state.into_dispatcher_and_state();
+                let (dispatcher, global_state) = state_context.into_dispatcher_and_state();
 
                 let job_id_orders = global_state
                     .snark_pool
                     .range(..)
                     .map(|(_, v)| (v.order, &v.id))
                     .collect::<BTreeMap<_, _>>();
-                let job_ids_ordered_iter = job_id_orders.into_iter().map(|(_, id)| id);
+                let job_ids_ordered_iter = job_id_orders.into_values();
                 let batch = global_state
                     .snark_pool
                     .candidates
@@ -127,7 +132,7 @@ impl SnarkPoolCandidatesState {
                 state.verify_result(meta.time(), peer_id, *verify_id, Err(()));
 
                 // TODO(binier): blacklist peer
-                let dispatcher = state.into_dispatcher();
+                let dispatcher = state_context.into_dispatcher();
                 let peer_id = *peer_id;
                 dispatcher.push(P2pDisconnectionAction::Init {
                     peer_id,
@@ -142,7 +147,7 @@ impl SnarkPoolCandidatesState {
                 state.verify_result(meta.time(), peer_id, *verify_id, Ok(()));
 
                 // Dispatch
-                let dispatcher = state.into_dispatcher();
+                let dispatcher = state_context.into_dispatcher();
 
                 for snark in batch {
                     dispatcher.push(SnarkPoolAction::WorkAdd {
