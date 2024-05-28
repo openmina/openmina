@@ -1,6 +1,7 @@
 use std::cmp::Ordering::{Equal, Greater, Less};
 
 use ark_ff::{BigInteger256, Field};
+use mina_p2p_messages::v2::BlockTimeTimeStableV1;
 use rand::Rng;
 
 use crate::proofs::field::FieldWitness;
@@ -340,6 +341,12 @@ impl BlockTime {
     pub fn of_span_since_epoch(span: BlockTimeSpan) -> Self {
         let BlockTimeSpan(ms) = span;
         Self(ms)
+    }
+}
+
+impl From<BlockTimeTimeStableV1> for BlockTime {
+    fn from(bt: BlockTimeTimeStableV1) -> Self {
+        Self(bt.0 .0 .0)
     }
 }
 

@@ -267,7 +267,6 @@ pub fn read_constraints_data<F: FieldWitness>(
 ) -> Option<(InternalVars<F>, Vec<Vec<Option<V>>>)> {
     use mina_p2p_messages::bigint::BigInt;
 
-    #[allow(non_local_definitions)]
     impl From<&VRaw> for V {
         fn from(value: &VRaw) -> Self {
             match value {

@@ -8,7 +8,10 @@ use std::{
 use itertools::Itertools;
 use mina_hasher::Fp;
 use mina_p2p_messages::{bigint::BigInt, v2};
-use openmina_core::constants::{ForkConstants, CONSTRAINT_CONSTANTS};
+use openmina_core::{
+    consensus::ConsensusConstants,
+    constants::{ForkConstants, CONSTRAINT_CONSTANTS},
+};
 
 use crate::{
     scan_state::{
@@ -50,6 +53,36 @@ mod consensus {
         epoch_duration: BlockTimeSpan,
         delta_duration: BlockTimeSpan,
         genesis_state_timestamp: BlockTime,
+    }
+
+    impl Constants {
+        // Keep this in sync with the implementation of ConsensusConstantsChecked::create
+        // in ledger/src/proofs/block.rs
+        pub fn create(constants: &ConsensusConstants) -> Self {
+            Constants {
+                k: Length::from_u32(constants.k),
+                delta: Length::from_u32(constants.delta),
+                slots_per_sub_window: Length::from_u32(constants.slots_per_sub_window),
+                slots_per_window: Length::from_u32(constants.slots_per_window),
+                sub_windows_per_window: Length::from_u32(constants.sub_windows_per_window),
+                slots_per_epoch: Length::from_u32(constants.slots_per_epoch),
+                grace_period_slots: Length::from_u32(constants.grace_period_slots),
+                grace_period_end: Slot::from_u32(constants.grace_period_end),
+                checkpoint_window_slots_per_year: Length::from_u32(
+                    constants.checkpoint_window_slots_per_year,
+                ),
+                checkpoint_window_size_in_slots: Length::from_u32(
+                    constants.checkpoint_window_size_in_slots,
+                ),
+                block_window_duration_ms: BlockTimeSpan::from_u64(
+                    constants.block_window_duration_ms,
+                ),
+                slot_duration_ms: BlockTimeSpan::from_u64(constants.slot_duration_ms),
+                epoch_duration: BlockTimeSpan::from_u64(constants.epoch_duration),
+                delta_duration: BlockTimeSpan::from_u64(constants.delta_duration),
+                genesis_state_timestamp: constants.genesis_state_timestamp.clone().into(),
+            }
+        }
     }
 
     // Consensus epoch
@@ -549,6 +582,21 @@ pub enum RevalidateKind<'a> {
 }
 
 impl IndexedPool {
+    fn new(constants: &ConsensusConstants) -> Self {
+        Self {
+            applicable_by_fee: HashMap::new(),
+            all_by_sender: HashMap::new(),
+            all_by_fee: HashMap::new(),
+            all_by_hash: HashMap::new(),
+            transactions_with_expiration: HashMap::new(),
+            size: 0,
+            config: IndexedPoolConfig {
+                consensus_constants: consensus::Constants::create(constants),
+                slot_tx_end: None,
+            },
+        }
+    }
+
     fn size(&self) -> usize {
         self.size
     }
@@ -1401,21 +1449,6 @@ mod transaction_hash {
     }
 }
 
-// TODO: Remove this
-pub struct Envelope<T> {
-    pub data: T,
-}
-
-impl<T> Envelope<T> {
-    fn data(&self) -> &T {
-        &self.data
-    }
-
-    fn is_sender_local(&self) -> bool {
-        todo!()
-    }
-}
-
 #[derive(Debug)]
 pub enum ApplyDecision {
     Accept,
@@ -1471,9 +1504,9 @@ pub struct TransactionPool {
 }
 
 impl TransactionPool {
-    pub fn new() -> Self {
+    pub fn new(config: &ConsensusConstants) -> Self {
         Self {
-            pool: todo!(),
+            pool: IndexedPool::new(config),
             locally_generated_uncommitted: Default::default(),
             locally_generated_committed: Default::default(),
             current_batch: 0,
@@ -1911,11 +1944,10 @@ impl TransactionPool {
 
     pub fn verify(
         &self,
-        diff: Envelope<diff::Diff>,
+        diff: diff::Diff,
         accounts: BTreeMap<AccountId, Account>,
     ) -> Result<Vec<valid::UserCommand>, String> {
         let well_formedness_errors: HashSet<_> = diff
-            .data()
             .list
             .iter()
             .flat_map(|cmd| match cmd.check_well_formedness() {
@@ -1932,7 +1964,6 @@ impl TransactionPool {
         }
 
         let cs = diff
-            .data()
             .list
             .iter()
             .cloned()

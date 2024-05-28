@@ -2,6 +2,8 @@ mod config;
 pub use config::{ClusterConfig, ProofKind};
 
 mod p2p_task_spawner;
+use openmina_core::consensus::ConsensusConstants;
+use openmina_core::constants::CONSTRAINT_CONSTANTS;
 pub use p2p_task_spawner::P2pTaskSpawner;
 
 mod node_id;
@@ -267,6 +269,13 @@ impl Cluster {
             })
             .collect();
 
+        let protocol_constants = testing_config
+            .genesis
+            .protocol_constants()
+            .expect("wrong protocol constants");
+        let consensus_consts =
+            ConsensusConstants::create(&CONSTRAINT_CONSTANTS, &protocol_constants);
+
         let config = Config {
             ledger: LedgerConfig {},
             snark: SnarkConfig {
@@ -378,7 +387,7 @@ impl Cluster {
             service.set_replay();
         }
 
-        let state = node::State::new(config, testing_config.initial_time);
+        let state = node::State::new(config, &consensus_consts, testing_config.initial_time);
         fn effects(store: &mut node::Store<NodeTestingService>, action: node::ActionWithMeta) {
             // if action.action().kind().to_string().starts_with("BlockProducer") {
             //     dbg!(action.action());

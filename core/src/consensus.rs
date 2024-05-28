@@ -1,10 +1,13 @@
 use mina_p2p_messages::v2::{
-    self, ConsensusProofOfStakeDataConsensusStateValueStableV2 as MinaConsensusState, StateHash,
+    self, BlockTimeTimeStableV1,
+    ConsensusProofOfStakeDataConsensusStateValueStableV2 as MinaConsensusState, StateHash,
 };
 use serde::{Deserialize, Serialize};
 
-use crate::constants::CONSTRAINT_CONSTANTS;
-pub use crate::constants::{checkpoint_window_size_in_slots, grace_period_end, slots_per_window};
+pub use crate::constants::{
+    checkpoint_window_size_in_slots, grace_period_end, slots_per_window, CHECKPOINTS_PER_YEAR,
+};
+use crate::constants::{ConstraintConstants, CONSTRAINT_CONSTANTS};
 
 // TODO get constants from elsewhere
 const GRACE_PERIOD_END: u32 = 1440;
@@ -218,11 +221,94 @@ pub fn relative_sub_window(global_sub_window: u32) -> u32 {
     global_sub_window % CONSTRAINT_CONSTANTS.sub_windows_per_window as u32
 }
 
+// TODO: Move ledger/src/scan_state/currency.rs types to core and replace
+// primmitive types here with thoise numeric types.
+pub struct ConsensusConstants {
+    pub k: u32,
+    pub delta: u32,
+    pub block_window_duration_ms: u64,
+    pub slots_per_sub_window: u32,
+    pub slots_per_window: u32,
+    pub sub_windows_per_window: u32,
+    pub slots_per_epoch: u32,
+    pub grace_period_slots: u32,
+    pub grace_period_end: u32,
+    pub slot_duration_ms: u64,
+    pub epoch_duration: u64,
+    pub checkpoint_window_slots_per_year: u32,
+    pub checkpoint_window_size_in_slots: u32,
+    pub delta_duration: u64,
+    pub genesis_state_timestamp: BlockTimeTimeStableV1,
+}
+
+impl ConsensusConstants {
+    // We mimick the code layout of the OCaml node's here. `create_primed` could easily
+    // be inlined in `create`, but OCaml code keeps them separate ans so do we for now.
+    fn create_primed(
+        constraint_constants: &ConstraintConstants,
+        protocol_constants: &v2::MinaBaseProtocolConstantsCheckedValueStableV1,
+    ) -> Self {
+        let delta = protocol_constants.delta.as_u32();
+        let slots_per_epoch = protocol_constants.slots_per_epoch.as_u32();
+        let slots_per_window = protocol_constants.slots_per_sub_window.as_u32()
+            * constraint_constants.sub_windows_per_window as u32;
+        let grace_period_end = protocol_constants.grace_period_slots.as_u32() + slots_per_window;
+        let epoch_duration =
+            (slots_per_epoch as u64) * constraint_constants.block_window_duration_ms;
+        let delta_duration = constraint_constants.block_window_duration_ms * (delta + 1) as u64;
+        Self {
+            k: protocol_constants.k.as_u32(),
+            delta,
+            block_window_duration_ms: constraint_constants.block_window_duration_ms,
+            slots_per_sub_window: protocol_constants.slots_per_sub_window.as_u32(),
+            slots_per_window,
+            sub_windows_per_window: constraint_constants.sub_windows_per_window as u32,
+            slots_per_epoch,
+            grace_period_slots: protocol_constants.grace_period_slots.as_u32(),
+            grace_period_end,
+            slot_duration_ms: constraint_constants.block_window_duration_ms,
+            epoch_duration,
+            checkpoint_window_slots_per_year: 0,
+            checkpoint_window_size_in_slots: 0,
+            delta_duration,
+            genesis_state_timestamp: protocol_constants.genesis_state_timestamp.clone(),
+        }
+    }
+
+    pub fn assert_invariants(&self) {
+        let grace_period_effective_end = self.grace_period_end - self.slots_per_window;
+        assert!(grace_period_effective_end < (self.slots_per_epoch / 3));
+        // Because of how these values are computed (see below), this
+        // fails if and only if block_window_duration is a multiple of
+        // 27 or 512, or any of these multiplied by a power of 3 or 2
+        // respectively.
+        // 365 * 24 * 60 * 60 * 1000 = 2^10 * 3^3 * 5^6 * 73
+        // Therefore, if divided by 2^9 or 3^3, the whole value will not be
+        // divisible by 12 (2^2 * 3) anymore.
+        assert_eq!(
+            self.checkpoint_window_slots_per_year as u64,
+            self.checkpoint_window_size_in_slots as u64 * CHECKPOINTS_PER_YEAR
+        )
+    }
+
+    pub fn create(
+        constraint_constants: &ConstraintConstants,
+        protocol_constants: &v2::MinaBaseProtocolConstantsCheckedValueStableV1,
+    ) -> Self {
+        let mut constants = Self::create_primed(constraint_constants, protocol_constants);
+        const MILLISECS_PER_YEAR: u64 = 365 * 24 * 60 * 60 * 1000;
+        let slots_per_year = MILLISECS_PER_YEAR / constants.block_window_duration_ms;
+        constants.checkpoint_window_slots_per_year = slots_per_year as u32;
+        constants.checkpoint_window_size_in_slots = (slots_per_year / CHECKPOINTS_PER_YEAR) as u32;
+        constants.assert_invariants();
+        constants
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{long_range_fork_take, short_range_fork_take};
     use mina_p2p_messages::v2::{MinaStateProtocolStateValueStableV2, StateHash};
-
     macro_rules! fork_file {
         ($prefix:expr, $tip:expr, $cnd:expr, $suffix:expr) => {
             concat!(
