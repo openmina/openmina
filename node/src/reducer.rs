@@ -14,9 +14,22 @@ pub fn reducer(
         Action::EventSource(EventSourceAction::NewEvent { .. }) => {}
         Action::EventSource(_) => {}
 
-        Action::P2p(a) => {
-            p2p::P2pState::reducer(Substate::new(state, dispatcher), meta.with_action(a));
-        }
+        Action::P2p(a) => match a {
+            P2pAction::Initialization(P2pInitializeAction::Initialize { chain_id }) => {
+                if let Err(err) = state.p2p.initialize(chain_id) {
+                    error!(meta.time(); summary = "error initializing p2p", error = display(err));
+                }
+            }
+            action => match &mut state.p2p {
+                P2p::Pending(_) => {
+                    error!(meta.time(); summary = "p2p is not initialized", action = debug(action))
+                }
+                P2p::Ready(_) => p2p::P2pState::reducer(
+                    Substate::new(state, dispatcher),
+                    meta.with_action(action),
+                ),
+            },
+        },
         Action::Ledger(a) => {
             state.ledger.reducer(meta.with_action(a));
         }
@@ -63,23 +76,4 @@ pub fn reducer(
 
     // must be the last.
     state.action_applied(action);
-}
-
-impl P2p {
-    fn reduce(&mut self, action: redux::ActionWithMeta<&P2pAction>) {
-        let (action, meta) = action.split();
-        match action {
-            P2pAction::Initialization(P2pInitializeAction::Initialize { chain_id }) => {
-                if let Err(err) = self.initialize(chain_id) {
-                    error!(meta.time(); summary = "error initializing p2p", error = display(err));
-                }
-            }
-            action => match self {
-                P2p::Pending(_) => {
-                    error!(meta.time(); summary = "p2p is not initialized", action = debug(action))
-                }
-                P2p::Ready(p2p_state) => p2p_state.reducer(meta.with_action(action)),
-            },
-        }
-    }
 }

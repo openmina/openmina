@@ -69,7 +69,13 @@ impl redux::EnablingCondition<crate::State> for Action {
         match self {
             Action::CheckTimeouts(a) => a.is_enabled(state, time),
             Action::EventSource(a) => a.is_enabled(state, time),
-            Action::P2p(a) => a.is_enabled(&state.p2p, time),
+            Action::P2p(a) => match a {
+                P2pAction::Initialization(a) => a.is_enabled(state, time),
+                other => state
+                    .p2p
+                    .ready()
+                    .map_or(false, |p2p| other.is_enabled(p2p, time)),
+            },
             Action::Ledger(a) => a.is_enabled(state, time),
             Action::Snark(a) => a.is_enabled(&state.snark, time),
             Action::Consensus(a) => a.is_enabled(state, time),
