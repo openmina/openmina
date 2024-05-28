@@ -94,13 +94,12 @@ impl GenesisConfig {
             | Self::BalancesDelegateTable { constants, .. }
             | Self::AccountsBinProt { constants, .. } => Ok(constants.clone()),
             Self::DaemonJson(config) => {
-                let genesis_timestamp = config
+                Ok(config
                     .genesis
                     .as_ref()
-                    .map(|g: &daemon_json::Genesis| g.genesis_state_timestamp().map(|t| t.0 .0 .0))
+                    .map(|g: &daemon_json::Genesis| g.protocol_constants())
                     .transpose()?
-                    .unwrap_or(DEFAULT_GENESIS_TIMESTAMP_MILLISECONDS);
-                Ok(Self::default_constants(genesis_timestamp))
+                    .unwrap_or(Self::default_constants(DEFAULT_GENESIS_TIMESTAMP_MILLISECONDS)))
             }
         }
     }
