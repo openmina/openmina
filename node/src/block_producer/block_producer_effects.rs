@@ -80,6 +80,8 @@ pub fn block_producer_effects<S: crate::Service>(
                 .with(None, |bp| bp.current.won_slot_should_discard(&best_tip))
             {
                 store.dispatch(BlockProducerAction::WonSlotDiscard { reason });
+            } else {
+                store.dispatch(BlockProducerAction::WonSlotSearch);
             }
         }
         BlockProducerAction::WonSlotSearch => {
