@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  openmina-producer:
+    # image: openmina/openmina:${OPENMINA_TAG:-latest}
+    image: openmina/openmina:producer-tutorial-rc1
+    command: [ "node", "--producer-key", "/keys/devnet-stake-74" ]
+    ports:
+      - "3000:3000"
+    environment:
+      - MINA_SNARK_WORKER_TAG=0.0.9
+
+  # frontend:
+  #   image: openmina/frontend:${OPENMINA_FRONTEND_TAG:-latest}
+  #   ports:
+  #     - "8070:80"
