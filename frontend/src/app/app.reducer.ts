@@ -2,6 +2,7 @@ import { AppActions } from '@app/app.actions';
 import { AppState } from '@app/app.state';
 import { MinaNode } from '@shared/types/core/environment/mina-env.type';
 import { createReducer, on } from '@ngrx/store';
+import { AppNodeStatus } from '@shared/types/app/app-node-details.type';
 
 const initialState: AppState = {
   menu: {
@@ -11,6 +12,16 @@ const initialState: AppState = {
   },
   nodes: [],
   activeNode: undefined,
+  activeNodeDetails: {
+    status: AppNodeStatus.PENDING,
+    blockHeight: null,
+    blockTime: null,
+    peers: 0,
+    download: 0,
+    upload: 0,
+    transactions: 0,
+    snarks: 0,
+  },
 };
 
 export const appReducer = createReducer(
@@ -18,6 +29,7 @@ export const appReducer = createReducer(
   on(AppActions.init, (state) => ({ ...state })),
   on(AppActions.initSuccess, (state, { activeNode, nodes }) => ({ ...state, activeNode, nodes })),
   on(AppActions.changeActiveNode, (state, { node }) => ({ ...state, activeNode: node })),
+  on(AppActions.getNodeDetailsSuccess, (state, { details }) => ({ ...state, activeNodeDetails: details })),
   on(AppActions.changeMenuCollapsing, (state, { isCollapsing }) => {
     localStorage.setItem('menu_collapsed', JSON.stringify(isCollapsing));
     return { ...state, menu: { ...state.menu, collapsed: isCollapsing } };

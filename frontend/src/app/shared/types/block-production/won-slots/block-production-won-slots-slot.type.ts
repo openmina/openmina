@@ -25,7 +25,7 @@ export interface BlockProductionWonSlotsSlot {
   // applyingBlockElapsedTime: number;
   // broadcastedBlockElapsedTime: number;
 
-  status?: string;
+  status?: BlockProductionWonSlotsStatus;
   discardReason: BlockProductionWonSlotsDiscardReason;
 }
 
@@ -36,10 +36,24 @@ export interface BlockProductionWonSlotTimes {
   proofCreate: number;
   blockApply: number;
   discarded: number;
+  committed: number;
 }
 
 export enum BlockProductionWonSlotsDiscardReason {
   BestTipStakingLedgerDifferent = 'BestTipStakingLedgerDifferent',
   BestTipGlobalSlotHigher = 'BestTipGlobalSlotHigher',
   BestTipSuperior = 'BestTipSuperior',
+}
+
+export enum BlockProductionWonSlotsStatus {
+  Scheduled = 'Scheduled',
+  StagedLedgerDiffCreatePending = 'StagedLedgerDiffCreatePending',
+  StagedLedgerDiffCreateSuccess = 'StagedLedgerDiffCreateSuccess',
+  Produced = 'Produced',
+  ProofCreatePending = 'ProofCreatePending',
+  ProofCreateSuccess = 'ProofCreateSuccess',
+  BlockApplyPending = 'BlockApplyPending',
+  BlockApplySuccess = 'BlockApplySuccess',
+  Committed = 'Committed',
+  Discarded = 'Discarded',
 }

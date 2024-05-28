@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, ElementRef, OnDestroy, OnInit } from '@angular/core';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
-import { isDesktop } from '@openmina/shared';
-import { debounceTime, filter, fromEvent } from 'rxjs';
+import { isDesktop, isMobile } from '@openmina/shared';
+import { debounceTime, filter, fromEvent, timer } from 'rxjs';
 import { untilDestroyed } from '@ngneat/until-destroy';
 import { BlockProductionWonSlotsActions } from '@block-production/won-slots/block-production-won-slots.actions';
 
@@ -19,7 +19,11 @@ export class BlockProductionWonSlotsComponent extends StoreDispatcher implements
 
   ngOnInit(): void {
     this.dispatch2(BlockProductionWonSlotsActions.getActiveEpoch());
-    this.dispatch2(BlockProductionWonSlotsActions.getSlots());
+    timer(0, 10000)
+      .pipe(untilDestroyed(this))
+      .subscribe(() => {
+        this.dispatch2(BlockProductionWonSlotsActions.getSlots());
+      });
     this.listenToResize();
   }
 
@@ -27,7 +31,7 @@ export class BlockProductionWonSlotsComponent extends StoreDispatcher implements
     fromEvent(window, 'resize')
       .pipe(
         debounceTime(100),
-        filter(() => this.showSidePanel !== isDesktop()),
+        filter(() => this.showSidePanel === isMobile()),
         untilDestroyed(this),
       )
       .subscribe(() => {

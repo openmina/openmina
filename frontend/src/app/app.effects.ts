@@ -22,6 +22,7 @@ export class AppEffects extends BaseEffect {
   readonly initEffects$: Effect;
   readonly init$: Effect;
   readonly onNodeChange$: Effect;
+  readonly getNodeDetails$: Effect;
 
   constructor(private actions$: Actions,
               private appService: AppService,
@@ -59,6 +60,13 @@ export class AppEffects extends BaseEffect {
           this.router.navigate([getFirstFeature(state.app.activeNode)]);
         }
       }),
+      map(() => AppActions.getNodeDetails()),
+    ));
+
+    this.getNodeDetails$ = createEffect(() => this.actions$.pipe(
+      ofType(AppActions.getNodeDetails),
+      switchMap(() => this.appService.getActiveNodeDetails()),
+      map(details => AppActions.getNodeDetailsSuccess({ details })),
     ));
   }
 }

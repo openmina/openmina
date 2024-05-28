@@ -6,7 +6,7 @@ import { MinaState } from '@app/app.setup';
 import { BreakpointObserver, BreakpointState } from '@angular/cdk/layout';
 import { AppSelectors } from '@app/app.state';
 import { AppActions } from '@app/app.actions';
-import { Observable } from 'rxjs';
+import { Observable, timer } from 'rxjs';
 
 @Component({
   selector: 'app-root',
@@ -29,7 +29,12 @@ export class AppComponent extends ManualDetection implements OnInit {
   }
 
   ngOnInit(): void {
+    this.scheduleNodeUpdates();
     this.listenToWindowResizing();
+  }
+
+  private scheduleNodeUpdates(): void {
+    timer(1000, 5000).subscribe(() => this.store.dispatch(AppActions.getNodeDetails()));
   }
 
   private listenToWindowResizing(): void {
