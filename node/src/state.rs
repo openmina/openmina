@@ -55,7 +55,11 @@ use openmina_core::impl_substate_access;
 impl_substate_access!(State, SnarkState, snark);
 impl_substate_access!(State, SnarkBlockVerifyState, snark.block_verify);
 impl_substate_access!(State, SnarkWorkVerifyState, snark.work_verify);
-impl_substate_access!(State, SnarkUserCommandVerifyState, snark.user_command_verify);
+impl_substate_access!(
+    State,
+    SnarkUserCommandVerifyState,
+    snark.user_command_verify
+);
 impl_substate_access!(State, ConsensusState, consensus);
 impl_substate_access!(State, TransitionFrontierState, transition_frontier);
 impl_substate_access!(State, TransactionPoolState, transaction_pool);
@@ -175,7 +179,7 @@ impl openmina_core::SubstateAccess<TransitionFrontierSyncLedgerStagedState> for 
 pub type Substate<'a, S> = openmina_core::Substate<'a, crate::Action, State, S>;
 
 impl State {
-    pub fn new(config: Config, now: Timestamp) -> Self {
+    pub fn new(config: Config, constants: &ConsensusConstants, now: Timestamp) -> Self {
         Self {
             p2p: P2p::Pending(config.p2p),
             ledger: LedgerState::new(config.ledger),
@@ -186,7 +190,7 @@ impl State {
             external_snark_worker: ExternalSnarkWorkers::new(now),
             block_producer: BlockProducerState::new(now, config.block_producer),
             rpc: RpcState::new(),
-            transaction_pool: TransactionPoolState::new(),
+            transaction_pool: TransactionPoolState::new(constants),
 
             watched_accounts: WatchedAccountsState::new(),
 

@@ -789,6 +789,8 @@ pub mod consensus {
     /// Number of millisecond per day
     const N_MILLIS_PER_DAY: u64 = 86400000;
 
+    // Keep this in sync with the implementation of ConsensusConstants::create
+    // in ledger/src/transaction_pool.rs
     fn create_constant_prime(
         prev_state: &v2::MinaStateProtocolStateValueStableV2,
         w: &mut Witness<Fp>,
