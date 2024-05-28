@@ -58,7 +58,9 @@ pub enum BlockProductionStatus {
     ProofCreateSuccess,
     BlockApplyPending,
     BlockApplySuccess,
-    Discarded(BlockProducerWonSlotDiscardReason),
+    Discarded {
+        discard_reason: BlockProducerWonSlotDiscardReason,
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -238,7 +240,9 @@ impl BlockProducerStats {
 
     pub fn discarded(&mut self, time: redux::Timestamp, reason: BlockProducerWonSlotDiscardReason) {
         self.update("discarded", move |attempt| {
-            attempt.status = BlockProductionStatus::Discarded(reason);
+            attempt.status = BlockProductionStatus::Discarded {
+                discard_reason: reason,
+            };
             attempt.times.discarded = Some(time);
             true
         });
