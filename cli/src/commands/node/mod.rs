@@ -11,6 +11,8 @@ use mina_p2p_messages::v2::{
     UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
 };
 use node::transition_frontier::genesis::GenesisConfig;
+use openmina_core::consensus::ConsensusConstants;
+use openmina_core::constants::CONSTRAINT_CONSTANTS;
 use rand::prelude::*;
 
 use redux::SystemTime;
@@ -185,11 +187,16 @@ impl Node {
         let rng_seed = rng.next_u64();
         let srs: Arc<_> = get_srs();
 
-        let genesis_config = match conf {
+        let genesis_conf = match conf {
             Some(c) => Arc::new(GenesisConfig::DaemonJson(c)),
             None => node::config::BERKELEY_CONFIG.clone(),
         };
-        let transition_frontier = TransitionFrontierConfig::new(genesis_config);
+
+        let protocol_constants = genesis_conf.protocol_constants()?;
+        let consensus_consts =
+            ConsensusConstants::create(&CONSTRAINT_CONSTANTS, &protocol_constants);
+
+        let transition_frontier = TransitionFrontierConfig::new(genesis_conf);
         let config = Config {
             ledger: LedgerConfig {},
             snark: SnarkConfig {
@@ -307,7 +314,7 @@ impl Node {
                 service.block_producer_start(keypair.into());
             }
 
-            let state = State::new(config);
+            let state = State::new(config, &consensus_consts);
             let mut node = ::node::Node::new(state, service, None);
 
             // record initial state.

@@ -1,15 +1,15 @@
-use std::{
-    collections::BTreeMap,
-    sync::{Arc, Mutex},
-};
-
 use ledger::{
     scan_state::transaction_logic::{verifiable, UserCommand, WithStatus},
     transaction_pool::{diff, ApplyDecision},
     Account, AccountId,
 };
+use openmina_core::consensus::ConsensusConstants;
 use redux::callback;
 use snark::{user_command_verify::SnarkUserCommandVerifyId, VerifierIndex, VerifierSRS};
+use std::{
+    collections::BTreeMap,
+    sync::{Arc, Mutex},
+};
 
 pub mod transaction_pool_actions;
 
@@ -27,9 +27,9 @@ pub struct TransactionPoolState {
 type TransactionPoolActionWithMetaRef<'a> = redux::ActionWithMeta<&'a TransactionPoolAction>;
 
 impl TransactionPoolState {
-    pub fn new() -> Self {
+    pub fn new(config: &ConsensusConstants) -> Self {
         Self {
-            pool: ledger::transaction_pool::TransactionPool::new(),
+            pool: ledger::transaction_pool::TransactionPool::new(config),
             pending_actions: Default::default(),
             pending_id: 0,
         }

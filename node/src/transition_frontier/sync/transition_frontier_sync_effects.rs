@@ -5,7 +5,7 @@ use redux::ActionMeta;
 use crate::ledger::write::{LedgerWriteAction, LedgerWriteRequest};
 use crate::p2p::channels::rpc::P2pRpcRequest;
 use crate::service::TransitionFrontierSyncLedgerSnarkedService;
-use crate::{p2p_ready, Store};
+use crate::{p2p_ready, Store, TransactionPoolAction};
 
 use super::ledger::snarked::TransitionFrontierSyncLedgerSnarkedAction;
 use super::ledger::staged::TransitionFrontierSyncLedgerStagedAction;

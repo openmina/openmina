@@ -12,9 +12,9 @@ pub type SnarkUserCommandVerifyActionWithMetaRef<'a> =
 
 // define this alias, or `build.rs` cannot parse the enum
 type OnSuccess = Callback<(
-  SnarkUserCommandVerifyId,
-  String,
-  Vec<WithStatus<verifiable::UserCommand>>,
+    SnarkUserCommandVerifyId,
+    String,
+    Vec<WithStatus<verifiable::UserCommand>>,
 )>;
 
 #[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]

@@ -58,6 +58,8 @@ impl GenesisConfig {
         }
     }
 
+    // This is a stub for the moment until PR #420 is merged, which implements this for
+    // real. In case of conflict, delete this stub and put the real implementation here.
     pub fn protocol_constants(&self) -> Result<ProtocolConstants, time::error::Parse> {
         match self {
             Self::Counts { constants, .. }
