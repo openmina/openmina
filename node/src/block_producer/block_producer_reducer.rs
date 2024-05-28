@@ -233,7 +233,7 @@ impl BlockProducerEnabled {
                         (
                             pred_consensus_state.staking_epoch_data.clone(),
                             next_data,
-                            pred_consensus_state.epoch_count.clone(),
+                            pred_consensus_state.epoch_count,
                         )
                     };
 
@@ -297,7 +297,7 @@ impl BlockProducerEnabled {
                     let min_window_density = if is_same_global_sub_window
                         || curr_global_slot_since_hard_fork.slot_number.as_u32() < grace_period_end
                     {
-                        pred_consensus_state.min_window_density.clone()
+                        pred_consensus_state.min_window_density
                     } else {
                         let cur_density = current_sub_window_densities.iter().sum();
                         let min_density = pred_consensus_state
@@ -511,7 +511,7 @@ fn next_to_staking_epoch_data(
         ledger: data.ledger.clone(),
         start_checkpoint: data.start_checkpoint.clone(),
         lock_checkpoint: data.lock_checkpoint.clone(),
-        epoch_length: data.epoch_length.clone(),
+        epoch_length: data.epoch_length,
     }
 }
 

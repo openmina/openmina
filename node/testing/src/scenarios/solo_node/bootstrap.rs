@@ -34,11 +34,9 @@ impl SoloNodeBootstrap {
             .unwrap();
 
         let node_id = runner.add_rust_node(
-            RustNodeTestingConfig::berkeley_default()
-                .initial_peers(vec![ListenerNode::Custom(
-                    P2pConnectionOutgoingInitOpts::LibP2P(replayer),
-                )])
-                .with_daemon_json("/var/lib/coda/berkeley.json"),
+            RustNodeTestingConfig::berkeley_default().initial_peers(vec![ListenerNode::Custom(
+                P2pConnectionOutgoingInitOpts::LibP2P(replayer),
+            )]),
         );
         eprintln!("launch Openmina node with default configuration, id: {node_id}");
 

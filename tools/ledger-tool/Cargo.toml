@@ -15,3 +15,4 @@ ledger = { path = "../../ledger", package = "mina-tree" }
 mina-p2p-messages = { workspace = true }
 mina-signer = { workspace = true }
 mina-curves = { workspace = true }
+node = { path = "../../node" }

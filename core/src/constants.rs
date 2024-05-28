@@ -1,15 +1,6 @@
-use lazy_static::lazy_static;
-use std::str::FromStr;
-
 use binprot_derive::BinProtWrite;
 use mina_hasher::Fp;
-use mina_p2p_messages::{
-    bigint, number,
-    v2::{
-        self, BlockTimeTimeStableV1, MinaBaseProtocolConstantsCheckedValueStableV1, StateHash,
-        UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
-    },
-};
+use mina_p2p_messages::{bigint, number, v2};
 
 pub const GENESIS_PRODUCER_SK: &str = "EKFKgDtU3rcuFTVSEpmpXSkukjmX4cKefYREi6Sdsk7E7wsT7KRw";
 
@@ -158,21 +149,4 @@ pub const CONSTRAINT_SYSTEM_DIGESTS: [[u8; 16]; 3] = [
     ],
 ];
 
-// TODO: This should be computed from the genesis state, rather than hard-coded like this.
-lazy_static! {
-    pub static ref GENESIS_STATE_HASH: StateHash =
-        StateHash::from_str("3NK512ryRJvj1TUKGgPoGZeHSNbn37e9BbnpyeqHL9tvKLeD8yrY").unwrap();
-    pub static ref PROTOCOL_CONSTANTS: v2::MinaBaseProtocolConstantsCheckedValueStableV1 =
-        MinaBaseProtocolConstantsCheckedValueStableV1 {
-            k: 290.into(),
-            slots_per_epoch: 7140.into(),
-            slots_per_sub_window: 7.into(),
-            grace_period_slots: 2160.into(),
-            delta: 0.into(),
-            genesis_state_timestamp: BlockTimeTimeStableV1(
-                UnsignedExtendedUInt64Int64ForVersionTagsStableV1(
-                    DEFAULT_GENESIS_TIMESTAMP_MILLISECONDS.into(),
-                ),
-            ),
-        };
-}
+pub use v2::PROTOCOL_CONSTANTS;

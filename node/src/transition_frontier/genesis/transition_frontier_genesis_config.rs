@@ -1,10 +1,19 @@
-use std::borrow::Cow;
+use std::{
+    borrow::Cow,
+    io::{Read, Write},
+};
 
 use crate::account::AccountSecretKey;
-use ledger::{scan_state::currency::Balance, Account, BaseLedger};
+use ledger::{scan_state::currency::Balance, BaseLedger};
 use mina_hasher::Fp;
-use mina_p2p_messages::{binprot::BinProtRead, v2};
-use openmina_core::constants::{CONSTRAINT_CONSTANTS, DEFAULT_GENESIS_TIMESTAMP_MILLISECONDS};
+use mina_p2p_messages::{
+    binprot::{
+        self,
+        macros::{BinProtRead, BinProtWrite},
+    },
+    v2::{self, PROTOCOL_CONSTANTS},
+};
+use openmina_core::constants::CONSTRAINT_CONSTANTS;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -25,10 +34,7 @@ pub enum GenesisConfig {
         table: Vec<(u64, Vec<u64>)>,
         constants: ProtocolConstants,
     },
-    AccountsBinProt {
-        bytes: Cow<'static, [u8]>,
-        constants: ProtocolConstants,
-    },
+    Prebuilt(Cow<'static, [u8]>),
     DaemonJson(DaemonJson),
 }
 
@@ -44,38 +50,18 @@ fn bp_num_delegators(i: usize) -> usize {
     (i + 1) * 2
 }
 
+#[derive(Debug, thiserror::Error)]
+pub enum GenesisConfigError {
+    #[error("no ledger in configuration")]
+    NoLedger,
+    #[error("account error: {0}")]
+    Account(#[from] AccountConfigError),
+    #[error("error loading genesis config from precomputed data: {0}")]
+    Prebuilt(#[from] binprot::Error),
+}
+
 impl GenesisConfig {
-    pub fn default_constants(timestamp_ms: u64) -> ProtocolConstants {
-        ProtocolConstants {
-            k: 290.into(),
-            slots_per_epoch: 7140.into(),
-            slots_per_sub_window: 7.into(),
-            grace_period_slots: 2160.into(),
-            delta: 0.into(),
-            genesis_state_timestamp: v2::BlockTimeTimeStableV1(
-                v2::UnsignedExtendedUInt64Int64ForVersionTagsStableV1(timestamp_ms.into()),
-            ),
-        }
-    }
-
-    pub fn protocol_constants(&self) -> Result<ProtocolConstants, time::error::Parse> {
-        match self {
-            Self::Counts { constants, .. }
-            | Self::BalancesDelegateTable { constants, .. }
-            | Self::AccountsBinProt { constants, .. } => Ok(constants.clone()),
-            Self::DaemonJson(config) => {
-                let genesis_timestamp = config
-                    .genesis
-                    .as_ref()
-                    .map(|g: &daemon_json::Genesis| g.genesis_state_timestamp().map(|t| t.0 .0 .0))
-                    .transpose()?
-                    .unwrap_or(DEFAULT_GENESIS_TIMESTAMP_MILLISECONDS);
-                Ok(Self::default_constants(genesis_timestamp))
-            }
-        }
-    }
-
-    pub fn load(&self) -> anyhow::Result<(ledger::Mask, GenesisConfigLoaded)> {
+    pub fn load(&self) -> Result<(ledger::Mask, GenesisConfigLoaded), GenesisConfigError> {
         Ok(match self {
             Self::Counts {
                 whales,
@@ -122,28 +108,24 @@ impl GenesisConfig {
                 };
                 (mask, load_result)
             }
-            Self::AccountsBinProt { bytes, constants } => {
-                let mut bytes = bytes.as_ref();
-                let expected_hash = Option::<v2::LedgerHash>::binprot_read(&mut bytes)?;
-                let hashes = Vec::<(u64, v2::LedgerHash)>::binprot_read(&mut bytes)?
-                    .into_iter()
-                    .map(|(idx, hash)| (idx, hash.0.to_field()))
-                    .collect();
-                let accounts = Vec::<ledger::Account>::binprot_read(&mut bytes)?;
+            Self::Prebuilt(bytes) => {
+                let PrebuiltGenesisConfig {
+                    constants,
+                    accounts,
+                    ledger_hash,
+                    hashes,
+                } = PrebuiltGenesisConfig::load(&mut bytes.as_ref())?;
 
-                let (mut mask, total_currency) =
-                    Self::build_ledger_from_accounts_and_hashes(accounts, hashes);
-                let ledger_hash = ledger_hash(&mut mask);
-
-                // TODO(tizoc): currently this doesn't really do much, because now we load the hashes
-                // from the bin_prot data too to speed up the loading. Maybe add some flag
-                // to force the rehashing and validation of the loaded ledger hashes.
-                if let Some(expected_hash) = expected_hash.filter(|h| h != &ledger_hash) {
-                    anyhow::bail!("ledger hash mismatch after building the mask! expected: '{expected_hash}', got '{ledger_hash}'");
-                }
+                let (mask, total_currency) = Self::build_ledger_from_accounts_and_hashes(
+                    accounts.into_iter().map(|acc| (&acc).into()),
+                    hashes
+                        .into_iter()
+                        .map(|(n, h)| (n, h.to_field()))
+                        .collect::<Vec<_>>(),
+                );
 
                 let load_result = GenesisConfigLoaded {
-                    constants: constants.clone(),
+                    constants,
                     ledger_hash,
                     total_currency,
                     genesis_producer_stake_proof: genesis_producer_stake_proof(&mask),
@@ -151,21 +133,21 @@ impl GenesisConfig {
                 (mask, load_result)
             }
             Self::DaemonJson(config) => {
-                let constants = self.protocol_constants()?;
-                let ledger = config
-                    .ledger
+                let constants = config
+                    .genesis
                     .as_ref()
-                    .ok_or(anyhow::anyhow!("No ledger in config"))?;
-                let accounts: Vec<Account> = ledger
+                    .map_or(PROTOCOL_CONSTANTS, |genesis| genesis.protocol_constants());
+                let ledger = config.ledger.as_ref().ok_or(GenesisConfigError::NoLedger)?;
+                let accounts = ledger
                     .accounts_with_genesis_winner()
                     .iter()
                     .map(daemon_json::Account::to_account)
-                    .collect::<Result<Vec<Account>, AccountConfigError>>()
-                    .map_err(anyhow::Error::from)?;
+                    .collect::<Result<Vec<_>, _>>()?;
                 let (mut mask, total_currency) = Self::build_ledger_from_accounts(accounts);
+                let ledger_hash = ledger_hash(&mut mask);
                 let result = GenesisConfigLoaded {
                     constants,
-                    ledger_hash: ledger_hash(&mut mask),
+                    ledger_hash,
                     total_currency,
                     genesis_producer_stake_proof: genesis_producer_stake_proof(&mask),
                 };
@@ -262,4 +244,60 @@ fn genesis_producer_stake_proof(mask: &ledger::Mask) -> v2::MinaBaseSparseLedger
     let sparse_ledger =
         ledger::sparse_ledger::SparseLedger::of_ledger_subset_exn(mask.clone(), &[producer_id]);
     (&sparse_ledger).into()
+}
+
+use mina_p2p_messages::v2::{LedgerHash, MinaBaseAccountBinableArgStableV2};
+
+/// Precalculated genesis configuration.
+#[derive(Debug, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct PrebuiltGenesisConfig {
+    constants: ProtocolConstants,
+    accounts: Vec<MinaBaseAccountBinableArgStableV2>,
+    ledger_hash: LedgerHash,
+    hashes: Vec<(u64, LedgerHash)>,
+}
+
+impl PrebuiltGenesisConfig {
+    pub fn load<R: Read>(mut reader: R) -> Result<Self, binprot::Error> {
+        use binprot::BinProtRead;
+        PrebuiltGenesisConfig::binprot_read(&mut reader)
+    }
+
+    pub fn store<W: Write>(&self, mut writer: W) -> Result<(), std::io::Error> {
+        use binprot::BinProtWrite;
+        self.binprot_write(&mut writer)
+    }
+}
+
+impl TryFrom<DaemonJson> for PrebuiltGenesisConfig {
+    type Error = GenesisConfigError;
+
+    fn try_from(config: DaemonJson) -> Result<Self, Self::Error> {
+        let constants = config
+            .genesis
+            .as_ref()
+            .map_or(PROTOCOL_CONSTANTS, |genesis| genesis.protocol_constants());
+        let ledger = config.ledger.as_ref().ok_or(GenesisConfigError::NoLedger)?;
+        let ledger_accounts = ledger
+            .accounts_with_genesis_winner()
+            .iter()
+            .map(daemon_json::Account::to_account)
+            .collect::<Result<Vec<_>, _>>()?;
+        let accounts = ledger_accounts.iter().map(Into::into).collect();
+        let (mut mask, _total_currency) =
+            GenesisConfig::build_ledger_from_accounts(ledger_accounts);
+        let ledger_hash = ledger_hash(&mut mask);
+        let hashes = mask
+            .get_raw_inner_hashes()
+            .into_iter()
+            .map(|(idx, hash)| (idx, v2::LedgerHash::from_fp(hash)))
+            .collect();
+        let result = PrebuiltGenesisConfig {
+            constants,
+            accounts,
+            ledger_hash,
+            hashes,
+        };
+        Ok(result)
+    }
 }

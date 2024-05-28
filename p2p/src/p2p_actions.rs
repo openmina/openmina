@@ -28,8 +28,9 @@ pub enum P2pAction {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, derive_more::From, ActionEvent)]
-#[action_event(fields(display(chain_id)))]
+#[action_event(level = info, fields(display(chain_id)))]
 pub enum P2pInitializeAction {
+    /// Initializes p2p layer.
     Initialize { chain_id: openmina_core::ChainId },
 }
 

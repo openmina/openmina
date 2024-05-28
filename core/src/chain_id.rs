@@ -134,16 +134,28 @@ pub const BERKELEY_CHAIN_ID: ChainId = ChainId([
 
 #[cfg(test)]
 mod test {
+    use time::format_description::well_known::Rfc3339;
+
     use super::*;
     use crate::constants::*;
 
     #[test]
     fn test_berkeley_chain_id() {
+        let genesis_state_hash = "3NK512ryRJvj1TUKGgPoGZeHSNbn37e9BbnpyeqHL9tvKLeD8yrY"
+            .parse()
+            .unwrap();
+
+        let mut protocol_constants = PROTOCOL_CONSTANTS.clone();
+        protocol_constants.genesis_state_timestamp =
+            OffsetDateTime::parse("2024-02-02T14:01:01Z", &Rfc3339)
+                .unwrap()
+                .into();
+
         // Compute the chain id for the Berkeley network and compare it the real one.
         let chain_id = ChainId::compute(
             CONSTRAINT_SYSTEM_DIGESTS.as_slice(),
-            &GENESIS_STATE_HASH,
-            &PROTOCOL_CONSTANTS,
+            &genesis_state_hash,
+            &protocol_constants,
             PROTOCOL_TRANSACTION_VERSION,
             PROTOCOL_NETWORK_VERSION,
             &UnsignedExtendedUInt32StableV1::from(TX_POOL_MAX_SIZE),

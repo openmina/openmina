@@ -58,7 +58,6 @@ impl SoloNodeBasicConnectivityAcceptIncoming {
         }
         let config = RustNodeTestingConfig::berkeley_default()
             .ask_initial_peers_interval(Duration::from_secs(3600))
-            .with_daemon_json("/var/lib/coda/berkeley.json")
             .max_peers(MAX_PEERS_PER_NODE)
             .initial_peers(initial_peers)
             .with_peer_id(rand::thread_rng().gen());

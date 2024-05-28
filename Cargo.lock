@@ -2961,6 +2961,7 @@ dependencies = [
  "mina-p2p-messages",
  "mina-signer",
  "mina-tree",
+ "node",
  "reqwest",
  "serde",
  "serde_json",

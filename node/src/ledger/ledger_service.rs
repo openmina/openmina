@@ -1107,9 +1107,9 @@ fn dump_application_to_file(
     block: ArcBlockWithHash,
     pred_block: ArcBlockWithHash,
 ) -> std::io::Result<String> {
-    use mina_p2p_messages::{
-        binprot,
-        binprot::macros::{BinProtRead, BinProtWrite},
+    use mina_p2p_messages::binprot::{
+        self,
+        macros::{BinProtRead, BinProtWrite},
     };
 
     #[derive(BinProtRead, BinProtWrite)]
