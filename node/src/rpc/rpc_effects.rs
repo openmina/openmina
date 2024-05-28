@@ -86,6 +86,8 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                 let future_slot = attempts.last().map_or(0, |v| v.won_slot.global_slot + 1);
 
                 Some(RpcBlockProducerStats {
+                    current_time: meta.time(),
+                    current_global_slot: state.cur_global_slot(),
                     attempts,
                     future_won_slots: won_slots
                         .range(future_slot..)

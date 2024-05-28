@@ -44,6 +44,7 @@ pub struct BlockProductionTimes {
     pub proof_create_end: Option<redux::Timestamp>,
     pub block_apply_start: Option<redux::Timestamp>,
     pub block_apply_end: Option<redux::Timestamp>,
+    pub committed: Option<redux::Timestamp>,
     pub discarded: Option<redux::Timestamp>,
 }
 
@@ -58,6 +59,7 @@ pub enum BlockProductionStatus {
     ProofCreateSuccess,
     BlockApplyPending,
     BlockApplySuccess,
+    Committed,
     Discarded {
         discard_reason: BlockProducerWonSlotDiscardReason,
     },
@@ -81,6 +83,13 @@ pub struct ProducedBlockTransactions {
 }
 
 impl BlockProducerStats {
+    fn latest_attempt_block_hash_matches(&self, hash: &v2::StateHash) -> bool {
+        self.attempts
+            .back()
+            .and_then(|v| v.block.as_ref())
+            .map_or(false, |b| &b.hash == hash)
+    }
+
     pub fn collect_attempts(&self) -> Vec<BlockProductionAttempt> {
         self.attempts.iter().cloned().collect()
     }
@@ -125,6 +134,7 @@ impl BlockProducerStats {
                 proof_create_end: None,
                 block_apply_start: None,
                 block_apply_end: None,
+                committed: None,
                 discarded: None,
             },
             status: BlockProductionStatus::Scheduled,
@@ -219,12 +229,7 @@ impl BlockProducerStats {
     }
 
     pub fn block_apply_end(&mut self, time: redux::Timestamp, hash: &v2::StateHash) {
-        let is_our_block = self
-            .attempts
-            .back()
-            .and_then(|v| v.block.as_ref())
-            .map_or(false, |b| &b.hash == hash);
-        if !is_our_block {
+        if !self.latest_attempt_block_hash_matches(hash) {
             return;
         }
 
@@ -232,6 +237,21 @@ impl BlockProducerStats {
             BlockProductionStatus::BlockApplyPending => {
                 attempt.status = BlockProductionStatus::BlockApplySuccess;
                 attempt.times.block_apply_end = Some(time);
+                true
+            }
+            _ => false,
+        });
+    }
+
+    pub fn committed(&mut self, time: redux::Timestamp, hash: &v2::StateHash) {
+        if !self.latest_attempt_block_hash_matches(hash) {
+            return;
+        }
+
+        self.update("committed", move |attempt| match attempt.status {
+            BlockProductionStatus::BlockApplySuccess => {
+                attempt.status = BlockProductionStatus::Committed;
+                attempt.times.committed = Some(time);
                 true
             }
             _ => false,

@@ -88,6 +88,7 @@ impl Stats {
         self.action_stats
             .new_best_tip(time, best_tip.height(), best_tip.hash().clone());
         self.sync_stats.synced(time);
+        self.block_producer_stats.committed(time, best_tip.hash());
         self
     }
 
