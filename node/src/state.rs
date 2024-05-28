@@ -49,8 +49,6 @@ pub struct State {
 // Substate accessors that will be used in reducers
 use openmina_core::impl_substate_access;
 
-impl_substate_access!(State, P2pState, p2p);
-impl_substate_access!(State, p2p::P2pNetworkState, p2p.network);
 impl_substate_access!(State, SnarkState, snark);
 impl_substate_access!(State, SnarkBlockVerifyState, snark.block_verify);
 impl_substate_access!(State, SnarkWorkVerifyState, snark.work_verify);
@@ -68,6 +66,26 @@ impl_substate_access!(State, ExternalSnarkWorkers, external_snark_worker);
 impl_substate_access!(State, BlockProducerState, block_producer);
 impl_substate_access!(State, RpcState, rpc);
 impl_substate_access!(State, WatchedAccountsState, watched_accounts);
+
+impl openmina_core::SubstateAccess<P2pState> for State {
+    fn substate(&self) -> &P2pState {
+        self.p2p.ready().unwrap()
+    }
+
+    fn substate_mut(&mut self) -> &mut P2pState {
+        self.p2p.ready_mut().unwrap()
+    }
+}
+
+impl openmina_core::SubstateAccess<p2p::P2pNetworkState> for State {
+    fn substate(&self) -> &p2p::P2pNetworkState {
+        &self.p2p.ready().unwrap().network
+    }
+
+    fn substate_mut(&mut self) -> &mut p2p::P2pNetworkState {
+        &mut self.p2p.ready_mut().unwrap().network
+    }
+}
 
 impl openmina_core::SubstateAccess<TransitionFrontierSyncLedgerState> for State {
     fn substate(&self) -> &TransitionFrontierSyncLedgerState {
@@ -223,6 +241,14 @@ impl P2p {
     }
 
     pub fn ready(&self) -> Option<&P2pState> {
+        if let P2p::Ready(state) = self {
+            Some(state)
+        } else {
+            None
+        }
+    }
+
+    pub fn ready_mut(&mut self) -> Option<&mut P2pState> {
         if let P2p::Ready(state) = self {
             Some(state)
         } else {
