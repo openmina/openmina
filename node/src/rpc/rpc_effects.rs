@@ -495,10 +495,13 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                 Err(err) => RpcSnarkerJobSpecResponse::Err(err),
             };
 
+            // TODO: handle potential errors
             let _ = store.service().respond_snarker_job_spec(rpc_id, input);
         }
         RpcAction::SnarkerWorkersGet { rpc_id } => {
             let the_only = store.state().external_snark_worker.0.clone();
+
+            // TODO: handle potential errors
             let _ = store
                 .service()
                 .respond_snarker_workers(rpc_id, vec![the_only.into()]);

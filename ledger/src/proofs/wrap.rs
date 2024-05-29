@@ -1551,6 +1551,7 @@ pub mod wrap_verifier {
             (sg_evals1, sg_evals2)
         };
 
+        // sponge state
         {
             let challenge_digest = {
                 let mut sponge = Sponge::<Fq>::new();

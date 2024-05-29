@@ -421,6 +421,7 @@ where
             new_frame: remaining,
         } = get_next_account_update::<Z>(to_pop, call_stack, w);
 
+        // local state
         {
             let default_token_or_token_owner_was_caller = {
                 let account_update_token_id = &account_update.body().token_id;
@@ -536,6 +537,7 @@ where
         w,
     );
 
+    // local state
     {
         let valid_while = &account_update.body().preconditions.valid_while;
         let valid_while_satisfied =
@@ -589,6 +591,7 @@ where
         w,
     );
 
+    // local state
     {
         let precondition_has_constant_nonce =
             account_update.account_precondition_nonce_is_constant(w);
@@ -711,6 +714,8 @@ where
         Z::LocalState::add_check(local_state, TransactionFailure::Overflow, failed1.neg(), w);
         let account_creation_fee =
             Z::Amount::of_constant_fee(Fee::from_u64(CONSTRAINT_CONSTANTS.account_creation_fee));
+
+        // local state
         {
             let (excess_minus_creation_fee, excess_update_failed) = Z::SignedAmount::add_flagged(
                 &local_state.excess,
@@ -734,6 +739,7 @@ where
             .clone();
         };
 
+        // local state
         {
             let (supply_increase_minus_creation_fee, supply_increase_update_failed) =
                 Z::SignedAmount::add_flagged(
@@ -759,6 +765,7 @@ where
         };
 
         let is_receiver = actual_balance_change.is_non_neg();
+        // local state
         {
             let controller = {
                 let on_true = Z::Branch::make(w, |_| a.get().permissions.receive);
@@ -799,6 +806,7 @@ where
     };
     Z::Account::make_zkapp(&mut a);
     // Check that the account can be accessed with the given authorization.
+    // local state
     {
         let has_permission = {
             let access = &a.get().permissions.access;
@@ -1299,6 +1307,7 @@ where
         w,
     );
 
+    // global state
     {
         let is_successful_last_party = Z::Bool::and(is_last_account_update, local_state.success, w);
         let global_state_supply_increase = global_state.supply_increase();
@@ -1314,6 +1323,7 @@ where
         global_state.set_second_pass_ledger(is_successful_last_party, &local_state.ledger, w);
     };
 
+    // local state
     {
         let will_succeed = w.exists_no_check(match is_last_account_update.as_boolean() {
             Boolean::True => Z::Bool::true_(),
