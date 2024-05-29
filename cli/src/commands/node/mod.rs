@@ -24,6 +24,7 @@ use tokio::select;
 use node::account::{AccountPublicKey, AccountSecretKey};
 use node::core::channels::mpsc;
 use node::core::log::inner::Level;
+use node::daemon_json::{self, DaemonJson};
 use node::event_source::EventSourceAction;
 use node::ledger::{LedgerCtx, LedgerManager};
 use node::p2p::channels::ChannelId;
@@ -207,13 +208,19 @@ impl Node {
         let rng_seed = rng.next_u64();
         let srs: Arc<_> = get_srs();
 
-        let genesis_conf = match self.config {
-            Some(config) => {
-                let reader = File::open(config).context("config file {config:?}")?;
-                let c = serde_json::from_reader(reader).context("config file {config:?}")?;
-                Arc::new(GenesisConfig::DaemonJson(c))
-            }
-            None => node::config::BERKELEY_CONFIG.clone(),
+        let (daemon_conf, genesis_conf) = match self.config {
+            Some(config) => (
+                config.daemon.clone().unwrap_or(daemon_json::Daemon::DEFAULT),
+                {
+                    let reader = File::open(config).context("config file {config:?}")?;
+                    let c = serde_json::from_reader(reader).context("config file {config:?}")?;
+                    Arc::new(GenesisConfig::DaemonJson(c))
+                },
+            ),
+            None => (
+                daemon_json::Daemon::DEFAULT,
+                node::config::BERKELEY_CONFIG.clone(),
+            ),
         };
 
         let protocol_constants = genesis_conf.protocol_constants()?;
@@ -258,6 +265,11 @@ impl Node {
             },
             transition_frontier,
             block_producer: block_producer.clone().map(|(config, _)| config),
+            tx_pool: ledger::transaction_pool::Config {
+                trust_system: (),
+                pool_max_size: daemon_conf.tx_pool_max_size(),
+                slot_tx_end: daemon_conf.slot_tx_end(),
+            },
         };
         let (event_sender, event_receiver) = mpsc::unbounded_channel();
 
