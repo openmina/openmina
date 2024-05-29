@@ -38,79 +38,102 @@
   </div>
   <div class="flex-column pl-12 pr-12 border-bottom">
     <div class="fx-row-vert-cent flex-between h-lg">
-      <span class="tertiary">Block Production Stages</span>
+      <span class="tertiary">Block Production Status</span>
       <span>{{ slot?.status ?? 'Waiting' }}</span>
     </div>
+    <ng-container #beforeLedger></ng-container>
     <div class="step fx-row-vert-cent flex-between h-lg"
          [class.incomplete]="slot?.times?.stagedLedgerDiffCreate === null">
       <div class="fx-row-vert-cent">
         <span class="mina-icon mr-8">check_circle</span>
         <span>Created Staged Ledger Diff</span>
       </div>
-      <div *ngIf="slot?.times?.stagedLedgerDiffCreate !== undefined; else waiting">
-        {{ slot?.times?.stagedLedgerDiffCreate | secDuration: config }}
+      <div *ngIf="slot?.times?.stagedLedgerDiffCreate !== null; else waiting">
+        <span class="tertiary">in</span> {{ slot?.times?.stagedLedgerDiffCreate | secDuration: config }}
       </div>
     </div>
+    <ng-container #ledger></ng-container>
     <div class="step fx-row-vert-cent flex-between h-lg"
          [class.incomplete]="slot?.times?.produced === null">
       <div class="fx-row-vert-cent">
         <span class="mina-icon mr-8">check_circle</span>
-        <span>Block Produced</span>
+        <span>Produced Block</span>
       </div>
-      <div *ngIf="slot?.times?.produced !== undefined; else waiting">
-        {{ slot?.times?.produced | secDuration: config }}
+      <div *ngIf="slot?.times?.produced !== null; else waiting">
+        <span class="tertiary">in</span> {{ slot?.times?.produced | secDuration: config }}
       </div>
     </div>
+    <ng-container #produced></ng-container>
     <div class="step fx-row-vert-cent flex-between h-lg"
          [class.incomplete]="slot?.times?.proofCreate === null">
       <div class="fx-row-vert-cent">
         <span class="mina-icon mr-8">check_circle</span>
         <span>Proof Created</span>
       </div>
-      <div *ngIf="slot?.times?.proofCreate !== undefined; else waiting">
-        {{ slot?.times?.proofCreate | secDuration: config }}
+      <div *ngIf="slot?.times?.proofCreate !== null; else waiting">
+        <span class="tertiary">in</span> {{ slot?.times?.proofCreate | secDuration: config }}
       </div>
     </div>
+    <ng-container #proof></ng-container>
     <div class="step fx-row-vert-cent flex-between h-lg"
          [class.incomplete]="slot?.times?.blockApply === null">
       <div class="fx-row-vert-cent">
         <span class="mina-icon mr-8">check_circle</span>
         <span>Applied Block</span>
       </div>
-      <div *ngIf="slot?.times?.blockApply !== undefined; else waiting">
-        {{ slot?.times?.blockApply | secDuration: config }}
+      <div *ngIf="slot?.times?.blockApply !== null; else waiting">
+        <span class="tertiary">in</span> {{ slot?.times?.blockApply | secDuration: config }}
       </div>
     </div>
+    <ng-container #apply></ng-container>
     <div class="step fx-row-vert-cent flex-between h-lg"
          [class.incomplete]="slot?.times?.committed === null">
       <div class="fx-row-vert-cent">
         <span class="mina-icon mr-8">check_circle</span>
         <span>Commited Block</span>
       </div>
-      <div *ngIf="slot?.times?.committed !== undefined; else waiting">
-        {{ slot?.times?.committed | readableDate }}
+      <div *ngIf="slot?.times?.committed !== null; else waiting">
+        <span *ngIf="slot?.times?.committed"
+              class="tertiary">on</span> {{ slot?.times?.committed | readableDate: noMillisFormat }}
       </div>
-    </div>
-    <div class="step fx-row-vert-cent flex-between h-lg"
-         *ngIf="slot?.times?.discarded">
-      <div class="fx-row-vert-cent">
-        <span class="mina-icon mr-8 aware-primary">dangerous</span>
-        <span>Block Discarded</span>
-      </div>
-      <div>{{ slot?.times?.discarded | readableDate }}</div>
     </div>
   </div>
   <div class="flex-column pl-12 pr-12">
+    <!--    <div class="fx-row-vert-cent flex-between h-lg">-->
+    <!--      <span class="tertiary">Mina Explorer</span>-->
+    <!--      <button class="btn-primary"-->
+    <!--              (click)="viewInMinaExplorer()"-->
+    <!--              [disabled]="!slot?.hash">View in Explorer-->
+    <!--      </button>-->
+    <!--    </div>-->
     <div class="fx-row-vert-cent flex-between h-lg">
-      <span class="tertiary">Mina Explorer</span>
-      <button class="btn-primary"
-              (click)="viewInMinaExplorer()"
-              [disabled]="slot?.active || slot?.status">View in Explorer
-      </button>
+      <span class="tertiary">Consensus</span>
+      <ng-container *ngIf="slot?.status === BlockProductionWonSlotsStatus.Canonical">
+        <div>
+          <span class="success-primary">Included&nbsp;</span>
+          <span class="tertiary">in Main Chain</span>
+        </div>
+      </ng-container>
+      <ng-container *ngIf="slot?.status === BlockProductionWonSlotsStatus.Orphaned">
+        <div>
+          <span class="aware-primary">Dropped&nbsp;</span>
+          <span class="tertiary">from Main Chain</span>
+        </div>
+      </ng-container>
+      <span
+        *ngIf="slot?.status !== BlockProductionWonSlotsStatus.Orphaned && slot?.status !== BlockProductionWonSlotsStatus.Canonical">Not observed</span>
     </div>
-    <div class="fx-row-vert-cent flex-between h-lg">
-      <span class="tertiary">Network</span>
-      <div>Not observed</div>
+    <div class="fx-row-vert-cent flex-between h-lg"
+         *ngIf="slot?.status === BlockProductionWonSlotsStatus.Canonical">
+      <span class="tertiary">Confirmations</span>
+      <span>{{ slot.lastObservedConfirmations }}</span>
+    </div>
+    <div class="fx-row-vert-cent flex-between h-lg"
+         *ngIf="slot?.status === BlockProductionWonSlotsStatus.Orphaned">
+      <span class="tertiary">Dropped in favor</span>
+      <span>
+        <mina-copy [display]="slot.orphanedBy | truncateMid" [value]="slot.orphanedBy"></mina-copy>
+      </span>
     </div>
   </div>
 
@@ -118,4 +141,24 @@
 
 <ng-template #waiting>
   <span class="mina-icon tertiary f-18">more_horiz</span>
+</ng-template>
+
+<ng-template #discarded>
+  <div class="bg-container bg-container-hover pointer border-rad-6 ml--5 mr--5 pl-5 pr-5"
+       (click)="discardedOpen = !discardedOpen">
+    <div class="step fx-row-vert-cent flex-between h-lg">
+      <div class="fx-row-vert-cent f-600">
+        <span class="mina-icon mr-8 aware-primary">error</span>
+        <span class="primary">Block Discarded</span>
+      </div>
+      <span class="mina-icon icon-200 tertiary">unfold_{{ discardedOpen ? 'less' : 'more' }}</span>
+    </div>
+    <div class="discarded overflow-hidden pl-5 pr-8"
+         [class.open]="discardedOpen">
+      <div class="fx-row-vert-cent flex-between h-lg">
+        <div class="primary">{{ slot.discardReason }}</div>
+        <div class="tertiary">on {{ slot.times.discarded | readableDate: noMillisFormat }}</div>
+      </div>
+    </div>
+  </div>
 </ng-template>

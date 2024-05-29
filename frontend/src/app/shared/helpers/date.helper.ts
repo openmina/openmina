@@ -10,6 +10,9 @@ export function getTimeDiff(time: number, config?: { withSecs: boolean, fromTime
   diff: string,
   inFuture: boolean
 } {
+  if (!time) {
+    return { diff: undefined, inFuture: false };
+  }
   if (time.toString().length === 10) {
     time *= ONE_THOUSAND;
   }

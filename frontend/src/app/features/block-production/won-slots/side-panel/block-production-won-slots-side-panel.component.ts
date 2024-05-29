@@ -1,13 +1,24 @@
-import { ChangeDetectionStrategy, Component, OnDestroy, OnInit } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  OnDestroy,
+  OnInit,
+  TemplateRef,
+  ViewChild,
+  ViewContainerRef,
+} from '@angular/core';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
 import { BlockProductionWonSlotsSelectors } from '@block-production/won-slots/block-production-won-slots.state';
 import {
   BlockProductionWonSlotsSlot,
+  BlockProductionWonSlotsStatus,
+  BlockProductionWonSlotTimes,
 } from '@shared/types/block-production/won-slots/block-production-won-slots-slot.type';
 import { getTimeDiff } from '@shared/helpers/date.helper';
-import { hasValue, noMillisFormat, SecDurationConfig, toReadableDate } from '@openmina/shared';
+import { any, hasValue, noMillisFormat, SecDurationConfig, toReadableDate } from '@openmina/shared';
 import { filter } from 'rxjs';
 import { BlockProductionWonSlotsActions } from '@block-production/won-slots/block-production-won-slots.actions';
+import { AppSelectors } from '@app/app.state';
 
 @Component({
   selector: 'mina-block-production-won-slots-side-panel',
@@ -17,64 +28,81 @@ import { BlockProductionWonSlotsActions } from '@block-production/won-slots/bloc
 })
 export class BlockProductionWonSlotsSidePanelComponent extends StoreDispatcher implements OnInit, OnDestroy {
 
-  readonly config: SecDurationConfig = {
+  protected readonly BlockProductionWonSlotsStatus = BlockProductionWonSlotsStatus;
+  protected readonly config: SecDurationConfig = {
     includeMinutes: true,
     color: false,
     onlySeconds: true,
     undefinedAlternative: undefined,
   };
+  protected readonly noMillisFormat = noMillisFormat;
   title: string;
 
   slot: BlockProductionWonSlotsSlot;
-  percentage: number;
   remainingTime: string;
   scheduled: string;
   slotStartedAlready: boolean;
 
   vrfText: string;
   vrf: [number, number] = [0, 0];
+  discardedOpen: boolean;
+  percentage: number;
   private timer: any;
   private stopTimer: boolean;
-  private nextSlotStartingTime: number;
+  private minaExplorer: string;
+
+  @ViewChild('beforeLedger', { read: ViewContainerRef }) private beforeLedger: ViewContainerRef;
+  @ViewChild('ledger', { read: ViewContainerRef }) private ledger: ViewContainerRef;
+  @ViewChild('produced', { read: ViewContainerRef }) private produced: ViewContainerRef;
+  @ViewChild('proof', { read: ViewContainerRef }) private proof: ViewContainerRef;
+  @ViewChild('apply', { read: ViewContainerRef }) private apply: ViewContainerRef;
+
+  @ViewChild('discarded') private discardedTemplate: TemplateRef<void>;
 
   ngOnInit(): void {
     this.listenToActiveSlot();
     this.parseRemainingTime();
+    this.listenToActiveNode();
+  }
+
+  private listenToActiveNode(): void {
+    this.select(AppSelectors.activeNode, (node) => {
+      this.minaExplorer = node.minaExplorerNetwork;
+    });
   }
 
   private listenToActiveSlot(): void {
     this.select(BlockProductionWonSlotsSelectors.activeSlot, (slot: BlockProductionWonSlotsSlot) => {
       this.slot = slot;
-      this.title = this.getTitle;
+      this.title = slot.message;
+      this.percentage = [
+        slot.times?.stagedLedgerDiffCreate,
+        slot.times?.produced,
+        slot.times?.proofCreate,
+        slot.times?.blockApply,
+        slot.times?.committed,
+      ].filter(t => hasValue(t)).length * 20;
 
       this.scheduled = toReadableDate(slot.slotTime, noMillisFormat);
       this.slotStartedAlready = slot.slotTime < Date.now();
 
-      this.nextSlotStartingTime = slot.slotTime + 180 * 1000;
       this.stopTimer = !this.slot.active;
 
       this.parse();
 
-      const steps = [slot.times?.stagedLedgerDiffCreate, slot.times?.produced, slot.times?.proofCreate, slot.times?.blockApply];
-      this.percentage = 25 * steps.filter(t => hasValue(t)).length;
-
       this.vrfText = this.getVrfText;
       this.vrf = slot.vrfValueWithThreshold;
+
+      this.createDiscardedView();
 
       this.detect();
     }, filter(Boolean));
   }
 
   viewInMinaExplorer(): void {
-    const url = `https://minaexplorer.com/block/${this.slot.hash}`;
+    const network = this.minaExplorer !== 'mainnet' ? this.minaExplorer : '';
+    const url = `https://${network}.minaexplorer.com/block/${this.slot.hash}`;
     window.open(url, '_blank');
-  }
-
-  private get getTitle(): string {
-    if (this.slot.active) {
-      return 'Block production progress';
-    }
-    return 'Upcoming won slot';
   }
 
   private get getVrfText(): string {
@@ -92,7 +120,7 @@ export class BlockProductionWonSlotsSidePanelComponent extends StoreDispatcher i
 
   private parse(): void {
     if (this.slot && !this.stopTimer) {
-      const remainingTime = getTimeDiff(this.nextSlotStartingTime - 270 * 1000, { withSecs: true });
+      const remainingTime = getTimeDiff(this.slot.slotTime, { withSecs: true });
       if (remainingTime.inFuture) {
         this.remainingTime = '-';
       }
@@ -101,10 +129,7 @@ export class BlockProductionWonSlotsSidePanelComponent extends StoreDispatcher i
         /* when we reached 0s, we need to fetch data again because this slot is over and the user should see that in the table */
         this.stopTimer = true;
         this.remainingTime = '-';
-        setTimeout(() => {
-
-          this.dispatch2(BlockProductionWonSlotsActions.getSlots());
-        }, 1000);
+        this.dispatch2(BlockProductionWonSlotsActions.getSlots());
       }
       this.detect();
     } else {
@@ -112,6 +137,34 @@ export class BlockProductionWonSlotsSidePanelComponent extends StoreDispatcher i
     }
   }
 
+
+  private createDiscardedView(): void {
+    this.beforeLedger.clear();
+    this.apply.clear();
+    this.proof.clear();
+    this.produced.clear();
+    this.ledger.clear();
+
+    if (this.slot.discardReason) {
+      const times: BlockProductionWonSlotTimes = this.slot.times;
+      let locationName: string;
+      if (times.discarded < times.stagedLedgerDiffCreateEnd) {
+        locationName = 'beforeLedger';
+      } else if (times.discarded >= times.stagedLedgerDiffCreateEnd) {
+        locationName = 'ledger';
+      }
+      if (times.discarded >= times.producedEnd) {
+        locationName = 'produced';
+      }
+      if (times.discarded >= times.proofCreateEnd) {
+        locationName = 'proof';
+      }
+      if (times.discarded >= times.blockApplyEnd) {
+        locationName = 'apply';
+      }
+      (any(this)[locationName] as ViewContainerRef)?.createEmbeddedView(this.discardedTemplate);
+    }
+  }
 
   override ngOnDestroy(): void {
     super.ngOnDestroy();

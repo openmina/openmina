@@ -1,20 +1,115 @@
-<div class="node-status mr-8 border-rad-4 p-relative overflow-hidden">
-  <div class="bg-surface h-sm border-rad-4 p-relative z-1">
-    <div class="background-wrap border-rad-4 fx-row-vert-cent h-100">
-      <div *ngIf="!switchForbidden"
-           class="block-level h-100 fx-row-vert-cent pl-5 pr-8">
-        <span class="strong-text text-capitalize fx-row-vert-cent mr-5">
-          <span class="mina-icon icon-200 f-20">dns</span>
-        </span>
+<div class="wrapper fx-row-vert-cent"
+     *ngIf="details"
+     [ngClass]="details.status">
+  <ng-container *ngIf="!switchForbidden">
+    <div class="chip p-relative h-sm pl-5 pr-5 fx-row-vert-cent border-rad-6 text-nowrap"
+         #mempoolAnchor
+         (mouseenter)="openTooltipDropdown(mempoolAnchor, mempool)"
+         (mouseleave)="detachTooltipOverlay()">
+      <span class="mina-icon icon-300 f-20">blur_circular</span>
+      <ng-container *ngIf="!isMobile">
+        <div>{{ details.transactions }} <span>Txs</span></div>
+        <div>{{ details.snarks }} <span>SNARKs</span></div>
+      </ng-container>
+    </div>
+    <div class="chip p-relative h-sm pl-5 pr-5 fx-row-vert-cent border-rad-6 text-nowrap"
+         #peersAnchor
+         (mouseenter)="openTooltipDropdown(peersAnchor, peers)"
+         (mouseleave)="detachTooltipOverlay()">
+      <span class="mina-icon icon-300 f-20">language</span>
+      <ng-container *ngIf="!isMobile">
+        <div>{{ details.peers }} <span>Peers</span></div>
+        <div *ngIf="isOnline">{{ details.download }} / {{ details.upload }} <span>MBps</span></div>
+      </ng-container>
+    </div>
+  </ng-container>
+  <div class="node-status fx-row-vert-cent bg-surface h-sm border-rad-6 p-relative z-1 mr-10"
+       [class.can-add-nodes]="canAddNodes">
+    <ng-container *ngIf="!switchForbidden">
+      <div class="shine-parent overflow-hidden p-absolute z-0 border-rad-6">
+        <div *ngIf="details.status === AppNodeStatus.CATCHUP || details.status === AppNodeStatus.BOOTSTRAP"
+             class="shining-border p-absolute"></div>
       </div>
-      <div class="node-switcher h-100 fx-row-vert-cent pl-8 pr-8"
+      <div class="chip p-relative z-1 h-sm pl-5 pr-5 fx-row-vert-cent border-rad-6 text-nowrap"
+           #blockAnchor
+           (mouseenter)="openTooltipDropdown(blockAnchor, block)"
+           (mouseleave)="detachTooltipOverlay()">
+        <span class="mina-icon icon-300 f-20">dns</span>
+        <ng-container *ngIf="!isMobile">
+          <div>{{ details.status }}</div>
+          <span><span *ngIf="details.blockHeight">#</span>{{ details.blockHeight }}</span>
+          <span>{{ blockTimeAgo ? blockTimeAgo + ' ago' : '' }}</span>
+        </ng-container>
+      </div>
+    </ng-container>
+    <div class="background-wrap p-relative fx-row-vert-cent h-100 pointer"
+         [class.switch-forbidden]="switchForbidden"
+         (click)="openNodePicker($event)"
+         [globalTooltip]="false"
+         [tooltip]="'This page shows information about all your configured nodes.'"
+         [tooltipDisabled]="!switchForbidden">
+      <div class="node-switcher h-100 fx-row-vert-cent pl-5 pr-8"
+           [class.pl-8]="switchForbidden"
            [class.border-rad-4]="switchForbidden"
-           [tooltip]="'This page shows information about all your configured nodes.'"
-           [tooltipDisabled]="!switchForbidden"
-           #overlayOpener (click)="openNodePicker($event)">
-        <span class="strong-text truncate">{{ !switchForbidden ? activeNode?.name : 'All Nodes' }}</span>
-        <span class="mina-icon icon-200" *ngIf="!switchForbidden">arrow_drop_down</span>
+           #overlayOpener>
+        <ng-container *ngIf="!isMobile">
+          <span class="strong-text truncate">{{ !switchForbidden ? activeNode?.name : 'All Nodes' }}</span>
+        </ng-container>
+        <span class="mina-icon icon-300" *ngIf="!switchForbidden">arrow_drop_down</span>
       </div>
     </div>
   </div>
 </div>
+
+<ng-template #mempool>
+  <div @fadeIn
+       class="bg-surface-top border-rad-8 popup-box-shadow-weak p-8 pb-5 w-100 h-100">
+    <div class="h-sm tertiary">Mempools</div>
+    <div class="fx-row-vert-cent flex-between h-xs">
+      <div>Transactions</div>
+      <div class="success-primary">{{ details.transactions }}</div>
+    </div>
+    <div class="fx-row-vert-cent flex-between h-xs">
+      <div>SNARKs</div>
+      <div class="success-primary">{{ details.snarks }}</div>
+    </div>
+  </div>
+</ng-template>
+
+<ng-template #peers>
+  <div @fadeIn
+       class="bg-surface-top border-rad-8 popup-box-shadow-weak p-8 pb-5 w-100 h-100">
+    <div class="h-sm tertiary">Network Traffic</div>
+    <div class="fx-row-vert-cent flex-between h-xs">
+      <div>Connected Peers</div>
+      <div class="success-primary">{{ details.peers }}</div>
+    </div>
+    <div class="fx-row-vert-cent flex-between h-xs">
+      <div>Download</div>
+      <div class="success-primary">{{ details.download }} MB/s</div>
+    </div>
+    <div class="fx-row-vert-cent flex-between h-xs">
+      <div>Upload</div>
+      <div class="success-primary">{{ details.upload }} MB/s</div>
+    </div>
+  </div>
+</ng-template>
+
+<ng-template #block>
+  <div @fadeIn
+       class="bg-surface-top border-rad-8 popup-box-shadow-weak p-8 pb-5 w-100 h-100">
+    <div class="h-sm tertiary">Node Status</div>
+    <div class="fx-row-vert-cent flex-between h-xs">
+      <div>MINA short history</div>
+      <div [ngClass]="details.status">{{ details.status }}</div>
+    </div>
+    <div class="fx-row-vert-cent flex-between h-xs">
+      <div>Latest applied block</div>
+      <div [class.success-primary]="details.blockHeight !== null">{{ details.blockHeight }}</div>
+    </div>
+    <div class="fx-row-vert-cent flex-between h-xs">
+      <div>Last updated</div>
+      <div [class.success-primary]="details.blockHeight !== null">{{ blockTimeAgo ? blockTimeAgo + ' ago' : '' }}</div>
+    </div>
+  </div>
+</ng-template>

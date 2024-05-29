@@ -5,7 +5,7 @@
   height: 6px;
   left: 0;
   bottom: 0;
-  transition: width 0.6s ease-in-out;
+  transition: width 0.4s ease-in-out;
   min-width: 20px;
 
   .highlight {
@@ -42,7 +42,7 @@
 }
 
 .mina-icon {
-  font-variation-settings: 'FILL' 1, 'wght' 400 !important;
+  font-variation-settings: 'FILL' 1, 'wght' 300, 'GRAD' 0, 'opsz' 20 !important;
   transition: none;
   color: $base-divider;
 
@@ -63,6 +63,27 @@
     .mina-icon {
       color: $base-divider;
       transition: none;
+    }
+  }
+}
+
+.bg-container {
+
+  &:hover {
+    .step > .mina-icon {
+      color: $base-primary !important;
+    }
+  }
+
+  .discarded {
+    transition: 0.2s ease-in-out;
+
+    &:not(.open) {
+      max-height: 0 !important;
+    }
+
+    &.open {
+      max-height: 44px;
     }
   }
 }

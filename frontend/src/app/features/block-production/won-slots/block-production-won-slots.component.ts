@@ -4,6 +4,7 @@ import { isDesktop, isMobile } from '@openmina/shared';
 import { debounceTime, filter, fromEvent, timer } from 'rxjs';
 import { untilDestroyed } from '@ngneat/until-destroy';
 import { BlockProductionWonSlotsActions } from '@block-production/won-slots/block-production-won-slots.actions';
+import { AppSelectors } from '@app/app.state';
 
 @Component({
   selector: 'mina-block-production-won-slots',
@@ -18,13 +19,19 @@ export class BlockProductionWonSlotsComponent extends StoreDispatcher implements
   constructor(protected el: ElementRef) { super(); }
 
   ngOnInit(): void {
-    this.dispatch2(BlockProductionWonSlotsActions.getActiveEpoch());
-    timer(0, 10000)
+    this.listenToActiveNode();
+    timer(10000, 10000)
       .pipe(untilDestroyed(this))
       .subscribe(() => {
         this.dispatch2(BlockProductionWonSlotsActions.getSlots());
       });
     this.listenToResize();
+  }
+
+  private listenToActiveNode(): void {
+    this.select(AppSelectors.activeNode, () => {
+      this.dispatch2(BlockProductionWonSlotsActions.getSlots());
+    });
   }
 
   private listenToResize(): void {

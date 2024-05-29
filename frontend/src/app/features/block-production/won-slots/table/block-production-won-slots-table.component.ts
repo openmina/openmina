@@ -50,7 +50,7 @@ export class BlockProductionWonSlotsTableComponent extends MinaTableRustWrapper<
     await super.ngOnInit();
     this.listenToRouteChange();
     this.listenToNodesChanges();
-    this.listenToActiveNodeChange();
+    this.listenToActiveSlotChange();
   }
 
   protected override setupTable(): void {
@@ -84,7 +84,7 @@ export class BlockProductionWonSlotsTableComponent extends MinaTableRustWrapper<
     });
   }
 
-  private listenToActiveNodeChange(): void {
+  private listenToActiveSlotChange(): void {
     this.select(BlockProductionWonSlotsSelectors.activeSlot, (slot: BlockProductionWonSlotsSlot) => {
       this.table.activeRow = slot;
       this.table.detect();
