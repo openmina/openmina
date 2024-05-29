@@ -1,4 +1,3 @@
-
 use openmina_core::consensus::ConsensusConstants;
 use openmina_core::{constants::CONSTRAINT_CONSTANTS, error, ChainId};
 use p2p::{P2pConfig, P2pPeerState, P2pPeerStatusReady, PeerId};
@@ -192,7 +191,7 @@ impl State {
             external_snark_worker: ExternalSnarkWorkers::new(now),
             block_producer: BlockProducerState::new(now, config.block_producer),
             rpc: RpcState::new(),
-            transaction_pool: TransactionPoolState::new(constants),
+            transaction_pool: TransactionPoolState::new(config.tx_pool, constants),
 
             watched_accounts: WatchedAccountsState::new(),
 

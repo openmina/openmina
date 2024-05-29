@@ -22,6 +22,7 @@ use tokio::select;
 use node::account::{AccountPublicKey, AccountSecretKey};
 use node::core::channels::mpsc;
 use node::core::log::inner::Level;
+use node::daemon_json::{self, DaemonJson};
 use node::event_source::EventSourceAction;
 use node::ledger::{LedgerCtx, LedgerManager};
 use node::p2p::channels::ChannelId;
@@ -250,6 +251,11 @@ impl Node {
             },
             transition_frontier,
             block_producer: block_producer.clone().map(|(config, _)| config),
+            tx_pool: ledger::transaction_pool::Config {
+                trust_system: (),
+                pool_max_size: daemon_conf.tx_pool_max_size(),
+                slot_tx_end: daemon_conf.slot_tx_end(),
+            },
         };
         let (event_sender, event_receiver) = mpsc::unbounded_channel();
 
