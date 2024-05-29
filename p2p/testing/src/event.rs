@@ -7,8 +7,10 @@ use p2p::{
     identify::P2pIdentifyAction,
     network::identify::P2pNetworkIdentify,
     peer::P2pPeerAction,
-    P2pAction, P2pEvent, PeerId,
+    MioEvent, P2pAction, P2pEvent, PeerId,
 };
+
+use crate::cluster::ClusterEvent;
 
 #[derive(Debug)]
 pub enum RustNodeEvent {
@@ -186,5 +188,53 @@ pub(super) fn event_mapper_effect(store: &mut super::redux::Store, action: P2pAc
             _ => {}
         },
         _ => {}
+    }
+}
+
+pub fn is_error(event: &ClusterEvent) -> bool {
+    let ClusterEvent::Rust { event, .. } = event else {
+        return false;
+    };
+    match event {
+        RustNodeEvent::ListenerError { .. } => true,
+        RustNodeEvent::PeerConnectionError { .. } => true,
+        RustNodeEvent::PeerDisconnected { .. } => true,
+        RustNodeEvent::P2p { event } => match event {
+            P2pEvent::Connection(_event) => false, // TODO
+            P2pEvent::Channel(_event) => false,    // TODO
+            P2pEvent::MioEvent(event) => matches!(
+                event,
+                MioEvent::ListenerError { .. }
+                    | MioEvent::IncomingConnectionDidAccept(_, Err(_))
+                    | MioEvent::IncomingDataDidReceive(_, Err(_))
+                    | MioEvent::OutgoingConnectionDidConnect(_, Err(_))
+                    | MioEvent::OutgoingDataDidSend(_, Err(_))
+                    | MioEvent::ConnectionDidClose(_, Err(_))
+            ),
+        },
+        _ => false,
+    }
+}
+
+pub fn allow_disconnections(event: &ClusterEvent) -> bool {
+    let ClusterEvent::Rust { event, .. } = event else {
+        return false;
+    };
+    match event {
+        RustNodeEvent::ListenerError { .. } => true,
+        RustNodeEvent::PeerConnectionError { .. } => false,
+        RustNodeEvent::PeerDisconnected { .. } => true,
+        RustNodeEvent::P2p { event } => match event {
+            P2pEvent::Connection(_event) => false, // TODO
+            P2pEvent::Channel(_event) => false,    // TODO
+            P2pEvent::MioEvent(event) => matches!(
+                event,
+                MioEvent::ListenerError { .. } | MioEvent::IncomingConnectionDidAccept(_, Err(_)) // | MioEvent::IncomingDataDidReceive(_, Err(_))
+                                                                                                  // | MioEvent::OutgoingConnectionDidConnect(_, Err(_))
+                                                                                                  // | MioEvent::OutgoingDataDidSend(_, Err(_))
+                                                                                                  // | MioEvent::ConnectionDidClose(_, Err(_))
+            ),
+        },
+        _ => false,
     }
 }

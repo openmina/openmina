@@ -1,7 +1,10 @@
 use super::{
     P2pNetworkIdentifyStreamAction, P2pNetworkIdentifyStreamKind, P2pNetworkIdentifyStreamState,
 };
-use crate::network::identify::{pb::Identify, P2pNetworkIdentify};
+use crate::{
+    network::identify::{pb::Identify, P2pNetworkIdentify},
+    P2pLimits,
+};
 use prost::Message;
 use quick_protobuf::BytesReader;
 use redux::ActionWithMeta;
@@ -10,6 +13,7 @@ impl P2pNetworkIdentifyStreamState {
     pub fn reducer(
         &mut self,
         action: ActionWithMeta<&P2pNetworkIdentifyStreamAction>,
+        limits: &P2pLimits,
     ) -> Result<(), String> {
         use super::P2pNetworkIdentifyStreamAction as A;
         use super::P2pNetworkIdentifyStreamState as S;
@@ -43,7 +47,7 @@ impl P2pNetworkIdentifyStreamState {
                     };
 
                     // TODO: implement as configuration option
-                    if len > 0x1000 {
+                    if len > limits.identify_message {
                         *self = S::Error(format!("Identify message is too long ({})", len));
                         return Ok(());
                     }

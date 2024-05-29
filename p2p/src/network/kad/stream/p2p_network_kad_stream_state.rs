@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{P2pNetworkKademliaRpcReply, P2pNetworkKademliaRpcRequest};
+use crate::{
+    Limit, P2pNetworkKademliaRpcFromMessageError, P2pNetworkKademliaRpcReply,
+    P2pNetworkKademliaRpcRequest,
+};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum P2pNetworkKadStreamState {
@@ -39,7 +42,7 @@ pub enum P2pNetworkKadIncomingStreamState {
     Closed,
     /// Error handling the stream.
     /// TODO: use enum for errors.
-    Error(String),
+    Error(P2pNetworkKadStreamError),
 }
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub enum P2pNetworkKadOutgoingStreamState {
@@ -61,5 +64,25 @@ pub enum P2pNetworkKadOutgoingStreamState {
     Closed,
     /// Error handling the stream.
     /// TODO: use enum for errors.
-    Error(String),
+    Error(P2pNetworkKadStreamError),
 }
+
+#[derive(Debug, Clone, PartialEq, thiserror::Error, Serialize, Deserialize)]
+pub enum P2pNetworkKadStreamError {
+    #[error("error reading message length")]
+    MessageLength,
+    #[error("message is too long: {0} exceeds {1}")]
+    Limit(usize, Limit<usize>),
+    #[error("error reading message: {0}")]
+    Message(String),
+    #[error("error converting protobuf message: {0}")]
+    Convert(#[from] P2pNetworkKademliaRpcFromMessageError),
+}
+
+#[derive(Debug, Clone, PartialEq, thiserror::Error, Serialize, Deserialize)]
+#[error("kademlia incoming stream: {0}")]
+pub struct P2pNetworkKadIncomingStreamError(#[from] P2pNetworkKadStreamError);
+
+#[derive(Debug, Clone, PartialEq, thiserror::Error, Serialize, Deserialize)]
+#[error("kademlia incoming stream: {0}")]
+pub struct P2pNetworkKadOutgoingStreamError(#[from] P2pNetworkKadStreamError);

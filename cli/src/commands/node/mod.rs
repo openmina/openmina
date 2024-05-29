@@ -26,7 +26,7 @@ use node::p2p::channels::ChannelId;
 use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 use node::p2p::identity::SecretKey;
 use node::p2p::service_impl::webrtc_with_libp2p::P2pServiceWebrtcWithLibp2p;
-use node::p2p::{P2pConfig, P2pTimeouts};
+use node::p2p::{P2pConfig, P2pLimits, P2pTimeouts};
 use node::service::{Recorder, Service};
 use node::snark::{get_srs, get_verifier_index, VerifierKind};
 use node::stats::Stats;
@@ -219,11 +219,12 @@ impl Node {
                 max_peers: 100,
                 ask_initial_peers_interval: Duration::from_secs(3600),
                 enabled_channels: ChannelId::for_libp2p().collect(),
-                timeouts: P2pTimeouts::default(),
                 peer_discovery: !self.no_peers_discovery,
                 initial_time: SystemTime::now()
                     .duration_since(SystemTime::UNIX_EPOCH)
                     .expect("linear time"),
+                timeouts: P2pTimeouts::default(),
+                limits: P2pLimits::default(),
             },
             transition_frontier,
             block_producer: block_producer.clone().map(|(config, _)| config),

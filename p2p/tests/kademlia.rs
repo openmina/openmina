@@ -1,7 +1,7 @@
 use p2p::{identity::SecretKey, P2pNetworkKadBucket, PeerId};
 use p2p_testing::{
     cluster::{Cluster, ClusterBuilder, ClusterEvent, Listener},
-    event::RustNodeEvent,
+    event::{allow_disconnections, RustNodeEvent},
     futures::TryStreamExt,
     predicates::kad_finished_bootstrap,
     rust_node::{RustNodeConfig, RustNodeId},
@@ -186,6 +186,7 @@ async fn bootstrap_no_peers() -> anyhow::Result<()> {
     let mut cluster = ClusterBuilder::new()
         .ports_with_len(3)
         .idle_duration(Duration::from_millis(100))
+        .is_error(allow_disconnections)
         .start()
         .await?;
 
@@ -221,6 +222,7 @@ async fn bootstrap_no_peers() -> anyhow::Result<()> {
 /// A node should be able to discover and connect a node connected to the seed node.
 #[tokio::test]
 async fn discovery_seed_single_peer() -> anyhow::Result<()> {
+    std::env::set_var("OPENMINA_DISCOVERY_FILTER_ADDR", false.to_string());
     let mut cluster = ClusterBuilder::new()
         .ports_with_len(6)
         .idle_duration(Duration::from_millis(100))
@@ -254,14 +256,14 @@ async fn discovery_seed_single_peer() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn discovery_seed_multiple_peers() -> anyhow::Result<()> {
+    std::env::set_var("OPENMINA_DISCOVERY_FILTER_ADDR", false.to_string());
     const PEERS: usize = 10;
     let mut cluster = ClusterBuilder::new()
         .ports_with_len(PEERS as u16 * 2 + 4)
         .idle_duration(Duration::from_millis(100))
+        .is_error(allow_disconnections)
         .start()
         .await?;
-
-    std::env::set_var("OPENMINA_DISCOVERY_FILTER_ADDR", false.to_string());
 
     let [seed, nodes @ ..]: [_; PEERS + 1] =
         p2p_testing::utils::rust_nodes_from_config(&mut cluster, rust_config())?;

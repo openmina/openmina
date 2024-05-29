@@ -369,7 +369,7 @@ impl P2pNetworkKadEntry {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, thiserror::Error)]
+#[derive(Clone, Debug, Serialize, PartialEq, Deserialize, thiserror::Error)]
 pub enum P2pNetworkKadEntryTryFromError {
     #[error(transparent)]
     PeerId(#[from] P2pNetworkKademliaPeerIdError),

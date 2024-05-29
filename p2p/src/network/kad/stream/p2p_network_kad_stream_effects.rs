@@ -1,7 +1,11 @@
 use openmina_core::warn;
 use redux::ActionMeta;
 
-use crate::{Data, P2pNetworkKademliaAction, P2pNetworkYamuxAction};
+use crate::{
+    disconnection::{P2pDisconnectionAction, P2pDisconnectionReason},
+    stream::{P2pNetworkKadIncomingStreamError, P2pNetworkKadOutgoingStreamError},
+    Data, P2pNetworkKademliaAction, P2pNetworkSchedulerAction, P2pNetworkYamuxAction,
+};
 
 use super::{
     super::{P2pNetworkKademliaRpcReply, P2pNetworkKademliaRpcRequest},
@@ -179,7 +183,17 @@ impl P2pNetworkKademliaStreamAction {
                 Ok(())
             }
             (action, D::Incoming(I::Error(err)) | D::Outgoing(O::Error(err))) => {
-                warn!(meta.time(); summary = "error handling kademlia action", error = err, action = format!("{action:?}"));
+                warn!(meta.time(); summary = "error handling kademlia action", error = display(err));
+                let error = match state {
+                    D::Incoming(_) => P2pNetworkKadIncomingStreamError::from(err.clone()).into(),
+                    D::Outgoing(_) => P2pNetworkKadOutgoingStreamError::from(err.clone()).into(),
+                };
+                let peer_id = *action.peer_id();
+                store.dispatch(P2pDisconnectionAction::Init {
+                    peer_id,
+                    reason: P2pDisconnectionReason::NetworkError(error),
+                });
+                store.dispatch(P2pNetworkSchedulerAction::PruneStreams { peer_id });
                 Ok(())
             }
             (action, _) => Err(format!("incorrect state {state:?} for action {action:?}")),

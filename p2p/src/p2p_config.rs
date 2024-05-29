@@ -28,6 +28,8 @@ pub struct P2pConfig {
 
     pub timeouts: P2pTimeouts,
 
+    pub limits: P2pLimits,
+
     /// Use peers discovery.
     pub peer_discovery: bool,
 
@@ -84,5 +86,118 @@ impl P2pTimeouts {
             snark: None,
             ..Default::default()
         }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, derive_more::Display)]
+pub enum Limit<T> {
+    #[display(fmt = "{}", _0)]
+    Some(T),
+    #[display(fmt = "unlimited")]
+    Unlimited,
+}
+
+impl<T> Limit<T> {
+    pub fn map<F, O>(self, f: F) -> Limit<O>
+    where
+        F: FnOnce(T) -> O,
+    {
+        match self {
+            Limit::Some(t) => Limit::Some(f(t)),
+            Limit::Unlimited => Limit::Unlimited,
+        }
+    }
+}
+
+macro_rules! impls {
+    ($ty:ty) => {
+        impl std::cmp::PartialEq<$ty> for Limit<$ty> {
+            fn eq(&self, other: &$ty) -> bool {
+                match self {
+                    Limit::Some(v) => v.eq(other),
+                    Limit::Unlimited => false,
+                }
+            }
+        }
+
+        impl std::cmp::PartialEq<Limit<$ty>> for $ty {
+            fn eq(&self, other: &Limit<$ty>) -> bool {
+                match other {
+                    Limit::Some(other) => self.eq(other),
+                    Limit::Unlimited => false,
+                }
+            }
+        }
+
+        impl std::cmp::PartialEq<Limit<$ty>> for Limit<$ty> {
+            fn eq(&self, other: &Limit<$ty>) -> bool {
+                match (self, other) {
+                    (Limit::Some(this), Limit::Some(other)) => this.eq(other),
+                    (Limit::Unlimited, Limit::Unlimited) => true,
+                    _ => false,
+                }
+            }
+        }
+
+        impl std::cmp::Eq for Limit<$ty> {}
+
+        impl std::cmp::PartialOrd<$ty> for Limit<$ty> {
+            fn partial_cmp(&self, other: &$ty) -> Option<std::cmp::Ordering> {
+                match self {
+                    Limit::Some(v) => v.partial_cmp(other),
+                    Limit::Unlimited => Some(std::cmp::Ordering::Greater),
+                }
+            }
+        }
+
+        impl std::cmp::PartialOrd<Limit<$ty>> for $ty {
+            fn partial_cmp(&self, other: &Limit<$ty>) -> Option<std::cmp::Ordering> {
+                match other {
+                    Limit::Some(other) => self.partial_cmp(other),
+                    Limit::Unlimited => Some(std::cmp::Ordering::Less),
+                }
+            }
+        }
+    };
+}
+
+impls!(usize);
+impls!(std::time::Duration);
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct P2pLimits {
+    pub identify_message: Limit<usize>,
+    pub kademlia_request: Limit<usize>,
+    pub kademlia_response: Limit<usize>,
+}
+
+impl Default for P2pLimits {
+    fn default() -> Self {
+        let identify_message = Limit::Some(0x1000);
+        let kademlia_request = Limit::Some(50);
+        let kademlia_response = identify_message.map(|v| v * 20); // should be enough to fit 20 addresses supplied by identify
+        Self {
+            identify_message,
+            kademlia_request,
+            kademlia_response,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::Limit;
+
+    #[test]
+    fn test_limits() {
+        let limit = Limit::Some(10);
+        assert!(0 < limit);
+        assert!(10 <= limit);
+        assert!(11 > limit);
+
+        let unlimited = Limit::Unlimited;
+        assert!(0 < unlimited);
+        assert!(usize::MAX < unlimited);
     }
 }

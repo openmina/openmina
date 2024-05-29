@@ -101,7 +101,7 @@ impl Default for ClusterBuilder {
             ports: None,
             ip: Ipv4Addr::LOCALHOST.into(),
             idle_duration: Duration::from_millis(100),
-            is_error: |_| false,
+            is_error: super::event::is_error,
             total_duration: Duration::from_secs(60),
         }
     }
@@ -360,6 +360,7 @@ impl Cluster {
             max_peers: 100,
             peer_discovery: config.discovery,
             timeouts: config.timeouts,
+            limits: config.limits,
             initial_time: Duration::ZERO,
         };
 

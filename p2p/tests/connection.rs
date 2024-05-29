@@ -3,6 +3,7 @@ use std::time::Duration;
 use p2p::PeerId;
 use p2p_testing::{
     cluster::{Cluster, ClusterBuilder, NodeId},
+    event::allow_disconnections,
     libp2p_node::Libp2pNodeConfig,
     rust_node::{RustNodeConfig, RustNodeId},
     utils::{
@@ -133,6 +134,7 @@ async fn mutual_rust_to_rust() -> anyhow::Result<()> {
     let mut cluster = ClusterBuilder::default()
         .ports_with_len(10)
         .total_duration(Duration::from_secs(10))
+        .is_error(allow_disconnections)
         .start()
         .await?;
 
@@ -171,6 +173,7 @@ async fn mutual_rust_to_rust_many() -> anyhow::Result<()> {
     let mut cluster = ClusterBuilder::default()
         .ports_with_len(NUM * 2)
         .total_duration(Duration::from_secs(60))
+        .is_error(allow_disconnections)
         .start()
         .await?;
 

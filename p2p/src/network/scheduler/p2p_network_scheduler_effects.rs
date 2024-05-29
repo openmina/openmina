@@ -322,7 +322,7 @@ impl P2pNetworkSchedulerAction {
                     if !matches!(
                         reason,
                         P2pNetworkConnectionCloseReason::Disconnect(
-                            P2pDisconnectionReason::SelectError
+                            P2pDisconnectionReason::NetworkError(P2pNetworkError::SelectError)
                         )
                     ) && reason.is_disconnected()
                     {

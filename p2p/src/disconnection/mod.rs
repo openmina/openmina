@@ -11,9 +11,9 @@ pub use p2p_disconnection_service::*;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{channels::ChannelId, connection::RejectionReason};
+use crate::{channels::ChannelId, connection::RejectionReason, P2pNetworkError};
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, thiserror::Error)]
 pub enum P2pDisconnectionReason {
     #[error("message is unexpected for channel {0}")]
     P2pChannelMsgUnexpected(ChannelId),
@@ -35,9 +35,9 @@ pub enum P2pDisconnectionReason {
     #[error("duplicate connection")]
     DuplicateConnection,
 
-    #[error("select error")]
-    SelectError,
-
     #[error("timeout")]
     Timeout,
+
+    #[error("network error: {0}")]
+    NetworkError(#[from] P2pNetworkError),
 }

@@ -1,7 +1,10 @@
 use quick_protobuf::{serialize_into_vec, BytesReader};
 use redux::ActionWithMeta;
 
-use crate::{P2pNetworkKademliaRpcReply, P2pNetworkKademliaRpcRequest};
+use crate::{
+    stream::P2pNetworkKadStreamError, P2pLimits, P2pNetworkKademliaRpcReply,
+    P2pNetworkKademliaRpcRequest,
+};
 
 use super::{
     super::Message, P2pNetworkKadIncomingStreamState, P2pNetworkKadOutgoingStreamState,
@@ -12,6 +15,7 @@ impl P2pNetworkKadIncomingStreamState {
     pub fn reducer(
         &mut self,
         action: ActionWithMeta<&P2pNetworkKademliaStreamAction>,
+        limits: &P2pLimits,
     ) -> Result<(), String> {
         use super::P2pNetworkKadIncomingStreamState as S;
         use super::P2pNetworkKademliaStreamAction as A;
@@ -30,9 +34,18 @@ impl P2pNetworkKadIncomingStreamState {
 
                 let mut reader = BytesReader::from_bytes(data);
                 let Ok(len) = reader.read_varint32(data).map(|v| v as usize) else {
-                    *self = S::Error("error reading message length".to_owned());
+                    *self = S::Error(P2pNetworkKadStreamError::MessageLength);
                     return Ok(());
                 };
+
+                println!("=== kademlia request len: {len}");
+                if len > limits.kademlia_request {
+                    *self = S::Error(P2pNetworkKadStreamError::Limit(
+                        len,
+                        limits.kademlia_request,
+                    ));
+                    return Ok(());
+                }
 
                 if len > reader.len() {
                     *self = S::PartialRequestReceived {
@@ -87,7 +100,7 @@ impl P2pNetworkKadIncomingStreamState {
         let message = match reader.read_message_by_len::<Message>(data, len) {
             Ok(v) => v,
             Err(e) => {
-                *self = Error(format!("error reading protobuf message: {e}"));
+                *self = Error(P2pNetworkKadStreamError::Message(e.to_string()));
                 return Ok(());
             }
         };
@@ -95,7 +108,7 @@ impl P2pNetworkKadIncomingStreamState {
         let data = match P2pNetworkKademliaRpcRequest::try_from(message.clone()) {
             Ok(v) => v,
             Err(e) => {
-                *self = Error(format!("error converting protobuf message: {e}"));
+                *self = Error(e.into());
                 return Ok(());
             }
         };
@@ -109,12 +122,11 @@ impl P2pNetworkKadOutgoingStreamState {
     pub fn reducer(
         &mut self,
         action: ActionWithMeta<&P2pNetworkKademliaStreamAction>,
+        limits: &P2pLimits,
     ) -> Result<(), String> {
         use super::P2pNetworkKadOutgoingStreamState as S;
         use super::P2pNetworkKademliaStreamAction as A;
         let (action, _meta) = action.split();
-        // println!("=== state:  {self:?}");
-        // println!("=== action: {action:?}");
         match (&self, action) {
             (S::Default, A::New { incoming, .. }) if !*incoming => {
                 *self = S::WaitingForRequest {
@@ -139,9 +151,18 @@ impl P2pNetworkKadOutgoingStreamState {
 
                 let mut reader = BytesReader::from_bytes(data);
                 let Ok(len) = reader.read_varint32(data).map(|v| v as usize) else {
-                    *self = S::Error("error reading message length".to_owned());
+                    *self = S::Error(P2pNetworkKadStreamError::MessageLength);
                     return Ok(());
                 };
+
+                println!("=== kademlia response len: {len}");
+                if len > limits.kademlia_response {
+                    *self = S::Error(P2pNetworkKadStreamError::Limit(
+                        len,
+                        limits.kademlia_response,
+                    ));
+                    return Ok(());
+                }
 
                 if len > reader.len() {
                     *self = S::PartialReplyReceived {
@@ -190,7 +211,7 @@ impl P2pNetworkKadOutgoingStreamState {
         let message = match reader.read_message_by_len::<Message>(data, len) {
             Ok(v) => v,
             Err(e) => {
-                *self = Error(format!("error reading protobuf message: {e}"));
+                *self = Error(P2pNetworkKadStreamError::Message(e.to_string()));
                 return Ok(());
             }
         };
@@ -198,7 +219,7 @@ impl P2pNetworkKadOutgoingStreamState {
         let data = match P2pNetworkKademliaRpcReply::try_from(message.clone()) {
             Ok(v) => v,
             Err(e) => {
-                *self = Error(format!("error converting protobuf message: {e}"));
+                *self = Error(e.into());
                 return Ok(());
             }
         };
@@ -212,10 +233,11 @@ impl P2pNetworkKadStreamState {
     pub fn reducer(
         &mut self,
         action: ActionWithMeta<&P2pNetworkKademliaStreamAction>,
+        limits: &P2pLimits,
     ) -> Result<(), String> {
         match self {
-            P2pNetworkKadStreamState::Incoming(i) => i.reducer(action),
-            P2pNetworkKadStreamState::Outgoing(o) => o.reducer(action),
+            P2pNetworkKadStreamState::Incoming(i) => i.reducer(action, limits),
+            P2pNetworkKadStreamState::Outgoing(o) => o.reducer(action, limits),
         }
     }
 }

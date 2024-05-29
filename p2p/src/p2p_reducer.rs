@@ -113,7 +113,9 @@ impl P2pState {
                     }
                 }
             },
-            P2pAction::Network(action) => self.network.reducer(meta.with_action(action)),
+            P2pAction::Network(action) => self
+                .network
+                .reducer(meta.with_action(action), &self.config.limits),
         }
     }
 }

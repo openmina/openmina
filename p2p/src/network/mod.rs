@@ -1,4 +1,7 @@
 mod p2p_network_actions;
+use serde::Deserialize;
+use serde::Serialize;
+
 pub use self::p2p_network_actions::*;
 
 mod p2p_network_service;
@@ -24,6 +27,7 @@ pub mod noise;
 pub use self::noise::*;
 
 pub mod yamux;
+use self::stream::{P2pNetworkKadIncomingStreamError, P2pNetworkKadOutgoingStreamError};
 pub use self::yamux::*;
 
 pub mod identify;
@@ -161,4 +165,14 @@ mod data {
             &mut self.0
         }
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, thiserror::Error)]
+pub enum P2pNetworkError {
+    #[error("select error")]
+    SelectError,
+    #[error(transparent)]
+    KademliaIncomingStreamError(#[from] P2pNetworkKadIncomingStreamError),
+    #[error(transparent)]
+    KademliaOutgoingStreamError(#[from] P2pNetworkKadOutgoingStreamError),
 }

@@ -2,8 +2,6 @@ use std::collections::BTreeMap;
 
 use openmina_core::error;
 
-use crate::disconnection::P2pDisconnectionReason;
-
 use super::{super::*, p2p_network_scheduler_state::P2pNetworkConnectionState, *};
 
 impl P2pNetworkSchedulerState {
@@ -142,10 +140,16 @@ impl P2pNetworkSchedulerState {
                     }
 
                     connection.closed = Some(P2pNetworkConnectionCloseReason::Disconnect(
-                        P2pDisconnectionReason::SelectError,
+                        P2pNetworkError::SelectError.into(),
                     ));
                 } else {
-                    unreachable!()
+                    if let Some(connection) = self.connections.get_mut(addr) {
+                        connection.closed = Some(P2pNetworkConnectionCloseReason::Disconnect(
+                            P2pNetworkError::SelectError.into(),
+                        ));
+                    } else {
+                        unreachable!()
+                    }
                 }
             }
             P2pNetworkSchedulerAction::YamuxDidInit { addr, .. } => {

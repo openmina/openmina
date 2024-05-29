@@ -1,7 +1,7 @@
 use multiaddr::Multiaddr;
 use openmina_core::{error, ChainId};
 
-use crate::{identity::PublicKey, PeerId};
+use crate::{identity::PublicKey, P2pLimits, PeerId};
 
 use super::*;
 
@@ -47,7 +47,11 @@ impl P2pNetworkState {
 }
 
 impl P2pNetworkState {
-    pub fn reducer(&mut self, action: redux::ActionWithMeta<&P2pNetworkAction>) {
+    pub fn reducer(
+        &mut self,
+        action: redux::ActionWithMeta<&P2pNetworkAction>,
+        limits: &P2pLimits,
+    ) {
         let (action, meta) = action.split();
         match action {
             P2pNetworkAction::Scheduler(a) => self.scheduler.reducer(meta.with_action(a)),
@@ -88,7 +92,11 @@ impl P2pNetworkState {
             P2pNetworkAction::Identify(a) => {
                 let time = meta.time();
                 // println!("======= identify reducer for {state:?}");
-                if let Err(err) = self.scheduler.identify_state.reducer(meta.with_action(a)) {
+                if let Err(err) = self
+                    .scheduler
+                    .identify_state
+                    .reducer(meta.with_action(a), limits)
+                {
                     error!(time; "{err}");
                 }
                 // println!("======= identify reducer result {state:?}");
@@ -99,11 +107,9 @@ impl P2pNetworkState {
                     return;
                 };
                 let time = meta.time();
-                // println!("======= kad reducer for {state:?}");
-                if let Err(err) = state.reducer(meta.with_action(a)) {
+                if let Err(err) = state.reducer(meta.with_action(a), limits) {
                     error!(time; "{err}");
                 }
-                // println!("======= kad reducer result {state:?}");
             }
             P2pNetworkAction::Pubsub(a) => {
                 self.scheduler.broadcast_state.reducer(meta.with_action(a))
