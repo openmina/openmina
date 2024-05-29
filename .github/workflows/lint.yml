@@ -36,4 +36,4 @@ jobs:
         name: clippy
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          args: --all-targets -- -A clippy::too_many_arguments -A clippy::doc_markdown
+          args: --all-targets -- -D warnings
