@@ -1,13 +1,13 @@
 use serde::{Deserialize, Serialize};
 
+mod json_daemon;
 mod json_genesis;
 mod json_ledger;
-mod json_daemon;
+pub use json_daemon::Daemon;
 pub use json_genesis::Genesis;
 pub use json_ledger::{
     Account, AccountConfigError, AccountPermissions, AccountTiming, Ledger, Zkapp,
 };
-pub use json_daemon::Daemon;
 
 /// This type represents a JSON object loaded from daemon.json
 /// file. It does not describe its full structure, as it's not
