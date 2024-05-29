@@ -206,6 +206,11 @@ impl Node {
             },
             transition_frontier,
             block_producer: block_producer.clone().map(|(config, _)| config),
+            tx_pool: ledger::transaction_pool::Config {
+                trust_system: (),
+                pool_max_size: daemon_conf.tx_pool_max_size(),
+                slot_tx_end: daemon_conf.slot_tx_end(),
+            },
         };
         let (event_sender, event_receiver) = mpsc::unbounded_channel();
 

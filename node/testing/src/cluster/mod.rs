@@ -292,6 +292,11 @@ impl Cluster {
             },
             transition_frontier: TransitionFrontierConfig::new(testing_config.genesis),
             block_producer: block_producer_config,
+            tx_pool: ledger::transaction_pool::Config {
+                trust_system: (),
+                pool_max_size: 3000,
+                slot_tx_end: None,
+            },
         };
 
         let mut service_builder = NodeServiceBuilder::new(rng_seed);

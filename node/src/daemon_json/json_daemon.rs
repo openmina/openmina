@@ -1,17 +1,25 @@
 use ledger::scan_state::currency::Slot;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Daemon {
-    txpool_max_size: Option<u32>,
+    txpool_max_size: Option<usize>,
     peer_list_url: Option<String>,
     slot_tx_end: Option<u32>,
     slot_chain_end: Option<u32>,
 }
 
 impl Daemon {
-    pub fn tx_pool_max_size(&self) -> u32 {
-        self.txpool_max_size.unwrap_or(3000)
+    pub const DEFAULT: Daemon = Daemon {
+        txpool_max_size: Some(3000),
+        peer_list_url: None,
+        slot_tx_end: None,
+        slot_chain_end: None,
+    };
+
+    pub fn tx_pool_max_size(&self) -> usize {
+        self.txpool_max_size
+            .unwrap_or(Self::DEFAULT.txpool_max_size.unwrap())
     }
 
     pub fn peer_list_url(&self) -> Option<String> {

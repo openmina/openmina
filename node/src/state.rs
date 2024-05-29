@@ -190,7 +190,7 @@ impl State {
             external_snark_worker: ExternalSnarkWorkers::new(now),
             block_producer: BlockProducerState::new(now, config.block_producer),
             rpc: RpcState::new(),
-            transaction_pool: TransactionPoolState::new(constants),
+            transaction_pool: TransactionPoolState::new(config.tx_pool, constants),
 
             watched_accounts: WatchedAccountsState::new(),
 
