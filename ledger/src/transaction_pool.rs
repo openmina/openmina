@@ -237,10 +237,10 @@ fn preload_accounts(
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-struct Config {
-    trust_system: (),
-    pool_max_size: usize,
-    slot_tx_end: Option<Slot>,
+pub struct Config {
+    pub trust_system: (),
+    pub pool_max_size: usize,
+    pub slot_tx_end: Option<Slot>,
 }
 
 pub type VerificationKeyWire = WithHash<VerificationKey>;
@@ -1507,14 +1507,14 @@ pub struct TransactionPool {
 }
 
 impl TransactionPool {
-    pub fn new(config: &ConsensusConstants) -> Self {
+    pub fn new(config: Config, consensus_constants: &ConsensusConstants) -> Self {
         Self {
-            pool: IndexedPool::new(config),
+            pool: IndexedPool::new(consensus_constants),
             locally_generated_uncommitted: Default::default(),
             locally_generated_committed: Default::default(),
             current_batch: 0,
             remaining_in_batch: 0,
-            config: todo!(),
+            config,
             batcher: (),
             best_tip_diff_relay: None,
             verification_key_table: Default::default(),

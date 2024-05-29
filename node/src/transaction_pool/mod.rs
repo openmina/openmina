@@ -1,6 +1,6 @@
 use ledger::{
     scan_state::transaction_logic::{verifiable, UserCommand, WithStatus},
-    transaction_pool::{diff, ApplyDecision},
+    transaction_pool::{diff, Config, ApplyDecision},
     Account, AccountId,
 };
 use openmina_core::consensus::ConsensusConstants;
@@ -27,9 +27,9 @@ pub struct TransactionPoolState {
 type TransactionPoolActionWithMetaRef<'a> = redux::ActionWithMeta<&'a TransactionPoolAction>;
 
 impl TransactionPoolState {
-    pub fn new(config: &ConsensusConstants) -> Self {
+    pub fn new(config: Config, consensus_constants: &ConsensusConstants) -> Self {
         Self {
-            pool: ledger::transaction_pool::TransactionPool::new(config),
+            pool: ledger::transaction_pool::TransactionPool::new(config, consensus_constants),
             pending_actions: Default::default(),
             pending_id: 0,
         }
