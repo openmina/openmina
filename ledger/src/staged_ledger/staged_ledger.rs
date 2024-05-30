@@ -2464,6 +2464,7 @@ mod tests_ocaml {
     ///   the staged and test ledgers, and verify they are in the same state.
     ///
     /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/staged_ledger/staged_ledger.ml#L2180
+    #[allow(clippy::blocks_in_conditions)]
     fn async_with_given_ledger<F, R>(
         _ledger_init_state: &LedgerInitialState,
         cmds: Vec<valid::UserCommand>,
@@ -4918,7 +4919,7 @@ mod tests_ocaml {
                             pre_diff.sort_by_key(|v| v.fee);
                             pre_diff
                         })
-                        .unwrap_or_else(Vec::new)
+                        .unwrap_or_default()
                 };
 
                 {

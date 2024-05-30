@@ -180,7 +180,7 @@ impl BlockProducerEnabled {
                 let proposed_protocol_version_opt = self.config.proposed_protocol_version.clone();
 
                 let ledger_proof_statement = ledger_proof_statement_from_emitted_proof(
-                    emitted_ledger_proof.as_ref().map(|proof| &**proof),
+                    emitted_ledger_proof.as_deref(),
                     &pred_blockchain_state.ledger_proof_statement,
                 );
 

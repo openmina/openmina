@@ -301,8 +301,8 @@ pub struct Zkapp {
     zkapp_uri: String,
 }
 
-fn parse_fp(str: &String) -> Result<Fp, AccountConfigError> {
-    Fp::from_str(str).map_err(|_| AccountConfigError::MalformedFp(str.clone()))
+fn parse_fp(str: &str) -> Result<Fp, AccountConfigError> {
+    Fp::from_str(str).map_err(|_| AccountConfigError::MalformedFp(str.to_owned()))
 }
 
 impl Zkapp {
@@ -310,7 +310,7 @@ impl Zkapp {
         let app_state_fps: Vec<Fp> = self
             .app_state
             .iter()
-            .map(parse_fp)
+            .map(|fp| parse_fp(fp))
             .collect::<Result<Vec<Fp>, AccountConfigError>>()?;
         let app_state = if app_state_fps.len() <= 8 {
             let mut app_state = [0.into(); 8];
@@ -324,7 +324,7 @@ impl Zkapp {
         let act_state_fps: Vec<Fp> = self
             .action_state
             .iter()
-            .map(parse_fp)
+            .map(|fp| parse_fp(fp))
             .collect::<Result<Vec<Fp>, AccountConfigError>>()?;
         let action_state = if act_state_fps.len() <= 5 {
             let mut action_state = [0.into(); 5];

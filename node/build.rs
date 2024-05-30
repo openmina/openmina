@@ -211,7 +211,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         let use_path = path
             .strip_prefix(crate_dir.file_name().unwrap())
             .unwrap_or(path)
-            .into_iter()
+            .iter()
             .map(|v| v.to_str().unwrap().to_string())
             .filter(|v| v != "src" && v != "node")
             .collect::<Vec<_>>();

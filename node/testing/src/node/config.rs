@@ -8,6 +8,7 @@ pub use super::rust::{RustNodeBlockProducerTestingConfig, RustNodeTestingConfig,
 
 #[derive(Serialize, Deserialize, derive_more::From, Debug, Clone)]
 #[serde(tag = "kind")]
+#[allow(clippy::large_enum_variant)]
 pub enum NodeTestingConfig {
     Rust(RustNodeTestingConfig),
     Ocaml(OcamlNodeTestingConfig),

@@ -96,7 +96,7 @@ impl redux::TimeService for NodeService {
         self.replayer
             .as_ref()
             .map(|v| v.next_monotonic_time())
-            .unwrap_or_else(|| redux::Instant::now())
+            .unwrap_or_else(redux::Instant::now)
     }
 }
 
@@ -266,7 +266,7 @@ impl SnarkWorkVerifyService for NodeService {
                             [Some(conv(v1)), Some(conv(v2))]
                         }
                     })
-                    .filter_map(|v| v)
+                    .flatten()
                     .collect::<Vec<_>>();
                 let verifier_srs = verifier_srs.lock().expect("Failed to lock SRS");
                 if !ledger::proofs::verification::verify_transaction(

@@ -55,9 +55,9 @@
 //! ```
 
 pub mod batch;
-pub(self) mod compression;
+mod compression;
 mod database;
-pub(self) mod lock;
+mod lock;
 
 pub use batch::Batch;
 pub use database::*;

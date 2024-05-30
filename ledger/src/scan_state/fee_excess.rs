@@ -307,7 +307,7 @@ impl FeeExcess {
             eliminate_fee_excess_checked(
                 (&fee_token1_l, fee_excess1_l),
                 (&fee_token2_l, fee_excess2_l),
-                (&fee_token2_r, fee_excess2_r),
+                (fee_token2_r, fee_excess2_r),
                 w,
             );
 

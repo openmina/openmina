@@ -27,7 +27,7 @@ impl SoloNodeBootstrap {
 
         const TIMEOUT: Duration = Duration::from_secs(60 * 40);
 
-        const REPLAYER_1: &'static str =
+        const REPLAYER_1: & str =
             "/ip4/135.181.217.23/tcp/31968/p2p/12D3KooWPayQEdprqY2m3biReUUybA5LoULpJE7YWu6wetEKKELv";
         let replayer = (&REPLAYER_1.parse::<libp2p::Multiaddr>().unwrap())
             .try_into()
@@ -51,13 +51,12 @@ impl SoloNodeBootstrap {
             {
                 let steps = runner
                     .pending_events(true)
-                    .map(|(node_id, _, events)| {
+                    .flat_map(|(node_id, _, events)| {
                         events.map(move |(_, event)| ScenarioStep::Event {
                             node_id,
                             event: event.to_string(),
                         })
                     })
-                    .flatten()
                     .collect::<Vec<_>>();
 
                 for step in steps {

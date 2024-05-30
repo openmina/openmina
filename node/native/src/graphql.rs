@@ -10,6 +10,7 @@ struct Context(super::RpcSender);
 impl juniper::Context for Context {}
 
 #[derive(Clone, Copy, Debug, GraphQLEnum)]
+#[allow(clippy::upper_case_acronyms)]
 enum SyncStatus {
     CONNECTING,
     LISTENING,

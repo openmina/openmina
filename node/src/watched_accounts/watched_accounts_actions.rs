@@ -134,7 +134,7 @@ impl redux::EnablingCondition<crate::State> for WatchedAccountsAction {
                 let Some(acc) = state.watched_accounts.get(pub_key) else {
                     return false;
                 };
-                acc.block_find_by_hash(&block_hash)
+                acc.block_find_by_hash(block_hash)
                     .filter(|b| {
                         matches!(b, WatchedAccountBlockState::TransactionsInBlockBody { .. })
                     })

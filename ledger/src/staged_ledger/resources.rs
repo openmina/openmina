@@ -419,12 +419,11 @@ impl Resources {
         let prover_fee_others =
             self.fee_transfers
                 .iter()
-                .fold(Ok(Fee::zero()), |accum, (key, fee)| {
-                    let others = accum?;
+                .try_fold(Fee::zero(), |accum, (key, fee)| {
                     if &self.receiver_pk == key {
-                        Ok(others)
+                        Ok(accum)
                     } else {
-                        others
+                        accum
                             .checked_add(fee)
                             .ok_or_else(|| "Fee overflow".to_string())
                     }

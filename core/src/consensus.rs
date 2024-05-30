@@ -53,7 +53,7 @@ pub fn is_short_range_fork(a: &MinaConsensusState, b: &MinaConsensusState) -> bo
         a_prev_lock_checkpoint == b_prev_lock_checkpoint
     } else {
         // Check for previous epoch case using both orientations
-        check(&a, &b) || check(&b, &a)
+        check(a, b) || check(b, a)
     }
 }
 
@@ -85,7 +85,7 @@ pub fn relative_min_window_density(b1: &MinaConsensusState, b2: &MinaConsensusSt
 
         // Ring-shift
         let mut i = relative_sub_window_from_global_slot(global_slot(b1));
-        for _ in [0..=shift_count] {
+        for _ in 0..=shift_count {
             i = (i + 1) % SUB_WINDOWS_PER_WINDOW;
             projected_window[i as usize] = 0;
         }
@@ -121,7 +121,7 @@ pub fn short_range_fork_take(
 
     let tip_height = &tip_cs.blockchain_length;
     let candidate_height = &candidate_cs.blockchain_length;
-    match candidate_height.cmp(&tip_height) {
+    match candidate_height.cmp(tip_height) {
         Greater => return (true, ChainLength),
         Less => return (false, ChainLength),
         Equal => {}
@@ -135,11 +135,7 @@ pub fn short_range_fork_take(
         Equal => {}
     }
 
-    if candidate_hash > tip_hash {
-        return (true, StateHash);
-    } else {
-        return (false, StateHash);
-    }
+    (candidate_hash > tip_hash, StateHash)
 }
 
 pub fn long_range_fork_take(
@@ -161,7 +157,7 @@ pub fn long_range_fork_take(
 
     let tip_height = &tip_cs.blockchain_length;
     let candidate_height = &candidate_cs.blockchain_length;
-    match candidate_height.cmp(&tip_height) {
+    match candidate_height.cmp(tip_height) {
         Greater => return (true, ChainLength),
         Less => return (false, ChainLength),
         Equal => {}
@@ -175,11 +171,7 @@ pub fn long_range_fork_take(
         Equal => {}
     }
 
-    if candidate_hash > tip_hash {
-        return (true, StateHash);
-    } else {
-        return (false, StateHash);
-    }
+    (candidate_hash > tip_hash, StateHash)
 }
 
 pub fn consensus_take(

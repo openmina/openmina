@@ -49,7 +49,7 @@ fn initialize_logging() {
         .ok()
         .and_then(|var| var.parse::<bool>().ok())
         .unwrap_or(true)
-        .then(|| ErrorPanicLayer);
+        .then_some(ErrorPanicLayer);
     let subscriber = builder.finish().with(error_panic_layer);
     tracing::subscriber::set_global_default(subscriber)
         .expect("global subscriber should be configurable");

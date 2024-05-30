@@ -13,9 +13,9 @@ use super::{
 };
 
 impl TransitionFrontierGenesisAction {
-    pub fn effects<S: redux::Service>(&self, meta: &ActionMeta, store: &mut Store<S>)
+    pub fn effects<S>(&self, meta: &ActionMeta, store: &mut Store<S>)
     where
-        S: TransitionFrontierGenesisService,
+        S: redux::Service + TransitionFrontierGenesisService,
     {
         match self {
             TransitionFrontierGenesisAction::LedgerLoadInit => {

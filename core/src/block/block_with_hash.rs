@@ -156,27 +156,30 @@ impl<T: AsRef<Block>> BlockWithHash<T> {
                 }
             }
         }
-        match diff.1.as_ref() {
-            Some(v) => match &v.coinbase {
-                StagedLedgerDiffDiffPreDiffWithAtMostOneCoinbaseStableV2Coinbase::Zero => {}
-                StagedLedgerDiffDiffPreDiffWithAtMostOneCoinbaseStableV2Coinbase::One(v) => {
-                    coinbases.push(v.as_ref());
-                }
-            },
-            _ => {}
+
+        if let Some(StagedLedgerDiffDiffPreDiffWithAtMostOneCoinbaseStableV2Coinbase::One(v)) =
+            diff.1.as_ref().map(|v| &v.coinbase)
+        {
+            coinbases.push(v.as_ref());
         }
-        coinbases.into_iter().filter_map(|v| v)
+
+        coinbases.into_iter().flatten()
     }
 
     pub fn completed_works_iter<'a>(
         &'a self,
     ) -> Box<dyn 'a + Iterator<Item = &'a TransactionSnarkWorkTStableV2>> {
         let diff = self.staged_ledger_diff();
-        let _0 = &diff.0;
+        let diff_0 = &diff.0;
         if let Some(_1) = diff.1.as_ref() {
-            Box::new(_0.completed_works.iter().chain(_1.completed_works.iter()))
+            Box::new(
+                diff_0
+                    .completed_works
+                    .iter()
+                    .chain(_1.completed_works.iter()),
+            )
         } else {
-            Box::new(_0.completed_works.iter())
+            Box::new(diff_0.completed_works.iter())
         }
     }
 }
@@ -198,7 +201,7 @@ impl<T: AsRef<BlockHeader>> BlockHeaderWithHash<T> {
     }
 
     pub fn header(&self) -> &BlockHeader {
-        &self.header.as_ref()
+        self.header.as_ref()
     }
 
     pub fn consensus_state(&self) -> &ConsensusProofOfStakeDataConsensusStateValueStableV2 {

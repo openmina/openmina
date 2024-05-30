@@ -23,7 +23,7 @@ pub struct P2pNetworkKadBootstrapState {
     ///
     /// TODO: replace with something more lightweight.
     pub requests: BTreeMap<PeerId, P2pNetworkKadBoostrapRequestState>,
-    ///
+    /// Number of successful requests
     pub successful_requests: usize,
     /// Bootstrap requests statistics.
     pub stats: P2pNetworkKadBootstrapStats,

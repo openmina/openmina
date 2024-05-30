@@ -106,7 +106,7 @@ impl<F: FieldWitness> OptSponge<F> {
             SpongeState::Squeezed(n) => {
                 let n = *n;
                 if n == RATE {
-                    self.state = block_cipher(self.state, &self.params, w);
+                    self.state = block_cipher(self.state, self.params, w);
                     self.sponge_state = SpongeState::Squeezed(1);
                     self.state[0]
                 } else {
@@ -120,7 +120,7 @@ impl<F: FieldWitness> OptSponge<F> {
                         needs_final_permute_if_empty: self.needs_final_permute_if_empty,
                         start_pos: CircuitVar::Constant(*next_index),
                         params: self.params,
-                        input: &xs,
+                        input: xs,
                         state: self.state,
                     },
                     w,
@@ -198,7 +198,7 @@ fn consume<F: FieldWitness>(params: ConsumeParams<F>, w: &mut Witness<F>) -> [F;
         };
 
     let mut by_pairs = input.chunks_exact(2);
-    while let Some(pairs) = by_pairs.next() {
+    for pairs in by_pairs.by_ref() {
         let (b, x) = pairs[0];
         let (b2, y) = pairs[1];
 
@@ -236,15 +236,15 @@ fn consume<F: FieldWitness>(params: ConsumeParams<F>, w: &mut Witness<F>) -> [F;
     // Note: It's Boolean.Array.any here, not sure if there is a difference
     let empty_input = CircuitVar::any(&fst_input, w).map(Boolean::neg);
 
-    let should_permute = match by_pairs.remainder() {
-        &[] => {
+    let should_permute = match *by_pairs.remainder() {
+        [] => {
             if needs_final_permute_if_empty {
                 empty_input.or(&pos, w)
             } else {
                 pos
             }
         }
-        &[(b, x)] => {
+        [(b, x)] => {
             let p = pos;
             pos = p.lxor(&b, w);
 
@@ -287,7 +287,7 @@ fn full_round<F: FieldWitness>(
     for state_i in state.iter_mut() {
         *state_i = sbox::<F>(*state_i);
     }
-    *state = apply_mds_matrix::<F>(params, &state);
+    *state = apply_mds_matrix::<F>(params, state);
     for (i, x) in params.round_constants[r].iter().enumerate() {
         state[i].add_assign(x);
     }

@@ -143,7 +143,7 @@ impl Simulator {
             );
             let config = RustNodeTestingConfig {
                 snark_worker: Some(SnarkerConfig {
-                    public_key: sec_key.public_key().into(),
+                    public_key: sec_key.public_key(),
                     fee: CurrencyFeeStableV1(UnsignedExtendedUInt64Int64ForVersionTagsStableV1(
                         10_000_000.into(),
                     )),

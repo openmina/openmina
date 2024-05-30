@@ -676,8 +676,8 @@ impl Database {
 
         exchange_file_atomically(&self.filename, &new_db.filename)?;
 
-        new_db.filename = self.filename.clone();
-        new_db.uuid = self.uuid.clone();
+        new_db.filename.clone_from(&self.filename);
+        new_db.uuid.clone_from(&self.uuid);
 
         *self = new_db;
 

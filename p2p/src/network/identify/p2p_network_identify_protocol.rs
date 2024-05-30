@@ -29,12 +29,12 @@ pub enum P2pNetworkIdentifyFromMessageError {
     MultiaddrError(String),
 }
 
-impl<'a> TryFrom<super::pb::Identify> for P2pNetworkIdentify {
+impl TryFrom<super::pb::Identify> for P2pNetworkIdentify {
     type Error = P2pNetworkIdentifyFromMessageError;
 
     fn try_from(value: super::pb::Identify) -> Result<Self, Self::Error> {
-        let protocol_version = value.protocol_version.map(|v| v.into());
-        let agent_version = value.agent_version.map(|v| v.into());
+        let protocol_version = value.protocol_version;
+        let agent_version = value.agent_version;
 
         let public_key = match value.public_key {
             Some(pubkey) => Some(parse_public_key(&pubkey)?),
@@ -63,7 +63,7 @@ impl<'a> TryFrom<super::pb::Identify> for P2pNetworkIdentify {
         let mut protocols = Vec::new();
 
         for proto in value.protocols.iter() {
-            protocols.push(parse_protocol(&*proto)?)
+            protocols.push(parse_protocol(proto)?)
         }
 
         Ok(Self {
@@ -92,14 +92,10 @@ impl<'a> From<&'a P2pNetworkIdentify> for super::pb::Identify {
                 let mut writer = Writer::new(&mut buf);
 
                 pubkey.write_message(&mut writer).expect("encoding success");
-                buf.into()
+                buf
             }),
-            listen_addrs: value
-                .listen_addrs
-                .iter()
-                .map(|v| v.to_vec().into())
-                .collect(),
-            observed_addr: value.observed_addr.as_ref().map(|v| v.to_vec().into()),
+            listen_addrs: value.listen_addrs.iter().map(|v| v.to_vec()).collect(),
+            observed_addr: value.observed_addr.as_ref().map(|v| v.to_vec()),
             protocols: value
                 .protocols
                 .iter()

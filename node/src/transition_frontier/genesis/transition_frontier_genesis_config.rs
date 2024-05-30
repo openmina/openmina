@@ -107,8 +107,8 @@ impl GenesisConfig {
                 (mask, load_result)
             }
             Self::BalancesDelegateTable { table, constants } => {
-                let table = table.into_iter().map(|(bp_balance, delegators)| {
-                    let delegators = delegators.into_iter().copied();
+                let table = table.iter().map(|(bp_balance, delegators)| {
+                    let delegators = delegators.iter().copied();
                     (*bp_balance, delegators)
                 });
                 let (mut mask, total_currency) =

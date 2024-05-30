@@ -63,7 +63,6 @@ pub fn external_snark_worker_effects<S: crate::Service>(
             };
             if let Err(err) = store.service().submit(input) {
                 store.dispatch(ExternalSnarkWorkerAction::WorkError { error: err.into() });
-                return;
             }
         }
         ExternalSnarkWorkerAction::WorkResult { result } => {
@@ -90,12 +89,11 @@ pub fn external_snark_worker_effects<S: crate::Service>(
             store.dispatch(ExternalSnarkWorkerAction::CancelWork);
         }
         ExternalSnarkWorkerAction::CancelWork => {
-            if let Err(err) = store.service().cancel() {
+            if let Err(error) = store.service().cancel() {
                 store.dispatch(ExternalSnarkWorkerAction::Error {
-                    error: err.into(),
+                    error,
                     permanent: true,
                 });
-                return;
             }
         }
         ExternalSnarkWorkerAction::WorkCancelled => {

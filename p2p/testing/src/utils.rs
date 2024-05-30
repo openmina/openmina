@@ -71,14 +71,14 @@ pub fn rust_nodes_from_default_config<const N: usize>(
 /// Runs the cluster for the specified period of `time`.
 pub async fn run_cluster(cluster: &mut Cluster, time: Duration) {
     let mut stream = cluster.stream().take_during(time);
-    while let Some(_) = stream.next().await {}
+    while stream.next().await.is_some() {}
 }
 
 /// Tries to run the cluster for the specified period of `time`, returning `Err`
 /// if error event happens.
 pub async fn try_run_cluster(cluster: &mut Cluster, time: Duration) -> Result<(), ClusterEvent> {
     let mut stream = cluster.try_stream().take_during(time);
-    while let Some(_) = stream.try_next().await? {}
+    while stream.try_next().await?.is_some() {}
     Ok(())
 }
 

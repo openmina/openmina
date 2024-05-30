@@ -53,7 +53,7 @@ impl<const R: usize> XSalsa<R> {
     pub fn remaining(&self) -> usize {
         64 - self.get_pos()
     }
-
+    #[allow(clippy::result_unit_err)]
     pub fn check_remaining(&self, dlen: usize) -> Result<(), ()> {
         let rem_blocks = match self.core.remaining_blocks() {
             Some(v) => v,
@@ -168,7 +168,7 @@ impl<const R: usize> XSalsaCore<R> {
         for mut block in blocks {
             let mut t = [0; 64];
             self.gen_ks_block(&mut t);
-            block.xor_in2out(&GenericArray::from_slice(&t));
+            block.xor_in2out(GenericArray::from_slice(&t));
         }
     }
 }
@@ -327,7 +327,7 @@ mod helpers {
             return serializer.serialize_str(&hex::encode(v));
         }
 
-        serializer.serialize_bytes(&*v)
+        serializer.serialize_bytes(v)
     }
 
     pub fn de_bytes<'de, const N: usize, D>(deserializer: D) -> Result<[u8; N], D::Error>

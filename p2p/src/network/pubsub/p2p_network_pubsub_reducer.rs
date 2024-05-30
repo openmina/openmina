@@ -69,7 +69,7 @@ impl P2pNetworkPubsubState {
                 let slice = if state.buffer.is_empty() {
                     &**data
                 } else {
-                    state.buffer.extend_from_slice(&**data);
+                    state.buffer.extend_from_slice(data);
                     &state.buffer
                 };
                 match <pb::Rpc as prost::Message>::decode_length_delimited(slice) {
@@ -136,10 +136,8 @@ impl P2pNetworkPubsubState {
                     }
                     Err(err) => {
                         // bad way to check the error, but `prost` doesn't provide better
-                        if err.to_string().contains("buffer underflow") {
-                            if state.buffer.is_empty() {
-                                state.buffer = data.to_vec();
-                            }
+                        if err.to_string().contains("buffer underflow") && state.buffer.is_empty() {
+                            state.buffer = data.to_vec();
                         }
                         dbg!(err);
                     }
@@ -161,7 +159,7 @@ impl P2pNetworkPubsubState {
             } => {
                 self.seq += 1;
 
-                let libp2p_peer_id = libp2p_identity::PeerId::from(author.clone());
+                let libp2p_peer_id = libp2p_identity::PeerId::from(*author);
                 self.to_sign.push_back(pb::Message {
                     from: Some(libp2p_peer_id.to_bytes()),
                     data: Some(data.0.clone().into_vec()),

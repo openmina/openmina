@@ -49,7 +49,7 @@ pub enum WatchedAccountLedgerInitialState {
     Success {
         time: redux::Timestamp,
         block: WatchedAccountBlockInfo,
-        data: Option<MinaBaseAccountBinableArgStableV2>,
+        data: Option<Box<MinaBaseAccountBinableArgStableV2>>,
     },
 }
 
@@ -63,7 +63,7 @@ impl WatchedAccountLedgerInitialState {
 
     pub fn data(&self) -> Option<&MinaBaseAccountBinableArgStableV2> {
         match self {
-            Self::Success { data, .. } => data.as_ref(),
+            Self::Success { data, .. } => data.as_ref().map(AsRef::as_ref),
             _ => None,
         }
     }
@@ -93,7 +93,7 @@ pub enum WatchedAccountBlockState {
         block: WatchedAccountBlockInfo,
         /// Transactions included in the block ordered by nonce from low to high.
         transactions: Vec<Transaction>,
-        ledger_account: MinaBaseAccountBinableArgStableV2,
+        ledger_account: Box<MinaBaseAccountBinableArgStableV2>,
     },
 }
 
@@ -149,16 +149,14 @@ impl WatchedAccountState {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct WatchedAccountsState {
     list: BTreeMap<NonZeroCurvePoint, WatchedAccountState>,
 }
 
 impl WatchedAccountsState {
     pub fn new() -> Self {
-        Self {
-            list: Default::default(),
-        }
+        Self::default()
     }
 
     pub fn contains(&self, key: &NonZeroCurvePoint) -> bool {
@@ -177,9 +175,9 @@ impl WatchedAccountsState {
         self.list.insert(key, value);
     }
 
-    pub fn iter<'a>(
-        &'a self,
-    ) -> impl 'a + Iterator<Item = (&'a NonZeroCurvePoint, &'a WatchedAccountState)> {
+    pub fn iter(
+        &self,
+    ) -> impl '_ + Iterator<Item = (&'_ NonZeroCurvePoint, &'_ WatchedAccountState)> {
         self.list.iter()
     }
 

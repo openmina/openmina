@@ -1,7 +1,4 @@
 #![cfg(feature = "hashing")]
-//!
-//!
-//!
 
 use mina_hasher::Fp;
 

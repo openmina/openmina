@@ -476,7 +476,7 @@ pub mod plonk_curve_ops {
         }
 
         let bits_lsb = {
-            let mut bits_msb = bits_msb.clone();
+            let mut bits_msb = bits_msb;
             bits_msb.reverse();
             bits_msb
         };
@@ -559,16 +559,17 @@ impl PlonkVerificationKeyEvals<Fp> {
         CircuitPlonkVerificationKeyEvals::<Fp> {
             sigma: sigma.each_ref().map(cvar),
             coefficients: coefficients.each_ref().map(cvar),
-            generic: cvar(&generic),
-            psm: cvar(&psm),
-            complete_add: cvar(&complete_add),
-            mul: cvar(&mul),
-            emul: cvar(&emul),
-            endomul_scalar: cvar(&endomul_scalar),
+            generic: cvar(generic),
+            psm: cvar(psm),
+            complete_add: cvar(complete_add),
+            mul: cvar(mul),
+            emul: cvar(emul),
+            endomul_scalar: cvar(endomul_scalar),
         }
     }
 
     /// For debugging
+    #[allow(clippy::inherent_to_string)]
     fn to_string(&self) -> String {
         let Self {
             sigma,
@@ -591,8 +592,8 @@ impl PlonkVerificationKeyEvals<Fp> {
             string.push_str(&format!("{}\n", y.to_decimal()));
         };
 
-        sigma.iter().for_each(|c| inner_to_s(c));
-        coefficients.iter().for_each(|c| inner_to_s(c));
+        sigma.iter().for_each(&mut inner_to_s);
+        coefficients.iter().for_each(&mut inner_to_s);
         inner_to_s(generic);
         inner_to_s(psm);
         inner_to_s(complete_add);
@@ -686,8 +687,8 @@ impl crate::ToInputs for PlonkVerificationKeyEvals<Fp> {
             inputs.append(&y);
         };
 
-        sigma.iter().for_each(|c| to_input(c));
-        coefficients.iter().for_each(|c| to_input(c));
+        sigma.iter().for_each(&mut to_input);
+        coefficients.iter().for_each(&mut to_input);
         to_input(generic);
         to_input(psm);
         to_input(complete_add);
@@ -755,7 +756,7 @@ impl<F: FieldWitness> Check<F> for mina_signer::Signature {
 
 impl<F: FieldWitness, T: Check<F>> Check<F> for MyCow<'_, T> {
     fn check(&self, w: &mut Witness<F>) {
-        let this: &T = &*self;
+        let this: &T = self;
         this.check(w);
     }
 }
@@ -1637,6 +1638,16 @@ pub mod poseidon {
         params: &'static ArithmeticSpongeParams<F>,
         nabsorb: usize,
         _constants: PhantomData<C>,
+    }
+
+    impl<F, C> Default for Sponge<F, C>
+    where
+        F: FieldWitness,
+        C: SpongeConstants,
+    {
+        fn default() -> Self {
+            Self::new()
+        }
     }
 
     impl<F, C> Sponge<F, C>
@@ -2688,7 +2699,7 @@ pub mod transaction_snark {
         };
 
         w.exists_no_check(match before_cliff {
-            Boolean::True => initial_minimum_balance.clone(),
+            Boolean::True => *initial_minimum_balance,
             Boolean::False => else_value,
         })
     }
@@ -2818,7 +2829,7 @@ pub mod transaction_snark {
 
         let current_global_slot = global_slot;
         let user_command_failure =
-            user_command_failure::compute_as_prover(current_global_slot.clone(), tx, &ledger, w);
+            user_command_failure::compute_as_prover(current_global_slot, tx, &ledger, w);
 
         let user_command_fails = Boolean::any(&user_command_failure.to_list(), w);
         let fee = payload.common.fee.to_checked();
@@ -2834,11 +2845,8 @@ pub mod transaction_snark {
 
         let pending_coinbase_init: pending_coinbase::Stack = pending_coinbase_init.into();
 
-        let pending_coinbase_stack_with_state = pending_coinbase_init.checked_push_state(
-            state_body_hash,
-            current_global_slot.clone(),
-            w,
-        );
+        let pending_coinbase_stack_with_state =
+            pending_coinbase_init.checked_push_state(state_body_hash, current_global_slot, w);
 
         let computed_pending_coinbase_stack_after = {
             let coinbase = Coinbase {
@@ -2856,13 +2864,13 @@ pub mod transaction_snark {
         };
 
         let _correct_coinbase_target_stack =
-            computed_pending_coinbase_stack_after.equal_var(&pending_coinbase_after, w);
+            computed_pending_coinbase_stack_after.equal_var(pending_coinbase_after, w);
 
         let _valid_init_state = {
-            let equal_source = pending_coinbase_init.equal_var(&pending_coinbase_stack_before, w);
+            let equal_source = pending_coinbase_init.equal_var(pending_coinbase_stack_before, w);
 
             let equal_source_with_state =
-                pending_coinbase_stack_with_state.equal_var(&pending_coinbase_stack_before, w);
+                pending_coinbase_stack_with_state.equal_var(pending_coinbase_stack_before, w);
 
             equal_source.or(&equal_source_with_state, w)
         };
@@ -3001,7 +3009,7 @@ pub mod transaction_snark {
                     let account_creation_fee = {
                         // We don't use `exists_no_check` here because both are constants
                         let magnitude = if should_pay_to_create.as_bool() {
-                            account_creation_amount.clone()
+                            account_creation_amount
                         } else {
                             CheckedAmount::zero()
                         };
@@ -3026,10 +3034,10 @@ pub mod transaction_snark {
                     burned_tokens = amt;
                 }
 
-                let txn_global_slot = current_global_slot.clone();
+                let txn_global_slot = current_global_slot;
                 let timing = {
                     let txn_amount = w.exists_no_check(match amount.sgn {
-                        Sgn::Neg => amount.magnitude.clone(),
+                        Sgn::Neg => amount.magnitude,
                         Sgn::Pos => CheckedAmount::zero(),
                     });
 
@@ -3201,7 +3209,7 @@ pub mod transaction_snark {
                         };
 
                         let account_creation_fee_neg =
-                            CheckedSigned::of_unsigned(account_creation_fee.clone()).negate();
+                            CheckedSigned::of_unsigned(account_creation_fee).negate();
 
                         account_creation_fee_neg.set_value(); // We set it because it's a Constant
                         new_account_fees.set_value(); // We set it because it's a Constant
@@ -3479,7 +3487,7 @@ pub mod transaction_snark {
             let else_value = {
                 let amount_fee = CheckedAmount::of_fee(&payload.common.fee.to_checked());
 
-                let user_command_excess = CheckedSigned::of_unsigned(amount_fee.clone());
+                let user_command_excess = CheckedSigned::of_unsigned(amount_fee);
 
                 let (fee_transfer_excess, fee_transfer_excess_overflowed) = {
                     let (magnitude, overflow) =
@@ -3496,7 +3504,7 @@ pub mod transaction_snark {
                     Boolean::True => fee_transfer_excess,
                     Boolean::False => user_command_excess,
                 };
-                w.exists_no_check(value.magnitude.clone());
+                w.exists_no_check(value.magnitude);
                 value
             };
 
@@ -3511,8 +3519,8 @@ pub mod transaction_snark {
                 Boolean::True => CheckedSigned::of_unsigned(payload.body.amount.to_checked()),
                 Boolean::False => CheckedSigned::of_unsigned(CheckedAmount::zero()),
             };
-            w.exists_no_check(expected_supply_increase.magnitude.clone());
-            w.exists_no_check(expected_supply_increase.magnitude.clone());
+            w.exists_no_check(expected_supply_increase.magnitude);
+            w.exists_no_check(expected_supply_increase.magnitude);
 
             let (amt0, _overflow0) = expected_supply_increase
                 .add_flagged(&CheckedSigned::of_unsigned(burned_tokens).negate(), w);
@@ -3835,8 +3843,8 @@ pub fn make_prover_index<C: ProofConstants, F: FieldWitness>(
     let prev_challenges = C::PREVIOUS_CHALLENGES;
 
     let cs = ConstraintSystem::<F>::create(gates)
-        .public(public as usize)
-        .prev_challenges(prev_challenges as usize)
+        .public(public)
+        .prev_challenges(prev_challenges)
         .build()
         .unwrap();
 
@@ -3921,7 +3929,7 @@ pub(super) fn create_proof<C: ProofConstants, F: FieldWitness>(
         &group_map,
         computed_witness,
         &[],
-        &prover_index,
+        prover_index,
         prev_challenges,
         None,
         &mut rng,
@@ -4389,8 +4397,8 @@ mod tests {
                 statement: &statement,
                 tx_witness: &tx_witness,
                 message: &message,
-                tx_step_prover: &tx_step_prover,
-                tx_wrap_prover: &tx_wrap_prover,
+                tx_step_prover,
+                tx_wrap_prover,
                 only_verify_constraints: false,
                 expected_step_proof: None,
                 ocaml_wrap_witness: None,
@@ -4504,8 +4512,8 @@ mod tests {
                 statement: (&*statement).into(),
                 proofs: &proofs,
                 message: &message,
-                step_prover: &merge_step_prover,
-                wrap_prover: &tx_wrap_prover,
+                step_prover: merge_step_prover,
+                wrap_prover: tx_wrap_prover,
                 only_verify_constraints: false,
                 expected_step_proof: None,
                 // expected_step_proof: Some(
@@ -4559,11 +4567,11 @@ mod tests {
             statement: &statement,
             tx_witness: &tx_witness,
             message: &message,
-            step_opt_signed_opt_signed_prover: &zkapp_step_opt_signed_opt_signed_prover,
-            step_opt_signed_prover: &zkapp_step_opt_signed_prover,
-            step_proof_prover: &zkapp_step_proof_prover,
-            merge_step_prover: &merge_step_prover,
-            tx_wrap_prover: &tx_wrap_prover,
+            step_opt_signed_opt_signed_prover: zkapp_step_opt_signed_opt_signed_prover,
+            step_opt_signed_prover: zkapp_step_opt_signed_prover,
+            step_proof_prover: zkapp_step_proof_prover,
+            merge_step_prover,
+            tx_wrap_prover,
             opt_signed_path: None,
             // opt_signed_path: Some("zkapp_opt_signed"),
             proved_path: None,
@@ -4625,11 +4633,11 @@ mod tests {
             statement: &statement,
             tx_witness: &tx_witness,
             message: &message,
-            step_opt_signed_opt_signed_prover: &zkapp_step_opt_signed_opt_signed_prover,
-            step_opt_signed_prover: &zkapp_step_opt_signed_prover,
-            step_proof_prover: &zkapp_step_proof_prover,
-            merge_step_prover: &merge_step_prover,
-            tx_wrap_prover: &tx_wrap_prover,
+            step_opt_signed_opt_signed_prover: zkapp_step_opt_signed_opt_signed_prover,
+            step_opt_signed_prover: zkapp_step_opt_signed_prover,
+            step_proof_prover: zkapp_step_proof_prover,
+            merge_step_prover,
+            tx_wrap_prover,
             opt_signed_path: None,
             proved_path: None,
             // opt_signed_path: Some("zkapp_proof"),
@@ -4678,9 +4686,9 @@ mod tests {
         let WrapProof { proof, .. } = generate_block_proof(
             BlockParams {
                 input: &blockchain_input,
-                block_step_prover: &block_step_prover,
-                block_wrap_prover: &block_wrap_prover,
-                tx_wrap_prover: &tx_wrap_prover,
+                block_step_prover,
+                block_wrap_prover,
+                tx_wrap_prover,
                 only_verify_constraints: false,
                 expected_step_proof: None,
                 ocaml_wrap_witness: None,
@@ -4743,11 +4751,11 @@ mod tests {
                 statement: &statement,
                 tx_witness: &tx_witness,
                 message: &message,
-                step_opt_signed_opt_signed_prover: &zkapp_step_opt_signed_opt_signed_prover,
-                step_opt_signed_prover: &zkapp_step_opt_signed_prover,
-                step_proof_prover: &zkapp_step_proof_prover,
-                merge_step_prover: &merge_step_prover,
-                tx_wrap_prover: &tx_wrap_prover,
+                step_opt_signed_opt_signed_prover: zkapp_step_opt_signed_opt_signed_prover,
+                step_opt_signed_prover: zkapp_step_opt_signed_prover,
+                step_proof_prover: zkapp_step_proof_prover,
+                merge_step_prover,
+                tx_wrap_prover,
                 opt_signed_path,
                 proved_path,
             })
@@ -4777,9 +4785,9 @@ mod tests {
             let WrapProof { proof, .. } = generate_block_proof(
                 BlockParams {
                     input: &blockchain_input,
-                    block_step_prover: &block_step_prover,
-                    block_wrap_prover: &block_wrap_prover,
-                    tx_wrap_prover: &tx_wrap_prover,
+                    block_step_prover,
+                    block_wrap_prover,
+                    tx_wrap_prover,
                     only_verify_constraints: false,
                     expected_step_proof: None,
                     ocaml_wrap_witness: None,
@@ -4814,8 +4822,8 @@ mod tests {
                     statement: (&*statement).into(),
                     proofs: &proofs,
                     message: &message,
-                    step_prover: &merge_step_prover,
-                    wrap_prover: &tx_wrap_prover,
+                    step_prover: merge_step_prover,
+                    wrap_prover: tx_wrap_prover,
                     only_verify_constraints: false,
                     expected_step_proof: None,
                     ocaml_wrap_witness: None,
@@ -4879,8 +4887,8 @@ mod tests {
                     statement: &statement,
                     tx_witness: &tx_witness,
                     message: &message,
-                    tx_step_prover: &tx_step_prover,
-                    tx_wrap_prover: &tx_wrap_prover,
+                    tx_step_prover,
+                    tx_wrap_prover,
                     only_verify_constraints: false,
                     expected_step_proof: None,
                     ocaml_wrap_witness: None,

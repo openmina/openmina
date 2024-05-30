@@ -426,7 +426,7 @@ impl From<&mina_p2p_messages::v2::MinaBaseSparseLedgerBaseStableV2> for SparseLe
             let account_id: AccountId = account_id.into();
             let account_index = AccountIndex::from(account_index.as_u64() as usize);
 
-            let addr = Address::from_index(account_index.clone(), depth);
+            let addr = Address::from_index(account_index, depth);
 
             indexes.insert(account_id.clone(), addr);
             indexes_list.push_back(account_id);

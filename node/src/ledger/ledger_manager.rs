@@ -63,6 +63,7 @@ pub enum LedgerResponse {
     ChildHashes(Option<(LedgerHash, LedgerHash)>),
     AccountsSet(Result<LedgerHash, String>),
     LedgerMask(Option<(Mask, bool)>),
+    #[allow(clippy::type_complexity)]
     ProducersWithDelegatesMap(
         Option<BTreeMap<AccountPublicKey, Vec<(ledger::AccountIndex, AccountPublicKey, u64)>>>,
     ),
@@ -346,6 +347,8 @@ impl LedgerManager {
             _ => panic!("get_mask failed"),
         }
     }
+
+    #[allow(clippy::type_complexity)]
     pub fn producers_with_delegates(
         &self,
         ledger_hash: &LedgerHash,

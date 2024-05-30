@@ -48,7 +48,7 @@ impl ReplayStateWithInputActions {
             // index/srs doesn't match deserialized one.
             state.snark.block_verify.verifier_index =
                 node::snark::get_verifier_index(VerifierKind::Blockchain).into();
-            state.snark.block_verify.verifier_srs = node::snark::get_srs().into();
+            state.snark.block_verify.verifier_srs = node::snark::get_srs();
             state
         };
 
@@ -203,7 +203,7 @@ fn dyn_effects(store: &mut Store<NodeService>, action: &ActionWithMeta) {
 }
 
 thread_local! {
-    static DYN_EFFECTS_LIB: RefCell<Option<DynEffectsLib>> = RefCell::new(None);
+    static DYN_EFFECTS_LIB: RefCell<Option<DynEffectsLib>> = const { RefCell::new(None)};
 }
 
 struct DynEffectsLib {

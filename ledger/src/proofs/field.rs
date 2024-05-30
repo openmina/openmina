@@ -158,6 +158,7 @@ impl<F: FieldWitness> IntoGeneric<F> for Fq {
     }
 }
 
+#[allow(clippy::module_inception)]
 pub mod field {
     use crate::proofs::transaction::field_to_bits2;
 

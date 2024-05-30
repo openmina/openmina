@@ -35,7 +35,7 @@ impl SnarkJobCommitment {
     }
 
     pub fn timestamp(&self) -> Timestamp {
-        Timestamp::new(self.timestamp as u64 * 1_000_000)
+        Timestamp::new(self.timestamp * 1_000_000)
     }
 
     pub fn tie_breaker_hash(&self) -> [u8; 32] {

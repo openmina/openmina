@@ -86,7 +86,7 @@ impl P2pNetworkSelectAction {
                 let tokens = state.tokens.clone();
 
                 for token in tokens {
-                    if tokens_parsed == false {
+                    if !tokens_parsed {
                         tokens_parsed = matches!(
                             token,
                             token::Token::Protocol(..) | token::Token::UnknownProtocol(..)

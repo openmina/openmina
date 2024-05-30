@@ -7,9 +7,7 @@ pub fn reducer(state: &mut State, action: &ActionWithMeta) {
     let meta = action.meta().clone();
     match action.action() {
         Action::CheckTimeouts(_) => {}
-        Action::EventSource(EventSourceAction::NewEvent { event }) => match event {
-            _ => {}
-        },
+        Action::EventSource(EventSourceAction::NewEvent { .. }) => {}
         Action::EventSource(_) => {}
 
         Action::P2p(a) => state.p2p.reduce(meta.with_action(a)),

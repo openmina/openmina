@@ -14,6 +14,7 @@ pub struct OpenminaCli {
 }
 
 #[derive(Debug, clap::Subcommand)]
+#[allow(clippy::large_enum_variant)]
 pub enum Command {
     /// Openmina node.
     Node(node::Node),

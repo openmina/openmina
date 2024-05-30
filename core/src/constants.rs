@@ -11,8 +11,7 @@ use mina_p2p_messages::{
     },
 };
 
-pub const GENESIS_PRODUCER_SK: &'static str =
-    "EKFKgDtU3rcuFTVSEpmpXSkukjmX4cKefYREi6Sdsk7E7wsT7KRw";
+pub const GENESIS_PRODUCER_SK: &str = "EKFKgDtU3rcuFTVSEpmpXSkukjmX4cKefYREi6Sdsk7E7wsT7KRw";
 
 pub const PROTOCOL_VERSION: v2::ProtocolVersionStableV2 = v2::ProtocolVersionStableV2 {
     transaction: number::Number(2),
@@ -172,7 +171,7 @@ lazy_static! {
             delta: 0.into(),
             genesis_state_timestamp: BlockTimeTimeStableV1(
                 UnsignedExtendedUInt64Int64ForVersionTagsStableV1(
-                    (DEFAULT_GENESIS_TIMESTAMP_MILLISECONDS as u64).into(),
+                    DEFAULT_GENESIS_TIMESTAMP_MILLISECONDS.into(),
                 ),
             ),
         };

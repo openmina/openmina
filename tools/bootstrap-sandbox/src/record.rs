@@ -23,7 +23,7 @@ use super::{bootstrap::Storage, client::Client, snarked_ledger::SnarkedLedger};
 pub async fn run(swarm: Swarm<Behaviour>, path_main: &Path, bootstrap: bool) {
     let mut client = Client::new(swarm);
 
-    fs::create_dir_all(&path_main).unwrap();
+    fs::create_dir_all(path_main).unwrap();
 
     let best_tip = client.rpc::<GetBestTipV2>(()).await.unwrap().unwrap();
 

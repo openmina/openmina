@@ -330,7 +330,7 @@ impl<const NBYTES: usize> Address<NBYTES> {
             .rev()
             .enumerate()
             .find_map(|(index, byte)| match byte.trailing_ones() as usize {
-                x if x == 8 => None,
+                8 => None,
                 x => Some((nused_bytes - index) * 8 - x - 1),
             })?;
 
@@ -361,7 +361,7 @@ impl<const NBYTES: usize> Address<NBYTES> {
             .rev()
             .enumerate()
             .find_map(|(index, byte)| match byte.trailing_zeros() as usize {
-                x if x == 8 => None,
+                8 => None,
                 x => Some((nused_bytes - index) * 8 - x - 1),
             })?;
 

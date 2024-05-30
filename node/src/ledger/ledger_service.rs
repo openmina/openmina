@@ -138,11 +138,11 @@ impl LedgerCtx {
     }
 
     pub(super) fn send_write_response(&self, resp: LedgerWriteResponse) {
-        self.send_event(LedgerEvent::Write(resp.into()))
+        self.send_event(LedgerEvent::Write(resp))
     }
 
     pub(super) fn send_read_response(&self, id: LedgerReadId, resp: LedgerReadResponse) {
-        self.send_event(LedgerEvent::Read(id, resp.into()))
+        self.send_event(LedgerEvent::Read(id, resp))
     }
 
     pub fn insert_genesis_ledger(&mut self, mut mask: Mask) {
@@ -205,7 +205,7 @@ impl LedgerCtx {
             })
             .ok_or(format!(
                 "Tried to copy from non-existing snarked ledger with hash: {}",
-                origin_snarked_ledger_hash.to_string()
+                origin_snarked_ledger_hash
             ))?;
 
         let target = origin.copy();
@@ -222,11 +222,11 @@ impl LedgerCtx {
     ) -> Result<(), String> {
         let origin = self
             .snarked_ledgers
-            .get_mut(&snarked_ledger_hash)
-            .or_else(|| self.sync.snarked_ledgers.get_mut(&snarked_ledger_hash))
+            .get_mut(snarked_ledger_hash)
+            .or_else(|| self.sync.snarked_ledgers.get_mut(snarked_ledger_hash))
             .ok_or(format!(
                 "Cannot hash non-existing snarked ledger: {}",
-                snarked_ledger_hash.to_string()
+                snarked_ledger_hash
             ))?;
 
         // Our ledger is lazy when it comes to hashing, but retrieving the
@@ -238,9 +238,9 @@ impl LedgerCtx {
 
     /// Returns a mutable reference to the [StagedLedger] with the specified `hash` if it exists or `None` otherwise.
     fn staged_ledger_mut(&mut self, hash: &LedgerHash) -> Option<&mut StagedLedger> {
-        match self.staged_ledgers.get_mut(&hash) {
+        match self.staged_ledgers.get_mut(hash) {
             Some(v) => Some(v),
-            None => self.sync.staged_ledger_mut(&hash),
+            None => self.sync.staged_ledger_mut(hash),
         }
     }
 
@@ -288,7 +288,7 @@ impl LedgerCtx {
             .ok_or_else(|| {
                 format!(
                     "push_snarked_ledger: could not find old root snarked ledger: {}",
-                    old_root_snarked_ledger_hash.to_string(),
+                    old_root_snarked_ledger_hash,
                 )
             })?;
         let mut mt = root_snarked_ledger.make_child();
@@ -336,7 +336,7 @@ impl LedgerCtx {
             } else {
                 Err(format!(
                     "Failed to find protocol state for state hash: {}",
-                    state_hash.to_string()
+                    state_hash
                 ))
             }
         };
@@ -346,7 +346,7 @@ impl LedgerCtx {
             .ok_or_else(|| {
                 format!(
                     "Failed to find staged ledger with hash: {}",
-                    new_root_staged_ledger_hash.to_string()
+                    new_root_staged_ledger_hash
                 )
             })?
             .scan_state();
@@ -367,8 +367,7 @@ impl LedgerCtx {
         if expected_hash != &obtained_hash {
             return Err(format!(
                 "Expected to obtain snarked root ledger hash {} but got {}",
-                expected_hash.to_string(),
-                obtained_hash.to_string()
+                expected_hash, obtained_hash
             ));
         }
 
@@ -379,6 +378,7 @@ impl LedgerCtx {
         Ok(())
     }
 
+    #[allow(clippy::type_complexity)]
     pub fn producers_with_delegates<F: FnMut(&CompressedPubKey) -> bool>(
         &self,
         ledger_hash: &LedgerHash,
@@ -389,9 +389,7 @@ impl LedgerCtx {
         let mut accounts = Vec::new();
 
         mask.iter(|account| {
-            if filter(&account.public_key)
-                || account.delegate.as_ref().map_or(false, |key| filter(key))
-            {
+            if filter(&account.public_key) || account.delegate.as_ref().map_or(false, &mut filter) {
                 accounts.push((
                     account.id(),
                     account.delegate.clone(),
@@ -441,7 +439,7 @@ impl LedgerCtx {
             .collect();
 
         mask.set_all_accounts_rooted_at(parent.clone(), &accounts)
-            .or_else(|()| Err("Failed when setting accounts".to_owned()))?;
+            .map_err(|_| "Failed when setting accounts".to_owned())?;
 
         let computed_hash = LedgerHash::from_fp(mask.get_inner_hash_at_addr(parent.clone())?);
 
@@ -502,7 +500,7 @@ impl LedgerCtx {
             staged_ledger_hash = block.staged_ledger_hash().to_string(),
         );
         let mut staged_ledger = self
-            .staged_ledger_mut(&pred_block.staged_ledger_hash())
+            .staged_ledger_mut(pred_block.staged_ledger_hash())
             .ok_or_else(|| {
                 format!(
                     "parent staged ledger missing: {}",
@@ -542,7 +540,7 @@ impl LedgerCtx {
         let expected_ledger_hashes = block.staged_ledger_hashes();
         if &ledger_hashes != expected_ledger_hashes {
             let staged_ledger = self
-                .staged_ledger_mut(&pred_block.staged_ledger_hash())
+                .staged_ledger_mut(pred_block.staged_ledger_hash())
                 .unwrap(); // We already know the ledger exists, see the same call a few lines above
 
             match dump_application_to_file(staged_ledger, block.clone(), pred_block) {
@@ -768,6 +766,7 @@ impl LedgerCtx {
         )
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn staged_ledger_diff_create(
         &mut self,
         pred_block: ArcBlockWithHash,
@@ -779,7 +778,7 @@ impl LedgerCtx {
         supercharge_coinbase: bool,
     ) -> Result<StagedLedgerDiffCreateOutput, String> {
         let mut staged_ledger = self
-            .staged_ledger_mut(&pred_block.staged_ledger_hash())
+            .staged_ledger_mut(pred_block.staged_ledger_hash())
             .ok_or_else(|| {
                 format!(
                     "parent staged ledger missing: {}",
@@ -1021,7 +1020,7 @@ impl LedgerSyncState {
         self.snarked_ledgers
             .get(hash)
             .cloned()
-            .ok_or_else(|| format!("Missing sync snarked ledger {}", hash.to_string()))
+            .ok_or_else(|| format!("Missing sync snarked ledger {}", hash))
     }
 
     /// Returns a [Mask] instance for the snarked ledger with [hash]. If it doesn't
@@ -1035,7 +1034,7 @@ impl LedgerSyncState {
     }
 
     fn staged_ledger_mut(&mut self, hash: &LedgerHash) -> Option<&mut StagedLedger> {
-        self.staged_ledgers.get_mut(&hash)
+        self.staged_ledgers.get_mut(hash)
     }
 }
 

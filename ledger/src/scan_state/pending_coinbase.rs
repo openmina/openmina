@@ -735,7 +735,7 @@ impl PendingCoinbase {
                 ..stack.clone()
             };
             let stack_with_state_hash =
-                stack_initialized.checked_push_state(state_body_hash, global_slot.clone(), w);
+                stack_initialized.checked_push_state(state_body_hash, *global_slot, w);
             w.exists_no_check(match no_update {
                 Boolean::True => stack,
                 Boolean::False => stack_with_state_hash,
@@ -813,7 +813,7 @@ impl PendingCoinbase {
                     state: StateStack::create(init_stack.state.curr),
                     ..stack0.clone()
                 }
-                .checked_push_state(state_body_hash, global_slot.clone(), w);
+                .checked_push_state(state_body_hash, *global_slot, w);
                 w.exists_no_check(match update_state {
                     Boolean::True => stack_with_state,
                     Boolean::False => stack0,
