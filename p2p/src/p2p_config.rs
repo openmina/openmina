@@ -108,7 +108,6 @@ impl<T> Limit<T> {
 
 macro_rules! impls {
     ($ty:ty) => {
-
         impl From<Option<$ty>> for Limit<$ty> {
             fn from(value: Option<$ty>) -> Self {
                 match value {
@@ -183,9 +182,18 @@ impls!(std::time::Duration);
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct P2pLimits {
     max_peers: Limit<usize>,
+
     identify_message: Limit<usize>,
     kademlia_request: Limit<usize>,
     kademlia_response: Limit<usize>,
+
+    rpc_service_message: Limit<usize>,
+    rpc_query: Limit<usize>,
+    rpc_get_best_tip: Limit<usize>,
+    rpc_answer_sync_ledger_query: Limit<usize>,
+    rpc_get_staged_ledger: Limit<usize>,
+    rpc_get_transition_chain: Limit<usize>,
+    rpc_get_some_initial_peers: Limit<usize>,
 }
 
 macro_rules! limit {
@@ -244,19 +252,66 @@ impl P2pLimits {
         /// Maximum length of Kademlia response message.
         kademlia_response
     );
+
+    limit!(
+        #[doc = "RPC service message"]
+        rpc_service_message
+    );
+    limit!(
+        #[doc = "RPC query"]
+        rpc_query
+    );
+    limit!(
+        #[doc = "RPC get_best_tip"]
+        rpc_get_best_tip
+    );
+    limit!(
+        #[doc = "RPC answer_sync_ledger_query"]
+        rpc_answer_sync_ledger_query
+    );
+    limit!(
+        #[doc = "RPC get_staged_ledger"]
+        rpc_get_staged_ledger
+    );
+    limit!(
+        #[doc = "RPC get_transition_chain"]
+        rpc_get_transition_chain
+    );
+    limit!(
+        #[doc = "RPC some_initial_peers"]
+        rpc_get_some_initial_peers
+    );
 }
 
 impl Default for P2pLimits {
     fn default() -> Self {
         let max_peers = Limit::Some(100);
+
         let identify_message = Limit::Some(0x1000);
         let kademlia_request = Limit::Some(50);
         let kademlia_response = identify_message.map(|v| v * 20); // should be enough to fit 20 addresses supplied by identify
+
+        let rpc_service_message = Limit::Some(7); // 7 for handshake, 1 for heartbeat
+        let rpc_query = Limit::Some(256); // max is 96
+        let rpc_get_best_tip = Limit::Some(3_500_000); // 3182930 as observed, may vary
+        let rpc_answer_sync_ledger_query = Limit::Some(200_000); // 124823 as observed
+        let rpc_get_staged_ledger = Limit::Some(40_000_000); // 36371615 as observed, may vary
+        let rpc_get_transition_chain = Limit::Some(3_500_000); // 2979112 as observed
+        let rpc_get_some_initial_peers = Limit::Some(32_000); // TODO: calculate
         Self {
             max_peers,
+
             identify_message,
             kademlia_request,
             kademlia_response,
+
+            rpc_service_message,
+            rpc_query,
+            rpc_get_best_tip,
+            rpc_answer_sync_ledger_query,
+            rpc_get_staged_ledger,
+            rpc_get_transition_chain,
+            rpc_get_some_initial_peers,
         }
     }
 }

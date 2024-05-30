@@ -12,8 +12,7 @@ use crate::{
     disconnection::{P2pDisconnectionAction, P2pDisconnectionReason},
     identify::P2pIdentifyAction,
     network::identify::stream::P2pNetworkIdentifyStreamError,
-    token, Data, P2pNetworkSchedulerAction, P2pNetworkService,
-    P2pNetworkYamuxAction,
+    token, Data, P2pNetworkSchedulerAction, P2pNetworkService, P2pNetworkYamuxAction,
 };
 
 fn get_addrs<I, S>(addr: &SocketAddr, net_svc: &mut S) -> I

@@ -1,7 +1,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    P2pNetworkKademliaRpcFromMessageError, P2pNetworkKademliaRpcReply, P2pNetworkKademliaRpcRequest, P2pNetworkStreamProtobufError
+    P2pNetworkKademliaRpcFromMessageError, P2pNetworkKademliaRpcReply,
+    P2pNetworkKademliaRpcRequest, P2pNetworkStreamProtobufError,
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

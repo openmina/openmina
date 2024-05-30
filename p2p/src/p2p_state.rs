@@ -1,5 +1,5 @@
 use multiaddr::multiaddr;
-use openmina_core::{ChainId, block::ArcBlockWithHash};
+use openmina_core::{block::ArcBlockWithHash, ChainId};
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};

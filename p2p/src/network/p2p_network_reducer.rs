@@ -116,7 +116,7 @@ impl P2pNetworkState {
             }
             P2pNetworkAction::Rpc(a) => {
                 if let Some(state) = self.find_rpc_state_mut(a) {
-                    state.reducer(meta.with_action(a))
+                    state.reducer(meta.with_action(a), limits)
                 }
             }
         }
