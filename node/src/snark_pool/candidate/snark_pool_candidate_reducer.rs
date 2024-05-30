@@ -44,7 +44,7 @@ impl SnarkPoolCandidatesState {
             }
             SnarkPoolCandidateAction::WorkFetchInit { peer_id, job_id } => {
                 let (dispatcher, global_state) = state.into_dispatcher_and_state();
-                let peer_id = peer_id.clone();
+                let peer_id = *peer_id;
                 let job_id = job_id.clone();
                 let p2p = p2p_ready!(global_state.p2p, meta.time());
                 let Some(peer) = p2p.get_ready_peer(&peer_id) else {
@@ -80,7 +80,7 @@ impl SnarkPoolCandidatesState {
                     .range(..)
                     .map(|(_, v)| (v.order, &v.id))
                     .collect::<BTreeMap<_, _>>();
-                let job_ids_ordered_iter = job_id_orders.into_iter().map(|(_, id)| id);
+                let job_ids_ordered_iter = job_id_orders.into_values();
                 let batch = global_state
                     .snark_pool
                     .candidates

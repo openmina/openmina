@@ -73,7 +73,7 @@ impl TransitionFrontierSyncLedgerState {
                     Substate::from_compatible_substate(state),
                     meta.with_action(action),
                 ),
-                _ => return,
+                _ => (),
             },
             TransitionFrontierSyncLedgerAction::Success => {
                 match state_mut {
