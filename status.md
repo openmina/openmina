@@ -35,6 +35,9 @@
     - Peer discovery/advertising
         - [x] Peer discovery through kademlia
         - [x] Advertising the node through kademlia so that OCaml nodes can see us
+    - Publish subscribe
+        - [x] Floodsub-like broadcasting of produced block
+        - [x] Floodsub-like resending of blocks, txs and snarks
 - [ ] Trust system (to punish/ban peers): **not implemented (and no equivalent)**
 - Pools
     - [ ] Transaction pool: **in progress**
@@ -160,11 +163,7 @@
 - [x] Noise protocol for outgoing connections.
 - [x] Noise protocol for incoming connections.
 - [x] Yamux multiplexer.
-
-### Peer management
-
-- [ ] Create connection scheduler to limit work for each peer
-- [ ] Handle reconnection and exponential backoff.
+- [ ] Yamux congestion control.
 
 ## Identify
 
@@ -176,17 +175,22 @@
   - [x] Implement Kademlia FIND_NODE (client/server).
   - [x] Implement Kademlia Bootstrap process.
   - [ ] Update Kademlia routing table according to Identify protocol messages.
-
+  - [ ] Per peer limit on incoming requests
 
 ### RPC
 
 - [x] Perform outgoing RPC requests.
-- [ ] Handle incoming RPC requests.
+- [x] Handle incoming RPC requests.
+- [ ] Per peer limit on incoming requests
 
 ### Gossipsub
 
-- [ ] Implement gossipsub compatible with libp2p.
+- [x] Implement gossipsub compatible with libp2p.
 - [ ] Research how to use "expander graph" theory to make gossipsub robust and efficient.
+- [ ] Implement mesh (meshsub protocol)
+- [ ] Handle control messages
+- [ ] Limit received blocks, txs and snarks from the same peer
+- [ ] Rebroadcast only validated
 
 ### Testing
 
