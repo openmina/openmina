@@ -37,4 +37,7 @@ pub enum P2pDisconnectionReason {
 
     #[error("select error")]
     SelectError,
+
+    #[error("timeout")]
+    Timeout,
 }

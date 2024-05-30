@@ -216,7 +216,7 @@ impl P2pState {
     pub fn peer_with_connection(
         &self,
         conn_id: std::net::SocketAddr,
-    ) -> Option<(&PeerId, &P2pPeerState)> {
+    ) -> Option<(PeerId, P2pPeerState)> {
         self.peers
             .iter()
             .find(|(_, peer_state)| match &peer_state.dial_opts {
@@ -225,6 +225,18 @@ impl P2pState {
                 }
                 _ => false,
             })
+            .or_else(|| {
+                self.network
+                    .scheduler
+                    .connections
+                    .get(&conn_id)
+                    .and_then(|state| {
+                        state
+                            .peer_id()
+                            .and_then(|peer_id| self.peers.iter().find(|(id, _)| *id == peer_id))
+                    })
+            })
+            .map(|(peer_id, peer_state)| (*peer_id, peer_state.clone()))
     }
 }
 

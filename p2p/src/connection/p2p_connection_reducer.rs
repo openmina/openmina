@@ -5,7 +5,9 @@ use multiaddr::Protocol;
 use crate::{P2pPeerState, P2pPeerStatus, PeerId};
 
 use super::{
-    incoming::{P2pConnectionIncomingAction, P2pConnectionIncomingState},
+    incoming::{
+        P2pConnectionIncomingAction, P2pConnectionIncomingError, P2pConnectionIncomingState,
+    },
     outgoing::{
         P2pConnectionOutgoingAction, P2pConnectionOutgoingInitOpts, P2pConnectionOutgoingState,
     },
@@ -53,13 +55,18 @@ pub fn p2p_connection_reducer(
             {
                 let incoming_state = match &state.status {
                     // No duplicate connection
-                    P2pPeerStatus::Disconnected { .. } => {
-                        Some(P2pConnectionIncomingState::FinalizePendingLibp2p {
-                            addr: *addr,
-                            close_duplicates: Vec::new(),
-                            time: meta.time(),
-                        })
-                    }
+                    // Timeout connections should be already closed at this point
+                    P2pPeerStatus::Disconnected { .. }
+                    | P2pPeerStatus::Connecting(P2pConnectionState::Incoming(
+                        P2pConnectionIncomingState::Error {
+                            error: P2pConnectionIncomingError::Timeout,
+                            ..
+                        },
+                    )) => Some(P2pConnectionIncomingState::FinalizePendingLibp2p {
+                        addr: *addr,
+                        close_duplicates: Vec::new(),
+                        time: meta.time(),
+                    }),
                     P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(_))
                         if &my_id < peer_id =>
                     {

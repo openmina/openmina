@@ -135,14 +135,12 @@ impl P2pNetworkSchedulerState {
                 }
             }
             P2pNetworkSchedulerAction::SelectError { addr, kind, .. } => {
-                if let Some(stream_id) = &kind.stream_id() {
-                    // NOTE: is there any good reason to keep connections to peers who cause select errors?
-                    if let Some(connection) = self.connections.get_mut(addr) {
+                // Now (unlike normal libp2p) we always disconnect peers causing select errors, even for streams
+                if let Some(connection) = self.connections.get_mut(addr) {
+                    if let Some(stream_id) = &kind.stream_id() {
                         connection.streams.remove(stream_id);
-                    } else {
-                        unreachable!()
                     }
-                } else if let Some(connection) = self.connections.get_mut(addr) {
+
                     connection.closed = Some(P2pNetworkConnectionCloseReason::Disconnect(
                         P2pDisconnectionReason::SelectError,
                     ));
