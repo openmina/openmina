@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use mina_p2p_messages::v2::{BlockTimeTimeStableV1, PROTOCOL_CONSTANTS};
 use node::transition_frontier::genesis::GenesisConfig;
 
 use crate::{
@@ -21,10 +22,13 @@ pub struct SimulationSmall;
 impl SimulationSmall {
     pub async fn run(self, runner: ClusterRunner<'_>) {
         let initial_time = redux::Timestamp::global_now();
+        let mut constants = PROTOCOL_CONSTANTS.clone();
+        constants.genesis_state_timestamp =
+            BlockTimeTimeStableV1((u64::from(initial_time) / 1_000_000).into());
         let genesis_cfg = GenesisConfig::Counts {
             whales: 2,
             fish: 4,
-            constants: GenesisConfig::default_constants(u64::from(initial_time) / 1_000_000),
+            constants,
         };
         let cfg = SimulatorConfig {
             genesis: genesis_cfg.into(),

@@ -75,7 +75,7 @@ fn protocol_state(
             genesis_state_hash: StateHash::zero(),
             blockchain_state: blockchain_state(
                 genesis_ledger_hash.clone(),
-                constants.genesis_state_timestamp.clone(),
+                constants.genesis_state_timestamp,
                 empty_pending_coinbase_hash,
                 empty_local_state,
                 empty_body_hash,
@@ -157,7 +157,7 @@ fn consensus_state(
         sub_window_densities: std::iter::once(is_genesis.into())
             .chain(
                 (1..CONSTRAINT_CONSTANTS.sub_windows_per_window)
-                    .map(|_| constants.slots_per_sub_window.clone()),
+                    .map(|_| constants.slots_per_sub_window),
             )
             .collect(),
         last_vrf_output: v2::ConsensusVrfOutputTruncatedStableV1::zero(),
@@ -166,7 +166,7 @@ fn consensus_state(
             slot_number: v2::MinaNumbersGlobalSlotSinceHardForkMStableV1::SinceHardFork(
                 v2::UnsignedExtendedUInt32StableV1::default(),
             ),
-            slots_per_epoch: constants.slots_per_epoch.clone(),
+            slots_per_epoch: constants.slots_per_epoch,
         },
         global_slot_since_genesis: v2::MinaNumbersGlobalSlotSinceGenesisMStableV1::SinceGenesis(
             global_slot_since_genesis.into(),

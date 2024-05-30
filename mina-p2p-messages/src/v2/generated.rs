@@ -875,7 +875,7 @@ pub struct SignatureLibPrivateKeyStableV1(pub crate::bigint::BigInt);
 ///
 /// Gid: `125`
 /// Location: [src/int64.ml:6:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/int64.ml#L6)
-#[derive(Clone, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref)]
+#[derive(Clone, Copy, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref)]
 pub struct UnsignedExtendedUInt64Int64ForVersionTagsStableV1(pub crate::number::UInt64);
 
 /// **OCaml name**: `Unsigned_extended.UInt32.Stable.V1`
@@ -886,7 +886,9 @@ pub struct UnsignedExtendedUInt64Int64ForVersionTagsStableV1(pub crate::number::
 ///
 /// Gid: `119`
 /// Location: [src/int32.ml:6:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/int32.ml#L6)
-#[derive(Clone, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref, Default)]
+#[derive(
+    Clone, Copy, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref, Default,
+)]
 pub struct UnsignedExtendedUInt32StableV1(pub crate::number::UInt32);
 
 /// **OCaml name**: `Protocol_version.Make_str.Stable.V2`
@@ -1033,7 +1035,9 @@ pub enum MinaBasePendingCoinbaseMerkleTreeVersionedStableV2Tree {
 ///
 /// Gid: `662`
 /// Location: [src/lib/block_time/block_time.ml:22:8](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/block_time/block_time.ml#L22)
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref,
+)]
 pub struct BlockTimeTimeStableV1(pub UnsignedExtendedUInt64Int64ForVersionTagsStableV1);
 
 /// **OCaml name**: `Mina_base__Account_id.Make_str.Digest.Stable.V1`

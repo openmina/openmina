@@ -4,23 +4,26 @@ use blake2::Digest;
 use derive_more::Deref;
 use serde::{de::Visitor, ser::SerializeTuple, Deserialize, Serialize, Serializer};
 use sha2::Sha256;
+use time::OffsetDateTime;
 
 use crate::{
-    b58::Base58CheckOfBinProt, b58::Base58CheckOfBytes, bigint::BigInt, string::ByteString,
-    versioned::Versioned,
+    b58::Base58CheckOfBinProt, b58::Base58CheckOfBytes, bigint::BigInt, number::Number,
+    string::ByteString, versioned::Versioned,
 };
 
 use super::{
-    ConsensusProofOfStakeDataConsensusStateValueStableV2, ConsensusVrfOutputTruncatedStableV1,
-    CurrencyAmountStableV1, DataHashLibStateHashStableV1, MinaBaseAccountIdDigestStableV1,
-    MinaBaseEpochSeedStableV1, MinaBaseLedgerHash0StableV1,
+    BlockTimeTimeStableV1, ConsensusProofOfStakeDataConsensusStateValueStableV2,
+    ConsensusVrfOutputTruncatedStableV1, CurrencyAmountStableV1, DataHashLibStateHashStableV1,
+    MinaBaseAccountIdDigestStableV1, MinaBaseEpochSeedStableV1, MinaBaseLedgerHash0StableV1,
     MinaBasePendingCoinbaseCoinbaseStackStableV1, MinaBasePendingCoinbaseHashVersionedStableV1,
-    MinaBasePendingCoinbaseStackHashStableV1, MinaBaseSignatureStableV1,
-    MinaBaseStateBodyHashStableV1, NonZeroCurvePointUncompressedStableV1,
-    ParallelScanWeightStableV1, PicklesProofProofsVerified2ReprStableV2,
-    PicklesProofProofsVerified2ReprStableV2StatementFp, PicklesProofProofsVerifiedMaxStableV2,
-    ProtocolVersionStableV2, SgnStableV1, TransactionSnarkScanStateStableV2ScanStateTreesABaseT1,
-    TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1,
+    MinaBasePendingCoinbaseStackHashStableV1, MinaBaseProtocolConstantsCheckedValueStableV1,
+    MinaBaseSignatureStableV1, MinaBaseStateBodyHashStableV1,
+    NonZeroCurvePointUncompressedStableV1, ParallelScanWeightStableV1,
+    PicklesProofProofsVerified2ReprStableV2, PicklesProofProofsVerified2ReprStableV2StatementFp,
+    PicklesProofProofsVerifiedMaxStableV2, ProtocolVersionStableV2, SgnStableV1,
+    TransactionSnarkScanStateStableV2ScanStateTreesABaseT1,
+    TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1, UnsignedExtendedUInt32StableV1,
+    UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
 };
 
 pub type TransactionSnarkScanStateStableV2TreesABase = (
@@ -960,6 +963,41 @@ impl std::fmt::Debug for super::UnsignedExtendedUInt64Int64ForVersionTagsStableV
             "UnsignedExtendedUInt64Int64ForVersionTagsStableV1({:?})",
             inner
         ))
+    }
+}
+
+impl MinaBaseProtocolConstantsCheckedValueStableV1 {
+    const fn default_constants() -> Self {
+        const fn from_u32(v: u32) -> UnsignedExtendedUInt32StableV1 {
+            UnsignedExtendedUInt32StableV1(Number(v))
+        }
+
+        Self {
+            k: from_u32(290),
+            slots_per_epoch: from_u32(7140),
+            slots_per_sub_window: from_u32(7),
+            grace_period_slots: from_u32(2160),
+            delta: from_u32(0),
+            genesis_state_timestamp: BlockTimeTimeStableV1(
+                UnsignedExtendedUInt64Int64ForVersionTagsStableV1(Number(1600251300000)), // 2020-09-16 03:15:00-07:00
+            ),
+        }
+    }
+}
+
+impl Default for MinaBaseProtocolConstantsCheckedValueStableV1 {
+    fn default() -> Self {
+        Self::default_constants()
+    }
+}
+
+pub const PROTOCOL_CONSTANTS: MinaBaseProtocolConstantsCheckedValueStableV1 =
+    MinaBaseProtocolConstantsCheckedValueStableV1::default_constants();
+
+impl From<OffsetDateTime> for BlockTimeTimeStableV1 {
+    fn from(value: OffsetDateTime) -> Self {
+        debug_assert!(value.unix_timestamp() >= 0);
+        BlockTimeTimeStableV1((value.unix_timestamp() as u64 * 1000).into())
     }
 }
 
