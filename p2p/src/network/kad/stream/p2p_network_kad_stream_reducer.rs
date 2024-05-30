@@ -2,8 +2,8 @@ use quick_protobuf::{serialize_into_vec, BytesReader};
 use redux::ActionWithMeta;
 
 use crate::{
-    stream::P2pNetworkStreamProtobufError, P2pLimits, P2pNetworkKademliaRpcReply,
-    P2pNetworkKademliaRpcRequest,
+    P2pLimits, P2pNetworkKademliaRpcReply, P2pNetworkKademliaRpcRequest,
+    P2pNetworkStreamProtobufError,
 };
 
 use super::{

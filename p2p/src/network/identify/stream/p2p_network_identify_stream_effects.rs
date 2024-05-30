@@ -11,7 +11,9 @@ use super::{
 use crate::{
     disconnection::{P2pDisconnectionAction, P2pDisconnectionReason},
     identify::P2pIdentifyAction,
-    token, Data, P2pNetworkSchedulerAction, P2pNetworkService, P2pNetworkYamuxAction,
+    network::identify::stream::P2pNetworkIdentifyStreamError,
+    token, Data, P2pNetworkSchedulerAction, P2pNetworkService,
+    P2pNetworkYamuxAction,
 };
 
 fn get_addrs<I, S>(addr: &SocketAddr, net_svc: &mut S) -> I
@@ -175,10 +177,12 @@ impl P2pNetworkIdentifyStreamAction {
                     Ok(())
                 }
                 S::Error(err) => {
-                    warn!(meta.time(); summary = "error handling Identify action", error = err, action = format!("{self:?}"));
+                    warn!(meta.time(); summary = "error handling Identify action", error = display(err));
                     store.dispatch(P2pDisconnectionAction::Init {
                         peer_id,
-                        reason: P2pDisconnectionReason::NetworkError(err.clone().into()),
+                        reason: P2pDisconnectionReason::NetworkError(
+                            P2pNetworkIdentifyStreamError::from(err.clone()).into(),
+                        ),
                     });
                     store.dispatch(P2pNetworkSchedulerAction::PruneStreams { peer_id });
                     Ok(())

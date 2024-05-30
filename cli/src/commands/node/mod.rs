@@ -216,7 +216,6 @@ impl Node {
                 listen_port: self.port,
                 identity_pub_key: pub_key,
                 initial_peers: self.peers,
-                max_peers: 100,
                 ask_initial_peers_interval: Duration::from_secs(3600),
                 enabled_channels: ChannelId::for_libp2p().collect(),
                 peer_discovery: !self.no_peers_discovery,
@@ -224,7 +223,7 @@ impl Node {
                     .duration_since(SystemTime::UNIX_EPOCH)
                     .expect("linear time"),
                 timeouts: P2pTimeouts::default(),
-                limits: P2pLimits::default(),
+                limits: P2pLimits::default().with_max_peers(Some(100)),
             },
             transition_frontier,
             block_producer: block_producer.clone().map(|(config, _)| config),

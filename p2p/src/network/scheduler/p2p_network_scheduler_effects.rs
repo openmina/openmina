@@ -41,7 +41,10 @@ impl P2pNetworkSchedulerAction {
                 // TODO: handle this error?
             }
             Self::IncomingConnectionIsReady { listener, .. } => {
-                if store.state().already_has_max_peers() {
+                let state = store.state();
+                if state.network.scheduler.connections.len()
+                    >= state.config.limits.max_connections()
+                {
                     store.service().send_mio_cmd(MioCmd::Refuse(listener));
                 } else {
                     store.service().send_mio_cmd(MioCmd::Accept(listener));

@@ -23,9 +23,6 @@ pub struct P2pConfig {
 
     pub enabled_channels: BTreeSet<ChannelId>,
 
-    /// Maximal allowed number of connections.
-    pub max_peers: usize,
-
     pub timeouts: P2pTimeouts,
 
     pub limits: P2pLimits,
@@ -111,6 +108,25 @@ impl<T> Limit<T> {
 
 macro_rules! impls {
     ($ty:ty) => {
+
+        impl From<Option<$ty>> for Limit<$ty> {
+            fn from(value: Option<$ty>) -> Self {
+                match value {
+                    Some(v) => Limit::Some(v),
+                    None => Limit::Unlimited,
+                }
+            }
+        }
+
+        impl From<Limit<$ty>> for Option<$ty> {
+            fn from(value: Limit<$ty>) -> Self {
+                match value {
+                    Limit::Some(v) => Some(v),
+                    Limit::Unlimited => None,
+                }
+            }
+        }
+
         impl std::cmp::PartialEq<$ty> for Limit<$ty> {
             fn eq(&self, other: &$ty) -> bool {
                 match self {
@@ -166,31 +182,78 @@ impls!(std::time::Duration);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct P2pLimits {
+    max_peers: Limit<usize>,
     identify_message: Limit<usize>,
     kademlia_request: Limit<usize>,
     kademlia_response: Limit<usize>,
 }
 
-macro_rules! getter {
-    ($name:ident) => {
-        pub fn $name(&self) -> Limit<usize> {
-            self.$name
+macro_rules! limit {
+    (#[$meta:meta] $limit:ident) => {
+        #[$meta]
+        pub fn $limit(&self) -> Limit<usize> {
+            self.$limit
+        }
+    };
+
+    (#[$meta:meta] $limit:ident, #[$setter_meta:meta] $setter:ident) => {
+        limit!(#[$meta] $limit);
+
+        #[$setter_meta]
+        pub fn $setter<T: Into<Limit<usize>>>(mut self, $limit: T) -> Self {
+            self.$limit = $limit.into();
+            self
+        }
+    };
+
+    (#[$meta:meta] $limit:ident(&$self:ident): $expr:expr) => {
+        #[$meta]
+        pub fn $limit(&$self) -> Limit<usize> {
+            $expr
         }
     };
 }
 
 impl P2pLimits {
-    getter!(identify_message);
-    getter!(kademlia_request);
-    getter!(kademlia_response);
+    limit!(
+        /// Maximum number of peers.
+        max_peers,
+        /// Sets maximum number of peers.
+        with_max_peers
+    );
+
+    limit!(
+        /// Minimum number of peers.
+        min_peers(&self): self.max_peers.map(|v| (v / 2).max(3).min(v))
+    );
+
+    limit!(
+        /// Maximum number of connections.
+        max_connections(&self): self.max_peers.map(|v| v + 10)
+    );
+
+    limit!(
+        /// Maximum length of Identify message.
+        identify_message
+    );
+    limit!(
+        /// Maximum length of Kademlia request message.
+        kademlia_request
+    );
+    limit!(
+        /// Maximum length of Kademlia response message.
+        kademlia_response
+    );
 }
 
 impl Default for P2pLimits {
     fn default() -> Self {
+        let max_peers = Limit::Some(100);
         let identify_message = Limit::Some(0x1000);
         let kademlia_request = Limit::Some(50);
         let kademlia_response = identify_message.map(|v| v * 20); // should be enough to fit 20 addresses supplied by identify
         Self {
+            max_peers,
             identify_message,
             kademlia_request,
             kademlia_response,

@@ -278,12 +278,11 @@ impl Cluster {
                 listen_port: http_port,
                 identity_pub_key: pub_key,
                 initial_peers,
-                max_peers: testing_config.max_peers,
                 ask_initial_peers_interval: testing_config.ask_initial_peers_interval,
                 enabled_channels: ChannelId::iter_all().collect(),
                 peer_discovery: true,
                 timeouts: testing_config.timeouts,
-                limits: P2pLimits::default(),
+                limits: P2pLimits::default().with_max_peers(Some(testing_config.max_peers)),
                 initial_time: testing_config
                     .initial_time
                     .checked_sub(redux::Timestamp::ZERO)

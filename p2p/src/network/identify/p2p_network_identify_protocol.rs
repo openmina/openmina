@@ -17,7 +17,7 @@ pub struct P2pNetworkIdentify {
     pub protocols: Vec<token::StreamKind>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, thiserror::Error)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, thiserror::Error)]
 pub enum P2pNetworkIdentifyFromMessageError {
     #[error("cant parse protocol: {0}")]
     UnsupportedProtocol(String),

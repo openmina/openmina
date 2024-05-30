@@ -102,7 +102,7 @@ impl P2pNetworkIdentifyStreamState {
             Ok(v) => v,
             Err(e) => {
                 *self = P2pNetworkIdentifyStreamState::Error(
-                    P2pNetworkStreamProtobufError::Message(e.into()),
+                    P2pNetworkStreamProtobufError::Message(e.to_string()),
                 );
                 return Ok(());
             }

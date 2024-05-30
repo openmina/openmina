@@ -1,5 +1,5 @@
 use multiaddr::multiaddr;
-use openmina_core::{block::ArcBlockWithHash, ChainId};
+use openmina_core::{ChainId, block::ArcBlockWithHash};
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -12,7 +12,7 @@ use crate::connection::incoming::P2pConnectionIncomingState;
 use crate::connection::outgoing::{P2pConnectionOutgoingInitOpts, P2pConnectionOutgoingState};
 use crate::network::identify::P2pNetworkIdentify;
 use crate::network::P2pNetworkState;
-use crate::{is_time_passed, P2pTimeouts, PeerId};
+use crate::{is_time_passed, Limit, P2pTimeouts, PeerId};
 
 use super::connection::P2pConnectionState;
 use super::P2pConfig;
@@ -195,21 +195,21 @@ impl P2pState {
     }
 
     pub fn already_has_min_peers(&self) -> bool {
-        self.connected_or_connecting_peers_count() >= self.min_peers()
+        self.connected_or_connecting_peers_count() >= self.config.limits.min_peers()
     }
 
     pub fn already_has_max_peers(&self) -> bool {
-        self.connected_or_connecting_peers_count() >= self.config.max_peers
+        self.connected_or_connecting_peers_count() >= self.config.limits.max_peers()
     }
 
     /// The peers capacity is exceeded.
     pub fn already_has_max_ready_peers(&self) -> bool {
-        self.ready_peers_iter().count() >= self.config.max_peers
+        self.ready_peers_iter().count() >= self.config.limits.max_peers()
     }
 
     /// Minimal number of peers that the node should connect
-    pub fn min_peers(&self) -> usize {
-        (self.config.max_peers / 2).max(3)
+    pub fn min_peers(&self) -> Limit<usize> {
+        self.config.limits.min_peers()
     }
 
     /// Peer with libp2p connection identified by `conn_id`.
