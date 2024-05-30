@@ -42,7 +42,7 @@ pub enum P2pNetworkKadIncomingStreamState {
     Closed,
     /// Error handling the stream.
     /// TODO: use enum for errors.
-    Error(P2pNetworkKadStreamError),
+    Error(P2pNetworkStreamProtobufError),
 }
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub enum P2pNetworkKadOutgoingStreamState {
@@ -64,25 +64,13 @@ pub enum P2pNetworkKadOutgoingStreamState {
     Closed,
     /// Error handling the stream.
     /// TODO: use enum for errors.
-    Error(P2pNetworkKadStreamError),
-}
-
-#[derive(Debug, Clone, PartialEq, thiserror::Error, Serialize, Deserialize)]
-pub enum P2pNetworkKadStreamError {
-    #[error("error reading message length")]
-    MessageLength,
-    #[error("message is too long: {0} exceeds {1}")]
-    Limit(usize, Limit<usize>),
-    #[error("error reading message: {0}")]
-    Message(String),
-    #[error("error converting protobuf message: {0}")]
-    Convert(#[from] P2pNetworkKademliaRpcFromMessageError),
+    Error(P2pNetworkStreamProtobufError),
 }
 
 #[derive(Debug, Clone, PartialEq, thiserror::Error, Serialize, Deserialize)]
 #[error("kademlia incoming stream: {0}")]
-pub struct P2pNetworkKadIncomingStreamError(#[from] P2pNetworkKadStreamError);
+pub struct P2pNetworkKadIncomingStreamError(#[from] P2pNetworkStreamProtobufError);
 
 #[derive(Debug, Clone, PartialEq, thiserror::Error, Serialize, Deserialize)]
 #[error("kademlia incoming stream: {0}")]
-pub struct P2pNetworkKadOutgoingStreamError(#[from] P2pNetworkKadStreamError);
+pub struct P2pNetworkKadOutgoingStreamError(#[from] P2pNetworkStreamProtobufError);

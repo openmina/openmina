@@ -17,8 +17,6 @@ futures = "0.3.30"
 rand = "0.8.5"
 derive_more = "0.99.17"
 thiserror = "1.0.57"
-derive-getters = "0.3.0"
-derive_builder = "0.20.0"
 openmina-core = { path = "../../core" }
 pin-project-lite = "0.2"
 lazy_static = "1.4.0"

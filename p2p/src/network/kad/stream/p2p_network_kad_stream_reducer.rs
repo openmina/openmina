@@ -2,7 +2,7 @@ use quick_protobuf::{serialize_into_vec, BytesReader};
 use redux::ActionWithMeta;
 
 use crate::{
-    stream::P2pNetworkKadStreamError, P2pLimits, P2pNetworkKademliaRpcReply,
+    stream::P2pNetworkStreamProtobufError, P2pLimits, P2pNetworkKademliaRpcReply,
     P2pNetworkKademliaRpcRequest,
 };
 
@@ -34,15 +34,15 @@ impl P2pNetworkKadIncomingStreamState {
 
                 let mut reader = BytesReader::from_bytes(data);
                 let Ok(len) = reader.read_varint32(data).map(|v| v as usize) else {
-                    *self = S::Error(P2pNetworkKadStreamError::MessageLength);
+                    *self = S::Error(P2pNetworkStreamProtobufError::MessageLength);
                     return Ok(());
                 };
 
                 println!("=== kademlia request len: {len}");
-                if len > limits.kademlia_request {
-                    *self = S::Error(P2pNetworkKadStreamError::Limit(
+                if len > limits.kademlia_request() {
+                    *self = S::Error(P2pNetworkStreamProtobufError::Limit(
                         len,
-                        limits.kademlia_request,
+                        limits.kademlia_request(),
                     ));
                     return Ok(());
                 }
@@ -100,7 +100,7 @@ impl P2pNetworkKadIncomingStreamState {
         let message = match reader.read_message_by_len::<Message>(data, len) {
             Ok(v) => v,
             Err(e) => {
-                *self = Error(P2pNetworkKadStreamError::Message(e.to_string()));
+                *self = Error(P2pNetworkStreamProtobufError::Message(e.to_string()));
                 return Ok(());
             }
         };
@@ -151,15 +151,15 @@ impl P2pNetworkKadOutgoingStreamState {
 
                 let mut reader = BytesReader::from_bytes(data);
                 let Ok(len) = reader.read_varint32(data).map(|v| v as usize) else {
-                    *self = S::Error(P2pNetworkKadStreamError::MessageLength);
+                    *self = S::Error(P2pNetworkStreamProtobufError::MessageLength);
                     return Ok(());
                 };
 
                 println!("=== kademlia response len: {len}");
-                if len > limits.kademlia_response {
-                    *self = S::Error(P2pNetworkKadStreamError::Limit(
+                if len > limits.kademlia_response() {
+                    *self = S::Error(P2pNetworkStreamProtobufError::Limit(
                         len,
-                        limits.kademlia_response,
+                        limits.kademlia_response(),
                     ));
                     return Ok(());
                 }
@@ -211,7 +211,7 @@ impl P2pNetworkKadOutgoingStreamState {
         let message = match reader.read_message_by_len::<Message>(data, len) {
             Ok(v) => v,
             Err(e) => {
-                *self = Error(P2pNetworkKadStreamError::Message(e.to_string()));
+                *self = Error(P2pNetworkStreamProtobufError::Message(e.to_string()));
                 return Ok(());
             }
         };

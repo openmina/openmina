@@ -1,4 +1,4 @@
-use crate::network::identify::P2pNetworkIdentify;
+use crate::{network::identify::P2pNetworkIdentify, P2pNetworkStreamProtobufError};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
@@ -36,7 +36,7 @@ pub enum P2pNetworkIdentifyStreamState {
         data: P2pNetworkIdentify,
     },
     /// Error handling the stream.
-    Error(String),
+    Error(P2pNetworkStreamProtobufError),
 }
 
 impl P2pNetworkIdentifyStreamState {
@@ -50,3 +50,7 @@ impl From<P2pNetworkIdentify> for P2pNetworkIdentifyStreamState {
         P2pNetworkIdentifyStreamState::IdentifyReceived { data }
     }
 }
+
+#[derive(Debug, Clone, PartialEq, thiserror::Error, Serialize, Deserialize)]
+#[error("identify stream: {0}")]
+pub struct P2pNetworkIdentifyStreamError(#[from] P2pNetworkStreamProtobufError);

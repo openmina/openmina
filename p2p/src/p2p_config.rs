@@ -166,9 +166,23 @@ impls!(std::time::Duration);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct P2pLimits {
-    pub identify_message: Limit<usize>,
-    pub kademlia_request: Limit<usize>,
-    pub kademlia_response: Limit<usize>,
+    identify_message: Limit<usize>,
+    kademlia_request: Limit<usize>,
+    kademlia_response: Limit<usize>,
+}
+
+macro_rules! getter {
+    ($name:ident) => {
+        pub fn $name(&self) -> Limit<usize> {
+            self.$name
+        }
+    };
+}
+
+impl P2pLimits {
+    getter!(identify_message);
+    getter!(kademlia_request);
+    getter!(kademlia_response);
 }
 
 impl Default for P2pLimits {

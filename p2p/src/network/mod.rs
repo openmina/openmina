@@ -172,7 +172,22 @@ pub enum P2pNetworkError {
     #[error("select error")]
     SelectError,
     #[error(transparent)]
+    IdentifyStreamError(#[from] P2pNetworkIdentifyStreamError),
+    #[error(transparent)]
     KademliaIncomingStreamError(#[from] P2pNetworkKadIncomingStreamError),
     #[error(transparent)]
     KademliaOutgoingStreamError(#[from] P2pNetworkKadOutgoingStreamError),
+}
+
+/// Errors that might happen while handling protobuf messages received via a stream.
+#[derive(Debug, Clone, PartialEq, thiserror::Error, Serialize, Deserialize)]
+pub enum P2pNetworkStreamProtobufError {
+    #[error("error reading message length")]
+    MessageLength,
+    #[error("message is too long: {0} exceeds {1}")]
+    Limit(usize, Limit<usize>),
+    #[error("error reading message: {0}")]
+    Message(String),
+    #[error("error converting protobuf message: {0}")]
+    Convert(#[from] P2pNetworkKademliaRpcFromMessageError),
 }
