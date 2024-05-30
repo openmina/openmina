@@ -19,7 +19,7 @@ impl P2pNetworkNoiseAction {
             return;
         };
 
-        let incoming = state.incoming_chunks.clone();
+        let has_incoming = !state.incoming_chunks.is_empty();
         let outgoing = state.outgoing_chunks.front().cloned();
         let decrypted = state.decrypted_chunks.front().cloned();
         let remote_peer_id = match &state.inner {
@@ -33,12 +33,13 @@ impl P2pNetworkNoiseAction {
         let handshake_done = if let Some(P2pNetworkNoiseStateInner::Done {
             remote_peer_id,
             incoming,
+            modified,
             ..
         }) = &state.inner
         {
             if ((matches!(self, Self::IncomingChunk { .. }) && *incoming)
                 || (matches!(self, Self::OutgoingChunk { .. }) && !*incoming))
-                && !state.handshake_reported
+                && !modified
             {
                 Some((*remote_peer_id, *incoming))
             } else {
@@ -118,11 +119,8 @@ impl P2pNetworkNoiseAction {
                 }
             }
             Self::IncomingData { addr, .. } => {
-                if !incoming.is_empty() {
-                    store.dispatch(P2pNetworkNoiseAction::IncomingChunk {
-                        addr,
-                        data: incoming,
-                    });
+                if has_incoming {
+                    store.dispatch(P2pNetworkNoiseAction::IncomingChunk { addr });
                 }
             }
             Self::IncomingChunk { addr, .. } => {
@@ -177,11 +175,8 @@ impl P2pNetworkNoiseAction {
                         data,
                     });
                 }
-                if !incoming.is_empty() {
-                    store.dispatch(P2pNetworkNoiseAction::IncomingChunk {
-                        addr,
-                        data: incoming,
-                    });
+                if has_incoming {
+                    store.dispatch(P2pNetworkNoiseAction::IncomingChunk { addr });
                 }
 
                 if !handshake_optimized && (middle_initiator || middle_responder) {

@@ -72,7 +72,8 @@ impl P2pNetworkNoiseState {
                         let len = u16::from_be_bytes(buf[..2].try_into().expect("cannot fail"));
                         let full_len = 2 + len as usize;
                         if buf.len() >= full_len {
-                            self.incoming_chunks.push(buf[..full_len].to_vec().into());
+                            self.incoming_chunks
+                                .push_back(buf[..full_len].to_vec().into());
                             offset += full_len;
 
                             continue;
@@ -86,8 +87,9 @@ impl P2pNetworkNoiseState {
                 let Some(state) = &mut self.inner else {
                     return;
                 };
-                for mut chunk in dbg!(&mut self.incoming_chunks).drain(..) {
-                    match dbg!(&mut *state) {
+                while let Some(mut chunk) = dbg!(self.incoming_chunks.pop_front()) {
+                    let handshake = !matches!(state, P2pNetworkNoiseStateInner::Done { .. });
+                    match state {
                         P2pNetworkNoiseStateInner::Initiator(i) => match i.consume(&mut chunk) {
                             Ok(_) => {
                                 // self.handshake_optimized = remote_payload.is_some();
@@ -119,6 +121,7 @@ impl P2pNetworkNoiseState {
                                     send_nonce: 0,
                                     remote_pk,
                                     remote_peer_id,
+                                    modified: false,
                                 };
                                 // self.handshake_optimized = remote_payload.is_some();
                                 // if let Some(remote_payload) = remote_payload {
@@ -133,8 +136,10 @@ impl P2pNetworkNoiseState {
                         P2pNetworkNoiseStateInner::Done {
                             recv_key,
                             recv_nonce,
+                            modified,
                             ..
                         } => {
+                            *modified = true;
                             let aead = ChaCha20Poly1305::new(&recv_key.0.into());
                             let mut chunk = chunk;
                             let mut nonce = GenericArray::default();
@@ -160,6 +165,9 @@ impl P2pNetworkNoiseState {
                         }
                         P2pNetworkNoiseStateInner::Error(_) => {}
                     }
+                    if handshake {
+                        break;
+                    }
                 }
             }
             P2pNetworkNoiseAction::OutgoingChunk { .. } => {
@@ -176,8 +184,10 @@ impl P2pNetworkNoiseState {
                     P2pNetworkNoiseStateInner::Done {
                         send_key,
                         send_nonce,
+                        modified,
                         ..
                     } => {
+                        *modified = true;
                         let aead = ChaCha20Poly1305::new(&send_key.0.into());
                         let chunk_max_size = u16::MAX as usize - 19;
                         let chunks = data
@@ -218,6 +228,7 @@ impl P2pNetworkNoiseState {
                                 send_nonce: 0,
                                 remote_pk,
                                 remote_peer_id,
+                                modified: false,
                             };
                         }
                     }
@@ -233,9 +244,7 @@ impl P2pNetworkNoiseState {
             P2pNetworkNoiseAction::DecryptedData { .. } => {
                 self.decrypted_chunks.pop_front();
             }
-            P2pNetworkNoiseAction::HandshakeDone { .. } => {
-                self.handshake_reported = true;
-            }
+            P2pNetworkNoiseAction::HandshakeDone { .. } => {}
         }
     }
 }
