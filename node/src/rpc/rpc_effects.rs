@@ -2,6 +2,7 @@ use std::time::Duration;
 
 use mina_p2p_messages::rpc_kernel::QueryHeader;
 use mina_p2p_messages::v2::MinaBaseTransactionStatusStableV2;
+use openmina_core::block::ArcBlockWithHash;
 
 use crate::block_producer::BlockProducerWonSlot;
 use crate::external_snark_worker::available_job_to_snark_worker_spec;
@@ -17,12 +18,13 @@ use crate::{p2p_ready, Service, Store};
 
 use super::{
     ActionStatsQuery, ActionStatsResponse, CurrentMessageProgress, MessagesStats, RpcAction,
-    RpcActionWithMeta, RpcBlockProducerStats, RpcMessageProgressResponse, RpcRequest,
-    RpcRequestExtraData, RpcScanStateSummary, RpcScanStateSummaryBlock,
-    RpcScanStateSummaryBlockTransaction, RpcScanStateSummaryBlockTransactionKind,
-    RpcScanStateSummaryGetQuery, RpcScanStateSummaryScanStateJob, RpcSnarkPoolJobFull,
-    RpcSnarkPoolJobSnarkWork, RpcSnarkPoolJobSummary, RpcSnarkerJobCommitResponse,
-    RpcSnarkerJobSpecResponse,
+    RpcActionWithMeta, RpcBlockProducerStats, RpcMessageProgressResponse, RpcNodeStatus,
+    RpcNodeStatusTransitionFrontier, RpcNodeStatusTransitionFrontierBlockSummary,
+    RpcNodeStatusTransitionFrontierSync, RpcRequest, RpcRequestExtraData, RpcScanStateSummary,
+    RpcScanStateSummaryBlock, RpcScanStateSummaryBlockTransaction,
+    RpcScanStateSummaryBlockTransactionKind, RpcScanStateSummaryGetQuery,
+    RpcScanStateSummaryScanStateJob, RpcSnarkPoolJobFull, RpcSnarkPoolJobSnarkWork,
+    RpcSnarkPoolJobSummary, RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse,
 };
 
 macro_rules! respond_or_log {
@@ -41,6 +43,36 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
             let _ = store
                 .service
                 .respond_state_get(rpc_id, (store.state.get(), filter.as_deref()));
+        }
+        RpcAction::StatusGet { rpc_id } => {
+            let state = store.state.get();
+
+            let block_summary =
+                |b: &ArcBlockWithHash| RpcNodeStatusTransitionFrontierBlockSummary {
+                    hash: b.hash().clone(),
+                    height: b.height(),
+                    global_slot: b.global_slot(),
+                };
+            let status = RpcNodeStatus {
+                transition_frontier: RpcNodeStatusTransitionFrontier {
+                    best_tip: state.transition_frontier.best_tip().map(block_summary),
+                    sync: RpcNodeStatusTransitionFrontierSync {
+                        time: state.transition_frontier.sync.time(),
+                        status: state.transition_frontier.sync.to_string(),
+                        target: state.transition_frontier.sync.best_tip().map(block_summary),
+                    },
+                },
+                peers: collect_rpc_peers_info(state),
+                snark_pool: state.snark_pool.jobs_iter().fold(
+                    Default::default(),
+                    |mut acc, job| {
+                        acc.snarks += job.snark.is_some() as usize;
+                        acc.total_jobs += 1;
+                        acc
+                    },
+                ),
+            };
+            let _ = store.service.respond_status_get(rpc_id, Some(status));
         }
         RpcAction::ActionStatsGet { rpc_id, query } => match query {
             ActionStatsQuery::SinceStart => {
@@ -184,40 +216,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                 .respond_message_progress_stats_get(rpc_id, response);
         }
         RpcAction::PeersGet { rpc_id } => {
-            let peers = store.state().p2p.ready().map_or_else(Vec::new, |p2p| {
-                p2p.peers
-                    .iter()
-                    .map(|(peer_id, state)| {
-                        let best_tip = state.status.as_ready().and_then(|r| r.best_tip.as_ref());
-                        let (connection_status, time) = match &state.status {
-                            p2p::P2pPeerStatus::Connecting(c) => match c {
-                                p2p::connection::P2pConnectionState::Outgoing(o) => {
-                                    (PeerConnectionStatus::Connecting, o.time().into())
-                                }
-                                p2p::connection::P2pConnectionState::Incoming(i) => {
-                                    (PeerConnectionStatus::Connecting, i.time().into())
-                                }
-                            },
-                            p2p::P2pPeerStatus::Disconnected { time } => {
-                                (PeerConnectionStatus::Disconnected, (*time).into())
-                            }
-                            p2p::P2pPeerStatus::Ready(r) => {
-                                (PeerConnectionStatus::Connected, r.connected_since.into())
-                            }
-                        };
-                        RpcPeerInfo {
-                            peer_id: *peer_id,
-                            connection_status,
-                            address: state.dial_opts.as_ref().map(|opts| opts.to_string()),
-                            best_tip: best_tip.map(|bt| bt.hash.clone()),
-                            best_tip_height: best_tip.map(|bt| bt.height()),
-                            best_tip_global_slot: best_tip.map(|bt| bt.global_slot_since_genesis()),
-                            best_tip_timestamp: best_tip.map(|bt| bt.timestamp().into()),
-                            time,
-                        }
-                    })
-                    .collect()
-            });
+            let peers = collect_rpc_peers_info(store.state());
             respond_or_log!(
                 store.service().respond_peers_get(rpc_id, peers),
                 meta.time()
@@ -625,4 +624,41 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
         }
         RpcAction::Finish { .. } => {}
     }
+}
+
+fn collect_rpc_peers_info(state: &crate::State) -> Vec<RpcPeerInfo> {
+    state.p2p.ready().map_or_else(Vec::new, |p2p| {
+        p2p.peers
+            .iter()
+            .map(|(peer_id, state)| {
+                let best_tip = state.status.as_ready().and_then(|r| r.best_tip.as_ref());
+                let (connection_status, time) = match &state.status {
+                    p2p::P2pPeerStatus::Connecting(c) => match c {
+                        p2p::connection::P2pConnectionState::Outgoing(o) => {
+                            (PeerConnectionStatus::Connecting, o.time().into())
+                        }
+                        p2p::connection::P2pConnectionState::Incoming(i) => {
+                            (PeerConnectionStatus::Connecting, i.time().into())
+                        }
+                    },
+                    p2p::P2pPeerStatus::Disconnected { time } => {
+                        (PeerConnectionStatus::Disconnected, (*time).into())
+                    }
+                    p2p::P2pPeerStatus::Ready(r) => {
+                        (PeerConnectionStatus::Connected, r.connected_since.into())
+                    }
+                };
+                RpcPeerInfo {
+                    peer_id: *peer_id,
+                    connection_status,
+                    address: state.dial_opts.as_ref().map(|opts| opts.to_string()),
+                    best_tip: best_tip.map(|bt| bt.hash.clone()),
+                    best_tip_height: best_tip.map(|bt| bt.height()),
+                    best_tip_global_slot: best_tip.map(|bt| bt.global_slot_since_genesis()),
+                    best_tip_timestamp: best_tip.map(|bt| bt.timestamp().into()),
+                    time,
+                }
+            })
+            .collect()
+    })
 }

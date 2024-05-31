@@ -13,7 +13,8 @@ use node::core::snark::SnarkJobId;
 use node::rpc::{
     ActionStatsQuery, RpcBlockProducerStatsGetResponse, RpcMessageProgressResponse, RpcPeerInfo,
     RpcRequest, RpcScanStateSummaryGetQuery, RpcScanStateSummaryGetResponse,
-    RpcSnarkPoolJobGetResponse, RpcSnarkerWorkersResponse, RpcStateGetError, SyncStatsQuery,
+    RpcSnarkPoolJobGetResponse, RpcSnarkerWorkersResponse, RpcStateGetError, RpcStatusGetResponse,
+    SyncStatsQuery,
 };
 
 use super::rpc::{
@@ -124,6 +125,19 @@ pub async fn run(port: u16, rpc_sender: super::RpcSender) {
             Err(reject)
         }
     }
+
+    let rpc_sender_clone = rpc_sender.clone();
+    let status = warp::path!("status").and(warp::get()).then(move || {
+        let rpc_sender_clone = rpc_sender_clone.clone();
+        async move {
+            let result: RpcStatusGetResponse = rpc_sender_clone
+                .oneshot_request(RpcRequest::StatusGet)
+                .await
+                .flatten();
+
+            with_json_reply(&result, StatusCode::OK)
+        }
+    });
 
     let rpc_sender_clone = rpc_sender.clone();
     let peers_get = warp::path!("state" / "peers")
@@ -432,6 +446,7 @@ pub async fn run(port: u16, rpc_sender: super::RpcSender) {
     #[cfg(feature = "p2p-webrtc")]
     let routes = signaling.or(state_get).or(state_post);
     let routes = routes
+        .or(status)
         .or(peers_get)
         .or(message_progress_get)
         .or(stats)

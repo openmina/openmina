@@ -179,8 +179,12 @@ impl SnarkPoolState {
             .map(|(id, _)| id)
     }
 
-    pub fn available_jobs_iter(&self) -> impl '_ + Iterator<Item = &'_ JobState> {
-        self.list.values().filter(|job| job.is_available())
+    pub fn jobs_iter<'a>(&'a self) -> impl 'a + Iterator<Item = &'a JobState> {
+        self.list.values()
+    }
+
+    pub fn available_jobs_iter<'a>(&'a self) -> impl 'a + Iterator<Item = &'a JobState> {
+        self.jobs_iter().filter(|job| job.is_available())
     }
 
     pub fn available_jobs_with_highest_priority(&self, n: usize) -> Vec<&JobState> {

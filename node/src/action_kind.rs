@@ -330,6 +330,7 @@ pub enum ActionKind {
     RpcSnarkerJobCommit,
     RpcSnarkerJobSpec,
     RpcSnarkerWorkersGet,
+    RpcStatusGet,
     RpcSyncStatsGet,
     SnarkBlockVerifyError,
     SnarkBlockVerifyFinish,
@@ -446,7 +447,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 373;
+    pub const COUNT: u16 = 374;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -620,6 +621,7 @@ impl ActionKindGet for RpcAction {
     fn kind(&self) -> ActionKind {
         match self {
             Self::GlobalStateGet { .. } => ActionKind::RpcGlobalStateGet,
+            Self::StatusGet { .. } => ActionKind::RpcStatusGet,
             Self::ActionStatsGet { .. } => ActionKind::RpcActionStatsGet,
             Self::SyncStatsGet { .. } => ActionKind::RpcSyncStatsGet,
             Self::BlockProducerStatsGet { .. } => ActionKind::RpcBlockProducerStatsGet,

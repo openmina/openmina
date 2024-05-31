@@ -956,6 +956,7 @@ mod test {
                 vrf_output: vrf::genesis_vrf().unwrap(),
                 global_slot: slot,
                 account_index: AccountIndex(0),
+                value_with_threshold: None,
             };
             (
                 slot,

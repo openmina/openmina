@@ -46,6 +46,7 @@ use crate::stats::sync::SyncStatsSnapshot;
 #[allow(clippy::large_enum_variant)]
 pub enum RpcRequest {
     StateGet(Option<String>),
+    StatusGet,
     ActionStatsGet(ActionStatsQuery),
     SyncStatsGet(SyncStatsQuery),
     BlockProducerStatsGet,
@@ -92,14 +93,14 @@ pub enum ActionStatsResponse {
     ForBlock(ActionStatsForBlock),
 }
 
-#[derive(Serialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum PeerConnectionStatus {
     Disconnected,
     Connecting,
     Connected,
 }
 
-#[derive(Serialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RpcPeerInfo {
     pub peer_id: PeerId,
     pub best_tip: Option<StateHash>,
@@ -265,6 +266,7 @@ pub enum RpcStateGetError {
 }
 
 pub type RpcStateGetResponse = Result<serde_json::Value, RpcStateGetError>;
+pub type RpcStatusGetResponse = Option<RpcNodeStatus>;
 pub type RpcActionStatsGetResponse = Option<ActionStatsResponse>;
 pub type RpcSyncStatsGetResponse = Option<Vec<SyncStatsSnapshot>>;
 pub type RpcBlockProducerStatsGetResponse = Option<RpcBlockProducerStats>;
@@ -274,6 +276,39 @@ pub type RpcScanStateSummaryGetResponse = Option<RpcScanStateSummary>;
 pub type RpcSnarkPoolGetResponse = Vec<RpcSnarkPoolJobSummary>;
 pub type RpcSnarkPoolJobGetResponse = Option<RpcSnarkPoolJobFull>;
 pub type RpcSnarkerConfigGetResponse = Option<RpcSnarkerConfig>;
+
+#[derive(Serialize, Debug, Clone)]
+pub struct RpcNodeStatus {
+    pub transition_frontier: RpcNodeStatusTransitionFrontier,
+    pub peers: Vec<RpcPeerInfo>,
+    pub snark_pool: RpcNodeStatusSnarkPool,
+}
+
+#[derive(Serialize, Debug, Clone)]
+pub struct RpcNodeStatusTransitionFrontier {
+    pub best_tip: Option<RpcNodeStatusTransitionFrontierBlockSummary>,
+    pub sync: RpcNodeStatusTransitionFrontierSync,
+}
+
+#[derive(Serialize, Debug, Clone)]
+pub struct RpcNodeStatusTransitionFrontierSync {
+    pub time: Option<redux::Timestamp>,
+    pub status: String,
+    pub target: Option<RpcNodeStatusTransitionFrontierBlockSummary>,
+}
+
+#[derive(Serialize, Debug, Clone)]
+pub struct RpcNodeStatusTransitionFrontierBlockSummary {
+    pub hash: StateHash,
+    pub height: u32,
+    pub global_slot: u32,
+}
+
+#[derive(Serialize, Debug, Default, Clone)]
+pub struct RpcNodeStatusSnarkPool {
+    pub total_jobs: usize,
+    pub snarks: usize,
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RpcBlockProducerStats {
