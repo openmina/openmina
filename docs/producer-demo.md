@@ -1,5 +1,7 @@
 # Producer Demo Launch Guide with Docker
 
+This demo showcases the block production capabilities of OpenMina nodes within a private network. It launches three OpenMina nodes on your local machine, operating in a private network environment. For the purpose of this demonstration, block proofs are disabled. This setup allows you to observe block production immediately, without the need to wait for your account to be included in the staking ledger on testnets.
+
 ## Table of Contents
 1. [Prerequisites](#prerequisites)
     - [Docker Installation on Debian-based Linux](#docker-installation-on-debian-based-linux)
