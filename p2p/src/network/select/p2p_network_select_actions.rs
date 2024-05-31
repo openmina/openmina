@@ -69,6 +69,15 @@ impl SelectKind {
             Self::Stream(_, v) => Some(*v),
         }
     }
+
+    pub fn peer_id(&self) -> Option<PeerId> {
+        match self {
+            Self::Authentication => None,
+            Self::MultiplexingNoPeerId => None,
+            Self::Multiplexing(peer_id) => Some(*peer_id),
+            Self::Stream(peer_id, _) => Some(*peer_id),
+        }
+    }
 }
 
 impl P2pNetworkSelectAction {

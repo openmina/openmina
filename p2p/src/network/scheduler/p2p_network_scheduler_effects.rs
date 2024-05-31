@@ -8,7 +8,7 @@ use crate::{
         incoming::P2pConnectionIncomingAction, outgoing::P2pConnectionOutgoingAction,
         P2pConnectionState,
     },
-    disconnection::P2pDisconnectionAction,
+    disconnection::{P2pDisconnectionAction, P2pDisconnectionReason},
     identify::P2pIdentifyAction,
     network::identify::P2pNetworkIdentifyStreamAction,
     request::{P2pNetworkKadRequestState, P2pNetworkKadRequestStatus},
@@ -82,7 +82,7 @@ impl P2pNetworkSchedulerAction {
                         P2pPeerStatus::Connecting(P2pConnectionState::Outgoing(_))
                     ) {
                         store.dispatch(P2pConnectionOutgoingAction::FinalizeError {
-                            peer_id: *peer_id,
+                            peer_id,
                             error: err.to_string(),
                         });
                     }
@@ -315,14 +315,23 @@ impl P2pNetworkSchedulerAction {
             Self::Disconnected { addr, reason } => {
                 if let Some(conn_state) = store.state().network.scheduler.connections.get(&addr) {
                     let incoming = conn_state.incoming;
+                    let peer_with_state = store.state().peer_with_connection(addr);
+
                     store.dispatch(P2pNetworkSchedulerAction::Prune { addr });
-                    if reason.is_disconnected() {
+
+                    if !matches!(
+                        reason,
+                        P2pNetworkConnectionCloseReason::Disconnect(
+                            P2pDisconnectionReason::SelectError
+                        )
+                    ) && reason.is_disconnected()
+                    {
                         // statemachine behaviour should continue with this, i.e. dispatch P2pDisconnectionAction::Finish
                         return;
                     }
-                    match store.state().peer_with_connection(addr) {
+
+                    match peer_with_state {
                         Some((peer_id, peer_state)) => {
-                            let peer_id = *peer_id;
                             // TODO: connection state type should tell if it is finalized
                             match &peer_state.status {
                                 crate::P2pPeerStatus::Connecting(

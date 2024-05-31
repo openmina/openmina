@@ -51,6 +51,20 @@ impl P2pConnectionIncomingAction {
                 store.dispatch(P2pConnectionIncomingAction::Success { peer_id });
             }
             P2pConnectionIncomingAction::Timeout { peer_id } => {
+                if let Some((addr, _)) = store
+                    .state()
+                    .network
+                    .scheduler
+                    .connections
+                    .iter()
+                    .find(|(_, state)| state.peer_id().is_some_and(|id| *id == peer_id))
+                {
+                    store.dispatch(P2pNetworkSchedulerAction::Disconnect {
+                        addr: *addr,
+                        reason: P2pDisconnectionReason::Timeout,
+                    });
+                }
+
                 store.dispatch(P2pConnectionIncomingAction::Error {
                     peer_id,
                     error: P2pConnectionIncomingError::Timeout,
