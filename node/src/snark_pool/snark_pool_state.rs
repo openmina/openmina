@@ -179,11 +179,11 @@ impl SnarkPoolState {
             .map(|(id, _)| id)
     }
 
-    pub fn jobs_iter<'a>(&'a self) -> impl 'a + Iterator<Item = &'a JobState> {
+    pub fn jobs_iter(&self) -> impl Iterator<Item = &JobState> {
         self.list.values()
     }
 
-    pub fn available_jobs_iter<'a>(&'a self) -> impl 'a + Iterator<Item = &'a JobState> {
+    pub fn available_jobs_iter(&self) -> impl Iterator<Item = &JobState> {
         self.jobs_iter().filter(|job| job.is_available())
     }
 

@@ -322,7 +322,7 @@ impl From<&BlockProducerWonSlot> for BlockProductionAttemptWonSlot {
             global_slot: won_slot.global_slot(),
             epoch: won_slot.epoch(),
             delegator: won_slot.delegator.clone(),
-            value_with_threshold: won_slot.value_with_threshold.clone(),
+            value_with_threshold: won_slot.value_with_threshold,
         }
     }
 }

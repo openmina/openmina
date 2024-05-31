@@ -79,7 +79,7 @@ impl BlockProducerWonSlot {
             delegator,
             global_slot,
             vrf_output: won_slot.vrf_output.clone(),
-            value_with_threshold: won_slot.value_with_threshold.clone(),
+            value_with_threshold: won_slot.value_with_threshold,
             staking_ledger_hash: staking_ledger_hash.clone(),
         }
     }

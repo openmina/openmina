@@ -230,7 +230,7 @@ impl TransitionFrontierSyncAction {
             TransitionFrontierSyncAction::BlocksNextApplyPending { .. } => {}
             TransitionFrontierSyncAction::BlocksNextApplySuccess { hash } => {
                 if let Some(stats) = store.service.stats() {
-                    stats.block_producer().block_apply_end(meta.time(), &hash);
+                    stats.block_producer().block_apply_end(meta.time(), hash);
                 }
 
                 if !store.dispatch(TransitionFrontierSyncAction::BlocksNextApplyInit) {
