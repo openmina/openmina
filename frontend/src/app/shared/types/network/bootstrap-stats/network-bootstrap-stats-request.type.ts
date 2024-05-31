@@ -8,6 +8,7 @@ export interface NetworkBootstrapStatsRequest {
   existingPeers: number;
   newPeers: number;
   error: string | undefined;
+  typeErr: string;
   closestPeers: [PeerId, NetworkBootstrapPeerType][];
 }
 

@@ -1,4 +1,4 @@
-use std::{net::IpAddr, time::Instant};
+use std::{collections::VecDeque, net::IpAddr, time::Instant};
 
 use p2p::{
     identity::SecretKey,
@@ -23,7 +23,7 @@ pub struct ClusterService {
     time: Instant,
     keypair: libp2p::identity::Keypair,
 
-    rust_node_event: Option<RustNodeEvent>,
+    rust_node_events: VecDeque<RustNodeEvent>,
     network_service: NativeP2pNetworkService,
 }
 
@@ -37,10 +37,9 @@ impl ClusterService {
     ) -> Self {
         let mio = {
             let event_sender = event_sender.clone();
-            MioService::run(move |mio_event| {
-                event_sender
-                    .send(mio_event.into())
-                    .expect("cannot send mio event")
+            MioService::new(move |mio_event| {
+                let _ = event_sender.send(mio_event.into());
+                //.expect("cannot send mio event")
             })
         };
         let keypair = libp2p::identity::Keypair::ed25519_from_bytes(secret_key.to_bytes())
@@ -54,7 +53,7 @@ impl ClusterService {
             time,
             keypair,
 
-            rust_node_event: None,
+            rust_node_events: Default::default(),
             network_service: Default::default(),
         }
     }
@@ -64,7 +63,7 @@ impl ClusterService {
     }
 
     pub(crate) fn rust_node_event(&mut self) -> Option<RustNodeEvent> {
-        self.rust_node_event.take()
+        self.rust_node_events.pop_front()
     }
 }
 
@@ -122,8 +121,8 @@ impl P2pCryptoService for ClusterService {
 
     // TODO: move it to statemachine.
     fn sign_key(&mut self, key: &[u8; 32]) -> Vec<u8> {
-        let msg = &[b"noise-libp2p-static-key:", key.as_ref()].concat();
-        let sig = self.keypair.sign(msg).expect("unable to create signature");
+        let msg = [b"noise-libp2p-static-key:", key.as_ref()].concat();
+        let sig = self.keypair.sign(&msg).expect("unable to create signature");
 
         let mut payload = vec![];
         payload.extend_from_slice(b"\x0a\x24");
@@ -131,6 +130,11 @@ impl P2pCryptoService for ClusterService {
         payload.extend_from_slice(b"\x12\x40");
         payload.extend_from_slice(&sig);
         payload
+    }
+
+    fn sign_publication(&mut self, publication: &[u8]) -> Vec<u8> {
+        let msg = [b"libp2p-pubsub:", publication].concat();
+        self.keypair.sign(&msg).expect("unable to create signature")
     }
 }
 
@@ -146,7 +150,6 @@ impl p2p::P2pNetworkService for ClusterService {
 
 impl RustNodeEventStore for ClusterService {
     fn store_event(&mut self, event: RustNodeEvent) {
-        debug_assert!(self.rust_node_event.is_none());
-        self.rust_node_event = Some(event);
+        self.rust_node_events.push_back(event);
     }
 }

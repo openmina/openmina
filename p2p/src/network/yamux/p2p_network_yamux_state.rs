@@ -16,20 +16,22 @@ pub struct P2pNetworkYamuxState {
 impl P2pNetworkYamuxState {
     /// Calculates and returns the next available stream ID for outgoing
     /// communication.
-    pub fn next_stream_id(&self, client: bool) -> Option<StreamId> {
-        // client side should select odd stream IDs
-        let suitable_stream_id = move |stream_id: &&StreamId| ((**stream_id & 0x1) == 1) == client;
+    pub fn next_stream_id(&self, kind: YamuxStreamKind, incoming: bool) -> Option<StreamId> {
         if self.init && self.terminated.is_none() {
-            let next_stream_id = self
-                .streams
-                .keys()
-                .filter(suitable_stream_id)
-                .max()
-                .map_or_else(|| if client { 1 } else { 2 }, |stream_id| stream_id + 2);
-            Some(next_stream_id)
+            Some(kind.stream_id(incoming))
         } else {
             None
         }
+    }
+
+    // TODO:
+    pub fn consume(&mut self, len: usize) {
+        let _ = len;
+    }
+
+    // TODO:
+    pub fn limit(&self) -> usize {
+        0x2000
     }
 }
 
@@ -184,4 +186,30 @@ pub enum YamuxFrameInner {
 pub enum YamuxSessionError {
     Protocol,
     Internal,
+}
+
+#[derive(Debug)]
+pub enum YamuxStreamKind {
+    Rpc,
+    Gossipsub,
+    Kademlia,
+    Identify,
+}
+
+impl YamuxStreamKind {
+    pub fn stream_id(self, incoming: bool) -> StreamId {
+        (self as StreamId) * 2 + 1 + (incoming as StreamId)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn yamux_stream_id() {
+        use super::YamuxStreamKind::*;
+        assert_eq!(Rpc.stream_id(false), 1);
+        assert_eq!(Rpc.stream_id(true), 2);
+        assert_eq!(Kademlia.stream_id(false), 5);
+        assert_eq!(Kademlia.stream_id(true), 6);
+    }
 }

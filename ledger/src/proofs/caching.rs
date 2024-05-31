@@ -333,7 +333,7 @@ impl From<&VerifierIndex<Pallas>> for VerifierIndexCached {
             w: (*w.get().unwrap()).into(),
             endo: endo.into(),
             lookup_index: lookup_index.clone(),
-            linearization: conv_linearization(&linearization),
+            linearization: conv_linearization(linearization),
         }
     }
 }
@@ -389,7 +389,7 @@ impl From<&VerifierIndexCached> for VerifierIndex<Pallas> {
             w: OnceCell::with_value(w.to_field()),
             endo: endo.to_field(),
             lookup_index: lookup_index.clone(),
-            linearization: conv_linearization(&linearization),
+            linearization: conv_linearization(linearization),
             powers_of_alpha: {
                 // `Alphas` contains private data, so we can't de/serialize it.
                 // Initializing an `Alphas` is cheap anyway (for block verification).
@@ -412,19 +412,29 @@ impl From<&VerifierIndexCached> for VerifierIndex<Pallas> {
     }
 }
 
-pub fn verifier_index_to_bytes(verifier: &VerifierIndex<Pallas>) -> Vec<u8> {
-    const NBYTES: usize = 5328359;
+#[derive(Debug, thiserror::Error)]
+#[error("Error writing verifier index to bytes: {0}")]
+pub struct VerifierIndexToBytesError(#[from] ciborium::ser::Error<std::io::Error>);
 
+pub fn verifier_index_to_bytes(
+    verifier: &VerifierIndex<Pallas>,
+) -> Result<Vec<u8>, VerifierIndexToBytesError> {
     let verifier: VerifierIndexCached = verifier.into();
-    let mut bytes = Vec::with_capacity(NBYTES);
-    bincode::serialize_into(&mut bytes, &verifier).unwrap();
-
-    bytes
+    let mut result = Vec::new();
+    ciborium::ser::into_writer(&verifier, &mut result)?;
+    Ok(result)
 }
 
-pub fn verifier_index_from_bytes(bytes: &[u8]) -> VerifierIndex<Pallas> {
-    let verifier: VerifierIndexCached = bincode::deserialize(bytes).unwrap();
-    (&verifier).into()
+#[derive(Debug, thiserror::Error)]
+#[error("Error reading verifier index from bytes: {0}")]
+pub struct VerifierIndexFromBytesError(#[from] ciborium::de::Error<std::io::Error>);
+
+pub fn verifier_index_from_bytes(
+    bytes: &[u8],
+) -> Result<VerifierIndex<Pallas>, VerifierIndexFromBytesError> {
+    let mut cursor = std::io::Cursor::new(bytes);
+    let verifier: VerifierIndexCached = ciborium::de::from_reader(&mut cursor)?;
+    Ok((&verifier).into())
 }
 
 pub fn srs_to_bytes<'a, G>(srs: &'a SRS<G>) -> Vec<u8>
@@ -434,13 +444,10 @@ where
     BigInt: From<&'a <G as AffineCurve>::ScalarField>,
     BigInt: From<&'a <G as AffineCurve>::BaseField>,
 {
-    const NBYTES: usize = 5308593;
-
     let srs: SRSCached = srs.into();
-    let mut bytes = Vec::with_capacity(NBYTES);
-    bincode::serialize_into(&mut bytes, &srs).unwrap();
-
-    bytes
+    let mut result = Vec::new();
+    ciborium::ser::into_writer(&srs, &mut result).unwrap();
+    result
 }
 
 pub fn srs_from_bytes<G>(bytes: &[u8]) -> SRS<G>
@@ -448,6 +455,7 @@ where
     G: CommitmentCurve,
     G: for<'a> From<&'a GroupAffineCached>,
 {
-    let srs: SRSCached = bincode::deserialize(bytes).unwrap();
+    let mut cursor = std::io::Cursor::new(bytes);
+    let srs: SRSCached = ciborium::de::from_reader(&mut cursor).unwrap();
     (&srs).into()
 }

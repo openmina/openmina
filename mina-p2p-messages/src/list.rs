@@ -28,6 +28,12 @@ impl<T> List<T> {
         List(Backend::new())
     }
 
+    pub fn one(elt: T) -> Self {
+        let mut l = List(Backend::new());
+        l.push_front(elt);
+        l
+    }
+
     // pub fn iter(&self) -> <&Backend<T> as IntoIterator>::IntoIter {
     //     (self).into_iter()
     // }

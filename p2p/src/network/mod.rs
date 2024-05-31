@@ -1,4 +1,10 @@
 mod p2p_network_actions;
+use serde::Deserialize;
+use serde::Serialize;
+
+use crate::Limit;
+
+use self::identify::stream::P2pNetworkIdentifyStreamError;
 pub use self::p2p_network_actions::*;
 
 mod p2p_network_service;
@@ -24,12 +30,16 @@ pub mod noise;
 pub use self::noise::*;
 
 pub mod yamux;
+use self::stream::{P2pNetworkKadIncomingStreamError, P2pNetworkKadOutgoingStreamError};
 pub use self::yamux::*;
 
 pub mod identify;
 
 pub mod kad;
 pub use self::kad::*;
+
+pub mod pubsub;
+pub use self::pubsub::*;
 
 pub mod rpc;
 pub use self::rpc::*;
@@ -158,4 +168,17 @@ mod data {
             &mut self.0
         }
     }
+}
+
+/// Errors that might happen while handling protobuf messages received via a stream.
+#[derive(Debug, Clone, PartialEq, thiserror::Error, Serialize, Deserialize)]
+pub enum P2pNetworkStreamProtobufError<T> {
+    #[error("error reading message length")]
+    MessageLength,
+    #[error("message is too long: {0} exceeds {1}")]
+    Limit(usize, Limit<usize>),
+    #[error("error reading message: {0}")]
+    Message(String),
+    #[error("error converting protobuf message: {0}")]
+    Convert(#[from] T),
 }

@@ -27,7 +27,7 @@ const LOCALHOST: Ipv4Addr = Ipv4Addr::new(127, 0, 0, 1);
 pub struct IncomingFindNode;
 
 impl IncomingFindNode {
-    pub async fn run<'cluster>(self, runner: ClusterRunner<'cluster>) {
+    pub async fn run(self, runner: ClusterRunner<'_>) {
         let mut driver = Driver::new(runner);
         let (node1, peer_id1) = driver.add_rust_node(
             RustNodeTestingConfig::berkeley_default().initial_peers(
@@ -56,7 +56,7 @@ impl IncomingFindNode {
                 .unwrap()
                 .state()
                 .p2p
-                .config
+                .config()
                 .libp2p_port
                 .unwrap(),
             peer_id1.to_libp2p_string(),
@@ -80,7 +80,7 @@ impl IncomingFindNode {
             fake_peer
                 .behaviour_mut()
                 .kademlia
-                .add_address(&peer_id1.clone().into(), addr);
+                .add_address(&peer_id1.into(), addr);
             loop {
                 let next = fake_peer.next().await.unwrap();
                 println!("<<< {next:?}");
@@ -119,7 +119,7 @@ impl IncomingFindNode {
 pub struct KademliaBootstrap;
 
 impl KademliaBootstrap {
-    pub async fn run<'cluster>(self, runner: ClusterRunner<'cluster>) {
+    pub async fn run(self, runner: ClusterRunner<'_>) {
         const NUM: u8 = 10;
         let identity_key =
             Keypair::ed25519_from_bytes([0xba; 32]).expect("secret key bytes must be valid");
@@ -143,7 +143,7 @@ impl KademliaBootstrap {
             driver.add_rust_node(RustNodeTestingConfig::berkeley_default().initial_peers(
                 FromIterator::from_iter([ListenerNode::Custom(
                     P2pConnectionOutgoingInitOpts::LibP2P(P2pConnectionOutgoingInitLibp2pOpts {
-                        peer_id: peer_id.clone().into(),
+                        peer_id: peer_id.into(),
                         host: Host::Ipv4(LOCALHOST),
                         port: 13000,
                     }),
@@ -200,7 +200,7 @@ fn fake_kad_peer(
     identity_key: Keypair,
     port: Option<u16>,
 ) -> anyhow::Result<libp2p::Swarm<Behaviour>> {
-    let psk = PreSharedKey::new(openmina_core::preshared_key(openmina_core::CHAIN_ID));
+    let psk = PreSharedKey::new(openmina_core::BERKELEY_CHAIN_ID.preshared_key());
     let _identify = libp2p::identify::Behaviour::new(libp2p::identify::Config::new(
         "ipfs/0.1.0".to_string(),
         identity_key.public(),
@@ -210,7 +210,7 @@ fn fake_kad_peer(
     println!("======== peer_id: {peer_id}");
     println!(
         "======== peer_id bytes: {}",
-        hex::encode(&peer_id.clone().to_bytes())
+        hex::encode(peer_id.to_bytes())
     );
     let kad_config = {
         let mut c = libp2p::kad::Config::default();

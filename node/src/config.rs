@@ -1,5 +1,6 @@
 use std::ffi::OsString;
 use std::str::FromStr;
+use std::sync::Arc;
 
 use mina_p2p_messages::v2::CurrencyFeeStableV1;
 use serde::{Deserialize, Serialize};
@@ -10,6 +11,7 @@ pub use crate::ledger::LedgerConfig;
 pub use crate::p2p::P2pConfig;
 pub use crate::snark::SnarkConfig;
 pub use crate::snark_pool::SnarkPoolConfig;
+use crate::transition_frontier::genesis::GenesisConfig;
 pub use crate::transition_frontier::TransitionFrontierConfig;
 pub use mina_p2p_messages::v2::MinaBaseProtocolConstantsCheckedValueStableV1 as ProtocolConstants;
 
@@ -121,5 +123,40 @@ impl FromStr for SnarkerStrategy {
             "rand" | "random" => SnarkerStrategy::Random,
             other => return Err(SnarkerStrategyParseError(other.to_owned())),
         })
+    }
+}
+
+// Load static berkeley genesis ledger for testing
+lazy_static::lazy_static! {
+    pub static ref BERKELEY_CONFIG: Arc<GenesisConfig> = {
+        let bytes = include_bytes!("../../genesis_ledgers/berkeley.bin");
+        Arc::new(GenesisConfig::Prebuilt(
+            std::borrow::Cow::Borrowed(bytes)
+        ))
+    };
+}
+
+#[cfg(test)]
+mod tests {
+    use time::{format_description::well_known::Rfc3339, OffsetDateTime};
+
+    use super::BERKELEY_CONFIG;
+
+    #[test]
+    fn berkeley_config() {
+        let (_mask, config) = BERKELEY_CONFIG.load().expect("should be loadable");
+
+        assert_eq!(
+            config.ledger_hash,
+            "jwkqwgAC6MXgfiZmynHRqXV6PGbMbLwFCx56Y2rt5vwdumf6ofp"
+                .parse()
+                .unwrap()
+        );
+        assert_eq!(
+            config.constants.genesis_state_timestamp,
+            OffsetDateTime::parse("2024-02-02T14:01:01Z", &Rfc3339)
+                .unwrap()
+                .into()
+        );
     }
 }

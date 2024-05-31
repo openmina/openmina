@@ -21,7 +21,6 @@ export class NetworkBootstrapStatsService {
   }
 
   private mapBootstrapStats(response: BootstrapStatsResponse): NetworkBootstrapStatsRequest[] {
-    console.log(response.requests[0].finish, response.requests[0].start);
     return response.requests.map((request: BootstrapStatsRequest) => ({
       type: request.type,
       address: request.address,
@@ -30,6 +29,7 @@ export class NetworkBootstrapStatsService {
       durationInSecs: request.finish ? Math.ceil((request.finish - request.start) / ONE_BILLION) : undefined,
       peerId: request.peer_id,
       error: request.error,
+      typeErr: request.type + (request.error ? `- ${request.error}` : ''),
       existingPeers: request.closest_peers?.filter(([, type]: [string, NetworkBootstrapPeerType]) => type === NetworkBootstrapPeerType.EXISTING).length || 0,
       newPeers: request.closest_peers?.filter(([, type]: [string, NetworkBootstrapPeerType]) => type === NetworkBootstrapPeerType.NEW).length || 0,
       closestPeers: request.closest_peers || [],

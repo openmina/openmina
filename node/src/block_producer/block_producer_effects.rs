@@ -7,7 +7,7 @@ use crate::ledger::write::{LedgerWriteAction, LedgerWriteRequest};
 use crate::transition_frontier::sync::TransitionFrontierSyncAction;
 use crate::Store;
 
-use super::vrf_evaluator::BlockProducerVrfEvaluatorAction;
+use super::vrf_evaluator::{BlockProducerVrfEvaluatorAction, InterruptReason};
 use super::{
     next_epoch_first_slot, to_epoch_and_slot, BlockProducerAction, BlockProducerActionWithMeta,
     BlockProducerCurrentState,
@@ -45,6 +45,13 @@ pub fn block_producer_effects<S: crate::Service>(
             let (epoch, slot) = to_epoch_and_slot(&global_slot);
             let next_epoch_first_slot = next_epoch_first_slot(&global_slot);
 
+            // if we receive a block with higher epoch than the current one, interrupt the evaluation
+            if store.state().current_epoch() < Some(epoch) {
+                store.dispatch(BlockProducerVrfEvaluatorAction::InterruptEpochEvaluation {
+                    reason: InterruptReason::BestTipWithHigherEpoch,
+                });
+            }
+
             store.dispatch(BlockProducerVrfEvaluatorAction::InitializeEvaluator {
                 best_tip: best_tip.clone(),
             });
@@ -73,6 +80,8 @@ pub fn block_producer_effects<S: crate::Service>(
                 .with(None, |bp| bp.current.won_slot_should_discard(&best_tip))
             {
                 store.dispatch(BlockProducerAction::WonSlotDiscard { reason });
+            } else {
+                store.dispatch(BlockProducerAction::WonSlotSearch);
             }
         }
         BlockProducerAction::WonSlotSearch => {
@@ -84,7 +93,10 @@ pub fn block_producer_effects<S: crate::Service>(
                 store.dispatch(BlockProducerAction::WonSlot { won_slot });
             }
         }
-        BlockProducerAction::WonSlot { .. } => {
+        BlockProducerAction::WonSlot { won_slot } => {
+            if let Some(stats) = store.service.stats() {
+                stats.block_producer().scheduled(meta.time(), &won_slot);
+            }
             if !store.dispatch(BlockProducerAction::WonSlotWait) {
                 store.dispatch(BlockProducerAction::WonSlotProduceInit);
             }
@@ -94,6 +106,11 @@ pub fn block_producer_effects<S: crate::Service>(
             store.dispatch(BlockProducerAction::StagedLedgerDiffCreateInit);
         }
         BlockProducerAction::StagedLedgerDiffCreateInit => {
+            if let Some(stats) = store.service.stats() {
+                stats
+                    .block_producer()
+                    .staged_ledger_diff_create_start(meta.time());
+            }
             let state = store.state.get();
             let Some((won_slot, pred_block, producer, coinbase_receiver)) = None.or_else(|| {
                 let pred_block = state.block_producer.current_parent_chain()?.last()?;
@@ -134,13 +151,36 @@ pub fn block_producer_effects<S: crate::Service>(
         }
         BlockProducerAction::StagedLedgerDiffCreatePending => {}
         BlockProducerAction::StagedLedgerDiffCreateSuccess { .. } => {
+            if let Some(stats) = store.service.stats() {
+                stats
+                    .block_producer()
+                    .staged_ledger_diff_create_end(meta.time());
+            }
             store.dispatch(BlockProducerAction::BlockUnprovenBuild);
         }
         BlockProducerAction::BlockUnprovenBuild => {
+            if let Some(stats) = store.service.stats() {
+                let bp = &store.state.get().block_producer;
+                if let Some((block_hash, block)) = bp.with(None, |bp| match &bp.current {
+                    BlockProducerCurrentState::BlockUnprovenBuilt {
+                        block, block_hash, ..
+                    } => Some((block_hash, block)),
+                    _ => None,
+                }) {
+                    stats
+                        .block_producer()
+                        .produced(meta.time(), block_hash, block);
+                }
+            }
+
             store.dispatch(BlockProducerAction::BlockProveInit);
         }
         BlockProducerAction::BlockProveInit => {
             let service = &mut store.service;
+
+            if let Some(stats) = service.stats() {
+                stats.block_producer().proof_create_start(meta.time());
+            }
             let Some((block_hash, input)) = store.state.get().block_producer.with(None, |bp| {
                 let BlockProducerCurrentState::BlockUnprovenBuilt {
                     won_slot,
@@ -208,6 +248,9 @@ pub fn block_producer_effects<S: crate::Service>(
         }
         BlockProducerAction::BlockProvePending => {}
         BlockProducerAction::BlockProveSuccess { .. } => {
+            if let Some(stats) = store.service.stats() {
+                stats.block_producer().proof_create_end(meta.time());
+            }
             store.dispatch(BlockProducerAction::BlockProduced);
         }
         BlockProducerAction::BlockProduced => {
@@ -225,7 +268,7 @@ pub fn block_producer_effects<S: crate::Service>(
             };
 
             if store.dispatch(TransitionFrontierSyncAction::BestTipUpdate {
-                best_tip,
+                best_tip: best_tip.clone(),
                 root_block,
                 blocks_inbetween,
             }) {
@@ -235,7 +278,10 @@ pub fn block_producer_effects<S: crate::Service>(
         BlockProducerAction::BlockInjected => {
             store.dispatch(BlockProducerAction::WonSlotSearch);
         }
-        BlockProducerAction::WonSlotDiscard { .. } => {
+        BlockProducerAction::WonSlotDiscard { reason } => {
+            if let Some(stats) = store.service.stats() {
+                stats.block_producer().discarded(meta.time(), reason);
+            }
             store.dispatch(BlockProducerAction::WonSlotSearch);
         }
     }

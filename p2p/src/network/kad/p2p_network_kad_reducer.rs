@@ -1,11 +1,17 @@
 use redux::ActionWithMeta;
 
+use crate::{P2pLimits, P2pNetworkKadEntry};
+
 use super::{P2pNetworkKadAction, P2pNetworkKadLatestRequestPeerKind, P2pNetworkKadStatus};
 
 use super::stream::P2pNetworkKademliaStreamAction;
 
 impl super::P2pNetworkKadState {
-    pub fn reducer(&mut self, action: ActionWithMeta<&P2pNetworkKadAction>) -> Result<(), String> {
+    pub fn reducer(
+        &mut self,
+        action: ActionWithMeta<&P2pNetworkKadAction>,
+        limits: &P2pLimits,
+    ) -> Result<(), String> {
         let (action, meta) = action.split();
         match action {
             P2pNetworkKadAction::System(action) => self.system_reducer(meta.with_action(action)),
@@ -46,7 +52,7 @@ impl super::P2pNetworkKadState {
                 .map_err(|stream| {
                     format!("kademlia stream already exists for action {action:?}: {stream:?}")
                 })
-                .and_then(|stream| stream.reducer(meta.with_action(action))),
+                .and_then(|stream| stream.reducer(meta.with_action(action), limits)),
             P2pNetworkKadAction::Stream(action @ P2pNetworkKademliaStreamAction::Prune { .. }) => {
                 self.remove_kad_stream_state(action.peer_id(), action.stream_id())
                     .then_some(())
@@ -55,7 +61,7 @@ impl super::P2pNetworkKadState {
             P2pNetworkKadAction::Stream(action) => self
                 .find_kad_stream_state_mut(action.peer_id(), action.stream_id())
                 .ok_or_else(|| format!("kademlia stream not found for action {action:?}"))
-                .and_then(|stream| stream.reducer(meta.with_action(action))),
+                .and_then(|stream| stream.reducer(meta.with_action(action), limits)),
         }
     }
 
@@ -91,6 +97,12 @@ impl super::P2pNetworkKadState {
                     time: meta.time(),
                     stats: state.stats.clone(),
                 };
+                Ok(())
+            }
+            (_, UpdateRoutingTable { peer_id, addrs }) => {
+                let _ = self
+                    .routing_table
+                    .insert(P2pNetworkKadEntry::new(*peer_id, addrs.clone()));
                 Ok(())
             }
             (state, action) => Err(format!("invalid action {action:?} for state {state:?}")),

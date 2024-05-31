@@ -1,6 +1,7 @@
 use node::rpc::{
-    RpcDiscoveryBoostrapStatsResponse, RpcDiscoveryRoutingTableResponse, RpcHealthCheckResponse,
-    RpcMessageProgressResponse, RpcPeersGetResponse, RpcReadinessCheckResponse, RpcStateGetError,
+    RpcBlockProducerStatsGetResponse, RpcDiscoveryBoostrapStatsResponse,
+    RpcDiscoveryRoutingTableResponse, RpcHealthCheckResponse, RpcMessageProgressResponse,
+    RpcPeersGetResponse, RpcReadinessCheckResponse, RpcStateGetError, RpcStatusGetResponse,
 };
 use serde::{Deserialize, Serialize};
 
@@ -29,6 +30,12 @@ pub struct RpcService {
 
     req_sender: mpsc::Sender<NodeRpcRequest>,
     req_receiver: mpsc::Receiver<NodeRpcRequest>,
+}
+
+impl Default for RpcService {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl RpcService {
@@ -64,7 +71,7 @@ impl NodeService {
         let req = req.req;
         let tx = self.event_sender.clone();
 
-        let _ = tx.send(Event::Rpc(rpc_id, req));
+        let _ = tx.send(Event::Rpc(rpc_id, Box::new(req)));
     }
 }
 
@@ -113,10 +120,10 @@ macro_rules! state_field_filter {
 /// assert_eq!(filter, None);
 /// ```
 fn strip_root_field<'a>(filter: &'a str, field: &str) -> Option<&'a str> {
-    let strip_root = |f: &'a str| f.strip_prefix("$");
+    let strip_root = |f: &'a str| f.strip_prefix('$');
     let field_char = |c: char| c.is_alphabetic() || c == '_';
     let strip_dot_field = |f: &'a str| {
-        f.strip_prefix(".").and_then(|f| {
+        f.strip_prefix('.').and_then(|f| {
             f.strip_prefix(field)
                 .and_then(|f| (!f.starts_with(field_char)).then_some(f))
         })
@@ -127,27 +134,6 @@ fn strip_root_field<'a>(filter: &'a str, field: &str) -> Option<&'a str> {
             .and_then(|f| f.strip_prefix("']"))
     };
     strip_root(filter).and_then(|f| strip_dot_field(f).or_else(|| strip_index_field(f)))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::strip_root_field;
-
-    #[test]
-    fn strip_root_field_test() {
-        for (filter, expected) in [
-            ("$.field", Some("")),
-            ("$['field']", Some("")),
-            ("$.field.another", Some(".another")),
-            ("$['field'].another", Some(".another")),
-            ("$.another", None),
-            ("$.field_1", None),
-            ("$.fields", None),
-        ] {
-            let actual = strip_root_field(filter, "field");
-            assert_eq!(actual, expected)
-        }
-    }
 }
 
 fn optimize_filtered_state(
@@ -206,9 +192,14 @@ impl node::rpc::RpcService for NodeService {
             .or(Err(RespondError::RespondingFailed))?;
         Ok(())
     }
+    rpc_service_impl!(respond_status_get, RpcStatusGetResponse);
 
     rpc_service_impl!(respond_sync_stats_get, RpcSyncStatsGetResponse);
     rpc_service_impl!(respond_action_stats_get, RpcActionStatsGetResponse);
+    rpc_service_impl!(
+        respond_block_producer_stats_get,
+        RpcBlockProducerStatsGetResponse
+    );
     rpc_service_impl!(
         respond_message_progress_stats_get,
         RpcMessageProgressResponse
@@ -284,5 +275,26 @@ impl node::rpc::RpcService for NodeService {
 impl node::core::invariants::InvariantService for NodeService {
     fn invariants_state(&mut self) -> &mut node::core::invariants::InvariantsState {
         &mut self.invariants_state
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::strip_root_field;
+
+    #[test]
+    fn strip_root_field_test() {
+        for (filter, expected) in [
+            ("$.field", Some("")),
+            ("$['field']", Some("")),
+            ("$.field.another", Some(".another")),
+            ("$['field'].another", Some(".another")),
+            ("$.another", None),
+            ("$.field_1", None),
+            ("$.fields", None),
+        ] {
+            let actual = strip_root_field(filter, "field");
+            assert_eq!(actual, expected)
+        }
     }
 }

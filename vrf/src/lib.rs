@@ -6,7 +6,7 @@ use mina_p2p_messages::{
     bigint::BigInt as MinaBigInt,
     v2::{EpochSeed, MinaBaseEpochSeedStableV1},
 };
-use num::BigInt;
+use num::{BigInt, ToPrimitive};
 use output::VrfOutput;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -61,6 +61,7 @@ pub struct VrfWonSlot {
     pub global_slot: u32,
     pub account_index: AccountIndex,
     pub vrf_output: VrfOutput,
+    pub value_with_threshold: Option<(f64, f64)>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -72,8 +73,8 @@ pub enum VrfEvaluationOutput {
 impl VrfEvaluationOutput {
     pub fn global_slot(&self) -> u32 {
         match self {
-            Self::SlotWon(won_slot) => won_slot.global_slot,
-            Self::SlotLost(global_slot) => *global_slot,
+            Self::SlotWon(v) => v.global_slot,
+            Self::SlotLost(v) => *v,
         }
     }
 }
@@ -152,16 +153,22 @@ pub fn evaluate_vrf(vrf_input: VrfEvaluationInput) -> VrfResult<VrfEvaluationOut
 
     let vrf_output = calculate_vrf(&producer_key, epoch_seed, global_slot, &delegator_index)?;
 
-    let slot_won = Threshold::new(delegated_stake, total_currency)
-        .threshold_met(vrf_output.truncated().into_repr());
+    let value = vrf_output.truncated().into_repr();
+    let threshold = Threshold::new(delegated_stake, total_currency);
 
-    if slot_won {
+    if threshold.threshold_met(value) {
         Ok(VrfEvaluationOutput::SlotWon(VrfWonSlot {
             producer: producer_key.get_address(),
             vrf_output,
             winner_account: account_pub_key,
             global_slot,
             account_index: delegator_index,
+            value_with_threshold: None.or_else(|| {
+                Some((
+                    self::threshold::get_fractional(value).to_f64()?,
+                    threshold.threshold_rational.to_f64()?,
+                ))
+            }),
         }))
     } else {
         Ok(VrfEvaluationOutput::SlotLost(global_slot))

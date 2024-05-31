@@ -1,3 +1,5 @@
+#![allow(clippy::if_same_then_else)]
+
 pub use openmina_core as core;
 
 #[macro_use]
@@ -7,11 +9,11 @@ pub use action::*;
 mod action_kind;
 pub use action_kind::ActionKind;
 
-mod config;
+pub mod config;
 pub use config::*;
 
 mod state;
-pub use state::State;
+pub use state::{P2p, State};
 
 mod reducer;
 pub use reducer::reducer;
@@ -29,6 +31,7 @@ pub mod stats;
 
 pub mod block_producer;
 pub mod consensus;
+pub mod daemon_json;
 pub mod event_source;
 pub mod external_snark_worker;
 pub mod ledger;
@@ -86,18 +89,4 @@ where
             store: self.store.clone(),
         }
     }
-}
-
-// TODO: remove once we support daemon.json
-use crate::transition_frontier::genesis::GenesisConfig;
-use std::sync::Arc;
-lazy_static::lazy_static! {
-    pub static ref BERKELEY_CONFIG: Arc<GenesisConfig> = {
-        let bytes = include_bytes!("../../genesis_ledgers/berkeley_genesis_ledger.bin");
-        Arc::new(GenesisConfig::AccountsBinProt {
-            bytes: std::borrow::Cow::Borrowed(bytes),
-            // 2023-10-17T16:01:01Z
-            constants: GenesisConfig::default_constants(1697558461000),
-        })
-    };
 }

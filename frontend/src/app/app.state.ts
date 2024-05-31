@@ -2,21 +2,28 @@ import { MinaState } from '@app/app.setup';
 import { AppMenu } from '@shared/types/app/app-menu.type';
 import { createSelector, MemoizedSelector } from '@ngrx/store';
 import { MinaNode } from '@shared/types/core/environment/mina-env.type';
+import { AppNodeDetails } from '@shared/types/app/app-node-details.type';
 
 export interface AppState {
   menu: AppMenu;
   nodes: MinaNode[];
   activeNode: MinaNode;
+  activeNodeDetails: AppNodeDetails;
 }
 
-const select = <T>(selector: (state: AppState) => T): MinaSelector<T> => createSelector(
-  selectAppState,
+const select = <T>(selector: (state: AppState) => T): MemoizedSelector<MinaState, T> => createSelector(
+  (state: MinaState): AppState => state.app,
   selector,
 );
 
-type MinaSelector<T> = MemoizedSelector<MinaState, T>;
+const menu = select(state => state.menu);
+const nodes = select(state => state.nodes);
+const activeNode = select(state => state.activeNode);
+const activeNodeDetails = select(state => state.activeNodeDetails);
 
-export const selectAppState = (state: MinaState): AppState => state.app;
-export const selectAppMenu = select((state: AppState): AppMenu => state.menu);
-export const selectNodes: MinaSelector<MinaNode[]> = select(state => state.nodes);
-export const selectActiveNode: MinaSelector<MinaNode> = select(state => state.activeNode);
+export const AppSelectors = {
+  menu,
+  nodes,
+  activeNode,
+  activeNodeDetails,
+};

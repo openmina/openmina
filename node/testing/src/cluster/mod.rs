@@ -2,12 +2,12 @@ mod config;
 pub use config::{ClusterConfig, ProofKind};
 
 mod p2p_task_spawner;
-use node::account::{AccountPublicKey, AccountSecretKey};
 pub use p2p_task_spawner::P2pTaskSpawner;
 
 mod node_id;
 pub use node_id::{ClusterNodeId, ClusterOcamlNodeId};
-use serde::de::DeserializeOwned;
+
+pub mod runner;
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -17,6 +17,8 @@ use std::{collections::VecDeque, sync::Arc};
 
 use libp2p::futures::{stream::FuturesUnordered, StreamExt};
 use libp2p::identity::Keypair;
+
+use node::account::{AccountPublicKey, AccountSecretKey};
 use node::core::channels::mpsc;
 use node::core::log::system_time;
 use node::core::requests::RpcId;
@@ -24,13 +26,13 @@ use node::core::warn;
 use node::p2p::service_impl::{
     webrtc::P2pServiceCtx, webrtc_with_libp2p::P2pServiceWebrtcWithLibp2p,
 };
-use node::p2p::{P2pConnectionEvent, P2pEvent, PeerId};
+use node::p2p::{P2pConnectionEvent, P2pEvent, P2pLimits, PeerId};
 use node::snark::{VerifierIndex, VerifierSRS};
 use node::{
     event_source::Event,
     ledger::{LedgerCtx, LedgerManager},
     p2p::{channels::ChannelId, identity::SecretKey as P2pSecretKey},
-    service::Recorder,
+    service::{Recorder, Service},
     snark::{get_srs, get_verifier_index, VerifierKind},
     BuildEnv, Config, GlobalConfig, LedgerConfig, P2pConfig, SnarkConfig, State,
     TransitionFrontierConfig,
@@ -38,7 +40,7 @@ use node::{
 use openmina_node_invariants::{InvariantResult, Invariants};
 use openmina_node_native::{http_server, rpc::RpcService, NodeService, RpcSender};
 use rand::{rngs::StdRng, SeedableRng};
-use serde::Serialize;
+use serde::{de::DeserializeOwned, Serialize};
 
 use crate::node::{DaemonJson, NonDeterministicEvent, OcamlStep, TestPeerId};
 use crate::{
@@ -71,7 +73,7 @@ fn read_index<T: DeserializeOwned>(name: &str) -> Option<T> {
                 }
             }
         })
-        .and_then(|file| match serde_cbor::from_reader(file) {
+        .and_then(|file| match ciborium::de::from_reader(file) {
             Ok(v) => Some(v),
             Err(e) => {
                 warn!(system_time(); "cannot read verifier index for {name}: {e}");
@@ -100,7 +102,7 @@ fn write_index<T: Serialize>(name: &str, index: &T) -> Option<()> {
                 }
             }
         })
-        .and_then(|file| match serde_cbor::to_writer(file, index) {
+        .and_then(|file| match ciborium::ser::into_writer(index, file) {
             Ok(_) => Some(()),
             Err(e) => {
                 warn!(system_time(); "cannot write verifier index for {name}: {e}");
@@ -117,7 +119,7 @@ lazy_static::lazy_static! {
 
 lazy_static::lazy_static! {
     static ref DETERMINISTIC_ACCOUNT_SEC_KEYS: BTreeMap<AccountPublicKey, AccountSecretKey> = (0..1000)
-        .map(|i| AccountSecretKey::deterministic(i))
+        .map(AccountSecretKey::deterministic)
         .map(|sec_key| (sec_key.public_key(), sec_key))
         .collect();
 }
@@ -129,8 +131,6 @@ pub struct Cluster {
     account_sec_keys: BTreeMap<AccountPublicKey, AccountSecretKey>,
     nodes: Vec<Node>,
     ocaml_nodes: Vec<Option<OcamlNode>>,
-    // TODO: remove option if this is viable in the future
-    chain_id: Option<String>,
     initial_time: Option<redux::Timestamp>,
 
     rpc_counter: usize,
@@ -171,7 +171,6 @@ impl Cluster {
             account_sec_keys: Default::default(),
             nodes: Vec::new(),
             ocaml_nodes: Vec::new(),
-            chain_id: None,
             initial_time: None,
 
             rpc_counter: 0,
@@ -199,16 +198,8 @@ impl Cluster {
             .or_else(|| DETERMINISTIC_ACCOUNT_SEC_KEYS.get(pub_key))
     }
 
-    pub fn set_chain_id(&mut self, chain_id: String) {
-        self.chain_id = Some(chain_id)
-    }
-
     pub fn set_initial_time(&mut self, initial_time: redux::Timestamp) {
         self.initial_time = Some(initial_time)
-    }
-
-    pub fn get_chain_id(&self) -> Option<String> {
-        self.chain_id.clone()
     }
 
     pub fn get_initial_time(&self) -> Option<redux::Timestamp> {
@@ -287,12 +278,15 @@ impl Cluster {
                 listen_port: http_port,
                 identity_pub_key: pub_key,
                 initial_peers,
-                max_peers: testing_config.max_peers,
                 ask_initial_peers_interval: testing_config.ask_initial_peers_interval,
                 enabled_channels: ChannelId::iter_all().collect(),
-                timeouts: testing_config.timeouts,
-                chain_id: openmina_core::CHAIN_ID.to_owned(),
                 peer_discovery: true,
+                timeouts: testing_config.timeouts,
+                limits: P2pLimits::default().with_max_peers(Some(testing_config.max_peers)),
+                initial_time: testing_config
+                    .initial_time
+                    .checked_sub(redux::Timestamp::ZERO)
+                    .unwrap_or_default(),
             },
             transition_frontier: TransitionFrontierConfig::new(testing_config.genesis),
             block_producer: block_producer_config,
@@ -304,10 +298,7 @@ impl Cluster {
             .expect("secret key bytes must be valid");
 
         let p2p_service_ctx = <NodeService as P2pServiceWebrtcWithLibp2p>::init(
-            Some(libp2p_port),
             secret_key.clone(),
-            testing_config.chain_id,
-            event_sender.clone(),
             p2p_task_spawner::P2pTaskSpawner::new(shutdown_tx.clone()),
         );
 
@@ -343,8 +334,9 @@ impl Cluster {
         // reconstruction async, can be removed when the ledger services are made async
         ledger.set_event_sender(event_sender.clone());
 
+        let rng_seed = 0;
         let mut real_service = NodeService {
-            rng: StdRng::seed_from_u64(0),
+            rng: StdRng::seed_from_u64(rng_seed),
             event_sender,
             event_receiver: event_receiver.into(),
             cmd_sender,
@@ -363,7 +355,7 @@ impl Cluster {
             invariants_state: Default::default(),
         };
         if let Some(producer_key) = block_producer_sec_key {
-            real_service.block_producer_start(producer_key.into());
+            real_service.block_producer_start(producer_key);
         }
         let mut service = NodeTestingService::new(real_service, node_id, shutdown_rx);
         service.set_proof_kind(self.config.proof_kind());
@@ -400,13 +392,21 @@ impl Cluster {
 
             node::effects(store, action)
         }
-        let store = node::Store::new(
+        let mut store = node::Store::new(
             node::reducer,
             effects,
             service,
             testing_config.initial_time.into(),
             state,
         );
+        // record initial state.
+        {
+            store
+                .service
+                .recorder()
+                .initial_state(rng_seed, store.state.get());
+        }
+
         let node = Node::new(node_config, store);
 
         self.nodes.push(node);
@@ -416,6 +416,7 @@ impl Cluster {
     pub fn add_ocaml_node(&mut self, testing_config: OcamlNodeTestingConfig) -> ClusterOcamlNodeId {
         let node_i = self.ocaml_nodes.len();
 
+        let executable = self.config.ocaml_node_executable();
         let mut next_port = || {
             self.available_ports.next().ok_or_else(|| {
                 anyhow::anyhow!(
@@ -427,7 +428,7 @@ impl Cluster {
 
         let temp_dir = temp_dir::TempDir::new().expect("failed to create tempdir");
         let node = OcamlNode::start(OcamlNodeConfig {
-            executable: self.config.ocaml_node_executable().clone(),
+            executable,
             dir: temp_dir,
             libp2p_keypair_i: self.ocaml_libp2p_keypair_i,
             libp2p_port: next_port().unwrap(),
@@ -449,9 +450,9 @@ impl Cluster {
         let mut parent_id = scenario.info.parent_id.clone();
         self.scenario.chain.push_back(scenario);
 
-        while let Some(id) = parent_id {
-            let scenario = Scenario::load(&id).await?;
-            parent_id = scenario.info.parent_id.clone();
+        while let Some(ref id) = parent_id {
+            let scenario = Scenario::load(id).await?;
+            parent_id.clone_from(&scenario.info.parent_id);
             self.scenario.chain.push_back(scenario);
         }
 
@@ -594,10 +595,10 @@ impl Cluster {
             .ok_or_else(|| anyhow::anyhow!("node {node_id:?} not found"))?;
         let timeout = tokio::time::sleep(Duration::from_secs(60));
         tokio::select! {
-            opt = node.wait_for_event(&event_pattern) => opt.ok_or_else(|| anyhow::anyhow!("wait_for_event: None")),
+            opt = node.wait_for_event(event_pattern) => opt.ok_or_else(|| anyhow::anyhow!("wait_for_event: None")),
             _ = timeout => {
                 let pending_events = node.pending_events(false).map(|(_, event)| event.to_string()).collect::<Vec<_>>();
-                return Err(anyhow::anyhow!("waiting for event timed out! node {node_id:?}, event: \"{event_pattern}\"\n{pending_events:?}"));
+                 Err(anyhow::anyhow!("waiting for event timed out! node {node_id:?}, event: \"{event_pattern}\"\n{pending_events:?}"))
             }
         }
     }
@@ -739,7 +740,7 @@ impl Cluster {
                             event
                         }
                     }
-                    NonDeterministicEvent::RpcReadonly(id, req) => Event::Rpc(id, req).into(),
+                    NonDeterministicEvent::RpcReadonly(id, req) => Event::Rpc(id, req),
                 };
                 eprintln!("non_deterministic_event_dispatch({node_id:?}): {event}");
                 self.nodes
@@ -821,7 +822,7 @@ impl Cluster {
                     .ok_or_else(|| anyhow::anyhow!("node {dialer:?} not found"))?;
 
                 let req = node::rpc::RpcRequest::P2pConnectionOutgoing(listener_addr);
-                dialer.dispatch_event(Event::Rpc(rpc_id, req))
+                dialer.dispatch_event(Event::Rpc(rpc_id, Box::new(req)))
             }
             ScenarioStep::CheckTimeouts { node_id } => {
                 let node = self

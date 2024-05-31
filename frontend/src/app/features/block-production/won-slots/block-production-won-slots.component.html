@@ -1,0 +1,21 @@
+<mina-horizontal-resizable-container [leftTemplate]="left"
+                                     [rightTemplate]="right"
+                                     [show]="showSidePanel"
+                                     [minWidth]="360"
+                                     [maxWidthElement]="el.nativeElement"
+                                     localStorageKey="bp-won-slots-spw">
+</mina-horizontal-resizable-container>
+
+<ng-template #left>
+  <div class="flex-column h-100">
+    <mina-block-production-won-slots-cards></mina-block-production-won-slots-cards>
+    <div class="flex-column flex-1">
+      <mina-block-production-won-slots-filters></mina-block-production-won-slots-filters>
+      <mina-block-production-won-slots-table class="h-minus-xl"></mina-block-production-won-slots-table>
+    </div>
+  </div>
+</ng-template>
+
+<ng-template #right>
+  <mina-block-production-won-slots-side-panel></mina-block-production-won-slots-side-panel>
+</ng-template>

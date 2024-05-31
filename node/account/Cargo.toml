@@ -1,6 +1,6 @@
 [package]
 name = "openmina-node-account"
-version = "0.4.0"
+version = "0.5.0"
 edition = "2021"
 license = "Apache-2.0"
 
@@ -10,7 +10,6 @@ serde_json = { version = "1.0.82", features = ["unbounded_depth", "arbitrary_pre
 thiserror = "1.0.37"
 anyhow = "1.0.70"
 bs58 = "0.4.0"
-bincode = "1.3.3"
 hex = "0.4.3"
 rand = "0.8"
 lazy_static = "1.4.0"

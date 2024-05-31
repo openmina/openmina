@@ -205,7 +205,7 @@ pub fn create_oracle<F: FieldWitness>(
 
     type EFrSponge<F> = DefaultFrSponge<F, PlonkSpongeConstantsKimchi>;
     let oracles_result = proof
-        .oracles::<F::FqSponge, EFrSponge<F>>(&verifier_index, &p_comm, public)
+        .oracles::<F::FqSponge, EFrSponge<F>>(verifier_index, &p_comm, public)
         .unwrap();
 
     let OraclesResult {
@@ -303,7 +303,7 @@ fn deferred_values(params: DeferredValuesParams) -> DeferredValuesAndHints {
     let step_vk = prover_index.verifier_index();
     let log_size_of_group = step_vk.domain.log_size_of_group;
 
-    let oracle = create_oracle(&step_vk, &proof, public_input);
+    let oracle = create_oracle(&step_vk, proof, public_input);
     let x_hat = [oracle.p_eval.0, oracle.p_eval.1];
 
     let alpha = oracle.alpha();
@@ -373,11 +373,7 @@ fn deferred_values(params: DeferredValuesParams) -> DeferredValuesAndHints {
         let challenge_poly = challenge_polynomial(&chals);
         let b = challenge_poly(zeta) + (r * challenge_poly(zetaw));
 
-        let prechals = oracle
-            .opening_prechallenges
-            .iter()
-            .copied()
-            .collect::<Vec<_>>();
+        let prechals = oracle.opening_prechallenges.to_vec();
         (prechals, b)
     };
 
@@ -762,7 +758,7 @@ pub fn wrap<C: ProofConstants + ForWrapData>(
             prev_challenges: prev,
             only_verify_constraints: false,
         },
-        &w,
+        w,
     )?;
 
     Ok(WrapProof {
@@ -993,7 +989,7 @@ pub mod pseudo {
             .iter()
             .map(|d| domain_generator(*d))
             .collect::<Vec<_>>();
-        mask(&which, &xs)
+        mask(which, &xs)
     }
 
     pub fn shifts(
@@ -1365,7 +1361,7 @@ pub mod pcs_batch {
 }
 
 pub mod wrap_verifier {
-    use std::{convert::identity, ops::Neg, sync::Arc};
+    use std::{ops::Neg, sync::Arc};
 
     use itertools::Itertools;
     use kimchi::prover_index::ProverIndex;
@@ -1555,7 +1551,8 @@ pub mod wrap_verifier {
             (sg_evals1, sg_evals2)
         };
 
-        let _sponge_state = {
+        // sponge state
+        {
             let challenge_digest = {
                 let mut sponge = Sponge::<Fq>::new();
                 old_bulletproof_challenges.iter().for_each(|v| {
@@ -1908,7 +1905,7 @@ pub mod wrap_verifier {
             pub fn finite(&self) -> CircuitVar<Boolean> {
                 match self {
                     Point::Finite(_) => CircuitVar::Constant(Boolean::True),
-                    Point::MaybeFinite(b, _) => b.clone(),
+                    Point::MaybeFinite(b, _) => *b,
                 }
             }
 
@@ -1921,8 +1918,8 @@ pub mod wrap_verifier {
 
             pub fn underlying(&self) -> CircuitVar<GroupAffine<F>> {
                 match self {
-                    Point::Finite(p) => p.clone(),
-                    Point::MaybeFinite(_, p) => p.clone(),
+                    Point::Finite(p) => *p,
+                    Point::MaybeFinite(_, p) => *p,
                 }
             }
         }
@@ -2204,7 +2201,7 @@ pub mod wrap_verifier {
         sponge.absorb((CircuitVar::Constant(Boolean::True), index_digest));
 
         for (b, v) in &sg_old {
-            absorb_curve(&b, *v, &mut sponge);
+            absorb_curve(b, v, &mut sponge);
         }
 
         let x_hat = {
@@ -2271,7 +2268,7 @@ pub mod wrap_verifier {
 
             let init = constant_part
                 .into_iter()
-                .filter_map(identity)
+                .flatten()
                 .fold(correction, |acc, (x, y)| w.add_fast(acc, make_group(x, y)));
 
             terms
@@ -2311,7 +2308,7 @@ pub mod wrap_verifier {
         for w in w_comm.iter().flat_map(|w| &w.unshifted) {
             absorb_curve(
                 &CircuitVar::Constant(Boolean::True),
-                &InnerCurve::of_affine(w.clone()),
+                &InnerCurve::of_affine(*w),
                 &mut sponge,
             );
         }
@@ -2323,7 +2320,7 @@ pub mod wrap_verifier {
         for z in z_comm.unshifted.iter() {
             absorb_curve(
                 &CircuitVar::Constant(Boolean::True),
-                &InnerCurve::of_affine(z.clone()),
+                &InnerCurve::of_affine(*z),
                 &mut sponge,
             );
         }
@@ -2334,7 +2331,7 @@ pub mod wrap_verifier {
         for t in t_comm.unshifted.iter() {
             absorb_curve(
                 &CircuitVar::Constant(Boolean::True),
-                &InnerCurve::of_affine(t.clone()),
+                &InnerCurve::of_affine(*t),
                 &mut sponge,
             );
         }
@@ -2440,7 +2437,7 @@ impl Check<Fq> for poly_commitment::evaluation_proof::OpeningProof<Vesta> {
             sg,
         } = self;
 
-        let to_curve = |c: &Vesta| InnerCurve::<Fq>::of_affine(c.clone());
+        let to_curve = |c: &Vesta| InnerCurve::<Fq>::of_affine(*c);
         let shift = |f: Fp| <Fp as FieldWitness>::Shifting::of_field(f);
 
         lr.iter().for_each(|(a, b)| {
@@ -2538,7 +2535,7 @@ impl Check<Fq> for kimchi::proof::ProverCommitments<Vesta> {
                 shifted: _,
             } = poly;
             for affine in unshifted {
-                InnerCurve::of_affine(affine.clone()).check(w);
+                InnerCurve::of_affine(*affine).check(w);
             }
         };
 
@@ -2791,7 +2788,7 @@ fn wrap_main(params: WrapMainParams, w: &mut Witness<Fq>) {
             unfinalized_proofs
                 .iter()
                 .zip(&old_bp_chals)
-                .zip(&*evals)
+                .zip(evals)
                 .zip(&wrap_domains)
                 .map(
                     |(((unfinalized, old_bulletproof_challenges), evals), wrap_domain)| {

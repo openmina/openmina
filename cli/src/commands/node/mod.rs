@@ -1,5 +1,6 @@
 use std::ffi::OsString;
 
+use std::fs::File;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
@@ -9,20 +10,23 @@ use mina_p2p_messages::v2::{
     CurrencyFeeStableV1, NonZeroCurvePoint, NonZeroCurvePointUncompressedStableV1,
     UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
 };
+use node::transition_frontier::genesis::GenesisConfig;
 use rand::prelude::*;
 
+use redux::SystemTime;
 use tokio::select;
 
 use node::account::{AccountPublicKey, AccountSecretKey};
 use node::core::channels::mpsc;
 use node::core::log::inner::Level;
+use node::daemon_json::DaemonJson;
 use node::event_source::EventSourceAction;
 use node::ledger::{LedgerCtx, LedgerManager};
 use node::p2p::channels::ChannelId;
 use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 use node::p2p::identity::SecretKey;
 use node::p2p::service_impl::webrtc_with_libp2p::P2pServiceWebrtcWithLibp2p;
-use node::p2p::{P2pConfig, P2pTimeouts};
+use node::p2p::{P2pConfig, P2pLimits, P2pTimeouts};
 use node::service::{Recorder, Service};
 use node::snark::{get_srs, get_verifier_index, VerifierKind};
 use node::stats::Stats;
@@ -33,10 +37,6 @@ use node::{
 
 use openmina_node_native::rpc::RpcService;
 use openmina_node_native::{http_server, tracing, NodeService, P2pTaskSpawner, RpcSender};
-
-// old:
-// 3c41383994b87449625df91769dff7b507825c064287d30fada9286f3f1cb15e
-const CHAIN_ID: &'static str = openmina_core::CHAIN_ID;
 
 /// Openmina node
 #[derive(Debug, clap::Args)]
@@ -94,6 +94,11 @@ pub struct Node {
     /// Do not use peers discovery.
     #[arg(long)]
     pub no_peers_discovery: bool,
+
+    /// Config JSON file to load at startup.
+    // TODO: make this argument required.
+    #[arg(short = 'c', long, env)]
+    pub config: Option<PathBuf>,
 }
 
 fn default_peers() -> Vec<P2pConnectionOutgoingInitOpts> {
@@ -158,9 +163,33 @@ impl Node {
             )
         });
 
+        let config_file = self.config.map(File::open).transpose().map_err(|e| {
+            openmina_core::log::error!(openmina_core::log::system_time();
+                    kind = "ConfigFileError",
+                    summary = "failed to open config file",
+                    error = format!("{e}"));
+            e
+        })?;
+        let conf: Option<DaemonJson> = config_file
+            .map(serde_json::from_reader)
+            .transpose()
+            .map_err(|e| {
+                openmina_core::log::error!(openmina_core::log::system_time();
+                    kind = "ConfigFileError",
+                    summary = "failed to parse config file",
+                    error = format!("{e}"));
+                e
+            })?;
+
         let work_dir = shellexpand::full(&self.work_dir).unwrap().into_owned();
         let rng_seed = rng.next_u64();
         let srs: Arc<_> = get_srs();
+
+        let genesis_config = match conf {
+            Some(c) => Arc::new(GenesisConfig::DaemonJson(c)),
+            None => node::config::BERKELEY_CONFIG.clone(),
+        };
+        let transition_frontier = TransitionFrontierConfig::new(genesis_config);
         let config = Config {
             ledger: LedgerConfig {},
             snark: SnarkConfig {
@@ -187,14 +216,16 @@ impl Node {
                 listen_port: self.port,
                 identity_pub_key: pub_key,
                 initial_peers: self.peers,
-                max_peers: 100,
                 ask_initial_peers_interval: Duration::from_secs(3600),
                 enabled_channels: ChannelId::for_libp2p().collect(),
-                timeouts: P2pTimeouts::default(),
-                chain_id: CHAIN_ID.to_owned(),
                 peer_discovery: !self.no_peers_discovery,
+                initial_time: SystemTime::now()
+                    .duration_since(SystemTime::UNIX_EPOCH)
+                    .expect("linear time"),
+                timeouts: P2pTimeouts::default(),
+                limits: P2pLimits::default().with_max_peers(Some(100)),
             },
-            transition_frontier: TransitionFrontierConfig::new(node::BERKELEY_CONFIG.clone()),
+            transition_frontier,
             block_producer: block_producer.clone().map(|(config, _)| config),
         };
         let (event_sender, event_receiver) = mpsc::unbounded_channel();
@@ -208,10 +239,7 @@ impl Node {
         );
 
         let p2p_service_ctx = <NodeService as P2pServiceWebrtcWithLibp2p>::init(
-            Some(self.libp2p_port),
             secret_key.clone(),
-            CHAIN_ID.to_owned(),
-            event_sender.clone(),
             P2pTaskSpawner {},
         );
 
@@ -276,7 +304,7 @@ impl Node {
             };
 
             if let Some((_, keypair)) = block_producer {
-                service.block_producer_start(keypair.into());
+                service.block_producer_start(keypair);
             }
 
             let state = State::new(config);

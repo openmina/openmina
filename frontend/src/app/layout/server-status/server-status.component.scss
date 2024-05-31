@@ -1,33 +1,175 @@
 @import 'openmina';
 
+.wrapper {
+  .chip,
+  .background-wrap {
+    background-color: $base-surface;
+
+    &::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      border-radius: 6px;
+    }
+  }
+
+  &.Pending {
+    .chip,
+    .background-wrap {
+      div {
+        color: $base-primary;
+      }
+
+      span {
+        color: $base-secondary;
+      }
+
+      &::before {
+        background-color: $base-container;
+      }
+    }
+  }
+
+  &.Offline {
+    .chip,
+    .background-wrap {
+      div {
+        color: $warn-primary;
+      }
+
+      span {
+        color: $warn-secondary;
+      }
+
+      &::before {
+        background-color: $warn-container;
+      }
+    }
+  }
+
+  &.Bootstrap,
+  &.Catchup {
+
+    .chip,
+    .background-wrap {
+      div {
+        color: $aware-primary;
+      }
+
+      span {
+        color: $aware-secondary;
+      }
+
+      &::before {
+        background-color: $aware-container;
+      }
+    }
+  }
+
+  &.Synced {
+    .chip,
+    .background-wrap {
+      div {
+        color: $success-primary;
+      }
+
+      span {
+        color: $success-secondary;
+      }
+
+      &::before {
+        background-color: $success-container;
+      }
+    }
+  }
+
+  .chip {
+    gap: 4px;
+    margin-left: 4px;
+  }
+}
+
 .node-status {
-	.bg-surface {
-		margin: 1px;
+  &.can-add-nodes {
+    .chip,
+    .chip::before {
+      border-bottom-right-radius: 0 !important;
+      border-top-right-radius: 0 !important;
+    }
+  }
 
-		.background-wrap {
-			background-color: $base-container;
-			color: $base-secondary;
+  .shine-parent {
+    height: calc(100% + 3px);
+    width: calc(100% - 2px);
+    margin-left: 3px;
 
-			.strong-text {
-				color: $base-primary;
-				max-width: 125px;
-			}
+    .shining-border {
+      top: -300%;
+      left: -165%;
+      z-index: -1;
+      height: 1100%;
+      width: 405%;
+      transform: rotate(-45deg);
+      background: linear-gradient(to right, transparent 20%, transparent 40%, $base-container 45%, $base-divider 46%, $aware-tertiary 50%, $base-divider 54%, $base-container 55%, transparent 55%, transparent 100%);
+      background-size: 200% auto;
+      animation: shine 5s linear infinite;
+    }
+  }
 
-			.node-switcher {
-				&:not(.border-rad-4) {
-					border-left: 2px solid $base-surface;
-					cursor: pointer;
-					padding-left: 5px !important;
+  .background-wrap {
+    border-top-right-radius: 6px;
+    border-bottom-right-radius: 6px;
+    border-left: 2px solid $base-surface;
+    color: $base-secondary;
 
-					.mina-icon {
-						width: 16px;
-					}
+    &:not(.switch-forbidden)::before {
+      border-bottom-left-radius: 0;
+      border-top-left-radius: 0;
+    }
 
-					&:hover {
-						background-color: $base-container;
-					}
-				}
-			}
-		}
-	}
+    .strong-text {
+      color: $base-primary;
+      max-width: 125px;
+    }
+
+    .node-switcher {
+      &:not(.border-rad-4) {
+        border-left: 2px solid $base-surface;
+        cursor: pointer;
+        padding-left: 5px !important;
+
+        .mina-icon {
+          width: 16px;
+        }
+
+        &:hover {
+          background-color: $base-container;
+        }
+      }
+    }
+  }
+}
+
+@keyframes shine {
+  to {
+    background-position: 200% center;
+  }
+}
+
+.popup-box-shadow-weak {
+  .Synced {
+    color: $success-primary;
+  }
+
+  .Catchup,
+  .Bootstrap {
+    color: $aware-primary;
+  }
+
+  .Offline {
+    color: $warn-primary;
+  }
 }

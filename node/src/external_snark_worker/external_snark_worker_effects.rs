@@ -1,6 +1,6 @@
 use openmina_core::snark::Snark;
 
-use crate::snark_pool::SnarkPoolAction;
+use crate::{p2p_ready, snark_pool::SnarkPoolAction};
 
 use super::{
     available_job_to_snark_worker_spec, ExternalSnarkWorkerAction,
@@ -11,7 +11,7 @@ pub fn external_snark_worker_effects<S: crate::Service>(
     store: &mut crate::Store<S>,
     action: ExternalSnarkWorkerActionWithMeta,
 ) {
-    let (action, _) = action.split();
+    let (action, meta) = action.split();
     match action {
         ExternalSnarkWorkerAction::Start => {
             let Some(config) = &store.state.get().config.snarker else {
@@ -63,13 +63,13 @@ pub fn external_snark_worker_effects<S: crate::Service>(
             };
             if let Err(err) = store.service().submit(input) {
                 store.dispatch(ExternalSnarkWorkerAction::WorkError { error: err.into() });
-                return;
             }
         }
         ExternalSnarkWorkerAction::WorkResult { result } => {
             let Some(config) = &store.state().config.snarker else {
                 return;
             };
+            let p2p = p2p_ready!(store.state().p2p, meta.time());
             let snarker = config.public_key.clone().into();
             let fee = config.fee.clone();
             let snark = Snark {
@@ -77,7 +77,7 @@ pub fn external_snark_worker_effects<S: crate::Service>(
                 fee,
                 proofs: result.clone(),
             };
-            let sender = store.state().p2p.my_id();
+            let sender = p2p.my_id();
             // Directly add snark to the snark pool as it's produced by us.
             store.dispatch(SnarkPoolAction::WorkAdd { snark, sender });
             store.dispatch(ExternalSnarkWorkerAction::PruneWork);
@@ -89,12 +89,11 @@ pub fn external_snark_worker_effects<S: crate::Service>(
             store.dispatch(ExternalSnarkWorkerAction::CancelWork);
         }
         ExternalSnarkWorkerAction::CancelWork => {
-            if let Err(err) = store.service().cancel() {
+            if let Err(error) = store.service().cancel() {
                 store.dispatch(ExternalSnarkWorkerAction::Error {
-                    error: err.into(),
+                    error,
                     permanent: true,
                 });
-                return;
             }
         }
         ExternalSnarkWorkerAction::WorkCancelled => {

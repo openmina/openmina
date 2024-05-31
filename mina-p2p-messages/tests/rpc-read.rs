@@ -51,31 +51,12 @@ macro_rules! rpc_read_test {
 
 rpc_read_test!(menu, "v1/rpc/menu", rpc::VersionedRpcMenuV1);
 
-rpc_read_test!(
-    get_epoch_ledger_v1,
-    "rpc/get-epoch-ledger",
-    rpc::GetEpochLedgerV1
-);
-
-rpc_read_test!(get_best_tip_v1, "v1/rpc/get-best-tip", rpc::GetBestTipV1);
-// rpc_read_test!(get_best_tip_v2, "v2/rpc/get-best-tip", GetBestTipV2);
+rpc_read_test!(get_best_tip_v2, "v2/rpc/get-best-tip", rpc::GetBestTipV2);
 
 rpc_read_test!(
-    get_staged_ledger_aux_v1,
-    "v1/rpc/get-staged-ledger-aux",
-    rpc::GetStagedLedgerAuxAndPendingCoinbasesAtHashV1
-);
-
-// rpc_read_test!(
-//     get_staged_ledger_aux_v2,
-//     "v2/rpc/get-staged-ledger-aux",
-//     rpc::GetStagedLedgerAuxAndPendingCoinbasesAtHashV2
-// );
-
-rpc_read_test!(
-    answer_sync_ledger_v1,
-    "v1/rpc/answer-sync-ledger",
-    rpc::AnswerSyncLedgerQueryV1
+    get_staged_ledger_aux_v2,
+    "v2/rpc/get-staged-ledger-aux",
+    rpc::GetStagedLedgerAuxAndPendingCoinbasesAtHashV2
 );
 
 rpc_read_test!(
@@ -85,21 +66,9 @@ rpc_read_test!(
 );
 
 rpc_read_test!(
-    get_transition_chain_v1,
-    "v1/rpc/get-transition-chain",
-    rpc::GetTransitionChainV1
-);
-
-// rpc_read_test!(
-//     get_transition_chain_v2,
-//     "v2/rpc/get-transition-chain",
-//     GetTransitionChainV2
-// );
-
-rpc_read_test!(
-    get_transition_chain_proof_v1,
-    "v1/rpc/get-transition-chain-proof",
-    rpc::GetTransitionChainProofV1
+    get_transition_chain_v2,
+    "v2/rpc/get-transition-chain",
+    rpc::GetTransitionChainV2
 );
 
 rpc_read_test!(
@@ -115,9 +84,7 @@ rpc_read_test!(
     rpc::GetTransitionKnowledgeV1
 );
 
-rpc_read_test!(get_ancestry_v1, "v1/rpc/get-ancestry", rpc::GetAncestryV1);
-
-// rpc_read_test!(get_ancestry_v2, "v2/rpc/get-ancestry", rpc::GetAncestryV2);
+rpc_read_test!(get_ancestry_v2, "v2/rpc/get-ancestry", rpc::GetAncestryV2);
 
 ///////
 ///////

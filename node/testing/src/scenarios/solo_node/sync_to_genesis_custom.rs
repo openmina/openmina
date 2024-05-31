@@ -56,16 +56,12 @@ impl SoloNodeSyncToGenesisCustom {
             .await
             .unwrap();
 
-        let chain_id = runner.ocaml_node(ocaml_node).unwrap().chain_id().unwrap();
-
         // set here to be used in other child scenarios
-        runner.set_chain_id(chain_id.clone());
         runner.set_initial_time(initial_time);
 
         let rust_node = runner.add_rust_node(RustNodeTestingConfig {
-            chain_id,
             initial_time,
-            genesis: node::BERKELEY_CONFIG.clone(),
+            genesis: node::config::BERKELEY_CONFIG.clone(),
             max_peers: 100,
             ask_initial_peers_interval: Duration::from_secs(60 * 60),
             initial_peers: Vec::new(),

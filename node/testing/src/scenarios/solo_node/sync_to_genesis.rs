@@ -22,7 +22,7 @@ impl SoloNodeSyncToGenesis {
     pub async fn run(self, mut runner: ClusterRunner<'_>) {
         // TODO(binier): make dynamic.
         // should match time in daemon_json
-        let initial_time = redux::Timestamp::new(1703494800000_000_000);
+        let initial_time = redux::Timestamp::new(1_703_494_800_000_000_000);
 
         let ocaml_node_config = OcamlNodeTestingConfig {
             initial_peers: Vec::new(),
@@ -43,16 +43,9 @@ impl SoloNodeSyncToGenesis {
             .await
             .unwrap();
 
-        let chain_id = runner
-            .ocaml_node(ocaml_node)
-            .unwrap()
-            .chain_id_async()
-            .await
-            .unwrap();
         let rust_node = runner.add_rust_node(RustNodeTestingConfig {
-            chain_id,
             initial_time,
-            genesis: node::BERKELEY_CONFIG.clone(),
+            genesis: node::config::BERKELEY_CONFIG.clone(),
             max_peers: 100,
             ask_initial_peers_interval: Duration::from_secs(60 * 60),
             initial_peers: Vec::new(),

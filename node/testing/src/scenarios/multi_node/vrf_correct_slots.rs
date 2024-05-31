@@ -15,7 +15,7 @@ use vrf::VrfEvaluationOutput;
 use crate::{
     node::{OcamlVrfOutput, RustNodeBlockProducerTestingConfig, RustNodeTestingConfig},
     scenario::{ListenerNode, ScenarioStep},
-    scenarios::cluster_runner::{ClusterRunner, RunCfg, RunDecision},
+    scenarios::{ClusterRunner, RunCfg, RunDecision},
 };
 
 /// Set up single Rust node and connect to an ocaml node with custom ledger and check if the node
@@ -31,7 +31,6 @@ impl MultiNodeVrfGetCorrectSlots {
     pub async fn run(self, mut runner: ClusterRunner<'_>) {
         eprintln!("Running vrf get correct ledgers scenario");
 
-        let chain_id = runner.get_chain_id().unwrap();
         let initial_time = runner.get_initial_time().unwrap();
 
         let (initial_node, _) = runner.nodes_iter().last().unwrap();
@@ -41,9 +40,8 @@ impl MultiNodeVrfGetCorrectSlots {
         let sec_key: AccountSecretKey = AccountSecretKey::from_str(sec_key_bs58).unwrap();
 
         let producer_node = runner.add_rust_node(RustNodeTestingConfig {
-            chain_id,
             initial_time,
-            genesis: node::BERKELEY_CONFIG.clone(),
+            genesis: node::config::BERKELEY_CONFIG.clone(),
             max_peers: 100,
             ask_initial_peers_interval: Duration::from_secs(60 * 60),
             initial_peers: Vec::new(),

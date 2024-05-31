@@ -30,7 +30,7 @@ pub mod bw19 {
                 loop {
                     match f(v) {
                         Some(x) => return x,
-                        None => v = v + one,
+                        None => v += one,
                     }
                 }
             }
@@ -105,8 +105,7 @@ use super::field::{Boolean, GroupAffine, ToBoolean};
 use super::transaction::make_group;
 
 fn sqrt_exn<F: FieldWitness>(x: F, w: &mut Witness<F>) -> F {
-    let y = w.exists(x.sqrt().unwrap());
-    y
+    w.exists(x.sqrt().unwrap())
 }
 
 fn is_square<F: FieldWitness>(x: F) -> bool {
@@ -224,7 +223,7 @@ mod tock {
             loop {
                 match f(v) {
                     Some(x) => return x,
-                    None => v = v + one,
+                    None => v += one,
                 }
             }
         }

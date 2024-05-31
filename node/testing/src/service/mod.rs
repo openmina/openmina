@@ -288,6 +288,10 @@ impl P2pCryptoService for NodeTestingService {
     fn sign_key(&mut self, key: &[u8; 32]) -> Vec<u8> {
         self.real.sign_key(key)
     }
+
+    fn sign_publication(&mut self, publication: &[u8]) -> Vec<u8> {
+        self.real.sign_publication(publication)
+    }
 }
 
 impl P2pNetworkService for NodeTestingService {
@@ -435,7 +439,7 @@ impl BlockProducerVrfEvaluatorService for NodeTestingService {
 
 use std::cell::RefCell;
 thread_local! {
-    static GENESIS_PROOF: RefCell<Option<(StateHash, Box<MinaBaseProofStableV2>)>> = RefCell::new(None);
+    static GENESIS_PROOF: RefCell<Option<(StateHash, Box<MinaBaseProofStableV2>)>> = const { RefCell::new(None)};
 }
 
 impl BlockProducerService for NodeTestingService {
@@ -454,7 +458,7 @@ impl BlockProducerService for NodeTestingService {
                 let _ = self.real.event_sender.send(dummy_proof_event(block_hash));
             }
             ProofKind::ConstraintsChecked => {
-                match openmina_node_native::block_producer::prove(&*input, true) {
+                match openmina_node_native::block_producer::prove(&input, true) {
                     Err(ProofError::ConstraintsOk) => {
                         let _ = self.real.event_sender.send(dummy_proof_event(block_hash));
                     }
@@ -478,7 +482,7 @@ impl BlockProducerService for NodeTestingService {
                     {
                         Ok(proof.clone())
                     } else {
-                        openmina_node_native::block_producer::prove(&*input, false)
+                        openmina_node_native::block_producer::prove(&input, false)
                             .map_err(|err| format!("{err:?}"))
                     }
                 });

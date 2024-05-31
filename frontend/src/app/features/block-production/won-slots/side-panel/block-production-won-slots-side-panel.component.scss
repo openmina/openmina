@@ -1,0 +1,89 @@
+@import 'openmina';
+
+.progress-bar {
+  overflow: hidden;
+  height: 6px;
+  left: 0;
+  bottom: 0;
+  transition: width 0.4s ease-in-out;
+  min-width: 20px;
+
+  .highlight {
+    height: 4px;
+    top: 1px;
+    left: -50px;
+    width: 50px;
+    background: radial-gradient($success-primary, $success-primary, $success-primary, transparent, transparent);
+    border-radius: 20px;
+    animation: move 9s linear infinite;
+  }
+
+  .progress {
+    height: 2px;
+    background-color: $success-primary;
+    top: 2px;
+    left: 0;
+  }
+}
+
+@keyframes move {
+  0% {
+    left: -50px;
+  }
+  10% {
+    left: -50px;
+  }
+  80% {
+    left: 100%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
+.mina-icon {
+  font-variation-settings: 'FILL' 1, 'wght' 300, 'GRAD' 0, 'opsz' 20 !important;
+  transition: none;
+  color: $base-divider;
+
+  &.success-primary {
+    transition: 0.3s;
+  }
+}
+
+.step {
+  .mina-icon {
+    color: $success-primary;
+    transition: 0.3s;
+  }
+
+  &.incomplete {
+    color: $base-tertiary;
+
+    .mina-icon {
+      color: $base-divider;
+      transition: none;
+    }
+  }
+}
+
+.bg-container {
+
+  &:hover {
+    .step > .mina-icon {
+      color: $base-primary !important;
+    }
+  }
+
+  .discarded {
+    transition: 0.2s ease-in-out;
+
+    &:not(.open) {
+      max-height: 0 !important;
+    }
+
+    &.open {
+      max-height: 44px;
+    }
+  }
+}

@@ -1,3 +1,5 @@
+use crate::connection::incoming::{P2pConnectionIncomingAction, P2pConnectionIncomingState};
+
 use super::{super::*, *};
 
 use super::p2p_network_noise_state::{
@@ -17,7 +19,7 @@ impl P2pNetworkNoiseAction {
             return;
         };
 
-        let incoming = state.incoming_chunks.front().cloned().map(Into::into);
+        let incoming = state.incoming_chunks.clone();
         let outgoing = state.outgoing_chunks.front().cloned();
         let decrypted = state.decrypted_chunks.front().cloned();
         let remote_peer_id = match &state.inner {
@@ -119,8 +121,12 @@ impl P2pNetworkNoiseAction {
                 }
             }
             Self::IncomingData { addr, .. } => {
-                if let Some(data) = incoming {
-                    store.dispatch(P2pNetworkNoiseAction::IncomingChunk { addr, data });
+                let mut incoming = incoming;
+                while let Some(data) = incoming.pop_front() {
+                    store.dispatch(P2pNetworkNoiseAction::IncomingChunk {
+                        addr,
+                        data: data.into(),
+                    });
                 }
             }
             Self::IncomingChunk { addr, .. } => {
@@ -130,6 +136,25 @@ impl P2pNetworkNoiseAction {
                         error: error.clone().into(),
                     });
                     return;
+                }
+
+                if let Some((peer_id, true)) = handshake_done {
+                    let addr = *self.addr();
+                    store.dispatch(P2pConnectionIncomingAction::FinalizePendingLibp2p {
+                        peer_id,
+                        addr,
+                    });
+                    // check that peer management decide to accept this connection
+                    let this_connection_is_kept = store
+                        .state()
+                        .peers
+                        .get(&peer_id)
+                        .and_then(|peer_state| peer_state.status.as_connecting())
+                        .and_then(|connecting| connecting.as_incoming())
+                        .map_or(false, |incoming| matches!(incoming, P2pConnectionIncomingState::FinalizePendingLibp2p { addr: a, .. } if a == &addr));
+                    if !this_connection_is_kept {
+                        return;
+                    }
                 }
 
                 if handshake_optimized && middle_responder {
@@ -155,9 +180,6 @@ impl P2pNetworkNoiseAction {
                         peer_id: remote_peer_id,
                         data,
                     });
-                }
-                if let Some(data) = incoming {
-                    store.dispatch(P2pNetworkNoiseAction::IncomingChunk { addr, data });
                 }
 
                 if !handshake_optimized && (middle_initiator || middle_responder) {

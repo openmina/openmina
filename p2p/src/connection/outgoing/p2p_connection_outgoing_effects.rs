@@ -48,6 +48,7 @@ impl P2pConnectionOutgoingAction {
                     }
                     store.dispatch(P2pConnectionOutgoingAction::FinalizePending { peer_id });
                 } else {
+                    store.service().outgoing_init(opts);
                     store.dispatch(P2pConnectionOutgoingAction::OfferSdpCreatePending { peer_id });
                 }
             }

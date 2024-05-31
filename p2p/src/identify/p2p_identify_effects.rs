@@ -1,5 +1,6 @@
 use crate::{
-    connection::P2pConnectionService, P2pNetworkConnectionMuxState, P2pNetworkYamuxAction, P2pStore,
+    connection::P2pConnectionService, P2pNetworkConnectionMuxState, P2pNetworkKademliaAction,
+    P2pNetworkYamuxAction, P2pStore,
 };
 use openmina_core::error;
 use redux::ActionMeta;
@@ -27,7 +28,7 @@ impl P2pIdentifyAction {
                     })
                     .and_then(|(P2pNetworkConnectionMuxState::Yamux(yamux), incoming)| {
                         yamux
-                            .next_stream_id(!incoming)
+                            .next_stream_id(crate::YamuxStreamKind::Identify, incoming)
                             .ok_or_else(|| format!("cannot get next stream for {addr}"))
                     });
 
@@ -46,7 +47,12 @@ impl P2pIdentifyAction {
                     }
                 }
             }
-            P2pIdentifyAction::UpdatePeerInformation { .. } => {}
+            P2pIdentifyAction::UpdatePeerInformation { peer_id, info } => {
+                store.dispatch(P2pNetworkKademliaAction::UpdateRoutingTable {
+                    peer_id,
+                    addrs: info.listen_addrs,
+                });
+            }
         }
     }
 }

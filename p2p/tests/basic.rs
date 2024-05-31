@@ -10,8 +10,9 @@ use p2p_testing::{
 
 #[tokio::test]
 async fn accept_connection() {
+    const NUM: u16 = 50;
     let mut cluster = ClusterBuilder::new()
-        .ports(11000..11200)
+        .ports_with_len(NUM * 2 + 2)
         .idle_duration(Duration::from_millis(100))
         .start()
         .await

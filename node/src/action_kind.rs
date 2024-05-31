@@ -41,13 +41,14 @@ use crate::p2p::network::kad::stream::P2pNetworkKademliaStreamAction;
 use crate::p2p::network::kad::{P2pNetworkKadAction, P2pNetworkKademliaAction};
 use crate::p2p::network::noise::P2pNetworkNoiseAction;
 use crate::p2p::network::pnet::P2pNetworkPnetAction;
+use crate::p2p::network::pubsub::P2pNetworkPubsubAction;
 use crate::p2p::network::rpc::P2pNetworkRpcAction;
 use crate::p2p::network::scheduler::P2pNetworkSchedulerAction;
 use crate::p2p::network::select::P2pNetworkSelectAction;
 use crate::p2p::network::yamux::P2pNetworkYamuxAction;
 use crate::p2p::network::P2pNetworkAction;
 use crate::p2p::peer::P2pPeerAction;
-use crate::p2p::P2pAction;
+use crate::p2p::{P2pAction, P2pInitializeAction};
 use crate::rpc::RpcAction;
 use crate::snark::block_verify::SnarkBlockVerifyAction;
 use crate::snark::work_verify::SnarkWorkVerifyAction;
@@ -98,6 +99,7 @@ pub enum ActionKind {
     BlockProducerVrfEvaluatorFinishEpochEvaluation,
     BlockProducerVrfEvaluatorInitializeEpochEvaluation,
     BlockProducerVrfEvaluatorInitializeEvaluator,
+    BlockProducerVrfEvaluatorInterruptEpochEvaluation,
     BlockProducerVrfEvaluatorProcessSlotEvaluationSuccess,
     BlockProducerVrfEvaluatorRecordLastBlockHeightInEpoch,
     BlockProducerVrfEvaluatorSelectInitialSlot,
@@ -180,6 +182,7 @@ pub enum ActionKind {
     P2pConnectionIncomingError,
     P2pConnectionIncomingFinalizeError,
     P2pConnectionIncomingFinalizePending,
+    P2pConnectionIncomingFinalizePendingLibp2p,
     P2pConnectionIncomingFinalizeSuccess,
     P2pConnectionIncomingInit,
     P2pConnectionIncomingLibp2pReceived,
@@ -208,6 +211,7 @@ pub enum ActionKind {
     P2pDiscoverySuccess,
     P2pIdentifyNewRequest,
     P2pIdentifyUpdatePeerInformation,
+    P2pInitializeInitialize,
     P2pNetworkIdentifyStreamClose,
     P2pNetworkIdentifyStreamIncomingData,
     P2pNetworkIdentifyStreamNew,
@@ -229,6 +233,7 @@ pub enum ActionKind {
     P2pNetworkKademliaBootstrapFinished,
     P2pNetworkKademliaStartBootstrap,
     P2pNetworkKademliaUpdateFindNodeRequest,
+    P2pNetworkKademliaUpdateRoutingTable,
     P2pNetworkKademliaStreamClose,
     P2pNetworkKademliaStreamIncomingData,
     P2pNetworkKademliaStreamNew,
@@ -249,6 +254,13 @@ pub enum ActionKind {
     P2pNetworkPnetIncomingData,
     P2pNetworkPnetOutgoingData,
     P2pNetworkPnetSetupNonce,
+    P2pNetworkPubsubBroadcast,
+    P2pNetworkPubsubBroadcastSigned,
+    P2pNetworkPubsubIncomingData,
+    P2pNetworkPubsubNewStream,
+    P2pNetworkPubsubOutgoingData,
+    P2pNetworkPubsubOutgoingMessage,
+    P2pNetworkPubsubSign,
     P2pNetworkRpcIncomingData,
     P2pNetworkRpcIncomingMessage,
     P2pNetworkRpcInit,
@@ -270,13 +282,16 @@ pub enum ActionKind {
     P2pNetworkSchedulerOutgoingConnect,
     P2pNetworkSchedulerOutgoingDidConnect,
     P2pNetworkSchedulerPrune,
+    P2pNetworkSchedulerPruneStreams,
     P2pNetworkSchedulerSelectDone,
     P2pNetworkSchedulerSelectError,
     P2pNetworkSchedulerYamuxDidInit,
     P2pNetworkSelectIncomingData,
+    P2pNetworkSelectIncomingPayload,
     P2pNetworkSelectIncomingToken,
     P2pNetworkSelectInit,
     P2pNetworkSelectOutgoingTokens,
+    P2pNetworkSelectTimeout,
     P2pNetworkYamuxIncomingData,
     P2pNetworkYamuxIncomingFrame,
     P2pNetworkYamuxOpenStream,
@@ -287,6 +302,7 @@ pub enum ActionKind {
     P2pPeerDiscovered,
     P2pPeerReady,
     RpcActionStatsGet,
+    RpcBlockProducerStatsGet,
     RpcDiscoveryBoostrapStats,
     RpcDiscoveryRoutingTable,
     RpcFinish,
@@ -314,6 +330,7 @@ pub enum ActionKind {
     RpcSnarkerJobCommit,
     RpcSnarkerJobSpec,
     RpcSnarkerWorkersGet,
+    RpcStatusGet,
     RpcSyncStatsGet,
     SnarkBlockVerifyError,
     SnarkBlockVerifyFinish,
@@ -430,7 +447,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 358;
+    pub const COUNT: u16 = 374;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -478,6 +495,7 @@ impl ActionKindGet for EventSourceAction {
 impl ActionKindGet for P2pAction {
     fn kind(&self) -> ActionKind {
         match self {
+            Self::Initialization(a) => a.kind(),
             Self::Connection(a) => a.kind(),
             Self::Disconnection(a) => a.kind(),
             Self::Discovery(a) => a.kind(),
@@ -603,8 +621,10 @@ impl ActionKindGet for RpcAction {
     fn kind(&self) -> ActionKind {
         match self {
             Self::GlobalStateGet { .. } => ActionKind::RpcGlobalStateGet,
+            Self::StatusGet { .. } => ActionKind::RpcStatusGet,
             Self::ActionStatsGet { .. } => ActionKind::RpcActionStatsGet,
             Self::SyncStatsGet { .. } => ActionKind::RpcSyncStatsGet,
+            Self::BlockProducerStatsGet { .. } => ActionKind::RpcBlockProducerStatsGet,
             Self::MessageProgressGet { .. } => ActionKind::RpcMessageProgressGet,
             Self::PeersGet { .. } => ActionKind::RpcPeersGet,
             Self::P2pConnectionOutgoingInit { .. } => ActionKind::RpcP2pConnectionOutgoingInit,
@@ -680,6 +700,14 @@ impl ActionKindGet for WatchedAccountsAction {
     }
 }
 
+impl ActionKindGet for P2pInitializeAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::Initialize { .. } => ActionKind::P2pInitializeInitialize,
+        }
+    }
+}
+
 impl ActionKindGet for P2pConnectionAction {
     fn kind(&self) -> ActionKind {
         match self {
@@ -748,6 +776,7 @@ impl ActionKindGet for P2pNetworkAction {
             Self::Yamux(a) => a.kind(),
             Self::Identify(a) => a.kind(),
             Self::Kad(a) => a.kind(),
+            Self::Pubsub(a) => a.kind(),
             Self::Rpc(a) => a.kind(),
         }
     }
@@ -912,6 +941,9 @@ impl ActionKindGet for BlockProducerVrfEvaluatorAction {
             Self::BeginEpochEvaluation { .. } => {
                 ActionKind::BlockProducerVrfEvaluatorBeginEpochEvaluation
             }
+            Self::InterruptEpochEvaluation { .. } => {
+                ActionKind::BlockProducerVrfEvaluatorInterruptEpochEvaluation
+            }
             Self::RecordLastBlockHeightInEpoch { .. } => {
                 ActionKind::BlockProducerVrfEvaluatorRecordLastBlockHeightInEpoch
             }
@@ -981,6 +1013,9 @@ impl ActionKindGet for P2pConnectionIncomingAction {
             Self::Timeout { .. } => ActionKind::P2pConnectionIncomingTimeout,
             Self::Error { .. } => ActionKind::P2pConnectionIncomingError,
             Self::Success { .. } => ActionKind::P2pConnectionIncomingSuccess,
+            Self::FinalizePendingLibp2p { .. } => {
+                ActionKind::P2pConnectionIncomingFinalizePendingLibp2p
+            }
             Self::Libp2pReceived { .. } => ActionKind::P2pConnectionIncomingLibp2pReceived,
         }
     }
@@ -1082,6 +1117,7 @@ impl ActionKindGet for P2pNetworkSchedulerAction {
             Self::Error { .. } => ActionKind::P2pNetworkSchedulerError,
             Self::Disconnected { .. } => ActionKind::P2pNetworkSchedulerDisconnected,
             Self::Prune { .. } => ActionKind::P2pNetworkSchedulerPrune,
+            Self::PruneStreams { .. } => ActionKind::P2pNetworkSchedulerPruneStreams,
         }
     }
 }
@@ -1101,8 +1137,10 @@ impl ActionKindGet for P2pNetworkSelectAction {
         match self {
             Self::Init { .. } => ActionKind::P2pNetworkSelectInit,
             Self::IncomingData { .. } => ActionKind::P2pNetworkSelectIncomingData,
+            Self::IncomingPayload { .. } => ActionKind::P2pNetworkSelectIncomingPayload,
             Self::IncomingToken { .. } => ActionKind::P2pNetworkSelectIncomingToken,
             Self::OutgoingTokens { .. } => ActionKind::P2pNetworkSelectOutgoingTokens,
+            Self::Timeout { .. } => ActionKind::P2pNetworkSelectTimeout,
         }
     }
 }
@@ -1149,6 +1187,20 @@ impl ActionKindGet for P2pNetworkKadAction {
             Self::Bootstrap(a) => a.kind(),
             Self::Request(a) => a.kind(),
             Self::Stream(a) => a.kind(),
+        }
+    }
+}
+
+impl ActionKindGet for P2pNetworkPubsubAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::NewStream { .. } => ActionKind::P2pNetworkPubsubNewStream,
+            Self::IncomingData { .. } => ActionKind::P2pNetworkPubsubIncomingData,
+            Self::Broadcast { .. } => ActionKind::P2pNetworkPubsubBroadcast,
+            Self::Sign { .. } => ActionKind::P2pNetworkPubsubSign,
+            Self::BroadcastSigned { .. } => ActionKind::P2pNetworkPubsubBroadcastSigned,
+            Self::OutgoingMessage { .. } => ActionKind::P2pNetworkPubsubOutgoingMessage,
+            Self::OutgoingData { .. } => ActionKind::P2pNetworkPubsubOutgoingData,
         }
     }
 }
@@ -1201,6 +1253,7 @@ impl ActionKindGet for P2pNetworkKademliaAction {
             }
             Self::StartBootstrap { .. } => ActionKind::P2pNetworkKademliaStartBootstrap,
             Self::BootstrapFinished => ActionKind::P2pNetworkKademliaBootstrapFinished,
+            Self::UpdateRoutingTable { .. } => ActionKind::P2pNetworkKademliaUpdateRoutingTable,
         }
     }
 }

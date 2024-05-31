@@ -37,6 +37,7 @@ pub struct BlockProducerWonSlot {
     pub delegator: (v2::NonZeroCurvePoint, AccountIndex),
     pub global_slot: v2::ConsensusGlobalSlotStableV1,
     pub vrf_output: VrfOutput,
+    pub value_with_threshold: Option<(f64, f64)>,
     // Staking ledger which was used during vrf evaluation.
     pub staking_ledger_hash: v2::LedgerHash,
 }
@@ -65,7 +66,7 @@ impl BlockProducerWonSlot {
         let winner_pub_key = AccountPublicKey::from(
             CompressedPubKey::from_address(&won_slot.winner_account).unwrap(),
         );
-        let delegator = (winner_pub_key.into(), won_slot.account_index.clone());
+        let delegator = (winner_pub_key.into(), won_slot.account_index);
         let global_slot = v2::ConsensusGlobalSlotStableV1 {
             slot_number: v2::MinaNumbersGlobalSlotSinceHardForkMStableV1::SinceHardFork(
                 won_slot.global_slot.into(),
@@ -78,6 +79,7 @@ impl BlockProducerWonSlot {
             delegator,
             global_slot,
             vrf_output: won_slot.vrf_output.clone(),
+            value_with_threshold: won_slot.value_with_threshold,
             staking_ledger_hash: staking_ledger_hash.clone(),
         }
     }
@@ -90,6 +92,10 @@ impl BlockProducerWonSlot {
 
     pub fn global_slot(&self) -> u32 {
         self.global_slot.slot_number.as_u32()
+    }
+
+    pub fn epoch(&self) -> u32 {
+        self.global_slot() / self.global_slot.slots_per_epoch.as_u32()
     }
 
     pub fn global_slot_since_genesis(

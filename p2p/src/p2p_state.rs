@@ -1,5 +1,5 @@
 use multiaddr::multiaddr;
-use openmina_core::block::ArcBlockWithHash;
+use openmina_core::{block::ArcBlockWithHash, ChainId};
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -12,7 +12,7 @@ use crate::connection::incoming::P2pConnectionIncomingState;
 use crate::connection::outgoing::{P2pConnectionOutgoingInitOpts, P2pConnectionOutgoingState};
 use crate::network::identify::P2pNetworkIdentify;
 use crate::network::P2pNetworkState;
-use crate::{is_time_passed, P2pTimeouts, PeerId};
+use crate::{is_time_passed, Limit, P2pTimeouts, PeerId};
 
 use super::connection::P2pConnectionState;
 use super::P2pConfig;
@@ -25,16 +25,21 @@ pub struct P2pState {
 }
 
 impl P2pState {
-    pub fn new(config: P2pConfig) -> Self {
+    pub fn new(config: P2pConfig, chain_id: &ChainId) -> Self {
         let addrs = config
             .libp2p_port
             .map(|port| multiaddr!(Ip4([127, 0, 0, 1]), Tcp((port))))
             .into_iter()
             .collect();
 
-        let known_peers = config
+        let my_id = config.identity_pub_key.peer_id();
+        let initial_peers = config
             .initial_peers
             .iter()
+            .filter(|peer| peer.peer_id() != &my_id);
+
+        let known_peers = initial_peers
+            .clone()
             .filter_map(|peer| {
                 if let P2pConnectionOutgoingInitOpts::LibP2P(peer) = peer {
                     Some(peer.into())
@@ -44,9 +49,7 @@ impl P2pState {
             })
             .collect();
 
-        let peers = config
-            .initial_peers
-            .iter()
+        let peers = initial_peers
             .map(|peer| {
                 (
                     *peer.peer_id(),
@@ -66,7 +69,7 @@ impl P2pState {
             config.identity_pub_key.clone(),
             addrs,
             known_peers,
-            &config.chain_id,
+            chain_id,
             config.peer_discovery,
         );
         Self {
@@ -192,28 +195,28 @@ impl P2pState {
     }
 
     pub fn already_has_min_peers(&self) -> bool {
-        self.connected_or_connecting_peers_count() >= self.min_peers()
+        self.connected_or_connecting_peers_count() >= self.config.limits.min_peers()
     }
 
     pub fn already_has_max_peers(&self) -> bool {
-        self.connected_or_connecting_peers_count() >= self.config.max_peers
+        self.connected_or_connecting_peers_count() >= self.config.limits.max_peers()
     }
 
     /// The peers capacity is exceeded.
     pub fn already_has_max_ready_peers(&self) -> bool {
-        self.ready_peers_iter().count() >= self.config.max_peers
+        self.ready_peers_iter().count() >= self.config.limits.max_peers()
     }
 
     /// Minimal number of peers that the node should connect
-    pub fn min_peers(&self) -> usize {
-        (self.config.max_peers / 2).max(3)
+    pub fn min_peers(&self) -> Limit<usize> {
+        self.config.limits.min_peers()
     }
 
     /// Peer with libp2p connection identified by `conn_id`.
     pub fn peer_with_connection(
         &self,
         conn_id: std::net::SocketAddr,
-    ) -> Option<(&PeerId, &P2pPeerState)> {
+    ) -> Option<(PeerId, P2pPeerState)> {
         self.peers
             .iter()
             .find(|(_, peer_state)| match &peer_state.dial_opts {
@@ -222,6 +225,18 @@ impl P2pState {
                 }
                 _ => false,
             })
+            .or_else(|| {
+                self.network
+                    .scheduler
+                    .connections
+                    .get(&conn_id)
+                    .and_then(|state| {
+                        state
+                            .peer_id()
+                            .and_then(|peer_id| self.peers.iter().find(|(id, _)| *id == peer_id))
+                    })
+            })
+            .map(|(peer_id, peer_state)| (*peer_id, peer_state.clone()))
     }
 }
 

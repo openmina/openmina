@@ -5,7 +5,7 @@ use redux::ActionMeta;
 use crate::ledger::write::{LedgerWriteAction, LedgerWriteRequest};
 use crate::p2p::channels::rpc::P2pRpcRequest;
 use crate::service::TransitionFrontierSyncLedgerSnarkedService;
-use crate::Store;
+use crate::{p2p_ready, Service, Store};
 
 use super::ledger::snarked::TransitionFrontierSyncLedgerSnarkedAction;
 use super::ledger::staged::TransitionFrontierSyncLedgerStagedAction;
@@ -13,9 +13,9 @@ use super::ledger::{SyncLedgerTarget, TransitionFrontierSyncLedgerAction};
 use super::{TransitionFrontierSyncAction, TransitionFrontierSyncState};
 
 impl TransitionFrontierSyncAction {
-    pub fn effects<S: redux::Service>(&self, _: &ActionMeta, store: &mut Store<S>)
+    pub fn effects<S>(&self, meta: &ActionMeta, store: &mut Store<S>)
     where
-        S: TransitionFrontierSyncLedgerSnarkedService,
+        S: Service,
     {
         match self {
             TransitionFrontierSyncAction::Init { best_tip, .. } => {
@@ -107,10 +107,9 @@ impl TransitionFrontierSyncAction {
                 }
             }
             TransitionFrontierSyncAction::BlocksPeersQuery => {
+                let p2p = p2p_ready!(store.state().p2p, meta.time());
                 // TODO(binier): make sure they have the ledger we want to query.
-                let mut peer_ids = store
-                    .state()
-                    .p2p
+                let mut peer_ids = p2p
                     .ready_peers_iter()
                     .filter(|(_, p)| p.channels.rpc.can_send_request())
                     .map(|(id, p)| (*id, p.connected_since))
@@ -149,9 +148,8 @@ impl TransitionFrontierSyncAction {
                 }
             }
             TransitionFrontierSyncAction::BlocksPeerQueryInit { hash, peer_id } => {
-                let Some(rpc_id) = store
-                    .state()
-                    .p2p
+                let p2p = p2p_ready!(store.state().p2p, meta.time());
+                let Some(rpc_id) = p2p
                     .get_ready_peer(peer_id)
                     .map(|v| v.channels.rpc.next_local_rpc_id())
                 else {
@@ -171,9 +169,8 @@ impl TransitionFrontierSyncAction {
                 }
             }
             TransitionFrontierSyncAction::BlocksPeerQueryRetry { hash, peer_id } => {
-                let Some(rpc_id) = store
-                    .state()
-                    .p2p
+                let p2p = p2p_ready!(store.state().p2p, meta.time());
+                let Some(rpc_id) = p2p
                     .get_ready_peer(peer_id)
                     .map(|v| v.channels.rpc.next_local_rpc_id())
                 else {
@@ -218,6 +215,10 @@ impl TransitionFrontierSyncAction {
                 };
                 let hash = block.hash.clone();
 
+                if let Some(stats) = store.service.stats() {
+                    stats.block_producer().block_apply_start(meta.time(), &hash);
+                }
+
                 if store.dispatch(LedgerWriteAction::Init {
                     request: LedgerWriteRequest::BlockApply { block, pred_block },
                 }) {
@@ -227,7 +228,11 @@ impl TransitionFrontierSyncAction {
                 }
             }
             TransitionFrontierSyncAction::BlocksNextApplyPending { .. } => {}
-            TransitionFrontierSyncAction::BlocksNextApplySuccess { .. } => {
+            TransitionFrontierSyncAction::BlocksNextApplySuccess { hash } => {
+                if let Some(stats) = store.service.stats() {
+                    stats.block_producer().block_apply_end(meta.time(), hash);
+                }
+
                 if !store.dispatch(TransitionFrontierSyncAction::BlocksNextApplyInit) {
                     store.dispatch(TransitionFrontierSyncAction::BlocksSuccess);
                 }

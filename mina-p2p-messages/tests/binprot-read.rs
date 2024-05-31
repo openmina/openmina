@@ -1,38 +1,39 @@
-use mina_p2p_messages::v1::{
-    MinaBlockExternalTransitionRawVersionedStableV1Versioned,
-    NetworkPoolSnarkPoolDiffVersionedStableV1Versioned,
-    NetworkPoolTransactionPoolDiffVersionedStableV1Versioned,
-};
+// use mina_p2p_messages::v1::{
+//     MinaBlockExternalTransitionRawVersionedStableV1Versioned,
+//     NetworkPoolSnarkPoolDiffVersionedStableV1Versioned,
+//     NetworkPoolTransactionPoolDiffVersionedStableV1Versioned,
+// };
 
 mod utils;
 
-#[test]
-fn external_transition_v1() {
-    utils::for_all("v1/gossip/external-transition", |_, encoded| {
-        utils::assert_binprot_read::<MinaBlockExternalTransitionRawVersionedStableV1Versioned>(
-            encoded,
-        )
-    })
-    .unwrap();
-}
-
-#[test]
-fn snark_pool_diff() {
-    utils::for_all("v1/gossip/snark-pool-diff", |_, encoded| {
-        utils::assert_binprot_read::<NetworkPoolSnarkPoolDiffVersionedStableV1Versioned>(encoded)
-    })
-    .unwrap();
-}
-
-#[test]
-fn tx_pool_diff() {
-    utils::for_all("v1/gossip/tx-pool-diff", |_, encoded| {
-        utils::assert_binprot_read::<NetworkPoolTransactionPoolDiffVersionedStableV1Versioned>(
-            encoded,
-        )
-    })
-    .unwrap();
-}
+// TODO: v1 got removed, what should replace this?
+// #[test]
+// fn external_transition_v1() {
+//     utils::for_all("v1/gossip/external-transition", |_, encoded| {
+//         utils::assert_binprot_read::<MinaBlockExternalTransitionRawVersionedStableV1Versioned>(
+//             encoded,
+//         )
+//     })
+//     .unwrap();
+// }
+//
+// #[test]
+// fn snark_pool_diff() {
+//     utils::for_all("v1/gossip/snark-pool-diff", |_, encoded| {
+//         utils::assert_binprot_read::<NetworkPoolSnarkPoolDiffVersionedStableV1Versioned>(encoded)
+//     })
+//     .unwrap();
+// }
+//
+// #[test]
+// fn tx_pool_diff() {
+//     utils::for_all("v1/gossip/tx-pool-diff", |_, encoded| {
+//         utils::assert_binprot_read::<NetworkPoolTransactionPoolDiffVersionedStableV1Versioned>(
+//             encoded,
+//         )
+//     })
+//     .unwrap();
+// }
 
 #[ignore = "need to fix bin files in `v2/gossip`"]
 #[test]

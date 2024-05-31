@@ -10,7 +10,7 @@ use crate::snark::work_verify::SnarkWorkVerifyId;
 
 static EMPTY_PEER_WORK_CANDIDATES: BTreeMap<SnarkJobId, SnarkPoolCandidateState> = BTreeMap::new();
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct SnarkPoolCandidatesState {
     by_peer: BTreeMap<PeerId, BTreeMap<SnarkJobId, SnarkPoolCandidateState>>,
     by_job_id: BTreeMap<SnarkJobId, BTreeSet<PeerId>>,
@@ -48,10 +48,7 @@ pub enum SnarkPoolCandidateState {
 
 impl SnarkPoolCandidatesState {
     pub fn new() -> Self {
-        Self {
-            by_peer: Default::default(),
-            by_job_id: Default::default(),
-        }
+        Self::default()
     }
 
     pub fn peer_work_count(&self, peer_id: &PeerId) -> usize {
@@ -136,7 +133,7 @@ impl SnarkPoolCandidatesState {
                 *last_ord = Some(ord);
                 Some(Some((peer_id, job_id.clone())))
             })
-            .filter_map(|v| v)
+            .flatten()
             .collect()
     }
 
@@ -149,7 +146,7 @@ impl SnarkPoolCandidatesState {
     ) {
         if let Some(state) = self
             .by_peer
-            .get_mut(&peer_id)
+            .get_mut(peer_id)
             .and_then(|jobs| jobs.get_mut(job_id))
         {
             if let SnarkPoolCandidateState::InfoReceived { info, .. } = state {

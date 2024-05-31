@@ -7,7 +7,10 @@ use super::{
     bootstrap::P2pNetworkKadBootstrapState, request::P2pNetworkKadRequestState,
     stream::P2pNetworkKadStreamState, P2pNetworkKadRoutingTable,
 };
-use crate::{bootstrap::P2pNetworkKadBootstrapStats, PeerId, StreamId};
+use crate::{
+    bootstrap::{P2pNetworkKadBootstrapRequestStat, P2pNetworkKadBootstrapStats},
+    is_time_passed, P2pTimeouts, PeerId, StreamId,
+};
 
 /// Kademlia status.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -25,6 +28,25 @@ pub enum P2pNetworkKadStatus {
         /// Stats for the latest bootstrap process.
         stats: P2pNetworkKadBootstrapStats,
     },
+}
+
+impl P2pNetworkKadStatus {
+    pub(crate) fn can_bootstrap(&self, now: Timestamp, timeouts: &P2pTimeouts) -> bool {
+        match self {
+            P2pNetworkKadStatus::Init => true,
+            P2pNetworkKadStatus::Bootstrapping(_) => false,
+            P2pNetworkKadStatus::Bootstrapped { time, stats } => {
+                let timeout = if stats.requests.iter().any(|req| {
+                        matches!(req, P2pNetworkKadBootstrapRequestStat::Successful(req) if !req.closest_peers.is_empty())
+                    }) {
+                        timeouts.kademlia_bootstrap
+                    } else {
+                        timeouts.kademlia_initial_bootstrap
+                    };
+                is_time_passed(now, *time, timeout)
+            }
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -54,6 +76,10 @@ impl Default for P2pNetworkKadState {
 }
 
 impl P2pNetworkKadState {
+    pub fn is_bootstrapped(&self) -> bool {
+        matches!(&self.status, P2pNetworkKadStatus::Bootstrapped { .. })
+    }
+
     pub fn bootstrap_state(&self) -> Option<&super::bootstrap::P2pNetworkKadBootstrapState> {
         if let P2pNetworkKadStatus::Bootstrapping(state) = &self.status {
             Some(state)

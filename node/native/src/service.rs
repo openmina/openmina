@@ -85,6 +85,10 @@ impl LedgerService for NodeService {
     fn ledger_manager(&self) -> &LedgerManager {
         &self.ledger_manager
     }
+
+    fn force_sync_calls(&self) -> bool {
+        self.replayer.is_some()
+    }
 }
 
 impl redux::TimeService for NodeService {
@@ -92,7 +96,7 @@ impl redux::TimeService for NodeService {
         self.replayer
             .as_ref()
             .map(|v| v.next_monotonic_time())
-            .unwrap_or_else(|| redux::Instant::now())
+            .unwrap_or_else(redux::Instant::now)
     }
 }
 
@@ -116,23 +120,25 @@ impl P2pCryptoService for NodeService {
     fn ephemeral_sk(&mut self) -> [u8; 32] {
         // TODO: make deterministic
         // TODO: make network debugger to use seed to derive the same key
-        let mut r = [0; 32];
-        getrandom::getrandom(&mut r).unwrap();
-        r
+        //let mut r = [0; 32];
+        //getrandom::getrandom(&mut r).unwrap();
+        //r
+        self.rng.gen()
     }
 
     fn static_sk(&mut self) -> [u8; 32] {
         // TODO: make deterministic
         // TODO: make network debugger to use seed to derive the same key
-        let mut r = [0; 32];
-        getrandom::getrandom(&mut r).unwrap();
-        r
+        //let mut r = [0; 32];
+        //getrandom::getrandom(&mut r).unwrap();
+        //r
+        self.rng.gen()
     }
 
     fn sign_key(&mut self, key: &[u8; 32]) -> Vec<u8> {
         // TODO: make deterministic
-        let msg = &[b"noise-libp2p-static-key:", key.as_ref()].concat();
-        let sig = self.keypair.sign(msg).expect("unable to create signature");
+        let msg = [b"noise-libp2p-static-key:", key.as_slice()].concat();
+        let sig = self.keypair.sign(&msg).expect("unable to create signature");
 
         let mut payload = vec![];
         payload.extend_from_slice(b"\x0a\x24");
@@ -140,6 +146,11 @@ impl P2pCryptoService for NodeService {
         payload.extend_from_slice(b"\x12\x40");
         payload.extend_from_slice(&sig);
         payload
+    }
+
+    fn sign_publication(&mut self, publication: &[u8]) -> Vec<u8> {
+        let msg = [b"libp2p-pubsub:", publication].concat();
+        self.keypair.sign(&msg).expect("unable to create signature")
     }
 }
 
@@ -255,7 +266,7 @@ impl SnarkWorkVerifyService for NodeService {
                             [Some(conv(v1)), Some(conv(v2))]
                         }
                     })
-                    .filter_map(|v| v)
+                    .flatten()
                     .collect::<Vec<_>>();
                 let verifier_srs = verifier_srs.lock().expect("Failed to lock SRS");
                 if !ledger::proofs::verification::verify_transaction(

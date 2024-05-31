@@ -6,7 +6,7 @@ use node::p2p::PeerId;
 
 use crate::cluster::ClusterOcamlNodeId;
 use crate::node::{DaemonJson, OcamlNodeTestingConfig, OcamlStep};
-use crate::scenarios::cluster_runner::ClusterRunner;
+use crate::scenarios::ClusterRunner;
 use crate::{node::RustNodeTestingConfig, scenario::ScenarioStep};
 
 /// Global test with OCaml nodes.
@@ -68,6 +68,7 @@ impl MultiNodeBasicConnectivityPeerDiscovery {
 
         let config = RustNodeTestingConfig::berkeley_default()
             .ask_initial_peers_interval(Duration::from_secs(3600))
+            .with_daemon_json("/var/lib/coda/berkeley.json")
             .max_peers(100)
             .initial_peers(
                 nodes
@@ -120,14 +121,20 @@ impl MultiNodeBasicConnectivityPeerDiscovery {
 
             let this = runner.node(node_id).unwrap();
             // finish discovering
-            if todo!() {
+            if this
+                .state()
+                .p2p
+                .ready()
+                .and_then(|p2p| p2p.network.scheduler.discovery_state())
+                .map_or(false, |discovery_state| discovery_state.is_bootstrapped())
+            {
                 // the node must find all already running OCaml nodes
                 // assert_eq!(this.state().p2p.peers.len(), TOTAL_OCAML_NODES as usize);
                 if additional_ocaml_node.is_none() {
                     eprintln!("the Openmina node finished peer discovery",);
                     eprintln!(
                         "connected peers: {:?}",
-                        this.state().p2p.peers.keys().collect::<Vec<_>>()
+                        this.state().p2p.unwrap().peers.keys().collect::<Vec<_>>()
                     );
                     let node_id = runner.add_ocaml_node(ocaml_node_config.clone());
                     let node = runner.ocaml_node(node_id).unwrap();
@@ -145,11 +152,14 @@ impl MultiNodeBasicConnectivityPeerDiscovery {
                     .unwrap()
                     .state()
                     .p2p
-                    .peers
-                    .iter()
-                    .filter(|(id, n)| n.is_libp2p && id == &peer_id)
-                    .filter_map(|(_, n)| n.status.as_ready())
-                    .find(|n| n.is_incoming)
+                    .ready()
+                    .and_then(|p2p| {
+                        p2p.peers
+                            .iter()
+                            .filter(|(id, n)| n.is_libp2p && id == &peer_id)
+                            .filter_map(|(_, n)| n.status.as_ready())
+                            .find(|n| n.is_incoming)
+                    })
                     .is_some()
                 {
                     eprintln!("the additional OCaml node connected to Openmina node");

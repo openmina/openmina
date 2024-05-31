@@ -10,6 +10,7 @@ use ledger::proofs::public_input::protocol_state::MinaHash;
 use libp2p::Swarm;
 use libp2p_rpc_behaviour::Behaviour;
 use mina_p2p_messages::{
+    list::List,
     rpc::{
         GetAncestryV2, GetBestTipV2, GetStagedLedgerAuxAndPendingCoinbasesAtHashV2,
         GetTransitionChainProofV1ForV2, GetTransitionChainV2, WithHashV1,
@@ -22,7 +23,7 @@ use super::{bootstrap::Storage, client::Client, snarked_ledger::SnarkedLedger};
 pub async fn run(swarm: Swarm<Behaviour>, path_main: &Path, bootstrap: bool) {
     let mut client = Client::new(swarm);
 
-    fs::create_dir_all(&path_main).unwrap();
+    fs::create_dir_all(path_main).unwrap();
 
     let best_tip = client.rpc::<GetBestTipV2>(()).await.unwrap().unwrap();
 
@@ -218,11 +219,13 @@ async fn download_blocks(
             v2::MinaBlockBlockStableV2::binprot_read(&mut file).unwrap()
         } else {
             log::info!("downloading block {i}");
-            let new = engine
-                .rpc::<GetTransitionChainV2>(vec![this_hash.0.clone()])
+            let new: Vec<_> = engine
+                .rpc::<GetTransitionChainV2>(List::one(this_hash.0.clone()))
                 .await
                 .unwrap()
-                .unwrap();
+                .unwrap()
+                .into_iter()
+                .collect();
             let mut file = File::create(dir.join(this_hash.to_string())).unwrap();
             new[0].binprot_write(&mut file).unwrap();
             if let Ok(new_proof) = engine

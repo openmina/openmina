@@ -86,7 +86,7 @@ impl SnarkPoolState {
                 self.last_check_timeouts = meta.time();
             }
             SnarkPoolAction::JobCommitmentTimeout { job_id } => {
-                self.remove_commitment(&job_id);
+                self.remove_commitment(job_id);
             }
         }
     }

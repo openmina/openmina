@@ -2,6 +2,7 @@ use binprot::Nat0;
 use serde::{de::Visitor, Deserialize, Serialize};
 
 const MINA_STRING_MAX_LENGTH: usize = 100_000_000;
+const CHUNK_SIZE: usize = 5_000;
 
 /// String of bytes.
 #[derive(Clone, Default, PartialEq, Eq, PartialOrd, Ord)]
@@ -115,9 +116,8 @@ impl binprot::BinProtRead for ByteString {
         if len > MINA_STRING_MAX_LENGTH {
             return Err(MinaStringTooLong::as_binprot_err(len));
         }
-        let mut buf: Vec<u8> = vec![0u8; len];
-        r.read_exact(&mut buf)?;
-        Ok(Self(buf))
+
+        Ok(Self(maybe_read_in_chunks(len, r)?))
     }
 }
 
@@ -133,7 +133,7 @@ impl binprot::BinProtWrite for ByteString {
 }
 
 /// Human-readable string.
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub struct CharString(Vec<u8>);
 
 impl std::fmt::Debug for CharString {
@@ -247,9 +247,8 @@ impl binprot::BinProtRead for CharString {
         if len > MINA_STRING_MAX_LENGTH {
             return Err(MinaStringTooLong::as_binprot_err(len));
         }
-        let mut buf: Vec<u8> = vec![0u8; len];
-        r.read_exact(&mut buf)?;
-        Ok(Self(buf))
+
+        Ok(Self(maybe_read_in_chunks(len, r)?))
     }
 }
 
@@ -261,6 +260,32 @@ impl binprot::BinProtWrite for CharString {
         Nat0(self.0.len() as u64).binprot_write(w)?;
         w.write_all(&self.0)?;
         Ok(())
+    }
+}
+
+/// Reads data from the reader `r` in chunks if the length `len` exceeds a predefined chunk size.
+///
+/// This approach avoids preallocating a large buffer upfront, which is crucial for handling
+/// potentially large or untrusted input sizes efficiently and safely.
+fn maybe_read_in_chunks<R: std::io::Read + ?Sized>(
+    len: usize,
+    r: &mut R,
+) -> Result<Vec<u8>, binprot::Error> {
+    if len <= CHUNK_SIZE {
+        let mut buf = vec![0u8; len];
+        r.read_exact(&mut buf)?;
+        Ok(buf)
+    } else {
+        let mut buf = vec![0u8; CHUNK_SIZE];
+        let mut temp_buf = vec![0u8; CHUNK_SIZE];
+        let mut remaining = len;
+        while remaining > 0 {
+            let read_size = std::cmp::min(CHUNK_SIZE, remaining);
+            r.read_exact(&mut temp_buf[..read_size])?;
+            buf.extend_from_slice(&temp_buf[..read_size]);
+            remaining -= read_size;
+        }
+        Ok(buf)
     }
 }
 

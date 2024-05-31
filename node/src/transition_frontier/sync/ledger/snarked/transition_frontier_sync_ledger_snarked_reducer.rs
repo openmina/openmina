@@ -320,7 +320,7 @@ impl TransitionFrontierSyncLedgerSnarkedState {
                 // TODO(tizoc): should this be reflected in the state somehow?
             }
             TransitionFrontierSyncLedgerSnarkedAction::Success => {
-                let Self::MerkleTreeSyncPending { target, .. } = self else {
+                let Self::MerkleTreeSyncSuccess { target, .. } = self else {
                     return;
                 };
                 *self = Self::Success {

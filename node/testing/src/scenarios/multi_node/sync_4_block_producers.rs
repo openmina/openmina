@@ -5,7 +5,7 @@ use node::BlockProducerConfig;
 use crate::{
     node::{RustNodeBlockProducerTestingConfig, RustNodeTestingConfig},
     scenario::{ListenerNode, ScenarioStep},
-    scenarios::cluster_runner::ClusterRunner,
+    scenarios::ClusterRunner,
 };
 
 /// Create and Sync up 4 block producer nodes.

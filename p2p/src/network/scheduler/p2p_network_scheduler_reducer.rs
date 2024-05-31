@@ -36,6 +36,7 @@ impl P2pNetworkSchedulerState {
                         mux: None,
                         streams: BTreeMap::default(),
                         closed: None,
+                        limit: P2pNetworkConnectionState::INITIAL_LIMIT,
                     },
                 );
             }
@@ -53,6 +54,7 @@ impl P2pNetworkSchedulerState {
                         mux: None,
                         streams: BTreeMap::default(),
                         closed: None,
+                        limit: P2pNetworkConnectionState::INITIAL_LIMIT,
                     },
                 );
             }
@@ -60,7 +62,15 @@ impl P2pNetworkSchedulerState {
                 // TODO: change to connected
             }
             P2pNetworkSchedulerAction::IncomingDataIsReady { .. } => {}
-            P2pNetworkSchedulerAction::IncomingDataDidReceive { .. } => {}
+            P2pNetworkSchedulerAction::IncomingDataDidReceive { result, addr } => {
+                let Some(state) = self.connections.get_mut(addr) else {
+                    return;
+                };
+
+                if let Ok(data) = result {
+                    state.consume(data.len());
+                }
+            }
             P2pNetworkSchedulerAction::SelectDone {
                 addr,
                 kind,
@@ -74,7 +84,7 @@ impl P2pNetworkSchedulerState {
                 match protocol {
                     Some(token::Protocol::Auth(token::AuthKind::Noise)) => {
                         connection.auth = Some(P2pNetworkAuthState::Noise(
-                            P2pNetworkNoiseState::new(self.local_pk.clone(), true),
+                            P2pNetworkNoiseState::new(self.local_pk.clone(), false),
                         ));
                     }
                     Some(token::Protocol::Mux(
@@ -111,7 +121,7 @@ impl P2pNetworkSchedulerState {
                                         );
                                 }
                             }
-                            token::StreamKind::Broadcast(_) => unimplemented!(),
+                            token::StreamKind::Broadcast(_) => {}
                             token::StreamKind::Identify(_) => {}
                             token::StreamKind::Discovery(_) => {}
                             token::StreamKind::Ping(_) => {}
@@ -123,12 +133,18 @@ impl P2pNetworkSchedulerState {
                 }
             }
             P2pNetworkSchedulerAction::SelectError { addr, kind, .. } => {
-                if let Some(stream_id) = &kind.stream_id() {
-                    if let Some(connection) = self.connections.get_mut(addr) {
+                // Now (unlike normal libp2p) we always disconnect peers causing select errors, even for streams
+                if let Some(connection) = self.connections.get_mut(addr) {
+                    if let Some(stream_id) = &kind.stream_id() {
                         connection.streams.remove(stream_id);
                     }
+
+                    connection.closed = Some(P2pNetworkConnectionError::SelectError.into());
+                }
+                if let Some(connection) = self.connections.get_mut(addr) {
+                    connection.closed = Some(P2pNetworkConnectionError::SelectError.into());
                 } else {
-                    self.connections.remove(addr);
+                    unreachable!()
                 }
             }
             P2pNetworkSchedulerAction::YamuxDidInit { addr, .. } => {
@@ -167,19 +183,17 @@ impl P2pNetworkSchedulerState {
                 };
                 if cn.closed.is_none() {
                     error!(meta.time(); "P2pNetworkSchedulerAction::Disconnect: {addr} is not disconnecting");
-                    return;
-                }
-                cn.streams.clear();
-                if let Some(peer_id) = cn.peer_id() {
-                    self.rpc_incoming_streams.remove(peer_id);
-                    self.rpc_outgoing_streams.remove(peer_id);
-                    if let Some(discovery_state) = self.discovery_state.as_mut() {
-                        discovery_state.streams.remove(peer_id);
-                    }
                 }
             }
             P2pNetworkSchedulerAction::Prune { addr } => {
                 let _ = self.connections.remove(addr);
+            }
+            P2pNetworkSchedulerAction::PruneStreams { peer_id } => {
+                self.rpc_incoming_streams.remove(peer_id);
+                self.rpc_outgoing_streams.remove(peer_id);
+                if let Some(discovery_state) = self.discovery_state.as_mut() {
+                    discovery_state.streams.remove(peer_id);
+                }
             }
         }
     }

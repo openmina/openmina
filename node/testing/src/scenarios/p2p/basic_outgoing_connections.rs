@@ -34,7 +34,7 @@ fn custom_listener(peer_id: PeerId, port: u16) -> ListenerNode {
 pub struct MakeOutgoingConnection;
 
 impl MakeOutgoingConnection {
-    pub async fn run<'cluster>(self, runner: ClusterRunner<'cluster>) {
+    pub async fn run(self, runner: ClusterRunner<'_>) {
         let mut driver = Driver::new(runner);
 
         let (node1, _) = driver.add_rust_node(RustNodeTestingConfig::berkeley_default());
@@ -76,7 +76,7 @@ impl MakeOutgoingConnection {
 pub struct MakeMultipleOutgoingConnections;
 
 impl MakeMultipleOutgoingConnections {
-    pub async fn run<'cluster>(self, runner: ClusterRunner<'cluster>) {
+    pub async fn run(self, runner: ClusterRunner<'_>) {
         const MAX: u8 = 32;
 
         let mut driver = Driver::new(runner);
@@ -129,7 +129,7 @@ impl MakeMultipleOutgoingConnections {
 pub struct DontConnectToNodeWithSameId;
 
 impl DontConnectToNodeWithSameId {
-    pub async fn run<'cluster>(self, runner: ClusterRunner<'cluster>) {
+    pub async fn run(self, runner: ClusterRunner<'_>) {
         let mut driver = Driver::new(runner);
 
         let bytes: [u8; 32] = rand::random();
@@ -170,7 +170,7 @@ impl DontConnectToNodeWithSameId {
 pub struct DontConnectToSelfInitialPeer;
 
 impl DontConnectToSelfInitialPeer {
-    pub async fn run<'cluster>(self, runner: ClusterRunner<'cluster>) {
+    pub async fn run(self, runner: ClusterRunner<'_>) {
         let mut driver = Driver::new(runner);
 
         let bytes = [0xfe; 32];
@@ -178,7 +178,7 @@ impl DontConnectToSelfInitialPeer {
         let peer_id = SecretKey::from_bytes(bytes).public_key().peer_id();
         let self_opts =
             P2pConnectionOutgoingInitOpts::LibP2P(P2pConnectionOutgoingInitLibp2pOpts {
-                peer_id: peer_id.clone(),
+                peer_id,
                 host: node::p2p::webrtc::Host::Ipv4([127, 0, 0, 1].into()),
                 port,
             });
@@ -196,7 +196,7 @@ impl DontConnectToSelfInitialPeer {
         );
 
         let connected =
-            wait_for_connection_established(&mut driver, Duration::from_secs(3 * 60), node_ut)
+            wait_for_connection_established(&mut driver, Duration::from_secs(10), node_ut)
                 .await
                 .unwrap();
         assert!(!connected, "the node sholdn't try to connect to itself");
@@ -208,7 +208,7 @@ impl DontConnectToSelfInitialPeer {
 pub struct DontConnectToInitialPeerWithSameId;
 
 impl DontConnectToInitialPeerWithSameId {
-    pub async fn run<'cluster>(self, runner: ClusterRunner<'cluster>) {
+    pub async fn run(self, runner: ClusterRunner<'_>) {
         let mut driver = Driver::new(runner);
 
         let bytes: [u8; 32] = rand::random();
@@ -244,7 +244,7 @@ impl DontConnectToInitialPeerWithSameId {
 pub struct ConnectToInitialPeers;
 
 impl ConnectToInitialPeers {
-    pub async fn run<'cluster>(self, runner: ClusterRunner<'cluster>) {
+    pub async fn run(self, runner: ClusterRunner<'_>) {
         const MAX: u8 = 32;
 
         let mut driver = Driver::new(runner);
@@ -253,11 +253,7 @@ impl ConnectToInitialPeers {
             &mut driver,
             MAX,
             RustNodeTestingConfig::berkeley_default(),
-            |state| {
-                let config = &state.p2p.config;
-                let peer_id = config.identity_pub_key.peer_id();
-                peer_id
-            },
+            |state| state.p2p.my_id(),
         );
 
         // wait for all peers to listen
@@ -286,7 +282,14 @@ impl ConnectToInitialPeers {
         if !connected {
             println!(
                 "{:#?}",
-                driver.inner().node(node_ut).unwrap().state().p2p.peers
+                driver
+                    .inner()
+                    .node(node_ut)
+                    .unwrap()
+                    .state()
+                    .p2p
+                    .unwrap()
+                    .peers
             );
         }
         assert!(connected, "did not connect to peers: {:?}", peer_ids);
@@ -298,7 +301,7 @@ impl ConnectToInitialPeers {
 pub struct ConnectToInitialPeersBecomeReady;
 
 impl ConnectToInitialPeersBecomeReady {
-    pub async fn run<'cluster>(self, runner: ClusterRunner<'cluster>) {
+    pub async fn run(self, runner: ClusterRunner<'_>) {
         const MAX: u8 = 32;
 
         let mut driver = Driver::new(runner);
@@ -341,7 +344,14 @@ impl ConnectToInitialPeersBecomeReady {
         if !connected {
             println!(
                 "{:#?}",
-                driver.inner().node(node_ut).unwrap().state().p2p.peers
+                driver
+                    .inner()
+                    .node(node_ut)
+                    .unwrap()
+                    .state()
+                    .p2p
+                    .unwrap()
+                    .peers
             );
         }
         assert!(connected, "did not connect to peers: {:?}", peer_ids);
@@ -353,14 +363,13 @@ impl ConnectToInitialPeersBecomeReady {
 pub struct ConnectToUnavailableInitialPeers;
 
 impl ConnectToUnavailableInitialPeers {
-    pub async fn run<'cluster>(self, runner: ClusterRunner<'cluster>) {
+    pub async fn run(self, runner: ClusterRunner<'_>) {
         const MAX: u16 = 2;
         const RETRIES: u8 = 3;
 
         let mut driver = Driver::new(runner);
 
         let (initial_peers, peer_ids): (Vec<_>, Vec<_>) = (0..MAX)
-            .into_iter()
             .map(|i| {
                 let port = 11200 + i;
                 let peer_id = SecretKey::rand().public_key().peer_id();

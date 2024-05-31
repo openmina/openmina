@@ -20,7 +20,7 @@ pub struct P2pNetworkSchedulerState {
     #[serde_as(as = "serde_with::hex::Hex")]
     pub pnet_key: [u8; 32],
     pub connections: BTreeMap<SocketAddr, P2pNetworkConnectionState>,
-    pub broadcast_state: (),
+    pub broadcast_state: P2pNetworkPubsubState,
     pub identify_state: identify::P2pNetworkIdentifyState,
     pub discovery_state: Option<P2pNetworkKadState>,
     pub rpc_incoming_streams: StreamState<P2pNetworkRpcState>,
@@ -49,15 +49,35 @@ pub struct P2pNetworkConnectionState {
     pub mux: Option<P2pNetworkConnectionMuxState>,
     pub streams: BTreeMap<StreamId, P2pNetworkStreamState>,
     pub closed: Option<P2pNetworkConnectionCloseReason>,
+    // the number of bytes that peer allowed to send us before yamux is negotiated
+    pub limit: usize,
 }
 
 impl P2pNetworkConnectionState {
+    pub const INITIAL_LIMIT: usize = 1024;
+
     pub fn peer_id(&self) -> Option<&PeerId> {
         self.auth.as_ref().and_then(P2pNetworkAuthState::peer_id)
     }
+
+    pub fn limit(&self) -> usize {
+        if let Some(mux) = &self.mux {
+            mux.limit()
+        } else {
+            self.limit
+        }
+    }
+
+    pub fn consume(&mut self, len: usize) {
+        if let Some(mux) = &mut self.mux {
+            mux.consume(len);
+        } else {
+            self.limit = self.limit.saturating_sub(len);
+        }
+    }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, thiserror::Error)]
 pub enum P2pNetworkConnectionCloseReason {
     #[error("peer is disconnected: {0}")]
     Disconnect(#[from] P2pDisconnectionReason),
@@ -74,7 +94,7 @@ impl P2pNetworkConnectionCloseReason {
 }
 
 /// P2p connection error.
-#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, thiserror::Error, Serialize, Deserialize)]
 pub enum P2pNetworkConnectionError {
     #[error("mio error: {0}")]
     MioError(String),
@@ -82,6 +102,14 @@ pub enum P2pNetworkConnectionError {
     Noise(#[from] NoiseError),
     #[error("remote peer closed connection")]
     RemoteClosed,
+    #[error("select protocol error")]
+    SelectError,
+    #[error(transparent)]
+    IdentifyStreamError(#[from] P2pNetworkIdentifyStreamError),
+    #[error(transparent)]
+    KademliaIncomingStreamError(#[from] P2pNetworkKadIncomingStreamError),
+    #[error(transparent)]
+    KademliaOutgoingStreamError(#[from] P2pNetworkKadOutgoingStreamError),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -100,6 +128,20 @@ impl P2pNetworkAuthState {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum P2pNetworkConnectionMuxState {
     Yamux(P2pNetworkYamuxState),
+}
+
+impl P2pNetworkConnectionMuxState {
+    pub fn consume(&mut self, len: usize) {
+        match self {
+            Self::Yamux(state) => state.consume(len),
+        }
+    }
+
+    fn limit(&self) -> usize {
+        match self {
+            Self::Yamux(state) => state.limit(),
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

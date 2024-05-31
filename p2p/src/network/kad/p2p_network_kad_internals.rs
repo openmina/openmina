@@ -369,7 +369,7 @@ impl P2pNetworkKadEntry {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, thiserror::Error)]
+#[derive(Clone, Debug, Serialize, PartialEq, Deserialize, thiserror::Error)]
 pub enum P2pNetworkKadEntryTryFromError {
     #[error(transparent)]
     PeerId(#[from] P2pNetworkKademliaPeerIdError),
@@ -476,7 +476,7 @@ impl<'a, const K: usize> Iterator for ClosestPeers<'a, K> {
             self.bucket_index = self.index_iter.next()?;
             self.bucket_iterator = Self::get_bucket_iter(
                 &self.table.buckets[self.bucket_index],
-                &self.key,
+                self.key,
                 &self.table.this_key,
             );
         })
@@ -560,7 +560,7 @@ impl<'a, const K: usize> IntoIterator for &'a P2pNetworkKadBucket<K> {
     type IntoIter = std::slice::Iter<'a, P2pNetworkKadEntry>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.0.as_slice().into_iter()
+        self.0.as_slice().iter()
     }
 }
 

@@ -11,7 +11,11 @@ impl P2pState {
     pub fn reducer(&mut self, action: P2pActionWithMetaRef<'_>) {
         let (action, meta) = action.split();
         match action {
+            P2pAction::Initialization(_) => {
+                // noop
+            }
             P2pAction::Connection(action) => {
+                let my_id = self.my_id();
                 let Some(peer_id) = action.peer_id() else {
                     return;
                 };
@@ -48,7 +52,7 @@ impl P2pState {
                         identify: None,
                     }),
                     P2pConnectionAction::Incoming(
-                        P2pConnectionIncomingAction::Libp2pReceived { .. },
+                        P2pConnectionIncomingAction::FinalizePendingLibp2p { .. },
                     ) => {
                         self.peers.entry(*peer_id).or_insert_with(|| P2pPeerState {
                             is_libp2p: true,
@@ -63,11 +67,21 @@ impl P2pState {
                         None => return,
                     },
                 };
-                p2p_connection_reducer(peer, meta.with_action(action));
+                p2p_connection_reducer(peer, my_id, meta.with_action(action));
             }
             P2pAction::Disconnection(action) => match action {
                 P2pDisconnectionAction::Init { .. } => {}
                 P2pDisconnectionAction::Finish { peer_id } => {
+                    if self
+                        .network
+                        .scheduler
+                        .connections
+                        .iter()
+                        .any(|(_addr, conn_state)| conn_state.peer_id() == Some(peer_id))
+                    {
+                        // still have other connections
+                        return;
+                    }
                     let Some(peer) = self.peers.get_mut(peer_id) else {
                         return;
                     };
@@ -99,7 +113,9 @@ impl P2pState {
                     }
                 }
             },
-            P2pAction::Network(action) => self.network.reducer(meta.with_action(action)),
+            P2pAction::Network(action) => self
+                .network
+                .reducer(meta.with_action(action), &self.config.limits),
         }
     }
 }

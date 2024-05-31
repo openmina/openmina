@@ -1,15 +1,17 @@
 use std::net::SocketAddr;
 
-use super::P2pNetworkIdentifyStreamAction;
-use crate::{
-    identify::P2pIdentifyAction,
-    network::identify::{Identify, P2pNetworkIdentify},
-    token, Data, P2pNetworkService, P2pNetworkYamuxAction,
-};
 use multiaddr::Multiaddr;
 use openmina_core::{error, log::system_time, warn};
-use quick_protobuf::serialize_into_vec;
 use redux::ActionMeta;
+
+use super::{
+    super::{pb, P2pNetworkIdentify},
+    P2pNetworkIdentifyStreamAction,
+};
+use crate::{
+    identify::P2pIdentifyAction, network::identify::stream::P2pNetworkIdentifyStreamError, token,
+    Data, P2pNetworkSchedulerAction, P2pNetworkService, P2pNetworkYamuxAction,
+};
 
 fn get_addrs<I, S>(addr: &SocketAddr, net_svc: &mut S) -> I
 where
@@ -39,8 +41,8 @@ where
 impl P2pNetworkIdentifyStreamAction {
     pub fn effects<Store, S>(self, meta: &ActionMeta, store: &mut Store) -> Result<(), String>
     where
-        Store: crate::P2pStore<S>,
         Store::Service: P2pNetworkService,
+        Store: crate::P2pStore<S>,
     {
         use super::P2pNetworkIdentifyStreamState as S;
         use P2pNetworkIdentifyStreamAction as A;
@@ -78,8 +80,30 @@ impl P2pNetworkIdentifyStreamAction {
                     {
                         listen_addrs.extend(get_addrs::<Vec<_>, _>(&addr, store.service()))
                     }
+
                     let public_key = Some(store.state().config.identity_pub_key.clone());
 
+                    let mut protocols = vec![
+                        // token::StreamKind::Broadcast(token::BroadcastAlgorithm::Floodsub1_0_0),
+                        token::StreamKind::Identify(token::IdentifyAlgorithm::Identify1_0_0),
+                        // token::StreamKind::Identify(
+                        //     token::IdentifyAlgorithm::IdentifyPush1_0_0,
+                        // ),
+                        // token::StreamKind::Broadcast(token::BroadcastAlgorithm::Meshsub1_0_0),
+                        token::StreamKind::Broadcast(token::BroadcastAlgorithm::Meshsub1_1_0),
+                        // token::StreamKind::Ping(token::PingAlgorithm::Ping1_0_0),
+                        // token::StreamKind::Bitswap(token::BitswapAlgorithm::MinaBitswap),
+                        // token::StreamKind::Bitswap(token::BitswapAlgorithm::MinaBitswap1_0_0),
+                        // token::StreamKind::Bitswap(token::BitswapAlgorithm::MinaBitswap1_1_0),
+                        // token::StreamKind::Bitswap(token::BitswapAlgorithm::MinaBitswap1_2_0),
+                        // token::StreamKind::Status(token::StatusAlgorithm::MinaNodeStatus),
+                        token::StreamKind::Rpc(token::RpcAlgorithm::Rpc0_0_1),
+                    ];
+                    if store.state().network.scheduler.discovery_state.is_some() {
+                        protocols.push(token::StreamKind::Discovery(
+                            token::DiscoveryAlgorithm::Kademlia1_0_0,
+                        ));
+                    }
                     let identify_msg = P2pNetworkIdentify {
                         protocol_version: Some("ipfs/0.1.0".to_string()),
                         // TODO: include build info from GlobalConfig (?)
@@ -88,36 +112,25 @@ impl P2pNetworkIdentifyStreamAction {
                         listen_addrs,
                         // TODO: other peers seem to report inaccurate information, should we implement this?
                         observed_addr: None,
-                        protocols: vec![
-                            token::StreamKind::Discovery(token::DiscoveryAlgorithm::Kademlia1_0_0),
-                            //token::StreamKind::Broadcast(token::BroadcastAlgorithm::Floodsub1_0_0),
-                            token::StreamKind::Identify(token::IdentifyAlgorithm::Identify1_0_0),
-                            //token::StreamKind::Identify(
-                            //    token::IdentifyAlgorithm::IdentifyPush1_0_0,
-                            //),
-                            //token::StreamKind::Ping(token::PingAlgorithm::Ping1_0_0),
-                            //token::StreamKind::Broadcast(token::BroadcastAlgorithm::Meshsub1_0_0),
-                            //token::StreamKind::Broadcast(token::BroadcastAlgorithm::Meshsub1_1_0),
-                            //token::StreamKind::Bitswap(token::BitswapAlgorithm::MinaBitswap),
-                            //token::StreamKind::Bitswap(token::BitswapAlgorithm::MinaBitswap1_0_0),
-                            //token::StreamKind::Bitswap(token::BitswapAlgorithm::MinaBitswap1_1_0),
-                            //token::StreamKind::Bitswap(token::BitswapAlgorithm::MinaBitswap1_2_0),
-                            //token::StreamKind::Status(token::StatusAlgorithm::MinaNodeStatus),
-                            token::StreamKind::Rpc(token::RpcAlgorithm::Rpc0_0_1),
-                        ],
+                        protocols,
                     };
 
                     //println!("{:?}", identify_msg);
 
-                    let identify_msg_proto: Identify = (&identify_msg).into();
+                    let mut out = Vec::new();
+                    let identify_msg_proto: pb::Identify = (&identify_msg).into();
 
-                    let bytes = serialize_into_vec(&identify_msg_proto)
-                        .map_err(|e| format!("error seializing identify message: {e}"))?;
+                    if let Err(err) =
+                        prost::Message::encode_length_delimited(&identify_msg_proto, &mut out)
+                    {
+                        warn!(meta.time(); summary = "error serializing Identify message", error = err.to_string(), action = format!("{self:?}"));
+                        return Ok(());
+                    }
 
                     store.dispatch(P2pNetworkYamuxAction::OutgoingData {
                         addr,
                         stream_id,
-                        data: Data(bytes.into_boxed_slice()),
+                        data: Data(out.into_boxed_slice()),
                         fin: false,
                     });
 
@@ -161,7 +174,11 @@ impl P2pNetworkIdentifyStreamAction {
                     Ok(())
                 }
                 S::Error(err) => {
-                    warn!(meta.time(); summary = "error handling Identify action", error = err, action = format!("{self:?}"));
+                    warn!(meta.time(); summary = "error handling Identify action", error = display(err));
+                    store.dispatch(P2pNetworkSchedulerAction::Error {
+                        addr,
+                        error: P2pNetworkIdentifyStreamError::from(err.clone()).into(),
+                    });
                     Ok(())
                 }
                 _ => unimplemented!(),

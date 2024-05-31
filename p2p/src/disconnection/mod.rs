@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{channels::ChannelId, connection::RejectionReason};
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, thiserror::Error)]
 pub enum P2pDisconnectionReason {
     #[error("message is unexpected for channel {0}")]
     P2pChannelMsgUnexpected(ChannelId),
@@ -31,4 +31,10 @@ pub enum P2pDisconnectionReason {
 
     #[error("failed to verify snark pool diff")]
     SnarkPoolVerifyError,
+
+    #[error("duplicate connection")]
+    DuplicateConnection,
+
+    #[error("timeout")]
+    Timeout,
 }

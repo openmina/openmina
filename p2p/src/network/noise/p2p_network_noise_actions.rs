@@ -8,7 +8,7 @@ use crate::{Data, P2pNetworkAction, P2pState, PeerId};
 use super::p2p_network_noise_state::{Pk, Sk};
 
 #[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
-#[action_event(level = trace, fields(display(addr), incoming, debug(data), display(peer_id)))]
+#[action_event(level = debug, fields(display(addr), incoming, debug(data), display(peer_id)))]
 pub enum P2pNetworkNoiseAction {
     Init {
         addr: SocketAddr,

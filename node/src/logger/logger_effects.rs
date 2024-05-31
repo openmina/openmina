@@ -46,6 +46,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
 
     match action {
         Action::P2p(action) => match action {
+            P2pAction::Initialization(action) => action.action_event(&context),
             P2pAction::Connection(action) => match action {
                 P2pConnectionAction::Outgoing(action) => action.action_event(&context),
                 P2pConnectionAction::Incoming(action) => action.action_event(&context),
@@ -69,14 +70,12 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
                 P2pNetworkAction::Yamux(action) => action.action_event(&context),
                 P2pNetworkAction::Rpc(action) => action.action_event(&context),
                 P2pNetworkAction::Kad(action) => action.action_event(&context),
+                P2pNetworkAction::Pubsub(action) => action.action_event(&context),
                 P2pNetworkAction::Identify(action) => action.action_event(&context),
             },
         },
         Action::ExternalSnarkWorker(action) => action.action_event(&context),
-        Action::Snark(a) => match a {
-            SnarkAction::WorkVerify(a) => a.action_event(&context),
-            _ => {}
-        },
+        Action::Snark(SnarkAction::WorkVerify(a)) => a.action_event(&context),
         Action::TransitionFrontier(a) => a.action_event(&context),
         Action::BlockProducer(a) => a.action_event(&context),
         _ => {}

@@ -180,7 +180,7 @@ impl BlockProducerEnabled {
                 let proposed_protocol_version_opt = self.config.proposed_protocol_version.clone();
 
                 let ledger_proof_statement = ledger_proof_statement_from_emitted_proof(
-                    emitted_ledger_proof.as_ref().map(|proof| &**proof),
+                    emitted_ledger_proof.as_deref(),
                     &pred_blockchain_state.ledger_proof_statement,
                 );
 
@@ -233,7 +233,7 @@ impl BlockProducerEnabled {
                         (
                             pred_consensus_state.staking_epoch_data.clone(),
                             next_data,
-                            pred_consensus_state.epoch_count.clone(),
+                            pred_consensus_state.epoch_count,
                         )
                     };
 
@@ -297,7 +297,7 @@ impl BlockProducerEnabled {
                     let min_window_density = if is_same_global_sub_window
                         || curr_global_slot_since_hard_fork.slot_number.as_u32() < grace_period_end
                     {
-                        pred_consensus_state.min_window_density.clone()
+                        pred_consensus_state.min_window_density
                     } else {
                         let cur_density = current_sub_window_densities.iter().sum();
                         let min_density = pred_consensus_state
@@ -379,21 +379,16 @@ impl BlockProducerEnabled {
                         consensus_state,
                     },
                 };
-                let body_hash = protocol_state.body.hash();
-                let hash = StateHash::from_hashes(&protocol_state.previous_state_hash, &body_hash);
 
-                // TODO(binier): test
                 let chain_proof_len = pred_block.constants().delta.as_u32() as usize;
                 let delta_block_chain_proof = match chain_proof_len {
-                    0 => (hash.clone(), List::new()),
+                    0 => (pred_block.hash().clone(), List::new()),
                     chain_proof_len => {
-                        let mut iter = chain.iter().rev().take(chain_proof_len).rev();
-                        let first_hash = iter
-                            .next()
-                            .map_or_else(|| hash.clone(), |b| b.hash().clone());
+                        // TODO(binier): test
+                        let mut iter = chain.iter().rev().take(chain_proof_len + 1).rev();
+                        let first_hash = iter.next().unwrap().hash().clone();
                         let body_hashes = iter
                             .map(|b| b.header().protocol_state.body.hash())
-                            .chain(std::iter::once(body_hash))
                             .map(StateBodyHash::from)
                             .collect();
                         (first_hash, body_hashes)
@@ -409,6 +404,7 @@ impl BlockProducerEnabled {
                         staged_ledger_diff: diff.clone(),
                     },
                 };
+                let block_hash = block.protocol_state.hash();
 
                 self.current = BlockProducerCurrentState::BlockUnprovenBuilt {
                     time: meta.time(),
@@ -419,7 +415,7 @@ impl BlockProducerEnabled {
                     pending_coinbase_witness,
                     stake_proof_sparse_ledger,
                     block,
-                    block_hash: hash,
+                    block_hash,
                 }
             }
             BlockProducerAction::BlockProveInit => {}
@@ -515,7 +511,7 @@ fn next_to_staking_epoch_data(
         ledger: data.ledger.clone(),
         start_checkpoint: data.start_checkpoint.clone(),
         lock_checkpoint: data.lock_checkpoint.clone(),
-        epoch_length: data.epoch_length.clone(),
+        epoch_length: data.epoch_length,
     }
 }
 

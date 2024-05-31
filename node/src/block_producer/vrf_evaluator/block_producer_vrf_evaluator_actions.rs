@@ -15,6 +15,7 @@ use vrf::VrfEvaluationOutput;
 use vrf::VrfWonSlot;
 
 use super::DelegatorTable;
+use super::InterruptReason;
 use super::{EpochData, VrfEvaluatorInput};
 
 pub type BlockProducerVrfEvaluatorActionWithMeta =
@@ -93,6 +94,8 @@ pub enum BlockProducerVrfEvaluatorAction {
         staking_epoch_data: EpochData,
         latest_evaluated_global_slot: u32,
     },
+    #[action_event(level = info, fields(display(reason)))]
+    InterruptEpochEvaluation { reason: InterruptReason },
     /// Saving last block height in epoch.
     #[action_event(level = info, fields(epoch_number, last_block_height))]
     RecordLastBlockHeightInEpoch {
@@ -155,7 +158,7 @@ impl redux::EnablingCondition<crate::State> for BlockProducerVrfEvaluatorAction 
             }),
             BlockProducerVrfEvaluatorAction::InitializeEvaluator { .. } => state
                 .block_producer
-                .with(false, |this| !this.vrf_evaluator.status.is_initialized()),
+                .with(false, |this| this.vrf_evaluator.is_idle()),
             BlockProducerVrfEvaluatorAction::FinalizeEvaluatorInitialization { .. } => {
                 state.block_producer.with(false, |this| {
                     matches!(
@@ -223,6 +226,9 @@ impl redux::EnablingCondition<crate::State> for BlockProducerVrfEvaluatorAction 
                     false
                 }
             }),
+            BlockProducerVrfEvaluatorAction::InterruptEpochEvaluation { .. } => state
+                .block_producer
+                .with(false, |this| this.vrf_evaluator.is_initialized()),
         }
     }
 }

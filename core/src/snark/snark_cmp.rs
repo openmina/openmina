@@ -17,6 +17,7 @@ impl<'a> SnarkCmp<'a> {
     }
 }
 
+#[allow(clippy::non_canonical_partial_ord_impl)]
 impl<'a> PartialOrd for SnarkCmp<'a> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(
@@ -71,7 +72,7 @@ where
     for<'a> &'a T: Into<SnarkCmp<'a>>,
 {
     fn eq(&self, other: &T) -> bool {
-        Into::<SnarkCmp<'_>>::into(&*self) == Into::<SnarkCmp<'_>>::into(other)
+        Into::<SnarkCmp<'_>>::into(self) == Into::<SnarkCmp<'_>>::into(other)
     }
 }
 

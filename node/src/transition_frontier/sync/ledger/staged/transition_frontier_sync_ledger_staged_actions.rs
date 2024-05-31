@@ -79,7 +79,10 @@ impl redux::EnablingCondition<crate::State> for TransitionFrontierSyncLedgerStag
                 .ledger()
                 .and_then(|s| s.staged())
                 .map_or(false, |staged| {
-                    let iter = state.p2p.ready_rpc_peers_iter();
+                    let Some(p2p) = state.p2p.ready() else {
+                        return false;
+                    };
+                    let iter = p2p.ready_rpc_peers_iter();
                     staged.filter_available_peers(iter).next().is_some()
                 }),
             TransitionFrontierSyncLedgerStagedAction::PartsPeerFetchPending { .. } => state

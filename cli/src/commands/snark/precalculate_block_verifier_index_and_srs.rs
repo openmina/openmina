@@ -15,7 +15,8 @@ pub struct PrecalculateBlockVerifierIndexAndSrs {
 
 impl PrecalculateBlockVerifierIndexAndSrs {
     pub fn run(self) -> Result<(), crate::CommandError> {
-        let verifier_index = verifier_index_to_bytes(&get_verifier_index(VerifierKind::Blockchain));
+        let verifier_index =
+            verifier_index_to_bytes(&get_verifier_index(VerifierKind::Blockchain))?;
         let mut hasher = Sha256::new();
         hasher.update(&verifier_index);
         let index_hash = hex::encode(hasher.finalize());

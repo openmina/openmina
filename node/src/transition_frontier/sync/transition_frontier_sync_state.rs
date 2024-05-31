@@ -4,6 +4,7 @@ use mina_p2p_messages::v2::{LedgerHash, MinaStateProtocolStateValueStableV2, Sta
 use openmina_core::block::ArcBlockWithHash;
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
+use strum_macros::Display;
 
 use crate::p2p::channels::rpc::P2pRpcId;
 use crate::p2p::PeerId;
@@ -11,7 +12,7 @@ use crate::p2p::PeerId;
 use super::ledger::{SyncLedgerTarget, SyncLedgerTargetKind, TransitionFrontierSyncLedgerState};
 use super::PeerBlockFetchError;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Display, Debug, Clone)]
 pub enum TransitionFrontierSyncState {
     Idle,
     Init {
@@ -151,9 +152,31 @@ impl TransitionFrontierSyncState {
         !matches!(self, Self::Idle | Self::Synced { .. })
     }
 
+    pub fn is_commit_pending(&self) -> bool {
+        matches!(self, Self::CommitPending { .. })
+    }
+
     /// If the synchronization process is complete
     pub fn is_synced(&self) -> bool {
         matches!(self, Self::Synced { .. })
+    }
+
+    pub fn time(&self) -> Option<redux::Timestamp> {
+        match self {
+            Self::Idle => None,
+            Self::Init { time, .. } => Some(*time),
+            Self::StakingLedgerPending(s) => Some(s.time),
+            Self::StakingLedgerSuccess { time, .. } => Some(*time),
+            Self::NextEpochLedgerPending(s) => Some(s.time),
+            Self::NextEpochLedgerSuccess { time, .. } => Some(*time),
+            Self::RootLedgerPending(s) => Some(s.time),
+            Self::RootLedgerSuccess { time, .. } => Some(*time),
+            Self::BlocksPending { time, .. } => Some(*time),
+            Self::BlocksSuccess { time, .. } => Some(*time),
+            Self::CommitPending { time, .. } => Some(*time),
+            Self::CommitSuccess { time, .. } => Some(*time),
+            Self::Synced { time, .. } => Some(*time),
+        }
     }
 
     pub fn root_block(&self) -> Option<&ArcBlockWithHash> {
@@ -504,7 +527,7 @@ impl TransitionFrontierRootSnarkedLedgerUpdates {
 
                     Some(Some((snarked_ledger_hash, update)))
                 })
-                .filter_map(|v| v),
+                .flatten(),
         );
     }
 }

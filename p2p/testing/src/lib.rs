@@ -9,5 +9,8 @@ pub mod cluster;
 pub mod predicates;
 pub mod service;
 pub mod stream;
+pub mod utils;
 
 pub use futures;
+pub use lazy_static;
+pub use libp2p;

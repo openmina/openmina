@@ -55,18 +55,16 @@ steps:
   - name: build
     image: rust:1.77-bullseye
     commands:
-      - apt-get update && apt-get install -y libssl-dev libjemalloc-dev jq
+      - apt-get update && apt-get install -y libssl-dev libjemalloc-dev jq protobuf-compiler
       - rustup update 1.77 && rustup default 1.77
       - rustup component add rustfmt
       # just to be sure it builds without errors
       - cargo build
-      - cargo build --release --features p2p-libp2p --bin openmina
+      - cargo build --release --bin openmina
       # unit tests
-      - cargo test --features p2p-libp2p --release -p cli
+      - cargo test --release -p cli
       # build tester binaries
-      - cargo build --release --features scenario-generators --no-default-features -p openmina-node-testing && mv target/release/openmina-node-testing target/release/openmina-node-testing-mio
-      - cargo build --release --features scenario-generators,p2p-libp2p -p openmina-node-testing && mv target/release/openmina-node-testing target/release/openmina-node-testing-libp2p
-      - cargo build --release --features scenario-generators,p2p-libp2p,p2p-webrtc -p openmina-node-testing && mv target/release/openmina-node-testing target/release/openmina-node-testing-webrtc
+      - cargo build --release --features scenario-generators -p openmina-node-testing && mv target/release/openmina-node-testing target/release/openmina-node-testing-mio
       - cargo build --release --bin runner
 
   # o sole mio :)
@@ -333,6 +331,41 @@ steps:
     depends_on:
       - prepare
 
+  - name: block-production-overview-epoch-graphs
+    image: cypress/included:13.3.2
+    commands:
+      - cd frontend && cypress run --config-file "cypress.config.js" --spec "cypress/e2e/block-production/overview/epoch-graphs.cy.ts"
+    depends_on:
+      - prepare
+
+  - name: block-production-overview-slots
+    image: cypress/included:13.3.2
+    commands:
+      - cd frontend && cypress run --config-file "cypress.config.js" --spec "cypress/e2e/block-production/overview/slots.cy.ts"
+    depends_on:
+      - prepare
+
+  - name: block-production-overview-side-panel
+    image: cypress/included:13.3.2
+    commands:
+      - cd frontend && cypress run --config-file "cypress.config.js" --spec "cypress/e2e/block-production/overview/side-panel.cy.ts"
+    depends_on:
+      - prepare
+
+  - name: block-production-overview-toolbar
+    image: cypress/included:13.3.2
+    commands:
+      - cd frontend && cypress run --config-file "cypress.config.js" --spec "cypress/e2e/block-production/overview/toolbar.cy.ts"
+    depends_on:
+      - prepare
+
+  - name: block-production-overview-apis
+    image: cypress/included:13.3.2
+    commands:
+      - cd frontend && cypress run --config-file "cypress.config.js" --spec "cypress/e2e/block-production/overview/apis.cy.ts"
+    depends_on:
+      - prepare
+
   - name: nodes-overview-table
     image: cypress/included:13.3.2
     commands:
@@ -460,6 +493,11 @@ steps:
         from_secret: docker_hub_password
     depends_on:
       - dashboard-peers
+      - block-production-overview-epoch-graphs
+      - block-production-overview-slots
+      - block-production-overview-side-panel
+      - block-production-overview-toolbar
+      - block-production-overview-apis
       - nodes-overview-table
       - nodes-overview-side-panel
       - nodes-live-blocks-map

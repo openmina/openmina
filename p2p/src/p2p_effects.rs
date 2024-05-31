@@ -6,8 +6,8 @@ use crate::{
         outgoing::P2pConnectionOutgoingAction, P2pConnectionAction, P2pConnectionService,
     },
     disconnection::P2pDisconnectionService,
-    is_time_passed, P2pAction, P2pCryptoService, P2pMioService, P2pNetworkKadStatus,
-    P2pNetworkKademliaAction, P2pNetworkService, P2pStore,
+    P2pAction, P2pCryptoService, P2pMioService, P2pNetworkKadKey, P2pNetworkKademliaAction,
+    P2pNetworkSelectAction, P2pNetworkService, P2pStore, PeerId,
 };
 
 pub fn p2p_timeout_effects<Store, S>(store: &mut Store, meta: &ActionMeta)
@@ -20,10 +20,89 @@ where
     p2p_try_reconnect_disconnected_peers(store, meta.time());
 
     p2p_discovery(store, meta);
+    p2p_select_timeouts(store, meta);
 
     let state = store.state();
     for (peer_id, id) in state.peer_rpc_timeouts(meta.time()) {
         store.dispatch(crate::channels::rpc::P2pChannelsRpcAction::Timeout { peer_id, id });
+    }
+}
+
+fn p2p_select_timeouts<Store, S>(store: &mut Store, meta: &ActionMeta)
+where
+    Store: P2pStore<S>,
+{
+    let now = meta.time();
+    let timeouts = &store.state().config.timeouts;
+    let select_auth_timeouts: Vec<_> = store
+        .state()
+        .network
+        .scheduler
+        .connections
+        .iter()
+        .filter_map(|(sock_addr, state)| {
+            if state.select_auth.is_timed_out(now, timeouts) {
+                Some(*sock_addr)
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    let select_mux_timeouts: Vec<_> = store
+        .state()
+        .network
+        .scheduler
+        .connections
+        .iter()
+        .filter_map(|(sock_addr, state)| {
+            if state.select_mux.is_timed_out(now, timeouts) {
+                Some(*sock_addr)
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    let select_stream_timeouts: Vec<_> = store
+        .state()
+        .network
+        .scheduler
+        .connections
+        .iter()
+        .flat_map(|(sock_addr, state)| {
+            state.streams.iter().filter_map(|(stream_id, stream)| {
+                if stream.select.is_timed_out(now, timeouts) {
+                    Some((*sock_addr, *stream_id))
+                } else {
+                    None
+                }
+            })
+        })
+        .collect();
+
+    for addr in select_auth_timeouts {
+        store.dispatch(P2pNetworkSelectAction::Timeout {
+            addr,
+            kind: crate::SelectKind::Authentication,
+        });
+    }
+
+    for addr in select_mux_timeouts {
+        store.dispatch(P2pNetworkSelectAction::Timeout {
+            addr,
+            kind: crate::SelectKind::MultiplexingNoPeerId,
+        });
+    }
+
+    for (addr, stream_id) in select_stream_timeouts {
+        // TODO: better solution for PeerId
+        let dummy = PeerId::from_bytes([0u8; 32]);
+
+        store.dispatch(P2pNetworkSelectAction::Timeout {
+            addr,
+            kind: crate::SelectKind::Stream(dummy, stream_id),
+        });
     }
 }
 
@@ -98,17 +177,14 @@ where
     }
 
     if let Some(discovery_state) = state.network.scheduler.discovery_state() {
-        let bootstrap_kademlia = match &discovery_state.status {
-            P2pNetworkKadStatus::Init => true,
-            P2pNetworkKadStatus::Bootstrapping(_) => false,
-            P2pNetworkKadStatus::Bootstrapped { time, .. } => {
-                is_time_passed(now, *time, config.timeouts.kademlia_bootstrap)
-            }
-        };
-        if bootstrap_kademlia {
-            store.dispatch(P2pNetworkKademliaAction::StartBootstrap {
-                key: config.identity_pub_key.peer_id(),
-            });
+        let key = state.my_id();
+        if discovery_state
+            .routing_table
+            .closest_peers(&P2pNetworkKadKey::from(&key))
+            .any(|_| true)
+            && discovery_state.status.can_bootstrap(now, &config.timeouts)
+        {
+            store.dispatch(P2pNetworkKademliaAction::StartBootstrap { key });
         }
     }
 }
@@ -125,6 +201,9 @@ where
 {
     let (action, meta) = action.split();
     match action {
+        P2pAction::Initialization(_) => {
+            // Noop
+        }
         P2pAction::Connection(action) => match action {
             P2pConnectionAction::Outgoing(action) => action.effects(&meta, store),
             P2pConnectionAction::Incoming(action) => action.effects(&meta, store),

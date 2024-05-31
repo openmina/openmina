@@ -13,7 +13,7 @@ pub enum NonDeterministicEvent {
     P2pConnectionFinalized(PeerId, Result<(), String>),
     P2pConnectionClosed(PeerId),
 
-    RpcReadonly(RpcId, RpcRequest),
+    RpcReadonly(RpcId, Box<RpcRequest>),
 }
 
 impl NonDeterministicEvent {
@@ -31,9 +31,9 @@ impl NonDeterministicEvent {
                 #[cfg(feature = "p2p-libp2p")]
                 P2pEvent::MioEvent(_) => return None,
             },
-            Event::Rpc(id, req) => match req {
+            Event::Rpc(id, req) => match req.as_ref() {
                 RpcRequest::P2pConnectionIncoming(_) => return None,
-                req => Self::RpcReadonly(*id, req.clone()).into(),
+                req => Self::RpcReadonly(*id, Box::new(req.clone())).into(),
             },
             _ => return None,
         })

@@ -23,7 +23,7 @@ fn has_active_peer(p2p_state: &P2pState, peer_id: &PeerId) -> bool {
 pub struct SimultaneousConnections;
 
 impl SimultaneousConnections {
-    pub async fn run<'cluster>(self, runner: ClusterRunner<'cluster>) {
+    pub async fn run(self, runner: ClusterRunner<'_>) {
         let mut driver = Driver::new(runner);
 
         let testing_config = RustNodeTestingConfig::berkeley_default().with_timeouts(P2pTimeouts {
@@ -91,7 +91,7 @@ impl SimultaneousConnections {
 pub struct AllNodesConnectionsAreSymmetric;
 
 impl AllNodesConnectionsAreSymmetric {
-    pub async fn run<'cluster>(self, runner: ClusterRunner<'cluster>) {
+    pub async fn run(self, runner: ClusterRunner<'_>) {
         const MAX: u16 = 32;
 
         let mut driver = Driver::new(runner);
@@ -105,7 +105,6 @@ impl AllNodesConnectionsAreSymmetric {
         let (seed_id, _) = driver.add_rust_node(testing_config.clone());
 
         let peers: Vec<_> = (0..MAX)
-            .into_iter()
             .map(|_| {
                 driver.add_rust_node(testing_config.clone().initial_peers(vec![seed_id.into()]))
             })
@@ -126,12 +125,12 @@ impl AllNodesConnectionsAreSymmetric {
 
         // Check that for each peer, if it is in the node's peer list, then the node is in the peer's peer list
         for (peer1, peer_id1) in &peers {
-            let peer1_p2p_state = &driver.inner().node(*peer1).unwrap().state().p2p;
+            let peer1_p2p_state = &driver.inner().node(*peer1).unwrap().state().p2p.unwrap();
             for (peer2, peer_id2) in &peers {
                 if peer2 == peer1 {
                     continue;
                 }
-                let peer2_p2p_state = &driver.inner().node(*peer2).unwrap().state().p2p;
+                let peer2_p2p_state = &driver.inner().node(*peer2).unwrap().state().p2p.unwrap();
 
                 if has_active_peer(peer2_p2p_state, peer_id1) {
                     assert!(
@@ -155,7 +154,7 @@ impl AllNodesConnectionsAreSymmetric {
 pub struct SeedConnectionsAreSymmetric;
 
 impl SeedConnectionsAreSymmetric {
-    pub async fn run<'cluster>(self, runner: ClusterRunner<'cluster>) {
+    pub async fn run(self, runner: ClusterRunner<'_>) {
         const MAX: u16 = 32;
 
         let mut driver = Driver::new(runner);
@@ -164,7 +163,6 @@ impl SeedConnectionsAreSymmetric {
             driver.add_rust_node(RustNodeTestingConfig::berkeley_default_no_rpc_timeouts());
 
         let peers: Vec<_> = (0..MAX)
-            .into_iter()
             .map(|_| {
                 driver.add_rust_node(
                     RustNodeTestingConfig::berkeley_default_no_rpc_timeouts()
@@ -201,7 +199,7 @@ impl SeedConnectionsAreSymmetric {
 pub struct MaxNumberOfPeersIncoming;
 
 impl MaxNumberOfPeersIncoming {
-    pub async fn run<'cluster>(self, runner: ClusterRunner<'cluster>) {
+    pub async fn run(self, runner: ClusterRunner<'_>) {
         const TOTAL: u16 = 32;
         const MAX: u16 = 16;
 
@@ -239,7 +237,7 @@ impl MaxNumberOfPeersIncoming {
             )
             .await
             .unwrap();
-            assert!(connected, "node {peer} is not connected");
+            assert!(connected, "connection to node {peer} is not finalized");
         }
 
         println!("running cluster...");
@@ -249,7 +247,10 @@ impl MaxNumberOfPeersIncoming {
         // check that the number of ready peers does not exceed the maximal allowed number
         let state = driver.inner().node(node_ut).unwrap().state();
         let count = state.p2p.ready_peers_iter().count();
-        assert!(count <= MAX.into(), "max number of peers exceeded: {count}");
+        assert!(
+            count <= usize::from(MAX),
+            "max number of peers exceeded: {count}"
+        );
 
         // check that the number of nodes with the node as their peer does not exceed the maximal allowed number
         let peers_connected = || {
@@ -259,14 +260,13 @@ impl MaxNumberOfPeersIncoming {
                 .filter(|peer| {
                     peer.state()
                         .p2p
-                        .peers
-                        .get(&nut_peer_id)
+                        .get_peer(&nut_peer_id)
                         .and_then(|peer| peer.status.as_ready())
                         .is_some()
                 })
         };
         assert!(
-            peers_connected().count() <= MAX.into(),
+            peers_connected().count() <= usize::from(MAX),
             "peers connections to the node exceed the max number of connections: {}",
             peers_connected().count()
         );
@@ -278,7 +278,7 @@ impl MaxNumberOfPeersIncoming {
 pub struct MaxNumberOfPeersIs1;
 
 impl MaxNumberOfPeersIs1 {
-    pub async fn run<'cluster>(self, runner: ClusterRunner<'cluster>) {
+    pub async fn run(self, runner: ClusterRunner<'_>) {
         const CONNECTED_TIME_SEC: u64 = 10;
         let mut driver = Driver::new(runner);
 
@@ -324,8 +324,8 @@ impl MaxNumberOfPeersIs1 {
 pub struct ConnectionStability;
 
 impl ConnectionStability {
-    pub async fn run<'cluster>(self, runner: ClusterRunner<'cluster>) {
-        const CONNECTED_TIME_SEC: u64 = 1 * 60;
+    pub async fn run(self, runner: ClusterRunner<'_>) {
+        const CONNECTED_TIME_SEC: u64 = 60;
         let mut driver = Driver::new(runner);
 
         let (node1, _) =

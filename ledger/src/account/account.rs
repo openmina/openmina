@@ -5,6 +5,7 @@ use mina_hasher::Fp;
 use mina_p2p_messages::binprot::{BinProtRead, BinProtWrite};
 use mina_signer::CompressedPubKey;
 use rand::{prelude::ThreadRng, seq::SliceRandom, Rng};
+use serde::{Deserialize, Serialize};
 
 use crate::{
     gen_compressed,
@@ -337,7 +338,7 @@ impl Permissions<AuthRequired> {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ProofVerified {
     N0,
     N1,
@@ -623,6 +624,12 @@ impl From<&ZkAppUri> for mina_p2p_messages::string::ByteString {
     }
 }
 
+impl From<&str> for ZkAppUri {
+    fn from(value: &str) -> Self {
+        Self(value.to_string())
+    }
+}
+
 // https://github.com/MinaProtocol/mina/blob/develop/src/lib/mina_base/zkapp_account.ml#L148-L170
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ZkAppAccount {
@@ -755,6 +762,7 @@ impl Ord for AccountId {
     }
 }
 
+#[allow(clippy::non_canonical_partial_ord_impl)]
 impl PartialOrd for AccountId {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         let self_pk: BigInteger256 = self.public_key.x.into();

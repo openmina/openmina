@@ -1,0 +1,41 @@
+<mina-horizontal-menu [template]="template"></mina-horizontal-menu>
+
+<ng-template #template>
+  <div class="flex-row">
+    <mina-card label="Epoch"
+               [value]="card1.epoch ?? '-'"
+               [hint]="card1.startedAgo ? 'Started ' + card1.startedAgo + ' ago' : '-'"
+               labelColor="var(--selected-primary)"
+               color="var(--selected-primary)"
+               hintColor="var(--selected-secondary)"
+               class="mr-10"></mina-card>
+    <mina-card label="Next Won Slot in"
+               [value]="card2.nextWonSlot"
+               [hint]="card2.slot ? 'Slot ' + card2.slot : '-'"
+               class="mr-10"></mina-card>
+    <mina-card label="Won Slots"
+               [value]="card3.wonSlots"
+               [hint]="card3.slotsUsed ? card3.slotsUsed + ' slots used' : '-'"
+               labelColor="var(--base-tertiary)"
+               color="var(--base-tertiary)"
+               class="mr-10"></mina-card>
+    <mina-card label="Accepted Blocks"
+               [value]="card4.acceptedBlocks"
+               [hint]="card4.lastBlockTime ? 'last ' + card4.lastBlockTime + ' ago' : '-'"
+               labelColor="var(--base-tertiary)"
+               color="var(--base-tertiary)"
+               class="mr-10"></mina-card>
+    <mina-card label="Epoch Progress"
+               [value]="card5.epochProgress"
+               [hint]="card5.endIn ? 'Ends in ' + card5.endIn : '-'"
+               labelColor="var(--base-tertiary)"
+               color="var(--base-tertiary)"
+               class="mr-10"></mina-card>
+    <mina-card label="Total Rewards"
+               [value]="card6.totalRewards ? card6.totalRewards + ' MINA' : '-'"
+               [hint]="'Coinbase and Transaction Fees'"
+               labelColor="var(--base-tertiary)"
+               color="var(--base-tertiary)"
+               class="mr-10"></mina-card>
+  </div>
+</ng-template>

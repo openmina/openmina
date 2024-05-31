@@ -49,7 +49,7 @@ impl SnarkedLedger {
         R: io::Read,
     {
         let top_hash = Option::binprot_read(&mut reader)?;
-        let accounts = Vec::<Account>::binprot_read(&mut reader)?;
+        let accounts = List::<Account>::binprot_read(&mut reader)?;
 
         let num = accounts.len() as _;
         let mut inner = Mask::new_root(Database::create(35));

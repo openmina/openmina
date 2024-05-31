@@ -1,6 +1,7 @@
 use ark_ff::{UniformRand, Zero};
 use mina_hasher::Fp;
 use o1_utils::{field_helpers::FieldHelpersError, FieldHelpers};
+use serde::{Deserialize, Serialize};
 
 use crate::{
     hash::hash_noinputs,
@@ -190,7 +191,7 @@ impl Default for TokenPermissions {
 }
 
 // https://github.com/MinaProtocol/mina/blob/develop/src/lib/mina_base/permissions.mli#L10
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AuthRequired {
     None,
     Either,
@@ -278,7 +279,7 @@ impl AuthRequired {
 
         match self {
             Impossible | Proof => Signature,
-            x => x.clone(),
+            x => *x,
         }
     }
 }

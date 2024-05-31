@@ -1,6 +1,6 @@
 use std::net::SocketAddr;
 
-use mina_p2p_messages::rpc_kernel::{QueryHeader, ResponseHeader};
+use mina_p2p_messages::rpc_kernel::{QueryHeader, QueryID, ResponseHeader};
 use openmina_core::{action_debug, action_trace, ActionEvent};
 use serde::{Deserialize, Serialize};
 
@@ -55,6 +55,7 @@ pub enum P2pNetworkRpcAction {
 
 pub enum RpcStreamId {
     Exact(StreamId),
+    WithQuery(QueryID),
     AnyIncoming,
     AnyOutgoing,
 }
@@ -67,7 +68,10 @@ impl P2pNetworkRpcAction {
             Self::IncomingMessage { stream_id, .. } => RpcStreamId::Exact(*stream_id),
             Self::PrunePending { stream_id, .. } => RpcStreamId::Exact(*stream_id),
             Self::OutgoingQuery { .. } => RpcStreamId::AnyOutgoing,
-            Self::OutgoingResponse { .. } => RpcStreamId::AnyOutgoing,
+            Self::OutgoingResponse {
+                response: ResponseHeader { id },
+                ..
+            } => RpcStreamId::WithQuery(*id),
             Self::OutgoingData { stream_id, .. } => RpcStreamId::Exact(*stream_id),
         }
     }
@@ -146,6 +150,7 @@ fn log_message<T>(
     match message {
         RpcMessage::Handshake => action_trace!(
             context,
+            kind = "P2pNetworkRpcIncomingMessage",
             addr = display(addr),
             peer_id = display(peer_id),
             stream_id,
@@ -153,6 +158,7 @@ fn log_message<T>(
         ),
         RpcMessage::Heartbeat => action_trace!(
             context,
+            kind = "P2pNetworkRpcIncomingMessage",
             addr = display(addr),
             peer_id = display(peer_id),
             stream_id,
@@ -160,6 +166,7 @@ fn log_message<T>(
         ),
         RpcMessage::Query { header, .. } => action_debug!(
             context,
+            kind = "P2pNetworkRpcIncomingMessage",
             addr = display(addr),
             peer_id = display(peer_id),
             stream_id,
@@ -168,6 +175,7 @@ fn log_message<T>(
         ),
         RpcMessage::Response { header, .. } => action_debug!(
             context,
+            kind = "P2pNetworkRpcIncomingMessage",
             addr = display(addr),
             peer_id = display(peer_id),
             stream_id,

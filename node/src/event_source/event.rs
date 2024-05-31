@@ -14,7 +14,7 @@ pub enum Event {
     P2p(P2pEvent),
     Ledger(LedgerEvent),
     Snark(SnarkEvent),
-    Rpc(RpcId, RpcRequest),
+    Rpc(RpcId, Box<RpcRequest>),
     ExternalSnarkWorker(ExternalSnarkWorkerEvent),
     BlockProducerEvent(BlockProducerEvent),
 
@@ -29,10 +29,12 @@ impl std::fmt::Display for Event {
             Self::Snark(v) => v.fmt(f),
             Self::Rpc(id, req) => {
                 write!(f, "Rpc, {id}, ")?;
-                match req {
+                match req.as_ref() {
                     RpcRequest::StateGet(filter) => write!(f, "StateGet, {filter:?}"),
+                    RpcRequest::StatusGet => write!(f, "StatusGet"),
                     RpcRequest::ActionStatsGet(query) => write!(f, "ActionStatsGet, {query:?}"),
                     RpcRequest::SyncStatsGet(query) => write!(f, "SyncStatsGet, {query:?}"),
+                    RpcRequest::BlockProducerStatsGet => write!(f, "BlockProducerStatsGet"),
                     RpcRequest::PeersGet => write!(f, "PeersGet"),
                     RpcRequest::MessageProgressGet => write!(f, "MessageProgressGet"),
                     RpcRequest::P2pConnectionOutgoing(opts) => {

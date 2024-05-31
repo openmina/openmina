@@ -172,9 +172,6 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                                 .dispatch(P2pConnectionOutgoingAction::FinalizeSuccess { peer_id })
                                 || store.dispatch(P2pConnectionIncomingAction::FinalizeSuccess {
                                     peer_id,
-                                })
-                                || store.dispatch(P2pConnectionIncomingAction::Libp2pReceived {
-                                    peer_id,
                                 });
                         }
                     },
@@ -263,15 +260,21 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                     }
                 },
             },
-            Event::Rpc(rpc_id, e) => match e {
+            Event::Rpc(rpc_id, e) => match *e {
                 RpcRequest::StateGet(filter) => {
                     store.dispatch(RpcAction::GlobalStateGet { rpc_id, filter });
+                }
+                RpcRequest::StatusGet => {
+                    store.dispatch(RpcAction::StatusGet { rpc_id });
                 }
                 RpcRequest::ActionStatsGet(query) => {
                     store.dispatch(RpcAction::ActionStatsGet { rpc_id, query });
                 }
                 RpcRequest::SyncStatsGet(query) => {
                     store.dispatch(RpcAction::SyncStatsGet { rpc_id, query });
+                }
+                RpcRequest::BlockProducerStatsGet => {
+                    store.dispatch(RpcAction::BlockProducerStatsGet { rpc_id });
                 }
                 RpcRequest::PeersGet => {
                     store.dispatch(RpcAction::PeersGet { rpc_id });
@@ -283,10 +286,7 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                     store.dispatch(RpcAction::P2pConnectionOutgoingInit { rpc_id, opts });
                 }
                 RpcRequest::P2pConnectionIncoming(opts) => {
-                    store.dispatch(RpcAction::P2pConnectionIncomingInit {
-                        rpc_id,
-                        opts: opts.clone(),
-                    });
+                    store.dispatch(RpcAction::P2pConnectionIncomingInit { rpc_id, opts });
                 }
                 RpcRequest::ScanStateSummaryGet(query) => {
                     store.dispatch(RpcAction::ScanStateSummaryGetInit { rpc_id, query });

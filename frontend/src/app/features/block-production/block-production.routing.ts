@@ -2,6 +2,7 @@ import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
 import { BlockProductionComponent } from './block-production.component';
 import { BLOCK_PRODUCTION_TITLE } from '@app/app.routing';
+import { blockProductionGuard } from '@block-production/block-production.guard';
 
 const routes: Routes = [
   {
@@ -11,7 +12,13 @@ const routes: Routes = [
     children: [
       {
         path: 'overview',
+        canActivate: [blockProductionGuard],
         loadChildren: () => import('./overview/block-production-overview.module').then(m => m.BlockProductionOverviewModule),
+      },
+      {
+        path: 'won-slots',
+        canActivate: [blockProductionGuard],
+        loadChildren: () => import('./won-slots/block-production-won-slots.module').then(m => m.BlockProductionWonSlotsModule),
       },
       {
         path: '',

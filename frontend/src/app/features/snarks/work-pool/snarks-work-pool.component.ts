@@ -1,8 +1,12 @@
 import { ChangeDetectionStrategy, Component, ElementRef, OnDestroy, OnInit } from '@angular/core';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
-import { SnarksWorkPoolClose, SnarksWorkPoolGetWorkPool, SnarksWorkPoolInit } from '@snarks/work-pool/snarks-work-pool.actions';
+import {
+  SnarksWorkPoolClose,
+  SnarksWorkPoolGetWorkPool,
+  SnarksWorkPoolInit,
+} from '@snarks/work-pool/snarks-work-pool.actions';
 import { selectSnarksWorkPoolOpenSidePanel } from '@snarks/work-pool/snarks-work-pool.state';
-import { selectActiveNode } from '@app/app.state';
+import { AppSelectors } from '@app/app.state';
 
 @Component({
   selector: 'mina-snarks-work-pool',
@@ -18,7 +22,7 @@ export class SnarksWorkPoolComponent extends StoreDispatcher implements OnInit, 
   constructor(public el: ElementRef) { super(); }
 
   ngOnInit(): void {
-    this.select(selectActiveNode, node => {
+    this.select(AppSelectors.activeNode, node => {
       this.dispatch(SnarksWorkPoolInit);
       this.dispatch(SnarksWorkPoolGetWorkPool);
     });

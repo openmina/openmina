@@ -2,8 +2,7 @@ use binprot_derive::BinProtWrite;
 use mina_hasher::Fp;
 use mina_p2p_messages::{bigint, number, v2};
 
-pub const GENESIS_PRODUCER_SK: &'static str =
-    "EKFKgDtU3rcuFTVSEpmpXSkukjmX4cKefYREi6Sdsk7E7wsT7KRw";
+pub const GENESIS_PRODUCER_SK: &str = "EKFKgDtU3rcuFTVSEpmpXSkukjmX4cKefYREi6Sdsk7E7wsT7KRw";
 
 pub const PROTOCOL_VERSION: v2::ProtocolVersionStableV2 = v2::ProtocolVersionStableV2 {
     transaction: number::Number(2),
@@ -128,3 +127,26 @@ pub fn grace_period_end(constants: &v2::MinaBaseProtocolConstantsCheckedValueSta
         Some(fork) => slots + fork.previous_global_slot,
     }
 }
+
+pub const DEFAULT_GENESIS_TIMESTAMP_MILLISECONDS: u64 = 1706882461000;
+
+pub const PROTOCOL_TRANSACTION_VERSION: u8 = 2;
+pub const PROTOCOL_NETWORK_VERSION: u8 = 2;
+pub const TX_POOL_MAX_SIZE: u32 = 3000;
+
+pub const CONSTRAINT_SYSTEM_DIGESTS: [[u8; 16]; 3] = [
+    [
+        0xb8, 0x87, 0x9f, 0x67, 0x7f, 0x62, 0x2a, 0x1d, 0x86, 0x64, 0x80, 0x30, 0x70, 0x1f, 0x43,
+        0xe1,
+    ],
+    [
+        0xc2, 0xb8, 0x0e, 0x3b, 0x10, 0x21, 0xe7, 0x78, 0x1d, 0x76, 0x8c, 0xe0, 0x31, 0x7b, 0x3f,
+        0x9c,
+    ],
+    [
+        0x7c, 0xf1, 0x07, 0x1e, 0x7e, 0x55, 0xbe, 0x3f, 0x41, 0x93, 0xbb, 0xd8, 0xa6, 0x67, 0x91,
+        0x4e,
+    ],
+];
+
+pub use v2::PROTOCOL_CONSTANTS;

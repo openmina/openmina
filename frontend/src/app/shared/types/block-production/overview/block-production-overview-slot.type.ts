@@ -1,4 +1,4 @@
-export interface BlockProductionSlot {
+export interface BlockProductionOverviewSlot {
   slot: number;
   globalSlot: number;
   height: number;

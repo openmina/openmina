@@ -230,6 +230,8 @@ fn txn_statement_ledger_hashes_equal(
 }
 
 mod floating_point {
+    use std::cmp::Ordering;
+
     use ark_ff::BigInteger256;
     use num_bigint::BigUint;
 
@@ -477,12 +479,11 @@ mod floating_point {
 
             let (x1, x2) = {
                 let (x1, x2) = (self.value, t2.value);
-                if self.precision < t2.precision {
-                    (padding * x1, x2)
-                } else if t2.precision < self.precision {
-                    (x1, padding * x2)
-                } else {
-                    (x1, x2)
+
+                match self.precision.cmp(&t2.precision) {
+                    Ordering::Less => (padding * x1, x2),
+                    Ordering::Greater => (x1, padding * x2),
+                    Ordering::Equal => (x1, x1),
                 }
             };
 
@@ -657,7 +658,7 @@ mod vrf {
         let account = {
             let mut ledger: SparseLedger = (&prover_state.ledger).into();
 
-            let staker_addr = message.delegator.clone();
+            let staker_addr = message.delegator;
             let staker_addr =
                 Address::from_index(staker_addr, CONSTRAINT_CONSTANTS.ledger_depth as usize);
 
@@ -935,7 +936,7 @@ pub mod consensus {
         ) -> Self {
             Self {
                 slot_number,
-                slots_per_epoch: constants.slots_per_epoch.clone(),
+                slots_per_epoch: constants.slots_per_epoch,
             }
         }
 
@@ -1099,7 +1100,7 @@ pub mod consensus {
 
                 let density = Length::from_u32(*density).to_checked::<Fp>();
 
-                let on_true = density.clone();
+                let on_true = density;
                 let on_false = {
                     let cond = overlapping_window.and(&within_range.neg(), w);
                     w.exists_no_check(match cond {
@@ -1136,7 +1137,7 @@ pub mod consensus {
             let prev_min_window_density = Length::from_u32(prev_min_window_density).to_checked();
 
             let cond = same_sub_window.or(&in_grace_period, w);
-            let on_true = prev_min_window_density.clone();
+            let on_true = prev_min_window_density;
             let on_false = current_window_density.min(&prev_min_window_density, w);
 
             w.exists_no_check(match cond {
@@ -1160,7 +1161,7 @@ pub mod consensus {
 
                 w.exists_no_check(match is_next_sub_window {
                     Boolean::True => on_true,
-                    Boolean::False => density.clone(),
+                    Boolean::False => *density,
                 })
             })
             .collect::<Vec<_>>();
@@ -1224,7 +1225,7 @@ pub mod consensus {
 
         let slot_diff = next_global_slot.diff_slots(&prev_global_slot, w);
 
-        let _ = {
+        {
             let global_slot_increased = prev_global_slot.less_than(&next_global_slot, w);
             let is_genesis = field::equal(
                 CheckedSlot::zero().to_field(),
@@ -1254,7 +1255,7 @@ pub mod consensus {
             })
         };
 
-        let next_slot_number = next_global_slot.slot_number.clone();
+        let next_slot_number = next_global_slot.slot_number;
 
         let block_stake_winner = {
             let delegator_pk: CompressedPubKey = (&prover_state.delegator_pk).into();
@@ -1760,7 +1761,7 @@ pub(super) fn generate_block_proof(
     );
 
     let prev_challenge_polynomial_commitments =
-        extract_recursion_challenges(&[&prev_state_proof, &txn_snark_proof]);
+        extract_recursion_challenges(&[prev_state_proof, &txn_snark_proof]);
 
     let rule = InductiveRule {
         previous_proof_statements,

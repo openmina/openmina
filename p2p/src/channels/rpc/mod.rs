@@ -12,6 +12,7 @@ use std::{sync::Arc, time::Duration};
 
 use binprot_derive::{BinProtRead, BinProtWrite};
 use mina_p2p_messages::{
+    list::List,
     rpc,
     rpc_kernel::{
         NeedsLength, QueryHeader, QueryID, QueryPayload, ResponseHeader, ResponsePayload,
@@ -166,7 +167,7 @@ impl std::fmt::Display for P2pRpcRequest {
 #[derive(BinProtWrite, BinProtRead, Serialize, Deserialize, Debug, Clone)]
 pub struct BestTipWithProof {
     pub best_tip: ArcBlock,
-    pub proof: (Vec<MinaBaseStateBodyHashStableV1>, ArcBlock),
+    pub proof: (List<MinaBaseStateBodyHashStableV1>, ArcBlock),
 }
 
 /// Pieces required to reconstruct staged ledger from snarked ledger.
@@ -175,7 +176,7 @@ pub struct StagedLedgerAuxAndPendingCoinbases {
     pub scan_state: TransactionSnarkScanStateStableV2,
     pub staged_ledger_hash: LedgerHash,
     pub pending_coinbase: MinaBasePendingCoinbaseStableV2,
-    pub needed_blocks: Vec<MinaStateProtocolStateValueStableV2>,
+    pub needed_blocks: List<MinaStateProtocolStateValueStableV2>,
 }
 
 #[derive(BinProtWrite, BinProtRead, Serialize, Deserialize, Debug, Clone)]
@@ -185,7 +186,7 @@ pub enum P2pRpcResponse {
     StagedLedgerAuxAndPendingCoinbasesAtBlock(Arc<StagedLedgerAuxAndPendingCoinbases>),
     Block(ArcBlock),
     Snark(Snark),
-    InitialPeers(Vec<P2pConnectionOutgoingInitOpts>),
+    InitialPeers(List<P2pConnectionOutgoingInitOpts>),
 }
 
 impl P2pRpcResponse {
@@ -266,7 +267,7 @@ fn internal_response_into_libp2p(
             type Method = rpc::GetTransitionChainV2;
             type Payload = ResponsePayload<<Method as RpcMethod>::Response>;
 
-            let r = RpcResult(Ok(NeedsLength(Some(vec![block.as_ref().clone()]))));
+            let r = RpcResult(Ok(NeedsLength(Some(List::one(block.as_ref().clone())))));
 
             let mut v = vec![];
             <Payload as BinProtWrite>::binprot_write(&r, &mut v).unwrap_or_default();
@@ -352,8 +353,11 @@ fn internal_request_into_libp2p(
             type Payload = QueryPayload<<Method as RpcMethod>::Query>;
 
             let mut v = vec![];
-            <Payload as BinProtWrite>::binprot_write(&NeedsLength(vec![hash.0.clone()]), &mut v)
-                .unwrap_or_default();
+            <Payload as BinProtWrite>::binprot_write(
+                &NeedsLength(List::one(hash.0.clone())),
+                &mut v,
+            )
+            .unwrap_or_default();
             Some((
                 QueryHeader {
                     tag: Method::NAME.into(),

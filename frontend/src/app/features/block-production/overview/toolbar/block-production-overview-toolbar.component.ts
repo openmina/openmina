@@ -1,18 +1,10 @@
 import { ChangeDetectionStrategy, Component, OnInit, TemplateRef, ViewChild, ViewContainerRef } from '@angular/core';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
-import {
-  selectBlockProductionOverviewActiveEpoch,
-  selectBlockProductionOverviewFilters,
-  selectBlockProductionOverviewScale,
-} from '@block-production/overview/block-production-overview.state';
+import { BlockProductionOverviewSelectors } from '@block-production/overview/block-production-overview.state';
 import {
   BlockProductionOverviewFilters,
 } from '@shared/types/block-production/overview/block-production-overview-filters.type';
-import {
-  BlockProductionOverviewChangeFilters,
-  BlockProductionOverviewChangeScale,
-  BlockProductionOverviewGetEpochDetails,
-} from '@block-production/overview/block-production-overview.actions';
+import { BlockProductionOverviewActions } from '@block-production/overview/block-production-overview.actions';
 import {
   BlockProductionOverviewEpoch,
 } from '@shared/types/block-production/overview/block-production-overview-epoch.type';
@@ -50,14 +42,14 @@ export class BlockProductionOverviewToolbarComponent extends StoreDispatcher imp
   }
 
   private listenToFilters(): void {
-    this.select(selectBlockProductionOverviewFilters, (filters: BlockProductionOverviewFilters) => {
+    this.select(BlockProductionOverviewSelectors.filters, (filters: BlockProductionOverviewFilters) => {
       this.filters = filters;
       this.detect();
     });
   }
 
   private listenToActiveEpoch(): void {
-    this.select(selectBlockProductionOverviewActiveEpoch, (activeEpoch: BlockProductionOverviewEpoch) => {
+    this.select(BlockProductionOverviewSelectors.activeEpoch, (activeEpoch: BlockProductionOverviewEpoch) => {
       this.activeEpoch = activeEpoch;
       if (activeEpoch?.slots) {
         this.totalCanonical = activeEpoch.slots.filter(s => s.canonical).length;
@@ -75,22 +67,22 @@ export class BlockProductionOverviewToolbarComponent extends StoreDispatcher imp
   }
 
   private listenToScale(): void {
-    this.select(selectBlockProductionOverviewScale, scale => {
+    this.select(BlockProductionOverviewSelectors.scale, scale => {
       this.scale = scale;
       this.detect();
     });
   }
 
   changeFilter(filter: keyof BlockProductionOverviewFilters, value: boolean): void {
-    this.dispatch(BlockProductionOverviewChangeFilters, { ...this.filters, [filter]: value });
+    this.dispatch2(BlockProductionOverviewActions.changeFilters({ filters: { ...this.filters, [filter]: value } }));
   }
 
   changeActiveEpoch(newEpoch: number): void {
-    this.dispatch(BlockProductionOverviewGetEpochDetails, newEpoch);
+    this.dispatch2(BlockProductionOverviewActions.getEpochDetails({ epochNumber: newEpoch }));
   }
 
   changeScale(scale: 'linear' | 'adaptive'): void {
-    this.dispatch(BlockProductionOverviewChangeScale, scale);
+    this.dispatch2(BlockProductionOverviewActions.changeScale({ scale }));
     this.detach();
   }
 

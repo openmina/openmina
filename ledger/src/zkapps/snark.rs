@@ -225,7 +225,7 @@ impl ZkappHandler for SnarkHandler {
         };
         account_update.body.preconditions.account.checked_zcheck(
             new_account.as_boolean(),
-            &*account.data,
+            &account.data,
             check,
             w,
         );
@@ -631,7 +631,7 @@ impl GlobalStateInterface for GlobalStateForProof {
         self.supply_increase = supply_increase;
     }
     fn block_global_slot(&self) -> Self::GlobalSlotSinceGenesis {
-        self.block_global_slot.clone()
+        self.block_global_slot
     }
 }
 
@@ -651,7 +651,7 @@ impl GlobalSlotSinceGenesisInterface for SnarkGlobalSlot {
     type Bool = SnarkBool;
 
     fn equal(&self, other: &Self, w: &mut Self::W) -> Self::Bool {
-        <Self as CheckedNat<_, 32>>::equal(&self, other, w).var()
+        <Self as CheckedNat<_, 32>>::equal(self, other, w).var()
     }
 }
 
@@ -955,7 +955,7 @@ impl AccountInterface for SnarkAccount {
     }
     fn get(&self) -> &crate::Account {
         let Self { data, .. } = self;
-        &*data
+        data
     }
     fn get_mut(&mut self) -> &mut crate::Account {
         let Self { data, .. } = self;
@@ -1009,13 +1009,8 @@ impl AccountInterface for SnarkAccount {
             invalid_timing = Some(b.neg());
         };
         let account = self.get();
-        let (_min_balance, timing) = check_timing(
-            account,
-            None,
-            txn_global_slot.clone(),
-            timed_balance_check,
-            w,
-        );
+        let (_min_balance, timing) =
+            check_timing(account, None, *txn_global_slot, timed_balance_check, w);
         (invalid_timing.unwrap().var(), timing)
     }
     fn make_zkapp(&mut self) {
@@ -1336,7 +1331,7 @@ fn verification_key_perm_fallback_to_signature_with_older_version(
     } = encode_auth(auth);
 
     let on_true = SnarkBranch::make(w, |_| AuthRequired::Signature);
-    let on_false = SnarkBranch::make(w, |_| auth.clone());
+    let on_false = SnarkBranch::make(w, |_| *auth);
 
     w.on_if(
         signature_sufficient.neg(),

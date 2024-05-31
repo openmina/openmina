@@ -1,9 +1,6 @@
 import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
-import {
-  selectBlockProductionOverviewActiveEpoch,
-  selectBlockProductionOverviewAllTimeStats,
-} from '@block-production/overview/block-production-overview.state';
+import { BlockProductionOverviewSelectors } from '@block-production/overview/block-production-overview.state';
 import {
   BlockProductionOverviewEpoch,
 } from '@shared/types/block-production/overview/block-production-overview-epoch.type';
@@ -50,7 +47,7 @@ export class BlockProductionOverviewSidePanelComponent extends StoreDispatcher i
   }
 
   private listenToActiveEpoch(): void {
-    this.select(selectBlockProductionOverviewActiveEpoch, (epoch: BlockProductionOverviewEpoch) => {
+    this.select(BlockProductionOverviewSelectors.activeEpoch, (epoch: BlockProductionOverviewEpoch) => {
       this.activeEpoch = epoch;
 
       this.singleEpochStats = {
@@ -79,7 +76,7 @@ export class BlockProductionOverviewSidePanelComponent extends StoreDispatcher i
   }
 
   private listenToAllTimeStats(): void {
-    this.select(selectBlockProductionOverviewAllTimeStats, (stats: BlockProductionOverviewAllStats) => {
+    this.select(BlockProductionOverviewSelectors.allTimeStats, (stats: BlockProductionOverviewAllStats) => {
       this.allTimeStats = stats;
       this.detect();
     }, filter(Boolean));

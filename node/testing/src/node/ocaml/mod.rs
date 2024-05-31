@@ -5,6 +5,7 @@ use node::p2p::{
     connection::outgoing::{P2pConnectionOutgoingInitLibp2pOpts, P2pConnectionOutgoingInitOpts},
     PeerId,
 };
+use openmina_core::ChainId;
 
 use std::{
     path::{Path, PathBuf},
@@ -138,12 +139,16 @@ impl OcamlNode {
 
         let prefix = format!("[localhost:{}] ", config.libp2p_port);
         let prefix2 = prefix.clone();
-        std::thread::spawn(move || {
-            if let Err(_) = Self::read_stream(stdout, std::io::stdout(), &prefix) {}
-        });
-        std::thread::spawn(move || {
-            if let Err(_) = Self::read_stream(stderr, std::io::stderr(), &prefix2) {}
-        });
+        std::thread::spawn(
+            move || {
+                if Self::read_stream(stdout, std::io::stdout(), &prefix).is_err() {}
+            },
+        );
+        std::thread::spawn(
+            move || {
+                if Self::read_stream(stderr, std::io::stderr(), &prefix2).is_err() {}
+            },
+        );
 
         Ok(Self {
             child,
@@ -262,6 +267,7 @@ impl OcamlNode {
         let mut file = OpenOptions::new()
             .create(true)
             .write(true)
+            .truncate(true)
             .mode(0o600)
             .open(&privkey_path)?;
         file.write_all(key.as_bytes())?;
@@ -288,23 +294,23 @@ impl OcamlNode {
     }
 
     /// Queries graphql to get chain_id.
-    pub fn chain_id(&self) -> anyhow::Result<String> {
+    pub fn chain_id(&self) -> anyhow::Result<ChainId> {
         let res = self.grapql_query("query { daemonStatus { chainId } }")?;
-        res["data"]["daemonStatus"]["chainId"]
+        let chain_id = res["data"]["daemonStatus"]["chainId"]
             .as_str()
-            .map(|s| s.to_owned())
-            .ok_or_else(|| anyhow::anyhow!("empty chain_id response"))
+            .ok_or_else(|| anyhow::anyhow!("empty chain_id response"))?;
+        ChainId::from_hex(chain_id).map_err(|e| anyhow::anyhow!("invalid chain_id: {}", e))
     }
 
     /// Queries graphql to get chain_id.
-    pub async fn chain_id_async(&self) -> anyhow::Result<String> {
+    pub async fn chain_id_async(&self) -> anyhow::Result<ChainId> {
         let res = self
             .grapql_query_async("query { daemonStatus { chainId } }")
             .await?;
-        res["data"]["daemonStatus"]["chainId"]
+        let chain_id = res["data"]["daemonStatus"]["chainId"]
             .as_str()
-            .map(|s| s.to_owned())
-            .ok_or_else(|| anyhow::anyhow!("empty chain_id response"))
+            .ok_or_else(|| anyhow::anyhow!("empty chain_id response"))?;
+        ChainId::from_hex(chain_id).map_err(|e| anyhow::anyhow!("invalid chain_id: {}", e))
     }
 
     /// Queries graphql to check if ocaml node is synced,
@@ -382,9 +388,11 @@ impl OcamlNode {
         let probe = tokio::task::spawn(async move {
             loop {
                 interval.tick().await;
-                match tokio::net::TcpStream::connect(("127.0.0.1", port)).await {
-                    Ok(_) => return,
-                    Err(_) => {}
+                if tokio::net::TcpStream::connect(("127.0.0.1", port))
+                    .await
+                    .is_ok()
+                {
+                    return;
                 }
             }
         });

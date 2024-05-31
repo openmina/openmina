@@ -1,9 +1,11 @@
+use std::fs::File;
+use std::path::Path;
 use std::{sync::Arc, time::Duration};
 
 use node::account::AccountSecretKey;
+use node::config::BERKELEY_CONFIG;
 use node::transition_frontier::genesis::GenesisConfig;
 use node::{p2p::P2pTimeouts, BlockProducerConfig, SnarkerConfig};
-use openmina_core::CHAIN_ID;
 use serde::{Deserialize, Serialize};
 
 use crate::scenario::ListenerNode;
@@ -21,7 +23,6 @@ pub enum TestPeerId {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct RustNodeTestingConfig {
-    pub chain_id: String,
     pub initial_time: redux::Timestamp,
     pub genesis: Arc<GenesisConfig>,
     pub max_peers: usize,
@@ -43,9 +44,8 @@ pub struct RustNodeBlockProducerTestingConfig {
 impl RustNodeTestingConfig {
     pub fn berkeley_default() -> Self {
         Self {
-            chain_id: CHAIN_ID.to_owned(),
             initial_time: redux::Timestamp::ZERO,
-            genesis: node::BERKELEY_CONFIG.clone(),
+            genesis: BERKELEY_CONFIG.clone(),
             max_peers: 100,
             ask_initial_peers_interval: Duration::from_secs(10),
             initial_peers: Vec::new(),
@@ -59,9 +59,8 @@ impl RustNodeTestingConfig {
 
     pub fn berkeley_default_no_rpc_timeouts() -> Self {
         Self {
-            chain_id: CHAIN_ID.to_owned(),
             initial_time: redux::Timestamp::ZERO,
-            genesis: node::BERKELEY_CONFIG.clone(),
+            genesis: BERKELEY_CONFIG.clone(),
             max_peers: 100,
             ask_initial_peers_interval: Duration::from_secs(10),
             initial_peers: Vec::new(),
@@ -75,11 +74,6 @@ impl RustNodeTestingConfig {
 
     pub fn max_peers(mut self, n: usize) -> Self {
         self.max_peers = n;
-        self
-    }
-
-    pub fn chain_id(mut self, s: impl AsRef<str>) -> Self {
-        self.chain_id = s.as_ref().to_owned();
         self
     }
 
@@ -105,6 +99,14 @@ impl RustNodeTestingConfig {
 
     pub fn with_libp2p_port(mut self, libp2p_port: u16) -> Self {
         self.libp2p_port = Some(libp2p_port);
+        self
+    }
+
+    pub fn with_daemon_json<P: AsRef<Path>>(mut self, daemon_json: P) -> Self {
+        self.genesis = Arc::new(GenesisConfig::DaemonJson(
+            serde_json::from_reader(&mut File::open(daemon_json).expect("daemon json file"))
+                .expect("daemon json"),
+        ));
         self
     }
 }

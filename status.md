@@ -35,9 +35,12 @@
     - Peer discovery/advertising
         - [x] Peer discovery through kademlia
         - [x] Advertising the node through kademlia so that OCaml nodes can see us
+    - Publish subscribe
+        - [x] Floodsub-like broadcasting of produced block
+        - [x] Floodsub-like resending of blocks, txs and snarks
 - [ ] Trust system (to punish/ban peers): **not implemented (and no equivalent)**
 - Pools
-    - [ ] Transaction pool: **not implemented**
+    - [ ] Transaction pool: **in progress**
         - No pool is maintained, transactions received over the gossip network are not processed or re-broadcasted
     - SNARK pool
         - [x] SNARK Verification
@@ -45,6 +48,7 @@
         - [x] SNARK work production is implemented (through OCaml). Node can complete and broadcast SNARK work.
 - [x] Compatible ledger implementation
 - [x] Transition frontier
+- [x] Support for loading arbitrary genesis ledgers at startup
 - Bootstrap/Catchup process
     - [x] Ledger synchronization
        - [x] Snarked ledgers (staking and next epoch ledgers + transition frontier root)
@@ -77,6 +81,12 @@
         - [x] Zkapp proof verification (same as above)
 - [ ] Client API (currently the node has a very partial support, not planned at the moment)
 - [ ] Support for the archive node sidecar process (sending updates through RPC calls).
+- [x] Berkeleynet support
+- [ ] Devnet support
+  - [x] Raw data for gates used to produced files updated for devnet compatibility
+  - [x] Non-circuit logic updated for devnet compatibility
+  - [ ] Circuit logic updated for devnet compatibility (**partially implemented**)
+  - [x] Genesis ledger file loadable by openmina for connecting to devnet
 
 ## VRF Evaluator <a name="vrf-evaluator"></a>
 
@@ -124,6 +134,7 @@
    - [x] Transaction application
       - [x] Regular transaction (payment, delegation, coinbase, fee transfer)
       - [x] Zkapps
+- [x] Ledger interactions are asynchronous and cannot stall the state machine.
 - [x] Persistent database
    - https://github.com/MinaProtocol/mina/pull/13340
    - Drop-in replacement for RocksDB
@@ -145,6 +156,7 @@
 ### Handshake
 
 - [x] Create a service for low level TCP networking (mio, epoll).
+  - [ ] Per-connection data buffering limits.
 - [ ] DNS support.
 - [x] Pnet protocol.
 - [x] Multistream select protocol.
@@ -152,11 +164,7 @@
 - [x] Noise protocol for outgoing connections.
 - [x] Noise protocol for incoming connections.
 - [x] Yamux multiplexer.
-
-### Peer management
-
-- [ ] Create connection scheduler to limit work for each peer
-- [ ] Handle reconnection and exponential backoff.
+- [ ] Yamux congestion control.
 
 ## Identify
 
@@ -168,25 +176,38 @@
   - [x] Implement Kademlia FIND_NODE (client/server).
   - [x] Implement Kademlia Bootstrap process.
   - [ ] Update Kademlia routing table according to Identify protocol messages.
-
+  - [ ] Per peer limit on incoming requests
 
 ### RPC
 
 - [x] Perform outgoing RPC requests.
-- [ ] Handle incoming RPC requests.
+- [x] Handle incoming RPC requests.
+- [ ] Per peer limit on incoming requests
 
 ### Gossipsub
 
-- [ ] Implement gossipsub compatible with libp2p.
+- [x] Implement gossipsub compatible with libp2p.
 - [ ] Research how to use "expander graph" theory to make gossipsub robust and efficient.
+- [ ] Implement mesh (meshsub protocol)
+- [ ] Handle control messages
+- [ ] Limit received blocks, txs and snarks from the same peer
+- [ ] Rebroadcast only validated
 
 ### Testing
 
-- [ ] Fix bootstrap sandbox record/replay for the latest berkeley network.
+- [x] Fix bootstrap sandbox record/replay for the latest berkeley network.
 - [x] Fix network debugger for the latest berkeley network.
 - [x] Test that the Openmina node can bootstrap from the replayer tool.
 - [ ] Test that the OCaml node can bootstrap from the Openmina node.
 - [ ] Test that the Openmina node can bootstrap from another instance of openmina node.
+
+### Fuzzing
+- [x] Mutator-based (bit-flipping/extend/shrink) fuzzing of communication between two openmina nodes
+  - [x] PNet layer mutator.
+  - [x] Protocol select mutator.
+  - [x] Noise mutator.
+  - [x] Yamux mutator.
+  - [x] Stream-based protocols mutators: Identify, Kad, Meshsub, RPCs.
 
 ## P2P Related Tests <a name="p2p-tests"></a>
 
@@ -227,10 +248,13 @@
 - [x] Network - Messages
 - [x] Network - Blocks
 - [x] Network - Connections
+- [x] Network - Graph View
 - [ ] Network - Topology
 - [ ] Network - Node DHT
 - [x] Peers - Dashboard
 - [x] Testing Framework - Scenarios
+- [x] Block Production - Overview
+- [x] Block Production - Won Slots
 
 ### Testing
 - [x] Tests for Nodes Overview
@@ -247,6 +271,8 @@
 - [ ] Tests for Network - Node DHT
 - [x] Tests for Peers - Dashboard
 - [ ] Tests for Testing Framework - Scenarios
+- [x] Tests for Block Production - Overview
+- [ ] Tests for Block Production - Won Slots
 
 ### Other
 - [x] CI Integration and Docker build & upload

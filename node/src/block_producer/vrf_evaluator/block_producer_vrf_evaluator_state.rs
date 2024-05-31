@@ -120,6 +120,18 @@ impl BlockProducerVrfEvaluatorState {
         }
     }
 
+    pub fn is_idle(&self) -> bool {
+        matches!(self.status, BlockProducerVrfEvaluatorStatus::Idle { .. })
+    }
+
+    pub fn is_initialized(&self) -> bool {
+        !matches!(
+            self.status,
+            BlockProducerVrfEvaluatorStatus::Idle { .. }
+                | BlockProducerVrfEvaluatorStatus::InitialisationPending { .. }
+        )
+    }
+
     /// Determines if a given epoch number has already been evaluated.
     ///
     /// Arguments:
@@ -192,6 +204,7 @@ impl BlockProducerVrfEvaluatorState {
             BlockProducerVrfEvaluatorStatus::WaitingForNextEvaluation { .. }
                 | BlockProducerVrfEvaluatorStatus::EpochEvaluationSuccess { .. }
                 | BlockProducerVrfEvaluatorStatus::InitialisationComplete { .. }
+                | BlockProducerVrfEvaluatorStatus::EpochEvaluationInterrupted { .. }
         )
     }
 
@@ -281,7 +294,7 @@ impl BlockProducerVrfEvaluatorState {
     }
 
     pub fn initialize_evaluator(&mut self, epoch: u32, last_height: u32) {
-        if !self.status.is_initialized() {
+        if !self.is_idle() {
             self.last_block_heights_in_epoch.insert(epoch, last_height);
         }
     }
@@ -395,7 +408,7 @@ impl From<v2::ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStable
         value: v2::ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1,
     ) -> Self {
         Self {
-            seed: value.seed.into(),
+            seed: value.seed,
             ledger: value.ledger.hash,
             delegator_table: Default::default(),
             total_currency: value.ledger.total_currency.as_u64(),
@@ -406,7 +419,7 @@ impl From<v2::ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStable
 impl From<v2::ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1> for EpochData {
     fn from(value: v2::ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1) -> Self {
         Self {
-            seed: value.seed.into(),
+            seed: value.seed,
             ledger: value.ledger.hash,
             delegator_table: Default::default(),
             total_currency: value.ledger.total_currency.as_u64(),
@@ -530,6 +543,23 @@ pub enum BlockProducerVrfEvaluatorStatus {
         latest_evaluated_global_slot: u32,
         epoch_current_bound: SlotPositionInEpoch,
     },
+    EpochEvaluationInterrupted {
+        time: redux::Timestamp,
+        reason: InterruptReason,
+    },
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum InterruptReason {
+    BestTipWithHigherEpoch,
+}
+
+impl std::fmt::Display for InterruptReason {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::BestTipWithHigherEpoch => write!(f, "Received best tip with higher epoch"),
+        }
+    }
 }
 
 impl std::fmt::Display for BlockProducerVrfEvaluatorStatus {
@@ -549,6 +579,7 @@ impl std::fmt::Display for BlockProducerVrfEvaluatorStatus {
             Self::InitialSlotSelection { .. } => write!(f, "StartingSlotSelection"),
             Self::EpochBoundsCheck { .. } => write!(f, "EpochBoundsCheck"),
             Self::SlotEvaluationReceived { .. } => write!(f, "SlotEvaluationReceived"),
+            Self::EpochEvaluationInterrupted { .. } => write!(f, "EpochEvaluationInterrupted"),
         }
     }
 }
@@ -592,11 +623,11 @@ impl EpochContext {
     }
 }
 
-impl BlockProducerVrfEvaluatorStatus {
-    pub fn is_initialized(&self) -> bool {
-        !matches!(self, Self::Idle { .. })
-    }
-}
+// impl BlockProducerVrfEvaluatorStatus {
+//     pub fn is_initialized(&self) -> bool {
+//         !matches!(self, Self::Idle { .. })
+//     }
+// }
 
 #[cfg(test)]
 mod test {
@@ -925,6 +956,7 @@ mod test {
                 vrf_output: vrf::genesis_vrf().unwrap(),
                 global_slot: slot,
                 account_index: AccountIndex(0),
+                value_with_threshold: None,
             };
             (
                 slot,

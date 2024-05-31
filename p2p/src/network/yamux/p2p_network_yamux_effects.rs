@@ -22,11 +22,9 @@ impl P2pNetworkYamuxAction {
             return;
         };
 
-        let incoming = state.incoming.front().cloned();
-
         match self {
             Self::IncomingData { addr, .. } => {
-                if let Some(frame) = incoming {
+                for frame in state.incoming.clone() {
                     store.dispatch(P2pNetworkYamuxAction::IncomingFrame { addr, frame });
                 }
             }
@@ -82,10 +80,6 @@ impl P2pNetworkYamuxAction {
                         }
                     }
                     _ => {}
-                }
-
-                if let Some(frame) = incoming {
-                    store.dispatch(P2pNetworkYamuxAction::IncomingFrame { addr, frame });
                 }
             }
             Self::OutgoingFrame { addr, frame } => {

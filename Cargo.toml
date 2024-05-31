@@ -23,9 +23,11 @@ members = [
 
     "tools/transport",
     "tools/bootstrap-sandbox",
+    "tools/gossipsub-sandbox",
     "tools/hash-tool",
     "tools/ledger-tool",
     "tools/salsa-simple",
+    "producer-dashboard",
 ]
 
 resolver = "2"
@@ -46,6 +48,7 @@ redux = { git = "https://github.com/openmina/redux-rs.git", branch = "feat/enabl
 serde = "1.0.190"
 serde_json = "1.0.107"
 serde_with = { version = "3.7.0", features = ["hex"] }
+linkme = "0.3.22"
 
 [profile.fuzz]
 inherits = "release"

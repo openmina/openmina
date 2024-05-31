@@ -82,9 +82,9 @@ fn peer_query_address_init<S: redux::Service>(
 }
 
 impl TransitionFrontierSyncLedgerSnarkedAction {
-    pub fn effects<S: redux::Service>(&self, _: &ActionMeta, store: &mut Store<S>)
+    pub fn effects<S>(&self, _: &ActionMeta, store: &mut Store<S>)
     where
-        S: TransitionFrontierSyncLedgerSnarkedService,
+        S: redux::Service + TransitionFrontierSyncLedgerSnarkedService,
     {
         match self {
             TransitionFrontierSyncLedgerSnarkedAction::Pending => {
@@ -370,7 +370,8 @@ impl TransitionFrontierSyncLedgerSnarkedAction {
             }
             TransitionFrontierSyncLedgerSnarkedAction::ChildHashesAccepted { .. } => {
                 if !store.dispatch(TransitionFrontierSyncLedgerSnarkedAction::PeersQuery) {
-                    store.dispatch(TransitionFrontierSyncLedgerSnarkedAction::Success);
+                    store
+                        .dispatch(TransitionFrontierSyncLedgerSnarkedAction::MerkleTreeSyncSuccess);
                 }
             }
             TransitionFrontierSyncLedgerSnarkedAction::ChildHashesRejected { .. } => {
@@ -421,7 +422,7 @@ impl TransitionFrontierSyncLedgerSnarkedAction {
                     .service
                     .compute_snarked_ledger_hashes(&snarked_ledger_hash);
 
-                if let Err(_) = compute_hashes_result {
+                if let Err(_error) = compute_hashes_result {
                     // TODO(tizoc): log this error
                 }
 
@@ -435,7 +436,8 @@ impl TransitionFrontierSyncLedgerSnarkedAction {
             }
             TransitionFrontierSyncLedgerSnarkedAction::ChildAccountsAccepted { .. } => {
                 if !store.dispatch(TransitionFrontierSyncLedgerSnarkedAction::PeersQuery) {
-                    store.dispatch(TransitionFrontierSyncLedgerSnarkedAction::Success);
+                    store
+                        .dispatch(TransitionFrontierSyncLedgerSnarkedAction::MerkleTreeSyncSuccess);
                 }
             }
             TransitionFrontierSyncLedgerSnarkedAction::ChildAccountsRejected { .. } => {

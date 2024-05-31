@@ -1,7 +1,25 @@
-import { AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, HostListener, NgZone, ViewChild } from '@angular/core';
+import {
+  AfterViewInit,
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  HostListener,
+  NgZone,
+  ViewChild,
+} from '@angular/core';
 import { MemoryResource } from '@shared/types/resources/memory/memory-resource.type';
 import * as d3 from 'd3';
-import { hierarchy, HierarchyNode, HierarchyRectangularNode, ScaleLinear, Selection, treemapBinary, treemapDice, treemapSlice, treemapSquarify } from 'd3';
+import {
+  hierarchy,
+  HierarchyNode,
+  HierarchyRectangularNode,
+  ScaleLinear,
+  Selection,
+  treemapBinary,
+  treemapDice,
+  treemapSlice,
+  treemapSquarify,
+} from 'd3';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
 import {
   selectMemoryResources,
@@ -15,7 +33,7 @@ import { MemoryResourcesSetActiveResource } from '@resources/memory/memory-resou
 import { untilDestroyed } from '@ngneat/until-destroy';
 import { TreemapView } from '@shared/types/resources/memory/treemap-view.type';
 import { isDesktop, TooltipService } from '@openmina/shared';
-import { selectAppMenu } from '@app/app.state';
+import { AppSelectors } from '@app/app.state';
 
 @Component({
   selector: 'app-memory-resources-treemap',
@@ -69,7 +87,7 @@ export class MemoryResourcesTreemapComponent extends StoreDispatcher implements 
         .pipe(untilDestroyed(this), debounceTime(200))
         .subscribe(() => this.redrawChart());
       this.select(
-        selectAppMenu,
+        AppSelectors.menu,
         () => this.redrawChart(),
         delay(350),
         distinctUntilChanged(),

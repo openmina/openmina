@@ -53,7 +53,7 @@ impl redux::EnablingCondition<crate::State> for CheckTimeoutsAction {}
 
 #[cfg(feature = "replay")]
 impl redux::EnablingCondition<crate::State> for Action {
-    fn is_enabled(&self, _: &crate::State, _time: redux::Timestamp) -> bool {
+    fn is_enabled(&self, _state: &crate::State, _time: redux::Timestamp) -> bool {
         true
     }
 }

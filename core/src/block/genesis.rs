@@ -2,6 +2,7 @@ use mina_p2p_messages::v2::{self, StateHash};
 
 use crate::constants::{slots_per_window, CONSTRAINT_CONSTANTS};
 
+#[allow(clippy::too_many_arguments)]
 pub fn genesis_and_negative_one_protocol_states(
     constants: v2::MinaBaseProtocolConstantsCheckedValueStableV1,
     genesis_ledger_hash: v2::LedgerHash,
@@ -53,6 +54,7 @@ pub fn genesis_and_negative_one_protocol_states(
     (negative_one, genesis)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn protocol_state(
     constants: v2::MinaBaseProtocolConstantsCheckedValueStableV1,
     genesis_ledger_hash: v2::LedgerHash,
@@ -73,7 +75,7 @@ fn protocol_state(
             genesis_state_hash: StateHash::zero(),
             blockchain_state: blockchain_state(
                 genesis_ledger_hash.clone(),
-                constants.genesis_state_timestamp.clone(),
+                constants.genesis_state_timestamp,
                 empty_pending_coinbase_hash,
                 empty_local_state,
                 empty_body_hash,
@@ -100,7 +102,7 @@ fn blockchain_state(
     let stmt_registers = v2::MinaStateBlockchainStateValueStableV2LedgerProofStatementSource {
         first_pass_ledger: genesis_ledger_hash.clone(),
         second_pass_ledger: genesis_ledger_hash.clone(),
-        pending_coinbase_stack: v2::MinaBasePendingCoinbaseStackVersionedStableV1::zero(),
+        pending_coinbase_stack: v2::MinaBasePendingCoinbaseStackVersionedStableV1::empty(),
         local_state: empty_local_state,
     };
     let empty_fee_excess = v2::TokenFeeExcess {
@@ -155,7 +157,7 @@ fn consensus_state(
         sub_window_densities: std::iter::once(is_genesis.into())
             .chain(
                 (1..CONSTRAINT_CONSTANTS.sub_windows_per_window)
-                    .map(|_| constants.slots_per_sub_window.clone()),
+                    .map(|_| constants.slots_per_sub_window),
             )
             .collect(),
         last_vrf_output: v2::ConsensusVrfOutputTruncatedStableV1::zero(),
@@ -164,7 +166,7 @@ fn consensus_state(
             slot_number: v2::MinaNumbersGlobalSlotSinceHardForkMStableV1::SinceHardFork(
                 v2::UnsignedExtendedUInt32StableV1::default(),
             ),
-            slots_per_epoch: constants.slots_per_epoch.clone(),
+            slots_per_epoch: constants.slots_per_epoch,
         },
         global_slot_since_genesis: v2::MinaNumbersGlobalSlotSinceGenesisMStableV1::SinceGenesis(
             global_slot_since_genesis.into(),
