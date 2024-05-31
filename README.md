@@ -34,6 +34,9 @@ In the future, we plan to implement:
 * SnarkyJS support for Rust node, thanks to which you will be able to directly inject simple transactions, such as transferring Mina funds from one account to another.
 * The ability to record/replay all blocks
 
+## Producer demo
+
+See the detailed [guide](docs/producer-demo.md).
 
 ## How to launch (with docker compose):
 
@@ -59,15 +62,29 @@ Ubuntu or Debian-based Linux distribution with the following packages installed:
 - `git`
 - `libssl-dev`
 - `pkg-config`
+- `protobuf-compiler`
+- `build-essential`
 
-Example:
+Example (debian-based):
 
 ``` sh
 # Either using "sudo" or as the "root" user
-sudo apt install curl git libssl-dev pkg-config protobuf-compiler
+sudo apt install curl git libssl-dev pkg-config protobuf-compiler build-essential
 ```
 
-**Steps (for Debian-based Linux distros):**
+Example (macOS):
+
+If you have not yet installed homebrew:
+
+```sh
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+```
+
+``` sh
+brew install curl git openssl pkg-config protobuf gcc make
+```
+
+**Steps (for Debian-based Linux distros and macOS):**
 
 Open up the command line and enter the following:
 

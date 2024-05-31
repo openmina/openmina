@@ -1,0 +1,21 @@
+services:
+  local-producer-cluster:
+    container_name: local-producer-cluster
+    build:
+      context: .
+      dockerfile: Dockerfile
+    entrypoint: ["openmina-node-testing", "scenarios-generate", "--name", "simulation-small-forever-real-time"]
+    ports:
+      - 11010:11010
+      - 11012:11012
+      - 11014:11014
+
+  frontend:
+    container_name: frontend
+    build:
+      context: .
+      dockerfile: Dockerfile_FE
+      args:
+        BUILD_CONFIGURATION: block_producers
+    ports:
+      - "8070:80"
