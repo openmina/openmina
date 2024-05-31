@@ -82,7 +82,7 @@ This demo showcases the block production capabilities of OpenMina nodes within a
 
 1. **Clone this repository:**
     ```bash
-    git clone https://github.com/openmina/openmina.git --branch chore/guide-producer-demo
+    git clone https://github.com/openmina/openmina.git
     ```
 
 2. **Navigate to the repository:**
@@ -104,7 +104,7 @@ This demo showcases the block production capabilities of OpenMina nodes within a
 
 2. **Clone this repository:**
     ```bash
-    git clone https://github.com/openmina/openmina.git --branch chore/guide-producer-demo
+    git clone https://github.com/openmina/openmina.git
     ```
 
 3. **Navigate to the repository:**
@@ -126,7 +126,7 @@ This demo showcases the block production capabilities of OpenMina nodes within a
 
 2. **Clone this repository:**
     ```bash
-    git clone https://github.com/openmina/openmina.git --branch chore/guide-producer-demo
+    git clone https://github.com/openmina/openmina.git
     ```
 
 3. **Navigate to the repository:**
