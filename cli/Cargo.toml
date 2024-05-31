@@ -25,6 +25,8 @@ vrf = { workspace = true }
 console = "0.15.5"
 clap = { version = "4.3", features = [ "derive", "env" ] }
 time = { version = "0.3", features = ["formatting", "macros", "parsing"] }
+anyhow = "1.0.81"
+reqwest = "0.11.24"
 
 openmina-core = { path = "../core" }
 node = { path = "../node", features = ["replay"] }
@@ -35,6 +37,9 @@ nix = { version = "0.26.2", features = ["signal"] }
 shellexpand = "3.1.0"
 dialoguer = "0.10.4"
 serde_json = "1.0.107"
+
+[dev-dependencies]
+tempfile = "3.8.0"
 
 [features]
 default = ["p2p-libp2p"]

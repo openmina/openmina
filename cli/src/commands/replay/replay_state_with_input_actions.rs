@@ -25,7 +25,7 @@ pub struct ReplayStateWithInputActions {
 }
 
 impl ReplayStateWithInputActions {
-    pub fn run(self) -> Result<(), crate::CommandError> {
+    pub fn run(self) -> anyhow::Result<()> {
         openmina_node_native::tracing::initialize(self.verbosity);
 
         eprintln!(
