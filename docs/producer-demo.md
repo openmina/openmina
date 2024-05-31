@@ -93,7 +93,7 @@ This demo showcases the block production capabilities of OpenMina nodes within a
 
 3. **Run the following command to start the demo:**
     ```sh
-    docker compose -f docker-compose.local.producers.yml up --build
+    docker compose -f docker-compose.local.producers.yml up
     ```
 
 4. **Open you browser and visit http://localhost:8070**
@@ -115,7 +115,7 @@ This demo showcases the block production capabilities of OpenMina nodes within a
 
 4. **Run the following command to start the demo:**
     ```sh
-    docker compose -f docker-compose.local.producers.yml up --build
+    docker compose -f docker-compose.local.producers.yml up
     ```
 
 5. **Open you browser and visit http://localhost:8070**
@@ -137,7 +137,7 @@ This demo showcases the block production capabilities of OpenMina nodes within a
 
 4. **Run the following command to start the demo:**
     ```sh
-    docker compose -f docker-compose.local.producers.yml up --build
+    docker compose -f docker-compose.local.producers.yml up
     ```
 
 5. **Open you browser and visit http://localhost:8070**
