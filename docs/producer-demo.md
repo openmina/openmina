@@ -91,7 +91,7 @@
 
 3. **Run the following command to start the demo:**
     ```sh
-    sudo docker-compose -f docker-compose.local.producers.yml up
+    docker compose -f docker-compose.local.producers.yml up
     ```
 
 4. **Open you browser and visit http://localhost:8070**
@@ -113,7 +113,7 @@
 
 4. **Run the following command to start the demo:**
     ```sh
-    sudo docker-compose -f docker-compose.local.producers.yml up
+    docker compose -f docker-compose.local.producers.yml up
     ```
 
 5. **Open you browser and visit http://localhost:8070**
@@ -135,7 +135,7 @@
 
 4. **Run the following command to start the demo:**
     ```sh
-    sudo docker-compose -f docker-compose.local.producers.yml up
+    docker compose -f docker-compose.local.producers.yml up
     ```
 
 5. **Open you browser and visit http://localhost:8070**
