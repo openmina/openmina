@@ -10,10 +10,11 @@ services:
 
   frontend:
     container_name: frontend
-    build:
-      context: .
-      dockerfile: Dockerfile_FE
-      args:
-        BUILD_CONFIGURATION: block_producers
+    image: openmina/frontend:0.5.0-block-producers
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile_FE
+    #   args:
+    #     BUILD_CONFIGURATION: block_producers
     ports:
       - "8070:80"
