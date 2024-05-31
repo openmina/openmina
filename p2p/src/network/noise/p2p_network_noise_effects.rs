@@ -70,12 +70,14 @@ impl P2pNetworkNoiseAction {
             incoming,
         } = self
         {
-            store.dispatch(P2pNetworkSelectAction::Init {
-                addr,
-                kind: SelectKind::Multiplexing(peer_id),
-                incoming,
-                send_handshake: true,
-            });
+            if !handshake_optimized {
+                store.dispatch(P2pNetworkSelectAction::Init {
+                    addr,
+                    kind: SelectKind::Multiplexing(peer_id),
+                    incoming,
+                    send_handshake: true,
+                });
+            }
             return;
         }
 
@@ -149,6 +151,12 @@ impl P2pNetworkNoiseAction {
                     if !this_connection_is_kept {
                         return;
                     }
+
+                    store.dispatch(P2pNetworkNoiseAction::HandshakeDone {
+                        addr,
+                        peer_id,
+                        incoming: true,
+                    });
                 }
 
                 if handshake_optimized && middle_responder {
@@ -174,9 +182,6 @@ impl P2pNetworkNoiseAction {
                         peer_id: remote_peer_id,
                         data,
                     });
-                }
-                if has_incoming {
-                    store.dispatch(P2pNetworkNoiseAction::IncomingChunk { addr });
                 }
 
                 if !handshake_optimized && (middle_initiator || middle_responder) {
