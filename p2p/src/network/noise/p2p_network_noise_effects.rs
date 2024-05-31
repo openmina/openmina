@@ -19,7 +19,7 @@ impl P2pNetworkNoiseAction {
             return;
         };
 
-        let incoming = state.incoming_chunks.front().cloned().map(Into::into);
+        let incoming = state.incoming_chunks.clone();
         let outgoing = state.outgoing_chunks.front().cloned();
         let decrypted = state.decrypted_chunks.front().cloned();
         let remote_peer_id = match &state.inner {
@@ -121,8 +121,12 @@ impl P2pNetworkNoiseAction {
                 }
             }
             Self::IncomingData { addr, .. } => {
-                if let Some(data) = incoming {
-                    store.dispatch(P2pNetworkNoiseAction::IncomingChunk { addr, data });
+                let mut incoming = incoming;
+                while let Some(data) = incoming.pop_front() {
+                    store.dispatch(P2pNetworkNoiseAction::IncomingChunk {
+                        addr,
+                        data: data.into(),
+                    });
                 }
             }
             Self::IncomingChunk { addr, .. } => {
@@ -176,9 +180,6 @@ impl P2pNetworkNoiseAction {
                         peer_id: remote_peer_id,
                         data,
                     });
-                }
-                if let Some(data) = incoming {
-                    store.dispatch(P2pNetworkNoiseAction::IncomingChunk { addr, data });
                 }
 
                 if !handshake_optimized && (middle_initiator || middle_responder) {
