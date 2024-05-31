@@ -1,0 +1,15 @@
+services:
+  local-producer-cluster:
+    container_name: local-producer-cluster
+    image: adrnagy/openmina:tutorial # TODO: change
+    entrypoint: ["openmina-node-testing", "scenarios-generate", "--name", "simulation-small-forever-real-time"]
+    ports:
+      - 11010:11010
+      - 11012:11012
+      - 11014:11014
+
+  frontend:
+    container_name: frontend
+    image: adrnagy/openmina-fe:tutorial # TODO: change
+    ports:
+      - "8070:80"
