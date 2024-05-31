@@ -32,7 +32,7 @@ use node::{
     event_source::Event,
     ledger::{LedgerCtx, LedgerManager},
     p2p::{channels::ChannelId, identity::SecretKey as P2pSecretKey},
-    service::Recorder,
+    service::{Recorder, Service},
     snark::{get_srs, get_verifier_index, VerifierKind},
     BuildEnv, Config, GlobalConfig, LedgerConfig, P2pConfig, SnarkConfig, State,
     TransitionFrontierConfig,
@@ -334,8 +334,9 @@ impl Cluster {
         // reconstruction async, can be removed when the ledger services are made async
         ledger.set_event_sender(event_sender.clone());
 
+        let rng_seed = 0;
         let mut real_service = NodeService {
-            rng: StdRng::seed_from_u64(0),
+            rng: StdRng::seed_from_u64(rng_seed),
             event_sender,
             event_receiver: event_receiver.into(),
             cmd_sender,
@@ -391,13 +392,21 @@ impl Cluster {
 
             node::effects(store, action)
         }
-        let store = node::Store::new(
+        let mut store = node::Store::new(
             node::reducer,
             effects,
             service,
             testing_config.initial_time.into(),
             state,
         );
+        // record initial state.
+        {
+            store
+                .service
+                .recorder()
+                .initial_state(rng_seed, store.state.get());
+        }
+
         let node = Node::new(node_config, store);
 
         self.nodes.push(node);
