@@ -7,9 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2024-05-31
+
 ### Fixed
 
 - When applying blocks, use the `supercharge_coinbase` value from the block which was being ignored before.
+- Incorrect stream being used for RPC responses.
+- Allow multiple nodes running on the same host to connect to each other.
+- Invalid `delta_block_chain_proof` in block producer.
+- Various p2p layer fixes.
+
+### Added
+
+- Support for PubSub in the p2p layer.
+- Block producer dashboard, and simulator-based demo.
+- Support for parsing `daemon.json` files with custom genesis ledgers.
+- Chain ID computation (was hardcoded before).
+- Multiple RPC and p2p tests.
+- More limits to p2p messages, connections, and parsing.
+
+### Removed
+
+- Support for v1 messages in p2p layer.
 
 ## [0.4.0] - 2024-04-30
 
