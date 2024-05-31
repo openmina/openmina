@@ -314,6 +314,8 @@ pub struct RpcNodeStatusSnarkPool {
 pub struct RpcBlockProducerStats {
     pub current_time: redux::Timestamp,
     pub current_global_slot: Option<u32>,
+    pub epoch_start: Option<u32>,
+    pub epoch_end: Option<u32>,
     pub attempts: Vec<BlockProductionAttempt>,
     pub future_won_slots: Vec<BlockProductionAttemptWonSlot>,
 }

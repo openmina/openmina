@@ -117,9 +117,16 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                 let attempts = stats.block_producer().collect_attempts();
                 let future_slot = attempts.last().map_or(0, |v| v.won_slot.global_slot + 1);
 
+                let cur_global_slot = state.cur_global_slot();
+                let slots_per_epoch = best_tip.constants().slots_per_epoch.as_u32();
+                let epoch_start =
+                    cur_global_slot.map(|slot| (slot / slots_per_epoch) * slots_per_epoch);
+
                 Some(RpcBlockProducerStats {
                     current_time: meta.time(),
-                    current_global_slot: state.cur_global_slot(),
+                    current_global_slot: cur_global_slot,
+                    epoch_start,
+                    epoch_end: epoch_start.map(|slot| slot + slots_per_epoch),
                     attempts,
                     future_won_slots: won_slots
                         .range(future_slot..)
