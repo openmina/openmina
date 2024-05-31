@@ -1,13 +1,9 @@
 use mina_p2p_messages::v2::{
     ConsensusProofOfStakeDataConsensusStateValueStableV2, LedgerHash,
     MinaBaseProtocolConstantsCheckedValueStableV1, MinaBaseStagedLedgerHashStableV1,
-    NonZeroCurvePoint, StagedLedgerDiffDiffFtStableV1,
-    StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2Coinbase,
-};
-use mina_p2p_messages::v2::{
-    StagedLedgerDiffDiffDiffStableV2,
-    StagedLedgerDiffDiffPreDiffWithAtMostOneCoinbaseStableV2Coinbase,
-    StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2B, TransactionSnarkWorkTStableV2,
+    NonZeroCurvePoint, StagedLedgerDiffBodyStableV1, StagedLedgerDiffDiffDiffStableV2,
+    StagedLedgerDiffDiffFtStableV1, StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2B,
+    TransactionSnarkWorkTStableV2,
 };
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
@@ -46,6 +42,10 @@ impl<T: AsRef<Block>> BlockWithHash<T> {
 
     pub fn header(&self) -> &BlockHeader {
         &self.block.as_ref().header
+    }
+
+    pub fn body(&self) -> &StagedLedgerDiffBodyStableV1 {
+        &self.block.as_ref().body
     }
 
     pub fn consensus_state(&self) -> &ConsensusProofOfStakeDataConsensusStateValueStableV2 {
@@ -122,65 +122,24 @@ impl<T: AsRef<Block>> BlockWithHash<T> {
     }
 
     pub fn staged_ledger_diff(&self) -> &StagedLedgerDiffDiffDiffStableV2 {
-        &self.block.as_ref().body.staged_ledger_diff.diff
+        self.body().diff()
     }
 
     pub fn commands_iter<'a>(
         &'a self,
     ) -> Box<dyn 'a + Iterator<Item = &'a StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2B>>
     {
-        let diff = self.staged_ledger_diff();
-        let iter = diff.0.commands.iter();
-        if let Some(_1) = diff.1.as_ref() {
-            Box::new(iter.chain(_1.commands.iter()))
-        } else {
-            Box::new(iter)
-        }
+        self.body().commands_iter()
     }
 
     pub fn coinbases_iter(&self) -> impl Iterator<Item = &StagedLedgerDiffDiffFtStableV1> {
-        let diff = self.staged_ledger_diff();
-        let mut coinbases = Vec::with_capacity(4);
-        match &diff.0.coinbase {
-            StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2Coinbase::Zero => {}
-            StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2Coinbase::One(v) => {
-                coinbases.push(v.as_ref());
-            }
-            StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2Coinbase::Two(v) => {
-                match v.as_ref() {
-                    None => {}
-                    Some((v1, v2)) => {
-                        coinbases.push(Some(v1));
-                        coinbases.push(v2.as_ref());
-                    }
-                }
-            }
-        }
-
-        if let Some(StagedLedgerDiffDiffPreDiffWithAtMostOneCoinbaseStableV2Coinbase::One(v)) =
-            diff.1.as_ref().map(|v| &v.coinbase)
-        {
-            coinbases.push(v.as_ref());
-        }
-
-        coinbases.into_iter().flatten()
+        self.body().coinbases_iter()
     }
 
     pub fn completed_works_iter<'a>(
         &'a self,
     ) -> Box<dyn 'a + Iterator<Item = &'a TransactionSnarkWorkTStableV2>> {
-        let diff = self.staged_ledger_diff();
-        let diff_0 = &diff.0;
-        if let Some(_1) = diff.1.as_ref() {
-            Box::new(
-                diff_0
-                    .completed_works
-                    .iter()
-                    .chain(_1.completed_works.iter()),
-            )
-        } else {
-            Box::new(diff_0.completed_works.iter())
-        }
+        self.body().completed_works_iter()
     }
 }
 

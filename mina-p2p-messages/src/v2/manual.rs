@@ -1,3 +1,5 @@
+pub mod conv;
+
 use binprot::{BinProtRead, BinProtWrite};
 use binprot_derive::{BinProtRead, BinProtWrite};
 use blake2::Digest;
@@ -11,20 +13,7 @@ use crate::{
     string::ByteString, versioned::Versioned,
 };
 
-use super::{
-    BlockTimeTimeStableV1, ConsensusProofOfStakeDataConsensusStateValueStableV2,
-    ConsensusVrfOutputTruncatedStableV1, CurrencyAmountStableV1, DataHashLibStateHashStableV1,
-    MinaBaseAccountIdDigestStableV1, MinaBaseEpochSeedStableV1, MinaBaseLedgerHash0StableV1,
-    MinaBasePendingCoinbaseCoinbaseStackStableV1, MinaBasePendingCoinbaseHashVersionedStableV1,
-    MinaBasePendingCoinbaseStackHashStableV1, MinaBaseProtocolConstantsCheckedValueStableV1,
-    MinaBaseSignatureStableV1, MinaBaseStateBodyHashStableV1,
-    NonZeroCurvePointUncompressedStableV1, ParallelScanWeightStableV1,
-    PicklesProofProofsVerified2ReprStableV2, PicklesProofProofsVerified2ReprStableV2StatementFp,
-    PicklesProofProofsVerifiedMaxStableV2, ProtocolVersionStableV2, SgnStableV1,
-    TransactionSnarkScanStateStableV2ScanStateTreesABaseT1,
-    TransactionSnarkScanStateStableV2ScanStateTreesAMergeT1, UnsignedExtendedUInt32StableV1,
-    UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
-};
+use super::*;
 
 pub type TransactionSnarkScanStateStableV2TreesABase = (
     ParallelScanWeightStableV1,
@@ -262,7 +251,7 @@ impl CoinbaseStackData {
     pub fn empty() -> Self {
         // In OCaml: https://github.com/MinaProtocol/mina/blob/68b49fdaafabed0f2cd400c4c69f91e81db681e7/src/lib/mina_base/pending_coinbase.ml#L186
         // let empty = Random_oracle.salt "CoinbaseStack" |> Random_oracle.digest
-        let empty = super::hash_noinputs("CoinbaseStack");
+        let empty = hash_noinputs("CoinbaseStack");
         MinaBasePendingCoinbaseCoinbaseStackStableV1(empty.into()).into()
     }
 }
@@ -291,42 +280,42 @@ impl ConsensusVrfOutputTruncatedStableV1 {
     }
 }
 
-impl super::MinaBaseStagedLedgerHashNonSnarkStableV1 {
+impl MinaBaseStagedLedgerHashNonSnarkStableV1 {
     pub fn zero(genesis_ledger_hash: LedgerHash) -> Self {
         Self {
             ledger_hash: genesis_ledger_hash,
-            aux_hash: super::StagedLedgerHashAuxHash::zero(),
-            pending_coinbase_aux: super::StagedLedgerHashPendingCoinbaseAux::zero(),
+            aux_hash: StagedLedgerHashAuxHash::zero(),
+            pending_coinbase_aux: StagedLedgerHashPendingCoinbaseAux::zero(),
         }
     }
 }
 
-impl super::MinaBaseStagedLedgerHashStableV1 {
+impl MinaBaseStagedLedgerHashStableV1 {
     pub fn zero(
         genesis_ledger_hash: LedgerHash,
         empty_pending_coinbase_hash: PendingCoinbaseHash,
     ) -> Self {
         Self {
-            non_snark: super::MinaBaseStagedLedgerHashNonSnarkStableV1::zero(genesis_ledger_hash),
+            non_snark: MinaBaseStagedLedgerHashNonSnarkStableV1::zero(genesis_ledger_hash),
             pending_coinbase_hash: empty_pending_coinbase_hash,
         }
     }
 }
 
-impl super::MinaBasePendingCoinbaseUpdateStableV1 {
+impl MinaBasePendingCoinbaseUpdateStableV1 {
     pub fn zero() -> Self {
         Self {
-            action: super::MinaBasePendingCoinbaseUpdateActionStableV1::UpdateNone,
-            coinbase_amount: super::CurrencyAmountStableV1(0u64.into()),
+            action: MinaBasePendingCoinbaseUpdateActionStableV1::UpdateNone,
+            coinbase_amount: CurrencyAmountStableV1(0u64.into()),
         }
     }
 }
 
-impl super::MinaBasePendingCoinbaseStackVersionedStableV1 {
+impl MinaBasePendingCoinbaseStackVersionedStableV1 {
     pub fn empty() -> Self {
         Self {
             data: CoinbaseStackData::empty(),
-            state: super::MinaBasePendingCoinbaseStateStackStableV1 {
+            state: MinaBasePendingCoinbaseStateStackStableV1 {
                 init: CoinbaseStackHash::zero(),
                 curr: CoinbaseStackHash::zero(),
             },
@@ -334,10 +323,10 @@ impl super::MinaBasePendingCoinbaseStackVersionedStableV1 {
     }
 }
 
-impl super::ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1 {
+impl ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1 {
     pub fn zero(genesis_ledger_hash: LedgerHash, total_currency: CurrencyAmountStableV1) -> Self {
         Self {
-            ledger: super::MinaBaseEpochLedgerValueStableV1 {
+            ledger: MinaBaseEpochLedgerValueStableV1 {
                 hash: genesis_ledger_hash,
                 total_currency,
             },
@@ -349,10 +338,10 @@ impl super::ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1
     }
 }
 
-impl super::ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1 {
+impl ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1 {
     pub fn zero(genesis_ledger_hash: LedgerHash, total_currency: CurrencyAmountStableV1) -> Self {
         Self {
-            ledger: super::MinaBaseEpochLedgerValueStableV1 {
+            ledger: MinaBaseEpochLedgerValueStableV1 {
                 hash: genesis_ledger_hash,
                 total_currency,
             },
@@ -898,34 +887,34 @@ impl Default for NonZeroCurvePointUncompressedStableV1 {
     }
 }
 
-impl super::MinaNumbersGlobalSlotSinceGenesisMStableV1 {
+impl MinaNumbersGlobalSlotSinceGenesisMStableV1 {
     pub fn as_u32(&self) -> u32 {
         let Self::SinceGenesis(slot) = self;
         slot.as_u32()
     }
 }
 
-impl super::MinaNumbersGlobalSlotSinceHardForkMStableV1 {
+impl MinaNumbersGlobalSlotSinceHardForkMStableV1 {
     pub fn as_u32(&self) -> u32 {
         let Self::SinceHardFork(slot) = self;
         slot.as_u32()
     }
 }
 
-impl super::MinaNumbersGlobalSlotSpanStableV1 {
+impl MinaNumbersGlobalSlotSpanStableV1 {
     pub fn as_u32(&self) -> u32 {
         let Self::GlobalSlotSpan(slot) = self;
         slot.as_u32()
     }
 }
 
-impl From<u32> for super::UnsignedExtendedUInt32StableV1 {
+impl From<u32> for UnsignedExtendedUInt32StableV1 {
     fn from(value: u32) -> Self {
         Self(value.into())
     }
 }
 
-impl From<u64> for super::UnsignedExtendedUInt64Int64ForVersionTagsStableV1 {
+impl From<u64> for UnsignedExtendedUInt64Int64ForVersionTagsStableV1 {
     fn from(value: u64) -> Self {
         Self(value.into())
     }
@@ -947,7 +936,7 @@ impl From<&PicklesProofProofsVerifiedMaxStableV2> for PicklesProofProofsVerified
     }
 }
 
-impl std::fmt::Debug for super::UnsignedExtendedUInt32StableV1 {
+impl std::fmt::Debug for UnsignedExtendedUInt32StableV1 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let Self(inner) = self;
         // Avoid vertical alignment
@@ -955,7 +944,7 @@ impl std::fmt::Debug for super::UnsignedExtendedUInt32StableV1 {
     }
 }
 
-impl std::fmt::Debug for super::UnsignedExtendedUInt64Int64ForVersionTagsStableV1 {
+impl std::fmt::Debug for UnsignedExtendedUInt64Int64ForVersionTagsStableV1 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let Self(inner) = self;
         // Avoid vertical alignment
@@ -1001,4 +990,77 @@ impl From<OffsetDateTime> for BlockTimeTimeStableV1 {
     }
 }
 
-pub mod conv;
+impl StagedLedgerDiffBodyStableV1 {
+    pub fn diff(&self) -> &StagedLedgerDiffDiffDiffStableV2 {
+        &self.staged_ledger_diff.diff
+    }
+    pub fn commands_iter<'a>(
+        &'a self,
+    ) -> Box<dyn 'a + Iterator<Item = &'a StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2B>>
+    {
+        let diff = self.diff();
+        let iter = diff.0.commands.iter();
+        if let Some(_1) = diff.1.as_ref() {
+            Box::new(iter.chain(_1.commands.iter()))
+        } else {
+            Box::new(iter)
+        }
+    }
+
+    pub fn coinbases_iter(&self) -> impl Iterator<Item = &StagedLedgerDiffDiffFtStableV1> {
+        let diff = self.diff();
+        let mut coinbases = Vec::with_capacity(4);
+        match &diff.0.coinbase {
+            StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2Coinbase::Zero => {}
+            StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2Coinbase::One(v) => {
+                coinbases.push(v.as_ref());
+            }
+            StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2Coinbase::Two(v) => {
+                match v.as_ref() {
+                    None => {}
+                    Some((v1, v2)) => {
+                        coinbases.push(Some(v1));
+                        coinbases.push(v2.as_ref());
+                    }
+                }
+            }
+        }
+
+        if let Some(StagedLedgerDiffDiffPreDiffWithAtMostOneCoinbaseStableV2Coinbase::One(v)) =
+            diff.1.as_ref().map(|v| &v.coinbase)
+        {
+            coinbases.push(v.as_ref());
+        }
+
+        coinbases.into_iter().flatten()
+    }
+
+    pub fn completed_works_iter<'a>(
+        &'a self,
+    ) -> Box<dyn 'a + Iterator<Item = &'a TransactionSnarkWorkTStableV2>> {
+        let diff = self.diff();
+        let _0 = &diff.0;
+        if let Some(_1) = diff.1.as_ref() {
+            Box::new(_0.completed_works.iter().chain(_1.completed_works.iter()))
+        } else {
+            Box::new(_0.completed_works.iter())
+        }
+    }
+
+    pub fn coinbase_sum(&self) -> u64 {
+        self.coinbases_iter().map(|v| v.fee.as_u64()).sum()
+    }
+
+    pub fn fees_sum(&self) -> u64 {
+        self.commands_iter()
+            .map(|v| match &v.data {
+                MinaBaseUserCommandStableV2::SignedCommand(v) => v.payload.common.fee.as_u64(),
+                MinaBaseUserCommandStableV2::ZkappCommand(v) => v.fee_payer.body.fee.as_u64(),
+            })
+            .sum()
+    }
+
+    pub fn snark_fees_sum(&self) -> u64 {
+        self.completed_works_iter().map(|v| v.fee.as_u64()).sum()
+    }
+}

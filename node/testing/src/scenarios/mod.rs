@@ -33,6 +33,7 @@ use self::multi_node::vrf_epoch_bounds_correct_ledgers::MultiNodeVrfEpochBoundsC
 use self::multi_node::vrf_epoch_bounds_evaluation::MultiNodeVrfEpochBoundsEvaluation;
 use self::p2p::pubsub::P2pReceiveBlock;
 use self::simulation::small::SimulationSmall;
+use self::simulation::small_forever_real_time::SimulationSmallForeverRealTime;
 use self::solo_node::sync_to_genesis::SoloNodeSyncToGenesis;
 use self::solo_node::sync_to_genesis_custom::SoloNodeSyncToGenesisCustom;
 use self::solo_node::{
@@ -58,6 +59,7 @@ pub enum Scenarios {
     MultiNodeBasicConnectivityInitialJoining(MultiNodeBasicConnectivityInitialJoining),
     MultiNodeBasicConnectivityPeerDiscovery(MultiNodeBasicConnectivityPeerDiscovery),
     SimulationSmall(SimulationSmall),
+    SimulationSmallForeverRealTime(SimulationSmallForeverRealTime),
     P2pReceiveBlock(P2pReceiveBlock),
 }
 
@@ -67,12 +69,18 @@ impl Scenarios {
         <Self as strum::IntoEnumIterator>::iter().filter(|s| !s.skip())
     }
 
+    pub fn find_by_name(name: &str) -> Option<Self> {
+        <Self as strum::IntoEnumIterator>::iter().find(|v| v.to_str() == name)
+    }
+
     fn skip(&self) -> bool {
         match self {
             Self::SoloNodeSyncToGenesis(_) => true,
             Self::SoloNodeSyncToGenesisCustom(_) => true,
             Self::SoloNodeBasicConnectivityAcceptIncoming(_) => cfg!(feature = "p2p-webrtc"),
             Self::MultiNodeBasicConnectivityPeerDiscovery(_) => cfg!(feature = "p2p-webrtc"),
+            Self::SimulationSmall(_) => true,
+            Self::SimulationSmallForeverRealTime(_) => true,
             _ => false,
         }
     }
@@ -129,6 +137,7 @@ impl Scenarios {
                 MultiNodeBasicConnectivityPeerDiscovery::DOCS
             }
             Self::SimulationSmall(_) => SimulationSmall::DOCS,
+            Self::SimulationSmallForeverRealTime(_) => SimulationSmallForeverRealTime::DOCS,
             Self::P2pReceiveBlock(_) => P2pReceiveBlock::DOCS,
         }
     }
@@ -161,6 +170,7 @@ impl Scenarios {
             Self::MultiNodeBasicConnectivityInitialJoining(v) => v.run(runner).await,
             Self::MultiNodeBasicConnectivityPeerDiscovery(v) => v.run(runner).await,
             Self::SimulationSmall(v) => v.run(runner).await,
+            Self::SimulationSmallForeverRealTime(v) => v.run(runner).await,
             Self::P2pReceiveBlock(v) => v.run(runner).await,
         }
     }

@@ -1,0 +1,77 @@
+services:
+  init-db:
+    image: postgres
+    container_name: init-db
+    volumes:
+      - './docker/init-db:/init-db'
+      - ./docker/dumps:/dumps
+    depends_on:
+      - postgres
+    env_file:
+      - .env
+    command: sh -c 'chmod +x /init-db/init-db.sh && /init-db/init-db.sh'
+
+# In case we need to dump the db
+  db-dumper:
+    image: postgres
+    container_name: db-dumper
+    volumes:
+      - './docker/dumps:/dumps'
+    env_file:
+      - .env
+    entrypoint: "/bin/bash"
+    command: "-c 'while true; do sleep 3600; done'"
+    depends_on:
+      - postgres
+
+  postgres:
+    image: postgres
+    container_name: postgres
+    env_file:
+      - .env
+    volumes:
+      - '/tmp/archive-data:/var/lib/postgresql/data'
+
+  archive:
+    container_name: archive
+    image: minaprotocol/mina-archive:2.0.0berkeley-rc1-1551e2f-bullseye
+    restart: always
+    command: >-
+      mina-archive run --postgres-uri
+      postgres://postgres:${POSTGRES_PASSWORD}@postgres:${PG_PORT}/${PG_DB} --server-port 3086
+    volumes:
+      - '/tmp/archive-data:/data'
+    depends_on:
+      - postgres
+
+  mina:
+    image: minaprotocol/mina-daemon:2.0.0berkeley-rc1-1551e2f-bullseye-berkeley
+    container_name: mina
+    ports:
+      - 8302:8302
+      - 8301:8301
+      - 5000:5000
+    restart: always
+    environment:
+      - MINA_CLIENT_TRUSTLIST=10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
+    volumes:
+      - ./docker/.mina-env:/entrypoint.d/mina-env:ro
+      - ./docker/keys:/keys:ro
+      - /tmp/.mina-config:/root/.mina-config
+    command: daemon
+
+  producer-dashboard:
+    image: adrnagy/openmina-producer-dashboard:rc1
+    container_name: dashboard-be
+    env_file:
+      - ./docker/.mina-env
+    environment:
+      - DATABASE_URL=postgres://postgres:${POSTGRES_PASSWORD}@postgres:${PG_PORT}/${PG_DB}
+    volumes:
+      - ./docker/keys:/keys:ro
+    depends_on:
+      - mina
+      - postgres
+    ports:
+      - 3000:3000
+    command: ["--private-key-path", "/keys/devnet-key-73", "--node-url", "http://mina:5000/graphql"]

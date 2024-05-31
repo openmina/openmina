@@ -4,7 +4,7 @@ use mina_p2p_messages::v2::{BlockTimeTimeStableV1, PROTOCOL_CONSTANTS};
 use node::transition_frontier::genesis::GenesisConfig;
 
 use crate::{
-    scenarios::ClusterRunner,
+    scenarios::{ClusterRunner, RunCfgAdvanceTime},
     simulator::{Simulator, SimulatorConfig, SimulatorRunUntil},
 };
 
@@ -36,6 +36,7 @@ impl SimulationSmall {
             normal_nodes: 2,
             snark_workers: 1,
             block_producers: 6,
+            advance_time: RunCfgAdvanceTime::Rand(10..=200),
             run_until: SimulatorRunUntil::Epoch(3),
             run_until_timeout: Duration::from_secs(30 * 60),
         };

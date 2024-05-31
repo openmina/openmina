@@ -11,9 +11,10 @@ use warp::{
 
 use node::core::snark::SnarkJobId;
 use node::rpc::{
-    ActionStatsQuery, RpcMessageProgressResponse, RpcPeerInfo, RpcRequest,
-    RpcScanStateSummaryGetQuery, RpcScanStateSummaryGetResponse, RpcSnarkPoolJobGetResponse,
-    RpcSnarkerWorkersResponse, RpcStateGetError, SyncStatsQuery,
+    ActionStatsQuery, RpcBlockProducerStatsGetResponse, RpcMessageProgressResponse, RpcPeerInfo,
+    RpcRequest, RpcScanStateSummaryGetQuery, RpcScanStateSummaryGetResponse,
+    RpcSnarkPoolJobGetResponse, RpcSnarkerWorkersResponse, RpcStateGetError, RpcStatusGetResponse,
+    SyncStatsQuery,
 };
 
 use super::rpc::{
@@ -126,6 +127,19 @@ pub async fn run(port: u16, rpc_sender: super::RpcSender) {
     }
 
     let rpc_sender_clone = rpc_sender.clone();
+    let status = warp::path!("status").and(warp::get()).then(move || {
+        let rpc_sender_clone = rpc_sender_clone.clone();
+        async move {
+            let result: RpcStatusGetResponse = rpc_sender_clone
+                .oneshot_request(RpcRequest::StatusGet)
+                .await
+                .flatten();
+
+            with_json_reply(&result, StatusCode::OK)
+        }
+    });
+
+    let rpc_sender_clone = rpc_sender.clone();
     let peers_get = warp::path!("state" / "peers")
         .and(warp::get())
         .then(move || {
@@ -214,7 +228,22 @@ pub async fn run(port: u16, rpc_sender: super::RpcSender) {
                 }
             });
 
-        action_stats.or(sync_stats)
+        let rpc_sender_clone = rpc_sender.clone();
+        let block_producer_stats = warp::path!("stats" / "block_producer")
+            .and(warp::get())
+            .then(move || {
+                let rpc_sender_clone = rpc_sender_clone.clone();
+                async move {
+                    let result: RpcBlockProducerStatsGetResponse = rpc_sender_clone
+                        .oneshot_request(RpcRequest::BlockProducerStatsGet)
+                        .await
+                        .flatten();
+
+                    with_json_reply(&result, StatusCode::OK)
+                }
+            });
+
+        action_stats.or(sync_stats).or(block_producer_stats)
     };
 
     let rpc_sender_clone = rpc_sender.clone();
@@ -417,6 +446,7 @@ pub async fn run(port: u16, rpc_sender: super::RpcSender) {
     #[cfg(feature = "p2p-webrtc")]
     let routes = signaling.or(state_get).or(state_post);
     let routes = routes
+        .or(status)
         .or(peers_get)
         .or(message_progress_get)
         .or(stats)

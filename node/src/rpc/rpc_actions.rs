@@ -22,6 +22,9 @@ pub enum RpcAction {
         rpc_id: RpcId,
         filter: Option<String>,
     },
+    StatusGet {
+        rpc_id: RpcId,
+    },
 
     // Stats
     ActionStatsGet {
@@ -32,6 +35,10 @@ pub enum RpcAction {
         rpc_id: RpcId,
         query: SyncStatsQuery,
     },
+    BlockProducerStatsGet {
+        rpc_id: RpcId,
+    },
+
     MessageProgressGet {
         rpc_id: RpcId,
     },
@@ -137,8 +144,10 @@ impl redux::EnablingCondition<crate::State> for RpcAction {
     fn is_enabled(&self, state: &crate::State, _time: redux::Timestamp) -> bool {
         match self {
             RpcAction::GlobalStateGet { .. } => true,
+            RpcAction::StatusGet { .. } => true,
             RpcAction::ActionStatsGet { .. } => true,
             RpcAction::SyncStatsGet { .. } => true,
+            RpcAction::BlockProducerStatsGet { .. } => true,
             RpcAction::MessageProgressGet { .. } => true,
             RpcAction::PeersGet { .. } => true,
             RpcAction::P2pConnectionOutgoingInit { rpc_id, .. } => {

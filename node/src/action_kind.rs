@@ -302,6 +302,7 @@ pub enum ActionKind {
     P2pPeerDiscovered,
     P2pPeerReady,
     RpcActionStatsGet,
+    RpcBlockProducerStatsGet,
     RpcDiscoveryBoostrapStats,
     RpcDiscoveryRoutingTable,
     RpcFinish,
@@ -329,6 +330,7 @@ pub enum ActionKind {
     RpcSnarkerJobCommit,
     RpcSnarkerJobSpec,
     RpcSnarkerWorkersGet,
+    RpcStatusGet,
     RpcSyncStatsGet,
     SnarkBlockVerifyError,
     SnarkBlockVerifyFinish,
@@ -445,7 +447,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 372;
+    pub const COUNT: u16 = 374;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -619,8 +621,10 @@ impl ActionKindGet for RpcAction {
     fn kind(&self) -> ActionKind {
         match self {
             Self::GlobalStateGet { .. } => ActionKind::RpcGlobalStateGet,
+            Self::StatusGet { .. } => ActionKind::RpcStatusGet,
             Self::ActionStatsGet { .. } => ActionKind::RpcActionStatsGet,
             Self::SyncStatsGet { .. } => ActionKind::RpcSyncStatsGet,
+            Self::BlockProducerStatsGet { .. } => ActionKind::RpcBlockProducerStatsGet,
             Self::MessageProgressGet { .. } => ActionKind::RpcMessageProgressGet,
             Self::PeersGet { .. } => ActionKind::RpcPeersGet,
             Self::P2pConnectionOutgoingInit { .. } => ActionKind::RpcP2pConnectionOutgoingInit,

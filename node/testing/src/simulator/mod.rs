@@ -7,12 +7,11 @@ use mina_p2p_messages::v2::{
 use std::{collections::BTreeSet, time::Duration};
 
 use node::{ActionKind, BlockProducerConfig, SnarkerConfig, SnarkerStrategy, State};
-use rand::{Rng, SeedableRng};
 
 use crate::{
     cluster::ClusterNodeId,
     node::{Node, RustNodeBlockProducerTestingConfig, RustNodeTestingConfig},
-    scenario::{ListenerNode, ScenarioStep},
+    scenario::ListenerNode,
     scenarios::{ClusterRunner, RunCfg},
 };
 
@@ -208,48 +207,63 @@ impl Simulator {
         self.set_up_block_producer_nodes(&mut runner).await;
 
         let run_until = self.config.run_until.clone();
-        let mut timeout = self.config.run_until_timeout;
-        let mut rng = rand::rngs::StdRng::seed_from_u64(1);
+        let advance_time = self.config.advance_time.clone();
+        let start_t = redux::Instant::now();
+        let mut last_printed_slot = 0;
+        let virtual_initial_time = self.initial_time();
 
-        while !timeout.is_zero() {
-            let t = redux::Instant::now();
+        while start_t.elapsed() < self.config.run_until_timeout {
             tokio::task::yield_now().await;
-            let _ = runner.run(RunCfg::default().timeout(Duration::ZERO)).await;
+            let _ = runner
+                .run(
+                    RunCfg::default()
+                        .advance_time(advance_time.clone())
+                        .timeout(Duration::ZERO),
+                )
+                .await;
 
-            for (node_id, node) in runner.nodes_iter() {
-                let Some(best_tip) = node.state().transition_frontier.best_tip() else {
-                    continue;
-                };
-                let consensus_state = &best_tip.header().protocol_state.body.consensus_state;
+            let printed_elapsed_time = {
+                let state = runner.nodes_iter().next().unwrap().1.state();
+                if let Some(cur_slot) = state
+                    .cur_global_slot()
+                    .filter(|cur| *cur > last_printed_slot)
+                {
+                    let real_elapsed = start_t.elapsed();
+                    let virtual_elapsed = state.time().checked_sub(virtual_initial_time).unwrap();
+                    last_printed_slot = cur_slot;
 
-                eprintln!(
-                    "[node_status] node_{node_id} {} - {} [{}]; snarks: {}",
-                    best_tip.height(),
-                    best_tip.hash(),
-                    best_tip.producer(),
-                    best_tip.staged_ledger_diff().0.completed_works.len(),
-                );
-                match &run_until {
-                    SimulatorRunUntil::Epoch(epoch) => {
-                        let cur_epoch = consensus_state.epoch_count.as_u32();
-                        if cur_epoch >= *epoch {
-                            return;
+                    eprintln!("[elapsed] real: {real_elapsed:?}, virtual: {virtual_elapsed:?}, global_slot: {cur_slot}");
+                    true
+                } else {
+                    false
+                }
+            };
+
+            if printed_elapsed_time {
+                for (node_id, node) in runner.nodes_iter() {
+                    let Some(best_tip) = node.state().transition_frontier.best_tip() else {
+                        continue;
+                    };
+                    let consensus_state = &best_tip.header().protocol_state.body.consensus_state;
+
+                    eprintln!(
+                        "[node_status] node_{node_id} {} - {} [{}]; snarks: {}",
+                        best_tip.height(),
+                        best_tip.hash(),
+                        best_tip.producer(),
+                        best_tip.staged_ledger_diff().0.completed_works.len(),
+                    );
+                    match &run_until {
+                        SimulatorRunUntil::Forever => {}
+                        SimulatorRunUntil::Epoch(epoch) => {
+                            let cur_epoch = consensus_state.epoch_count.as_u32();
+                            if cur_epoch >= *epoch {
+                                return;
+                            }
                         }
                     }
                 }
             }
-
-            // advance global time randomly.
-            let advance_time = Duration::from_millis(rng.gen_range(1..300));
-            let elapsed = t.elapsed();
-            let by_nanos = advance_time.as_nanos() as u64;
-            eprintln!("[TIME] elapsed {elapsed:?}; advance_by: {advance_time:?}");
-            runner
-                .exec_step(ScenarioStep::AdvanceTime { by_nanos })
-                .await
-                .unwrap();
-
-            timeout = timeout.saturating_sub(elapsed);
         }
 
         panic!("simulation timed out");

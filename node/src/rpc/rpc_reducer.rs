@@ -8,8 +8,10 @@ impl RpcState {
         let (action, meta) = action.split();
         match action {
             RpcAction::GlobalStateGet { .. } => {}
+            RpcAction::StatusGet { .. } => {}
             RpcAction::ActionStatsGet { .. } => {}
             RpcAction::SyncStatsGet { .. } => {}
+            RpcAction::BlockProducerStatsGet { .. } => {}
             RpcAction::MessageProgressGet { .. } => {}
             RpcAction::PeersGet { .. } => {}
             RpcAction::P2pConnectionOutgoingInit { rpc_id, opts } => {
