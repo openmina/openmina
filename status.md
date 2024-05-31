@@ -156,6 +156,7 @@
 ### Handshake
 
 - [x] Create a service for low level TCP networking (mio, epoll).
+  - [ ] Per-connection data buffering limits.
 - [ ] DNS support.
 - [x] Pnet protocol.
 - [x] Multistream select protocol.
@@ -199,6 +200,14 @@
 - [x] Test that the Openmina node can bootstrap from the replayer tool.
 - [ ] Test that the OCaml node can bootstrap from the Openmina node.
 - [ ] Test that the Openmina node can bootstrap from another instance of openmina node.
+
+### Fuzzing
+- [x] Mutator-based (bit-flipping/extend/shrink) fuzzing of communication between two openmina nodes
+  - [x] PNet layer mutator.
+  - [x] Protocol select mutator.
+  - [x] Noise mutator.
+  - [x] Yamux mutator.
+  - [x] Stream-based protocols mutators: Identify, Kad, Meshsub, RPCs.
 
 ## P2P Related Tests <a name="p2p-tests"></a>
 
