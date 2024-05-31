@@ -11,7 +11,7 @@ pub use p2p_disconnection_service::*;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{channels::ChannelId, connection::RejectionReason, P2pNetworkError};
+use crate::{channels::ChannelId, connection::RejectionReason};
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, thiserror::Error)]
 pub enum P2pDisconnectionReason {
@@ -37,7 +37,4 @@ pub enum P2pDisconnectionReason {
 
     #[error("timeout")]
     Timeout,
-
-    #[error("network error: {0}")]
-    NetworkError(#[from] P2pNetworkError),
 }

@@ -8,7 +8,7 @@ use crate::{
         incoming::P2pConnectionIncomingAction, outgoing::P2pConnectionOutgoingAction,
         P2pConnectionState,
     },
-    disconnection::{P2pDisconnectionAction, P2pDisconnectionReason},
+    disconnection::P2pDisconnectionAction,
     identify::P2pIdentifyAction,
     network::identify::P2pNetworkIdentifyStreamAction,
     request::{P2pNetworkKadRequestState, P2pNetworkKadRequestStatus},
@@ -322,13 +322,7 @@ impl P2pNetworkSchedulerAction {
 
                     store.dispatch(P2pNetworkSchedulerAction::Prune { addr });
 
-                    if !matches!(
-                        reason,
-                        P2pNetworkConnectionCloseReason::Disconnect(
-                            P2pDisconnectionReason::NetworkError(P2pNetworkError::SelectError)
-                        )
-                    ) && reason.is_disconnected()
-                    {
+                    if reason.is_disconnected() {
                         // statemachine behaviour should continue with this, i.e. dispatch P2pDisconnectionAction::Finish
                         return;
                     }

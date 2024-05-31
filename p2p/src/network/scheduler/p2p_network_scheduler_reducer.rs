@@ -139,17 +139,12 @@ impl P2pNetworkSchedulerState {
                         connection.streams.remove(stream_id);
                     }
 
-                    connection.closed = Some(P2pNetworkConnectionCloseReason::Disconnect(
-                        P2pNetworkError::SelectError.into(),
-                    ));
+                    connection.closed = Some(P2pNetworkConnectionError::SelectError.into());
+                }
+                if let Some(connection) = self.connections.get_mut(addr) {
+                    connection.closed = Some(P2pNetworkConnectionError::SelectError.into());
                 } else {
-                    if let Some(connection) = self.connections.get_mut(addr) {
-                        connection.closed = Some(P2pNetworkConnectionCloseReason::Disconnect(
-                            P2pNetworkError::SelectError.into(),
-                        ));
-                    } else {
-                        unreachable!()
-                    }
+                    unreachable!()
                 }
             }
             P2pNetworkSchedulerAction::YamuxDidInit { addr, .. } => {

@@ -170,18 +170,6 @@ mod data {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, thiserror::Error)]
-pub enum P2pNetworkError {
-    #[error("select error")]
-    SelectError,
-    #[error(transparent)]
-    IdentifyStreamError(#[from] P2pNetworkIdentifyStreamError),
-    #[error(transparent)]
-    KademliaIncomingStreamError(#[from] P2pNetworkKadIncomingStreamError),
-    #[error(transparent)]
-    KademliaOutgoingStreamError(#[from] P2pNetworkKadOutgoingStreamError),
-}
-
 /// Errors that might happen while handling protobuf messages received via a stream.
 #[derive(Debug, Clone, PartialEq, thiserror::Error, Serialize, Deserialize)]
 pub enum P2pNetworkStreamProtobufError<T> {

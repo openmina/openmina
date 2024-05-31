@@ -94,7 +94,7 @@ impl P2pNetworkConnectionCloseReason {
 }
 
 /// P2p connection error.
-#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, thiserror::Error, Serialize, Deserialize)]
 pub enum P2pNetworkConnectionError {
     #[error("mio error: {0}")]
     MioError(String),
@@ -102,6 +102,14 @@ pub enum P2pNetworkConnectionError {
     Noise(#[from] NoiseError),
     #[error("remote peer closed connection")]
     RemoteClosed,
+    #[error("select protocol error")]
+    SelectError,
+    #[error(transparent)]
+    IdentifyStreamError(#[from] P2pNetworkIdentifyStreamError),
+    #[error(transparent)]
+    KademliaIncomingStreamError(#[from] P2pNetworkKadIncomingStreamError),
+    #[error(transparent)]
+    KademliaOutgoingStreamError(#[from] P2pNetworkKadOutgoingStreamError),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
