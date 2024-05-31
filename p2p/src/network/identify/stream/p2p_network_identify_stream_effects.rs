@@ -8,7 +8,10 @@ use super::{
     super::{pb, P2pNetworkIdentify},
     P2pNetworkIdentifyStreamAction,
 };
-use crate::{identify::P2pIdentifyAction, token, Data, P2pNetworkService, P2pNetworkYamuxAction};
+use crate::{
+    identify::P2pIdentifyAction, network::identify::stream::P2pNetworkIdentifyStreamError, token,
+    Data, P2pNetworkSchedulerAction, P2pNetworkService, P2pNetworkYamuxAction,
+};
 
 fn get_addrs<I, S>(addr: &SocketAddr, net_svc: &mut S) -> I
 where
@@ -171,7 +174,11 @@ impl P2pNetworkIdentifyStreamAction {
                     Ok(())
                 }
                 S::Error(err) => {
-                    warn!(meta.time(); summary = "error handling Identify action", error = err, action = format!("{self:?}"));
+                    warn!(meta.time(); summary = "error handling Identify action", error = display(err));
+                    store.dispatch(P2pNetworkSchedulerAction::Error {
+                        addr,
+                        error: P2pNetworkIdentifyStreamError::from(err.clone()).into(),
+                    });
                     Ok(())
                 }
                 _ => unimplemented!(),

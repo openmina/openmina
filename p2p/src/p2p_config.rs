@@ -23,10 +23,9 @@ pub struct P2pConfig {
 
     pub enabled_channels: BTreeSet<ChannelId>,
 
-    /// Maximal allowed number of connections.
-    pub max_peers: usize,
-
     pub timeouts: P2pTimeouts,
+
+    pub limits: P2pLimits,
 
     /// Use peers discovery.
     pub peer_discovery: bool,
@@ -84,5 +83,253 @@ impl P2pTimeouts {
             snark: None,
             ..Default::default()
         }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, derive_more::Display)]
+pub enum Limit<T> {
+    #[display(fmt = "{}", _0)]
+    Some(T),
+    #[display(fmt = "unlimited")]
+    Unlimited,
+}
+
+impl<T> Limit<T> {
+    pub fn map<F, O>(self, f: F) -> Limit<O>
+    where
+        F: FnOnce(T) -> O,
+    {
+        match self {
+            Limit::Some(t) => Limit::Some(f(t)),
+            Limit::Unlimited => Limit::Unlimited,
+        }
+    }
+}
+
+macro_rules! impls {
+    ($ty:ty) => {
+        impl From<Option<$ty>> for Limit<$ty> {
+            fn from(value: Option<$ty>) -> Self {
+                match value {
+                    Some(v) => Limit::Some(v),
+                    None => Limit::Unlimited,
+                }
+            }
+        }
+
+        impl From<Limit<$ty>> for Option<$ty> {
+            fn from(value: Limit<$ty>) -> Self {
+                match value {
+                    Limit::Some(v) => Some(v),
+                    Limit::Unlimited => None,
+                }
+            }
+        }
+
+        impl std::cmp::PartialEq<$ty> for Limit<$ty> {
+            fn eq(&self, other: &$ty) -> bool {
+                match self {
+                    Limit::Some(v) => v.eq(other),
+                    Limit::Unlimited => false,
+                }
+            }
+        }
+
+        impl std::cmp::PartialEq<Limit<$ty>> for $ty {
+            fn eq(&self, other: &Limit<$ty>) -> bool {
+                match other {
+                    Limit::Some(other) => self.eq(other),
+                    Limit::Unlimited => false,
+                }
+            }
+        }
+
+        impl std::cmp::PartialEq<Limit<$ty>> for Limit<$ty> {
+            fn eq(&self, other: &Limit<$ty>) -> bool {
+                match (self, other) {
+                    (Limit::Some(this), Limit::Some(other)) => this.eq(other),
+                    (Limit::Unlimited, Limit::Unlimited) => true,
+                    _ => false,
+                }
+            }
+        }
+
+        impl std::cmp::Eq for Limit<$ty> {}
+
+        impl std::cmp::PartialOrd<$ty> for Limit<$ty> {
+            fn partial_cmp(&self, other: &$ty) -> Option<std::cmp::Ordering> {
+                match self {
+                    Limit::Some(v) => v.partial_cmp(other),
+                    Limit::Unlimited => Some(std::cmp::Ordering::Greater),
+                }
+            }
+        }
+
+        impl std::cmp::PartialOrd<Limit<$ty>> for $ty {
+            fn partial_cmp(&self, other: &Limit<$ty>) -> Option<std::cmp::Ordering> {
+                match other {
+                    Limit::Some(other) => self.partial_cmp(other),
+                    Limit::Unlimited => Some(std::cmp::Ordering::Less),
+                }
+            }
+        }
+    };
+}
+
+impls!(usize);
+impls!(std::time::Duration);
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct P2pLimits {
+    max_peers: Limit<usize>,
+
+    identify_message: Limit<usize>,
+    kademlia_request: Limit<usize>,
+    kademlia_response: Limit<usize>,
+
+    rpc_service_message: Limit<usize>,
+    rpc_query: Limit<usize>,
+    rpc_get_best_tip: Limit<usize>,
+    rpc_answer_sync_ledger_query: Limit<usize>,
+    rpc_get_staged_ledger: Limit<usize>,
+    rpc_get_transition_chain: Limit<usize>,
+    rpc_get_some_initial_peers: Limit<usize>,
+}
+
+macro_rules! limit {
+    (#[$meta:meta] $limit:ident) => {
+        #[$meta]
+        pub fn $limit(&self) -> Limit<usize> {
+            self.$limit
+        }
+    };
+
+    (#[$meta:meta] $limit:ident, #[$setter_meta:meta] $setter:ident) => {
+        limit!(#[$meta] $limit);
+
+        #[$setter_meta]
+        pub fn $setter<T: Into<Limit<usize>>>(mut self, $limit: T) -> Self {
+            self.$limit = $limit.into();
+            self
+        }
+    };
+
+    (#[$meta:meta] $limit:ident(&$self:ident): $expr:expr) => {
+        #[$meta]
+        pub fn $limit(&$self) -> Limit<usize> {
+            $expr
+        }
+    };
+}
+
+impl P2pLimits {
+    limit!(
+        /// Maximum number of peers.
+        max_peers,
+        /// Sets maximum number of peers.
+        with_max_peers
+    );
+
+    limit!(
+        /// Minimum number of peers.
+        min_peers(&self): self.max_peers.map(|v| (v / 2).max(3).min(v))
+    );
+
+    limit!(
+        /// Maximum number of connections.
+        max_connections(&self): self.max_peers.map(|v| v + 10)
+    );
+
+    limit!(
+        /// Maximum length of Identify message.
+        identify_message
+    );
+    limit!(
+        /// Maximum length of Kademlia request message.
+        kademlia_request
+    );
+    limit!(
+        /// Maximum length of Kademlia response message.
+        kademlia_response
+    );
+
+    limit!(
+        #[doc = "RPC service message"]
+        rpc_service_message
+    );
+    limit!(
+        #[doc = "RPC query"]
+        rpc_query
+    );
+    limit!(
+        #[doc = "RPC get_best_tip"]
+        rpc_get_best_tip
+    );
+    limit!(
+        #[doc = "RPC answer_sync_ledger_query"]
+        rpc_answer_sync_ledger_query
+    );
+    limit!(
+        #[doc = "RPC get_staged_ledger"]
+        rpc_get_staged_ledger
+    );
+    limit!(
+        #[doc = "RPC get_transition_chain"]
+        rpc_get_transition_chain
+    );
+    limit!(
+        #[doc = "RPC some_initial_peers"]
+        rpc_get_some_initial_peers
+    );
+}
+
+impl Default for P2pLimits {
+    fn default() -> Self {
+        let max_peers = Limit::Some(100);
+
+        let identify_message = Limit::Some(0x1000);
+        let kademlia_request = Limit::Some(50);
+        let kademlia_response = identify_message.map(|v| v * 20); // should be enough to fit 20 addresses supplied by identify
+
+        let rpc_service_message = Limit::Some(7); // 7 for handshake, 1 for heartbeat
+        let rpc_query = Limit::Some(256); // max is 96
+        let rpc_get_best_tip = Limit::Some(3_500_000); // 3182930 as observed, may vary
+        let rpc_answer_sync_ledger_query = Limit::Some(200_000); // 124823 as observed
+        let rpc_get_staged_ledger = Limit::Some(40_000_000); // 36371615 as observed, may vary
+        let rpc_get_transition_chain = Limit::Some(3_500_000); // 2979112 as observed
+        let rpc_get_some_initial_peers = Limit::Some(32_000); // TODO: calculate
+        Self {
+            max_peers,
+
+            identify_message,
+            kademlia_request,
+            kademlia_response,
+
+            rpc_service_message,
+            rpc_query,
+            rpc_get_best_tip,
+            rpc_answer_sync_ledger_query,
+            rpc_get_staged_ledger,
+            rpc_get_transition_chain,
+            rpc_get_some_initial_peers,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::Limit;
+
+    #[test]
+    fn test_limits() {
+        let limit = Limit::Some(10);
+        assert!(0 < limit);
+        assert!(10 <= limit);
+        assert!(11 > limit);
+
+        let unlimited = Limit::Unlimited;
+        assert!(0 < unlimited);
+        assert!(usize::MAX < unlimited);
     }
 }

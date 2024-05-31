@@ -5,7 +5,7 @@ use std::{
 };
 
 use futures::Stream;
-use p2p::{P2pAction, P2pEvent, P2pState, P2pTimeouts, PeerId};
+use p2p::{P2pAction, P2pEvent, P2pLimits, P2pState, P2pTimeouts, PeerId};
 use redux::{EnablingCondition, SubStore};
 use tokio::sync::mpsc;
 
@@ -25,6 +25,7 @@ pub struct RustNodeConfig {
     pub peer_id: PeerIdConfig,
     pub initial_peers: Vec<Listener>,
     pub timeouts: P2pTimeouts,
+    pub limits: P2pLimits,
     pub discovery: bool,
 }
 
@@ -44,6 +45,11 @@ impl RustNodeConfig {
 
     pub fn with_timeouts(mut self, timeouts: P2pTimeouts) -> Self {
         self.timeouts = timeouts;
+        self
+    }
+
+    pub fn with_limits(mut self, limits: P2pLimits) -> Self {
+        self.limits = limits;
         self
     }
 

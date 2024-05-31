@@ -6,7 +6,6 @@ use std::{
     time::{Duration, Instant},
 };
 
-use derive_builder::UninitializedFieldError;
 use futures::StreamExt;
 use libp2p::{multiaddr::multiaddr, swarm::DialError, Multiaddr};
 use openmina_core::{ChainId, BERKELEY_CHAIN_ID};
@@ -101,7 +100,7 @@ impl Default for ClusterBuilder {
             ports: None,
             ip: Ipv4Addr::LOCALHOST.into(),
             idle_duration: Duration::from_millis(100),
-            is_error: |_| false,
+            is_error: super::event::is_error,
             total_duration: Duration::from_secs(60),
         }
     }
@@ -158,7 +157,7 @@ impl ClusterBuilder {
         let chain_id = self.chain_id;
         let ports = self
             .ports
-            .ok_or_else(|| UninitializedFieldError::new("ports"))?
+            .ok_or_else(|| Error::UninitializedField("ports"))?
             .ports()
             .await?;
         let ip = self.ip;
@@ -267,8 +266,8 @@ pub enum Error {
     NoMorePorts,
     #[error(transparent)]
     AddrParse(#[from] P2pConnectionOutgoingInitOptsParseError),
-    #[error(transparent)]
-    UninitializedField(#[from] UninitializedFieldError),
+    #[error("uninitialized field `{0}`")]
+    UninitializedField(&'static str),
     #[error("swarm creation error: {0}")]
     Libp2pSwarm(String),
     #[error(transparent)]
@@ -357,9 +356,9 @@ impl Cluster {
             initial_peers,
             ask_initial_peers_interval: Duration::from_secs(5),
             enabled_channels: p2p::channels::ChannelId::for_libp2p().collect(),
-            max_peers: 100,
             peer_discovery: config.discovery,
             timeouts: config.timeouts,
+            limits: config.limits,
             initial_time: Duration::ZERO,
         };
 

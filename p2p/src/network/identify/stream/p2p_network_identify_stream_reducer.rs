@@ -1,7 +1,10 @@
 use super::{
     P2pNetworkIdentifyStreamAction, P2pNetworkIdentifyStreamKind, P2pNetworkIdentifyStreamState,
 };
-use crate::network::identify::{pb::Identify, P2pNetworkIdentify};
+use crate::{
+    network::identify::{pb::Identify, P2pNetworkIdentify},
+    P2pLimits, P2pNetworkStreamProtobufError,
+};
 use prost::Message;
 use quick_protobuf::BytesReader;
 use redux::ActionWithMeta;
@@ -10,6 +13,7 @@ impl P2pNetworkIdentifyStreamState {
     pub fn reducer(
         &mut self,
         action: ActionWithMeta<&P2pNetworkIdentifyStreamAction>,
+        limits: &P2pLimits,
     ) -> Result<(), String> {
         use super::P2pNetworkIdentifyStreamAction as A;
         use super::P2pNetworkIdentifyStreamState as S;
@@ -38,13 +42,16 @@ impl P2pNetworkIdentifyStreamState {
                     let data = &data.0;
                     let mut reader = BytesReader::from_bytes(data);
                     let Ok(len) = reader.read_varint32(data).map(|v| v as usize) else {
-                        *self = S::Error("error reading message length".to_owned());
+                        *self = S::Error(P2pNetworkStreamProtobufError::MessageLength);
                         return Ok(());
                     };
 
                     // TODO: implement as configuration option
-                    if len > 0x1000 {
-                        *self = S::Error(format!("Identify message is too long ({})", len));
+                    if len > limits.identify_message() {
+                        *self = S::Error(P2pNetworkStreamProtobufError::Limit(
+                            len,
+                            limits.identify_message(),
+                        ));
                         return Ok(());
                     }
 
@@ -94,9 +101,9 @@ impl P2pNetworkIdentifyStreamState {
         let message = match Identify::decode(&data[..len]) {
             Ok(v) => v,
             Err(e) => {
-                *self = P2pNetworkIdentifyStreamState::Error(format!(
-                    "error reading protobuf message: {e}"
-                ));
+                *self = P2pNetworkIdentifyStreamState::Error(
+                    P2pNetworkStreamProtobufError::Message(e.to_string()),
+                );
                 return Ok(());
             }
         };
@@ -104,9 +111,7 @@ impl P2pNetworkIdentifyStreamState {
         let data = match P2pNetworkIdentify::try_from(message.clone()) {
             Ok(v) => v,
             Err(e) => {
-                *self = P2pNetworkIdentifyStreamState::Error(format!(
-                    "error converting protobuf message: {e}"
-                ));
+                *self = P2pNetworkIdentifyStreamState::Error(e.into());
                 return Ok(());
             }
         };

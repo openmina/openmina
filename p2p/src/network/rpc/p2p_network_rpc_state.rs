@@ -29,7 +29,7 @@ pub struct P2pNetworkRpcState {
     pub is_incoming: bool,
     pub buffer: Vec<u8>,
     pub incoming: VecDeque<RpcMessage>,
-    pub error: Option<String>,
+    pub error: Option<P2pNetworkRpcError>,
 }
 
 impl P2pNetworkRpcState {
@@ -74,7 +74,7 @@ impl RpcMessage {
                     .unwrap_or_default();
             }
             Self::Query { header, bytes } => {
-                MessageHeader::Query(header)
+                MessageHeader::Query(header.clone())
                     .binprot_write(&mut v)
                     .unwrap_or_default();
                 v.extend_from_slice(&bytes);
@@ -91,4 +91,12 @@ impl RpcMessage {
         v[..8].clone_from_slice(&len_bytes);
         v
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, thiserror::Error)]
+pub enum P2pNetworkRpcError {
+    #[error("error reading binprot message: {0}")]
+    Binprot(String),
+    #[error("message {0} with size {1} exceeds limit of {2}")]
+    Limit(String, usize, Limit<usize>),
 }

@@ -1,10 +1,18 @@
 use binprot::BinProtRead;
-use mina_p2p_messages::rpc_kernel::{MessageHeader, QueryHeader};
+use mina_p2p_messages::rpc_kernel::{MessageHeader, QueryHeader, RpcMethod};
+
+use crate::{Limit, P2pLimits};
+
+use self::p2p_network_rpc_state::P2pNetworkRpcError;
 
 use super::*;
 
 impl P2pNetworkRpcState {
-    pub fn reducer(&mut self, action: redux::ActionWithMeta<&P2pNetworkRpcAction>) {
+    pub fn reducer(
+        &mut self,
+        action: redux::ActionWithMeta<&P2pNetworkRpcAction>,
+        limits: &P2pLimits,
+    ) {
         if self.error.is_some() {
             return;
         }
@@ -20,6 +28,10 @@ impl P2pNetworkRpcState {
                     let buf = &self.buffer[offset..];
                     if let Some(len_bytes) = buf.get(..8).and_then(|s| s.try_into().ok()) {
                         let len = u64::from_le_bytes(len_bytes) as usize;
+                        if let Err(err) = self.check_rpc_limit(len, limits) {
+                            self.error = Some(err);
+                            return;
+                        }
                         if buf.len() >= 8 + len {
                             offset += 8 + len;
                             let mut slice = &buf[8..(8 + len)];
@@ -39,7 +51,7 @@ impl P2pNetworkRpcState {
                                     bytes: slice.to_vec().into(),
                                 },
                                 Err(err) => {
-                                    self.error = Some(err.to_string());
+                                    self.error = Some(P2pNetworkRpcError::Binprot(err.to_string()));
                                     continue;
                                 }
                             };
@@ -83,6 +95,43 @@ impl P2pNetworkRpcState {
                 self.pending = Some(query.clone());
             }
             _ => {}
+        }
+    }
+
+    fn check_rpc_limit(&self, len: usize, limits: &P2pLimits) -> Result<(), P2pNetworkRpcError> {
+        let (limit, kind): (_, &[u8]) = if self.is_incoming {
+            // only requests are allowed
+            (limits.rpc_query(), b"<query>")
+        } else if let Some(QueryHeader { tag, .. }) = self.pending.as_ref() {
+            use mina_p2p_messages::rpc::*;
+            match tag.as_ref() {
+                GetBestTipV2::NAME => (limits.rpc_get_best_tip(), GetBestTipV2::NAME),
+                AnswerSyncLedgerQueryV2::NAME => (
+                    limits.rpc_answer_sync_ledger_query(),
+                    AnswerSyncLedgerQueryV2::NAME,
+                ),
+                GetStagedLedgerAuxAndPendingCoinbasesAtHashV2::NAME => (
+                    limits.rpc_get_staged_ledger(),
+                    GetStagedLedgerAuxAndPendingCoinbasesAtHashV2::NAME,
+                ),
+                GetTransitionChainV2::NAME => (
+                    limits.rpc_get_transition_chain(),
+                    GetTransitionChainV2::NAME,
+                ),
+                GetSomeInitialPeersV1ForV2::NAME => (
+                    limits.rpc_get_some_initial_peers(),
+                    GetSomeInitialPeersV1ForV2::NAME,
+                ),
+                _ => (Limit::Some(0), b"<unimplemented>"),
+            }
+        } else {
+            (limits.rpc_service_message(), b"<service_messages>")
+        };
+        let kind = String::from_utf8_lossy(kind);
+        if len > limit {
+            Err(P2pNetworkRpcError::Limit(kind.into_owned(), len, limit))
+        } else {
+            Ok(())
         }
     }
 }

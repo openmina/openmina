@@ -57,7 +57,7 @@ impl P2pNetworkKademliaRpcRequest {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, thiserror::Error)]
+#[derive(Clone, Debug, Serialize, PartialEq, Deserialize, thiserror::Error)]
 pub enum P2pNetworkKademliaPeerIdError {
     #[error("error decoding PeerId from bytes: lenght {0} while expected 32")]
     Parse(String),
@@ -99,7 +99,7 @@ pub enum P2pNetworkKademliaRpcPeerTryFromError {
     Multiaddr(#[from] P2pNetworkKademliaMultiaddrError),
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, thiserror::Error)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, thiserror::Error)]
 #[error("error decoding Multiaddr from bytes: {0}")]
 pub struct P2pNetworkKademliaMultiaddrError(String);
 
@@ -115,7 +115,7 @@ impl From<multiaddr::Error> for P2pNetworkKademliaMultiaddrError {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, thiserror::Error)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, thiserror::Error)]
 pub enum P2pNetworkKademliaRpcFromMessageError {
     #[error(transparent)]
     PeerId(#[from] P2pNetworkKademliaPeerIdError),

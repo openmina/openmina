@@ -247,7 +247,10 @@ impl MaxNumberOfPeersIncoming {
         // check that the number of ready peers does not exceed the maximal allowed number
         let state = driver.inner().node(node_ut).unwrap().state();
         let count = state.p2p.ready_peers_iter().count();
-        assert!(count <= MAX.into(), "max number of peers exceeded: {count}");
+        assert!(
+            count <= usize::from(MAX),
+            "max number of peers exceeded: {count}"
+        );
 
         // check that the number of nodes with the node as their peer does not exceed the maximal allowed number
         let peers_connected = || {
@@ -263,7 +266,7 @@ impl MaxNumberOfPeersIncoming {
                 })
         };
         assert!(
-            peers_connected().count() <= MAX.into(),
+            peers_connected().count() <= usize::from(MAX),
             "peers connections to the node exceed the max number of connections: {}",
             peers_connected().count()
         );
