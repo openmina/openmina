@@ -4,12 +4,13 @@
   <span class="fx-row-vert-cent text-capitalize" [ngClass]="row.message">
     <mina-loading-spinner *ngIf="row.active; else circle"></mina-loading-spinner>
     <ng-template #circle><span class="mina-icon icon-200 f-big">circle</span></ng-template>
-    {{ row.message }}
+    {{ row.percentage !== undefined ? row.percentage + '%' : '' }} {{ row.message }}
   </span>
   <span>{{ row.age }}</span>
   <span>{{ row.height ?? '-' }}</span>
   <span>{{ row.globalSlot }}</span>
   <span
+    [tooltipDisabled]="true"
     [tooltip]="row.payments + ' payments, ' + row.delegations + ' delegations, ' + row.zkapps + ' zkapps'"
   >{{ row.transactionsTotal ?? '-' }}</span>
   <span>{{ row.snarkFees ?? '-' }}</span>

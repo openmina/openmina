@@ -11,7 +11,7 @@ import {
 } from '@block-production/won-slots/side-panel/block-production-won-slots-side-panel.component';
 import { EffectsModule } from '@ngrx/effects';
 import { BlockProductionWonSlotsEffects } from '@block-production/won-slots/block-production-won-slots.effects';
-import { HorizontalMenuComponent, HorizontalResizableContainerComponent } from '@openmina/shared';
+import { CopyComponent, HorizontalMenuComponent, HorizontalResizableContainerComponent } from '@openmina/shared';
 import { LoadingSpinnerComponent } from '@shared/loading-spinner/loading-spinner.component';
 import {
   BlockProductionWonSlotsFiltersComponent,
@@ -38,6 +38,7 @@ import { SharedModule } from '@shared/shared.module';
     LoadingSpinnerComponent,
     HorizontalMenuComponent,
     SharedModule,
+    CopyComponent,
   ],
 })
 export class BlockProductionWonSlotsModule {}

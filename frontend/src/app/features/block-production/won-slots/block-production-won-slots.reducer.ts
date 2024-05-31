@@ -4,6 +4,7 @@ import { sort, SortDirection, TableSort } from '@openmina/shared';
 import { BlockProductionWonSlotsActions } from '@block-production/won-slots/block-production-won-slots.actions';
 import {
   BlockProductionWonSlotsSlot,
+  BlockProductionWonSlotsStatus,
 } from '@shared/types/block-production/won-slots/block-production-won-slots-slot.type';
 
 const initialState: BlockProductionWonSlotsState = {
@@ -25,15 +26,12 @@ const initialState: BlockProductionWonSlotsState = {
 
 export const blockProductionWonSlotsReducer = createReducer(
   initialState,
-  on(BlockProductionWonSlotsActions.getActiveEpochSuccess, (state, { epoch }) => ({
-    ...state,
-    epoch,
-  })),
-  on(BlockProductionWonSlotsActions.getSlotsSuccess, (state, { slots }) => ({
+  on(BlockProductionWonSlotsActions.getSlotsSuccess, (state, { slots, epoch }) => ({
     ...state,
     slots,
+    epoch,
     filteredSlots: filterSlots(sortSlots(slots, state.sort), state.filters),
-    activeSlot: slots.find(s => s.active) || state.activeSlot,
+    activeSlot: state.activeSlot ?? slots.find(s => s.active),
   })),
   on(BlockProductionWonSlotsActions.setActiveSlot, (state, { slot }) => ({
     ...state,
@@ -58,15 +56,13 @@ function sortSlots(node: BlockProductionWonSlotsSlot[], tableSort: TableSort<Blo
 
 function filterSlots(node: BlockProductionWonSlotsSlot[], filters: BlockProductionWonSlotsState['filters']): BlockProductionWonSlotsSlot[] {
   return node.filter(slot => {
-    // if (
-    //   (filters.accepted && slot.canonical)
-    //   || (filters.rejected && slot.orphaned)
-    //   || (filters.missed && slot.missed)
-    //   || slot.active
-    // ) {
-    //   return true;
-    // }
-    // return filters.upcoming && slot.futureRights;
-    return true;
+    if (
+      (filters.accepted && slot.status === BlockProductionWonSlotsStatus.Canonical)
+      || (filters.rejected && (slot.status === BlockProductionWonSlotsStatus.Orphaned || slot.status === BlockProductionWonSlotsStatus.Discarded))
+      || slot.active
+    ) {
+      return true;
+    }
+    return filters.upcoming && !slot.status || slot.status === BlockProductionWonSlotsStatus.Scheduled;
   });
 }

@@ -239,10 +239,13 @@
 - [x] Network - Messages
 - [x] Network - Blocks
 - [x] Network - Connections
+- [x] Network - Graph View
 - [ ] Network - Topology
 - [ ] Network - Node DHT
 - [x] Peers - Dashboard
 - [x] Testing Framework - Scenarios
+- [x] Block Production - Overview
+- [x] Block Production - Won Slots
 
 ### Testing
 - [x] Tests for Nodes Overview
@@ -259,6 +262,8 @@
 - [ ] Tests for Network - Node DHT
 - [x] Tests for Peers - Dashboard
 - [ ] Tests for Testing Framework - Scenarios
+- [x] Tests for Block Production - Overview
+- [ ] Tests for Block Production - Won Slots
 
 ### Other
 - [x] CI Integration and Docker build & upload

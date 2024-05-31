@@ -1,15 +1,16 @@
 import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
 import { BlockProductionWonSlotsSelectors } from '@block-production/won-slots/block-production-won-slots.state';
-import {
-  BlockProductionOverviewEpochDetails,
-} from '@shared/types/block-production/overview/block-production-overview-epoch-details.type';
-import { lastItem, ONE_THOUSAND } from '@openmina/shared';
+import { lastItem, ONE_BILLION, ONE_MILLION, ONE_THOUSAND } from '@openmina/shared';
 import { getTimeDiff } from '@shared/helpers/date.helper';
 import { filter } from 'rxjs';
 import {
   BlockProductionWonSlotsSlot,
+  BlockProductionWonSlotsStatus,
 } from '@shared/types/block-production/won-slots/block-production-won-slots-slot.type';
+import {
+  BlockProductionWonSlotsEpoch,
+} from '@shared/types/block-production/won-slots/block-production-won-slots-epoch.type';
 
 @Component({
   selector: 'mina-block-production-won-slots-cards',
@@ -20,50 +21,56 @@ import {
 })
 export class BlockProductionWonSlotsCardsComponent extends StoreDispatcher implements OnInit {
 
-  epoch: BlockProductionOverviewEpochDetails;
-  card1: { nextWonSlot: string; slot: number; } = { nextWonSlot: '-', slot: null };
-  card2: { wonSlots: number; slotsUsed: number; } = { wonSlots: null, slotsUsed: null };
-  card3: { acceptedBlocks: number; lastBlockTime: string; } = { acceptedBlocks: null, lastBlockTime: null };
-  card4: { epochProgress: string; endIn: string; } = { epochProgress: '-', endIn: null };
-  card5: { totalRewards: string; } = { totalRewards: '-' };
+  card1: { epoch: number; startedAgo: string; } = { epoch: null, startedAgo: null };
+  card2: { nextWonSlot: string; slot: number; } = { nextWonSlot: '-', slot: null };
+  card3: { wonSlots: number; slotsUsed: number; } = { wonSlots: null, slotsUsed: null };
+  card4: { acceptedBlocks: number; lastBlockTime: string; } = { acceptedBlocks: null, lastBlockTime: null };
+  card5: { epochProgress: string; endIn: string; } = { epochProgress: '-', endIn: null };
+  card6: { totalRewards: string; } = { totalRewards: null };
 
   ngOnInit(): void {
-    this.listenToActiveEpoch();
     this.listenToSlots();
+    this.listenToEpoch();
   }
 
-  private listenToActiveEpoch(): void {
-    this.select(BlockProductionWonSlotsSelectors.epoch, epoch => {
-      this.epoch = epoch;
-      this.card5.totalRewards = epoch?.earnedRewards;
+  private listenToEpoch(): void {
+    this.select(BlockProductionWonSlotsSelectors.epoch, (epoch: BlockProductionWonSlotsEpoch) => {
+      const epochStartTime = this.addMinutesToTimestamp(epoch.currentTime / ONE_BILLION, -epoch.currentGlobalSlot * 3);
+      this.card1.startedAgo = getTimeDiff(epochStartTime * ONE_THOUSAND).diff;
+
+      const epochEndTime = this.addMinutesToTimestamp(epoch.currentTime / ONE_BILLION, (epoch.end - epoch.currentGlobalSlot) * 3);
+      this.card5.endIn = getTimeDiff(epochEndTime * ONE_THOUSAND).diff;
+      this.card5.epochProgress = Math.floor(epoch.currentGlobalSlot / epoch.end * 100) + '%';
+
       this.detect();
-    });
+    }, filter(Boolean));
   }
 
   private listenToSlots(): void {
     this.select(BlockProductionWonSlotsSelectors.slots, (slots: BlockProductionWonSlotsSlot[]) => {
+      this.card1.epoch = slots[0].epoch;
       const nextSlot = slots.find(s => !s.status);
       if (nextSlot) {
-        this.card1.nextWonSlot = getTimeDiff(nextSlot.slotTime).diff;
-        this.card1.slot = nextSlot.globalSlot;
+        this.card2.nextWonSlot = getTimeDiff(nextSlot.slotTime).diff;
+        this.card2.slot = nextSlot.globalSlot;
       } else {
-        this.card1.nextWonSlot = 'Now';
-        this.card1.slot = slots.find(s => s.active)?.globalSlot;
+        this.card2.nextWonSlot = 'Now';
+        this.card2.slot = slots.find(s => s.active)?.globalSlot;
       }
 
-      this.card2.wonSlots = slots.length;
-      this.card2.slotsUsed = slots.filter(s => s.status).length;
+      this.card3.wonSlots = slots.length;
+      this.card3.slotsUsed = slots.filter(
+        s => [BlockProductionWonSlotsStatus.Canonical, BlockProductionWonSlotsStatus.Orphaned, BlockProductionWonSlotsStatus.Discarded].includes(s.status),
+      ).length;
 
-      this.card3.acceptedBlocks = 0; //slots.filter(s => s.canonical).length;
-      this.card3.lastBlockTime = null;//getTimeDiff(lastItem(slots.filter(s => s.canonical)).time).diff;
+      this.card4.acceptedBlocks = slots.filter(s => s.status === BlockProductionWonSlotsStatus.Canonical).length;
+      this.card4.lastBlockTime = getTimeDiff(lastItem(slots.filter(s => s.status === BlockProductionWonSlotsStatus.Canonical))?.slotTime).diff;
 
-      const someSlot = slots[0];
-      const currentTimeInSecs = Math.floor(new Date().getTime() / ONE_THOUSAND);
-      const someSlotDiffUntilEnd = this.epoch.slotEnd - someSlot.globalSlot;
-      const epochEndTimeInSecs = this.addMinutesToTimestamp(someSlot.slotTime, someSlotDiffUntilEnd * 3);
-
-      this.card4.epochProgress = Math.floor((currentTimeInSecs - someSlot.slotTime) / (epochEndTimeInSecs - someSlot.slotTime) * 100) + '%';
-      this.card4.endIn = getTimeDiff(epochEndTimeInSecs).diff;
+      this.card6.totalRewards = slots
+        .filter(
+          s => [BlockProductionWonSlotsStatus.Canonical, BlockProductionWonSlotsStatus.Orphaned, BlockProductionWonSlotsStatus.Discarded].includes(s.status),
+        )
+        .map(s => s.coinbaseRewards + s.txFeesRewards).reduce((a, b) => a + b, 0).toFixed(0);
 
       this.detect();
     }, filter(slots => slots.length > 0));

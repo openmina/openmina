@@ -1,11 +1,13 @@
 export interface BlockProductionWonSlotsSlot {
   // slot related
+  epoch: number;
   message: string;
   age: string;
   slotTime: number;
   globalSlot: number;
   vrfValueWithThreshold: [number, number];
   active: boolean;
+  percentage: number;
 
   // block related
   height?: number;
@@ -20,13 +22,12 @@ export interface BlockProductionWonSlotsSlot {
 
   // time related details
   times?: BlockProductionWonSlotTimes;
-  // creatingStagedLedgerDiffElapsedTime: number;
-  // creatingBlockProofElapsedTime: number;
-  // applyingBlockElapsedTime: number;
-  // broadcastedBlockElapsedTime: number;
 
+  // resulted statuses
   status?: BlockProductionWonSlotsStatus;
-  discardReason: BlockProductionWonSlotsDiscardReason;
+  discardReason?: BlockProductionWonSlotsDiscardReason;
+  lastObservedConfirmations?: number;
+  orphanedBy?: string;
 }
 
 export interface BlockProductionWonSlotTimes {
@@ -37,6 +38,11 @@ export interface BlockProductionWonSlotTimes {
   blockApply: number;
   discarded: number;
   committed: number;
+
+  stagedLedgerDiffCreateEnd: number;
+  producedEnd: number;
+  proofCreateEnd: number;
+  blockApplyEnd: number;
 }
 
 export enum BlockProductionWonSlotsDiscardReason {
@@ -56,4 +62,6 @@ export enum BlockProductionWonSlotsStatus {
   BlockApplySuccess = 'BlockApplySuccess',
   Committed = 'Committed',
   Discarded = 'Discarded',
+  Canonical = 'Canonical',
+  Orphaned = 'Orphaned',
 }

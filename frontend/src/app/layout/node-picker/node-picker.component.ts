@@ -4,6 +4,7 @@ import { debounceTime, distinctUntilChanged, filter, fromEvent, map } from 'rxjs
 import { untilDestroyed } from '@ngneat/until-destroy';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
 import { AppActions } from '@app/app.actions';
+import { animate, state, style, transition, trigger } from '@angular/animations';
 
 @Component({
   selector: 'mina-node-picker',
@@ -11,6 +12,20 @@ import { AppActions } from '@app/app.actions';
   styleUrls: ['./node-picker.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex-column w-100' },
+  animations: [
+    trigger('fadeIn', [
+      state('void', style({
+        opacity: 0,
+        transform: 'translateY(-10px)',
+      })),
+      transition(':enter', [
+        animate('200ms ease-out', style({
+          opacity: 1,
+          transform: 'translateY(0)',
+        })),
+      ]),
+    ]),
+  ],
 })
 export class NodePickerComponent extends StoreDispatcher implements AfterViewInit {
 

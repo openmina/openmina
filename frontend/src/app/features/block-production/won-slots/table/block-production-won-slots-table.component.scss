@@ -4,16 +4,12 @@
   font-variation-settings: 'FILL' 1, 'wght' 400 !important;
 }
 
-.Accepted {
+.Produced.Block {
   color: $success-primary;
 }
 
-.Rejected {
-  color: $special-selected-alt-1-primary;
-}
-
-.Missed {
-  color: $warn-primary;
+.Dropped {
+  color: $aware-primary;
 }
 
 :host ::ng-deep cdk-virtual-scroll-viewport {

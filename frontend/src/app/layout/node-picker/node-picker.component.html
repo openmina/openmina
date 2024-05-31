@@ -1,4 +1,5 @@
-<div class="node-picker flex-column h-100 border border-rad-4 bg-surface-top overflow-x-hidden"
+<div @fadeIn
+     class="node-picker flex-column h-100 border border-rad-4 bg-surface-top overflow-x-hidden"
      [style.min-width.px]="parentInitialWidth"
      (clickOutside)="closeEmitter.emit()">
   <div class="flex-row p-relative">
