@@ -122,6 +122,7 @@ impl P2pState {
                 }
             },
             P2pAction::Network(action) => {
+                // FIXME: avoid this cloning here
                 let limits = state.config.limits.clone();
                 state.network.reducer(meta.with_action(action), &limits)
             }
