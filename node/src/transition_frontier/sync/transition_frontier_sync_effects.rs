@@ -5,7 +5,7 @@ use redux::ActionMeta;
 use crate::ledger::write::{LedgerWriteAction, LedgerWriteRequest};
 use crate::p2p::channels::rpc::P2pRpcRequest;
 use crate::service::TransitionFrontierSyncLedgerSnarkedService;
-use crate::{p2p_ready, Store, TransactionPoolAction};
+use crate::{p2p_ready, Store};
 
 use super::ledger::snarked::TransitionFrontierSyncLedgerSnarkedAction;
 use super::ledger::staged::TransitionFrontierSyncLedgerStagedAction;
@@ -59,9 +59,6 @@ impl TransitionFrontierSyncAction {
                 store.dispatch(TransitionFrontierSyncAction::BlocksPeersQuery);
                 // if we already have a block ready to be applied.
                 store.dispatch(TransitionFrontierSyncAction::BlocksNextApplyInit);
-
-                let best_tip_hash = best_tip.staged_ledger_hash().clone();
-                store.dispatch(TransactionPoolAction::BestTipChanged { best_tip_hash });
 
                 // TODO(binier): cleanup ledgers
             }
