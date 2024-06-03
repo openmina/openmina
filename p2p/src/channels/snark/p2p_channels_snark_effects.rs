@@ -54,7 +54,7 @@ impl P2pChannelsSnarkAction {
                 let message = Box::new((snark.statement(), (&snark).into()));
                 let message = v2::NetworkPoolSnarkPoolDiffVersionedStableV2::AddSolvedWork(message);
                 let nonce = nonce.into();
-                let message = GossipNetMessageV2::SnarkPoolDiff { message, nonce };
+                let message = Box::new(GossipNetMessageV2::SnarkPoolDiff { message, nonce });
                 store.dispatch(P2pNetworkPubsubAction::Broadcast { message });
             }
             P2pChannelsSnarkAction::Pending { .. } => {}
