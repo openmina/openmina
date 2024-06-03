@@ -25,7 +25,7 @@ pub enum P2pNetworkPubsubAction {
         data: Data,
     },
     Broadcast {
-        message: GossipNetMessageV2,
+        message: Box<GossipNetMessageV2>,
     },
     Sign {
         seqno: u64,

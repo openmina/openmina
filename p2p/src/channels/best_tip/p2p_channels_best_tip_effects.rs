@@ -49,7 +49,7 @@ impl P2pChannelsBestTipAction {
                         .channel_send(peer_id, MsgId::first(), msg.into());
                 } else {
                     let block = (*best_tip.block).clone();
-                    let message = GossipNetMessageV2::NewState(block);
+                    let message = Box::new(GossipNetMessageV2::NewState(block));
                     // TODO(vlad): `P2pChannelsBestTipAction::ResponseSend`
                     // action is dispatched for each peer. So `P2pNetworkPubsubAction::Broadcast`
                     // will be called many times causing many duplicate

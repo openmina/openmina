@@ -9,9 +9,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
-env:
-  RUST_MIN_STACK: 10000000
-
 jobs:
   ledger-tests:
     runs-on: ubuntu-20.04
