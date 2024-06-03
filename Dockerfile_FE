@@ -5,9 +5,13 @@ COPY frontend/ .
 RUN npm install
 RUN node_modules/.bin/ng build --configuration ${BUILD_CONFIGURATION}
 RUN npm prune --production
-FROM nginx:alpine
-RUN pwd
-RUN ls -l
-COPY --from=BUILD_IMAGE /app/dist/frontend /usr/share/nginx/html
-COPY --from=BUILD_IMAGE /app/nginx.conf /etc/nginx/nginx.conf
+
+RUN echo "---------- USING APACHE ----------"
+
+FROM httpd:2.4
+COPY --from=BUILD_IMAGE /app/dist/frontend /usr/local/apache2/htdocs/
+COPY --from=BUILD_IMAGE /app/httpd.conf /usr/local/apache2/conf/httpd.conf
+#FROM nginx:alpine
+#COPY --from=BUILD_IMAGE /app/dist/frontend /usr/share/nginx/html
+#COPY --from=BUILD_IMAGE /app/nginx.conf /etc/nginx/nginx.conf
 
