@@ -70,20 +70,21 @@ impl TransactionPoolEffectfulAction {
                 on_result,
                 pending_id,
             } => {
-                let best_tip_mask =
-                    match store
-                    .service()
-                    .ledger_manager()
-                    .get_mask(&ledger_hash) {
-                        Some((mask, _)) => mask,
-                        None => {
-                            openmina_core::log::error!(
+                openmina_core::log::info!(
+                    openmina_core::log::system_time();
+                    kind = "Info",
+                    summary = "fetching accounts for tx pool");
+                let best_tip_mask = match store.service().ledger_manager().get_mask(&ledger_hash) {
+                    Some((mask, _)) => mask,
+                    None => {
+                        openmina_core::log::error!(
                                 openmina_core::log::system_time();
                                 kind = "Error",
                                 summary = "failed to fetch accounts for tx pool",
                                 error = format!("ledger {:?} not found", ledger_hash));
-                            return;
-                        }};
+                        return;
+                    }
+                };
 
                 let accounts = account_ids
                     .into_iter()

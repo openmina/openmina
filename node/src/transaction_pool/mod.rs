@@ -1,6 +1,6 @@
 use ledger::{
     scan_state::transaction_logic::{verifiable, UserCommand, WithStatus},
-    transaction_pool::{diff, Config, ApplyDecision},
+    transaction_pool::{diff, ApplyDecision, Config},
     Account, AccountId,
 };
 use openmina_core::consensus::ConsensusConstants;
