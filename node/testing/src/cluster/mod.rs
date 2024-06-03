@@ -73,7 +73,7 @@ fn read_index<T: DeserializeOwned>(name: &str) -> Option<T> {
                 }
             }
         })
-        .and_then(|file| match ciborium::de::from_reader(file) {
+        .and_then(|file| match serde_cbor::from_reader(file) {
             Ok(v) => Some(v),
             Err(e) => {
                 warn!(system_time(); "cannot read verifier index for {name}: {e}");
@@ -102,7 +102,7 @@ fn write_index<T: Serialize>(name: &str, index: &T) -> Option<()> {
                 }
             }
         })
-        .and_then(|file| match ciborium::ser::into_writer(index, file) {
+        .and_then(|file| match serde_cbor::to_writer(file, index) {
             Ok(_) => Some(()),
             Err(e) => {
                 warn!(system_time(); "cannot write verifier index for {name}: {e}");
