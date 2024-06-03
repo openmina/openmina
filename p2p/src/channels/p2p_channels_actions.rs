@@ -39,6 +39,7 @@ impl redux::EnablingCondition<crate::P2pState> for P2pChannelsAction {
     fn is_enabled(&self, state: &crate::P2pState, time: redux::Timestamp) -> bool {
         match self {
             P2pChannelsAction::MessageReceived(a) => a.is_enabled(state, time),
+            P2pChannelsAction::Transaction(a) => a.is_enabled(state, time),
             P2pChannelsAction::BestTip(a) => a.is_enabled(state, time),
             P2pChannelsAction::Snark(a) => a.is_enabled(state, time),
             P2pChannelsAction::SnarkJobCommitment(a) => a.is_enabled(state, time),

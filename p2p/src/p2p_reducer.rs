@@ -128,9 +128,11 @@ impl P2pState {
                 }
             }
             P2pAction::Network(_action) => {
+                // FIXME: avoid this cloning here
+                let limits = state.config.limits.clone();
                 #[cfg(feature = "p2p-libp2p")]
                 state.network
-                    .reducer(meta.with_action(_action), &state.config.limits);
+                    .reducer(meta.with_action(_action), &limits);
             }
         }
     }
