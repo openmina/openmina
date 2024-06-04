@@ -331,7 +331,7 @@ impl Node {
                 service.block_producer_start(keypair);
             }
 
-            let state = State::new(config);
+            let state = State::new(config, redux::Timestamp::global_now());
             let mut node = ::node::Node::new(state, service, None);
 
             // record initial state.

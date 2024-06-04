@@ -39,8 +39,7 @@ pub struct State {
 }
 
 impl State {
-    pub fn new(config: Config) -> Self {
-        let now = Timestamp::global_now();
+    pub fn new(config: Config, now: Timestamp) -> Self {
         Self {
             p2p: P2p::Pending(config.p2p),
             ledger: LedgerState::new(config.ledger),
@@ -58,6 +57,10 @@ impl State {
             last_action: ActionMeta::zero_custom(now),
             applied_actions_count: 0,
         }
+    }
+
+    pub fn last_action(&self) -> &ActionMeta {
+        &self.last_action
     }
 
     /// Latest time observed by the state machine.
