@@ -30,7 +30,7 @@ export class BlockProductionWonSlotsComponent extends StoreDispatcher implements
 
   private listenToActiveNode(): void {
     this.select(AppSelectors.activeNode, () => {
-      this.dispatch2(BlockProductionWonSlotsActions.getSlots());
+      this.dispatch2(BlockProductionWonSlotsActions.init());
     });
   }
 

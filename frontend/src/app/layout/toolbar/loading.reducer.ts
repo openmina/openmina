@@ -56,7 +56,8 @@ export function loadingReducer(state: LoadingState = initialState, action: Featu
 
     case DASHBOARD_INIT:
 
-    case `[${BLOCK_PRODUCTION_PREFIX}] Overview Get Slots`:
+    case `[${BLOCK_PRODUCTION_PREFIX} Overview] Get Slots`:
+    case `[${BLOCK_PRODUCTION_PREFIX} Won Slots] Init`:
 
     case STATE_ACTIONS_GET_EARLIEST_SLOT:
     case STATE_ACTIONS_GET_ACTIONS:
@@ -85,10 +86,14 @@ export function loadingReducer(state: LoadingState = initialState, action: Featu
     case DASHBOARD_CLOSE:
       return remove(state, [DASHBOARD_INIT]);
 
-    case `[${BLOCK_PRODUCTION_PREFIX}] Overview Get Slots Success`:
-      return remove(state, `[${BLOCK_PRODUCTION_PREFIX}] Overview Get Slots`);
-    case `[${BLOCK_PRODUCTION_PREFIX}] Overview Close`:
-      return remove(state, [`[${BLOCK_PRODUCTION_PREFIX}] Overview Close`]);
+    case `[${BLOCK_PRODUCTION_PREFIX} Overview] Get Slots Success`:
+      return remove(state, `[${BLOCK_PRODUCTION_PREFIX} Overview] Get Slots`);
+    case `[${BLOCK_PRODUCTION_PREFIX} Overview] Close`:
+      return remove(state, [`[${BLOCK_PRODUCTION_PREFIX} Overview] Close`]);
+
+    case `[${BLOCK_PRODUCTION_PREFIX} Won Slots] Get Slots Success`:
+    case `[${BLOCK_PRODUCTION_PREFIX} Won Slots] Close`:
+      return remove(state, `[${BLOCK_PRODUCTION_PREFIX} Won Slots] Init`);
 
     case STATE_ACTIONS_GET_EARLIEST_SLOT_SUCCESS:
       return remove(state, STATE_ACTIONS_GET_EARLIEST_SLOT);

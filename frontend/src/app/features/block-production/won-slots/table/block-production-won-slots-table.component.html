@@ -2,8 +2,15 @@
 
 <ng-template #rowTemplate let-row="row">
   <span class="fx-row-vert-cent text-capitalize" [ngClass]="row.message">
-    <mina-loading-spinner *ngIf="row.active; else circle"></mina-loading-spinner>
-    <ng-template #circle><span class="mina-icon icon-200 f-big">circle</span></ng-template>
+    <mina-loading-spinner
+      *ngIf="row.active || row.status === BlockProductionWonSlotsStatus.Committed; else icon"></mina-loading-spinner>
+    <ng-template #icon>
+      <span *ngIf="row.status === BlockProductionWonSlotsStatus.Scheduled; else circle"
+            class="mina-icon icon-200 f-20">schedule</span>
+      <ng-template #circle>
+        <span class="mina-icon icon-200 f-big">circle</span>
+      </ng-template>
+    </ng-template>
     {{ row.percentage !== undefined ? row.percentage + '%' : '' }} {{ row.message }}
   </span>
   <span>{{ row.age }}</span>
@@ -17,3 +24,4 @@
   <span>{{ row.coinbaseRewards ?? '-' }}</span>
   <span>{{ row.txFeesRewards ?? '-' }}</span>
 </ng-template>
+

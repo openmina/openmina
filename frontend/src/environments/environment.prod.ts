@@ -11,6 +11,7 @@ export const environment: Readonly<MinaEnv> = {
       network: ['node-dht', 'graph-overview', 'bootstrap-stats'],
       snarks: ['scan-state'],
     },
+    canAddNodes: true,
   },
   configs: [
     {

@@ -3,10 +3,10 @@ import { MinaTableRustWrapper } from '@shared/base-classes/mina-table-rust-wrapp
 import { getMergedRoute, MergedRoute, SecDurationConfig, TableColumnList } from '@openmina/shared';
 import { Router } from '@angular/router';
 import { SnarksWorkPoolToggleSidePanel } from '@snarks/work-pool/snarks-work-pool.actions';
-import { take } from 'rxjs';
+import { filter, take } from 'rxjs';
 import { Routes } from '@shared/enums/routes.enum';
 import {
-  BlockProductionWonSlotsSlot,
+  BlockProductionWonSlotsSlot, BlockProductionWonSlotsStatus,
 } from '@shared/types/block-production/won-slots/block-production-won-slots-slot.type';
 import { BlockProductionWonSlotsSelectors } from '@block-production/won-slots/block-production-won-slots.state';
 import { BlockProductionWonSlotsActions } from '@block-production/won-slots/block-production-won-slots.actions';
@@ -20,7 +20,8 @@ import { BlockProductionWonSlotsActions } from '@block-production/won-slots/bloc
 })
 export class BlockProductionWonSlotsTableComponent extends MinaTableRustWrapper<BlockProductionWonSlotsSlot> implements OnInit {
 
-  readonly secConfig: SecDurationConfig = {
+  protected readonly BlockProductionWonSlotsStatus = BlockProductionWonSlotsStatus;
+  protected readonly secConfig: SecDurationConfig = {
     color: true,
     undefinedAlternative: '-',
     default: 100,
@@ -49,16 +50,17 @@ export class BlockProductionWonSlotsTableComponent extends MinaTableRustWrapper<
   override async ngOnInit(): Promise<void> {
     await super.ngOnInit();
     this.listenToRouteChange();
-    this.listenToNodesChanges();
     this.listenToActiveSlotChange();
+    this.listenToNodesChanges();
   }
 
   protected override setupTable(): void {
-    this.table.gridTemplateColumns = [165, 140, 110, 120, 120, 100, 150, 150];
+    this.table.gridTemplateColumns = [210, 140, 110, 120, 120, 100, 150, 150];
     this.table.propertyForActiveCheck = 'globalSlot';
     this.table.thGroupsTemplate = this.thGroupsTemplate;
     this.table.sortAction = BlockProductionWonSlotsActions.sort;
     this.table.sortSelector = BlockProductionWonSlotsSelectors.sort;
+    this.table.trackByFn = (_: number, item: BlockProductionWonSlotsSlot) => item.message + item.slotTime + item.transactionsTotal + item.snarkFees + item.coinbaseRewards + item.txFeesRewards;
   }
 
   toggleSidePanel(): void {
@@ -81,15 +83,18 @@ export class BlockProductionWonSlotsTableComponent extends MinaTableRustWrapper<
         this.scrollToElement();
       }
       this.detect();
-    });
+    }, filter((slots: BlockProductionWonSlotsSlot[]) => slots.length > 0));
   }
 
   private listenToActiveSlotChange(): void {
     this.select(BlockProductionWonSlotsSelectors.activeSlot, (slot: BlockProductionWonSlotsSlot) => {
+      if (!this.table.activeRow) {
+        this.fromRoute = slot.globalSlot.toString();
+      }
       this.table.activeRow = slot;
       this.table.detect();
       this.detect();
-    });
+    }, filter(Boolean));
   }
 
   private scrollToElement(): void {
