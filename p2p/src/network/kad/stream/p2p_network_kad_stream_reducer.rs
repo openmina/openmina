@@ -38,7 +38,6 @@ impl P2pNetworkKadIncomingStreamState {
                     return Ok(());
                 };
 
-                println!("=== kademlia request len: {len}");
                 if len > limits.kademlia_request() {
                     *self = S::Error(P2pNetworkStreamProtobufError::Limit(
                         len,
@@ -155,7 +154,6 @@ impl P2pNetworkKadOutgoingStreamState {
                     return Ok(());
                 };
 
-                println!("=== kademlia response len: {len}");
                 if len > limits.kademlia_response() {
                     *self = S::Error(P2pNetworkStreamProtobufError::Limit(
                         len,
