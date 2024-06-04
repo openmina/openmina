@@ -81,11 +81,10 @@ impl TransitionFrontierSyncLedgerState {
                 }
             }
             Self::Staged(staged) => {
-                let target = staged.target();
-                if target.snarked_ledger_hash == new_target.snarked_ledger_hash {
+                if staged.target().snarked_ledger_hash == new_target.snarked_ledger_hash {
                     *self = TransitionFrontierSyncLedgerSnarkedState::Success {
                         time,
-                        target: target.clone().into(),
+                        target: new_target.clone(),
                     }
                     .into();
                 } else {

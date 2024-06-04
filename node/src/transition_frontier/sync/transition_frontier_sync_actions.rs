@@ -31,8 +31,14 @@ pub enum TransitionFrontierSyncAction {
         root_block: ArcBlockWithHash,
         blocks_inbetween: Vec<StateHash>,
     },
-    /// Set sync target to a new best tip (for already synced frontiers)
-    #[action_event(level = info)]
+    /// Set sync target to a new best tip
+    #[action_event(level = info, fields(
+        new_best_tip_hash = display(&best_tip.hash),
+        new_best_tip_height = best_tip.height(),
+        new_root_block_hash = display(&root_block.hash),
+        new_root_snarked_ledger_hash = display(root_block.snarked_ledger_hash()),
+        new_root_staged_ledger_hash = display(root_block.staged_ledger_hash()),
+    ))]
     BestTipUpdate {
         best_tip: ArcBlockWithHash,
         root_block: ArcBlockWithHash,
