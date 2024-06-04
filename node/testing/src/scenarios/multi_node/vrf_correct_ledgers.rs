@@ -51,6 +51,7 @@ impl MultiNodeVrfGetCorrectLedgers {
             snark_worker: None,
             timeouts: P2pTimeouts::default(),
             libp2p_port: None,
+            recorder: Default::default(),
         });
 
         tokio::time::sleep(Duration::from_secs(2)).await;

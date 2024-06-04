@@ -44,6 +44,7 @@ impl MultiNodeVrfEpochBoundsEvaluation {
             snark_worker: None,
             timeouts: P2pTimeouts::default(),
             libp2p_port: None,
+            recorder: Default::default(),
         };
 
         let producer_node = runner.add_rust_node(RustNodeTestingConfig {

@@ -70,6 +70,7 @@ impl SoloNodeSyncToGenesisCustom {
             snark_worker: None,
             timeouts: P2pTimeouts::default(),
             libp2p_port: None,
+            recorder: Default::default(),
         });
 
         runner

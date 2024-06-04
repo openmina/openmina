@@ -6,6 +6,12 @@ use crate::{
     channels::ChannelId, connection::outgoing::P2pConnectionOutgoingInitOpts, identity::PublicKey,
 };
 
+pub const BERKELEY_SEEDS: &[&str] = &[
+    "/ip4/34.70.183.166/tcp/10001/p2p/12D3KooWAdgYL6hv18M3iDBdaK1dRygPivSfAfBNDzie6YqydVbs",
+    "/ip4/34.135.63.47/tcp/10001/p2p/12D3KooWLjs54xHzVmMmGYb7W5RVibqbwD1co7M2ZMfPgPm7iAag",
+    "/ip4/34.170.114.52/tcp/10001/p2p/12D3KooWEiGVAFC7curXWXiGZyMWnZK9h8BKr88U8D5PKV3dXciv",
+];
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pConfig {
     /// TCP port where libp2p is listening incoming connections.

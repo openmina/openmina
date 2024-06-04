@@ -30,21 +30,9 @@ impl SoloNodeBasicConnectivityAcceptIncoming {
 
         let seeds_var = std::env::var("OPENMINA_SCENARIO_SEEDS");
         let seeds = seeds_var.as_ref().map_or_else(
-            |_| {
-                vec![
-                    "/ip4/34.70.183.166/tcp/10001/p2p/12D3KooWAdgYL6hv18M3iDBdaK1dRygPivSfAfBNDzie6YqydVbs",
-                    "/ip4/34.135.63.47/tcp/10001/p2p/12D3KooWLjs54xHzVmMmGYb7W5RVibqbwD1co7M2ZMfPgPm7iAag",
-                    "/ip4/34.170.114.52/tcp/10001/p2p/12D3KooWEiGVAFC7curXWXiGZyMWnZK9h8BKr88U8D5PKV3dXciv",
-                ]
-            },
+            |_| node::p2p::BERKELEY_SEEDS.to_vec(),
             |val| val.split_whitespace().collect(),
         );
-
-        // let seeds = [
-        //     "/ip4/34.70.183.166/tcp/10001/p2p/12D3KooWAdgYL6hv18M3iDBdaK1dRygPivSfAfBNDzie6YqydVbs",
-        //     "/ip4/34.135.63.47/tcp/10001/p2p/12D3KooWLjs54xHzVmMmGYb7W5RVibqbwD1co7M2ZMfPgPm7iAag",
-        //     "/ip4/34.170.114.52/tcp/10001/p2p/12D3KooWEiGVAFC7curXWXiGZyMWnZK9h8BKr88U8D5PKV3dXciv",
-        // ];
 
         let initial_peers = seeds
             .iter()

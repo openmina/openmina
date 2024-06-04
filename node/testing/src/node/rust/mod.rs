@@ -1,5 +1,5 @@
 mod config;
-pub use config::{RustNodeBlockProducerTestingConfig, RustNodeTestingConfig, TestPeerId};
+pub use config::*;
 
 mod event;
 pub use event::*;
@@ -13,18 +13,32 @@ use node::p2p::PeerId;
 use node::service::P2pDisconnectionService;
 use node::{Action, CheckTimeoutsAction, State, Store};
 use redux::EnablingCondition;
+use temp_dir::TempDir;
 
 use crate::cluster::ClusterNodeId;
 use crate::service::{DynEffects, NodeTestingService, PendingEventId};
 
 pub struct Node {
+    work_dir: TempDir,
     config: RustNodeTestingConfig,
     store: Store<NodeTestingService>,
 }
 
 impl Node {
-    pub fn new(config: RustNodeTestingConfig, store: Store<NodeTestingService>) -> Self {
-        Self { config, store }
+    pub fn new(
+        work_dir: TempDir,
+        config: RustNodeTestingConfig,
+        store: Store<NodeTestingService>,
+    ) -> Self {
+        Self {
+            work_dir,
+            config,
+            store,
+        }
+    }
+
+    pub fn work_dir(&self) -> &TempDir {
+        &self.work_dir
     }
 
     pub fn config(&self) -> &RustNodeTestingConfig {
