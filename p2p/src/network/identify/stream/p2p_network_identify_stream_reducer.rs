@@ -18,8 +18,6 @@ impl P2pNetworkIdentifyStreamState {
         use super::P2pNetworkIdentifyStreamAction as A;
         use super::P2pNetworkIdentifyStreamState as S;
         let (action, _meta) = action.split();
-        //println!("=== IDENTIFY state:  {self:?}");
-        //println!("=== IDENTIFY action: {action:?}");
         match &self {
             S::Default => {
                 if let A::New { incoming, .. } = action {
