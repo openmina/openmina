@@ -279,40 +279,42 @@ where
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AccountPermissions {
-    access: AuthRequired,
-    edit_state: AuthRequired,
-    send: AuthRequired,
-    receive: AuthRequired,
-    set_delegate: AuthRequired,
-    set_permissions: AuthRequired,
+    access: Option<AuthRequired>,
+    edit_state: Option<AuthRequired>,
+    send: Option<AuthRequired>,
+    receive: Option<AuthRequired>,
+    set_delegate: Option<AuthRequired>,
+    set_permissions: Option<AuthRequired>,
+    // TODO: make optional too
     set_verification_key: SerVrfKeyPerm,
-    set_zkapp_uri: AuthRequired,
-    edit_action_state: AuthRequired,
-    set_token_symbol: AuthRequired,
-    increment_nonce: AuthRequired,
-    set_voting_for: AuthRequired,
-    set_timing: AuthRequired,
+    set_zkapp_uri: Option<AuthRequired>,
+    edit_action_state: Option<AuthRequired>,
+    set_token_symbol: Option<AuthRequired>,
+    increment_nonce: Option<AuthRequired>,
+    set_voting_for: Option<AuthRequired>,
+    set_timing: Option<AuthRequired>,
 }
 
 impl AccountPermissions {
     fn to_permissions(&self) -> Permissions<AuthRequired> {
+        // Defaults from https://github.com/MinaProtocol/mina/blob/3.0.0devnet/src/lib/mina_base/permissions.ml#L580-L594
         Permissions {
-            access: self.access,
-            edit_state: self.edit_state,
-            send: self.send,
-            receive: self.receive,
-            set_delegate: self.set_delegate,
-            set_permissions: self.set_permissions,
+            access: self.access.unwrap_or(AuthRequired::None),
+            edit_state: self.edit_state.unwrap_or(AuthRequired::Signature),
+            send: self.send.unwrap_or(AuthRequired::Signature),
+            receive: self.receive.unwrap_or(AuthRequired::None),
+            set_delegate: self.set_delegate.unwrap_or(AuthRequired::Signature),
+            set_permissions: self.set_permissions.unwrap_or(AuthRequired::Signature),
             set_verification_key: SetVerificationKey {
                 auth: self.set_verification_key.auth,
                 txn_version: TxnVersion::from_u32(self.set_verification_key.txn_version),
             },
-            set_zkapp_uri: self.set_zkapp_uri,
-            edit_action_state: self.edit_action_state,
-            set_token_symbol: self.set_token_symbol,
-            increment_nonce: self.increment_nonce,
-            set_voting_for: self.set_voting_for,
-            set_timing: self.set_timing,
+            set_zkapp_uri: self.set_zkapp_uri.unwrap_or(AuthRequired::Signature),
+            edit_action_state: self.edit_action_state.unwrap_or(AuthRequired::Signature),
+            set_token_symbol: self.set_token_symbol.unwrap_or(AuthRequired::Signature),
+            increment_nonce: self.increment_nonce.unwrap_or(AuthRequired::Signature),
+            set_voting_for: self.set_voting_for.unwrap_or(AuthRequired::Signature),
+            set_timing: self.set_timing.unwrap_or(AuthRequired::Signature),
         }
     }
 }
