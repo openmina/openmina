@@ -1,11 +1,14 @@
-use std::time::Duration;
+use std::{future::ready, time::Duration};
 
 use p2p::PeerId;
 use p2p_testing::{
-    cluster::{Cluster, ClusterBuilder, NodeId},
-    event::allow_disconnections,
+    cluster::{Cluster, ClusterBuilder, ClusterEvent, NodeId},
+    event::{allow_disconnections, RustNodeEvent},
+    futures::TryStreamExt,
+    libp2p::swarm::SwarmEvent,
     libp2p_node::Libp2pNodeConfig,
     rust_node::{RustNodeConfig, RustNodeId},
+    stream::ClusterStreamExt,
     utils::{
         peer_ids, rust_nodes_from_default_config, try_wait_for_all_nodes_to_connect,
         try_wait_for_nodes_to_connect, wait_for_all_nodes_to_listen,
@@ -220,7 +223,7 @@ async fn mutual_rust_to_libp2p() -> anyhow::Result<()> {
 
     let rust_node = cluster.add_rust_node(RustNodeConfig::default())?;
     let libp2p_node = cluster.add_libp2p_node(Libp2pNodeConfig::default())?;
-    let [peer_id1, peer_id2] = peer_ids(
+    let [_peer_id1, peer_id2] = peer_ids(
         &cluster,
         [NodeId::from(rust_node), NodeId::from(libp2p_node)],
     );
@@ -236,12 +239,36 @@ async fn mutual_rust_to_libp2p() -> anyhow::Result<()> {
     cluster.connect(rust_node, libp2p_node)?;
     cluster.connect(libp2p_node, rust_node)?;
 
-    let connected = try_wait_for_all_nodes_to_connect(
-        &mut cluster,
-        [(rust_node.into(), peer_id2), (libp2p_node.into(), peer_id1)],
-        Duration::from_secs(5),
-    )
-    .await?;
+    let mut rust_node_connected = false;
+    let mut libp2p_node_connected = false;
+    let mut libp2p_node_disconnected = false;
+
+    let all_done = move |e| {
+        match e {
+            ClusterEvent::Rust {
+                event: RustNodeEvent::PeerConnected { .. },
+                ..
+            } => rust_node_connected = true,
+            ClusterEvent::Libp2p {
+                event: SwarmEvent::ConnectionEstablished { .. },
+                ..
+            } => libp2p_node_connected = true,
+            ClusterEvent::Libp2p {
+                event:
+                    SwarmEvent::OutgoingConnectionError { .. }
+                    | SwarmEvent::IncomingConnectionError { .. },
+                ..
+            } => libp2p_node_disconnected = true,
+            _ => {}
+        }
+        ready(rust_node_connected && libp2p_node_connected && libp2p_node_disconnected)
+    };
+
+    let connected = cluster
+        .try_stream()
+        .take_during(Duration::from_secs(5))
+        .try_any(all_done)
+        .await?;
     assert!(connected);
 
     // try_run_cluster(&mut cluster, Duration::from_secs(2)).await?;
