@@ -4550,6 +4550,7 @@ dependencies = [
 name = "openmina-node-native"
 version = "0.5.0"
 dependencies = [
+ "anyhow",
  "bytes",
  "getrandom 0.2.14",
  "jsonpath-rust",

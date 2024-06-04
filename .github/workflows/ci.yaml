@@ -256,6 +256,38 @@ jobs:
         run: |
           ./${{ matrix.test }} --test-threads=1
 
+  record-replay-tests:
+    needs:
+      - k8s-peers
+      - build-tests
+    #  - build-tests-webrtc
+    runs-on: ubuntu-20.04
+    container:
+      image: minaprotocol/mina-daemon:2.0.0berkeley-rc1-1551e2f-focal-berkeley
+    env:
+      # to allow local addrs discovery
+      OPENMINA_DISCOVERY_FILTER_ADDR: false
+      OPENMINA_SCENARIO_SEEDS: ${{ needs.k8s-peers.outputs.peers }}
+    strategy:
+      matrix:
+        test: [record_replay]
+      fail-fast: false
+
+    steps:
+      - name: Download tests
+        uses: actions/download-artifact@v4
+        with:
+          pattern: tests*
+          merge-multiple: true
+
+      - name: Setup permissions
+        run: |
+          chmod +x ./${{ matrix.test }}
+
+      - name: Run the test
+        run: |
+          ./${{ matrix.test }} --test-threads=1
+
 
   bootstrap-test:
     needs: [ k8s-peers, build, build-tests ]
