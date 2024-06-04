@@ -13,7 +13,7 @@ pub enum SnarkCommand {
 }
 
 impl Snark {
-    pub fn run(self) -> Result<(), crate::CommandError> {
+    pub fn run(self) -> anyhow::Result<()> {
         match self.command {
             SnarkCommand::PrecalculateBlockVerifierIndexAndSrs(v) => v.run(),
         }

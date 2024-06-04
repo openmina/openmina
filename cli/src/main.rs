@@ -1,6 +1,5 @@
 pub mod commands;
 use clap::Parser;
-pub use commands::CommandError;
 
 mod exit_with_error;
 pub use exit_with_error::exit_with_error;
@@ -39,12 +38,8 @@ mod unsafe_signal_handlers {
     }
 }
 
-fn main() {
+fn main() -> anyhow::Result<()> {
     #[cfg(feature = "unsafe-signal-handlers")]
     unsafe_signal_handlers::setup();
-
-    match commands::OpenminaCli::parse().command.run() {
-        Ok(_) => {}
-        Err(err) => exit_with_error(err),
-    }
+    commands::OpenminaCli::parse().command.run()
 }

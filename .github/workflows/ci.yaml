@@ -121,8 +121,8 @@ jobs:
         run: |
           mkdir -p target/release/tests
 
-          cargo build --release --features=scenario-generators --package=openmina-node-testing --tests
-          cargo build --release --features=scenario-generators --package=openmina-node-testing --tests --message-format=json > cargo-build-test.json
+          cargo build --release --tests --package=openmina-node-testing --package=cli
+          cargo build --release --tests --package=openmina-node-testing --package=cli --message-format=json > cargo-build-test.json
           jq -r '. | select(.executable != null and (.target.kind | (contains(["test"])))) | [.target.name, .executable ] | @tsv' cargo-build-test.json > tests.tsv
           while read NAME FILE; do cp -a $FILE target/release/tests/$NAME; done < tests.tsv
 
@@ -258,63 +258,58 @@ jobs:
 
 
   bootstrap-test:
-    needs: [ k8s-peers, build ]
+    needs: [ k8s-peers, build, build-tests ]
     runs-on: ubuntu-20.04
     env:
-      PEERS: ${{ needs.k8s-peers.outputs.peers }}
+      PEERS_LIST: ${{ needs.k8s-peers.outputs.peers }}
+      PEER_LIST_FILE: peer-list.txt
+      WORK_DIR: data
     steps:
       - name: Download binary
         uses: actions/download-artifact@v4
         with:
           name: bin
 
-      - name: Bootstrap node
+      - name: Download test
+        uses: actions/download-artifact@v4
+        with:
+          pattern: tests*
+          merge-multiple: true
+
+      - name: Fix permissions
         run: |
-          set -eu
-          chmod +x ./openmina
-          ./openmina node --no-peers-discovery --peers $PEERS 2>&1 | tee run.log &
-          PID=$!
-          TIME=10
-          SLEEP=10
-          ATTEMPTS=$((TIME * 60 / SLEEP))
+          chmod +x bootstrap openmina
 
-          healthy() {
-            curl -fs -m 5 localhost:3000/healthz
+      - name: Peer List File
+        run: |
+          for PEER in $PEERS_LIST; do echo $PEER; done > $PEER_LIST_FILE
+          cat $PEER_LIST_FILE
+
+      - name: Bootstrap node
+        env:
+          OPENMINA_COMMAND: ./openmina
+          NO_PEER_DISCOVERY: "true"
+          OUT_PATH: ${{ env.WORK_DIR }}/logs/bootstrap_output
+          RECORD: state-with-input-actions
+        run: |
+          mkdir -p $OUT_PATH
+          OPENMINA_COMMAND=./openmina NO_PEER_DISCOVERY=true ./bootstrap --nocapture || {
+            echo "::group::Stderr"
+            cat $OUT_PATH.stderr
+            echo "::endgroup::"
+            exit 1
           }
 
-          ready() {
-            curl -fs -m 5 localhost:3000/readyz
-          }
-
-          ready3() {
-            ready && sleep 10 && ready && sleep 10 && ready
-          }
-
-          while ! healthy; do
-              echo "::notice::The node is not healthy yet"
-              ATTEMPTS=$((ATTEMPTS-1))
-              if [ "${ATTEMPTS}" -eq 0 ]; then
-                  echo "::error::Cannot bootsrtap within $TIME minutes"
-                  exit 1
-              fi
-              sleep $SLEEP
-          done
-          echo "::notice::The node is healthy"
-
-          while ! ready3; do
-              echo "::notice::The node is not bootstrapped yet"
-              ATTEMPTS=$((ATTEMPTS-1))
-              if [ "${ATTEMPTS}" -eq 0 ]; then
-                  echo "::error::Cannot bootsrtap within $TIME minutes"
-                  exit 1
-              fi
-              sleep $SLEEP
-          done
-          echo "::notice::The node is bootstrapped"
-
-      - name: Upload run.log
+      - name: Upload logs
         uses: actions/upload-artifact@v4
         with:
-          name: bootstrap-log
-          path: run.log
+          name: bootstrap-logs
+          path: ${{ env.WORK_DIR }}/logs/*
+        if: ${{ failure() }}
+
+      - name: Upload record
+        uses: actions/upload-artifact@v4
+        with:
+          name: bootstrap-record
+          path: ${{ env.WORK_DIR }}/recorder/*
         if: ${{ failure() }}

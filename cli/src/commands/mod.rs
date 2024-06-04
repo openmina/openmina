@@ -4,8 +4,6 @@ pub mod node;
 pub mod replay;
 pub mod snark;
 
-pub type CommandError = Box<dyn std::error::Error>;
-
 #[derive(Debug, clap::Parser)]
 #[command(name = "openmina", about = "Openmina Cli")]
 pub struct OpenminaCli {
@@ -26,7 +24,7 @@ pub enum Command {
 }
 
 impl Command {
-    pub fn run(self) -> Result<(), crate::CommandError> {
+    pub fn run(self) -> anyhow::Result<()> {
         match self {
             Self::Snark(v) => v.run(),
             Self::Node(v) => v.run(),

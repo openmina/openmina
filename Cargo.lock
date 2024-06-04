@@ -1068,6 +1068,7 @@ checksum = "98cc8fbded0c607b7ba9dd60cd98df59af97e84d24e49c8557331cfc26d301ce"
 name = "cli"
 version = "0.5.0"
 dependencies = [
+ "anyhow",
  "bytes",
  "clap 4.5.2",
  "console",
@@ -1084,10 +1085,12 @@ dependencies = [
  "rand 0.8.5",
  "rayon",
  "redux",
+ "reqwest",
  "serde",
  "serde_json",
  "sha2 0.10.8",
  "shellexpand",
+ "tempfile",
  "time",
  "tokio",
  "tracing",
