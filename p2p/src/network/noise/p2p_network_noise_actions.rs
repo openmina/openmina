@@ -32,8 +32,16 @@ pub enum P2pNetworkNoiseAction {
         addr: SocketAddr,
         data: Vec<Data>,
     },
+    OutgoingChunkSelectMux {
+        addr: SocketAddr,
+        data: Vec<Data>,
+    },
     // internals sends the data to the remote peer thru noise
     OutgoingData {
+        addr: SocketAddr,
+        data: Data,
+    },
+    OutgoingDataSelectMux {
         addr: SocketAddr,
         data: Data,
     },
@@ -58,7 +66,9 @@ impl P2pNetworkNoiseAction {
             Self::IncomingData { addr, .. } => addr,
             Self::IncomingChunk { addr, .. } => addr,
             Self::OutgoingChunk { addr, .. } => addr,
+            Self::OutgoingChunkSelectMux { addr, .. } => addr,
             Self::OutgoingData { addr, .. } => addr,
+            Self::OutgoingDataSelectMux { addr, .. } => addr,
             Self::DecryptedData { addr, .. } => addr,
             Self::HandshakeDone { addr, .. } => addr,
         }
@@ -78,7 +88,9 @@ impl redux::EnablingCondition<P2pState> for P2pNetworkNoiseAction {
             Self::IncomingData { .. } => true,
             Self::IncomingChunk { .. } => true,
             Self::OutgoingChunk { .. } => true,
+            Self::OutgoingChunkSelectMux { .. } => true,
             Self::OutgoingData { .. } => true,
+            Self::OutgoingDataSelectMux { .. } => true,
             Self::DecryptedData { .. } => true,
             Self::HandshakeDone { .. } => true,
         }

@@ -23,15 +23,41 @@ pub enum P2pNetworkSelectAction {
         send_handshake: bool,
     },
     #[action_event(level = trace)]
-    IncomingData {
+    IncomingDataAuth {
         addr: SocketAddr,
-        kind: SelectKind,
         data: Data,
         fin: bool,
     },
+    #[action_event(level = trace)]
+    IncomingDataMux {
+        addr: SocketAddr,
+        peer_id: Option<PeerId>,
+        data: Data,
+        fin: bool,
+    },
+    #[action_event(level = trace)]
+    IncomingData {
+        addr: SocketAddr,
+        peer_id: PeerId,
+        stream_id: StreamId,
+        data: Data,
+        fin: bool,
+    },
+    IncomingPayloadAuth {
+        addr: SocketAddr,
+        fin: bool,
+        data: Data,
+    },
+    IncomingPayloadMux {
+        addr: SocketAddr,
+        peer_id: Option<PeerId>,
+        fin: bool,
+        data: Data,
+    },
     IncomingPayload {
         addr: SocketAddr,
-        kind: SelectKind,
+        peer_id: PeerId,
+        stream_id: StreamId,
         fin: bool,
         data: Data,
     },
@@ -84,7 +110,11 @@ impl P2pNetworkSelectAction {
     pub fn addr(&self) -> &SocketAddr {
         match self {
             Self::Init { addr, .. } => addr,
+            Self::IncomingDataAuth { addr, .. } => addr,
+            Self::IncomingDataMux { addr, .. } => addr,
             Self::IncomingData { addr, .. } => addr,
+            Self::IncomingPayloadAuth { addr, .. } => addr,
+            Self::IncomingPayloadMux { addr, .. } => addr,
             Self::IncomingPayload { addr, .. } => addr,
             Self::IncomingToken { addr, .. } => addr,
             Self::OutgoingTokens { addr, .. } => addr,
@@ -92,14 +122,30 @@ impl P2pNetworkSelectAction {
         }
     }
 
-    pub fn id(&self) -> &SelectKind {
+    pub fn id(&self) -> SelectKind {
         match self {
-            Self::Init { kind, .. } => kind,
-            Self::IncomingData { kind, .. } => kind,
-            Self::IncomingPayload { kind, .. } => kind,
-            Self::IncomingToken { kind, .. } => kind,
-            Self::OutgoingTokens { kind, .. } => kind,
-            Self::Timeout { kind, .. } => kind,
+            Self::Init { kind, .. } => *kind,
+            Self::IncomingDataAuth { .. } => SelectKind::Authentication,
+            Self::IncomingDataMux {
+                peer_id: Some(peer_id),
+                ..
+            } => SelectKind::Multiplexing(*peer_id),
+            Self::IncomingDataMux { peer_id: None, .. } => SelectKind::MultiplexingNoPeerId,
+            Self::IncomingData {
+                peer_id, stream_id, ..
+            } => SelectKind::Stream(*peer_id, *stream_id),
+            Self::IncomingPayloadAuth { .. } => SelectKind::Authentication,
+            Self::IncomingPayloadMux {
+                peer_id: Some(peer_id),
+                ..
+            } => SelectKind::Multiplexing(*peer_id),
+            Self::IncomingPayloadMux { peer_id: None, .. } => SelectKind::MultiplexingNoPeerId,
+            Self::IncomingPayload {
+                peer_id, stream_id, ..
+            } => SelectKind::Stream(*peer_id, *stream_id),
+            Self::IncomingToken { kind, .. } => *kind,
+            Self::OutgoingTokens { kind, .. } => *kind,
+            Self::Timeout { kind, .. } => *kind,
         }
     }
 }
@@ -113,7 +159,11 @@ impl redux::EnablingCondition<P2pState> for P2pNetworkSelectAction {
     fn is_enabled(&self, _state: &P2pState, _time: redux::Timestamp) -> bool {
         match self {
             Self::Init { .. } => true,
+            Self::IncomingDataAuth { .. } => true,
+            Self::IncomingDataMux { .. } => true,
             Self::IncomingData { .. } => true,
+            Self::IncomingPayloadAuth { .. } => true,
+            Self::IncomingPayloadMux { .. } => true,
             Self::IncomingPayload { .. } => true,
             Self::IncomingToken { .. } => true,
             Self::OutgoingTokens { .. } => true,

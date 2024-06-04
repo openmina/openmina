@@ -30,7 +30,9 @@ impl P2pNetworkSelectState {
                     _ => {}
                 }
             }
-            P2pNetworkSelectAction::IncomingData { data, .. } => {
+            P2pNetworkSelectAction::IncomingData { data, .. }
+            | P2pNetworkSelectAction::IncomingDataAuth { data, .. }
+            | P2pNetworkSelectAction::IncomingDataMux { data, .. } => {
                 if self.negotiated.is_none() {
                     self.recv.put(data);
                     loop {
@@ -59,7 +61,9 @@ impl P2pNetworkSelectState {
                     }
                 }
             }
-            P2pNetworkSelectAction::IncomingPayload { .. } => self.recv.buffer.clear(),
+            P2pNetworkSelectAction::IncomingPayloadAuth { .. }
+            | P2pNetworkSelectAction::IncomingPayloadMux { .. }
+            | P2pNetworkSelectAction::IncomingPayload { .. } => self.recv.buffer.clear(),
             P2pNetworkSelectAction::IncomingToken { kind, .. } => {
                 let Some(token) = self.tokens.pop_front() else {
                     return;

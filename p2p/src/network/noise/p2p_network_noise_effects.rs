@@ -105,9 +105,9 @@ impl P2pNetworkNoiseAction {
                     send_handshake: false,
                 });
             }
-            store.dispatch(P2pNetworkSelectAction::IncomingData {
+            store.dispatch(P2pNetworkSelectAction::IncomingDataMux {
                 addr,
-                kind,
+                peer_id: peer_id.or(remote_peer_id),
                 data: data.clone(),
                 fin: false,
             });
@@ -119,6 +119,12 @@ impl P2pNetworkNoiseAction {
                 let mut outgoing = outgoing;
                 while let Some(data) = outgoing.pop_front() {
                     store.dispatch(P2pNetworkNoiseAction::OutgoingChunk { addr, data });
+                }
+            }
+            Self::OutgoingDataSelectMux { addr, .. } => {
+                let mut outgoing = outgoing;
+                if let Some(data) = outgoing.pop_front() {
+                    store.dispatch(P2pNetworkNoiseAction::OutgoingChunkSelectMux { addr, data });
                 }
             }
             Self::IncomingData { addr, .. } => {
@@ -191,7 +197,7 @@ impl P2pNetworkNoiseAction {
                     });
                 }
             }
-            Self::OutgoingChunk { addr, data } => {
+            Self::OutgoingChunk { addr, data } | Self::OutgoingChunkSelectMux { addr, data } => {
                 store.dispatch(P2pNetworkPnetAction::OutgoingData {
                     addr,
                     data: data
