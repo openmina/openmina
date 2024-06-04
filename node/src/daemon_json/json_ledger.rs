@@ -240,7 +240,7 @@ impl AccountTiming {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct SerVrfKeyPerm {
+struct SetVrfKeyPerm {
     auth: AuthRequired,
     #[serde(deserialize_with = "string_or_u32")]
     txn_version: u32,
@@ -286,7 +286,7 @@ pub struct AccountPermissions {
     set_delegate: Option<AuthRequired>,
     set_permissions: Option<AuthRequired>,
     // TODO: make optional too
-    set_verification_key: SerVrfKeyPerm,
+    set_verification_key: SetVrfKeyPerm,
     set_zkapp_uri: Option<AuthRequired>,
     edit_action_state: Option<AuthRequired>,
     set_token_symbol: Option<AuthRequired>,
