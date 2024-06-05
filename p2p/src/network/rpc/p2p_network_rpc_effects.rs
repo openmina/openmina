@@ -385,7 +385,7 @@ impl P2pNetworkRpcAction {
                     addr,
                     stream_id,
                     data,
-                    fin: false,
+                    flags: Default::default(),
                 });
             }
         }

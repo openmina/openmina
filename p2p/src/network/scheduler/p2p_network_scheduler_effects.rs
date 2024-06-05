@@ -1,6 +1,6 @@
 use std::net::SocketAddr;
 
-use openmina_core::error;
+use openmina_core::{error, warn};
 use redux::ActionMeta;
 
 use crate::{
@@ -252,7 +252,25 @@ impl P2pNetworkSchedulerAction {
                     }
                 }
             }
-            Self::SelectError { addr, .. } => {
+            Self::SelectError { addr, kind, .. } => {
+                match kind {
+                    SelectKind::Stream(peer_id, stream_id) => {
+                        warn!(meta.time(); summary="select error for stream", addr = display(addr), peer_id = display(peer_id));
+                        // just close the stream
+                        store.dispatch(P2pNetworkYamuxAction::OutgoingData {
+                            addr,
+                            stream_id,
+                            data: Data::default(),
+                            flags: YamuxFlags::RST,
+                        });
+                    }
+                    _ => {
+                        store.dispatch(P2pNetworkSchedulerAction::Error {
+                            addr,
+                            error: P2pNetworkConnectionError::SelectError,
+                        });
+                    }
+                }
                 // Close state is set by reducer for the non-stream case
                 if let Some(conn_state) = store.state().network.scheduler.connections.get(&addr) {
                     if let Some(reason) = conn_state.closed.clone() {

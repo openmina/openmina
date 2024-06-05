@@ -222,32 +222,37 @@ impl P2pNetworkSelectAction {
                 }
             }
             P2pNetworkSelectAction::OutgoingTokens { addr, kind, tokens } => {
-                let mut data = vec![];
-                for token in &tokens {
-                    data.extend_from_slice(token.name())
-                }
+                let data = {
+                    let mut data = vec![];
+                    if tokens.is_empty() {
+                        data.extend_from_slice(Token::Na.name());
+                    } else {
+                        for token in &tokens {
+                            data.extend_from_slice(token.name())
+                        }
+                    }
+                    data.into()
+                };
+
                 match &kind {
                     SelectKind::Authentication => {
-                        store.dispatch(P2pNetworkPnetAction::OutgoingData {
-                            addr,
-                            data: data.into(),
-                        });
+                        store.dispatch(P2pNetworkPnetAction::OutgoingData { addr, data });
                     }
                     SelectKind::Multiplexing(_) | SelectKind::MultiplexingNoPeerId => {
-                        store.dispatch(P2pNetworkNoiseAction::OutgoingData {
-                            addr,
-                            data: data.into(),
-                        });
+                        store.dispatch(P2pNetworkNoiseAction::OutgoingData { addr, data });
                     }
                     SelectKind::Stream(_, stream_id) => {
-                        for token in &tokens {
-                            store.dispatch(P2pNetworkYamuxAction::OutgoingData {
-                                addr,
-                                stream_id: *stream_id,
-                                data: token.name().to_vec().into(),
-                                fin: matches!(token, &token::Token::Na),
-                            });
-                        }
+                        let flags = if tokens.is_empty() {
+                            YamuxFlags::FIN
+                        } else {
+                            YamuxFlags::empty()
+                        };
+                        store.dispatch(P2pNetworkYamuxAction::OutgoingData {
+                            addr,
+                            stream_id: *stream_id,
+                            data,
+                            flags,
+                        });
                     }
                 }
             }

@@ -132,20 +132,8 @@ impl P2pNetworkSchedulerState {
                     None => {}
                 }
             }
-            P2pNetworkSchedulerAction::SelectError { addr, kind, .. } => {
-                // Now (unlike normal libp2p) we always disconnect peers causing select errors, even for streams
-                if let Some(connection) = self.connections.get_mut(addr) {
-                    if let Some(stream_id) = &kind.stream_id() {
-                        connection.streams.remove(stream_id);
-                    }
-
-                    connection.closed = Some(P2pNetworkConnectionError::SelectError.into());
-                }
-                if let Some(connection) = self.connections.get_mut(addr) {
-                    connection.closed = Some(P2pNetworkConnectionError::SelectError.into());
-                } else {
-                    unreachable!()
-                }
+            P2pNetworkSchedulerAction::SelectError { .. } => {
+                // NOOP, error should be triggered
             }
             P2pNetworkSchedulerAction::YamuxDidInit { addr, .. } => {
                 if let Some(cn) = self.connections.get_mut(addr) {
