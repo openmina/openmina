@@ -115,7 +115,7 @@ impl P2pNetworkPubsubAction {
                         addr: state.addr,
                         stream_id,
                         data,
-                        fin: false,
+                        flags: Default::default(),
                     });
                 }
             }

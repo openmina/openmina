@@ -1,6 +1,6 @@
-use std::net::SocketAddr;
+use std::{net::SocketAddr, sync::OnceLock};
 
-use openmina_core::error;
+use openmina_core::{error, warn};
 use redux::ActionMeta;
 
 use crate::{
@@ -17,6 +17,16 @@ use crate::{
 };
 
 use super::{super::*, *};
+
+fn keep_connection_with_unknown_stream() -> bool {
+    static VAL: OnceLock<bool> = OnceLock::new();
+    *VAL.get_or_init(|| {
+        std::env::var("KEEP_CONNECTION_WITH_UNKNOWN_STREAM")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(false)
+    })
+}
 
 impl P2pNetworkSchedulerAction {
     pub fn effects<Store, S>(self, meta: &ActionMeta, store: &mut Store)
@@ -252,7 +262,31 @@ impl P2pNetworkSchedulerAction {
                     }
                 }
             }
-            Self::SelectError { addr, .. } => {
+            Self::SelectError { addr, kind, .. } => {
+                match kind {
+                    SelectKind::Stream(peer_id, stream_id)
+                        if keep_connection_with_unknown_stream() =>
+                    {
+                        warn!(meta.time(); summary="select error for stream", addr = display(addr), peer_id = display(peer_id));
+                        // just close the stream
+                        store.dispatch(P2pNetworkYamuxAction::OutgoingData {
+                            addr,
+                            stream_id,
+                            data: Data::default(),
+                            flags: YamuxFlags::RST,
+                        });
+                        store.dispatch(P2pNetworkSchedulerAction::PruneStream {
+                            peer_id,
+                            stream_id,
+                        });
+                    }
+                    _ => {
+                        store.dispatch(P2pNetworkSchedulerAction::Error {
+                            addr,
+                            error: P2pNetworkConnectionError::SelectError,
+                        });
+                    }
+                }
                 // Close state is set by reducer for the non-stream case
                 if let Some(conn_state) = store.state().network.scheduler.connections.get(&addr) {
                     if let Some(reason) = conn_state.closed.clone() {
@@ -372,7 +406,7 @@ impl P2pNetworkSchedulerAction {
                     }
                 }
             }
-            Self::Prune { .. } | Self::PruneStreams { .. } => {}
+            Self::Prune { .. } | Self::PruneStreams { .. } | Self::PruneStream { .. } => {}
         }
     }
 }

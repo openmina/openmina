@@ -122,7 +122,7 @@ impl P2pNetworkSelectAction {
         }
     }
 
-    pub fn id(&self) -> SelectKind {
+    pub fn select_kind(&self) -> SelectKind {
         match self {
             Self::Init { kind, .. } => *kind,
             Self::IncomingDataAuth { .. } => SelectKind::Authentication,

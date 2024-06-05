@@ -3,7 +3,7 @@ use redux::ActionMeta;
 
 use crate::{
     stream::{P2pNetworkKadIncomingStreamError, P2pNetworkKadOutgoingStreamError},
-    Data, P2pNetworkKademliaAction, P2pNetworkSchedulerAction, P2pNetworkYamuxAction,
+    Data, P2pNetworkKademliaAction, P2pNetworkSchedulerAction, P2pNetworkYamuxAction, YamuxFlags,
 };
 
 use super::{
@@ -115,7 +115,7 @@ impl P2pNetworkKademliaStreamAction {
                     addr,
                     stream_id,
                     data: bytes.clone().into(),
-                    fin: false,
+                    flags: Default::default(),
                 });
                 store.dispatch(A::WaitIncoming {
                     addr,
@@ -140,7 +140,7 @@ impl P2pNetworkKademliaStreamAction {
                     addr,
                     stream_id,
                     data: Data(Box::new([0; 0])),
-                    fin: true,
+                    flags: YamuxFlags::FIN,
                 });
                 Ok(())
             }
@@ -157,7 +157,7 @@ impl P2pNetworkKademliaStreamAction {
                     addr,
                     stream_id,
                     data: Data(Box::new([])),
-                    fin: true,
+                    flags: YamuxFlags::FIN,
                 });
                 store.dispatch(A::Prune {
                     addr,

@@ -87,7 +87,7 @@ impl P2pNetworkSelectAction {
         let Some(state) = store.state().network.scheduler.connections.get(self.addr()) else {
             return;
         };
-        let state = match self.id() {
+        let state = match self.select_kind() {
             SelectKind::Authentication => &state.select_auth,
             SelectKind::Multiplexing(_) | SelectKind::MultiplexingNoPeerId => &state.select_mux,
             SelectKind::Stream(_, stream_id) => match state.streams.get(&stream_id) {
@@ -95,11 +95,11 @@ impl P2pNetworkSelectAction {
                 None => return,
             },
         };
-        let (addr, kind) = (*self.addr(), self.id());
+        let (addr, select_kind) = (*self.addr(), self.select_kind());
         if let P2pNetworkSelectStateInner::Error(error) = &state.inner {
             store.dispatch(P2pNetworkSchedulerAction::SelectError {
                 addr,
-                kind,
+                kind: select_kind,
                 error: error.clone(),
             });
             return;
@@ -110,7 +110,6 @@ impl P2pNetworkSelectAction {
             state.negotiated
         };
         let incoming = matches!(&state.inner, P2pNetworkSelectStateInner::Responder { .. });
-        let this_kind = self.id();
         match self {
             P2pNetworkSelectAction::Init {
                 addr,
@@ -183,7 +182,6 @@ impl P2pNetworkSelectAction {
             | P2pNetworkSelectAction::IncomingPayload {
                 addr, fin, data, ..
             } => {
-                let select_kind = this_kind;
                 if matches!(&state.inner, P2pNetworkSelectStateInner::Error(..)) {
                     return;
                 }
@@ -295,31 +293,38 @@ impl P2pNetworkSelectAction {
                 }
             }
             P2pNetworkSelectAction::OutgoingTokens { addr, kind, tokens } => {
-                let mut data = vec![];
-                for token in &tokens {
-                    data.extend_from_slice(token.name())
-                }
+                let data = {
+                    let mut data = vec![];
+                    for token in &tokens {
+                        data.extend_from_slice(token.name())
+                    }
+                    data.into()
+                };
+
                 match &kind {
                     SelectKind::Authentication => {
-                        store.dispatch(P2pNetworkPnetAction::OutgoingData {
-                            addr,
-                            data: data.into(),
-                        });
+                        store.dispatch(P2pNetworkPnetAction::OutgoingData { addr, data });
                     }
                     SelectKind::Multiplexing(_) | SelectKind::MultiplexingNoPeerId => {
-                        store.dispatch(P2pNetworkNoiseAction::OutgoingDataSelectMux {
-                            addr,
-                            data: data.into(),
-                        });
+                        store.dispatch(P2pNetworkNoiseAction::OutgoingDataSelectMux { addr, data });
                     }
                     SelectKind::Stream(_, stream_id) => {
-                        for token in &tokens {
+                        if let Some(na) = tokens.iter().find(|t| t.name() == Token::Na.name()) {
                             store.dispatch(P2pNetworkYamuxAction::OutgoingData {
                                 addr,
                                 stream_id: *stream_id,
-                                data: token.name().to_vec().into(),
-                                fin: matches!(token, &token::Token::Na),
+                                data: na.name().to_vec().into(),
+                                flags: YamuxFlags::FIN,
                             });
+                        } else {
+                            for token in tokens {
+                                store.dispatch(P2pNetworkYamuxAction::OutgoingData {
+                                    addr,
+                                    stream_id: *stream_id,
+                                    data: token.name().to_vec().into(),
+                                    flags: Default::default(),
+                                });
+                            }
                         }
                     }
                 }
@@ -329,7 +334,7 @@ impl P2pNetworkSelectAction {
         if let Some(protocol) = report {
             store.dispatch(P2pNetworkSchedulerAction::SelectDone {
                 addr,
-                kind,
+                kind: select_kind,
                 protocol,
                 incoming,
             });
