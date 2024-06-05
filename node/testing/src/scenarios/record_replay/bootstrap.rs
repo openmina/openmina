@@ -51,6 +51,9 @@ impl RecordReplayBootstrap {
             )
             .await
             .expect("node failed to bootstrap");
+        // flush the recorded data.
+        node::recorder::Recorder::graceful_shutdown();
+
         let node = runner.node(node_id).unwrap();
 
         let recording_dir = node.work_dir().child("recorder");

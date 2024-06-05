@@ -414,23 +414,23 @@ impl From<&VerifierIndexCached> for VerifierIndex<Pallas> {
 
 #[derive(Debug, thiserror::Error)]
 #[error("Error writing verifier index to bytes: {0}")]
-pub struct VerifierIndexToBytesError(#[from] serde_cbor::Error);
+pub struct VerifierIndexToBytesError(#[from] postcard::Error);
 
 pub fn verifier_index_to_bytes(
     verifier: &VerifierIndex<Pallas>,
 ) -> Result<Vec<u8>, VerifierIndexToBytesError> {
     let verifier: VerifierIndexCached = verifier.into();
-    Ok(serde_cbor::to_vec(&verifier)?)
+    Ok(postcard::to_stdvec(&verifier)?)
 }
 
 #[derive(Debug, thiserror::Error)]
 #[error("Error reading verifier index from bytes: {0}")]
-pub struct VerifierIndexFromBytesError(#[from] serde_cbor::Error);
+pub struct VerifierIndexFromBytesError(#[from] postcard::Error);
 
 pub fn verifier_index_from_bytes(
     bytes: &[u8],
 ) -> Result<VerifierIndex<Pallas>, VerifierIndexFromBytesError> {
-    let verifier: VerifierIndexCached = serde_cbor::from_slice(bytes)?;
+    let verifier: VerifierIndexCached = postcard::from_bytes(bytes)?;
     Ok((&verifier).into())
 }
 
@@ -443,7 +443,7 @@ where
 {
     let srs: SRSCached = srs.into();
 
-    serde_cbor::to_vec(&srs).unwrap()
+    postcard::to_stdvec(&srs).unwrap()
 }
 
 pub fn srs_from_bytes<G>(bytes: &[u8]) -> SRS<G>
@@ -451,6 +451,6 @@ where
     G: CommitmentCurve,
     G: for<'a> From<&'a GroupAffineCached>,
 {
-    let srs: SRSCached = serde_cbor::from_slice(bytes).unwrap();
+    let srs: SRSCached = postcard::from_bytes(bytes).unwrap();
     (&srs).into()
 }
