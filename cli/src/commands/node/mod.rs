@@ -177,9 +177,9 @@ impl Node {
                 .context(anyhow::anyhow!("reading peer list url {url}"))?;
             }
 
-            if result.is_empty() {
-                result.extend(default_peers());
-            }
+            // if result.is_empty() {
+            //     result.extend(default_peers());
+            // }
 
             result
         };
