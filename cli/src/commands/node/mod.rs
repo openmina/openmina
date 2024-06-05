@@ -77,6 +77,10 @@ pub struct Node {
     #[arg(long, env)]
     pub peer_list_url: Option<Url>,
 
+    /// Run the node in seed mode. No default peers will be added.
+    #[arg(long, env)]
+    pub seed: bool,
+
     /// Run Snark Worker.
     ///
     /// Pass snarker public key as an argument.
@@ -177,7 +181,7 @@ impl Node {
                 .context(anyhow::anyhow!("reading peer list url {url}"))?;
             }
 
-            if result.is_empty() {
+            if result.is_empty() && !self.seed {
                 result.extend(default_peers());
             }
 
