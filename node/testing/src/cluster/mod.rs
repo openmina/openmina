@@ -6,10 +6,12 @@ pub use p2p_task_spawner::P2pTaskSpawner;
 
 mod node_id;
 pub use node_id::{ClusterNodeId, ClusterOcamlNodeId};
+use temp_dir::TempDir;
 
 pub mod runner;
 
 use std::collections::BTreeMap;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::Duration;
@@ -73,7 +75,11 @@ fn read_index<T: DeserializeOwned>(name: &str) -> Option<T> {
                 }
             }
         })
-        .and_then(|file| match ciborium::de::from_reader(file) {
+        .and_then(|mut file| {
+            let mut buf = Vec::new();
+            file.read_to_end(&mut buf).ok().and(Some(buf))
+        })
+        .and_then(|bytes| match postcard::from_bytes(&bytes) {
             Ok(v) => Some(v),
             Err(e) => {
                 warn!(system_time(); "cannot read verifier index for {name}: {e}");
@@ -102,7 +108,7 @@ fn write_index<T: Serialize>(name: &str, index: &T) -> Option<()> {
                 }
             }
         })
-        .and_then(|file| match ciborium::ser::into_writer(index, file) {
+        .and_then(|file| match postcard::to_io(index, file) {
             Ok(_) => Some(()),
             Err(e) => {
                 warn!(system_time(); "cannot write verifier index for {name}: {e}");
@@ -209,6 +215,7 @@ impl Cluster {
     pub fn add_rust_node(&mut self, testing_config: RustNodeTestingConfig) -> ClusterNodeId {
         let node_config = testing_config.clone();
         let node_id = ClusterNodeId::new_unchecked(self.nodes.len());
+        let work_dir = TempDir::new().unwrap();
         let (shutdown_tx, shutdown_rx) = mpsc::channel(1);
         let secret_key = P2pSecretKey::from_bytes(match testing_config.peer_id {
             TestPeerId::Derived => {
@@ -350,7 +357,12 @@ impl Cluster {
             snark_worker_sender: None,
             rpc: rpc_service,
             stats: node::stats::Stats::new(),
-            recorder: Recorder::None,
+            recorder: match testing_config.recorder {
+                crate::node::Recorder::None => Recorder::None,
+                crate::node::Recorder::StateWithInputActions => {
+                    Recorder::only_input_actions(work_dir.path())
+                }
+            },
             replayer: None,
             invariants_state: Default::default(),
         };
@@ -366,7 +378,7 @@ impl Cluster {
             service.set_replay();
         }
 
-        let state = node::State::new(config);
+        let state = node::State::new(config, testing_config.initial_time);
         fn effects(store: &mut node::Store<NodeTestingService>, action: node::ActionWithMeta) {
             // if action.action().kind().to_string().starts_with("BlockProducer") {
             //     dbg!(action.action());
@@ -407,7 +419,7 @@ impl Cluster {
                 .initial_state(rng_seed, store.state.get());
         }
 
-        let node = Node::new(node_config, store);
+        let node = Node::new(work_dir, node_config, store);
 
         self.nodes.push(node);
         node_id

@@ -33,6 +33,13 @@ pub struct RustNodeTestingConfig {
     pub block_producer: Option<RustNodeBlockProducerTestingConfig>,
     pub timeouts: P2pTimeouts,
     pub libp2p_port: Option<u16>,
+    pub recorder: Recorder,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum Recorder {
+    None,
+    StateWithInputActions,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -54,6 +61,7 @@ impl RustNodeTestingConfig {
             snark_worker: None,
             timeouts: P2pTimeouts::default(),
             libp2p_port: None,
+            recorder: Default::default(),
         }
     }
 
@@ -69,6 +77,7 @@ impl RustNodeTestingConfig {
             snark_worker: None,
             timeouts: P2pTimeouts::without_rpc(),
             libp2p_port: None,
+            recorder: Default::default(),
         }
     }
 
@@ -108,5 +117,11 @@ impl RustNodeTestingConfig {
                 .expect("daemon json"),
         ));
         self
+    }
+}
+
+impl Default for Recorder {
+    fn default() -> Self {
+        Self::None
     }
 }

@@ -44,6 +44,7 @@ impl Simulator {
             snark_worker: None,
             timeouts: Default::default(),
             libp2p_port: None,
+            recorder: Default::default(),
         }
     }
 

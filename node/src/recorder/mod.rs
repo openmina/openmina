@@ -30,21 +30,12 @@ pub struct RecordedInitialState<'a> {
 }
 
 impl<'a> RecordedInitialState<'a> {
-    pub fn write_to<W: Write>(
-        &self,
-        writer: &mut W,
-    ) -> Result<(), ciborium::ser::Error<std::io::Error>> {
-        ciborium::ser::into_writer(self, writer)?;
-        Ok(())
+    pub fn write_to<W: Write>(&self, writer: &mut W) -> postcard::Result<()> {
+        postcard::to_io(self, writer).and(Ok(()))
     }
 
-    pub fn decode(encoded: &[u8]) -> Result<Self, ciborium::de::Error<std::io::Error>>
-    where
-        Self: serde::de::DeserializeOwned,
-    {
-        let mut cursor = std::io::Cursor::new(encoded);
-        let decoded = ciborium::de::from_reader(&mut cursor)?;
-        Ok(decoded)
+    pub fn decode(encoded: &[u8]) -> postcard::Result<Self> {
+        postcard::from_bytes(encoded)
     }
 }
 
@@ -56,19 +47,12 @@ pub struct RecordedActionWithMeta<'a> {
 }
 
 impl<'a> RecordedActionWithMeta<'a> {
-    pub fn encode(&self) -> Result<Vec<u8>, ciborium::ser::Error<std::io::Error>> {
-        let mut buffer = Vec::new();
-        ciborium::ser::into_writer(self, &mut buffer)?;
-        Ok(buffer)
+    pub fn encode(&self) -> postcard::Result<Vec<u8>> {
+        postcard::to_stdvec(self)
     }
 
-    pub fn decode(encoded: &[u8]) -> Result<Self, ciborium::de::Error<std::io::Error>>
-    where
-        Self: serde::de::DeserializeOwned,
-    {
-        let mut cursor = std::io::Cursor::new(encoded);
-        let decoded = ciborium::de::from_reader(&mut cursor)?;
-        Ok(decoded)
+    pub fn decode(encoded: &[u8]) -> postcard::Result<Self> {
+        postcard::from_bytes(encoded)
     }
 
     pub fn as_action_with_meta(self) -> Result<ActionWithMeta, Self> {

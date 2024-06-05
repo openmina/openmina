@@ -19,7 +19,7 @@ serde = "1.0.147"
 serde_json = { version = "1.0.82", features = ["unbounded_depth", "arbitrary_precision"] }
 thiserror = "1.0.37"
 anyhow = "1.0.70"
-ciborium = "0.2.2"
+postcard = { version = "1.0.8", features = ["use-std"] }
 rand = "0.8"
 tokio = { version = "1.26.0" }
 num_cpus = "1.0"

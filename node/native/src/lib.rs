@@ -7,3 +7,6 @@ pub mod tracing;
 
 mod service;
 pub use service::*;
+
+mod replay;
+pub use replay::*;
