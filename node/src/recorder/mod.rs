@@ -16,11 +16,12 @@ use serde::{Deserialize, Serialize};
 use crate::{Action, ActionKind, ActionWithMeta, State};
 
 fn initial_state_path<P: AsRef<Path>>(path: P) -> PathBuf {
-    path.as_ref().join("initial_state.cbor")
+    path.as_ref().join("initial_state.postcard")
 }
 
 fn actions_path<P: AsRef<Path>>(path: P, file_index: usize) -> PathBuf {
-    path.as_ref().join(format!("actions_{}.cbor", file_index))
+    path.as_ref()
+        .join(format!("actions_{}.postcard", file_index))
 }
 
 #[derive(Serialize, Deserialize)]
