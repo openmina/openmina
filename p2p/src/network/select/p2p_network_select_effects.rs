@@ -231,7 +231,7 @@ impl P2pNetworkSelectAction {
                 }
             }
             P2pNetworkSelectAction::OutgoingTokens { addr, kind, tokens } => {
-                let data = {
+                let data: Data = {
                     let mut data = vec![];
                     if tokens.is_empty() {
                         data.extend_from_slice(Token::Na.name());
@@ -245,7 +245,7 @@ impl P2pNetworkSelectAction {
 
                 match &kind {
                     SelectKind::Authentication => {
-                        let mut data = data.into();
+                        let mut data = data.clone();
 
                         if let Ok(mut fuzzer) = FUZZ.lock() {
                             fuzzer
@@ -256,7 +256,7 @@ impl P2pNetworkSelectAction {
                         store.dispatch(P2pNetworkPnetAction::OutgoingData { addr, data });
                     }
                     SelectKind::Multiplexing(_) | SelectKind::MultiplexingNoPeerId => {
-                        let mut data = data.into();
+                        let mut data = data.clone();
 
                         if let Ok(mut fuzzer) = FUZZ.lock() {
                             fuzzer

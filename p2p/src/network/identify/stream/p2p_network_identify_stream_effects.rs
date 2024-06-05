@@ -3,21 +3,13 @@ use std::net::SocketAddr;
 use super::P2pNetworkIdentifyStreamAction;
 use crate::{
     identify::P2pIdentifyAction,
-    network::identify::{pb, P2pNetworkIdentify},
-    token, Data, P2pNetworkService, P2pNetworkYamuxAction, FUZZ,
+    network::identify::{pb, stream::P2pNetworkIdentifyStreamError, P2pNetworkIdentify},
+    token, Data, P2pNetworkSchedulerAction, P2pNetworkService, P2pNetworkYamuxAction, YamuxFlags,
+    FUZZ,
 };
 use multiaddr::Multiaddr;
 use openmina_core::{error, log::system_time, warn};
 use redux::ActionMeta;
-
-use super::{
-    super::{pb, P2pNetworkIdentify},
-    P2pNetworkIdentifyStreamAction,
-};
-use crate::{
-    identify::P2pIdentifyAction, network::identify::stream::P2pNetworkIdentifyStreamError, token,
-    Data, P2pNetworkSchedulerAction, P2pNetworkService, P2pNetworkYamuxAction, YamuxFlags,
-};
 
 fn get_addrs<I, S>(addr: &SocketAddr, net_svc: &mut S) -> I
 where
@@ -145,7 +137,7 @@ impl P2pNetworkIdentifyStreamAction {
                         addr,
                         stream_id,
                         data,
-                        fin: Default::default(),
+                        flags: Default::default(),
                     });
 
                     store.dispatch(P2pNetworkIdentifyStreamAction::Close {
@@ -189,10 +181,9 @@ impl P2pNetworkIdentifyStreamAction {
                 }
                 S::Error(err) => {
                     warn!(meta.time(); summary = "error handling Identify action", error = display(err));
-                    store.dispatch(P2pNetworkSchedulerAction::Error {
-                        addr,
-                        error: P2pNetworkIdentifyStreamError::from(err.clone()).into(),
-                    });
+                    let error = P2pNetworkIdentifyStreamError::from(err.clone()).into();
+
+                    store.dispatch(P2pNetworkSchedulerAction::Error { addr, error });
                     Ok(())
                 }
                 _ => unimplemented!(),

@@ -1,13 +1,13 @@
 use openmina_core::warn;
 use redux::ActionMeta;
 
-use crate::{
-    stream::{P2pNetworkKadIncomingStreamError, P2pNetworkKadOutgoingStreamError},
-    Data, P2pNetworkKademliaAction, P2pNetworkSchedulerAction, P2pNetworkYamuxAction, YamuxFlags, FUZZ};
-
 use super::{
     super::{P2pNetworkKademliaRpcReply, P2pNetworkKademliaRpcRequest},
     P2pNetworkKademliaStreamAction,
+};
+use crate::{
+    stream::{P2pNetworkKadIncomingStreamError, P2pNetworkKadOutgoingStreamError},
+    Data, P2pNetworkKademliaAction, P2pNetworkSchedulerAction, P2pNetworkYamuxAction, FUZZ,
 };
 
 impl P2pNetworkKademliaStreamAction {
@@ -122,7 +122,7 @@ impl P2pNetworkKademliaStreamAction {
                     addr,
                     stream_id,
                     data,
-                    fin: Default::default(),
+                    flags: Default::default(),
                 });
                 store.dispatch(A::WaitIncoming {
                     addr,

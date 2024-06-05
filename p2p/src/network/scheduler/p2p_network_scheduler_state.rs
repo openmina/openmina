@@ -37,6 +37,19 @@ impl P2pNetworkSchedulerState {
             .iter()
             .find(|(_, conn_state)| conn_state.peer_id() == Some(peer_id))
     }
+
+    pub fn remove_peer(&mut self, peer_id: &PeerId) {
+        self.broadcast_state.remove_peer(peer_id);
+        self.identify_state.remove_peer(peer_id);
+
+        if let Some(discovery_state) = self.discovery_state.as_mut() {
+            discovery_state.streams.remove(peer_id);
+        }
+
+        self.rpc_incoming_streams.remove(peer_id);
+        self.rpc_outgoing_streams.remove(peer_id);
+
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

@@ -329,6 +329,7 @@ impl P2pNetworkSchedulerAction {
             Self::Error { addr, .. } => {
                 if let Some(conn_state) = store.state().network.scheduler.connections.get(&addr) {
                     if let Some(reason) = conn_state.closed.clone() {
+                        store.service().send_mio_cmd(MioCmd::Disconnect(addr));
                         store.dispatch(Self::Disconnected { addr, reason });
                     }
                 }
@@ -340,25 +341,11 @@ impl P2pNetworkSchedulerAction {
 
                     store.dispatch(P2pNetworkSchedulerAction::Prune { addr });
 
-<<<<<<< HEAD
                     if reason.is_disconnected() {
                         // statemachine behaviour should continue with this, i.e. dispatch P2pDisconnectionAction::Finish
                         return;
                     }
 
-=======
-                    if !matches!(
-                        reason,
-                        P2pNetworkConnectionCloseReason::Disconnect(
-                            P2pDisconnectionReason::SelectError
-                        )
-                    ) && reason.is_disconnected()
-                    {
-                        // statemachine behaviour should continue with this, i.e. dispatch P2pDisconnectionAction::Finish
-                        return;
-                    }
-                    
->>>>>>> 0379ead2 (wip: p2p fuzzer)
                     match peer_with_state {
                         Some((peer_id, peer_state)) => {
                             // TODO: connection state type should tell if it is finalized
