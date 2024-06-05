@@ -30,12 +30,12 @@ pub struct RecordedInitialState<'a> {
 }
 
 impl<'a> RecordedInitialState<'a> {
-    pub fn write_to<W: Write>(&self, writer: &mut W) -> serde_cbor::Result<()> {
-        serde_cbor::to_writer(writer, self)
+    pub fn write_to<W: Write>(&self, writer: &mut W) -> postcard::Result<()> {
+        postcard::to_io(self, writer).and(Ok(()))
     }
 
-    pub fn decode(encoded: &[u8]) -> serde_cbor::Result<Self> {
-        serde_cbor::from_slice(encoded)
+    pub fn decode(encoded: &[u8]) -> postcard::Result<Self> {
+        postcard::from_bytes(encoded)
     }
 }
 
@@ -47,12 +47,12 @@ pub struct RecordedActionWithMeta<'a> {
 }
 
 impl<'a> RecordedActionWithMeta<'a> {
-    pub fn encode(&self) -> serde_cbor::Result<Vec<u8>> {
-        serde_cbor::to_vec(self)
+    pub fn encode(&self) -> postcard::Result<Vec<u8>> {
+        postcard::to_stdvec(self)
     }
 
-    pub fn decode(encoded: &[u8]) -> serde_cbor::Result<Self> {
-        serde_cbor::from_slice(encoded)
+    pub fn decode(encoded: &[u8]) -> postcard::Result<Self> {
+        postcard::from_bytes(encoded)
     }
 
     pub fn as_action_with_meta(self) -> Result<ActionWithMeta, Self> {

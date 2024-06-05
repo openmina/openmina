@@ -11,6 +11,7 @@ use temp_dir::TempDir;
 pub mod runner;
 
 use std::collections::BTreeMap;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::Duration;
@@ -74,7 +75,11 @@ fn read_index<T: DeserializeOwned>(name: &str) -> Option<T> {
                 }
             }
         })
-        .and_then(|file| match serde_cbor::from_reader(file) {
+        .and_then(|mut file| {
+            let mut buf = Vec::new();
+            file.read_to_end(&mut buf).ok().and(Some(buf))
+        })
+        .and_then(|bytes| match postcard::from_bytes(&bytes) {
             Ok(v) => Some(v),
             Err(e) => {
                 warn!(system_time(); "cannot read verifier index for {name}: {e}");
@@ -103,7 +108,7 @@ fn write_index<T: Serialize>(name: &str, index: &T) -> Option<()> {
                 }
             }
         })
-        .and_then(|file| match serde_cbor::to_writer(file, index) {
+        .and_then(|file| match postcard::to_io(index, file) {
             Ok(_) => Some(()),
             Err(e) => {
                 warn!(system_time(); "cannot write verifier index for {name}: {e}");
