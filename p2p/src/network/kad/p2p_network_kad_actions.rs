@@ -68,14 +68,14 @@ pub enum P2pNetworkKademliaAction {
         closest_peers: Vec<P2pNetworkKadEntry>,
     },
     /// Perform local node's Kademlia bootstrap.
-    #[action_event(level = info)]
+    #[action_event(level = debug)]
     StartBootstrap { key: PeerId },
     /// Bootstrap is finished.
-    #[action_event(level = info)]
+    #[action_event(level = debug)]
     BootstrapFinished,
 
     /// Update routing table with peer addresses
-    #[action_event(level = info)]
+    #[action_event(level = debug)]
     UpdateRoutingTable {
         peer_id: PeerId,
         addrs: Vec<Multiaddr>,
