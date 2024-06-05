@@ -4,7 +4,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     channels::ChannelId, connection::outgoing::P2pConnectionOutgoingInitOpts, identity::PublicKey,
-    FUZZ,
 };
 
 pub const BERKELEY_SEEDS: &[&str] = &[

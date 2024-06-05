@@ -8,7 +8,7 @@ use crate::{
         incoming::P2pConnectionIncomingAction, outgoing::P2pConnectionOutgoingAction,
         P2pConnectionState,
     },
-    disconnection::{P2pDisconnectionAction, P2pDisconnectionReason},
+    disconnection::P2pDisconnectionAction,
     identify::P2pIdentifyAction,
     network::identify::P2pNetworkIdentifyStreamAction,
     request::{P2pNetworkKadRequestState, P2pNetworkKadRequestStatus},

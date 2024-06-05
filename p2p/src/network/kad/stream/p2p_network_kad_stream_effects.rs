@@ -7,7 +7,8 @@ use super::{
 };
 use crate::{
     stream::{P2pNetworkKadIncomingStreamError, P2pNetworkKadOutgoingStreamError},
-    Data, P2pNetworkKademliaAction, P2pNetworkSchedulerAction, P2pNetworkYamuxAction, FUZZ,
+    Data, P2pNetworkKademliaAction, P2pNetworkSchedulerAction, P2pNetworkYamuxAction, YamuxFlags,
+    FUZZ,
 };
 
 impl P2pNetworkKademliaStreamAction {
