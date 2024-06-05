@@ -23,9 +23,10 @@ impl P2pNetworkKadRequestAction {
         if let A::Prune { .. } = &self {
             return Ok(());
         }
-        let peer_id = self.peer_id();
-        let Some(request_state) = discovery_state.request(peer_id) else {
-            return Err(format!("no request for {peer_id}"));
+        let filter_local_addrs = discovery_state.filter_addrs;
+        let self_id = self.peer_id();
+        let Some(request_state) = discovery_state.request(self_id) else {
+            return Err(format!("no request for {self_id}"));
         };
 
         use P2pNetworkKadRequestAction as A;
@@ -162,9 +163,12 @@ impl P2pNetworkKadRequestAction {
                     });
                 }
 
-                let external_addr = |addr: &SocketAddr| match addr.ip() {
-                    std::net::IpAddr::V4(v) => !(v.is_loopback() || v.is_private()),
-                    std::net::IpAddr::V6(v) => !(v.is_loopback()),
+                let external_addr = |addr: &SocketAddr| {
+                    !filter_local_addrs
+                        || match addr.ip() {
+                            std::net::IpAddr::V4(v) => !(v.is_loopback() || v.is_private()),
+                            std::net::IpAddr::V6(v) => !(v.is_loopback()),
+                        }
                 };
                 for entry in data {
                     let peer_id = entry.peer_id;

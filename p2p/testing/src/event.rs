@@ -55,6 +55,10 @@ pub enum RustNodeEvent {
         info: Box<P2pNetworkIdentify>,
     },
     KadBootstrapFinished,
+    KadUpdateFindNodeRequest {
+        peer_id: PeerId,
+        closest_peers: Vec<p2p::network::kad::P2pNetworkKadEntry>,
+    },
     /// Other non-specific p2p event.
     P2p {
         event: P2pEvent,
@@ -108,6 +112,21 @@ pub(super) fn event_mapper_effect(store: &mut super::redux::Store, action: P2pAc
             p2p::P2pNetworkKademliaAction::BootstrapFinished,
         ))) => {
             store_event(store, RustNodeEvent::KadBootstrapFinished);
+        }
+        P2pAction::Network(p2p::P2pNetworkAction::Kad(p2p::P2pNetworkKadAction::System(
+            p2p::P2pNetworkKademliaAction::UpdateFindNodeRequest {
+                peer_id,
+                closest_peers,
+                ..
+            },
+        ))) => {
+            store_event(
+                store,
+                RustNodeEvent::KadUpdateFindNodeRequest {
+                    peer_id,
+                    closest_peers,
+                },
+            );
         }
         P2pAction::Channels(P2pChannelsAction::Rpc(action)) => match action {
             P2pChannelsRpcAction::Ready { peer_id } => {
