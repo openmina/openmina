@@ -95,10 +95,11 @@ impl P2pState {
                 let Some(peer_id) = action.peer_id() else {
                     return;
                 };
+                let is_libp2p = self.is_libp2p_peer(peer_id);
                 let Some(peer) = self.get_ready_peer_mut(peer_id) else {
                     return;
                 };
-                peer.channels.reducer(meta.with_action(action));
+                peer.channels.reducer(meta.with_action(action), is_libp2p);
             }
             P2pAction::Discovery(action) => {
                 p2p_discovery_reducer(self, meta.with_action(action));

@@ -61,7 +61,6 @@ impl P2pChannelsBestTipAction {
                     // already store last sent best tip here and we make
                     // sure we don't send same block to same peer again.
                     store.dispatch(P2pNetworkPubsubAction::Broadcast { message });
-                    store.dispatch(P2pChannelsBestTipAction::RequestReceived { peer_id });
                 }
             }
             P2pChannelsBestTipAction::Pending { .. } => {}
