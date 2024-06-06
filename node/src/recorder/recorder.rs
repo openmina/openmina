@@ -4,6 +4,7 @@ use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, TryLockError};
 
+use crate::p2p::identity::SecretKey as P2pSecretKey;
 use crate::{Action, ActionWithMeta, EventSourceAction, State};
 
 use super::{RecordedActionWithMeta, RecordedInitialState};
@@ -44,12 +45,13 @@ impl Recorder {
         }
     }
 
-    pub fn initial_state(&mut self, rng_seed: u64, state: &State) {
+    pub fn initial_state(&mut self, rng_seed: u64, p2p_sec_key: P2pSecretKey, state: &State) {
         match self {
             Self::None => {}
             Self::OnlyInputActions { recorder_path, .. } => {
                 let initial_state = RecordedInitialState {
                     rng_seed,
+                    p2p_sec_key,
                     state: Cow::Borrowed(state),
                 };
                 let initial_state_path = super::initial_state_path(recorder_path);

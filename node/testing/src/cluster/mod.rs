@@ -18,7 +18,6 @@ use std::time::Duration;
 use std::{collections::VecDeque, sync::Arc};
 
 use libp2p::futures::{stream::FuturesUnordered, StreamExt};
-use libp2p::identity::Keypair;
 
 use node::account::{AccountPublicKey, AccountSecretKey};
 use node::core::channels::mpsc;
@@ -217,18 +216,10 @@ impl Cluster {
         let node_id = ClusterNodeId::new_unchecked(self.nodes.len());
         let work_dir = TempDir::new().unwrap();
         let (shutdown_tx, shutdown_rx) = mpsc::channel(1);
-        let secret_key = P2pSecretKey::from_bytes(match testing_config.peer_id {
-            TestPeerId::Derived => {
-                let mut bytes = [0; 32];
-                let bytes_len = bytes.len();
-                let i_bytes = node_id.index().to_be_bytes();
-                let i = bytes_len - i_bytes.len();
-                bytes[i..bytes_len].copy_from_slice(&i_bytes);
-                bytes
-            }
-            TestPeerId::Bytes(bytes) => bytes,
-        });
-        let pub_key = secret_key.public_key();
+        let p2p_sec_key = match testing_config.peer_id {
+            TestPeerId::Derived => P2pSecretKey::deterministic(node_id.index()),
+            TestPeerId::Bytes(bytes) => P2pSecretKey::from_bytes(bytes),
+        };
 
         let http_port = self
             .available_ports
@@ -283,7 +274,7 @@ impl Cluster {
             p2p: P2pConfig {
                 libp2p_port: Some(libp2p_port),
                 listen_port: http_port,
-                identity_pub_key: pub_key,
+                identity_pub_key: p2p_sec_key.public_key(),
                 initial_peers,
                 ask_initial_peers_interval: testing_config.ask_initial_peers_interval,
                 enabled_channels: ChannelId::iter_all().collect(),
@@ -301,11 +292,8 @@ impl Cluster {
 
         let (event_sender, event_receiver) = mpsc::unbounded_channel();
 
-        let keypair = Keypair::ed25519_from_bytes(secret_key.to_bytes())
-            .expect("secret key bytes must be valid");
-
         let p2p_service_ctx = <NodeService as P2pServiceWebrtcWithLibp2p>::init(
-            secret_key.clone(),
+            p2p_sec_key.clone(),
             p2p_task_spawner::P2pTaskSpawner::new(shutdown_tx.clone()),
         );
 
@@ -353,7 +341,7 @@ impl Cluster {
             mio: p2p_service_ctx.mio,
             network: Default::default(),
             block_producer: None,
-            keypair,
+            keypair: p2p_sec_key.clone().into(),
             snark_worker_sender: None,
             rpc: rpc_service,
             stats: node::stats::Stats::new(),
@@ -416,7 +404,7 @@ impl Cluster {
             store
                 .service
                 .recorder()
-                .initial_state(rng_seed, store.state.get());
+                .initial_state(rng_seed, p2p_sec_key, store.state.get());
         }
 
         let node = Node::new(work_dir, node_config, store);
