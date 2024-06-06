@@ -13,6 +13,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
+use crate::p2p::identity::SecretKey as P2pSecretKey;
 use crate::{Action, ActionKind, ActionWithMeta, State};
 
 fn initial_state_path<P: AsRef<Path>>(path: P) -> PathBuf {
@@ -27,6 +28,7 @@ fn actions_path<P: AsRef<Path>>(path: P, file_index: usize) -> PathBuf {
 #[derive(Serialize, Deserialize)]
 pub struct RecordedInitialState<'a> {
     pub rng_seed: u64,
+    pub p2p_sec_key: P2pSecretKey,
     pub state: Cow<'a, State>,
 }
 

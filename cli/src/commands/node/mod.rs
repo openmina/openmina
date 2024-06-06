@@ -150,13 +150,8 @@ impl Node {
             .build_global()
             .context("failed to initialize threadpool")?;
 
-        let mut rng = ThreadRng::default();
-
-        let secret_key = self.p2p_secret_key.unwrap_or_else(|| {
-            let bytes = rng.gen();
-            SecretKey::from_bytes(bytes)
-        });
-        let pub_key = secret_key.public_key();
+        let rng_seed = rand::thread_rng().next_u64();
+        let p2p_secret_key = self.p2p_secret_key.unwrap_or_else(SecretKey::rand);
 
         let initial_peers = {
             let mut result = Vec::new();
@@ -206,7 +201,6 @@ impl Node {
         });
 
         let work_dir = shellexpand::full(&self.work_dir).unwrap().into_owned();
-        let rng_seed = rng.next_u64();
         let srs: Arc<_> = get_srs();
 
         let genesis_config = match self.config {
@@ -242,7 +236,7 @@ impl Node {
             p2p: P2pConfig {
                 libp2p_port: Some(self.libp2p_port),
                 listen_port: self.port,
-                identity_pub_key: pub_key,
+                identity_pub_key: p2p_secret_key.public_key(),
                 initial_peers,
                 ask_initial_peers_interval: Duration::from_secs(3600),
                 enabled_channels: ChannelId::for_libp2p().collect(),
@@ -258,16 +252,15 @@ impl Node {
         };
         let (event_sender, event_receiver) = mpsc::unbounded_channel();
 
-        let keypair = Keypair::ed25519_from_bytes(secret_key.to_bytes())
-            .expect("secret key bytes must be valid");
+        let libp2p_keypair = Keypair::from(p2p_secret_key.clone());
 
         openmina_core::info!(
             openmina_core::log::system_time();
-            peer_id = keypair.public().to_peer_id().to_base58(),
+            peer_id = libp2p_keypair.public().to_peer_id().to_base58(),
         );
 
         let p2p_service_ctx = <NodeService as P2pServiceWebrtcWithLibp2p>::init(
-            secret_key.clone(),
+            p2p_secret_key.clone(),
             P2pTaskSpawner {},
         );
 
@@ -318,7 +311,7 @@ impl Node {
                 mio: p2p_service_ctx.mio,
                 network: Default::default(),
                 block_producer: None,
-                keypair,
+                keypair: libp2p_keypair,
                 rpc: rpc_service,
                 snark_worker_sender: None,
                 stats: Stats::new(),
@@ -344,7 +337,7 @@ impl Node {
                 store
                     .service
                     .recorder()
-                    .initial_state(rng_seed, store.state.get());
+                    .initial_state(rng_seed, p2p_secret_key, store.state.get());
             }
 
             node.store_mut().dispatch(EventSourceAction::ProcessEvents);

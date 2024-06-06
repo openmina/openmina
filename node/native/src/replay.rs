@@ -1,6 +1,5 @@
 use std::cell::RefCell;
 
-use libp2p_identity::Keypair;
 use node::{
     core::channels::mpsc, ledger::LedgerManager, recorder::StateWithInputActionsReader,
     service::Recorder, snark::VerifierKind, ActionWithMeta, BuildEnv, Store,
@@ -39,6 +38,7 @@ pub fn replay_state_with_input_actions(
     let effects: node::Effects<NodeService> = dynamic_effects_lib
         .as_ref()
         .map_or(replayer_effects, |_| replayer_effects_with_dyn_effects);
+    let p2p_sec_key = initial_state.p2p_sec_key;
 
     let service = NodeService {
         rng: StdRng::seed_from_u64(initial_state.rng_seed),
@@ -51,7 +51,7 @@ pub fn replay_state_with_input_actions(
         mio: node::p2p::service_impl::mio::MioService::mocked(),
         network: Default::default(),
         block_producer: None,
-        keypair: Keypair::generate_ed25519(),
+        keypair: p2p_sec_key.into(),
         rpc: RpcService::new(),
         snark_worker_sender: None,
         stats: Default::default(),
