@@ -13,6 +13,7 @@
 
 use num_enum::TryFromPrimitive;
 use serde::{Deserialize, Serialize};
+use strum_macros::VariantArray;
 
 use crate::block_producer::vrf_evaluator::BlockProducerVrfEvaluatorAction;
 use crate::block_producer::BlockProducerAction;
@@ -66,7 +67,17 @@ use crate::{Action, ActionKindGet, CheckTimeoutsAction};
 
 /// Unified kind enum for all action types
 #[derive(
-    Serialize, Deserialize, TryFromPrimitive, Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Copy,
+    Serialize,
+    Deserialize,
+    VariantArray,
+    TryFromPrimitive,
+    Debug,
+    Ord,
+    PartialOrd,
+    Eq,
+    PartialEq,
+    Clone,
+    Copy,
 )]
 #[repr(u16)]
 pub enum ActionKind {
@@ -250,7 +261,9 @@ pub enum ActionKind {
     P2pNetworkNoiseIncomingData,
     P2pNetworkNoiseInit,
     P2pNetworkNoiseOutgoingChunk,
+    P2pNetworkNoiseOutgoingChunkSelectMux,
     P2pNetworkNoiseOutgoingData,
+    P2pNetworkNoiseOutgoingDataSelectMux,
     P2pNetworkPnetIncomingData,
     P2pNetworkPnetOutgoingData,
     P2pNetworkPnetSetupNonce,
@@ -287,7 +300,11 @@ pub enum ActionKind {
     P2pNetworkSchedulerSelectError,
     P2pNetworkSchedulerYamuxDidInit,
     P2pNetworkSelectIncomingData,
+    P2pNetworkSelectIncomingDataAuth,
+    P2pNetworkSelectIncomingDataMux,
     P2pNetworkSelectIncomingPayload,
+    P2pNetworkSelectIncomingPayloadAuth,
+    P2pNetworkSelectIncomingPayloadMux,
     P2pNetworkSelectIncomingToken,
     P2pNetworkSelectInit,
     P2pNetworkSelectOutgoingTokens,
@@ -447,7 +464,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 374;
+    pub const COUNT: u16 = 380;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -1136,7 +1153,11 @@ impl ActionKindGet for P2pNetworkSelectAction {
     fn kind(&self) -> ActionKind {
         match self {
             Self::Init { .. } => ActionKind::P2pNetworkSelectInit,
+            Self::IncomingDataAuth { .. } => ActionKind::P2pNetworkSelectIncomingDataAuth,
+            Self::IncomingDataMux { .. } => ActionKind::P2pNetworkSelectIncomingDataMux,
             Self::IncomingData { .. } => ActionKind::P2pNetworkSelectIncomingData,
+            Self::IncomingPayloadAuth { .. } => ActionKind::P2pNetworkSelectIncomingPayloadAuth,
+            Self::IncomingPayloadMux { .. } => ActionKind::P2pNetworkSelectIncomingPayloadMux,
             Self::IncomingPayload { .. } => ActionKind::P2pNetworkSelectIncomingPayload,
             Self::IncomingToken { .. } => ActionKind::P2pNetworkSelectIncomingToken,
             Self::OutgoingTokens { .. } => ActionKind::P2pNetworkSelectOutgoingTokens,
@@ -1152,7 +1173,11 @@ impl ActionKindGet for P2pNetworkNoiseAction {
             Self::IncomingData { .. } => ActionKind::P2pNetworkNoiseIncomingData,
             Self::IncomingChunk { .. } => ActionKind::P2pNetworkNoiseIncomingChunk,
             Self::OutgoingChunk { .. } => ActionKind::P2pNetworkNoiseOutgoingChunk,
+            Self::OutgoingChunkSelectMux { .. } => {
+                ActionKind::P2pNetworkNoiseOutgoingChunkSelectMux
+            }
             Self::OutgoingData { .. } => ActionKind::P2pNetworkNoiseOutgoingData,
+            Self::OutgoingDataSelectMux { .. } => ActionKind::P2pNetworkNoiseOutgoingDataSelectMux,
             Self::DecryptedData { .. } => ActionKind::P2pNetworkNoiseDecryptedData,
             Self::HandshakeDone { .. } => ActionKind::P2pNetworkNoiseHandshakeDone,
         }

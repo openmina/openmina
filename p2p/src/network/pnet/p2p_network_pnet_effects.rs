@@ -18,9 +18,8 @@ impl P2pNetworkPnetAction {
             P2pNetworkPnetAction::IncomingData { addr, .. } => match &state.incoming {
                 Half::Done { to_send, .. } if !to_send.is_empty() => {
                     let data = to_send.clone().into();
-                    store.dispatch(P2pNetworkSelectAction::IncomingData {
+                    store.dispatch(P2pNetworkSelectAction::IncomingDataAuth {
                         addr,
-                        kind: SelectKind::Authentication,
                         data,
                         fin: false,
                     });

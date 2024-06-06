@@ -59,7 +59,8 @@ impl P2pNetworkYamuxAction {
 
                         store.dispatch(P2pNetworkSelectAction::IncomingData {
                             addr,
-                            kind: SelectKind::Stream(peer_id, frame.stream_id),
+                            peer_id,
+                            stream_id: frame.stream_id,
                             data: data.clone(),
                             fin: frame.flags.contains(YamuxFlags::FIN),
                         });

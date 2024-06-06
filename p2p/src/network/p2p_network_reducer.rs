@@ -68,7 +68,7 @@ impl P2pNetworkState {
                             cn.select_mux.reducer(meta.with_action(a))
                         }
                         SelectKind::Stream(_, stream_id) => {
-                            if let Some(stream) = cn.streams.get_mut(stream_id) {
+                            if let Some(stream) = cn.streams.get_mut(&stream_id) {
                                 stream.select.reducer(meta.with_action(a))
                             }
                         }

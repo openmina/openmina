@@ -8,8 +8,8 @@ license = "Apache-2.0"
 serde = "1.0.147"
 serde_json = { version = "1.0.82", features = ["unbounded_depth", "arbitrary_precision"] }
 serde_with = { version = "3.6.1", features = ["time_0_3"] }
-strum = "0.24.1"
-strum_macros = "0.24.3"
+strum = "0.26.2"
+strum_macros = "0.26.4"
 derive_more = "0.99.17"
 lazy_static = "1.4.0"
 thiserror = "1.0.37"
