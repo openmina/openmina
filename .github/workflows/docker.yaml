@@ -54,6 +54,13 @@ jobs:
 
   build-openmina-frontend-image:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        configuration:
+          - build_configuration: compose
+            tag_suffix: ""
+          - build_configuration: block_producers
+            tag_suffix: "producer-demo"
     steps:
       - name: Git checkout
         uses: actions/checkout@v3
@@ -73,7 +80,7 @@ jobs:
         with:
           # list of Docker images to use as base name for tags
           images: |
-            openmina/frontend
+            openmina/frontend${{ matrix.configuration.tag_suffix }}
           # generate Docker tags based on the following events/attributes
           tags: |
             type=ref,event=branch
@@ -87,7 +94,7 @@ jobs:
         with:
           context: ./frontend
           build-args: |
-            BUILD_CONFIGURATION=compose
+            BUILD_CONFIGURATION=${{ matrix.configuration.build_configuration }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           cache-from: type=gha
