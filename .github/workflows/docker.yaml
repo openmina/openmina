@@ -61,7 +61,7 @@ jobs:
           - build_configuration: compose
             tag_suffix: ""
           - build_configuration: block_producers
-            tag_suffix: "producer-demo"
+            tag_suffix: "-producer-demo"
     steps:
       - name: Git checkout
         uses: actions/checkout@v3
@@ -81,7 +81,9 @@ jobs:
         with:
           # list of Docker images to use as base name for tags
           images: |
-            openmina/frontend${{ matrix.configuration.tag_suffix }}
+            openmina/frontend
+          flavor: |
+            suffix=${{ matrix.configuration.tag_suffix }}
           # generate Docker tags based on the following events/attributes
           tags: |
             type=ref,event=branch
