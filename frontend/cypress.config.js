@@ -16,7 +16,7 @@ module.exports = defineConfig({
   defaultCommandTimeout: 10000,
   video: false,
   e2e: {
-    baseUrl: 'http://frontend-server:80',
+    baseUrl: 'http://localhost:4200',
     setupNodeEvents(on, config) {
       return require('./cypress/plugins/index.js')(on, config);
       // return require('cypress-real-events/support')(on, config);
