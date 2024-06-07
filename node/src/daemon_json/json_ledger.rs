@@ -1,6 +1,5 @@
 use core::str::FromStr;
 use mina_hasher::Fp;
-use mina_signer::CompressedPubKey;
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::Value;
 use std::fmt::{self, Display, Formatter};
@@ -102,7 +101,7 @@ impl Account {
 
 impl Account {
     pub fn public_key(&self) -> Result<AccountPublicKey, AccountConfigError> {
-        let cpk = CompressedPubKey::from_address(&self.pk)
+        let cpk = ledger::compressed_pubkey_from_address_maybe_with_error(&self.pk)
             .map_err(|_| AccountConfigError::MalformedKey(self.pk.clone()))?;
         Ok(AccountPublicKey::from(cpk))
     }
@@ -115,7 +114,7 @@ impl Account {
         let is_default_token = self.token_id()?.is_default();
         match self.delegate.as_ref() {
             Some(delegate) if is_default_token => {
-                let cpk = CompressedPubKey::from_address(delegate)
+                let cpk = ledger::compressed_pubkey_from_address_maybe_with_error(delegate)
                     .map_err(|_| AccountConfigError::MalformedKey(delegate.clone()))?;
                 Ok(Some(AccountPublicKey::from(cpk)))
             }
