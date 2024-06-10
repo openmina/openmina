@@ -22,7 +22,7 @@ impl SecretKey {
         Self::rand_with(&mut rand::thread_rng())
     }
 
-    pub fn rand_with<R: Rng>(mut rng: R) -> Self {
+    pub fn rand_with(mut rng: impl Rng) -> Self {
         Self::from_bytes(rng.gen())
     }
 

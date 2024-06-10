@@ -1,15 +1,14 @@
-use serde::{Deserialize, Serialize};
 use std::{env, fmt, fs, path::PathBuf, str::FromStr};
 
 use argon2::{password_hash::SaltString, Argon2, Params, PasswordHasher};
-
 use base64::Engine;
 use crypto_secretbox::aead::{Aead, OsRng};
 use crypto_secretbox::{AeadCore, KeyInit, XSalsa20Poly1305};
-
 use mina_p2p_messages::{bigint::BigInt, v2::SignatureLibPrivateKeyStableV1};
 use mina_signer::{keypair::KeypairError, CompressedPubKey, Keypair};
 use openmina_core::constants::GENESIS_PRODUCER_SK;
+use rand::{rngs::StdRng, CryptoRng, Rng, SeedableRng};
+use serde::{Deserialize, Serialize};
 
 use super::AccountPublicKey;
 
@@ -24,9 +23,12 @@ impl std::fmt::Debug for AccountSecretKey {
 
 lazy_static::lazy_static! {
     // TODO(binier): better way.
-    static ref GENERATED_DETERMINISTIC: Vec<AccountSecretKey> = (0..1000)
-        .map(|_| AccountSecretKey::rand())
-        .collect();
+    static ref GENERATED_DETERMINISTIC: Vec<AccountSecretKey> = {
+        let mut rng = StdRng::seed_from_u64(0);
+        (0..1000)
+            .map(|_| AccountSecretKey::rand_with(&mut rng))
+            .collect()
+    };
 }
 
 impl AccountSecretKey {
@@ -41,7 +43,10 @@ impl AccountSecretKey {
     }
 
     pub fn rand() -> Self {
-        let mut rng = rand::thread_rng();
+        Self::rand_with(rand::thread_rng())
+    }
+
+    pub fn rand_with(mut rng: impl Rng + CryptoRng) -> Self {
         Self(Keypair::rand(&mut rng))
     }
 
