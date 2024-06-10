@@ -3,6 +3,7 @@ use mina_p2p_messages::v2::{
     MinaStateSnarkTransitionValueStableV2, ProverExtendBlockchainInputStableV2,
 };
 
+use crate::account::AccountSecretKey;
 use crate::ledger::write::{LedgerWriteAction, LedgerWriteRequest};
 use crate::transition_frontier::sync::TransitionFrontierSyncAction;
 use crate::Store;
@@ -234,7 +235,8 @@ pub fn block_producer_effects<S: crate::Service>(
                             .coinbase_receiver
                             .clone(),
                         ledger: stake_proof_sparse_ledger.clone(),
-                        producer_private_key: service.keypair()?.into(),
+                        // it is replaced with correct keys in the service.
+                        producer_private_key: AccountSecretKey::genesis_producer().into(),
                         producer_public_key,
                     },
                     pending_coinbase: pending_coinbase_witness.clone(),

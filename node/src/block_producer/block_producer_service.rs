@@ -6,8 +6,6 @@ use mina_p2p_messages::v2::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::account::AccountSecretKey;
-
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct StagedLedgerDiffCreateOutput {
     pub diff: StagedLedgerDiffDiffStableV2,
@@ -21,7 +19,5 @@ pub struct StagedLedgerDiffCreateOutput {
 }
 
 pub trait BlockProducerService {
-    fn keypair(&mut self) -> Option<AccountSecretKey>;
-
     fn prove(&mut self, block_hash: StateHash, input: Box<ProverExtendBlockchainInputStableV2>);
 }

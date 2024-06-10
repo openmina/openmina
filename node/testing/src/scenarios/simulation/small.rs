@@ -20,7 +20,7 @@ use crate::{
 pub struct SimulationSmall;
 
 impl SimulationSmall {
-    pub async fn run(self, runner: ClusterRunner<'_>) {
+    pub async fn run(self, mut runner: ClusterRunner<'_>) {
         let initial_time = redux::Timestamp::global_now();
         let mut constants = PROTOCOL_CONSTANTS.clone();
         constants.genesis_state_timestamp =
@@ -39,8 +39,9 @@ impl SimulationSmall {
             advance_time: RunCfgAdvanceTime::Rand(10..=200),
             run_until: SimulatorRunUntil::Epoch(3),
             run_until_timeout: Duration::from_secs(30 * 60),
+            recorder: Default::default(),
         };
         let mut simulator = Simulator::new(initial_time, cfg);
-        simulator.run(runner).await;
+        simulator.run(&mut runner).await;
     }
 }

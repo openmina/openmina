@@ -89,7 +89,11 @@ pub fn replay_state_with_input_actions(
         let expected_actions = &mut replayer.expected_actions;
 
         let action = if input_action.is_none() {
-            expected_actions.clear();
+            assert_eq!(
+                expected_actions.len(),
+                0,
+                "not all expected effects of the input action were dispatched! Ones left: {expected_actions:?}"
+            );
             let (action, meta) = actions
                 .next()
                 .unwrap()

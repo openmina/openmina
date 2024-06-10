@@ -20,7 +20,7 @@ use crate::{
 pub struct SimulationSmallForeverRealTime;
 
 impl SimulationSmallForeverRealTime {
-    pub async fn run(self, runner: ClusterRunner<'_>) {
+    pub async fn run(self, mut runner: ClusterRunner<'_>) {
         let initial_time = redux::Timestamp::global_now();
         let mut constants = v2::PROTOCOL_CONSTANTS.clone();
         constants.genesis_state_timestamp =
@@ -39,8 +39,9 @@ impl SimulationSmallForeverRealTime {
             advance_time: RunCfgAdvanceTime::Real,
             run_until: SimulatorRunUntil::Forever,
             run_until_timeout: Duration::MAX,
+            recorder: Default::default(),
         };
         let mut simulator = Simulator::new(initial_time, cfg);
-        simulator.run(runner).await;
+        simulator.run(&mut runner).await;
     }
 }

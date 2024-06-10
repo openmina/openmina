@@ -44,7 +44,7 @@ impl Simulator {
             snark_worker: None,
             timeouts: Default::default(),
             libp2p_port: None,
-            recorder: Default::default(),
+            recorder: self.config.recorder.clone(),
         }
     }
 
@@ -201,11 +201,11 @@ impl Simulator {
         self.wait_for_all_nodes_synced(runner).await;
     }
 
-    pub async fn run<'a>(&mut self, mut runner: ClusterRunner<'a>) {
-        self.set_up_seed_nodes(&mut runner).await;
-        self.set_up_normal_nodes(&mut runner).await;
-        self.set_up_snark_worker_nodes(&mut runner).await;
-        self.set_up_block_producer_nodes(&mut runner).await;
+    pub async fn run<'a>(&mut self, runner: &mut ClusterRunner<'a>) {
+        self.set_up_seed_nodes(runner).await;
+        self.set_up_normal_nodes(runner).await;
+        self.set_up_snark_worker_nodes(runner).await;
+        self.set_up_block_producer_nodes(runner).await;
 
         let run_until = self.config.run_until.clone();
         let advance_time = self.config.advance_time.clone();
@@ -254,14 +254,15 @@ impl Simulator {
                         best_tip.producer(),
                         best_tip.staged_ledger_diff().0.completed_works.len(),
                     );
-                    match &run_until {
-                        SimulatorRunUntil::Forever => {}
+                    let stop = match &run_until {
+                        SimulatorRunUntil::Forever => false,
                         SimulatorRunUntil::Epoch(epoch) => {
-                            let cur_epoch = consensus_state.epoch_count.as_u32();
-                            if cur_epoch >= *epoch {
-                                return;
-                            }
+                            consensus_state.epoch_count.as_u32() >= *epoch
                         }
+                        SimulatorRunUntil::BlockchainLength(height) => best_tip.height() >= *height,
+                    };
+                    if stop {
+                        return;
                     }
                 }
             }
