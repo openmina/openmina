@@ -33,6 +33,7 @@ use self::multi_node::vrf_correct_slots::MultiNodeVrfGetCorrectSlots;
 use self::multi_node::vrf_epoch_bounds_correct_ledgers::MultiNodeVrfEpochBoundsCorrectLedger;
 use self::multi_node::vrf_epoch_bounds_evaluation::MultiNodeVrfEpochBoundsEvaluation;
 use self::p2p::pubsub::P2pReceiveBlock;
+use self::record_replay::block_production::RecordReplayBlockProduction;
 use self::record_replay::bootstrap::RecordReplayBootstrap;
 use self::simulation::small::SimulationSmall;
 use self::simulation::small_forever_real_time::SimulationSmallForeverRealTime;
@@ -64,6 +65,7 @@ pub enum Scenarios {
     SimulationSmallForeverRealTime(SimulationSmallForeverRealTime),
     P2pReceiveBlock(P2pReceiveBlock),
     RecordReplayBootstrap(RecordReplayBootstrap),
+    RecordReplayBlockProduction(RecordReplayBlockProduction),
 }
 
 impl Scenarios {
@@ -143,6 +145,7 @@ impl Scenarios {
             Self::SimulationSmallForeverRealTime(_) => SimulationSmallForeverRealTime::DOCS,
             Self::P2pReceiveBlock(_) => P2pReceiveBlock::DOCS,
             Self::RecordReplayBootstrap(_) => RecordReplayBootstrap::DOCS,
+            Self::RecordReplayBlockProduction(_) => RecordReplayBlockProduction::DOCS,
         }
     }
 
@@ -177,6 +180,7 @@ impl Scenarios {
             Self::SimulationSmallForeverRealTime(v) => v.run(runner).await,
             Self::P2pReceiveBlock(v) => v.run(runner).await,
             Self::RecordReplayBootstrap(v) => v.run(runner).await,
+            Self::RecordReplayBlockProduction(v) => v.run(runner).await,
         }
     }
 

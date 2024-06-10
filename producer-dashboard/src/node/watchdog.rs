@@ -56,7 +56,7 @@ async fn watch(
                 let mut status: tokio::sync::RwLockWriteGuard<'_, super::NodeData> =
                     status.write().await;
                 status.best_tip = Some(best_tip.clone());
-                status.best_chain = best_chain.clone();
+                status.best_chain.clone_from(&best_chain);
                 status.sync_status = sync_status.clone()
             }
             let current_epoch: u32 = best_tip.consensus_state().epoch.parse().unwrap();
