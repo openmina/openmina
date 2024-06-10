@@ -62,7 +62,7 @@ impl P2pNetworkState {
             }
             P2pNetworkAction::Select(a) => {
                 if let Some(cn) = self.scheduler.connections.get_mut(a.addr()) {
-                    match a.id() {
+                    match a.select_kind() {
                         SelectKind::Authentication => cn.select_auth.reducer(meta.with_action(a)),
                         SelectKind::Multiplexing(_) | SelectKind::MultiplexingNoPeerId => {
                             cn.select_mux.reducer(meta.with_action(a))

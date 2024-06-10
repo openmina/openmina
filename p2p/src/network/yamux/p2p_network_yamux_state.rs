@@ -70,7 +70,7 @@ impl YamuxStreamState {
 }
 
 bitflags::bitflags! {
-    #[derive(Serialize, Deserialize, Debug, Clone)]
+    #[derive(Serialize, Deserialize, Debug, Default, Clone)]
     pub struct YamuxFlags: u16 {
         const SYN = 0b0001;
         const ACK = 0b0010;

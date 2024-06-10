@@ -132,20 +132,8 @@ impl P2pNetworkSchedulerState {
                     None => {}
                 }
             }
-            P2pNetworkSchedulerAction::SelectError { addr, kind, .. } => {
-                // Now (unlike normal libp2p) we always disconnect peers causing select errors, even for streams
-                if let Some(connection) = self.connections.get_mut(addr) {
-                    if let Some(stream_id) = &kind.stream_id() {
-                        connection.streams.remove(stream_id);
-                    }
-
-                    connection.closed = Some(P2pNetworkConnectionError::SelectError.into());
-                }
-                if let Some(connection) = self.connections.get_mut(addr) {
-                    connection.closed = Some(P2pNetworkConnectionError::SelectError.into());
-                } else {
-                    unreachable!()
-                }
+            P2pNetworkSchedulerAction::SelectError { .. } => {
+                // NOOP, error should be triggered
             }
             P2pNetworkSchedulerAction::YamuxDidInit { addr, .. } => {
                 if let Some(cn) = self.connections.get_mut(addr) {
@@ -193,6 +181,20 @@ impl P2pNetworkSchedulerState {
                 self.rpc_outgoing_streams.remove(peer_id);
                 if let Some(discovery_state) = self.discovery_state.as_mut() {
                     discovery_state.streams.remove(peer_id);
+                }
+            }
+            P2pNetworkSchedulerAction::PruneStream { peer_id, stream_id } => {
+                let Some((_, conn_state)) = self
+                    .connections
+                    .iter_mut()
+                    .find(|(_, conn_state)| conn_state.peer_id() == Some(peer_id))
+                else {
+                    error!(meta.time(); "PruneStream: peer {peer_id} not found");
+                    return;
+                };
+
+                if conn_state.streams.remove(stream_id).is_none() {
+                    error!(meta.time(); "PruneStream: peer {peer_id} does not have stream {stream_id}");
                 }
             }
         }

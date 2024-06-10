@@ -10,7 +10,7 @@ use super::{
 };
 use crate::{
     identify::P2pIdentifyAction, network::identify::stream::P2pNetworkIdentifyStreamError, token,
-    Data, P2pNetworkSchedulerAction, P2pNetworkService, P2pNetworkYamuxAction,
+    Data, P2pNetworkSchedulerAction, P2pNetworkService, P2pNetworkYamuxAction, YamuxFlags,
 };
 
 fn get_addrs<I, S>(addr: &SocketAddr, net_svc: &mut S) -> I
@@ -131,7 +131,7 @@ impl P2pNetworkIdentifyStreamAction {
                         addr,
                         stream_id,
                         data: Data(out.into_boxed_slice()),
-                        fin: false,
+                        flags: Default::default(),
                     });
 
                     store.dispatch(P2pNetworkIdentifyStreamAction::Close {
@@ -198,7 +198,7 @@ impl P2pNetworkIdentifyStreamAction {
                             addr,
                             stream_id,
                             data: Data(Box::new([])),
-                            fin: true,
+                            flags: YamuxFlags::FIN,
                         });
                         store.dispatch(A::Prune {
                             addr,
@@ -224,7 +224,7 @@ impl P2pNetworkIdentifyStreamAction {
                             addr,
                             stream_id,
                             data: Data(Box::new([])),
-                            fin: true,
+                            flags: YamuxFlags::FIN,
                         });
                         store.dispatch(A::Prune {
                             addr,

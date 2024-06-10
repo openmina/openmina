@@ -1,4 +1,4 @@
-use self::p2p_network_yamux_state::{YamuxFlags, YamuxFrame, YamuxFrameInner};
+use super::p2p_network_yamux_state::{YamuxFrame, YamuxFrameInner};
 
 use super::{super::*, *};
 
@@ -93,19 +93,15 @@ impl P2pNetworkYamuxAction {
                 addr,
                 stream_id,
                 data,
-                fin,
+                mut flags,
             } => {
                 let Some(stream) = state.streams.get(&stream_id) else {
                     return;
                 };
-                let mut flags = YamuxFlags::empty();
                 if !stream.incoming && !stream.established && !stream.syn_sent {
                     flags.insert(YamuxFlags::SYN);
                 } else if stream.incoming && !stream.established {
                     flags.insert(YamuxFlags::ACK);
-                }
-                if fin {
-                    flags.insert(YamuxFlags::FIN);
                 }
                 let frame = YamuxFrame {
                     flags,

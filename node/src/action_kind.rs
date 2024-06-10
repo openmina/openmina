@@ -295,6 +295,7 @@ pub enum ActionKind {
     P2pNetworkSchedulerOutgoingConnect,
     P2pNetworkSchedulerOutgoingDidConnect,
     P2pNetworkSchedulerPrune,
+    P2pNetworkSchedulerPruneStream,
     P2pNetworkSchedulerPruneStreams,
     P2pNetworkSchedulerSelectDone,
     P2pNetworkSchedulerSelectError,
@@ -464,7 +465,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 380;
+    pub const COUNT: u16 = 381;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -1135,6 +1136,7 @@ impl ActionKindGet for P2pNetworkSchedulerAction {
             Self::Disconnected { .. } => ActionKind::P2pNetworkSchedulerDisconnected,
             Self::Prune { .. } => ActionKind::P2pNetworkSchedulerPrune,
             Self::PruneStreams { .. } => ActionKind::P2pNetworkSchedulerPruneStreams,
+            Self::PruneStream { .. } => ActionKind::P2pNetworkSchedulerPruneStream,
         }
     }
 }

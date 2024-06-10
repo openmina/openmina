@@ -230,6 +230,9 @@ jobs:
     env:
       # to allow local addrs discovery
       OPENMINA_DISCOVERY_FILTER_ADDR: false
+      # to allow connection with replayer
+      # TODO: remove when replayer supports identify
+      KEEP_CONNECTION_WITH_UNKNOWN_STREAM: true
       OPENMINA_SCENARIO_SEEDS: ${{ needs.k8s-peers.outputs.peers }}
     strategy:
       matrix:

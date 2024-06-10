@@ -53,7 +53,7 @@ mod data {
     #[derive(Clone)]
     pub struct DataSized<const N: usize>(pub [u8; N]);
 
-    #[derive(Clone)]
+    #[derive(Clone, Default)]
     pub struct Data(pub Box<[u8]>);
 
     impl<const N: usize> Serialize for DataSized<N> {

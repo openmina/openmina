@@ -58,23 +58,58 @@ pub struct P2pTimeouts {
     pub select: Option<Duration>,
 }
 
+fn from_env_or(name: &str, default: Option<Duration>) -> Option<Duration> {
+    None.or_else(|| {
+        let val = std::env::var(name).ok()?.to_ascii_lowercase();
+        Some(match val.as_ref() {
+            "none" => None,
+            s => Some(Duration::from_secs(s.parse().ok()?)),
+        })
+    })
+    .unwrap_or(default)
+}
+
 impl Default for P2pTimeouts {
     fn default() -> Self {
         Self {
-            incoming_connection_timeout: Some(Duration::from_secs(30)),
-            outgoing_connection_timeout: Some(Duration::from_secs(10)),
-            reconnect_timeout: Some(Duration::from_secs(1)),
-            incoming_error_reconnect_timeout: Some(Duration::from_secs(30)),
-            outgoing_error_reconnect_timeout: Some(Duration::from_secs(30)),
-            best_tip_with_proof: Some(Duration::from_secs(10)),
-            ledger_query: Some(Duration::from_secs(2)),
-            staged_ledger_aux_and_pending_coinbases_at_block: Some(Duration::from_secs(120)),
-            block: Some(Duration::from_secs(5)),
-            snark: Some(Duration::from_secs(5)),
-            initial_peers: Some(Duration::from_secs(5)),
-            kademlia_bootstrap: Some(Duration::from_secs(60)),
-            kademlia_initial_bootstrap: Some(Duration::from_secs(5)),
-            select: Some(Duration::from_secs(5)),
+            incoming_connection_timeout: from_env_or(
+                "INCOMING_CONNECTION_TIMEOUT",
+                Some(Duration::from_secs(30)),
+            ),
+            outgoing_connection_timeout: from_env_or(
+                "OUTGOING_CONNECTION_TIMEOUT",
+                Some(Duration::from_secs(10)),
+            ),
+            reconnect_timeout: from_env_or("RECONNECT_TIMEOUT", Some(Duration::from_secs(1))),
+            incoming_error_reconnect_timeout: from_env_or(
+                "INCOMING_ERROR_RECONNECT_TIMEOUT",
+                Some(Duration::from_secs(30)),
+            ),
+            outgoing_error_reconnect_timeout: from_env_or(
+                "OUTGOING_ERROR_RECONNECT_TIMEOUT",
+                Some(Duration::from_secs(30)),
+            ),
+            best_tip_with_proof: from_env_or(
+                "BEST_TIP_WITH_PROOF_TIMEOUT",
+                Some(Duration::from_secs(10)),
+            ),
+            ledger_query: from_env_or("LEDGER_QUERY_TIMEOUT", Some(Duration::from_secs(2))),
+            staged_ledger_aux_and_pending_coinbases_at_block: from_env_or(
+                "STAGED_LEDGER_AUX_AND_PENDING_COINBASES_AT_BLOCK_TIMEOUT",
+                Some(Duration::from_secs(120)),
+            ),
+            block: from_env_or("BLOCK_TIMEOUT", Some(Duration::from_secs(5))),
+            snark: from_env_or("SNARK_TIMEOUT", Some(Duration::from_secs(5))),
+            initial_peers: from_env_or("INITIAL_PEERS_TIMEOUT", Some(Duration::from_secs(5))),
+            kademlia_bootstrap: from_env_or(
+                "KADEMLIA_BOOTSTRAP_TIMEOUT",
+                Some(Duration::from_secs(60)),
+            ),
+            kademlia_initial_bootstrap: from_env_or(
+                "KADEMLIA_INITIAL_BOOTSTRAP_TIMEOUT",
+                Some(Duration::from_secs(5)),
+            ),
+            select: from_env_or("SELECT_TIMEOUT", Some(Duration::from_secs(5))),
         }
     }
 }
