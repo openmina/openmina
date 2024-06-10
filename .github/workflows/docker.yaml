@@ -46,8 +46,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          # TODO: enable before merge
-          # platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           cache-from: type=gha
@@ -94,6 +93,7 @@ jobs:
 
       - name: Build and push
         uses: docker/build-push-action@v5
+        platforms: linux/amd64,linux/arm64
         with:
           context: ./frontend
           build-args: |
