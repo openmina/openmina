@@ -34,6 +34,14 @@ impl P2pNetworkYamuxAction {
                     return;
                 };
 
+                if frame.flags.contains(YamuxFlags::RST) {
+                    store.dispatch(P2pNetworkSchedulerAction::Error {
+                        addr,
+                        error: P2pNetworkConnectionError::StreamReset(frame.stream_id),
+                    });
+                    return;
+                }
+
                 if frame.flags.contains(YamuxFlags::SYN) && frame.stream_id != 0 {
                     store.dispatch(P2pNetworkSelectAction::Init {
                         addr,
