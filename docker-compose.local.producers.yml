@@ -10,7 +10,7 @@ services:
 
   frontend:
     container_name: frontend
-    image: openmina/frontend:0.5.0-block-producers
+    image: openmina/frontend:0.5.1-block-producers
     # build:
     #   context: .
     #   dockerfile: Dockerfile_FE
