@@ -5,7 +5,6 @@ use o1_utils::{field_helpers::FieldHelpersError, FieldHelpers};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    hash::hash_noinputs,
     proofs::{
         field::{Boolean, FieldWitness, ToBoolean},
         numbers::{
@@ -69,7 +68,8 @@ impl ReceiptChainHash {
     }
 
     pub fn empty() -> Self {
-        Self(hash_noinputs("CodaReceiptEmpty"))
+        Self::empty_legacy()
+        // Self(hash_noinputs("CodaReceiptEmpty"))
     }
 
     pub fn from_hex(s: &str) -> Result<Self, FieldHelpersError> {
