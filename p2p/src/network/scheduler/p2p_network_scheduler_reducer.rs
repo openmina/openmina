@@ -29,7 +29,7 @@ impl P2pNetworkSchedulerState {
                     *addr,
                     P2pNetworkConnectionState {
                         incoming: true,
-                        pnet: P2pNetworkPnetState::new(self.pnet_key),
+                        pnet: P2pNetworkPnetState::new(self.pnet_key, meta.time()),
                         select_auth: P2pNetworkSelectState::default(),
                         auth: None,
                         select_mux: P2pNetworkSelectState::default(),
@@ -45,11 +45,15 @@ impl P2pNetworkSchedulerState {
                     *addr,
                     P2pNetworkConnectionState {
                         incoming: false,
-                        pnet: P2pNetworkPnetState::new(self.pnet_key),
-                        select_auth: P2pNetworkSelectState::initiator_auth(token::AuthKind::Noise),
+                        pnet: P2pNetworkPnetState::new(self.pnet_key, meta.time()),
+                        select_auth: P2pNetworkSelectState::initiator_auth(
+                            token::AuthKind::Noise,
+                            meta.time(),
+                        ),
                         auth: None,
                         select_mux: P2pNetworkSelectState::initiator_mux(
                             token::MuxKind::Yamux1_0_0,
+                            meta.time(),
                         ),
                         mux: None,
                         streams: BTreeMap::default(),
@@ -182,11 +186,7 @@ impl P2pNetworkSchedulerState {
                 let _ = self.connections.remove(addr);
             }
             P2pNetworkSchedulerAction::PruneStreams { peer_id } => {
-                self.rpc_incoming_streams.remove(peer_id);
-                self.rpc_outgoing_streams.remove(peer_id);
-                if let Some(discovery_state) = self.discovery_state.as_mut() {
-                    discovery_state.streams.remove(peer_id);
-                }
+                self.prune_peer_state(peer_id);
             }
             P2pNetworkSchedulerAction::PruneStream { peer_id, stream_id } => {
                 let Some((_, conn_state)) = self

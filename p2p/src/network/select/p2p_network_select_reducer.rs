@@ -15,21 +15,17 @@ impl P2pNetworkSelectState {
         let (action, meta) = action.split();
         match action {
             // hack for noise
-            P2pNetworkSelectAction::Init { incoming, .. } => {
-                self.time = Some(meta.time());
-
-                match (&self.inner, incoming) {
-                    (P2pNetworkSelectStateInner::Initiator { .. }, true) => {
-                        self.inner = P2pNetworkSelectStateInner::Responder
-                    }
-                    (P2pNetworkSelectStateInner::Responder, false) => {
-                        self.inner = P2pNetworkSelectStateInner::Initiator {
-                            proposing: token::Protocol::Mux(token::MuxKind::YamuxNoNewLine1_0_0),
-                        }
-                    }
-                    _ => {}
+            P2pNetworkSelectAction::Init { incoming, .. } => match (&self.inner, incoming) {
+                (P2pNetworkSelectStateInner::Initiator { .. }, true) => {
+                    self.inner = P2pNetworkSelectStateInner::Responder
                 }
-            }
+                (P2pNetworkSelectStateInner::Responder, false) => {
+                    self.inner = P2pNetworkSelectStateInner::Initiator {
+                        proposing: token::Protocol::Mux(token::MuxKind::YamuxNoNewLine1_0_0),
+                    }
+                }
+                _ => {}
+            },
             P2pNetworkSelectAction::IncomingData { data, .. }
             | P2pNetworkSelectAction::IncomingDataAuth { data, .. }
             | P2pNetworkSelectAction::IncomingDataMux { data, .. } => {

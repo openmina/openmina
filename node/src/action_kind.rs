@@ -282,6 +282,7 @@ pub enum ActionKind {
     P2pNetworkPnetIncomingData,
     P2pNetworkPnetOutgoingData,
     P2pNetworkPnetSetupNonce,
+    P2pNetworkPnetTimeout,
     P2pNetworkPubsubBroadcast,
     P2pNetworkPubsubBroadcastSigned,
     P2pNetworkPubsubIncomingData,
@@ -487,7 +488,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 399;
+    pub const COUNT: u16 = 400;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -1230,6 +1231,7 @@ impl ActionKindGet for P2pNetworkPnetAction {
             Self::IncomingData { .. } => ActionKind::P2pNetworkPnetIncomingData,
             Self::OutgoingData { .. } => ActionKind::P2pNetworkPnetOutgoingData,
             Self::SetupNonce { .. } => ActionKind::P2pNetworkPnetSetupNonce,
+            Self::Timeout { .. } => ActionKind::P2pNetworkPnetTimeout,
         }
     }
 }
