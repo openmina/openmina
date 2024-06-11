@@ -4095,7 +4095,7 @@ mod tests {
         proofs::{
             block::{generate_block_proof, BlockParams},
             constants::{StepBlockProof, StepMergeProof},
-            gates::{get_provers, Provers},
+            gates::{get_provers, Provers, CIRCUIT_DIRECTORY},
             merge::{generate_merge_proof, MergeParams},
             util::sha256_sum,
             zkapp::{generate_zkapp_proof, LedgerProof, ZkappParams},
@@ -4146,7 +4146,7 @@ mod tests {
     fn read_witnesses<F: FieldWitness>(filename: &str) -> Result<Vec<F>, ()> {
         let f = std::fs::read_to_string(
             std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("3.0.0devnet")
+                .join(CIRCUIT_DIRECTORY)
                 .join("witnesses")
                 .join(filename),
         )
@@ -4173,7 +4173,7 @@ mod tests {
         }
 
         let path = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("3.0.0devnet")
+            .join(CIRCUIT_DIRECTORY)
             .join("tests");
 
         let entries = std::fs::read_dir(path)
@@ -4373,7 +4373,7 @@ mod tests {
         let Ok(data) =
             // std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("request_signed.bin"))
             // std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("rampup4").join("request_payment_0_rampup4.bin"))
-            std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("3.0.0devnet").join("tests").join("command-0-1.bin"))
+            std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join(CIRCUIT_DIRECTORY).join("tests").join("command-0-1.bin"))
             // std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("rampup4").join("request_payment_1_rampup4.bin"))
             // std::fs::read("/tmp/fee_transfer_1_rampup4.bin")
             // std::fs::read("/tmp/coinbase_1_rampup4.bin")
@@ -4425,7 +4425,7 @@ mod tests {
     #[ignore]
     fn test_read_requests() {
         let path = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("3.0.0devnet")
+            .join(CIRCUIT_DIRECTORY)
             .join("tests");
 
         let mut files = Vec::with_capacity(1000);
@@ -4489,7 +4489,7 @@ mod tests {
         let Ok(data) =
             // std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("request_signed.bin"))
             // std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("rampup4").join("merge_0_rampup4.bin"))
-            std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("3.0.0devnet").join("tests").join("merge-100-0.bin"))
+            std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join(CIRCUIT_DIRECTORY).join("tests").join("merge-100-0.bin"))
             // std::fs::read("/tmp/minaa/mina-works-dump/merge-100-0.bin")
             // std::fs::read("/tmp/fee_transfer_1_rampup4.bin")
             // std::fs::read("/tmp/coinbase_1_rampup4.bin")
@@ -4546,7 +4546,7 @@ mod tests {
     fn test_zkapp_proof_sig() {
         let Ok(data) = std::fs::read(
             Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("3.0.0devnet")
+                .join(CIRCUIT_DIRECTORY)
                 .join("tests")
                 .join("command-1-0.bin"),
         ) else {
@@ -4599,30 +4599,14 @@ mod tests {
     fn test_proof_zkapp_proof() {
         let Ok(data) = std::fs::read(
             Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("3.0.0devnet")
+                .join(CIRCUIT_DIRECTORY)
                 .join("tests")
-                .join("command-157-1.bin"),
-            // .join("command-144-0.bin"),
-            // .join("command-139-1.bin"),
-            // .join("command-135-0.bin"),
-            // .join("command-55-0.bin"),
-            // .join("command-43-1.bin"),
-            // .join("command-12-1.bin"),
+                .join("zkapp-command-with-proof-128-1.bin"),
         ) else {
             eprintln!("request not found");
             panic_in_ci();
             return;
         };
-
-        // Other zkapps using proof auth:
-        // [23] zkapp: "command-12-1.bin"
-        // [77] zkapp: "command-43-1.bin"
-        // [96] zkapp: "command-55-0.bin"
-        // [120] zkapp: "command-135-0.bin"
-        // [127] zkapp: "command-139-1.bin"
-        // [134] zkapp: "command-144-0.bin"
-        // [159] zkapp: "command-157-1.bin"
-        // [226] zkapp: "command-260-1.bin"
 
         let (statement, tx_witness, message) = extract_request(&data);
 
@@ -4654,19 +4638,19 @@ mod tests {
         .unwrap();
 
         let proof_json = serde_json::to_vec(&proof.proof).unwrap();
-        let _sum = dbg!(sha256_sum(&proof_json));
+        let sum = dbg!(sha256_sum(&proof_json));
 
-        // assert_eq!(
-        //     sum,
-        //     "e2ca355ce4ed5aaf379e992c0c8c5b1c4ac1687546ceac5a5c6c9c4994002249"
-        // );
+        assert_eq!(
+            sum,
+            "7bf4173f08ce9154129e9faf9913bc5ab08dc54aaff01ff8305f623f59d00270"
+        );
     }
 
     #[test]
     fn test_block_proof() {
         let Ok(data) = std::fs::read(
             Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("3.0.0devnet")
+                .join(CIRCUIT_DIRECTORY)
                 .join("tests")
                 .join("block_input-2483246-0.bin"),
         ) else {
@@ -4721,7 +4705,7 @@ mod tests {
     #[test]
     fn test_proofs() {
         let base_dir = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("3.0.0devnet")
+            .join(CIRCUIT_DIRECTORY)
             .join("tests");
 
         if !base_dir.exists() {

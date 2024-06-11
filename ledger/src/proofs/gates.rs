@@ -19,6 +19,8 @@ use mina_p2p_messages::binprot::{
     macros::{BinProtRead, BinProtWrite},
 };
 
+pub const CIRCUIT_DIRECTORY: &str = "3.0.0devnet";
+
 struct Gates {
     step_tx_gates: Vec<CircuitGate<Fp>>,
     wrap_tx_gates: Vec<CircuitGate<Fq>>,
@@ -74,7 +76,7 @@ fn read_gates() -> Gates {
         Vec<CircuitGate<F>>,
     ) {
         let base_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
-        let base_dir = base_dir.join("3.0.0devnet");
+        let base_dir = base_dir.join(CIRCUIT_DIRECTORY);
 
         let internal_vars_path = base_dir.join(format!("{}_internal_vars.bin", filename));
         let rows_rev_path = base_dir.join(format!("{}_rows_rev.bin", filename));
