@@ -4747,7 +4747,7 @@ mod tests {
             // zkapp proof with signature authorization
             ("command-1-0.bin", None, None, "9795109a9ad86f1e93b8c9688ddbe467df0af481c495e21f0a73773d284a8458"),
             // zkapp proof with proof authorization
-            // ("command-157-1.bin", None, None, "35e6c960fe48bedc92c20ab613972d70c4b8423139758c442b0ddc2025bdaaba"),
+            ("zkapp-command-with-proof-128-1.bin", None, None, "7bf4173f08ce9154129e9faf9913bc5ab08dc54aaff01ff8305f623f59d00270"),
             // zkapp with multiple account updates
             // ("zkapp_2_0_rampup4.bin", None, None, "03153d1c5b934e00c7102d3683f27572b6e8bfe0335817cb822d701c83415930"),
         ];

@@ -52,9 +52,9 @@ impl ProofConstants for StepZkappOptSignedProof {
 
 impl ProofConstants for StepZkappProvedProof {
     const PRIMARY_LEN: usize = 67;
-    const AUX_LEN: usize = 210345;
+    const AUX_LEN: usize = 210350;
     const PREVIOUS_CHALLENGES: usize = 1;
-    const ROWS: usize = 20013;
+    const ROWS: usize = 20023;
 }
 
 // Same values than `WrapTransactionProof`
