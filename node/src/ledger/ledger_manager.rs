@@ -20,6 +20,7 @@ use mina_signer::CompressedPubKey;
 /// can't be expressed in the Rust type system at the moment. For this
 /// reason this type is private while functions wrapping the whole call
 /// to the service are exposed as the service's methods.
+#[derive(strum_macros::Display)]
 pub(super) enum LedgerRequest {
     Write(LedgerWriteRequest),
     Read(LedgerReadId, LedgerReadRequest),
@@ -78,83 +79,87 @@ impl LedgerRequest {
         caller: &LedgerCaller,
         force_sync: bool,
     ) -> LedgerResponse {
+        eprintln!("ledger_handle: {self}");
         match self {
-            Self::Write(request) => LedgerResponse::Write(match request {
-                LedgerWriteRequest::StagedLedgerReconstruct {
-                    snarked_ledger_hash,
-                    parts,
-                } => {
-                    if !force_sync {
-                        let caller = caller.clone();
-                        let cb = move |staged_ledger_hash, result| {
-                            caller.call(LedgerRequest::StagedLedgerReconstructResult {
+            Self::Write(request) => {
+                eprintln!("ledger_handle_write: {request}");
+                LedgerResponse::Write(match request {
+                    LedgerWriteRequest::StagedLedgerReconstruct {
+                        snarked_ledger_hash,
+                        parts,
+                    } => {
+                        if !force_sync {
+                            let caller = caller.clone();
+                            let cb = move |staged_ledger_hash, result| {
+                                caller.call(LedgerRequest::StagedLedgerReconstructResult {
+                                    staged_ledger_hash,
+                                    result,
+                                })
+                            };
+                            ledger_ctx.staged_ledger_reconstruct(snarked_ledger_hash, parts, cb);
+                            return LedgerResponse::Success;
+                        } else {
+                            let (staged_ledger_hash, result) = ledger_ctx
+                                .staged_ledger_reconstruct_sync(snarked_ledger_hash, parts);
+                            LedgerWriteResponse::StagedLedgerReconstruct {
                                 staged_ledger_hash,
                                 result,
-                            })
-                        };
-                        ledger_ctx.staged_ledger_reconstruct(snarked_ledger_hash, parts, cb);
-                        return LedgerResponse::Success;
-                    } else {
-                        let (staged_ledger_hash, result) =
-                            ledger_ctx.staged_ledger_reconstruct_sync(snarked_ledger_hash, parts);
-                        LedgerWriteResponse::StagedLedgerReconstruct {
-                            staged_ledger_hash,
-                            result,
+                            }
                         }
                     }
-                }
-                LedgerWriteRequest::StagedLedgerDiffCreate {
-                    pred_block,
-                    global_slot_since_genesis: global_slot,
-                    producer,
-                    delegator,
-                    coinbase_receiver,
-                    completed_snarks,
-                    supercharge_coinbase,
-                } => {
-                    let pred_block_hash = pred_block.hash().clone();
-                    let global_slot_since_genesis = global_slot.clone();
-                    let result = ledger_ctx.staged_ledger_diff_create(
+                    LedgerWriteRequest::StagedLedgerDiffCreate {
                         pred_block,
-                        global_slot,
+                        global_slot_since_genesis: global_slot,
                         producer,
                         delegator,
                         coinbase_receiver,
                         completed_snarks,
                         supercharge_coinbase,
-                    );
-                    LedgerWriteResponse::StagedLedgerDiffCreate {
-                        pred_block_hash,
-                        global_slot_since_genesis,
-                        result: result.map(Into::into),
+                    } => {
+                        let pred_block_hash = pred_block.hash().clone();
+                        let global_slot_since_genesis = global_slot.clone();
+                        let result = ledger_ctx.staged_ledger_diff_create(
+                            pred_block,
+                            global_slot,
+                            producer,
+                            delegator,
+                            coinbase_receiver,
+                            completed_snarks,
+                            supercharge_coinbase,
+                        );
+                        LedgerWriteResponse::StagedLedgerDiffCreate {
+                            pred_block_hash,
+                            global_slot_since_genesis,
+                            result: result.map(Into::into),
+                        }
                     }
-                }
-                LedgerWriteRequest::BlockApply { block, pred_block } => {
-                    let block_hash = block.hash().clone();
-                    let result = ledger_ctx.block_apply(block, pred_block);
-                    LedgerWriteResponse::BlockApply { block_hash, result }
-                }
-                LedgerWriteRequest::Commit {
-                    ledgers_to_keep,
-                    root_snarked_ledger_updates,
-                    needed_protocol_states,
-                    new_root,
-                    new_best_tip,
-                } => {
-                    let best_tip_hash = new_best_tip.hash().clone();
-                    let result = ledger_ctx.commit(
+                    LedgerWriteRequest::BlockApply { block, pred_block } => {
+                        let block_hash = block.hash().clone();
+                        let result = ledger_ctx.block_apply(block, pred_block);
+                        LedgerWriteResponse::BlockApply { block_hash, result }
+                    }
+                    LedgerWriteRequest::Commit {
                         ledgers_to_keep,
                         root_snarked_ledger_updates,
                         needed_protocol_states,
-                        &new_root,
-                        &new_best_tip,
-                    );
-                    LedgerWriteResponse::Commit {
-                        best_tip_hash,
-                        result,
+                        new_root,
+                        new_best_tip,
+                    } => {
+                        let best_tip_hash = new_best_tip.hash().clone();
+                        let result = ledger_ctx.commit(
+                            ledgers_to_keep,
+                            root_snarked_ledger_updates,
+                            needed_protocol_states,
+                            &new_root,
+                            &new_best_tip,
+                        );
+                        LedgerWriteResponse::Commit {
+                            best_tip_hash,
+                            result,
+                        }
                     }
-                }
-            }),
+                })
+            }
             Self::Read(id, request) => LedgerResponse::Read(
                 id,
                 match request {

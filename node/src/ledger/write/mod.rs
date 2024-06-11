@@ -28,7 +28,7 @@ pub enum LedgerWriteKind {
     Commit,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(strum_macros::Display, Serialize, Deserialize, Debug, Clone)]
 pub enum LedgerWriteRequest {
     StagedLedgerReconstruct {
         snarked_ledger_hash: v2::LedgerHash,

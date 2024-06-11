@@ -4,8 +4,7 @@ use mina_p2p_messages::v2;
 use node::transition_frontier::genesis::GenesisConfig;
 
 use crate::{
-    scenarios::{ClusterRunner, RunCfgAdvanceTime},
-    simulator::{Simulator, SimulatorConfig, SimulatorRunUntil},
+    node::Recorder, scenarios::{ClusterRunner, RunCfgAdvanceTime}, simulator::{Simulator, SimulatorConfig, SimulatorRunUntil}
 };
 
 /// Small never-ending simulation.
@@ -36,10 +35,10 @@ impl SimulationSmallForeverRealTime {
             normal_nodes: 2,
             snark_workers: 1,
             block_producers: 3,
-            advance_time: RunCfgAdvanceTime::Real,
+            advance_time: RunCfgAdvanceTime::Rand(1..=300),
             run_until: SimulatorRunUntil::Forever,
             run_until_timeout: Duration::MAX,
-            recorder: Default::default(),
+            recorder: Recorder::StateWithInputActions,
         };
         let mut simulator = Simulator::new(initial_time, cfg);
         simulator.run(&mut runner).await;

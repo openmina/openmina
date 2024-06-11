@@ -147,8 +147,8 @@ impl LedgerCtx {
 
     pub fn insert_genesis_ledger(&mut self, mut mask: Mask) {
         let hash = merkle_root(&mut mask);
-        self.snarked_ledgers.insert(hash.clone(), mask.clone());
-        let staged_ledger = StagedLedger::create_exn(CONSTRAINT_CONSTANTS, mask).unwrap();
+        let staged_ledger = StagedLedger::create_exn(CONSTRAINT_CONSTANTS, mask.copy()).unwrap();
+        self.snarked_ledgers.insert(hash.clone(), mask);
         self.staged_ledgers.insert(hash.clone(), staged_ledger);
     }
 
@@ -575,7 +575,7 @@ impl LedgerCtx {
         new_root: &ArcBlockWithHash,
         new_best_tip: &ArcBlockWithHash,
     ) -> CommitResult {
-        openmina_core::debug!(openmina_core::log::system_time();
+        openmina_core::info!(openmina_core::log::system_time();
             kind = "LedgerService::commit",
             summary = format!("commit {}, {}", new_best_tip.height(), new_best_tip.hash()),
             new_root = format!("{}, {}", new_root.height(), new_root.hash()),
@@ -589,6 +589,30 @@ impl LedgerCtx {
             new_root.snarked_ledger_hash(),
         )
         .unwrap();
+
+        eprintln!("ledgers before retain");
+        dbg!(self
+            .snarked_ledgers
+            .keys()
+            .map(|v| v.to_string())
+            .collect::<Vec<_>>());
+        dbg!(self
+            .sync
+            .snarked_ledgers
+            .keys()
+            .map(|v| v.to_string())
+            .collect::<Vec<_>>());
+        dbg!(self
+            .staged_ledgers
+            .keys()
+            .map(|v| v.to_string())
+            .collect::<Vec<_>>());
+        dbg!(self
+            .sync
+            .staged_ledgers
+            .keys()
+            .map(|v| v.to_string())
+            .collect::<Vec<_>>());
 
         self.snarked_ledgers.retain(|hash, _| {
             let keep = ledgers_to_keep.contains(hash);
@@ -621,6 +645,31 @@ impl LedgerCtx {
                 .filter(|(hash, _)| ledgers_to_keep.contains(hash)),
         );
 
+        eprintln!("ledgers after retain");
+
+        dbg!(self
+            .snarked_ledgers
+            .keys()
+            .map(|v| v.to_string())
+            .collect::<Vec<_>>());
+        dbg!(self
+            .sync
+            .snarked_ledgers
+            .keys()
+            .map(|v| v.to_string())
+            .collect::<Vec<_>>());
+        dbg!(self
+            .staged_ledgers
+            .keys()
+            .map(|v| v.to_string())
+            .collect::<Vec<_>>());
+        dbg!(self
+            .sync
+            .staged_ledgers
+            .keys()
+            .map(|v| v.to_string())
+            .collect::<Vec<_>>());
+
         for ledger_hash in [
             new_best_tip.staking_epoch_ledger_hash(),
             new_root.snarked_ledger_hash(),
@@ -631,10 +680,7 @@ impl LedgerCtx {
                     panic!("ledger mask expected to be synced: {ledger_hash}");
                 }
                 let calculated = merkle_root(&mut mask);
-                assert_eq!(
-                    ledger_hash, &calculated,
-                    "ledger mask hash mismatch, expected: {ledger_hash}, found {calculated}"
-                );
+                assert_eq!(ledger_hash, &calculated, "ledger mask hash mismatch");
             } else {
                 panic!("ledger mask is missing: {ledger_hash}");
             }

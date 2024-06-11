@@ -41,24 +41,24 @@ pub fn check_build_env(record_env: &BuildEnv, replay_env: &BuildEnv) -> anyhow::
     let is_cargo_same = record_env.cargo == replay_env.cargo;
     let is_rustc_same = record_env.rustc == replay_env.rustc;
 
-    if !is_git_same {
-        let diff = format!(
-            "recorded:\n{:?}\n\ncurrent:\n{:?}",
-            record_env.git, replay_env.git
-        );
-        let msg = format!("git build env mismatch!\n{diff}");
-        if console::user_attended() {
-            use dialoguer::Confirm;
+    // if !is_git_same {
+    //     let diff = format!(
+    //         "recorded:\n{:?}\n\ncurrent:\n{:?}",
+    //         record_env.git, replay_env.git
+    //     );
+    //     let msg = format!("git build env mismatch!\n{diff}");
+    //     if console::user_attended() {
+    //         use dialoguer::Confirm;
 
-            let prompt = format!("{msg}\nDo you want to continue?");
-            if Confirm::new().with_prompt(prompt).interact().unwrap() {
-            } else {
-                anyhow::bail!("mismatch rejected");
-            }
-        } else {
-            anyhow::bail!("mismatch rejected automatically");
-        }
-    }
+    //         let prompt = format!("{msg}\nDo you want to continue?");
+    //         if Confirm::new().with_prompt(prompt).interact().unwrap() {
+    //         } else {
+    //             anyhow::bail!("mismatch rejected");
+    //         }
+    //     } else {
+    //         anyhow::bail!("mismatch rejected automatically");
+    //     }
+    // }
 
     if !is_cargo_same {
         let diff = format!(

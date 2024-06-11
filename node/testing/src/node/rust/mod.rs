@@ -24,6 +24,12 @@ pub struct Node {
     store: Store<NodeTestingService>,
 }
 
+impl Drop for Node {
+    fn drop(&mut self) {
+        std::mem::replace(&mut self.work_dir, TempDir::new().unwrap()).leak();
+    }
+}
+
 impl Node {
     pub fn new(
         work_dir: TempDir,
