@@ -12,6 +12,7 @@ export const STATE_TITLE: string = APP_TITLE + ' - State';
 export const SNARKS_TITLE: string = APP_TITLE + ' - Snarks';
 export const TESTING_TOOL_TITLE: string = APP_TITLE + ' - Testing Tool';
 export const BLOCK_PRODUCTION_TITLE: string = APP_TITLE + ' - Block Production';
+export const MEMPOOL_TITLE: string = APP_TITLE + ' - Mempool';
 
 
 const routes: Routes = [
@@ -55,6 +56,11 @@ const routes: Routes = [
     path: 'block-production',
     loadChildren: () => import('@block-production/block-production.module').then(m => m.BlockProductionModule),
     title: BLOCK_PRODUCTION_TITLE,
+  },
+  {
+    path: 'mempool',
+    loadChildren: () => import('./features/mempool/mempool.module').then(m => m.MempoolModule),
+    title: MEMPOOL_TITLE,
   },
   {
     path: '**',

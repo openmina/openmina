@@ -15,7 +15,7 @@ import {
   BlockProductionWonSlotTimes,
 } from '@shared/types/block-production/won-slots/block-production-won-slots-slot.type';
 import { getTimeDiff } from '@shared/helpers/date.helper';
-import { any, hasValue, noMillisFormat, SecDurationConfig, toReadableDate } from '@openmina/shared';
+import { any, hasValue, noMillisFormat, ONE_THOUSAND, SecDurationConfig, toReadableDate } from '@openmina/shared';
 import { filter } from 'rxjs';
 import { BlockProductionWonSlotsActions } from '@block-production/won-slots/block-production-won-slots.actions';
 import { AppSelectors } from '@app/app.state';
@@ -32,8 +32,8 @@ export class BlockProductionWonSlotsSidePanelComponent extends StoreDispatcher i
   protected readonly config: SecDurationConfig = {
     includeMinutes: true,
     color: false,
-    onlySeconds: true,
     undefinedAlternative: undefined,
+    valueIsZeroFn: () => '<1ms',
   };
   protected readonly noMillisFormat = noMillisFormat;
   title: string;
@@ -49,6 +49,7 @@ export class BlockProductionWonSlotsSidePanelComponent extends StoreDispatcher i
   percentage: number;
   private timer: any;
   private stopTimer: boolean;
+  private stateWhenReachedZero: { globalSlot: number; status: BlockProductionWonSlotsStatus };
   private minaExplorer: string;
 
   @ViewChild('beforeLedger', { read: ViewContainerRef }) private beforeLedger: ViewContainerRef;
@@ -83,10 +84,16 @@ export class BlockProductionWonSlotsSidePanelComponent extends StoreDispatcher i
         slot.times?.committed,
       ].filter(t => hasValue(t)).length * 20;
 
-      this.scheduled = toReadableDate(slot.slotTime, noMillisFormat);
+      this.scheduled = toReadableDate(slot.slotTime);
       this.slotStartedAlready = slot.slotTime < Date.now();
 
-      this.stopTimer = !this.slot.active;
+      if (
+        (this.stateWhenReachedZero?.globalSlot === slot.globalSlot && this.stateWhenReachedZero?.status !== slot.status)
+        || !this.stateWhenReachedZero
+      ) {
+        this.stopTimer = !this.slot.active;
+        this.stateWhenReachedZero = undefined;
+      }
 
       this.parse();
 
@@ -120,7 +127,7 @@ export class BlockProductionWonSlotsSidePanelComponent extends StoreDispatcher i
 
   private parse(): void {
     if (this.slot && !this.stopTimer) {
-      const remainingTime = getTimeDiff(this.slot.slotTime, { withSecs: true });
+      const remainingTime = getTimeDiff(this.addMinutesToTimestamp(this.slot.slotTime, 3), { withSecs: true });
       if (remainingTime.inFuture) {
         this.remainingTime = '-';
       }
@@ -128,8 +135,9 @@ export class BlockProductionWonSlotsSidePanelComponent extends StoreDispatcher i
       if (this.remainingTime === '0s') {
         /* when we reached 0s, we need to fetch data again because this slot is over and the user should see that in the table */
         this.stopTimer = true;
+        this.stateWhenReachedZero = { globalSlot: this.slot.globalSlot, status: this.slot.status };
         this.remainingTime = '-';
-        this.dispatch2(BlockProductionWonSlotsActions.getSlots());
+        this.queryServerOftenToGetTheNewSlotState();
       }
       this.detect();
     } else {
@@ -137,6 +145,9 @@ export class BlockProductionWonSlotsSidePanelComponent extends StoreDispatcher i
     }
   }
 
+  private addMinutesToTimestamp(timestampInMilliseconds: number, minutesToAdd: number): number {
+    return timestampInMilliseconds + minutesToAdd * ONE_THOUSAND * 60;
+  }
 
   private createDiscardedView(): void {
     this.beforeLedger.clear();
@@ -169,5 +180,15 @@ export class BlockProductionWonSlotsSidePanelComponent extends StoreDispatcher i
   override ngOnDestroy(): void {
     super.ngOnDestroy();
     clearInterval(this.timer);
+  }
+
+  private queryServerOftenToGetTheNewSlotState(): void {
+    const timer = setInterval(() => {
+      if (!this.stateWhenReachedZero) {
+        clearInterval(timer);
+        return;
+      }
+      this.dispatch2(BlockProductionWonSlotsActions.getSlots());
+    }, 1000);
   }
 }

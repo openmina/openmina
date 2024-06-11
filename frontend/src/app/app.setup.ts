@@ -34,11 +34,10 @@ import { ResourcesState } from '@resources/resources.state';
 
 import { blockProductionReducer } from '@block-production/block-production.reducer';
 import { BlockProductionState } from '@block-production/block-production.state';
-import { BLOCK_PRODUCTION_KEY } from '@block-production/block-production.actions';
 
 export interface MinaState {
   [APP_KEY]: AppState;
-  [BLOCK_PRODUCTION_KEY]: BlockProductionState;
+  blockProduction: BlockProductionState;
   dashboard: DashboardState;
   error: ErrorPreviewState;
   loading: LoadingState;
@@ -65,7 +64,7 @@ export const reducers: ActionReducerMap<MinaState, MinaAction> = {
   [APP_KEY]: appReducer,
   error: errorReducer,
   loading: loadingReducer,
-  [BLOCK_PRODUCTION_KEY]: blockProductionReducer,
+  blockProduction: blockProductionReducer,
   dashboard: dashboardReducer,
   network: networkReducer,
   nodes: nodesReducer,
