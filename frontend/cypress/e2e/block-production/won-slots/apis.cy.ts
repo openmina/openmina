@@ -3,10 +3,36 @@ import {
   BlockProductionWonSlotsDiscardReason,
   BlockProductionWonSlotsStatus,
 } from '@shared/types/block-production/won-slots/block-production-won-slots-slot.type';
+import { Store } from '@ngrx/store';
+import { MinaState } from '@app/app.setup';
+import { cyIsSubFeatureEnabled, stateSliceAsPromise } from '../../../support/commands';
+import { AppState } from '@app/app.state';
+
+const getAppState = (store: Store<MinaState>): AppState => stateSliceAsPromise<AppState>(store, () => true, 'app');
+const getConfig = () => cy.window().its('config');
+const execute = (callback: () => void) => {
+  cy.visit(Cypress.config().baseUrl)
+    .window()
+    .its('store')
+    .then(getAppState)
+    .then((state: AppState) => {
+      getConfig().then((config: any) => {
+        if (cyIsSubFeatureEnabled(state.activeNode, 'block-production', 'won-slots', config.globalConfig)) {
+          cy.wait('@statsRequest')
+            .url()
+            .then((url: string) => {
+              if (url.includes('/block-production/won-slots')) {
+                callback();
+              }
+            });
+        }
+      });
+    });
+};
 
 describe('BLOCK PRODUCTION WON SLOTS APIS', () => {
 
-  it('validate epoch details json data', () => {
+  it('validate epoch details json data', () => execute(() => {
     let response: WonSlotResponse;
     cy
       .intercept('/stats/block_producer', (req) => {
@@ -111,7 +137,7 @@ describe('BLOCK PRODUCTION WON SLOTS APIS', () => {
           }
         }
       });
-  });
+  }));
 });
 
 

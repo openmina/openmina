@@ -3,9 +3,35 @@ import {
   BlockProductionEpochPaginationResponse,
   SlotResponse,
 } from '@block-production/overview/block-production-overview.service';
+import { Store } from '@ngrx/store';
+import { MinaState } from '@app/app.setup';
+import { cyIsSubFeatureEnabled, stateSliceAsPromise } from '../../../support/commands';
+import { AppState } from '@app/app.state';
+
+
+const getAppState = (store: Store<MinaState>): AppState => stateSliceAsPromise<AppState>(store, () => true, 'app');
+const getConfig = () => cy.window().its('config');
+const execute = (callback: () => void) => {
+  cy.visit(Cypress.config().baseUrl)
+    .window()
+    .its('store')
+    .then(getAppState).then((state: AppState) => {
+    getConfig().then((config: any) => {
+      if (cyIsSubFeatureEnabled(state.activeNode, 'block-production', 'overview', config.globalConfig)) {
+        cy.wait('@slotsRequest')
+          .url()
+          .then((url: string) => {
+            if (url.includes('/block-production/overview')) {
+              callback();
+            }
+          });
+      }
+    });
+  });
+};
 
 describe('BLOCK PRODUCTION OVERVIEW APIs', () => {
-  it('validate epoch details json data', () => {
+  it('validate epoch details json data', () => execute(() => {
     let epoch: BlockProductionEpochPaginationResponse;
     let epochNumber: number | string;
     cy
@@ -88,9 +114,9 @@ describe('BLOCK PRODUCTION OVERVIEW APIs', () => {
           }
         }
       });
-  });
+  }));
 
-  it('validate all stats json data', () => {
+  it('validate all stats json data', () => execute(() => {
     let allStats: AllStatsResponse;
     let epochList: BlockProductionEpochPaginationResponse[];
     cy
@@ -138,9 +164,9 @@ describe('BLOCK PRODUCTION OVERVIEW APIs', () => {
           expect(Number(allStats.expected_rewards)).to.be.at.least(epochList.reduce((acc, e) => acc + Number(e.summary?.expected_rewards || 0), 0));
         }
       });
-  });
+  }));
 
-  it('validate epoch list json data', () => {
+  it('validate epoch list json data', () => execute(() => {
     let epochList: BlockProductionEpochPaginationResponse[];
     let askedEpochs: number;
     let lastAskedEpoch: number;
@@ -203,9 +229,9 @@ describe('BLOCK PRODUCTION OVERVIEW APIs', () => {
           }
         }
       });
-  });
+  }));
 
-  it('validate slots json data', () => {
+  it('validate slots json data', () => execute(() => {
     let slotsResponse: SlotResponse[];
     let askedEpochs: number;
     cy
@@ -254,6 +280,6 @@ describe('BLOCK PRODUCTION OVERVIEW APIs', () => {
           expect(areTimesIncreasingWith3Minutes).to.be.true;
         }
       });
-  });
+  }));
 });
 

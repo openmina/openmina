@@ -33,7 +33,7 @@ export class AppService {
           status: this.getStatus(data),
           blockHeight: data.transition_frontier.best_tip.height,
           blockTime: data.transition_frontier.sync.time,
-          peers: data.peers.length,
+          peers: data.peers.filter(p => p.connection_status === 'Connected').length,
           download: 0,
           upload: 0,
           snarks: data.snark_pool.snarks,
