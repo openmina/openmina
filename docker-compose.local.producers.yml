@@ -10,8 +10,11 @@ services:
 
   frontend:
     container_name: frontend
-    # TODO: replace after patch release
-    # image: openmina/frontend:0.5.2
-    image: openmina/frontend:docs-fix-producers-fe-producer-demo
+    image: openmina/frontend:0.5.1-block-producers
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile_FE
+    #   args:
+    #     BUILD_CONFIGURATION: block_producers
     ports:
       - "8070:80"
