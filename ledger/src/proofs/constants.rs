@@ -119,9 +119,9 @@ impl ProofConstants for StepMergeProof {
 
 impl ProofConstants for StepBlockProof {
     const PRIMARY_LEN: usize = 67;
-    const AUX_LEN: usize = 338872;
+    const AUX_LEN: usize = 338873;
     const PREVIOUS_CHALLENGES: usize = 2;
-    const ROWS: usize = 34794;
+    const ROWS: usize = 34797;
 }
 
 pub trait ForWrapData {

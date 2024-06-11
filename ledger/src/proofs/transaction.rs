@@ -4194,11 +4194,16 @@ mod tests {
             }
             let bytes = std::fs::read(&filename).unwrap();
 
+            // let job: v2::ProverExtendBlockchainInputStableV2 =
+            //     match binprot::BinProtRead::binprot_read(&mut bytes.as_slice()) {
+            //         Ok(job) => job,
+            //         _ => continue,
+            //     };
+
             let single: SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0Single =
                 binprot::BinProtRead::binprot_read(&mut bytes.as_slice()).unwrap();
             let instances =
                 SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0Instances::One(single);
-
             let job = SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0 {
                 instances,
                 fee: (&fee).into(),
@@ -4663,7 +4668,7 @@ mod tests {
             Path::new(env!("CARGO_MANIFEST_DIR"))
                 .join("3.0.0devnet")
                 .join("tests")
-                .join("block_input-1017741-0.bin"),
+                .join("block_input-2483246-0.bin"),
         ) else {
             eprintln!("request not found");
             panic_in_ci();
@@ -4706,11 +4711,11 @@ mod tests {
 
         let proof_json = serde_json::to_vec(&proof).unwrap();
 
-        let _sum = dbg!(sha256_sum(&proof_json));
-        // assert_eq!(
-        //     sum,
-        //     "cc55eb645197fc0246c96f2d2090633af54137adc93226e1aac102098337c46e"
-        // );
+        let sum = dbg!(sha256_sum(&proof_json));
+        assert_eq!(
+            sum,
+            "94746da78c797fd685ce1ba301eb7bb1006c9427f87e9179a24bdeeb6bfc09ed"
+        );
     }
 
     #[test]
@@ -4773,7 +4778,7 @@ mod tests {
 
         // Block proof
         for (filename, fps_filename) in [
-            ("block_input-1017741-0.bin", None),
+            ("block_input-2483246-0.bin", None),
             // ("block_prove_inputs_7.bin", None),
         ] {
             let data = std::fs::read(base_dir.join(filename)).unwrap();

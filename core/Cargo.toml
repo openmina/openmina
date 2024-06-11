@@ -23,6 +23,7 @@ openmina-fuzzer = { path = "../fuzzer", optional = true }
 mina-hasher = { workspace = true }
 mina-p2p-messages = { workspace = true }
 hex = "0.4.3"
+ark-ff = { git = "https://github.com/openmina/algebra", branch = "openmina", features = [ "parallel", "asm", "std" ] }
 
 [dev-dependencies]
 serde_json = { version = "1" }

@@ -21,7 +21,14 @@ pub const CONSTRAINT_CONSTANTS: ConstraintConstants = ConstraintConstants {
     coinbase_amount: 720000000000,
     supercharged_coinbase_factor: 1,
     account_creation_fee: 1000000000,
-    fork: None,
+    fork: Some(ForkConstants {
+        previous_state_hash: ark_ff::field_new!(
+            Fp,
+            "7908066420535064797069631664846455037440232590837253108938061943122344055350"
+        ),
+        previous_length: 296371,
+        genesis_slot: 445860,
+    }),
 };
 
 #[derive(Clone, Debug)]

@@ -4516,6 +4516,7 @@ dependencies = [
 name = "openmina-core"
 version = "0.5.0"
 dependencies = [
+ "ark-ff",
  "binprot",
  "binprot_derive",
  "hex",
