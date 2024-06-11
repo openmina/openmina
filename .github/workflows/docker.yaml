@@ -93,9 +93,9 @@ jobs:
 
       - name: Build and push
         uses: docker/build-push-action@v5
-        platforms: linux/amd64,linux/arm64
         with:
           context: ./frontend
+          platforms: linux/amd64,linux/arm64
           build-args: |
             BUILD_CONFIGURATION=${{ matrix.configuration.build_configuration }}
           push: true
