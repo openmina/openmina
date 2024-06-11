@@ -5,7 +5,7 @@ use mina_p2p_messages::{bigint, number, v2};
 pub const GENESIS_PRODUCER_SK: &str = "EKFKgDtU3rcuFTVSEpmpXSkukjmX4cKefYREi6Sdsk7E7wsT7KRw";
 
 pub const PROTOCOL_VERSION: v2::ProtocolVersionStableV2 = v2::ProtocolVersionStableV2 {
-    transaction: number::Number(2),
+    transaction: number::Number(3),
     network: number::Number(0),
     patch: number::Number(0),
 };

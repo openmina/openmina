@@ -4,6 +4,7 @@ use ark_ff::{BigInteger256, One, UniformRand, Zero};
 use mina_hasher::Fp;
 use mina_p2p_messages::binprot::{BinProtRead, BinProtWrite};
 use mina_signer::CompressedPubKey;
+use openmina_core::constants::PROTOCOL_VERSION;
 use rand::{prelude::ThreadRng, seq::SliceRandom, Rng};
 use serde::{Deserialize, Serialize};
 
@@ -34,7 +35,8 @@ use crate::{
 use super::common::*;
 
 /// Mina_numbers.Txn_version.current
-pub const TXN_VERSION_CURRENT: TxnVersion = TxnVersion::from_u32(3);
+pub const TXN_VERSION_CURRENT: TxnVersion =
+    TxnVersion::from_u32(PROTOCOL_VERSION.transaction.as_u64() as u32);
 
 #[derive(Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TokenId(pub Fp);
