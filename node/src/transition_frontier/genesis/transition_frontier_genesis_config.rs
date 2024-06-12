@@ -10,10 +10,11 @@ use mina_p2p_messages::{
     binprot::{
         self,
         macros::{BinProtRead, BinProtWrite},
+        BinProtRead as _,
     },
     v2::{self, PROTOCOL_CONSTANTS},
 };
-use openmina_core::constants::CONSTRAINT_CONSTANTS;
+use openmina_core::constants::{CONSTRAINT_CONSTANTS, DEFAULT_GENESIS_TIMESTAMP_MILLISECONDS};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -32,6 +33,10 @@ pub enum GenesisConfig {
     },
     BalancesDelegateTable {
         table: Vec<(u64, Vec<u64>)>,
+        constants: ProtocolConstants,
+    },
+    AccountsBinProt {
+        bytes: Cow<'static, [u8]>,
         constants: ProtocolConstants,
     },
     Prebuilt(Cow<'static, [u8]>),
@@ -81,11 +86,11 @@ impl GenesisConfig {
             Self::Counts { constants, .. }
             | Self::BalancesDelegateTable { constants, .. }
             | Self::AccountsBinProt { constants, .. } => Ok(constants.clone()),
+            Self::Prebuilt { .. } => todo!(),
             Self::DaemonJson(config) => Ok(config
                 .genesis
                 .as_ref()
                 .map(|g: &daemon_json::Genesis| g.protocol_constants())
-                .transpose()?
                 .unwrap_or(Self::default_constants(
                     DEFAULT_GENESIS_TIMESTAMP_MILLISECONDS,
                 ))),
@@ -157,6 +162,34 @@ impl GenesisConfig {
 
                 let load_result = GenesisConfigLoaded {
                     constants,
+                    ledger_hash,
+                    total_currency,
+                    genesis_producer_stake_proof: genesis_producer_stake_proof(&mask),
+                };
+                (mask, load_result)
+            }
+            Self::AccountsBinProt { bytes, constants } => {
+                let mut bytes = bytes.as_ref();
+                let expected_hash = Option::<v2::LedgerHash>::binprot_read(&mut bytes)?;
+                let hashes = Vec::<(u64, v2::LedgerHash)>::binprot_read(&mut bytes)?
+                    .into_iter()
+                    .map(|(idx, hash)| (idx, hash.0.to_field()))
+                    .collect();
+                let accounts = Vec::<ledger::Account>::binprot_read(&mut bytes)?;
+
+                let (mut mask, total_currency) =
+                    Self::build_ledger_from_accounts_and_hashes(accounts, hashes);
+                let ledger_hash = ledger_hash(&mut mask);
+
+                // TODO(tizoc): currently this doesn't really do much, because now we load the hashes
+                // from the bin_prot data too to speed up the loading. Maybe add some flag
+                // to force the rehashing and validation of the loaded ledger hashes.
+                if let Some(expected_hash) = expected_hash.filter(|h| h != &ledger_hash) {
+                    anyhow::bail!("ledger hash mismatch after building the mask! expected: '{expected_hash}', got '{ledger_hash}'");
+                }
+
+                let load_result = GenesisConfigLoaded {
+                    constants: constants.clone(),
                     ledger_hash,
                     total_currency,
                     genesis_producer_stake_proof: genesis_producer_stake_proof(&mask),

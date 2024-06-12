@@ -209,14 +209,18 @@ impl Node {
         let srs: Arc<_> = get_srs();
 
         let (daemon_conf, genesis_conf) = match self.config {
-            Some(config) => (
-                config.daemon.clone().unwrap_or(daemon_json::Daemon::DEFAULT),
-                {
-                    let reader = File::open(config).context("config file {config:?}")?;
-                    let c = serde_json::from_reader(reader).context("config file {config:?}")?;
-                    Arc::new(GenesisConfig::DaemonJson(c))
-                },
-            ),
+            Some(config) => {
+                let reader = File::open(config).context("config file {config:?}")?;
+                let config: DaemonJson =
+                    serde_json::from_reader(reader).context("config file {config:?}")?;
+                (
+                    config
+                        .daemon
+                        .clone()
+                        .unwrap_or(daemon_json::Daemon::DEFAULT),
+                    Arc::new(GenesisConfig::DaemonJson(config)),
+                )
+            }
             None => (
                 daemon_json::Daemon::DEFAULT,
                 node::config::BERKELEY_CONFIG.clone(),
