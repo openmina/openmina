@@ -74,7 +74,7 @@ pub fn prove(
         || CONSTRAINT_CONSTANTS
             .fork
             .as_ref()
-            .map_or(false, |fork| fork.previous_length + 1 == height);
+            .map_or(false, |fork| fork.blockchain_length + 1 == height);
     if !is_genesis {
         input.prover_state.producer_private_key = keypair.into();
     }

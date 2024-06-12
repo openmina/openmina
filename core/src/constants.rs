@@ -22,20 +22,20 @@ pub const CONSTRAINT_CONSTANTS: ConstraintConstants = ConstraintConstants {
     supercharged_coinbase_factor: 1,
     account_creation_fee: 1000000000,
     fork: Some(ForkConstants {
-        previous_state_hash: ark_ff::field_new!(
+        state_hash: ark_ff::field_new!(
             Fp,
             "7908066420535064797069631664846455037440232590837253108938061943122344055350"
         ),
-        previous_length: 296371,
-        genesis_slot: 445860,
+        blockchain_length: 296371,
+        global_slot_since_genesis: 445860,
     }),
 };
 
 #[derive(Clone, Debug)]
 pub struct ForkConstants {
-    pub previous_state_hash: Fp,
-    pub previous_length: u32,
-    pub genesis_slot: u32,
+    pub state_hash: Fp,
+    pub blockchain_length: u32,
+    pub global_slot_since_genesis: u32,
 }
 
 #[derive(Clone, Debug)]
@@ -61,9 +61,9 @@ pub struct ForkConstantsUnversioned {
 impl From<&ForkConstants> for ForkConstantsUnversioned {
     fn from(fork_constants: &ForkConstants) -> Self {
         Self {
-            previous_state_hash: fork_constants.previous_state_hash.into(),
-            previous_length: fork_constants.previous_length.into(),
-            genesis_slot: fork_constants.genesis_slot.into(),
+            previous_state_hash: fork_constants.state_hash.into(),
+            previous_length: fork_constants.blockchain_length.into(),
+            genesis_slot: fork_constants.global_slot_since_genesis.into(),
         }
     }
 }
@@ -131,7 +131,7 @@ pub fn grace_period_end(constants: &v2::MinaBaseProtocolConstantsCheckedValueSta
     };
     match CONSTRAINT_CONSTANTS.fork.as_ref() {
         None => slots,
-        Some(fork) => slots + fork.genesis_slot,
+        Some(fork) => slots + fork.global_slot_since_genesis,
     }
 }
 
