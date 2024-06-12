@@ -31,7 +31,6 @@ pub struct Behaviour<E: 'static + From<P2pEvent>> {
     pub ongoing_incoming: BTreeMap<(PeerId, u64), (StreamId, String, u32)>,
 }
 
-#[allow(clippy::large_enum_variant)]
 #[derive(Debug, derive_more::From)]
 pub enum Event {
     // Identify(IdentifyEvent),

@@ -33,7 +33,7 @@ pub enum P2pConnectionIncomingAction {
     },
     AnswerReady {
         peer_id: PeerId,
-        answer: webrtc::Answer,
+        answer: Box<webrtc::Answer>,
     },
     AnswerSendSuccess {
         peer_id: PeerId,

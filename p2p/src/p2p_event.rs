@@ -14,7 +14,6 @@ use crate::{
 };
 
 #[derive(Serialize, Deserialize, From, Debug, Clone)]
-#[allow(clippy::large_enum_variant)]
 pub enum P2pEvent {
     Connection(P2pConnectionEvent),
     Channel(P2pChannelEvent),

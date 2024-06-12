@@ -108,7 +108,7 @@ impl P2pState {
                 crate::identify::P2pIdentifyAction::NewRequest { .. } => {}
                 crate::identify::P2pIdentifyAction::UpdatePeerInformation { peer_id, info } => {
                     if let Some(peer) = self.peers.get_mut(peer_id) {
-                        peer.identify = Some(info.clone());
+                        peer.identify = Some(*info.clone());
                     } else {
                         unreachable!()
                     }
