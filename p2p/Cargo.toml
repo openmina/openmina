@@ -12,7 +12,7 @@ serde_with = { workspace = true }
 strum = "0.26"
 strum_macros = "0.26"
 derive_more = "0.99.17"
-rand = "0.8"
+rand = { version = "0.8", features = [ "small_rng" ] }
 bytes = "*"
 bs58 = "0.4.0"
 binprot = { git = "https://github.com/openmina/binprot-rs", rev = "2b5a909" }
@@ -48,6 +48,8 @@ crypto-bigint = { version = "0.5.5", features = ["generic-array", "serde", "allo
 
 prost = { version = "0.12.4" }
 
+openmina-fuzzer = { path = "../fuzzer", optional = true }
+
 [build-dependencies]
 prost-build = { version = "0.12.4" }
 
@@ -79,6 +81,7 @@ web-sys = { version = "0.3", features = ["RtcPeerConnection", "RtcConfiguration"
 tokio = { version = "1.26", features = ["macros"] }
 
 [features]
-default = [ "p2p-libp2p" ]
+default = [ "p2p-libp2p", "fuzzing" ]
 p2p-webrtc = ["webrtc"]
 p2p-libp2p = []
+fuzzing = ["openmina-fuzzer", "openmina-core/fuzzing"]

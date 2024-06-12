@@ -38,6 +38,9 @@ impl<S, T: SubStore<S, P2pState, SubAction = P2pAction>> P2pStore<S> for T {}
 pub use libp2p_identity;
 pub use multiaddr;
 
+#[cfg(feature = "fuzzing")]
+pub mod fuzzer;
+
 /// Returns true if duration value is configured, and, given the time is `now`,
 /// that duration is passed since `then`.
 fn is_time_passed(
