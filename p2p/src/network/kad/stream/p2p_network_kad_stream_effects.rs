@@ -1,4 +1,4 @@
-use openmina_core::warn;
+use openmina_core::{fuzzed_maybe, warn};
 use redux::ActionMeta;
 
 use crate::{
@@ -111,10 +111,11 @@ impl P2pNetworkKademliaStreamAction {
                 | D::Outgoing(O::RequestBytesAreReady { bytes }),
             ) => {
                 // send data to the network
+                let data = fuzzed_maybe!(bytes.clone().into(), crate::fuzzer::mutate_kad_data);
                 store.dispatch(P2pNetworkYamuxAction::OutgoingData {
                     addr,
                     stream_id,
-                    data: bytes.clone().into(),
+                    data,
                     flags: Default::default(),
                 });
                 store.dispatch(A::WaitIncoming {

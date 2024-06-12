@@ -1,7 +1,7 @@
 use std::net::SocketAddr;
 
 use multiaddr::Multiaddr;
-use openmina_core::{error, log::system_time, warn};
+use openmina_core::{error, fuzzed_maybe, log::system_time, warn};
 use redux::ActionMeta;
 
 use super::{
@@ -127,10 +127,15 @@ impl P2pNetworkIdentifyStreamAction {
                         return Ok(());
                     }
 
+                    let data = fuzzed_maybe!(
+                        Data(out.into_boxed_slice()),
+                        crate::fuzzer::mutate_identify_msg
+                    );
+
                     store.dispatch(P2pNetworkYamuxAction::OutgoingData {
                         addr,
                         stream_id,
-                        data: Data(out.into_boxed_slice()),
+                        data,
                         flags: Default::default(),
                     });
 

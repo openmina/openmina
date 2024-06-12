@@ -1,3 +1,5 @@
+use openmina_core::fuzzed_maybe;
+
 use crate::connection::incoming::{P2pConnectionIncomingAction, P2pConnectionIncomingState};
 
 use super::{super::*, *};
@@ -198,16 +200,16 @@ impl P2pNetworkNoiseAction {
                 }
             }
             Self::OutgoingChunk { addr, data } | Self::OutgoingChunkSelectMux { addr, data } => {
-                store.dispatch(P2pNetworkPnetAction::OutgoingData {
-                    addr,
-                    data: data
-                        .iter()
+                let data = fuzzed_maybe!(
+                    data.iter()
                         .fold(vec![], |mut v, item| {
                             v.extend_from_slice(item);
                             v
                         })
                         .into(),
-                });
+                    crate::fuzzer::mutate_noise
+                );
+                store.dispatch(P2pNetworkPnetAction::OutgoingData { addr, data });
                 if let Some((peer_id, incoming)) = handshake_done {
                     store.dispatch(P2pNetworkNoiseAction::HandshakeDone {
                         addr,

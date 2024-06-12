@@ -1,3 +1,5 @@
+use openmina_core::fuzzed_maybe;
+
 use super::{super::*, *};
 
 use super::p2p_network_pnet_state::Half;
@@ -28,6 +30,7 @@ impl P2pNetworkPnetAction {
             },
             P2pNetworkPnetAction::OutgoingData { addr, .. } => match &state.outgoing {
                 Half::Done { to_send, .. } if !to_send.is_empty() => {
+                    fuzzed_maybe!(to_send.clone(), crate::fuzzer::mutate_pnet);
                     service.send_mio_cmd(crate::MioCmd::Send(
                         addr,
                         to_send.clone().into_boxed_slice(),

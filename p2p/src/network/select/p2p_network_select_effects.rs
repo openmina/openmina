@@ -1,6 +1,12 @@
 use std::net::SocketAddr;
 
-use crate::{network::identify::P2pNetworkIdentifyStreamAction, P2pNetworkPnetAction};
+use openmina_core::{fuzz_maybe, fuzzed_maybe};
+
+use crate::{
+    fuzzer::{mutate_select_authentication, mutate_select_multiplexing, mutate_select_stream},
+    network::identify::P2pNetworkIdentifyStreamAction,
+    P2pNetworkPnetAction,
+};
 
 use super::{super::*, p2p_network_select_state::P2pNetworkSelectStateInner, *};
 
@@ -284,7 +290,13 @@ impl P2pNetworkSelectAction {
                 }
             }
             P2pNetworkSelectAction::IncomingToken { addr, kind, .. } => {
-                if let Some(token) = &state.to_send {
+                if let P2pNetworkSelectStateInner::Error(error) = &state.inner {
+                    store.dispatch(P2pNetworkSchedulerAction::SelectError {
+                        addr,
+                        kind,
+                        error: error.clone(),
+                    });
+                } else if let Some(token) = &state.to_send {
                     store.dispatch(P2pNetworkSelectAction::OutgoingTokens {
                         addr,
                         kind,
@@ -293,7 +305,7 @@ impl P2pNetworkSelectAction {
                 }
             }
             P2pNetworkSelectAction::OutgoingTokens { addr, kind, tokens } => {
-                let data = {
+                let mut data = {
                     let mut data = vec![];
                     for token in &tokens {
                         data.extend_from_slice(token.name())
@@ -303,9 +315,11 @@ impl P2pNetworkSelectAction {
 
                 match &kind {
                     SelectKind::Authentication => {
+                        fuzz_maybe!(&mut data, mutate_select_authentication);
                         store.dispatch(P2pNetworkPnetAction::OutgoingData { addr, data });
                     }
                     SelectKind::Multiplexing(_) | SelectKind::MultiplexingNoPeerId => {
+                        fuzz_maybe!(&mut data, mutate_select_multiplexing);
                         store.dispatch(P2pNetworkNoiseAction::OutgoingDataSelectMux { addr, data });
                     }
                     SelectKind::Stream(_, stream_id) => {
@@ -318,10 +332,14 @@ impl P2pNetworkSelectAction {
                             });
                         } else {
                             for token in tokens {
+                                let data = fuzzed_maybe!(
+                                    token.name().to_vec().into(),
+                                    mutate_select_stream
+                                );
                                 store.dispatch(P2pNetworkYamuxAction::OutgoingData {
                                     addr,
                                     stream_id: *stream_id,
-                                    data: token.name().to_vec().into(),
+                                    data,
                                     flags: Default::default(),
                                 });
                             }
