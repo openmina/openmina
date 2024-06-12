@@ -1449,7 +1449,11 @@ impl ReceiptChainHashInterface for SnarkReceiptChainHash {
         inputs.append_field(element);
         inputs.append(&other);
 
-        ReceiptChainHash(checked_hash("CodaReceiptUC", &inputs.to_fields(), w))
+        ReceiptChainHash(checked_hash(
+            ReceiptChainHash::HASH_PREFIX,
+            &inputs.to_fields(),
+            w,
+        ))
     }
 }
 
