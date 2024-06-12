@@ -156,13 +156,23 @@ impl Node {
         let work_dir = shellexpand::full(&self.work_dir).unwrap().into_owned();
         let srs: Arc<_> = get_srs();
 
-        let genesis_conf = match self.config {
+        let (daemon_conf, genesis_conf) = match self.config {
             Some(config) => {
                 let reader = File::open(config).context("config file {config:?}")?;
-                let c = serde_json::from_reader(reader).context("config file {config:?}")?;
-                Arc::new(GenesisConfig::DaemonJson(c))
+                let config: DaemonJson =
+                    serde_json::from_reader(reader).context("config file {config:?}")?;
+                (
+                    config
+                        .daemon
+                        .clone()
+                        .unwrap_or(daemon_json::Daemon::DEFAULT),
+                    Arc::new(GenesisConfig::DaemonJson(config)),
+                )
             }
-            None => node::config::DEVNET_CONFIG.clone(),
+            None => (
+                daemon_json::Daemon::DEFAULT,
+                node::config::DEVNET_CONFIG.clone(),
+            ),
         };
 
         let protocol_constants = genesis_conf.protocol_constants()?;
