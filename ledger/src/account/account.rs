@@ -1516,7 +1516,7 @@ mod tests {
 
         assert_eq!(
             hash.to_hex(),
-            "2d88be979beb198689fd46e4921b311e4f195da0e920c237394bc37cdf3c5536"
+            "7018596b7a10344908c7582482b1401a3cbdd40212beb428baf629b84ceb7f0b"
         );
 
         let acc = Account {
@@ -1538,7 +1538,7 @@ mod tests {
 
         assert_eq!(
             acc.hash().to_hex(),
-            "42e85613ef580a0258ba364dfc0079150c72a93cfaa0c3fd293c3c96c4c06630"
+            "8cb53d374b844227d4c63b2dcf198312f8fcb4b60392fee5b165243508d16e32"
         );
     }
 
