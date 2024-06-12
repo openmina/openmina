@@ -44,7 +44,7 @@ pub enum P2pConnectionOutgoingAction {
     },
     OfferReady {
         peer_id: PeerId,
-        offer: webrtc::Offer,
+        offer: Box<webrtc::Offer>,
     },
     OfferSendSuccess {
         peer_id: PeerId,
@@ -59,7 +59,7 @@ pub enum P2pConnectionOutgoingAction {
     },
     AnswerRecvSuccess {
         peer_id: PeerId,
-        answer: webrtc::Answer,
+        answer: Box<webrtc::Answer>,
     },
     #[action_event(level = trace)]
     FinalizePending {

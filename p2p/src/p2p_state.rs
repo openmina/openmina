@@ -283,7 +283,6 @@ impl P2pPeerState {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "state")]
-#[allow(clippy::large_enum_variant)]
 pub enum P2pPeerStatus {
     Connecting(P2pConnectionState),
     Disconnected { time: redux::Timestamp },

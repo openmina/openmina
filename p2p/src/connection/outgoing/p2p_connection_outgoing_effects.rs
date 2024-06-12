@@ -59,14 +59,14 @@ impl P2pConnectionOutgoingAction {
                 });
             }
             P2pConnectionOutgoingAction::OfferSdpCreateSuccess { peer_id, sdp } => {
-                let offer = webrtc::Offer {
+                let offer = Box::new(webrtc::Offer {
                     sdp,
                     identity_pub_key: store.state().config.identity_pub_key.clone(),
                     target_peer_id: peer_id,
                     // TODO(vlad9486): put real address
                     host: Host::Ipv4([127, 0, 0, 1].into()),
                     listen_port: store.state().config.listen_port,
-                };
+                });
                 store.dispatch(P2pConnectionOutgoingAction::OfferReady { peer_id, offer });
             }
             P2pConnectionOutgoingAction::OfferReady { peer_id, offer } => {
@@ -90,7 +90,7 @@ impl P2pConnectionOutgoingAction {
                         let Some(url) = signaling_method.http_url() else {
                             return;
                         };
-                        service.http_signaling_request(url, offer);
+                        service.http_signaling_request(url, *offer);
                     }
                 }
                 store.dispatch(P2pConnectionOutgoingAction::OfferSendSuccess { peer_id });
@@ -112,7 +112,7 @@ impl P2pConnectionOutgoingAction {
                 });
             }
             P2pConnectionOutgoingAction::AnswerRecvSuccess { peer_id, answer } => {
-                store.service().set_answer(peer_id, answer.clone());
+                store.service().set_answer(peer_id, *answer);
                 store.dispatch(P2pConnectionOutgoingAction::FinalizePending { peer_id });
             }
             P2pConnectionOutgoingAction::FinalizeError { peer_id, error } => {

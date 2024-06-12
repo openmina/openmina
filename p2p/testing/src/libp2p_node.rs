@@ -56,7 +56,6 @@ impl TestNode for Libp2pNode {
 
 pub type Libp2pEvent = SwarmEvent<Libp2pBehaviourEvent, THandlerErr<Libp2pBehaviour>>;
 
-#[allow(clippy::large_enum_variant)]
 #[derive(Debug, derive_more::From)]
 pub enum Libp2pBehaviourEvent {
     // Identify(IdentifyEvent),

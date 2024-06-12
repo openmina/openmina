@@ -18,7 +18,7 @@ impl P2pConnectionIncomingAction {
         match self {
             P2pConnectionIncomingAction::Init { opts, .. } => {
                 let peer_id = opts.peer_id;
-                store.service().incoming_init(peer_id, opts.offer);
+                store.service().incoming_init(peer_id, *opts.offer);
                 store.dispatch(P2pConnectionIncomingAction::AnswerSdpCreatePending { peer_id });
             }
             P2pConnectionIncomingAction::AnswerSdpCreateError { peer_id, error } => {
@@ -28,15 +28,15 @@ impl P2pConnectionIncomingAction {
                 });
             }
             P2pConnectionIncomingAction::AnswerSdpCreateSuccess { peer_id, sdp } => {
-                let answer = webrtc::Answer {
+                let answer = Box::new(webrtc::Answer {
                     sdp,
                     identity_pub_key: store.state().config.identity_pub_key.clone(),
                     target_peer_id: peer_id,
-                };
+                });
                 store.dispatch(P2pConnectionIncomingAction::AnswerReady { peer_id, answer });
             }
             P2pConnectionIncomingAction::AnswerReady { peer_id, answer } => {
-                store.service().set_answer(peer_id, answer);
+                store.service().set_answer(peer_id, *answer);
             }
             P2pConnectionIncomingAction::AnswerSendSuccess { peer_id } => {
                 store.dispatch(P2pConnectionIncomingAction::FinalizePending { peer_id });
