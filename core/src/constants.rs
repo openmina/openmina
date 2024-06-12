@@ -21,6 +21,10 @@ pub const CONSTRAINT_CONSTANTS: ConstraintConstants = ConstraintConstants {
     coinbase_amount: 720000000000,
     supercharged_coinbase_factor: 1,
     account_creation_fee: 1000000000,
+    // TODO(tizoc): This should come from the config file, but
+    // it affects the circuits. Since we cannot produce the circuits
+    // ourselves right now, we cannot react to changes in this value,
+    // so it will be hardcoded for now.
     fork: Some(ForkConstants {
         state_hash: ark_ff::field_new!(
             Fp,
