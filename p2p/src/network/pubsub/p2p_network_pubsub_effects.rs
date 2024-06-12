@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use openmina_core::block::BlockWithHash;
+use openmina_core::{block::BlockWithHash, fuzz_maybe};
 
 use crate::{
     channels::snark::P2pChannelsSnarkAction, peer::P2pPeerAction, P2pCryptoService,
@@ -99,7 +99,7 @@ impl P2pNetworkPubsubAction {
                     }
                 }
             }
-            Self::OutgoingData { data, peer_id } => {
+            Self::OutgoingData { mut data, peer_id } => {
                 let Some(state) = store
                     .state()
                     .network
@@ -110,6 +110,7 @@ impl P2pNetworkPubsubAction {
                 else {
                     return;
                 };
+                fuzz_maybe!(&mut data, crate::fuzzer::mutate_pubsub);
                 if let Some(stream_id) = state.outgoing_stream_id.as_ref().copied() {
                     store.dispatch(P2pNetworkYamuxAction::OutgoingData {
                         addr: state.addr,

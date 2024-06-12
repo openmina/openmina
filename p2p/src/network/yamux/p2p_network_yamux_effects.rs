@@ -1,3 +1,5 @@
+use openmina_core::fuzzed_maybe;
+
 use super::p2p_network_yamux_state::{YamuxFrame, YamuxFrameInner};
 
 use super::{super::*, *};
@@ -92,10 +94,9 @@ impl P2pNetworkYamuxAction {
                 }
             }
             Self::OutgoingFrame { addr, frame } => {
-                store.dispatch(P2pNetworkNoiseAction::OutgoingData {
-                    addr,
-                    data: frame.clone().into_bytes().into(),
-                });
+                let data =
+                    fuzzed_maybe!(frame.into_bytes().into(), crate::fuzzer::mutate_yamux_frame);
+                store.dispatch(P2pNetworkNoiseAction::OutgoingData { addr, data });
             }
             Self::OutgoingData {
                 addr,

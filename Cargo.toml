@@ -28,6 +28,8 @@ members = [
     "tools/ledger-tool",
     "tools/salsa-simple",
     "producer-dashboard",
+
+    "fuzzer",
 ]
 
 resolver = "2"
