@@ -149,27 +149,18 @@ impl P2pNetworkConnectionMuxState {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pNetworkStreamState {
     pub select: P2pNetworkSelectState,
-    pub handler: Option<P2pNetworkStreamHandlerState>,
 }
 
 impl P2pNetworkStreamState {
     pub fn new(stream_kind: token::StreamKind) -> Self {
         P2pNetworkStreamState {
             select: P2pNetworkSelectState::initiator_stream(stream_kind),
-            handler: None,
         }
     }
 
     pub fn new_incoming() -> Self {
         P2pNetworkStreamState {
             select: P2pNetworkSelectState::default(),
-            handler: None,
         }
     }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum P2pNetworkStreamHandlerState {
-    Broadcast,
-    Discovery,
 }
