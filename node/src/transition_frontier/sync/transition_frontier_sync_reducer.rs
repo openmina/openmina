@@ -57,7 +57,7 @@ impl TransitionFrontierSyncState {
                         None
                     } else if let Self::NextEpochLedgerPending(state) = self {
                         if old_best_tip.staking_epoch_ledger_hash()
-                            != old_best_tip.staking_epoch_ledger_hash()
+                            != best_tip.staking_epoch_ledger_hash()
                         {
                             Some((state, staking_epoch_target))
                         } else {
@@ -68,7 +68,7 @@ impl TransitionFrontierSyncState {
                         }
                     } else if let Self::RootLedgerPending(state) = self {
                         if old_best_tip.staking_epoch_ledger_hash()
-                            != old_best_tip.staking_epoch_ledger_hash()
+                            != best_tip.staking_epoch_ledger_hash()
                         {
                             Some((state, staking_epoch_target))
                         } else if let Some(next_epoch_target) = next_epoch_target.filter(|_| {
