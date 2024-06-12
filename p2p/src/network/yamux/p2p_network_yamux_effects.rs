@@ -8,9 +8,11 @@ impl P2pNetworkYamuxAction {
         Store: crate::P2pStore<S>,
     {
         let state = store.state();
+        let max_streams = state.config.limits.max_streams();
         let Some(state) = state.network.scheduler.connections.get(self.addr()) else {
             return;
         };
+        let streams = &state.streams;
         let peer_id = match &state.auth {
             Some(P2pNetworkAuthState::Noise(noise)) => match &noise.inner {
                 Some(P2pNetworkNoiseStateInner::Done { remote_peer_id, .. }) => *remote_peer_id,
@@ -43,12 +45,29 @@ impl P2pNetworkYamuxAction {
                 }
 
                 if frame.flags.contains(YamuxFlags::SYN) && frame.stream_id != 0 {
-                    store.dispatch(P2pNetworkSelectAction::Init {
-                        addr,
-                        kind: SelectKind::Stream(peer_id, frame.stream_id),
-                        incoming: true,
-                        send_handshake: true,
-                    });
+                    // count incoming streams
+                    let incoming_streams_number =
+                        streams.values().filter(|s| s.select.is_incoming()).count();
+                    match (max_streams, incoming_streams_number) {
+                        (Limit::Some(limit), actual) if actual > limit => {
+                            store.dispatch(Self::OutgoingFrame {
+                                addr,
+                                frame: YamuxFrame {
+                                    flags: YamuxFlags::FIN,
+                                    stream_id: frame.stream_id,
+                                    inner: YamuxFrameInner::Data(vec![].into()),
+                                },
+                            });
+                        }
+                        _ => {
+                            store.dispatch(P2pNetworkSelectAction::Init {
+                                addr,
+                                kind: SelectKind::Stream(peer_id, frame.stream_id),
+                                incoming: true,
+                                send_handshake: true,
+                            });
+                        }
+                    }
                 }
                 match &frame.inner {
                     YamuxFrameInner::Data(data) => {

@@ -223,6 +223,7 @@ impls!(std::time::Duration);
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct P2pLimits {
     max_peers: Limit<usize>,
+    max_streams: Limit<usize>,
 
     identify_message: Limit<usize>,
     kademlia_request: Limit<usize>,
@@ -269,6 +270,12 @@ impl P2pLimits {
         max_peers,
         /// Sets maximum number of peers.
         with_max_peers
+    );
+    limit!(
+        /// Maximum number of streams from a peer.
+        max_streams,
+        /// Sets the maximum number of streams that a peer is allowed to open simultaneously.
+        with_max_streams
     );
 
     limit!(
@@ -327,6 +334,7 @@ impl P2pLimits {
 impl Default for P2pLimits {
     fn default() -> Self {
         let max_peers = Limit::Some(100);
+        let max_streams = Limit::Some(10);
 
         let identify_message = Limit::Some(0x1000);
         let kademlia_request = Limit::Some(50);
@@ -341,6 +349,7 @@ impl Default for P2pLimits {
         let rpc_get_some_initial_peers = Limit::Some(32_000); // TODO: calculate
         Self {
             max_peers,
+            max_streams,
 
             identify_message,
             kademlia_request,

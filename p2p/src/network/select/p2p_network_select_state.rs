@@ -61,6 +61,10 @@ impl P2pNetworkSelectState {
             false
         }
     }
+
+    pub fn is_incoming(&self) -> bool {
+        matches!(&self.inner, P2pNetworkSelectStateInner::Responder)
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
