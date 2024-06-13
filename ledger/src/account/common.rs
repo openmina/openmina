@@ -1,12 +1,8 @@
-use std::{io::Cursor, str::FromStr};
+use std::str::FromStr;
 
-use ark_ff::{PrimeField, UniformRand, Zero};
+use ark_ff::{UniformRand, Zero};
 use mina_hasher::Fp;
-use mina_p2p_messages::{
-    b58, b58version, binprot::BinProtRead, v2::MinaBaseReceiptChainHashStableV1,
-};
 use o1_utils::{field_helpers::FieldHelpersError, FieldHelpers};
-use openmina_core::block::BlockHash;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -30,17 +26,22 @@ impl VotingFor {
         Self(Fp::zero())
     }
 
-    pub fn from_base58(s: &str) -> Result<Self, FieldHelpersError> {
+    pub fn from_str(s: &str) -> Result<Self, FieldHelpersError> {
         let b58check_hash = mina_p2p_messages::v2::StateHash::from_str(s).unwrap();
         Ok(Self(b58check_hash.into_inner().0.into()))
+    }
+
+    pub fn to_string(&self) -> String {
+        let state_hash = mina_p2p_messages::v2::StateHash::from_fp(self.0);
+        state_hash.to_string()
     }
 }
 
 #[test]
 fn test_voting_for_b58decode() {
     let source = "3NK2tkzqqK5spR2sZ7tujjqPksL45M3UUrcA4WhCkeiPtnugyE2x";
-    let voting_for = VotingFor::from_base58(source).unwrap();
-    assert_eq!(voting_for, VotingFor::default());
+    let voting_for = VotingFor::from_str(source).unwrap();
+    assert_eq!(&voting_for.to_string(), source);
 }
 
 impl ToFieldElements<Fp> for VotingFor {
@@ -82,10 +83,12 @@ impl ReceiptChainHash {
         Fp::from_hex(s).map(Self)
     }
 
-    pub fn from_base58(s: &str) -> Result<Self, FieldHelpersError> {
+    pub fn from_str(s: &str) -> Result<Self, FieldHelpersError> {
         let b58check_hash = mina_p2p_messages::v2::PendingCoinbaseHash::from_str(s).unwrap();
         Ok(Self(b58check_hash.into_inner().0 .0.into()))
     }
+
+    // TODO(tizoc): implement `to_string` and improve the test bellow
 
     pub fn gen() -> Self {
         Self(Fp::rand(&mut rand::thread_rng()))
@@ -95,10 +98,10 @@ impl ReceiptChainHash {
 #[test]
 fn test_receipt_chain_b58decode() {
     let source = "2mzbV7WevxLuchs2dAMY4vQBS6XttnCUF8Hvks4XNBQ5qiSGGBQe";
-    ReceiptChainHash::from_base58(source).unwrap();
+    ReceiptChainHash::from_str(source).unwrap();
 
     let source = "2n2K1aziimdYu5QCf8mU4gducZCB5u5s78sGnp56zT2tig4ugVHD";
-    ReceiptChainHash::from_base58(source).unwrap();
+    ReceiptChainHash::from_str(source).unwrap();
 }
 
 impl Default for ReceiptChainHash {
