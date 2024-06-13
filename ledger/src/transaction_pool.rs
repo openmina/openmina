@@ -163,7 +163,7 @@ mod consensus {
 /// Fee increase required to replace a transaction.
 const REPLACE_FEE: Fee = Fee::of_nanomina_int_exn(1);
 
-type ValidCommandWithHash = WithHash<valid::UserCommand, BlakeHash>;
+pub type ValidCommandWithHash = WithHash<valid::UserCommand, BlakeHash>;
 
 pub mod diff {
     use super::*;
@@ -1370,6 +1370,11 @@ impl IndexedPool {
             txns.push(txn);
         }
     }
+
+    /// Returns all the transactions in the pool
+    fn get_all_transactions(&self) -> Vec<ValidCommandWithHash> {
+        self.all_by_hash.values().cloned().collect()
+    }
 }
 
 fn currency_consumed(cmd: &UserCommand) -> Option<Amount> {
@@ -1519,6 +1524,10 @@ impl TransactionPool {
             best_tip_diff_relay: None,
             verification_key_table: Default::default(),
         }
+    }
+
+    pub fn get_all_transactions(&self) -> Vec<ValidCommandWithHash> {
+        self.pool.get_all_transactions()
     }
 
     pub fn transactions(&mut self) -> Vec<ValidCommandWithHash> {

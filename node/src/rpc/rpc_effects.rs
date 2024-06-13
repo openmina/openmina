@@ -633,6 +633,14 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                 meta.time()
             );
         }
+        RpcAction::TransactionPool { rpc_id } => {
+            let response = store.state().transaction_pool.get_all_transactions();
+
+            respond_or_log!(
+                store.service().respond_transaction_pool(rpc_id, response),
+                meta.time()
+            )
+        }
         RpcAction::Finish { .. } => {}
     }
 }

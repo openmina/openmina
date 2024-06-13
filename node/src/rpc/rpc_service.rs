@@ -10,7 +10,7 @@ use super::{
     RpcP2pConnectionOutgoingResponse, RpcPeersGetResponse, RpcReadinessCheckResponse,
     RpcScanStateSummaryGetResponse, RpcSnarkPoolGetResponse, RpcSnarkPoolJobGetResponse,
     RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse, RpcSnarkerWorkersResponse,
-    RpcStatusGetResponse, RpcSyncStatsGetResponse,
+    RpcStatusGetResponse, RpcSyncStatsGetResponse, RpcTransactionPoolResponse,
 };
 
 #[derive(Error, Serialize, Deserialize, Debug, Clone)]
@@ -142,5 +142,10 @@ pub trait RpcService {
         &mut self,
         rpc_id: RpcId,
         response: RpcReadinessCheckResponse,
+    ) -> Result<(), RespondError>;
+    fn respond_transaction_pool(
+        &mut self,
+        rpc_id: RpcId,
+        response: RpcTransactionPoolResponse,
     ) -> Result<(), RespondError>;
 }

@@ -2,8 +2,8 @@ use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 use node::rpc::{
     RpcBlockProducerStatsGetResponse, RpcDiscoveryBoostrapStatsResponse,
     RpcDiscoveryRoutingTableResponse, RpcHealthCheckResponse, RpcMessageProgressResponse,
-    RpcPeersGetResponse, RpcReadinessCheckResponse, RpcRequest, RpcStateGetError,
-    RpcStatusGetResponse,
+    RpcPeersGetResponse, RpcReadinessCheckResponse, RpcRequest, RpcStateGetError, RpcStatusGetResponse,
+    RpcTransactionPoolResponse,
 };
 use serde::{Deserialize, Serialize};
 
@@ -330,6 +330,10 @@ impl node::rpc::RpcService for NodeServiceCommon {
     rpc_service_impl!(
         respond_discovery_bootstrap_stats,
         RpcDiscoveryBoostrapStatsResponse
+    );
+    rpc_service_impl!(
+        respond_transaction_pool,
+        RpcTransactionPoolResponse
     );
 }
 

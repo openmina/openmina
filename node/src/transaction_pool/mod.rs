@@ -1,6 +1,6 @@
 use ledger::{
     scan_state::transaction_logic::{verifiable, UserCommand, WithStatus},
-    transaction_pool::{diff, ApplyDecision, Config},
+    transaction_pool::{diff, ApplyDecision, Config, ValidCommandWithHash},
     Account, AccountId,
 };
 use openmina_core::consensus::ConsensusConstants;
@@ -33,6 +33,10 @@ impl TransactionPoolState {
             pending_actions: Default::default(),
             pending_id: 0,
         }
+    }
+
+    pub fn get_all_transactions(&self) -> Vec<ValidCommandWithHash> {
+        self.pool.get_all_transactions()
     }
 
     fn next_pending_id(&mut self) -> PendingId {

@@ -77,4 +77,8 @@ impl RpcService for super::NodeTestingService {
         respond_discovery_bootstrap_stats,
         node::rpc::RpcDiscoveryBoostrapStatsResponse
     );
+    to_real!(
+        respond_transaction_pool,
+        node::rpc::RpcTransactionPoolResponse
+    );
 }
