@@ -226,6 +226,7 @@ async fn discovery_seed_single_peer() -> anyhow::Result<()> {
     let mut cluster = ClusterBuilder::new()
         .ports_with_len(6)
         .idle_duration(Duration::from_millis(100))
+        .is_error(allow_disconnections)
         .start()
         .await?;
 
