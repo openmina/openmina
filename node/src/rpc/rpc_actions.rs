@@ -135,6 +135,10 @@ pub enum RpcAction {
         rpc_id: RpcId,
     },
 
+    TransactionPool {
+        rpc_id: RpcId,
+    },
+
     Finish {
         rpc_id: RpcId,
     },
@@ -217,6 +221,7 @@ impl redux::EnablingCondition<crate::State> for RpcAction {
             RpcAction::ReadinessCheck { .. } => true,
             RpcAction::DiscoveryRoutingTable { .. } => true,
             RpcAction::DiscoveryBoostrapStats { .. } => true,
+            RpcAction::TransactionPool { .. } => true,
             RpcAction::Finish { rpc_id } => state
                 .rpc
                 .requests

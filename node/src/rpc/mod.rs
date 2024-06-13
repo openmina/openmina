@@ -1,6 +1,7 @@
 mod rpc_state;
 use std::collections::BTreeMap;
 
+use ledger::transaction_pool::ValidCommandWithHash;
 use mina_p2p_messages::v2::{
     MinaBaseSignedCommandPayloadBodyStableV2, MinaBaseTransactionStatusStableV2,
     MinaBaseUserCommandStableV2, MinaTransactionTransactionStableV2,
@@ -65,6 +66,7 @@ pub enum RpcRequest {
     ReadinessCheck,
     DiscoveryRoutingTable,
     DiscoveryBoostrapStats,
+    TransactionPoolGet,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -276,6 +278,7 @@ pub type RpcScanStateSummaryGetResponse = Option<RpcScanStateSummary>;
 pub type RpcSnarkPoolGetResponse = Vec<RpcSnarkPoolJobSummary>;
 pub type RpcSnarkPoolJobGetResponse = Option<RpcSnarkPoolJobFull>;
 pub type RpcSnarkerConfigGetResponse = Option<RpcSnarkerConfig>;
+pub type RpcTransactionPoolResponse = Vec<ValidCommandWithHash>;
 
 #[derive(Serialize, Debug, Clone)]
 pub struct RpcNodeStatus {

@@ -440,6 +440,24 @@ pub async fn run(port: u16, rpc_sender: super::RpcSender) {
             }
         });
 
+    let rpc_sender_clone = rpc_sender.clone();
+    let transaction_pool = warp::path!("transaction-pool")
+        .and(warp::get())
+        .then(move || {
+            let rpc_sender_clone = rpc_sender_clone.clone();
+            async move {
+                rpc_sender_clone
+                    .oneshot_request(RpcRequest::TransactionPoolGet)
+                    .await
+                    .map_or_else(
+                        dropped_channel_response,
+                        |reply: node::rpc::RpcTransactionPoolResponse| {
+                            with_json_reply(&reply, StatusCode::OK)
+                        }
+                    )
+            }
+        });
+
     let cors = warp::cors().allow_any_origin();
     #[cfg(not(feature = "p2p-webrtc"))]
     let routes = state_get.or(state_post);
@@ -457,6 +475,7 @@ pub async fn run(port: u16, rpc_sender: super::RpcSender) {
         .or(snarker_job_commit)
         .or(snarker_job_spec)
         .or(snark_workers)
+        .or(transaction_pool)
         .or(healthcheck(rpc_sender.clone()))
         .or(readiness(rpc_sender.clone()))
         .or(discovery::routing_table(rpc_sender.clone()))

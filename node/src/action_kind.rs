@@ -339,6 +339,7 @@ pub enum ActionKind {
     RpcSnarkerWorkersGet,
     RpcStatusGet,
     RpcSyncStatsGet,
+    RpcTransactionPool,
     SnarkBlockVerifyError,
     SnarkBlockVerifyFinish,
     SnarkBlockVerifyInit,
@@ -474,7 +475,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 395;
+    pub const COUNT: u16 = 396;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -739,6 +740,7 @@ impl ActionKindGet for RpcAction {
             Self::ReadinessCheck { .. } => ActionKind::RpcReadinessCheck,
             Self::DiscoveryRoutingTable { .. } => ActionKind::RpcDiscoveryRoutingTable,
             Self::DiscoveryBoostrapStats { .. } => ActionKind::RpcDiscoveryBoostrapStats,
+            Self::TransactionPool { .. } => ActionKind::RpcTransactionPool,
             Self::Finish { .. } => ActionKind::RpcFinish,
         }
     }
