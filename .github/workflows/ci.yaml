@@ -97,6 +97,33 @@ jobs:
           name: bin
           path: target/release/openmina
 
+  build_wasm:
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Git checkout
+        uses: actions/checkout@v4
+
+      - name: Setup build dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y protobuf-compiler
+
+      - name: Setup Rust
+        run: |
+          rustup default 1.77
+          rustup component add rustfmt
+          rustup target add wasm32-unknown-unknown
+
+      - name: Setup Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: "v0"
+
+      # for now build just p2p as the rest can't yet be compiled to wasm.
+      - name: Release build
+        run: |
+          cargo build --release -p p2p --target wasm32-unknown-unknown
+
   build-tests:
     runs-on: ubuntu-20.04
     steps:
