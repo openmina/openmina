@@ -113,15 +113,12 @@ use mina_p2p_messages::v2::StateHash;
 
 fn request_best_tip<S: Service>(store: &mut Store<S>, _consensus_best_tip_hash: Option<StateHash>) {
     let p2p = p2p_ready!(store.state().p2p, "request_best_tip", system_time());
-    // TODO: choose peer that has this channel capability
-    if let Some((peer_id, streams)) = p2p.network.scheduler.rpc_outgoing_streams.iter().last() {
-        if let Some((_, state)) = streams.iter().last() {
-            store.dispatch(P2pChannelsRpcAction::RequestSend {
-                peer_id: *peer_id,
-                id: state.last_id as _,
-                request: P2pRpcRequest::BestTipWithProof,
-            });
-        }
+    if let Some((peer_id, id)) = p2p.ready_rpc_peers_iter().last() {
+        store.dispatch(P2pChannelsRpcAction::RequestSend {
+            peer_id,
+            id,
+            request: P2pRpcRequest::BestTipWithProof,
+        });
     }
 }
 

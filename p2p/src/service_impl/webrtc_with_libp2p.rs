@@ -91,7 +91,11 @@ impl<T: P2pServiceWebrtcWithLibp2p> P2pChannelsService for T {
     fn channel_open(&mut self, peer_id: PeerId, id: ChannelId) {
         if self.peers().contains_key(&peer_id) {
             P2pServiceWebrtc::channel_open(self, peer_id, id)
-        } else {
+        } else if !matches!(id, ChannelId::Rpc) {
+            // skip sending event for rpc libp2p channel as the ready
+            // action is dispatched in the `network` module after the
+            // relevant handshake is done.
+            // TODO: do the same for other channels/streams also.
             let result = match id.supported_by_libp2p() {
                 false => Err("channel not supported".to_owned()),
                 true => Ok(()),
