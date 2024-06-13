@@ -1,7 +1,12 @@
+use std::{io::Cursor, str::FromStr};
+
 use ark_ff::{PrimeField, UniformRand, Zero};
 use mina_hasher::Fp;
-use mina_p2p_messages::{b58, b58version};
+use mina_p2p_messages::{
+    b58, b58version, binprot::BinProtRead, v2::MinaBaseReceiptChainHashStableV1,
+};
 use o1_utils::{field_helpers::FieldHelpersError, FieldHelpers};
+use openmina_core::block::BlockHash;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -26,17 +31,16 @@ impl VotingFor {
     }
 
     pub fn from_base58(s: &str) -> Result<Self, FieldHelpersError> {
-        // TODO(tizoc): done in an ugly way, figure out the proper way and update this code
-        let decoded =
-            b58::decode(s, b58version::STATE_HASH).map_err(|_| FieldHelpersError::DecodeHex)?;
-        Ok(Self(Fp::from_be_bytes_mod_order(&decoded[1..])))
+        let b58check_hash = mina_p2p_messages::v2::StateHash::from_str(s).unwrap();
+        Ok(Self(b58check_hash.into_inner().0.into()))
     }
 }
 
 #[test]
 fn test_voting_for_b58decode() {
     let source = "3NK2tkzqqK5spR2sZ7tujjqPksL45M3UUrcA4WhCkeiPtnugyE2x";
-    VotingFor::from_base58(source).unwrap();
+    let voting_for = VotingFor::from_base58(source).unwrap();
+    assert_eq!(voting_for, VotingFor::default());
 }
 
 impl ToFieldElements<Fp> for VotingFor {
@@ -79,10 +83,8 @@ impl ReceiptChainHash {
     }
 
     pub fn from_base58(s: &str) -> Result<Self, FieldHelpersError> {
-        // TODO(tizoc): done in an ugly way, figure out the proper way and update this code
-        let decoded = b58::decode(s, b58version::RECEIPT_CHAIN_HASH)
-            .map_err(|_| FieldHelpersError::DecodeHex)?;
-        Ok(Self(Fp::from_be_bytes_mod_order(&decoded[1..])))
+        let b58check_hash = mina_p2p_messages::v2::PendingCoinbaseHash::from_str(s).unwrap();
+        Ok(Self(b58check_hash.into_inner().0 .0.into()))
     }
 
     pub fn gen() -> Self {
