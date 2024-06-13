@@ -1,16 +1,8 @@
-use std::net::{IpAddr, SocketAddr};
-
-use multiaddr::Protocol;
-
 use crate::{P2pPeerState, P2pPeerStatus, PeerId};
 
 use super::{
-    incoming::{
-        P2pConnectionIncomingAction, P2pConnectionIncomingError, P2pConnectionIncomingState,
-    },
-    outgoing::{
-        P2pConnectionOutgoingAction, P2pConnectionOutgoingInitOpts, P2pConnectionOutgoingState,
-    },
+    incoming::{P2pConnectionIncomingAction, P2pConnectionIncomingState},
+    outgoing::{P2pConnectionOutgoingAction, P2pConnectionOutgoingState},
     P2pConnectionAction, P2pConnectionActionWithMetaRef, P2pConnectionState,
 };
 
@@ -49,17 +41,21 @@ pub fn p2p_connection_reducer(
                         rpc_id: *rpc_id,
                     },
                 ))
-            } else if let P2pConnectionIncomingAction::FinalizePendingLibp2p {
-                peer_id, addr, ..
-            } = action
+            }
+            #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
+            if let P2pConnectionIncomingAction::FinalizePendingLibp2p { peer_id, addr, .. } = action
             {
+                use super::outgoing::P2pConnectionOutgoingInitOpts;
+                use multiaddr::Protocol;
+                use std::net::{IpAddr, SocketAddr};
+
                 let incoming_state = match &state.status {
                     // No duplicate connection
                     // Timeout connections should be already closed at this point
                     P2pPeerStatus::Disconnected { .. }
                     | P2pPeerStatus::Connecting(P2pConnectionState::Incoming(
                         P2pConnectionIncomingState::Error {
-                            error: P2pConnectionIncomingError::Timeout,
+                            error: super::incoming::P2pConnectionIncomingError::Timeout,
                             ..
                         },
                     )) => Some(P2pConnectionIncomingState::FinalizePendingLibp2p {
@@ -122,4 +118,5 @@ pub fn p2p_connection_reducer(
             state.reducer(meta.with_action(action));
         }
     }
+    let _ = my_id;
 }

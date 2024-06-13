@@ -130,9 +130,10 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsRpcAction {
                     _ => false,
                 })
             },
-            P2pChannelsRpcAction::ResponseSend { peer_id, id, response } => {
-                if !cfg!(feature = "p2p-libp2p") {
-                    let Some(response) = response.as_ref() else {
+            P2pChannelsRpcAction::ResponseSend { peer_id, id, response: _response } => {
+                #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
+                if state.is_libp2p_peer(peer_id) {
+                    let Some(response) = _response.as_ref() else {
                         return false;
                     };
                     return if !response.kind().supported_by_libp2p() {

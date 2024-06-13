@@ -39,7 +39,7 @@ pub async fn run(port: u16, rpc_sender: super::RpcSender) {
         warp::path!("mina" / "webrtc" / "signal")
             .and(warp::post())
             .and(warp::filters::body::json())
-            .then(move |offer: webrtc::Offer| {
+            .then(move |offer: Box<webrtc::Offer>| {
                 let rpc_sender_clone = rpc_sender_clone.clone();
                 async move {
                     let mut rx = rpc_sender_clone

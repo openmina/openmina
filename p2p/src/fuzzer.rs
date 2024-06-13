@@ -1,6 +1,7 @@
-use crate::Data;
 use openmina_fuzzer::{FuzzerState, MutationStrategy};
 use rand::Rng;
+
+use crate::Data;
 
 pub fn mutate_pnet(fuzzer: &mut FuzzerState, data: &mut Vec<u8>) {
     if fuzzer.gen_ratio(fuzzer.conf.pnet_mutation_rate) {

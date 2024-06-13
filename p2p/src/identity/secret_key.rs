@@ -81,6 +81,7 @@ impl FromStr for SecretKey {
     }
 }
 
+#[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
 impl From<SecretKey> for libp2p_identity::Keypair {
     fn from(value: SecretKey) -> Self {
         Self::ed25519_from_bytes(value.to_bytes()).unwrap()

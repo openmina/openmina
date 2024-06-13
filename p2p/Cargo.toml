@@ -79,6 +79,7 @@ gloo-utils = "0.2"
 js-sys = "0.3.64"
 web-sys = { version = "0.3", features = ["RtcPeerConnection", "RtcConfiguration", "RtcIceTransportPolicy", "RtcDataChannel", "RtcDataChannelInit", "RtcSessionDescription", "RtcSessionDescriptionInit", "RtcSdpType", "RtcPeerConnectionState", "RtcIceGatheringState", "Window", "Request", "RequestInit", "Headers", "Response"] }
 tokio = { version = "1.26", features = ["macros"] }
+getrandom = { version = "0.2", features = ["js"] }
 
 [features]
 default = [ "p2p-libp2p", "fuzzing" ]

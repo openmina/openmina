@@ -6,8 +6,10 @@ use super::channels::P2pChannelsAction;
 use super::connection::P2pConnectionAction;
 use super::disconnection::P2pDisconnectionAction;
 use super::discovery::P2pDiscoveryAction;
+#[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
 use super::network::P2pNetworkAction;
 use super::peer::P2pPeerAction;
+#[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
 use crate::identify::P2pIdentifyAction;
 use crate::P2pState;
 
@@ -20,9 +22,11 @@ pub enum P2pAction {
     Connection(P2pConnectionAction),
     Disconnection(P2pDisconnectionAction),
     Discovery(P2pDiscoveryAction),
+    #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
     Identify(P2pIdentifyAction),
     Channels(P2pChannelsAction),
     Peer(P2pPeerAction),
+    #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
     Network(P2pNetworkAction),
 }
 

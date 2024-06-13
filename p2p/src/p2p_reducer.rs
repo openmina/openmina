@@ -27,6 +27,7 @@ impl P2pState {
                         is_libp2p: opts.is_libp2p(),
                         dial_opts: Some(opts.clone()),
                         status: P2pPeerStatus::Connecting(P2pConnectionState::outgoing_init(opts)),
+                        #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
                         identify: None,
                     }),
                     P2pConnectionAction::Incoming(P2pConnectionIncomingAction::Init {
@@ -49,8 +50,10 @@ impl P2pState {
                             })
                         },
                         status: P2pPeerStatus::Connecting(P2pConnectionState::incoming_init(opts)),
+                        #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
                         identify: None,
                     }),
+                    #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
                     P2pConnectionAction::Incoming(
                         P2pConnectionIncomingAction::FinalizePendingLibp2p { .. },
                     ) => {
@@ -72,6 +75,7 @@ impl P2pState {
             P2pAction::Disconnection(action) => match action {
                 P2pDisconnectionAction::Init { .. } => {}
                 P2pDisconnectionAction::Finish { peer_id } => {
+                    #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
                     if self
                         .network
                         .scheduler
@@ -104,6 +108,7 @@ impl P2pState {
             P2pAction::Discovery(action) => {
                 p2p_discovery_reducer(self, meta.with_action(action));
             }
+            #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
             P2pAction::Identify(action) => match action {
                 crate::identify::P2pIdentifyAction::NewRequest { .. } => {}
                 crate::identify::P2pIdentifyAction::UpdatePeerInformation { peer_id, info } => {
@@ -114,6 +119,7 @@ impl P2pState {
                     }
                 }
             },
+            #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
             P2pAction::Network(action) => self
                 .network
                 .reducer(meta.with_action(action), &self.config.limits),

@@ -63,6 +63,7 @@ impl fmt::Debug for PeerId {
     }
 }
 
+#[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
 #[derive(Clone, Debug, PartialEq, thiserror::Error, Serialize, Deserialize)]
 pub enum PeerIdFromLibp2pPeerId {
     #[error("error decoding public key from protobuf: {0}")]
@@ -73,12 +74,14 @@ pub enum PeerIdFromLibp2pPeerId {
     Code,
 }
 
+#[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
 impl From<libp2p_identity::DecodingError> for PeerIdFromLibp2pPeerId {
     fn from(value: libp2p_identity::DecodingError) -> Self {
         PeerIdFromLibp2pPeerId::Protobuf(value.to_string())
     }
 }
 
+#[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
 impl From<libp2p_identity::OtherVariantError> for PeerIdFromLibp2pPeerId {
     fn from(value: libp2p_identity::OtherVariantError) -> Self {
         PeerIdFromLibp2pPeerId::Ed25519(value.to_string())

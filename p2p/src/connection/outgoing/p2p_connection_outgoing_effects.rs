@@ -1,13 +1,13 @@
-use std::net::SocketAddr;
-
 use redux::ActionMeta;
 
 use crate::connection::{P2pConnectionErrorResponse, P2pConnectionState};
 use crate::peer::P2pPeerAction;
 use crate::webrtc::Host;
-use crate::{connection::P2pConnectionService, webrtc};
-use crate::{P2pNetworkKadRequestAction, P2pNetworkSchedulerAction, P2pPeerStatus};
+use crate::{connection::P2pConnectionService, webrtc, P2pPeerStatus};
+#[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
+use crate::{P2pNetworkKadRequestAction, P2pNetworkSchedulerAction};
 
+#[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
 use super::libp2p_opts::P2pConnectionOutgoingInitLibp2pOptsTryToSocketAddrError;
 use super::{
     P2pConnectionOutgoingAction, P2pConnectionOutgoingError, P2pConnectionOutgoingInitOpts,
@@ -15,7 +15,7 @@ use super::{
 };
 
 impl P2pConnectionOutgoingAction {
-    pub fn effects<Store, S>(self, meta: &ActionMeta, store: &mut Store)
+    pub fn effects<Store, S>(self, _meta: &ActionMeta, store: &mut Store)
     where
         Store: crate::P2pStore<S>,
         Store::Service: P2pConnectionService,
@@ -32,8 +32,10 @@ impl P2pConnectionOutgoingAction {
             P2pConnectionOutgoingAction::Init { opts, .. }
             | P2pConnectionOutgoingAction::Reconnect { opts, .. } => {
                 let peer_id = *opts.peer_id();
+
+                #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
                 if let P2pConnectionOutgoingInitOpts::LibP2P(libp2p_opts) = &opts {
-                    match SocketAddr::try_from(libp2p_opts) {
+                    match std::net::SocketAddr::try_from(libp2p_opts) {
                         Ok(addr) => {
                             store.dispatch(P2pNetworkSchedulerAction::OutgoingConnect { addr });
                         }
@@ -43,14 +45,15 @@ impl P2pConnectionOutgoingAction {
                             ),
                         ) => {
                             // TODO: initiate name resolution
-                            openmina_core::warn!(meta.time(); "name resolution needed to connect to {}", opts);
+                            openmina_core::warn!(_meta.time(); "name resolution needed to connect to {}", opts);
                         }
                     }
                     store.dispatch(P2pConnectionOutgoingAction::FinalizePending { peer_id });
-                } else {
-                    store.service().outgoing_init(opts);
-                    store.dispatch(P2pConnectionOutgoingAction::OfferSdpCreatePending { peer_id });
+                    return;
                 }
+
+                store.service().outgoing_init(opts);
+                store.dispatch(P2pConnectionOutgoingAction::OfferSdpCreatePending { peer_id });
             }
             P2pConnectionOutgoingAction::OfferSdpCreateError { peer_id, error } => {
                 store.dispatch(P2pConnectionOutgoingAction::Error {
@@ -136,18 +139,22 @@ impl P2pConnectionOutgoingAction {
                     incoming: false,
                 });
             }
-            P2pConnectionOutgoingAction::Error { peer_id, error } => {
+            P2pConnectionOutgoingAction::Error {
+                peer_id: _peer_id,
+                error: _error,
+            } => {
+                #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
                 if store
                     .state()
                     .network
                     .scheduler
                     .discovery_state()
-                    .and_then(|discovery_state| discovery_state.request(&peer_id))
+                    .and_then(|discovery_state| discovery_state.request(&_peer_id))
                     .is_some()
                 {
                     store.dispatch(P2pNetworkKadRequestAction::Error {
-                        peer_id,
-                        error: format!("{error:?}"),
+                        peer_id: _peer_id,
+                        error: format!("{_error:?}"),
                     });
                 }
             }
