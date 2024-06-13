@@ -368,6 +368,7 @@ pub enum ActionKind {
     RpcSnarkerWorkersGet,
     RpcStatusGet,
     RpcSyncStatsGet,
+    RpcTransactionPool,
     SnarkBlockVerifyError,
     SnarkBlockVerifyFinish,
     SnarkBlockVerifyInit,
@@ -768,6 +769,7 @@ impl ActionKindGet for RpcAction {
             Self::ReadinessCheck { .. } => ActionKind::RpcReadinessCheck,
             Self::DiscoveryRoutingTable { .. } => ActionKind::RpcDiscoveryRoutingTable,
             Self::DiscoveryBoostrapStats { .. } => ActionKind::RpcDiscoveryBoostrapStats,
+            Self::TransactionPool { .. } => ActionKind::RpcTransactionPool,
             Self::Finish { .. } => ActionKind::RpcFinish,
         }
     }
