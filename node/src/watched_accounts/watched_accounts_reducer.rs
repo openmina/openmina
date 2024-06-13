@@ -59,7 +59,7 @@ impl WatchedAccountsState {
                 account.initial_state = WatchedAccountLedgerInitialState::Success {
                     time: meta.time(),
                     block: block.clone(),
-                    data: data.clone().map(Box::new),
+                    data: data.clone(),
                 };
             }
             WatchedAccountsAction::TransactionsIncludedInBlock { pub_key, block } => {
@@ -148,7 +148,7 @@ impl WatchedAccountsState {
                     } => WatchedAccountBlockState::LedgerAccountGetSuccess {
                         block: block.clone(),
                         transactions: std::mem::take(transactions),
-                        ledger_account: Box::new(ledger_account.clone()),
+                        ledger_account: ledger_account.clone(),
                     },
                     _ => return,
                 };

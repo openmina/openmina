@@ -29,6 +29,7 @@ p2p = { path = "../p2p" }
 openmina-node-account = { path = "./account" }
 tokio = { version = "1.26.0" }
 postcard = { version = "1.0.8", features = ["use-std"] }
+static_assertions.workspace = true
 
 [build-dependencies]
 regex = "1"

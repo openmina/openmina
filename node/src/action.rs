@@ -19,6 +19,10 @@ pub trait ActionKindGet {
     fn kind(&self) -> crate::ActionKind;
 }
 
+// Static limit for size of [`Action`] set to 512 bytes, if [`Action`] size is bigger code won't compile
+// compile error: "attempt to compute `0_usize - 1_usize`, which would overflow"
+static_assertions::const_assert!(std::mem::size_of::<Action>() <= 512);
+
 #[derive(derive_more::From, Serialize, Deserialize, Debug, Clone)]
 pub enum Action {
     CheckTimeouts(CheckTimeoutsAction),

@@ -51,6 +51,7 @@ serde = "1.0.190"
 serde_json = "1.0.107"
 serde_with = { version = "3.7.0", features = ["hex"] }
 linkme = "0.3.22"
+static_assertions = "1.1.0"
 
 [profile.fuzz]
 inherits = "release"
