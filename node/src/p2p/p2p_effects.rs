@@ -101,7 +101,7 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
             }
         },
         P2pAction::Disconnection(action) => {
-            action.effects(&meta, store);
+            action.clone().effects(&meta, store);
 
             match action {
                 P2pDisconnectionAction::Init { .. } => {}
