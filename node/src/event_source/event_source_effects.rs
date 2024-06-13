@@ -336,6 +336,9 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                 RpcRequest::DiscoveryBoostrapStats => {
                     store.dispatch(RpcAction::DiscoveryBoostrapStats { rpc_id });
                 }
+                RpcRequest::TransactionPoolGet => {
+                    store.dispatch(RpcAction::TransactionPool { rpc_id });
+                }
             },
             Event::ExternalSnarkWorker(e) => match e {
                 ExternalSnarkWorkerEvent::Started => {
