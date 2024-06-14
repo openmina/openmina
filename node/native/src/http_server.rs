@@ -48,7 +48,7 @@ pub async fn run(port: u16, rpc_sender: super::RpcSender) {
                             RpcRequest::P2pConnectionIncoming(P2pConnectionIncomingInitOpts {
                                 peer_id: PeerId::from_public_key(offer.identity_pub_key.clone()),
                                 signaling: IncomingSignalingMethod::Http,
-                                offer,
+                                offer: Box::new(offer),
                             }),
                         )
                         .await;

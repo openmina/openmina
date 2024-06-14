@@ -11,7 +11,7 @@ pub struct ReplayStateWithInputActions {
     pub dynamic_effects_lib: String,
 
     /// Verbosity level
-    #[arg(long, short, default_value = "info")]
+    #[arg(long, short, env, default_value = "info")]
     pub verbosity: tracing::Level,
 }
 
