@@ -1,29 +1,52 @@
 import { Store } from '@ngrx/store';
 import { MinaState } from '@app/app.setup';
-import { stateSliceAsPromise } from '../../../support/commands';
+import { cyIsSubFeatureEnabled, stateSliceAsPromise } from '../../../support/commands';
 import { BlockProductionWonSlotsState } from '@block-production/won-slots/block-production-won-slots.state';
 import {
   BlockProductionWonSlotsStatus,
 } from '@shared/types/block-production/won-slots/block-production-won-slots-slot.type';
+import { AppState } from '@app/app.state';
+
 
 const condition = (state: BlockProductionWonSlotsState): boolean => state && state.slots?.length > 0;
 const getBPWonSlots = (store: Store<MinaState>): BlockProductionWonSlotsState => stateSliceAsPromise<BlockProductionWonSlotsState>(store, condition, 'blockProduction', 'wonSlots');
+const getAppState = (store: Store<MinaState>): AppState => stateSliceAsPromise<AppState>(store, () => true, 'app');
+const getStore = () => cy.window().its('store');
+const getConfig = () => cy.window().its('config');
 const execute = (callback: () => void) => {
-  cy.wait('@statsRequest')
-    .url()
-    .then((url: string) => {
-      if (url.includes('/block-production/won-slots')) {
-        callback();
+  getStore().then(getAppState).then((state: AppState) => {
+    getConfig().then((config: any) => {
+      if (cyIsSubFeatureEnabled(state.activeNode, 'block-production', 'won-slots', config.globalConfig)) {
+        cy.wait('@statsRequest')
+          .url()
+          .then((url: string) => {
+            if (url.includes('/block-production/won-slots')) {
+              callback();
+            }
+          });
       }
     });
+  });
 };
 
 describe('BLOCK PRODUCTION WON SLOTS FILTERS', () => {
   beforeEach(() => {
     cy
-      .intercept('/stats/block_producer')
-      .as('statsRequest')
-      .visit(Cypress.config().baseUrl + '/block-production/won-slots');
+      .visit(Cypress.config().baseUrl)
+      .window()
+      .its('store')
+      .then(getAppState)
+      .then((state: AppState) => {
+        getConfig()
+          .then((config: any) => {
+            if (cyIsSubFeatureEnabled(state.activeNode, 'block-production', 'won-slots', config.globalConfig)) {
+              cy
+                .intercept('/stats/block_producer')
+                .as('statsRequest')
+                .visit(Cypress.config().baseUrl + '/block-production/won-slots');
+            }
+          });
+      });
   });
 
   it('show correct number of won slots', () => execute(() => {

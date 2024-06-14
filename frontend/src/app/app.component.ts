@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
-import { ManualDetection, MAX_WIDTH_700 } from '@openmina/shared';
+import { any, ManualDetection, MAX_WIDTH_700 } from '@openmina/shared';
 import { AppMenu } from '@shared/types/app/app-menu.type';
 import { Store } from '@ngrx/store';
 import { MinaState } from '@app/app.setup';
@@ -7,6 +7,7 @@ import { BreakpointObserver, BreakpointState } from '@angular/cdk/layout';
 import { AppSelectors } from '@app/app.state';
 import { AppActions } from '@app/app.actions';
 import { Observable, timer } from 'rxjs';
+import { CONFIG } from '@shared/constants/config';
 
 @Component({
   selector: 'app-root',
@@ -23,8 +24,9 @@ export class AppComponent extends ManualDetection implements OnInit {
   constructor(private store: Store<MinaState>,
               private breakpointObserver: BreakpointObserver) {
     super();
-    if ((window as any).Cypress) {
-      (window as any).store = store;
+    if (any(window).Cypress) {
+      any(window).config = CONFIG;
+      any(window).store = store;
     }
   }
 

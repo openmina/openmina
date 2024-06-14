@@ -1,0 +1,41 @@
+<ng-container #minaTable></ng-container>
+
+<ng-template #rowTemplate let-row="row">
+  <span class="fx-row-vert-cent text-capitalize" [ngClass]="row.status">
+    <span class="mina-icon icon-200 f-big mr-8">circle</span>
+    {{ row.status }}
+  </span>
+  <span>
+    <span class="primary">{{ row.timestamp | readableDate: 'HH:mm:ss.SSS' }}</span>
+    {{ row.timestamp | readableDate: 'dd MMM yy' }}
+  </span>
+  <span class="primary">{{ row.kind }}</span>
+  <span>{{ row.txHash | truncateMid }}</span>
+  <span>{{ row.sender | truncateMid }}</span>
+  <span class="secondary">{{ row.fee }}</span>
+  <span class="secondary">{{ row.nonce }}</span>
+  <span class="truncate">{{ row.memo }}</span>
+</ng-template>
+
+<ng-container *ngIf="!isLoading">
+  <div class="no-results p-absolute w-100 h-100 z-1 fx-col-full-cent"
+       *ngIf="emptyInDatabase">
+    <span class="mina-icon mb-16 icon-100 f-40">send</span>
+    <div class="f-600 f-big">No Transactions yet</div>
+    <div class="tertiary mt-8 text-center">
+      If there is a new transaction it will appear here when the next block is produced (~3min)
+    </div>
+  </div>
+
+  <div class="no-results p-absolute w-100 h-100 z-1 fx-col-full-cent"
+       *ngIf="emptyBecauseOfFilters && !emptyInDatabase">
+    <h5 class="f-big f-600 mt-0 mb-8">No Results Found</h5>
+    <p class="secondary m-0">Try adjusting your search or filter options to find what</p>
+    <p class="secondary m-0 pb-8">you're looking for</p>
+
+    <button class="fx-row-vert-cent border-rad-4 mt-8 btn-primary" (click)="clearFilters()">
+      <span class="mina-icon tertiary f-18 mr-5">filter_list_off</span>
+      <span>Reset Filters</span>
+    </button>
+  </div>
+</ng-container>

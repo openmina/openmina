@@ -1,39 +1,60 @@
 import { Store } from '@ngrx/store';
 import { MinaState } from '@app/app.setup';
-import { stateSliceAsPromise } from '../../../support/commands';
+import { cyIsSubFeatureEnabled, stateSliceAsPromise } from '../../../support/commands';
 import { BlockProductionOverviewState } from '@block-production/overview/block-production-overview.state';
 import { BlockProductionEpochPaginationResponse } from '@block-production/overview/block-production-overview.service';
+import { AppState } from '@app/app.state';
 
 const condition = (state: BlockProductionOverviewState): boolean => state && state.epochs?.length > 0;
 const getBPOverview = (store: Store<MinaState>): BlockProductionOverviewState => stateSliceAsPromise<BlockProductionOverviewState>(store, condition, 'blockProduction', 'overview');
+const getAppState = (store: Store<MinaState>): AppState => stateSliceAsPromise<AppState>(store, () => true, 'app');
+const getStore = () => cy.window().its('store');
+const getConfig = () => cy.window().its('config');
 const execute = (callback: () => void) => {
-  cy
-    .wait('@allStatsRequest')
-    .wait('@epochDetailsRequest')
-    .wait('@slotsRequest')
-    .url()
-    .then((url: string) => {
-      if (url.includes('/block-production/overview')) {
-        callback();
+  getStore().then(getAppState).then((state: AppState) => {
+    getConfig().then((config: any) => {
+      if (cyIsSubFeatureEnabled(state.activeNode, 'block-production', 'overview', config.globalConfig)) {
+        cy.wait('@allStatsRequest')
+          .wait('@epochDetailsRequest')
+          .wait('@slotsRequest')
+          .url()
+          .then((url: string) => {
+            if (url.includes('/block-production/overview')) {
+              callback();
+            }
+          });
       }
     });
+  });
 };
 let epochDetails: BlockProductionEpochPaginationResponse;
 
 describe('BLOCK PRODUCTION OVERVIEW SIDE PANEL', () => {
   beforeEach(() => {
     cy
-      .intercept(/\/epoch\/summary\/(?!.*\?limit=\d+)(latest|\d+)/, (req) => {
-        req.continue(res => {
-          epochDetails = res.body;
-        });
-      })
-      .as('epochDetailsRequest')
-      .intercept('/summary')
-      .as('allStatsRequest')
-      .intercept(/\/epoch\/\d+/)
-      .as('slotsRequest')
-      .visit(Cypress.config().baseUrl + '/block-production/overview');
+      .visit(Cypress.config().baseUrl)
+      .window()
+      .its('store')
+      .then(getAppState)
+      .then((state: AppState) => {
+        getConfig()
+          .then((config: any) => {
+            if (cyIsSubFeatureEnabled(state.activeNode, 'block-production', 'overview', config.globalConfig)) {
+              cy
+                .intercept(/\/epoch\/summary\/(?!.*\?limit=\d+)(latest|\d+)/, (req) => {
+                  req.continue(res => {
+                    epochDetails = res.body;
+                  });
+                })
+                .as('epochDetailsRequest')
+                .intercept('/summary')
+                .as('allStatsRequest')
+                .intercept(/\/epoch\/\d+/)
+                .as('slotsRequest')
+                .visit(Cypress.config().baseUrl + '/block-production/overview');
+            }
+          });
+      });
   });
 
   it('show correct epoch number in tabs', () => execute(() => {

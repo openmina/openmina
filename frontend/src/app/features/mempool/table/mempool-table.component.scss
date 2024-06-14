@@ -1,0 +1,17 @@
+@import 'openmina';
+
+:host ::ng-deep .mina-table .row.active > span > span {
+  color: $selected-primary !important;
+}
+
+.mina-icon {
+  font-variation-settings: 'FILL' 1, 'wght' 400 !important;
+}
+
+.Not.Applicable {
+  color: $aware-primary;
+}
+
+.Applicable:not(.Not) {
+  color: $success-primary;
+}
