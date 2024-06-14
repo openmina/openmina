@@ -4615,7 +4615,6 @@ version = "0.5.0"
 dependencies = [
  "anyhow",
  "bytes",
- "getrandom 0.2.14",
  "jsonpath-rust",
  "juniper",
  "juniper_warp",
@@ -4795,6 +4794,7 @@ dependencies = [
  "ecies-ed25519",
  "ed25519-dalek",
  "faster-stun",
+ "getrandom 0.2.14",
  "gloo-utils 0.2.0",
  "hex",
  "hkdf 0.12.4",
@@ -4844,7 +4844,6 @@ version = "0.5.0"
 dependencies = [
  "derive_more",
  "futures",
- "getrandom 0.2.14",
  "lazy_static",
  "libp2p",
  "libp2p-rpc-behaviour",

@@ -76,7 +76,7 @@ pub mod webrtc {
     }
 }
 
-// #[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
 pub mod services {
     use crate::{P2pNetworkService, P2pNetworkServiceError};
 

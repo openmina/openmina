@@ -133,11 +133,11 @@ pub struct RTCChannelConfig {
 impl Default for RTCConfigIceServers {
     fn default() -> Self {
         Self(vec![
-            RTCConfigIceServer {
-                urls: vec!["stun:65.109.110.75:3478".to_owned()],
-                username: Some("openmina".to_owned()),
-                credential: Some("webrtc".to_owned()),
-            },
+            // RTCConfigIceServer {
+            //     urls: vec!["stun:65.109.110.75:3478".to_owned()],
+            //     username: Some("openmina".to_owned()),
+            //     credential: Some("webrtc".to_owned()),
+            // },
             RTCConfigIceServer {
                 urls: vec![
                     "stun:stun.l.google.com:19302".to_owned(),
