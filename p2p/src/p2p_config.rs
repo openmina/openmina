@@ -127,10 +127,11 @@ impl P2pTimeouts {
     }
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, derive_more::Display)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, derive_more::Display, Default)]
 pub enum Limit<T> {
     #[display(fmt = "{}", _0)]
     Some(T),
+    #[default]
     #[display(fmt = "unlimited")]
     Unlimited,
 }
@@ -224,6 +225,7 @@ impls!(std::time::Duration);
 pub struct P2pLimits {
     max_peers: Limit<usize>,
     max_streams: Limit<usize>,
+    yamux_message_size: Limit<usize>,
 
     identify_message: Limit<usize>,
     kademlia_request: Limit<usize>,
@@ -276,6 +278,12 @@ impl P2pLimits {
         max_streams,
         /// Sets the maximum number of streams that a peer is allowed to open simultaneously.
         with_max_streams
+    );
+    limit!(
+        /// Maximum number of streams from a peer.
+        yamux_message_size,
+        /// Sets the maximum number of streams that a peer is allowed to open simultaneously.
+        with_yamux_message_size
     );
 
     limit!(
@@ -335,6 +343,8 @@ impl Default for P2pLimits {
     fn default() -> Self {
         let max_peers = Limit::Some(100);
         let max_streams = Limit::Some(10);
+        // 256 MiB
+        let yamux_message_size = Limit::Some(0x10000000);
 
         let identify_message = Limit::Some(0x1000);
         let kademlia_request = Limit::Some(50);
@@ -350,6 +360,7 @@ impl Default for P2pLimits {
         Self {
             max_peers,
             max_streams,
+            yamux_message_size,
 
             identify_message,
             kademlia_request,

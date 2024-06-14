@@ -160,7 +160,12 @@ impl P2pNetworkSchedulerAction {
                             error!(meta.time(); "wrong kind for multiplexing protocol action: {select_kind:?}");
                             return;
                         };
-                        store.dispatch(P2pNetworkSchedulerAction::YamuxDidInit { addr, peer_id });
+                        let message_size_limit = store.state().config.limits.yamux_message_size();
+                        store.dispatch(P2pNetworkSchedulerAction::YamuxDidInit {
+                            addr,
+                            peer_id,
+                            message_size_limit,
+                        });
                     }
                     Some(Protocol::Stream(kind)) => {
                         let SelectKind::Stream(peer_id, stream_id) = select_kind else {
@@ -295,7 +300,7 @@ impl P2pNetworkSchedulerAction {
                     }
                 }
             }
-            Self::YamuxDidInit { peer_id, addr } => {
+            Self::YamuxDidInit { peer_id, addr, .. } => {
                 if let Some(cn) = store.state().network.scheduler.connections.get(&addr) {
                     let incoming = cn.incoming;
                     if incoming {

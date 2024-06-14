@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use super::{
     super::{
         select::{token, SelectKind},
-        Data,
+        Data, Limit,
     },
     p2p_network_scheduler_state::{P2pNetworkConnectionCloseReason, P2pNetworkConnectionError},
 };
@@ -67,6 +67,7 @@ pub enum P2pNetworkSchedulerAction {
     YamuxDidInit {
         addr: SocketAddr,
         peer_id: PeerId,
+        message_size_limit: Limit<usize>,
     },
 
     /// Action that initiate the specified peer disconnection.
@@ -152,7 +153,7 @@ impl redux::EnablingCondition<P2pState> for P2pNetworkSchedulerAction {
                 incoming,
             } => true,
             P2pNetworkSchedulerAction::SelectError { addr, kind, error } => true,
-            P2pNetworkSchedulerAction::YamuxDidInit { addr, peer_id } => true,
+            P2pNetworkSchedulerAction::YamuxDidInit { addr, peer_id, .. } => true,
             P2pNetworkSchedulerAction::Disconnect { addr, .. }
             | P2pNetworkSchedulerAction::Error { addr, .. } => state
                 .network

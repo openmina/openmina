@@ -51,6 +51,10 @@ impl P2pNetworkYamuxState {
                         match buf[1] {
                             0 => {
                                 let len = u32::from_be_bytes(b) as usize;
+                                if len > self.message_size_limit {
+                                    self.set_res(Err(YamuxSessionError::Internal));
+                                    break;
+                                }
                                 if buf.len() >= 12 + len {
                                     let frame = YamuxFrame {
                                         flags,
