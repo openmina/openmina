@@ -42,6 +42,7 @@ mina-p2p-messages = { workspace = true }
 
 salsa-simple = { path = "../tools/salsa-simple" }
 openmina-core = { path = "../core" }
+snark = { path = "../snark" }
 openmina-macros = { path = "../macros" }
 quick-protobuf = "0.8.1"
 crypto-bigint = { version = "0.5.5", features = ["generic-array", "serde", "alloc"] }

@@ -63,6 +63,7 @@ impl P2pNetworkPubsubState {
             }
             P2pNetworkPubsubAction::IncomingData { peer_id, data, .. } => {
                 self.incoming_snarks.clear();
+                self.incoming_transactions.take();
                 let Some(state) = self.clients.get_mut(peer_id) else {
                     return;
                 };
@@ -122,9 +123,11 @@ impl P2pNetworkPubsubState {
                                         }
                                     }
                                     Ok(gossip::GossipNetMessageV2::TransactionPoolDiff {
-                                        ..
+                                        message,
+                                        nonce,
                                     }) => {
-                                        //
+                                        let v2::NetworkPoolTransactionPoolDiffVersionedStableV2(txs) = message;
+                                        self.incoming_transactions = Some((txs, nonce.as_u32()));
                                     }
                                     Err(err) => {
                                         dbg!(err);

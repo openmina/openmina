@@ -20,6 +20,9 @@ pub fn reducer<State, Action>(
 {
     let (action, meta) = action.split();
     match action {
+        SnarkUserCommandVerifyAction::Receive { commands, nonce } => {
+            todo!()
+        },
         SnarkUserCommandVerifyAction::Init {
             commands,
             sender,

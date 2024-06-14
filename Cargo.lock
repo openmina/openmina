@@ -4829,6 +4829,7 @@ dependencies = [
  "serde_with 3.7.0",
  "sha2 0.10.8",
  "smallvec",
+ "snark",
  "strum",
  "strum_macros",
  "thiserror",

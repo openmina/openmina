@@ -1,4 +1,5 @@
 use ledger::scan_state::transaction_logic::{verifiable, WithStatus};
+use mina_p2p_messages::{list::List, v2};
 use redux::Callback;
 use serde::{Deserialize, Serialize};
 
@@ -20,6 +21,10 @@ type OnSuccess = Callback<(
 #[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
 #[action_event(level = trace, fields(display(req_id), display(error)))]
 pub enum SnarkUserCommandVerifyAction {
+    Receive {
+        commands: List<v2::MinaBaseUserCommandStableV2>,
+        nonce: u32,
+    },
     #[action_event(level = info)]
     Init {
         req_id: SnarkUserCommandVerifyId,
@@ -70,6 +75,7 @@ impl redux::EnablingCondition<crate::SnarkState> for SnarkUserCommandVerifyActio
                 .jobs
                 .get(*req_id)
                 .map_or(false, |v| v.is_finished()),
+            SnarkUserCommandVerifyAction::Receive { .. } => true,
         }
     }
 }

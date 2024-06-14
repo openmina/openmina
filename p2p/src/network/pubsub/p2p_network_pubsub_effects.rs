@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use openmina_core::block::BlockWithHash;
+use snark::user_command_verify::SnarkUserCommandVerifyAction;
 
 use crate::{
     channels::snark::P2pChannelsSnarkAction, peer::P2pPeerAction, P2pCryptoService,
@@ -74,6 +75,7 @@ impl P2pNetworkPubsubAction {
             Self::IncomingData { peer_id, .. } => {
                 let incoming_block = state.incoming_block.as_ref().cloned();
                 let incoming_snarks = state.incoming_snarks.clone();
+                let incoming_txs = state.incoming_transactions.clone();
 
                 broadcast(store);
                 if let Some((_, block)) = incoming_block {
@@ -87,6 +89,12 @@ impl P2pNetworkPubsubAction {
                         nonce,
                     });
                 }
+                if let Some((txs, nonce)) = incoming_txs {
+                    store.dispatch(SnarkUserCommandVerifyAction::Receive {
+                        commands: txs,
+                        nonce,
+                    });
+                };
             }
             Self::OutgoingMessage { msg, peer_id } => {
                 if !message_is_empty(&msg) {
