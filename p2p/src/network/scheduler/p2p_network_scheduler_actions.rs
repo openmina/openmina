@@ -11,7 +11,7 @@ use super::{
     p2p_network_scheduler_state::{P2pNetworkConnectionCloseReason, P2pNetworkConnectionError},
 };
 
-use crate::{disconnection::P2pDisconnectionReason, P2pPeerStatus, P2pState, PeerId, StreamId};
+use crate::{disconnection::P2pDisconnectionReason, P2pState, PeerId, StreamId};
 
 #[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
 #[action_event(fields(display(ip), display(listener), display(addr), debug(result), select_kind = debug(kind), display(error)))]
@@ -175,11 +175,7 @@ impl redux::EnablingCondition<P2pState> for P2pNetworkSchedulerAction {
                 .connections
                 .get(addr)
                 .map_or(false, |conn_state| conn_state.closed.is_some()),
-            P2pNetworkSchedulerAction::PruneStreams { peer_id } => {
-                state.peers.get(peer_id).map_or(false, |peer_state| {
-                    matches!(peer_state.status, P2pPeerStatus::Disconnected { .. })
-                })
-            }
+            P2pNetworkSchedulerAction::PruneStreams { peer_id } => true,
             P2pNetworkSchedulerAction::PruneStream { peer_id, stream_id } => state
                 .network
                 .scheduler

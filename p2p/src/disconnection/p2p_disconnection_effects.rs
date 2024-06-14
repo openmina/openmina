@@ -37,12 +37,11 @@ impl P2pDisconnectionAction {
                     } else {
                         error!(meta.time(); summary = "cannot find libp2p connection to disconnect", peer_id = display(peer_id));
                     }
+                    store.dispatch(crate::P2pNetworkSchedulerAction::PruneStreams { peer_id });
                     store.dispatch(P2pDisconnectionAction::Finish { peer_id });
                 }
             }
-            P2pDisconnectionAction::Finish { peer_id } => {
-                store.dispatch(crate::P2pNetworkSchedulerAction::PruneStreams { peer_id });
-            }
+            P2pDisconnectionAction::Finish { .. } => {}
         }
     }
 }

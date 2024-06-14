@@ -343,6 +343,7 @@ impl P2pNetworkSchedulerAction {
                 }
             }
             Self::Error { addr, .. } => {
+                store.service().send_mio_cmd(MioCmd::Disconnect(addr));
                 if let Some(conn_state) = store.state().network.scheduler.connections.get(&addr) {
                     if let Some(reason) = conn_state.closed.clone() {
                         store.dispatch(Self::Disconnected { addr, reason });
@@ -390,10 +391,10 @@ impl P2pNetworkSchedulerAction {
                                     }
                                 }
                                 crate::P2pPeerStatus::Ready(_) => {
+                                    store.dispatch(P2pNetworkSchedulerAction::PruneStreams { peer_id });
                                     store.dispatch(P2pDisconnectionAction::Finish { peer_id });
                                 }
                             }
-                            store.dispatch(P2pNetworkSchedulerAction::PruneStreams { peer_id });
                         }
                         None => {
                             // sanity check, should be incoming connection
