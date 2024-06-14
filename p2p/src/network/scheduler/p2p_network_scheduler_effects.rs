@@ -382,6 +382,9 @@ impl P2pNetworkSchedulerAction {
                                         error: reason.to_string(),
                                     });
                                 }
+                                crate::P2pPeerStatus::Disconnecting { .. } => {
+                                    error!(meta.time(); "branch this shouldn't be triggered for disconnecting peer");
+                                }
                                 crate::P2pPeerStatus::Disconnected { .. } => {
                                     // sanity check, should be incoming connection
                                     if !incoming {

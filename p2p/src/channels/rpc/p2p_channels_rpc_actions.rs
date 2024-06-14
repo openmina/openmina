@@ -27,6 +27,7 @@ pub enum P2pChannelsRpcAction {
         id: P2pRpcId,
         request: P2pRpcRequest,
     },
+    #[action_event(level = warn)]
     Timeout {
         peer_id: PeerId,
         id: P2pRpcId,

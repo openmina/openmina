@@ -10,6 +10,7 @@ use crate::channels::rpc::P2pRpcId;
 use crate::channels::{ChannelId, P2pChannelsState};
 use crate::connection::incoming::P2pConnectionIncomingState;
 use crate::connection::outgoing::{P2pConnectionOutgoingInitOpts, P2pConnectionOutgoingState};
+use crate::disconnection::P2pDisconnectionReason;
 use crate::network::identify::P2pNetworkIdentify;
 use crate::network::P2pNetworkState;
 use crate::{is_time_passed, Limit, P2pTimeouts, PeerId};
@@ -285,7 +286,13 @@ impl P2pPeerState {
 #[serde(tag = "state")]
 pub enum P2pPeerStatus {
     Connecting(P2pConnectionState),
-    Disconnected { time: redux::Timestamp },
+    Disconnecting {
+        reason: P2pDisconnectionReason,
+        time: redux::Timestamp,
+    },
+    Disconnected {
+        time: redux::Timestamp,
+    },
 
     Ready(P2pPeerStatusReady),
 }
@@ -304,6 +311,7 @@ impl P2pPeerStatus {
         match self {
             Self::Connecting(s) => !s.is_error(),
             Self::Ready(_) => true,
+            Self::Disconnecting { .. } => false,
             Self::Disconnected { .. } => false,
         }
     }

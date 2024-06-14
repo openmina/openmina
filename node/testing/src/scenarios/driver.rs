@@ -605,6 +605,7 @@ impl ConnectionPredicate for (ClusterNodeId, ConnectionPredicates) {
                     peer_id == pid
                         && match peer_status {
                             P2pPeerStatus::Connecting(c) => c.is_error(),
+                            P2pPeerStatus::Disconnecting { .. } => false,
                             P2pPeerStatus::Disconnected { .. } => true,
                             P2pPeerStatus::Ready(_) => true,
                         }

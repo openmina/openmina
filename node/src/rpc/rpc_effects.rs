@@ -648,7 +648,8 @@ fn collect_rpc_peers_info(state: &crate::State) -> Vec<RpcPeerInfo> {
                             (PeerConnectionStatus::Connecting, i.time().into())
                         }
                     },
-                    p2p::P2pPeerStatus::Disconnected { time } => {
+                    p2p::P2pPeerStatus::Disconnecting { time, .. }
+                    | p2p::P2pPeerStatus::Disconnected { time } => {
                         (PeerConnectionStatus::Disconnected, (*time).into())
                     }
                     p2p::P2pPeerStatus::Ready(r) => {

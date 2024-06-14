@@ -70,7 +70,15 @@ impl P2pState {
                 p2p_connection_reducer(peer, my_id, meta.with_action(action));
             }
             P2pAction::Disconnection(action) => match action {
-                P2pDisconnectionAction::Init { .. } => {}
+                P2pDisconnectionAction::Init { peer_id, reason } => {
+                    let Some(peer) = self.peers.get_mut(peer_id) else {
+                        return;
+                    };
+                    peer.status = P2pPeerStatus::Disconnecting {
+                        reason: reason.clone(),
+                        time: meta.time(),
+                    };
+                }
                 P2pDisconnectionAction::Finish { peer_id } => {
                     if self
                         .network
