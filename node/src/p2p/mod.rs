@@ -82,11 +82,8 @@ impl_into_global_action!(network::kad::P2pNetworkKademliaAction);
 impl_into_global_action!(network::pubsub::P2pNetworkPubsubAction);
 
 impl_into_global_action!(channels::P2pChannelsMessageReceivedAction);
-
 impl_into_global_action!(channels::best_tip::P2pChannelsBestTipAction);
-
+impl_into_global_action!(channels::transaction::P2pChannelsTransactionAction);
 impl_into_global_action!(channels::snark::P2pChannelsSnarkAction);
-
 impl_into_global_action!(channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentAction);
-
 impl_into_global_action!(channels::rpc::P2pChannelsRpcAction);

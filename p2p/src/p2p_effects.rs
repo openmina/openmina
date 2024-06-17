@@ -212,6 +212,7 @@ where
         P2pAction::Channels(action) => match action {
             P2pChannelsAction::MessageReceived(action) => action.effects(&meta, store),
             P2pChannelsAction::BestTip(action) => action.effects(&meta, store),
+            P2pChannelsAction::Transaction(action) => action.effects(&meta, store),
             P2pChannelsAction::Snark(action) => action.effects(&meta, store),
             P2pChannelsAction::SnarkJobCommitment(action) => action.effects(&meta, store),
             P2pChannelsAction::Rpc(action) => action.effects(&meta, store),

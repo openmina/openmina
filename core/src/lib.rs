@@ -9,6 +9,7 @@ pub mod dummy;
 
 pub mod block;
 pub mod snark;
+pub mod transaction;
 
 pub mod consensus;
 

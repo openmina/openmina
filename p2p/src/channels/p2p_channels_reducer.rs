@@ -8,6 +8,9 @@ impl P2pChannelsState {
             P2pChannelsAction::BestTip(action) => {
                 self.best_tip.reducer(meta.with_action(action), is_libp2p);
             }
+            P2pChannelsAction::Transaction(action) => {
+                self.transaction.reducer(meta.with_action(action));
+            }
             P2pChannelsAction::Snark(action) => {
                 self.snark.reducer(meta.with_action(action));
             }

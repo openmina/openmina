@@ -2,6 +2,7 @@ pub mod best_tip;
 pub mod rpc;
 pub mod snark;
 pub mod snark_job_commitment;
+pub mod transaction;
 
 mod p2p_channels_state;
 pub use p2p_channels_state::*;
@@ -26,11 +27,13 @@ use self::best_tip::BestTipPropagationChannelMsg;
 use self::rpc::RpcChannelMsg;
 use self::snark::SnarkPropagationChannelMsg;
 use self::snark_job_commitment::SnarkJobCommitmentPropagationChannelMsg;
+use self::transaction::TransactionPropagationChannelMsg;
 
 #[derive(Serialize, Deserialize, EnumIter, Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Copy)]
 #[repr(u8)]
 pub enum ChannelId {
     BestTipPropagation = 2,
+    TransactionPropagation = 3,
     SnarkPropagation = 4,
     SnarkJobCommitmentPropagation = 5,
     Rpc = 100,
@@ -50,6 +53,7 @@ impl ChannelId {
     pub fn name(self) -> &'static str {
         match self {
             Self::BestTipPropagation => "best_tip/propagation",
+            Self::TransactionPropagation => "transaction/propagation",
             Self::SnarkPropagation => "snark/propagation",
             Self::SnarkJobCommitmentPropagation => "snark_job_commitment/propagation",
             Self::Rpc => "rpc",
@@ -59,6 +63,7 @@ impl ChannelId {
     pub fn supported_by_libp2p(self) -> bool {
         match self {
             Self::BestTipPropagation => true,
+            Self::TransactionPropagation => true,
             Self::SnarkPropagation => true,
             Self::SnarkJobCommitmentPropagation => false,
             Self::Rpc => true,
@@ -70,6 +75,7 @@ impl ChannelId {
             // TODO(binier): reduce this value once we change message for best tip
             // propagation to just propagating consensus state with block hash.
             Self::BestTipPropagation => 32 * 1024 * 1024, // 32MB
+            Self::TransactionPropagation => 1024,         // 1KB - just transaction info.
             Self::SnarkPropagation => 1024,               // 1KB - just snark info.
             Self::SnarkJobCommitmentPropagation => 2 * 1024, // 2KB,
             Self::Rpc => 256 * 1024 * 1024,               // 256MB,
@@ -81,7 +87,7 @@ impl ChannelId {
     }
 
     pub fn for_libp2p() -> impl Iterator<Item = ChannelId> {
-        [Self::Rpc].into_iter()
+        Self::iter_all().filter(|chan| chan.supported_by_libp2p())
     }
 }
 
@@ -107,6 +113,7 @@ impl MsgId {
 #[derive(BinProtWrite, BinProtRead, Serialize, Deserialize, From, Debug, Clone)]
 pub enum ChannelMsg {
     BestTipPropagation(BestTipPropagationChannelMsg),
+    TransactionPropagation(TransactionPropagationChannelMsg),
     SnarkPropagation(SnarkPropagationChannelMsg),
     SnarkJobCommitmentPropagation(SnarkJobCommitmentPropagationChannelMsg),
     Rpc(RpcChannelMsg),
@@ -116,6 +123,7 @@ impl ChannelMsg {
     pub fn channel_id(&self) -> ChannelId {
         match self {
             Self::BestTipPropagation(_) => ChannelId::BestTipPropagation,
+            Self::TransactionPropagation(_) => ChannelId::TransactionPropagation,
             Self::SnarkPropagation(_) => ChannelId::SnarkPropagation,
             Self::SnarkJobCommitmentPropagation(_) => ChannelId::SnarkJobCommitmentPropagation,
             Self::Rpc(_) => ChannelId::Rpc,
@@ -128,6 +136,7 @@ impl ChannelMsg {
     {
         match self {
             Self::BestTipPropagation(v) => v.binprot_write(w),
+            Self::TransactionPropagation(v) => v.binprot_write(w),
             Self::SnarkPropagation(v) => v.binprot_write(w),
             Self::SnarkJobCommitmentPropagation(v) => v.binprot_write(w),
             Self::Rpc(v) => v.binprot_write(w),
@@ -142,6 +151,9 @@ impl ChannelMsg {
         match id {
             ChannelId::BestTipPropagation => {
                 BestTipPropagationChannelMsg::binprot_read(r).map(|v| v.into())
+            }
+            ChannelId::TransactionPropagation => {
+                TransactionPropagationChannelMsg::binprot_read(r).map(|v| v.into())
             }
             ChannelId::SnarkPropagation => {
                 SnarkPropagationChannelMsg::binprot_read(r).map(|v| v.into())

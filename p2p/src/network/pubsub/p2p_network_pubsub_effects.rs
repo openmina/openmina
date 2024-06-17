@@ -3,8 +3,9 @@ use std::sync::Arc;
 use openmina_core::{block::BlockWithHash, fuzz_maybe};
 
 use crate::{
-    channels::snark::P2pChannelsSnarkAction, peer::P2pPeerAction, P2pCryptoService,
-    P2pNetworkYamuxAction,
+    channels::{snark::P2pChannelsSnarkAction, transaction::P2pChannelsTransactionAction},
+    peer::P2pPeerAction,
+    P2pCryptoService, P2pNetworkYamuxAction,
 };
 
 use super::{pb, P2pNetworkPubsubAction, TOPIC};
@@ -73,12 +74,20 @@ impl P2pNetworkPubsubAction {
             Self::BroadcastSigned { .. } => broadcast(store),
             Self::IncomingData { peer_id, .. } => {
                 let incoming_block = state.incoming_block.as_ref().cloned();
+                let incoming_transactions = state.incoming_transactions.clone();
                 let incoming_snarks = state.incoming_snarks.clone();
 
                 broadcast(store);
                 if let Some((_, block)) = incoming_block {
                     let best_tip = BlockWithHash::new(Arc::new(block));
                     store.dispatch(P2pPeerAction::BestTipUpdate { peer_id, best_tip });
+                }
+                for (transaction, nonce) in incoming_transactions {
+                    store.dispatch(P2pChannelsTransactionAction::Libp2pReceived {
+                        peer_id,
+                        transaction,
+                        nonce,
+                    });
                 }
                 for (snark, nonce) in incoming_snarks {
                     store.dispatch(P2pChannelsSnarkAction::Libp2pReceived {
