@@ -37,8 +37,8 @@ impl MakeOutgoingConnection {
     pub async fn run(self, runner: ClusterRunner<'_>) {
         let mut driver = Driver::new(runner);
 
-        let (node1, _) = driver.add_rust_node(RustNodeTestingConfig::berkeley_default());
-        let (node2, peer_id2) = driver.add_rust_node(RustNodeTestingConfig::berkeley_default());
+        let (node1, _) = driver.add_rust_node(RustNodeTestingConfig::devnet_default());
+        let (node2, peer_id2) = driver.add_rust_node(RustNodeTestingConfig::devnet_default());
 
         // wait for the peer to listen
         let satisfied =
@@ -82,7 +82,7 @@ impl MakeMultipleOutgoingConnections {
         let mut driver = Driver::new(runner);
 
         let config =
-            RustNodeTestingConfig::berkeley_default().with_timeouts(P2pTimeouts::without_rpc());
+            RustNodeTestingConfig::devnet_default().with_timeouts(P2pTimeouts::without_rpc());
 
         let (node_ut, _) = driver.add_rust_node(config.clone());
         let (peers, mut peer_ids): (Vec<ClusterNodeId>, BTreeSet<PeerId>) =
@@ -136,7 +136,7 @@ impl DontConnectToNodeWithSameId {
 
         // start a node with the same peer_id on different port
         let (node, _) =
-            driver.add_rust_node(RustNodeTestingConfig::berkeley_default().with_peer_id(bytes));
+            driver.add_rust_node(RustNodeTestingConfig::devnet_default().with_peer_id(bytes));
         // wait for it to be ready
         assert!(
             wait_for_nodes_listening_on_localhost(&mut driver, Duration::from_secs(30), [node])
@@ -147,7 +147,7 @@ impl DontConnectToNodeWithSameId {
 
         // start node under test with the other node as its initial peer
         let (node_ut, _) =
-            driver.add_rust_node(RustNodeTestingConfig::berkeley_default().with_peer_id(bytes));
+            driver.add_rust_node(RustNodeTestingConfig::devnet_default().with_peer_id(bytes));
 
         driver
             .exec_step(crate::scenario::ScenarioStep::ConnectNodes {
@@ -183,7 +183,7 @@ impl DontConnectToSelfInitialPeer {
                 port,
             });
         let (node_ut, _) = driver.add_rust_node(
-            RustNodeTestingConfig::berkeley_default()
+            RustNodeTestingConfig::devnet_default()
                 .with_peer_id(bytes)
                 .with_libp2p_port(port)
                 .initial_peers(vec![self_opts.into()]),
@@ -215,7 +215,7 @@ impl DontConnectToInitialPeerWithSameId {
 
         // start a node with the same peer_id on different port
         let (node, _) =
-            driver.add_rust_node(RustNodeTestingConfig::berkeley_default().with_peer_id(bytes));
+            driver.add_rust_node(RustNodeTestingConfig::devnet_default().with_peer_id(bytes));
         // wait for it to be ready
         assert!(
             wait_for_nodes_listening_on_localhost(&mut driver, Duration::from_secs(30), [node])
@@ -226,7 +226,7 @@ impl DontConnectToInitialPeerWithSameId {
 
         // start node under test with the other node as its initial peer
         let (node_ut, _) = driver.add_rust_node(
-            RustNodeTestingConfig::berkeley_default()
+            RustNodeTestingConfig::devnet_default()
                 .with_peer_id(bytes)
                 .initial_peers(vec![node.into()]),
         );
@@ -252,7 +252,7 @@ impl ConnectToInitialPeers {
         let (peers, peer_ids): (Vec<ClusterNodeId>, Vec<_>) = add_rust_nodes_with(
             &mut driver,
             MAX,
-            RustNodeTestingConfig::berkeley_default(),
+            RustNodeTestingConfig::devnet_default(),
             |state| state.p2p.my_id(),
         );
 
@@ -268,7 +268,7 @@ impl ConnectToInitialPeers {
 
         let initial_peers = peers.iter().map(|id| (*id).into()).collect();
         let (node_ut, _) = driver
-            .add_rust_node(RustNodeTestingConfig::berkeley_default().initial_peers(initial_peers));
+            .add_rust_node(RustNodeTestingConfig::devnet_default().initial_peers(initial_peers));
 
         // matches event "the node established connection with peer"
         let mut peer_ids = peer_ids.into_iter().collect::<BTreeSet<_>>();
@@ -316,7 +316,7 @@ impl ConnectToInitialPeersBecomeReady {
             })
             .unzip();
         let (node_ut, _) = driver
-            .add_rust_node(RustNodeTestingConfig::berkeley_default().initial_peers(initial_peers));
+            .add_rust_node(RustNodeTestingConfig::devnet_default().initial_peers(initial_peers));
 
         driver
             .wait_for(Duration::from_secs(10), |_, _, _| false)
@@ -327,7 +327,7 @@ impl ConnectToInitialPeersBecomeReady {
             .into_iter()
             .map(|(peer_id_bytes, port)| {
                 driver.add_rust_node(
-                    RustNodeTestingConfig::berkeley_default()
+                    RustNodeTestingConfig::devnet_default()
                         .with_libp2p_port(port)
                         .with_peer_id(peer_id_bytes),
                 )
@@ -386,7 +386,7 @@ impl ConnectToUnavailableInitialPeers {
             .unzip();
 
         let (node_ut, _) = driver.add_rust_node(
-            RustNodeTestingConfig::berkeley_default()
+            RustNodeTestingConfig::devnet_default()
                 .initial_peers(initial_peers)
                 .with_timeouts(P2pTimeouts {
                     outgoing_error_reconnect_timeout: Some(Duration::from_secs(3)),

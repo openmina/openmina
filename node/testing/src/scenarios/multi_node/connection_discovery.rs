@@ -21,12 +21,12 @@ pub struct RustNodeAsSeed;
 
 impl RustNodeAsSeed {
     pub async fn run(self, mut runner: ClusterRunner<'_>) {
-        let rust_node_id = runner.add_rust_node(RustNodeTestingConfig::berkeley_default());
+        let rust_node_id = runner.add_rust_node(RustNodeTestingConfig::devnet_default());
         let rust_node_dial_addr = runner.node(rust_node_id).unwrap().dial_addr();
 
         let ocaml_node_config = OcamlNodeTestingConfig {
             initial_peers: vec![rust_node_dial_addr],
-            daemon_json: DaemonJson::Custom("/var/lib/coda/berkeley.json".to_owned()),
+            daemon_json: DaemonJson::Custom("/var/lib/coda/config_dc6bf78b.json".to_owned()),
             block_producer: None,
         };
 
@@ -118,12 +118,12 @@ pub struct OCamlToRust;
 
 impl OCamlToRust {
     pub async fn run(self, mut runner: ClusterRunner<'_>) {
-        let rust_node_id = runner.add_rust_node(RustNodeTestingConfig::berkeley_default());
+        let rust_node_id = runner.add_rust_node(RustNodeTestingConfig::devnet_default());
         let rust_node_dial_addr = runner.node(rust_node_id).unwrap().dial_addr();
 
         let ocaml_node_config = OcamlNodeTestingConfig {
             initial_peers: vec![rust_node_dial_addr],
-            daemon_json: DaemonJson::Custom("/var/lib/coda/berkeley.json".to_owned()),
+            daemon_json: DaemonJson::Custom("/var/lib/coda/config_dc6bf78b.json".to_owned()),
             block_producer: None,
         };
 
@@ -170,11 +170,11 @@ pub struct RustToOCaml;
 
 impl RustToOCaml {
     pub async fn run(self, mut runner: ClusterRunner<'_>) {
-        let rust_node_id = runner.add_rust_node(RustNodeTestingConfig::berkeley_default());
+        let rust_node_id = runner.add_rust_node(RustNodeTestingConfig::devnet_default());
 
         let ocaml_seed_config = OcamlNodeTestingConfig {
             initial_peers: Vec::new(),
-            daemon_json: DaemonJson::Custom("/var/lib/coda/berkeley.json".to_owned()),
+            daemon_json: DaemonJson::Custom("/var/lib/coda/config_dc6bf78b.json".to_owned()),
             block_producer: None,
         };
 
@@ -247,11 +247,11 @@ pub struct OCamlToRustViaSeed;
 
 impl OCamlToRustViaSeed {
     pub async fn run(self, mut runner: ClusterRunner<'_>) {
-        let rust_node_id = runner.add_rust_node(RustNodeTestingConfig::berkeley_default());
+        let rust_node_id = runner.add_rust_node(RustNodeTestingConfig::devnet_default());
 
         let ocaml_seed_config = OcamlNodeTestingConfig {
             initial_peers: Vec::new(),
-            daemon_json: DaemonJson::Custom("/var/lib/coda/berkeley.json".to_owned()),
+            daemon_json: DaemonJson::Custom("/var/lib/coda/config_dc6bf78b.json".to_owned()),
             block_producer: None,
         };
 
@@ -352,11 +352,11 @@ pub struct RustToOCamlViaSeed;
 
 impl RustToOCamlViaSeed {
     pub async fn run(self, mut runner: ClusterRunner<'_>) {
-        let rust_node_id = runner.add_rust_node(RustNodeTestingConfig::berkeley_default());
+        let rust_node_id = runner.add_rust_node(RustNodeTestingConfig::devnet_default());
 
         let ocaml_seed_config = OcamlNodeTestingConfig {
             initial_peers: Vec::new(),
-            daemon_json: DaemonJson::Custom("/var/lib/coda/berkeley.json".to_owned()),
+            daemon_json: DaemonJson::Custom("/var/lib/coda/config_dc6bf78b.json".to_owned()),
             block_producer: None,
         };
 

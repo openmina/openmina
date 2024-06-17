@@ -641,7 +641,7 @@ mod test {
         v2::{
             ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1,
             ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1,
-            CurrencyAmountStableV1, LedgerHash, MinaBaseEpochLedgerValueStableV1,
+            CurrencyAmountStableV1, EpochSeed, LedgerHash, MinaBaseEpochLedgerValueStableV1,
             MinaBaseEpochSeedStableV1, StateHash, UnsignedExtendedUInt32StableV1,
             UnsignedExtendedUInt64Int64ForVersionTagsStableV1,
         },
@@ -953,7 +953,10 @@ mod test {
             let dummy_won_slot = VrfWonSlot {
                 producer: "Dummy".to_string(),
                 winner_account: "Dummy".to_string(),
-                vrf_output: vrf::genesis_vrf().unwrap(),
+                vrf_output: vrf::genesis_vrf(EpochSeed::from(MinaBaseEpochSeedStableV1(
+                    BigInt::zero(),
+                )))
+                .unwrap(),
                 global_slot: slot,
                 account_index: AccountIndex(0),
                 value_with_threshold: None,

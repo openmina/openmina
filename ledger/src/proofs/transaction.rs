@@ -4761,6 +4761,7 @@ mod tests {
         }
 
         // Block proof
+        #[allow(clippy::single_element_loop)]
         for (filename, fps_filename) in [
             ("block_input-2483246-0.bin", None),
             // ("block_prove_inputs_7.bin", None),

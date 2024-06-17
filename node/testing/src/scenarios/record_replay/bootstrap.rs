@@ -32,7 +32,7 @@ impl RecordReplayBootstrap {
             initial_peers,
             peer_id: TestPeerId::Bytes(rand::random()),
             recorder: Recorder::StateWithInputActions,
-            ..RustNodeTestingConfig::berkeley_default()
+            ..RustNodeTestingConfig::devnet_default()
         });
 
         // bootstrap the node.

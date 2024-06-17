@@ -1,9 +1,10 @@
 use std::{
     borrow::Cow,
-    io::{Read, Write}, str::FromStr,
+    io::{Read, Write},
+    str::FromStr,
 };
 
-use crate::account::AccountSecretKey;
+use crate::{account::AccountSecretKey, daemon_json::EpochData};
 use ledger::{scan_state::currency::Balance, BaseLedger};
 use mina_hasher::Fp;
 use mina_p2p_messages::{
@@ -35,7 +36,7 @@ pub enum GenesisConfig {
         constants: ProtocolConstants,
     },
     Prebuilt(Cow<'static, [u8]>),
-    DaemonJson(DaemonJson),
+    DaemonJson(Box<DaemonJson>),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -142,6 +143,8 @@ impl GenesisConfig {
                     accounts,
                     ledger_hash,
                     hashes,
+                    staking_epoch_data,
+                    next_epoch_data,
                 } = PrebuiltGenesisConfig::load(&mut bytes.as_ref())?;
 
                 let (mask, genesis_total_currency) = Self::build_ledger_from_accounts_and_hashes(
@@ -151,23 +154,42 @@ impl GenesisConfig {
                         .map(|(n, h)| (n, h.to_field()))
                         .collect::<Vec<_>>(),
                 );
-                let staking_epoch_total_currency = genesis_total_currency.clone();
-                let next_epoch_total_currency = genesis_total_currency.clone();
-                let staking_epoch_seed = v2::EpochSeed::zero();
-                let next_epoch_seed = v2::EpochSeed::zero();
+                let (_mask, staking_epoch_total_currency) =
+                    Self::build_ledger_from_accounts_and_hashes(
+                        staking_epoch_data
+                            .accounts
+                            .into_iter()
+                            .map(|acc| (&acc).into()),
+                        staking_epoch_data
+                            .hashes
+                            .into_iter()
+                            .map(|(n, h)| (n, h.to_field()))
+                            .collect::<Vec<_>>(),
+                    );
+                let (_mask, next_epoch_total_currency) =
+                    Self::build_ledger_from_accounts_and_hashes(
+                        next_epoch_data
+                            .accounts
+                            .into_iter()
+                            .map(|acc| (&acc).into()),
+                        next_epoch_data
+                            .hashes
+                            .into_iter()
+                            .map(|(n, h)| (n, h.to_field()))
+                            .collect::<Vec<_>>(),
+                    );
 
                 let load_result = GenesisConfigLoaded {
                     constants,
-                    genesis_ledger_hash: ledger_hash.clone(),
+                    genesis_ledger_hash: ledger_hash,
                     genesis_total_currency,
                     genesis_producer_stake_proof: genesis_producer_stake_proof(&mask),
-                    // TODO(devnet): store this data
-                    staking_epoch_ledger_hash: ledger_hash.clone(),
+                    staking_epoch_ledger_hash: staking_epoch_data.ledger_hash.clone(),
                     staking_epoch_total_currency,
-                    next_epoch_ledger_hash: ledger_hash,
+                    next_epoch_ledger_hash: next_epoch_data.ledger_hash.clone(),
                     next_epoch_total_currency,
-                    staking_epoch_seed,
-                    next_epoch_seed,
+                    staking_epoch_seed: staking_epoch_data.seed,
+                    next_epoch_seed: next_epoch_data.seed,
                 };
                 (mask, load_result)
             }
@@ -225,7 +247,8 @@ impl GenesisConfig {
                     let (mut mask, total_currency) = Self::build_ledger_from_accounts(accounts);
                     next_epoch_ledger_hash = ledger_hash(&mut mask);
                     next_epoch_total_currency = total_currency;
-                    next_epoch_seed = v2::EpochSeed::from_str(&data.next.as_ref().unwrap().seed).unwrap();
+                    next_epoch_seed =
+                        v2::EpochSeed::from_str(&data.next.as_ref().unwrap().seed).unwrap();
                 } else {
                     staking_epoch_ledger_hash = genesis_ledger_hash.clone();
                     staking_epoch_total_currency = total_currency.clone();
@@ -237,7 +260,7 @@ impl GenesisConfig {
 
                 let result = GenesisConfigLoaded {
                     constants,
-                    genesis_ledger_hash: genesis_ledger_hash,
+                    genesis_ledger_hash,
                     genesis_total_currency: total_currency,
                     genesis_producer_stake_proof: genesis_producer_stake_proof(&mask),
                     staking_epoch_ledger_hash,
@@ -351,6 +374,8 @@ pub struct PrebuiltGenesisConfig {
     accounts: Vec<MinaBaseAccountBinableArgStableV2>,
     ledger_hash: LedgerHash,
     hashes: Vec<(u64, LedgerHash)>,
+    staking_epoch_data: PrebuiltGenesisEpochData,
+    next_epoch_data: PrebuiltGenesisEpochData,
 }
 
 impl PrebuiltGenesisConfig {
@@ -363,6 +388,14 @@ impl PrebuiltGenesisConfig {
         use binprot::BinProtWrite;
         self.binprot_write(&mut writer)
     }
+}
+
+#[derive(Debug, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct PrebuiltGenesisEpochData {
+    accounts: Vec<MinaBaseAccountBinableArgStableV2>,
+    ledger_hash: LedgerHash,
+    hashes: Vec<(u64, LedgerHash)>,
+    seed: v2::EpochSeed,
 }
 
 impl TryFrom<DaemonJson> for PrebuiltGenesisConfig {
@@ -388,12 +421,56 @@ impl TryFrom<DaemonJson> for PrebuiltGenesisConfig {
             .into_iter()
             .map(|(idx, hash)| (idx, v2::LedgerHash::from_fp(hash)))
             .collect();
+        let daemon_json::Epochs { staking, next } = config.epoch_data.unwrap();
+        let staking_epoch_data = staking.try_into().unwrap();
+        let next_epoch_data = next.unwrap().try_into().unwrap();
         let result = PrebuiltGenesisConfig {
             constants,
             accounts,
             ledger_hash,
             hashes,
+            staking_epoch_data,
+            next_epoch_data,
         };
         Ok(result)
+    }
+}
+
+impl TryFrom<EpochData> for PrebuiltGenesisEpochData {
+    type Error = GenesisConfigError;
+
+    fn try_from(value: EpochData) -> Result<Self, Self::Error> {
+        let EpochData {
+            accounts,
+            hash,
+            s3_data_hash: _,
+            seed,
+        } = value;
+
+        let expected_ledger_hash = hash.unwrap().parse().unwrap();
+        let seed = seed.parse().unwrap();
+        let ledger_accounts = accounts
+            .unwrap()
+            .iter()
+            .map(daemon_json::Account::to_account)
+            .collect::<Result<Vec<_>, _>>()?;
+        let accounts = ledger_accounts.iter().map(Into::into).collect();
+        let (mut mask, _total_currency) =
+            GenesisConfig::build_ledger_from_accounts(ledger_accounts);
+        let ledger_hash = ledger_hash(&mut mask);
+        // TODO(devnet): fail gracefully
+        assert_eq!(ledger_hash, expected_ledger_hash);
+        let hashes = mask
+            .get_raw_inner_hashes()
+            .into_iter()
+            .map(|(idx, hash)| (idx, v2::LedgerHash::from_fp(hash)))
+            .collect();
+
+        Ok(Self {
+            accounts,
+            ledger_hash,
+            hashes,
+            seed,
+        })
     }
 }

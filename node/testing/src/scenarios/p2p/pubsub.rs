@@ -12,7 +12,7 @@ pub struct P2pReceiveBlock;
 
 impl P2pReceiveBlock {
     pub async fn run(self, mut runner: ClusterRunner<'_>) {
-        let config = RustNodeTestingConfig::berkeley_default()
+        let config = RustNodeTestingConfig::devnet_default()
             // make sure it will not ask initial peers
             .ask_initial_peers_interval(Duration::from_secs(3600))
             .max_peers(1)
@@ -25,7 +25,7 @@ impl P2pReceiveBlock {
             .p2p
             .my_id();
 
-        let config = RustNodeTestingConfig::berkeley_default()
+        let config = RustNodeTestingConfig::devnet_default()
             // make sure it will not ask initial peers
             .ask_initial_peers_interval(Duration::from_secs(3600))
             .max_peers(1)

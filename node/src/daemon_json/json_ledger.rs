@@ -164,7 +164,7 @@ impl Account {
         self.receipt_chain_hash
             .as_ref()
             .map_or(Ok(ReceiptChainHash::empty()), |hash| {
-                ReceiptChainHash::from_str(hash)
+                ReceiptChainHash::parse_str(hash)
                     .map_err(|_| AccountConfigError::MalformedReceiptChainHash(hash.clone()))
             })
     }
@@ -173,7 +173,7 @@ impl Account {
         self.voting_for
             .as_ref()
             .map_or(Ok(VotingFor::dummy()), |hash| {
-                VotingFor::from_str(hash)
+                VotingFor::parse_str(hash)
                     .map_err(|_| AccountConfigError::MalformedVotingFor(hash.clone()))
             })
     }

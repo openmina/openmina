@@ -30,7 +30,7 @@ impl IncomingFindNode {
     pub async fn run(self, runner: ClusterRunner<'_>) {
         let mut driver = Driver::new(runner);
         let (node1, peer_id1) = driver.add_rust_node(
-            RustNodeTestingConfig::berkeley_default().initial_peers(
+            RustNodeTestingConfig::devnet_default().initial_peers(
                 (0..100)
                     .map(|n| {
                         let peer_id = SecretKey::rand().public_key().peer_id();
@@ -140,7 +140,7 @@ impl KademliaBootstrap {
         let mut driver = Driver::new(runner);
 
         let (node1, _peer_id1) =
-            driver.add_rust_node(RustNodeTestingConfig::berkeley_default().initial_peers(
+            driver.add_rust_node(RustNodeTestingConfig::devnet_default().initial_peers(
                 FromIterator::from_iter([ListenerNode::Custom(
                     P2pConnectionOutgoingInitOpts::LibP2P(P2pConnectionOutgoingInitLibp2pOpts {
                         peer_id: peer_id.into(),

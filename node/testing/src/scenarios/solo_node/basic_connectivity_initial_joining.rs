@@ -44,7 +44,7 @@ impl SoloNodeBasicConnectivityInitialJoining {
         for seed in seeds {
             eprintln!("add initial peer: {seed}");
         }
-        let config = RustNodeTestingConfig::berkeley_default()
+        let config = RustNodeTestingConfig::devnet_default()
             .ask_initial_peers_interval(Duration::from_secs(3600))
             .max_peers(MAX_PEERS_PER_NODE)
             .initial_peers(initial_peers);

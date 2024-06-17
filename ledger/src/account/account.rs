@@ -1553,7 +1553,7 @@ mod tests {
             token_symbol: TokenSymbol::default(),
             balance: Balance::from_u64(20000001000),
             nonce: Nonce::from_u32(0),
-            receipt_chain_hash: ReceiptChainHash::from_str(
+            receipt_chain_hash: ReceiptChainHash::parse_str(
                 "2mzbV7WevxLuchs2dAMY4vQBS6XttnCUF8Hvks4XNBQ5qiSGGBQe",
             )
             .unwrap(),
@@ -1563,7 +1563,7 @@ mod tests {
                 )
                 .unwrap(),
             ),
-            voting_for: VotingFor::from_str(
+            voting_for: VotingFor::parse_str(
                 "3NK2tkzqqK5spR2sZ7tujjqPksL45M3UUrcA4WhCkeiPtnugyE2x",
             )
             .unwrap(),

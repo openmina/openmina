@@ -16,8 +16,8 @@ impl AcceptIncomingConnection {
     pub async fn run(self, runner: ClusterRunner<'_>) {
         let mut driver = Driver::new(runner);
 
-        let (node_ut, _) = driver.add_rust_node(RustNodeTestingConfig::berkeley_default());
-        let (node2, peer_id2) = driver.add_rust_node(RustNodeTestingConfig::berkeley_default());
+        let (node_ut, _) = driver.add_rust_node(RustNodeTestingConfig::devnet_default());
+        let (node2, peer_id2) = driver.add_rust_node(RustNodeTestingConfig::devnet_default());
         assert!(
             wait_for_nodes_listening_on_localhost(
                 &mut driver,
@@ -71,10 +71,10 @@ impl AcceptMultipleIncomingConnections {
 
         let mut driver = Driver::new(runner);
 
-        let (node_ut, _) = driver.add_rust_node(RustNodeTestingConfig::berkeley_default());
+        let (node_ut, _) = driver.add_rust_node(RustNodeTestingConfig::devnet_default());
 
         let (peers, mut peer_ids): (Vec<_>, BTreeSet<_>) =
-            add_rust_nodes(&mut driver, MAX, RustNodeTestingConfig::berkeley_default());
+            add_rust_nodes(&mut driver, MAX, RustNodeTestingConfig::devnet_default());
 
         assert!(
             wait_for_nodes_listening_on_localhost(

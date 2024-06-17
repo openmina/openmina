@@ -44,7 +44,7 @@ impl SoloNodeBasicConnectivityAcceptIncoming {
         for seed in seeds {
             eprintln!("add initial peer: {seed}");
         }
-        let config = RustNodeTestingConfig::berkeley_default()
+        let config = RustNodeTestingConfig::devnet_default()
             .ask_initial_peers_interval(Duration::from_secs(3600))
             .max_peers(MAX_PEERS_PER_NODE)
             .initial_peers(initial_peers)
@@ -118,7 +118,9 @@ impl SoloNodeBasicConnectivityAcceptIncoming {
                 } else {
                     let node_id = runner.add_ocaml_node(OcamlNodeTestingConfig {
                         initial_peers: vec![node_addr.clone()],
-                        daemon_json: DaemonJson::Custom("/var/lib/coda/berkeley.json".to_owned()),
+                        daemon_json: DaemonJson::Custom(
+                            "/var/lib/coda/config_dc6bf78b.json".to_owned(),
+                        ),
                         block_producer: None,
                     });
                     let node = runner.ocaml_node(node_id).unwrap();

@@ -166,6 +166,7 @@ fn blockchain_state(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn consensus_state(
     constants: &v2::MinaBaseProtocolConstantsCheckedValueStableV1,
     genesis_total_currency: v2::CurrencyAmountStableV1,

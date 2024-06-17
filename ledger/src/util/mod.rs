@@ -6,8 +6,8 @@ use mina_hasher::Fp;
 use mina_signer::{CompressedPubKey, CurvePoint, Keypair, PubKey};
 
 mod backtrace;
-mod time;
 mod pubkey;
+mod time;
 
 pub use pubkey::compressed_pubkey_from_address_maybe_with_error;
 

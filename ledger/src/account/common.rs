@@ -26,12 +26,12 @@ impl VotingFor {
         Self(Fp::zero())
     }
 
-    pub fn from_str(s: &str) -> Result<Self, FieldHelpersError> {
+    pub fn parse_str(s: &str) -> Result<Self, FieldHelpersError> {
         let b58check_hash = mina_p2p_messages::v2::StateHash::from_str(s).unwrap();
         Ok(Self(b58check_hash.into_inner().0.into()))
     }
 
-    pub fn to_string(&self) -> String {
+    pub fn to_base58check(&self) -> String {
         let state_hash = mina_p2p_messages::v2::StateHash::from_fp(self.0);
         state_hash.to_string()
     }
@@ -40,8 +40,8 @@ impl VotingFor {
 #[test]
 fn test_voting_for_b58decode() {
     let source = "3NK2tkzqqK5spR2sZ7tujjqPksL45M3UUrcA4WhCkeiPtnugyE2x";
-    let voting_for = VotingFor::from_str(source).unwrap();
-    assert_eq!(&voting_for.to_string(), source);
+    let voting_for = VotingFor::parse_str(source).unwrap();
+    assert_eq!(&voting_for.to_base58check(), source);
 }
 
 impl ToFieldElements<Fp> for VotingFor {
@@ -83,7 +83,7 @@ impl ReceiptChainHash {
         Fp::from_hex(s).map(Self)
     }
 
-    pub fn from_str(s: &str) -> Result<Self, FieldHelpersError> {
+    pub fn parse_str(s: &str) -> Result<Self, FieldHelpersError> {
         let b58check_hash = mina_p2p_messages::v2::PendingCoinbaseHash::from_str(s).unwrap();
         Ok(Self(b58check_hash.into_inner().0 .0.into()))
     }
@@ -98,10 +98,10 @@ impl ReceiptChainHash {
 #[test]
 fn test_receipt_chain_b58decode() {
     let source = "2mzbV7WevxLuchs2dAMY4vQBS6XttnCUF8Hvks4XNBQ5qiSGGBQe";
-    ReceiptChainHash::from_str(source).unwrap();
+    ReceiptChainHash::parse_str(source).unwrap();
 
     let source = "2n2K1aziimdYu5QCf8mU4gducZCB5u5s78sGnp56zT2tig4ugVHD";
-    ReceiptChainHash::from_str(source).unwrap();
+    ReceiptChainHash::parse_str(source).unwrap();
 }
 
 impl Default for ReceiptChainHash {

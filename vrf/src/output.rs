@@ -128,11 +128,19 @@ impl From<VrfOutput> for ConsensusVrfOutputTruncatedStableV1 {
 mod test {
     use mina_p2p_messages::v2::ConsensusVrfOutputTruncatedStableV1;
 
+    use mina_p2p_messages::{
+        bigint::BigInt as MinaBigInt,
+        v2::{EpochSeed, MinaBaseEpochSeedStableV1},
+    };
+
     use crate::{genesis_vrf, output::VrfOutput};
 
     #[test]
     fn test_serialization() {
-        let vrf_output = genesis_vrf().unwrap();
+        let vrf_output = genesis_vrf(EpochSeed::from(MinaBaseEpochSeedStableV1(
+            MinaBigInt::zero(),
+        )))
+        .unwrap();
 
         let serialized = serde_json::to_string(&vrf_output).unwrap();
         let deserialized: VrfOutput = serde_json::from_str(&serialized).unwrap();
@@ -142,7 +150,10 @@ mod test {
 
     #[test]
     fn test_conv_to_mina_type() {
-        let vrf_output = genesis_vrf().unwrap();
+        let vrf_output = genesis_vrf(EpochSeed::from(MinaBaseEpochSeedStableV1(
+            MinaBigInt::zero(),
+        )))
+        .unwrap();
 
         let converted = ConsensusVrfOutputTruncatedStableV1::from(vrf_output);
         let converted_string = serde_json::to_string_pretty(&converted).unwrap();

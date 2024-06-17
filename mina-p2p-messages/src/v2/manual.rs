@@ -2,10 +2,8 @@ pub mod conv;
 
 use binprot::{BinProtRead, BinProtWrite};
 use binprot_derive::{BinProtRead, BinProtWrite};
-use blake2::Digest;
 use derive_more::Deref;
 use serde::{de::Visitor, ser::SerializeTuple, Deserialize, Serialize, Serializer};
-use sha2::Sha256;
 use time::OffsetDateTime;
 
 use crate::{

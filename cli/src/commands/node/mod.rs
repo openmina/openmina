@@ -217,7 +217,7 @@ impl Node {
                 let c = serde_json::from_reader(reader).context("config file {config:?}")?;
                 Arc::new(GenesisConfig::DaemonJson(c))
             }
-            None => node::config::BERKELEY_CONFIG.clone(),
+            None => node::config::DEVNET_CONFIG.clone(),
         };
         let transition_frontier = TransitionFrontierConfig::new(genesis_config);
         let config = Config {

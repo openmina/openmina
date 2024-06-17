@@ -2038,7 +2038,7 @@ mod tests_ocaml {
         staged_ledger::diff::{
             PreDiffOne, PreDiffWithAtMostOneCoinbase, PreDiffWithAtMostTwoCoinbase,
         },
-        util, Account, AuthRequired, FpExt, Permissions, VerificationKey,
+        util, Account, AuthRequired, Permissions, VerificationKey,
     };
 
     use super::*;
