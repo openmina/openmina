@@ -141,8 +141,8 @@ pub fn grace_period_end(constants: &v2::MinaBaseProtocolConstantsCheckedValueSta
 
 pub const DEFAULT_GENESIS_TIMESTAMP_MILLISECONDS: u64 = 1706882461000;
 
-pub const PROTOCOL_TRANSACTION_VERSION: u8 = 2;
-pub const PROTOCOL_NETWORK_VERSION: u8 = 2;
+pub const PROTOCOL_TRANSACTION_VERSION: u8 = 3;
+pub const PROTOCOL_NETWORK_VERSION: u8 = 3;
 pub const TX_POOL_MAX_SIZE: u32 = 3000;
 
 pub const CONSTRAINT_SYSTEM_DIGESTS: [[u8; 16]; 3] = [

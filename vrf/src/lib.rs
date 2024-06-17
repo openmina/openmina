@@ -2,10 +2,7 @@ use ark_ec::AffineCurve;
 use ark_ff::PrimeField;
 use ledger::AccountIndex;
 use message::VrfMessage;
-use mina_p2p_messages::{
-    bigint::BigInt as MinaBigInt,
-    v2::{EpochSeed, MinaBaseEpochSeedStableV1},
-};
+use mina_p2p_messages::v2::EpochSeed;
 use num::{BigInt, ToPrimitive};
 use output::VrfOutput;
 use serde::{Deserialize, Serialize};
@@ -113,11 +110,9 @@ impl VrfEvaluationInput {
 }
 
 /// Generates the VRF output for the genesis block
-pub fn genesis_vrf() -> VrfResult<VrfOutput> {
+pub fn genesis_vrf(epoch_seed: EpochSeed) -> VrfResult<VrfOutput> {
     let genesis_keypair =
         keypair_from_bs58_string("EKFKgDtU3rcuFTVSEpmpXSkukjmX4cKefYREi6Sdsk7E7wsT7KRw");
-
-    let epoch_seed = EpochSeed::from(MinaBaseEpochSeedStableV1(MinaBigInt::zero()));
 
     calculate_vrf(&genesis_keypair, epoch_seed, 0, &AccountIndex(0))
 }
@@ -188,8 +183,12 @@ mod test {
     use std::str::FromStr;
 
     use ledger::AccountIndex;
-    use mina_p2p_messages::v2::EpochSeed;
     use num::BigInt;
+
+    use mina_p2p_messages::{
+        bigint::BigInt as MinaBigInt,
+        v2::{EpochSeed, MinaBaseEpochSeedStableV1},
+    };
 
     use crate::{genesis_vrf, keypair_from_bs58_string, VrfEvaluationInput, VrfEvaluationOutput};
 
@@ -197,7 +196,10 @@ mod test {
 
     #[test]
     fn test_genesis_vrf() {
-        let out = genesis_vrf().unwrap();
+        let out = genesis_vrf(EpochSeed::from(MinaBaseEpochSeedStableV1(
+            MinaBigInt::zero(),
+        )))
+        .unwrap();
         let expected = "48H9Qk4D6RzS9kAJQX9HCDjiJ5qLiopxgxaS6xbDCWNaKQMQ9Y4C";
         assert_eq!(expected, out.to_string());
     }

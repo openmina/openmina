@@ -1,6 +1,6 @@
 use std::{
     borrow::Cow,
-    io::{Read, Write},
+    io::{Read, Write}, str::FromStr,
 };
 
 use crate::account::AccountSecretKey;
@@ -41,9 +41,15 @@ pub enum GenesisConfig {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct GenesisConfigLoaded {
     pub constants: ProtocolConstants,
-    pub ledger_hash: v2::LedgerHash,
-    pub total_currency: v2::CurrencyAmountStableV1,
+    pub genesis_ledger_hash: v2::LedgerHash,
+    pub genesis_total_currency: v2::CurrencyAmountStableV1,
     pub genesis_producer_stake_proof: v2::MinaBaseSparseLedgerBaseStableV2,
+    pub staking_epoch_ledger_hash: v2::LedgerHash,
+    pub staking_epoch_total_currency: v2::CurrencyAmountStableV1,
+    pub staking_epoch_seed: v2::EpochSeed,
+    pub next_epoch_ledger_hash: v2::LedgerHash,
+    pub next_epoch_total_currency: v2::CurrencyAmountStableV1,
+    pub next_epoch_seed: v2::EpochSeed,
 }
 
 fn bp_num_delegators(i: usize) -> usize {
@@ -81,14 +87,25 @@ impl GenesisConfig {
                     (balance, delegators)
                 });
                 let delegator_table = whales.chain(fish);
-                let (mut mask, total_currency) =
+                let (mut mask, genesis_total_currency) =
                     Self::build_ledger_from_balances_delegator_table(delegator_table);
+                let genesis_ledger_hash = ledger_hash(&mut mask);
+                let staking_epoch_total_currency = genesis_total_currency.clone();
+                let next_epoch_total_currency = genesis_total_currency.clone();
+                let staking_epoch_seed = v2::EpochSeed::zero();
+                let next_epoch_seed = v2::EpochSeed::zero();
 
                 let load_result = GenesisConfigLoaded {
                     constants: constants.clone(),
-                    ledger_hash: ledger_hash(&mut mask),
-                    total_currency,
+                    genesis_ledger_hash: genesis_ledger_hash.clone(),
+                    genesis_total_currency,
                     genesis_producer_stake_proof: genesis_producer_stake_proof(&mask),
+                    staking_epoch_ledger_hash: genesis_ledger_hash.clone(),
+                    staking_epoch_total_currency,
+                    next_epoch_ledger_hash: genesis_ledger_hash,
+                    next_epoch_total_currency,
+                    staking_epoch_seed,
+                    next_epoch_seed,
                 };
                 (mask, load_result)
             }
@@ -97,14 +114,25 @@ impl GenesisConfig {
                     let delegators = delegators.iter().copied();
                     (*bp_balance, delegators)
                 });
-                let (mut mask, total_currency) =
+                let (mut mask, genesis_total_currency) =
                     Self::build_ledger_from_balances_delegator_table(table);
+                let genesis_ledger_hash = ledger_hash(&mut mask);
+                let staking_epoch_total_currency = genesis_total_currency.clone();
+                let next_epoch_total_currency = genesis_total_currency.clone();
+                let staking_epoch_seed = v2::EpochSeed::zero();
+                let next_epoch_seed = v2::EpochSeed::zero();
 
                 let load_result = GenesisConfigLoaded {
                     constants: constants.clone(),
-                    ledger_hash: ledger_hash(&mut mask),
-                    total_currency,
+                    genesis_ledger_hash: genesis_ledger_hash.clone(),
+                    genesis_total_currency,
                     genesis_producer_stake_proof: genesis_producer_stake_proof(&mask),
+                    staking_epoch_ledger_hash: genesis_ledger_hash.clone(),
+                    staking_epoch_total_currency,
+                    next_epoch_ledger_hash: genesis_ledger_hash,
+                    next_epoch_total_currency,
+                    staking_epoch_seed,
+                    next_epoch_seed,
                 };
                 (mask, load_result)
             }
@@ -116,19 +144,30 @@ impl GenesisConfig {
                     hashes,
                 } = PrebuiltGenesisConfig::load(&mut bytes.as_ref())?;
 
-                let (mask, total_currency) = Self::build_ledger_from_accounts_and_hashes(
+                let (mask, genesis_total_currency) = Self::build_ledger_from_accounts_and_hashes(
                     accounts.into_iter().map(|acc| (&acc).into()),
                     hashes
                         .into_iter()
                         .map(|(n, h)| (n, h.to_field()))
                         .collect::<Vec<_>>(),
                 );
+                let staking_epoch_total_currency = genesis_total_currency.clone();
+                let next_epoch_total_currency = genesis_total_currency.clone();
+                let staking_epoch_seed = v2::EpochSeed::zero();
+                let next_epoch_seed = v2::EpochSeed::zero();
 
                 let load_result = GenesisConfigLoaded {
                     constants,
-                    ledger_hash,
-                    total_currency,
+                    genesis_ledger_hash: ledger_hash.clone(),
+                    genesis_total_currency,
                     genesis_producer_stake_proof: genesis_producer_stake_proof(&mask),
+                    // TODO(devnet): store this data
+                    staking_epoch_ledger_hash: ledger_hash.clone(),
+                    staking_epoch_total_currency,
+                    next_epoch_ledger_hash: ledger_hash,
+                    next_epoch_total_currency,
+                    staking_epoch_seed,
+                    next_epoch_seed,
                 };
                 (mask, load_result)
             }
@@ -144,12 +183,69 @@ impl GenesisConfig {
                     .map(daemon_json::Account::to_account)
                     .collect::<Result<Vec<_>, _>>()?;
                 let (mut mask, total_currency) = Self::build_ledger_from_accounts(accounts);
-                let ledger_hash = ledger_hash(&mut mask);
+                let genesis_ledger_hash = ledger_hash(&mut mask);
+
+                // TODO(devnet): fail more gracefully
+                if let Some(expected_hash) = config.ledger.as_ref().and_then(|l| l.hash.as_ref()) {
+                    assert_eq!(expected_hash, &genesis_ledger_hash.to_string());
+                }
+
+                let staking_epoch_ledger_hash;
+                let staking_epoch_total_currency;
+                let staking_epoch_seed: v2::EpochSeed;
+                let next_epoch_ledger_hash;
+                let next_epoch_total_currency;
+                let next_epoch_seed: v2::EpochSeed;
+                // TODO(devnet): handle other cases here, right now this works
+                // only for the post-fork genesis
+                if let Some(data) = &config.epoch_data {
+                    let accounts = data
+                        .staking
+                        .accounts
+                        .as_ref()
+                        .unwrap()
+                        .iter()
+                        .map(daemon_json::Account::to_account)
+                        .collect::<Result<Vec<_>, _>>()?;
+                    let (mut mask, total_currency) = Self::build_ledger_from_accounts(accounts);
+                    staking_epoch_ledger_hash = ledger_hash(&mut mask);
+                    staking_epoch_total_currency = total_currency;
+                    staking_epoch_seed = v2::EpochSeed::from_str(&data.staking.seed).unwrap();
+
+                    let accounts = data
+                        .next
+                        .as_ref()
+                        .unwrap()
+                        .accounts
+                        .as_ref()
+                        .unwrap()
+                        .iter()
+                        .map(daemon_json::Account::to_account)
+                        .collect::<Result<Vec<_>, _>>()?;
+                    let (mut mask, total_currency) = Self::build_ledger_from_accounts(accounts);
+                    next_epoch_ledger_hash = ledger_hash(&mut mask);
+                    next_epoch_total_currency = total_currency;
+                    next_epoch_seed = v2::EpochSeed::from_str(&data.next.as_ref().unwrap().seed).unwrap();
+                } else {
+                    staking_epoch_ledger_hash = genesis_ledger_hash.clone();
+                    staking_epoch_total_currency = total_currency.clone();
+                    staking_epoch_seed = v2::EpochSeed::zero();
+                    next_epoch_ledger_hash = genesis_ledger_hash.clone();
+                    next_epoch_total_currency = total_currency.clone();
+                    next_epoch_seed = v2::EpochSeed::zero();
+                }
+
                 let result = GenesisConfigLoaded {
                     constants,
-                    ledger_hash,
-                    total_currency,
+                    genesis_ledger_hash: genesis_ledger_hash,
+                    genesis_total_currency: total_currency,
                     genesis_producer_stake_proof: genesis_producer_stake_proof(&mask),
+                    staking_epoch_ledger_hash,
+                    staking_epoch_total_currency,
+                    next_epoch_ledger_hash,
+                    next_epoch_total_currency,
+                    staking_epoch_seed,
+                    next_epoch_seed,
                 };
                 (mask, result)
             }

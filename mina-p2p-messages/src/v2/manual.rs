@@ -324,13 +324,17 @@ impl MinaBasePendingCoinbaseStackVersionedStableV1 {
 }
 
 impl ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1 {
-    pub fn zero(genesis_ledger_hash: LedgerHash, total_currency: CurrencyAmountStableV1) -> Self {
+    pub fn zero(
+        ledger_hash: LedgerHash,
+        total_currency: CurrencyAmountStableV1,
+        seed: EpochSeed,
+    ) -> Self {
         Self {
             ledger: MinaBaseEpochLedgerValueStableV1 {
-                hash: genesis_ledger_hash,
+                hash: ledger_hash,
                 total_currency,
             },
-            seed: EpochSeed::zero(),
+            seed,
             start_checkpoint: StateHash::zero(),
             lock_checkpoint: StateHash::zero(),
             epoch_length: 1.into(),
@@ -339,13 +343,17 @@ impl ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1 {
 }
 
 impl ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1 {
-    pub fn zero(genesis_ledger_hash: LedgerHash, total_currency: CurrencyAmountStableV1) -> Self {
+    pub fn zero(
+        ledger_hash: LedgerHash,
+        total_currency: CurrencyAmountStableV1,
+        seed: EpochSeed,
+    ) -> Self {
         Self {
             ledger: MinaBaseEpochLedgerValueStableV1 {
-                hash: genesis_ledger_hash,
+                hash: ledger_hash,
                 total_currency,
             },
-            seed: EpochSeed::zero(),
+            seed,
             start_checkpoint: StateHash::zero(),
             lock_checkpoint: StateHash::zero(),
             epoch_length: 1.into(),
@@ -622,15 +630,19 @@ impl Serialize for ConsensusVrfOutputTruncatedStableV1 {
         S: serde::Serializer,
     {
         if serializer.is_human_readable() {
-            let mut output_bytes = Vec::new();
-            let prefix = vec![0x15, 0x20];
-            output_bytes.extend(prefix);
-            output_bytes.extend(self.0.iter());
-            let checksum = Sha256::digest(&Sha256::digest(&output_bytes[..])[..]);
-            output_bytes.extend(&checksum[..4]);
-            bs58::encode(&output_bytes)
-                .into_string()
-                .serialize(serializer)
+            // TODO(devnet): base64 encode for json, add separate method for base58check
+            // https://github.com/MinaProtocol/mina/blob/6de36cf8851de28b667e4c1041badf62507c235d/src/lib/consensus/vrf/consensus_vrf.ml#L172
+            //let mut output_bytes = Vec::new();
+            //let prefix = vec![0x15, 0x20];
+            //output_bytes.extend(prefix);
+            //output_bytes.extend(self.0.iter());
+            //let checksum = Sha256::digest(&Sha256::digest(&output_bytes[..])[..]);
+            //output_bytes.extend(&checksum[..4]);
+            //bs58::encode(&output_bytes)
+            //    .into_string()
+            //    .serialize(serializer)
+            let result = base64::encode(&self.0 .0);
+            result.serialize(serializer)
         } else {
             serializer.serialize_newtype_struct("ConsensusVrfOutputTruncatedStableV1", &self.0)
         }

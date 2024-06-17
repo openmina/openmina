@@ -147,7 +147,7 @@ mod tests {
         let (_mask, config) = BERKELEY_CONFIG.load().expect("should be loadable");
 
         assert_eq!(
-            config.ledger_hash,
+            config.genesis_ledger_hash,
             "jwkqwgAC6MXgfiZmynHRqXV6PGbMbLwFCx56Y2rt5vwdumf6ofp"
                 .parse()
                 .unwrap()

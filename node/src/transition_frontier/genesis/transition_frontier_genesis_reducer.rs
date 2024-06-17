@@ -5,8 +5,7 @@ use openmina_core::{
     constants::PROTOCOL_VERSION,
 };
 
-use crate::account::AccountSecretKey;
-use crate::block_producer::calc_epoch_seed;
+use crate::{account::AccountSecretKey, block_producer::calc_epoch_seed};
 
 use super::{
     empty_block_body, empty_block_body_hash, empty_pending_coinbase_hash,
@@ -33,19 +32,25 @@ impl TransitionFrontierGenesisState {
                     return;
                 };
 
-                let genesis_vrf = ::vrf::genesis_vrf().unwrap();
+                let genesis_vrf = ::vrf::genesis_vrf(data.staking_epoch_seed.clone()).unwrap();
                 let genesis_vrf_hash = genesis_vrf.hash();
 
                 let (negative_one, genesis) = genesis_and_negative_one_protocol_states(
                     data.constants.clone(),
-                    data.ledger_hash.clone(),
-                    data.total_currency.clone(),
+                    data.genesis_ledger_hash.clone(),
+                    data.genesis_total_currency.clone(),
+                    data.staking_epoch_ledger_hash.clone(),
+                    data.staking_epoch_total_currency.clone(),
+                    data.next_epoch_ledger_hash.clone(),
+                    data.next_epoch_total_currency.clone(),
                     AccountSecretKey::genesis_producer().public_key().into(),
                     empty_pending_coinbase_hash(),
                     (&LocalState::dummy()).into(),
                     empty_block_body_hash(),
                     genesis_vrf.into(),
-                    calc_epoch_seed(&v2::EpochSeed::zero(), genesis_vrf_hash),
+                    data.staking_epoch_seed.clone(),
+                    data.next_epoch_seed.clone(),
+                    calc_epoch_seed(&data.next_epoch_seed, genesis_vrf_hash), //data.next_epoch_seed.clone(),
                 );
                 *self = Self::Produced {
                     time: meta.time(),
