@@ -135,10 +135,15 @@ impl P2pNetworkSchedulerState {
             P2pNetworkSchedulerAction::SelectError { .. } => {
                 // NOOP, error should be triggered
             }
-            P2pNetworkSchedulerAction::YamuxDidInit { addr, .. } => {
+            P2pNetworkSchedulerAction::YamuxDidInit {
+                addr,
+                message_size_limit,
+                ..
+            } => {
                 if let Some(cn) = self.connections.get_mut(addr) {
                     if let Some(P2pNetworkConnectionMuxState::Yamux(yamux)) = &mut cn.mux {
                         yamux.init = true;
+                        yamux.message_size_limit = *message_size_limit;
                     }
                 }
             }
