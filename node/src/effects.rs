@@ -42,6 +42,7 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
                 p2p_timeout_effects(store, &meta);
 
                 p2p_request_best_tip_if_needed(store);
+                p2p_request_transactions_if_needed(store);
                 p2p_request_snarks_if_needed(store);
             }
 
@@ -120,6 +121,10 @@ fn request_best_tip<S: Service>(store: &mut Store<S>, _consensus_best_tip_hash: 
             request: P2pRpcRequest::BestTipWithProof,
         });
     }
+}
+
+fn p2p_request_transactions_if_needed<S: Service>(_store: &mut Store<S>) {
+    // TODO(binier): request tx from peers for which we have tx_info.
 }
 
 fn p2p_request_snarks_if_needed<S: Service>(store: &mut Store<S>) {

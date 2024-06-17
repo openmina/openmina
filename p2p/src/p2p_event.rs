@@ -4,11 +4,10 @@ use std::fmt;
 use std::net::{IpAddr, SocketAddr};
 
 use derive_more::From;
-use openmina_core::snark::Snark;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    channels::{ChannelId, ChannelMsg, MsgId},
+    channels::{transaction::TransactionPropagationChannelMsg, ChannelId, ChannelMsg, MsgId},
     connection::P2pConnectionResponse,
     PeerId,
 };
@@ -67,7 +66,6 @@ pub enum P2pChannelEvent {
     Opened(PeerId, ChannelId, Result<(), String>),
     Sent(PeerId, ChannelId, MsgId, Result<(), String>),
     Received(PeerId, Result<ChannelMsg, String>),
-    Libp2pSnarkReceived(PeerId, Snark, u32),
     Closed(PeerId, ChannelId),
 }
 
@@ -139,15 +137,6 @@ impl fmt::Display for P2pChannelEvent {
                     res_kind(res)
                 )
             }
-            Self::Libp2pSnarkReceived(peer_id, snark, nonce) => {
-                write!(
-                    f,
-                    "Libp2pSnarkReceived, {peer_id}, fee: {}, snarker: {}, job_id: {}, nonce: {nonce}",
-                    snark.fee.as_u64(),
-                    snark.snarker,
-                    snark.job_id(),
-                )
-            }
             Self::Received(peer_id, res) => {
                 write!(f, "Received, {peer_id}, ")?;
                 let msg = match res {
@@ -168,6 +157,19 @@ impl fmt::Display for P2pChannelEvent {
                             }
                         }
                     }
+                    ChannelMsg::TransactionPropagation(v) => match v {
+                        TransactionPropagationChannelMsg::GetNext { limit } => {
+                            write!(f, "GetNext, limit: {limit}")
+                        }
+                        TransactionPropagationChannelMsg::WillSend { count } => {
+                            write!(f, "WillSend, count: {count}")
+                        }
+                        TransactionPropagationChannelMsg::Transaction(tx) => write!(
+                            f,
+                            "Transaction, fee: {}, fee_payer: {}, hash: {}",
+                            tx.fee, tx.fee_payer, tx.hash,
+                        ),
+                    },
                     ChannelMsg::SnarkPropagation(v) => match v {
                         SnarkPropagationChannelMsg::GetNext { limit } => {
                             write!(f, "GetNext, limit: {limit}")

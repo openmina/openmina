@@ -1,5 +1,6 @@
 use mina_p2p_messages::v2::{MinaLedgerSyncLedgerAnswerStableV2, StateHash};
 use openmina_core::block::BlockWithHash;
+use p2p::channels::transaction::P2pChannelsTransactionAction;
 use p2p::P2pInitializeAction;
 
 use crate::consensus::ConsensusAction;
@@ -210,6 +211,26 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
                     }
                 }
                 action.effects(&meta, store);
+            }
+            P2pChannelsAction::Transaction(action) => {
+                // TODO: does the order matter here? if not this clone can be removed
+                action.clone().effects(&meta, store);
+                match action {
+                    P2pChannelsTransactionAction::Received {
+                        peer_id: _,
+                        transaction: _,
+                    } => {
+                        // TODO(binier): propagate tx info received to pool
+                    }
+                    P2pChannelsTransactionAction::Libp2pReceived {
+                        peer_id: _,
+                        transaction: _,
+                        ..
+                    } => {
+                        // TODO(sebastiencs): send transaction to pool
+                    }
+                    _ => {}
+                }
             }
             P2pChannelsAction::Snark(action) => {
                 // TODO: does the order matter here? if not this clone can be removed

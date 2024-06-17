@@ -239,7 +239,7 @@ impl Node {
                 identity_pub_key: p2p_secret_key.public_key(),
                 initial_peers,
                 ask_initial_peers_interval: Duration::from_secs(3600),
-                enabled_channels: ChannelId::for_libp2p().collect(),
+                enabled_channels: ChannelId::iter_all().collect(),
                 peer_discovery: !self.no_peers_discovery,
                 initial_time: SystemTime::now()
                     .duration_since(SystemTime::UNIX_EPOCH)

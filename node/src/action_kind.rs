@@ -27,6 +27,7 @@ use crate::p2p::channels::best_tip::P2pChannelsBestTipAction;
 use crate::p2p::channels::rpc::P2pChannelsRpcAction;
 use crate::p2p::channels::snark::P2pChannelsSnarkAction;
 use crate::p2p::channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentAction;
+use crate::p2p::channels::transaction::P2pChannelsTransactionAction;
 use crate::p2p::channels::{P2pChannelsAction, P2pChannelsMessageReceivedAction};
 use crate::p2p::connection::incoming::P2pConnectionIncomingAction;
 use crate::p2p::connection::outgoing::P2pConnectionOutgoingAction;
@@ -185,6 +186,16 @@ pub enum ActionKind {
     P2pChannelsSnarkJobCommitmentRequestReceived,
     P2pChannelsSnarkJobCommitmentRequestSend,
     P2pChannelsSnarkJobCommitmentResponseSend,
+    P2pChannelsTransactionInit,
+    P2pChannelsTransactionLibp2pBroadcast,
+    P2pChannelsTransactionLibp2pReceived,
+    P2pChannelsTransactionPending,
+    P2pChannelsTransactionPromiseReceived,
+    P2pChannelsTransactionReady,
+    P2pChannelsTransactionReceived,
+    P2pChannelsTransactionRequestReceived,
+    P2pChannelsTransactionRequestSend,
+    P2pChannelsTransactionResponseSend,
     P2pConnectionIncomingAnswerReady,
     P2pConnectionIncomingAnswerSdpCreateError,
     P2pConnectionIncomingAnswerSdpCreatePending,
@@ -465,7 +476,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 381;
+    pub const COUNT: u16 = 391;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -767,6 +778,7 @@ impl ActionKindGet for P2pChannelsAction {
         match self {
             Self::MessageReceived(a) => a.kind(),
             Self::BestTip(a) => a.kind(),
+            Self::Transaction(a) => a.kind(),
             Self::Snark(a) => a.kind(),
             Self::SnarkJobCommitment(a) => a.kind(),
             Self::Rpc(a) => a.kind(),
@@ -1055,6 +1067,23 @@ impl ActionKindGet for P2pChannelsBestTipAction {
             Self::Received { .. } => ActionKind::P2pChannelsBestTipReceived,
             Self::RequestReceived { .. } => ActionKind::P2pChannelsBestTipRequestReceived,
             Self::ResponseSend { .. } => ActionKind::P2pChannelsBestTipResponseSend,
+        }
+    }
+}
+
+impl ActionKindGet for P2pChannelsTransactionAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::Init { .. } => ActionKind::P2pChannelsTransactionInit,
+            Self::Pending { .. } => ActionKind::P2pChannelsTransactionPending,
+            Self::Ready { .. } => ActionKind::P2pChannelsTransactionReady,
+            Self::RequestSend { .. } => ActionKind::P2pChannelsTransactionRequestSend,
+            Self::PromiseReceived { .. } => ActionKind::P2pChannelsTransactionPromiseReceived,
+            Self::Received { .. } => ActionKind::P2pChannelsTransactionReceived,
+            Self::RequestReceived { .. } => ActionKind::P2pChannelsTransactionRequestReceived,
+            Self::ResponseSend { .. } => ActionKind::P2pChannelsTransactionResponseSend,
+            Self::Libp2pReceived { .. } => ActionKind::P2pChannelsTransactionLibp2pReceived,
+            Self::Libp2pBroadcast { .. } => ActionKind::P2pChannelsTransactionLibp2pBroadcast,
         }
     }
 }

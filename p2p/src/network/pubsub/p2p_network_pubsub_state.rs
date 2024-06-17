@@ -4,7 +4,7 @@ use std::{
 };
 
 use mina_p2p_messages::v2;
-use openmina_core::snark::Snark;
+use openmina_core::{snark::Snark, transaction::Transaction};
 use serde::{Deserialize, Serialize};
 
 use crate::{token::BroadcastAlgorithm, PeerId, StreamId};
@@ -19,6 +19,7 @@ pub struct P2pNetworkPubsubState {
     pub to_sign: VecDeque<pb::Message>,
     pub seen: VecDeque<Vec<u8>>,
     pub incoming_block: Option<(PeerId, v2::MinaBlockBlockStableV2)>,
+    pub incoming_transactions: Vec<(Transaction, u32)>,
     pub incoming_snarks: Vec<(Snark, u32)>,
 }
 
