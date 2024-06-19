@@ -7,14 +7,14 @@ on:
     branches: [ "test/*daily*" ]
 
 jobs:
-  bootstrap-berkeley:
+  bootstrap-devnet:
     runs-on: ubuntu-latest
 
     env:
       CLUSTER_ADDR: 1.k8.openmina.com
       OPENMINA_NODE_PORT: 31001
       OPENMINA_SELECTOR: app.kubernetes.io/instance=${{ github.job }},app.kubernetes.io/name=openmina
-      PROXY: https://proxy.berkeley.minaexplorer.com/
+      PROXY: https://proxy.devnet.minaexplorer.com/
       BEST_CHAIN_QUERY: |
         query MyQuery {
           bestChain(maxLength: 1) {

@@ -201,7 +201,7 @@ jobs:
     needs: [ build-tests ]
     runs-on: ubuntu-20.04
     container:
-      image: minaprotocol/mina-daemon:2.0.0berkeley-rc1-1551e2f-focal-berkeley
+      image: minaprotocol/mina-daemon:3.0.0-dc6bf78-focal-devnet
     strategy:
       matrix:
         test: [p2p_basic_connections, p2p_basic_incoming, p2p_basic_outgoing, p2p_pubsub]
@@ -226,15 +226,15 @@ jobs:
     # TODO: query cluster for actual addresses, or specify then on deployment
     env:
       PEERS: |
-        /ip4/135.181.217.23/tcp/31881/p2p/12D3KooWKiKQkUTTZ6u8HDk471ZQE2vStpEDnySiKDrYgZGfEcsF
-        /ip4/135.181.217.23/tcp/30386/p2p/12D3KooWBHknA3ty2tk4u3N6Rwnjs5YwYaxHT9dURf7zGeBJ4VJG
-        /ip4/135.181.217.23/tcp/32272/p2p/12D3KooWDZDH6ucaZY4bU2R8Xy9T1iy4PGtaZ8vEWeuGEeLaQEg5
-        /ip4/135.181.217.23/tcp/32218/p2p/12D3KooWMenq7gPcF7utkZao8WLtjMqsZkY7LeLD1Y9q9YyQZnkG
-        /ip4/135.181.217.23/tcp/30798/p2p/12D3KooWMMsF7dYbn4Szf7TvrRofuK53W3zj6TDKgxAFSWYypLsB
-        /ip4/135.181.217.23/tcp/31631/p2p/12D3KooWNeaaS6wpPSa41qkxQWaeauDR51WCNnLUyd5CcjBBiNTq
-        /ip4/135.181.217.23/tcp/30196/p2p/12D3KooWCBTaSVMxDT1SUoeSg3PUsVL1Df1hDxkSvN544i7tsE76
-        /ip4/135.181.217.23/tcp/30790/p2p/12D3KooWG7egucvX5sompG2euhaPL4QQ3BdHJrLS7HGWyiHyoD5y
-        /ip4/135.181.217.23/tcp/30070/p2p/12D3KooWFG5dhmgS6rb8NdoNbiK7Vf6TqTQDTYxq18DVkmPwsgfg
+        /ip4/135.181.217.23/tcp/31881/p2p/12D3KooWAsfrqsjuYwfQa4yCxnJdtADwKB3PWpwq133LcndiwQjr
+        /ip4/135.181.217.23/tcp/30386/p2p/12D3KooWQHgBVfC6YsPKYprzeC6pVd6fhEzZ1yMs8iSd3rvtQRCs
+        /ip4/135.181.217.23/tcp/32272/p2p/12D3KooWBXR2QujRvh7DCpVHLqdQ7Q4BTQ4DdciznYpxRvZnSH5q
+        /ip4/135.181.217.23/tcp/32218/p2p/12D3KooWFScvpnxJYpfVW7dQmo6oG19GUv33ZcePmFeL86RrtYeD
+        /ip4/135.181.217.23/tcp/30798/p2p/12D3KooWCzF1D6ftm63dtzuwKpp4imT9wFkwDamMBrod1VAiJqq5
+        /ip4/135.181.217.23/tcp/31631/p2p/12D3KooWAHfVgQS2wfW8ZG9LcguJkvum7TbQX5SgvLyq4c5C6F6G
+        /ip4/135.181.217.23/tcp/30196/p2p/12D3KooWL7Emi3KMjrCuy1rfaneViVxaSyJZUNGHz9EorhHHanJ7
+        /ip4/135.181.217.23/tcp/30790/p2p/12D3KooWCmjkAxh4C3MktmphDKXiSN2bBUNNpVDjL1dEkVsB7XVn
+        /ip4/135.181.217.23/tcp/30070/p2p/12D3KooWMxhbVutFLjHTizVBd6LyLjp6dnuNmimHT2oCDDR9FSHj
     outputs:
       peers: ${{ steps.peers.outputs.peers }}
     steps:
@@ -254,7 +254,7 @@ jobs:
     #  - build-tests-webrtc
     runs-on: ubuntu-20.04
     container:
-      image: minaprotocol/mina-daemon:2.0.0berkeley-rc1-1551e2f-focal-berkeley
+      image: minaprotocol/mina-daemon:3.0.0-dc6bf78-focal-devnet
     env:
       # to allow local addrs discovery
       OPENMINA_DISCOVERY_FILTER_ADDR: false
@@ -294,7 +294,7 @@ jobs:
     #  - build-tests-webrtc
     runs-on: ubuntu-20.04
     container:
-      image: minaprotocol/mina-daemon:2.0.0berkeley-rc1-1551e2f-focal-berkeley
+      image: minaprotocol/mina-daemon:3.0.0-dc6bf78-focal-devnet
     env:
       # to allow local addrs discovery
       OPENMINA_DISCOVERY_FILTER_ADDR: false

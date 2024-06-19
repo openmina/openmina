@@ -82,7 +82,7 @@ impl std::fmt::Display for Event {
                         write!(f, "Err")
                     }
                     Ok(data) => {
-                        write!(f, "Ok, {}", data.ledger_hash)
+                        write!(f, "Ok, {}", data.genesis_ledger_hash)
                     }
                 }
             }

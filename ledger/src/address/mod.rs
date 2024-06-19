@@ -8,7 +8,7 @@ const fn compute_nbytes(nbits: usize) -> usize {
     }
 }
 
-/// Berkeleynet uses trees of depth 35, which requires addresses of 35 bits
+/// Devnet uses trees of depth 35, which requires addresses of 35 bits
 const NBITS: usize = 35;
 const NBYTES: usize = compute_nbytes(NBITS);
 

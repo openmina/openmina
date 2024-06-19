@@ -33,11 +33,10 @@ impl SoloNodeBootstrap {
             .try_into()
             .unwrap();
 
-        let node_id = runner.add_rust_node(
-            RustNodeTestingConfig::berkeley_default().initial_peers(vec![ListenerNode::Custom(
-                P2pConnectionOutgoingInitOpts::LibP2P(replayer),
-            )]),
-        );
+        let node_id =
+            runner.add_rust_node(RustNodeTestingConfig::devnet_default().initial_peers(vec![
+                ListenerNode::Custom(P2pConnectionOutgoingInitOpts::LibP2P(replayer)),
+            ]));
         eprintln!("launch Openmina node with default configuration, id: {node_id}");
 
         let mut timeout = TIMEOUT;

@@ -33,7 +33,7 @@ pub struct SoloNodeSyncRootSnarkedLedger;
 
 impl SoloNodeSyncRootSnarkedLedger {
     pub async fn run(self, mut runner: ClusterRunner<'_>) {
-        let node_id = runner.add_rust_node(RustNodeTestingConfig::berkeley_default());
+        let node_id = runner.add_rust_node(RustNodeTestingConfig::devnet_default());
         eprintln!("launch Openmina node with default configuration, id: {node_id}");
 
         const REPLAYER_1: &str =

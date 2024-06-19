@@ -1,10 +1,11 @@
+use std::str::FromStr;
+
 use ark_ff::{UniformRand, Zero};
 use mina_hasher::Fp;
 use o1_utils::{field_helpers::FieldHelpersError, FieldHelpers};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    hash::hash_noinputs,
     proofs::{
         field::{Boolean, FieldWitness, ToBoolean},
         numbers::{
@@ -24,6 +25,23 @@ impl VotingFor {
     pub fn dummy() -> Self {
         Self(Fp::zero())
     }
+
+    pub fn parse_str(s: &str) -> Result<Self, FieldHelpersError> {
+        let b58check_hash = mina_p2p_messages::v2::StateHash::from_str(s).unwrap();
+        Ok(Self(b58check_hash.into_inner().0.into()))
+    }
+
+    pub fn to_base58check(&self) -> String {
+        let state_hash = mina_p2p_messages::v2::StateHash::from_fp(self.0);
+        state_hash.to_string()
+    }
+}
+
+#[test]
+fn test_voting_for_b58decode() {
+    let source = "3NK2tkzqqK5spR2sZ7tujjqPksL45M3UUrcA4WhCkeiPtnugyE2x";
+    let voting_for = VotingFor::parse_str(source).unwrap();
+    assert_eq!(&voting_for.to_base58check(), source);
 }
 
 impl ToFieldElements<Fp> for VotingFor {
@@ -49,22 +67,41 @@ impl ToInputs for ReceiptChainHash {
 }
 
 impl ReceiptChainHash {
+    pub const HASH_PREFIX: &'static str = "CodaReceiptUC";
+
     pub fn empty_legacy() -> Self {
         // Value of `Receipt.Chain_hash.empty` in Ocaml (`compatible` branch)
         Self::from_hex("0b143c0645497a5987a7b88f66340e03db943f0a0df48b69a3a82921ce97b10a").unwrap()
     }
 
     pub fn empty() -> Self {
-        Self(hash_noinputs("CodaReceiptEmpty"))
+        Self::empty_legacy()
+        // Self(hash_noinputs("CodaReceiptEmpty"))
     }
 
     pub fn from_hex(s: &str) -> Result<Self, FieldHelpersError> {
         Fp::from_hex(s).map(Self)
     }
 
+    pub fn parse_str(s: &str) -> Result<Self, FieldHelpersError> {
+        let b58check_hash = mina_p2p_messages::v2::PendingCoinbaseHash::from_str(s).unwrap();
+        Ok(Self(b58check_hash.into_inner().0 .0.into()))
+    }
+
+    // TODO(tizoc): implement `to_string` and improve the test bellow
+
     pub fn gen() -> Self {
         Self(Fp::rand(&mut rand::thread_rng()))
     }
+}
+
+#[test]
+fn test_receipt_chain_b58decode() {
+    let source = "2mzbV7WevxLuchs2dAMY4vQBS6XttnCUF8Hvks4XNBQ5qiSGGBQe";
+    ReceiptChainHash::parse_str(source).unwrap();
+
+    let source = "2n2K1aziimdYu5QCf8mU4gducZCB5u5s78sGnp56zT2tig4ugVHD";
+    ReceiptChainHash::parse_str(source).unwrap();
 }
 
 impl Default for ReceiptChainHash {
@@ -192,6 +229,7 @@ impl Default for TokenPermissions {
 
 // https://github.com/MinaProtocol/mina/blob/develop/src/lib/mina_base/permissions.mli#L10
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum AuthRequired {
     None,
     Either,

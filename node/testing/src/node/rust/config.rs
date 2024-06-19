@@ -3,7 +3,7 @@ use std::path::Path;
 use std::{sync::Arc, time::Duration};
 
 use node::account::AccountSecretKey;
-use node::config::BERKELEY_CONFIG;
+use node::config::DEVNET_CONFIG;
 use node::transition_frontier::genesis::GenesisConfig;
 use node::{p2p::P2pTimeouts, BlockProducerConfig, SnarkerConfig};
 use serde::{Deserialize, Serialize};
@@ -49,10 +49,10 @@ pub struct RustNodeBlockProducerTestingConfig {
 }
 
 impl RustNodeTestingConfig {
-    pub fn berkeley_default() -> Self {
+    pub fn devnet_default() -> Self {
         Self {
             initial_time: redux::Timestamp::ZERO,
-            genesis: BERKELEY_CONFIG.clone(),
+            genesis: DEVNET_CONFIG.clone(),
             max_peers: 100,
             ask_initial_peers_interval: Duration::from_secs(10),
             initial_peers: Vec::new(),
@@ -65,10 +65,10 @@ impl RustNodeTestingConfig {
         }
     }
 
-    pub fn berkeley_default_no_rpc_timeouts() -> Self {
+    pub fn devnet_default_no_rpc_timeouts() -> Self {
         Self {
             initial_time: redux::Timestamp::ZERO,
-            genesis: BERKELEY_CONFIG.clone(),
+            genesis: DEVNET_CONFIG.clone(),
             max_peers: 100,
             ask_initial_peers_interval: Duration::from_secs(10),
             initial_peers: Vec::new(),

@@ -24,13 +24,13 @@ pub struct SoloNodeBasicConnectivityInitialJoining;
 impl SoloNodeBasicConnectivityInitialJoining {
     pub async fn run(self, mut runner: ClusterRunner<'_>) {
         const MAX_PEERS_PER_NODE: usize = 100;
-        const KNOWN_PEERS: usize = 5; // current berkeley network
+        const KNOWN_PEERS: usize = 5; // current devnet network
         const STEPS: usize = 3_000;
         const STEP_DELAY: Duration = Duration::from_millis(200);
 
         let seeds_var = std::env::var("OPENMINA_SCENARIO_SEEDS");
         let seeds = seeds_var.as_ref().map_or_else(
-            |_| node::p2p::BERKELEY_SEEDS.to_vec(),
+            |_| node::p2p::DEVNET_SEEDS.to_vec(),
             |val| val.split_whitespace().collect(),
         );
 
@@ -44,7 +44,7 @@ impl SoloNodeBasicConnectivityInitialJoining {
         for seed in seeds {
             eprintln!("add initial peer: {seed}");
         }
-        let config = RustNodeTestingConfig::berkeley_default()
+        let config = RustNodeTestingConfig::devnet_default()
             .ask_initial_peers_interval(Duration::from_secs(3600))
             .max_peers(MAX_PEERS_PER_NODE)
             .initial_peers(initial_peers);

@@ -21,6 +21,21 @@ pub use json_ledger::{
 pub struct DaemonJson {
     pub ledger: Option<Ledger>,
     pub genesis: Option<Genesis>,
+    pub epoch_data: Option<Epochs>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Epochs {
+    pub staking: EpochData,
+    pub next: Option<EpochData>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EpochData {
+    pub accounts: Option<Vec<Account>>,
+    pub hash: Option<String>,
+    pub s3_data_hash: Option<String>,
+    pub seed: String,
 }
 
 #[cfg(test)]

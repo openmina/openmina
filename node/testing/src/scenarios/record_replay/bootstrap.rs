@@ -17,7 +17,7 @@ impl RecordReplayBootstrap {
     pub async fn run(self, mut runner: ClusterRunner<'_>) {
         let seeds_var = std::env::var("OPENMINA_SCENARIO_SEEDS");
         let seeds = seeds_var.as_ref().map_or_else(
-            |_| node::p2p::BERKELEY_SEEDS.to_vec(),
+            |_| node::p2p::DEVNET_SEEDS.to_vec(),
             |val| val.split_whitespace().collect(),
         );
 
@@ -32,7 +32,7 @@ impl RecordReplayBootstrap {
             initial_peers,
             peer_id: TestPeerId::Bytes(rand::random()),
             recorder: Recorder::StateWithInputActions,
-            ..RustNodeTestingConfig::berkeley_default()
+            ..RustNodeTestingConfig::devnet_default()
         });
 
         // bootstrap the node.

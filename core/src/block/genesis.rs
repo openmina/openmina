@@ -7,12 +7,18 @@ pub fn genesis_and_negative_one_protocol_states(
     constants: v2::MinaBaseProtocolConstantsCheckedValueStableV1,
     genesis_ledger_hash: v2::LedgerHash,
     genesis_total_currency: v2::CurrencyAmountStableV1,
+    staking_epoch_ledger_hash: v2::LedgerHash,
+    staking_epoch_total_currency: v2::CurrencyAmountStableV1,
+    next_epoch_ledger_hash: v2::LedgerHash,
+    next_epoch_total_currency: v2::CurrencyAmountStableV1,
     genesis_winner: v2::NonZeroCurvePoint,
     empty_pending_coinbase_hash: v2::PendingCoinbaseHash,
     empty_local_state: v2::MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1,
     empty_body_hash: v2::ConsensusBodyReferenceStableV1,
     genesis_vrf_output: v2::ConsensusVrfOutputTruncatedStableV1,
-    genesis_epoch_seed: v2::EpochSeed,
+    staking_epoch_seed: v2::EpochSeed,
+    next_epoch_seed: v2::EpochSeed,
+    updated_next_epoch_seed: v2::EpochSeed,
 ) -> (
     v2::MinaStateProtocolStateValueStableV2,
     v2::MinaStateProtocolStateValueStableV2,
@@ -21,10 +27,16 @@ pub fn genesis_and_negative_one_protocol_states(
         constants.clone(),
         genesis_ledger_hash.clone(),
         genesis_total_currency.clone(),
+        staking_epoch_ledger_hash.clone(),
+        staking_epoch_total_currency.clone(),
+        next_epoch_ledger_hash.clone(),
+        next_epoch_total_currency.clone(),
         genesis_winner.clone(),
         empty_pending_coinbase_hash.clone(),
         empty_local_state.clone(),
         empty_body_hash.clone(),
+        staking_epoch_seed.clone(),
+        next_epoch_seed.clone(),
         true,
     );
     let negative_one_hash = negative_one.hash();
@@ -32,20 +44,26 @@ pub fn genesis_and_negative_one_protocol_states(
         constants,
         genesis_ledger_hash,
         genesis_total_currency,
+        staking_epoch_ledger_hash,
+        staking_epoch_total_currency,
+        next_epoch_ledger_hash,
+        next_epoch_total_currency,
         genesis_winner,
         empty_pending_coinbase_hash,
         empty_local_state,
         empty_body_hash,
+        staking_epoch_seed,
+        updated_next_epoch_seed.clone(),
         false,
     );
     if CONSTRAINT_CONSTANTS.fork.is_none() {
         genesis.previous_state_hash = negative_one_hash.clone();
-        genesis.body.genesis_state_hash = negative_one_hash.clone();
     }
+    genesis.body.genesis_state_hash = negative_one_hash.clone();
     genesis.body.consensus_state.last_vrf_output = genesis_vrf_output;
     genesis.body.consensus_state.next_epoch_data =
         v2::ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1 {
-            seed: genesis_epoch_seed,
+            seed: updated_next_epoch_seed,
             lock_checkpoint: negative_one_hash,
             epoch_length: 2.into(),
             ..genesis.body.consensus_state.next_epoch_data
@@ -59,17 +77,23 @@ fn protocol_state(
     constants: v2::MinaBaseProtocolConstantsCheckedValueStableV1,
     genesis_ledger_hash: v2::LedgerHash,
     genesis_total_currency: v2::CurrencyAmountStableV1,
+    staking_epoch_ledger_hash: v2::LedgerHash,
+    staking_epoch_total_currency: v2::CurrencyAmountStableV1,
+    next_epoch_ledger_hash: v2::LedgerHash,
+    next_epoch_total_currency: v2::CurrencyAmountStableV1,
     genesis_winner: v2::NonZeroCurvePoint,
     empty_pending_coinbase_hash: v2::PendingCoinbaseHash,
     empty_local_state: v2::MinaTransactionLogicZkappCommandLogicLocalStateValueStableV1,
     empty_body_hash: v2::ConsensusBodyReferenceStableV1,
+    staking_epoch_seed: v2::EpochSeed,
+    next_epoch_seed: v2::EpochSeed,
     negative_one: bool,
 ) -> v2::MinaStateProtocolStateValueStableV2 {
     v2::MinaStateProtocolStateValueStableV2 {
         previous_state_hash: match CONSTRAINT_CONSTANTS.fork.as_ref() {
             None => StateHash::zero(),
             Some(_) if negative_one => StateHash::zero(),
-            Some(fork) => StateHash::from_fp(fork.previous_state_hash),
+            Some(fork) => StateHash::from_fp(fork.state_hash),
         },
         body: v2::MinaStateProtocolStateBodyValueStableV2 {
             genesis_state_hash: StateHash::zero(),
@@ -82,9 +106,14 @@ fn protocol_state(
             ),
             consensus_state: consensus_state(
                 &constants,
-                genesis_ledger_hash,
                 genesis_total_currency,
+                staking_epoch_ledger_hash,
+                staking_epoch_total_currency,
+                next_epoch_ledger_hash,
+                next_epoch_total_currency,
                 genesis_winner,
+                staking_epoch_seed,
+                next_epoch_seed,
                 negative_one,
             ),
             constants,
@@ -137,17 +166,26 @@ fn blockchain_state(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn consensus_state(
     constants: &v2::MinaBaseProtocolConstantsCheckedValueStableV1,
-    genesis_ledger_hash: v2::LedgerHash,
     genesis_total_currency: v2::CurrencyAmountStableV1,
+    staking_epoch_ledger_hash: v2::LedgerHash,
+    staking_epoch_total_currency: v2::CurrencyAmountStableV1,
+    next_epoch_ledger_hash: v2::LedgerHash,
+    next_epoch_total_currency: v2::CurrencyAmountStableV1,
     genesis_winner: v2::NonZeroCurvePoint,
+    staking_epoch_seed: v2::EpochSeed,
+    next_epoch_seed: v2::EpochSeed,
     negative_one: bool,
 ) -> v2::ConsensusProofOfStakeDataConsensusStateValueStableV2 {
     let is_genesis = if negative_one { 0 } else { 1 };
     let (blockchain_length, global_slot_since_genesis) = match CONSTRAINT_CONSTANTS.fork.as_ref() {
         None => (is_genesis, 0),
-        Some(fork) => (fork.previous_length + is_genesis, fork.previous_global_slot),
+        Some(fork) => (
+            fork.blockchain_length + is_genesis,
+            fork.global_slot_since_genesis,
+        ),
     };
 
     v2::ConsensusProofOfStakeDataConsensusStateValueStableV2 {
@@ -161,7 +199,7 @@ fn consensus_state(
             )
             .collect(),
         last_vrf_output: v2::ConsensusVrfOutputTruncatedStableV1::zero(),
-        total_currency: genesis_total_currency.clone(),
+        total_currency: genesis_total_currency,
         curr_global_slot_since_hard_fork: v2::ConsensusGlobalSlotStableV1 {
             slot_number: v2::MinaNumbersGlobalSlotSinceHardForkMStableV1::SinceHardFork(
                 v2::UnsignedExtendedUInt32StableV1::default(),
@@ -173,13 +211,15 @@ fn consensus_state(
         ),
         staking_epoch_data:
             v2::ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1::zero(
-                genesis_ledger_hash.clone(),
-                genesis_total_currency.clone(),
+                staking_epoch_ledger_hash,
+                staking_epoch_total_currency,
+                staking_epoch_seed,
             ),
         next_epoch_data:
             v2::ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1::zero(
-                genesis_ledger_hash,
-                genesis_total_currency,
+                next_epoch_ledger_hash,
+                next_epoch_total_currency,
+                next_epoch_seed,
             ),
         has_ancestor_in_same_checkpoint_window: !negative_one,
         block_stake_winner: genesis_winner.clone(),

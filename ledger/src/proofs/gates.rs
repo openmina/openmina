@@ -19,6 +19,8 @@ use mina_p2p_messages::binprot::{
     macros::{BinProtRead, BinProtWrite},
 };
 
+pub const CIRCUIT_DIRECTORY: &str = "3.0.0devnet";
+
 struct Gates {
     step_tx_gates: Vec<CircuitGate<Fp>>,
     wrap_tx_gates: Vec<CircuitGate<Fq>>,
@@ -74,7 +76,7 @@ fn read_gates() -> Gates {
         Vec<CircuitGate<F>>,
     ) {
         let base_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
-        let base_dir = base_dir.join("berkeley_rc1");
+        let base_dir = base_dir.join(CIRCUIT_DIRECTORY);
 
         let internal_vars_path = base_dir.join(format!("{}_internal_vars.bin", filename));
         let rows_rev_path = base_dir.join(format!("{}_rows_rev.bin", filename));
@@ -88,31 +90,31 @@ fn read_gates() -> Gates {
     }
 
     let (step_tx_internal_vars, step_tx_rows_rev, step_tx_gates) = {
-        make("step-step-proving-key-transaction-snark-transaction-0-81cc493d6bc2538fdbee3ad60fd77758")
+        make("step-step-proving-key-transaction-snark-transaction-0-c33ec5211c07928c87e850a63c6a2079")
     };
     let (wrap_tx_internal_vars, wrap_tx_rows_rev, wrap_tx_gates) =
-        { make("wrap-wrap-proving-key-transaction-snark-96f388cb62fd3b955368b475623e0a92") };
+        { make("wrap-wrap-proving-key-transaction-snark-b9a01295c8cc9bda6d12142a581cd305") };
     let (step_merge_internal_vars, step_merge_rows_rev, step_merge_gates) = {
         make("step-step-proving-key-transaction-snark-merge-1-ba1d52dfdc2dd4d2e61f6c66ff2a5b2f")
     };
     let (step_block_internal_vars, step_block_rows_rev, step_block_gates) =
-        { make("step-step-proving-key-blockchain-snark-step-0-c6715547791ab80660cda1f715ce8c58") };
+        { make("step-step-proving-key-blockchain-snark-step-0-55f640777b6486a6fd3fdbc3fcffcc60") };
     let (wrap_block_internal_vars, wrap_block_rows_rev, wrap_block_gates) =
-        { make("wrap-wrap-proving-key-blockchain-snark-b18a44f63a978aec2c3f3dbb392acbfb") };
+        { make("wrap-wrap-proving-key-blockchain-snark-bbecaf158ca543ec8ac9e7144400e669") };
     let (
         step_opt_signed_opt_signed_internal_vars,
         step_opt_signed_opt_signed_rows_rev,
         step_opt_signed_opt_signed_gates,
     ) = {
-        make("step-step-proving-key-transaction-snark-opt_signed-opt_signed-2-4a4a49c139f2fb195603ffc386c41cc6")
+        make("step-step-proving-key-transaction-snark-opt_signed-opt_signed-2-48925e6a97197028e1a7c1ecec09021d")
     };
     let (step_opt_signed_internal_vars, step_opt_signed_rows_rev, step_opt_signed_gates) = {
         make(
-            "step-step-proving-key-transaction-snark-opt_signed-3-6f4b0c362fb64d33fe3c8a3ed1351de5",
+            "step-step-proving-key-transaction-snark-opt_signed-3-9eefed16953d2bfa78a257adece02d47",
         )
     };
     let (step_proved_internal_vars, step_proved_rows_rev, step_proved_gates) = {
-        make("step-step-proving-key-transaction-snark-proved-4-879547e44319e1b0a4bb2513c66be9f8")
+        make("step-step-proving-key-transaction-snark-proved-4-0cafcbc6dffccddbc82f8c2519c16341")
     };
 
     Gates {

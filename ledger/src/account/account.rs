@@ -4,6 +4,7 @@ use ark_ff::{BigInteger256, One, UniformRand, Zero};
 use mina_hasher::Fp;
 use mina_p2p_messages::binprot::{BinProtRead, BinProtWrite};
 use mina_signer::CompressedPubKey;
+use openmina_core::constants::PROTOCOL_VERSION;
 use rand::{prelude::ThreadRng, seq::SliceRandom, Rng};
 use serde::{Deserialize, Serialize};
 
@@ -34,7 +35,8 @@ use crate::{
 use super::common::*;
 
 /// Mina_numbers.Txn_version.current
-pub const TXN_VERSION_CURRENT: TxnVersion = TxnVersion::from_u32(2);
+pub const TXN_VERSION_CURRENT: TxnVersion =
+    TxnVersion::from_u32(PROTOCOL_VERSION.transaction.as_u64() as u32);
 
 #[derive(Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct TokenId(pub Fp);
@@ -1514,7 +1516,7 @@ mod tests {
 
         assert_eq!(
             hash.to_hex(),
-            "d17c17038db495e03eb95af0e4e79248b9ad1363862f4b194644d46932a62c1c"
+            "7018596b7a10344908c7582482b1401a3cbdd40212beb428baf629b84ceb7f0b"
         );
 
         let acc = Account {
@@ -1536,7 +1538,62 @@ mod tests {
 
         assert_eq!(
             acc.hash().to_hex(),
-            "d39fb6f37dd1d7fb3928c8f493bbeade214fdeae89d3703192e2b4f1373e421c"
+            "8cb53d374b844227d4c63b2dcf198312f8fcb4b60392fee5b165243508d16e32"
+        );
+    }
+
+    #[test]
+    fn test_hash_genesis_winner_account() {
+        let acc = Account {
+            public_key: CompressedPubKey::from_address(
+                "B62qiy32p8kAKnny8ZFwoMhYpBppM1DWVCqAPBYNcXnsAHhnfAAuXgg",
+            )
+            .unwrap(),
+            token_id: TokenId::default(),
+            token_symbol: TokenSymbol::default(),
+            balance: Balance::from_u64(20000001000),
+            nonce: Nonce::from_u32(0),
+            receipt_chain_hash: ReceiptChainHash::parse_str(
+                "2mzbV7WevxLuchs2dAMY4vQBS6XttnCUF8Hvks4XNBQ5qiSGGBQe",
+            )
+            .unwrap(),
+            delegate: Some(
+                CompressedPubKey::from_address(
+                    "B62qiy32p8kAKnny8ZFwoMhYpBppM1DWVCqAPBYNcXnsAHhnfAAuXgg",
+                )
+                .unwrap(),
+            ),
+            voting_for: VotingFor::parse_str(
+                "3NK2tkzqqK5spR2sZ7tujjqPksL45M3UUrcA4WhCkeiPtnugyE2x",
+            )
+            .unwrap(),
+            timing: Timing::Untimed,
+            permissions: Permissions {
+                edit_state: AuthRequired::Signature,
+                access: AuthRequired::None,
+                send: AuthRequired::Signature,
+                receive: AuthRequired::None,
+                set_delegate: AuthRequired::Signature,
+                set_permissions: AuthRequired::Signature,
+                set_verification_key: SetVerificationKey {
+                    auth: AuthRequired::Signature,
+                    txn_version: TxnVersion::from_u32(2),
+                },
+                set_zkapp_uri: AuthRequired::Signature,
+                edit_action_state: AuthRequired::Signature,
+                set_token_symbol: AuthRequired::Signature,
+                increment_nonce: AuthRequired::Signature,
+                set_voting_for: AuthRequired::Signature,
+                set_timing: AuthRequired::Signature,
+            },
+            zkapp: None,
+        };
+
+        println!("{:?}", acc);
+
+        assert_eq!(
+            mina_p2p_messages::v2::LedgerHash::from_fp(acc.hash()).to_string(),
+            "jwnEz6CjzSYowUsvw5gKpuTkRjBY5dEtc6YmQj1U5d2k5KZzTmc"
         );
     }
 

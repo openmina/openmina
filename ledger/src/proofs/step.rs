@@ -417,6 +417,30 @@ pub mod step_verifier {
         }
     }
 
+    // TODO: This assumes that feature flags are never enabled (we make this assumption everywhere else too)
+    fn validate_feature_flags(hack_feature_flags: OptFlag, w: &mut Witness<Fp>) {
+        let no = CircuitVar::Var(Boolean::False);
+
+        let range_check0 = no;
+        let range_check1 = no;
+        let rot = no;
+        let xor = no;
+        let foreign_field_mul = no;
+        let lookup = no;
+
+        if let OptFlag::Maybe = hack_feature_flags {
+            let range_check_lookup = {
+                let first = range_check0.or(&range_check1, w);
+                first.or(&rot, w)
+            };
+            let lookups_per_row_4 = {
+                let first = xor.or(&range_check_lookup, w);
+                first.or(&foreign_field_mul, w)
+            };
+            let _lookups_per_row_3 = lookups_per_row_4.or(&lookup, w);
+        };
+    }
+
     pub(super) struct FinalizeOtherProofParams<'a> {
         pub(super) max_proof_verified: usize,
         pub(super) feature_flags: &'a FeatureFlags<OptFlag>,
@@ -451,6 +475,8 @@ pub mod step_verifier {
             bulletproof_challenges,
             branch_data,
         } = deferred_values;
+
+        validate_feature_flags(hack_feature_flags, w);
 
         let AllEvals { ft_eval1, evals } = evals;
 

@@ -126,10 +126,10 @@ impl FromStr for SnarkerStrategy {
     }
 }
 
-// Load static berkeley genesis ledger for testing
+// Load static devnet genesis ledger for testing
 lazy_static::lazy_static! {
-    pub static ref BERKELEY_CONFIG: Arc<GenesisConfig> = {
-        let bytes = include_bytes!("../../genesis_ledgers/berkeley.bin");
+    pub static ref DEVNET_CONFIG: Arc<GenesisConfig> = {
+        let bytes = include_bytes!("../../genesis_ledgers/devnet.bin");
         Arc::new(GenesisConfig::Prebuilt(
             std::borrow::Cow::Borrowed(bytes)
         ))
@@ -140,21 +140,21 @@ lazy_static::lazy_static! {
 mod tests {
     use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 
-    use super::BERKELEY_CONFIG;
+    use super::DEVNET_CONFIG;
 
     #[test]
-    fn berkeley_config() {
-        let (_mask, config) = BERKELEY_CONFIG.load().expect("should be loadable");
+    fn devnet_config() {
+        let (_mask, config) = DEVNET_CONFIG.load().expect("should be loadable");
 
         assert_eq!(
-            config.ledger_hash,
-            "jwkqwgAC6MXgfiZmynHRqXV6PGbMbLwFCx56Y2rt5vwdumf6ofp"
+            config.genesis_ledger_hash,
+            "jy1wjiJgTkzXr7yL8r5x4ikaNJuikibsRMnkjdH6uqGCsDmR2sf"
                 .parse()
                 .unwrap()
         );
         assert_eq!(
             config.constants.genesis_state_timestamp,
-            OffsetDateTime::parse("2024-02-02T14:01:01Z", &Rfc3339)
+            OffsetDateTime::parse("2024-04-09T21:00:00Z", &Rfc3339)
                 .unwrap()
                 .into()
         );

@@ -6,7 +6,7 @@ const CHUNK_SIZE: usize = 5_000;
 
 /// String of bytes.
 #[derive(Clone, Default, PartialEq, Eq, PartialOrd, Ord)]
-pub struct ByteString(Vec<u8>);
+pub struct ByteString(pub Vec<u8>);
 
 impl std::fmt::Debug for ByteString {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
