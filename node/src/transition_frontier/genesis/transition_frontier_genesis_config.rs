@@ -61,6 +61,11 @@ fn bp_num_delegators(i: usize) -> usize {
 pub enum GenesisConfigError {
     #[error("no ledger in configuration")]
     NoLedger,
+    #[error("declared and computed ledger hashes don't match: {expected} != {computed}")]
+    LedgerHashMismatch {
+        expected: v2::LedgerHash,
+        computed: v2::LedgerHash,
+    },
     #[error("account error: {0}")]
     Account(#[from] AccountConfigError),
     #[error("error loading genesis config from precomputed data: {0}")]
@@ -207,9 +212,13 @@ impl GenesisConfig {
                 let (mut mask, total_currency) = Self::build_ledger_from_accounts(accounts);
                 let genesis_ledger_hash = ledger_hash(&mut mask);
 
-                // TODO(devnet): fail more gracefully
                 if let Some(expected_hash) = config.ledger.as_ref().and_then(|l| l.hash.as_ref()) {
-                    assert_eq!(expected_hash, &genesis_ledger_hash.to_string());
+                    if expected_hash != &genesis_ledger_hash.to_string() {
+                        return Err(GenesisConfigError::LedgerHashMismatch {
+                            expected: expected_hash.parse().unwrap(),
+                            computed: genesis_ledger_hash.clone(),
+                        });
+                    }
                 }
 
                 let staking_epoch_ledger_hash;
@@ -458,8 +467,14 @@ impl TryFrom<EpochData> for PrebuiltGenesisEpochData {
         let (mut mask, _total_currency) =
             GenesisConfig::build_ledger_from_accounts(ledger_accounts);
         let ledger_hash = ledger_hash(&mut mask);
-        // TODO(devnet): fail gracefully
-        assert_eq!(ledger_hash, expected_ledger_hash);
+
+        if ledger_hash != expected_ledger_hash {
+            return Err(Self::Error::LedgerHashMismatch {
+                expected: expected_ledger_hash,
+                computed: ledger_hash,
+            });
+        }
+
         let hashes = mask
             .get_raw_inner_hashes()
             .into_iter()
