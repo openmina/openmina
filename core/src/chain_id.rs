@@ -127,9 +127,9 @@ impl Debug for ChainId {
     }
 }
 
-pub const BERKELEY_CHAIN_ID: ChainId = ChainId([
-    0xfd, 0x7d, 0x11, 0x19, 0x73, 0xbf, 0x5a, 0x9e, 0x3e, 0x87, 0x38, 0x4f, 0x56, 0x0f, 0xde, 0xad,
-    0x2f, 0x27, 0x25, 0x89, 0xca, 0x00, 0xb6, 0xd9, 0xe3, 0x57, 0xfc, 0xa9, 0x83, 0x96, 0x31, 0xda,
+pub const DEVNET_CHAIN_ID: ChainId = ChainId([
+    0x29, 0x93, 0x61, 0x04, 0x44, 0x3a, 0xaf, 0x26, 0x4a, 0x7f, 0x01, 0x92, 0xac, 0x64, 0xb1, 0xc7,
+    0x17, 0x31, 0x98, 0xc1, 0xed, 0x40, 0x4c, 0x1b, 0xcf, 0xf5, 0xe5, 0x62, 0xe0, 0x5e, 0xb7, 0xf6,
 ]);
 
 #[cfg(test)]
@@ -140,18 +140,19 @@ mod test {
     use crate::constants::*;
 
     #[test]
-    fn test_berkeley_chain_id() {
-        let genesis_state_hash = "3NK512ryRJvj1TUKGgPoGZeHSNbn37e9BbnpyeqHL9tvKLeD8yrY"
+    fn test_devnet_chain_id() {
+        // First block after fork: https://devnet.minaexplorer.com/block/3NL93SipJfAMNDBRfQ8Uo8LPovC74mnJZfZYB5SK7mTtkL72dsPx
+        let genesis_state_hash = "3NL93SipJfAMNDBRfQ8Uo8LPovC74mnJZfZYB5SK7mTtkL72dsPx"
             .parse()
             .unwrap();
 
         let mut protocol_constants = PROTOCOL_CONSTANTS.clone();
         protocol_constants.genesis_state_timestamp =
-            OffsetDateTime::parse("2024-02-02T14:01:01Z", &Rfc3339)
+            OffsetDateTime::parse("2024-04-09T21:00:00Z", &Rfc3339)
                 .unwrap()
                 .into();
 
-        // Compute the chain id for the Berkeley network and compare it the real one.
+        // Compute the chain id for the Devnet network and compare it the real one.
         let chain_id = ChainId::compute(
             CONSTRAINT_SYSTEM_DIGESTS.as_slice(),
             &genesis_state_hash,
@@ -160,14 +161,14 @@ mod test {
             PROTOCOL_NETWORK_VERSION,
             &UnsignedExtendedUInt32StableV1::from(TX_POOL_MAX_SIZE),
         );
-        assert_eq!(chain_id, BERKELEY_CHAIN_ID);
+        assert_eq!(chain_id, DEVNET_CHAIN_ID);
     }
 
     #[test]
     fn test_chain_id_as_hex() {
         assert_eq!(
-            BERKELEY_CHAIN_ID.to_hex(),
-            "fd7d111973bf5a9e3e87384f560fdead2f272589ca00b6d9e357fca9839631da"
+            DEVNET_CHAIN_ID.to_hex(),
+            "29936104443aaf264a7f0192ac64b1c7173198c1ed404c1bcff5e562e05eb7f6"
         );
     }
 }

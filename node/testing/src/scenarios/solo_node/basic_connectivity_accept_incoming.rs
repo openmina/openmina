@@ -24,13 +24,13 @@ pub struct SoloNodeBasicConnectivityAcceptIncoming;
 impl SoloNodeBasicConnectivityAcceptIncoming {
     pub async fn run(self, mut runner: ClusterRunner<'_>) {
         const MAX_PEERS_PER_NODE: usize = 100;
-        const KNOWN_PEERS: usize = 7; // current berkeley network
+        const KNOWN_PEERS: usize = 7; // current devnet network
         const STEPS: usize = 6_000;
         const STEP_DELAY: Duration = Duration::from_millis(200);
 
         let seeds_var = std::env::var("OPENMINA_SCENARIO_SEEDS");
         let seeds = seeds_var.as_ref().map_or_else(
-            |_| node::p2p::BERKELEY_SEEDS.to_vec(),
+            |_| node::p2p::DEVNET_SEEDS.to_vec(),
             |val| val.split_whitespace().collect(),
         );
 
