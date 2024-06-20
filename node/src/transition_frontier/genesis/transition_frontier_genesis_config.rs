@@ -1,6 +1,8 @@
 use std::{
     borrow::Cow,
+    fs::File,
     io::{Read, Write},
+    path::PathBuf,
     str::FromStr,
 };
 
@@ -267,6 +269,7 @@ impl GenesisConfig {
                     next_epoch_seed = v2::EpochSeed::zero();
                 }
 
+                let ledger_hash = genesis_ledger_hash.to_string();
                 let result = GenesisConfigLoaded {
                     constants,
                     genesis_ledger_hash,
@@ -279,6 +282,38 @@ impl GenesisConfig {
                     staking_epoch_seed,
                     next_epoch_seed,
                 };
+                let prebuilt = PrebuiltGenesisConfig::try_from(*config.clone())?;
+                let cache_filename = std::env::var_os("HOME")
+                    .map(|home| {
+                        PathBuf::from(home)
+                            .join(".cache/openmina/ledgers")
+                            .join(ledger_hash.to_string() + ".bin")
+                    })
+                    .unwrap();
+                let filename_str = cache_filename
+                    .clone()
+                    .into_os_string()
+                    .into_string()
+                    .unwrap();
+                let cache_ledger_result =
+                    File::create(cache_filename).and_then(|cache_file| prebuilt.store(cache_file));
+                match cache_ledger_result {
+                    Ok(_) => {
+                        openmina_core::info!(
+                            openmina_core::log::system_time();
+                            message = "Ledger cache file created",
+                            filename = filename_str,
+                        )
+                    }
+                    Err(e) => {
+                        openmina_core::info!(
+                            openmina_core::log::system_time();
+                            message = "Failed to create ledger cache file",
+                            filename = filename_str,
+                            error = e.to_string(),
+                        )
+                    }
+                }
                 (mask, result)
             }
         })
