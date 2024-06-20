@@ -5,8 +5,16 @@ use super::{
 };
 
 impl WatchedAccountsState {
-    pub fn reducer(mut state: crate::Substate<Self>, action: WatchedAccountsActionWithMetaRef<'_>) {
+    pub fn reducer(
+        mut state_context: crate::Substate<Self>,
+        action: WatchedAccountsActionWithMetaRef<'_>,
+    ) {
+        let Ok(state) = state_context.get_substate_mut() else {
+            // TODO: log or propagate
+            return;
+        };
         let (action, meta) = action.split();
+
         match action {
             WatchedAccountsAction::Add { pub_key } => {
                 state.insert(
@@ -19,7 +27,7 @@ impl WatchedAccountsState {
 
                 // Dispatch
                 let pub_key = pub_key.clone();
-                let dispatcher = state.into_dispatcher();
+                let dispatcher = state_context.into_dispatcher();
                 dispatcher.push(WatchedAccountsAction::LedgerInitialStateGetInit { pub_key });
             }
             WatchedAccountsAction::LedgerInitialStateGetInit { pub_key: _ }
@@ -156,7 +164,7 @@ impl WatchedAccountsState {
 
                 let pub_key = pub_key.clone();
                 let block_hash = block.hash.clone();
-                let dispatcher = state.into_dispatcher();
+                let dispatcher = state_context.into_dispatcher();
                 dispatcher.push(WatchedAccountsAction::BlockLedgerQueryInit {
                     pub_key,
                     block_hash,

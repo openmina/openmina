@@ -61,28 +61,6 @@ impl<'a, A, T, S> From<(&'a mut T, &'a mut Dispatcher<A, T>)> for Substate<'a, A
     }
 }
 
-// TODO: remove
-impl<'a, A, T, S> std::ops::Deref for Substate<'a, A, T, S>
-where
-    T: SubstateAccess<S>,
-{
-    type Target = S;
-
-    fn deref(&self) -> &Self::Target {
-        self.get_substate().unwrap()
-    }
-}
-
-// TODO: remove
-impl<'a, A, T, S> std::ops::DerefMut for Substate<'a, A, T, S>
-where
-    T: SubstateAccess<S>,
-{
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        self.get_substate_mut().unwrap()
-    }
-}
-
 #[macro_export]
 macro_rules! impl_substate_access {
     ($state:ty, $substate_type:ty, $($substate_path:tt)*) => {

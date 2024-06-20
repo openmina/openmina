@@ -9,7 +9,7 @@ use super::{
 };
 
 pub fn reducer<State, Action>(
-    mut state: Substate<Action, State, SnarkBlockVerifyState>,
+    mut state_context: Substate<Action, State, SnarkBlockVerifyState>,
     action: SnarkBlockVerifyActionWithMetaRef<'_>,
 ) where
     State: SubstateAccess<SnarkBlockVerifyState> + SubstateAccess<crate::SnarkState>,
@@ -18,7 +18,12 @@ pub fn reducer<State, Action>(
         + From<redux::AnyAction>
         + EnablingCondition<State>,
 {
+    let Ok(state) = state_context.get_substate_mut() else {
+        // TODO: log or propagate
+        return;
+    };
     let (action, meta) = action.split();
+
     match action {
         SnarkBlockVerifyAction::Init {
             block,
@@ -35,7 +40,7 @@ pub fn reducer<State, Action>(
             // Dispatch
             let verifier_index = state.verifier_index.clone();
             let verifier_srs = state.verifier_srs.clone();
-            let dispatcher = state.into_dispatcher();
+            let dispatcher = state_context.into_dispatcher();
             dispatcher.push(SnarkBlockVerifyEffectfulAction::Init {
                 req_id: *req_id,
                 block: block.clone(),
@@ -70,7 +75,7 @@ pub fn reducer<State, Action>(
             }
 
             // Dispatch
-            let dispatcher = state.into_dispatcher();
+            let dispatcher = state_context.into_dispatcher();
             dispatcher.push(SnarkBlockVerifyAction::Finish { req_id: *req_id });
         }
         SnarkBlockVerifyAction::Success { req_id, .. } => {
@@ -92,7 +97,7 @@ pub fn reducer<State, Action>(
             });
 
             // Dispatch
-            let dispatcher = state.into_dispatcher();
+            let dispatcher = state_context.into_dispatcher();
 
             if let Some((callback, block_hash)) = callback_and_arg {
                 dispatcher.push_callback(callback, block_hash);

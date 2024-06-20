@@ -13,29 +13,33 @@ use super::{
 
 impl TransitionFrontierSyncLedgerState {
     pub fn reducer(
-        mut state: crate::Substate<Self>,
+        mut state_context: crate::Substate<Self>,
         action: TransitionFrontierSyncLedgerActionWithMetaRef<'_>,
     ) {
+        let Ok(state) = state_context.get_substate_mut() else {
+            // TODO: log or propagate
+            return;
+        };
         let (action, meta) = action.split();
-        let state_mut = &mut *state;
+
         match action {
             TransitionFrontierSyncLedgerAction::Init => {}
             TransitionFrontierSyncLedgerAction::Snarked(action) => {
                 if let TransitionFrontierSyncLedgerSnarkedAction::Pending = action {
-                    let Self::Init { target, .. } = state_mut else {
+                    let Self::Init { target, .. } = state else {
                         return;
                     };
                     let s = TransitionFrontierSyncLedgerSnarkedState::pending(
                         meta.time(),
                         target.clone(),
                     );
-                    *state_mut = Self::Snarked(s);
+                    *state = Self::Snarked(s);
                 } else {
-                    if state_mut.snarked().is_none() {
+                    if state.snarked().is_none() {
                         return;
                     };
                     TransitionFrontierSyncLedgerSnarkedState::reducer(
-                        Substate::from_compatible_substate(state),
+                        Substate::from_compatible_substate(state_context),
                         meta.with_action(action),
                     );
                 }
@@ -45,7 +49,7 @@ impl TransitionFrontierSyncLedgerState {
             ) => {
                 let Self::Snarked(TransitionFrontierSyncLedgerSnarkedState::Success {
                     target, ..
-                }) = state_mut
+                }) = state
                 else {
                     return;
                 };
@@ -53,9 +57,9 @@ impl TransitionFrontierSyncLedgerState {
                     meta.time(),
                     target.clone().with_staged().unwrap(),
                 );
-                *state_mut = Self::Staged(s);
+                *state = Self::Staged(s);
             }
-            TransitionFrontierSyncLedgerAction::Staged(action) => match state_mut {
+            TransitionFrontierSyncLedgerAction::Staged(action) => match state {
                 Self::Snarked(TransitionFrontierSyncLedgerSnarkedState::Success {
                     target, ..
                 }) if matches!(
@@ -67,22 +71,22 @@ impl TransitionFrontierSyncLedgerState {
                         time: meta.time(),
                         target: target.clone().with_staged().unwrap(),
                     };
-                    *state_mut = Self::Staged(s);
+                    *state = Self::Staged(s);
                 }
                 Self::Staged(_) => TransitionFrontierSyncLedgerStagedState::reducer(
-                    Substate::from_compatible_substate(state),
+                    Substate::from_compatible_substate(state_context),
                     meta.with_action(action),
                 ),
                 _ => (),
             },
             TransitionFrontierSyncLedgerAction::Success => {
-                match state_mut {
+                match state {
                     Self::Staged(TransitionFrontierSyncLedgerStagedState::Success {
                         target,
                         needed_protocol_states,
                         ..
                     }) => {
-                        *state_mut = Self::Success {
+                        *state = Self::Success {
                             time: meta.time(),
                             target: target.clone().into(),
                             needed_protocol_states: std::mem::take(needed_protocol_states),
@@ -92,7 +96,7 @@ impl TransitionFrontierSyncLedgerState {
                         target,
                         ..
                     }) => {
-                        *state_mut = Self::Success {
+                        *state = Self::Success {
                             time: meta.time(),
                             target: target.clone(),
                             // No additional protocol states needed for snarked ledger.

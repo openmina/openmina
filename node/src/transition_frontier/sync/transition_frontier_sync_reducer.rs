@@ -15,12 +15,16 @@ use super::{
 
 impl TransitionFrontierSyncState {
     pub fn reducer(
-        mut state: crate::Substate<Self>,
+        mut state_context: crate::Substate<Self>,
         action: TransitionFrontierSyncActionWithMetaRef<'_>,
         best_chain: &[ArcBlockWithHash],
     ) {
+        let Ok(state) = state_context.get_substate_mut() else {
+            // TODO: log or propagate
+            return;
+        };
         let (action, meta) = action.split();
-        let state_mut = &mut *state;
+
         match action {
             TransitionFrontierSyncAction::Init {
                 best_tip,
@@ -39,7 +43,7 @@ impl TransitionFrontierSyncState {
                 best_tip,
                 root_block,
                 blocks_inbetween,
-            } => match state_mut {
+            } => match state {
                 Self::StakingLedgerPending(substate)
                 | Self::NextEpochLedgerPending(substate)
                 | Self::RootLedgerPending(substate) => {
@@ -51,12 +55,12 @@ impl TransitionFrontierSyncState {
                     let staking_epoch_target = SyncLedgerTarget::staking_epoch(best_tip);
                     let next_epoch_target = SyncLedgerTarget::next_epoch(best_tip, root_block);
 
-                    let new_target = if let Self::StakingLedgerPending(substate) = state_mut {
+                    let new_target = if let Self::StakingLedgerPending(substate) = state {
                         substate
                             .ledger
                             .update_target(meta.time(), staking_epoch_target);
                         None
-                    } else if let Self::NextEpochLedgerPending(substate) = state_mut {
+                    } else if let Self::NextEpochLedgerPending(substate) = state {
                         if old_best_tip.staking_epoch_ledger_hash()
                             != best_tip.staking_epoch_ledger_hash()
                         {
@@ -69,7 +73,7 @@ impl TransitionFrontierSyncState {
                             }
                             None
                         }
-                    } else if let Self::RootLedgerPending(substate) = state_mut {
+                    } else if let Self::RootLedgerPending(substate) = state {
                         if old_best_tip.staking_epoch_ledger_hash()
                             != best_tip.staking_epoch_ledger_hash()
                         {
@@ -254,7 +258,7 @@ impl TransitionFrontierSyncState {
                     root_block,
                     blocks_inbetween,
                     ..
-                } = state_mut
+                } = state
                 {
                     *state = Self::StakingLedgerPending(TransitionFrontierSyncLedgerPending {
                         time: meta.time(),
@@ -269,7 +273,7 @@ impl TransitionFrontierSyncState {
                 }
             }
             TransitionFrontierSyncAction::LedgerStakingSuccess => {
-                if let Self::StakingLedgerPending(substate) = state_mut {
+                if let Self::StakingLedgerPending(substate) = state {
                     let TransitionFrontierSyncLedgerState::Success {
                         needed_protocol_states,
                         ..
@@ -287,7 +291,7 @@ impl TransitionFrontierSyncState {
                 }
             }
             TransitionFrontierSyncAction::LedgerNextEpochPending => {
-                let (best_tip, root_block, blocks_inbetween) = match state_mut {
+                let (best_tip, root_block, blocks_inbetween) = match state {
                     Self::Init {
                         best_tip,
                         root_block,
@@ -317,7 +321,7 @@ impl TransitionFrontierSyncState {
                 });
             }
             TransitionFrontierSyncAction::LedgerNextEpochSuccess => {
-                if let Self::NextEpochLedgerPending(substate) = state_mut {
+                if let Self::NextEpochLedgerPending(substate) = state {
                     let TransitionFrontierSyncLedgerState::Success {
                         needed_protocol_states,
                         ..
@@ -335,7 +339,7 @@ impl TransitionFrontierSyncState {
                 }
             }
             TransitionFrontierSyncAction::LedgerRootPending => {
-                let (best_tip, root_block, blocks_inbetween) = match state_mut {
+                let (best_tip, root_block, blocks_inbetween) = match state {
                     Self::Init {
                         best_tip,
                         root_block,
@@ -368,7 +372,7 @@ impl TransitionFrontierSyncState {
                 });
             }
             TransitionFrontierSyncAction::LedgerRootSuccess => {
-                if let Self::RootLedgerPending(substate) = state_mut {
+                if let Self::RootLedgerPending(substate) = state {
                     let TransitionFrontierSyncLedgerState::Success {
                         needed_protocol_states,
                         ..
@@ -392,7 +396,7 @@ impl TransitionFrontierSyncState {
                     blocks_inbetween,
                     needed_protocol_states,
                     ..
-                } = state_mut
+                } = state
                 else {
                     return;
                 };
@@ -480,7 +484,7 @@ impl TransitionFrontierSyncState {
                 rpc_id,
                 error,
             } => {
-                let Self::BlocksPending { chain, .. } = state_mut else {
+                let Self::BlocksPending { chain, .. } = state else {
                     return;
                 };
                 let Some(peer_state) = chain.iter_mut().find_map(|b| {
@@ -556,7 +560,7 @@ impl TransitionFrontierSyncState {
                     root_snarked_ledger_updates,
                     needed_protocol_states,
                     ..
-                } = state_mut
+                } = state
                 else {
                     return;
                 };
@@ -589,7 +593,7 @@ impl TransitionFrontierSyncState {
                     root_snarked_ledger_updates,
                     needed_protocol_states,
                     ..
-                } = state_mut
+                } = state
                 {
                     *state = Self::CommitPending {
                         time: meta.time(),
@@ -605,7 +609,7 @@ impl TransitionFrontierSyncState {
                     root_snarked_ledger_updates,
                     needed_protocol_states,
                     ..
-                } = state_mut
+                } = state
                 {
                     *state = Self::CommitSuccess {
                         time: meta.time(),
@@ -618,7 +622,7 @@ impl TransitionFrontierSyncState {
             TransitionFrontierSyncAction::Ledger(a) => {
                 if state.ledger_mut().is_some() {
                     TransitionFrontierSyncLedgerState::reducer(
-                        crate::Substate::from_compatible_substate(state),
+                        crate::Substate::from_compatible_substate(state_context),
                         meta.with_action(a),
                     );
                 }

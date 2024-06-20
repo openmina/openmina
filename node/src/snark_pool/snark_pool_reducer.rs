@@ -13,12 +13,20 @@ use super::{
 };
 
 impl SnarkPoolState {
-    pub fn reducer(mut state: crate::Substate<Self>, action: SnarkPoolActionWithMetaRef<'_>) {
+    pub fn reducer(
+        mut state_context: crate::Substate<Self>,
+        action: SnarkPoolActionWithMetaRef<'_>,
+    ) {
+        let Ok(state) = state_context.get_substate_mut() else {
+            // TODO: log or propagate
+            return;
+        };
         let (action, meta) = action.split();
+
         match action {
             SnarkPoolAction::Candidate(action) => {
                 super::candidate::SnarkPoolCandidatesState::reducer(
-                    crate::Substate::from_compatible_substate(state),
+                    crate::Substate::from_compatible_substate(state_context),
                     meta.with_action(action),
                 );
             }
@@ -64,7 +72,7 @@ impl SnarkPoolState {
                 state.candidates_prune();
 
                 // Dispatch
-                let (dispatcher, global_state) = state.into_dispatcher_and_state();
+                let (dispatcher, global_state) = state_context.into_dispatcher_and_state();
                 if let Some(job_id) = global_state.external_snark_worker.working_job_id() {
                     if !global_state.snark_pool.contains(job_id) {
                         // job is no longer needed.
@@ -75,7 +83,7 @@ impl SnarkPoolState {
                 }
             }
             SnarkPoolAction::AutoCreateCommitment => {
-                let (dispatcher, global_state) = state.into_dispatcher_and_state();
+                let (dispatcher, global_state) = state_context.into_dispatcher_and_state();
                 let Some(snarker_config) = &global_state.config.snarker else {
                     return;
                 };
@@ -112,14 +120,14 @@ impl SnarkPoolState {
                 };
             }
             SnarkPoolAction::CommitmentCreateMany { job_ids } => {
-                let dispatcher = state.into_dispatcher();
+                let dispatcher = state_context.into_dispatcher();
                 for job_id in job_ids.iter().cloned() {
                     dispatcher.push(SnarkPoolAction::CommitmentCreate { job_id });
                 }
             }
             SnarkPoolAction::CommitmentCreate { job_id } => {
                 let job_id = job_id.clone();
-                let (dispatcher, global_state) = state.into_dispatcher_and_state();
+                let (dispatcher, global_state) = state_context.into_dispatcher_and_state();
                 let Some(summary) = global_state.snark_pool.job_summary(&job_id) else {
                     return;
                 };
@@ -158,7 +166,7 @@ impl SnarkPoolState {
 
                 // Dispatch
                 let commitment = commitment.clone();
-                let (dispatcher, global_state) = state.into_dispatcher_and_state();
+                let (dispatcher, global_state) = state_context.into_dispatcher_and_state();
                 if let Some(job_id) = global_state.external_snark_worker.working_job_id() {
                     let Some(config) = global_state.config.snarker.as_ref() else {
                         return;
@@ -185,7 +193,7 @@ impl SnarkPoolState {
 
                 // Dispatch
                 let snark = snark.clone();
-                let (dispatcher, global_state) = state.into_dispatcher_and_state();
+                let (dispatcher, global_state) = state_context.into_dispatcher_and_state();
                 if let Some(job_id) = global_state
                     .external_snark_worker
                     .working_job_id()
@@ -208,14 +216,14 @@ impl SnarkPoolState {
                 });
             }
             SnarkPoolAction::P2pSendAll { .. } => {
-                let (dispatcher, global_state) = state.into_dispatcher_and_state();
+                let (dispatcher, global_state) = state_context.into_dispatcher_and_state();
                 for peer_id in global_state.p2p.ready_peers() {
                     dispatcher.push(SnarkPoolAction::P2pSend { peer_id });
                 }
             }
             SnarkPoolAction::P2pSend { peer_id } => {
                 let peer_id = *peer_id;
-                let (dispatcher, global_state) = state.into_dispatcher_and_state();
+                let (dispatcher, global_state) = state_context.into_dispatcher_and_state();
                 let Some(peer) = global_state.p2p.get_ready_peer(&peer_id) else {
                     return;
                 };
@@ -254,7 +262,7 @@ impl SnarkPoolState {
                 state.last_check_timeouts = meta.time();
 
                 // Dispatch
-                let (dispatcher, global_state) = state.into_dispatcher_and_state();
+                let (dispatcher, global_state) = state_context.into_dispatcher_and_state();
                 let timed_out_ids = global_state
                     .snark_pool
                     .timed_out_commitments_iter(meta.time())
@@ -268,7 +276,7 @@ impl SnarkPoolState {
                 state.remove_commitment(job_id);
 
                 // Dispatch
-                let dispatcher = state.into_dispatcher();
+                let dispatcher = state_context.into_dispatcher();
                 dispatcher.push(SnarkPoolAction::AutoCreateCommitment);
             }
         }

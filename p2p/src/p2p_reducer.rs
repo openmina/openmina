@@ -11,13 +11,18 @@ use crate::{P2pAction, P2pActionWithMetaRef, P2pPeerState, P2pPeerStatus, P2pSta
 
 impl P2pState {
     pub fn reducer<State, Action>(
-        mut state: openmina_core::Substate<Action, State, Self>,
+        mut state_context: openmina_core::Substate<Action, State, Self>,
         action: P2pActionWithMetaRef<'_>,
     ) where
         State: SubstateAccess<Self>,
         Action: From<P2pAction>,
     {
+        let Ok(state) = state_context.get_substate_mut() else {
+            // TODO: log or propagate
+            return;
+        };
         let (action, meta) = action.split();
+
         match action {
             P2pAction::Initialization(_) => {
                 // noop
@@ -98,7 +103,7 @@ impl P2pState {
                 }
             },
             P2pAction::Peer(action) => {
-                p2p_peer_reducer(&mut state, meta.with_action(action));
+                p2p_peer_reducer(state, meta.with_action(action));
             }
             P2pAction::Channels(action) => {
                 let Some(peer_id) = action.peer_id() else {
@@ -111,7 +116,7 @@ impl P2pState {
                 peer.channels.reducer(meta.with_action(action), is_libp2p);
             }
             P2pAction::Discovery(action) => {
-                p2p_discovery_reducer(&mut state, meta.with_action(action));
+                p2p_discovery_reducer(state, meta.with_action(action));
             }
             P2pAction::Identify(_action) =>
             {

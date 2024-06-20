@@ -21,14 +21,18 @@ use super::{
 
 impl TransitionFrontierGenesisState {
     pub fn reducer(
-        mut state: crate::Substate<Self>,
+        mut state_context: crate::Substate<Self>,
         action: TransitionFrontierGenesisActionWithMetaRef<'_>,
     ) {
+        let Ok(state) = state_context.get_substate_mut() else {
+            // TODO: log or propagate
+            return;
+        };
         let (action, meta) = action.split();
-        let state_ref = &*state;
+
         match action {
             TransitionFrontierGenesisAction::LedgerLoadInit => {
-                let (dispatcher, global_state) = state.into_dispatcher_and_state();
+                let (dispatcher, global_state) = state_context.into_dispatcher_and_state();
                 let config = global_state.transition_frontier.config.genesis.clone();
 
                 dispatcher.push(TransitionFrontierGenesisAction::LedgerLoadPending);
@@ -36,21 +40,29 @@ impl TransitionFrontierGenesisState {
                     .push(TransitionFrontierGenesisEffectfulAction::LedgerLoadInit { config });
             }
             TransitionFrontierGenesisAction::LedgerLoadPending => {
+                let Ok(state) = state_context.get_substate_mut() else {
+                    // TODO: log or propagate
+                    return;
+                };
                 *state = Self::LedgerLoadPending { time: meta.time() };
             }
             TransitionFrontierGenesisAction::LedgerLoadSuccess { data } => {
+                let Ok(state) = state_context.get_substate_mut() else {
+                    // TODO: log or propagate
+                    return;
+                };
                 *state = Self::LedgerLoadSuccess {
                     time: meta.time(),
                     data: data.clone(),
                 };
 
                 // Dispatch
-                let dispatcher = state.into_dispatcher();
+                let dispatcher = state_context.into_dispatcher();
                 // TODO(refactor): before this is dispatched genesis inject must be dispatched
                 dispatcher.push(TransitionFrontierGenesisAction::Produce);
             }
             TransitionFrontierGenesisAction::Produce => {
-                let Self::LedgerLoadSuccess { data, .. } = state_ref else {
+                let Self::LedgerLoadSuccess { data, .. } = state else {
                     return;
                 };
 
@@ -74,6 +86,7 @@ impl TransitionFrontierGenesisState {
                     data.next_epoch_seed.clone(),
                     calc_epoch_seed(&data.next_epoch_seed, genesis_vrf_hash), //data.next_epoch_seed.clone(),
                 );
+
                 *state = Self::Produced {
                     time: meta.time(),
                     negative_one,
@@ -82,7 +95,7 @@ impl TransitionFrontierGenesisState {
                 };
 
                 // Dispatch
-                let (dispatcher, global_state) = state.into_dispatcher_and_state();
+                let (dispatcher, global_state) = state_context.into_dispatcher_and_state();
                 if global_state.p2p.ready().is_none() {
                     let TransitionFrontierGenesisState::Produced { genesis, .. } =
                         &global_state.transition_frontier.genesis
@@ -110,7 +123,7 @@ impl TransitionFrontierGenesisState {
                     genesis,
                     genesis_producer_stake_proof,
                     ..
-                } = &*state
+                } = state
                 else {
                     return;
                 };
@@ -155,7 +168,7 @@ impl TransitionFrontierGenesisState {
                 };
 
                 // Dispatch
-                let dispatcher = state.into_dispatcher();
+                let dispatcher = state_context.into_dispatcher();
 
                 dispatcher.push(TransitionFrontierGenesisAction::ProvePending);
                 dispatcher.push(TransitionFrontierGenesisEffectfulAction::ProveInit {
@@ -169,10 +182,11 @@ impl TransitionFrontierGenesisState {
                     genesis,
                     genesis_producer_stake_proof,
                     ..
-                } = state_ref
+                } = state
                 else {
                     return;
                 };
+
                 *state = Self::ProvePending {
                     time: meta.time(),
                     negative_one: negative_one.clone(),
@@ -181,9 +195,10 @@ impl TransitionFrontierGenesisState {
                 };
             }
             TransitionFrontierGenesisAction::ProveSuccess { proof } => {
-                let Self::ProvePending { genesis, .. } = state_ref else {
+                let Self::ProvePending { genesis, .. } = state else {
                     return;
                 };
+
                 *state = Self::ProveSuccess {
                     time: meta.time(),
                     genesis: BlockWithHash::new(

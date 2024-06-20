@@ -14,8 +14,16 @@ use super::{
 };
 
 impl ConsensusState {
-    pub fn reducer(mut state: crate::Substate<Self>, action: ConsensusActionWithMetaRef<'_>) {
+    pub fn reducer(
+        mut state_context: crate::Substate<Self>,
+        action: ConsensusActionWithMetaRef<'_>,
+    ) {
+        let Ok(state) = state_context.get_substate_mut() else {
+            // TODO: log or propagate
+            return;
+        };
         let (action, meta) = action.split();
+
         match action {
             ConsensusAction::BlockReceived {
                 hash,
@@ -32,7 +40,7 @@ impl ConsensusState {
                 );
 
                 // Dispatch
-                let (dispatcher, global_state) = state.into_dispatcher_and_state();
+                let (dispatcher, global_state) = state_context.into_dispatcher_and_state();
                 let req_id = global_state.snark.block_verify.next_req_id();
                 dispatcher.push(SnarkBlockVerifyAction::Init {
                     req_id,
@@ -56,7 +64,7 @@ impl ConsensusState {
                     block.chain_proof = Some(chain_proof.clone());
                 }
 
-                let (dispatcher, global_state) = state.into_dispatcher_and_state();
+                let (dispatcher, global_state) = state_context.into_dispatcher_and_state();
                 if global_state.consensus.best_tip.as_ref() != Some(hash) {
                     return;
                 }
@@ -78,7 +86,7 @@ impl ConsensusState {
 
                 // Dispatch
                 let hash = hash.clone();
-                let dispatcher = state.into_dispatcher();
+                let dispatcher = state_context.into_dispatcher();
                 dispatcher.push(ConsensusAction::DetectForkRange { hash });
             }
             ConsensusAction::BlockSnarkVerifyError { .. } => {
@@ -114,7 +122,7 @@ impl ConsensusState {
 
                 // Dispatch
                 let hash = hash.clone();
-                let dispatcher = state.into_dispatcher();
+                let dispatcher = state_context.into_dispatcher();
                 dispatcher.push(ConsensusAction::ShortRangeForkResolve { hash: hash.clone() });
                 dispatcher.push(ConsensusAction::LongRangeForkResolve { hash });
             }
@@ -157,7 +165,7 @@ impl ConsensusState {
 
                 // Dispatch
                 let hash = hash.clone();
-                let dispatcher = state.into_dispatcher();
+                let dispatcher = state_context.into_dispatcher();
                 dispatcher.push(ConsensusAction::BestTipUpdate { hash });
             }
             ConsensusAction::LongRangeForkResolve { hash } => {
@@ -196,7 +204,7 @@ impl ConsensusState {
 
                 // Dispatch
                 let hash = hash.clone();
-                let dispatcher = state.into_dispatcher();
+                let dispatcher = state_context.into_dispatcher();
                 dispatcher.push(ConsensusAction::BestTipUpdate { hash });
             }
             ConsensusAction::BestTipUpdate { hash } => {
@@ -207,7 +215,7 @@ impl ConsensusState {
                 }
 
                 // Dispatch
-                let (dispatcher, global_state) = state.into_dispatcher_and_state();
+                let (dispatcher, global_state) = state_context.into_dispatcher_and_state();
                 let Some(block) = global_state.consensus.best_tip_block_with_hash() else {
                     return;
                 };
