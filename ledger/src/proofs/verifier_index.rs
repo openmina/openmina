@@ -1,7 +1,7 @@
 use std::{
     fs::File,
     io::{Read, Write},
-    path::{Path, PathBuf},
+    path::Path,
     sync::Arc,
 };
 
@@ -34,7 +34,7 @@ use crate::{
 };
 
 use super::{
-    caching::{verifier_index_from_bytes, verifier_index_to_bytes},
+    caching::{openmina_cache_path, verifier_index_from_bytes, verifier_index_to_bytes},
     transaction::InnerCurve,
 };
 use super::{
@@ -45,10 +45,6 @@ use super::{
 pub enum VerifierKind {
     Blockchain,
     Transaction,
-}
-
-fn openmina_cache_path<P: AsRef<Path>>(path: P) -> Option<PathBuf> {
-    std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".cache/openmina").join(path))
 }
 
 fn read_index(path: &Path, digest: &[u8]) -> anyhow::Result<VerifierIndex<Pallas>> {

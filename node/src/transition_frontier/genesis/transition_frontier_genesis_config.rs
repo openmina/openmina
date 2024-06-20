@@ -2,12 +2,11 @@ use std::{
     borrow::Cow,
     fs::File,
     io::{Read, Write},
-    path::PathBuf,
     str::FromStr,
 };
 
 use crate::{account::AccountSecretKey, daemon_json::EpochData};
-use ledger::{scan_state::currency::Balance, BaseLedger};
+use ledger::{proofs::caching::openmina_cache_path, scan_state::currency::Balance, BaseLedger};
 use mina_hasher::Fp;
 use mina_p2p_messages::{
     binprot::{
@@ -283,13 +282,8 @@ impl GenesisConfig {
                     next_epoch_seed,
                 };
                 let prebuilt = PrebuiltGenesisConfig::try_from(*config.clone())?;
-                let cache_filename = std::env::var_os("HOME")
-                    .map(|home| {
-                        PathBuf::from(home)
-                            .join(".cache/openmina/ledgers")
-                            .join(ledger_hash.to_string() + ".bin")
-                    })
-                    .unwrap();
+                let cache_filename =
+                    openmina_cache_path(format!("ledgers/{}.bin", ledger_hash)).unwrap();
                 let filename_str = cache_filename
                     .clone()
                     .into_os_string()
