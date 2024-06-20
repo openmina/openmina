@@ -9,9 +9,7 @@ use crate::channels::rpc::P2pRpcId;
 use crate::channels::{ChannelId, P2pChannelsState};
 use crate::connection::incoming::P2pConnectionIncomingState;
 use crate::connection::outgoing::{P2pConnectionOutgoingInitOpts, P2pConnectionOutgoingState};
-#[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
 use crate::network::identify::P2pNetworkIdentify;
-#[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
 use crate::network::P2pNetworkState;
 use crate::{is_time_passed, Limit, P2pTimeouts, PeerId};
 
@@ -22,19 +20,21 @@ use super::P2pConfig;
 pub struct P2pState {
     pub chain_id: ChainId,
     pub config: P2pConfig,
-    #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
     pub network: P2pNetworkState,
     pub peers: BTreeMap<PeerId, P2pPeerState>,
 }
 
 impl P2pState {
     pub fn new(config: P2pConfig, chain_id: &ChainId) -> Self {
-        #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
-        let addrs = config
-            .libp2p_port
-            .map(|port| multiaddr::multiaddr!(Ip4([127, 0, 0, 1]), Tcp((port))))
-            .into_iter()
-            .collect();
+        let addrs = if cfg!(feature = "p2p-libp2p") {
+            config
+                .libp2p_port
+                .map(|port| multiaddr::multiaddr!(Ip4([127, 0, 0, 1]), Tcp((port))))
+                .into_iter()
+                .collect()
+        } else {
+            Vec::new()
+        };
 
         let my_id = config.identity_pub_key.peer_id();
         let initial_peers = config
@@ -42,17 +42,20 @@ impl P2pState {
             .iter()
             .filter(|peer| peer.peer_id() != &my_id);
 
-        #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
-        let known_peers = initial_peers
-            .clone()
-            .filter_map(|peer| {
-                if let P2pConnectionOutgoingInitOpts::LibP2P(peer) = peer {
-                    Some(peer.into())
-                } else {
-                    None
-                }
-            })
-            .collect();
+        let known_peers = if cfg!(feature = "p2p-libp2p") {
+            initial_peers
+                .clone()
+                .filter_map(|peer| {
+                    if let P2pConnectionOutgoingInitOpts::LibP2P(peer) = peer {
+                        Some(peer.into())
+                    } else {
+                        None
+                    }
+                })
+                .collect()
+        } else {
+            Vec::new()
+        };
 
         let peers = initial_peers
             .map(|peer| {
@@ -64,14 +67,12 @@ impl P2pState {
                         status: P2pPeerStatus::Disconnected {
                             time: Timestamp::ZERO,
                         },
-                        #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
                         identify: None,
                     },
                 )
             })
             .collect();
 
-        #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
         let network = P2pNetworkState::new(
             config.identity_pub_key.clone(),
             addrs,
@@ -82,7 +83,6 @@ impl P2pState {
         Self {
             chain_id: chain_id.clone(),
             config,
-            #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
             network,
             peers,
         }
@@ -222,7 +222,7 @@ impl P2pState {
     }
 
     /// Peer with libp2p connection identified by `conn_id`.
-    #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
+    #[cfg(feature = "p2p-libp2p")]
     pub fn peer_with_connection(
         &self,
         conn_id: std::net::SocketAddr,
@@ -255,7 +255,6 @@ pub struct P2pPeerState {
     pub is_libp2p: bool,
     pub dial_opts: Option<P2pConnectionOutgoingInitOpts>,
     pub status: P2pPeerStatus,
-    #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
     pub identify: Option<P2pNetworkIdentify>,
 }
 

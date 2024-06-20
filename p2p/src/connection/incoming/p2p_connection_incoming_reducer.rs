@@ -147,12 +147,12 @@ impl P2pConnectionIncomingState {
                     };
                 }
             }
-            #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
             P2pConnectionIncomingAction::FinalizePendingLibp2p { .. } => {
                 // handled in the parent reducer.
             }
-            #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
-            P2pConnectionIncomingAction::Libp2pReceived { .. } => {
+            P2pConnectionIncomingAction::Libp2pReceived { .. } =>
+            {
+                #[cfg(feature = "p2p-libp2p")]
                 if let Self::FinalizePendingLibp2p { time, .. } = self {
                     *self = Self::Libp2pReceived { time: *time };
                 }

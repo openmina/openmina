@@ -13,14 +13,8 @@ impl P2pDisconnectionAction {
                 peer_id,
                 reason: _reason,
             } => {
-                #[cfg(feature = "p2p-webrtc")]
-                {
-                    // for webtrc, we use service
-                    store.service().disconnect(*peer_id);
-                    store.dispatch(P2pDisconnectionAction::Finish { peer_id: *peer_id });
-                }
-                #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
-                {
+                #[cfg(feature = "p2p-libp2p")]
+                if store.state().is_libp2p_peer(peer_id) {
                     if let Some((addr, _)) = store
                         .state()
                         .network
@@ -35,8 +29,11 @@ impl P2pDisconnectionAction {
                         });
                         store.dispatch(P2pDisconnectionAction::Finish { peer_id: *peer_id });
                     }
+                    return;
                 }
-                let _ = (store, peer_id);
+
+                store.service().disconnect(*peer_id);
+                store.dispatch(P2pDisconnectionAction::Finish { peer_id: *peer_id });
             }
             P2pDisconnectionAction::Finish { .. } => {}
         }

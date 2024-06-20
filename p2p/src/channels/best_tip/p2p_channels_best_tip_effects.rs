@@ -1,6 +1,6 @@
 use redux::ActionMeta;
 
-#[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
+#[cfg(feature = "p2p-libp2p")]
 use crate::P2pNetworkPubsubAction;
 use crate::{
     channels::{ChannelId, MsgId, P2pChannelsService},
@@ -24,7 +24,7 @@ impl P2pChannelsBestTipAction {
             }
             P2pChannelsBestTipAction::Ready { peer_id } => {
                 store.dispatch(P2pChannelsBestTipAction::RequestSend { peer_id });
-                #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
+                #[cfg(feature = "p2p-libp2p")]
                 if store.state().is_libp2p_peer(&peer_id) {
                     store.dispatch(P2pChannelsBestTipAction::RequestReceived { peer_id });
                 }
@@ -50,7 +50,7 @@ impl P2pChannelsBestTipAction {
                         .channel_send(peer_id, MsgId::first(), msg.into());
                     return;
                 }
-                #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
+                #[cfg(feature = "p2p-libp2p")]
                 {
                     use mina_p2p_messages::gossip::GossipNetMessageV2;
                     let block = (*best_tip.block).clone();

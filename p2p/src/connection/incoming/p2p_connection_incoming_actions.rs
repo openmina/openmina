@@ -1,4 +1,3 @@
-#[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
 use std::net::SocketAddr;
 
 use serde::{Deserialize, Serialize};
@@ -68,13 +67,11 @@ pub enum P2pConnectionIncomingAction {
         peer_id: PeerId,
     },
     /// Detected incoming connection from this peer.
-    #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
     FinalizePendingLibp2p {
         peer_id: PeerId,
         addr: SocketAddr,
     },
     /// Incoming libp2p connection is succesful.
-    #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
     Libp2pReceived {
         peer_id: PeerId,
     },
@@ -95,7 +92,6 @@ impl P2pConnectionIncomingAction {
             | Self::Timeout { peer_id }
             | Self::Error { peer_id, .. }
             | Self::Success { peer_id } => Some(peer_id),
-            #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
             Self::FinalizePendingLibp2p { peer_id, .. } | Self::Libp2pReceived { peer_id } => {
                 Some(peer_id)
             }
@@ -219,18 +215,19 @@ impl redux::EnablingCondition<P2pState> for P2pConnectionIncomingAction {
                     )
                 })
             }
-            #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
-            P2pConnectionIncomingAction::FinalizePendingLibp2p { .. } => true,
-            #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
+            P2pConnectionIncomingAction::FinalizePendingLibp2p { .. } => {
+                cfg!(feature = "p2p-libp2p")
+            }
             P2pConnectionIncomingAction::Libp2pReceived { peer_id, .. } => {
-                state.peers.get(peer_id).map_or(false, |peer| {
-                    matches!(
-                        &peer.status,
-                        P2pPeerStatus::Connecting(P2pConnectionState::Incoming(
-                            P2pConnectionIncomingState::FinalizePendingLibp2p { .. },
-                        ))
-                    )
-                })
+                cfg!(feature = "p2p-libp2p")
+                    && state.peers.get(peer_id).map_or(false, |peer| {
+                        matches!(
+                            &peer.status,
+                            P2pPeerStatus::Connecting(P2pConnectionState::Incoming(
+                                P2pConnectionIncomingState::FinalizePendingLibp2p { .. },
+                            ))
+                        )
+                    })
             }
         }
     }

@@ -8,7 +8,7 @@ mod p2p_connection_outgoing_reducer;
 
 mod p2p_connection_outgoing_effects;
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(feature = "p2p-libp2p")]
 use std::net::SocketAddr;
 use std::{fmt, str::FromStr};
 
@@ -16,15 +16,14 @@ use binprot_derive::{BinProtRead, BinProtWrite};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-#[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
+#[cfg(feature = "p2p-libp2p")]
 use mina_p2p_messages::v2;
 
 use crate::{webrtc, PeerId};
 
-#[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
+#[cfg(feature = "p2p-libp2p")]
 use crate::webrtc::{HttpSignalingInfo, SignalingMethod};
 
-#[cfg(not(target_arch = "wasm32"))]
 use crate::webrtc::Host;
 
 // TODO(binier): maybe move to `crate::webrtc` module
@@ -36,11 +35,9 @@ pub enum P2pConnectionOutgoingInitOpts {
         peer_id: PeerId,
         signaling: webrtc::SignalingMethod,
     },
-    #[cfg(not(target_arch = "wasm32"))]
     LibP2P(P2pConnectionOutgoingInitLibp2pOpts),
 }
 
-#[cfg(not(target_arch = "wasm32"))]
 #[derive(BinProtWrite, BinProtRead, Eq, PartialEq, Ord, PartialOrd, Debug, Clone)]
 pub struct P2pConnectionOutgoingInitLibp2pOpts {
     pub peer_id: PeerId,
@@ -48,7 +45,6 @@ pub struct P2pConnectionOutgoingInitLibp2pOpts {
     pub port: u16,
 }
 
-#[cfg(not(target_arch = "wasm32"))]
 mod libp2p_opts {
     use std::net::{IpAddr, SocketAddr};
 
@@ -132,20 +128,14 @@ mod libp2p_opts {
 }
 
 impl P2pConnectionOutgoingInitOpts {
-    #[cfg(not(target_arch = "wasm32"))]
     pub fn is_libp2p(&self) -> bool {
         matches!(self, Self::LibP2P(_))
-    }
-
-    #[cfg(target_arch = "wasm32")]
-    pub fn is_libp2p(&self) -> bool {
-        false
     }
 
     pub fn peer_id(&self) -> &PeerId {
         match self {
             Self::WebRTC { peer_id, .. } => peer_id,
-            #[cfg(not(target_arch = "wasm32"))]
+
             Self::LibP2P(v) => &v.peer_id,
         }
     }
@@ -153,7 +143,7 @@ impl P2pConnectionOutgoingInitOpts {
     pub fn kind(&self) -> &'static str {
         match self {
             Self::WebRTC { .. } => "webrtc",
-            #[cfg(not(target_arch = "wasm32"))]
+
             Self::LibP2P(_) => "libp2p",
         }
     }
@@ -162,7 +152,7 @@ impl P2pConnectionOutgoingInitOpts {
     /// Try to convert this RPC response into our peer address representation.
     /// Recognize a hack for marking the webrtc signaling server.
     /// Prefixes "http://" or "https://" are schemas that indicates the host is webrtc signaling.
-    #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
+    #[cfg(feature = "p2p-libp2p")]
     pub fn try_from_mina_rpc(msg: v2::NetworkPeerPeerStableV1) -> Option<Self> {
         let peer_id_str = String::try_from(&msg.peer_id.0).ok()?;
         let peer_id = peer_id_str.parse::<libp2p_identity::PeerId>().ok()?;
@@ -206,7 +196,7 @@ impl P2pConnectionOutgoingInitOpts {
     /// Try to convert our peer address representation into mina RPC response.
     /// Use a hack to mark the webrtc signaling server. Add "http://" or "https://" schema to the host address.
     /// The OCaml node will recognize this address as incorrect and ignore it.
-    #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
+    #[cfg(feature = "p2p-libp2p")]
     pub fn try_into_mina_rpc(&self) -> Option<v2::NetworkPeerPeerStableV1> {
         match self {
             P2pConnectionOutgoingInitOpts::LibP2P(opts) => Some(v2::NetworkPeerPeerStableV1 {
@@ -238,13 +228,12 @@ impl P2pConnectionOutgoingInitOpts {
         }
     }
 
-    #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
+    #[cfg(feature = "p2p-libp2p")]
     pub fn from_libp2p_socket_addr(peer_id: PeerId, addr: SocketAddr) -> Self {
         P2pConnectionOutgoingInitOpts::LibP2P((peer_id, addr).into())
     }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
 impl P2pConnectionOutgoingInitLibp2pOpts {
     pub fn to_maddr(&self) -> multiaddr::Multiaddr {
         self.into()
@@ -257,7 +246,7 @@ impl fmt::Display for P2pConnectionOutgoingInitOpts {
             Self::WebRTC { peer_id, signaling } => {
                 write!(f, "/{}{}", peer_id, signaling)
             }
-            #[cfg(not(target_arch = "wasm32"))]
+
             Self::LibP2P(v) => {
                 write!(f, "{}", v.to_maddr())
             }
@@ -287,7 +276,6 @@ impl FromStr for P2pConnectionOutgoingInitOpts {
 
         let is_libp2p_maddr = s.starts_with("/ip") || s.starts_with("/dns");
 
-        #[cfg(not(target_arch = "wasm32"))]
         if is_libp2p_maddr {
             let maddr = multiaddr::Multiaddr::from_str(s)
                 .map_err(|e| P2pConnectionOutgoingInitOptsParseError::Other(e.to_string()))?;
@@ -341,7 +329,6 @@ impl<'de> Deserialize<'de> for P2pConnectionOutgoingInitOpts {
     }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
 impl From<&P2pConnectionOutgoingInitLibp2pOpts> for multiaddr::Multiaddr {
     fn from(value: &P2pConnectionOutgoingInitLibp2pOpts) -> Self {
         use multiaddr::Protocol;
@@ -358,7 +345,6 @@ impl From<&P2pConnectionOutgoingInitLibp2pOpts> for multiaddr::Multiaddr {
     }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
 impl TryFrom<&multiaddr::Multiaddr> for P2pConnectionOutgoingInitOpts {
     type Error = P2pConnectionOutgoingInitOptsParseError;
 
@@ -367,7 +353,6 @@ impl TryFrom<&multiaddr::Multiaddr> for P2pConnectionOutgoingInitOpts {
     }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
 impl TryFrom<multiaddr::Multiaddr> for P2pConnectionOutgoingInitOpts {
     type Error = P2pConnectionOutgoingInitOptsParseError;
 
@@ -376,7 +361,6 @@ impl TryFrom<multiaddr::Multiaddr> for P2pConnectionOutgoingInitOpts {
     }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
 impl TryFrom<&multiaddr::Multiaddr> for P2pConnectionOutgoingInitLibp2pOpts {
     type Error = P2pConnectionOutgoingInitOptsParseError;
 

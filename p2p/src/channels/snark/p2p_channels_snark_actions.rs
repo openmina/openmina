@@ -1,4 +1,3 @@
-#[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
 use openmina_core::snark::Snark;
 use openmina_core::ActionEvent;
 use serde::{Deserialize, Serialize};
@@ -43,13 +42,11 @@ pub enum P2pChannelsSnarkAction {
         first_index: u64,
         last_index: u64,
     },
-    #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
     Libp2pReceived {
         peer_id: PeerId,
         snark: Snark,
         nonce: u32,
     },
-    #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
     Libp2pBroadcast {
         snark: Snark,
         nonce: u32,
@@ -67,9 +64,7 @@ impl P2pChannelsSnarkAction {
             | Self::Received { peer_id, .. }
             | Self::RequestReceived { peer_id, .. }
             | Self::ResponseSend { peer_id, .. } => Some(peer_id),
-            #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
             Self::Libp2pReceived { peer_id, .. } => Some(peer_id),
-            #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
             Self::Libp2pBroadcast { .. } => None,
         }
     }
@@ -171,18 +166,22 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsSnarkAction {
                             _ => false,
                         })
             }
-            #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
-            P2pChannelsSnarkAction::Libp2pReceived { peer_id, .. } => state
-                .peers
-                .get(peer_id)
-                .filter(|p| p.is_libp2p())
-                .and_then(|p| p.status.as_ready())
-                .map_or(false, |p| p.channels.snark.is_ready()),
-            #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
-            P2pChannelsSnarkAction::Libp2pBroadcast { .. } => state
-                .peers
-                .iter()
-                .any(|(_, p)| p.is_libp2p() && p.status.as_ready().is_some()),
+            P2pChannelsSnarkAction::Libp2pReceived { peer_id, .. } => {
+                cfg!(feature = "p2p-libp2p")
+                    && state
+                        .peers
+                        .get(peer_id)
+                        .filter(|p| p.is_libp2p())
+                        .and_then(|p| p.status.as_ready())
+                        .map_or(false, |p| p.channels.snark.is_ready())
+            }
+            P2pChannelsSnarkAction::Libp2pBroadcast { .. } => {
+                cfg!(feature = "p2p-libp2p")
+                    && state
+                        .peers
+                        .iter()
+                        .any(|(_, p)| p.is_libp2p() && p.status.as_ready().is_some())
+            }
         }
     }
 }

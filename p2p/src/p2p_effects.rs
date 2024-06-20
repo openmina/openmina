@@ -5,7 +5,7 @@ use crate::{
     connection::{outgoing::P2pConnectionOutgoingAction, P2pConnectionAction},
     P2pAction, P2pStore,
 };
-#[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
+#[cfg(feature = "p2p-libp2p")]
 use crate::{P2pNetworkKadKey, P2pNetworkKademliaAction, P2pNetworkSelectAction, PeerId};
 
 pub fn p2p_timeout_effects<Store, S>(store: &mut Store, meta: &ActionMeta)
@@ -18,7 +18,7 @@ where
     p2p_try_reconnect_disconnected_peers(store, meta.time());
 
     p2p_discovery(store, meta);
-    #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
+    #[cfg(feature = "p2p-libp2p")]
     p2p_select_timeouts(store, meta);
 
     let state = store.state();
@@ -27,7 +27,7 @@ where
     }
 }
 
-#[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
+#[cfg(feature = "p2p-libp2p")]
 fn p2p_select_timeouts<Store, S>(store: &mut Store, meta: &ActionMeta)
 where
     Store: P2pStore<S>,
@@ -177,7 +177,7 @@ where
         let _ = now;
     }
 
-    #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
+    #[cfg(feature = "p2p-libp2p")]
     if let Some(discovery_state) = state.network.scheduler.discovery_state() {
         let key = state.my_id();
         if discovery_state
@@ -207,8 +207,6 @@ where
         },
         P2pAction::Disconnection(action) => action.effects(&meta, store),
         P2pAction::Discovery(action) => action.effects(&meta, store),
-        #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
-        P2pAction::Identify(action) => action.effects(&meta, store),
         P2pAction::Channels(action) => match action {
             P2pChannelsAction::MessageReceived(action) => action.effects(&meta, store),
             P2pChannelsAction::BestTip(action) => action.effects(&meta, store),
@@ -218,7 +216,13 @@ where
             P2pChannelsAction::Rpc(action) => action.effects(&meta, store),
         },
         P2pAction::Peer(action) => action.effects(&meta, store),
-        #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
-        P2pAction::Network(action) => action.effects(&meta, store),
+        P2pAction::Identify(_action) => {
+            #[cfg(feature = "p2p-libp2p")]
+            _action.effects(&meta, store);
+        }
+        P2pAction::Network(_action) => {
+            #[cfg(feature = "p2p-libp2p")]
+            _action.effects(&meta, store);
+        }
     }
 }

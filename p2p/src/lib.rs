@@ -9,13 +9,9 @@ pub use identity::PeerId;
 
 pub mod webrtc;
 
-pub mod service_impl;
-
-#[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
 pub mod identify;
-#[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
+
 pub mod network;
-#[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
 pub use self::network::*;
 
 mod p2p_config;
@@ -41,13 +37,15 @@ pub mod service {
     pub use super::p2p_service::*;
 }
 
+pub mod service_impl;
+
 use redux::SubStore;
 pub trait P2pStore<GlobalState>: SubStore<GlobalState, P2pState, SubAction = P2pAction> {}
 impl<S, T: SubStore<S, P2pState, SubAction = P2pAction>> P2pStore<S> for T {}
 
-#[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
+#[cfg(feature = "p2p-libp2p")]
 pub use libp2p_identity;
-#[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
+#[cfg(feature = "p2p-libp2p")]
 pub use multiaddr;
 
 #[cfg(all(

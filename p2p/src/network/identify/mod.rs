@@ -15,11 +15,11 @@ pub use self::p2p_network_identify_actions::*;
 mod p2p_network_identify_state;
 pub use self::p2p_network_identify_state::*;
 
+#[cfg(feature = "p2p-libp2p")]
 mod p2p_network_identify_reducer;
-//pub use self::p2p_network_identify_reducer::*;
 
+#[cfg(feature = "p2p-libp2p")]
 mod p2p_network_identify_effects;
-//pub use self::p2p_network_identify_effects::*;
 
 mod keys_proto;
 pub use self::keys_proto::*;

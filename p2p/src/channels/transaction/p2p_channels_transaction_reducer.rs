@@ -103,7 +103,6 @@ impl P2pChannelsTransactionState {
                     count,
                 };
             }
-            #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
             P2pChannelsTransactionAction::Libp2pReceived { .. }
             | P2pChannelsTransactionAction::Libp2pBroadcast { .. } => {}
         }

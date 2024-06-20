@@ -27,8 +27,6 @@ use openmina_core::{
 };
 use serde::{Deserialize, Serialize};
 
-#[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
-use crate::Data;
 use crate::{connection::outgoing::P2pConnectionOutgoingInitOpts, P2pTimeouts};
 
 pub type P2pRpcId = QueryID;
@@ -202,9 +200,10 @@ impl P2pRpcResponse {
     }
 }
 
-#[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
+#[cfg(feature = "p2p-libp2p")]
 mod libp2p {
     use super::*;
+    use crate::Data;
     use mina_p2p_messages::{
         rpc,
         rpc_kernel::{

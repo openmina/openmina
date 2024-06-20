@@ -15,9 +15,9 @@ use crate::p2p::connection::incoming::P2pConnectionIncomingAction;
 use crate::p2p::connection::outgoing::P2pConnectionOutgoingAction;
 use crate::p2p::connection::{P2pConnectionErrorResponse, P2pConnectionResponse};
 use crate::p2p::disconnection::{P2pDisconnectionAction, P2pDisconnectionReason};
-use crate::p2p::P2pChannelEvent;
-#[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
-use crate::p2p::{MioEvent, P2pNetworkSchedulerAction};
+#[cfg(feature = "p2p-libp2p")]
+use crate::p2p::P2pNetworkSchedulerAction;
+use crate::p2p::{MioEvent, P2pChannelEvent};
 use crate::rpc::{RpcAction, RpcRequest};
 use crate::snark::block_verify::SnarkBlockVerifyAction;
 use crate::snark::work_verify::SnarkWorkVerifyAction;
@@ -53,7 +53,9 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
         // "Translate" event into the corresponding action and dispatch it.
         EventSourceAction::NewEvent { event } => match event {
             Event::P2p(e) => match e {
-                #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
+                #[cfg(not(feature = "p2p-libp2p"))]
+                P2pEvent::MioEvent(_) => {}
+                #[cfg(feature = "p2p-libp2p")]
                 P2pEvent::MioEvent(e) => match e {
                     MioEvent::InterfaceDetected(ip) => {
                         store.dispatch(P2pNetworkSchedulerAction::InterfaceDetected { ip });
