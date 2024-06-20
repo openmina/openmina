@@ -10,9 +10,10 @@ use ledger::proofs::transaction::ProofError;
 use ledger::scan_state::scan_state::transaction_snark::SokMessage;
 use ledger::scan_state::transaction_logic::{verifiable, WithStatus};
 use ledger::Mask;
+use mina_p2p_messages::list::List;
 use mina_p2p_messages::string::ByteString;
 use mina_p2p_messages::v2::{
-    CurrencyFeeStableV1, LedgerHash, LedgerProofProdStableV2, MinaBaseProofStableV2,
+    self, CurrencyFeeStableV1, LedgerHash, LedgerProofProdStableV2, MinaBaseProofStableV2,
     MinaStateSnarkedLedgerStateWithSokStableV2, NonZeroCurvePoint,
     ProverExtendBlockchainInputStableV2, SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0Single,
     StateHash, TransactionSnarkStableV2, TransactionSnarkWorkTStableV2Proofs,
@@ -392,7 +393,7 @@ impl SnarkUserCommandVerifyService for NodeTestingService {
         req_id: SnarkUserCommandVerifyId,
         verifier_index: Arc<VerifierIndex>,
         verifier_srs: Arc<Mutex<VerifierSRS>>,
-        commands: Vec<WithStatus<verifiable::UserCommand>>,
+        commands: List<v2::MinaBaseUserCommandStableV2>,
     ) {
         SnarkUserCommandVerifyService::verify_init(
             &mut self.real,

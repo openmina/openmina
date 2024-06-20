@@ -1,5 +1,5 @@
-use p2p::channels::transaction::P2pChannelsTransactionAction;
 use p2p::channels::snark::P2pChannelsSnarkAction;
+use p2p::channels::transaction::P2pChannelsTransactionAction;
 use snark::user_command_verify::{SnarkUserCommandVerifyAction, SnarkUserCommandVerifyError};
 
 use crate::action::CheckTimeoutsAction;

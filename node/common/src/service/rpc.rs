@@ -331,10 +331,7 @@ impl node::rpc::RpcService for NodeServiceCommon {
         respond_discovery_bootstrap_stats,
         RpcDiscoveryBoostrapStatsResponse
     );
-    rpc_service_impl!(
-        respond_transaction_pool,
-        RpcTransactionPoolResponse
-    );
+    rpc_service_impl!(respond_transaction_pool, RpcTransactionPoolResponse);
 }
 
 #[cfg(test)]

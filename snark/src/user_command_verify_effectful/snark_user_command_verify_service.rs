@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use ledger::scan_state::transaction_logic::{verifiable, WithStatus};
+use mina_p2p_messages::{list::List, v2};
 
 use crate::{VerifierIndex, VerifierSRS};
 
@@ -12,6 +12,6 @@ pub trait SnarkUserCommandVerifyService: redux::Service {
         req_id: SnarkUserCommandVerifyId,
         verifier_index: Arc<VerifierIndex>,
         verifier_srs: Arc<Mutex<VerifierSRS>>,
-        commands: Vec<WithStatus<verifiable::UserCommand>>,
+        commands: List<v2::MinaBaseUserCommandStableV2>,
     );
 }

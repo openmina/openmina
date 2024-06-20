@@ -1,6 +1,7 @@
 use std::sync::{Arc, Mutex};
 
 use ledger::scan_state::transaction_logic::{verifiable, WithStatus};
+use mina_p2p_messages::{list::List, v2};
 use serde::{Deserialize, Serialize};
 
 use crate::{VerifierIndex, VerifierSRS};
@@ -11,8 +12,9 @@ use super::SnarkUserCommandVerifyId;
 pub enum SnarkUserCommandVerifyEffectfulAction {
     Init {
         req_id: SnarkUserCommandVerifyId,
-        commands: Vec<WithStatus<verifiable::UserCommand>>,
-        sender: String,
+        commands: List<v2::MinaBaseUserCommandStableV2>,
+        // commands: Vec<WithStatus<verifiable::UserCommand>>,
+        // sender: String,
         verifier_index: Arc<VerifierIndex>,
         verifier_srs: Arc<Mutex<VerifierSRS>>,
     },

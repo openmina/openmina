@@ -417,6 +417,8 @@ pub enum ActionKind {
     TransactionPoolBestTipChanged,
     TransactionPoolBestTipChangedWithAccounts,
     TransactionPoolRebroadcast,
+    TransactionPoolStartVerify,
+    TransactionPoolStartVerifyWithAccounts,
     TransactionPoolEffectfulFetchAccounts,
     TransitionFrontierGenesisInject,
     TransitionFrontierSynced,
@@ -506,7 +508,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 412;
+    pub const COUNT: u16 = 415;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -651,6 +653,10 @@ impl ActionKindGet for SnarkPoolEffectfulAction {
 impl ActionKindGet for TransactionPoolAction {
     fn kind(&self) -> ActionKind {
         match self {
+            Self::StartVerify { .. } => ActionKind::TransactionPoolStartVerify,
+            Self::StartVerifyWithAccounts { .. } => {
+                ActionKind::TransactionPoolStartVerifyWithAccounts
+            }
             Self::BestTipChanged { .. } => ActionKind::TransactionPoolBestTipChanged,
             Self::BestTipChangedWithAccounts { .. } => {
                 ActionKind::TransactionPoolBestTipChangedWithAccounts
