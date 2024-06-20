@@ -64,6 +64,7 @@ where
     T: SubstateAccess<crate::SnarkState>,
 {
     fn is_enabled(&self, state: &T, _time: redux::Timestamp) -> bool {
-        self.is_enabled(state.substate(), _time)
+        // TODO: don't unwrap
+        self.is_enabled(state.substate().unwrap(), _time)
     }
 }

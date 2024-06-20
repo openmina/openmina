@@ -1,8 +1,10 @@
 use redux::Dispatcher;
 
+pub type SubstateResult<T> = Result<T, String>;
+
 pub trait SubstateAccess<T> {
-    fn substate(&self) -> &T;
-    fn substate_mut(&mut self) -> &mut T;
+    fn substate(&self) -> SubstateResult<&T>;
+    fn substate_mut(&mut self) -> SubstateResult<&mut T>;
 }
 
 pub struct Substate<'a, A, T, S> {
@@ -31,11 +33,11 @@ where
         Self::new(state, dispatcher)
     }
 
-    pub fn get_substate(&self) -> &S {
+    pub fn get_substate(&self) -> SubstateResult<&S> {
         self.state.substate()
     }
 
-    pub fn get_substate_mut(&mut self) -> &mut S {
+    pub fn get_substate_mut(&mut self) -> SubstateResult<&mut S> {
         self.state.substate_mut()
     }
 
@@ -59,6 +61,7 @@ impl<'a, A, T, S> From<(&'a mut T, &'a mut Dispatcher<A, T>)> for Substate<'a, A
     }
 }
 
+// TODO: remove
 impl<'a, A, T, S> std::ops::Deref for Substate<'a, A, T, S>
 where
     T: SubstateAccess<S>,
@@ -66,16 +69,17 @@ where
     type Target = S;
 
     fn deref(&self) -> &Self::Target {
-        self.get_substate()
+        self.get_substate().unwrap()
     }
 }
 
+// TODO: remove
 impl<'a, A, T, S> std::ops::DerefMut for Substate<'a, A, T, S>
 where
     T: SubstateAccess<S>,
 {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        self.get_substate_mut()
+        self.get_substate_mut().unwrap()
     }
 }
 
@@ -83,12 +87,12 @@ where
 macro_rules! impl_substate_access {
     ($state:ty, $substate_type:ty, $($substate_path:tt)*) => {
         impl $crate::SubstateAccess<$substate_type> for $state {
-            fn substate(&self) -> &$substate_type {
-                &self.$($substate_path)*
+            fn substate(&self) -> $crate::SubstateResult<&$substate_type> {
+                Ok(&self.$($substate_path)*)
             }
 
-            fn substate_mut(&mut self) -> &mut $substate_type {
-                &mut self.$($substate_path)*
+            fn substate_mut(&mut self) -> $crate::SubstateResult<&mut $substate_type> {
+                Ok(&mut self.$($substate_path)*)
             }
         }
     };

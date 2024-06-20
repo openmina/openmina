@@ -6,7 +6,7 @@ use openmina_core::{
         },
         time_to_str, EventContext,
     },
-    ActionEvent, SubstateAccess,
+    ActionEvent, SubstateAccess, SubstateResult,
 };
 use p2p::{MioEvent, P2pAction, P2pEvent, P2pNetworkSchedulerAction, P2pState, PeerId};
 use redux::{ActionMeta, EnablingCondition, SubStore};
@@ -60,11 +60,11 @@ impl SubStore<State, P2pState> for Store {
 }
 
 impl SubstateAccess<P2pState> for State {
-    fn substate(&self) -> &P2pState {
-        &self.0
+    fn substate(&self) -> SubstateResult<&P2pState> {
+        Ok(&self.0)
     }
-    fn substate_mut(&mut self) -> &mut P2pState {
-        &mut self.0
+    fn substate_mut(&mut self) -> SubstateResult<&mut P2pState> {
+        Ok(&mut self.0)
     }
 }
 

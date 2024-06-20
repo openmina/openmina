@@ -68,68 +68,102 @@ impl_substate_access!(State, RpcState, rpc);
 impl_substate_access!(State, WatchedAccountsState, watched_accounts);
 
 impl openmina_core::SubstateAccess<P2pState> for State {
-    fn substate(&self) -> &P2pState {
-        self.p2p.ready().unwrap()
+    fn substate(&self) -> openmina_core::SubstateResult<&P2pState> {
+        self.p2p
+            .ready()
+            .ok_or_else(|| "P2P state unavailable. P2P layer is not ready".to_owned())
     }
 
-    fn substate_mut(&mut self) -> &mut P2pState {
-        self.p2p.ready_mut().unwrap()
+    fn substate_mut(&mut self) -> openmina_core::SubstateResult<&mut P2pState> {
+        self.p2p
+            .ready_mut()
+            .ok_or_else(|| "P2P state unavailable. P2P layer is not ready".to_owned())
     }
 }
 
 impl openmina_core::SubstateAccess<p2p::P2pNetworkState> for State {
-    fn substate(&self) -> &p2p::P2pNetworkState {
-        &self.p2p.ready().unwrap().network
+    fn substate(&self) -> openmina_core::SubstateResult<&p2p::P2pNetworkState> {
+        self.p2p
+            .ready()
+            .ok_or_else(|| "Network state unavailable. P2P layer is not ready".to_owned())
+            .map(|p2p| &p2p.network)
     }
 
-    fn substate_mut(&mut self) -> &mut p2p::P2pNetworkState {
-        &mut self.p2p.ready_mut().unwrap().network
+    fn substate_mut(&mut self) -> openmina_core::SubstateResult<&mut p2p::P2pNetworkState> {
+        self.p2p
+            .ready_mut()
+            .ok_or_else(|| "Network state unavailable. P2P layer is not ready".to_owned())
+            .map(|p2p| &mut p2p.network)
     }
 }
 
 impl openmina_core::SubstateAccess<TransitionFrontierSyncLedgerState> for State {
-    fn substate(&self) -> &TransitionFrontierSyncLedgerState {
-        self.transition_frontier.sync.ledger().unwrap()
+    fn substate(&self) -> openmina_core::SubstateResult<&TransitionFrontierSyncLedgerState> {
+        self.transition_frontier
+            .sync
+            .ledger()
+            .ok_or_else(|| "Ledger sync state unavailable".to_owned())
     }
 
-    fn substate_mut(&mut self) -> &mut TransitionFrontierSyncLedgerState {
-        self.transition_frontier.sync.ledger_mut().unwrap()
+    fn substate_mut(
+        &mut self,
+    ) -> openmina_core::SubstateResult<&mut TransitionFrontierSyncLedgerState> {
+        self.transition_frontier
+            .sync
+            .ledger_mut()
+            .ok_or_else(|| "Ledger sync state unavailable".to_owned())
     }
 }
 
 impl openmina_core::SubstateAccess<TransitionFrontierSyncLedgerSnarkedState> for State {
-    fn substate(&self) -> &TransitionFrontierSyncLedgerSnarkedState {
+    fn substate(&self) -> openmina_core::SubstateResult<&TransitionFrontierSyncLedgerSnarkedState> {
         self.transition_frontier
             .sync
             .ledger()
-            .and_then(|ls| ls.snarked())
-            .unwrap()
+            .ok_or_else(|| {
+                "Snarked ledger state unavailable. Ledger sync state unavailable".to_owned()
+            })?
+            .snarked()
+            .ok_or_else(|| "Snarked ledger state unavailable".to_owned())
     }
 
-    fn substate_mut(&mut self) -> &mut TransitionFrontierSyncLedgerSnarkedState {
+    fn substate_mut(
+        &mut self,
+    ) -> openmina_core::SubstateResult<&mut TransitionFrontierSyncLedgerSnarkedState> {
         self.transition_frontier
             .sync
             .ledger_mut()
-            .and_then(|ls| ls.snarked_mut())
-            .unwrap()
+            .ok_or_else(|| {
+                "Snarked ledger state unavailable. Ledger sync state unavailable".to_owned()
+            })?
+            .snarked_mut()
+            .ok_or_else(|| "Snarked ledger state unavailable".to_owned())
     }
 }
 
 impl openmina_core::SubstateAccess<TransitionFrontierSyncLedgerStagedState> for State {
-    fn substate(&self) -> &TransitionFrontierSyncLedgerStagedState {
+    fn substate(&self) -> openmina_core::SubstateResult<&TransitionFrontierSyncLedgerStagedState> {
         self.transition_frontier
             .sync
             .ledger()
-            .and_then(|ls| ls.staged())
-            .unwrap()
+            .ok_or_else(|| {
+                "Staged ledger state unavailable. Ledger sync state unavailable".to_owned()
+            })?
+            .staged()
+            .ok_or_else(|| "Staged ledger state unavailable".to_owned())
     }
 
-    fn substate_mut(&mut self) -> &mut TransitionFrontierSyncLedgerStagedState {
+    fn substate_mut(
+        &mut self,
+    ) -> openmina_core::SubstateResult<&mut TransitionFrontierSyncLedgerStagedState> {
         self.transition_frontier
             .sync
             .ledger_mut()
-            .and_then(|ls| ls.staged_mut())
-            .unwrap()
+            .ok_or_else(|| {
+                "Staged ledger state unavailable. Ledger sync state unavailable".to_owned()
+            })?
+            .staged_mut()
+            .ok_or_else(|| "Staged ledger state unavailable".to_owned())
     }
 }
 
