@@ -65,6 +65,8 @@ impl TransactionPoolState {
         use TransactionPoolAction::*;
 
         let (action, _meta) = action.split();
+        let substate = state.get_substate_mut().unwrap();
+
         match action {
             StartVerify { commands } => {
                 let commands = commands.iter().map(UserCommand::from).collect::<Vec<_>>();
@@ -72,8 +74,8 @@ impl TransactionPoolState {
                     .iter()
                     .flat_map(|c| c.accounts_referenced())
                     .collect::<BTreeSet<_>>();
-                let best_tip_hash = state.best_tip_hash.clone().unwrap();
-                let pending_id = state.make_action_pending(action);
+                let best_tip_hash = substate.best_tip_hash.clone().unwrap();
+                let pending_id = substate.make_action_pending(action);
 
                 let dispatcher = state.into_dispatcher();
                 dispatcher.push(TransactionPoolEffectfulAction::FetchAccounts {
@@ -89,7 +91,7 @@ impl TransactionPoolState {
                 accounts,
                 pending_id,
             } => {
-                let StartVerify { commands } = state.pending_actions.remove(pending_id).unwrap()
+                let StartVerify { commands } = substate.pending_actions.remove(pending_id).unwrap()
                 else {
                     panic!()
                 };
@@ -98,12 +100,12 @@ impl TransactionPoolState {
                 let commands = commands.iter().map(UserCommand::from).collect::<Vec<_>>();
                 let diff = diff::Diff { list: commands };
 
-                let valids = state.pool.verify(diff, accounts).unwrap(); // TODO: Handle invalids
+                let valids = substate.pool.verify(diff, accounts).unwrap(); // TODO: Handle invalids
                 let valids = valids
                     .into_iter()
                     .map(transaction_hash::hash_command)
                     .collect::<Vec<_>>();
-                let best_tip_hash = state.best_tip_hash.clone().unwrap();
+                let best_tip_hash = substate.best_tip_hash.clone().unwrap();
                 let diff = DiffVerified { list: valids };
 
                 let dispatcher = state.into_dispatcher();
@@ -114,7 +116,7 @@ impl TransactionPoolState {
                 });
             }
             BestTipChanged { best_tip_hash } => {
-                let account_ids = state.pool.get_accounts_to_revalidate_on_new_best_tip();
+                let account_ids = substate.pool.get_accounts_to_revalidate_on_new_best_tip();
 
                 let dispatcher = state.into_dispatcher();
                 dispatcher.push(TransactionPoolEffectfulAction::FetchAccounts {
@@ -127,15 +129,15 @@ impl TransactionPoolState {
                 });
             }
             BestTipChangedWithAccounts { accounts } => {
-                state.pool.on_new_best_tip(accounts);
+                substate.pool.on_new_best_tip(accounts);
             }
             ApplyVerifiedDiff {
                 best_tip_hash,
                 diff,
                 is_sender_local: _,
             } => {
-                let account_ids = state.pool.get_accounts_to_apply_diff(&diff);
-                let pending_id = state.make_action_pending(action);
+                let account_ids = substate.pool.get_accounts_to_apply_diff(&diff);
+                let pending_id = substate.make_action_pending(action);
 
                 let dispatcher = state.into_dispatcher();
                 dispatcher.push(TransactionPoolEffectfulAction::FetchAccounts {
@@ -158,17 +160,17 @@ impl TransactionPoolState {
                     best_tip_hash: _,
                     diff,
                     is_sender_local,
-                } = state.pending_actions.remove(pending_id).unwrap()
+                } = substate.pending_actions.remove(pending_id).unwrap()
                 else {
                     panic!()
                 };
 
-                match state.pool.unsafe_apply(&diff, &accounts, is_sender_local) {
+                match substate.pool.unsafe_apply(&diff, &accounts, is_sender_local) {
                     Ok((ApplyDecision::Accept, accepted, rejected)) => {
-                        state.rebroadcast(accepted, rejected)
+                        substate.rebroadcast(accepted, rejected)
                     }
                     Ok((ApplyDecision::Reject, accepted, rejected)) => {
-                        state.rebroadcast(accepted, rejected)
+                        substate.rebroadcast(accepted, rejected)
                     }
                     Err(e) => eprintln!("unsafe_apply error: {:?}", e),
                 }
@@ -177,8 +179,8 @@ impl TransactionPoolState {
                 best_tip_hash,
                 diff,
             } => {
-                let account_ids = state.pool.get_accounts_to_handle_transition_diff(&diff);
-                let pending_id = state.make_action_pending(action);
+                let account_ids = substate.pool.get_accounts_to_handle_transition_diff(&diff);
+                let pending_id = substate.make_action_pending(action);
 
                 let dispatcher = state.into_dispatcher();
                 dispatcher.push(TransactionPoolEffectfulAction::FetchAccounts {
@@ -200,12 +202,12 @@ impl TransactionPoolState {
                 let ApplyTransitionFrontierDiff {
                     best_tip_hash: _,
                     diff,
-                } = state.pending_actions.remove(pending_id).unwrap()
+                } = substate.pending_actions.remove(pending_id).unwrap()
                 else {
                     panic!()
                 };
 
-                state.pool.handle_transition_frontier_diff(&diff, &accounts);
+                substate.pool.handle_transition_frontier_diff(&diff, &accounts);
             }
             Rebroadcast => {}
         }

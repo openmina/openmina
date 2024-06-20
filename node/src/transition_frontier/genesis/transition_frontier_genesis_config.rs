@@ -120,7 +120,7 @@ impl GenesisConfig {
         }
     }
 
-    pub fn load(&self) -> anyhow::Result<(ledger::Mask, GenesisConfigLoaded)> {
+    pub fn load(&self) -> anyhow::Result<(ledger::Mask, GenesisConfigLoaded), GenesisConfigError> {
         Ok(match self {
             Self::Counts {
                 whales,
@@ -208,20 +208,22 @@ impl GenesisConfig {
                     Self::build_ledger_from_accounts_and_hashes(accounts, hashes);
                 let ledger_hash = ledger_hash(&mut mask);
 
-                // TODO(tizoc): currently this doesn't really do much, because now we load the hashes
-                // from the bin_prot data too to speed up the loading. Maybe add some flag
-                // to force the rehashing and validation of the loaded ledger hashes.
-                if let Some(expected_hash) = expected_hash.filter(|h| h != &ledger_hash) {
-                    anyhow::bail!("ledger hash mismatch after building the mask! expected: '{expected_hash}', got '{ledger_hash}'");
-                }
+                todo!()
 
-                let load_result = GenesisConfigLoaded {
-                    constants: constants.clone(),
-                    ledger_hash,
-                    total_currency,
-                    genesis_producer_stake_proof: genesis_producer_stake_proof(&mask),
-                };
-                (mask, load_result)
+                // // TODO(tizoc): currently this doesn't really do much, because now we load the hashes
+                // // from the bin_prot data too to speed up the loading. Maybe add some flag
+                // // to force the rehashing and validation of the loaded ledger hashes.
+                // if let Some(expected_hash) = expected_hash.filter(|h| h != &ledger_hash) {
+                //     anyhow::bail!("ledger hash mismatch after building the mask! expected: '{expected_hash}', got '{ledger_hash}'");
+                // }
+                //
+                // let load_result = GenesisConfigLoaded {
+                //     constants: constants.clone(),
+                //     ledger_hash,
+                //     total_currency,
+                //     genesis_producer_stake_proof: genesis_producer_stake_proof(&mask),
+                // };
+                // (mask, load_result)
             }
             Self::DaemonJson(config) => {
                 let mut masks = Vec::new();
