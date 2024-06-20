@@ -211,7 +211,7 @@ impl Node {
                         .daemon
                         .clone()
                         .unwrap_or(daemon_json::Daemon::DEFAULT),
-                    Arc::new(GenesisConfig::DaemonJson(config)),
+                    Arc::new(GenesisConfig::DaemonJson(Box::new(config))),
                 )
             }
             None => (

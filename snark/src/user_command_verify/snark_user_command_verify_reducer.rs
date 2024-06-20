@@ -23,14 +23,16 @@ pub fn reducer<State, Action>(
         SnarkUserCommandVerifyAction::Init {
             commands, req_id, ..
         } => {
-            state.jobs.add(SnarkUserCommandVerifyStatus::Init {
+            let substate = state.get_substate_mut().unwrap();
+
+            substate.jobs.add(SnarkUserCommandVerifyStatus::Init {
                 time: meta.time(),
                 commands: commands.clone(),
             });
 
             // Dispatch
-            let verifier_index = state.verifier_index.clone();
-            let verifier_srs = state.verifier_srs.clone();
+            let verifier_index = substate.verifier_index.clone();
+            let verifier_srs = substate.verifier_srs.clone();
             let dispatcher = state.into_dispatcher();
             dispatcher.push(SnarkUserCommandVerifyEffectfulAction::Init {
                 req_id: *req_id,
@@ -41,7 +43,9 @@ pub fn reducer<State, Action>(
             dispatcher.push(SnarkUserCommandVerifyAction::Pending { req_id: *req_id });
         }
         SnarkUserCommandVerifyAction::Pending { req_id } => {
-            if let Some(req) = state.jobs.get_mut(*req_id) {
+            let substate = state.get_substate_mut().unwrap();
+
+            if let Some(req) = substate.jobs.get_mut(*req_id) {
                 *req = match req {
                     SnarkUserCommandVerifyStatus::Init { commands, .. } => {
                         SnarkUserCommandVerifyStatus::Pending {
@@ -55,7 +59,9 @@ pub fn reducer<State, Action>(
             }
         }
         SnarkUserCommandVerifyAction::Error { req_id, error } => {
-            if let Some(req) = state.jobs.get_mut(*req_id) {
+            let substate = state.get_substate_mut().unwrap();
+
+            if let Some(req) = substate.jobs.get_mut(*req_id) {
                 if let SnarkUserCommandVerifyStatus::Pending { commands, .. } = req {
                     *req = SnarkUserCommandVerifyStatus::Error {
                         time: meta.time(),
@@ -70,7 +76,9 @@ pub fn reducer<State, Action>(
             dispatcher.push(SnarkUserCommandVerifyAction::Finish { req_id: *req_id });
         }
         SnarkUserCommandVerifyAction::Success { req_id } => {
-            if let Some(req) = state.jobs.get_mut(*req_id) {
+            let substate = state.get_substate_mut().unwrap();
+
+            if let Some(req) = substate.jobs.get_mut(*req_id) {
                 if let SnarkUserCommandVerifyStatus::Pending { commands, .. } = req {
                     *req = SnarkUserCommandVerifyStatus::Success {
                         time: meta.time(),
@@ -84,7 +92,8 @@ pub fn reducer<State, Action>(
             dispatcher.push(SnarkUserCommandVerifyAction::Finish { req_id: *req_id });
         }
         SnarkUserCommandVerifyAction::Finish { req_id } => {
-            state.jobs.remove(*req_id);
+            let substate = state.get_substate_mut().unwrap();
+            substate.jobs.remove(*req_id);
         }
     }
 }
