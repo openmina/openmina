@@ -25,7 +25,7 @@ vrf = { workspace = true }
 linkme = "0.3.22"
 openmina-core = { path = "../core" }
 snark = { path = "../snark" }
-p2p = { path = "../p2p" }
+p2p = { path = "../p2p", default-features = false }
 openmina-node-account = { path = "./account" }
 tokio = { version = "1.26.0" }
 postcard = { version = "1.0.8", features = ["use-std"] }

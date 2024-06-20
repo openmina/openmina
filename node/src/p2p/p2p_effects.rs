@@ -38,6 +38,7 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
 
     match action {
         P2pAction::Initialization(P2pInitializeAction::Initialize { .. }) => {
+            #[cfg(feature = "p2p-libp2p")]
             if store.state().p2p.ready().is_some() {
                 store.service().start_mio();
             }
@@ -196,7 +197,6 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
             }
         }
         P2pAction::Discovery(action) => action.effects(&meta, store),
-        P2pAction::Identify(action) => action.effects(&meta, store),
         P2pAction::Channels(action) => match action {
             P2pChannelsAction::MessageReceived(action) => {
                 action.effects(&meta, store);
@@ -550,6 +550,13 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
                 store.dispatch(TransitionFrontierSyncAction::BlocksPeersQuery);
             }
         },
-        P2pAction::Network(action) => action.effects(&meta, store),
+        P2pAction::Identify(_action) => {
+            #[cfg(feature = "p2p-libp2p")]
+            _action.effects(&meta, store);
+        }
+        P2pAction::Network(_action) => {
+            #[cfg(feature = "p2p-libp2p")]
+            _action.effects(&meta, store);
+        }
     }
 }

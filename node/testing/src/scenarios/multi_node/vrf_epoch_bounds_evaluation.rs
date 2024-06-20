@@ -67,8 +67,6 @@ impl MultiNodeVrfEpochBoundsEvaluation {
                 )),
                 strategy: SnarkerStrategy::Sequential,
                 auto_commit: true,
-                // TODO(binier): fix if we want to use real snarker.
-                path: "".into(),
             }),
             ..rust_config
         });

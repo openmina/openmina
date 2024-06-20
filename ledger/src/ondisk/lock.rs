@@ -150,11 +150,11 @@ mod sys {
 mod sys {
     use std::fs::File;
 
-    pub(super) fn try_lock_exclusive(file: &File) -> std::io::Result<()> {
+    pub(super) fn try_lock_exclusive(_file: &File) -> std::io::Result<()> {
         Ok(())
     }
 
-    pub(super) fn unlock(file: &File) -> std::io::Result<()> {
+    pub(super) fn unlock(_file: &File) -> std::io::Result<()> {
         Ok(())
     }
 }

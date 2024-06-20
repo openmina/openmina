@@ -19,7 +19,7 @@ pub fn external_snark_worker_effects<S: crate::Service>(
             };
             let public_key = config.public_key.clone().into();
             let fee = config.fee.clone();
-            if let Err(err) = store.service.start(&config.path, public_key, fee) {
+            if let Err(err) = store.service.start(public_key, fee) {
                 store.dispatch(ExternalSnarkWorkerAction::Error {
                     error: err,
                     permanent: true,

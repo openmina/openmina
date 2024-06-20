@@ -71,10 +71,7 @@ pub fn relative_min_window_density(b1: &MinaConsensusState, b2: &MinaConsensusSt
 
     let projected_window = {
         // Compute shift count
-        let shift_count = min(
-            max(max_slot - global_slot(b1) - 1, 0),
-            SUB_WINDOWS_PER_WINDOW,
-        );
+        let shift_count = (max_slot - global_slot(b1) - 1).clamp(0, SUB_WINDOWS_PER_WINDOW);
 
         // Initialize projected window
         let mut projected_window = b1

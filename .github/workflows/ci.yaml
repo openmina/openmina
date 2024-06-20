@@ -122,7 +122,7 @@ jobs:
       # for now build just p2p as the rest can't yet be compiled to wasm.
       - name: Release build
         run: |
-          cargo build --release -p p2p --target wasm32-unknown-unknown
+          cargo build --release -p node --target wasm32-unknown-unknown --no-default-features --features p2p-webrtc
 
   build-tests:
     runs-on: ubuntu-20.04

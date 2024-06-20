@@ -1,6 +1,6 @@
-use std::ffi::OsStr;
 use std::io;
 use std::mem::size_of;
+use std::path::Path;
 use std::process::Stdio;
 use std::sync::Arc;
 
@@ -200,17 +200,22 @@ macro_rules! send_event {
 }
 
 impl ExternalSnarkWorkerFacade {
-    fn start<P: AsRef<OsStr>>(
-        path: P,
+    fn start(
         public_key: NonZeroCurvePoint,
         fee: CurrencyFeeStableV1,
         event_sender: mpsc::UnboundedSender<Event>,
     ) -> Result<Self, SnarkerError> {
+        let path = std::env::var_os("MINA_EXE_PATH")
+            .or_else(|| {
+                std::env::var_os("CARGO_MANIFEST_DIR")
+                    .map(|dir| Path::new(&dir).join("bin/snark-worker").into_os_string())
+            })
+            .unwrap();
         let (data_chan, mut data_rx) = mpsc::channel(1);
         let (cancel_chan, mut cancel_rx) = mpsc::channel(1);
         let (kill_chan, kill_rx) = oneshot::channel();
 
-        let metadata = std::fs::File::open(path.as_ref())?.metadata()?;
+        let metadata = std::fs::File::open(&path)?.metadata()?;
         if !metadata.is_file() {
             return Err(io::Error::new(io::ErrorKind::InvalidInput, "not a file").into());
         }
@@ -384,9 +389,8 @@ impl ExternalSnarkWorkerFacade {
 }
 
 impl ExternalSnarkWorkerService for NodeService {
-    fn start<P: AsRef<OsStr>>(
+    fn start(
         &mut self,
-        path: P,
         public_key: NonZeroCurvePoint,
         fee: CurrencyFeeStableV1,
     ) -> Result<(), node::external_snark_worker::ExternalSnarkWorkerError> {
@@ -394,7 +398,7 @@ impl ExternalSnarkWorkerService for NodeService {
             return Ok(());
         }
         let cmd_sender =
-            ExternalSnarkWorkerFacade::start(path, public_key, fee, self.event_sender.clone())?;
+            ExternalSnarkWorkerFacade::start(public_key, fee, self.event_sender.clone())?;
         self.snark_worker_sender = Some(cmd_sender);
         Ok(())
     }
@@ -438,7 +442,7 @@ impl ExternalSnarkWorkerService for NodeService {
 
 #[cfg(test)]
 mod tests {
-    use std::{env, ffi::OsString, path::Path, time::Duration};
+    use std::time::Duration;
 
     use mina_p2p_messages::binprot::BinProtRead;
     use mina_p2p_messages::v2::{
@@ -467,20 +471,10 @@ mod tests {
         };
     }
 
-    fn mina_exe_path() -> OsString {
-        env::var_os("MINA_EXE_PATH")
-            .or_else(|| {
-                env::var_os("CARGO_MANIFEST_DIR")
-                    .map(|dir| Path::new(&dir).join("bin/snark-worker").into_os_string())
-            })
-            .unwrap()
-    }
-
     #[tokio::test]
     async fn test_kill() {
         let (event_tx, mut event_rx) = mpsc::unbounded_channel();
         let cmd_sender = ExternalSnarkWorkerFacade::start(
-            mina_exe_path(),
             NonZeroCurvePoint::default(),
             CurrencyFeeStableV1(
                 mina_p2p_messages::v2::UnsignedExtendedUInt64Int64ForVersionTagsStableV1(
@@ -520,8 +514,7 @@ mod tests {
         let (public_key, fee, instances) = read_input(&mut r);
 
         let (event_tx, mut event_rx) = mpsc::unbounded_channel();
-        let mut cmd_sender =
-            ExternalSnarkWorkerFacade::start(mina_exe_path(), public_key, fee, event_tx).unwrap();
+        let mut cmd_sender = ExternalSnarkWorkerFacade::start(public_key, fee, event_tx).unwrap();
 
         expect_event!(event_rx, ExternalSnarkWorkerEvent::Started);
 
@@ -539,8 +532,7 @@ mod tests {
         let (public_key, fee, instances) = read_input(&mut r);
 
         let (event_tx, mut event_rx) = mpsc::unbounded_channel();
-        let mut cmd_sender =
-            ExternalSnarkWorkerFacade::start(mina_exe_path(), public_key, fee, event_tx).unwrap();
+        let mut cmd_sender = ExternalSnarkWorkerFacade::start(public_key, fee, event_tx).unwrap();
 
         expect_event!(event_rx, ExternalSnarkWorkerEvent::Started);
 
@@ -570,8 +562,7 @@ mod tests {
         let (public_key, fee, instances) = read_input(&mut r);
 
         let (event_tx, mut event_rx) = mpsc::unbounded_channel();
-        let mut cmd_sender =
-            ExternalSnarkWorkerFacade::start(mina_exe_path(), public_key, fee, event_tx).unwrap();
+        let mut cmd_sender = ExternalSnarkWorkerFacade::start(public_key, fee, event_tx).unwrap();
 
         expect_event!(event_rx, ExternalSnarkWorkerEvent::Started);
 
