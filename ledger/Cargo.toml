@@ -83,6 +83,7 @@ zstd = { version = "0.12", optional = true }
 # ocaml-interop = { path = "/home/sebastien/github/ocaml-interop", optional = true }
 ocaml-interop = { git = "https://github.com/sebastiencs/ocaml-interop.git", branch = "closure-values", optional = true }
 # ocaml-interop = { git = "https://github.com/tizoc/ocaml-interop.git", branch = "closure-values", optional = true }
+redux = { workspace = true, features=["serializable_callbacks"] }
 
 [target.'cfg(target_family = "wasm")'.dev-dependencies]
 wasm-bindgen-test = "0.3.0"
@@ -94,6 +95,7 @@ compression = ["zstd"]
 # Add this feature to run tests in both nodejs and browser:
 # https://github.com/rustwasm/wasm-bindgen/issues/2571
 in_nodejs = []
+
 
 [profile.release]
 debug = true

@@ -5657,7 +5657,7 @@ dependencies = [
 [[package]]
 name = "redux"
 version = "0.1.0"
-source = "git+https://github.com/openmina/redux-rs.git?rev=763b49f#763b49fc998cc88675b144df531a0b4a31191788"
+source = "git+https://github.com/openmina/redux-rs.git?branch=feat/dispatch-later-and-callbacks-wasm-fix#29fca522784d631a5059f8308dd4744fbc3a0511"
 dependencies = [
  "enum_dispatch",
  "gensym",

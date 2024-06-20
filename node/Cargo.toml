@@ -37,6 +37,9 @@ regex = "1"
 rust-format = "0.3"
 vergen = { version = "8.2.4", features = ["build", "cargo", "git", "gitcl", "rustc"] }
 
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
+redux = { workspace = true, features=["serializable_callbacks"] }
+
 [features]
 default = ["p2p-libp2p"]
 replay = []

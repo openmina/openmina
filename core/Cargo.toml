@@ -28,5 +28,9 @@ ark-ff = { git = "https://github.com/openmina/algebra", branch = "openmina", fea
 [dev-dependencies]
 serde_json = { version = "1" }
 
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
+redux = { workspace = true, features=["serializable_callbacks"] }
+
+
 [features]
 fuzzing = ["openmina-fuzzer"]
