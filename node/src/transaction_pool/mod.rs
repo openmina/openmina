@@ -1,13 +1,17 @@
 use ledger::{
     scan_state::transaction_logic::{verifiable, UserCommand, WithStatus},
-    transaction_pool::{diff, ApplyDecision, Config, ValidCommandWithHash},
+    transaction_pool::{
+        diff::{self, DiffVerified},
+        transaction_hash, ApplyDecision, Config, ValidCommandWithHash,
+    },
     Account, AccountId,
 };
+use mina_p2p_messages::v2;
 use openmina_core::consensus::ConsensusConstants;
 use redux::callback;
 use snark::{user_command_verify::SnarkUserCommandVerifyId, VerifierIndex, VerifierSRS};
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     sync::{Arc, Mutex},
 };
 
@@ -22,6 +26,7 @@ pub struct TransactionPoolState {
     pool: ledger::transaction_pool::TransactionPool,
     pending_actions: BTreeMap<PendingId, TransactionPoolAction>,
     pending_id: PendingId,
+    best_tip_hash: Option<v2::LedgerHash>,
 }
 
 type TransactionPoolActionWithMetaRef<'a> = redux::ActionWithMeta<&'a TransactionPoolAction>;
@@ -32,6 +37,7 @@ impl TransactionPoolState {
             pool: ledger::transaction_pool::TransactionPool::new(config, consensus_constants),
             pending_actions: Default::default(),
             pending_id: 0,
+            best_tip_hash: None,
         }
     }
 
@@ -60,6 +66,53 @@ impl TransactionPoolState {
 
         let (action, _meta) = action.split();
         match action {
+            StartVerify { commands } => {
+                let commands = commands.iter().map(UserCommand::from).collect::<Vec<_>>();
+                let account_ids = commands
+                    .iter()
+                    .flat_map(|c| c.accounts_referenced())
+                    .collect::<BTreeSet<_>>();
+                let best_tip_hash = state.best_tip_hash.clone().unwrap();
+                let pending_id = state.make_action_pending(action);
+
+                let dispatcher = state.into_dispatcher();
+                dispatcher.push(TransactionPoolEffectfulAction::FetchAccounts {
+                    account_ids,
+                    ledger_hash: best_tip_hash.clone(),
+                    on_result: callback!(|(accounts: BTreeMap<AccountId, Account>, id: Option<PendingId>)|  -> crate::Action {
+                        TransactionPoolAction::StartVerifyWithAccounts { accounts, pending_id: id.unwrap() }
+                    }),
+                    pending_id: Some(pending_id),
+                });
+            }
+            StartVerifyWithAccounts {
+                accounts,
+                pending_id,
+            } => {
+                let StartVerify { commands } = state.pending_actions.remove(pending_id).unwrap()
+                else {
+                    panic!()
+                };
+
+                // TODO: Convert those commands only once
+                let commands = commands.iter().map(UserCommand::from).collect::<Vec<_>>();
+                let diff = diff::Diff { list: commands };
+
+                let valids = state.pool.verify(diff, accounts).unwrap(); // TODO: Handle invalids
+                let valids = valids
+                    .into_iter()
+                    .map(transaction_hash::hash_command)
+                    .collect::<Vec<_>>();
+                let best_tip_hash = state.best_tip_hash.clone().unwrap();
+                let diff = DiffVerified { list: valids };
+
+                let dispatcher = state.into_dispatcher();
+                dispatcher.push(TransactionPoolAction::ApplyVerifiedDiff {
+                    best_tip_hash,
+                    diff,
+                    is_sender_local: false,
+                });
+            }
             BestTipChanged { best_tip_hash } => {
                 let account_ids = state.pool.get_accounts_to_revalidate_on_new_best_tip();
 

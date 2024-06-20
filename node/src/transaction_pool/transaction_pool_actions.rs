@@ -4,7 +4,10 @@ use ledger::{
     transaction_pool::diff::{BestTipDiff, DiffVerified},
     Account, AccountId, BaseLedger as _,
 };
-use mina_p2p_messages::v2::LedgerHash;
+use mina_p2p_messages::{
+    list::List,
+    v2::{self, LedgerHash},
+};
 use redux::Callback;
 use serde::{Deserialize, Serialize};
 
@@ -14,6 +17,13 @@ use super::PendingId;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum TransactionPoolAction {
+    StartVerify {
+        commands: List<v2::MinaBaseUserCommandStableV2>,
+    },
+    StartVerifyWithAccounts {
+        accounts: BTreeMap<AccountId, Account>,
+        pending_id: PendingId,
+    },
     BestTipChanged {
         best_tip_hash: LedgerHash,
     },

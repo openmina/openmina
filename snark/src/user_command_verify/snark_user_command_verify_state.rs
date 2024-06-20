@@ -1,6 +1,7 @@
 use std::sync::{Arc, Mutex};
 
 use ledger::scan_state::transaction_logic::{verifiable, WithStatus};
+use mina_p2p_messages::{list::List, v2};
 use serde::{Deserialize, Serialize};
 
 use openmina_core::requests::PendingRequests;
@@ -45,26 +46,20 @@ impl std::fmt::Debug for SnarkUserCommandVerifyState {
 pub enum SnarkUserCommandVerifyStatus {
     Init {
         time: redux::Timestamp,
-        commands: Vec<WithStatus<verifiable::UserCommand>>,
-        // TODO(binier): move p2p/src/identity to shared crate and use
-        // `PeerId` here.
-        sender: String,
+        commands: List<v2::MinaBaseUserCommandStableV2>,
     },
     Pending {
         time: redux::Timestamp,
         commands: Vec<WithStatus<verifiable::UserCommand>>,
-        sender: String,
     },
     Error {
         time: redux::Timestamp,
         commands: Vec<WithStatus<verifiable::UserCommand>>,
-        sender: String,
         error: SnarkUserCommandVerifyError,
     },
     Success {
         time: redux::Timestamp,
         commands: Vec<WithStatus<verifiable::UserCommand>>,
-        sender: String,
     },
 }
 
@@ -79,23 +74,5 @@ impl SnarkUserCommandVerifyStatus {
 
     pub fn is_finished(&self) -> bool {
         matches!(self, Self::Error { .. } | Self::Success { .. })
-    }
-
-    pub fn commands(&self) -> &[WithStatus<verifiable::UserCommand>] {
-        match self {
-            Self::Init { commands, .. } => commands,
-            Self::Pending { commands, .. } => commands,
-            Self::Error { commands, .. } => commands,
-            Self::Success { commands, .. } => commands,
-        }
-    }
-
-    pub fn sender(&self) -> &str {
-        match self {
-            Self::Init { sender, .. } => sender,
-            Self::Pending { sender, .. } => sender,
-            Self::Error { sender, .. } => sender,
-            Self::Success { sender, .. } => sender,
-        }
     }
 }
