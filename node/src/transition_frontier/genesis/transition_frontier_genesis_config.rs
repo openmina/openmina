@@ -6,7 +6,11 @@ use std::{
 };
 
 use crate::{account::AccountSecretKey, daemon_json::EpochData};
-use ledger::{proofs::caching::openmina_cache_path, scan_state::currency::Balance, BaseLedger};
+use ledger::{
+    proofs::caching::{ensure_path_exists, openmina_cache_path},
+    scan_state::currency::Balance,
+    BaseLedger,
+};
 use mina_hasher::Fp;
 use mina_p2p_messages::{
     binprot::{
@@ -71,6 +75,8 @@ pub enum GenesisConfigError {
     Account(#[from] AccountConfigError),
     #[error("error loading genesis config from precomputed data: {0}")]
     Prebuilt(#[from] binprot::Error),
+    #[error("I/O error: {0}")]
+    Io(#[from] std::io::Error),
 }
 
 impl GenesisConfig {
@@ -283,7 +289,8 @@ impl GenesisConfig {
                 };
                 let prebuilt = PrebuiltGenesisConfig::try_from(*config.clone())?;
                 let cache_filename =
-                    openmina_cache_path(format!("ledgers/{}.bin", ledger_hash)).unwrap();
+                    openmina_cache_path(format!("prebuilt_configs/{}.bin", ledger_hash)).unwrap();
+                ensure_path_exists(cache_filename.ancestors().nth(1).unwrap())?;
                 let filename_str = cache_filename
                     .clone()
                     .into_os_string()
