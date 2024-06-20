@@ -453,7 +453,7 @@ pub async fn run(port: u16, rpc_sender: RpcSender) {
                         dropped_channel_response,
                         |reply: node::rpc::RpcTransactionPoolResponse| {
                             with_json_reply(&reply, StatusCode::OK)
-                        }
+                        },
                     )
             }
         });

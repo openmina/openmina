@@ -1,4 +1,5 @@
 use ledger::scan_state::transaction_logic::{verifiable, WithStatus};
+use mina_p2p_messages::{list::List, v2};
 use redux::Callback;
 use serde::{Deserialize, Serialize};
 
@@ -23,8 +24,7 @@ pub enum SnarkUserCommandVerifyAction {
     #[action_event(level = info)]
     Init {
         req_id: SnarkUserCommandVerifyId,
-        commands: Vec<WithStatus<verifiable::UserCommand>>,
-        sender: String,
+        commands: List<v2::MinaBaseUserCommandStableV2>,
         on_success: OnSuccess,
         on_error: Callback<(SnarkUserCommandVerifyId, String)>,
     },

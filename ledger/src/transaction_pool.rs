@@ -1399,7 +1399,7 @@ fn currency_consumed(cmd: &UserCommand) -> Option<Amount> {
 
 type BlakeHash = Arc<[u8; 32]>;
 
-mod transaction_hash {
+pub mod transaction_hash {
     use blake2::{
         digest::{Update, VariableOutput},
         Blake2bVar,
@@ -1957,7 +1957,7 @@ impl TransactionPool {
     pub fn verify(
         &self,
         diff: diff::Diff,
-        accounts: BTreeMap<AccountId, Account>,
+        accounts: &BTreeMap<AccountId, Account>,
     ) -> Result<Vec<valid::UserCommand>, String> {
         let well_formedness_errors: HashSet<_> = diff
             .list
@@ -1993,7 +1993,7 @@ impl TransactionPool {
                 })
                 .collect();
 
-            let ledger_vks = UserCommand::load_vks_from_ledger_accounts(&accounts);
+            let ledger_vks = UserCommand::load_vks_from_ledger_accounts(accounts);
             let ledger_vks: HashMap<_, _> = ledger_vks
                 .into_iter()
                 .map(|(id, vk)| {

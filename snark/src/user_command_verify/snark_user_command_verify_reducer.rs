@@ -21,15 +21,11 @@ pub fn reducer<State, Action>(
     let (action, meta) = action.split();
     match action {
         SnarkUserCommandVerifyAction::Init {
-            commands,
-            sender,
-            req_id,
-            ..
+            commands, req_id, ..
         } => {
             state.jobs.add(SnarkUserCommandVerifyStatus::Init {
                 time: meta.time(),
                 commands: commands.clone(),
-                sender: sender.clone(),
             });
 
             // Dispatch
@@ -38,7 +34,6 @@ pub fn reducer<State, Action>(
             let dispatcher = state.into_dispatcher();
             dispatcher.push(SnarkUserCommandVerifyEffectfulAction::Init {
                 req_id: *req_id,
-                sender: sender.clone(),
                 commands: commands.clone(),
                 verifier_index,
                 verifier_srs,
@@ -48,27 +43,23 @@ pub fn reducer<State, Action>(
         SnarkUserCommandVerifyAction::Pending { req_id } => {
             if let Some(req) = state.jobs.get_mut(*req_id) {
                 *req = match req {
-                    SnarkUserCommandVerifyStatus::Init {
-                        commands, sender, ..
-                    } => SnarkUserCommandVerifyStatus::Pending {
-                        time: meta.time(),
-                        commands: std::mem::take(commands),
-                        sender: std::mem::take(sender),
-                    },
+                    SnarkUserCommandVerifyStatus::Init { commands, .. } => {
+                        SnarkUserCommandVerifyStatus::Pending {
+                            time: meta.time(),
+                            commands: todo!(),
+                            // commands: std::mem::take(commands),
+                        }
+                    }
                     _ => return,
                 };
             }
         }
         SnarkUserCommandVerifyAction::Error { req_id, error } => {
             if let Some(req) = state.jobs.get_mut(*req_id) {
-                if let SnarkUserCommandVerifyStatus::Pending {
-                    commands, sender, ..
-                } = req
-                {
+                if let SnarkUserCommandVerifyStatus::Pending { commands, .. } = req {
                     *req = SnarkUserCommandVerifyStatus::Error {
                         time: meta.time(),
                         commands: std::mem::take(commands),
-                        sender: std::mem::take(sender),
                         error: error.clone(),
                     }
                 }
@@ -80,14 +71,10 @@ pub fn reducer<State, Action>(
         }
         SnarkUserCommandVerifyAction::Success { req_id } => {
             if let Some(req) = state.jobs.get_mut(*req_id) {
-                if let SnarkUserCommandVerifyStatus::Pending {
-                    commands, sender, ..
-                } = req
-                {
+                if let SnarkUserCommandVerifyStatus::Pending { commands, .. } = req {
                     *req = SnarkUserCommandVerifyStatus::Success {
                         time: meta.time(),
                         commands: std::mem::take(commands),
-                        sender: std::mem::take(sender),
                     };
                 }
             }

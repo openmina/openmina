@@ -2,6 +2,7 @@ use mina_p2p_messages::v2::{MinaLedgerSyncLedgerAnswerStableV2, StateHash};
 use openmina_core::block::BlockWithHash;
 use p2p::channels::transaction::P2pChannelsTransactionAction;
 use p2p::P2pInitializeAction;
+use snark::user_command_verify::SnarkUserCommandVerifyAction;
 
 use crate::consensus::ConsensusAction;
 use crate::rpc::RpcAction;
@@ -18,7 +19,7 @@ use crate::watched_accounts::{
     WatchedAccountLedgerInitialState, WatchedAccountsAction,
     WatchedAccountsLedgerInitialStateGetError,
 };
-use crate::{p2p_ready, Service, Store};
+use crate::{p2p_ready, Service, Store, TransactionPoolAction};
 
 use super::channels::best_tip::P2pChannelsBestTipAction;
 use super::channels::rpc::{BestTipWithProof, P2pChannelsRpcAction, P2pRpcRequest, P2pRpcResponse};
@@ -224,10 +225,13 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
                     }
                     P2pChannelsTransactionAction::Libp2pReceived {
                         peer_id: _,
-                        transaction: _,
-                        ..
+                        transaction,
+                        nonce: _,
                     } => {
-                        // TODO(sebastiencs): send transaction to pool
+                        store.dispatch(TransactionPoolAction::StartVerify {
+                            // TODO: Take multiple transactions here
+                            commands: [transaction].into_iter().collect(),
+                        });
                     }
                     _ => {}
                 }
