@@ -1,4 +1,3 @@
-use std::ffi::OsString;
 use std::str::FromStr;
 use std::sync::Arc;
 
@@ -39,8 +38,6 @@ pub struct SnarkerConfig {
     pub fee: CurrencyFeeStableV1,
     pub strategy: SnarkerStrategy,
     pub auto_commit: bool,
-    /// External Mina snark worker executable path
-    pub path: OsString,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]

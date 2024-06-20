@@ -1,9 +1,9 @@
 use redux::ActionMeta;
 
-#[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
+#[cfg(feature = "p2p-libp2p")]
 use crate::disconnection::{P2pDisconnectionAction, P2pDisconnectionReason};
 use crate::peer::P2pPeerAction;
-#[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
+#[cfg(feature = "p2p-libp2p")]
 use crate::P2pNetworkSchedulerAction;
 use crate::{connection::P2pConnectionService, webrtc};
 
@@ -51,7 +51,7 @@ impl P2pConnectionIncomingAction {
                 store.dispatch(P2pConnectionIncomingAction::Success { peer_id });
             }
             P2pConnectionIncomingAction::Timeout { peer_id } => {
-                #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
+                #[cfg(feature = "p2p-libp2p")]
                 if let Some((addr, _)) = store
                     .state()
                     .network
@@ -77,7 +77,9 @@ impl P2pConnectionIncomingAction {
                     incoming: true,
                 });
             }
-            #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
+            #[cfg(not(feature = "p2p-libp2p"))]
+            P2pConnectionIncomingAction::FinalizePendingLibp2p { .. } => {}
+            #[cfg(feature = "p2p-libp2p")]
             P2pConnectionIncomingAction::FinalizePendingLibp2p { peer_id, addr } => {
                 use super::P2pConnectionIncomingState;
                 use crate::connection::RejectionReason;
@@ -134,10 +136,10 @@ impl P2pConnectionIncomingAction {
                     });
                 }
             }
-            #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
-            P2pConnectionIncomingAction::Libp2pReceived { peer_id } => {
+            P2pConnectionIncomingAction::Libp2pReceived { peer_id: _peer_id } => {
+                #[cfg(feature = "p2p-libp2p")]
                 store.dispatch(P2pPeerAction::Ready {
-                    peer_id,
+                    peer_id: _peer_id,
                     incoming: true,
                 });
             }

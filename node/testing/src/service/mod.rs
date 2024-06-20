@@ -3,7 +3,7 @@ mod rpc_service;
 use std::collections::VecDeque;
 use std::sync::Mutex;
 use std::time::Duration;
-use std::{collections::BTreeMap, ffi::OsStr, sync::Arc};
+use std::{collections::BTreeMap, sync::Arc};
 
 use ledger::dummy::dummy_transaction_proof;
 use ledger::proofs::transaction::ProofError;
@@ -497,14 +497,11 @@ impl BlockProducerService for NodeTestingService {
 }
 
 impl ExternalSnarkWorkerService for NodeTestingService {
-    fn start<P: AsRef<OsStr>>(
+    fn start(
         &mut self,
-        path: P,
         public_key: NonZeroCurvePoint,
         fee: CurrencyFeeStableV1,
     ) -> Result<(), node::external_snark_worker::ExternalSnarkWorkerError> {
-        let _ = path;
-
         let pub_key = AccountPublicKey::from(public_key);
         let sok_message = SokMessage::create((&fee).into(), pub_key.into());
         self.set_snarker_sok_digest((&sok_message.digest()).into());

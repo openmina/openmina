@@ -42,7 +42,7 @@ pub fn p2p_connection_reducer(
                     },
                 ))
             }
-            #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
+            #[cfg(feature = "p2p-libp2p")]
             if let P2pConnectionIncomingAction::FinalizePendingLibp2p { peer_id, addr, .. } = action
             {
                 use super::outgoing::P2pConnectionOutgoingInitOpts;

@@ -1,5 +1,3 @@
-use std::ffi::OsString;
-
 use std::fs::File;
 use std::io::{BufRead, BufReader, Read};
 use std::path::PathBuf;
@@ -98,10 +96,6 @@ pub struct Node {
 
     #[arg(long, env, default_value = "seq")]
     pub snarker_strategy: SnarkerStrategy,
-
-    /// Mina snark worker path
-    #[arg(long, env, default_value = "cli/bin/snark-worker")]
-    pub snarker_exe_path: OsString,
 
     #[arg(long, default_value = "none", env)]
     pub record: String,
@@ -231,7 +225,6 @@ impl Node {
                     )),
                     strategy: self.snarker_strategy,
                     auto_commit: true,
-                    path: self.snarker_exe_path,
                 }),
             },
             p2p: P2pConfig {

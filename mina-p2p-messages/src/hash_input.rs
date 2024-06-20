@@ -1,5 +1,3 @@
-#![cfg(feature = "hashing")]
-
 use std::ops::Deref;
 
 use ark_ff::{BigInteger, BigInteger256, FromBytes};

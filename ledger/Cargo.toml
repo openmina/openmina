@@ -17,6 +17,7 @@ crate-type = ["staticlib", "cdylib", "lib"]
 # https://stackoverflow.com/a/73023306
 
 [dependencies]
+redux = { workspace = true }
 openmina-core = { path = "../core" }
 mina-hasher = { workspace = true }
 mina-signer = { workspace = true }

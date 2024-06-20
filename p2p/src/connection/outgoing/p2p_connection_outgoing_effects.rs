@@ -4,10 +4,10 @@ use crate::connection::{P2pConnectionErrorResponse, P2pConnectionState};
 use crate::peer::P2pPeerAction;
 use crate::webrtc::Host;
 use crate::{connection::P2pConnectionService, webrtc, P2pPeerStatus};
-#[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
+#[cfg(feature = "p2p-libp2p")]
 use crate::{P2pNetworkKadRequestAction, P2pNetworkSchedulerAction};
 
-#[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
+#[cfg(feature = "p2p-libp2p")]
 use super::libp2p_opts::P2pConnectionOutgoingInitLibp2pOptsTryToSocketAddrError;
 use super::{
     P2pConnectionOutgoingAction, P2pConnectionOutgoingError, P2pConnectionOutgoingInitOpts,
@@ -33,7 +33,7 @@ impl P2pConnectionOutgoingAction {
             | P2pConnectionOutgoingAction::Reconnect { opts, .. } => {
                 let peer_id = *opts.peer_id();
 
-                #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
+                #[cfg(feature = "p2p-libp2p")]
                 if let P2pConnectionOutgoingInitOpts::LibP2P(libp2p_opts) = &opts {
                     match std::net::SocketAddr::try_from(libp2p_opts) {
                         Ok(addr) => {
@@ -143,7 +143,7 @@ impl P2pConnectionOutgoingAction {
                 peer_id: _peer_id,
                 error: _error,
             } => {
-                #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
+                #[cfg(feature = "p2p-libp2p")]
                 if store
                     .state()
                     .network

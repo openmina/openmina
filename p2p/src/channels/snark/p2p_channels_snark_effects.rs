@@ -1,7 +1,7 @@
 use redux::ActionMeta;
 
 use crate::channels::{ChannelId, MsgId, P2pChannelsService};
-#[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
+#[cfg(feature = "p2p-libp2p")]
 use crate::P2pNetworkPubsubAction;
 
 use super::{P2pChannelsSnarkAction, SnarkPropagationChannelMsg};
@@ -51,9 +51,10 @@ impl P2pChannelsSnarkAction {
             P2pChannelsSnarkAction::Pending { .. } => {}
             P2pChannelsSnarkAction::PromiseReceived { .. } => {}
             P2pChannelsSnarkAction::RequestReceived { .. } => {}
-            #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
             P2pChannelsSnarkAction::Libp2pReceived { .. } => {}
-            #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
+            #[cfg(not(feature = "p2p-libp2p"))]
+            P2pChannelsSnarkAction::Libp2pBroadcast { .. } => {}
+            #[cfg(feature = "p2p-libp2p")]
             P2pChannelsSnarkAction::Libp2pBroadcast { snark, nonce } => {
                 use mina_p2p_messages::{gossip::GossipNetMessageV2, v2};
                 let message = Box::new((snark.statement(), (&snark).into()));
