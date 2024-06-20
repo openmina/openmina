@@ -136,8 +136,7 @@ impl P2pState {
                 // FIXME: avoid this cloning here
                 let limits = state.config.limits.clone();
                 #[cfg(feature = "p2p-libp2p")]
-                state.network
-                    .reducer(meta.with_action(_action), &limits);
+                state.network.reducer(meta.with_action(_action), &limits);
             }
         }
     }
