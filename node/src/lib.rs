@@ -90,3 +90,18 @@ where
         }
     }
 }
+
+#[cfg(feature = "replay")]
+pub mod replay_status {
+    use std::sync::atomic::{AtomicBool, Ordering};
+
+    static REPLAY_STATUS: AtomicBool = AtomicBool::new(false);
+
+    pub fn toggle_enabled(value: bool) {
+        REPLAY_STATUS.store(value, Ordering::Relaxed);
+    }
+
+    pub fn is_enabled() -> bool {
+        REPLAY_STATUS.load(Ordering::Relaxed)
+    }
+}

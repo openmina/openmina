@@ -57,12 +57,14 @@ impl RecordReplayBootstrap {
         let node = runner.node(node_id).unwrap();
 
         let recording_dir = node.work_dir().child("recorder");
+        node::replay_status::toggle_enabled(true);
         let replayed_node = replay_state_with_input_actions(
             recording_dir.as_os_str().to_str().unwrap(),
             None,
             |_, _| Ok(()),
         )
         .expect("replay failed");
+        node::replay_status::toggle_enabled(false);
 
         assert_eq!(
             node.state().last_action(),

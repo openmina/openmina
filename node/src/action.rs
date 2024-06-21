@@ -57,15 +57,13 @@ pub struct CheckTimeoutsAction {}
 
 impl redux::EnablingCondition<crate::State> for CheckTimeoutsAction {}
 
-//#[cfg(feature = "replay")]
-//impl redux::EnablingCondition<crate::State> for Action {
-//    fn is_enabled(&self, _: &crate::State, _time: redux::Timestamp) -> bool {
-//        true
-//    }
-//}
-
 impl redux::EnablingCondition<crate::State> for Action {
     fn is_enabled(&self, state: &crate::State, time: redux::Timestamp) -> bool {
+        #[cfg(feature = "replay")]
+        if crate::replay_status::is_enabled() {
+            return true;
+        }
+
         match self {
             Action::CheckTimeouts(a) => a.is_enabled(state, time),
             Action::EventSource(a) => a.is_enabled(state, time),
