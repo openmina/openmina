@@ -1,4 +1,5 @@
 pub mod genesis;
+pub mod genesis_effectful;
 pub mod sync;
 
 mod transition_frontier_config;

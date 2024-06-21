@@ -33,7 +33,7 @@ use node::snark::block_verify::{
 };
 use node::snark::work_verify::{SnarkWorkVerifyId, SnarkWorkVerifyService};
 use node::snark::{SnarkEvent, VerifierIndex, VerifierSRS};
-use node::snark_pool::{JobState, SnarkPoolService};
+use node::snark_pool::SnarkPoolService;
 use node::stats::Stats;
 use node::transition_frontier::genesis::GenesisConfig;
 use node::{
@@ -424,7 +424,7 @@ impl SnarkWorkVerifyService for NodeTestingService {
 impl SnarkPoolService for NodeTestingService {
     fn random_choose<'a>(
         &mut self,
-        iter: impl Iterator<Item = &'a JobState>,
+        iter: impl Iterator<Item = &'a SnarkJobId>,
         n: usize,
     ) -> Vec<SnarkJobId> {
         self.real.random_choose(iter, n)

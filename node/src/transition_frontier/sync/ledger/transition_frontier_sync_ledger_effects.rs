@@ -6,6 +6,8 @@ use super::snarked::TransitionFrontierSyncLedgerSnarkedAction;
 use super::staged::TransitionFrontierSyncLedgerStagedAction;
 use super::TransitionFrontierSyncLedgerAction;
 
+// TODO(refactor): all this should be in the reducers?
+
 pub fn transition_frontier_sync_ledger_init_effects<S: redux::Service>(
     _: &ActionMeta,
     store: &mut Store<S>,

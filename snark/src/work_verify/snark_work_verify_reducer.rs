@@ -1,65 +1,102 @@
+use openmina_core::{Substate, SubstateAccess};
+use redux::EnablingCondition;
+
+use crate::work_verify_effectful::SnarkWorkVerifyEffectfulAction;
+
 use super::{
     SnarkWorkVerifyAction, SnarkWorkVerifyActionWithMetaRef, SnarkWorkVerifyState,
     SnarkWorkVerifyStatus,
 };
 
-impl SnarkWorkVerifyState {
-    pub fn reducer(&mut self, action: SnarkWorkVerifyActionWithMetaRef<'_>) {
-        let (action, meta) = action.split();
-        match action {
-            SnarkWorkVerifyAction::Init { batch, sender, .. } => {
-                self.jobs.add(SnarkWorkVerifyStatus::Init {
-                    time: meta.time(),
-                    batch: batch.clone(),
-                    sender: sender.clone(),
-                });
-            }
-            SnarkWorkVerifyAction::Pending { req_id } => {
-                if let Some(req) = self.jobs.get_mut(*req_id) {
-                    *req = match req {
-                        SnarkWorkVerifyStatus::Init { batch, sender, .. } => {
-                            SnarkWorkVerifyStatus::Pending {
-                                time: meta.time(),
-                                batch: std::mem::take(batch),
-                                sender: std::mem::take(sender),
-                            }
+pub fn reducer<State, Action>(
+    mut state_context: Substate<Action, State, SnarkWorkVerifyState>,
+    action: SnarkWorkVerifyActionWithMetaRef<'_>,
+) where
+    State: SubstateAccess<SnarkWorkVerifyState> + SubstateAccess<crate::SnarkState>,
+    Action: From<SnarkWorkVerifyAction>
+        + From<SnarkWorkVerifyEffectfulAction>
+        + From<redux::AnyAction>
+        + EnablingCondition<State>,
+{
+    let Ok(state) = state_context.get_substate_mut() else {
+        // TODO: log or propagate
+        return;
+    };
+    let (action, meta) = action.split();
+
+    match action {
+        SnarkWorkVerifyAction::Init {
+            batch,
+            sender,
+            req_id,
+            ..
+        } => {
+            state.jobs.add(SnarkWorkVerifyStatus::Init {
+                time: meta.time(),
+                batch: batch.clone(),
+                sender: sender.clone(),
+            });
+
+            // Dispatch
+            let verifier_index = state.verifier_index.clone();
+            let verifier_srs = state.verifier_srs.clone();
+            let dispatcher = state_context.into_dispatcher();
+            dispatcher.push(SnarkWorkVerifyEffectfulAction::Init {
+                req_id: *req_id,
+                sender: sender.clone(),
+                batch: batch.clone(),
+                verifier_index,
+                verifier_srs,
+            });
+            dispatcher.push(SnarkWorkVerifyAction::Pending { req_id: *req_id });
+        }
+        SnarkWorkVerifyAction::Pending { req_id } => {
+            if let Some(req) = state.jobs.get_mut(*req_id) {
+                *req = match req {
+                    SnarkWorkVerifyStatus::Init { batch, sender, .. } => {
+                        SnarkWorkVerifyStatus::Pending {
+                            time: meta.time(),
+                            batch: std::mem::take(batch),
+                            sender: std::mem::take(sender),
                         }
-                        _ => return,
+                    }
+                    _ => return,
+                };
+            }
+        }
+        SnarkWorkVerifyAction::Error { req_id, error } => {
+            if let Some(req) = state.jobs.get_mut(*req_id) {
+                if let SnarkWorkVerifyStatus::Pending { batch, sender, .. } = req {
+                    *req = SnarkWorkVerifyStatus::Error {
+                        time: meta.time(),
+                        batch: std::mem::take(batch),
+                        sender: std::mem::take(sender),
+                        error: error.clone(),
+                    }
+                }
+            }
+
+            // Dispatch
+            let dispatcher = state_context.into_dispatcher();
+            dispatcher.push(SnarkWorkVerifyAction::Finish { req_id: *req_id });
+        }
+        SnarkWorkVerifyAction::Success { req_id } => {
+            if let Some(req) = state.jobs.get_mut(*req_id) {
+                if let SnarkWorkVerifyStatus::Pending { batch, sender, .. } = req {
+                    *req = SnarkWorkVerifyStatus::Success {
+                        time: meta.time(),
+                        batch: std::mem::take(batch),
+                        sender: std::mem::take(sender),
                     };
                 }
             }
-            SnarkWorkVerifyAction::Error { req_id, error } => {
-                if let Some(req) = self.jobs.get_mut(*req_id) {
-                    *req = match req {
-                        SnarkWorkVerifyStatus::Pending { batch, sender, .. } => {
-                            SnarkWorkVerifyStatus::Error {
-                                time: meta.time(),
-                                batch: std::mem::take(batch),
-                                sender: std::mem::take(sender),
-                                error: error.clone(),
-                            }
-                        }
-                        _ => return,
-                    };
-                }
-            }
-            SnarkWorkVerifyAction::Success { req_id } => {
-                if let Some(req) = self.jobs.get_mut(*req_id) {
-                    *req = match req {
-                        SnarkWorkVerifyStatus::Pending { batch, sender, .. } => {
-                            SnarkWorkVerifyStatus::Success {
-                                time: meta.time(),
-                                batch: std::mem::take(batch),
-                                sender: std::mem::take(sender),
-                            }
-                        }
-                        _ => return,
-                    };
-                }
-            }
-            SnarkWorkVerifyAction::Finish { req_id } => {
-                self.jobs.remove(*req_id);
-            }
+
+            // Dispatch
+            let dispatcher = state_context.into_dispatcher();
+            dispatcher.push(SnarkWorkVerifyAction::Finish { req_id: *req_id });
+        }
+        SnarkWorkVerifyAction::Finish { req_id } => {
+            state.jobs.remove(*req_id);
         }
     }
 }

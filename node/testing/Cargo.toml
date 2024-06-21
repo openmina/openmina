@@ -54,6 +54,9 @@ openmina-node-native = { path = "../../node/native" }
 chrono = "0.4.34"
 hex = "0.4.3"
 
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
+redux = { workspace = true, features=["serializable_callbacks"] }
+
 [features]
 default = ["p2p-libp2p", "scenario-generators"]
 scenario-generators = ["documented"]

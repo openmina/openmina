@@ -40,3 +40,24 @@ impl EnablingCondition<P2pState> for P2pInitializeAction {
         false
     }
 }
+
+impl redux::EnablingCondition<crate::P2pState> for P2pAction {
+    fn is_enabled(&self, state: &crate::P2pState, time: redux::Timestamp) -> bool {
+        match self {
+            P2pAction::Initialization(a) => a.is_enabled(state, time),
+            P2pAction::Connection(a) => a.is_enabled(state, time),
+            P2pAction::Disconnection(a) => a.is_enabled(state, time),
+            P2pAction::Discovery(a) => a.is_enabled(state, time),
+            P2pAction::Channels(a) => a.is_enabled(state, time),
+            P2pAction::Peer(a) => a.is_enabled(state, time),
+            P2pAction::Identify(a) => a.is_enabled(state, time),
+            P2pAction::Network(a) => a.is_enabled(state, time),
+        }
+    }
+}
+
+impl From<redux::AnyAction> for P2pAction {
+    fn from(action: redux::AnyAction) -> Self {
+        *action.0.downcast::<Self>().expect("Downcast failed")
+    }
+}

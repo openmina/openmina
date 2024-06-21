@@ -13,6 +13,9 @@ pub mod transaction;
 
 pub mod consensus;
 
+mod substate;
+pub use substate::{Substate, SubstateAccess, SubstateResult};
+
 mod chain_id;
 pub use chain_id::*;
 

@@ -2,7 +2,7 @@ use std::sync::{Arc, Mutex};
 
 use serde::{Deserialize, Serialize};
 
-use openmina_core::requests::PendingRequests;
+use openmina_core::{block::BlockHash, requests::PendingRequests};
 
 use crate::{VerifierIndex, VerifierSRS};
 
@@ -47,10 +47,16 @@ pub enum SnarkBlockVerifyStatus {
     Init {
         time: redux::Timestamp,
         block: VerifiableBlockWithHash,
+        on_success: redux::Callback<BlockHash>,
+        // TODO:
+        // on_error: redux::Callback<SnarkBlockVerifyError>,
     },
     Pending {
         time: redux::Timestamp,
         block: VerifiableBlockWithHash,
+        on_success: redux::Callback<BlockHash>,
+        // TODO:
+        // on_error: redux::Callback<SnarkBlockVerifyError>,
     },
     Error {
         time: redux::Timestamp,

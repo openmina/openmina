@@ -53,11 +53,14 @@ use crate::p2p::peer::P2pPeerAction;
 use crate::p2p::{P2pAction, P2pInitializeAction};
 use crate::rpc::RpcAction;
 use crate::snark::block_verify::SnarkBlockVerifyAction;
+use crate::snark::block_verify_effectful::SnarkBlockVerifyEffectfulAction;
 use crate::snark::work_verify::SnarkWorkVerifyAction;
+use crate::snark::work_verify_effectful::SnarkWorkVerifyEffectfulAction;
 use crate::snark::SnarkAction;
 use crate::snark_pool::candidate::SnarkPoolCandidateAction;
-use crate::snark_pool::SnarkPoolAction;
+use crate::snark_pool::{SnarkPoolAction, SnarkPoolEffectfulAction};
 use crate::transition_frontier::genesis::TransitionFrontierGenesisAction;
+use crate::transition_frontier::genesis_effectful::TransitionFrontierGenesisEffectfulAction;
 use crate::transition_frontier::sync::ledger::snarked::TransitionFrontierSyncLedgerSnarkedAction;
 use crate::transition_frontier::sync::ledger::staged::TransitionFrontierSyncLedgerStagedAction;
 use crate::transition_frontier::sync::ledger::TransitionFrontierSyncLedgerAction;
@@ -120,6 +123,7 @@ pub enum ActionKind {
     ConsensusBestTipUpdate,
     ConsensusBlockChainProofUpdate,
     ConsensusBlockReceived,
+    ConsensusBlockSnarkVerifyError,
     ConsensusBlockSnarkVerifyPending,
     ConsensusBlockSnarkVerifySuccess,
     ConsensusDetectForkRange,
@@ -366,10 +370,12 @@ pub enum ActionKind {
     SnarkBlockVerifyInit,
     SnarkBlockVerifyPending,
     SnarkBlockVerifySuccess,
+    SnarkBlockVerifyEffectfulInit,
     SnarkPoolAutoCreateCommitment,
     SnarkPoolCheckTimeouts,
     SnarkPoolCommitmentAdd,
     SnarkPoolCommitmentCreate,
+    SnarkPoolCommitmentCreateMany,
     SnarkPoolJobCommitmentTimeout,
     SnarkPoolJobsUpdate,
     SnarkPoolP2pSend,
@@ -385,11 +391,13 @@ pub enum ActionKind {
     SnarkPoolCandidateWorkVerifyNext,
     SnarkPoolCandidateWorkVerifyPending,
     SnarkPoolCandidateWorkVerifySuccess,
+    SnarkPoolEffectfulSnarkPoolJobsRandomChoose,
     SnarkWorkVerifyError,
     SnarkWorkVerifyFinish,
     SnarkWorkVerifyInit,
     SnarkWorkVerifyPending,
     SnarkWorkVerifySuccess,
+    SnarkWorkVerifyEffectfulInit,
     TransitionFrontierGenesisInject,
     TransitionFrontierSynced,
     TransitionFrontierGenesisLedgerLoadInit,
@@ -399,6 +407,8 @@ pub enum ActionKind {
     TransitionFrontierGenesisProveInit,
     TransitionFrontierGenesisProvePending,
     TransitionFrontierGenesisProveSuccess,
+    TransitionFrontierGenesisEffectfulLedgerLoadInit,
+    TransitionFrontierGenesisEffectfulProveInit,
     TransitionFrontierSyncBestTipUpdate,
     TransitionFrontierSyncBlocksFetchSuccess,
     TransitionFrontierSyncBlocksNextApplyInit,
@@ -476,7 +486,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 391;
+    pub const COUNT: u16 = 398;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -496,6 +506,7 @@ impl ActionKindGet for Action {
             Self::Consensus(a) => a.kind(),
             Self::TransitionFrontier(a) => a.kind(),
             Self::SnarkPool(a) => a.kind(),
+            Self::SnarkPoolEffect(a) => a.kind(),
             Self::ExternalSnarkWorker(a) => a.kind(),
             Self::BlockProducer(a) => a.kind(),
             Self::Rpc(a) => a.kind(),
@@ -549,7 +560,9 @@ impl ActionKindGet for SnarkAction {
     fn kind(&self) -> ActionKind {
         match self {
             Self::BlockVerify(a) => a.kind(),
+            Self::BlockVerifyEffect(a) => a.kind(),
             Self::WorkVerify(a) => a.kind(),
+            Self::WorkVerifyEffect(a) => a.kind(),
         }
     }
 }
@@ -561,6 +574,7 @@ impl ActionKindGet for ConsensusAction {
             Self::BlockChainProofUpdate { .. } => ActionKind::ConsensusBlockChainProofUpdate,
             Self::BlockSnarkVerifyPending { .. } => ActionKind::ConsensusBlockSnarkVerifyPending,
             Self::BlockSnarkVerifySuccess { .. } => ActionKind::ConsensusBlockSnarkVerifySuccess,
+            Self::BlockSnarkVerifyError { .. } => ActionKind::ConsensusBlockSnarkVerifyError,
             Self::DetectForkRange { .. } => ActionKind::ConsensusDetectForkRange,
             Self::ShortRangeForkResolve { .. } => ActionKind::ConsensusShortRangeForkResolve,
             Self::LongRangeForkResolve { .. } => ActionKind::ConsensusLongRangeForkResolve,
@@ -574,6 +588,7 @@ impl ActionKindGet for TransitionFrontierAction {
     fn kind(&self) -> ActionKind {
         match self {
             Self::Genesis(a) => a.kind(),
+            Self::GenesisEffect(a) => a.kind(),
             Self::Sync(a) => a.kind(),
             Self::GenesisInject => ActionKind::TransitionFrontierGenesisInject,
             Self::Synced { .. } => ActionKind::TransitionFrontierSynced,
@@ -587,6 +602,7 @@ impl ActionKindGet for SnarkPoolAction {
             Self::Candidate(a) => a.kind(),
             Self::JobsUpdate { .. } => ActionKind::SnarkPoolJobsUpdate,
             Self::AutoCreateCommitment => ActionKind::SnarkPoolAutoCreateCommitment,
+            Self::CommitmentCreateMany { .. } => ActionKind::SnarkPoolCommitmentCreateMany,
             Self::CommitmentCreate { .. } => ActionKind::SnarkPoolCommitmentCreate,
             Self::CommitmentAdd { .. } => ActionKind::SnarkPoolCommitmentAdd,
             Self::WorkAdd { .. } => ActionKind::SnarkPoolWorkAdd,
@@ -594,6 +610,16 @@ impl ActionKindGet for SnarkPoolAction {
             Self::P2pSend { .. } => ActionKind::SnarkPoolP2pSend,
             Self::CheckTimeouts => ActionKind::SnarkPoolCheckTimeouts,
             Self::JobCommitmentTimeout { .. } => ActionKind::SnarkPoolJobCommitmentTimeout,
+        }
+    }
+}
+
+impl ActionKindGet for SnarkPoolEffectfulAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::SnarkPoolJobsRandomChoose { .. } => {
+                ActionKind::SnarkPoolEffectfulSnarkPoolJobsRandomChoose
+            }
         }
     }
 }
@@ -846,6 +872,14 @@ impl ActionKindGet for SnarkBlockVerifyAction {
     }
 }
 
+impl ActionKindGet for SnarkBlockVerifyEffectfulAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::Init { .. } => ActionKind::SnarkBlockVerifyEffectfulInit,
+        }
+    }
+}
+
 impl ActionKindGet for SnarkWorkVerifyAction {
     fn kind(&self) -> ActionKind {
         match self {
@@ -854,6 +888,14 @@ impl ActionKindGet for SnarkWorkVerifyAction {
             Self::Error { .. } => ActionKind::SnarkWorkVerifyError,
             Self::Success { .. } => ActionKind::SnarkWorkVerifySuccess,
             Self::Finish { .. } => ActionKind::SnarkWorkVerifyFinish,
+        }
+    }
+}
+
+impl ActionKindGet for SnarkWorkVerifyEffectfulAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::Init { .. } => ActionKind::SnarkWorkVerifyEffectfulInit,
         }
     }
 }
@@ -870,6 +912,17 @@ impl ActionKindGet for TransitionFrontierGenesisAction {
             Self::ProveInit => ActionKind::TransitionFrontierGenesisProveInit,
             Self::ProvePending => ActionKind::TransitionFrontierGenesisProvePending,
             Self::ProveSuccess { .. } => ActionKind::TransitionFrontierGenesisProveSuccess,
+        }
+    }
+}
+
+impl ActionKindGet for TransitionFrontierGenesisEffectfulAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::LedgerLoadInit { .. } => {
+                ActionKind::TransitionFrontierGenesisEffectfulLedgerLoadInit
+            }
+            Self::ProveInit { .. } => ActionKind::TransitionFrontierGenesisEffectfulProveInit,
         }
     }
 }
