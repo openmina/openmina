@@ -1469,6 +1469,14 @@ struct Time {
 }
 
 impl Time {
+    #[cfg(target_family = "wasm")]
+    fn now() -> Self {
+        // TODO:
+        // https://github.com/janestreet/time_now/blob/d7e3801d2f120b6723c28429de0dd63b669d47b8/src/time_now_stubs.c#L16
+        todo!()
+    }
+
+    #[cfg(not(target_family = "wasm"))]
     fn now() -> Self {
         const NANOS_PER_SECOND: u64 = 1000000000;
 
