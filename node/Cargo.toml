@@ -17,6 +17,7 @@ time = { version = "0.3.36", features = ["parsing"] }
 anyhow = "1.0.70"
 num_enum = "0.5.7"
 redux = { workspace = true }
+multihash = { version = "0.18.1", features = ["blake2b"] }
 mina-hasher = { workspace = true }
 mina-signer = { workspace = true }
 ledger = { workspace = true }

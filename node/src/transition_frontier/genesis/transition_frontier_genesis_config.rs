@@ -150,60 +150,8 @@ impl GenesisConfig {
                 (mask, load_result)
             }
             Self::Prebuilt(bytes) => {
-                let PrebuiltGenesisConfig {
-                    constants,
-                    accounts,
-                    ledger_hash,
-                    hashes,
-                    staking_epoch_data,
-                    next_epoch_data,
-                } = PrebuiltGenesisConfig::load(&mut bytes.as_ref())?;
-
-                let (mask, genesis_total_currency) = Self::build_ledger_from_accounts_and_hashes(
-                    accounts.into_iter().map(|acc| (&acc).into()),
-                    hashes
-                        .into_iter()
-                        .map(|(n, h)| (n, h.to_field()))
-                        .collect::<Vec<_>>(),
-                );
-                let (_mask, staking_epoch_total_currency) =
-                    Self::build_ledger_from_accounts_and_hashes(
-                        staking_epoch_data
-                            .accounts
-                            .into_iter()
-                            .map(|acc| (&acc).into()),
-                        staking_epoch_data
-                            .hashes
-                            .into_iter()
-                            .map(|(n, h)| (n, h.to_field()))
-                            .collect::<Vec<_>>(),
-                    );
-                let (_mask, next_epoch_total_currency) =
-                    Self::build_ledger_from_accounts_and_hashes(
-                        next_epoch_data
-                            .accounts
-                            .into_iter()
-                            .map(|acc| (&acc).into()),
-                        next_epoch_data
-                            .hashes
-                            .into_iter()
-                            .map(|(n, h)| (n, h.to_field()))
-                            .collect::<Vec<_>>(),
-                    );
-
-                let load_result = GenesisConfigLoaded {
-                    constants,
-                    genesis_ledger_hash: ledger_hash,
-                    genesis_total_currency,
-                    genesis_producer_stake_proof: genesis_producer_stake_proof(&mask),
-                    staking_epoch_ledger_hash: staking_epoch_data.ledger_hash.clone(),
-                    staking_epoch_total_currency,
-                    next_epoch_ledger_hash: next_epoch_data.ledger_hash.clone(),
-                    next_epoch_total_currency,
-                    staking_epoch_seed: staking_epoch_data.seed,
-                    next_epoch_seed: next_epoch_data.seed,
-                };
-                (mask, load_result)
+                let prebuilt = PrebuiltGenesisConfig::read(&mut bytes.as_ref())?;
+                prebuilt.load()
             }
             Self::DaemonJson(config) => {
                 let constants = config
@@ -211,6 +159,24 @@ impl GenesisConfig {
                     .as_ref()
                     .map_or(PROTOCOL_CONSTANTS, |genesis| genesis.protocol_constants());
                 let ledger = config.ledger.as_ref().ok_or(GenesisConfigError::NoLedger)?;
+                let config_name = ledger.ledger_name();
+                let cache_filename =
+                    openmina_cache_path(format!("prebuilt_configs/{}.bin", config_name)).unwrap();
+                let filename_str = cache_filename
+                    .clone()
+                    .into_os_string()
+                    .into_string()
+                    .unwrap();
+                if cache_filename.is_file() {
+                    let fd = std::fs::File::open(cache_filename.clone())?;
+                    let prebuilt = PrebuiltGenesisConfig::read(fd)?;
+                    openmina_core::info!(
+                        openmina_core::log::system_time();
+                        message = "Ledger cache loaded successfully",
+                        filename = filename_str,
+                    );
+                    return Ok(prebuilt.load());
+                }
                 let accounts = ledger
                     .accounts_with_genesis_winner()
                     .iter()
@@ -274,7 +240,6 @@ impl GenesisConfig {
                     next_epoch_seed = v2::EpochSeed::zero();
                 }
 
-                let ledger_hash = genesis_ledger_hash.to_string();
                 let result = GenesisConfigLoaded {
                     constants,
                     genesis_ledger_hash,
@@ -288,14 +253,7 @@ impl GenesisConfig {
                     next_epoch_seed,
                 };
                 let prebuilt = PrebuiltGenesisConfig::try_from(*config.clone())?;
-                let cache_filename =
-                    openmina_cache_path(format!("prebuilt_configs/{}.bin", ledger_hash)).unwrap();
                 ensure_path_exists(cache_filename.ancestors().nth(1).unwrap())?;
-                let filename_str = cache_filename
-                    .clone()
-                    .into_os_string()
-                    .into_string()
-                    .unwrap();
                 let cache_ledger_result =
                     File::create(cache_filename).and_then(|cache_file| prebuilt.store(cache_file));
                 match cache_ledger_result {
@@ -424,7 +382,7 @@ pub struct PrebuiltGenesisConfig {
 }
 
 impl PrebuiltGenesisConfig {
-    pub fn load<R: Read>(mut reader: R) -> Result<Self, binprot::Error> {
+    pub fn read<R: Read>(mut reader: R) -> Result<Self, binprot::Error> {
         use binprot::BinProtRead;
         PrebuiltGenesisConfig::binprot_read(&mut reader)
     }
@@ -432,6 +390,54 @@ impl PrebuiltGenesisConfig {
     pub fn store<W: Write>(&self, mut writer: W) -> Result<(), std::io::Error> {
         use binprot::BinProtWrite;
         self.binprot_write(&mut writer)
+    }
+
+    pub fn load(self) -> (ledger::Mask, GenesisConfigLoaded) {
+        let (mask, genesis_total_currency) = GenesisConfig::build_ledger_from_accounts_and_hashes(
+            self.accounts.into_iter().map(|acc| (&acc).into()),
+            self.hashes
+                .into_iter()
+                .map(|(n, h)| (n, h.to_field()))
+                .collect::<Vec<_>>(),
+        );
+        let (_mask, staking_epoch_total_currency) =
+            GenesisConfig::build_ledger_from_accounts_and_hashes(
+                self.staking_epoch_data
+                    .accounts
+                    .into_iter()
+                    .map(|acc| (&acc).into()),
+                self.staking_epoch_data
+                    .hashes
+                    .into_iter()
+                    .map(|(n, h)| (n, h.to_field()))
+                    .collect::<Vec<_>>(),
+            );
+        let (_mask, next_epoch_total_currency) =
+            GenesisConfig::build_ledger_from_accounts_and_hashes(
+                self.next_epoch_data
+                    .accounts
+                    .into_iter()
+                    .map(|acc| (&acc).into()),
+                self.next_epoch_data
+                    .hashes
+                    .into_iter()
+                    .map(|(n, h)| (n, h.to_field()))
+                    .collect::<Vec<_>>(),
+            );
+
+        let load_result = GenesisConfigLoaded {
+            constants: self.constants,
+            genesis_ledger_hash: self.ledger_hash,
+            genesis_total_currency,
+            genesis_producer_stake_proof: genesis_producer_stake_proof(&mask),
+            staking_epoch_ledger_hash: self.staking_epoch_data.ledger_hash.clone(),
+            staking_epoch_total_currency,
+            next_epoch_ledger_hash: self.next_epoch_data.ledger_hash.clone(),
+            next_epoch_total_currency,
+            staking_epoch_seed: self.staking_epoch_data.seed,
+            next_epoch_seed: self.next_epoch_data.seed,
+        };
+        (mask, load_result)
     }
 }
 
