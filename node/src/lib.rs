@@ -90,18 +90,3 @@ where
         }
     }
 }
-
-#[cfg(feature = "replay")]
-pub mod replay_status {
-    use std::sync::atomic::{AtomicBool, Ordering};
-
-    static FORCE_NEXT_ENABLED: AtomicBool = AtomicBool::new(false);
-
-    pub fn set_next_force_enabled() {
-        FORCE_NEXT_ENABLED.store(true, Ordering::Relaxed);
-    }
-
-    pub fn pop_next_force_enabled() -> bool {
-        FORCE_NEXT_ENABLED.fetch_and(false, Ordering::Relaxed)
-    }
-}
