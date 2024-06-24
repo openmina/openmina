@@ -90,6 +90,9 @@ impl P2pNetworkRpcState {
             P2pNetworkRpcAction::PrunePending { .. } => {
                 self.pending = None;
             }
+            P2pNetworkRpcAction::HeartbeatSend { .. } => {
+                self.last_heartbeat_sent = Some(action.time());
+            }
             P2pNetworkRpcAction::OutgoingQuery { query, .. } => {
                 self.last_id = query.id;
                 self.pending = Some(query.clone());

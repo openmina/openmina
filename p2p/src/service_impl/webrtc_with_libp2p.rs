@@ -109,11 +109,6 @@ impl<T: P2pServiceWebrtcWithLibp2p> P2pChannelsService for T {
     fn channel_send(&mut self, peer_id: PeerId, msg_id: MsgId, msg: ChannelMsg) {
         if self.peers().contains_key(&peer_id) {
             P2pServiceWebrtc::channel_send(self, peer_id, msg_id, msg)
-        } else {
-            #[cfg(feature = "p2p-libp2p")]
-            {
-                openmina_core::error!(openmina_core::log::system_time(); "sending to channel {:?} is not supported for libp2p", msg.channel_id());
-            }
         }
     }
 }

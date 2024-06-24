@@ -2,6 +2,7 @@ use std::{
     collections::{BTreeMap, VecDeque},
     net::SocketAddr,
     str,
+    time::Duration,
 };
 
 use binprot::BinProtWrite;
@@ -17,12 +18,15 @@ use crate::{channels::rpc::P2pRpcId, Data};
 
 use super::super::*;
 
+const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(10);
+
 #[serde_with::serde_as]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pNetworkRpcState {
     pub addr: SocketAddr,
     pub stream_id: StreamId,
     pub last_id: P2pRpcId,
+    pub last_heartbeat_sent: Option<redux::Timestamp>,
     pub pending: Option<QueryHeader>,
     #[serde_as(as = "Vec<(_, _)>")]
     pub total_stats: BTreeMap<(CharString, Ver), usize>,
@@ -38,6 +42,7 @@ impl P2pNetworkRpcState {
             addr,
             stream_id,
             last_id: 0,
+            last_heartbeat_sent: None,
             pending: None,
             total_stats: BTreeMap::default(),
             is_incoming: false,
@@ -45,6 +50,13 @@ impl P2pNetworkRpcState {
             incoming: Default::default(),
             error: None,
         }
+    }
+
+    pub fn should_send_heartbeat(&self, now: redux::Timestamp) -> bool {
+        self.last_heartbeat_sent.map_or(true, |last_sent| {
+            now.checked_sub(last_sent)
+                .map_or(false, |dur| dur >= HEARTBEAT_INTERVAL)
+        })
     }
 }
 
