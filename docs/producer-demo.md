@@ -3,18 +3,33 @@
 This demo showcases the block production capabilities of OpenMina nodes within a private network. It launches three OpenMina nodes on your local machine, operating in a private network environment. For the purpose of this demonstration, block proofs are disabled. This setup allows you to observe block production immediately, without the need to wait for your account to be included in the staking ledger on testnets.
 
 ## Table of Contents
-1. [Prerequisites](#prerequisites)
-    - [Docker Installation on Debian-based Linux](#docker-installation-on-debian-based-linux)
-    - [Docker Installation on Windows](#docker-installation-on-windows)
-    - [Docker Installation on macOS](#docker-installation-on-macos)
+1. [Prerequisite - Docker Installation](#prerequisite)
+    - [macOS](#docker-installation-on-macos)
+    - [Linux (Debian-based)](#docker-installation-on-debian-based-linux)
+    - [Windows](#docker-installation-on-windows)
 2. [Running the Producer Demo](#running-the-producer-demo)
-    - [Running on Debian-based Linux](#running-on-debian-based-linux)
-    - [Running on Windows](#running-on-windows)
-    - [Running on macOS](#running-on-macos)
+    - [macOS](#running-on-macos)
+    - [Linux (Debian-based)](#running-on-debian-based-linux)
+    - [Windows](#running-on-windows)
 
-## Prerequisites
+## Prerequisite - Docker Installation
 
-### Docker Installation on Debian-based Linux
+### macOS
+
+1. **Download Docker Desktop for Mac from the [Docker Website](https://www.docker.com/products/docker-desktop/).**
+
+2. **Open the downloaded `.dmg` file and drag Docker to the Applications folder.**
+
+3. **Open Docker from the Applications folder and follow the installation steps.**
+
+4. **Open up a terminal window by using the shortcut Command + Space and type in terminal**
+
+5. **Verify the installation by running the following command in your terminal:**
+    ```sh
+    docker --version
+    ```
+
+### Linux (Debian-based)
 
 1. **Set up Docker's apt repository:**
 
@@ -53,7 +68,7 @@ This demo showcases the block production capabilities of OpenMina nodes within a
     docker run hello-world
     ```
 
-### Docker Installation on Windows
+### Windows
 
 1. **Download Docker Desktop for Windows from the [Docker Website](https://www.docker.com/products/docker-desktop/).**
 
@@ -61,24 +76,32 @@ This demo showcases the block production capabilities of OpenMina nodes within a
 
 3. **After installation, Docker will start automatically. Verify that Docker Desktop is running by checking the Docker icon in your system tray.**
 
-### Docker Installation on macOS
-
-1. **Download Docker Desktop for Mac from the [Docker Website](https://www.docker.com/products/docker-desktop/).**
-
-2. **Open the downloaded `.dmg` file and drag Docker to the Applications folder.**
-
-3. **Open Docker from the Applications folder and follow the installation steps.**
-
-4. **Open up a terminal window by using the shortcut Command + Space and type in terminal**
-
-5. **Verify the installation by running the following command in your terminal:**
-    ```sh
-    docker --version
-    ```
 
 ## Running the Producer Demo
 
-### Running on Debian-based Linux
+### macOS
+
+1. **Open a terminal by pressing command + space on your keyboard and type in terminal**
+
+2. **Clone this repository:**
+    ```bash
+    git clone https://github.com/openmina/openmina.git
+    ```
+
+3. **Navigate to the repository:**
+
+    ```bash
+    cd openmina
+    ```
+
+4. **Run the following command to start the demo:**
+    ```sh
+    docker compose -f docker-compose.local.producers.yml up
+    ```
+
+5. **Open you browser and visit http://localhost:8070**
+
+### Linux (Debian-based)
 
 1. **Clone this repository:**
     ```bash
@@ -98,7 +121,7 @@ This demo showcases the block production capabilities of OpenMina nodes within a
 
 4. **Open you browser and visit http://localhost:8070**
 
-### Running on Windows
+### Windows
 
 1. **Open the command prompt by pressing the windows button on your keyboard and type in command prompt**
 
@@ -120,24 +143,4 @@ This demo showcases the block production capabilities of OpenMina nodes within a
 
 5. **Open you browser and visit http://localhost:8070**
 
-### Running on macOS
-
-1. **Open a terminal by pressing command + space on your keyboard and type in terminal**
-
-2. **Clone this repository:**
-    ```bash
-    git clone https://github.com/openmina/openmina.git
-    ```
-
-3. **Navigate to the repository:**
-
-    ```bash
-    cd openmina
-    ```
-
-4. **Run the following command to start the demo:**
-    ```sh
-    docker compose -f docker-compose.local.producers.yml up
-    ```
-
-5. **Open you browser and visit http://localhost:8070**
+<kbd> ![Image](https://github.com/openmina/mina-frontend/assets/1679939/40428a22-0691-473a-a15c-c2e610a2217b)
