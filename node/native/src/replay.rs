@@ -125,8 +125,7 @@ pub fn replay_state_with_input_actions(
                 eprintln!("Warning! Executing last action for which we might not have all effect actions recorded.");
             }
             let action = input_action.take().unwrap();
-            node::replay_status::set_next_force_enabled();
-            store.dispatch(action);
+            assert!(store.dispatch(action));
         }
     }
     Ok(node)
