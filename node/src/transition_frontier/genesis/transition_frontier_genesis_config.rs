@@ -16,6 +16,7 @@ use mina_p2p_messages::{
     binprot::{
         self,
         macros::{BinProtRead, BinProtWrite},
+        BinProtRead, BinProtWrite,
     },
     v2::{self, PROTOCOL_CONSTANTS},
 };
@@ -159,31 +160,46 @@ impl GenesisConfig {
                     .as_ref()
                     .map_or(PROTOCOL_CONSTANTS, |genesis| genesis.protocol_constants());
                 let ledger = config.ledger.as_ref().ok_or(GenesisConfigError::NoLedger)?;
-                let config_name = ledger.ledger_name();
-                let cache_filename =
-                    openmina_cache_path(format!("prebuilt_configs/{}.bin", config_name)).unwrap();
-                let filename_str = cache_filename
-                    .clone()
-                    .into_os_string()
-                    .into_string()
-                    .unwrap();
-                if cache_filename.is_file() {
-                    let fd = std::fs::File::open(cache_filename.clone())?;
-                    let prebuilt = PrebuiltGenesisConfig::read(fd)?;
-                    openmina_core::info!(
-                        openmina_core::log::system_time();
-                        message = "Ledger cache loaded successfully",
-                        filename = filename_str,
-                    );
-                    return Ok(prebuilt.load());
-                }
                 let accounts = ledger
                     .accounts_with_genesis_winner()
                     .iter()
                     .map(daemon_json::Account::to_account)
                     .collect::<Result<Vec<_>, _>>()?;
-                let (mut mask, total_currency) = Self::build_ledger_from_accounts(accounts);
-                let genesis_ledger_hash = ledger_hash(&mut mask);
+                let cache_filename =
+                    openmina_cache_path(format!("ledgers/{}.bin", ledger.ledger_name())).unwrap();
+                let (mask, total_currency, genesis_ledger_hash) = if cache_filename.is_file() {
+                    let mut cache_file = File::open(cache_filename)?;
+                    let accounts_with_hash = LedgerAccountsWithHash::binprot_read(&mut cache_file)?;
+                    let (mask, total_currency) = Self::build_ledger_from_accounts(
+                        accounts_with_hash
+                            .accounts
+                            .iter()
+                            .map(ledger::Account::from),
+                    );
+                    openmina_core::info!(
+                        openmina_core::log::system_time();
+                        kind = "genesis ledger load",
+                        message = "loaded from cache",
+                    );
+                    (mask, total_currency, accounts_with_hash.ledger_hash)
+                } else {
+                    let (mut mask, total_currency) = Self::build_ledger_from_accounts(accounts);
+                    let hash = ledger_hash(&mut mask);
+                    let ledger_accounts = LedgerAccountsWithHash {
+                        accounts: mask.fold(Vec::new(), |mut acc, a| {
+                            acc.push(a.into());
+                            acc
+                        }),
+                        ledger_hash: hash.clone(),
+                    };
+                    ledger_accounts.cache()?;
+                    openmina_core::info!(
+                        openmina_core::log::system_time();
+                        kind = "genesis ledger load",
+                        message = "built from config and cached",
+                    );
+                    (mask, total_currency, hash)
+                };
 
                 if let Some(expected_hash) = config.ledger.as_ref().and_then(|l| l.hash.as_ref()) {
                     if expected_hash != &genesis_ledger_hash.to_string() {
@@ -252,27 +268,6 @@ impl GenesisConfig {
                     staking_epoch_seed,
                     next_epoch_seed,
                 };
-                let prebuilt = PrebuiltGenesisConfig::try_from(*config.clone())?;
-                ensure_path_exists(cache_filename.ancestors().nth(1).unwrap())?;
-                let cache_ledger_result =
-                    File::create(cache_filename).and_then(|cache_file| prebuilt.store(cache_file));
-                match cache_ledger_result {
-                    Ok(_) => {
-                        openmina_core::info!(
-                            openmina_core::log::system_time();
-                            message = "Ledger cache file created",
-                            filename = filename_str,
-                        )
-                    }
-                    Err(e) => {
-                        openmina_core::info!(
-                            openmina_core::log::system_time();
-                            message = "Failed to create ledger cache file",
-                            filename = filename_str,
-                            error = e.to_string(),
-                        )
-                    }
-                }
                 (mask, result)
             }
         })
@@ -368,6 +363,22 @@ fn genesis_producer_stake_proof(mask: &ledger::Mask) -> v2::MinaBaseSparseLedger
     (&sparse_ledger).into()
 }
 
+#[derive(Debug, BinProtRead, BinProtWrite)]
+struct LedgerAccountsWithHash {
+    accounts: Vec<MinaBaseAccountBinableArgStableV2>,
+    ledger_hash: LedgerHash,
+}
+
+impl LedgerAccountsWithHash {
+    fn cache(&self) -> Result<(), std::io::Error> {
+        let cache_dir = openmina_cache_path("ledgers").unwrap();
+        let cache_file = cache_dir.join(format!("{}.bin", self.ledger_hash));
+        ensure_path_exists(cache_dir)?;
+        let mut file = File::create(cache_file)?;
+        self.binprot_write(&mut file)
+    }
+}
+
 use mina_p2p_messages::v2::{LedgerHash, MinaBaseAccountBinableArgStableV2};
 
 /// Precalculated genesis configuration.
@@ -383,12 +394,10 @@ pub struct PrebuiltGenesisConfig {
 
 impl PrebuiltGenesisConfig {
     pub fn read<R: Read>(mut reader: R) -> Result<Self, binprot::Error> {
-        use binprot::BinProtRead;
         PrebuiltGenesisConfig::binprot_read(&mut reader)
     }
 
     pub fn store<W: Write>(&self, mut writer: W) -> Result<(), std::io::Error> {
-        use binprot::BinProtWrite;
         self.binprot_write(&mut writer)
     }
 
