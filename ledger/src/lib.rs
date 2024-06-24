@@ -58,6 +58,7 @@ pub mod proofs;
 pub mod scan_state;
 pub mod sparse_ledger;
 pub mod staged_ledger;
+pub mod transaction_pool;
 mod tree;
 mod tree_version;
 mod util;

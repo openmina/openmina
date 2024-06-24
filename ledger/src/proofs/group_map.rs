@@ -179,10 +179,8 @@ pub fn wrap<F: FieldWitness>(potential_xs: (F, F, F), w: &mut Witness<F>) -> Gro
 
 mod tock {
     use super::*;
-    use std::ops::Neg;
 
     use ark_ff::{SquareRootField, Zero};
-    use mina_hasher::Fp;
 
     /// A good name from OCaml
     #[derive(Clone, Debug)]

@@ -55,6 +55,13 @@ pub fn reducer(
             );
         }
         Action::SnarkPoolEffect(_) => {}
+        Action::TransactionPool(a) => {
+            crate::transaction_pool::TransactionPoolState::reducer(
+                Substate::new(state, dispatcher),
+                meta.with_action(a),
+            );
+        }
+        Action::TransactionPoolEffect(_) => {}
         Action::BlockProducer(a) => {
             state
                 .block_producer

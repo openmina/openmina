@@ -6,7 +6,7 @@ use crate::ledger::LEDGER_DEPTH;
 use crate::p2p::channels::best_tip::P2pChannelsBestTipAction;
 use crate::snark_pool::{SnarkPoolAction, SnarkWork};
 use crate::stats::sync::SyncingLedger;
-use crate::Store;
+use crate::{Store, TransactionPoolAction};
 
 use super::genesis::TransitionFrontierGenesisAction;
 use super::sync::ledger::snarked::{
@@ -283,8 +283,10 @@ fn synced_effects<S: crate::Service>(
         });
     }
 
+    let best_tip_hash = best_tip.staged_ledger_hash().clone();
     store.dispatch(ConsensusAction::Prune);
     store.dispatch(BlockProducerAction::BestTipUpdate { best_tip });
+    store.dispatch(TransactionPoolAction::BestTipChanged { best_tip_hash });
 }
 
 // Handling of the actions related to the synchronization of a target ledger

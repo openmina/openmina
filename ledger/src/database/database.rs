@@ -300,10 +300,7 @@ mod tests {
     #[cfg(target_family = "wasm")]
     use wasm_bindgen_test::wasm_bindgen_test as test;
 
-    use crate::{
-        account::Account,
-        tree_version::{account_empty_legacy_hash, V1, V2},
-    };
+    use crate::tree_version::{account_empty_legacy_hash, V1};
 
     use super::*;
 

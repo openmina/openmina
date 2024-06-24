@@ -2039,6 +2039,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "fraction"
+version = "0.15.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b486ab61634f05b11b591c38c71fb25139cb55e22be4fb6ecf649cc3736c074a"
+dependencies = [
+ "num",
+ "serde",
+ "serde_derive",
+]
+
+[[package]]
 name = "fs2"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3847,6 +3858,7 @@ dependencies = [
  "chrono",
  "crc32fast",
  "derive_more",
+ "fraction",
  "getrandom 0.2.14",
  "hex",
  "itertools 0.10.5",
@@ -4285,6 +4297,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1ba157ca0885411de85d6ca030ba7e2a83a28636056c7c699b07c8b6f7383214"
 dependencies = [
  "num-traits",
+ "serde",
 ]
 
 [[package]]
@@ -4335,6 +4348,7 @@ dependencies = [
  "num-bigint",
  "num-integer",
  "num-traits",
+ "serde",
 ]
 
 [[package]]

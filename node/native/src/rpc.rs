@@ -2,6 +2,7 @@ use node::rpc::{
     RpcBlockProducerStatsGetResponse, RpcDiscoveryBoostrapStatsResponse,
     RpcDiscoveryRoutingTableResponse, RpcHealthCheckResponse, RpcMessageProgressResponse,
     RpcPeersGetResponse, RpcReadinessCheckResponse, RpcStateGetError, RpcStatusGetResponse,
+    RpcTransactionPoolResponse,
 };
 use serde::{Deserialize, Serialize};
 
@@ -270,6 +271,7 @@ impl node::rpc::RpcService for NodeService {
         respond_discovery_bootstrap_stats,
         RpcDiscoveryBoostrapStatsResponse
     );
+    rpc_service_impl!(respond_transaction_pool, RpcTransactionPoolResponse);
 }
 
 impl node::core::invariants::InvariantService for NodeService {

@@ -8,10 +8,12 @@ use std::{collections::BTreeMap, sync::Arc};
 use ledger::dummy::dummy_transaction_proof;
 use ledger::proofs::transaction::ProofError;
 use ledger::scan_state::scan_state::transaction_snark::SokMessage;
+use ledger::scan_state::transaction_logic::{verifiable, WithStatus};
 use ledger::Mask;
+use mina_p2p_messages::list::List;
 use mina_p2p_messages::string::ByteString;
 use mina_p2p_messages::v2::{
-    CurrencyFeeStableV1, LedgerHash, LedgerProofProdStableV2, MinaBaseProofStableV2,
+    self, CurrencyFeeStableV1, LedgerHash, LedgerProofProdStableV2, MinaBaseProofStableV2,
     MinaStateSnarkedLedgerStateWithSokStableV2, NonZeroCurvePoint,
     ProverExtendBlockchainInputStableV2, SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0Single,
     StateHash, TransactionSnarkStableV2, TransactionSnarkWorkTStableV2Proofs,
@@ -31,6 +33,8 @@ use node::service::{
 use node::snark::block_verify::{
     SnarkBlockVerifyId, SnarkBlockVerifyService, VerifiableBlockWithHash,
 };
+use node::snark::user_command_verify::SnarkUserCommandVerifyId;
+use node::snark::user_command_verify_effectful::SnarkUserCommandVerifyService;
 use node::snark::work_verify::{SnarkWorkVerifyId, SnarkWorkVerifyService};
 use node::snark::{SnarkEvent, VerifierIndex, VerifierSRS};
 use node::snark_pool::SnarkPoolService;
@@ -392,6 +396,24 @@ impl SnarkBlockVerifyService for NodeTestingService {
                 block,
             ),
         }
+    }
+}
+
+impl SnarkUserCommandVerifyService for NodeTestingService {
+    fn verify_init(
+        &mut self,
+        req_id: SnarkUserCommandVerifyId,
+        verifier_index: Arc<VerifierIndex>,
+        verifier_srs: Arc<Mutex<VerifierSRS>>,
+        commands: List<v2::MinaBaseUserCommandStableV2>,
+    ) {
+        SnarkUserCommandVerifyService::verify_init(
+            &mut self.real,
+            req_id,
+            verifier_index,
+            verifier_srs,
+            commands,
+        )
     }
 }
 

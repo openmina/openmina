@@ -108,6 +108,7 @@ impl RpcState {
             RpcAction::Finish { rpc_id } => {
                 self.requests.remove(rpc_id);
             }
+            RpcAction::TransactionPool { .. } => {}
         }
     }
 }

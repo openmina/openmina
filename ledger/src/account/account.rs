@@ -2,7 +2,10 @@ use std::{fmt::Write, io::Cursor, str::FromStr};
 
 use ark_ff::{BigInteger256, One, UniformRand, Zero};
 use mina_hasher::Fp;
-use mina_p2p_messages::binprot::{BinProtRead, BinProtWrite};
+use mina_p2p_messages::{
+    binprot::{BinProtRead, BinProtWrite},
+    v2,
+};
 use mina_signer::CompressedPubKey;
 use openmina_core::constants::PROTOCOL_VERSION;
 use rand::{prelude::ThreadRng, seq::SliceRandom, Rng};
@@ -388,7 +391,7 @@ impl ToFieldElements<Fp> for ProofVerified {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct VerificationKey {
     pub max_proofs_verified: ProofVerified,
     pub actual_wrap_domain_size: ProofVerified,
@@ -752,38 +755,124 @@ impl ZkAppAccount {
     }
 }
 
+/// An `AccountId` implementing `Ord` & `PartialOrd`, reproducing OCaml ordering.
+///
+/// We compare them using `BigInteger256`, not `Fp`.
+/// This is a different type than `AccountId` because we want to keep the
+/// `BigInteger256` values around, without re-computing them every time
+/// `<Self as PartialOrd>::partial_cmp` is called.
+///
+/// So far this is used only when `AccountId` are used as keys in BTreeMap, in zkapp application.
 #[derive(Clone, Eq)]
-pub struct AccountId {
-    pub public_key: CompressedPubKey,
-    pub token_id: TokenId,
+pub struct AccountIdOrderable {
+    // Keep the values as `BigInteger256`. This avoid re-computing them
+    // every time `<Self as PartialOrd>::partial_cmp` is called
+    bigint_public_key_x: BigInteger256,
+    bigint_public_key_is_odd: bool,
+    bigint_token_id: BigInteger256,
+    // We keep the original values, to convert back into `AccountId` without computing
+    public_key: CompressedPubKey,
+    token_id: TokenId,
 }
 
-impl Ord for AccountId {
+impl PartialEq for AccountIdOrderable {
+    fn eq(&self, other: &Self) -> bool {
+        let Self {
+            bigint_public_key_x: self_x,
+            bigint_public_key_is_odd: self_is_odd,
+            bigint_token_id: self_token_id,
+            public_key: _,
+            token_id: _,
+        } = self;
+        let Self {
+            bigint_public_key_x: other_x,
+            bigint_public_key_is_odd: other_is_odd,
+            bigint_token_id: other_token_id,
+            public_key: _,
+            token_id: _,
+        } = other;
+
+        self_x == other_x && self_is_odd == other_is_odd && self_token_id == other_token_id
+    }
+}
+impl Ord for AccountIdOrderable {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.partial_cmp(other).unwrap_or(std::cmp::Ordering::Equal)
     }
 }
-
-#[allow(clippy::non_canonical_partial_ord_impl)]
-impl PartialOrd for AccountId {
+impl PartialOrd for AccountIdOrderable {
+    /// Ignore `Self::public_key` and `Self::token_id`
+    /// We only use their bigint representations
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        let self_pk: BigInteger256 = self.public_key.x.into();
-        let other_pk: BigInteger256 = other.public_key.x.into();
-        match self_pk.partial_cmp(&other_pk) {
-            Some(core::cmp::Ordering::Equal) | None => {}
+        let Self {
+            bigint_public_key_x: self_x,
+            bigint_public_key_is_odd: self_is_odd,
+            bigint_token_id: self_token_id,
+            public_key: _,
+            token_id: _,
+        } = self;
+
+        let Self {
+            bigint_public_key_x: other_x,
+            bigint_public_key_is_odd: other_is_odd,
+            bigint_token_id: other_token_id,
+            public_key: _,
+            token_id: _,
+        } = other;
+
+        match self_x.partial_cmp(other_x) {
+            None | Some(core::cmp::Ordering::Equal) => {}
             ord => return ord,
         }
-
-        match self.public_key.is_odd.partial_cmp(&other.public_key.is_odd) {
-            Some(core::cmp::Ordering::Equal) | None => {}
+        match self_is_odd.partial_cmp(other_is_odd) {
+            None | Some(core::cmp::Ordering::Equal) => {}
             ord => return ord,
         }
-
-        let self_token_id: BigInteger256 = self.token_id.0.into();
-        let other_token_id: BigInteger256 = other.token_id.0.into();
-
-        self_token_id.partial_cmp(&other_token_id)
+        self_token_id.partial_cmp(other_token_id)
     }
+}
+
+impl From<AccountId> for AccountIdOrderable {
+    fn from(value: AccountId) -> Self {
+        let AccountId {
+            public_key,
+            token_id,
+        } = value;
+        let CompressedPubKey { x, is_odd } = &public_key;
+
+        Self {
+            bigint_public_key_x: (*x).into(),
+            bigint_public_key_is_odd: *is_odd,
+            bigint_token_id: token_id.0.into(),
+            public_key,
+            token_id,
+        }
+    }
+}
+
+impl From<AccountIdOrderable> for AccountId {
+    fn from(value: AccountIdOrderable) -> Self {
+        let AccountIdOrderable {
+            bigint_public_key_x: _,
+            bigint_public_key_is_odd: _,
+            bigint_token_id: _,
+            public_key,
+            token_id,
+        } = value;
+
+        Self {
+            public_key,
+            token_id,
+        }
+    }
+}
+
+#[derive(Clone, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
+#[serde(into = "v2::MinaBaseAccountIdStableV2")]
+#[serde(from = "v2::MinaBaseAccountIdStableV2")]
+pub struct AccountId {
+    pub public_key: CompressedPubKey,
+    pub token_id: TokenId,
 }
 
 impl ToInputs for AccountId {
@@ -1017,7 +1106,9 @@ pub struct PermsConst {
 }
 
 // https://github.com/MinaProtocol/mina/blob/1765ba6bdfd7c454e5ae836c49979fa076de1bea/src/lib/mina_base/account.ml#L368
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(into = "v2::MinaBaseAccountBinableArgStableV2")]
+#[serde(from = "v2::MinaBaseAccountBinableArgStableV2")]
 pub struct Account {
     pub public_key: CompressedPubKey, // Public_key.Compressed.t
     pub token_id: TokenId,            // Token_id.t
@@ -1179,6 +1270,32 @@ impl Account {
 
         let zero_min_balance = CheckedBalance::zero().equal(&cur_min_balance, w);
         zero_min_balance.neg()
+    }
+
+    pub fn liquid_balance_at_slot(&self, global_slot: Slot) -> Balance {
+        match self.timing {
+            Timing::Untimed => self.balance,
+            Timing::Timed {
+                initial_minimum_balance,
+                cliff_time,
+                cliff_amount,
+                vesting_period,
+                vesting_increment,
+            } => self
+                .balance
+                .sub_amount(
+                    account_min_balance_at_slot(
+                        global_slot,
+                        cliff_time,
+                        cliff_amount,
+                        vesting_period,
+                        vesting_increment,
+                        initial_minimum_balance,
+                    )
+                    .to_amount(),
+                )
+                .unwrap(),
+        }
     }
 
     /// https://github.com/MinaProtocol/mina/blob/2ff0292b637684ce0372e7b8e23ec85404dc5091/src/lib/mina_base/account.ml#L794

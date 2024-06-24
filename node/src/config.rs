@@ -24,6 +24,7 @@ pub struct Config {
     pub transition_frontier: TransitionFrontierConfig,
     pub block_producer: Option<BlockProducerConfig>,
     pub global: GlobalConfig,
+    pub tx_pool: ledger::transaction_pool::Config,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
