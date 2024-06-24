@@ -562,7 +562,7 @@ With callbacks, a caller (handling actions of type `A`) can dispatch an action o
 
 This is particularly useful when implementing effectful actions to interact with services, but also for composing multiple components without introducing inter-dependencies (with callbacks we can avoid the *global effects* pattern that was described before in this document).
 
-Callback blocks are declared with the `redux::callback!` macro and are described by a lambda block with a single output, which must produce an `Action` value as a result.
+Callback blocks are declared with the `redux::callback!` macro and are described by a uniquely named code block with a single input and a single output, which must produce an `Action` value as a result.
 
 Example:
 
@@ -589,13 +589,15 @@ impl ConsensusState {
                     req_id,
                     block: (hash.clone(), block.clone()).into(),
                     // Will be called after the block has been successfully verified
-                    on_success: redux::callback!(|hash: BlockHash| -> crate::Action {
-                        ConsensusAction::BlockSnarkVerifySuccess { hash }
-                    }),
+                    on_success: redux::callback!(
+                        on_received_block_snark_verify_success(hash: BlockHash) -> crate::Action {
+                            ConsensusAction::BlockSnarkVerifySuccess { hash }
+                        }),
                     // Will be called if there is an error
-                    on_error: redux::callback!(|(hash: BlockHash, error: SnarkBlockVerifyError)| -> crate::Action {
-                        ConsensusAction::BlockSnarkVerifyError { hash, error }
-                    }),
+                    on_error: redux::callback!(
+                        on_received_block_snark_verify_error((hash: BlockHash, error: SnarkBlockVerifyError)) -> crate::Action {
+                            ConsensusAction::BlockSnarkVerifyError { hash, error }
+                        }),
                 });
                 // Set the block verification state as pending
                 dispatcher.push(ConsensusAction::BlockSnarkVerifyPending {
@@ -787,12 +789,14 @@ The consensus reducer, after receiving a block, initializes the asynchronous blo
             dispatcher.push(SnarkBlockVerifyAction::Init {
                 req_id,
                 block: (hash.clone(), block.clone()).into(),
-+               on_success: redux::callback!(|hash: BlockHash| -> crate::Action {
-+                   ConsensusAction::BlockSnarkVerifySuccess { hash }
-+               }),
-+               on_error: redux::callback!(|(hash: BlockHash, error: SnarkBlockVerifyError)| -> crate::Action {
-+                   ConsensusAction::BlockSnarkVerifyError { hash, error }
-+               }),
++               on_success: redux::callback!(
++                   on_received_block_snark_verify_success(hash: BlockHash) -> crate::Action {
++                       ConsensusAction::BlockSnarkVerifySuccess { hash }
++                   }),
++               on_error: redux::callback!(
++                   on_received_block_snark_verify_error((hash: BlockHash, error: SnarkBlockVerifyError)) -> crate::Action {
++                       ConsensusAction::BlockSnarkVerifyError { hash, error }
++                   }),
             });
             dispatcher.push(ConsensusAction::BlockSnarkVerifyPending {
                 req_id,

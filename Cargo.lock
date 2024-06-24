@@ -2282,18 +2282,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "gensym"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "913dce4c5f06c2ea40fc178c06f777ac89fc6b1383e90c254fafb1abe4ba3c82"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.58",
- "uuid 1.5.0",
-]
-
-[[package]]
 name = "getopts"
 version = "0.2.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5656,10 +5644,9 @@ dependencies = [
 [[package]]
 name = "redux"
 version = "0.1.0"
-source = "git+https://github.com/openmina/redux-rs.git?rev=8c8ef93#8c8ef93e74ec73bf6e0dc51915bf35d637f57739"
+source = "git+https://github.com/openmina/redux-rs.git?rev=2d1d8db#2d1d8dbd7239c0aec91db8f11126b90068dc848b"
 dependencies = [
  "enum_dispatch",
- "gensym",
  "linkme",
  "paste",
  "serde",
