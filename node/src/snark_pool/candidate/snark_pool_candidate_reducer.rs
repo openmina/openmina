@@ -101,19 +101,21 @@ impl SnarkPoolCandidatesState {
                     req_id,
                     batch,
                     sender,
-                    on_success: redux::callback!(|(req_id: SnarkWorkVerifyId, sender: String, batch: Vec<Snark>)| -> crate::Action {
-                        SnarkPoolCandidateAction::WorkVerifySuccess {
-                            peer_id: sender.parse().unwrap(),
-                            verify_id: req_id,
-                            batch
-                        }
-                    }),
-                    on_error: redux::callback!(|(req_id: SnarkWorkVerifyId, sender: String)| -> crate::Action {
-                        SnarkPoolCandidateAction::WorkVerifyError {
-                            peer_id: sender.parse().unwrap(),
-                            verify_id: req_id,
-                        }
-                    }),
+                    on_success: redux::callback!(
+                        on_snark_pool_candidate_work_verify_success((req_id: SnarkWorkVerifyId, sender: String, batch: Vec<Snark>)) -> crate::Action {
+                            SnarkPoolCandidateAction::WorkVerifySuccess {
+                                peer_id: sender.parse().unwrap(),
+                                verify_id: req_id,
+                                batch
+                            }
+                        }),
+                    on_error: redux::callback!(
+                        on_snark_pool_candidate_work_verify_error((req_id: SnarkWorkVerifyId, sender: String)) -> crate::Action {
+                            SnarkPoolCandidateAction::WorkVerifyError {
+                                peer_id: sender.parse().unwrap(),
+                                verify_id: req_id,
+                            }
+                        }),
                 });
                 dispatcher.push(SnarkPoolCandidateAction::WorkVerifyPending {
                     peer_id,

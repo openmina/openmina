@@ -45,12 +45,14 @@ impl ConsensusState {
                 dispatcher.push(SnarkBlockVerifyAction::Init {
                     req_id,
                     block: (hash.clone(), block.clone()).into(),
-                    on_success: redux::callback!(|hash: BlockHash| -> crate::Action {
-                        ConsensusAction::BlockSnarkVerifySuccess { hash }
-                    }),
-                    on_error: redux::callback!(|(hash: BlockHash, error: SnarkBlockVerifyError)| -> crate::Action {
-                        ConsensusAction::BlockSnarkVerifyError { hash, error }
-                    }),
+                    on_success: redux::callback!(
+                        on_received_block_snark_verify_success(hash: BlockHash) -> crate::Action {
+                            ConsensusAction::BlockSnarkVerifySuccess { hash }
+                        }),
+                    on_error: redux::callback!(
+                        on_received_block_snark_verify_error((hash: BlockHash, error: SnarkBlockVerifyError)) -> crate::Action {
+                            ConsensusAction::BlockSnarkVerifyError { hash, error }
+                        }),
                 });
                 dispatcher.push(ConsensusAction::BlockSnarkVerifyPending {
                     req_id,

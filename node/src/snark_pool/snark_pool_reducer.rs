@@ -110,7 +110,7 @@ impl SnarkPoolState {
                                 choices,
                                 count: available_workers,
                                 on_result: redux::callback!(
-                                    |job_ids: Vec<SnarkJobId>| -> crate::Action {
+                                    on_snark_pool_jobs_random_choose_result(job_ids: Vec<SnarkJobId>) -> crate::Action {
                                         SnarkPoolAction::CommitmentCreateMany { job_ids }
                                     }
                                 ),
