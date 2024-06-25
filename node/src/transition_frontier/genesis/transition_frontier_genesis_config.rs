@@ -13,14 +13,12 @@ use ledger::{
 };
 use mina_hasher::Fp;
 use mina_p2p_messages::{
-    b58::Base58CheckOfBinProt,
     binprot::{
         self,
         macros::{BinProtRead, BinProtWrite},
         BinProtRead, BinProtWrite,
     },
     v2::{self, PROTOCOL_CONSTANTS},
-    versioned::Versioned,
 };
 use openmina_core::constants::CONSTRAINT_CONSTANTS;
 use serde::{Deserialize, Serialize};
@@ -247,25 +245,25 @@ impl GenesisConfig {
     fn build_or_load_ledger(
         ledger_name: String,
         accounts: impl Iterator<Item = ledger::Account>,
-    ) -> Result<
-        (
-            ledger::Mask,
-            v2::CurrencyAmountStableV1,
-            Base58CheckOfBinProt<
-                v2::MinaBaseLedgerHash0StableV1,
-                Versioned<v2::MinaBaseLedgerHash0StableV1, 1>,
-                5,
-            >,
-        ),
-        GenesisConfigError,
-    > {
+    ) -> Result<(ledger::Mask, v2::CurrencyAmountStableV1, LedgerHash), GenesisConfigError> {
+        openmina_core::info!(
+            openmina_core::log::system_time();
+            kind = "ledger loading",
+            message = "loading the ledger",
+            ledger_name = ledger_name,
+        );
         match LedgerAccountsWithHash::load(ledger_name)? {
             Some(accounts_with_hash) => {
-                let (mask, total_currency) = Self::build_ledger_from_accounts(
+                let (mask, total_currency) = Self::build_ledger_from_accounts_and_hashes(
                     accounts_with_hash
                         .accounts
                         .iter()
                         .map(ledger::Account::from),
+                    accounts_with_hash
+                        .hashes
+                        .into_iter()
+                        .map(|(n, h)| (n, h.to_field()))
+                        .collect::<Vec<_>>(),
                 );
                 openmina_core::info!(
                     openmina_core::log::system_time();
@@ -284,6 +282,11 @@ impl GenesisConfig {
                         acc
                     }),
                     ledger_hash: hash.clone(),
+                    hashes: mask
+                        .get_raw_inner_hashes()
+                        .into_iter()
+                        .map(|(idx, hash)| (idx, v2::LedgerHash::from_fp(hash)))
+                        .collect(),
                 };
                 ledger_accounts.cache()?;
                 openmina_core::info!(
@@ -389,8 +392,9 @@ fn genesis_producer_stake_proof(mask: &ledger::Mask) -> v2::MinaBaseSparseLedger
 
 #[derive(Debug, BinProtRead, BinProtWrite)]
 struct LedgerAccountsWithHash {
-    accounts: Vec<MinaBaseAccountBinableArgStableV2>,
     ledger_hash: LedgerHash,
+    accounts: Vec<MinaBaseAccountBinableArgStableV2>,
+    hashes: Vec<(u64, LedgerHash)>,
 }
 
 impl LedgerAccountsWithHash {
