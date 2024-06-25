@@ -1,5 +1,7 @@
 use core::str::FromStr;
 use mina_hasher::Fp;
+use mina_p2p_messages::binprot::BinProtWrite;
+use multihash::{Blake2b256, Hasher};
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::Value;
 use std::fmt::{self, Display, Formatter};
@@ -10,6 +12,8 @@ use ledger::{
     VotingFor, ZkAppAccount, ZkAppUri,
 };
 use openmina_node_account::{AccountPublicKey, AccountSecretKey};
+
+use crate::ledger::LEDGER_DEPTH;
 
 type RawCurrency = String;
 type RawSlot = String;
@@ -61,13 +65,54 @@ impl Ledger {
             }
         }
     }
+
+    /// Typically a ledger is identified by its hash, but if hash is
+    /// not given in config, we construct a name by hashing the ledger
+    /// config so that we can recognise a ledger we already have
+    /// cached without reconstructing it (which is expensive).
+    /// Note that the name contains some constants - the purpose of this
+    /// is to invalidate all caches when these constants change.
+    /// See: https://github.com/MinaProtocol/mina/blob/develop/src/lib/genesis_ledger_helper/genesis_ledger_helper.ml#L105
+    pub fn ledger_name(&self) -> String {
+        self.hash.clone().unwrap_or_else(|| {
+            build_ledger_name(
+                self.num_accounts.unwrap_or(0),
+                self.balances
+                    .clone()
+                    .unwrap_or_default()
+                    .iter()
+                    .map(Clone::clone),
+            )
+        })
+    }
+}
+
+pub fn build_ledger_name(
+    num_accounts: usize,
+    balances: impl Iterator<Item = (usize, RawCurrency)>,
+) -> String {
+    let mut hash = Blake2b256::default();
+    hash.update(LEDGER_DEPTH.to_string().as_bytes());
+    hash.update(num_accounts.to_string().as_bytes());
+    let balances = balances.fold(String::new(), |acc, (i, balance)| {
+        format!("{} {} {}", acc, i, balance)
+    });
+    hash.update(balances.as_bytes());
+    let empty_account = ledger::Account::empty();
+    hash.update(empty_account.hash().to_string().as_bytes());
+    let mut empty_account_enc: Vec<u8> = Vec::new();
+    empty_account
+        .binprot_write(&mut empty_account_enc)
+        .expect("failed to write account");
+    hash.update(empty_account_enc.as_slice());
+    format!("{:x?}", hash.finalize())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Account {
     pk: String,
     sk: Option<String>,
-    balance: RawCurrency,
+    pub(super) balance: RawCurrency,
     delegate: Option<String>,
     token_id: Option<String>,
     token_symbol: Option<String>,

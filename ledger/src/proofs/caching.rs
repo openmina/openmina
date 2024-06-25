@@ -1,4 +1,8 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 use ark_ec::{short_weierstrass_jacobian::GroupAffine, AffineCurve, ModelParameters};
 use ark_poly::{univariate::DensePolynomial, Radix2EvaluationDomain};
@@ -453,4 +457,23 @@ where
 {
     let srs: SRSCached = postcard::from_bytes(bytes).unwrap();
     (&srs).into()
+}
+
+pub fn openmina_cache_path<P: AsRef<Path>>(path: P) -> Option<PathBuf> {
+    std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".cache/openmina").join(path))
+}
+
+pub fn ensure_path_exists<P: AsRef<Path> + Clone>(path: P) -> Result<(), std::io::Error> {
+    match std::fs::metadata(path.clone()) {
+        Ok(meta) if meta.is_dir() => Ok(()),
+        Ok(_) => Err(std::io::Error::new(
+            std::io::ErrorKind::AlreadyExists,
+            "Path exists but is not a directory",
+        )),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            std::fs::create_dir_all(path)?;
+            Ok(())
+        }
+        Err(e) => Err(e),
+    }
 }
