@@ -6,10 +6,10 @@
 * [Ledger](#ledger)
 * [Proofs](#proofs)
 * [P2P Implementation (State Machine Version)](#state-machine-p2p)
-* [P2P Related Tests](#p2p-tests)
 * [Frontend](#frontend)
 * [Documentation](#documentation)
 * [Experimental State Machine Architecture](#experimental-state-machine-architecture)
+* [Testing](./testing.md)
 
 ## High Level Functionality Overview <a name="overview"></a>
 
@@ -101,13 +101,6 @@
   - [x] Integrate with the block producer
   - [x] Handling epoch changes - starting new evaluation as soon as new epoch data is available
   - [ ] Retention logic - cleanup slot data that is in the past based on current global slot (Slight node impact - the won slot map grows indefinitely)
-- [ ] Testing
-  - [ ] Correctness test - Selecting the correct ledgers
-    - [x] (Edge case) In genesis epoch
-    - [ ] In other (higher) epochs
-  - [x] Correctness test - Computation output comparison with mina cli
-  - [x] Correctness test - Start a new VRF evaluation on epoch switch for the next available epoch
-  - [ ] Correctness test - Retaining the slot data only for future blocks
 - [ ] Documentation
 
 ## Block Producer <a name="block-producer"></a>
@@ -194,14 +187,6 @@
 - [ ] Limit received blocks, txs and snarks from the same peer
 - [ ] Rebroadcast only validated
 
-### Testing
-
-- [x] Fix bootstrap sandbox record/replay for the latest berkeley network.
-- [x] Fix network debugger for the latest berkeley network.
-- [x] Test that the Openmina node can bootstrap from the replayer tool.
-- [ ] Test that the OCaml node can bootstrap from the Openmina node.
-- [ ] Test that the Openmina node can bootstrap from another instance of openmina node.
-
 ### Fuzzing
 - [x] Mutator-based (bit-flipping/extend/shrink) fuzzing of communication between two openmina nodes
   - [x] PNet layer mutator.
@@ -209,31 +194,6 @@
   - [x] Noise mutator.
   - [x] Yamux mutator.
   - [x] Stream-based protocols mutators: Identify, Kad, Meshsub, RPCs.
-
-## P2P Related Tests <a name="p2p-tests"></a>
-
-- [ ] P2p functionality tests
-  - [ ] p2p messages
-      - [ ] Binprot types (de)serialization testing/fuzzing
-      - [ ] Mina RPC types testing (ideally along with OCaml codecs)
-      - [ ] hashing testing (ideally along with OCaml hash implementations)
-  - [ ] Connection
-      - [ ] Proper initial peers handling, like reconnecting if offline
-      - [ ] Peers number maintaining, including edge cases, when we have max peers but still allow peers to connect for e.g. discovery, that is dropping connection strategy
-      - [ ] Other connection constraints, like no duplicate connections to the same peer, peer_id, no self connections etc
-      - [ ] Connection quality metrics
-  - [ ] Kademlia
-      - [ ] Peers discovery, according to Kademlia parameters (a new node gets 20 new peers)
-      - [ ] Kademlia routing table is up-to-date with the network (each peer status, like connected/disconnected/can_connect/cant_connect, reflects actual peer state)
-  - [ ] Gossipsub
-      - [ ] Reacheability (all nodes get the message)
-      - [ ] Non-redundancy (minimal number of duplicating/unneeded messages)
-- [ ] Interoperability with OCaml node
-    - [ ] Bootstrap Rust node from OCaml and vice versa
-    - [ ] Discovery using Rust node
-    - [ ] Gossipsub relaying
-- [ ] Public network tests. This should be the only set of tests that involve publicly  available networks, and should be executed if we're sure we don't ruin them.
-- [ ] Attack resistance testing
 
 ## Frontend <a name="frontend"></a>
 
