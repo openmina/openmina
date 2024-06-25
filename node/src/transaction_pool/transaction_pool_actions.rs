@@ -8,6 +8,7 @@ use mina_p2p_messages::{
     list::List,
     v2::{self, LedgerHash},
 };
+use openmina_core::ActionEvent;
 use redux::Callback;
 use serde::{Deserialize, Serialize};
 
@@ -15,7 +16,8 @@ use crate::ledger::LedgerService;
 
 use super::PendingId;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
+#[action_event(level = info)]
 pub enum TransactionPoolAction {
     StartVerify {
         commands: List<v2::MinaBaseUserCommandStableV2>,
@@ -53,7 +55,16 @@ pub enum TransactionPoolAction {
     Rebroadcast,
 }
 
-impl redux::EnablingCondition<crate::State> for TransactionPoolAction {}
+impl redux::EnablingCondition<crate::State> for TransactionPoolAction {
+    fn is_enabled(&self, state: &crate::State, time: redux::Timestamp) -> bool {
+        match self {
+            // Note: Only start verifying after we have a best_tip
+            TransactionPoolAction::StartVerify { .. } => state.transaction_pool.best_tip_hash.is_some(),
+            TransactionPoolAction::StartVerifyWithAccounts { .. } => true,
+            _ => true,
+        }
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum TransactionPoolEffectfulAction {

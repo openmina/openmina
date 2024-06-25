@@ -360,7 +360,7 @@ pub mod group {
                     // eprintln!("GROUP 15");
                     acc.push(intermediate_state(New, to_spec(a1), before, after));
                 }
-                _ => panic!("invalid")
+                _ => eprintln!("invalid")
             }
         }
 

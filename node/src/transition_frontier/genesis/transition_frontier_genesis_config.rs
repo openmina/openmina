@@ -98,7 +98,7 @@ impl GenesisConfig {
             Self::Counts { constants, .. }
             | Self::BalancesDelegateTable { constants, .. }
             | Self::AccountsBinProt { constants, .. } => Ok(constants.clone()),
-            Self::Prebuilt { .. } => todo!(),
+            Self::Prebuilt { .. } => Ok(self.load().unwrap().1.constants),
             Self::DaemonJson(config) => Ok(config
                 .genesis
                 .as_ref()

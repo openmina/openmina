@@ -100,7 +100,10 @@ impl TransactionPoolState {
                 let commands = commands.iter().map(UserCommand::from).collect::<Vec<_>>();
                 let diff = diff::Diff { list: commands };
 
+                println!("**********Before verify");
                 let valids = substate.pool.verify(diff, accounts).unwrap(); // TODO: Handle invalids
+                println!("**********After verify");
+
                 let valids = valids
                     .into_iter()
                     .map(transaction_hash::hash_command)
@@ -116,6 +119,7 @@ impl TransactionPoolState {
                 });
             }
             BestTipChanged { best_tip_hash } => {
+                substate.best_tip_hash = Some(best_tip_hash.clone());
                 let account_ids = substate.pool.get_accounts_to_revalidate_on_new_best_tip();
 
                 let dispatcher = state.into_dispatcher();
