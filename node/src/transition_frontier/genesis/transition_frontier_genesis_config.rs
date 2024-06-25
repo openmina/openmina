@@ -13,12 +13,11 @@ use ledger::{
 };
 use mina_hasher::Fp;
 use mina_p2p_messages::{
-    binprot::{
+    b58::Base58CheckOfBinProt, binprot::{
         self,
         macros::{BinProtRead, BinProtWrite},
         BinProtRead, BinProtWrite,
-    },
-    v2::{self, PROTOCOL_CONSTANTS},
+    }, v2::{self, PROTOCOL_CONSTANTS}, versioned::Versioned
 };
 use openmina_core::constants::CONSTRAINT_CONSTANTS;
 use serde::{Deserialize, Serialize};
@@ -165,41 +164,8 @@ impl GenesisConfig {
                     .iter()
                     .map(daemon_json::Account::to_account)
                     .collect::<Result<Vec<_>, _>>()?;
-                let cache_filename =
-                    openmina_cache_path(format!("ledgers/{}.bin", ledger.ledger_name())).unwrap();
-                let (mask, total_currency, genesis_ledger_hash) = if cache_filename.is_file() {
-                    let mut cache_file = File::open(cache_filename)?;
-                    let accounts_with_hash = LedgerAccountsWithHash::binprot_read(&mut cache_file)?;
-                    let (mask, total_currency) = Self::build_ledger_from_accounts(
-                        accounts_with_hash
-                            .accounts
-                            .iter()
-                            .map(ledger::Account::from),
-                    );
-                    openmina_core::info!(
-                        openmina_core::log::system_time();
-                        kind = "genesis ledger load",
-                        message = "loaded from cache",
-                    );
-                    (mask, total_currency, accounts_with_hash.ledger_hash)
-                } else {
-                    let (mut mask, total_currency) = Self::build_ledger_from_accounts(accounts);
-                    let hash = ledger_hash(&mut mask);
-                    let ledger_accounts = LedgerAccountsWithHash {
-                        accounts: mask.fold(Vec::new(), |mut acc, a| {
-                            acc.push(a.into());
-                            acc
-                        }),
-                        ledger_hash: hash.clone(),
-                    };
-                    ledger_accounts.cache()?;
-                    openmina_core::info!(
-                        openmina_core::log::system_time();
-                        kind = "genesis ledger load",
-                        message = "built from config and cached",
-                    );
-                    (mask, total_currency, hash)
-                };
+                let (mask, total_currency, genesis_ledger_hash) =
+                    Self::build_or_load_ledger(ledger.ledger_name(), accounts.into_iter())?;
 
                 if let Some(expected_hash) = config.ledger.as_ref().and_then(|l| l.hash.as_ref()) {
                     if expected_hash != &genesis_ledger_hash.to_string() {
@@ -271,6 +237,57 @@ impl GenesisConfig {
                 (mask, result)
             }
         })
+    }
+
+    fn build_or_load_ledger(
+        ledger_name: String,
+        accounts: impl Iterator<Item = ledger::Account>,
+    ) -> Result<
+        (
+            ledger::Mask,
+            v2::CurrencyAmountStableV1,
+            Base58CheckOfBinProt<
+                v2::MinaBaseLedgerHash0StableV1,
+                Versioned<v2::MinaBaseLedgerHash0StableV1, 1>,
+                5,
+            >,
+        ),
+        GenesisConfigError,
+    > {
+        match LedgerAccountsWithHash::load(ledger_name)? {
+            Some(accounts_with_hash) => {
+                let (mask, total_currency) = Self::build_ledger_from_accounts(
+                    accounts_with_hash
+                        .accounts
+                        .iter()
+                        .map(ledger::Account::from),
+                );
+                openmina_core::info!(
+                    openmina_core::log::system_time();
+                    kind = "genesis ledger load",
+                    message = "loaded from cache",
+                );
+                Ok((mask, total_currency, accounts_with_hash.ledger_hash))
+            }
+            None => {
+                let (mut mask, total_currency) = Self::build_ledger_from_accounts(accounts);
+                let hash = ledger_hash(&mut mask);
+                let ledger_accounts = LedgerAccountsWithHash {
+                    accounts: mask.fold(Vec::new(), |mut acc, a| {
+                        acc.push(a.into());
+                        acc
+                    }),
+                    ledger_hash: hash.clone(),
+                };
+                ledger_accounts.cache()?;
+                openmina_core::info!(
+                    openmina_core::log::system_time();
+                    kind = "genesis ledger load",
+                    message = "built from config and cached",
+                );
+                Ok((mask, total_currency, hash))
+            }
+        }
     }
 
     fn build_ledger_from_balances_delegator_table(
@@ -376,6 +393,16 @@ impl LedgerAccountsWithHash {
         ensure_path_exists(cache_dir)?;
         let mut file = File::create(cache_file)?;
         self.binprot_write(&mut file)
+    }
+
+    fn load(ledger_name: String) -> Result<Option<Self>, binprot::Error> {
+        let cache_filename = openmina_cache_path(format!("ledgers/{}.bin", ledger_name)).unwrap();
+        if cache_filename.is_file() {
+            let mut file = File::open(cache_filename)?;
+            LedgerAccountsWithHash::binprot_read(&mut file).map(Some)
+        } else {
+            Ok(None)
+        }
     }
 }
 
