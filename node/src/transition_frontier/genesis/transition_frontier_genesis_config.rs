@@ -13,11 +13,14 @@ use ledger::{
 };
 use mina_hasher::Fp;
 use mina_p2p_messages::{
-    b58::Base58CheckOfBinProt, binprot::{
+    b58::Base58CheckOfBinProt,
+    binprot::{
         self,
         macros::{BinProtRead, BinProtWrite},
         BinProtRead, BinProtWrite,
-    }, v2::{self, PROTOCOL_CONSTANTS}, versioned::Versioned
+    },
+    v2::{self, PROTOCOL_CONSTANTS},
+    versioned::Versioned,
 };
 use openmina_core::constants::CONSTRAINT_CONSTANTS;
 use serde::{Deserialize, Serialize};
@@ -193,23 +196,25 @@ impl GenesisConfig {
                         .iter()
                         .map(daemon_json::Account::to_account)
                         .collect::<Result<Vec<_>, _>>()?;
-                    let (mut mask, total_currency) = Self::build_ledger_from_accounts(accounts);
-                    staking_epoch_ledger_hash = ledger_hash(&mut mask);
+                    let (mut _mask, total_currency, hash) = Self::build_or_load_ledger(
+                        data.staking.ledger_name(),
+                        accounts.into_iter(),
+                    )?;
+                    staking_epoch_ledger_hash = hash;
                     staking_epoch_total_currency = total_currency;
                     staking_epoch_seed = v2::EpochSeed::from_str(&data.staking.seed).unwrap();
 
-                    let accounts = data
-                        .next
-                        .as_ref()
-                        .unwrap()
+                    let next = data.next.as_ref().unwrap();
+                    let accounts = next
                         .accounts
                         .as_ref()
                         .unwrap()
                         .iter()
                         .map(daemon_json::Account::to_account)
                         .collect::<Result<Vec<_>, _>>()?;
-                    let (mut mask, total_currency) = Self::build_ledger_from_accounts(accounts);
-                    next_epoch_ledger_hash = ledger_hash(&mut mask);
+                    let (mut _mask, total_currency, hash) =
+                        Self::build_or_load_ledger(next.ledger_name(), accounts.into_iter())?;
+                    next_epoch_ledger_hash = hash;
                     next_epoch_total_currency = total_currency;
                     next_epoch_seed =
                         v2::EpochSeed::from_str(&data.next.as_ref().unwrap().seed).unwrap();
@@ -264,8 +269,9 @@ impl GenesisConfig {
                 );
                 openmina_core::info!(
                     openmina_core::log::system_time();
-                    kind = "genesis ledger load",
+                    kind = "ledger loaded",
                     message = "loaded from cache",
+                    ledger_hash = accounts_with_hash.ledger_hash.to_string(),
                 );
                 Ok((mask, total_currency, accounts_with_hash.ledger_hash))
             }
@@ -282,8 +288,9 @@ impl GenesisConfig {
                 ledger_accounts.cache()?;
                 openmina_core::info!(
                     openmina_core::log::system_time();
-                    kind = "genesis ledger load",
+                    kind = "ledger loaded",
                     message = "built from config and cached",
+                    ledger_hash = hash.to_string(),
                 );
                 Ok((mask, total_currency, hash))
             }
