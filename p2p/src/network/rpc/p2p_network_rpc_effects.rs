@@ -274,15 +274,7 @@ impl P2pNetworkRpcAction {
                             store.dispatch(P2pChannelsRpcAction::Ready { peer_id });
                         }
                     }
-                    RpcMessage::Heartbeat => {
-                        store.dispatch(P2pNetworkRpcAction::OutgoingData {
-                            addr,
-                            peer_id,
-                            stream_id,
-                            data: RpcMessage::Heartbeat.into_bytes().into(),
-                            fin: false,
-                        });
-                    }
+                    RpcMessage::Heartbeat => {}
                     RpcMessage::Query { header, bytes } => {
                         if let Err(e) = rpc_query_effects(peer_id, header, bytes, store) {
                             store.dispatch(P2pDisconnectionAction::Init {
@@ -332,6 +324,19 @@ impl P2pNetworkRpcAction {
                 }
             }
             Self::PrunePending { .. } => {}
+            Self::HeartbeatSend {
+                addr,
+                peer_id,
+                stream_id,
+            } => {
+                store.dispatch(P2pNetworkRpcAction::OutgoingData {
+                    addr,
+                    peer_id,
+                    stream_id,
+                    data: RpcMessage::Heartbeat.into_bytes().into(),
+                    fin: false,
+                });
+            }
             Self::OutgoingQuery {
                 peer_id,
                 query,

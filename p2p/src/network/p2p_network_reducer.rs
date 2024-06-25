@@ -80,58 +80,7 @@ impl P2pNetworkState {
         }
     }
 
-    pub fn find_rpc_state(&self, a: &P2pNetworkRpcAction) -> Option<&P2pNetworkRpcState> {
-        match a.stream_id() {
-            RpcStreamId::Exact(stream_id) => self
-                .scheduler
-                .rpc_incoming_streams
-                .get(a.peer_id())
-                .and_then(|cn| cn.get(&stream_id))
-                .or_else(|| {
-                    self.scheduler
-                        .rpc_outgoing_streams
-                        .get(a.peer_id())
-                        .and_then(|cn| cn.get(&stream_id))
-                }),
-            RpcStreamId::WithQuery(id) => self
-                .scheduler
-                .rpc_incoming_streams
-                .get(a.peer_id())
-                .and_then(|streams| {
-                    streams.iter().find_map(|(_, state)| {
-                        if state
-                            .pending
-                            .as_ref()
-                            .map_or(false, |query_header| query_header.id == id)
-                        {
-                            Some(state)
-                        } else {
-                            None
-                        }
-                    })
-                }),
-            RpcStreamId::AnyIncoming => self
-                .scheduler
-                .rpc_incoming_streams
-                .get(a.peer_id())
-                .and_then(|stream| stream.first_key_value())
-                .map(|(_k, v)| v),
-            RpcStreamId::AnyOutgoing => {
-                if let Some(streams) = self.scheduler.rpc_outgoing_streams.get(a.peer_id()) {
-                    if let Some((k, _)) = streams.first_key_value() {
-                        return Some(streams.get(k).expect("checked above"));
-                    }
-                }
-
-                None
-            }
-        }
-    }
-
-    pub fn find_rpc_state_mut(
-        &mut self,
-        a: &P2pNetworkRpcAction,
-    ) -> Option<&mut P2pNetworkRpcState> {
+    fn find_rpc_state_mut(&mut self, a: &P2pNetworkRpcAction) -> Option<&mut P2pNetworkRpcState> {
         match a.stream_id() {
             RpcStreamId::Exact(stream_id) => self
                 .scheduler

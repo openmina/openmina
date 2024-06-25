@@ -5701,7 +5701,6 @@ checksum = "c08c74e62047bb2de4ff487b251e4a92e24f48745648451635cec7d591162d9f"
 name = "replay_dynamic_effects"
 version = "0.5.0"
 dependencies = [
- "cli",
  "node",
  "openmina-node-invariants",
  "openmina-node-native",

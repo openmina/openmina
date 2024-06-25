@@ -20,6 +20,8 @@ where
     p2p_discovery(store, meta);
     #[cfg(feature = "p2p-libp2p")]
     p2p_select_timeouts(store, meta);
+    #[cfg(feature = "p2p-libp2p")]
+    p2p_rpc_heartbeats(store, meta);
 
     let state = store.state();
     for (peer_id, id) in state.peer_rpc_timeouts(meta.time()) {
@@ -103,6 +105,34 @@ where
             addr,
             kind: crate::SelectKind::Stream(dummy, stream_id),
         });
+    }
+}
+
+#[cfg(feature = "p2p-libp2p")]
+fn p2p_rpc_heartbeats<Store, S>(store: &mut Store, meta: &ActionMeta)
+where
+    Store: P2pStore<S>,
+{
+    use crate::network::rpc::P2pNetworkRpcAction;
+    let scheduler = &store.state().network.scheduler;
+
+    let send_heartbeat_actions: Vec<_> = scheduler
+        .rpc_incoming_streams
+        .iter()
+        .chain(&scheduler.rpc_outgoing_streams)
+        .flat_map(|(peer_id, state)| {
+            state
+                .iter()
+                .filter(|(_, s)| s.should_send_heartbeat(meta.time()))
+                .map(|(stream_id, state)| P2pNetworkRpcAction::HeartbeatSend {
+                    addr: state.addr,
+                    peer_id: *peer_id,
+                    stream_id: *stream_id,
+                })
+        })
+        .collect();
+    for action in send_heartbeat_actions {
+        store.dispatch(action);
     }
 }
 
