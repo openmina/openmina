@@ -3742,7 +3742,7 @@ pub mod zkapp_command {
             });
 
             let group = std::iter::repeat(((), (), ()))
-                .take(n_account_updates + 1) // + 1 to prepend one. See OCaml
+                .take(n_account_updates + 2) // + 2 to prepend two. See OCaml
                 .collect::<Vec<_>>();
 
             let groups = crate::proofs::zkapp::group::group_by_zkapp_command_rev::<_, (), (), ()>(
