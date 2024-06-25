@@ -61,13 +61,10 @@ impl SimultaneousConnections {
             .expect("connect event should be dispatched");
 
         // Run the cluster while there are events
-        let quiet = run_until_no_events(
-            &mut driver,
-            Duration::from_secs(10),
-            Duration::from_secs(20),
-        )
-        .await
-        .unwrap();
+        let quiet =
+            run_until_no_events(&mut driver, Duration::from_secs(5), Duration::from_secs(20))
+                .await
+                .unwrap();
         assert!(
             quiet,
             "no quiet period with no events since nodes are connected"
@@ -113,7 +110,7 @@ impl AllNodesConnectionsAreSymmetric {
         // Run the cluster while there are events
         let quiet = run_until_no_events(
             &mut driver,
-            Duration::from_secs(30),
+            Duration::from_secs(5),
             Duration::from_secs(2 * 60),
         )
         .await
