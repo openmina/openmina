@@ -269,7 +269,7 @@ jobs:
           - multi_node
           # - webrtc_single_node
           # - webrtc_multi_node
-          # - connection_discovery
+          - connection_discovery
       fail-fast: false
 
     steps:

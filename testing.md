@@ -124,7 +124,7 @@ Tests for p2p layer.
 
 ## Scenarios
 
-Scenario test are found in [`node/testing/src/scenarios`](./node/testing/src/scenarios) and they are added as test in [`node/testing/tests`](./node/testing/tests) using `scenario_test` macro. Checked tests are ran in ci
+Scenario test are found in [`node/testing/src/scenarios`](./node/testing/src/scenarios) and they are added as test in [`node/testing/tests`](./node/testing/tests) using `scenario_test` macro. Checked tests are ran in ci. In order to run some scenario tests locally mina executable or docker is needed, to spawn ocaml node.
 
 - [ ] [`node_libp2p_only`](./node/testing/tests/node_libp2p_only.rs)
 - [x] [`p2p_basic_connections`](./node/testing/tests/p2p_basic_connections.rs):
@@ -159,9 +159,10 @@ Scenario test are found in [`node/testing/src/scenarios`](./node/testing/src/sce
     - [`MultiNodeBasicConnectivityInitialJoining`](./node/testing/src/scenarios/multi_node/basic_connectivity_initial_joining.rs)
 - [x] [`single_node`](./node/testing/tests/single_node.rs):
     - [`SoloNodeBasicConnectivityAcceptIncoming`](./node/testing/src/scenarios/solo_node/basic_connectivity_accept_incoming.rs)
-    - [`SoloNodeBasicConnectivityInitialJoining`](./node/testing/src/scenarios/solo_node/basic_connectivity_initial_joining.rs)
-    - [`SoloNodeSyncRootSnarkedLedger`](./node/testing/src/scenarios/solo_node/sync_root_snarked_ledger.rs)
-- [ ] [`connection_discovery`](./node/testing/tests/connection_discovery.rs)
+    - [`SoloNodeBasicConnectivityInitialJoining`](./node/testing/src/scenarios/solo_node/basic_connectivity_initial_joining.rs), ignored
+    - [`SoloNodeSyncRootSnarkedLedger`](./node/testing/src/scenarios/solo_node/sync_root_snarked_ledger.rs), ignored
+    - [`SoloNodeBootstrap`](./node/testing/src/scenarios/solo_node/bootstrap.rs), commented out until [#506](https://github.com/openmina/openmina/issues/506) is fixed
+- [ ] [`connection_discovery`](./node/testing/tests/connection_discovery.rs):
     - [`RustToOCaml`](./node/testing/src/scenarios/multi_node/connection_discovery.rs?plain=1#L169)
     - [`OCamlToRust`](./node/testing/src/scenarios/multi_node/connection_discovery.rs?plain=1#L117)
     - [`RustToOCamlViaSeed`](./node/testing/src/scenarios/multi_node/connection_discovery.rs?plain=1#L351)
