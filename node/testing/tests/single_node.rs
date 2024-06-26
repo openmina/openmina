@@ -29,9 +29,9 @@ scenario_test!(
     SoloNodeSyncRootSnarkedLedger
 );
 
-// TODO: re-enable after #506 has been solved
-// scenario_test!(
-//     bootstrap_from_replayer,
-//     SoloNodeBootstrap,
-//     SoloNodeBootstrap
-// );
+scenario_test!(
+    #[ignore = "TODO: re-enable after #506 has been solved"]
+    bootstrap_from_replayer,
+    SoloNodeBootstrap,
+    SoloNodeBootstrap
+);

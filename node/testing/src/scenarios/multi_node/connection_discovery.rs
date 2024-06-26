@@ -16,6 +16,11 @@ use crate::{
 };
 
 /// Ensure that Rust node can pass information about peers when used as a seed node.
+/// 1. Start a Rust node
+/// 2. Start two OCaml nodes, specifying the Rust node address as their peer
+/// 3. Wait for events indicating that connections with both OCaml nodes are established
+/// 4. Check that both OCaml nodes have each other’s address as their peers
+/// 5. Check that the Rust node has addresses of both OCaml nodes in the Kademlia state
 #[derive(documented::Documented, Default, Clone, Copy)]
 pub struct RustNodeAsSeed;
 
@@ -113,6 +118,11 @@ impl RustNodeAsSeed {
 }
 
 /// Test Rust node peer discovery when OCaml node connects to it
+/// 1. Configure and launch a Rust node
+/// 2. Start an OCaml node with the Rust node as the only peer
+/// 3. Run the Rust node until it receives an event signaling that the OCaml node is connected
+/// 4. Wait for an event Identify that is used to identify the remote peer’s address and port
+/// 5. Check that the Rust node has an address of the OCaml node in its Kademlia part of the state
 #[derive(documented::Documented, Default, Clone, Copy)]
 pub struct OCamlToRust;
 
@@ -165,6 +175,11 @@ impl OCamlToRust {
 }
 
 /// Tests Rust node peer discovery when it connects to OCaml node
+/// 1. Start an OCaml node and wait for its p2p to be ready
+/// 2. Start a Rust node and initiate its connection to the OCaml node
+/// 3. Run the Rust node until it receives an event signaling that connection is established
+/// 4. Run the Rust node until it receives a Kademlia event signaling that the address of the OCaml node has been added
+/// 5. Check that the Rust node has an address of the OCaml node in its Kademlia part of the state
 #[derive(documented::Documented, Default, Clone, Copy)]
 pub struct RustToOCaml;
 
@@ -242,6 +257,12 @@ impl RustToOCaml {
 }
 
 /// Tests Rust node peer discovery when OCaml node is connected to it via an OCaml seed node.
+/// 1. Start an OCaml node acting as a seed node and wait for its P2P to be ready
+/// 2. Start a Rust node and initiate its connection to the seed node
+/// 3. Run the Rust node until it receives an event signaling that connection is established
+/// 4. Start an OCaml node acting with the seed node as its peer
+/// 5. Run the Rust node until it receives an event signaling that the connection with the OCaml node has been established
+/// 6. Check that the Rust node has an address of the OCaml node in its Kademlia part of the state
 #[derive(documented::Documented, Default, Clone, Copy)]
 pub struct OCamlToRustViaSeed;
 
@@ -347,6 +368,12 @@ impl OCamlToRustViaSeed {
 }
 
 /// Tests Rust node peer discovery when it connects to OCaml node via an OCaml seed node.
+/// 1. Start an OCaml node acting as a seed node
+/// 2. Start an OCaml node acting with the seed node as its peer and wait for its p2p to be ready
+/// 3. Start a Rust node and initiate its connection to the seed node
+/// 4. Run the Rust node until it receives an event signaling that connection with the seed node is established
+/// 5. Run the Rust node until it receives an event signaling that connection with the non-seed OCaml node is established
+/// 6. Check that the Rust node has an address of the OCaml node in its Kademlia part of the state
 #[derive(documented::Documented, Default, Clone, Copy)]
 pub struct RustToOCamlViaSeed;
 
