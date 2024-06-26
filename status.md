@@ -9,7 +9,7 @@
 * [Frontend](#frontend)
 * [Documentation](#documentation)
 * [Experimental State Machine Architecture](#experimental-state-machine-architecture)
-* [Testing](./testing.md)
+* [Testing](./docs/testing.md)
 
 ## High Level Functionality Overview <a name="overview"></a>
 
