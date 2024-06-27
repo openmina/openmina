@@ -277,7 +277,7 @@
 - [ ] [Bootstrapping process](https://github.com/JanSlobodnik/pre-publishing/blob/main/bootstrap-catchup.md) - in progress
 - [ ] Block application - not documented yet
 - Testing
-  - [ ] [Testing framework](https://github.com/openmina/openmina/blob/main/docs/testing/testing.md) - partially complete (some tests are documented)
+  - [ ] [Testing framework](https://github.com/openmina/openmina/blob/main/docs/testing.md) - partially complete (some tests are documented)
 - How to run
   - [x] [Launch Openmina node](https://github.com/openmina/openmina#how-to-launch-without-docker-compose)
   - [x] [Launch Node with UI](https://github.com/openmina/openmina#how-to-launch-with-docker-compose)

@@ -353,13 +353,9 @@ Local test to ensure that the Openmina node can accept a connection from an exis
 
 #### [`SoloNodeBasicConnectivityInitialJoining`](../node/testing/src/scenarios/solo_node/basic_connectivity_initial_joining.rs)
 
-Ignored
-
 Local test to ensure that the Openmina node can connect to an existing OCaml testnet.
 
 #### [`SoloNodeSyncRootSnarkedLedger`](../node/testing/src/scenarios/solo_node/sync_root_snarked_ledger.rs)
-
-Ignored
 
 Set up single Rust node and sync up root snarked ledger.
 

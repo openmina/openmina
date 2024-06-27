@@ -7,34 +7,34 @@ use openmina_node_testing::scenarios::multi_node::connection_discovery::{
 mod common;
 
 scenario_test!(
-    #[ignore]
+    #[ignore = "investigate failure"]
     rust_to_ocaml,
     RustToOCaml,
     RustToOCaml
 );
 
 scenario_test!(
-    #[ignore]
+    #[ignore = "investigate failure"]
     ocaml_to_rust,
     OCamlToRust,
     OCamlToRust
 );
 scenario_test!(
-    #[ignore]
+    #[ignore = "investigate failure"]
     rust_to_ocaml_via_seed,
     RustToOCamlViaSeed,
     RustToOCamlViaSeed
 );
 
 scenario_test!(
-    #[ignore]
+    #[ignore = "investigate failure"]
     ocaml_to_rust_via_seed,
     OCamlToRustViaSeed,
     OCamlToRustViaSeed
 );
 
 scenario_test!(
-    #[ignore]
+    #[ignore = "investigate failure"]
     rust_as_seed,
     RustNodeAsSeed,
     RustNodeAsSeed
