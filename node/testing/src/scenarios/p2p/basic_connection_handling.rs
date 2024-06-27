@@ -83,7 +83,7 @@ impl SimultaneousConnections {
     }
 }
 
-/// Connections between all peers are symmetric, i.e. if the node1 has the node2 among its active peers, then the node2 should have the node1 as its active peers.
+/// Connections between all peers are symmetric, i.e. iff the node1 has the node2 among its active peers, then the node2 should have the node1 as its active peers.
 #[derive(documented::Documented, Default, Clone, Copy)]
 pub struct AllNodesConnectionsAreSymmetric;
 
@@ -146,7 +146,7 @@ impl AllNodesConnectionsAreSymmetric {
     }
 }
 
-/// Connections with other peers are symmetric for seed node, i.e. if a node is the seed's peer, then it has the node among its peers.
+/// Connections with other peers are symmetric for seed node, i.e. iff a node is the seed's peer, then it has the node among its peers.
 #[derive(documented::Documented, Default, Clone, Copy)]
 pub struct SeedConnectionsAreSymmetric;
 
