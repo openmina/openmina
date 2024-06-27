@@ -6,6 +6,8 @@ pub mod work_verify;
 mod snark_effects;
 pub use snark_effects::*;
 
+pub mod snark_storage_service;
+
 impl<S> redux::SubStore<crate::State, SnarkState> for crate::Store<S>
 where
     S: redux::Service,
