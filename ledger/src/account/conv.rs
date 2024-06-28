@@ -528,6 +528,7 @@ impl From<&MinaBaseAccountBinableArgStableV2> for Account {
                     proved_state: *proved_state,
                     zkapp_uri: zkapp_uri.try_into().unwrap(),
                 }
+                .into()
             }),
         }
     }

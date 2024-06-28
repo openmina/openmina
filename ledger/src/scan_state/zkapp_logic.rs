@@ -243,7 +243,7 @@ pub fn make_zkapp(a: Account) -> Account {
     let zkapp = if let zkapp @ Some(_) = a.zkapp {
         zkapp
     } else {
-        Some(ZkAppAccount::default())
+        Some(ZkAppAccount::default().into())
     };
     Account { zkapp, ..a }
 }
@@ -274,7 +274,7 @@ pub fn update_action_state(
 }
 
 pub fn unmake_zkapp(a: Account) -> Account {
-    let zkapp = a.zkapp.filter(|zkapp| &ZkAppAccount::default() != zkapp);
+    let zkapp = a.zkapp.filter(|zkapp| ZkAppAccount::default() != **zkapp);
     Account { zkapp, ..a }
 }
 
@@ -469,7 +469,7 @@ where
     let protocol_state_predicate_satisfied =
         if let PerformResult::Bool(protocol_state_predicate_satisfied) =
             Env::perform(Eff::CheckProtocolStatePrecondition(
-                account_update.protocol_state_precondition(),
+                account_update.protocol_state_precondition().into(),
                 global_state.clone(),
             ))
         {
@@ -712,10 +712,10 @@ where
     };
     let zkapp = ZkAppAccount {
         proved_state,
-        ..zkapp
+        ..*zkapp
     };
     let a = Account {
-        zkapp: Some(zkapp.clone()),
+        zkapp: Some(zkapp.clone().into()),
         ..a
     };
     let has_permission =
@@ -743,7 +743,7 @@ where
 
     let zkapp = ZkAppAccount { app_state, ..zkapp };
     let a = Account {
-        zkapp: Some(zkapp.clone()),
+        zkapp: Some(zkapp.clone().into()),
         ..a
     };
 
@@ -783,7 +783,7 @@ where
             ..zkapp
         };
         let a = Account {
-            zkapp: Some(zkapp),
+            zkapp: Some(zkapp.into()),
             ..a
         };
         (a, local_state)
@@ -813,10 +813,10 @@ where
         let zkapp = ZkAppAccount {
             action_state,
             last_action_slot,
-            ..zkapp
+            ..*zkapp
         };
         let a = Account {
-            zkapp: Some(zkapp),
+            zkapp: Some(zkapp.into()),
             ..a
         };
         (a, local_state)
@@ -834,9 +834,12 @@ where
             TransactionFailure::UpdateNotPermittedZkappUri,
             zkapp_uri.is_keep() || has_permission,
         );
-        let zkapp = a.zkapp.map(|x| ZkAppAccount {
-            zkapp_uri: zkapp_uri.set_or_keep(x.zkapp_uri),
-            ..x
+        let zkapp = a.zkapp.map(|x| {
+            ZkAppAccount {
+                zkapp_uri: zkapp_uri.set_or_keep(x.zkapp_uri),
+                ..*x
+            }
+            .into()
         });
         let a = Account { zkapp, ..a };
         (a, local_state)

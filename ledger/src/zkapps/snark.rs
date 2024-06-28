@@ -893,7 +893,8 @@ impl ToFieldElements<Fp> for AccountUnhashed {
         voting_for.to_field_elements(fields);
         timing.to_field_elements(fields);
         permissions.to_field_elements(fields);
-        MyCow::borrow_or_else(zkapp, crate::ZkAppAccount::default).to_field_elements(fields);
+        MyCow::borrow_or_else(zkapp, || crate::ZkAppAccount::default().into())
+            .to_field_elements(fields);
     }
 }
 
@@ -919,7 +920,7 @@ impl Check<Fp> for AccountUnhashed {
         timing.check(w);
         permissions.check(w);
         (
-            FlaggedOption::from(zkapp.as_ref()),
+            FlaggedOption::from(zkapp.as_deref()),
             crate::ZkAppAccount::default,
         )
             .check(w);
@@ -1015,14 +1016,14 @@ impl AccountInterface for SnarkAccount {
     }
     fn make_zkapp(&mut self) {
         if self.data.zkapp.is_none() {
-            self.data.zkapp = Some(ZkAppAccount::default());
+            self.data.zkapp = Some(ZkAppAccount::default().into());
         }
     }
     fn unmake_zkapp(&mut self) {
         let Some(zkapp) = self.data.zkapp.as_mut() else {
             panic!("invalid state"); // `unmake_zkapp` must be called after `make_zkapp`
         };
-        if zkapp == &ZkAppAccount::default() {
+        if **zkapp == ZkAppAccount::default() {
             self.data.zkapp = None;
         }
     }
