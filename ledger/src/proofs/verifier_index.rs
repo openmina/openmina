@@ -131,6 +131,15 @@ pub fn get_verifier_index(kind: VerifierKind) -> VerifierIndex<Pallas> {
     match kind {
         VerifierKind::Blockchain => {
             cache_one!(VerifierIndex<Pallas>, {
+                let crate::proofs::gates::Provers {
+                    block_wrap_prover, ..
+                } = &*crate::proofs::gates::get_provers();
+
+                let verifier_index_block = block_wrap_prover.index.verifier_index.as_ref().unwrap();
+                let json = serde_json::to_string(verifier_index_block).unwrap();
+                let mut file =
+                    File::create("/tmp/mainnet_blockchain_verifier_index.json").unwrap();
+                file.write_all(json.as_bytes()).unwrap();
                 make_with_ext_cache(
                     include_str!("data/blockchain_verifier_index.json"),
                     "block_verifier_index.bin",
@@ -139,6 +148,14 @@ pub fn get_verifier_index(kind: VerifierKind) -> VerifierIndex<Pallas> {
         }
         VerifierKind::Transaction => {
             cache_one!(VerifierIndex<Pallas>, {
+                let crate::proofs::gates::Provers { tx_wrap_prover, .. } =
+                    &*crate::proofs::gates::get_provers();
+
+                let verifier_index_tx = tx_wrap_prover.index.verifier_index.as_ref().unwrap();
+                let json = serde_json::to_string(verifier_index_tx).unwrap();
+                let mut file =
+                    File::create("/tmp/mainnet_transaction_verifier_index.json").unwrap();
+                file.write_all(json.as_bytes()).unwrap();
                 make_with_ext_cache(
                     include_str!("data/transaction_verifier_index.json"),
                     "transaction_verifier_index.bin",
