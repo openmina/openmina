@@ -392,7 +392,7 @@ impl ToFieldElements<Fp> for ProofVerified {
 pub struct VerificationKey {
     pub max_proofs_verified: ProofVerified,
     pub actual_wrap_domain_size: ProofVerified,
-    pub wrap_index: PlonkVerificationKeyEvals<Fp>,
+    pub wrap_index: Box<PlonkVerificationKeyEvals<Fp>>,
     // `wrap_vk` is not used for hash inputs
     pub wrap_vk: Option<()>,
 }
@@ -415,19 +415,20 @@ impl ToFieldElements<Fp> for VerificationKey {
         let Self {
             max_proofs_verified,
             actual_wrap_domain_size,
-            wrap_index:
-                PlonkVerificationKeyEvals {
-                    sigma,
-                    coefficients,
-                    generic,
-                    psm,
-                    complete_add,
-                    mul,
-                    emul,
-                    endomul_scalar,
-                },
+            wrap_index,
             wrap_vk: _,
         } = self;
+
+        let PlonkVerificationKeyEvals {
+            sigma,
+            coefficients,
+            generic,
+            psm,
+            complete_add,
+            mul,
+            emul,
+            endomul_scalar,
+        } = wrap_index.as_ref();
 
         max_proofs_verified.to_field_elements(fields);
         actual_wrap_domain_size.to_field_elements(fields);
@@ -448,19 +449,20 @@ impl ToInputs for VerificationKey {
         let Self {
             max_proofs_verified,
             actual_wrap_domain_size,
-            wrap_index:
-                PlonkVerificationKeyEvals {
-                    sigma,
-                    coefficients,
-                    generic,
-                    psm,
-                    complete_add,
-                    mul,
-                    emul,
-                    endomul_scalar,
-                },
+            wrap_index,
             wrap_vk: _,
         } = self;
+
+        let PlonkVerificationKeyEvals {
+            sigma,
+            coefficients,
+            generic,
+            psm,
+            complete_add,
+            mul,
+            emul,
+            endomul_scalar,
+        } = wrap_index.as_ref();
 
         inputs.append(max_proofs_verified);
         inputs.append(actual_wrap_domain_size);
@@ -504,7 +506,8 @@ impl VerificationKey {
                 mul: g.clone(),
                 emul: g.clone(),
                 endomul_scalar: g,
-            },
+            }
+            .into(),
             wrap_vk: None,
         }
     }
@@ -532,7 +535,7 @@ impl VerificationKey {
                     ProofVerified::N0
                 }
             },
-            wrap_index: PlonkVerificationKeyEvals::rand(),
+            wrap_index: PlonkVerificationKeyEvals::rand().into(),
             wrap_vk: None,
             actual_wrap_domain_size: {
                 let n: u64 = rng.gen();

@@ -643,7 +643,7 @@ pub fn verify_zkapp(
     let verifier_index = make_zkapp_verifier_index(verification_key);
     // https://github.com/MinaProtocol/mina/blob/4e0b324912017c3ff576704ee397ade3d9bda412/src/lib/pickles/pickles.ml#LL260C1-L274C18
     let vk = VK {
-        commitments: verification_key.wrap_index.clone(),
+        commitments: *verification_key.wrap_index.clone(),
         index: &verifier_index,
         data: (),
     };
