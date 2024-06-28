@@ -16,7 +16,7 @@ use mina_p2p_messages::{
     v2,
 };
 use mina_signer::CompressedPubKey;
-use openmina_core::constants::CONSTRAINT_CONSTANTS;
+use openmina_core::constants::constraint_constants;
 
 use super::snarked_ledger::SnarkedLedger;
 
@@ -102,7 +102,7 @@ impl Storage {
 
         let mut staged_ledger = StagedLedger::of_scan_state_pending_coinbases_and_snarked_ledger(
             (),
-            &CONSTRAINT_CONSTANTS,
+            constraint_constants(),
             Verifier,
             (&scan_state).into(),
             snarked_ledger.clone(),
@@ -186,7 +186,7 @@ impl Storage {
             .staged_ledger
             .apply(
                 None,
-                &CONSTRAINT_CONSTANTS,
+                constraint_constants(),
                 (&global_slot).into(),
                 diff,
                 (),

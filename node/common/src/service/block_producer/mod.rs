@@ -9,7 +9,7 @@ use mina_p2p_messages::v2::{
 use node::{
     account::AccountSecretKey,
     block_producer::{vrf_evaluator::VrfEvaluatorInput, BlockProducerEvent},
-    core::{channels::mpsc, constants::CONSTRAINT_CONSTANTS},
+    core::{channels::mpsc, constants::constraint_constants},
 };
 
 use crate::EventSender;
@@ -66,7 +66,7 @@ pub fn prove(
         .blockchain_length
         .as_u32();
     let is_genesis = height == 1
-        || CONSTRAINT_CONSTANTS
+        || constraint_constants()
             .fork
             .as_ref()
             .map_or(false, |fork| fork.blockchain_length + 1 == height);

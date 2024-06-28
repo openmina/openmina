@@ -1,4 +1,4 @@
-use openmina_core::{constants::CONSTRAINT_CONSTANTS, error, ChainId};
+use openmina_core::{constants::constraint_constants, error, ChainId};
 use p2p::{P2pConfig, P2pPeerState, P2pPeerStatusReady, PeerId};
 use redux::{ActionMeta, EnablingCondition, Timestamp};
 use serde::{Deserialize, Serialize};
@@ -217,7 +217,7 @@ impl State {
         let best_tip_ms = u64::from(best_tip.timestamp()) / 1_000_000;
         let now_ms = u64::from(self.time()) / 1_000_000;
         let ms = now_ms.saturating_sub(best_tip_ms);
-        let slots = ms / CONSTRAINT_CONSTANTS.block_window_duration_ms;
+        let slots = ms / constraint_constants().block_window_duration_ms;
 
         Some(best_tip.global_slot() + (slots as u32))
     }

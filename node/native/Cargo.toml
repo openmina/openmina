@@ -30,6 +30,7 @@ vrf = { workspace = true }
 jsonpath-rust = "0.5.0"
 sha3 = "0.10.8"
 
+openmina-core = { path = "../../core" }
 openmina-node-common = { path = "../common" }
 node = { path = "../../node", features = ["replay"] }
 
