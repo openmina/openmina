@@ -113,7 +113,7 @@ fn is_alive(child: &mut Child) -> anyhow::Result<()> {
 
 const PAUSE: Duration = Duration::from_secs(10);
 const HEALTHY: Duration = Duration::from_secs(60);
-const READY: Duration = Duration::from_secs(10 * 60);
+const READY: Duration = Duration::from_secs(20 * 60);
 
 fn is_healthy() -> bool {
     reqwest::blocking::get(format!("http://localhost:{HTTP_PORT}/healthz"))

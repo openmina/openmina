@@ -354,7 +354,7 @@ impl Default for P2pLimits {
         let rpc_query = Limit::Some(256); // max is 96
         let rpc_get_best_tip = Limit::Some(3_500_000); // 3182930 as observed, may vary
         let rpc_answer_sync_ledger_query = Limit::Some(200_000); // 124823 as observed
-        let rpc_get_staged_ledger = Limit::Some(40_000_000); // 36371615 as observed, may vary
+        let rpc_get_staged_ledger = Limit::Some(400_000_000); // 59286608 as observed, may go higher
         let rpc_get_transition_chain = Limit::Some(3_500_000); // 2979112 as observed
         let rpc_get_some_initial_peers = Limit::Some(32_000); // TODO: calculate
         Self {
