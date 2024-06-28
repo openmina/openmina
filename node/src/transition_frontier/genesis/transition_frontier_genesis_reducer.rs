@@ -97,8 +97,10 @@ impl TransitionFrontierGenesisState {
                     };
                     use openmina_core::{constants, ChainId};
                     let genesis_state_hash = genesis.hash();
+                    let constraint_system_digests =
+                        openmina_core::NetworkConfig::global().constraint_system_digests;
                     let chain_id = ChainId::compute(
-                        constants::CONSTRAINT_SYSTEM_DIGESTS.as_slice(),
+                        constraint_system_digests,
                         &genesis_state_hash,
                         &genesis.body.constants,
                         constants::PROTOCOL_TRANSACTION_VERSION,

@@ -132,18 +132,36 @@ pub fn get_verifier_index(kind: VerifierKind) -> VerifierIndex<Pallas> {
     match kind {
         VerifierKind::Blockchain => {
             cache_one!(VerifierIndex<Pallas>, {
-                make_with_ext_cache(
-                    include_str!("data/blockchain_verifier_index.json"),
-                    "block_verifier_index.bin",
-                )
+                let network_name = openmina_core::NetworkConfig::global().name;
+                let (json_data, cache_filename) = match network_name {
+                    "mainnet" => (
+                        include_str!("data/mainnet_blockchain_verifier_index.json"),
+                        "mainnet_block_verifier_index.bin",
+                    ),
+                    "devnet" => (
+                        include_str!("data/devnet_blockchain_verifier_index.json"),
+                        "devnet_block_verifier_index.bin",
+                    ),
+                    other => panic!("get_verifier_index: unknown network '{other}'"),
+                };
+                make_with_ext_cache(json_data, cache_filename)
             })
         }
         VerifierKind::Transaction => {
             cache_one!(VerifierIndex<Pallas>, {
-                make_with_ext_cache(
-                    include_str!("data/transaction_verifier_index.json"),
-                    "transaction_verifier_index.bin",
-                )
+                let network_name = openmina_core::NetworkConfig::global().name;
+                let (json_data, cache_filename) = match network_name {
+                    "mainnet" => (
+                        include_str!("data/mainnet_transaction_verifier_index.json"),
+                        "mainnet_transaction_verifier_index.bin",
+                    ),
+                    "devnet" => (
+                        include_str!("data/devnet_transaction_verifier_index.json"),
+                        "devnet_transaction_verifier_index.bin",
+                    ),
+                    other => panic!("get_verifier_index: unknown network '{other}'"),
+                };
+                make_with_ext_cache(json_data, cache_filename)
             })
         }
     }

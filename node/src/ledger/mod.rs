@@ -29,7 +29,9 @@ pub use ledger_manager::LedgerManager;
 use ledger::TreeVersion;
 use mina_p2p_messages::v2;
 
-pub const LEDGER_DEPTH: usize = crate::core::constants::CONSTRAINT_CONSTANTS.ledger_depth as usize;
+// FIXME(tizoc): both networks use the same value, but this will break if that changes
+pub const LEDGER_DEPTH: usize =
+    crate::core::network::mainnet::CONSTRAINT_CONSTANTS.ledger_depth as usize;
 
 lazy_static::lazy_static! {
     /// Array size needs to be changed when the tree's depth change

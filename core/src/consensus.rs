@@ -3,7 +3,7 @@ use mina_p2p_messages::v2::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::constants::CONSTRAINT_CONSTANTS;
+use crate::constants::constraint_constants;
 pub use crate::constants::{checkpoint_window_size_in_slots, grace_period_end, slots_per_window};
 
 // TODO get constants from elsewhere
@@ -212,7 +212,7 @@ pub fn global_sub_window(
 }
 
 pub fn relative_sub_window(global_sub_window: u32) -> u32 {
-    global_sub_window % CONSTRAINT_CONSTANTS.sub_windows_per_window as u32
+    global_sub_window % constraint_constants().sub_windows_per_window as u32
 }
 
 #[cfg(test)]

@@ -1,3 +1,5 @@
+use clap::ValueEnum;
+
 pub mod build_info;
 pub mod misc;
 pub mod node;
@@ -7,8 +9,24 @@ pub mod snark;
 #[derive(Debug, clap::Parser)]
 #[command(name = "openmina", about = "Openmina Cli")]
 pub struct OpenminaCli {
+    #[arg(
+        global = true,
+        long,
+        value_enum,
+        default_value_t = Network::Devnet,
+        env = "OPENMINA_NETWORK"
+    )]
+    /// Select the network (devnet or mainnet)
+    pub network: Network,
+
     #[command(subcommand)]
     pub command: Command,
+}
+
+#[derive(Debug, Clone, ValueEnum)]
+pub enum Network {
+    Devnet,
+    Mainnet,
 }
 
 #[derive(Debug, clap::Subcommand)]

@@ -61,7 +61,7 @@ use super::{
         WrapZkappProvedProof,
     },
     field::GroupAffine,
-    gates::CIRCUIT_DIRECTORY,
+    gates::devnet_circuit_directory,
     numbers::{
         currency::{CheckedAmount, CheckedSigned},
         nat::{CheckedIndex, CheckedSlot},
@@ -904,7 +904,7 @@ fn basic_spec(s: &SegmentBasic) -> Box<[Spec]> {
 fn read_witnesses<F: FieldWitness>(path: &str) -> Vec<F> {
     let f = std::fs::read_to_string(
         std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join(CIRCUIT_DIRECTORY)
+            .join(devnet_circuit_directory())
             .join("witnesses")
             .join(path),
         // .join("zkapp_fps.txt"),

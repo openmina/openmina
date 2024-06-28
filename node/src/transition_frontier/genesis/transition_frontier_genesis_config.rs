@@ -21,7 +21,7 @@ use mina_p2p_messages::{
     },
     v2::{self, PROTOCOL_CONSTANTS},
 };
-use openmina_core::constants::CONSTRAINT_CONSTANTS;
+use openmina_core::constants::constraint_constants;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -307,6 +307,21 @@ impl GenesisConfig {
                         .collect(),
                 };
                 ledger_accounts.cache()?;
+
+                // let file =
+                //     File::create("/tmp/rust-account-hashes.txt").expect("Unable to create file");
+                // let mut writer = std::io::BufWriter::new(file);
+                //
+                // for account in &ledger_accounts.accounts {
+                //     let account = ledger::Account::from(account);
+                //     let hash = v2::LedgerHash::from_fp(account.hash());
+                //     let pubkey = &account.public_key.into_address();
+                //     let line = format!("{} {}\n", pubkey, hash.to_string());
+                //     writer
+                //         .write_all(line.as_bytes())
+                //         .expect("Unable to write data");
+                // }
+                // writer.flush().expect("Unable to flush data");
                 openmina_core::info!(
                     openmina_core::log::system_time();
                     kind = "ledger loaded",
@@ -358,7 +373,7 @@ impl GenesisConfig {
     fn build_ledger_from_accounts(
         accounts: impl IntoIterator<Item = ledger::Account>,
     ) -> (ledger::Mask, v2::CurrencyAmountStableV1) {
-        let db = ledger::Database::create(CONSTRAINT_CONSTANTS.ledger_depth as u8);
+        let db = ledger::Database::create(constraint_constants().ledger_depth as u8);
         let mask = ledger::Mask::new_root(db);
         let (mask, total_currency) =
             accounts
