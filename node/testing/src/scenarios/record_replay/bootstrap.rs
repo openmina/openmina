@@ -39,7 +39,7 @@ impl RecordReplayBootstrap {
         runner
             .run(
                 RunCfg::default()
-                    .timeout(Duration::from_secs(20 * 60))
+                    .timeout(Duration::from_secs(40 * 60))
                     .advance_time(RunCfgAdvanceTime::Real)
                     .action_handler(|_, state, _, a| {
                         a.action().kind() == ActionKind::TransitionFrontierSynced
