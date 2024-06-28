@@ -13,9 +13,6 @@ impl P2pNetworkRpcState {
         action: redux::ActionWithMeta<&P2pNetworkRpcAction>,
         limits: &P2pLimits,
     ) {
-        if self.error.is_some() {
-            return;
-        }
         match action.action() {
             P2pNetworkRpcAction::Init { incoming, .. } => {
                 self.is_incoming = *incoming;

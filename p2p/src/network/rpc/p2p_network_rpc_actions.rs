@@ -103,6 +103,14 @@ impl From<P2pNetworkRpcAction> for crate::P2pAction {
 
 impl redux::EnablingCondition<P2pState> for P2pNetworkRpcAction {
     fn is_enabled(&self, state: &P2pState, time: redux::Timestamp) -> bool {
+        let Some(rpc_state) = state.network.find_rpc_state(self) else {
+            return false;
+        };
+
+        if rpc_state.error.is_some() {
+            return false;
+        }
+
         #[allow(unused_variables)]
         match self {
             P2pNetworkRpcAction::Init {
@@ -133,10 +141,7 @@ impl redux::EnablingCondition<P2pState> for P2pNetworkRpcAction {
                 // isn't yet fully flushed to the stream, we will end up
                 // adding these heartbeats to the queue. Not necessarily
                 // an issue but not a completely correct behavior either.
-                state
-                    .network
-                    .find_rpc_state(self)
-                    .map_or(false, |s| s.should_send_heartbeat(time))
+                rpc_state.should_send_heartbeat(time)
             }
             P2pNetworkRpcAction::OutgoingQuery {
                 peer_id,
