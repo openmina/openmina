@@ -5261,7 +5261,7 @@ pub mod local_state {
 pub enum Eff<L: LedgerIntf + Clone> {
     CheckValidWhilePrecondition(Numeric<Slot>, GlobalState<L>),
     CheckAccountPrecondition(AccountUpdate, Account, bool, LocalStateEnv<L>),
-    CheckProtocolStatePrecondition(ZkAppPreconditions, GlobalState<L>),
+    CheckProtocolStatePrecondition(Box<ZkAppPreconditions>, GlobalState<L>),
     InitAccount(AccountUpdate, Account),
 }
 
@@ -7717,7 +7717,7 @@ pub mod for_tests {
                         ..Default::default()
                     };
 
-                    Some(zkapp)
+                    Some(zkapp.into())
                 } else {
                     None
                 };
@@ -7860,10 +7860,13 @@ pub mod for_tests {
         let id = AccountId::new(pk, TokenId::default());
         let mut account = Account::create_with(id, Balance::from_u64(1_000_000_000_000_000));
         account.permissions = permissions.unwrap_or_else(Permissions::user_default);
-        account.zkapp = Some(ZkAppAccount {
-            verification_key: Some(vk),
-            ..Default::default()
-        });
+        account.zkapp = Some(
+            ZkAppAccount {
+                verification_key: Some(vk),
+                ..Default::default()
+            }
+            .into(),
+        );
         account
     }
 

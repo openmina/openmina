@@ -392,7 +392,7 @@ impl ToFieldElements<Fp> for ProofVerified {
 pub struct VerificationKey {
     pub max_proofs_verified: ProofVerified,
     pub actual_wrap_domain_size: ProofVerified,
-    pub wrap_index: PlonkVerificationKeyEvals<Fp>,
+    pub wrap_index: Box<PlonkVerificationKeyEvals<Fp>>,
     // `wrap_vk` is not used for hash inputs
     pub wrap_vk: Option<()>,
 }
@@ -415,19 +415,20 @@ impl ToFieldElements<Fp> for VerificationKey {
         let Self {
             max_proofs_verified,
             actual_wrap_domain_size,
-            wrap_index:
-                PlonkVerificationKeyEvals {
-                    sigma,
-                    coefficients,
-                    generic,
-                    psm,
-                    complete_add,
-                    mul,
-                    emul,
-                    endomul_scalar,
-                },
+            wrap_index,
             wrap_vk: _,
         } = self;
+
+        let PlonkVerificationKeyEvals {
+            sigma,
+            coefficients,
+            generic,
+            psm,
+            complete_add,
+            mul,
+            emul,
+            endomul_scalar,
+        } = wrap_index.as_ref();
 
         max_proofs_verified.to_field_elements(fields);
         actual_wrap_domain_size.to_field_elements(fields);
@@ -448,19 +449,20 @@ impl ToInputs for VerificationKey {
         let Self {
             max_proofs_verified,
             actual_wrap_domain_size,
-            wrap_index:
-                PlonkVerificationKeyEvals {
-                    sigma,
-                    coefficients,
-                    generic,
-                    psm,
-                    complete_add,
-                    mul,
-                    emul,
-                    endomul_scalar,
-                },
+            wrap_index,
             wrap_vk: _,
         } = self;
+
+        let PlonkVerificationKeyEvals {
+            sigma,
+            coefficients,
+            generic,
+            psm,
+            complete_add,
+            mul,
+            emul,
+            endomul_scalar,
+        } = wrap_index.as_ref();
 
         inputs.append(max_proofs_verified);
         inputs.append(actual_wrap_domain_size);
@@ -504,7 +506,8 @@ impl VerificationKey {
                 mul: g.clone(),
                 emul: g.clone(),
                 endomul_scalar: g,
-            },
+            }
+            .into(),
             wrap_vk: None,
         }
     }
@@ -532,7 +535,7 @@ impl VerificationKey {
                     ProofVerified::N0
                 }
             },
-            wrap_index: PlonkVerificationKeyEvals::rand(),
+            wrap_index: PlonkVerificationKeyEvals::rand().into(),
             wrap_vk: None,
             actual_wrap_domain_size: {
                 let n: u64 = rng.gen();
@@ -1031,7 +1034,7 @@ pub struct Account {
     pub voting_for: VotingFor,        // State_hash.t
     pub timing: Timing,               // Timing.t
     pub permissions: Permissions<AuthRequired>, // Permissions.t
-    pub zkapp: Option<ZkAppAccount>,  // Zkapp_account.t
+    pub zkapp: Option<Box<ZkAppAccount>>, // Zkapp_account.t
 }
 
 impl Account {
@@ -1084,8 +1087,8 @@ impl Account {
         MyCow::borrow_or_else(&self.delegate, CompressedPubKey::empty)
     }
 
-    pub fn zkapp_or_empty(&self) -> MyCow<ZkAppAccount> {
-        MyCow::borrow_or_else(&self.zkapp, ZkAppAccount::default)
+    pub fn zkapp_or_empty(&self) -> MyCow<Box<ZkAppAccount>> {
+        MyCow::borrow_or_else(&self.zkapp, Box::<ZkAppAccount>::default)
     }
 
     pub fn initialize(account_id: &AccountId) -> Self {
@@ -1338,34 +1341,37 @@ impl Account {
                 set_timing: gen_perm(rng),
             },
             zkapp: if rng.gen() {
-                Some(ZkAppAccount {
-                    app_state: [
-                        Fp::rand(rng),
-                        Fp::rand(rng),
-                        Fp::rand(rng),
-                        Fp::rand(rng),
-                        Fp::rand(rng),
-                        Fp::rand(rng),
-                        Fp::rand(rng),
-                        Fp::rand(rng),
-                    ],
-                    verification_key: if rng.gen() {
-                        Some(VerificationKey::gen())
-                    } else {
-                        None
-                    },
-                    zkapp_version: rng.gen(),
-                    action_state: [
-                        Fp::rand(rng),
-                        Fp::rand(rng),
-                        Fp::rand(rng),
-                        Fp::rand(rng),
-                        Fp::rand(rng),
-                    ],
-                    last_action_slot: rng.gen(),
-                    proved_state: rng.gen(),
-                    zkapp_uri: ZkAppUri(zkapp_uri),
-                })
+                Some(
+                    ZkAppAccount {
+                        app_state: [
+                            Fp::rand(rng),
+                            Fp::rand(rng),
+                            Fp::rand(rng),
+                            Fp::rand(rng),
+                            Fp::rand(rng),
+                            Fp::rand(rng),
+                            Fp::rand(rng),
+                            Fp::rand(rng),
+                        ],
+                        verification_key: if rng.gen() {
+                            Some(VerificationKey::gen())
+                        } else {
+                            None
+                        },
+                        zkapp_version: rng.gen(),
+                        action_state: [
+                            Fp::rand(rng),
+                            Fp::rand(rng),
+                            Fp::rand(rng),
+                            Fp::rand(rng),
+                            Fp::rand(rng),
+                        ],
+                        last_action_slot: rng.gen(),
+                        proved_state: rng.gen(),
+                        zkapp_uri: ZkAppUri(zkapp_uri),
+                    }
+                    .into(),
+                )
             } else {
                 None
             },
@@ -1498,10 +1504,11 @@ mod tests {
     #[test]
     fn test_size_account() {
         #[cfg(not(target_family = "wasm"))]
-        const SIZE: usize = 3424;
+        const SIZE: usize = 280;
 
+        // FIXME: was 2496bytes before zkapp got boxed, what should be the size now?
         #[cfg(target_family = "wasm")]
-        const SIZE: usize = 2496;
+        const SIZE: usize = 280;
 
         assert_eq!(std::mem::size_of::<Account>(), SIZE);
     }

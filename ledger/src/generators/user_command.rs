@@ -128,10 +128,13 @@ fn zkapp_command_with_ledger(
         };
 
         let verification_key = Some(verification_key.data.clone());
-        let zkapp = Some(ZkAppAccount {
-            verification_key,
-            ..ZkAppAccount::default()
-        });
+        let zkapp = Some(
+            ZkAppAccount {
+                verification_key,
+                ..ZkAppAccount::default()
+            }
+            .into(),
+        );
 
         account.zkapp = zkapp;
         account.permissions = permissions;

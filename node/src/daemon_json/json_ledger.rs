@@ -236,7 +236,7 @@ impl Account {
         )
     }
 
-    pub fn zkapp(&self) -> Result<Option<ZkAppAccount>, AccountConfigError> {
+    pub fn zkapp(&self) -> Result<Option<Box<ZkAppAccount>>, AccountConfigError> {
         self.zkapp.as_ref().map(Zkapp::to_zkapp_account).transpose()
     }
 
@@ -383,7 +383,7 @@ fn parse_fp(str: &str) -> Result<Fp, AccountConfigError> {
 }
 
 impl Zkapp {
-    fn to_zkapp_account(&self) -> Result<ZkAppAccount, AccountConfigError> {
+    fn to_zkapp_account(&self) -> Result<Box<ZkAppAccount>, AccountConfigError> {
         let app_state_fps: Vec<Fp> = self
             .app_state
             .iter()
@@ -428,7 +428,8 @@ impl Zkapp {
             last_action_slot,
             proved_state: self.proved_state,
             zkapp_uri: ZkAppUri::from(self.zkapp_uri.clone()),
-        })
+        }
+        .into())
     }
 }
 

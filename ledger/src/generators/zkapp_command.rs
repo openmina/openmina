@@ -366,12 +366,13 @@ fn gen_account_precondition_from_account(
 
                 (state, action_state, proved_state, is_new)
             }
-            Some(ZkAppAccount {
-                app_state,
-                action_state,
-                proved_state,
-                ..
-            }) => {
+            Some(zkapp_account) => {
+                let ZkAppAccount {
+                    app_state,
+                    action_state,
+                    proved_state,
+                    ..
+                } = zkapp_account.as_ref();
                 let state = std::array::from_fn(|i| OrIgnore::gen(|| app_state[i]));
 
                 let action_state = {
@@ -687,10 +688,13 @@ fn gen_account_update_body_components<A, B, C, D>(
         let mut account_with_pk = Account::create_with(account_id, Balance::zero());
 
         if zkapp_account {
-            account_with_pk.zkapp = Some(ZkAppAccount {
-                verification_key: Some(verification_key.data.clone()),
-                ..ZkAppAccount::default()
-            });
+            account_with_pk.zkapp = Some(
+                ZkAppAccount {
+                    verification_key: Some(verification_key.data.clone()),
+                    ..ZkAppAccount::default()
+                }
+                .into(),
+            );
         }
 
         account_with_pk
@@ -937,12 +941,15 @@ fn gen_account_update_body_components<A, B, C, D>(
             }
         };
 
-        Some(ZkAppAccount {
-            app_state,
-            action_state,
-            proved_state,
-            ..zk.clone()
-        })
+        Some(
+            ZkAppAccount {
+                app_state,
+                action_state,
+                proved_state,
+                ..*zk.clone()
+            }
+            .into(),
+        )
     };
 
     match account_state_tbl.entry(account.id()) {
