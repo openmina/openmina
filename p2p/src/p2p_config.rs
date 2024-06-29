@@ -56,6 +56,7 @@ pub struct P2pTimeouts {
     pub kademlia_bootstrap: Option<Duration>,
     pub kademlia_initial_bootstrap: Option<Duration>,
     pub select: Option<Duration>,
+    pub pnet: Option<Duration>,
 }
 
 fn from_env_or(name: &str, default: Option<Duration>) -> Option<Duration> {
@@ -110,6 +111,7 @@ impl Default for P2pTimeouts {
                 Some(Duration::from_secs(5)),
             ),
             select: from_env_or("SELECT_TIMEOUT", Some(Duration::from_secs(5))),
+            pnet: from_env_or("PNET_TIMEOUT", Some(Duration::from_secs(2))),
         }
     }
 }

@@ -65,6 +65,7 @@ impl P2pNetworkIdentifyStreamState {
                         self.handle_incoming_identify_message(len, data)
                     }
                 }
+                A::RemoteClose { .. } => Ok(()),
                 A::Close { .. } => todo!(),
                 _ => unreachable!(),
             },
@@ -80,10 +81,14 @@ impl P2pNetworkIdentifyStreamState {
                         self.handle_incoming_identify_message(*len, &data)
                     }
                 }
+                A::RemoteClose { .. } => Ok(()),
                 A::Close { .. } => todo!(),
-                _ => unreachable!(),
+                _ => {
+                    unreachable!();
+                }
             },
             S::SendIdentify => match action {
+                A::RemoteClose { .. } => Ok(()),
                 A::Close { .. } => Ok(()),
                 _ => unreachable!(),
             },

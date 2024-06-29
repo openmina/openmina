@@ -6,7 +6,10 @@ use crate::{
     P2pAction, P2pStore,
 };
 #[cfg(feature = "p2p-libp2p")]
-use crate::{P2pNetworkKadKey, P2pNetworkKademliaAction, P2pNetworkSelectAction, PeerId};
+use crate::{
+    P2pNetworkKadKey, P2pNetworkKademliaAction, P2pNetworkPnetAction, P2pNetworkSelectAction,
+    PeerId,
+};
 
 pub fn p2p_timeout_effects<Store, S>(store: &mut Store, meta: &ActionMeta)
 where
@@ -17,7 +20,11 @@ where
 
     p2p_try_reconnect_disconnected_peers(store, meta.time());
 
+    #[cfg(feature = "p2p-libp2p")]
+    p2p_pnet_timeouts(store, meta);
+
     p2p_discovery(store, meta);
+
     #[cfg(feature = "p2p-libp2p")]
     p2p_select_timeouts(store, meta);
     #[cfg(feature = "p2p-libp2p")]
@@ -26,6 +33,33 @@ where
     let state = store.state();
     for (peer_id, id) in state.peer_rpc_timeouts(meta.time()) {
         store.dispatch(crate::channels::rpc::P2pChannelsRpcAction::Timeout { peer_id, id });
+    }
+}
+
+#[cfg(feature = "p2p-libp2p")]
+fn p2p_pnet_timeouts<Store, S>(store: &mut Store, meta: &ActionMeta)
+where
+    Store: P2pStore<S>,
+{
+    let now = meta.time();
+    let timeouts = &store.state().config.timeouts;
+    let pnet_timeouts: Vec<_> = store
+        .state()
+        .network
+        .scheduler
+        .connections
+        .iter()
+        .filter_map(|(sock_addr, state)| {
+            if state.pnet.is_timed_out(now, timeouts) {
+                Some(*sock_addr)
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    for addr in pnet_timeouts {
+        store.dispatch(P2pNetworkPnetAction::Timeout { addr });
     }
 }
 

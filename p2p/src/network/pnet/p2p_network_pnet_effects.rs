@@ -1,5 +1,7 @@
 use openmina_core::fuzzed_maybe;
 
+use crate::disconnection::P2pDisconnectionReason;
+
 use super::{super::*, *};
 
 use super::p2p_network_pnet_state::Half;
@@ -49,6 +51,12 @@ impl P2pNetworkPnetAction {
                     kind: SelectKind::Authentication,
                     incoming,
                     send_handshake: true,
+                });
+            }
+            P2pNetworkPnetAction::Timeout { addr } => {
+                store.dispatch(P2pNetworkSchedulerAction::Disconnect {
+                    addr,
+                    reason: P2pDisconnectionReason::Timeout,
                 });
             }
         }

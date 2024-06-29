@@ -22,6 +22,9 @@ pub enum P2pNetworkPnetAction {
         nonce: Data,
         incoming: bool,
     },
+    Timeout {
+        addr: SocketAddr,
+    },
 }
 
 impl P2pNetworkPnetAction {
@@ -30,6 +33,7 @@ impl P2pNetworkPnetAction {
             Self::IncomingData { addr, .. } => addr,
             Self::OutgoingData { addr, .. } => addr,
             Self::SetupNonce { addr, .. } => addr,
+            Self::Timeout { addr } => addr,
         }
     }
 }

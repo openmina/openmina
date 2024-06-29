@@ -180,10 +180,9 @@ impl P2pNetworkIdentifyStreamAction {
                 }
                 S::Error(err) => {
                     warn!(meta.time(); summary = "error handling Identify action", error = display(err));
-                    store.dispatch(P2pNetworkSchedulerAction::Error {
-                        addr,
-                        error: P2pNetworkIdentifyStreamError::from(err.clone()).into(),
-                    });
+                    let error = P2pNetworkIdentifyStreamError::from(err.clone()).into();
+
+                    store.dispatch(P2pNetworkSchedulerAction::Error { addr, error });
                     Ok(())
                 }
                 _ => unimplemented!(),

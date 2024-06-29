@@ -35,7 +35,9 @@ impl Half {
 
 impl P2pNetworkPnetState {
     pub fn reducer(&mut self, action: redux::ActionWithMeta<&P2pNetworkPnetAction>) {
-        match action.action() {
+        let (action, meta) = action.split();
+
+        match action {
             P2pNetworkPnetAction::IncomingData { data, .. } => {
                 self.incoming.reduce(&self.shared_secret, data);
             }
@@ -44,6 +46,9 @@ impl P2pNetworkPnetState {
             }
             P2pNetworkPnetAction::SetupNonce { nonce, .. } => {
                 self.outgoing.reduce(&self.shared_secret, nonce)
+            }
+            P2pNetworkPnetAction::Timeout { .. } => {
+                openmina_core::warn!(meta.time(); "timeout");
             }
         }
     }

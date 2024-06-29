@@ -23,6 +23,13 @@ pub struct P2pNetworkPubsubState {
     pub incoming_snarks: Vec<(Snark, u32)>,
 }
 
+impl P2pNetworkPubsubState {
+    pub fn prune_peer_state(&mut self, peer_id: &PeerId) {
+        self.clients.remove(peer_id);
+        self.servers.remove(peer_id);
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pNetworkPubsubClientState {
     pub protocol: BroadcastAlgorithm,

@@ -350,6 +350,7 @@ impl P2pNetworkSchedulerAction {
             Self::Error { addr, .. } => {
                 if let Some(conn_state) = store.state().network.scheduler.connections.get(&addr) {
                     if let Some(reason) = conn_state.closed.clone() {
+                        store.service().send_mio_cmd(MioCmd::Disconnect(addr));
                         store.dispatch(Self::Disconnected { addr, reason });
                     }
                 }
