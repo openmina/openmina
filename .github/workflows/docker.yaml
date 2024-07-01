@@ -2,7 +2,7 @@ name: Openmina Docker Build
 on:
   workflow_dispatch: {}
   push:
-    branches: [ main, develop, fix/faster-docker-builds ]
+    branches: [ main, develop ]
     tags: [ "*" ]
     paths-ignore:
       # - ".github/**"
