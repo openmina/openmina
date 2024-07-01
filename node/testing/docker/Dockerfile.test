@@ -1,4 +1,4 @@
-FROM vladsimplestakingcom/mina-openmina-builder:focal as builder
+FROM vladsimplestakingcom/mina-openmina-builder:focal AS builder
 
 RUN git fetch && git checkout feat/tests-with-debugger
 
