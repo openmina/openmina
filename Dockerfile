@@ -8,7 +8,7 @@ COPY . .
 RUN cargo build --release --package=cli --bin=openmina
 RUN cargo build --release --features scenario-generators --bin openmina-node-testing
 
-FROM openmina/mina-snark-worker-prover:${MINA_SNARK_WORKER_TAG} as prover
+FROM openmina/mina-snark-worker-prover:${MINA_SNARK_WORKER_TAG} AS prover
 
 FROM debian:buster
 RUN apt-get update && apt-get install -y libjemalloc2 libssl1.1 libpq5 curl jq procps && apt-get clean

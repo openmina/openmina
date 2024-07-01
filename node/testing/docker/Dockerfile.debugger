@@ -1,4 +1,4 @@
-FROM openmina/mina-network-debugger:31f2ca11 as debugger
+FROM openmina/mina-network-debugger:31f2ca11 AS debugger
 
 # FROM vladsimplestakingcom/mina-light:2.0.0rampup4-focal
 FROM minaprotocol/mina-daemon:2.0.0rampup4-14047c5-focal-berkeley
