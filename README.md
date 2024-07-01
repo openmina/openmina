@@ -179,7 +179,7 @@ npm start
   - [Debugger](https://github.com/openmina/mina-network-debugger/blob/main/README.md)
   - [Front End](https://github.com/openmina/mina-frontend/blob/main/README.md)
     - [Dashboard](https://github.com/openmina/mina-frontend/blob/main/docs/MetricsTracing.md#Dashboard)
-- [Testing](docs/testing/testing.md)
+- [Testing](docs/testing.md)
 - How to run
   - [Launch Openmina node](#how-to-launch-without-docker-compose)
   - [Launch Node with UI](#how-to-launch-with-docker-compose)
