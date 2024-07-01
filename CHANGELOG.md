@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Devnet support.
 - Callbacks support in the state machine, support in reducer functions for queueing new actions.
+- Cache for the genesis and initial epoch ledgers data for faster loading.
 
 ### Removed
 
