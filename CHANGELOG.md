@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2024-07-01
+
+### Added
+
+- Devnet support.
+- Callbacks support in the state machine, support in reducer functions for queueing new actions.
+
+### Removed
+
+- Berkeleynet support.
+
+### Changed
+
+- State machine records are now encoded in postcard format.
+
+### Fixes
+
+- General improvements in performance and stability.
+- Various P2P layer issues.
+- Correct handling of heartbeats in long-running P2P RPCs.
+- Genesis snarked mask being overwritten, which sometimes resulted in some ledgers not being found when applying a block.
+- State machine record-and-replay functionality issues.
+- WASM target restored for the webnode.
+- WebRTC P2P protocol restored for the webnode.
+
 ## [0.5.1] - 2024-06-01
 
 ### Added
@@ -150,7 +175,8 @@ First public release.
 - Alpha version of the node which can connect and syncup to the berkeleynet network, and keep applying new blocks to maintain consensus state and ledger up to date.
 - Web-based frontend for the node.
 
-[Unreleased]: https://github.com/openmina/openmina/compare/v0.5.1...develop
+[Unreleased]: https://github.com/openmina/openmina/compare/v0.6.0...develop
+[0.6.0]: https://github.com/openmina/openmina/releases/tag/v0.5.1...v0.6.0
 [0.5.1]: https://github.com/openmina/openmina/releases/tag/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/openmina/openmina/releases/tag/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/openmina/openmina/releases/tag/v0.3.0...v0.4.0
