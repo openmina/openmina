@@ -13,6 +13,7 @@
 import { Store } from '@ngrx/store';
 import { MinaState } from '@app/app.setup';
 import { map } from 'rxjs';
+import { FeaturesConfig, FeatureType, MinaNode } from '@shared/types/core/environment/mina-env.type';
 
 export const stateSliceAsPromise = <T = MinaState | MinaState[keyof MinaState]>(
   store: Store<MinaState>, resolveCondition: (state: T) => boolean, slice: keyof MinaState, subSlice?: string, timeout: number = 3000,
@@ -29,7 +30,7 @@ export const stateSliceAsPromise = <T = MinaState | MinaState[keyof MinaState]>(
         // cy.log('');
         return subSlice ? (subState as any)[subSlice] : subState;
       }),
-    ).subscribe(observer) ;
+    ).subscribe(observer);
   }) as T;
 };
 
@@ -63,4 +64,14 @@ export function checkSorting<T>(array: T[], field: keyof T, direction: Sort): vo
     }
   }
   expect(sorted).to.be.true;
+}
+
+
+export function cyIsSubFeatureEnabled(config: MinaNode, feature: FeatureType, subFeature: string, globalConfig: any): boolean {
+  const features = getFeaturesConfig(config, globalConfig);
+  return features[feature] && features[feature].includes(subFeature);
+}
+
+function getFeaturesConfig(config: MinaNode, globalConfig: any): FeaturesConfig {
+  return config?.features || globalConfig?.features;
 }

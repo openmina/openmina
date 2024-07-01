@@ -9,6 +9,7 @@
 //! Dynamic IP Handling: Nodes with frequently changing IP addresses should maintain stable connections.
 
 pub mod multi_node;
+pub mod record_replay;
 pub mod simulation;
 pub mod solo_node;
 
@@ -32,6 +33,8 @@ use self::multi_node::vrf_correct_slots::MultiNodeVrfGetCorrectSlots;
 use self::multi_node::vrf_epoch_bounds_correct_ledgers::MultiNodeVrfEpochBoundsCorrectLedger;
 use self::multi_node::vrf_epoch_bounds_evaluation::MultiNodeVrfEpochBoundsEvaluation;
 use self::p2p::pubsub::P2pReceiveBlock;
+use self::record_replay::block_production::RecordReplayBlockProduction;
+use self::record_replay::bootstrap::RecordReplayBootstrap;
 use self::simulation::small::SimulationSmall;
 use self::simulation::small_forever_real_time::SimulationSmallForeverRealTime;
 use self::solo_node::sync_to_genesis::SoloNodeSyncToGenesis;
@@ -61,6 +64,8 @@ pub enum Scenarios {
     SimulationSmall(SimulationSmall),
     SimulationSmallForeverRealTime(SimulationSmallForeverRealTime),
     P2pReceiveBlock(P2pReceiveBlock),
+    RecordReplayBootstrap(RecordReplayBootstrap),
+    RecordReplayBlockProduction(RecordReplayBlockProduction),
 }
 
 impl Scenarios {
@@ -139,6 +144,8 @@ impl Scenarios {
             Self::SimulationSmall(_) => SimulationSmall::DOCS,
             Self::SimulationSmallForeverRealTime(_) => SimulationSmallForeverRealTime::DOCS,
             Self::P2pReceiveBlock(_) => P2pReceiveBlock::DOCS,
+            Self::RecordReplayBootstrap(_) => RecordReplayBootstrap::DOCS,
+            Self::RecordReplayBlockProduction(_) => RecordReplayBlockProduction::DOCS,
         }
     }
 
@@ -172,6 +179,8 @@ impl Scenarios {
             Self::SimulationSmall(v) => v.run(runner).await,
             Self::SimulationSmallForeverRealTime(v) => v.run(runner).await,
             Self::P2pReceiveBlock(v) => v.run(runner).await,
+            Self::RecordReplayBootstrap(v) => v.run(runner).await,
+            Self::RecordReplayBlockProduction(v) => v.run(runner).await,
         }
     }
 

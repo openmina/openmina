@@ -3,7 +3,7 @@ mod rpc_service;
 use std::collections::VecDeque;
 use std::sync::Mutex;
 use std::time::Duration;
-use std::{collections::BTreeMap, ffi::OsStr, sync::Arc};
+use std::{collections::BTreeMap, sync::Arc};
 
 use ledger::dummy::dummy_transaction_proof;
 use ledger::proofs::transaction::ProofError;
@@ -16,7 +16,7 @@ use mina_p2p_messages::v2::{
     ProverExtendBlockchainInputStableV2, SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponseA0Single,
     StateHash, TransactionSnarkStableV2, TransactionSnarkWorkTStableV2Proofs,
 };
-use node::account::{AccountPublicKey, AccountSecretKey};
+use node::account::AccountPublicKey;
 use node::block_producer::vrf_evaluator::VrfEvaluatorInput;
 use node::block_producer::BlockProducerEvent;
 use node::core::channels::mpsc;
@@ -33,7 +33,7 @@ use node::snark::block_verify::{
 };
 use node::snark::work_verify::{SnarkWorkVerifyId, SnarkWorkVerifyService};
 use node::snark::{SnarkEvent, VerifierIndex, VerifierSRS};
-use node::snark_pool::{JobState, SnarkPoolService};
+use node::snark_pool::SnarkPoolService;
 use node::stats::Stats;
 use node::transition_frontier::genesis::GenesisConfig;
 use node::{
@@ -424,7 +424,7 @@ impl SnarkWorkVerifyService for NodeTestingService {
 impl SnarkPoolService for NodeTestingService {
     fn random_choose<'a>(
         &mut self,
-        iter: impl Iterator<Item = &'a JobState>,
+        iter: impl Iterator<Item = &'a SnarkJobId>,
         n: usize,
     ) -> Vec<SnarkJobId> {
         self.real.random_choose(iter, n)
@@ -443,22 +443,19 @@ thread_local! {
 }
 
 impl BlockProducerService for NodeTestingService {
-    fn keypair(&mut self) -> Option<AccountSecretKey> {
-        BlockProducerService::keypair(&mut self.real)
-    }
-
     fn prove(&mut self, block_hash: StateHash, input: Box<ProverExtendBlockchainInputStableV2>) {
         fn dummy_proof_event(block_hash: StateHash) -> Event {
             let dummy_proof = (*ledger::dummy::dummy_blockchain_proof()).clone();
             BlockProducerEvent::BlockProve(block_hash, Ok(dummy_proof.into())).into()
         }
+        let keypair = self.real.block_producer.as_ref().unwrap().keypair();
 
         match self.proof_kind() {
             ProofKind::Dummy => {
                 let _ = self.real.event_sender.send(dummy_proof_event(block_hash));
             }
             ProofKind::ConstraintsChecked => {
-                match openmina_node_native::block_producer::prove(&input, true) {
+                match openmina_node_native::block_producer::prove(input, keypair, true) {
                     Err(ProofError::ConstraintsOk) => {
                         let _ = self.real.event_sender.send(dummy_proof_event(block_hash));
                     }
@@ -482,7 +479,7 @@ impl BlockProducerService for NodeTestingService {
                     {
                         Ok(proof.clone())
                     } else {
-                        openmina_node_native::block_producer::prove(&input, false)
+                        openmina_node_native::block_producer::prove(input, keypair, false)
                             .map_err(|err| format!("{err:?}"))
                     }
                 });
@@ -500,14 +497,11 @@ impl BlockProducerService for NodeTestingService {
 }
 
 impl ExternalSnarkWorkerService for NodeTestingService {
-    fn start<P: AsRef<OsStr>>(
+    fn start(
         &mut self,
-        path: P,
         public_key: NonZeroCurvePoint,
         fee: CurrencyFeeStableV1,
     ) -> Result<(), node::external_snark_worker::ExternalSnarkWorkerError> {
-        let _ = path;
-
         let pub_key = AccountPublicKey::from(public_key);
         let sok_message = SokMessage::create((&fee).into(), pub_key.into());
         self.set_snarker_sok_digest((&sok_message.digest()).into());

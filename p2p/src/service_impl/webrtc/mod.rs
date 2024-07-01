@@ -133,11 +133,11 @@ pub struct RTCChannelConfig {
 impl Default for RTCConfigIceServers {
     fn default() -> Self {
         Self(vec![
-            RTCConfigIceServer {
-                urls: vec!["stun:65.109.110.75:3478".to_owned()],
-                username: Some("openmina".to_owned()),
-                credential: Some("webrtc".to_owned()),
-            },
+            // RTCConfigIceServer {
+            //     urls: vec!["stun:65.109.110.75:3478".to_owned()],
+            //     username: Some("openmina".to_owned()),
+            //     credential: Some("webrtc".to_owned()),
+            // },
             RTCConfigIceServer {
                 urls: vec![
                     "stun:stun.l.google.com:19302".to_owned(),
@@ -584,9 +584,14 @@ async fn peer_loop(
                     let mut buf = vec![];
                     let event_sender = event_sender.clone();
 
-                    chan.on_message(move |mut data| {
+                    chan.on_message(move |data| {
                         while !data.is_empty() {
-                            let res = match process_msg(chan_id, &mut buf, &mut len, &mut data) {
+                            let res = match process_msg(
+                                chan_id,
+                                &mut buf,
+                                &mut len,
+                                &mut data.as_slice(),
+                            ) {
                                 Ok(None) => continue,
                                 Ok(Some(msg)) => Ok(msg),
                                 Err(err) => Err(err),

@@ -27,6 +27,7 @@ pub enum TransitionFrontierGenesisAction {
     ProveSuccess {
         proof: Box<v2::MinaBaseProofStableV2>,
     },
+    // TODO(refactor): add prove error
 }
 
 impl redux::EnablingCondition<crate::State> for TransitionFrontierGenesisAction {

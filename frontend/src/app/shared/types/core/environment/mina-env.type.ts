@@ -27,6 +27,7 @@ export type FeaturesConfig = Partial<{
   'resources': string[];
   'testing-tool': string[];
   'block-production': string[];
+  'mempool': string[];
 }>;
 
 export type FeatureType = keyof FeaturesConfig;

@@ -6,9 +6,6 @@ pub use watched_accounts_actions::*;
 
 mod watched_accounts_reducer;
 
-mod watched_accounts_effects;
-pub use watched_accounts_effects::*;
-
 use mina_p2p_messages::v2::{
     NonZeroCurvePoint, NonZeroCurvePointUncompressedStableV1, StagedLedgerDiffDiffDiffStableV2,
     StagedLedgerDiffDiffPreDiffWithAtMostTwoCoinbaseStableV2B,

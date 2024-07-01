@@ -1,8 +1,17 @@
-use std::sync::Arc;
+use std::{
+    fs::File,
+    io::{Read, Write},
+    path::Path,
+    sync::Arc,
+};
 
-use mina_hasher::Fp;
-use poly_commitment::srs::SRS;
+use anyhow::Context;
+use once_cell::sync::OnceCell;
+#[cfg(not(target_family = "wasm"))]
+use openmina_core::{info, log::system_time, warn};
+use sha2::{Digest, Sha256};
 
+use ark_poly::{EvaluationDomain, Radix2EvaluationDomain};
 use kimchi::{
     circuits::{
         constraints::FeatureFlags,
@@ -16,10 +25,8 @@ use kimchi::{
     verifier_index::VerifierIndex,
 };
 use mina_curves::pasta::Fq;
-
-use once_cell::sync::OnceCell;
-
-use ark_poly::{EvaluationDomain, Radix2EvaluationDomain};
+use mina_hasher::Fp;
+use poly_commitment::srs::SRS;
 
 use crate::{
     proofs::{field::GroupAffine, BACKEND_TOCK_ROUNDS_N},
@@ -27,7 +34,7 @@ use crate::{
 };
 
 use super::{
-    caching::{verifier_index_from_bytes, verifier_index_to_bytes},
+    caching::{openmina_cache_path, verifier_index_from_bytes, verifier_index_to_bytes},
     transaction::InnerCurve,
 };
 use super::{
@@ -38,20 +45,6 @@ use super::{
 pub enum VerifierKind {
     Blockchain,
     Transaction,
-}
-
-use sha2::{Digest, Sha256};
-use std::{
-    fs::File,
-    io::{Read, Write},
-    path::{Path, PathBuf},
-};
-
-use anyhow::Context;
-use openmina_core::{info, log::system_time, warn};
-
-fn openmina_cache_path<P: AsRef<Path>>(path: P) -> Option<PathBuf> {
-    std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".cache/openmina").join(path))
 }
 
 fn read_index(path: &Path, digest: &[u8]) -> anyhow::Result<VerifierIndex<Pallas>> {
@@ -97,7 +90,7 @@ fn write_index(path: &Path, index: &VerifierIndex<Pallas>, digest: &[u8]) -> any
 }
 
 #[cfg(target_family = "wasm")]
-fn make_with_ext_cache(data: &str, cache: &str) -> VerifierIndex<Pallas> {
+fn make_with_ext_cache(data: &str, _cache: &str) -> VerifierIndex<Pallas> {
     let verifier_index: kimchi::verifier_index::VerifierIndex<GroupAffine<Fp>> =
         serde_json::from_str(data).unwrap();
     make_verifier_index(verifier_index)

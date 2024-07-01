@@ -4,7 +4,8 @@ mod json_genesis;
 mod json_ledger;
 pub use json_genesis::Genesis;
 pub use json_ledger::{
-    Account, AccountConfigError, AccountPermissions, AccountTiming, Ledger, Zkapp,
+    build_ledger_name, Account, AccountConfigError, AccountPermissions, AccountTiming, Ledger,
+    Zkapp,
 };
 
 /// This type represents a JSON object loaded from daemon.json
@@ -21,6 +22,37 @@ pub use json_ledger::{
 pub struct DaemonJson {
     pub ledger: Option<Ledger>,
     pub genesis: Option<Genesis>,
+    pub epoch_data: Option<Epochs>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Epochs {
+    pub staking: EpochData,
+    pub next: Option<EpochData>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EpochData {
+    pub accounts: Option<Vec<Account>>,
+    pub hash: Option<String>,
+    pub s3_data_hash: Option<String>,
+    pub seed: String,
+}
+
+impl EpochData {
+    pub fn ledger_name(&self) -> String {
+        self.hash.clone().unwrap_or_else(|| {
+            build_ledger_name(
+                self.accounts.as_ref().map(Vec::len).unwrap_or(0),
+                self.accounts
+                    .clone()
+                    .unwrap_or_default()
+                    .iter()
+                    .map(|a| a.balance.clone())
+                    .enumerate(),
+            )
+        })
+    }
 }
 
 #[cfg(test)]

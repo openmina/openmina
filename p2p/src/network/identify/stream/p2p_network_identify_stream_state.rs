@@ -21,7 +21,6 @@ impl From<bool> for P2pNetworkIdentifyStreamKind {
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[allow(clippy::large_enum_variant)]
 pub enum P2pNetworkIdentifyStreamState {
     #[default]
     Default,
@@ -36,7 +35,7 @@ pub enum P2pNetworkIdentifyStreamState {
     },
     // Identify message fully received from remote peer
     IdentifyReceived {
-        data: P2pNetworkIdentify,
+        data: Box<P2pNetworkIdentify>,
     },
     /// Error handling the stream.
     Error(P2pNetworkStreamProtobufError<P2pNetworkIdentifyFromMessageError>),
@@ -50,7 +49,9 @@ impl P2pNetworkIdentifyStreamState {
 
 impl From<P2pNetworkIdentify> for P2pNetworkIdentifyStreamState {
     fn from(data: P2pNetworkIdentify) -> Self {
-        P2pNetworkIdentifyStreamState::IdentifyReceived { data }
+        P2pNetworkIdentifyStreamState::IdentifyReceived {
+            data: Box::new(data),
+        }
     }
 }
 

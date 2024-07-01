@@ -2,7 +2,6 @@ use openmina_core::log::system_time;
 use p2p::p2p_timeout_effects;
 
 use crate::block_producer::{block_producer_effects, BlockProducerAction};
-use crate::consensus::consensus_effects;
 use crate::event_source::event_source_effects;
 use crate::external_snark_worker::external_snark_worker_effects;
 use crate::ledger::ledger_effects;
@@ -15,7 +14,6 @@ use crate::snark_pool::candidate::SnarkPoolCandidateAction;
 use crate::snark_pool::{snark_pool_effects, SnarkPoolAction};
 use crate::transition_frontier::genesis::TransitionFrontierGenesisAction;
 use crate::transition_frontier::transition_frontier_effects;
-use crate::watched_accounts::watched_accounts_effects;
 use crate::{p2p_ready, Action, ActionWithMeta, ExternalSnarkWorkerAction, Service, Store};
 
 use crate::p2p::channels::rpc::{P2pChannelsRpcAction, P2pRpcRequest};
@@ -42,6 +40,7 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
                 p2p_timeout_effects(store, &meta);
 
                 p2p_request_best_tip_if_needed(store);
+                p2p_request_transactions_if_needed(store);
                 p2p_request_snarks_if_needed(store);
             }
 
@@ -64,8 +63,8 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
         Action::Snark(action) => {
             snark_effects(store, meta.with_action(action));
         }
-        Action::Consensus(action) => {
-            consensus_effects(store, meta.with_action(action));
+        Action::Consensus(_) => {
+            // Handled by reducer
         }
         Action::TransitionFrontier(action) => {
             transition_frontier_effects(store, meta.with_action(action));
@@ -76,7 +75,8 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
         Action::Ledger(action) => {
             ledger_effects(store, meta.with_action(action));
         }
-        Action::SnarkPool(action) => {
+        Action::SnarkPool(_) => {}
+        Action::SnarkPoolEffect(action) => {
             snark_pool_effects(store, meta.with_action(action));
         }
         Action::BlockProducer(action) => {
@@ -88,8 +88,8 @@ pub fn effects<S: Service>(store: &mut Store<S>, action: ActionWithMeta) {
         Action::Rpc(action) => {
             rpc_effects(store, meta.with_action(action));
         }
-        Action::WatchedAccounts(action) => {
-            watched_accounts_effects(store, meta.with_action(action));
+        Action::WatchedAccounts(_) => {
+            // Handled by reducer
         }
     }
 }
@@ -113,16 +113,17 @@ use mina_p2p_messages::v2::StateHash;
 
 fn request_best_tip<S: Service>(store: &mut Store<S>, _consensus_best_tip_hash: Option<StateHash>) {
     let p2p = p2p_ready!(store.state().p2p, "request_best_tip", system_time());
-    // TODO: choose peer that has this channel capability
-    if let Some((peer_id, streams)) = p2p.network.scheduler.rpc_outgoing_streams.iter().last() {
-        if let Some((_, state)) = streams.iter().last() {
-            store.dispatch(P2pChannelsRpcAction::RequestSend {
-                peer_id: *peer_id,
-                id: state.last_id as _,
-                request: P2pRpcRequest::BestTipWithProof,
-            });
-        }
+    if let Some((peer_id, id)) = p2p.ready_rpc_peers_iter().last() {
+        store.dispatch(P2pChannelsRpcAction::RequestSend {
+            peer_id,
+            id,
+            request: P2pRpcRequest::BestTipWithProof,
+        });
     }
+}
+
+fn p2p_request_transactions_if_needed<S: Service>(_store: &mut Store<S>) {
+    // TODO(binier): request tx from peers for which we have tx_info.
 }
 
 fn p2p_request_snarks_if_needed<S: Service>(store: &mut Store<S>) {

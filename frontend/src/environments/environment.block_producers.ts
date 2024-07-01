@@ -6,6 +6,7 @@ export const environment: Readonly<MinaEnv> = {
     features: {
       'block-production': ['won-slots'],
     },
+    canAddNodes: true,
   },
   configs: [
     {

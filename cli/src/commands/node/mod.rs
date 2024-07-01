@@ -1,10 +1,10 @@
-use std::ffi::OsString;
-
 use std::fs::File;
+use std::io::{BufRead, BufReader, Read};
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
+use anyhow::Context;
 use libp2p_identity::Keypair;
 use mina_p2p_messages::v2::{
     CurrencyFeeStableV1, NonZeroCurvePoint, NonZeroCurvePointUncompressedStableV1,
@@ -14,12 +14,12 @@ use node::transition_frontier::genesis::GenesisConfig;
 use rand::prelude::*;
 
 use redux::SystemTime;
+use reqwest::Url;
 use tokio::select;
 
 use node::account::{AccountPublicKey, AccountSecretKey};
 use node::core::channels::mpsc;
 use node::core::log::inner::Level;
-use node::daemon_json::DaemonJson;
 use node::event_source::EventSourceAction;
 use node::ledger::{LedgerCtx, LedgerManager};
 use node::p2p::channels::ChannelId;
@@ -41,7 +41,7 @@ use openmina_node_native::{http_server, tracing, NodeService, P2pTaskSpawner, Rp
 /// Openmina node
 #[derive(Debug, clap::Args)]
 pub struct Node {
-    #[arg(long, short = 'd', default_value = "~/.openmina")]
+    #[arg(long, short = 'd', default_value = "~/.openmina", env)]
     pub work_dir: String,
 
     /// Peer secret key
@@ -60,8 +60,24 @@ pub struct Node {
     #[arg(long, short, env, default_value = "info")]
     pub verbosity: Level,
 
-    #[arg(long, short = 'P', alias = "peer", num_args = 0.., default_values_t = default_peers(), env, value_delimiter = ' ')]
+    #[arg(long, short = 'P', alias = "peer")]
     pub peers: Vec<P2pConnectionOutgoingInitOpts>,
+
+    /// File containing initial peers.
+    ///
+    /// Each line should contain peer's multiaddr.
+    #[arg(long, env)]
+    pub peer_list_file: Option<PathBuf>,
+
+    /// File containing initial peers.
+    ///
+    /// Each line should contain peer's multiaddr.
+    #[arg(long, env)]
+    pub peer_list_url: Option<Url>,
+
+    /// Run the node in seed mode. No default peers will be added.
+    #[arg(long, env)]
+    pub seed: bool,
 
     /// Run Snark Worker.
     ///
@@ -81,11 +97,7 @@ pub struct Node {
     #[arg(long, env, default_value = "seq")]
     pub snarker_strategy: SnarkerStrategy,
 
-    /// Mina snark worker path
-    #[arg(long, env, default_value = "cli/bin/snark-worker")]
-    pub snarker_exe_path: OsString,
-
-    #[arg(long, default_value = "none")]
+    #[arg(long, default_value = "none", env)]
     pub record: String,
 
     #[arg(long, default_value = "none")]
@@ -105,12 +117,13 @@ fn default_peers() -> Vec<P2pConnectionOutgoingInitOpts> {
     [
         // "/2ajh5CpZCHdv7tmMrotVnLjQXuhcuCzqKosdDmvN3tNTScw2fsd/http/65.109.110.75/10000",
 
-        // "/dns4/seed-1.berkeley.o1test.net/tcp/10000/p2p/12D3KooWAdgYL6hv18M3iDBdaK1dRygPivSfAfBNDzie6YqydVbs",
-        // "/dns4/seed-2.berkeley.o1test.net/tcp/10001/p2p/12D3KooWLjs54xHzVmMmGYb7W5RVibqbwD1co7M2ZMfPgPm7iAag",
-        // "/dns4/seed-3.berkeley.o1test.net/tcp/10002/p2p/12D3KooWEiGVAFC7curXWXiGZyMWnZK9h8BKr88U8D5PKV3dXciv",
-        "/ip4/34.170.114.52/tcp/10001/p2p/12D3KooWAdgYL6hv18M3iDBdaK1dRygPivSfAfBNDzie6YqydVbs",
-        "/ip4/34.135.63.47/tcp/10001/p2p/12D3KooWLjs54xHzVmMmGYb7W5RVibqbwD1co7M2ZMfPgPm7iAag",
-        "/ip4/34.170.114.52/tcp/10001/p2p/12D3KooWEiGVAFC7curXWXiGZyMWnZK9h8BKr88U8D5PKV3dXciv",
+        // Devnet
+        // "/dns4/seed-1.devnet.gcp.o1test.net/tcp/10003/p2p/12D3KooWAdgYL6hv18M3iDBdaK1dRygPivSfAfBNDzie6YqydVbs",
+        // "/dns4/seed-2.devnet.gcp.o1test.net/tcp/10003/p2p/12D3KooWLjs54xHzVmMmGYb7W5RVibqbwD1co7M2ZMfPgPm7iAag",
+        // "/dns4/seed-3.devnet.gcp.o1test.net/tcp/10003/p2p/12D3KooWEiGVAFC7curXWXiGZyMWnZK9h8BKr88U8D5PKV3dXciv",
+        "/ip4/34.48.73.58/tcp/10003/p2p/12D3KooWAdgYL6hv18M3iDBdaK1dRygPivSfAfBNDzie6YqydVbs",
+        "/ip4/35.245.82.250/tcp/10003/p2p/12D3KooWLjs54xHzVmMmGYb7W5RVibqbwD1co7M2ZMfPgPm7iAag",
+        "/ip4/34.118.163.79/tcp/10003/p2p/12D3KooWEiGVAFC7curXWXiGZyMWnZK9h8BKr88U8D5PKV3dXciv",
         //
         // "/dns4/webrtc2.webnode.openmina.com/tcp/443/p2p/12D3KooWFpqySZDHx7k5FMjdwmrU3TLhDbdADECCautBcEGtG4fr",
         // "/dns4/webrtc2.webnode.openmina.com/tcp/4431/p2p/12D3KooWJBeXosFxdBwe2mbKRjgRG69ERaUTpS9qo9NRkoE8kBpj",
@@ -123,28 +136,47 @@ fn default_peers() -> Vec<P2pConnectionOutgoingInitOpts> {
 }
 
 impl Node {
-    pub fn run(self) -> Result<(), crate::CommandError> {
+    pub fn run(mut self) -> anyhow::Result<()> {
         tracing::initialize(self.verbosity);
 
-        if let Err(ref e) = rayon::ThreadPoolBuilder::new()
+        rayon::ThreadPoolBuilder::new()
             .num_threads(num_cpus::get().max(2) - 1)
             .thread_name(|i| format!("openmina_rayon_{i}"))
             .build_global()
-        {
-            openmina_core::log::error!(openmina_core::log::system_time();
-                    kind = "FatalError",
-                    summary = "failed to initialize threadpool",
-                    error = format!("{:?}", e));
-            panic!("FatalError: {:?}", e);
-        }
+            .context("failed to initialize threadpool")?;
 
-        let mut rng = ThreadRng::default();
+        let rng_seed = rand::thread_rng().next_u64();
+        let p2p_secret_key = self.p2p_secret_key.unwrap_or_else(SecretKey::rand);
 
-        let secret_key = self.p2p_secret_key.unwrap_or_else(|| {
-            let bytes = rng.gen();
-            SecretKey::from_bytes(bytes)
-        });
-        let pub_key = secret_key.public_key();
+        let initial_peers = {
+            let mut result = Vec::new();
+
+            result.append(&mut self.peers);
+
+            if let Some(path) = self.peer_list_file {
+                Self::peers_from_reader(
+                    &mut result,
+                    File::open(&path)
+                        .context(anyhow::anyhow!("opening peer list file {path:?}"))?,
+                )
+                .context(anyhow::anyhow!("reading peer list file {path:?}"))?;
+            }
+
+            if let Some(url) = self.peer_list_url {
+                Self::peers_from_reader(
+                    &mut result,
+                    reqwest::blocking::get(url.clone())
+                        .context(anyhow::anyhow!("reading peer list url {url}"))?,
+                )
+                .context(anyhow::anyhow!("reading peer list url {url}"))?;
+            }
+
+            if result.is_empty() && !self.seed {
+                result.extend(default_peers());
+            }
+
+            result
+        };
 
         let block_producer = self.producer_key.clone().map(|producer_key_path| {
             let keypair = AccountSecretKey::from_encrypted_file(producer_key_path)
@@ -163,31 +195,16 @@ impl Node {
             )
         });
 
-        let config_file = self.config.map(File::open).transpose().map_err(|e| {
-            openmina_core::log::error!(openmina_core::log::system_time();
-                    kind = "ConfigFileError",
-                    summary = "failed to open config file",
-                    error = format!("{e}"));
-            e
-        })?;
-        let conf: Option<DaemonJson> = config_file
-            .map(serde_json::from_reader)
-            .transpose()
-            .map_err(|e| {
-                openmina_core::log::error!(openmina_core::log::system_time();
-                    kind = "ConfigFileError",
-                    summary = "failed to parse config file",
-                    error = format!("{e}"));
-                e
-            })?;
-
         let work_dir = shellexpand::full(&self.work_dir).unwrap().into_owned();
-        let rng_seed = rng.next_u64();
         let srs: Arc<_> = get_srs();
 
-        let genesis_config = match conf {
-            Some(c) => Arc::new(GenesisConfig::DaemonJson(c)),
-            None => node::config::BERKELEY_CONFIG.clone(),
+        let genesis_config = match self.config {
+            Some(config) => {
+                let reader = File::open(config).context("config file {config:?}")?;
+                let c = serde_json::from_reader(reader).context("config file {config:?}")?;
+                Arc::new(GenesisConfig::DaemonJson(c))
+            }
+            None => node::config::DEVNET_CONFIG.clone(),
         };
         let transition_frontier = TransitionFrontierConfig::new(genesis_config);
         let config = Config {
@@ -208,16 +225,15 @@ impl Node {
                     )),
                     strategy: self.snarker_strategy,
                     auto_commit: true,
-                    path: self.snarker_exe_path,
                 }),
             },
             p2p: P2pConfig {
                 libp2p_port: Some(self.libp2p_port),
                 listen_port: self.port,
-                identity_pub_key: pub_key,
-                initial_peers: self.peers,
+                identity_pub_key: p2p_secret_key.public_key(),
+                initial_peers,
                 ask_initial_peers_interval: Duration::from_secs(3600),
-                enabled_channels: ChannelId::for_libp2p().collect(),
+                enabled_channels: ChannelId::iter_all().collect(),
                 peer_discovery: !self.no_peers_discovery,
                 initial_time: SystemTime::now()
                     .duration_since(SystemTime::UNIX_EPOCH)
@@ -230,16 +246,15 @@ impl Node {
         };
         let (event_sender, event_receiver) = mpsc::unbounded_channel();
 
-        let keypair = Keypair::ed25519_from_bytes(secret_key.to_bytes())
-            .expect("secret key bytes must be valid");
+        let libp2p_keypair = Keypair::from(p2p_secret_key.clone());
 
         openmina_core::info!(
             openmina_core::log::system_time();
-            peer_id = keypair.public().to_peer_id().to_base58(),
+            peer_id = libp2p_keypair.public().to_peer_id().to_base58(),
         );
 
         let p2p_service_ctx = <NodeService as P2pServiceWebrtcWithLibp2p>::init(
-            secret_key.clone(),
+            p2p_secret_key.clone(),
             P2pTaskSpawner {},
         );
 
@@ -290,7 +305,7 @@ impl Node {
                 mio: p2p_service_ctx.mio,
                 network: Default::default(),
                 block_producer: None,
-                keypair,
+                keypair: libp2p_keypair,
                 rpc: rpc_service,
                 snark_worker_sender: None,
                 stats: Stats::new(),
@@ -307,7 +322,7 @@ impl Node {
                 service.block_producer_start(keypair);
             }
 
-            let state = State::new(config);
+            let state = State::new(config, redux::Timestamp::global_now());
             let mut node = ::node::Node::new(state, service, None);
 
             // record initial state.
@@ -316,7 +331,7 @@ impl Node {
                 store
                     .service
                     .recorder()
-                    .initial_state(rng_seed, store.state.get());
+                    .initial_state(rng_seed, p2p_secret_key, store.state.get());
             }
 
             node.store_mut().dispatch(EventSourceAction::ProcessEvents);
@@ -350,6 +365,21 @@ impl Node {
             }
         });
 
+        Ok(())
+    }
+
+    fn peers_from_reader<R: Read>(
+        peers: &mut Vec<P2pConnectionOutgoingInitOpts>,
+        read: R,
+    ) -> anyhow::Result<()> {
+        let read = BufReader::new(read);
+        for line in read.lines() {
+            let line = line.context("reading line")?;
+            let l = line.trim();
+            if !l.is_empty() {
+                peers.push(l.parse().context(anyhow::anyhow!("parsing entry"))?);
+            }
+        }
         Ok(())
     }
 }

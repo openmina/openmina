@@ -9,8 +9,12 @@ pub mod dummy;
 
 pub mod block;
 pub mod snark;
+pub mod transaction;
 
 pub mod consensus;
+
+mod substate;
+pub use substate::{Substate, SubstateAccess, SubstateResult};
 
 mod chain_id;
 pub use chain_id::*;
@@ -29,3 +33,26 @@ pub fn preshared_key(chain_id: &ChainId) -> [u8; 32] {
 pub use log::ActionEvent;
 use multihash::Blake2b256;
 pub use openmina_macros::*;
+
+#[cfg(feature = "fuzzing")]
+pub use openmina_fuzzer::*;
+
+#[macro_export]
+macro_rules! fuzz_maybe {
+    ($expr:expr, $mutator:expr) => {
+        if cfg!(feature = "fuzzing") {
+            $crate::fuzz!($expr, $mutator);
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! fuzzed_maybe {
+    ($expr:expr, $mutator:expr) => {
+        if cfg!(feature = "fuzzing") {
+            $crate::fuzzed!($expr, $mutator)
+        } else {
+            $expr
+        }
+    };
+}

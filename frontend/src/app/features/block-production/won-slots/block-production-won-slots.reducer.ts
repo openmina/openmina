@@ -26,12 +26,12 @@ const initialState: BlockProductionWonSlotsState = {
 
 export const blockProductionWonSlotsReducer = createReducer(
   initialState,
-  on(BlockProductionWonSlotsActions.getSlotsSuccess, (state, { slots, epoch }) => ({
+  on(BlockProductionWonSlotsActions.getSlotsSuccess, (state, { slots, epoch, activeSlot }) => ({
     ...state,
     slots,
     epoch,
     filteredSlots: filterSlots(sortSlots(slots, state.sort), state.filters),
-    activeSlot: state.activeSlot ?? slots.find(s => s.active),
+    activeSlot,
   })),
   on(BlockProductionWonSlotsActions.setActiveSlot, (state, { slot }) => ({
     ...state,
@@ -54,12 +54,13 @@ function sortSlots(node: BlockProductionWonSlotsSlot[], tableSort: TableSort<Blo
   return sort<BlockProductionWonSlotsSlot>(node, tableSort, ['message']);
 }
 
-function filterSlots(node: BlockProductionWonSlotsSlot[], filters: BlockProductionWonSlotsState['filters']): BlockProductionWonSlotsSlot[] {
-  return node.filter(slot => {
+function filterSlots(slots: BlockProductionWonSlotsSlot[], filters: BlockProductionWonSlotsState['filters']): BlockProductionWonSlotsSlot[] {
+  return slots.filter(slot => {
     if (
       (filters.accepted && slot.status === BlockProductionWonSlotsStatus.Canonical)
       || (filters.rejected && (slot.status === BlockProductionWonSlotsStatus.Orphaned || slot.status === BlockProductionWonSlotsStatus.Discarded))
       || slot.active
+      || slot.status === BlockProductionWonSlotsStatus.Committed
     ) {
       return true;
     }

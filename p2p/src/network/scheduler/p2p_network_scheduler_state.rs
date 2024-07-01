@@ -3,6 +3,7 @@ use std::{
     net::{IpAddr, SocketAddr},
 };
 
+use redux::Timestamp;
 use serde::{Deserialize, Serialize};
 
 use crate::{disconnection::P2pDisconnectionReason, identity::PublicKey, PeerId};
@@ -36,6 +37,18 @@ impl P2pNetworkSchedulerState {
         self.connections
             .iter()
             .find(|(_, conn_state)| conn_state.peer_id() == Some(peer_id))
+    }
+
+    pub fn prune_peer_state(&mut self, peer_id: &PeerId) {
+        self.broadcast_state.prune_peer_state(peer_id);
+        self.identify_state.prune_peer_state(peer_id);
+
+        if let Some(discovery_state) = self.discovery_state.as_mut() {
+            discovery_state.streams.remove(peer_id);
+        }
+
+        self.rpc_incoming_streams.remove(peer_id);
+        self.rpc_outgoing_streams.remove(peer_id);
     }
 }
 
@@ -110,6 +123,8 @@ pub enum P2pNetworkConnectionError {
     KademliaIncomingStreamError(#[from] P2pNetworkKadIncomingStreamError),
     #[error(transparent)]
     KademliaOutgoingStreamError(#[from] P2pNetworkKadOutgoingStreamError),
+    #[error("peer reset yamux stream")]
+    StreamReset(StreamId),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -147,21 +162,18 @@ impl P2pNetworkConnectionMuxState {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pNetworkStreamState {
     pub select: P2pNetworkSelectState,
-    pub handler: Option<P2pNetworkStreamHandlerState>,
 }
 
 impl P2pNetworkStreamState {
-    pub fn new(stream_kind: token::StreamKind) -> Self {
+    pub fn new(stream_kind: token::StreamKind, time: Timestamp) -> Self {
         P2pNetworkStreamState {
-            select: P2pNetworkSelectState::initiator_stream(stream_kind),
-            handler: None,
+            select: P2pNetworkSelectState::initiator_stream(stream_kind, time),
         }
     }
 
-    pub fn new_incoming() -> Self {
+    pub fn new_incoming(time: Timestamp) -> Self {
         P2pNetworkStreamState {
-            select: P2pNetworkSelectState::default(),
-            handler: None,
+            select: P2pNetworkSelectState::default_timed(time),
         }
     }
 }

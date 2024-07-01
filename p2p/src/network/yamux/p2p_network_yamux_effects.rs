@@ -1,4 +1,6 @@
-use self::p2p_network_yamux_state::{YamuxFlags, YamuxFrame, YamuxFrameInner};
+use openmina_core::fuzzed_maybe;
+
+use super::p2p_network_yamux_state::{YamuxFrame, YamuxFrameInner};
 
 use super::{super::*, *};
 
@@ -8,9 +10,11 @@ impl P2pNetworkYamuxAction {
         Store: crate::P2pStore<S>,
     {
         let state = store.state();
+        let max_streams = state.config.limits.max_streams();
         let Some(state) = state.network.scheduler.connections.get(self.addr()) else {
             return;
         };
+        let streams = &state.streams;
         let peer_id = match &state.auth {
             Some(P2pNetworkAuthState::Noise(noise)) => match &noise.inner {
                 Some(P2pNetworkNoiseStateInner::Done { remote_peer_id, .. }) => *remote_peer_id,
@@ -34,13 +38,38 @@ impl P2pNetworkYamuxAction {
                     return;
                 };
 
-                if frame.flags.contains(YamuxFlags::SYN) && frame.stream_id != 0 {
-                    store.dispatch(P2pNetworkSelectAction::Init {
+                if frame.flags.contains(YamuxFlags::RST) {
+                    store.dispatch(P2pNetworkSchedulerAction::Error {
                         addr,
-                        kind: SelectKind::Stream(peer_id, frame.stream_id),
-                        incoming: true,
-                        send_handshake: true,
+                        error: P2pNetworkConnectionError::StreamReset(frame.stream_id),
                     });
+                    return;
+                }
+
+                if frame.flags.contains(YamuxFlags::SYN) && frame.stream_id != 0 {
+                    // count incoming streams
+                    let incoming_streams_number =
+                        streams.values().filter(|s| s.select.is_incoming()).count();
+                    match (max_streams, incoming_streams_number) {
+                        (Limit::Some(limit), actual) if actual > limit => {
+                            store.dispatch(Self::OutgoingFrame {
+                                addr,
+                                frame: YamuxFrame {
+                                    flags: YamuxFlags::FIN,
+                                    stream_id: frame.stream_id,
+                                    inner: YamuxFrameInner::Data(vec![].into()),
+                                },
+                            });
+                        }
+                        _ => {
+                            store.dispatch(P2pNetworkSelectAction::Init {
+                                addr,
+                                kind: SelectKind::Stream(peer_id, frame.stream_id),
+                                incoming: true,
+                                send_handshake: true,
+                            });
+                        }
+                    }
                 }
                 match &frame.inner {
                     YamuxFrameInner::Data(data) => {
@@ -59,7 +88,8 @@ impl P2pNetworkYamuxAction {
 
                         store.dispatch(P2pNetworkSelectAction::IncomingData {
                             addr,
-                            kind: SelectKind::Stream(peer_id, frame.stream_id),
+                            peer_id,
+                            stream_id: frame.stream_id,
                             data: data.clone(),
                             fin: frame.flags.contains(YamuxFlags::FIN),
                         });
@@ -83,28 +113,23 @@ impl P2pNetworkYamuxAction {
                 }
             }
             Self::OutgoingFrame { addr, frame } => {
-                store.dispatch(P2pNetworkNoiseAction::OutgoingData {
-                    addr,
-                    data: frame.clone().into_bytes().into(),
-                });
+                let data =
+                    fuzzed_maybe!(frame.into_bytes().into(), crate::fuzzer::mutate_yamux_frame);
+                store.dispatch(P2pNetworkNoiseAction::OutgoingData { addr, data });
             }
             Self::OutgoingData {
                 addr,
                 stream_id,
                 data,
-                fin,
+                mut flags,
             } => {
                 let Some(stream) = state.streams.get(&stream_id) else {
                     return;
                 };
-                let mut flags = YamuxFlags::empty();
                 if !stream.incoming && !stream.established && !stream.syn_sent {
                     flags.insert(YamuxFlags::SYN);
                 } else if stream.incoming && !stream.established {
                     flags.insert(YamuxFlags::ACK);
-                }
-                if fin {
-                    flags.insert(YamuxFlags::FIN);
                 }
                 let frame = YamuxFrame {
                     flags,

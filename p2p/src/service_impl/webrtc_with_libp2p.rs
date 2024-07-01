@@ -91,7 +91,11 @@ impl<T: P2pServiceWebrtcWithLibp2p> P2pChannelsService for T {
     fn channel_open(&mut self, peer_id: PeerId, id: ChannelId) {
         if self.peers().contains_key(&peer_id) {
             P2pServiceWebrtc::channel_open(self, peer_id, id)
-        } else {
+        } else if !matches!(id, ChannelId::Rpc) {
+            // skip sending event for rpc libp2p channel as the ready
+            // action is dispatched in the `network` module after the
+            // relevant handshake is done.
+            // TODO: do the same for other channels/streams also.
             let result = match id.supported_by_libp2p() {
                 false => Err("channel not supported".to_owned()),
                 true => Ok(()),
@@ -105,11 +109,6 @@ impl<T: P2pServiceWebrtcWithLibp2p> P2pChannelsService for T {
     fn channel_send(&mut self, peer_id: PeerId, msg_id: MsgId, msg: ChannelMsg) {
         if self.peers().contains_key(&peer_id) {
             P2pServiceWebrtc::channel_send(self, peer_id, msg_id, msg)
-        } else {
-            #[cfg(feature = "p2p-libp2p")]
-            {
-                openmina_core::error!(openmina_core::log::system_time(); "sending to channel {:?} is not supported for libp2p", msg.channel_id());
-            }
         }
     }
 }

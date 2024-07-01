@@ -5,7 +5,7 @@ use mina_p2p_messages::{bigint, number, v2};
 pub const GENESIS_PRODUCER_SK: &str = "EKFKgDtU3rcuFTVSEpmpXSkukjmX4cKefYREi6Sdsk7E7wsT7KRw";
 
 pub const PROTOCOL_VERSION: v2::ProtocolVersionStableV2 = v2::ProtocolVersionStableV2 {
-    transaction: number::Number(2),
+    transaction: number::Number(3),
     network: number::Number(0),
     patch: number::Number(0),
 };
@@ -21,14 +21,25 @@ pub const CONSTRAINT_CONSTANTS: ConstraintConstants = ConstraintConstants {
     coinbase_amount: 720000000000,
     supercharged_coinbase_factor: 1,
     account_creation_fee: 1000000000,
-    fork: None,
+    // TODO(tizoc): This should come from the config file, but
+    // it affects the circuits. Since we cannot produce the circuits
+    // ourselves right now, we cannot react to changes in this value,
+    // so it will be hardcoded for now.
+    fork: Some(ForkConstants {
+        state_hash: ark_ff::field_new!(
+            Fp,
+            "7908066420535064797069631664846455037440232590837253108938061943122344055350"
+        ),
+        blockchain_length: 296371,
+        global_slot_since_genesis: 445860,
+    }),
 };
 
 #[derive(Clone, Debug)]
 pub struct ForkConstants {
-    pub previous_state_hash: Fp,
-    pub previous_length: u32,
-    pub previous_global_slot: u32,
+    pub state_hash: Fp,
+    pub blockchain_length: u32,
+    pub global_slot_since_genesis: u32,
 }
 
 #[derive(Clone, Debug)]
@@ -48,15 +59,15 @@ pub struct ConstraintConstants {
 pub struct ForkConstantsUnversioned {
     previous_state_hash: bigint::BigInt,
     previous_length: number::Int32,
-    previous_global_slot: number::Int32,
+    genesis_slot: number::Int32,
 }
 
 impl From<&ForkConstants> for ForkConstantsUnversioned {
     fn from(fork_constants: &ForkConstants) -> Self {
         Self {
-            previous_state_hash: fork_constants.previous_state_hash.into(),
-            previous_length: fork_constants.previous_length.into(),
-            previous_global_slot: fork_constants.previous_global_slot.into(),
+            previous_state_hash: fork_constants.state_hash.into(),
+            previous_length: fork_constants.blockchain_length.into(),
+            genesis_slot: fork_constants.global_slot_since_genesis.into(),
         }
     }
 }
@@ -124,14 +135,14 @@ pub fn grace_period_end(constants: &v2::MinaBaseProtocolConstantsCheckedValueSta
     };
     match CONSTRAINT_CONSTANTS.fork.as_ref() {
         None => slots,
-        Some(fork) => slots + fork.previous_global_slot,
+        Some(fork) => slots + fork.global_slot_since_genesis,
     }
 }
 
-pub const DEFAULT_GENESIS_TIMESTAMP_MILLISECONDS: u64 = 1706882461000;
+pub const DEFAULT_GENESIS_TIMESTAMP_MILLISECONDS: u64 = 1707157200000;
 
-pub const PROTOCOL_TRANSACTION_VERSION: u8 = 2;
-pub const PROTOCOL_NETWORK_VERSION: u8 = 2;
+pub const PROTOCOL_TRANSACTION_VERSION: u8 = 3;
+pub const PROTOCOL_NETWORK_VERSION: u8 = 3;
 pub const TX_POOL_MAX_SIZE: u32 = 3000;
 
 pub const CONSTRAINT_SYSTEM_DIGESTS: [[u8; 16]; 3] = [
@@ -140,12 +151,12 @@ pub const CONSTRAINT_SYSTEM_DIGESTS: [[u8; 16]; 3] = [
         0xe1,
     ],
     [
-        0xc2, 0xb8, 0x0e, 0x3b, 0x10, 0x21, 0xe7, 0x78, 0x1d, 0x76, 0x8c, 0xe0, 0x31, 0x7b, 0x3f,
-        0x9c,
+        0x3b, 0xf6, 0xbb, 0x8a, 0x97, 0x66, 0x5f, 0xe7, 0xa9, 0xdf, 0x6f, 0xc1, 0x46, 0xe4, 0xf9,
+        0x42,
     ],
     [
-        0x7c, 0xf1, 0x07, 0x1e, 0x7e, 0x55, 0xbe, 0x3f, 0x41, 0x93, 0xbb, 0xd8, 0xa6, 0x67, 0x91,
-        0x4e,
+        0xd0, 0x24, 0xa9, 0xac, 0x78, 0xd4, 0xc9, 0x3a, 0x88, 0x8b, 0x63, 0xfc, 0x85, 0xee, 0xb6,
+        0x6a,
     ],
 ];
 

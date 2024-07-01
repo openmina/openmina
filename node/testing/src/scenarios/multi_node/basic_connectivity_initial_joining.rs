@@ -31,7 +31,7 @@ impl MultiNodeBasicConnectivityInitialJoining {
         const STEP_DELAY: Duration = Duration::from_millis(200);
 
         let seed_node =
-            runner.add_rust_node(RustNodeTestingConfig::berkeley_default().max_peers(TOTAL_PEERS));
+            runner.add_rust_node(RustNodeTestingConfig::devnet_default().max_peers(TOTAL_PEERS));
 
         eprintln!("launch Openmina seed node, id: {seed_node}");
 
@@ -42,7 +42,7 @@ impl MultiNodeBasicConnectivityInitialJoining {
 
             if step % STEPS_PER_PEER == 0 && nodes.len() < TOTAL_PEERS {
                 let node = runner.add_rust_node(
-                    RustNodeTestingConfig::berkeley_default()
+                    RustNodeTestingConfig::devnet_default()
                         .max_peers(MAX_PEERS_PER_NODE)
                         .initial_peers(vec![seed_node.into()])
                         .ask_initial_peers_interval(Duration::from_secs(10)),

@@ -62,6 +62,7 @@ impl P2pNetworkPubsubState {
                 self.servers.insert(*peer_id, ());
             }
             P2pNetworkPubsubAction::IncomingData { peer_id, data, .. } => {
+                self.incoming_transactions.clear();
                 self.incoming_snarks.clear();
                 let Some(state) = self.clients.get_mut(peer_id) else {
                     return;
@@ -113,6 +114,13 @@ impl P2pNetworkPubsubState {
                                     Ok(gossip::GossipNetMessageV2::NewState(block)) => {
                                         self.incoming_block = Some((*peer_id, block));
                                     }
+                                    Ok(gossip::GossipNetMessageV2::TransactionPoolDiff {
+                                        message, nonce,
+                                    }) => {
+                                        let nonce = nonce.as_u32();
+                                        let txs = message.0.into_iter().map(|tx| (tx, nonce));
+                                        self.incoming_transactions.extend(txs);
+                                    }
                                     Ok(gossip::GossipNetMessageV2::SnarkPoolDiff {
                                         message,
                                         nonce,
@@ -120,11 +128,6 @@ impl P2pNetworkPubsubState {
                                         if let v2::NetworkPoolSnarkPoolDiffVersionedStableV2::AddSolvedWork(work) = message {
                                             self.incoming_snarks.push((work.1.into(), nonce.as_u32()));
                                         }
-                                    }
-                                    Ok(gossip::GossipNetMessageV2::TransactionPoolDiff {
-                                        ..
-                                    }) => {
-                                        //
                                     }
                                     Err(err) => {
                                         dbg!(err);

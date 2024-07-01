@@ -12,12 +12,17 @@ pub use crate::p2p::P2pAction;
 pub use crate::rpc::RpcAction;
 pub use crate::snark::SnarkAction;
 pub use crate::snark_pool::SnarkPoolAction;
+pub use crate::snark_pool::SnarkPoolEffectfulAction;
 pub use crate::transition_frontier::TransitionFrontierAction;
 pub use crate::watched_accounts::WatchedAccountsAction;
 
 pub trait ActionKindGet {
     fn kind(&self) -> crate::ActionKind;
 }
+
+// Static limit for size of [`Action`] set to 512 bytes, if [`Action`] size is bigger code won't compile
+// compile error: "attempt to compute `0_usize - 1_usize`, which would overflow"
+static_assertions::const_assert!(std::mem::size_of::<Action>() <= 512);
 
 #[derive(derive_more::From, Serialize, Deserialize, Debug, Clone)]
 pub enum Action {
@@ -30,6 +35,7 @@ pub enum Action {
     Consensus(ConsensusAction),
     TransitionFrontier(TransitionFrontierAction),
     SnarkPool(SnarkPoolAction),
+    SnarkPoolEffect(SnarkPoolEffectfulAction),
     ExternalSnarkWorker(ExternalSnarkWorkerAction),
     BlockProducer(BlockProducerAction),
     Rpc(RpcAction),
@@ -51,9 +57,34 @@ pub struct CheckTimeoutsAction {}
 
 impl redux::EnablingCondition<crate::State> for CheckTimeoutsAction {}
 
-#[cfg(feature = "replay")]
 impl redux::EnablingCondition<crate::State> for Action {
-    fn is_enabled(&self, _state: &crate::State, _time: redux::Timestamp) -> bool {
-        true
+    fn is_enabled(&self, state: &crate::State, time: redux::Timestamp) -> bool {
+        match self {
+            Action::CheckTimeouts(a) => a.is_enabled(state, time),
+            Action::EventSource(a) => a.is_enabled(state, time),
+            Action::P2p(a) => match a {
+                P2pAction::Initialization(a) => a.is_enabled(state, time),
+                other => state
+                    .p2p
+                    .ready()
+                    .map_or(false, |p2p| other.is_enabled(p2p, time)),
+            },
+            Action::Ledger(a) => a.is_enabled(state, time),
+            Action::Snark(a) => a.is_enabled(&state.snark, time),
+            Action::Consensus(a) => a.is_enabled(state, time),
+            Action::TransitionFrontier(a) => a.is_enabled(state, time),
+            Action::SnarkPool(a) => a.is_enabled(state, time),
+            Action::SnarkPoolEffect(a) => a.is_enabled(state, time),
+            Action::ExternalSnarkWorker(a) => a.is_enabled(state, time),
+            Action::BlockProducer(a) => a.is_enabled(state, time),
+            Action::Rpc(a) => a.is_enabled(state, time),
+            Action::WatchedAccounts(a) => a.is_enabled(state, time),
+        }
+    }
+}
+
+impl From<redux::AnyAction> for Action {
+    fn from(action: redux::AnyAction) -> Self {
+        *action.0.downcast::<Self>().expect("Downcast failed")
     }
 }

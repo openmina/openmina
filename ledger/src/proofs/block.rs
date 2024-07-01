@@ -1576,7 +1576,7 @@ fn block_main<'a>(
 
         let previous_state_hash = match CONSTRAINT_CONSTANTS.fork.as_ref() {
             Some(ForkConstants {
-                previous_state_hash: fork_prev,
+                state_hash: fork_prev,
                 ..
             }) => w.exists_no_check(match is_base_case.value() {
                 Boolean::True => *fork_prev,

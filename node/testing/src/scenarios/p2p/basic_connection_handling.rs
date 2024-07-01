@@ -26,7 +26,7 @@ impl SimultaneousConnections {
     pub async fn run(self, runner: ClusterRunner<'_>) {
         let mut driver = Driver::new(runner);
 
-        let testing_config = RustNodeTestingConfig::berkeley_default().with_timeouts(P2pTimeouts {
+        let testing_config = RustNodeTestingConfig::devnet_default().with_timeouts(P2pTimeouts {
             // test might be failing because of best tip RPC timeout...
             best_tip_with_proof: None,
             ..Default::default()
@@ -61,13 +61,10 @@ impl SimultaneousConnections {
             .expect("connect event should be dispatched");
 
         // Run the cluster while there are events
-        let quiet = run_until_no_events(
-            &mut driver,
-            Duration::from_secs(10),
-            Duration::from_secs(20),
-        )
-        .await
-        .unwrap();
+        let quiet =
+            run_until_no_events(&mut driver, Duration::from_secs(5), Duration::from_secs(20))
+                .await
+                .unwrap();
         assert!(
             quiet,
             "no quiet period with no events since nodes are connected"
@@ -96,7 +93,7 @@ impl AllNodesConnectionsAreSymmetric {
 
         let mut driver = Driver::new(runner);
 
-        let testing_config = RustNodeTestingConfig::berkeley_default().with_timeouts(P2pTimeouts {
+        let testing_config = RustNodeTestingConfig::devnet_default().with_timeouts(P2pTimeouts {
             // test might be failing because of best tip RPC timeout...
             best_tip_with_proof: None,
             ..Default::default()
@@ -113,7 +110,7 @@ impl AllNodesConnectionsAreSymmetric {
         // Run the cluster while there are events
         let quiet = run_until_no_events(
             &mut driver,
-            Duration::from_secs(30),
+            Duration::from_secs(5),
             Duration::from_secs(2 * 60),
         )
         .await
@@ -160,12 +157,12 @@ impl SeedConnectionsAreSymmetric {
         let mut driver = Driver::new(runner);
 
         let (node_ut, node_ut_peer_id) =
-            driver.add_rust_node(RustNodeTestingConfig::berkeley_default_no_rpc_timeouts());
+            driver.add_rust_node(RustNodeTestingConfig::devnet_default_no_rpc_timeouts());
 
         let peers: Vec<_> = (0..MAX)
             .map(|_| {
                 driver.add_rust_node(
-                    RustNodeTestingConfig::berkeley_default_no_rpc_timeouts()
+                    RustNodeTestingConfig::devnet_default_no_rpc_timeouts()
                         .initial_peers(vec![node_ut.into()]),
                 )
             })
@@ -206,10 +203,10 @@ impl MaxNumberOfPeersIncoming {
         let mut driver = Driver::new(runner);
 
         let (node_ut, nut_peer_id) = driver.add_rust_node(
-            RustNodeTestingConfig::berkeley_default_no_rpc_timeouts().max_peers(MAX.into()),
+            RustNodeTestingConfig::devnet_default_no_rpc_timeouts().max_peers(MAX.into()),
         );
 
-        let config = RustNodeTestingConfig::berkeley_default().with_timeouts(P2pTimeouts {
+        let config = RustNodeTestingConfig::devnet_default().with_timeouts(P2pTimeouts {
             // don't reconnect to the node under test
             reconnect_timeout: None,
             ..P2pTimeouts::without_rpc()
@@ -282,10 +279,8 @@ impl MaxNumberOfPeersIs1 {
         const CONNECTED_TIME_SEC: u64 = 10;
         let mut driver = Driver::new(runner);
 
-        let (node1, _) =
-            driver.add_rust_node(RustNodeTestingConfig::berkeley_default().max_peers(1));
-        let (node2, _) =
-            driver.add_rust_node(RustNodeTestingConfig::berkeley_default().max_peers(1));
+        let (node1, _) = driver.add_rust_node(RustNodeTestingConfig::devnet_default().max_peers(1));
+        let (node2, _) = driver.add_rust_node(RustNodeTestingConfig::devnet_default().max_peers(1));
 
         assert!(
             wait_for_nodes_listening_on_localhost(&mut driver, Duration::from_secs(30), [node2])
@@ -328,10 +323,8 @@ impl ConnectionStability {
         const CONNECTED_TIME_SEC: u64 = 60;
         let mut driver = Driver::new(runner);
 
-        let (node1, _) =
-            driver.add_rust_node(RustNodeTestingConfig::berkeley_default().max_peers(1));
-        let (node2, _) =
-            driver.add_rust_node(RustNodeTestingConfig::berkeley_default().max_peers(1));
+        let (node1, _) = driver.add_rust_node(RustNodeTestingConfig::devnet_default().max_peers(1));
+        let (node2, _) = driver.add_rust_node(RustNodeTestingConfig::devnet_default().max_peers(1));
 
         assert!(
             wait_for_nodes_listening_on_localhost(&mut driver, Duration::from_secs(30), [node2])

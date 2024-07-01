@@ -22,7 +22,6 @@ pub enum Host {
     Ipv6(Ipv6Addr),
 }
 
-#[cfg(not(target_arch = "wasm32"))]
 impl<'a> From<&'a Host> for multiaddr::Protocol<'a> {
     fn from(value: &'a Host) -> Self {
         match value {

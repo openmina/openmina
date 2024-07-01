@@ -1,0 +1,29 @@
+name: Frontend CI
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    paths: [ "frontend/**", ".github/**" ]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Git checkout
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            frontend
+
+      - name: Run tests
+        uses: cypress-io/github-action@v6
+        with:
+          working-directory: frontend
+          start: npm start
+          wait-on: http://localhost:4200
+          wait-on-timeout: 180s

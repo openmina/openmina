@@ -1,16 +1,16 @@
-use openmina_core::{debug, error, warn};
 use redux::ActionMeta;
 
-use crate::connection::RejectionReason;
+#[cfg(feature = "p2p-libp2p")]
 use crate::disconnection::{P2pDisconnectionAction, P2pDisconnectionReason};
 use crate::peer::P2pPeerAction;
+#[cfg(feature = "p2p-libp2p")]
 use crate::P2pNetworkSchedulerAction;
 use crate::{connection::P2pConnectionService, webrtc};
 
-use super::{P2pConnectionIncomingAction, P2pConnectionIncomingError, P2pConnectionIncomingState};
+use super::{P2pConnectionIncomingAction, P2pConnectionIncomingError};
 
 impl P2pConnectionIncomingAction {
-    pub fn effects<Store, S>(self, meta: &ActionMeta, store: &mut Store)
+    pub fn effects<Store, S>(self, _meta: &ActionMeta, store: &mut Store)
     where
         Store: crate::P2pStore<S>,
         Store::Service: P2pConnectionService,
@@ -18,7 +18,7 @@ impl P2pConnectionIncomingAction {
         match self {
             P2pConnectionIncomingAction::Init { opts, .. } => {
                 let peer_id = opts.peer_id;
-                store.service().incoming_init(peer_id, opts.offer);
+                store.service().incoming_init(peer_id, *opts.offer);
                 store.dispatch(P2pConnectionIncomingAction::AnswerSdpCreatePending { peer_id });
             }
             P2pConnectionIncomingAction::AnswerSdpCreateError { peer_id, error } => {
@@ -28,15 +28,15 @@ impl P2pConnectionIncomingAction {
                 });
             }
             P2pConnectionIncomingAction::AnswerSdpCreateSuccess { peer_id, sdp } => {
-                let answer = webrtc::Answer {
+                let answer = Box::new(webrtc::Answer {
                     sdp,
                     identity_pub_key: store.state().config.identity_pub_key.clone(),
                     target_peer_id: peer_id,
-                };
+                });
                 store.dispatch(P2pConnectionIncomingAction::AnswerReady { peer_id, answer });
             }
             P2pConnectionIncomingAction::AnswerReady { peer_id, answer } => {
-                store.service().set_answer(peer_id, answer);
+                store.service().set_answer(peer_id, *answer);
             }
             P2pConnectionIncomingAction::AnswerSendSuccess { peer_id } => {
                 store.dispatch(P2pConnectionIncomingAction::FinalizePending { peer_id });
@@ -51,6 +51,7 @@ impl P2pConnectionIncomingAction {
                 store.dispatch(P2pConnectionIncomingAction::Success { peer_id });
             }
             P2pConnectionIncomingAction::Timeout { peer_id } => {
+                #[cfg(feature = "p2p-libp2p")]
                 if let Some((addr, _)) = store
                     .state()
                     .network
@@ -76,9 +77,15 @@ impl P2pConnectionIncomingAction {
                     incoming: true,
                 });
             }
+            #[cfg(not(feature = "p2p-libp2p"))]
+            P2pConnectionIncomingAction::FinalizePendingLibp2p { .. } => {}
+            #[cfg(feature = "p2p-libp2p")]
             P2pConnectionIncomingAction::FinalizePendingLibp2p { peer_id, addr } => {
+                use super::P2pConnectionIncomingState;
+                use crate::connection::RejectionReason;
+                use openmina_core::{debug, error, warn};
                 let Some(peer_state) = store.state().peers.get(&peer_id) else {
-                    error!(meta.time(); "no peer state for incoming connection from: {peer_id}");
+                    error!(_meta.time(); "no peer state for incoming connection from: {peer_id}");
                     return;
                 };
 
@@ -91,13 +98,13 @@ impl P2pConnectionIncomingAction {
                     .and_then(|connecting| connecting.as_incoming())
                 {
                     if let Err(reason) = store.state().libp2p_incoming_accept(peer_id) {
-                        warn!(meta.time(); node_id = display(store.state().my_id()), summary = "rejecting incoming conection", peer_id = display(peer_id), reason = display(&reason));
+                        warn!(_meta.time(); node_id = display(store.state().my_id()), summary = "rejecting incoming conection", peer_id = display(peer_id), reason = display(&reason));
                         store.dispatch(P2pDisconnectionAction::Init {
                             peer_id,
                             reason: P2pDisconnectionReason::Libp2pIncomingRejected(reason),
                         });
                     } else {
-                        debug!(meta.time(); "accepting incoming conection from {peer_id}");
+                        debug!(_meta.time(); "accepting incoming conection from {peer_id}");
                         if !close_duplicates.is_empty() {
                             let duplicates = store
                                 .state()
@@ -109,7 +116,7 @@ impl P2pConnectionIncomingAction {
                                 .cloned()
                                 .collect::<Vec<_>>();
                             for addr in duplicates {
-                                warn!(meta.time(); node_id = display(store.state().my_id()), summary = "closing duplicate connection", addr = display(addr));
+                                warn!(_meta.time(); node_id = display(store.state().my_id()), summary = "closing duplicate connection", addr = display(addr));
                                 store.dispatch(P2pNetworkSchedulerAction::Disconnect {
                                     addr,
                                     reason: P2pDisconnectionReason::Libp2pIncomingRejected(
@@ -120,7 +127,7 @@ impl P2pConnectionIncomingAction {
                         }
                     }
                 } else {
-                    warn!(meta.time(); node_id = display(store.state().my_id()), summary = "rejecting incoming conection as duplicate", peer_id = display(peer_id));
+                    warn!(_meta.time(); node_id = display(store.state().my_id()), summary = "rejecting incoming conection as duplicate", peer_id = display(peer_id));
                     store.dispatch(P2pNetworkSchedulerAction::Disconnect {
                         addr,
                         reason: P2pDisconnectionReason::Libp2pIncomingRejected(
@@ -129,9 +136,10 @@ impl P2pConnectionIncomingAction {
                     });
                 }
             }
-            P2pConnectionIncomingAction::Libp2pReceived { peer_id } => {
+            P2pConnectionIncomingAction::Libp2pReceived { peer_id: _peer_id } => {
+                #[cfg(feature = "p2p-libp2p")]
                 store.dispatch(P2pPeerAction::Ready {
-                    peer_id,
+                    peer_id: _peer_id,
                     incoming: true,
                 });
             }

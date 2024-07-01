@@ -1,10 +1,10 @@
-use mina_p2p_messages::gossip::GossipNetMessageV2;
 use redux::ActionMeta;
 
+#[cfg(feature = "p2p-libp2p")]
+use crate::P2pNetworkPubsubAction;
 use crate::{
     channels::{ChannelId, MsgId, P2pChannelsService},
     peer::P2pPeerAction,
-    P2pNetworkPubsubAction,
 };
 
 use super::{BestTipPropagationChannelMsg, P2pChannelsBestTipAction};
@@ -24,6 +24,7 @@ impl P2pChannelsBestTipAction {
             }
             P2pChannelsBestTipAction::Ready { peer_id } => {
                 store.dispatch(P2pChannelsBestTipAction::RequestSend { peer_id });
+                #[cfg(feature = "p2p-libp2p")]
                 if store.state().is_libp2p_peer(&peer_id) {
                     store.dispatch(P2pChannelsBestTipAction::RequestReceived { peer_id });
                 }
@@ -47,9 +48,13 @@ impl P2pChannelsBestTipAction {
                     store
                         .service()
                         .channel_send(peer_id, MsgId::first(), msg.into());
-                } else {
+                    return;
+                }
+                #[cfg(feature = "p2p-libp2p")]
+                {
+                    use mina_p2p_messages::gossip::GossipNetMessageV2;
                     let block = (*best_tip.block).clone();
-                    let message = GossipNetMessageV2::NewState(block);
+                    let message = Box::new(GossipNetMessageV2::NewState(block));
                     // TODO(vlad): `P2pChannelsBestTipAction::ResponseSend`
                     // action is dispatched for each peer. So `P2pNetworkPubsubAction::Broadcast`
                     // will be called many times causing many duplicate
@@ -61,7 +66,6 @@ impl P2pChannelsBestTipAction {
                     // already store last sent best tip here and we make
                     // sure we don't send same block to same peer again.
                     store.dispatch(P2pNetworkPubsubAction::Broadcast { message });
-                    store.dispatch(P2pChannelsBestTipAction::RequestReceived { peer_id });
                 }
             }
             P2pChannelsBestTipAction::Pending { .. } => {}

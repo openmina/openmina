@@ -6,7 +6,7 @@ use openmina_core::{
         },
         time_to_str, EventContext,
     },
-    ActionEvent,
+    ActionEvent, SubstateAccess, SubstateResult,
 };
 use p2p::{MioEvent, P2pAction, P2pEvent, P2pNetworkSchedulerAction, P2pState, PeerId};
 use redux::{ActionMeta, EnablingCondition, SubStore};
@@ -16,6 +16,15 @@ use crate::service::ClusterService;
 pub(crate) struct State(pub(crate) P2pState);
 
 pub(crate) type Store = redux::Store<State, ClusterService, Action>;
+
+impl EnablingCondition<State> for Action {
+    fn is_enabled(&self, state: &State, time: redux::Timestamp) -> bool {
+        match self {
+            Action::P2p(a) => a.is_enabled(&state.0, time),
+            Action::Idle(a) => a.is_enabled(state, time),
+        }
+    }
+}
 
 impl SubStore<State, P2pState> for Store {
     type SubAction = P2pAction;
@@ -40,12 +49,35 @@ impl SubStore<State, P2pState> for Store {
     {
         self.sub_dispatch(action)
     }
+
+    fn dispatch_callback<T>(&mut self, callback: redux::Callback<T>, args: T) -> bool
+    where
+        T: 'static,
+        P2pAction: From<redux::AnyAction> + redux::EnablingCondition<P2pState>,
+    {
+        Store::dispatch_callback(self, callback, args)
+    }
+}
+
+impl SubstateAccess<P2pState> for State {
+    fn substate(&self) -> SubstateResult<&P2pState> {
+        Ok(&self.0)
+    }
+    fn substate_mut(&mut self) -> SubstateResult<&mut P2pState> {
+        Ok(&mut self.0)
+    }
 }
 
 #[derive(Debug, derive_more::From)]
 pub(crate) enum Action {
     P2p(P2pAction),
     Idle(IdleAction),
+}
+
+impl From<redux::AnyAction> for Action {
+    fn from(action: redux::AnyAction) -> Self {
+        *action.0.downcast::<Self>().expect("Downcast failed")
+    }
 }
 
 #[derive(Debug)]

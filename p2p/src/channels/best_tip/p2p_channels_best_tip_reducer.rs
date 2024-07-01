@@ -4,7 +4,7 @@ use super::{
 };
 
 impl P2pChannelsBestTipState {
-    pub fn reducer(&mut self, action: P2pChannelsBestTipActionWithMetaRef<'_>) {
+    pub fn reducer(&mut self, action: P2pChannelsBestTipActionWithMetaRef<'_>, is_libp2p: bool) {
         let (action, meta) = action.split();
         match action {
             P2pChannelsBestTipAction::Init { .. } => {
@@ -56,7 +56,9 @@ impl P2pChannelsBestTipState {
                     return;
                 };
 
-                *remote = BestTipPropagationState::Responded { time: meta.time() };
+                if !is_libp2p {
+                    *remote = BestTipPropagationState::Responded { time: meta.time() };
+                }
                 *last_sent = Some(best_tip.clone());
             }
         }

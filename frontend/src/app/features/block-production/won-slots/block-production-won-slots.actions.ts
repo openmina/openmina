@@ -21,7 +21,8 @@ const close = createAction(type('Close'));
 const getSlots = createAction(type('Get Slots'));
 const getSlotsSuccess = createAction(type('Get Slots Success'), props<{
   slots: BlockProductionWonSlotsSlot[],
-  epoch: BlockProductionWonSlotsEpoch
+  epoch: BlockProductionWonSlotsEpoch,
+  activeSlot: BlockProductionWonSlotsSlot,
 }>());
 const changeFilters = createAction(type('Change Filters'), props<{ filters: BlockProductionWonSlotsFilters }>());
 const setActiveSlot = createAction(type('Set Active Slot'), props<{ slot: BlockProductionWonSlotsSlot }>());

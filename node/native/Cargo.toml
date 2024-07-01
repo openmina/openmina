@@ -1,6 +1,6 @@
 [package]
 name = "openmina-node-native"
-version = "0.5.0"
+version = "0.6.0"
 edition = "2021"
 license = "Apache-2.0"
 
@@ -22,13 +22,16 @@ bytes = "1.4.0"
 tracing-subscriber = { version = "0.3.17", features = ["json", "env-filter"] }
 tracing = "0.1.37"
 thiserror = "1.0.44"
+anyhow = "1.0.70"
 nix = { version = "0.26.2", features = ["signal"] }
 vrf = { workspace = true }
-getrandom = "0.2.11"
 jsonpath-rust = "0.5.0"
 openmina-core = { path = "../../core" }
 
 node = { path = "../../node", features = ["replay"] }
+
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
+redux = { workspace = true, features=["serializable_callbacks"] }
 
 [features]
 default = ["p2p-libp2p"]

@@ -1,6 +1,7 @@
 use core::str::FromStr;
 use mina_hasher::Fp;
-use mina_signer::CompressedPubKey;
+use mina_p2p_messages::binprot::BinProtWrite;
+use multihash::{Blake2b256, Hasher};
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::Value;
 use std::fmt::{self, Display, Formatter};
@@ -11,6 +12,8 @@ use ledger::{
     VotingFor, ZkAppAccount, ZkAppUri,
 };
 use openmina_node_account::{AccountPublicKey, AccountSecretKey};
+
+use crate::ledger::LEDGER_DEPTH;
 
 type RawCurrency = String;
 type RawSlot = String;
@@ -62,16 +65,58 @@ impl Ledger {
             }
         }
     }
+
+    /// Typically a ledger is identified by its hash, but if hash is
+    /// not given in config, we construct a name by hashing the ledger
+    /// config so that we can recognise a ledger we already have
+    /// cached without reconstructing it (which is expensive).
+    /// Note that the name contains some constants - the purpose of this
+    /// is to invalidate all caches when these constants change.
+    /// See: https://github.com/MinaProtocol/mina/blob/develop/src/lib/genesis_ledger_helper/genesis_ledger_helper.ml#L105
+    pub fn ledger_name(&self) -> String {
+        self.hash.clone().unwrap_or_else(|| {
+            build_ledger_name(
+                self.num_accounts.unwrap_or(0),
+                self.balances
+                    .clone()
+                    .unwrap_or_default()
+                    .iter()
+                    .map(Clone::clone),
+            )
+        })
+    }
+}
+
+pub fn build_ledger_name(
+    num_accounts: usize,
+    balances: impl Iterator<Item = (usize, RawCurrency)>,
+) -> String {
+    let mut hash = Blake2b256::default();
+    hash.update(LEDGER_DEPTH.to_string().as_bytes());
+    hash.update(num_accounts.to_string().as_bytes());
+    let balances = balances.fold(String::new(), |acc, (i, balance)| {
+        format!("{} {} {}", acc, i, balance)
+    });
+    hash.update(balances.as_bytes());
+    let empty_account = ledger::Account::empty();
+    hash.update(empty_account.hash().to_string().as_bytes());
+    let mut empty_account_enc: Vec<u8> = Vec::new();
+    empty_account
+        .binprot_write(&mut empty_account_enc)
+        .expect("failed to write account");
+    hash.update(empty_account_enc.as_slice());
+    format!("{:x?}", hash.finalize())
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Account {
     pk: String,
     sk: Option<String>,
-    balance: RawCurrency,
+    pub(super) balance: RawCurrency,
     delegate: Option<String>,
     token_id: Option<String>,
     token_symbol: Option<String>,
+    #[serde(default, deserialize_with = "string_or_u32_option")]
     nonce: Option<u32>,
     receipt_chain_hash: Option<String>,
     voting_for: Option<String>,
@@ -101,7 +146,7 @@ impl Account {
 
 impl Account {
     pub fn public_key(&self) -> Result<AccountPublicKey, AccountConfigError> {
-        let cpk = CompressedPubKey::from_address(&self.pk)
+        let cpk = ledger::compressed_pubkey_from_address_maybe_with_error(&self.pk)
             .map_err(|_| AccountConfigError::MalformedKey(self.pk.clone()))?;
         Ok(AccountPublicKey::from(cpk))
     }
@@ -114,7 +159,7 @@ impl Account {
         let is_default_token = self.token_id()?.is_default();
         match self.delegate.as_ref() {
             Some(delegate) if is_default_token => {
-                let cpk = CompressedPubKey::from_address(delegate)
+                let cpk = ledger::compressed_pubkey_from_address_maybe_with_error(delegate)
                     .map_err(|_| AccountConfigError::MalformedKey(delegate.clone()))?;
                 Ok(Some(AccountPublicKey::from(cpk)))
             }
@@ -164,8 +209,7 @@ impl Account {
         self.receipt_chain_hash
             .as_ref()
             .map_or(Ok(ReceiptChainHash::empty()), |hash| {
-                Fp::from_str(hash)
-                    .map(ReceiptChainHash)
+                ReceiptChainHash::parse_str(hash)
                     .map_err(|_| AccountConfigError::MalformedReceiptChainHash(hash.clone()))
             })
     }
@@ -174,8 +218,7 @@ impl Account {
         self.voting_for
             .as_ref()
             .map_or(Ok(VotingFor::dummy()), |hash| {
-                Fp::from_str(hash)
-                    .map(VotingFor)
+                VotingFor::parse_str(hash)
                     .map_err(|_| AccountConfigError::MalformedVotingFor(hash.clone()))
             })
     }
@@ -193,7 +236,7 @@ impl Account {
         )
     }
 
-    pub fn zkapp(&self) -> Result<Option<ZkAppAccount>, AccountConfigError> {
+    pub fn zkapp(&self) -> Result<Option<Box<ZkAppAccount>>, AccountConfigError> {
         self.zkapp.as_ref().map(Zkapp::to_zkapp_account).transpose()
     }
 
@@ -241,47 +284,81 @@ impl AccountTiming {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct SerVrfKeyPerm {
+struct SetVrfKeyPerm {
     auth: AuthRequired,
+    #[serde(deserialize_with = "string_or_u32")]
     txn_version: u32,
+}
+
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum StringOrU32 {
+    String(String),
+    U32(u32),
+}
+
+fn string_or_u32<'de, D>(deserializer: D) -> Result<u32, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    match StringOrU32::deserialize(deserializer)? {
+        StringOrU32::String(s) => s.parse::<u32>().map_err(serde::de::Error::custom),
+        StringOrU32::U32(u) => Ok(u),
+    }
+}
+
+fn string_or_u32_option<'de, D>(deserializer: D) -> Result<Option<u32>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let opt: Option<StringOrU32> = Option::deserialize(deserializer)?;
+    match opt {
+        Some(StringOrU32::String(s)) => {
+            s.parse::<u32>().map(Some).map_err(serde::de::Error::custom)
+        }
+        Some(StringOrU32::U32(u)) => Ok(Some(u)),
+        None => Ok(None),
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AccountPermissions {
-    access: AuthRequired,
-    edit_state: AuthRequired,
-    send: AuthRequired,
-    receive: AuthRequired,
-    set_delegate: AuthRequired,
-    set_permissions: AuthRequired,
-    set_verification_key: SerVrfKeyPerm,
-    set_zkapp_uri: AuthRequired,
-    edit_action_state: AuthRequired,
-    set_token_symbol: AuthRequired,
-    increment_nonce: AuthRequired,
-    set_voting_for: AuthRequired,
-    set_timing: AuthRequired,
+    access: Option<AuthRequired>,
+    edit_state: Option<AuthRequired>,
+    send: Option<AuthRequired>,
+    receive: Option<AuthRequired>,
+    set_delegate: Option<AuthRequired>,
+    set_permissions: Option<AuthRequired>,
+    // TODO: make optional too
+    set_verification_key: SetVrfKeyPerm,
+    set_zkapp_uri: Option<AuthRequired>,
+    edit_action_state: Option<AuthRequired>,
+    set_token_symbol: Option<AuthRequired>,
+    increment_nonce: Option<AuthRequired>,
+    set_voting_for: Option<AuthRequired>,
+    set_timing: Option<AuthRequired>,
 }
 
 impl AccountPermissions {
     fn to_permissions(&self) -> Permissions<AuthRequired> {
+        // Defaults from https://github.com/MinaProtocol/mina/blob/3.0.0devnet/src/lib/mina_base/permissions.ml#L580-L594
         Permissions {
-            access: self.access,
-            edit_state: self.edit_state,
-            send: self.send,
-            receive: self.receive,
-            set_delegate: self.set_delegate,
-            set_permissions: self.set_permissions,
+            access: self.access.unwrap_or(AuthRequired::None),
+            edit_state: self.edit_state.unwrap_or(AuthRequired::Signature),
+            send: self.send.unwrap_or(AuthRequired::Signature),
+            receive: self.receive.unwrap_or(AuthRequired::None),
+            set_delegate: self.set_delegate.unwrap_or(AuthRequired::Signature),
+            set_permissions: self.set_permissions.unwrap_or(AuthRequired::Signature),
             set_verification_key: SetVerificationKey {
                 auth: self.set_verification_key.auth,
                 txn_version: TxnVersion::from_u32(self.set_verification_key.txn_version),
             },
-            set_zkapp_uri: self.set_zkapp_uri,
-            edit_action_state: self.edit_action_state,
-            set_token_symbol: self.set_token_symbol,
-            increment_nonce: self.increment_nonce,
-            set_voting_for: self.set_voting_for,
-            set_timing: self.set_timing,
+            set_zkapp_uri: self.set_zkapp_uri.unwrap_or(AuthRequired::Signature),
+            edit_action_state: self.edit_action_state.unwrap_or(AuthRequired::Signature),
+            set_token_symbol: self.set_token_symbol.unwrap_or(AuthRequired::Signature),
+            increment_nonce: self.increment_nonce.unwrap_or(AuthRequired::Signature),
+            set_voting_for: self.set_voting_for.unwrap_or(AuthRequired::Signature),
+            set_timing: self.set_timing.unwrap_or(AuthRequired::Signature),
         }
     }
 }
@@ -306,7 +383,7 @@ fn parse_fp(str: &str) -> Result<Fp, AccountConfigError> {
 }
 
 impl Zkapp {
-    fn to_zkapp_account(&self) -> Result<ZkAppAccount, AccountConfigError> {
+    fn to_zkapp_account(&self) -> Result<Box<ZkAppAccount>, AccountConfigError> {
         let app_state_fps: Vec<Fp> = self
             .app_state
             .iter()
@@ -351,7 +428,8 @@ impl Zkapp {
             last_action_slot,
             proved_state: self.proved_state,
             zkapp_uri: ZkAppUri::from(self.zkapp_uri.clone()),
-        })
+        }
+        .into())
     }
 }
 

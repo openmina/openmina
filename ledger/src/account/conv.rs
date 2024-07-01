@@ -167,7 +167,8 @@ impl From<&MinaBaseVerificationKeyWireStableV1> for VerificationKey {
                 mul: mul_comm.into(),
                 emul: emul_comm.into(),
                 endomul_scalar: endomul_scalar_comm.into(),
-            },
+            }
+            .into(),
             wrap_vk: None,
         }
     }
@@ -193,7 +194,7 @@ impl From<&VerificationKey> for MinaBaseVerificationKeyWireStableV1 {
                 super::ProofVerified::N1 => PicklesBaseProofsVerifiedStableV1::N1,
                 super::ProofVerified::N2 => PicklesBaseProofsVerifiedStableV1::N2,
             },
-            wrap_index: wrap_index.into(),
+            wrap_index: wrap_index.as_ref().into(),
         }
     }
 }
@@ -528,6 +529,7 @@ impl From<&MinaBaseAccountBinableArgStableV2> for Account {
                     proved_state: *proved_state,
                     zkapp_uri: zkapp_uri.try_into().unwrap(),
                 }
+                .into()
             }),
         }
     }

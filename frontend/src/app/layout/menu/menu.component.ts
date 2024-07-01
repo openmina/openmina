@@ -28,6 +28,7 @@ const MENU_ITEMS: MenuItem[] = [
   { name: 'Block Production', icon: 'library_add' },
   { name: 'Nodes', icon: 'margin' },
   { name: 'Resources', icon: 'analytics' },
+  { name: 'Mempool', icon: 'blur_circular' },
   { name: 'Network', icon: 'account_tree' },
   { name: 'State', icon: 'code_blocks' },
   { name: 'SNARKs', icon: 'assignment_turned_in' },

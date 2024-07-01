@@ -1,6 +1,8 @@
-use crate::{channels::P2pChannelsAction, P2pState, PeerId};
-use openmina_core::{snark::Snark, ActionEvent};
+use openmina_core::snark::Snark;
+use openmina_core::ActionEvent;
 use serde::{Deserialize, Serialize};
+
+use crate::{channels::P2pChannelsAction, P2pState, PeerId};
 
 use super::{P2pChannelsSnarkState, SnarkInfo, SnarkPropagationState};
 
@@ -61,8 +63,8 @@ impl P2pChannelsSnarkAction {
             | Self::PromiseReceived { peer_id, .. }
             | Self::Received { peer_id, .. }
             | Self::RequestReceived { peer_id, .. }
-            | Self::ResponseSend { peer_id, .. }
-            | Self::Libp2pReceived { peer_id, .. } => Some(peer_id),
+            | Self::ResponseSend { peer_id, .. } => Some(peer_id),
+            Self::Libp2pReceived { peer_id, .. } => Some(peer_id),
             Self::Libp2pBroadcast { .. } => None,
         }
     }
@@ -164,16 +166,22 @@ impl redux::EnablingCondition<P2pState> for P2pChannelsSnarkAction {
                             _ => false,
                         })
             }
-            P2pChannelsSnarkAction::Libp2pReceived { peer_id, .. } => state
-                .peers
-                .get(peer_id)
-                .filter(|p| p.is_libp2p())
-                .and_then(|p| p.status.as_ready())
-                .map_or(false, |p| p.channels.snark.is_ready()),
-            P2pChannelsSnarkAction::Libp2pBroadcast { .. } => state
-                .peers
-                .iter()
-                .any(|(_, p)| p.is_libp2p() && p.status.as_ready().is_some()),
+            P2pChannelsSnarkAction::Libp2pReceived { peer_id, .. } => {
+                cfg!(feature = "p2p-libp2p")
+                    && state
+                        .peers
+                        .get(peer_id)
+                        .filter(|p| p.is_libp2p())
+                        .and_then(|p| p.status.as_ready())
+                        .map_or(false, |p| p.channels.snark.is_ready())
+            }
+            P2pChannelsSnarkAction::Libp2pBroadcast { .. } => {
+                cfg!(feature = "p2p-libp2p")
+                    && state
+                        .peers
+                        .iter()
+                        .any(|(_, p)| p.is_libp2p() && p.status.as_ready().is_some())
+            }
         }
     }
 }

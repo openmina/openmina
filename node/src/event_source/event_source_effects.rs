@@ -1,3 +1,5 @@
+use p2p::channels::transaction::P2pChannelsTransactionAction;
+
 use crate::action::CheckTimeoutsAction;
 use crate::block_producer::vrf_evaluator::BlockProducerVrfEvaluatorAction;
 use crate::block_producer::{BlockProducerEvent, BlockProducerVrfEvaluatorEvent};
@@ -14,7 +16,7 @@ use crate::p2p::connection::outgoing::P2pConnectionOutgoingAction;
 use crate::p2p::connection::{P2pConnectionErrorResponse, P2pConnectionResponse};
 use crate::p2p::disconnection::{P2pDisconnectionAction, P2pDisconnectionReason};
 use crate::p2p::P2pChannelEvent;
-#[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
+#[cfg(feature = "p2p-libp2p")]
 use crate::p2p::{MioEvent, P2pNetworkSchedulerAction};
 use crate::rpc::{RpcAction, RpcRequest};
 use crate::snark::block_verify::SnarkBlockVerifyAction;
@@ -51,7 +53,9 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
         // "Translate" event into the corresponding action and dispatch it.
         EventSourceAction::NewEvent { event } => match event {
             Event::P2p(e) => match e {
-                #[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
+                #[cfg(not(feature = "p2p-libp2p"))]
+                P2pEvent::MioEvent(_) => {}
+                #[cfg(feature = "p2p-libp2p")]
                 P2pEvent::MioEvent(e) => match e {
                     MioEvent::InterfaceDetected(ip) => {
                         store.dispatch(P2pNetworkSchedulerAction::InterfaceDetected { ip });
@@ -140,7 +144,7 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                         P2pConnectionResponse::Accepted(answer) => {
                             store.dispatch(P2pConnectionOutgoingAction::AnswerRecvSuccess {
                                 peer_id,
-                                answer: *answer,
+                                answer,
                             });
                         }
                         P2pConnectionResponse::Rejected(reason) => {
@@ -190,6 +194,10 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                                 // TODO(binier): maybe dispatch success and then ready.
                                 store.dispatch(P2pChannelsBestTipAction::Ready { peer_id });
                             }
+                            ChannelId::TransactionPropagation => {
+                                // TODO(binier): maybe dispatch success and then ready.
+                                store.dispatch(P2pChannelsTransactionAction::Ready { peer_id });
+                            }
                             ChannelId::SnarkPropagation => {
                                 // TODO(binier): maybe dispatch success and then ready.
                                 store.dispatch(P2pChannelsSnarkAction::Ready { peer_id });
@@ -221,13 +229,6 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                             store.dispatch(P2pChannelsMessageReceivedAction { peer_id, message });
                         }
                     },
-                    P2pChannelEvent::Libp2pSnarkReceived(peer_id, snark, nonce) => {
-                        store.dispatch(P2pChannelsSnarkAction::Libp2pReceived {
-                            peer_id,
-                            snark,
-                            nonce,
-                        });
-                    }
                     P2pChannelEvent::Closed(peer_id, chan_id) => {
                         let reason = P2pDisconnectionReason::P2pChannelClosed(chan_id);
                         store.dispatch(P2pDisconnectionAction::Init { peer_id, reason });
@@ -368,6 +369,7 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                             .prove_pending_block_hash()
                             .map_or(false, |hash| hash == block_hash)
                         {
+                            // TODO(refactor): before this is dispatched, genesis inject must be dispatched
                             store.dispatch(TransitionFrontierGenesisAction::ProveSuccess { proof });
                         } else {
                             store.dispatch(BlockProducerAction::BlockProveSuccess { proof });

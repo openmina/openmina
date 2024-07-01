@@ -8,7 +8,7 @@ use std::{
 
 use futures::StreamExt;
 use libp2p::{multiaddr::multiaddr, swarm::DialError, Multiaddr};
-use openmina_core::{ChainId, BERKELEY_CHAIN_ID};
+use openmina_core::{ChainId, Substate, DEVNET_CHAIN_ID};
 use p2p::{
     connection::outgoing::{
         P2pConnectionOutgoingAction, P2pConnectionOutgoingInitLibp2pOpts,
@@ -96,7 +96,7 @@ pub struct ClusterBuilder {
 impl Default for ClusterBuilder {
     fn default() -> Self {
         ClusterBuilder {
-            chain_id: BERKELEY_CHAIN_ID,
+            chain_id: DEVNET_CHAIN_ID,
             ports: None,
             ip: Ipv4Addr::LOCALHOST.into(),
             idle_duration: Duration::from_millis(100),
@@ -380,12 +380,13 @@ impl Cluster {
         );
 
         let store = crate::redux::Store::new(
-            |state, action| {
+            |state, action, dispatcher| {
                 log_action(action.action(), action.meta(), state.0.my_id());
                 if let Action::P2p(p2p_action) = action.action() {
-                    state
-                        .0
-                        .reducer(action.meta().clone().with_action(p2p_action))
+                    P2pState::reducer(
+                        Substate::new(state, dispatcher),
+                        action.meta().clone().with_action(p2p_action),
+                    )
                 }
             },
             |store, action| {

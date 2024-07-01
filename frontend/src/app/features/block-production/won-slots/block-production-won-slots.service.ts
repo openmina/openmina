@@ -6,7 +6,7 @@ import {
   BlockProductionWonSlotsStatus,
 } from '@shared/types/block-production/won-slots/block-production-won-slots-slot.type';
 import { BlockProductionModule } from '@block-production/block-production.module';
-import { hasValue, nanOrElse, ONE_MILLION } from '@openmina/shared';
+import { hasValue, nanOrElse, ONE_BILLION, ONE_MILLION } from '@openmina/shared';
 import { getTimeDiff } from '@shared/helpers/date.helper';
 import { RustService } from '@core/services/rust.service';
 import {
@@ -25,13 +25,8 @@ export class BlockProductionWonSlotsService {
       .pipe(
         map((response: WonSlotResponse) => {
           const attemptsSlots = response.attempts.map((attempt: Attempt) => {
-            attempt.active = ![
-              BlockProductionWonSlotsStatus.Committed,
-              BlockProductionWonSlotsStatus.Discarded,
-              BlockProductionWonSlotsStatus.Canonical,
-              BlockProductionWonSlotsStatus.Orphaned,
-            ].includes(attempt.status) && !attempt.times?.discarded;
-            attempt.won_slot.slot_time = attempt.won_slot.slot_time / ONE_MILLION;
+            attempt.won_slot.slot_time = Math.floor(attempt.won_slot.slot_time / ONE_MILLION); // converted to milliseconds
+            attempt.active = BlockProductionWonSlotsService.getActive(attempt);
             let slot = {
               epoch: attempt.won_slot.epoch,
               message: this.getMessage(attempt),
@@ -59,13 +54,13 @@ export class BlockProductionWonSlotsService {
               times: {
                 scheduled: attempt.times.scheduled,
                 stagedLedgerDiffCreate: !attempt.times.staged_ledger_diff_create_end || !attempt.times.staged_ledger_diff_create_start
-                  ? null : (attempt.times.staged_ledger_diff_create_end - attempt.times.staged_ledger_diff_create_start) / ONE_MILLION,
+                  ? null : (attempt.times.staged_ledger_diff_create_end - attempt.times.staged_ledger_diff_create_start) / ONE_BILLION,
                 produced: !attempt.times.produced || !attempt.times.staged_ledger_diff_create_end
-                  ? null : (attempt.times.produced - attempt.times.staged_ledger_diff_create_end) / ONE_MILLION,
+                  ? null : (attempt.times.produced - attempt.times.staged_ledger_diff_create_end) / ONE_BILLION,
                 proofCreate: !attempt.times.proof_create_end || !attempt.times.proof_create_start
-                  ? null : (attempt.times.proof_create_end - attempt.times.proof_create_start) / ONE_MILLION,
+                  ? null : (attempt.times.proof_create_end - attempt.times.proof_create_start) / ONE_BILLION,
                 blockApply: !attempt.times.block_apply_end || !attempt.times.block_apply_start
-                  ? null : (attempt.times.block_apply_end - attempt.times.block_apply_start) / ONE_MILLION,
+                  ? null : (attempt.times.block_apply_end - attempt.times.block_apply_start) / ONE_BILLION,
                 discarded: attempt.times.discarded || null,
                 committed: attempt.times.committed || null,
                 stagedLedgerDiffCreateEnd: attempt.times.staged_ledger_diff_create_end,
@@ -88,7 +83,7 @@ export class BlockProductionWonSlotsService {
           });
 
           const futureWonSlots = response.future_won_slots.map((slot: WonSlot) => {
-            slot.slot_time = slot.slot_time / ONE_MILLION;
+            slot.slot_time = Math.floor(slot.slot_time / ONE_MILLION);
             return {
               message: 'Upcoming Won Slot',
               age: this.calculateTimeAgo({ won_slot: slot }),
@@ -112,11 +107,19 @@ export class BlockProductionWonSlotsService {
       );
   }
 
+  private static getActive(attempt: Attempt): boolean {
+    const slotTime = attempt.won_slot.slot_time;
+    const now = Date.now();
+    return slotTime <= now && (now < 3 * 60 * 1000 + slotTime) && !attempt.times?.discarded;
+  }
+
   private getMessage(attempt: Attempt): string {
     if (attempt.active) {
       return 'Produced';
     }
-    if (attempt.status === BlockProductionWonSlotsStatus.Canonical) {
+    if (attempt.status === BlockProductionWonSlotsStatus.Scheduled) {
+      return 'Production Scheduled';
+    } else if (attempt.status === BlockProductionWonSlotsStatus.Canonical) {
       return 'Produced Block';
     } else if (attempt.status === BlockProductionWonSlotsStatus.Orphaned || attempt.status == BlockProductionWonSlotsStatus.Discarded) {
       return 'Dropped Block';
@@ -151,7 +154,7 @@ export class BlockProductionWonSlotsService {
   }
 }
 
-interface WonSlotResponse {
+export interface WonSlotResponse {
   attempts: Attempt[];
   future_won_slots: WonSlot[];
   current_global_slot: number;

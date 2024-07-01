@@ -1,4 +1,3 @@
-use multiaddr::multiaddr;
 use openmina_core::{block::ArcBlockWithHash, ChainId};
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
@@ -19,6 +18,7 @@ use super::P2pConfig;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pState {
+    pub chain_id: ChainId,
     pub config: P2pConfig,
     pub network: P2pNetworkState,
     pub peers: BTreeMap<PeerId, P2pPeerState>,
@@ -26,11 +26,15 @@ pub struct P2pState {
 
 impl P2pState {
     pub fn new(config: P2pConfig, chain_id: &ChainId) -> Self {
-        let addrs = config
-            .libp2p_port
-            .map(|port| multiaddr!(Ip4([127, 0, 0, 1]), Tcp((port))))
-            .into_iter()
-            .collect();
+        let addrs = if cfg!(feature = "p2p-libp2p") {
+            config
+                .libp2p_port
+                .map(|port| multiaddr::multiaddr!(Ip4([127, 0, 0, 1]), Tcp((port))))
+                .into_iter()
+                .collect()
+        } else {
+            Vec::new()
+        };
 
         let my_id = config.identity_pub_key.peer_id();
         let initial_peers = config
@@ -38,16 +42,20 @@ impl P2pState {
             .iter()
             .filter(|peer| peer.peer_id() != &my_id);
 
-        let known_peers = initial_peers
-            .clone()
-            .filter_map(|peer| {
-                if let P2pConnectionOutgoingInitOpts::LibP2P(peer) = peer {
-                    Some(peer.into())
-                } else {
-                    None
-                }
-            })
-            .collect();
+        let known_peers = if cfg!(feature = "p2p-libp2p") {
+            initial_peers
+                .clone()
+                .filter_map(|peer| {
+                    if let P2pConnectionOutgoingInitOpts::LibP2P(peer) = peer {
+                        Some(peer.into())
+                    } else {
+                        None
+                    }
+                })
+                .collect()
+        } else {
+            Vec::new()
+        };
 
         let peers = initial_peers
             .map(|peer| {
@@ -73,6 +81,7 @@ impl P2pState {
             config.peer_discovery,
         );
         Self {
+            chain_id: chain_id.clone(),
             config,
             network,
             peers,
@@ -213,6 +222,7 @@ impl P2pState {
     }
 
     /// Peer with libp2p connection identified by `conn_id`.
+    #[cfg(feature = "p2p-libp2p")]
     pub fn peer_with_connection(
         &self,
         conn_id: std::net::SocketAddr,
@@ -283,7 +293,6 @@ impl P2pPeerState {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "state")]
-#[allow(clippy::large_enum_variant)]
 pub enum P2pPeerStatus {
     Connecting(P2pConnectionState),
     Disconnected { time: redux::Timestamp },

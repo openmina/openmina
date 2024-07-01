@@ -17,7 +17,7 @@ use crate::{webrtc, P2pState, PeerId};
 pub struct P2pConnectionIncomingInitOpts {
     pub peer_id: PeerId,
     pub signaling: IncomingSignalingMethod,
-    pub offer: webrtc::Offer,
+    pub offer: Box<webrtc::Offer>,
 }
 
 // TODO(binier): maybe move to `crate::webrtc`?

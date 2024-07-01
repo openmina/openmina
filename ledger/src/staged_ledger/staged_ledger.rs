@@ -2038,7 +2038,7 @@ mod tests_ocaml {
         staged_ledger::diff::{
             PreDiffOne, PreDiffWithAtMostOneCoinbase, PreDiffWithAtMostTwoCoinbase,
         },
-        util, Account, AuthRequired, FpExt, Permissions, VerificationKey,
+        util, Account, AuthRequired, Permissions, VerificationKey,
     };
 
     use super::*;
@@ -3285,12 +3285,6 @@ mod tests_ocaml {
     static VK: Lazy<WithHash<VerificationKey>> = Lazy::new(|| {
         let vk = trivial_verification_key();
         let hash = vk.hash();
-
-        assert_eq!(
-            hash.to_decimal(),
-            "24718010481936203473382403546802077371547164075927562679248188951657451653497"
-        );
-
         WithHash { data: vk, hash }
     });
 

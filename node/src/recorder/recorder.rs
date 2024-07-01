@@ -4,16 +4,18 @@ use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, TryLockError};
 
+use crate::p2p::identity::SecretKey as P2pSecretKey;
 use crate::{Action, ActionWithMeta, EventSourceAction, State};
 
 use super::{RecordedActionWithMeta, RecordedInitialState};
 
-static ACTIONS_F: Mutex<Option<fs::File>> = Mutex::new(None);
+static ACTIONS_F: Mutex<Vec<Option<fs::File>>> = Mutex::new(Vec::new());
 
-/// There must only be 1 `Recorder` instance per process!
+/// Panics: if all the `Recorder` instances aren't in the same thread.
 pub enum Recorder {
     None,
     OnlyInputActions {
+        recorder_i: usize,
         recorder_path: PathBuf,
         actions_f_bytes_written: u64,
         actions_f_index: usize,
@@ -32,21 +34,24 @@ impl Recorder {
 
         let file = fs::File::create(actions_path)
             .expect("creating file for openmina recorder initial state failed!");
-        let _ = ACTIONS_F.try_lock().unwrap().insert(file);
+        let mut actions_files = ACTIONS_F.try_lock().unwrap();
+        actions_files.push(Some(file));
 
         Self::OnlyInputActions {
+            recorder_i: actions_files.len() - 1,
             recorder_path: path,
             actions_f_bytes_written: 0,
             actions_f_index,
         }
     }
 
-    pub fn initial_state(&mut self, rng_seed: u64, state: &State) {
+    pub fn initial_state(&mut self, rng_seed: u64, p2p_sec_key: P2pSecretKey, state: &State) {
         match self {
             Self::None => {}
             Self::OnlyInputActions { recorder_path, .. } => {
                 let initial_state = RecordedInitialState {
                     rng_seed,
+                    p2p_sec_key,
                     state: Cow::Borrowed(state),
                 };
                 let initial_state_path = super::initial_state_path(recorder_path);
@@ -62,6 +67,7 @@ impl Recorder {
         match self {
             Self::None => {}
             Self::OnlyInputActions {
+                recorder_i,
                 recorder_path,
                 actions_f_bytes_written,
                 actions_f_index,
@@ -83,7 +89,8 @@ impl Recorder {
                     RecordedActionWithMeta::from(action)
                 };
 
-                let mut cur_f = ACTIONS_F.try_lock().unwrap();
+                let mut files = ACTIONS_F.try_lock().unwrap();
+                let cur_f = &mut files[*recorder_i];
 
                 let file = if *actions_f_bytes_written > 64 * 1024 * 1024 {
                     cur_f.take().unwrap().sync_all().unwrap();
@@ -112,7 +119,7 @@ impl Recorder {
     }
 
     pub fn graceful_shutdown() {
-        graceful_shutdown()
+        graceful_shutdown(None)
     }
 }
 
@@ -120,25 +127,29 @@ impl Drop for Recorder {
     fn drop(&mut self) {
         match self {
             Self::None => {}
-            Self::OnlyInputActions { .. } => {
-                graceful_shutdown();
-            }
+            Self::OnlyInputActions { recorder_i, .. } => graceful_shutdown(Some(*recorder_i)),
         }
     }
 }
 
-pub fn graceful_shutdown() {
-    let Some(f) = ACTIONS_F
-        .try_lock()
-        .map(|mut v| v.take())
-        .unwrap_or_else(|err| match err {
+fn graceful_shutdown(only_i: Option<usize>) {
+    let Some(mut files) = ACTIONS_F.try_lock().map_or_else(
+        |err| match err {
             TryLockError::WouldBlock => None,
-            TryLockError::Poisoned(v) => v.into_inner().take(),
-        })
-    else {
+            TryLockError::Poisoned(v) => Some(v.into_inner()),
+        },
+        Some,
+    ) else {
         return;
     };
+    let files_iter = files
+        .iter_mut()
+        .enumerate()
+        .filter(|(i, _)| only_i.map_or(true, |only_i| only_i == *i))
+        .filter_map(|(i, v)| Some((i, v.take()?)));
 
-    eprintln!("Flushing recorded actions to disk before shutdown");
-    let _ = f.sync_all();
+    for (i, file) in files_iter {
+        eprintln!("Flushing recorded actions to disk before shutdown. i={i}");
+        let _ = file.sync_all();
+    }
 }

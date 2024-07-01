@@ -33,7 +33,21 @@ impl TransitionFrontierSyncLedgerState {
         }
     }
 
+    pub fn snarked_mut(&mut self) -> Option<&mut TransitionFrontierSyncLedgerSnarkedState> {
+        match self {
+            Self::Snarked(v) => Some(v),
+            _ => None,
+        }
+    }
+
     pub fn staged(&self) -> Option<&TransitionFrontierSyncLedgerStagedState> {
+        match self {
+            Self::Staged(v) => Some(v),
+            _ => None,
+        }
+    }
+
+    pub fn staged_mut(&mut self) -> Option<&mut TransitionFrontierSyncLedgerStagedState> {
         match self {
             Self::Staged(v) => Some(v),
             _ => None,
@@ -81,11 +95,10 @@ impl TransitionFrontierSyncLedgerState {
                 }
             }
             Self::Staged(staged) => {
-                let target = staged.target();
-                if target.snarked_ledger_hash == new_target.snarked_ledger_hash {
+                if staged.target().snarked_ledger_hash == new_target.snarked_ledger_hash {
                     *self = TransitionFrontierSyncLedgerSnarkedState::Success {
                         time,
-                        target: target.clone().into(),
+                        target: new_target.clone(),
                     }
                     .into();
                 } else {

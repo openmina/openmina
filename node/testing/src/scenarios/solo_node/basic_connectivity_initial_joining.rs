@@ -24,27 +24,15 @@ pub struct SoloNodeBasicConnectivityInitialJoining;
 impl SoloNodeBasicConnectivityInitialJoining {
     pub async fn run(self, mut runner: ClusterRunner<'_>) {
         const MAX_PEERS_PER_NODE: usize = 100;
-        const KNOWN_PEERS: usize = 5; // current berkeley network
+        const KNOWN_PEERS: usize = 5; // current devnet network
         const STEPS: usize = 3_000;
         const STEP_DELAY: Duration = Duration::from_millis(200);
 
         let seeds_var = std::env::var("OPENMINA_SCENARIO_SEEDS");
         let seeds = seeds_var.as_ref().map_or_else(
-            |_| {
-                vec![
-                    "/ip4/34.70.183.166/tcp/10001/p2p/12D3KooWAdgYL6hv18M3iDBdaK1dRygPivSfAfBNDzie6YqydVbs",
-                    "/ip4/34.135.63.47/tcp/10001/p2p/12D3KooWLjs54xHzVmMmGYb7W5RVibqbwD1co7M2ZMfPgPm7iAag",
-                    "/ip4/34.170.114.52/tcp/10001/p2p/12D3KooWEiGVAFC7curXWXiGZyMWnZK9h8BKr88U8D5PKV3dXciv",
-                ]
-            },
+            |_| node::p2p::DEVNET_SEEDS.to_vec(),
             |val| val.split_whitespace().collect(),
         );
-
-        // let seeds = [
-        //     "/ip4/34.70.183.166/tcp/10001/p2p/12D3KooWAdgYL6hv18M3iDBdaK1dRygPivSfAfBNDzie6YqydVbs",
-        //     "/ip4/34.135.63.47/tcp/10001/p2p/12D3KooWLjs54xHzVmMmGYb7W5RVibqbwD1co7M2ZMfPgPm7iAag",
-        //     "/ip4/34.170.114.52/tcp/10001/p2p/12D3KooWEiGVAFC7curXWXiGZyMWnZK9h8BKr88U8D5PKV3dXciv",
-        // ];
 
         let initial_peers = seeds
             .iter()
@@ -56,7 +44,7 @@ impl SoloNodeBasicConnectivityInitialJoining {
         for seed in seeds {
             eprintln!("add initial peer: {seed}");
         }
-        let config = RustNodeTestingConfig::berkeley_default()
+        let config = RustNodeTestingConfig::devnet_default()
             .ask_initial_peers_interval(Duration::from_secs(3600))
             .max_peers(MAX_PEERS_PER_NODE)
             .initial_peers(initial_peers);

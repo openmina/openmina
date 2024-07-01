@@ -33,7 +33,7 @@ pub enum P2pConnectionIncomingAction {
     },
     AnswerReady {
         peer_id: PeerId,
-        answer: webrtc::Answer,
+        answer: Box<webrtc::Answer>,
     },
     AnswerSendSuccess {
         peer_id: PeerId,
@@ -91,9 +91,10 @@ impl P2pConnectionIncomingAction {
             | Self::FinalizeSuccess { peer_id }
             | Self::Timeout { peer_id }
             | Self::Error { peer_id, .. }
-            | Self::Success { peer_id }
-            | Self::FinalizePendingLibp2p { peer_id, .. }
-            | Self::Libp2pReceived { peer_id } => Some(peer_id),
+            | Self::Success { peer_id } => Some(peer_id),
+            Self::FinalizePendingLibp2p { peer_id, .. } | Self::Libp2pReceived { peer_id } => {
+                Some(peer_id)
+            }
         }
     }
 }
@@ -214,16 +215,19 @@ impl redux::EnablingCondition<P2pState> for P2pConnectionIncomingAction {
                     )
                 })
             }
-            P2pConnectionIncomingAction::FinalizePendingLibp2p { .. } => true,
+            P2pConnectionIncomingAction::FinalizePendingLibp2p { .. } => {
+                cfg!(feature = "p2p-libp2p")
+            }
             P2pConnectionIncomingAction::Libp2pReceived { peer_id, .. } => {
-                state.peers.get(peer_id).map_or(false, |peer| {
-                    matches!(
-                        &peer.status,
-                        P2pPeerStatus::Connecting(P2pConnectionState::Incoming(
-                            P2pConnectionIncomingState::FinalizePendingLibp2p { .. },
-                        ))
-                    )
-                })
+                cfg!(feature = "p2p-libp2p")
+                    && state.peers.get(peer_id).map_or(false, |peer| {
+                        matches!(
+                            &peer.status,
+                            P2pPeerStatus::Connecting(P2pConnectionState::Incoming(
+                                P2pConnectionIncomingState::FinalizePendingLibp2p { .. },
+                            ))
+                        )
+                    })
             }
         }
     }

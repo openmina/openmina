@@ -13,9 +13,6 @@ impl P2pNetworkRpcState {
         action: redux::ActionWithMeta<&P2pNetworkRpcAction>,
         limits: &P2pLimits,
     ) {
-        if self.error.is_some() {
-            return;
-        }
         match action.action() {
             P2pNetworkRpcAction::Init { incoming, .. } => {
                 self.is_incoming = *incoming;
@@ -89,6 +86,9 @@ impl P2pNetworkRpcState {
             }
             P2pNetworkRpcAction::PrunePending { .. } => {
                 self.pending = None;
+            }
+            P2pNetworkRpcAction::HeartbeatSend { .. } => {
+                self.last_heartbeat_sent = Some(action.time());
             }
             P2pNetworkRpcAction::OutgoingQuery { query, .. } => {
                 self.last_id = query.id;

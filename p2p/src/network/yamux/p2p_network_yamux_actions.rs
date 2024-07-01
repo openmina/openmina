@@ -3,7 +3,7 @@ use std::net::SocketAddr;
 use openmina_core::ActionEvent;
 use serde::{Deserialize, Serialize};
 
-use super::p2p_network_yamux_state::{StreamId, YamuxFrame, YamuxPing};
+use super::p2p_network_yamux_state::{StreamId, YamuxFlags, YamuxFrame, YamuxPing};
 use crate::{token, Data, P2pState};
 
 #[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
@@ -17,7 +17,7 @@ pub enum P2pNetworkYamuxAction {
         addr: SocketAddr,
         stream_id: StreamId,
         data: Data,
-        fin: bool,
+        flags: YamuxFlags,
     },
     #[action_event(level = trace)]
     IncomingFrame {
@@ -68,7 +68,7 @@ impl redux::EnablingCondition<P2pState> for P2pNetworkYamuxAction {
                 addr,
                 stream_id,
                 data,
-                fin,
+                flags,
             } => true,
             P2pNetworkYamuxAction::IncomingFrame { addr, frame } => true,
             P2pNetworkYamuxAction::OutgoingFrame { addr, frame } => true,

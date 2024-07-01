@@ -1,3 +1,5 @@
+use openmina_core::SubstateAccess;
+
 use crate::connection::incoming::{IncomingSignalingMethod, P2pConnectionIncomingAction};
 use crate::connection::outgoing::{P2pConnectionOutgoingAction, P2pConnectionOutgoingInitOpts};
 use crate::connection::{p2p_connection_reducer, P2pConnectionAction, P2pConnectionState};
@@ -8,14 +10,25 @@ use crate::webrtc::{HttpSignalingInfo, SignalingMethod};
 use crate::{P2pAction, P2pActionWithMetaRef, P2pPeerState, P2pPeerStatus, P2pState};
 
 impl P2pState {
-    pub fn reducer(&mut self, action: P2pActionWithMetaRef<'_>) {
+    pub fn reducer<State, Action>(
+        mut state_context: openmina_core::Substate<Action, State, Self>,
+        action: P2pActionWithMetaRef<'_>,
+    ) where
+        State: SubstateAccess<Self>,
+        Action: From<P2pAction>,
+    {
+        let Ok(state) = state_context.get_substate_mut() else {
+            // TODO: log or propagate
+            return;
+        };
         let (action, meta) = action.split();
+
         match action {
             P2pAction::Initialization(_) => {
                 // noop
             }
             P2pAction::Connection(action) => {
-                let my_id = self.my_id();
+                let my_id = state.my_id();
                 let Some(peer_id) = action.peer_id() else {
                     return;
                 };
@@ -23,7 +36,7 @@ impl P2pState {
                     P2pConnectionAction::Outgoing(P2pConnectionOutgoingAction::Init {
                         opts,
                         ..
-                    }) => self.peers.entry(*peer_id).or_insert_with(|| P2pPeerState {
+                    }) => state.peers.entry(*peer_id).or_insert_with(|| P2pPeerState {
                         is_libp2p: opts.is_libp2p(),
                         dial_opts: Some(opts.clone()),
                         status: P2pPeerStatus::Connecting(P2pConnectionState::outgoing_init(opts)),
@@ -32,7 +45,7 @@ impl P2pState {
                     P2pConnectionAction::Incoming(P2pConnectionIncomingAction::Init {
                         opts,
                         ..
-                    }) => self.peers.entry(*peer_id).or_insert_with(|| P2pPeerState {
+                    }) => state.peers.entry(*peer_id).or_insert_with(|| P2pPeerState {
                         is_libp2p: false,
                         dial_opts: {
                             let signaling = match opts.signaling {
@@ -54,7 +67,7 @@ impl P2pState {
                     P2pConnectionAction::Incoming(
                         P2pConnectionIncomingAction::FinalizePendingLibp2p { .. },
                     ) => {
-                        self.peers.entry(*peer_id).or_insert_with(|| P2pPeerState {
+                        state.peers.entry(*peer_id).or_insert_with(|| P2pPeerState {
                             is_libp2p: true,
                             dial_opts: None,
                             // correct status later set in the child reducer.
@@ -62,7 +75,7 @@ impl P2pState {
                             identify: None,
                         })
                     }
-                    _ => match self.peers.get_mut(peer_id) {
+                    _ => match state.peers.get_mut(peer_id) {
                         Some(v) => v,
                         None => return,
                     },
@@ -72,7 +85,8 @@ impl P2pState {
             P2pAction::Disconnection(action) => match action {
                 P2pDisconnectionAction::Init { .. } => {}
                 P2pDisconnectionAction::Finish { peer_id } => {
-                    if self
+                    #[cfg(feature = "p2p-libp2p")]
+                    if state
                         .network
                         .scheduler
                         .connections
@@ -82,40 +96,49 @@ impl P2pState {
                         // still have other connections
                         return;
                     }
-                    let Some(peer) = self.peers.get_mut(peer_id) else {
+                    let Some(peer) = state.peers.get_mut(peer_id) else {
                         return;
                     };
                     peer.status = P2pPeerStatus::Disconnected { time: meta.time() };
                 }
             },
             P2pAction::Peer(action) => {
-                p2p_peer_reducer(self, meta.with_action(action));
+                p2p_peer_reducer(state, meta.with_action(action));
             }
             P2pAction::Channels(action) => {
                 let Some(peer_id) = action.peer_id() else {
                     return;
                 };
-                let Some(peer) = self.get_ready_peer_mut(peer_id) else {
+                let is_libp2p = state.is_libp2p_peer(peer_id);
+                let Some(peer) = state.get_ready_peer_mut(peer_id) else {
                     return;
                 };
-                peer.channels.reducer(meta.with_action(action));
+                peer.channels.reducer(meta.with_action(action), is_libp2p);
             }
             P2pAction::Discovery(action) => {
-                p2p_discovery_reducer(self, meta.with_action(action));
+                p2p_discovery_reducer(state, meta.with_action(action));
             }
-            P2pAction::Identify(action) => match action {
-                crate::identify::P2pIdentifyAction::NewRequest { .. } => {}
-                crate::identify::P2pIdentifyAction::UpdatePeerInformation { peer_id, info } => {
-                    if let Some(peer) = self.peers.get_mut(peer_id) {
-                        peer.identify = Some(info.clone());
-                    } else {
-                        unreachable!()
+            P2pAction::Identify(_action) =>
+            {
+                #[cfg(feature = "p2p-libp2p")]
+                match _action {
+                    crate::identify::P2pIdentifyAction::NewRequest { .. } => {}
+                    crate::identify::P2pIdentifyAction::UpdatePeerInformation { peer_id, info } => {
+                        if let Some(peer) = state.peers.get_mut(peer_id) {
+                            peer.identify = Some(*info.clone());
+                        } else {
+                            unreachable!()
+                        }
                     }
                 }
-            },
-            P2pAction::Network(action) => self
-                .network
-                .reducer(meta.with_action(action), &self.config.limits),
+            }
+            P2pAction::Network(_action) => {
+                #[cfg(feature = "p2p-libp2p")]
+                {
+                    let limits = &state.config.limits;
+                    state.network.reducer(meta.with_action(_action), limits);
+                }
+            }
         }
     }
 }

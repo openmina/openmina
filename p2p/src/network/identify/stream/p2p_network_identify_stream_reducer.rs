@@ -18,8 +18,6 @@ impl P2pNetworkIdentifyStreamState {
         use super::P2pNetworkIdentifyStreamAction as A;
         use super::P2pNetworkIdentifyStreamState as S;
         let (action, _meta) = action.split();
-        //println!("=== IDENTIFY state:  {self:?}");
-        //println!("=== IDENTIFY action: {action:?}");
         match &self {
             S::Default => {
                 if let A::New { incoming, .. } = action {
@@ -67,6 +65,7 @@ impl P2pNetworkIdentifyStreamState {
                         self.handle_incoming_identify_message(len, data)
                     }
                 }
+                A::RemoteClose { .. } => Ok(()),
                 A::Close { .. } => todo!(),
                 _ => unreachable!(),
             },
@@ -82,10 +81,14 @@ impl P2pNetworkIdentifyStreamState {
                         self.handle_incoming_identify_message(*len, &data)
                     }
                 }
+                A::RemoteClose { .. } => Ok(()),
                 A::Close { .. } => todo!(),
-                _ => unreachable!(),
+                _ => {
+                    unreachable!();
+                }
             },
             S::SendIdentify => match action {
+                A::RemoteClose { .. } => Ok(()),
                 A::Close { .. } => Ok(()),
                 _ => unreachable!(),
             },

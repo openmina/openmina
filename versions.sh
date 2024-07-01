@@ -25,7 +25,7 @@ do
 
   version_before="${old_version/#$version_prefix}"
   # replace version
-  sed -i "s/$old_version/$new_version/g" $file
+  sed -i "s/^$old_version/$new_version/g" $file
   version_after=`cat $file | grep ^version |  tr --delete "$version_prefix"`
 
   echo "$file $version_before -> $version_after"

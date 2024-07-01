@@ -43,7 +43,6 @@ use crate::stats::block_producer::{BlockProductionAttempt, BlockProductionAttemp
 use crate::stats::sync::SyncStatsSnapshot;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[allow(clippy::large_enum_variant)]
 pub enum RpcRequest {
     StateGet(Option<String>),
     StatusGet,

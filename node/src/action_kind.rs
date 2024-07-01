@@ -13,6 +13,7 @@
 
 use num_enum::TryFromPrimitive;
 use serde::{Deserialize, Serialize};
+use strum_macros::VariantArray;
 
 use crate::block_producer::vrf_evaluator::BlockProducerVrfEvaluatorAction;
 use crate::block_producer::BlockProducerAction;
@@ -26,6 +27,7 @@ use crate::p2p::channels::best_tip::P2pChannelsBestTipAction;
 use crate::p2p::channels::rpc::P2pChannelsRpcAction;
 use crate::p2p::channels::snark::P2pChannelsSnarkAction;
 use crate::p2p::channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentAction;
+use crate::p2p::channels::transaction::P2pChannelsTransactionAction;
 use crate::p2p::channels::{P2pChannelsAction, P2pChannelsMessageReceivedAction};
 use crate::p2p::connection::incoming::P2pConnectionIncomingAction;
 use crate::p2p::connection::outgoing::P2pConnectionOutgoingAction;
@@ -51,11 +53,14 @@ use crate::p2p::peer::P2pPeerAction;
 use crate::p2p::{P2pAction, P2pInitializeAction};
 use crate::rpc::RpcAction;
 use crate::snark::block_verify::SnarkBlockVerifyAction;
+use crate::snark::block_verify_effectful::SnarkBlockVerifyEffectfulAction;
 use crate::snark::work_verify::SnarkWorkVerifyAction;
+use crate::snark::work_verify_effectful::SnarkWorkVerifyEffectfulAction;
 use crate::snark::SnarkAction;
 use crate::snark_pool::candidate::SnarkPoolCandidateAction;
-use crate::snark_pool::SnarkPoolAction;
+use crate::snark_pool::{SnarkPoolAction, SnarkPoolEffectfulAction};
 use crate::transition_frontier::genesis::TransitionFrontierGenesisAction;
+use crate::transition_frontier::genesis_effectful::TransitionFrontierGenesisEffectfulAction;
 use crate::transition_frontier::sync::ledger::snarked::TransitionFrontierSyncLedgerSnarkedAction;
 use crate::transition_frontier::sync::ledger::staged::TransitionFrontierSyncLedgerStagedAction;
 use crate::transition_frontier::sync::ledger::TransitionFrontierSyncLedgerAction;
@@ -66,7 +71,17 @@ use crate::{Action, ActionKindGet, CheckTimeoutsAction};
 
 /// Unified kind enum for all action types
 #[derive(
-    Serialize, Deserialize, TryFromPrimitive, Debug, Ord, PartialOrd, Eq, PartialEq, Clone, Copy,
+    Serialize,
+    Deserialize,
+    VariantArray,
+    TryFromPrimitive,
+    Debug,
+    Ord,
+    PartialOrd,
+    Eq,
+    PartialEq,
+    Clone,
+    Copy,
 )]
 #[repr(u16)]
 pub enum ActionKind {
@@ -108,6 +123,7 @@ pub enum ActionKind {
     ConsensusBestTipUpdate,
     ConsensusBlockChainProofUpdate,
     ConsensusBlockReceived,
+    ConsensusBlockSnarkVerifyError,
     ConsensusBlockSnarkVerifyPending,
     ConsensusBlockSnarkVerifySuccess,
     ConsensusDetectForkRange,
@@ -174,6 +190,16 @@ pub enum ActionKind {
     P2pChannelsSnarkJobCommitmentRequestReceived,
     P2pChannelsSnarkJobCommitmentRequestSend,
     P2pChannelsSnarkJobCommitmentResponseSend,
+    P2pChannelsTransactionInit,
+    P2pChannelsTransactionLibp2pBroadcast,
+    P2pChannelsTransactionLibp2pReceived,
+    P2pChannelsTransactionPending,
+    P2pChannelsTransactionPromiseReceived,
+    P2pChannelsTransactionReady,
+    P2pChannelsTransactionReceived,
+    P2pChannelsTransactionRequestReceived,
+    P2pChannelsTransactionRequestSend,
+    P2pChannelsTransactionResponseSend,
     P2pConnectionIncomingAnswerReady,
     P2pConnectionIncomingAnswerSdpCreateError,
     P2pConnectionIncomingAnswerSdpCreatePending,
@@ -250,10 +276,13 @@ pub enum ActionKind {
     P2pNetworkNoiseIncomingData,
     P2pNetworkNoiseInit,
     P2pNetworkNoiseOutgoingChunk,
+    P2pNetworkNoiseOutgoingChunkSelectMux,
     P2pNetworkNoiseOutgoingData,
+    P2pNetworkNoiseOutgoingDataSelectMux,
     P2pNetworkPnetIncomingData,
     P2pNetworkPnetOutgoingData,
     P2pNetworkPnetSetupNonce,
+    P2pNetworkPnetTimeout,
     P2pNetworkPubsubBroadcast,
     P2pNetworkPubsubBroadcastSigned,
     P2pNetworkPubsubIncomingData,
@@ -261,6 +290,7 @@ pub enum ActionKind {
     P2pNetworkPubsubOutgoingData,
     P2pNetworkPubsubOutgoingMessage,
     P2pNetworkPubsubSign,
+    P2pNetworkRpcHeartbeatSend,
     P2pNetworkRpcIncomingData,
     P2pNetworkRpcIncomingMessage,
     P2pNetworkRpcInit,
@@ -282,12 +312,17 @@ pub enum ActionKind {
     P2pNetworkSchedulerOutgoingConnect,
     P2pNetworkSchedulerOutgoingDidConnect,
     P2pNetworkSchedulerPrune,
+    P2pNetworkSchedulerPruneStream,
     P2pNetworkSchedulerPruneStreams,
     P2pNetworkSchedulerSelectDone,
     P2pNetworkSchedulerSelectError,
     P2pNetworkSchedulerYamuxDidInit,
     P2pNetworkSelectIncomingData,
+    P2pNetworkSelectIncomingDataAuth,
+    P2pNetworkSelectIncomingDataMux,
     P2pNetworkSelectIncomingPayload,
+    P2pNetworkSelectIncomingPayloadAuth,
+    P2pNetworkSelectIncomingPayloadMux,
     P2pNetworkSelectIncomingToken,
     P2pNetworkSelectInit,
     P2pNetworkSelectOutgoingTokens,
@@ -337,10 +372,12 @@ pub enum ActionKind {
     SnarkBlockVerifyInit,
     SnarkBlockVerifyPending,
     SnarkBlockVerifySuccess,
+    SnarkBlockVerifyEffectfulInit,
     SnarkPoolAutoCreateCommitment,
     SnarkPoolCheckTimeouts,
     SnarkPoolCommitmentAdd,
     SnarkPoolCommitmentCreate,
+    SnarkPoolCommitmentCreateMany,
     SnarkPoolJobCommitmentTimeout,
     SnarkPoolJobsUpdate,
     SnarkPoolP2pSend,
@@ -356,11 +393,13 @@ pub enum ActionKind {
     SnarkPoolCandidateWorkVerifyNext,
     SnarkPoolCandidateWorkVerifyPending,
     SnarkPoolCandidateWorkVerifySuccess,
+    SnarkPoolEffectfulSnarkPoolJobsRandomChoose,
     SnarkWorkVerifyError,
     SnarkWorkVerifyFinish,
     SnarkWorkVerifyInit,
     SnarkWorkVerifyPending,
     SnarkWorkVerifySuccess,
+    SnarkWorkVerifyEffectfulInit,
     TransitionFrontierGenesisInject,
     TransitionFrontierSynced,
     TransitionFrontierGenesisLedgerLoadInit,
@@ -370,6 +409,8 @@ pub enum ActionKind {
     TransitionFrontierGenesisProveInit,
     TransitionFrontierGenesisProvePending,
     TransitionFrontierGenesisProveSuccess,
+    TransitionFrontierGenesisEffectfulLedgerLoadInit,
+    TransitionFrontierGenesisEffectfulProveInit,
     TransitionFrontierSyncBestTipUpdate,
     TransitionFrontierSyncBlocksFetchSuccess,
     TransitionFrontierSyncBlocksNextApplyInit,
@@ -447,7 +488,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 374;
+    pub const COUNT: u16 = 400;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -467,6 +508,7 @@ impl ActionKindGet for Action {
             Self::Consensus(a) => a.kind(),
             Self::TransitionFrontier(a) => a.kind(),
             Self::SnarkPool(a) => a.kind(),
+            Self::SnarkPoolEffect(a) => a.kind(),
             Self::ExternalSnarkWorker(a) => a.kind(),
             Self::BlockProducer(a) => a.kind(),
             Self::Rpc(a) => a.kind(),
@@ -520,7 +562,9 @@ impl ActionKindGet for SnarkAction {
     fn kind(&self) -> ActionKind {
         match self {
             Self::BlockVerify(a) => a.kind(),
+            Self::BlockVerifyEffect(a) => a.kind(),
             Self::WorkVerify(a) => a.kind(),
+            Self::WorkVerifyEffect(a) => a.kind(),
         }
     }
 }
@@ -532,6 +576,7 @@ impl ActionKindGet for ConsensusAction {
             Self::BlockChainProofUpdate { .. } => ActionKind::ConsensusBlockChainProofUpdate,
             Self::BlockSnarkVerifyPending { .. } => ActionKind::ConsensusBlockSnarkVerifyPending,
             Self::BlockSnarkVerifySuccess { .. } => ActionKind::ConsensusBlockSnarkVerifySuccess,
+            Self::BlockSnarkVerifyError { .. } => ActionKind::ConsensusBlockSnarkVerifyError,
             Self::DetectForkRange { .. } => ActionKind::ConsensusDetectForkRange,
             Self::ShortRangeForkResolve { .. } => ActionKind::ConsensusShortRangeForkResolve,
             Self::LongRangeForkResolve { .. } => ActionKind::ConsensusLongRangeForkResolve,
@@ -545,6 +590,7 @@ impl ActionKindGet for TransitionFrontierAction {
     fn kind(&self) -> ActionKind {
         match self {
             Self::Genesis(a) => a.kind(),
+            Self::GenesisEffect(a) => a.kind(),
             Self::Sync(a) => a.kind(),
             Self::GenesisInject => ActionKind::TransitionFrontierGenesisInject,
             Self::Synced { .. } => ActionKind::TransitionFrontierSynced,
@@ -558,6 +604,7 @@ impl ActionKindGet for SnarkPoolAction {
             Self::Candidate(a) => a.kind(),
             Self::JobsUpdate { .. } => ActionKind::SnarkPoolJobsUpdate,
             Self::AutoCreateCommitment => ActionKind::SnarkPoolAutoCreateCommitment,
+            Self::CommitmentCreateMany { .. } => ActionKind::SnarkPoolCommitmentCreateMany,
             Self::CommitmentCreate { .. } => ActionKind::SnarkPoolCommitmentCreate,
             Self::CommitmentAdd { .. } => ActionKind::SnarkPoolCommitmentAdd,
             Self::WorkAdd { .. } => ActionKind::SnarkPoolWorkAdd,
@@ -565,6 +612,16 @@ impl ActionKindGet for SnarkPoolAction {
             Self::P2pSend { .. } => ActionKind::SnarkPoolP2pSend,
             Self::CheckTimeouts => ActionKind::SnarkPoolCheckTimeouts,
             Self::JobCommitmentTimeout { .. } => ActionKind::SnarkPoolJobCommitmentTimeout,
+        }
+    }
+}
+
+impl ActionKindGet for SnarkPoolEffectfulAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::SnarkPoolJobsRandomChoose { .. } => {
+                ActionKind::SnarkPoolEffectfulSnarkPoolJobsRandomChoose
+            }
         }
     }
 }
@@ -749,6 +806,7 @@ impl ActionKindGet for P2pChannelsAction {
         match self {
             Self::MessageReceived(a) => a.kind(),
             Self::BestTip(a) => a.kind(),
+            Self::Transaction(a) => a.kind(),
             Self::Snark(a) => a.kind(),
             Self::SnarkJobCommitment(a) => a.kind(),
             Self::Rpc(a) => a.kind(),
@@ -816,6 +874,14 @@ impl ActionKindGet for SnarkBlockVerifyAction {
     }
 }
 
+impl ActionKindGet for SnarkBlockVerifyEffectfulAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::Init { .. } => ActionKind::SnarkBlockVerifyEffectfulInit,
+        }
+    }
+}
+
 impl ActionKindGet for SnarkWorkVerifyAction {
     fn kind(&self) -> ActionKind {
         match self {
@@ -824,6 +890,14 @@ impl ActionKindGet for SnarkWorkVerifyAction {
             Self::Error { .. } => ActionKind::SnarkWorkVerifyError,
             Self::Success { .. } => ActionKind::SnarkWorkVerifySuccess,
             Self::Finish { .. } => ActionKind::SnarkWorkVerifyFinish,
+        }
+    }
+}
+
+impl ActionKindGet for SnarkWorkVerifyEffectfulAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::Init { .. } => ActionKind::SnarkWorkVerifyEffectfulInit,
         }
     }
 }
@@ -840,6 +914,17 @@ impl ActionKindGet for TransitionFrontierGenesisAction {
             Self::ProveInit => ActionKind::TransitionFrontierGenesisProveInit,
             Self::ProvePending => ActionKind::TransitionFrontierGenesisProvePending,
             Self::ProveSuccess { .. } => ActionKind::TransitionFrontierGenesisProveSuccess,
+        }
+    }
+}
+
+impl ActionKindGet for TransitionFrontierGenesisEffectfulAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::LedgerLoadInit { .. } => {
+                ActionKind::TransitionFrontierGenesisEffectfulLedgerLoadInit
+            }
+            Self::ProveInit { .. } => ActionKind::TransitionFrontierGenesisEffectfulProveInit,
         }
     }
 }
@@ -1041,6 +1126,23 @@ impl ActionKindGet for P2pChannelsBestTipAction {
     }
 }
 
+impl ActionKindGet for P2pChannelsTransactionAction {
+    fn kind(&self) -> ActionKind {
+        match self {
+            Self::Init { .. } => ActionKind::P2pChannelsTransactionInit,
+            Self::Pending { .. } => ActionKind::P2pChannelsTransactionPending,
+            Self::Ready { .. } => ActionKind::P2pChannelsTransactionReady,
+            Self::RequestSend { .. } => ActionKind::P2pChannelsTransactionRequestSend,
+            Self::PromiseReceived { .. } => ActionKind::P2pChannelsTransactionPromiseReceived,
+            Self::Received { .. } => ActionKind::P2pChannelsTransactionReceived,
+            Self::RequestReceived { .. } => ActionKind::P2pChannelsTransactionRequestReceived,
+            Self::ResponseSend { .. } => ActionKind::P2pChannelsTransactionResponseSend,
+            Self::Libp2pReceived { .. } => ActionKind::P2pChannelsTransactionLibp2pReceived,
+            Self::Libp2pBroadcast { .. } => ActionKind::P2pChannelsTransactionLibp2pBroadcast,
+        }
+    }
+}
+
 impl ActionKindGet for P2pChannelsSnarkAction {
     fn kind(&self) -> ActionKind {
         match self {
@@ -1118,6 +1220,7 @@ impl ActionKindGet for P2pNetworkSchedulerAction {
             Self::Disconnected { .. } => ActionKind::P2pNetworkSchedulerDisconnected,
             Self::Prune { .. } => ActionKind::P2pNetworkSchedulerPrune,
             Self::PruneStreams { .. } => ActionKind::P2pNetworkSchedulerPruneStreams,
+            Self::PruneStream { .. } => ActionKind::P2pNetworkSchedulerPruneStream,
         }
     }
 }
@@ -1128,6 +1231,7 @@ impl ActionKindGet for P2pNetworkPnetAction {
             Self::IncomingData { .. } => ActionKind::P2pNetworkPnetIncomingData,
             Self::OutgoingData { .. } => ActionKind::P2pNetworkPnetOutgoingData,
             Self::SetupNonce { .. } => ActionKind::P2pNetworkPnetSetupNonce,
+            Self::Timeout { .. } => ActionKind::P2pNetworkPnetTimeout,
         }
     }
 }
@@ -1136,7 +1240,11 @@ impl ActionKindGet for P2pNetworkSelectAction {
     fn kind(&self) -> ActionKind {
         match self {
             Self::Init { .. } => ActionKind::P2pNetworkSelectInit,
+            Self::IncomingDataAuth { .. } => ActionKind::P2pNetworkSelectIncomingDataAuth,
+            Self::IncomingDataMux { .. } => ActionKind::P2pNetworkSelectIncomingDataMux,
             Self::IncomingData { .. } => ActionKind::P2pNetworkSelectIncomingData,
+            Self::IncomingPayloadAuth { .. } => ActionKind::P2pNetworkSelectIncomingPayloadAuth,
+            Self::IncomingPayloadMux { .. } => ActionKind::P2pNetworkSelectIncomingPayloadMux,
             Self::IncomingPayload { .. } => ActionKind::P2pNetworkSelectIncomingPayload,
             Self::IncomingToken { .. } => ActionKind::P2pNetworkSelectIncomingToken,
             Self::OutgoingTokens { .. } => ActionKind::P2pNetworkSelectOutgoingTokens,
@@ -1152,7 +1260,11 @@ impl ActionKindGet for P2pNetworkNoiseAction {
             Self::IncomingData { .. } => ActionKind::P2pNetworkNoiseIncomingData,
             Self::IncomingChunk { .. } => ActionKind::P2pNetworkNoiseIncomingChunk,
             Self::OutgoingChunk { .. } => ActionKind::P2pNetworkNoiseOutgoingChunk,
+            Self::OutgoingChunkSelectMux { .. } => {
+                ActionKind::P2pNetworkNoiseOutgoingChunkSelectMux
+            }
             Self::OutgoingData { .. } => ActionKind::P2pNetworkNoiseOutgoingData,
+            Self::OutgoingDataSelectMux { .. } => ActionKind::P2pNetworkNoiseOutgoingDataSelectMux,
             Self::DecryptedData { .. } => ActionKind::P2pNetworkNoiseDecryptedData,
             Self::HandshakeDone { .. } => ActionKind::P2pNetworkNoiseHandshakeDone,
         }
@@ -1212,6 +1324,7 @@ impl ActionKindGet for P2pNetworkRpcAction {
             Self::IncomingData { .. } => ActionKind::P2pNetworkRpcIncomingData,
             Self::IncomingMessage { .. } => ActionKind::P2pNetworkRpcIncomingMessage,
             Self::PrunePending { .. } => ActionKind::P2pNetworkRpcPrunePending,
+            Self::HeartbeatSend { .. } => ActionKind::P2pNetworkRpcHeartbeatSend,
             Self::OutgoingQuery { .. } => ActionKind::P2pNetworkRpcOutgoingQuery,
             Self::OutgoingResponse { .. } => ActionKind::P2pNetworkRpcOutgoingResponse,
             Self::OutgoingData { .. } => ActionKind::P2pNetworkRpcOutgoingData,

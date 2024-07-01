@@ -1,7 +1,7 @@
 use std::net::SocketAddr;
 
 use multiaddr::Multiaddr;
-use openmina_core::{error, log::system_time, warn};
+use openmina_core::{error, fuzzed_maybe, log::system_time, warn};
 use redux::ActionMeta;
 
 use super::{
@@ -10,7 +10,7 @@ use super::{
 };
 use crate::{
     identify::P2pIdentifyAction, network::identify::stream::P2pNetworkIdentifyStreamError, token,
-    Data, P2pNetworkSchedulerAction, P2pNetworkService, P2pNetworkYamuxAction,
+    Data, P2pNetworkSchedulerAction, P2pNetworkService, P2pNetworkYamuxAction, YamuxFlags,
 };
 
 fn get_addrs<I, S>(addr: &SocketAddr, net_svc: &mut S) -> I
@@ -127,11 +127,16 @@ impl P2pNetworkIdentifyStreamAction {
                         return Ok(());
                     }
 
+                    let data = fuzzed_maybe!(
+                        Data(out.into_boxed_slice()),
+                        crate::fuzzer::mutate_identify_msg
+                    );
+
                     store.dispatch(P2pNetworkYamuxAction::OutgoingData {
                         addr,
                         stream_id,
-                        data: Data(out.into_boxed_slice()),
-                        fin: false,
+                        data,
+                        flags: Default::default(),
                     });
 
                     store.dispatch(P2pNetworkIdentifyStreamAction::Close {
@@ -175,10 +180,9 @@ impl P2pNetworkIdentifyStreamAction {
                 }
                 S::Error(err) => {
                     warn!(meta.time(); summary = "error handling Identify action", error = display(err));
-                    store.dispatch(P2pNetworkSchedulerAction::Error {
-                        addr,
-                        error: P2pNetworkIdentifyStreamError::from(err.clone()).into(),
-                    });
+                    let error = P2pNetworkIdentifyStreamError::from(err.clone()).into();
+
+                    store.dispatch(P2pNetworkSchedulerAction::Error { addr, error });
                     Ok(())
                 }
                 _ => unimplemented!(),
@@ -198,7 +202,7 @@ impl P2pNetworkIdentifyStreamAction {
                             addr,
                             stream_id,
                             data: Data(Box::new([])),
-                            fin: true,
+                            flags: YamuxFlags::FIN,
                         });
                         store.dispatch(A::Prune {
                             addr,
@@ -224,7 +228,7 @@ impl P2pNetworkIdentifyStreamAction {
                             addr,
                             stream_id,
                             data: Data(Box::new([])),
-                            fin: true,
+                            flags: YamuxFlags::FIN,
                         });
                         store.dispatch(A::Prune {
                             addr,

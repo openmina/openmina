@@ -34,7 +34,7 @@ services:
 
   archive:
     container_name: archive
-    image: minaprotocol/mina-archive:2.0.0berkeley-rc1-1551e2f-bullseye
+    image: minaprotocol/mina-archive:3.0.0-dc6bf78-focal
     restart: always
     command: >-
       mina-archive run --postgres-uri
@@ -45,7 +45,7 @@ services:
       - postgres
 
   mina:
-    image: minaprotocol/mina-daemon:2.0.0berkeley-rc1-1551e2f-bullseye-berkeley
+    image: minaprotocol/mina-daemon:3.0.0-dc6bf78-focal-devnet
     container_name: mina
     ports:
       - 8302:8302

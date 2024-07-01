@@ -35,7 +35,7 @@ impl MultiNodeVrfGetCorrectLedgers {
 
         let producer_node = runner.add_rust_node(RustNodeTestingConfig {
             initial_time,
-            genesis: node::config::BERKELEY_CONFIG.clone(),
+            genesis: node::config::DEVNET_CONFIG.clone(),
             max_peers: 100,
             ask_initial_peers_interval: Duration::from_secs(60 * 60),
             initial_peers: Vec::new(),
@@ -51,6 +51,7 @@ impl MultiNodeVrfGetCorrectLedgers {
             snark_worker: None,
             timeouts: P2pTimeouts::default(),
             libp2p_port: None,
+            recorder: Default::default(),
         });
 
         tokio::time::sleep(Duration::from_secs(2)).await;

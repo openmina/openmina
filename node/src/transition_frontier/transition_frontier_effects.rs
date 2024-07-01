@@ -21,6 +21,8 @@ use super::sync::ledger::{
 use super::sync::{TransitionFrontierSyncAction, TransitionFrontierSyncState};
 use super::{TransitionFrontierAction, TransitionFrontierActionWithMeta};
 
+// TODO(refactor): all service accesses are for stats, how should that be handled?
+
 pub fn transition_frontier_effects<S: crate::Service>(
     store: &mut Store<S>,
     action: TransitionFrontierActionWithMeta,
@@ -29,6 +31,8 @@ pub fn transition_frontier_effects<S: crate::Service>(
 
     match action {
         TransitionFrontierAction::Genesis(a) => {
+            // TODO(refactor): this should be handled by a callback and removed from here
+            // whenever any of these is going to happen, genesisinject must happen first
             match &a {
                 TransitionFrontierGenesisAction::Produce
                 | TransitionFrontierGenesisAction::ProveSuccess { .. } => {
@@ -36,6 +40,8 @@ pub fn transition_frontier_effects<S: crate::Service>(
                 }
                 _ => {}
             }
+        }
+        TransitionFrontierAction::GenesisEffect(a) => {
             a.effects(&meta, store);
         }
         TransitionFrontierAction::GenesisInject => {
@@ -199,6 +205,9 @@ pub fn transition_frontier_effects<S: crate::Service>(
                 TransitionFrontierSyncAction::CommitInit => {}
                 TransitionFrontierSyncAction::CommitPending => {}
                 TransitionFrontierSyncAction::CommitSuccess { result } => {
+                    // TODO(refactor): needs to be moved to the reducer in the sync module,
+                    // but that will result in extra cloning until the reducers
+                    // take the action by value instead of reference
                     let own_peer_id = store.state().p2p.my_id();
                     let transition_frontier = &store.state.get().transition_frontier;
                     let TransitionFrontierSyncState::CommitSuccess { chain, .. } =
@@ -361,6 +370,7 @@ fn handle_transition_frontier_sync_ledger_action<S: crate::Service>(
             a.effects(meta, store);
         }
         TransitionFrontierSyncLedgerAction::Staged(a) => {
+            // TODO(refactor): these should be handled with callbacks or something
             match a {
                 TransitionFrontierSyncLedgerStagedAction::PartsFetchPending => {
                     if let Some(stats) = store.service.stats() {
@@ -426,11 +436,12 @@ fn handle_transition_frontier_sync_ledger_action<S: crate::Service>(
                     }
                 }
                 TransitionFrontierSyncLedgerStagedAction::Success => {
+                    // TODO(refactor): this one in particular must be a callback, others
+                    // are just stats updates
                     transition_frontier_sync_ledger_staged_success_effects(meta, store);
                 }
                 _ => {}
             }
-            a.effects(meta, store)
         }
         TransitionFrontierSyncLedgerAction::Success => {
             match &store.state().transition_frontier.sync {

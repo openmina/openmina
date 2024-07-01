@@ -1,5 +1,6 @@
 use mina_p2p_messages::v2::{MinaLedgerSyncLedgerAnswerStableV2, StateHash};
 use openmina_core::block::BlockWithHash;
+use p2p::channels::transaction::P2pChannelsTransactionAction;
 use p2p::P2pInitializeAction;
 
 use crate::consensus::ConsensusAction;
@@ -37,6 +38,7 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
 
     match action {
         P2pAction::Initialization(P2pInitializeAction::Initialize { .. }) => {
+            #[cfg(feature = "p2p-libp2p")]
             if store.state().p2p.ready().is_some() {
                 store.service().start_mio();
             }
@@ -73,7 +75,7 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
                         if let Some(rpc_id) = p2p.peer_connection_rpc_id(peer_id) {
                             store.dispatch(RpcAction::P2pConnectionIncomingRespond {
                                 rpc_id,
-                                response: P2pConnectionResponse::Accepted(Box::new(answer.clone())),
+                                response: P2pConnectionResponse::Accepted(answer.clone()),
                             });
                             store.dispatch(P2pConnectionIncomingAction::AnswerSendSuccess {
                                 peer_id: *peer_id,
@@ -195,7 +197,6 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
             }
         }
         P2pAction::Discovery(action) => action.effects(&meta, store),
-        P2pAction::Identify(action) => action.effects(&meta, store),
         P2pAction::Channels(action) => match action {
             P2pChannelsAction::MessageReceived(action) => {
                 action.effects(&meta, store);
@@ -210,6 +211,26 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
                     }
                 }
                 action.effects(&meta, store);
+            }
+            P2pChannelsAction::Transaction(action) => {
+                // TODO: does the order matter here? if not this clone can be removed
+                action.clone().effects(&meta, store);
+                match action {
+                    P2pChannelsTransactionAction::Received {
+                        peer_id: _,
+                        transaction: _,
+                    } => {
+                        // TODO(binier): propagate tx info received to pool
+                    }
+                    P2pChannelsTransactionAction::Libp2pReceived {
+                        peer_id: _,
+                        transaction: _,
+                        ..
+                    } => {
+                        // TODO(sebastiencs): send transaction to pool
+                    }
+                    _ => {}
+                }
             }
             P2pChannelsAction::Snark(action) => {
                 // TODO: does the order matter here? if not this clone can be removed
@@ -529,6 +550,13 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
                 store.dispatch(TransitionFrontierSyncAction::BlocksPeersQuery);
             }
         },
-        P2pAction::Network(action) => action.effects(&meta, store),
+        P2pAction::Identify(_action) => {
+            #[cfg(feature = "p2p-libp2p")]
+            _action.effects(&meta, store);
+        }
+        P2pAction::Network(_action) => {
+            #[cfg(feature = "p2p-libp2p")]
+            _action.effects(&meta, store);
+        }
     }
 }

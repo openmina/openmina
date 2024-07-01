@@ -13,8 +13,10 @@ pub use self::p2p_network_service::*;
 mod p2p_network_state;
 pub use self::p2p_network_state::P2pNetworkState;
 
+#[cfg(feature = "p2p-libp2p")]
 mod p2p_network_reducer;
 
+#[cfg(feature = "p2p-libp2p")]
 mod p2p_network_effects;
 
 pub mod scheduler;
@@ -53,7 +55,7 @@ mod data {
     #[derive(Clone)]
     pub struct DataSized<const N: usize>(pub [u8; N]);
 
-    #[derive(Clone)]
+    #[derive(Clone, Default)]
     pub struct Data(pub Box<[u8]>);
 
     impl<const N: usize> Serialize for DataSized<N> {

@@ -1,13 +1,14 @@
 use redux::{ActionMeta, ActionWithMeta};
 
 use crate::{
-    channels::{P2pChannelsAction, P2pChannelsService},
-    connection::{
-        outgoing::P2pConnectionOutgoingAction, P2pConnectionAction, P2pConnectionService,
-    },
-    disconnection::P2pDisconnectionService,
-    P2pAction, P2pCryptoService, P2pMioService, P2pNetworkKadKey, P2pNetworkKademliaAction,
-    P2pNetworkSelectAction, P2pNetworkService, P2pStore, PeerId,
+    channels::P2pChannelsAction,
+    connection::{outgoing::P2pConnectionOutgoingAction, P2pConnectionAction},
+    P2pAction, P2pStore,
+};
+#[cfg(feature = "p2p-libp2p")]
+use crate::{
+    P2pNetworkKadKey, P2pNetworkKademliaAction, P2pNetworkPnetAction, P2pNetworkSelectAction,
+    PeerId,
 };
 
 pub fn p2p_timeout_effects<Store, S>(store: &mut Store, meta: &ActionMeta)
@@ -19,8 +20,15 @@ where
 
     p2p_try_reconnect_disconnected_peers(store, meta.time());
 
+    #[cfg(feature = "p2p-libp2p")]
+    p2p_pnet_timeouts(store, meta);
+
     p2p_discovery(store, meta);
+
+    #[cfg(feature = "p2p-libp2p")]
     p2p_select_timeouts(store, meta);
+    #[cfg(feature = "p2p-libp2p")]
+    p2p_rpc_heartbeats(store, meta);
 
     let state = store.state();
     for (peer_id, id) in state.peer_rpc_timeouts(meta.time()) {
@@ -28,6 +36,34 @@ where
     }
 }
 
+#[cfg(feature = "p2p-libp2p")]
+fn p2p_pnet_timeouts<Store, S>(store: &mut Store, meta: &ActionMeta)
+where
+    Store: P2pStore<S>,
+{
+    let now = meta.time();
+    let timeouts = &store.state().config.timeouts;
+    let pnet_timeouts: Vec<_> = store
+        .state()
+        .network
+        .scheduler
+        .connections
+        .iter()
+        .filter_map(|(sock_addr, state)| {
+            if state.pnet.is_timed_out(now, timeouts) {
+                Some(*sock_addr)
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    for addr in pnet_timeouts {
+        store.dispatch(P2pNetworkPnetAction::Timeout { addr });
+    }
+}
+
+#[cfg(feature = "p2p-libp2p")]
 fn p2p_select_timeouts<Store, S>(store: &mut Store, meta: &ActionMeta)
 where
     Store: P2pStore<S>,
@@ -106,6 +142,34 @@ where
     }
 }
 
+#[cfg(feature = "p2p-libp2p")]
+fn p2p_rpc_heartbeats<Store, S>(store: &mut Store, meta: &ActionMeta)
+where
+    Store: P2pStore<S>,
+{
+    use crate::network::rpc::P2pNetworkRpcAction;
+    let scheduler = &store.state().network.scheduler;
+
+    let send_heartbeat_actions: Vec<_> = scheduler
+        .rpc_incoming_streams
+        .iter()
+        .chain(&scheduler.rpc_outgoing_streams)
+        .flat_map(|(peer_id, state)| {
+            state
+                .iter()
+                .filter(|(_, s)| s.should_send_heartbeat(meta.time()))
+                .map(|(stream_id, state)| P2pNetworkRpcAction::HeartbeatSend {
+                    addr: state.addr,
+                    peer_id: *peer_id,
+                    stream_id: *stream_id,
+                })
+        })
+        .collect();
+    for action in send_heartbeat_actions {
+        store.dispatch(action);
+    }
+}
+
 fn p2p_connection_timeouts<Store, S>(store: &mut Store, meta: &ActionMeta)
 where
     Store: P2pStore<S>,
@@ -174,8 +238,10 @@ where
     // ask initial peers
     if let Some(_d) = config.timeouts.initial_peers {
         // TODO: use RPC to ask initial peers
+        let _ = now;
     }
 
+    #[cfg(feature = "p2p-libp2p")]
     if let Some(discovery_state) = state.network.scheduler.discovery_state() {
         let key = state.my_id();
         if discovery_state
@@ -192,12 +258,7 @@ where
 pub fn p2p_effects<Store, S>(store: &mut Store, action: ActionWithMeta<P2pAction>)
 where
     Store: P2pStore<S>,
-    Store::Service: P2pConnectionService
-        + P2pDisconnectionService
-        + P2pChannelsService
-        + P2pMioService
-        + P2pCryptoService
-        + P2pNetworkService,
+    Store::Service: crate::P2pService,
 {
     let (action, meta) = action.split();
     match action {
@@ -210,15 +271,22 @@ where
         },
         P2pAction::Disconnection(action) => action.effects(&meta, store),
         P2pAction::Discovery(action) => action.effects(&meta, store),
-        P2pAction::Identify(action) => action.effects(&meta, store),
         P2pAction::Channels(action) => match action {
             P2pChannelsAction::MessageReceived(action) => action.effects(&meta, store),
             P2pChannelsAction::BestTip(action) => action.effects(&meta, store),
+            P2pChannelsAction::Transaction(action) => action.effects(&meta, store),
             P2pChannelsAction::Snark(action) => action.effects(&meta, store),
             P2pChannelsAction::SnarkJobCommitment(action) => action.effects(&meta, store),
             P2pChannelsAction::Rpc(action) => action.effects(&meta, store),
         },
         P2pAction::Peer(action) => action.effects(&meta, store),
-        P2pAction::Network(action) => action.effects(&meta, store),
+        P2pAction::Identify(_action) => {
+            #[cfg(feature = "p2p-libp2p")]
+            _action.effects(&meta, store);
+        }
+        P2pAction::Network(_action) => {
+            #[cfg(feature = "p2p-libp2p")]
+            _action.effects(&meta, store);
+        }
     }
 }

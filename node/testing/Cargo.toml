@@ -1,6 +1,6 @@
 [package]
 name = "openmina-node-testing"
-version = "0.5.0"
+version = "0.6.0"
 edition = "2021"
 license = "Apache-2.0"
 
@@ -19,15 +19,15 @@ serde = "1.0.147"
 serde_json = { version = "1.0.82", features = ["unbounded_depth", "arbitrary_precision"] }
 thiserror = "1.0.37"
 anyhow = "1.0.70"
-ciborium = "0.2.2"
+postcard = { version = "1.0.8", features = ["use-std"] }
 rand = "0.8"
 tokio = { version = "1.26.0" }
 num_cpus = "1.0"
 rayon = "1.5"
 axum = "0.6"
 tower-http = { version = "0.4.4", features = ["cors"] }
-strum = "0.24.1"
-strum_macros = "0.24.3"
+strum = "0.26"
+strum_macros = "0.26"
 tracing-log = "0.2.0"
 documented = { version = "0.1", optional = true }
 redux = { workspace = true }
@@ -53,6 +53,9 @@ openmina-node-invariants = { path = "../../node/invariants" }
 openmina-node-native = { path = "../../node/native" }
 chrono = "0.4.34"
 hex = "0.4.3"
+
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
+redux = { workspace = true, features=["serializable_callbacks"] }
 
 [features]
 default = ["p2p-libp2p", "scenario-generators"]

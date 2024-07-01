@@ -82,11 +82,12 @@
 - [ ] Client API (currently the node has a very partial support, not planned at the moment)
 - [ ] Support for the archive node sidecar process (sending updates through RPC calls).
 - [x] Berkeleynet support
-- [ ] Devnet support
+- [x] Devnet support
   - [x] Raw data for gates used to produced files updated for devnet compatibility
   - [x] Non-circuit logic updated for devnet compatibility
-  - [ ] Circuit logic updated for devnet compatibility (**partially implemented**)
+  - [x] Circuit logic updated for devnet compatibility (**partially implemented**)
   - [x] Genesis ledger file loadable by openmina for connecting to devnet
+  - [x] Updated to handle fork proof and new genesis state
 
 ## VRF Evaluator <a name="vrf-evaluator"></a>
 

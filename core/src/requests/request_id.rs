@@ -5,7 +5,6 @@ pub trait RequestIdType {
     fn request_id_type() -> &'static str;
 }
 
-#[cfg_attr(feature = "fuzzing", derive(fuzzcheck::DefaultMutator))]
 pub struct RequestId<T> {
     locator: usize,
     counter: usize,

@@ -49,6 +49,14 @@ where
     {
         crate::Store::sub_dispatch(self, action)
     }
+
+    fn dispatch_callback<T>(&mut self, callback: redux::Callback<T>, args: T) -> bool
+    where
+        T: 'static,
+        P2pAction: From<redux::AnyAction> + redux::EnablingCondition<P2pState>,
+    {
+        crate::Store::dispatch_callback(self, callback, args)
+    }
 }
 
 impl EnablingCondition<State> for P2pInitializeAction {
@@ -82,11 +90,8 @@ impl_into_global_action!(network::kad::P2pNetworkKademliaAction);
 impl_into_global_action!(network::pubsub::P2pNetworkPubsubAction);
 
 impl_into_global_action!(channels::P2pChannelsMessageReceivedAction);
-
 impl_into_global_action!(channels::best_tip::P2pChannelsBestTipAction);
-
+impl_into_global_action!(channels::transaction::P2pChannelsTransactionAction);
 impl_into_global_action!(channels::snark::P2pChannelsSnarkAction);
-
 impl_into_global_action!(channels::snark_job_commitment::P2pChannelsSnarkJobCommitmentAction);
-
 impl_into_global_action!(channels::rpc::P2pChannelsRpcAction);

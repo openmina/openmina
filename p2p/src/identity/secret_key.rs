@@ -19,7 +19,20 @@ impl SecretKey {
     const BASE58_CHECK_VERSION: u8 = 0x80;
 
     pub fn rand() -> Self {
-        Self::from_bytes(rand::thread_rng().gen())
+        Self::rand_with(&mut rand::thread_rng())
+    }
+
+    pub fn rand_with(mut rng: impl Rng) -> Self {
+        Self::from_bytes(rng.gen())
+    }
+
+    pub fn deterministic(i: usize) -> Self {
+        let mut bytes = [0; 32];
+        let bytes_len = bytes.len();
+        let i_bytes = i.to_be_bytes();
+        let i = bytes_len - i_bytes.len();
+        bytes[i..bytes_len].copy_from_slice(&i_bytes);
+        Self::from_bytes(bytes)
     }
 
     pub fn from_bytes(bytes: [u8; 32]) -> Self {
@@ -65,6 +78,32 @@ impl FromStr for SecretKey {
             ));
         }
         Ok(Self::from_bytes(bytes[1..33].try_into().unwrap()))
+    }
+}
+
+#[cfg(feature = "p2p-libp2p")]
+impl From<SecretKey> for libp2p_identity::Keypair {
+    fn from(value: SecretKey) -> Self {
+        Self::ed25519_from_bytes(value.to_bytes()).unwrap()
+    }
+}
+
+impl Serialize for SecretKey {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&self.to_string())
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for SecretKey {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let b58: String = Deserialize::deserialize(deserializer)?;
+        b58.parse().map_err(serde::de::Error::custom)
     }
 }
 

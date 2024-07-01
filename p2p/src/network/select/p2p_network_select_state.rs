@@ -21,8 +21,9 @@ pub struct P2pNetworkSelectState {
 }
 
 impl P2pNetworkSelectState {
-    pub fn initiator_auth(kind: token::AuthKind) -> Self {
+    pub fn initiator_auth(kind: token::AuthKind, time: Timestamp) -> Self {
         P2pNetworkSelectState {
+            time: Some(time),
             inner: P2pNetworkSelectStateInner::Uncertain {
                 proposing: token::Protocol::Auth(kind),
             },
@@ -30,8 +31,9 @@ impl P2pNetworkSelectState {
         }
     }
 
-    pub fn initiator_mux(kind: token::MuxKind) -> Self {
+    pub fn initiator_mux(kind: token::MuxKind, time: Timestamp) -> Self {
         P2pNetworkSelectState {
+            time: Some(time),
             inner: P2pNetworkSelectStateInner::Initiator {
                 proposing: token::Protocol::Mux(kind),
             },
@@ -39,11 +41,19 @@ impl P2pNetworkSelectState {
         }
     }
 
-    pub fn initiator_stream(kind: token::StreamKind) -> Self {
+    pub fn initiator_stream(kind: token::StreamKind, time: Timestamp) -> Self {
         P2pNetworkSelectState {
+            time: Some(time),
             inner: P2pNetworkSelectStateInner::Initiator {
                 proposing: token::Protocol::Stream(kind),
             },
+            ..Default::default()
+        }
+    }
+
+    pub fn default_timed(time: Timestamp) -> Self {
+        P2pNetworkSelectState {
+            time: Some(time),
             ..Default::default()
         }
     }
@@ -60,6 +70,10 @@ impl P2pNetworkSelectState {
         } else {
             false
         }
+    }
+
+    pub fn is_incoming(&self) -> bool {
+        matches!(&self.inner, P2pNetworkSelectStateInner::Responder)
     }
 }
 

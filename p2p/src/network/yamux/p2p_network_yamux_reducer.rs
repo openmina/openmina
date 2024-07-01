@@ -25,7 +25,9 @@ impl P2pNetworkYamuxState {
             return;
         }
 
-        match action.action() {
+        let (action, meta) = action.split();
+
+        match action {
             P2pNetworkYamuxAction::IncomingData { data, .. } => {
                 self.buffer.extend_from_slice(data);
                 let mut offset = 0;
@@ -51,6 +53,10 @@ impl P2pNetworkYamuxState {
                         match buf[1] {
                             0 => {
                                 let len = u32::from_be_bytes(b) as usize;
+                                if len > self.message_size_limit {
+                                    self.set_res(Err(YamuxSessionError::Internal));
+                                    break;
+                                }
                                 if buf.len() >= 12 + len {
                                     let frame = YamuxFrame {
                                         flags,
@@ -124,7 +130,13 @@ impl P2pNetworkYamuxState {
                     if frame.flags.contains(YamuxFlags::SYN) {
                         self.streams
                             .insert(frame.stream_id, YamuxStreamState::incoming());
-                        streams.insert(frame.stream_id, P2pNetworkStreamState::new_incoming());
+
+                        if frame.stream_id != 0 {
+                            streams.insert(
+                                frame.stream_id,
+                                P2pNetworkStreamState::new_incoming(meta.time()),
+                            );
+                        }
                     }
                     if frame.flags.contains(YamuxFlags::ACK) {
                         self.streams.entry(frame.stream_id).or_default().established = true;
@@ -185,7 +197,10 @@ impl P2pNetworkYamuxState {
                 ..
             } => {
                 self.streams.insert(*stream_id, YamuxStreamState::default());
-                streams.insert(*stream_id, P2pNetworkStreamState::new(*stream_kind));
+                streams.insert(
+                    *stream_id,
+                    P2pNetworkStreamState::new(*stream_kind, meta.time()),
+                );
             }
         }
     }

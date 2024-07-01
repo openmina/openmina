@@ -147,8 +147,8 @@ impl LedgerCtx {
 
     pub fn insert_genesis_ledger(&mut self, mut mask: Mask) {
         let hash = merkle_root(&mut mask);
-        self.snarked_ledgers.insert(hash.clone(), mask.clone());
-        let staged_ledger = StagedLedger::create_exn(CONSTRAINT_CONSTANTS, mask).unwrap();
+        let staged_ledger = StagedLedger::create_exn(CONSTRAINT_CONSTANTS, mask.copy()).unwrap();
+        self.snarked_ledgers.insert(hash.clone(), mask);
         self.staged_ledgers.insert(hash.clone(), staged_ledger);
     }
 
@@ -631,10 +631,7 @@ impl LedgerCtx {
                     panic!("ledger mask expected to be synced: {ledger_hash}");
                 }
                 let calculated = merkle_root(&mut mask);
-                assert_eq!(
-                    ledger_hash, &calculated,
-                    "ledger mask hash mismatch, expected: {ledger_hash}, found {calculated}"
-                );
+                assert_eq!(ledger_hash, &calculated, "ledger mask hash mismatch");
             } else {
                 panic!("ledger mask is missing: {ledger_hash}");
             }

@@ -1,0 +1,17 @@
+<mina-mempool-filters></mina-mempool-filters>
+<mina-horizontal-resizable-container [leftTemplate]="left"
+                                     [rightTemplate]="right"
+                                     [show]="isActiveRow"
+                                     [minWidth]="360"
+                                     [maxWidthElement]="el.nativeElement"
+                                     class="border-top"
+                                     localStorageKey="bp-won-slots-spw">
+</mina-horizontal-resizable-container>
+
+<ng-template #left>
+  <mina-mempool-table></mina-mempool-table>
+</ng-template>
+
+<ng-template #right>
+  <mina-mempool-side-panel></mina-mempool-side-panel>
+</ng-template>

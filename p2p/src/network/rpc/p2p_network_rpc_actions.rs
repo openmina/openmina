@@ -34,6 +34,11 @@ pub enum P2pNetworkRpcAction {
         peer_id: PeerId,
         stream_id: StreamId,
     },
+    HeartbeatSend {
+        addr: SocketAddr,
+        peer_id: PeerId,
+        stream_id: StreamId,
+    },
     OutgoingQuery {
         peer_id: PeerId,
         query: QueryHeader,
@@ -67,6 +72,7 @@ impl P2pNetworkRpcAction {
             Self::IncomingData { stream_id, .. } => RpcStreamId::Exact(*stream_id),
             Self::IncomingMessage { stream_id, .. } => RpcStreamId::Exact(*stream_id),
             Self::PrunePending { stream_id, .. } => RpcStreamId::Exact(*stream_id),
+            Self::HeartbeatSend { stream_id, .. } => RpcStreamId::Exact(*stream_id),
             Self::OutgoingQuery { .. } => RpcStreamId::AnyOutgoing,
             Self::OutgoingResponse {
                 response: ResponseHeader { id },
@@ -82,6 +88,7 @@ impl P2pNetworkRpcAction {
             Self::IncomingData { peer_id, .. } => peer_id,
             Self::IncomingMessage { peer_id, .. } => peer_id,
             Self::PrunePending { peer_id, .. } => peer_id,
+            Self::HeartbeatSend { peer_id, .. } => peer_id,
             Self::OutgoingQuery { peer_id, .. } => peer_id,
             Self::OutgoingResponse { peer_id, .. } => peer_id,
             Self::OutgoingData { peer_id, .. } => peer_id,
@@ -95,7 +102,15 @@ impl From<P2pNetworkRpcAction> for crate::P2pAction {
 }
 
 impl redux::EnablingCondition<P2pState> for P2pNetworkRpcAction {
-    fn is_enabled(&self, _state: &P2pState, _time: redux::Timestamp) -> bool {
+    fn is_enabled(&self, state: &P2pState, time: redux::Timestamp) -> bool {
+        let Some(rpc_state) = state.network.find_rpc_state(self) else {
+            return false;
+        };
+
+        if rpc_state.error.is_some() {
+            return false;
+        }
+
         #[allow(unused_variables)]
         match self {
             P2pNetworkRpcAction::Init {
@@ -117,6 +132,17 @@ impl redux::EnablingCondition<P2pState> for P2pNetworkRpcAction {
                 message,
             } => true,
             P2pNetworkRpcAction::PrunePending { peer_id, stream_id } => true,
+            P2pNetworkRpcAction::HeartbeatSend {
+                addr,
+                peer_id,
+                stream_id,
+            } => {
+                // TODO: if we have an incoming rpc, for which response
+                // isn't yet fully flushed to the stream, we will end up
+                // adding these heartbeats to the queue. Not necessarily
+                // an issue but not a completely correct behavior either.
+                rpc_state.should_send_heartbeat(time)
+            }
             P2pNetworkRpcAction::OutgoingQuery {
                 peer_id,
                 query,

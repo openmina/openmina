@@ -13,38 +13,32 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
+use crate::p2p::identity::SecretKey as P2pSecretKey;
 use crate::{Action, ActionKind, ActionWithMeta, State};
 
 fn initial_state_path<P: AsRef<Path>>(path: P) -> PathBuf {
-    path.as_ref().join("initial_state.cbor")
+    path.as_ref().join("initial_state.postcard")
 }
 
 fn actions_path<P: AsRef<Path>>(path: P, file_index: usize) -> PathBuf {
-    path.as_ref().join(format!("actions_{}.cbor", file_index))
+    path.as_ref()
+        .join(format!("actions_{}.postcard", file_index))
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct RecordedInitialState<'a> {
     pub rng_seed: u64,
+    pub p2p_sec_key: P2pSecretKey,
     pub state: Cow<'a, State>,
 }
 
 impl<'a> RecordedInitialState<'a> {
-    pub fn write_to<W: Write>(
-        &self,
-        writer: &mut W,
-    ) -> Result<(), ciborium::ser::Error<std::io::Error>> {
-        ciborium::ser::into_writer(self, writer)?;
-        Ok(())
+    pub fn write_to<W: Write>(&self, writer: &mut W) -> postcard::Result<()> {
+        postcard::to_io(self, writer).and(Ok(()))
     }
 
-    pub fn decode(encoded: &[u8]) -> Result<Self, ciborium::de::Error<std::io::Error>>
-    where
-        Self: serde::de::DeserializeOwned,
-    {
-        let mut cursor = std::io::Cursor::new(encoded);
-        let decoded = ciborium::de::from_reader(&mut cursor)?;
-        Ok(decoded)
+    pub fn decode(encoded: &[u8]) -> postcard::Result<Self> {
+        postcard::from_bytes(encoded)
     }
 }
 
@@ -56,19 +50,12 @@ pub struct RecordedActionWithMeta<'a> {
 }
 
 impl<'a> RecordedActionWithMeta<'a> {
-    pub fn encode(&self) -> Result<Vec<u8>, ciborium::ser::Error<std::io::Error>> {
-        let mut buffer = Vec::new();
-        ciborium::ser::into_writer(self, &mut buffer)?;
-        Ok(buffer)
+    pub fn encode(&self) -> postcard::Result<Vec<u8>> {
+        postcard::to_stdvec(self)
     }
 
-    pub fn decode(encoded: &[u8]) -> Result<Self, ciborium::de::Error<std::io::Error>>
-    where
-        Self: serde::de::DeserializeOwned,
-    {
-        let mut cursor = std::io::Cursor::new(encoded);
-        let decoded = ciborium::de::from_reader(&mut cursor)?;
-        Ok(decoded)
+    pub fn decode(encoded: &[u8]) -> postcard::Result<Self> {
+        postcard::from_bytes(encoded)
     }
 
     pub fn as_action_with_meta(self) -> Result<ActionWithMeta, Self> {

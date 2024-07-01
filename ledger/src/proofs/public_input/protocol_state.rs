@@ -305,14 +305,15 @@ impl ToInputs for MinaBaseProtocolConstantsCheckedValueStableV1 {
             slots_per_epoch,
             slots_per_sub_window,
             delta,
+            grace_period_slots,
             genesis_state_timestamp,
-            grace_period_slots: _,
         } = self;
 
         inputs.append_u32(k.as_u32());
         inputs.append_u32(delta.as_u32());
         inputs.append_u32(slots_per_epoch.as_u32());
         inputs.append_u32(slots_per_sub_window.as_u32());
+        inputs.append_u32(grace_period_slots.as_u32());
         inputs.append_u64(genesis_state_timestamp.as_u64());
     }
 }

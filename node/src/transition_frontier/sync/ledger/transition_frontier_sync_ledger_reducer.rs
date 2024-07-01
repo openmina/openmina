@@ -1,3 +1,5 @@
+use crate::Substate;
+
 use super::snarked::{
     TransitionFrontierSyncLedgerSnarkedAction, TransitionFrontierSyncLedgerSnarkedState,
 };
@@ -10,68 +12,81 @@ use super::{
 };
 
 impl TransitionFrontierSyncLedgerState {
-    pub fn reducer(&mut self, action: TransitionFrontierSyncLedgerActionWithMetaRef<'_>) {
+    pub fn reducer(
+        mut state_context: crate::Substate<Self>,
+        action: TransitionFrontierSyncLedgerActionWithMetaRef<'_>,
+    ) {
+        let Ok(state) = state_context.get_substate_mut() else {
+            // TODO: log or propagate
+            return;
+        };
         let (action, meta) = action.split();
+
         match action {
             TransitionFrontierSyncLedgerAction::Init => {}
             TransitionFrontierSyncLedgerAction::Snarked(action) => {
                 if let TransitionFrontierSyncLedgerSnarkedAction::Pending = action {
-                    let Self::Init { target, .. } = self else {
+                    let Self::Init { target, .. } = state else {
                         return;
                     };
                     let s = TransitionFrontierSyncLedgerSnarkedState::pending(
                         meta.time(),
                         target.clone(),
                     );
-                    *self = Self::Snarked(s);
+                    *state = Self::Snarked(s);
                 } else {
-                    let Self::Snarked(state) = self else { return };
-                    state.reducer(meta.with_action(action));
-                }
-            }
-            TransitionFrontierSyncLedgerAction::Staged(action) => {
-                if let TransitionFrontierSyncLedgerStagedAction::PartsFetchPending = action {
-                    let Self::Snarked(TransitionFrontierSyncLedgerSnarkedState::Success {
-                        target,
-                        ..
-                    }) = self
-                    else {
+                    if state.snarked().is_none() {
                         return;
                     };
-                    let s = TransitionFrontierSyncLedgerStagedState::pending(
-                        meta.time(),
-                        target.clone().with_staged().unwrap(),
+                    TransitionFrontierSyncLedgerSnarkedState::reducer(
+                        Substate::from_compatible_substate(state_context),
+                        meta.with_action(action),
                     );
-                    *self = Self::Staged(s);
-                } else {
-                    match self {
-                        Self::Snarked(TransitionFrontierSyncLedgerSnarkedState::Success {
-                            target,
-                            ..
-                        }) if matches!(
-                            action,
-                            TransitionFrontierSyncLedgerStagedAction::ReconstructEmpty
-                        ) =>
-                        {
-                            let s = TransitionFrontierSyncLedgerStagedState::ReconstructEmpty {
-                                time: meta.time(),
-                                target: target.clone().with_staged().unwrap(),
-                            };
-                            *self = Self::Staged(s);
-                        }
-                        Self::Staged(state) => state.reducer(meta.with_action(action)),
-                        _ => (),
-                    }
                 }
             }
+            TransitionFrontierSyncLedgerAction::Staged(
+                TransitionFrontierSyncLedgerStagedAction::PartsFetchPending,
+            ) => {
+                let Self::Snarked(TransitionFrontierSyncLedgerSnarkedState::Success {
+                    target, ..
+                }) = state
+                else {
+                    return;
+                };
+                let s = TransitionFrontierSyncLedgerStagedState::pending(
+                    meta.time(),
+                    target.clone().with_staged().unwrap(),
+                );
+                *state = Self::Staged(s);
+            }
+            TransitionFrontierSyncLedgerAction::Staged(action) => match state {
+                Self::Snarked(TransitionFrontierSyncLedgerSnarkedState::Success {
+                    target, ..
+                }) if matches!(
+                    action,
+                    TransitionFrontierSyncLedgerStagedAction::ReconstructEmpty
+                ) =>
+                {
+                    let s = TransitionFrontierSyncLedgerStagedState::ReconstructEmpty {
+                        time: meta.time(),
+                        target: target.clone().with_staged().unwrap(),
+                    };
+                    *state = Self::Staged(s);
+                }
+                Self::Staged(_) => TransitionFrontierSyncLedgerStagedState::reducer(
+                    Substate::from_compatible_substate(state_context),
+                    meta.with_action(action),
+                ),
+                _ => (),
+            },
             TransitionFrontierSyncLedgerAction::Success => {
-                match self {
+                match state {
                     Self::Staged(TransitionFrontierSyncLedgerStagedState::Success {
                         target,
                         needed_protocol_states,
                         ..
                     }) => {
-                        *self = Self::Success {
+                        *state = Self::Success {
                             time: meta.time(),
                             target: target.clone().into(),
                             needed_protocol_states: std::mem::take(needed_protocol_states),
@@ -81,7 +96,7 @@ impl TransitionFrontierSyncLedgerState {
                         target,
                         ..
                     }) => {
-                        *self = Self::Success {
+                        *state = Self::Success {
                             time: meta.time(),
                             target: target.clone(),
                             // No additional protocol states needed for snarked ledger.

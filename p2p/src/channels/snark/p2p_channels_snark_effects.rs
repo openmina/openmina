@@ -1,10 +1,8 @@
-use mina_p2p_messages::{gossip::GossipNetMessageV2, v2};
 use redux::ActionMeta;
 
-use crate::{
-    channels::{ChannelId, MsgId, P2pChannelsService},
-    P2pNetworkPubsubAction,
-};
+use crate::channels::{ChannelId, MsgId, P2pChannelsService};
+#[cfg(feature = "p2p-libp2p")]
+use crate::P2pNetworkPubsubAction;
 
 use super::{P2pChannelsSnarkAction, SnarkPropagationChannelMsg};
 
@@ -50,17 +48,21 @@ impl P2pChannelsSnarkAction {
                         .channel_send(peer_id, MsgId::first(), msg.into());
                 }
             }
-            P2pChannelsSnarkAction::Libp2pBroadcast { snark, nonce } => {
-                let message = Box::new((snark.statement(), (&snark).into()));
-                let message = v2::NetworkPoolSnarkPoolDiffVersionedStableV2::AddSolvedWork(message);
-                let nonce = nonce.into();
-                let message = GossipNetMessageV2::SnarkPoolDiff { message, nonce };
-                store.dispatch(P2pNetworkPubsubAction::Broadcast { message });
-            }
             P2pChannelsSnarkAction::Pending { .. } => {}
             P2pChannelsSnarkAction::PromiseReceived { .. } => {}
             P2pChannelsSnarkAction::RequestReceived { .. } => {}
             P2pChannelsSnarkAction::Libp2pReceived { .. } => {}
+            #[cfg(not(feature = "p2p-libp2p"))]
+            P2pChannelsSnarkAction::Libp2pBroadcast { .. } => {}
+            #[cfg(feature = "p2p-libp2p")]
+            P2pChannelsSnarkAction::Libp2pBroadcast { snark, nonce } => {
+                use mina_p2p_messages::{gossip::GossipNetMessageV2, v2};
+                let message = Box::new((snark.statement(), (&snark).into()));
+                let message = v2::NetworkPoolSnarkPoolDiffVersionedStableV2::AddSolvedWork(message);
+                let nonce = nonce.into();
+                let message = Box::new(GossipNetMessageV2::SnarkPoolDiff { message, nonce });
+                store.dispatch(P2pNetworkPubsubAction::Broadcast { message });
+            }
         }
     }
 }

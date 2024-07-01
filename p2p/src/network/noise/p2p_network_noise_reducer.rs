@@ -162,7 +162,8 @@ impl P2pNetworkNoiseState {
                     }
                 }
             }
-            P2pNetworkNoiseAction::OutgoingChunk { .. } => {
+            P2pNetworkNoiseAction::OutgoingChunk { .. }
+            | P2pNetworkNoiseAction::OutgoingChunkSelectMux { .. } => {
                 self.outgoing_chunks.pop_front();
             }
             P2pNetworkNoiseAction::OutgoingData { data, .. } => {
@@ -229,6 +230,33 @@ impl P2pNetworkNoiseState {
                     // TODO: report error
                     _ => {}
                 }
+            }
+            P2pNetworkNoiseAction::OutgoingDataSelectMux { data, .. } => {
+                let Some(P2pNetworkNoiseStateInner::Done {
+                    send_key,
+                    send_nonce,
+                    ..
+                }) = &mut self.inner
+                else {
+                    return;
+                };
+
+                let aead = ChaCha20Poly1305::new(&send_key.0.into());
+
+                let mut chunk = Vec::with_capacity(18 + data.len());
+                chunk.extend_from_slice(&((data.len() + 16) as u16).to_be_bytes());
+                chunk.extend_from_slice(data);
+
+                let mut nonce = GenericArray::default();
+                nonce[4..].clone_from_slice(&send_nonce.to_le_bytes());
+                *send_nonce += 1;
+
+                let tag = aead
+                    .encrypt_in_place_detached(&nonce, &[], &mut chunk[2..(2 + data.len())])
+                    .expect("cannot fail");
+                chunk.extend_from_slice(&tag);
+
+                self.outgoing_chunks.push_back(vec![chunk.into()]);
             }
             P2pNetworkNoiseAction::DecryptedData { .. } => {
                 self.decrypted_chunks.pop_front();

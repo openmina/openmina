@@ -6,6 +6,12 @@ use crate::{
     channels::ChannelId, connection::outgoing::P2pConnectionOutgoingInitOpts, identity::PublicKey,
 };
 
+pub const DEVNET_SEEDS: &[&str] = &[
+    "/ip4/34.48.73.58/tcp/10003/p2p/12D3KooWAdgYL6hv18M3iDBdaK1dRygPivSfAfBNDzie6YqydVbs",
+    "/ip4/35.245.82.250/tcp/10003/p2p/12D3KooWLjs54xHzVmMmGYb7W5RVibqbwD1co7M2ZMfPgPm7iAag",
+    "/ip4/34.118.163.79/tcp/10003/p2p/12D3KooWEiGVAFC7curXWXiGZyMWnZK9h8BKr88U8D5PKV3dXciv",
+];
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pConfig {
     /// TCP port where libp2p is listening incoming connections.
@@ -50,25 +56,62 @@ pub struct P2pTimeouts {
     pub kademlia_bootstrap: Option<Duration>,
     pub kademlia_initial_bootstrap: Option<Duration>,
     pub select: Option<Duration>,
+    pub pnet: Option<Duration>,
+}
+
+fn from_env_or(name: &str, default: Option<Duration>) -> Option<Duration> {
+    None.or_else(|| {
+        let val = std::env::var(name).ok()?.to_ascii_lowercase();
+        Some(match val.as_ref() {
+            "none" => None,
+            s => Some(Duration::from_secs(s.parse().ok()?)),
+        })
+    })
+    .unwrap_or(default)
 }
 
 impl Default for P2pTimeouts {
     fn default() -> Self {
         Self {
-            incoming_connection_timeout: Some(Duration::from_secs(30)),
-            outgoing_connection_timeout: Some(Duration::from_secs(10)),
-            reconnect_timeout: Some(Duration::from_secs(1)),
-            incoming_error_reconnect_timeout: Some(Duration::from_secs(30)),
-            outgoing_error_reconnect_timeout: Some(Duration::from_secs(30)),
-            best_tip_with_proof: Some(Duration::from_secs(10)),
-            ledger_query: Some(Duration::from_secs(2)),
-            staged_ledger_aux_and_pending_coinbases_at_block: Some(Duration::from_secs(120)),
-            block: Some(Duration::from_secs(5)),
-            snark: Some(Duration::from_secs(5)),
-            initial_peers: Some(Duration::from_secs(5)),
-            kademlia_bootstrap: Some(Duration::from_secs(60)),
-            kademlia_initial_bootstrap: Some(Duration::from_secs(5)),
-            select: Some(Duration::from_secs(5)),
+            incoming_connection_timeout: from_env_or(
+                "INCOMING_CONNECTION_TIMEOUT",
+                Some(Duration::from_secs(30)),
+            ),
+            outgoing_connection_timeout: from_env_or(
+                "OUTGOING_CONNECTION_TIMEOUT",
+                Some(Duration::from_secs(10)),
+            ),
+            reconnect_timeout: from_env_or("RECONNECT_TIMEOUT", Some(Duration::from_secs(1))),
+            incoming_error_reconnect_timeout: from_env_or(
+                "INCOMING_ERROR_RECONNECT_TIMEOUT",
+                Some(Duration::from_secs(30)),
+            ),
+            outgoing_error_reconnect_timeout: from_env_or(
+                "OUTGOING_ERROR_RECONNECT_TIMEOUT",
+                Some(Duration::from_secs(30)),
+            ),
+            best_tip_with_proof: from_env_or(
+                "BEST_TIP_WITH_PROOF_TIMEOUT",
+                Some(Duration::from_secs(10)),
+            ),
+            ledger_query: from_env_or("LEDGER_QUERY_TIMEOUT", Some(Duration::from_secs(2))),
+            staged_ledger_aux_and_pending_coinbases_at_block: from_env_or(
+                "STAGED_LEDGER_AUX_AND_PENDING_COINBASES_AT_BLOCK_TIMEOUT",
+                Some(Duration::from_secs(120)),
+            ),
+            block: from_env_or("BLOCK_TIMEOUT", Some(Duration::from_secs(5))),
+            snark: from_env_or("SNARK_TIMEOUT", Some(Duration::from_secs(5))),
+            initial_peers: from_env_or("INITIAL_PEERS_TIMEOUT", Some(Duration::from_secs(5))),
+            kademlia_bootstrap: from_env_or(
+                "KADEMLIA_BOOTSTRAP_TIMEOUT",
+                Some(Duration::from_secs(60)),
+            ),
+            kademlia_initial_bootstrap: from_env_or(
+                "KADEMLIA_INITIAL_BOOTSTRAP_TIMEOUT",
+                Some(Duration::from_secs(5)),
+            ),
+            select: from_env_or("SELECT_TIMEOUT", Some(Duration::from_secs(5))),
+            pnet: from_env_or("PNET_TIMEOUT", Some(Duration::from_secs(2))),
         }
     }
 }
@@ -86,10 +129,11 @@ impl P2pTimeouts {
     }
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, derive_more::Display)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, derive_more::Display, Default)]
 pub enum Limit<T> {
     #[display(fmt = "{}", _0)]
     Some(T),
+    #[default]
     #[display(fmt = "unlimited")]
     Unlimited,
 }
@@ -182,6 +226,8 @@ impls!(std::time::Duration);
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct P2pLimits {
     max_peers: Limit<usize>,
+    max_streams: Limit<usize>,
+    yamux_message_size: Limit<usize>,
 
     identify_message: Limit<usize>,
     kademlia_request: Limit<usize>,
@@ -228,6 +274,18 @@ impl P2pLimits {
         max_peers,
         /// Sets maximum number of peers.
         with_max_peers
+    );
+    limit!(
+        /// Maximum number of streams from a peer.
+        max_streams,
+        /// Sets the maximum number of streams that a peer is allowed to open simultaneously.
+        with_max_streams
+    );
+    limit!(
+        /// Maximum number of streams from a peer.
+        yamux_message_size,
+        /// Sets the maximum number of streams that a peer is allowed to open simultaneously.
+        with_yamux_message_size
     );
 
     limit!(
@@ -286,6 +344,9 @@ impl P2pLimits {
 impl Default for P2pLimits {
     fn default() -> Self {
         let max_peers = Limit::Some(100);
+        let max_streams = Limit::Some(10);
+        // 256 MiB
+        let yamux_message_size = Limit::Some(0x10000000);
 
         let identify_message = Limit::Some(0x1000);
         let kademlia_request = Limit::Some(50);
@@ -295,11 +356,13 @@ impl Default for P2pLimits {
         let rpc_query = Limit::Some(256); // max is 96
         let rpc_get_best_tip = Limit::Some(3_500_000); // 3182930 as observed, may vary
         let rpc_answer_sync_ledger_query = Limit::Some(200_000); // 124823 as observed
-        let rpc_get_staged_ledger = Limit::Some(40_000_000); // 36371615 as observed, may vary
+        let rpc_get_staged_ledger = Limit::Some(400_000_000); // 59286608 as observed, may go higher
         let rpc_get_transition_chain = Limit::Some(3_500_000); // 2979112 as observed
         let rpc_get_some_initial_peers = Limit::Some(32_000); // TODO: calculate
         Self {
             max_peers,
+            max_streams,
+            yamux_message_size,
 
             identify_message,
             kademlia_request,

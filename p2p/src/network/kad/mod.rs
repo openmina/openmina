@@ -12,8 +12,10 @@ pub use self::p2p_network_kad_state::*;
 mod p2p_network_kad_actions;
 pub use self::p2p_network_kad_actions::*;
 
+#[cfg(feature = "p2p-libp2p")]
 mod p2p_network_kad_reducer;
 
+#[cfg(feature = "p2p-libp2p")]
 mod p2p_network_kad_effects;
 
 mod p2p_network_kad_message;

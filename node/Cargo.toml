@@ -1,6 +1,6 @@
 [package]
 name = "node"
-version = "0.5.0"
+version = "0.6.0"
 edition = "2021"
 license = "Apache-2.0"
 
@@ -8,8 +8,8 @@ license = "Apache-2.0"
 serde = "1.0.147"
 serde_json = { version = "1.0.82", features = ["unbounded_depth", "arbitrary_precision"] }
 serde_with = { version = "3.6.1", features = ["time_0_3"] }
-strum = "0.24.1"
-strum_macros = "0.24.3"
+strum = "0.26.2"
+strum_macros = "0.26.4"
 derive_more = "0.99.17"
 lazy_static = "1.4.0"
 thiserror = "1.0.37"
@@ -17,26 +17,33 @@ time = { version = "0.3.36", features = ["parsing"] }
 anyhow = "1.0.70"
 num_enum = "0.5.7"
 redux = { workspace = true }
+multihash = { version = "0.18.1", features = ["blake2b"] }
 mina-hasher = { workspace = true }
 mina-signer = { workspace = true }
 ledger = { workspace = true }
 mina-p2p-messages = { workspace = true }
 vrf = { workspace = true }
-linkme = "0.3.22"
+linkme = { workspace = true }
+
 openmina-core = { path = "../core" }
 snark = { path = "../snark" }
-p2p = { path = "../p2p" }
+p2p = { path = "../p2p", default-features = false }
 openmina-node-account = { path = "./account" }
 tokio = { version = "1.26.0" }
-ciborium = "0.2.2"
+postcard = { version = "1.0.8", features = ["use-std"] }
+static_assertions.workspace = true
 
 [build-dependencies]
 regex = "1"
 rust-format = "0.3"
 vergen = { version = "8.2.4", features = ["build", "cargo", "git", "gitcl", "rustc"] }
 
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
+redux = { workspace = true, features=["serializable_callbacks"] }
+
 [features]
 default = ["p2p-libp2p"]
 replay = []
 p2p-webrtc = ["p2p/p2p-webrtc"]
 p2p-libp2p = ["p2p/p2p-libp2p"]
+fuzzing = ["p2p/fuzzing"]

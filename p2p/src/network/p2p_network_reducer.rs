@@ -1,50 +1,8 @@
-use multiaddr::Multiaddr;
-use openmina_core::{error, ChainId};
+use openmina_core::log::error;
 
-use crate::{identity::PublicKey, P2pLimits, PeerId};
+use crate::P2pLimits;
 
 use super::*;
-
-impl P2pNetworkState {
-    pub fn new(
-        identity: PublicKey,
-        addrs: Vec<Multiaddr>,
-        known_peers: Vec<(PeerId, Multiaddr)>,
-        chain_id: &ChainId,
-        discovery: bool,
-    ) -> Self {
-        let peer_id = identity.peer_id();
-        let pnet_key = chain_id.preshared_key();
-        let discovery_state = discovery.then(|| {
-            let mut routing_table =
-                P2pNetworkKadRoutingTable::new(P2pNetworkKadEntry::new(peer_id, addrs));
-            routing_table.extend(
-                known_peers
-                    .into_iter()
-                    .map(|(peer_id, maddr)| P2pNetworkKadEntry::new(peer_id, vec![maddr])),
-            );
-            P2pNetworkKadState {
-                routing_table,
-                ..Default::default()
-            }
-        });
-
-        P2pNetworkState {
-            scheduler: P2pNetworkSchedulerState {
-                interfaces: Default::default(),
-                listeners: Default::default(),
-                local_pk: identity,
-                pnet_key,
-                connections: Default::default(),
-                broadcast_state: Default::default(),
-                identify_state: Default::default(),
-                discovery_state,
-                rpc_incoming_streams: Default::default(),
-                rpc_outgoing_streams: Default::default(),
-            },
-        }
-    }
-}
 
 impl P2pNetworkState {
     pub fn reducer(
@@ -62,13 +20,13 @@ impl P2pNetworkState {
             }
             P2pNetworkAction::Select(a) => {
                 if let Some(cn) = self.scheduler.connections.get_mut(a.addr()) {
-                    match a.id() {
+                    match a.select_kind() {
                         SelectKind::Authentication => cn.select_auth.reducer(meta.with_action(a)),
                         SelectKind::Multiplexing(_) | SelectKind::MultiplexingNoPeerId => {
                             cn.select_mux.reducer(meta.with_action(a))
                         }
                         SelectKind::Stream(_, stream_id) => {
-                            if let Some(stream) = cn.streams.get_mut(stream_id) {
+                            if let Some(stream) = cn.streams.get_mut(&stream_id) {
                                 stream.select.reducer(meta.with_action(a))
                             }
                         }
@@ -122,58 +80,7 @@ impl P2pNetworkState {
         }
     }
 
-    pub fn find_rpc_state(&self, a: &P2pNetworkRpcAction) -> Option<&P2pNetworkRpcState> {
-        match a.stream_id() {
-            RpcStreamId::Exact(stream_id) => self
-                .scheduler
-                .rpc_incoming_streams
-                .get(a.peer_id())
-                .and_then(|cn| cn.get(&stream_id))
-                .or_else(|| {
-                    self.scheduler
-                        .rpc_outgoing_streams
-                        .get(a.peer_id())
-                        .and_then(|cn| cn.get(&stream_id))
-                }),
-            RpcStreamId::WithQuery(id) => self
-                .scheduler
-                .rpc_incoming_streams
-                .get(a.peer_id())
-                .and_then(|streams| {
-                    streams.iter().find_map(|(_, state)| {
-                        if state
-                            .pending
-                            .as_ref()
-                            .map_or(false, |query_header| query_header.id == id)
-                        {
-                            Some(state)
-                        } else {
-                            None
-                        }
-                    })
-                }),
-            RpcStreamId::AnyIncoming => self
-                .scheduler
-                .rpc_incoming_streams
-                .get(a.peer_id())
-                .and_then(|stream| stream.first_key_value())
-                .map(|(_k, v)| v),
-            RpcStreamId::AnyOutgoing => {
-                if let Some(streams) = self.scheduler.rpc_outgoing_streams.get(a.peer_id()) {
-                    if let Some((k, _)) = streams.first_key_value() {
-                        return Some(streams.get(k).expect("checked above"));
-                    }
-                }
-
-                None
-            }
-        }
-    }
-
-    pub fn find_rpc_state_mut(
-        &mut self,
-        a: &P2pNetworkRpcAction,
-    ) -> Option<&mut P2pNetworkRpcState> {
+    fn find_rpc_state_mut(&mut self, a: &P2pNetworkRpcAction) -> Option<&mut P2pNetworkRpcState> {
         match a.stream_id() {
             RpcStreamId::Exact(stream_id) => self
                 .scheduler

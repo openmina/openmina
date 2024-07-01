@@ -2,7 +2,7 @@ use ark_ff::{BigInteger, BigInteger256, One, Zero};
 use itertools::unfold;
 use num::{BigInt, BigRational, FromPrimitive, Signed};
 
-// #[allow(dead_code)]
+#[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub struct Threshold {
     pub total_currency: BigInt,

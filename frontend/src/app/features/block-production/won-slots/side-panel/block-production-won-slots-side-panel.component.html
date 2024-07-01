@@ -36,6 +36,7 @@
       </div>
     </div>
   </div>
+
   <div class="flex-column pl-12 pr-12 border-bottom">
     <div class="fx-row-vert-cent flex-between h-lg">
       <span class="tertiary">Block Production Status</span>
@@ -94,7 +95,7 @@
       </div>
       <div *ngIf="slot?.times?.committed !== null; else waiting">
         <span *ngIf="slot?.times?.committed"
-              class="tertiary">on</span> {{ slot?.times?.committed | readableDate: noMillisFormat }}
+              class="tertiary">on</span> {{ slot?.times?.committed | readableDate }}
       </div>
     </div>
   </div>

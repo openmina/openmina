@@ -6,6 +6,7 @@ use super::super::*;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct P2pNetworkYamuxState {
+    pub message_size_limit: Limit<usize>,
     pub buffer: Vec<u8>,
     pub incoming: VecDeque<YamuxFrame>,
     pub streams: BTreeMap<StreamId, YamuxStreamState>,
@@ -24,14 +25,23 @@ impl P2pNetworkYamuxState {
         }
     }
 
-    // TODO:
     pub fn consume(&mut self, len: usize) {
+        // does not need to do anything;
+        // we will update the stream window later when we process the `IncomingData' action
         let _ = len;
     }
 
-    // TODO:
     pub fn limit(&self) -> usize {
-        0x2000
+        const SIZE_OF_HEADER: usize = 12;
+        let headers = self.streams.len() * 2 + 1;
+
+        let windows = self
+            .streams
+            .values()
+            .map(|s| s.window_ours as usize)
+            .sum::<usize>();
+
+        windows + headers * SIZE_OF_HEADER
     }
 }
 
@@ -70,7 +80,7 @@ impl YamuxStreamState {
 }
 
 bitflags::bitflags! {
-    #[derive(Serialize, Deserialize, Debug, Clone)]
+    #[derive(Serialize, Deserialize, Debug, Default, Clone)]
     pub struct YamuxFlags: u16 {
         const SYN = 0b0001;
         const ACK = 0b0010;

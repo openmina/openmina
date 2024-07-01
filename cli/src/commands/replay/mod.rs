@@ -13,7 +13,7 @@ pub enum ReplayCommand {
 }
 
 impl Replay {
-    pub fn run(self) -> Result<(), crate::CommandError> {
+    pub fn run(self) -> anyhow::Result<()> {
         match self.command {
             ReplayCommand::StateWithInputActions(v) => v.run(),
         }

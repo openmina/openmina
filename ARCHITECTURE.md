@@ -16,11 +16,9 @@ pub enum Action {
 pub struct CheckTimeoutsAction {}
 
 pub enum P2pAction {
-    Connect(P2pConnectAction),
-    ...
-}
-
-pub struct P2pConnectAction {
+    Connect {
+        ...
+    },
     ...
 }
 ```
@@ -44,7 +42,7 @@ pub trait EnablingCondition<State> {
 `is_enabled(state, time)` must return `false`, if action doesn't make sense given
 the current state and, optionally, time.
 
-For example message action from peer that isn't connected or we don't know
+For example, message action from peer that isn't connected or we don't know
 about in the state, must not be enabled.
 
 Or timeout action. If according to state, duration for timeout hasn't
@@ -427,3 +425,438 @@ what actions may be dispatched after the current action. If checks need
 to be done before dispatching some action, those checks belong in the
 enabling condition, not the effects. Simpler and smaller the effects are,
 easier it is to traverse them.
+
+## Substate access, Queued Reducer-Dispatch, and Callbacks
+
+The state machine is being refactored to make the code easier to follow and work with. While the core concepts remain mostly unchanged, the organization is evolving.
+
+**Note**: For reference on the direction of these changes, see [this document](https://github.com/openmina/state_machine_exp/blob/main/node/README.md).
+
+**What is new**:
+- `SubstateAccess` trait: Specifies how specific substate slices are obtained from a parent state.
+- `Substate` context: Provides fine-grained control over state and dispatcher access, ensuring clear separation of concerns.
+- `Dispatcher`: Manages the queuing and execution of actions, allowing reducers to queue additional actions for dispatch after the current state update phase.
+- `Callback` handlers: Facilitate flexible control flow by enabling actions to specify follow-up actions at dispatch time, reducing coupling between components and making control flow more local.
+- *Stateful* vs *Effectful* actions:
+    - Stateful actions update the state and dispatch other actions. These are processed by `reducer` functions.
+    - Effectful actions are very thing layers over services that expose them as actions and can dispatch callback actions. These are processed by `effects` functions.
+
+### New-Style Reducers
+
+New-style reducers accept a `Substate` context as their first argument instead of the state they act on.
+
+This substate context provides the reducer function with access to:
+- A mutable reference to the substate that the reducer will mutate.
+- An immutable reference to the global state.
+- A mutable reference to a `Dispatcher`.
+
+The reducer function cannot access both the substate and the dispatcher/global state references simultaneously. This enforces a separation between the state update phase and the further action dispatching phase.
+
+This setup allows us to combine, the reducer function and the effect handler function into one, removing a level of flow indirection while keeping the phases separate.
+
+```rust
+impl WatchedAccountsState {
+    pub fn reducer(
+        mut state_context: crate::Substate<Self>,
+        action: WatchedAccountsActionWithMetaRef<'_>,
+    ) {
+        let Ok(state) = state_context.get_substate_mut() else { return; };
+        let (action, meta) = action.split();
+
+        match action {
+            WatchedAccountsAction::Add { pub_key } => {
+                state.insert(
+                    pub_key.clone(),
+                    WatchedAccountState {
+                        initial_state: WatchedAccountLedgerInitialState::Idle { time: meta.time() },
+                        blocks: Default::default(),
+                    },
+                );
+
+                // === End of state update phase / Start of dispatch phase ===
+
+                let pub_key = pub_key.clone();
+                // To access the global state and dispatcher:
+                // let (dispatcher, global_state) = state_context.into_dispatcher_and_state();
+                let dispatcher = state_context.into_dispatcher();
+                // This action will be automatically dispatched by the effect handler
+                dispatcher.push(WatchedAccountsAction::LedgerInitialStateGetInit { pub_key });
+            }
+            // Other actions...
+        }
+    }
+}
+```
+
+This reducer is called from the root reducer like this:
+
+```rust
+pub fn reducer(
+    state: &mut State,
+    action: &ActionWithMeta,
+    // **New argument**
+    dispatcher: &mut redux::Dispatcher<Action, State>,
+) {
+    let meta = action.meta().clone();
+    match action.action() {
+        // ...
+        Action::WatchedAccounts(a) => {
+            WatchedAccountsState::reducer(
+                // Substate context is created from the global state and dispatcher
+                Substate::new(state, dispatcher),
+                meta.with_action(a),
+            );
+        }
+        // Other actions...
+    }
+    // ...
+}
+```
+
+### Effectful Actions
+
+Actions and their handling code are divided into two categories: *stateful* actions and *effectful* actions.
+
+- **Stateful Actions**: These actions update the state and have a `reducer` function. They closely resemble the traditional state machine code, and most of the state machine logic should reside here.
+- **Effectful Actions**: These actions involve calling external services and have an `effects` function. They should serve as thin layers for handling service interactions.
+
+Example effectful action:
+
+```rust
+pub enum TransitionFrontierGenesisEffectfulAction {
+    LedgerLoadInit {
+        config: Arc<GenesisConfig>,
+    },
+    ProveInit {
+        block_hash: StateHash,
+        input: Box<ProverExtendBlockchainInputStableV2>,
+    },
+}
+```
+
+And the effect handler:
+
+```rust
+impl TransitionFrontierGenesisEffectfulAction {
+    pub fn effects<S: redux::Service>(&self, _: &ActionMeta, store: &mut Store<S>)
+    where
+        S: TransitionFrontierGenesisService,
+    {
+        match self {
+            TransitionFrontierGenesisEffectfulAction::LedgerLoadInit { config } => {
+                store.service.load_genesis(config.clone());
+            }
+            TransitionFrontierGenesisEffectfulAction::ProveInit { block_hash, input } => {
+                store.service.prove(block_hash.clone(), input.clone());
+            }
+        }
+    }
+}
+```
+
+### Callbacks
+
+Callbacks are a new construct that permit the uncoupling of state machine components by enabling the dynamic composition of actions and their sequencing.
+
+With callbacks, a caller (handling actions of type `A`) can dispatch an action of type `B` that will produce a result. The action `B` includes callback values that specify how to return the result to `A`. When the result of processing `B` is ready (either further down the action chain or asynchronously from a service call), the callback is invoked with the result.
+
+This is particularly useful when implementing effectful actions to interact with services, but also for composing multiple components without introducing inter-dependencies (with callbacks we can avoid the *global effects* pattern that was described before in this document).
+
+Callback blocks are declared with the `redux::callback!` macro and are described by a uniquely named code block with a single input and a single output, which must produce an `Action` value as a result.
+
+Example:
+
+```rust
+impl ConsensusState {
+    pub fn reducer(
+        mut state_context: crate::Substate<Self>,
+        action: ConsensusActionWithMetaRef<'_>,
+    ) {
+        // ...
+        match action {
+            ConsensusAction::BlockReceived {
+                hash,
+                block,
+                chain_proof,
+            } => {
+                // ... state updates ...
+
+                // Dispatch
+                let (dispatcher, global_state) = state_context.into_dispatcher_and_state();
+                let req_id = global_state.snark.block_verify.next_req_id();
+                // Start the verification process
+                dispatcher.push(SnarkBlockVerifyAction::Init {
+                    req_id,
+                    block: (hash.clone(), block.clone()).into(),
+                    // Will be called after the block has been successfully verified
+                    on_success: redux::callback!(
+                        on_received_block_snark_verify_success(hash: BlockHash) -> crate::Action {
+                            ConsensusAction::BlockSnarkVerifySuccess { hash }
+                        }),
+                    // Will be called if there is an error
+                    on_error: redux::callback!(
+                        on_received_block_snark_verify_error((hash: BlockHash, error: SnarkBlockVerifyError)) -> crate::Action {
+                            ConsensusAction::BlockSnarkVerifyError { hash, error }
+                        }),
+                });
+                // Set the block verification state as pending
+                dispatcher.push(ConsensusAction::BlockSnarkVerifyPending {
+                    req_id,
+                    hash: hash.clone(),
+                });
+            }
+    // ...
+```
+
+### Porting old code
+
+For a given `LocalState` that is a substate of `State`:
+
+#### Implement `SubstateAccess<LocalState>`
+
+Implement in `node/src/state.rs` the `SubstateAccess<LocalState>` trait for `State` if it is not defined already. For trivial cases use the `impl_substate_access!` macro.
+
+#### Update the `reducer` function
+
+Update the `reducer` function so that:
+
+1. It is implemented as a method on `LocalState`.
+2. It accepts as it's first argument `mut state_context: crate::Substate<Self>` instead of `&mut self`.
+3. It obtains `state` by calling `state_context.get_state_mut()`.
+3. All references to `self` are updated to instead reference `state`.
+
+Example:
+
+```diff
+impl ConsensusState {
+     pub fn reducer(
+-        &mut self,
++        mut state_context: crate::Substate<Self>,
+         action: ConsensusActionWithMetaRef<'_>,
+     ) {
++        let Ok(state) = state_context.get_substate_mut() else {
++            // TODO: log or propagate
++            return;
++        };
+         let (action, meta) = action.split();
+         match action {
+             ConsensusAction::BlockReceived {
+                 hash,
+                 block,
+                 chain_proof,
+             } => {
+-                self.blocks.insert(
++                state.blocks.insert(
+                     hash.clone(),
+                     ConsensusBlockState {
+                         block: block.clone(),
+@@ -22,16 +38,41 @@ impl ConsensusState {
+                         chain_proof: chain_proof.clone(),
+                     },
+                 );
+
+         // ...
+```
+
+#### Move dispatches from `effects` to `reducer`
+
+For each action that doesn't call a service in it's effect handler, delete it's body from the effect handler and move it to the end of the body of the reducer's match branch that handles that action:
+
+Example:
+
+```diff
+ // consensus_effects.rs
+
+ pub fn consensus_effects<S: crate::Service>(store: &mut Store<S>, action: ConsensusActionWithMeta) {
+     let (action, _) = action.split();
+ 
+     match action {
+         ConsensusAction::BlockReceived { hash, block, .. } => {
+-            let req_id = store.state().snark.block_verify.next_req_id();
+-            store.dispatch(SnarkBlockVerifyAction::Init {
+-                req_id,
+-                block: (hash.clone(), block).into(),
+-            });
+-            store.dispatch(ConsensusAction::BlockSnarkVerifyPending { req_id, hash });
+         }
+         // ...
+
+ // consensus_reducer.rs
+
+ impl ConsensusState {
+     pub fn reducer(
+         mut state_context: crate::Substate<Self>,
+         action: ConsensusActionWithMetaRef<'_>,
+     ) {
+         let Ok(state) = state_context.get_substate_mut() else {
+             // TODO: log or propagate
+             return;
+         };
+         let (action, meta) = action.split();
+         match action {
+             ConsensusAction::BlockReceived {
+                 hash,
+                 block,
+                 chain_proof,
+             } => {
+                 state.blocks.insert(
+                     hash.clone(),
+                     ConsensusBlockState {
+                         block: block.clone(),
+@@ -22,16 +38,41 @@ impl ConsensusState {
+                         chain_proof: chain_proof.clone(),
+                     },
+                 );
++
++                // Dispatch
++                let (dispatcher, global_state) = state_context.into_dispatcher_and_state();
++                let req_id = global_state.snark.block_verify.next_req_id();
++                dispatcher.push(SnarkBlockVerifyAction::Init {
++                    req_id,
++                    block: (hash.clone(), block.clone()).into(),
++                });
++                dispatcher.push(ConsensusAction::BlockSnarkVerifyPending {
++                    req_id,
++                    hash: hash.clone(),
++                });
+             }
+             // ...
+```
+
+#### Update the reducer invocation in the parent reducer
+
+Replace the call in the parent reducer so that it creates a new `Substate` instance.
+
+Example:
+
+```diff
+ pub fn reducer(
+     state: &mut State,
+     action: &ActionWithMeta,
+     dispatcher: &mut redux::Dispatcher<Action, State>,
+ ) {
+     let meta = action.meta().clone();
+     match action.action() {
+         // ...
+         Action::Consensus(a) => {
+-            state.consensus.reducer(meta.with_action(a));
++            crate::consensus::ConsensusState::reducer(
++                Substate::new(state, dispatcher),
++                meta.with_action(a),
++            );
+         }
+    // ..
+```
+
+#### Define effectful actions for service interactions
+
+Actions that interact with services must be updated so that the interaction is performed by dispatching a new effectful action. No reducer function should be implemented for these new effectful actions.
+
+Example:
+
+See `node/src/transition_frontier/genesis{_effectful}`, `snark/src/block_verify{_effectful}` and `snark/src/work_verify{_effectful}`.
+
+#### Add callbacks
+
+There are 3 main situations in which callbacks are an improvement:
+
+- Passing them to effectful actions that will call a service
+- Cross-component calls, to make the flow clearer and avoid inter-dependencies (eg. interactions between the transition frontier, and the p2p layer).
+- Abstraction of lower level layers (e.g. higher level p2p abstractions over lower level tcp and mio implementations).
+
+Example: when a block is received, the consensus state machine will dispatch an action to verify the block. This action will trigger an asynchronous snark verification process that will complete (or fail) some time in the future, and we are interested in its result.
+
+The `SnarkBlockVerifyAction::Init` action gets updated with the addition of two callbacks, one that will be called after a successful verification, and another when an error occurs:
+
+```diff
+ pub enum SnarkBlockVerifyAction {
+     Init {
+         req_id: SnarkBlockVerifyId,
+         block: VerifiableBlockWithHash,
++        on_success: redux::Callback<BlockHash>,
++        on_error: redux::Callback<(BlockHash, SnarkBlockVerifyError)>,
+     },
+     // ...
+ }
+```
+
+The consensus reducer, after receiving a block, initializes the asynchronous block snark verification process specifying the callbacks, and sets the state to "pending". The dispatching of `SnarkBlockVerifyAction::Init` gets updated with the required callbacks:
+
+```diff
+     match action {
+         ConsensusAction::BlockReceived { hash, block, .. } => {
+            // ... state updates omitted
+            dispatcher.push(SnarkBlockVerifyAction::Init {
+                req_id,
+                block: (hash.clone(), block.clone()).into(),
++               on_success: redux::callback!(
++                   on_received_block_snark_verify_success(hash: BlockHash) -> crate::Action {
++                       ConsensusAction::BlockSnarkVerifySuccess { hash }
++                   }),
++               on_error: redux::callback!(
++                   on_received_block_snark_verify_error((hash: BlockHash, error: SnarkBlockVerifyError)) -> crate::Action {
++                       ConsensusAction::BlockSnarkVerifyError { hash, error }
++                   }),
+            });
+            dispatcher.push(ConsensusAction::BlockSnarkVerifyPending {
+                req_id,
+                hash: hash.clone(),
+            });
+         }
+         // ...
+```
+
+Then when handling `SnarkBlockVerifyAction::Init` a job is added to the state, with the callbacks stored there. Then the effectful action that will interact with the service is dispatched (**NOTE:** not shown here, see `snark/src/block_verify_effectful/`).
+
+
+```rust
+// when matching `SnarkBlockVerifyAction::Init`
+state.jobs.add(SnarkBlockVerifyStatus::Init {
+    time: meta.time(),
+    block: block.clone(),
+    on_success: on_success.clone(),
+    on_errir: on_errir.clone(),
+});
+
+// Dispatch
+let verifier_index = state.verifier_index.clone();
+let verifier_srs = state.verifier_srs.clone();
+let dispatcher = state_context.into_dispatcher();
+dispatcher.push(SnarkBlockVerifyEffectfulAction::Init {
+    req_id: *req_id,
+    block: block.clone(),
+    verifier_index,
+    verifier_srs,
+});
+dispatcher.push(SnarkBlockVerifyAction::Pending { req_id: *req_id });
+```
+
+Finally, on the handling of the `SnarkBlockVerifyAction::Success` action, the internal state is updated, and the callback fetched and dispatched with the block hash as input.
+
+```rust
+let callback_and_arg = state.jobs.get_mut(*req_id).and_then(|req| {
+    if let SnarkBlockVerifyStatus::Pending {
+        block, on_success, ..
+    } = req
+    {
+        let callback = on_success.clone();
+        let block_hash = block.hash_ref().clone();
+        *req = SnarkBlockVerifyStatus::Success {
+            time: meta.time(),
+            block: block.clone(),
+        };
+        Some((callback, block_hash))
+    } else {
+        None
+    }
+});
+
+// Dispatch
+let dispatcher = state_context.into_dispatcher();
+
+if let Some((callback, block_hash)) = callback_and_arg {
+    dispatcher.push_callback(callback, block_hash);
+}
+
+dispatcher.push(SnarkBlockVerifyAction::Finish { req_id: *req_id });
+```

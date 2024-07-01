@@ -3,6 +3,7 @@ use std::{fmt, io};
 
 use ark_ff::FromBytes;
 use binprot::BinProtWrite;
+use binprot_derive::{BinProtRead, BinProtWrite};
 use generated::MinaStateBlockchainStateValueStableV2;
 use mina_hasher::Fp;
 use mina_poseidon::{
@@ -70,7 +71,7 @@ impl generated::ConsensusVrfOutputTruncatedStableV1 {
     }
 }
 
-#[derive(Eq, PartialEq, Ord, PartialOrd, Clone)]
+#[derive(BinProtWrite, BinProtRead, Eq, PartialEq, Ord, PartialOrd, Clone)]
 pub struct TransactionHash(Vec<u8>);
 
 impl std::str::FromStr for TransactionHash {
@@ -145,10 +146,7 @@ impl generated::MinaBaseUserCommandStableV2 {
     pub fn hash(&self) -> io::Result<TransactionHash> {
         match self {
             Self::SignedCommand(v) => v.hash(),
-            Self::ZkappCommand(_) => Err(io::Error::new(
-                io::ErrorKind::Unsupported,
-                "zkapp tx hashing is not yet supported",
-            )),
+            Self::ZkappCommand(v) => v.hash(),
         }
     }
 }
@@ -177,6 +175,15 @@ impl generated::MinaBaseSignedCommandStableV2 {
         hash[1..].copy_from_slice(&hasher.finalize_boxed());
 
         Ok(TransactionHash(hash))
+    }
+}
+
+impl generated::MinaBaseZkappCommandTStableV1WireStableV1 {
+    pub fn hash(&self) -> io::Result<TransactionHash> {
+        Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "zkapp tx hashing is not yet supported",
+        ))
     }
 }
 
@@ -458,7 +465,7 @@ impl ToInput for MinaBaseProtocolConstantsCheckedValueStableV1 {
             k,
             slots_per_epoch,
             slots_per_sub_window,
-            grace_period_slots: _,
+            grace_period_slots,
             delta,
             genesis_state_timestamp,
         } = self;
@@ -469,9 +476,7 @@ impl ToInput for MinaBaseProtocolConstantsCheckedValueStableV1 {
             delta,
             slots_per_epoch,
             slots_per_sub_window,
-            // TODO: 2.0.0berkeley_rc1 doesn't include this, but
-            // that is a bug that will be fixed later.
-            // grace_period_slots,
+            grace_period_slots,
             genesis_state_timestamp
         );
     }

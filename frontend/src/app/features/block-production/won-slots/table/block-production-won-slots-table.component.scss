@@ -1,19 +1,39 @@
 @import 'openmina';
 
-.mina-icon {
+.mina-icon.f-big {
   font-variation-settings: 'FILL' 1, 'wght' 400 !important;
 }
 
-.Produced.Block {
-  color: $success-primary;
+.mina-icon.f-20 {
+  margin-left: -3px;
+  margin-right: 3px;
 }
 
-.Dropped {
-  color: $aware-primary;
-}
+:host ::ng-deep {
+  .mina-table .row.active > span.Produced.Block,
+  .Produced.Block {
+    color: $success-primary !important;
+  }
 
-:host ::ng-deep cdk-virtual-scroll-viewport {
-  overflow-y: auto !important;
+  .mina-table .row.active > span.Dropped,
+  .Dropped {
+    color: $aware-primary !important;
+  }
+
+  .Scheduled,
+  .Waiting,
+  .Produced:not(.Block) {
+    color: $base-primary !important;
+  }
+
+  cdk-virtual-scroll-viewport {
+    overflow-y: auto !important;
+  }
+
+  .mina-table .row.active mina-loading-spinner span {
+    border-color: $selected-primary !important;
+    border-top-color: transparent !important;
+  }
 }
 
 .fx-row-vert-cent {

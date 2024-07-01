@@ -38,7 +38,7 @@ pub enum WatchedAccountsAction {
     },
     LedgerInitialStateGetSuccess {
         pub_key: NonZeroCurvePoint,
-        data: Option<MinaBaseAccountBinableArgStableV2>,
+        data: Option<Box<MinaBaseAccountBinableArgStableV2>>,
     },
     TransactionsIncludedInBlock {
         pub_key: NonZeroCurvePoint,
@@ -56,7 +56,7 @@ pub enum WatchedAccountsAction {
     BlockLedgerQuerySuccess {
         pub_key: NonZeroCurvePoint,
         block_hash: StateHash,
-        ledger_account: MinaBaseAccountBinableArgStableV2,
+        ledger_account: Box<MinaBaseAccountBinableArgStableV2>,
     },
 }
 

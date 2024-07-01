@@ -47,7 +47,7 @@ RUN git clone https://github.com/MinaProtocol/mina.git
 ENV DUNE_PROFILE=devnet
 
 WORKDIR /go/mina
-RUN git checkout 2.0.0berkeley_rc1 && \
+RUN git checkout 3.0.0devnet && \
     git submodule update --init --recursive && \
     git config --local --add submodule.recurse true
 

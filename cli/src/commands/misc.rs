@@ -2,8 +2,6 @@ use libp2p_identity::PeerId;
 use node::account::AccountSecretKey;
 use node::p2p::identity::SecretKey;
 
-use crate::CommandError;
-
 #[derive(Debug, clap::Args)]
 pub struct Misc {
     #[command(subcommand)]
@@ -11,7 +9,7 @@ pub struct Misc {
 }
 
 impl Misc {
-    pub fn run(self) -> Result<(), CommandError> {
+    pub fn run(self) -> anyhow::Result<()> {
         match self.command {
             MiscCommand::P2PKeyPair(command) => command.run(),
             MiscCommand::MinaKeyPair(command) => command.run(),
@@ -32,7 +30,7 @@ pub struct P2PKeyPair {
 }
 
 impl P2PKeyPair {
-    pub fn run(self) -> Result<(), CommandError> {
+    pub fn run(self) -> anyhow::Result<()> {
         let secret_key = self.p2p_secret_key.unwrap_or_else(SecretKey::rand);
         let public_key = secret_key.public_key();
         let peer_id = public_key.peer_id();
@@ -53,7 +51,7 @@ pub struct MinaKeyPair {
 }
 
 impl MinaKeyPair {
-    pub fn run(self) -> Result<(), CommandError> {
+    pub fn run(self) -> anyhow::Result<()> {
         let secret_key = self.secret_key.unwrap_or_else(AccountSecretKey::rand);
         let public_key = secret_key.public_key();
         println!("secret key: {secret_key}");

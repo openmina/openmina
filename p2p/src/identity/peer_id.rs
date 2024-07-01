@@ -107,7 +107,6 @@ impl From<PeerId> for [u8; 32] {
     }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
 impl TryFrom<&libp2p_identity::PeerId> for PeerId {
     type Error = PeerIdFromLibp2pPeerId;
 
@@ -122,7 +121,6 @@ impl TryFrom<&libp2p_identity::PeerId> for PeerId {
     }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
 impl From<libp2p_identity::PeerId> for PeerId {
     fn from(value: libp2p_identity::PeerId) -> Self {
         let slice = value.as_ref().digest();
@@ -136,7 +134,6 @@ impl From<libp2p_identity::PeerId> for PeerId {
     }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
 impl From<PeerId> for libp2p_identity::PeerId {
     fn from(value: PeerId) -> Self {
         let key = libp2p_identity::ed25519::PublicKey::try_from_bytes(&value.to_bytes()).unwrap();
@@ -146,7 +143,6 @@ impl From<PeerId> for libp2p_identity::PeerId {
     }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
 impl PartialEq<libp2p_identity::PeerId> for PeerId {
     fn eq(&self, other: &libp2p_identity::PeerId) -> bool {
         let key = libp2p_identity::PublicKey::try_decode_protobuf(other.as_ref().digest()).unwrap();

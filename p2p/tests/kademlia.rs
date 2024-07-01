@@ -226,6 +226,7 @@ async fn discovery_seed_single_peer() -> anyhow::Result<()> {
     let mut cluster = ClusterBuilder::new()
         .ports_with_len(6)
         .idle_duration(Duration::from_millis(100))
+        .is_error(allow_disconnections)
         .start()
         .await?;
 
@@ -257,7 +258,7 @@ async fn discovery_seed_single_peer() -> anyhow::Result<()> {
 #[tokio::test]
 async fn discovery_seed_multiple_peers() -> anyhow::Result<()> {
     std::env::set_var("OPENMINA_DISCOVERY_FILTER_ADDR", false.to_string());
-    const PEERS: usize = 10;
+    const PEERS: usize = 15;
     let mut cluster = ClusterBuilder::new()
         .ports_with_len(PEERS as u16 * 2 + 4)
         .idle_duration(Duration::from_millis(100))
@@ -289,14 +290,13 @@ async fn discovery_seed_multiple_peers() -> anyhow::Result<()> {
     let node = cluster.add_rust_node(rust_config())?;
     cluster.connect(node, seed)?;
 
+    // time to reconnect to all newly discovered peers + some margin
+    let dur = Duration::from_secs(PEERS as u64 + 5);
     assert!(
-        try_wait_for_nodes_to_connect(
-            &mut cluster,
-            peer_ids.map(|peer_id| (node, peer_id)),
-            Duration::from_secs(10)
-        )
-        .await?,
-        "all peers should be connected"
+        try_wait_for_nodes_to_connect(&mut cluster, peer_ids.map(|peer_id| (node, peer_id)), dur)
+            .await?,
+        "all peers should be connected\n{}",
+        serde_json::to_string_pretty(&cluster.rust_node(node).state()).unwrap()
     );
 
     Ok(())

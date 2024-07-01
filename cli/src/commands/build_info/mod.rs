@@ -5,7 +5,7 @@ use node::BuildEnv;
 pub struct Command;
 
 impl Command {
-    pub fn run(&self) -> Result<(), crate::CommandError> {
+    pub fn run(&self) -> anyhow::Result<()> {
         let build_env = BuildEnv::get();
         println!(
             r#"

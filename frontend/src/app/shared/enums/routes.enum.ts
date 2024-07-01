@@ -37,4 +37,5 @@ export enum Routes {
   NODE_DHT = 'node-dht',
   BLOCK_PRODUCTION = 'block-production',
   WON_SLOTS = 'won-slots',
+  MEMPOOL = 'mempool',
 }
