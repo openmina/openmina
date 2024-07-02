@@ -49,7 +49,7 @@ impl TransitionFrontierSyncState {
                 | Self::RootLedgerPending(substate) => {
                     substate.time = meta.time();
                     substate.root_block = root_block.clone();
-                    substate.blocks_inbetween = blocks_inbetween.clone();
+                    substate.blocks_inbetween.clone_from(blocks_inbetween);
                     let old_best_tip = std::mem::replace(&mut substate.best_tip, best_tip.clone());
 
                     let staking_epoch_target = SyncLedgerTarget::staking_epoch(best_tip);
