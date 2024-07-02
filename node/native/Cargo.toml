@@ -8,6 +8,7 @@ license = "Apache-2.0"
 rand = "0.8"
 serde = "1.0.158"
 serde_json = "1.0.94"
+derive_more = "0.99.17"
 rayon = "1.5"
 tokio = { version = "1.26.0", features = ["process", "macros"] }
 warp = "0.3"
@@ -26,8 +27,8 @@ anyhow = "1.0.70"
 nix = { version = "0.26.2", features = ["signal"] }
 vrf = { workspace = true }
 jsonpath-rust = "0.5.0"
-openmina-core = { path = "../../core" }
 
+openmina-node-common = { path = "../common" }
 node = { path = "../../node", features = ["replay"] }
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]

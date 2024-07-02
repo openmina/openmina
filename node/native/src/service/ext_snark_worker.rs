@@ -394,11 +394,11 @@ impl ExternalSnarkWorkerService for NodeService {
         public_key: NonZeroCurvePoint,
         fee: CurrencyFeeStableV1,
     ) -> Result<(), node::external_snark_worker::ExternalSnarkWorkerError> {
-        if self.replayer.is_some() {
+        if self.common.replayer.is_some() {
             return Ok(());
         }
         let cmd_sender =
-            ExternalSnarkWorkerFacade::start(public_key, fee, self.event_sender.clone())?;
+            ExternalSnarkWorkerFacade::start(public_key, fee, self.common.event_sender().clone())?;
         self.snark_worker_sender = Some(cmd_sender);
         Ok(())
     }
@@ -407,7 +407,7 @@ impl ExternalSnarkWorkerService for NodeService {
         &mut self,
         spec: SnarkWorkSpec,
     ) -> Result<(), node::external_snark_worker::ExternalSnarkWorkerError> {
-        if self.replayer.is_some() {
+        if self.common.replayer.is_some() {
             return Ok(());
         }
         self.snark_worker_sender
@@ -418,7 +418,7 @@ impl ExternalSnarkWorkerService for NodeService {
     }
 
     fn cancel(&mut self) -> Result<(), ExternalSnarkWorkerError> {
-        if self.replayer.is_some() {
+        if self.common.replayer.is_some() {
             return Ok(());
         }
         self.snark_worker_sender
@@ -429,7 +429,7 @@ impl ExternalSnarkWorkerService for NodeService {
     }
 
     fn kill(&mut self) -> Result<(), node::external_snark_worker::ExternalSnarkWorkerError> {
-        if self.replayer.is_some() {
+        if self.common.replayer.is_some() {
             return Ok(());
         }
         self.snark_worker_sender
@@ -455,8 +455,8 @@ mod tests {
         event_source::Event,
         external_snark_worker::{ExternalSnarkWorkerEvent, SnarkWorkSpec},
     };
+    use openmina_node_common::tracing;
 
-    use super::super::tracing;
     use super::ExternalSnarkWorkerFacade;
 
     macro_rules! expect_event {
@@ -509,7 +509,7 @@ mod tests {
     #[tokio::test]
     async fn test_work() {
         tracing::initialize(Level::DEBUG);
-        const DATA: &[u8] = include_bytes!("../../../tests/files/snark_spec/spec1.bin");
+        const DATA: &[u8] = include_bytes!("../../../../tests/files/snark_spec/spec1.bin");
         let mut r = DATA;
         let (public_key, fee, instances) = read_input(&mut r);
 
@@ -527,7 +527,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_cancel() {
-        const DATA: &[u8] = include_bytes!("../../../tests/files/snark_spec/spec1.bin");
+        const DATA: &[u8] = include_bytes!("../../../../tests/files/snark_spec/spec1.bin");
         let mut r = DATA;
         let (public_key, fee, instances) = read_input(&mut r);
 
@@ -557,7 +557,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_2x_cancel() {
-        const DATA: &[u8] = include_bytes!("../../../tests/files/snark_spec/spec1.bin");
+        const DATA: &[u8] = include_bytes!("../../../../tests/files/snark_spec/spec1.bin");
         let mut r = DATA;
         let (public_key, fee, instances) = read_input(&mut r);
 

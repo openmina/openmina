@@ -1,10 +1,9 @@
-use std::{collections::VecDeque, net::IpAddr, time::Instant};
+use std::{collections::VecDeque, time::Instant};
 
 use p2p::{
     identity::SecretKey,
     service_impl::{
-        mio::MioService, services::NativeP2pNetworkService, webrtc::P2pServiceWebrtc,
-        webrtc_with_libp2p::P2pServiceWebrtcWithLibp2p,
+        mio::MioService, webrtc::P2pServiceWebrtc, webrtc_with_libp2p::P2pServiceWebrtcWithLibp2p,
     },
     P2pCryptoService, P2pEvent,
 };
@@ -21,10 +20,8 @@ pub struct ClusterService {
     mio: MioService,
     peers: std::collections::BTreeMap<p2p::PeerId, p2p::service_impl::webrtc::PeerState>,
     time: Instant,
-    keypair: libp2p::identity::Keypair,
 
     rust_node_events: VecDeque<RustNodeEvent>,
-    network_service: NativeP2pNetworkService,
 }
 
 impl ClusterService {
@@ -37,13 +34,13 @@ impl ClusterService {
     ) -> Self {
         let mio = {
             let event_sender = event_sender.clone();
-            MioService::new(move |mio_event| {
+            let mut mio = MioService::pending(secret_key.into());
+            mio.run(move |mio_event| {
                 let _ = event_sender.send(mio_event.into());
                 //.expect("cannot send mio event")
-            })
+            });
+            mio
         };
-        let keypair = libp2p::identity::Keypair::ed25519_from_bytes(secret_key.to_bytes())
-            .expect("secret key should be valid");
         Self {
             rng: StdRng::seed_from_u64(node_idx as u64),
             event_sender,
@@ -51,10 +48,8 @@ impl ClusterService {
             mio,
             peers: Default::default(),
             time,
-            keypair,
 
             rust_node_events: Default::default(),
-            network_service: Default::default(),
         }
     }
 
@@ -91,12 +86,12 @@ impl P2pServiceWebrtc for ClusterService {
         list.choose(&mut self.rng).unwrap().clone()
     }
 
-    fn event_sender(&mut self) -> &mut mpsc::UnboundedSender<Self::Event> {
-        &mut self.event_sender
+    fn event_sender(&self) -> &mpsc::UnboundedSender<Self::Event> {
+        &self.event_sender
     }
 
-    fn cmd_sender(&mut self) -> &mut mpsc::UnboundedSender<p2p::service_impl::webrtc::Cmd> {
-        &mut self.cmd_sender
+    fn cmd_sender(&self) -> &mpsc::UnboundedSender<p2p::service_impl::webrtc::Cmd> {
+        &self.cmd_sender
     }
 
     fn peers(
@@ -122,29 +117,26 @@ impl P2pCryptoService for ClusterService {
     // TODO: move it to statemachine.
     fn sign_key(&mut self, key: &[u8; 32]) -> Vec<u8> {
         let msg = [b"noise-libp2p-static-key:", key.as_ref()].concat();
-        let sig = self.keypair.sign(&msg).expect("unable to create signature");
+        let sig = self
+            .mio
+            .keypair()
+            .sign(&msg)
+            .expect("unable to create signature");
 
         let mut payload = vec![];
         payload.extend_from_slice(b"\x0a\x24");
-        payload.extend_from_slice(&self.keypair.public().encode_protobuf());
+        payload.extend_from_slice(&self.mio.keypair().public().encode_protobuf());
         payload.extend_from_slice(b"\x12\x40");
         payload.extend_from_slice(&sig);
         payload
     }
 
     fn sign_publication(&mut self, publication: &[u8]) -> Vec<u8> {
-        let msg = [b"libp2p-pubsub:", publication].concat();
-        self.keypair.sign(&msg).expect("unable to create signature")
-    }
-}
-
-impl p2p::P2pNetworkService for ClusterService {
-    fn resolve_name(&mut self, host: &str) -> Result<Vec<IpAddr>, p2p::P2pNetworkServiceError> {
-        self.network_service.resolve_name(host)
-    }
-
-    fn detect_local_ip(&mut self) -> Result<Vec<IpAddr>, p2p::P2pNetworkServiceError> {
-        self.network_service.detect_local_ip()
+        let msg: Vec<u8> = [b"libp2p-pubsub:", publication].concat();
+        self.mio
+            .keypair()
+            .sign(&msg)
+            .expect("unable to create signature")
     }
 }
 

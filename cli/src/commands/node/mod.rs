@@ -18,25 +18,20 @@ use reqwest::Url;
 use tokio::select;
 
 use node::account::{AccountPublicKey, AccountSecretKey};
-use node::core::channels::mpsc;
 use node::core::log::inner::Level;
 use node::event_source::EventSourceAction;
-use node::ledger::{LedgerCtx, LedgerManager};
 use node::p2p::channels::ChannelId;
 use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 use node::p2p::identity::SecretKey;
-use node::p2p::service_impl::webrtc_with_libp2p::P2pServiceWebrtcWithLibp2p;
 use node::p2p::{P2pConfig, P2pLimits, P2pTimeouts};
 use node::service::{Recorder, Service};
 use node::snark::{get_srs, get_verifier_index, VerifierKind};
-use node::stats::Stats;
 use node::{
     BlockProducerConfig, BuildEnv, Config, GlobalConfig, LedgerConfig, SnarkConfig, SnarkerConfig,
     SnarkerStrategy, State, TransitionFrontierConfig,
 };
 
-use openmina_node_native::rpc::RpcService;
-use openmina_node_native::{http_server, tracing, NodeService, P2pTaskSpawner, RpcSender};
+use openmina_node_native::{tracing, NodeServiceBuilder};
 
 /// Openmina node
 #[derive(Debug, clap::Args)]
@@ -244,48 +239,32 @@ impl Node {
             transition_frontier,
             block_producer: block_producer.clone().map(|(config, _)| config),
         };
-        let (event_sender, event_receiver) = mpsc::unbounded_channel();
 
         let libp2p_keypair = Keypair::from(p2p_secret_key.clone());
-
         openmina_core::info!(
             openmina_core::log::system_time();
             peer_id = libp2p_keypair.public().to_peer_id().to_base58(),
         );
 
-        let p2p_service_ctx = <NodeService as P2pServiceWebrtcWithLibp2p>::init(
-            p2p_secret_key.clone(),
-            P2pTaskSpawner {},
-        );
+        let mut service_builder = NodeServiceBuilder::new(rng_seed);
+        service_builder
+            .ledger_init()
+            .p2p_init(p2p_secret_key.clone())
+            .http_server_init(self.port)
+            .gather_stats()
+            .record(match self.record.trim() {
+                "none" => Recorder::None,
+                "state-with-input-actions" => Recorder::only_input_actions(work_dir),
+                _ => panic!("unknown --record strategy"),
+            });
 
-        let mut rpc_service = RpcService::new();
+        if let Some((_, keypair)) = block_producer {
+            service_builder.block_producer_init(keypair);
+        }
 
-        let http_port = self.port;
-        let rpc_sender = RpcSender::new(rpc_service.req_sender().clone());
-
-        // spawn http-server
-        let runtime = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
+        let service = service_builder
             .build()
-            .unwrap();
-        std::thread::Builder::new()
-            .name("openmina_http_server".to_owned())
-            .spawn(move || runtime.block_on(http_server::run(http_port, rpc_sender)))
-            .unwrap();
-
-        let record = self.record;
-
-        let mut ledger = if let Some(path) = &self.additional_ledgers_path {
-            LedgerCtx::new_with_additional_snarked_ledgers(path)
-        } else {
-            LedgerCtx::default()
-        };
-
-        // TODO(tizoc): Only used for the current workaround to make staged ledger
-        // reconstruction async, can be removed when the ledger services are made async
-        ledger.set_event_sender(event_sender.clone());
-
-        let ledger_manager = LedgerManager::spawn(ledger);
+            .map_err(|err| anyhow::anyhow!("node service build failed! error: {err}"))?;
 
         let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
@@ -294,34 +273,6 @@ impl Node {
             .unwrap();
 
         runtime.block_on(async move {
-            let mut service = NodeService {
-                rng: StdRng::seed_from_u64(rng_seed),
-                event_sender,
-                event_receiver: event_receiver.into(),
-                cmd_sender: p2p_service_ctx.webrtc.cmd_sender,
-                ledger_manager,
-                peers: p2p_service_ctx.webrtc.peers,
-                #[cfg(feature = "p2p-libp2p")]
-                mio: p2p_service_ctx.mio,
-                network: Default::default(),
-                block_producer: None,
-                keypair: libp2p_keypair,
-                rpc: rpc_service,
-                snark_worker_sender: None,
-                stats: Stats::new(),
-                recorder: match record.trim() {
-                    "none" => Recorder::None,
-                    "state-with-input-actions" => Recorder::only_input_actions(work_dir),
-                    _ => panic!("unknown --record strategy"),
-                },
-                replayer: None,
-                invariants_state: Default::default(),
-            };
-
-            if let Some((_, keypair)) = block_producer {
-                service.block_producer_start(keypair);
-            }
-
             let state = State::new(config, redux::Timestamp::global_now());
             let mut node = ::node::Node::new(state, service, None);
 
@@ -338,11 +289,12 @@ impl Node {
             loop {
                 node.store_mut().dispatch(EventSourceAction::WaitForEvents);
 
-                let service = &mut node.store_mut().service;
-                let wait_for_events = service.event_receiver.wait_for_events();
+                let (event_receiver, rpc_receiver) =
+                    node.store_mut().service.event_receiver_with_rpc_receiver();
+                let wait_for_events = event_receiver.wait_for_events();
                 let rpc_req_fut = async {
                     // TODO(binier): optimize maybe to not check it all the time.
-                    match service.rpc.req_receiver().recv().await {
+                    match rpc_receiver.recv().await {
                         Some(v) => v,
                         None => std::future::pending().await,
                     }
@@ -351,7 +303,7 @@ impl Node {
 
                 select! {
                     _ = wait_for_events => {
-                        while node.store_mut().service.event_receiver.has_next() {
+                        while node.store_mut().service.event_receiver().has_next() {
                             node.store_mut().dispatch(EventSourceAction::ProcessEvents);
                         }
                     }

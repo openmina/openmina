@@ -2,6 +2,7 @@ mod config;
 pub use config::{ClusterConfig, ProofKind};
 
 mod p2p_task_spawner;
+use openmina_node_native::NodeServiceBuilder;
 pub use p2p_task_spawner::P2pTaskSpawner;
 
 mod node_id;
@@ -24,14 +25,10 @@ use node::core::channels::mpsc;
 use node::core::log::system_time;
 use node::core::requests::RpcId;
 use node::core::warn;
-use node::p2p::service_impl::{
-    webrtc::P2pServiceCtx, webrtc_with_libp2p::P2pServiceWebrtcWithLibp2p,
-};
 use node::p2p::{P2pConnectionEvent, P2pEvent, P2pLimits, PeerId};
 use node::snark::{VerifierIndex, VerifierSRS};
 use node::{
     event_source::Event,
-    ledger::{LedgerCtx, LedgerManager},
     p2p::{channels::ChannelId, identity::SecretKey as P2pSecretKey},
     service::{Recorder, Service},
     snark::{get_srs, get_verifier_index, VerifierKind},
@@ -39,8 +36,7 @@ use node::{
     TransitionFrontierConfig,
 };
 use openmina_node_invariants::{InvariantResult, Invariants};
-use openmina_node_native::{http_server, rpc::RpcService, NodeService, RpcSender};
-use rand::{rngs::StdRng, SeedableRng};
+use openmina_node_native::http_server;
 use serde::{de::DeserializeOwned, Serialize};
 
 use crate::node::{DaemonJson, NonDeterministicEvent, OcamlStep, TestPeerId};
@@ -212,6 +208,7 @@ impl Cluster {
     }
 
     pub fn add_rust_node(&mut self, testing_config: RustNodeTestingConfig) -> ClusterNodeId {
+        let rng_seed = 0;
         let node_config = testing_config.clone();
         let node_id = ClusterNodeId::new_unchecked(self.nodes.len());
         let work_dir = TempDir::new().unwrap();
@@ -290,18 +287,29 @@ impl Cluster {
             block_producer: block_producer_config,
         };
 
-        let (event_sender, event_receiver) = mpsc::unbounded_channel();
+        let mut service_builder = NodeServiceBuilder::new(rng_seed);
+        service_builder
+            .ledger_init()
+            .p2p_init_with_custom_task_spawner(
+                p2p_sec_key.clone(),
+                p2p_task_spawner::P2pTaskSpawner::new(shutdown_tx.clone()),
+            )
+            .gather_stats()
+            .record(match testing_config.recorder {
+                crate::node::Recorder::None => Recorder::None,
+                crate::node::Recorder::StateWithInputActions => {
+                    Recorder::only_input_actions(work_dir.path())
+                }
+            });
 
-        let p2p_service_ctx = <NodeService as P2pServiceWebrtcWithLibp2p>::init(
-            p2p_sec_key.clone(),
-            p2p_task_spawner::P2pTaskSpawner::new(shutdown_tx.clone()),
-        );
+        if let Some(keypair) = block_producer_sec_key {
+            service_builder.block_producer_init(keypair);
+        }
 
-        let P2pServiceCtx { cmd_sender, peers } = p2p_service_ctx.webrtc;
-
-        let mut rpc_service = RpcService::new();
-
-        let rpc_sender = RpcSender::new(rpc_service.req_sender().clone());
+        let real_service = service_builder
+            .build()
+            .map_err(|err| anyhow::anyhow!("node service build failed! error: {err}"))
+            .unwrap();
 
         // spawn http-server
         let runtime = tokio::runtime::Builder::new_current_thread()
@@ -309,6 +317,7 @@ impl Cluster {
             .build()
             .unwrap();
         let shutdown = shutdown_tx.clone();
+        let rpc_sender = real_service.rpc_sender();
         std::thread::Builder::new()
             .name("openmina_http_server".to_owned())
             .spawn(move || {
@@ -323,41 +332,8 @@ impl Cluster {
             })
             .unwrap();
 
-        let mut ledger = LedgerCtx::default();
-
-        // TODO(tizoc): Only used for the current workaround to make staged ledger
-        // reconstruction async, can be removed when the ledger services are made async
-        ledger.set_event_sender(event_sender.clone());
-
-        let rng_seed = 0;
-        let mut real_service = NodeService {
-            rng: StdRng::seed_from_u64(rng_seed),
-            event_sender,
-            event_receiver: event_receiver.into(),
-            cmd_sender,
-            ledger_manager: LedgerManager::spawn(ledger),
-            peers,
-            #[cfg(feature = "p2p-libp2p")]
-            mio: p2p_service_ctx.mio,
-            network: Default::default(),
-            block_producer: None,
-            keypair: p2p_sec_key.clone().into(),
-            snark_worker_sender: None,
-            rpc: rpc_service,
-            stats: node::stats::Stats::new(),
-            recorder: match testing_config.recorder {
-                crate::node::Recorder::None => Recorder::None,
-                crate::node::Recorder::StateWithInputActions => {
-                    Recorder::only_input_actions(work_dir.path())
-                }
-            },
-            replayer: None,
-            invariants_state: Default::default(),
-        };
-        if let Some(producer_key) = block_producer_sec_key {
-            real_service.block_producer_start(producer_key);
-        }
         let mut service = NodeTestingService::new(real_service, node_id, shutdown_rx);
+
         service.set_proof_kind(self.config.proof_kind());
         if self.config.all_rust_to_rust_use_webrtc() {
             service.set_rust_to_rust_use_webrtc();

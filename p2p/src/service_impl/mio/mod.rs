@@ -10,6 +10,7 @@ use std::{
     thread,
 };
 
+use libp2p_identity::Keypair;
 use mio::net::{TcpListener, TcpStream};
 
 use thiserror::Error;
@@ -38,15 +39,16 @@ impl MioError {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
+#[allow(clippy::large_enum_variant)]
 pub enum MioService {
-    #[default]
-    Pending,
+    Pending(Keypair),
     Ready(MioRunningService),
 }
 
 #[derive(Debug)]
 pub struct MioRunningService {
+    keypair: Keypair,
     cmd_sender: mpsc::Sender<MioCmd>,
     waker: Option<mio::Waker>,
 }
@@ -55,27 +57,31 @@ impl redux::TimeService for MioService {}
 
 impl redux::Service for MioService {}
 
-// impl P2pMioService for MioMainService {
-
-//     fn start(&mut self) {
-//         todo!()
-//     }
-// }
-
 impl MioService {
-    pub fn new<F>(event_sender: F) -> Self
-    where
-        F: 'static + Send + Sync + Fn(MioEvent),
-    {
-        MioService::Ready(MioRunningService::run(event_sender))
+    pub fn pending(keypair: Keypair) -> Self {
+        Self::Pending(keypair)
     }
 
     pub fn run<F>(&mut self, event_sender: F)
     where
         F: 'static + Send + Sync + Fn(MioEvent),
     {
-        debug_assert!(matches!(self, MioService::Pending));
-        *self = MioService::Ready(MioRunningService::run(event_sender));
+        *self = match self {
+            Self::Pending(keypair) => {
+                MioService::Ready(MioRunningService::run(event_sender, keypair.clone()))
+            }
+            _ => {
+                openmina_core::warn!(openmina_core::log::system_time(); "tried to run already running mio service");
+                return;
+            }
+        }
+    }
+
+    pub fn keypair(&self) -> &Keypair {
+        match self {
+            Self::Pending(keypair) => keypair,
+            Self::Ready(s) => &s.keypair,
+        }
     }
 
     pub fn send_cmd(&mut self, cmd: MioCmd) {
@@ -89,20 +95,21 @@ impl MioService {
         }
     }
 
-    pub fn mocked() -> Self {
-        MioService::Ready(MioRunningService::mocked())
+    pub fn mocked(keypair: Keypair) -> Self {
+        MioService::Ready(MioRunningService::mocked(keypair))
     }
 }
 
 impl MioRunningService {
-    fn mocked() -> Self {
+    fn mocked(keypair: Keypair) -> Self {
         MioRunningService {
+            keypair,
             cmd_sender: mpsc::channel().0,
             waker: None,
         }
     }
 
-    fn run<F>(event_sender: F) -> Self
+    fn run<F>(event_sender: F, keypair: Keypair) -> Self
     where
         F: 'static + Send + Sync + Fn(MioEvent),
     {
@@ -148,6 +155,7 @@ impl MioRunningService {
         });
 
         MioRunningService {
+            keypair,
             cmd_sender: tx,
             waker: Some(waker),
         }
