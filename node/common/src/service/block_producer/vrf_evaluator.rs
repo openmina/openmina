@@ -10,7 +10,7 @@ use node::{
 };
 use vrf::{VrfEvaluationInput, VrfEvaluationOutput};
 
-use crate::NodeService;
+use crate::NodeServiceCommon;
 
 pub fn vrf_evaluator(
     event_sender: UnboundedSender<Event>,
@@ -51,7 +51,7 @@ pub fn vrf_evaluator(
     }
 }
 
-impl node::block_producer::vrf_evaluator::BlockProducerVrfEvaluatorService for NodeService {
+impl node::block_producer::vrf_evaluator::BlockProducerVrfEvaluatorService for NodeServiceCommon {
     fn evaluate(&mut self, data: VrfEvaluatorInput) {
         if let Some(bp) = self.block_producer.as_mut() {
             let _ = bp.vrf_evaluation_sender.send(data);

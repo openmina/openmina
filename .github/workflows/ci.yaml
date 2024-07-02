@@ -53,7 +53,7 @@ jobs:
 
       - name: Setup Rust
         run: |
-          rustup default 1.77
+          rustup default 1.79
           rustup component add rustfmt
 
       - name: Setup Rust Cache
@@ -79,7 +79,7 @@ jobs:
 
       - name: Setup Rust
         run: |
-          rustup default 1.77
+          rustup default 1.79
           rustup component add rustfmt
 
       - name: Setup Rust Cache
@@ -110,7 +110,7 @@ jobs:
 
       - name: Setup Rust
         run: |
-          rustup default 1.77
+          rustup default 1.79
           rustup component add rustfmt
           rustup target add wasm32-unknown-unknown
 
@@ -137,7 +137,7 @@ jobs:
 
       - name: Setup Rust
         run: |
-          rustup default 1.77
+          rustup default 1.79
           rustup component add rustfmt
 
       - name: Setup Rust Cache
@@ -174,7 +174,7 @@ jobs:
 
       - name: Setup Rust
         run: |
-          rustup default 1.77
+          rustup default 1.79
           rustup component add rustfmt
 
       - name: Setup Rust Cache

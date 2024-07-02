@@ -23,7 +23,7 @@ use node::core::channels::mpsc;
 use node::core::snark::{Snark, SnarkJobId};
 use node::external_snark_worker::ExternalSnarkWorkerEvent;
 use node::p2p::service_impl::webrtc_with_libp2p::P2pServiceWebrtcWithLibp2p;
-use node::p2p::{P2pCryptoService, P2pNetworkService, P2pNetworkServiceError};
+use node::p2p::P2pCryptoService;
 use node::recorder::Recorder;
 use node::service::{
     BlockProducerService, BlockProducerVrfEvaluatorService, TransitionFrontierGenesisService,
@@ -203,11 +203,11 @@ impl NodeTestingService {
     }
 
     pub fn pending_events(&mut self, poll: bool) -> impl Iterator<Item = (PendingEventId, &Event)> {
-        while let Ok(req) = self.real.rpc.req_receiver().try_recv() {
+        while let Ok(req) = self.real.rpc_receiver().try_recv() {
             self.real.process_rpc_request(req);
         }
         if poll {
-            while let Some(event) = self.real.event_receiver.try_next() {
+            while let Some(event) = self.real.event_receiver().try_next() {
                 // Drop non-deterministic events during replay. We
                 // have those recorded as `ScenarioStep::NonDeterministicEvent`.
                 if self.is_replay && NonDeterministicEvent::should_drop_event(&event) {
@@ -222,14 +222,15 @@ impl NodeTestingService {
 
     pub async fn next_pending_event(&mut self) -> Option<(PendingEventId, &Event)> {
         let event = loop {
+            let (event_receiver, rpc_receiver) = self.real.event_receiver_with_rpc_receiver();
             tokio::select! {
-                Some(rpc) = self.real.rpc.req_receiver().recv() => {
+                Some(rpc) = rpc_receiver.recv() => {
                     self.real.process_rpc_request(rpc);
-                    break self.real.event_receiver.try_next().unwrap();
+                    break self.real.event_receiver().try_next().unwrap();
                 }
-                res = self.real.event_receiver.wait_for_events() => {
+                res = event_receiver.wait_for_events() => {
                     res.ok()?;
-                    let event = self.real.event_receiver.try_next().unwrap();
+                    let event = self.real.event_receiver().try_next().unwrap();
                     // Drop non-deterministic events during replay. We
                     // have those recorded as `ScenarioStep::NonDeterministicEvent`.
                     if self.is_replay && NonDeterministicEvent::should_drop_event(&event) {
@@ -254,7 +255,7 @@ impl NodeTestingService {
 
     pub fn ledger(&self, ledger_hash: &LedgerHash) -> Option<Mask> {
         self.real
-            .ledger_manager
+            .ledger_manager()
             .get_mask(ledger_hash)
             .map(|(mask, _)| mask)
     }
@@ -294,22 +295,9 @@ impl P2pCryptoService for NodeTestingService {
     }
 }
 
-impl P2pNetworkService for NodeTestingService {
-    fn resolve_name(
-        &mut self,
-        host: &str,
-    ) -> Result<Vec<std::net::IpAddr>, P2pNetworkServiceError> {
-        self.real.resolve_name(host)
-    }
-
-    fn detect_local_ip(&mut self) -> Result<Vec<std::net::IpAddr>, P2pNetworkServiceError> {
-        self.real.detect_local_ip()
-    }
-}
-
 impl node::ledger::LedgerService for NodeTestingService {
     fn ledger_manager(&self) -> &node::ledger::LedgerManager {
-        &self.real.ledger_manager
+        self.real.ledger_manager()
     }
 }
 
@@ -341,24 +329,24 @@ impl P2pServiceWebrtc for NodeTestingService {
         self.real.random_pick(list)
     }
 
-    fn event_sender(&mut self) -> &mut mpsc::UnboundedSender<Event> {
-        &mut self.real.event_sender
+    fn event_sender(&self) -> &mpsc::UnboundedSender<Event> {
+        P2pServiceWebrtc::event_sender(&self.real)
     }
 
-    fn cmd_sender(&mut self) -> &mut mpsc::UnboundedSender<Cmd> {
-        &mut self.real.cmd_sender
+    fn cmd_sender(&self) -> &mpsc::UnboundedSender<Cmd> {
+        P2pServiceWebrtc::cmd_sender(&self.real)
     }
 
     fn peers(&mut self) -> &mut BTreeMap<PeerId, PeerState> {
-        &mut self.real.peers
+        P2pServiceWebrtc::peers(&mut self.real)
     }
 
     fn outgoing_init(&mut self, peer_id: PeerId) {
-        self.real.outgoing_init(peer_id);
+        P2pServiceWebrtc::outgoing_init(&mut self.real, peer_id)
     }
 
     fn incoming_init(&mut self, peer_id: PeerId, offer: webrtc::Offer) {
-        self.real.incoming_init(peer_id, offer);
+        P2pServiceWebrtc::incoming_init(&mut self.real, peer_id, offer)
     }
 }
 
@@ -381,7 +369,7 @@ impl SnarkBlockVerifyService for NodeTestingService {
             ProofKind::Dummy | ProofKind::ConstraintsChecked => {
                 let _ = self
                     .real
-                    .event_sender
+                    .event_sender()
                     .send(SnarkEvent::BlockVerify(req_id, Ok(())).into());
             }
             ProofKind::Full => SnarkBlockVerifyService::verify_init(
@@ -407,7 +395,7 @@ impl SnarkWorkVerifyService for NodeTestingService {
             ProofKind::Dummy | ProofKind::ConstraintsChecked => {
                 let _ = self
                     .real
-                    .event_sender
+                    .event_sender()
                     .send(SnarkEvent::WorkVerify(req_id, Ok(())).into());
             }
             ProofKind::Full => SnarkWorkVerifyService::verify_init(
@@ -448,16 +436,16 @@ impl BlockProducerService for NodeTestingService {
             let dummy_proof = (*ledger::dummy::dummy_blockchain_proof()).clone();
             BlockProducerEvent::BlockProve(block_hash, Ok(dummy_proof.into())).into()
         }
-        let keypair = self.real.block_producer.as_ref().unwrap().keypair();
+        let keypair = self.real.block_producer().unwrap().keypair();
 
         match self.proof_kind() {
             ProofKind::Dummy => {
-                let _ = self.real.event_sender.send(dummy_proof_event(block_hash));
+                let _ = self.real.event_sender().send(dummy_proof_event(block_hash));
             }
             ProofKind::ConstraintsChecked => {
                 match openmina_node_native::block_producer::prove(input, keypair, true) {
                     Err(ProofError::ConstraintsOk) => {
-                        let _ = self.real.event_sender.send(dummy_proof_event(block_hash));
+                        let _ = self.real.event_sender().send(dummy_proof_event(block_hash));
                     }
                     Err(err) => panic!("unexpected block proof generation error: {err:?}"),
                     Ok(_) => unreachable!(),
@@ -489,7 +477,7 @@ impl BlockProducerService for NodeTestingService {
                 }
                 let _ = self
                     .real
-                    .event_sender
+                    .event_sender()
                     .send(BlockProducerEvent::BlockProve(block_hash, res).into());
             }
         }
@@ -507,7 +495,7 @@ impl ExternalSnarkWorkerService for NodeTestingService {
         self.set_snarker_sok_digest((&sok_message.digest()).into());
         let _ = self
             .real
-            .event_sender
+            .event_sender()
             .send(ExternalSnarkWorkerEvent::Started.into());
         Ok(())
         // self.real.start(path, public_key, fee)
@@ -546,7 +534,7 @@ impl ExternalSnarkWorkerService for NodeTestingService {
         };
         let _ = self
             .real
-            .event_sender
+            .event_sender()
             .send(ExternalSnarkWorkerEvent::WorkResult(Arc::new(res)).into());
         Ok(())
         // self.real.submit(spec)
@@ -555,7 +543,7 @@ impl ExternalSnarkWorkerService for NodeTestingService {
     fn cancel(&mut self) -> Result<(), node::external_snark_worker::ExternalSnarkWorkerError> {
         let _ = self
             .real
-            .event_sender
+            .event_sender()
             .send(ExternalSnarkWorkerEvent::WorkCancelled.into());
         Ok(())
         // self.real.cancel()
@@ -564,7 +552,7 @@ impl ExternalSnarkWorkerService for NodeTestingService {
     fn kill(&mut self) -> Result<(), node::external_snark_worker::ExternalSnarkWorkerError> {
         let _ = self
             .real
-            .event_sender
+            .event_sender()
             .send(ExternalSnarkWorkerEvent::Killed.into());
         Ok(())
         // self.real.kill()
@@ -573,6 +561,6 @@ impl ExternalSnarkWorkerService for NodeTestingService {
 
 impl node::core::invariants::InvariantService for NodeTestingService {
     fn invariants_state(&mut self) -> &mut openmina_core::invariants::InvariantsState {
-        &mut self.real.invariants_state
+        node::core::invariants::InvariantService::invariants_state(&mut self.real)
     }
 }

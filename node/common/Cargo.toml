@@ -1,0 +1,29 @@
+[package]
+name = "openmina-node-common"
+version = "0.5.0"
+edition = "2021"
+license = "Apache-2.0"
+
+[dependencies]
+rand = "0.8"
+thiserror = "1.0.44"
+serde = "1.0.158"
+serde_json = "1.0.94"
+tracing-subscriber = { version = "0.3.17", features = ["json", "env-filter"] }
+tracing = "0.1.37"
+rayon = "1.5"
+jsonpath-rust = "0.5.0"
+mina-p2p-messages = { workspace = true }
+mina-signer = { workspace = true }
+vrf = { workspace = true }
+ledger = { workspace = true }
+
+node = { path = "../../node", features = ["replay"] }
+
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
+redux = { workspace = true, features=["serializable_callbacks"] }
+
+[features]
+default = ["p2p-libp2p"]
+p2p-webrtc = ["node/p2p-webrtc"]
+p2p-libp2p = ["node/p2p-libp2p"]
