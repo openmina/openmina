@@ -1,7 +1,9 @@
+use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 use node::rpc::{
     RpcBlockProducerStatsGetResponse, RpcDiscoveryBoostrapStatsResponse,
     RpcDiscoveryRoutingTableResponse, RpcHealthCheckResponse, RpcMessageProgressResponse,
-    RpcPeersGetResponse, RpcReadinessCheckResponse, RpcStateGetError, RpcStatusGetResponse,
+    RpcPeersGetResponse, RpcReadinessCheckResponse, RpcRequest, RpcStateGetError,
+    RpcStatusGetResponse,
 };
 use serde::{Deserialize, Serialize};
 
@@ -17,7 +19,7 @@ pub use node::rpc::{
 use node::State;
 use node::{event_source::Event, rpc::RpcSnarkPoolJobGetResponse};
 
-use super::{NodeRpcRequest, NodeService};
+use crate::NodeServiceCommon;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum RpcP2pConnectionIncomingResponse {
@@ -25,11 +27,70 @@ pub enum RpcP2pConnectionIncomingResponse {
     Result(Result<(), String>),
 }
 
+pub struct NodeRpcRequest {
+    pub req: RpcRequest,
+    pub responder: Box<dyn Send + std::any::Any>,
+}
+
+#[derive(Clone)]
+pub struct RpcSender {
+    tx: mpsc::Sender<NodeRpcRequest>,
+}
+
+pub type RpcReceiver = mpsc::Receiver<NodeRpcRequest>;
+
 pub struct RpcService {
     pending: PendingRequests<RpcIdType, Box<dyn Send + std::any::Any>>,
 
     req_sender: mpsc::Sender<NodeRpcRequest>,
     req_receiver: mpsc::Receiver<NodeRpcRequest>,
+}
+
+impl RpcSender {
+    pub fn new(tx: mpsc::Sender<NodeRpcRequest>) -> Self {
+        Self { tx }
+    }
+
+    pub async fn oneshot_request<T>(&self, req: RpcRequest) -> Option<T>
+    where
+        T: 'static + Send + Serialize,
+    {
+        let (tx, rx) = oneshot::channel::<T>();
+        let responder = Box::new(tx);
+        let sender = self.tx.clone();
+        let _ = sender.send(NodeRpcRequest { req, responder }).await;
+
+        rx.await.ok()
+    }
+
+    pub async fn multishot_request<T>(
+        &self,
+        expected_messages: usize,
+        req: RpcRequest,
+    ) -> mpsc::Receiver<T>
+    where
+        T: 'static + Send + Serialize,
+    {
+        let (tx, rx) = mpsc::channel::<T>(expected_messages);
+        let responder = Box::new(tx);
+        let sender = self.tx.clone();
+        let _ = sender.send(NodeRpcRequest { req, responder }).await;
+
+        rx
+    }
+
+    pub async fn peer_connect(
+        &self,
+        opts: P2pConnectionOutgoingInitOpts,
+    ) -> Result<String, String> {
+        let peer_id = opts.peer_id().to_string();
+        let req = RpcRequest::P2pConnectionOutgoing(opts);
+        self.oneshot_request::<RpcP2pConnectionOutgoingResponse>(req)
+            .await
+            .ok_or_else(|| "state machine shut down".to_owned())??;
+
+        Ok(peer_id)
+    }
 }
 
 impl Default for RpcService {
@@ -49,23 +110,23 @@ impl RpcService {
     }
 
     /// Channel for sending the rpc request to state machine.
-    pub fn req_sender(&mut self) -> &mut mpsc::Sender<NodeRpcRequest> {
-        &mut self.req_sender
+    pub fn req_sender(&self) -> RpcSender {
+        RpcSender::new(self.req_sender.clone())
     }
 
     /// Channel for receiving rpc requests in state machine.
-    pub fn req_receiver(&mut self) -> &mut mpsc::Receiver<NodeRpcRequest> {
+    pub fn req_receiver(&mut self) -> &mut RpcReceiver {
         &mut self.req_receiver
+    }
+
+    pub fn process_request(&mut self, req: NodeRpcRequest) -> Event {
+        let rpc_id = self.pending.add(req.responder);
+        let req = req.req;
+        Event::Rpc(rpc_id, Box::new(req))
     }
 }
 
-impl NodeService {
-    /// Channel for sending the rpc request to state machine.
-    #[allow(dead_code)]
-    pub fn rpc_req_sender(&mut self) -> &mut mpsc::Sender<NodeRpcRequest> {
-        &mut self.rpc.req_sender
-    }
-
+impl NodeServiceCommon {
     pub fn process_rpc_request(&mut self, req: NodeRpcRequest) {
         let rpc_id = self.rpc.pending.add(req.responder);
         let req = req.req;
@@ -157,7 +218,7 @@ fn optimize_filtered_state(
     Ok((value, filter))
 }
 
-impl node::rpc::RpcService for NodeService {
+impl node::rpc::RpcService for NodeServiceCommon {
     fn respond_state_get(
         &mut self,
         rpc_id: RpcId,
@@ -270,12 +331,6 @@ impl node::rpc::RpcService for NodeService {
         respond_discovery_bootstrap_stats,
         RpcDiscoveryBoostrapStatsResponse
     );
-}
-
-impl node::core::invariants::InvariantService for NodeService {
-    fn invariants_state(&mut self) -> &mut node::core::invariants::InvariantsState {
-        &mut self.invariants_state
-    }
 }
 
 #[cfg(test)]

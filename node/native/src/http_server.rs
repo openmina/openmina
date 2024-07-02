@@ -17,12 +17,12 @@ use node::rpc::{
     SyncStatsQuery,
 };
 
-use super::rpc::{
-    RpcActionStatsGetResponse, RpcSnarkPoolGetResponse, RpcSnarkerJobCommitResponse,
+use openmina_node_common::rpc::{
+    RpcActionStatsGetResponse, RpcSender, RpcSnarkPoolGetResponse, RpcSnarkerJobCommitResponse,
     RpcSnarkerJobSpecResponse, RpcStateGetResponse, RpcSyncStatsGetResponse,
 };
 
-pub async fn run(port: u16, rpc_sender: super::RpcSender) {
+pub async fn run(port: u16, rpc_sender: RpcSender) {
     #[cfg(feature = "p2p-webrtc")]
     let signaling = {
         use node::p2p::{
@@ -100,7 +100,7 @@ pub async fn run(port: u16, rpc_sender: super::RpcSender) {
         .recover(state_recover);
 
     async fn state_handler(
-        rpc_sender: super::RpcSender,
+        rpc_sender: RpcSender,
         StateQueryParams { filter }: StateQueryParams,
     ) -> Result<impl warp::Reply, warp::Rejection> {
         rpc_sender
@@ -468,7 +468,7 @@ pub async fn run(port: u16, rpc_sender: super::RpcSender) {
 }
 
 fn healthcheck(
-    rpc_sender: super::RpcSender,
+    rpc_sender: RpcSender,
 ) -> impl Filter<Error = Rejection, Extract = impl Reply> + Clone {
     warp::path!("healthz").and(warp::get()).then(move || {
         let rpc_sender = rpc_sender.clone();
@@ -493,7 +493,7 @@ fn healthcheck(
 }
 
 fn readiness(
-    rpc_sender: super::RpcSender,
+    rpc_sender: RpcSender,
 ) -> impl Filter<Error = Rejection, Extract = impl Reply> + Clone {
     warp::path!("readyz").and(warp::get()).then(move || {
         let rpc_sender = rpc_sender.clone();
@@ -521,14 +521,13 @@ mod discovery {
     use node::rpc::{
         RpcDiscoveryBoostrapStatsResponse, RpcDiscoveryRoutingTableResponse, RpcRequest,
     };
+    use openmina_node_common::rpc::RpcSender;
     use warp::Filter;
-
-    use super::super::RpcSender;
 
     use super::{with_rpc_sender, DroppedChannel};
 
     pub fn routing_table(
-        rpc_sender: super::super::RpcSender,
+        rpc_sender: RpcSender,
     ) -> impl warp::Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
         warp::path!("discovery" / "routing_table")
             .and(warp::get())
@@ -537,7 +536,7 @@ mod discovery {
     }
 
     pub fn bootstrap_stats(
-        rpc_sender: super::super::RpcSender,
+        rpc_sender: RpcSender,
     ) -> impl warp::Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
         warp::path!("discovery" / "bootstrap_stats")
             .and(warp::get())
@@ -569,8 +568,8 @@ mod discovery {
 }
 
 fn with_rpc_sender(
-    rpc_sender: super::RpcSender,
-) -> impl warp::Filter<Extract = (super::RpcSender,), Error = Infallible> + Clone {
+    rpc_sender: RpcSender,
+) -> impl warp::Filter<Extract = (RpcSender,), Error = Infallible> + Clone {
     warp::any().map(move || rpc_sender.clone())
 }
 

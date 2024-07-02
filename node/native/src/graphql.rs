@@ -3,9 +3,10 @@ use node::{
     rpc::{RpcRequest, RpcSyncStatsGetResponse, SyncStatsQuery},
     stats::sync::SyncKind,
 };
+use openmina_node_common::rpc::RpcSender;
 use warp::{Filter, Rejection, Reply};
 
-struct Context(super::RpcSender);
+struct Context(RpcSender);
 
 impl juniper::Context for Context {}
 
@@ -135,7 +136,7 @@ impl Query {
 }
 
 pub fn routes(
-    rpc_sernder: super::RpcSender,
+    rpc_sernder: RpcSender,
 ) -> impl Filter<Error = Rejection, Extract = impl Reply> + Clone {
     let state = warp::any().map(move || Context(rpc_sernder.clone()));
     let schema = RootNode::new(

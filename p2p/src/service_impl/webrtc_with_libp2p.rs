@@ -9,7 +9,7 @@ use crate::{
 #[cfg(feature = "p2p-libp2p")]
 use super::mio::MioService;
 #[cfg(feature = "p2p-libp2p")]
-use crate::P2pMioService;
+use crate::{P2pMioService, P2pNetworkService, P2pNetworkServiceError};
 
 use super::{webrtc::P2pServiceWebrtc, TaskSpawner};
 
@@ -25,10 +25,40 @@ pub trait P2pServiceWebrtcWithLibp2p: P2pServiceWebrtc {
 
     fn init<S: TaskSpawner>(secret_key: SecretKey, spawner: S) -> P2pServiceCtx {
         P2pServiceCtx {
-            webrtc: <Self as P2pServiceWebrtc>::init(secret_key, spawner),
             #[cfg(feature = "p2p-libp2p")]
-            mio: MioService::default(),
+            mio: MioService::pending(secret_key.clone().into()),
+            webrtc: <Self as P2pServiceWebrtc>::init(secret_key, spawner),
         }
+    }
+
+    #[cfg(feature = "p2p-libp2p")]
+    fn resolve_name(
+        &mut self,
+        _host: &str,
+    ) -> Result<Vec<std::net::IpAddr>, P2pNetworkServiceError> {
+        // TODO: resolve host
+        Ok(Vec::new())
+    }
+
+    #[cfg(feature = "p2p-libp2p")]
+    fn detect_local_ip(&mut self) -> Result<Vec<std::net::IpAddr>, P2pNetworkServiceError> {
+        let addrs = local_ip_address::list_afinet_netifas()
+            .map_err(|e| P2pNetworkServiceError::LocalIp(e.to_string()))?;
+        Ok(addrs.into_iter().map(|(_, ip)| ip).collect())
+    }
+}
+
+#[cfg(feature = "p2p-libp2p")]
+impl<T: P2pServiceWebrtcWithLibp2p> P2pNetworkService for T {
+    fn resolve_name(
+        &mut self,
+        host: &str,
+    ) -> Result<Vec<std::net::IpAddr>, P2pNetworkServiceError> {
+        P2pServiceWebrtcWithLibp2p::resolve_name(self, host)
+    }
+
+    fn detect_local_ip(&mut self) -> Result<Vec<std::net::IpAddr>, P2pNetworkServiceError> {
+        P2pServiceWebrtcWithLibp2p::detect_local_ip(self)
     }
 }
 
@@ -130,5 +160,19 @@ where
     #[cfg(feature = "p2p-libp2p")]
     fn send_mio_cmd(&mut self, cmd: crate::MioCmd) {
         self.mio().send_cmd(cmd)
+    }
+}
+
+impl P2pServiceCtx {
+    pub fn mocked(secret_key: SecretKey) -> Self {
+        use openmina_core::channels::mpsc;
+        Self {
+            #[cfg(feature = "p2p-libp2p")]
+            mio: super::mio::MioService::mocked(secret_key.into()),
+            webrtc: super::webrtc::P2pServiceCtx {
+                cmd_sender: mpsc::unbounded_channel().0,
+                peers: Default::default(),
+            },
+        }
     }
 }
