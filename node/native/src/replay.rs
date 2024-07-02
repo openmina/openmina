@@ -225,6 +225,7 @@ impl DynEffectsLib {
 
         Self {
             handle,
+            #[allow(clippy::missing_transmute_annotations)]
             fun: unsafe { std::mem::transmute::<*mut c_void, _>(fun) },
         }
     }
