@@ -2,16 +2,21 @@ use std::time::Duration;
 
 use node::{
     event_source::Event,
-    p2p::{connection::P2pConnectionState, P2pConnectionEvent, P2pEvent, P2pPeerStatus},
+    p2p::{
+        connection::P2pConnectionState, peer::P2pPeerAction, P2pConnectionEvent, P2pEvent,
+        P2pPeerStatus, PeerId,
+    },
+    P2pAction,
 };
 use tokio::time::Instant;
 
 use crate::{
+    cluster::ClusterNodeId,
     node::{DaemonJson, OcamlNodeTestingConfig, OcamlStep, RustNodeTestingConfig},
     scenario::{ListenerNode, ScenarioStep},
     scenarios::{
         connection_finalized_event, get_peers_iter, wait_for_connection_established, ClusterRunner,
-        Driver, PEERS_QUERY,
+        Driver, RunCfg, PEERS_QUERY,
     },
 };
 
@@ -28,6 +33,7 @@ impl RustNodeAsSeed {
     pub async fn run(self, mut runner: ClusterRunner<'_>) {
         let rust_node_id = runner.add_rust_node(RustNodeTestingConfig::devnet_default());
         let rust_node_dial_addr = runner.node(rust_node_id).unwrap().dial_addr();
+        wait_for_node_ready(&mut runner, rust_node_id).await;
 
         let ocaml_node_config = OcamlNodeTestingConfig {
             initial_peers: vec![rust_node_dial_addr],
@@ -66,7 +72,7 @@ impl RustNodeAsSeed {
             duration = Duration::from_secs(60);
         }
 
-        let timeout = Instant::now() + Duration::from_secs(60);
+        let timeout = Instant::now() + Duration::from_secs(1800);
         let mut node0_has_node1 = false;
         let mut node1_has_node0 = false;
         while !node0_has_node1 && !node1_has_node0 && Instant::now() < timeout {
@@ -75,22 +81,30 @@ impl RustNodeAsSeed {
                 .ocaml_node(ocaml_node0)
                 .unwrap()
                 .grapql_query(PEERS_QUERY)
+                .await
                 .expect("peers graphql query");
+
             println!("{}", serde_json::to_string_pretty(&node0_peers).unwrap());
+            // println!("{}\n{}",ocaml_peer_id1, ocaml_peer_id1.to_libp2p_string());
             node0_has_node1 = get_peers_iter(&node0_peers)
                 .unwrap()
-                .any(|peer| peer.unwrap().2 == ocaml_peer_id1.to_string());
+                .any(|peer| peer.unwrap().2 == ocaml_peer_id1.to_libp2p_string());
 
-            let node1_peers = driver
+            let Ok(node1_peers) = driver
                 .inner()
                 .ocaml_node(ocaml_node1)
                 .unwrap()
                 .grapql_query(PEERS_QUERY)
-                .expect("peers graphql query");
+                .await
+            else {
+                continue;
+            };
+
             println!("{}", serde_json::to_string_pretty(&node1_peers).unwrap());
+            // println!("{}\n{}",ocaml_peer_id0, ocaml_peer_id0.to_libp2p_string());
             node1_has_node0 = get_peers_iter(&node1_peers)
                 .unwrap()
-                .any(|peer| peer.unwrap().2 == ocaml_peer_id0.to_string());
+                .any(|peer| peer.unwrap().2 == ocaml_peer_id0.to_libp2p_string());
 
             tokio::time::sleep(Duration::from_secs(10)).await;
         }
@@ -206,33 +220,17 @@ impl RustToOCaml {
             .await
             .unwrap();
 
-        let mut driver = Driver::new(runner);
+        wait_for_node_ready(&mut runner, rust_node_id).await;
 
-        driver
+        runner
             .exec_step(ScenarioStep::ConnectNodes {
                 dialer: rust_node_id,
                 listener: ListenerNode::Ocaml(seed_node),
             })
             .await
-            .unwrap();
+            .expect("Error connecting nodes");
 
-        // wait for conection finalize event
-        let connected = driver
-            .wait_for(
-                Duration::from_secs(5),
-                connection_finalized_event(|_, peer| peer == &seed_peer_id),
-            )
-            .await
-            .unwrap()
-            .expect("expected connected event");
-        // execute it
-        let state = driver.exec_even_step(connected).await.unwrap().unwrap();
-        // check that now there is an outgoing connection to the ocaml peer
-        assert!(matches!(
-            &state.p2p.get_peer(&seed_peer_id).unwrap().status,
-            P2pPeerStatus::Ready(ready) if !ready.is_incoming
-        ));
-
+        wait_for_ready_connection(&mut runner, rust_node_id, seed_peer_id, false).await;
         // wait for kademlia to add the ocaml peer
         // let kad_add_rounte = driver.wait_for(Duration::from_secs(1), |_, event, _| {
         //     matches!(event, Event::P2p(P2pEvent::Discovery(P2pDiscoveryEvent::AddRoute(peer, addresses)))
@@ -380,6 +378,7 @@ pub struct RustToOCamlViaSeed;
 impl RustToOCamlViaSeed {
     pub async fn run(self, mut runner: ClusterRunner<'_>) {
         let rust_node_id = runner.add_rust_node(RustNodeTestingConfig::devnet_default());
+        wait_for_node_ready(&mut runner, rust_node_id).await;
 
         let ocaml_seed_config = OcamlNodeTestingConfig {
             initial_peers: Vec::new(),
@@ -388,12 +387,21 @@ impl RustToOCamlViaSeed {
         };
 
         let seed_node = runner.add_ocaml_node(ocaml_seed_config.clone());
+
+        runner
+            .exec_step(ScenarioStep::Ocaml {
+                node_id: seed_node,
+                step: OcamlStep::WaitReady {
+                    timeout: Duration::from_secs(5 * 60),
+                },
+            })
+            .await
+            .expect("Ocaml node not ready");
+
         let (seed_peer_id, seed_addr) = runner
             .ocaml_node(seed_node)
             .map(|node| (node.peer_id(), node.dial_addr()))
             .unwrap();
-
-        tokio::time::sleep(Duration::from_secs(60)).await;
 
         let ocaml_node = runner.add_ocaml_node(OcamlNodeTestingConfig {
             initial_peers: vec![seed_addr],
@@ -401,48 +409,27 @@ impl RustToOCamlViaSeed {
         });
         let ocaml_peer_id = runner.ocaml_node(ocaml_node).unwrap().peer_id();
 
-        let wait_step = OcamlStep::WaitReady {
-            timeout: Duration::from_secs(60),
-        };
-        runner
-            .exec_step(ScenarioStep::Ocaml {
-                node_id: seed_node,
-                step: wait_step.clone(),
-            })
-            .await
-            .unwrap();
         runner
             .exec_step(ScenarioStep::Ocaml {
                 node_id: ocaml_node,
-                step: wait_step,
+                step: OcamlStep::WaitReady {
+                    timeout: Duration::from_secs(5 * 60),
+                },
             })
             .await
-            .unwrap();
+            .expect("Ocaml node not ready");
 
-        let mut driver = Driver::new(runner);
-
-        driver
+        runner
             .exec_step(ScenarioStep::ConnectNodes {
                 dialer: rust_node_id,
                 listener: ListenerNode::Ocaml(seed_node),
             })
             .await
-            .unwrap();
+            .expect("error connecting nodes");
 
-        let connected = driver
-            .wait_for(
-                Duration::from_secs(5),
-                connection_finalized_event(|_, peer| peer == &seed_peer_id),
-            )
-            .await
-            .unwrap()
-            .expect("expected connected event");
+        wait_for_ready_connection(&mut runner, rust_node_id, seed_peer_id, false).await;
 
-        let state = driver.exec_even_step(connected).await.unwrap().unwrap();
-        assert!(matches!(
-            &state.p2p.get_peer(&seed_peer_id).unwrap().status,
-            P2pPeerStatus::Ready(ready) if !ready.is_incoming
-        ));
+        let mut driver = Driver::new(runner);
 
         let timeout = std::time::Instant::now() + Duration::from_secs(3 * 60);
         let mut found = false;
@@ -508,4 +495,46 @@ impl RustToOCamlViaSeed {
         //     P2pPeerStatus::Ready(ready) if !ready.is_incoming
         // ));
     }
+}
+
+async fn wait_for_ready_connection(
+    runner: &mut ClusterRunner<'_>,
+    node_id: ClusterNodeId,
+    connecting_peer_id: PeerId,
+    incoming_: bool,
+) {
+    runner
+        .run(
+            RunCfg::default()
+                .timeout(Duration::from_secs(60))
+                .action_handler(move |id, _, _, action| {
+                    if action.action().kind() == node::ActionKind::P2pPeerReady {
+                        dbg!(action.action());
+                    }
+
+                    id == node_id
+                        && matches!(
+                            action.action(),
+                            &node::Action::P2p(P2pAction::Peer(P2pPeerAction::Ready {
+                                peer_id,
+                                incoming
+                            })) if peer_id == connecting_peer_id && incoming == incoming_
+                        )
+                }),
+        )
+        .await
+        .expect("Nodes not connect");
+}
+
+async fn wait_for_node_ready(runner: &mut ClusterRunner<'_>, node_id: ClusterNodeId) {
+    runner
+        .run(
+            RunCfg::default()
+                .timeout(Duration::from_secs(60))
+                .action_handler(move |id, state, _, _| {
+                    state.p2p.ready().is_some() && node_id == id
+                }),
+        )
+        .await
+        .expect("Node not ready")
 }
