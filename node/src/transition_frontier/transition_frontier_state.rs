@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 
+use ledger::transaction_pool::diff::BestTipDiff;
 use mina_p2p_messages::v2::{
     MinaStateProtocolStateBodyValueStableV2, MinaStateProtocolStateValueStableV2, StateHash,
 };
@@ -22,6 +23,8 @@ pub struct TransitionFrontierState {
     pub needed_protocol_states: BTreeMap<StateHash, MinaStateProtocolStateValueStableV2>,
     /// Transition frontier synchronization state
     pub sync: TransitionFrontierSyncState,
+    /// The diff of `Self::best_chain` with the previous one
+    pub chain_diff: Option<BestTipDiff>,
 }
 
 impl TransitionFrontierState {
@@ -32,6 +35,7 @@ impl TransitionFrontierState {
             best_chain: Vec::with_capacity(290),
             needed_protocol_states: Default::default(),
             sync: TransitionFrontierSyncState::Idle,
+            chain_diff: None,
         }
     }
 
@@ -68,5 +72,81 @@ impl TransitionFrontierState {
                         }
                     })
             })
+    }
+
+    /// Create a diff between the old best chain and the new one
+    /// This is used to update the transaction pool
+    pub fn maybe_make_chain_diff(&self, new_chain: &[ArcBlockWithHash]) -> Option<BestTipDiff> {
+        let old_chain = self.best_chain.as_slice();
+        let new_root = new_chain.first();
+
+        if old_chain.last() == new_chain.last() {
+            // Both chains are equal
+            return None;
+        }
+
+        // Look for the new root in the old chain, get its index
+        let new_chain_start_at = match new_root {
+            None => None,
+            Some(new_root) => old_chain
+                .iter()
+                .enumerate()
+                .rev()
+                .find(|(_index, block)| *block == new_root),
+        };
+
+        let (diff_old_chain, diff_new_chain) = match new_chain_start_at {
+            None => {
+                // The new chain has a root not present in the old chain,
+                // so the diff is the 2 wholes chains
+                (old_chain, new_chain)
+            }
+            Some((new_chain_start_at, _)) => {
+                // `new_chain_start_at` is the index of `new_root` in `old_chain`
+                let old_chain_advanced = &old_chain[new_chain_start_at..];
+
+                // Common length
+                let len = old_chain_advanced.len().min(new_chain.len());
+
+                // Find the first different block, search from the end
+                let diff_start_at = old_chain_advanced[..len]
+                    .iter()
+                    .rev()
+                    .zip(new_chain[..len].iter().rev())
+                    .position(|(old_block, new_block)| old_block == new_block)
+                    .map(|index| len - index) // we started from the end
+                    .unwrap(); // Never panics because we know there is the common root block
+
+                let diff_old_chain = &old_chain_advanced[diff_start_at..];
+                let diff_new_chain = &new_chain[diff_start_at..];
+
+                (diff_old_chain, diff_new_chain)
+            }
+        };
+
+        // Collect commands and convert them to type `WithStatus::<UserCommand>`
+        let collect = |chain: &[ArcBlockWithHash]| {
+            chain
+                .iter()
+                .flat_map(|block| block.body().commands_iter())
+                .map(|cmd| {
+                    use ledger::scan_state::transaction_logic::{UserCommand, WithStatus};
+                    WithStatus::<UserCommand>::from(cmd).into_map(UserCommand::to_valid_unsafe)
+                })
+                .collect::<Vec<_>>()
+        };
+
+        let removed_commands = collect(diff_old_chain);
+        let new_commands = collect(diff_new_chain);
+
+        if removed_commands.is_empty() && new_commands.is_empty() {
+            return None;
+        }
+
+        Some(BestTipDiff {
+            new_commands,
+            removed_commands,
+            reorg_best_tip: false, // TODO: Unused for now
+        })
     }
 }
