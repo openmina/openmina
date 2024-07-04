@@ -9,7 +9,7 @@ use mina_p2p_messages::{
     v2,
     versioned::Ver,
 };
-use openmina_core::{error, fuzz_maybe};
+use openmina_core::{error, fuzz_maybe, fuzzed_maybe};
 
 use crate::{
     channels::rpc::{
@@ -387,11 +387,13 @@ impl P2pNetworkRpcAction {
                 ..
             } => {
                 fuzz_maybe!(&mut data, crate::fuzzer::mutate_rpc_data);
+                let flags = fuzzed_maybe!(Default::default(), crate::fuzzer::mutate_yamux_flags);
+
                 store.dispatch(P2pNetworkYamuxAction::OutgoingData {
                     addr,
                     stream_id,
                     data,
-                    flags: Default::default(),
+                    flags,
                 });
             }
         }

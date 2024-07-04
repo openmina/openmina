@@ -1,4 +1,4 @@
-use openmina_core::fuzzed_maybe;
+use openmina_core::{fuzz_maybe, fuzzed_maybe};
 
 use super::p2p_network_yamux_state::{YamuxFrame, YamuxFrameInner};
 
@@ -131,6 +131,9 @@ impl P2pNetworkYamuxAction {
                 } else if stream.incoming && !stream.established {
                     flags.insert(YamuxFlags::ACK);
                 }
+
+                fuzz_maybe!(&mut flags, crate::fuzzer::mutate_yamux_flags);
+
                 let frame = YamuxFrame {
                     flags,
                     stream_id,

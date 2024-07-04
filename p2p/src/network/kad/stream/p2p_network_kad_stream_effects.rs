@@ -112,11 +112,13 @@ impl P2pNetworkKademliaStreamAction {
             ) => {
                 // send data to the network
                 let data = fuzzed_maybe!(bytes.clone().into(), crate::fuzzer::mutate_kad_data);
+                let flags = fuzzed_maybe!(Default::default(), crate::fuzzer::mutate_yamux_flags);
+
                 store.dispatch(P2pNetworkYamuxAction::OutgoingData {
                     addr,
                     stream_id,
                     data,
-                    flags: Default::default(),
+                    flags,
                 });
                 store.dispatch(A::WaitIncoming {
                     addr,
