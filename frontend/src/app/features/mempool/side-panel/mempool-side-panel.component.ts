@@ -1,11 +1,11 @@
-import { ChangeDetectionStrategy, Component, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, ViewChild } from '@angular/core';
 import { StoreDispatcher } from '@shared/base-classes/store-dispatcher.class';
-import { downloadJson, ExpandTracking } from '@openmina/shared';
+import { downloadJson, ExpandTracking, MinaJsonViewerComponent } from '@openmina/shared';
 import { Router } from '@angular/router';
 import { Routes } from '@shared/enums/routes.enum';
 import { MempoolActions } from '@app/features/mempool/mempool.actions';
 import { MempoolSelectors } from '@app/features/mempool/mempool.state';
-import { MempoolTransaction } from '@shared/types/mempool/mempool-transaction.type';
+import { MempoolTransaction, SignedCommand, ZkappCommand } from '@shared/types/mempool/mempool-transaction.type';
 
 @Component({
   selector: 'mina-mempool-side-panel',
@@ -16,11 +16,11 @@ import { MempoolTransaction } from '@shared/types/mempool/mempool-transaction.ty
 })
 export class MempoolSidePanelComponent extends StoreDispatcher implements OnInit {
 
-  tx: MempoolTransaction;
+  tx: SignedCommand | ZkappCommand;
   jsonString: string;
   expandingTracking: ExpandTracking = {};
 
-  // @ViewChild(MinaJsonViewerComponent) private minaJsonViewer: MinaJsonViewerComponent;
+  @ViewChild(MinaJsonViewerComponent) private minaJsonViewer: MinaJsonViewerComponent;
 
   constructor(private router: Router) { super(); }
 
@@ -30,8 +30,8 @@ export class MempoolSidePanelComponent extends StoreDispatcher implements OnInit
 
   private listenToActiveRowChange(): void {
     this.select(MempoolSelectors.activeTx, (tx: MempoolTransaction) => {
-      this.tx = tx;
-      this.jsonString = JSON.stringify(tx);
+      this.tx = tx?.transactionData;
+      this.jsonString = JSON.stringify(tx?.transactionData);
       this.detect();
     });
   }
@@ -45,11 +45,11 @@ export class MempoolSidePanelComponent extends StoreDispatcher implements OnInit
     downloadJson(this.jsonString, 'openmina-transaction.json');
   }
 
-  // expandEntireJSON(): void {
-  //   this.expandingTracking = this.minaJsonViewer.toggleAll(true);
-  // }
-  //
-  // collapseEntireJSON(): void {
-  //   this.expandingTracking = this.minaJsonViewer.toggleAll(false);
-  // }
+  expandEntireJSON(): void {
+    this.expandingTracking = this.minaJsonViewer.toggleAll(true);
+  }
+
+  collapseEntireJSON(): void {
+    this.expandingTracking = this.minaJsonViewer.toggleAll(false);
+  }
 }

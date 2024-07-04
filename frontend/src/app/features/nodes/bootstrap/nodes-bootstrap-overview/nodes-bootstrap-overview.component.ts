@@ -32,12 +32,12 @@ export class NodesBootstrapOverviewComponent extends StoreDispatcher implements 
   async ngOnInit(): Promise<void> {
     await import('@openmina/shared').then((c) => {
       this.component1 = this.minaBarGraphRef1.createComponent<BarGraphComponent>(c.BarGraphComponent).instance;
-      this.component1.xStep = 0.01;
-      this.component1.xTicksLength = 55;
+      this.component1.xStep = 0.1;
+      this.component1.xTicksLength = 40;
       this.component1.yTicksLength = 6;
       this.component1.um = 's';
       this.component1.yAxisLabel = 'Count';
-      this.component1.decimals = 2;
+      this.component1.decimals = 1;
       this.component1.responsive = false;
       this.component1.xTicksSkipper = 7;
       this.component1.color = 'var(--base-primary)';
@@ -45,12 +45,12 @@ export class NodesBootstrapOverviewComponent extends StoreDispatcher implements 
     });
     await import('@openmina/shared').then((c) => {
       this.component2 = this.minaBarGraphRef2.createComponent<BarGraphComponent>(c.BarGraphComponent).instance;
-      this.component2.xStep = 0.01;
-      this.component2.xTicksLength = 55;
+      this.component2.xStep = 0.1;
+      this.component2.xTicksLength = 40;
       this.component2.yTicksLength = 6;
       this.component2.um = 's';
       this.component2.yAxisLabel = 'Count';
-      this.component2.decimals = 2;
+      this.component2.decimals = 1;
       this.component2.responsive = false;
       this.component2.xTicksSkipper = 7;
       this.component2.color = 'var(--success-primary)';

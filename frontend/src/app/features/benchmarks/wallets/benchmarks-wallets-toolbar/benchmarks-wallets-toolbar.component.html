@@ -1,0 +1,60 @@
+<mina-horizontal-menu [template]="template"></mina-horizontal-menu>
+<ng-template #template>
+  <div class="fx-row-vert-cent flex-between w-100">
+    <form [formGroup]="formGroup" class="h-xl fx-row-vert-cent pl-12 pr-12 secondary shrink-0">
+      <button (click)="send()"
+              class="live-button active"
+              [class.disabled]="streamSending">Send
+      </button>
+      <input type="number" class="mina-input border-rad-4 mr-8 ml-8 text-center" formControlName="batch">
+      <div>transactions with</div>
+      <input type="number" class="mina-input border-rad-4 mr-8 ml-8 text-center" formControlName="fee">
+      <div>MINA fee from</div>
+
+      <div class="button-group fx-row-vert-cent ml-5 mr-16">
+        <button class="fx-row-vert-cent pl-12 pr-12 lh-md"
+                [ngClass]="randomWallet ? 'btn-selected' : 'btn-primary'"
+                (click)="!randomWallet ? toggleRandomWallet() : null">Random Senders
+        </button>
+        <button class="fx-row-vert-cent pl-12 pr-12 lh-md"
+                [ngClass]="!randomWallet ? 'btn-selected' : 'btn-primary'"
+                (click)="randomWallet ? toggleRandomWallet() : null">Specific Sender
+        </button>
+      </div>
+      <button class="btn-selected h-sm fx-row-vert-cent flex-between mr-5"
+              *ngIf="!randomWallet"
+              #dropdownTrigger
+              (click)="openDropdown($event)">
+        <div class="fx-row-vert-cent">
+          <span class="mina-icon f-20 mr-5">account_balance_wallet</span>
+          <span *ngIf="!activeWallet" class="selected-secondary">Loading wallet..</span>
+        </div>
+        <div class="fx-row-vert-cent">
+          <span class="selected-secondary monospace">{{ activeWallet?.publicKey | truncateMid }}</span>
+          <span class="mina-icon">arrow_drop_down</span>
+        </div>
+      </button>
+    </form>
+    <div class="tertiary pr-10 shrink-0">Sent Tx. overview: {{ successSentTransactions }}
+      success, {{ failSentTransactions }} failed
+    </div>
+  </div>
+</ng-template>
+
+<ng-template #walletDropdown>
+  <div class="dropdown border-rad-4 popup-box-shadow-weak flex-column border bg-surface overflow-hidden"
+       (clickOutside)="detachOverlay()">
+    <div class="flex-column h-100 p-10">
+      <cdk-virtual-scroll-viewport [itemSize]="24" class="h-100 w-100">
+        <div *cdkVirtualFor="let wallet of wallets"
+             class="dropdown-item fx-row-vert-cent flex-between pointer pl-8 pr-8 border-rad-4 mb-5"
+             [class.active]="activeWallet.publicKey === wallet.publicKey"
+             (click)="changeWallet(wallet)">
+          <span class="mina-icon f-20">check_small</span>
+          <span class="text-right pr-12">{{ wallet.minaTokens | number:'1.0-3':'fr' }} MINA</span>
+          <span class="monospace text-right">{{ wallet.publicKey | truncateMid }}</span>
+        </div>
+      </cdk-virtual-scroll-viewport>
+    </div>
+  </div>
+</ng-template>

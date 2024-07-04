@@ -1,0 +1,26 @@
+@import 'openmina';
+
+.status {
+  padding: 2px 5px;
+  border-radius: 4px;
+
+  &.sending {
+    background-color: $base-container;
+    color: $base-primary;
+  }
+
+  &.included {
+    background-color: $success-container;
+    color: $success-primary;
+  }
+
+  &.generated {
+    background-color: $special-selected-alt-2-container;
+    color: $special-selected-alt-2-primary;
+  }
+
+  &.error {
+    background-color: $warn-container;
+    color: $warn-primary;
+  }
+}

@@ -50,7 +50,7 @@ describe('NETWORK CONNECTIONS TABLE', () => {
       .then(networkConnectionsState)
       .then((state: NetworkConnectionsState) => {
         if (condition(state)) {
-          checkSorting(state.connections, 'timestamp', Sort.ASC);
+          checkSorting(state.connections, 'timestamp', Sort.DSC);
         }
       });
   });

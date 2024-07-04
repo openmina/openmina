@@ -16,7 +16,7 @@ const initialState: DashboardState = {
     disconnected: 0,
   },
   peersSort: {
-    sortBy: 'requests',
+    sortBy: 'height',
     sortDirection: SortDirection.DSC,
   },
   nodes: [],

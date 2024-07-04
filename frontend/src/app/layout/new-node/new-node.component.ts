@@ -56,7 +56,7 @@ type SubFeature = {
 })
 export class NewNodeComponent extends StoreDispatcher implements OnInit {
 
-  features: Feature[] = [
+  protected readonly features: Feature[] = [
     {
       name: 'Dashboard',
       checked: true,
@@ -104,6 +104,16 @@ export class NewNodeComponent extends StoreDispatcher implements OnInit {
       subFeatures: [
         { name: 'memory', checked: true },
       ],
+    },
+    {
+      name: 'Mempool',
+      checked: true,
+      subFeatures: [],
+    },
+    {
+      name: 'Benchmarks',
+      checked: true,
+      subFeatures: [],
     },
   ];
   readonly closeEmitter: EventEmitter<void> = new EventEmitter<void>();

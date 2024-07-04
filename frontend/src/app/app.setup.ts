@@ -36,6 +36,8 @@ import { blockProductionReducer } from '@block-production/block-production.reduc
 import { BlockProductionState } from '@block-production/block-production.state';
 import { MempoolState } from '@app/features/mempool/mempool.state';
 import { mempoolReducer } from '@app/features/mempool/mempool.reducer';
+import { BenchmarksState } from '@benchmarks/benchmarks.state';
+import { benchmarksReducer } from '@benchmarks/benchmarks.reducer';
 
 export interface MinaState {
   [APP_KEY]: AppState;
@@ -50,6 +52,7 @@ export interface MinaState {
   state: StateState;
   snarks: SnarksState;
   testingTool: TestingToolState;
+  benchmarks: BenchmarksState;
 }
 
 type MinaAction =
@@ -76,6 +79,7 @@ export const reducers: ActionReducerMap<MinaState, MinaAction> = {
   state: stateReducer,
   snarks: snarksReducer,
   testingTool: testingToolReducer,
+  benchmarks: benchmarksReducer,
 };
 
 export const metaReducers: MetaReducer<MinaState, MinaAction>[] = [];

@@ -8,10 +8,18 @@
   font-variation-settings: 'FILL' 1, 'wght' 400 !important;
 }
 
-.Not.Applicable {
-  color: $aware-primary;
+.benchmark,
+.account {
+  width: 24px;
+  height: 24px;
 }
 
-.Applicable:not(.Not) {
-  color: $success-primary;
+.benchmark {
+  background-color: $selected-container;
+  color: $selected-primary;
+}
+
+.account {
+  background-color: $special-selected-alt-2-container;
+  color: $special-selected-alt-2-primary;
 }

@@ -32,6 +32,7 @@ const MENU_ITEMS: MenuItem[] = [
   { name: 'Network', icon: 'account_tree' },
   { name: 'State', icon: 'code_blocks' },
   { name: 'SNARKs', icon: 'assignment_turned_in' },
+  { name: 'Benchmarks', icon: 'dynamic_form' },
   { name: 'Testing Tool', icon: 'build' },
 ];
 

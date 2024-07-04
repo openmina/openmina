@@ -1,20 +1,22 @@
 <ng-container #minaTable></ng-container>
 
 <ng-template #rowTemplate let-row="row">
-  <span class="fx-row-vert-cent text-capitalize" [ngClass]="row.status">
-    <span class="mina-icon icon-200 f-big mr-8">circle</span>
-    {{ row.status }}
-  </span>
-  <span>
-    <span class="primary">{{ row.timestamp | readableDate: 'HH:mm:ss.SSS' }}</span>
-    {{ row.timestamp | readableDate: 'dd MMM yy' }}
-  </span>
   <span class="primary">{{ row.kind }}</span>
   <span>{{ row.txHash | truncateMid }}</span>
   <span>{{ row.sender | truncateMid }}</span>
   <span class="secondary">{{ row.fee }}</span>
+  <span class="secondary">{{ row.amount }}</span>
   <span class="secondary">{{ row.nonce }}</span>
   <span class="truncate">{{ row.memo }}</span>
+  <span class="fx-row-vert-cent">
+    <div class="benchmark border-rad-6 mr-10 fx-row-full-cent" [maxWidth]="600"
+         [tooltip]="'This transaction was sent from the Benchmarks page.'">
+      <span class="mina-icon icon-200 f-20">dynamic_form</span>
+    </div>
+    <div class="account border-rad-6 fx-row-full-cent" [tooltip]="'This transaction was sent by you.'">
+      <span class="mina-icon icon-200 f-20">person</span>
+    </div>
+  </span>
 </ng-template>
 
 <ng-container *ngIf="!isLoading">
@@ -23,7 +25,7 @@
     <span class="mina-icon mb-16 icon-100 f-40">send</span>
     <div class="f-600 f-big">No Transactions yet</div>
     <div class="tertiary mt-8 text-center">
-      If there is a new transaction it will appear here when the next block is produced (~3min)
+      New transactions will appear here when the node receives them
     </div>
   </div>
 
