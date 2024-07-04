@@ -18,6 +18,12 @@ pub struct BlockWithHash<T: AsRef<Block>> {
     pub block: T,
 }
 
+impl<T: AsRef<Block>> std::cmp::PartialEq for BlockWithHash<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.hash == other.hash
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BlockHeaderWithHash<T: AsRef<BlockHeader>> {
     pub hash: BlockHash,

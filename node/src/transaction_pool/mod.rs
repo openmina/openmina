@@ -81,7 +81,7 @@ impl TransactionPoolState {
                 dispatcher.push(TransactionPoolEffectfulAction::FetchAccounts {
                     account_ids,
                     ledger_hash: best_tip_hash.clone(),
-                    on_result: callback!(|(accounts: BTreeMap<AccountId, Account>, id: Option<PendingId>)|  -> crate::Action {
+                    on_result: callback!(|(accounts: BTreeMap<AccountId, Account>, id: Option<PendingId>)| -> crate::Action {
                         TransactionPoolAction::StartVerifyWithAccounts { accounts, pending_id: id.unwrap() }
                     }),
                     pending_id: Some(pending_id),
@@ -122,7 +122,7 @@ impl TransactionPoolState {
                 dispatcher.push(TransactionPoolEffectfulAction::FetchAccounts {
                     account_ids,
                     ledger_hash: best_tip_hash.clone(),
-                    on_result: callback!(|(accounts: BTreeMap<AccountId, Account>, id: Option<PendingId>)|  -> crate::Action {
+                    on_result: callback!(|(accounts: BTreeMap<AccountId, Account>, id: Option<PendingId>)| -> crate::Action {
                         TransactionPoolAction::BestTipChangedWithAccounts { accounts }
                     }),
                     pending_id: None,
@@ -143,7 +143,7 @@ impl TransactionPoolState {
                 dispatcher.push(TransactionPoolEffectfulAction::FetchAccounts {
                     account_ids,
                     ledger_hash: best_tip_hash.clone(),
-                    on_result: callback!(|(accounts: BTreeMap<AccountId, Account>, id: Option<PendingId>)|  -> crate::Action {
+                    on_result: callback!(|(accounts: BTreeMap<AccountId, Account>, id: Option<PendingId>)| -> crate::Action {
                         TransactionPoolAction::ApplyVerifiedDiffWithAccounts {
                             accounts,
                             pending_id: id.unwrap(),
@@ -165,7 +165,10 @@ impl TransactionPoolState {
                     panic!()
                 };
 
-                match substate.pool.unsafe_apply(&diff, &accounts, is_sender_local) {
+                match substate
+                    .pool
+                    .unsafe_apply(&diff, &accounts, is_sender_local)
+                {
                     Ok((ApplyDecision::Accept, accepted, rejected)) => {
                         substate.rebroadcast(accepted, rejected)
                     }
@@ -186,7 +189,7 @@ impl TransactionPoolState {
                 dispatcher.push(TransactionPoolEffectfulAction::FetchAccounts {
                     account_ids,
                     ledger_hash: best_tip_hash.clone(),
-                    on_result: callback!(|(accounts: BTreeMap<AccountId, Account>, id: Option<PendingId>)|  -> crate::Action {
+                    on_result: callback!(|(accounts: BTreeMap<AccountId, Account>, id: Option<PendingId>)| -> crate::Action {
                         TransactionPoolAction::ApplyTransitionFrontierDiffWithAccounts {
                             accounts,
                             pending_id: id.unwrap(),
@@ -207,7 +210,9 @@ impl TransactionPoolState {
                     panic!()
                 };
 
-                substate.pool.handle_transition_frontier_diff(&diff, &accounts);
+                substate
+                    .pool
+                    .handle_transition_frontier_diff(&diff, &accounts);
             }
             Rebroadcast => {}
         }
