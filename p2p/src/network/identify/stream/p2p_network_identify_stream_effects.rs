@@ -132,11 +132,14 @@ impl P2pNetworkIdentifyStreamAction {
                         crate::fuzzer::mutate_identify_msg
                     );
 
+                    let flags =
+                        fuzzed_maybe!(Default::default(), crate::fuzzer::mutate_yamux_flags);
+
                     store.dispatch(P2pNetworkYamuxAction::OutgoingData {
                         addr,
                         stream_id,
                         data,
-                        flags: Default::default(),
+                        flags,
                     });
 
                     store.dispatch(P2pNetworkIdentifyStreamAction::Close {

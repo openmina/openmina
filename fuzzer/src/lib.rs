@@ -12,6 +12,7 @@ pub struct FuzzerConf {
     pub select_multiplexing_mutation_rate: Option<u32>,
     pub select_stream_mutation_rate: Option<u32>,
     pub yamux_frame_mutation_rate: Option<u32>,
+    pub yamux_flags_mutation_rate: Option<u32>,
     pub identify_msg_mutation_rate: Option<u32>,
     pub kad_data_mutation_rate: Option<u32>,
     pub rpc_data_mutation_rate: Option<u32>,

@@ -1,7 +1,7 @@
 use openmina_fuzzer::{FuzzerState, MutationStrategy};
 use rand::Rng;
 
-use crate::Data;
+use crate::{Data, YamuxFlags};
 
 pub fn mutate_pnet(fuzzer: &mut FuzzerState, data: &mut Vec<u8>) {
     if fuzzer.gen_ratio(fuzzer.conf.pnet_mutation_rate) {
@@ -182,6 +182,15 @@ pub fn mutate_identify_msg(fuzzer: &mut FuzzerState, data: &mut Data) {
                 data.0 = fuzzer.shrink(data.0.as_ref()).as_slice().into();
             }
         }
+    }
+}
+
+pub fn mutate_yamux_flags(fuzzer: &mut FuzzerState, flags: &mut YamuxFlags) {
+    if fuzzer.gen_ratio(fuzzer.conf.yamux_flags_mutation_rate) {
+        let new_flags = YamuxFlags::from_bits_truncate(fuzzer.rng.gen());
+        println!("[i] Mutating flags {:?} -> {:?}", flags, new_flags);
+
+        *flags = new_flags;
     }
 }
 
