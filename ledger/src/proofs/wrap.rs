@@ -1361,7 +1361,7 @@ pub mod pcs_batch {
 }
 
 pub mod wrap_verifier {
-    use std::{convert::identity, sync::Arc};
+    use std::sync::Arc;
 
     use itertools::Itertools;
     use kimchi::prover_index::ProverIndex;
