@@ -145,7 +145,7 @@ impl From<&MinaBaseVerificationKeyWireStableV1> for VerificationKey {
                 PicklesBaseProofsVerifiedStableV1::N1 => ProofVerified::N1,
                 PicklesBaseProofsVerifiedStableV1::N2 => ProofVerified::N2,
             },
-            wrap_index: wrap_index.into(),
+            wrap_index: Box::new(wrap_index.into()),
             wrap_vk: None,
         }
     }

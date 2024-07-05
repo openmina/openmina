@@ -81,7 +81,7 @@ impl TransactionPoolState {
                 dispatcher.push(TransactionPoolEffectfulAction::FetchAccounts {
                     account_ids,
                     ledger_hash: best_tip_hash.clone(),
-                    on_result: callback!(|(accounts: BTreeMap<AccountId, Account>, id: Option<PendingId>)| -> crate::Action {
+                    on_result: callback!(fetch_to_verify((accounts: BTreeMap<AccountId, Account>, id: Option<PendingId>)) -> crate::Action {
                         TransactionPoolAction::StartVerifyWithAccounts { accounts, pending_id: id.unwrap() }
                     }),
                     pending_id: Some(pending_id),
@@ -122,7 +122,7 @@ impl TransactionPoolState {
                 dispatcher.push(TransactionPoolEffectfulAction::FetchAccounts {
                     account_ids,
                     ledger_hash: best_tip_hash.clone(),
-                    on_result: callback!(|(accounts: BTreeMap<AccountId, Account>, id: Option<PendingId>)| -> crate::Action {
+                    on_result: callback!(fetch_for_best_tip((accounts: BTreeMap<AccountId, Account>, id: Option<PendingId>)) -> crate::Action {
                         TransactionPoolAction::BestTipChangedWithAccounts { accounts }
                     }),
                     pending_id: None,
@@ -143,7 +143,7 @@ impl TransactionPoolState {
                 dispatcher.push(TransactionPoolEffectfulAction::FetchAccounts {
                     account_ids,
                     ledger_hash: best_tip_hash.clone(),
-                    on_result: callback!(|(accounts: BTreeMap<AccountId, Account>, id: Option<PendingId>)| -> crate::Action {
+                    on_result: callback!(fetch_for_apply((accounts: BTreeMap<AccountId, Account>, id: Option<PendingId>)) -> crate::Action {
                         TransactionPoolAction::ApplyVerifiedDiffWithAccounts {
                             accounts,
                             pending_id: id.unwrap(),
@@ -189,7 +189,7 @@ impl TransactionPoolState {
                 dispatcher.push(TransactionPoolEffectfulAction::FetchAccounts {
                     account_ids,
                     ledger_hash: best_tip_hash.clone(),
-                    on_result: callback!(|(accounts: BTreeMap<AccountId, Account>, id: Option<PendingId>)| -> crate::Action {
+                    on_result: callback!(fetch_for_diff((accounts: BTreeMap<AccountId, Account>, id: Option<PendingId>)) -> crate::Action {
                         TransactionPoolAction::ApplyTransitionFrontierDiffWithAccounts {
                             accounts,
                             pending_id: id.unwrap(),
