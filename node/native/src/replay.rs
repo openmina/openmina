@@ -10,7 +10,7 @@ pub fn replay_state_with_input_actions(
     dir: &str,
     dynamic_effects_lib: Option<String>,
     mut check_build_env: impl FnMut(&BuildEnv, &BuildEnv) -> anyhow::Result<()>,
-) -> anyhow::Result<::node::Node<NodeService>> {
+) -> anyhow::Result<crate::Node> {
     eprintln!("replaying node based on initial state and actions from the dir: {dir}");
     let reader = StateWithInputActionsReader::new(dir);
 
@@ -23,6 +23,7 @@ pub fn replay_state_with_input_actions(
         Ok(v) => v,
     };
 
+    let rng_seed = initial_state.rng_seed;
     let state = {
         let mut state = initial_state.state.into_owned();
         // TODO(binier): we shouldn't have to do this, but serialized
@@ -38,14 +39,9 @@ pub fn replay_state_with_input_actions(
         .map_or(replayer_effects, |_| replayer_effects_with_dyn_effects);
     let p2p_sec_key = initial_state.p2p_sec_key;
 
-    let service = NodeService::for_replay(
-        initial_state.rng_seed,
-        state.time(),
-        p2p_sec_key,
-        dynamic_effects_lib,
-    );
+    let service = NodeService::for_replay(rng_seed, state.time(), p2p_sec_key, dynamic_effects_lib);
 
-    let mut node = ::node::Node::new(state, service, Some(effects));
+    let mut node = crate::Node::new(rng_seed, state, service, Some(effects));
 
     let store = node.store_mut();
 

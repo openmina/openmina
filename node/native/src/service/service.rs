@@ -123,6 +123,12 @@ impl NodeService {
     }
 }
 
+impl AsMut<NodeServiceCommon> for NodeService {
+    fn as_mut(&mut self) -> &mut NodeServiceCommon {
+        &mut self.common
+    }
+}
+
 impl LedgerService for NodeService {
     fn ledger_manager(&self) -> &LedgerManager {
         LedgerService::ledger_manager(&self.common)

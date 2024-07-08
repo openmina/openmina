@@ -1,4 +1,4 @@
-use std::{env, fmt, fs, path::PathBuf, str::FromStr};
+use std::{env, fmt, fs, path::Path, str::FromStr};
 
 use argon2::{password_hash::SaltString, Argon2, Params, PasswordHasher};
 use base64::Engine;
@@ -69,15 +69,15 @@ impl AccountSecretKey {
         self.0.public.clone().into_compressed()
     }
 
-    pub fn from_encrypted_file(path: PathBuf) -> Result<Self, EncryptionError> {
+    pub fn from_encrypted_file(path: impl AsRef<Path>) -> Result<Self, EncryptionError> {
         let key_file = fs::File::open(path)?;
         let encrypted: EncryptedSecretKey = serde_json::from_reader(key_file)?;
         encrypted.try_decrypt()
     }
 
-    pub fn to_encrypted_file(&self, path: PathBuf) -> Result<(), EncryptionError> {
-        if path.exists() {
-            panic!("File {} already exists", path.display())
+    pub fn to_encrypted_file(&self, path: impl AsRef<Path>) -> Result<(), EncryptionError> {
+        if path.as_ref().exists() {
+            panic!("File {} already exists", path.as_ref().display())
         }
 
         let f = fs::File::create(path)?;
@@ -319,11 +319,11 @@ mod tests {
 
         // dump encrypted file
         new_key
-            .to_encrypted_file(tmp_path.clone().into())
+            .to_encrypted_file(&tmp_path)
             .expect("Failed to encrypt secret key");
 
         // load and decrypt
-        let decrypted = AccountSecretKey::from_encrypted_file(tmp_path.into())
+        let decrypted = AccountSecretKey::from_encrypted_file(&tmp_path)
             .expect("Failed to decrypt secret key file");
 
         assert_eq!(
@@ -338,7 +338,7 @@ mod tests {
         env::set_var("MINA_PRIVKEY_PASS", "not-very-secure-pass");
         let key_path = "../tests/files/accounts/test-key-1";
         let expected_public_key = "B62qmg7n4XqU3SFwx9KD9B7gxsKwxJP5GmxtBpHp1uxyN3grujii9a1";
-        let decrypted = AccountSecretKey::from_encrypted_file(key_path.into())
+        let decrypted = AccountSecretKey::from_encrypted_file(key_path)
             .expect("Failed to decrypt secret key file");
 
         assert_eq!(

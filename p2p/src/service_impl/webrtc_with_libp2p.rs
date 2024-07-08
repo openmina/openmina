@@ -14,6 +14,7 @@ use crate::{P2pMioService, P2pNetworkService, P2pNetworkServiceError};
 use super::{webrtc::P2pServiceWebrtc, TaskSpawner};
 
 pub struct P2pServiceCtx {
+    pub sec_key: SecretKey,
     pub webrtc: super::webrtc::P2pServiceCtx,
     #[cfg(feature = "p2p-libp2p")]
     pub mio: MioService,
@@ -23,11 +24,12 @@ pub trait P2pServiceWebrtcWithLibp2p: P2pServiceWebrtc {
     #[cfg(feature = "p2p-libp2p")]
     fn mio(&mut self) -> &mut MioService;
 
-    fn init<S: TaskSpawner>(secret_key: SecretKey, spawner: S) -> P2pServiceCtx {
+    fn init<S: TaskSpawner>(sec_key: SecretKey, spawner: S) -> P2pServiceCtx {
         P2pServiceCtx {
+            sec_key: sec_key.clone(),
             #[cfg(feature = "p2p-libp2p")]
-            mio: MioService::pending(secret_key.clone().into()),
-            webrtc: <Self as P2pServiceWebrtc>::init(secret_key, spawner),
+            mio: MioService::pending(sec_key.clone().into()),
+            webrtc: <Self as P2pServiceWebrtc>::init(sec_key, spawner),
         }
     }
 
@@ -75,6 +77,8 @@ impl<T: P2pServiceWebrtcWithLibp2p> P2pConnectionService for T {
             P2pConnectionOutgoingInitOpts::WebRTC { peer_id, .. } => {
                 P2pServiceWebrtc::outgoing_init(self, peer_id);
             }
+            #[cfg(not(feature = "p2p-libp2p"))]
+            P2pConnectionOutgoingInitOpts::LibP2P(_) => {}
             #[cfg(feature = "p2p-libp2p")]
             P2pConnectionOutgoingInitOpts::LibP2P(opts) => {
                 use crate::webrtc::Host;
@@ -143,6 +147,7 @@ impl<T: P2pServiceWebrtcWithLibp2p> P2pChannelsService for T {
     }
 }
 
+#[cfg(feature = "p2p-libp2p")]
 impl<T> P2pMioService for T
 where
     T: P2pServiceWebrtcWithLibp2p,
@@ -164,11 +169,12 @@ where
 }
 
 impl P2pServiceCtx {
-    pub fn mocked(secret_key: SecretKey) -> Self {
+    pub fn mocked(sec_key: SecretKey) -> Self {
         use openmina_core::channels::mpsc;
         Self {
+            sec_key: sec_key.clone(),
             #[cfg(feature = "p2p-libp2p")]
-            mio: super::mio::MioService::mocked(secret_key.into()),
+            mio: super::mio::MioService::mocked(sec_key.into()),
             webrtc: super::webrtc::P2pServiceCtx {
                 cmd_sender: mpsc::unbounded_channel().0,
                 peers: Default::default(),

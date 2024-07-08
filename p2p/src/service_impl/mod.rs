@@ -1,8 +1,7 @@
-#[cfg(all(not(target_arch = "wasm32"), feature = "p2p-libp2p"))]
+#[cfg(feature = "p2p-libp2p")]
 pub mod mio;
 #[cfg(feature = "p2p-webrtc")]
 pub mod webrtc;
-#[cfg(not(target_arch = "wasm32"))]
 pub mod webrtc_with_libp2p;
 
 use std::future::Future;

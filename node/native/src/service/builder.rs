@@ -52,10 +52,10 @@ impl NodeServiceBuilder {
         self
     }
 
-    pub fn p2p_init_with_custom_task_spawner<S: TaskSpawner>(
+    pub fn p2p_init_with_custom_task_spawner(
         &mut self,
         secret_key: P2pSecretKey,
-        task_spawner: S,
+        task_spawner: impl TaskSpawner,
     ) -> &mut Self {
         self.common.p2p_init(secret_key, task_spawner);
         self

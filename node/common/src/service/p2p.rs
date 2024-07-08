@@ -34,8 +34,8 @@ impl webrtc::P2pServiceWebrtc for NodeServiceCommon {
     }
 }
 
-#[cfg(feature = "p2p-libp2p")]
 impl webrtc_with_libp2p::P2pServiceWebrtcWithLibp2p for NodeServiceCommon {
+    #[cfg(feature = "p2p-libp2p")]
     fn mio(&mut self) -> &mut mio::MioService {
         &mut self.p2p.mio
     }
