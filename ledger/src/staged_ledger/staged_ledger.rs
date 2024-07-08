@@ -5959,7 +5959,11 @@ mod tests {
 
         let now = std::time::Instant::now();
 
-        let mut file = std::fs::File::open("/tmp/failed_reconstruct_ctx.binprot").unwrap();
+        const FILENAME: &str = "/tmp/failed_reconstruct_ctx.binprot";
+        let Ok(mut file) = std::fs::File::open(FILENAME) else {
+            eprintln!("{} not found", FILENAME);
+            return;
+        };
 
         let ReconstructContext {
             accounts,
@@ -5974,27 +5978,70 @@ mod tests {
             .map(|state| (state.hash().to_field::<Fp>(), state.clone()))
             .collect::<BTreeMap<_, _>>();
 
+        eprintln!("parsed in {:?}", now.elapsed());
+
+        dbg!(accounts.len());
+
         let snarked_ledger = {
+            let accounts: Vec<Account> = accounts.iter().map(Account::from).collect();
             let mut root = Mask::new_root(Database::create(35));
-            for account in accounts.iter().map(Account::from) {
-                root.get_or_create_account(account.id(), account).unwrap();
+
+            let addrs: Vec<crate::Address> = accounts
+                .iter()
+                .map(|account| {
+                    root.get_or_create_account(account.id(), account.clone())
+                        .unwrap()
+                        .addr()
+                })
+                .collect();
+
+            use rayon::prelude::*;
+            let now = std::time::Instant::now();
+            let now_total = std::time::Instant::now();
+
+            let pool = rayon::ThreadPoolBuilder::new()
+                .num_threads(16)
+                .build()
+                .unwrap();
+
+            let hashes = pool.install(|| {
+                accounts
+                    .par_iter()
+                    .map(|acc| acc.hash())
+                    .collect::<Vec<_>>()
+            });
+            eprintln!("accounts hashed in {:?}", now.elapsed());
+
+            for (addr, hash) in addrs.iter().zip(hashes) {
+                root.set_cached_hash_unchecked(addr, hash);
             }
+
+            let now = std::time::Instant::now();
+            root.merkle_root();
+            eprintln!("tree hashed in {:?}", now.elapsed());
+
+            eprintln!("ledger hashed in {:?} (total)", now_total.elapsed());
+
             root.make_child()
         };
 
-        eprintln!("parsed in {:?}", now.elapsed());
+        let now = std::time::Instant::now();
+        let scan_state = (&scan_state).into();
+        let pending_coinbase = (&pending_coinbase).into();
+        eprintln!("converted in {:?}", now.elapsed());
 
         StagedLedger::of_scan_state_pending_coinbases_and_snarked_ledger(
             (),
             &CONSTRAINT_CONSTANTS,
             Verifier,
-            (&scan_state).into(),
+            scan_state,
             snarked_ledger.clone(),
             LocalState::empty(),
             staged_ledger_hash.to_field(),
-            (&pending_coinbase).into(),
+            pending_coinbase,
             |key| states.get(&key).cloned().unwrap(),
-        ).unwrap();
+        )
+        .unwrap();
 
         eprintln!("OK");
     }
