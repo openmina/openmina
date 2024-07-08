@@ -121,9 +121,46 @@ fn default_peers() -> Vec<P2pConnectionOutgoingInitOpts> {
         // "/dns4/seed-1.devnet.gcp.o1test.net/tcp/10003/p2p/12D3KooWAdgYL6hv18M3iDBdaK1dRygPivSfAfBNDzie6YqydVbs",
         // "/dns4/seed-2.devnet.gcp.o1test.net/tcp/10003/p2p/12D3KooWLjs54xHzVmMmGYb7W5RVibqbwD1co7M2ZMfPgPm7iAag",
         // "/dns4/seed-3.devnet.gcp.o1test.net/tcp/10003/p2p/12D3KooWEiGVAFC7curXWXiGZyMWnZK9h8BKr88U8D5PKV3dXciv",
-        "/ip4/34.48.73.58/tcp/10003/p2p/12D3KooWAdgYL6hv18M3iDBdaK1dRygPivSfAfBNDzie6YqydVbs",
-        "/ip4/35.245.82.250/tcp/10003/p2p/12D3KooWLjs54xHzVmMmGYb7W5RVibqbwD1co7M2ZMfPgPm7iAag",
-        "/ip4/34.118.163.79/tcp/10003/p2p/12D3KooWEiGVAFC7curXWXiGZyMWnZK9h8BKr88U8D5PKV3dXciv",
+        // "/ip4/34.48.73.58/tcp/10003/p2p/12D3KooWAdgYL6hv18M3iDBdaK1dRygPivSfAfBNDzie6YqydVbs",
+        // "/ip4/35.245.82.250/tcp/10003/p2p/12D3KooWLjs54xHzVmMmGYb7W5RVibqbwD1co7M2ZMfPgPm7iAag",
+        // "/ip4/34.118.163.79/tcp/10003/p2p/12D3KooWEiGVAFC7curXWXiGZyMWnZK9h8BKr88U8D5PKV3dXciv",
+
+        // Mainnet
+        // /dns4/mina-seed.etonec.com/tcp/8302/p2p/12D3KooWKQ1YVtqZFzxDmSw8RASCPZpDCQBywnFz76RbrvZCXk5T
+        // /dns4/mina-mainnet-seed.obscura.network/tcp/5002/p2p/12D3KooWFRpU3giZDFjJjwoHSY8kdpv8ktvferGkyQRUHozsXw4X
+        // /dns4/mina-mainnet-seed.staketab.com/tcp/10003/p2p/12D3KooWSDTiXcdBVpN12ZqXJ49qCFp8zB1NnovuhZu6A28GLF1J
+        // /dns4/mina-seed-1.zkvalidator.com/tcp/8302/p2p/12D3KooWSfEfnVCqzpMbmyUmRY3ESEVmJaRcd1EkLbnvvERQxwtu
+        // /dns4/mina-seed.bitcat365.com/tcp/10001/p2p/12D3KooWQzozNTDKL7MqUh6Nh11GMA4pQhRCAsNTRWxCAzAi4VbE
+        // /dns4/production-mainnet-libp2p.minaprotocol.network/tcp/10000/p2p/12D3KooWPywsM191KGGNVGiNqN35nyyJg4W2BhhYukF6hP9YBR8q
+        // /dns4/production-mainnet-libp2p.minaprotocol.network/tcp/10010/p2p/12D3KooWGB6mJ9Ub9qRBDgHhedNXH4FawWjGQGGN2tQKaKa3gK2h
+        // /dns4/production-mainnet-libp2p.minaprotocol.network/tcp/10020/p2p/12D3KooWMvsPx6A1XNa4V8bTbNb6Fh7WHWf92Ezgfxt6UWxiNq5n
+        // /dns4/production-mainnet-libp2p.minaprotocol.network/tcp/10030/p2p/12D3KooW9wL9iaj7qbCTBFspi4gCwdZFCdNRnwkRrdRfe4GBJ978
+        // /dns4/production-mainnet-libp2p.minaprotocol.network/tcp/10040/p2p/12D3KooWL8SFDx6PSzpSLgBtRSK1brjKFqs8EvW2yX9zexQEefAo
+        // /dns4/seed-1.mainnet.gcp.o1test.net/tcp/10003/p2p/12D3KooWCa1d7G3SkRxy846qTvdAFX69NnoYZ32orWVLqJcDVGHW
+        // /dns4/seed-2.mainnet.gcp.o1test.net/tcp/10003/p2p/12D3KooWK4NfthViCTyLgVQa1WvqDC1NccVxGruCXCZUt3GqvFvn
+        // /dns4/seed-4.mainnet.gcp.o1test.net/tcp/10003/p2p/12D3KooWEdBiTUQqxp3jeuWaZkwiSNcFxC6d6Tdq7u2Lf2ZD2Q6X
+        // /dns4/seed-5.mainnet.gcp.o1test.net/tcp/10003/p2p/12D3KooWL1DJTigSwuKQRfQE3p7puFUqfbHjXbZJ9YBWtMNpr3GU
+        // /dns4/seed.minaexplorer.com/tcp/8302/p2p/12D3KooWR7coZtrMHvsgsfiWq2GESYypac3i29LFGp6EpbtjxBiJ
+        // /dns4/seed.minataur.net/tcp/8302/p2p/12D3KooWNyExDzG8T1BYXHpXQS66kaw3zi6qi5Pg9KD3GEyHW5FF
+        // /dns4/seed.piconbello.com/tcp/10001/p2p/12D3KooWRFac2AztcTeen2DYNwnTrmVBvwNDsRiFpDVdTkwdFAHP
+        "/ip4/138.201.11.249/tcp/8302/p2p/12D3KooWKQ1YVtqZFzxDmSw8RASCPZpDCQBywnFz76RbrvZCXk5T",
+        "/ip4/51.178.128.35/tcp/5002/p2p/12D3KooWFRpU3giZDFjJjwoHSY8kdpv8ktvferGkyQRUHozsXw4X",
+        "/ip4/138.201.53.35/tcp/10003/p2p/12D3KooWSDTiXcdBVpN12ZqXJ49qCFp8zB1NnovuhZu6A28GLF1J",
+        "/ip4/37.27.121.141/tcp/8302/p2p/12D3KooWSfEfnVCqzpMbmyUmRY3ESEVmJaRcd1EkLbnvvERQxwtu",
+        "/ip4/94.130.21.18/tcp/10001/p2p/12D3KooWQzozNTDKL7MqUh6Nh11GMA4pQhRCAsNTRWxCAzAi4VbE",
+        "/ip4/44.236.52.227/tcp/10000/p2p/12D3KooWPywsM191KGGNVGiNqN35nyyJg4W2BhhYukF6hP9YBR8q",
+        "/ip4/44.236.52.227/tcp/10010/p2p/12D3KooWGB6mJ9Ub9qRBDgHhedNXH4FawWjGQGGN2tQKaKa3gK2h",
+        "/ip4/44.236.52.227/tcp/10020/p2p/12D3KooWMvsPx6A1XNa4V8bTbNb6Fh7WHWf92Ezgfxt6UWxiNq5n",
+        "/ip4/44.236.52.227/tcp/10030/p2p/12D3KooW9wL9iaj7qbCTBFspi4gCwdZFCdNRnwkRrdRfe4GBJ978",
+        "/ip4/44.236.52.227/tcp/10040/p2p/12D3KooWL8SFDx6PSzpSLgBtRSK1brjKFqs8EvW2yX9zexQEefAo",
+        "/ip4/34.86.219.199/tcp/10003/p2p/12D3KooWCa1d7G3SkRxy846qTvdAFX69NnoYZ32orWVLqJcDVGHW",
+        "/ip4/34.145.137.93/tcp/10003/p2p/12D3KooWK4NfthViCTyLgVQa1WvqDC1NccVxGruCXCZUt3GqvFvn",
+        "/ip4/34.95.19.83/tcp/10003/p2p/12D3KooWEdBiTUQqxp3jeuWaZkwiSNcFxC6d6Tdq7u2Lf2ZD2Q6X",
+        "/ip4/35.203.59.118/tcp/10003/p2p/12D3KooWL1DJTigSwuKQRfQE3p7puFUqfbHjXbZJ9YBWtMNpr3GU",
+        "/ip4/65.21.20.43/tcp/8302/p2p/12D3KooWR7coZtrMHvsgsfiWq2GESYypac3i29LFGp6EpbtjxBiJ",
+        "/ip4/37.27.118.159/tcp/8302/p2p/12D3KooWNyExDzG8T1BYXHpXQS66kaw3zi6qi5Pg9KD3GEyHW5FF",
+        "/ip4/144.76.18.153/tcp/10001/p2p/12D3KooWRFac2AztcTeen2DYNwnTrmVBvwNDsRiFpDVdTkwdFAHP",
+
         //
         // "/dns4/webrtc2.webnode.openmina.com/tcp/443/p2p/12D3KooWFpqySZDHx7k5FMjdwmrU3TLhDbdADECCautBcEGtG4fr",
         // "/dns4/webrtc2.webnode.openmina.com/tcp/4431/p2p/12D3KooWJBeXosFxdBwe2mbKRjgRG69ERaUTpS9qo9NRkoE8kBpj",

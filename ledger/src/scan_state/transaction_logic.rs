@@ -4068,7 +4068,7 @@ pub mod verifiable {
         let payload = TransactionUnionPayload::of_user_command_payload(payload);
         let pubkey = compressed_to_pubkey(pubkey);
 
-        let mut signer = mina_signer::create_legacy(mina_signer::NetworkId::TESTNET);
+        let mut signer = mina_signer::create_legacy(mina_signer::NetworkId::MAINNET);
 
         if signer.verify(signature, &pubkey, &payload) {
             Ok(valid::UserCommand::SignedCommand(cmd))
@@ -7371,10 +7371,13 @@ fn validate_timing_with_min_balance(
             txn_amount, txn_global_slot, account.balance
         )),
         InvalidTiming(true) => Err(format!(
-            "For timed account, the requested transaction for amount {:?} \
+            "For timed account {}, the requested transaction for amount {:?} \
              at global slot {:?}, applying the transaction would put the \
              balance below the calculated minimum balance of {:?}",
-            txn_amount, txn_global_slot, min_balance.0
+            account.public_key.into_address(),
+            txn_amount,
+            txn_global_slot,
+            min_balance.0
         )),
         InsufficientBalance(false) => {
             panic!("Broken invariant in validate_timing_with_min_balance'")
@@ -7499,6 +7502,12 @@ pub fn account_min_balance_at_slot(
     vesting_increment: Amount,
     initial_minimum_balance: Balance,
 ) -> Balance {
+    dbg!(global_slot);
+    dbg!(cliff_time);
+    dbg!(cliff_amount);
+    dbg!(vesting_period);
+    dbg!(vesting_increment);
+    dbg!(initial_minimum_balance);
     if global_slot < cliff_time {
         initial_minimum_balance
     } else if vesting_period.is_zero() {

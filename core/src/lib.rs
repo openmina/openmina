@@ -16,6 +16,8 @@ pub mod consensus;
 mod substate;
 pub use substate::{Substate, SubstateAccess, SubstateResult};
 
+pub mod network;
+
 mod chain_id;
 pub use chain_id::*;
 

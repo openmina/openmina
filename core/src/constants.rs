@@ -25,14 +25,24 @@ pub const CONSTRAINT_CONSTANTS: ConstraintConstants = ConstraintConstants {
     // it affects the circuits. Since we cannot produce the circuits
     // ourselves right now, we cannot react to changes in this value,
     // so it will be hardcoded for now.
+    // Mainnet
     fork: Some(ForkConstants {
         state_hash: ark_ff::field_new!(
             Fp,
-            "7908066420535064797069631664846455037440232590837253108938061943122344055350"
+            "24465973112608446515163575794792913472627621028836869800891179577915755065526"
         ),
-        blockchain_length: 296371,
-        global_slot_since_genesis: 445860,
+        blockchain_length: 359604,
+        global_slot_since_genesis: 564480,
     }),
+    // Devnet
+    //fork: Some(ForkConstants {
+    //    state_hash: ark_ff::field_new!(
+    //        Fp,
+    //        "7908066420535064797069631664846455037440232590837253108938061943122344055350"
+    //    ),
+    //    blockchain_length: 296371,
+    //    global_slot_since_genesis: 445860,
+    //}),
 };
 
 #[derive(Clone, Debug)]
@@ -145,19 +155,42 @@ pub const PROTOCOL_TRANSACTION_VERSION: u8 = 3;
 pub const PROTOCOL_NETWORK_VERSION: u8 = 3;
 pub const TX_POOL_MAX_SIZE: u32 = 3000;
 
-pub const CONSTRAINT_SYSTEM_DIGESTS: [[u8; 16]; 3] = [
+pub const DEVNET_CONSTRAINT_SYSTEM_DIGESTS: [[u8; 16]; 3] = [
+    // transaction-merge
     [
         0xb8, 0x87, 0x9f, 0x67, 0x7f, 0x62, 0x2a, 0x1d, 0x86, 0x64, 0x80, 0x30, 0x70, 0x1f, 0x43,
         0xe1,
     ],
+    // transaction-base
     [
         0x3b, 0xf6, 0xbb, 0x8a, 0x97, 0x66, 0x5f, 0xe7, 0xa9, 0xdf, 0x6f, 0xc1, 0x46, 0xe4, 0xf9,
         0x42,
     ],
+    // blockchain-step
     [
         0xd0, 0x24, 0xa9, 0xac, 0x78, 0xd4, 0xc9, 0x3a, 0x88, 0x8b, 0x63, 0xfc, 0x85, 0xee, 0xb6,
         0x6a,
     ],
 ];
+
+pub const MAINNET_CONSTRAINT_SYSTEM_DIGESTS: [[u8; 16]; 3] = [
+    // transaction-merge
+    [
+        0xb8, 0x87, 0x9f, 0x67, 0x7f, 0x62, 0x2a, 0x1d, 0x86, 0x64, 0x80, 0x30, 0x70, 0x1f, 0x43,
+        0xe1,
+    ],
+    // transaction-base
+    [
+        0xd3, 0x19, 0x48, 0xe6, 0x61, 0xcc, 0x66, 0x26, 0x75, 0xb0, 0xc0, 0x79, 0x45, 0x8f, 0x71,
+        0x4a,
+    ],
+    // blockchain-step
+    [
+        0x14, 0xab, 0x55, 0x62, 0xed, 0x29, 0x2d, 0xe7, 0xa3, 0xde, 0xb9, 0xe1, 0x2f, 0x00, 0xae,
+        0xc0,
+    ],
+];
+
+pub const CONSTRAINT_SYSTEM_DIGESTS: [[u8; 16]; 3] = MAINNET_CONSTRAINT_SYSTEM_DIGESTS;
 
 pub use v2::PROTOCOL_CONSTANTS;

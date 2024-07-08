@@ -289,6 +289,21 @@ impl GenesisConfig {
                         .collect(),
                 };
                 ledger_accounts.cache()?;
+
+                // let file =
+                //     File::create("/tmp/rust-account-hashes.txt").expect("Unable to create file");
+                // let mut writer = std::io::BufWriter::new(file);
+                //
+                // for account in &ledger_accounts.accounts {
+                //     let account = ledger::Account::from(account);
+                //     let hash = v2::LedgerHash::from_fp(account.hash());
+                //     let pubkey = &account.public_key.into_address();
+                //     let line = format!("{} {}\n", pubkey, hash.to_string());
+                //     writer
+                //         .write_all(line.as_bytes())
+                //         .expect("Unable to write data");
+                // }
+                // writer.flush().expect("Unable to flush data");
                 openmina_core::info!(
                     openmina_core::log::system_time();
                     kind = "ledger loaded",

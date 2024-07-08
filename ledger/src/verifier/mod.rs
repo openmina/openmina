@@ -370,7 +370,7 @@ pub mod common {
         // let signature_testnet = create "CodaSignature"
         // let signature_mainnet = create "MinaSignatureMainnet"
 
-        let hash = hash_with_kimchi("CodaSignature", &[**msg, *x, *y, *rx]);
+        let hash = hash_with_kimchi("MinaSignatureMainnet", &[**msg, *x, *y, *rx]);
         let hash: Fq = Fq::from(hash.into_repr());
 
         let sv: CurvePoint = CurvePoint::prime_subgroup_generator().mul(*s).into_affine();

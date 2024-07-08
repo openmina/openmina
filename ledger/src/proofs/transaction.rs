@@ -2553,7 +2553,7 @@ pub mod transaction_snark {
         inputs.append_field(*py);
         inputs.append_field(*rx);
         // TODO: Change this to `MinaSignatureMainnet` on mainnet
-        let hash = checked_legacy_hash("CodaSignature", inputs, w);
+        let hash = checked_legacy_hash("MinaSignatureMainnet", inputs, w);
 
         w.exists(field_to_bits::<_, 255>(hash))
     }
@@ -2615,7 +2615,7 @@ pub mod transaction_snark {
         inputs.append_field(*py);
         inputs.append_field(*rx);
         // TODO: Change this to `MinaSignatureMainnet` on mainnet
-        let hash = checked_hash("CodaSignature", &inputs.to_fields(), w);
+        let hash = checked_hash("MinaSignatureMainnet", &inputs.to_fields(), w);
 
         w.exists(field_to_bits::<_, 255>(hash))
     }
