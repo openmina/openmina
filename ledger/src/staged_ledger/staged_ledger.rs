@@ -5844,7 +5844,7 @@ mod tests {
     use std::{collections::BTreeMap, fs::File};
 
     use mina_hasher::Fp;
-    use mina_p2p_messages::binprot;
+    use mina_p2p_messages::{binprot, list::List};
 
     use crate::{
         proofs::public_input::protocol_state::MinaHash,
@@ -5938,6 +5938,65 @@ mod tests {
         let hash = v2::MinaBaseStagedLedgerHashStableV1::from(&staged_ledger.hash());
         let reference = r#"{"non_snark":{"ledger_hash":"jwcznejL82UzKAgTUCpoQ9aw4NBfph25nsgMLoowXBx8iknMt2H","aux_hash":"VU7r5u7vbm9FtBgU2R5nJhFNcBRfDXXyJuVX2qiXgjD5fzqYQ7","pending_coinbase_aux":"XyLefxPzSEbi25gRvSVZvn65fDtowhbVY1dHT1XuYgaEUsnA4z"},"pending_coinbase_hash":"2n1QN8RQT8Au6uMmihuEBMp6mbfcuduG88EQDFMBJbZbQ3SPqsuA"}"#;
         assert_eq!(reference, serde_json::to_string(&hash).unwrap());
+    }
+
+    #[test]
+    fn reconstruct() {
+        #[allow(unused)]
+        use binprot::{
+            macros::{BinProtRead, BinProtWrite},
+            BinProtRead, BinProtWrite,
+        };
+
+        #[derive(BinProtRead, BinProtWrite)]
+        struct ReconstructContext {
+            accounts: Vec<v2::MinaBaseAccountBinableArgStableV2>,
+            scan_state: v2::TransactionSnarkScanStateStableV2,
+            pending_coinbase: v2::MinaBasePendingCoinbaseStableV2,
+            staged_ledger_hash: v2::LedgerHash,
+            states: List<v2::MinaStateProtocolStateValueStableV2>,
+        }
+
+        let now = std::time::Instant::now();
+
+        let mut file = std::fs::File::open("/tmp/failed_reconstruct_ctx.binprot").unwrap();
+
+        let ReconstructContext {
+            accounts,
+            scan_state,
+            pending_coinbase,
+            staged_ledger_hash,
+            states,
+        } = BinProtRead::binprot_read(&mut file).unwrap();
+
+        let states = states
+            .iter()
+            .map(|state| (state.hash().to_field::<Fp>(), state.clone()))
+            .collect::<BTreeMap<_, _>>();
+
+        let snarked_ledger = {
+            let mut root = Mask::new_root(Database::create(35));
+            for account in accounts.iter().map(Account::from) {
+                root.get_or_create_account(account.id(), account).unwrap();
+            }
+            root.make_child()
+        };
+
+        eprintln!("parsed in {:?}", now.elapsed());
+
+        StagedLedger::of_scan_state_pending_coinbases_and_snarked_ledger(
+            (),
+            &CONSTRAINT_CONSTANTS,
+            Verifier,
+            (&scan_state).into(),
+            snarked_ledger.clone(),
+            LocalState::empty(),
+            staged_ledger_hash.to_field(),
+            (&pending_coinbase).into(),
+            |key| states.get(&key).cloned().unwrap(),
+        ).unwrap();
+
+        eprintln!("OK");
     }
 
     #[test]
