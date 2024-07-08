@@ -1047,6 +1047,8 @@ fn staged_ledger_reconstruct(
         .map(|p| p.staged_ledger_hash.clone())
         .unwrap_or_else(|| snarked_ledger_hash.clone());
 
+    let snarked_ledger_copy = snarked_ledger.copy();
+
     let result = if let Some(parts) = &parts {
         let states = parts
             .needed_blocks
@@ -1070,7 +1072,7 @@ fn staged_ledger_reconstruct(
     };
 
     if result.is_err() {
-        if let Err(e) = dump_reconstruct_to_file(&snarked_ledger, &parts) {
+        if let Err(e) = dump_reconstruct_to_file(snarked_ledger_copy, &parts) {
             openmina_core::error!(
                 openmina_core::log::system_time();
                 kind = "LedgerService::dump - Failed reconstruct",
@@ -1110,7 +1112,7 @@ pub trait LedgerService: redux::Service {
 /// Save reconstruction to file, when it fails.
 /// So we can easily reproduce the application both in Rust and OCaml, to compare them.
 fn dump_reconstruct_to_file(
-    snarked_ledger: &Mask,
+    snarked_ledger: Mask,
     parts: &Option<Arc<StagedLedgerAuxAndPendingCoinbasesValid>>,
 ) -> std::io::Result<()> {
     use mina_p2p_messages::binprot::{
