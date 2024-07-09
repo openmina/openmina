@@ -34,7 +34,7 @@ use crate::{
 };
 
 use super::{
-    caching::{openmina_cache_path, verifier_index_from_bytes, verifier_index_to_bytes},
+    caching::{verifier_index_from_bytes, verifier_index_to_bytes},
     transaction::InnerCurve,
 };
 use super::{
@@ -98,6 +98,7 @@ fn make_with_ext_cache(data: &str, _cache: &str) -> VerifierIndex<Pallas> {
 
 #[cfg(not(target_family = "wasm"))]
 fn make_with_ext_cache(data: &str, cache: &str) -> VerifierIndex<Pallas> {
+    use super::caching::openmina_cache_path;
     let verifier_index: kimchi::verifier_index::VerifierIndex<GroupAffine<Fp>> =
         serde_json::from_str(data).unwrap();
     let mut hasher = Sha256::new();

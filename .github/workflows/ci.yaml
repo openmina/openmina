@@ -53,7 +53,7 @@ jobs:
 
       - name: Setup Rust
         run: |
-          rustup default 1.77
+          rustup default 1.79
           rustup component add rustfmt
 
       - name: Setup Rust Cache
@@ -79,7 +79,7 @@ jobs:
 
       - name: Setup Rust
         run: |
-          rustup default 1.77
+          rustup default 1.79
           rustup component add rustfmt
 
       - name: Setup Rust Cache
@@ -110,7 +110,7 @@ jobs:
 
       - name: Setup Rust
         run: |
-          rustup default 1.77
+          rustup default 1.79
           rustup component add rustfmt
           rustup target add wasm32-unknown-unknown
 
@@ -119,10 +119,9 @@ jobs:
         with:
           prefix-key: "v0"
 
-      # for now build just p2p as the rest can't yet be compiled to wasm.
       - name: Release build
         run: |
-          cargo build --release -p node --target wasm32-unknown-unknown --no-default-features --features p2p-webrtc
+          cargo build --release -p openmina-node-common --target wasm32-unknown-unknown --no-default-features --features p2p-webrtc
 
   build-tests:
     runs-on: ubuntu-20.04
@@ -137,7 +136,7 @@ jobs:
 
       - name: Setup Rust
         run: |
-          rustup default 1.77
+          rustup default 1.79
           rustup component add rustfmt
 
       - name: Setup Rust Cache
@@ -174,7 +173,7 @@ jobs:
 
       - name: Setup Rust
         run: |
-          rustup default 1.77
+          rustup default 1.79
           rustup component add rustfmt
 
       - name: Setup Rust Cache

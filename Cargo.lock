@@ -4598,6 +4598,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "openmina-node-common"
+version = "0.5.0"
+dependencies = [
+ "jsonpath-rust",
+ "mina-p2p-messages",
+ "mina-signer",
+ "mina-tree",
+ "node",
+ "rand 0.8.5",
+ "rayon",
+ "redux",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "vrf",
+]
+
+[[package]]
 name = "openmina-node-invariants"
 version = "0.6.0"
 dependencies = [
@@ -4617,6 +4638,7 @@ version = "0.6.0"
 dependencies = [
  "anyhow",
  "bytes",
+ "derive_more",
  "jsonpath-rust",
  "juniper",
  "juniper_warp",
@@ -4626,10 +4648,11 @@ dependencies = [
  "mina-tree",
  "nix 0.26.4",
  "node",
- "openmina-core",
+ "openmina-node-common",
  "rand 0.8.5",
  "rayon",
  "redux",
+ "reqwest",
  "serde",
  "serde_json",
  "thiserror",

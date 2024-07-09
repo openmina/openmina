@@ -5,9 +5,9 @@ use crate::Store;
 use super::{TransitionFrontierGenesisEffectfulAction, TransitionFrontierGenesisService};
 
 impl TransitionFrontierGenesisEffectfulAction {
-    pub fn effects<S: redux::Service>(&self, _: &ActionMeta, store: &mut Store<S>)
+    pub fn effects<S>(&self, _: &ActionMeta, store: &mut Store<S>)
     where
-        S: TransitionFrontierGenesisService,
+        S: redux::Service + TransitionFrontierGenesisService,
     {
         match self {
             TransitionFrontierGenesisEffectfulAction::LedgerLoadInit { config } => {

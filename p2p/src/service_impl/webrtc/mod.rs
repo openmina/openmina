@@ -620,9 +620,9 @@ pub trait P2pServiceWebrtc: redux::Service {
         list: &[P2pConnectionOutgoingInitOpts],
     ) -> P2pConnectionOutgoingInitOpts;
 
-    fn event_sender(&mut self) -> &mut mpsc::UnboundedSender<Self::Event>;
+    fn event_sender(&self) -> &mpsc::UnboundedSender<Self::Event>;
 
-    fn cmd_sender(&mut self) -> &mut mpsc::UnboundedSender<Cmd>;
+    fn cmd_sender(&self) -> &mpsc::UnboundedSender<Cmd>;
 
     fn peers(&mut self) -> &mut BTreeMap<PeerId, PeerState>;
 

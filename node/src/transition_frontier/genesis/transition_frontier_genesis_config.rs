@@ -2,6 +2,7 @@ use std::{
     borrow::Cow,
     fs::File,
     io::{Read, Write},
+    path::PathBuf,
     str::FromStr,
 };
 
@@ -43,6 +44,7 @@ pub enum GenesisConfig {
     },
     Prebuilt(Cow<'static, [u8]>),
     DaemonJson(Box<DaemonJson>),
+    DaemonJsonFile(PathBuf),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -76,6 +78,8 @@ pub enum GenesisConfigError {
     Account(#[from] AccountConfigError),
     #[error("error loading genesis config from precomputed data: {0}")]
     Prebuilt(#[from] binprot::Error),
+    #[error("error deserializing daemon.json: {0}")]
+    Json(#[from] serde_json::Error),
     #[error("I/O error: {0}")]
     Io(#[from] std::io::Error),
 }
@@ -238,6 +242,11 @@ impl GenesisConfig {
                     next_epoch_seed,
                 };
                 (mask, result)
+            }
+            Self::DaemonJsonFile(path) => {
+                let reader = File::open(path)?;
+                let c = serde_json::from_reader(reader)?;
+                Self::DaemonJson(c).load()?
             }
         })
     }
