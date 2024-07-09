@@ -5847,7 +5847,7 @@ where
     use UserCommand::*;
 
     let previous_hash = ledger.merkle_root();
-    let txn_global_slot = &txn_state_view.global_slot_since_genesis;
+    let txn_global_slot = &global_slot;
 
     match transaction {
         Command(SignedCommand(cmd)) => apply_user_command(
