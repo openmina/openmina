@@ -7447,8 +7447,7 @@ fn validate_timing_with_min_balance_impl(
             vesting_increment,
         } => {
             let account_balance = account.balance;
-            dbg!(txn_global_slot);
-
+            
             let (invalid_balance, invalid_timing, curr_min_balance) =
                 match account_balance.sub_amount(txn_amount) {
                     None => {
@@ -7469,18 +7468,6 @@ fn validate_timing_with_min_balance_impl(
                         );
 
                         if proposed_new_balance < curr_min_balance {
-                            print_call_stack();
-                            dbg!(txn_amount);
-                            dbg!(account_balance);
-                            dbg!(proposed_new_balance);
-                            dbg!(curr_min_balance);
-                            dbg!(curr_min_balance.0 - proposed_new_balance.0);
-                            dbg!(*txn_global_slot);
-                            dbg!(*cliff_time);
-                            dbg!(*cliff_amount);
-                            dbg!(*vesting_period);
-                            dbg!(*vesting_increment);
-                            dbg!(*initial_minimum_balance);
                             (false, true, curr_min_balance)
                         } else {
                             (false, false, curr_min_balance)
@@ -7507,31 +7494,6 @@ fn validate_timing_with_min_balance_impl(
         }
     }
 }
-
-fn print_call_stack() {
-    let bt = Backtrace::new();
-    let mut depth = 0;
-    for frame in bt.frames().iter().rev() {
-        for symbol in frame.symbols() {
-            if let Some(name) = symbol.name() {
-                print!("{}: {}", depth, name);
-            } else {
-                print!("{}: <unknown>", depth);
-            }
-            if let Some(file) = symbol.filename() {
-                if let Some(line) = symbol.lineno() {
-                    println!(" ({}:{})", file.display(), line);
-                } else {
-                    println!(" ({})", file.display());
-                }
-            } else {
-                println!();
-            }
-        }
-        depth += 1;
-    }
-}
-
 
 // TODO: This should be in `account.rs`
 pub fn account_min_balance_at_slot(
