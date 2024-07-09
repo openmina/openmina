@@ -120,14 +120,14 @@ impl<F: FieldWitness>
         let gamma_bytes = gamma.each_ref().map(to_bytes);
         let zeta_bytes = zeta.inner.each_ref().map(to_bytes);
 
-        assert!(joint_combiner.is_none());
-
         PlonkMinimal::<F, 2> {
             alpha: u64_to_field(&alpha_bytes),
             beta: u64_to_field(&beta_bytes),
             gamma: u64_to_field(&gamma_bytes),
             zeta: u64_to_field(&zeta_bytes),
-            joint_combiner: None,
+            joint_combiner: joint_combiner
+                .as_ref()
+                .map(|f| u64_to_field(&f.inner.each_ref().map(to_bytes))),
             alpha_bytes,
             beta_bytes,
             gamma_bytes,
