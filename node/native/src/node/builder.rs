@@ -21,14 +21,14 @@ use node::{
     SnarkerStrategy, TransitionFrontierConfig,
 };
 use openmina_node_common::p2p::TaskSpawner;
-use rand::RngCore;
+use rand::Rng;
 
 use crate::NodeServiceBuilder;
 
 use super::Node;
 
 pub struct NodeBuilder {
-    rng_seed: u64,
+    rng_seed: [u8; 32],
     custom_initial_time: Option<redux::Timestamp>,
     genesis_config: Arc<GenesisConfig>,
     p2p_sec_key: Option<P2pSecretKey>,
@@ -47,8 +47,8 @@ pub struct NodeBuilder {
 }
 
 impl NodeBuilder {
-    pub fn new(custom_rng_seed: Option<u64>, genesis_config: Arc<GenesisConfig>) -> Self {
-        let rng_seed = custom_rng_seed.unwrap_or_else(|| rand::thread_rng().next_u64());
+    pub fn new(custom_rng_seed: Option<[u8; 32]>, genesis_config: Arc<GenesisConfig>) -> Self {
+        let rng_seed = custom_rng_seed.unwrap_or_else(|| rand::thread_rng().gen());
         Self {
             rng_seed,
             custom_initial_time: None,

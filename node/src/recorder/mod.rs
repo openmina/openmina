@@ -27,7 +27,7 @@ fn actions_path<P: AsRef<Path>>(path: P, file_index: usize) -> PathBuf {
 
 #[derive(Serialize, Deserialize)]
 pub struct RecordedInitialState<'a> {
-    pub rng_seed: u64,
+    pub rng_seed: [u8; 32],
     pub p2p_sec_key: P2pSecretKey,
     pub state: Cow<'a, State>,
 }

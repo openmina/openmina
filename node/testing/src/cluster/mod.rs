@@ -208,7 +208,7 @@ impl Cluster {
     }
 
     pub fn add_rust_node(&mut self, testing_config: RustNodeTestingConfig) -> ClusterNodeId {
-        let rng_seed = 0;
+        let rng_seed = [0; 32];
         let node_config = testing_config.clone();
         let node_id = ClusterNodeId::new_unchecked(self.nodes.len());
         let work_dir = TempDir::new().unwrap();

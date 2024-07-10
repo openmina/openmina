@@ -41,6 +41,10 @@ use openmina_node_common::{
     EventReceiver, EventSender, NodeServiceCommon,
 };
 use rand::{rngs::StdRng, SeedableRng};
+use sha3::{
+    digest::{ExtendableOutput, Update},
+    Shake256,
+};
 
 use super::ExternalSnarkWorkerFacade;
 
@@ -94,14 +98,23 @@ impl NodeService {
 
 impl NodeService {
     pub fn for_replay(
-        rng_seed: u64,
+        rng_seed: [u8; 32],
         initial_time: redux::Timestamp,
         p2p_sec_key: P2pSecretKey,
         dynamic_effects_lib: Option<String>,
     ) -> Self {
         Self {
             common: NodeServiceCommon {
-                rng: StdRng::seed_from_u64(rng_seed),
+                rng_seed,
+                rng_ephemeral: Shake256::default()
+                    .chain(rng_seed)
+                    .chain(b"ephemeral")
+                    .finalize_xof(),
+                rng_static: Shake256::default()
+                    .chain(rng_seed)
+                    .chain(b"static")
+                    .finalize_xof(),
+                rng: StdRng::from_seed(rng_seed),
                 event_sender: mpsc::unbounded_channel().0,
                 event_receiver: mpsc::unbounded_channel().1.into(),
                 ledger_manager: LedgerManager::spawn(Default::default()),

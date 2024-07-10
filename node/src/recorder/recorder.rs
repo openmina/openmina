@@ -45,7 +45,7 @@ impl Recorder {
         }
     }
 
-    pub fn initial_state(&mut self, rng_seed: u64, p2p_sec_key: P2pSecretKey, state: &State) {
+    pub fn initial_state(&mut self, rng_seed: [u8; 32], p2p_sec_key: P2pSecretKey, state: &State) {
         match self {
             Self::None => {}
             Self::OnlyInputActions { recorder_path, .. } => {
