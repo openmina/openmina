@@ -12,9 +12,9 @@ use node::{
 };
 use rand::prelude::*;
 
-use crate::NodeServiceCommon;
+use crate::NodeService;
 
-impl node::service::SnarkBlockVerifyService for NodeServiceCommon {
+impl node::service::SnarkBlockVerifyService for NodeService {
     fn verify_init(
         &mut self,
         req_id: SnarkBlockVerifyId,
@@ -49,7 +49,7 @@ impl node::service::SnarkBlockVerifyService for NodeServiceCommon {
     }
 }
 
-impl node::service::SnarkWorkVerifyService for NodeServiceCommon {
+impl node::service::SnarkWorkVerifyService for NodeService {
     fn verify_init(
         &mut self,
         req_id: SnarkWorkVerifyId,
@@ -96,7 +96,7 @@ impl node::service::SnarkWorkVerifyService for NodeServiceCommon {
     }
 }
 
-impl node::service::SnarkPoolService for NodeServiceCommon {
+impl node::service::SnarkPoolService for NodeService {
     fn random_choose<'a>(
         &mut self,
         iter: impl Iterator<Item = &'a SnarkJobId>,

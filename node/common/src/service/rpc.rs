@@ -19,7 +19,7 @@ pub use node::rpc::{
 use node::State;
 use node::{event_source::Event, rpc::RpcSnarkPoolJobGetResponse};
 
-use crate::NodeServiceCommon;
+use crate::NodeService;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum RpcP2pConnectionIncomingResponse {
@@ -126,7 +126,7 @@ impl RpcService {
     }
 }
 
-impl NodeServiceCommon {
+impl NodeService {
     pub fn process_rpc_request(&mut self, req: NodeRpcRequest) {
         let rpc_id = self.rpc.pending.add(req.responder);
         let req = req.req;
@@ -218,7 +218,7 @@ fn optimize_filtered_state(
     Ok((value, filter))
 }
 
-impl node::rpc::RpcService for NodeServiceCommon {
+impl node::rpc::RpcService for NodeService {
     fn respond_state_get(
         &mut self,
         rpc_id: RpcId,

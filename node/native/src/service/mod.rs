@@ -1,16 +1,8 @@
-mod rpc;
-
-mod ext_snark_worker;
-pub use ext_snark_worker::*;
-
 mod builder;
 pub use builder::*;
 
-#[allow(clippy::module_inception)]
-mod service;
-pub use service::*;
-
 use openmina_node_common::p2p::TaskSpawner;
+pub use openmina_node_common::NodeService;
 
 #[derive(Clone)]
 pub struct P2pTaskSpawner {}
