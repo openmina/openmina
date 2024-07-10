@@ -4,14 +4,14 @@ use node::{Effects, EventSourceAction, Service, State, Store};
 
 use crate::{
     rpc::{RpcReceiver, RpcSender},
-    EventReceiver, NodeServiceCommon,
+    EventReceiver, NodeService,
 };
 
 pub struct Node<Serv> {
     store: Store<Serv>,
 }
 
-impl<Serv: Service + AsMut<NodeServiceCommon>> Node<Serv> {
+impl<Serv: Service + AsMut<NodeService>> Node<Serv> {
     pub fn new(
         rng_seed: [u8; 32],
         initial_state: State,
@@ -54,7 +54,7 @@ impl<Serv: Service + AsMut<NodeServiceCommon>> Node<Serv> {
         &mut self.store.service
     }
 
-    fn service_common_mut(&mut self) -> &mut NodeServiceCommon {
+    fn service_common_mut(&mut self) -> &mut NodeService {
         self.service_mut().as_mut()
     }
 
