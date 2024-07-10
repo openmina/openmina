@@ -2776,8 +2776,8 @@ pub mod zkapp_command {
     }
 
     impl AccountUpdate {
-        // TODO: mainnet: MainnetZkappBody
-        pub const HASH_PARAM: &'static str = "TestnetZkappBody";
+        pub const HASH_PARAM: &'static str = "MainnetZkappBody";
+        // pub const HASH_PARAM: &'static str = "TestnetZkappBody";
 
         /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/mina_base/account_update.ml#L1538
         /// https://github.com/MinaProtocol/mina/blob/2ff0292b637684ce0372e7b8e23ec85404dc5091/src/lib/mina_base/account_update.ml#L1465
