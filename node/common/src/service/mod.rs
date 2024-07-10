@@ -6,6 +6,7 @@ pub mod p2p;
 pub mod record;
 pub mod replay;
 pub mod rpc;
+pub mod snark_worker;
 mod snarks;
 
 mod builder;

@@ -24,7 +24,7 @@ impl NodeServiceBuilder {
     pub fn new(rng_seed: [u8; 32]) -> Self {
         Self {
             common: NodeServiceCommonBuilder::new(rng_seed),
-            recorder: Recorder::None,
+            recorder: Default::default(),
             http_server_port: None,
         }
     }
@@ -89,12 +89,8 @@ impl NodeServiceBuilder {
     }
 
     pub fn build(self) -> Result<NodeService, NodeServiceBuildError> {
-        let common = self.common.build()?;
-
-        Ok(NodeService {
-            common,
-            snark_worker_sender: None,
-            recorder: self.recorder,
-        })
+        let mut service = self.common.build()?;
+        service.recorder = self.recorder;
+        Ok(service)
     }
 }

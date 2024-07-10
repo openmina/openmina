@@ -10,9 +10,9 @@ use rand::prelude::*;
 pub use node::p2p::{service::*, service_impl::*};
 use sha3::digest::XofReader;
 
-use crate::NodeServiceCommon;
+use crate::NodeService;
 
-impl webrtc::P2pServiceWebrtc for NodeServiceCommon {
+impl webrtc::P2pServiceWebrtc for NodeService {
     type Event = Event;
 
     fn random_pick(
@@ -35,7 +35,7 @@ impl webrtc::P2pServiceWebrtc for NodeServiceCommon {
     }
 }
 
-impl webrtc_with_libp2p::P2pServiceWebrtcWithLibp2p for NodeServiceCommon {
+impl webrtc_with_libp2p::P2pServiceWebrtcWithLibp2p for NodeService {
     #[cfg(feature = "p2p-libp2p")]
     fn mio(&mut self) -> &mut mio::MioService {
         &mut self.p2p.mio
@@ -43,7 +43,7 @@ impl webrtc_with_libp2p::P2pServiceWebrtcWithLibp2p for NodeServiceCommon {
 }
 
 #[cfg(feature = "p2p-libp2p")]
-impl P2pCryptoService for NodeServiceCommon {
+impl P2pCryptoService for NodeService {
     fn generate_random_nonce(&mut self) -> [u8; 24] {
         self.rng.gen()
     }

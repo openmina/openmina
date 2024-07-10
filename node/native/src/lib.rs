@@ -4,7 +4,7 @@ pub mod graphql;
 pub mod http_server;
 
 mod service;
-pub use service::*;
+pub use service::{NodeService, *};
 
 mod node;
 pub use node::{Node, NodeBuilder};

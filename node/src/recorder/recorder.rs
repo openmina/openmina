@@ -123,6 +123,12 @@ impl Recorder {
     }
 }
 
+impl Default for Recorder {
+    fn default() -> Self {
+        Self::None
+    }
+}
+
 impl Drop for Recorder {
     fn drop(&mut self) {
         match self {

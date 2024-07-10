@@ -89,7 +89,7 @@ pub fn prove(
         .map(Into::into)
 }
 
-impl node::service::BlockProducerService for crate::NodeServiceCommon {
+impl node::service::BlockProducerService for crate::NodeService {
     fn prove(&mut self, block_hash: StateHash, input: Box<ProverExtendBlockchainInputStableV2>) {
         if self.replayer.is_some() {
             return;
