@@ -4640,6 +4640,7 @@ dependencies = [
  "anyhow",
  "bytes",
  "derive_more",
+ "getrandom 0.2.15",
  "jsonpath-rust",
  "juniper",
  "juniper_warp",

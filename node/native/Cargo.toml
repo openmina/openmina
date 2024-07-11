@@ -35,6 +35,7 @@ node = { path = "../../node", features = ["replay"] }
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
 redux = { workspace = true, features=["serializable_callbacks"] }
+getrandom = "0.2.15"
 
 [features]
 default = ["p2p-libp2p"]

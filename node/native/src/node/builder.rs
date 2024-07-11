@@ -48,7 +48,13 @@ pub struct NodeBuilder {
 
 impl NodeBuilder {
     pub fn new(custom_rng_seed: Option<[u8; 32]>, genesis_config: Arc<GenesisConfig>) -> Self {
-        let rng_seed = custom_rng_seed.unwrap_or_else(|| rand::thread_rng().gen());
+        let rng_seed = custom_rng_seed.unwrap_or_else(|| {
+            let mut seed = [0; 32];
+            getrandom::getrandom(&mut seed).unwrap_or_else(|_| {
+                seed = rand::thread_rng().gen();
+            });
+            seed
+        });
         Self {
             rng_seed,
             custom_initial_time: None,
