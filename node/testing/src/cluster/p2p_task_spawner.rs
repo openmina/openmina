@@ -15,7 +15,7 @@ impl P2pTaskSpawner {
 impl TaskSpawner for P2pTaskSpawner {
     fn spawn_main<F>(&self, name: &str, fut: F)
     where
-        F: 'static + Send + std::future::Future,
+        F: 'static + Send + std::future::Future<Output = ()>,
     {
         let shutdown = self.shutdown.clone();
         let runtime = tokio::runtime::Builder::new_current_thread()

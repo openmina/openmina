@@ -11,6 +11,7 @@ members = [
     "node/account",
     "node/common",
     "node/native",
+    "node/web",
     "node/invariants",
     "node/testing",
     "cli",
