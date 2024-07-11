@@ -210,7 +210,8 @@ impl GenesisConfig {
                     staking_epoch_ledger_hash = hash;
                     staking_epoch_total_currency = total_currency;
                     staking_epoch_seed = v2::EpochSeed::from_str(&data.staking.seed).unwrap();
-                    genesis_producer_stake_proof = create_genesis_producer_stake_proof(&staking_ledger_mask);
+                    genesis_producer_stake_proof =
+                        create_genesis_producer_stake_proof(&staking_ledger_mask);
                     masks.push(staking_ledger_mask);
 
                     let next = data.next.as_ref().unwrap();
@@ -399,7 +400,9 @@ fn genesis_account_iter() -> impl Iterator<Item = ledger::Account> {
     })
 }
 
-fn create_genesis_producer_stake_proof(mask: &ledger::Mask) -> v2::MinaBaseSparseLedgerBaseStableV2 {
+fn create_genesis_producer_stake_proof(
+    mask: &ledger::Mask,
+) -> v2::MinaBaseSparseLedgerBaseStableV2 {
     let producer = AccountSecretKey::genesis_producer().public_key();
     let producer_id = ledger::AccountId::new(producer.into(), ledger::TokenId::default());
     let sparse_ledger =
