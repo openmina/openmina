@@ -9,7 +9,7 @@ use std::future::Future;
 pub trait TaskSpawner: Send + Clone {
     fn spawn_main<F>(&self, name: &str, fut: F)
     where
-        F: 'static + Send + Future;
+        F: 'static + Send + Future<Output = ()>;
 }
 
 #[cfg(not(feature = "p2p-webrtc"))]
