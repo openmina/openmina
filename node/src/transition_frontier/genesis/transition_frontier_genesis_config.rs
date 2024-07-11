@@ -117,7 +117,7 @@ impl GenesisConfig {
                     constants: constants.clone(),
                     genesis_ledger_hash: genesis_ledger_hash.clone(),
                     genesis_total_currency,
-                    genesis_producer_stake_proof: genesis_producer_stake_proof(&mask),
+                    genesis_producer_stake_proof: create_genesis_producer_stake_proof(&mask),
                     staking_epoch_ledger_hash: genesis_ledger_hash.clone(),
                     staking_epoch_total_currency,
                     next_epoch_ledger_hash: genesis_ledger_hash,
@@ -144,7 +144,7 @@ impl GenesisConfig {
                     constants: constants.clone(),
                     genesis_ledger_hash: genesis_ledger_hash.clone(),
                     genesis_total_currency,
-                    genesis_producer_stake_proof: genesis_producer_stake_proof(&mask),
+                    genesis_producer_stake_proof: create_genesis_producer_stake_proof(&mask),
                     staking_epoch_ledger_hash: genesis_ledger_hash.clone(),
                     staking_epoch_total_currency,
                     next_epoch_ledger_hash: genesis_ledger_hash,
@@ -187,6 +187,7 @@ impl GenesisConfig {
                 let next_epoch_ledger_hash;
                 let next_epoch_total_currency;
                 let next_epoch_seed: v2::EpochSeed;
+                let genesis_producer_stake_proof: v2::MinaBaseSparseLedgerBaseStableV2;
                 // TODO(devnet): handle other cases here, right now this works
                 // only for the post-fork genesis
                 if let Some(data) = &config.epoch_data {
@@ -198,13 +199,14 @@ impl GenesisConfig {
                         .iter()
                         .map(daemon_json::Account::to_account)
                         .collect::<Result<Vec<_>, _>>()?;
-                    let (mut _mask, total_currency, hash) = Self::build_or_load_ledger(
+                    let (mut staking_ledger_mask, total_currency, hash) = Self::build_or_load_ledger(
                         data.staking.ledger_name(),
                         accounts.into_iter(),
                     )?;
                     staking_epoch_ledger_hash = hash;
                     staking_epoch_total_currency = total_currency;
                     staking_epoch_seed = v2::EpochSeed::from_str(&data.staking.seed).unwrap();
+                    genesis_producer_stake_proof = create_genesis_producer_stake_proof(&staking_ledger_mask);
 
                     let next = data.next.as_ref().unwrap();
                     let accounts = next
@@ -227,13 +229,14 @@ impl GenesisConfig {
                     next_epoch_ledger_hash = genesis_ledger_hash.clone();
                     next_epoch_total_currency = total_currency.clone();
                     next_epoch_seed = v2::EpochSeed::zero();
+                    genesis_producer_stake_proof = create_genesis_producer_stake_proof(&mask);
                 }
 
                 let result = GenesisConfigLoaded {
                     constants,
                     genesis_ledger_hash,
                     genesis_total_currency: total_currency,
-                    genesis_producer_stake_proof: genesis_producer_stake_proof(&mask),
+                    genesis_producer_stake_proof,
                     staking_epoch_ledger_hash,
                     staking_epoch_total_currency,
                     next_epoch_ledger_hash,
@@ -391,7 +394,7 @@ fn genesis_account_iter() -> impl Iterator<Item = ledger::Account> {
     })
 }
 
-fn genesis_producer_stake_proof(mask: &ledger::Mask) -> v2::MinaBaseSparseLedgerBaseStableV2 {
+fn create_genesis_producer_stake_proof(mask: &ledger::Mask) -> v2::MinaBaseSparseLedgerBaseStableV2 {
     let producer = AccountSecretKey::genesis_producer().public_key();
     let producer_id = ledger::AccountId::new(producer.into(), ledger::TokenId::default());
     let sparse_ledger =
@@ -456,7 +459,7 @@ impl PrebuiltGenesisConfig {
                 .map(|(n, h)| (n, h.to_field()))
                 .collect::<Vec<_>>(),
         );
-        let (_mask, staking_epoch_total_currency) =
+        let (staking_ledger_mask, staking_epoch_total_currency) =
             GenesisConfig::build_ledger_from_accounts_and_hashes(
                 self.staking_epoch_data
                     .accounts
@@ -485,7 +488,7 @@ impl PrebuiltGenesisConfig {
             constants: self.constants,
             genesis_ledger_hash: self.ledger_hash,
             genesis_total_currency,
-            genesis_producer_stake_proof: genesis_producer_stake_proof(&mask),
+            genesis_producer_stake_proof: create_genesis_producer_stake_proof(&staking_ledger_mask),
             staking_epoch_ledger_hash: self.staking_epoch_data.ledger_hash.clone(),
             staking_epoch_total_currency,
             next_epoch_ledger_hash: self.next_epoch_data.ledger_hash.clone(),
