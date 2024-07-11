@@ -279,7 +279,7 @@ impl Cluster {
             },
             p2p: P2pConfig {
                 libp2p_port: Some(libp2p_port),
-                listen_port: http_port,
+                listen_port: Some(http_port),
                 identity_pub_key: p2p_sec_key.public_key(),
                 initial_peers,
                 ask_initial_peers_interval: testing_config.ask_initial_peers_interval,

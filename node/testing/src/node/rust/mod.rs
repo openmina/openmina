@@ -64,7 +64,7 @@ impl Node {
     pub fn dial_addr(&self) -> P2pConnectionOutgoingInitOpts {
         let peer_id = self.store.state().p2p.my_id();
         if self.service().rust_to_rust_use_webrtc() {
-            let port = self.store.state().p2p.config().listen_port;
+            let port = self.store.state().p2p.config().listen_port.unwrap();
             let signaling = SignalingMethod::Http(([127, 0, 0, 1], port).into());
             P2pConnectionOutgoingInitOpts::WebRTC { peer_id, signaling }
         } else {
