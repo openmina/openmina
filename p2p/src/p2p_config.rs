@@ -17,7 +17,7 @@ pub struct P2pConfig {
     /// TCP port where libp2p is listening incoming connections.
     pub libp2p_port: Option<u16>,
     /// The HTTP port where signaling server is listening SDP offers and SDP answers.
-    pub listen_port: u16,
+    pub listen_port: Option<u16>,
     /// The public key used for authentication all p2p communication.
     pub identity_pub_key: PublicKey,
     /// A list addresses of seed nodes.

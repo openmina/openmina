@@ -47,20 +47,20 @@ impl P2pState {
                         ..
                     }) => state.peers.entry(*peer_id).or_insert_with(|| P2pPeerState {
                         is_libp2p: false,
-                        dial_opts: {
+                        dial_opts: opts.offer.listen_port.map(|listen_port| {
                             let signaling = match opts.signaling {
                                 IncomingSignalingMethod::Http => {
                                     SignalingMethod::Http(HttpSignalingInfo {
                                         host: opts.offer.host.clone(),
-                                        port: opts.offer.listen_port,
+                                        port: listen_port,
                                     })
                                 }
                             };
-                            Some(P2pConnectionOutgoingInitOpts::WebRTC {
+                            P2pConnectionOutgoingInitOpts::WebRTC {
                                 peer_id: *peer_id,
                                 signaling,
-                            })
-                        },
+                            }
+                        }),
                         status: P2pPeerStatus::Connecting(P2pConnectionState::incoming_init(opts)),
                         identify: None,
                     }),
