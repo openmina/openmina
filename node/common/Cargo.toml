@@ -18,6 +18,7 @@ mina-p2p-messages = { workspace = true }
 mina-signer = { workspace = true }
 vrf = { workspace = true }
 ledger = { workspace = true }
+sha3 = "0.10.8"
 
 node = { path = "../../node", features = ["replay"], default-features = false }
 

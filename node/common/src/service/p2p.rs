@@ -8,6 +8,7 @@ use node::{
 use rand::prelude::*;
 
 pub use node::p2p::{service::*, service_impl::*};
+use sha3::digest::XofReader;
 
 use crate::NodeServiceCommon;
 
@@ -48,21 +49,15 @@ impl P2pCryptoService for NodeServiceCommon {
     }
 
     fn ephemeral_sk(&mut self) -> [u8; 32] {
-        // TODO: make deterministic
-        // TODO: make network debugger to use seed to derive the same key
-        //let mut r = [0; 32];
-        //getrandom::getrandom(&mut r).unwrap();
-        //r
-        self.rng.gen()
+        let mut r = [0; 32];
+        self.rng_ephemeral.read(&mut r);
+        r
     }
 
     fn static_sk(&mut self) -> [u8; 32] {
-        // TODO: make deterministic
-        // TODO: make network debugger to use seed to derive the same key
-        //let mut r = [0; 32];
-        //getrandom::getrandom(&mut r).unwrap();
-        //r
-        self.rng.gen()
+        let mut r = [0; 32];
+        self.rng_static.read(&mut r);
+        r
     }
 
     fn sign_key(&mut self, key: &[u8; 32]) -> Vec<u8> {

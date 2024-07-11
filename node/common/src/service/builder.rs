@@ -12,6 +12,10 @@ use node::{
     stats::Stats,
 };
 use rand::{rngs::StdRng, SeedableRng};
+use sha3::{
+    digest::{ExtendableOutput, Update},
+    Shake256,
+};
 
 use crate::{
     rpc::{RpcSender, RpcService},
@@ -21,6 +25,7 @@ use crate::{
 use super::block_producer::BlockProducerService;
 
 pub struct NodeServiceCommonBuilder {
+    rng_seed: [u8; 32],
     rng: StdRng,
     /// Events sent on this channel are retrieved and processed in the
     /// `event_source` state machine defined in the `openmina-node` crate.
@@ -42,10 +47,11 @@ pub enum NodeServiceCommonBuildError {
 }
 
 impl NodeServiceCommonBuilder {
-    pub fn new(rng_seed: u64) -> Self {
+    pub fn new(rng_seed: [u8; 32]) -> Self {
         let (event_sender, event_receiver) = mpsc::unbounded_channel();
         Self {
-            rng: StdRng::seed_from_u64(rng_seed),
+            rng_seed,
+            rng: StdRng::from_seed(rng_seed),
             event_sender,
             event_receiver: event_receiver.into(),
             ledger_manager: None,
@@ -103,6 +109,15 @@ impl NodeServiceCommonBuilder {
         let p2p = self.p2p.ok_or(NodeServiceCommonBuildError::P2pNotInit)?;
 
         Ok(NodeServiceCommon {
+            rng_seed: self.rng_seed,
+            rng_ephemeral: Shake256::default()
+                .chain(self.rng_seed)
+                .chain(b"ephemeral")
+                .finalize_xof(),
+            rng_static: Shake256::default()
+                .chain(self.rng_seed)
+                .chain(b"static")
+                .finalize_xof(),
             rng: self.rng,
             event_sender: self.event_sender,
             event_receiver: self.event_receiver,

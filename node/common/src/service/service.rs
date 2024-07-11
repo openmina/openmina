@@ -5,6 +5,7 @@ use node::{
     transition_frontier::genesis::GenesisConfig,
 };
 use rand::rngs::StdRng;
+use sha3::{digest::core_api::XofReaderCoreWrapper, Shake256ReaderCore};
 
 use crate::rpc::RpcReceiver;
 
@@ -17,6 +18,9 @@ use super::{
 };
 
 pub struct NodeServiceCommon {
+    pub rng_seed: [u8; 32],
+    pub rng_ephemeral: XofReaderCoreWrapper<Shake256ReaderCore>,
+    pub rng_static: XofReaderCoreWrapper<Shake256ReaderCore>,
     pub rng: StdRng,
     /// Events sent on this channel are retrieved and processed in the
     /// `event_source` state machine defined in the `openmina-node` crate.

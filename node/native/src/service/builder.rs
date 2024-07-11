@@ -21,7 +21,7 @@ pub enum NodeServiceBuildError {
 }
 
 impl NodeServiceBuilder {
-    pub fn new(rng_seed: u64) -> Self {
+    pub fn new(rng_seed: [u8; 32]) -> Self {
         Self {
             common: NodeServiceCommonBuilder::new(rng_seed),
             recorder: Recorder::None,

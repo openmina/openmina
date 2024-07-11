@@ -13,7 +13,7 @@ pub struct Node<Serv> {
 
 impl<Serv: Service + AsMut<NodeServiceCommon>> Node<Serv> {
     pub fn new(
-        rng_seed: u64,
+        rng_seed: [u8; 32],
         initial_state: State,
         mut service: Serv,
         override_effects: Option<Effects<Serv>>,
