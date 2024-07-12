@@ -99,6 +99,12 @@ impl fmt::Debug for TransactionHash {
     }
 }
 
+impl From<&[u8; 32]> for TransactionHash {
+    fn from(value: &[u8; 32]) -> Self {
+        Self(value.to_vec())
+    }
+}
+
 impl Serialize for TransactionHash {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where

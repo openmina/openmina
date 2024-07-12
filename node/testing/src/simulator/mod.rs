@@ -56,7 +56,7 @@ impl Simulator {
         };
         while !runner.nodes_iter().all(|(_, node)| is_synced(node.state())) {
             runner
-                .run(RunCfg::default().action_handler(move |_, _, _, action| {
+                .run(RunCfg::default().timeout(Duration::from_secs(300)).action_handler(move |_, _, _, action| {
                     matches!(
                         action.action().kind(),
                         ActionKind::TransitionFrontierGenesisInject

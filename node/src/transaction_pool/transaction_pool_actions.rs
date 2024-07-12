@@ -1,13 +1,17 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use ledger::{
-    transaction_pool::diff::{BestTipDiff, DiffVerified},
+    transaction_pool::{
+        diff::{self, BestTipDiff, DiffVerified},
+        ValidCommandWithHash,
+    },
     Account, AccountId, BaseLedger as _,
 };
 use mina_p2p_messages::{
     list::List,
     v2::{self, LedgerHash},
 };
+use openmina_core::{requests::RpcId, ActionEvent};
 use redux::Callback;
 use serde::{Deserialize, Serialize};
 
@@ -15,14 +19,17 @@ use crate::ledger::LedgerService;
 
 use super::PendingId;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
+#[action_event(level = info)]
 pub enum TransactionPoolAction {
     StartVerify {
         commands: List<v2::MinaBaseUserCommandStableV2>,
+        from_rpc: Option<RpcId>,
     },
     StartVerifyWithAccounts {
         accounts: BTreeMap<AccountId, Account>,
         pending_id: PendingId,
+        from_rpc: Option<RpcId>,
     },
     BestTipChanged {
         best_tip_hash: LedgerHash,
@@ -35,6 +42,7 @@ pub enum TransactionPoolAction {
         diff: DiffVerified,
         /// Diff was crearted locally, or from remote peer ?
         is_sender_local: bool,
+        from_rpc: Option<RpcId>,
     },
     ApplyVerifiedDiffWithAccounts {
         accounts: BTreeMap<AccountId, Account>,
@@ -50,7 +58,11 @@ pub enum TransactionPoolAction {
     },
     /// Rebroadcast locally generated pool items every 10 minutes. Do so for 50
     /// minutes - at most 5 rebroadcasts - before giving up.
-    Rebroadcast,
+    Rebroadcast {
+        accepted: Vec<ValidCommandWithHash>,
+        rejected: Vec<(ValidCommandWithHash, diff::Error)>,
+    },
+    CollectTransactionsByFee,
 }
 
 impl redux::EnablingCondition<crate::State> for TransactionPoolAction {}
@@ -60,8 +72,13 @@ pub enum TransactionPoolEffectfulAction {
     FetchAccounts {
         account_ids: BTreeSet<AccountId>,
         ledger_hash: LedgerHash,
-        on_result: Callback<(BTreeMap<AccountId, Account>, Option<PendingId>)>,
+        on_result: Callback<(
+            BTreeMap<AccountId, Account>,
+            Option<PendingId>,
+            Option<RpcId>,
+        )>,
         pending_id: Option<PendingId>,
+        from_rpc: Option<RpcId>,
     },
 }
 
@@ -79,6 +96,7 @@ impl TransactionPoolEffectfulAction {
                 ledger_hash,
                 on_result,
                 pending_id,
+                from_rpc,
             } => {
                 openmina_core::log::info!(
                     openmina_core::log::system_time();
@@ -109,7 +127,7 @@ impl TransactionPoolEffectfulAction {
                     })
                     .collect::<BTreeMap<_, _>>();
 
-                store.dispatch_callback(on_result, (accounts, pending_id));
+                store.dispatch_callback(on_result, (accounts, pending_id, from_rpc));
             }
         }
     }

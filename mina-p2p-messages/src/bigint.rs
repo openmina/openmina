@@ -167,7 +167,7 @@ impl<'de> Deserialize<'de> for BigInt {
                 type Value = Vec<u8>;
 
                 fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-                    formatter.write_str("hex string")
+                    formatter.write_str("hex string or numeric string")
                 }
 
                 fn visit_borrowed_str<E>(self, v: &'de str) -> Result<Self::Value, E>
@@ -178,7 +178,16 @@ impl<'de> Deserialize<'de> for BigInt {
                         Some(v) => hex::decode(v).map_err(|_| {
                             serde::de::Error::custom(format!("failed to decode hex str: {v}"))
                         }),
-                        None => Err(serde::de::Error::custom("mising 0x prefix".to_string())),
+                        None => {
+                            // Try to parse as a decimal number
+                            num_bigint::BigInt::parse_bytes(v.as_bytes(), 10)
+                            .map(|num| {
+                                let mut bytes = num.to_bytes_be().1;
+                                bytes.resize(32, 0); // Ensure the byte vector has 32 bytes
+                                bytes
+                            })
+                            .ok_or_else(|| serde::de::Error::custom("failed to parse decimal number".to_string()))
+                        },
                     }
                 }
 
@@ -186,12 +195,7 @@ impl<'de> Deserialize<'de> for BigInt {
                 where
                     E: serde::de::Error,
                 {
-                    match v.strip_prefix("0x") {
-                        Some(v) => hex::decode(v).map_err(|_| {
-                            serde::de::Error::custom(format!("failed to decode hex str: {v}"))
-                        }),
-                        None => Err(serde::de::Error::custom("mising 0x prefix".to_string())),
-                    }
+                    self.visit_borrowed_str(v)
                 }
             }
             let mut v = deserializer.deserialize_str(V)?;
@@ -332,5 +336,16 @@ mod tests {
             let bigint_exp = serde_json::from_str(&json).unwrap();
             assert_eq!(bigint, bigint_exp);
         }
+    }
+
+    #[test]
+    fn from_numeric_string() {
+        let hex = "075bcd1500000000000000000000000000000000000000000000000000000000";
+        let mut deser: BigInt = serde_json::from_str(r#""123456789""#).unwrap();
+
+        deser.0.reverse();
+        let result_hex = hex::encode(deser);
+
+        assert_eq!(result_hex, hex.to_string());
     }
 }

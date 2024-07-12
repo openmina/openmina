@@ -6,7 +6,7 @@ use mina_p2p_messages::v2::{
 use crate::account::AccountSecretKey;
 use crate::ledger::write::{LedgerWriteAction, LedgerWriteRequest};
 use crate::transition_frontier::sync::TransitionFrontierSyncAction;
-use crate::Store;
+use crate::{Store, TransactionPoolAction};
 
 use super::vrf_evaluator::{BlockProducerVrfEvaluatorAction, InterruptReason};
 use super::{
@@ -104,6 +104,12 @@ pub fn block_producer_effects<S: crate::Service>(
         }
         BlockProducerAction::WonSlotWait => {}
         BlockProducerAction::WonSlotProduceInit => {
+            store.dispatch(BlockProducerAction::WonSlotTransactionsGet);
+        }
+        BlockProducerAction::WonSlotTransactionsGet => {
+            store.dispatch(TransactionPoolAction::CollectTransactionsByFee);
+        }
+        BlockProducerAction::WonSlotTransactionsSuccess { .. } => {
             store.dispatch(BlockProducerAction::StagedLedgerDiffCreateInit);
         }
         BlockProducerAction::StagedLedgerDiffCreateInit => {
@@ -135,6 +141,8 @@ pub fn block_producer_effects<S: crate::Service>(
             // TODO(binier)
             let supercharge_coinbase = true;
 
+            let transactions_by_fee = state.block_producer.pending_transactions();
+
             if store.dispatch(LedgerWriteAction::Init {
                 request: LedgerWriteRequest::StagedLedgerDiffCreate {
                     pred_block: pred_block.clone(),
@@ -145,6 +153,7 @@ pub fn block_producer_effects<S: crate::Service>(
                     coinbase_receiver: coinbase_receiver.clone(),
                     completed_snarks,
                     supercharge_coinbase,
+                    transactions_by_fee,
                 },
             }) {
                 store.dispatch(BlockProducerAction::StagedLedgerDiffCreatePending);

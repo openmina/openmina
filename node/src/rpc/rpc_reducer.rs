@@ -109,6 +109,56 @@ impl RpcState {
                 self.requests.remove(rpc_id);
             }
             RpcAction::TransactionPool { .. } => {}
+            RpcAction::LedgerAccountsGetInit { rpc_id, public_key } => {
+                let rpc_state = RpcRequestState {
+                    req: RpcRequest::LedgerAccountsGet(public_key.clone()),
+                    status: RpcRequestStatus::Init { time: meta.time() },
+                    data: Default::default(),
+                };
+                self.requests.insert(*rpc_id, rpc_state);
+            }
+            RpcAction::LedgerAccountsGetPending { rpc_id } => {
+                let Some(rpc) = self.requests.get_mut(rpc_id) else {
+                    return;
+                };
+                rpc.status = RpcRequestStatus::Pending { time: meta.time() };
+            }
+            RpcAction::LedgerAccountsGetSuccess { rpc_id, .. } => {
+                let Some(rpc) = self.requests.get_mut(rpc_id) else {
+                    return;
+                };
+                rpc.status = RpcRequestStatus::Success { time: meta.time() };
+            }
+            RpcAction::TransactionInjectInit { rpc_id, commands } => {
+                let rpc_state = RpcRequestState {
+                    req: RpcRequest::TransactionInject(commands.clone()),
+                    status: RpcRequestStatus::Init { time: meta.time() },
+                    data: Default::default(),
+                };
+                self.requests.insert(*rpc_id, rpc_state);
+            }
+            RpcAction::TransactionInjectPending { rpc_id } => {
+                let Some(rpc) = self.requests.get_mut(rpc_id) else {
+                    return;
+                };
+                rpc.status = RpcRequestStatus::Pending { time: meta.time() };
+            }
+            RpcAction::TransactionInjectSuccess { rpc_id, .. } => {
+                let Some(rpc) = self.requests.get_mut(rpc_id) else {
+                    return;
+                };
+                rpc.status = RpcRequestStatus::Success { time: meta.time() };
+            }
+            RpcAction::TransactionInjectFailure { rpc_id, .. } => {
+                let Some(rpc) = self.requests.get_mut(rpc_id) else {
+                    return;
+                };
+                rpc.status = RpcRequestStatus::Error {
+                    time: meta.time(),
+                    error: "Transaction injection failed".to_string(),
+                };
+            }
+            RpcAction::TransitionFrontierUserCommandsGet { .. } => {}
         }
     }
 }

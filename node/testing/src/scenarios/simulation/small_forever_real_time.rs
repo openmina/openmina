@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use mina_p2p_messages::v2;
-use node::transition_frontier::genesis::GenesisConfig;
+use node::transition_frontier::genesis::{GenesisConfig, NonStakers};
 
 use crate::{
     scenarios::{ClusterRunner, RunCfgAdvanceTime},
@@ -28,6 +28,7 @@ impl SimulationSmallForeverRealTime {
         let genesis_cfg = GenesisConfig::Counts {
             whales: 1,
             fish: 2,
+            non_stakers: NonStakers::Count(100),
             constants,
         };
         let cfg = SimulatorConfig {

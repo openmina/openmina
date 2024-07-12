@@ -104,6 +104,8 @@ pub enum ActionKind {
     BlockProducerWonSlotDiscard,
     BlockProducerWonSlotProduceInit,
     BlockProducerWonSlotSearch,
+    BlockProducerWonSlotTransactionsGet,
+    BlockProducerWonSlotTransactionsSuccess,
     BlockProducerWonSlotWait,
     BlockProducerVrfEvaluatorBeginDelegatorTableConstruction,
     BlockProducerVrfEvaluatorBeginEpochEvaluation,
@@ -346,6 +348,9 @@ pub enum ActionKind {
     RpcFinish,
     RpcGlobalStateGet,
     RpcHealthCheck,
+    RpcLedgerAccountsGetInit,
+    RpcLedgerAccountsGetPending,
+    RpcLedgerAccountsGetSuccess,
     RpcMessageProgressGet,
     RpcP2pConnectionIncomingError,
     RpcP2pConnectionIncomingInit,
@@ -370,7 +375,12 @@ pub enum ActionKind {
     RpcSnarkerWorkersGet,
     RpcStatusGet,
     RpcSyncStatsGet,
+    RpcTransactionInjectFailure,
+    RpcTransactionInjectInit,
+    RpcTransactionInjectPending,
+    RpcTransactionInjectSuccess,
     RpcTransactionPool,
+    RpcTransitionFrontierUserCommandsGet,
     SnarkBlockVerifyError,
     SnarkBlockVerifyFinish,
     SnarkBlockVerifyInit,
@@ -416,6 +426,7 @@ pub enum ActionKind {
     TransactionPoolApplyVerifiedDiffWithAccounts,
     TransactionPoolBestTipChanged,
     TransactionPoolBestTipChangedWithAccounts,
+    TransactionPoolCollectTransactionsByFee,
     TransactionPoolRebroadcast,
     TransactionPoolStartVerify,
     TransactionPoolStartVerifyWithAccounts,
@@ -508,7 +519,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 417;
+    pub const COUNT: u16 = 428;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -671,7 +682,8 @@ impl ActionKindGet for TransactionPoolAction {
             Self::ApplyTransitionFrontierDiffWithAccounts { .. } => {
                 ActionKind::TransactionPoolApplyTransitionFrontierDiffWithAccounts
             }
-            Self::Rebroadcast => ActionKind::TransactionPoolRebroadcast,
+            Self::Rebroadcast { .. } => ActionKind::TransactionPoolRebroadcast,
+            Self::CollectTransactionsByFee => ActionKind::TransactionPoolCollectTransactionsByFee,
         }
     }
 }
@@ -713,6 +725,10 @@ impl ActionKindGet for BlockProducerAction {
             Self::WonSlot { .. } => ActionKind::BlockProducerWonSlot,
             Self::WonSlotDiscard { .. } => ActionKind::BlockProducerWonSlotDiscard,
             Self::WonSlotWait => ActionKind::BlockProducerWonSlotWait,
+            Self::WonSlotTransactionsGet => ActionKind::BlockProducerWonSlotTransactionsGet,
+            Self::WonSlotTransactionsSuccess { .. } => {
+                ActionKind::BlockProducerWonSlotTransactionsSuccess
+            }
             Self::WonSlotProduceInit => ActionKind::BlockProducerWonSlotProduceInit,
             Self::StagedLedgerDiffCreateInit => ActionKind::BlockProducerStagedLedgerDiffCreateInit,
             Self::StagedLedgerDiffCreatePending => {
@@ -778,6 +794,16 @@ impl ActionKindGet for RpcAction {
             Self::DiscoveryRoutingTable { .. } => ActionKind::RpcDiscoveryRoutingTable,
             Self::DiscoveryBoostrapStats { .. } => ActionKind::RpcDiscoveryBoostrapStats,
             Self::TransactionPool { .. } => ActionKind::RpcTransactionPool,
+            Self::LedgerAccountsGetInit { .. } => ActionKind::RpcLedgerAccountsGetInit,
+            Self::LedgerAccountsGetPending { .. } => ActionKind::RpcLedgerAccountsGetPending,
+            Self::LedgerAccountsGetSuccess { .. } => ActionKind::RpcLedgerAccountsGetSuccess,
+            Self::TransactionInjectInit { .. } => ActionKind::RpcTransactionInjectInit,
+            Self::TransactionInjectPending { .. } => ActionKind::RpcTransactionInjectPending,
+            Self::TransactionInjectSuccess { .. } => ActionKind::RpcTransactionInjectSuccess,
+            Self::TransactionInjectFailure { .. } => ActionKind::RpcTransactionInjectFailure,
+            Self::TransitionFrontierUserCommandsGet { .. } => {
+                ActionKind::RpcTransitionFrontierUserCommandsGet
+            }
             Self::Finish { .. } => ActionKind::RpcFinish,
         }
     }

@@ -116,6 +116,7 @@ impl LedgerRequest {
                     coinbase_receiver,
                     completed_snarks,
                     supercharge_coinbase,
+                    transactions_by_fee,
                 } => {
                     let pred_block_hash = pred_block.hash().clone();
                     let global_slot_since_genesis = global_slot.clone();
@@ -127,6 +128,7 @@ impl LedgerRequest {
                         coinbase_receiver,
                         completed_snarks,
                         supercharge_coinbase,
+                        transactions_by_fee,
                     );
                     LedgerWriteResponse::StagedLedgerDiffCreate {
                         pred_block_hash,
@@ -204,6 +206,9 @@ impl LedgerRequest {
                     LedgerReadRequest::GetAccounts(ledger_hash, account_ids) => {
                         let res = ledger_ctx.get_accounts(ledger_hash, account_ids);
                         LedgerReadResponse::GetAccounts(res)
+                    LedgerReadRequest::Accounts(rpc_id, public_key) => {
+                        let res = ledger_ctx.get_accounts(public_key);
+                        LedgerReadResponse::Accounts(rpc_id, res)
                     }
                 },
             ),

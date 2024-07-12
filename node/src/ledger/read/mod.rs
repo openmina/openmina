@@ -4,6 +4,7 @@ pub use ledger_read_actions::*;
 
 mod ledger_read_state;
 pub use ledger_read_state::*;
+use openmina_core::requests::RpcId;
 
 mod ledger_read_reducer;
 
@@ -28,6 +29,7 @@ pub enum LedgerReadKind {
     GetChildAccountsAtAddr,
     GetStagedLedgerAuxAndPendingCoinbases,
     ScanStateSummary,
+    Accounts,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
@@ -42,6 +44,7 @@ pub enum LedgerReadRequest {
     GetStagedLedgerAuxAndPendingCoinbases(LedgerReadStagedLedgerAuxAndPendingCoinbases),
     // rpcs
     ScanStateSummary(v2::LedgerHash),
+    Accounts(RpcId, Option<AccountPublicKey>),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -56,6 +59,7 @@ pub enum LedgerReadResponse {
     GetStagedLedgerAuxAndPendingCoinbases(Option<Arc<StagedLedgerAuxAndPendingCoinbases>>),
     // rpcs
     ScanStateSummary(Vec<Vec<RpcScanStateSummaryScanStateJob>>),
+    Accounts(RpcId, Vec<Account>),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -76,6 +80,7 @@ impl LedgerReadRequest {
                 LedgerReadKind::GetStagedLedgerAuxAndPendingCoinbases
             }
             Self::ScanStateSummary(..) => LedgerReadKind::ScanStateSummary,
+            Self::Accounts(..) => LedgerReadKind::Accounts,
         }
     }
 
@@ -92,6 +97,8 @@ impl LedgerReadRequest {
             Self::GetChildHashesAtAddr(..) => 1,
             Self::GetStagedLedgerAuxAndPendingCoinbases(..) => 100,
             Self::ScanStateSummary(..) => 100,
+            // TODO(adonagy): not sure
+            Self::Accounts(..) => 10,
         };
         cost.max(1)
     }
@@ -109,6 +116,7 @@ impl LedgerReadResponse {
                 LedgerReadKind::GetStagedLedgerAuxAndPendingCoinbases
             }
             Self::ScanStateSummary(..) => LedgerReadKind::ScanStateSummary,
+            Self::Accounts(..) => LedgerReadKind::Accounts,
         }
     }
 }

@@ -68,4 +68,8 @@ impl RpcService for NodeService {
         RpcDiscoveryBoostrapStatsResponse
     );
     rpc_service_impl!(respond_transaction_pool, RpcTransactionPoolResponse);
+    rpc_service_impl!(respond_ledger_accounts, RpcLedgerAccountsResponse);
+    rpc_service_impl!(respond_transaction_inject, RpcTransactionInjectResponse);
+    rpc_service_impl!(respond_transaction_inject_failed, RpcTransactionInjectFailure);
+    rpc_service_impl!(respond_transition_frontier_commands, RpcTransitionFrontierUserCommandsResponse);
 }

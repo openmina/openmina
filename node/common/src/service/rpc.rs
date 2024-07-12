@@ -1,9 +1,6 @@
 use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 use node::rpc::{
-    RpcBlockProducerStatsGetResponse, RpcDiscoveryBoostrapStatsResponse,
-    RpcDiscoveryRoutingTableResponse, RpcHealthCheckResponse, RpcMessageProgressResponse,
-    RpcPeersGetResponse, RpcReadinessCheckResponse, RpcRequest, RpcStateGetError,
-    RpcStatusGetResponse, RpcTransactionPoolResponse,
+    RpcBlockProducerStatsGetResponse, RpcDiscoveryBoostrapStatsResponse, RpcDiscoveryRoutingTableResponse, RpcHealthCheckResponse, RpcLedgerAccountsResponse, RpcMessageProgressResponse, RpcPeersGetResponse, RpcReadinessCheckResponse, RpcRequest, RpcStateGetError, RpcStatusGetResponse, RpcTransactionInjectFailure, RpcTransactionPoolResponse, RpcTransitionFrontierUserCommandsResponse
 };
 use serde::{Deserialize, Serialize};
 
@@ -14,7 +11,7 @@ pub use node::rpc::{
     ActionStatsResponse, RespondError, RpcActionStatsGetResponse, RpcId, RpcIdType,
     RpcP2pConnectionOutgoingResponse, RpcScanStateSummaryGetResponse, RpcSnarkPoolGetResponse,
     RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse, RpcStateGetResponse,
-    RpcSyncStatsGetResponse,
+    RpcSyncStatsGetResponse, RpcTransactionInjectResponse,
 };
 use node::State;
 use node::{event_source::Event, rpc::RpcSnarkPoolJobGetResponse};
@@ -332,6 +329,13 @@ impl node::rpc::RpcService for NodeServiceCommon {
         RpcDiscoveryBoostrapStatsResponse
     );
     rpc_service_impl!(respond_transaction_pool, RpcTransactionPoolResponse);
+    rpc_service_impl!(respond_ledger_accounts, RpcLedgerAccountsResponse);
+    rpc_service_impl!(respond_transaction_inject, RpcTransactionInjectResponse);
+    rpc_service_impl!(
+        respond_transaction_inject_failed,
+        RpcTransactionInjectFailure
+    );
+    rpc_service_impl!(respond_transition_frontier_commands, RpcTransitionFrontierUserCommandsResponse);
 }
 
 #[cfg(test)]

@@ -168,7 +168,7 @@ pub type ValidCommandWithHash = WithHash<valid::UserCommand, BlakeHash>;
 pub mod diff {
     use super::*;
 
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
     pub enum Error {
         InsufficientReplaceFee,
         Duplicate,
@@ -1373,7 +1373,19 @@ impl IndexedPool {
 
     /// Returns all the transactions in the pool
     fn get_all_transactions(&self) -> Vec<ValidCommandWithHash> {
-        self.all_by_hash.values().cloned().collect()
+        self.all_by_sender.values().cloned().flat_map(|(cmds,_)| {
+            cmds.into_iter()
+        })
+        .collect()
+    }
+
+    fn get_pending_amount_and_nonce(&self) -> HashMap<AccountId, (Option<Nonce>, Amount)> {
+        // TODO(adonagy): clone too expensive here?
+        self.all_by_sender
+            .clone()
+            .into_iter()
+            .map(|(acc_id, (cmds, amount))| (acc_id, (cmds.back().unwrap().data.nonce(), amount)))
+            .collect()
     }
 }
 
@@ -1536,6 +1548,10 @@ impl TransactionPool {
 
     pub fn get_all_transactions(&self) -> Vec<ValidCommandWithHash> {
         self.pool.get_all_transactions()
+    }
+
+    pub fn get_pending_amount_and_nonce(&self) -> HashMap<AccountId, (Option<Nonce>, Amount)> {
+        self.pool.get_pending_amount_and_nonce()
     }
 
     pub fn transactions(&mut self) -> Vec<ValidCommandWithHash> {
@@ -1948,20 +1964,12 @@ impl TransactionPool {
     ) -> Result<
         (
             ApplyDecision,
-            Vec<UserCommand>,
-            Vec<(UserCommand, diff::Error)>,
+            Vec<ValidCommandWithHash>,
+            Vec<(ValidCommandWithHash, diff::Error)>,
         ),
         String,
     > {
         let (decision, accepted, rejected) = self.apply(diff, accounts, is_sender_local)?;
-        let accepted = accepted
-            .into_iter()
-            .map(|cmd| cmd.data.forget_check())
-            .collect::<Vec<_>>();
-        let rejected = rejected
-            .into_iter()
-            .map(|(cmd, e)| (cmd.data.forget_check(), e))
-            .collect::<Vec<_>>();
         Ok((decision, accepted, rejected))
     }
 
