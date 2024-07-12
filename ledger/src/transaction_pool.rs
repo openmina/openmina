@@ -1603,29 +1603,33 @@ impl TransactionPool {
     pub fn get_accounts_to_handle_transition_diff(
         &self,
         diff: &diff::BestTipDiff,
-    ) -> BTreeSet<AccountId> {
+    ) -> (BTreeSet<AccountId>, BTreeSet<AccountId>) {
         let diff::BestTipDiff {
             new_commands,
             removed_commands,
             reorg_best_tip: _,
         } = diff;
 
-        new_commands
+        let in_cmds = new_commands
             .iter()
             .chain(removed_commands)
             .flat_map(|cmd| cmd.data.forget_check().accounts_referenced())
-            .chain(
-                self.locally_generated_uncommitted
-                    .keys()
-                    .map(|cmd| cmd.data.fee_payer()),
-            )
-            .collect::<BTreeSet<_>>()
+            .collect::<BTreeSet<_>>();
+
+        let uncommitted = self
+            .locally_generated_uncommitted
+            .keys()
+            .map(|cmd| cmd.data.fee_payer())
+            .collect::<BTreeSet<_>>();
+
+        (in_cmds, uncommitted)
     }
 
     pub fn handle_transition_frontier_diff(
         &mut self,
         diff: &diff::BestTipDiff,
         accounts: &BTreeMap<AccountId, Account>,
+        uncommited: &BTreeMap<AccountId, Account>,
     ) {
         let diff::BestTipDiff {
             new_commands,
@@ -1749,7 +1753,7 @@ impl TransactionPool {
                     remove_cmd(self)
                 } else {
                     let unchecked = &cmd.data;
-                    match accounts.get(&unchecked.fee_payer()) {
+                    match uncommited.get(&unchecked.fee_payer()) {
                         Some(account) => {
                             match self.pool.add_from_gossip_exn(
                                 cmd,

@@ -210,12 +210,13 @@ impl TransactionPoolState {
                 best_tip_hash,
                 diff,
             } => {
-                let account_ids = substate.pool.get_accounts_to_handle_transition_diff(&diff);
+                let (account_ids, uncommitted) =
+                    substate.pool.get_accounts_to_handle_transition_diff(&diff);
                 let pending_id = substate.make_action_pending(action);
 
                 let dispatcher = state.into_dispatcher();
                 dispatcher.push(TransactionPoolEffectfulAction::FetchAccounts {
-                    account_ids,
+                    account_ids: account_ids.union(&uncommitted).cloned().collect(),
                     ledger_hash: best_tip_hash.clone(),
                     on_result: callback!(fetch_for_diff((accounts: BTreeMap<AccountId, Account>, id: Option<PendingId>)) -> crate::Action {
                         TransactionPoolAction::ApplyTransitionFrontierDiffWithAccounts {
@@ -238,9 +239,24 @@ impl TransactionPoolState {
                     panic!()
                 };
 
+                let collect = |set: BTreeSet<AccountId>| {
+                    set.into_iter()
+                        .map(|id| {
+                            let account = accounts.get(&id).cloned().unwrap();
+                            (id, account)
+                        })
+                        .collect::<BTreeMap<_, _>>()
+                };
+
+                let (account_ids, uncommitted) =
+                    substate.pool.get_accounts_to_handle_transition_diff(&diff);
+
+                let accounts = collect(account_ids);
+                let uncommitted = collect(uncommitted);
+
                 substate
                     .pool
-                    .handle_transition_frontier_diff(&diff, &accounts);
+                    .handle_transition_frontier_diff(&diff, &accounts, &uncommitted);
             }
             TransactionPoolAction::Rebroadcast => {}
         }
@@ -393,9 +409,24 @@ mod tests {
 
                     dbg!(accounts.len());
 
+                    let collect = |set: BTreeSet<AccountId>| {
+                        set.into_iter()
+                            .map(|id| {
+                                let account = accounts.get(&id).cloned().unwrap();
+                                (id, account)
+                            })
+                            .collect::<BTreeMap<_, _>>()
+                    };
+
+                    let (account_ids, uncommitted) =
+                        substate.pool.get_accounts_to_handle_transition_diff(&diff);
+
+                    let accounts = collect(account_ids);
+                    let uncommitted = collect(uncommitted);
+
                     substate
                         .pool
-                        .handle_transition_frontier_diff(&diff, &accounts);
+                        .handle_transition_frontier_diff(&diff, &accounts, &uncommitted);
                 }
                 TransactionPoolAction::Rebroadcast => {}
             }
