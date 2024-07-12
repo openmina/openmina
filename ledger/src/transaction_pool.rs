@@ -578,7 +578,7 @@ struct SenderState {
 
 pub enum RevalidateKind<'a> {
     EntirePool,
-    Subset(&'a BTreeMap<AccountId, Account>),
+    Subset(&'a BTreeSet<AccountId>),
 }
 
 impl IndexedPool {
@@ -1235,7 +1235,7 @@ impl IndexedPool {
     {
         let requires_revalidation = |account_id: &AccountId| match kind {
             RevalidateKind::EntirePool => true,
-            RevalidateKind::Subset(set) => set.contains_key(account_id),
+            RevalidateKind::Subset(set) => set.contains(account_id),
         };
 
         let mut dropped = Vec::new();
@@ -1265,11 +1265,11 @@ impl IndexedPool {
                     nonce == account.nonce
                 });
 
-                let keep_queue = match first_applicable_nonce_index {
+                let drop_queue = match first_applicable_nonce_index {
                     Some(index) => queue.split_off(index),
                     None => Default::default(),
                 };
-                let drop_queue = queue;
+                let keep_queue = queue;
 
                 for cmd in &drop_queue {
                     currency_reserved = currency_reserved
@@ -1628,6 +1628,7 @@ impl TransactionPool {
     pub fn handle_transition_frontier_diff(
         &mut self,
         diff: &diff::BestTipDiff,
+        account_ids: &BTreeSet<AccountId>,
         accounts: &BTreeMap<AccountId, Account>,
         uncommited: &BTreeMap<AccountId, Account>,
     ) {
@@ -1692,14 +1693,14 @@ impl TransactionPool {
             .collect::<Vec<_>>();
 
         let dropped_commands = {
-            let accounts_to_check = accounts;
+            let accounts_to_check = account_ids;
             let existing_account_states_by_id = accounts;
 
             let get_account = |id: &AccountId| {
                 match existing_account_states_by_id.get(id) {
                     Some(account) => account.clone(),
                     None => {
-                        if accounts_to_check.contains_key(id) {
+                        if accounts_to_check.contains(id) {
                             Account::empty()
                         } else {
                             // OCaml panic too, with same message
