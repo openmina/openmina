@@ -220,6 +220,7 @@ pub fn relative_sub_window(global_sub_window: u32) -> u32 {
 
 // TODO: Move ledger/src/scan_state/currency.rs types to core and replace
 // primmitive types here with thoise numeric types.
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ConsensusConstants {
     pub k: u32,
     pub delta: u32,
