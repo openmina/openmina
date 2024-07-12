@@ -432,7 +432,7 @@ impl VkRefcountTable {
         remove(vk_hash, account_id.clone(), &mut self.vk_to_account_ids);
     }
 
-    fn decrement_list(&mut self, list: &[WithStatus<valid::UserCommand>]) {
+    fn decrement_list(&mut self, list: &[ValidCommandWithHash]) {
         list.iter().for_each(|c| {
             for (id, vk) in c.data.forget_check().extract_vks() {
                 self.dec(id, vk.hash);
@@ -464,7 +464,7 @@ impl VkRefcountTable {
         });
     }
 
-    fn increment_list(&mut self, list: &[WithStatus<valid::UserCommand>]) {
+    fn increment_list(&mut self, list: &[ValidCommandWithHash]) {
         list.iter().for_each(|c| {
             for (id, vk) in c.data.forget_check().extract_vks() {
                 self.inc(id, vk);
@@ -1633,17 +1633,40 @@ impl TransactionPool {
             reorg_best_tip: _,
         } = diff;
 
+        // Remove duplicates
+        let (new_commands, removed_commands) = {
+            let collect_hashed = |cmds: &[WithStatus<valid::UserCommand>]| {
+                cmds.iter()
+                    .map(|cmd| transaction_hash::hash_command(cmd.data.clone()))
+                    .collect::<Vec<_>>()
+            };
+
+            let mut new_commands = collect_hashed(&new_commands);
+            let mut removed_commands = collect_hashed(&removed_commands);
+
+            let new_commands_set = new_commands.iter().collect::<HashSet<_>>();
+            let removed_commands_set = removed_commands.iter().collect::<HashSet<_>>();
+
+            let duplicates = new_commands_set
+                .intersection(&removed_commands_set)
+                .map(|cmd| (*cmd).clone())
+                .collect::<HashSet<_>>();
+
+            new_commands.retain(|cmd| !duplicates.contains(&cmd));
+            removed_commands.retain(|cmd| !duplicates.contains(&cmd));
+            (new_commands, removed_commands)
+        };
+
         let global_slot = self.pool.global_slot_since_genesis();
 
         let pool_max_size = self.config.pool_max_size;
 
-        self.verification_key_table.increment_list(new_commands);
-        self.verification_key_table.decrement_list(removed_commands);
+        self.verification_key_table.increment_list(&new_commands);
+        self.verification_key_table
+            .decrement_list(&removed_commands);
 
         let mut dropped_backtrack = Vec::with_capacity(256);
         for cmd in removed_commands {
-            let cmd = transaction_hash::hash_command(cmd.data.clone());
-
             if let Some(time_added) = self.locally_generated_committed.remove(&cmd) {
                 self.locally_generated_uncommitted
                     .insert(cmd.clone(), time_added);
@@ -1690,13 +1713,8 @@ impl TransactionPool {
         };
 
         let (committed_commands, dropped_commit_conflicts): (Vec<_>, Vec<_>) = {
-            let command_hashes: HashSet<BlakeHash> = new_commands
-                .iter()
-                .map(|cmd| {
-                    let cmd = transaction_hash::hash_command(cmd.data.clone());
-                    cmd.hash
-                })
-                .collect();
+            let command_hashes: HashSet<BlakeHash> =
+                new_commands.iter().map(|cmd| cmd.hash.clone()).collect();
 
             dropped_commands
                 .iter()
