@@ -521,8 +521,8 @@ impl From<CommandError> for diff::Error {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-struct IndexedPoolConfig {
-    consensus_constants: consensus::Constants,
+pub struct IndexedPoolConfig {
+    pub consensus_constants: consensus::Constants,
     slot_tx_end: Option<Slot>,
 }
 
@@ -537,7 +537,7 @@ struct IndexedPoolConfig {
 // end
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-struct IndexedPool {
+pub struct IndexedPool {
     /// Transactions valid against the current ledger, indexed by fee per
     /// weight unit.
     applicable_by_fee: HashMap<FeeRate, HashSet<ValidCommandWithHash>>,
@@ -552,7 +552,7 @@ struct IndexedPool {
     /// Only transactions that have an expiry
     transactions_with_expiration: HashMap<Slot, HashSet<ValidCommandWithHash>>,
     size: usize,
-    config: IndexedPoolConfig,
+    pub config: IndexedPoolConfig,
 }
 
 enum Update {
@@ -1508,12 +1508,12 @@ const MAX_PER_15_SECONDS: usize = 10;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TransactionPool {
-    pool: IndexedPool,
+    pub pool: IndexedPool,
     locally_generated_uncommitted: HashMap<ValidCommandWithHash, (Time, Batch)>,
     locally_generated_committed: HashMap<ValidCommandWithHash, (Time, Batch)>,
     current_batch: usize,
     remaining_in_batch: usize,
-    config: Config,
+    pub config: Config,
     batcher: (),
     best_tip_diff_relay: Option<()>,
     verification_key_table: VkRefcountTable,
