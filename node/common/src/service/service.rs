@@ -86,8 +86,10 @@ impl node::service::TransitionFrontierGenesisService for NodeServiceCommon {
     fn load_genesis(&mut self, config: Arc<GenesisConfig>) {
         let res = match config.load() {
             Err(err) => Err(err.to_string()),
-            Ok((mask, data)) => {
-                self.ledger_manager.insert_genesis_ledger(mask);
+            Ok((masks, data)) => {
+                masks
+                    .into_iter()
+                    .for_each(|mask| self.ledger_manager.insert_genesis_ledger(mask));
                 Ok(data)
             }
         };
