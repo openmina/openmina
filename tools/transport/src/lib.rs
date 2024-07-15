@@ -39,7 +39,6 @@ where
         let mut key = GenericArray::default();
         Blake2bVar::new(32)
             .expect("valid constant")
-            .chain(b"/coda/0.0.1/")
             .chain(chain_id)
             .finalize_variable(&mut key)
             .expect("good buffer size");

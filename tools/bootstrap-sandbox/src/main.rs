@@ -22,7 +22,7 @@ struct Args {
     path: PathBuf,
     #[structopt(
         long,
-        default_value = "fd7d111973bf5a9e3e87384f560fdead2f272589ca00b6d9e357fca9839631da"
+        default_value = "/coda/0.0.1/29936104443aaf264a7f0192ac64b1c7173198c1ed404c1bcff5e562e05eb7f6"
     )]
     chain_id: String,
     #[structopt(long)]
