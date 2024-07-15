@@ -8,7 +8,7 @@ use mina_p2p_messages::v2::{
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
 
-use crate::constants::CONSTRAINT_CONSTANTS;
+use crate::constants::constraint_constants;
 
 use super::{Block, BlockHash, BlockHeader};
 
@@ -110,7 +110,7 @@ impl<T: AsRef<Block>> BlockWithHash<T> {
 
     pub fn is_genesis(&self) -> bool {
         self.height() == 1
-            || CONSTRAINT_CONSTANTS
+            || constraint_constants()
                 .fork
                 .as_ref()
                 .map_or(false, |fork| fork.blockchain_length + 1 == self.height())

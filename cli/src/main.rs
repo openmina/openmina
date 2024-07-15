@@ -41,5 +41,14 @@ mod unsafe_signal_handlers {
 fn main() -> anyhow::Result<()> {
     #[cfg(feature = "unsafe-signal-handlers")]
     unsafe_signal_handlers::setup();
-    commands::OpenminaCli::parse().command.run()
+    let app = commands::OpenminaCli::parse();
+
+    let network_init_result = match app.network {
+        commands::Network::Devnet => openmina_core::NetworkConfig::init("devnet"),
+        commands::Network::Mainnet => openmina_core::NetworkConfig::init("mainnet"),
+    };
+
+    network_init_result.expect("Failed to initialize network configuration");
+
+    app.command.run()
 }

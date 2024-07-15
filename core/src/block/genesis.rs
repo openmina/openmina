@@ -1,6 +1,6 @@
 use mina_p2p_messages::v2::{self, StateHash};
 
-use crate::constants::{slots_per_window, CONSTRAINT_CONSTANTS};
+use crate::constants::{constraint_constants, slots_per_window};
 
 #[allow(clippy::too_many_arguments)]
 pub fn genesis_and_negative_one_protocol_states(
@@ -56,7 +56,7 @@ pub fn genesis_and_negative_one_protocol_states(
         updated_next_epoch_seed.clone(),
         false,
     );
-    if CONSTRAINT_CONSTANTS.fork.is_none() {
+    if constraint_constants().fork.is_none() {
         genesis.previous_state_hash = negative_one_hash.clone();
     }
     genesis.body.genesis_state_hash = negative_one_hash.clone();
@@ -90,7 +90,7 @@ fn protocol_state(
     negative_one: bool,
 ) -> v2::MinaStateProtocolStateValueStableV2 {
     v2::MinaStateProtocolStateValueStableV2 {
-        previous_state_hash: match CONSTRAINT_CONSTANTS.fork.as_ref() {
+        previous_state_hash: match constraint_constants().fork.as_ref() {
             None => StateHash::zero(),
             Some(_) if negative_one => StateHash::zero(),
             Some(fork) => StateHash::from_fp(fork.state_hash),
@@ -180,7 +180,8 @@ fn consensus_state(
     negative_one: bool,
 ) -> v2::ConsensusProofOfStakeDataConsensusStateValueStableV2 {
     let is_genesis = if negative_one { 0 } else { 1 };
-    let (blockchain_length, global_slot_since_genesis) = match CONSTRAINT_CONSTANTS.fork.as_ref() {
+    let (blockchain_length, global_slot_since_genesis) = match constraint_constants().fork.as_ref()
+    {
         None => (is_genesis, 0),
         Some(fork) => (
             fork.blockchain_length + is_genesis,
@@ -194,7 +195,7 @@ fn consensus_state(
         min_window_density: slots_per_window(constants).into(),
         sub_window_densities: std::iter::once(is_genesis.into())
             .chain(
-                (1..CONSTRAINT_CONSTANTS.sub_windows_per_window)
+                (1..constraint_constants().sub_windows_per_window)
                     .map(|_| constants.slots_per_sub_window),
             )
             .collect(),

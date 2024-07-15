@@ -11,7 +11,7 @@ mod transition_frontier_genesis_reducer;
 
 use ledger::scan_state::pending_coinbase::PendingCoinbase;
 use mina_p2p_messages::v2;
-use openmina_core::constants::CONSTRAINT_CONSTANTS;
+use openmina_core::constants::constraint_constants;
 
 pub(super) fn empty_block_body() -> v2::StagedLedgerDiffDiffStableV2 {
     use ledger::staged_ledger::diff::with_valid_signatures_and_proofs::Diff;
@@ -24,7 +24,7 @@ pub(super) fn empty_block_body_hash() -> v2::ConsensusBodyReferenceStableV1 {
 }
 
 pub(super) fn empty_pending_coinbase() -> PendingCoinbase {
-    let mut v = PendingCoinbase::create(CONSTRAINT_CONSTANTS.pending_coinbase_depth);
+    let mut v = PendingCoinbase::create(constraint_constants().pending_coinbase_depth);
     v.merkle_root();
     v
 }

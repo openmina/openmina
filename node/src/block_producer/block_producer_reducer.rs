@@ -17,7 +17,7 @@ use openmina_core::consensus::{
     global_sub_window, grace_period_end, in_same_checkpoint_window, in_seed_update_range,
     relative_sub_window,
 };
-use openmina_core::constants::CONSTRAINT_CONSTANTS;
+use openmina_core::constants::constraint_constants;
 
 use super::{
     calc_epoch_seed, to_epoch_and_slot, BlockProducerAction, BlockProducerActionWithMetaRef,
@@ -268,7 +268,7 @@ impl BlockProducerEnabled {
                     let is_same_global_sub_window =
                         pred_global_sub_window == next_global_sub_window;
                     let are_windows_overlapping = pred_global_sub_window
-                        + CONSTRAINT_CONSTANTS.sub_windows_per_window as u32
+                        + constraint_constants().sub_windows_per_window as u32
                         >= next_global_sub_window;
 
                     let current_sub_window_densities = pred_sub_window_densities
@@ -352,7 +352,7 @@ impl BlockProducerEnabled {
                     block_creator,
                     coinbase_receiver,
                     // TODO(binier): Staged_ledger.can_apply_supercharged_coinbase_exn
-                    supercharge_coinbase: CONSTRAINT_CONSTANTS.supercharged_coinbase_factor != 0,
+                    supercharge_coinbase: constraint_constants().supercharged_coinbase_factor != 0,
                 };
 
                 let protocol_state = MinaStateProtocolStateValueStableV2 {

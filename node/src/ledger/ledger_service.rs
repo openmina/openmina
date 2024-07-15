@@ -37,7 +37,7 @@ use mina_p2p_messages::{
         StateHash,
     },
 };
-use openmina_core::constants::CONSTRAINT_CONSTANTS;
+use openmina_core::constants::constraint_constants;
 use openmina_core::snark::{Snark, SnarkJobId};
 
 use mina_signer::CompressedPubKey;
@@ -147,7 +147,8 @@ impl LedgerCtx {
 
     pub fn insert_genesis_ledger(&mut self, mut mask: Mask) {
         let hash = merkle_root(&mut mask);
-        let staged_ledger = StagedLedger::create_exn(CONSTRAINT_CONSTANTS, mask.copy()).unwrap();
+        let staged_ledger =
+            StagedLedger::create_exn(constraint_constants().clone(), mask.copy()).unwrap();
         self.snarked_ledgers.insert(hash.clone(), mask);
         self.staged_ledgers.insert(hash.clone(), staged_ledger);
     }
@@ -278,7 +279,7 @@ impl LedgerCtx {
             kind = "LedgerService::push_snarked_ledger",
             summary = format!("{old_root_snarked_ledger_hash} -> {new_root_snarked_ledger_hash}"));
         // Steps 4-7 from https://github.com/openmina/mina/blob/bc812dc9b90e05898c0c36ac76ba51ccf6cac137/src/lib/transition_frontier/full_frontier/full_frontier.ml#L354-L392
-        let constraint_constants = &CONSTRAINT_CONSTANTS;
+        let constraint_constants = &constraint_constants();
 
         // Step 4: create a new temporary mask `mt` with `s` as it's parent
         let root_snarked_ledger = self
@@ -523,7 +524,7 @@ impl LedgerCtx {
             .apply(
                 // TODO(binier): SEC
                 Some(SkipVerification::All),
-                &CONSTRAINT_CONSTANTS,
+                constraint_constants(),
                 Slot::from_u32(global_slot),
                 diff,
                 (),
@@ -794,7 +795,7 @@ impl LedgerCtx {
         // TODO(binier): include `invalid_txns` in output.
         let (pre_diff, _invalid_txns) = staged_ledger
             .create_diff(
-                &CONSTRAINT_CONSTANTS,
+                constraint_constants(),
                 (&global_slot_since_genesis).into(),
                 Some(true),
                 (&coinbase_receiver).into(),
@@ -819,7 +820,7 @@ impl LedgerCtx {
 
         let res = staged_ledger
             .apply_diff_unchecked(
-                &CONSTRAINT_CONSTANTS,
+                constraint_constants(),
                 (&global_slot_since_genesis).into(),
                 pre_diff,
                 (),
@@ -1054,7 +1055,7 @@ fn staged_ledger_reconstruct(
 
         StagedLedger::of_scan_state_pending_coinbases_and_snarked_ledger(
             (),
-            &CONSTRAINT_CONSTANTS,
+            constraint_constants(),
             Verifier,
             (&parts.scan_state).into(),
             snarked_ledger,
@@ -1064,7 +1065,7 @@ fn staged_ledger_reconstruct(
             |key| states.get(&key).cloned().unwrap(),
         )
     } else {
-        StagedLedger::create_exn(CONSTRAINT_CONSTANTS.clone(), snarked_ledger)
+        StagedLedger::create_exn(constraint_constants().clone(), snarked_ledger)
     };
 
     (staged_ledger_hash, result)

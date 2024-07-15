@@ -21,7 +21,7 @@ use mina_p2p_messages::{
     },
     v2::{self, PROTOCOL_CONSTANTS},
 };
-use openmina_core::constants::CONSTRAINT_CONSTANTS;
+use openmina_core::constants::constraint_constants;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -358,7 +358,7 @@ impl GenesisConfig {
     fn build_ledger_from_accounts(
         accounts: impl IntoIterator<Item = ledger::Account>,
     ) -> (ledger::Mask, v2::CurrencyAmountStableV1) {
-        let db = ledger::Database::create(CONSTRAINT_CONSTANTS.ledger_depth as u8);
+        let db = ledger::Database::create(constraint_constants().ledger_depth as u8);
         let mask = ledger::Mask::new_root(db);
         let (mask, total_currency) =
             accounts

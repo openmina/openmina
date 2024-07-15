@@ -132,6 +132,11 @@ pub const DEVNET_CHAIN_ID: ChainId = ChainId([
     0x17, 0x31, 0x98, 0xc1, 0xed, 0x40, 0x4c, 0x1b, 0xcf, 0xf5, 0xe5, 0x62, 0xe0, 0x5e, 0xb7, 0xf6,
 ]);
 
+pub const MAINNET_CHAIN_ID: ChainId = ChainId([
+    0xa7, 0x35, 0x1a, 0xbc, 0x7d, 0xdf, 0x2e, 0xa9, 0x2d, 0x1b, 0x38, 0xcc, 0x8e, 0x63, 0x6c, 0x27,
+    0x1c, 0x1d, 0xfd, 0x2c, 0x08, 0x1c, 0x63, 0x7f, 0x62, 0xeb, 0xc2, 0xaf, 0x34, 0xeb, 0x7c, 0xc1,
+]);
+
 #[cfg(test)]
 mod test {
     use time::format_description::well_known::Rfc3339;
@@ -154,7 +159,7 @@ mod test {
 
         // Compute the chain id for the Devnet network and compare it the real one.
         let chain_id = ChainId::compute(
-            CONSTRAINT_SYSTEM_DIGESTS.as_slice(),
+            crate::network::devnet::CONSTRAINT_SYSTEM_DIGESTS.as_slice(),
             &genesis_state_hash,
             &protocol_constants,
             PROTOCOL_TRANSACTION_VERSION,
@@ -165,10 +170,43 @@ mod test {
     }
 
     #[test]
-    fn test_chain_id_as_hex() {
+    fn test_mainnet_chain_id() {
+        // First block after fork: https://www.minaexplorer.com/block/3NK4BpDSekaqsG6tx8Nse2zJchRft2JpnbvMiog55WCr5xJZaKeP
+        let genesis_state_hash = "3NK4BpDSekaqsG6tx8Nse2zJchRft2JpnbvMiog55WCr5xJZaKeP"
+            .parse()
+            .unwrap();
+
+        let mut protocol_constants = PROTOCOL_CONSTANTS.clone();
+        protocol_constants.genesis_state_timestamp =
+            OffsetDateTime::parse("2024-06-05T00:00:00Z", &Rfc3339)
+                .unwrap()
+                .into();
+
+        // Compute the chain id for the Mainnet network and compare it the real one.
+        let chain_id = ChainId::compute(
+            crate::network::mainnet::CONSTRAINT_SYSTEM_DIGESTS.as_slice(),
+            &genesis_state_hash,
+            &protocol_constants,
+            PROTOCOL_TRANSACTION_VERSION,
+            PROTOCOL_NETWORK_VERSION,
+            &UnsignedExtendedUInt32StableV1::from(TX_POOL_MAX_SIZE),
+        );
+        assert_eq!(chain_id, MAINNET_CHAIN_ID);
+    }
+
+    #[test]
+    fn test_devnet_chain_id_as_hex() {
         assert_eq!(
             DEVNET_CHAIN_ID.to_hex(),
             "29936104443aaf264a7f0192ac64b1c7173198c1ed404c1bcff5e562e05eb7f6"
+        );
+    }
+
+    #[test]
+    fn test_mainnet_chain_id_as_hex() {
+        assert_eq!(
+            MAINNET_CHAIN_ID.to_hex(),
+            "a7351abc7ddf2ea92d1b38cc8e636c271c1dfd2c081c637f62ebc2af34eb7cc1"
         );
     }
 }

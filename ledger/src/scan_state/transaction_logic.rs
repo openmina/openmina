@@ -2775,9 +2775,6 @@ pub mod zkapp_command {
     }
 
     impl AccountUpdate {
-        // TODO: mainnet: MainnetZkappBody
-        pub const HASH_PARAM: &'static str = "TestnetZkappBody";
-
         /// https://github.com/MinaProtocol/mina/blob/3753a8593cc1577bcf4da16620daf9946d88e8e5/src/lib/mina_base/account_update.ml#L1538
         /// https://github.com/MinaProtocol/mina/blob/2ff0292b637684ce0372e7b8e23ec85404dc5091/src/lib/mina_base/account_update.ml#L1465
         pub fn of_fee_payer(fee_payer: FeePayer) -> Self {
@@ -2836,8 +2833,7 @@ pub mod zkapp_command {
 
         /// https://github.com/MinaProtocol/mina/blob/3fe924c80a4d01f418b69f27398f5f93eb652514/src/lib/mina_base/account_update.ml#L1327
         pub fn digest(&self) -> Fp {
-            // TODO: mainnet: "MainnetZkappBody"
-            self.hash_with_param(AccountUpdate::HASH_PARAM)
+            self.hash_with_param(openmina_core::NetworkConfig::global().account_update_hash_param)
         }
 
         pub fn timing(&self) -> SetOrKeep<Timing> {
@@ -4068,7 +4064,11 @@ pub mod verifiable {
         let payload = TransactionUnionPayload::of_user_command_payload(payload);
         let pubkey = compressed_to_pubkey(pubkey);
 
-        let mut signer = mina_signer::create_legacy(mina_signer::NetworkId::TESTNET);
+        let network_id = match openmina_core::NetworkConfig::global().network_id {
+            openmina_core::network::NetworkId::TESTNET => mina_signer::NetworkId::TESTNET,
+            openmina_core::network::NetworkId::MAINNET => mina_signer::NetworkId::MAINNET,
+        };
+        let mut signer = mina_signer::create_legacy(network_id);
 
         if signer.verify(signature, &pubkey, &payload) {
             Ok(valid::UserCommand::SignedCommand(cmd))
@@ -7017,11 +7017,12 @@ pub mod transaction_union_payload {
                 .append_bool(false) // Used to be `self.body.token_locked`
         }
 
+        // TODO: this is unused, is it needed?
         fn domain_string(network_id: NetworkId) -> Option<String> {
             // Domain strings must have length <= 20
             match network_id {
-                NetworkId::MAINNET => "MinaSignatureMainnet",
-                NetworkId::TESTNET => "CodaSignature",
+                NetworkId::MAINNET => openmina_core::network::mainnet::SIGNATURE_PREFIX,
+                NetworkId::TESTNET => openmina_core::network::devnet::SIGNATURE_PREFIX,
             }
             .to_string()
             .into()
@@ -7371,10 +7372,13 @@ fn validate_timing_with_min_balance(
             txn_amount, txn_global_slot, account.balance
         )),
         InvalidTiming(true) => Err(format!(
-            "For timed account, the requested transaction for amount {:?} \
+            "For timed account {}, the requested transaction for amount {:?} \
              at global slot {:?}, applying the transaction would put the \
              balance below the calculated minimum balance of {:?}",
-            txn_amount, txn_global_slot, min_balance.0
+            account.public_key.into_address(),
+            txn_amount,
+            txn_global_slot,
+            min_balance.0
         )),
         InsufficientBalance(false) => {
             panic!("Broken invariant in validate_timing_with_min_balance'")
