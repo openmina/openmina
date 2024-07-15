@@ -31,7 +31,7 @@ spec:
           image: vladsimplestakingcom/bootstrap-rr:3.0.0-bullseye-devnet
           command: ["sh", "-c"]
           args:
-            - openmina-bootstrap-sandbox --listen='/ip4/0.0.0.0/tcp/8302' --chain_id="/coda/0.0.1/29936104443aaf264a7f0192ac64b1c7173198c1ed404c1bcff5e562e05eb7f6" replay 327636
+            - openmina-bootstrap-sandbox --listen='/ip4/0.0.0.0/tcp/8302' --chain-id="/coda/0.0.1/29936104443aaf264a7f0192ac64b1c7173198c1ed404c1bcff5e562e05eb7f6" replay 327655
           ports:
             - name: external-ip
               containerPort: 8302
