@@ -1,4 +1,4 @@
-FROM rust:1.76.0-bullseye as builder
+FROM rust:1.79.0-bullseye as builder
 
 RUN mkdir -p -m 0700 ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
 
