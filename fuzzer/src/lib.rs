@@ -89,7 +89,7 @@ impl FuzzerState {
 
     pub fn extend_random(&mut self, data: &[u8]) -> Vec<u8> {
         let extend_size = self.rng.gen_range(1..self.conf.max_extend_size);
-        let random_pos = self.rng.gen_range(0..data.len());
+        let random_pos = self.rng.gen_range(0..=data.len());
 
         let mut random_bytes = vec![0u8; extend_size];
         self.rng.fill(&mut random_bytes[..]);
@@ -103,9 +103,9 @@ impl FuzzerState {
     }
 
     pub fn extend_copy(&mut self, data: &[u8]) -> Vec<u8> {
-        let random_pos = self.rng.gen_range(0..data.len());
-        let copy_pos = self.rng.gen_range(0..data.len() - 1);
-        let copy_size = self.rng.gen_range(1..data.len() - copy_pos);
+        let random_pos = self.rng.gen_range(0..=data.len());
+        let copy_pos = self.rng.gen_range(0..=data.len() - 1);
+        let copy_size = self.rng.gen_range(1..=data.len() - copy_pos);
         let mut extend_size = self.rng.gen_range(copy_size..self.conf.max_extend_size);
         let mut result = Vec::with_capacity(data.len() + extend_size);
 
@@ -122,8 +122,8 @@ impl FuzzerState {
     }
 
     pub fn shrink(&mut self, data: &[u8]) -> Vec<u8> {
-        let pos = self.rng.gen_range(0..data.len() - 1);
-        let size = self.rng.gen_range(1..data.len() - pos);
+        let pos = self.rng.gen_range(0..=data.len() - 1);
+        let size = self.rng.gen_range(1..=data.len() - pos);
         let mut result = data[..pos].to_vec();
 
         result.extend_from_slice(&data[pos + size..]);

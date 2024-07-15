@@ -178,7 +178,8 @@ impl redux::EnablingCondition<P2pState> for P2pNetworkSchedulerAction {
                 .map_or(false, |conn_state| conn_state.closed.is_some()),
             P2pNetworkSchedulerAction::PruneStreams { peer_id } => {
                 state.peers.get(peer_id).map_or(false, |peer_state| {
-                    matches!(peer_state.status, P2pPeerStatus::Disconnected { .. })
+                    peer_state.status.is_error()
+                        || matches!(peer_state.status, P2pPeerStatus::Disconnected { .. })
                 })
             }
             P2pNetworkSchedulerAction::PruneStream { peer_id, stream_id } => state
