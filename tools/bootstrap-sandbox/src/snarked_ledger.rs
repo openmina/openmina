@@ -121,8 +121,9 @@ impl SnarkedLedger {
             return;
         }
 
-        if depth == 32 {
-            let p = pos.to_be_bytes().to_vec();
+        const Q: i32 = 3;
+        if depth == 32 - Q {
+            let p = (pos * (1 << Q)).to_be_bytes().to_vec();
             let q = v2::MinaLedgerSyncLedgerQueryStableV1::WhatContents(
                 v2::MerkleAddressBinableArgStableV1((depth as u64).into(), p.into()),
             );
@@ -141,7 +142,7 @@ impl SnarkedLedger {
                         let account = Account::from(&account);
                         self.inner
                             .set_at_index(
-                                AccountIndex((pos * 8) as u64 + o as u64),
+                                AccountIndex((pos * 8 * (1 << Q)) as u64 + o as u64),
                                 Box::new(account),
                             )
                             .unwrap();
