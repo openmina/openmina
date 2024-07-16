@@ -1,5 +1,8 @@
 #![forbid(unsafe_code)]
 
+mod behaviour;
+use self::behaviour::Behaviour;
+
 mod client;
 
 mod snarked_ledger;
@@ -89,10 +92,16 @@ async fn main() {
     let local_key: libp2p::identity::Keypair = mina_transport::ed25519::Keypair::from(sk).into();
     log::info!("{}", local_key.public().to_peer_id());
 
+    let identify = libp2p::identify::Behaviour::new(libp2p::identify::Config::new(
+        "ipfs/0.1.0".into(),
+        local_key.public(),
+    ));
+
     match cmd {
         Command::Again { height } => bootstrap::again(&path, height).await,
         Command::Record { bootstrap } => {
-            let behaviour = BehaviourBuilder::default().build();
+            let rpc = BehaviourBuilder::default().build();
+            let behaviour = Behaviour { rpc, identify };
             let swarm =
                 mina_transport::swarm(local_key, chain_id.as_bytes(), listen, peer, behaviour);
 
@@ -105,7 +114,7 @@ async fn main() {
                 GetTransitionChainV2,
             };
 
-            let behaviour = BehaviourBuilder::default()
+            let rpc = BehaviourBuilder::default()
                 .register_method::<GetBestTipV2>()
                 .register_method::<GetAncestryV2>()
                 .register_method::<GetStagedLedgerAuxAndPendingCoinbasesAtHashV2>()
@@ -113,6 +122,8 @@ async fn main() {
                 .register_method::<GetTransitionChainV2>()
                 .register_method::<GetTransitionChainProofV1ForV2>()
                 .build();
+            let behaviour = Behaviour { rpc, identify };
+
             let swarm =
                 mina_transport::swarm(local_key, chain_id.as_bytes(), listen, [], behaviour);
 

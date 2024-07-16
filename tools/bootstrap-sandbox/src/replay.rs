@@ -6,7 +6,7 @@ use std::{
 
 use binprot::BinProtRead;
 use libp2p::{futures::StreamExt, swarm::SwarmEvent};
-use libp2p_rpc_behaviour::{Behaviour, Event, Received};
+use libp2p_rpc_behaviour::{Event as RpcEvent, Received};
 use mina_p2p_messages::{
     rpc::{
         AnswerSyncLedgerQueryV2, GetAncestryV2, GetBestTipV2,
@@ -17,7 +17,10 @@ use mina_p2p_messages::{
     v2,
 };
 
-use super::snarked_ledger::SnarkedLedger;
+use super::{
+    behaviour::{Behaviour, Event},
+    snarked_ledger::SnarkedLedger,
+};
 
 pub async fn run(mut swarm: libp2p::Swarm<Behaviour>, path_main: &Path, height: u32) {
     let path_blocks = path_main.join("blocks");
@@ -59,21 +62,21 @@ pub async fn run(mut swarm: libp2p::Swarm<Behaviour>, path_main: &Path, height: 
                     endpoint.get_remote_address()
                 );
             }
-            SwarmEvent::Behaviour((peer_id, Event::ConnectionEstablished)) => {
+            SwarmEvent::Behaviour(Event::Rpc((peer_id, RpcEvent::ConnectionEstablished))) => {
                 peers.insert(peer_id);
                 log::info!("new connection {peer_id}");
             }
-            SwarmEvent::Behaviour((peer_id, Event::ConnectionClosed)) => {
+            SwarmEvent::Behaviour(Event::Rpc((peer_id, RpcEvent::ConnectionClosed))) => {
                 log::info!("connection closed {peer_id}");
                 peers.remove(&peer_id);
             }
-            SwarmEvent::Behaviour((
+            SwarmEvent::Behaviour(Event::Rpc((
                 peer_id,
-                Event::Stream {
+                RpcEvent::Stream {
                     stream_id,
                     received,
                 },
-            )) => match received {
+            ))) => match received {
                 Received::HandshakeDone => {
                     log::info!("new stream {peer_id} {stream_id:?}");
                 }
@@ -91,6 +94,7 @@ pub async fn run(mut swarm: libp2p::Swarm<Behaviour>, path_main: &Path, height: 
                         (GetBestTipV2::NAME, GetBestTipV2::VERSION) => {
                             swarm
                                 .behaviour_mut()
+                                .rpc
                                 .respond::<GetBestTipV2>(
                                     peer_id,
                                     stream_id,
@@ -102,6 +106,7 @@ pub async fn run(mut swarm: libp2p::Swarm<Behaviour>, path_main: &Path, height: 
                         (GetAncestryV2::NAME, GetAncestryV2::VERSION) => {
                             swarm
                                 .behaviour_mut()
+                                .rpc
                                 .respond::<GetAncestryV2>(
                                     peer_id,
                                     stream_id,
@@ -128,6 +133,7 @@ pub async fn run(mut swarm: libp2p::Swarm<Behaviour>, path_main: &Path, height: 
 
                             swarm
                                 .behaviour_mut()
+                                .rpc
                                 .respond::<T>(peer_id, stream_id, id, Ok(RpcResult(Ok(response))))
                                 .unwrap();
                         }
@@ -136,6 +142,7 @@ pub async fn run(mut swarm: libp2p::Swarm<Behaviour>, path_main: &Path, height: 
                             GetStagedLedgerAuxAndPendingCoinbasesAtHashV2::VERSION,
                         ) => swarm
                             .behaviour_mut()
+                            .rpc
                             .respond::<GetStagedLedgerAuxAndPendingCoinbasesAtHashV2>(
                                 peer_id,
                                 stream_id,
@@ -176,6 +183,7 @@ pub async fn run(mut swarm: libp2p::Swarm<Behaviour>, path_main: &Path, height: 
                                 .collect();
                             swarm
                                 .behaviour_mut()
+                                .rpc
                                 .respond::<T>(peer_id, stream_id, id, Ok(Some(response)))
                                 .unwrap();
                             // if contains_last {
@@ -206,6 +214,7 @@ pub async fn run(mut swarm: libp2p::Swarm<Behaviour>, path_main: &Path, height: 
 
                             swarm
                                 .behaviour_mut()
+                                .rpc
                                 .respond::<T>(peer_id, stream_id, id, Ok(response))
                                 .unwrap();
                         }

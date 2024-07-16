@@ -8,7 +8,6 @@ use std::{
 use binprot::{BinProtRead, BinProtWrite};
 use ledger::proofs::public_input::protocol_state::MinaHash;
 use libp2p::Swarm;
-use libp2p_rpc_behaviour::Behaviour;
 use mina_p2p_messages::{
     list::List,
     rpc::{
@@ -18,7 +17,9 @@ use mina_p2p_messages::{
     v2,
 };
 
-use super::{bootstrap::Storage, client::Client, snarked_ledger::SnarkedLedger};
+use super::{
+    behaviour::Behaviour, bootstrap::Storage, client::Client, snarked_ledger::SnarkedLedger,
+};
 
 pub async fn run(swarm: Swarm<Behaviour>, path_main: &Path, bootstrap: bool) {
     let mut client = Client::new(swarm);
@@ -43,6 +44,10 @@ pub async fn run(swarm: Swarm<Behaviour>, path_main: &Path, bootstrap: bool) {
     let mut file = File::create(path.join("best_tip")).unwrap();
     Some(best_tip.clone()).binprot_write(&mut file).unwrap();
 
+    // let mut file = File::create(path.join("best_tip.json")).unwrap();
+    // file.write_all(serde_json::to_string(&best_tip).unwrap().as_bytes())
+    //     .unwrap();
+
     let q = best_tip
         .data
         .header
@@ -59,13 +64,47 @@ pub async fn run(swarm: Swarm<Behaviour>, path_main: &Path, bootstrap: bool) {
 
     let snarked_protocol_state = best_tip.proof.1.header.protocol_state;
 
-    let mut epoch_ledger = match File::open(path.join("epoch_ledger.bin")) {
-        Ok(file) => SnarkedLedger::load_bin(file).unwrap(),
-        Err(_) => match File::open(path.parent().expect("msg").join("epoch_ledger.bin")) {
+    {
+        let staking_epoch_ledger_hash = snarked_protocol_state
+            .body
+            .consensus_state
+            .staking_epoch_data
+            .ledger
+            .hash
+            .clone();
+        let staking_epoch_ledger_hash_str =
+            match serde_json::to_value(&staking_epoch_ledger_hash).unwrap() {
+                serde_json::Value::String(s) => s,
+                _ => panic!(),
+            };
+        let mut epoch_ledger = match File::open(path.join("staking_epoch_ledger.bin")) {
             Ok(file) => SnarkedLedger::load_bin(file).unwrap(),
-            Err(_) => SnarkedLedger::empty(),
-        },
-    };
+            Err(_) => {
+                match File::open(path.parent().expect("msg").join("staking_epoch_ledger.bin")) {
+                    Ok(file) => SnarkedLedger::load_bin(file).unwrap(),
+                    Err(_) => SnarkedLedger::empty(),
+                }
+            }
+        };
+        epoch_ledger
+            .sync_new(&mut client, &staking_epoch_ledger_hash)
+            .await;
+        epoch_ledger
+            .store_bin(
+                File::create(path.join("ledgers").join(staking_epoch_ledger_hash_str)).unwrap(),
+            )
+            .unwrap();
+        epoch_ledger
+            .store_bin(File::create(path.join("staking_epoch_ledger.bin")).unwrap())
+            .unwrap();
+        fs::copy(
+            path.join("staking_epoch_ledger.bin"),
+            path.parent()
+                .expect("must have parent")
+                .join("staking_epoch_ledger.bin"),
+        )
+        .unwrap();
+    }
     let next_epoch_ledger_hash = snarked_protocol_state
         .body
         .consensus_state
@@ -77,7 +116,13 @@ pub async fn run(swarm: Swarm<Behaviour>, path_main: &Path, bootstrap: bool) {
         serde_json::Value::String(s) => s,
         _ => panic!(),
     };
-
+    let mut epoch_ledger = match File::open(path.join("epoch_ledger.bin")) {
+        Ok(file) => SnarkedLedger::load_bin(file).unwrap(),
+        Err(_) => match File::open(path.parent().expect("msg").join("epoch_ledger.bin")) {
+            Ok(file) => SnarkedLedger::load_bin(file).unwrap(),
+            Err(_) => SnarkedLedger::empty(),
+        },
+    };
     epoch_ledger
         .sync_new(&mut client, &next_epoch_ledger_hash)
         .await;

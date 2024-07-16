@@ -1,10 +1,12 @@
 use binprot::BinProtRead;
 use libp2p::{futures::StreamExt, swarm::SwarmEvent, PeerId, Swarm};
-use libp2p_rpc_behaviour::{Behaviour, Event, Received, StreamId};
+use libp2p_rpc_behaviour::{Event as RpcEvent, Received, StreamId};
 use mina_p2p_messages::{
     rpc::GetBestTipV2,
     rpc_kernel::{self, QueryHeader, ResponseHeader, ResponsePayload, RpcMethod},
 };
+
+use super::behaviour::{Behaviour, Event};
 
 use thiserror::Error;
 
@@ -44,6 +46,7 @@ impl Client {
             if let Some(query) = query.take() {
                 self.swarm
                     .behaviour_mut()
+                    .rpc
                     .query::<M>(peer_id, stream_id, self.id, query)?;
                 self.id += 1;
             }
@@ -51,26 +54,26 @@ impl Client {
 
         loop {
             match self.swarm.next().await.ok_or(ClientError::Libp2p)? {
-                SwarmEvent::Behaviour((peer_id, Event::ConnectionEstablished)) => {
+                SwarmEvent::Behaviour(Event::Rpc((peer_id, RpcEvent::ConnectionEstablished))) => {
                     log::info!("new connection {peer_id}");
 
                     self.peer = Some(peer_id);
-                    self.swarm.behaviour_mut().open(peer_id, 0);
+                    self.swarm.behaviour_mut().rpc.open(peer_id, 0);
                 }
-                SwarmEvent::Behaviour((peer_id, Event::ConnectionClosed)) => {
+                SwarmEvent::Behaviour(Event::Rpc((peer_id, RpcEvent::ConnectionClosed))) => {
                     log::info!("connection closed {peer_id}");
                     if self.peer == Some(peer_id) {
                         self.peer = None;
                         // TODO: resend
                     }
                 }
-                SwarmEvent::Behaviour((
+                SwarmEvent::Behaviour(Event::Rpc((
                     peer_id,
-                    Event::Stream {
+                    RpcEvent::Stream {
                         stream_id,
                         received,
                     },
-                )) => match received {
+                ))) => match received {
                     Received::HandshakeDone => {
                         log::info!("new stream {peer_id} {stream_id:?}");
                         if self.stream.is_none() {
@@ -81,6 +84,7 @@ impl Client {
                             if let Some(query) = query.take() {
                                 self.swarm
                                     .behaviour_mut()
+                                    .rpc
                                     .query::<M>(peer_id, stream_id, self.id, query)?;
                                 self.id += 1;
                             }
@@ -97,6 +101,7 @@ impl Client {
                             let _ = bytes;
                             self.swarm
                                 .behaviour_mut()
+                                .rpc
                                 .respond::<GetBestTipV2>(peer_id, stream_id, id, Ok(None))
                                 .unwrap();
                         } else {
