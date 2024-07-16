@@ -1,6 +1,7 @@
 use std::rc::Rc;
 
 use ark_poly::{EvaluationDomain, Radix2EvaluationDomain};
+use ark_serialize::Write;
 use poly_commitment::srs::SRS;
 
 use crate::{
@@ -39,8 +40,9 @@ use mina_curves::pasta::{Fq, Vesta};
 use mina_hasher::Fp;
 use mina_p2p_messages::{
     bigint::BigInt,
+    binprot::BinProtWrite,
     v2::{
-        CompositionTypesDigestConstantStableV1, MinaBlockHeaderStableV2,
+        self, CompositionTypesDigestConstantStableV1, MinaBlockHeaderStableV2,
         PicklesProofProofsVerified2ReprStableV2,
         PicklesProofProofsVerified2ReprStableV2MessagesForNextStepProof,
         PicklesProofProofsVerified2ReprStableV2MessagesForNextWrapProof,
@@ -655,6 +657,14 @@ pub fn verify_zkapp(
 
     eprintln!("verify_zkapp OK={:?}", ok);
 
+    if !ok {
+        if let Err(e) =
+            dump_zkapp_verification(verification_key, &zkapp_statement, sideloaded_proof)
+        {
+            eprintln!("Failed to dump zkapp verification: {:?}", e);
+        }
+    }
+
     ok
 }
 
@@ -696,6 +706,57 @@ where
     };
 
     result.is_ok() && checks
+}
+
+/// Dump data when it fails, to reproduce and compare in OCaml
+fn dump_zkapp_verification(
+    verification_key: &VerificationKey,
+    zkapp_statement: &ZkappStatement,
+    sideloaded_proof: &PicklesProofProofsVerified2ReprStableV2,
+) -> std::io::Result<()> {
+    use mina_p2p_messages::binprot;
+    use mina_p2p_messages::binprot::macros::{BinProtRead, BinProtWrite};
+
+    #[derive(Clone, Debug, PartialEq, BinProtRead, BinProtWrite)]
+    struct VerifyZkapp {
+        vk: v2::MinaBaseVerificationKeyWireStableV1,
+        zkapp_statement: v2::MinaBaseZkappStatementStableV2,
+        proof: v2::PicklesProofProofsVerified2ReprStableV2,
+    }
+
+    let data = VerifyZkapp {
+        vk: verification_key.into(),
+        zkapp_statement: zkapp_statement.into(),
+        proof: sideloaded_proof.clone(),
+    };
+
+    let bin = {
+        let mut vec = Vec::with_capacity(128 * 1024);
+        data.binprot_write(&mut vec)?;
+        vec
+    };
+
+    let filename = generate_new_filename("/tmp/verify_zapp", "binprot", &bin)?;
+
+    let mut file = std::fs::File::create(&filename)?;
+    file.write_all(&bin)?;
+    file.sync_all()?;
+
+    Ok(())
+}
+
+fn generate_new_filename(name: &str, extension: &str, data: &[u8]) -> std::io::Result<String> {
+    use crate::proofs::util::sha256_sum;
+
+    let sum = sha256_sum(data);
+    for index in 0..100_000 {
+        let name = format!("{}_{}_{}.{}", name, sum, index, extension);
+        let path = std::path::Path::new(&name);
+        if !path.try_exists().unwrap_or(true) {
+            return Ok(name);
+        }
+    }
+    Err(std::io::Error::other("no filename available"))
 }
 
 // #[cfg(test)]
