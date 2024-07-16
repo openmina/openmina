@@ -134,6 +134,7 @@ use super::{
         zkapp_command::{
             verifiable, AccountUpdate, FeePayer, FeePayerBody, SetOrKeep, WithHash, WithStackHash,
         },
+        zkapp_statement::ZkappStatement,
         CoinbaseFeeTransfer, FeeTransfer, Memo, SingleFeeTransfer, Transaction, TransactionFailure,
         TransactionStatus, UserCommand,
     },
@@ -3290,5 +3291,21 @@ impl From<&Slot> for MinaNumbersGlobalSlotSinceHardForkMStableV1 {
 impl From<&SlotSpan> for MinaNumbersGlobalSlotSpanStableV1 {
     fn from(value: &SlotSpan) -> Self {
         Self::GlobalSlotSpan(value.as_u32().into())
+    }
+}
+
+impl From<&ZkappStatement> for v2::MinaBaseZkappStatementStableV2 {
+    fn from(value: &ZkappStatement) -> Self {
+        use transaction_logic::zkapp_statement::TransactionCommitment;
+
+        let ZkappStatement {
+            account_update: TransactionCommitment(account_update),
+            calls: TransactionCommitment(calls),
+        } = value;
+
+        v2::MinaBaseZkappStatementStableV2 {
+            account_update: account_update.into(),
+            calls: calls.into(),
+        }
     }
 }
