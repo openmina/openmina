@@ -327,6 +327,21 @@ pub enum MinaBaseUserCommandVerifiableStableV2 {
     ZkappCommand(MinaBaseZkappCommandVerifiableStableV1),
 }
 
+/// **OCaml name**: `Mina_base__Zkapp_statement.Stable.V2`
+///
+/// Gid: `836`
+/// Location: [src/lib/mina_base/zkapp_statement.ml:28:4](https://github.com/MinaProtocol/mina/blob/src/lib/mina_base/zkapp_statement.ml#L28)
+///
+///
+/// Gid: `835`
+/// Location: [src/lib/mina_base/zkapp_statement.ml:15:6](https://github.com/MinaProtocol/mina/blob/src/lib/mina_base/zkapp_statement.ml#L15)
+/// Args: crate :: bigint :: BigInt
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct MinaBaseZkappStatementStableV2 {
+    pub account_update: crate::bigint::BigInt,
+    pub calls: crate::bigint::BigInt,
+}
+
 /// Derived name: `Pickles__Proof.Proofs_verified_2.Repr.Stable.V2.statement.fp`
 ///
 /// Gid: `461`
