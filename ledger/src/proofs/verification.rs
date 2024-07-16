@@ -310,19 +310,23 @@ pub fn make_scalars_env<F: FieldWitness, const NLIMB: usize>(
     let zk_polynomial = eval_zk_polynomial(domain, minimal.zeta);
     let zeta_to_n_minus_1 = domain.evaluate_vanishing_polynomial(minimal.zeta);
 
-    let (_w4, w3, _w2, _w1) = {
+    let (w4, w3, _w2, _w1) = {
         let gen = domain.group_gen;
         let w1 = F::one() / gen;
         let w2 = w1.square();
         let w3 = w2 * w1;
-        // let w4 = (); // unused for now
-        // let w4 = w3 * w1;
+        let w4 = move || w3 * w1;
 
-        ((), w3, w2, w1)
+        (w4, w3, w2, w1)
     };
 
     let shifts = make_shifts(&domain);
     let domain = Rc::new(LimitedDomain { domain, shifts });
+
+    let vanishes_on_last_4_rows = match minimal.joint_combiner {
+        None => F::one(),
+        Some(_) => zk_polynomial * (minimal.zeta - w4()),
+    };
 
     ScalarsEnv {
         zk_polynomial,
@@ -332,7 +336,7 @@ pub fn make_scalars_env<F: FieldWitness, const NLIMB: usize>(
         omega_to_minus_3: w3,
         feature_flags: None,
         unnormalized_lagrange_basis: None,
-        vanishes_on_last_4_rows: F::one(),
+        vanishes_on_last_4_rows,
     }
 }
 
