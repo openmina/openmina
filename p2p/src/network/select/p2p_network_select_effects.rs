@@ -297,11 +297,13 @@ impl P2pNetworkSelectAction {
                         error: error.clone(),
                     });
                 } else if let Some(token) = &state.to_send {
-                    store.dispatch(P2pNetworkSelectAction::OutgoingTokens {
-                        addr,
-                        kind,
-                        tokens: vec![token.clone()],
-                    });
+                    let tokens = match token.clone() {
+                        Token::Protocol(Protocol::Mux(token)) => {
+                            vec![Token::Handshake, Token::Protocol(Protocol::Mux(token))]
+                        }
+                        token => vec![token],
+                    };
+                    store.dispatch(P2pNetworkSelectAction::OutgoingTokens { addr, kind, tokens });
                 }
             }
             P2pNetworkSelectAction::OutgoingTokens { addr, kind, tokens } => {
