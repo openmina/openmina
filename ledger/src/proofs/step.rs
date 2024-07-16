@@ -1846,7 +1846,7 @@ pub fn expand_deferred(params: ExpandDeferredParams) -> DeferredValues<Fp> {
         beta: plonk0.beta,
         gamma: plonk0.gamma,
         zeta,
-        joint_combiner: None,
+        joint_combiner: plonk0.joint_combiner,
         alpha_bytes: to_bytes(alpha),
         beta_bytes: to_4limbs(plonk0.beta_bytes),
         gamma_bytes: to_4limbs(plonk0.gamma_bytes),
