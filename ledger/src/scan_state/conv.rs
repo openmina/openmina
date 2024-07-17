@@ -3309,3 +3309,19 @@ impl From<&ZkappStatement> for v2::MinaBaseZkappStatementStableV2 {
         }
     }
 }
+
+impl From<&v2::MinaBaseZkappStatementStableV2> for ZkappStatement {
+    fn from(value: &v2::MinaBaseZkappStatementStableV2) -> Self {
+        use transaction_logic::zkapp_statement::TransactionCommitment;
+
+        let v2::MinaBaseZkappStatementStableV2 {
+            account_update,
+            calls,
+        } = value;
+
+        ZkappStatement {
+            account_update: TransactionCommitment(account_update.to_field()),
+            calls: TransactionCommitment(calls.to_field()),
+        }
+    }
+}

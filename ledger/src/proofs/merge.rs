@@ -97,6 +97,32 @@ pub fn dlog_plonk_index(wrap_prover: &Prover<Fq>) -> PlonkVerificationKeyEvals<F
     PlonkVerificationKeyEvals::from(wrap_prover.index.verifier_index.as_ref().unwrap())
 }
 
+impl From<&v2::PicklesProofProofsVerified2ReprStableV2StatementProofStateDeferredValuesPlonkFeatureFlags> for crate::proofs::step::FeatureFlags::<bool> {
+    fn from(value: &v2::PicklesProofProofsVerified2ReprStableV2StatementProofStateDeferredValuesPlonkFeatureFlags) -> Self {
+        let v2::PicklesProofProofsVerified2ReprStableV2StatementProofStateDeferredValuesPlonkFeatureFlags {
+            range_check0,
+            range_check1,
+            foreign_field_add,
+            foreign_field_mul,
+            xor,
+            rot,
+            lookup,
+            runtime_tables,
+        } = value;
+
+        Self {
+            range_check0: *range_check0,
+            range_check1: *range_check1,
+            foreign_field_add: *foreign_field_add,
+            foreign_field_mul: *foreign_field_mul,
+            xor: *xor,
+            rot: *rot,
+            lookup: *lookup,
+            runtime_tables: *runtime_tables,
+        }
+    }
+}
+
 impl<F: FieldWitness>
     From<&v2::PicklesProofProofsVerified2ReprStableV2StatementProofStateDeferredValuesPlonk>
     for PlonkMinimal<F>
@@ -110,7 +136,7 @@ impl<F: FieldWitness>
             gamma,
             zeta,
             joint_combiner,
-            feature_flags: _, // TODO: Handle features flags
+            feature_flags,
         } = value;
 
         let to_bytes = |v: &v2::LimbVectorConstantHex64StableV1| v.as_u64();
@@ -132,6 +158,10 @@ impl<F: FieldWitness>
             beta_bytes,
             gamma_bytes,
             zeta_bytes,
+            joint_combiner_bytes: joint_combiner
+                .as_ref()
+                .map(|f| f.inner.each_ref().map(to_bytes)),
+            feature_flags: feature_flags.into(),
         }
     }
 }

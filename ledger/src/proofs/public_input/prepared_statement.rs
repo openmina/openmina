@@ -7,7 +7,8 @@ use mina_p2p_messages::v2::{
 
 use crate::proofs::{
     field::{CircuitVar, FieldWitness},
-    step::{OptFlag, Packed},
+    step::{FeatureFlags, OptFlag, Packed},
+    to_field_elements::ToFieldElements,
     util::u64_to_field,
 };
 
@@ -20,7 +21,8 @@ pub struct Plonk<F: FieldWitness> {
     pub zeta_to_srs_length: F::Shifting,
     pub zeta_to_domain_size: F::Shifting,
     pub perm: F::Shifting,
-    pub lookup: (),
+    pub lookup: Option<[u64; 2]>,
+    pub feature_flags: FeatureFlags<bool>,
 }
 
 #[derive(Clone, Debug)]
@@ -64,7 +66,8 @@ impl PreparedStatement {
                                     zeta_to_srs_length,
                                     zeta_to_domain_size,
                                     perm,
-                                    lookup: _, // `lookup` is of type `()`
+                                    lookup,
+                                    feature_flags,
                                 },
                             combined_inner_product,
                             b,
@@ -139,9 +142,42 @@ impl PreparedStatement {
             fields.push(u64_to_field(&[branch_data]));
         }
 
-        while fields.len() < npublic_input {
-            fields.push(0.into());
+        let lookup_value = lookup.as_ref().map(u64_to_field);
+
+        feature_flags.to_field_elements(&mut fields);
+
+        let FeatureFlags {
+            range_check0,
+            range_check1,
+            foreign_field_add: _,
+            foreign_field_mul,
+            xor,
+            rot,
+            lookup,
+            runtime_tables: _,
+        } = feature_flags;
+
+        // https://github.com/MinaProtocol/mina/blob/dc6bf78b8ddbbca3a1a248971b76af1514bf05aa/src/lib/pickles/composition_types/composition_types.ml#L146
+        let uses_lookup = [
+            range_check0,
+            range_check1,
+            foreign_field_mul,
+            xor,
+            rot,
+            lookup,
+        ]
+        .iter()
+        .any(|b| **b);
+
+        uses_lookup.to_field_elements(&mut fields);
+
+        if uses_lookup {
+            fields.push(lookup_value.unwrap());
+        } else {
+            fields.push(Fq::zero());
         }
+
+        assert_eq!(fields.len(), npublic_input);
 
         fields
     }
@@ -165,7 +201,8 @@ impl PreparedStatement {
                                     zeta_to_srs_length,
                                     zeta_to_domain_size,
                                     perm,
-                                    lookup: _, // `lookup` is of type `()`
+                                    lookup: _,
+                                    feature_flags: _,
                                 },
                             combined_inner_product,
                             b,
