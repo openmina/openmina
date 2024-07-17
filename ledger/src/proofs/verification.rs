@@ -28,6 +28,7 @@ use super::{
     to_field_elements::ToFieldElements,
     transaction::{InnerCurve, PlonkVerificationKeyEvals},
     util::{extract_bulletproof, extract_polynomial_commitment, u64_to_field},
+    wrap::expand_feature_flags,
 };
 use kimchi::{
     circuits::{polynomials::permutation::eval_zk_polynomial, wires::PERMUTS},
@@ -288,7 +289,7 @@ impl<F: FieldWitness> PlonkDomain<F> for LimitedDomain<F> {
         unimplemented!() // Unused during proof verification
     }
     fn generator(&self) -> F {
-        unimplemented!() // Unused during proof verification
+        self.domain.group_gen
     }
     fn shifts(&self) -> &[F; PERMUTS] {
         self.shifts.shifts()
@@ -310,7 +311,7 @@ pub fn make_scalars_env<F: FieldWitness, const NLIMB: usize>(
     let zk_polynomial = eval_zk_polynomial(domain, minimal.zeta);
     let zeta_to_n_minus_1 = domain.evaluate_vanishing_polynomial(minimal.zeta);
 
-    let (w4, w3, _w2, _w1) = {
+    let (w4, w3, w2, w1) = {
         let gen = domain.group_gen;
         let w1 = F::one() / gen;
         let w2 = w1.square();
@@ -328,14 +329,46 @@ pub fn make_scalars_env<F: FieldWitness, const NLIMB: usize>(
         Some(_) => zk_polynomial * (minimal.zeta - w4()),
     };
 
+    let feature_flags = match minimal.joint_combiner {
+        None => None,
+        Some(_) => Some(expand_feature_flags::<F>(
+            &minimal.feature_flags.to_boolean(),
+        )),
+    };
+
+    let unnormalized_lagrange_basis = match minimal.joint_combiner {
+        None => None,
+        Some(_) => {
+            use crate::proofs::witness::Witness;
+
+            let zeta = minimal.zeta;
+            let generator = domain.generator();
+            let w4_clone = w4();
+            let fun: Box<dyn Fn(i32, &mut Witness<F>) -> F> =
+                Box::new(move |i: i32, w: &mut Witness<F>| {
+                    let w_to_i = match i {
+                        0 => F::one(),
+                        1 => generator,
+                        -1 => w1,
+                        -2 => w2,
+                        -3 => w3,
+                        -4 => w4_clone,
+                        _ => todo!(),
+                    };
+                    crate::proofs::field::field::div_by_inv(zeta_to_n_minus_1, zeta - w_to_i, w)
+                });
+            Some(fun)
+        }
+    };
+
     ScalarsEnv {
         zk_polynomial,
         zeta_to_n_minus_1,
         srs_length_log2,
         domain,
         omega_to_minus_3: w3,
-        feature_flags: None,
-        unnormalized_lagrange_basis: None,
+        feature_flags,
+        unnormalized_lagrange_basis,
         vanishes_on_last_4_rows,
     }
 }
@@ -642,7 +675,7 @@ pub fn verify_transaction<'a>(
 /// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/crypto/kimchi_bindings/stubs/src/pasta_fq_plonk_proof.rs#L116
 pub fn verify_zkapp(
     verification_key: &VerificationKey,
-    zkapp_statement: ZkappStatement,
+    zkapp_statement: &ZkappStatement,
     sideloaded_proof: &PicklesProofProofsVerified2ReprStableV2,
     srs: &SRS<Vesta>,
 ) -> bool {

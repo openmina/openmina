@@ -170,7 +170,7 @@ impl Verifier {
 
             to_verify.all(|(vk, zkapp_statement, proof)| {
                 let proof: PicklesProofProofsVerified2ReprStableV2 = (&**proof).into();
-                verification::verify_zkapp(vk, zkapp_statement.clone(), &proof, &srs)
+                verification::verify_zkapp(vk, zkapp_statement, &proof, &srs)
             })
         };
 

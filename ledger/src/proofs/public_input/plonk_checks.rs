@@ -26,6 +26,8 @@ pub struct PlonkMinimal<F: FieldWitness, const NLIMB: usize = 2> {
     pub beta_bytes: [u64; NLIMB],
     pub gamma_bytes: [u64; NLIMB],
     pub zeta_bytes: [u64; NLIMB],
+    pub joint_combiner_bytes: Option<[u64; NLIMB]>,
+    pub feature_flags: crate::proofs::step::FeatureFlags<bool>,
 }
 
 type TwoFields = [Fp; 2];
@@ -50,12 +52,9 @@ pub struct InCircuit<F: FieldWitness> {
     pub zeta: F,
     pub zeta_to_domain_size: F::Shifting,
     pub zeta_to_srs_length: F::Shifting,
-    // pub vbmul: F::Shifting,
-    // pub complete_add: F::Shifting,
-    // pub endomul: F::Shifting,
-    // pub endomul_scalar: F::Shifting,
     pub perm: F::Shifting,
     pub lookup: Option<F>,
+    pub feature_flags: crate::proofs::step::FeatureFlags<bool>,
 }
 
 pub trait ShiftingValue<F: Field> {
@@ -234,13 +233,23 @@ pub fn derive_plonk<F: FieldWitness, const NLIMB: usize>(
     evals: &ProofEvaluations<[F; 2]>,
     minimal: &PlonkMinimal<F, NLIMB>,
 ) -> InCircuit<F> {
+    let PlonkMinimal {
+        alpha,
+        beta,
+        gamma,
+        zeta,
+        joint_combiner,
+        feature_flags: actual_feature_flags,
+        ..
+    } = minimal;
+
     let zkp = env.zk_polynomial;
-    let powers_of_alpha = powers_of_alpha(minimal.alpha);
+    let powers_of_alpha = powers_of_alpha(*alpha);
     let alpha_pow = |i: usize| powers_of_alpha[i];
     let w0 = evals.w.map(|fields| fields[0]);
 
-    let beta = minimal.beta;
-    let gamma = minimal.gamma;
+    let beta = *beta;
+    let gamma = *gamma;
 
     // https://github.com/MinaProtocol/mina/blob/0b63498e271575dbffe2b31f3ab8be293490b1ac/src/lib/pickles/plonk_checks/plonk_checks.ml#L397
     let perm = evals.s.iter().enumerate().fold(
@@ -251,7 +260,7 @@ pub fn derive_plonk<F: FieldWitness, const NLIMB: usize>(
 
     let zeta_to_domain_size = env.zeta_to_n_minus_1 + F::one();
     // https://github.com/MinaProtocol/mina/blob/0b63498e271575dbffe2b31f3ab8be293490b1ac/src/lib/pickles/plonk_checks/plonk_checks.ml#L46
-    let zeta_to_srs_length = (0..env.srs_length_log2).fold(minimal.zeta, |accum, _| accum * accum);
+    let zeta_to_srs_length = (0..env.srs_length_log2).fold(*zeta, |accum, _| accum * accum);
 
     // Shift values
     let shift = |f: F| F::Shifting::of_field(f);
@@ -264,7 +273,11 @@ pub fn derive_plonk<F: FieldWitness, const NLIMB: usize>(
         zeta_to_domain_size: shift(zeta_to_domain_size),
         zeta_to_srs_length: shift(zeta_to_srs_length),
         perm: shift(perm),
-        lookup: None,
+        lookup: match joint_combiner {
+            None => None,
+            Some(joint_combiner) => Some(*joint_combiner),
+        },
+        feature_flags: actual_feature_flags.clone(),
     }
 }
 
@@ -324,12 +337,9 @@ pub fn derive_plonk_checked<F: FieldWitness>(
         zeta: minimal.zeta,
         zeta_to_domain_size: shift(zeta_to_domain_size),
         zeta_to_srs_length: shift(zeta_to_srs_length),
-        // vbmul: shift(vbmul),
-        // complete_add: shift(complete_add),
-        // endomul: shift(endomul),
-        // endomul_scalar: shift(endomul_scalar),
         perm: shift(perm),
         lookup: None,
+        feature_flags: crate::proofs::step::FeatureFlags::empty_bool(),
     }
 }
 
@@ -406,7 +416,7 @@ pub fn ft_eval0<F: FieldWitness, const NLIMB: usize>(
         alpha: minimal.alpha,
         beta: minimal.beta,
         gamma: minimal.gamma,
-        lookup: None,
+        lookup: minimal.joint_combiner,
     };
     let mut w = Witness::empty();
     let constant_term = scalars::compute(None, &minimal, evals, env, &mut w);

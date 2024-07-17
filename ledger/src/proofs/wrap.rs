@@ -327,6 +327,8 @@ fn deferred_values(params: DeferredValuesParams) -> DeferredValuesAndHints {
         beta_bytes: to_bytes(beta),
         gamma_bytes: to_bytes(gamma),
         zeta_bytes: to_bytes(zeta),
+        joint_combiner_bytes: None,
+        feature_flags: FeatureFlags::empty_bool(),
     };
 
     let r = oracle.u();
@@ -410,7 +412,8 @@ fn deferred_values(params: DeferredValuesParams) -> DeferredValuesAndHints {
                 zeta_to_srs_length: plonk.zeta_to_srs_length,
                 zeta_to_domain_size: plonk.zeta_to_domain_size,
                 perm: plonk.perm,
-                lookup: (),
+                lookup: None,
+                feature_flags: FeatureFlags::empty_bool(),
             },
             combined_inner_product: shift(combined_inner_product),
             b: shift(b),
@@ -868,6 +871,7 @@ impl Check<Fq> for WrapStatement {
                                     zeta_to_domain_size,
                                     perm,
                                     lookup: _,
+                                    feature_flags: _,
                                 },
                             combined_inner_product,
                             b,
@@ -1075,7 +1079,9 @@ pub struct AllFeatureFlags<F: FieldWitness> {
     pub features: FeatureFlags<Boolean>,
 }
 
-fn expand_feature_flags<F: FieldWitness>(features: &FeatureFlags<Boolean>) -> AllFeatureFlags<F> {
+pub fn expand_feature_flags<F: FieldWitness>(
+    features: &FeatureFlags<Boolean>,
+) -> AllFeatureFlags<F> {
     let FeatureFlags::<Boolean> {
         range_check0,
         range_check1,
@@ -1449,7 +1455,8 @@ pub mod wrap_verifier {
             zeta_to_srs_length,
             zeta_to_domain_size,
             perm,
-            lookup: (),
+            lookup: _,
+            feature_flags: _,
         } = plonk;
 
         let (_, endo) = endos::<Fp>();
@@ -1599,6 +1606,8 @@ pub mod wrap_verifier {
             beta_bytes: to_bytes(plonk.beta),
             gamma_bytes: to_bytes(plonk.gamma),
             zeta_bytes: to_bytes(plonk.zeta),
+            joint_combiner_bytes: None,
+            feature_flags: FeatureFlags::empty_bool(),
         };
 
         let combined_evals = {
@@ -2590,7 +2599,8 @@ fn pack_statement(
                             zeta_to_srs_length,
                             zeta_to_domain_size,
                             perm,
-                            lookup: (),
+                            lookup: _,
+                            feature_flags: _,
                         },
                     combined_inner_product,
                     b,
