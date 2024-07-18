@@ -1480,17 +1480,13 @@ impl From<&WrapProof> for v2::PicklesProofProofsVerified2ReprStableV2 {
                                     zeta: v2::PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2AChallenge {
                                         inner: to_padded(plonk.zeta),
                                     },
-                                    joint_combiner: None,
-                                    feature_flags: v2::PicklesProofProofsVerified2ReprStableV2StatementProofStateDeferredValuesPlonkFeatureFlags {
-                                        range_check0: false,
-                                        range_check1: false,
-                                        foreign_field_add: false,
-                                        foreign_field_mul: false,
-                                        xor: false,
-                                        rot: false,
-                                        lookup: false,
-                                        runtime_tables: false,
-                                    },
+                                    // https://github.com/MinaProtocol/mina/blob/dc6bf78b8ddbbca3a1a248971b76af1514bf05aa/src/lib/pickles/composition_types/composition_types.ml#L200-L202
+                                    joint_combiner: plonk.lookup.map(|joint_combiner| {
+                                        v2::PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2AChallenge {
+                                            inner: to_padded(joint_combiner),
+                                        }
+                                    }),
+                                    feature_flags: (&plonk.feature_flags).into(),
                                 },
                                 bulletproof_challenges: PaddedSeq(array::from_fn(|i| {
                                     v2::PicklesReducedMessagesForNextProofOverSameFieldWrapChallengesVectorStableV2A {

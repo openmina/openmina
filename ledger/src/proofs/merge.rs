@@ -123,6 +123,32 @@ impl From<&v2::PicklesProofProofsVerified2ReprStableV2StatementProofStateDeferre
     }
 }
 
+impl From<&crate::proofs::step::FeatureFlags::<bool>> for v2::PicklesProofProofsVerified2ReprStableV2StatementProofStateDeferredValuesPlonkFeatureFlags {
+    fn from(value: &crate::proofs::step::FeatureFlags::<bool>) -> Self {
+        let crate::proofs::step::FeatureFlags::<bool> {
+            range_check0,
+            range_check1,
+            foreign_field_add,
+            foreign_field_mul,
+            xor,
+            rot,
+            lookup,
+            runtime_tables,
+        } = value;
+
+        Self {
+            range_check0: *range_check0,
+            range_check1: *range_check1,
+            foreign_field_add: *foreign_field_add,
+            foreign_field_mul: *foreign_field_mul,
+            xor: *xor,
+            rot: *rot,
+            lookup: *lookup,
+            runtime_tables: *runtime_tables,
+        }
+    }
+}
+
 impl<F: FieldWitness>
     From<&v2::PicklesProofProofsVerified2ReprStableV2StatementProofStateDeferredValuesPlonk>
     for PlonkMinimal<F>
