@@ -5,8 +5,8 @@ use redux::ActionMeta;
 use crate::{
     connection::outgoing::{P2pConnectionOutgoingAction, P2pConnectionOutgoingInitOpts},
     peer::P2pPeerAction,
-    socket_addr_try_from_multiaddr, P2pNetworkConnectionMuxState, P2pNetworkKadBootstrapAction,
-    P2pNetworkYamuxAction, P2pPeerState,
+    socket_addr_try_from_multiaddr, ConnectionAddr, P2pNetworkConnectionMuxState,
+    P2pNetworkKadBootstrapAction, P2pNetworkYamuxAction, P2pPeerState,
 };
 
 use super::{super::stream::P2pNetworkKademliaStreamAction, P2pNetworkKadRequestAction};
@@ -20,7 +20,7 @@ impl P2pNetworkKadRequestAction {
         let discovery_state = scheduler
             .discovery_state()
             .ok_or_else(|| String::from("discovery is not configured"))?;
-        if let A::Prune { .. } = &self {
+        if let P2pNetworkKadRequestAction::Prune { .. } = &self {
             return Ok(());
         }
         let filter_local_addrs = discovery_state.filter_addrs;
@@ -29,10 +29,8 @@ impl P2pNetworkKadRequestAction {
             return Err(format!("no request for {self_id}"));
         };
 
-        use P2pNetworkKadRequestAction as A;
-
         match self {
-            A::New { peer_id, addr, .. } => {
+            P2pNetworkKadRequestAction::New { peer_id, addr, .. } => {
                 let peer_state = store.state().peers.get(&peer_id);
 
                 let on_initialize_connection = |store: &mut Store| {
@@ -42,12 +40,12 @@ impl P2pNetworkKadRequestAction {
                         (peer_id, addr).into(),
                     );
                     store.dispatch(P2pConnectionOutgoingAction::Init { opts, rpc_id: None });
-                    store.dispatch(A::PeerIsConnecting { peer_id });
+                    store.dispatch(P2pNetworkKadRequestAction::PeerIsConnecting { peer_id });
                     Ok(())
                 };
 
                 let on_connection_in_progress = |store: &mut Store| {
-                    store.dispatch(A::PeerIsConnecting { peer_id });
+                    store.dispatch(P2pNetworkKadRequestAction::PeerIsConnecting { peer_id });
                     Ok(())
                 };
 
@@ -74,16 +72,22 @@ impl P2pNetworkKadRequestAction {
                     ) {
                         // multiplexing is ready, open a stream
                         store.dispatch(P2pNetworkYamuxAction::OpenStream {
-                            addr,
+                            addr: crate::ConnectionAddr {
+                                sock_addr: addr,
+                                incoming: false,
+                            },
                             stream_id,
                             stream_kind: crate::token::StreamKind::Discovery(
                                 crate::token::DiscoveryAlgorithm::Kademlia1_0_0,
                             ),
                         });
-                        store.dispatch(A::StreamIsCreating { peer_id, stream_id });
+                        store.dispatch(P2pNetworkKadRequestAction::StreamIsCreating {
+                            peer_id,
+                            stream_id,
+                        });
                     } else {
                         // connection is in progress, so wait for multiplexing to be ready
-                        store.dispatch(A::PeerIsConnecting { peer_id });
+                        store.dispatch(P2pNetworkKadRequestAction::PeerIsConnecting { peer_id });
                     }
                     Ok(())
                 };
@@ -99,8 +103,8 @@ impl P2pNetworkKadRequestAction {
                     _ => on_connection_established(store),
                 };
             }
-            A::PeerIsConnecting { .. } => {}
-            A::MuxReady { peer_id, addr } => {
+            P2pNetworkKadRequestAction::PeerIsConnecting { .. } => {}
+            P2pNetworkKadRequestAction::MuxReady { peer_id, addr } => {
                 // connection's multiplexing is initialized, we need to create a stream
 
                 let stream_id = scheduler
@@ -125,10 +129,10 @@ impl P2pNetworkKadRequestAction {
                         crate::token::DiscoveryAlgorithm::Kademlia1_0_0,
                     ),
                 });
-                store.dispatch(A::StreamIsCreating { peer_id, stream_id });
+                store.dispatch(P2pNetworkKadRequestAction::StreamIsCreating { peer_id, stream_id });
             }
-            A::StreamIsCreating { .. } => {}
-            A::StreamReady {
+            P2pNetworkKadRequestAction::StreamIsCreating { .. } => {}
+            P2pNetworkKadRequestAction::StreamReady {
                 peer_id,
                 stream_id,
                 addr,
@@ -140,10 +144,10 @@ impl P2pNetworkKadRequestAction {
                     stream_id,
                     data,
                 });
-                store.dispatch(A::RequestSent { peer_id });
+                store.dispatch(P2pNetworkKadRequestAction::RequestSent { peer_id });
             }
-            A::RequestSent { .. } => {}
-            A::ReplyReceived {
+            P2pNetworkKadRequestAction::RequestSent { .. } => {}
+            P2pNetworkKadRequestAction::ReplyReceived {
                 data,
                 peer_id,
                 stream_id,
@@ -188,13 +192,16 @@ impl P2pNetworkKadRequestAction {
                     });
                 }
                 store.dispatch(P2pNetworkKademliaStreamAction::Close {
-                    addr,
+                    addr: ConnectionAddr {
+                        sock_addr: addr,
+                        incoming: false,
+                    },
                     peer_id,
                     stream_id,
                 });
                 store.dispatch(P2pNetworkKadRequestAction::Prune { peer_id });
             }
-            A::Error { peer_id, error } => {
+            P2pNetworkKadRequestAction::Error { peer_id, error } => {
                 let bootstrap_request = discovery_state
                     .bootstrap_state()
                     .and_then(|bootstrap_state| bootstrap_state.request(&peer_id))
@@ -204,7 +211,7 @@ impl P2pNetworkKadRequestAction {
                 }
                 store.dispatch(P2pNetworkKadRequestAction::Prune { peer_id });
             }
-            A::Prune { .. } => {}
+            P2pNetworkKadRequestAction::Prune { .. } => {}
         }
         Ok(())
     }

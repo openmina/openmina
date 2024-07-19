@@ -233,7 +233,7 @@ impl P2pNetworkRpcAction {
         let incoming = state.incoming.front().cloned();
 
         match self {
-            Self::Init {
+            P2pNetworkRpcAction::Init {
                 addr,
                 peer_id,
                 stream_id,
@@ -247,7 +247,7 @@ impl P2pNetworkRpcAction {
                     fin: false,
                 });
             }
-            Self::IncomingData {
+            P2pNetworkRpcAction::IncomingData {
                 addr,
                 peer_id,
                 stream_id,
@@ -262,7 +262,7 @@ impl P2pNetworkRpcAction {
                     });
                 }
             }
-            Self::IncomingMessage {
+            P2pNetworkRpcAction::IncomingMessage {
                 addr,
                 peer_id,
                 stream_id,
@@ -323,8 +323,8 @@ impl P2pNetworkRpcAction {
                     });
                 }
             }
-            Self::PrunePending { .. } => {}
-            Self::HeartbeatSend {
+            P2pNetworkRpcAction::PrunePending { .. } => {}
+            P2pNetworkRpcAction::HeartbeatSend {
                 addr,
                 peer_id,
                 stream_id,
@@ -337,7 +337,7 @@ impl P2pNetworkRpcAction {
                     fin: false,
                 });
             }
-            Self::OutgoingQuery {
+            P2pNetworkRpcAction::OutgoingQuery {
                 peer_id,
                 query,
                 data,
@@ -355,7 +355,7 @@ impl P2pNetworkRpcAction {
                     fin: false,
                 });
             }
-            Self::OutgoingResponse {
+            P2pNetworkRpcAction::OutgoingResponse {
                 peer_id,
                 response,
                 data,
@@ -380,7 +380,7 @@ impl P2pNetworkRpcAction {
                     fin: false,
                 });
             }
-            Self::OutgoingData {
+            P2pNetworkRpcAction::OutgoingData {
                 addr,
                 stream_id,
                 mut data,

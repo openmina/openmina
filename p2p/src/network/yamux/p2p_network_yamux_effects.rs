@@ -27,12 +27,12 @@ impl P2pNetworkYamuxAction {
         };
 
         match self {
-            Self::IncomingData { addr, .. } => {
+            P2pNetworkYamuxAction::IncomingData { addr, .. } => {
                 for frame in state.incoming.clone() {
                     store.dispatch(P2pNetworkYamuxAction::IncomingFrame { addr, frame });
                 }
             }
-            Self::IncomingFrame { addr, frame } => {
+            P2pNetworkYamuxAction::IncomingFrame { addr, frame } => {
                 let frame = &frame;
                 let Some(stream) = state.streams.get(&frame.stream_id).cloned() else {
                     return;
@@ -52,7 +52,7 @@ impl P2pNetworkYamuxAction {
                         streams.values().filter(|s| s.select.is_incoming()).count();
                     match (max_streams, incoming_streams_number) {
                         (Limit::Some(limit), actual) if actual > limit => {
-                            store.dispatch(Self::OutgoingFrame {
+                            store.dispatch(P2pNetworkYamuxAction::OutgoingFrame {
                                 addr,
                                 frame: YamuxFrame {
                                     flags: YamuxFlags::FIN,
@@ -112,12 +112,12 @@ impl P2pNetworkYamuxAction {
                     _ => {}
                 }
             }
-            Self::OutgoingFrame { addr, frame } => {
+            P2pNetworkYamuxAction::OutgoingFrame { addr, frame } => {
                 let data =
                     fuzzed_maybe!(frame.into_bytes().into(), crate::fuzzer::mutate_yamux_frame);
                 store.dispatch(P2pNetworkNoiseAction::OutgoingData { addr, data });
             }
-            Self::OutgoingData {
+            P2pNetworkYamuxAction::OutgoingData {
                 addr,
                 stream_id,
                 data,
@@ -141,13 +141,13 @@ impl P2pNetworkYamuxAction {
                 };
                 store.dispatch(P2pNetworkYamuxAction::OutgoingFrame { addr, frame });
             }
-            Self::PingStream { addr, ping } => {
+            P2pNetworkYamuxAction::PingStream { addr, ping } => {
                 store.dispatch(P2pNetworkYamuxAction::OutgoingFrame {
                     addr,
                     frame: ping.clone().into_frame(),
                 });
             }
-            Self::OpenStream {
+            P2pNetworkYamuxAction::OpenStream {
                 addr, stream_id, ..
             } => {
                 store.dispatch(P2pNetworkSelectAction::Init {

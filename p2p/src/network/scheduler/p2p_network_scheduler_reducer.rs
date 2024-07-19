@@ -42,7 +42,10 @@ impl P2pNetworkSchedulerState {
             }
             P2pNetworkSchedulerAction::OutgoingConnect { addr } => {
                 self.connections.insert(
-                    *addr,
+                    ConnectionAddr {
+                        sock_addr: *addr,
+                        incoming: false,
+                    },
                     P2pNetworkConnectionState {
                         incoming: false,
                         pnet: P2pNetworkPnetState::new(self.pnet_key, meta.time()),
@@ -80,6 +83,7 @@ impl P2pNetworkSchedulerState {
                 kind,
                 protocol,
                 incoming,
+                expected_peer_id,
                 ..
             } => {
                 let Some(connection) = self.connections.get_mut(addr) else {
@@ -87,9 +91,12 @@ impl P2pNetworkSchedulerState {
                 };
                 match protocol {
                     Some(token::Protocol::Auth(token::AuthKind::Noise)) => {
-                        connection.auth = Some(P2pNetworkAuthState::Noise(
-                            P2pNetworkNoiseState::new(self.local_pk.clone(), false),
-                        ));
+                        connection.auth =
+                            Some(P2pNetworkAuthState::Noise(P2pNetworkNoiseState::new(
+                                self.local_pk.clone(),
+                                false,
+                                *expected_peer_id,
+                            )));
                     }
                     Some(token::Protocol::Mux(
                         token::MuxKind::Yamux1_0_0 | token::MuxKind::YamuxNoNewLine1_0_0,

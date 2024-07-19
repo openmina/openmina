@@ -1,26 +1,21 @@
-use std::net::SocketAddr;
-
+use super::pb;
+use crate::{token::BroadcastAlgorithm, ConnectionAddr, Data, P2pState, PeerId, StreamId};
 use mina_p2p_messages::gossip::GossipNetMessageV2;
 use openmina_core::ActionEvent;
-
 use serde::{Deserialize, Serialize};
-
-use crate::{token::BroadcastAlgorithm, Data, P2pState, PeerId, StreamId};
-
-use super::pb;
 
 #[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
 pub enum P2pNetworkPubsubAction {
     NewStream {
         incoming: bool,
         peer_id: PeerId,
-        addr: SocketAddr,
+        addr: ConnectionAddr,
         stream_id: StreamId,
         protocol: BroadcastAlgorithm,
     },
     IncomingData {
         peer_id: PeerId,
-        addr: SocketAddr,
+        addr: ConnectionAddr,
         stream_id: StreamId,
         data: Data,
     },

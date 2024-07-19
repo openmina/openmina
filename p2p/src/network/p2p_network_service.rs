@@ -1,5 +1,7 @@
 use std::net::{IpAddr, SocketAddr};
 
+use crate::ConnectionAddr;
+
 /// The state machine sends commands to the service.
 pub enum MioCmd {
     /// Bind a new listener to a new socket on the interface
@@ -13,11 +15,11 @@ pub enum MioCmd {
     /// Create a new outgoing connection to the socket.
     Connect(SocketAddr),
     /// Receive some data from the connection in the buffer.
-    Recv(SocketAddr, Box<[u8]>),
+    Recv(ConnectionAddr, Box<[u8]>),
     /// Send the data in the connection.
-    Send(SocketAddr, Box<[u8]>),
+    Send(ConnectionAddr, Box<[u8]>),
     /// Disconnect the remote peer.
-    Disconnect(SocketAddr),
+    Disconnect(ConnectionAddr),
 }
 
 pub trait P2pMioService: redux::Service {

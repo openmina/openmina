@@ -1,5 +1,3 @@
-use std::net::SocketAddr;
-
 use openmina_core::{fuzz_maybe, fuzzed_maybe};
 
 use crate::{
@@ -13,14 +11,14 @@ use super::{super::*, p2p_network_select_state::P2pNetworkSelectStateInner, *};
 impl P2pNetworkSelectState {
     pub fn incoming_data(
         &self,
-        addr: SocketAddr,
+        addr: ConnectionAddr,
         kind: SelectKind,
         data: Data,
         fin: bool,
         effects: &mut Vec<P2pNetworkSelectAction>,
     ) {
         fn forward_data_action(
-            addr: SocketAddr,
+            addr: ConnectionAddr,
             kind: SelectKind,
             data: Data,
             fin: bool,
@@ -352,11 +350,17 @@ impl P2pNetworkSelectAction {
             P2pNetworkSelectAction::Timeout { .. } => {}
         }
         if let Some(protocol) = report {
+            let expected_peer_id = store
+                .state()
+                .peer_with_connection(addr)
+                .map(|(peer_id, _)| peer_id);
+
             store.dispatch(P2pNetworkSchedulerAction::SelectDone {
                 addr,
                 kind: select_kind,
                 protocol,
                 incoming,
+                expected_peer_id,
             });
         }
     }

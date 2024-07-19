@@ -111,20 +111,29 @@ impl P2pNetworkNoiseState {
                                 payload: _,
                             })) => {
                                 let remote_peer_id = remote_pk.peer_id();
-                                *state = P2pNetworkNoiseStateInner::Done {
-                                    incoming: true,
-                                    send_key,
-                                    recv_key,
-                                    recv_nonce: 0,
-                                    send_nonce: 0,
-                                    remote_pk,
-                                    remote_peer_id,
-                                };
-                                // self.handshake_optimized = remote_payload.is_some();
-                                // if let Some(remote_payload) = remote_payload {
-                                //     self.decrypted_chunks
-                                //         .push_back(remote_payload.to_vec().into());
-                                // }
+
+                                if self.expected_peer_id.is_some_and(|expected_per_id| {
+                                    expected_per_id != remote_peer_id
+                                }) {
+                                    *state = P2pNetworkNoiseStateInner::Error(dbg!(
+                                        NoiseError::RemotePeerIdMismatch
+                                    ));
+                                } else {
+                                    *state = P2pNetworkNoiseStateInner::Done {
+                                        incoming: true,
+                                        send_key,
+                                        recv_key,
+                                        recv_nonce: 0,
+                                        send_nonce: 0,
+                                        remote_pk,
+                                        remote_peer_id,
+                                    };
+                                    // self.handshake_optimized = remote_payload.is_some();
+                                    // if let Some(remote_payload) = remote_payload {
+                                    //     self.decrypted_chunks
+                                    //         .push_back(remote_payload.to_vec().into());
+                                    // }
+                                }
                             }
                             Err(err) => {
                                 *state = P2pNetworkNoiseStateInner::Error(dbg!(err));
@@ -211,15 +220,25 @@ impl P2pNetworkNoiseState {
                         {
                             self.outgoing_chunks.push_back(vec![chunk.into()]);
                             let remote_peer_id = remote_pk.peer_id();
-                            *state = P2pNetworkNoiseStateInner::Done {
-                                incoming: false,
-                                send_key,
-                                recv_key,
-                                recv_nonce: 0,
-                                send_nonce: 0,
-                                remote_pk,
-                                remote_peer_id,
-                            };
+
+                            if self
+                                .expected_peer_id
+                                .is_some_and(|expected_per_id| expected_per_id != remote_peer_id)
+                            {
+                                *state = P2pNetworkNoiseStateInner::Error(dbg!(
+                                    NoiseError::RemotePeerIdMismatch
+                                ));
+                            } else {
+                                *state = P2pNetworkNoiseStateInner::Done {
+                                    incoming: false,
+                                    send_key,
+                                    recv_key,
+                                    recv_nonce: 0,
+                                    send_nonce: 0,
+                                    remote_pk,
+                                    remote_peer_id,
+                                };
+                            }
                         }
                     }
                     P2pNetworkNoiseStateInner::Responder(r) => {
