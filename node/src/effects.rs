@@ -117,7 +117,7 @@ fn request_best_tip<S: Service>(store: &mut Store<S>, _consensus_best_tip_hash: 
         store.dispatch(P2pChannelsRpcAction::RequestSend {
             peer_id,
             id,
-            request: P2pRpcRequest::BestTipWithProof,
+            request: Box::new(P2pRpcRequest::BestTipWithProof),
         });
     }
 }

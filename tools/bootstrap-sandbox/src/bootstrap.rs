@@ -40,7 +40,7 @@ pub async fn again(path_main: &Path, height: u32) {
         .target
         .first_pass_ledger
         .clone();
-    let snarked_ledger_hash_str = match serde_json::to_value(&snarked_ledger_hash).unwrap() {
+    let snarked_ledger_hash_str = match serde_json::to_value(snarked_ledger_hash).unwrap() {
         serde_json::Value::String(s) => s,
         _ => panic!(),
     };

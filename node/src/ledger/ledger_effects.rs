@@ -121,7 +121,7 @@ fn propagate_write_response<S: redux::Service>(
                     Err(err) => todo!("handle staged ledger diff creation err: {err}"),
                     Ok(output) => {
                         store.dispatch(BlockProducerAction::StagedLedgerDiffCreateSuccess {
-                            output: *output,
+                            output,
                         });
                     }
                 }
@@ -341,12 +341,12 @@ fn propagate_read_response<S: redux::Service>(
                     peer_id,
                     id,
                     response: resp.as_ref().map(|(num_accounts, hash)| {
-                        P2pRpcResponse::LedgerQuery(
+                        Box::new(P2pRpcResponse::LedgerQuery(
                             v2::MinaLedgerSyncLedgerAnswerStableV2::NumAccounts(
                                 (*num_accounts).into(),
                                 hash.clone(),
                             ),
-                        )
+                        ))
                     }),
                 });
             }
@@ -357,12 +357,12 @@ fn propagate_read_response<S: redux::Service>(
                     peer_id,
                     id,
                     response: resp.as_ref().map(|(left, right)| {
-                        P2pRpcResponse::LedgerQuery(
+                        Box::new(P2pRpcResponse::LedgerQuery(
                             v2::MinaLedgerSyncLedgerAnswerStableV2::ChildHashesAre(
                                 left.clone(),
                                 right.clone(),
                             ),
-                        )
+                        ))
                     }),
                 });
             }
@@ -373,11 +373,11 @@ fn propagate_read_response<S: redux::Service>(
                     peer_id,
                     id,
                     response: resp.as_ref().map(|accounts| {
-                        P2pRpcResponse::LedgerQuery(
+                        Box::new(P2pRpcResponse::LedgerQuery(
                             v2::MinaLedgerSyncLedgerAnswerStableV2::ContentsAre(
                                 accounts.iter().cloned().collect(),
                             ),
-                        )
+                        ))
                     }),
                 });
             }
@@ -388,7 +388,9 @@ fn propagate_read_response<S: redux::Service>(
                     peer_id,
                     id,
                     response: resp.clone().map(|data| {
-                        P2pRpcResponse::StagedLedgerAuxAndPendingCoinbasesAtBlock(data)
+                        Box::new(P2pRpcResponse::StagedLedgerAuxAndPendingCoinbasesAtBlock(
+                            data,
+                        ))
                     }),
                 });
             }

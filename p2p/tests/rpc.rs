@@ -403,7 +403,7 @@ fn send_request(
             .dispatch_action(P2pChannelsRpcAction::RequestSend {
                 peer_id: receiver_id,
                 id: sender_rpc_id,
-                request,
+                request: Box::new(request),
             }),
         "dispatch rpc send query"
     );
@@ -489,7 +489,7 @@ fn send_response(
             .dispatch_action(P2pChannelsRpcAction::ResponseSend {
                 peer_id: receiver_id,
                 id: request_id,
-                response: Some(response),
+                response: Some(Box::new(response)),
             }),
         "dispatch rpc send query"
     );

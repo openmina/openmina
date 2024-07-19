@@ -618,10 +618,10 @@ fn peer_query_num_accounts_init(
         P2pChannelsRpcAction::RequestSend {
             peer_id,
             id: rpc_id,
-            request: P2pRpcRequest::LedgerQuery(
+            request: Box::new(P2pRpcRequest::LedgerQuery(
                 ledger_hash,
                 MinaLedgerSyncLedgerQueryStableV1::NumAccounts,
-            ),
+            )),
         },
         state,
         meta.time(),
@@ -664,7 +664,7 @@ fn peer_query_address_init(
         P2pChannelsRpcAction::RequestSend {
             peer_id,
             id: rpc_id,
-            request: P2pRpcRequest::LedgerQuery(ledger_hash, query),
+            request: Box::new(P2pRpcRequest::LedgerQuery(ledger_hash, query)),
         },
         state,
         meta.time(),

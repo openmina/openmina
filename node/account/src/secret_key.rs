@@ -96,7 +96,7 @@ impl From<AccountSecretKey> for Keypair {
 
 impl From<AccountSecretKey> for SignatureLibPrivateKeyStableV1 {
     fn from(value: AccountSecretKey) -> Self {
-        Self(BigInt::new(value.to_bytes().into()))
+        Self(BigInt::from_bytes(value.to_bytes()))
     }
 }
 

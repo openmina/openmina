@@ -30,7 +30,7 @@ pub enum P2pChannelsSnarkAction {
     },
     Received {
         peer_id: PeerId,
-        snark: SnarkInfo,
+        snark: Box<SnarkInfo>,
     },
     RequestReceived {
         peer_id: PeerId,
@@ -44,7 +44,7 @@ pub enum P2pChannelsSnarkAction {
     },
     Libp2pReceived {
         peer_id: PeerId,
-        snark: Snark,
+        snark: Box<Snark>,
         nonce: u32,
     },
     Libp2pBroadcast {

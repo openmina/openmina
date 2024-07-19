@@ -173,7 +173,7 @@ impl BlockProducerEnabled {
 
                 let block_stake_winner = won_slot.delegator.0.clone();
                 let vrf_truncated_output: ConsensusVrfOutputTruncatedStableV1 =
-                    won_slot.vrf_output.clone().into();
+                    (*won_slot.vrf_output).clone().into();
                 let vrf_hash = won_slot.vrf_output.hash();
                 let block_creator = self.config.pub_key.clone();
                 let coinbase_receiver = self.config.coinbase_receiver().clone();

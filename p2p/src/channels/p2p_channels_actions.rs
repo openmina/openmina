@@ -51,7 +51,7 @@ impl redux::EnablingCondition<crate::P2pState> for P2pChannelsAction {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pChannelsMessageReceivedAction {
     pub peer_id: PeerId,
-    pub message: ChannelMsg,
+    pub message: Box<ChannelMsg>,
 }
 
 impl redux::EnablingCondition<P2pState> for P2pChannelsMessageReceivedAction {

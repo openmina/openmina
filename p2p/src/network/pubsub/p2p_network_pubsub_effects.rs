@@ -85,14 +85,14 @@ impl P2pNetworkPubsubAction {
                 for (transaction, nonce) in incoming_transactions {
                     store.dispatch(P2pChannelsTransactionAction::Libp2pReceived {
                         peer_id,
-                        transaction,
+                        transaction: Box::new(transaction),
                         nonce,
                     });
                 }
                 for (snark, nonce) in incoming_snarks {
                     store.dispatch(P2pChannelsSnarkAction::Libp2pReceived {
                         peer_id,
-                        snark,
+                        snark: Box::new(snark),
                         nonce,
                     });
                 }

@@ -70,8 +70,8 @@ pub fn block_producer_effects<S: crate::Service>(
                 current_best_tip_slot: slot,
                 current_best_tip_global_slot: best_tip.global_slot(),
                 next_epoch_first_slot,
-                staking_epoch_data: best_tip.consensus_state().staking_epoch_data.clone(),
-                next_epoch_data: best_tip.consensus_state().next_epoch_data.clone(),
+                staking_epoch_data: Box::new(best_tip.consensus_state().staking_epoch_data.clone()),
+                next_epoch_data: Box::new(best_tip.consensus_state().next_epoch_data.clone()),
                 transition_frontier_size: best_tip.constants().k.as_u32(),
             });
 

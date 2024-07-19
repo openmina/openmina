@@ -41,7 +41,7 @@ pub enum BlockProducerAction {
     StagedLedgerDiffCreateInit,
     StagedLedgerDiffCreatePending,
     StagedLedgerDiffCreateSuccess {
-        output: StagedLedgerDiffCreateOutput,
+        output: Box<StagedLedgerDiffCreateOutput>,
     },
     BlockUnprovenBuild,
     BlockProveInit,

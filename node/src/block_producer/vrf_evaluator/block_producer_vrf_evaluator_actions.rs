@@ -50,8 +50,9 @@ pub enum BlockProducerVrfEvaluatorAction {
         current_best_tip_slot: u32,
         current_best_tip_global_slot: u32,
         next_epoch_first_slot: u32,
-        staking_epoch_data: ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1,
-        next_epoch_data: ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1,
+        staking_epoch_data:
+            Box<ConsensusProofOfStakeDataEpochDataStakingValueVersionedValueStableV1>,
+        next_epoch_data: Box<ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1>,
         transition_frontier_size: u32,
     },
     /// Initalize epoch vrf evaluation.

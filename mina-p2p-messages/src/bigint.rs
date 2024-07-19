@@ -1,21 +1,18 @@
+use ark_ff::BigInteger256;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Default, PartialEq, Eq, PartialOrd, Ord, derive_more::From, derive_more::Into)]
-pub struct BigInt(Box<[u8; 32]>);
+pub struct BigInt(BigInteger256);
 
 impl std::fmt::Debug for BigInt {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let Self(inner) = self;
+        let Self(BigInteger256(array)) = self;
         // Avoid vertical alignment
-        f.write_fmt(format_args!("BigInt({:?})", inner))
+        f.write_fmt(format_args!("BigInt({:?})", array))
     }
 }
 
 impl BigInt {
-    pub fn new(inner: Box<[u8; 32]>) -> Self {
-        Self(inner)
-    }
-
     #[cfg(feature = "hashing")]
     pub fn zero() -> Self {
         mina_curves::pasta::Fp::from(0u64).into()
@@ -28,59 +25,69 @@ impl BigInt {
 
     #[cfg(feature = "hashing")]
     pub fn to_fp(&self) -> Result<mina_hasher::Fp, o1_utils::field_helpers::FieldHelpersError> {
-        use o1_utils::FieldHelpers;
-        mina_hasher::Fp::from_bytes(self.0.as_ref())
+        Ok(mina_hasher::Fp::from(self.0)) // TODO: Handle error
     }
 
     #[cfg(feature = "hashing")]
     pub fn to_field<F>(&self) -> F
     where
-        F: ark_ff::Field,
+        F: ark_ff::Field + From<BigInteger256>,
     {
-        let mut slice: &[u8] = self.0.as_ref();
-        F::read(&mut slice).expect("Conversion BigInt to Field failed")
+        let Self(biginteger) = self;
+        F::from(*biginteger) // TODO: Handle error
     }
 
-    pub fn iter_bytes(&self) -> impl '_ + DoubleEndedIterator<Item = u8> {
-        self.0.iter().cloned()
+    #[cfg(feature = "hashing")]
+    pub fn to_bytes(&self) -> [u8; 32] {
+        use ark_ff::ToBytes;
+        let mut bytes = std::io::Cursor::new([0u8; 32]);
+        self.0.write(&mut bytes).unwrap(); // Never fail, there is 32 bytes
+        bytes.into_inner()
+    }
+
+    #[cfg(feature = "hashing")]
+    pub fn from_bytes(bytes: [u8; 32]) -> Self {
+        use ark_ff::FromBytes;
+        Self(BigInteger256::read(&bytes[..]).unwrap()) // Never fail, we read from 32 bytes
     }
 }
 
-impl AsRef<[u8]> for BigInt {
-    fn as_ref(&self) -> &[u8] {
-        &self.0.as_ref()[..]
+impl AsRef<BigInteger256> for BigInt {
+    fn as_ref(&self) -> &BigInteger256 {
+        let Self(biginteger) = self;
+        biginteger
     }
 }
 
 #[cfg(feature = "hashing")]
 impl From<mina_curves::pasta::Fp> for BigInt {
     fn from(field: mina_curves::pasta::Fp) -> Self {
-        use o1_utils::FieldHelpers;
-        Self(Box::new(field.to_bytes().try_into().unwrap()))
+        use ark_ff::PrimeField;
+        Self(field.into_repr())
     }
 }
 
 #[cfg(feature = "hashing")]
 impl From<mina_curves::pasta::Fq> for BigInt {
     fn from(field: mina_curves::pasta::Fq) -> Self {
-        use o1_utils::FieldHelpers;
-        Self(Box::new(field.to_bytes().try_into().unwrap()))
+        use ark_ff::PrimeField;
+        Self(field.into_repr())
     }
 }
 
 #[cfg(feature = "hashing")]
 impl From<&mina_curves::pasta::Fp> for BigInt {
     fn from(field: &mina_curves::pasta::Fp) -> Self {
-        use o1_utils::FieldHelpers;
-        Self(Box::new(field.to_bytes().try_into().unwrap()))
+        use ark_ff::PrimeField;
+        Self(field.into_repr())
     }
 }
 
 #[cfg(feature = "hashing")]
 impl From<&mina_curves::pasta::Fq> for BigInt {
     fn from(field: &mina_curves::pasta::Fq) -> Self {
-        use o1_utils::FieldHelpers;
-        Self(Box::new(field.to_bytes().try_into().unwrap()))
+        use ark_ff::PrimeField;
+        Self(field.into_repr())
     }
 }
 
@@ -117,16 +124,16 @@ impl binprot::BinProtRead for BigInt {
     where
         Self: Sized,
     {
-        let mut buf = [0; 32];
-        r.read_exact(&mut buf)?;
-        Ok(Self(Box::new(buf)))
+        use ark_ff::FromBytes;
+        Ok(Self(BigInteger256::read(r)?))
     }
 }
 
 impl binprot::BinProtWrite for BigInt {
     fn binprot_write<W: std::io::Write>(&self, w: &mut W) -> std::io::Result<()> {
-        w.write_all(&self.0[..])?;
-        Ok(())
+        use ark_ff::ToBytes;
+        let Self(biginteger) = self;
+        biginteger.write(w)
     }
 }
 
@@ -137,14 +144,14 @@ impl Serialize for BigInt {
     {
         if serializer.is_human_readable() {
             // TODO get rid of copying
-            let mut rev = *self.0.as_ref();
+            let mut rev = self.to_bytes();
             rev[..].reverse();
             let mut hex = [0_u8; 32 * 2 + 2];
             hex[..2].copy_from_slice(b"0x");
             hex::encode_to_slice(rev, &mut hex[2..]).unwrap();
             serializer.serialize_str(String::from_utf8_lossy(&hex).as_ref())
         } else {
-            serializer.serialize_bytes(&self.0[..])
+            serializer.serialize_bytes(&self.to_bytes())
         }
     }
 }
@@ -212,8 +219,7 @@ impl<'de> Deserialize<'de> for BigInt {
             }
             deserializer.deserialize_bytes(V)
         }
-        .map(Box::new)
-        .map(Self)
+        .map(Self::from_bytes)
     }
 }
 
@@ -248,7 +254,7 @@ mod tests {
     }
 
     fn from_byte(b: u8) -> BigInt {
-        BigInt(Box::new([b; 32]))
+        BigInt::from_bytes([b; 32])
     }
 
     fn from_bytes<'a, I>(it: I) -> BigInt
@@ -259,7 +265,7 @@ mod tests {
         let mut bytes = [0; 32];
         let it = it.into_iter().cycle();
         bytes.iter_mut().zip(it).for_each(|(b, i)| *b = *i);
-        BigInt(Box::new(bytes))
+        BigInt::from_bytes(bytes)
     }
 
     #[test]
@@ -273,7 +279,7 @@ mod tests {
 
         for bigint in bigints {
             let binprot = to_binprot(&bigint);
-            assert_eq!(binprot.as_slice(), bigint.0.as_ref());
+            assert_eq!(binprot.as_slice(), bigint.to_bytes());
         }
     }
 
@@ -287,7 +293,7 @@ mod tests {
         ];
 
         for bigint in bigints {
-            let deser: BigInt = from_binprot(bigint.0.as_ref());
+            let deser: BigInt = from_binprot(&bigint.to_bytes());
             assert_eq!(&bigint.0, &deser.0);
         }
     }
@@ -303,7 +309,7 @@ mod tests {
 
         for bigint in bigints {
             let json = serde_json::to_string(&bigint).unwrap();
-            let mut v = *bigint.0.as_ref();
+            let mut v = bigint.to_bytes();
             v.reverse();
             let json_exp = format!(r#""0x{}""#, hex::encode(v));
             assert_eq!(json, json_exp);
@@ -320,7 +326,7 @@ mod tests {
         ];
 
         for bigint in bigints {
-            let mut be = bigint.0.clone();
+            let mut be = bigint.to_bytes();
             be.reverse();
             let json = format!(r#""0x{}""#, hex::encode(be.as_ref()));
             let bigint_exp = serde_json::from_str(&json).unwrap();
