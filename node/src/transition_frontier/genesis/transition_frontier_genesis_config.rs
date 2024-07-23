@@ -21,7 +21,7 @@ use mina_p2p_messages::{
     },
     v2::{self, PROTOCOL_CONSTANTS},
 };
-use openmina_core::constants::constraint_constants;
+use openmina_core::constants::{constraint_constants, DEFAULT_GENESIS_TIMESTAMP_MILLISECONDS};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -117,10 +117,13 @@ impl GenesisConfig {
                 .unwrap_or(Self::default_constants(
                     DEFAULT_GENESIS_TIMESTAMP_MILLISECONDS,
                 ))),
+            Self::DaemonJsonFile(_) => todo!(),
         }
     }
 
-    pub fn load(&self) -> anyhow::Result<(ledger::Mask, GenesisConfigLoaded), GenesisConfigError> {
+    pub fn load(
+        &self,
+    ) -> anyhow::Result<(Vec<ledger::Mask>, GenesisConfigLoaded), GenesisConfigError> {
         Ok(match self {
             Self::Counts {
                 whales,

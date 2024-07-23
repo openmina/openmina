@@ -1,3 +1,4 @@
+use openmina_core::consensus::ConsensusConstants;
 use openmina_core::{constants::constraint_constants, error, ChainId};
 use p2p::{P2pConfig, P2pPeerState, P2pPeerStatusReady, PeerId};
 use redux::{ActionMeta, EnablingCondition, Timestamp};

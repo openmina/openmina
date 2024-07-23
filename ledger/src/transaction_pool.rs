@@ -10,7 +10,7 @@ use mina_hasher::Fp;
 use mina_p2p_messages::{bigint::BigInt, v2};
 use openmina_core::{
     consensus::ConsensusConstants,
-    constants::{ForkConstants, CONSTRAINT_CONSTANTS},
+    constants::{constraint_constants, ForkConstants},
 };
 
 use crate::{
@@ -617,7 +617,7 @@ impl IndexedPool {
                 .unwrap()
                 .to_global_slot();
 
-        match CONSTRAINT_CONSTANTS.fork.as_ref() {
+        match constraint_constants().fork.as_ref() {
             Some(ForkConstants {
                 global_slot_since_genesis,
                 ..

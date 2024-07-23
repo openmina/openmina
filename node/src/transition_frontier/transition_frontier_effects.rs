@@ -293,7 +293,9 @@ fn synced_effects<S: crate::Service>(
     let best_tip_hash = best_tip.staged_ledger_hash().clone();
     store.dispatch(ConsensusAction::Prune);
     store.dispatch(BlockProducerAction::BestTipUpdate { best_tip });
-    store.dispatch(TransactionPoolAction::BestTipChanged { best_tip_hash: best_tip_hash.clone() });
+    store.dispatch(TransactionPoolAction::BestTipChanged {
+        best_tip_hash: best_tip_hash.clone(),
+    });
     if let Some(diff) = chain_diff {
         store.dispatch(TransactionPoolAction::ApplyTransitionFrontierDiff {
             best_tip_hash,
