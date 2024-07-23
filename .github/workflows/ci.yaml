@@ -308,7 +308,7 @@ jobs:
       - name: Archive network debugger database
         uses: actions/upload-artifact@v4
         with:
-          name: database-${{ matrix.test }}
+          name: network-debugger-${{ matrix.test }}
           path: /tmp/db
 
   record-replay-tests:
@@ -351,6 +351,20 @@ jobs:
       PEERS_LIST: ${{ needs.k8s-peers.outputs.peers }}
       PEER_LIST_FILE: peer-list.txt
       WORK_DIR: data
+      BPF_ALIAS: /coda/0.0.1/29936104443aaf264a7f0192ac64b1c7173198c1ed404c1bcff5e562e05eb7f6-0.0.0.0
+
+    services:
+      network-debugger:
+        image: openmina/mina-network-debugger:23385c61
+        options: --privileged --init --volume debugger_data:/tmp/db --volume /sys/kernel/debug:/sys/kernel/debug
+        env:
+          SERVER_PORT: 80
+          FIREWALL_INTERFACE: lo
+          RUST_LOG: info
+          DB_PATH: /tmp/db
+        ports:
+          - 80:80
+
     steps:
       - name: Download binary
         uses: actions/download-artifact@v4
@@ -400,3 +414,9 @@ jobs:
           name: bootstrap-record
           path: ${{ env.WORK_DIR }}/recorder/*
         if: ${{ failure() }}
+
+      - name: Archive network debugger database
+        uses: actions/upload-artifact@v4
+        with:
+          name: network-debugger-${{ matrix.test }}
+          path: /tmp/db
