@@ -10,6 +10,7 @@ use anyhow::Context;
 use mina_p2p_messages::v2::{self, NonZeroCurvePoint};
 use node::{
     account::AccountSecretKey,
+    daemon_json::Daemon,
     p2p::{
         channels::ChannelId, connection::outgoing::P2pConnectionOutgoingInitOpts,
         identity::SecretKey as P2pSecretKey, P2pLimits, P2pTimeouts,
@@ -20,6 +21,7 @@ use node::{
     BlockProducerConfig, GlobalConfig, LedgerConfig, P2pConfig, SnarkConfig, SnarkerConfig,
     SnarkerStrategy, TransitionFrontierConfig,
 };
+use openmina_core::{consensus::ConsensusConstants, constants::constraint_constants};
 use openmina_node_common::p2p::TaskSpawner;
 use rand::Rng;
 
@@ -44,10 +46,15 @@ pub struct NodeBuilder {
     block_verifier_index: Option<Arc<VerifierIndex>>,
     work_verifier_index: Option<Arc<VerifierIndex>>,
     http_port: Option<u16>,
+    daemon_conf: Daemon,
 }
 
 impl NodeBuilder {
-    pub fn new(custom_rng_seed: Option<[u8; 32]>, genesis_config: Arc<GenesisConfig>) -> Self {
+    pub fn new(
+        custom_rng_seed: Option<[u8; 32]>,
+        daemon_conf: Daemon,
+        genesis_config: Arc<GenesisConfig>,
+    ) -> Self {
         let rng_seed = custom_rng_seed.unwrap_or_else(|| {
             let mut seed = [0; 32];
             getrandom::getrandom(&mut seed).unwrap_or_else(|_| {
@@ -72,6 +79,7 @@ impl NodeBuilder {
             block_verifier_index: None,
             work_verifier_index: None,
             http_port: None,
+            daemon_conf,
         }
     }
 
@@ -272,6 +280,8 @@ impl NodeBuilder {
             .custom_initial_time
             .unwrap_or_else(redux::Timestamp::global_now);
 
+        let protocol_constants = self.genesis_config.protocol_constants()?;
+
         // build config
         let node_config = node::Config {
             global: GlobalConfig {
@@ -301,6 +311,11 @@ impl NodeBuilder {
             },
             transition_frontier: TransitionFrontierConfig::new(self.genesis_config),
             block_producer: self.block_producer,
+            tx_pool: ledger::transaction_pool::Config {
+                trust_system: (),
+                pool_max_size: self.daemon_conf.tx_pool_max_size(),
+                slot_tx_end: self.daemon_conf.slot_tx_end(),
+            },
         };
 
         // build service
@@ -311,8 +326,11 @@ impl NodeBuilder {
             service.p2p_init(p2p_sec_key);
         }
 
+        let consensus_consts =
+            ConsensusConstants::create(&constraint_constants(), &protocol_constants);
+
         let service = service.build()?;
-        let state = node::State::new(node_config, initial_time);
+        let state = node::State::new(node_config, &consensus_consts, initial_time);
 
         Ok(Node::new(self.rng_seed, state, service, None))
     }

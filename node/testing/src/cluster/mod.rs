@@ -2,6 +2,8 @@ mod config;
 pub use config::{ClusterConfig, ProofKind};
 
 mod p2p_task_spawner;
+use openmina_core::consensus::ConsensusConstants;
+use openmina_core::constants::constraint_constants;
 use openmina_node_native::NodeServiceBuilder;
 pub use p2p_task_spawner::P2pTaskSpawner;
 
@@ -260,7 +262,7 @@ impl Cluster {
             .protocol_constants()
             .expect("wrong protocol constants");
         let consensus_consts =
-            ConsensusConstants::create(&CONSTRAINT_CONSTANTS, &protocol_constants);
+            ConsensusConstants::create(&constraint_constants(), &protocol_constants);
 
         let config = Config {
             ledger: LedgerConfig {},

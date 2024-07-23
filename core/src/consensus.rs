@@ -4,10 +4,10 @@ use mina_p2p_messages::v2::{
 };
 use serde::{Deserialize, Serialize};
 
+use crate::constants::constraint_constants;
 pub use crate::constants::{
     checkpoint_window_size_in_slots, grace_period_end, slots_per_window, CHECKPOINTS_PER_YEAR,
 };
-use crate::constants::{ConstraintConstants, CONSTRAINT_CONSTANTS};
 
 // TODO get constants from elsewhere
 const GRACE_PERIOD_END: u32 = 1440;
@@ -243,7 +243,7 @@ impl ConsensusConstants {
     // We mimick the code layout of the OCaml node's here. `create_primed` could easily
     // be inlined in `create`, but OCaml code keeps them separate ans so do we for now.
     fn create_primed(
-        constraint_constants: &ConstraintConstants,
+        constraint_constants: &crate::constants::ConstraintConstants,
         protocol_constants: &v2::MinaBaseProtocolConstantsCheckedValueStableV1,
     ) -> Self {
         let delta = protocol_constants.delta.as_u32();
@@ -290,7 +290,7 @@ impl ConsensusConstants {
     }
 
     pub fn create(
-        constraint_constants: &ConstraintConstants,
+        constraint_constants: &crate::constants::ConstraintConstants,
         protocol_constants: &v2::MinaBaseProtocolConstantsCheckedValueStableV1,
     ) -> Self {
         let mut constants = Self::create_primed(constraint_constants, protocol_constants);
