@@ -15,7 +15,7 @@ use mio::net::{TcpListener, TcpStream};
 
 use thiserror::Error;
 
-use crate::{MioCmd, MioEvent};
+use crate::{ConnectionAddr, MioCmd, MioEvent};
 
 #[derive(Debug, Error)]
 enum MioError {
@@ -168,7 +168,7 @@ struct MioServiceInner<F> {
     cmd_receiver: mpsc::Receiver<MioCmd>,
     tokens: TokenRegistry,
     listeners: BTreeMap<SocketAddr, Listener>,
-    connections: BTreeMap<SocketAddr, Connection>,
+    connections: BTreeMap<ConnectionAddr, Connection>,
 }
 
 struct Listener {
@@ -250,7 +250,7 @@ where
                             match connection.stream.peer_addr() {
                                 Ok(new_addr) => {
                                     connection.connected = true;
-                                    addr = new_addr;
+                                    addr.sock_addr = new_addr;
                                     self.send(MioEvent::OutgoingConnectionDidConnect(addr, Ok(())));
                                 }
                                 Err(err) if err.kind() == io::ErrorKind::NotConnected => {
@@ -358,6 +358,11 @@ where
                 if let Some(mut listener) = self.listeners.remove(&listener_addr) {
                     match listener.inner.accept() {
                         Ok((mut stream, addr)) => {
+                            let addr = ConnectionAddr {
+                                sock_addr: addr,
+                                incoming: true,
+                            };
+
                             listener.incomind_ready = false;
                             if let Err(err) = self.poll.registry().register(
                                 &mut stream,
@@ -387,7 +392,7 @@ where
                                 token,
                                 mio::Interest::READABLE,
                             ) {
-                                MioError::Listen(addr, err).report();
+                                MioError::Listen(listener_addr, err).report();
                             } else {
                                 self.listeners.insert(listener_addr, listener);
                             }
@@ -422,6 +427,11 @@ where
             Connect(addr) => {
                 match TcpStream::connect(addr) {
                     Ok(mut stream) => {
+                        let addr = ConnectionAddr {
+                            sock_addr: addr,
+                            incoming: false,
+                        };
+
                         if let Err(err) = self.poll.registry().register(
                             &mut stream,
                             self.tokens.register(Token::Connection(addr)),
@@ -444,7 +454,10 @@ where
                         }
                     }
                     Err(err) => self.send(MioEvent::OutgoingConnectionDidConnect(
-                        addr,
+                        ConnectionAddr {
+                            sock_addr: addr,
+                            incoming: false,
+                        },
                         Err(err.to_string()),
                     )),
                 };

@@ -2,10 +2,10 @@ use redux::ActionMeta;
 
 #[cfg(feature = "p2p-libp2p")]
 use crate::disconnection::{P2pDisconnectionAction, P2pDisconnectionReason};
-use crate::peer::P2pPeerAction;
 #[cfg(feature = "p2p-libp2p")]
 use crate::P2pNetworkSchedulerAction;
 use crate::{connection::P2pConnectionService, webrtc};
+use crate::{peer::P2pPeerAction, ConnectionAddr};
 
 use super::{P2pConnectionIncomingAction, P2pConnectionIncomingError};
 
@@ -112,7 +112,16 @@ impl P2pConnectionIncomingAction {
                                 .scheduler
                                 .connections
                                 .keys()
-                                .filter(|a| *a != &addr && close_duplicates.contains(a))
+                                .filter(
+                                    |ConnectionAddr {
+                                         sock_addr,
+                                         incoming,
+                                     }| {
+                                        *incoming
+                                            && sock_addr != &addr
+                                            && close_duplicates.contains(sock_addr)
+                                    },
+                                )
                                 .cloned()
                                 .collect::<Vec<_>>();
                             for addr in duplicates {
@@ -129,7 +138,10 @@ impl P2pConnectionIncomingAction {
                 } else {
                     warn!(_meta.time(); node_id = display(store.state().my_id()), summary = "rejecting incoming conection as duplicate", peer_id = display(peer_id));
                     store.dispatch(P2pNetworkSchedulerAction::Disconnect {
-                        addr,
+                        addr: ConnectionAddr {
+                            sock_addr: addr,
+                            incoming: true,
+                        },
                         reason: P2pDisconnectionReason::Libp2pIncomingRejected(
                             RejectionReason::AlreadyConnected,
                         ),

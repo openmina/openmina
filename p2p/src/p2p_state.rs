@@ -37,6 +37,19 @@ impl P2pState {
         };
 
         let my_id = config.identity_pub_key.peer_id();
+
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let peer_id_str = my_id.to_libp2p_string();
+
+            openmina_core::log::info!(
+                openmina_core::log::system_time();
+                kind = "P2pState new",
+                summary = format!("Current node's id: {peer_id_str}"),
+                peer_id_str = peer_id_str,
+            );
+        }
+
         let initial_peers = config
             .initial_peers
             .iter()
@@ -225,16 +238,26 @@ impl P2pState {
     #[cfg(feature = "p2p-libp2p")]
     pub fn peer_with_connection(
         &self,
-        conn_id: std::net::SocketAddr,
+        conn_id: crate::ConnectionAddr,
     ) -> Option<(PeerId, P2pPeerState)> {
-        self.peers
-            .iter()
-            .find(|(_, peer_state)| match &peer_state.dial_opts {
-                Some(P2pConnectionOutgoingInitOpts::LibP2P(libp2p_opts)) => {
-                    libp2p_opts.matches_socket_addr(conn_id)
-                }
-                _ => false,
-            })
+        let result = if let crate::ConnectionAddr {
+            sock_addr,
+            incoming: false,
+        } = conn_id
+        {
+            self.peers
+                .iter()
+                .find(|(_, peer_state)| match &peer_state.dial_opts {
+                    Some(P2pConnectionOutgoingInitOpts::LibP2P(libp2p_opts)) => {
+                        libp2p_opts.matches_socket_addr(sock_addr)
+                    }
+                    _ => false,
+                })
+        } else {
+            None
+        };
+
+        result
             .or_else(|| {
                 self.network
                     .scheduler

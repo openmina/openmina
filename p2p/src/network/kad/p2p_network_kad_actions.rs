@@ -1,13 +1,11 @@
-use std::net::SocketAddr;
-
 use multiaddr::Multiaddr;
 use openmina_core::ActionEvent;
 use redux::EnablingCondition;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    kad::stream::P2pNetworkKademliaStreamAction, request::P2pNetworkKadRequestAction, P2pAction,
-    P2pNetworkAction, P2pNetworkKadEntry, P2pState, PeerId, StreamId,
+    kad::stream::P2pNetworkKademliaStreamAction, request::P2pNetworkKadRequestAction,
+    ConnectionAddr, P2pAction, P2pNetworkAction, P2pNetworkKadEntry, P2pState, PeerId, StreamId,
 };
 
 use super::bootstrap::P2pNetworkKadBootstrapAction;
@@ -53,7 +51,7 @@ pub enum P2pNetworkKademliaAction {
     ///
     /// Answers peer's `FIND_NODE` request by querying routing table for closest nodes.
     AnswerFindNodeRequest {
-        addr: SocketAddr,
+        addr: ConnectionAddr,
         peer_id: PeerId,
         stream_id: StreamId,
         key: PeerId,
@@ -62,7 +60,7 @@ pub enum P2pNetworkKademliaAction {
     ///
     /// Udates result of scheduled outgoing `FIND_NODE` request to a peer.
     UpdateFindNodeRequest {
-        addr: SocketAddr,
+        addr: ConnectionAddr,
         peer_id: PeerId,
         stream_id: StreamId,
         closest_peers: Vec<P2pNetworkKadEntry>,

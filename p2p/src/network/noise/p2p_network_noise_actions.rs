@@ -1,17 +1,13 @@
-use std::net::SocketAddr;
-
+use super::p2p_network_noise_state::{Pk, Sk};
+use crate::{ConnectionAddr, Data, P2pNetworkAction, P2pState, PeerId};
 use openmina_core::ActionEvent;
 use serde::{Deserialize, Serialize};
-
-use crate::{Data, P2pNetworkAction, P2pState, PeerId};
-
-use super::p2p_network_noise_state::{Pk, Sk};
 
 #[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
 #[action_event(level = debug, fields(display(addr), incoming, debug(data), display(peer_id)))]
 pub enum P2pNetworkNoiseAction {
     Init {
-        addr: SocketAddr,
+        addr: ConnectionAddr,
         incoming: bool,
         ephemeral_sk: Sk,
         ephemeral_pk: Pk,
@@ -21,46 +17,46 @@ pub enum P2pNetworkNoiseAction {
     },
     /// remote peer sends the data to the noise
     IncomingData {
-        addr: SocketAddr,
+        addr: ConnectionAddr,
         data: Data,
     },
     IncomingChunk {
-        addr: SocketAddr,
+        addr: ConnectionAddr,
         data: Data,
     },
     OutgoingChunk {
-        addr: SocketAddr,
+        addr: ConnectionAddr,
         data: Vec<Data>,
     },
     OutgoingChunkSelectMux {
-        addr: SocketAddr,
+        addr: ConnectionAddr,
         data: Vec<Data>,
     },
     // internals sends the data to the remote peer thru noise
     OutgoingData {
-        addr: SocketAddr,
+        addr: ConnectionAddr,
         data: Data,
     },
     OutgoingDataSelectMux {
-        addr: SocketAddr,
+        addr: ConnectionAddr,
         data: Data,
     },
     // the remote peer sends the data to internals thru noise
     #[action_event(fields(display(addr), debug(data), debug(peer_id)))]
     DecryptedData {
-        addr: SocketAddr,
+        addr: ConnectionAddr,
         peer_id: Option<PeerId>,
         data: Data,
     },
     HandshakeDone {
-        addr: SocketAddr,
+        addr: ConnectionAddr,
         peer_id: PeerId,
         incoming: bool,
     },
 }
 
 impl P2pNetworkNoiseAction {
-    pub fn addr(&self) -> &SocketAddr {
+    pub fn addr(&self) -> &ConnectionAddr {
         match self {
             Self::Init { addr, .. } => addr,
             Self::IncomingData { addr, .. } => addr,

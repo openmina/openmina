@@ -22,7 +22,7 @@ impl P2pNetworkPubsubAction {
     {
         let state = &store.state().network.scheduler.broadcast_state;
         match self {
-            Self::NewStream {
+            P2pNetworkPubsubAction::NewStream {
                 peer_id, incoming, ..
             } => {
                 if !incoming {
@@ -34,7 +34,7 @@ impl P2pNetworkPubsubAction {
                         publish: vec![],
                         control: None,
                     };
-                    store.dispatch(Self::OutgoingMessage { msg, peer_id });
+                    store.dispatch(P2pNetworkPubsubAction::OutgoingMessage { msg, peer_id });
                     let msg = pb::Rpc {
                         subscriptions: vec![],
                         publish: vec![],
@@ -47,32 +47,32 @@ impl P2pNetworkPubsubAction {
                             prune: vec![],
                         }),
                     };
-                    store.dispatch(Self::OutgoingMessage { msg, peer_id });
+                    store.dispatch(P2pNetworkPubsubAction::OutgoingMessage { msg, peer_id });
                 }
             }
-            Self::Broadcast { message } => {
+            P2pNetworkPubsubAction::Broadcast { message } => {
                 let mut buffer = vec![0; 8];
                 binprot::BinProtWrite::binprot_write(&message, &mut buffer).expect("msg");
                 let len = buffer.len() - 8;
                 buffer[..8].clone_from_slice(&(len as u64).to_le_bytes());
 
-                store.dispatch(Self::Sign {
+                store.dispatch(P2pNetworkPubsubAction::Sign {
                     seqno: state.seq + store.state().config.initial_time.as_nanos() as u64,
                     author: store.state().config.identity_pub_key.peer_id(),
                     data: buffer.into(),
                     topic: TOPIC.to_owned(),
                 });
             }
-            Self::Sign { .. } => {
+            P2pNetworkPubsubAction::Sign { .. } => {
                 if let Some(to_sign) = state.to_sign.front() {
                     let mut publication = vec![];
                     prost::Message::encode(to_sign, &mut publication).unwrap();
                     let signature = store.service().sign_publication(&publication).into();
-                    store.dispatch(Self::BroadcastSigned { signature });
+                    store.dispatch(P2pNetworkPubsubAction::BroadcastSigned { signature });
                 }
             }
-            Self::BroadcastSigned { .. } => broadcast(store),
-            Self::IncomingData { peer_id, .. } => {
+            P2pNetworkPubsubAction::BroadcastSigned { .. } => broadcast(store),
+            P2pNetworkPubsubAction::IncomingData { peer_id, .. } => {
                 let incoming_block = state.incoming_block.as_ref().cloned();
                 let incoming_transactions = state.incoming_transactions.clone();
                 let incoming_snarks = state.incoming_snarks.clone();
@@ -97,18 +97,18 @@ impl P2pNetworkPubsubAction {
                     });
                 }
             }
-            Self::OutgoingMessage { msg, peer_id } => {
+            P2pNetworkPubsubAction::OutgoingMessage { msg, peer_id } => {
                 if !message_is_empty(&msg) {
                     let mut data = vec![];
                     if prost::Message::encode_length_delimited(&msg, &mut data).is_ok() {
-                        store.dispatch(Self::OutgoingData {
+                        store.dispatch(P2pNetworkPubsubAction::OutgoingData {
                             data: data.clone().into(),
                             peer_id,
                         });
                     }
                 }
             }
-            Self::OutgoingData { mut data, peer_id } => {
+            P2pNetworkPubsubAction::OutgoingData { mut data, peer_id } => {
                 let Some(state) = store
                     .state()
                     .network

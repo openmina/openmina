@@ -9,21 +9,21 @@ impl P2pNetworkAction {
         Store::Service: P2pMioService + P2pCryptoService + P2pNetworkService,
     {
         match self {
-            Self::Scheduler(v) => v.effects(meta, store),
-            Self::Pnet(v) => v.effects(meta, store),
-            Self::Select(v) => v.effects(meta, store),
-            Self::Noise(v) => v.effects(meta, store),
-            Self::Yamux(v) => v.effects(meta, store),
-            Self::Identify(v) => match v.effects(meta, store) {
+            P2pNetworkAction::Scheduler(v) => v.effects(meta, store),
+            P2pNetworkAction::Pnet(v) => v.effects(meta, store),
+            P2pNetworkAction::Select(v) => v.effects(meta, store),
+            P2pNetworkAction::Noise(v) => v.effects(meta, store),
+            P2pNetworkAction::Yamux(v) => v.effects(meta, store),
+            P2pNetworkAction::Identify(v) => match v.effects(meta, store) {
                 Ok(_) => {}
                 Err(e) => error!(meta.time(); "error dispatching Identify stream action: {e}"),
             },
-            Self::Kad(v) => match v.effects(meta, store) {
+            P2pNetworkAction::Kad(v) => match v.effects(meta, store) {
                 Ok(_) => {}
                 Err(e) => error!(meta.time(); "error dispatching Kademlia action: {e}"),
             },
-            Self::Pubsub(v) => v.effects(meta, store),
-            Self::Rpc(v) => v.effects(meta, store),
+            P2pNetworkAction::Pubsub(v) => v.effects(meta, store),
+            P2pNetworkAction::Rpc(v) => v.effects(meta, store),
         }
     }
 }

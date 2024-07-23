@@ -4,7 +4,7 @@ use openmina_core::ActionEvent;
 use redux::EnablingCondition;
 use serde::{Deserialize, Serialize};
 
-use crate::{P2pAction, P2pNetworkKadEntry, P2pState, PeerId, StreamId};
+use crate::{ConnectionAddr, P2pAction, P2pNetworkKadEntry, P2pState, PeerId, StreamId};
 
 #[derive(Clone, Debug, Serialize, Deserialize, ActionEvent)]
 #[action_event(fields(display(peer_id), display(addr), display(key), stream_id, error))]
@@ -19,7 +19,7 @@ pub enum P2pNetworkKadRequestAction {
     },
     MuxReady {
         peer_id: PeerId,
-        addr: SocketAddr,
+        addr: ConnectionAddr,
     },
     StreamIsCreating {
         peer_id: PeerId,
@@ -28,7 +28,7 @@ pub enum P2pNetworkKadRequestAction {
     StreamReady {
         peer_id: PeerId,
         stream_id: StreamId,
-        addr: SocketAddr,
+        addr: ConnectionAddr,
     },
     RequestSent {
         peer_id: PeerId,

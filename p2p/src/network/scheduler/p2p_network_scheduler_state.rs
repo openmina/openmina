@@ -12,6 +12,17 @@ use super::super::*;
 
 pub type StreamState<T> = BTreeMap<PeerId, BTreeMap<StreamId, T>>;
 
+#[derive(Serialize, Deserialize, PartialEq, PartialOrd, Eq, Ord, Debug, Clone, Copy)]
+pub struct ConnectionAddr {
+    pub sock_addr: SocketAddr,
+    pub incoming: bool,
+}
+impl std::fmt::Display for ConnectionAddr {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{} (incoming: {})", self.sock_addr, self.incoming)
+    }
+}
+
 #[serde_with::serde_as]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pNetworkSchedulerState {
@@ -20,7 +31,7 @@ pub struct P2pNetworkSchedulerState {
     pub local_pk: PublicKey,
     #[serde_as(as = "serde_with::hex::Hex")]
     pub pnet_key: [u8; 32],
-    pub connections: BTreeMap<SocketAddr, P2pNetworkConnectionState>,
+    pub connections: BTreeMap<ConnectionAddr, P2pNetworkConnectionState>,
     pub broadcast_state: P2pNetworkPubsubState,
     pub identify_state: identify::P2pNetworkIdentifyState,
     pub discovery_state: Option<P2pNetworkKadState>,
@@ -33,7 +44,10 @@ impl P2pNetworkSchedulerState {
         self.discovery_state.as_ref()
     }
 
-    pub fn find_peer(&self, peer_id: &PeerId) -> Option<(&SocketAddr, &P2pNetworkConnectionState)> {
+    pub fn find_peer(
+        &self,
+        peer_id: &PeerId,
+    ) -> Option<(&ConnectionAddr, &P2pNetworkConnectionState)> {
         self.connections
             .iter()
             .find(|(_, conn_state)| conn_state.peer_id() == Some(peer_id))

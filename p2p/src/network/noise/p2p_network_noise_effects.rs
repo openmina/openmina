@@ -40,8 +40,8 @@ impl P2pNetworkNoiseAction {
             ..
         }) = &state.inner
         {
-            if ((matches!(self, Self::IncomingChunk { .. }) && *incoming)
-                || (matches!(self, Self::OutgoingChunk { .. }) && !*incoming))
+            if ((matches!(self, P2pNetworkNoiseAction::IncomingChunk { .. }) && *incoming)
+                || (matches!(self, P2pNetworkNoiseAction::OutgoingChunk { .. }) && !*incoming))
                 && *send_nonce == 0
                 && *recv_nonce == 0
             {
@@ -68,7 +68,7 @@ impl P2pNetworkNoiseAction {
             ))
         );
 
-        if let Self::HandshakeDone {
+        if let P2pNetworkNoiseAction::HandshakeDone {
             addr,
             peer_id,
             incoming,
@@ -83,7 +83,7 @@ impl P2pNetworkNoiseAction {
             return;
         }
 
-        if let Self::DecryptedData {
+        if let P2pNetworkNoiseAction::DecryptedData {
             addr,
             peer_id,
             data,
@@ -117,19 +117,20 @@ impl P2pNetworkNoiseAction {
         }
 
         match self {
-            Self::Init { addr, .. } | Self::OutgoingData { addr, .. } => {
+            P2pNetworkNoiseAction::Init { addr, .. }
+            | P2pNetworkNoiseAction::OutgoingData { addr, .. } => {
                 let mut outgoing = outgoing;
                 while let Some(data) = outgoing.pop_front() {
                     store.dispatch(P2pNetworkNoiseAction::OutgoingChunk { addr, data });
                 }
             }
-            Self::OutgoingDataSelectMux { addr, .. } => {
+            P2pNetworkNoiseAction::OutgoingDataSelectMux { addr, .. } => {
                 let mut outgoing = outgoing;
                 if let Some(data) = outgoing.pop_front() {
                     store.dispatch(P2pNetworkNoiseAction::OutgoingChunkSelectMux { addr, data });
                 }
             }
-            Self::IncomingData { addr, .. } => {
+            P2pNetworkNoiseAction::IncomingData { addr, .. } => {
                 let mut incoming = incoming;
                 while let Some(data) = incoming.pop_front() {
                     store.dispatch(P2pNetworkNoiseAction::IncomingChunk {
@@ -138,7 +139,7 @@ impl P2pNetworkNoiseAction {
                     });
                 }
             }
-            Self::IncomingChunk { addr, .. } => {
+            P2pNetworkNoiseAction::IncomingChunk { addr, .. } => {
                 if let Some(error) = handshake_error {
                     store.dispatch(P2pNetworkSchedulerAction::Error {
                         addr,
@@ -151,7 +152,7 @@ impl P2pNetworkNoiseAction {
                     let addr = *self.addr();
                     store.dispatch(P2pConnectionIncomingAction::FinalizePendingLibp2p {
                         peer_id,
-                        addr,
+                        addr: addr.sock_addr,
                     });
                     // check that peer management decide to accept this connection
                     let this_connection_is_kept = store
@@ -160,7 +161,7 @@ impl P2pNetworkNoiseAction {
                         .get(&peer_id)
                         .and_then(|peer_state| peer_state.status.as_connecting())
                         .and_then(|connecting| connecting.as_incoming())
-                        .map_or(false, |incoming| matches!(incoming, P2pConnectionIncomingState::FinalizePendingLibp2p { addr: a, .. } if a == &addr));
+                        .map_or(false, |incoming| matches!(incoming, P2pConnectionIncomingState::FinalizePendingLibp2p { addr: a, .. } if a == &addr.sock_addr));
                     if !this_connection_is_kept {
                         return;
                     }
@@ -199,7 +200,8 @@ impl P2pNetworkNoiseAction {
                     });
                 }
             }
-            Self::OutgoingChunk { addr, data } | Self::OutgoingChunkSelectMux { addr, data } => {
+            P2pNetworkNoiseAction::OutgoingChunk { addr, data }
+            | P2pNetworkNoiseAction::OutgoingChunkSelectMux { addr, data } => {
                 let data = fuzzed_maybe!(
                     data.iter()
                         .fold(vec![], |mut v, item| {

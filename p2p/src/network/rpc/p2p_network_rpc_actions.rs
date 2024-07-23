@@ -1,5 +1,3 @@
-use std::net::SocketAddr;
-
 use mina_p2p_messages::rpc_kernel::{QueryHeader, QueryID, ResponseHeader};
 use openmina_core::{action_debug, action_trace, ActionEvent};
 use serde::{Deserialize, Serialize};
@@ -11,21 +9,21 @@ use crate::{P2pState, PeerId};
 #[action_event(fields(display(addr), display(peer_id), incoming, stream_id, debug(data), fin))]
 pub enum P2pNetworkRpcAction {
     Init {
-        addr: SocketAddr,
+        addr: ConnectionAddr,
         peer_id: PeerId,
         stream_id: StreamId,
         incoming: bool,
     },
     #[action_event(level = trace)]
     IncomingData {
-        addr: SocketAddr,
+        addr: ConnectionAddr,
         peer_id: PeerId,
         stream_id: StreamId,
         data: Data,
     },
     #[action_event(expr(log_message(context, message, addr, peer_id, stream_id)))]
     IncomingMessage {
-        addr: SocketAddr,
+        addr: ConnectionAddr,
         peer_id: PeerId,
         stream_id: StreamId,
         message: RpcMessage,
@@ -35,7 +33,7 @@ pub enum P2pNetworkRpcAction {
         stream_id: StreamId,
     },
     HeartbeatSend {
-        addr: SocketAddr,
+        addr: ConnectionAddr,
         peer_id: PeerId,
         stream_id: StreamId,
     },
@@ -50,7 +48,7 @@ pub enum P2pNetworkRpcAction {
         data: Data,
     },
     OutgoingData {
-        addr: SocketAddr,
+        addr: ConnectionAddr,
         peer_id: PeerId,
         stream_id: StreamId,
         data: Data,
@@ -167,7 +165,7 @@ impl redux::EnablingCondition<P2pState> for P2pNetworkRpcAction {
 fn log_message<T>(
     context: &T,
     message: &RpcMessage,
-    addr: &SocketAddr,
+    addr: &ConnectionAddr,
     peer_id: &PeerId,
     stream_id: &u32,
 ) where

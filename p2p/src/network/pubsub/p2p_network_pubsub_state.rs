@@ -1,15 +1,9 @@
-use std::{
-    collections::{BTreeMap, BTreeSet, VecDeque},
-    net::SocketAddr,
-};
-
+use super::pb;
+use crate::{token::BroadcastAlgorithm, ConnectionAddr, PeerId, StreamId};
 use mina_p2p_messages::v2;
 use openmina_core::{snark::Snark, transaction::Transaction};
 use serde::{Deserialize, Serialize};
-
-use crate::{token::BroadcastAlgorithm, PeerId, StreamId};
-
-use super::pb;
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
 pub struct P2pNetworkPubsubState {
@@ -33,7 +27,7 @@ impl P2pNetworkPubsubState {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct P2pNetworkPubsubClientState {
     pub protocol: BroadcastAlgorithm,
-    pub addr: SocketAddr,
+    pub addr: ConnectionAddr,
     pub outgoing_stream_id: Option<StreamId>,
     pub message: pb::Rpc,
     pub buffer: Vec<u8>,

@@ -2,12 +2,16 @@ use openmina_core::{fuzzed_maybe, warn};
 use redux::ActionMeta;
 
 use crate::{
-    stream::{P2pNetworkKadIncomingStreamError, P2pNetworkKadOutgoingStreamError},
+    stream::{
+        P2pNetworkKadIncomingStreamError, P2pNetworkKadOutgoingStreamError,
+        P2pNetworkKadStreamState,
+    },
     Data, P2pNetworkKademliaAction, P2pNetworkSchedulerAction, P2pNetworkYamuxAction, YamuxFlags,
 };
 
 use super::{
     super::{P2pNetworkKademliaRpcReply, P2pNetworkKademliaRpcRequest},
+    P2pNetworkKadIncomingStreamState, P2pNetworkKadOutgoingStreamState,
     P2pNetworkKademliaStreamAction,
 };
 
@@ -16,12 +20,7 @@ impl P2pNetworkKademliaStreamAction {
     where
         Store: crate::P2pStore<S>,
     {
-        use super::P2pNetworkKadIncomingStreamState as I;
-        use super::P2pNetworkKadOutgoingStreamState as O;
-        use super::P2pNetworkKadStreamState as D;
-        use P2pNetworkKademliaStreamAction as A;
-
-        if let A::Prune { .. } = self {
+        if let P2pNetworkKademliaStreamAction::Prune { .. } = self {
             return Ok(());
         }
 
@@ -37,22 +36,29 @@ impl P2pNetworkKademliaStreamAction {
 
         match (self, state) {
             (
-                A::New { .. },
-                D::Outgoing(O::WaitingForRequest { .. }) | D::Incoming(I::WaitingForRequest { .. }),
+                P2pNetworkKademliaStreamAction::New { .. },
+                P2pNetworkKadStreamState::Outgoing(
+                    P2pNetworkKadOutgoingStreamState::WaitingForRequest { .. },
+                )
+                | P2pNetworkKadStreamState::Incoming(
+                    P2pNetworkKadIncomingStreamState::WaitingForRequest { .. },
+                ),
             ) => Ok(()),
             (
-                A::IncomingData {
+                P2pNetworkKademliaStreamAction::IncomingData {
                     addr,
                     peer_id,
                     stream_id,
                     ..
                 },
-                D::Incoming(I::RequestIsReady {
-                    data: P2pNetworkKademliaRpcRequest::FindNode { key },
-                }),
+                P2pNetworkKadStreamState::Incoming(
+                    P2pNetworkKadIncomingStreamState::RequestIsReady {
+                        data: P2pNetworkKademliaRpcRequest::FindNode { key },
+                    },
+                ),
             ) => {
                 let key = *key;
-                store.dispatch(A::WaitOutgoing {
+                store.dispatch(P2pNetworkKademliaStreamAction::WaitOutgoing {
                     addr,
                     peer_id,
                     stream_id,
@@ -66,18 +72,20 @@ impl P2pNetworkKademliaStreamAction {
                 Ok(())
             }
             (
-                A::IncomingData {
+                P2pNetworkKademliaStreamAction::IncomingData {
                     addr,
                     peer_id,
                     stream_id,
                     ..
                 },
-                D::Outgoing(O::ResponseIsReady {
-                    data: P2pNetworkKademliaRpcReply::FindNode { closer_peers },
-                }),
+                P2pNetworkKadStreamState::Outgoing(
+                    P2pNetworkKadOutgoingStreamState::ResponseIsReady {
+                        data: P2pNetworkKademliaRpcReply::FindNode { closer_peers },
+                    },
+                ),
             ) => {
                 let closest_peers = closer_peers.clone();
-                store.dispatch(A::WaitOutgoing {
+                store.dispatch(P2pNetworkKademliaStreamAction::WaitOutgoing {
                     addr,
                     peer_id,
                     stream_id,
@@ -91,24 +99,33 @@ impl P2pNetworkKademliaStreamAction {
                 Ok(())
             }
             (
-                A::WaitOutgoing { .. },
-                D::Incoming(I::WaitingForReply { .. }) | D::Outgoing(O::WaitingForRequest { .. }),
+                P2pNetworkKademliaStreamAction::WaitOutgoing { .. },
+                P2pNetworkKadStreamState::Incoming(
+                    P2pNetworkKadIncomingStreamState::WaitingForReply { .. },
+                )
+                | P2pNetworkKadStreamState::Outgoing(
+                    P2pNetworkKadOutgoingStreamState::WaitingForRequest { .. },
+                ),
             ) => Ok(()),
             (
-                A::SendRequest {
+                P2pNetworkKademliaStreamAction::SendRequest {
                     addr,
                     peer_id,
                     stream_id,
                     ..
                 }
-                | A::SendResponse {
+                | P2pNetworkKademliaStreamAction::SendResponse {
                     addr,
                     peer_id,
                     stream_id,
                     ..
                 },
-                D::Incoming(I::ResponseBytesAreReady { bytes })
-                | D::Outgoing(O::RequestBytesAreReady { bytes }),
+                P2pNetworkKadStreamState::Incoming(
+                    P2pNetworkKadIncomingStreamState::ResponseBytesAreReady { bytes },
+                )
+                | P2pNetworkKadStreamState::Outgoing(
+                    P2pNetworkKadOutgoingStreamState::RequestBytesAreReady { bytes },
+                ),
             ) => {
                 // send data to the network
                 let data = fuzzed_maybe!(bytes.clone().into(), crate::fuzzer::mutate_kad_data);
@@ -120,7 +137,7 @@ impl P2pNetworkKademliaStreamAction {
                     data,
                     flags,
                 });
-                store.dispatch(A::WaitIncoming {
+                store.dispatch(P2pNetworkKademliaStreamAction::WaitIncoming {
                     addr,
                     peer_id,
                     stream_id,
@@ -128,15 +145,24 @@ impl P2pNetworkKademliaStreamAction {
                 Ok(())
             }
             (
-                A::WaitIncoming { .. },
-                D::Incoming(I::WaitingForRequest { .. }) | D::Outgoing(O::WaitingForReply),
+                P2pNetworkKademliaStreamAction::WaitIncoming { .. },
+                P2pNetworkKadStreamState::Incoming(
+                    P2pNetworkKadIncomingStreamState::WaitingForRequest { .. },
+                )
+                | P2pNetworkKadStreamState::Outgoing(
+                    P2pNetworkKadOutgoingStreamState::WaitingForReply,
+                ),
             ) => Ok(()),
             (
-                A::Close {
+                P2pNetworkKademliaStreamAction::Close {
                     addr, stream_id, ..
                 },
-                D::Incoming(I::ResponseBytesAreReady { bytes })
-                | D::Outgoing(O::RequestBytesAreReady { bytes }),
+                P2pNetworkKadStreamState::Incoming(
+                    P2pNetworkKadIncomingStreamState::ResponseBytesAreReady { bytes },
+                )
+                | P2pNetworkKadStreamState::Outgoing(
+                    P2pNetworkKadOutgoingStreamState::RequestBytesAreReady { bytes },
+                ),
             ) if bytes.is_empty() => {
                 // send FIN to the network
                 store.dispatch(P2pNetworkYamuxAction::OutgoingData {
@@ -148,12 +174,12 @@ impl P2pNetworkKademliaStreamAction {
                 Ok(())
             }
             (
-                A::RemoteClose {
+                P2pNetworkKademliaStreamAction::RemoteClose {
                     addr,
                     peer_id,
                     stream_id,
                 },
-                D::Incoming(I::Closing),
+                P2pNetworkKadStreamState::Incoming(P2pNetworkKadIncomingStreamState::Closing),
             ) => {
                 // send FIN to the network
                 store.dispatch(P2pNetworkYamuxAction::OutgoingData {
@@ -162,7 +188,7 @@ impl P2pNetworkKademliaStreamAction {
                     data: Data(Box::new([])),
                     flags: YamuxFlags::FIN,
                 });
-                store.dispatch(A::Prune {
+                store.dispatch(P2pNetworkKademliaStreamAction::Prune {
                     addr,
                     peer_id,
                     stream_id,
@@ -170,25 +196,33 @@ impl P2pNetworkKademliaStreamAction {
                 Ok(())
             }
             (
-                A::RemoteClose {
+                P2pNetworkKademliaStreamAction::RemoteClose {
                     addr,
                     peer_id,
                     stream_id,
                 },
-                D::Outgoing(O::Closing),
+                P2pNetworkKadStreamState::Outgoing(P2pNetworkKadOutgoingStreamState::Closing),
             ) => {
-                store.dispatch(A::Prune {
+                store.dispatch(P2pNetworkKademliaStreamAction::Prune {
                     addr,
                     peer_id,
                     stream_id,
                 });
                 Ok(())
             }
-            (action, D::Incoming(I::Error(err)) | D::Outgoing(O::Error(err))) => {
+            (
+                action,
+                P2pNetworkKadStreamState::Incoming(P2pNetworkKadIncomingStreamState::Error(err))
+                | P2pNetworkKadStreamState::Outgoing(P2pNetworkKadOutgoingStreamState::Error(err)),
+            ) => {
                 warn!(meta.time(); summary = "error handling kademlia action", error = display(err));
                 let error = match state {
-                    D::Incoming(_) => P2pNetworkKadIncomingStreamError::from(err.clone()).into(),
-                    D::Outgoing(_) => P2pNetworkKadOutgoingStreamError::from(err.clone()).into(),
+                    P2pNetworkKadStreamState::Incoming(_) => {
+                        P2pNetworkKadIncomingStreamError::from(err.clone()).into()
+                    }
+                    P2pNetworkKadStreamState::Outgoing(_) => {
+                        P2pNetworkKadOutgoingStreamError::from(err.clone()).into()
+                    }
                 };
                 store.dispatch(P2pNetworkSchedulerAction::Error {
                     addr: *action.addr(),

@@ -49,10 +49,9 @@ impl P2pNetworkKadBootstrapState {
         filter_addrs: bool,
     ) -> Result<(), String> {
         let (action, meta) = action.split();
-        use P2pNetworkKadBootstrapAction as A;
 
         match action {
-            A::CreateRequests {} => {
+            P2pNetworkKadBootstrapAction::CreateRequests {} => {
                 let requests_to_create = 3_usize.saturating_sub(self.requests.len());
                 let peer_id_req_vec = routing_table
                     .closest_peers(&self.kademlia_key) // for the next request we take closest peer
@@ -82,7 +81,7 @@ impl P2pNetworkKadBootstrapState {
                 }
                 Ok(())
             }
-            A::RequestDone {
+            P2pNetworkKadBootstrapAction::RequestDone {
                 peer_id,
                 closest_peers,
             } => {
@@ -118,7 +117,7 @@ impl P2pNetworkKadBootstrapState {
 
                 Ok(())
             }
-            A::RequestError { peer_id, error } => {
+            P2pNetworkKadBootstrapAction::RequestError { peer_id, error } => {
                 let Some(req) = self.requests.remove(peer_id) else {
                     return Err(format!("cannot find reques for peer {peer_id}"));
                 };
