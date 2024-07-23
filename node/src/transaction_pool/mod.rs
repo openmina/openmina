@@ -210,6 +210,8 @@ impl TransactionPoolState {
                 best_tip_hash,
                 diff,
             } => {
+                assert_eq!(substate.best_tip_hash.as_ref().unwrap(), best_tip_hash);
+
                 let (account_ids, uncommitted) =
                     substate.pool.get_accounts_to_handle_transition_diff(&diff);
                 let pending_id = substate.make_action_pending(action);

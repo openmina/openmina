@@ -293,14 +293,13 @@ fn synced_effects<S: crate::Service>(
     let best_tip_hash = best_tip.staged_ledger_hash().clone();
     store.dispatch(ConsensusAction::Prune);
     store.dispatch(BlockProducerAction::BestTipUpdate { best_tip });
+    store.dispatch(TransactionPoolAction::BestTipChanged { best_tip_hash: best_tip_hash.clone() });
     if let Some(diff) = chain_diff {
-        let best_tip_hash = best_tip_hash.clone();
         store.dispatch(TransactionPoolAction::ApplyTransitionFrontierDiff {
             best_tip_hash,
             diff,
         });
     }
-    store.dispatch(TransactionPoolAction::BestTipChanged { best_tip_hash });
 }
 
 // Handling of the actions related to the synchronization of a target ledger
