@@ -3,8 +3,8 @@ use crate::{Data, P2pState, PeerId};
 use openmina_core::ActionEvent;
 use serde::{Deserialize, Serialize};
 
-#[derive(derive_more::From, Serialize, Deserialize, Debug, Clone, ActionEvent)]
-#[action_event(fields(display(addr), select_kind = debug(kind), debug(data), send_handshake, fin, debug(token), debug(tokens)))]
+#[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
+#[action_event(fields(display(addr), select_kind = debug(kind), debug(data), fin, debug(token), debug(tokens)))]
 pub enum P2pNetworkSelectAction {
     /// Initialize protocol selection.
     ///
@@ -16,7 +16,6 @@ pub enum P2pNetworkSelectAction {
         addr: ConnectionAddr,
         kind: SelectKind,
         incoming: bool,
-        send_handshake: bool,
     },
     #[action_event(level = trace)]
     IncomingDataAuth {
@@ -60,7 +59,6 @@ pub enum P2pNetworkSelectAction {
     IncomingToken {
         addr: ConnectionAddr,
         kind: SelectKind,
-        token: token::Token,
     },
     OutgoingTokens {
         addr: ConnectionAddr,
@@ -98,6 +96,38 @@ impl SelectKind {
             Self::MultiplexingNoPeerId => None,
             Self::Multiplexing(peer_id) => Some(*peer_id),
             Self::Stream(peer_id, _) => Some(*peer_id),
+        }
+    }
+
+    pub(super) fn forward_data(
+        self,
+        addr: ConnectionAddr,
+        data: Data,
+        fin: bool,
+    ) -> P2pNetworkSelectAction {
+        match self {
+            SelectKind::Authentication => {
+                P2pNetworkSelectAction::IncomingPayloadAuth { addr, fin, data }
+            }
+            SelectKind::Multiplexing(peer_id) => P2pNetworkSelectAction::IncomingPayloadMux {
+                addr,
+                peer_id: Some(peer_id),
+                fin,
+                data,
+            },
+            SelectKind::MultiplexingNoPeerId => P2pNetworkSelectAction::IncomingPayloadMux {
+                addr,
+                peer_id: None,
+                fin,
+                data,
+            },
+            SelectKind::Stream(peer_id, stream_id) => P2pNetworkSelectAction::IncomingPayload {
+                addr,
+                peer_id,
+                stream_id,
+                fin,
+                data,
+            },
         }
     }
 }

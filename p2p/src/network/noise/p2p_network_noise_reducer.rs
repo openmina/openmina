@@ -179,9 +179,7 @@ impl P2pNetworkNoiseState {
                 let Some(state) = &mut self.inner else {
                     return;
                 };
-                if data.is_empty() && self.handshake_optimized {
-                    return;
-                }
+
                 match state {
                     P2pNetworkNoiseStateInner::Done {
                         send_key,
