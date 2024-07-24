@@ -44,8 +44,6 @@ impl Clone for TransactionPoolState {
     }
 }
 
-type TransactionPoolActionWithMetaRef<'a> = redux::ActionWithMeta<&'a TransactionPoolAction>;
-
 impl TransactionPoolState {
     pub fn new(config: Config, consensus_constants: &ConsensusConstants) -> Self {
         Self {
@@ -77,21 +75,28 @@ impl TransactionPoolState {
         // TODO
     }
 
-    pub fn reducer(mut state: crate::Substate<Self>, action: TransactionPoolActionWithMetaRef<'_>) {
-        let (action, _meta) = action.split();
-        let substate = state.get_substate_mut().unwrap();
-
-        // Uncoment to save actions to `/tmp/pool.bin`
-        // if substate.file.is_none() {
-        //     let mut file = std::fs::File::create("/tmp/pool.bin").unwrap();
-        //     postcard::to_io(&substate.pool.config, &mut file).unwrap();
-        //     postcard::to_io(&substate.pool.pool.config.consensus_constants, &mut file).unwrap();
-        //     substate.file = Some(file);
+    pub fn reducer(mut state: crate::Substate<Self>, action: &TransactionPoolAction) {
+        // Uncoment following block to save actions to `/tmp/pool.bin`
+        // {
+        //     let substate = state.get_substate_mut().unwrap();
+        //     if substate.file.is_none() {
+        //         let mut file = std::fs::File::create("/tmp/pool.bin").unwrap();
+        //         postcard::to_io(&state.get_state(), &mut file).unwrap();
+        //         let substate = state.get_substate_mut().unwrap();
+        //         substate.file = Some(file);
+        //     }
         // }
 
+        let substate = state.get_substate_mut().unwrap();
         if let Some(file) = substate.file.as_mut() {
             postcard::to_io(action, file).unwrap();
         };
+
+        Self::handle_action(state, action)
+    }
+
+    fn handle_action(mut state: crate::Substate<Self>, action: &TransactionPoolAction) {
+        let substate = state.get_substate_mut().unwrap();
 
         match action {
             TransactionPoolAction::StartVerify { commands } => {
@@ -280,9 +285,9 @@ pub trait VerifyUserCommandsService: redux::Service {
 
 #[cfg(test)]
 mod tests {
-    use crate::ActionKindGet;
-
     use super::*;
+    use crate::State;
+    use redux::Dispatcher;
 
     #[allow(unused)]
     #[test]
@@ -290,154 +295,16 @@ mod tests {
         let vec = std::fs::read("/tmp/pool.bin").unwrap();
         let slice = vec.as_slice();
 
-        let (config, rest) = postcard::take_from_bytes::<Config>(slice).unwrap();
-        let (constants, rest) = postcard::take_from_bytes::<ConsensusConstants>(rest).unwrap();
+        let (mut state, rest) = postcard::take_from_bytes::<State>(slice).unwrap();
         let mut slice = rest;
-
-        let mut substate = TransactionPoolState::new(config, &constants);
 
         while let Ok((action, rest)) = postcard::take_from_bytes::<TransactionPoolAction>(slice) {
             slice = rest;
 
-            dbg!(action.kind());
+            let mut dispatcher = Dispatcher::new();
+            let state = crate::Substate::<TransactionPoolState>::new(&mut state, &mut dispatcher);
 
-            let action = &action;
-
-            match action {
-                TransactionPoolAction::StartVerify { commands } => {
-                    dbg!(commands.len());
-
-                    let commands = commands.iter().map(UserCommand::from).collect::<Vec<_>>();
-                    let account_ids = commands
-                        .iter()
-                        .flat_map(|c| c.accounts_referenced())
-                        .collect::<BTreeSet<_>>();
-                    let best_tip_hash = substate.best_tip_hash.clone().unwrap();
-                    let pending_id = substate.make_action_pending(action);
-                }
-                TransactionPoolAction::StartVerifyWithAccounts {
-                    accounts,
-                    pending_id,
-                } => {
-                    let TransactionPoolAction::StartVerify { commands } =
-                        substate.pending_actions.remove(pending_id).unwrap()
-                    else {
-                        panic!()
-                    };
-
-                    dbg!(accounts.len());
-
-                    // TODO: Convert those commands only once
-                    let commands = commands.iter().map(UserCommand::from).collect::<Vec<_>>();
-                    let diff = diff::Diff { list: commands };
-
-                    let valids = substate.pool.verify(diff, accounts).unwrap(); // TODO: Handle invalids
-                    let valids = valids
-                        .into_iter()
-                        .map(transaction_hash::hash_command)
-                        .collect::<Vec<_>>();
-                    let best_tip_hash = substate.best_tip_hash.clone().unwrap();
-                    let diff = DiffVerified { list: valids };
-                }
-                TransactionPoolAction::BestTipChanged { best_tip_hash } => {
-                    let account_ids = substate.pool.get_accounts_to_revalidate_on_new_best_tip();
-                    substate.best_tip_hash = Some(best_tip_hash.clone());
-
-                    dbg!(best_tip_hash);
-                }
-                TransactionPoolAction::BestTipChangedWithAccounts { accounts } => {
-                    dbg!(accounts.len());
-                    substate.pool.on_new_best_tip(accounts);
-                }
-                TransactionPoolAction::ApplyVerifiedDiff {
-                    best_tip_hash,
-                    diff,
-                    is_sender_local: _,
-                } => {
-                    dbg!(best_tip_hash);
-                    dbg!(diff.list.len());
-
-                    let account_ids = substate.pool.get_accounts_to_apply_diff(&diff);
-                    let pending_id = substate.make_action_pending(action);
-                }
-                TransactionPoolAction::ApplyVerifiedDiffWithAccounts {
-                    accounts,
-                    pending_id,
-                } => {
-                    let TransactionPoolAction::ApplyVerifiedDiff {
-                        best_tip_hash: _,
-                        diff,
-                        is_sender_local,
-                    } = substate.pending_actions.remove(pending_id).unwrap()
-                    else {
-                        panic!()
-                    };
-
-                    dbg!(accounts.len());
-
-                    match substate
-                        .pool
-                        .unsafe_apply(&diff, &accounts, is_sender_local)
-                    {
-                        Ok((ApplyDecision::Accept, accepted, rejected)) => {
-                            substate.rebroadcast(accepted, rejected)
-                        }
-                        Ok((ApplyDecision::Reject, accepted, rejected)) => {
-                            substate.rebroadcast(accepted, rejected)
-                        }
-                        Err(e) => eprintln!("unsafe_apply error: {:?}", e),
-                    }
-                }
-                TransactionPoolAction::ApplyTransitionFrontierDiff {
-                    best_tip_hash,
-                    diff,
-                } => {
-                    dbg!(best_tip_hash);
-                    dbg!(diff.new_commands.len());
-                    dbg!(diff.removed_commands.len());
-                    dbg!(diff.reorg_best_tip);
-
-                    let account_ids = substate.pool.get_accounts_to_handle_transition_diff(&diff);
-                    let pending_id = substate.make_action_pending(action);
-                }
-                TransactionPoolAction::ApplyTransitionFrontierDiffWithAccounts {
-                    accounts,
-                    pending_id,
-                } => {
-                    let TransactionPoolAction::ApplyTransitionFrontierDiff {
-                        best_tip_hash: _,
-                        diff,
-                    } = substate.pending_actions.remove(pending_id).unwrap()
-                    else {
-                        panic!()
-                    };
-
-                    dbg!(accounts.len());
-
-                    let collect = |set: &BTreeSet<AccountId>| {
-                        set.iter()
-                            .filter_map(|id| {
-                                let account = accounts.get(&id).cloned()?;
-                                Some((id.clone(), account))
-                            })
-                            .collect::<BTreeMap<_, _>>()
-                    };
-
-                    let (account_ids, uncommitted) =
-                        substate.pool.get_accounts_to_handle_transition_diff(&diff);
-
-                    let in_cmds = collect(&account_ids);
-                    let uncommitted = collect(&uncommitted);
-
-                    substate.pool.handle_transition_frontier_diff(
-                        &diff,
-                        &account_ids,
-                        &in_cmds,
-                        &uncommitted,
-                    );
-                }
-                TransactionPoolAction::Rebroadcast => {}
-            }
+            TransactionPoolState::handle_action(state, &action);
         }
     }
 }

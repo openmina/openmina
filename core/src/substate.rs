@@ -63,7 +63,12 @@ where
         Self::new(state, dispatcher)
     }
 
-    /// Attempts to obtain a mutable reference to the substate.
+    /// Obtain an immutable reference to the state.
+    pub fn get_state(&self) -> &T {
+        self.state
+    }
+
+    /// Attempts to obtain an immutable reference to the substate.
     ///
     /// In case of failure, an error `String` describing the reason is returned.
     pub fn get_substate(&self) -> SubstateResult<&S> {
