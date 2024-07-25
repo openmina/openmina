@@ -57,64 +57,17 @@ impl P2pNetworkNoiseAction {
         } else {
             None
         };
-        let handshake_optimized = state.handshake_optimized;
+
         let middle_initiator =
             matches!(&state.inner, Some(P2pNetworkNoiseStateInner::Initiator(..)))
                 && remote_peer_id.is_some();
+
         let middle_responder = matches!(
             &state.inner,
             Some(P2pNetworkNoiseStateInner::Responder(
                 P2pNetworkNoiseStateResponder::Init { .. },
             ))
         );
-
-        if let P2pNetworkNoiseAction::HandshakeDone {
-            addr,
-            peer_id,
-            incoming,
-        } = self
-        {
-            store.dispatch(P2pNetworkSelectAction::Init {
-                addr,
-                kind: SelectKind::Multiplexing(peer_id),
-                incoming,
-                send_handshake: true,
-            });
-            return;
-        }
-
-        if let P2pNetworkNoiseAction::DecryptedData {
-            addr,
-            peer_id,
-            data,
-        } = self
-        {
-            let kind = match &peer_id.or(remote_peer_id) {
-                Some(peer_id) => SelectKind::Multiplexing(*peer_id),
-                None => SelectKind::MultiplexingNoPeerId,
-            };
-            if handshake_optimized && middle_initiator {
-                store.dispatch(P2pNetworkSelectAction::Init {
-                    addr,
-                    kind,
-                    // it is not a mistake, if we are initiator of noise, the select will be incoming
-                    // because noise is
-                    // initiator -> responder (ephemeral key)
-                    // initiator <- responder (ephemeral key, encrypted static kay and **encrypted payload**)
-                    // initiator -> responder (encrypted static kay and **encrypted payload**)
-                    // so the responder is sending payload first, hence responder will be initiator of underlying protocol
-                    incoming: true,
-                    send_handshake: false,
-                });
-            }
-            store.dispatch(P2pNetworkSelectAction::IncomingDataMux {
-                addr,
-                peer_id: peer_id.or(remote_peer_id),
-                data: data.clone(),
-                fin: false,
-            });
-            return;
-        }
 
         match self {
             P2pNetworkNoiseAction::Init { addr, .. }
@@ -167,20 +120,6 @@ impl P2pNetworkNoiseAction {
                     }
                 }
 
-                if handshake_optimized && middle_responder {
-                    let kind = match &remote_peer_id {
-                        Some(peer_id) => SelectKind::Multiplexing(*peer_id),
-                        None => SelectKind::MultiplexingNoPeerId,
-                    };
-
-                    store.dispatch(P2pNetworkSelectAction::Init {
-                        addr,
-                        kind,
-                        incoming: false,
-                        send_handshake: false,
-                    });
-                }
-
                 let mut outgoing = outgoing;
                 while let Some(data) = outgoing.pop_front() {
                     store.dispatch(P2pNetworkNoiseAction::OutgoingChunk { addr, data });
@@ -193,7 +132,7 @@ impl P2pNetworkNoiseAction {
                     });
                 }
 
-                if !handshake_optimized && (middle_initiator || middle_responder) {
+                if middle_initiator || middle_responder {
                     store.dispatch(P2pNetworkNoiseAction::OutgoingData {
                         addr,
                         data: Data(vec![].into_boxed_slice()),
@@ -220,7 +159,29 @@ impl P2pNetworkNoiseAction {
                     });
                 }
             }
-            _ => {}
+            P2pNetworkNoiseAction::DecryptedData {
+                addr,
+                peer_id,
+                data,
+            } => {
+                store.dispatch(P2pNetworkSelectAction::IncomingDataMux {
+                    addr,
+                    peer_id: peer_id.or(remote_peer_id),
+                    data: data.clone(),
+                    fin: false,
+                });
+            }
+            P2pNetworkNoiseAction::HandshakeDone {
+                addr,
+                peer_id,
+                incoming,
+            } => {
+                store.dispatch(P2pNetworkSelectAction::Init {
+                    addr,
+                    kind: SelectKind::Multiplexing(peer_id),
+                    incoming,
+                });
+            }
         }
     }
 }

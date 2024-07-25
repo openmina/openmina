@@ -2,8 +2,9 @@ use std::collections::VecDeque;
 
 use redux::Timestamp;
 use serde::{Deserialize, Serialize};
+use token::Token;
 
-use crate::P2pTimeouts;
+use crate::{ConnectionAddr, Data, P2pTimeouts};
 
 use super::*;
 
@@ -14,7 +15,6 @@ pub struct P2pNetworkSelectState {
     pub tokens: VecDeque<token::Token>,
 
     pub negotiated: Option<Option<token::Protocol>>,
-    pub reported: bool,
 
     pub inner: P2pNetworkSelectStateInner,
     pub to_send: Option<token::Token>,
@@ -74,6 +74,38 @@ impl P2pNetworkSelectState {
 
     pub fn is_incoming(&self) -> bool {
         matches!(&self.inner, P2pNetworkSelectStateInner::Responder)
+    }
+
+    /// Propagates incoming data to corresponding action
+    pub(super) fn forward_incoming_data(
+        &self,
+        kind: SelectKind,
+        addr: ConnectionAddr,
+        data: Data,
+        fin: bool,
+    ) -> Vec<P2pNetworkSelectAction> {
+        if self.negotiated.is_some() {
+            vec![kind.forward_data(addr, data, fin)]
+        } else {
+            let mut tokens = vec![];
+            let payload_data = &self.recv.buffer;
+            let mut tokens_parsed = false;
+
+            for token in &self.tokens {
+                if !tokens_parsed {
+                    tokens_parsed =
+                        matches!(token, Token::Protocol(..) | Token::UnknownProtocol(..));
+                }
+
+                tokens.push(P2pNetworkSelectAction::IncomingToken { addr, kind });
+            }
+
+            if tokens_parsed && !payload_data.is_empty() {
+                tokens.push(kind.forward_data(addr, Data::from(payload_data.clone()), fin));
+            }
+
+            tokens
+        }
     }
 }
 

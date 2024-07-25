@@ -50,7 +50,6 @@ impl P2pNetworkPnetAction {
                     addr,
                     kind: SelectKind::Authentication,
                     incoming,
-                    send_handshake: true,
                 });
             }
             P2pNetworkPnetAction::Timeout { addr } => {

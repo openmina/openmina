@@ -24,7 +24,6 @@ pub struct P2pNetworkNoiseState {
     pub decrypted_chunks: VecDeque<Data>,
 
     pub inner: Option<P2pNetworkNoiseStateInner>,
-    pub handshake_optimized: bool,
     pub expected_peer_id: Option<PeerId>,
 }
 
@@ -41,11 +40,7 @@ impl P2pNetworkNoiseState {
 }
 
 impl P2pNetworkNoiseState {
-    pub fn new(
-        local_pk: PublicKey,
-        handshake_optimized: bool,
-        expected_peer_id: Option<PeerId>,
-    ) -> Self {
+    pub fn new(local_pk: PublicKey, expected_peer_id: Option<PeerId>) -> Self {
         P2pNetworkNoiseState {
             local_pk,
             buffer: Default::default(),
@@ -53,7 +48,6 @@ impl P2pNetworkNoiseState {
             outgoing_chunks: Default::default(),
             decrypted_chunks: Default::default(),
             inner: Default::default(),
-            handshake_optimized,
             expected_peer_id,
         }
     }
