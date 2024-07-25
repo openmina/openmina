@@ -67,7 +67,7 @@ impl P2pChannelsRpcState {
                     .push_back(P2pRpcRemotePendingRequestState {
                         time: meta.time(),
                         id: *id,
-                        request: request.clone(),
+                        request: (**request).clone(),
                         is_pending: false,
                     });
             }

@@ -25,7 +25,7 @@ pub enum P2pChannelsRpcAction {
     RequestSend {
         peer_id: PeerId,
         id: P2pRpcId,
-        request: P2pRpcRequest,
+        request: Box<P2pRpcRequest>,
     },
     Timeout {
         peer_id: PeerId,
@@ -34,12 +34,12 @@ pub enum P2pChannelsRpcAction {
     ResponseReceived {
         peer_id: PeerId,
         id: P2pRpcId,
-        response: Option<P2pRpcResponse>,
+        response: Option<Box<P2pRpcResponse>>,
     },
     RequestReceived {
         peer_id: PeerId,
         id: P2pRpcId,
-        request: P2pRpcRequest,
+        request: Box<P2pRpcRequest>,
     },
     /// Response for the request sent by peer is pending. Dispatched when
     /// we need data from an async component, like ledger, for constructing
@@ -51,7 +51,7 @@ pub enum P2pChannelsRpcAction {
     ResponseSend {
         peer_id: PeerId,
         id: P2pRpcId,
-        response: Option<P2pRpcResponse>,
+        response: Option<Box<P2pRpcResponse>>,
     },
 }
 

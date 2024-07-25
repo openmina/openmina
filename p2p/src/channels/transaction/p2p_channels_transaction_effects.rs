@@ -60,7 +60,7 @@ impl P2pChannelsTransactionAction {
             P2pChannelsTransactionAction::Libp2pBroadcast { transaction, nonce } => {
                 use mina_p2p_messages::{gossip::GossipNetMessageV2, v2};
                 let message = v2::NetworkPoolTransactionPoolDiffVersionedStableV2(
-                    std::iter::once(transaction).collect(),
+                    std::iter::once(*transaction).collect(),
                 );
                 let nonce = nonce.into();
                 let message = Box::new(GossipNetMessageV2::TransactionPoolDiff { message, nonce });

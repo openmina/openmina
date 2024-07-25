@@ -32,7 +32,7 @@ pub enum P2pChannelsSnarkJobCommitmentAction {
     },
     Received {
         peer_id: PeerId,
-        commitment: SnarkJobCommitment,
+        commitment: Box<SnarkJobCommitment>,
     },
     RequestReceived {
         peer_id: PeerId,

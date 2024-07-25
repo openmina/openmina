@@ -146,7 +146,7 @@ pub(super) fn event_mapper_effect(store: &mut super::redux::Store, action: P2pAc
                     RustNodeEvent::RpcChannelRequestReceived {
                         peer_id,
                         id,
-                        request,
+                        request: *request,
                     },
                 )
             }
@@ -159,7 +159,7 @@ pub(super) fn event_mapper_effect(store: &mut super::redux::Store, action: P2pAc
                 RustNodeEvent::RpcChannelResponseReceived {
                     peer_id,
                     id,
-                    response,
+                    response: response.map(|v| *v),
                 },
             ),
             _ => {}

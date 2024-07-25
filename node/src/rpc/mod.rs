@@ -156,17 +156,17 @@ pub enum RpcScanStateSummaryScanStateJob {
     Pending {
         job_id: SnarkJobId,
         bundle_job_id: SnarkJobId,
-        job: RpcScanStateSummaryScanStateJobKind,
+        job: Box<RpcScanStateSummaryScanStateJobKind>,
         seq_no: u64,
-        commitment: Option<JobCommitment>,
-        snark: Option<RpcSnarkPoolJobSnarkWork>,
+        commitment: Option<Box<JobCommitment>>,
+        snark: Option<Box<RpcSnarkPoolJobSnarkWork>>,
     },
     Done {
         job_id: SnarkJobId,
         bundle_job_id: SnarkJobId,
-        job: RpcScanStateSummaryScanStateJobKind,
+        job: Box<RpcScanStateSummaryScanStateJobKind>,
         seq_no: u64,
-        snark: RpcSnarkPoolJobSnarkWorkDone,
+        snark: Box<RpcSnarkPoolJobSnarkWorkDone>,
     },
 }
 

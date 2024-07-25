@@ -34,12 +34,12 @@ pub enum P2pRpcLocalState {
     Requested {
         time: redux::Timestamp,
         id: P2pRpcId,
-        request: P2pRpcRequest,
+        request: Box<P2pRpcRequest>,
     },
     Responded {
         time: redux::Timestamp,
         id: P2pRpcId,
-        request: P2pRpcRequest,
+        request: Box<P2pRpcRequest>,
     },
 }
 

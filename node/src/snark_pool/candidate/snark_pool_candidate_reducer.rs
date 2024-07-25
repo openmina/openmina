@@ -59,7 +59,7 @@ impl SnarkPoolCandidatesState {
                 dispatcher.push(P2pChannelsRpcAction::RequestSend {
                     peer_id,
                     id: rpc_id,
-                    request: P2pRpcRequest::Snark(job_id.clone()),
+                    request: Box::new(P2pRpcRequest::Snark(job_id.clone())),
                 });
                 dispatcher.push(SnarkPoolCandidateAction::WorkFetchPending {
                     peer_id,

@@ -1,5 +1,6 @@
 pub mod conv;
 
+use ark_ff::BigInteger256;
 use binprot::{BinProtRead, BinProtWrite};
 use binprot_derive::{BinProtRead, BinProtWrite};
 use derive_more::Deref;
@@ -359,8 +360,8 @@ impl ConsensusProofOfStakeDataEpochDataNextValueVersionedValueStableV1 {
     }
 }
 
-impl AsRef<[u8]> for LedgerHash {
-    fn as_ref(&self) -> &[u8] {
+impl AsRef<BigInteger256> for LedgerHash {
+    fn as_ref(&self) -> &BigInteger256 {
         self.0.as_ref()
     }
 }
@@ -537,7 +538,7 @@ mod tests {
             .into_inner();
         assert_eq!(v.is_odd, false);
         assert_eq!(
-            &hex::encode(&v.x),
+            &hex::encode(&v.x.to_bytes()),
             "3c2b5b48c22dc8b8c9d2c9d76a2ceaaf02beabb364301726c3f8e989653af513"
         );
     }

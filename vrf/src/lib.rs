@@ -57,7 +57,7 @@ pub struct VrfWonSlot {
     pub winner_account: String,
     pub global_slot: u32,
     pub account_index: AccountIndex,
-    pub vrf_output: VrfOutput,
+    pub vrf_output: Box<VrfOutput>,
     pub value_with_threshold: Option<(f64, f64)>,
 }
 
@@ -154,7 +154,7 @@ pub fn evaluate_vrf(vrf_input: VrfEvaluationInput) -> VrfResult<VrfEvaluationOut
     if threshold.threshold_met(value) {
         Ok(VrfEvaluationOutput::SlotWon(VrfWonSlot {
             producer: producer_key.get_address(),
-            vrf_output,
+            vrf_output: Box::new(vrf_output),
             winner_account: account_pub_key,
             global_slot,
             account_index: delegator_index,

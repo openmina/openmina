@@ -393,13 +393,17 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                     let Some(data) = snark_pool.get(bundle_job_id) else {
                         return;
                     };
-                    let commitment = data.commitment.clone();
-                    let snark = data.snark.as_ref().map(|snark| RpcSnarkPoolJobSnarkWork {
-                        snarker: snark.work.snarker.clone(),
-                        fee: snark.work.fee.clone(),
-                        received_t: snark.received_t,
-                        sender: snark.sender,
-                    });
+                    let commitment = data.commitment.clone().map(Box::new);
+                    let snark = data
+                        .snark
+                        .as_ref()
+                        .map(|snark| RpcSnarkPoolJobSnarkWork {
+                            snarker: snark.work.snarker.clone(),
+                            fee: snark.work.fee.clone(),
+                            received_t: snark.received_t,
+                            sender: snark.sender,
+                        })
+                        .map(Box::new);
 
                     if commitment.is_none() && snark.is_none() {
                         return;
@@ -407,7 +411,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                     *job = RpcScanStateSummaryScanStateJob::Pending {
                         job_id: job_id.clone(),
                         bundle_job_id: bundle_job_id.clone(),
-                        job: kind.clone(),
+                        job: Box::new(kind.clone()),
                         seq_no: *seq_no,
                         commitment,
                         snark,

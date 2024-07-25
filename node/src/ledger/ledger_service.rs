@@ -983,12 +983,12 @@ impl LedgerCtx {
                         RpcScanStateSummaryScanStateJob::Done {
                             job_id,
                             bundle_job_id,
-                            job: job_kind,
+                            job: Box::new(job_kind),
                             seq_no,
-                            snark: RpcSnarkPoolJobSnarkWorkDone {
+                            snark: Box::new(RpcSnarkPoolJobSnarkWorkDone {
                                 snarker: sok_message.prover,
                                 fee: sok_message.fee,
-                            },
+                            }),
                         }
                     } else {
                         RpcScanStateSummaryScanStateJob::Todo {

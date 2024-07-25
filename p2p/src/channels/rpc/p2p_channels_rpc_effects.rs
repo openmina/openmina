@@ -32,7 +32,7 @@ impl P2pChannelsRpcAction {
                 #[cfg(feature = "p2p-libp2p")]
                 if store.state().is_libp2p_peer(&peer_id) {
                     if let Some((query, data)) =
-                        super::libp2p::internal_request_into_libp2p(request, id)
+                        super::libp2p::internal_request_into_libp2p(*request, id)
                     {
                         store.dispatch(P2pNetworkRpcAction::OutgoingQuery {
                             peer_id,
@@ -43,7 +43,7 @@ impl P2pChannelsRpcAction {
                     return;
                 }
 
-                let msg = RpcChannelMsg::Request(id, request);
+                let msg = RpcChannelMsg::Request(id, *request);
                 store
                     .service()
                     .channel_send(peer_id, MsgId::first(), msg.into());
@@ -51,7 +51,7 @@ impl P2pChannelsRpcAction {
             P2pChannelsRpcAction::ResponseReceived {
                 peer_id, response, ..
             } => {
-                if let Some(P2pRpcResponse::BestTipWithProof(resp)) = response {
+                if let Some(P2pRpcResponse::BestTipWithProof(resp)) = response.as_deref() {
                     store.dispatch(P2pPeerAction::BestTipUpdate {
                         peer_id,
                         best_tip: BlockWithHash::new(resp.best_tip.clone()),
@@ -67,7 +67,7 @@ impl P2pChannelsRpcAction {
                 if store.state().is_libp2p_peer(&peer_id) {
                     if let Some(response) = response {
                         if let Some((response, data)) =
-                            super::libp2p::internal_response_into_libp2p(response, id)
+                            super::libp2p::internal_response_into_libp2p(*response, id)
                         {
                             store.dispatch(P2pNetworkRpcAction::OutgoingResponse {
                                 peer_id,
@@ -78,7 +78,7 @@ impl P2pChannelsRpcAction {
                     }
                     return;
                 }
-                let msg = RpcChannelMsg::Response(id, response);
+                let msg = RpcChannelMsg::Response(id, response.map(|v| *v));
                 store
                     .service()
                     .channel_send(peer_id, MsgId::first(), msg.into());

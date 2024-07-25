@@ -47,7 +47,7 @@ impl generated::MinaBaseStagedLedgerHashNonSnarkStableV1 {
     pub fn sha256(&self) -> GenericArray<u8, U32> {
         let mut ledger_hash_bytes: [u8; 32] = [0; 32];
 
-        ledger_hash_bytes.copy_from_slice(self.ledger_hash.as_ref());
+        ledger_hash_bytes.copy_from_slice(&self.ledger_hash.to_bytes()[..]);
         ledger_hash_bytes.reverse();
 
         let mut hasher = Sha256::new();
