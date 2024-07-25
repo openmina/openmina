@@ -23,7 +23,7 @@ use ledger::{
         validate_block::block_body_hash,
     },
     verifier::Verifier,
-    Account, BaseLedger, Database, Mask, UnregisterBehavior,
+    Account, AccountId, BaseLedger, Database, Mask, UnregisterBehavior,
 };
 use mina_hasher::Fp;
 use mina_p2p_messages::{
@@ -740,6 +740,32 @@ impl LedgerCtx {
             .map(|(_, account)| (&*account).into())
             .collect();
         Some(accounts)
+    }
+
+    pub fn get_accounts(
+        &mut self,
+        ledger_hash: v2::LedgerHash,
+        ids: Vec<AccountId>,
+    ) -> Vec<Account> {
+        let Some((mask, _)) = self.mask(&ledger_hash) else {
+            openmina_core::warn!(
+                openmina_core::log::system_time();
+                kind = "LedgerService::get_accounts",
+                summary = format!("Ledger not found: {ledger_hash:?}")
+            );
+            return Vec::new();
+        };
+        let addrs = mask
+            .location_of_account_batch(&ids)
+            .into_iter()
+            .filter_map(|(_id, addr)| addr)
+            .collect::<Vec<_>>();
+        let accounts = mask
+            .get_batch(&addrs)
+            .into_iter()
+            .filter_map(|(_, account)| account.map(|account| *account))
+            .collect::<Vec<_>>();
+        accounts
     }
 
     pub fn staged_ledger_aux_and_pending_coinbase(

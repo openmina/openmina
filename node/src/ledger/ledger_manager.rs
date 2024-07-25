@@ -11,7 +11,7 @@ use super::LedgerService;
 use crate::account::AccountPublicKey;
 use crate::ledger::LedgerAddress;
 use crate::transition_frontier::sync::ledger::snarked::TransitionFrontierSyncLedgerSnarkedService;
-use ledger::Mask;
+use ledger::{Account, AccountId, Mask};
 use mina_signer::CompressedPubKey;
 
 /// The type enumerating different requests that can be made to the
@@ -28,6 +28,10 @@ pub(super) enum LedgerRequest {
         parent: LedgerAddress,
         accounts: Vec<MinaBaseAccountBinableArgStableV2>,
     }, // expected response: LedgerHash
+    AccountsGet {
+        ledger_hash: LedgerHash,
+        account_ids: Vec<AccountId>,
+    }, // expected response: Vec<Account>
     ChildHashesGet {
         snarked_ledger_hash: LedgerHash,
         parent: LedgerAddress,
@@ -62,6 +66,7 @@ pub enum LedgerResponse {
     Read(LedgerReadId, LedgerReadResponse),
     ChildHashes(Option<(LedgerHash, LedgerHash)>),
     AccountsSet(Result<LedgerHash, String>),
+    AccountsGet(Result<Vec<Account>, String>),
     LedgerMask(Option<(Mask, bool)>),
     #[allow(clippy::type_complexity)]
     ProducersWithDelegatesMap(
@@ -196,6 +201,10 @@ impl LedgerRequest {
                         let res = ledger_ctx.scan_state_summary(ledger_hash);
                         LedgerReadResponse::ScanStateSummary(res)
                     }
+                    LedgerReadRequest::GetAccounts(ledger_hash, account_ids) => {
+                        let res = ledger_ctx.get_accounts(ledger_hash, account_ids);
+                        LedgerReadResponse::GetAccounts(res)
+                    }
                 },
             ),
             LedgerRequest::AccountsSet {
@@ -263,6 +272,13 @@ impl LedgerRequest {
                     staged_ledger_hash,
                     result,
                 })
+            }
+            LedgerRequest::AccountsGet {
+                ledger_hash,
+                account_ids,
+            } => {
+                let res = ledger_ctx.get_accounts(ledger_hash, account_ids);
+                LedgerResponse::AccountsGet(Ok(res))
             }
         }
     }
