@@ -460,11 +460,14 @@ impl LedgerCtx {
             .snarked_ledger_mut(snarked_ledger_hash.clone())
             .copy();
 
-        std::thread::spawn(move || {
-            let (staged_ledger_hash, result) =
-                staged_ledger_reconstruct(snarked_ledger, snarked_ledger_hash, parts);
-            callback(staged_ledger_hash, result);
-        });
+        std::thread::Builder::new()
+            .name("staged-ledger-reconstruct".into())
+            .spawn(move || {
+                let (staged_ledger_hash, result) =
+                    staged_ledger_reconstruct(snarked_ledger, snarked_ledger_hash, parts);
+                callback(staged_ledger_hash, result);
+            })
+            .expect("Failed: staged ledger reconstruct thread");
     }
 
     pub fn staged_ledger_reconstruct_sync(

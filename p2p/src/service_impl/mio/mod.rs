@@ -7,7 +7,6 @@ use std::{
     net::{IpAddr, Ipv4Addr, Shutdown, SocketAddr},
     process,
     sync::mpsc,
-    thread,
 };
 
 use libp2p_identity::Keypair;
@@ -141,18 +140,21 @@ impl MioRunningService {
             connections: BTreeMap::default(),
         };
 
-        thread::spawn(move || {
-            // fake interfaces, TODO: detect interfaces properly
-            inner.send(MioEvent::InterfaceDetected(IpAddr::V4(
-                Ipv4Addr::UNSPECIFIED,
-            )));
+        std::thread::Builder::new()
+            .name("mio-service".into())
+            .spawn(move || {
+                // fake interfaces, TODO: detect interfaces properly
+                inner.send(MioEvent::InterfaceDetected(IpAddr::V4(
+                    Ipv4Addr::UNSPECIFIED,
+                )));
 
-            let mut events = mio::Events::with_capacity(1024);
+                let mut events = mio::Events::with_capacity(1024);
 
-            loop {
-                inner.run(&mut events);
-            }
-        });
+                loop {
+                    inner.run(&mut events);
+                }
+            })
+            .expect("Failed: mio-service");
 
         MioRunningService {
             keypair,

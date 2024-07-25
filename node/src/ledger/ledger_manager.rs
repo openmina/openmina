@@ -287,7 +287,7 @@ impl LedgerManager {
         let caller = LedgerCaller(sender);
         let ledger_caller = caller.clone();
 
-        let join_handle = thread::spawn(move || {
+        let ledger_manager_loop = move || {
             while let Some(LedgerRequestWithChan { request, responder }) = receiver.blocking_recv()
             {
                 let response = request.handle(&mut ledger_ctx, &ledger_caller, responder.is_some());
@@ -313,7 +313,11 @@ impl LedgerManager {
                 }
             }
             ledger_ctx
-        });
+        };
+        let join_handle = std::thread::Builder::new()
+            .name("ledger-manager".into())
+            .spawn(ledger_manager_loop)
+            .expect("Failed: ledger manager");
         LedgerManager {
             caller,
             join_handle,
