@@ -310,6 +310,7 @@ jobs:
         with:
           name: network-debugger-${{ matrix.test }}
           path: /tmp/db
+        if: ${{ always() }}
 
   record-replay-tests:
     needs:
@@ -356,7 +357,7 @@ jobs:
     services:
       network-debugger:
         image: openmina/mina-network-debugger:23385c61
-        options: --privileged --init --volume debugger_data:/tmp/db --volume /sys/kernel/debug:/sys/kernel/debug
+        options: --privileged --init --volume /tmp/db:/tmp/db --volume /sys/kernel/debug:/sys/kernel/debug
         env:
           SERVER_PORT: 80
           FIREWALL_INTERFACE: lo
@@ -381,6 +382,11 @@ jobs:
         run: |
           chmod +x bootstrap openmina
 
+      # TODO: use curl
+      - name: Wait for the debugger
+        run: |
+          sleep 5
+
       - name: Peer List File
         run: |
           for PEER in $PEERS_LIST; do echo $PEER; done > $PEER_LIST_FILE
@@ -388,13 +394,13 @@ jobs:
 
       - name: Bootstrap node
         env:
-          OPENMINA_COMMAND: ./openmina
+          OPENMINA_COMMAND: openmina
           NO_PEER_DISCOVERY: "true"
           OUT_PATH: ${{ env.WORK_DIR }}/logs/bootstrap_output
           RECORD: state-with-input-actions
         run: |
           mkdir -p $OUT_PATH
-          OPENMINA_COMMAND=./openmina NO_PEER_DISCOVERY=true ./bootstrap --nocapture || {
+          PATH=$PATH:$(pwd) OPENMINA_COMMAND=openmina NO_PEER_DISCOVERY=true ./bootstrap --nocapture || {
             echo "::group::Stderr"
             cat $OUT_PATH.stderr
             echo "::endgroup::"
@@ -418,5 +424,6 @@ jobs:
       - name: Archive network debugger database
         uses: actions/upload-artifact@v4
         with:
-          name: network-debugger-${{ matrix.test }}
+          name: network-debugger-test-bootstrap
           path: /tmp/db
+        if: ${{ always() }}
