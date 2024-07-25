@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use mina_p2p_messages::v2::{MinaBlockBlockStableV2, StateHash};
 use openmina_core::block::ArcBlockWithHash;
+use openmina_core::{action_event, ActionEvent};
 use serde::{Deserialize, Serialize};
 use snark::block_verify::SnarkBlockVerifyError;
 
@@ -11,8 +12,12 @@ use crate::snark::block_verify::SnarkBlockVerifyId;
 pub type ConsensusActionWithMeta = redux::ActionWithMeta<ConsensusAction>;
 pub type ConsensusActionWithMetaRef<'a> = redux::ActionWithMeta<&'a ConsensusAction>;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+// NOTE: `debug(hash)` must be used instead of `display(hash)` because
+// for some reason the later breaks CI. `hash = display(&hash)` works too.
+#[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
+#[action_event(level = debug, fields(debug(hash), debug(error)))]
 pub enum ConsensusAction {
+    #[action_event(level = info)]
     BlockReceived {
         hash: StateHash,
         block: Arc<MinaBlockBlockStableV2>,
@@ -26,9 +31,11 @@ pub enum ConsensusAction {
         req_id: SnarkBlockVerifyId,
         hash: StateHash,
     },
+    #[action_event(level = info)]
     BlockSnarkVerifySuccess {
         hash: StateHash,
     },
+    #[action_event(level = warn)]
     BlockSnarkVerifyError {
         hash: StateHash,
         error: SnarkBlockVerifyError,
@@ -42,6 +49,7 @@ pub enum ConsensusAction {
     LongRangeForkResolve {
         hash: StateHash,
     },
+    #[action_event(level = info)]
     BestTipUpdate {
         hash: StateHash,
     },
