@@ -1,4 +1,5 @@
 mod ledger_read_actions;
+use ledger::{Account, AccountId};
 pub use ledger_read_actions::*;
 
 mod ledger_read_state;
@@ -22,6 +23,7 @@ use crate::rpc::RpcScanStateSummaryScanStateJob;
 pub enum LedgerReadKind {
     DelegatorTable,
     GetNumAccounts,
+    GetAccounts,
     GetChildHashesAtAddr,
     GetChildAccountsAtAddr,
     GetStagedLedgerAuxAndPendingCoinbases,
@@ -34,6 +36,7 @@ pub enum LedgerReadRequest {
     DelegatorTable(v2::LedgerHash, AccountPublicKey),
     // p2p rpcs
     GetNumAccounts(v2::LedgerHash),
+    GetAccounts(v2::LedgerHash, Vec<AccountId>),
     GetChildHashesAtAddr(v2::LedgerHash, LedgerAddress),
     GetChildAccountsAtAddr(v2::LedgerHash, LedgerAddress),
     GetStagedLedgerAuxAndPendingCoinbases(LedgerReadStagedLedgerAuxAndPendingCoinbases),
@@ -47,6 +50,7 @@ pub enum LedgerReadResponse {
     DelegatorTable(Option<DelegatorTable>),
     // p2p rpcs
     GetNumAccounts(Option<(u64, v2::LedgerHash)>),
+    GetAccounts(Vec<Account>),
     GetChildHashesAtAddr(Option<(v2::LedgerHash, v2::LedgerHash)>),
     GetChildAccountsAtAddr(Option<Vec<v2::MinaBaseAccountBinableArgStableV2>>),
     GetStagedLedgerAuxAndPendingCoinbases(Option<Arc<StagedLedgerAuxAndPendingCoinbases>>),
@@ -65,6 +69,7 @@ impl LedgerReadRequest {
         match self {
             Self::DelegatorTable(..) => LedgerReadKind::DelegatorTable,
             Self::GetNumAccounts(..) => LedgerReadKind::GetNumAccounts,
+            Self::GetAccounts(..) => LedgerReadKind::GetAccounts,
             Self::GetChildAccountsAtAddr(..) => LedgerReadKind::GetChildAccountsAtAddr,
             Self::GetChildHashesAtAddr(..) => LedgerReadKind::GetChildHashesAtAddr,
             Self::GetStagedLedgerAuxAndPendingCoinbases(..) => {
@@ -78,6 +83,7 @@ impl LedgerReadRequest {
         let cost = match self {
             Self::DelegatorTable(..) => 100,
             Self::GetNumAccounts(..) => 1,
+            Self::GetAccounts(..) => 10, // Not sure if 10 is a good number here
             Self::GetChildAccountsAtAddr(_, addr) => {
                 let height_diff = super::LEDGER_DEPTH.saturating_sub(addr.length());
                 let max_accounts_count = 2_u32.pow(height_diff as u32);
@@ -96,6 +102,7 @@ impl LedgerReadResponse {
         match self {
             Self::DelegatorTable(..) => LedgerReadKind::DelegatorTable,
             Self::GetNumAccounts(..) => LedgerReadKind::GetNumAccounts,
+            Self::GetAccounts(..) => LedgerReadKind::GetAccounts,
             Self::GetChildAccountsAtAddr(..) => LedgerReadKind::GetChildAccountsAtAddr,
             Self::GetChildHashesAtAddr(..) => LedgerReadKind::GetChildHashesAtAddr,
             Self::GetStagedLedgerAuxAndPendingCoinbases(..) => {

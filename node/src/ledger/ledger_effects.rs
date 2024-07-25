@@ -414,5 +414,6 @@ fn propagate_read_response<S: redux::Service>(
             }
         }
         (_, LedgerReadResponse::ScanStateSummary(..)) => unreachable!(),
+        (_req, LedgerReadResponse::GetAccounts(_)) => todo!(),
     }
 }

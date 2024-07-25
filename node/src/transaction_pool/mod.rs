@@ -103,7 +103,7 @@ impl TransactionPoolState {
                 let commands = commands.iter().map(UserCommand::from).collect::<Vec<_>>();
                 let account_ids = commands
                     .iter()
-                    .flat_map(|c| c.accounts_referenced())
+                    .flat_map(UserCommand::accounts_referenced)
                     .collect::<BTreeSet<_>>();
                 let best_tip_hash = substate.best_tip_hash.clone().unwrap();
                 let pending_id = substate.make_action_pending(action);
