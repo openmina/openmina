@@ -48,15 +48,13 @@ pub enum SnarkBlockVerifyStatus {
         time: redux::Timestamp,
         block: VerifiableBlockWithHash,
         on_success: redux::Callback<BlockHash>,
-        // TODO:
-        // on_error: redux::Callback<SnarkBlockVerifyError>,
+        on_error: redux::Callback<(BlockHash, SnarkBlockVerifyError)>,
     },
     Pending {
         time: redux::Timestamp,
         block: VerifiableBlockWithHash,
         on_success: redux::Callback<BlockHash>,
-        // TODO:
-        // on_error: redux::Callback<SnarkBlockVerifyError>,
+        on_error: redux::Callback<(BlockHash, SnarkBlockVerifyError)>,
     },
     Error {
         time: redux::Timestamp,

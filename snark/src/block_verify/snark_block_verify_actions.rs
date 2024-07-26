@@ -1,4 +1,4 @@
-use openmina_core::{block::BlockHash, SubstateAccess};
+use openmina_core::{block::BlockHash, ActionEvent, SubstateAccess};
 use serde::{Deserialize, Serialize};
 
 use super::{SnarkBlockVerifyError, SnarkBlockVerifyId, VerifiableBlockWithHash};
@@ -6,7 +6,7 @@ use super::{SnarkBlockVerifyError, SnarkBlockVerifyId, VerifiableBlockWithHash};
 pub type SnarkBlockVerifyActionWithMeta = redux::ActionWithMeta<SnarkBlockVerifyAction>;
 pub type SnarkBlockVerifyActionWithMetaRef<'a> = redux::ActionWithMeta<&'a SnarkBlockVerifyAction>;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
 pub enum SnarkBlockVerifyAction {
     Init {
         req_id: SnarkBlockVerifyId,
