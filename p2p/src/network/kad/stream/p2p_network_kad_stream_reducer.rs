@@ -31,30 +31,39 @@ impl P2pNetworkKadIncomingStreamState {
             }
             (S::WaitingForRequest { .. }, A::IncomingData { data, .. }) => {
                 let data = &data.0;
-
                 let mut reader = BytesReader::from_bytes(data);
-                let Ok(len) = reader.read_varint32(data).map(|v| v as usize) else {
+
+                let Ok(encoded_len) = reader.read_varint32(data).map(|v| v as usize) else {
                     *self = S::Error(P2pNetworkStreamProtobufError::MessageLength);
                     return Ok(());
                 };
 
-                if len > limits.kademlia_request() {
+                if encoded_len > limits.kademlia_request() {
                     *self = S::Error(P2pNetworkStreamProtobufError::Limit(
-                        len,
+                        encoded_len,
                         limits.kademlia_request(),
                     ));
                     return Ok(());
                 }
 
-                if len > reader.len() {
-                    *self = S::PartialRequestReceived {
-                        len,
-                        data: data[(len - reader.len())..].to_vec(),
-                    };
-                    return Ok(());
-                }
+                let remaining_len = reader.len();
 
-                self.handle_incoming_request(len, &data[data.len() - reader.len()..])
+                if let Some(remaining_data) = data.get(data.len() - remaining_len..) {
+                    if encoded_len > remaining_len {
+                        *self = S::PartialRequestReceived {
+                            len: encoded_len,
+                            data: remaining_data.to_vec(),
+                        };
+                        return Ok(());
+                    }
+
+                    self.handle_incoming_request(encoded_len, remaining_data)
+                } else {
+                    *self = S::Error(P2pNetworkStreamProtobufError::Message(
+                        "out of bounds".to_owned(),
+                    ));
+                    Ok(())
+                }
             }
             (S::PartialRequestReceived { len, data }, A::IncomingData { data: new_data, .. }) => {
                 let mut data = data.clone();
