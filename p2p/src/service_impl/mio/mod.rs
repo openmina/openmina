@@ -38,6 +38,9 @@ impl MioError {
     }
 }
 
+// maximal ammount of queued data to send per peer is 64 MiB
+const MAX_QUEUED_BYTES: usize = 0x4000000;
+
 #[derive(Debug)]
 #[allow(clippy::large_enum_variant)]
 pub enum MioService {
@@ -181,6 +184,7 @@ struct Listener {
 struct Connection {
     stream: TcpStream,
     transmits: VecDeque<(Box<[u8]>, usize)>,
+    queued_bytes: usize,
     connected: bool,
     incoming_ready: bool,
 }
@@ -272,8 +276,10 @@ where
                             }
                         } else {
                             while let Some((buf, mut offset)) = connection.transmits.pop_front() {
+                                connection.queued_bytes -= buf.len() - offset;
                                 match connection.stream.write(&buf[offset..]) {
                                     Err(err) if err.kind() == io::ErrorKind::WouldBlock => {
+                                        connection.queued_bytes += buf.len() - offset;
                                         connection.transmits.push_front((buf, offset));
                                         rereg = true;
                                         break;
@@ -292,6 +298,7 @@ where
                                         if offset == buf.len() {
                                             self.send(MioEvent::OutgoingDataDidSend(addr, Ok(())));
                                         } else {
+                                            connection.queued_bytes += buf.len() - offset;
                                             connection.transmits.push_front((buf, offset));
                                         }
                                     }
@@ -383,6 +390,7 @@ where
                                 let connection = Connection {
                                     stream,
                                     transmits: VecDeque::default(),
+                                    queued_bytes: 0,
                                     connected: true,
                                     incoming_ready: false,
                                 };
@@ -449,6 +457,7 @@ where
                                 Connection {
                                     stream,
                                     transmits: VecDeque::default(),
+                                    queued_bytes: 0,
                                     connected: false,
                                     incoming_ready: false,
                                 },
@@ -516,7 +525,17 @@ where
             }
             Send(addr, buf) => {
                 if let Some(connection) = self.connections.get_mut(&addr) {
+                    connection.queued_bytes += buf.len();
                     connection.transmits.push_back((buf, 0));
+                    if connection.transmits.len() > 1 && connection.queued_bytes > MAX_QUEUED_BYTES
+                    {
+                        self.connections.remove(&addr);
+                        // the peer is too slow, it requires us to send more and more,
+                        // but cannot accept the data
+                        let msg = "probably malicious".to_string();
+                        self.send(MioEvent::ConnectionDidClose(addr, Err(msg)));
+                        return;
+                    }
                     let interests =
                         match (connection.incoming_ready, connection.transmits.is_empty()) {
                             (false, false) => {
@@ -541,12 +560,8 @@ where
                 }
             }
             Disconnect(addr) => {
-                if let Some(connection) = self.connections.remove(&addr) {
-                    connection
-                        .stream
-                        .shutdown(Shutdown::Both)
-                        .unwrap_or_default();
-                }
+                // drop the connection and destructor will close it
+                self.connections.remove(&addr);
             }
         }
     }
