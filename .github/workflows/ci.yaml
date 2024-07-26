@@ -211,7 +211,7 @@ jobs:
 
     services:
       network-debugger:
-        image: openmina/mina-network-debugger:23385c61
+        image: openmina/mina-network-debugger:6ebf3ae5
         options: --privileged --init --volume debugger_data:/tmp/db --volume /sys/kernel/debug:/sys/kernel/debug
         env:
           SERVER_PORT: 80
@@ -302,7 +302,7 @@ jobs:
 
     services:
       network-debugger:
-        image: openmina/mina-network-debugger:23385c61
+        image: openmina/mina-network-debugger:6ebf3ae5
         options: --privileged --init --volume debugger_data:/tmp/db --volume /sys/kernel/debug:/sys/kernel/debug
         env:
           SERVER_PORT: 80
@@ -383,7 +383,7 @@ jobs:
 
     services:
       network-debugger:
-        image: openmina/mina-network-debugger:23385c61
+        image: openmina/mina-network-debugger:6ebf3ae5
         options: --privileged --init --volume /tmp/db:/tmp/db --volume /sys/kernel/debug:/sys/kernel/debug
         env:
           SERVER_PORT: 80
