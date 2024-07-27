@@ -23,6 +23,7 @@ node = { path = "../../node", features = ["replay"] }
 
 [target.'cfg(target_family = "wasm")'.dependencies]
 redux = { workspace = true }
+gloo-timers = { version = "0.3", features = ["futures"] }
 tracing-wasm = "0.2"
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
 redux = { workspace = true, features=["serializable_callbacks"] }
