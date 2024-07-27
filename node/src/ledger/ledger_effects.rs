@@ -45,6 +45,7 @@ pub fn ledger_effects<S: LedgerService>(store: &mut Store<S>, action: LedgerActi
             LedgerReadAction::Pending { .. } => {}
             LedgerReadAction::Success { id, response } => {
                 propagate_read_response(store, id, response);
+                store.dispatch(LedgerReadAction::Prune { id });
             }
             LedgerReadAction::Prune { .. } => {}
         },
