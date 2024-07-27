@@ -1,11 +1,8 @@
 use std::{
-    io::{BufRead, BufReader, Read},
-    path::Path,
     sync::{Arc, Mutex},
     time::Duration,
 };
 
-use anyhow::Context;
 use mina_p2p_messages::v2::{self, NonZeroCurvePoint};
 use node::{
     account::AccountSecretKey,
@@ -69,6 +66,7 @@ impl NodeBuilder {
 
     /// If not called, random one will be generated and used instead.
     pub fn p2p_sec_key(&mut self, key: P2pSecretKey) -> &mut Self {
+        assert!(self.p2p_sec_key.is_none());
         self.p2p_sec_key = Some(key);
         self
     }
@@ -94,14 +92,14 @@ impl NodeBuilder {
     }
 
     // /// Extend p2p initial peers by opening the url.
-    // pub fn initial_peers_from_url(
+    // pub async fn initial_peers_from_url(
     //     &mut self,
     //     url: impl reqwest::IntoUrl,
     // ) -> anyhow::Result<&mut Self> {
     //     let url = url.into_url().context("failed to parse peers url")?;
     //     peers_from_reader(
     //         &mut self.initial_peers,
-    //         reqwest::blocking::get(url.clone())
+    //         reqwest::get(url.clone()).await
     //             .context(anyhow::anyhow!("reading peer list url {url}"))?,
     //     )
     //     .context(anyhow::anyhow!("reading peer list url {url}"))?;
@@ -113,8 +111,8 @@ impl NodeBuilder {
         &mut self,
         spawner: impl TaskSpawner,
     ) -> anyhow::Result<&mut Self> {
-        let sec_key = self.p2p_sec_key.clone().ok_or_else(|| anyhow::anyhow!("before calling `with_p2p_custom_task_spawner` method, p2p secret key needs to be set with `with_p2p_sec_key`."))?;
-        self.service.p2p_init(sec_key, spawner);
+        let sec_key = self.p2p_sec_key.get_or_insert_with(P2pSecretKey::rand);
+        self.service.p2p_init(sec_key.clone(), spawner);
         self.p2p_is_started = true;
         Ok(self)
     }
@@ -129,16 +127,6 @@ impl NodeBuilder {
         self.block_producer = Some(config);
         self.service.block_producer_init(key);
         self
-    }
-
-    /// Set up block producer using keys from file.
-    pub fn block_producer_from_file(
-        &mut self,
-        path: impl AsRef<Path>,
-    ) -> anyhow::Result<&mut Self> {
-        let key = AccountSecretKey::from_encrypted_file(path)
-            .context("Failed to decrypt secret key file")?;
-        Ok(self.block_producer(key))
     }
 
     /// Receive block producer's coinbase reward to another account.
@@ -271,8 +259,24 @@ impl NodeBuilder {
 }
 
 fn default_peers() -> Vec<P2pConnectionOutgoingInitOpts> {
-    ["/2ajh5CpZCHdv7tmMrotVnLjQXuhcuCzqKosdDmvN3tNTScw2fsd/http/65.109.110.75/10000"]
+    ["/2cBFzmUmkYgMUrxdv5S2Udyv8eiuhokAFS4WnYfHiAJLWoQ3yL9/http/webrtc3.webnode.openmina.com/3000",
+    "/2aevrztkwUrbPDP85ZZHkNYM6qha2GYT9sUwPhttKAKzqQdF4nV/http/localhost/3000"]
         .into_iter()
         .map(|s| s.parse().unwrap())
         .collect()
 }
+
+// fn peers_from_reader(
+//     peers: &mut Vec<P2pConnectionOutgoingInitOpts>,
+//     read: impl Read,
+// ) -> anyhow::Result<()> {
+//     let read = BufReader::new(read);
+//     for line in read.lines() {
+//         let line = line.context("reading line")?;
+//         let l = line.trim();
+//         if !l.is_empty() {
+//             peers.push(l.parse().context(anyhow::anyhow!("parsing entry"))?);
+//         }
+//     }
+//     Ok(())
+// }
