@@ -3938,7 +3938,7 @@ pub(super) fn create_proof<C: ProofConstants, F: FieldWitness>(
     // NOTE: Not random in `cfg(test)`
     let mut rng = get_rng();
 
-    let now = std::time::Instant::now();
+    let now = redux::Instant::now();
     let group_map = kimchi::groupmap::GroupMap::<F::Scalar>::setup();
     let proof = kimchi::proof::ProverProof::create_recursive::<F::FqSponge, EFrSponge<F>>(
         &group_map,

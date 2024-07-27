@@ -264,7 +264,7 @@ mod test {
     #[test]
     #[ignore]
     fn test_slot_calculation_time_big_producer() {
-        let start = std::time::Instant::now();
+        let start = redux::Instant::now();
         for i in 1..14403 {
             let vrf_input = VrfEvaluationInput {
                 producer_key: keypair_from_bs58_string(

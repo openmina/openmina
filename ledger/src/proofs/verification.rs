@@ -817,32 +817,32 @@ fn generate_new_filename(name: &str, extension: &str, data: &[u8]) -> std::io::R
 
 //     #[test]
 //     fn test_verification() {
-//         let now = std::time::Instant::now();
+//         let now = redux::Instant::now();
 //         let verifier_index = get_verifier_index(VerifierKind::Blockchain);
 //         println!("get_verifier_index={:?}", now.elapsed());
 
-//         let now = std::time::Instant::now();
+//         let now = redux::Instant::now();
 //         let srs = get_srs::<Fp>();
 //         let srs = srs.lock().unwrap();
 //         println!("get_srs={:?}\n", now.elapsed());
 
-//         // let now = std::time::Instant::now();
+//         // let now = redux::Instant::now();
 //         // let bytes = verifier_index_to_bytes(&verifier_index);
 //         // println!("verifier_elapsed={:?}", now.elapsed());
 //         // println!("verifier_length={:?}", bytes.len());
 //         // assert_eq!(bytes.len(), 5622520);
 
-//         // let now = std::time::Instant::now();
+//         // let now = redux::Instant::now();
 //         // let verifier_index = verifier_index_from_bytes(&bytes);
 //         // println!("verifier_deserialize_elapsed={:?}\n", now.elapsed());
 
-//         // let now = std::time::Instant::now();
+//         // let now = redux::Instant::now();
 //         // let bytes = srs_to_bytes(&srs);
 //         // println!("srs_elapsed={:?}", now.elapsed());
 //         // println!("srs_length={:?}", bytes.len());
 //         // assert_eq!(bytes.len(), 5308513);
 
-//         // let now = std::time::Instant::now();
+//         // let now = redux::Instant::now();
 //         // let srs: SRS<Vesta> = srs_from_bytes(&bytes);
 //         // println!("deserialize_elapsed={:?}\n", now.elapsed());
 
@@ -865,11 +865,11 @@ fn generate_new_filename(name: &str, extension: &str, data: &[u8]) -> std::io::R
 //         for file in files {
 //             let header = MinaBlockHeaderStableV2::binprot_read(&mut file.as_slice()).unwrap();
 
-//             let now = std::time::Instant::now();
+//             let now = redux::Instant::now();
 //             let accum_check = accumulator_check(&*srs, &header.protocol_state_proof.0);
 //             println!("accumulator_check={:?}", now.elapsed());
 
-//             let now = std::time::Instant::now();
+//             let now = redux::Instant::now();
 //             let verified = super::verify_block(&header, &verifier_index, &*srs);
 
 //             // let verified = crate::verify(&header, &verifier_index);
