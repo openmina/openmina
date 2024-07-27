@@ -39,6 +39,7 @@ use mina_p2p_messages::{
 };
 use openmina_core::constants::constraint_constants;
 use openmina_core::snark::{Snark, SnarkJobId};
+use openmina_core::thread;
 
 use mina_signer::CompressedPubKey;
 use openmina_core::block::ArcBlockWithHash;
@@ -489,7 +490,7 @@ impl LedgerCtx {
             .snarked_ledger_mut(snarked_ledger_hash.clone())
             .copy();
 
-        std::thread::Builder::new()
+        thread::Builder::new()
             .name("staged-ledger-reconstruct".into())
             .spawn(move || {
                 let (staged_ledger_hash, result) =

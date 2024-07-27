@@ -1,4 +1,5 @@
 use node::core::channels::mpsc;
+use node::core::thread;
 use node::p2p::service_impl::TaskSpawner;
 
 #[derive(Clone)]
@@ -22,7 +23,7 @@ impl TaskSpawner for P2pTaskSpawner {
             .enable_all()
             .build()
             .unwrap();
-        std::thread::Builder::new()
+        thread::Builder::new()
             .name(format!("openmina_p2p_{name}"))
             .spawn(move || {
                 let fut = async {

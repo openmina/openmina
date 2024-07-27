@@ -76,7 +76,6 @@ fraction = { version = "=0.15.1", default-features = false, features = ["with-se
 
 [target.'cfg(target_family = "wasm")'.dependencies]
 getrandom = { version = "0.2", features = ["js"] }
-wasm_thread = { version = "0.2", features = [ "es_modules" ] }
 wasm-bindgen = "0.2"
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
