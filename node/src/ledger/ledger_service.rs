@@ -730,7 +730,13 @@ impl LedgerCtx {
             .mask(&ledger_hash)
             .filter(|(_, is_synced)| *is_synced)?;
         // fix(binier): incorrect ledger hash, must be a hash of a populated subtree.
-        Some((mask.num_accounts() as u64, ledger_hash))
+
+        let num_accounts = mask.num_accounts() as u64;
+        let first_node_addr = ledger::Address::first(
+            LEDGER_DEPTH - super::tree_height_for_num_accounts(num_accounts),
+        );
+        let hash = LedgerHash::from_fp(mask.get_hash(first_node_addr)?);
+        Some((num_accounts, hash))
     }
 
     pub fn get_child_hashes(
