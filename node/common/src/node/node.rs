@@ -79,7 +79,13 @@ impl<Serv: Service + AsMut<NodeService>> Node<Serv> {
                     None => std::future::pending().await,
                 }
             };
-            let timeout = tokio::time::sleep(Duration::from_millis(100));
+
+            let timeout = Duration::from_millis(100);
+
+            #[cfg(not(target_arch = "wasm32"))]
+            let timeout = tokio::time::sleep(timeout);
+            #[cfg(target_arch = "wasm32")]
+            let timeout = gloo_timers::future::TimeoutFuture::new(timeout.as_millis() as u32);
 
             tokio::select! {
                 _ = wait_for_events => {

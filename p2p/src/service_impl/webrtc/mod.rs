@@ -189,7 +189,7 @@ async fn wait_for_ice_gathering_complete(pc: &RTCConnection) {
     #[cfg(not(target_arch = "wasm32"))]
     let timeout = tokio::time::sleep(timeout);
     #[cfg(target_arch = "wasm32")]
-    let timeout = wasm_timer::Delay::new(timeout);
+    let timeout = gloo_timers::future::TimeoutFuture::new(timeout.as_millis() as u32);
     tokio::select! {
         _ = timeout => {}
         _ = pc.wait_for_ice_gathering_complete() => {}
