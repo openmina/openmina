@@ -1,7 +1,8 @@
 use std::cell::RefCell;
 
 use node::{
-    recorder::StateWithInputActionsReader, snark::VerifierKind, ActionWithMeta, BuildEnv, Store,
+    core::thread, recorder::StateWithInputActionsReader, snark::VerifierKind, ActionWithMeta,
+    BuildEnv, Store,
 };
 
 use crate::NodeService;
@@ -154,7 +155,7 @@ fn dyn_effects(store: &mut Store<NodeService>, action: &ActionWithMeta) {
                 let sleep_dur = std::time::Duration::from_millis(100);
                 eprintln!("Waiting for {lib_path} to be modified.");
                 while initial_time >= query_modified() {
-                    std::thread::sleep(sleep_dur);
+                    thread::sleep(sleep_dur);
                 }
             }
             ret => panic!("unknown `replay_dynamic_effects` return number: {ret}"),

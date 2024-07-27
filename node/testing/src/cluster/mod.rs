@@ -2,12 +2,10 @@ mod config;
 pub use config::{ClusterConfig, ProofKind};
 
 mod p2p_task_spawner;
-use openmina_node_native::NodeServiceBuilder;
 pub use p2p_task_spawner::P2pTaskSpawner;
 
 mod node_id;
 pub use node_id::{ClusterNodeId, ClusterOcamlNodeId};
-use temp_dir::TempDir;
 
 pub mod runner;
 
@@ -24,7 +22,7 @@ use node::account::{AccountPublicKey, AccountSecretKey};
 use node::core::channels::mpsc;
 use node::core::log::system_time;
 use node::core::requests::RpcId;
-use node::core::warn;
+use node::core::{thread, warn};
 use node::p2p::{P2pConnectionEvent, P2pEvent, P2pLimits, PeerId};
 use node::snark::{VerifierIndex, VerifierSRS};
 use node::{
@@ -37,7 +35,9 @@ use node::{
 };
 use openmina_node_invariants::{InvariantResult, Invariants};
 use openmina_node_native::http_server;
+use openmina_node_native::NodeServiceBuilder;
 use serde::{de::DeserializeOwned, Serialize};
+use temp_dir::TempDir;
 
 use crate::node::{DaemonJson, NonDeterministicEvent, OcamlStep, TestPeerId};
 use crate::{
@@ -318,7 +318,7 @@ impl Cluster {
             .unwrap();
         let shutdown = shutdown_tx.clone();
         let rpc_sender = real_service.rpc_sender();
-        std::thread::Builder::new()
+        thread::Builder::new()
             .name("openmina_http_server".to_owned())
             .spawn(move || {
                 let local_set = tokio::task::LocalSet::new();

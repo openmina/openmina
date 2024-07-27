@@ -2599,6 +2599,7 @@ mod tests {
         },
     };
 
+    use openmina_core::thread;
     use rand::Rng;
 
     use super::*;
@@ -3098,7 +3099,7 @@ mod tests {
             let do_one_next_clone = Arc::clone(&do_one_next);
             let (send, recv) = sync_channel(1);
 
-            std::thread::spawn(move || loop {
+            thread::spawn(move || loop {
                 let v = if do_one_next_clone.load(Relaxed) {
                     do_one_next_clone.store(false, Relaxed);
                     1i64
@@ -3170,7 +3171,7 @@ mod tests {
         let depth = 7;
         let count: i64 = 1000;
 
-        std::thread::spawn(move || {
+        thread::spawn(move || {
             let mut count = count;
             let x = count;
             loop {
@@ -3234,7 +3235,7 @@ mod tests {
         let depth = 7;
         let count: i64 = 100;
 
-        std::thread::spawn(move || {
+        thread::spawn(move || {
             let mut count = count;
             let x = count;
             loop {
