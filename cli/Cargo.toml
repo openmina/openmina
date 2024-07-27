@@ -48,6 +48,6 @@ tempfile = "3.8.0"
 [features]
 default = ["p2p-libp2p"]
 unsafe-signal-handlers = []
-p2p-libp2p = ["node/p2p-libp2p", "openmina-node-native/p2p-libp2p"]
-p2p-webrtc = ["node/p2p-webrtc", "openmina-node-native/p2p-webrtc"]
+p2p-libp2p = ["openmina-node-native/p2p-libp2p"]
+p2p-webrtc = ["openmina-node-native/p2p-webrtc"]
 fuzzing = ["node/fuzzing", "openmina-core/fuzzing"]
