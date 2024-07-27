@@ -195,8 +195,8 @@ impl<'cluster> Driver<'cluster> {
         duration: Duration,
         mut f: impl FnMut(ClusterNodeId, &Event, &State) -> bool,
     ) -> anyhow::Result<Option<(ClusterNodeId, Event)>> {
-        let timeout = std::time::Instant::now() + duration;
-        while std::time::Instant::now() < timeout {
+        let timeout = redux::Instant::now() + duration;
+        while redux::Instant::now() < timeout {
             let mut steps = Vec::new();
             let mut found = None;
             for (node_id, state, events) in self.runner.pending_events(true) {
@@ -226,8 +226,8 @@ impl<'cluster> Driver<'cluster> {
         duration: Duration,
         mut f: impl FnMut(ClusterNodeId, &Event, &State) -> bool,
     ) -> anyhow::Result<bool> {
-        let timeout = std::time::Instant::now() + duration;
-        while std::time::Instant::now() < timeout {
+        let timeout = redux::Instant::now() + duration;
+        while redux::Instant::now() < timeout {
             let mut steps = Vec::new();
             let mut found = false;
             'pending_events: for (node_id, state, events) in self.runner.pending_events(true) {
@@ -260,8 +260,8 @@ impl<'cluster> Driver<'cluster> {
         duration: Duration,
         mut f: impl FnMut(ClusterNodeId, &Event, &State) -> bool,
     ) -> anyhow::Result<bool> {
-        let timeout = std::time::Instant::now() + duration;
-        while std::time::Instant::now() < timeout {
+        let timeout = redux::Instant::now() + duration;
+        while redux::Instant::now() < timeout {
             while let Some((node_id, event)) = self.next_event() {
                 let step = ScenarioStep::Event {
                     node_id,
@@ -303,8 +303,8 @@ impl<'cluster> Driver<'cluster> {
     }
 
     pub async fn run(&mut self, duration: Duration) -> anyhow::Result<()> {
-        let finish = std::time::Instant::now() + duration;
-        while std::time::Instant::now() < finish {
+        let finish = redux::Instant::now() + duration;
+        while redux::Instant::now() < finish {
             while let Some((node_id, event)) = self.next_event() {
                 let step = ScenarioStep::Event {
                     node_id,

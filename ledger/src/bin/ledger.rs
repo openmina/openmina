@@ -4,7 +4,7 @@ fn main() {
     for naccounts in [1_000, 10_000, 120_000] {
         println!("{:?} accounts wasmer", naccounts);
 
-        let now = std::time::Instant::now();
+        let now = redux::Instant::now();
 
         let mut db = Database::<V2>::create(20);
 
@@ -17,7 +17,7 @@ fn main() {
         }
 
         println!("generate random accounts {:?}", now.elapsed());
-        let now = std::time::Instant::now();
+        let now = redux::Instant::now();
 
         assert_eq!(db.num_accounts(), naccounts as usize);
 

@@ -18,6 +18,7 @@ crate-type = ["staticlib", "cdylib", "lib"]
 
 [dependencies]
 openmina-core = { path = "../core" }
+redux = { workspace = true }
 mina-hasher = { workspace = true }
 mina-signer = { workspace = true }
 mina-curves = { workspace = true }

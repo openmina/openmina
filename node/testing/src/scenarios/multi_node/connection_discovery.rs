@@ -417,9 +417,9 @@ impl RustToOCamlViaSeed {
             P2pPeerStatus::Ready(ready) if !ready.is_incoming
         ));
 
-        let timeout = std::time::Instant::now() + Duration::from_secs(3 * 60);
+        let timeout = redux::Instant::now() + Duration::from_secs(3 * 60);
         let mut found = false;
-        while !found && std::time::Instant::now() < timeout {
+        while !found && redux::Instant::now() < timeout {
             let mut steps = Vec::new();
             for (node_id, state, events) in driver.inner_mut().pending_events(true) {
                 for (_, event) in events {

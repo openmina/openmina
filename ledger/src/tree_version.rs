@@ -34,7 +34,7 @@ impl TreeVersion for V2 {
     }
 
     fn empty_hash_at_height(height: usize) -> Fp {
-        // let now = std::time::Instant::now();
+        // let now = redux::Instant::now();
 
         (0..height).fold(Account::empty().hash(), |prev_hash, height| {
             Self::hash_node(height, prev_hash, prev_hash)

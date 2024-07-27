@@ -524,7 +524,7 @@ mod tests {
 
         let mut fp = fps[0].clone();
 
-        let now = std::time::Instant::now();
+        let now = redux::Instant::now();
         for _ in 0..100000 {
             for field in &fps {
                 fp.mul_assign(field);
@@ -534,7 +534,7 @@ mod tests {
 
         let mut mina_fp = mina_fps[0];
 
-        let now = std::time::Instant::now();
+        let now = redux::Instant::now();
         for _ in 0..100000 {
             for field in &mina_fps {
                 mina_fp.mul_assign(field);
