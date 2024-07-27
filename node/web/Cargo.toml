@@ -27,6 +27,7 @@ vrf = { workspace = true }
 jsonpath-rust = "0.5.0"
 
 wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
 
 openmina-node-common = { path = "../common" }
 node = { path = "../../node" }
