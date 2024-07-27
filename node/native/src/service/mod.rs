@@ -4,6 +4,8 @@ pub use builder::*;
 use openmina_node_common::p2p::TaskSpawner;
 pub use openmina_node_common::NodeService;
 
+use node::core::thread;
+
 #[derive(Clone)]
 pub struct P2pTaskSpawner {}
 
@@ -16,7 +18,7 @@ impl TaskSpawner for P2pTaskSpawner {
             .enable_all()
             .build()
             .unwrap();
-        std::thread::Builder::new()
+        thread::Builder::new()
             .name(format!("openmina_p2p_{name}"))
             .spawn(move || {
                 let local_set = tokio::task::LocalSet::new();

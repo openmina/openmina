@@ -3,7 +3,10 @@ use std::sync::{Arc, Mutex};
 use ledger::scan_state::scan_state::transaction_snark::{SokDigest, Statement};
 use mina_p2p_messages::v2;
 use node::{
-    core::snark::{Snark, SnarkJobId},
+    core::{
+        snark::{Snark, SnarkJobId},
+        thread,
+    },
     snark::{
         block_verify::{SnarkBlockVerifyError, SnarkBlockVerifyId, VerifiableBlockWithHash},
         work_verify::{SnarkWorkVerifyError, SnarkWorkVerifyId},
@@ -26,8 +29,7 @@ impl node::service::SnarkBlockVerifyService for NodeService {
             return;
         }
         let tx = self.event_sender().clone();
-        eprintln!("rayon::spawn_fifo");
-        std::thread::spawn(move || {
+        thread::spawn(move || {
             eprintln!("verify({}) - start", block.hash_ref());
             let header = block.header_ref();
             let result = {
