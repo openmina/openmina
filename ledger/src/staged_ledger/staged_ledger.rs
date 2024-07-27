@@ -1265,7 +1265,7 @@ impl StagedLedger {
     ) -> Result<DiffResult, StagedLedgerError> {
         let work = witness.completed_works();
 
-        let now = std::time::Instant::now();
+        let now = redux::Instant::now();
         if skip_verification.is_none() {
             Self::check_completed_works(logger, verifier, &self.scan_state, work)?;
         }
@@ -3461,7 +3461,7 @@ mod tests_ocaml {
     fn max_throughput_ledger_proof_count_fixed_blocks_zkapp() {
         const EXPECTED_PROOF_COUNT: usize = 3;
 
-        let now = std::time::Instant::now();
+        let now = redux::Instant::now();
 
         let (ledger, zkapps, cmd_iters) = gen_zkapps_at_capacity_fixed_blocks(EXPECTED_PROOF_COUNT);
         let global_slot = Slot::gen_small();
@@ -5876,7 +5876,7 @@ mod tests {
     #[test]
     fn staged_ledger_hash() {
         fn elapsed<R>(label: &str, fun: impl FnOnce() -> R) -> R {
-            let now = std::time::Instant::now();
+            let now = redux::Instant::now();
             let result = fun();
             println!("{} elapsed={:?}", label, now.elapsed());
             result
@@ -5979,7 +5979,7 @@ mod tests {
             return;
         };
 
-        let now = std::time::Instant::now();
+        let now = redux::Instant::now();
 
         let Ser2 {
             accounts,
@@ -6053,7 +6053,7 @@ mod tests {
             let _supercharge_coinbase = consensus_state.supercharge_coinbase;
             let supercharge_coinbase = false;
 
-            let now = std::time::Instant::now();
+            let now = redux::Instant::now();
 
             let result = staged_ledger
                 .apply(
