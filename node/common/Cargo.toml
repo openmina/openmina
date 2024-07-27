@@ -20,7 +20,7 @@ vrf = { workspace = true }
 ledger = { workspace = true }
 sha3 = "0.10.8"
 
-node = { path = "../../node", features = ["replay"], default-features = false }
+node = { path = "../../node", features = ["replay"] }
 
 [target.'cfg(target_family = "wasm")'.dependencies]
 redux = { workspace = true }
@@ -28,6 +28,5 @@ redux = { workspace = true }
 redux = { workspace = true, features=["serializable_callbacks"] }
 
 [features]
-default = ["p2p-libp2p"]
 p2p-webrtc = ["node/p2p-webrtc"]
 p2p-libp2p = ["node/p2p-libp2p"]

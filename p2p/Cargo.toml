@@ -83,7 +83,6 @@ tokio = { version = "1.26", features = ["macros"] }
 getrandom = { version = "0.2", features = ["js"] }
 
 [features]
-default = [ "p2p-libp2p", "fuzzing"]
 p2p-webrtc = ["webrtc"]
 p2p-libp2p = ["fuzzing"]
 fuzzing = ["openmina-fuzzer", "openmina-core/fuzzing"]
