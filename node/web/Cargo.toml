@@ -13,7 +13,7 @@ serde = "1.0.158"
 serde_json = "1.0.94"
 derive_more = "0.99.17"
 rayon = "1.5"
-reqwest = { version = "0.11.24", features = ["blocking", "json"] }
+# reqwest = { version = "0.11.24", features = ["json"] }
 libp2p-identity = { version = "=0.2.7", features = ["peerid"] }
 redux = { workspace = true }
 ledger = { workspace = true }
@@ -22,7 +22,6 @@ mina-signer = { workspace = true }
 bytes = "1.4.0"
 thiserror = "1.0.44"
 anyhow = "1.0.70"
-nix = { version = "0.26.2", features = ["signal"] }
 vrf = { workspace = true }
 jsonpath-rust = "0.5.0"
 

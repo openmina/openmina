@@ -6,9 +6,10 @@ use node::{
     p2p::{connection::outgoing::P2pConnectionOutgoingInitOpts, PeerId},
 };
 use rand::prelude::*;
+#[cfg(feature = "p2p-libp2p")]
+use sha3::digest::XofReader;
 
 pub use node::p2p::{service::*, service_impl::*};
-use sha3::digest::XofReader;
 
 use crate::NodeService;
 
