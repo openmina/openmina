@@ -99,6 +99,7 @@ impl SelectKind {
         }
     }
 
+    #[allow(dead_code)]
     pub(super) fn forward_data(
         self,
         addr: ConnectionAddr,

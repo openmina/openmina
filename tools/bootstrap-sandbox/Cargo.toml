@@ -15,8 +15,6 @@ bs58 = { version = "0.5.0", features = ["check"] }
 rand = { version = "0.8.5" }
 base64 = { version = "0.21.7" }
 
-reqwest = { version = "0.11.24", features = ["blocking"] }
-
 tokio = { version = "1.37", features = ["macros", "rt-multi-thread"] }
 
 binprot = { git = "https://github.com/openmina/binprot-rs", rev = "2b5a909" }

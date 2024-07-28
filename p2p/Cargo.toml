@@ -23,10 +23,10 @@ cfg-if = "1.0.0"
 url = "2.3.1"
 multihash = "0.18.1"
 sha2 = "0.10.6"
-ecies-ed25519 = "0.5.1"
+# ecies-ed25519 = "0.5.1"
 ed25519-dalek = { version = "2.1.1", features = ["serde"] }
-faster-stun = { version = "1.0.1" }
-reqwest = { version = "0.11.22" }
+faster-stun = { version = "1.0.1", optional = true }
+reqwest = { version = "0.11.22", optional = true }
 unsigned-varint = { version = "0.8.0" }
 hex = { version = "0.4.3" }
 bitflags = { version = "2.4.1", features = ["serde"] }
@@ -84,5 +84,5 @@ getrandom = { version = "0.2", features = ["js"] }
 
 [features]
 p2p-webrtc = ["webrtc"]
-p2p-libp2p = ["fuzzing"]
+p2p-libp2p = ["fuzzing", "dep:reqwest", "dep:faster-stun"]
 fuzzing = ["openmina-fuzzer", "openmina-core/fuzzing"]

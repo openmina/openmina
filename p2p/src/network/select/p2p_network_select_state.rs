@@ -77,6 +77,7 @@ impl P2pNetworkSelectState {
     }
 
     /// Propagates incoming data to corresponding action
+    #[allow(dead_code)]
     pub(super) fn forward_incoming_data(
         &self,
         kind: SelectKind,
