@@ -1,11 +1,12 @@
 use redux::ActionMeta;
 
-#[cfg(feature = "p2p-libp2p")]
-use crate::disconnection::{P2pDisconnectionAction, P2pDisconnectionReason};
-#[cfg(feature = "p2p-libp2p")]
-use crate::P2pNetworkSchedulerAction;
+use crate::peer::P2pPeerAction;
 use crate::{connection::P2pConnectionService, webrtc};
-use crate::{peer::P2pPeerAction, ConnectionAddr};
+#[cfg(feature = "p2p-libp2p")]
+use crate::{
+    disconnection::{P2pDisconnectionAction, P2pDisconnectionReason},
+    ConnectionAddr, P2pNetworkSchedulerAction,
+};
 
 use super::{P2pConnectionIncomingAction, P2pConnectionIncomingError};
 

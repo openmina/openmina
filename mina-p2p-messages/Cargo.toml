@@ -34,7 +34,6 @@ rsexp = "0.2.3"
 fuzzcheck = "0.12.1"
 
 [dev-dependencies]
-gloo-utils = "0.1.5"
 wasm-bindgen = "0.2"
 anyhow = "1.0.65"
 toml = "0.5.9"
