@@ -230,7 +230,7 @@ pub fn node_p2p_effects<S: Service>(store: &mut Store<S>, action: P2pActionWithM
                     } => {
                         store.dispatch(TransactionPoolAction::StartVerify {
                             // TODO: Take multiple transactions here
-                            commands: [transaction].into_iter().collect(),
+                            commands: [*transaction].into_iter().collect(),
                         });
                     }
                     _ => {}
