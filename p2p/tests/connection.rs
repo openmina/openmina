@@ -1,6 +1,6 @@
 use std::{future::ready, time::Duration};
 
-use p2p::PeerId;
+use p2p::{P2pNetworkConnectionState, PeerId};
 use p2p_testing::{
     cluster::{Cluster, ClusterBuilder, ClusterEvent, NodeId},
     event::{allow_disconnections, RustNodeEvent},
@@ -10,8 +10,9 @@ use p2p_testing::{
     rust_node::{RustNodeConfig, RustNodeId},
     stream::ClusterStreamExt,
     utils::{
-        peer_ids, rust_nodes_from_default_config, try_wait_for_all_nodes_to_connect,
-        try_wait_for_nodes_to_connect, wait_for_all_nodes_to_listen,
+        peer_ids, rust_nodes_from_default_config, try_run_cluster,
+        try_wait_for_all_nodes_to_connect, try_wait_for_nodes_to_connect,
+        wait_for_all_nodes_to_listen,
     },
 };
 
@@ -30,7 +31,7 @@ fn assert_peer_is_ready(cluster: &Cluster, id: RustNodeId, peer_id: PeerId) {
 fn assert_single_connection(cluster: &Cluster, id: RustNodeId, peer_id: PeerId) {
     let state = cluster.rust_node(id).state();
     let my_id = cluster.peer_id(id);
-    let mut found = None;
+    let mut found: Option<&P2pNetworkConnectionState> = None;
     for (addr, conn_state) in &state.network.scheduler.connections {
         let conn_peer_id = conn_state.peer_id();
         assert!(
@@ -195,6 +196,7 @@ async fn mutual_rust_to_rust_many() -> anyhow::Result<()> {
     node_to_node
         .clone()
         .try_for_each(|(n1, n2)| cluster.connect(n1, n2))?;
+
     let node_to_peer = node_to_node
         .map(|(n1, n2)| (n1, cluster.peer_id(n2)))
         .collect::<Vec<_>>();
@@ -202,7 +204,10 @@ async fn mutual_rust_to_rust_many() -> anyhow::Result<()> {
     let connected =
         try_wait_for_nodes_to_connect(&mut cluster, node_to_peer.clone(), Duration::from_secs(10))
             .await?;
+
     assert!(connected);
+
+    try_run_cluster(&mut cluster, Duration::from_secs(5)).await?;
 
     for (node, peer_id) in node_to_peer {
         assert_peer_is_ready(&cluster, node, peer_id);
