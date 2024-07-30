@@ -21,6 +21,8 @@ impl P2pNetworkPubsubAction {
         Store::Service: P2pCryptoService,
     {
         let state = &store.state().network.scheduler.broadcast_state;
+        let config = &store.state().config;
+
         match self {
             P2pNetworkPubsubAction::NewStream {
                 peer_id, incoming, ..
@@ -57,8 +59,8 @@ impl P2pNetworkPubsubAction {
                 buffer[..8].clone_from_slice(&(len as u64).to_le_bytes());
 
                 store.dispatch(P2pNetworkPubsubAction::Sign {
-                    seqno: state.seq + store.state().config.initial_time.as_nanos() as u64,
-                    author: store.state().config.identity_pub_key.peer_id(),
+                    seqno: state.seq + config.meshsub.initial_time.as_nanos() as u64,
+                    author: config.identity_pub_key.peer_id(),
                     data: buffer.into(),
                     topic: TOPIC.to_owned(),
                 });
@@ -135,7 +137,7 @@ impl P2pNetworkPubsubAction {
     }
 }
 
-pub fn broadcast<Store, S>(store: &mut Store)
+fn broadcast<Store, S>(store: &mut Store)
 where
     Store: crate::P2pStore<S>,
 {
