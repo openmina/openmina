@@ -1,4 +1,4 @@
-FROM rust:1.79 as app-builder
+FROM rust:1.79 AS app-builder
 
 WORKDIR /usr/src/openmina-producer-dashboard
 
@@ -6,7 +6,7 @@ COPY ../ .
 
 RUN cd producer-dashboard && SQLX_OFFLINE=true cargo install --path .
 
-FROM ubuntu:latest as mina-builder
+FROM ubuntu:latest AS mina-builder
 
 RUN apt-get update && apt-get install -y openssl ca-certificates
 
