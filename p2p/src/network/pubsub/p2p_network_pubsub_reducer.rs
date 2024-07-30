@@ -61,7 +61,12 @@ impl P2pNetworkPubsubState {
 
                 self.servers.insert(*peer_id, ());
             }
-            P2pNetworkPubsubAction::IncomingData { peer_id, data, .. } => {
+            P2pNetworkPubsubAction::IncomingData {
+                peer_id,
+                data,
+                seen_limit,
+                ..
+            } => {
                 self.incoming_transactions.clear();
                 self.incoming_snarks.clear();
                 let Some(state) = self.clients.get_mut(peer_id) else {
@@ -88,8 +93,8 @@ impl P2pNetworkPubsubState {
                                 // skip recently seen message
                                 if !self.seen.contains(signature) {
                                     self.seen.push_back(signature.clone());
-                                    // keep only last 256 to avoid memory leak
-                                    if self.seen.len() > 256 {
+                                    // keep only last `n` to avoid memory leak
+                                    if self.seen.len() > *seen_limit {
                                         self.seen.pop_front();
                                     }
                                 } else {
