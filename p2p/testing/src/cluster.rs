@@ -15,7 +15,7 @@ use p2p::{
         P2pConnectionOutgoingInitOpts, P2pConnectionOutgoingInitOptsParseError,
     },
     identity::SecretKey,
-    p2p_effects, p2p_timeout_effects, P2pConfig, P2pState, PeerId,
+    p2p_effects, p2p_timeout_effects, P2pConfig, P2pMeshsubConfig, P2pState, PeerId,
 };
 use redux::SystemTime;
 use tokio::sync::mpsc;
@@ -359,7 +359,7 @@ impl Cluster {
             peer_discovery: config.discovery,
             timeouts: config.timeouts,
             limits: config.limits,
-            initial_time: Duration::ZERO,
+            meshsub: P2pMeshsubConfig::default(),
         };
 
         Ok((config, secret_key))
