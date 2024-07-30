@@ -44,7 +44,7 @@ pub enum LedgerReadRequest {
     GetStagedLedgerAuxAndPendingCoinbases(LedgerReadStagedLedgerAuxAndPendingCoinbases),
     // rpcs
     ScanStateSummary(v2::LedgerHash),
-    AccountsForRpc(RpcId, Option<AccountPublicKey>),
+    AccountsForRpc(RpcId, v2::LedgerHash, Option<AccountPublicKey>),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

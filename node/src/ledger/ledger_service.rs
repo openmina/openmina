@@ -158,15 +158,9 @@ impl LedgerCtx {
         self.staged_ledgers.insert(hash, ledger);
     }
 
-    fn last_staged_ledger(&self) -> Option<Mask> {
-        self.staged_ledgers
-            .last_key_value()
-            .map(|latest_staged| latest_staged.1.ledger())
-    }
-
     // TODO(adonagy): Uh-oh, clean this up
-    pub fn get_accounts_for_rpc(&self, requested_public_key: Option<AccountPublicKey>) -> Vec<Account> {
-        if let Some(mask) = self.last_staged_ledger() {
+    pub fn get_accounts_for_rpc(&self, ledger_hash: LedgerHash, requested_public_key: Option<AccountPublicKey>) -> Vec<Account> {
+        if let Some((mask, _)) = self.mask(&ledger_hash) {
             let mut accounts = Vec::new();
             let mut single_account = Vec::new();
 
