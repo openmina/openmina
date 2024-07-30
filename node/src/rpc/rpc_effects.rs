@@ -647,7 +647,7 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
         }
         RpcAction::LedgerAccountsGetInit { rpc_id, public_key } => {
             if store.dispatch(LedgerReadAction::Init {
-                request: LedgerReadRequest::Accounts(rpc_id, public_key),
+                request: LedgerReadRequest::AccountsForRpc(rpc_id, public_key),
             }) {
                 store.dispatch(RpcAction::LedgerAccountsGetPending { rpc_id });
             }
@@ -690,6 +690,8 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
         }
         RpcAction::TransactionInjectInit { rpc_id, commands } => {
             store.dispatch(RpcAction::TransactionInjectPending { rpc_id });
+            // sort the commadns by nonce
+
             store.dispatch(TransactionPoolAction::StartVerify {
                 commands: commands.into_iter().map(|c| c.into()).collect(),
                 from_rpc: Some(rpc_id),

@@ -341,9 +341,10 @@ mod tests {
     #[test]
     fn from_numeric_string() {
         let hex = "075bcd1500000000000000000000000000000000000000000000000000000000";
-        let mut deser: BigInt = serde_json::from_str(r#""123456789""#).unwrap();
+        let deser: BigInt = serde_json::from_str(r#""123456789""#).unwrap();
 
-        deser.0.reverse();
+        let mut deser = deser.to_bytes();
+        deser.reverse();
         let result_hex = hex::encode(deser);
 
         assert_eq!(result_hex, hex.to_string());

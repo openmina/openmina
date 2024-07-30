@@ -206,9 +206,10 @@ impl LedgerRequest {
                     LedgerReadRequest::GetAccounts(ledger_hash, account_ids) => {
                         let res = ledger_ctx.get_accounts(ledger_hash, account_ids);
                         LedgerReadResponse::GetAccounts(res)
-                    LedgerReadRequest::Accounts(rpc_id, public_key) => {
-                        let res = ledger_ctx.get_accounts(public_key);
-                        LedgerReadResponse::Accounts(rpc_id, res)
+                    }
+                    LedgerReadRequest::AccountsForRpc(rpc_id, public_key) => {
+                        let res = ledger_ctx.get_accounts_for_rpc(public_key);
+                        LedgerReadResponse::AccountsForRpc(rpc_id, res)
                     }
                 },
             ),

@@ -324,7 +324,7 @@ impl TransactionPoolState {
 
                 for cmd in all_commands {
                     dispatcher.push(P2pChannelsTransactionAction::Libp2pBroadcast {
-                        transaction: (&cmd).into(),
+                        transaction: Box::new((&cmd).into()),
                         nonce: 0,
                     });
                 }

@@ -434,7 +434,7 @@ fn propagate_read_response<S: redux::Service>(
         }
         (_, LedgerReadResponse::ScanStateSummary(..)) => unreachable!(),
         (_req, LedgerReadResponse::GetAccounts(_)) => todo!(),
-        (_, LedgerReadResponse::Accounts(rpc_id, accounts)) => {
+        (_, LedgerReadResponse::AccountsForRpc(rpc_id, accounts)) => {
             store.dispatch(RpcAction::LedgerAccountsGetSuccess { rpc_id, accounts });
         }
     }

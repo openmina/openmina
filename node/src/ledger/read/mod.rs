@@ -29,7 +29,7 @@ pub enum LedgerReadKind {
     GetChildAccountsAtAddr,
     GetStagedLedgerAuxAndPendingCoinbases,
     ScanStateSummary,
-    Accounts,
+    AccountsForRpc,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
@@ -44,7 +44,7 @@ pub enum LedgerReadRequest {
     GetStagedLedgerAuxAndPendingCoinbases(LedgerReadStagedLedgerAuxAndPendingCoinbases),
     // rpcs
     ScanStateSummary(v2::LedgerHash),
-    Accounts(RpcId, Option<AccountPublicKey>),
+    AccountsForRpc(RpcId, Option<AccountPublicKey>),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -59,7 +59,7 @@ pub enum LedgerReadResponse {
     GetStagedLedgerAuxAndPendingCoinbases(Option<Arc<StagedLedgerAuxAndPendingCoinbases>>),
     // rpcs
     ScanStateSummary(Vec<Vec<RpcScanStateSummaryScanStateJob>>),
-    Accounts(RpcId, Vec<Account>),
+    AccountsForRpc(RpcId, Vec<Account>),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -80,7 +80,7 @@ impl LedgerReadRequest {
                 LedgerReadKind::GetStagedLedgerAuxAndPendingCoinbases
             }
             Self::ScanStateSummary(..) => LedgerReadKind::ScanStateSummary,
-            Self::Accounts(..) => LedgerReadKind::Accounts,
+            Self::AccountsForRpc(..) => LedgerReadKind::AccountsForRpc,
         }
     }
 
@@ -98,7 +98,7 @@ impl LedgerReadRequest {
             Self::GetStagedLedgerAuxAndPendingCoinbases(..) => 100,
             Self::ScanStateSummary(..) => 100,
             // TODO(adonagy): not sure
-            Self::Accounts(..) => 10,
+            Self::AccountsForRpc(..) => 10,
         };
         cost.max(1)
     }
@@ -116,7 +116,7 @@ impl LedgerReadResponse {
                 LedgerReadKind::GetStagedLedgerAuxAndPendingCoinbases
             }
             Self::ScanStateSummary(..) => LedgerReadKind::ScanStateSummary,
-            Self::Accounts(..) => LedgerReadKind::Accounts,
+            Self::AccountsForRpc(..) => LedgerReadKind::AccountsForRpc,
         }
     }
 }
