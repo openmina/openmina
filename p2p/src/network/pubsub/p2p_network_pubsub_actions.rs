@@ -20,6 +20,10 @@ pub enum P2pNetworkPubsubAction {
         data: Data,
         seen_limit: usize,
     },
+    Graft {
+        peer_id: PeerId,
+        topic_id: String,
+    },
     Broadcast {
         message: Box<GossipNetMessageV2>,
     },
