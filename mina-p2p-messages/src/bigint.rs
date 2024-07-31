@@ -183,7 +183,9 @@ impl<'de> Deserialize<'de> for BigInt {
                             num_bigint::BigInt::parse_bytes(v.as_bytes(), 10)
                                 .map(|num| {
                                     let mut bytes = num.to_bytes_be().1;
+                                    bytes.reverse();
                                     bytes.resize(32, 0); // Ensure the byte vector has 32 bytes
+                                    bytes.reverse();
                                     bytes
                                 })
                                 .ok_or_else(|| {
@@ -352,5 +354,23 @@ mod tests {
         let result_hex = hex::encode(deser);
 
         assert_eq!(result_hex, hex.to_string());
+    }
+
+    #[test]
+    fn from_numeric_string_2() {
+        let rx =
+            r#""23298604903871047876308234794524469025218548053411207476198573374353464993732""#;
+        let s = r#""160863098041039391219472069845715442980741444645399750596310972807022542440""#;
+
+        let deser_rx: BigInt = serde_json::from_str(rx).unwrap();
+        let deser_s: BigInt = serde_json::from_str(s).unwrap();
+
+        println!("rx: {:?}", deser_rx);
+        println!("s: {:?}", deser_s);
+
+        let _ = deser_rx.to_fp().unwrap();
+        println!("rx OK");
+        let _ = deser_s.to_fp().unwrap();
+        println!("s OK");
     }
 }
