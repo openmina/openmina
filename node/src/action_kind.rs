@@ -305,6 +305,7 @@ pub enum ActionKind {
     P2pNetworkPnetTimeout,
     P2pNetworkPubsubBroadcast,
     P2pNetworkPubsubBroadcastSigned,
+    P2pNetworkPubsubGraft,
     P2pNetworkPubsubIncomingData,
     P2pNetworkPubsubNewStream,
     P2pNetworkPubsubOutgoingData,
@@ -534,7 +535,7 @@ pub enum ActionKind {
 }
 
 impl ActionKind {
-    pub const COUNT: u16 = 442;
+    pub const COUNT: u16 = 443;
 }
 
 impl std::fmt::Display for ActionKind {
@@ -1456,6 +1457,7 @@ impl ActionKindGet for P2pNetworkPubsubAction {
         match self {
             Self::NewStream { .. } => ActionKind::P2pNetworkPubsubNewStream,
             Self::IncomingData { .. } => ActionKind::P2pNetworkPubsubIncomingData,
+            Self::Graft { .. } => ActionKind::P2pNetworkPubsubGraft,
             Self::Broadcast { .. } => ActionKind::P2pNetworkPubsubBroadcast,
             Self::Sign { .. } => ActionKind::P2pNetworkPubsubSign,
             Self::BroadcastSigned { .. } => ActionKind::P2pNetworkPubsubBroadcastSigned,

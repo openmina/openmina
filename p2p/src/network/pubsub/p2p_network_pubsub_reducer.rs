@@ -1,9 +1,10 @@
-use std::collections::BTreeSet;
-
 use binprot::BinProtRead;
 use mina_p2p_messages::{gossip, v2};
 
-use super::{pb, P2pNetworkPubsubAction, P2pNetworkPubsubClientState, P2pNetworkPubsubState};
+use super::{
+    p2p_network_pubsub_state::P2pNetworkPubsubClientMeshAddingState, pb, P2pNetworkPubsubAction,
+    P2pNetworkPubsubClientMeshState, P2pNetworkPubsubClientState, P2pNetworkPubsubState,
+};
 
 impl P2pNetworkPubsubState {
     pub fn reducer(&mut self, action: redux::ActionWithMeta<&P2pNetworkPubsubAction>) {
@@ -22,7 +23,6 @@ impl P2pNetworkPubsubState {
                             protocol: *protocol,
                             addr: *addr,
                             outgoing_stream_id: None,
-                            topics: BTreeSet::default(),
                             message: pb::Rpc {
                                 subscriptions: vec![],
                                 publish: vec![],
@@ -47,7 +47,6 @@ impl P2pNetworkPubsubState {
                             protocol: *protocol,
                             addr: *addr,
                             outgoing_stream_id: Some(*stream_id),
-                            topics: BTreeSet::default(),
                             message: pb::Rpc {
                                 subscriptions: vec![],
                                 publish: vec![],
@@ -58,8 +57,6 @@ impl P2pNetworkPubsubState {
                 state.outgoing_stream_id = Some(*stream_id);
                 state.protocol = *protocol;
                 state.addr = *addr;
-
-                self.servers.insert(*peer_id, ());
             }
             P2pNetworkPubsubAction::IncomingData {
                 peer_id,
@@ -82,13 +79,20 @@ impl P2pNetworkPubsubState {
                     Ok(v) => {
                         state.buffer.clear();
                         for subscription in v.subscriptions {
+                            let topic_id = subscription.topic_id().to_owned();
+                            let topic = self.topics.entry(topic_id).or_default();
+
                             if subscription.subscribe() {
-                                state.topics.insert(subscription.topic_id().to_owned());
+                                topic.insert(
+                                    peer_id.clone(),
+                                    P2pNetworkPubsubClientMeshState::default(),
+                                );
                             } else {
-                                state.topics.remove(subscription.topic_id());
+                                topic.remove(&peer_id);
                             }
                         }
                         for message in v.publish {
+                            let topic = self.topics.entry(message.topic.clone()).or_default();
                             if let Some(signature) = &message.signature {
                                 // skip recently seen message
                                 if !self.seen.contains(signature) {
@@ -104,9 +108,12 @@ impl P2pNetworkPubsubState {
                             // TODO: verify signature
                             self.clients
                                 .iter_mut()
-                                .filter(|(c, state)| {
+                                .filter(|(c, _)| {
                                     // don't send back to who sent this
-                                    **c != *peer_id && state.topics.contains(&message.topic)
+                                    **c != *peer_id
+                                        && topic
+                                            .get(c)
+                                            .map_or(false, P2pNetworkPubsubClientMeshState::on_mesh)
                                 })
                                 .for_each(|(_, state)| state.message.publish.push(message.clone()));
 
@@ -140,7 +147,29 @@ impl P2pNetworkPubsubState {
                                 }
                             }
                         }
-                        // TODO: handle control messages
+                        if let Some(control) = &v.control {
+                            for graft in &control.graft {
+                                if let Some(mesh_state) = self
+                                    .topics
+                                    .get_mut(dbg!(graft.topic_id()))
+                                    .and_then(|m| m.get_mut(&peer_id))
+                                {
+                                    mesh_state.mesh = P2pNetworkPubsubClientMeshAddingState::Added;
+                                    // TODO: prune if above the limit
+                                }
+                            }
+                            for prune in &control.prune {
+                                if let Some(mesh_state) = self
+                                    .topics
+                                    .get_mut(prune.topic_id())
+                                    .and_then(|m| m.get_mut(&peer_id))
+                                {
+                                    mesh_state.mesh =
+                                        P2pNetworkPubsubClientMeshAddingState::TheyRefused;
+                                }
+                            }
+                            // TODO: handle iwant, ihave
+                        }
                     }
                     Err(err) => {
                         // bad way to check the error, but `prost` doesn't provide better
@@ -150,6 +179,18 @@ impl P2pNetworkPubsubState {
                         dbg!(err);
                     }
                 }
+            }
+            // we want to add peer to our mesh
+            P2pNetworkPubsubAction::Graft { peer_id, topic_id } => {
+                let Some(state) = self
+                    .topics
+                    .get_mut(topic_id)
+                    .and_then(|m| m.get_mut(peer_id))
+                else {
+                    return;
+                };
+
+                state.mesh = P2pNetworkPubsubClientMeshAddingState::Added;
             }
             P2pNetworkPubsubAction::OutgoingMessage { peer_id, .. } => {
                 if let Some(v) = self.clients.get_mut(peer_id) {
@@ -180,10 +221,15 @@ impl P2pNetworkPubsubState {
             P2pNetworkPubsubAction::BroadcastSigned { signature } => {
                 if let Some(mut message) = self.to_sign.pop_front() {
                     message.signature = Some(signature.clone().0.to_vec());
+                    let topic = self.topics.entry(message.topic.clone()).or_default();
                     self.clients
-                        .values_mut()
-                        .filter(|state| state.topics.contains(&message.topic))
-                        .for_each(|state| state.message.publish.push(message.clone()));
+                        .iter_mut()
+                        .filter(|(c, _)| {
+                            topic
+                                .get(c)
+                                .map_or(false, P2pNetworkPubsubClientMeshState::on_mesh)
+                        })
+                        .for_each(|(_, state)| state.message.publish.push(message.clone()));
                 }
             }
             P2pNetworkPubsubAction::OutgoingData { .. } => {}

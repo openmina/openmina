@@ -28,29 +28,45 @@ impl P2pNetworkPubsubAction {
                 peer_id, incoming, ..
             } => {
                 if !incoming {
-                    let msg = pb::Rpc {
-                        subscriptions: vec![pb::rpc::SubOpts {
-                            subscribe: Some(true),
-                            topic_id: Some(TOPIC.to_owned()),
-                        }],
-                        publish: vec![],
-                        control: None,
-                    };
-                    store.dispatch(P2pNetworkPubsubAction::OutgoingMessage { msg, peer_id });
-                    let msg = pb::Rpc {
-                        subscriptions: vec![],
-                        publish: vec![],
-                        control: Some(pb::ControlMessage {
-                            ihave: vec![],
-                            iwant: vec![],
-                            graft: vec![pb::ControlGraft {
+                    let subscrption = {
+                        let msg = pb::Rpc {
+                            subscriptions: vec![pb::rpc::SubOpts {
+                                subscribe: Some(true),
                                 topic_id: Some(TOPIC.to_owned()),
                             }],
-                            prune: vec![],
-                        }),
+                            publish: vec![],
+                            control: None,
+                        };
+                        Some(P2pNetworkPubsubAction::OutgoingMessage { msg, peer_id })
                     };
-                    store.dispatch(P2pNetworkPubsubAction::OutgoingMessage { msg, peer_id });
+                    let graft = if state.clients.len() < config.meshsub.outbound_degree_desired {
+                        Some(P2pNetworkPubsubAction::Graft {
+                            peer_id,
+                            topic_id: TOPIC.to_owned(),
+                        })
+                    } else {
+                        None
+                    };
+                    for action in subscrption.into_iter().chain(graft) {
+                        store.dispatch(action);
+                    }
                 }
+            }
+            P2pNetworkPubsubAction::Graft { peer_id, topic_id } => {
+                let msg = pb::Rpc {
+                    subscriptions: vec![],
+                    publish: vec![],
+                    control: Some(pb::ControlMessage {
+                        ihave: vec![],
+                        iwant: vec![],
+                        graft: vec![pb::ControlGraft {
+                            topic_id: Some(dbg!(topic_id.clone())),
+                        }],
+                        prune: vec![],
+                    }),
+                };
+
+                store.dispatch(P2pNetworkPubsubAction::OutgoingMessage { msg, peer_id });
             }
             P2pNetworkPubsubAction::Broadcast { message } => {
                 let mut buffer = vec![0; 8];
@@ -78,6 +94,15 @@ impl P2pNetworkPubsubAction {
                 let incoming_block = state.incoming_block.as_ref().cloned();
                 let incoming_transactions = state.incoming_transactions.clone();
                 let incoming_snarks = state.incoming_snarks.clone();
+                let topics = state.topics.clone();
+                let could_accept = state.clients.len() < config.meshsub.outbound_degree_high;
+
+                for (topic_id, map) in topics {
+                    if let Some(mesh_state) = map.get(&peer_id) {
+                        let _ = (could_accept, topic_id, mesh_state);
+                        // TODO: prune
+                    }
+                }
 
                 broadcast(store);
                 if let Some((_, block)) = incoming_block {
