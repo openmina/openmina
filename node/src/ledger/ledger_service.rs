@@ -159,7 +159,11 @@ impl LedgerCtx {
     }
 
     // TODO(adonagy): Uh-oh, clean this up
-    pub fn get_accounts_for_rpc(&self, ledger_hash: LedgerHash, requested_public_key: Option<AccountPublicKey>) -> Vec<Account> {
+    pub fn get_accounts_for_rpc(
+        &self,
+        ledger_hash: LedgerHash,
+        requested_public_key: Option<AccountPublicKey>,
+    ) -> Vec<Account> {
         if let Some((mask, _)) = self.mask(&ledger_hash) {
             let mut accounts = Vec::new();
             let mut single_account = Vec::new();

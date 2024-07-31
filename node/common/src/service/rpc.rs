@@ -1,6 +1,10 @@
 use node::p2p::connection::outgoing::P2pConnectionOutgoingInitOpts;
 use node::rpc::{
-    RpcBlockProducerStatsGetResponse, RpcDiscoveryBoostrapStatsResponse, RpcDiscoveryRoutingTableResponse, RpcHealthCheckResponse, RpcLedgerAccountsResponse, RpcMessageProgressResponse, RpcPeersGetResponse, RpcReadinessCheckResponse, RpcRequest, RpcStateGetError, RpcStatusGetResponse, RpcTransactionInjectFailure, RpcTransactionPoolResponse, RpcTransitionFrontierUserCommandsResponse
+    RpcBlockProducerStatsGetResponse, RpcDiscoveryBoostrapStatsResponse,
+    RpcDiscoveryRoutingTableResponse, RpcHealthCheckResponse, RpcLedgerAccountsResponse,
+    RpcMessageProgressResponse, RpcPeersGetResponse, RpcReadinessCheckResponse, RpcRequest,
+    RpcStateGetError, RpcStatusGetResponse, RpcTransactionInjectFailure,
+    RpcTransactionPoolResponse, RpcTransitionFrontierUserCommandsResponse,
 };
 use serde::{Deserialize, Serialize};
 
@@ -335,7 +339,10 @@ impl node::rpc::RpcService for NodeServiceCommon {
         respond_transaction_inject_failed,
         RpcTransactionInjectFailure
     );
-    rpc_service_impl!(respond_transition_frontier_commands, RpcTransitionFrontierUserCommandsResponse);
+    rpc_service_impl!(
+        respond_transition_frontier_commands,
+        RpcTransitionFrontierUserCommandsResponse
+    );
 }
 
 #[cfg(test)]

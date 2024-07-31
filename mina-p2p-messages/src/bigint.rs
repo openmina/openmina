@@ -181,13 +181,17 @@ impl<'de> Deserialize<'de> for BigInt {
                         None => {
                             // Try to parse as a decimal number
                             num_bigint::BigInt::parse_bytes(v.as_bytes(), 10)
-                            .map(|num| {
-                                let mut bytes = num.to_bytes_be().1;
-                                bytes.resize(32, 0); // Ensure the byte vector has 32 bytes
-                                bytes
-                            })
-                            .ok_or_else(|| serde::de::Error::custom("failed to parse decimal number".to_string()))
-                        },
+                                .map(|num| {
+                                    let mut bytes = num.to_bytes_be().1;
+                                    bytes.resize(32, 0); // Ensure the byte vector has 32 bytes
+                                    bytes
+                                })
+                                .ok_or_else(|| {
+                                    serde::de::Error::custom(
+                                        "failed to parse decimal number".to_string(),
+                                    )
+                                })
+                        }
                     }
                 }
 

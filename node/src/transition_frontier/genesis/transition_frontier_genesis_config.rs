@@ -404,71 +404,79 @@ impl GenesisConfig {
     ) -> (ledger::Mask, v2::CurrencyAmountStableV1) {
         let mut counter = 0;
         let mut total_balance = 0;
-    
-        fn create_account(counter: &mut u64, balance: u64, delegate: Option<mina_signer::CompressedPubKey>, total_balance: &mut u64) -> ledger::Account {
+
+        fn create_account(
+            counter: &mut u64,
+            balance: u64,
+            delegate: Option<mina_signer::CompressedPubKey>,
+            total_balance: &mut u64,
+        ) -> ledger::Account {
             let sec_key = AccountSecretKey::deterministic(*counter);
             let pub_key: mina_signer::CompressedPubKey = sec_key.public_key().into();
             let account_id = ledger::AccountId::new(pub_key.clone(), Default::default());
-            let mut account = ledger::Account::create_with(
-                account_id,
-                Balance::from_mina(balance).unwrap(),
-            );
+            let mut account =
+                ledger::Account::create_with(account_id, Balance::from_mina(balance).unwrap());
             account.delegate = delegate;
             *total_balance += balance;
             *counter += 1;
             // println!("Created account with balance: {}, total_balance: {}", balance, *total_balance); // Debug print
             account
         }
-    
+
         let mut accounts = Vec::new();
-    
+
         // Process block producers and their delegators
         for (bp_balance, delegators) in block_producers {
             let bp_account = create_account(&mut counter, bp_balance, None, &mut total_balance);
             let bp_pub_key = bp_account.public_key.clone();
             accounts.push(bp_account);
-    
+
             for balance in delegators {
-                let delegator_account = create_account(&mut counter, balance, Some(bp_pub_key.clone()), &mut total_balance);
+                let delegator_account = create_account(
+                    &mut counter,
+                    balance,
+                    Some(bp_pub_key.clone()),
+                    &mut total_balance,
+                );
                 accounts.push(delegator_account);
             }
         }
-    
+
         let remaining_accounts = AccountSecretKey::max_deterministic_count()
             .checked_sub(counter as usize)
             .unwrap_or_default();
-    
+
         let non_staker_count = match non_stakers {
             NonStakers::Fill => remaining_accounts,
             NonStakers::None => 0,
             NonStakers::Count(count) => *std::cmp::min(count, &remaining_accounts),
         };
-    
+
         let non_staker_total = total_balance * 20 / 80;
         let non_staker_balance = if non_staker_count > 0 {
             non_staker_total / non_staker_count as u64
         } else {
             0
         };
-    
+
         println!("Non staker total balance: {}", non_staker_total);
-    
+
         // Process non-stakers
         if matches!(non_stakers, NonStakers::Fill | NonStakers::Count(_)) {
             for _ in 0..non_staker_count {
-                let non_staker_account = create_account(&mut counter, non_staker_balance, None, &mut total_balance);
+                let non_staker_account =
+                    create_account(&mut counter, non_staker_balance, None, &mut total_balance);
                 accounts.push(non_staker_account);
             }
         }
-    
+
         // Add genesis accounts
         for genesis_account in genesis_account_iter() {
             accounts.push(genesis_account);
         }
-    
+
         Self::build_ledger_from_accounts(accounts)
     }
-    
 
     fn build_ledger_from_accounts(
         accounts: impl IntoIterator<Item = ledger::Account>,

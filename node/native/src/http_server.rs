@@ -510,7 +510,7 @@ pub async fn run(port: u16, rpc_sender: RpcSender) {
                         dropped_channel_response,
                         |reply: node::rpc::RpcTransitionFrontierUserCommandsResponse| {
                             with_json_reply(&reply, StatusCode::OK)
-                        }
+                        },
                     )
             }
         });
@@ -536,7 +536,8 @@ pub async fn run(port: u16, rpc_sender: RpcSender) {
         .or(accounts)
         .or(transaction_post)
         .boxed()
-        .or(transition_frontier_user_commands).boxed()
+        .or(transition_frontier_user_commands)
+        .boxed()
         .or(healthcheck(rpc_sender.clone()))
         .or(readiness(rpc_sender.clone()))
         .or(discovery::routing_table(rpc_sender.clone()))

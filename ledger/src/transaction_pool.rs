@@ -1373,10 +1373,11 @@ impl IndexedPool {
 
     /// Returns all the transactions in the pool
     fn get_all_transactions(&self) -> Vec<ValidCommandWithHash> {
-        self.all_by_sender.values().cloned().flat_map(|(cmds,_)| {
-            cmds.into_iter()
-        })
-        .collect()
+        self.all_by_sender
+            .values()
+            .cloned()
+            .flat_map(|(cmds, _)| cmds.into_iter())
+            .collect()
     }
 
     fn get_pending_amount_and_nonce(&self) -> HashMap<AccountId, (Option<Nonce>, Amount)> {

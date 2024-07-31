@@ -562,7 +562,9 @@ impl std::str::FromStr for Memo {
         memo[0] = Self::BYTES_TAG;
         memo[1] = length;
         let padded = format!("{s:\0<32}");
-        memo[2..].copy_from_slice(&padded.as_bytes()[..std::cmp::min(padded.len(), Self::DIGEST_LENGTH)]);
+        memo[2..].copy_from_slice(
+            &padded.as_bytes()[..std::cmp::min(padded.len(), Self::DIGEST_LENGTH)],
+        );
         Ok(Memo(memo))
     }
 }
@@ -570,7 +572,7 @@ impl std::str::FromStr for Memo {
 impl std::fmt::Display for Memo {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.0[0] != Self::BYTES_TAG {
-           return Err(std::fmt::Error)
+            return Err(std::fmt::Error);
         }
 
         let length = self.0[1] as usize;

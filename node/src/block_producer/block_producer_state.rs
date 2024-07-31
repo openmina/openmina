@@ -281,7 +281,7 @@ impl BlockProducerCurrentState {
                 // Make sure to only producer blocks when in the slot interval
                 let slot_upper_bound = won_slot.slot_time + slot_interval;
                 now < won_slot.slot_time && now >= slot_upper_bound
-            },
+            }
             _ => false,
         }
     }

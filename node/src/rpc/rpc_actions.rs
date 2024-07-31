@@ -266,7 +266,9 @@ impl redux::EnablingCondition<crate::State> for RpcAction {
             RpcAction::DiscoveryRoutingTable { .. } => true,
             RpcAction::DiscoveryBoostrapStats { .. } => true,
             RpcAction::TransactionPool { .. } => true,
-            RpcAction::LedgerAccountsGetInit { .. } => state.transition_frontier.best_tip().is_some(),
+            RpcAction::LedgerAccountsGetInit { .. } => {
+                state.transition_frontier.best_tip().is_some()
+            }
             RpcAction::LedgerAccountsGetPending { rpc_id, .. } => state
                 .rpc
                 .requests

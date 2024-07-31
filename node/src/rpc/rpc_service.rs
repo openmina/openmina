@@ -11,7 +11,8 @@ use super::{
     RpcReadinessCheckResponse, RpcScanStateSummaryGetResponse, RpcSnarkPoolGetResponse,
     RpcSnarkPoolJobGetResponse, RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse,
     RpcSnarkerWorkersResponse, RpcStatusGetResponse, RpcSyncStatsGetResponse,
-    RpcTransactionInjectFailure, RpcTransactionInjectResponse, RpcTransactionPoolResponse, RpcTransitionFrontierUserCommandsResponse,
+    RpcTransactionInjectFailure, RpcTransactionInjectResponse, RpcTransactionPoolResponse,
+    RpcTransitionFrontierUserCommandsResponse,
 };
 
 #[derive(Error, Serialize, Deserialize, Debug, Clone)]

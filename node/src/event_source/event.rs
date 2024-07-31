@@ -65,7 +65,9 @@ impl std::fmt::Display for Event {
                         write!(f, "LedgerAccountsGet, {pub_key:?}")
                     }
                     RpcRequest::TransactionInject(..) => write!(f, "TransactionInject"),
-                    RpcRequest::TransitionFrontierUserCommandsGet => write!(f, "TransitionFrontierUserCommandsGet"),
+                    RpcRequest::TransitionFrontierUserCommandsGet => {
+                        write!(f, "TransitionFrontierUserCommandsGet")
+                    }
                 }
             }
             Self::ExternalSnarkWorker(event) => {

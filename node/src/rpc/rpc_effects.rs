@@ -724,10 +724,13 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
             )
         }
         RpcAction::TransitionFrontierUserCommandsGet { rpc_id } => {
-            let commands = store.state().transition_frontier.best_chain.iter().flat_map(|block| {
-                block.body().commands_iter().map(|v| v.data.clone())
-            })
-            .collect::<Vec<_>>();
+            let commands = store
+                .state()
+                .transition_frontier
+                .best_chain
+                .iter()
+                .flat_map(|block| block.body().commands_iter().map(|v| v.data.clone()))
+                .collect::<Vec<_>>();
 
             respond_or_log!(
                 store
