@@ -12,7 +12,9 @@ export const environment: Readonly<MinaEnv> = {
       snarks: ['scan-state', 'work-pool'],
       'testing-tool': ['scenarios'],
       resources: ['memory'],
+      'block-production': ['overview', 'won-slots'],
       mempool: [],
+      benchmarks: ['wallets'],
     },
     canAddNodes: true,
   },
@@ -28,18 +30,31 @@ export const environment: Readonly<MinaEnv> = {
     //     resources: ['memory'],
     //   },
     // },
-    // {
-    //   name: 'Docker 11010',
-    //   url: 'http://localhost:11010',
-    // },
-    // {
-    //   name: 'Docker 11012',
-    //   url: 'http://localhost:11012',
-    // },
-    // {
-    //   name: 'Docker 11014',
-    //   url: 'http://localhost:11014',
-    // },
+    {
+      name: 'http://116.202.128.230:11010',
+      url: 'http://116.202.128.230:11010',
+    },
+    {
+      name: 'http://37.27.115.85:3000',
+      url: 'http://37.27.115.85:3000',
+    },
+    {
+      name: 'Local rust node',
+      url: 'http://127.0.0.1:3000',
+      memoryProfiler: 'http://1.k8.openmina.com:31164',
+    },
+    {
+      name: 'Docker 11010',
+      url: 'http://localhost:11010',
+    },
+    {
+      name: 'Docker 11012',
+      url: 'http://localhost:11012',
+    },
+    {
+      name: 'Docker 11014',
+      url: 'http://localhost:11014',
+    },
     // {
     //   name: 'Producer',
     //   url: 'http://65.109.105.40:3000',
@@ -68,11 +83,6 @@ export const environment: Readonly<MinaEnv> = {
       name: 'http://65.109.110.75:11014',
       url: 'http://65.109.110.75:11014',
       minaExplorerNetwork: 'devnet',
-      memoryProfiler: 'http://1.k8.openmina.com:31164',
-    },
-    {
-      name: 'Local rust node',
-      url: 'http://127.0.0.1:3000',
       memoryProfiler: 'http://1.k8.openmina.com:31164',
     },
     {

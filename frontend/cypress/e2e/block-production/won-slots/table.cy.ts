@@ -77,7 +77,7 @@ describe('BLOCK PRODUCTION WON SLOTS TABLE', () => {
       .then(getBPWonSlots)
       .then((state: BlockProductionWonSlotsState) => {
         if (condition(state)) {
-          checkSorting(state.filteredSlots, 'slotTime', Sort.ASC);
+          checkSorting(state.filteredSlots, 'slotTime', Sort.DSC);
         }
       });
   }));
@@ -90,7 +90,7 @@ describe('BLOCK PRODUCTION WON SLOTS TABLE', () => {
       .then(getBPWonSlots)
       .then((state: BlockProductionWonSlotsState) => {
         if (condition(state)) {
-          checkSorting(state.filteredSlots, 'message', Sort.ASC);
+          checkSorting(state.filteredSlots, 'message', Sort.DSC);
         }
       });
   }));
@@ -103,7 +103,7 @@ describe('BLOCK PRODUCTION WON SLOTS TABLE', () => {
       .then(getBPWonSlots)
       .then((state: BlockProductionWonSlotsState) => {
         if (condition(state)) {
-          checkSorting(state.filteredSlots, 'height', Sort.ASC);
+          checkSorting(state.filteredSlots, 'height', Sort.DSC);
         }
       });
   }));
@@ -116,7 +116,7 @@ describe('BLOCK PRODUCTION WON SLOTS TABLE', () => {
       .then(getBPWonSlots)
       .then((state: BlockProductionWonSlotsState) => {
         if (condition(state)) {
-          checkSorting(state.filteredSlots, 'globalSlot', Sort.ASC);
+          checkSorting(state.filteredSlots, 'globalSlot', Sort.DSC);
         }
       });
   }));
@@ -129,7 +129,7 @@ describe('BLOCK PRODUCTION WON SLOTS TABLE', () => {
       .then(getBPWonSlots)
       .then((state: BlockProductionWonSlotsState) => {
         if (condition(state)) {
-          checkSorting(state.filteredSlots, 'transactionsTotal', Sort.ASC);
+          checkSorting(state.filteredSlots, 'transactionsTotal', Sort.DSC);
         }
       });
   }));
@@ -142,7 +142,7 @@ describe('BLOCK PRODUCTION WON SLOTS TABLE', () => {
       .then(getBPWonSlots)
       .then((state: BlockProductionWonSlotsState) => {
         if (condition(state)) {
-          checkSorting(state.filteredSlots, 'snarkFees', Sort.ASC);
+          checkSorting(state.filteredSlots, 'snarkFees', Sort.DSC);
         }
       });
   }));
@@ -155,7 +155,7 @@ describe('BLOCK PRODUCTION WON SLOTS TABLE', () => {
       .then(getBPWonSlots)
       .then((state: BlockProductionWonSlotsState) => {
         if (condition(state)) {
-          checkSorting(state.filteredSlots, 'coinbaseRewards', Sort.ASC);
+          checkSorting(state.filteredSlots, 'coinbaseRewards', Sort.DSC);
         }
       });
   }));
@@ -168,7 +168,7 @@ describe('BLOCK PRODUCTION WON SLOTS TABLE', () => {
       .then(getBPWonSlots)
       .then((state: BlockProductionWonSlotsState) => {
         if (condition(state)) {
-          checkSorting(state.filteredSlots, 'txFeesRewards', Sort.ASC);
+          checkSorting(state.filteredSlots, 'txFeesRewards', Sort.DSC);
         }
       });
   }));

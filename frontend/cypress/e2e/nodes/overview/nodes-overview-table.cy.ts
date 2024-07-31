@@ -49,7 +49,7 @@ describe('NODES OVERVIEW TABLE', () => {
       .then(getNodesOverview)
       .then((state: NodesOverviewState) => {
         if (condition(state)) {
-          checkSorting(state.nodes, 'kind', Sort.DSC);
+          checkSorting(state.nodes, 'kind', Sort.ASC);
         }
       });
   });
@@ -87,7 +87,7 @@ describe('NODES OVERVIEW TABLE', () => {
       .then(getNodesOverview)
       .then((state: NodesOverviewState) => {
         if (condition(state)) {
-          checkSorting(state.nodes, 'name', Sort.ASC);
+          checkSorting(state.nodes, 'name', Sort.DSC);
         }
       });
   });
@@ -100,7 +100,7 @@ describe('NODES OVERVIEW TABLE', () => {
       .then(getNodesOverview)
       .then((state: NodesOverviewState) => {
         if (condition(state)) {
-          checkSorting(state.nodes, 'kind', Sort.ASC);
+          checkSorting(state.nodes, 'kind', Sort.DSC);
         }
       });
   });
@@ -113,7 +113,7 @@ describe('NODES OVERVIEW TABLE', () => {
       .then(getNodesOverview)
       .then((state: NodesOverviewState) => {
         if (condition(state)) {
-          checkSorting(state.nodes, 'bestTip', Sort.DSC);
+          checkSorting(state.nodes, 'bestTip', Sort.ASC);
         }
       });
   });
@@ -128,7 +128,7 @@ describe('NODES OVERVIEW TABLE', () => {
       .then(getNodesOverview)
       .then((state: NodesOverviewState) => {
         if (condition(state)) {
-          checkSorting(state.nodes, 'height', Sort.ASC);
+          checkSorting(state.nodes, 'height', Sort.DSC);
         }
       });
   });

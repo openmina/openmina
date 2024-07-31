@@ -68,6 +68,9 @@
       "@resources/*": [
         "src/app/features/resources/*"
       ],
+      "@benchmarks/*": [
+        "src/app/features/benchmarks/*"
+      ],
       "@block-production/*": [
         "src/app/features/block-production/*"
       ],

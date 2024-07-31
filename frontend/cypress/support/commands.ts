@@ -50,16 +50,18 @@ export function checkSorting<T>(array: T[], field: keyof T, direction: Sort): vo
     if (isStringProp) {
       const curr: string = array[i][field] as string || '';
       const next: string = array[i + 1][field] as string || '';
-      if ((direction === Sort.DSC && curr.localeCompare(next) < 0) || (direction === Sort.ASC && curr.localeCompare(next) > 0)) {
+      if ((direction === Sort.ASC && curr.localeCompare(next) < 0) || (direction === Sort.DSC && curr.localeCompare(next) > 0)) {
         sorted = false;
         break;
       }
     } else {
-      const curr = array[i][field] === undefined ? array[i][field] : Number.MAX_VALUE;
-      const next = array[i + 1][field] === undefined ? array[i + 1][field] : Number.MAX_VALUE;
-      if ((direction === Sort.DSC && curr > next) || (direction === Sort.ASC && curr < next)) {
-        sorted = false;
-        break;
+      const curr = array[i][field];
+      const next = array[i + 1][field];
+      if (curr !== undefined && curr !== null && next !== undefined && next !== null) {
+        if ((direction === Sort.ASC && curr > next) || (direction === Sort.DSC && curr < next)) {
+          sorted = false;
+          break;
+        }
       }
     }
   }

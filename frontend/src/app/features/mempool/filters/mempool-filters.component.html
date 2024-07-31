@@ -19,23 +19,6 @@
     <div class="tertiary f-600 mr-8">Filter</div>
 
     <ng-container *ngIf="filters">
-      <div class="h-sm fx-row-vert-cent pl-5 pr-5 border-rad-6 pointer mr-5 f-600"
-           [class.pointer-none]="applicable === 0"
-           [ngClass]="(filters.applicable && applicable !== 0) ? 'bg-success-container success-primary' : 'bg-container tertiary'"
-           (click)="changeFilter('applicable', !filters.applicable)">
-        <span class="mr-5">{{ applicable }}</span>
-        Applicable
-      </div>
-
-      <div
-        class="h-sm fx-row-vert-cent pl-5 pr-5 border-rad-6 pointer mr-5 f-600"
-        [class.pointer-none]="notApplicable === 0"
-        [ngClass]="(filters.notApplicable && notApplicable !== 0) ? 'bg-aware-container aware-primary' : 'bg-container tertiary'"
-        (click)="changeFilter('notApplicable', !filters.notApplicable)">
-        <span class="mr-5">{{ notApplicable }}</span>
-        Not Applicable
-      </div>
-
       <div
         class="h-sm fx-row-vert-cent pl-5 pr-5 border-rad-6 pointer mr-5 f-600"
         [class.pointer-none]="zkApps === 0"
