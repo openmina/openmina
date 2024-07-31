@@ -515,7 +515,10 @@ pub async fn run(port: u16, rpc_sender: RpcSender) {
             }
         });
 
-    let cors = warp::cors().allow_any_origin();
+    let cors = warp::cors()
+        .allow_any_origin()
+        .allow_headers(vec!["content-type"])
+        .allow_methods(vec!["GET", "POST"]);
     #[cfg(not(feature = "p2p-webrtc"))]
     let routes = state_get.or(state_post);
     #[cfg(feature = "p2p-webrtc")]
