@@ -33,7 +33,8 @@ impl Invariant for NoRecursion {
             action_stack.truncate(action_depth.saturating_sub(1));
         }
 
-        let is_recursing = action_stack.iter().any(|kind| *kind == action_kind);
+        // let is_recursing = action_stack.iter().any(|kind| *kind == action_kind);
+        let is_recursing = contains_cycle(action_stack);
         action_stack.push(action_kind);
 
         if is_recursing {
@@ -42,4 +43,20 @@ impl Invariant for NoRecursion {
             InvariantResult::Updated
         }
     }
+}
+
+fn contains_cycle(stack: &[ActionKind]) -> bool {
+    let len = stack.len();
+    if len < 2 {
+        return false; // No cycle possible if the stack is too short
+    }
+
+    for cycle_length in 1..=(len / 2) {
+        let slice1 = &stack[len - cycle_length..];
+        let slice2 = &stack[len - 2 * cycle_length..len - cycle_length];
+        if slice1 == slice2 {
+            return true;
+        }
+    }
+    false
 }
