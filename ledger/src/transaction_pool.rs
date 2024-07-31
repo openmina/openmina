@@ -1028,14 +1028,14 @@ impl IndexedPool {
                     last.data.forget_check().expected_target_nonce()
                 };
                 if queue_target_nonce == cmd_applicable_at_nonce {
-                    let reserved_currency = consumed
+                    *reserved_currency = consumed
                         .checked_add(reserved_currency)
                         .ok_or(CommandError::Overflow)?;
 
-                    if !(reserved_currency <= balance.to_amount()) {
+                    if !(*reserved_currency <= balance.to_amount()) {
                         return Err(CommandError::InsufficientFunds {
                             balance,
-                            consumed: reserved_currency,
+                            consumed: *reserved_currency,
                         });
                     }
 
