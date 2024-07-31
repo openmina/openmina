@@ -5,6 +5,8 @@ export const environment: Readonly<MinaEnv> = {
   globalConfig: {
     features: {
       'block-production': ['won-slots'],
+      'mempool': [],
+      'benchmarks': ['wallets'],
     },
     canAddNodes: true,
   },
