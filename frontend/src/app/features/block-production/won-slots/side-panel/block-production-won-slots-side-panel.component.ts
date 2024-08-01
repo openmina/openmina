@@ -150,11 +150,11 @@ export class BlockProductionWonSlotsSidePanelComponent extends StoreDispatcher i
   }
 
   private createDiscardedView(): void {
-    this.beforeLedger.clear();
-    this.apply.clear();
-    this.proof.clear();
-    this.produced.clear();
-    this.ledger.clear();
+    this.beforeLedger?.clear();
+    this.apply?.clear();
+    this.proof?.clear();
+    this.produced?.clear();
+    this.ledger?.clear();
 
     if (this.slot.discardReason) {
       const times: BlockProductionWonSlotTimes = this.slot.times;
