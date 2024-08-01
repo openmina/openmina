@@ -1,4 +1,5 @@
 mod ledger_write_actions;
+use ledger::scan_state::transaction_logic::valid;
 pub use ledger_write_actions::*;
 
 mod ledger_write_state;
@@ -42,6 +43,7 @@ pub enum LedgerWriteRequest {
         coinbase_receiver: v2::NonZeroCurvePoint,
         completed_snarks: BTreeMap<SnarkJobId, Snark>,
         supercharge_coinbase: bool,
+        transactions_by_fee: Vec<valid::UserCommand>,
     },
     BlockApply {
         block: ArcBlockWithHash,

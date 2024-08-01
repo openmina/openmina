@@ -42,6 +42,10 @@ impl AccountSecretKey {
         GENERATED_DETERMINISTIC[i as usize].clone()
     }
 
+    pub fn max_deterministic_count() -> usize {
+        GENERATED_DETERMINISTIC.len()
+    }
+
     pub fn rand() -> Self {
         Self::rand_with(rand::thread_rng())
     }

@@ -339,6 +339,15 @@ pub fn event_source_effects<S: Service>(store: &mut Store<S>, action: EventSourc
                 RpcRequest::TransactionPoolGet => {
                     store.dispatch(RpcAction::TransactionPool { rpc_id });
                 }
+                RpcRequest::LedgerAccountsGet(public_key) => {
+                    store.dispatch(RpcAction::LedgerAccountsGetInit { rpc_id, public_key });
+                }
+                RpcRequest::TransactionInject(commands) => {
+                    store.dispatch(RpcAction::TransactionInjectInit { rpc_id, commands });
+                }
+                RpcRequest::TransitionFrontierUserCommandsGet => {
+                    store.dispatch(RpcAction::TransitionFrontierUserCommandsGet { rpc_id });
+                }
             },
             Event::ExternalSnarkWorker(e) => match e {
                 ExternalSnarkWorkerEvent::Started => {

@@ -278,6 +278,13 @@ pub mod valid {
                 UserCommand::ZkAppCommand(cmd) => cmd.zkapp_command.fee_payer(),
             }
         }
+
+        pub fn nonce(&self) -> Option<Nonce> {
+            match self {
+                UserCommand::SignedCommand(cmd) => Some(cmd.nonce()),
+                UserCommand::ZkAppCommand(_) => None,
+            }
+        }
     }
 
     impl GenericCommand for UserCommand {
@@ -543,6 +550,37 @@ impl std::fmt::Debug for Memo {
         // Example: "\000 \014WQ\192&\229C\178\232\171.\176`\153\218\161\209\229\223Gw\143w\135\250\171E\205\241/\227\168"
 
         f.write_fmt(format_args!("\"{}\"", self.0.to_ocaml_str()))
+    }
+}
+
+impl std::str::FromStr for Memo {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let length = std::cmp::min(s.len(), Self::DIGEST_LENGTH) as u8;
+        let mut memo: [u8; Self::DIGEST_LENGTH + 2] = std::array::from_fn(|i| (i == 0) as u8);
+        memo[0] = Self::BYTES_TAG;
+        memo[1] = length;
+        let padded = format!("{s:\0<32}");
+        memo[2..].copy_from_slice(
+            &padded.as_bytes()[..std::cmp::min(padded.len(), Self::DIGEST_LENGTH)],
+        );
+        Ok(Memo(memo))
+    }
+}
+
+impl std::fmt::Display for Memo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.0[0] != Self::BYTES_TAG {
+            return Err(std::fmt::Error);
+        }
+
+        let length = self.0[1] as usize;
+        let memo_slice = &self.0[2..2 + length];
+        let memo_str = String::from_utf8_lossy(memo_slice).to_string();
+        let trimmed = memo_str.trim_end_matches('\0').to_string();
+
+        write!(f, "{trimmed}")
     }
 }
 
@@ -823,6 +861,13 @@ pub mod signed_command {
             match &self.payload.body {
                 Body::Payment(payload) => &payload.receiver_pk,
                 Body::StakeDelegation(payload) => payload.receiver_pk(),
+            }
+        }
+
+        pub fn amount(&self) -> Option<Amount> {
+            match &self.payload.body {
+                Body::Payment(payload) => Some(payload.amount),
+                Body::StakeDelegation(_) => None,
             }
         }
 

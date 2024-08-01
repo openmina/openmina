@@ -583,7 +583,7 @@ impl Cluster {
             .nodes
             .get_mut(node_id.index())
             .ok_or_else(|| anyhow::anyhow!("node {node_id:?} not found"))?;
-        let timeout = tokio::time::sleep(Duration::from_secs(60));
+        let timeout = tokio::time::sleep(Duration::from_secs(300));
         tokio::select! {
             opt = node.wait_for_event(event_pattern) => opt.ok_or_else(|| anyhow::anyhow!("wait_for_event: None")),
             _ = timeout => {

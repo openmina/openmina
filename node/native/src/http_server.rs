@@ -458,7 +458,67 @@ pub async fn run(port: u16, rpc_sender: RpcSender) {
             }
         });
 
-    let cors = warp::cors().allow_any_origin();
+    let rpc_sender_clone = rpc_sender.clone();
+    let accounts = warp::path("accounts").and(warp::get()).then(move || {
+        let rpc_sender_clone = rpc_sender_clone.clone();
+
+        async move {
+            rpc_sender_clone
+                .oneshot_request(RpcRequest::LedgerAccountsGet(None))
+                .await
+                .map_or_else(
+                    dropped_channel_response,
+                    |reply: node::rpc::RpcLedgerAccountsResponse| {
+                        with_json_reply(&reply, StatusCode::OK)
+                    },
+                )
+        }
+    });
+
+    let rpc_sender_clone = rpc_sender.clone();
+    let transaction_post = warp::path("send-payment")
+        .and(warp::post())
+        .and(warp::filters::body::json())
+        .then(move |body: Vec<_>| {
+            let rpc_sender_clone = rpc_sender_clone.clone();
+
+            async move {
+                println!("Transaction inject post: {:#?}", body);
+                rpc_sender_clone
+                    .oneshot_request(RpcRequest::TransactionInject(body))
+                    .await
+                    .map_or_else(
+                        dropped_channel_response,
+                        |reply: node::rpc::RpcTransactionInjectResponse| {
+                            with_json_reply(&reply, StatusCode::OK)
+                        },
+                    )
+            }
+        });
+
+    let rpc_sender_clone = rpc_sender.clone();
+    let transition_frontier_user_commands = warp::path("best-chain-user-commands")
+        .and(warp::get())
+        .then(move || {
+            let rpc_sender_clone = rpc_sender_clone.clone();
+
+            async move {
+                rpc_sender_clone
+                    .oneshot_request(RpcRequest::TransitionFrontierUserCommandsGet)
+                    .await
+                    .map_or_else(
+                        dropped_channel_response,
+                        |reply: node::rpc::RpcTransitionFrontierUserCommandsResponse| {
+                            with_json_reply(&reply, StatusCode::OK)
+                        },
+                    )
+            }
+        });
+
+    let cors = warp::cors()
+        .allow_any_origin()
+        .allow_headers(vec!["content-type"])
+        .allow_methods(vec!["GET", "POST"]);
     #[cfg(not(feature = "p2p-webrtc"))]
     let routes = state_get.or(state_post);
     #[cfg(feature = "p2p-webrtc")]
@@ -476,6 +536,11 @@ pub async fn run(port: u16, rpc_sender: RpcSender) {
         .or(snarker_job_spec)
         .or(snark_workers)
         .or(transaction_pool)
+        .or(accounts)
+        .or(transaction_post)
+        .boxed()
+        .or(transition_frontier_user_commands)
+        .boxed()
         .or(healthcheck(rpc_sender.clone()))
         .or(readiness(rpc_sender.clone()))
         .or(discovery::routing_table(rpc_sender.clone()))

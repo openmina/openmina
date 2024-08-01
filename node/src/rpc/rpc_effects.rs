@@ -1,7 +1,10 @@
+use std::collections::BTreeMap;
 use std::time::Duration;
 
+use ledger::Account;
 use mina_p2p_messages::rpc_kernel::QueryHeader;
 use mina_p2p_messages::v2::MinaBaseTransactionStatusStableV2;
+use mina_signer::CompressedPubKey;
 use openmina_core::block::ArcBlockWithHash;
 
 use crate::block_producer::BlockProducerWonSlot;
@@ -10,11 +13,11 @@ use crate::ledger::read::{LedgerReadAction, LedgerReadRequest};
 use crate::p2p::connection::incoming::P2pConnectionIncomingAction;
 use crate::p2p::connection::outgoing::P2pConnectionOutgoingAction;
 use crate::p2p::connection::P2pConnectionResponse;
-use crate::rpc::{PeerConnectionStatus, RpcPeerInfo};
+use crate::rpc::{AccountSlim, PeerConnectionStatus, RpcPeerInfo, RpcTransactionInjectResponse};
 use crate::snark_pool::SnarkPoolAction;
 use crate::transition_frontier::sync::ledger::TransitionFrontierSyncLedgerState;
 use crate::transition_frontier::sync::TransitionFrontierSyncState;
-use crate::{p2p_ready, Service, Store};
+use crate::{p2p_ready, Service, Store, TransactionPoolAction};
 
 use super::{
     ActionStatsQuery, ActionStatsResponse, CurrentMessageProgress, MessagesStats, RpcAction,
@@ -25,6 +28,7 @@ use super::{
     RpcScanStateSummaryBlockTransactionKind, RpcScanStateSummaryGetQuery,
     RpcScanStateSummaryScanStateJob, RpcSnarkPoolJobFull, RpcSnarkPoolJobSnarkWork,
     RpcSnarkPoolJobSummary, RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse,
+    RpcTransactionInjectFailure,
 };
 
 macro_rules! respond_or_log {
@@ -638,6 +642,100 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
 
             respond_or_log!(
                 store.service().respond_transaction_pool(rpc_id, response),
+                meta.time()
+            )
+        }
+        RpcAction::LedgerAccountsGetInit { rpc_id, public_key } => {
+            let ledger_hash = if let Some(best_tip) = store.state().transition_frontier.best_tip() {
+                best_tip.staged_ledger_hash()
+            } else {
+                return;
+            };
+            if store.dispatch(LedgerReadAction::Init {
+                request: LedgerReadRequest::AccountsForRpc(rpc_id, ledger_hash.clone(), public_key),
+            }) {
+                store.dispatch(RpcAction::LedgerAccountsGetPending { rpc_id });
+            }
+        }
+        RpcAction::LedgerAccountsGetPending { .. } => {}
+        RpcAction::LedgerAccountsGetSuccess { rpc_id, accounts } => {
+            // TODO(adonagy): maybe something more effective?
+            let mut accounts: BTreeMap<CompressedPubKey, Account> = accounts
+                .into_iter()
+                .map(|acc| (acc.public_key.clone(), acc))
+                .collect();
+            let nonces_and_amount = store
+                .state()
+                .transaction_pool
+                .get_pending_amount_and_nonce();
+
+            nonces_and_amount
+                .iter()
+                .for_each(|(account_id, (nonce, amount))| {
+                    if let Some(account) = accounts.get_mut(&account_id.public_key) {
+                        if let Some(nonce) = nonce {
+                            if nonce >= &account.nonce {
+                                // increment the last nonce in the pool
+                                account.nonce = nonce.incr();
+                            }
+                        }
+                        account.balance = account.balance.sub_amount(*amount).unwrap();
+                    }
+                });
+
+            let accounts = accounts
+                .into_values()
+                .map(|v| v.into())
+                .collect::<Vec<AccountSlim>>();
+
+            respond_or_log!(
+                store.service().respond_ledger_accounts(rpc_id, accounts),
+                meta.time()
+            )
+        }
+        RpcAction::TransactionInjectInit { rpc_id, commands } => {
+            store.dispatch(RpcAction::TransactionInjectPending { rpc_id });
+            // sort the commadns by nonce
+
+            store.dispatch(TransactionPoolAction::StartVerify {
+                commands: commands.into_iter().map(|c| c.into()).collect(),
+                from_rpc: Some(rpc_id),
+            });
+        }
+        RpcAction::TransactionInjectPending { .. } => {}
+        RpcAction::TransactionInjectSuccess { rpc_id, response } => {
+            let response: RpcTransactionInjectResponse =
+                response.into_iter().map(|cmd| cmd.into()).collect();
+            respond_or_log!(
+                store.service().respond_transaction_inject(rpc_id, response),
+                meta.time()
+            )
+        }
+        RpcAction::TransactionInjectFailure { rpc_id, response } => {
+            let response: RpcTransactionInjectFailure = response
+                .into_iter()
+                .map(|(cmd, failure)| (cmd.into(), failure))
+                .collect();
+            respond_or_log!(
+                store
+                    .service()
+                    .respond_transaction_inject_failed(rpc_id, response),
+                meta.time()
+            )
+        }
+        RpcAction::TransitionFrontierUserCommandsGet { rpc_id } => {
+            let commands = store
+                .state()
+                .transition_frontier
+                .best_chain
+                .iter()
+                .flat_map(|block| block.body().commands_iter().map(|v| v.data.clone()))
+                .collect::<Vec<_>>();
+
+            respond_or_log!(
+                store
+                    .service()
+                    .respond_transition_frontier_commands(rpc_id, commands),
                 meta.time()
             )
         }

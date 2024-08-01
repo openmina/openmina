@@ -1,12 +1,22 @@
 mod rpc_state;
 use std::collections::BTreeMap;
+use std::str::FromStr;
 
-use ledger::transaction_pool::ValidCommandWithHash;
+use ledger::scan_state::currency::{Amount, Balance, Fee, Magnitude, Nonce, Slot};
+use ledger::scan_state::transaction_logic::signed_command::SignedCommandPayload;
+use ledger::scan_state::transaction_logic::valid::SignedCommand;
+use ledger::scan_state::transaction_logic::{self, signed_command, Memo, TransactionFailure};
+use ledger::transaction_pool::{diff, ValidCommandWithHash};
+use ledger::{Account, TokenId};
+use mina_p2p_messages::bigint::BigInt;
+use mina_p2p_messages::list::List;
 use mina_p2p_messages::v2::{
-    MinaBaseSignedCommandPayloadBodyStableV2, MinaBaseTransactionStatusStableV2,
-    MinaBaseUserCommandStableV2, MinaTransactionTransactionStableV2,
-    SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponse, StateHash, TransactionHash,
+    MinaBaseSignedCommandPayloadBodyStableV2, MinaBaseSignedCommandStableV2,
+    MinaBaseTransactionStatusStableV2, MinaBaseUserCommandStableV2,
+    MinaTransactionTransactionStableV2, SnarkWorkerWorkerRpcsVersionedGetWorkV2TResponse,
+    StateHash, TransactionHash,
 };
+use openmina_node_account::AccountPublicKey;
 use p2p::bootstrap::P2pNetworkKadBootstrapStats;
 pub use rpc_state::*;
 
@@ -66,6 +76,49 @@ pub enum RpcRequest {
     DiscoveryRoutingTable,
     DiscoveryBoostrapStats,
     TransactionPoolGet,
+    LedgerAccountsGet(Option<AccountPublicKey>),
+    TransactionInject(Vec<RpcInjectPayment>),
+    TransitionFrontierUserCommandsGet,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct RpcInjectPayment {
+    fee: u64,
+    amount: u64,
+    to: AccountPublicKey,
+    from: AccountPublicKey,
+    memo: String,
+    nonce: u32,
+    valid_until: u32,
+    signature_field: BigInt,
+    signature_scalar: BigInt,
+}
+// MinaBaseUserCommandStableV2
+impl From<RpcInjectPayment> for MinaBaseUserCommandStableV2 {
+    fn from(value: RpcInjectPayment) -> Self {
+        let signature = mina_signer::Signature {
+            rx: value.signature_field.into(),
+            s: value.signature_scalar.into(),
+        };
+        println!("Signature: {signature}");
+        let sc = signed_command::SignedCommand {
+            payload: SignedCommandPayload::create(
+                Fee::from_u64(value.fee),
+                value.from.clone().into(),
+                Nonce::from_u32(value.nonce),
+                Some(Slot::from_u32(value.valid_until)),
+                Memo::from_str(&value.memo).unwrap(),
+                signed_command::Body::Payment(signed_command::PaymentPayload {
+                    receiver_pk: value.to.into(),
+                    amount: Amount::from_u64(value.amount),
+                }),
+            ),
+            signer: value.from.into(),
+            signature,
+        };
+
+        MinaBaseUserCommandStableV2::SignedCommand(sc.into())
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -278,6 +331,80 @@ pub type RpcSnarkPoolGetResponse = Vec<RpcSnarkPoolJobSummary>;
 pub type RpcSnarkPoolJobGetResponse = Option<RpcSnarkPoolJobFull>;
 pub type RpcSnarkerConfigGetResponse = Option<RpcSnarkerConfig>;
 pub type RpcTransactionPoolResponse = Vec<ValidCommandWithHash>;
+pub type RpcLedgerAccountsResponse = Vec<AccountSlim>;
+pub type RpcTransitionFrontierUserCommandsResponse = Vec<MinaBaseUserCommandStableV2>;
+
+// TODO(adonagy): rework this to handle all the possible user commands (enum..)
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct RpcTransactionInjectedPayment {
+    pub amount: Amount,
+    pub fee: Fee,
+    // pub fee_token: TokenId,
+    pub from: AccountPublicKey,
+    pub to: AccountPublicKey,
+    pub hash: String, // TODO(adonagy)
+    // pub id: String, // TODO(adonagy)
+    pub is_delegation: bool,
+    pub memo: String, // TODO(adonagy)
+    // pub memo: Memo, // TODO(adonagy)
+    pub nonce: Nonce,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum RpcTransactionInjectedCommand {
+    Payment(RpcTransactionInjectedPayment),
+    Delegation,
+    Zkapp,
+}
+
+pub type RpcTransactionInjectResponse = Vec<RpcTransactionInjectedCommand>;
+pub type RpcTransactionInjectFailure = Vec<(RpcTransactionInjectedCommand, diff::Error)>;
+
+impl From<ValidCommandWithHash> for RpcTransactionInjectedCommand {
+    fn from(value: ValidCommandWithHash) -> Self {
+        match value.data {
+            transaction_logic::valid::UserCommand::SignedCommand(signedcmd) => {
+                match signedcmd.payload.body {
+                    transaction_logic::signed_command::Body::Payment(ref payment) => {
+                        Self::Payment(RpcTransactionInjectedPayment {
+                            amount: payment.amount,
+                            fee: signedcmd.fee(),
+                            // fee_token: signedcmd.fee_token(),
+                            from: signedcmd.fee_payer_pk().clone().into(),
+                            to: payment.receiver_pk.clone().into(),
+                            hash: TransactionHash::from(value.hash.as_ref()).to_string(),
+                            is_delegation: false,
+                            // memo: signedcmd.payload.common.memo.clone(),
+                            memo: signedcmd.payload.common.memo.to_string(),
+                            nonce: signedcmd.nonce(),
+                        })
+                    }
+                    transaction_logic::signed_command::Body::StakeDelegation(_) => {
+                        todo!("inject stake delegation")
+                    }
+                }
+            }
+            transaction_logic::valid::UserCommand::ZkAppCommand(_) => todo!("inject zkapp"),
+        }
+    }
+}
+
+#[derive(Serialize, Debug, Clone)]
+pub struct AccountSlim {
+    pub public_key: AccountPublicKey,
+    pub balance: Balance,
+    pub nonce: Nonce,
+}
+
+impl From<Account> for AccountSlim {
+    fn from(value: Account) -> Self {
+        Self {
+            public_key: AccountPublicKey::from(value.public_key),
+            balance: value.balance,
+            nonce: value.nonce,
+        }
+    }
+}
 
 #[derive(Serialize, Debug, Clone)]
 pub struct RpcNodeStatus {

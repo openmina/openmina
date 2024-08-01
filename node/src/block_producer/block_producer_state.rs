@@ -1,3 +1,6 @@
+use std::time::Duration;
+
+use ledger::scan_state::transaction_logic::valid;
 use mina_p2p_messages::v2;
 use openmina_core::{block::ArcBlockWithHash, consensus::consensus_take};
 use serde::{Deserialize, Serialize};
@@ -43,13 +46,25 @@ pub enum BlockProducerCurrentState {
         /// Chain that we are extending.
         chain: Vec<ArcBlockWithHash>,
     },
+    WonSlotTransactionsGet {
+        time: redux::Timestamp,
+        won_slot: BlockProducerWonSlot,
+        /// Chain that we are extending.
+        chain: Vec<ArcBlockWithHash>,
+    },
+    WonSlotTransactionsSuccess {
+        time: redux::Timestamp,
+        won_slot: BlockProducerWonSlot,
+        /// Chain that we are extending.
+        chain: Vec<ArcBlockWithHash>,
+        transactions_by_fee: Vec<valid::UserCommand>,
+    },
     StagedLedgerDiffCreatePending {
         time: redux::Timestamp,
         won_slot: BlockProducerWonSlot,
         /// Chain that we are extending.
         chain: Vec<ArcBlockWithHash>,
-        // TODO(binier): transactions from pool, once we have that implemented.
-        transactions: (),
+        transactions_by_fee: Vec<valid::UserCommand>,
     },
     StagedLedgerDiffCreateSuccess {
         time: redux::Timestamp,
@@ -197,6 +212,10 @@ impl BlockProducerState {
     pub fn vrf_delegator_table_inputs(&self) -> Option<(&v2::LedgerHash, &AccountPublicKey)> {
         self.vrf_evaluator()?.vrf_delegator_table_inputs()
     }
+
+    pub fn pending_transactions(&self) -> Vec<valid::UserCommand> {
+        self.with(Vec::new(), |this| this.current.pending_transactions())
+    }
 }
 
 impl BlockProducerCurrentState {
@@ -206,6 +225,8 @@ impl BlockProducerCurrentState {
             Self::WonSlot { .. }
             | Self::WonSlotWait { .. }
             | Self::WonSlotProduceInit { .. }
+            | Self::WonSlotTransactionsGet { .. }
+            | Self::WonSlotTransactionsSuccess { .. }
             | Self::StagedLedgerDiffCreatePending { .. }
             | Self::StagedLedgerDiffCreateSuccess { .. }
             | Self::BlockUnprovenBuilt { .. }
@@ -222,6 +243,8 @@ impl BlockProducerCurrentState {
             | Self::WonSlot { won_slot, .. }
             | Self::WonSlotWait { won_slot, .. }
             | Self::WonSlotProduceInit { won_slot, .. }
+            | Self::WonSlotTransactionsGet { won_slot, .. }
+            | Self::WonSlotTransactionsSuccess { won_slot, .. }
             | Self::StagedLedgerDiffCreatePending { won_slot, .. }
             | Self::StagedLedgerDiffCreateSuccess { won_slot, .. }
             | Self::BlockUnprovenBuilt { won_slot, .. }
@@ -239,6 +262,8 @@ impl BlockProducerCurrentState {
             | Self::WonSlot { .. }
             | Self::WonSlotWait { .. } => None,
             Self::WonSlotProduceInit { chain, .. }
+            | Self::WonSlotTransactionsGet { chain, .. }
+            | Self::WonSlotTransactionsSuccess { chain, .. }
             | Self::StagedLedgerDiffCreatePending { chain, .. }
             | Self::StagedLedgerDiffCreateSuccess { chain, .. }
             | Self::BlockUnprovenBuilt { chain, .. }
@@ -250,16 +275,24 @@ impl BlockProducerCurrentState {
     }
 
     pub fn won_slot_should_wait(&self, now: redux::Timestamp) -> bool {
+        let slot_interval = Duration::from_secs(3 * 60).as_nanos() as u64;
         match self {
-            Self::WonSlot { won_slot, .. } => now < won_slot.slot_time,
+            Self::WonSlot { won_slot, .. } => {
+                // Make sure to only producer blocks when in the slot interval
+                let slot_upper_bound = won_slot.slot_time + slot_interval;
+                now < won_slot.slot_time && now >= slot_upper_bound
+            }
             _ => false,
         }
     }
 
     pub fn won_slot_should_produce(&self, now: redux::Timestamp) -> bool {
+        let slot_interval = Duration::from_secs(3 * 60).as_nanos() as u64;
         match self {
             Self::WonSlot { won_slot, .. } | Self::WonSlotWait { won_slot, .. } => {
-                now >= won_slot.slot_time
+                // Make sure to only producer blocks when in the slot interval
+                let slot_upper_bound = won_slot.slot_time + slot_interval;
+                now >= won_slot.slot_time && now < slot_upper_bound
             }
             _ => false,
         }
@@ -302,6 +335,8 @@ impl BlockProducerCurrentState {
             | Self::WonSlotWait { .. }
             | Self::Injected { .. } => false,
             Self::WonSlotProduceInit { .. }
+            | Self::WonSlotTransactionsGet { .. }
+            | Self::WonSlotTransactionsSuccess { .. }
             | Self::StagedLedgerDiffCreatePending { .. }
             | Self::StagedLedgerDiffCreateSuccess { .. }
             | Self::BlockUnprovenBuilt { .. }
@@ -322,6 +357,20 @@ impl BlockProducerCurrentState {
         match self {
             Self::Produced { chain, block, .. } => Some((block, chain)),
             _ => None,
+        }
+    }
+
+    pub fn pending_transactions(&self) -> Vec<valid::UserCommand> {
+        match self {
+            Self::WonSlotTransactionsSuccess {
+                transactions_by_fee,
+                ..
+            }
+            | Self::StagedLedgerDiffCreatePending {
+                transactions_by_fee,
+                ..
+            } => transactions_by_fee.to_vec(),
+            _ => vec![],
         }
     }
 }

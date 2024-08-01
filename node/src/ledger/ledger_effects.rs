@@ -45,6 +45,7 @@ pub fn ledger_effects<S: LedgerService>(store: &mut Store<S>, action: LedgerActi
             LedgerReadAction::Pending { .. } => {}
             LedgerReadAction::Success { id, response } => {
                 propagate_read_response(store, id, response);
+                store.dispatch(LedgerReadAction::Prune { id });
             }
             LedgerReadAction::Prune { .. } => {}
         },
@@ -251,6 +252,24 @@ fn next_read_requests_init<S: redux::Service>(store: &mut Store<S>) {
             return;
         }
     }
+
+    let ledger_account_rpc = store
+        .state()
+        .rpc
+        .accounts_request_rpc_ids()
+        .filter(|(.., status)| status.is_init())
+        .map(|(id, req, _)| (id, req))
+        .collect::<Vec<_>>();
+
+    for (rpc_id, req) in ledger_account_rpc {
+        store.dispatch(RpcAction::LedgerAccountsGetInit {
+            rpc_id,
+            public_key: req,
+        });
+        if !store.state().ledger.read.is_total_cost_under_limit() {
+            return;
+        }
+    }
 }
 
 fn find_peers_with_ledger_rpc(
@@ -415,5 +434,8 @@ fn propagate_read_response<S: redux::Service>(
         }
         (_, LedgerReadResponse::ScanStateSummary(..)) => unreachable!(),
         (_req, LedgerReadResponse::GetAccounts(_)) => todo!(),
+        (_, LedgerReadResponse::AccountsForRpc(rpc_id, accounts)) => {
+            store.dispatch(RpcAction::LedgerAccountsGetSuccess { rpc_id, accounts });
+        }
     }
 }

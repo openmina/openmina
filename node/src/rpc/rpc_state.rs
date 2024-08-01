@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 
 use mina_p2p_messages::v2;
 use openmina_core::block::ArcBlockWithHash;
+use openmina_node_account::AccountPublicKey;
 use serde::{Deserialize, Serialize};
 
 use super::{RpcId, RpcRequest};
@@ -74,6 +75,18 @@ impl RpcState {
                 };
                 Some((*id, block.staged_ledger_hash(), &req.status))
             })
+    }
+
+    pub fn accounts_request_rpc_ids(
+        &self,
+    ) -> impl Iterator<Item = (RpcId, Option<AccountPublicKey>, &RpcRequestStatus)> + '_ {
+        self.requests.iter().filter_map(|(id, req)| {
+            if let RpcRequest::LedgerAccountsGet(account) = &req.req {
+                Some((*id, account.clone(), &req.status))
+            } else {
+                None
+            }
+        })
     }
 }
 

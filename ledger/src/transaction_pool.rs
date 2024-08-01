@@ -168,7 +168,7 @@ pub type ValidCommandWithHash = WithHash<valid::UserCommand, BlakeHash>;
 pub mod diff {
     use super::*;
 
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
     pub enum Error {
         InsufficientReplaceFee,
         Duplicate,
@@ -1028,14 +1028,14 @@ impl IndexedPool {
                     last.data.forget_check().expected_target_nonce()
                 };
                 if queue_target_nonce == cmd_applicable_at_nonce {
-                    let reserved_currency = consumed
+                    *reserved_currency = consumed
                         .checked_add(reserved_currency)
                         .ok_or(CommandError::Overflow)?;
 
-                    if !(reserved_currency <= balance.to_amount()) {
+                    if !(*reserved_currency <= balance.to_amount()) {
                         return Err(CommandError::InsufficientFunds {
                             balance,
-                            consumed: reserved_currency,
+                            consumed: *reserved_currency,
                         });
                     }
 
@@ -1316,12 +1316,43 @@ impl IndexedPool {
         dropped
     }
 
+    fn list_includable_transactions(&self, limit: usize) -> Vec<ValidCommandWithHash> {
+        let mut txns = Vec::with_capacity(self.applicable_by_fee.len());
+
+        // get a copy of the map as we are just listing the transactions
+        let mut applicable_by_fee = self.applicable_by_fee.clone();
+
+        while !applicable_by_fee.is_empty() && txns.len() < limit {
+            let (fee, set) = applicable_by_fee
+                .iter()
+                .max_by_key(|(rate, _)| *rate)
+                .map(|(rate, set)| (rate.clone(), set.clone()))
+                .unwrap();
+
+            // TODO: Check if OCaml compare using `hash` (order)
+            let txn = set.iter().min_by_key(|b| &*b.hash).cloned().unwrap();
+
+            txns.push(txn);
+
+            {
+                applicable_by_fee.remove(&fee);
+            }
+        }
+        txns
+    }
+
+    // TODO(adonagy): Is it neede to remove txs from the pool directly here? If the produced block is injected
+    // a BestTip update action will be dispatched and the pool can reorganize there
     /// Returns a sequence of commands in the pool in descending fee order
-    fn transactions(&mut self) -> Vec<ValidCommandWithHash> {
+    fn transactions(&mut self, limit: usize) -> Vec<ValidCommandWithHash> {
         let mut txns = Vec::with_capacity(self.applicable_by_fee.len());
         loop {
             if self.applicable_by_fee.is_empty() {
                 assert!(self.all_by_sender.is_empty());
+                return txns;
+            }
+
+            if txns.len() >= limit {
                 return txns;
             }
 
@@ -1373,7 +1404,20 @@ impl IndexedPool {
 
     /// Returns all the transactions in the pool
     fn get_all_transactions(&self) -> Vec<ValidCommandWithHash> {
-        self.all_by_hash.values().cloned().collect()
+        self.all_by_sender
+            .values()
+            .cloned()
+            .flat_map(|(cmds, _)| cmds.into_iter())
+            .collect()
+    }
+
+    fn get_pending_amount_and_nonce(&self) -> HashMap<AccountId, (Option<Nonce>, Amount)> {
+        // TODO(adonagy): clone too expensive here?
+        self.all_by_sender
+            .clone()
+            .into_iter()
+            .map(|(acc_id, (cmds, amount))| (acc_id, (cmds.back().unwrap().data.nonce(), amount)))
+            .collect()
     }
 }
 
@@ -1538,8 +1582,16 @@ impl TransactionPool {
         self.pool.get_all_transactions()
     }
 
-    pub fn transactions(&mut self) -> Vec<ValidCommandWithHash> {
-        self.pool.transactions()
+    pub fn get_pending_amount_and_nonce(&self) -> HashMap<AccountId, (Option<Nonce>, Amount)> {
+        self.pool.get_pending_amount_and_nonce()
+    }
+
+    pub fn transactions(&mut self, limit: usize) -> Vec<ValidCommandWithHash> {
+        self.pool.transactions(limit)
+    }
+
+    pub fn list_includable_transactions(&self, limit: usize) -> Vec<ValidCommandWithHash> {
+        self.pool.list_includable_transactions(limit)
     }
 
     pub fn get_accounts_to_revalidate_on_new_best_tip(&self) -> BTreeSet<AccountId> {
@@ -1948,20 +2000,12 @@ impl TransactionPool {
     ) -> Result<
         (
             ApplyDecision,
-            Vec<UserCommand>,
-            Vec<(UserCommand, diff::Error)>,
+            Vec<ValidCommandWithHash>,
+            Vec<(ValidCommandWithHash, diff::Error)>,
         ),
         String,
     > {
         let (decision, accepted, rejected) = self.apply(diff, accounts, is_sender_local)?;
-        let accepted = accepted
-            .into_iter()
-            .map(|cmd| cmd.data.forget_check())
-            .collect::<Vec<_>>();
-        let rejected = rejected
-            .into_iter()
-            .map(|(cmd, e)| (cmd.data.forget_check(), e))
-            .collect::<Vec<_>>();
         Ok((decision, accepted, rejected))
     }
 
