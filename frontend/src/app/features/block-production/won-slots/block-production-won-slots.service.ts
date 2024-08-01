@@ -43,8 +43,8 @@ export class BlockProductionWonSlotsService {
               delegations: nanOrElse(attempt.block?.transactions.delegations, 0),
               zkapps: nanOrElse(attempt.block?.transactions.zkapps, 0),
               snarkFees: attempt.block?.snark_fees,
-              coinbaseRewards: attempt.block?.coinbase,
-              txFeesRewards: attempt.block?.fees,
+              coinbaseRewards: attempt.block ? attempt.block.coinbase / ONE_BILLION : undefined,
+              txFeesRewards: attempt.block ? attempt.block.fees / ONE_BILLION : undefined,
 
               status: attempt.status,
               discardReason: this.getDiscardReason(attempt),
