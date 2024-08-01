@@ -7,7 +7,7 @@ export const environment: Readonly<MinaEnv> = {
       'block-production': ['won-slots'],
       'mempool': [],
       'benchmarks': ['wallets'],
-      'snarks': ['work-pool'],
+      'snarks': ['scan-state', 'work-pool'],
     },
     canAddNodes: true,
   },

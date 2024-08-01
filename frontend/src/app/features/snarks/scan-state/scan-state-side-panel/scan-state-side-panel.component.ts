@@ -15,13 +15,12 @@ import { ScanStateLeaf } from '@shared/types/snarks/scan-state/scan-state-leaf.t
   selector: 'mina-scan-state-side-panel',
   templateUrl: './scan-state-side-panel.component.html',
   styleUrls: ['./scan-state-side-panel.component.scss'],
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ScanStateSidePanelComponent extends StoreDispatcher implements OnInit {
 
   activeStep: number = 0;
   block: ScanStateBlock = {} as ScanStateBlock;
-  nodes: number = CONFIG.configs.length;
   workingSnarkersLength: number;
   hasError: boolean = false;
   activeLeaf: ScanStateLeaf;
@@ -77,7 +76,7 @@ export class ScanStateSidePanelComponent extends StoreDispatcher implements OnIn
   private routeToJobId(jobId: string | undefined): void {
     this.router.navigate([Routes.SNARKS, Routes.SCAN_STATE, this.block.height], {
       queryParamsHandling: 'merge',
-      queryParams: { jobId }
+      queryParams: { jobId },
     });
   }
 
@@ -98,7 +97,7 @@ export class ScanStateSidePanelComponent extends StoreDispatcher implements OnIn
           overlayX: 'start',
           overlayY: 'top',
           offsetY: 35,
-          offsetX: -12
+          offsetX: -12,
         }]),
     });
     event.stopPropagation();

@@ -13,7 +13,7 @@ import { RustService } from '@core/services/rust.service';
 })
 export class SnarksWorkPoolService {
 
-  private snarkerHash: string;
+  private snarkerHash: string | null;
 
   constructor(private http: HttpClient,
               private rust: RustService) { }
@@ -41,9 +41,9 @@ export class SnarksWorkPoolService {
     return this.http.get<WorkPoolSpecs>(this.rust.URL + '/snarker/job/spec?id=' + id);
   }
 
-  getSnarkerPublicKey(): Observable<string> {
-    return this.http.get<any>(this.rust.URL + '/snarker/config').pipe(
-      map((config: any) => config.public_key),
+  getSnarkerPublicKey(): Observable<string | null> {
+    return this.http.get<{ public_key: string } | null>(this.rust.URL + '/snarker/config').pipe(
+      map(config => config ? config.public_key : null),
     );
   }
 
