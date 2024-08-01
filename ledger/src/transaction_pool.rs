@@ -1265,11 +1265,11 @@ impl IndexedPool {
                     nonce == account.nonce
                 });
 
-                let drop_queue = match first_applicable_nonce_index {
+                let keep_queue = match first_applicable_nonce_index {
                     Some(index) => queue.split_off(index),
                     None => Default::default(),
                 };
-                let keep_queue = queue;
+                let drop_queue = queue;
 
                 for cmd in &drop_queue {
                     currency_reserved = currency_reserved
