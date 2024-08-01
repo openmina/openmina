@@ -1,7 +1,7 @@
 services:
   local-producer-cluster:
     container_name: local-producer-cluster
-    image: openmina/openmina:feat-inject-tx
+    image: openmina/openmina:tx-pool-2
     environment:
       - RUST_BACKTRACE=1
     entrypoint: ["openmina-node-testing", "scenarios-generate", "--name", "simulation-small-forever-real-time"]
@@ -12,7 +12,7 @@ services:
 
   frontend:
     container_name: frontend
-    image: openmina/frontend:feat-inject-tx-producer-demo
+    image: openmina/frontend:tx-pool-2-producer-demo
     # build:
     #   context: .
     #   dockerfile: Dockerfile_FE
