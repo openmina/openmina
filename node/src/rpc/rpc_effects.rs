@@ -22,13 +22,13 @@ use crate::{p2p_ready, Service, Store, TransactionPoolAction};
 use super::{
     ActionStatsQuery, ActionStatsResponse, CurrentMessageProgress, MessagesStats, RpcAction,
     RpcActionWithMeta, RpcBlockProducerStats, RpcMessageProgressResponse, RpcNodeStatus,
-    RpcNodeStatusTransitionFrontier, RpcNodeStatusTransitionFrontierBlockSummary,
-    RpcNodeStatusTransitionFrontierSync, RpcRequest, RpcRequestExtraData, RpcScanStateSummary,
-    RpcScanStateSummaryBlock, RpcScanStateSummaryBlockTransaction,
-    RpcScanStateSummaryBlockTransactionKind, RpcScanStateSummaryGetQuery,
-    RpcScanStateSummaryScanStateJob, RpcSnarkPoolJobFull, RpcSnarkPoolJobSnarkWork,
-    RpcSnarkPoolJobSummary, RpcSnarkerJobCommitResponse, RpcSnarkerJobSpecResponse,
-    RpcTransactionInjectFailure,
+    RpcNodeStatusTransactionPool, RpcNodeStatusTransitionFrontier,
+    RpcNodeStatusTransitionFrontierBlockSummary, RpcNodeStatusTransitionFrontierSync, RpcRequest,
+    RpcRequestExtraData, RpcScanStateSummary, RpcScanStateSummaryBlock,
+    RpcScanStateSummaryBlockTransaction, RpcScanStateSummaryBlockTransactionKind,
+    RpcScanStateSummaryGetQuery, RpcScanStateSummaryScanStateJob, RpcSnarkPoolJobFull,
+    RpcSnarkPoolJobSnarkWork, RpcSnarkPoolJobSummary, RpcSnarkerJobCommitResponse,
+    RpcSnarkerJobSpecResponse, RpcTransactionInjectFailure,
 };
 
 macro_rules! respond_or_log {
@@ -75,6 +75,9 @@ pub fn rpc_effects<S: Service>(store: &mut Store<S>, action: RpcActionWithMeta) 
                         acc
                     },
                 ),
+                transaction_pool: RpcNodeStatusTransactionPool {
+                    transactions: state.transaction_pool.size(),
+                },
             };
             let _ = store.service.respond_status_get(rpc_id, Some(status));
         }

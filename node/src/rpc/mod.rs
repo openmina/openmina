@@ -411,6 +411,7 @@ pub struct RpcNodeStatus {
     pub transition_frontier: RpcNodeStatusTransitionFrontier,
     pub peers: Vec<RpcPeerInfo>,
     pub snark_pool: RpcNodeStatusSnarkPool,
+    pub transaction_pool: RpcNodeStatusTransactionPool,
 }
 
 #[derive(Serialize, Debug, Clone)]
@@ -431,6 +432,11 @@ pub struct RpcNodeStatusTransitionFrontierBlockSummary {
     pub hash: StateHash,
     pub height: u32,
     pub global_slot: u32,
+}
+
+#[derive(Serialize, Debug, Default, Clone)]
+pub struct RpcNodeStatusTransactionPool {
+    pub transactions: usize,
 }
 
 #[derive(Serialize, Debug, Default, Clone)]

@@ -597,7 +597,7 @@ impl IndexedPool {
         }
     }
 
-    fn size(&self) -> usize {
+    pub fn size(&self) -> usize {
         self.size
     }
 
@@ -1576,6 +1576,10 @@ impl TransactionPool {
             best_tip_diff_relay: None,
             verification_key_table: Default::default(),
         }
+    }
+
+    pub fn size(&self) -> usize {
+        self.pool.size()
     }
 
     pub fn get_all_transactions(&self) -> Vec<ValidCommandWithHash> {

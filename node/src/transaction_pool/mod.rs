@@ -64,6 +64,10 @@ impl TransactionPoolState {
         }
     }
 
+    pub fn size(&self) -> usize {
+        self.pool.size()
+    }
+
     pub fn transactions(&mut self, limit: usize) -> Vec<ValidCommandWithHash> {
         self.pool.transactions(limit)
     }
