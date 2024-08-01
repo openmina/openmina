@@ -597,7 +597,7 @@ impl IndexedPool {
         }
     }
 
-    pub fn size(&self) -> usize {
+    fn size(&self) -> usize {
         self.size
     }
 
@@ -1316,14 +1316,17 @@ impl IndexedPool {
         dropped
     }
 
+    // TODO(adonagy): clones too expensive? Optimize
+    /// Same as `transactions`, but does not modify the mempool
     fn list_includable_transactions(&self, limit: usize) -> Vec<ValidCommandWithHash> {
         let mut txns = Vec::with_capacity(self.applicable_by_fee.len());
 
-        // get a copy of the map as we are just listing the transactions
+        // get a copy of the maps as we are just listing the transactions
         let mut applicable_by_fee = self.applicable_by_fee.clone();
+        let mut all_by_sender  = self.all_by_sender.clone();
 
         while !applicable_by_fee.is_empty() && txns.len() < limit {
-            let (fee, set) = applicable_by_fee
+            let (fee, mut set) = applicable_by_fee
                 .iter()
                 .max_by_key(|(rate, _)| *rate)
                 .map(|(rate, set)| (rate.clone(), set.clone()))
@@ -1332,11 +1335,39 @@ impl IndexedPool {
             // TODO: Check if OCaml compare using `hash` (order)
             let txn = set.iter().min_by_key(|b| &*b.hash).cloned().unwrap();
 
-            txns.push(txn);
-
             {
-                applicable_by_fee.remove(&fee);
+                set.remove(&txn);
+                if set.is_empty() {
+                    applicable_by_fee.remove(&fee);
+                } else {
+                    applicable_by_fee.insert(fee, set);
+                }
             }
+
+            let sender = txn.data.forget_check().fee_payer();
+
+            let (sender_queue, _amount) = all_by_sender.get_mut(&sender).unwrap();
+            let head_txn = sender_queue.pop_front().unwrap();
+
+            if txn.hash == head_txn.hash {
+                match sender_queue.front().cloned() {
+                    None => {
+                        all_by_sender.remove(&sender);
+                    }
+                    Some(next_txn) => {
+                        let fee = next_txn.data.forget_check().fee_per_wu();
+                        applicable_by_fee
+                            .entry(fee)
+                            .or_default()
+                            .insert(next_txn);
+                    }
+                }
+            } else {
+                eprintln!("Sender queue is malformed");
+                all_by_sender.remove(&sender);
+            }
+
+            txns.push(txn);
         }
         txns
     }
