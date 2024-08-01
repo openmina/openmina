@@ -37,7 +37,7 @@ export class AppService {
           download: 0,
           upload: 0,
           snarks: data.snark_pool.snarks,
-          transactions: 0,
+          transactions: data.transaction_pool.transactions,
         } as AppNodeDetails)),
         catchError(() => of({
           status: AppNodeStatus.OFFLINE,
@@ -68,6 +68,7 @@ export class AppService {
 
 interface NodeDetails {
   transition_frontier: TransitionFrontier;
+  transaction_pool: { transactions: number };
   peers: Peer[];
   snark_pool: SnarkPool;
 }
