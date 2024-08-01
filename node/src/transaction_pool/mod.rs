@@ -10,7 +10,10 @@ use ledger::{
     Account, AccountId,
 };
 use mina_p2p_messages::v2;
-use openmina_core::{consensus::ConsensusConstants, log::inner::dispatcher, requests::RpcId};
+use openmina_core::{
+    consensus::ConsensusConstants, constants::constraint_constants, log::inner::dispatcher,
+    requests::RpcId,
+};
 use p2p::channels::transaction::P2pChannelsTransactionAction;
 use redux::callback;
 use snark::{user_command_verify::SnarkUserCommandVerifyId, VerifierIndex, VerifierSRS};
@@ -61,8 +64,12 @@ impl TransactionPoolState {
         }
     }
 
-    pub fn transactions(&mut self) -> Vec<ValidCommandWithHash> {
-        self.pool.transactions()
+    pub fn transactions(&mut self, limit: usize) -> Vec<ValidCommandWithHash> {
+        self.pool.transactions(limit)
+    }
+
+    pub fn list_includable_transactions(&self, limit: usize) -> Vec<ValidCommandWithHash> {
+        self.pool.list_includable_transactions(limit)
     }
 
     pub fn get_all_transactions(&self) -> Vec<ValidCommandWithHash> {
@@ -330,9 +337,11 @@ impl TransactionPoolState {
                 }
             }
             TransactionPoolAction::CollectTransactionsByFee => {
+                let transaction_capacity =
+                    2u64.pow(constraint_constants().transaction_capacity_log_2 as u32);
                 let transactions_by_fee = substate
                     .pool
-                    .transactions()
+                    .list_includable_transactions(transaction_capacity as usize)
                     .into_iter()
                     .map(|cmd| cmd.data)
                     .collect::<Vec<_>>();

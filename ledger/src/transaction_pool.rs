@@ -1316,12 +1316,43 @@ impl IndexedPool {
         dropped
     }
 
+    fn list_includable_transactions(&self, limit: usize) -> Vec<ValidCommandWithHash> {
+        let mut txns = Vec::with_capacity(self.applicable_by_fee.len());
+
+        // get a copy of the map as we are just listing the transactions
+        let mut applicable_by_fee = self.applicable_by_fee.clone();
+
+        while !applicable_by_fee.is_empty() && txns.len() < limit {
+            let (fee, set) = applicable_by_fee
+                .iter()
+                .max_by_key(|(rate, _)| *rate)
+                .map(|(rate, set)| (rate.clone(), set.clone()))
+                .unwrap();
+
+            // TODO: Check if OCaml compare using `hash` (order)
+            let txn = set.iter().min_by_key(|b| &*b.hash).cloned().unwrap();
+
+            txns.push(txn);
+
+            {
+                applicable_by_fee.remove(&fee);
+            }
+        }
+        txns
+    }
+
+    // TODO(adonagy): Is it neede to remove txs from the pool directly here? If the produced block is injected
+    // a BestTip update action will be dispatched and the pool can reorganize there
     /// Returns a sequence of commands in the pool in descending fee order
-    fn transactions(&mut self) -> Vec<ValidCommandWithHash> {
+    fn transactions(&mut self, limit: usize) -> Vec<ValidCommandWithHash> {
         let mut txns = Vec::with_capacity(self.applicable_by_fee.len());
         loop {
             if self.applicable_by_fee.is_empty() {
                 assert!(self.all_by_sender.is_empty());
+                return txns;
+            }
+
+            if txns.len() >= limit {
                 return txns;
             }
 
@@ -1555,8 +1586,12 @@ impl TransactionPool {
         self.pool.get_pending_amount_and_nonce()
     }
 
-    pub fn transactions(&mut self) -> Vec<ValidCommandWithHash> {
-        self.pool.transactions()
+    pub fn transactions(&mut self, limit: usize) -> Vec<ValidCommandWithHash> {
+        self.pool.transactions(limit)
+    }
+
+    pub fn list_includable_transactions(&self, limit: usize) -> Vec<ValidCommandWithHash> {
+        self.pool.list_includable_transactions(limit)
     }
 
     pub fn get_accounts_to_revalidate_on_new_best_tip(&self) -> BTreeSet<AccountId> {
