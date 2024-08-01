@@ -30,19 +30,19 @@ export const environment: Readonly<MinaEnv> = {
     //     resources: ['memory'],
     //   },
     // },
-    {
-      name: 'http://116.202.128.230:11010',
-      url: 'http://116.202.128.230:11010',
-    },
-    {
-      name: 'http://37.27.115.85:3000',
-      url: 'http://37.27.115.85:3000',
-    },
-    {
-      name: 'Local rust node',
-      url: 'http://127.0.0.1:3000',
-      memoryProfiler: 'http://1.k8.openmina.com:31164',
-    },
+    // {
+    //   name: 'http://116.202.128.230:11010',
+    //   url: 'http://116.202.128.230:11010',
+    // },
+    // {
+    //   name: 'http://37.27.115.85:3000',
+    //   url: 'http://37.27.115.85:3000',
+    // },
+    // {
+    //   name: 'Local rust node',
+    //   url: 'http://127.0.0.1:3000',
+    //   memoryProfiler: 'http://1.k8.openmina.com:31164',
+    // },
     {
       name: 'Docker 11010',
       url: 'http://localhost:11010',
@@ -67,37 +67,37 @@ export const environment: Readonly<MinaEnv> = {
     //   minaExplorerNetwork: 'devnet',
     //   memoryProfiler: 'http://1.k8.openmina.com:31164',
     // },
-    {
-      name: 'http://65.109.110.75:11010',
-      url: 'http://65.109.110.75:11010',
-      minaExplorerNetwork: 'devnet',
-      memoryProfiler: 'http://1.k8.openmina.com:31164',
-    },
-    {
-      name: 'http://65.109.110.75:11012',
-      url: 'http://65.109.110.75:11012',
-      minaExplorerNetwork: 'devnet',
-      memoryProfiler: 'http://1.k8.openmina.com:31164',
-    },
-    {
-      name: 'http://65.109.110.75:11014',
-      url: 'http://65.109.110.75:11014',
-      minaExplorerNetwork: 'devnet',
-      memoryProfiler: 'http://1.k8.openmina.com:31164',
-    },
-    {
-      name: 'Node with mem profiler',
-      url: 'http://1.k8.openmina.com:30252',
-      memoryProfiler: 'http://1.k8.openmina.com:31164',
-      features: {
-        dashboard: [],
-        nodes: ['overview', 'live', 'bootstrap'],
-        state: ['actions'],
-        snarks: ['scan-state'],
-        resources: ['memory'],
-        network: ['topology', 'node-dht', 'graph-overview'],
-      },
-    },
+    // {
+    //   name: 'http://65.109.110.75:11010',
+    //   url: 'http://65.109.110.75:11010',
+    //   minaExplorerNetwork: 'devnet',
+    //   memoryProfiler: 'http://1.k8.openmina.com:31164',
+    // },
+    // {
+    //   name: 'http://65.109.110.75:11012',
+    //   url: 'http://65.109.110.75:11012',
+    //   minaExplorerNetwork: 'devnet',
+    //   memoryProfiler: 'http://1.k8.openmina.com:31164',
+    // },
+    // {
+    //   name: 'http://65.109.110.75:11014',
+    //   url: 'http://65.109.110.75:11014',
+    //   minaExplorerNetwork: 'devnet',
+    //   memoryProfiler: 'http://1.k8.openmina.com:31164',
+    // },
+    // {
+    //   name: 'Node with mem profiler',
+    //   url: 'http://1.k8.openmina.com:30252',
+    //   memoryProfiler: 'http://1.k8.openmina.com:31164',
+    //   features: {
+    //     dashboard: [],
+    //     nodes: ['overview', 'live', 'bootstrap'],
+    //     state: ['actions'],
+    //     snarks: ['scan-state'],
+    //     resources: ['memory'],
+    //     network: ['topology', 'node-dht', 'graph-overview'],
+    //   },
+    // },
     // {
     //   name: 'Node with debugger',
     //   url: 'http://1.k8.openmina.com:31688',

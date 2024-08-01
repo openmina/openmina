@@ -4,20 +4,20 @@ import { ScanStateTree } from '@shared/types/snarks/scan-state/scan-state-tree.t
 import {
   selectScanStateActiveLeaf,
   selectScanStateBlock, selectScanStateHighlightSnarkPool,
-  selectScanStateOpenSidePanel
+  selectScanStateOpenSidePanel,
 } from '@snarks/scan-state/scan-state.state';
 import { ScanStateBlock } from '@shared/types/snarks/scan-state/scan-state-block.type';
 import { delay, filter, mergeMap, of, skip, take, tap } from 'rxjs';
-import { ScanStateGetBlock, ScanStateToggleSidePanel } from '@snarks/scan-state/scan-state.actions';
+import { ScanStateGetBlock, ScanStateStart, ScanStateToggleSidePanel } from '@snarks/scan-state/scan-state.actions';
 import { ScanStateLeaf } from '@shared/types/snarks/scan-state/scan-state-leaf.type';
-import { getMergedRoute, MergedRoute,isMobile } from '@openmina/shared';
+import { getMergedRoute, MergedRoute, isMobile } from '@openmina/shared';
 
 @Component({
   selector: 'mina-scan-state-tree-list',
   templateUrl: './scan-state-tree-list.component.html',
   styleUrls: ['./scan-state-tree-list.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { class: 'h-minus-xl flex-column p-relative' }
+  host: { class: 'h-minus-xl flex-column p-relative' },
 })
 export class ScanStateTreeListComponent extends StoreDispatcher implements OnInit {
 
@@ -31,7 +31,7 @@ export class ScanStateTreeListComponent extends StoreDispatcher implements OnIni
 
   private activeJobIdInRoute: string;
 
-  readonly trackTree = (index: number, tree: ScanStateTree): string => {
+  readonly trackTree = (_: number, tree: ScanStateTree): string => {
     return ''
       + tree.ongoing
       + tree.availableJobs
@@ -67,6 +67,7 @@ export class ScanStateTreeListComponent extends StoreDispatcher implements OnIni
 
   checkLatestHeight(): void {
     this.dispatch(ScanStateGetBlock, { heightOrHash: null });
+    this.dispatch(ScanStateStart);
   }
 
   private listenToActiveJobID(): void {

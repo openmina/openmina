@@ -4,7 +4,7 @@ import {
   selectScanStateBlock, selectScanStateHighlightSnarkPool,
   selectScanStateOpenSidePanel,
   selectScanStateStream,
-  selectScanStateTreeView
+  selectScanStateTreeView,
 } from '@snarks/scan-state/scan-state.state';
 import { ScanStateBlock } from '@shared/types/snarks/scan-state/scan-state-block.type';
 import { debounceTime, delay, distinctUntilChanged, filter, fromEvent, map, mergeMap, of } from 'rxjs';
@@ -13,7 +13,7 @@ import {
   ScanStatePause,
   ScanStateStart,
   ScanStateToggleSidePanel,
-  ScanStateToggleTreeView
+  ScanStateToggleTreeView,
 } from '@snarks/scan-state/scan-state.actions';
 import { FormBuilder, FormGroup } from '@angular/forms';
 import { untilDestroyed } from '@ngneat/until-destroy';
@@ -24,7 +24,7 @@ import { NumberInput } from '@angular/cdk/coercion';
   templateUrl: './scan-state-toolbar.component.html',
   styleUrls: ['./scan-state-toolbar.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { class: 'h-xl fx-row-vert-cent' }
+  host: { class: 'h-xl fx-row-vert-cent' },
 })
 export class ScanStateToolbarComponent extends StoreDispatcher implements OnInit {
 
@@ -81,7 +81,7 @@ export class ScanStateToolbarComponent extends StoreDispatcher implements OnInit
         this.gotHeightFromForm = false;
       }
       this.detect();
-    }, filter(block => !!block));
+    });
   }
 
   private listenToTreeViewChange(): void {
