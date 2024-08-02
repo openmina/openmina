@@ -2,6 +2,10 @@
 
 This demo showcases the block production capabilities of OpenMina nodes within a private network. It launches three OpenMina nodes on your local machine, operating in a private network environment. For the purpose of this demonstration, block proofs are disabled. This setup allows you to observe block production immediately, without the need to wait for your account to be included in the staking ledger on testnets.
 
+## Known issues
+
+The nodes in the demo can sometimes become unresponsive, especially immediately after startup. If the frontend is unable to contact the nodes a few minutes after launching the Docker Compose setup, restart the setup and try again.
+
 ## Table of Contents
 1. [Prerequisites](#prerequisites)
     - [Docker Installation on Debian-based Linux](#docker-installation-on-debian-based-linux)
