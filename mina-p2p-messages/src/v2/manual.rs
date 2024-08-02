@@ -1058,6 +1058,15 @@ impl StagedLedgerDiffBodyStableV1 {
         }
     }
 
+    pub fn completed_works_count(&self) -> usize {
+        self.diff().0.completed_works.len()
+            + self
+                .diff()
+                .1
+                .as_ref()
+                .map_or(0, |d| d.completed_works.len())
+    }
+
     pub fn coinbase_sum(&self) -> u64 {
         self.coinbases_iter().map(|v| v.fee.as_u64()).sum()
     }
