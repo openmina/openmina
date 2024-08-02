@@ -25,7 +25,7 @@ pub struct OcamlNode {
     temp_dir: temp_dir::TempDir,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub enum OcamlStep {
     /// Wait till ocaml node is ready.
     ///
@@ -294,18 +294,9 @@ impl OcamlNode {
     }
 
     /// Queries graphql to get chain_id.
-    pub fn chain_id(&self) -> anyhow::Result<ChainId> {
-        let res = self.grapql_query("query { daemonStatus { chainId } }")?;
-        let chain_id = res["data"]["daemonStatus"]["chainId"]
-            .as_str()
-            .ok_or_else(|| anyhow::anyhow!("empty chain_id response"))?;
-        ChainId::from_hex(chain_id).map_err(|e| anyhow::anyhow!("invalid chain_id: {}", e))
-    }
-
-    /// Queries graphql to get chain_id.
-    pub async fn chain_id_async(&self) -> anyhow::Result<ChainId> {
+    pub async fn chain_id(&self) -> anyhow::Result<ChainId> {
         let res = self
-            .grapql_query_async("query { daemonStatus { chainId } }")
+            .grapql_query("query { daemonStatus { chainId } }")
             .await?;
         let chain_id = res["data"]["daemonStatus"]["chainId"]
             .as_str()
@@ -315,21 +306,9 @@ impl OcamlNode {
 
     /// Queries graphql to check if ocaml node is synced,
     /// returning it's best tip hash if yes.
-    pub fn synced_best_tip(&self) -> anyhow::Result<Option<StateHash>> {
-        let mut res = self.grapql_query("query { daemonStatus { syncStatus, stateHash } }")?;
-        let data = &mut res["data"]["daemonStatus"];
-        if data["syncStatus"].as_str() == Some("SYNCED") {
-            Ok(Some(serde_json::from_value(data["stateHash"].take())?))
-        } else {
-            Ok(None)
-        }
-    }
-
-    /// Queries graphql to check if ocaml node is synced,
-    /// returning it's best tip hash if yes.
-    pub async fn synced_best_tip_async(&self) -> anyhow::Result<Option<StateHash>> {
+    pub async fn synced_best_tip(&self) -> anyhow::Result<Option<StateHash>> {
         let mut res = self
-            .grapql_query_async("query { daemonStatus { syncStatus, stateHash } }")
+            .grapql_query("query { daemonStatus { syncStatus, stateHash } }")
             .await?;
         let data = &mut res["data"]["daemonStatus"];
         if data["syncStatus"].as_str() == Some("SYNCED") {
@@ -348,7 +327,7 @@ impl OcamlNode {
     // Only `exec` function should be exposed and instead of this, we
     // should have a step to query graphql and assert response as a part
     // of that step.
-    pub async fn grapql_query_async(&self, query: &str) -> anyhow::Result<serde_json::Value> {
+    pub async fn grapql_query(&self, query: &str) -> anyhow::Result<serde_json::Value> {
         let client = reqwest::Client::new();
         let response = client
             .post(self.graphql_addr())
@@ -361,24 +340,6 @@ impl OcamlNode {
             .await?;
 
         Ok(response.json().await?)
-    }
-    // TODO(binier): shouldn't be publically accessible.
-    //
-    // Only `exec` function should be exposed and instead of this, we
-    // should have a step to query graphql and assert response as a part
-    // of that step.
-    pub fn grapql_query(&self, query: &str) -> anyhow::Result<serde_json::Value> {
-        let client = reqwest::blocking::Client::new();
-        let response = client
-            .post(self.graphql_addr())
-            .json(&{
-                serde_json::json!({
-                    "query": query
-                })
-            })
-            .send()?;
-
-        Ok(response.json()?)
     }
 
     async fn wait_for_p2p(&self, timeout: Duration) -> anyhow::Result<()> {
@@ -408,7 +369,7 @@ impl OcamlNode {
             loop {
                 interval.tick().await;
                 if self
-                    .synced_best_tip_async()
+                    .synced_best_tip()
                     .await
                     .map_or(false, |tip| tip.is_some())
                 {
