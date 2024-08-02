@@ -22,6 +22,15 @@ use openmina_node_common::rpc::{
     RpcSnarkerJobSpecResponse, RpcStateGetResponse, RpcSyncStatsGetResponse,
 };
 
+macro_rules! compose_route {
+    ($x:expr $(,)?) => (
+        $x
+    );
+    ($x0:expr, $($x:expr),+ $(,)?) => (
+        $x0$(.or($x))+.boxed()
+    );
+}
+
 pub async fn run(port: u16, rpc_sender: RpcSender) {
     #[cfg(feature = "p2p-webrtc")]
     let signaling = {
@@ -523,31 +532,32 @@ pub async fn run(port: u16, rpc_sender: RpcSender) {
     let routes = state_get.or(state_post);
     #[cfg(feature = "p2p-webrtc")]
     let routes = signaling.or(state_get).or(state_post);
-    let routes = routes
-        .or(status)
-        .or(peers_get)
-        .or(message_progress_get)
-        .or(stats)
-        .or(scan_state_summary_get)
-        .or(snark_pool_jobs_get)
-        .or(snark_pool_job_get)
-        .or(snarker_config)
-        .or(snarker_job_commit)
-        .or(snarker_job_spec)
-        .or(snark_workers)
-        .or(transaction_pool)
-        .or(accounts)
-        .or(transaction_post)
-        .boxed()
-        .or(transition_frontier_user_commands)
-        .boxed()
-        .or(healthcheck(rpc_sender.clone()))
-        .or(readiness(rpc_sender.clone()))
-        .or(discovery::routing_table(rpc_sender.clone()))
-        .or(discovery::bootstrap_stats(rpc_sender.clone()))
-        .or(super::graphql::routes(rpc_sender))
-        .recover(recover)
-        .with(cors);
+    let routes = compose_route!(
+        routes,
+        status,
+        peers_get,
+        message_progress_get,
+        stats,
+        scan_state_summary_get,
+        snark_pool_jobs_get,
+        snark_pool_job_get,
+        snarker_config,
+        snarker_job_commit,
+        snarker_job_spec,
+        snark_workers,
+        transaction_pool,
+        accounts,
+        transaction_post,
+        transition_frontier_user_commands,
+        healthcheck(rpc_sender.clone()),
+        readiness(rpc_sender.clone()),
+        discovery::routing_table(rpc_sender.clone()),
+        discovery::bootstrap_stats(rpc_sender.clone()),
+        super::graphql::routes(rpc_sender),
+    );
+
+    let routes = routes.recover(recover).with(cors);
+
     warp::serve(routes).run(([0, 0, 0, 0], port)).await;
 }
 
