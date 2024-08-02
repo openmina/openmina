@@ -1048,7 +1048,7 @@ checksum = "98cc8fbded0c607b7ba9dd60cd98df59af97e84d24e49c8557331cfc26d301ce"
 
 [[package]]
 name = "cli"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "bytes",
@@ -2498,7 +2498,7 @@ dependencies = [
 
 [[package]]
 name = "hash-tool"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "bs58 0.5.0",
  "hex",
@@ -3115,7 +3115,7 @@ dependencies = [
 
 [[package]]
 name = "ledger-tool"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "mina-curves",
@@ -3441,7 +3441,7 @@ dependencies = [
 
 [[package]]
 name = "libp2p-rpc-behaviour"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "libp2p",
  "log",
@@ -3821,7 +3821,7 @@ dependencies = [
 
 [[package]]
 name = "mina-transport"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "blake2",
  "hex",
@@ -3832,7 +3832,7 @@ dependencies = [
 
 [[package]]
 name = "mina-tree"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "ark-ec",
@@ -4167,7 +4167,7 @@ dependencies = [
 
 [[package]]
 name = "node"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "derive_more",
@@ -4502,7 +4502,7 @@ checksum = "624a8340c38c1b80fd549087862da4ba43e08858af025b236e509b6649fc13d5"
 
 [[package]]
 name = "openmina-bootstrap-sandbox"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "base64 0.21.7",
  "binprot",
@@ -4528,7 +4528,7 @@ dependencies = [
 
 [[package]]
 name = "openmina-core"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "ark-ff",
  "binprot",
@@ -4554,7 +4554,7 @@ dependencies = [
 
 [[package]]
 name = "openmina-fuzzer"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "lazy_static",
  "rand 0.8.5",
@@ -4565,7 +4565,7 @@ dependencies = [
 
 [[package]]
 name = "openmina-gossipsub-sandbox"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "bs58 0.5.0",
  "env_logger",
@@ -4579,7 +4579,7 @@ dependencies = [
 
 [[package]]
 name = "openmina-macros"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "openmina-core",
@@ -4592,7 +4592,7 @@ dependencies = [
 
 [[package]]
 name = "openmina-node-account"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "argon2",
@@ -4613,7 +4613,7 @@ dependencies = [
 
 [[package]]
 name = "openmina-node-common"
-version = "0.5.0"
+version = "0.7.0"
 dependencies = [
  "jsonpath-rust",
  "mina-p2p-messages",
@@ -4635,7 +4635,7 @@ dependencies = [
 
 [[package]]
 name = "openmina-node-invariants"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "documented",
  "lazy_static",
@@ -4649,7 +4649,7 @@ dependencies = [
 
 [[package]]
 name = "openmina-node-native"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "bytes",
@@ -4683,7 +4683,7 @@ dependencies = [
 
 [[package]]
 name = "openmina-node-testing"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "axum",
@@ -4727,7 +4727,7 @@ dependencies = [
 
 [[package]]
 name = "openmina-producer-dashboard"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "bincode",
  "clap 4.5.2",
@@ -4819,7 +4819,7 @@ dependencies = [
 
 [[package]]
 name = "p2p"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "binprot",
@@ -4883,7 +4883,7 @@ dependencies = [
 
 [[package]]
 name = "p2p-testing"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "derive_more",
  "futures",
@@ -5741,7 +5741,7 @@ checksum = "c08c74e62047bb2de4ff487b251e4a92e24f48745648451635cec7d591162d9f"
 
 [[package]]
 name = "replay_dynamic_effects"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "node",
  "openmina-node-invariants",
@@ -6052,7 +6052,7 @@ checksum = "1ad4cc8da4ef723ed60bced201181d83791ad433213d8c24efffda1eec85d741"
 
 [[package]]
 name = "salsa-simple"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "generic-array",
  "hex",
@@ -6445,7 +6445,7 @@ dependencies = [
 
 [[package]]
 name = "snark"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "ark-ec",
  "ark-ff",
@@ -7605,7 +7605,7 @@ checksum = "6a02e4885ed3bc0f2de90ea6dd45ebcbb66dacffe03547fadbb0eeae2770887d"
 
 [[package]]
 name = "vrf"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "ark-ec",
