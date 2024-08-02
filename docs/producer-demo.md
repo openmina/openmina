@@ -8,9 +8,6 @@ This demo showcases the block production capabilities of OpenMina nodes within a
     - [Docker Installation on Windows](#docker-installation-on-windows)
     - [Docker Installation on macOS](#docker-installation-on-macos)
 2. [Running the Producer Demo](#running-the-producer-demo)
-    - [Running on Debian-based Linux](#running-on-debian-based-linux)
-    - [Running on Windows](#running-on-windows)
-    - [Running on macOS](#running-on-macos)
 
 ## Prerequisites
 
