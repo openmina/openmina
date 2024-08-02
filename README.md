@@ -43,7 +43,7 @@ See the detailed [guide](docs/producer-demo.md).
 Run:
 
 ```
-docker compose up
+docker compose up --pull always
 ```
 
 Then visit http://localhost:8070 in your browser.
