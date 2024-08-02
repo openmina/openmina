@@ -19,6 +19,7 @@ export interface BlockProductionWonSlotsSlot {
   snarkFees?: number;
   coinbaseRewards?: number;
   txFeesRewards?: number;
+  completedWorksCount?: number;
 
   // time related details
   times?: BlockProductionWonSlotTimes;
