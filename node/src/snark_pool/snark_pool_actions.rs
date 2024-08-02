@@ -1,6 +1,7 @@
 use ledger::scan_state::scan_state::transaction_snark::OneOrTwo;
 use ledger::scan_state::scan_state::AvailableJobMessage;
 use openmina_core::snark::{Snark, SnarkJobCommitment, SnarkJobId};
+use openmina_core::ActionEvent;
 use serde::{Deserialize, Serialize};
 
 use crate::p2p::PeerId;
@@ -11,7 +12,7 @@ use super::SnarkWork;
 pub type SnarkPoolActionWithMeta = redux::ActionWithMeta<SnarkPoolAction>;
 pub type SnarkPoolActionWithMetaRef<'a> = redux::ActionWithMeta<&'a SnarkPoolAction>;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
 pub enum SnarkPoolAction {
     Candidate(SnarkPoolCandidateAction),
 
@@ -30,6 +31,7 @@ pub enum SnarkPoolAction {
         commitment: SnarkJobCommitment,
         sender: PeerId,
     },
+    #[action_event(level = info)]
     WorkAdd {
         snark: Snark,
         sender: PeerId,

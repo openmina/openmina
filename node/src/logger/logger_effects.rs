@@ -76,6 +76,7 @@ pub fn logger_effects<S: Service>(store: &Store<S>, action: ActionWithMetaRef<'_
             },
         },
         Action::ExternalSnarkWorker(action) => action.action_event(&context),
+        Action::SnarkPool(action) => action.action_event(&context),
         Action::Snark(SnarkAction::WorkVerify(a)) => a.action_event(&context),
         Action::Consensus(a) => a.action_event(&context),
         Action::TransitionFrontier(a) => a.action_event(&context),
