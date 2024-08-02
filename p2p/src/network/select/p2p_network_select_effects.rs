@@ -161,6 +161,7 @@ impl P2pNetworkSelectAction {
                                             addr,
                                             stream_id,
                                             data,
+                                            seen_limit: store.state().config.meshsub.mcache_len,
                                         });
                                     }
                                     StreamKind::Ping(PingAlgorithm::Ping1_0_0) => {

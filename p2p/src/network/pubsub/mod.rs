@@ -6,7 +6,9 @@ mod p2p_network_pubsub_actions;
 pub use self::p2p_network_pubsub_actions::P2pNetworkPubsubAction;
 
 mod p2p_network_pubsub_state;
-pub use self::p2p_network_pubsub_state::{P2pNetworkPubsubClientState, P2pNetworkPubsubState};
+pub use self::p2p_network_pubsub_state::{
+    P2pNetworkPubsubClientMeshState, P2pNetworkPubsubClientState, P2pNetworkPubsubState,
+};
 
 #[cfg(feature = "p2p-libp2p")]
 mod p2p_network_pubsub_reducer;
