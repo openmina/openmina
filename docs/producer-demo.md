@@ -78,7 +78,7 @@ This demo showcases the block production capabilities of OpenMina nodes within a
 
 ## Running the Producer Demo
 
-### Running on Debian-based Linux
+Once pre-requisites for your OS have been completed, follow these steps (they are the same for Debian-based Linux, Windows and MacOS):
 
 1. **Clone this repository:**
     ```bash
@@ -98,46 +98,6 @@ This demo showcases the block production capabilities of OpenMina nodes within a
 
 4. **Open you browser and visit http://localhost:8070**
 
-### Running on Windows
+You should see the following screen:
 
-1. **Open the command prompt by pressing the windows button on your keyboard and type in command prompt**
-
-2. **Clone this repository:**
-    ```bash
-    git clone https://github.com/openmina/openmina.git
-    ```
-
-3. **Navigate to the repository:**
-
-    ```bash
-    cd openmina
-    ```
-
-4. **Run the following command to start the demo:**
-    ```sh
-    docker compose -f docker-compose.local.producers.yml up
-    ```
-
-5. **Open you browser and visit http://localhost:8070**
-
-### Running on macOS
-
-1. **Open a terminal by pressing command + space on your keyboard and type in terminal**
-
-2. **Clone this repository:**
-    ```bash
-    git clone https://github.com/openmina/openmina.git
-    ```
-
-3. **Navigate to the repository:**
-
-    ```bash
-    cd openmina
-    ```
-
-4. **Run the following command to start the demo:**
-    ```sh
-    docker compose -f docker-compose.local.producers.yml up
-    ```
-
-5. **Open you browser and visit http://localhost:8070**
+![image](https://github.com/user-attachments/assets/1eac34aa-41b7-42ab-a193-0dcdbda32c0f)
