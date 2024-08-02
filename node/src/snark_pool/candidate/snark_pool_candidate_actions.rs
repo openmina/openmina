@@ -1,6 +1,7 @@
 use std::cmp::Ordering;
 
 use openmina_core::snark::{Snark, SnarkInfo, SnarkJobId};
+use openmina_core::ActionEvent;
 use serde::{Deserialize, Serialize};
 
 use crate::p2p::channels::rpc::P2pRpcId;
@@ -13,7 +14,7 @@ pub type SnarkPoolCandidateActionWithMeta = redux::ActionWithMeta<SnarkPoolCandi
 pub type SnarkPoolCandidateActionWithMetaRef<'a> =
     redux::ActionWithMeta<&'a SnarkPoolCandidateAction>;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
 pub enum SnarkPoolCandidateAction {
     InfoReceived {
         peer_id: PeerId,

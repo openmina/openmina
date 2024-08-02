@@ -29,7 +29,9 @@ pub fn reducer<State, Action>(
             batch,
             sender,
             req_id,
-            ..
+            // TODO(tizoc): store the callbacks on the state
+            on_error: _,
+            on_success: _,
         } => {
             state.jobs.add(SnarkWorkVerifyStatus::Init {
                 time: meta.time(),
