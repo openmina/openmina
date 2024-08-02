@@ -206,7 +206,7 @@ jobs:
       BPF_ALIAS: /coda/0.0.1/29936104443aaf264a7f0192ac64b1c7173198c1ed404c1bcff5e562e05eb7f6-0.0.0.0
     strategy:
       matrix:
-        test: [p2p_basic_connections, p2p_basic_incoming, p2p_basic_outgoing, p2p_pubsub]
+        test: [p2p_basic_connections, p2p_basic_incoming, p2p_basic_outgoing, p2p_pubsub, p2p_kad]
       fail-fast: false
 
     services:
@@ -295,9 +295,13 @@ jobs:
         test:
           - single_node
           - multi_node
+          - connection_discovery_ocaml_to_rust_via_seed
+          - connection_discovery_ocaml_to_rust
+          - connection_discovery_rust_as_seed
+          - connection_discovery_rust_to_ocaml_via_seed
+          - connection_discovery_rust_to_ocaml
           # - webrtc_single_node
           # - webrtc_multi_node
-          # - connection_discovery
       fail-fast: false
 
     services:
