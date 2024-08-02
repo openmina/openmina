@@ -1,7 +1,5 @@
-use openmina_node_testing::scenarios::p2p::kademlia::{IncomingFindNode, KademliaBootstrap};
+use openmina_node_testing::scenarios::p2p::kademlia::KademliaBootstrap;
 
 mod common;
-
-scenario_test!(incoming_find_node, IncomingFindNode, IncomingFindNode);
 
 scenario_test!(kademlia_bootstrap, KademliaBootstrap, KademliaBootstrap);

@@ -15,6 +15,16 @@ pub struct OcamlNodeTestingConfig {
     pub block_producer: Option<AccountSecretKey>,
 }
 
+impl Default for OcamlNodeTestingConfig {
+    fn default() -> Self {
+        Self {
+            initial_peers: vec![],
+            daemon_json: DaemonJson::Custom("/var/lib/coda/config_dc6bf78b.json".to_owned()),
+            block_producer: None,
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum DaemonJson {
     // TODO(binier): have presets.

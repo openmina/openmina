@@ -9,6 +9,7 @@ use node::{event_source::Event, ledger::LedgerService, ActionKind, State};
 use rand::{rngs::StdRng, SeedableRng};
 use time::OffsetDateTime;
 
+use crate::node::OcamlStep;
 use crate::{
     cluster::{Cluster, ClusterNodeId, ClusterOcamlNodeId},
     network_debugger::Debugger,
@@ -449,5 +450,16 @@ impl<'a> ClusterRunner<'a> {
             },
         )
         .await
+    }
+
+    pub async fn wait_for_ocaml(&mut self, node_id: ClusterOcamlNodeId) {
+        self.exec_step(ScenarioStep::Ocaml {
+            node_id,
+            step: OcamlStep::WaitReady {
+                timeout: Duration::from_secs(6 * 60),
+            },
+        })
+        .await
+        .expect("Error waiting for ocaml node");
     }
 }
