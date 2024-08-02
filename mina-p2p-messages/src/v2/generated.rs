@@ -312,6 +312,36 @@ pub struct SnarkWorkerWorkerRpcsVersionedSubmitWorkV2TQuery {
     pub prover: NonZeroCurvePoint,
 }
 
+/// **OCaml name**: `Mina_base__User_command.Verifiable.Stable.V2`
+///
+/// Gid: `841`
+/// Location: [src/lib/mina_base/user_command.ml:144:6](https://github.com/MinaProtocol/mina/blob/src/lib/mina_base/user_command.ml#L144)
+///
+///
+/// Gid: `837`
+/// Location: [src/lib/mina_base/user_command.ml:7:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/user_command.ml#L7)
+/// Args: MinaBaseSignedCommandStableV2 , MinaBaseZkappCommandVerifiableStableV1
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub enum MinaBaseUserCommandVerifiableStableV2 {
+    SignedCommand(MinaBaseSignedCommandStableV2),
+    ZkappCommand(MinaBaseZkappCommandVerifiableStableV1),
+}
+
+/// **OCaml name**: `Mina_base__Zkapp_statement.Stable.V2`
+///
+/// Gid: `836`
+/// Location: [src/lib/mina_base/zkapp_statement.ml:28:4](https://github.com/MinaProtocol/mina/blob/src/lib/mina_base/zkapp_statement.ml#L28)
+///
+///
+/// Gid: `835`
+/// Location: [src/lib/mina_base/zkapp_statement.ml:15:6](https://github.com/MinaProtocol/mina/blob/src/lib/mina_base/zkapp_statement.ml#L15)
+/// Args: crate :: bigint :: BigInt
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct MinaBaseZkappStatementStableV2 {
+    pub account_update: crate::bigint::BigInt,
+    pub calls: crate::bigint::BigInt,
+}
+
 /// Derived name: `Pickles__Proof.Proofs_verified_2.Repr.Stable.V2.statement.fp`
 ///
 /// Gid: `461`
@@ -979,6 +1009,17 @@ pub struct CurrencyAmountStableV1(pub UnsignedExtendedUInt64Int64ForVersionTagsS
 /// Location: [src/lib/currency/currency.ml:1138:8](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/currency/currency.ml#L1138)
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref)]
 pub struct CurrencyBalanceStableV1(pub CurrencyAmountStableV1);
+
+/// Derived name: `Mina_base__Zkapp_command.Verifiable.Stable.V1.account_updates.data.a`
+///
+/// Gid: `645`
+/// Location: [src/lib/with_hash/with_hash.ml:8:4](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/with_hash/with_hash.ml#L8)
+/// Args: MinaBaseVerificationKeyWireStableV1 , crate :: bigint :: BigInt
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct MinaBaseZkappCommandVerifiableStableV1AccountUpdatesDataA {
+    pub data: MinaBaseVerificationKeyWireStableV1,
+    pub hash: crate::bigint::BigInt,
+}
 
 /// **OCaml name**: `Data_hash_lib__State_hash.Stable.V1`
 ///
@@ -1895,6 +1936,17 @@ pub struct MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAACallsA {
     pub stack_hash: (),
 }
 
+/// Derived name: `Mina_base__Zkapp_command.Verifiable.Stable.V1.account_updates.a.a.calls.a`
+///
+/// Gid: `818`
+/// Location: [src/lib/mina_base/with_stack_hash.ml:6:4](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/with_stack_hash.ml#L6)
+/// Args: Box < MinaBaseZkappCommandVerifiableStableV1AccountUpdatesAA > , MinaBaseZkappCommandCallForestMakeDigestStrForestStableV1
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct MinaBaseZkappCommandVerifiableStableV1AccountUpdatesAACallsA {
+    pub elt: Box<MinaBaseZkappCommandVerifiableStableV1AccountUpdatesAA>,
+    pub stack_hash: MinaBaseZkappCommandCallForestMakeDigestStrForestStableV1,
+}
+
 /// Derived name: `Mina_base__Zkapp_command.T.Stable.V1.Wire.Stable.V1.account_updates.a`
 ///
 /// Gid: `818`
@@ -1904,6 +1956,17 @@ pub struct MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAACallsA {
 pub struct MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA {
     pub elt: MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAA,
     pub stack_hash: (),
+}
+
+/// Derived name: `Mina_base__Zkapp_command.Verifiable.Stable.V1.account_updates.a`
+///
+/// Gid: `818`
+/// Location: [src/lib/mina_base/with_stack_hash.ml:6:4](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/with_stack_hash.ml#L6)
+/// Args: MinaBaseZkappCommandVerifiableStableV1AccountUpdatesAA , MinaBaseZkappCommandCallForestMakeDigestStrForestStableV1
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct MinaBaseZkappCommandVerifiableStableV1AccountUpdatesA {
+    pub elt: MinaBaseZkappCommandVerifiableStableV1AccountUpdatesAA,
+    pub stack_hash: MinaBaseZkappCommandCallForestMakeDigestStrForestStableV1,
 }
 
 /// Derived name: `Mina_transaction_logic.Transaction_applied.Coinbase_applied.Stable.V2.coinbase`
@@ -1961,6 +2024,21 @@ pub struct MinaTransactionLogicTransactionAppliedZkappCommandAppliedStableV1Comm
     pub status: MinaBaseTransactionStatusStableV2,
 }
 
+/// Derived name: `Mina_base__Zkapp_command.Verifiable.Stable.V1.account_updates.a.a`
+///
+/// Gid: `820`
+/// Location: [src/lib/mina_base/zkapp_command.ml:11:8](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/zkapp_command.ml#L11)
+/// Args: (MinaBaseAccountUpdateTStableV1 , Option < MinaBaseZkappCommandVerifiableStableV1AccountUpdatesDataA > ,) , MinaBaseZkappCommandCallForestMakeDigestStrAccountUpdateStableV1 , MinaBaseZkappCommandCallForestMakeDigestStrForestStableV1
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct MinaBaseZkappCommandVerifiableStableV1AccountUpdatesAA {
+    pub account_update: (
+        MinaBaseAccountUpdateTStableV1,
+        Option<MinaBaseZkappCommandVerifiableStableV1AccountUpdatesDataA>,
+    ),
+    pub account_update_digest: MinaBaseZkappCommandCallForestMakeDigestStrAccountUpdateStableV1,
+    pub calls: List<MinaBaseZkappCommandVerifiableStableV1AccountUpdatesAACallsA>,
+}
+
 /// Derived name: `Mina_base__Zkapp_command.T.Stable.V1.Wire.Stable.V1.account_updates.a.a`
 ///
 /// Gid: `820`
@@ -1973,6 +2051,22 @@ pub struct MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAA {
     pub calls: List<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAACallsA>,
 }
 
+/// **OCaml name**: `Mina_base__Zkapp_command.Call_forest.Make_digest_str.Account_update.Stable.V1`
+///
+/// Gid: `821`
+/// Location: [src/lib/mina_base/zkapp_command.ml:224:10](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/zkapp_command.ml#L224)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref)]
+pub struct MinaBaseZkappCommandCallForestMakeDigestStrAccountUpdateStableV1(
+    pub crate::bigint::BigInt,
+);
+
+/// **OCaml name**: `Mina_base__Zkapp_command.Call_forest.Make_digest_str.Forest.Stable.V1`
+///
+/// Gid: `822`
+/// Location: [src/lib/mina_base/zkapp_command.ml:253:10](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/zkapp_command.ml#L253)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite, Deref)]
+pub struct MinaBaseZkappCommandCallForestMakeDigestStrForestStableV1(pub crate::bigint::BigInt);
+
 /// **OCaml name**: `Mina_base__Zkapp_command.T.Stable.V1.Wire.Stable.V1`
 ///
 /// Gid: `829`
@@ -1981,6 +2075,17 @@ pub struct MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesAA {
 pub struct MinaBaseZkappCommandTStableV1WireStableV1 {
     pub fee_payer: MinaBaseAccountUpdateFeePayerStableV1,
     pub account_updates: List<MinaBaseZkappCommandTStableV1WireStableV1AccountUpdatesA>,
+    pub memo: MinaBaseSignedCommandMemoStableV1,
+}
+
+/// **OCaml name**: `Mina_base__Zkapp_command.Verifiable.Stable.V1`
+///
+/// Gid: `832`
+/// Location: [src/lib/mina_base/zkapp_command.ml:1096:6](https://github.com/MinaProtocol/mina/blob/1551e2faaa/src/lib/mina_base/zkapp_command.ml#L1096)
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, BinProtRead, BinProtWrite)]
+pub struct MinaBaseZkappCommandVerifiableStableV1 {
+    pub fee_payer: MinaBaseAccountUpdateFeePayerStableV1,
+    pub account_updates: List<MinaBaseZkappCommandVerifiableStableV1AccountUpdatesA>,
     pub memo: MinaBaseSignedCommandMemoStableV1,
 }
 

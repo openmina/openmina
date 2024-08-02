@@ -6,6 +6,10 @@ on:
     paths-ignore: [ "frontend" ]
   workflow_dispatch:
 
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: full
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
@@ -13,8 +17,6 @@ concurrency:
 jobs:
   ledger-tests:
     runs-on: ubuntu-20.04
-    env:
-      CARGO_TERM_COLOR: always
     steps:
       - name: Git checkout
         uses: actions/checkout@v4
@@ -97,31 +99,32 @@ jobs:
           name: bin
           path: target/release/openmina
 
-  build_wasm:
-    runs-on: ubuntu-20.04
-    steps:
-      - name: Git checkout
-        uses: actions/checkout@v4
-
-      - name: Setup build dependencies
-        run: |
-          sudo apt update
-          sudo apt install -y protobuf-compiler
-
-      - name: Setup Rust
-        run: |
-          rustup default 1.79
-          rustup component add rustfmt
-          rustup target add wasm32-unknown-unknown
-
-      - name: Setup Rust Cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          prefix-key: "v0"
-
-      - name: Release build
-        run: |
-          cargo build --release -p openmina-node-common --target wasm32-unknown-unknown --no-default-features --features p2p-webrtc
+# FIXME: re-enable once it works again https://github.com/openmina/openmina/issues/580
+#  build_wasm:
+#    runs-on: ubuntu-20.04
+#    steps:
+#      - name: Git checkout
+#        uses: actions/checkout@v4
+#
+#      - name: Setup build dependencies
+#        run: |
+#          sudo apt update
+#          sudo apt install -y protobuf-compiler
+#
+#      - name: Setup Rust
+#        run: |
+#          rustup default 1.79
+#          rustup component add rustfmt
+#          rustup target add wasm32-unknown-unknown
+#
+#      - name: Setup Rust Cache
+#        uses: Swatinem/rust-cache@v2
+#        with:
+#          prefix-key: "v0"
+#
+#      - name: Release build
+#        run: |
+#          cargo build --release -p openmina-node-common --target wasm32-unknown-unknown --no-default-features --features p2p-webrtc
 
   build-tests:
     runs-on: ubuntu-20.04

@@ -1,8 +1,10 @@
+use openmina_core::consensus::ConsensusConstants;
 use openmina_core::{constants::constraint_constants, error, ChainId};
 use p2p::{P2pConfig, P2pPeerState, P2pPeerStatusReady, PeerId};
 use redux::{ActionMeta, EnablingCondition, Timestamp};
 use serde::{Deserialize, Serialize};
 use snark::block_verify::SnarkBlockVerifyState;
+use snark::user_command_verify::SnarkUserCommandVerifyState;
 use snark::work_verify::SnarkWorkVerifyState;
 
 pub use crate::block_producer::BlockProducerState;
@@ -15,6 +17,7 @@ pub use crate::rpc::RpcState;
 pub use crate::snark::SnarkState;
 pub use crate::snark_pool::candidate::SnarkPoolCandidatesState;
 pub use crate::snark_pool::SnarkPoolState;
+use crate::transaction_pool::TransactionPoolState;
 use crate::transition_frontier::genesis::TransitionFrontierGenesisState;
 use crate::transition_frontier::sync::ledger::snarked::TransitionFrontierSyncLedgerSnarkedState;
 use crate::transition_frontier::sync::ledger::staged::TransitionFrontierSyncLedgerStagedState;
@@ -36,6 +39,7 @@ pub struct State {
     pub transition_frontier: TransitionFrontierState,
     pub snark_pool: SnarkPoolState,
     pub external_snark_worker: ExternalSnarkWorkers,
+    pub transaction_pool: TransactionPoolState,
     pub block_producer: BlockProducerState,
     pub rpc: RpcState,
 
@@ -52,8 +56,14 @@ use openmina_core::impl_substate_access;
 impl_substate_access!(State, SnarkState, snark);
 impl_substate_access!(State, SnarkBlockVerifyState, snark.block_verify);
 impl_substate_access!(State, SnarkWorkVerifyState, snark.work_verify);
+impl_substate_access!(
+    State,
+    SnarkUserCommandVerifyState,
+    snark.user_command_verify
+);
 impl_substate_access!(State, ConsensusState, consensus);
 impl_substate_access!(State, TransitionFrontierState, transition_frontier);
+impl_substate_access!(State, TransactionPoolState, transaction_pool);
 impl_substate_access!(
     State,
     TransitionFrontierGenesisState,
@@ -170,7 +180,7 @@ impl openmina_core::SubstateAccess<TransitionFrontierSyncLedgerStagedState> for 
 pub type Substate<'a, S> = openmina_core::Substate<'a, crate::Action, State, S>;
 
 impl State {
-    pub fn new(config: Config, now: Timestamp) -> Self {
+    pub fn new(config: Config, constants: &ConsensusConstants, now: Timestamp) -> Self {
         Self {
             p2p: P2p::Pending(config.p2p),
             ledger: LedgerState::new(config.ledger),
@@ -181,6 +191,7 @@ impl State {
             external_snark_worker: ExternalSnarkWorkers::new(now),
             block_producer: BlockProducerState::new(now, config.block_producer),
             rpc: RpcState::new(),
+            transaction_pool: TransactionPoolState::new(config.tx_pool, constants),
 
             watched_accounts: WatchedAccountsState::new(),
 

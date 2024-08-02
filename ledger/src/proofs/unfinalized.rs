@@ -4,8 +4,8 @@ use mina_hasher::Fp;
 use mina_p2p_messages::v2;
 
 use crate::proofs::{
-    field::FieldWitness, public_input::plonk_checks::derive_plonk, verification::make_scalars_env,
-    BACKEND_TICK_ROUNDS_N,
+    field::FieldWitness, public_input::plonk_checks::derive_plonk, step::FeatureFlags,
+    verification::make_scalars_env, BACKEND_TICK_ROUNDS_N,
 };
 
 use super::{
@@ -316,6 +316,8 @@ impl Unfinalized {
             beta_bytes,
             gamma_bytes,
             zeta_bytes,
+            joint_combiner_bytes: None,
+            feature_flags: FeatureFlags::empty_bool(),
         };
 
         let evals = dummy_evals();
@@ -339,7 +341,8 @@ impl Unfinalized {
                     // endomul: plonk.endomul,
                     // endomul_scalar: plonk.endomul_scalar,
                     perm: plonk.perm,
-                    lookup: (),
+                    lookup: None,
+                    feature_flags: FeatureFlags::empty_bool(),
                 },
                 combined_inner_product: ShiftedValue::new(ro::tock(91)),
                 b: ShiftedValue::new(ro::tock(90)),
@@ -367,7 +370,8 @@ impl<F: FieldWitness> ToFieldElements<F> for Unfinalized {
                             zeta_to_srs_length,
                             zeta_to_domain_size,
                             perm,
-                            lookup: (),
+                            lookup: _,
+                            feature_flags: _,
                         },
                     combined_inner_product,
                     b,
@@ -428,7 +432,8 @@ impl Check<Fp> for Unfinalized {
                             zeta_to_srs_length,
                             zeta_to_domain_size,
                             perm,
-                            lookup: (),
+                            lookup: _,
+                            feature_flags: _,
                         },
                     combined_inner_product,
                     b,
@@ -449,9 +454,6 @@ impl Check<Fp> for Unfinalized {
 
 #[cfg(test)]
 mod tests {
-
-    use mina_hasher::Fp;
-
     use super::*;
 
     #[test]

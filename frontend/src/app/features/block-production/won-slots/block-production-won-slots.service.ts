@@ -42,9 +42,10 @@ export class BlockProductionWonSlotsService {
               payments: nanOrElse(attempt.block?.transactions.payments, 0),
               delegations: nanOrElse(attempt.block?.transactions.delegations, 0),
               zkapps: nanOrElse(attempt.block?.transactions.zkapps, 0),
-              snarkFees: attempt.block?.snark_fees,
-              coinbaseRewards: attempt.block?.coinbase,
-              txFeesRewards: attempt.block?.fees,
+              completedWorksCount: nanOrElse(attempt.block?.completed_works_count, 0),
+              snarkFees: attempt.block ? attempt.block.snark_fees / ONE_BILLION : undefined,
+              coinbaseRewards: attempt.block ? attempt.block.coinbase / ONE_BILLION : undefined,
+              txFeesRewards: attempt.block ? attempt.block.fees / ONE_BILLION : undefined,
 
               status: attempt.status,
               discardReason: this.getDiscardReason(attempt),
@@ -191,6 +192,7 @@ interface Block {
   coinbase: number;
   fees: number;
   snark_fees: number;
+  completed_works_count: number;
 }
 
 interface Transactions {

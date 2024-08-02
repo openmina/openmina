@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{fs::File, path::PathBuf, sync::Arc};
 
 use anyhow::Context;
 use node::{account::AccountSecretKey, transition_frontier::genesis::GenesisConfig};
@@ -95,11 +95,31 @@ impl Node {
             .build_global()
             .context("failed to initialize threadpool")?;
 
-        let genesis_config = match self.config {
-            Some(config_path) => GenesisConfig::DaemonJsonFile(config_path).into(),
-            None => node::config::DEVNET_CONFIG.clone(),
+        let (daemon_conf, genesis_conf) = match self.config {
+            Some(config) => {
+                let reader = File::open(config).context("config file {config:?}")?;
+                let config: node::daemon_json::DaemonJson =
+                    serde_json::from_reader(reader).context("config file {config:?}")?;
+                (
+                    config
+                        .daemon
+                        .clone()
+                        .unwrap_or(node::daemon_json::Daemon::DEFAULT),
+                    Arc::new(GenesisConfig::DaemonJson(Box::new(config))),
+                )
+            }
+            None => (
+                node::daemon_json::Daemon::DEFAULT,
+                node::config::DEVNET_CONFIG.clone(),
+            ),
         };
-        let mut node_builder: NodeBuilder = NodeBuilder::new(None, genesis_config);
+        let mut node_builder: NodeBuilder = NodeBuilder::new(None, daemon_conf, genesis_conf);
+
+        // let genesis_config = match self.config {
+        //     Some(config_path) => GenesisConfig::DaemonJsonFile(config_path).into(),
+        //     None => node::config::DEVNET_CONFIG.clone(),
+        // };
+        // let mut node_builder: NodeBuilder = NodeBuilder::new(None, genesis_config);
 
         if let Some(sec_key) = self.p2p_secret_key {
             node_builder.p2p_sec_key(sec_key);

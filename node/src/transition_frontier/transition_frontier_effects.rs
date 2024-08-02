@@ -6,7 +6,7 @@ use crate::ledger::LEDGER_DEPTH;
 use crate::p2p::channels::best_tip::P2pChannelsBestTipAction;
 use crate::snark_pool::{SnarkPoolAction, SnarkWork};
 use crate::stats::sync::SyncingLedger;
-use crate::Store;
+use crate::{Store, TransactionPoolAction};
 
 use super::genesis::TransitionFrontierGenesisAction;
 use super::sync::ledger::snarked::{
@@ -19,7 +19,7 @@ use super::sync::ledger::{
     transition_frontier_sync_ledger_staged_success_effects, TransitionFrontierSyncLedgerAction,
 };
 use super::sync::{TransitionFrontierSyncAction, TransitionFrontierSyncState};
-use super::{TransitionFrontierAction, TransitionFrontierActionWithMeta};
+use super::{TransitionFrontierAction, TransitionFrontierActionWithMeta, TransitionFrontierState};
 
 // TODO(refactor): all service accesses are for stats, how should that be handled?
 
@@ -266,13 +266,20 @@ fn synced_effects<S: crate::Service>(
     meta: &redux::ActionMeta,
     store: &mut redux::Store<crate::State, S, crate::Action>,
 ) {
-    let best_chain = &store.state.get().transition_frontier.best_chain;
+    let TransitionFrontierState {
+        best_chain,
+        chain_diff,
+        ..
+    } = &store.state.get().transition_frontier;
+
     let Some(best_tip) = best_chain.last() else {
         return;
     };
     if let Some(stats) = store.service.stats() {
         stats.new_best_chain(meta.time(), best_chain);
     }
+
+    let chain_diff = chain_diff.clone();
 
     // publish new best tip.
     let best_tip = best_tip.clone();
@@ -283,8 +290,18 @@ fn synced_effects<S: crate::Service>(
         });
     }
 
+    let best_tip_hash = best_tip.staged_ledger_hash().clone();
     store.dispatch(ConsensusAction::Prune);
     store.dispatch(BlockProducerAction::BestTipUpdate { best_tip });
+    store.dispatch(TransactionPoolAction::BestTipChanged {
+        best_tip_hash: best_tip_hash.clone(),
+    });
+    if let Some(diff) = chain_diff {
+        store.dispatch(TransactionPoolAction::ApplyTransitionFrontierDiff {
+            best_tip_hash,
+            diff,
+        });
+    }
 }
 
 // Handling of the actions related to the synchronization of a target ledger

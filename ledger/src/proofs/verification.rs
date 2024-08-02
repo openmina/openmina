@@ -1,6 +1,7 @@
 use std::rc::Rc;
 
 use ark_poly::{EvaluationDomain, Radix2EvaluationDomain};
+use ark_serialize::Write;
 use poly_commitment::srs::SRS;
 
 use crate::{
@@ -27,6 +28,7 @@ use super::{
     to_field_elements::ToFieldElements,
     transaction::{InnerCurve, PlonkVerificationKeyEvals},
     util::{extract_bulletproof, extract_polynomial_commitment, u64_to_field},
+    wrap::expand_feature_flags,
 };
 use kimchi::{
     circuits::{polynomials::permutation::eval_zk_polynomial, wires::PERMUTS},
@@ -39,8 +41,9 @@ use mina_curves::pasta::{Fq, Vesta};
 use mina_hasher::Fp;
 use mina_p2p_messages::{
     bigint::BigInt,
+    binprot::BinProtWrite,
     v2::{
-        CompositionTypesDigestConstantStableV1, MinaBlockHeaderStableV2,
+        self, CompositionTypesDigestConstantStableV1, MinaBlockHeaderStableV2,
         PicklesProofProofsVerified2ReprStableV2,
         PicklesProofProofsVerified2ReprStableV2MessagesForNextStepProof,
         PicklesProofProofsVerified2ReprStableV2MessagesForNextWrapProof,
@@ -286,7 +289,7 @@ impl<F: FieldWitness> PlonkDomain<F> for LimitedDomain<F> {
         unimplemented!() // Unused during proof verification
     }
     fn generator(&self) -> F {
-        unimplemented!() // Unused during proof verification
+        self.domain.group_gen
     }
     fn shifts(&self) -> &[F; PERMUTS] {
         self.shifts.shifts()
@@ -308,19 +311,52 @@ pub fn make_scalars_env<F: FieldWitness, const NLIMB: usize>(
     let zk_polynomial = eval_zk_polynomial(domain, minimal.zeta);
     let zeta_to_n_minus_1 = domain.evaluate_vanishing_polynomial(minimal.zeta);
 
-    let (_w4, w3, _w2, _w1) = {
+    let (w4, w3, w2, w1) = {
         let gen = domain.group_gen;
         let w1 = F::one() / gen;
         let w2 = w1.square();
         let w3 = w2 * w1;
-        // let w4 = (); // unused for now
-        // let w4 = w3 * w1;
+        let w4 = move || w3 * w1;
 
-        ((), w3, w2, w1)
+        (w4, w3, w2, w1)
     };
 
     let shifts = make_shifts(&domain);
     let domain = Rc::new(LimitedDomain { domain, shifts });
+
+    let vanishes_on_last_4_rows = match minimal.joint_combiner {
+        None => F::one(),
+        Some(_) => zk_polynomial * (minimal.zeta - w4()),
+    };
+
+    let feature_flags = minimal
+        .joint_combiner
+        .map(|_| expand_feature_flags::<F>(&minimal.feature_flags.to_boolean()));
+
+    let unnormalized_lagrange_basis = match minimal.joint_combiner {
+        None => None,
+        Some(_) => {
+            use crate::proofs::witness::Witness;
+
+            let zeta = minimal.zeta;
+            let generator = domain.generator();
+            let w4_clone = w4();
+            let fun: Box<dyn Fn(i32, &mut Witness<F>) -> F> =
+                Box::new(move |i: i32, w: &mut Witness<F>| {
+                    let w_to_i = match i {
+                        0 => F::one(),
+                        1 => generator,
+                        -1 => w1,
+                        -2 => w2,
+                        -3 => w3,
+                        -4 => w4_clone,
+                        _ => todo!(),
+                    };
+                    crate::proofs::field::field::div_by_inv(zeta_to_n_minus_1, zeta - w_to_i, w)
+                });
+            Some(fun)
+        }
+    };
 
     ScalarsEnv {
         zk_polynomial,
@@ -328,9 +364,9 @@ pub fn make_scalars_env<F: FieldWitness, const NLIMB: usize>(
         srs_length_log2,
         domain,
         omega_to_minus_3: w3,
-        feature_flags: None,
-        unnormalized_lagrange_basis: None,
-        vanishes_on_last_4_rows: F::one(),
+        feature_flags,
+        unnormalized_lagrange_basis,
+        vanishes_on_last_4_rows,
     }
 }
 
@@ -636,7 +672,7 @@ pub fn verify_transaction<'a>(
 /// https://github.com/MinaProtocol/mina/blob/bfd1009abdbee78979ff0343cc73a3480e862f58/src/lib/crypto/kimchi_bindings/stubs/src/pasta_fq_plonk_proof.rs#L116
 pub fn verify_zkapp(
     verification_key: &VerificationKey,
-    zkapp_statement: ZkappStatement,
+    zkapp_statement: &ZkappStatement,
     sideloaded_proof: &PicklesProofProofsVerified2ReprStableV2,
     srs: &SRS<Vesta>,
 ) -> bool {
@@ -654,6 +690,13 @@ pub fn verify_zkapp(
     let ok = accum_check && verified;
 
     eprintln!("verify_zkapp OK={:?}", ok);
+
+    if !ok {
+        if let Err(e) = dump_zkapp_verification(verification_key, zkapp_statement, sideloaded_proof)
+        {
+            eprintln!("Failed to dump zkapp verification: {:?}", e);
+        }
+    }
 
     ok
 }
@@ -696,6 +739,57 @@ where
     };
 
     result.is_ok() && checks
+}
+
+/// Dump data when it fails, to reproduce and compare in OCaml
+fn dump_zkapp_verification(
+    verification_key: &VerificationKey,
+    zkapp_statement: &ZkappStatement,
+    sideloaded_proof: &PicklesProofProofsVerified2ReprStableV2,
+) -> std::io::Result<()> {
+    use mina_p2p_messages::binprot;
+    use mina_p2p_messages::binprot::macros::{BinProtRead, BinProtWrite};
+
+    #[derive(Clone, Debug, PartialEq, BinProtRead, BinProtWrite)]
+    struct VerifyZkapp {
+        vk: v2::MinaBaseVerificationKeyWireStableV1,
+        zkapp_statement: v2::MinaBaseZkappStatementStableV2,
+        proof: v2::PicklesProofProofsVerified2ReprStableV2,
+    }
+
+    let data = VerifyZkapp {
+        vk: verification_key.into(),
+        zkapp_statement: zkapp_statement.into(),
+        proof: sideloaded_proof.clone(),
+    };
+
+    let bin = {
+        let mut vec = Vec::with_capacity(128 * 1024);
+        data.binprot_write(&mut vec)?;
+        vec
+    };
+
+    let filename = generate_new_filename("/tmp/verify_zapp", "binprot", &bin)?;
+
+    let mut file = std::fs::File::create(filename)?;
+    file.write_all(&bin)?;
+    file.sync_all()?;
+
+    Ok(())
+}
+
+fn generate_new_filename(name: &str, extension: &str, data: &[u8]) -> std::io::Result<String> {
+    use crate::proofs::util::sha256_sum;
+
+    let sum = sha256_sum(data);
+    for index in 0..100_000 {
+        let name = format!("{}_{}_{}.{}", name, sum, index, extension);
+        let path = std::path::Path::new(&name);
+        if !path.try_exists().unwrap_or(true) {
+            return Ok(name);
+        }
+    }
+    Err(std::io::Error::other("no filename available"))
 }
 
 // #[cfg(test)]

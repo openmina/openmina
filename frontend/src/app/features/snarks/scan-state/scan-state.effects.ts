@@ -14,7 +14,7 @@ import {
   SCAN_STATE_INIT,
   ScanStateActions,
   ScanStateClose,
-  ScanStateGetBlock
+  ScanStateGetBlock,
 } from '@snarks/scan-state/scan-state.actions';
 import { ScanStateService } from '@snarks/scan-state/scan-state.service';
 import { ScanStateBlock } from '@shared/types/snarks/scan-state/scan-state-block.type';
@@ -48,12 +48,14 @@ export class ScanStateEffects extends MinaRustBaseEffect<ScanStateActions> {
           if (!state.snarks.scanState.stream) {
             store.dispatch({ type: SCAN_STATE_INIT });
           }
+        } else {
+          this.inProgressGettingHeight = null;
         }
       }),
-      switchMap(({ action, state }) =>
+      switchMap(({ action }) =>
         action.type === SCAN_STATE_CLOSE
           ? EMPTY
-          : this.scanStateService.getScanState(action.payload.heightOrHash)
+          : this.scanStateService.getScanState(action.payload.heightOrHash),
       ),
       map((payload: ScanStateBlock) => ({ type: SCAN_STATE_GET_BLOCK_SUCCESS, payload })),
       tap(({ payload }) => {

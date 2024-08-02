@@ -2,6 +2,8 @@ mod config;
 pub use config::{ClusterConfig, ProofKind};
 
 mod p2p_task_spawner;
+use openmina_core::consensus::ConsensusConstants;
+use openmina_core::constants::constraint_constants;
 use openmina_node_native::NodeServiceBuilder;
 pub use p2p_task_spawner::P2pTaskSpawner;
 
@@ -255,6 +257,13 @@ impl Cluster {
             })
             .collect();
 
+        let protocol_constants = testing_config
+            .genesis
+            .protocol_constants()
+            .expect("wrong protocol constants");
+        let consensus_consts =
+            ConsensusConstants::create(constraint_constants(), &protocol_constants);
+
         let config = Config {
             ledger: LedgerConfig {},
             snark: SnarkConfig {
@@ -285,6 +294,11 @@ impl Cluster {
             },
             transition_frontier: TransitionFrontierConfig::new(testing_config.genesis),
             block_producer: block_producer_config,
+            tx_pool: ledger::transaction_pool::Config {
+                trust_system: (),
+                pool_max_size: 3000,
+                slot_tx_end: None,
+            },
         };
 
         let mut service_builder = NodeServiceBuilder::new(rng_seed);
@@ -342,7 +356,7 @@ impl Cluster {
             service.set_replay();
         }
 
-        let state = node::State::new(config, testing_config.initial_time);
+        let state = node::State::new(config, &consensus_consts, testing_config.initial_time);
         fn effects(store: &mut node::Store<NodeTestingService>, action: node::ActionWithMeta) {
             // if action.action().kind().to_string().starts_with("BlockProducer") {
             //     dbg!(action.action());
@@ -569,7 +583,7 @@ impl Cluster {
             .nodes
             .get_mut(node_id.index())
             .ok_or_else(|| anyhow::anyhow!("node {node_id:?} not found"))?;
-        let timeout = tokio::time::sleep(Duration::from_secs(60));
+        let timeout = tokio::time::sleep(Duration::from_secs(300));
         tokio::select! {
             opt = node.wait_for_event(event_pattern) => opt.ok_or_else(|| anyhow::anyhow!("wait_for_event: None")),
             _ = timeout => {

@@ -136,6 +136,74 @@ impl FeatureFlags<Boolean> {
     }
 }
 
+impl<F: FieldWitness> ToFieldElements<F> for FeatureFlags<bool> {
+    fn to_field_elements(&self, fields: &mut Vec<F>) {
+        let Self {
+            range_check0,
+            range_check1,
+            foreign_field_add,
+            foreign_field_mul,
+            xor,
+            rot,
+            lookup,
+            runtime_tables,
+        } = self;
+
+        [
+            range_check0,
+            range_check1,
+            foreign_field_add,
+            foreign_field_mul,
+            xor,
+            rot,
+            lookup,
+            runtime_tables,
+        ]
+        .to_field_elements(fields);
+    }
+}
+
+impl FeatureFlags<bool> {
+    pub fn empty_bool() -> Self {
+        Self {
+            range_check0: false,
+            range_check1: false,
+            foreign_field_add: false,
+            foreign_field_mul: false,
+            xor: false,
+            rot: false,
+            lookup: false,
+            runtime_tables: false,
+        }
+    }
+
+    pub fn to_boolean(&self) -> FeatureFlags<Boolean> {
+        use super::field::ToBoolean;
+
+        let Self {
+            range_check0,
+            range_check1,
+            foreign_field_add,
+            foreign_field_mul,
+            xor,
+            rot,
+            lookup,
+            runtime_tables,
+        } = self;
+
+        FeatureFlags {
+            range_check0: range_check0.to_boolean(),
+            range_check1: range_check1.to_boolean(),
+            foreign_field_add: foreign_field_add.to_boolean(),
+            foreign_field_mul: foreign_field_mul.to_boolean(),
+            xor: xor.to_boolean(),
+            rot: rot.to_boolean(),
+            lookup: lookup.to_boolean(),
+            runtime_tables: runtime_tables.to_boolean(),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct Basic {
     pub proof_verifieds: Vec<u64>,
@@ -240,16 +308,14 @@ pub mod step_verifier {
 
     use super::*;
     use crate::proofs::{
-        field::{field, CircuitVar, ToBoolean},
+        field::{field, ToBoolean},
         opt_sponge::OptSponge,
         public_input::plonk_checks::{self, ft_eval0_checked},
-        transaction::{poseidon::Sponge, scalar_challenge, ReducedMessagesForNextStepProof},
+        transaction::{poseidon::Sponge, scalar_challenge},
         unfinalized,
         util::{
             challenge_polynomial_checked, proof_evaluation_to_list_opt, to_absorption_sequence_opt,
         },
-        verifier_index::wrap_domains,
-        witness::Witness,
         wrap::{
             make_scalars_env_checked, one_hot_vector, ones_vector,
             pcs_batch::PcsBatch,
@@ -498,10 +564,12 @@ pub mod step_verifier {
                 zeta_to_srs_length,
                 zeta_to_domain_size,
                 perm,
-                lookup: (),
+                feature_flags,
+                lookup: _,
             } = plonk;
 
             // We decompose this way because of OCaml evaluation order
+            // let lookup = lookup.as_ref().map(|lookup| scalar(lookup, w));
             let lookup = match hack_feature_flags {
                 OptFlag::No => None,
                 OptFlag::Maybe => {
@@ -524,6 +592,7 @@ pub mod step_verifier {
                 zeta_to_srs_length: zeta_to_srs_length.clone(),
                 perm: perm.clone(),
                 lookup,
+                feature_flags: feature_flags.clone(),
             }
         };
 
@@ -644,6 +713,8 @@ pub mod step_verifier {
             beta_bytes: to_bytes(plonk.beta),
             gamma_bytes: to_bytes(plonk.gamma),
             zeta_bytes: to_bytes(plonk.zeta),
+            joint_combiner_bytes: None,
+            feature_flags: FeatureFlags::empty_bool(), // TODO
         };
 
         let combined_evals = {
@@ -1848,11 +1919,17 @@ pub fn expand_deferred(params: ExpandDeferredParams) -> DeferredValues<Fp> {
         beta: plonk0.beta,
         gamma: plonk0.gamma,
         zeta,
-        joint_combiner: None,
+        // joint_combiner: plonk0.joint_combiner,
+        joint_combiner: plonk0
+            .joint_combiner_bytes
+            .as_ref()
+            .map(ScalarChallenge::limbs_to_field),
         alpha_bytes: to_bytes(alpha),
         beta_bytes: to_4limbs(plonk0.beta_bytes),
         gamma_bytes: to_4limbs(plonk0.gamma_bytes),
         zeta_bytes: to_bytes(zeta),
+        joint_combiner_bytes: plonk0.joint_combiner_bytes.map(to_4limbs),
+        feature_flags: plonk0.feature_flags.clone(),
     };
 
     let es = evals.evals.evals.map_ref(&|[a, b]| PointEvaluations {
@@ -1873,7 +1950,8 @@ pub fn expand_deferred(params: ExpandDeferredParams) -> DeferredValues<Fp> {
             zeta_to_domain_size,
             zeta_to_srs_length,
             perm,
-            lookup: _,
+            lookup,
+            feature_flags,
         } = derive_plonk(&env, &combined_evals, &plonk_minimal);
 
         Plonk {
@@ -1884,7 +1962,8 @@ pub fn expand_deferred(params: ExpandDeferredParams) -> DeferredValues<Fp> {
             zeta_to_srs_length,
             zeta_to_domain_size,
             perm,
-            lookup: (),
+            feature_flags,
+            lookup: lookup.map(|_| plonk0.joint_combiner_bytes.unwrap()),
         }
     };
 
@@ -2033,11 +2112,14 @@ fn expand_proof(params: ExpandProofParams) -> ExpandedProof {
             beta: plonk0.beta,
             gamma: plonk0.gamma,
             zeta,
-            joint_combiner: None,
+            joint_combiner: plonk0.joint_combiner,
+            // joint_combiner: plonk0.joint_combiner_bytes.as_ref().map(ScalarChallenge::limbs_to_field),
             alpha_bytes: to_bytes(alpha),
             beta_bytes: to_4limbs(plonk0.beta_bytes),
             gamma_bytes: to_4limbs(plonk0.gamma_bytes),
             zeta_bytes: to_bytes(zeta),
+            joint_combiner_bytes: plonk0.joint_combiner_bytes.map(to_4limbs),
+            feature_flags: plonk0.feature_flags.clone(),
         };
 
         let srs_length_log2 = COMMON_MAX_DEGREE_STEP_LOG2;
@@ -2110,7 +2192,11 @@ fn expand_proof(params: ExpandProofParams) -> ExpandedProof {
                     zeta_to_srs_length: plonk.zeta_to_srs_length,
                     zeta_to_domain_size: plonk.zeta_to_domain_size,
                     perm: plonk.perm,
-                    lookup: (),
+                    lookup: match plonk.lookup {
+                        None => None,
+                        Some(_) => Some(plonk0.joint_combiner_bytes.unwrap()),
+                    },
+                    feature_flags: plonk.feature_flags,
                 },
                 combined_inner_product: deferred_values.combined_inner_product,
                 b: deferred_values.b,
@@ -2175,6 +2261,8 @@ fn expand_proof(params: ExpandProofParams) -> ExpandedProof {
         beta_bytes: to_bytes(beta),
         gamma_bytes: to_bytes(gamma),
         zeta_bytes: to_bytes(zeta),
+        joint_combiner_bytes: None, // TODO
+        feature_flags: FeatureFlags::empty_bool(),
     };
 
     let xi = oracle.v();
@@ -2276,6 +2364,8 @@ fn expand_proof(params: ExpandProofParams) -> ExpandedProof {
             beta_bytes: to_4limbs(plonk0.beta_bytes),
             gamma_bytes: to_4limbs(plonk0.gamma_bytes),
             zeta_bytes: to_bytes(alpha),
+            joint_combiner_bytes: None, // TODO
+            feature_flags: FeatureFlags::empty_bool(),
         }
     };
 
@@ -2313,7 +2403,8 @@ fn expand_proof(params: ExpandProofParams) -> ExpandedProof {
                 zeta_to_srs_length: plonk.zeta_to_srs_length,
                 zeta_to_domain_size: plonk.zeta_to_domain_size,
                 perm: plonk.perm,
-                lookup: (),
+                lookup: None,
+                feature_flags: plonk.feature_flags,
             },
             combined_inner_product: shift(combined_inner_product),
             b: shift(b),
@@ -2451,6 +2542,7 @@ impl Check<Fp> for PerProofWitness {
                             zeta_to_domain_size,
                             perm,
                             lookup: _,
+                            feature_flags: _,
                         },
                     combined_inner_product,
                     b,
@@ -2691,6 +2783,8 @@ pub fn step<C: ProofConstants, const N_PREVIOUS: usize>(
             },
         )
         .collect::<Vec<[Fp; 16]>>();
+
+    std::mem::drop(srs);
 
     let messages_for_next_step_proof = {
         let msg = MessagesForNextStepProof {

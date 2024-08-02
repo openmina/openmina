@@ -1,5 +1,9 @@
+use ledger::transaction_pool::{diff, ValidCommandWithHash};
+use ledger::Account;
 use openmina_core::block::ArcBlockWithHash;
 use openmina_core::snark::SnarkJobId;
+use openmina_core::ActionEvent;
+use openmina_node_account::AccountPublicKey;
 use serde::{Deserialize, Serialize};
 
 use crate::external_snark_worker::SnarkWorkId;
@@ -8,14 +12,14 @@ use crate::p2p::connection::outgoing::{P2pConnectionOutgoingError, P2pConnection
 use crate::p2p::connection::P2pConnectionResponse;
 
 use super::{
-    ActionStatsQuery, RpcId, RpcScanStateSummaryGetQuery, RpcScanStateSummaryScanStateJob,
-    SyncStatsQuery,
+    ActionStatsQuery, RpcId, RpcInjectPayment, RpcScanStateSummaryGetQuery,
+    RpcScanStateSummaryScanStateJob, SyncStatsQuery,
 };
 
 pub type RpcActionWithMeta = redux::ActionWithMeta<RpcAction>;
 pub type RpcActionWithMetaRef<'a> = redux::ActionWithMeta<&'a RpcAction>;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, ActionEvent)]
 pub enum RpcAction {
     GlobalStateGet {
         rpc_id: RpcId,
@@ -134,6 +138,47 @@ pub enum RpcAction {
         rpc_id: RpcId,
     },
 
+    TransactionPool {
+        rpc_id: RpcId,
+    },
+    #[action_event(level = info)]
+    LedgerAccountsGetInit {
+        rpc_id: RpcId,
+        public_key: Option<AccountPublicKey>,
+    },
+    #[action_event(level = info)]
+    LedgerAccountsGetPending {
+        rpc_id: RpcId,
+    },
+    #[action_event(level = info)]
+    LedgerAccountsGetSuccess {
+        rpc_id: RpcId,
+        accounts: Vec<Account>,
+    },
+    #[action_event(level = info)]
+    TransactionInjectInit {
+        rpc_id: RpcId,
+        commands: Vec<RpcInjectPayment>,
+    },
+    #[action_event(level = info)]
+    TransactionInjectPending {
+        rpc_id: RpcId,
+    },
+    #[action_event(level = info)]
+    TransactionInjectSuccess {
+        rpc_id: RpcId,
+        response: Vec<ValidCommandWithHash>,
+    },
+    #[action_event(level = info)]
+    TransactionInjectFailure {
+        rpc_id: RpcId,
+        response: Vec<(ValidCommandWithHash, diff::Error)>,
+    },
+    #[action_event(level = info)]
+    TransitionFrontierUserCommandsGet {
+        rpc_id: RpcId,
+    },
+
     Finish {
         rpc_id: RpcId,
     },
@@ -216,6 +261,38 @@ impl redux::EnablingCondition<crate::State> for RpcAction {
             RpcAction::ReadinessCheck { .. } => true,
             RpcAction::DiscoveryRoutingTable { .. } => true,
             RpcAction::DiscoveryBoostrapStats { .. } => true,
+            RpcAction::TransactionPool { .. } => true,
+            RpcAction::LedgerAccountsGetInit { .. } => {
+                state.transition_frontier.best_tip().is_some()
+            }
+            RpcAction::LedgerAccountsGetPending { rpc_id, .. } => state
+                .rpc
+                .requests
+                .get(rpc_id)
+                .map_or(false, |v| v.status.is_init()),
+            RpcAction::LedgerAccountsGetSuccess { rpc_id, .. } => state
+                .rpc
+                .requests
+                .get(rpc_id)
+                .map_or(false, |v| v.status.is_pending()),
+
+            RpcAction::TransactionInjectInit { .. } => true,
+            RpcAction::TransactionInjectPending { rpc_id } => state
+                .rpc
+                .requests
+                .get(rpc_id)
+                .map_or(false, |v| v.status.is_init()),
+            RpcAction::TransactionInjectSuccess { rpc_id, .. } => state
+                .rpc
+                .requests
+                .get(rpc_id)
+                .map_or(false, |v| v.status.is_pending()),
+            RpcAction::TransactionInjectFailure { rpc_id, .. } => state
+                .rpc
+                .requests
+                .get(rpc_id)
+                .map_or(false, |v| v.status.is_pending()),
+            RpcAction::TransitionFrontierUserCommandsGet { .. } => true,
             RpcAction::Finish { rpc_id } => state
                 .rpc
                 .requests

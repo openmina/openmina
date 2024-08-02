@@ -1,6 +1,6 @@
 use snark::work_verify::SnarkWorkVerifyAction;
 
-use crate::{snark_pool::candidate::SnarkPoolCandidateAction, Service, SnarkPoolAction, Store};
+use crate::{snark_pool::candidate::SnarkPoolCandidateAction, Service, Store};
 
 use super::{SnarkAction, SnarkActionWithMeta};
 
@@ -42,6 +42,10 @@ pub fn snark_effects<S: Service>(store: &mut Store<S>, action: SnarkActionWithMe
             SnarkWorkVerifyAction::Finish { .. } => {}
         },
         SnarkAction::WorkVerifyEffect(a) => {
+            a.effects(&meta, store);
+        }
+        SnarkAction::UserCommandVerify(_) => {}
+        SnarkAction::UserCommandVerifyEffect(a) => {
             a.effects(&meta, store);
         }
     }

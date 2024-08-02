@@ -2039,6 +2039,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "fraction"
+version = "0.15.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b486ab61634f05b11b591c38c71fb25139cb55e22be4fb6ecf649cc3736c074a"
+dependencies = [
+ "num",
+ "serde",
+ "serde_derive",
+]
+
+[[package]]
 name = "fs2"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3758,6 +3769,7 @@ dependencies = [
  "mina-hasher",
  "mina-poseidon",
  "mina-signer",
+ "num-bigint",
  "o1-utils",
  "rsexp",
  "serde",
@@ -3835,6 +3847,7 @@ dependencies = [
  "chrono",
  "crc32fast",
  "derive_more",
+ "fraction",
  "getrandom 0.2.15",
  "hex",
  "itertools 0.10.5",
@@ -4239,11 +4252,10 @@ dependencies = [
 
 [[package]]
 name = "num-bigint"
-version = "0.4.4"
+version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "608e7659b5c3d7cba262d894801b9ec9d00de989e8a82bd4bef91d08da45cdc0"
+checksum = "a5e44f723f1133c9deac646763579fdb3ac745e418f2a7af9cd0c431da1f20b9"
 dependencies = [
- "autocfg",
  "num-integer",
  "num-traits",
  "rand 0.8.5",
@@ -4274,6 +4286,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1ba157ca0885411de85d6ca030ba7e2a83a28636056c7c699b07c8b6f7383214"
 dependencies = [
  "num-traits",
+ "serde",
 ]
 
 [[package]]
@@ -4295,11 +4308,10 @@ dependencies = [
 
 [[package]]
 name = "num-integer"
-version = "0.1.45"
+version = "0.1.46"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "225d3389fb3509a24c93f5c29eb6bde2586b98d9f016636dff58d7c6f7569cd9"
+checksum = "7969661fd2958a5cb096e56c8e1ad0444ac2bbcd0061bd28660485a44879858f"
 dependencies = [
- "autocfg",
  "num-traits",
 ]
 
@@ -4324,13 +4336,14 @@ dependencies = [
  "num-bigint",
  "num-integer",
  "num-traits",
+ "serde",
 ]
 
 [[package]]
 name = "num-traits"
-version = "0.2.17"
+version = "0.2.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "39e3200413f237f41ab11ad6d161bc7239c84dcb631773ccd7de3dfe4b5c267c"
+checksum = "071dfc062690e90b734c0b2273ce72ad0ffa95f0c74596bc250dcfd960262841"
 dependencies = [
  "autocfg",
  "libm",

@@ -11,7 +11,7 @@ use super::LedgerService;
 use crate::account::AccountPublicKey;
 use crate::ledger::LedgerAddress;
 use crate::transition_frontier::sync::ledger::snarked::TransitionFrontierSyncLedgerSnarkedService;
-use ledger::Mask;
+use ledger::{Account, AccountId, Mask};
 use mina_signer::CompressedPubKey;
 
 /// The type enumerating different requests that can be made to the
@@ -20,6 +20,7 @@ use mina_signer::CompressedPubKey;
 /// can't be expressed in the Rust type system at the moment. For this
 /// reason this type is private while functions wrapping the whole call
 /// to the service are exposed as the service's methods.
+#[allow(dead_code)] // TODO
 pub(super) enum LedgerRequest {
     Write(LedgerWriteRequest),
     Read(LedgerReadId, LedgerReadRequest),
@@ -28,6 +29,10 @@ pub(super) enum LedgerRequest {
         parent: LedgerAddress,
         accounts: Vec<MinaBaseAccountBinableArgStableV2>,
     }, // expected response: LedgerHash
+    AccountsGet {
+        ledger_hash: LedgerHash,
+        account_ids: Vec<AccountId>,
+    }, // expected response: Vec<Account>
     ChildHashesGet {
         snarked_ledger_hash: LedgerHash,
         parent: LedgerAddress,
@@ -62,6 +67,7 @@ pub enum LedgerResponse {
     Read(LedgerReadId, LedgerReadResponse),
     ChildHashes(Option<(LedgerHash, LedgerHash)>),
     AccountsSet(Result<LedgerHash, String>),
+    AccountsGet(Result<Vec<Account>, String>),
     LedgerMask(Option<(Mask, bool)>),
     #[allow(clippy::type_complexity)]
     ProducersWithDelegatesMap(
@@ -111,6 +117,7 @@ impl LedgerRequest {
                     coinbase_receiver,
                     completed_snarks,
                     supercharge_coinbase,
+                    transactions_by_fee,
                 } => {
                     let pred_block_hash = pred_block.hash().clone();
                     let global_slot_since_genesis = global_slot.clone();
@@ -122,6 +129,7 @@ impl LedgerRequest {
                         coinbase_receiver,
                         completed_snarks,
                         supercharge_coinbase,
+                        transactions_by_fee,
                     );
                     LedgerWriteResponse::StagedLedgerDiffCreate {
                         pred_block_hash,
@@ -196,6 +204,14 @@ impl LedgerRequest {
                         let res = ledger_ctx.scan_state_summary(ledger_hash);
                         LedgerReadResponse::ScanStateSummary(res)
                     }
+                    LedgerReadRequest::GetAccounts(ledger_hash, account_ids) => {
+                        let res = ledger_ctx.get_accounts(ledger_hash, account_ids);
+                        LedgerReadResponse::GetAccounts(res)
+                    }
+                    LedgerReadRequest::AccountsForRpc(rpc_id, ledger_hash, public_key) => {
+                        let res = ledger_ctx.get_accounts_for_rpc(ledger_hash, public_key);
+                        LedgerReadResponse::AccountsForRpc(rpc_id, res)
+                    }
                 },
             ),
             LedgerRequest::AccountsSet {
@@ -263,6 +279,13 @@ impl LedgerRequest {
                     staged_ledger_hash,
                     result,
                 })
+            }
+            LedgerRequest::AccountsGet {
+                ledger_hash,
+                account_ids,
+            } => {
+                let res = ledger_ctx.get_accounts(ledger_hash, account_ids);
+                LedgerResponse::AccountsGet(Ok(res))
             }
         }
     }

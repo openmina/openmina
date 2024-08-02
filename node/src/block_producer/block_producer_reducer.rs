@@ -76,6 +76,37 @@ impl BlockProducerEnabled {
                     };
                 }
             }
+            BlockProducerAction::WonSlotTransactionsGet => {
+                let BlockProducerCurrentState::WonSlotProduceInit {
+                    won_slot, chain, ..
+                } = &mut self.current
+                else {
+                    return;
+                };
+
+                self.current = BlockProducerCurrentState::WonSlotTransactionsGet {
+                    time: meta.time(),
+                    won_slot: won_slot.clone(),
+                    chain: chain.clone(),
+                }
+            }
+            BlockProducerAction::WonSlotTransactionsSuccess {
+                transactions_by_fee,
+            } => {
+                let BlockProducerCurrentState::WonSlotTransactionsGet {
+                    won_slot, chain, ..
+                } = &mut self.current
+                else {
+                    return;
+                };
+
+                self.current = BlockProducerCurrentState::WonSlotTransactionsSuccess {
+                    time: meta.time(),
+                    won_slot: won_slot.clone(),
+                    chain: chain.clone(),
+                    transactions_by_fee: transactions_by_fee.clone(),
+                }
+            }
             BlockProducerAction::WonSlotProduceInit => {
                 if let Some(won_slot) = self.current.won_slot() {
                     let Some(chain) = best_chain.last().map(|best_tip| {
@@ -89,6 +120,7 @@ impl BlockProducerEnabled {
                     }) else {
                         return;
                     };
+
                     self.current = BlockProducerCurrentState::WonSlotProduceInit {
                         time: meta.time(),
                         won_slot: won_slot.clone(),
@@ -98,8 +130,11 @@ impl BlockProducerEnabled {
             }
             BlockProducerAction::StagedLedgerDiffCreateInit => {}
             BlockProducerAction::StagedLedgerDiffCreatePending => {
-                let BlockProducerCurrentState::WonSlotProduceInit {
-                    won_slot, chain, ..
+                let BlockProducerCurrentState::WonSlotTransactionsSuccess {
+                    won_slot,
+                    chain,
+                    transactions_by_fee,
+                    ..
                 } = &mut self.current
                 else {
                     return;
@@ -108,7 +143,7 @@ impl BlockProducerEnabled {
                     time: meta.time(),
                     won_slot: won_slot.clone(),
                     chain: std::mem::take(chain),
-                    transactions: (),
+                    transactions_by_fee: transactions_by_fee.to_vec(),
                 };
             }
             BlockProducerAction::StagedLedgerDiffCreateSuccess { output } => {

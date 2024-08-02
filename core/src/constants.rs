@@ -93,15 +93,17 @@ pub fn slots_per_window(constants: &v2::MinaBaseProtocolConstantsCheckedValueSta
     constants.slots_per_sub_window.as_u32() * (constraint_constants().sub_windows_per_window as u32)
 }
 
-fn days_to_ms(days: u64) -> u64 {
+const fn days_to_ms(days: u64) -> u64 {
     days * 24 * 60 * 60 * 1000
 }
+
+pub const CHECKPOINTS_PER_YEAR: u64 = 12;
 
 pub fn checkpoint_window_size_in_slots() -> u32 {
     let one_year_ms = days_to_ms(365);
     let slots_per_year = one_year_ms / constraint_constants().block_window_duration_ms;
-    let size_in_slots = slots_per_year / 12;
-    assert_eq!(slots_per_year % 12, 0);
+    let size_in_slots = slots_per_year / CHECKPOINTS_PER_YEAR;
+    assert_eq!(slots_per_year % CHECKPOINTS_PER_YEAR, 0);
     size_in_slots as u32
 }
 

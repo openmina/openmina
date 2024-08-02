@@ -18,3 +18,5 @@ Transaction_witness.Stable.V2.t
 Prover.Extend_blockchain_input.Stable.V2.t
 Snark_worker.Worker.Rpcs_versioned.Get_work.V2.T.response
 Snark_worker.Worker.Rpcs_versioned.Submit_work.V2.T.query
+Mina_base__User_command.Verifiable.Stable.V2.t
+Mina_base__Zkapp_statement.Stable.V2.t

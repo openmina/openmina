@@ -13,7 +13,7 @@ use ledger::{
             local_state::LocalState,
             protocol_state::{protocol_state_view, ProtocolStateView},
             transaction_partially_applied::TransactionPartiallyApplied,
-            Transaction,
+            valid, Transaction,
         },
     },
     sparse_ledger::SparseLedger,
@@ -23,7 +23,7 @@ use ledger::{
         validate_block::block_body_hash,
     },
     verifier::Verifier,
-    Account, BaseLedger, Database, Mask, UnregisterBehavior,
+    Account, AccountId, BaseLedger, Database, Mask, UnregisterBehavior,
 };
 use mina_hasher::Fp;
 use mina_p2p_messages::{
@@ -156,6 +156,35 @@ impl LedgerCtx {
     pub fn staged_ledger_reconstruct_result_store(&mut self, ledger: StagedLedger) {
         let hash = merkle_root(&mut ledger.ledger().clone());
         self.staged_ledgers.insert(hash, ledger);
+    }
+
+    // TODO(adonagy): Uh-oh, clean this up
+    pub fn get_accounts_for_rpc(
+        &self,
+        ledger_hash: LedgerHash,
+        requested_public_key: Option<AccountPublicKey>,
+    ) -> Vec<Account> {
+        if let Some((mask, _)) = self.mask(&ledger_hash) {
+            let mut accounts = Vec::new();
+            let mut single_account = Vec::new();
+
+            mask.iter(|account| {
+                accounts.push(account.clone());
+                if let Some(public_key) = requested_public_key.as_ref() {
+                    if public_key == &AccountPublicKey::from(account.public_key.clone()) {
+                        single_account.push(account.clone());
+                    }
+                }
+            });
+
+            if requested_public_key.is_some() {
+                single_account
+            } else {
+                accounts
+            }
+        } else {
+            vec![]
+        }
     }
 
     // TODO(tizoc): explain when `is_synced` is `true` and when it is `false`. Also use something else than a boolean.
@@ -742,6 +771,31 @@ impl LedgerCtx {
         Some(accounts)
     }
 
+    pub fn get_accounts(
+        &mut self,
+        ledger_hash: v2::LedgerHash,
+        ids: Vec<AccountId>,
+    ) -> Vec<Account> {
+        let Some((mask, _)) = self.mask(&ledger_hash) else {
+            openmina_core::warn!(
+                openmina_core::log::system_time();
+                kind = "LedgerService::get_accounts",
+                summary = format!("Ledger not found: {ledger_hash:?}")
+            );
+            return Vec::new();
+        };
+        let addrs = mask
+            .location_of_account_batch(&ids)
+            .into_iter()
+            .filter_map(|(_id, addr)| addr)
+            .collect::<Vec<_>>();
+
+        mask.get_batch(&addrs)
+            .into_iter()
+            .filter_map(|(_, account)| account.map(|account| *account))
+            .collect::<Vec<_>>()
+    }
+
     pub fn staged_ledger_aux_and_pending_coinbase(
         &mut self,
         ledger_hash: LedgerHash,
@@ -777,6 +831,7 @@ impl LedgerCtx {
         coinbase_receiver: NonZeroCurvePoint,
         completed_snarks: BTreeMap<SnarkJobId, Snark>,
         supercharge_coinbase: bool,
+        transactions_by_fee: Vec<valid::UserCommand>,
     ) -> Result<StagedLedgerDiffCreateOutput, String> {
         let mut staged_ledger = self
             .staged_ledger_mut(pred_block.staged_ledger_hash())
@@ -804,9 +859,7 @@ impl LedgerCtx {
                 (&coinbase_receiver).into(),
                 (),
                 &protocol_state_view,
-                // TODO(binier): once we have transaction pool, pass
-                // transactions here.
-                Vec::new(),
+                transactions_by_fee,
                 |stmt| {
                     let job_id = SnarkJobId::from(stmt);
                     completed_snarks.get(&job_id).map(Into::into)

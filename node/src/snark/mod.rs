@@ -1,6 +1,7 @@
 pub use ::snark::*;
 
 pub mod block_verify;
+pub mod user_command_verify;
 pub mod work_verify;
 
 mod snark_effects;
