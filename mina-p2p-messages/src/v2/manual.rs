@@ -1018,6 +1018,8 @@ impl StagedLedgerDiffBodyStableV1 {
         }
     }
 
+    // FIXME(tizoc): this is not correct, the coinbases are in the commands
+    // what this is returning is the coinbase fee transfers, which is not the same.
     pub fn coinbases_iter(&self) -> impl Iterator<Item = &StagedLedgerDiffDiffFtStableV1> {
         let diff = self.diff();
         let mut coinbases = Vec::with_capacity(4);
@@ -1068,7 +1070,9 @@ impl StagedLedgerDiffBodyStableV1 {
     }
 
     pub fn coinbase_sum(&self) -> u64 {
-        self.coinbases_iter().map(|v| v.fee.as_u64()).sum()
+        // FIXME(#581): hardcoding 720 here, but this logic is not correct.
+        // This should be obtained from the `amount` in the coinbase transaction
+        720000000000 // 720 mina in nanomina
     }
 
     pub fn fees_sum(&self) -> u64 {
