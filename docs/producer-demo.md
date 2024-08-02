@@ -100,4 +100,5 @@ Once pre-requisites for your OS have been completed, follow these steps (they ar
 
 You should see the following screen:
 
-![image](https://github.com/user-attachments/assets/1eac34aa-41b7-42ab-a193-0dcdbda32c0f)
+![producer-demo](https://github.com/user-attachments/assets/f0ccc36e-0ee8-4284-a8d7-de0f9a3397d6)
+
