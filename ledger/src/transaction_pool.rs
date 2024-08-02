@@ -1324,7 +1324,7 @@ impl IndexedPool {
 
         // get a copy of the maps as we are just listing the transactions
         let mut applicable_by_fee = self.applicable_by_fee.clone();
-        let mut all_by_sender  = self.all_by_sender.clone();
+        let mut all_by_sender = self.all_by_sender.clone();
 
         while !applicable_by_fee.is_empty() && txns.len() < limit {
             let (fee, mut set) = applicable_by_fee
@@ -1357,10 +1357,7 @@ impl IndexedPool {
                     }
                     Some(next_txn) => {
                         let fee = next_txn.data.forget_check().fee_per_wu();
-                        applicable_by_fee
-                            .entry(fee)
-                            .or_default()
-                            .insert(next_txn);
+                        applicable_by_fee.entry(fee).or_default().insert(next_txn);
                     }
                 }
             } else {
